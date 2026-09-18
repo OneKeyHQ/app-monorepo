@@ -38,6 +38,7 @@ import type {
   IZcashHistoryItem,
   IZcashPcztReservation,
   IZcashPoolDetail,
+  IZcashRuntimeTransparentUtxo,
   IZcashSpendSource,
   IZcashSyncProgress,
   IZcashTransparentOutpoint,
@@ -49,7 +50,10 @@ import type {
 import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
 import type { ISignedTxPro, IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import { EAddressEncodings } from '@onekeyhq/core/src/types';
-import { ZCASH_SHIELDING_THRESHOLD_ZAT } from '@onekeyhq/shared/src/config/zcash';
+import {
+  ZCASH_ORCHARD_ACTIVATION_HEIGHT_MAINNET,
+  ZCASH_SHIELDING_THRESHOLD_ZAT,
+} from '@onekeyhq/shared/src/config/zcash';
 import {
   OneKeyInternalError,
   OneKeyLocalError,
@@ -81,6 +85,10 @@ import type {
   IFetchServerAccountDetailsParams,
   IFetchServerAccountDetailsResponse,
 } from '@onekeyhq/shared/types/address';
+import type {
+  IMeasureRpcStatusParams,
+  IMeasureRpcStatusResult,
+} from '@onekeyhq/shared/types/customRpc';
 import type { IDeviceSharedCallParams } from '@onekeyhq/shared/types/device';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import type {
@@ -152,6 +160,7 @@ import type {
   ILocalWalletSendPool,
 } from '../../localWallet/types';
 import type {
+  IBroadcastTransactionByCustomRpcParams,
   IBroadcastTransactionParams,
   IBuildDecodedTxParams,
   IBuildEncodedTxParams,
@@ -168,6 +177,79 @@ const ZCASH_DISPLAY_FEE_ZAT = '10000';
 
 const ZCASH_TRANSPARENT_PATH_RE = /^m\/44'\/133'\/(\d+)'\/([01])\/(\d+)$/;
 const ZCASH_TRANSPARENT_P2PKH_SCRIPT_RE = /^76a914[0-9a-f]{40}88ac$/i;
+
+// Rounds of `refreshTransparentUtxos` before giving up on a complete feed. The
+// runtime fetches up to 16 uncached parent transactions per round, so this
+// covers ~128 distinct funding transactions -- far past any realistic account,
+// while still terminating if the runtime stops making progress.
+const ZCASH_UTXO_FEED_MAX_ROUNDS = 8;
+
+// What the backend actually said, pulled off whatever error reached us.
+//
+// The transport wraps server failures in OneKeyServerApiError, which carries
+// the business code, the HTTP status and the server's own message. None of it
+// decides the transaction's fate -- a 4xx can still follow a successful
+// upstream submission -- but all of it belongs in front of the user, who
+// otherwise sees "unknown" and cannot tell a dropped connection from a
+// transaction the node refused.
+function describeZcashBroadcastFailure(e: unknown): {
+  reason?: string;
+  serverCode?: number;
+  httpStatusCode?: number;
+} {
+  if (!e || typeof e !== 'object') {
+    return {};
+  }
+  const err = e as {
+    message?: unknown;
+    code?: unknown;
+    httpStatusCode?: unknown;
+  };
+  const serverCode = typeof err.code === 'number' ? err.code : undefined;
+  const httpStatusCode =
+    typeof err.httpStatusCode === 'number' ? err.httpStatusCode : undefined;
+  const raw = typeof err.message === 'string' ? err.message.trim() : '';
+  // A generic fallback message tells the user nothing they do not already see
+  // from the "unknown" wording itself.
+  const reason = raw && raw !== 'OneKeyServer Unknown Error' ? raw : undefined;
+  return { reason, serverCode, httpStatusCode };
+}
+
+interface IZcashBroadcastRejectionRule {
+  serverCode?: number;
+  httpStatusCode?: number;
+}
+
+// (business code, HTTP status) pairs the backend emits ONLY after the node has
+// definitively refused the bytes -- never on a path where upstream submission
+// may already have succeeded.
+//
+// Deliberately empty until the backend publishes that table. An empty list
+// means every failure stays `unknown`, which is exactly the behaviour before
+// this gate existed. Do not populate it from HTTP status alone: a gateway can
+// return 4xx (notably duplicate/409) after a successful submission, and
+// releasing the outpoints then puts inputs that a live transaction is spending
+// back into the selectable pool.
+export const ZCASH_DEFINITE_BROADCAST_REJECTIONS: IZcashBroadcastRejectionRule[] =
+  [];
+
+// An entry must constrain at least one field: `{}` would otherwise match every
+// failure and turn the conservative default inside out.
+export function isDefiniteZcashBroadcastRejection(
+  detail: { serverCode?: number; httpStatusCode?: number },
+  rules: IZcashBroadcastRejectionRule[] = ZCASH_DEFINITE_BROADCAST_REJECTIONS,
+): boolean {
+  return rules.some((entry) => {
+    const constrainsSomething =
+      entry.serverCode !== undefined || entry.httpStatusCode !== undefined;
+    const serverCodeMatches =
+      entry.serverCode === undefined || entry.serverCode === detail.serverCode;
+    const httpStatusMatches =
+      entry.httpStatusCode === undefined ||
+      entry.httpStatusCode === detail.httpStatusCode;
+    return constrainsSomething && serverCodeMatches && httpStatusMatches;
+  });
+}
 
 function zcashTransparentError(
   code: string,
@@ -205,13 +287,17 @@ export function shouldPreferTransparentForShieldedSend({
   return enabled && isShieldedAddress(toAddress);
 }
 
+// Transparent-first adds the PUBLIC half to a shielded pool's ceiling. That
+// figure is indexer-owned and passed in: the runtime no longer tracks public
+// UTXOs outside a build (see wallet.ts syncWallet), so reading its transparent
+// columns here would report zero and refuse a send the builder could make.
 function getZcashSendSpendable(
   balance: IZcashBalance,
   spendSource: IZcashSpendSource,
-  spendTransparent: boolean,
+  transparentSpendableZat: string | undefined,
 ): BigNumber {
   return new BigNumber(balance.poolsDetail[spendSource].spendable).plus(
-    spendTransparent ? balance.poolsDetail.transparentRegular.spendable : '0',
+    transparentSpendableZat ?? '0',
   );
 }
 
@@ -324,6 +410,109 @@ export default class Vault extends VaultBtc {
 
   // ---------------------------------------------- zcash carrier plumbing
 
+  // Which node this chain scans from. The standard custom-RPC record wins when
+  // it is enabled; the build constant is the fallback. Everything that talks
+  // to lightwalletd resolves through here, so a change takes effect without
+  // restarting.
+  //
+  // Note for when the fallback pool grows past one entry: rotation
+  // (carrier.pickLightwalletdUrl) must not silently move a user off the node
+  // they chose -- picking a node is often exactly the wish not to use ours.
+  async zcashResolveLightwalletdUrl(): Promise<string> {
+    // One source: the custom-RPC record, read through the same method every
+    // other chain uses. The node this build ships is seeded into that store as
+    // an ordinary row, so nothing here consults a build constant and there is
+    // no "which one wins" branch.
+    //
+    // `enabled` is honoured like everywhere else. For a chain with a backend,
+    // off means "use the backend"; this chain has none, so off means the user
+    // turned off the only thing that can serve shielded data, and saying so is
+    // better than quietly scanning from a node they just disabled.
+    const record = await this.backgroundApi.serviceCustomRpc.ensureBuiltInRpc({
+      networkId: this.networkId,
+    });
+    if (!record?.rpc || !record.enabled) {
+      throw new OneKeyLocalError(
+        'zcash: no sync node is configured. Add one in Settings > Custom RPC.',
+      );
+    }
+    return record.rpc;
+  }
+
+  // Can this node actually serve us? Reachability is not the bar: a perfectly
+  // healthy lightwalletd is useless here unless it also speaks gRPC-web
+  // framing AND allows the cross-origin POST, because the wallet runs in a
+  // browser context on every platform. Plain gRPC nodes answer 200 and the
+  // browser still cannot read the body, so the only honest test is to ask for
+  // a chain tip the way the scanner will and see whether a height comes back.
+  async zcashTestLightwalletdUrl(
+    url: string,
+  ): Promise<{ ok: boolean; chainTip?: number; reason?: string }> {
+    let normalized: string;
+    try {
+      const parsed = new URL(url.trim());
+      if (parsed.protocol !== 'https:') {
+        return { ok: false, reason: 'not-https' };
+      }
+      normalized = parsed.origin;
+    } catch {
+      return { ok: false, reason: 'invalid-url' };
+    }
+    try {
+      const api = await this.zcashGetApi();
+      const tip = await api.getChainTip({
+        network: ZCASH_NETWORK_MAIN,
+        lightwalletdUrl: normalized,
+      });
+      if (tip === null) {
+        return { ok: false, reason: 'unreachable' };
+      }
+      // A height below the pool this build scans means the node is serving a
+      // different chain (testnet, a fork, or a stale mirror). Accepting it
+      // would strand the account on data it can never reconcile.
+      if (tip < ZCASH_ORCHARD_ACTIVATION_HEIGHT_MAINNET) {
+        return { ok: false, chainTip: tip, reason: 'wrong-chain' };
+      }
+      return { ok: true, chainTip: tip };
+    } catch (e) {
+      console.error('[zcash] endpoint probe failed', {
+        ...zcashDescribeError(e),
+      });
+      return { ok: false, reason: 'unreachable' };
+    }
+  }
+
+  // Settings > Custom RPC probes every chain through this. For zcash the node
+  // is a lightwalletd, so `bestBlockNumber` is the chain tip it serves and the
+  // gRPC-web/CORS check above is the part that actually decides.
+  override async getCustomRpcEndpointStatus(
+    params: IMeasureRpcStatusParams,
+  ): Promise<IMeasureRpcStatusResult> {
+    const start = performance.now();
+    const result = await this.zcashTestLightwalletdUrl(params.rpcUrl);
+    if (!result.ok || result.chainTip === undefined) {
+      throw new OneKeyInternalError(
+        `Zcash node cannot serve this wallet: ${result.reason ?? 'unreachable'}`,
+      );
+    }
+    return {
+      responseTime: Math.floor(performance.now() - start),
+      bestBlockNumber: result.chainTip,
+    };
+  }
+
+  // A custom node here is the scanner's endpoint, not a broadcast-only
+  // override: `broadcastTransaction` already sends shielded transactions
+  // through whatever `zcashResolveLightwalletdUrl` returns, and transparent
+  // ones must stay on the backend. Both legs are therefore already correct --
+  // this exists so enabling customRpcEnabled does not hit NotImplemented.
+  override async broadcastTransactionFromCustomRpc(
+    params: IBroadcastTransactionByCustomRpcParams,
+  ): Promise<ISignedTxPro> {
+    const { customRpcInfo: _customRpcInfo, ...rest } = params;
+    return this.broadcastTransaction(rest);
+  }
+
   async zcashGetApi() {
     const zcashSdk = (
       await import('@onekeyhq/core/src/chains/zcash/sdkZcash/sdk')
@@ -365,7 +554,7 @@ export default class Vault extends VaultBtc {
       const derived = await api.deriveAddressFromUfvk({
         network: ZCASH_NETWORK_MAIN,
         ufvk: meta.ufvk,
-        lightwalletdUrl: ZCASH_LIGHTWALLETD_MAINNET,
+        lightwalletdUrl: await this.zcashResolveLightwalletdUrl(),
       });
       const healed: IZcashAccountMeta = {
         ...meta,
@@ -411,7 +600,7 @@ export default class Vault extends VaultBtc {
     }
     return {
       network: ZCASH_NETWORK_MAIN,
-      lightwalletdUrl: ZCASH_LIGHTWALLETD_MAINNET,
+      lightwalletdUrl: await this.zcashResolveLightwalletdUrl(),
       ufvk: meta.ufvk,
       seedFingerprintHex: meta.seedFingerprintHex,
       hdIndex: meta.hdIndex,
@@ -628,6 +817,60 @@ export default class Vault extends VaultBtc {
     );
   }
 
+  // Hands the runtime the transparent UTXOs a proposal may select from.
+  //
+  // The runtime has no transparent source of its own (that is the indexer's
+  // job), so nothing populates its UTXO table unless this runs. Every path
+  // that proposes with `spendTransparent` has to call it first, quotes
+  // included -- a quote that selects from an empty table prices a send the
+  // user is about to be shown.
+  private async zcashFeedRuntimeTransparentUtxos(params: {
+    accountId: string;
+    account: IZcashWalletAccount;
+    // Pass the list when the caller already read it: the indexer answers the
+    // spendable ceiling and this list in the same request.
+    utxos?: IZcashRuntimeTransparentUtxo[];
+  }): Promise<void> {
+    let { utxos } = params;
+    if (!utxos) {
+      const dbAccount = (await this.backgroundApi.serviceAccount.getDBAccount({
+        accountId: params.accountId,
+      })) as IDBUtxoAccount;
+      utxos = (
+        await this.zcashFetchFreshTransparentUtxos({ account: dbAccount })
+      ).runtimeUtxos;
+    }
+    const api = await this.zcashGetApi();
+    // One round fetches a bounded number of parent transactions, so a wallet
+    // whose UTXOs come from many different transactions lands only partially.
+    // Partial is indistinguishable from "that is all you have": the proposal
+    // would price and select without the rest, under-reporting spendable and
+    // silently shrinking Max. Each round persists the parents it did fetch, so
+    // repeating makes progress; the cap only stops an unbounded loop if the
+    // runtime ever stops advancing.
+    for (let round = 0; round < ZCASH_UTXO_FEED_MAX_ROUNDS; round += 1) {
+      // eslint-disable-next-line no-await-in-loop
+      const result = await api.refreshTransparentUtxos(params.account, {
+        utxos,
+      });
+      if (result.rejectedUtxos > 0) {
+        // The chain disagreed with the indexer about a parent. Not fatal --
+        // those entries are simply not staged -- but it should not be silent.
+        console.warn('[zcash] indexer utxos rejected by the chain', {
+          accountId: params.accountId,
+          rejected: result.rejectedUtxos,
+        });
+      }
+      if (result.deferredUtxos === 0) {
+        return;
+      }
+    }
+    console.warn('[zcash] transparent utxo feed still incomplete', {
+      accountId: params.accountId,
+      rounds: ZCASH_UTXO_FEED_MAX_ROUNDS,
+    });
+  }
+
   async zcashCreatePczt(params: {
     accountId: string;
     toAddress: string;
@@ -644,20 +887,16 @@ export default class Vault extends VaultBtc {
       accountId: params.accountId,
     });
     const api = await this.zcashGetApi();
-    if (params.spendTransparent) {
-      // Selection reads the runtime's UTXO table, refreshed only on a new tip.
-      // A stale row survives quote, selection and proof -- the network is the
-      // first to disagree, after the user signed. Narrows that, never closes it.
-      try {
-        await api.refreshTransparentUtxos(account);
-      } catch (e) {
-        // Leaves exactly the staleness that shipped before this call existed.
-        console.error('[zcash] transparent utxo reconcile failed', {
-          ...zcashDescribeError(e),
+    try {
+      if (params.spendTransparent) {
+        // Deliberately not caught: with no list the proposal would report
+        // INSUFFICIENT_FUNDS, which reads as "you don't have the money"
+        // rather than "we could not read your UTXOs".
+        await this.zcashFeedRuntimeTransparentUtxos({
+          accountId: params.accountId,
+          account,
         });
       }
-    }
-    try {
       return await api.createPczt(account, {
         toAddress: params.toAddress,
         valueZat: params.valueZat,
@@ -670,55 +909,6 @@ export default class Vault extends VaultBtc {
       // toasts `message`, so this boundary swaps in the user wording while
       // keeping the structured fields.
       throw toUserFacingZcashError(e);
-    }
-  }
-
-  // "Shield transparent balance" button (docs/02). Same prove -> sign ->
-  // send pipeline as a normal transfer; only this create step differs.
-  async zcashShieldFunds(params: {
-    accountId: string;
-    reservationId?: string;
-  }): Promise<IZcashPcztReservation> {
-    await this.zcashAssertNoUnresolvedBroadcast(
-      params.accountId,
-      params.reservationId,
-    );
-    const account = await this.zcashGetWalletAccount({
-      accountId: params.accountId,
-    });
-    const api = await this.zcashGetApi();
-    try {
-      return await api.shieldFunds(account, {
-        reservationId: params.reservationId,
-      });
-    } catch (e) {
-      // INSUFFICIENT_FUNDS while the UI shows a transparent balance almost
-      // always means the deposit is still inside the confirmation window
-      // (untrusted UTXOs need 10). Say that instead of "insufficient".
-      if (readZcashRuntimeError(e)?.code === 'INSUFFICIENT_FUNDS') {
-        const dbAccount = (await this.backgroundApi.serviceAccount
-          .getDBAccount({ accountId: params.accountId })
-          .catch(() => null)) as IDBUtxoAccount | null;
-        const indexer = dbAccount
-          ? await this.zcashGetIndexerTransparentBalance({
-              account: dbAccount,
-            }).catch(() => null)
-          : null;
-        const maturing =
-          indexer?.total && indexer.spendable
-            ? indexer.total.minus(indexer.spendable)
-            : new BigNumber(0);
-        if (maturing.gt(0)) {
-          throw ensureAutoToast(
-            new Error(
-              `Transparent balance is still confirming (${maturing
-                .shiftedBy(-8)
-                .toFixed()} ZEC) — try again in a few minutes.`,
-            ),
-          );
-        }
-      }
-      throw e;
     }
   }
 
@@ -785,6 +975,27 @@ export default class Vault extends VaultBtc {
         !platformEnv.isNative && !platformEnv.isExtension,
       reset: (params) => this.resetLocalWallet(params),
       recoverFromTimeout: () => this.recoverLocalWalletFromTimeout(),
+      getStorageUsage: async () => {
+        // Diagnostics already measures the real persisted database and checks
+        // existence first, so asking cannot create one for an account that
+        // never enabled privacy.
+        const api = await this.zcashGetApi();
+        const diagnostics = await api.diagnoseWalletDatabase({
+          network: ZCASH_NETWORK_MAIN,
+        });
+        if (!diagnostics.databaseExists) {
+          return { bytes: 0 };
+        }
+        return { bytes: diagnostics.storageStats?.sqlite.logicalBytes ?? null };
+      },
+      getSyncEndpoint: async () => {
+        const api = await this.zcashGetApi();
+        const [health, url] = await Promise.all([
+          api.getEndpointHealth().catch(() => undefined),
+          this.zcashResolveLightwalletdUrl(),
+        ]);
+        return { url, defaultUrl: ZCASH_LIGHTWALLETD_MAINNET, health };
+      },
       dropLocalData: async () => {
         const api = await this.zcashGetApi();
         await api.dropWalletDatabase(ZCASH_NETWORK_MAIN);
@@ -812,7 +1023,6 @@ export default class Vault extends VaultBtc {
             state.operation === undefined &&
             state.resumeFromHeight !== undefined,
           pendingOperation: state.operation?.type,
-          preferPublicSends: state.preferTransparentForShieldedSends === true,
           birthdayHeight: state.birthdayHeight,
           birthdaySource: state.birthdaySource,
           birthdayTimestamp: state.birthdayTimestamp,
@@ -836,25 +1046,27 @@ export default class Vault extends VaultBtc {
           networkId: this.networkId,
           accountId,
         }),
-      setAccountSendPreference: ({ accountId, preferPublic }) =>
-        this.backgroundApi.serviceZcash.setPreferTransparentForShieldedSends({
-          networkId: this.networkId,
-          accountId,
-          enabled: preferPublic,
-        }),
       getAccountAddresses: async ({ accountId }) => {
+        // The transparent address is account backbone, not privacy material:
+        // it exists before Privacy Mode and survives pausing it. Reading it
+        // through the gated viewing-metadata door took it away together with
+        // the unified address, so a paused account lost its receive address
+        // for public funds too.
+        const dbAccount = (await this.backgroundApi.serviceAccount
+          .getDBAccountSafe({ accountId })
+          .catch(() => null)) as IDBUtxoAccount | null;
         const meta =
           await this.backgroundApi.serviceZcash.getLocalWalletAccountMeta({
             networkId: this.networkId,
             accountId,
           });
-        if (!meta) {
+        const publicAddress = meta?.transparentAddress ?? dbAccount?.address;
+        if (!publicAddress) {
           return undefined;
         }
-        return {
-          publicAddress: meta.transparentAddress,
-          privateAddress: meta.unifiedAddress,
-        };
+        // Absent while not scanning: handing out a private address nothing
+        // watches would let a payment land where it cannot be seen.
+        return { publicAddress, privateAddress: meta?.unifiedAddress };
       },
       deleteAccountData: ({ accountId }) =>
         this.backgroundApi.serviceZcash.deleteLocalPrivacyData({
@@ -939,11 +1151,23 @@ export default class Vault extends VaultBtc {
     }[];
     cleanupAccountIds: string[];
   }> {
-    const [accountIds, enabledAccountIds] = await Promise.all([
+    const [accountIds, enabledAccountIds, { wallets }] = await Promise.all([
       this.backgroundApi.simpleDb.zcash.listAccountIds(),
       this.backgroundApi.simpleDb.zcash.listPrivacyModeEnabledAccountIds(),
+      this.backgroundApi.serviceAccount.getWallets({
+        nestedHiddenWallets: false,
+      }),
     ]);
     const enabled = new Set(enabledAccountIds);
+    // A "do not save" hidden wallet vanishes from every surface once its
+    // session ends, but its viewing key stays on disk -- so scanning would
+    // keep announcing that account to a third-party node while the user
+    // believes the wallet is gone. getWallets() already applies exactly the
+    // visibility rule the UI uses (isTempWalletRemoved), so borrow it rather
+    // than inventing a second one. Dropping syncEnabled here also releases
+    // the account's scanning slot: a slot that does no work cannot be
+    // explained to whoever is told the limit is full.
+    const visibleWalletIds = new Set(wallets.map((wallet) => wallet.id));
     const accounts: {
       accountId: string;
       runtimeKey: string;
@@ -960,7 +1184,11 @@ export default class Vault extends VaultBtc {
         // produces one bounded scan turn.
         runtimeKey: account.network,
         accountRuntimeKey: account.ufvk,
-        syncEnabled: enabled.has(accountId),
+        syncEnabled:
+          enabled.has(accountId) &&
+          visibleWalletIds.has(
+            accountUtils.getWalletIdFromAccountId({ accountId }),
+          ),
       });
     }
     return {
@@ -1237,7 +1465,7 @@ export default class Vault extends VaultBtc {
       const api = await this.zcashGetApi();
       await api.getChainTip({
         network: ZCASH_NETWORK_MAIN,
-        lightwalletdUrl: ZCASH_LIGHTWALLETD_MAINNET,
+        lightwalletdUrl: await this.zcashResolveLightwalletdUrl(),
       });
       return true;
     }
@@ -1248,14 +1476,13 @@ export default class Vault extends VaultBtc {
   // file:// WebView), ask from the background runtime directly.
   async getLocalWalletChainTip(): Promise<number | null> {
     const api = await this.zcashGetApi();
+    const lightwalletdUrl = await this.zcashResolveLightwalletdUrl();
     const runtimeTip = await api.getChainTip({
       network: ZCASH_NETWORK_MAIN,
-      lightwalletdUrl: ZCASH_LIGHTWALLETD_MAINNET,
+      lightwalletdUrl,
     });
     if (runtimeTip !== null) return runtimeTip;
-    return fetchZcashChainTipDirect({
-      lightwalletdUrl: ZCASH_LIGHTWALLETD_MAINNET,
-    });
+    return fetchZcashChainTipDirect({ lightwalletdUrl });
   }
 
   async syncLocalWalletGroup(params: {
@@ -1689,14 +1916,14 @@ export default class Vault extends VaultBtc {
       await this.backgroundApi.simpleDb.zcash.getPrivacyModeState({
         accountId,
       });
-    const balance =
-      privacyModeState.intent === 'on'
-        ? await this.getLocalWalletBalance({ accountId })
-        : null;
+    const balance = (await this.zcashPrivacyModeIsActive(accountId))
+      ? await this.getLocalWalletBalance({ accountId })
+      : null;
     const spendTransparent = shouldPreferTransparentForShieldedSend({
       enabled:
-        privacyModeState.preferTransparentForShieldedSends === true &&
-        privacyModeState.operation === undefined,
+        (await this.backgroundApi.simpleDb.privacyChain.getPreferPublicSends({
+          networkId: this.networkId,
+        })) && privacyModeState.operation === undefined,
       toAddress: toAddress ?? '',
     });
     // Transparent spendable comes from the indexer's UTXO set (the same
@@ -1777,7 +2004,11 @@ export default class Vault extends VaultBtc {
       pool(
         'ironwood',
         'Ironwood',
-        getZcashSendSpendable(balance, 'ironwood', spendTransparent).toFixed(0),
+        getZcashSendSpendable(
+          balance,
+          'ironwood',
+          spendTransparent ? transparentSpendable : undefined,
+        ).toFixed(0),
         shieldedDefault('ironwood'),
         undefined,
         undefined,
@@ -1786,7 +2017,11 @@ export default class Vault extends VaultBtc {
       pool(
         'orchard',
         'Orchard',
-        getZcashSendSpendable(balance, 'orchard', spendTransparent).toFixed(0),
+        getZcashSendSpendable(
+          balance,
+          'orchard',
+          spendTransparent ? transparentSpendable : undefined,
+        ).toFixed(0),
         shieldedDefault('orchard'),
         undefined,
         undefined,
@@ -1805,12 +2040,30 @@ export default class Vault extends VaultBtc {
 
   // Pool balances in the chain-agnostic shape the token page renders. Hints
   // and move thresholds are chain rules, so they are decided here.
+  // One gate for every capability entry that would touch the scanner.
+  // docs/08: off does not initialise the runtime and pause hides the private
+  // surface, and the App database is the only authority for that. The UI
+  // guards too, but a background door must not depend on a frontend check --
+  // `isPrivacyModeEnabled` also covers an account stuck mid-operation, which
+  // a bare `intent === 'on'` misses.
+  private async zcashPrivacyModeIsActive(accountId: string): Promise<boolean> {
+    const state = await this.backgroundApi.simpleDb.zcash.getPrivacyModeState({
+      accountId,
+    });
+    return state.intent === 'on' && state.operation === undefined;
+  }
+
   async getLocalWalletAccountBalance({
     accountId,
   }: {
     accountId: string;
   }): Promise<ILocalWalletAccountBalance | null> {
-    const balance = await this.getLocalWalletBalance({ accountId });
+    // The gate covers the private half only. Transparent figures come from
+    // the indexer and stay visible whatever the scanner is doing -- gating the
+    // whole call would hide funds the account can still spend.
+    const balance = (await this.zcashPrivacyModeIsActive(accountId))
+      ? await this.getLocalWalletBalance({ accountId })
+      : null;
     let sendPools: ILocalWalletSendPool[] | undefined;
     try {
       sendPools = await this.listLocalWalletSendPools({ accountId });
@@ -1846,11 +2099,25 @@ export default class Vault extends VaultBtc {
         ? undefined
         : zat(transparentPool.total);
     const transparentHints: string[] = [];
-    if (balance && zat(balance.transparentCoinbaseBalance).gt(0)) {
+    // Indexer-owned, like every other public figure on this page. The runtime
+    // has its own coinbase column but no longer tracks public outputs outside
+    // a build, so reading it here would silently drop the hint.
+    let coinbaseZat: BigNumber | undefined;
+    try {
+      const dbAccount = (await this.backgroundApi.serviceAccount.getDBAccount({
+        accountId,
+      })) as IDBUtxoAccount;
+      coinbaseZat = (
+        await this.zcashGetIndexerTransparentBalance({ account: dbAccount })
+      ).coinbase;
+    } catch (e) {
+      console.error('[zcash] coinbase hint unavailable', {
+        ...zcashDescribeError(e),
+      });
+    }
+    if (coinbaseZat?.gt(0)) {
       transparentHints.push(
-        `${parsed(
-          balance.transparentCoinbaseBalance,
-        )} mining coinbase (cannot be shielded here)`,
+        `${parsed(coinbaseZat.toFixed(0))} mining coinbase (cannot be shielded here)`,
       );
     }
     if (
@@ -1971,6 +2238,9 @@ export default class Vault extends VaultBtc {
     accountId: string;
   }): Promise<IZcashSyncProgress> {
     try {
+      if (!(await this.zcashPrivacyModeIsActive(accountId))) {
+        throw createZcashSetupIncompleteError();
+      }
       const account = await this.zcashGetWalletAccount({ accountId });
       const api = await this.zcashGetApi();
       return await api.getSyncProgress(account);
@@ -2407,7 +2677,14 @@ export default class Vault extends VaultBtc {
     account,
   }: {
     account: IDBUtxoAccount;
-  }): Promise<{ total?: BigNumber; spendable?: BigNumber }> {
+  }): Promise<{
+    total?: BigNumber;
+    spendable?: BigNumber;
+    coinbase?: BigNumber;
+    // The exact UTXOs `spendable` was summed from, so a caller that feeds the
+    // runtime does not ask the indexer a second time for the same answer.
+    runtimeUtxos?: IZcashRuntimeTransparentUtxo[];
+  }> {
     const [utxosResult, totalResult] = await Promise.allSettled([
       this.zcashFetchFreshTransparentUtxos({ account }),
       super.fetchTokenDetails({
@@ -2418,11 +2695,15 @@ export default class Vault extends VaultBtc {
     ]);
     let spendable: BigNumber | undefined;
     let total: BigNumber | undefined;
+    let coinbase: BigNumber | undefined;
+    let runtimeUtxos: IZcashRuntimeTransparentUtxo[] | undefined;
     if (utxosResult.status === 'fulfilled') {
       spendable = utxosResult.value.utxos.reduce(
         (sum, utxo) => sum.plus(utxo.valueZat),
         new BigNumber(0),
       );
+      coinbase = new BigNumber(utxosResult.value.coinbaseZat);
+      runtimeUtxos = utxosResult.value.runtimeUtxos;
     } else {
       console.error('[zcash] indexer transparent spendable failed', {
         ...zcashDescribeError(utxosResult.reason),
@@ -2444,7 +2725,7 @@ export default class Vault extends VaultBtc {
         ...zcashDescribeError(totalResult.reason),
       });
     }
-    return { total, spendable };
+    return { total, spendable, coinbase, runtimeUtxos };
   }
 
   // Transparent mode: the indexer balance counts every confirmation, but the
@@ -2489,7 +2770,6 @@ export default class Vault extends VaultBtc {
         total: total.toFixed(0),
         spendable: spendable.toFixed(0),
         frozen: total.minus(spendable).toFixed(0),
-        publicSideSource: 'indexer',
       },
       decimals: ZCASH_DECIMALS,
     });
@@ -2837,9 +3117,15 @@ export default class Vault extends VaultBtc {
         historySnapshotIsComplete =
           historySnapshotIsComplete && progress.isBackfillComplete;
       } catch {
-        // A transient scanner/carrier failure is not evidence that history is
-        // empty. Preserve the last known cache and retry on the next refresh.
-        return loadCachedHistory();
+        // A scanner failure is not evidence that history is empty -- but it is
+        // also not the public half's problem. Transparent rows, pending
+        // settlement and rebroadcast all come from the backend and can answer
+        // without the runtime, so returning here used to freeze the public
+        // side over a private-side hiccup. Carry on with an empty private set
+        // marked incomplete: the merge below keeps cached private rows, and
+        // the backend half refreshes as usual.
+        items = [];
+        historySnapshotIsComplete = false;
       }
     } else {
       // Transparent Mode must not initialize the wallet runtime. The backend
@@ -3005,7 +3291,6 @@ export default class Vault extends VaultBtc {
     return composePrivacyChainBalance({
       privateSide: balance?.shielded,
       privateSideComplete: balance?.isComplete === true,
-      publicSideLocal: balance?.transparent,
       publicSideIndexer: publicSideBackend,
       spendable: balance
         ? transparentSpendable?.plus(balance.shieldedSpendable).toFixed(0)
@@ -3141,6 +3426,12 @@ export default class Vault extends VaultBtc {
     accountIndex: number;
     targetHeight: number;
     utxos: IZcashTransparentTxRequest['utxos'];
+    // The same accepted entries in the shape the runtime takes. Built here so
+    // a private send that spends transparent selects from exactly the set this
+    // quote counted -- a second source would disagree with the amount shown.
+    runtimeUtxos: IZcashRuntimeTransparentUtxo[];
+    // Owned mining rewards this build path cannot spend or shield.
+    coinbaseZat: string;
   }> {
     const account =
       options?.account ?? ((await this.getAccount()) as IDBUtxoAccount);
@@ -3165,8 +3456,10 @@ export default class Vault extends VaultBtc {
     }
 
     let targetHeight = 0;
+    let coinbaseZat = new BigNumber(0);
     const seen = new Set<string>();
     const utxos: IZcashTransparentTxRequest['utxos'] = [];
+    const runtimeUtxos: IZcashRuntimeTransparentUtxo[] = [];
     for (const utxo of serverUtxos as IUtxoInfo[]) {
       if (
         !/^[0-9a-f]{64}$/i.test(utxo.txid) ||
@@ -3196,6 +3489,16 @@ export default class Vault extends VaultBtc {
         coinbase = utxo.isCoinbase;
       } else if (typeof utxo.txIndex === 'number') {
         coinbase = utxo.txIndex === 0;
+      }
+      // Counted before the filter drops it. Mining rewards are real funds the
+      // account owns and no path here can move, so the token page has to say
+      // so -- otherwise the figure is simply missing with no explanation.
+      if (coinbase === true) {
+        try {
+          coinbaseZat = coinbaseZat.plus(utxo.value);
+        } catch {
+          // A malformed value is already excluded from every other total.
+        }
       }
       const normalizedPath = this.zcashNormalizeTransparentPath({
         path: utxo.path,
@@ -3233,6 +3536,13 @@ export default class Vault extends VaultBtc {
         confirmations: utxo.confirmations,
         derivationPath: normalizedPath.derivationPath,
       });
+      runtimeUtxos.push({
+        txid: utxo.txid.toLowerCase(),
+        vout: utxo.vout,
+        valueZat: utxo.value,
+        scriptPubKey: scriptPubKey.toLowerCase(),
+        height: utxo.height,
+      });
     }
     // The height is derived from the UTXOs themselves, so an account with none
     // has no height to report. That is an empty wallet, not a broken indexer:
@@ -3243,7 +3553,14 @@ export default class Vault extends VaultBtc {
         'Zcash chain height is unavailable from the UTXO source',
       );
     }
-    return { account, accountIndex, targetHeight, utxos };
+    return {
+      account,
+      accountIndex,
+      targetHeight,
+      utxos,
+      runtimeUtxos,
+      coinbaseZat: coinbaseZat.toFixed(0),
+    };
   }
 
   private async zcashTransparentChange({
@@ -3564,6 +3881,12 @@ export default class Vault extends VaultBtc {
           accountId: this.accountId,
         });
         const api = await this.zcashGetApi();
+        if (encodedTx.zcashSpendTransparent) {
+          await this.zcashFeedRuntimeTransparentUtxos({
+            accountId: this.accountId,
+            account,
+          });
+        }
         const { feeZat } = await api.quotePczt(account, {
           toAddress: encodedTx.zcashTo,
           valueZat: encodedTx.zcashAmountValue,
@@ -3673,7 +3996,9 @@ export default class Vault extends VaultBtc {
     const preferTransparentForShieldedSend =
       shouldPreferTransparentForShieldedSend({
         enabled:
-          privacyMode.preferTransparentForShieldedSends === true &&
+          (await this.backgroundApi.simpleDb.privacyChain.getPreferPublicSends({
+            networkId: this.networkId,
+          })) &&
           privacyMode.intent === 'on' &&
           privacyMode.operation === undefined,
         toAddress: transferInfo.to,
@@ -3748,10 +4073,40 @@ export default class Vault extends VaultBtc {
         accountId: this.accountId,
       });
       const api = await this.zcashGetApi();
+      // Same indexer source the amount page quoted, so Max cannot exceed the
+      // ceiling the user was just shown. Unavailable means the shielded pool
+      // alone: a low ceiling is recoverable, an unbuildable one is not.
+      let transparentCeilingZat: string | undefined;
+      if (preferTransparentForShieldedSend) {
+        try {
+          const dbAccount =
+            (await this.backgroundApi.serviceAccount.getDBAccount({
+              accountId: this.accountId,
+            })) as IDBUtxoAccount;
+          const indexer = await this.zcashGetIndexerTransparentBalance({
+            account: dbAccount,
+          });
+          transparentCeilingZat = indexer.spendable?.toFixed(0);
+          // Once, not per attempt: the probes below differ only in amount.
+          // Skipped when the read failed -- the ceiling is then unknown too,
+          // so the probe already falls back to the shielded pool alone.
+          if (indexer.runtimeUtxos) {
+            await this.zcashFeedRuntimeTransparentUtxos({
+              accountId: this.accountId,
+              account,
+              utxos: indexer.runtimeUtxos,
+            });
+          }
+        } catch (e) {
+          console.error('[zcash] transparent ceiling for max unavailable', {
+            ...zcashDescribeError(e),
+          });
+        }
+      }
       const spendable = getZcashSendSpendable(
         balanceForMax,
         spendSource,
-        preferTransparentForShieldedSend,
+        transparentCeilingZat,
       );
       let feeGuess = new BigNumber(ZCASH_DISPLAY_FEE_ZAT);
       let resolved: BigNumber | undefined;
@@ -4181,15 +4536,59 @@ export default class Vault extends VaultBtc {
       let broadcast: ISignedTxPro;
       try {
         broadcast = await super.broadcastTransaction(params);
-      } catch {
+      } catch (e) {
         // HTTP status alone cannot prove that the node did not accept the
         // transaction. A gateway can return 4xx (notably duplicate/409) after
         // upstream submission. Keep the outpoints locked until backend history
         // reports a terminal state or the transaction expires.
+        //
+        // The outcome stays unknown, but the REASON does not: this used to
+        // swallow the error object entirely, leaving the user with "unknown"
+        // and no way to tell a dead connection from a rejected transaction.
+        const detail = describeZcashBroadcastFailure(e);
+        if (isDefiniteZcashBroadcastRejection(detail)) {
+          // The node refused the bytes, so these inputs were never spent.
+          // Releasing them now is the difference between a clear failure and
+          // an account that cannot pause, reset or rescan until the
+          // transaction expires.
+          await this.backgroundApi.simpleDb.zcash.settleTransparentPendingTx({
+            accountId: this.accountId,
+            txid: expectedTxid,
+          });
+          console.error('[zcash] transparent broadcast rejected', {
+            txid: expectedTxid,
+            ...detail,
+          });
+          throw zcashTransparentError(
+            'BROADCAST_REJECTED',
+            detail.reason
+              ? `The Zcash network rejected this transaction: ${detail.reason}`
+              : 'The Zcash network rejected this transaction.',
+            {
+              txid: expectedTxid,
+              reason: detail.reason,
+              serverCode: detail.serverCode,
+              httpStatusCode: detail.httpStatusCode,
+            },
+          );
+        }
+        console.error('[zcash] transparent broadcast outcome unknown', {
+          txid: expectedTxid,
+          ...detail,
+        });
         throw zcashTransparentError(
           'BROADCAST_OUTCOME_UNKNOWN',
-          'Zcash broadcast outcome is unknown. Recheck history before retrying.',
-          { txid: expectedTxid, retryAfterMinutes: 15, canRecheck: true },
+          detail.reason
+            ? `Zcash broadcast outcome is unknown: ${detail.reason}. Recheck history before retrying.`
+            : 'Zcash broadcast outcome is unknown. Recheck history before retrying.',
+          {
+            txid: expectedTxid,
+            retryAfterMinutes: 15,
+            canRecheck: true,
+            reason: detail.reason,
+            serverCode: detail.serverCode,
+            httpStatusCode: detail.httpStatusCode,
+          },
         );
       }
       if (broadcast.txid.toLowerCase() !== expectedTxid.toLowerCase()) {

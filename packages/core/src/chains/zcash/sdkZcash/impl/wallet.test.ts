@@ -104,16 +104,23 @@ describe('readBalance', () => {
         }),
     } as unknown as Parameters<typeof readBalance>[0];
 
-    expect(readBalance(rt, 'account-uuid')).toMatchObject({
+    const result = readBalance(rt, 'account-uuid');
+    expect(result).toMatchObject({
       isComplete: false,
       shielded: '300',
-      transparent: '75',
-      total: '375',
       pendingChange: '4',
       pendingSpendable: '6',
       orchardBalance: '100',
       ironwoodBalance: '200',
     });
+    // The runtime still has transparent columns and still reports them here;
+    // the SDK deliberately drops them. Outside a build the scanner no longer
+    // tracks public outputs, so surfacing the columns could only publish a
+    // stale zero -- the public half is backend-owned.
+    expect(result).not.toHaveProperty('transparent');
+    expect(result).not.toHaveProperty('transparentBalance');
+    expect(result.poolsDetail).not.toHaveProperty('transparentRegular');
+    expect(result.poolsDetail).not.toHaveProperty('transparentCoinbase');
   });
 });
 

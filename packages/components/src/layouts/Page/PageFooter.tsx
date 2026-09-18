@@ -85,9 +85,18 @@ const PageFooterContainer = ({
 
 function PageFooterContext(props: IPageFooterProps) {
   const { footerRef } = useContext(PageContext);
+  // Publish the props during render so the footer is present on the first
+  // frame: PageContainer renders `children` (this component) before
+  // `BasicPageFooter`, so the reader sees them without being told.
+  //
+  // Deliberately no `notifyUpdate()` here. It is a setState on a DIFFERENT
+  // component during render, which forces BasicPageFooter to swap its whole
+  // subtree (Placeholder <-> PageFooterContainer) in the middle of someone
+  // else's render. On RN 0.86 that is one of the ways to trip the Yoga
+  // ownership assertion in YogaLayoutableShadowNode::layout -- a native
+  // SIGABRT, not a warning. The effect below notifies for every later change.
   useMemo(() => {
     footerRef.current.props = props;
-    footerRef.current.notifyUpdate?.();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

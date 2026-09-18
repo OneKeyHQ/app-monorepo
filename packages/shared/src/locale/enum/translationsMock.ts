@@ -43,6 +43,38 @@ export enum ETranslationsMock {
   privacy_scan_resume = 'Resume',
   privacy_scan_on_cellular = 'Mobile data',
   privacy_scan_on_wifi = 'Wi-Fi',
+  // The light leads with the state in its own line, so "am I scanning or not"
+  // is answerable at a glance instead of being inferred from an icon.
+  privacy_scan_state_scanning = 'Scanning blocks',
+  privacy_scan_state_held = 'Waiting for Wi-Fi',
+  privacy_scan_extra_power = 'Uses extra battery',
+  privacy_scan_held_desc = 'Scanning can use a lot of data. Continue for this session only.',
+  privacy_scan_continue = 'Continue',
+  privacy_scan_starting = 'Starting…',
+  // Sync settings page: one place that answers "what is this chain doing on my
+  // device", instead of that state being spread across a token page, a floating
+  // light and a repair dialog.
+  privacy_sync_section_status = 'STATUS',
+  privacy_sync_section_network = 'NETWORK',
+  privacy_sync_section_accounts = 'ACCOUNTS',
+  privacy_sync_section_storage = 'STORAGE',
+  // Not "done": a chain has no finish line. This is the ordinary state.
+  privacy_sync_state_following = 'Following the chain',
+  privacy_account_birthday_title = 'Scan start',
+  privacy_account_delete_key_title = 'Delete viewing key',
+  privacy_account_delete_key_desc = "Turns privacy off and removes this account's viewing key and private history from this device.",
+  privacy_scan_region_2022_spam = '2022 spam zone',
+  privacy_sync_node_title = 'Node',
+  privacy_sync_node_default = 'Default',
+  privacy_sync_node_custom = 'Custom',
+  privacy_sync_node_latency = '{ms} ms',
+  privacy_sync_node_unreachable = 'Not answering',
+  privacy_sync_mobile_data_title = 'Mobile data',
+  privacy_sync_mobile_data_desc = 'Scanning downloads block data. Off means it waits for Wi-Fi.',
+  privacy_sync_storage_title = 'Scan data on this device',
+  privacy_sync_storage_rebuildable = 'Rebuilt from your recovery month if removed',
+  privacy_sync_storage_reset = 'Reset scan data',
+  privacy_sync_storage_reset_desc = 'Clears scanned blocks and local history for every account on this chain, then scans again from each saved recovery month. Keys, balances and funds are untouched.',
   privacy_local_scanning_paused_desc = 'Local scanning is paused. Resume to continue from where it stopped.',
   privacy_scan_partial_balance = 'still scanning · may be incomplete',
   privacy_slots_in_use = 'Scanning {used} of {max} accounts',
@@ -54,5 +86,66 @@ export enum ETranslationsMock {
   privacy_slots_shared_key = '{count} accounts share this key',
   privacy_slots_locked_wallet_note = 'Accounts scanning in a wallet that is not unlocked: {count}',
   privacy_slots_replace_cost = 'The account you turn off keeps its data and resumes where it stopped. Turning this one on re-checks blocks from its recovery month for every scanning account, which can take a while.',
-  privacy_prefer_public_change_note = 'Change returns to the {poolLabel} pool.',
+  // First-time enable disclosure. The five points are the product contract
+  // (docs/08 "UI and settings"); do not drop one to shorten the dialog.
+  privacy_enable_title = 'Turn on privacy mode',
+  privacy_enable_intro = 'This device scans the chain itself to find this account’s private funds. Before you start:',
+  privacy_enable_cost = 'Scanning uses network data, storage and battery.',
+  privacy_enable_foreground = 'Catching up quickly may need the app to stay open.',
+  privacy_enable_catchup = 'Coming back after a long break can take a while to catch up.',
+  privacy_enable_local = 'Viewing keys and private history stay on this device.',
+  privacy_enable_unavailable = 'Private funds stay unavailable while privacy mode is off or still catching up.',
+  // Two birthday situations, deliberately worded apart: a wallet created here
+  // has a known creation month to recommend, an imported one does not.
+  privacy_enable_month_recommended = 'We filled in the month this wallet was created. Change it only if this account received funds earlier.',
+  privacy_enable_month_required = 'Choose the month this account first received funds. Scanning starts from there.',
+  // Only for a wallet the user chose not to save. Scanning needs a viewing key
+  // on disk, which outlives the session that wallet disappears with -- say so
+  // before they opt in, not after.
+  privacy_enable_temp_wallet_note = 'This wallet is not saved on this device. Local scanning still has to keep a viewing key here, and that key remains after the wallet is hidden again.',
+  privacy_enable_shared_scan_restart = "All turned-on accounts share one scan, and it starts at the earliest month among them. If this account's month is earlier than the others, the scan restarts from there and the progress shown goes back before it climbs again.",
+  privacy_enable_many_accounts = 'Every account you turn on shares one scan, so catching up takes longer for all of them. On a slower phone, one or two accounts is the comfortable number. If syncing stops making progress, turn some accounts off and let the rest catch up.',
+  // Pool block on the token details page.
+  privacy_pool_scanning_off_desc = "Local scanning is off. Enable it to view this pool's balance, receive address, and history.",
+  privacy_pool_setup_incomplete = 'Setup was not completed — tap Repair to complete it.',
+  privacy_pool_balance_unavailable = 'Balance unavailable — retrying in background',
+  privacy_pool_early_funds_hint = 'Received funds before importing? Move the scan start back with Repair.',
+  privacy_pool_action_shield = 'Shield',
+  privacy_pool_action_withdraw = 'Withdraw',
+  privacy_pool_balance_partial = 'Partial balance · scan incomplete',
+  privacy_prefer_public_title = 'Use {poolLabel} funds first',
+  privacy_prefer_public_desc = 'For sends to private addresses, spend public funds before the selected private pool. This links the public address to that transaction.',
+  // Only reached when a chain declares no default-private pool; it is
+  // interpolated into privacy_prefer_public_change_note.
+  // Repair / birthday controls in account settings.
+  privacy_repair_action = 'Repair',
+  privacy_repair_setup_done = 'Setup completed',
+  privacy_repair_mode_saved = 'Saved birthday',
+  privacy_repair_mode_month = 'Approx. month',
+  privacy_repair_mode_height = 'Block height',
+  privacy_repair_birthday_saved_desc = 'Rebuilds the scanner and local history from the currently saved birthday.',
+  privacy_repair_month_title = 'Approximate first activity',
+  privacy_repair_month_placeholder = 'Select month',
+  privacy_repair_month_desc = 'Pick a month on or before the first time this account received funds. Earlier only makes the rescan slower; later can miss funds.',
+  privacy_repair_height_placeholder = 'e.g. 3400000',
+  privacy_repair_height_desc = 'Advanced: the scan restarts exactly from this block.',
+  privacy_repair_current_birthday = 'This account currently scans from block {height}.',
+  privacy_repair_scan_title = 'Repair local scan',
+  privacy_repair_scan_desc = 'This clears only rebuildable scanner data and local history, then rescans. Keys and funds are not touched. Choose a month earlier than the first activity; earlier is slower but safer.',
+  privacy_repair_scan_confirm = 'Repair and rescan',
+  privacy_repair_scan_started = 'Local scan rebuilding',
+  privacy_repair_err_height = 'Enter a valid block height',
+  privacy_repair_err_month = 'Select an approximate month',
+  // Signature confirmation alerts.
+  privacy_alert_history_syncing = 'Private history is still syncing{pct} — the spendable balance may grow as it completes.',
+  privacy_alert_balance_stale = 'Private balance may be slightly out of date — it refreshes automatically while you are here.',
+  // Entry points and section descriptions.
+  privacy_wallet_menu_item = 'Privacy Wallet',
+  privacy_accounts_section_desc = 'Local scanning runs only for the accounts you turn on. Turning an account off pauses scanning and hides its shielded balance.',
+  // Reset and Delete used to share one confirmation. They are not comparable:
+  // one re-reads the chain, the other takes the viewing key off the device.
+  privacy_reset_cache_title = 'Rebuild scan data',
+  privacy_reset_cache_desc = 'Clears the scanned blocks and local history, then scans again from the same recovery month. Keys, balances and funds are untouched.',
+  privacy_delete_data_title = 'Delete local privacy data',
+  privacy_delete_data_desc = 'Turns privacy mode off and removes the viewing key and scanned history from this device. Your funds are not affected, but private balances stay hidden until you turn privacy mode on again and let it rescan. The recovery month is kept.',
 }

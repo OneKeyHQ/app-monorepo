@@ -1,5 +1,7 @@
 import { useCallback, useState } from 'react';
 
+import { useIntl } from 'react-intl';
+
 import {
   Button,
   DatePicker,
@@ -9,6 +11,7 @@ import {
   SegmentControl,
   SizableText,
   Toast,
+  XStack,
   YStack,
   useClipboard,
 } from '@onekeyhq/components';
@@ -20,6 +23,7 @@ import type {
   ILocalWalletAccountState,
   ILocalWalletSyncProgress,
 } from '@onekeyhq/kit-bg/src/vaults/localWallet/types';
+import { ETranslationsMock } from '@onekeyhq/shared/src/locale';
 
 // Recovery controls for a local-wallet account. Every action goes through
 // servicePrivacyChain; the copy speaks of "the chain" rather than a coin.
@@ -30,6 +34,85 @@ export type IBirthdayFormState = {
   height: string;
 };
 
+const PRIVACY_ENABLE_POINTS = [
+  ETranslationsMock.privacy_enable_cost,
+  ETranslationsMock.privacy_enable_foreground,
+  ETranslationsMock.privacy_enable_catchup,
+  ETranslationsMock.privacy_enable_local,
+  ETranslationsMock.privacy_enable_unavailable,
+];
+
+// The first-time explanation docs/08 requires, shared by both enable entry
+// points so the five points cannot drift apart. Repair dialogs must NOT show
+// it: the account is already scanning by then.
+// Above this many accounts already scanning, the enable dialog adds the
+// "this gets slower" warning. Not a limit -- `maxEnabledAccounts` still caps
+// it -- and deliberately not measured at runtime: a device-speed probe would
+// be one more thing to keep true, and the advice ("turn some off") is the same
+// whatever the reading says.
+const PRIVACY_MANY_ACCOUNTS_THRESHOLD = 3;
+
+export function PrivacyEnableDisclosure({
+  hasRecommendedMonth,
+  isTempWallet = false,
+  enabledAccountCount = 0,
+}: {
+  hasRecommendedMonth: boolean;
+  isTempWallet?: boolean;
+  enabledAccountCount?: number;
+}) {
+  const intl = useIntl();
+  const warnManyAccounts =
+    enabledAccountCount >= PRIVACY_MANY_ACCOUNTS_THRESHOLD;
+  return (
+    <YStack gap="$3">
+      <SizableText size="$bodyMd">
+        {intl.formatMessage({ id: ETranslationsMock.privacy_enable_intro })}
+      </SizableText>
+      {enabledAccountCount > 0 ? (
+        <SizableText size="$bodySm" color="$textSubdued">
+          {intl.formatMessage({
+            id: ETranslationsMock.privacy_enable_shared_scan_restart,
+          })}
+        </SizableText>
+      ) : null}
+      {warnManyAccounts ? (
+        <SizableText size="$bodySm" color="$textCaution">
+          {intl.formatMessage({
+            id: ETranslationsMock.privacy_enable_many_accounts,
+          })}
+        </SizableText>
+      ) : null}
+      {isTempWallet ? (
+        <SizableText size="$bodySm" color="$textCaution">
+          {intl.formatMessage({
+            id: ETranslationsMock.privacy_enable_temp_wallet_note,
+          })}
+        </SizableText>
+      ) : null}
+      <YStack gap="$1.5">
+        {PRIVACY_ENABLE_POINTS.map((id) => (
+          <XStack key={id} gap="$2" alignItems="flex-start">
+            <SizableText size="$bodySm" color="$textSubdued">
+              •
+            </SizableText>
+            <SizableText size="$bodySm" color="$textSubdued" flex={1}>
+              {intl.formatMessage({ id })}
+            </SizableText>
+          </XStack>
+        ))}
+      </YStack>
+      <SizableText size="$bodySm" color="$textSubdued">
+        {intl.formatMessage({
+          id: hasRecommendedMonth
+            ? ETranslationsMock.privacy_enable_month_recommended
+            : ETranslationsMock.privacy_enable_month_required,
+        })}
+      </SizableText>
+    </YStack>
+  );
+}
+
 export function BirthdayDialogForm({
   formRef,
   currentBirthdayHeight,
@@ -39,12 +122,15 @@ export function BirthdayDialogForm({
   currentBirthdayHeight?: number;
   monthOnly?: boolean;
 }) {
+  const intl = useIntl();
   const [mode, setMode] = useState(formRef.current.mode);
   const [month, setMonth] = useState(formRef.current.month);
   const [height, setHeight] = useState(formRef.current.height);
   let editor = (
     <SizableText size="$bodySm" color="$textSubdued">
-      Rebuilds the scanner and local history from the currently saved birthday.
+      {intl.formatMessage({
+        id: ETranslationsMock.privacy_repair_birthday_saved_desc,
+      })}
     </SizableText>
   );
   if (mode === 'month') {
@@ -52,8 +138,12 @@ export function BirthdayDialogForm({
       <YStack gap="$2">
         <DatePicker.Month
           testID="local-wallet-birthday-month-input"
-          title="Approximate first activity"
-          placeholder="Select month"
+          title={intl.formatMessage({
+            id: ETranslationsMock.privacy_repair_month_title,
+          })}
+          placeholder={intl.formatMessage({
+            id: ETranslationsMock.privacy_repair_month_placeholder,
+          })}
           minDate={new Date(2022, 4, 1)}
           maxDate={new Date()}
           value={month}
@@ -63,8 +153,9 @@ export function BirthdayDialogForm({
           }}
         />
         <SizableText size="$bodySm" color="$textSubdued">
-          Pick a month on or before the first time this account received funds.
-          Earlier only makes the rescan slower; later can miss funds.
+          {intl.formatMessage({
+            id: ETranslationsMock.privacy_repair_month_desc,
+          })}
         </SizableText>
       </YStack>
     );
@@ -73,7 +164,9 @@ export function BirthdayDialogForm({
       <YStack gap="$2">
         <Input
           testID="local-wallet-birthday-height-input"
-          placeholder="e.g. 3400000"
+          placeholder={intl.formatMessage({
+            id: ETranslationsMock.privacy_repair_height_placeholder,
+          })}
           keyboardType="numeric"
           value={height}
           onChangeText={(v) => {
@@ -82,7 +175,9 @@ export function BirthdayDialogForm({
           }}
         />
         <SizableText size="$bodySm" color="$textSubdued">
-          Advanced: the scan restarts exactly from this block.
+          {intl.formatMessage({
+            id: ETranslationsMock.privacy_repair_height_desc,
+          })}
         </SizableText>
       </YStack>
     );
@@ -92,8 +187,13 @@ export function BirthdayDialogForm({
     <YStack gap="$3">
       {typeof currentBirthdayHeight === 'number' ? (
         <SizableText size="$bodySm" color="$textSubdued">
-          This account currently scans from block{' '}
-          {currentBirthdayHeight.toLocaleString('en-US')}.
+          {intl.formatMessage(
+            {
+              id: ETranslationsMock.privacy_repair_current_birthday,
+              defaultMessage: ETranslationsMock.privacy_repair_current_birthday,
+            },
+            { height: currentBirthdayHeight.toLocaleString('en-US') },
+          )}
         </SizableText>
       ) : null}
       {monthOnly ? null : (
@@ -106,9 +206,24 @@ export function BirthdayDialogForm({
             formRef.current.mode = next;
           }}
           options={[
-            { label: 'Saved birthday', value: 'saved-birthday' },
-            { label: 'Approx. month', value: 'month' },
-            { label: 'Block height', value: 'height' },
+            {
+              label: intl.formatMessage({
+                id: ETranslationsMock.privacy_repair_mode_saved,
+              }),
+              value: 'saved-birthday',
+            },
+            {
+              label: intl.formatMessage({
+                id: ETranslationsMock.privacy_repair_mode_month,
+              }),
+              value: 'month',
+            },
+            {
+              label: intl.formatMessage({
+                id: ETranslationsMock.privacy_repair_mode_height,
+              }),
+              value: 'height',
+            },
           ]}
         />
       )}
@@ -126,6 +241,7 @@ export function SetupRepairControl({
   accountId: string;
   onDone: () => void;
 }) {
+  const intl = useIntl();
   const [busy, setBusy] = useState(false);
   const handlePress = useCallback(async () => {
     setBusy(true);
@@ -133,7 +249,11 @@ export function SetupRepairControl({
       await backgroundApiProxy.servicePrivacyChain.retryLocalWalletAccountSetup(
         { networkId, accountId },
       );
-      Toast.success({ title: 'Setup completed' });
+      Toast.success({
+        title: intl.formatMessage({
+          id: ETranslationsMock.privacy_repair_setup_done,
+        }),
+      });
       onDone();
     } catch (e) {
       // Background errors auto-toast through the standard proxy.
@@ -141,7 +261,7 @@ export function SetupRepairControl({
     } finally {
       setBusy(false);
     }
-  }, [networkId, accountId, onDone]);
+  }, [networkId, accountId, onDone, intl]);
 
   return (
     <Button
@@ -151,7 +271,7 @@ export function SetupRepairControl({
       loading={busy}
       onPress={handlePress}
     >
-      Repair
+      {intl.formatMessage({ id: ETranslationsMock.privacy_repair_action })}
     </Button>
   );
 }
@@ -167,22 +287,28 @@ export function ScanRepairControl({
   currentBirthdayHeight?: number;
   onDone: () => void;
 }) {
+  const intl = useIntl();
   const handlePress = useCallback(() => {
     const formRef: { current: IBirthdayFormState } = {
       current: { mode: 'saved-birthday', month: null, height: '' },
     };
     Dialog.confirm({
-      title: 'Repair local scan',
+      title: intl.formatMessage({
+        id: ETranslationsMock.privacy_repair_scan_title,
+      }),
       tone: 'warning',
-      description:
-        'This clears only rebuildable scanner data and local history, then rescans. Keys and funds are not touched. Choose a month earlier than the first activity; earlier is slower but safer.',
+      description: intl.formatMessage({
+        id: ETranslationsMock.privacy_repair_scan_desc,
+      }),
       renderContent: (
         <BirthdayDialogForm
           formRef={formRef}
           currentBirthdayHeight={currentBirthdayHeight}
         />
       ),
-      onConfirmText: 'Repair and rescan',
+      onConfirmText: intl.formatMessage({
+        id: ETranslationsMock.privacy_repair_scan_confirm,
+      }),
       onConfirm: async ({ preventClose }) => {
         const { mode, month, height } = formRef.current;
         let birthdayTimestamp: number | undefined;
@@ -194,14 +320,22 @@ export function ScanRepairControl({
             !Number.isSafeInteger(parsedHeight) ||
             parsedHeight <= 0
           ) {
-            Toast.error({ title: 'Enter a valid block height' });
+            Toast.error({
+              title: intl.formatMessage({
+                id: ETranslationsMock.privacy_repair_err_height,
+              }),
+            });
             preventClose();
             return;
           }
           birthdayHeightValue = parsedHeight;
         } else if (mode === 'month') {
           if (!month) {
-            Toast.error({ title: 'Select an approximate month' });
+            Toast.error({
+              title: intl.formatMessage({
+                id: ETranslationsMock.privacy_repair_err_month,
+              }),
+            });
             preventClose();
             return;
           }
@@ -218,11 +352,15 @@ export function ScanRepairControl({
           birthdayTimestamp,
           birthdayHeight: birthdayHeightValue,
         });
-        Toast.success({ title: 'Local scan rebuilding' });
+        Toast.success({
+          title: intl.formatMessage({
+            id: ETranslationsMock.privacy_repair_scan_started,
+          }),
+        });
         onDone();
       },
     });
-  }, [networkId, accountId, currentBirthdayHeight, onDone]);
+  }, [networkId, accountId, currentBirthdayHeight, onDone, intl]);
 
   return (
     <Button
@@ -231,7 +369,7 @@ export function ScanRepairControl({
       variant="tertiary"
       onPress={handlePress}
     >
-      Repair
+      {intl.formatMessage({ id: ETranslationsMock.privacy_repair_action })}
     </Button>
   );
 }

@@ -138,6 +138,9 @@ export async function quotePczt(
       // Must match createPczt exactly: a different input source produces a
       // different fee *and* a different privacy story, so a quote taken under
       // other settings would warn about a transaction that never happens.
+      // Padding belongs to that list -- it changes the Orchard bundle size and
+      // so the ZIP-317 fee.
+      PAD_ORCHARD_BUNDLE,
       params.spendTransparent ?? false,
       ALLOW_ZERO_CONF_SHIELDING,
       params.spendSource,
@@ -195,53 +198,6 @@ export async function createPczt(
     ),
   ) as IPcztCreated;
   return { ...created, feeZat: String(created.feeZat) };
-}
-
-export async function shieldFunds(
-  account: IZcashWalletAccount,
-  params?: { reservationId?: string },
-): Promise<IZcashPcztReservation> {
-  await assertCanSpend('shield');
-  const { rt, accountUuid } = await withWallet(account, {
-    registerIfMissing: false,
-  });
-  // No recipient and no amount: it sweeps the whole transparent balance into
-  // this account's own shielded address. Leaving a remainder behind would
-  // defeat the point — it stays publicly visible and costs another fee later.
-  const created = JSON.parse(
-    rt.pcztShield(
-      accountUuid,
-      SHIELDING_THRESHOLD_ZAT,
-      TRUSTED_CONFIRMATIONS,
-      UNTRUSTED_CONFIRMATIONS,
-      FALLBACK_CHANGE_POOL,
-      PAD_ORCHARD_BUNDLE,
-      LOCK_FOR_BLOCKS,
-      params?.reservationId ?? null,
-      ALLOW_ZERO_CONF_SHIELDING,
-    ),
-  ) as IPcztCreated;
-  return { ...created, feeZat: String(created.feeZat) };
-}
-
-export async function quoteShieldFunds(
-  account: IZcashWalletAccount,
-): Promise<{ feeZat: string }> {
-  const { rt, accountUuid } = await withWallet(account, {
-    registerIfMissing: false,
-  });
-  const quote = JSON.parse(
-    rt.pcztShieldQuote(
-      accountUuid,
-      SHIELDING_THRESHOLD_ZAT,
-      TRUSTED_CONFIRMATIONS,
-      UNTRUSTED_CONFIRMATIONS,
-      FALLBACK_CHANGE_POOL,
-      PAD_ORCHARD_BUNDLE,
-      ALLOW_ZERO_CONF_SHIELDING,
-    ),
-  ) as { feeZat: number };
-  return { feeZat: String(quote.feeZat) };
 }
 
 export async function provePczt(

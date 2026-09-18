@@ -322,13 +322,12 @@ describe('SimpleDbEntityZcash privacy mode', () => {
     await expect(
       entity.getAccountMeta({ accountId: 'account' }),
     ).resolves.toBeUndefined();
-    await expect(
-      entity.getPrivacyModeState({ accountId: 'account' }),
-    ).resolves.toMatchObject({
-      intent: 'off',
-      birthdayHeight: 2000,
-      resumeFromHeight: 2900,
-    });
+    const state = await entity.getPrivacyModeState({ accountId: 'account' });
+    expect(state).toMatchObject({ intent: 'off', birthdayHeight: 2000 });
+    // The cursor pointed into the cache this call just deleted. Leaving it
+    // would make the account read as merely paused, and the UI would offer
+    // "Resume" to someone who had asked to delete their privacy data.
+    expect(state.resumeFromHeight).toBeUndefined();
   });
 });
 

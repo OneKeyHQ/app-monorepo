@@ -28,7 +28,7 @@ import { shouldShowMnemonicBackupEntryForWallet } from '@onekeyhq/kit/src/utils/
 import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { getVendorProfile } from '@onekeyhq/shared/src/hardware/vendorProfile';
-import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { ETranslations, ETranslationsMock } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   EAccountManagerStacksRoutes,
@@ -316,7 +316,9 @@ function WalletEditButtonView({
             <ActionList.Item
               testID={AccountManagerTestIDs.privacyNetworksButton}
               icon="ShieldOutline"
-              label="Privacy Wallet"
+              label={intl.formatMessage({
+                id: ETranslationsMock.privacy_wallet_menu_item,
+              })}
               onClose={handleActionListClose}
               onPress={() => {
                 navigation.push(EAccountManagerStacksRoutes.PrivacyNetworks, {

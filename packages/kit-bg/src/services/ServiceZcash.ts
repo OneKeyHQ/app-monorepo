@@ -21,6 +21,7 @@ import {
 } from '../vaults/impls/zcash/lifecycle';
 import { getVaultSettings } from '../vaults/settings';
 
+import { getPrivacyModeResumeFromHeight } from './PrivacyModeState';
 import ServiceBase from './ServiceBase';
 
 import type { IZcashAccountMeta } from '../dbs/simple/entity/SimpleDbEntityZcash';
@@ -42,23 +43,6 @@ function requireLocalWalletCapability(
     );
   }
   return capability;
-}
-
-function getResumeFromHeight({
-  progress,
-  birthdayHeight,
-}: {
-  progress: Awaited<ReturnType<ILocalWalletCapability['getSyncProgress']>>;
-  birthdayHeight: number;
-}): number {
-  if (!progress?.isBackfillComplete) {
-    return birthdayHeight;
-  }
-  const scannedHeight = progress.tipScannedHeight ?? progress.chainTip;
-  if (scannedHeight === null) {
-    return birthdayHeight;
-  }
-  return Math.max(birthdayHeight, scannedHeight - 100);
 }
 
 @backgroundClass()
@@ -159,24 +143,45 @@ class ServiceZcash extends ServiceBase {
         'zcash: select a privacy recovery month before enabling',
       );
     }
+    // Before anything is derived, stored or registered. This path is also
+    // reached directly (debug gallery, repair panel), bypassing the generic
+    // pre-check -- and a refusal after registration would leave the viewing
+    // key in the shared scanner with a requeued range: the slot denied, its
+    // cost already paid. Cheap to repeat when the generic door ran it too.
+    await this.backgroundApi.servicePrivacyChain.assertEnabledAccountLimit({
+      networkId,
+      accountId,
+    });
+
     // Software accounts derive viewing keys from the seed (password); hardware
-    // accounts ask the device for them.
+    // accounts ask the device for them. Neither is needed when the metadata is
+    // already on disk: resuming a paused account reuses it, and the derivation
+    // step below returns without touching the seed. Asking anyway made resume
+    // cost a password prompt -- or a connected device -- for nothing.
+    const existingMeta = await this.backgroundApi.simpleDb.zcash.getAccountMeta(
+      { accountId },
+    );
+    const needsViewingKeyDerivation = !existingMeta?.birthdayHeight;
     const walletId = accountUtils.getWalletIdFromAccountId({ accountId });
     const isHwWallet = accountUtils.isHwWallet({ walletId });
     let password: string | undefined;
     let deviceParams: IDeviceSharedCallParams | undefined;
-    if (isHwWallet) {
-      deviceParams =
-        await this.backgroundApi.serviceAccount.getWalletDeviceParams({
-          walletId,
-          hardwareCallContext: EHardwareCallContext.USER_INTERACTION,
-        });
-    } else {
-      ({ password } =
-        await this.backgroundApi.servicePassword.promptPasswordVerifyByAccount({
-          accountId,
-          reason: EReasonForNeedPassword.CreateTransaction,
-        }));
+    if (needsViewingKeyDerivation) {
+      if (isHwWallet) {
+        deviceParams =
+          await this.backgroundApi.serviceAccount.getWalletDeviceParams({
+            walletId,
+            hardwareCallContext: EHardwareCallContext.USER_INTERACTION,
+          });
+      } else {
+        ({ password } =
+          await this.backgroundApi.servicePassword.promptPasswordVerifyByAccount(
+            {
+              accountId,
+              reason: EReasonForNeedPassword.CreateTransaction,
+            },
+          ));
+      }
     }
     await this.assertZcashAccountContext({ networkId, accountId });
     await this.backgroundApi.simpleDb.zcash.beginPrivacyModeEnable({
@@ -193,13 +198,15 @@ class ServiceZcash extends ServiceBase {
         networkId,
         accountId,
       })) as VaultZcash;
-      if (isHwWallet) {
-        await this.backgroundApi.serviceHardwareUI.withHardwareProcessing(
-          () => vault.zcashRetryLocalWalletSetup({ deviceParams }),
-          { deviceParams, debugMethodName: 'serviceZcash.enablePrivacyMode' },
-        );
-      } else {
-        await vault.zcashRetryLocalWalletSetup({ password });
+      if (needsViewingKeyDerivation) {
+        if (isHwWallet) {
+          await this.backgroundApi.serviceHardwareUI.withHardwareProcessing(
+            () => vault.zcashRetryLocalWalletSetup({ deviceParams }),
+            { deviceParams, debugMethodName: 'serviceZcash.enablePrivacyMode' },
+          );
+        } else {
+          await vault.zcashRetryLocalWalletSetup({ password });
+        }
       }
       const meta = await this.backgroundApi.simpleDb.zcash.getAccountMeta({
         accountId,
@@ -300,7 +307,7 @@ class ServiceZcash extends ServiceBase {
       }
       await this.backgroundApi.simpleDb.zcash.beginPrivacyModeDisable({
         accountId,
-        resumeFromHeight: getResumeFromHeight({
+        resumeFromHeight: getPrivacyModeResumeFromHeight({
           progress,
           birthdayHeight,
         }),

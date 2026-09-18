@@ -63,7 +63,7 @@ describe('Zcash endpoint outcomes through the leased API', () => {
     expect(pickLightwalletdUrl(account.lightwalletdUrl)).not.toBe(startUrl);
   });
 
-  it('counts caught refresh and rebroadcast errors once per pass, despite earlier network success', async () => {
+  it('counts caught rebroadcast errors once per pass, despite earlier network success', async () => {
     const api = await sdk.getZcashApi();
     const startUrl = pickLightwalletdUrl(account.lightwalletdUrl);
     let tip = 10;
@@ -84,7 +84,6 @@ describe('Zcash endpoint outcomes through the leased API', () => {
       syncStep: jest.fn(async () =>
         JSON.stringify({ blocksScanned: 0, done: true }),
       ),
-      syncTransparentUtxos: jest.fn().mockRejectedValue(networkError()),
       broadcastRetryTxids: () => JSON.stringify(['pending']),
       broadcastTransaction: jest.fn().mockRejectedValue(networkError()),
     };
@@ -96,12 +95,12 @@ describe('Zcash endpoint outcomes through the leased API', () => {
 
     await expect(
       api.syncWallet(account, { activeUfvks: [account.ufvk] }),
-    ).resolves.toMatchObject({ transparentCurrent: false });
+    ).resolves.toMatchObject({ synced: true });
     expect(pickLightwalletdUrl(account.lightwalletdUrl)).toBe(startUrl);
     await api.prepareWalletAccounts([account]);
     await expect(
       api.syncWallet(account, { activeUfvks: [account.ufvk] }),
-    ).resolves.toMatchObject({ transparentCurrent: false });
+    ).resolves.toMatchObject({ synced: true });
     expect(pickLightwalletdUrl(account.lightwalletdUrl)).not.toBe(startUrl);
   });
 
@@ -146,9 +145,6 @@ describe('Zcash endpoint outcomes through the leased API', () => {
         tip += 1;
       }),
       syncStep: jest.fn().mockRejectedValue(networkError()),
-      syncTransparentUtxos: jest.fn(async () =>
-        JSON.stringify({ addresses: 1 }),
-      ),
       broadcastRetryTxids: () => JSON.stringify([]),
       broadcastTransaction: jest.fn(),
     };

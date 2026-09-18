@@ -7,7 +7,10 @@ jest.mock('../../../dbs/local/localDbInstance', () => ({
 import { SimpleDbEntityZcash } from '../../../dbs/simple/entity/SimpleDbEntityZcash';
 import VaultBtc from '../btc/Vault';
 
-import Vault from './Vault';
+import Vault, {
+  ZCASH_DEFINITE_BROADCAST_REJECTIONS,
+  isDefiniteZcashBroadcastRejection,
+} from './Vault';
 
 import type { IEncodedTxZcash } from './types';
 import type { IZcashTransparentPendingTx } from '../../../dbs/simple/entity/SimpleDbEntityZcash';
@@ -164,5 +167,66 @@ describe('Zcash transparent broadcast authorization', () => {
       (await zcash.listTransparentPendingTxs({ accountId }))[0]
         .broadcastAuthorized,
     ).toBe(false);
+  });
+});
+
+describe('Zcash definite broadcast rejection whitelist', () => {
+  // The backend has not published its error-code table yet. While this list is
+  // empty every failure stays `BROADCAST_OUTCOME_UNKNOWN`, which is what
+  // "recovers the identical authorized transaction after a transport timeout"
+  // above pins.
+  //
+  // WHEN YOU POPULATE THE LIST: delete this assertion and add a vault-level
+  // test that a matching failure settles the pending transaction and throws
+  // BROADCAST_REJECTED. Releasing outpoints is the part that can double-spend.
+  it('ships empty until the backend publishes its codes', () => {
+    expect(ZCASH_DEFINITE_BROADCAST_REJECTIONS).toHaveLength(0);
+  });
+
+  it('treats an unconstrained entry as matching nothing', () => {
+    expect(
+      isDefiniteZcashBroadcastRejection(
+        { serverCode: 1, httpStatusCode: 400 },
+        [{}],
+      ),
+    ).toBe(false);
+  });
+
+  it('requires every constrained field to match', () => {
+    const rules = [{ serverCode: 1234, httpStatusCode: 400 }];
+    expect(
+      isDefiniteZcashBroadcastRejection(
+        { serverCode: 1234, httpStatusCode: 400 },
+        rules,
+      ),
+    ).toBe(true);
+    expect(
+      isDefiniteZcashBroadcastRejection(
+        { serverCode: 1234, httpStatusCode: 409 },
+        rules,
+      ),
+    ).toBe(false);
+    expect(isDefiniteZcashBroadcastRejection({ serverCode: 1234 }, rules)).toBe(
+      false,
+    );
+  });
+
+  it('lets a rule constrain one field alone', () => {
+    const rules = [{ serverCode: 1234 }];
+    expect(
+      isDefiniteZcashBroadcastRejection(
+        { serverCode: 1234, httpStatusCode: 500 },
+        rules,
+      ),
+    ).toBe(true);
+    expect(
+      isDefiniteZcashBroadcastRejection({ httpStatusCode: 400 }, rules),
+    ).toBe(false);
+  });
+
+  it('never matches a failure that carried no codes at all', () => {
+    expect(isDefiniteZcashBroadcastRejection({}, [{ serverCode: 1234 }])).toBe(
+      false,
+    );
   });
 });

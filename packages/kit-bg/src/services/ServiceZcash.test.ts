@@ -59,7 +59,12 @@ function createService({
         .fn()
         .mockResolvedValue({ password: 'test-password' }),
     },
-    servicePrivacyChain: { onLocalWalletAccountsChanged: jest.fn() },
+    servicePrivacyChain: {
+      onLocalWalletAccountsChanged: jest.fn(),
+      // Enable now runs the slot ceiling itself, before anything is derived
+      // or registered -- the generic door is not the only way in.
+      assertEnabledAccountLimit: jest.fn(async () => undefined),
+    },
     simpleDb: {
       zcash: {
         getPrivacyModeState: jest.fn().mockResolvedValue({ intent: 'off' }),
@@ -214,6 +219,11 @@ describe('ServiceZcash privacy lifecycle', () => {
 
   it('prepares the enable rescan without starting a scan before admission', async () => {
     const { backgroundApi, service } = createService();
+    // First enable: no viewing metadata yet, so derivation must run. The
+    // second read is the post-derivation check inside the service.
+    backgroundApi.simpleDb.zcash.getAccountMeta
+      .mockResolvedValueOnce(undefined)
+      .mockResolvedValue({ ufvk: 'synthetic-ufvk', birthdayHeight: 2_000_000 });
     const syncGroup = jest
       .fn()
       .mockResolvedValue({ synced: true, backfillRemaining: true });
@@ -255,6 +265,11 @@ describe('ServiceZcash privacy lifecycle', () => {
 describe('ServiceZcash enable failure cleanup', () => {
   it('clears only the failed enable operation when viewing setup rejects', async () => {
     const { backgroundApi, service } = createService();
+    // First enable: no viewing metadata yet, so derivation must run. The
+    // second read is the post-derivation check inside the service.
+    backgroundApi.simpleDb.zcash.getAccountMeta
+      .mockResolvedValueOnce(undefined)
+      .mockResolvedValue({ ufvk: 'synthetic-ufvk', birthdayHeight: 2_000_000 });
     mockGetVault.mockResolvedValue({
       zcashRetryLocalWalletSetup: jest
         .fn()
@@ -275,6 +290,34 @@ describe('ServiceZcash enable failure cleanup', () => {
     expect(
       backgroundApi.simpleDb.zcash.completePrivacyModeEnable,
     ).not.toHaveBeenCalled();
+  });
+
+  it('resumes a paused account without asking for the password again', async () => {
+    const { backgroundApi, service } = createService();
+    // What a pause actually leaves behind: mode off, but birthday, resume
+    // cursor and viewing metadata all retained. Derivation therefore has
+    // nothing to do -- and the seed it would need is exactly what the prompt
+    // exists to unlock.
+    backgroundApi.simpleDb.zcash.getPrivacyModeState.mockResolvedValue({
+      intent: 'off',
+      birthdayHeight: 2_000_000,
+      resumeFromHeight: 2_500_000,
+    });
+    const zcashRetryLocalWalletSetup = jest.fn();
+    mockGetVault.mockResolvedValue({
+      zcashRetryLocalWalletSetup,
+      zcashPreparePrivacyModeAccount: jest.fn(),
+    });
+
+    await service.enablePrivacyMode({ networkId: 'zec--0', accountId });
+
+    expect(
+      backgroundApi.servicePassword.promptPasswordVerifyByAccount,
+    ).not.toHaveBeenCalled();
+    expect(zcashRetryLocalWalletSetup).not.toHaveBeenCalled();
+    expect(
+      backgroundApi.simpleDb.zcash.completePrivacyModeEnable,
+    ).toHaveBeenCalledWith({ accountId, maxEnabledAccounts: 5 });
   });
 
   it('does not report a failed notification as a failed enable', async () => {

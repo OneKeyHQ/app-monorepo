@@ -4,41 +4,39 @@ describe('composePrivacyChainBalance', () => {
   it('adds the indexer public half to the local private half', () => {
     const r = composePrivacyChainBalance({
       privateSide: '1000',
-      publicSideLocal: '0',
       publicSideIndexer: '250',
       spendable: '1000',
     });
     expect(r.total).toBe('1250');
-    expect(r.publicSideSource).toBe('indexer');
+    expect(r.balanceStatus).toBe('complete');
   });
 
-  it('falls back to the local view when the indexer could not be asked', () => {
+  it('reports an incomplete total when the indexer could not be asked', () => {
     const r = composePrivacyChainBalance({
       privateSide: '1000',
-      publicSideLocal: '700',
       publicSideIndexer: undefined,
       spendable: '1000',
     });
-    // Not 1000: a third party being down must not shrink the balance.
-    expect(r.total).toBe('1700');
-    expect(r.publicSideSource).toBe('local');
+    // Deliberately not the private half alone, which would read as funds
+    // disappearing. There is no local substitute either: the scanner has no
+    // product claim on the public half.
+    expect(r.total).toBe('');
+    expect(r.balanceStatus).toBe('partial');
   });
 
   it('distinguishes an indexer zero from an indexer failure', () => {
     const zero = composePrivacyChainBalance({
       privateSide: '1000',
-      publicSideLocal: '700',
       publicSideIndexer: '0',
       spendable: '1000',
     });
     expect(zero.total).toBe('1000');
-    expect(zero.publicSideSource).toBe('indexer');
+    expect(zero.balanceStatus).toBe('complete');
   });
 
   it('never lets an indexer inflate what can be spent', () => {
     const r = composePrivacyChainBalance({
       privateSide: '0',
-      publicSideLocal: '0',
       publicSideIndexer: '900000',
       spendable: '0',
     });
@@ -51,7 +49,6 @@ describe('composePrivacyChainBalance', () => {
   it('reports the gap as frozen when the indexer runs ahead of the scan', () => {
     const r = composePrivacyChainBalance({
       privateSide: '500',
-      publicSideLocal: '0',
       publicSideIndexer: '300',
       spendable: '500',
     });
@@ -62,7 +59,6 @@ describe('composePrivacyChainBalance', () => {
   it('clamps a negative spendable instead of propagating it', () => {
     const r = composePrivacyChainBalance({
       privateSide: '100',
-      publicSideLocal: '0',
       publicSideIndexer: '0',
       spendable: '-5',
     });
@@ -73,7 +69,6 @@ describe('composePrivacyChainBalance', () => {
   it('never reports negative frozen when spendable exceeds the total', () => {
     const r = composePrivacyChainBalance({
       privateSide: '100',
-      publicSideLocal: '0',
       publicSideIndexer: '0',
       spendable: '999',
     });
@@ -86,7 +81,6 @@ describe('privacy balance completeness', () => {
     expect(
       composePrivacyChainBalance({
         privateSide: undefined,
-        publicSideLocal: undefined,
         publicSideIndexer: undefined,
         spendable: undefined,
         privateSideComplete: false,
@@ -100,7 +94,6 @@ describe('privacy balance completeness', () => {
     expect(
       composePrivacyChainBalance({
         privateSide: '0',
-        publicSideLocal: '0',
         publicSideIndexer: '0',
         spendable: '0',
       }),
@@ -115,7 +108,6 @@ describe('privacy balance completeness', () => {
     expect(
       composePrivacyChainBalance({
         privateSide: '100',
-        publicSideLocal: '0',
         publicSideIndexer: '50',
         spendable: '120',
         privateSideComplete: false,

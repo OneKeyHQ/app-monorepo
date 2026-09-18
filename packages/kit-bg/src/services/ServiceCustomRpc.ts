@@ -27,6 +27,7 @@ import type { IToken } from '@onekeyhq/shared/types/token';
 
 import { type IDBCloudSyncItem } from '../dbs/local/types';
 import { vaultFactory } from '../vaults/factory';
+import { getVaultSettings } from '../vaults/settings';
 
 import ServiceBase from './ServiceBase';
 
@@ -261,6 +262,40 @@ class ServiceCustomRpc extends ServiceBase {
     return itemsWithNetwork.toSorted((a, b) =>
       (a.network?.name ?? '').localeCompare(b.network?.name ?? ''),
     );
+  }
+
+  // A chain that scans client-side has no backend to fall back to, so the node
+  // it ships with is not a "default behind an override" -- it IS the record.
+  // Seeding it as an ordinary row keeps one read path: everything asks this
+  // store, nothing consults a build constant at runtime. The constant stays
+  // the seed source, and a release that has to change it ships a migration.
+  //
+  // Self-healing on purpose: a user who deletes the only node of a chain that
+  // cannot work without one gets it back, because they never added it.
+  @backgroundMethod()
+  public async ensureBuiltInRpc({
+    networkId,
+  }: {
+    networkId: string;
+  }): Promise<IDBCustomRpc | undefined> {
+    const existing = await this.getCustomRpcForNetwork(networkId);
+    if (existing?.rpc) {
+      return existing;
+    }
+    const settings = await getVaultSettings({ networkId });
+    const [builtIn] = settings.builtInRpcUrls ?? [];
+    if (!builtIn) {
+      return undefined;
+    }
+    const seeded: IDBCustomRpc = {
+      rpc: builtIn,
+      networkId,
+      enabled: true,
+      updatedAt: undefined,
+      isCustomNetwork: undefined,
+    };
+    await this.addCustomRpc({ customRpc: seeded });
+    return seeded;
   }
 
   @backgroundMethod()

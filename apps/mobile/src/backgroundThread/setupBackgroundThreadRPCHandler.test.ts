@@ -136,7 +136,6 @@ describe('background thread RPC handler', () => {
     for (const method of [
       'quotePczt',
       'createPczt',
-      'shieldFunds',
       'finalizePczt',
       'releasePczt',
     ]) {

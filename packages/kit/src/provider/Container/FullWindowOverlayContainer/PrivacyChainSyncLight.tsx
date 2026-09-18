@@ -10,6 +10,7 @@ import {
   SizableText,
   Stack,
   XStack,
+  YStack,
   useMedia,
   useSafeAreaInsets,
 } from '@onekeyhq/components';
@@ -161,8 +162,13 @@ function BasicPrivacyChainSyncLight() {
     })[0];
   const isRunning = boostingNetworkIds.includes(networkId);
   const isPaused = !isRunning && pausedNetworkIds.includes(networkId);
-  // A pause is only worth reporting while there is still a backfill to resume.
-  if (isPaused && !entry) {
+  // The service already decides this and publishes it; inferring it from
+  // "not boosting and not paused" also caught the ordinary background pace,
+  // which is not blocked by anything.
+  const isHeldByData =
+    !isRunning && !isPaused && dataBlockedNetworkIds.includes(networkId);
+  // Nothing left to resume means nothing worth reporting.
+  if (!isRunning && !entry) {
     return null;
   }
   // Only native can tell metered from not; elsewhere the label would guess.
@@ -183,6 +189,24 @@ function BasicPrivacyChainSyncLight() {
     typeof scanned === 'number' && typeof target === 'number'
       ? `${scanned.toLocaleString('en-US')} / ${target.toLocaleString('en-US')}`
       : '';
+  // The state is its own line, not something to infer from an icon.
+  let stateLabel: string;
+  if (isRunning) {
+    stateLabel = intl.formatMessage({
+      id: ETranslationsMock.privacy_scan_state_scanning,
+    });
+  } else if (isPaused) {
+    stateLabel = intl.formatMessage({
+      id: ETranslationsMock.privacy_scan_paused,
+    });
+  } else {
+    stateLabel = intl.formatMessage({
+      id: ETranslationsMock.privacy_scan_state_held,
+    });
+  }
+  const detailLine = entry
+    ? `${pct}${heights}${connection}`.replace(/^ · /, '')
+    : intl.formatMessage({ id: ETranslationsMock.privacy_scan_starting });
 
   return (
     <Stack
@@ -196,6 +220,11 @@ function BasicPrivacyChainSyncLight() {
             left: 0,
             right: 0,
             alignItems: 'center' as const,
+            // Side padding so the card below can take a real width instead of
+            // shrinking to fit: a `flex: 1` text column inside a shrink-to-fit
+            // parent collapses to its minimum content width, which wraps the
+            // label mid-word ("Scan / ning") and overlaps the lines under it.
+            paddingHorizontal: '$4' as const,
           }
         : { top: EDGE_CLEARANCE, right: '$5' as const })}
       zIndex={FLOAT_NAV_BAR_Z_INDEX}
@@ -204,59 +233,59 @@ function BasicPrivacyChainSyncLight() {
       // in -- the text keeps reporting without intercepting.
       pointerEvents="box-none"
     >
-      <XStack
+      <YStack
         gap="$2"
-        alignItems="center"
-        paddingLeft="$3"
-        paddingRight="$1.5"
-        paddingVertical="$1.5"
-        borderRadius="$full"
+        paddingHorizontal="$4"
+        paddingVertical="$3"
+        borderRadius="$3"
         backgroundColor="$bgSubdued"
         borderWidth={1}
         borderColor="$borderSubdued"
-        opacity={0.92}
+        // Narrow takes the padded width of the overlay; wide stays content-sized
+        // beside the sidebar. Both keep the 360 cap.
+        {...(isNarrow ? { width: '100%' as const } : null)}
+        maxWidth={360}
+        elevation={2}
         pointerEvents="box-none"
       >
-        {isRunning ? (
-          <>
-            <KeepScreenAwake />
-            <Icon name="RefreshCcwOutline" size="$4" color="$iconSubdued" />
-            <SizableText size="$bodySmMedium" color="$textSubdued">
-              {entry
-                ? `Syncing ${pct}${heights}${connection}`
-                : `Starting sync…${connection}`}
-            </SizableText>
-            <SizableText size="$bodySm" color="$textCaution">
-              Using extra power
-            </SizableText>
-            {/* Stops the extra power, not the sync -- the chain keeps
-                catching up at the background pace. The title says so: a
-                "pause" that silently stopped syncing would be a much bigger
-                promise than this button makes. */}
-            <IconButton
-              testID="privacy-chain-sync-light-pause-btn"
-              size="small"
-              variant="tertiary"
-              icon="PauseOutline"
-              title={intl.formatMessage({
-                id: ETranslationsMock.privacy_scan_pause_title,
-              })}
-              onPress={onPause}
-              pointerEvents="auto"
-            />
-          </>
-        ) : null}
-        {isPaused ? (
-          <>
-            <Icon name="PauseOutline" size="$4" color="$iconSubdued" />
-            <SizableText size="$bodySmMedium" color="$textSubdued">
-              {`${intl.formatMessage({
-                id: ETranslationsMock.privacy_scan_paused,
-              })} · ${pct}${heights}${connection}`}
-            </SizableText>
+        <XStack gap="$2.5" alignItems="center" pointerEvents="box-none">
+          <Icon
+            // Two bars mean stopped. Only the user and the data gate stop it;
+            // the background pace is still scanning, just slowly.
+            name={
+              isPaused || isHeldByData ? 'PauseOutline' : 'RefreshCcwOutline'
+            }
+            size="$5"
+            color={isRunning ? '$iconInfo' : '$iconSubdued'}
+          />
+          <YStack flex={1} gap="$0.5">
+            <SizableText size="$bodyMdMedium">{stateLabel}</SizableText>
+            {detailLine ? (
+              <SizableText size="$bodySm" color="$textSubdued">
+                {detailLine}
+              </SizableText>
+            ) : null}
+          </YStack>
+          {isRunning ? (
+            <>
+              <KeepScreenAwake />
+              <IconButton
+                testID="privacy-chain-sync-light-pause-btn"
+                size="medium"
+                variant="tertiary"
+                icon="PauseOutline"
+                title={intl.formatMessage({
+                  id: ETranslationsMock.privacy_scan_pause_title,
+                })}
+                onPress={onPause}
+                pointerEvents="auto"
+              />
+            </>
+          ) : null}
+          {isPaused ? (
             <Button
               testID="privacy-chain-sync-light-resume-btn"
-              size="small"
+              size="medium"
               variant="primary"
               onPress={onResume}
               pointerEvents="auto"
@@ -265,28 +294,36 @@ function BasicPrivacyChainSyncLight() {
                 id: ETranslationsMock.privacy_scan_resume,
               })}
             </Button>
-          </>
-        ) : null}
-        {!isRunning && !isPaused ? (
+          ) : null}
+        </XStack>
+        {isHeldByData ? (
           <>
-            <Icon name="LockOutline" size="$4" color="$iconCaution" />
-            <SizableText size="$bodySmMedium" color="$textSubdued">
-              {entry
-                ? `Paused on mobile data · ${pct}${heights}`
-                : 'Waiting for mobile data permission'}
+            <SizableText size="$bodySm" color="$textSubdued">
+              {intl.formatMessage({
+                id: ETranslationsMock.privacy_scan_held_desc,
+              })}
             </SizableText>
             <Button
               testID="privacy-chain-sync-light-allow-data-btn"
-              size="small"
+              size="medium"
               variant="primary"
               onPress={onAllowCellular}
               pointerEvents="auto"
             >
-              Continue
+              {intl.formatMessage({
+                id: ETranslationsMock.privacy_scan_continue,
+              })}
             </Button>
           </>
         ) : null}
-      </XStack>
+        {isRunning ? (
+          <SizableText size="$bodySm" color="$textCaution">
+            {intl.formatMessage({
+              id: ETranslationsMock.privacy_scan_extra_power,
+            })}
+          </SizableText>
+        ) : null}
+      </YStack>
     </Stack>
   );
 }

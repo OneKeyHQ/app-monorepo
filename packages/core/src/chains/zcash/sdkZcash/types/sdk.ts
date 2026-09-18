@@ -93,7 +93,7 @@ export type IZcashDeriveTransparentXpubFromUfvkParams = {
 };
 
 export type IZcashCombinePcztParams = {
-  // Full local copy (created by createPczt/shieldFunds).
+  // Full local copy (created by createPczt).
   originalPcztHex: string;
   // Redacted copy returned by an external signer (hardware): signatures
   // present, private fields absent.
@@ -118,6 +118,15 @@ export type IZcashTransparentUtxo = IZcashTransparentOutpoint & {
   isCoinbase: boolean;
   confirmations: number;
   derivationPath: string;
+};
+
+// One transparent UTXO as the runtime accepts it. The runtime does not query
+// the transparent side itself; the indexer is its only source, so this is the
+// exact set a proposal may select from.
+export type IZcashRuntimeTransparentUtxo = IZcashTransparentOutpoint & {
+  valueZat: string;
+  scriptPubKey: string;
+  height: number;
 };
 
 export type IZcashTransparentTxRequest = {
@@ -208,15 +217,11 @@ export type IZcashSyncResult = {
   // separate address query, so a failure there leaves the transparent side
   // stale while everything else looks current. Reported rather than swallowed
   // because that staleness is otherwise invisible.
-  transparentCurrent?: boolean;
   // Definite node rejections observed while retrying locally stored unmined
   // transactions. The host persists these as Failed; network failures are not
   // included because their outcome remains unknown/Pending.
   rebroadcastRejectedTxids?: string[];
   rebroadcastAcceptedTxids?: string[];
-  // Recorded transactions that are already mined or expired and no longer
-  // need a network retry.
-  rebroadcastSettledTxids?: string[];
 };
 
 export type IZcashSyncProgress = {
@@ -490,39 +495,31 @@ export type IZcashBalance = {
   isComplete?: boolean;
   // zatoshi strings (1 ZEC = 1e8 zatoshi); bigint-safe across the bridge
   shielded: string; // orchard + ironwood pools, summed
-  transparent: string; // unshielded
   // What a send can actually draw on right now, under this build's spend
-  // policy and confirmation thresholds. This -- not `total`, not
-  // `shielded + transparent` -- is the figure a "max" button must use: it is
-  // produced by the same layer that decides what a proposal will accept, so
-  // the two cannot disagree.
+  // policy and confirmation thresholds. This -- not `shielded` -- is the
+  // figure a "max" button must use: it is produced by the same layer that
+  // decides what a proposal will accept, so the two cannot disagree.
   spendable: string;
   pendingChange: string;
   pendingSpendable: string;
-  total: string;
   // Per-pool breakdown for TokenDetails -- kept separate from `shielded`
   // because Orchard and Ironwood have different spend behavior.
   orchardBalance: string;
   ironwoodBalance: string;
-  transparentBalance: string;
   // Spendable portion of the SHIELDED pools only (confirmation thresholds
   // applied). This is the withdraw ceiling:
   // `spendable` is aggregate policy output; a shielded-to-transparent
   // withdraw must still use this shielded-only ceiling.
   shieldedSpendable: string;
   // Per-pool composition for the pool UI (see IZcashPoolDetail).
+  //
+  // Shielded pools only. The public half is backend-owned and deliberately
+  // absent: the scanner stopped tracking public outputs outside a build, so
+  // any transparent column here could only report a stale zero.
   poolsDetail: {
     orchard: IZcashPoolDetail;
     ironwood: IZcashPoolDetail;
-    transparentRegular: IZcashPoolDetail;
-    transparentCoinbase: IZcashPoolDetail;
   };
-  // Transparent split. Coinbase cannot be shielded by this runtime
-  // (propose_shielding_coinbase unimplemented), so the Shield button must
-  // gate on `transparentRegularBalance`, not on the merged figure -- a
-  // coinbase-only account would confirm, enter a password, and then fail.
-  transparentRegularBalance: string;
-  transparentCoinbaseBalance: string;
 };
 
 // What a send will actually do, taken from the real proposal before anything is
@@ -686,11 +683,30 @@ export type IZcashSdkApi = {
   getSyncProgress: (
     account: IZcashWalletAccount,
   ) => Promise<IZcashSyncProgress>;
-  // Reconciles the runtime's transparent UTXO table with the server before a
-  // proposal selects from it. One round trip; no block data.
+  // Hands the runtime the transparent UTXOs a proposal may select from, before
+  // it selects. The runtime never queries them itself: the indexer is the only
+  // source for the transparent side, and two sources would disagree.
   refreshTransparentUtxos: (
     account: IZcashWalletAccount,
-  ) => Promise<{ addresses: number }>;
+    params: { utxos: IZcashRuntimeTransparentUtxo[] },
+  ) => Promise<{
+    addresses: number;
+    // Entries whose parent transaction this round could not fetch, because a
+    // round only spends a bounded number of network trips. NOT an error and NOT
+    // ignorable: those UTXOs are absent from the runtime's table, so a proposal
+    // would price and select without them. Call again until it reaches zero.
+    deferredUtxos: number;
+    // Entries the runtime refused: the chain's copy of the parent disagreed
+    // with what the indexer said. Reported so a host bug is visible instead of
+    // silently shrinking the spendable set.
+    rejectedUtxos: number;
+  }>;
+  // What the scanner last observed about its node while doing normal work.
+  // Not a probe: reading it costs nothing and adds no traffic.
+  getEndpointHealth: () => Promise<
+    | { url: string; ok: boolean; latencyMs: number | null; atMs: number }
+    | undefined
+  >;
   // Developer diagnostics for the real persisted network database. It first
   // checks existence so an empty test run never creates a database.
   diagnoseWalletDatabase: (params: {
@@ -731,15 +747,6 @@ export type IZcashSdkApi = {
       spendTransparent?: boolean;
     },
   ) => Promise<IZcashPcztReservation>;
-  // Shields the whole transparent balance. No destination, no amount.
-  shieldFunds: (
-    account: IZcashWalletAccount,
-    params?: { reservationId?: string },
-  ) => Promise<IZcashPcztReservation>;
-  // Exact ZIP-317 fee for the transparent sweep proposal, without locking.
-  quoteShieldFunds: (
-    account: IZcashWalletAccount,
-  ) => Promise<{ feeZat: string }>;
   // Exact ZIP-317 fee for a transfer: proposal only, no PCZT built.
   quotePczt: (
     account: IZcashWalletAccount,

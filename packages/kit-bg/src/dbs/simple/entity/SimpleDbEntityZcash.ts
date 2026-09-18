@@ -587,7 +587,20 @@ export class SimpleDbEntityZcash extends SimpleDbEntityBase<IZcashDB> {
       const pendingRescans = { ...rawData?.pendingRescans };
       delete accounts[accountId];
       delete pendingRescans[accountId];
-      return { ...rawData, accounts, pendingRescans };
+      // The resume cursor points into the cache this call is deleting, so it
+      // goes too. Keeping it made getAccountState report `paused`, and the UI
+      // then offered "Resume" to someone who had just deleted their local
+      // privacy data. The birthday stays: re-enabling reuses the month.
+      const privacyModeAccounts = { ...rawData?.privacyModeAccounts };
+      const current = privacyModeAccounts[accountId];
+      if (current?.resumeFromHeight !== undefined) {
+        const { resumeFromHeight: _cursor, ...retained } = current;
+        privacyModeAccounts[accountId] = {
+          ...retained,
+          updatedAt: Date.now(),
+        };
+      }
+      return { ...rawData, accounts, pendingRescans, privacyModeAccounts };
     });
   }
 

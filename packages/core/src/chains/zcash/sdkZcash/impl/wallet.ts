@@ -8,6 +8,8 @@ import {
   forgetOpenWallet,
   getRuntime,
   noteNetworkOutcome,
+  getEndpointHealth as readEndpointHealth,
+  recordEndpointHealth,
   walletDbName,
   walletDbNameForNetwork,
   withWallet,
@@ -28,6 +30,7 @@ import type {
   IZcashBalance,
   IZcashHistoryItem,
   IZcashNetwork,
+  IZcashRuntimeTransparentUtxo,
   IZcashSyncProgress,
   IZcashSyncResult,
   IZcashTxDetails,
@@ -290,7 +293,7 @@ export async function syncWallet(
   const passStartedAt = Date.now();
   const idleBeforeMs =
     lastPassEndedAt === null ? null : passStartedAt - lastPassEndedAt;
-  const timing = { tipMs: 0, prepareMs: 0, scanMs: 0, utxoMs: 0, steps: 0 };
+  const timing = { tipMs: 0, prepareMs: 0, scanMs: 0, steps: 0 };
 
   const { rt, accountUuid } = await withWallet(account);
 
@@ -319,6 +322,9 @@ export async function syncWallet(
       // Offline: fall through and let the real sync path report the failure.
     }
     timing.tipMs = Date.now() - t;
+    // The tip call is the cheapest honest latency sample we get, and the scan
+    // makes it every pass anyway.
+    recordEndpointHealth({ ok: liveTip !== null, latencyMs: timing.tipMs });
   }
   if (
     queued.totalBlocks === 0 &&
@@ -333,7 +339,6 @@ export async function syncWallet(
       chainTip: options?.chainTip ?? before.chainTip,
       fullyScanned: before.fullyScanned,
       backfillRemaining: false,
-      transparentCurrent: true,
     };
   }
 
@@ -413,7 +418,20 @@ export async function syncWallet(
 
   for (const lane of LANES) {
     if (reorgRewoundTo !== null) break;
-    while (budget > 0 && Date.now() < deadline) {
+    // Every lane gets at least one step per pass; the deadline only caps the
+    // ADDITIONAL steps a lane may take.
+    //
+    // Without this, `historic` -- last in the order -- starves as soon as a
+    // single step costs more than the whole budget, and backfill stops dead
+    // while the pass still burns seconds. Measured on a 2025 Android flagship
+    // (2026-09-16): with 4 viewing keys enabled a pass ran 3-11s against a
+    // 1500ms budget and `fullyScanned` did not move for 55 minutes, because
+    // the earlier lanes consumed the deadline before backfill was reached.
+    // One guaranteed step per lane bounds the overshoot at five steps and
+    // makes progress monotonic: every pass advances backfill by at least
+    // BLOCKS_PER_BATCH.
+    let laneSteps = 0;
+    while (budget > 0 && (laneSteps === 0 || Date.now() < deadline)) {
       let r: IRuntimeSyncStep;
       try {
         r = JSON.parse(
@@ -436,6 +454,7 @@ export async function syncWallet(
         break;
       }
       budget -= 1;
+      laneSteps += 1;
       timing.steps += 1;
       scanned += r.blocksScanned;
       // Nothing scanned means this lane has no queued ranges; move to the next
@@ -499,46 +518,23 @@ export async function syncWallet(
     backfillRemaining = queuedAfter > 0;
   }
 
-  // Transparent UTXOs are not produced by block scanning -- they are public and
-  // have to be queried by address. Skipping this leaves the transparent balance
-  // at zero forever while the scan looks perfectly healthy, and shielding then
-  // reports "nothing to shield".
+  // The transparent side is NOT synced here, on purpose.
   //
-  // Only when the tip moved: the server answers from its *current* UTXO set,
-  // so scanning historic blocks cannot change the answer -- `scanned > 0` here
-  // made every backfill pass pay the round trip for an identical reply. An
-  // address first discovered by backfill (gap limit) waits one block, ~75s,
-  // for its UTXOs; the next tip write covers it.
-  let transparentCurrent = true;
+  // Transparent balance, history and UTXOs are backend-owned (blockbook); the
+  // runtime has no product claim on them. Refreshing them every block cost two
+  // things for nothing: it sent every transparent receive address -- change
+  // addresses included -- to a third-party lightwalletd on each new block, and
+  // it paid that round trip even though the account preference that consumes
+  // the result is off by default.
+  //
+  // The one consumer left is transparent-first input selection, and it pulls
+  // its own snapshot right before building (Vault.zcashCreatePczt), which is
+  // both narrower and fresher than a per-block cache.
   let rebroadcastRejectedTxids: string[] = [];
   let rebroadcastAcceptedTxids: string[] = [];
   if (before.chainTip !== after.chainTip) {
-    const utxoStartedAt = Date.now();
-    try {
-      // Transparent product reads come from the backend, but shielding still
-      // needs runtime UTXOs for privacy-enabled accounts. Refresh only the
-      // exact host-authorized UFVK set; accounts that paused Privacy Mode must
-      // not keep generating wallet-runtime network activity just because a
-      // different account on the shared database remains enabled.
-      for (const ufvk of activeUfvks) {
-        const runtimeAccount = JSON.parse(rt.accountByUfvk(ufvk)) as {
-          uuid: string;
-        } | null;
-        if (runtimeAccount?.uuid) {
-          // eslint-disable-next-line no-await-in-loop
-          const refresh = JSON.parse(
-            await rt.syncTransparentUtxos(runtimeAccount.uuid),
-          ) as { addresses: number };
-          if (refresh.addresses > 0) recordOutcome(null);
-        }
-      }
-    } catch (e) {
-      recordOutcome(e);
-      transparentCurrent = false;
-    }
-    timing.utxoMs = Date.now() - utxoStartedAt;
-    // Same cadence as the UTXO refresh (a new block is both a fresh chance
-    // that the network works and a new expiry check). Never fails the pass.
+    // A new block is both a fresh chance that the network works and a new
+    // expiry check. Never fails the pass.
     const rebroadcast = await rebroadcastUnmined(rt, recordOutcome);
     rebroadcastAcceptedTxids = rebroadcast.accepted;
     rebroadcastRejectedTxids = rebroadcast.rejected;
@@ -556,9 +552,8 @@ export async function syncWallet(
     `[zcash] sync timing acct=${account.hdIndex} blocks=${scanned}` +
       ` total=${totalMs}ms idle=${idleBeforeMs ?? '-'}` +
       ` tip=${timing.tipMs} prep=${timing.prepareMs} scan=${timing.scanMs}` +
-      ` utxo=${timing.utxoMs} other=${
-        totalMs -
-        (timing.tipMs + timing.prepareMs + timing.scanMs + timing.utxoMs)
+      ` other=${
+        totalMs - (timing.tipMs + timing.prepareMs + timing.scanMs)
       } queued=${queuedAfter ?? '?'} steps=${timing.steps}`,
   );
 
@@ -570,7 +565,6 @@ export async function syncWallet(
     noteNetworkOutcome(null);
   }
   return {
-    transparentCurrent,
     // Always true now. The old implementation reported false when the carrier
     // had no threads: WebZjs needed a thread pool and therefore
     // crossOriginIsolated, which a system WebView cannot provide. This runtime
@@ -696,9 +690,6 @@ export function readBalance(
   // which pool the money sits in is a fact while any total is a policy. The
   // summing happens here, where the policy lives.
   const shielded = BigInt(raw.orchard.total) + BigInt(raw.ironwood.total);
-  const transparent =
-    BigInt(raw.transparentRegular.total) +
-    BigInt(raw.transparentCoinbase.total);
   const pendingChange =
     BigInt(raw.orchard.pendingChange) + BigInt(raw.ironwood.pendingChange);
   const pendingSpendable =
@@ -729,23 +720,16 @@ export function readBalance(
   return {
     isComplete,
     shielded: shielded.toString(),
-    transparent: transparent.toString(),
     spendable: spendable.toString(),
     pendingChange: pendingChange.toString(),
     pendingSpendable: pendingSpendable.toString(),
-    total: (shielded + transparent).toString(),
     orchardBalance: String(raw.orchard.total),
     ironwoodBalance: String(raw.ironwood.total),
-    transparentBalance: transparent.toString(),
     shieldedSpendable: shieldedSpendable.toString(),
     poolsDetail: {
       orchard: poolDetail(raw.orchard),
       ironwood: poolDetail(raw.ironwood),
-      transparentRegular: poolDetail(raw.transparentRegular),
-      transparentCoinbase: poolDetail(raw.transparentCoinbase),
     },
-    transparentRegularBalance: String(raw.transparentRegular.total),
-    transparentCoinbaseBalance: String(raw.transparentCoinbase.total),
   };
 }
 
@@ -922,15 +906,39 @@ export async function getTxDetails(
   };
 }
 
-// Re-reads this account's transparent UTXOs and lets the runtime mark the ones
-// spent elsewhere. The scan only does this on a new tip, which leaves a window
-// where another wallet's spend still looks spendable here.
+// What the scanner last observed about its node while doing its normal work.
+export async function getEndpointHealth(): Promise<
+  | { url: string; ok: boolean; latencyMs: number | null; atMs: number }
+  | undefined
+> {
+  return readEndpointHealth();
+}
+
+// Hands the runtime the transparent UTXOs a proposal may select from. The list
+// comes from the indexer, which is the only source for the transparent side --
+// the runtime asking lightwalletd for its own list would give this account two
+// answers that disagree. The runtime attributes each entry by the address its
+// script decodes to, so an entry that is not this account's is dropped there.
 export async function refreshTransparentUtxos(
   account: IZcashWalletAccount,
-): Promise<{ addresses: number }> {
+  params: { utxos: IZcashRuntimeTransparentUtxo[] },
+): Promise<{
+  addresses: number;
+  deferredUtxos: number;
+  rejectedUtxos: number;
+}> {
   const { rt, accountUuid } = await withWallet(account);
-  return JSON.parse(await rt.syncTransparentUtxos(accountUuid)) as {
+  const result = JSON.parse(
+    await rt.syncTransparentUtxos(accountUuid, JSON.stringify(params.utxos)),
+  ) as {
     addresses: number;
+    deferredUtxos?: number;
+    rejectedUtxos?: number;
+  };
+  return {
+    addresses: result.addresses,
+    deferredUtxos: result.deferredUtxos ?? 0,
+    rejectedUtxos: result.rejectedUtxos ?? 0,
   };
 }
 

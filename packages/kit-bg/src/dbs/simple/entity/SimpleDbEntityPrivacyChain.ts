@@ -13,64 +13,31 @@ import { SimpleDbEntityBase } from '../base/SimpleDbEntityBase';
 // chain has some version of it.
 
 export interface IPrivacyChainDB {
-  // Whether a full-speed catch-up may run on a metered connection. Global on
-  // purpose: this is the user answering "spend my data allowance", which is
-  // not a question they should have to answer once per chain.
-  allowCellularSync?: boolean;
   // accountId -> the one-time "where should scanning start?" prompt has been
   // shown. Every client-scanning chain has this question; only the ANSWER
   // (a block height, a restore date) is chain-shaped, and that stays with the
   // chain. Losing this flag costs one repeated prompt, nothing more.
   scanStartPrompted?: Record<string, boolean>;
+  // Device-wide, not per network: it is a statement about this phone's data
+  // plan, and a scan that is not allowed to spend mobile data is not allowed
+  // to spend it for any chain. Absent means not allowed.
+  allowCellularSync?: boolean;
+  // networkId -> spend public funds before private ones when sending to a
+  // private address. Network-wide on purpose: it is a statement about how the
+  // user wants this CHAIN to behave, and a per-account version only invited
+  // the question of which account a given send was going to use. Absent means
+  // the private-by-default answer, which is the one that leaks nothing.
+  preferPublicSends?: Record<string, boolean>;
   // networkId -> runtime storage schema version last seen. A mismatch means
   // the chain's local database must be rebuilt from viewing keys; the
   // database file itself carries no app-readable tag.
   runtimeSchemaVersions?: Record<string, string>;
-  // networkId -> the user stopped scanning this chain. Persisted because a
-  // pause that a restart undid would keep costing the battery and data it was
-  // pressed to stop, and only an explicit resume may clear it.
-  scanPausedNetworks?: Record<string, boolean>;
 }
 
 export class SimpleDbEntityPrivacyChain extends SimpleDbEntityBase<IPrivacyChainDB> {
   entityName = 'privacyChain';
 
   override enableCache = false;
-
-  async getAllowCellularSync(): Promise<boolean> {
-    const rawData = await this.getRawData();
-    return rawData?.allowCellularSync === true;
-  }
-
-  async saveAllowCellularSync({ allow }: { allow: boolean }) {
-    await this.setRawData((rawData) => ({
-      ...rawData,
-      allowCellularSync: allow,
-    }));
-  }
-
-  async getScanPausedNetworks(): Promise<Record<string, boolean>> {
-    const rawData = await this.getRawData();
-    return rawData?.scanPausedNetworks ?? {};
-  }
-
-  async saveScanPaused({
-    networkId,
-    paused,
-  }: {
-    networkId: string;
-    paused: boolean;
-  }) {
-    await this.setRawData((rawData) => {
-      const scanPausedNetworks = { ...rawData?.scanPausedNetworks };
-      if (paused) {
-        scanPausedNetworks[networkId] = true;
-      } else {
-        delete scanPausedNetworks[networkId];
-      }
-      return { ...rawData, scanPausedNetworks };
-    });
-  }
 
   async getScanStartPrompted({
     accountId,
@@ -99,6 +66,43 @@ export class SimpleDbEntityPrivacyChain extends SimpleDbEntityBase<IPrivacyChain
       const { [accountId]: _removed, ...rest } = rawData.scanStartPrompted;
       return { ...rawData, scanStartPrompted: rest };
     });
+  }
+
+  async getAllowCellularSync(): Promise<boolean> {
+    const rawData = await this.getRawData();
+    return rawData?.allowCellularSync === true;
+  }
+
+  async setAllowCellularSync({ allow }: { allow: boolean }): Promise<void> {
+    await this.setRawData((rawData) => ({
+      ...rawData,
+      allowCellularSync: allow,
+    }));
+  }
+
+  async getPreferPublicSends({
+    networkId,
+  }: {
+    networkId: string;
+  }): Promise<boolean> {
+    const rawData = await this.getRawData();
+    return rawData?.preferPublicSends?.[networkId] === true;
+  }
+
+  async setPreferPublicSends({
+    networkId,
+    preferPublic,
+  }: {
+    networkId: string;
+    preferPublic: boolean;
+  }): Promise<void> {
+    await this.setRawData((rawData) => ({
+      ...rawData,
+      preferPublicSends: {
+        ...rawData?.preferPublicSends,
+        [networkId]: preferPublic,
+      },
+    }));
   }
 
   async getRuntimeSchemaVersion({

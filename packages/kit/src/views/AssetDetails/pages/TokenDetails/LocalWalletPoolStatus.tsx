@@ -14,6 +14,7 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import {
   EAppEventBusNames,
@@ -31,6 +32,7 @@ import {
   BirthdayDialogForm,
   type IBirthdayFormState,
   LocalWalletDebugControl,
+  PrivacyEnableDisclosure,
   ScanRepairControl,
   SetupRepairControl,
 } from './LocalWalletRepairControls';
@@ -55,16 +57,17 @@ export function LocalWalletPoolStatus({
   const intl = useIntl();
   const navigation = useAppNavigation();
 
+  // The network-wide page, not this account's: from a token page the next
+  // question is usually "what is this chain doing on my device", and every
+  // account's own controls are one tap further in.
   const openSettings = useCallback(() => {
     navigation.pushModal(EModalRoutes.AccountManagerStacks, {
-      screen: EAccountManagerStacksRoutes.PrivacyNetworkAccount,
+      screen: EAccountManagerStacksRoutes.PrivacyNetworks,
       params: {
-        accountId,
-        accountName: lw.accountName || '',
-        networkId,
+        walletId: accountUtils.getWalletIdFromAccountId({ accountId }),
       },
     });
-  }, [accountId, lw.accountName, navigation, networkId]);
+  }, [accountId, navigation]);
 
   const handleGuardError = useCallback(
     (error: unknown): boolean => {
@@ -97,7 +100,14 @@ export function LocalWalletPoolStatus({
     [intl, lw],
   );
 
-  const handleEnable = useCallback(() => {
+  const handleEnable = useCallback(async () => {
+    // Same warning threshold as the settings page: read the live count rather
+    // than assume, so a user who already scans several accounts is told before
+    // adding another.
+    const usage =
+      await backgroundApiProxy.servicePrivacyChain.getLocalWalletSlotUsage({
+        networkId,
+      });
     if (!lw.settings?.accountSetup.requiresBirthday) {
       void lw.enableAccount({});
       return;
@@ -112,11 +122,17 @@ export function LocalWalletPoolStatus({
       },
     };
     Dialog.confirm({
-      title: intl.formatMessage({ id: ETranslations.trade_privacy_mode }),
-      description: intl.formatMessage({
-        id: ETranslations.trade_privacy_mode_tooltips,
-      }),
-      renderContent: <BirthdayDialogForm formRef={formRef} monthOnly />,
+      title: intl.formatMessage({ id: ETranslationsMock.privacy_enable_title }),
+      renderContent: (
+        <YStack gap="$4">
+          <PrivacyEnableDisclosure
+            hasRecommendedMonth={typeof hintTimestamp === 'number'}
+            isTempWallet={lw.isTempWallet}
+            enabledAccountCount={usage.used}
+          />
+          <BirthdayDialogForm formRef={formRef} monthOnly />
+        </YStack>
+      ),
       onConfirmText: intl.formatMessage({ id: ETranslations.global_enable }),
       onConfirm: async ({ preventClose }) => {
         const { month } = formRef.current;
@@ -133,7 +149,7 @@ export function LocalWalletPoolStatus({
         });
       },
     });
-  }, [intl, lw]);
+  }, [intl, lw, networkId]);
 
   const handleResume = useCallback(async () => {
     try {
@@ -153,9 +169,11 @@ export function LocalWalletPoolStatus({
 
   const handleReset = useCallback(() => {
     Dialog.confirm({
-      title: intl.formatMessage({ id: ETranslations.settings_data }),
+      title: intl.formatMessage({
+        id: ETranslationsMock.privacy_reset_cache_title,
+      }),
       description: intl.formatMessage({
-        id: ETranslations.settings_clear_data_confirm,
+        id: ETranslationsMock.privacy_reset_cache_desc,
       }),
       onConfirmText: intl.formatMessage({ id: ETranslations.global_reset }),
       onConfirm: async () => {
@@ -170,9 +188,11 @@ export function LocalWalletPoolStatus({
 
   const handleDelete = useCallback(() => {
     Dialog.confirm({
-      title: intl.formatMessage({ id: ETranslations.settings_data }),
+      title: intl.formatMessage({
+        id: ETranslationsMock.privacy_delete_data_title,
+      }),
       description: intl.formatMessage({
-        id: ETranslations.settings_clear_data_confirm,
+        id: ETranslationsMock.privacy_delete_data_desc,
       }),
       tone: 'destructive',
       onConfirmText: intl.formatMessage({ id: ETranslations.global_delete }),
@@ -186,7 +206,8 @@ export function LocalWalletPoolStatus({
     });
   }, [handleGuardError, intl, lw]);
 
-  if (!lw.hasPooledBalance || !lw.isStateSettled) {
+  // One gate for the whole private UI: see `isReady` in useLocalWalletPool.
+  if (!lw.hasPooledBalance || !lw.isReady) {
     return null;
   }
 
@@ -225,7 +246,9 @@ export function LocalWalletPoolStatus({
                   ? intl.formatMessage({
                       id: ETranslationsMock.privacy_local_scanning_paused_desc,
                     })
-                  : `Local scanning is off. Enable it to view this pool's balance, receive address, and history.`}
+                  : intl.formatMessage({
+                      id: ETranslationsMock.privacy_pool_scanning_off_desc,
+                    })}
               </SizableText>
             </YStack>
           </XStack>
@@ -279,13 +302,17 @@ export function LocalWalletPoolStatus({
   if (!lw.addresses && lw.hasAttemptedBalance) {
     balanceNote = (
       <SizableText size="$bodySm" color="$textCaution">
-        Setup was not completed — tap Repair to complete it.
+        {intl.formatMessage({
+          id: ETranslationsMock.privacy_pool_setup_incomplete,
+        })}
       </SizableText>
     );
   } else if (!lw.balance && lw.hasAttemptedBalance) {
     balanceNote = (
       <SizableText size="$bodySm" color="$textCritical">
-        Balance unavailable — retrying in background
+        {intl.formatMessage({
+          id: ETranslationsMock.privacy_pool_balance_unavailable,
+        })}
       </SizableText>
     );
   } else if (
@@ -296,130 +323,73 @@ export function LocalWalletPoolStatus({
   ) {
     balanceNote = (
       <SizableText size="$bodySm" color="$textSubdued">
-        Received funds before importing? Move the scan start back with Repair.
+        {intl.formatMessage({
+          id: ETranslationsMock.privacy_pool_early_funds_hint,
+        })}
       </SizableText>
     );
   }
 
-  const hintText = lw.poolBalance?.hints.join(' · ');
-  let syncActions: React.ReactNode;
-  if (lw.addresses) {
-    syncActions = (
-      <>
-        <Button
-          testID="local-wallet-sync-now-btn"
-          size="small"
-          variant="tertiary"
-          onPress={lw.startSync}
-        >
-          Sync
-        </Button>
-        {settingsMode ? (
-          <ScanRepairControl
-            networkId={networkId}
-            accountId={accountId}
-            currentBirthdayHeight={lw.state?.birthdayHeight}
-            onDone={lw.refresh}
-          />
-        ) : (
-          <Button
-            testID="local-wallet-open-settings-btn"
-            size="small"
-            variant="tertiary"
-            onPress={openSettings}
-          >
-            {intl.formatMessage({ id: ETranslations.global_settings })}
-          </Button>
-        )}
-      </>
-    );
-  } else if (settingsMode) {
-    syncActions = (
+  // One line only, and a problem outranks a breakdown: `balanceNote` explains
+  // why the number above may be wrong, the hint only explains how it is made
+  // up. `hints` is ordered most-specific-first by the vault, so [0] is the one
+  // worth the line.
+  const hintText = lw.poolBalance?.hints[0];
+  const hintLine = hintText ? (
+    <SizableText size="$bodySm" color="$textSubdued" numberOfLines={1}>
+      {hintText}
+    </SizableText>
+  ) : null;
+  const statusLine = (lw.pool ? balanceNote : null) ?? hintLine;
+  // Repair controls only. On the token page the sync line and its settings
+  // shortcut live under the address (LocalWalletSyncRow), and a manual boost
+  // is still one tap away there, on the sync light, and automatic when a send
+  // is being composed.
+  let syncActions: React.ReactNode = null;
+  if (settingsMode) {
+    syncActions = lw.addresses ? (
+      <ScanRepairControl
+        networkId={networkId}
+        accountId={accountId}
+        currentBirthdayHeight={lw.state?.birthdayHeight}
+        onDone={lw.refresh}
+      />
+    ) : (
       <SetupRepairControl
         networkId={networkId}
         accountId={accountId}
         onDone={lw.refresh}
       />
     );
-  } else {
-    syncActions = (
-      <Button
-        testID="local-wallet-open-settings-btn"
-        size="small"
-        variant="tertiary"
-        onPress={openSettings}
-      >
-        {intl.formatMessage({ id: ETranslations.global_settings })}
-      </Button>
-    );
   }
 
   return (
     <YStack pt="$3" gap="$2">
-      {hintText ? (
-        <SizableText size="$bodySm" color="$textSubdued">
-          {hintText}
-        </SizableText>
-      ) : null}
-      {lw.pool ? balanceNote : null}
+      {/* One line, and its height is reserved: this appears and disappears as
+          polling updates the balance, and an unreserved line makes everything
+          below it jump on every poll. */}
+      <Stack minHeight="$5" justifyContent="center">
+        {statusLine}
+      </Stack>
       {settingsMode ? (
         <XStack
-          py="$1"
-          alignItems="center"
+          pt="$1"
           justifyContent="space-between"
-          gap="$3"
+          alignItems="center"
+          gap="$2"
         >
-          <YStack flex={1} gap="$1">
-            <SizableText size="$bodyMdMedium">
-              Use {lw.settings?.addressForms.publicLabel.toLowerCase()} funds
-              first
+          {lw.syncStatusText ? (
+            <SizableText size="$bodySm" color="$textSubdued" flexShrink={1}>
+              {lw.syncStatusText}
             </SizableText>
-            <SizableText size="$bodySm" color="$textSubdued">
-              For sends to private addresses, spend public funds before the
-              selected private pool. This links the public address to that
-              transaction.{' '}
-              {intl.formatMessage(
-                {
-                  id: ETranslationsMock.privacy_prefer_public_change_note,
-                  defaultMessage:
-                    ETranslationsMock.privacy_prefer_public_change_note,
-                },
-                {
-                  poolLabel:
-                    lw.settings?.pools.find((item) => item.isDefaultPrivate)
-                      ?.label ?? 'default private',
-                },
-              )}
-            </SizableText>
-          </YStack>
-          <Switch
-            testID="local-wallet-prefer-public-switch"
-            size={ESwitchSize.small}
-            value={lw.state?.preferPublicSends === true}
-            disabled={lw.busy}
-            onChange={(next) => {
-              void lw.setPreferPublicSends(next);
-            }}
-          />
+          ) : (
+            <Stack />
+          )}
+          <XStack gap="$2" alignItems="center">
+            {syncActions}
+          </XStack>
         </XStack>
       ) : null}
-      <XStack
-        pt="$1"
-        justifyContent="space-between"
-        alignItems="center"
-        gap="$2"
-      >
-        {lw.syncStatusText ? (
-          <SizableText size="$bodySm" color="$textSubdued" flexShrink={1}>
-            {lw.syncStatusText}
-          </SizableText>
-        ) : (
-          <Stack />
-        )}
-        <XStack gap="$2" alignItems="center">
-          {syncActions}
-        </XStack>
-      </XStack>
       {settingsMode ? (
         <>
           <XStack gap="$2" flexWrap="wrap">
@@ -468,5 +438,66 @@ export function LocalWalletPoolStatus({
         </>
       ) : null}
     </YStack>
+  );
+}
+
+// Scan progress for the whole chain, plus the shortcut to its settings.
+// It sits under the ADDRESS, not under the balance: how far this device has
+// scanned is a fact about the chain, not about the number above. What the
+// balance needs explained stays with the balance (see `statusLine`).
+//
+// The row keeps its height whether or not there is text, so the history list
+// below it does not move on every poll.
+export function LocalWalletSyncRow({
+  networkId,
+  accountId,
+  pool: lw,
+}: {
+  networkId: string;
+  accountId: string;
+  pool: ILocalWalletPool;
+}) {
+  const intl = useIntl();
+  const navigation = useAppNavigation();
+
+  const openSettings = useCallback(() => {
+    navigation.pushModal(EModalRoutes.AccountManagerStacks, {
+      screen: EAccountManagerStacksRoutes.PrivacyNetworks,
+      params: {
+        walletId: accountUtils.getWalletIdFromAccountId({ accountId }),
+      },
+    });
+  }, [accountId, navigation]);
+
+  if (!lw.hasPooledBalance || !lw.isReady || !lw.enabled) {
+    return null;
+  }
+
+  return (
+    <XStack
+      testID="local-wallet-sync-row"
+      px="$5"
+      minHeight="$9"
+      alignItems="center"
+      justifyContent="space-between"
+      gap="$2"
+    >
+      <SizableText
+        size="$bodySm"
+        color="$textSubdued"
+        flexShrink={1}
+        numberOfLines={1}
+      >
+        {lw.syncStatusText}
+      </SizableText>
+      <Button
+        testID="local-wallet-open-settings-btn"
+        size="small"
+        variant="tertiary"
+        onPress={openSettings}
+      >
+        {intl.formatMessage({ id: ETranslations.global_settings })}
+      </Button>
+    </XStack>
   );
 }

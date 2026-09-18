@@ -25,31 +25,31 @@ function pool(spendable: string): IZcashPoolDetail {
   };
 }
 
+// The scanner snapshot is shielded-only now. `transparent` still describes
+// the account, so it rides along on a test-only field that the indexer mock
+// below reads -- keeping every case's "this account has N transparent"
+// readable at the call site.
+type ITestBalance = IZcashBalance & { transparentForTest: string };
+
 function balance(
   ironwood: string,
   transparent: string,
   orchard = '0',
-): IZcashBalance {
+): ITestBalance {
   const shielded = String(BigInt(ironwood) + BigInt(orchard));
   return {
     shielded,
-    transparent,
     spendable: shielded,
-    total: String(BigInt(shielded) + BigInt(transparent)),
     pendingChange: '0',
     pendingSpendable: '0',
     orchardBalance: orchard,
     ironwoodBalance: ironwood,
-    transparentBalance: transparent,
     shieldedSpendable: shielded,
-    transparentRegularBalance: transparent,
-    transparentCoinbaseBalance: '0',
     poolsDetail: {
       ironwood: pool(ironwood),
       orchard: pool(orchard),
-      transparentRegular: pool(transparent),
-      transparentCoinbase: pool('0'),
     },
+    transparentForTest: transparent,
   };
 }
 
@@ -59,6 +59,14 @@ describe('Zcash send amount intent', () => {
     preferTransparent = false,
   ) {
     const quotePczt = jest.fn().mockResolvedValue({ feeZat: '10000' });
+    // Shape must match IZcashSdkApi: the feed loop repeats while the runtime
+    // reports work it could not finish, so a mock without those counters would
+    // make it spin.
+    const refreshTransparentUtxos = jest.fn().mockResolvedValue({
+      addresses: 1,
+      deferredUtxos: 0,
+      rejectedUtxos: 0,
+    });
     const assertNoUnresolvedBroadcast = jest.fn(async () => undefined);
     const account = { id: 'test-account' };
     const vault: Vault = Object.assign(
@@ -68,6 +76,9 @@ describe('Zcash send amount intent', () => {
         zcashAssertNoUnresolvedBroadcast: assertNoUnresolvedBroadcast,
         backgroundApi: {
           simpleDb: {
+            privacyChain: {
+              getPreferPublicSends: async () => preferTransparent,
+            },
             zcash: {
               getPrivacyModeState: async () => ({
                 intent: 'on',
@@ -77,17 +88,40 @@ describe('Zcash send amount intent', () => {
           },
           serviceAccount: { getDBAccount: async () => account },
         },
-        zcashGetApi: async () => ({ quotePczt }),
+        zcashGetApi: async () => ({ quotePczt, refreshTransparentUtxos }),
         zcashGetWalletAccount: async () => account,
         zcashGetBalanceSafe: async () => snapshot,
         getLocalWalletBalance: async () => snapshot,
-        zcashGetIndexerTransparentBalance: async () => ({
-          total: new BigNumber('500000000'),
-          spendable: new BigNumber('500000000'),
-        }),
+        // The public half is indexer-owned; the scanner snapshot no longer
+        // carries it. Drive it from the same fixture so a case that says
+        // "this account has N transparent" still means that.
+        zcashGetIndexerTransparentBalance: async () => {
+          const transparent = new BigNumber(
+            (snapshot as ITestBalance | null)?.transparentForTest ??
+              '500000000',
+          );
+          return {
+            total: transparent,
+            spendable: transparent,
+            runtimeUtxos: [
+              {
+                txid: 'aa'.repeat(32),
+                vout: 0,
+                valueZat: transparent.toFixed(0),
+                scriptPubKey: `76a914${'11'.repeat(20)}88ac`,
+                height: 2_000_000,
+              },
+            ],
+          };
+        },
       },
     );
-    return { vault, quotePczt, assertNoUnresolvedBroadcast };
+    return {
+      vault,
+      quotePczt,
+      refreshTransparentUtxos,
+      assertNoUnresolvedBroadcast,
+    };
   }
 
   it('keeps indexer funds spendable when the privacy scanner is unavailable', async () => {
@@ -230,6 +264,63 @@ describe('Zcash send amount intent', () => {
     );
   });
 
+  it('hands the runtime the indexer UTXOs once before probing Max', async () => {
+    const { vault, quotePczt, refreshTransparentUtxos } = createVault(
+      balance('0', '200000000', '300000000'),
+      true,
+    );
+    // Two probes, one feed: the runtime selects from what it was handed, and
+    // the probes differ only in amount.
+    quotePczt
+      .mockResolvedValueOnce({ feeZat: '5000' })
+      .mockResolvedValue({ feeZat: '10000' });
+
+    await vault.buildEncodedTx(request('2', true));
+
+    // One round, because the runtime reported nothing deferred.
+    expect(refreshTransparentUtxos).toHaveBeenCalledTimes(1);
+    expect(refreshTransparentUtxos).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        utxos: [expect.objectContaining({ valueZat: '200000000' })],
+      }),
+    );
+  });
+
+  it('keeps feeding until the runtime reports nothing deferred', async () => {
+    const { vault, refreshTransparentUtxos } = createVault(
+      balance('0', '200000000', '300000000'),
+      true,
+    );
+    // The runtime fetches a bounded number of parent transactions per round.
+    // Stopping at the first round would leave those UTXOs out of the proposal,
+    // which under-reports spendable and silently shrinks Max.
+    refreshTransparentUtxos
+      .mockResolvedValueOnce({
+        addresses: 1,
+        deferredUtxos: 9,
+        rejectedUtxos: 0,
+      })
+      .mockResolvedValueOnce({
+        addresses: 1,
+        deferredUtxos: 2,
+        rejectedUtxos: 0,
+      })
+      .mockResolvedValue({ addresses: 1, deferredUtxos: 0, rejectedUtxos: 0 });
+
+    await vault.buildEncodedTx(request('2', true));
+
+    expect(refreshTransparentUtxos).toHaveBeenCalledTimes(3);
+  });
+
+  it('does not hand the runtime anything for a shielded-only Max', async () => {
+    const { vault, refreshTransparentUtxos } = createVault(
+      balance('100000000', '200000000'),
+    );
+    await vault.buildEncodedTx(request('1', true));
+    expect(refreshTransparentUtxos).not.toHaveBeenCalled();
+  });
+
   it('keeps a withdrawal limited to its shielded pool even when transparent-first is enabled', async () => {
     const { vault } = createVault(balance('100000000', '200000000'), true);
     const encoded = await vault.buildEncodedTx(
@@ -296,10 +387,12 @@ describe('Zcash send amount intent', () => {
     expect(
       withdrawal?.find((item) => item.key === 'ironwood')?.spendableParsed,
     ).toBe('1');
-    // The transparent builder still uses the indexer, not the scan snapshot.
+    // One source for both: the transparent-first bonus above and the
+    // transparent pool here read the same indexer snapshot, so the ceiling the
+    // amount page shows cannot drift from the one Max converges against.
     expect(
       shielded?.find((item) => item.key === 'transparent')?.spendableParsed,
-    ).toBe('5');
+    ).toBe('2');
   });
 });
 
@@ -324,6 +417,9 @@ describe('Zcash transparent send amount intent', () => {
         accountId: 'test-account',
         backgroundApi: {
           simpleDb: {
+            privacyChain: {
+              getPreferPublicSends: async () => false,
+            },
             zcash: {
               getPrivacyModeState: async () => ({ intent: 'off' }),
               pruneExpiredTransparentState: jest.fn(),

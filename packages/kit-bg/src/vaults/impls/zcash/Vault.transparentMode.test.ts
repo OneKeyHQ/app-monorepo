@@ -38,6 +38,9 @@ describe('Zcash Transparent Mode runtime boundary', () => {
       networkId: 'zec--0',
       backgroundApi: {
         simpleDb: {
+          privacyChain: {
+            getPreferPublicSends: async () => false,
+          },
           zcash: {
             getPrivacyModeState: jest.fn(async () => ({ intent: 'off' })),
           },
@@ -204,6 +207,9 @@ describe('Zcash hardware account address authority', () => {
       networkId: 'zec--0',
       backgroundApi: {
         simpleDb: {
+          privacyChain: {
+            getPreferPublicSends: async () => false,
+          },
           zcash: {
             getAccountMeta: jest.fn(async () => staleMeta),
             saveAccountMeta: jest.fn(async () => undefined),
@@ -248,6 +254,9 @@ describe('Zcash hardware transparent send', () => {
       keyring: Object.create(KeyringHardware.prototype) as KeyringHardware,
       backgroundApi: {
         simpleDb: {
+          privacyChain: {
+            getPreferPublicSends: async () => false,
+          },
           zcash: {
             getPrivacyModeState: jest.fn(async () => ({ intent: 'off' })),
           },
@@ -329,6 +338,9 @@ describe('Zcash private history detail routing', () => {
       networkId: params.networkId,
       backgroundApi: {
         simpleDb: {
+          privacyChain: {
+            getPreferPublicSends: async () => false,
+          },
           zcash: {
             getPrivacyModeState: jest.fn(async () => ({ intent: 'on' })),
           },
@@ -534,6 +546,9 @@ describe('Zcash history detail pool split', () => {
       networkId: baseParams.networkId,
       backgroundApi: {
         simpleDb: {
+          privacyChain: {
+            getPreferPublicSends: async () => false,
+          },
           zcash: {
             getPrivacyModeState: jest.fn(async () => ({ intent: 'on' })),
           },

@@ -37,13 +37,12 @@ import {
   getPendingBroadcasts,
   provePczt,
   quotePczt,
-  quoteShieldFunds,
   releasePczt,
-  shieldFunds,
 } from './send';
 import {
   dropWalletDatabase,
   getBalance,
+  getEndpointHealth,
   getHistory,
   getRuntimeVersions,
   getSyncProgress,
@@ -279,6 +278,7 @@ const api: IZcashSdkApi = {
   prepareWalletAccounts: leased(prepareWalletAccounts),
   syncWallet: leased(syncWallet),
   queueRescanFrom: leased(queueRescanFrom),
+  getEndpointHealth,
   refreshTransparentUtxos: leased(refreshTransparentUtxos),
   // Lock-free when the wallet database is already open -- see
   // readOnlyOrLeased above. These are the three surfaces a user stares at.
@@ -312,9 +312,7 @@ const api: IZcashSdkApi = {
   createPczt: leased(createPczt),
   finalizePczt: leased(finalizePczt),
   broadcastPczt: leased(broadcastPczt),
-  shieldFunds: leased(shieldFunds),
   quotePczt: leased(quotePczt),
-  quoteShieldFunds: leased(quoteShieldFunds),
   provePczt: leased(provePczt),
   releasePczt: leased(releasePczt),
   purgeWallet: leased(purgeWallet),
