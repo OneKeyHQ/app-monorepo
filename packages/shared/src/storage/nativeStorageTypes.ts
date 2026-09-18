@@ -20,6 +20,14 @@ export type INativeSWRCacheCanonicalEntry = readonly [
   key: string,
   serializedEntry: string | null,
 ];
+export type INativeSWRCacheSerializedEntry = readonly [
+  key: string,
+  serializedEntry: string,
+];
+// `null` means the whole store was replaced and must be read again.
+export type INativeSWRCacheEntriesListener = (
+  entries: INativeSWRCacheCanonicalEntry[] | null,
+) => void;
 
 export type INativeSyncStorageLocalMutation =
   | {
@@ -43,6 +51,7 @@ export type INativeStorageBootstrapSnapshot = {
   settings: INativeSyncStorageEntry[];
   coldStart: INativeSyncStorageEntry[];
   devSettings: INativeSyncStorageEntry[];
+  swrCacheEntries?: INativeSWRCacheSerializedEntry[];
 };
 
 export type INativeStorageMigrationRecoveryTarget = 'appStorage' | 'jotai';
