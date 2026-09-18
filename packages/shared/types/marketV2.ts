@@ -584,6 +584,7 @@ export interface IMarketBasicConfigData {
   perpsCategories?: IMarketPerpsCategory[];
   spotCategories?: IMarketSpotCategory[];
   stockCategories?: IMarketStockCategory[];
+  assetCategories?: IMarketAssetCategory[];
 }
 
 export type IMarketBasicConfigHomeTabType =
@@ -621,6 +622,13 @@ export type IMarketStockCategoryId =
 
 export interface IMarketStockCategory {
   category: IMarketStockCategoryId;
+  name: string;
+  tokenCount: number;
+}
+
+// Top coins sub-categories; `all` is the unfiltered list.
+export interface IMarketAssetCategory {
+  category: string;
   name: string;
   tokenCount: number;
 }

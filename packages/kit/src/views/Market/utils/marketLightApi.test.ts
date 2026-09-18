@@ -67,6 +67,39 @@ describe('marketLightApi', () => {
     });
   });
 
+  it('keeps a separate Top Coins cache entry per sub-category type', async () => {
+    const chains = { list: [], total: 15 };
+    const defi = { list: [], total: 7 };
+    mockGet
+      .mockResolvedValueOnce({ data: { data: chains } })
+      .mockResolvedValueOnce({ data: { data: defi } });
+
+    await expect(
+      fetchMarketAssetListLight({ type: 'chains_cache_test' }),
+    ).resolves.toBe(chains);
+    await expect(
+      fetchMarketAssetListLight({ type: 'defi_cache_test' }),
+    ).resolves.toBe(defi);
+    await expect(
+      fetchMarketAssetListLight({
+        currency: 'usd',
+        limit: 100,
+        page: 1,
+        type: 'chains_cache_test',
+      }),
+    ).resolves.toBe(chains);
+
+    expect(mockGet).toHaveBeenCalledTimes(2);
+    expect(mockGet).toHaveBeenLastCalledWith('/utility/v1/market/asset/list', {
+      params: {
+        currency: 'usd',
+        limit: 100,
+        page: 1,
+        type: 'defi_cache_test',
+      },
+    });
+  });
+
   it('fetches a watchlist batch without the background API', async () => {
     const data = { list: [] };
     const tokenAddressList = [

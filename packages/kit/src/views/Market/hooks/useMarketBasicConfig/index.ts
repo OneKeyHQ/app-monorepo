@@ -5,6 +5,7 @@ import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { swrKeys } from '@onekeyhq/shared/src/utils/swrCacheUtils';
 import type {
+  IMarketAssetCategory,
   IMarketBasicConfigHomeTab,
   IMarketBasicConfigNetwork,
   IMarketBasicConfigToken,
@@ -27,6 +28,7 @@ const EMPTY_NETWORKS: IMarketBasicConfigNetwork[] = [];
 const EMPTY_PERPS_CATEGORIES: IMarketPerpsCategory[] = [];
 const EMPTY_SPOT_CATEGORIES: IMarketSpotCategory[] = [];
 const EMPTY_STOCK_CATEGORIES: IMarketStockCategory[] = [];
+const EMPTY_ASSET_CATEGORIES: IMarketAssetCategory[] = [];
 const EMPTY_HOME_TABS: IMarketBasicConfigHomeTab[] = [];
 
 /**
@@ -61,6 +63,7 @@ export function useMarketBasicConfig() {
         const perpsCategories = configData.perpsCategories ?? [];
         const spotCategories = configData.spotCategories ?? [];
         const stockCategories = configData.stockCategories ?? [];
+        const assetCategories = configData.assetCategories ?? [];
         return {
           // Raw config data
           basicConfig: configData,
@@ -75,6 +78,7 @@ export function useMarketBasicConfig() {
           perpsCategories,
           spotCategories,
           stockCategories,
+          assetCategories,
         };
       } finally {
         if (currentScopeRef.current === requestScope)
@@ -114,5 +118,6 @@ export function useMarketBasicConfig() {
     perpsCategories: result?.perpsCategories ?? EMPTY_PERPS_CATEGORIES,
     spotCategories: result?.spotCategories ?? EMPTY_SPOT_CATEGORIES,
     stockCategories: result?.stockCategories ?? EMPTY_STOCK_CATEGORIES,
+    assetCategories: result?.assetCategories ?? EMPTY_ASSET_CATEGORIES,
   };
 }

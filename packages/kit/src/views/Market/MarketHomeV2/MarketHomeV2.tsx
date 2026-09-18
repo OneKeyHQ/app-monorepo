@@ -74,6 +74,7 @@ const useMarketHomeLayoutProps = () => {
     formattedMinLiquidity,
     spotCategories: apiSpotCategories,
     stockCategories: apiStockCategories,
+    assetCategories: apiAssetCategories,
     isLoading: isMarketBasicConfigLoading,
   } = useMarketBasicConfig();
   const [selectedNetworkId, setSelectedNetworkId] = useSelectedNetworkIdAtom();
@@ -167,6 +168,15 @@ const useMarketHomeLayoutProps = () => {
         name: category.name,
       })),
     [apiStockCategories],
+  );
+
+  const topCoinsCategories: IMarketCategoryItem[] = useMemo(
+    () =>
+      apiAssetCategories.map((category) => ({
+        id: category.category,
+        name: category.name,
+      })),
+    [apiAssetCategories],
   );
 
   const spotCategoryToRestore = spotCategoryToSelect ?? selectedSpotCategory;
@@ -303,6 +313,7 @@ const useMarketHomeLayoutProps = () => {
         selectedCategory,
         categories,
         stockCategories,
+        topCoinsCategories,
         onCategoryChange: applySelectedCategory,
       },
       selectedNetworkId: effectiveSelectedNetworkId,
@@ -318,6 +329,7 @@ const useMarketHomeLayoutProps = () => {
       selectedCategory,
       categories,
       stockCategories,
+      topCoinsCategories,
       applySelectedCategory,
     ],
   );

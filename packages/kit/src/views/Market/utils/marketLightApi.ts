@@ -175,28 +175,27 @@ const fetchMarketTokenListLight = async (
   return seedPromise.catch(() => remotePromise);
 };
 
+type IMarketAssetListLightParams = {
+  currency?: string;
+  type?: string;
+  page?: number;
+  limit?: number;
+};
+
+const normalizeMarketAssetListLightParams = ({
+  currency = 'usd',
+  type = 'top_coins',
+  page = 1,
+  limit = 100,
+}: IMarketAssetListLightParams = {}) => ({ currency, type, page, limit });
+
 const fetchMarketAssetListLight = memoizee(
-  async ({
-    currency = 'usd',
-    type = 'top_coins',
-    page = 1,
-    limit = 100,
-  }: {
-    currency?: string;
-    type?: string;
-    page?: number;
-    limit?: number;
-  } = {}) => {
+  async (params: IMarketAssetListLightParams = {}) => {
     const client = await getUtilityClient();
     const response = await client.get<IApiClientResponse<IMarketAssetListData>>(
       '/utility/v1/market/asset/list',
       {
-        params: {
-          currency,
-          type,
-          page,
-          limit,
-        },
+        params: normalizeMarketAssetListLightParams(params),
       },
     );
     return response.data.data;
@@ -204,6 +203,13 @@ const fetchMarketAssetListLight = memoizee(
   {
     maxAge: timerUtils.getTimeDurationMs({ seconds: 20 }),
     promise: true,
+    // The optional parameter gives the function a length of 0, so without a
+    // normalizer memoizee would share one entry across every `type`.
+    normalizer: ([params]) => {
+      const { currency, type, page, limit } =
+        normalizeMarketAssetListLightParams(params);
+      return `${currency}:${type}:${page}:${limit}`;
+    },
   },
 );
 
