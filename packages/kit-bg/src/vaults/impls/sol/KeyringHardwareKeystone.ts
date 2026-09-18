@@ -4,13 +4,17 @@ import bs58 from 'bs58';
 import { parseToNativeTx } from '@onekeyhq/core/src/chains/sol/sdkSol/parse';
 import type { IEncodedTxSol } from '@onekeyhq/core/src/chains/sol/types';
 import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
+import { verify as verifyCurveSignature } from '@onekeyhq/core/src/secret';
 import type {
   ICoreApiGetAddressItem,
   ISignedMessagePro,
   ISignedTxPro,
 } from '@onekeyhq/core/src/types';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
-import { ThirdPartyMethodNotSupported } from '@onekeyhq/shared/src/errors/errors/thirdPartyHardwareErrors';
+import {
+  ThirdPartyDeviceMismatch,
+  ThirdPartyMethodNotSupported,
+} from '@onekeyhq/shared/src/errors/errors/thirdPartyHardwareErrors';
 import { convertThirdPartyDeviceError } from '@onekeyhq/shared/src/errors/utils/thirdPartyDeviceErrorUtils';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
@@ -160,15 +164,53 @@ export class KeyringHardwareKeystone extends KeyringHardwareBase {
     }
 
     const { signature } = result.payload;
-    transaction.addSignature(feePayerPublicKey, Buffer.from(signature, 'hex'));
+    const signatureBuffer = Buffer.from(signature, 'hex');
+    // Keystone answers over QR, so nothing online proves the scan came from
+    // this wallet. Reject a signature the signer key cannot verify.
+    this._assertSignatureMatchesSigner({
+      signerPublicKey: feePayerPublicKey,
+      messageBuffer: Buffer.from(rawTx, 'hex'),
+      signatureBuffer,
+    });
+    transaction.addSignature(feePayerPublicKey, signatureBuffer);
 
     return {
-      txid: bs58.encode(Buffer.from(signature, 'hex')),
+      txid: bs58.encode(signatureBuffer),
       encodedTx,
       rawTx: Buffer.from(
         transaction.serialize({ requireAllSignatures: false }),
       ).toString('base64'),
     };
+  }
+
+  private _assertSignatureMatchesSigner({
+    signerPublicKey,
+    messageBuffer,
+    signatureBuffer,
+  }: {
+    signerPublicKey: PublicKey;
+    messageBuffer: Buffer;
+    signatureBuffer: Buffer;
+  }) {
+    let matched = false;
+    try {
+      matched = verifyCurveSignature(
+        'ed25519',
+        signerPublicKey.toBuffer(),
+        messageBuffer,
+        signatureBuffer,
+      );
+    } catch {
+      // A malformed signature or key never verifies; treat it as a mismatch.
+      matched = false;
+    }
+    if (!matched) {
+      throw new ThirdPartyDeviceMismatch({
+        vendor: VENDOR_ERROR_CONTEXT.vendor,
+        autoToast: true,
+        payload: {},
+      });
+    }
   }
 
   override async signMessage(
