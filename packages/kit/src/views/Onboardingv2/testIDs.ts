@@ -124,6 +124,18 @@ export const OnboardingTestIDs = {
   connectQRCodePage: 'onboarding-connect-qr-code-page',
   connectQRCodeScanBtn: 'onboarding-connect-qr-code-scan-btn',
 
+  // Connect external wallet flow
+  connectExternalWalletNetworkEvm:
+    'onboarding-connect-external-wallet-network-evm',
+  connectExternalWalletWalletConnect:
+    'onboarding-connect-external-wallet-walletconnect',
+  connectExternalWalletLoadingDialog:
+    'onboarding-connect-external-wallet-loading-dialog',
+  connectExternalWalletLoadingSpinner:
+    'onboarding-connect-external-wallet-loading-spinner',
+  connectExternalWalletLoadingMessage:
+    'onboarding-connect-external-wallet-loading-message',
+
   // Pick your device
   pickYourDeviceLegacyOptionBtn: (key: string) =>
     `onboarding-pick-your-device-legacy-${key}-btn`,
