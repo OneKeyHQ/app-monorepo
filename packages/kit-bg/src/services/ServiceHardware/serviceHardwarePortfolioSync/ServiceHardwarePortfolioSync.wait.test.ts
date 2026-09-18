@@ -127,7 +127,11 @@ describe('Portfolio v2 category retrieval', () => {
         data: {
           success: true,
           data: { totals: { netWorth: 20 } },
-          meta: { degraded: false, networkIds: ['evm--1'] },
+          meta: {
+            degraded: false,
+            networkIds: ['evm--1'],
+            requestedNetworkIds: ['evm--1'],
+          },
         },
       },
     });
@@ -204,7 +208,7 @@ describe('Portfolio v2 category retrieval', () => {
     };
   }
 
-  test('fetches USD net worth for the selected account and enabled networks', async () => {
+  test('fetches USD category net worth using the Home Perps snapshot policy', async () => {
     const mocks = prepare();
     await expect(
       mocks.internals.getPortfolioCategoryFiat(eventPayload),
@@ -240,7 +244,6 @@ describe('Portfolio v2 category retrieval', () => {
     });
     expect(mocks.getHyperliquidPortfolioSnapshot).toHaveBeenCalledWith({
       address: '0x3333',
-      force: true,
     });
   });
 
@@ -275,6 +278,81 @@ describe('Portfolio v2 category retrieval', () => {
       perpsFiat: '30',
     });
     expect(mocks.post).not.toHaveBeenCalled();
+  });
+
+  test('treats a confirmed zero DeFi response as zero', async () => {
+    const mocks = prepare();
+    mocks.post.mockResolvedValue({
+      data: {
+        data: {
+          success: true,
+          data: { totals: { netWorth: 0 } },
+          meta: {
+            degraded: false,
+            networkIds: [],
+            requestedNetworkIds: ['evm--1'],
+          },
+        },
+      },
+    });
+
+    await expect(
+      mocks.internals.getPortfolioCategoryFiat(eventPayload),
+    ).resolves.toEqual({
+      defiFiat: '0',
+      deFiSource: 'live',
+      perpsFiat: '30',
+    });
+  });
+
+  test('keeps DeFi unknown when the requested network is not confirmed', async () => {
+    const mocks = prepare();
+    mocks.post.mockResolvedValue({
+      data: {
+        data: {
+          success: true,
+          data: { totals: { netWorth: 0 } },
+          meta: {
+            degraded: false,
+            networkIds: ['evm--1'],
+            requestedNetworkIds: [],
+          },
+        },
+      },
+    });
+
+    await expect(
+      mocks.internals.getPortfolioCategoryFiat(eventPayload),
+    ).resolves.toEqual({
+      defiFiat: undefined,
+      deFiSource: 'unknown',
+      perpsFiat: '30',
+    });
+  });
+
+  test('rejects nonzero DeFi totals without actual network coverage', async () => {
+    const mocks = prepare();
+    mocks.post.mockResolvedValue({
+      data: {
+        data: {
+          success: true,
+          data: { totals: { netWorth: 20 } },
+          meta: {
+            degraded: false,
+            networkIds: [],
+            requestedNetworkIds: ['evm--1'],
+          },
+        },
+      },
+    });
+
+    await expect(
+      mocks.internals.getPortfolioCategoryFiat(eventPayload),
+    ).resolves.toEqual({
+      defiFiat: undefined,
+      deFiSource: 'unknown',
+      perpsFiat: '30',
+    });
   });
 
   test('treats a missing perps account row as zero instead of unknown', async () => {
@@ -397,7 +475,11 @@ describe('Portfolio v2 category retrieval', () => {
         data: {
           success: true,
           data: { totals: { netWorth: 20 } },
-          meta: { degraded: false, networkIds: ['evm--1'] },
+          meta: {
+            degraded: false,
+            networkIds: ['evm--1'],
+            requestedNetworkIds: ['evm--1'],
+          },
         },
       },
     });
@@ -445,7 +527,11 @@ describe('Portfolio v2 category retrieval', () => {
           data: {
             success: true,
             data: { totals: { netWorth: 20 } },
-            meta: { degraded: false, networkIds: ['evm--1'] },
+            meta: {
+              degraded: false,
+              networkIds: ['evm--1'],
+              requestedNetworkIds: ['evm--1'],
+            },
           },
         },
       })
@@ -495,7 +581,11 @@ describe('Portfolio v2 category retrieval', () => {
           data: {
             success: true,
             data: { totals: { netWorth: 20 } },
-            meta: { degraded: false, networkIds: ['evm--1'] },
+            meta: {
+              degraded: false,
+              networkIds: ['evm--1'],
+              requestedNetworkIds: ['evm--1'],
+            },
           },
         },
       })
@@ -579,7 +669,11 @@ describe('Portfolio v2 category retrieval', () => {
           data: {
             success: true,
             data: { totals: { netWorth: 20 } },
-            meta: { degraded: false, networkIds: ['evm--1'] },
+            meta: {
+              degraded: false,
+              networkIds: ['evm--1'],
+              requestedNetworkIds: ['evm--1'],
+            },
           },
         },
       })
@@ -620,7 +714,11 @@ describe('Portfolio v2 category retrieval', () => {
           data: {
             success: true,
             data: { totals: { netWorth: 20 } },
-            meta: { degraded: false, networkIds: ['btc--0'] },
+            meta: {
+              degraded: false,
+              networkIds: ['btc--0'],
+              requestedNetworkIds: ['btc--0'],
+            },
           },
         },
       })
@@ -647,7 +745,11 @@ describe('Portfolio v2 category retrieval', () => {
         data: {
           success: true,
           data: { totals: { netWorth: 20 } },
-          meta: { degraded: true, networkIds: ['evm--1'] },
+          meta: {
+            degraded: true,
+            networkIds: ['evm--1'],
+            requestedNetworkIds: ['evm--1'],
+          },
         },
       },
     });
