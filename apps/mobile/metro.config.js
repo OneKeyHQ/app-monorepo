@@ -210,6 +210,8 @@ const LEDGER_CJS_ENTRY_PACKAGES = [
   '@ledgerhq/device-management-kit',
   '@ledgerhq/device-signer-kit-ethereum',
   '@ledgerhq/device-signer-kit-solana',
+  '@ledgerhq/device-signer-kit-tron',
+  '@ledgerhq/device-signer-kit-zcash',
   '@ledgerhq/device-transport-kit-react-native-ble',
   '@ledgerhq/context-module',
   '@ledgerhq/signer-utils',

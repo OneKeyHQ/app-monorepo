@@ -7,6 +7,7 @@ import {
   checkBLEPermissions,
   checkBLEState,
 } from '@onekeyhq/shared/src/hardware/blePermissions';
+import { LEDGER_CONFIG } from '@onekeyhq/shared/src/hardware/config/ledger';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EHardwareVendor } from '@onekeyhq/shared/types/device';
@@ -157,27 +158,6 @@ export const thirdPartyHardwareAdapterRegistry = {
     const { TrezorAdapter: HwkTrezorAdapter } = trezorAdapterModule;
     const disposeSdkEvents =
       ensureTrezorSdkLogSubscription(trezorAdapterModule);
-    // Temporary transport switch for desktop. Other platform loaders take no
-    // arguments, so they ignore the hint. Set in DevTools:
-    //   localStorage.setItem('debug.trezor.transport', 'ble')   // switch to BLE
-    //   localStorage.removeItem('debug.trezor.transport')       // back to USB
-    // Once the proper UI transport picker lands this hack goes away.
-    let transportHint: 'ble' | undefined;
-    try {
-      if (
-        typeof globalThis !== 'undefined' &&
-        (globalThis as { localStorage?: Storage }).localStorage?.getItem(
-          'debug.trezor.transport',
-        ) === 'ble'
-      ) {
-        transportHint = 'ble';
-      }
-    } catch {
-      // Ignored: kit-bg might run somewhere without DOM (worker/SW).
-    }
-    defaultLogger.hardware.sdkLog.log(
-      `[3rdPartyHW][Registry] trezor transport hint=${transportHint ?? 'default(all)'}`,
-    );
     let connector: Awaited<ReturnType<typeof createTrezorConnector>>;
     if (platformEnv.isExtensionBackground) {
       const { getOffscreenHardwareBridgeClient } =
@@ -189,10 +169,8 @@ export const thirdPartyHardwareAdapterRegistry = {
       )({ bridge: getOffscreenHardwareBridgeClient() });
     } else {
       connector = await (
-        createTrezorConnector as (
-          t?: 'usb' | 'ble',
-        ) => ReturnType<typeof createTrezorConnector>
-      )(transportHint);
+        createTrezorConnector as () => ReturnType<typeof createTrezorConnector>
+      )();
     }
 
     // Warm-load persisted THP credentials before the first session. Credentials
@@ -202,11 +180,27 @@ export const thirdPartyHardwareAdapterRegistry = {
     // offscreen connector via the bridge; on other platforms it sets directly.
     // Either way, the next `ThpHandshakeInitRequest` ships these to the device
     // and the device routes to autoconnect, skipping CodeEntry / QrCode / NFC.
+    let knownDeviceConnections: Array<{
+      deviceId: string;
+      usbConnectId?: string;
+      bleConnectId?: string;
+    }> = [];
     try {
       const localDbModule =
         await import('@onekeyhq/kit-bg/src/dbs/local/localDb');
       const localDb = localDbModule.default;
       const { devices } = await localDb.getAllDevices();
+      const { thirdPartyTransportLocators } =
+        await import('@onekeyhq/kit-bg/src/vaults/base/thirdPartyHardwareCommonParams');
+      knownDeviceConnections = devices
+        .filter((device) => device.vendor === EHardwareVendor.trezor)
+        .map((device) => ({
+          deviceId: device.deviceId,
+          // Through the helper, not off the record: a wallet onboarded before
+          // the per-channel columns existed keeps its locator in the legacy
+          // column, and reading raw would warm-load it as "no connections".
+          ...thirdPartyTransportLocators(device),
+        }));
       // Only Trezor devices ever store thpCredentials, so presence is enough.
       const stored = devices.flatMap(
         (device) => device.settings?.thpCredentials ?? [],
@@ -233,8 +227,9 @@ export const thirdPartyHardwareAdapterRegistry = {
 
     const HwkTrezorAdapterCtor = HwkTrezorAdapter as unknown as new (
       adapterConnector: typeof connector,
+      options: { knownDeviceConnections: typeof knownDeviceConnections },
     ) => InstanceType<typeof HwkTrezorAdapter>;
-    const hw = new HwkTrezorAdapterCtor(connector);
+    const hw = new HwkTrezorAdapterCtor(connector, { knownDeviceConnections });
     await registerThirdPartyDevicePermissionHandler(hw, EHardwareVendor.trezor);
     defaultLogger.hardware.sdkLog.log(
       '[3rdPartyHW][Registry] trezor adapter ready',
@@ -267,12 +262,57 @@ export const thirdPartyHardwareAdapterRegistry = {
     // Auto-install a missing Ledger app in-flight: on AppNotInstalled the SDK
     // prompts (REQUEST_INSTALL_APP), installs with progress, then retries.
     // A specific call can opt out via commonParams.autoInstallApp = false.
-    const hw = new HwkLedgerAdapter(connector, { autoInstallApp: true });
+    const hw = new HwkLedgerAdapter(connector, {
+      autoInstallApp: LEDGER_CONFIG.autoInstallApp,
+    });
     await registerThirdPartyDevicePermissionHandler(hw, EHardwareVendor.ledger);
     defaultLogger.hardware.sdkLog.log(
       '[3rdPartyHW][Registry] ledger adapter ready',
     );
     return new LedgerAdapter(hw);
+  },
+  [EHardwareVendor.keystone]: async () => {
+    defaultLogger.hardware.sdkLog.log(
+      '[3rdPartyHW][Registry] keystone factory start',
+    );
+    const { KeystoneAdapter } = await import('./KeystoneAdapter');
+    const { KeystoneAdapter: HwkKeystoneAdapter } =
+      await import('@onekeyfe/hwk-keystone-adapter');
+    // Unsupported USB environments must not block QR-only usage, so fall back to undefined
+    // (matches the adapter's own "undefined usbConnector = QR-only" contract).
+    let usbConnector:
+      | Awaited<
+          ReturnType<
+            typeof import('@onekeyhq/shared/src/hardware/connector-loader/keystone').createKeystoneUsbConnector
+          >
+        >
+      | undefined;
+    try {
+      const { createKeystoneUsbConnector } =
+        await import('@onekeyhq/shared/src/hardware/connector-loader/keystone');
+      if (platformEnv.isExtensionBackground) {
+        const { getOffscreenHardwareBridgeClient } =
+          await import('./offscreenHardwareBridgeClient');
+        usbConnector = await (
+          createKeystoneUsbConnector as (options: {
+            bridge: IHardwareBridge;
+          }) => ReturnType<typeof createKeystoneUsbConnector>
+        )({ bridge: getOffscreenHardwareBridgeClient() });
+      } else {
+        usbConnector = await createKeystoneUsbConnector();
+      }
+    } catch (error) {
+      defaultLogger.hardware.sdkLog.log(
+        `[3rdPartyHW][Registry] keystone USB connector unavailable, QR-only: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      );
+    }
+    const hw = new HwkKeystoneAdapter({ origin: 'OneKey', usbConnector });
+    defaultLogger.hardware.sdkLog.log(
+      '[3rdPartyHW][Registry] keystone adapter ready',
+    );
+    return new KeystoneAdapter(hw);
   },
 } satisfies Partial<Record<EHardwareVendor, IThirdPartyHardwareAdapterFactory>>;
 

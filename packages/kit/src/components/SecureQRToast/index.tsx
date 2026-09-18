@@ -24,6 +24,7 @@ interface ISecureQRToastBaseProps {
   message?: string;
   value?: string;
   valueUr?: IQRCodeProps['valueUr'];
+  drawType?: IQRCodeProps['drawType'];
   showQRCode?: boolean;
   onConfirm?: () => void;
   onConfirmText?: string;
@@ -36,6 +37,7 @@ const SecureQRToastBase = ({
   message,
   value,
   valueUr,
+  drawType,
   showQRCode,
   onConfirm,
   onConfirmText,
@@ -102,7 +104,12 @@ const SecureQRToastBase = ({
               }}
               pb="$5"
             >
-              <QRCode value={value} valueUr={valueUr} size={256} />
+              <QRCode
+                value={value}
+                valueUr={valueUr}
+                drawType={drawType}
+                size={256}
+              />
             </Stack>
           </Stack>
         ) : null}
@@ -219,6 +226,7 @@ export const SecureQRToast = {
     message,
     value,
     valueUr,
+    drawType,
     showQRCode = true,
     onConfirm,
     onCancel,
@@ -233,6 +241,7 @@ export const SecureQRToast = {
           message={message}
           value={value}
           valueUr={valueUr}
+          drawType={drawType}
           showQRCode={showQRCode}
           onConfirm={onConfirm}
           onConfirmText={onConfirmText}

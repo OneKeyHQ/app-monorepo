@@ -28,6 +28,7 @@ export function getWebUsbConnectedDeviceKey(
   if (!isSupportedHardwareWebUsbDevice(device)) {
     return undefined;
   }
+  // Keyed by unit, not by wallet: every wallet created on this unit lights up.
   return device.serialNumber || undefined;
 }
 

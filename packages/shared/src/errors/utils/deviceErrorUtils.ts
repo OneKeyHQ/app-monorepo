@@ -4,7 +4,12 @@ import { isArray, isNil } from 'lodash';
 
 import platformEnv from '../../platformEnv';
 import * as HardwareErrors from '../errors/hardwareErrors';
-import { THIRD_PARTY_HW_BLE_PAIRING_CANCELLED_CODE } from '../errors/thirdPartyHardwareErrors';
+import {
+  THIRD_PARTY_HW_APP_ALREADY_INSTALLED_CODE,
+  THIRD_PARTY_HW_BLE_PAIRING_CANCELLED_CODE,
+  THIRD_PARTY_HW_FIRMWARE_METADATA_ERROR_CODE,
+  THIRD_PARTY_HW_SECURE_CHANNEL_ERROR_CODE,
+} from '../errors/thirdPartyHardwareErrors';
 import {
   ECustomOneKeyHardwareError,
   EOneKeyErrorClassNames,
@@ -42,6 +47,9 @@ const HWK_ERROR_CODES: ReadonlySet<number> = new Set<number>([
   // Codes the installed SDK build predates. Without this the routing gate reads
   // them as unknown and they never reach the third-party mapper.
   THIRD_PARTY_HW_BLE_PAIRING_CANCELLED_CODE,
+  THIRD_PARTY_HW_SECURE_CHANNEL_ERROR_CODE,
+  THIRD_PARTY_HW_FIRMWARE_METADATA_ERROR_CODE,
+  THIRD_PARTY_HW_APP_ALREADY_INSTALLED_CODE,
 ]);
 
 const REMOTE_CONFIG_REFRESH_ERROR_MESSAGE =

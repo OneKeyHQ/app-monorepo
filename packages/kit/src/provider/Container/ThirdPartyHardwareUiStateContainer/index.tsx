@@ -30,21 +30,25 @@ import {
   isThirdPartyToastAction,
   thirdPartyAppInstallAtom,
   thirdPartyBatchInstallAtom,
+  thirdPartyBleBindingAtom,
   thirdPartyHardwareUiStateAtom,
   useThirdPartyAppInstallAtom,
   useThirdPartyBatchInstallAtom,
+  useThirdPartyBleBindingAtom,
   useThirdPartyHardwareUiStateAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { airGapUrUtils } from '@onekeyhq/qr-wallet-sdk';
 import { EThirdPartyDevicePermissionDeniedReason } from '@onekeyhq/shared/src/errors/errors/thirdPartyHardwareErrors';
 import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { getVendorProfile } from '@onekeyhq/shared/src/hardware/config/vendorProfile';
 import { isLegacyHardwareUiActive } from '@onekeyhq/shared/src/hardware/deviceStageOwnership';
 import { TREZOR_THP_APP_NAME } from '@onekeyhq/shared/src/hardware/trezorThpIdentity';
-import { getVendorProfile } from '@onekeyhq/shared/src/hardware/vendorProfile';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EHardwareVendor } from '@onekeyhq/shared/types/device';
+import { EQRCodeHandlerNames } from '@onekeyhq/shared/types/qrCode';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { EnterPhase } from '../../../components/Hardware/Hardware';
@@ -52,8 +56,10 @@ import {
   OpenBleSettingsDialog,
   RequireBlePermissionDialog,
 } from '../../../components/Hardware/HardwareDialog';
-import { showTrezorBleBindingDialog } from '../../../components/Hardware/TrezorBleBindingDialog';
+import { showThirdPartyDeviceSelectionDialog } from '../../../components/Hardware/ThirdPartyDeviceSelectionDialog';
+import { SecureQRToast } from '../../../components/SecureQRToast';
 import { useThemeVariant } from '../../../hooks/useThemeVariant';
+import useScanQrCodeLazy from '../../../views/ScanQrCode/hooks/useScanQrCodeLazy';
 import { yieldDeviceStageToDialog } from '../DeviceStageContainer/waitForDeviceStageExit';
 
 import { useInstallCancelVisibility } from './installCancelVisibility';
@@ -62,7 +68,7 @@ import {
   buildThirdPartyHardwareUiResponse,
   cancelThirdPartyHardwareUiRequest,
   clearThirdPartyHardwareUiStateIfCurrent,
-  createTrezorBleBindingDialogCallbacks,
+  createThirdPartyDeviceSelectionDialogCallbacks,
 } from './utils';
 
 const AUTO_CLOSED_FLAG = 'autoClosed';
@@ -357,7 +363,8 @@ function getDeviceLabel(vendor: string | undefined): string {
   const fallback = 'Device';
   if (!vendor) return fallback;
   return (
-    getVendorProfile(vendor as EHardwareVendor).defaultDeviceName || fallback
+    getVendorProfile(vendor as EHardwareVendor).presentation.defaultName ||
+    fallback
   );
 }
 
@@ -647,6 +654,77 @@ function getDialogContent(
 function ThirdPartyHardwareUiStateContainerCmp() {
   const intl = useIntl();
   const [uiState] = useThirdPartyHardwareUiStateAtom();
+  const [sdkBinding] = useThirdPartyBleBindingAtom();
+  const sdkBindingRef = useRef(sdkBinding);
+  sdkBindingRef.current = sdkBinding;
+  const sdkBindingSessionId = sdkBinding?.bindingSessionId;
+  const sdkBindingVendor = sdkBinding?.vendor;
+  useEffect(() => {
+    const initial = sdkBindingRef.current;
+    if (
+      !initial ||
+      !sdkBindingSessionId ||
+      !sdkBindingVendor ||
+      (initial.status !== 'scanning' && initial.status !== 'verifying')
+    )
+      return;
+    // OK-63224: the flow's processing beat stands on stage behind its touch
+    // wall, above every dialog, so the list would open under it unreachable.
+    // The stage yields first; the device's next ask raises it again. Only the
+    // latest run may raise the dialog, so a re-run mid-yield cancels this one.
+    let cancelled = false;
+    let instance:
+      | ReturnType<typeof showThirdPartyDeviceSelectionDialog>
+      | undefined;
+    void (async () => {
+      await yieldDeviceStageToDialog();
+      if (cancelled) {
+        return;
+      }
+      instance = showThirdPartyDeviceSelectionDialog({
+        targets: initial.targets,
+        vendor: sdkBindingVendor,
+        bindingSessionId: sdkBindingSessionId,
+        context: {
+          kind: 'bind-connection',
+          transport: 'ble',
+          reason: initial.reason ?? 'missing-binding',
+        },
+        intl,
+        onSelected: async (searchTargetId, requestId) => {
+          const current = await thirdPartyBleBindingAtom.get();
+          if (
+            !requestId ||
+            current?.bindingSessionId !== sdkBindingSessionId ||
+            current.requestId !== requestId ||
+            current.status !== 'scanning'
+          )
+            return;
+          await backgroundApiProxy.serviceThirdPartyHardware.thirdPartyHardwareUiResponse(
+            {
+              vendor: sdkBindingVendor,
+              response: {
+                type: UI_RESPONSE.RECEIVE_SELECT_DEVICE,
+                payload: { requestId, sdkConnectId: searchTargetId },
+              },
+            },
+          );
+        },
+        onClose: async () => {
+          await backgroundApiProxy.serviceThirdPartyHardware.thirdPartyHardwareCancel(
+            {
+              vendor: sdkBindingVendor,
+              bindingSessionId: sdkBindingSessionId,
+            },
+          );
+        },
+      });
+    })();
+    return () => {
+      cancelled = true;
+      void instance?.close();
+    };
+  }, [intl, sdkBindingSessionId, sdkBindingVendor]);
   const uiStateRef = useRef(uiState);
   uiStateRef.current = uiState;
 
@@ -669,8 +747,8 @@ function ThirdPartyHardwareUiStateContainerCmp() {
   }, [currentAction]);
 
   const dialogInstanceRef = useRef<IDialogInstance | null>(null);
-  const bleBindingDialogInstanceRef = useRef<IDialogInstance | null>(null);
-  const bleBindingSettledRef = useRef(false);
+  const thirdPartyDeviceSelectionDialogInstanceRef =
+    useRef<IDialogInstance | null>(null);
   const permissionDialogInstanceRef = useRef<IDialogInstance | null>(null);
   const installDialogInstanceRef = useRef<IDialogInstance | null>(null);
   // Deferred-close timer so a rapid next-chain request reuses the same dialog.
@@ -738,19 +816,22 @@ function ThirdPartyHardwareUiStateContainerCmp() {
 
   // OK-59934: the DeviceStage plays the whole third-party rail, so this
   // container's toast and request dialogs stay silent — switched off, not
-  // deleted, until the cleanup pass. The Trezor BLE binding dialog
-  // (rendered imperatively below) and the permission dialog are the
-  // exceptions: both are outside the stage's scope and always render.
+  // deleted, until the cleanup pass. The SDK-owned BLE binding and permission
+  // dialogs are exceptions: both are outside the stage's scope and always render.
   const legacyActive = isLegacyHardwareUiActive();
   const isToastAction =
     legacyActive && isThirdPartyToastAction(uiState?.action);
-  const isTrezorBleBinding =
-    uiState?.action === EThirdPartyHardwareUiAction.requestTrezorBleBinding;
+  const isThirdPartyDeviceSelection =
+    uiState?.action === EThirdPartyHardwareUiAction.requestDeviceSelection;
+  const isKeystoneQr =
+    uiState?.action === EThirdPartyHardwareUiAction.requestKeystoneQrDisplay ||
+    uiState?.action === EThirdPartyHardwareUiAction.requestKeystoneQrScan;
   const isDialogAction =
     legacyActive &&
     !!uiState &&
-    !isThirdPartyToastAction(uiState?.action) &&
-    !isTrezorBleBinding;
+    !isThirdPartyToastAction(uiState.action) &&
+    !isThirdPartyDeviceSelection &&
+    !isKeystoneQr;
 
   // Programmatic closes pass autoClosed; unflagged closes come from user exits.
   const handleToastClose = useCallback(async () => undefined, []);
@@ -759,8 +840,10 @@ function ThirdPartyHardwareUiStateContainerCmp() {
     const expectedState = uiStateRef.current;
     const cleared = await clearThirdPartyHardwareUiStateIfCurrent({
       expectedState,
-      getState: () => thirdPartyHardwareUiStateAtom.get(),
-      setState: (state) => thirdPartyHardwareUiStateAtom.set(state),
+      clearInBackground: (params) =>
+        backgroundApiProxy.serviceThirdPartyHardware.clearThirdPartyHardwareUiStateIfCurrent(
+          params,
+        ),
     });
     uiStateRef.current = cleared
       ? undefined
@@ -770,7 +853,7 @@ function ThirdPartyHardwareUiStateContainerCmp() {
   const handleDialogClose = useCallback(
     async (params?: { flag?: string }) => {
       if (params?.flag === AUTO_CLOSED_FLAG) {
-        await clearCurrentUiState();
+        // The state already moved on; closing the old dialog must not clear its successor.
         return;
       }
       await cancelThirdPartyHardwareUiRequest({
@@ -794,63 +877,209 @@ function ThirdPartyHardwareUiStateContainerCmp() {
   }, [clearCurrentUiState]);
 
   useEffect(() => {
-    if (!isTrezorBleBinding) {
+    if (!isThirdPartyDeviceSelection) {
       return;
     }
-    const { usbConnectId, featuresDeviceId, promiseId, trezorBleBindingMode } =
-      uiState?.payload ?? {};
-    if (!usbConnectId || !featuresDeviceId || !promiseId) {
-      // A malformed request may still carry a promiseId the keyring is awaiting.
-      // Resolve it (no binding) so the caller doesn't hang until timeout.
-      if (promiseId) {
-        void backgroundApiProxy.servicePromise.resolveCallback({
-          id: promiseId,
-          data: null,
-        });
+    const expectedState = uiState;
+    const vendor = expectedState?.vendor;
+    const deviceSearchTargets = expectedState?.payload?.deviceSearchTargets;
+    const selection = expectedState?.payload?.deviceSelection;
+
+    const clearExpectedState = async () => {
+      const cleared = await clearThirdPartyHardwareUiStateIfCurrent({
+        expectedState,
+        clearInBackground: (params) =>
+          backgroundApiProxy.serviceThirdPartyHardware.clearThirdPartyHardwareUiStateIfCurrent(
+            params,
+          ),
+      });
+      uiStateRef.current = cleared
+        ? undefined
+        : await thirdPartyHardwareUiStateAtom.get();
+    };
+
+    if (!vendor || !deviceSearchTargets?.length) {
+      if (vendor) {
+        const cancelRequest = selection?.requestId
+          ? backgroundApiProxy.serviceThirdPartyHardware.thirdPartyHardwareUiResponse(
+              {
+                vendor,
+                response: {
+                  type: UI_RESPONSE.RECEIVE_SELECT_DEVICE,
+                  payload: { requestId: selection.requestId, cancelled: true },
+                },
+              },
+            )
+          : backgroundApiProxy.serviceThirdPartyHardware.thirdPartyHardwareCancel(
+              { vendor },
+            );
+        void cancelRequest.finally(clearExpectedState);
+      } else {
+        void clearExpectedState();
       }
-      void clearCurrentUiState();
       return;
     }
-    if (bleBindingDialogInstanceRef.current) {
+    if (thirdPartyDeviceSelectionDialogInstanceRef.current) {
       return;
     }
 
-    // Only the latest run may raise the dialog: a re-run (or the request
-    // clearing) while the stage is still leaving cancels this one.
-    let cancelled = false;
-    void (async () => {
-      // OK-63224: the flow's processing beat stands on stage behind its
-      // touch wall, above every dialog — the list opened under it,
-      // unreachable. The stage yields first (the Ledger install sheet's
-      // discipline, OK-62656); the device's next ask — the pairing code
-      // during the probe — raises it again over the list.
-      await yieldDeviceStageToDialog();
-      if (cancelled || bleBindingDialogInstanceRef.current) {
-        return;
-      }
-      bleBindingSettledRef.current = false;
-      const callbacks = createTrezorBleBindingDialogCallbacks({
-        promiseId,
-        dialogInstanceRef: bleBindingDialogInstanceRef,
-        settledRef: bleBindingSettledRef,
-        resolveCallback: (requestParams) =>
-          backgroundApiProxy.servicePromise.resolveCallback(requestParams),
-        clearState: clearCurrentUiState,
-      });
-      const instance = showTrezorBleBindingDialog({
-        usbConnectId,
-        featuresDeviceId,
-        mode: trezorBleBindingMode ?? 'auto-fallback',
-        onBound: callbacks.onBound,
-        onClose: callbacks.onClose,
-        intl,
-      });
-      bleBindingDialogInstanceRef.current = instance;
-    })();
-    return () => {
-      cancelled = true;
+    const settledRef = { current: false };
+    const localDialogRef: { current: IDialogInstance | null } = {
+      current: null,
     };
-  }, [clearCurrentUiState, isTrezorBleBinding, uiState?.payload, intl]);
+    const callbacks = createThirdPartyDeviceSelectionDialogCallbacks({
+      vendor,
+      requestId: selection?.requestId,
+      dialogInstanceRef: localDialogRef,
+      settledRef,
+      uiResponse: (requestParams) =>
+        backgroundApiProxy.serviceThirdPartyHardware.thirdPartyHardwareUiResponse(
+          requestParams,
+        ),
+      cancel: (requestParams) =>
+        backgroundApiProxy.serviceThirdPartyHardware.thirdPartyHardwareCancel(
+          requestParams,
+        ),
+      clearState: clearExpectedState,
+    });
+    const instance = showThirdPartyDeviceSelectionDialog({
+      targets: deviceSearchTargets,
+      context: selection?.context,
+      onSelected: callbacks.onSelected,
+      onClose: callbacks.onClose,
+      intl,
+    });
+    thirdPartyDeviceSelectionDialogInstanceRef.current = instance;
+    localDialogRef.current = instance;
+    return () => {
+      settledRef.current = true;
+      if (thirdPartyDeviceSelectionDialogInstanceRef.current === instance) {
+        thirdPartyDeviceSelectionDialogInstanceRef.current = null;
+      }
+      void instance.close();
+    };
+  }, [intl, isThirdPartyDeviceSelection, uiState]);
+
+  // Keystone QR round trip. Not a generic Dialog action (see isDialogAction)
+  // because it needs the animated-QR display + camera-scan primitives, not a
+  // title/message/footer. Modeled on the Trezor THP pairing round trip: the
+  // SDK's own state machine blocks inside its `hw.on(REQUEST_QR_DISPLAY)`
+  // handler until this adapter's `uiResponse()` is called — no promise/
+  // callback plumbing needed, just call thirdPartyHardwareUiResponse once
+  // the scan settles.
+  const { start: startKeystoneQrScan } = useScanQrCodeLazy();
+
+  useEffect(() => {
+    if (!isKeystoneQr) {
+      return;
+    }
+    const vendor = uiState?.vendor;
+    const action = uiState?.action;
+    const { urType, urData } = uiState?.payload ?? {};
+    if (!vendor || !action) {
+      return;
+    }
+    const expectedState = uiState;
+    let isSettled = false;
+
+    const sendResponse = async (
+      qrResponse: { urType: string; urData: string } | null,
+    ) => {
+      if (isSettled) return;
+      isSettled = true;
+      const response = buildThirdPartyHardwareUiResponse(
+        action,
+        Boolean(qrResponse),
+        qrResponse ? { qrResponse } : undefined,
+      );
+      try {
+        if (response) {
+          await backgroundApiProxy.serviceThirdPartyHardware.thirdPartyHardwareUiResponse(
+            { vendor, response },
+          );
+        } else {
+          await backgroundApiProxy.serviceThirdPartyHardware.thirdPartyHardwareCancel(
+            { vendor },
+          );
+        }
+      } catch {
+        await backgroundApiProxy.serviceThirdPartyHardware.thirdPartyHardwareCancel(
+          { vendor },
+        );
+      } finally {
+        const cleared = await clearThirdPartyHardwareUiStateIfCurrent({
+          expectedState,
+          clearInBackground: (params) =>
+            backgroundApiProxy.serviceThirdPartyHardware.clearThirdPartyHardwareUiStateIfCurrent(
+              params,
+            ),
+        });
+        uiStateRef.current = cleared
+          ? undefined
+          : await thirdPartyHardwareUiStateAtom.get();
+      }
+    };
+
+    const runScan = async () => {
+      try {
+        const result = await startKeystoneQrScan({
+          handlers: [EQRCodeHandlerNames.animation],
+          qrWalletScene: true,
+          autoExecuteParsedAction: false,
+        });
+        const ur = await airGapUrUtils.qrcodeToUr(result.raw);
+        await sendResponse({
+          urType: ur.type,
+          urData: ur.cbor.toString('hex'),
+        });
+      } catch {
+        await sendResponse(null);
+      }
+    };
+
+    // REQUEST_QR_SCAN (device already showing its own export/response QR) or
+    // a malformed display request — go straight to the camera.
+    if (
+      action === EThirdPartyHardwareUiAction.requestKeystoneQrScan ||
+      !urData
+    ) {
+      void runScan();
+      return () => {
+        void sendResponse(null);
+      };
+    }
+
+    const toast = SecureQRToast.show({
+      valueUr: { type: urType ?? '', cbor: urData },
+      drawType: 'line',
+      dismissOnOverlayPress: false,
+      showConfirmButton: true,
+      onConfirm: async () => {
+        await toast.close({ flag: 'skipReject' });
+        await runScan();
+      },
+      onCancel: async () => {
+        await toast.close();
+        await sendResponse(null);
+      },
+      onClose: async (params) => {
+        if (params?.flag !== 'skipReject') {
+          await sendResponse(null);
+        }
+      },
+    });
+    return () => {
+      void sendResponse(null);
+      void toast.close({ flag: 'skipReject' });
+    };
+  }, [
+    isKeystoneQr,
+    uiState,
+    uiState?.vendor,
+    uiState?.action,
+    uiState?.payload,
+    startKeystoneQrScan,
+  ]);
 
   useEffect(() => {
     const callback = async ({

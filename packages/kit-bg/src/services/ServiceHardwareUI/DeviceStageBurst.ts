@@ -1351,8 +1351,8 @@ export class DeviceStageBurstScope {
    * subscription in ServiceHardwareUI — the adapters' many write sites
    * stay untouched. Install state outranks the ui-state action (the
    * install dialog coexisted with prompt toasts in the legacy UI);
-   * BLE binding is ignored — its legacy dialog stays, and the stage
-   * yields to it (silence) so the list is reachable (OK-63224).
+   * BLE binding no longer arrives here (it drives its own atom); the
+   * stage still yields to its dialog so the list is reachable (OK-63224).
    */
   async onThirdPartyState({
     ui,
@@ -1399,9 +1399,6 @@ export class DeviceStageBurstScope {
       return;
     }
     if (ui) {
-      if (ui.action === EThirdPartyHardwareUiAction.requestTrezorBleBinding) {
-        return;
-      }
       if (this.yieldedToDialog) {
         // The SDK rail's rule, on this rail: behind a dialog the stage
         // yielded to (the Trezor BLE binding list, OK-63224) only the

@@ -10,6 +10,7 @@ import {
   isSupportedHardwareWebUsbDevice,
   isWalletConnectedByHardwareStatus,
 } from './useHardwareWalletConnectStatusUtils';
+import { KEYSTONE_WEBUSB_FILTERS } from './webDeviceFilters';
 
 const usbDevice = ({
   vendorId,
@@ -51,6 +52,24 @@ describe('hardware wallet connect status utils', () => {
     expect(getWebUsbConnectedDeviceKey(trezorUsbDevice)).toBe(
       'trezor-usb-serial',
     );
+
+    const keystoneUsbDevice = usbDevice({
+      vendorId: KEYSTONE_WEBUSB_FILTERS[0].vendorId ?? 0,
+      productId: KEYSTONE_WEBUSB_FILTERS[0].productId ?? 0,
+      serialNumber: 'keystone-usb-serial',
+    });
+    expect(isSupportedHardwareWebUsbDevice(keystoneUsbDevice)).toBe(true);
+    // A Keystone stores the serial of the unit it was created on, so the
+    // enumeration serial is what ties a plugged-in unit back to its wallets.
+    expect(getWebUsbConnectedDeviceKey(keystoneUsbDevice)).toBe(
+      'keystone-usb-serial',
+    );
+
+    const serialLessDevice = usbDevice({
+      vendorId: KEYSTONE_WEBUSB_FILTERS[0].vendorId ?? 0,
+      productId: KEYSTONE_WEBUSB_FILTERS[0].productId ?? 0,
+    });
+    expect(getWebUsbConnectedDeviceKey(serialLessDevice)).toBeUndefined();
   });
 
   it('matches Trezor wallets by transport connect ids', () => {

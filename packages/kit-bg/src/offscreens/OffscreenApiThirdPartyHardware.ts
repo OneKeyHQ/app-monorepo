@@ -85,6 +85,11 @@ export default class OffscreenApiThirdPartyHardware implements IHardwareBridge {
    */
   private async createConnector(vendor: VendorType): Promise<IConnector> {
     switch (vendor) {
+      case 'keystone': {
+        const { createKeystoneWebUsbConnector } =
+          await import('@onekeyfe/hwk-keystone-connector-usb/webusb');
+        return createKeystoneWebUsbConnector();
+      }
       case 'ledger': {
         // Forward the whole SdkEvent union to SW; new variants ride this
         // same channel without a new IPC route.
@@ -167,26 +172,18 @@ export default class OffscreenApiThirdPartyHardware implements IHardwareBridge {
   // IHardwareBridge — SW calls these via offscreenApiProxy.thirdPartyHardware
   // ---------------------------------------------------------------------------
 
-  async searchDevices(params: {
-    vendor: VendorType;
-    options?: { waitForAll?: boolean };
-  }): Promise<ConnectorDevice[]> {
+  async searchDevices(
+    params: Parameters<IHardwareBridge['searchDevices']>[0],
+  ): Promise<ConnectorDevice[]> {
     const connector = await this.getConnector(params.vendor);
-    return (
-      connector as IConnector & {
-        searchDevices(options?: {
-          waitForAll?: boolean;
-        }): Promise<ConnectorDevice[]>;
-      }
-    ).searchDevices(params.options);
+    return connector.searchDevices(params.options);
   }
 
-  async connect(params: {
-    vendor: VendorType;
-    deviceId?: string;
-  }): Promise<ConnectorSession> {
+  async connect(
+    params: Parameters<IHardwareBridge['connect']>[0],
+  ): Promise<ConnectorSession> {
     const connector = await this.getConnector(params.vendor);
-    return connector.connect(params.deviceId);
+    return connector.connect(params.deviceId, params.options);
   }
 
   async disconnect(params: {
@@ -224,7 +221,15 @@ export default class OffscreenApiThirdPartyHardware implements IHardwareBridge {
 
   reset(params: { vendor: VendorType }): void {
     const connector = this.getConnectorSync(params.vendor);
-    connector?.reset();
+    if (!connector) return;
+    // Drop the cached connector as well. `reset()` clears the connector's own
+    // event handlers, and this is the only runtime that keeps a connector
+    // alive across adapter lifetimes — everywhere else a new adapter builds a
+    // new connector. Without this the next call reuses a connector nobody is
+    // subscribed to any more: requests still go out, but PIN, pairing and
+    // disconnect events never reach the service worker again.
+    this.connectors.delete(params.vendor);
+    connector.reset();
   }
 
   /**

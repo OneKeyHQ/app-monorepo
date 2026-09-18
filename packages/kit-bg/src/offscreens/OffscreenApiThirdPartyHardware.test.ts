@@ -1,3 +1,5 @@
+import { createBridgedConnector } from '@onekeyfe/hwk-adapter-core';
+import { createKeystoneWebUsbConnector } from '@onekeyfe/hwk-keystone-connector-usb/webusb';
 import { createTrezorWebUsbConnector } from '@onekeyfe/hwk-trezor-connector-webusb';
 
 import OffscreenApiThirdPartyHardware from './OffscreenApiThirdPartyHardware';
@@ -6,6 +8,70 @@ import { emitOffscreenEventToBackground } from './offscreenEventBus';
 jest.mock('./offscreenEventBus', () => ({
   emitOffscreenEventToBackground: jest.fn(),
 }));
+
+jest.mock('@onekeyfe/hwk-keystone-connector-usb/webusb', () => ({
+  createKeystoneWebUsbConnector: jest.fn(() => ({
+    searchDevices: jest.fn().mockResolvedValue([]),
+    connect: jest.fn().mockResolvedValue({ sessionId: 'keystone-session' }),
+    call: jest
+      .fn()
+      .mockResolvedValue({ success: true, payload: 'ur:response' }),
+    on: jest.fn(),
+    reset: jest.fn(),
+  })),
+}));
+
+describe('OffscreenApiThirdPartyHardware Keystone bridge', () => {
+  it('lazily creates one USB connector and forwards discovery, connection and calls', async () => {
+    const api = new OffscreenApiThirdPartyHardware();
+    const bridge = createBridgedConnector('keystone', 'usb', api);
+    const options = {
+      purpose: 'availability' as const,
+      transportType: 'usb' as const,
+    };
+    await bridge.searchDevices(options);
+    const connector = jest.mocked(createKeystoneWebUsbConnector).mock.results[0]
+      .value;
+    expect(connector.searchDevices).toHaveBeenCalledWith(options);
+    await bridge.connect('selected-target', { transportType: 'usb' });
+    expect(connector.connect).toHaveBeenCalledWith('selected-target', {
+      transportType: 'usb',
+    });
+    await expect(
+      bridge.call('keystone-session', 'exchange', { ur: 'ur:request' }),
+    ).resolves.toEqual({ success: true, payload: 'ur:response' });
+    expect(connector.call).toHaveBeenCalledWith(
+      'keystone-session',
+      'exchange',
+      { ur: 'ur:request' },
+    );
+    expect(createKeystoneWebUsbConnector).toHaveBeenCalledTimes(1);
+  });
+
+  it('rebuilds and resubscribes the connector after a reset', async () => {
+    jest.mocked(createKeystoneWebUsbConnector).mockClear();
+    const api = new OffscreenApiThirdPartyHardware();
+    const bridge = createBridgedConnector('keystone', 'usb', api);
+    await bridge.searchDevices();
+    const first = jest.mocked(createKeystoneWebUsbConnector).mock.results[0]
+      .value;
+    expect(first.on).toHaveBeenCalled();
+
+    // `reset()` clears the connector's own event handlers. This runtime is the
+    // only one that keeps a connector alive across adapter lifetimes, so
+    // without dropping it here the next call reuses a connector nobody is
+    // subscribed to and device events stop reaching the service worker.
+    api.reset({ vendor: 'keystone' });
+    expect(first.reset).toHaveBeenCalled();
+
+    await bridge.searchDevices();
+    expect(createKeystoneWebUsbConnector).toHaveBeenCalledTimes(2);
+    const second = jest.mocked(createKeystoneWebUsbConnector).mock.results[1]
+      .value;
+    expect(second).not.toBe(first);
+    expect(second.on).toHaveBeenCalled();
+  });
+});
 
 jest.mock('@onekeyfe/hwk-trezor-connector-webusb', () => ({
   createTrezorWebUsbConnector: jest.fn(() => ({
