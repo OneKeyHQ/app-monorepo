@@ -40,6 +40,7 @@ type IMarketStockSelectorListState = {
   items: IMarketStockPublicItem[];
   nextCursor?: string;
   total: number;
+  firstPage?: IMarketStockPublicListResponse;
 };
 
 const EMPTY_STOCK_SELECTOR_RESULT: IMarketStockSelectorListResult = {
@@ -180,6 +181,7 @@ export function useMarketStockSelectorList({ query }: { query?: string }) {
       items: firstPageResult.response.items,
       nextCursor: firstPageResult.response.nextCursor,
       total: firstPageResult.response.total,
+      firstPage: firstPageResult.response,
     });
   }, [firstPageResult, queryKey]);
 
@@ -187,10 +189,27 @@ export function useMarketStockSelectorList({ query }: { query?: string }) {
     firstPageResult?.queryKey === queryKey
       ? firstPageResult.response
       : undefined;
-  const hasListState = listState.queryKey === queryKey;
-  const items = hasListState ? listState.items : (currentResponse?.items ?? []);
+  const currentFirstPage = currentResponse;
+  // Publish the remote first page on this render so a queued loadMore cannot
+  // close over the cached cursor while the apply effect is still pending.
+  const currentListState =
+    currentResponse &&
+    (listState.queryKey !== queryKey ||
+      listState.firstPage !== currentFirstPage)
+      ? {
+          queryKey,
+          items: currentResponse.items,
+          nextCursor: currentResponse.nextCursor,
+          total: currentResponse.total,
+          firstPage: currentFirstPage,
+        }
+      : listState;
+  const hasListState = currentListState.queryKey === queryKey;
+  const items = hasListState
+    ? currentListState.items
+    : (currentResponse?.items ?? []);
   const nextCursor = hasListState
-    ? listState.nextCursor
+    ? currentListState.nextCursor
     : currentResponse?.nextCursor;
   const hasCurrentData = hasListState || Boolean(currentResponse);
   const isFirstPageError =
@@ -198,7 +217,11 @@ export function useMarketStockSelectorList({ query }: { query?: string }) {
   const isFirstPagePending =
     firstPageResult?.queryKey !== queryKey ||
     (!firstPageResult?.response && !firstPageResult?.failed);
-  const isAwaitingRemoteFirstPage = remoteQueryKeyRef.current !== queryKey;
+  const isAwaitingRemoteFirstPage =
+    remoteQueryKeyRef.current !== queryKey ||
+    Boolean(
+      currentFirstPage && currentListState.firstPage !== currentFirstPage,
+    );
   const isRevalidatingFirstPage = isAwaitingRemoteFirstPage && items.length > 0;
 
   const loadMore = useCallback(async () => {
@@ -293,7 +316,9 @@ export function useMarketStockSelectorList({ query }: { query?: string }) {
 
   return {
     items,
-    total: hasListState ? listState.total : (currentResponse?.total ?? 0),
+    total: hasListState
+      ? currentListState.total
+      : (currentResponse?.total ?? 0),
     isLoading:
       items.length === 0 &&
       !isFirstPageError &&

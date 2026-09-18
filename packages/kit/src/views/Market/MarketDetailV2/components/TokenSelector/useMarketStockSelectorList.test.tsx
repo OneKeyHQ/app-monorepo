@@ -419,6 +419,63 @@ it('queues end-reached during first-page revalidation', async () => {
   );
 });
 
+it('uses the remote first-page cursor when a queued load-more flushes', async () => {
+  const cachedPage: IMarketStockPublicListResponse = {
+    items: [createStock('AAPL')],
+    total: 2,
+    nextCursor: 'cached-next',
+  };
+  const remotePage: IMarketStockPublicListResponse = {
+    items: [createStock('NVDA')],
+    total: 2,
+    nextCursor: 'remote-next',
+  };
+  const remoteSecondPage: IMarketStockPublicListResponse = {
+    items: [createStock('NVDA'), createStock('MSFT')],
+    total: 2,
+  };
+  seedHomeStockList(cachedPage);
+  const pending = deferred<IMarketStockPublicListResponse>();
+  fetchList.mockReturnValue(pending.promise);
+
+  const { result } = renderHook(() =>
+    useMarketStockSelectorList({ query: '' }),
+  );
+  expect(result.current.items.map((item) => item.stockId)).toEqual(['AAPL']);
+  expect(result.current.isRevalidatingFirstPage).toBe(true);
+  await act(async () => result.current.loadMore());
+
+  fetchList.mockImplementation(async (params) => {
+    if (params?.cursor === 'remote-next') {
+      return remoteSecondPage;
+    }
+    if (params?.cursor === 'cached-next') {
+      return {
+        items: [createStock('CACHED')],
+        total: 2,
+      };
+    }
+    return remotePage;
+  });
+  await act(async () => {
+    pending.resolve(remotePage);
+    await pending.promise;
+  });
+  await waitFor(() =>
+    expect(result.current.items.map((item) => item.stockId)).toEqual([
+      'NVDA',
+      'MSFT',
+    ]),
+  );
+  expect(fetchList).toHaveBeenCalledWith({
+    cursor: 'remote-next',
+    limit: 20,
+  });
+  expect(
+    fetchList.mock.calls.some(([params]) => params?.cursor === 'cached-next'),
+  ).toBe(false);
+});
+
 it('keeps the same table during pagination with the real selector hook', async () => {
   let resolvePage: (response: IMarketStockPublicListResponse) => void = () =>
     undefined;

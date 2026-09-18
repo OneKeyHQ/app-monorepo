@@ -20,6 +20,7 @@ import { RichTable } from '../RichTable';
 
 import { HOME_MARKET_CATEGORY_REQUEST_LIMIT } from './constants';
 import {
+  HOME_MARKET_TABLE_HEADER_MIN_HEIGHT,
   HOME_MARKET_TABLE_ROW_MIN_HEIGHT,
   getPopularTradingColumns,
 } from './metricColumns';
@@ -144,6 +145,9 @@ function MarketCategoryTokenList({
         headerRowProps={{
           px: '$3',
           mx: '$2',
+          ...(shouldUseTableLayout
+            ? { minHeight: HOME_MARKET_TABLE_HEADER_MIN_HEIGHT }
+            : undefined),
         }}
         onRow={(record) => ({
           onPress: () => onTokenPress(record),

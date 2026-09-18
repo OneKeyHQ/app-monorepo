@@ -65,6 +65,7 @@ import {
 } from './constants';
 import { MarketCategoryTokenList } from './MarketCategoryTokenList';
 import {
+  HOME_MARKET_TABLE_HEADER_MIN_HEIGHT,
   HOME_MARKET_TABLE_ROW_MIN_HEIGHT,
   getPopularTradingColumns,
   renderPopularTradingCommunityBadge,
@@ -1136,6 +1137,9 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
           headerRowProps={{
             px: '$3',
             mx: '$2',
+            ...(shouldUseTableLayout
+              ? { minHeight: HOME_MARKET_TABLE_HEADER_MIN_HEIGHT }
+              : undefined),
           }}
           onRow={(record) => ({
             onPress: () => handleTokenPress(record),
