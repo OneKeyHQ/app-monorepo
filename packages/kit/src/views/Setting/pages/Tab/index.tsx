@@ -1,4 +1,11 @@
-import { memo, useCallback, useEffect, useLayoutEffect, useMemo } from 'react';
+import {
+  memo,
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+} from 'react';
 
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { CommonActions } from '@react-navigation/native';
@@ -22,14 +29,20 @@ import {
 import { DesktopTabItem } from '@onekeyhq/components/src/layouts/Navigation/Tab/TabBar/DesktopTabItem';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ESettingsTabNames } from '@onekeyhq/shared/src/routes';
+import { travelModeManager } from '@onekeyhq/shared/src/travelMode';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import { useSettingsConfig } from './config';
 import { ConfigContext, useConfigContext } from './configContext';
 import { SocialButtonGroup } from './CustomElement';
 import { SettingList } from './SettingList';
+import {
+  getSettingsAnalyticsLayout,
+  logSettingCategoryOpened,
+} from './settingsAnalytics';
 import {
   getSettingsDisplayIcon,
   getSettingsDisplayTitle,
@@ -40,7 +53,7 @@ import {
   resolveSidebarItems,
 } from './settingsRootLayout';
 import { SubSettings } from './SubSettings';
-import { useIsTabNavigator } from './useIsTabNavigator';
+import { useSettingsLayout } from './useIsTabNavigator';
 import { useSearch } from './useSearch';
 
 import type {
@@ -65,6 +78,7 @@ function TabItemView({
     tabBarIconStyle?: IIconProps;
     tabBarLabelStyle?: ISizableTextProps;
     isHidden?: boolean;
+    ignorePress?: boolean;
     showDot?: boolean;
     renderTabItem?: React.ComponentType<{
       selected?: boolean;
@@ -81,6 +95,14 @@ function TabItemView({
     void Icon.prefetch(activeIcon, inActiveIcon);
   }, [options]);
 
+  const { ignorePress, tabbarOnPress } = options;
+  const handlePress = useCallback(() => {
+    if (ignorePress) {
+      return;
+    }
+    (tabbarOnPress ?? onPress)();
+  }, [ignorePress, onPress, tabbarOnPress]);
+
   const contentMemo = useMemo(() => {
     if (options.isHidden) {
       return null;
@@ -89,12 +111,7 @@ function TabItemView({
     // Use custom tab item renderer if provided
     if (options.renderTabItem) {
       const CustomTabItem = options.renderTabItem;
-      return (
-        <CustomTabItem
-          selected={isActive}
-          onPress={options.tabbarOnPress ?? onPress}
-        />
-      );
+      return <CustomTabItem selected={isActive} onPress={handlePress} />;
     }
 
     if (!options.tabBarLabel) {
@@ -135,7 +152,7 @@ function TabItemView({
 
     return (
       <DesktopTabItem
-        onPress={options.tabbarOnPress ?? onPress}
+        onPress={handlePress}
         trackId={options.trackId}
         testID={options.testID}
         // Keep a stable 20px leading slot while desktop Settings renders an
@@ -158,13 +175,16 @@ function TabItemView({
         label={options.tabBarLabel as string}
       />
     );
-  }, [isActive, onPress, options]);
+  }, [handlePress, isActive, options]);
 
   return contentMemo;
 }
 
 function SideBar({ state, descriptors, navigation }: BottomTabBarProps) {
   const { routes } = state;
+  const isTravelMode =
+    travelModeManager.getRuntimeEnvironmentSync().profile.kind ===
+    'travel-mode';
   const { settingsConfig } = useConfigContext();
   const { onSearch, onFocus, previousTabRoute } = useSearch(settingsConfig);
   const activeRouteName = routes[state.index]?.name as
@@ -204,6 +224,10 @@ function SideBar({ state, descriptors, navigation }: BottomTabBarProps) {
           canPreventDefault: true,
         });
         if (!focus && !event.defaultPrevented) {
+          logSettingCategoryOpened({
+            category: route.name as ESettingsTabNames,
+            source: 'sidebar',
+          });
           navigation.dispatch({
             ...CommonActions.navigate({
               name: route.name,
@@ -235,14 +259,18 @@ function SideBar({ state, descriptors, navigation }: BottomTabBarProps) {
       borderRightWidth={StyleSheet.hairlineWidth}
       borderColor="$neutral3"
     >
-      <XStack my="$2.5" px="$3">
-        <SearchBar
-          onSearchTextChange={onSearch}
-          onFocus={onFocus}
-          size="small"
-        />
-      </XStack>
-      <Divider borderColor="$neutral3" />
+      {isTravelMode ? null : (
+        <>
+          <XStack my="$2.5" px="$3">
+            <SearchBar
+              onSearchTextChange={onSearch}
+              onFocus={onFocus}
+              size="small"
+            />
+          </XStack>
+          <Divider borderColor="$neutral3" />
+        </>
+      )}
       <YStack flex={1} pt="$3" px="$3">
         <ScrollView
           keyboardShouldPersistTaps="handled"
@@ -253,7 +281,7 @@ function SideBar({ state, descriptors, navigation }: BottomTabBarProps) {
       </YStack>
       <Divider borderColor="$neutral3" />
       <YStack bg="$bgSubdued" px="$3">
-        <SocialButtonGroup />
+        <SocialButtonGroup hideChannels={isTravelMode} />
       </YStack>
     </YStack>
   );
@@ -348,8 +376,18 @@ function SettingsTabNavigator() {
 const MemoizedSettingsTabNavigator = memo(SettingsTabNavigator);
 
 function SettingTab() {
-  const isTabNavigator = useIsTabNavigator();
+  const { isTabNavigator, isMobileLayout } = useSettingsLayout();
   const appNavigation = useAppNavigation();
+  const hasLoggedOpenRef = useRef(false);
+  useEffect(() => {
+    if (hasLoggedOpenRef.current) {
+      return;
+    }
+    hasLoggedOpenRef.current = true;
+    defaultLogger.setting.page.settingsOpened({
+      layout: getSettingsAnalyticsLayout({ isTabNavigator, isMobileLayout }),
+    });
+  }, [isMobileLayout, isTabNavigator]);
   useLayoutEffect(() => {
     if (isTabNavigator) {
       appNavigation.setOptions({

@@ -16,6 +16,7 @@ import type { ITradingViewNativePriceRange } from '../utils/chartViewport';
 
 export interface ITradingViewNativeCanvasPriceScale {
   mode: ITradingViewNativePriceScaleMode;
+  pinnedPriceRange?: ITradingViewNativePriceRange | null;
   rangeScale: number;
 }
 
@@ -50,9 +51,10 @@ export function getTradingViewNativeCanvasPriceAxisWidth(
     });
   }
   context.font = getTradingViewNativeCanvasFont('priceAxis', priceAxisFontSize);
-  const scaledPriceLabel = labels.autoPriceRange
+  const priceRange = priceScale.pinnedPriceRange ?? labels.autoPriceRange;
+  const scaledPriceLabel = priceRange
     ? getTradingViewNativeScaledPriceAxisLabel({
-        autoPriceRange: labels.autoPriceRange,
+        autoPriceRange: priceRange,
         baseLabel: labels.widestPrice,
         priceRangeScale: priceScale.rangeScale,
         priceScaleMode: priceScale.mode,
@@ -99,6 +101,7 @@ export function isTradingViewNativeCanvasMainPriceAxisPointer({
   paneCount,
   priceAxisFontSize,
   priceScale,
+  timeAxisHeight,
 }: {
   canvas: HTMLCanvasElement;
   clientX: number;
@@ -107,6 +110,7 @@ export function isTradingViewNativeCanvasMainPriceAxisPointer({
   paneCount: number;
   priceAxisFontSize?: number;
   priceScale: ITradingViewNativeCanvasPriceScale;
+  timeAxisHeight?: number;
 }) {
   const canvasRect = canvas.getBoundingClientRect();
   // Measure with the rendered font, otherwise the compact axis gets a hit
@@ -123,6 +127,7 @@ export function isTradingViewNativeCanvasMainPriceAxisPointer({
     height: canvasRect.height,
     paneCount,
     priceAxisWidth,
+    timeAxisHeight,
     width: canvasRect.width,
     x,
     y,

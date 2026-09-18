@@ -18,10 +18,6 @@ import {
   useHardwareUiStateAtom,
   useHardwareUiStateCompletedAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import {
-  EAppEventBusNames,
-  appEventBus,
-} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 import type { IDeviceFirmwareType } from '@onekeyhq/shared/types/device';
@@ -30,7 +26,10 @@ import { EFirmwareUpdateTipMessages } from '@onekeyhq/shared/types/device';
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { usePrevious } from '../../../hooks/usePrevious';
 
-import { FirmwareUpdatePromptWebUsbDevice } from './FirmwareUpdatePromptWebUsbDevice';
+import {
+  FirmwareUpdatePromptWebUsbDevice,
+  useWebUsbReconnectRequests,
+} from './FirmwareUpdatePromptWebUsbDevice';
 import { FirmwareVersionProgressBar } from './FirmwareVersionProgressBar';
 
 type IProgressType =
@@ -123,7 +122,7 @@ export function FirmwareUpdateProgressBar({
   isDone?: boolean;
 }) {
   const intl = useIntl();
-  const [stepInfo, setStepInfo] = useFirmwareUpdateStepInfoAtom();
+  const [stepInfo] = useFirmwareUpdateStepInfoAtom();
   const [state] = useHardwareUiStateAtom();
   const [stateFull] = useHardwareUiStateCompletedAtom();
   const [progress, setProgress] = useState(1);
@@ -506,41 +505,7 @@ export function FirmwareUpdateProgressBar({
     }
   }, [lastFirmwareTipMessage]);
 
-  const previousStepInfo = useRef(stepInfo);
-  useEffect(() => {
-    const onBootloaderRequest = () => {
-      previousStepInfo.current = stepInfo;
-      setStepInfo({
-        step: EFirmwareUpdateSteps.requestDeviceInBootloaderForWebDevice,
-        payload: undefined,
-      });
-    };
-    const onSwitchFirmwareRequest = () => {
-      previousStepInfo.current = stepInfo;
-      setStepInfo({
-        step: EFirmwareUpdateSteps.requestDeviceForSwitchFirmwareWebDevice,
-        payload: undefined,
-      });
-    };
-    appEventBus.on(
-      EAppEventBusNames.RequestDeviceInBootloaderForWebDevice,
-      onBootloaderRequest,
-    );
-    appEventBus.on(
-      EAppEventBusNames.RequestDeviceForSwitchFirmwareWebDevice,
-      onSwitchFirmwareRequest,
-    );
-    return () => {
-      appEventBus.off(
-        EAppEventBusNames.RequestDeviceInBootloaderForWebDevice,
-        onBootloaderRequest,
-      );
-      appEventBus.off(
-        EAppEventBusNames.RequestDeviceForSwitchFirmwareWebDevice,
-        onSwitchFirmwareRequest,
-      );
-    };
-  }, [setStepInfo, stepInfo]);
+  const previousStepInfo = useWebUsbReconnectRequests();
 
   const renderGrantUSBAccessButton = useCallback(() => {
     if (

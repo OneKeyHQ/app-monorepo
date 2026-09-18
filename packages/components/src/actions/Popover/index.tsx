@@ -8,7 +8,7 @@ import type {
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useIsomorphicLayoutEffect } from '@tamagui/core';
-import { Dimensions } from 'react-native';
+import { Dimensions, useWindowDimensions } from 'react-native';
 
 import { useMedia } from '@onekeyhq/components/src/hooks/useStyle';
 import { withStaticProperties } from '@onekeyhq/components/src/shared/tamagui';
@@ -51,13 +51,22 @@ import {
 
 import type { IPopoverTooltip } from './type';
 import type { IIconButtonProps } from '../IconButton';
-import type { View } from 'react-native';
+import type { LayoutChangeEvent, View } from 'react-native';
 
 const gtMdShFrameStyle = {
   minWidth: 400,
   maxWidth: 480,
   mx: 'auto',
 } as const;
+
+// Fit-mode sheets size their frame to the content, and the sheet only caps the
+// inner ScrollView at the full screen height, so a tall list plus the header
+// pushes the frame past the screen (header under the status bar, last rows
+// clipped). Keep the whole frame within the footprint percent-mode sheets use,
+// so short lists stay compact and long lists scroll.
+const FIT_SHEET_MAX_HEIGHT_RATIO = 0.92;
+// Matches the `$5` fallback margin under the sheet ScrollView.
+const SHEET_BOTTOM_MARGIN = 20;
 
 const POPOVER_ENTER_STYLE = { scale: 0.95, opacity: 0 } as const;
 const POPOVER_EXIT_STYLE = { scale: 0.95, opacity: 0 } as const;
@@ -79,6 +88,8 @@ export interface IPopoverProps extends TMPopoverProps {
   description?: string;
   showHeader?: boolean;
   usingSheet?: boolean;
+  /** Uses the platform-native sheet presentation on iOS and Android. */
+  nativeSheet?: boolean;
   renderTrigger: ReactNode;
   openPopover?: () => void;
   closePopover?: () => void;
@@ -88,6 +99,7 @@ export interface IPopoverProps extends TMPopoverProps {
     | null;
   floatingPanelProps?: PopoverContentTypeProps;
   sheetProps?: SheetProps;
+  mountNativePortalBeforeOpen?: boolean;
   /**
    * Unique identifier for tracking/analytics purposes.
    */
@@ -257,11 +269,31 @@ function RawPopover({
   closePopover,
   placement: placementProp,
   usingSheet = true,
+  nativeSheet: _nativeSheet,
   allowFlip = true,
   showHeader = true,
   ...props
 }: IPopoverProps) {
   const { bottom } = useSafeAreaInsets();
+  const { height: viewportHeight } = useWindowDimensions();
+  const [sheetHeaderHeight, setSheetHeaderHeight] = useState(0);
+  const handleSheetHeaderLayout = useCallback((event: LayoutChangeEvent) => {
+    setSheetHeaderHeight(Math.ceil(event.nativeEvent.layout.height));
+  }, []);
+  const keyboardHeight = useKeyboardHeight();
+  const isFitSheet =
+    !sheetProps?.snapPointsMode || sheetProps.snapPointsMode === 'fit';
+  // The sheet frame pads its bottom by the keyboard height, so reserve that
+  // space here too or the frame grows past the cap while the keyboard is open.
+  const sheetScrollViewMaxHeight = isFitSheet
+    ? Math.max(
+        0,
+        Math.floor(viewportHeight * FIT_SHEET_MAX_HEIGHT_RATIO) -
+          sheetHeaderHeight -
+          (bottom || SHEET_BOTTOM_MARGIN) -
+          keyboardHeight,
+      )
+    : undefined;
   const triggerRef = useRef<View | null>(null);
   const contentRef = useRef<View | null>(null);
   const placement = getPlacement(placementProp, triggerRef);
@@ -357,8 +389,10 @@ function RawPopover({
   const keepChildrenMounted = Boolean(props.keepChildrenMounted);
   const shouldUseWebKeepMountedTransition =
     keepChildrenMounted && !platformEnv.isNative;
+  const openedWebKeepMountedContentElementsRef = useRef(
+    new WeakSet<HTMLElement>(),
+  );
   const shouldAnimateContent = !keepChildrenMounted;
-  const keyboardHeight = useKeyboardHeight();
   const zIndex = useOverlayZIndex(isOpen);
   const content = (
     <ModalPortalProvider>
@@ -389,11 +423,12 @@ function RawPopover({
     () => ({ transformOrigin }),
     [transformOrigin],
   );
-  useIsomorphicLayoutEffect(() => {
-    if (!shouldUseWebKeepMountedTransition) {
-      return;
-    }
-    const popperElement = contentRef.current as unknown as HTMLElement;
+  const contentStateRef = useRef({ isOpen, shouldUseWebKeepMountedTransition });
+  const handleContentRef = useCallback((node: View | null) => {
+    contentRef.current = node;
+    const state = contentStateRef.current;
+    if (!state.shouldUseWebKeepMountedTransition || !node) return;
+    const popperElement = node as unknown as HTMLElement;
     if (!popperElement) {
       return;
     }
@@ -409,13 +444,24 @@ function RawPopover({
       popperElement.style.removeProperty('transform');
       popperElement.style.removeProperty('visibility');
     }
-    contentElement.style.transition = isOpen
-      ? WEB_KEEP_MOUNTED_TRANSITION
-      : `${WEB_KEEP_MOUNTED_TRANSITION}, visibility 0ms linear 150ms`;
-    contentElement.style.opacity = isOpen ? '1' : '0';
-    contentElement.style.transform = `scale(${isOpen ? 1 : 0.95})`;
-    contentElement.style.visibility = isOpen ? 'visible' : 'hidden';
-  }, [isOpen, shouldUseWebKeepMountedTransition]);
+    const hasOpened =
+      openedWebKeepMountedContentElementsRef.current.has(contentElement);
+    let transition = 'none';
+    if (state.isOpen) {
+      transition = WEB_KEEP_MOUNTED_TRANSITION;
+      openedWebKeepMountedContentElementsRef.current.add(contentElement);
+    } else if (hasOpened) {
+      transition = `${WEB_KEEP_MOUNTED_TRANSITION}, visibility 0ms linear 150ms`;
+    }
+    contentElement.style.transition = transition;
+    contentElement.style.opacity = state.isOpen ? '1' : '0';
+    contentElement.style.transform = `scale(${state.isOpen ? 1 : 0.95})`;
+    contentElement.style.visibility = state.isOpen ? 'visible' : 'hidden';
+  }, []);
+  useIsomorphicLayoutEffect(() => {
+    contentStateRef.current = { isOpen, shouldUseWebKeepMountedTransition };
+    handleContentRef(contentRef.current);
+  }, [handleContentRef, isOpen, shouldUseWebKeepMountedTransition]);
   const scrollViewStyle = useMemo(
     () => ({ maxHeight: maxScrollViewHeight }),
     [maxScrollViewHeight],
@@ -443,7 +489,7 @@ function RawPopover({
       {/* floating panel */}
       {platformEnv.isNative ? null : (
         <TMPopover.Content
-          ref={contentRef}
+          ref={handleContentRef}
           zIndex={keepChildrenMounted ? undefined : SHEET_POPOVER_Z_INDEX + 1}
           trapFocus={false}
           unstyled
@@ -518,6 +564,7 @@ function RawPopover({
                 {/* header */}
                 {showHeader ? (
                   <XStack
+                    onLayout={handleSheetHeaderLayout}
                     borderTopLeftRadius="$6"
                     borderTopRightRadius="$6"
                     backgroundColor="$bg"
@@ -569,6 +616,7 @@ function RawPopover({
                   showsVerticalScrollIndicator={false}
                   mx="$5"
                   mb={bottom || '$5'}
+                  maxHeight={sheetScrollViewMaxHeight}
                   borderCurve="continuous"
                 >
                   {content}

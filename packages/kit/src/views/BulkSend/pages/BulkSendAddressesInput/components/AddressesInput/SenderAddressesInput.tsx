@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -24,6 +24,8 @@ import { type IAddressBadge } from '@onekeyhq/shared/types/address';
 import { EBulkSendMode } from '@onekeyhq/shared/types/bulkSend';
 
 import { hasBulkSendAddressAmountLine } from '../../addressLineUtils';
+import { buildSeededSenderBadgeLabel } from '../../bulkSendSeedUtils';
+import { SenderFieldSkeleton } from '../BulkSendFormSkeleton';
 import { useBulkSendAddressesInputContext } from '../Context';
 
 import LineNumberedTextArea from './LineNumberedTextArea';
@@ -55,6 +57,17 @@ function buildSenderSelectorAccountItem(
   };
 }
 
+// Tells the page that react-hook-form has a registered sender field; the
+// Next button must not trust `isValid` from a form without fields.
+function useSenderFieldMountedMarker(
+  setIsSenderFieldMounted: (value: boolean) => void,
+) {
+  useEffect(() => {
+    setIsSenderFieldMounted(true);
+    return () => setIsSenderFieldMounted(false);
+  }, [setIsSenderFieldMounted]);
+}
+
 function SingleLineSenderInput() {
   const intl = useIntl();
   const {
@@ -68,10 +81,19 @@ function SingleLineSenderInput() {
     tokenDetailsState,
     selectedDeriveType,
     setSelectedDeriveType,
+    seededSender,
+    setIsSenderFieldMounted,
   } = useBulkSendAddressesInputContext();
   const { network } = useAccountData({ networkId: selectedNetworkId });
   const { connectedDevices } = useHardwareWalletConnectStatus();
-  const [addressBadges, setAddressBadges] = useState<IAddressBadge[]>([]);
+  // The seeded sender already knows its wallet / account names, so the
+  // badge paints with the address instead of after the first validation
+  // round trip (OK-61587). Validation overwrites it either way.
+  const [addressBadges, setAddressBadges] = useState<IAddressBadge[]>(() => {
+    const label = buildSeededSenderBadgeLabel(seededSender);
+    return label ? [{ label, type: 'success' }] : [];
+  });
+  useSenderFieldMountedMarker(setIsSenderFieldMounted);
   const senderSelectorAccountItemsRef = useRef<
     Record<string, IBulkSendSenderSelectorAccountItem>
   >({});
@@ -409,11 +431,13 @@ function MultiLineSenderInput({
     selectedToken,
     selectedAccountId,
     setResolvedSenderAccountIds,
+    setIsSenderFieldMounted,
   } = useBulkSendAddressesInputContext();
   const { connectedDevices } = useHardwareWalletConnectStatus();
   const senderSelectorAccountItemsRef = useRef<
     Record<string, IBulkSendSenderSelectorAccountItem>
   >({});
+  useSenderFieldMountedMarker(setIsSenderFieldMounted);
 
   const { handleValidateAddresses, errors } = useMultiLineAddressValidation({
     selectedNetworkId,
@@ -462,8 +486,11 @@ function MultiLineSenderInput({
   const wrappedValidate = useCallback(
     (value: string) => {
       if (!allowAmounts && value && hasBulkSendAddressAmountLine(value)) {
-        debouncedValidation.cancel();
-        return validate(value);
+        // Earlier debounced callers adopt this direct result instead of a
+        // stale one.
+        const directValidation = validate(value);
+        debouncedValidation.cancel(directValidation);
+        return directValidation;
       }
       return (
         platformEnv.isNativeAndroid ? validate : debouncedValidation.validate
@@ -514,10 +541,23 @@ function MultiLineSenderInput({
 }
 
 function SenderAddressesInput() {
-  const { bulkSendMode, setDuplicateSenderAddressCount } =
+  const intl = useIntl();
+  const { bulkSendMode, setDuplicateSenderAddressCount, isInitializing } =
     useBulkSendAddressesInputContext();
 
   if (bulkSendMode === EBulkSendMode.OneToMany) {
+    // The single-line field is seeded with the sender address; until that
+    // seed lands it renders a same-height placeholder rather than an empty
+    // input that would be validated as "required" (OK-61587).
+    if (isInitializing) {
+      return (
+        <SenderFieldSkeleton
+          label={intl.formatMessage({
+            id: ETranslations.wallet_bulk_send_section_sending_address,
+          })}
+        />
+      );
+    }
     return <SingleLineSenderInput />;
   }
 

@@ -1,8 +1,12 @@
 export {
   TRADING_VIEW_CHART_CONTROLS_HEIGHT,
+  TradingViewChartModeSelect,
   TradingViewChartControls,
 } from './TradingViewChartControls';
-export type { ITradingViewChartControlsProps } from './TradingViewChartControls';
+export type {
+  ITradingViewChartControlsProps,
+  ITradingViewChartMode,
+} from './TradingViewChartControls';
 export {
   IndicatorListDialogContent,
   IndicatorPopover,

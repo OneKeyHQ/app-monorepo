@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
@@ -7,6 +7,7 @@ import {
   Image,
   QRCode,
   SizableText,
+  Spinner,
   Stack,
   XStack,
   YStack,
@@ -37,9 +38,12 @@ interface IShareContentRendererProps {
   referralQrCodeUrl?: string;
   referralDisplayText?: string;
   isReferralReady?: boolean;
+  // Preview-only: exported cards must never contain a loading indicator.
+  waitForBackground?: boolean;
 }
 
 const { size, padding, colors, fonts, layout, display } = CANVAS_CONFIG;
+const BACKGROUND_LOAD_TIMEOUT_MS = 5000;
 
 export function ShareContentRenderer({
   data,
@@ -49,6 +53,7 @@ export function ShareContentRenderer({
   referralQrCodeUrl,
   referralDisplayText,
   isReferralReady = true,
+  waitForBackground = false,
 }: IShareContentRendererProps) {
   const intl = useIntl();
   const {
@@ -79,6 +84,19 @@ export function ShareContentRenderer({
   const selectedBackground = isProfit
     ? BACKGROUNDS.profit[0]
     : BACKGROUNDS.loss[0];
+  const [settledBackground, setSettledBackground] = useState<string>();
+  const isBackgroundLoading =
+    waitForBackground &&
+    Boolean(selectedBackground) &&
+    settledBackground !== selectedBackground;
+
+  useEffect(() => {
+    if (!isBackgroundLoading) return;
+    const timer = setTimeout(() => {
+      setSettledBackground(selectedBackground);
+    }, BACKGROUND_LOAD_TIMEOUT_MS);
+    return () => clearTimeout(timer);
+  }, [isBackgroundLoading, selectedBackground]);
 
   const scaledSize = size * scale;
   const scaledPadding = padding * scale;
@@ -146,10 +164,10 @@ export function ShareContentRenderer({
     },
     [evaluateReadiness],
   );
-  const handleBackgroundReady = useCallback(
-    () => handleSourceReady(`background:${selectedBackground}`),
-    [handleSourceReady, selectedBackground],
-  );
+  const handleBackgroundReady = useCallback(() => {
+    setSettledBackground(selectedBackground);
+    handleSourceReady(`background:${selectedBackground}`);
+  }, [handleSourceReady, selectedBackground]);
   const handleTokenIconReady = useCallback(
     () => handleSourceReady(`tokenIcon:${tokenImage}`),
     [handleSourceReady, tokenImage],
@@ -171,11 +189,14 @@ export function ShareContentRenderer({
       width={scaledSize}
       height={scaledSize}
       position="relative"
+      backgroundColor={platformEnv.isNative ? colors.background[0] : undefined}
       collapsable={platformEnv.isNativeAndroid ? false : undefined}
     >
       {selectedBackground ? (
         <Image
+          key={selectedBackground}
           source={{ uri: selectedBackground }}
+          loadingStrategy="none"
           width={scaledSize}
           height={scaledSize}
           position="absolute"
@@ -396,6 +417,20 @@ export function ShareContentRenderer({
           </Stack>
         ) : null}
       </YStack>
+      {isBackgroundLoading ? (
+        <Stack
+          position="absolute"
+          top={0}
+          left={0}
+          right={0}
+          bottom={0}
+          backgroundColor={colors.background[0]}
+          alignItems="center"
+          justifyContent="center"
+        >
+          <Spinner size="large" color={colors.textPrimary} />
+        </Stack>
+      ) : null}
     </YStack>
   );
 }

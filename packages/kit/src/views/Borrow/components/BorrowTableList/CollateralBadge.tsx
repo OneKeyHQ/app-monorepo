@@ -8,9 +8,12 @@ import { collateralBadgeVariant } from '../collateralControls.utils';
 export function CollateralBadge({
   canBeCollateral,
   ml,
+  // Override the unavailable chip's fill to keep it visible on subdued cards.
+  unavailableBg = '$bgSubdued',
 }: {
   canBeCollateral?: boolean;
   ml?: IIconProps['ml'];
+  unavailableBg?: IIconProps['bg'];
 }) {
   const variant = collateralBadgeVariant(canBeCollateral);
   if (!variant) return null;
@@ -18,7 +21,7 @@ export function CollateralBadge({
   return (
     <Icon
       br="$1"
-      bg={can ? '$bgSuccess' : '$bgSubdued'}
+      bg={can ? '$bgSuccess' : unavailableBg}
       ml={ml}
       name={can ? 'Checkmark2SmallOutline' : 'MinusSmallOutline'}
       size="$5"

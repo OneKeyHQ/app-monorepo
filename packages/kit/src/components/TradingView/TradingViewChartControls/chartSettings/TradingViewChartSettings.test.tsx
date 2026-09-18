@@ -94,8 +94,17 @@ jest.mock('@onekeyhq/components', () => {
       Footer: View,
       FooterActions: View,
     },
-    Popover: ({ renderTrigger }: { renderTrigger?: ReactNode }) => (
-      <>{renderTrigger}</>
+    Popover: ({
+      renderContent,
+      renderTrigger,
+    }: {
+      renderContent?: (props: { closePopover: () => void }) => ReactNode;
+      renderTrigger?: ReactNode;
+    }) => (
+      <>
+        {renderTrigger}
+        {renderContent?.({ closePopover: jest.fn() })}
+      </>
     ),
     ScrollView: View,
     SizableText: View,
@@ -165,12 +174,37 @@ describe('TradingViewChartSettings', () => {
     const previousCloseCheckbox = screen.getByTestId(
       'trading-view-settings-checkbox-previous-close',
     );
-    expect(previousCloseCheckbox.textContent).toBe('Prev close');
+    expect(previousCloseCheckbox.textContent).toBe('market.prev_close');
     expect(previousCloseCheckbox.getAttribute('data-value')).toBe('false');
 
     fireEvent.click(previousCloseCheckbox);
 
     const nextValue = onChange.mock.calls.at(-1)?.[0];
     expect(nextValue?.options.previousClose).toBe(true);
+  });
+
+  it('shows native chart types in settings and updates the preference', () => {
+    const initialValue = createTradingViewChartSettingsValue();
+    const onChange = jest.fn<void, [ITradingViewChartSettingsValue]>();
+
+    render(
+      <TradingViewChartSettings
+        defaultValue={initialValue}
+        mobileLayout
+        showChartType
+        onChange={onChange}
+      />,
+    );
+
+    expect(
+      screen.getByTestId('trading-view-settings-select-chart-type').textContent,
+    ).toContain('global.auto');
+
+    fireEvent.click(
+      screen.getByTestId('trading-view-settings-select-chart-type-line'),
+    );
+
+    const nextValue = onChange.mock.calls.at(-1)?.[0];
+    expect(nextValue?.chartType).toBe('line');
   });
 });

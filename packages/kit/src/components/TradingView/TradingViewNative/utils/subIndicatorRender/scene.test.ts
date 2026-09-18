@@ -1,6 +1,8 @@
 // cspell:ignore macd
 import type { IMarketTokenKLineDataPoint } from '@onekeyhq/shared/types/marketV2';
 
+import { TRADING_VIEW_NATIVE_PRICE_AXIS_MIN_TICK_SPACING } from '../../chartConstants';
+
 import { getTradingViewNativeSubIndicatorPaneLayouts } from './layout';
 import { createTradingViewNativeSubIndicatorRenderSnapshots } from './pipeline';
 import {
@@ -85,6 +87,23 @@ describe('TradingViewNative sub-indicator scene', () => {
         (command) => command.kind === 'text' && command.text === 'RSI',
       ),
     ).toBe(true);
+    expect(
+      commands.flatMap((command) =>
+        command.kind === 'text' && command.font === 'priceAxis'
+          ? [command.text]
+          : [],
+      ),
+    ).toEqual(['70.00', '50.00', '30.00']);
+    const axisTickCommands = commands.filter(
+      (command) => command.kind === 'line' && command.paint === 'gridLine',
+    );
+    expect(axisTickCommands).toHaveLength(3);
+    expect(
+      axisTickCommands.every(
+        (command) =>
+          command.kind === 'line' && command.x1 === 280 && command.x2 === 284,
+      ),
+    ).toBe(true);
     const legendBackgroundIndex = commands.findIndex(
       (command) =>
         command.kind === 'rect' && command.paint === 'legendBackground',
@@ -109,6 +128,46 @@ describe('TradingViewNative sub-indicator scene', () => {
         expect.stringContaining(':series:rsi'),
       ]),
     );
+  });
+
+  it('avoids overlapping RSI reference labels in a narrow pane', () => {
+    const [pane] = createTradingViewNativeSubIndicatorRenderSnapshots({
+      configs: [{ id: 'rsi', indicator: 'RSI' }],
+      points: POINTS,
+    }).map(({ pane: renderPane }) => renderPane);
+    const layouts = getTradingViewNativeSubIndicatorPaneLayouts({
+      endIndex: POINTS.length,
+      panes: pane ? [pane] : [],
+      stackBottom: 300,
+      stackTop: 265,
+      startIndex: 20,
+    });
+    const commands: ITradingViewNativeChartSceneCommand[] = [];
+
+    appendTradingViewNativeSubIndicatorCommands({
+      candleBodyWidth: 5,
+      chartWidth: 280,
+      commands,
+      customPaintStyles: {},
+      endIndex: POINTS.length,
+      getPointX: (index) => index * 6,
+      layouts,
+      priceAxisX: 280,
+      startIndex: 20,
+    });
+
+    const axisLabelYValues = commands.flatMap((command) =>
+      command.kind === 'text' && command.font === 'priceAxis'
+        ? [command.y]
+        : [],
+    );
+    expect(axisLabelYValues.length).toBeGreaterThan(0);
+    expect(axisLabelYValues.length).toBeLessThan(3);
+    for (let index = 1; index < axisLabelYValues.length; index += 1) {
+      expect(
+        (axisLabelYValues[index] ?? 0) - (axisLabelYValues[index - 1] ?? 0),
+      ).toBeGreaterThanOrEqual(TRADING_VIEW_NATIVE_PRICE_AXIS_MIN_TICK_SPACING);
+    }
   });
 
   it('uses MACD palette slots and a zero baseline for columns', () => {
@@ -169,6 +228,12 @@ describe('TradingViewNative sub-indicator scene', () => {
       pointIndex,
       priceAxisX: 280,
     });
+    expect(
+      commands.some(
+        (command) =>
+          command.kind === 'rect' && command.paint === 'legendBackground',
+      ),
+    ).toBe(false);
     if (typeof paletteIndex === 'number' && histogram?.palette) {
       const palettePaintId = Object.keys(customPaintStyles).find((key) =>
         key.includes(`:series:histogram:palette:${paletteIndex}`),
@@ -176,7 +241,7 @@ describe('TradingViewNative sub-indicator scene', () => {
       const legendCommand = commands.find(
         (command) =>
           command.kind === 'text' &&
-          command.text === 'Histogram' &&
+          command.text === 'MACD' &&
           command.customPaintId === palettePaintId,
       );
       const legendPaint = palettePaintId
@@ -185,6 +250,20 @@ describe('TradingViewNative sub-indicator scene', () => {
       expect(legendCommand).toBeDefined();
       expect(legendPaint?.color).toBe(histogram.palette.colors[paletteIndex]);
     }
+    expect(
+      commands.some(
+        (command) =>
+          command.kind === 'text' && command.text === 'MACD(12, 26, 9)',
+      ),
+    ).toBe(true);
+    expect(
+      commands.flatMap((command) =>
+        command.kind === 'text' &&
+        (command.text === 'DIF' || command.text === 'DEA')
+          ? [command.text]
+          : [],
+      ),
+    ).toEqual(['DIF', 'DEA']);
   });
 
   it('formats the active pane crosshair value', () => {
@@ -343,7 +422,7 @@ describe('TradingViewNative sub-indicator scene', () => {
         commands.some(
           (command) =>
             command.kind === 'text' &&
-            command.text === 'Histogram' &&
+            command.text === 'MACD' &&
             command.customPaintId === legendPaintId,
         ),
       ).toBe(true);

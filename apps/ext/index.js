@@ -3,6 +3,8 @@
 /* eslint-disable import/first */
 /* oxlint-disable import-js/order */
 
+import '@onekeyhq/shared/src/polyfills';
+
 import '@onekeyhq/shared/src/performance/init';
 
 if (typeof window !== 'undefined') {

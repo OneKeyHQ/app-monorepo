@@ -55,6 +55,13 @@ export async function fetchSwapKLineTokenAddressesStableStatus(
   return fetchSwapStableTokenStatus(stableTokens);
 }
 
+export function isSwapKLineStableTokenStatusUnavailable(
+  stableStatusMap: ReadonlyMap<string, boolean>,
+  ...stableTokenKeys: string[]
+) {
+  return stableStatusMap.size === 0 && stableTokenKeys.some(Boolean);
+}
+
 export async function fetchSwapKLineTokensStableStatus(
   tokens: (ISwapKLineToken | undefined)[],
 ): Promise<Map<string, boolean>> {

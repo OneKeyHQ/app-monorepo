@@ -182,7 +182,7 @@ export function FeaturedCarousel({
   const heightSpring = useHeightSpring({ progress, measuredHeights });
 
   // Web-only: cancel the browser's native drag-ghost on the media. RN-web's
-  // View doesn't forward onDragStart and the Image (expo-image) chain doesn't
+  // View doesn't forward onDragStart and the shared Image chain doesn't
   // forward `draggable` to the underlying <img>, so we suppress the bubbled
   // dragstart once on the shared media container — it covers every slide and
   // both the image and video branches. The addEventListener guard makes this a

@@ -70,7 +70,6 @@ function MobileBrowserContent({
   if (!webViewInitialUrlRef.current && tab?.url) {
     webViewInitialUrlRef.current = tab.url;
   }
-  const webViewInitialUrl = webViewInitialUrlRef.current;
 
   // Lazy first mount: restored tabs enter the keep-alive window on cold start
   // without ever being opened. Mount a tab's WebView only after it has been
@@ -91,8 +90,14 @@ function MobileBrowserContent({
 
   // Derive the mount decision synchronously so the very first activation mounts
   // the WebView in the same commit (isCurrent flips true) instead of rendering
-  // one blank frame while waiting for the hasBeenShown effect to run.
-  const shouldMountWebView = hasBeenShown || isCurrent;
+  // one blank frame while waiting for the hasBeenShown effect to run. Keep all
+  // previously shown tabs in the bounded LRU window mounted while Browser is
+  // hidden, so selecting a different tab does not recreate its WebView.
+  const shouldMountWebView = keepAlive && (hasBeenShown || isCurrent);
+  if (!shouldMountWebView && tab?.url) {
+    webViewInitialUrlRef.current = tab.url;
+  }
+  const webViewInitialUrl = webViewInitialUrlRef.current;
 
   const { customReceiveHandler } = useDiscoveryMessageHandler();
 
@@ -111,10 +116,10 @@ function MobileBrowserContent({
     if (!tab?.id || !webViewInitialUrl) {
       return null;
     }
-    // Evicted (cold) or never-shown tab: render nothing. Inactive tabs are
-    // hidden, and the tab switcher uses the persisted thumbnail
-    // (tab.thumbnail), not this view.
-    if (!keepAlive || !shouldMountWebView) {
+    // Evicted (cold) or never-shown tab: render nothing. Inactive alive tabs
+    // remain mounted but hidden, and the tab switcher uses the persisted
+    // thumbnail (tab.thumbnail), not this view.
+    if (!shouldMountWebView) {
       return null;
     }
     const webView = (

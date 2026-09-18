@@ -68,6 +68,7 @@ export interface IPerpsAccountDisplayCacheSummary {
   totalMarginUsed: string | undefined;
   crossAccountValue: string | undefined;
   crossMaintenanceMarginUsed: string | undefined;
+  isolatedMarginUsed: string | undefined;
   totalNtlPos: string | undefined;
   totalRawUsd: string | undefined;
   withdrawable: string | undefined;
@@ -194,10 +195,6 @@ export class SimpleDbEntityPerp extends SimpleDbEntityBase<ISimpleDbPerpData> {
   entityName = 'perp';
 
   override enableCache = true;
-
-  // Everything here can be rebuilt from server/WS data or cheap re-acceptance,
-  // so dropping a corrupted record is safe (OK-59997).
-  protected override readonly enableUnreadableRecordSelfHeal = true;
 
   private _isCacheEntryFresh(updatedAt: number | undefined, maxAgeMs: number) {
     if (!updatedAt || maxAgeMs <= 0) {

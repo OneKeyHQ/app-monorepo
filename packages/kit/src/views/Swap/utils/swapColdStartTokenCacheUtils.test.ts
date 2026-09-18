@@ -20,6 +20,7 @@ import {
   isSwapSelectedTokensColdStartContextMatched,
   isSwapSelectedTokensColdStartContextValidForAccountNetworkSync,
   isSwapTokenSupportedBySwapType,
+  resolveSwapTokenNetworkLogoURI,
   shouldClearSwapSelectedTokensBeforeHomeAccountSync,
   shouldClearSwapSelectedTokensOnHomeAccountUpdate,
   shouldDeferSwapDefaultSelectedTokenSyncForNativePro,
@@ -105,6 +106,29 @@ function buildSwapNetwork({
 }
 
 describe('swap cold-start selected token context', () => {
+  it('resolves each token network logo from its own network identity', () => {
+    const swapNetworks = [
+      {
+        networkId: 'evm--1',
+        logoURI: 'https://example.com/eth.png',
+      },
+      {
+        networkId: 'evm--56',
+        logoURI: 'https://example.com/bsc.png',
+      },
+    ] as ISwapNetwork[];
+
+    expect(
+      resolveSwapTokenNetworkLogoURI({
+        swapNetworks,
+        token: {
+          networkId: 'evm--56',
+          networkLogoURI: 'https://example.com/eth.png',
+        } as ISwapToken,
+      }),
+    ).toBe('https://example.com/bsc.png');
+  });
+
   it('preserves swap user input when selected tokens and from amount are present', () => {
     expect(
       shouldPreserveSwapUserInputOnAccountSwitch({
@@ -571,6 +595,39 @@ describe('swap cold-start selected token context', () => {
         updatedAt: 1,
       }),
       swapType: ESwapTabSwitchType.BRIDGE,
+    });
+  });
+
+  it('preselects the Arc ERC-20 USDC to Arc EURC pair on swap', () => {
+    const defaultTokens = buildSwapDefaultSelectedTokensFromHomeAccount({
+      homeSelectedAccount: buildSelectedAccount({
+        networkId: 'evm--5042',
+      }),
+      now: 1,
+    });
+
+    expect(defaultTokens).toEqual({
+      fromToken: expect.objectContaining({
+        contractAddress: '0x3600000000000000000000000000000000000000',
+        decimals: 6,
+        isNative: false,
+        networkId: 'evm--5042',
+        symbol: 'USDC',
+      }),
+      toToken: expect.objectContaining({
+        contractAddress: '0xbef5f6d51cb62b58e6a8f77868681825c6fe21c1',
+        decimals: 6,
+        isNative: false,
+        networkId: 'evm--5042',
+        symbol: 'EURC',
+      }),
+      context: expect.objectContaining({
+        accountKey: 'wallet-1|indexed-account-1|default',
+        networkId: 'evm--5042',
+        swapType: ESwapTabSwitchType.SWAP,
+        updatedAt: 1,
+      }),
+      swapType: ESwapTabSwitchType.SWAP,
     });
   });
 

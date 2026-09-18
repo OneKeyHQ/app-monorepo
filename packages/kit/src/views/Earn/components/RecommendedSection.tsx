@@ -29,6 +29,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalRoutes, EModalStakingRoutes } from '@onekeyhq/shared/src/routes';
+import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 import type { IRecommendAsset } from '@onekeyhq/shared/types/staking';
 
 import { ListItem } from '../../../components/ListItem';
@@ -208,7 +209,7 @@ const RecommendedItem = memo(
         <XStack gap="$3" ai="center" width="100%">
           <Token tokenImageUri={token.logoURI} size="md" />
           <SizableText size="$bodyLgMedium" flex={1} numberOfLines={1}>
-            {token.symbol}
+            {earnUtils.getDisplaySymbol(token)}
           </SizableText>
           <RecommendedBadges token={token} />
         </XStack>
@@ -250,7 +251,6 @@ function extractAvailableNumber(text?: string) {
 }
 
 const RecommendedListItem = memo(({ token }: { token: IRecommendAsset }) => {
-  const intl = useIntl();
   const onPress = useRecommendedItemPress(token);
   const availableNumber = extractAvailableNumber(token.available?.text);
 
@@ -268,7 +268,7 @@ const RecommendedListItem = memo(({ token }: { token: IRecommendAsset }) => {
         primary={
           <XStack gap="$2" ai="center" flex={1} minWidth={0} flexWrap="wrap">
             <SizableText size="$bodyLgMedium" flexShrink={1} numberOfLines={1}>
-              {token.symbol}
+              {earnUtils.getDisplaySymbol(token)}
             </SizableText>
             <RecommendedBadges
               token={token}
@@ -280,13 +280,12 @@ const RecommendedListItem = memo(({ token }: { token: IRecommendAsset }) => {
           </XStack>
         }
         secondary={
-          // "Balance {number}" subtitle (OK-58877): copy assembled on the
-          // client, number taken from available.text
+          // Balance subtitle (OK-58877): number taken from available.text. The
+          // "Balance:" caption was dropped — the row already sits under the
+          // holdings section, so the label only cost width in longer locales.
           availableNumber ? (
             <SizableText size="$bodyMd" color="$textSubdued" numberOfLines={1}>
-              {`${intl.formatMessage({
-                id: ETranslations.global_balance,
-              })}: ${availableNumber}`}
+              {availableNumber}
             </SizableText>
           ) : undefined
         }

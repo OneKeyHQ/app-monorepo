@@ -1,4 +1,4 @@
-import type { FC } from 'react';
+import type { FC, ReactNode } from 'react';
 import { memo, useCallback } from 'react';
 
 import {
@@ -9,10 +9,13 @@ import {
 } from '@onekeyhq/components';
 import { prewarmMarketTokenImages } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/utils/marketDetailImagePreload';
 import { preloadMarketDetailV2Page } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/utils/marketDetailPagePreload';
+import { resolveMarketStockId } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/utils/resolveIsStockToken';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { parseDexCoin } from '@onekeyhq/shared/src/utils/perpsUtils';
 
 import { MarketTestIDs } from '../../../testIDs';
 import { PriceChangeBadge } from '../../PriceChangeBadge';
+import { getStockListingName } from '../utils/marketWatchlistRowKind';
 
 import { TokenIdentityItem } from './TokenIdentityItem';
 
@@ -22,6 +25,8 @@ import type { GestureResponderEvent, LayoutChangeEvent } from 'react-native';
 interface ITokenListItemProps {
   item: IMarketToken;
   onPress: () => void;
+  leading?: ReactNode;
+  showVolume?: boolean;
   onLongPress?: (event: GestureResponderEvent) => void;
   onPressIn?: (event: GestureResponderEvent) => void;
   onTouchMove?: (event: GestureResponderEvent) => void;
@@ -31,6 +36,12 @@ interface ITokenListItemProps {
   isPrimed?: boolean;
   isDragging?: boolean;
 }
+
+// Fixed like the desktop table rows: 12px padding around the two-line identity
+// block. A row's content can change after its first render (a listing's volume
+// line appears once its quote loads), and the web virtualized lists cache the
+// height they measure first, so a content-driven height left stale gaps.
+const TOKEN_LIST_ITEM_HEIGHT = 72;
 
 const IOS_DRAGGING_SHADOW_STYLE = {
   shadowColor: '#000',
@@ -57,6 +68,8 @@ if (platformEnv.isNativeIOS) {
 const BasicTokenListItem: FC<ITokenListItemProps> = ({
   item,
   onPress,
+  leading,
+  showVolume = true,
   onLongPress,
   onPressIn,
   onTouchMove,
@@ -79,6 +92,7 @@ const BasicTokenListItem: FC<ITokenListItemProps> = ({
     void preloadMarketDetailV2Page({
       includeBodyModules: true,
       includeHeavyModules: true,
+      isStockRoute: Boolean(resolveMarketStockId(item)),
       layout: preloadLayout,
     });
     prewarmMarketTokenImages(item);
@@ -106,12 +120,16 @@ const BasicTokenListItem: FC<ITokenListItemProps> = ({
       onLayout={onLayout}
       px="$5"
       py="$3"
+      height={TOKEN_LIST_ITEM_HEIGHT}
+      // Keeps a long name or subtitle from running into the price.
+      gap="$2"
       alignItems="center"
       borderRadius="$3"
       bg={isHighlighted ? '$bgActive' : '$bgApp'}
       style={isDragging ? DRAGGING_STYLE : undefined}
     >
-      <XStack flex={1} alignItems="center" minWidth={0}>
+      <XStack flex={1} alignItems="center" minWidth={0} gap="$2">
+        {leading}
         <TokenIdentityItem
           tokenLogoURI={item.tokenImageUri}
           tokenLogoURIs={item.tokenImageUris}
@@ -119,12 +137,16 @@ const BasicTokenListItem: FC<ITokenListItemProps> = ({
           networkId={item.networkId}
           symbol={item.symbol}
           address={item.address}
-          showVolume
+          showVolume={showVolume}
           volume={item.turnover}
           communityRecognized={item.communityRecognized}
           stock={item.stock}
           maxLeverage={item.maxLeverage}
           perpsSubtitle={item.perpsSubtitle}
+          stockListingName={getStockListingName(item)}
+          perpsDexLabel={
+            item.perpsCoin ? parseDexCoin(item.perpsCoin).dexLabel : undefined
+          }
         />
       </XStack>
 
@@ -137,7 +159,7 @@ const BasicTokenListItem: FC<ITokenListItemProps> = ({
           formatter="price"
           formatterOptions={{ currency: '$' }}
         >
-          {item.price}
+          {Number.isFinite(item.price) ? item.price : '--'}
         </NumberSizeableText>
         <PriceChangeBadge change={priceChange} />
       </XStack>

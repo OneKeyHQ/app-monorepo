@@ -4,14 +4,17 @@ import {
   createTradingViewNativeSkiaFontForText,
   createTradingViewNativeSkiaPicture,
   createTradingViewNativeSkiaResources,
+  getTradingViewNativeSkiaLegendText,
   getTradingViewNativeSkiaPaintStyleSignature,
 } from './chartSkiaRenderer';
+import { getTradingViewNativeSkiaTextFont } from './chartSkiaText';
 
 import type {
+  IBuildTradingViewNativeChartSceneOptions,
   ITradingViewNativeChartScene,
   ITradingViewNativeChartScenePaintStyle,
 } from '../utils/chartScene';
-import type { SkFont } from '@shopify/react-native-skia';
+import type { SkFont, SkTypeface } from '@shopify/react-native-skia';
 
 const mockBuildTradingViewNativeChartScene = jest.fn<
   ITradingViewNativeChartScene,
@@ -74,6 +77,8 @@ const mockSkiaFont = jest.fn<SkFont, [{ fontFamily: string }, number]>(
       dispose,
       fontFamily: typeface.fontFamily,
       fontSize,
+      getSize: () => fontSize,
+      getTypeface: () => typeface,
       getGlyphIDs: (text: string) =>
         Array.from(text).map((character) =>
           character.charCodeAt(0) <= 127 ||
@@ -81,7 +86,9 @@ const mockSkiaFont = jest.fn<SkFont, [{ fontFamily: string }, number]>(
             ? 1
             : 0,
         ),
-      measureText: (text: string) => ({ width: text.length }),
+      measureText: (text: string) => ({
+        width: text.length * (typeface.fontFamily === 'Geist Mono' ? 2 : 1),
+      }),
     } as unknown as SkFont;
   },
 );
@@ -178,6 +185,7 @@ function createScene(
   overrides: Partial<ITradingViewNativeChartScene> = {},
 ): ITradingViewNativeChartScene {
   return {
+    autoPriceRange: null,
     commands: [],
     crosshairPointIndex: null,
     customPaintStyles: {},
@@ -191,8 +199,10 @@ function createScene(
 
 function createResources({
   legendFont = mockSkiaFont({ fontFamily: 'System' }, 11),
+  priceAxisTypeface = null,
 }: {
   legendFont?: ReturnType<typeof mockSkiaFont>;
+  priceAxisTypeface?: SkTypeface | null;
 } = {}) {
   return createTradingViewNativeSkiaResources({
     colors: {
@@ -203,7 +213,7 @@ function createResources({
     },
     fontFamily: 'System',
     legendFont,
-    priceAxisFont: null,
+    priceAxisTypeface,
     priceAxisFontSize: 12,
     timeAxisFontSize: 12,
     watermarkSvg: null,
@@ -274,6 +284,69 @@ describe('TradingViewNative Skia scene renderer', () => {
     expect(font).toEqual(expect.objectContaining({ fontFamily: 'System' }));
     expect(mockMatchFamilyStyleCharacter).toHaveBeenCalledTimes(4);
     expect(mockFontDisposeByFamily.System).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    { locale: 'hi-IN', text: 'खरीद 100 TOKEN', family: 'Noto Sans Devanagari' },
+    { locale: 'bn-BD', text: 'কেনা 100 TOKEN', family: 'Noto Sans Bengali' },
+    { locale: 'th-TH', text: 'ซื้อ 100 TOKEN', family: 'Noto Sans Thai' },
+  ])(
+    'includes $locale trade text in font fallback with Latin candle labels',
+    ({ locale, text, family }) => {
+      const requiredText = getTradingViewNativeSkiaLegendText({
+        candleLabels: { open: 'O', high: 'H', low: 'L', close: 'C' },
+        chartComponents: [
+          {
+            id: 'trades',
+            type: 'tradeMarks',
+            props: {
+              marks: [{ id: 'buy', label: 'B', text: `${text}\n`, time: 1 }],
+            },
+          },
+        ],
+      });
+      mockFontGlyphsByFamily.System = '…';
+      mockFontGlyphsByFamily[family] = `${text}…`;
+      for (const character of text) {
+        mockFallbackFontFamilyByRequest[`${locale}:${character}`] = family;
+      }
+      const font = createTradingViewNativeSkiaFontForText({
+        fontFamily: 'System',
+        fontSize: 11,
+        locale,
+        requiredText,
+      });
+      expect(requiredText).not.toContain('\n');
+      expect(requiredText).toContain('…');
+      expect(font).toEqual(expect.objectContaining({ fontFamily: family }));
+    },
+  );
+
+  it('keeps required legend glyphs stable across reordered trades', () => {
+    const candleLabels = { open: 'O', high: 'H', low: 'L', close: 'C' };
+    const marks = [
+      { id: 'buy', label: 'B' as const, text: 'Buy 100 TOKEN', time: 1 },
+      { id: 'sell', label: 'S' as const, text: 'Sell 10 TOKEN', time: 2 },
+    ];
+    expect(
+      getTradingViewNativeSkiaLegendText({
+        candleLabels,
+        chartComponents: [
+          { id: 'trades', type: 'tradeMarks', props: { marks } },
+        ],
+      }),
+    ).toBe(
+      getTradingViewNativeSkiaLegendText({
+        candleLabels,
+        chartComponents: [
+          {
+            id: 'trades',
+            type: 'tradeMarks',
+            props: { marks: marks.toReversed() },
+          },
+        ],
+      }),
+    );
   });
 
   it('scans system fonts when the native fallback API is unavailable', () => {
@@ -393,6 +466,160 @@ describe('TradingViewNative Skia scene renderer', () => {
     expect(mockMatchFamilyStyleCharacter).not.toHaveBeenCalled();
     expect(mockCountFontFamilies).not.toHaveBeenCalled();
     expect(mockGetFontFamilyName).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    { family: 'System', text: 'Prev close' },
+    { family: 'PingFang SC', text: '昨收' },
+    { family: 'Noto Sans CJK SC', text: '昨收' },
+  ])(
+    'measures and draws reference labels with the existing $family system font at the price-axis size',
+    ({ family, text }) => {
+      mockFontGlyphsByFamily[family] = text;
+      const resources = createResources({
+        legendFont: mockSkiaFont({ fontFamily: family }, 11),
+        priceAxisTypeface: {
+          fontFamily: 'Geist Mono',
+        } as unknown as SkTypeface,
+      });
+      mockBuildTradingViewNativeChartScene.mockImplementation((options) => {
+        const { measureTextWidth } =
+          options as IBuildTradingViewNativeChartSceneOptions;
+        expect(measureTextWidth(text, 'referenceLineLabel')).toBe(text.length);
+        expect(measureTextWidth('104.00', 'priceAxis')).toBe(12);
+        return createScene({
+          commands: [
+            {
+              font: 'referenceLineLabel',
+              kind: 'text',
+              paint: 'background',
+              text,
+              x: 10,
+              y: 20,
+            },
+            {
+              font: 'priceAxis',
+              kind: 'text',
+              paint: 'background',
+              text: '104.00',
+              x: 30,
+              y: 20,
+            },
+          ],
+        });
+      });
+
+      createPicture(resources);
+
+      expect(resources.fonts.referenceLineLabel).toEqual(
+        expect.objectContaining({ fontFamily: family, fontSize: 12 }),
+      );
+      expect(mockCanvas.drawText).toHaveBeenCalledWith(
+        text,
+        10,
+        20,
+        resources.paints.background,
+        resources.fonts.referenceLineLabel,
+      );
+      expect(mockCanvas.drawText).toHaveBeenCalledWith(
+        '104.00',
+        30,
+        20,
+        resources.paints.background,
+        resources.fonts.priceAxis,
+      );
+      expect(mockMatchFamilyStyleCharacter).not.toHaveBeenCalled();
+    },
+  );
+
+  it.each([false, true])(
+    'measures and draws compact indicator values with the bundled font when system coverage is %s',
+    (supported) => {
+      mockFontGlyphsByFamily.System = supported ? '₀₁₂₃₄₅₆₇₈₉' : '';
+      mockFontGlyphsByFamily['Geist Mono'] = '₀₁₂₃₄₅₆₇₈₉';
+      const priceAxisTypeface = {
+        fontFamily: 'Geist Mono',
+      } as unknown as SkTypeface;
+      const resources = createResources({
+        priceAxisTypeface,
+      });
+      const text = '-0.0₁₀1234';
+      mockBuildTradingViewNativeChartScene.mockImplementation((options) => {
+        const { measureTextWidth } =
+          options as IBuildTradingViewNativeChartSceneOptions;
+        expect(measureTextWidth(text, 'legend')).toBe(text.length * 2);
+        expect(measureTextWidth('MACD', 'legend')).toBe(4);
+        return createScene({
+          commands: [
+            {
+              font: 'legend',
+              kind: 'text',
+              paint: 'background',
+              text,
+              x: 10,
+              y: 20,
+            },
+          ],
+        });
+      });
+
+      createPicture(resources);
+
+      expect(resources.legendSubscriptFont).toEqual(
+        expect.objectContaining({ fontFamily: 'Geist Mono', fontSize: 11 }),
+      );
+      expect(resources.fonts.priceAxis).toEqual(
+        expect.objectContaining({ fontFamily: 'Geist Mono', fontSize: 12 }),
+      );
+      expect(mockCanvas.drawText).toHaveBeenCalledWith(
+        text,
+        10,
+        20,
+        resources.paints.background,
+        resources.legendSubscriptFont,
+      );
+    },
+  );
+
+  it('keeps the existing legend font while the bundled typeface loads', () => {
+    const resources = createResources();
+    expect(resources.legendSubscriptFont).toBeNull();
+    expect(
+      getTradingViewNativeSkiaTextFont(
+        '0.0₆1234',
+        resources.fonts.legend,
+        resources.legendSubscriptFont,
+      ),
+    ).toBe(resources.fonts.legend);
+  });
+
+  it('uses the bundled font for compact values and preserves plain values and localized labels', () => {
+    mockFontGlyphsByFamily.System = '指标₆';
+    mockFontGlyphsByFamily['Geist Mono'] = '₀₁₂₃₄₅₆₇₈₉';
+    const resources = createResources({
+      priceAxisTypeface: {
+        fontFamily: 'Geist Mono',
+      } as unknown as SkTypeface,
+    });
+
+    for (const text of ['12.3456', 'MACD', '指标', '指标 0.0₁₀1234']) {
+      expect(
+        getTradingViewNativeSkiaTextFont(
+          text,
+          resources.fonts.legend,
+          resources.legendSubscriptFont,
+        ),
+      ).toBe(resources.fonts.legend);
+    }
+    for (const text of ['0.0₆1234', '-0.0₇1234', '0.0₁₀1234']) {
+      expect(
+        getTradingViewNativeSkiaTextFont(
+          text,
+          resources.fonts.legend,
+          resources.legendSubscriptFont,
+        ),
+      ).toBe(resources.legendSubscriptFont);
+    }
   });
 
   it('creates one cached SkPaint per stable custom style', () => {

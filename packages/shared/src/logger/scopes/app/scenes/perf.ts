@@ -1,3 +1,5 @@
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+
 import { BaseScene } from '../../../base/baseScene';
 import { LogToConsole, LogToLocal } from '../../../base/decorators';
 
@@ -65,6 +67,54 @@ export class AppPerfScene extends BaseScene {
     details?: Record<string, unknown>;
   }) {
     return [params];
+  }
+
+  @LogToLocal({ level: 'warn' })
+  public swrCacheCapacityLimit(params: {
+    affectedEntryCount: number;
+    cooldownMs: number;
+    eventCount: number;
+    maxEntries: number;
+    maxEntrySerializedChars: number;
+    maxObservedEntrySerializedChars: number;
+    maxSerializedChars: number;
+    namespaces: string[];
+    reason:
+      | 'bootstrapEntryCountLimit'
+      | 'bootstrapSizeLimit'
+      | 'entryCountLimit'
+      | 'entryLimit'
+      | 'keyLimit'
+      | 'totalSizeLimit';
+    retainedEntryCount: number;
+    retainedSerializedChars: number;
+  }) {
+    return params;
+  }
+
+  // Whole-store SWR work is synchronous on the calling JS runtime, so a slow
+  // pass on `main` is a UI stall. `runtime` tells main from background.
+  @LogToLocal({ level: 'warn' })
+  public swrCacheSlowOp(params: {
+    op: 'flush' | 'reload' | 'mirrorApply';
+    durationMs: number;
+    storeChars: number;
+    entryCount?: number;
+    readMs?: number;
+    pruneMs?: number;
+    patchMs?: number;
+    adoptMs?: number;
+    updatedKeyCount?: number;
+    patchChars?: number;
+    source?: 'ack' | 'broadcast';
+    mutationOp?: 'set' | 'patchSWR' | 'remove' | 'clear';
+    replayedCount?: number;
+    heapBytes?: number;
+    allocatedBytes?: number;
+    gcCount?: number;
+    gcMs?: number;
+  }) {
+    return { ...params, runtime: platformEnv.runtimeRole };
   }
 
   @LogToLocal()

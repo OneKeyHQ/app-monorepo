@@ -15,7 +15,6 @@ import {
   Select,
   SizableText,
   Skeleton,
-  Stack,
   Tooltip,
   XStack,
   YStack,
@@ -1950,12 +1949,30 @@ function PerpTradingForm({
   const scaleDistributionRadioOuterSize = isMobile ? '$3.5' : '$4';
   const scaleDistributionRadioInnerSize = isMobile ? '$1.5' : '$2';
 
+  const renderTimeInForceSection = () => {
+    if (shouldShowScaleTif) {
+      return (
+        <XStack flexShrink={0} justifyContent="flex-end">
+          <TimeInForceSelector
+            testID="perp-scale-tif-selector"
+            value={formData.scaleTif ?? 'Gtc'}
+            onChange={(nextTif) => updateForm({ scaleTif: nextTif })}
+            disabled={isSubmitting}
+            isMobile={isMobile}
+          />
+        </XStack>
+      );
+    }
+
+    return null;
+  };
+
   const renderScaleAmountDistributionSection = () => {
     if (isScaleMode) {
       const scaleSizeDistribution = formData.scaleSizeDistribution ?? 'fixed';
       return (
-        <YStack gap="$1.5">
-          <XStack alignItems="center">
+        <YStack gap={isMobile ? '$3' : '$1.5'}>
+          <XStack alignItems="center" justifyContent="space-between" gap="$3">
             <DashText
               size={isMobile ? '$bodySm' : '$bodyMd'}
               color="$textSubdued"
@@ -1974,6 +1991,7 @@ function PerpTradingForm({
                 id: ETranslations.perp_scale_amount_distribution__title,
               })}
             </DashText>
+            {isMobile ? renderTimeInForceSection() : null}
           </XStack>
           <XStack gap="$4" alignItems="center" flexWrap="wrap">
             {scaleAmountDistributionOptions.map((option) => {
@@ -2217,6 +2235,9 @@ function PerpTradingForm({
                     id: ETranslations.Perps_BBO_button_desc,
                   })}
                   placement="top-end"
+                  // Tamagui 2 stops click propagation on the tooltip trigger, so
+                  // clicks on the label never reach the Badge onPress.
+                  onPress={isSubmitting ? undefined : handleBBOToggle}
                 />
               )}
             </Badge>
@@ -2227,27 +2248,13 @@ function PerpTradingForm({
     return null;
   };
 
-  const renderTimeInForceSection = () => {
-    if (shouldShowScaleTif) {
-      return (
-        <XStack flexShrink={0} justifyContent="flex-end">
-          <TimeInForceSelector
-            testID="perp-scale-tif-selector"
-            value={formData.scaleTif ?? 'Gtc'}
-            onChange={(nextTif) => updateForm({ scaleTif: nextTif })}
-            disabled={isSubmitting}
-            isMobile={isMobile}
-          />
-        </XStack>
-      );
-    }
-
-    return null;
-  };
-
   const renderScaleAuxiliarySection = () => {
     if (!isScaleMode) {
       return null;
+    }
+
+    if (isMobile) {
+      return renderScaleAmountDistributionSection();
     }
 
     return (
@@ -2540,7 +2547,7 @@ function PerpTradingForm({
         {...(isMobile && { p: '$0', borderWidth: 1.5 })}
       />
       <DashText
-        size={isMobile ? '$bodySm' : '$bodyMdMedium'}
+        size={isMobile ? '$bodySm' : '$bodyMd'}
         color="$text"
         dashColor="$textDisabled"
         dashThickness={0.5}
@@ -2586,28 +2593,22 @@ function PerpTradingForm({
                 height={checkboxSizeVal}
                 {...(isMobile && { p: '$0', borderWidth: 1.5 })}
               />
-              <Tooltip
-                placement="top"
-                triggerAsChild="except-style"
-                renderContent={intl.formatMessage({
+              <DashText
+                size={isMobile ? '$bodySm' : '$bodyMd'}
+                color="$text"
+                dashColor="$textDisabled"
+                dashThickness={0.5}
+                tooltip={intl.formatMessage({
                   id: ETranslations.perp_twap_randomize__desc,
                 })}
-                renderTrigger={
-                  <Stack display="inline-flex" alignSelf="flex-start">
-                    <DashText
-                      size={isMobile ? '$bodySm' : '$bodyMdMedium'}
-                      color="$text"
-                      dashColor="$textDisabled"
-                      dashThickness={0.5}
-                      cursor="help"
-                    >
-                      {intl.formatMessage({
-                        id: ETranslations.perp_twap_randomize__title,
-                      })}
-                    </DashText>
-                  </Stack>
-                }
-              />
+                tooltipTitle={intl.formatMessage({
+                  id: ETranslations.perp_twap_randomize__title,
+                })}
+              >
+                {intl.formatMessage({
+                  id: ETranslations.perp_twap_randomize__title,
+                })}
+              </DashText>
             </XStack>
             {twapEstimatedSliceNotionalDisplay ? (
               <XStack
@@ -2644,7 +2645,7 @@ function PerpTradingForm({
         return null;
       }
       return (
-        <YStack gap="$1.5" {...(isMobile && { mt: '$1' })} p="$0">
+        <YStack gap="$1.5" {...(isMobile && { mt: '$2', mb: '$2' })} p="$0">
           <XStack alignItems="center" justifyContent="space-between" gap="$3">
             {renderReduceOnlyCheckbox({
               testID: 'perp-scale-reduce-only-checkbox',
@@ -2677,7 +2678,11 @@ function PerpTradingForm({
     ) : null;
 
     return (
-      <YStack gap="$1" {...(isMobile && { mt: '$1' })} p="$0">
+      <YStack
+        gap={isMobile ? '$2' : '$1'}
+        {...(isMobile && { mt: '$1' })}
+        p="$0"
+      >
         {shouldHideMobileTpsl ? null : (
           <XStack alignItems="center">
             {renderReduceOnlyCheckbox({

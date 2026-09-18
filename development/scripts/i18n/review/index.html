@@ -1,0 +1,194 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'"
+    />
+    <title>OneKey · 翻译审阅</title>
+    <style>
+      /* REVIEW_STYLES */
+    </style>
+  </head>
+  <body>
+    <header class="masthead">
+      <div class="brand">
+        <span class="brand-mark" aria-hidden="true">1</span
+        ><strong>OneKey</strong><span class="brand-divider"></span>
+        <h1>翻译审阅</h1>
+      </div>
+      <div class="header-guide">
+        <span>直接编辑文案，或添加评论让模型调整。</span>
+        <details id="review-help" class="help">
+          <summary aria-describedby="review-help-content">审阅说明</summary>
+          <div id="review-help-content" class="tooltip-content" role="tooltip">
+            修改英文后，模型会补齐受影响的其他语言。更改 key 会提出使用新 key
+            的请求，不会自动重命名或删除远端词条。确认后复制提示词回对话；有修改或评论时，模型会生成新版预览供你二次确认。
+          </div>
+        </details>
+      </div>
+      <div class="project-meta">
+        <span id="project"></span
+        ><span id="plan-state" class="plan-state"></span>
+      </div>
+    </header>
+    <main class="workspace">
+      <aside class="sidebar" aria-label="词条目录">
+        <div class="sidebar-tools">
+          <div class="sidebar-heading">
+            <h2>词条</h2>
+            <span id="totals"></span>
+          </div>
+          <label class="search"
+            ><span aria-hidden="true">⌕</span
+            ><input
+              id="search"
+              type="search"
+              placeholder="搜索 key、译文或评论"
+              aria-label="搜索 key 或文案"
+          /></label>
+          <div class="filter-row">
+            <span id="visible-count"></span
+            ><label class="changed-filter"
+              ><input id="only-changed" type="checkbox" />只看修改</label
+            >
+          </div>
+        </div>
+        <nav id="entry-nav" aria-label="选择词条"></nav>
+        <div class="sidebar-bottom">
+          <label class="mode"
+            >操作模式<select id="mode" aria-describedby="mode-description">
+              <option value="complete">补全</option>
+              <option value="update">更新</option>
+            </select></label
+          >
+          <p id="mode-description"></p>
+          <div class="storage-status">
+            <span class="local-dot" aria-hidden="true"></span
+            ><span id="save-state" role="status">修改仅保存在此浏览器</span>
+          </div>
+        </div>
+      </aside>
+      <section class="editor" aria-label="翻译编辑区">
+        <div class="editor-toolbar">
+          <div class="entry-pager">
+            <button
+              id="previous-entry"
+              class="icon-button"
+              type="button"
+              aria-label="上一个词条"
+            >
+              ←</button
+            ><span id="position"></span
+            ><button
+              id="next-entry"
+              class="icon-button"
+              type="button"
+              aria-label="下一个词条"
+            >
+              →
+            </button>
+          </div>
+          <div class="language-tools">
+            <button
+              id="toggle-all"
+              class="text-button"
+              type="button"
+              aria-pressed="false"
+            >
+              展开全部语言
+            </button>
+          </div>
+        </div>
+        <div id="editor-scroll" class="editor-scroll">
+          <div class="editor-content">
+            <div id="entries"></div>
+            <div id="empty" class="empty-state" hidden>
+              <span aria-hidden="true">⌕</span>
+              <h2>没有匹配的词条</h2>
+              <p>试试其他关键词，或清除筛选查看全部。</p>
+              <button id="clear-filters" class="secondary" type="button">
+                清除筛选
+              </button>
+            </div>
+          </div>
+        </div>
+        <footer class="action-bar">
+          <div class="action-summary">
+            <strong id="change-count">尚未修改</strong
+            ><span id="action-hint">确认后复制提示词回对话</span>
+          </div>
+          <button id="generate" class="primary" type="button">
+            确认并生成提示词 <span aria-hidden="true">→</span>
+          </button>
+        </footer>
+      </section>
+    </main>
+    <dialog
+      id="prompt-dialog"
+      aria-labelledby="prompt-title"
+      aria-describedby="prompt-description"
+    >
+      <div class="dialog-heading">
+        <div>
+          <span class="eyebrow">审阅结果</span>
+          <h2 id="prompt-title">确认本轮修改</h2>
+        </div>
+        <button
+          id="close-dialog"
+          class="icon-button"
+          type="button"
+          aria-label="继续编辑"
+        >
+          ×
+        </button>
+      </div>
+      <p id="prompt-description"></p>
+      <div id="change-summary" class="change-summary"></div>
+      <details id="prompt-details" class="prompt-details">
+        <summary>编辑完整提示词</summary>
+        <label class="sr-only" for="prompt">生成的提示词</label
+        ><textarea id="prompt" spellcheck="false"></textarea>
+      </details>
+      <div class="dialog-actions">
+        <div>
+          <span id="copy-state" role="status">复制后粘贴到原来的模型对话。</span
+          ><button id="back-to-edit" class="text-button" type="button">
+            返回继续编辑
+          </button>
+        </div>
+        <button id="copy" class="primary" type="button">
+          复制提示词 <span aria-hidden="true">↗</span>
+        </button>
+      </div>
+    </dialog>
+    <dialog
+      id="reset-dialog"
+      aria-labelledby="reset-title"
+      aria-describedby="reset-description"
+    >
+      <span class="eyebrow">恢复预览原文</span>
+      <h2 id="reset-title">恢复此词条？</h2>
+      <code id="reset-key"></code>
+      <p id="reset-description">
+        此词条的 key
+        和所有语言译文将恢复为预览原始内容，本轮填写的词条评论和译文评论也会清除。
+      </p>
+      <div class="dialog-actions">
+        <button id="cancel-reset" class="secondary" type="button" autofocus>
+          取消</button
+        ><button id="confirm-reset" class="danger" type="button">
+          确认恢复
+        </button>
+      </div>
+    </dialog>
+    <script id="review-data" type="application/json">
+      /* REVIEW_DATA */
+    </script>
+    <script>
+      /* REVIEW_SCRIPT */
+    </script>
+  </body>
+</html>

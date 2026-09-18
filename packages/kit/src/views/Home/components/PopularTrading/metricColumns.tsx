@@ -37,7 +37,11 @@ function renderPopularTradingTokenIdentity(
     <TokenIdentityItem
       tokenLogoURI={record.logoUrl}
       tokenLogoURIs={record.logoUrls}
-      networkId={record.perpsCoin ? undefined : record.chainId}
+      networkId={
+        record.perpsCoin || record.stockListingName || !record.chainId
+          ? undefined
+          : record.chainId
+      }
       symbol={record.symbol}
       address={record.contractAddress}
       showVolume={showVolume}
@@ -45,8 +49,10 @@ function renderPopularTradingTokenIdentity(
       showCopyButton={!showVolume}
       communityRecognized={record.communityRecognized}
       stock={record.stock}
+      stockListingName={record.stockListingName}
       maxLeverage={record.maxLeverage}
       perpsSubtitle={record.perpsSubtitle}
+      perpsDexLabel={record.perpsDexLabel}
     />
   );
 }
@@ -86,7 +92,9 @@ function renderPopularTradingChangeText(
       color={changeColor}
       formatterOptions={{ showPlusMinusSigns }}
     >
-      {record.priceChange24h ?? '-'}
+      {Number.isFinite(record.priceChange24h)
+        ? record.priceChange24h
+        : EMPTY_MARKET_VALUE}
     </NumberSizeableText>
   );
 }
@@ -100,7 +108,7 @@ function renderPopularTradingPriceWithChange(record: IFavoriteTokenDisplay) {
         formatter="price"
         formatterOptions={{ currency: '$' }}
       >
-        {record.price ?? '-'}
+        {Number.isFinite(record.price) ? record.price : EMPTY_MARKET_VALUE}
       </NumberSizeableText>
       {renderPopularTradingChangeText(record, '$bodyMd')}
     </YStack>
@@ -122,7 +130,7 @@ function getPopularTradingDesktopMetricColumns(
           formatter="price"
           formatterOptions={{ currency: '$' }}
         >
-          {record.price ?? '-'}
+          {Number.isFinite(record.price) ? record.price : EMPTY_MARKET_VALUE}
         </NumberSizeableText>
       ),
     },

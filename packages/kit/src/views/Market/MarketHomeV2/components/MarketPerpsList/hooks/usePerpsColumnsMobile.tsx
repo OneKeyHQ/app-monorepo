@@ -115,7 +115,7 @@ export function usePerpsColumnsMobile(): ITableColumn<IMarketPerpsToken>[] {
                 <NumberSizeableText
                   size="$bodyMd"
                   color={changeColor}
-                  formatter="priceChange"
+                  formatter="priceChangeCapped"
                   formatterOptions={{ showPlusMinusSigns: true }}
                 >
                   {record.change24hPercent ?? 0}

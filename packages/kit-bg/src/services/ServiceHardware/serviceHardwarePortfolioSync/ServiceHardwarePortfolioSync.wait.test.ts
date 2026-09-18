@@ -1,9 +1,21 @@
 /* eslint-disable @typescript-eslint/unbound-method -- Jest mock functions do not use this binding. */
 import { EDeviceType, HardwareErrorCode } from '@onekeyfe/hd-shared';
+import { DeviceSessionPinType } from '@onekeyfe/hd-transport';
 
-import { BluetoothUnavailableWhileUsbConnectedError } from '@onekeyhq/shared/src/errors';
+import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
+import { PERPS_NETWORK_ID } from '@onekeyhq/shared/src/consts/perp';
+import {
+  BluetoothUnavailableWhileUsbConnectedError,
+  DeviceNotSame,
+} from '@onekeyhq/shared/src/errors';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import type { IPortfolioCategoryFiat } from '@onekeyhq/shared/src/utils/portfolioPayload';
 import { EHardwareTransportType } from '@onekeyhq/shared/types';
 import {
   EHardwareCallContext,
@@ -12,6 +24,8 @@ import {
 } from '@onekeyhq/shared/types/device';
 
 import localDb from '../../../dbs/local/localDb';
+import { perpsCommonConfigPersistAtom } from '../../../states/jotai/atoms';
+import { HardwareProcessingManager } from '../../ServiceHardwareUI/HardwareProcessingManager';
 
 import ServiceHardwarePortfolioSync, {
   validatePortfolioPackageBase64,
@@ -33,8 +47,11 @@ jest.mock('@onekeyhq/shared/src/background/backgroundDecorators', () => ({
 jest.mock('@onekeyhq/shared/src/eventBus/appEventBus', () => ({
   EAppEventBusNames: {
     AllNetworksTokenListSettled: 'AllNetworksTokenListSettled',
+    CloseHardwareUiStateDialogManually: 'CloseHardwareUiStateDialogManually',
   },
-  appEventBus: { on: jest.fn(), off: jest.fn() },
+  appEventBus: new (jest.requireActual<typeof import('events')>(
+    'events',
+  ).EventEmitter)(),
 }));
 
 jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
@@ -45,6 +62,7 @@ jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
     isJest: true,
     isNative: true,
     isSupportDesktopBle: false,
+    isSupportWebUSB: false,
   },
 }));
 
@@ -52,6 +70,7 @@ const mutablePlatformEnv = platformEnv as unknown as {
   isDesktop: boolean;
   isNative: boolean;
   isSupportDesktopBle: boolean;
+  isSupportWebUSB: boolean;
 };
 
 jest.mock('@onekeyhq/shared/src/utils/accountUtils', () => ({
@@ -81,8 +100,702 @@ jest.mock('../../../dbs/local/localDb', () => ({
 
 jest.mock('../../../states/jotai/atoms', () => ({
   currencyPersistAtom: { get: jest.fn() },
+  perpsCommonConfigPersistAtom: { get: jest.fn() },
   settingsPersistAtom: { get: jest.fn() },
 }));
+
+describe('Portfolio v2 category retrieval', () => {
+  const eventPayload: IPortfolioSyncSettledPayload = {
+    accountId: 'account-1',
+    indexedAccountId: 'indexed-account-1',
+    networkId: getNetworkIdsMap().onekeyall,
+    aggregateTokenMap: {},
+    totalFiat: '100',
+    totalFiatCurrency: 'usd',
+    totalTokenCount: 0,
+    tokenMap: {},
+    tokens: [],
+  };
+
+  function prepare() {
+    jest.mocked(perpsCommonConfigPersistAtom.get).mockResolvedValue({
+      perpConfigLoaded: true,
+      perpConfigCommon: { disablePerp: false },
+    } as Awaited<ReturnType<typeof perpsCommonConfigPersistAtom.get>>);
+    const post = jest.fn().mockResolvedValue({
+      data: {
+        data: {
+          success: true,
+          data: { totals: { netWorth: 20 } },
+          meta: {
+            degraded: false,
+            networkIds: ['evm--1'],
+            requestedNetworkIds: ['evm--1'],
+          },
+        },
+      },
+    });
+    const getAllNetworksState = jest.fn().mockResolvedValue({
+      enabledNetworks: { 'evm--1': true },
+      disabledNetworks: {},
+    });
+    const getAllNetworkAccounts = jest.fn().mockResolvedValue({
+      accountsInfo: [
+        {
+          accountId: 'eth-account-1',
+          networkId: 'evm--1',
+          apiAddress: '0x1111',
+        },
+      ],
+    });
+    const getDeFiEnabledNetworksMapState = jest.fn().mockResolvedValue({
+      isReady: true,
+      enabledNetworksMap: { 'evm--1': true },
+    });
+    const getAccountTotalDeFiNetWorth = jest.fn().mockResolvedValue({
+      hasCache: false,
+      netWorth: '0',
+      networkIds: [],
+    });
+    const getAllNetworks = jest.fn().mockResolvedValue({
+      networks: [{ id: 'evm--1', isTestnet: false }],
+    });
+    const getNetworkAccount = jest.fn().mockResolvedValue({
+      address: '0x2222',
+      addressDetail: { normalizedAddress: '0x3333' },
+    });
+    const getHyperliquidPortfolioSnapshot = jest.fn().mockResolvedValue({
+      netWorthUsd: '30',
+      isDegraded: false,
+    });
+    const service = new ServiceHardwarePortfolioSync({
+      backgroundApi: {
+        serviceDeFi: {
+          getDeFiEnabledNetworksMapState,
+          getAccountTotalDeFiNetWorth,
+        },
+        serviceNetwork: {
+          getAllNetworks,
+          getGlobalDeriveTypeOfNetwork: jest.fn().mockResolvedValue('default'),
+        },
+        serviceAllNetwork: { getAllNetworksState, getAllNetworkAccounts },
+        serviceAccount: { getNetworkAccount },
+        serviceAccountProfile: {
+          _getWalletTypeHeader: jest.fn().mockResolvedValue({}),
+        },
+        serviceHyperliquid: { getHyperliquidPortfolioSnapshot },
+      } as unknown as IBackgroundApi,
+    });
+    const internals = service as unknown as {
+      getClient: jest.Mock;
+      getPortfolioCategoryFiat: (
+        payload: IPortfolioSyncSettledPayload,
+        signal?: AbortSignal,
+        cacheKey?: string,
+      ) => Promise<IPortfolioCategoryFiat>;
+    };
+    internals.getClient = jest.fn().mockResolvedValue({ post });
+    return {
+      internals,
+      post,
+      getAllNetworks,
+      getAllNetworksState,
+      getAllNetworkAccounts,
+      getDeFiEnabledNetworksMapState,
+      getAccountTotalDeFiNetWorth,
+      getNetworkAccount,
+      getHyperliquidPortfolioSnapshot,
+    };
+  }
+
+  test('fetches USD category net worth using the Home Perps snapshot policy', async () => {
+    const mocks = prepare();
+    await expect(
+      mocks.internals.getPortfolioCategoryFiat(eventPayload),
+    ).resolves.toEqual({
+      defiFiat: '20',
+      deFiSource: 'live',
+      perpsFiat: '30',
+    });
+    expect(mocks.getAllNetworkAccounts).toHaveBeenCalledWith(
+      expect.objectContaining({
+        accountId: 'account-1',
+        indexedAccountId: 'indexed-account-1',
+        networkId: getNetworkIdsMap().onekeyall,
+        networksEnabledOnly: true,
+        DeFiEnabledOnly: true,
+      }),
+    );
+    expect(mocks.post).toHaveBeenCalledWith(
+      '/wallet/v1/portfolio/positions',
+      {
+        networkId: 'evm--1',
+        accountAddress: '0x1111',
+      },
+      expect.objectContaining({
+        headers: { 'x-onekey-request-currency': 'usd' },
+      }),
+    );
+    expect(mocks.getNetworkAccount).toHaveBeenCalledWith({
+      accountId: undefined,
+      indexedAccountId: 'indexed-account-1',
+      networkId: PERPS_NETWORK_ID,
+      deriveType: 'default',
+    });
+    expect(mocks.getHyperliquidPortfolioSnapshot).toHaveBeenCalledWith({
+      address: '0x3333',
+    });
+  });
+
+  test('passes deriveType for a single-network DeFi lookup', async () => {
+    const mocks = prepare();
+    await expect(
+      mocks.internals.getPortfolioCategoryFiat({
+        ...eventPayload,
+        networkId: 'evm--1',
+      }),
+    ).resolves.toEqual({
+      defiFiat: '20',
+      deFiSource: 'live',
+      perpsFiat: '30',
+    });
+    expect(mocks.getAllNetworkAccounts).toHaveBeenCalledWith(
+      expect.objectContaining({
+        networkId: 'evm--1',
+        deriveType: 'default',
+      }),
+    );
+  });
+
+  test('treats an empty DeFi account set as zero instead of unknown', async () => {
+    const mocks = prepare();
+    mocks.getAllNetworkAccounts.mockResolvedValue({ accountsInfo: [] });
+    await expect(
+      mocks.internals.getPortfolioCategoryFiat(eventPayload),
+    ).resolves.toEqual({
+      defiFiat: '0',
+      deFiSource: 'empty',
+      perpsFiat: '30',
+    });
+    expect(mocks.post).not.toHaveBeenCalled();
+  });
+
+  test('treats a confirmed zero DeFi response as zero', async () => {
+    const mocks = prepare();
+    mocks.post.mockResolvedValue({
+      data: {
+        data: {
+          success: true,
+          data: { totals: { netWorth: 0 } },
+          meta: {
+            degraded: false,
+            networkIds: [],
+            requestedNetworkIds: ['evm--1'],
+          },
+        },
+      },
+    });
+
+    await expect(
+      mocks.internals.getPortfolioCategoryFiat(eventPayload),
+    ).resolves.toEqual({
+      defiFiat: '0',
+      deFiSource: 'live',
+      perpsFiat: '30',
+    });
+  });
+
+  test('keeps DeFi unknown when the requested network is not confirmed', async () => {
+    const mocks = prepare();
+    mocks.post.mockResolvedValue({
+      data: {
+        data: {
+          success: true,
+          data: { totals: { netWorth: 0 } },
+          meta: {
+            degraded: false,
+            networkIds: ['evm--1'],
+            requestedNetworkIds: [],
+          },
+        },
+      },
+    });
+
+    await expect(
+      mocks.internals.getPortfolioCategoryFiat(eventPayload),
+    ).resolves.toEqual({
+      defiFiat: undefined,
+      deFiSource: 'unknown',
+      perpsFiat: '30',
+    });
+  });
+
+  test('rejects nonzero DeFi totals without actual network coverage', async () => {
+    const mocks = prepare();
+    mocks.post.mockResolvedValue({
+      data: {
+        data: {
+          success: true,
+          data: { totals: { netWorth: 20 } },
+          meta: {
+            degraded: false,
+            networkIds: [],
+            requestedNetworkIds: ['evm--1'],
+          },
+        },
+      },
+    });
+
+    await expect(
+      mocks.internals.getPortfolioCategoryFiat(eventPayload),
+    ).resolves.toEqual({
+      defiFiat: undefined,
+      deFiSource: 'unknown',
+      perpsFiat: '30',
+    });
+  });
+
+  test('treats a missing perps account row as zero instead of unknown', async () => {
+    const mocks = prepare();
+    mocks.getNetworkAccount.mockRejectedValue(
+      new Error('indexedAccounts not found: indexed-account-1'),
+    );
+    await expect(
+      mocks.internals.getPortfolioCategoryFiat(eventPayload),
+    ).resolves.toEqual({
+      defiFiat: '20',
+      deFiSource: 'live',
+      perpsFiat: '0',
+    });
+    expect(mocks.getHyperliquidPortfolioSnapshot).not.toHaveBeenCalled();
+  });
+
+  test('keeps a perps infrastructure failure unknown instead of zero', async () => {
+    const mocks = prepare();
+    mocks.getNetworkAccount.mockRejectedValue(new Error('storage failed'));
+    await expect(
+      mocks.internals.getPortfolioCategoryFiat(eventPayload),
+    ).resolves.toEqual({
+      defiFiat: '20',
+      deFiSource: 'live',
+      perpsFiat: undefined,
+    });
+  });
+
+  test('does not treat a generic Account not found read as zero perps equity', async () => {
+    const mocks = prepare();
+    mocks.getNetworkAccount.mockRejectedValue(new Error('Account not found'));
+    await expect(
+      mocks.internals.getPortfolioCategoryFiat(eventPayload),
+    ).resolves.toEqual({
+      defiFiat: '20',
+      deFiSource: 'live',
+      perpsFiat: undefined,
+    });
+  });
+
+  test('reuses category fiat within the hardware cooldown window', async () => {
+    const mocks = prepare();
+    await expect(
+      mocks.internals.getPortfolioCategoryFiat(eventPayload, undefined, 'k1'),
+    ).resolves.toEqual({
+      defiFiat: '20',
+      deFiSource: 'live',
+      perpsFiat: '30',
+    });
+    await expect(
+      mocks.internals.getPortfolioCategoryFiat(eventPayload, undefined, 'k1'),
+    ).resolves.toEqual({
+      defiFiat: '20',
+      deFiSource: 'live',
+      perpsFiat: '30',
+    });
+    expect(mocks.post).toHaveBeenCalledTimes(1);
+    expect(mocks.getHyperliquidPortfolioSnapshot).toHaveBeenCalledTimes(1);
+  });
+
+  test('does not reuse category fiat after enabled networks change', async () => {
+    const mocks = prepare();
+    await expect(
+      mocks.internals.getPortfolioCategoryFiat(eventPayload, undefined, 'k1'),
+    ).resolves.toEqual({
+      defiFiat: '20',
+      deFiSource: 'live',
+      perpsFiat: '30',
+    });
+    mocks.getAllNetworksState.mockResolvedValue({
+      enabledNetworks: { 'evm--1': true, 'btc--0': true },
+      disabledNetworks: {},
+    });
+    await expect(
+      mocks.internals.getPortfolioCategoryFiat(eventPayload, undefined, 'k1'),
+    ).resolves.toEqual({
+      defiFiat: '20',
+      deFiSource: 'live',
+      perpsFiat: '30',
+    });
+    expect(mocks.post).toHaveBeenCalledTimes(2);
+  });
+
+  test('does not reuse category fiat after the DeFi-enabled map changes', async () => {
+    const mocks = prepare();
+    await expect(
+      mocks.internals.getPortfolioCategoryFiat(eventPayload, undefined, 'k1'),
+    ).resolves.toEqual({
+      defiFiat: '20',
+      deFiSource: 'live',
+      perpsFiat: '30',
+    });
+    mocks.getDeFiEnabledNetworksMapState.mockResolvedValue({
+      isReady: true,
+      enabledNetworksMap: { 'evm--1': true, 'btc--0': true },
+    });
+    await expect(
+      mocks.internals.getPortfolioCategoryFiat(eventPayload, undefined, 'k1'),
+    ).resolves.toEqual({
+      defiFiat: '20',
+      deFiSource: 'live',
+      perpsFiat: '30',
+    });
+    expect(mocks.post).toHaveBeenCalledTimes(2);
+  });
+
+  test('does not memoize an unknown category leg', async () => {
+    const mocks = prepare();
+    mocks.post.mockRejectedValue(new Error('unavailable'));
+    await expect(
+      mocks.internals.getPortfolioCategoryFiat(eventPayload, undefined, 'k1'),
+    ).resolves.toEqual({
+      defiFiat: undefined,
+      deFiSource: 'unknown',
+      perpsFiat: '30',
+    });
+    mocks.post.mockResolvedValue({
+      data: {
+        data: {
+          success: true,
+          data: { totals: { netWorth: 20 } },
+          meta: {
+            degraded: false,
+            networkIds: ['evm--1'],
+            requestedNetworkIds: ['evm--1'],
+          },
+        },
+      },
+    });
+    await expect(
+      mocks.internals.getPortfolioCategoryFiat(eventPayload, undefined, 'k1'),
+    ).resolves.toEqual({
+      defiFiat: '20',
+      deFiSource: 'live',
+      perpsFiat: '30',
+    });
+    expect(mocks.post).toHaveBeenCalledTimes(2);
+  });
+
+  test('keeps a failed category unknown while retaining the successful one', async () => {
+    const mocks = prepare();
+    mocks.post.mockRejectedValue(new Error('unavailable'));
+    await expect(
+      mocks.internals.getPortfolioCategoryFiat(eventPayload),
+    ).resolves.toEqual({
+      defiFiat: undefined,
+      deFiSource: 'unknown',
+      perpsFiat: '30',
+    });
+  });
+
+  test('does not send a partial DeFi live total when some networks fail', async () => {
+    const mocks = prepare();
+    mocks.getAllNetworkAccounts.mockResolvedValue({
+      accountsInfo: [
+        {
+          accountId: 'eth-account-1',
+          networkId: 'evm--1',
+          apiAddress: '0x1111',
+        },
+        {
+          accountId: 'btc-account-1',
+          networkId: 'btc--0',
+          apiAddress: 'bc1q',
+        },
+      ],
+    });
+    mocks.post
+      .mockResolvedValueOnce({
+        data: {
+          data: {
+            success: true,
+            data: { totals: { netWorth: 20 } },
+            meta: {
+              degraded: false,
+              networkIds: ['evm--1'],
+              requestedNetworkIds: ['evm--1'],
+            },
+          },
+        },
+      })
+      .mockRejectedValueOnce(new Error('unavailable'));
+    await expect(
+      mocks.internals.getPortfolioCategoryFiat(eventPayload),
+    ).resolves.toEqual({
+      defiFiat: undefined,
+      deFiSource: 'unknown',
+      perpsFiat: '30',
+    });
+  });
+
+  test('uses the Home DeFi cache when live coverage is incomplete', async () => {
+    const mocks = prepare();
+    mocks.getAllNetworks.mockResolvedValue({
+      networks: [
+        { id: 'evm--1', isTestnet: false },
+        { id: 'btc--0', isTestnet: false },
+      ],
+    });
+    mocks.getAllNetworksState.mockResolvedValue({
+      enabledNetworks: { 'btc--0': true, 'evm--1': true },
+      disabledNetworks: {},
+    });
+    mocks.getDeFiEnabledNetworksMapState.mockResolvedValue({
+      isReady: true,
+      enabledNetworksMap: { 'btc--0': true, 'evm--1': true },
+    });
+    mocks.getAllNetworkAccounts.mockResolvedValue({
+      accountsInfo: [
+        {
+          accountId: 'eth-account-1',
+          networkId: 'evm--1',
+          apiAddress: '0x1111',
+        },
+        {
+          accountId: 'btc-account-1',
+          networkId: 'btc--0',
+          apiAddress: 'bc1q',
+        },
+      ],
+    });
+    mocks.post
+      .mockResolvedValueOnce({
+        data: {
+          data: {
+            success: true,
+            data: { totals: { netWorth: 20 } },
+            meta: {
+              degraded: false,
+              networkIds: ['evm--1'],
+              requestedNetworkIds: ['evm--1'],
+            },
+          },
+        },
+      })
+      .mockRejectedValueOnce(new Error('unavailable'));
+    mocks.getAccountTotalDeFiNetWorth.mockResolvedValue({
+      hasCache: true,
+      netWorth: '20',
+      networkIds: ['btc--0', 'evm--1'],
+    });
+    await expect(
+      mocks.internals.getPortfolioCategoryFiat(eventPayload),
+    ).resolves.toEqual({
+      defiFiat: '20',
+      deFiSource: 'cache',
+      perpsFiat: '30',
+    });
+    expect(mocks.getAccountTotalDeFiNetWorth).toHaveBeenCalledWith(
+      expect.objectContaining({
+        enabledNetworkIds: ['evm--1', 'btc--0'],
+        targetCurrency: 'usd',
+      }),
+    );
+  });
+
+  test('does not sum extra catalog DeFi networks from the Home cache', async () => {
+    const mocks = prepare();
+    mocks.getAllNetworks.mockResolvedValue({
+      networks: [
+        { id: 'evm--1', isTestnet: false },
+        { id: 'evm--56', isTestnet: false },
+      ],
+    });
+    mocks.getAllNetworksState.mockResolvedValue({
+      enabledNetworks: { 'evm--1': true, 'evm--56': true },
+      disabledNetworks: {},
+    });
+    mocks.getDeFiEnabledNetworksMapState.mockResolvedValue({
+      isReady: true,
+      enabledNetworksMap: { 'evm--1': true, 'evm--56': true },
+    });
+    mocks.post.mockRejectedValue(new Error('unavailable'));
+    mocks.getAccountTotalDeFiNetWorth.mockResolvedValue({
+      hasCache: true,
+      netWorth: '20',
+      networkIds: ['evm--1'],
+    });
+    await expect(
+      mocks.internals.getPortfolioCategoryFiat(eventPayload),
+    ).resolves.toEqual({
+      defiFiat: '20',
+      deFiSource: 'cache',
+      perpsFiat: '30',
+    });
+    expect(mocks.getAccountTotalDeFiNetWorth).toHaveBeenCalledWith(
+      expect.objectContaining({
+        enabledNetworkIds: ['evm--1'],
+        targetCurrency: 'usd',
+      }),
+    );
+  });
+
+  test('does not use a partial Home DeFi cache as a complete total', async () => {
+    const mocks = prepare();
+    mocks.getAllNetworkAccounts.mockResolvedValue({
+      accountsInfo: [
+        {
+          accountId: 'eth-account-1',
+          networkId: 'evm--1',
+          apiAddress: '0x1111',
+        },
+        {
+          accountId: 'btc-account-1',
+          networkId: 'btc--0',
+          apiAddress: 'bc1q',
+        },
+      ],
+    });
+    mocks.post
+      .mockResolvedValueOnce({
+        data: {
+          data: {
+            success: true,
+            data: { totals: { netWorth: 20 } },
+            meta: {
+              degraded: false,
+              networkIds: ['evm--1'],
+              requestedNetworkIds: ['evm--1'],
+            },
+          },
+        },
+      })
+      .mockRejectedValueOnce(new Error('unavailable'));
+    mocks.getAccountTotalDeFiNetWorth.mockResolvedValue({
+      hasCache: true,
+      netWorth: '20',
+      networkIds: ['evm--1'],
+    });
+    await expect(
+      mocks.internals.getPortfolioCategoryFiat(eventPayload),
+    ).resolves.toEqual({
+      defiFiat: undefined,
+      deFiSource: 'unknown',
+      perpsFiat: '30',
+    });
+  });
+
+  test('does not use cache when multiple DeFi addresses share a network', async () => {
+    const mocks = prepare();
+    mocks.getAllNetworkAccounts.mockResolvedValue({
+      accountsInfo: [
+        {
+          accountId: 'btc-native',
+          networkId: 'btc--0',
+          apiAddress: 'bc1qnative',
+        },
+        {
+          accountId: 'btc-taproot',
+          networkId: 'btc--0',
+          apiAddress: 'bc1ptaproot',
+        },
+      ],
+    });
+    mocks.post
+      .mockResolvedValueOnce({
+        data: {
+          data: {
+            success: true,
+            data: { totals: { netWorth: 20 } },
+            meta: {
+              degraded: false,
+              networkIds: ['btc--0'],
+              requestedNetworkIds: ['btc--0'],
+            },
+          },
+        },
+      })
+      .mockRejectedValueOnce(new Error('unavailable'));
+    mocks.getAccountTotalDeFiNetWorth.mockResolvedValue({
+      hasCache: true,
+      netWorth: '20',
+      networkIds: ['btc--0'],
+    });
+    await expect(
+      mocks.internals.getPortfolioCategoryFiat(eventPayload),
+    ).resolves.toEqual({
+      defiFiat: undefined,
+      deFiSource: 'unknown',
+      perpsFiat: '30',
+    });
+    expect(mocks.getAccountTotalDeFiNetWorth).not.toHaveBeenCalled();
+  });
+
+  test('rejects degraded results instead of reporting partial totals', async () => {
+    const mocks = prepare();
+    mocks.post.mockResolvedValue({
+      data: {
+        data: {
+          success: true,
+          data: { totals: { netWorth: 20 } },
+          meta: {
+            degraded: true,
+            networkIds: ['evm--1'],
+            requestedNetworkIds: ['evm--1'],
+          },
+        },
+      },
+    });
+    mocks.getHyperliquidPortfolioSnapshot.mockResolvedValue({
+      netWorthUsd: '30',
+      isDegraded: true,
+    });
+    await expect(
+      mocks.internals.getPortfolioCategoryFiat(eventPayload),
+    ).resolves.toEqual({
+      defiFiat: undefined,
+      deFiSource: 'unknown',
+      perpsFiat: undefined,
+    });
+  });
+
+  test('does not infer no assets while network support is still loading', async () => {
+    const mocks = prepare();
+    mocks.getDeFiEnabledNetworksMapState.mockResolvedValue({
+      isReady: false,
+      enabledNetworksMap: {},
+    });
+    await expect(
+      mocks.internals.getPortfolioCategoryFiat(eventPayload),
+    ).resolves.toEqual({});
+    expect(mocks.post).not.toHaveBeenCalled();
+    expect(mocks.getHyperliquidPortfolioSnapshot).not.toHaveBeenCalled();
+  });
+
+  test('excludes disabled networks using the same scope as Home', async () => {
+    const mocks = prepare();
+    mocks.getAllNetworksState.mockResolvedValue({
+      enabledNetworks: {},
+      disabledNetworks: { 'evm--1': true },
+    });
+    await expect(
+      mocks.internals.getPortfolioCategoryFiat(eventPayload),
+    ).resolves.toEqual({
+      defiFiat: '0',
+      deFiSource: 'empty',
+      perpsFiat: '0',
+    });
+    expect(mocks.post).not.toHaveBeenCalled();
+    expect(mocks.getHyperliquidPortfolioSnapshot).not.toHaveBeenCalled();
+  });
+});
 
 describe('validatePortfolioPackageBase64', () => {
   test('preserves valid Base64 and reports the decoded size', () => {
@@ -447,7 +1160,7 @@ describe('ServiceHardwarePortfolioSync.syncSettledPortfolio', () => {
   function prepareHardwareSync({
     busyResults,
     cooldownRemainingMs = 0,
-    hardwareTransportType = EHardwareTransportType.BLE,
+    hardwareTransportType = EHardwareTransportType.WEBUSB,
     isConnected = true,
     selectedIndexedAccountId = 'indexed-account-1',
     selectedWalletId = 'hw-1',
@@ -475,7 +1188,15 @@ describe('ServiceHardwarePortfolioSync.syncSettledPortfolio', () => {
       protocol: 'V2',
       status: { unlocked: true },
     });
+    const getDeviceStateWithUnlock = jest.fn().mockResolvedValue({
+      identity: { deviceId: 'PRO2_DEVICE_ID' },
+      protocol: 'V2',
+      status: { unlocked: true },
+    });
     const getCurrentTransportType = jest
+      .fn()
+      .mockResolvedValue(hardwareTransportType);
+    const prepareHardwareTransport = jest
       .fn()
       .mockResolvedValue(hardwareTransportType);
     const isHardwareDeviceConnected = jest.fn().mockResolvedValue(isConnected);
@@ -526,18 +1247,28 @@ describe('ServiceHardwarePortfolioSync.syncSettledPortfolio', () => {
         }
       },
     );
+    const withHardwareProcessing = jest.fn(
+      async (
+        operation: (lease: object) => Promise<unknown>,
+        _options: { onCancel?: () => void },
+      ) =>
+        operation({ deviceKey: 'db-device-1', owner: Symbol('interactive') }),
+    );
     const service = new ServiceHardwarePortfolioSync({
       backgroundApi: {
         serviceHardware: {
           getDeviceState,
+          getDeviceStateWithUnlock,
           getCurrentTransportType,
           isHardwareDeviceConnected,
+          prepareHardwareTransport,
           uploadPortfolioPackage,
         },
         serviceHardwareUI: {
           isHardwareChannelBusy,
           runExclusiveOneKeyOperation,
           tryRunExclusiveOneKeyOperation,
+          withHardwareProcessing,
         },
         simpleDb: {
           accountSelector: {
@@ -562,7 +1293,7 @@ describe('ServiceHardwarePortfolioSync.syncSettledPortfolio', () => {
       submitPortfolioJsonToServer: jest.Mock;
       syncSettledPortfolio: (
         eventPayload: IPortfolioSyncSettledPayload,
-      ) => Promise<void>;
+      ) => Promise<boolean | undefined>;
     };
     serviceInternals.getHardwareCooldownRemainingMs = jest
       .fn()
@@ -583,15 +1314,18 @@ describe('ServiceHardwarePortfolioSync.syncSettledPortfolio', () => {
     (accountUtils.isHwWallet as jest.Mock).mockReturnValue(true);
     return {
       getDeviceState,
+      getDeviceStateWithUnlock,
       getCurrentTransportType,
       isHardwareDeviceConnected,
       isHardwareChannelBusy,
+      prepareHardwareTransport,
       runExclusiveOneKeyOperation,
       service,
       serviceInternals,
       tryRunExclusiveOneKeyOperation,
       updateTargetState,
       uploadPortfolioPackage,
+      withHardwareProcessing,
     };
   }
 
@@ -609,6 +1343,195 @@ describe('ServiceHardwarePortfolioSync.syncSettledPortfolio', () => {
       transportType: EHardwareTransportType.DesktopWebBle,
     });
   }
+
+  test('selects v2 before server packing and carries category changes into the upload', async () => {
+    const portfolioSyncResultSpy = jest
+      .spyOn(defaultLogger.hardware.connection, 'portfolioSyncResult')
+      .mockImplementation((params) => params);
+    const { service, serviceInternals, uploadPortfolioPackage } =
+      prepareHardwareSync({ busyResults: [false, false] });
+    jest.mocked(localDb.getDeviceSafe).mockResolvedValue({
+      id: 'db-device-1',
+      connectId: 'PRO2_CONNECT_ID',
+      deviceId: 'PRO2_DEVICE_ID',
+      deviceType: EDeviceType.Pro2,
+      deviceStateInfo: {
+        identity: { deviceId: 'PRO2_DEVICE_ID' },
+        versions: { firmware: '1.0.2' },
+      },
+    } as Awaited<ReturnType<typeof localDb.getDeviceSafe>>);
+    const getCategory = jest
+      .fn()
+      .mockResolvedValue({ defiFiat: '20', perpsFiat: '30' });
+    (
+      service as unknown as { getPortfolioCategoryFiat: typeof getCategory }
+    ).getPortfolioCategoryFiat = getCategory;
+    const now = Date.now();
+    await serviceInternals.syncSettledPortfolio({
+      ...buildHardwarePayload(),
+      totalFiat: '100',
+    });
+    expect(serviceInternals.submitPortfolioJsonToServer).toHaveBeenCalledWith(
+      expect.objectContaining({
+        artifacts: expect.objectContaining({
+          portfolio: expect.objectContaining({
+            v: 2,
+            account: expect.objectContaining({ label: '1' }),
+            tokensFiat: '$100.00',
+            defiFiat: '$20.00',
+            perpsFiat: '$30.00',
+            totalFiat: '$150.00',
+            ts: expect.any(Number),
+          }),
+        }),
+      }),
+    );
+    const submittedTimestamp = (
+      serviceInternals.submitPortfolioJsonToServer.mock.calls[0][0] as {
+        artifacts: { portfolio: { ts: number } };
+      }
+    ).artifacts.portfolio.ts;
+    expect(submittedTimestamp).toBeGreaterThanOrEqual(now);
+    expect(submittedTimestamp).toBeLessThanOrEqual(Date.now());
+    expect(portfolioSyncResultSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        deviceType: EDeviceType.Pro2,
+        firmwareVersion: '1.0.2',
+        schemaVersion: 2,
+        status: 'success',
+      }),
+    );
+    expect(uploadPortfolioPackage).toHaveBeenCalledTimes(1);
+    portfolioSyncResultSpy.mockRestore();
+  });
+
+  test('selects v2 for Neo firmware 1.0.2', async () => {
+    const portfolioSyncResultSpy = jest
+      .spyOn(defaultLogger.hardware.connection, 'portfolioSyncResult')
+      .mockImplementation((params) => params);
+    const { service, serviceInternals, uploadPortfolioPackage } =
+      prepareHardwareSync({ busyResults: [false, false] });
+    jest.mocked(localDb.getDeviceSafe).mockResolvedValue({
+      id: 'db-device-1',
+      connectId: 'PRO2_CONNECT_ID',
+      deviceId: 'PRO2_DEVICE_ID',
+      deviceType: EDeviceType.Neo,
+      deviceStateInfo: {
+        identity: { deviceId: 'PRO2_DEVICE_ID' },
+        versions: { firmware: '1.0.2' },
+      },
+    } as Awaited<ReturnType<typeof localDb.getDeviceSafe>>);
+    const getCategory = jest
+      .fn()
+      .mockResolvedValue({ defiFiat: '20', perpsFiat: '30' });
+    (
+      service as unknown as { getPortfolioCategoryFiat: typeof getCategory }
+    ).getPortfolioCategoryFiat = getCategory;
+
+    await serviceInternals.syncSettledPortfolio({
+      ...buildHardwarePayload(),
+      totalFiat: '100',
+    });
+
+    expect(getCategory).toHaveBeenCalled();
+    expect(serviceInternals.submitPortfolioJsonToServer).toHaveBeenCalledWith(
+      expect.objectContaining({
+        artifacts: expect.objectContaining({
+          portfolio: expect.objectContaining({
+            v: 2,
+            account: expect.objectContaining({ label: '1' }),
+            tokensFiat: '$100.00',
+            defiFiat: '$20.00',
+            perpsFiat: '$30.00',
+            totalFiat: '$150.00',
+          }),
+        }),
+      }),
+    );
+    expect(portfolioSyncResultSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        deviceType: EDeviceType.Neo,
+        firmwareVersion: '1.0.2',
+        schemaVersion: 2,
+        status: 'success',
+      }),
+    );
+    expect(uploadPortfolioPackage).toHaveBeenCalledTimes(1);
+    portfolioSyncResultSpy.mockRestore();
+  });
+
+  test('keeps Pro2 firmware 1.0.1 on the v1 payload', async () => {
+    const { service, serviceInternals, uploadPortfolioPackage } =
+      prepareHardwareSync({ busyResults: [false, false] });
+    jest.mocked(localDb.getDeviceSafe).mockResolvedValue({
+      id: 'db-device-1',
+      connectId: 'PRO2_CONNECT_ID',
+      deviceId: 'PRO2_DEVICE_ID',
+      deviceType: EDeviceType.Pro2,
+      deviceStateInfo: {
+        identity: { deviceId: 'PRO2_DEVICE_ID' },
+        versions: { firmware: '1.0.1' },
+      },
+    } as Awaited<ReturnType<typeof localDb.getDeviceSafe>>);
+    const getCategory = jest
+      .fn()
+      .mockResolvedValue({ defiFiat: '20', perpsFiat: '30' });
+    (
+      service as unknown as { getPortfolioCategoryFiat: typeof getCategory }
+    ).getPortfolioCategoryFiat = getCategory;
+
+    await serviceInternals.syncSettledPortfolio({
+      ...buildHardwarePayload(),
+      totalFiat: '100',
+    });
+
+    expect(getCategory).not.toHaveBeenCalled();
+    expect(serviceInternals.submitPortfolioJsonToServer).toHaveBeenCalledWith(
+      expect.objectContaining({
+        artifacts: expect.objectContaining({
+          portfolio: expect.objectContaining({
+            v: 1,
+            account: expect.objectContaining({ label: 'Account #1' }),
+            totalFiat: '$100.00',
+          }),
+        }),
+      }),
+    );
+    const submitted = (
+      serviceInternals.submitPortfolioJsonToServer.mock.calls[0][0] as {
+        artifacts: { portfolio: Record<string, unknown> };
+      }
+    ).artifacts.portfolio;
+    expect(submitted).not.toHaveProperty('defiFiat');
+    expect(submitted).not.toHaveProperty('perpsFiat');
+    expect(submitted).not.toHaveProperty('tokensFiat');
+    expect(uploadPortfolioPackage).toHaveBeenCalledTimes(1);
+  });
+
+  test('records lastAttemptAt when a silent snapshot is skipped as a duplicate', async () => {
+    jest.spyOn(Date, 'now').mockReturnValue(1_785_723_200_000);
+    const payload = buildHardwarePayload();
+    const first = prepareHardwareSync({ busyResults: [false, false] });
+    await first.serviceInternals.syncSettledPortfolio(payload);
+    const firstState = first.updateTargetState.mock.calls.find((call) =>
+      Boolean((call[1] as { lastContentHash?: string }).lastContentHash),
+    )?.[1] as { lastContentHash: string; lastWalletId: string };
+    const duplicate = prepareHardwareSync({
+      busyResults: [false, false],
+      targetState: {
+        lastContentHash: firstState.lastContentHash,
+        lastWalletId: firstState.lastWalletId,
+      },
+    });
+
+    await duplicate.serviceInternals.syncSettledPortfolio(payload);
+
+    expect(duplicate.uploadPortfolioPackage).not.toHaveBeenCalled();
+    expect(duplicate.updateTargetState).toHaveBeenCalledWith(
+      'db-device-1',
+      expect.objectContaining({ lastAttemptAt: 1_785_723_200_000 }),
+    );
+  });
 
   test('uploads a signed empty standard-wallet snapshot to overwrite stale device data', async () => {
     const { serviceInternals, updateTargetState, uploadPortfolioPackage } =
@@ -705,7 +1628,7 @@ describe('ServiceHardwarePortfolioSync.syncSettledPortfolio', () => {
     jest.useRealTimers();
   });
 
-  test('skips silent desktop BLE upload when the device is locked', async () => {
+  test('keeps desktop BLE pending without probing the locked device', async () => {
     jest.useFakeTimers();
     Object.assign(mutablePlatformEnv, {
       isDesktop: true,
@@ -733,9 +1656,10 @@ describe('ServiceHardwarePortfolioSync.syncSettledPortfolio', () => {
       await jest.advanceTimersByTimeAsync(30_000);
 
       expect(uploadPortfolioPackage).not.toHaveBeenCalled();
+      expect(getDeviceState).not.toHaveBeenCalled();
       expect(
         (service as unknown as { lastResult: unknown }).lastResult,
-      ).toEqual(expect.objectContaining({ status: 'device-locked' }));
+      ).toEqual(expect.objectContaining({ status: 'desktop-suspended' }));
     } finally {
       Object.assign(mutablePlatformEnv, {
         isDesktop: false,
@@ -834,6 +1758,50 @@ describe('ServiceHardwarePortfolioSync.syncSettledPortfolio', () => {
     jest.useRealTimers();
   });
 
+  test('prefers a newer disconnected snapshot over pending BLE data', async () => {
+    const { service } = prepareHardwareSync({ busyResults: [false] });
+    const olderBlePayload = buildHardwarePayload();
+    const latestDisconnectedPayload = {
+      ...buildHardwarePayload(),
+      totalFiat: '2',
+    };
+    const resumedPayloadHandler = jest.fn();
+    const serviceInternals = service as unknown as {
+      handleAllNetworksTokenListSettled: typeof resumedPayloadHandler;
+      pendingDisconnectedPayloadByTargetKey: Map<
+        string,
+        IPortfolioSyncSettledPayload
+      >;
+      pendingMobileBlePayloadByTargetKey: Map<
+        string,
+        IPortfolioSyncSettledPayload
+      >;
+      targetKeyByConnectId: Map<string, string>;
+    };
+    serviceInternals.targetKeyByConnectId.set('PRO2_CONNECT_ID', 'db-device-1');
+    serviceInternals.pendingMobileBlePayloadByTargetKey.set(
+      'db-device-1',
+      olderBlePayload,
+    );
+    serviceInternals.pendingDisconnectedPayloadByTargetKey.set(
+      'db-device-1',
+      latestDisconnectedPayload,
+    );
+    serviceInternals.handleAllNetworksTokenListSettled = resumedPayloadHandler;
+
+    await service.notifyHardwareDeviceConnected({
+      identityKeys: ['PRO2_CONNECT_ID'],
+    });
+
+    expect(resumedPayloadHandler).toHaveBeenCalledTimes(1);
+    expect(resumedPayloadHandler).toHaveBeenCalledWith(
+      latestDisconnectedPayload,
+    );
+    expect(
+      serviceInternals.pendingMobileBlePayloadByTargetKey.has('db-device-1'),
+    ).toBe(false);
+  });
+
   test('does not upload when the connected device identity differs from the wallet device', async () => {
     const {
       getDeviceState,
@@ -853,6 +1821,8 @@ describe('ServiceHardwarePortfolioSync.syncSettledPortfolio', () => {
     expect(getDeviceState).toHaveBeenCalledWith({
       connectId: 'PRO2_CONNECT_ID',
       hardwareCallContext: EHardwareCallContext.BACKGROUND_NON_INTERACTIVE,
+      hardwareTransportType: EHardwareTransportType.WEBUSB,
+      persistTransportType: false,
       params: { scope: 'firmware' },
       silentMode: true,
     });
@@ -975,7 +1945,10 @@ describe('ServiceHardwarePortfolioSync.syncSettledPortfolio', () => {
       service,
       serviceInternals,
       uploadPortfolioPackage,
-    } = prepareHardwareSync({ busyResults: [false, false] });
+    } = prepareHardwareSync({
+      busyResults: [false, false],
+      hardwareTransportType: EHardwareTransportType.Bridge,
+    });
 
     await serviceInternals.syncSettledPortfolio({
       ...buildHardwarePayload(),
@@ -1082,70 +2055,770 @@ describe('ServiceHardwarePortfolioSync.syncSettledPortfolio', () => {
     expect(uploadPortfolioPackage).toHaveBeenCalledTimes(3);
   });
 
-  test('suspends mobile BLE sync after link disabled and resumes after an interactive success', async () => {
-    jest.useFakeTimers();
-    const {
-      service,
-      serviceInternals,
-      updateTargetState,
-      uploadPortfolioPackage,
-    } = prepareHardwareSync({ busyResults: [false] });
-    uploadPortfolioPackage.mockRejectedValueOnce(
-      new BluetoothUnavailableWhileUsbConnectedError(),
+  test('prefers an exact connected WebUSB device over the persisted BLE transport', async () => {
+    const navigatorDescriptor = Object.getOwnPropertyDescriptor(
+      globalThis,
+      'navigator',
     );
+    const previousPlatformEnv = {
+      isDesktop: mutablePlatformEnv.isDesktop,
+      isNative: mutablePlatformEnv.isNative,
+      isSupportDesktopBle: mutablePlatformEnv.isSupportDesktopBle,
+      isSupportWebUSB: mutablePlatformEnv.isSupportWebUSB,
+    };
+    Object.assign(mutablePlatformEnv, {
+      isDesktop: true,
+      isNative: false,
+      isSupportDesktopBle: true,
+      isSupportWebUSB: true,
+    });
+    Object.defineProperty(globalThis, 'navigator', {
+      configurable: true,
+      value: {
+        usb: {
+          getDevices: jest
+            .fn()
+            .mockResolvedValue([
+              { serialNumber: 'PRO2_CONNECT_ID' } as USBDevice,
+            ]),
+        },
+      },
+    });
 
-    await serviceInternals.syncSettledPortfolio(buildHardwarePayload());
+    try {
+      const {
+        getDeviceState,
+        getCurrentTransportType,
+        prepareHardwareTransport,
+        serviceInternals,
+        uploadPortfolioPackage,
+      } = prepareHardwareSync({
+        busyResults: [false],
+        hardwareTransportType: EHardwareTransportType.DesktopWebBle,
+      });
+      prepareHardwareTransport.mockResolvedValue(EHardwareTransportType.WEBUSB);
+      getCurrentTransportType.mockResolvedValue(EHardwareTransportType.WEBUSB);
 
-    expect(updateTargetState).toHaveBeenCalledWith(
-      'db-device-1',
-      expect.objectContaining({
-        bleSilentSyncDisabled: true,
-        bleSilentSyncDisabledReason: 'link-disabled',
-      }),
-    );
-    expect((service as unknown as { lastResult: unknown }).lastResult).toEqual(
-      expect.objectContaining({ status: 'ble-suspended' }),
-    );
+      await serviceInternals.syncSettledPortfolio(buildHardwarePayload());
 
+      expect(prepareHardwareTransport).toHaveBeenCalledWith(
+        expect.objectContaining({
+          connectId: 'PRO2_CONNECT_ID',
+          hardwareCallContext: EHardwareCallContext.BACKGROUND_NON_INTERACTIVE,
+          persistTransportType: false,
+          requestedTransportType: 'usb',
+        }),
+      );
+      expect(getDeviceState).toHaveBeenCalledWith(
+        expect.objectContaining({
+          hardwareTransportType: EHardwareTransportType.WEBUSB,
+          persistTransportType: false,
+        }),
+      );
+      expect(uploadPortfolioPackage).toHaveBeenCalledWith(
+        expect.objectContaining({
+          hardwareTransportType: EHardwareTransportType.WEBUSB,
+        }),
+      );
+    } finally {
+      Object.assign(mutablePlatformEnv, previousPlatformEnv);
+      Object.defineProperty(
+        globalThis,
+        'navigator',
+        navigatorDescriptor ?? { configurable: true, value: undefined },
+      );
+    }
+  });
+
+  test('keeps only the latest mobile BLE snapshot pending without communication', async () => {
+    const { service, serviceInternals, uploadPortfolioPackage } =
+      prepareHardwareSync({
+        busyResults: [false],
+        hardwareTransportType: EHardwareTransportType.BLE,
+      });
     const latestPayload = {
       ...buildHardwarePayload(),
       totalFiat: '2',
     };
+    await serviceInternals.syncSettledPortfolio(buildHardwarePayload());
     await serviceInternals.syncSettledPortfolio(latestPayload);
+
+    expect(serviceInternals.submitPortfolioJsonToServer).not.toHaveBeenCalled();
+    expect(uploadPortfolioPackage).not.toHaveBeenCalled();
+    expect(
+      (
+        service as unknown as {
+          pendingMobileBlePayloadByTargetKey: Map<
+            string,
+            IPortfolioSyncSettledPayload
+          >;
+        }
+      ).pendingMobileBlePayloadByTargetKey.get('db-device-1')?.totalFiat,
+    ).toBe('2');
+    expect((service as unknown as { lastResult: unknown }).lastResult).toEqual(
+      expect.objectContaining({ status: 'ble-suspended' }),
+    );
+  });
+
+  test('uses the standard interactive hardware flow for an explicit BLE sync', async () => {
+    const {
+      getDeviceStateWithUnlock,
+      isHardwareChannelBusy,
+      service,
+      serviceInternals,
+      uploadPortfolioPackage,
+      withHardwareProcessing,
+    } = prepareHardwareSync({
+      busyResults: [false],
+      hardwareTransportType: EHardwareTransportType.BLE,
+    });
+
+    await expect(
+      service.syncPortfolio({
+        eventPayload: buildHardwarePayload(),
+        syncMode: 'interactive',
+      }),
+    ).resolves.toBe(true);
+
+    expect(withHardwareProcessing).toHaveBeenCalledWith(
+      expect.any(Function),
+      expect.objectContaining({
+        debugMethodName: 'portfolio.syncPortfolio',
+        skipDeviceCancel: true,
+        deviceParams: {
+          dbDevice: expect.objectContaining({ id: 'db-device-1' }),
+        },
+      }),
+    );
+    expect(isHardwareChannelBusy).not.toHaveBeenCalled();
+    expect(getDeviceStateWithUnlock).toHaveBeenCalledWith({
+      connectId: 'PRO2_CONNECT_ID',
+      oneKeyOperationLease: expect.objectContaining({
+        deviceKey: 'db-device-1',
+      }),
+      params: { scope: 'runtime' },
+      pinType: DeviceSessionPinType.Any,
+    });
     expect(serviceInternals.submitPortfolioJsonToServer).toHaveBeenCalledTimes(
       1,
     );
-    expect(uploadPortfolioPackage).toHaveBeenCalledTimes(1);
-
-    const resumedPayloadHandler = jest.fn();
-    (
-      service as unknown as {
-        handleAllNetworksTokenListSettled: typeof resumedPayloadHandler;
-      }
-    ).handleAllNetworksTokenListSettled = resumedPayloadHandler;
-    await expect(
-      service.notifyInteractiveHardwareOperationSucceeded({
-        connectId: 'PRO2_CONNECT_ID',
-        deviceDbId: 'db-device-1',
-      }),
-    ).resolves.toBe(true);
-    expect(updateTargetState).toHaveBeenCalledWith(
-      'db-device-1',
-      expect.objectContaining({ bleSilentSyncDisabled: false }),
+    expect(uploadPortfolioPackage).toHaveBeenCalledWith({
+      connectId: 'PRO2_CONNECT_ID',
+      hardwareTransportType: EHardwareTransportType.BLE,
+      packageBase64: 'AQID',
+      uiMode: 'progress',
+    });
+    expect(getDeviceStateWithUnlock.mock.invocationCallOrder[0]).toBeLessThan(
+      uploadPortfolioPackage.mock.invocationCallOrder[0],
     );
-
-    await jest.advanceTimersByTimeAsync(5000);
-    expect(resumedPayloadHandler).toHaveBeenCalledWith(
-      expect.objectContaining({
-        deviceDbId: 'db-device-1',
-        totalFiat: '2',
-        walletId: 'hw-1',
-      }),
-    );
-    jest.useRealTimers();
   });
 
-  test('skips desktop BLE sync without waiting for a later USB connection', async () => {
+  test('does not enqueue another interactive sync while the first is unlocking', async () => {
+    const { getDeviceStateWithUnlock, service, uploadPortfolioPackage } =
+      prepareHardwareSync({ busyResults: [false] });
+    let resolveUnlock!: () => void;
+    let notifyStarted!: () => void;
+    const started = new Promise<void>((resolve) => {
+      notifyStarted = resolve;
+    });
+    getDeviceStateWithUnlock.mockImplementationOnce(
+      () =>
+        new Promise<void>((resolve) => {
+          resolveUnlock = resolve;
+          notifyStarted();
+        }),
+    );
+    const first = service.syncPortfolio({
+      eventPayload: buildHardwarePayload(),
+      syncMode: 'interactive',
+    });
+    await started;
+    const second = service.syncPortfolio({
+      eventPayload: buildHardwarePayload(),
+      syncMode: 'interactive',
+    });
+    resolveUnlock();
+    await expect(first).resolves.toBe(true);
+    await expect(second).resolves.toBe(false);
+    expect(getDeviceStateWithUnlock).toHaveBeenCalledTimes(1);
+    expect(uploadPortfolioPackage).toHaveBeenCalledTimes(1);
+  });
+
+  test('records local lifecycle metadata without raw device or portfolio data', async () => {
+    const log = jest
+      .spyOn(defaultLogger.hardware.sdkLog, 'log')
+      .mockImplementation(() => '');
+    const environment = jest.replaceProperty(
+      process.env,
+      'NODE_ENV',
+      'production',
+    );
+    try {
+      const { service } = prepareHardwareSync({
+        busyResults: [false],
+        hardwareTransportType: EHardwareTransportType.BLE,
+      });
+      await service.syncPortfolio({
+        eventPayload: buildHardwarePayload(),
+        syncMode: 'interactive',
+      });
+      const events = log.mock.calls.filter(([label]) =>
+        label.startsWith('[PRO2-PORTFOLIO-SYNC] '),
+      );
+      expect(events.map(([label]) => label)).toEqual(
+        expect.arrayContaining([
+          '[PRO2-PORTFOLIO-SYNC] queued',
+          '[PRO2-PORTFOLIO-SYNC] unlock-started',
+          '[PRO2-PORTFOLIO-SYNC] unlock-completed',
+          '[PRO2-PORTFOLIO-SYNC] pack-started',
+          '[PRO2-PORTFOLIO-SYNC] upload-started',
+          '[PRO2-PORTFOLIO-SYNC] result',
+        ]),
+      );
+      const records = events.map(
+        ([, value]) => JSON.parse(String(value)) as Record<string, unknown>,
+      );
+      expect(new Set(records.map((record) => record.syncId)).size).toBe(1);
+      expect(records[0]).toMatchObject({
+        deviceType: EDeviceType.Pro2,
+        connectIdSuffix: '***T_ID',
+        transportType: EHardwareTransportType.BLE,
+        syncId: expect.any(String),
+      });
+      expect(records[records.length - 1]).toMatchObject({
+        deviceType: EDeviceType.Pro2,
+        status: 'success',
+        queueDurationMs: expect.any(Number),
+        unlockDurationMs: expect.any(Number),
+        hardwareDurationMs: expect.any(Number),
+        packageBytes: 3,
+      });
+      const text = JSON.stringify(records);
+      for (const sensitiveValue of [
+        'PRO2_DEVICE_ID',
+        'PRO2_CONNECT_ID',
+        'NNECT_ID',
+        '0x1234567890abcdef',
+        '0.00007276',
+        'AQID',
+      ]) {
+        expect(text).not.toContain(sensitiveValue);
+      }
+    } finally {
+      environment.restore();
+      log.mockRestore();
+    }
+  });
+
+  test('cancels an owned interactive sync before starting device unlock', async () => {
+    const {
+      service,
+      withHardwareProcessing,
+      getDeviceStateWithUnlock,
+      uploadPortfolioPackage,
+    } = prepareHardwareSync({ busyResults: [false] });
+    let releaseQueue!: () => void;
+    let notifyQueued!: () => void;
+    const queued = new Promise<void>((resolve) => {
+      notifyQueued = resolve;
+    });
+    const queue = new Promise<void>((resolve) => {
+      releaseQueue = resolve;
+    });
+    withHardwareProcessing.mockImplementationOnce(async (operation) => {
+      notifyQueued();
+      await queue;
+      return operation({ deviceKey: 'db-device-1', owner: Symbol('queued') });
+    });
+    const result = service
+      .syncPortfolio({
+        eventPayload: buildHardwarePayload(),
+        syncMode: 'interactive',
+      })
+      .catch((error: unknown) => error);
+    await queued;
+    withHardwareProcessing.mock.calls[0][1].onCancel?.();
+    releaseQueue();
+    await expect(result).resolves.toMatchObject({
+      code: HardwareErrorCode.DeviceInterruptedFromOutside,
+    });
+    expect(getDeviceStateWithUnlock).not.toHaveBeenCalled();
+    expect(uploadPortfolioPackage).not.toHaveBeenCalled();
+  });
+
+  test.each(['unlock', 'pack', 'upload'] as const)(
+    'does not resume after user close during %s',
+    async (stage) => {
+      const {
+        getDeviceStateWithUnlock,
+        withHardwareProcessing,
+        service,
+        serviceInternals,
+        uploadPortfolioPackage,
+      } = prepareHardwareSync({ busyResults: [false] });
+      let release!: () => void;
+      let notifyStarted!: () => void;
+      const started = new Promise<void>((resolve) => {
+        notifyStarted = resolve;
+      });
+      const pending = new Promise<void>((resolve) => {
+        release = resolve;
+      });
+      let operation = getDeviceStateWithUnlock;
+      if (stage === 'pack') {
+        operation = serviceInternals.submitPortfolioJsonToServer;
+      } else if (stage === 'upload') {
+        operation = uploadPortfolioPackage;
+      }
+      const original = operation.getMockImplementation();
+      operation.mockImplementationOnce(async () => {
+        notifyStarted();
+        await pending;
+        const value: unknown = await original?.();
+        return value;
+      });
+      const first = service.syncPortfolio({
+        eventPayload: buildHardwarePayload(),
+        syncMode: 'interactive',
+      });
+      // Attach a rejection handler before delivering the close event.
+      const result = first.catch((error: unknown) => error);
+      await started;
+      withHardwareProcessing.mock.calls[0][1].onCancel?.();
+      await service.notifyAllNetworksTokenListSettled(buildHardwarePayload());
+      release();
+      await expect(result).resolves.toMatchObject({
+        code: HardwareErrorCode.DeviceInterruptedFromOutside,
+      });
+      expect(uploadPortfolioPackage).toHaveBeenCalledTimes(
+        stage === 'upload' ? 1 : 0,
+      );
+      expect(
+        (
+          service as unknown as {
+            pendingInteractivePayloadByTargetKey: Map<string, unknown>;
+          }
+        ).pendingInteractivePayloadByTargetKey.size,
+      ).toBe(0);
+      expect(
+        appEventBus.listenerCount(
+          EAppEventBusNames.CloseHardwareUiStateDialogManually,
+        ),
+      ).toBe(0);
+      await expect(
+        service.syncPortfolio({
+          eventPayload: buildHardwarePayload(),
+          syncMode: 'interactive',
+        }),
+      ).resolves.toBe(true);
+      expect(uploadPortfolioPackage).toHaveBeenCalledTimes(
+        stage === 'upload' ? 2 : 1,
+      );
+    },
+  );
+
+  test('accepts a new tap while the cancelled operation is still draining', async () => {
+    const {
+      service,
+      getDeviceStateWithUnlock,
+      uploadPortfolioPackage,
+      withHardwareProcessing,
+    } = prepareHardwareSync({ busyResults: [false] });
+    const manager = new HardwareProcessingManager();
+    withHardwareProcessing.mockImplementation(async (operation, options) =>
+      manager.runExclusiveOneKeyOperation({
+        operation: async (lease) => {
+          const onCancel = options.onCancel!;
+          lease.signal?.addEventListener('abort', onCancel);
+          try {
+            return await operation(lease);
+          } finally {
+            lease.signal?.removeEventListener('abort', onCancel);
+          }
+        },
+      }),
+    );
+    let release!: () => void;
+    let started!: () => void;
+    const ready = new Promise<void>((resolve) => {
+      started = resolve;
+    });
+    getDeviceStateWithUnlock.mockImplementationOnce(
+      () =>
+        new Promise<void>((resolve) => {
+          release = resolve;
+          started();
+        }),
+    );
+    const first = service
+      .syncPortfolio({
+        eventPayload: buildHardwarePayload(),
+        syncMode: 'interactive',
+      })
+      .catch((error: unknown) => error);
+    await ready;
+    const oldLease = manager.getActiveOneKeyOperationLease()!;
+    manager.cancelOneKeyOperation(oldLease);
+    const second = service.syncPortfolio({
+      eventPayload: buildHardwarePayload(),
+      syncMode: 'interactive',
+    });
+    await new Promise<void>((resolve) => {
+      setImmediate(resolve);
+    });
+    expect(getDeviceStateWithUnlock).toHaveBeenCalledTimes(1);
+    // A repeated close from A must not cancel the queued B.
+    manager.cancelOneKeyOperation(oldLease);
+    appEventBus.emit(
+      EAppEventBusNames.CloseHardwareUiStateDialogManually,
+      undefined,
+    );
+    release();
+    await expect(first).resolves.toMatchObject({
+      code: HardwareErrorCode.DeviceInterruptedFromOutside,
+    });
+    await expect(second).resolves.toBe(true);
+    expect(getDeviceStateWithUnlock).toHaveBeenCalledTimes(2);
+    expect(uploadPortfolioPackage).toHaveBeenCalledTimes(1);
+  });
+
+  test('persists an acknowledged upload when closed during local bookkeeping', async () => {
+    const { service, updateTargetState, withHardwareProcessing } =
+      prepareHardwareSync({ busyResults: [false] });
+    let release!: () => void;
+    let started!: () => void;
+    const ready = new Promise<void>((resolve) => {
+      started = resolve;
+    });
+    updateTargetState.mockImplementationOnce(
+      () =>
+        new Promise<void>((resolve) => {
+          release = resolve;
+          started();
+        }),
+    );
+    const result = service
+      .syncPortfolio({
+        eventPayload: buildHardwarePayload(),
+        syncMode: 'interactive',
+      })
+      .catch((error: unknown) => error);
+    await ready;
+    // The device ACK settles in this turn while attempt persistence is held.
+    await new Promise<void>((resolve) => {
+      setImmediate(resolve);
+    });
+    withHardwareProcessing.mock.calls[0][1].onCancel?.();
+    release();
+    await expect(result).resolves.toMatchObject({
+      code: HardwareErrorCode.DeviceInterruptedFromOutside,
+    });
+    expect(updateTargetState).toHaveBeenLastCalledWith(
+      'db-device-1',
+      expect.objectContaining({ lastContentHash: expect.any(String) }),
+    );
+  });
+
+  test('cancels pending silent debounce before explicit unlock', async () => {
+    jest.useFakeTimers();
+    try {
+      const { getDeviceStateWithUnlock, service, uploadPortfolioPackage } =
+        prepareHardwareSync({
+          busyResults: [false],
+          hardwareTransportType: EHardwareTransportType.BLE,
+        });
+      const serviceInternals = service as unknown as {
+        advanceSyncGeneration: (targetKey: string) => number;
+        handleAllNetworksTokenListSettled: (
+          eventPayload: IPortfolioSyncSettledPayload,
+        ) => void;
+      };
+      const advanceSyncGeneration = jest.spyOn(
+        serviceInternals,
+        'advanceSyncGeneration',
+      );
+
+      serviceInternals.handleAllNetworksTokenListSettled(
+        buildHardwarePayload(),
+      );
+      await expect(
+        service.syncPortfolio({
+          eventPayload: buildHardwarePayload(),
+          syncMode: 'interactive',
+        }),
+      ).resolves.toBe(true);
+      await jest.advanceTimersByTimeAsync(1000);
+
+      expect(advanceSyncGeneration).toHaveBeenCalledTimes(2);
+      expect(advanceSyncGeneration.mock.invocationCallOrder[1]).toBeLessThan(
+        getDeviceStateWithUnlock.mock.invocationCallOrder[0],
+      );
+      expect(uploadPortfolioPackage).toHaveBeenCalledTimes(1);
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  test('keeps explicit sync current while a silent snapshot arrives during unlock', async () => {
+    jest.useFakeTimers();
+    try {
+      let resolveUnlock: (() => void) | undefined;
+      let notifyUnlockStarted: (() => void) | undefined;
+      const unlockStarted = new Promise<void>((resolve) => {
+        notifyUnlockStarted = resolve;
+      });
+      const { getDeviceStateWithUnlock, service, uploadPortfolioPackage } =
+        prepareHardwareSync({
+          busyResults: [false],
+          hardwareTransportType: EHardwareTransportType.BLE,
+        });
+      getDeviceStateWithUnlock.mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            resolveUnlock = () => resolve(undefined);
+            notifyUnlockStarted?.();
+          }),
+      );
+      const serviceInternals = service as unknown as {
+        advanceSyncGeneration: (targetKey: string) => number;
+        handleAllNetworksTokenListSettled: (
+          eventPayload: IPortfolioSyncSettledPayload,
+        ) => void;
+      };
+      const advanceSyncGeneration = jest.spyOn(
+        serviceInternals,
+        'advanceSyncGeneration',
+      );
+
+      const interactiveSync = service.syncPortfolio({
+        eventPayload: buildHardwarePayload(),
+        syncMode: 'interactive',
+      });
+      await unlockStarted;
+      serviceInternals.handleAllNetworksTokenListSettled(
+        buildHardwarePayload(),
+      );
+
+      expect(advanceSyncGeneration).toHaveBeenCalledTimes(1);
+      resolveUnlock?.();
+      await expect(interactiveSync).resolves.toBe(true);
+      expect(uploadPortfolioPackage).toHaveBeenCalledTimes(1);
+
+      await jest.advanceTimersByTimeAsync(1000);
+      expect(advanceSyncGeneration).toHaveBeenCalledTimes(2);
+      expect(uploadPortfolioPackage).toHaveBeenCalledTimes(1);
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  test('settles an explicit sync when device unlock is cancelled', async () => {
+    const portfolioSyncResultSpy = jest
+      .spyOn(defaultLogger.hardware.connection, 'portfolioSyncResult')
+      .mockImplementation((params) => params);
+    const {
+      getDeviceStateWithUnlock,
+      service,
+      serviceInternals,
+      uploadPortfolioPackage,
+    } = prepareHardwareSync({
+      busyResults: [false],
+      hardwareTransportType: EHardwareTransportType.BLE,
+    });
+    getDeviceStateWithUnlock.mockRejectedValueOnce(
+      new Error('Device unlock cancelled'),
+    );
+
+    await expect(
+      service.syncPortfolio({
+        eventPayload: buildHardwarePayload(),
+        syncMode: 'interactive',
+      }),
+    ).rejects.toThrow('Device unlock cancelled');
+
+    expect(serviceInternals.submitPortfolioJsonToServer).not.toHaveBeenCalled();
+    expect(uploadPortfolioPackage).not.toHaveBeenCalled();
+    expect(portfolioSyncResultSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        deviceId: 'PRO2_DEVICE_ID',
+        deviceType: EDeviceType.Pro2,
+        failureStage: 'unlock',
+        status: 'failed',
+        syncDurationMs: expect.any(Number),
+        syncMode: 'interactive',
+        totalTokenCount: 1,
+      }),
+    );
+  });
+
+  test('does not mark an unapplied explicit upload as transferred', async () => {
+    const { service, updateTargetState, uploadPortfolioPackage } =
+      prepareHardwareSync({
+        busyResults: [false],
+        hardwareTransportType: EHardwareTransportType.BLE,
+      });
+    uploadPortfolioPackage.mockResolvedValueOnce({ portfolioUpdated: false });
+
+    await expect(
+      service.syncPortfolio({
+        eventPayload: buildHardwarePayload(),
+        syncMode: 'interactive',
+      }),
+    ).rejects.toThrow('Portfolio sync did not complete');
+
+    expect(
+      updateTargetState.mock.calls.some(
+        ([, state]) =>
+          (state as { lastContentHash?: string }).lastContentHash !== undefined,
+      ),
+    ).toBe(false);
+    expect(uploadPortfolioPackage).toHaveBeenCalledTimes(1);
+  });
+
+  test('keeps the explicit result scoped when another sync updates lastResult', async () => {
+    const { runExclusiveOneKeyOperation, service, uploadPortfolioPackage } =
+      prepareHardwareSync({
+        busyResults: [false],
+        hardwareTransportType: EHardwareTransportType.BLE,
+      });
+    uploadPortfolioPackage.mockResolvedValueOnce({ portfolioUpdated: false });
+    const originalRunExclusive =
+      runExclusiveOneKeyOperation.getMockImplementation();
+    expect(originalRunExclusive).toBeDefined();
+    const originalRunExclusiveImpl = originalRunExclusive as NonNullable<
+      typeof originalRunExclusive
+    >;
+    runExclusiveOneKeyOperation.mockImplementationOnce(async (operation) => {
+      const result = await originalRunExclusiveImpl(operation);
+      (
+        service as unknown as {
+          setLastResult: (result: {
+            status: 'duplicate';
+            updatedAt: number;
+          }) => void;
+        }
+      ).setLastResult({ status: 'duplicate', updatedAt: Date.now() });
+      return result;
+    });
+
+    await expect(
+      service.syncPortfolio({
+        eventPayload: buildHardwarePayload(),
+        syncMode: 'interactive',
+      }),
+    ).rejects.toThrow('Portfolio sync did not complete');
+
+    expect(uploadPortfolioPackage).toHaveBeenCalledTimes(1);
+    expect((service as unknown as { lastResult: unknown }).lastResult).toEqual(
+      expect.objectContaining({ status: 'duplicate' }),
+    );
+  });
+
+  test('keeps explicit sync successful when upload metadata persistence fails', async () => {
+    const { service, updateTargetState, uploadPortfolioPackage } =
+      prepareHardwareSync({
+        busyResults: [false],
+        hardwareTransportType: EHardwareTransportType.BLE,
+      });
+    updateTargetState
+      .mockResolvedValueOnce(undefined)
+      .mockRejectedValueOnce(new Error('storage failed'));
+
+    await expect(
+      service.syncPortfolio({
+        eventPayload: buildHardwarePayload(),
+        syncMode: 'interactive',
+      }),
+    ).resolves.toBe(true);
+
+    expect(uploadPortfolioPackage).toHaveBeenCalledTimes(1);
+    expect((service as unknown as { lastResult: unknown }).lastResult).toEqual(
+      expect.objectContaining({
+        status: 'uploaded',
+        upload: { portfolioUpdated: true },
+      }),
+    );
+    expect(
+      (
+        service as unknown as {
+          inFlightReservationByTargetKey: Map<string, unknown>;
+        }
+      ).inFlightReservationByTargetKey.size,
+    ).toBe(0);
+  });
+
+  test('uploads an unchanged snapshot again for an explicit sync', async () => {
+    jest.spyOn(Date, 'now').mockReturnValue(1_785_723_200_000);
+    const payload = buildHardwarePayload();
+    const first = prepareHardwareSync({ busyResults: [false, false] });
+    await first.serviceInternals.syncSettledPortfolio(payload);
+    const firstState = first.updateTargetState.mock.calls.find((call) =>
+      Boolean((call[1] as { lastContentHash?: string }).lastContentHash),
+    )?.[1] as { lastContentHash: string; lastWalletId: string };
+    const explicit = prepareHardwareSync({
+      busyResults: [false, false],
+      targetState: {
+        lastContentHash: firstState.lastContentHash,
+        lastWalletId: firstState.lastWalletId,
+      },
+    });
+
+    await expect(
+      explicit.service.syncPortfolio({
+        eventPayload: payload,
+        syncMode: 'interactive',
+      }),
+    ).resolves.toBe(true);
+
+    expect(explicit.uploadPortfolioPackage).toHaveBeenCalledTimes(1);
+  });
+
+  test('returns false when an explicit sync target is no longer active', async () => {
+    const { service, uploadPortfolioPackage, withHardwareProcessing } =
+      prepareHardwareSync({
+        busyResults: [false],
+        selectedWalletId: 'hw-2',
+      });
+
+    await expect(
+      service.syncPortfolio({
+        eventPayload: buildHardwarePayload(),
+        syncMode: 'interactive',
+      }),
+    ).resolves.toBe(false);
+
+    expect(withHardwareProcessing).not.toHaveBeenCalled();
+    expect(uploadPortfolioPackage).not.toHaveBeenCalled();
+  });
+
+  test('throws when explicit sync verifies a different device', async () => {
+    const {
+      getDeviceState,
+      service,
+      serviceInternals,
+      uploadPortfolioPackage,
+    } = prepareHardwareSync({ busyResults: [false] });
+    getDeviceState.mockResolvedValue({
+      identity: { deviceId: 'OTHER_DEVICE_ID' },
+      protocol: 'V2',
+      status: { unlocked: true },
+    });
+
+    await expect(
+      service.syncPortfolio({
+        eventPayload: buildHardwarePayload(),
+        syncMode: 'interactive',
+      }),
+    ).rejects.toBeInstanceOf(DeviceNotSame);
+
+    expect(serviceInternals.submitPortfolioJsonToServer).toHaveBeenCalledTimes(
+      1,
+    );
+    expect(uploadPortfolioPackage).not.toHaveBeenCalled();
+  });
+
+  test('replays a desktop BLE snapshot after a later USB connection', async () => {
+    jest.useFakeTimers();
     Object.assign(mutablePlatformEnv, {
       isDesktop: true,
       isNative: false,
@@ -1154,6 +2827,7 @@ describe('ServiceHardwarePortfolioSync.syncSettledPortfolio', () => {
     try {
       const {
         getDeviceState,
+        prepareHardwareTransport,
         service,
         serviceInternals,
         uploadPortfolioPackage,
@@ -1180,17 +2854,16 @@ describe('ServiceHardwarePortfolioSync.syncSettledPortfolio', () => {
         (service as unknown as { lastResult: unknown }).lastResult,
       ).toEqual(expect.objectContaining({ status: 'desktop-suspended' }));
 
-      const resumedPayloadHandler = jest.fn();
-      (
-        service as unknown as {
-          handleAllNetworksTokenListSettled: typeof resumedPayloadHandler;
-        }
-      ).handleAllNetworksTokenListSettled = resumedPayloadHandler;
+      prepareHardwareTransport.mockResolvedValue(EHardwareTransportType.WEBUSB);
       await service.notifyHardwareDeviceConnected({
         identityKeys: ['PRO2_CONNECT_ID'],
       });
-      expect(resumedPayloadHandler).not.toHaveBeenCalled();
+      await jest.advanceTimersByTimeAsync(1000);
+
+      expect(getDeviceState).toHaveBeenCalledTimes(1);
+      expect(uploadPortfolioPackage).toHaveBeenCalledTimes(1);
     } finally {
+      jest.useRealTimers();
       Object.assign(mutablePlatformEnv, {
         isDesktop: false,
         isNative: true,
@@ -1222,6 +2895,7 @@ describe('ServiceHardwarePortfolioSync.syncSettledPortfolio', () => {
         expect.objectContaining({
           connectId: 'PRO2_CONNECT_ID',
           hardwareTransportType: EHardwareTransportType.WEBUSB,
+          persistTransportType: false,
         }),
       );
       expect(
@@ -1241,7 +2915,7 @@ describe('ServiceHardwarePortfolioSync.syncSettledPortfolio', () => {
     }
   });
 
-  test('suspends a prepared desktop upload if the transport changes to BLE', async () => {
+  test('keeps the prepared USB transport if the stored preference changes to BLE', async () => {
     Object.assign(mutablePlatformEnv, {
       isDesktop: true,
       isNative: false,
@@ -1251,6 +2925,7 @@ describe('ServiceHardwarePortfolioSync.syncSettledPortfolio', () => {
       const {
         getCurrentTransportType,
         getDeviceState,
+        prepareHardwareTransport,
         service,
         serviceInternals,
         uploadPortfolioPackage,
@@ -1258,20 +2933,40 @@ describe('ServiceHardwarePortfolioSync.syncSettledPortfolio', () => {
         busyResults: [false],
         hardwareTransportType: EHardwareTransportType.WEBUSB,
       });
-      getCurrentTransportType
-        .mockResolvedValueOnce(EHardwareTransportType.WEBUSB)
-        .mockResolvedValue(EHardwareTransportType.DesktopWebBle);
+      getCurrentTransportType.mockResolvedValue(
+        EHardwareTransportType.DesktopWebBle,
+      );
 
       await serviceInternals.syncSettledPortfolio(buildHardwarePayload());
 
+      expect(prepareHardwareTransport).toHaveBeenCalledWith(
+        expect.objectContaining({
+          connectId: 'PRO2_CONNECT_ID',
+          hardwareCallContext: EHardwareCallContext.BACKGROUND_NON_INTERACTIVE,
+          persistTransportType: false,
+        }),
+      );
+      expect(prepareHardwareTransport).not.toHaveBeenCalledWith(
+        expect.objectContaining({ requestedTransportType: 'usb' }),
+      );
       expect(
         serviceInternals.submitPortfolioJsonToServer,
       ).toHaveBeenCalledTimes(1);
-      expect(getDeviceState).not.toHaveBeenCalled();
-      expect(uploadPortfolioPackage).not.toHaveBeenCalled();
+      expect(getCurrentTransportType).not.toHaveBeenCalled();
+      expect(getDeviceState).toHaveBeenCalledWith(
+        expect.objectContaining({
+          hardwareTransportType: EHardwareTransportType.WEBUSB,
+          persistTransportType: false,
+        }),
+      );
+      expect(uploadPortfolioPackage).toHaveBeenCalledWith({
+        connectId: 'PRO2_CONNECT_ID',
+        hardwareTransportType: EHardwareTransportType.WEBUSB,
+        packageBase64: 'AQID',
+      });
       expect(
         (service as unknown as { lastResult: unknown }).lastResult,
-      ).toEqual(expect.objectContaining({ status: 'desktop-suspended' }));
+      ).toEqual(expect.objectContaining({ status: 'uploaded' }));
     } finally {
       Object.assign(mutablePlatformEnv, {
         isDesktop: false,
@@ -1281,7 +2976,7 @@ describe('ServiceHardwarePortfolioSync.syncSettledPortfolio', () => {
     }
   });
 
-  test('silently uploads through the still-connected desktop BLE link after the idle delay', async () => {
+  test('does not silently upload desktop BLE after an interactive operation', async () => {
     jest.useFakeTimers();
     Object.assign(mutablePlatformEnv, {
       isDesktop: true,
@@ -1310,28 +3005,16 @@ describe('ServiceHardwarePortfolioSync.syncSettledPortfolio', () => {
       await jest.advanceTimersByTimeAsync(1);
 
       expect(runExclusiveOneKeyOperation).not.toHaveBeenCalled();
-      expect(tryRunExclusiveOneKeyOperation).toHaveBeenCalledTimes(1);
-      expect(getDeviceState).toHaveBeenCalledWith(
-        expect.objectContaining({
-          connectId: 'PRO2_BLE_ID',
-          desktopBleReuseConnectedOnly: true,
-          hardwareCallContext: EHardwareCallContext.BACKGROUND_NON_INTERACTIVE,
-          hardwareTransportType: EHardwareTransportType.DesktopWebBle,
-        }),
-      );
-      expect(uploadPortfolioPackage).toHaveBeenCalledWith({
-        connectId: 'PRO2_BLE_ID',
-        desktopBleReuseConnectedOnly: true,
-        hardwareTransportType: EHardwareTransportType.DesktopWebBle,
-        packageBase64: 'AQID',
-      });
+      expect(tryRunExclusiveOneKeyOperation).not.toHaveBeenCalled();
+      expect(getDeviceState).not.toHaveBeenCalled();
+      expect(uploadPortfolioPackage).not.toHaveBeenCalled();
       expect(
         (
           service as unknown as {
             pendingDesktopBlePayloadByTargetKey: Map<string, unknown>;
           }
         ).pendingDesktopBlePayloadByTargetKey.has('db-device-1'),
-      ).toBe(false);
+      ).toBe(true);
     } finally {
       jest.useRealTimers();
       Object.assign(mutablePlatformEnv, {
@@ -1342,7 +3025,7 @@ describe('ServiceHardwarePortfolioSync.syncSettledPortfolio', () => {
     }
   });
 
-  test('keeps the desktop BLE snapshot pending when the non-queued lock is busy', async () => {
+  test('does not schedule desktop BLE retries for a pending snapshot', async () => {
     jest.useFakeTimers();
     Object.assign(mutablePlatformEnv, {
       isDesktop: true,
@@ -1365,7 +3048,7 @@ describe('ServiceHardwarePortfolioSync.syncSettledPortfolio', () => {
       await armDesktopBleIdleLease(service);
       await jest.advanceTimersByTimeAsync(30_000);
 
-      expect(tryRunExclusiveOneKeyOperation).toHaveBeenCalledTimes(1);
+      expect(tryRunExclusiveOneKeyOperation).not.toHaveBeenCalled();
       expect(uploadPortfolioPackage).not.toHaveBeenCalled();
       expect(
         (
@@ -1376,8 +3059,8 @@ describe('ServiceHardwarePortfolioSync.syncSettledPortfolio', () => {
       ).toBe(true);
 
       await jest.advanceTimersByTimeAsync(1000);
-      expect(tryRunExclusiveOneKeyOperation).toHaveBeenCalledTimes(2);
-      expect(uploadPortfolioPackage).toHaveBeenCalledTimes(1);
+      expect(tryRunExclusiveOneKeyOperation).not.toHaveBeenCalled();
+      expect(uploadPortfolioPackage).not.toHaveBeenCalled();
     } finally {
       jest.useRealTimers();
       Object.assign(mutablePlatformEnv, {
@@ -1714,6 +3397,7 @@ describe('ServiceHardwarePortfolioSync.syncSettledPortfolio', () => {
     const { service, serviceInternals, uploadPortfolioPackage } =
       prepareHardwareSync({
         busyResults: [false],
+        hardwareTransportType: EHardwareTransportType.BLE,
         targetState: { bleSilentSyncDisabled: true },
       });
 
@@ -1858,7 +3542,13 @@ describe('ServiceHardwarePortfolioSync.syncSettledPortfolio', () => {
   });
 
   test.each([
-    ['non-Pro2', { deviceType: EDeviceType.Pro }],
+    ['Classic', { deviceType: EDeviceType.Classic }],
+    ['Classic 1S', { deviceType: EDeviceType.Classic1s }],
+    ['Classic Pure', { deviceType: EDeviceType.ClassicPure }],
+    ['Mini', { deviceType: EDeviceType.Mini }],
+    ['Touch', { deviceType: EDeviceType.Touch }],
+    ['Pro', { deviceType: EDeviceType.Pro }],
+    ['unknown product', { deviceType: EDeviceType.Unknown }],
     ['Protocol V1', { connectProtocol: 'V1' }],
     ['third-party', { vendor: EHardwareVendor.ledger }],
     ['unknown-vendor', { vendor: undefined }],
@@ -1927,8 +3617,11 @@ describe('ServiceHardwarePortfolioSync.syncSettledPortfolio', () => {
           }),
           getCurrentTransportType: jest
             .fn()
-            .mockResolvedValue(EHardwareTransportType.BLE),
+            .mockResolvedValue(EHardwareTransportType.WEBUSB),
           isHardwareDeviceConnected: jest.fn().mockResolvedValue(true),
+          prepareHardwareTransport: jest
+            .fn()
+            .mockResolvedValue(EHardwareTransportType.WEBUSB),
           uploadPortfolioPackage,
         },
         serviceHardwareUI: {
@@ -1995,6 +3688,7 @@ describe('ServiceHardwarePortfolioSync.syncSettledPortfolio', () => {
 
     expect(uploadPortfolioPackage).toHaveBeenCalledWith({
       connectId: 'PRO2_CONNECT_ID',
+      hardwareTransportType: EHardwareTransportType.WEBUSB,
       packageBase64: 'AQID',
     });
     expect(updateTargetState).toHaveBeenCalled();
@@ -2004,6 +3698,91 @@ describe('ServiceHardwarePortfolioSync.syncSettledPortfolio', () => {
         upload: { portfolioUpdated: true },
       }),
     );
+  });
+
+  test('reports a successful Portfolio sync with transfer metrics', async () => {
+    jest.useFakeTimers();
+    jest.setSystemTime(new Date('2026-09-03T00:00:00.000Z'));
+    const portfolioSyncedSpy = jest
+      .spyOn(defaultLogger.hardware.connection, 'portfolioSynced')
+      .mockImplementation((params) => params);
+    const portfolioSyncResultSpy = jest
+      .spyOn(defaultLogger.hardware.connection, 'portfolioSyncResult')
+      .mockImplementation((params) => params);
+    try {
+      const { serviceInternals, uploadPortfolioPackage } = prepareHardwareSync({
+        busyResults: [false, false],
+      });
+      uploadPortfolioPackage.mockImplementationOnce(async () => {
+        jest.setSystemTime(Date.now() + 1000);
+        return { portfolioUpdated: true };
+      });
+
+      await serviceInternals.syncSettledPortfolio(buildHardwarePayload());
+
+      expect(portfolioSyncedSpy).toHaveBeenCalledTimes(1);
+      expect(portfolioSyncedSpy).toHaveBeenCalledWith({
+        deviceId: 'PRO2_DEVICE_ID',
+        deviceType: EDeviceType.Pro2,
+      });
+      expect(portfolioSyncResultSpy).toHaveBeenCalledTimes(1);
+      expect(portfolioSyncResultSpy).toHaveBeenCalledWith({
+        deviceId: 'PRO2_DEVICE_ID',
+        deviceType: EDeviceType.Pro2,
+        effectiveTransferRateBytesPerSecond: 3,
+        hardwareDurationMs: 1000,
+        packageBytes: 3,
+        packDurationMs: 0,
+        portfolioJsonBytes: expect.any(Number),
+        schemaVersion: 1,
+        status: 'success',
+        syncDurationMs: 1000,
+        syncMode: 'silent',
+        tokenCount: 1,
+        totalTokenCount: 1,
+        transportType: EHardwareTransportType.WEBUSB,
+      });
+    } finally {
+      portfolioSyncedSpy.mockRestore();
+      portfolioSyncResultSpy.mockRestore();
+      jest.useRealTimers();
+    }
+  });
+
+  test('reports a server packing failure without raw Portfolio data', async () => {
+    const portfolioSyncResultSpy = jest
+      .spyOn(defaultLogger.hardware.connection, 'portfolioSyncResult')
+      .mockImplementation((params) => params);
+    const { serviceInternals, uploadPortfolioPackage } = prepareHardwareSync({
+      busyResults: [false, false],
+    });
+    serviceInternals.submitPortfolioJsonToServer.mockRejectedValueOnce(
+      Object.assign(new Error('Server packing failed'), {
+        code: 'PACK_FAILED',
+      }),
+    );
+
+    await serviceInternals.syncSettledPortfolio(buildHardwarePayload());
+
+    expect(uploadPortfolioPackage).not.toHaveBeenCalled();
+    expect(portfolioSyncResultSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        deviceId: 'PRO2_DEVICE_ID',
+        deviceType: EDeviceType.Pro2,
+        errorCode: 'PACK_FAILED',
+        failureStage: 'pack',
+        packDurationMs: expect.any(Number),
+        portfolioJsonBytes: expect.any(Number),
+        schemaVersion: 1,
+        status: 'failed',
+        syncDurationMs: expect.any(Number),
+        syncMode: 'silent',
+        tokenCount: 1,
+        totalTokenCount: 1,
+        transportType: EHardwareTransportType.WEBUSB,
+      }),
+    );
+    expect(portfolioSyncResultSpy).toHaveBeenCalledTimes(1);
   });
 
   test('retries the latest snapshot when hardware is busy before server packing', async () => {
@@ -2249,6 +4028,9 @@ describe('ServiceHardwarePortfolioSync.syncSettledPortfolio', () => {
 
   test('releases a prepared retry reservation when upload fails', async () => {
     jest.useFakeTimers();
+    const portfolioSyncResultSpy = jest
+      .spyOn(defaultLogger.hardware.connection, 'portfolioSyncResult')
+      .mockImplementation((params) => params);
     const { service, serviceInternals, uploadPortfolioPackage } =
       prepareHardwareSync({ busyResults: [false, true, false] });
     uploadPortfolioPackage.mockRejectedValueOnce(new Error('Device unplugged'));
@@ -2270,6 +4052,20 @@ describe('ServiceHardwarePortfolioSync.syncSettledPortfolio', () => {
         errorMessage: 'Device unplugged',
         status: 'error',
       }),
+    );
+    expect(portfolioSyncResultSpy).toHaveBeenCalledTimes(1);
+    expect(portfolioSyncResultSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        failureStage: 'device-sync',
+        hardwareDurationMs: expect.any(Number),
+        packageBytes: 3,
+        status: 'failed',
+        syncMode: 'silent',
+        transportType: EHardwareTransportType.WEBUSB,
+      }),
+    );
+    expect(portfolioSyncResultSpy.mock.calls[0][0]).not.toHaveProperty(
+      'effectiveTransferRateBytesPerSecond',
     );
     jest.useRealTimers();
   });

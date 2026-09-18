@@ -673,10 +673,15 @@ function runLocalChecks(logDir) {
   humanLog('\nLocal checks');
   return [
     ...runWorktreeLintChecks(logDir),
+    runCommand(logDir, 'third-party-native-storage', 'yarn', [
+      'check:third-party-native-storage',
+    ]),
     runCommand(logDir, 'agent-context', 'yarn', ['lint:agent-context']),
     runCommand(logDir, 'background-api-contract', 'yarn', [
       'lint:background-api-contract',
     ]),
+    runCommand(logDir, 'test-integrity', 'yarn', ['lint:test-integrity']),
+    runCommand(logDir, 'onekeyfe-patches', 'yarn', ['lint:onekeyfe-patches']),
     runCommand(logDir, 'lint-staged', 'yarn', ['lint:staged']),
     runCommand(logDir, 'tsc-staged', 'yarn', ['tsc:staged']),
   ];

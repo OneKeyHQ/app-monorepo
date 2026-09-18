@@ -6,7 +6,10 @@ type ILoadBundleAsyncGlobal = typeof globalThis & {
       | string
       | Partial<Record<'main' | 'background' | 'shared', string | null>>,
   ) => Promise<void>;
+  __ONEKEY_RUNTIME_POLYFILLS_READY__?: number;
 };
+
+const RUNTIME_POLYFILLS_VERSION = 1;
 
 const mockNativeLoggerWrite = jest.fn();
 
@@ -24,6 +27,8 @@ beforeEach(() => {
     }),
   );
   (globalThis as any).__ONEKEY_RUNTIME_KIND__ = 'main';
+  (globalThis as ILoadBundleAsyncGlobal).__ONEKEY_RUNTIME_POLYFILLS_READY__ =
+    RUNTIME_POLYFILLS_VERSION;
   (globalThis as any).__SEGMENT_MANIFEST__ = {
     segments: {
       'seg:test.a': {
@@ -56,6 +61,8 @@ beforeEach(() => {
 
 afterEach(() => {
   delete (globalThis as any).__ONEKEY_RUNTIME_KIND__;
+  delete (globalThis as ILoadBundleAsyncGlobal)
+    .__ONEKEY_RUNTIME_POLYFILLS_READY__;
   delete (globalThis as any).__SEGMENT_MANIFEST__;
   delete (globalThis as any).__loadBundleAsync;
   delete (globalThis as any).__METRO_GLOBAL_PREFIX__;
@@ -79,6 +86,16 @@ function createMockNativeLoader() {
 }
 
 describe('installProdBundleLoader', () => {
+  it('rejects installation before runtime polyfills are ready', () => {
+    delete (globalThis as ILoadBundleAsyncGlobal)
+      .__ONEKEY_RUNTIME_POLYFILLS_READY__;
+    const { installProdBundleLoader } = getLoader();
+
+    expect(() => installProdBundleLoader(createMockNativeLoader())).toThrow(
+      /runtime polyfill bootstrap/i,
+    );
+  });
+
   it('loads a segment and marks it as ready', async () => {
     const { installProdBundleLoader, loadSegment, isSegmentLoaded } =
       getLoader();
@@ -431,24 +448,228 @@ describe('installProdBundleLoader', () => {
     expect(mock.loadSegment).toHaveBeenCalledTimes(1);
   });
 
-  // Fix 1 (NO-SHIP blocker): a missing bg segment file is real packaging/OTA
-  // corruption. iOS BackgroundThread now maps EBgMgrSegmentEvalErrorFileNotFound
-  // → SPLIT_BUNDLE_NOT_FOUND (fatal), instead of letting raw code 2 fall through
-  // the boundary's default to retryable NO_RUNTIME. JS MUST classify it FATAL —
-  // cached immediately, never auto re-attempted (retrying just re-misses).
-  it('treats SPLIT_BUNDLE_NOT_FOUND as FATAL (iOS bg file-not-found)', async () => {
+  // SPLIT_BUNDLE_NOT_FOUND sits in RETRYABLE_NATIVE_REJECT_CODES alongside the
+  // other transient codes, sharing the MAX_RETRYABLE_ATTEMPTS circuit breaker,
+  // rather than being cached on sight. The Android builtin-segment extractor
+  // can report NOT_FOUND for a file that IS on disk: main and background
+  // runtimes extract the same segment concurrently, and on native builds that
+  // share one "<name>.tmp" per segment the thread that loses the rename
+  // returns "not found". Caching that immediately poisons the route for the
+  // whole process, so a re-attempt — which lands on the file the winner
+  // already published — is the fix for the binaries already in the field.
+  it('re-attempts SPLIT_BUNDLE_NOT_FOUND (Android extract race self-heals)', async () => {
     const mock = createMockNativeLoader();
     mock.loadSegment.mockRejectedValueOnce(
       Object.assign(new Error('Segment file not found: /x/seg.hbc'), {
         code: 'SPLIT_BUNDLE_NOT_FOUND',
       }),
     );
+    const { installProdBundleLoader, loadSegment, isSegmentLoaded } =
+      getLoader();
+    installProdBundleLoader(mock);
+
+    // First attempt rejects, flagged retryable and NOT cached...
+    await expect(loadSegment('seg:test.a')).rejects.toMatchObject({
+      retryable: true,
+    });
+    // ...so the next call hits native again — the racing writer has published
+    // the file by now.
+    mock.loadSegment.mockResolvedValueOnce(undefined);
+    await loadSegment('seg:test.a');
+    expect(isSegmentLoaded('seg:test.a')).toBe(true);
+    expect(mock.loadSegment).toHaveBeenCalledTimes(2);
+  });
+
+  // A caller that joins an IN-FLIGHT load used to receive the RAW native
+  // rejection, which carries `code` but no `retryable` flag — so the lazy
+  // boundary classified it from its own code set while the owner read the
+  // loader's verdict, and the two sets could drift apart again. inflightSegments
+  // now publishes the classified outcome, so both callers observe the same
+  // object. Note the joiner does NOT get its own native call.
+  it('gives a deduped concurrent caller the same classified error as the owner', async () => {
+    const mock = createMockNativeLoader();
+    let rejectNative: (e: unknown) => void = () => {};
+    mock.loadSegment.mockImplementationOnce(
+      () =>
+        new Promise((_resolve, reject) => {
+          rejectNative = reject;
+        }),
+    );
     const { installProdBundleLoader, loadSegment } = getLoader();
     installProdBundleLoader(mock);
-    await expect(loadSegment('seg:test.a')).rejects.toThrow();
-    // Fatal → cached; second call must NOT hit native again.
-    await expect(loadSegment('seg:test.a')).rejects.toThrow();
+
+    // loadSegmentInternal registers the inflight entry synchronously, before
+    // it awaits anything, so the second call joins the first with no tick in
+    // between.
+    const owner = loadSegment('seg:test.a');
+    const joiner = loadSegment('seg:test.a');
+
+    rejectNative(
+      Object.assign(new Error('Segment file not found: /x/seg.hbc'), {
+        code: 'SPLIT_BUNDLE_NOT_FOUND',
+      }),
+    );
+
+    const [ownerErr, joinerErr] = await Promise.all([
+      owner.catch((e: unknown) => e),
+      joiner.catch((e: unknown) => e),
+    ]);
+
+    expect(ownerErr).toMatchObject({
+      name: 'SegmentLoadError',
+      code: 'SPLIT_BUNDLE_NOT_FOUND',
+      retryable: true,
+    });
+    expect(joinerErr).toBe(ownerErr);
     expect(mock.loadSegment).toHaveBeenCalledTimes(1);
+  });
+
+  // The joiner test above pins the retryable outcome. This one pins the other
+  // half, which is the more fragile: the budget-exhausted flag is delivered by
+  // MUTATING the shared error in place (`segError.retryable = false`), not by
+  // constructing a fresh one per caller. A later refactor that clones or wraps
+  // the error before caching it, or that moves that assignment after the throw,
+  // would leave a joiner seeing `retryable: true` while the owner sees `false`
+  // — silently reinstating the owner/joiner disagreement this design removes,
+  // and making the boundary burn a retry round against a permanently dead route.
+  it('gives a joiner the same budget-exhausted error object as the owner', async () => {
+    const mock = createMockNativeLoader();
+    mock.loadSegment.mockRejectedValue(
+      Object.assign(new Error('Segment file not found: /x/seg.hbc'), {
+        code: 'SPLIT_BUNDLE_NOT_FOUND',
+      }),
+    );
+    const { installProdBundleLoader, loadSegment } = getLoader();
+    installProdBundleLoader(mock);
+
+    // Spend attempts 1 and 2 so the next one exhausts the budget.
+    await expect(loadSegment('seg:test.a')).rejects.toMatchObject({
+      retryable: true,
+    });
+    await expect(loadSegment('seg:test.a')).rejects.toMatchObject({
+      retryable: true,
+    });
+
+    const owner = loadSegment('seg:test.a');
+    const joiner = loadSegment('seg:test.a');
+    const [ownerErr, joinerErr] = await Promise.all([
+      owner.catch((e: unknown) => e),
+      joiner.catch((e: unknown) => e),
+    ]);
+
+    expect(ownerErr).toMatchObject({ retryable: false });
+    expect(joinerErr).toBe(ownerErr);
+    expect(mock.loadSegment).toHaveBeenCalledTimes(3);
+
+    // Cached now — a later call is served from failedSegments.
+    await expect(loadSegment('seg:test.a')).rejects.toThrow();
+    expect(mock.loadSegment).toHaveBeenCalledTimes(3);
+  });
+
+  // Dependency propagation is the one rejecting path where the published error
+  // belongs to a DIFFERENT segment than the one either caller asked for, so it
+  // is worth pinning that a joiner gets that error verbatim rather than one
+  // re-keyed to its own request.
+  it('gives a joiner the dep failure verbatim, still keyed to the dep', async () => {
+    const mock = createMockNativeLoader();
+    // The first native call is the dep (seg:test.a); fail it retryably.
+    mock.loadSegment.mockImplementationOnce(() =>
+      Promise.reject(
+        Object.assign(new Error('runtime not ready'), {
+          code: 'SPLIT_BUNDLE_NO_RUNTIME',
+        }),
+      ),
+    );
+    const { installProdBundleLoader, loadSegment } = getLoader();
+    installProdBundleLoader(mock);
+
+    const owner = loadSegment('seg:test.b');
+    const joiner = loadSegment('seg:test.b');
+    const [ownerErr, joinerErr] = await Promise.all([
+      owner.catch((e: unknown) => e),
+      joiner.catch((e: unknown) => e),
+    ]);
+
+    expect(ownerErr).toMatchObject({
+      segmentKey: 'seg:test.a',
+      retryable: true,
+    });
+    expect(joinerErr).toBe(ownerErr);
+    // The parent never reached its own native call — the dep failed first.
+    expect(mock.loadSegment).toHaveBeenCalledTimes(1);
+  });
+
+  // A genuinely missing segment (real packaging/OTA corruption, e.g. iOS
+  // BackgroundThread mapping EBgMgrSegmentEvalErrorFileNotFound) still reaches
+  // a permanent verdict, just via the same circuit breaker as the other
+  // transient codes, with `retryable` cleared so the lazy boundary stops
+  // instead of looping.
+  it('caches SPLIT_BUNDLE_NOT_FOUND once the retry budget is exhausted', async () => {
+    const mock = createMockNativeLoader();
+    mock.loadSegment.mockRejectedValue(
+      Object.assign(new Error('Segment file not found: /x/seg.hbc'), {
+        code: 'SPLIT_BUNDLE_NOT_FOUND',
+      }),
+    );
+    const { installProdBundleLoader, loadSegment } = getLoader();
+    installProdBundleLoader(mock);
+
+    await expect(loadSegment('seg:test.a')).rejects.toMatchObject({
+      retryable: true,
+    });
+    await expect(loadSegment('seg:test.a')).rejects.toMatchObject({
+      retryable: true,
+    });
+    await expect(loadSegment('seg:test.a')).rejects.toMatchObject({
+      retryable: false,
+    });
+    expect(mock.loadSegment).toHaveBeenCalledTimes(3);
+    // Cached now — a fourth call must NOT hit native.
+    await expect(loadSegment('seg:test.a')).rejects.toThrow();
+    expect(mock.loadSegment).toHaveBeenCalledTimes(3);
+  });
+
+  // The contract is deliberately uniform, not NOT_FOUND-specific:
+  // retryableAttempts is ONE circuit breaker per segment, shared by every
+  // transient code, giving a segment MAX_RETRYABLE_ATTEMPTS tries per process
+  // no matter which codes produced them. Two prior failures therefore DO
+  // exhaust it, and a NOT_FOUND arriving third is cached on sight — that is
+  // the intended bound, not a bug.
+  //
+  // What this test pins is narrower: the counter and the cap are no longer
+  // read from different sources. An earlier revision derived the cap from the
+  // CURRENT failure's code while the counter stayed shared, so a single prior
+  // NO_RUNTIME put the first NOT_FOUND already past a tighter cap and cached it
+  // with zero re-attempts — reinstating the exact bug this fix exists to
+  // remove. Both codes are emitted from the same cold-start window by the same
+  // native methods, so that sequence is reachable in production.
+  it('does not let one earlier NO_RUNTIME cache a later NOT_FOUND on sight', async () => {
+    const mock = createMockNativeLoader();
+    mock.loadSegment
+      .mockRejectedValueOnce(
+        Object.assign(new Error('Runtime not available'), {
+          code: 'SPLIT_BUNDLE_NO_RUNTIME',
+        }),
+      )
+      .mockRejectedValueOnce(
+        Object.assign(new Error('Segment file not found: /x/seg.hbc'), {
+          code: 'SPLIT_BUNDLE_NOT_FOUND',
+        }),
+      );
+    const { installProdBundleLoader, loadSegment, isSegmentLoaded } =
+      getLoader();
+    installProdBundleLoader(mock);
+
+    await expect(loadSegment('seg:test.a')).rejects.toMatchObject({
+      retryable: true,
+    });
+    await expect(loadSegment('seg:test.a')).rejects.toMatchObject({
+      retryable: true,
+    });
+    // Third call still reaches native — the racing writer has published by now.
+    await loadSegment('seg:test.a');
+    expect(isSegmentLoaded('seg:test.a')).toBe(true);
+    expect(mock.loadSegment).toHaveBeenCalledTimes(3);
   });
 
   // Fix 2: a STRUCTURAL ivar-missing failure (an RN version bump renamed the

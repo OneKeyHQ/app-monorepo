@@ -319,6 +319,7 @@ export function getTradingViewChartSettingsValue(
 
   return {
     ...value,
+    chartType: normalizedSettings.chartType,
     appearanceSections: value.appearanceSections.map((section) =>
       section.id === 'candles'
         ? {
@@ -371,7 +372,9 @@ export function getTradingViewNativeChartSettings({
 
   return {
     schemaVersion: fallback.schemaVersion,
-    chartType: normalizedCurrentSettings.chartType,
+    chartType: isTradingViewNativeChartTypePreference(value.chartType)
+      ? value.chartType
+      : normalizedCurrentSettings.chartType,
     candles: {
       body: getCandlePartSettings({
         fallback: fallback.candles.body,

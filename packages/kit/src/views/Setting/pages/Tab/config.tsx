@@ -48,6 +48,7 @@ import {
 import { EManualBackupRoutes } from '@onekeyhq/shared/src/routes/manualBackup';
 import { EPrimeFeatures, EPrimePages } from '@onekeyhq/shared/src/routes/prime';
 import { EModalShortcutsRoutes } from '@onekeyhq/shared/src/routes/shortcuts';
+import { travelModeManager } from '@onekeyhq/shared/src/travelMode';
 import { getOneKeyExtensionStoreUrl } from '@onekeyhq/shared/src/utils/extensionStoreUtils';
 import {
   openUrlExternal,
@@ -76,6 +77,7 @@ import {
   ResetPinListItem,
   SplitViewListItem,
   ThemeListItem,
+  TravelModeListItem,
   UseGasAccountByDefaultListItem,
 } from './CustomElement';
 import { showExportLogsDialog } from './exportLogs/showExportLogsDialog';
@@ -127,6 +129,8 @@ interface ISubSettingConfigBase {
   mobileTitle?: string;
   subtitle?: string;
   keywords?: string[];
+  searchable?: boolean;
+  ignorePress?: boolean;
   /**
    * Phone layouts promote this item to the settings home cards; its own
    * category page hides it there.
@@ -173,6 +177,7 @@ export type ISettingsConfig = (
       name: ESettingsTabNames;
       testID?: string;
       isHidden?: boolean;
+      ignorePress?: boolean;
       /**
        * Synthetic category derived from an item's `desktopTab` annotation.
        * Rendered only by the tab navigator; list layouts must skip it.
@@ -230,6 +235,9 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
   const isKeylessWalletExistsLocal = useKeylessWalletExistsLocal();
 
   return useMemo(() => {
+    const isTravelMode =
+      travelModeManager.getRuntimeEnvironmentSync().profile.kind ===
+      'travel-mode';
     const clearPendingTransactionsItem: ISubSettingConfig = {
       id: 'clear-pending-transactions',
       icon: 'ClockTimeHistoryOutline',
@@ -351,7 +359,6 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
                     id: ETranslations.global_onekey_keytag,
                   }),
                   onPress: (navigation) => {
-                    defaultLogger.setting.page.enterKeyTag();
                     navigation?.pushModal(EModalRoutes.KeyTagModal, {
                       screen: EModalKeyTagRoutes.UserOptions,
                     });
@@ -372,6 +379,7 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
           [
             !platformEnv.isWeb
               ? {
+                  id: 'notifications',
                   icon: 'BellOutline',
                   title: intl.formatMessage({
                     id: ETranslations.global_notifications,
@@ -552,6 +560,7 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
                 },
                 !platformEnv.isWeb
                   ? {
+                      id: 'account-sync',
                       icon: 'RefreshCcwOutline',
                       title: intl.formatMessage({
                         id: ETranslations.settings_account_sync_modal_title,
@@ -568,6 +577,7 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
               ],
               [
                 {
+                  id: 'customize-transaction',
                   icon: 'LabOutline',
                   title: intl.formatMessage({
                     id: ETranslations.global_customize_transaction,
@@ -584,7 +594,6 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
                   ],
                   settingRoute: EModalSettingRoutes.SettingCustomTransaction,
                   onPress: (navigation) => {
-                    defaultLogger.setting.page.enterCustomizeTransaction();
                     navigation?.push(
                       EModalSettingRoutes.SettingCustomTransaction,
                     );
@@ -604,6 +613,7 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
               ],
               [
                 {
+                  id: 'account-derivation',
                   icon: 'BranchesOutline',
                   title: intl.formatMessage({
                     id: ETranslations.settings_account_derivation_path,
@@ -690,6 +700,7 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
                 platformEnv.isWebDappMode
                   ? undefined
                   : {
+                      id: 'protection',
                       icon: 'ShieldCheckDoneOutline',
                       title: intl.formatMessage({
                         id: ETranslations.settings_protection,
@@ -710,7 +721,11 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
                         'allowlist',
                       ],
                       settingRoute: EModalSettingRoutes.SettingProtectModal,
+                      ignorePress: isTravelMode,
                       onPress: (navigation) => {
+                        if (isTravelMode) {
+                          return;
+                        }
                         navigation?.push(
                           EModalSettingRoutes.SettingProtectModal,
                         );
@@ -739,18 +754,18 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
                         'dApp',
                         'WalletConnect',
                       ],
+                      settingRoute:
+                        EModalSettingRoutes.SettingDAppConnectionList,
                       onPress: (navigation) => {
-                        navigation?.pushModal(
-                          EModalRoutes.DAppConnectionModal,
-                          {
-                            screen: EDAppConnectionModal.ConnectionList,
-                          },
+                        navigation?.push(
+                          EModalSettingRoutes.SettingDAppConnectionList,
                         );
                       },
                     },
                 platformEnv.isWebDappMode
                   ? undefined
                   : {
+                      id: 'signature-record',
                       icon: 'NoteOutline',
                       title: intl.formatMessage({
                         id: ETranslations.settings_signature_record,
@@ -767,6 +782,7 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
               [
                 platformEnv.isExtension
                   ? {
+                      id: 'floating-icon',
                       icon: 'MenuCircleHorOutline',
                       title: intl.formatMessage({
                         id: ETranslations.setting_floating_icon,
@@ -778,6 +794,20 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
                           EModalSettingRoutes.SettingFloatingIconModal,
                         );
                       },
+                    }
+                  : undefined,
+              ],
+              [
+                platformEnv.isNative
+                  ? {
+                      id: 'travel-mode',
+                      icon: 'LuggagePackageOutline',
+                      title: intl.formatMessage({
+                        id: ETranslations.travel_mode__title,
+                      }),
+                      searchable: false,
+                      testID: SettingTestIDs.travelModeItem,
+                      renderElement: <TravelModeListItem />,
                     }
                   : undefined,
               ],
@@ -798,26 +828,26 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
             configs: [
               [
                 {
+                  id: 'add-network',
                   icon: 'GlobusOutline',
                   title: intl.formatMessage({
                     id: ETranslations.custom_network_add_network_action_text,
                   }),
                   settingRoute: EModalSettingRoutes.SettingChainListSearch,
                   onPress: (navigation) => {
-                    defaultLogger.setting.page.enterCustomRPC();
                     navigation?.push(
                       EModalSettingRoutes.SettingChainListSearch,
                     );
                   },
                 },
                 {
+                  id: 'custom-rpc',
                   icon: 'BezierNodesOutline',
                   title: intl.formatMessage({
                     id: ETranslations.custom_rpc_title,
                   }),
                   settingRoute: EModalSettingRoutes.SettingCustomRPC,
                   onPress: (navigation) => {
-                    defaultLogger.setting.page.enterCustomRPC();
                     navigation?.push(EModalSettingRoutes.SettingCustomRPC);
                   },
                 },
@@ -848,6 +878,7 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
               ],
               [
                 {
+                  id: 'export-network-config',
                   icon: 'FileDownloadOutline',
                   title: intl.formatMessage({
                     id: ETranslations.settings_export_network_config_label,
@@ -913,7 +944,6 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
             },
             isMobileLayout
               ? {
-                  id: 'official-channels',
                   icon: 'SpeakerPromoteOutline',
                   title: intl.formatMessage({
                     id: ETranslations.official_channels__title,
@@ -1014,6 +1044,7 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
             title: intl.formatMessage({
               id: ETranslations.global_dev_mode,
             }),
+            testID: SettingTestIDs.devModeItem,
             tabBarItemStyle: {
               backgroundColor: '$bgCritical',
             },
@@ -1048,9 +1079,48 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
         Component: SubSearchSettings,
       },
     ];
+    const hiddenTravelModeItemIds = new Set([
+      'notifications',
+      'onekey-transfer',
+      'manual-backup',
+      'address-book',
+      'account-derivation',
+      'passcode',
+      'add-network',
+      'custom-rpc',
+    ]);
+    const filteredConfig = isTravelMode
+      ? config.map((category) =>
+          category
+            ? {
+                ...category,
+                isHidden:
+                  category.isHidden ||
+                  category.name === ESettingsTabNames.About,
+                ignorePress:
+                  category.ignorePress ||
+                  [
+                    ESettingsTabNames.Backup,
+                    ESettingsTabNames.Network,
+                    ESettingsTabNames.AppData,
+                  ].includes(category.name),
+                configs: category.configs
+                  .map((group) =>
+                    group.filter(
+                      (item) =>
+                        !item ||
+                        !item.id ||
+                        !hiddenTravelModeItemIds.has(item.id),
+                    ),
+                  )
+                  .filter((group) => group.length > 0),
+              }
+            : category,
+        )
+      : config;
     // Desktop link tabs are derived from the annotated items so their
     // platform gating and copy never fork from the source item.
-    const linkTabCategories: ISettingsConfig = config.flatMap(
+    const linkTabCategories: ISettingsConfig = filteredConfig.flatMap(
       (category) =>
         category?.configs
           .flat()
@@ -1074,7 +1144,7 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
             configs: [],
           })) ?? [],
     );
-    return [...config, ...linkTabCategories].toSorted((a, b) => {
+    return [...filteredConfig, ...linkTabCategories].toSorted((a, b) => {
       const aOrder = a
         ? (SETTINGS_CONFIG_ORDER.get(a.name) ?? SETTINGS_CONFIG_ORDER.size)
         : SETTINGS_CONFIG_ORDER.size + 1;

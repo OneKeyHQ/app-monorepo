@@ -24,8 +24,13 @@ const {
   Provider: ProviderJotaiContextMarketV2,
   contextAtom,
   contextAtomMethod,
+  useContextData: useMarketV2ContextData,
 } = createJotaiContext();
-export { ProviderJotaiContextMarketV2, contextAtomMethod };
+export {
+  ProviderJotaiContextMarketV2,
+  contextAtomMethod,
+  useMarketV2ContextData,
+};
 
 export const { atom: basicMarketWatchListV2Atom, useContextAtom } =
   contextAtom<IMarketWatchListDataV2>({ data: [] });
@@ -34,6 +39,9 @@ export const {
   atom: marketV2StorageReadyAtom,
   use: useMarketV2StorageReadyAtom,
 } = contextAtom<boolean>(false);
+
+export const { atom: marketWatchListV2RefreshRequestIdAtom } =
+  contextAtom<number>(0);
 
 // Token Detail Atoms
 export const { atom: tokenDetailAtom, use: useTokenDetailAtom } = contextAtom<
@@ -45,6 +53,8 @@ export const { atom: tokenDetailPreviewAtom, use: useTokenDetailPreviewAtom } =
 
 export const { atom: tokenDetailLoadingAtom, use: useTokenDetailLoadingAtom } =
   contextAtom<boolean>(false);
+
+export const { atom: tokenDetailRequestIdAtom } = contextAtom<number>(0);
 
 export const {
   atom: tokenDetailWebsocketAtom,

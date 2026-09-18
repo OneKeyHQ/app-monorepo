@@ -61,6 +61,24 @@ function getPrimeFeatureVideoSource(fileName: string): IVideoSource {
 
 export const PRIME_FEATURE_INTROS: IPrimeFeatureIntro[] = [
   {
+    id: EPrimeFeatures.TransactionSecurityCheck,
+    listIcon: 'DocumentSearch2Outline',
+    title: ETranslations.prime_feature_transaction_security_check__title,
+    description: ETranslations.prime_feature_transaction_security_check__desc,
+    media: {
+      type: 'video',
+      getSource: () =>
+        getPrimeFeatureVideoSource(
+          'prime-feature-transaction-security-check-20260910.mp4',
+        ),
+      getPosterSource: () =>
+        require('@onekeyhq/kit/assets/prime/transaction_security_check_poster.png') as ImageSourcePropType,
+    },
+    action: 'browser',
+    actionLabel: ETranslations.shortcuts_go_to_browser_tab,
+    details: [],
+  },
+  {
     id: EPrimeFeatures.BulkSend,
     listIcon: 'ChevronDoubleUpOutline',
     title: ETranslations.wallet_bulk_send_title,
@@ -128,6 +146,33 @@ export const PRIME_FEATURE_INTROS: IPrimeFeatureIntro[] = [
     action: 'addressRiskCheck',
     actionLabel: ETranslations.address_risk_check_check_risk__action,
     details: [],
+  },
+  {
+    id: EPrimeFeatures.BlockaidSiteScan,
+    listIcon: 'ShieldCheckDoneOutline',
+    title: ETranslations.prime_enhanced_dapp_security_title,
+    description: ETranslations.prime_enhanced_dapp_security_desc,
+    media: {
+      type: 'video',
+      getSource: () =>
+        getPrimeFeatureVideoSource('prime-feature-dapp-security-20260529.mp4'),
+      getPosterSource: () =>
+        require('@onekeyhq/kit/assets/prime/dapp_security_poster.png') as ImageSourcePropType,
+    },
+    action: 'browser',
+    actionLabel: ETranslations.shortcuts_go_to_browser_tab,
+    details: [
+      {
+        icon: 'ShieldCheckDoneOutline',
+        title: ETranslations.prime_features_dapp_security_detail_one_title,
+        description: ETranslations.prime_features_dapp_security_detail_one_desc,
+      },
+      {
+        icon: 'ShareOutline',
+        title: ETranslations.prime_features_dapp_security_detail_two_title,
+        description: ETranslations.prime_features_dapp_security_detail_two_desc,
+      },
+    ],
   },
   {
     id: EPrimeFeatures.BulkRevoke,
@@ -233,33 +278,6 @@ export const PRIME_FEATURE_INTROS: IPrimeFeatureIntro[] = [
         icon: 'SwitchHorOutline',
         title: ETranslations.prime_features_ai_translate_detail_two_title,
         description: ETranslations.prime_features_ai_translate_detail_two_desc,
-      },
-    ],
-  },
-  {
-    id: EPrimeFeatures.BlockaidSiteScan,
-    listIcon: 'ShieldCheckDoneOutline',
-    title: ETranslations.prime_enhanced_dapp_security_title,
-    description: ETranslations.prime_enhanced_dapp_security_desc,
-    media: {
-      type: 'video',
-      getSource: () =>
-        getPrimeFeatureVideoSource('prime-feature-dapp-security-20260529.mp4'),
-      getPosterSource: () =>
-        require('@onekeyhq/kit/assets/prime/dapp_security_poster.png') as ImageSourcePropType,
-    },
-    action: 'browser',
-    actionLabel: ETranslations.shortcuts_go_to_browser_tab,
-    details: [
-      {
-        icon: 'ShieldCheckDoneOutline',
-        title: ETranslations.prime_features_dapp_security_detail_one_title,
-        description: ETranslations.prime_features_dapp_security_detail_one_desc,
-      },
-      {
-        icon: 'ShareOutline',
-        title: ETranslations.prime_features_dapp_security_detail_two_title,
-        description: ETranslations.prime_features_dapp_security_detail_two_desc,
       },
     ],
   },

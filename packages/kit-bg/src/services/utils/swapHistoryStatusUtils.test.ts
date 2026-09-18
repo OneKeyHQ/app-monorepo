@@ -221,4 +221,20 @@ describe('swapHistoryStatusUtils', () => {
       }),
     ).toBe(true);
   });
+
+  it('emits a balance update when funds are refunded without a cross-chain status', () => {
+    const previousSwapTxHistory = createHistory();
+    expect(
+      shouldEmitSwapHistoryBalanceUpdate({
+        previousSwapTxHistory,
+        swapTxHistory: {
+          ...previousSwapTxHistory,
+          status: ESwapTxHistoryStatus.REFUNDED,
+        },
+        txStatusRes: createStatusResponse({
+          state: ESwapTxHistoryStatus.REFUNDED,
+        }),
+      }),
+    ).toBe(true);
+  });
 });

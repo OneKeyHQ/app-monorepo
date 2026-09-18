@@ -28,12 +28,14 @@ const PrimePurchaseDialog = LazyLoadPage(
 
 export function usePrimeRequirements({
   onPurchase,
+  networkId,
 }: {
   onPurchase?: () => void | Promise<void>;
+  networkId?: string;
 } = {}) {
   const { user, loginOneKeyId } = useOneKeyAuth();
 
-  const { purchase } = usePrimePurchaseCallback({ onPurchase });
+  const { purchase } = usePrimePurchaseCallback({ onPurchase, networkId });
 
   const intl = useIntl();
   const ensureOneKeyIDLoggedIn = useCallback(
@@ -117,6 +119,7 @@ export function usePrimeRequirements({
                     return _purchaseDialog.close();
                   }}
                   featureName={featureName}
+                  networkId={networkId}
                 />
               ),
             });
@@ -144,7 +147,13 @@ export function usePrimeRequirements({
         throw new OneKeyLocalError('Prime subscription is not active');
       }
     },
-    [ensureOneKeyIDLoggedIn, intl, purchase, user.isEnableSandboxPay],
+    [
+      ensureOneKeyIDLoggedIn,
+      intl,
+      networkId,
+      purchase,
+      user.isEnableSandboxPay,
+    ],
   );
 
   return {

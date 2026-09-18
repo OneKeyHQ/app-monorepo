@@ -175,7 +175,7 @@ export function PerpMobileLayout() {
   const tabBarHeight = useScrollContentTabBarOffset();
   const isSplitMainActive = useIsSplitMainActive();
   const [perpsCustomSettings] = usePerpsCustomSettingsAtom();
-  const chartPosition = perpsCustomSettings.chartPosition ?? 'top';
+  const chartPosition = perpsCustomSettings.chartPosition ?? 'bottom';
   const shouldShowTopChart = chartPosition === 'top' && !isSplitMainActive;
   const shouldShowBottomChart =
     chartPosition === 'bottom' && !isSplitMainActive;

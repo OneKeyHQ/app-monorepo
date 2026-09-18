@@ -101,16 +101,20 @@ const ManageSectionShell = ({
   symbol,
   defaultTab,
   fallbackTokenImageUri,
+  isPendleProvider,
   hasProtocolSwitch,
+  shouldReserveCompactSummary,
   isInModalContext,
 }: {
   type: EManagePositionType;
   symbol: string;
   defaultTab?: 'deposit' | 'withdraw';
   fallbackTokenImageUri?: string;
+  isPendleProvider: boolean;
   // Trending entry (with a protocol switcher) renders a different card stack
   // than the details entry, so the skeleton mirrors whichever will land.
   hasProtocolSwitch?: boolean;
+  shouldReserveCompactSummary?: boolean;
   // In the modal the action button lives in Page.Footer (bottom-right), so the
   // shell must not render an inline full-width button there.
   isInModalContext?: boolean;
@@ -143,27 +147,26 @@ const ManageSectionShell = ({
 
   const activeIndex = defaultTab === 'withdraw' ? 1 : 0;
   const tabLabels = [primaryLabel, secondaryLabel];
-  const activeLabel = activeIndex === 1 ? secondaryLabel : primaryLabel;
-  const hideTypeSwitch = [
-    EManagePositionType.Withdraw,
-    EManagePositionType.Repay,
-  ].includes(type);
+  let activeLabel = activeIndex === 1 ? secondaryLabel : primaryLabel;
+  if (isPendleProvider) {
+    activeLabel = intl.formatMessage({ id: ETranslations.content__amount });
+  }
   const borrowAction = useMemo(() => {
     if (
       [EManagePositionType.Supply, EManagePositionType.Withdraw].includes(type)
     ) {
-      return hideTypeSwitch || activeIndex === 1 ? 'withdraw' : 'supply';
+      return activeIndex === 1 ? 'withdraw' : 'supply';
     }
     if (
       [EManagePositionType.Borrow, EManagePositionType.Repay].includes(type)
     ) {
-      return hideTypeSwitch || activeIndex === 1 ? 'repay' : 'borrow';
+      return activeIndex === 1 ? 'repay' : 'borrow';
     }
     return undefined;
-  }, [activeIndex, hideTypeSwitch, type]);
+  }, [activeIndex, type]);
 
-  // When the type switcher is visible, the loaded layout has gap $1.5 between
-  // it and the content: in the details panel that comes from
+  // The loaded layout has gap $1.5 between the type switcher and the content:
+  // in the details panel that comes from
   // ManagePositionPart's <YStack gap="$1.5"> wrapping the (fragment)
   // NormalManageContent; in the modal there is no such wrapper. Reproduce that
   // gap deterministically here (a single wrapping YStack means the parent gap
@@ -173,32 +176,30 @@ const ManageSectionShell = ({
 
   return (
     <YStack gap={isInModalContext ? undefined : '$1.5'}>
-      {hideTypeSwitch ? null : (
-        <XStack px="$5">
-          {tabLabels.map((label, index) => {
-            const isFocused = index === activeIndex;
-            return (
-              <XStack
-                key={label}
-                px="$2"
-                py="$1.5"
-                mr="$1"
-                bg={isFocused ? '$bgActive' : '$bg'}
-                borderRadius="$2"
-                borderCurve="continuous"
+      <XStack px="$5">
+        {tabLabels.map((label, index) => {
+          const isFocused = index === activeIndex;
+          return (
+            <XStack
+              key={label}
+              px="$2"
+              py="$1.5"
+              mr="$1"
+              bg={isFocused ? '$bgActive' : '$bg'}
+              borderRadius="$2"
+              borderCurve="continuous"
+            >
+              <SizableText
+                size="$headingMd"
+                color={isFocused ? '$text' : '$textSubdued'}
+                letterSpacing={-0.15}
               >
-                <SizableText
-                  size="$headingMd"
-                  color={isFocused ? '$text' : '$textSubdued'}
-                  letterSpacing={-0.15}
-                >
-                  {label}
-                </SizableText>
-              </XStack>
-            );
-          })}
-        </XStack>
-      )}
+                {label}
+              </SizableText>
+            </XStack>
+          );
+        })}
+      </XStack>
 
       {/* Form body — mirrors StakingFormWrapper (px $5 / py $2.5 / gap $4) so
           the layout is identical when real data lands. */}
@@ -211,17 +212,20 @@ const ManageSectionShell = ({
           </SizableText>
           <XStack h="$11" ai="center" jc="space-between">
             <Skeleton h="$6" w="$24" borderRadius="$2" />
-            <XStack ai="center" gap="$1.5">
-              {/* Everything else in this frame is a Skeleton, but the token
-                  icon was rendered straight away — entries that carry no
-                  tokenImageUri route param (e.g. a banner deep link) then drew
-                  Token's empty placeholder and popped the real logo in once
-                  tokenInfo resolved. Skeleton it at the same size instead so
-                  the swap costs no layout shift (OK-59961). */}
-              {fallbackTokenImageUri ? (
-                <Token size="sm" tokenImageUri={fallbackTokenImageUri} />
+            <XStack ai="center" m="$1.5" mb="$0" p="$2" gap="$2">
+              {/* Pendle resolves the actual pair after this shell renders, so
+                  its route image is not authoritative during loading. Keep the
+                  icon as a skeleton until token metadata arrives; this also
+                  matches AmountInput's $7 token trigger size (OK-63661). */}
+              {fallbackTokenImageUri && !isPendleProvider ? (
+                <Token
+                  size="sm"
+                  w="$7"
+                  h="$7"
+                  tokenImageUri={fallbackTokenImageUri}
+                />
               ) : (
-                <Skeleton w="$6" h="$6" radius="round" />
+                <Skeleton w="$7" h="$7" radius="round" />
               )}
               {/* The symbol is the one real string this frame used to draw, and
                   a vault symbol can be as long as "Morpho-cbBTC-USDC-wrapper" —
@@ -265,15 +269,24 @@ const ManageSectionShell = ({
               </XStack>
             </XStack>
 
-            {/* Trade / buy card — static content, not loading. Render the real
-                (disabled) labels so it matches the loaded state exactly. The
-                loaded card holds only this row, so its padding is symmetric. */}
+            {/* Compact summary / trade-buy card. Stakefish adds its delayed
+                "earn starts" row above the divider; other protocols render
+                only the static trade-buy row with symmetric padding. */}
             <YStack
               p="$3.5"
+              pt={shouldReserveCompactSummary ? '$5' : '$3.5'}
               borderRadius="$3"
               borderWidth={StyleSheet.hairlineWidth}
               borderColor="$borderSubdued"
             >
+              {shouldReserveCompactSummary ? (
+                <>
+                  <YStack mt="$1.5">
+                    <Skeleton.BodyLg w={160} />
+                  </YStack>
+                  <Divider my="$5" />
+                </>
+              ) : null}
               <XStack jc="space-between" ai="center">
                 <SizableText size="$bodyMd" color="$textSubdued">
                   {intl.formatMessage(
@@ -821,7 +834,14 @@ export function ManagePositionContent({
         symbol={symbol}
         defaultTab={defaultTab}
         fallbackTokenImageUri={fallbackTokenImageUri}
+        isPendleProvider={earnUtils.isPendleProvider({
+          providerName: provider,
+        })}
         hasProtocolSwitch={Boolean(stakeProtocolSwitchConfig)}
+        shouldReserveCompactSummary={
+          Boolean(stakeProtocolSwitchConfig) &&
+          earnUtils.isStakefishProvider({ providerName: provider })
+        }
         isInModalContext={isInModalContext}
       />
     );

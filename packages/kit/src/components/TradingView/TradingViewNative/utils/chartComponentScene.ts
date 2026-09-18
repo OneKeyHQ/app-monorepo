@@ -69,7 +69,10 @@ export function appendTradingViewNativeChartComponentCommands({
 
   const priceLabelCommands: ITradingViewNativeChartSceneCommand[] = [];
   const textLabelCommands: ITradingViewNativeChartSceneCommand[] = [];
-  for (const component of components) {
+  components.forEach((component) => {
+    if (component.type !== 'referenceLine') {
+      return;
+    }
     const { anchor, color, style, title } = component.props;
     const priceLayout = getTradingViewNativeCurrentPriceLayout({
       labelHeight: PRICE_LABEL_HEIGHT,
@@ -116,7 +119,7 @@ export function appendTradingViewNativeChartComponentCommands({
           0,
         );
         const titleWidth = Math.min(
-          measureTextWidth(title, 'priceAxis') +
+          measureTextWidth(title, 'referenceLineLabel') +
             REFERENCE_LINE_LABEL_HORIZONTAL_PADDING * 2,
           availableTitleWidth,
         );
@@ -138,7 +141,7 @@ export function appendTradingViewNativeChartComponentCommands({
             },
             {
               customPaintId: textPaintId,
-              font: 'priceAxis',
+              font: 'referenceLineLabel',
               kind: 'text',
               paint: 'currentPriceLabelText',
               text: title,
@@ -191,6 +194,6 @@ export function appendTradingViewNativeChartComponentCommands({
         );
       }
     }
-  }
+  });
   return { priceLabelCommands, textLabelCommands };
 }

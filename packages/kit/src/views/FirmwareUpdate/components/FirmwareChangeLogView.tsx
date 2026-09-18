@@ -26,6 +26,7 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import {
   EFirmwareUpdateSteps,
   useDevSettingsPersistAtom,
+  useFirmwareUpdateDevSettingsPersistAtom,
   useFirmwareUpdateStepInfoAtom,
   useSettingsPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
@@ -47,6 +48,7 @@ import {
   getFirmwareUpdateUSBPreflightParams,
   getProtocolV2FirmwareVersionDisplayItems,
   getProtocolV2FirmwareVersionTitle,
+  shouldHidePro2FirmwareDebugInfo,
 } from '../utils';
 
 import { FirmwareUpdateIntroduction } from './FirmwareUpdateIntroduction';
@@ -280,9 +282,15 @@ export function FirmwareChangeLogContentView({
 } & IStackProps) {
   const intl = useIntl();
   const [devSettings] = useDevSettingsPersistAtom();
+  const [firmwareDevSettings] = useFirmwareUpdateDevSettingsPersistAtom();
+  const hideDebugInfo = shouldHidePro2FirmwareDebugInfo({
+    developerModeEnabled: devSettings.enabled,
+    hidePro2FirmwareDebugInfo: firmwareDevSettings.hidePro2FirmwareDebugInfo,
+    deviceType: result?.deviceType,
+  });
   const protocolV2VersionItems = getProtocolV2FirmwareVersionDisplayItems(
     result,
-    { includeComponents: devSettings.enabled },
+    { includeComponents: devSettings.enabled && !hideDebugInfo },
   );
   const [safeOSItem, ...componentItems] = protocolV2VersionItems;
   if (safeOSItem) {
@@ -442,15 +450,21 @@ export function FirmwareChangeFirmwareWarn({
 export function FirmwareChangeLogView({
   result,
   onConfirmClick,
+  onRetryClick,
 }: {
   result: ICheckAllFirmwareReleaseResult | undefined;
   onConfirmClick?: () => void;
+  onRetryClick?: () => void | Promise<void>;
 }) {
   const intl = useIntl();
   const [, setStepInfo] = useFirmwareUpdateStepInfoAtom();
   const { showCheckList } = useFirmwareUpdateActions();
 
   const handleConfirmClick = useCallback(async () => {
+    if (onRetryClick) {
+      await onRetryClick();
+      return;
+    }
     if (platformEnv.isDesktop) {
       const usbPreflightParams =
         await getFirmwareUpdateUSBPreflightParams(result);
@@ -493,7 +507,7 @@ export function FirmwareChangeLogView({
     }
     showCheckList({ result });
     onConfirmClick?.();
-  }, [result, showCheckList, onConfirmClick, setStepInfo, intl]);
+  }, [result, showCheckList, onConfirmClick, onRetryClick, setStepInfo, intl]);
 
   const updateFirmwareInfo = result?.updateInfos?.firmware;
 
@@ -506,7 +520,9 @@ export function FirmwareChangeLogView({
     <>
       <FirmwareUpdatePageFooter
         onConfirmText={intl.formatMessage({
-          id: ETranslations.update_update_now,
+          id: onRetryClick
+            ? ETranslations.global_retry
+            : ETranslations.update_update_now,
         })}
         onConfirm={handleConfirmClick}
         confirmButtonProps={{

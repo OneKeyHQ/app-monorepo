@@ -1,4 +1,29 @@
-import { resolveMarketTradeActionState } from './ActionButton.utils';
+import { ESwapTabSwitchType } from '@onekeyhq/shared/types/swap/types';
+
+import {
+  resolveMarketTradeActionState,
+  resolveMarketTradeFallbackSwapType,
+} from './ActionButton.utils';
+
+describe('resolveMarketTradeFallbackSwapType', () => {
+  it('routes stock tokens to the Trade Stocks channel', () => {
+    expect(
+      resolveMarketTradeFallbackSwapType({
+        isStock: true,
+        onlySupportCrossChain: true,
+      }),
+    ).toBe(ESwapTabSwitchType.STOCK);
+  });
+
+  it('preserves the existing bridge and swap fallbacks', () => {
+    expect(
+      resolveMarketTradeFallbackSwapType({ onlySupportCrossChain: true }),
+    ).toBe(ESwapTabSwitchType.BRIDGE);
+    expect(resolveMarketTradeFallbackSwapType({})).toBe(
+      ESwapTabSwitchType.SWAP,
+    );
+  });
+});
 
 describe('resolveMarketTradeActionState', () => {
   it('keeps wrapped pairs in Market when speed swap is unsupported', () => {

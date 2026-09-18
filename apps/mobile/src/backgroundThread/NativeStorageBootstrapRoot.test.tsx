@@ -1,0 +1,330 @@
+/** @jest-environment jsdom */
+
+import type { ReactNode } from 'react';
+
+import { act, fireEvent, render, screen } from '@testing-library/react';
+
+const mockBootstrapResolvers: Array<() => void> = [];
+const mockBootstrapRejectors: Array<(error: Error) => void> = [];
+const mockBootstrapNativeStorage = jest.fn<
+  Promise<void>,
+  [{ force?: boolean }]
+>(
+  () =>
+    new Promise((resolve, reject) => {
+      mockBootstrapResolvers.push(resolve);
+      mockBootstrapRejectors.push(reject);
+    }),
+);
+const mockHideNativeStorageBootstrapSplash = jest.fn();
+const mockCallNativeStorage = jest.fn<Promise<void>, [unknown]>(
+  async () => undefined,
+);
+const mockAppRestart = jest.fn<Promise<void>, [unknown]>(async () => undefined);
+const mockForceDisableTravelModeForRecovery = jest.fn<Promise<boolean>, []>(
+  async () => false,
+);
+const mockJotaiInitResolvers: Array<() => void> = [];
+const mockJotaiInitRejectors: Array<(error: Error) => void> = [];
+const mockInitializeJotaiFromBackground = jest.fn(
+  () =>
+    new Promise<void>((resolve, reject) => {
+      mockJotaiInitResolvers.push(resolve);
+      mockJotaiInitRejectors.push(reject);
+    }),
+);
+const mockRunJotaiMainHydration = jest.fn(
+  async (initializeFromBackground: () => Promise<void>) =>
+    initializeFromBackground(),
+);
+const mockHydrateColdStartSnapshotAfterRuntimeLaunch = jest.fn();
+const mockWaitForColdStartCriticalImagesResolvers: Array<() => void> = [];
+const mockWaitForColdStartCriticalImagesBeforeMount = jest.fn(
+  () =>
+    new Promise<void>((resolve) => {
+      mockWaitForColdStartCriticalImagesResolvers.push(resolve);
+    }),
+);
+
+jest.mock('@onekeyhq/shared/src/modules3rdParty/appRestart', () => ({
+  appRestart: (options: unknown) => mockAppRestart(options),
+  EAppRestartMode: { All: 'all' },
+}));
+
+jest.mock('@onekeyhq/shared/src/storage/nativeStorageBridge', () => ({
+  callNativeStorage: (request: unknown) => mockCallNativeStorage(request),
+}));
+
+jest.mock('@onekeyhq/shared/src/travelMode', () => ({
+  travelModeManager: {},
+}));
+
+jest.mock('@onekeyhq/shared/src/travelMode/nativeLaunchEpoch', () => ({
+  forceDisableTravelModeForRecovery: () =>
+    mockForceDisableTravelModeForRecovery(),
+}));
+
+jest.mock(
+  '@onekeyhq/shared/src/travelMode/runtimeLaunchAcknowledgement',
+  () => ({
+    completeTravelModeRuntimeLaunchAcknowledgement: jest.fn(async () => true),
+  }),
+);
+
+jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
+  __esModule: true,
+  default: {
+    initializeJotaiFromBackground: () => mockInitializeJotaiFromBackground(),
+  },
+}));
+
+jest.mock('./jotaiMainHydrationGate', () => ({
+  runJotaiMainHydration: (initializeFromBackground: () => Promise<void>) =>
+    mockRunJotaiMainHydration(initializeFromBackground),
+}));
+
+jest.mock('react-native', () => ({
+  ActivityIndicator: ({ testID }: { testID?: string }) => (
+    <div data-testid={testID} />
+  ),
+  Pressable: ({
+    children,
+    onPress,
+    testID,
+  }: {
+    children?: ReactNode;
+    onPress?: () => void;
+    testID?: string;
+  }) => (
+    <button data-testid={testID} onClick={onPress} type="button">
+      {children}
+    </button>
+  ),
+  StyleSheet: {
+    create: (styles: unknown) => styles,
+  },
+  Text: ({ children }: { children?: ReactNode }) => <span>{children}</span>,
+  View: ({ children, testID }: { children?: ReactNode; testID?: string }) => (
+    <div data-testid={testID}>{children}</div>
+  ),
+  useColorScheme: () => 'light',
+}));
+
+jest.mock('./bootstrapNativeStorage', () => ({
+  bootstrapNativeStorage: (options: { force?: boolean }) =>
+    mockBootstrapNativeStorage(options),
+  hydrateColdStartSnapshotAfterRuntimeLaunch: () => {
+    mockHydrateColdStartSnapshotAfterRuntimeLaunch();
+  },
+  waitForColdStartCriticalImagesBeforeMount: () =>
+    mockWaitForColdStartCriticalImagesBeforeMount(),
+}));
+
+jest.mock('./nativeStorageBootstrapSplash', () => ({
+  hideNativeStorageBootstrapSplash: () => {
+    mockHideNativeStorageBootstrapSplash();
+  },
+}));
+
+jest.mock(
+  '../../App',
+  (): { __esModule: boolean; default: () => ReactNode } => ({
+    __esModule: true,
+    default: () => <div data-testid="business-app" />,
+  }),
+);
+
+jest.useFakeTimers();
+
+const { NativeStorageBootstrapRoot } =
+  require('./NativeStorageBootstrapRoot') as typeof import('./NativeStorageBootstrapRoot');
+
+describe('NativeStorageBootstrapRoot', () => {
+  afterAll(() => {
+    jest.useRealTimers();
+  });
+
+  it('renders a waiting surface and turns a hung bootstrap into a retryable error', async () => {
+    render(<NativeStorageBootstrapRoot />);
+
+    expect(screen.getByTestId('native-storage-bootstrap-waiting')).toBeTruthy();
+
+    await act(async () => {
+      jest.advanceTimersByTime(65_000);
+      await Promise.resolve();
+    });
+
+    expect(screen.getByText('Storage initialization failed')).toBeTruthy();
+    expect(
+      screen.getByText('Native storage bootstrap timed out after 65 seconds'),
+    ).toBeTruthy();
+    expect(screen.getByTestId('native-storage-migration-retry')).toBeTruthy();
+    expect(
+      screen.getByTestId('native-storage-bootstrap-restart-app'),
+    ).toBeTruthy();
+    expect(mockHideNativeStorageBootstrapSplash).toHaveBeenCalledTimes(1);
+
+    mockForceDisableTravelModeForRecovery.mockRejectedValueOnce(
+      new Error('Native recovery storage unavailable'),
+    );
+    fireEvent.click(screen.getByTestId('native-storage-bootstrap-restart-app'));
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(mockForceDisableTravelModeForRecovery).toHaveBeenCalledTimes(1);
+    expect(mockAppRestart).toHaveBeenCalledWith({
+      mode: 'all',
+      reason: 'storage.bootstrap.restart',
+    });
+    expect(
+      mockForceDisableTravelModeForRecovery.mock.invocationCallOrder[0],
+    ).toBeLessThan(mockAppRestart.mock.invocationCallOrder[0]);
+
+    mockForceDisableTravelModeForRecovery.mockResolvedValueOnce(true);
+    fireEvent.click(screen.getByTestId('native-storage-migration-retry'));
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(mockForceDisableTravelModeForRecovery).toHaveBeenCalledTimes(2);
+    expect(mockAppRestart).toHaveBeenLastCalledWith({
+      mode: 'all',
+      reason: 'storage.bootstrap.retry.travel-mode-disabled',
+    });
+    expect(mockBootstrapNativeStorage.mock.calls).toEqual([[{ force: false }]]);
+
+    mockForceDisableTravelModeForRecovery.mockRejectedValueOnce(
+      new Error('Native recovery storage unavailable'),
+    );
+    fireEvent.click(screen.getByTestId('native-storage-migration-retry'));
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(screen.getByTestId('native-storage-bootstrap-waiting')).toBeTruthy();
+    expect(mockForceDisableTravelModeForRecovery).toHaveBeenCalledTimes(3);
+    expect(mockBootstrapNativeStorage.mock.calls).toEqual([
+      [{ force: false }],
+      [{ force: true }],
+    ]);
+
+    await act(async () => {
+      mockBootstrapResolvers[0]?.();
+      await Promise.resolve();
+    });
+    expect(screen.getByTestId('native-storage-bootstrap-waiting')).toBeTruthy();
+
+    await act(async () => {
+      mockBootstrapRejectors[1]?.(
+        new Error(
+          'Native storage migration target is inconsistent:appStorage; App-storage MMKV migration marker is missing after migration completed',
+        ),
+      );
+      await Promise.resolve();
+    });
+    expect(screen.getByText('Local storage needs repair')).toBeTruthy();
+    expect(screen.queryByTestId('native-storage-migration-retry')).toBeNull();
+    expect(
+      screen.queryByTestId('native-storage-bootstrap-restart-app'),
+    ).toBeNull();
+
+    fireEvent.click(screen.getByTestId('native-storage-migration-repair'));
+    expect(
+      screen.getByTestId('native-storage-migration-repair-confirm'),
+    ).toBeTruthy();
+    fireEvent.click(
+      screen.getByTestId('native-storage-migration-repair-confirm'),
+    );
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(mockCallNativeStorage).toHaveBeenCalledWith({
+      scope: 'recovery',
+      operation: 'resetMigrationTarget',
+      target: 'appStorage',
+    });
+    expect(mockBootstrapNativeStorage.mock.calls).toEqual([
+      [{ force: false }],
+      [{ force: true }],
+      [{ force: true }],
+    ]);
+
+    await act(async () => {
+      mockBootstrapResolvers[2]?.();
+      await Promise.resolve();
+    });
+
+    expect(mockInitializeJotaiFromBackground).toHaveBeenCalledTimes(1);
+    await act(async () => {
+      mockJotaiInitRejectors[0]?.(new Error('Initial Jotai RPC failed'));
+      await Promise.resolve();
+    });
+    expect(screen.getByText('State initialization failed')).toBeTruthy();
+    expect(screen.getByText('Initial Jotai RPC failed')).toBeTruthy();
+    expect(screen.getByTestId('native-storage-migration-retry')).toBeTruthy();
+    expect(
+      screen.getByTestId('native-storage-bootstrap-restart-app'),
+    ).toBeTruthy();
+
+    fireEvent.click(screen.getByTestId('native-storage-migration-retry'));
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(mockBootstrapNativeStorage.mock.calls).toEqual([
+      [{ force: false }],
+      [{ force: true }],
+      [{ force: true }],
+      [{ force: true }],
+    ]);
+
+    await act(async () => {
+      mockBootstrapResolvers[3]?.();
+      await Promise.resolve();
+    });
+    expect(mockInitializeJotaiFromBackground).toHaveBeenCalledTimes(2);
+    expect(mockRunJotaiMainHydration).toHaveBeenCalledTimes(2);
+    await act(async () => {
+      mockJotaiInitResolvers[1]?.();
+      for (let index = 0; index < 5; index += 1) {
+        await Promise.resolve();
+      }
+    });
+    // First-paint images get their bounded head start after jotai hydration
+    // and before the business app mounts (OK-61505).
+    expect(mockWaitForColdStartCriticalImagesBeforeMount).toHaveBeenCalledTimes(
+      1,
+    );
+    expect(
+      mockInitializeJotaiFromBackground.mock.invocationCallOrder[1],
+    ).toBeLessThan(
+      mockWaitForColdStartCriticalImagesBeforeMount.mock.invocationCallOrder[0],
+    );
+    // The snapshot is readable only after the runtime launch is acknowledged,
+    // and it must be hydrated before the jotai init that precedes the mount.
+    expect(mockHydrateColdStartSnapshotAfterRuntimeLaunch).toHaveBeenCalled();
+    expect(
+      mockForceDisableTravelModeForRecovery.mock.invocationCallOrder.at(-1),
+    ).toBeLessThan(
+      mockHydrateColdStartSnapshotAfterRuntimeLaunch.mock.invocationCallOrder.at(
+        -1,
+      ) as number,
+    );
+    expect(
+      mockHydrateColdStartSnapshotAfterRuntimeLaunch.mock.invocationCallOrder.at(
+        -1,
+      ),
+    ).toBeLessThan(
+      mockInitializeJotaiFromBackground.mock.invocationCallOrder[1],
+    );
+    expect(screen.queryByTestId('business-app')).toBeNull();
+
+    await act(async () => {
+      mockWaitForColdStartCriticalImagesResolvers[0]?.();
+      for (let index = 0; index < 5; index += 1) {
+        await Promise.resolve();
+      }
+    });
+    expect(screen.getByTestId('business-app')).toBeTruthy();
+  });
+});

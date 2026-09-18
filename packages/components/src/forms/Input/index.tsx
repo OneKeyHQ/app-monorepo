@@ -100,6 +100,22 @@ export type IInputRef = {
   setNativeProps?: (props: Record<string, unknown>) => void;
 };
 
+// Password managers (1Password, LastPass, Bitwarden, Dashlane) anchor their
+// inline menus to any field they classify as fillable, then fight the person
+// for focus. Spread this on deliberately secure fields — hardware passphrases,
+// device pairing codes — to keep them out. `autoComplete` is platform-guarded:
+// on iOS "new-password" maps to textContentType=newPassword, which invites the
+// strong-password overlay — the native cousin of the same interference.
+export const passwordManagerIgnoreProps = {
+  autoComplete: platformEnv.isNative
+    ? ('off' as const)
+    : ('new-password' as const),
+  'data-form-type': 'other',
+  'data-1p-ignore': '',
+  'data-lpignore': 'true',
+  'data-bwignore': 'true',
+} as const;
+
 const SIZE_MAPPINGS = {
   'large': {
     paddingLeftWithIcon: '$10',
@@ -279,12 +295,51 @@ function BaseInput(
     error,
     size,
   });
+  // Tamagui v2 Group only zeroes the joined corners of its items and no longer
+  // passes its radius down, so addons round their outer corners themselves to
+  // keep hover/press backgrounds inside the container border.
+  // Keep physical left/right corners, as Group does: native RTL already swaps
+  // left/right styles (doLeftAndRightSwapInRTL), so flipping them on
+  // I18nManager.isRTL would round the inner side instead.
+  const containerBorderRadius =
+    containerProps?.borderRadius ?? sharedStyles.borderRadius;
+  const addOnsBorderRadius =
+    addOnsContainerProps?.borderRadius ?? containerBorderRadius;
   const themeName = useThemeName();
   const inputRef: RefObject<TextInput | null> | null = useRef(null);
   const reloadAutoFocus = useAutoFocus(inputRef, autoFocus, autoFocusDelayMs);
   const readOnlyStyle = useReadOnlyStyle(readonly);
   const { clearText, getClipboard, supportPaste, onPasteClearText } =
     useClipboard();
+
+  // Tamagui/RNW silently drop unknown `data-*` props (and `dataSet`) before
+  // they reach the DOM node, so honor them imperatively on web — this is what
+  // makes `passwordManagerIgnoreProps` (and the older scattered `data-*`
+  // declarations) actually land.
+  const dataAttributes = platformEnv.isNative
+    ? '[]'
+    : JSON.stringify(
+        Object.entries(props).filter(([name]) => name.startsWith('data-')),
+      );
+  const appliedDataAttributeNamesRef = useRef<string[]>([]);
+  useEffect(() => {
+    const node = inputRef.current as unknown as HTMLInputElement | null;
+    if (!node || typeof node.setAttribute !== 'function') {
+      return;
+    }
+    const entries = JSON.parse(dataAttributes) as Array<[string, unknown]>;
+    const names = entries.map(([name]) => name);
+    appliedDataAttributeNamesRef.current
+      .filter((name) => !names.includes(name))
+      .forEach((name) => node.removeAttribute(name));
+    appliedDataAttributeNamesRef.current = names;
+    entries.forEach(([name, attrValue]) => {
+      node.setAttribute(
+        name,
+        attrValue === true ? '' : String(attrValue ?? ''),
+      );
+    });
+  }, [dataAttributes]);
 
   const onPaste = useCallback(
     (event: IPasteEventParams) => {
@@ -462,6 +517,8 @@ function BaseInput(
       {leftAddOnProps ? (
         <Group.Item>
           <InputAddOnItem
+            borderTopLeftRadius={containerBorderRadius}
+            borderBottomLeftRadius={containerBorderRadius}
             {...leftAddOnProps}
             size={size}
             error={error}
@@ -538,7 +595,6 @@ function BaseInput(
             borderRadius={sharedStyles.borderRadius}
             orientation="horizontal"
             disabled={disabled}
-            disablePassBorderRadius="start"
             {...(addOnsContainerProps as any)}
           >
             {addOns.map(
@@ -580,6 +636,10 @@ function BaseInput(
                         error={error}
                         onPress={onPress}
                         tooltipProps={tooltipProps}
+                        {...(index === addOns.length - 1 && {
+                          borderTopRightRadius: addOnsBorderRadius,
+                          borderBottomRightRadius: addOnsBorderRadius,
+                        })}
                         {...addOnsItemProps}
                         {...addOnRest}
                       />

@@ -112,12 +112,47 @@ export function DialogHyperlinkTextDescription(props: IHyperlinkTextProps) {
   ) : null;
 }
 
-function BasicDialogHeader({
+export function DialogHeaderCloseButton({
   onClose,
   trackID,
+  testID,
 }: {
   onClose: () => void;
   trackID?: string;
+  testID?: string;
+}) {
+  const { headerProps } = useContext(DialogHeaderContext);
+  const showExitButton = headerProps.showExitButton ?? true;
+  if (!showExitButton) {
+    return null;
+  }
+  return (
+    // Internal dialog control; QA should target the dialog body.
+    // oxlint-disable-next-line onekey/require-testid
+    <IconButton
+      testID={testID}
+      trackID={trackID}
+      position="absolute"
+      zIndex={1}
+      right="$5"
+      top="$5"
+      icon="CrossedSmallOutline"
+      iconProps={closeButtonIconProps}
+      size="small"
+      hotKey
+      onPress={onClose}
+    />
+  );
+}
+
+function BasicDialogHeader({
+  onClose,
+  trackID,
+  hideCloseButton = false,
+}: {
+  onClose: () => void;
+  trackID?: string;
+  hideCloseButton?: boolean;
 }) {
   const { headerProps } = useContext(DialogHeaderContext);
   const {
@@ -147,22 +182,8 @@ function BasicDialogHeader({
         </>
       )}
 
-      {/* close button */}
-      {showExitButton ? (
-        // Internal dialog control; QA should target the dialog body.
-        // oxlint-disable-next-line onekey/require-testid
-        <IconButton
-          trackID={trackID}
-          position="absolute"
-          zIndex={1}
-          right="$5"
-          top="$5"
-          icon="CrossedSmallOutline"
-          iconProps={closeButtonIconProps}
-          size="small"
-          hotKey
-          onPress={onClose}
-        />
+      {showExitButton && !hideCloseButton ? (
+        <DialogHeaderCloseButton onClose={onClose} trackID={trackID} />
       ) : null}
     </Stack>
   );

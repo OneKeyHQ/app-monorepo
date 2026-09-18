@@ -19,6 +19,11 @@ const baseColors = {
   dark: ['#111111', '#333333'],
   light: ['#fafafa', '#cdcdcd'],
 };
+const skeletonFillStyle = {
+  height: '100%',
+  width: '100%',
+} as const;
+
 export function BaseSkeleton(
   { colorMode, children, ...props }: ISkeletonProps,
   ref: ForwardedRef<ComponentRef<typeof Stack>>,
@@ -40,17 +45,6 @@ export function BaseSkeleton(
     return (restProps.radius as number) || DEFAULT_RADIUS;
   }, [restProps.radius]);
 
-  const skeletonStyle = useMemo(
-    () => [
-      style as Record<string, unknown>,
-      {
-        height: (style.height as number) || DEFAULT_SKELETON_SIZE,
-        width: (style.width as number) || '100%',
-      },
-    ],
-    [style],
-  );
-
   const isGroupLoading = useIsGroupLoading();
   return isGroupLoading === undefined || isGroupLoading ? (
     <Stack
@@ -64,7 +58,7 @@ export function BaseSkeleton(
       {...restProps}
     >
       <SkeletonView
-        style={skeletonStyle}
+        style={skeletonFillStyle}
         shimmerSpeed={3}
         shimmerGradientColors={colors}
       />

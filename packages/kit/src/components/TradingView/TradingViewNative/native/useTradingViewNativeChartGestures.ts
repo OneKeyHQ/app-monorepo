@@ -32,6 +32,8 @@ import {
   isTradingViewNativeTimeAxisTouch,
 } from '../utils/timeAxisScale';
 
+import { getTradingViewNativeSkiaTextFont } from './chartSkiaText';
+
 import type { ITradingViewNativeChartRuntime } from './chartRuntime';
 import type { ITradingViewNativeSkiaResources } from './chartSkiaRenderer';
 import type { ITradingViewNativeSubIndicator } from '../utils/chartIndicators';
@@ -64,7 +66,7 @@ export function useTradingViewNativeChartGestures({
   priceAxisScaleGesture: GestureType;
   priceAxisWidth: SharedValue<number>;
   resources: SharedValue<ITradingViewNativeSkiaResources>;
-  timeAxisHeight?: number;
+  timeAxisHeight: number;
 }) {
   const pressedSubIndicatorSettingsTarget =
     useSharedValue<ITradingViewNativeSubIndicator | null>(null);
@@ -81,6 +83,7 @@ export function useTradingViewNativeChartGestures({
         height: runtime.size.height,
         paneCount,
         priceAxisWidth: priceAxisWidth.value,
+        timeAxisHeight,
         width: runtime.size.width,
         x,
         y,
@@ -94,6 +97,7 @@ export function useTradingViewNativeChartGestures({
       return isTradingViewNativeTimeAxisTouch({
         height: runtime.size.height,
         priceAxisWidth: priceAxisWidth.value,
+        timeAxisHeight,
         width: runtime.size.width,
         x,
         y,
@@ -147,10 +151,15 @@ export function useTradingViewNativeChartGestures({
       const regions = getTradingViewNativeSubIndicatorLegendHitRegions({
         height: runtime.size.height,
         measureTextWidth: (text) =>
-          resources.value.fonts.legend.measureText(text).width,
+          getTradingViewNativeSkiaTextFont(
+            text,
+            resources.value.fonts.legend,
+            resources.value.legendSubscriptFont,
+          ).measureText(text).width,
         panes: runtime.subIndicatorPanes,
         pointIndex,
         priceAxisX,
+        timeAxisHeight,
       });
       return getTradingViewNativeSubIndicatorLegendIndicatorAtPoint({
         regions,
@@ -182,9 +191,12 @@ export function useTradingViewNativeChartGestures({
 
         updateCrosshair(event.x, event.y);
       })
-      .onFinalize(() => {
+      .onFinalize((_event, success) => {
         'worklet';
 
+        if (success) {
+          return;
+        }
         const runtime = chartRuntime.value;
         const nextRuntimeState = reduceTradingViewNativeChartRuntime(runtime, {
           type: 'crosshairHidden',

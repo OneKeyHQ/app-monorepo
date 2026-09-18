@@ -21,6 +21,7 @@ const INDICATOR_SETTINGS_TRANSLATIONS: Partial<
 > = {
   BOLL: {
     labels: {
+      background: ETranslations.market_chart_settings__background,
       deviation: ETranslations.market_chart_indicator_stddev__label,
       period: ETranslations.market_chart_indicator_length__label,
     },
@@ -50,8 +51,6 @@ const INDICATOR_SETTINGS_TRANSLATIONS: Partial<
     description: ETranslations.market_chart_indicator_macd__desc,
     labels: {
       fastPeriod: ETranslations.market_chart_indicator_fast_length__label,
-      'plot:histogram': ETranslations.market_chart_indicator_histogram__label,
-      'plot:signal': ETranslations.market_chart_indicator_signal__label,
       signalPeriod: ETranslations.market_chart_indicator_signal_length__label,
       slowPeriod: ETranslations.market_chart_indicator_slow_length__label,
     },
@@ -85,8 +84,6 @@ const INDICATOR_SETTINGS_TRANSLATIONS: Partial<
     labels: {
       movingAveragePeriod:
         ETranslations.market_chart_indicator_smoothing_length__label,
-      'plot:movingAverage':
-        ETranslations.market_chart_indicator_smoothed_ma__label,
     },
     name: ETranslations.market_chart_indicator_obv__title,
   },

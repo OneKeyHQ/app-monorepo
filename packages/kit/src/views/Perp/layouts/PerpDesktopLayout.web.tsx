@@ -24,10 +24,8 @@ import {
 } from '@onekeyhq/components';
 import { usePerpsLayoutStateAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { ESpotlightTour } from '@onekeyhq/shared/src/spotlight';
 import { PERP_LAYOUT_CONFIG } from '@onekeyhq/shared/types/hyperliquid/perp.constants';
 
-import { Spotlight } from '../../../components/Spotlight';
 import { FavoritesBar } from '../components/FavoritesBar/FavoritesBar.web';
 import { PerpMarketWorkspacePanel } from '../components/MarketDetail/PerpMarketWorkspacePanel';
 import { PerpOrderInfoPanel } from '../components/OrderInfoPanel/PerpOrderInfoPanel';
@@ -161,8 +159,8 @@ function PerpDesktopLayout() {
 
   const accountPanel = useMemo(() => {
     return (
-      <YStack h="100%" alignSelf="stretch" style={{ overflowY: 'auto' }}>
-        <YStack minHeight={layout.bottomPanelHeight}>
+      <YStack alignSelf="stretch">
+        <YStack>
           <XStack alignItems="center">
             <XStack py="$3" px="$2.5">
               <SizableText size="$bodyMdMedium">
@@ -179,7 +177,7 @@ function PerpDesktopLayout() {
         </YStack>
       </YStack>
     );
-  }, [intl, layout.bottomPanelHeight]);
+  }, [intl]);
 
   const marketPanel = (
     <XStack h="100%" overflow="hidden">
@@ -280,33 +278,6 @@ function PerpDesktopLayout() {
         borderTopWidth: 1,
       }}
     >
-      <Spotlight
-        isVisible={!chartExpanded}
-        tourName={ESpotlightTour.perpDesktopChartResize}
-        message={intl.formatMessage({
-          id: ETranslations.perps_desktop_resize_panels__desc,
-        })}
-        delayMs={700}
-        floatingOffset={8}
-        childrenPaddingHorizontal={8}
-        childrenPaddingVertical={6}
-        showHighlightBackground
-        highlightBackgroundOpacity={0.6}
-        replaceChildren={
-          <Stack w={160} h={4} bg="$borderActive" borderRadius="$full" />
-        }
-        containerProps={{
-          testID: PerpTestIDs.DesktopChartResizeSpotlight,
-          position: 'absolute',
-          top: -1,
-          left: '50%',
-          marginLeft: -80,
-          zIndex: 1,
-          pointerEvents: 'none',
-        }}
-      >
-        <Stack w={160} h={1} />
-      </Spotlight>
       <YStack flex={1}>
         <PerpOrderInfoPanel />
       </YStack>
@@ -328,22 +299,19 @@ function PerpDesktopLayout() {
         <PerpNetworkAlert />
         {chartExpanded ? null : <FavoritesBar />}
 
-        <YStack
-          flex={chartExpanded ? 1 : undefined}
-          borderBottomWidth="$px"
-          borderBottomColor="$borderSubdued"
-        >
+        <YStack flex={chartExpanded ? 1 : undefined}>
           <PerpTickerBar />
 
           <Stack
             flex={chartExpanded ? 1 : undefined}
-            h={chartExpanded ? undefined : leftContentHeight}
+            minHeight={chartExpanded ? undefined : leftContentHeight}
             overflow="hidden"
           >
-            <XStack h="100%" overflow="hidden">
+            <XStack flex={1} overflow="hidden">
               <YStack
                 flex={1}
                 minWidth={PERP_LAYOUT_CONFIG.main.marketMinWidth}
+                h={chartExpanded ? undefined : leftContentHeight}
                 overflow="hidden"
               >
                 <Allotment
@@ -385,8 +353,7 @@ function PerpDesktopLayout() {
                 </YStack>
                 <YStack
                   testID={PerpTestIDs.DesktopAccountBoundary}
-                  h={layout.bottomPanelHeight}
-                  overflow="hidden"
+                  minHeight={layout.bottomPanelHeight}
                   style={{
                     borderTopColor: theme.borderSubdued.val,
                     borderTopStyle: 'solid',

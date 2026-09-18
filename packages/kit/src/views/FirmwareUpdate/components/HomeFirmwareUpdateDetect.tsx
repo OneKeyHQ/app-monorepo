@@ -31,16 +31,13 @@ function HomeFirmwareUpdateDetectCmp() {
       return undefined;
     }
 
-    // TODO check firmware update only for current device or all device?
-    // TODO only works for home scene, TODO throttle
-    // get sdk instance will register device events automatically
+    // The background service owns throttling and the complete detect workflow.
     const detector = createActiveAccountFirmwareUpdateDetector({
-      detect: () =>
-        backgroundApiProxy.serviceFirmwareUpdate.detectActiveAccountFirmwareUpdates(
-          {
-            connectId,
-          },
-        ),
+      detect: async () => {
+        return backgroundApiProxy.serviceFirmwareUpdate.detectActiveAccountFirmwareUpdates(
+          { connectId },
+        );
+      },
     });
     detector.start();
 

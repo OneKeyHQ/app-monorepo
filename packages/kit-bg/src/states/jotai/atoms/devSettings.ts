@@ -209,6 +209,7 @@ export type IFirmwareUpdateDevSettings = {
   showDeviceDebugLogs: boolean;
   showAutoCheckHardwareUpdatesToast: boolean;
   forceUpdateBtcOnlyUniversalFirmware: boolean;
+  hidePro2FirmwareDebugInfo: boolean;
   pro2ForceUpdateTargets: IPro2FirmwareUpdateTarget[];
   pro2ForceUpdateOnceTargets: IPro2FirmwareUpdateTarget[];
 };
@@ -237,6 +238,7 @@ export const {
     showDeviceDebugLogs: false,
     showAutoCheckHardwareUpdatesToast: false,
     forceUpdateBtcOnlyUniversalFirmware: false,
+    hidePro2FirmwareDebugInfo: false,
     pro2ForceUpdateTargets: [],
     pro2ForceUpdateOnceTargets: [],
   },

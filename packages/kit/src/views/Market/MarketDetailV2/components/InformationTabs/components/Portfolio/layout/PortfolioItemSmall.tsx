@@ -3,12 +3,12 @@ import { memo } from 'react';
 import { NumberSizeableText, XStack, YStack } from '@onekeyhq/components';
 import { Currency } from '@onekeyhq/kit/src/components/Currency';
 import { USD_CURRENCY_ID } from '@onekeyhq/shared/src/consts/currencyConsts';
-import type { IMarketAccountPortfolioItem } from '@onekeyhq/shared/types/marketV2';
+import type { IMarketAccountPortfolioDisplayItem } from '@onekeyhq/shared/types/marketV2';
 
 import { PnlCell } from '../components/PnlCell';
 
 interface IPortfolioItemSmallProps {
-  item: IMarketAccountPortfolioItem;
+  item: IMarketAccountPortfolioDisplayItem;
 }
 
 function PortfolioItemSmallBase({ item }: IPortfolioItemSmallProps) {

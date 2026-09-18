@@ -161,10 +161,6 @@ function TokenDetailsTabToolbar(props: IProps) {
           width: 320,
           maxHeight: 372,
         }}
-        sheetProps={{
-          snapPoints: [92],
-          snapPointsMode: 'percent',
-        }}
         title={intl.formatMessage({
           id: ETranslations.global_select_network,
         })}

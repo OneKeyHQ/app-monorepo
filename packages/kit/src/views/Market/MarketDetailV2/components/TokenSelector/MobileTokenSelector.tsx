@@ -1,9 +1,9 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { useRoute } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 
-import { Page, SearchBar, Stack } from '@onekeyhq/components';
+import { Page, SearchBar, Stack, Toast } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useDebounce } from '@onekeyhq/kit/src/hooks/useDebounce';
 import { useTokenDetailActions } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2';
@@ -32,6 +32,7 @@ import {
 } from '../../utils/marketDetailPreview';
 
 import { TOKEN_SELECTOR_POLLING_INTERVAL } from './constants';
+import { dismissMobileTokenSelectorKeyboard } from './dismissMobileTokenSelectorKeyboard';
 import { navigateToMarketTokenDetail } from './navigateToMarketTokenDetail';
 import { useLiveTokenOverride } from './useLiveTokenOverride';
 
@@ -103,28 +104,50 @@ function MobileTokenSelectorContent() {
     setSelectorConfig((prev) => ({ ...prev, isWatchlistMode: true }));
   }, [setSelectorConfig]);
 
+  const navigationRequestIdRef = useRef(0);
   const navigateToTokenDetail = useCallback(
     (token: {
       address: string;
       networkId: string;
+      assetId?: string;
+      stockId?: string;
       isNative?: boolean;
       perpsCoin?: string;
       tokenDetailPreview?: IMarketTokenDetailPreview;
     }) => {
+      navigationRequestIdRef.current += 1;
+      const requestId = navigationRequestIdRef.current;
+      dismissMobileTokenSelectorKeyboard();
       if (token.perpsCoin) {
         navigation.popStack();
         navigateToPerps(token.perpsCoin);
         return;
       }
 
-      navigateToMarketTokenDetail(token, {
+      void navigateToMarketTokenDetail(token, {
+        isCurrentRequest: () => requestId === navigationRequestIdRef.current,
+        onError: () =>
+          Toast.error({
+            title: intl.formatMessage({
+              id: ETranslations.global_an_error_occurred,
+            }),
+          }),
         tokenDetailActions,
         beforeNavigate: () => navigation.popStack(),
         showFavoriteButton,
+        resolveMarketAsset: startListSelect || Boolean(searchValueDebounce),
         tokenDetailPreview: token.tokenDetailPreview,
       });
     },
-    [tokenDetailActions, navigation, navigateToPerps, showFavoriteButton],
+    [
+      intl,
+      tokenDetailActions,
+      navigation,
+      navigateToPerps,
+      searchValueDebounce,
+      showFavoriteButton,
+      startListSelect,
+    ],
   );
 
   const handleTokenSelect = useCallback(

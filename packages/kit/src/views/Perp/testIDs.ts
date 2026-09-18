@@ -15,6 +15,8 @@ export const PerpTestIDs = {
   TokenSelector: 'perp-token-selector',
   TokenSelectorMobile: 'perp-token-selector-mobile',
   TokenSelectorSearch: 'perp-token-selector-search',
+  TokenSelectorRow: (coin: string) =>
+    `perp-token-selector-row-${coin.replace(/[^a-z0-9]+/gi, '-').toLowerCase()}`,
   ActiveDexBadge: 'perp-active-dex-badge',
   TokenSelectorDexBadge: (coin: string) =>
     `perp-token-selector-${coin.replace(/[^a-z0-9]+/gi, '-').toLowerCase()}-dex-badge`,
@@ -118,7 +120,6 @@ export const PerpTestIDs = {
   DesktopSplitRoot: 'perp-desktop-split-root',
   DesktopChartSplit: 'perp-desktop-chart-split',
   DesktopChartBoundary: 'perp-desktop-chart-boundary',
-  DesktopChartResizeSpotlight: 'perp-desktop-chart-resize-spotlight',
   DesktopAccountBoundary: 'perp-desktop-account-boundary',
   DesktopChartDragShield: 'perp-desktop-chart-drag-shield',
   ResetLayoutButton: 'perp-reset-layout-button',

@@ -1,10 +1,13 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo } from 'react';
 
 import type { IUnsignedMessage } from '@onekeyhq/core/src/types';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { useScopedAcknowledgement } from '@onekeyhq/kit/src/hooks/useScopedAcknowledgement';
 import { buildPrimeAnalyticsProfileSnapshot } from '@onekeyhq/kit-bg/src/services/ServicePrime/primeAnalyticsProfile';
 import { primePersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { makeTimeoutPromise } from '@onekeyhq/shared/src/background/backgroundUtils';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EPrimeFeatures } from '@onekeyhq/shared/src/routes/prime';
 import {
@@ -12,6 +15,7 @@ import {
   isPrimaryTypeOrderSign,
   isPrimaryTypePermitSign,
 } from '@onekeyhq/shared/src/signMessage';
+import { stableStringify } from '@onekeyhq/shared/src/utils/stringUtils';
 import {
   EHostSecurityLevel,
   type IHostSecurity,
@@ -58,15 +62,50 @@ function useRiskDetection({
   // scores against our backend.
   walletConnectVerifyContext?: Verify.Context;
 }) {
-  const [continueOperate, setContinueOperate] = useState(false);
-
-  const { result: backendSecurityInfo } = usePromiseResult(async () => {
-    if (!origin) return {} as IHostSecurity;
-    return backgroundApiProxy.serviceDiscovery.checkUrlSecurity({
-      url: origin,
-      from: 'app',
-    });
-  }, [origin]);
+  const { result: backendSecurityResult } = usePromiseResult(
+    async () => ({
+      origin,
+      info: origin
+        ? await makeTimeoutPromise({
+            asyncFunc: async () =>
+              backgroundApiProxy.serviceDiscovery.checkUrlSecurity({
+                url: origin,
+                from: 'app',
+              }),
+            timeout: 10_000,
+            timeoutRejectError: new OneKeyLocalError(
+              'Site security check timed out',
+            ),
+          })(undefined).catch(() =>
+            overrideSecurityLevel(
+              undefined,
+              EHostSecurityLevel.Unknown,
+              origin,
+            ),
+          )
+        : ({} as IHostSecurity),
+    }),
+    [origin],
+    { undefinedResultIfReRun: true },
+  );
+  const isBackendSecurityResultCurrent =
+    backendSecurityResult?.origin === origin;
+  let backendSecurityInfo: IHostSecurity | undefined;
+  if (isBackendSecurityResultCurrent) {
+    backendSecurityInfo = backendSecurityResult.info?.level
+      ? backendSecurityResult.info
+      : overrideSecurityLevel(undefined, EHostSecurityLevel.Unknown, origin);
+  }
+  const hasConclusiveWalletConnectRisk = Boolean(
+    walletConnectVerifyContext &&
+    (walletConnectVerifyContext.verified.isScam ||
+      walletConnectVerifyContext.verified.validation === 'INVALID'),
+  );
+  const isRiskCheckPending = Boolean(
+    origin &&
+    !isBackendSecurityResultCurrent &&
+    !hasConclusiveWalletConnectRisk,
+  );
 
   const urlSecurityInfo = useMemo<IHostSecurity | undefined>(() => {
     if (!walletConnectVerifyContext) return backendSecurityInfo;
@@ -80,6 +119,9 @@ function useRiskDetection({
       );
     }
     if (validation === 'UNKNOWN') {
+      if (!backendSecurityInfo) {
+        return undefined;
+      }
       // Only strip the verified-site affordance when the backend has nothing
       // worse to say. A backend-flagged High/Medium origin must keep its
       // severity — UNKNOWN means "can't attest identity", not "safe".
@@ -133,20 +175,39 @@ function useRiskDetection({
     );
   }, [riskLevel, isRiskSignMethod]);
 
-  // Handle state changes when showContinueOperate changes
-  useEffect(() => {
-    // Auto-enable continue operate when checkbox is not shown
-    setContinueOperate(!showContinueOperate);
-  }, [showContinueOperate]);
+  const riskAcknowledgementKey = useMemo(
+    () =>
+      stableStringify({
+        origin,
+        isRiskCheckPending,
+        riskLevel,
+        isRiskSignMethod,
+        messageType: unsignedMessage?.type,
+        message: unsignedMessage?.message,
+      }),
+    [
+      origin,
+      isRiskCheckPending,
+      riskLevel,
+      isRiskSignMethod,
+      unsignedMessage?.type,
+      unsignedMessage?.message,
+    ],
+  );
+  const { isAccepted: isRiskAcknowledged, setAccepted: setContinueOperate } =
+    useScopedAcknowledgement(riskAcknowledgementKey);
+  const currentContinueOperate = Boolean(
+    !isRiskCheckPending && (!showContinueOperate || isRiskAcknowledged),
+  );
 
   // Log risk detection info
   useEffect(() => {
     defaultLogger.discovery.dapp.dappRiskDetect({
       riskLevel,
       showContinueOperateCheckBox: showContinueOperate,
-      currentContinueOperate: continueOperate,
+      currentContinueOperate,
     });
-  }, [riskLevel, showContinueOperate, continueOperate]);
+  }, [riskLevel, showContinueOperate, currentContinueOperate]);
 
   // Prime benefit usage: a Prime user was shown an enhanced dapp-security
   // risk warning. Read the persist atom once (no subscription, no token
@@ -194,7 +255,7 @@ function useRiskDetection({
 
   return {
     showContinueOperate,
-    continueOperate,
+    continueOperate: currentContinueOperate,
     setContinueOperate,
     urlSecurityInfo,
     riskLevel,

@@ -29,6 +29,7 @@ import {
 
 function TokenDetailsFooter(props: {
   isNative?: boolean;
+  isAggregateToken?: boolean;
   networkId: string;
   networkName?: string;
   symbol?: string;
@@ -37,6 +38,7 @@ function TokenDetailsFooter(props: {
 }) {
   const {
     isNative,
+    isAggregateToken,
     networkId,
     networkName,
     symbol,
@@ -78,6 +80,12 @@ function TokenDetailsFooter(props: {
     if (marketNavigationTarget?.type === 'detail') {
       navigation.push(EModalAssetDetailRoutes.MarketDetail, {
         token: marketNavigationTarget.token,
+        preferredToken:
+          !isAggregateToken &&
+          !networkUtils.isAllNetwork({ networkId }) &&
+          (isNative || Boolean(tokenAddress))
+            ? { networkId, tokenAddress: tokenAddress ?? '', isNative }
+            : undefined,
       });
     } else if (marketNavigationTarget?.type === 'chart') {
       navigation.push(EModalAssetDetailRoutes.MarketChart, {
@@ -89,7 +97,14 @@ function TokenDetailsFooter(props: {
         tokenImageUri: marketNavigationTarget.tokenImageUri,
       });
     }
-  }, [marketNavigationTarget, navigation]);
+  }, [
+    isAggregateToken,
+    isNative,
+    marketNavigationTarget,
+    navigation,
+    networkId,
+    tokenAddress,
+  ]);
 
   const priceChangeColor = useMemo(() => {
     const priceChangeBN = new BigNumber(tokenMetadata?.priceChange24h ?? 0);
@@ -115,7 +130,7 @@ function TokenDetailsFooter(props: {
   }
 
   return (
-    <Page.Footer>
+    <Page.Footer safeAreaBottomMode="content">
       <XStack
         testID={AssetDetailsTestIDs.marketFooter}
         alignItems="center"

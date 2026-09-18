@@ -68,7 +68,6 @@ const TEXT_SCROLL_CONTENT_STYLE = {
 const DIRECT_TAB_PRESS_ANIMATION_DURATION = 220;
 const DIRECT_TAB_PRESS_NATIVE_SYNC_TIMEOUT = 900;
 const DIRECT_TAB_PRESS_SETTLE_TIMEOUT = 450;
-const DIRECT_TAB_PRESS_MIN_INTERVAL = 600;
 const TAB_BAR_POSITION = platformEnv.isNative ? 'relative' : 'sticky';
 
 export type ITabBarVariant = 'default' | 'pill' | 'text';
@@ -169,6 +168,8 @@ export function TabBarItem({
   focusedTabStyle,
   variant = 'default',
   textSize,
+  focusedTextSize,
+  hideActiveIndicator,
   animatedPillIndicator,
   indexDecimal,
   index: tabIndex,
@@ -305,12 +306,14 @@ export function TabBarItem({
       {...(isFocused ? focusedTabStyle : undefined)}
     >
       <SizableText
-        size={resolvedTextSize}
+        size={
+          isFocused ? (focusedTextSize ?? resolvedTextSize) : resolvedTextSize
+        }
         color={isFocused ? '$text' : '$textSubdued'}
       >
         {displayLabel}
       </SizableText>
-      {isFocused ? (
+      {isFocused && !hideActiveIndicator ? (
         <YStack
           position="absolute"
           bottom={0}
@@ -641,6 +644,10 @@ export interface ITabBarProps extends TabBarProps<string> {
   showsHorizontalScrollIndicator?: boolean;
   /** Fills the row space before an optional toolbar. */
   fillAvailableSpace?: boolean;
+  /** Type token for the focused label; defaults to the inactive one. */
+  focusedTextSize?: ISizableTextProps['size'];
+  /** Drops the underline under the focused tab, animated one included. */
+  hideActiveIndicator?: boolean;
 }
 
 export interface ITabBarItemProps {
@@ -653,6 +660,11 @@ export interface ITabBarItemProps {
   focusedTabStyle?: IYStackProps;
   variant?: ITabBarVariant;
   textSize?: ISizableTextProps['size'];
+  /** Type token for the focused label. Defaults to `textSize`, so a bar that
+   *  does not set it keeps one weight across both states. */
+  focusedTextSize?: ISizableTextProps['size'];
+  /** Drops the underline the `default` variant draws under the focused tab. */
+  hideActiveIndicator?: boolean;
   // When true, the pill background is handled by AnimatedPillIndicator,
   // so TabBarItem should not render its own background color.
   animatedPillIndicator?: boolean;
@@ -746,8 +758,6 @@ function ScrollableTabBarContent({
   );
 }
 
-// Prevent pager scroll event callbacks from modifying tabbar selected state
-let tabClickCount = 0;
 export function TabBar({
   onTabPress,
   tabNames,
@@ -770,6 +780,8 @@ export function TabBar({
   keepFocusedTabVisible = false,
   showsHorizontalScrollIndicator = false,
   fillAvailableSpace = false,
+  focusedTextSize,
+  hideActiveIndicator = false,
 }: Omit<Partial<ITabBarProps>, 'focusedTab' | 'tabNames'> & {
   focusedTab: SharedValue<string>;
   tabNames: string[];
@@ -781,6 +793,8 @@ export function TabBar({
   scrollable?: boolean;
   variant?: ITabBarVariant;
   textSize?: ISizableTextProps['size'];
+  focusedTextSize?: ISizableTextProps['size'];
+  hideActiveIndicator?: boolean;
   indexDecimal?: SharedValue<number>;
   directTabPressAnimation?: boolean;
   directTabPressAnimationMode?: IDirectTabPressAnimationMode;
@@ -795,29 +809,40 @@ export function TabBar({
   const directTabPressSettleTimerId = useRef<ReturnType<
     typeof setTimeout
   > | null>(null);
+  const lastAlignedTabNamesRef = useRef<string[] | null>(null);
   const directTabPressResyncCountRef = useRef(0);
-  const directTabPressLastAcceptedAtRef = useRef(0);
   const [currentTab, setCurrentTab] = useState<string>(focusedTab.value);
   const [itemsLayout, setItemsLayout] = useState<IItemLayout[]>([]);
   const itemsLayoutRef = useRef<Map<number, IItemLayout>>(new Map());
 
-  const useAnimatedDefault =
+  // `AnimatedTabBarItem` draws its label from a fixed Reanimated style, so it
+  // cannot honour a focused type token or drop the indicator. A bar that asks
+  // for either takes the static path instead of losing them silently.
+  const wantsStaticFocusedLabel = !!focusedTextSize || hideActiveIndicator;
+  const supportsDirectTabPressHandling =
     !!indexDecimal &&
     variant === 'default' &&
-    !scrollable &&
     !renderItem &&
-    !textSize;
+    !textSize &&
+    !wantsStaticFocusedLabel;
+  const useAnimatedDefault = supportsDirectTabPressHandling && !scrollable;
   // Native pagers can report intermediate focused tabs while a tab press
-  // settles. Keep this opt-in because it decouples the tab bar indicator from
-  // the pager state during that short window.
-  const useDirectTabPressAnimation =
-    directTabPressAnimation && useAnimatedDefault;
+  // settles. Keep the target guard available to scrollable tab bars even
+  // though they render a static per-item indicator.
+  const useDirectTabPressHandling =
+    directTabPressAnimation && supportsDirectTabPressHandling;
+  const useDirectTabPressIndicatorAnimation =
+    useDirectTabPressHandling && useAnimatedDefault;
   const displayIndexDecimal = useSharedValue(indexDecimal?.value ?? 0);
   const directTabPressTargetIndex = useSharedValue(-1);
   const directTabPressStartedAt = useSharedValue(0);
   const directTabPressReachedAt = useSharedValue(0);
+  const lastTabClickAt = useSharedValue(0);
   const animatedDefaultIndexDecimal = useDerivedValue(() => {
-    if (useDirectTabPressAnimation && directTabPressTargetIndex.value >= 0) {
+    if (
+      useDirectTabPressIndicatorAnimation &&
+      directTabPressTargetIndex.value >= 0
+    ) {
       return displayIndexDecimal.value;
     }
     return indexDecimal?.value ?? 0;
@@ -864,11 +889,16 @@ export function TabBar({
     [tabNames.length],
   );
 
+  const clearListViewTimer = useCallback(() => {
+    if (listViewTimerId.current) {
+      clearTimeout(listViewTimerId.current);
+      listViewTimerId.current = null;
+    }
+  }, []);
+
   const scrollToTab = useCallback(
     (tabName: string) => {
-      if (listViewTimerId.current) {
-        clearTimeout(listViewTimerId.current);
-      }
+      clearListViewTimer();
       if (listViewRef.current) {
         const index = tabNames.findIndex((name) => name === tabName);
         if (keepFocusedTabVisible && index < 0) {
@@ -881,6 +911,7 @@ export function TabBar({
           focusedTabViewPosition = 1;
         }
         listViewTimerId.current = setTimeout(() => {
+          listViewTimerId.current = null;
           listViewRef.current?.scrollToIndex(
             keepFocusedTabVisible
               ? {
@@ -892,8 +923,34 @@ export function TabBar({
         }, 100);
       }
     },
-    [keepFocusedTabVisible, tabNames],
+    [clearListViewTimer, keepFocusedTabVisible, tabNames],
   );
+
+  const handleScrollableTabBarReady = useCallback(() => {
+    if (!scrollable || !keepFocusedTabVisible) {
+      return;
+    }
+    const tabName = currentTab || focusedTab.value;
+    if (!tabName || !tabNames.includes(tabName)) {
+      return;
+    }
+    const lastAlignedTabNames = lastAlignedTabNamesRef.current;
+    if (
+      lastAlignedTabNames?.length === tabNames.length &&
+      lastAlignedTabNames.every((name, index) => name === tabNames[index])
+    ) {
+      return;
+    }
+    lastAlignedTabNamesRef.current = [...tabNames];
+    scrollToTab(tabName);
+  }, [
+    currentTab,
+    focusedTab,
+    keepFocusedTabVisible,
+    scrollToTab,
+    scrollable,
+    tabNames,
+  ]);
 
   const clearDirectTabPressTimer = useCallback(() => {
     if (directTabPressTimerId.current) {
@@ -945,7 +1002,9 @@ export function TabBar({
         ) {
           directTabPressResyncCountRef.current += 1;
           directTabPressReachedAt.value = Date.now();
-          displayIndexDecimal.value = targetIndex;
+          if (useDirectTabPressIndicatorAnimation) {
+            displayIndexDecimal.value = targetIndex;
+          }
           onTabPress(tabName);
           scheduleDirectTabPressSettleReset(targetIndex);
           return;
@@ -966,30 +1025,25 @@ export function TabBar({
       onTabPress,
       resetDirectTabPressState,
       tabNames,
+      useDirectTabPressIndicatorAnimation,
     ],
   );
 
   useEffect(
     () => () => {
+      clearListViewTimer();
       clearDirectTabPressTimer();
       clearDirectTabPressSettleTimer();
     },
-    [clearDirectTabPressSettleTimer, clearDirectTabPressTimer],
+    [
+      clearDirectTabPressSettleTimer,
+      clearDirectTabPressTimer,
+      clearListViewTimer,
+    ],
   );
 
   const handleTabPress = useThrottledCallback((name: string) => {
     const now = Date.now();
-    if (
-      useDirectTabPressAnimation &&
-      now - directTabPressLastAcceptedAtRef.current <
-        DIRECT_TAB_PRESS_MIN_INTERVAL
-    ) {
-      return;
-    }
-    if (useDirectTabPressAnimation) {
-      directTabPressLastAcceptedAtRef.current = now;
-    }
-
     clearDirectTabPressTimer();
     clearDirectTabPressSettleTimer();
     directTabPressResyncCountRef.current = 0;
@@ -1001,11 +1055,11 @@ export function TabBar({
       (tabName) => tabName === currentTab,
     );
     const currentIndex =
-      useDirectTabPressAnimation && currentTabIndex >= 0
+      useDirectTabPressHandling && currentTabIndex >= 0
         ? currentTabIndex
         : focusedIndex;
     const shouldHoldDirectPress =
-      useDirectTabPressAnimation &&
+      useDirectTabPressHandling &&
       indexDecimal &&
       targetIndex >= 0 &&
       currentIndex >= 0 &&
@@ -1014,6 +1068,7 @@ export function TabBar({
         Math.abs(targetIndex - currentIndex) > 1);
     const shouldAnimateDirectPress =
       shouldHoldDirectPress &&
+      useDirectTabPressIndicatorAnimation &&
       directTabPressAnimationMode === 'timing' &&
       Math.abs(targetIndex - currentIndex) > 1;
 
@@ -1022,13 +1077,15 @@ export function TabBar({
       directTabPressTargetIndex.value = targetIndex;
       directTabPressStartedAt.value = now;
       directTabPressReachedAt.value = 0;
-      if (shouldAnimateDirectPress) {
-        displayIndexDecimal.value = indexDecimal.value;
-        displayIndexDecimal.value = withTiming(targetIndex, {
-          duration: DIRECT_TAB_PRESS_ANIMATION_DURATION,
-        });
-      } else {
-        displayIndexDecimal.value = targetIndex;
+      if (useDirectTabPressIndicatorAnimation) {
+        if (shouldAnimateDirectPress) {
+          displayIndexDecimal.value = indexDecimal.value;
+          displayIndexDecimal.value = withTiming(targetIndex, {
+            duration: DIRECT_TAB_PRESS_ANIMATION_DURATION,
+          });
+        } else {
+          displayIndexDecimal.value = targetIndex;
+        }
       }
       directTabPressTimerId.current = setTimeout(() => {
         directTabPressTimerId.current = null;
@@ -1039,10 +1096,10 @@ export function TabBar({
         resetDirectTabPressState();
         setCurrentTab(focusedTab.value);
       }, DIRECT_TAB_PRESS_NATIVE_SYNC_TIMEOUT);
-    } else if (useDirectTabPressAnimation) {
+    } else if (useDirectTabPressHandling) {
       resetDirectTabPressState();
     }
-    tabClickCount = now;
+    lastTabClickAt.value = now;
     setCurrentTab(name);
     scrollToTab(name);
     onTabPress(name);
@@ -1057,7 +1114,7 @@ export function TabBar({
       const reachedAt = directTabPressReachedAt.value;
       const settleElapsedMs = reachedAt > 0 ? Date.now() - reachedAt : 0;
       const shouldHoldDirectTarget =
-        useDirectTabPressAnimation &&
+        useDirectTabPressHandling &&
         targetIndex >= 0 &&
         resultIndex >= 0 &&
         resultIndex !== targetIndex &&
@@ -1068,7 +1125,7 @@ export function TabBar({
         return;
       }
 
-      const tabClickElapsedMs = Date.now() - tabClickCount;
+      const tabClickElapsedMs = Date.now() - lastTabClickAt.value;
       if (tabClickElapsedMs < 300) {
         return;
       }
@@ -1083,9 +1140,10 @@ export function TabBar({
       directTabPressStartedAt,
       directTabPressReachedAt,
       directTabPressTargetIndex,
+      lastTabClickAt,
       scrollable,
       tabNames,
-      useDirectTabPressAnimation,
+      useDirectTabPressHandling,
     ],
   );
 
@@ -1101,7 +1159,7 @@ export function TabBar({
         return;
       }
 
-      if (!useDirectTabPressAnimation) {
+      if (!useDirectTabPressHandling) {
         return;
       }
 
@@ -1137,7 +1195,7 @@ export function TabBar({
       directTabPressTargetIndex,
       indexDecimal,
       scheduleDirectTabPressSettleReset,
-      useDirectTabPressAnimation,
+      useDirectTabPressHandling,
     ],
   );
 
@@ -1192,6 +1250,8 @@ export function TabBar({
             focusedTabStyle,
             variant,
             textSize,
+            focusedTextSize,
+            hideActiveIndicator,
             animatedPillIndicator: hasAnimatedIndicator,
             indexDecimal: shouldPassAnimatedProps ? indexDecimal : undefined,
             index: shouldPassAnimatedProps ? index : undefined,
@@ -1208,6 +1268,8 @@ export function TabBar({
           focusedTabStyle={focusedTabStyle}
           variant={variant}
           textSize={textSize}
+          focusedTextSize={focusedTextSize}
+          hideActiveIndicator={hideActiveIndicator}
           indexDecimal={useAnimatedTextColor ? indexDecimal : undefined}
           index={useAnimatedTextColor ? index : undefined}
         />
@@ -1247,6 +1309,8 @@ export function TabBar({
     handleItemLayout,
     itemsLayout,
     renderItem,
+    focusedTextSize,
+    hideActiveIndicator,
     tabItemStyle,
     tabNames,
     textSize,
@@ -1292,7 +1356,8 @@ export function TabBar({
           <XStack ai="center" jc="space-between">
             <XStack position="relative">
               {tabItems}
-              {itemsLayout.length === tabNames.length ? (
+              {itemsLayout.length === tabNames.length &&
+              !hideActiveIndicator ? (
                 <AnimatedIndicator
                   indexDecimal={animatedDefaultIndexDecimal}
                   itemsLayout={itemsLayout}
@@ -1317,6 +1382,7 @@ export function TabBar({
   }, [
     useAnimatedDefault,
     animatedDefaultIndexDecimal,
+    hideActiveIndicator,
     itemsLayout,
     tabNames.length,
     currentTab,
@@ -1337,11 +1403,13 @@ export function TabBar({
           {
             name,
             isFocused: currentTab === name,
-            onPress: onTabPress,
+            onPress: handleTabPress,
             tabItemStyle,
             focusedTabStyle,
             variant,
             textSize,
+            focusedTextSize,
+            hideActiveIndicator,
           },
           index,
         )
@@ -1350,18 +1418,22 @@ export function TabBar({
           key={name}
           name={name}
           isFocused={currentTab === name}
-          onPress={onTabPress}
+          onPress={handleTabPress}
           tabItemStyle={tabItemStyle}
           focusedTabStyle={focusedTabStyle}
           variant={variant}
           textSize={textSize}
+          focusedTextSize={focusedTextSize}
+          hideActiveIndicator={hideActiveIndicator}
         />
       );
     },
     [
       currentTab,
       focusedTabStyle,
-      onTabPress,
+      focusedTextSize,
+      handleTabPress,
+      hideActiveIndicator,
       renderItem,
       tabItemStyle,
       textSize,
@@ -1392,6 +1464,8 @@ export function TabBar({
           pr="$4"
           contentContainerStyle={TAB_CONTENT_CONTAINER_STYLE}
           renderItem={handleRenderItem as any}
+          onLayout={handleScrollableTabBarReady}
+          onContentSizeChange={handleScrollableTabBarReady}
           showsHorizontalScrollIndicator={showsHorizontalScrollIndicator}
         />
         {renderToolbar ? (

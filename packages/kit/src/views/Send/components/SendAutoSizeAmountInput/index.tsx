@@ -20,7 +20,7 @@ import {
   useMedia,
   useTheme,
 } from '@onekeyhq/components';
-import type { IInputProps, IStackProps } from '@onekeyhq/components';
+import type { IElement, IInputProps, IStackProps } from '@onekeyhq/components';
 import { webFontFamily } from '@onekeyhq/components/src/utils/webFontFamily';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { NUMBER_FORMATTER } from '@onekeyhq/shared/src/utils/numberUtils';
@@ -161,6 +161,26 @@ const normalizeAutoSizeNativeColor = (color?: string): string | undefined => {
   return `#${aa}${rrggbb}`;
 };
 
+const getStableLayoutWidth = (
+  event: LayoutChangeEvent,
+  layoutTarget: IElement | null,
+): number => {
+  const measuredWidth = event.nativeEvent.layout.width;
+  if (platformEnv.isNative) {
+    return measuredWidth;
+  }
+
+  // React Native Web measures onLayout with getBoundingClientRect(), so an
+  // ancestor's entry scale leaks into the reported width. offsetWidth keeps
+  // auto-sizing tied to the transform-independent layout box.
+  const offsetWidth = (
+    layoutTarget as unknown as { offsetWidth?: unknown } | null
+  )?.offsetWidth;
+  return typeof offsetWidth === 'number' && offsetWidth > 0
+    ? offsetWidth
+    : measuredWidth;
+};
+
 export type ISendAmountAutoSizeInputRef = {
   focus: () => void;
   blur: () => void;
@@ -222,6 +242,7 @@ function SendAutoSizeAmountInputComponent(
   const placeholderColor = normalizeAutoSizeNativeColor(theme.textDisabled.val);
 
   const [layoutWidth, setLayoutWidth] = useState(0);
+  const layoutTargetRef = useRef<IElement | null>(null);
   const autoSizeInputRef = useRef<IAutoSizeInputRef | null>(null);
   const [forcedNativeText, setForcedNativeText] = useState<string | null>(null);
   const forceWriteBackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
@@ -312,7 +333,9 @@ function SendAutoSizeAmountInputComponent(
 
   const handleInputLayout = useCallback(
     (event: LayoutChangeEvent) => {
-      const nextWidth = Math.round(event.nativeEvent.layout.width);
+      const nextWidth = Math.round(
+        getStableLayoutWidth(event, layoutTargetRef.current),
+      );
       if (nextWidth > 0) {
         setLayoutWidth((prev) => (prev === nextWidth ? prev : nextWidth));
       }
@@ -393,12 +416,10 @@ function SendAutoSizeAmountInputComponent(
     4,
     Math.ceil(estimateTextWidthPx(' ', fontSize)),
   );
-  // Keep one unified value prop for web/native.
-  // iOS native needs "0" when empty to keep caret behavior stable.
-  let autoSizeValue = effectiveValueRaw;
-  if (effectiveValue === '') {
-    autoSizeValue = platformEnv.isNativeIOS ? '0' : '';
-  }
+  // Keep one unified value prop for web/native. An empty value stays empty on
+  // every platform so the native placeholder draws the "0": seeding a literal
+  // "0" made the first keystroke render as "01" until JS normalized it.
+  const autoSizeValue = effectiveValueRaw;
 
   const amountInputNode = isLoading ? (
     <Stack py="$4">
@@ -412,6 +433,7 @@ function SendAutoSizeAmountInputComponent(
       maxFontSize={maxFontSize}
       minFontSize={minFontSize}
       availableInlineWidth={availableInlineWidth}
+      isInlineWidthMeasured={layoutWidth > 0}
       inlineTextAlignMode={inlineTextAlignMode}
       currencyLabel={currencyLabel}
       inlineTokenSymbol={inlineTokenSymbol}
@@ -434,6 +456,7 @@ function SendAutoSizeAmountInputComponent(
 
   return (
     <Stack
+      ref={layoutTargetRef}
       alignItems="center"
       width="100%"
       {...rest}

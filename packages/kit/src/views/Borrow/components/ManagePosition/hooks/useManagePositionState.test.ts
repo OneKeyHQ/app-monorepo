@@ -1,10 +1,34 @@
+import { shouldUseAaveNativeGateway } from '../../borrowRepayPosition.utils';
 import {
+  isManagePositionRepayAll,
   isSamePositiveAmount,
   resolveBorrowRepayAllBalance,
   resolveRepayAllAmountValue,
 } from '../utils';
 
 describe('useManagePositionState utils', () => {
+  it.each(['evm--1', 'evm--8453'])(
+    'preserves Aave native repay-all on %s',
+    (networkId) => {
+      expect(
+        shouldUseAaveNativeGateway({
+          networkId,
+          providerName: 'aave',
+          reserveAddress: '',
+        }),
+      ).toBe(true);
+      expect(
+        isManagePositionRepayAll({
+          action: 'repay',
+          amount: '0.000057570716602455',
+          debtBalance: '0.000057570716602455',
+          maxAmountValue: '0.000057570716602455',
+          repayAllBalance: '0.000057570716602455',
+        }),
+      ).toBe(true);
+    },
+  );
+
   it('uses full debt balance instead of wallet max balance for repayAll', () => {
     const repayAllAmount = resolveRepayAllAmountValue({
       action: 'repay',

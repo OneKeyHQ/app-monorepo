@@ -1,8 +1,20 @@
+import { resolveMarketStockId } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/utils/resolveIsStockToken';
 import { getPresetNetworks } from '@onekeyhq/shared/src/config/presetNetworks';
-import type { IMarketTokenListItem } from '@onekeyhq/shared/types/marketV2';
+import type {
+  IMarketBasicConfigNetwork,
+  IMarketTokenListItem,
+} from '@onekeyhq/shared/types/marketV2';
 
 import type { IMarketTimeRangeValue } from '../../../types';
 import type { IMarketToken } from '../MarketTokenData';
+
+export function marketTokenKey(item: IMarketToken) {
+  if (item.assetId) return `asset:${item.assetId}`;
+  if (item.stockId) return `stock:${item.stockId}`;
+  return item.perpsCoin
+    ? `perps:${item.perpsCoin}`
+    : `${item.networkId}:${(item.address || '').toLowerCase()}:${item.isNative ? 1 : 0}`;
+}
 
 // Helper function to check if token is native and get normalized address for matching
 // Only uses fallback address length check when isNative field is not present (undefined)
@@ -24,6 +36,44 @@ export const SORT_MAP: Record<string, keyof IMarketToken> = {
   mc: 'marketCap',
   v24hUSD: 'turnover',
 };
+
+function getFiniteNumericSortValue(value: unknown) {
+  if (
+    value === null ||
+    value === undefined ||
+    (typeof value === 'string' && value.trim() === '')
+  ) {
+    return undefined;
+  }
+  const numericValue = Number(value);
+  return Number.isFinite(numericValue) ? numericValue : undefined;
+}
+
+export function sortMarketTokenListData<T>({
+  data,
+  field,
+  order,
+}: {
+  data: T[];
+  field?: keyof T;
+  order?: 'asc' | 'desc';
+}) {
+  if (!field || !order) {
+    return data;
+  }
+
+  return [...data].toSorted((a, b) => {
+    const aValue = getFiniteNumericSortValue(a[field]);
+    const bValue = getFiniteNumericSortValue(b[field]);
+    if (aValue === undefined) {
+      return bValue === undefined ? 0 : 1;
+    }
+    if (bValue === undefined) {
+      return -1;
+    }
+    return order === 'asc' ? aValue - bValue : bValue - aValue;
+  });
+}
 
 export function normalizeStockMetadataValue(
   value?: string | number | null,
@@ -129,6 +179,14 @@ export function getNetworkLogoUri(chainOrNetworkId: string): string {
   return network?.logoURI || '';
 }
 
+export function buildMarketNetworkLogoUriMap(
+  networkList: readonly IMarketBasicConfigNetwork[],
+) {
+  return new Map<string, string>(
+    networkList.map((network) => [network.networkId, network.logoUrl] as const),
+  );
+}
+
 function safeNumber(value: string | undefined, fallback = 0): number {
   if (!value) return fallback;
 
@@ -208,6 +266,29 @@ export function calculateMarketTokenLivePriceChange({
   return ((price - priceChangeBasePrice) / priceChangeBasePrice) * 100;
 }
 
+export function getMarketTokenNetworkLogoUri({
+  tokenNetworkId,
+  chainId,
+  networkLogoUriMap,
+  networkLogoUri,
+}: {
+  tokenNetworkId?: string;
+  chainId: string;
+  networkLogoUriMap?: ReadonlyMap<string, string>;
+  networkLogoUri: string;
+}) {
+  if (!tokenNetworkId) {
+    return networkLogoUri;
+  }
+
+  return (
+    networkLogoUriMap?.get(tokenNetworkId) ||
+    (tokenNetworkId === chainId
+      ? networkLogoUri
+      : getNetworkLogoUri(tokenNetworkId))
+  );
+}
+
 /**
  * Convert raw api item to component token shape
  */
@@ -215,21 +296,25 @@ export function transformApiItemToToken(
   item: IMarketTokenListItem & { isNative?: boolean },
   {
     chainId,
+    networkLogoUriMap,
     networkLogoUri,
     sortIndex,
     timeRange,
   }: {
     chainId: string;
+    networkLogoUriMap?: ReadonlyMap<string, string>;
     networkLogoUri: string;
     sortIndex?: number;
     timeRange?: IMarketTimeRangeValue;
   },
 ): IMarketToken {
-  // Use token's own networkId to get network logo, fallback to passed chainId
   const tokenNetworkId = item.networkId || chainId;
-  const tokenNetworkLogoUri = item.networkId
-    ? getNetworkLogoUri(item.networkId)
-    : networkLogoUri;
+  const tokenNetworkLogoUri = getMarketTokenNetworkLogoUri({
+    tokenNetworkId: item.networkId,
+    chainId,
+    networkLogoUriMap,
+    networkLogoUri,
+  });
 
   const priceChangeValue = item.stock
     ? item.priceChange24hPercent
@@ -298,6 +383,7 @@ export function transformApiItemToToken(
     isNative: item.isNative,
     communityRecognized: item.communityRecognized,
     stock: item.stock,
+    stockId: resolveMarketStockId(item),
     walletInfo: {
       buy: buyCount,
       sell: sellCount,

@@ -54,6 +54,8 @@ type IBorrowApprovalRequest = {
   submit: () => Promise<void>;
 };
 
+type IBorrowApprovalPhase = 'idle' | 'preparing' | 'confirming' | 'settling';
+
 /**
  * `continue` means the success-handler has taken the request over (it opened
  * the next confirm screen), so settlement must leave it in flight rather than
@@ -136,6 +138,7 @@ export function useBorrowApproval({
   approveTarget,
   borrowDelegationApproveTarget,
   currentAllowance = '0',
+  refreshAllowanceOnMount = false,
   stakingInfo,
   onApprovedSubmit,
   onBeforeNavigateConfirm,
@@ -152,6 +155,8 @@ export function useBorrowApproval({
   approveTarget?: IBorrowApproveTarget;
   borrowDelegationApproveTarget?: IBorrowDelegationApproveTarget;
   currentAllowance?: string;
+  /** Reconcile a seeded allowance with the latest chain value on mount. */
+  refreshAllowanceOnMount?: boolean;
   stakingInfo?: IStakingInfo;
   onApprovedSubmit: () => Promise<void>;
   // Runs right before any approval confirm screen opens, so modal hosts (the
@@ -171,13 +176,21 @@ export function useBorrowApproval({
   const requiresMaxApproval =
     (action === 'repay' && !!repayAll) ||
     (action === 'withdraw' && !!withdrawAll);
-  const [approving, setApproving] = useState(false);
+  const [approvalPhase, setApprovalPhase] =
+    useState<IBorrowApprovalPhase>('idle');
+  const approvalPhaseRef = useRef<IBorrowApprovalPhase>('idle');
+  const [approvalProgressScopeKey, setApprovalProgressScopeKey] = useState<
+    string | undefined
+  >(undefined);
   const mountedRef = useRef(false);
   const approvalSettlementAbortRef = useRef<AbortController | undefined>(
     undefined,
   );
   const approvalInFlightRef = useRef(false);
   const detachedApprovalRequestRef = useRef<IBorrowApprovalRequest | undefined>(
+    undefined,
+  );
+  const activeApprovalRequestRef = useRef<IBorrowApprovalRequest | undefined>(
     undefined,
   );
   const approvalScopeKey = JSON.stringify([
@@ -230,6 +243,13 @@ export function useBorrowApproval({
       '',
   });
 
+  const setApprovalPhaseSafe = useCallback((phase: IBorrowApprovalPhase) => {
+    approvalPhaseRef.current = phase;
+    if (mountedRef.current) {
+      setApprovalPhase(phase);
+    }
+  }, []);
+
   useEffect(() => {
     mountedRef.current = true;
     return () => {
@@ -242,17 +262,13 @@ export function useBorrowApproval({
         latestApprovalRequestRef.current.submit === detachedRequest.submit;
       if (!shouldContinueDetachedRequest) {
         detachedApprovalRequestRef.current = undefined;
+        activeApprovalRequestRef.current = undefined;
         approvalInFlightRef.current = false;
+        approvalPhaseRef.current = 'idle';
         approvalSettlementAbortRef.current?.abort();
         approvalSettlementAbortRef.current = undefined;
       }
     };
-  }, []);
-
-  const setApprovingSafe = useCallback((value: boolean) => {
-    if (mountedRef.current) {
-      setApproving(value);
-    }
   }, []);
 
   const stopApprovalSettlement = useCallback(() => {
@@ -270,14 +286,16 @@ export function useBorrowApproval({
     };
     if (!isSameRequest) {
       detachedApprovalRequestRef.current = undefined;
+      activeApprovalRequestRef.current = undefined;
       approvalInFlightRef.current = false;
+      setApprovalProgressScopeKey(undefined);
       stopApprovalSettlement();
-      setApprovingSafe(false);
+      setApprovalPhaseSafe('idle');
     }
   }, [
     approvalScopeKey,
     onApprovedSubmit,
-    setApprovingSafe,
+    setApprovalPhaseSafe,
     stopApprovalSettlement,
   ]);
 
@@ -297,6 +315,31 @@ export function useBorrowApproval({
     [],
   );
 
+  const isActiveApprovalRequest = useCallback(
+    (request: IBorrowApprovalRequest) =>
+      activeApprovalRequestRef.current === request &&
+      isCurrentApprovalRequest(request),
+    [isCurrentApprovalRequest],
+  );
+
+  const transitionApprovalPhase = useCallback(
+    (
+      request: IBorrowApprovalRequest,
+      from: IBorrowApprovalPhase,
+      to: IBorrowApprovalPhase,
+    ) => {
+      if (
+        !isActiveApprovalRequest(request) ||
+        approvalPhaseRef.current !== from
+      ) {
+        return false;
+      }
+      setApprovalPhaseSafe(to);
+      return true;
+    },
+    [isActiveApprovalRequest, setApprovalPhaseSafe],
+  );
+
   // Only ever clears this request's own detachment; a later request that has
   // since taken the slot must keep it.
   const clearDetachedApprovalRequest = useCallback(
@@ -310,19 +353,20 @@ export function useBorrowApproval({
 
   const finishApprovalRequest = useCallback(
     (request: IBorrowApprovalRequest) => {
-      if (!isCurrentApprovalRequest(request)) {
+      if (!isActiveApprovalRequest(request)) {
         return false;
       }
       clearDetachedApprovalRequest(request);
+      activeApprovalRequestRef.current = undefined;
       approvalInFlightRef.current = false;
       stopApprovalSettlement();
-      setApprovingSafe(false);
+      setApprovalPhaseSafe('idle');
       return true;
     },
     [
       clearDetachedApprovalRequest,
-      isCurrentApprovalRequest,
-      setApprovingSafe,
+      isActiveApprovalRequest,
+      setApprovalPhaseSafe,
       stopApprovalSettlement,
     ],
   );
@@ -332,15 +376,24 @@ export function useBorrowApproval({
       if (approvalInFlightRef.current || !isCurrentApprovalRequest(request)) {
         return false;
       }
+      activeApprovalRequestRef.current = request;
       approvalInFlightRef.current = true;
+      setApprovalProgressScopeKey(request.scopeKey);
+      setApprovalPhaseSafe('preparing');
       return true;
     },
-    [isCurrentApprovalRequest],
+    [isCurrentApprovalRequest, setApprovalPhaseSafe],
   );
 
   const prepareApprovalConfirmNavigation = useCallback(
     async (request: IBorrowApprovalRequest) => {
-      if (!isCurrentApprovalRequest(request)) {
+      if (!isActiveApprovalRequest(request)) {
+        return false;
+      }
+      if (approvalPhaseRef.current === 'settling') {
+        transitionApprovalPhase(request, 'settling', 'preparing');
+      }
+      if (approvalPhaseRef.current !== 'preparing') {
         return false;
       }
       const shouldDetach =
@@ -355,7 +408,7 @@ export function useBorrowApproval({
         clearDetachedApprovalRequest(request);
         throw error;
       }
-      if (!isCurrentApprovalRequest(request)) {
+      if (!isActiveApprovalRequest(request)) {
         clearDetachedApprovalRequest(request);
         return false;
       }
@@ -364,8 +417,9 @@ export function useBorrowApproval({
     [
       allowApprovalContinuationAfterUnmount,
       clearDetachedApprovalRequest,
-      isCurrentApprovalRequest,
+      isActiveApprovalRequest,
       onBeforeNavigateConfirm,
+      transitionApprovalPhase,
     ],
   );
 
@@ -440,6 +494,7 @@ export function useBorrowApproval({
     tokenAddress: approveTarget?.token?.address ?? '',
     spenderAddress: approveTarget?.spenderAddress ?? '',
     initialValue: currentAllowance,
+    refreshOnMount: refreshAllowanceOnMount,
     approveType: effectiveApproveType,
   });
 
@@ -516,7 +571,13 @@ export function useBorrowApproval({
         signal: AbortSignal,
       ) => Promise<IBorrowApprovalSettlementResult>;
     }) => {
-      if (!isCurrentApprovalRequest(request)) {
+      if (!isActiveApprovalRequest(request)) {
+        return;
+      }
+      if (
+        !transitionApprovalPhase(request, 'confirming', 'settling') &&
+        !transitionApprovalPhase(request, 'preparing', 'settling')
+      ) {
         return;
       }
       const abortController = startApprovalSettlement();
@@ -533,7 +594,7 @@ export function useBorrowApproval({
             : undefined;
           if (
             abortController.signal.aborted ||
-            !isCurrentApprovalRequest(request)
+            !isActiveApprovalRequest(request)
           ) {
             return;
           }
@@ -561,7 +622,7 @@ export function useBorrowApproval({
           }
           if (
             abortController.signal.aborted ||
-            !isCurrentApprovalRequest(request)
+            !isActiveApprovalRequest(request)
           ) {
             return;
           }
@@ -576,33 +637,34 @@ export function useBorrowApproval({
     },
     [
       finishApprovalRequest,
-      isCurrentApprovalRequest,
+      isActiveApprovalRequest,
       showApprovalFailed,
       showApprovalPending,
       startApprovalSettlement,
+      transitionApprovalPhase,
     ],
   );
 
   const submitApprovedAction = useCallback(
     async (request: IBorrowApprovalRequest, signal?: AbortSignal) => {
-      if (signal?.aborted || !isCurrentApprovalRequest(request)) {
+      if (signal?.aborted || !isActiveApprovalRequest(request)) {
         return;
       }
 
       try {
         await request.submit();
       } catch (error) {
-        if (isCurrentApprovalRequest(request)) {
+        if (isActiveApprovalRequest(request)) {
           showApprovalError({ error, scope: 'onApprovedSubmit' });
         }
       }
     },
-    [isCurrentApprovalRequest, showApprovalError],
+    [isActiveApprovalRequest, showApprovalError],
   );
 
   const navigateToTokenApproval = useCallback(
     async (request: IBorrowApprovalRequest) => {
-      if (!approveTarget?.token || !isCurrentApprovalRequest(request)) {
+      if (!approveTarget?.token || !isActiveApprovalRequest(request)) {
         finishApprovalRequest(request);
         return false;
       }
@@ -611,7 +673,7 @@ export function useBorrowApproval({
           accountId: approveTarget.accountId,
           networkId: approveTarget.networkId,
         });
-        if (!isCurrentApprovalRequest(request)) {
+        if (!isActiveApprovalRequest(request)) {
           return false;
         }
         if (!(await prepareApprovalConfirmNavigation(request))) {
@@ -629,7 +691,7 @@ export function useBorrowApproval({
           ],
           stakingInfo,
           onSuccess(data) {
-            if (!isCurrentApprovalRequest(request)) {
+            if (!isActiveApprovalRequest(request)) {
               return;
             }
             const txid = getBorrowApprovalTxid(data);
@@ -649,6 +711,7 @@ export function useBorrowApproval({
             finishApprovalRequest(request);
           },
         });
+        transitionApprovalPhase(request, 'preparing', 'confirming');
         return true;
       } catch (error) {
         if (finishApprovalRequest(request)) {
@@ -662,7 +725,7 @@ export function useBorrowApproval({
       approveTarget,
       fetchTokenAllowanceParsed,
       finishApprovalRequest,
-      isCurrentApprovalRequest,
+      isActiveApprovalRequest,
       navigationToTxConfirm,
       prepareApprovalConfirmNavigation,
       requiresMaxApproval,
@@ -670,12 +733,13 @@ export function useBorrowApproval({
       stakingInfo,
       settleApprovalTransaction,
       submitApprovedAction,
+      transitionApprovalPhase,
     ],
   );
 
   const resetApproveToZero = useCallback(
     async (request: IBorrowApprovalRequest) => {
-      if (!isCurrentApprovalRequest(request)) {
+      if (!isActiveApprovalRequest(request)) {
         return;
       }
       if (!approveTarget?.token) {
@@ -688,7 +752,7 @@ export function useBorrowApproval({
           accountId: approveTarget.accountId,
           networkId: approveTarget.networkId,
         });
-        if (!isCurrentApprovalRequest(request)) {
+        if (!isActiveApprovalRequest(request)) {
           return;
         }
 
@@ -707,7 +771,7 @@ export function useBorrowApproval({
           ],
           stakingInfo,
           onSuccess(data) {
-            if (!isCurrentApprovalRequest(request)) {
+            if (!isActiveApprovalRequest(request)) {
               return;
             }
             const txid = getBorrowApprovalTxid(data);
@@ -732,6 +796,7 @@ export function useBorrowApproval({
             finishApprovalRequest(request);
           },
         });
+        transitionApprovalPhase(request, 'preparing', 'confirming');
       } catch (error) {
         if (finishApprovalRequest(request)) {
           showApprovalError({ error, scope: 'resetApproveToZero' });
@@ -743,19 +808,20 @@ export function useBorrowApproval({
       approveTarget,
       fetchTokenAllowanceParsed,
       finishApprovalRequest,
-      isCurrentApprovalRequest,
+      isActiveApprovalRequest,
       navigateToTokenApproval,
       navigationToTxConfirm,
       prepareApprovalConfirmNavigation,
       settleApprovalTransaction,
       showApprovalError,
       stakingInfo,
+      transitionApprovalPhase,
     ],
   );
 
   const showResetUSDTApproveValueDialog = useCallback(
     (request: IBorrowApprovalRequest) => {
-      if (!isCurrentApprovalRequest(request)) {
+      if (!isActiveApprovalRequest(request)) {
         return;
       }
       Dialog.show({
@@ -768,7 +834,7 @@ export function useBorrowApproval({
           finishApprovalRequest(request);
         },
         onConfirm: () => {
-          if (isCurrentApprovalRequest(request)) {
+          if (isActiveApprovalRequest(request)) {
             void resetApproveToZero(request);
           }
         },
@@ -781,7 +847,7 @@ export function useBorrowApproval({
         icon: 'ErrorOutline',
       });
     },
-    [finishApprovalRequest, intl, isCurrentApprovalRequest, resetApproveToZero],
+    [finishApprovalRequest, intl, isActiveApprovalRequest, resetApproveToZero],
   );
 
   const onApprove = useCallback(async () => {
@@ -821,7 +887,6 @@ export function useBorrowApproval({
       }
       Keyboard.dismiss();
       stopApprovalSettlement();
-      setApprovingSafe(true);
 
       try {
         let approveAllowance = borrowDelegationApproveTarget.allowance;
@@ -837,7 +902,7 @@ export function useBorrowApproval({
             throw error;
           }
         }
-        if (!isCurrentApprovalRequest(request)) {
+        if (!isActiveApprovalRequest(request)) {
           return;
         }
 
@@ -872,7 +937,7 @@ export function useBorrowApproval({
               reserveAddress: borrowDelegationApproveTarget.reserveAddress,
             },
           );
-        if (!isCurrentApprovalRequest(request)) {
+        if (!isActiveApprovalRequest(request)) {
           return;
         }
 
@@ -883,7 +948,7 @@ export function useBorrowApproval({
           encodedTx: parseBorrowApprovalEncodedTx(resp.tx),
           stakingInfo,
           onSuccess(data) {
-            if (!isCurrentApprovalRequest(request)) {
+            if (!isActiveApprovalRequest(request)) {
               return;
             }
             const txid = getBorrowApprovalTxid(data);
@@ -903,6 +968,7 @@ export function useBorrowApproval({
             finishApprovalRequest(request);
           },
         });
+        transitionApprovalPhase(request, 'preparing', 'confirming');
       } catch (error) {
         if (finishApprovalRequest(request)) {
           showApprovalError({ error, scope: 'borrowDelegationApprove' });
@@ -921,7 +987,6 @@ export function useBorrowApproval({
 
     Keyboard.dismiss();
     stopApprovalSettlement();
-    setApprovingSafe(true);
 
     try {
       let approveAllowance = allowance;
@@ -938,7 +1003,7 @@ export function useBorrowApproval({
           throw error;
         }
       }
-      if (!isCurrentApprovalRequest(request)) {
+      if (!isActiveApprovalRequest(request)) {
         return;
       }
 
@@ -989,18 +1054,18 @@ export function useBorrowApproval({
     fetchTokenAllowanceParsed,
     finishApprovalRequest,
     getApprovalRequest,
-    isCurrentApprovalRequest,
+    isActiveApprovalRequest,
     navigationToTxConfirm,
     navigateToTokenApproval,
     prepareApprovalConfirmNavigation,
     requiresMaxApproval,
-    setApprovingSafe,
     settleApprovalTransaction,
     showApprovalError,
     showResetUSDTApproveValueDialog,
     stakingInfo,
     stopApprovalSettlement,
     submitApprovedAction,
+    transitionApprovalPhase,
   ]);
 
   const ensureReadyToSubmit = useCallback(async () => {
@@ -1085,9 +1150,15 @@ export function useBorrowApproval({
     showApprovalError,
   ]);
 
+  const approving = approvalPhase !== 'idle';
+  const isFormInteractionLocked =
+    approvalPhase === 'preparing' || approvalPhase === 'settling';
+
   return {
     approveType: effectiveApproveType,
     approving,
+    isFormInteractionLocked,
+    approvalProgressStarted: approvalProgressScopeKey === approvalScopeKey,
     loadingAllowance: !!loadingAllowance,
     shouldApprove,
     ensureReadyToSubmit,

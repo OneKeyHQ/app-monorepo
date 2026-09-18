@@ -14,6 +14,7 @@ import { EarnText } from '@onekeyhq/kit/src/views/Staking/components/ProtocolDet
 import { EarnTooltip } from '@onekeyhq/kit/src/views/Staking/components/ProtocolDetails/EarnTooltip';
 import { EManagePositionType } from '@onekeyhq/kit/src/views/Staking/pages/ManagePosition/hooks/useManagePage';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IBorrowReserveDetail } from '@onekeyhq/shared/types/staking';
 
 import { BorrowNavigation } from '../../../borrowUtils';
@@ -163,8 +164,8 @@ export const ManagePositionPart = ({
         <YStack h="$4" />
 
         {/* Available to borrow section */}
-        <XStack jc="space-between" ai="flex-start">
-          <YStack gap="$1">
+        <XStack ai="flex-start" gap="$3">
+          <YStack flex={1} minWidth={0} gap="$1">
             <XStack ai="center" gap="$1">
               <SizableText size="$bodyMd" color="$textSubdued">
                 {labels.availableToBorrow}
@@ -176,8 +177,12 @@ export const ManagePositionPart = ({
             </XStack>
             <EarnText
               text={userInfo?.availableBorrowBalance?.title}
-              size="$headingXl"
+              size="$headingLg"
               color="$text"
+              width="100%"
+              style={
+                platformEnv.isNative ? undefined : { wordBreak: 'break-word' }
+              }
             />
             <EarnText
               text={userInfo?.availableBorrowBalance?.description}
@@ -190,6 +195,7 @@ export const ManagePositionPart = ({
               testID="borrow-btn"
               mt="auto"
               mb="$1.5"
+              flexShrink={0}
               variant="primary"
               size="medium"
               disabled={

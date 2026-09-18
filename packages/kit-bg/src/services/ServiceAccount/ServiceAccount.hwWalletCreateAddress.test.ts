@@ -358,4 +358,48 @@ describe('ServiceAccount hardware wallet creation address', () => {
       useEmptyPassphrase: true,
     });
   });
+
+  it('creates a mocked standard wallet without opening its device session', async () => {
+    createHwWalletMock.mockImplementation(async (params) => {
+      expect(params.getFirstEvmAddressFn).toEqual(expect.any(Function));
+      if (params.getFirstEvmAddressFn) {
+        await expect(params.getFirstEvmAddressFn()).resolves.toBe('');
+      }
+      return {
+        wallet: { id: 'hw-standard-mocked', name: 'Trezor' },
+      } as never;
+    });
+    const buildHwWalletXfp = jest.fn();
+    const getEvmAddressByWalletState = jest.fn();
+    const service = new ServiceAccount({
+      backgroundApi: {
+        serviceHardware: {
+          getCompatibleConnectId: jest.fn().mockResolvedValue('TREZOR_USB'),
+          buildHwWalletXfp,
+          getEvmAddressByWalletState,
+        },
+      },
+    }) as unknown as IHwWalletCreateAddressService;
+    service.getWallet = jest.fn().mockResolvedValue({
+      id: 'hw-standard-mocked',
+      name: 'Trezor',
+    });
+
+    await expect(
+      service.createHWWalletBase({
+        device: {
+          connectId: 'TREZOR_USB',
+          deviceId: 'TREZOR_DEVICE_ID',
+          vendor: EHardwareVendor.trezor,
+        },
+        features: { deviceId: 'TREZOR_DEVICE_ID' },
+        vendor: EHardwareVendor.trezor,
+        fillingXfpByCallingSdk: true,
+        isMockedStandardHwWallet: true,
+      }),
+    ).resolves.toMatchObject({ wallet: { id: 'hw-standard-mocked' } });
+
+    expect(buildHwWalletXfp).not.toHaveBeenCalled();
+    expect(getEvmAddressByWalletState).not.toHaveBeenCalled();
+  });
 });

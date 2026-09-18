@@ -7,8 +7,10 @@ export enum EPrimaryTypePermit {
   Permit = 'Permit',
   PermitBatch = 'PermitBatch',
   PermitBatchTransferFrom = 'PermitBatchTransferFrom',
+  PermitBatchWitnessTransferFrom = 'PermitBatchWitnessTransferFrom',
   PermitSingle = 'PermitSingle',
   PermitTransferFrom = 'PermitTransferFrom',
+  PermitWitnessTransferFrom = 'PermitWitnessTransferFrom',
 }
 
 export const PRIMARY_TYPES_ORDER: EPrimaryTypeOrder[] =

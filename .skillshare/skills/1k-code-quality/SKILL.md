@@ -1,6 +1,6 @@
 ---
 name: 1k-code-quality
-description: Code quality standards — lint (eslint/oxlint), type check (tsc), pre-commit hooks, and comment conventions. All comments must be in English.
+description: Code quality standards — lint (oxlint), format (oxfmt), type check (tsc), pre-commit hooks, and comment conventions. All comments must be in English.
 allowed-tools: Read, Grep, Glob
 ---
 
@@ -18,8 +18,8 @@ yarn agent:check --profile commit
 yarn agent:check --profile pr
 
 # CI only (full project check)
-yarn lint        # Comprehensive: TypeScript, ESLint, folder structure, i18n
-yarn lint:only   # Quick: oxlint only
+yarn lint        # Comprehensive: TypeScript, oxlint, folder structure, i18n
+yarn lint:only   # Oxlint and oxfmt
 yarn tsc:only    # Full type check
 yarn lint:agent-context # Skill metadata and startup-context budgets
 ```
@@ -27,6 +27,15 @@ yarn lint:agent-context # Skill metadata and startup-context budgets
 **Note:** `yarn lint` is for CI only. For agent workflows, always use
 `yarn agent:check` first; use lower-level commands only when debugging the log
 path reported by `agent:check`.
+
+This repository uses **oxlint**, not ESLint, for active lint validation. Do not
+run `yarn eslint`, `npx eslint`, or `node_modules/.bin/eslint`; those entries are
+legacy compatibility remnants and `yarn eslint` runs a whole-repository
+auto-fix. For a read-only targeted diagnostic, run:
+
+```bash
+npx oxlint --tsconfig ./tsconfig.json --type-aware packages/example/src/file.ts --deny-warnings
+```
 
 ## Pre-Commit Workflow
 

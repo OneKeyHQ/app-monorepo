@@ -1,26 +1,40 @@
 import type { ComponentType, ReactElement } from 'react';
-import { useCallback, useMemo, useRef, useState } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 
-import { Image as ExpoImage, resolveSource } from 'expo-image';
-import { StyleSheet } from 'react-native';
+import {
+  type ImageErrorEvent,
+  type ImageLoadEvent,
+  type ImageSourcePropType,
+  type ImageStyle,
+  type ImageURISource,
+  Image as ReactNativeImage,
+  StyleSheet,
+} from 'react-native';
 
-import { usePropsAndStyle } from '@onekeyhq/components/src/shared/tamagui';
+import {
+  usePropsAndStyle,
+  useTheme,
+} from '@onekeyhq/components/src/shared/tamagui';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { Skeleton } from '../Skeleton';
-import { YStack } from '../Stack';
+import { Stack, YStack } from '../Stack';
 
-import { AnimatedExpoImage } from './AnimatedImage';
 import { buildOptimizedImageSource } from './optimization';
 import { isEmptyResolvedSource, useResetError } from './utils';
 
-import type { IImageV2Props } from './type';
 import type {
-  ImageErrorEventData,
-  ImageLoadEventData,
-  ImageSource,
-  ImageStyle,
-} from 'expo-image';
+  IImageContentFit,
+  IImageLoadEventData,
+  IImageV2Props,
+} from './type';
 
 const fullSizeStyle = {
   width: '100%' as const,
@@ -29,13 +43,75 @@ const fullSizeStyle = {
 
 const SHOULD_OPTIMIZE_RELATIVE_URL =
   platformEnv.isWeb || platformEnv.isWebEmbed;
+const IMAGE_LOADING_DELAY_MS = 100;
+const IMAGE_FADE_DURATION_MS = 140;
 
-export function ImageV2({
-  style: defaultStyle,
-  animated,
-  canRetry: _canRetry = true,
-  ...props
-}: IImageV2Props) {
+const getRandomRetryDelay = () => Math.floor(Math.random() * 3) * 1000;
+
+function resolveSource(
+  source: IImageV2Props['source'] | undefined,
+): ImageURISource | null {
+  if (typeof source === 'string') {
+    return { uri: source.trim() };
+  }
+  if (typeof source === 'number') {
+    return ReactNativeImage.resolveAssetSource(source);
+  }
+  if (Array.isArray(source)) {
+    return source[0] ?? null;
+  }
+  return source ?? null;
+}
+
+function getResizeMode({
+  contentFit,
+  resizeMode,
+}: {
+  contentFit?: IImageContentFit;
+  resizeMode?: IImageV2Props['resizeMode'];
+}): IImageV2Props['resizeMode'] {
+  if (contentFit === 'fill') {
+    return 'stretch';
+  }
+  return contentFit ?? resizeMode;
+}
+
+export function ImageV2({ style: defaultStyle, ...props }: IImageV2Props) {
+  const theme = useTheme();
+  const imageContainerRef = useRef<HTMLElement | null>(null);
+  const [shouldLoadImage, setShouldLoadImage] = useState(!platformEnv.isWeb);
+  const setImageContainerRef = useCallback((element: unknown) => {
+    imageContainerRef.current = element as HTMLElement | null;
+  }, []);
+
+  useEffect(() => {
+    if (!platformEnv.isWeb || shouldLoadImage) {
+      return undefined;
+    }
+
+    const element = imageContainerRef.current;
+    if (!element || typeof IntersectionObserver === 'undefined') {
+      setShouldLoadImage(true);
+      return undefined;
+    }
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((entry) => entry.isIntersecting)) {
+          setShouldLoadImage(true);
+          observer.disconnect();
+        }
+      },
+      {
+        rootMargin: '200px',
+        // Expand nested ScrollView clipping bounds as well as the viewport.
+        scrollMargin: '200px',
+      } as IntersectionObserverInit & { scrollMargin: string },
+    );
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, [shouldLoadImage]);
+
   const sizeProps = useMemo(() => {
     // eslint-disable-next-line react/destructuring-assignment
     if (props?.size) {
@@ -67,22 +143,41 @@ export function ImageV2({
     source,
     src,
     fallback,
-    skeleton,
+    placeholder,
     onError,
     onLoad,
     onLoadEnd,
     onDisplay,
     onLoadStart,
     resizeWidth,
+    contentFit,
+    resizeMode,
+    recyclingKey,
+    retryTimes = 1,
+    canRetry = true,
+    blurRadius: _blurRadius,
+    defaultSource: _defaultSource,
+    tintColor: _tintColor,
+    cachePolicy: _cachePolicy,
+    autoplay: _autoplay,
+    loadingStrategy = 'static',
     ...imageProps
   } = restProps;
   const [hasError, setHasError] = useState(false);
-  const rawSource = useMemo(() => {
-    return (source as ImageSource) || src;
-  }, [source, src]);
-  const rawResolvedSource = useMemo(() => {
-    return resolveSource(rawSource);
-  }, [rawSource]);
+  const [isImageLoaded, setIsImageLoaded] = useState(false);
+  const [retryNonce, setRetryNonce] = useState(0);
+  const retryCountRef = useRef(0);
+  const retryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [isPlaceholderVisible, setIsPlaceholderVisible] = useState(false);
+  const placeholderTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null,
+  );
+  const loadStartedAtRef = useRef(0);
+  const rawSource = useMemo(() => source ?? src, [source, src]);
+  const rawResolvedSource = useMemo(
+    () => resolveSource(rawSource),
+    [rawSource],
+  );
   const optimizedSourceResult = useMemo(
     () =>
       buildOptimizedImageSource({
@@ -124,35 +219,151 @@ export function ImageV2({
     shouldUseRawSourceFallback,
   ]);
 
-  useResetError(resolvedSource, hasError, setHasError);
+  // react-native-web loads images by URI and ignores `source.headers`, so the
+  // URI alone identifies the web request.
+  const resolvedSourceIdentity = resolvedSource?.uri ?? '';
+  useResetError(resolvedSourceIdentity, hasError, setHasError);
 
-  const skeletonTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // react-native-web aborts a superseded request from a passive effect, and it
+  // cannot abort the `decode()` that follows a completed load at all, so the
+  // previous source's callbacks can still arrive after a swap. Tracking the
+  // displayed URI in a layout effect keeps that marker on committed renders
+  // only, so a discarded concurrent render cannot silence a live callback.
+  const displayedSourceIdentityRef = useRef(resolvedSourceIdentity);
+  useLayoutEffect(() => {
+    displayedSourceIdentityRef.current = resolvedSourceIdentity;
+  }, [resolvedSourceIdentity]);
 
-  const [isLoading, setIsLoading] = useState(false);
+  const retryLimit = Number.isFinite(retryTimes)
+    ? Math.max(0, Math.floor(retryTimes))
+    : 1;
+  const clearRetryTimer = useCallback(() => {
+    if (retryTimerRef.current) {
+      clearTimeout(retryTimerRef.current);
+      retryTimerRef.current = null;
+    }
+  }, []);
+  useEffect(() => {
+    retryCountRef.current = 0;
+    clearRetryTimer();
+  }, [clearRetryTimer, resolvedSourceIdentity, retryLimit]);
+  useEffect(() => clearRetryTimer, [clearRetryTimer]);
+  const scheduleRetry = useCallback(() => {
+    if (!canRetry || retryCountRef.current >= retryLimit) {
+      return false;
+    }
+    retryCountRef.current += 1;
+    clearRetryTimer();
+    retryTimerRef.current = setTimeout(() => {
+      retryTimerRef.current = null;
+      setRetryNonce((value) => value + 1);
+    }, getRandomRetryDelay());
+    return true;
+  }, [canRetry, clearRetryTimer, retryLimit]);
+
+  const clearPlaceholderTimer = useCallback(() => {
+    if (placeholderTimerRef.current) {
+      clearTimeout(placeholderTimerRef.current);
+      placeholderTimerRef.current = null;
+    }
+  }, []);
+
+  useEffect(() => clearPlaceholderTimer, [clearPlaceholderTimer]);
+
+  const handleLoadStart = useCallback(() => {
+    clearPlaceholderTimer();
+    setIsImageLoaded(false);
+    loadStartedAtRef.current =
+      typeof performance === 'undefined' ? Date.now() : performance.now();
+    setIsPlaceholderVisible(false);
+    if (
+      (placeholder !== null && placeholder !== undefined) ||
+      loadingStrategy === 'skeleton'
+    ) {
+      placeholderTimerRef.current = setTimeout(() => {
+        setIsPlaceholderVisible(true);
+      }, IMAGE_LOADING_DELAY_MS);
+    }
+    onLoadStart?.();
+  }, [clearPlaceholderTimer, loadingStrategy, onLoadStart, placeholder]);
 
   const handleLoad = useCallback(
-    (event: ImageLoadEventData) => {
-      setHasError(false);
-      onLoad?.(event);
-      if (!isLoading) {
-        skeletonTimerRef.current = setTimeout(() => {
-          setIsLoading(true);
-        }, 150);
+    (event: ImageLoadEvent) => {
+      if (resolvedSourceIdentity !== displayedSourceIdentityRef.current) {
+        return;
       }
+      clearPlaceholderTimer();
+      setHasError(false);
+      setIsImageLoaded(true);
+      setIsPlaceholderVisible(false);
+      const nativeEvent = event.nativeEvent as unknown as {
+        source?: { height?: number; uri?: string; width?: number };
+        target?: {
+          currentSrc?: string;
+          naturalHeight?: number;
+          naturalWidth?: number;
+        };
+      };
+      const height =
+        nativeEvent.source?.height ?? nativeEvent.target?.naturalHeight ?? 0;
+      const uri =
+        nativeEvent.source?.uri ??
+        nativeEvent.target?.currentSrc ??
+        resolvedSource?.uri ??
+        '';
+      const width =
+        nativeEvent.source?.width ?? nativeEvent.target?.naturalWidth ?? 0;
+      const loadEvent: IImageLoadEventData = {
+        cacheType: 'none',
+        source: {
+          url: uri,
+          width,
+          height,
+        },
+      };
+      const now =
+        typeof performance === 'undefined' ? Date.now() : performance.now();
+      const reduceMotion =
+        typeof globalThis.matchMedia === 'function' &&
+        globalThis.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      const imageElement = event.currentTarget as unknown as HTMLElement;
+      if (
+        !reduceMotion &&
+        loadStartedAtRef.current > 0 &&
+        now - loadStartedAtRef.current >= IMAGE_LOADING_DELAY_MS &&
+        typeof imageElement?.animate === 'function'
+      ) {
+        imageElement.animate([{ opacity: 0 }, { opacity: 1 }], {
+          duration: IMAGE_FADE_DURATION_MS,
+          easing: 'ease-out',
+        });
+      }
+      onLoad?.(loadEvent);
+      onDisplay?.();
     },
-    [isLoading, onLoad],
+    [
+      clearPlaceholderTimer,
+      onDisplay,
+      onLoad,
+      resolvedSource?.uri,
+      resolvedSourceIdentity,
+    ],
   );
 
   const handleLoadEnd = useCallback(() => {
-    if (skeletonTimerRef.current) {
-      clearTimeout(skeletonTimerRef.current);
-      setIsLoading(false);
+    if (resolvedSourceIdentity !== displayedSourceIdentityRef.current) {
+      return;
     }
+    clearPlaceholderTimer();
+    setIsPlaceholderVisible(false);
     onLoadEnd?.();
-  }, [onLoadEnd]);
+  }, [clearPlaceholderTimer, onLoadEnd, resolvedSourceIdentity]);
 
   const handleError = useCallback(
-    (event: ImageErrorEventData) => {
+    (event: ImageErrorEvent) => {
+      if (resolvedSourceIdentity !== displayedSourceIdentityRef.current) {
+        return;
+      }
       if (
         optimizedSourceResult.optimized &&
         optimizedSourceResult.rawUri &&
@@ -161,51 +372,80 @@ export function ImageV2({
         setRawSourceFallbackUri(optimizedSourceResult.rawUri);
         return;
       }
+      if (scheduleRetry()) {
+        return;
+      }
+      clearPlaceholderTimer();
+      setIsImageLoaded(false);
+      setIsPlaceholderVisible(false);
       setHasError(true);
-      onError?.(event);
+      onError?.({ error: String(event.nativeEvent.error) });
     },
     [
+      clearPlaceholderTimer,
       onError,
       optimizedSourceResult.optimized,
       optimizedSourceResult.rawUri,
+      resolvedSourceIdentity,
+      scheduleRetry,
       shouldUseRawSourceFallback,
     ],
   );
 
-  const ImageComponent = useMemo<ComponentType<any>>(() => {
-    if (animated) {
-      return AnimatedExpoImage;
-    }
-    return ExpoImage;
-  }, [animated]);
+  const ImageComponent = ReactNativeImage as ComponentType<any>;
 
   const content = useMemo(() => {
     if (fallback && (hasError || isEmptyResolvedSource(resolvedSource))) {
-      return fallback as ReactElement;
+      return (
+        <Stack
+          position="absolute"
+          width="100%"
+          height="100%"
+          alignItems="center"
+          justifyContent="center"
+        >
+          {fallback as ReactElement}
+        </Stack>
+      );
     }
+    if (hasError || isEmptyResolvedSource(resolvedSource)) {
+      return null;
+    }
+    // The key deliberately excludes the source URI. react-native-web paints
+    // nothing until its own load state leaves IDLE, so remounting on every URI
+    // change costs an extra blank frame even when the new image is already
+    // cached; updating `source` in place keeps the previous LOADED state and
+    // lets a cached image paint in the same commit.
     return (
       <ImageComponent
-        source={resolvedSource}
+        key={`${recyclingKey ?? 'image'}:${retryNonce}`}
+        source={
+          shouldLoadImage ? (resolvedSource as ImageSourcePropType) : undefined
+        }
         style={fullSizeStyle}
+        resizeMode={getResizeMode({ contentFit, resizeMode })}
         onError={handleError}
         onLoad={handleLoad}
         onLoadEnd={handleLoadEnd}
-        onDisplay={onDisplay}
-        onLoadStart={onLoadStart}
+        onLoadStart={handleLoadStart}
         {...(imageProps as any)}
       />
     );
   }, [
     ImageComponent,
+    contentFit,
     fallback,
     handleError,
     handleLoad,
     handleLoadEnd,
+    handleLoadStart,
     hasError,
     imageProps,
-    onDisplay,
-    onLoadStart,
+    recyclingKey,
+    retryNonce,
+    resizeMode,
     resolvedSource,
+    shouldLoadImage,
   ]);
 
   const containerStyle = useMemo(
@@ -214,23 +454,25 @@ export function ImageV2({
       display: 'flex' as const,
       alignItems: 'center' as const,
       justifyContent: 'center' as const,
+      backgroundColor:
+        loadingStrategy === 'none' || isImageLoaded
+          ? 'transparent'
+          : theme.bgStrong.val,
       ...style,
     }),
-    [style],
+    [isImageLoaded, loadingStrategy, style, theme.bgStrong.val],
   );
 
   return (
-    <YStack style={containerStyle}>
+    <YStack ref={setImageContainerRef} style={containerStyle}>
       {content}
-
-      {isLoading ? (
-        <Skeleton
-          position="absolute"
-          top={0}
-          left={0}
-          width={style.width}
-          height={style.height}
-        />
+      {isPlaceholderVisible &&
+      (placeholder !== null && placeholder !== undefined
+        ? true
+        : loadingStrategy === 'skeleton') ? (
+        <Stack position="absolute" width="100%" height="100%">
+          {placeholder ?? <Skeleton width="100%" height="100%" />}
+        </Stack>
       ) : null}
     </YStack>
   );

@@ -1,4 +1,4 @@
-import type { ComponentProps, FC } from 'react';
+import type { ComponentProps, FC, ReactNode } from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
@@ -19,27 +19,23 @@ import {
   XStack,
 } from '@onekeyhq/components';
 import { useFormContext } from '@onekeyhq/components/src/hooks/useForm';
-import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useRouteIsFocused as useIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import type {
   IAccountDeriveInfo,
   IAccountDeriveTypes,
 } from '@onekeyhq/kit-bg/src/vaults/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { EModalRoutes } from '@onekeyhq/shared/src/routes';
-import { EModalAddressBookRoutes } from '@onekeyhq/shared/src/routes/addressBook';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
-import type {
-  IAddressBadge,
-  IAddressValidateStatus,
-  IQueryCheckAddressArgs,
-} from '@onekeyhq/shared/types/address';
 import {
-  EAddressInteractionStatus,
+  type EAddressInteractionStatus,
   EInputAddressChangeType,
+  type IAddressBadge,
+  type IAddressValidateStatus,
+  type ICexSupportedInfo,
+  type IQueryCheckAddressArgs,
 } from '@onekeyhq/shared/types/address';
 
 import { AddressBadge } from '../AddressBadge';
@@ -48,7 +44,7 @@ import { WalletAvatarById } from '../WalletAvatar';
 
 import { AddressInputContext } from './AddressInputContext';
 import { renderAddressInputHyperlinkText } from './AddressInputHyperlinkText';
-import { useIsEnableTransferAllowList } from './hooks';
+import { AddressInputWarnings } from './AddressInputWarnings';
 import { ClipboardPlugin } from './plugins/clipboard';
 import { ScanPlugin } from './plugins/scan';
 import { SelectorPlugin } from './plugins/selector';
@@ -56,6 +52,7 @@ import {
   getAddressQueryResolvedAddress,
   getAddressValidateTranslationId,
   queryAddressWithFallback,
+  shouldShowAddressQuerySpinner,
 } from './utils';
 
 import type { IScanPluginProps } from './plugins/scan';
@@ -124,6 +121,7 @@ export type IAddressInputValue = {
     translationId?: ETranslations;
   };
   similarAddress?: string;
+  cexSupportedInfo?: ICexSupportedInfo;
 };
 
 type IAddressInputActionsLayout = 'default' | 'recipient';
@@ -175,6 +173,7 @@ type IAddressInputProps = Omit<
   enableCheckSimilarAddressInAddressBook?: boolean;
   onScanResult?: IScanPluginProps['onScanResult'];
   hasQuickSelectMatches?: boolean;
+  tokenAddress?: string;
 };
 
 export type IAddressQueryResult = {
@@ -203,6 +202,7 @@ export type IAddressQueryResult = {
   addressNote?: string;
   addressMemo?: string;
   similarAddress?: string;
+  cexSupportedInfo?: ICexSupportedInfo;
 };
 
 type IAddressInputBadgeGroupProps = {
@@ -213,9 +213,15 @@ type IAddressInputBadgeGroupProps = {
   networkId: string;
 };
 
+type IResolvedAddressQueryContext = {
+  input: string;
+  resolveAddress: string;
+  resolveOptions: string[];
+};
+
 function AddressInputBadgeGroup(props: IAddressInputBadgeGroupProps) {
   const { loading, result, setResolveAddress, onRefresh } = props;
-  if (loading) {
+  if (shouldShowAddressQuerySpinner({ loading, result })) {
     return <Spinner />;
   }
   if (result?.validStatus === 'unknown') {
@@ -230,6 +236,19 @@ function AddressInputBadgeGroup(props: IAddressInputBadgeGroupProps) {
     );
   }
   if (result) {
+    // Label badges (OKX, CEX, etc.) stay inside the input. Interaction
+    // badges (Transferred, First transfer) are rendered below the input by
+    // AddressInputWarnings.
+    const labelBadges = result.addressBadges?.filter(
+      (badge) => badge.type === 'default' || badge.type === 'info',
+    );
+    // While re-validating an existing input only the stable wallet and
+    // address-book labels stay on screen; a resolved name (ENS etc.) and
+    // server-derived badges may have changed, so they are replaced by a
+    // spinner until the new query lands. A result without such dynamic
+    // content keeps its labels as-is and shows no spinner at all.
+    const isRevalidating =
+      Boolean(loading) && Boolean(result.resolveAddress || labelBadges?.length);
     return (
       <XStack gap="$2" mb="$1" flex={1} flexWrap="wrap" overflow="hidden">
         {result.walletAccountName ? (
@@ -254,7 +273,8 @@ function AddressInputBadgeGroup(props: IAddressInputBadgeGroupProps) {
             </XStack>
           </Badge>
         ) : null}
-        {result.resolveAddress ? (
+        {isRevalidating ? <Spinner /> : null}
+        {!isRevalidating && result.resolveAddress ? (
           <Stack>
             <ResolvedAddress
               value={result.resolveAddress}
@@ -263,20 +283,17 @@ function AddressInputBadgeGroup(props: IAddressInputBadgeGroupProps) {
             />
           </Stack>
         ) : null}
-        {/* Label badges (OKX, CEX, etc.) stay inside the input.
-            Interaction badges (Transferred, First transfer) are rendered
-            below the input by AddressInputWarnings. */}
-        {result.addressBadges
-          ?.filter((badge) => badge.type === 'default' || badge.type === 'info')
-          .map((badge) => (
-            <AddressBadge
-              key={badge.label}
-              title={badge.label}
-              badgeType={badge.type}
-              content={badge.tip}
-              icon={badge.icon}
-            />
-          ))}
+        {isRevalidating
+          ? null
+          : labelBadges?.map((badge) => (
+              <AddressBadge
+                key={badge.label}
+                title={badge.label}
+                badgeType={badge.type}
+                content={badge.tip}
+                icon={badge.icon}
+              />
+            ))}
       </XStack>
     );
   }
@@ -301,99 +318,6 @@ export const createValidateAddressRule =
     }
     return undefined;
   };
-
-function AddressInputWarnings({
-  queryResult,
-  networkId,
-}: {
-  queryResult: IAddressQueryResult;
-  networkId: string;
-}) {
-  const intl = useIntl();
-  const isEnableTransferAllowList = useIsEnableTransferAllowList();
-  const navigation = useAppNavigation();
-
-  // Interaction badges use semantic types (success/warning/critical),
-  // while label badges (OKX, CEX) use "default" or "info" type.
-  const interactionBadges = useMemo(
-    () =>
-      (queryResult?.addressBadges ?? []).filter(
-        (badge) => badge.type !== 'default' && badge.type !== 'info',
-      ),
-    [queryResult?.addressBadges],
-  );
-
-  const showAddToAddressBook = useMemo(() => {
-    // Don't show if already in address book or wallet
-    if (queryResult?.addressBookId || queryResult?.walletAccountId)
-      return false;
-    // Show for transferred addresses (add to address book guidance)
-    if (
-      queryResult?.addressInteractionStatus ===
-      EAddressInteractionStatus.INTERACTED
-    )
-      return true;
-    // Show for first-transfer addresses when allowlist is enabled
-    // (user needs to add to address book to send)
-    if (
-      isEnableTransferAllowList &&
-      queryResult?.addressInteractionStatus ===
-        EAddressInteractionStatus.NOT_INTERACTED
-    )
-      return true;
-    return false;
-  }, [
-    queryResult?.addressBookId,
-    queryResult?.walletAccountId,
-    queryResult?.addressInteractionStatus,
-    isEnableTransferAllowList,
-  ]);
-
-  const onAddToAddressBook = useCallback(() => {
-    navigation.pushModal(EModalRoutes.AddressBookModal, {
-      screen: EModalAddressBookRoutes.EditItemModal,
-      params: {
-        address: queryResult?.input ?? '',
-        networkId,
-        isAllowListed: isEnableTransferAllowList,
-      },
-    });
-  }, [isEnableTransferAllowList, navigation, networkId, queryResult?.input]);
-
-  if (interactionBadges.length === 0 && !showAddToAddressBook) {
-    return null;
-  }
-
-  return (
-    <Stack pt="$1.5" gap="$2">
-      {interactionBadges.length > 0 || showAddToAddressBook ? (
-        <XStack gap="$2" alignItems="center" flexWrap="wrap">
-          {interactionBadges.map((badge) => (
-            <AddressBadge
-              key={badge.label}
-              title={badge.label}
-              badgeType={badge.type}
-              content={badge.tip}
-              icon={badge.icon}
-            />
-          ))}
-          {showAddToAddressBook ? (
-            <Button
-              testID="address-input-add-to-address-book-btn"
-              variant="tertiary"
-              size="small"
-              onPress={onAddToAddressBook}
-            >
-              {intl.formatMessage({
-                id: ETranslations.add_to_address_book__action,
-              })}
-            </Button>
-          ) : null}
-        </XStack>
-      ) : null}
-    </Stack>
-  );
-}
 
 export function AddressInput(props: IAddressInputProps) {
   const {
@@ -422,6 +346,7 @@ export function AddressInput(props: IAddressInputProps) {
     ignoreSimilarAddressInAddressBook,
     enableCheckSimilarAddressInAddressBook,
     hasQuickSelectMatches: _hasQuickSelectMatches,
+    tokenAddress,
     ...rest
   } = props;
   const intl = useIntl();
@@ -449,10 +374,12 @@ export function AddressInput(props: IAddressInputProps) {
   >(undefined);
 
   const inputTypeRef = useRef<EInputAddressChangeType | undefined>(undefined);
-
-  const setResolveAddress = useCallback((text: string) => {
-    setQueryResult((prev) => ({ ...prev, resolveAddress: text }));
-  }, []);
+  const queryContextRef = useRef({ networkId, accountId, tokenAddress });
+  queryContextRef.current = { networkId, accountId, tokenAddress };
+  const onChangeRef = useRef(onChange);
+  onChangeRef.current = onChange;
+  const hasAppliedQueryContextRef = useRef(false);
+  const selectedResolveAddressRef = useRef<string | undefined>(undefined);
 
   const handleActiveAccountChange = useCallback(
     (activeAccount: IAccountSelectorActiveAccountInfo) => {
@@ -478,8 +405,10 @@ export function AddressInput(props: IAddressInputProps) {
       const normalizedText = stringUtils.stripLineBreaks(text);
       inputTypeRef.current = inputType;
       if (textRef.current !== normalizedText) {
+        selectedResolveAddressRef.current = undefined;
         textRef.current = normalizedText;
         setInputText(normalizedText);
+        setQueryResult({});
         onInputTypeChange?.(inputType);
         onChange?.({
           raw: normalizedText,
@@ -502,7 +431,10 @@ export function AddressInput(props: IAddressInputProps) {
   }, [rawAddress, onChangeText]);
 
   const queryAddress = useDebouncedCallback(
-    async (params: IQueryCheckAddressArgs) => {
+    async (
+      params: IQueryCheckAddressArgs,
+      resolvedAddressContext?: IResolvedAddressQueryContext,
+    ) => {
       if (!params.address) {
         setQueryResult({});
         return;
@@ -519,8 +451,20 @@ export function AddressInput(props: IAddressInputProps) {
           inputTypeRef.current = undefined;
         }
 
-        const result = await queryAddressWithFallback(params);
-        if (result.input === textRef.current) {
+        const queryResultResp = await queryAddressWithFallback(params);
+        const result = resolvedAddressContext
+          ? { ...queryResultResp, ...resolvedAddressContext }
+          : queryResultResp;
+        const currentQueryContext = queryContextRef.current;
+        if (
+          result.input === textRef.current &&
+          params.networkId === currentQueryContext.networkId &&
+          params.accountId === currentQueryContext.accountId &&
+          params.tokenAddress === currentQueryContext.tokenAddress &&
+          (!resolvedAddressContext ||
+            selectedResolveAddressRef.current ===
+              resolvedAddressContext.resolveAddress)
+        ) {
           setQueryResult(result);
         }
       } finally {
@@ -530,9 +474,8 @@ export function AddressInput(props: IAddressInputProps) {
     300,
   );
 
-  // Query address validation when text changes
-  useEffect(() => {
-    void queryAddress({
+  const buildQueryAddressParams = useCallback(
+    (): IQueryCheckAddressArgs => ({
       address: inputText,
       networkId,
       accountId,
@@ -545,23 +488,64 @@ export function AddressInput(props: IAddressInputProps) {
       enableAllowListValidation,
       ignoreSimilarAddressInAddressBook,
       enableCheckSimilarAddressInAddressBook,
+      tokenAddress,
+    }),
+    [
+      accountId,
+      enableAddressBook,
+      enableAddressContract,
+      enableAddressInteractionStatus,
+      enableAllowListValidation,
+      enableCheckSimilarAddressInAddressBook,
+      enableNameResolve,
+      enableVerifySendFundToSelf,
+      enableWalletName,
+      ignoreSimilarAddressInAddressBook,
+      inputText,
+      networkId,
+      tokenAddress,
+    ],
+  );
+
+  const setResolveAddress = useCallback(
+    (resolveAddress: string) => {
+      const input = textRef.current;
+      const resolveOptions = queryResult.resolveOptions ?? [];
+      selectedResolveAddressRef.current = resolveAddress;
+      setQueryResult({});
+      onChangeRef.current?.({ raw: input, pending: true });
+      void queryAddress(
+        {
+          ...buildQueryAddressParams(),
+          address: resolveAddress,
+          enableNameResolve: false,
+        },
+        { input, resolveAddress, resolveOptions },
+      );
+    },
+    [buildQueryAddressParams, queryAddress, queryResult.resolveOptions],
+  );
+
+  useEffect(() => {
+    if (!hasAppliedQueryContextRef.current) {
+      hasAppliedQueryContextRef.current = true;
+      return;
+    }
+    if (!textRef.current) {
+      return;
+    }
+    // Drop stale validation while the new account/network/token request runs.
+    setQueryResult({});
+    onChangeRef.current?.({
+      raw: textRef.current,
+      pending: true,
     });
-  }, [
-    inputText,
-    networkId,
-    accountId,
-    enableNameResolve,
-    enableAddressBook,
-    enableWalletName,
-    enableAddressInteractionStatus,
-    enableAddressContract,
-    enableVerifySendFundToSelf,
-    enableAllowListValidation,
-    refreshNum,
-    queryAddress,
-    ignoreSimilarAddressInAddressBook,
-    enableCheckSimilarAddressInAddressBook,
-  ]);
+  }, [accountId, networkId, tokenAddress]);
+
+  // Query address validation when text changes
+  useEffect(() => {
+    void queryAddress(buildQueryAddressParams());
+  }, [buildQueryAddressParams, queryAddress, refreshNum]);
 
   // When focus state changes, re-query address validation
   // Store previous focus state for comparison
@@ -572,56 +556,32 @@ export function AddressInput(props: IAddressInputProps) {
       prevIsFocused.current !== undefined &&
       prevIsFocused.current !== isFocused
     ) {
-      void queryAddress({
-        address: inputText,
-        networkId,
-        accountId,
-        enableAddressBook,
-        enableAddressInteractionStatus,
-        enableNameResolve,
-        enableWalletName,
-        enableVerifySendFundToSelf,
-        enableAddressContract,
-        enableAllowListValidation,
-        ignoreSimilarAddressInAddressBook,
-      });
+      void queryAddress(buildQueryAddressParams());
     }
     prevIsFocused.current = isFocused;
-  }, [
-    inputText,
-    networkId,
-    accountId,
-    enableNameResolve,
-    enableAddressBook,
-    enableWalletName,
-    enableAddressInteractionStatus,
-    enableAddressContract,
-    enableVerifySendFundToSelf,
-    enableAllowListValidation,
-    refreshNum,
-    queryAddress,
-    isFocused,
-    ignoreSimilarAddressInAddressBook,
-  ]);
+  }, [buildQueryAddressParams, isFocused, queryAddress, refreshNum]);
 
   useEffect(() => {
     if (Object.keys(queryResult).length === 0) return;
+    const nextValue = {
+      raw: queryResult.input,
+      pending: false,
+      isContract: queryResult.isContract,
+      similarAddress: queryResult.similarAddress,
+      cexSupportedInfo: queryResult.cexSupportedInfo,
+    };
     if (queryResult.validStatus === 'valid') {
       clearErrors(name);
       onChange?.({
-        raw: queryResult.input,
+        ...nextValue,
         resolved: getAddressQueryResolvedAddress(queryResult),
-        pending: false,
-        isContract: queryResult.isContract,
-        similarAddress: queryResult.similarAddress,
       });
     } else {
       const translationId = getAddressValidateTranslationId(
         queryResult.validStatus,
       );
       onChange?.({
-        raw: queryResult.input,
-        pending: false,
+        ...nextValue,
         validateError: {
           type: queryResult.validStatus,
           translationId,
@@ -629,8 +589,6 @@ export function AddressInput(props: IAddressInputProps) {
             ? intl.formatMessage({ id: translationId })
             : undefined,
         },
-        isContract: queryResult.isContract,
-        similarAddress: queryResult.similarAddress,
       });
     }
   }, [queryResult, intl, clearErrors, setError, name, onChange]);
@@ -815,9 +773,10 @@ export function AddressInput(props: IAddressInputProps) {
   );
 }
 
-export function AddressInputField(
-  props: IAddressInputProps & { name: string },
-) {
+export function AddressInputField({
+  labelAddon,
+  ...props
+}: IAddressInputProps & { name: string; labelAddon?: ReactNode }) {
   const intl = useIntl();
   const {
     enableAllowListValidation,
@@ -867,6 +826,7 @@ export function AddressInputField(
     <AddressInputContext.Provider value={contextValue}>
       <Form.Field
         label={intl.formatMessage({ id: ETranslations.global_recipient })}
+        labelAddon={labelAddon}
         name={name}
         description={hintDescription}
         renderErrorMessage={

@@ -1,15 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
-import { useWindowDimensions } from 'react-native';
 
-import {
-  Button,
-  SizableText,
-  XStack,
-  YStack,
-  useMedia,
-} from '@onekeyhq/components';
+import { Button, XStack, YStack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -44,18 +37,13 @@ export function MarketRecommendList({
 }: IMarketRecommendListProps) {
   const intl = useIntl();
   const actions = useWatchListV2Action();
-  const { height: windowHeight } = useWindowDimensions();
-  const { gtMd } = useMedia();
-  // Show the heading only on spacious layouts; compact screens (mobile web,
-  // extension popup, narrow windows) already get context from the tab bar.
-  // Native is excluded regardless of size: its empty state relies on
-  // translateY offsets calibrated for title-less content (OK-57820).
-  const showTitle = !platformEnv.isNative && gtMd;
+  // No heading on any platform: the Watchlist tab already says where the
+  // user is, and native's translateY offsets are calibrated for title-less
+  // content (OK-57820).
   const containerPaddingTop = platformEnv.isExtensionUiPopup
     ? 0
     : getMarketRecommendContainerPaddingTop({
         isNative: Boolean(platformEnv.isNative),
-        windowHeight,
       });
 
   const uniqueTokens = useMemo(() => {
@@ -144,7 +132,10 @@ export function MarketRecommendList({
         isNative: token.isNative,
       }));
 
-      actions.addIntoWatchListV2(items);
+      const added = await actions.addIntoWatchListV2(items);
+      if (!added) {
+        return;
+      }
 
       // Log analytics for each token added to watchlist from recommend list
       selectedTokens.forEach((token) => {
@@ -197,27 +188,7 @@ export function MarketRecommendList({
       ai="center"
       width="100%"
     >
-      {showTitle ? (
-        <>
-          <SizableText size="$heading3xl" color="$text" textAlign="center">
-            {intl.formatMessage({
-              id: ETranslations.market_favorites_empty,
-            })}
-          </SizableText>
-          <SizableText
-            color="$textSubdued"
-            size="$bodyLg"
-            pt="$2"
-            textAlign="center"
-          >
-            {intl.formatMessage({
-              id: ETranslations.market_favorites_empty_desc,
-            })}
-          </SizableText>
-        </>
-      ) : null}
       <YStack
-        pt={showTitle ? '$6' : '$0'}
         gap="$2.5"
         width="100%"
         $gtMd={{ maxWidth: 480 }}

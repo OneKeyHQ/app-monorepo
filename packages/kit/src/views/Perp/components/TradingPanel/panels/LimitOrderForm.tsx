@@ -28,6 +28,7 @@ import {
   useBboForOrderPrice,
   useHyperliquidActions,
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
+import { shouldRedirectOnboardingToTravelMode } from '@onekeyhq/kit/src/utils/onboardingEntryGate';
 import {
   perpsActiveAccountStatusAtom,
   usePerpsAccountDisplayReadyAtom,
@@ -623,6 +624,7 @@ export function LimitOrderForm({
     ],
   );
   const shouldDisableAccountActionButtons = isTradingActionLoading;
+  const isConnectWalletDisabled = shouldRedirectOnboardingToTravelMode();
   const shouldShowFirstDepositAction = shouldShowPerpsFirstDepositPrompt({
     status: perpsAccountStatus,
     isLiveStatusPending: !perpsAccountDisplayReady.statusReady,
@@ -1205,7 +1207,9 @@ export function LimitOrderForm({
           testID="chart-limit-connect-wallet"
           variant="primary"
           onPress={() => void handleConnectWallet()}
-          disabled={shouldDisableAccountActionButtons}
+          disabled={
+            shouldDisableAccountActionButtons || isConnectWalletDisabled
+          }
           loading={isTradingActionLoading}
         >
           {intl.formatMessage({ id: ETranslations.global_connect_wallet })}
@@ -1221,6 +1225,7 @@ export function LimitOrderForm({
     handleConnectWallet,
     intl,
     isTradingActionLoading,
+    isConnectWalletDisabled,
     shouldDisableAccountActionButtons,
   ]);
   const reduceOnlyLabel = intl.formatMessage({
@@ -1330,6 +1335,7 @@ export function LimitOrderForm({
         sliderPercent={sizePercent}
         onRequestManualMode={switchToManual}
         allowMarginInput={!isSpot}
+        ifOnDialog
         leverage={leverage}
         inputRef={sizeInputRef}
         minimumOrderActionRef={minimumOrderActionRef}
@@ -1364,7 +1370,7 @@ export function LimitOrderForm({
                 height={LIMIT_ORDER_CHECKBOX_SIZE}
               />
               <DashText
-                size="$bodyMdMedium"
+                size="$bodyMd"
                 color="$text"
                 dashColor="$textDisabled"
                 dashThickness={0.5}

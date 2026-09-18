@@ -29,6 +29,7 @@ export function WebView({
   tradingViewProps,
   style,
   onLoadEnd,
+  onLoadError,
 }: {
   tradingViewProps: {
     uri: string;
@@ -36,6 +37,7 @@ export function WebView({
   style: ViewStyle;
 } & WebViewProps & {
     onLoadEnd: () => void;
+    onLoadError?: () => void;
   }) {
   const iframeId = useMemo(() => generateUUID(), []);
   useEffect(() => {
@@ -46,12 +48,13 @@ export function WebView({
           onLoadEnd();
         }, 800);
       };
+      frame.onerror = () => onLoadError?.();
     }
     // Fallback to dismiss loading screen
     setTimeout(() => {
       onLoadEnd();
     }, 3500);
-  }, [iframeId, onLoadEnd, tradingViewProps.uri]);
+  }, [iframeId, onLoadEnd, onLoadError, tradingViewProps.uri]);
   const { gtMd } = useMedia();
   return (
     <div style={{ ...(style as any), position: 'relative' }}>

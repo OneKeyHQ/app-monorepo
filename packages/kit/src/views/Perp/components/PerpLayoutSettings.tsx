@@ -251,7 +251,7 @@ export function PerpLayoutSettingsContent() {
   const copy = useLayoutSettingsCopy();
   const [perpsCustomSettings, setPerpsCustomSettings] =
     usePerpsCustomSettingsAtom();
-  const selectedPosition = perpsCustomSettings.chartPosition ?? 'top';
+  const selectedPosition = perpsCustomSettings.chartPosition ?? 'bottom';
 
   const handleSelect = useCallback(
     (chartPosition: IPerpsChartPosition) => {

@@ -4,6 +4,11 @@
 
 #import "JPUSHService.h"
 #import "RCTJPushModule.h"
+
+BOOL OneKeyIsTravelModeMaskingData(void);
+BOOL OneKeyForceDisableTravelModeForRecovery(void);
+void OneKeyConfigureNativeSentryCrashDiagnostics(id options);
+void OneKeyFlushNativeCrashDiagnostics(NSTimeInterval timeout);
 // Forward declaration for SplitBundleLoader (C++ TurboModule header can't be imported in Swift bridging)
 @interface SplitBundleLoader : NSObject
 + (void)loadEntryBundle:(NSString *)bundlePath inHost:(id)host;

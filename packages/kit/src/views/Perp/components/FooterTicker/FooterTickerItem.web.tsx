@@ -95,8 +95,6 @@ function FooterTickerItem({
         color={color}
         style={TABULAR_NUMS_STYLE}
         flexShrink={0}
-        minWidth="7ch"
-        textAlign="right"
         whiteSpace="nowrap"
       >
         {changeText}
@@ -107,7 +105,6 @@ function FooterTickerItem({
         style={TABULAR_NUMS_STYLE}
         flexShrink={0}
         minWidth={priceMinWidth}
-        textAlign="right"
         whiteSpace="nowrap"
       >
         {priceText}

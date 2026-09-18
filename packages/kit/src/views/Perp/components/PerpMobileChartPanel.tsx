@@ -296,11 +296,7 @@ export function PerpMobileChartPanel({
           </SizableText>
           <XStack alignItems="center" gap="$3">
             <Icon
-              name={
-                isExpanded
-                  ? 'ChevronDownSmallOutline'
-                  : 'ChevronTopSmallOutline'
-              }
+              name="ChevronTriangleUpSmallSolid"
               size="$5"
               color="$iconSubdued"
             />

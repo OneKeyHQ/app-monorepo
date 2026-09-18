@@ -5,6 +5,7 @@ import stringify from 'fast-json-stable-stringify';
 
 import type { IKeyOfIcons, IXStackProps } from '@onekeyhq/components';
 import {
+  HeightTransition,
   Icon,
   ListView,
   SizableText,
@@ -14,11 +15,9 @@ import {
   YStack,
   useMedia,
 } from '@onekeyhq/components';
-import {
-  ANIMATE_ONLY_OPACITY,
-  ANIMATE_ONLY_TRANSFORM,
-} from '@onekeyhq/components/src/utils/animationConstants';
+import { ANIMATE_ONLY_TRANSFORM } from '@onekeyhq/components/src/utils/animationConstants';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 // ==================== Types ====================
 
@@ -511,22 +510,22 @@ function TableListRow<T>({
           </Stack>
         ) : null}
       </ListItem>
-      {expandable && expandable.renderExpandedContent ? (
-        <YStack
-          px="$5"
-          py={isExpanded ? '$4' : '$0'}
-          transition="quick"
-          animateOnly={ANIMATE_ONLY_OPACITY}
-          opacity={isExpanded ? 1 : 0}
-          maxHeight={isExpanded ? 1000 : 0}
-          overflow="hidden"
-          {...(!isExpanded && {
-            pointerEvents: 'none' as const,
-            display: 'none' as const,
-          })}
-        >
-          {expandable.renderExpandedContent(item, index)}
-        </YStack>
+      {expandable ? (
+        <HeightTransition hide={!isExpanded}>
+          <YStack
+            px="$5"
+            py="$4"
+            pointerEvents={isExpanded ? 'auto' : 'none'}
+            aria-hidden={!isExpanded}
+            accessibilityElementsHidden={!isExpanded}
+            importantForAccessibility={
+              isExpanded ? 'auto' : 'no-hide-descendants'
+            }
+            {...(platformEnv.isNative ? {} : { inert: !isExpanded })}
+          >
+            {expandable.renderExpandedContent(item, index)}
+          </YStack>
+        </HeightTransition>
       ) : null}
     </YStack>
   );
@@ -745,6 +744,7 @@ function BasicTableList<T>({
   return (
     <ListView
       data={sortedData}
+      extraData={expandedRowIndex}
       keyExtractor={keyExtractor}
       renderItem={renderItem}
       ListHeaderComponent={headerComponent}

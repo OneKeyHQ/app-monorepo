@@ -1,3 +1,5 @@
+import { MARKET_CATEGORY_WITHOUT_NETWORK_FILTER_ID } from '@onekeyhq/shared/src/consts/marketConsts';
+
 export function getMarketTokenListApiNetworkId({
   networkId,
   isAllNetworks,
@@ -7,5 +9,9 @@ export function getMarketTokenListApiNetworkId({
   isAllNetworks: boolean;
   type?: string;
 }) {
-  return isAllNetworks || type === 'stocks' ? '' : networkId;
+  return isAllNetworks ||
+    type === 'stocks' ||
+    type === MARKET_CATEGORY_WITHOUT_NETWORK_FILTER_ID
+    ? ''
+    : networkId;
 }

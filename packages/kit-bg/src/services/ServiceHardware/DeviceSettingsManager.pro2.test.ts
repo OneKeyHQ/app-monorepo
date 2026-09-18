@@ -7,6 +7,7 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import deviceHomeScreenUtils from '@onekeyhq/shared/src/utils/deviceHomeScreenUtils';
 import { EHardwareVendor } from '@onekeyhq/shared/types/device';
 
 import localDb from '../../dbs/local/localDb';
@@ -166,15 +167,15 @@ describe('DeviceSettingsManager device adapters', () => {
 
     await manager.setDeviceLabel({
       walletId: 'wallet-1',
-      label: 'Renamed Pro 2',
+      label: ' OneKey-Pro_2 ',
     });
 
     expect(deviceSettings).toHaveBeenCalledWith('PRO2_CONNECT_ID', {
-      label: 'Renamed Pro 2',
+      label: 'OneKey-Pro_2',
     });
   });
 
-  test.each(['OneKey-Pro2', 'OneKey_Pro2', 'OneKey　Pro2', '一键Pro2'])(
+  test.each(['OneKey　Pro2', '一键Pro2', 'A'.repeat(15)])(
     'rejects unsupported label %s before calling the SDK',
     async (label) => {
       const deviceSettings = jest.fn();
@@ -184,33 +185,42 @@ describe('DeviceSettingsManager device adapters', () => {
 
       await expect(
         manager.setDeviceLabel({ walletId: 'wallet-1', label }),
-      ).rejects.toThrow('only support ASCII letters, numbers, and spaces');
+      ).rejects.toThrow(ETranslations.global_hardware_label_input_error);
       expect(deviceSettings).not.toHaveBeenCalled();
     },
   );
 
   test.each([
-    [EDeviceType.Pro2, { pinType: DeviceSessionPinType.Any }],
-    [EDeviceType.Touch, {}],
+    [EDeviceType.Pro2, 'runtime', { pinType: DeviceSessionPinType.Any }],
+    [EDeviceType.Touch, 'settings', {}],
   ])(
-    'uses the expected PIN policy when reading %s advanced settings',
-    async (deviceType, expectedPinParams) => {
+    'uses conditional unlock with the expected PIN policy when reading %s advanced settings',
+    async (deviceType, expectedScope, expectedPinParams) => {
       const device = buildDevice(deviceType);
       jest.spyOn(localDb, 'getWalletDevice').mockResolvedValue(device);
       const unlockDevice = jest.fn(async () => undefined);
+      const state = {
+        status: {
+          initialized: true,
+          unlocked: true,
+          passphraseProtection: true,
+        },
+      };
+      const getDeviceStateWithUnlock = jest.fn(async () => state);
+      const getDeviceStateByWallet = jest.fn(async () => state);
       const backgroundApi = {
         serviceHardware: {
           unlockDevice,
-          getDeviceStateByWallet: jest.fn(async () => ({
-            status: { passphraseProtection: true },
-          })),
+          getDeviceStateWithUnlock,
+          getDeviceStateByWallet,
           getDeviceSupportFeatures: jest.fn(async () => ({
             inputPinOnSoftware: { support: true },
           })),
         },
         serviceHardwareUI: {
           withHardwareProcessing: jest.fn(
-            async (action: () => Promise<unknown>) => action(),
+            async (action: (lease: object) => Promise<unknown>) =>
+              action({ deviceKey: 'device-db-id', owner: Symbol('test') }),
           ),
         },
       } as unknown as IBackgroundApi;
@@ -222,10 +232,18 @@ describe('DeviceSettingsManager device adapters', () => {
         passphraseEnabled: true,
         inputPinOnSoftwareSupport: true,
       });
-      expect(unlockDevice).toHaveBeenCalledWith({
+      expect(getDeviceStateWithUnlock).toHaveBeenCalledWith({
         connectId: device.connectId,
+        params: { scope: expectedScope },
+        oneKeyOperationLease: expect.objectContaining({
+          deviceKey: 'device-db-id',
+        }),
         ...expectedPinParams,
       });
+      expect(unlockDevice).not.toHaveBeenCalled();
+      expect(getDeviceStateByWallet).toHaveBeenCalledTimes(
+        deviceType === EDeviceType.Pro2 ? 1 : 0,
+      );
     },
   );
 
@@ -616,6 +634,46 @@ describe('DeviceSettingsManager device adapters', () => {
       expect(result).toMatchObject({ message: 'Success', applyScreen: true });
     },
   );
+
+  test('allows an empty user upload to clear a monochrome home screen', async () => {
+    const device = buildDevice(EDeviceType.Classic);
+    // oxlint-disable-next-line typescript/unbound-method -- Jest mock does not depend on a bound this
+    jest.mocked(localDb.getDevice).mockResolvedValueOnce(device);
+    jest
+      .mocked(deviceHomeScreenUtils.isMonochromeScreen)
+      .mockReturnValueOnce(true);
+    const manager = new DeviceSettingsManager({
+      backgroundApi: {
+        serviceHardware: {
+          waitForDeviceStateSync: jest.fn(async () => undefined),
+          getDeviceState: jest.fn(async () => undefined),
+        },
+        serviceHardwareUI: {
+          withHardwareProcessing: jest.fn(
+            async (action: () => Promise<unknown>) => action(),
+          ),
+        },
+      } as unknown as IBackgroundApi,
+    });
+    const applySettingsToDevice = jest
+      .spyOn(manager, 'applySettingsToDevice')
+      .mockResolvedValue({ message: 'Success' });
+
+    const result = await manager.setDeviceHomeScreen({
+      dbDeviceId: device.id,
+      screenItem: {
+        id: 'solid-wallpaper',
+        resType: 'custom',
+        screenHex: '',
+        isUserUpload: true,
+      },
+    });
+
+    expect(applySettingsToDevice).toHaveBeenCalledWith(device.connectId, {
+      homescreen: '',
+    });
+    expect(result).toMatchObject({ message: 'Success', applyScreen: true });
+  });
 
   test.each([
     [

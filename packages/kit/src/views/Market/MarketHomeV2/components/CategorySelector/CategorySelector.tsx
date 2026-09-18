@@ -70,6 +70,7 @@ function CategorySelectorImpl({
         {categories.map((item) => (
           <CategoryFilterItemWithLayout
             key={item.id}
+            testID={`market-category-${item.id}`}
             id={item.id}
             name={item.name}
             icon={item.icon}
@@ -101,6 +102,7 @@ function CategorySelectorImpl({
       {categories.map((item) => (
         <CategoryFilterItem
           key={item.id}
+          testID={`market-category-${item.id}`}
           name={item.name}
           icon={item.icon}
           iconName={item.iconName}

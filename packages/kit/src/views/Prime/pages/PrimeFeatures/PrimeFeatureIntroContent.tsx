@@ -29,6 +29,7 @@ import {
   useMedia,
 } from '@onekeyhq/components';
 import type { IVideoRef } from '@onekeyhq/components';
+import { fs } from '@onekeyhq/components/src/utils/scale';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
@@ -495,6 +496,7 @@ export function PrimeFeatureIntroContent({
   }, [mode, onClose]);
   const { ensurePrimeSubscriptionActive } = usePrimeRequirements({
     onPurchase: handlePurchaseStart,
+    networkId: networkId ?? network?.id,
   });
 
   const features = PRIME_FEATURE_INTROS;
@@ -990,7 +992,14 @@ export function PrimeFeatureIntroContent({
           </Badge>
         ) : null}
       </XStack>
-      <SizableText textAlign="center" size="$bodyLg" color="$textSubdued">
+      <SizableText
+        textAlign="center"
+        size="$bodyLg"
+        color="$textSubdued"
+        height={fs(24) * 2}
+        numberOfLines={2}
+        ellipsizeMode="tail"
+      >
         {intl.formatMessage(
           {
             id: activeFeature.description,
@@ -1101,7 +1110,7 @@ export function PrimeFeatureIntroContent({
               height={MEDIA_HEIGHT}
               index={activeIndex}
               data={features}
-              keyExtractor={(item) => item.id}
+              keyExtractor={(item: IPrimeFeatureIntro) => item.id}
               onChangeIndex={({ index }) => setActiveIndex(index)}
               renderItem={renderMedia}
               renderPagination={renderPagination}

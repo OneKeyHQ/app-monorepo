@@ -27,6 +27,8 @@ jest.mock('@onekeyhq/components', () => {
     __esModule: true,
     Dialog: { show: dialogShow, Footer: DialogFooter },
     SizableText: Text,
+    Spinner: (props: Record<string, unknown>) =>
+      React.createElement(View, props),
     Stack: View,
     Switch: (props: Record<string, unknown>) =>
       React.createElement(View, props),
@@ -35,14 +37,20 @@ jest.mock('@onekeyhq/components', () => {
   };
 });
 
-jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
-  __esModule: true,
-  default: {
-    serviceStaking: {
-      getBorrowTransactionConfirmation: jest.fn(),
+jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => {
+  const getBorrowTransactionConfirmation = jest.fn();
+  (globalThis as Record<string, unknown>).__collateralCellServiceMock = {
+    getBorrowTransactionConfirmation,
+  };
+  return {
+    __esModule: true,
+    default: {
+      serviceStaking: {
+        getBorrowTransactionConfirmation,
+      },
     },
-  },
-}));
+  };
+});
 
 jest.mock('@onekeyhq/kit/src/components/DeFi/DeFiActionTxConfirmResult', () => {
   const showDeFiActionTxConfirmDialog = jest.fn();
@@ -66,16 +74,6 @@ jest.mock('@onekeyhq/kit/src/utils/waitForTxFinalStatus', () => {
   (globalThis as Record<string, unknown>).__collateralCellWaitStatusMock =
     waitForTxFinalStatus;
   return { __esModule: true, waitForTxFinalStatus };
-});
-
-jest.mock('@onekeyhq/kit/src/hooks/usePromiseResult', () => {
-  const usePromiseResult = jest.fn();
-  (globalThis as Record<string, unknown>).__collateralCellPromiseResultMock =
-    usePromiseResult;
-  return {
-    __esModule: true,
-    usePromiseResult,
-  };
 });
 
 jest.mock('@onekeyhq/shared/src/utils/earnUtils', () => ({
@@ -129,6 +127,7 @@ import type { ReactElement } from 'react';
 import { act, render } from '@testing-library/react-native';
 
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EOnChainHistoryTxStatus } from '@onekeyhq/shared/types/history';
 import type {
   IBorrowReserveItem,
@@ -154,8 +153,10 @@ const waitStatusMock = (globalThis as Record<string, unknown>)
   .__collateralCellWaitStatusMock as jest.Mock;
 const contextMock = (globalThis as Record<string, unknown>)
   .__collateralCellContextMock as jest.Mock;
-const promiseResultMock = (globalThis as Record<string, unknown>)
-  .__collateralCellPromiseResultMock as jest.Mock;
+const serviceMock = (globalThis as Record<string, unknown>)
+  .__collateralCellServiceMock as {
+  getBorrowTransactionConfirmation: jest.Mock;
+};
 const setCollateralMocks = (globalThis as Record<string, unknown>)
   .__collateralCellSetCollateralMock as {
   setCollateral: jest.Mock;
@@ -165,6 +166,14 @@ const setCollateralMocks = (globalThis as Record<string, unknown>)
 const switchTestId = 'borrow-supplied-collateral-switch';
 const pendingSetCollateralTx = {
   stakingInfo: { tags: ['borrow:aave:setCollateral'] },
+};
+const scopedPendingSetCollateralTx = {
+  stakingInfo: {
+    tags: [
+      'borrow:aave:setCollateral',
+      'borrow:aave:setCollateral:v1:evm--1:0xmarket:0xusde',
+    ],
+  },
 };
 const successData = [
   {
@@ -192,6 +201,19 @@ function createSuppliedAsset(
   } as unknown as ISuppliedAsset;
 }
 
+// Renders the switch, but disabled: Aave lets an inactive position turn on
+// only while the backend reports it eligible.
+function createIneligibleSuppliedAsset(
+  reserveAddress = '0xreserve',
+): ISuppliedAsset {
+  return {
+    reserveAddress,
+    usageAsCollateral: false,
+    canBeCollateral: false,
+    token: { symbol: 'USDC' },
+  } as unknown as ISuppliedAsset;
+}
+
 async function flushMicrotasks() {
   await Promise.resolve();
   await Promise.resolve();
@@ -200,10 +222,12 @@ async function flushMicrotasks() {
 
 function createDeferred<T>() {
   let resolve!: (value: T) => void;
-  const promise = new Promise<T>((innerResolve) => {
+  let reject!: (reason: Error) => void;
+  const promise = new Promise<T>((innerResolve, innerReject) => {
     resolve = innerResolve;
+    reject = innerReject;
   });
-  return { promise, resolve };
+  return { promise, resolve, reject };
 }
 
 describe('CollateralSwitchCell settlement guard', () => {
@@ -231,10 +255,9 @@ describe('CollateralSwitchCell settlement guard', () => {
     waitStatusMock.mockReset();
     waitStatusMock.mockResolvedValue(undefined);
     contextMock.mockReset();
-    promiseResultMock.mockReset();
-    promiseResultMock.mockReturnValue({
-      result: { canBeCollateral: true },
-      isLoading: false,
+    serviceMock.getBorrowTransactionConfirmation.mockReset();
+    serviceMock.getBorrowTransactionConfirmation.mockResolvedValue({
+      canBeCollateral: true,
     });
     setCollateralMocks.setCollateral.mockReset();
     setCollateralMocks.useUniversalBorrowSetCollateral.mockClear();
@@ -272,6 +295,7 @@ describe('CollateralSwitchCell settlement guard', () => {
   afterEach(() => {
     jest.clearAllTimers();
     jest.useRealTimers();
+    jest.restoreAllMocks();
   });
 
   const getSwitch = (view: ReturnType<typeof render>) =>
@@ -295,6 +319,138 @@ describe('CollateralSwitchCell settlement guard', () => {
     };
   }
 
+  it('uses a press-based switch without a competing row handler on iOS', () => {
+    jest.replaceProperty(platformEnv, 'isNative', true);
+    jest.replaceProperty(platformEnv, 'isNativeIOS', true);
+
+    const view = render(
+      <CollateralSwitchCell item={createSuppliedAsset(true)} eModeId={1} />,
+    );
+
+    expect(getSwitch(view).props.native).toBe(false);
+    expect(getSwitch(view).props.accessibilityRole).toBe('switch');
+    expect(getSwitch(view).props.accessibilityState).toEqual({
+      checked: true,
+      disabled: false,
+    });
+    expect(
+      view.UNSAFE_root.findAll(
+        (node) => typeof node.props.onPress === 'function',
+      ),
+    ).toHaveLength(0);
+  });
+
+  // A disabled Tamagui switch attaches no press events and no responder claim,
+  // so without a handler here the touch reaches the position card behind the
+  // cell and toggles it. Only when disabled: an enabled switch must keep
+  // winning the responder as the deeper claimant.
+  it('claims the touch on native only while the switch is disabled', () => {
+    jest.replaceProperty(platformEnv, 'isNative', true);
+    jest.replaceProperty(platformEnv, 'isNativeIOS', true);
+
+    const view = render(
+      <CollateralSwitchCell
+        item={createIneligibleSuppliedAsset()}
+        eModeId={1}
+      />,
+    );
+
+    expect(getSwitch(view).props.disabled).toBe(true);
+    const handlers = view.UNSAFE_root.findAll(
+      (node) => typeof node.props.onPress === 'function',
+    );
+    expect(handlers).toHaveLength(1);
+    expect(handlers[0].props.position).toBe('relative');
+  });
+
+  it('claims it on Android too, where the platform control may not', () => {
+    jest.replaceProperty(platformEnv, 'isNative', true);
+    jest.replaceProperty(platformEnv, 'isNativeIOS', false);
+
+    const view = render(
+      <CollateralSwitchCell
+        item={createIneligibleSuppliedAsset()}
+        eModeId={1}
+      />,
+    );
+
+    expect(
+      view.UNSAFE_root.findAll(
+        (node) => typeof node.props.onPress === 'function',
+      ),
+    ).toHaveLength(1);
+  });
+
+  it('stops desktop row propagation without cancelling the switch event', () => {
+    jest.replaceProperty(platformEnv, 'isNative', false);
+    jest.replaceProperty(platformEnv, 'isNativeIOS', false);
+
+    const view = render(
+      <CollateralSwitchCell item={createSuppliedAsset(true)} eModeId={1} />,
+    );
+    const [rowHandler] = view.UNSAFE_root.findAll(
+      (node) => typeof node.props.onPress === 'function',
+    );
+    const stopPropagation = jest.fn();
+    const preventDefault = jest.fn();
+
+    const onPress = rowHandler?.props.onPress as
+      | ((event: {
+          stopPropagation: () => void;
+          preventDefault: () => void;
+        }) => void)
+      | undefined;
+    onPress?.({ stopPropagation, preventDefault });
+
+    expect(getSwitch(view).props.native).toBe(true);
+    expect(stopPropagation).toHaveBeenCalledTimes(1);
+    expect(preventDefault).not.toHaveBeenCalled();
+  });
+
+  // A padded halo pulled back with a negative margin lands outside this view's
+  // parent, where Android never hit-tests and hitSlop is ignored, while on web
+  // it swallowed the desktop row press and overhung the next column. Nothing to
+  // buy either: web, the extension and iOS all render the same 38x24 track, at
+  // the WCAG 2.5.8 floor, iOS with an added hitSlop, and Android alone hands
+  // off to the platform control, which is larger.
+  it('keeps the press target on the track instead of a padded halo', () => {
+    const view = render(
+      <CollateralSwitchCell item={createSuppliedAsset(false)} eModeId={0} />,
+    );
+    const wrapper = view.UNSAFE_getByProps({ position: 'relative' });
+
+    // Every spelling, not just the shorthand the halo happened to use: a
+    // longhand px/py/margin would reintroduce the same overhang.
+    const spacing = [
+      'm',
+      'margin',
+      'mx',
+      'my',
+      'ml',
+      'mr',
+      'mt',
+      'mb',
+      'marginHorizontal',
+      'marginVertical',
+      'p',
+      'padding',
+      'px',
+      'py',
+      'pl',
+      'pr',
+      'pt',
+      'pb',
+      'paddingHorizontal',
+      'paddingVertical',
+      'hitSlop',
+    ] as const;
+    const set = spacing.filter(
+      (key) => (wrapper.props as Record<string, unknown>)[key] !== undefined,
+    );
+
+    expect(set).toEqual([]);
+  });
+
   it('uses the top-level account id and preserves eModeId=0 when enabling', async () => {
     borrowContext.earnAccount.data.accountId = 'top-level-account';
     const view = render(
@@ -316,14 +472,20 @@ describe('CollateralSwitchCell settlement guard', () => {
         reserveAddress: '0xreserve',
         useAsCollateral: true,
         eModeId: 0,
+        stakingInfo: expect.objectContaining({
+          tags: expect.arrayContaining([
+            'borrow:aave:setCollateral',
+            'borrow:aave:setCollateral:v1:evm--1:0xmarket:0xreserve',
+          ]),
+        }),
       }),
     );
   });
 
   it('ignores collateral eligibility and omits eModeId when disabling', async () => {
-    promiseResultMock.mockReturnValue({
-      result: { canBeCollateral: false, liquidationRisk: false },
-      isLoading: false,
+    serviceMock.getBorrowTransactionConfirmation.mockResolvedValue({
+      canBeCollateral: false,
+      liquidationRisk: false,
     });
     const view = render(
       <CollateralSwitchCell item={createSuppliedAsset(true)} eModeId={1} />,
@@ -359,7 +521,7 @@ describe('CollateralSwitchCell settlement guard', () => {
   it('keeps an unsupported Aave native position visible but disables collateral changes', () => {
     borrowContext.market = {
       ...borrowContext.market,
-      networkId: 'evm--42161',
+      networkId: 'evm--10',
     };
 
     const view = render(
@@ -369,15 +531,32 @@ describe('CollateralSwitchCell settlement guard', () => {
     expect(getSwitch(view).props.disabled).toBe(true);
   });
 
+  it('disables only the reserve matched by a scoped pending transaction', () => {
+    borrowContext.pendingTxs = [scopedPendingSetCollateralTx];
+
+    const matchingView = render(
+      <CollateralSwitchCell
+        item={createSuppliedAsset(true, '0xUsDe')}
+        eModeId={1}
+      />,
+    );
+    const siblingView = render(
+      <CollateralSwitchCell
+        item={createSuppliedAsset(true, '0xUsDt')}
+        eModeId={1}
+      />,
+    );
+
+    expect(getSwitch(matchingView).props.disabled).toBe(true);
+    expect(getSwitch(siblingView).props.disabled).toBe(false);
+  });
+
   it('allows a successful preview that omits optional collateral eligibility', async () => {
-    promiseResultMock.mockReturnValue({
-      result: {
-        healthFactor: {
-          current: { title: { text: '22.39' } },
-          latest: { title: { text: '24.18' } },
-        },
+    serviceMock.getBorrowTransactionConfirmation.mockResolvedValue({
+      healthFactor: {
+        current: { title: { text: '22.39' } },
+        latest: { title: { text: '24.18' } },
       },
-      isLoading: false,
     });
     const view = render(
       <CollateralSwitchCell item={createSuppliedAsset(false)} eModeId={0} />,
@@ -390,40 +569,23 @@ describe('CollateralSwitchCell settlement guard', () => {
     [
       'the live preview rejects collateral eligibility',
       { canBeCollateral: false },
-      false,
       true,
       false,
     ],
-    ['the live preview is unavailable', undefined, false, true, false],
-    ['the live preview has not started', undefined, undefined, false, false],
-    ['the disable preview is unavailable', undefined, false, true, true],
-    [
-      'the live preview is loading',
-      { canBeCollateral: true },
-      true,
-      false,
-      false,
-    ],
+    ['the live preview is unavailable', undefined, true, false],
+    ['the disable preview is unavailable', undefined, true, true],
     [
       'the live preview reports liquidation risk',
       { canBeCollateral: true, liquidationRisk: true },
-      false,
       false,
       true,
     ],
   ])(
     'blocks confirmation when %s',
-    async (
-      _title,
-      confirmation,
-      isLoading,
-      showsUnavailable,
-      usageAsCollateral,
-    ) => {
-      promiseResultMock.mockReturnValue({
-        result: confirmation,
-        isLoading,
-      });
+    async (_title, confirmation, showsUnavailable, usageAsCollateral) => {
+      serviceMock.getBorrowTransactionConfirmation.mockResolvedValue(
+        confirmation,
+      );
       let dialogOptions: ITestDialogOptions | undefined;
       const close = jest.fn(async () => dialogOptions?.onClose?.());
       componentsMock.dialogShow.mockImplementation(
@@ -457,9 +619,6 @@ describe('CollateralSwitchCell settlement guard', () => {
           typeof node.props.onConfirm === 'function',
       );
       expect(footer).toBeDefined();
-      if (isLoading === undefined) {
-        expect(footer?.props.confirmButtonProps?.loading).toBe(true);
-      }
       const onConfirm = footer?.props.onConfirm as
         | (() => Promise<void>)
         | undefined;
@@ -476,6 +635,112 @@ describe('CollateralSwitchCell settlement guard', () => {
         dialogOptions?.onClose?.();
         await flushMicrotasks();
       });
+    },
+  );
+
+  it.each([
+    { scope: 'eMode', oldFinishesFirst: true, oldFails: false },
+    { scope: 'eMode', oldFinishesFirst: true, oldFails: true },
+    { scope: 'eMode', oldFinishesFirst: false, oldFails: false },
+    { scope: 'account', oldFinishesFirst: true, oldFails: false },
+    { scope: 'market', oldFinishesFirst: true, oldFails: false },
+  ])(
+    'releases a stale $scope preview without unlocking the new operation ($oldFinishesFirst, $oldFails)',
+    async ({ scope, oldFinishesFirst, oldFails }) => {
+      const oldPreview = createDeferred<{ canBeCollateral: boolean }>();
+      const newPreview = createDeferred<{ canBeCollateral: boolean }>();
+      serviceMock.getBorrowTransactionConfirmation
+        .mockReturnValueOnce(oldPreview.promise)
+        .mockReturnValueOnce(newPreview.promise);
+      let dialogOptions: ITestDialogOptions | undefined;
+      componentsMock.dialogShow.mockImplementation(
+        (options: ITestDialogOptions) => {
+          dialogOptions = options;
+          return { close: jest.fn(async () => options.onClose?.()) };
+        },
+      );
+      const item = createSuppliedAsset(false);
+      const view = render(<CollateralSwitchCell item={item} eModeId={1} />);
+      const toggle = async () => {
+        await act(async () => {
+          const { onChange } = getSwitch(view).props as {
+            onChange: () => void;
+          };
+          onChange();
+          await flushMicrotasks();
+        });
+      };
+      await toggle();
+      expect(getSwitch(view).props.disabled).toBe(true);
+
+      if (scope === 'account') {
+        borrowContext = {
+          ...borrowContext,
+          earnAccount: { data: { account: { id: 'account-2' } } },
+        };
+      } else if (scope === 'market') {
+        borrowContext = {
+          ...borrowContext,
+          market: { ...borrowContext.market, marketAddress: '0xother-market' },
+        };
+      }
+      view.rerender(
+        <CollateralSwitchCell
+          item={item}
+          eModeId={scope === 'eMode' ? 2 : 1}
+        />,
+      );
+      expect(getSwitch(view).props.disabled).toBe(false);
+      await toggle();
+      await toggle();
+      expect(
+        serviceMock.getBorrowTransactionConfirmation,
+      ).toHaveBeenCalledTimes(2);
+
+      const finishOldPreview = async () => {
+        await act(async () => {
+          if (oldFails) {
+            oldPreview.reject(new Error('stale preview failed'));
+          } else {
+            oldPreview.resolve({ canBeCollateral: true });
+          }
+          await flushMicrotasks();
+        });
+      };
+      if (oldFinishesFirst) {
+        await finishOldPreview();
+        expect(getSwitch(view).props.disabled).toBe(true);
+        expect(componentsMock.dialogShow).not.toHaveBeenCalled();
+        await toggle();
+        expect(
+          serviceMock.getBorrowTransactionConfirmation,
+        ).toHaveBeenCalledTimes(2);
+      }
+      await act(async () => {
+        newPreview.resolve({ canBeCollateral: true });
+        await flushMicrotasks();
+      });
+      expect(componentsMock.dialogShow).toHaveBeenCalledTimes(1);
+      expect(getSwitch(view).props.disabled).toBe(false);
+      if (!oldFinishesFirst) {
+        await finishOldPreview();
+      }
+      await toggle();
+      expect(
+        serviceMock.getBorrowTransactionConfirmation,
+      ).toHaveBeenCalledTimes(2);
+      expect(componentsMock.dialogShow).toHaveBeenCalledTimes(1);
+      expect(setCollateralMocks.setCollateral).not.toHaveBeenCalled();
+
+      await act(async () => {
+        dialogOptions?.onClose?.();
+        await flushMicrotasks();
+      });
+      await toggle();
+      expect(
+        serviceMock.getBorrowTransactionConfirmation,
+      ).toHaveBeenCalledTimes(3);
+      expect(setCollateralMocks.setCollateral).not.toHaveBeenCalled();
     },
   );
 

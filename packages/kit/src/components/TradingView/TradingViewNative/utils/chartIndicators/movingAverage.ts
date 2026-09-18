@@ -61,6 +61,7 @@ export function buildTradingViewNativeMovingAverageSeries({
         indicator,
         key: `${indicator.toLowerCase()}-${index + 1}`,
         kind: 'line' as const,
+        legendLabel: `${indicator}${line.period}`,
         paint: MOVING_AVERAGE_PAINTS[index],
         style: getTradingViewNativeIndicatorSeriesStyle(line, settings),
         values: calculate(closeValues, line.period),

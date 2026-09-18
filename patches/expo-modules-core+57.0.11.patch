@@ -1,0 +1,121 @@
+diff --git a/node_modules/expo-modules-core/ios/Core/AppContext.swift b/node_modules/expo-modules-core/ios/Core/AppContext.swift
+index 6c5d6ee..89be0d5 100644
+--- a/node_modules/expo-modules-core/ios/Core/AppContext.swift
++++ b/node_modules/expo-modules-core/ios/Core/AppContext.swift
+@@ -127,6 +127,10 @@ public final class AppContext: NSObject, EXAppContextProtocol, @unchecked Sendab
+    */
+   @objc
+   public var appIdentifier: String? {
++    // OneKey patch: bridgeless hosts do not expose a React bridge.
++    if let hostWrapper {
++      return hostWrapper.appIdentifier
++    }
+     guard let moduleRegistry = reactBridge?.moduleRegistry else {
+       return nil
+     }
+diff --git a/node_modules/expo-modules-core/ios/Fabric/EXHostWrapper.h b/node_modules/expo-modules-core/ios/Fabric/EXHostWrapper.h
+index 7af19c9..02a7ac8 100644
+--- a/node_modules/expo-modules-core/ios/Fabric/EXHostWrapper.h
++++ b/node_modules/expo-modules-core/ios/Fabric/EXHostWrapper.h
+@@ -12,6 +12,9 @@
+ NS_SWIFT_NAME(ExpoHostWrapper)
+ @interface EXHostWrapper : NSObject
+
++// OneKey patch: namespace Fabric views by their owning RCTHost.
++@property(nonatomic, readonly, nonnull) NSString *appIdentifier;
++
+ #ifdef __cplusplus
+ - (instancetype _Nonnull)initWithHost:(RCTHost * _Nonnull)host;
+ #endif
+diff --git a/node_modules/expo-modules-core/ios/Fabric/EXHostWrapper.mm b/node_modules/expo-modules-core/ios/Fabric/EXHostWrapper.mm
+index a460eb0..b660bda 100644
+--- a/node_modules/expo-modules-core/ios/Fabric/EXHostWrapper.mm
++++ b/node_modules/expo-modules-core/ios/Fabric/EXHostWrapper.mm
+@@ -2,6 +2,7 @@
+
+ #import <ExpoModulesCore/EXHostWrapper.h>
+
++#import <stdint.h>
+ #import <ReactCommon/RCTHost.h>
+ #import <ReactCommon/RCTHost+Internal.h>
+ #import <React/RCTSurfacePresenter.h>
+@@ -10,16 +11,25 @@
+
+ @implementation EXHostWrapper {
+   __weak RCTHost *_host;
++  NSString *_appIdentifier;
+ }
+
+ - (instancetype)initWithHost:(RCTHost *)host
+ {
+   if (self = [super init]) {
+     _host = host;
++    // OneKey patch: RCTHost owns the runtime and stays stable across reloads.
++    _appIdentifier = [NSString stringWithFormat:@"%llu",
++                                                (unsigned long long)(uintptr_t)(__bridge void *)host];
+   }
+   return self;
+ }
+
++- (NSString *)appIdentifier
++{
++  return _appIdentifier;
++}
++
+ - (nullable id)findModuleWithName:(nonnull NSString *)name lazilyLoadIfNecessary:(BOOL)lazilyLoadIfNecessary
+ {
+   RCTModuleRegistry *moduleRegistry = _host.moduleRegistry;
+diff --git a/node_modules/expo-modules-core/ios/Fabric/ExpoFabricView.swift b/node_modules/expo-modules-core/ios/Fabric/ExpoFabricView.swift
+index 5b15751..401e8b5 100644
+--- a/node_modules/expo-modules-core/ios/Fabric/ExpoFabricView.swift
++++ b/node_modules/expo-modules-core/ios/Fabric/ExpoFabricView.swift
+@@ -92,12 +92,18 @@ open class ExpoFabricView: ExpoFabricViewObjC, AnyExpoView {
+
+       // only set the prop if the value has changed
+       if !areValuesEqual(previousValue, convertedNewValue) {
++        // OneKey patch: do not swallow failed conversions or mark them as applied.
+         // TODO: @tsapeta: Figure out better way to rethrow errors from here.
+         // Adding `throws` keyword to the function results in different
+         // method signature in Objective-C. Maybe just call `RCTLogError`?
+-        try? prop.set(value: convertedNewValue, onView: self, appContext: context)
+-
+-        previousProps[key] = convertedNewValue
++        do {
++          try prop.set(value: convertedNewValue, onView: self, appContext: context)
++          previousProps[key] = convertedNewValue
++        } catch {
++          log.error(
++            "Updating Fabric prop '\(key)' has failed: \(error.localizedDescription)"
++          )
++        }
+       }
+     }
+   }
+@@ -171,6 +179,7 @@ open class ExpoFabricView: ExpoFabricViewObjC, AnyExpoView {
+   }
+
+   internal static var viewClassesRegistry = [String: AnyClass]()
++  internal static var viewClassAppIdentifiersRegistry = [String: String]()
+
+   /**
+    Dynamically creates a subclass of the `ExpoFabricView` class with injected app context and name of the associated module.
+@@ -180,6 +189,11 @@ open class ExpoFabricView: ExpoFabricViewObjC, AnyExpoView {
+    */
+   @objc
+   public static func makeViewClass(forAppContext appContext: AppContext, moduleName: String, viewName: String, className: String) -> AnyClass? {
++    let appIdentifier = appContext.appIdentifier ?? ""
++    if let registeredAppIdentifier = viewClassAppIdentifiersRegistry[className], registeredAppIdentifier != appIdentifier {
++      // OneKey patch: never rebind one Fabric class to a different React host.
++      fatalError("Cannot bind Fabric view class '\(className)' to a different app context")
++    }
+     if let viewClass = viewClassesRegistry[className] {
+       inject(appContext: appContext)
+       injectInitializer(appContext: appContext, moduleName: moduleName, viewName: viewName, toViewClass: viewClass)
+@@ -193,6 +207,7 @@ open class ExpoFabricView: ExpoFabricViewObjC, AnyExpoView {
+
+     // Save the allocated view class in the registry for the later use (e.g. when the app is reloaded).
+     viewClassesRegistry[className] = viewClass
++    viewClassAppIdentifiersRegistry[className] = appIdentifier
+
+     return viewClass
+   }
