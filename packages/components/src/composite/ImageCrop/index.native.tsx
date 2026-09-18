@@ -29,6 +29,10 @@ function BasicImageCrop() {
   return null;
 }
 
+// A fixed JPEG prefix is always correct: the native module decodes every
+// picked or cropped image, HEIC and PNG included, and re-encodes it as JPEG
+// on both platforms, so `data` is JPEG and `mime` is always image/jpeg.
+// That is also why `forceJpg` is no longer passed.
 const BASE64_PREFIX = `data:${RESULT_MINE_TYPE};base64,`;
 
 // The page background, header and footer Button tokens, so the native
