@@ -2306,18 +2306,55 @@ export class SimpleDbEntityPrime extends SimpleDbEntityBase<ISimpleDBPrime> {
   }
 
   @backgroundMethod()
+  async findInfiniPaymentForTransfer({
+    transferClaim,
+  }: {
+    transferClaim: IPrimeInfiniPaymentTransferClaim;
+  }): Promise<IPrimeInfiniPendingPaymentSession | undefined> {
+    const rawData = await this.getRawData();
+    // Legacy history has no invoice binding. Include expired and superseded
+    // sessions so an old payment cannot silently fall back to an ordinary send.
+    const sessions = [
+      ...Object.values(rawData?.infiniPendingPaymentSessionByUserId ?? {}),
+      ...Object.values(
+        rawData?.infiniSupersededPaymentSessionsByUserId ?? {},
+      ).flat(),
+    ];
+    const matches = sessions.filter((session) =>
+      isPrimeInfiniPaymentTransferClaimForSession({ session, transferClaim }),
+    );
+    if (
+      matches.some(
+        (session) =>
+          !isSamePrimeInfiniPaymentCacheKey(
+            session.paymentCacheKey,
+            matches[0]?.paymentCacheKey,
+          ),
+      )
+    ) {
+      throw new OneKeyLocalError({
+        message: 'Infini replacement payment binding is ambiguous',
+        autoToast: false,
+      });
+    }
+    return matches[0];
+  }
+
+  @backgroundMethod()
   async markInfiniPendingPaymentSessionSendStarted({
     onekeyUserId,
     paymentCacheKey,
     transferClaim,
     latestPayment,
     purchaseStatusSnapshot,
+    mode = 'initial',
   }: {
     onekeyUserId: string;
     paymentCacheKey: IPrimeInfiniPaymentCacheKey;
     transferClaim: IPrimeInfiniPaymentTransferClaim;
     latestPayment: IPrimeInfiniPayment;
     purchaseStatusSnapshot: IPrimeInfiniPurchaseStatusSnapshot;
+    mode?: 'initial' | 'speedUp';
   }): Promise<IPrimeInfiniPendingPaymentSession> {
     let markedSession: IPrimeInfiniPendingPaymentSession | undefined;
     await this.setRawData((rawData) => {
@@ -2375,7 +2412,9 @@ export class SimpleDbEntityPrime extends SimpleDbEntityBase<ISimpleDBPrime> {
           session: currentSession,
           transferClaim,
         }) ||
-        currentSession.sendStarted
+        // A fee replacement belongs to the already-claimed payment. Never
+        // clear that latch or let replacement admission claim an unsent invoice.
+        currentSession.sendStarted !== (mode === 'speedUp')
       ) {
         throw new OneKeyLocalError({
           message: 'Infini payment session is unavailable before broadcast',
@@ -2391,7 +2430,12 @@ export class SimpleDbEntityPrime extends SimpleDbEntityBase<ISimpleDBPrime> {
         lastValidatedAt: now,
         payment: paymentWithDurableProgress,
         sendStarted: true,
-        updatedAt: now,
+        // Replacement leaves sendStarted true. Advance the revision even in
+        // the same millisecond so a stale terminal discard cannot erase it.
+        updatedAt:
+          mode === 'speedUp'
+            ? Math.max(now, currentSession.updatedAt + 1)
+            : now,
       };
       return {
         ...rawData,

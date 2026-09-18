@@ -1,3 +1,4 @@
+/* cspell:ignore Infini */
 import type { ISizableTextProps } from '@onekeyhq/components';
 import type { ETranslations } from '@onekeyhq/shared/src/locale';
 
@@ -5,6 +6,7 @@ import type { IAddressBadge, IAddressInfo } from './address';
 import type { ICurrencyItem } from './currency';
 import type { IKytHistoryResult } from './kyt';
 import type { IAccountNFT } from './nft';
+import type { IPrimeInfiniBeforeBroadcastAction } from './prime/primeTypes';
 import type { IStakingInfo } from './staking';
 import type { IToken } from './token';
 import type {
@@ -186,6 +188,8 @@ export type IAccountHistoryTx = {
 
   decodedTx: IDecodedTx;
   stakingInfo?: IStakingInfo;
+  // Local invoice binding retained across fee replacements and indexer merges.
+  primeInfiniPayment?: IPrimeInfiniBeforeBroadcastAction;
 
   originalId?: string; // for ton
 };

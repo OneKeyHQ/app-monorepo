@@ -4,10 +4,19 @@
  */
 
 import type { HTMLAttributes, ReactNode } from 'react';
+import { createRef } from 'react';
 
 import { DialogContainer } from '.';
 
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from '@testing-library/react';
+
+import type { IDialogInstance } from './type';
 
 let mockIsSheet = false;
 const mockClose = jest.fn(() => Promise.resolve());
@@ -108,6 +117,39 @@ jest.mock('./Header', () => {
 });
 jest.mock('./DialogScrollView', () => ({}));
 jest.mock('./renderToContainer', () => ({}));
+
+it('notifies dismissal before waiting for the close animation', async () => {
+  const dialogRef = createRef<IDialogInstance>();
+  const closeOrder: string[] = [];
+  let finishAnimation = () => {};
+  const animation = new Promise<void>((resolve) => {
+    finishAnimation = resolve;
+  });
+  const onCloseRequested = jest.fn(() => {
+    closeOrder.push('requested');
+  });
+  const onClose = jest.fn(() => {
+    closeOrder.push('animation');
+    return animation;
+  });
+  render(
+    <DialogContainer
+      ref={dialogRef}
+      showHeader={false}
+      showFooter={false}
+      onCloseRequested={onCloseRequested}
+      onClose={onClose}
+    />,
+  );
+  act(() => {
+    void dialogRef.current?.close();
+  });
+  expect(closeOrder).toEqual(['requested', 'animation']);
+  await act(async () => {
+    finishAnimation();
+    await animation;
+  });
+});
 
 describe.each([false, true])('Dialog opening focus (sheet: %s)', (isSheet) => {
   beforeEach(() => {

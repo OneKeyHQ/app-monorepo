@@ -2074,6 +2074,65 @@ describe('ServicePrime Infini payment APIs', () => {
     ).rejects.toThrow('Invalid Infini payment response');
   });
 
+  it('captures a checkout identity without exposing the request token', async () => {
+    const { service } = createInfiniService();
+    await expect(service.getInfiniCheckoutAuthContext()).resolves.toEqual({
+      onekeyUserId: 'user-a',
+      authSessionSource: EPrimeAuthSessionSource.KeylessOAuth,
+      authStateGeneration: 3,
+    });
+  });
+
+  it.each([
+    'userChanged',
+    'loggedOut',
+    'authGenerationChanged',
+    'authSourceChanged',
+  ])('invalidates an existing checkout when %s', async (change) => {
+    const { service, simpleDbPrime } = createInfiniService();
+    const context = await service.getInfiniCheckoutAuthContext();
+    await expect(
+      service.isInfiniCheckoutAuthContextCurrent({ context }),
+    ).resolves.toBe(true);
+    if (change === 'userChanged') {
+      mockPrimePersistAtom.get.mockResolvedValue({
+        ...userA,
+        onekeyUserId: 'user-b',
+      });
+    } else if (change === 'loggedOut') {
+      mockPrimePersistAtom.get.mockResolvedValue({
+        ...userA,
+        isLoggedIn: false,
+      });
+    } else if (change === 'authSourceChanged') {
+      simpleDbPrime.getAuthSessionSource.mockResolvedValue(
+        EPrimeAuthSessionSource.LegacyEmailSupabase,
+      );
+    } else {
+      // A -> B -> A retains the visible user but replaces the login epoch.
+      simpleDbPrime.getAuthStateGeneration.mockResolvedValue(5);
+    }
+    await expect(
+      service.isInfiniCheckoutAuthContextCurrent({ context }),
+    ).resolves.toBe(false);
+  });
+
+  it('rejects a stale checkout identity before sending the creation request', async () => {
+    const { service, simpleDbPrime } = createInfiniService();
+    const authContext = await service.getInfiniCheckoutAuthContext();
+    simpleDbPrime.getAuthStateGeneration.mockResolvedValue(5);
+    const post = jest.fn();
+    service.getPrimeClient = jest.fn(async () => ({ post }));
+    await expect(
+      service.apiGetInfiniCheckoutUrl({
+        plan: 'monthly',
+        expectedOneKeyUserId: 'user-a',
+        authContext,
+      }),
+    ).rejects.toThrow('Prime purchase user changed');
+    expect(post).not.toHaveBeenCalled();
+  });
+
   it('pins the validated session token on hosted checkout creation', async () => {
     const { service } = createInfiniService();
     const post = jest.fn(async () => ({
