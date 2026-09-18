@@ -99,6 +99,9 @@ function getMocks() {
     isAppLocked: jest.requireMock(
       '../../../background/instance/backgroundApiProxy',
     ).__isAppLocked as jest.Mock,
+    resetApp: jest.requireMock(
+      '../../../background/instance/backgroundApiProxy',
+    ).default.serviceApp.resetApp as jest.Mock,
   };
 }
 
@@ -190,5 +193,17 @@ describe('useResetApp', () => {
         portalContainer: 'APP_STATE_LOCK_CONTAINER_OVERLAY',
       }),
     );
+  });
+
+  it('propagates reset failures to the caller', async () => {
+    const resetError = new Error('AppStorage clear failed');
+    getMocks().resetApp.mockRejectedValue(resetError);
+    const { result } = renderHook(() => useResetApp({ silentReset: true }));
+
+    await expect(
+      act(async () => {
+        await result.current();
+      }),
+    ).rejects.toBe(resetError);
   });
 });

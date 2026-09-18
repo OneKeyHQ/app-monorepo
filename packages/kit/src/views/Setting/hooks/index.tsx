@@ -74,8 +74,9 @@ export function useResetApp(
         resetUtils.startResetting();
       }
       await backgroundApiProxy.serviceApp.resetApp();
-    } catch (e) {
-      console.error('failed to reset app with error', e);
+    } catch (error) {
+      console.error('failed to reset app with error', error);
+      throw error;
     } finally {
       // able setInterval on ext popup
       if (platformEnv.isExtensionUiPopup) {
