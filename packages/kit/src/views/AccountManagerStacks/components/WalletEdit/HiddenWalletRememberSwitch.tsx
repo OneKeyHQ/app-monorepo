@@ -21,7 +21,20 @@ export function HiddenWalletRememberSwitch({
 }: {
   wallet: IDBWallet | undefined;
 }) {
-  const [val, setVal] = useState(!wallet?.isTemp);
+  const walletId = wallet?.id;
+  const isTemp = wallet?.isTemp;
+  const [val, setVal] = useState(!isTemp);
+  // This component stays mounted while the user moves between hidden wallets,
+  // so the local switch state must follow the focused wallet (and the
+  // persisted flag the list refresh brings back) instead of the first wallet
+  // it was seeded from (OK-63622). Adjusting state during render avoids a
+  // frame that shows the previous wallet's value.
+  const seedKey = `${walletId ?? ''}:${String(isTemp)}`;
+  const [prevSeedKey, setPrevSeedKey] = useState(seedKey);
+  if (prevSeedKey !== seedKey) {
+    setPrevSeedKey(seedKey);
+    setVal(!isTemp);
+  }
   const intl = useIntl();
 
   return (
@@ -69,13 +82,13 @@ export function HiddenWalletRememberSwitch({
         size={ESwitchSize.small}
         value={val}
         onChange={async () => {
-          if (!wallet?.id) {
+          if (!walletId) {
             return;
           }
           const newVal = !val;
           try {
             await backgroundApiProxy.serviceAccount.setWalletTempStatus({
-              walletId: wallet?.id,
+              walletId,
               isTemp: !newVal,
             });
             setVal(newVal);
