@@ -13,7 +13,7 @@ import {
 } from './firmwareUpdateInstallViewModel';
 
 describe('firmwareUpdateInstallViewModel', () => {
-  test('maps every tip into one of six stages', () => {
+  test('maps every tip into one of the install stages', () => {
     expect(getFirmwareUpdateStage({ progressType: undefined })).toBe(
       'preparing',
     );
@@ -38,6 +38,11 @@ describe('firmwareUpdateInstallViewModel', () => {
     expect(
       getFirmwareUpdateStage({
         progressType: EFirmwareUpdateTipMessages.StartTransferData,
+      }),
+    ).toBe('transferring');
+    expect(
+      getFirmwareUpdateStage({
+        progressType: EFirmwareUpdateTipMessages.InstallingFirmware,
       }),
     ).toBe('installing');
     expect(
@@ -98,11 +103,11 @@ describe('firmwareUpdateInstallViewModel', () => {
     firmwareLabel: 'Firmware',
     bootloaderLabel: 'Bootloader',
     bluetoothLabel: 'Bluetooth',
-    getFirmwareTypeLabel: (type: EFirmwareType | undefined) =>
-      type === EFirmwareType.BitcoinOnly ? 'Bitcoin-only' : 'Universal',
+    getFirmwareVersionPrefix: (type: EFirmwareType | undefined) =>
+      type === EFirmwareType.BitcoinOnly ? 'Bitcoin' : undefined,
   };
 
-  test('lists legacy parts in install order and labels a type switch', () => {
+  test('lists legacy parts in install order and marks the Bitcoin-only side of a type switch', () => {
     const result = {
       updateInfos: {
         bootloader: {
@@ -133,10 +138,32 @@ describe('firmwareUpdateInstallViewModel', () => {
         item: primary!,
         isVersionValid: () => true,
       }),
-    ).toEqual({ from: 'Universal 4.21.0', to: 'Bitcoin-only 4.21.0' });
+    ).toEqual({ from: '4.21.0', to: 'Bitcoin 4.21.0' });
   });
 
-  test('keeps bare versions when the firmware type does not change', () => {
+  test('marks both sides of a Bitcoin-only to Bitcoin-only update', () => {
+    const result = {
+      updateInfos: {
+        firmware: {
+          hasUpgrade: true,
+          fromVersion: '4.12.0',
+          toVersion: '4.13.0',
+          fromFirmwareType: EFirmwareType.BitcoinOnly,
+          toFirmwareType: EFirmwareType.BitcoinOnly,
+        },
+      },
+    } as unknown as ICheckAllFirmwareReleaseResult;
+    const [item] = getFirmwareUpdateItems({
+      result,
+      protocolV2Items: [],
+      ...labels,
+    });
+    expect(
+      formatFirmwareUpdateVersionRange({ item, isVersionValid: () => true }),
+    ).toEqual({ from: 'Bitcoin 4.12.0', to: 'Bitcoin 4.13.0' });
+  });
+
+  test('keeps bare versions for the universal build', () => {
     const result = {
       updateInfos: {
         firmware: {

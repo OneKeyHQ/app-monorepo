@@ -19,6 +19,14 @@ import { isMarketNavigationTargetApplied } from './marketNavigationTarget';
 import { useNavigateToMarketTab } from './useNavigateToMarketTab';
 
 const mockSetMarketSelectedTab = jest.fn();
+const mockNavigationLogger = {
+  navigateToMarketTab: jest.fn<void, [{ navigationId: number }]>(),
+  pendingNavigationCancelled: jest.fn(),
+  performNavigationStart: jest.fn(),
+  performNavigationDispatched: jest.fn(),
+  performNavigationComplete: jest.fn(),
+  performNavigationFailed: jest.fn(),
+};
 let mockMarketSelectedTab: IMarketSelectedTabAtom = { tab: 'trending' };
 
 jest.mock('@onekeyhq/components', () => ({
@@ -43,6 +51,17 @@ jest.mock('@onekeyhq/shared/src/eventBus/appEventBus', () => ({
   },
   appEventBus: {
     emit: jest.fn(),
+  },
+}));
+
+jest.mock('@onekeyhq/shared/src/logger/logger', () => ({
+  defaultLogger: {
+    market: {
+      // Lazy: jest.mock factories run before module-scope mocks initialize.
+      get navigation() {
+        return mockNavigationLogger;
+      },
+    },
   },
 }));
 
@@ -101,6 +120,13 @@ describe('useNavigateToMarketTab', () => {
 
     expect(mockSetMarketSelectedTab).toHaveBeenCalledTimes(1);
     expect(mockSwitchTabAsync).not.toHaveBeenCalled();
+    expect(mockNavigationLogger.navigateToMarketTab).toHaveBeenCalledWith(
+      expect.objectContaining({
+        target: expect.objectContaining({ tab: 'watchlist' }),
+        selection: { tab: 'trending' },
+        waitForSelection: true,
+      }),
+    );
 
     act(() => {
       jest.advanceTimersByTime(300);
@@ -127,11 +153,25 @@ describe('useNavigateToMarketTab', () => {
       },
     );
     expect(onNavigationComplete).not.toHaveBeenCalled();
+    expect(mockNavigationLogger.performNavigationStart).toHaveBeenCalledWith(
+      expect.objectContaining({
+        trigger: 'selectionApplied',
+        platform: 'native',
+      }),
+    );
+    expect(
+      mockNavigationLogger.performNavigationDispatched,
+    ).toHaveBeenCalledWith(
+      expect.objectContaining({ hasRootNavigationRef: true }),
+    );
 
     act(() => {
       jest.advanceTimersByTime(149);
     });
     expect(onNavigationComplete).not.toHaveBeenCalled();
+    expect(
+      mockNavigationLogger.performNavigationComplete,
+    ).not.toHaveBeenCalled();
 
     act(() => {
       jest.advanceTimersByTime(1);
@@ -141,6 +181,9 @@ describe('useNavigateToMarketTab', () => {
       { tab: ETranslations.global_market },
     );
     expect(onNavigationComplete).toHaveBeenCalledTimes(1);
+    expect(
+      mockNavigationLogger.performNavigationComplete,
+    ).toHaveBeenCalledTimes(1);
 
     await act(async () => {
       rerender();
@@ -174,6 +217,9 @@ describe('useNavigateToMarketTab', () => {
 
     expect(mockSwitchTabAsync).toHaveBeenCalledTimes(1);
     expect(onNavigationComplete).not.toHaveBeenCalled();
+    expect(mockNavigationLogger.performNavigationStart).toHaveBeenCalledWith(
+      expect.objectContaining({ trigger: 'timeout' }),
+    );
 
     act(() => {
       jest.advanceTimersByTime(150);
@@ -222,6 +268,23 @@ describe('useNavigateToMarketTab', () => {
     expect(mockSwitchTabAsync).toHaveBeenCalledTimes(1);
     expect(firstOnNavigationComplete).not.toHaveBeenCalled();
     expect(secondOnNavigationComplete).toHaveBeenCalledTimes(1);
+
+    const [[firstRequestLog], [secondRequestLog]] =
+      mockNavigationLogger.navigateToMarketTab.mock.calls;
+    expect(
+      mockNavigationLogger.pendingNavigationCancelled,
+    ).toHaveBeenCalledWith(
+      expect.objectContaining({
+        navigationId: firstRequestLog.navigationId,
+        reason: 'superseded',
+      }),
+    );
+    expect(mockNavigationLogger.performNavigationStart).toHaveBeenCalledWith(
+      expect.objectContaining({
+        navigationId: secondRequestLog.navigationId,
+        trigger: 'timeout',
+      }),
+    );
   });
 
   it('cancels pending navigation when the hook unmounts', async () => {
@@ -244,6 +307,10 @@ describe('useNavigateToMarketTab', () => {
     expect(mockSwitchTabAsync).not.toHaveBeenCalled();
     expect(mockRootNavigationRef.current.navigate).not.toHaveBeenCalled();
     expect(onNavigationComplete).not.toHaveBeenCalled();
+    expect(
+      mockNavigationLogger.pendingNavigationCancelled,
+    ).toHaveBeenCalledWith(expect.objectContaining({ reason: 'unmount' }));
+    expect(mockNavigationLogger.performNavigationStart).not.toHaveBeenCalled();
   });
 });
 

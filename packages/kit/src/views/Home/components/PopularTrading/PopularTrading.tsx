@@ -52,6 +52,7 @@ import { CategorySelector } from '../../../Market/MarketHomeV2/components/Catego
 import { getNativeTokenInfo } from '../../../Market/MarketHomeV2/components/MarketTokenList/utils/tokenListHelpers';
 import { useMarketTopCoinResolver } from '../../../Market/MarketHomeV2/components/MarketTopCoinsList/hooks/useMarketTopCoins';
 import { EMarketHomeTab } from '../../../Market/MarketHomeV2/types';
+import { openOrReplaceMarketDetailRoute } from '../../../Market/utils/marketDetailNavigation';
 import { RichBlock } from '../RichBlock/RichBlock';
 import { RichTable } from '../RichTable';
 
@@ -920,24 +921,34 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
 
       const navigateToTokenDetail = () => {
         if (requestId !== navigationRequestIdRef.current) return;
+        const routeName = record.stockId
+          ? ETabMarketRoutes.MarketStockDetail
+          : ETabMarketRoutes.MarketDetailV2;
+        const params = {
+          stockId: record.stockId,
+          stockPreviewLogoUrl: record.stockId ? record.logoUrl : undefined,
+          stockPreviewName: record.stockId ? record.name : undefined,
+          stockPreviewSymbol: record.stockId ? record.symbol : undefined,
+          tokenAddress: record.contractAddress,
+          network: shortCode || record.chainId,
+          isNative: record.isNative,
+          marketTokenId: record.marketTokenId,
+          marketVariantId: record.marketVariantId,
+          marketTokenCategory,
+        };
+        if (
+          openOrReplaceMarketDetailRoute({
+            routeName,
+            params,
+          })
+        ) {
+          return;
+        }
         rootNavigationRef.current?.navigate(ERootRoutes.Main, {
           screen: marketTab,
           params: {
-            screen: record.stockId
-              ? ETabMarketRoutes.MarketStockDetail
-              : ETabMarketRoutes.MarketDetailV2,
-            params: {
-              stockId: record.stockId,
-              stockPreviewLogoUrl: record.stockId ? record.logoUrl : undefined,
-              stockPreviewName: record.stockId ? record.name : undefined,
-              stockPreviewSymbol: record.stockId ? record.symbol : undefined,
-              tokenAddress: record.contractAddress,
-              network: shortCode || record.chainId,
-              isNative: record.isNative,
-              marketTokenId: record.marketTokenId,
-              marketVariantId: record.marketVariantId,
-              marketTokenCategory,
-            },
+            screen: routeName,
+            params,
           },
         });
       };
@@ -1080,6 +1091,7 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
 
   // Navigate to Market favorites tab
   const handleViewMore = useCallback(() => {
+    defaultLogger.market.navigation.homeViewMore({ selectedMarketCategoryId });
     if (selectedMarketCategoryId === HOME_PERPS_HOT_CATEGORY_ID) {
       navigateToMarketTab({
         tabToSelect: EMarketHomeTab.Perps,

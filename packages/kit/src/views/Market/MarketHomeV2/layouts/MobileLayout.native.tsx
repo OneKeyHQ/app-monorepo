@@ -29,6 +29,7 @@ import { useTabBarHeight } from '@onekeyhq/components/src/layouts/Page/hooks';
 import { useMarketWatchListV2Atom } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2';
 import { MARKET_TOP_COINS_CATEGORY_ID } from '@onekeyhq/shared/src/consts/marketConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IMarketAssetListItem } from '@onekeyhq/shared/types/market';
 
@@ -477,11 +478,15 @@ function MobileLayoutComponent({
     }
   }, [selectedStockCategoryId, stockCategories]);
   const activeSpotCategoryId = getSpotCategoryIdByTabName(activeTabName);
+  // Android renders the Stocks chips with the shared JS selector so they match
+  // the Favorites and Perps chips; the pager hands horizontal drags to any
+  // horizontal scroller in the sticky header, JS or native.
   const nativeSubHeader = useMemo<
     CollapsiblePagerNativeSubHeaderConfig | undefined
   >(
     () =>
       platformEnv.isNative &&
+      !platformEnv.isNativeAndroid &&
       isMarketStockCategoryById(
         filterBarProps.categories,
         activeSpotCategoryId,
@@ -601,8 +606,20 @@ function MobileLayoutComponent({
   useEffect(() => {
     if (!isFocused || isTabSelectionInFlight()) return;
     const targetIndex = tabNames.indexOf(selectedTabName);
-    if (targetIndex < 0) return;
+    const logResult = (result: 'jumped' | 'tabNotFound') => {
+      defaultLogger.market.navigation.marketHomePagerSync({
+        selectedTabName,
+        activeTabName: activeTabNameRef.current,
+        result,
+        tabCount: tabNames.length,
+      });
+    };
+    if (targetIndex < 0) {
+      logResult('tabNotFound');
+      return;
+    }
     if (targetIndex !== activeIndexRef.current) {
+      logResult('jumped');
       setPagerIndex(targetIndex, false);
     } else if (activeTabNameRef.current !== selectedTabName) {
       updateActivePage(targetIndex);
@@ -621,7 +638,10 @@ function MobileLayoutComponent({
       const index = tabNames.indexOf(tabName);
       if (index >= 0 && index !== activeIndexRef.current) {
         handleTabChange(tabName);
-        setPagerIndex(index, true);
+        // An animated setPage scrolls through every page in between, flashing
+        // unmounted (blank) pages and neighboring lists. Jump straight to the
+        // tapped page instead; swipes still animate between adjacent pages.
+        setPagerIndex(index, false);
       }
     },
     [handleTabChange, setPagerIndex, tabNames],
@@ -773,6 +793,7 @@ function MobileLayoutComponent({
         nativeSmoothHeaderScrollEnabled={platformEnv.isNative}
         testID="market-native-collapsible-pager"
         nativeTabBar={nativeTabBar}
+        nativeTabPressAnimationEnabled={false}
         nativeSubHeader={nativeSubHeader}
         onNativeTabPress={handleNativeTabPress}
         onNativeSubHeaderPress={handleNativeSubHeaderPress}

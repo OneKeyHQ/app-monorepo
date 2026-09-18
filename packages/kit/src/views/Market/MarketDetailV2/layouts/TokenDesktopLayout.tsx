@@ -252,7 +252,7 @@ export function TokenDesktopLayout({
           testID="market-token-detail-standard-trade"
           {...MARKET_DETAIL_TRADE_COLUMN_PROPS}
         >
-          <PerpetualTradingBanner px="$5" py="$5" />
+          <PerpetualTradingBanner px="$5" py="$5" reserveSpace />
           <MarketEmbeddedSwap
             swapToken={swapToken}
             inputDraftKey={swapInputDraftKey}

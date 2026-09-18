@@ -9,7 +9,13 @@ import {
 import type { ReactNode } from 'react';
 
 import { useIntl } from 'react-intl';
-import { Keyboard, PixelRatio, StyleSheet, View } from 'react-native';
+import {
+  AccessibilityInfo,
+  Keyboard,
+  PixelRatio,
+  StyleSheet,
+  View,
+} from 'react-native';
 import Animated, {
   Extrapolation,
   interpolate,
@@ -29,10 +35,6 @@ import { EHardwareVendor } from '@onekeyhq/shared/types/device';
 import { easeOutFn } from '../../content/deviceScene';
 import { HardwareDevice } from '../../content/HardwareDevice';
 import { LinearGradient } from '../../content/LinearGradient';
-import {
-  restoreAndroidSoftInputMode,
-  suspendAndroidSoftInputPan,
-} from '../../hooks/useKeyboardController';
 import {
   Button,
   Haptics,
@@ -57,6 +59,7 @@ import {
   useMorphOverlay,
 } from '../MorphOverlay';
 
+import { getCapsuleAccessibilityProps } from './accessibility';
 import { PassphraseForm, PinPad } from './AppInputs';
 import {
   CARD_ARRANGEMENTS,
@@ -530,6 +533,7 @@ export function DeviceStage({
   errorReason,
   errorMessage,
   errorI18n,
+  doneI18n,
   authChecklist,
   authFailureReason,
   onAuthSupport,
@@ -581,6 +585,7 @@ export function DeviceStage({
     errorMessage,
     errorI18n,
   );
+  const localizedDoneTitle = resolveErrorMessage(intl, undefined, doneI18n);
   // The failure's own words, where no reason claims it — the message the
   // live flow's toast used to speak. A reason's considered wording wins.
   const errorOwnWords = errorReason ? undefined : localizedErrorMessage;
@@ -640,25 +645,6 @@ export function DeviceStage({
     }
     fireStepHaptic(step);
   }, [step]);
-  // The system-keyboard steps own their lift: the shell already rides the
-  // keyboard (MorphOverlay), so the Android window must not pan on top of
-  // it. The manifest's adjustPan did exactly that for the passphrase field
-  // — it sits low on the screen, so the OS shoved the whole window up by
-  // the overlap while the shell rose by the keyboard's height, and the card
-  // ended a keyboard's worth above the keys with its title in the status
-  // bar (OK-62098). Adjust-nothing for the step's stay, the manifest mode
-  // back the moment it leaves. No-op off Android.
-  const systemKeyboardStep =
-    step === 'passphraseOnApp' || step === 'pairingCode';
-  useEffect(() => {
-    if (!systemKeyboardStep) {
-      return undefined;
-    }
-    suspendAndroidSoftInputPan();
-    return () => {
-      restoreAndroidSoftInputMode();
-    };
-  }, [systemKeyboardStep]);
   const handleGeometrySettled = useCallback(() => {
     setPoseInFlight(false);
   }, []);
@@ -673,6 +659,7 @@ export function DeviceStage({
     swapFade,
     progress,
     width: morphWidth,
+    reveal,
     pillSize,
     reducedMotion,
   } = morph;
@@ -1101,6 +1088,8 @@ export function DeviceStage({
   // fade gated by the card's arrival window, so a reveal racing the
   // teleport can never show the device at the wrong seat.
   const pillHeight = pillSize.height;
+  // Both windows also wear the island morph's reveal (see MorphOverlay),
+  // under the warm floor: the layer stays rasterized through the grow.
   const replicaLayerStyle = useAnimatedStyle(() => {
     // Layout-free centering: the box's live width in a transform,
     // snapped to the physical pixel grid — Yoga rounds layout but a
@@ -1123,7 +1112,7 @@ export function DeviceStage({
               [0, PILL_OUT_END],
               [1, 0],
               Extrapolation.CLAMP,
-            ),
+            ) * reveal.value,
             REPLICA_HOLD_ALPHA,
           ) * capsuleSeatShown.value,
         transform: [{ translateX: centerX }, { translateY: -REPLICA_TOP }],
@@ -1132,6 +1121,7 @@ export function DeviceStage({
     const staged =
       replicaShown.value *
       swapFade.value *
+      reveal.value *
       interpolate(
         progress.value,
         [CARD_IN_START, 1],
@@ -1153,6 +1143,7 @@ export function DeviceStage({
     progress,
     replicaShown,
     replicaWidth,
+    reveal,
     swapFade,
   ]);
   // At the thumbnail seat the window opens to the capsule's own height —
@@ -1163,20 +1154,35 @@ export function DeviceStage({
     }),
     [pillHeight, portHeight, progress],
   );
+  // The window itself rides to the thumbnail box at the row's start. The
+  // port stays replica-wide and clips, so shifting the device inside it
+  // instead pushed the thumbnail past the port's edge once the capsule
+  // outgrew the port (a two-line title widened it to the 288 cap and the
+  // seat vanished, OK-63523). Its own style: reading morphWidth beside the
+  // height would re-lay out the port on every frame of a width spring.
+  const portSeatStyle = useAnimatedStyle(
+    () => ({
+      transform: [
+        {
+          translateX:
+            progress.value < SEAT_SWAP_AT
+              ? PILL.pad +
+                CAPSULE_ROW.paddingX +
+                CAPSULE_ROW.thumbBox / 2 -
+                morphWidth.value / 2
+              : 0,
+        },
+      ],
+    }),
+    [morphWidth, progress],
+  );
   const deviceSeatStyle = useAnimatedStyle(() => {
     if (progress.value < SEAT_SWAP_AT) {
-      // Centered in the thumbnail box at the row's start, in port
-      // coordinates (the layer shift above pins the port to the face
-      // top): translate in parent units, then shrink about top-center.
+      // Centered in the thumbnail box, in port coordinates (the port sits
+      // at the seat and the layer shift above pins it to the face top):
+      // shrink about top-center.
       return {
         transform: [
-          {
-            translateX:
-              PILL.pad +
-              CAPSULE_ROW.paddingX +
-              CAPSULE_ROW.thumbBox / 2 -
-              morphWidth.value / 2,
-          },
           {
             translateY: pillHeight / 2 - (deviceHeight * thumbScale) / 2,
           },
@@ -1185,13 +1191,9 @@ export function DeviceStage({
       };
     }
     return {
-      transform: [
-        { translateX: 0 },
-        { translateY: 0 },
-        { scale: deviceScale.value },
-      ],
+      transform: [{ translateY: 0 }, { scale: deviceScale.value }],
     };
-  }, [deviceHeight, deviceScale, morphWidth, pillHeight, progress, thumbScale]);
+  }, [deviceHeight, deviceScale, pillHeight, progress, thumbScale]);
   // The fog belongs to the stage seats only: the capsule wears the whole
   // device, foot and all.
   const fogMotionStyle = useAnimatedStyle(
@@ -1214,8 +1216,13 @@ export function DeviceStage({
     [replicaLayerStyle, replicaWidth],
   );
   const portStyle = useMemo(
-    () => [styles.portWindow, { width: replicaWidth }, portWindowStyle],
-    [portWindowStyle, replicaWidth],
+    () => [
+      styles.portWindow,
+      { width: replicaWidth },
+      portWindowStyle,
+      portSeatStyle,
+    ],
+    [portSeatStyle, portWindowStyle, replicaWidth],
   );
   const deviceStyle = useMemo(
     () => [styles.miniature, deviceSeatStyle],
@@ -1376,8 +1383,8 @@ export function DeviceStage({
     resolveCapsuleText(intl, 'connecting', deviceName, vendor),
   );
   // The capsule's glyph seat freezes on the same clock as its words: the
-  // vendor's product shot for the device beats, the ✓ for `done`, the ✗
-  // for the notice, the Bluetooth badge for the wireless waits.
+  // vendor's product shot for the device beats, the ✓ for either track's
+  // `done`, the ✗ for the notice, the Bluetooth badge for the wireless waits.
   const capsuleGlyphRef = useRef<'device' | 'done' | 'error' | 'bluetooth'>(
     'device',
   );
@@ -1392,6 +1399,7 @@ export function DeviceStage({
       errorReason,
       localizedErrorMessage,
       waitStalled ? (connectionType ?? 'usb') : undefined,
+      localizedDoneTitle,
     );
     // Same words, same object: the capsule row's memo then bails on
     // every render that changed nothing it shows.
@@ -1403,8 +1411,10 @@ export function DeviceStage({
     }
     if (errorNotice) {
       capsuleGlyphRef.current = 'error';
+    } else if (step === 'done') {
+      capsuleGlyphRef.current = 'done';
     } else if (vendor) {
-      capsuleGlyphRef.current = step === 'done' ? 'done' : 'device';
+      capsuleGlyphRef.current = 'device';
     } else {
       // The wireless waits — connecting and processing alike — wear the
       // Bluetooth badge in the device seat: the replica steps aside
@@ -1421,11 +1431,23 @@ export function DeviceStage({
   const capsuleText = capsuleTextRef.current;
   const capsuleGlyph = capsuleGlyphRef.current;
 
+  const lastAnnouncedStepRef = useRef<IDeviceStageStep | undefined>(undefined);
+  useEffect(() => {
+    const previousStep = lastAnnouncedStepRef.current;
+    lastAnnouncedStepRef.current = step;
+    // iOS does not support live regions; announce each success once.
+    if (platformEnv.isNativeIOS && step === 'done' && previousStep !== 'done') {
+      AccessibilityInfo.announceForAccessibility(capsuleText.title);
+    }
+  }, [capsuleText.title, step]);
+
   // The seat gate's aim (declared with the notice logic above): the
   // frozen glyph decides the seat on the capsule's own clock, so the
   // exit keeps whatever the capsule last showed.
   const capsuleSeatCleared =
-    capsuleGlyph === 'error' || capsuleGlyph === 'bluetooth';
+    capsuleGlyph === 'done' ||
+    capsuleGlyph === 'error' ||
+    capsuleGlyph === 'bluetooth';
   useEffect(() => {
     const target = capsuleSeatCleared ? 0 : 1;
     if (reducedMotion || sceneEntryInstant) {
@@ -2171,15 +2193,16 @@ export function DeviceStage({
         px={CAPSULE_ROW.paddingX}
         gap={CAPSULE_ROW.gap}
         alignItems="center"
+        {...getCapsuleAccessibilityProps(capsuleGlyph, capsuleText.title)}
       >
         {/* The device's capsule seat, held open: the one standing replica
           wears the thumbnail arrangement over this box — the
           connecting-state device itself, never a second instance.
           Living outside the keyed row, it also never rebuilds when the
           capsule's words swap. The vendor track fills the same box
-          itself — a product shot, or the ✓ on `done` — since those
-          devices have no replica to seat here. The notice fills it with
-          the failure ✗ on both tracks, and the wireless waits
+          itself with a product shot since those devices have no replica
+          to seat here. The ✓ on `done` and the failure ✗ clear either
+          track's device seat, as do the wireless waits
           (connecting and processing) with the Bluetooth badge — the
           seat gate clears the replica for both (the wired waits keep
           the replica: the plugged-in device itself). */}

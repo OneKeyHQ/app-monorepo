@@ -135,6 +135,16 @@ export function resolveFirmwareUpdateErrorPresentation({
       retry,
     );
   }
+  // The SDK's device-id check: the plugged-in device is not the wallet's.
+  // Not the app's generic DeviceNotSame copy, which tells the user to re-add
+  // the wallet — here the fix is to reconnect the right device (OK-63528).
+  if (is(HardwareErrorCode.DeviceCheckDeviceIdError)) {
+    return build(
+      t(ETranslations.global_an_error_occurred),
+      t(ETranslations.firmware_update_device_mismatch__desc),
+      retry,
+    );
+  }
   if (
     is([
       HardwareErrorCode.FirmwareUpdateManuallyEnterBoot,
@@ -248,6 +258,13 @@ export function resolveFirmwareUpdateErrorPresentation({
       { kind: 'none' },
     );
   }
+  if (classifyFirmwareUpdateFailure(error) === 'transfer') {
+    return build(
+      t(ETranslations.global_update_failed),
+      t(ETranslations.firmware_update_error_transfer_interrupted),
+      retry,
+    );
+  }
   if (classifyFirmwareUpdateFailure(error) === 'timeout') {
     return build(
       t(ETranslations.global_an_error_occurred),
@@ -262,7 +279,14 @@ export function resolveFirmwareUpdateErrorPresentation({
       retry,
     );
   }
-  let message = error?.message;
+  // The error's own i18n key first: app errors carry one, and an error that
+  // reached here as a plain object may still wear the SDK's English
+  // sentence as its message.
+  const key = error?.key as ETranslations | undefined;
+  let message =
+    key && key in intl.messages
+      ? intl.formatMessage({ id: key }, error?.info)
+      : error?.message;
   if (error?.code === 4500) {
     message = t(ETranslations.feedback_hw_polling_time_out);
   }

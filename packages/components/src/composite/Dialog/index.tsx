@@ -59,6 +59,7 @@ import {
   useOverlayZIndex,
   useSafeAreaInsets,
 } from '../../hooks';
+import { useKeyboardAnimation } from '../../hooks/useKeyboardAnimation';
 import { usePageContext } from '../../layouts/Page/PageContext';
 import { ScrollView } from '../../layouts/ScrollView';
 import { SizableText, Spinner, Stack } from '../../primitives';
@@ -198,7 +199,7 @@ const useSafeKeyboardAnimationStyle = ({
       ? INITIAL_BOTTOM_INSET
       : bottom;
   const isNativeAndroid = Boolean(platformEnv.isNativeAndroid);
-  const keyboardHeightValue = useSharedValue(0);
+  const { height: keyboardHeight } = useKeyboardAnimation();
   const [trackedKeyboardHeight, setTrackedKeyboardHeight] = useState(0);
   // Keep the dialog clear of both the home indicator and the keyboard.
   // These are two independent concerns collapsed into one paddingBottom:
@@ -206,9 +207,12 @@ const useSafeKeyboardAnimationStyle = ({
   //   - keyboard height: only while the keyboard is shown (dynamic)
   // Android keyboard events exclude the bottom system-bar inset, while iOS
   // keyboard events already include it. Only restore the inset on Android.
+  // Read the keyboard-controller animation on every native frame. A portal-
+  // mounted fit Sheet can miss or defer a one-shot keyboardWillShow layout
+  // update, leaving its input behind the iOS keyboard until a later render.
   const animatedStyles = useAnimatedStyle(() => ({
     paddingBottom: getDialogKeyboardPaddingBottom({
-      keyboardHeight: keyboardHeightValue.value,
+      keyboardHeight: Math.abs(keyboardHeight.value),
       safeAreaBottom,
       isNativeAndroid,
     }),
@@ -220,13 +224,11 @@ const useSafeKeyboardAnimationStyle = ({
         e.endCoordinates.height < 0
           ? DEFAULT_KEYBOARD_HEIGHT
           : e.endCoordinates.height;
-      keyboardHeightValue.value = height;
       if (trackKeyboardPadding) {
         setTrackedKeyboardHeight(height);
       }
     },
     keyboardWillHide: () => {
-      keyboardHeightValue.value = 0;
       if (trackKeyboardPadding) {
         setTrackedKeyboardHeight(0);
       }
