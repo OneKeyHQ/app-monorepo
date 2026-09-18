@@ -1,4 +1,6 @@
 /* cspell:ignore ISWR IMMKV */
+import { isEqual } from 'lodash';
+
 import { defaultLogger } from '../logger/logger';
 import { EAppSyncStorageKeys } from '../storage/syncStorageKeys';
 
@@ -338,9 +340,66 @@ function perfNow(): number {
   return globalThis.performance?.now?.() ?? Date.now();
 }
 
+type IHermesHeapStats = {
+  gcCount: number;
+  gcTimeSeconds: number;
+  heapBytes: number;
+  totalAllocatedBytes: number;
+};
+
+// Hermes only; every counter is cumulative since the VM was created.
+function readHermesHeapStats(): IHermesHeapStats | undefined {
+  const hermes = (
+    globalThis as {
+      HermesInternal?: {
+        getInstrumentedStats?: () => Record<string, unknown>;
+      };
+    }
+  ).HermesInternal;
+  let stats: Record<string, unknown> | undefined;
+  try {
+    stats = hermes?.getInstrumentedStats?.();
+  } catch {
+    return undefined;
+  }
+  if (!stats) {
+    return undefined;
+  }
+  const gcCount = stats.js_numGCs;
+  const gcTimeSeconds = stats.js_gcTime;
+  const heapBytes = stats.js_heapSize;
+  const totalAllocatedBytes = stats.js_totalAllocatedBytes;
+  if (
+    typeof gcCount !== 'number' ||
+    typeof gcTimeSeconds !== 'number' ||
+    typeof heapBytes !== 'number' ||
+    typeof totalAllocatedBytes !== 'number'
+  ) {
+    return undefined;
+  }
+  return { gcCount, gcTimeSeconds, heapBytes, totalAllocatedBytes };
+}
+
+// What the timed operation allocated and how much GC it paid for; empty on
+// runtimes without the stats so the log line stays unchanged there.
+function diffHermesHeapStats(before: IHermesHeapStats | undefined) {
+  const after = before ? readHermesHeapStats() : undefined;
+  if (!before || !after) {
+    return {};
+  }
+  return {
+    heapBytes: after.heapBytes,
+    allocatedBytes: after.totalAllocatedBytes - before.totalAllocatedBytes,
+    gcCount: after.gcCount - before.gcCount,
+    // Hermes reports cumulative GC wall time in seconds.
+    gcMs: Math.round((after.gcTimeSeconds - before.gcTimeSeconds) * 1000),
+  };
+}
+
 function reloadFromStorage(): void {
   flush();
   const startedAt = perfNow();
+  const heapBefore = readHermesHeapStats();
   const { store, unreadable, rawChars } = readStoreFromDisk();
   if (unreadable && _cache && Object.keys(_cache).length > 0) {
     // Repairing from an empty copy instead would leave a parseable empty
@@ -371,6 +430,7 @@ function reloadFromStorage(): void {
       durationMs,
       storeChars: rawChars,
       entryCount: _cacheEntrySerializedChars.size,
+      ...diffHermesHeapStats(heapBefore),
     });
   }
 }
@@ -544,6 +604,7 @@ function flush() {
   if (!_dirty || !_cache) return;
   try {
     const startedAt = perfNow();
+    const heapBefore = readHermesHeapStats();
     // Each runtime keeps its own JS cache. Native persistence is bg-owned, so
     // native callers send only changed entries and deletion intents; other
     // platforms retain the full-store adapter below.
@@ -630,6 +691,7 @@ function flush() {
         adoptMs: Math.round(finishedAt - patchedAt),
         updatedKeyCount,
         patchChars,
+        ...diffHermesHeapStats(heapBefore),
       });
     }
   } catch {
@@ -678,6 +740,17 @@ function set<T>(key: string, data: T): void {
   }
   const store = loadStore();
   const now = Date.now();
+  const existing = store[key];
+  // Pollers re-set an unchanged payload for as long as a screen stays open,
+  // and every flush re-reads and re-serializes the whole store. An unchanged
+  // result only refreshes the timestamp: the key stays pending so the fresher
+  // timestamp rides along with the next flush, but it never starts one.
+  if (existing && isEqual(existing.d, data)) {
+    existing.t = now;
+    _updatedKeys.add(key);
+    _dirty = true;
+    return;
+  }
   const entry = { d: data, t: now };
   const serializedEntry = serializeSWRCacheEntry(key, entry);
   if (
