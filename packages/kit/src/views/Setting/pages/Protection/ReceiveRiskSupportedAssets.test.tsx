@@ -4,12 +4,18 @@ import { act, renderHook } from '@testing-library/react';
 
 import { RECEIVE_RISK_MONITORING_HELP_LINK } from '@onekeyhq/shared/src/config/appConfig';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalRoutes, EModalWebViewRoutes } from '@onekeyhq/shared/src/routes';
 import { openUrlInApp } from '@onekeyhq/shared/src/utils/openUrlUtils';
 
 import { useOpenReceiveRiskMonitoringHelp } from './ReceiveRiskSupportedAssets';
 
 const mockPushModal = jest.fn();
+
+jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
+  __esModule: true,
+  default: { isNative: false, isDesktop: false, isExtension: false },
+}));
 
 jest.mock('react-intl', () => ({
   useIntl: () => ({
@@ -59,9 +65,18 @@ describe('useOpenReceiveRiskMonitoringHelp', () => {
   beforeEach(() => {
     mockPushModal.mockClear();
     (openUrlInApp as jest.Mock).mockClear();
+    Object.assign(platformEnv, {
+      isNative: false,
+      isDesktop: false,
+      isExtension: false,
+    });
   });
 
-  it('pushes the help WebView above the current supported-assets surface', () => {
+  it.each([
+    ['desktop', { isDesktop: true }],
+    ['native', { isNative: true }],
+  ])('pushes the help WebView on %s', (_platform, flags) => {
+    Object.assign(platformEnv, flags);
     const { result } = renderHook(() => useOpenReceiveRiskMonitoringHelp());
 
     act(() => {
@@ -77,5 +92,24 @@ describe('useOpenReceiveRiskMonitoringHelp', () => {
       },
     });
     expect(openUrlInApp).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ['web', false],
+    ['extension', true],
+  ])('preserves the external help action on %s', (_platform, isExtension) => {
+    Object.assign(platformEnv, { isExtension });
+    const { result } = renderHook(() => useOpenReceiveRiskMonitoringHelp());
+
+    act(() => {
+      result.current();
+    });
+
+    expect(openUrlInApp).toHaveBeenCalledTimes(1);
+    expect(openUrlInApp).toHaveBeenCalledWith(
+      RECEIVE_RISK_MONITORING_HELP_LINK,
+      ETranslations.prime_feature_receive_risk_monitoring__title,
+    );
+    expect(mockPushModal).not.toHaveBeenCalled();
   });
 });
