@@ -126,6 +126,68 @@ describe('HiddenWalletRememberSwitch', () => {
     expect(getSwitch().checked).toBe(false);
   });
 
+  it('ignores a toggle that settles after the focused wallet changed', async () => {
+    let resolvePersist: (() => void) | undefined;
+    mockSetWalletTempStatus.mockImplementationOnce(
+      () =>
+        new Promise<void>((resolve) => {
+          resolvePersist = resolve;
+        }),
+    );
+    const { rerender } = render(
+      <HiddenWalletRememberSwitch wallet={hiddenWallet1} />,
+    );
+
+    // Toggle wallet 1 off, but keep the persist call pending.
+    await act(async () => {
+      fireEvent.click(getSwitch());
+    });
+    expect(mockSetWalletTempStatus).toHaveBeenCalledWith({
+      walletId: hiddenWallet1.id,
+      isTemp: true,
+    });
+
+    // Focus wallet 2 (still kept accessible) before wallet 1 settles.
+    rerender(<HiddenWalletRememberSwitch wallet={hiddenWallet2} />);
+    expect(getSwitch().checked).toBe(true);
+
+    // Wallet 1's stale write-back must not flip wallet 2's switch off.
+    await act(async () => {
+      resolvePersist?.();
+    });
+    expect(getSwitch().checked).toBe(true);
+  });
+
+  it('does not revert another wallet when a stale toggle fails', async () => {
+    let rejectPersist: ((error: Error) => void) | undefined;
+    mockSetWalletTempStatus.mockImplementationOnce(
+      () =>
+        new Promise<void>((_resolve, reject) => {
+          rejectPersist = reject;
+        }),
+    );
+    const { rerender } = render(
+      <HiddenWalletRememberSwitch wallet={hiddenWallet1} />,
+    );
+    await act(async () => {
+      fireEvent.click(getSwitch());
+    });
+
+    // Wallet 2 was persisted as hidden-only; its switch shows off.
+    rerender(
+      <HiddenWalletRememberSwitch
+        wallet={{ ...hiddenWallet2, isTemp: true } as IDBWallet}
+      />,
+    );
+    expect(getSwitch().checked).toBe(false);
+
+    // Wallet 1's failed toggle must not restore "on" onto wallet 2.
+    await act(async () => {
+      rejectPersist?.(new Error('boom'));
+    });
+    expect(getSwitch().checked).toBe(false);
+  });
+
   it('reverts the switch when persisting fails', async () => {
     mockSetWalletTempStatus.mockRejectedValueOnce(new Error('boom'));
     render(<HiddenWalletRememberSwitch wallet={hiddenWallet1} />);

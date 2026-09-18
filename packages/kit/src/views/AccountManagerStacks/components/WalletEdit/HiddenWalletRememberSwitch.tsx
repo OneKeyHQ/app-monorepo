@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -35,6 +35,13 @@ export function HiddenWalletRememberSwitch({
     setPrevSeedKey(seedKey);
     setVal(!isTemp);
   }
+  // Persisting is async; if the user focuses another hidden wallet before a
+  // toggle settles, the stale callback must not overwrite the new wallet's
+  // display, or an accessible wallet could show as "off" and get hidden.
+  const activeWalletIdRef = useRef(walletId);
+  useEffect(() => {
+    activeWalletIdRef.current = walletId;
+  }, [walletId]);
   const intl = useIntl();
 
   return (
@@ -85,15 +92,21 @@ export function HiddenWalletRememberSwitch({
           if (!walletId) {
             return;
           }
+          const targetWalletId = walletId;
           const newVal = !val;
           try {
             await backgroundApiProxy.serviceAccount.setWalletTempStatus({
-              walletId,
+              walletId: targetWalletId,
               isTemp: !newVal,
             });
+            if (activeWalletIdRef.current !== targetWalletId) {
+              return;
+            }
             setVal(newVal);
           } catch (error) {
-            setVal(val);
+            if (activeWalletIdRef.current === targetWalletId) {
+              setVal(val);
+            }
             throw error;
           }
         }}
