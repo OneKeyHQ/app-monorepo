@@ -1,4 +1,4 @@
-import type { Image, Options } from 'react-native-image-crop-picker';
+import type { Image, Options } from '@onekeyfe/react-native-image-crop-picker';
 
 export interface IPickerImageOptions extends Options {
   /**
