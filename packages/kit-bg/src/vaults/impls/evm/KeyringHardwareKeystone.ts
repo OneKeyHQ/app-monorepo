@@ -4,6 +4,8 @@ import {
   buildSignedTxFromSignatureEvm,
   packUnsignedTxForSignEvm,
 } from '@onekeyhq/core/src/chains/evm/sdkEvm';
+import { verifyEvmSignedTxMatched } from '@onekeyhq/core/src/chains/evm/sdkEvm/verify';
+import type { IVerifyEvmSignedTxMatchedParams } from '@onekeyhq/core/src/chains/evm/sdkEvm/verify';
 import type { IEncodedTxEvm } from '@onekeyhq/core/src/chains/evm/types';
 import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
 import type {
@@ -13,6 +15,7 @@ import type {
   IUnsignedMessageEth,
 } from '@onekeyhq/core/src/types';
 import { NotImplemented, OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import { ThirdPartyDeviceMismatch } from '@onekeyhq/shared/src/errors/errors/thirdPartyHardwareErrors';
 import { convertThirdPartyDeviceError } from '@onekeyhq/shared/src/errors/utils/thirdPartyDeviceErrorUtils';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
@@ -170,11 +173,34 @@ export class KeyringHardwareKeystone extends KeyringHardwareBase {
     }
 
     const { v, r, s } = result.payload;
+    const signature = { v, r, s };
     const { rawTx, txid } = buildSignedTxFromSignatureEvm({
       tx,
-      signature: { v, r, s },
+      signature,
+    });
+    this._assertSignatureMatchesSigner({
+      signerAddress: encodedTx.from,
+      rawTx,
+      txid,
+      signature,
     });
     return { txid, rawTx, encodedTx };
+  }
+
+  // Keystone answers over QR, so nothing online proves the scan came from this
+  // wallet. Reject a signature that does not recover to the account address.
+  private _assertSignatureMatchesSigner(
+    params: IVerifyEvmSignedTxMatchedParams,
+  ) {
+    try {
+      verifyEvmSignedTxMatched(params);
+    } catch {
+      throw new ThirdPartyDeviceMismatch({
+        vendor: VENDOR_ERROR_CONTEXT.vendor,
+        autoToast: true,
+        payload: {},
+      });
+    }
   }
 
   override async signMessage(

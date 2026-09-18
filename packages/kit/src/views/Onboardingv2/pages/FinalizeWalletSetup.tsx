@@ -988,14 +988,14 @@ function FinalizeWalletSetupPage({
           walletsAfterCreate.find(
             (walletItem) => !existingWalletIds.has(walletItem.id),
           );
-        if (createdWallet) {
+        if (createdWallet && isCurrentAttempt()) {
           createdWalletRef.current = createdWallet;
         }
       }
       if (isCurrentAttempt()) {
         hardwareCreateInFlightRef.current = false;
+        setIsWalletCreationReadyForReferralCheck(true);
       }
-      setIsWalletCreationReadyForReferralCheck(true);
     } catch (error) {
       if (isCurrentAttempt()) {
         hardwareCreateInFlightRef.current = false;
