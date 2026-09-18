@@ -549,22 +549,13 @@ function getChartInitScript(): string {
         var hasSecondaryData =
           Array.isArray(nextConfig.secondaryLineData) &&
           nextConfig.secondaryLineData.length > 0;
+        // Returns whether the overlay's points changed; applyChartConfig then
+        // re-issues the primary data (see the note there).
         if (!hasSecondaryData) {
-          if (window.secondarySeries) {
-            window.secondarySeries.setData([]);
-            window.secondarySeries.applyOptions({ visible: false });
-            // Taking a series' points away (emptying it, and removing it
-            // alike) can leave the time scale with no visible range once the
-            // line has been shown before: the whole chart goes blank, axes
-            // included, and fitContent / autoscale do not bring it back
-            // (Pendle's "show underlying APY" off, OK-62390). Re-issuing the
-            // primary data is the one call that rebuilds the range — it is
-            // what a date-range switch does, which is why that "repaired" it.
-            if (window.series) {
-              window.series.setData(Array.isArray(nextConfig.data) ? nextConfig.data : []);
-            }
-          }
-          return;
+          if (!window.secondarySeries) return false;
+          window.secondarySeries.setData([]);
+          window.secondarySeries.applyOptions({ visible: false });
+          return true;
         }
         if (!window.secondarySeries) {
           window.secondarySeries = chart.addSeries(
@@ -577,6 +568,7 @@ function getChartInitScript(): string {
           );
         }
         window.secondarySeries.setData(nextConfig.secondaryLineData);
+        return true;
       }
       // Price formatter: use a serializable formatter type in WebView, otherwise default %
       // NOTE: Keep in sync with formatChartUsdPrice in shared/src/utils/perpsUtils.ts
@@ -668,7 +660,18 @@ function getChartInitScript(): string {
         window.chart.applyOptions(getChartOptions(nextConfig));
         syncPrimarySeries(nextConfig);
         syncReferenceLine(nextConfig);
-        syncSecondarySeries(nextConfig);
+        var overlayChanged = syncSecondarySeries(nextConfig);
+        // Replacing the overlay's points — emptying it (OK-62390), or swapping
+        // a week of hourly points for a month of daily ones when the range
+        // switches (OK-63666) — can leave the time scale with no visible
+        // range: the chart goes blank, and fitContent / autoscale alone do not
+        // bring it back. Re-issuing the primary data is the one call that
+        // rebuilds the range, so it is the last data write, after any overlay
+        // change. The primary is created first so the overlay keeps drawing
+        // on top of it.
+        if (overlayChanged && window.series) {
+          window.series.setData(Array.isArray(nextConfig.data) ? nextConfig.data : []);
+        }
         window.chart.timeScale().fitContent();
       };
       window.applyChartConfig(config);

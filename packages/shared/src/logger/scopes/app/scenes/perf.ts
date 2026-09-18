@@ -109,6 +109,10 @@ export class AppPerfScene extends BaseScene {
     source?: 'ack' | 'broadcast';
     mutationOp?: 'set' | 'patchSWR' | 'remove' | 'clear';
     replayedCount?: number;
+    heapBytes?: number;
+    allocatedBytes?: number;
+    gcCount?: number;
+    gcMs?: number;
   }) {
     return { ...params, runtime: platformEnv.runtimeRole };
   }
