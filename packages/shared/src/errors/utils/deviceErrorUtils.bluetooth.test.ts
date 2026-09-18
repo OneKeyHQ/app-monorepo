@@ -5,6 +5,7 @@ import {
   HARDWARE_ERROR_DIALOG_TYPES,
   appEventBus,
 } from '../../eventBus/appEventBus';
+import platformEnv from '../../platformEnv';
 import {
   BleDeviceBondedCanceled,
   BluetoothUnavailableWhileUsbConnectedError,
@@ -119,20 +120,50 @@ describe('convertDeviceError BLE connection timeout', () => {
 });
 
 describe('convertDeviceError invalid Bluetooth bond', () => {
-  it('keeps a canceled pairing distinct from an unpaired device', () => {
-    const error = convertDeviceError({
-      code: HardwareErrorCode.BleDeviceBondedCanceled,
-      error: 'bonding canceled',
-    });
+  it('treats a canceled pairing as user cancellation on desktop', () => {
+    const originalIsDesktop = platformEnv.isDesktop;
+    platformEnv.isDesktop = true;
 
-    expect(error).toBeInstanceOf(BleDeviceBondedCanceled);
-    expect(error).toMatchObject({
-      code: HardwareErrorCode.BleDeviceNotBonded,
-      key: 'feedback.bluetooth_pairing_failed',
-      payload: {
+    try {
+      const error = convertDeviceError({
         code: HardwareErrorCode.BleDeviceBondedCanceled,
-      },
-    });
+        error: 'bonding canceled',
+      });
+
+      expect(error).toBeInstanceOf(UserCancel);
+      expect(error).toMatchObject({
+        code: HardwareErrorCode.ActionCancelled,
+        key: 'hardware.user_cancel_error',
+        payload: {
+          code: HardwareErrorCode.BleDeviceBondedCanceled,
+        },
+      });
+    } finally {
+      platformEnv.isDesktop = originalIsDesktop;
+    }
+  });
+
+  it('keeps a canceled pairing distinct from an unpaired device off desktop', () => {
+    const originalIsDesktop = platformEnv.isDesktop;
+    platformEnv.isDesktop = false;
+
+    try {
+      const error = convertDeviceError({
+        code: HardwareErrorCode.BleDeviceBondedCanceled,
+        error: 'bonding canceled',
+      });
+
+      expect(error).toBeInstanceOf(BleDeviceBondedCanceled);
+      expect(error).toMatchObject({
+        code: HardwareErrorCode.BleDeviceNotBonded,
+        key: 'feedback.bluetooth_pairing_failed',
+        payload: {
+          code: HardwareErrorCode.BleDeviceBondedCanceled,
+        },
+      });
+    } finally {
+      platformEnv.isDesktop = originalIsDesktop;
+    }
   });
 
   it.each([

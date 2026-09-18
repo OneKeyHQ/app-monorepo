@@ -180,6 +180,9 @@ export function convertDeviceError(
     case HardwareErrorCode.BleDeviceNotBonded:
       return new HardwareErrors.DeviceNotBonded({ payload });
     case HardwareErrorCode.BleDeviceBondedCanceled:
+      if (platformEnv.isDesktop) {
+        return new HardwareErrors.UserCancel({ payload });
+      }
       return new HardwareErrors.BleDeviceBondedCanceled({ payload });
     case HardwareErrorCode.BleDeviceBondError:
     case HardwareErrorCode.BlePeerRemovedPairingInformation:
