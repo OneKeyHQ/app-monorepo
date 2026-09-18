@@ -46,6 +46,7 @@ import { ESwapTabSwitchType } from '@onekeyhq/shared/types/swap/types';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { reportInstallAttribution } from '../../../components/LastActivityTracker/installAttribution';
+import { connectWalletConnectToDapp } from '../../../components/WalletConnect/connectWalletConnectToDapp';
 import { whenAppUnlocked } from '../../../utils/passwordUtils';
 import { EarnNavigation } from '../../../views/Earn/earnUtils';
 import { urlAccountNavigation } from '../../../views/Home/pages/urlAccount/urlAccountUtils';
@@ -670,9 +671,7 @@ async function processDeepLinkWalletConnect({
     }
 
     if (wcUri) {
-      console.log('Create walletConnect connection by DeepLink: ', wcUri);
-
-      await backgroundApiProxy.walletConnect.connectToDapp(wcUri);
+      await connectWalletConnectToDapp(wcUri);
       return {
         type: 'walletConnect',
         url,

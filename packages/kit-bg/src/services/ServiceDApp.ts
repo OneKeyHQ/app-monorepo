@@ -324,7 +324,14 @@ class ServiceDApp extends ServiceBase {
         });
         this.existingWindowId = extensionWindow.id;
       }
-    } else if (appGlobals.$navigationRef?.current) {
+    } else if (
+      appGlobals.$navigationRef?.current &&
+      !(
+        platformEnv.isNative &&
+        routeNames[1] === EModalRoutes.DAppConnectionModal &&
+        routeNames[2] === EDAppConnectionModal.WalletConnectSessionProposalModal
+      )
+    ) {
       const doOpenModal = () =>
         appGlobals.$navigationRef.current?.navigate(
           modalParams.screen,
@@ -334,8 +341,8 @@ class ServiceDApp extends ServiceBase {
       // TODO remove timeout after dapp request queue implemented.
       doOpenModal();
     } else {
-      // Background thread: no navigation ref available.
-      // Relay navigation to main thread via app event bus.
+      // Relay to the main runtime. Native WalletConnect proposals also use
+      // this path in single-runtime dev mode to dismiss connection progress.
       appEventBus.emit(EAppEventBusNames.NavigateModalFromBackgroundThread, {
         screen: modalParams.screen,
         params: modalParams.params,

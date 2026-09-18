@@ -1,5 +1,7 @@
 /** @jest-environment jsdom */
 
+import type { ComponentProps, ReactElement } from 'react';
+
 import { act, renderHook, waitFor } from '@testing-library/react';
 
 import { Dialog } from '@onekeyhq/components';
@@ -10,6 +12,8 @@ import {
 import type { IExternalConnectionInfo } from '@onekeyhq/shared/types/externalWallet.types';
 
 import { useWalletConnection } from './useWalletConnection';
+
+import type { ConnectToWalletDialogContent } from '../../components/WebDapp/ConnectToWalletDialogContent';
 
 const mockAbortConnectPairing = jest.fn();
 const mockConnectToWallet = jest.fn();
@@ -151,4 +155,47 @@ describe('useWalletConnection', () => {
 
     unmount();
   });
+
+  it.each(['socket progress exhausted', 'wallet picker opened'])(
+    'closes without aborting the pairing when %s',
+    async (reason) => {
+      let onExhausted: (() => Promise<void>) | undefined;
+      jest.mocked(Dialog.show).mockImplementation((options) => {
+        const content = options.renderContent as ReactElement<
+          ComponentProps<typeof ConnectToWalletDialogContent>
+        >;
+        onExhausted = content.props.onSocketProgressExhausted;
+        mockDialogClose.mockImplementation(async () => {
+          await options.onClose?.();
+        });
+        return {
+          close: mockDialogClose,
+          getForm: () => undefined,
+          isExist: () => true,
+        };
+      });
+      const connectionInfo = {
+        walletConnect: { isNewConnection: true },
+      } as IExternalConnectionInfo;
+      const { result, unmount } = renderHook(() =>
+        useWalletConnection({ name: 'WalletConnect', connectionInfo }),
+      );
+      act(() => {
+        void result.current.connectToWalletWithDialogShow();
+      });
+      await waitFor(() => expect(Dialog.show).toHaveBeenCalledTimes(1));
+      await act(async () => {
+        if (reason === 'socket progress exhausted') {
+          await onExhausted?.();
+        } else {
+          appEventBus.emit(EAppEventBusNames.WalletConnectModalState, {
+            open: true,
+          });
+        }
+      });
+      expect(mockDialogClose).toHaveBeenCalledTimes(1);
+      expect(mockAbortConnectPairing).not.toHaveBeenCalled();
+      unmount();
+    },
+  );
 });
