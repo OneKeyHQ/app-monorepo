@@ -53,6 +53,7 @@ jest.mock('../Stack', () => {
 const mockIsPreloadedImageUri = isPreloadedImageUri as jest.Mock;
 const iconUri = 'https://example.com/token-icon.png';
 const iconSource = { uri: iconUri };
+const prefetchedSource = { uri: 'https://example.com/prefetched-icon.png' };
 
 describe('web ImageV2 lazy loading', () => {
   beforeEach(() => {
@@ -81,5 +82,36 @@ describe('web ImageV2 lazy loading', () => {
     expect(mockWebImage).toHaveBeenLastCalledWith(
       expect.objectContaining({ source: iconSource }),
     );
+  });
+
+  // A recycled or off-screen row can swap its source while still deferred;
+  // a replacement that was prefetched must not wait for the viewport.
+  it('promotes a deferred image when its source swaps to a prefetched uri', () => {
+    const observe = jest.fn();
+    const disconnect = jest.fn();
+    const previousObserver = globalThis.IntersectionObserver;
+    globalThis.IntersectionObserver = jest.fn(() => ({
+      observe,
+      disconnect,
+    })) as unknown as typeof IntersectionObserver;
+    try {
+      const { rerender } = render(<ImageV2 source={iconSource} />);
+      expect(observe).toHaveBeenCalledTimes(1);
+      expect(mockWebImage).toHaveBeenLastCalledWith(
+        expect.objectContaining({ source: undefined }),
+      );
+
+      mockIsPreloadedImageUri.mockImplementation(
+        (uri: string) => uri === prefetchedSource.uri,
+      );
+      rerender(<ImageV2 source={prefetchedSource} />);
+
+      expect(mockWebImage).toHaveBeenLastCalledWith(
+        expect.objectContaining({ source: prefetchedSource }),
+      );
+      expect(disconnect).toHaveBeenCalled();
+    } finally {
+      globalThis.IntersectionObserver = previousObserver;
+    }
   });
 });

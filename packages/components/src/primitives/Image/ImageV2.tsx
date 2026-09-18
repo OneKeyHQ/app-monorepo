@@ -203,6 +203,11 @@ export function ImageV2({ style: defaultStyle, ...props }: IImageV2Props) {
   const [shouldLoadImage, setShouldLoadImage] = useState(
     () => !platformEnv.isWeb || isPreloadedImageUri(resolvedSourceIdentity),
   );
+  if (!shouldLoadImage && isPreloadedImageUri(resolvedSourceIdentity)) {
+    // A deferred image whose source was swapped to (or has since been)
+    // prefetched can paint now instead of waiting to intersect the viewport.
+    setShouldLoadImage(true);
+  }
 
   useEffect(() => {
     if (!platformEnv.isWeb || shouldLoadImage) {
