@@ -1,6 +1,6 @@
 ---
 name: 1k-ui-recipes
-description: Reference-only catalog of UI workaround recipes. Do NOT auto-load — invoke ONLY when the user explicitly asks for "1k-ui-recipes" or a specific recipe by name (iOS tab bar scroll offset, startViewTransition, collapsible tab horizontal scroll, Android bottom tab touch intercept, keyboard avoidance, iOS overlay navigation freeze, web keyboardDismissMode, iOS modal Fabric frame animation, Android background thread timers/microtasks).
+description: Reference-only catalog of UI workaround recipes. Do NOT auto-load — invoke ONLY when the user explicitly asks for "1k-ui-recipes" or a specific recipe by name (iOS tab bar scroll offset, collapsible tab horizontal scroll, Android bottom tab touch intercept, keyboard avoidance, iOS overlay navigation freeze, web keyboardDismissMode, iOS modal Fabric frame animation, Android background thread timers/microtasks).
 allowed-tools: Read, Grep, Glob
 ---
 
@@ -13,7 +13,6 @@ Bite-sized solutions for common UI issues.
 | Recipe | Guide | Key Points |
 |--------|-------|------------|
 | iOS Tab Bar Scroll Offset | [ios-tab-bar-scroll-offset.md](references/rules/ios-tab-bar-scroll-offset.md) | Use `useScrollContentTabBarOffset` for `paddingBottom` on iOS tab pages |
-| Avoid View Transitions | — | Never wrap state updates in `document.startViewTransition`: the whole-window cross-fade flashes on desktop and rendering pauses until the callback settles |
 | Horizontal Scroll in Collapsible Tab Headers | [collapsible-tab-horizontal-scroll.md](references/rules/collapsible-tab-horizontal-scroll.md) | Bidirectional `Gesture.Pan()` + programmatic `scrollTo` via `CollapsibleTabContext` |
 | Android Bottom Tab Touch Interception | [android-bottom-tab-touch-intercept.md](references/rules/android-bottom-tab-touch-intercept.md) | **Temporary** — `GestureDetector` + `Gesture.Tap()` in `.android.tsx` to bypass native tab bar touch stealing |
 | Keyboard Avoidance for Input Fields | [keyboard-avoidance.md](references/rules/keyboard-avoidance.md) | `KeyboardAwareScrollView` auto-scroll, Footer animated padding, `useKeyboardHeight` / `useKeyboardEvent` hooks |
@@ -35,17 +34,7 @@ const tabBarHeight = useScrollContentTabBarOffset();
 <ScrollView contentContainerStyle={{ paddingBottom: tabBarHeight }} />
 ```
 
-### 2. Avoid `document.startViewTransition` for State Updates
-
-The `startViewTransition` wrapper was removed from `@onekeyhq/components` (OK-63696). Do not reintroduce it or call `document.startViewTransition` to smooth state updates:
-
-- It snapshots the whole document and cross-fades the snapshots. On desktop this intermittently flashed the white window background when settings switches were toggled.
-- Rendering stays paused until the callback settles, and Chromium aborts after ~4 s. A passcode prompt awaited inside it stayed invisible for ~4 s.
-- The Suspense re-suspend flicker it used to hide was fixed at the source (OK-53013): async computed atoms must not depend on atoms that change at runtime. See `packages/kit-bg/src/states/jotai/atoms/password.ts`.
-
-Write state directly. If something needs a transition, animate that element.
-
-### 3. Horizontal Scroll in Collapsible Tab Headers (Native)
+### 2. Horizontal Scroll in Collapsible Tab Headers (Native)
 
 When placing a horizontal scroller inside `renderHeader` of collapsible tabs, use `Gesture.Pan()` that handles **both** directions — horizontal drives `translateX`, vertical calls `scrollTo` on the focused tab's ScrollView via `CollapsibleTabContext`.
 
@@ -55,7 +44,7 @@ import { CollapsibleTabContext } from '@onekeyhq/components';
 
 > **Do NOT** import directly from `react-native-collapsible-tab-view/src/Context`. Always use the `@onekeyhq/components` re-export.
 
-### 4. Android Bottom Tab Touch Interception (Temporary Workaround)
+### 3. Android Bottom Tab Touch Interception (Temporary Workaround)
 
 > **Temporary fix** — the root cause is `react-native-bottom-tabs` intercepting touches even when hidden. This workaround should be removed once the upstream issue is fixed.
 
@@ -79,7 +68,7 @@ const tapGesture = useMemo(
 
 > Use `.android.tsx` file extension so other platforms are unaffected.
 
-### 5. Keyboard Avoidance for Input Fields
+### 4. Keyboard Avoidance for Input Fields
 
 Standard `Page` and `Dialog` components handle keyboard avoidance automatically. Only add manual handling for custom layouts.
 
@@ -115,7 +104,7 @@ useKeyboardEvent({
 
 > Use `useKeyboardEventWithoutNavigation` for components outside NavigationContainer (Dialog, Modal).
 
-### 6. iOS Overlay Navigation Freeze (`resetAboveMainRoute`)
+### 5. iOS Overlay Navigation Freeze (`resetAboveMainRoute`)
 
 On iOS with native `UITabBarController`, closing overlay routes (Modal, FullScreenPush) via sequential `goBack()` calls triggers an `RNSScreenStack` window-nil race condition. Popped pages' screen stacks lose their iOS window reference and enter a retry storm (50 retries × ~100ms), freezing navigation for ~5 seconds.
 
@@ -136,7 +125,7 @@ await navigation.switchTabAsync(ETabRoutes.Home);
 > **Key file**: `packages/components/src/layouts/Navigation/Navigator/TabStackNavigator.native.tsx`
 > **Reference**: See `ios-overlay-navigation-freeze.md` for full investigation timeline and corrected root cause analysis.
 
-### 7. Web: ScrollView `keyboardDismissMode="on-drag"` Causes Cross-Tab Input Blur
+### 6. Web: ScrollView `keyboardDismissMode="on-drag"` Causes Cross-Tab Input Blur
 
 On web, `react-native-web`'s `keyboardDismissMode="on-drag"` calls `dismissKeyboard()` on every scroll event. `dismissKeyboard()` uses `TextInputState` — a **global singleton** that tracks the currently focused input across the entire app, not scoped to individual tabs. This means a ScrollView scrolling on a **background tab** (e.g. Home) will blur an input on the **active tab** (e.g. Perps).
 
@@ -166,7 +155,7 @@ On web, `react-native-web`'s `keyboardDismissMode="on-drag"` calls `dismissKeybo
 
 > **Key files**: `packages/components/src/composite/Carousel/pager.tsx`, `packages/components/src/composite/Carousel/index.tsx`
 
-### 8. iOS Modal Content Displacement During Presentation (Fabric)
+### 7. iOS Modal Content Displacement During Presentation (Fabric)
 
 On iOS with Fabric (New Architecture), modal pages (pageSheet/formSheet) show content flying in from wrong positions during the slide-up animation. Root cause: Fabric recycles native views that retain stale frames; when mounted during modal transition, UIKit captures the frame correction as an implicit animation.
 
@@ -187,7 +176,7 @@ if (RNSModalTransitionInProgress) {
 > **Key files**: `patches/react-native-screens+4.23.0.patch`, `patches/react-native+0.81.5.patch`
 > **Reference**: [ios-modal-fabric-frame-animation.md](references/rules/ios-modal-fabric-frame-animation.md)
 
-### 9. Android Background Thread Missing `setTimeout` / Microtask Queue
+### 8. Android Background Thread Missing `setTimeout` / Microtask Queue
 
 On Android, the background JS runtime spun up by `@onekeyfe/react-native-background-thread` is a standalone Hermes runtime. RN's built-in timer module only wires into the **main** runtime, and the custom RPC executor that dispatches work into the bg runtime never drains the Hermes microtask queue. Two symptoms fall out of this:
 
