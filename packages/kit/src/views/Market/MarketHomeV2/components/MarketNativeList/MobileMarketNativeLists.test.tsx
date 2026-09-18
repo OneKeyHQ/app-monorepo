@@ -486,6 +486,7 @@ describe.each([false, true])(
         () => (
           <MobileMarketNativeTopCoinsList
             dataCacheRef={{ current: undefined }}
+            selectedCategoryId="all"
             listContainerProps={{ paddingBottom: 20 }}
           />
         ),
@@ -669,6 +670,7 @@ describe('native market listing favorites', () => {
           ) : (
             <MobileMarketNativeTopCoinsList
               dataCacheRef={{ current: undefined }}
+              selectedCategoryId="all"
               listContainerProps={{ paddingBottom: 20 }}
             />
           ),
@@ -708,6 +710,7 @@ describe('native market listing favorites', () => {
     render(
       <MobileMarketNativeTopCoinsList
         dataCacheRef={{ current: undefined }}
+        selectedCategoryId="all"
         listContainerProps={{ paddingBottom: 20 }}
       />,
     );

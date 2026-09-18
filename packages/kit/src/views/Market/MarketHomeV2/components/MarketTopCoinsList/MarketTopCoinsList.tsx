@@ -36,13 +36,19 @@ import {
   MARKET_CELL_SUBTITLE_LINE_HEIGHT,
   MARKET_CELL_SUBTITLE_SIZE,
 } from '../MarketListCell';
+import { MarketStockCategorySelector } from '../MarketTokenList/MarketStockCategorySelector';
 import { StickyHeaderPortal } from '../StickyHeaderPortal';
 import { useMarketDesktopResponsiveColumns } from '../useMarketDesktopResponsiveColumns';
 
 import { useMarketTopCoins } from './hooks/useMarketTopCoins';
 import { MarketTopCoinStar } from './MarketTopCoinStar';
 
+import type { IMarketCategoryItem } from '../../types';
+
 type IMarketTopCoinsListProps = {
+  categories: IMarketCategoryItem[];
+  selectedCategoryId: string;
+  onSelectCategory: (categoryId: string) => void;
   tabIntegrated?: boolean;
   tabName?: string;
   listContainerProps?: {
@@ -307,11 +313,16 @@ function useTopCoinsColumns(): ITableColumn<IMarketAssetListItem>[] {
 }
 
 export function MarketTopCoinsList({
+  categories,
+  selectedCategoryId,
+  onSelectCategory,
   tabIntegrated,
   tabName,
   listContainerProps,
 }: IMarketTopCoinsListProps) {
-  const { data, handleItemPress, isLoading } = useMarketTopCoins();
+  const { data, handleItemPress, isLoading } = useMarketTopCoins({
+    categoryId: selectedCategoryId,
+  });
   const baseColumns = useTopCoinsColumns();
   const { columns, handleContainerLayout: handleResponsiveContainerLayout } =
     useMarketDesktopResponsiveColumns({
@@ -388,12 +399,25 @@ export function MarketTopCoinsList({
     [handleItemPress],
   );
 
+  // Without configured sub-categories the page keeps its toolbar-less header.
+  const categorySelector = useMemo(
+    () =>
+      categories.length > 0 ? (
+        <MarketStockCategorySelector
+          categories={categories}
+          selectedCategoryId={selectedCategoryId}
+          onSelectCategory={onSelectCategory}
+        />
+      ) : undefined,
+    [categories, onSelectCategory, selectedCategoryId],
+  );
+
   const webTabIntegrated = Boolean(tabIntegrated && !platformEnv.isNative);
+  const hasDesktopPortal = Boolean(
+    webTabIntegrated && tabName && stickyHeaderContext?.portalTarget,
+  );
   const useDesktopPortal = Boolean(
-    webTabIntegrated &&
-    tabName &&
-    stickyHeaderContext?.portalTarget &&
-    stickyHeaderContext.activeTabName === tabName,
+    hasDesktopPortal && stickyHeaderContext?.activeTabName === tabName,
   );
   const portalTarget = stickyHeaderContext?.portalTarget;
   const contentPaddingBottom =
@@ -408,14 +432,16 @@ export function MarketTopCoinsList({
     >
       {useDesktopPortal && portalTarget ? (
         <StickyHeaderPortal target={portalTarget}>
-          {/* No toolbar on this page: the shared header falls back to the
-              design's table inset. */}
+          {/* Without a toolbar the shared header falls back to the design's
+              table inset. */}
           <MarketDesktopStickyHeader<IMarketAssetListItem>
+            toolbar={categorySelector}
             columns={columns}
             onHeaderRow={onHeaderRow}
           />
         </StickyHeaderPortal>
       ) : null}
+      {hasDesktopPortal ? null : categorySelector}
       <Stack flex={1} style={{ overflowX: 'auto', overflowY: 'hidden' }}>
         <Table<IMarketAssetListItem>
           contentContainerStyle={{ paddingBottom: contentPaddingBottom }}
