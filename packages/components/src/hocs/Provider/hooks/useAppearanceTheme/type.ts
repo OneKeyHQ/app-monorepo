@@ -20,3 +20,11 @@ export type IUpdateAppRootViewBackground = (
   themeVariant: 'light' | 'dark',
   themeSetting?: 'light' | 'dark' | 'system',
 ) => void;
+
+/**
+ * The variant that native UI presented over the app (e.g. the image
+ * cropper) should use: a foreground surface's pin when one is up,
+ * otherwise the app theme. `undefined` before the app theme resolves,
+ * and always off native.
+ */
+export type IGetAppThemeVariant = () => 'light' | 'dark' | undefined;

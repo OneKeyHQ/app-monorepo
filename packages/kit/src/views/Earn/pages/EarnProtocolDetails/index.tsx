@@ -4,6 +4,7 @@ import {
   useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from 'react';
 
@@ -116,6 +117,11 @@ import {
   pickProtocolInfoDisplayName,
   resolveProviderSubtitle,
 } from './mobile/providerSubtitle.utils';
+import {
+  DETAIL_BALANCE_SETTLE_REFRESH_OFFSETS_MS,
+  DETAIL_PORTFOLIO_SETTLE_REFRESH_OFFSETS_MS,
+  scheduleSettleRefreshes,
+} from './mobile/settleRefresh.utils';
 import { useMobileDetailLayout } from './mobile/useMobileDetailLayout';
 import {
   buildHeadlineApyParts,
@@ -1284,13 +1290,46 @@ const EarnProtocolDetailsPage = ({ route }: { route: IRouteProps }) => {
   // stayed stale (OK-63229). Track the position's pending transactions the
   // way the positions page does and reload once they clear. The wide layout
   // has its own activity indicator, so this stays phone-only.
+  // One read after the clear is not always enough: a provider that answers
+  // from its own index can still report the pre-transaction state. An
+  // existing position gets one more read as a fallback. A vault with no
+  // position keeps re-reading, since the Portfolio tab appearing is the only
+  // sign the deposit has landed, and the timers go the moment it does.
+  const hasPortfolioRef = useRef(hasPortfolio);
+  hasPortfolioRef.current = hasPortfolio;
+  const cancelSettleRefreshesRef = useRef<(() => void) | undefined>(undefined);
+  const awaitingPortfolioRef = useRef(false);
+  const cancelSettleRefreshes = useCallback(() => {
+    cancelSettleRefreshesRef.current?.();
+    cancelSettleRefreshesRef.current = undefined;
+    awaitingPortfolioRef.current = false;
+  }, []);
+  const refreshUntilSettled = useCallback(() => {
+    cancelSettleRefreshes();
+    const hadPortfolio = hasPortfolioRef.current;
+    awaitingPortfolioRef.current = !hadPortfolio;
+    cancelSettleRefreshesRef.current = scheduleSettleRefreshes({
+      refresh: () => {
+        void refreshData();
+      },
+      offsetsMs: hadPortfolio
+        ? DETAIL_BALANCE_SETTLE_REFRESH_OFFSETS_MS
+        : DETAIL_PORTFOLIO_SETTLE_REFRESH_OFFSETS_MS,
+    });
+  }, [cancelSettleRefreshes, refreshData]);
+  useEffect(() => {
+    if (hasPortfolio && awaitingPortfolioRef.current) {
+      cancelSettleRefreshes();
+    }
+  }, [hasPortfolio, cancelSettleRefreshes]);
+  useEffect(() => cancelSettleRefreshes, [cancelSettleRefreshes]);
   const { refreshPending } = useStakingPendingTxs({
     accountId: isMobileLayout
       ? protocolInfo?.earnAccount?.accountId
       : undefined,
     networkId,
     stakeTag: protocolInfo?.stakeTag,
-    onRefresh: refreshData,
+    onRefresh: refreshUntilSettled,
   });
   // Every broadcast reloads the page at once and re-reads the local pending
   // list, so the poller picks the transaction up without waiting for focus.
