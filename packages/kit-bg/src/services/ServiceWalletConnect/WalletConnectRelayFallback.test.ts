@@ -318,6 +318,102 @@ describe('WalletConnect application relay controller with the unmodified SDK', (
     expect(liveConnections.size).toBe(1);
   });
 
+  it.each([false, true])(
+    'preserves SDK heartbeat recovery after an offline check fails; enabled=%s',
+    async (enabled) => {
+      jest.useFakeTimers();
+      const core = createCore();
+      prepareCore(core);
+      const { relayer } = core;
+      const hasTopics = jest
+        .spyOn(relayer.subscriber, 'hasAnyTopics', 'get')
+        .mockReturnValue(false);
+      jest.spyOn(relayer.messages, 'init').mockResolvedValue();
+      jest.spyOn(relayer.subscriber, 'init').mockResolvedValue();
+      const online = jest
+        .spyOn(relayer, 'confirmOnlineStateOrThrow')
+        .mockRejectedValue(new OneKeyLocalError('Synthetic offline state'));
+      const connect = jest
+        .spyOn(JsonRpcProvider.prototype, 'connect')
+        .mockImplementation(async function connect(this: JsonRpcProvider) {
+          Object.assign(this.connection, { socket: { readyState: 1 } });
+          this.events.emit('connect');
+        });
+      if (enabled) WalletConnectRelayController.attach(core);
+      await relayer.init();
+      await jest.advanceTimersByTimeAsync(0);
+      hasTopics.mockReturnValue(true);
+
+      const failing = relayer.transportOpen().catch((error: unknown) => error);
+      await jest.advanceTimersByTimeAsync(100);
+      expect(await failing).toBeInstanceOf(Error);
+      expect(relayer.transportExplicitlyClosed).toBe(false);
+      expect(connect).not.toHaveBeenCalled();
+
+      online.mockResolvedValue();
+      core.heartbeat.events.emit(HEARTBEAT_EVENTS.pulse);
+      await jest.advanceTimersByTimeAsync(100);
+      expect(connect).toHaveBeenCalledTimes(1);
+      expect(relayer.connected).toBe(true);
+    },
+  );
+
+  it.each([false, true])(
+    'preserves close intent when an offline switch and recovery overlap; explicitClose=%s',
+    async (explicitClose) => {
+      jest.useFakeTimers();
+      const core = createCore();
+      prepareCore(core);
+      const { relayer } = core;
+      const hasTopics = jest
+        .spyOn(relayer.subscriber, 'hasAnyTopics', 'get')
+        .mockReturnValue(false);
+      jest.spyOn(relayer.messages, 'init').mockResolvedValue();
+      jest.spyOn(relayer.subscriber, 'init').mockResolvedValue();
+      WalletConnectRelayController.attach(core);
+      await relayer.init();
+      await jest.advanceTimersByTimeAsync(0);
+      hasTopics.mockReturnValue(true);
+
+      const offline = new OneKeyLocalError('Synthetic offline state');
+      let failOnlineCheck = () => {};
+      const online = jest
+        .spyOn(relayer, 'confirmOnlineStateOrThrow')
+        .mockRejectedValueOnce(offline)
+        .mockImplementationOnce(
+          () =>
+            new Promise<void>((_resolve, reject) => {
+              failOnlineCheck = () => reject(offline);
+            }),
+        )
+        .mockResolvedValue();
+      const connect = jest
+        .spyOn(JsonRpcProvider.prototype, 'connect')
+        .mockImplementation(async function connect(this: JsonRpcProvider) {
+          Object.assign(this.connection, { socket: { readyState: 1 } });
+          this.events.emit('connect');
+        });
+      const opening = relayer.transportOpen().catch((error: unknown) => error);
+      await jest.advanceTimersByTimeAsync(100);
+      expect(online).toHaveBeenCalledTimes(2);
+
+      // An online notification can join a round whose offline check is still pending.
+      const recovery = relayer.transportOpen().catch((error: unknown) => error);
+      const closing = explicitClose ? relayer.transportClose() : undefined;
+      failOnlineCheck();
+      await jest.advanceTimersByTimeAsync(100);
+      expect(await opening).toBeInstanceOf(Error);
+      expect(await recovery).toBeInstanceOf(Error);
+      await closing;
+      expect(relayer.transportExplicitlyClosed).toBe(explicitClose);
+
+      core.heartbeat.events.emit(HEARTBEAT_EVENTS.pulse);
+      await jest.advanceTimersByTimeAsync(100);
+      expect(connect).toHaveBeenCalledTimes(explicitClose ? 0 : 1);
+      expect(relayer.connected).toBe(!explicitClose);
+    },
+  );
+
   it('does not retry a submitted RPC when its response fails', async () => {
     jest.useFakeTimers();
     const core = createCore();

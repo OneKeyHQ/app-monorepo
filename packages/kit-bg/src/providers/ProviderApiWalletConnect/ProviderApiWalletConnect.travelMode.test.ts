@@ -1,3 +1,5 @@
+import { EventEmitter } from 'events';
+
 import { RuntimeEnvironment } from '@onekeyhq/shared/src/travelMode/runtimeEnvironment';
 import { getTravelModeRuntimeProfile } from '@onekeyhq/shared/src/travelMode/runtimeProfile';
 import { EWalletConnectSessionEvents } from '@onekeyhq/shared/src/walletConnect/types';
@@ -6,6 +8,7 @@ import { walletConnectDiagnostics } from '../../services/ServiceWalletConnect/Wa
 
 import type { IWalletKit, WalletKitTypes } from '@reown/walletkit';
 
+const mockGetWalletSideClient = jest.fn<Promise<IWalletKit>, []>();
 let mockTransitionBlocked = false;
 const mockGetEnvironment = jest.fn(async () =>
   RuntimeEnvironment.create(
@@ -19,7 +22,10 @@ jest.mock('@onekeyhq/shared/src/travelMode', () => ({
 }));
 jest.mock('../../services/ServiceWalletConnect/walletConnectClient', () => ({
   __esModule: true,
-  default: {},
+  default: {
+    getWalletSideClient: () => mockGetWalletSideClient(),
+    getWalletSideStorageSessions: async () => [{ topic: 'stored-session' }],
+  },
 }));
 jest.mock('./WalletConnectRequestProxyAlgo', () => ({
   WalletConnectRequestProxyAlgo: jest.fn(),
@@ -189,5 +195,115 @@ describe('WalletConnect request diagnostics', () => {
       requestId: 17,
       level: 'error',
     });
+  });
+});
+
+describe('WalletConnect concurrent initialization', () => {
+  beforeEach(() => {
+    mockTransitionBlocked = false;
+    mockGetWalletSideClient.mockReset();
+  });
+
+  async function createProvider() {
+    const { default: ProviderApiWalletConnect } =
+      await import('./ProviderApiWalletConnect');
+    const getWcChainInfo = jest.fn(async () => undefined);
+    const provider = new ProviderApiWalletConnect({
+      backgroundApi: {
+        serviceWalletConnect: { getWcChainInfo },
+        serviceApp: { showToast: jest.fn(async () => undefined) },
+      },
+    });
+    const events = new EventEmitter();
+    const pingEvents = new EventEmitter();
+    const respondSessionRequest = jest.fn(async () => undefined);
+    const pair = jest.fn(async () => undefined);
+    // Only event registration, pairing and request responses are used by this fixture.
+    const wallet = Object.assign(events, {
+      engine: { signClient: { events: pingEvents } },
+      respondSessionRequest,
+      pair,
+    }) as unknown as IWalletKit;
+    return {
+      provider,
+      wallet,
+      events,
+      pingEvents,
+      getWcChainInfo,
+      respondSessionRequest,
+      pair,
+    };
+  }
+
+  it('registers once when startup restoration and pairing initialize together', async () => {
+    const {
+      provider,
+      wallet,
+      events,
+      pingEvents,
+      getWcChainInfo,
+      respondSessionRequest,
+      pair,
+    } = await createProvider();
+    let finishInitialization = () => {};
+    const initializing = new Promise<void>((resolve) => {
+      finishInitialization = resolve;
+    });
+    mockGetWalletSideClient.mockImplementation(async () => {
+      await initializing;
+      return wallet;
+    });
+    const restoring = provider.initializeOnStart();
+    const pairing = provider.connectToDapp('wc:test-pairing');
+    await Promise.resolve();
+    finishInitialization();
+    await Promise.all([restoring, pairing]);
+    await provider.initialize();
+
+    expect(mockGetWalletSideClient).toHaveBeenCalledTimes(1);
+    expect(pair).toHaveBeenCalledTimes(1);
+    expect(events.listenerCount('session_request')).toBe(1);
+    expect(events.listenerCount('session_proposal')).toBe(1);
+    expect(pingEvents.listenerCount('session_ping')).toBe(1);
+    const request = {
+      id: 42,
+      topic: 'session-topic',
+      params: {
+        chainId: 'eip155:1',
+        request: { method: 'personal_sign', params: [] },
+      },
+    } as unknown as WalletKitTypes.SessionRequest;
+    const listeners = events.listeners('session_request') as Array<
+      (event: WalletKitTypes.SessionRequest) => Promise<void>
+    >;
+    await Promise.all(listeners.map((listener) => listener(request)));
+    expect(getWcChainInfo).toHaveBeenCalledTimes(1);
+    expect(respondSessionRequest).toHaveBeenCalledTimes(1);
+    provider.unregisterEvents();
+    expect(events.eventNames()).toEqual([]);
+    expect(pingEvents.eventNames()).toEqual([]);
+  });
+
+  it('allows initialization to retry after a shared failure', async () => {
+    const { provider, wallet, events } = await createProvider();
+    const error = new Error('Synthetic initialization failure');
+    mockGetWalletSideClient
+      .mockRejectedValueOnce(error)
+      .mockResolvedValue(wallet);
+    const results = await Promise.allSettled([
+      provider.initialize(),
+      provider.initialize(),
+    ]);
+    expect(results).toEqual([
+      { status: 'rejected', reason: error },
+      { status: 'rejected', reason: error },
+    ]);
+    expect(provider.web3Wallet).toBeUndefined();
+    expect(mockGetWalletSideClient).toHaveBeenCalledTimes(1);
+
+    await provider.initialize();
+    expect(mockGetWalletSideClient).toHaveBeenCalledTimes(2);
+    expect(events.listenerCount('session_request')).toBe(1);
+    provider.unregisterEvents();
   });
 });

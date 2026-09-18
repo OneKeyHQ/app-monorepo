@@ -149,7 +149,10 @@ export async function connectWalletConnectToDapp(uri: string) {
         disableDrag: true,
         onClose: () => {
           closed = true;
-          if (activeDialog === connectionDialog) activeDialog = undefined;
+          if (activeDialog === connectionDialog) {
+            progressGeneration += 1;
+            activeDialog = undefined;
+          }
         },
         renderContent: (
           <WalletConnectConnectionProgress

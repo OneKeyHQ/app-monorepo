@@ -285,6 +285,52 @@ it('uses one dialog for concurrent explicit triggers', async () => {
   expect(mockConnect).toHaveBeenCalledTimes(2);
 });
 
+it.each(['manual', 'connected'] as const)(
+  'invalidates pending diagnostics after %s dismissal and permits a new scan',
+  async (dismissal) => {
+    const firstRead = deferred();
+    const secondRead = deferred();
+    const oldSnapshot = { ...mockSnapshot };
+    mockGetDiagnostics
+      .mockImplementationOnce(async () => {
+        await firstRead.promise;
+        return oldSnapshot;
+      })
+      .mockImplementationOnce(async () => {
+        await secondRead.promise;
+        return oldSnapshot;
+      });
+    const first = connectWalletConnectToDapp(pairingUri);
+    const second = connectWalletConnectToDapp(secondPairingUri);
+    firstRead.resolve();
+    await first;
+    const dialog = mockDialogs[0];
+    if (dismissal === 'manual') {
+      dialog.options.onClose();
+    } else {
+      mockSnapshot = {
+        ...mockSnapshot,
+        connected: true,
+        connectionSuccesses: 3,
+      };
+      await act(async () => {
+        render(dialog.options.renderContent);
+      });
+      expect(dialog.close).toHaveBeenCalledTimes(1);
+    }
+
+    secondRead.resolve();
+    await second;
+    expect(mockConnect).toHaveBeenCalledTimes(2);
+    expect(mockDialogs).toHaveLength(1);
+
+    mockSnapshot = { ...mockSnapshot, connected: false };
+    await connectWalletConnectToDapp(pairingUri);
+    expect(mockDialogs).toHaveLength(2);
+    expect(mockConnect).toHaveBeenCalledTimes(3);
+  },
+);
+
 it('closes on a rejected pairing and preserves its error', async () => {
   const error = new Error('Pairing expired');
   mockConnect.mockRejectedValue(error);

@@ -1,4 +1,4 @@
-import { RELAYER_EVENTS } from '@walletconnect/core';
+import { RELAYER_EVENTS, Relayer } from '@walletconnect/core';
 
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import {
@@ -65,6 +65,8 @@ export class WalletConnectRelayController {
 
   private readonly closeTransport: ICore['relayer']['transportClose'];
 
+  private readonly disconnectTransport: Relayer['transportDisconnect'];
+
   private constructor(
     private readonly core: ICore,
     initialRelayUrl = WALLET_CONNECT_RELAY_URL,
@@ -75,6 +77,10 @@ export class WalletConnectRelayController {
     this.closeTransport = relayer.transportClose.bind(relayer);
     const request = relayer.request.bind(relayer);
     const subscribe = relayer.subscribe.bind(relayer);
+    if (!(relayer instanceof Relayer)) {
+      throw new OneKeyLocalError('Expected the WalletConnect SDK relayer');
+    }
+    this.disconnectTransport = relayer.transportDisconnect.bind(relayer);
 
     relayer.transportOpen = (url) => this.open(url);
     relayer.transportClose = () => this.close();
@@ -221,7 +227,9 @@ export class WalletConnectRelayController {
 
   private async drain() {
     this.trackConnection();
-    await this.closeTransport();
+    // Relay switching must not disable SDK recovery if the next online check
+    // fails before connect() clears transportExplicitlyClosed.
+    await this.disconnectTransport();
     for (const tracked of this.connections.values()) {
       // A timed-out registration can still open later. Keep the next relay
       // blocked until it settles and any resulting socket confirms closure.
@@ -244,11 +252,13 @@ export class WalletConnectRelayController {
       const opening = this.opening;
       const subscribing = this.initialSubscription;
       this.closing = (async () => {
+        await this.closeTransport();
         await this.drainConnections();
         if (opening || subscribing) {
           // A provider may still be created after an asynchronous JWT lookup.
           // Wait for its owner to exit, then drain any late-created socket.
           await Promise.allSettled([opening, subscribing]);
+          await this.closeTransport();
           await this.drainConnections();
         }
       })().finally(() => {

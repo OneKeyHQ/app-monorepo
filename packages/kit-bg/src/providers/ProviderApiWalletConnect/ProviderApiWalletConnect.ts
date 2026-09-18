@@ -42,6 +42,8 @@ class ProviderApiWalletConnect {
 
   web3Wallet?: IWalletKit;
 
+  private initializing?: Promise<void>;
+
   requestProxyMap: {
     [networkImpl: string]: WalletConnectRequestProxy;
   } = {
@@ -82,15 +84,22 @@ class ProviderApiWalletConnect {
     if (this.web3Wallet) {
       return;
     }
-    walletConnectDiagnostics.setInitialization('initializing');
-    try {
-      this.web3Wallet = await walletConnectClient.getWalletSideClient();
-      this.registerEvents();
-      walletConnectDiagnostics.setInitialization('ready');
-    } catch (error) {
-      walletConnectDiagnostics.setInitialization('failed', error);
-      throw error;
+    if (!this.initializing) {
+      this.initializing = (async () => {
+        walletConnectDiagnostics.setInitialization('initializing');
+        try {
+          this.web3Wallet = await walletConnectClient.getWalletSideClient();
+          this.registerEvents();
+          walletConnectDiagnostics.setInitialization('ready');
+        } catch (error) {
+          walletConnectDiagnostics.setInitialization('failed', error);
+          throw error;
+        }
+      })().finally(() => {
+        this.initializing = undefined;
+      });
     }
+    await this.initializing;
   }
 
   registerEvents() {
