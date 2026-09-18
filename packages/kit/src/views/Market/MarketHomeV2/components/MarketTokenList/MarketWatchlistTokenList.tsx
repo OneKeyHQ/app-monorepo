@@ -27,7 +27,10 @@ import { MarketRecommendList } from '../MarketRecommendList';
 import { InlineActionBar } from './components/InlineActionBar';
 import { useMarketWatchlistTokenList } from './hooks/useMarketWatchlistTokenList';
 import { useWatchlistFilteredGroups } from './hooks/useWatchlistFilteredGroups';
-import { MarketListLoadingFallback } from './MarketListLoadingFallback';
+import {
+  MarketDesktopTableLoadingFallback,
+  MarketListLoadingFallback,
+} from './MarketListLoadingFallback';
 import { type IMarketToken } from './MarketTokenData';
 import {
   type IMarketTokenListLiveOverride,
@@ -351,7 +354,13 @@ function MarketWatchlistTokenList({
         </Tabs.ScrollView>
       );
     }
-    return <MarketListLoadingFallback />;
+    // Tab-integrated on web means the desktop Market home table; the Swap Pro
+    // token modal is not tab-integrated and keeps the compact fallback.
+    return tabIntegrated ? (
+      <MarketDesktopTableLoadingFallback />
+    ) : (
+      <MarketListLoadingFallback />
+    );
   }
 
   // Show recommend list when watchlist is empty

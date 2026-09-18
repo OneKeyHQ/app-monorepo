@@ -94,9 +94,10 @@ function getBannerSpotTabLabelId(
   if (name === 'perps') {
     return ETranslations.global_perp;
   }
+  // Non-stock lists read as "Crypto", matching the Favorites filter.
   return isStock
     ? ETranslations.perps_token_selector_stocks
-    : ETranslations.dexmarket_spot;
+    : ETranslations.prime_crypto_payment__label;
 }
 
 function MarketBannerDetailContent({ title }: { title: string }) {
