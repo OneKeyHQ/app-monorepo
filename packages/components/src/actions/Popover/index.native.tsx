@@ -23,7 +23,6 @@ import { SHEET_POPOVER_Z_INDEX } from '@onekeyhq/shared/src/utils/overlayUtils';
 
 import { FIX_SHEET_PROPS } from '../../composite/Dialog';
 import { Keyboard } from '../../content/Keyboard';
-import { Portal } from '../../hocs';
 import { NativeSheetPresentation } from '../../hocs/NativeSheetPresentation';
 import {
   ModalNavigatorContext,
@@ -45,6 +44,7 @@ import { IconButton } from '../IconButton';
 import { Trigger } from '../Trigger';
 
 import { PopoverContext, usePopoverContext } from './context';
+import { NativePopoverOverlay } from './NativePopoverOverlay';
 import { PopoverContent } from './PopoverContent';
 import {
   runPopoverCloseSideEffects,
@@ -898,7 +898,9 @@ function BasicPopover({
   );
 
   if (platformEnv.isNative) {
-    // on native and ipad, we add the popover to the RNScreen.FULL_WINDOW_OVERLAY
+    // Native sheets portal into the full-window overlay. On iOS that overlay
+    // is a window subview stacked by add-order, so a later modal page would
+    // paint over it unless the sheet gets its own OverlayContainer.
     return (
       <>
         {renderTrigger ? (
@@ -908,13 +910,13 @@ function BasicPopover({
         ) : null}
         {keepChildrenMounted ||
         (shouldUseNativePortalLifecycle ? isNativePortalMounted : isOpen) ? (
-          <Portal.Body container={Portal.Constant.FULL_WINDOW_OVERLAY_PORTAL}>
+          <NativePopoverOverlay active={isOpen}>
             <ModalNavigatorContext.Provider value={modalNavigatorContext}>
               <PageContext.Provider value={pageContextValue}>
                 {memoPopover}
               </PageContext.Provider>
             </ModalNavigatorContext.Provider>
-          </Portal.Body>
+          </NativePopoverOverlay>
         ) : null}
       </>
     );
