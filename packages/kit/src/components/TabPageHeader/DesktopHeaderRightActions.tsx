@@ -19,27 +19,19 @@ export function DesktopHeaderRightActions({
   tabRoute: ETabRoutes;
   customHeaderRightItems?: ReactNode;
 }) {
-  const leadingCustomItems =
-    (tabRoute === ETabRoutes.Perp || tabRoute === ETabRoutes.Swap) &&
-    customHeaderRightItems
-      ? customHeaderRightItems
-      : null;
-
   return (
     <HeaderButtonGroup
       testID="desktop-header-right-actions"
       className="app-region-no-drag"
     >
-      {leadingCustomItems}
-      {!leadingCustomItems && tabRoute === ETabRoutes.WebviewPerpTrade ? (
+      {tabRoute === ETabRoutes.Perp || tabRoute === ETabRoutes.Swap
+        ? customHeaderRightItems
+        : null}
+      {tabRoute === ETabRoutes.WebviewPerpTrade ? (
         <WalletConnectionForWeb tabRoute={tabRoute} />
       ) : null}
-      {!leadingCustomItems && tabRoute === ETabRoutes.Earn ? (
-        <GiftAction copyAsUrl />
-      ) : null}
-      {!leadingCustomItems && tabRoute === ETabRoutes.Discovery ? (
-        <HistoryIconButton />
-      ) : null}
+      {tabRoute === ETabRoutes.Earn ? <GiftAction copyAsUrl /> : null}
+      {tabRoute === ETabRoutes.Discovery ? <HistoryIconButton /> : null}
       <HeaderUpdateButton />
       <HeaderNotificationIconButton testID="header-right-notification" />
     </HeaderButtonGroup>

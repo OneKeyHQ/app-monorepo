@@ -15,16 +15,10 @@ jest.mock('@onekeyhq/components/src/layouts/Navigation/Header', () => ({
   HeaderButtonGroup: ({
     children,
     testID,
-    alignItems = 'center',
   }: {
     children?: ReactNode;
     testID?: string;
-    alignItems?: string;
-  }) => (
-    <div data-testid={testID} data-align-items={alignItems}>
-      {children}
-    </div>
-  ),
+  }) => <div data-testid={testID}>{children}</div>,
 }));
 
 jest.mock('./components', () => ({
@@ -59,7 +53,6 @@ describe('DesktopHeaderRightActions', () => {
     );
 
     const group = getHeaderRightGroup();
-    expect(group.getAttribute('data-align-items')).toBe('center');
     expect(
       group.contains(screen.getByTestId('swap-invitee-reward-top-nav-button')),
     ).toBe(true);
@@ -75,7 +68,6 @@ describe('DesktopHeaderRightActions', () => {
     render(<DesktopHeaderRightActions tabRoute={ETabRoutes.Earn} />);
 
     const group = getHeaderRightGroup();
-    expect(group.getAttribute('data-align-items')).toBe('center');
     expect(group.contains(screen.getByTestId('header-gift-action'))).toBe(true);
     expect(group.contains(screen.getByTestId('header-update-button'))).toBe(
       true,
