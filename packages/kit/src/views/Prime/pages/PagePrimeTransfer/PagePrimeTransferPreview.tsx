@@ -573,6 +573,7 @@ export default function PagePrimeTransferPreview() {
         }
         importInFlightRef.current = true;
         let importDialog: IDialogInstance | undefined;
+        let importTaskUUID: string | undefined;
         try {
           void remotePasswordDialog?.close();
 
@@ -584,12 +585,17 @@ export default function PagePrimeTransferPreview() {
             await timerUtils.wait(350);
           }
 
+          importTaskUUID =
+            await backgroundApiProxy.servicePrimeTransfer.prepareImportTask();
+          if (!importTaskUUID) return;
           await backgroundApiProxy.servicePrimeTransfer.initImportProgress({
+            taskUUID: importTaskUUID,
             selectedTransferData,
           });
 
           // Show progress dialog
           importDialog = showPrimeTransferImportProcessingDialog({
+            taskUUID: importTaskUUID,
             intl,
             navigation,
           });
@@ -606,6 +612,7 @@ export default function PagePrimeTransferPreview() {
             : localPasswordEncoded;
           const { success, errorsInfo, taskUUID } =
             await backgroundApiProxy.servicePrimeTransfer.startImport({
+              taskUUID: importTaskUUID,
               decryptedCredentialsHex:
                 transferData?.privateData?.decryptedCredentialsHex,
               selectedTransferData,
@@ -623,7 +630,11 @@ export default function PagePrimeTransferPreview() {
           }
         } catch (error) {
           console.error(error);
-          await backgroundApiProxy.servicePrimeTransfer.resetImportProgress();
+          if (importTaskUUID) {
+            await backgroundApiProxy.servicePrimeTransfer.resetImportProgress({
+              taskUUID: importTaskUUID,
+            });
+          }
           await importDialog?.close();
           Toast.error({
             title: intl.formatMessage({

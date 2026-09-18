@@ -1,5 +1,6 @@
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import {
+  PRIME_TRANSFER_CHUNK_PACKET_SIZE,
   PRIME_TRANSFER_CHUNK_SIZE,
   PRIME_TRANSFER_CHUNK_TIMEOUT,
   PRIME_TRANSFER_MAX_PAYLOAD_SIZE,
@@ -66,14 +67,19 @@ export function waitForTransferRequest<T>(
 
 export async function supportsPrimeTransferChunks({
   serverSupportsChunkedTransfer,
+  serverMaxMessageSize = Number.POSITIVE_INFINITY,
   getTransferType,
   signal,
 }: {
   serverSupportsChunkedTransfer: boolean;
+  serverMaxMessageSize?: number;
   getTransferType: () => Promise<{ chunkedTransferVersion?: number }>;
   signal: AbortSignal;
 }): Promise<boolean> {
-  if (!serverSupportsChunkedTransfer) {
+  if (
+    !serverSupportsChunkedTransfer ||
+    serverMaxMessageSize < PRIME_TRANSFER_CHUNK_PACKET_SIZE
+  ) {
     return false;
   }
   try {

@@ -199,8 +199,12 @@ export function CloudBackupApiTests() {
           <Button
             onPress={() =>
               handleApiCall(async () => {
+                const taskUUID =
+                  await backgroundApiProxy.servicePrimeTransfer.prepareImportTask();
+                if (!taskUUID) return;
                 const result =
                   await backgroundApiProxy.serviceCloudBackupV2.restore({
+                    taskUUID,
                     password,
                     payload: {} as any,
                   });
@@ -250,8 +254,12 @@ export function CloudBackupApiTests() {
           <Button
             onPress={() => {
               void handleApiCall(async () => {
+                const taskUUID =
+                  await backgroundApiProxy.servicePrimeTransfer.prepareImportTask();
+                if (!taskUUID) return;
                 const result =
                   await backgroundApiProxy.serviceCloudBackupV2.restore({
+                    taskUUID,
                     payload: {
                       recordId,
                     } as any,

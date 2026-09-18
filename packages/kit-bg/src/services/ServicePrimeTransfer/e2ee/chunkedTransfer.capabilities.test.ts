@@ -1,6 +1,9 @@
 import { JsBridgeBase } from '@onekeyfe/cross-inpage-provider-core';
 
-import { PRIME_TRANSFER_CHUNK_TIMEOUT } from '@onekeyhq/shared/types/prime/primeTransferNetworkTypes';
+import {
+  PRIME_TRANSFER_CHUNK_PACKET_SIZE,
+  PRIME_TRANSFER_CHUNK_TIMEOUT,
+} from '@onekeyhq/shared/types/prime/primeTransferNetworkTypes';
 
 import { buildCallRemoteApiMethod } from '../../../apis/RemoteApiProxyBase';
 
@@ -39,6 +42,35 @@ describe('Prime Transfer chunk capability negotiation', () => {
       }),
     ).resolves.toBe(false);
     expect(getTransferType).not.toHaveBeenCalled();
+  });
+
+  test.each([32 * 1024, PRIME_TRANSFER_CHUNK_PACKET_SIZE - 1])(
+    'falls back before querying the peer when a chunk packet cannot fit: %s',
+    async (serverMaxMessageSize) => {
+      const getTransferType = jest.fn(async () => ({
+        chunkedTransferVersion: 1,
+      }));
+      await expect(
+        supportsPrimeTransferChunks({
+          serverSupportsChunkedTransfer: true,
+          serverMaxMessageSize,
+          getTransferType,
+          signal: new AbortController().signal,
+        }),
+      ).resolves.toBe(false);
+      expect(getTransferType).not.toHaveBeenCalled();
+    },
+  );
+
+  test('accepts a relay that fits the full v1 chunk packet allowance', async () => {
+    await expect(
+      supportsPrimeTransferChunks({
+        serverSupportsChunkedTransfer: true,
+        serverMaxMessageSize: PRIME_TRANSFER_CHUNK_PACKET_SIZE,
+        getTransferType: async () => ({ chunkedTransferVersion: 1 }),
+        signal: new AbortController().signal,
+      }),
+    ).resolves.toBe(true);
   });
 
   test.each([

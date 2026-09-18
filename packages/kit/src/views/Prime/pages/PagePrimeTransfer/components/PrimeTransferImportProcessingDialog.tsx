@@ -418,6 +418,7 @@ function PrimeTransferImportProcessingDialogContent({
 }
 
 export function showPrimeTransferImportProcessingDialog({
+  taskUUID,
   intl,
   navigation,
   closeAfterDone,
@@ -425,6 +426,7 @@ export function showPrimeTransferImportProcessingDialog({
   closeAfterError,
   ...dialogProps
 }: IDialogShowProps & {
+  taskUUID?: string;
   intl: IntlShape;
   navigation?: IAppNavigation;
   closeAfterDone?: boolean;
@@ -451,8 +453,12 @@ export function showPrimeTransferImportProcessingDialog({
         !(await dialogProps.onBeforeClose(extra))
       )
         return false;
-      if (!(await confirmPrimeTransferImportExit(intl))) return false;
-      await backgroundApiProxy.servicePrimeTransfer.resetImportProgress();
+      if (!(await confirmPrimeTransferImportExit(intl, taskUUID))) return false;
+      if (taskUUID) {
+        await backgroundApiProxy.servicePrimeTransfer.resetImportProgress({
+          taskUUID,
+        });
+      }
       return true;
     },
   });

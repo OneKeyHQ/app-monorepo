@@ -199,6 +199,7 @@ export type IPrimeTransferAtomData = {
   importCurrentCreatingTarget?: string;
   networkProgress?: IPrimeTransferNetworkProgress;
   importProgress?: {
+    taskUUID?: string;
     totalDetailInfo?: IPrimeTransferImportProgressTotalDetailInfo;
     total: number;
     current: number;

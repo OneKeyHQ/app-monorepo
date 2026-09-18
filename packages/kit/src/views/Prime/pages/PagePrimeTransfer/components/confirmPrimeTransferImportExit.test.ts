@@ -5,6 +5,7 @@ import type { IDialogShowProps } from '@onekeyhq/components/src/composite/Dialog
 import { confirmPrimeTransferImportExit } from './confirmPrimeTransferImportExit';
 
 let mockIsImporting = false;
+let mockTaskUUID = 'task-1';
 let mockDialog: IDialogShowProps | undefined;
 const mockShow = jest.fn((props: IDialogShowProps) => {
   mockDialog = props;
@@ -14,7 +15,9 @@ jest.mock('@onekeyhq/components', () => ({
 }));
 jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms/prime', () => ({
   primeTransferAtom: {
-    get: async () => ({ importProgress: { isImporting: mockIsImporting } }),
+    get: async () => ({
+      importProgress: { isImporting: mockIsImporting, taskUUID: mockTaskUUID },
+    }),
   },
 }));
 const intl = createIntl({ locale: 'en-US', onError: () => undefined });
@@ -22,6 +25,7 @@ const intl = createIntl({ locale: 'en-US', onError: () => undefined });
 describe('Prime Transfer import exit confirmation', () => {
   beforeEach(() => {
     mockIsImporting = false;
+    mockTaskUUID = 'task-1';
     mockDialog = undefined;
     mockShow.mockClear();
   });
@@ -58,5 +62,26 @@ describe('Prime Transfer import exit confirmation', () => {
     });
     await mockDialog?.onClose?.();
     await expect(confirmed).resolves.toBe(true);
+  });
+  test('an error during exit confirmation allows cleanup even if the user chooses cancel', async () => {
+    mockIsImporting = true;
+    const closing = confirmPrimeTransferImportExit(intl, 'task-1');
+    await Promise.resolve();
+    mockIsImporting = false;
+    await mockDialog?.onClose?.();
+    await expect(closing).resolves.toBe(true);
+  });
+
+  test('an old dialog can close without prompting or cancelling the replacement task', async () => {
+    mockIsImporting = true;
+    const closing = confirmPrimeTransferImportExit(intl, 'task-1');
+    await Promise.resolve();
+    mockTaskUUID = 'task-2';
+    await mockDialog?.onClose?.();
+    await expect(closing).resolves.toBe(true);
+    await expect(confirmPrimeTransferImportExit(intl, 'task-1')).resolves.toBe(
+      true,
+    );
+    expect(mockShow).toHaveBeenCalledTimes(1);
   });
 });
