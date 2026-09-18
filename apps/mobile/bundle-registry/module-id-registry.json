@@ -21366,6 +21366,7 @@
     "packages/kit/src/views/Earn/pages/EarnProtocolDetails/mobile/PortfolioTab.tsx": 18528,
     "packages/kit/src/views/Earn/pages/EarnProtocolDetails/mobile/mobileDetailTabs.utils.ts": 9777,
     "packages/kit/src/views/Earn/pages/EarnProtocolDetails/mobile/providerSubtitle.utils.ts": 2205,
+    "packages/kit/src/views/Earn/pages/EarnProtocolDetails/mobile/settleRefresh.utils.ts": 20276,
     "packages/kit/src/views/Earn/pages/EarnProtocolDetails/mobile/useMobileDetailLayout.ts": 21595,
     "packages/kit/src/views/Earn/pages/EarnProtocolDetails/mobile/yieldSegments.utils.ts": 19381,
     "packages/kit/src/views/Earn/pages/EarnProtocolTokens/index.tsx": 3278,
