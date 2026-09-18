@@ -24259,6 +24259,7 @@
     "packages/shared/src/utils/secret.ts": 2439,
     "packages/shared/src/utils/sensitiveErrorMessageUtils.ts": 14815,
     "packages/shared/src/utils/sensitiveTextUtils.ts": 6007,
+    "packages/shared/src/utils/sharedBalanceUtils.ts": 24408,
     "packages/shared/src/utils/sidePanelUtils.ts": 12452,
     "packages/shared/src/utils/sortUtils.ts": 16907,
     "packages/shared/src/utils/stockTokenVariant.ts": 15134,
