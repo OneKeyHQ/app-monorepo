@@ -11,16 +11,10 @@ import {
   useActiveAccount,
   useIsAccountSelectorSyncLoading,
 } from '../../states/jotai/contexts/accountSelector';
-import { HistoryIconButton } from '../../views/Discovery/pages/components/HistoryIconButton';
 
-import {
-  GiftAction,
-  HeaderUpdateButton,
-  WalletConnectionForWeb,
-  WalletConnectionGroup,
-} from './components';
-import { HeaderNotificationIconButton } from './components/HeaderNotificationIconButton';
+import { WalletConnectionGroup } from './components';
 import { DappHeader } from './DappHeader';
+import { DesktopHeaderRightActions } from './DesktopHeaderRightActions';
 import { DiscoveryHeaderSegment, HeaderLeft } from './HeaderLeft';
 import { MDHeader } from './MDHeader';
 import { UrlAccountPageHeader } from './urlAccountPageHeader';
@@ -107,43 +101,15 @@ function BaseDesktopTabPageHeader({
     [tabRoute],
   );
 
-  const renderDesktopModeRightButtons = useCallback(() => {
-    if (
-      (tabRoute === ETabRoutes.Perp || tabRoute === ETabRoutes.Swap) &&
-      customHeaderRightItems
-    ) {
-      return (
-        <>
-          {customHeaderRightItems}
-          <XStack pl="$5" alignItems="center">
-            <HeaderUpdateButton />
-            <HeaderNotificationIconButton testID="header-right-notification" />
-          </XStack>
-        </>
-      );
-    }
-    return (
-      <>
-        {tabRoute === ETabRoutes.WebviewPerpTrade ? (
-          <WalletConnectionForWeb tabRoute={tabRoute} />
-        ) : null}
-        {tabRoute === ETabRoutes.Earn ? (
-          <XStack px="$5">
-            <GiftAction copyAsUrl />
-          </XStack>
-        ) : null}
-        {tabRoute === ETabRoutes.Discovery ? (
-          <XStack px="$5">
-            <HistoryIconButton />
-          </XStack>
-        ) : null}
-        <XStack alignItems="center">
-          <HeaderUpdateButton />
-          <HeaderNotificationIconButton testID="header-right-notification" />
-        </XStack>
-      </>
-    );
-  }, [customHeaderRightItems, tabRoute]);
+  const renderDesktopModeRightButtons = useCallback(
+    () => (
+      <DesktopHeaderRightActions
+        tabRoute={tabRoute}
+        customHeaderRightItems={customHeaderRightItems}
+      />
+    ),
+    [customHeaderRightItems, tabRoute],
+  );
 
   const renderHeaderLeftInHomeRouter = useCallback(() => {
     if (sceneName === EAccountSelectorSceneName.homeUrlAccount) {

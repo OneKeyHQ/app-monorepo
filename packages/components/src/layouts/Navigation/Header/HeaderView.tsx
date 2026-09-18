@@ -16,6 +16,7 @@ import { DesktopDragZoneBox } from '../../DesktopDragZoneBox';
 
 import HeaderBackButton from './HeaderBackButton';
 import HeaderSearchBar from './HeaderSearchBar';
+import { HEADER_RIGHT_SLOT_PROPS } from './headerRightSlot';
 
 import type { IOnekeyStackHeaderProps } from './HeaderScreenOptions';
 import type { IStackHeaderProps } from '../ScreenProps';
@@ -226,7 +227,7 @@ function HeaderView({
       if (!node) {
         return node ?? null;
       }
-      return <XStack className="app-region-no-drag">{node}</XStack>;
+      return <XStack {...HEADER_RIGHT_SLOT_PROPS}>{node}</XStack>;
     },
     [headerRight, canGoBack],
   );

@@ -528,3 +528,10 @@ Cases are appended by AI after each bug fix. Do NOT reorder or delete entries �
 **Root Cause**: The test used `staleMs: 0` to make its fixture stale, which also made a newly created ownerless lock immediately reclaimable before its owner file was written.
 **Fix**: Backdate only the initial stale fixture and use a nonzero stale threshold so replacement locks remain fresh during acquisition.
 **Catchable by**: Section 6: tests cover race conditions; NEW — concurrency tests must make the intended stale fixture old without making newly created resources instantly stale
+
+## Case: Desktop top-bar gift button misaligned
+**Date**: 2026-09-18 | **Platforms**: Desktop Electron (also shared gtMd web header)
+**Symptom**: OK-63697. The Swap header gift icon sat off the baseline of the update and notification icons.
+**Root Cause**: Desktop `headerRight` rendered the gift as a sibling of a separately padded update/notification row, and the HeaderView headerRight slot XStack had no `alignItems` constraint. The gift Popover trigger then stretched independently.
+**Fix**: Put gift and system icons in one `HeaderButtonGroup`, and apply `alignItems: 'center'` on the headerRight slot.
+**Catchable by**: Section 3: Cross-Platform Impact — desktop header slot children must share one aligned group; Section 4: logic moved between files must carry the surrounding align/gap constraint
