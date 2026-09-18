@@ -375,8 +375,8 @@ export function isDesktopBlePairingCanceledError(
   const oneKeyError = error as IOneKeyError | undefined;
   return Boolean(
     platformEnv.isDesktop &&
-      isOneKeyHardwareError(error) &&
-      oneKeyError?.payload?.code === HardwareErrorCode.BleDeviceBondedCanceled,
+    isOneKeyHardwareError(error) &&
+    oneKeyError?.payload?.code === HardwareErrorCode.BleDeviceBondedCanceled,
   );
 }
 
