@@ -391,6 +391,62 @@ describe('useStakingPendingTxsByInfo history verification', () => {
     ]);
   });
 
+  it('parks history lookups and the retry poll while the host surface is hidden', async () => {
+    timerMock.durationMs = 5;
+    backgroundMock.getNetworkAccountsInSameIndexedAccountId.mockResolvedValue([
+      {
+        network: { id: 'evm--1' },
+        account: { id: 'network-1-account' },
+      },
+    ]);
+    backgroundMock.getAccountLocalHistoryPendingTxs.mockResolvedValue([]);
+
+    const { rerender, unmount } = renderHook(
+      ({ isActive }: { isActive: boolean }) =>
+        useStakingPendingTxsByInfo({
+          networkIds: ['evm--1', 'evm--8453'],
+          indexedAccountId: 'route-indexed-account',
+          tagMatcher: pendingTagMatcher,
+          isActive,
+        }),
+      { initialProps: { isActive: false } },
+    );
+
+    await waitFor(() => {
+      expect(backgroundMock.getAccountMetaForNetworksBatch).toHaveBeenCalled();
+    });
+    const accountMapCalls =
+      backgroundMock.getNetworkAccountsInSameIndexedAccountId.mock.calls.length;
+    // Several polling intervals pass; the unverified partial map would
+    // otherwise be retried on each of them.
+    await act(async () => {
+      await new Promise((resolve) => {
+        setTimeout(resolve, 60);
+      });
+    });
+
+    expect(
+      backgroundMock.getAccountLocalHistoryPendingTxs,
+    ).not.toHaveBeenCalled();
+    expect(
+      backgroundMock.getNetworkAccountsInSameIndexedAccountId.mock.calls.length,
+    ).toBe(accountMapCalls);
+
+    rerender({ isActive: true });
+
+    await waitFor(() => {
+      expect(
+        backgroundMock.getAccountLocalHistoryPendingTxs,
+      ).toHaveBeenCalled();
+      expect(
+        backgroundMock.getNetworkAccountsInSameIndexedAccountId.mock.calls
+          .length,
+      ).toBeGreaterThan(accountMapCalls);
+    });
+    // The partial map never verifies, so the retry poll would outlive the test.
+    unmount();
+  });
+
   it('recovers account ownership before retrying pending history', async () => {
     timerMock.durationMs = 5;
     const recoveredPendingTx = createPendingTx('recovered-account-map');

@@ -177,6 +177,7 @@ export const useStakingPendingTxsByInfo = ({
   onRefreshDelayMs = 0,
   precomputed,
   revalidateOnFocus = true,
+  isActive = true,
   accountId: explicitAccountId,
   indexedAccountId: explicitIndexedAccountId,
 }: {
@@ -187,6 +188,9 @@ export const useStakingPendingTxsByInfo = ({
   onRefreshDelayMs?: number;
   precomputed?: IStakingPendingTxsPrecomputed;
   revalidateOnFocus?: boolean;
+  // For hosts that keep this hook mounted while its surface is hidden inside
+  // a focused route, where route focus alone never parks the work.
+  isActive?: boolean;
   accountId?: string;
   indexedAccountId?: string;
 }) => {
@@ -680,6 +684,12 @@ export const useStakingPendingTxsByInfo = ({
       tagMatcher,
     ]);
 
+  // Park the per-network history lookups and the retry poll through the same
+  // gate a blurred route uses, so both resume once the surface is shown again.
+  const overrideIsFocused = useCallback(
+    (isFocused: boolean) => isFocused && isActive,
+    [isActive],
+  );
   const {
     result: pendingTxsResult,
     run: refreshPendingTxs,
@@ -687,6 +697,7 @@ export const useStakingPendingTxsByInfo = ({
   } = usePromiseResult(fetchFilteredPendingTxs, [fetchFilteredPendingTxs], {
     initResult: UNVERIFIED_PENDING_TXS_RESULT,
     revalidateOnFocus,
+    overrideIsFocused,
     watchLoading: true,
   });
   const {
@@ -821,6 +832,7 @@ export const useStakingPendingTxsByInfo = ({
     ],
     {
       pollingInterval,
+      overrideIsFocused,
     },
   );
 
