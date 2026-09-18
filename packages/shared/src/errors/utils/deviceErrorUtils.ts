@@ -369,6 +369,17 @@ export function isOneKeyHardwareError(error: unknown): error is IOneKeyError {
   );
 }
 
+export function isDesktopBlePairingCanceledError(
+  error: unknown,
+): error is IOneKeyError {
+  const oneKeyError = error as IOneKeyError | undefined;
+  return Boolean(
+    platformEnv.isDesktop &&
+      isOneKeyHardwareError(error) &&
+      oneKeyError?.payload?.code === HardwareErrorCode.BleDeviceBondedCanceled,
+  );
+}
+
 export function isHardwareError({
   error,
 }: {

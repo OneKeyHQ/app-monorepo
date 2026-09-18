@@ -21,6 +21,7 @@ import { EOneKeyErrorClassNames } from '../types/errorTypes';
 import {
   convertDeviceError,
   convertDeviceResponse,
+  isDesktopBlePairingCanceledError,
   isOneKeyHardwareError,
 } from './deviceErrorUtils';
 import errorToastUtils from './errorToastUtils';
@@ -138,6 +139,7 @@ describe('convertDeviceError invalid Bluetooth bond', () => {
           code: HardwareErrorCode.BleDeviceBondedCanceled,
         },
       });
+      expect(isDesktopBlePairingCanceledError(error)).toBe(true);
     } finally {
       platformEnv.isDesktop = originalIsDesktop;
     }
@@ -161,6 +163,7 @@ describe('convertDeviceError invalid Bluetooth bond', () => {
           code: HardwareErrorCode.BleDeviceBondedCanceled,
         },
       });
+      expect(isDesktopBlePairingCanceledError(error)).toBe(false);
     } finally {
       platformEnv.isDesktop = originalIsDesktop;
     }
