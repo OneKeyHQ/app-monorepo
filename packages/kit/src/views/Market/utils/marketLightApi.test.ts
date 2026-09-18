@@ -2,6 +2,7 @@ import { appApiClient } from '@onekeyhq/shared/src/appApiClient/appApiClient';
 
 import {
   fetchMarketAssetListLight,
+  fetchMarketBasicConfigLight,
   fetchMarketTokenListBatchLight,
 } from './marketLightApi';
 
@@ -434,5 +435,34 @@ describe('marketLightApi', () => {
     ).resolves.toEqual({ list: [newerItem] });
 
     expect(mockPost).toHaveBeenCalledTimes(2);
+  });
+
+  it('does not reuse an offline basic-config failure on the next request', async () => {
+    mockGet.mockRejectedValueOnce(new Error('offline'));
+    await expect(fetchMarketBasicConfigLight()).rejects.toThrow('offline');
+    expect(mockGet).toHaveBeenCalledTimes(1);
+
+    const response = {
+      code: 0,
+      message: 'OK',
+      data: {
+        spotCategories: [
+          { type: 'trending', name: 'Trending' },
+          { type: 'stocks', name: 'Stocks' },
+          { type: 'robinhood_meme', name: 'Robinhood' },
+        ],
+      },
+    };
+    mockGet.mockResolvedValueOnce({ data: response });
+    await expect(fetchMarketBasicConfigLight()).resolves.toEqual(response);
+    expect(mockGet).toHaveBeenCalledTimes(2);
+    expect(mockGet).toHaveBeenLastCalledWith(
+      '/utility/v2/market/basic-config',
+      {
+        params: {
+          configVersion: 2,
+        },
+      },
+    );
   });
 });
