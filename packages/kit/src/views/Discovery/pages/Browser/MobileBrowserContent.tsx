@@ -6,9 +6,11 @@ import ViewShot from 'react-native-view-shot';
 
 import { Stack } from '@onekeyhq/components';
 import type { IWebViewOnScrollEvent } from '@onekeyhq/kit/src/components/WebView/types';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import WebContent from '../../components/WebContent/WebContent';
+import { useDiagnosticsLogOnChange } from '../../hooks/useDiscoveryHomeDiagnostics';
 import { useDiscoveryMessageHandler } from '../../hooks/useDiscoveryMessageHandler';
 import {
   useActiveTabId,
@@ -98,6 +100,19 @@ function MobileBrowserContent({
     webViewInitialUrlRef.current = tab.url;
   }
   const webViewInitialUrl = webViewInitialUrlRef.current;
+
+  useDiagnosticsLogOnChange(
+    {
+      tabId: id.slice(0, 8),
+      isActive,
+      isCurrent,
+      keepAlive,
+      hasBeenShown,
+      mounted: shouldMountWebView,
+      browserContentVisible: isBrowserContentVisible,
+    },
+    (value) => defaultLogger.discovery.homeDiagnostics.webTabContent(value),
+  );
 
   const { customReceiveHandler } = useDiscoveryMessageHandler();
 

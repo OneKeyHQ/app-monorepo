@@ -68,6 +68,14 @@ import HeaderRightToolBar from '../../components/HeaderRightToolBar';
 import MobileBrowserBottomBar from '../../components/MobileBrowser/MobileBrowserBottomBar';
 import { OuterTabPagerView } from '../../components/OuterTabPagerView';
 import { useDAppNotifyChanges } from '../../hooks/useDAppNotifyChanges';
+import {
+  useAppStateLog,
+  useDiagnosticsLayoutLogger,
+  useDiagnosticsLifecycleLog,
+  useDiagnosticsLogOnChange,
+  useDiscoveryHomeDiagnosticsId,
+  useDiscoveryTabFocusLog,
+} from '../../hooks/useDiscoveryHomeDiagnostics';
 // import { useEdgeSwipeDetection } from '../../hooks/useEdgeSwipeDetection';
 import useMobileBottomBarAnimation from '../../hooks/useMobileBottomBarAnimation';
 import {
@@ -305,6 +313,13 @@ function MobileBrowser() {
     platformEnv.isNativeIOSPad && isTabletDetailView;
   const shouldDismissKeyboardOnTabSwitch =
     platformEnv.isNativeIOSPad && !isTabletMainView;
+
+  const diagId = useDiscoveryHomeDiagnosticsId();
+  useDiagnosticsLifecycleLog(diagId, (params) =>
+    defaultLogger.discovery.homeDiagnostics.browserLifecycle(params),
+  );
+  useDiscoveryTabFocusLog(diagId, 'browser');
+  useAppStateLog(diagId);
 
   useEffect(() => {
     if (!tabs?.length) {
@@ -546,6 +561,37 @@ function MobileBrowser() {
   }, [isDualScreen, isTabletMainView, isLandscape, isTabletDetailView]);
   const shouldShowTabletHomeContainer =
     isTabletDetailView && isLandscape && displayHomePage;
+
+  useDiagnosticsLogOnChange(
+    {
+      id: diagId,
+      headerTab: String(selectedHeaderTab),
+      displayHomePage,
+      showDiscoveryPage,
+      dashboardActive: isBrowserDashboardActive,
+      webPageVisible: isBrowserWebPageVisible,
+      rootWebLayerVisible: useOuterPager && isBrowserWebPageVisible,
+      bottomBarVisible: isBrowserWebPageVisible,
+      visibleOuterPages,
+      tabCount: tabs.length,
+      hasActiveTab: !!activeTabId,
+      useOuterPager,
+      tabletMainView: isTabletMainView,
+      tabletDetailView: isTabletDetailView,
+      headerSpacerHeight: Math.round(tabPageHeight),
+    },
+    (value) => defaultLogger.discovery.homeDiagnostics.browserState(value),
+  );
+  const handleDashboardLayerLayout = useDiagnosticsLayoutLogger(
+    diagId,
+    'dashboardLayer',
+  );
+  const handleWebLayerLayout = useDiagnosticsLayoutLogger(
+    diagId,
+    platformEnv.isNativeIOS ? 'iosWebLayer' : 'androidWebLayer',
+  );
+  const handlePageBodyLayout = useDiagnosticsLayoutLogger(diagId, 'pageBody');
+
   // Android can keep the early return. On iPad, render the placeholder as an
   // overlay so the active WKWebView remains attached underneath it.
   if (shouldShowTabletHomeContainer && !shouldKeepBrowserTabLayerAttached) {
@@ -562,6 +608,7 @@ function MobileBrowser() {
       importantForAccessibility={
         showDiscoveryPage ? 'auto' : 'no-hide-descendants'
       }
+      onLayout={handleDashboardLayerLayout}
       style={{
         flex: 1,
         opacity: showDiscoveryPage ? 1 : 0,
@@ -596,7 +643,7 @@ function MobileBrowser() {
           <HeaderRightToolBar />
         </XStack>
       )}
-      <Page.Body>
+      <Page.Body onLayout={handlePageBodyLayout}>
         {/* HandleRebuildBrowserData must mount early regardless of active tab */}
         <HandleRebuildBrowserData />
         {useOuterPager ? (
@@ -646,6 +693,7 @@ function MobileBrowser() {
                             ? 'auto'
                             : 'no-hide-descendants'
                         }
+                        onLayout={handleWebLayerLayout}
                         style={[styles.webPageLayer, webPageAnimatedStyle]}
                       >
                         <Freeze freeze={showDiscoveryPage}>{content}</Freeze>
@@ -665,6 +713,7 @@ function MobileBrowser() {
                 importantForAccessibility={
                   shouldShowRootWebPageLayer ? 'auto' : 'no-hide-descendants'
                 }
+                onLayout={handleWebLayerLayout}
                 style={[
                   styles.webPageRootLayer,
                   webPageAnimatedStyle,

@@ -12,6 +12,7 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EEnterMethod } from '@onekeyhq/shared/src/logger/scopes/discovery/scenes/dapp';
 import {
   EDiscoveryModalRoutes,
@@ -20,6 +21,12 @@ import {
 } from '@onekeyhq/shared/src/routes';
 import { swrKeys } from '@onekeyhq/shared/src/utils/swrCacheUtils';
 
+import {
+  getDiagnosticsErrorMessage,
+  isDiscoveryHomeDiagnosticsEnabled,
+  nextDiscoveryHomeRequestSeq,
+  useDiscoveryHomeDiagnosticsId,
+} from '../../hooks/useDiscoveryHomeDiagnostics';
 import { useWebSiteHandler } from '../../hooks/useWebSiteHandler';
 import { DiscoveryTestIDs } from '../../testIDs';
 
@@ -32,18 +39,52 @@ export function BookmarksSection() {
   const intl = useIntl();
   const navigation = useAppNavigation();
   const handleWebSite = useWebSiteHandler();
+  const diagId = useDiscoveryHomeDiagnosticsId();
 
   const { result: bookmarksData, run: refreshLocalData } = usePromiseResult(
     async () => {
-      const bookmarks =
-        await backgroundApiProxy.serviceDiscovery.getBookmarkData({
-          generateIcon: true,
-          sliceCount: 14,
+      const seq = nextDiscoveryHomeRequestSeq();
+      const startedAt = Date.now();
+      if (isDiscoveryHomeDiagnosticsEnabled) {
+        defaultLogger.discovery.homeDiagnostics.dashboardRequest({
+          id: diagId,
+          request: 'sectionBookmarks',
+          phase: 'start',
+          seq,
         });
-
-      return bookmarks;
+      }
+      try {
+        const bookmarks =
+          await backgroundApiProxy.serviceDiscovery.getBookmarkData({
+            generateIcon: true,
+            sliceCount: 14,
+          });
+        if (isDiscoveryHomeDiagnosticsEnabled) {
+          defaultLogger.discovery.homeDiagnostics.dashboardRequest({
+            id: diagId,
+            request: 'sectionBookmarks',
+            phase: 'success',
+            seq,
+            durationMs: Date.now() - startedAt,
+            count: bookmarks.length,
+          });
+        }
+        return bookmarks;
+      } catch (error) {
+        if (isDiscoveryHomeDiagnosticsEnabled) {
+          defaultLogger.discovery.homeDiagnostics.dashboardRequest({
+            id: diagId,
+            request: 'sectionBookmarks',
+            phase: 'error',
+            seq,
+            durationMs: Date.now() - startedAt,
+            error: getDiagnosticsErrorMessage(error),
+          });
+        }
+        throw error;
+      }
     },
-    [],
+    [diagId],
     {
       watchLoading: true,
       checkIsMounted: false,
@@ -55,6 +96,14 @@ export function BookmarksSection() {
   // Listen for tab focus state to refresh data
   useListenTabFocusState(ETabRoutes.Discovery, (isFocus) => {
     if (isFocus) {
+      if (isDiscoveryHomeDiagnosticsEnabled) {
+        defaultLogger.discovery.homeDiagnostics.dashboardRequest({
+          id: diagId,
+          request: 'sectionBookmarks',
+          phase: 'requested',
+          trigger: 'tabFocus',
+        });
+      }
       void refreshLocalData();
     }
   });
@@ -62,6 +111,14 @@ export function BookmarksSection() {
   // Set up listener for bookmark list refresh event
   useEffect(() => {
     const refreshBookmarkHandler = () => {
+      if (isDiscoveryHomeDiagnosticsEnabled) {
+        defaultLogger.discovery.homeDiagnostics.dashboardRequest({
+          id: diagId,
+          request: 'sectionBookmarks',
+          phase: 'requested',
+          trigger: 'refreshBookmarkListEvent',
+        });
+      }
       void refreshLocalData();
     };
 
@@ -76,7 +133,7 @@ export function BookmarksSection() {
         refreshBookmarkHandler,
       );
     };
-  }, [refreshLocalData]);
+  }, [diagId, refreshLocalData]);
 
   const onPressMore = useCallback(() => {
     navigation.pushModal(EModalRoutes.DiscoveryModal, {

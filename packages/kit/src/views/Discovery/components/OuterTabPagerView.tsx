@@ -14,7 +14,16 @@ import type { ITabContainerRef } from '@onekeyhq/components';
 import { Stack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+
+import {
+  isDiscoveryHomeDiagnosticsEnabled,
+  useDiagnosticsLayoutLogger,
+  useDiagnosticsLifecycleLog,
+  useDiagnosticsLogOnChange,
+  useDiscoveryHomeDiagnosticsId,
+} from '../hooks/useDiscoveryHomeDiagnostics';
 
 import type { IEarnBorrowPagerViewRef } from '../../Earn/components/EarnBorrowPagerView';
 import type {
@@ -166,6 +175,41 @@ function OuterTabPagerViewComponent({
   const selectedHeaderTabRef = useRef(selectedHeaderTab);
   selectedHeaderTabRef.current = selectedHeaderTab;
 
+  const diagId = useDiscoveryHomeDiagnosticsId();
+  useDiagnosticsLifecycleLog(diagId, (params) =>
+    defaultLogger.discovery.homeDiagnostics.pagerLifecycle(params),
+  );
+  // Last position the native pager reported, to compare against the page JS
+  // believes is active.
+  const lastNativeScrollRef = useRef<{ position: number; offset: number }>({
+    position: initialPage,
+    offset: 0,
+  });
+  const activePageIndexRef = useRef(activePageIndex);
+  activePageIndexRef.current = activePageIndex;
+  const logPagerEvent = useCallback(
+    (params: {
+      type: 'pageSelected' | 'scrollState' | 'setPage';
+      position?: number;
+      state?: string;
+      accepted?: boolean;
+    }) => {
+      if (!isDiscoveryHomeDiagnosticsEnabled) {
+        return;
+      }
+      defaultLogger.discovery.homeDiagnostics.pagerEvent({
+        id: diagId,
+        ...params,
+        activePageIndex: activePageIndexRef.current,
+        currentOuterIndex: currentOuterIndexRef.current,
+        lastNativePosition: lastNativeScrollRef.current.position,
+        lastNativeOffset:
+          Math.round(lastNativeScrollRef.current.offset * 1000) / 1000,
+      });
+    },
+    [diagId],
+  );
+
   const setTransitioning = useCallback((value: boolean) => {
     if (isOuterPageTransitioningRef.current === value) {
       return;
@@ -249,6 +293,7 @@ function OuterTabPagerViewComponent({
   const handleOuterPageScrollStateChanged = useCallback(
     (e: PageScrollStateChangedNativeEvent) => {
       const state = e.nativeEvent.pageScrollState;
+      logPagerEvent({ type: 'scrollState', state });
       if (state === 'dragging') {
         wasUserDragRef.current = true;
         setTransitioning(true);
@@ -277,13 +322,20 @@ function OuterTabPagerViewComponent({
         publishVisiblePages([currentOuterIndexRef.current]);
       }
     },
-    [markPagesVisited, publishVisiblePages, setTransitioning, setVisiblePair],
+    [
+      logPagerEvent,
+      markPagesVisited,
+      publishVisiblePages,
+      setTransitioning,
+      setVisiblePair,
+    ],
   );
 
   // JS-thread handler for freeze/unfreeze logic during user-gesture swipes.
   // Called from the worklet-based onPageScroll via runOnJS.
   const handlePageScrollJS = useCallback(
     (position: number, offset: number) => {
+      lastNativeScrollRef.current = { position, offset };
       if (!wasUserDragRef.current) {
         return;
       }
@@ -328,6 +380,11 @@ function OuterTabPagerViewComponent({
     (e: PagerViewOnPageSelectedEvent) => {
       const position = e.nativeEvent.position;
       const tab = INDEX_TO_TAB[position];
+      logPagerEvent({
+        type: 'pageSelected',
+        position,
+        accepted: wasUserDragRef.current,
+      });
 
       // Only update state for user-gesture swipes.
       // iOS may emit synthetic onPageSelected during freeze/unfreeze,
@@ -347,7 +404,7 @@ function OuterTabPagerViewComponent({
         void backgroundApiProxy.serviceSetting.setSelectedBrowserTab(tab);
       }
     },
-    [markPagesVisited, onPageSelectedBySwipe],
+    [logPagerEvent, markPagesVisited, onPageSelectedBySwipe],
   );
 
   // A page renders when it has been properly visited, or while a drag is
@@ -377,6 +434,34 @@ function OuterTabPagerViewComponent({
       return activePageIndex !== pageIndex;
     },
     [activePageIndex, isOuterPageTransitioning, visiblePagePair],
+  );
+
+  useDiagnosticsLogOnChange(
+    {
+      id: diagId,
+      headerTab: String(selectedHeaderTab),
+      selectedIndex: TAB_TO_INDEX[selectedHeaderTab] ?? -1,
+      activePageIndex,
+      currentOuterIndex: currentOuterIndexRef.current,
+      transitioning: isOuterPageTransitioning,
+      visiblePagePair,
+      dragNeighborPages,
+      visitedPages: Object.keys(visitedPages)
+        .filter((key) => visitedPages[Number(key)])
+        .map(Number),
+      scrollEnabled: showDiscoveryPage,
+    },
+    (value) => defaultLogger.discovery.homeDiagnostics.pagerState(value),
+  );
+  const handlePagerLayout = useDiagnosticsLayoutLogger(diagId, 'pager');
+  const handleMarketPageLayout = useDiagnosticsLayoutLogger(
+    diagId,
+    'pagerPage0',
+  );
+  const handleEarnPageLayout = useDiagnosticsLayoutLogger(diagId, 'pagerPage1');
+  const handleBrowserPageLayout = useDiagnosticsLayoutLogger(
+    diagId,
+    'pagerPage2',
   );
 
   // Mirror of shouldFreezePage: the set of pages whose content is actually on
@@ -421,6 +506,7 @@ function OuterTabPagerViewComponent({
       // For user-gesture swipes, PagerView already handles scrolling natively.
       if (isProgrammaticSwitchRef.current) {
         isProgrammaticSwitchRef.current = false;
+        logPagerEvent({ type: 'setPage', position: activePageIndex });
         outerPagerRef.current?.setPage(activePageIndex);
       }
 
@@ -438,12 +524,17 @@ function OuterTabPagerViewComponent({
     marketTabsRef,
     earnTabsRef,
     earnBorrowPagerRef,
+    logPagerEvent,
   ]);
 
   const marketPage = useMemo(
     () =>
       isPageMounted(0) ? (
-        <View key="market" style={styles.page}>
+        <View
+          key="market"
+          style={styles.page}
+          onLayout={handleMarketPageLayout}
+        >
           {platformEnv.isNativeIOS ? (
             marketContent
           ) : (
@@ -451,17 +542,21 @@ function OuterTabPagerViewComponent({
           )}
         </View>
       ) : (
-        <View key="market" style={styles.page}>
+        <View
+          key="market"
+          style={styles.page}
+          onLayout={handleMarketPageLayout}
+        >
           <Stack flex={1} />
         </View>
       ),
-    [isPageMounted, shouldFreezePage, marketContent],
+    [isPageMounted, shouldFreezePage, marketContent, handleMarketPageLayout],
   );
 
   const earnPage = useMemo(
     () =>
       isPageMounted(1) ? (
-        <View key="earn" style={styles.page}>
+        <View key="earn" style={styles.page} onLayout={handleEarnPageLayout}>
           {platformEnv.isNativeIOS ? (
             earnContent
           ) : (
@@ -469,17 +564,21 @@ function OuterTabPagerViewComponent({
           )}
         </View>
       ) : (
-        <View key="earn" style={styles.page}>
+        <View key="earn" style={styles.page} onLayout={handleEarnPageLayout}>
           <Stack flex={1} />
         </View>
       ),
-    [isPageMounted, shouldFreezePage, earnContent],
+    [isPageMounted, shouldFreezePage, earnContent, handleEarnPageLayout],
   );
 
   const browserPage = useMemo(
     () =>
       isPageMounted(2) ? (
-        <View key="browser" style={styles.page}>
+        <View
+          key="browser"
+          style={styles.page}
+          onLayout={handleBrowserPageLayout}
+        >
           {/* Keep Browser out of react-freeze so its React subtree survives
           DApp minimization and outer tab switches. Native attachment still
           follows OUTER_PAGER_OFFSCREEN_PAGE_LIMIT; Android may detach Browser
@@ -487,11 +586,15 @@ function OuterTabPagerViewComponent({
           {browserContent}
         </View>
       ) : (
-        <View key="browser" style={styles.page}>
+        <View
+          key="browser"
+          style={styles.page}
+          onLayout={handleBrowserPageLayout}
+        >
           <Stack flex={1} />
         </View>
       ),
-    [isPageMounted, browserContent],
+    [isPageMounted, browserContent, handleBrowserPageLayout],
   );
 
   return (
@@ -507,6 +610,7 @@ function OuterTabPagerViewComponent({
       onPageScroll={pageScrollHandler}
       onPageScrollStateChanged={handleOuterPageScrollStateChanged}
       onPageSelected={handleOuterPageSelected}
+      onLayout={handlePagerLayout}
     >
       {marketPage}
       {earnPage}

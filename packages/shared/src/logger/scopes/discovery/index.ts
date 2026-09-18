@@ -4,6 +4,7 @@ import { EScopeName } from '../../types';
 import { BitrefillScene } from './scenes/bitrefill';
 import { BrowserScene } from './scenes/browser';
 import { DappScene } from './scenes/dapp';
+import { DiscoveryHomeDiagnosticsScene } from './scenes/homeDiagnostics';
 import { TranslationScene } from './scenes/translation';
 
 export class DiscoveryScope extends BaseScope {
@@ -16,4 +17,9 @@ export class DiscoveryScope extends BaseScope {
   translation = this.createScene('translation', TranslationScene);
 
   bitrefill = this.createScene('bitrefill', BitrefillScene);
+
+  homeDiagnostics = this.createScene(
+    'homeDiagnostics',
+    DiscoveryHomeDiagnosticsScene,
+  );
 }

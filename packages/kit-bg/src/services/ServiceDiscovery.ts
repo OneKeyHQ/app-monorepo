@@ -15,6 +15,7 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { buildFuse } from '@onekeyhq/shared/src/modules3rdParty/fuse';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IChangeHistoryUpdateItem } from '@onekeyhq/shared/src/types/changeHistory';
@@ -98,13 +99,54 @@ class ServiceDiscovery extends ServiceBase {
     return this._fetchDiscoveryHomePageData();
   }
 
+  _homePageNetworkSeq = 0;
+
   _fetchDiscoveryHomePageData = memoizee(
     async () => {
-      const client = await this.getClient(EServiceEndpointEnum.Utility);
-      const res = await client.get<{ data: IDiscoveryHomePageData }>(
-        '/utility/v1/discover/dapp/homepage',
-      );
-      return res.data.data;
+      const path = '/utility/v1/discover/dapp/homepage';
+      // Only cache misses reach this body; memoized calls are not logged.
+      this._homePageNetworkSeq += 1;
+      const seq = this._homePageNetworkSeq;
+      const startedAt = Date.now();
+      if (platformEnv.isNative) {
+        defaultLogger.discovery.homeDiagnostics.homePageNetwork({
+          seq,
+          phase: 'start',
+          path,
+        });
+      }
+      try {
+        const client = await this.getClient(EServiceEndpointEnum.Utility);
+        const res = await client.get<{ data: IDiscoveryHomePageData }>(path);
+        const data = res.data.data;
+        if (platformEnv.isNative) {
+          defaultLogger.discovery.homeDiagnostics.homePageNetwork({
+            seq,
+            phase: 'success',
+            path,
+            durationMs: Date.now() - startedAt,
+            bannerCount: data?.banners?.length ?? 0,
+            trendingCount: data?.trending?.length ?? 0,
+            hotCount: data?.hot?.length ?? 0,
+            categoryCount: data?.categories?.length ?? 0,
+          });
+        }
+        return data;
+      } catch (error) {
+        if (platformEnv.isNative) {
+          defaultLogger.discovery.homeDiagnostics.homePageNetwork({
+            seq,
+            phase: 'error',
+            path,
+            durationMs: Date.now() - startedAt,
+            error: (error instanceof Error
+              ? error.message
+              : String(error)
+            ).slice(0, 200),
+          });
+        }
+        throw error;
+      }
     },
     {
       promise: true,
