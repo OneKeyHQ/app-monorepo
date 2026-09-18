@@ -29,6 +29,7 @@ export enum EModalSwapRoutes {
   SwapInviteeReward = 'SwapInviteeReward',
   LimitOrderDetail = 'LimitOrderDetail',
   SwapProMarketDetail = 'SwapProMarketDetail',
+  DustSweep = 'DustSweep',
 }
 
 export type IModalSwapParamList = {
@@ -101,4 +102,5 @@ export type IModalSwapParamList = {
     disableTrade?: boolean;
     showFavoriteButton?: boolean;
   };
+  [EModalSwapRoutes.DustSweep]: Record<string, never>;
 };

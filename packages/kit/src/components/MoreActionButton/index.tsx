@@ -67,6 +67,7 @@ import {
   EFullScreenPushRoutes,
 } from '@onekeyhq/shared/src/routes/fullScreenPush';
 import { EPrimeFeatures, EPrimePages } from '@onekeyhq/shared/src/routes/prime';
+import { EModalSwapRoutes } from '@onekeyhq/shared/src/routes/swap';
 import { travelModeManager } from '@onekeyhq/shared/src/travelMode';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
@@ -402,9 +403,9 @@ function MoreActionContentHeader({
             title={item.title}
             icon={item.icon as IKeyOfIcons}
             onPress={item.onPress}
-            ignorePress={
-              isTravelMode && item.trackID === 'wallet-customer-support'
-            }
+            ignorePress={Boolean(
+              isTravelMode && item.trackID === 'wallet-customer-support',
+            )}
             trackID={item.trackID}
           />
         ))}
@@ -1304,6 +1305,19 @@ const MoreActionWalletGrid = () => {
       platformEnv.isWebDappMode
         ? undefined
         : {
+            title: intl.formatMessage({ id: ETranslations.title_dust_sweep }),
+            icon: 'ControllerRoundUpSolid' as const,
+            onPress: () => {
+              navigation.pushModal(EModalRoutes.SwapModal, {
+                screen: EModalSwapRoutes.DustSweep,
+                params: {},
+              });
+            },
+            trackID: 'dust-sweep-in-more-action',
+          },
+      platformEnv.isWebDappMode
+        ? undefined
+        : {
             title: intl.formatMessage({ id: ETranslations.global_security }),
             icon: 'Shield2CheckOutline' as const,
             onPress: () => openSettingsCategory(ESettingsTabNames.Security),
@@ -1373,6 +1387,7 @@ const MoreActionWalletGrid = () => {
   }, [
     handleAddressBook,
     intl,
+    navigation,
     openSettingsCategory,
     isPrimeActive,
     isPrimeUser,

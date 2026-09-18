@@ -92,6 +92,10 @@ import {
 import type {
   ESwapExtraStatus,
   ESwapQuoteKind,
+  IExchangeApproveAllowanceBatchParams,
+  IExchangeApproveAllowanceBatchResult,
+  IExchangeBuildTxBatchParams,
+  IExchangeBuildTxBatchResult,
   IFetchBuildTxParams,
   IFetchBuildTxResponse,
   IFetchLimitOrderRes,
@@ -1477,6 +1481,7 @@ export default class ServiceSwap extends ServiceBase {
     kind,
     walletType,
     tradeSource,
+    source,
   }: {
     fromToken: ISwapToken;
     toToken: ISwapToken;
@@ -1492,6 +1497,7 @@ export default class ServiceSwap extends ServiceBase {
     kind: ESwapQuoteKind;
     walletType?: string;
     tradeSource: ESwapTradeSource;
+    source?: ESwapQuoteSource;
   }): Promise<IFetchBuildTxResponse | undefined> {
     const referralBuildTxParams = await this.getSwapReferralBuildTxParams({
       accountId,
@@ -1513,6 +1519,7 @@ export default class ServiceSwap extends ServiceBase {
       kind,
       walletType,
       tradeSource,
+      source,
       ...referralBuildTxParams,
     };
     const client = await this.getClient(EServiceEndpointEnum.Swap);
@@ -1526,6 +1533,45 @@ export default class ServiceSwap extends ServiceBase {
           }),
       },
     );
+    return data?.data;
+  }
+
+  @backgroundMethod()
+  async fetchApproveAllowanceBatch({
+    accountId,
+    ...params
+  }: IExchangeApproveAllowanceBatchParams & { accountId?: string }): Promise<
+    IExchangeApproveAllowanceBatchResult | undefined
+  > {
+    const client = await this.getClient(EServiceEndpointEnum.Swap);
+    const { data } = await client.get<
+      IFetchResponse<IExchangeApproveAllowanceBatchResult>
+    >('/swap/v1/approve-allowance/batch', {
+      data: params,
+      headers:
+        await this.backgroundApi.serviceAccountProfile._getWalletTypeHeader({
+          accountId,
+        }),
+    });
+    return data?.data;
+  }
+
+  @backgroundMethod()
+  async fetchBuildTxBatch({
+    accountId,
+    ...params
+  }: IExchangeBuildTxBatchParams & { accountId?: string }): Promise<
+    IExchangeBuildTxBatchResult | undefined
+  > {
+    const client = await this.getClient(EServiceEndpointEnum.Swap);
+    const { data } = await client.post<
+      IFetchResponse<IExchangeBuildTxBatchResult>
+    >('/swap/v1/build-tx/batch', params, {
+      headers:
+        await this.backgroundApi.serviceAccountProfile._getWalletTypeHeader({
+          accountId,
+        }),
+    });
     return data?.data;
   }
 

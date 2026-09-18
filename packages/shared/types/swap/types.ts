@@ -91,6 +91,7 @@ export enum ESwapQuoteKind {
 
 export enum ESwapQuoteSource {
   MARKET = 'Market',
+  SWEEP = 'Sweep',
 }
 
 export enum ESwapSource {
@@ -922,6 +923,7 @@ export interface IFetchBuildTxParams extends IFetchSwapQuoteBaseParams {
   receivingAddress: string;
   slippagePercentage: number;
   tradeSource: ESwapTradeSource;
+  source?: ESwapQuoteSource;
   toTokenAmount?: string;
   provider: string;
   quoteResultCtx?: any;
@@ -931,6 +933,49 @@ export interface IFetchBuildTxParams extends IFetchSwapQuoteBaseParams {
   bindedNetworkId?: string;
   rebateAddress?: string;
 }
+
+export type IExchangeBuildTxBatchItem = {
+  contractAddress: string;
+  amount: string;
+};
+
+export type IExchangeApproveAllowanceBatchParams = {
+  fromNetworkId: string;
+  protocol: EProtocolOfExchange;
+  fromTokenList: IExchangeBuildTxBatchItem[];
+};
+
+export type IExchangeBuildTxBatchParams = {
+  fromNetworkId: string;
+  toNetworkId: string;
+  fromTokenList: IExchangeBuildTxBatchItem[];
+  toTokenAddress: string;
+  kind?: ESwapQuoteKind;
+  provider: string;
+  toTokenAmount: string;
+  userAddress: string;
+  slippagePercentage: number;
+  receivingAddress: string;
+  quoteResultCtx?: any;
+  walletType?: string;
+  autoSlippage?: boolean;
+  bindedAccountAddress?: string;
+  bindedNetworkId?: string;
+  rebateAddress?: string;
+  tradeSource?: ESwapTradeSource;
+  source?: ESwapQuoteSource;
+};
+
+export type IExchangeApproveAllowanceBatchResult = {
+  results: { contractAddress: string; approveAddress?: string }[];
+};
+
+export type IExchangeBuildTxBatchResult = {
+  results: Array<
+    | { fromTokenAddress: string; success: true; data: IFetchBuildTxResponse }
+    | { fromTokenAddress: string; success: false; error?: string }
+  >;
+};
 export interface IFetchBuildTxResult extends IFetchQuoteResult {
   arrivalTime?: number;
   slippage?: number;
