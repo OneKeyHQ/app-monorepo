@@ -45,6 +45,7 @@ import {
   assembleHyperliquidSnapshot,
   buildSpotPriceMap,
   getActivePerpPositionsUnrealizedPnl,
+  getIsolatedPerpPositionsMarginUsed,
   isHyperliquidPortfolioSnapshotFresh,
   isUnifiedPortfolioMode,
   spotHasPositiveBalance,
@@ -2196,6 +2197,7 @@ export default class ServiceHyperliquid extends ServiceBase {
           webData2.clearinghouseState?.crossMarginSummary.accountValue,
         crossMaintenanceMarginUsed:
           webData2.clearinghouseState?.crossMaintenanceMarginUsed,
+        isolatedMarginUsed: getIsolatedPerpPositionsMarginUsed(positions),
         totalNtlPos: webData2.clearinghouseState?.marginSummary?.totalNtlPos,
         totalRawUsd: webData2.clearinghouseState?.marginSummary?.totalRawUsd,
         withdrawable: webData2.clearinghouseState?.withdrawable,
@@ -2294,6 +2296,9 @@ export default class ServiceHyperliquid extends ServiceBase {
         acc.totalUnrealizedPnl = acc.totalUnrealizedPnl.plus(
           getActivePerpPositionsUnrealizedPnl(positions),
         );
+        acc.isolatedMarginUsed = acc.isolatedMarginUsed.plus(
+          getIsolatedPerpPositionsMarginUsed(positions),
+        );
 
         return acc;
       },
@@ -2302,6 +2307,7 @@ export default class ServiceHyperliquid extends ServiceBase {
         totalMarginUsed: new BigNumber(0),
         crossAccountValue: new BigNumber(0),
         crossMaintenanceMarginUsed: new BigNumber(0),
+        isolatedMarginUsed: new BigNumber(0),
         totalNtlPos: new BigNumber(0),
         totalRawUsd: new BigNumber(0),
         withdrawable: new BigNumber(0),
@@ -2316,6 +2322,7 @@ export default class ServiceHyperliquid extends ServiceBase {
       crossAccountValue: aggregated.crossAccountValue.toFixed(),
       crossMaintenanceMarginUsed:
         aggregated.crossMaintenanceMarginUsed.toFixed(),
+      isolatedMarginUsed: aggregated.isolatedMarginUsed.toFixed(),
       totalNtlPos: aggregated.totalNtlPos.toFixed(),
       totalRawUsd: aggregated.totalRawUsd.toFixed(),
       withdrawable: aggregated.withdrawable.toFixed(),

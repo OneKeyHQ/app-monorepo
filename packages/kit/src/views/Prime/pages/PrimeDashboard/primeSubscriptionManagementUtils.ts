@@ -1,4 +1,4 @@
-/* cspell:ignore Infini infini */
+/* cspell:ignore Infini infini rcbilling customerportal */
 import type {
   IPrimeSubscriptionInfo,
   IPrimeUserInfo,
@@ -68,6 +68,39 @@ export function getPrimeSubscriptionManagementSourceKey({
   ]);
 }
 
+function getKnownChannelLessManagementUrl(
+  managementUrl: string | undefined,
+): string | undefined {
+  const url = managementUrl?.trim();
+  if (!url) {
+    return undefined;
+  }
+  try {
+    const parsed = new URL(url);
+    if (parsed.protocol !== 'https:') {
+      return undefined;
+    }
+    const hostname = parsed.hostname.toLowerCase();
+    const pathname = parsed.pathname.toLowerCase();
+    if (
+      hostname === 'api.revenuecat.com' &&
+      pathname.startsWith('/rcbilling/v1/customerportal/')
+    ) {
+      return url;
+    }
+    if (
+      hostname === 'apps.apple.com' &&
+      (pathname === '/account/subscriptions' ||
+        pathname.startsWith('/account/subscriptions/'))
+    ) {
+      return url;
+    }
+  } catch {
+    return undefined;
+  }
+  return undefined;
+}
+
 export function getPrimeSubscriptionManagementTarget({
   userInfo,
 }: {
@@ -91,6 +124,15 @@ export function getPrimeSubscriptionManagementTarget({
         if (url) {
           managementUrl = url;
         }
+      }
+    } else if (!managementUrl) {
+      // Compatibility for channel-less server records that already include the
+      // store portal URL. Do not treat this as a general URL allowlist.
+      const knownManagementUrl = getKnownChannelLessManagementUrl(
+        subscription.managementUrl,
+      );
+      if (knownManagementUrl) {
+        managementUrl = knownManagementUrl;
       }
     }
   }

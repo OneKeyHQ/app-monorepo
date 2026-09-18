@@ -2237,10 +2237,16 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
                 const value = new BigNumber(
                   result?.data?.totals?.netWorth ?? NaN,
                 );
+                const hasRequestedNetwork =
+                  result?.meta?.requestedNetworkIds.includes(account.networkId);
+                const hasCompleteNetworkCoverage =
+                  result?.meta?.networkIds.includes(account.networkId) ||
+                  (result?.meta?.networkIds.length === 0 && value.isZero());
                 if (
                   !result?.success ||
                   result.meta?.degraded !== false ||
-                  !result.meta.networkIds.includes(account.networkId) ||
+                  !hasRequestedNetwork ||
+                  !hasCompleteNetworkCoverage ||
                   !value.isFinite()
                 ) {
                   return undefined;
@@ -2311,7 +2317,6 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
           await this.backgroundApi.serviceHyperliquid.getHyperliquidPortfolioSnapshot(
             {
               address,
-              force: true,
             },
           );
         return snapshot && !snapshot.isDegraded

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 
 import { useHeaderHeight } from '@react-navigation/elements';
 import { useIsFocused } from '@react-navigation/native';
@@ -23,7 +23,10 @@ import { EarnProviderMirror } from '../../EarnProviderMirror';
 import { useEarnHideSmallAssets } from '../../hooks/useEarnHideSmallAssets';
 import { useEarnPortfolio } from '../../hooks/useEarnPortfolio';
 import { useSettledHeaderHeight } from '../../hooks/useSettledHeaderHeight';
-import { useStakingPendingTxsByInfo } from '../../hooks/useStakingPendingTxs';
+import {
+  STAKING_TX_SETTLE_DELAY_MS,
+  useStakingPendingTxsByInfo,
+} from '../../hooks/useStakingPendingTxs';
 
 import type { IStakePendingTx } from '../../hooks/useStakingPendingTxs';
 
@@ -46,18 +49,14 @@ function EarnPositionsContent() {
       tx.stakingInfo.label,
     );
   }, []);
-  const { filteredTxs } = useStakingPendingTxsByInfo({
+  // Same settle delay as the detail page before refreshing after the pending
+  // transactions clear; an immediate refresh could still read, and cache, the
+  // pre-transaction balance (OK-63659).
+  useStakingPendingTxsByInfo({
     filter: pendingTxsFilter,
+    onRefresh: refresh,
+    onRefreshDelayMs: STAKING_TX_SETTLE_DELAY_MS,
   });
-  const isPending = useMemo(() => filteredTxs.length > 0, [filteredTxs]);
-  const previousIsPendingRef = useRef(isPending);
-
-  useEffect(() => {
-    if (previousIsPendingRef.current && !isPending) {
-      void refresh();
-    }
-    previousIsPendingRef.current = isPending;
-  }, [isPending, refresh]);
 
   // OK-59958: RefreshControl.refreshing must track user-initiated pulls only.
   // It used to be wired to useEarnPortfolio's general isLoading, which also
