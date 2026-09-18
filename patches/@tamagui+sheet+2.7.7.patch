@@ -1,0 +1,158 @@
+diff --git a/node_modules/@tamagui/sheet/dist/cjs/useSheetScrollViewGestures.native.js b/node_modules/@tamagui/sheet/dist/cjs/useSheetScrollViewGestures.native.js
+index d650779..5a340f3 100644
+--- a/node_modules/@tamagui/sheet/dist/cjs/useSheetScrollViewGestures.native.js
++++ b/node_modules/@tamagui/sheet/dist/cjs/useSheetScrollViewGestures.native.js
+@@ -72,16 +72,35 @@ function useSheetScrollViewGestures(param) {
+       vy
+     });
+   };
+-  var onStartShouldSetResponder = function () {
++  // OneKey patch: React Native's ScrollView replaces onStartShouldSetResponder
++  // with its own handler and never forwards it, so this per-gesture reset never
++  // ran on native: isDraggingScrollArea stayed false, release() returned early,
++  // and isScrolling / lastPageY / scrollStartY leaked into the next gesture. The
++  // next swipe's first move then read a bogus dy from the stale lastPageY and
++  // panned the sheet (OK-63688). Reset from onTouchStart, which ScrollView does
++  // forward, and finish from onTouchEnd / onTouchCancel as well.
++  var beginGesture = function (pageY) {
+     var s = state.current;
+     scrollBridge.scrollStartY = -1;
++    scrollBridge.scrollLock = false;
+     s.isDraggingScrollArea = true;
++    s.isScrolling = false;
+     s.scrollEngaged = scrollBridge.y > 0;
+     s.prevScrollY = scrollBridge.y;
+     s.handoffOccurred = false;
+     s.handoffDragOffset = 0;
++    s.lastPageY = pageY;
++    s.dragAt = 0;
++    s.dys = [];
++  };
++  var onStartShouldSetResponder = function () {
++    beginGesture(0);
+     return false;
+   };
++  var onTouchStart = function (e) {
++    var _e_nativeEvent;
++    beginGesture(((_e_nativeEvent = e.nativeEvent) === null || _e_nativeEvent === void 0 ? void 0 : _e_nativeEvent.pageY) || 0);
++  };
+   var onMoveShouldSetResponder = function (e) {
+     if (!scrollEnabled) return false;
+     var s = state.current;
+@@ -155,6 +174,10 @@ function useSheetScrollViewGestures(param) {
+   };
+   return {
+     onResponderRelease: release,
++    // OneKey patch: see beginGesture above.
++    onTouchStart,
++    onTouchEnd: release,
++    onTouchCancel: release,
+     onStartShouldSetResponder,
+     onMoveShouldSetResponder,
+     onResponderMove
+diff --git a/node_modules/@tamagui/sheet/dist/esm/useSheetScrollViewGestures.native.js b/node_modules/@tamagui/sheet/dist/esm/useSheetScrollViewGestures.native.js
+index 9645987..49615dc 100644
+--- a/node_modules/@tamagui/sheet/dist/esm/useSheetScrollViewGestures.native.js
++++ b/node_modules/@tamagui/sheet/dist/esm/useSheetScrollViewGestures.native.js
+@@ -43,16 +43,35 @@ function useSheetScrollViewGestures(param) {
+       vy
+     });
+   };
+-  var onStartShouldSetResponder = function () {
++  // OneKey patch: React Native's ScrollView replaces onStartShouldSetResponder
++  // with its own handler and never forwards it, so this per-gesture reset never
++  // ran on native: isDraggingScrollArea stayed false, release() returned early,
++  // and isScrolling / lastPageY / scrollStartY leaked into the next gesture. The
++  // next swipe's first move then read a bogus dy from the stale lastPageY and
++  // panned the sheet (OK-63688). Reset from onTouchStart, which ScrollView does
++  // forward, and finish from onTouchEnd / onTouchCancel as well.
++  var beginGesture = function (pageY) {
+     var s = state.current;
+     scrollBridge.scrollStartY = -1;
++    scrollBridge.scrollLock = false;
+     s.isDraggingScrollArea = true;
++    s.isScrolling = false;
+     s.scrollEngaged = scrollBridge.y > 0;
+     s.prevScrollY = scrollBridge.y;
+     s.handoffOccurred = false;
+     s.handoffDragOffset = 0;
++    s.lastPageY = pageY;
++    s.dragAt = 0;
++    s.dys = [];
++  };
++  var onStartShouldSetResponder = function () {
++    beginGesture(0);
+     return false;
+   };
++  var onTouchStart = function (e) {
++    var _e_nativeEvent;
++    beginGesture(((_e_nativeEvent = e.nativeEvent) === null || _e_nativeEvent === void 0 ? void 0 : _e_nativeEvent.pageY) || 0);
++  };
+   var onMoveShouldSetResponder = function (e) {
+     if (!scrollEnabled) return false;
+     var s = state.current;
+@@ -126,6 +145,10 @@ function useSheetScrollViewGestures(param) {
+   };
+   return {
+     onResponderRelease: release,
++    // OneKey patch: see beginGesture above.
++    onTouchStart,
++    onTouchEnd: release,
++    onTouchCancel: release,
+     onStartShouldSetResponder,
+     onMoveShouldSetResponder,
+     onResponderMove
+diff --git a/node_modules/@tamagui/sheet/src/useSheetScrollViewGestures.native.ts b/node_modules/@tamagui/sheet/src/useSheetScrollViewGestures.native.ts
+index 8406b46..8aa4044 100644
+--- a/node_modules/@tamagui/sheet/src/useSheetScrollViewGestures.native.ts
++++ b/node_modules/@tamagui/sheet/src/useSheetScrollViewGestures.native.ts
+@@ -69,17 +69,37 @@ export function useSheetScrollViewGestures({
+     scrollBridge.release({ dragAt: s.dragAt, vy })
+   }
+ 
+-  const onStartShouldSetResponder = () => {
++  // OneKey patch: React Native's ScrollView replaces onStartShouldSetResponder
++  // with its own handler and never forwards it, so this per-gesture reset never
++  // ran on native: isDraggingScrollArea stayed false, release() returned early,
++  // and isScrolling / lastPageY / scrollStartY leaked into the next gesture. The
++  // next swipe's first move then read a bogus dy from the stale lastPageY and
++  // panned the sheet (OK-63688). Reset from onTouchStart, which ScrollView does
++  // forward, and finish from onTouchEnd / onTouchCancel as well.
++  const beginGesture = (pageY: number) => {
+     const s = state.current
+     scrollBridge.scrollStartY = -1
++    scrollBridge.scrollLock = false
+     s.isDraggingScrollArea = true
++    s.isScrolling = false
+     s.scrollEngaged = scrollBridge.y > 0
+     s.prevScrollY = scrollBridge.y
+     s.handoffOccurred = false
+     s.handoffDragOffset = 0
++    s.lastPageY = pageY
++    s.dragAt = 0
++    s.dys = []
++  }
++
++  const onStartShouldSetResponder = () => {
++    beginGesture(0)
+     return false
+   }
+ 
++  const onTouchStart = (e: GestureResponderEvent) => {
++    beginGesture(e.nativeEvent?.pageY || 0)
++  }
++
+   const onMoveShouldSetResponder = (e: GestureResponderEvent) => {
+     if (!scrollEnabled) return false
+     const s = state.current
+@@ -160,6 +180,10 @@ export function useSheetScrollViewGestures({
+ 
+   return {
+     onResponderRelease: release,
++    // OneKey patch: see beginGesture above.
++    onTouchStart,
++    onTouchEnd: release,
++    onTouchCancel: release,
+     onStartShouldSetResponder,
+     onMoveShouldSetResponder,
+     onResponderMove,
