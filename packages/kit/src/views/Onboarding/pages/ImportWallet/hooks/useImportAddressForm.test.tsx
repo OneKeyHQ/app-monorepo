@@ -317,12 +317,13 @@ describe('useImportAddressForm effective import method', () => {
       result.current.accountNameField.onChange('U');
       await flushFieldValidation();
     });
-    await waitFor(() =>
+    // RHF mutates its field error before React commits the disabled state.
+    await waitFor(() => {
       expect(
         result.current.form.getFieldState('accountName').error?.message,
-      ).toBe('Duplicate name'),
-    );
-    expect(result.current.isEnable).toBe(false);
+      ).toBe('Duplicate name');
+      expect(result.current.isEnable).toBe(false);
+    });
 
     // Dismissing the keyboard re-validates the field rules and restores
     // isValid while the duplicate-name error is still set.
