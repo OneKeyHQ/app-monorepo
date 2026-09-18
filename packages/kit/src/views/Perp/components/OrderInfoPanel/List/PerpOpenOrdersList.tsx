@@ -587,6 +587,7 @@ function PerpOpenOrdersList({
               coin: order.coin,
               oid: order.oid,
               newPrice: targetPrice,
+              expectedAccountAddress: requestAccountAddress,
             })
             .catch(() => undefined);
         } catch (error) {
