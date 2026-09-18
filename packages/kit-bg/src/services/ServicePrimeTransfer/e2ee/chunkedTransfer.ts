@@ -10,6 +10,23 @@ import type {
   IPrimeTransferChunkManifest,
 } from '@onekeyhq/shared/types/prime/primeTransferNetworkTypes';
 
+export function isValidPrimeTransferChunkData(data: unknown): data is string {
+  if (
+    typeof data !== 'string' ||
+    data.length === 0 ||
+    data.length > PRIME_TRANSFER_CHUNK_SIZE ||
+    data.length % 4 !== 0 ||
+    !/^[A-Za-z0-9+/]*={0,2}$/.test(data)
+  ) {
+    return false;
+  }
+  // Chunk boundaries are multiples of four. Canonical Base64 requires zero
+  // unused bits in the final sextet; check them without decoding/copying data.
+  if (data.endsWith('==')) return /[AQgw]==$/.test(data);
+  if (data.endsWith('=')) return /[AEIMQUYcgkosw048]=$/.test(data);
+  return true;
+}
+
 export function waitForTransferRequest<T>(
   request: Promise<T>,
   signal: AbortSignal,
@@ -95,6 +112,7 @@ export class PrimeTransferChunkReceiver {
       !/^[a-zA-Z0-9-]{1,64}$/.test(manifest.transferId) ||
       !Number.isSafeInteger(manifest.totalBytes) ||
       manifest.totalBytes <= 0 ||
+      manifest.totalBytes % 4 !== 0 ||
       manifest.totalBytes > PRIME_TRANSFER_MAX_PAYLOAD_SIZE
     ) {
       throw new OneKeyLocalError('Invalid transfer manifest');
@@ -115,9 +133,9 @@ export class PrimeTransferChunkReceiver {
       !Number.isSafeInteger(index) ||
       index < 0 ||
       index >= count ||
-      typeof data !== 'string' ||
+      !isValidPrimeTransferChunkData(data) ||
       data.length !== expectedSize ||
-      !/^[A-Za-z0-9+/]*={0,2}$/.test(data)
+      (index < count - 1 && data.endsWith('='))
     ) {
       throw new OneKeyLocalError('Invalid transfer chunk');
     }

@@ -73,6 +73,19 @@ describe('Prime Transfer client bridge errors', () => {
       [{ ...validChunk, index: PRIME_TRANSFER_MAX_CHUNKS }],
       [{ ...validChunk, data: '' }],
       [{ ...validChunk, data: '!' }],
+      ...[
+        '=',
+        'A',
+        'A=',
+        'AA',
+        'AAA',
+        '====',
+        'A===',
+        'AA=A',
+        'AA==AAAA',
+        'AB==',
+        'AAB=',
+      ].map((data) => [{ ...validChunk, data }]),
       [{ ...validChunk, data: 'A'.repeat(PRIME_TRANSFER_CHUNK_SIZE + 1) }],
     ].map((params) => ({ params })),
   )('invalid chunk parameters return 1001: %#', ({ params }) => {
@@ -97,7 +110,7 @@ describe('Prime Transfer client bridge errors', () => {
     ]);
   });
 
-  test('valid chunk floods return 1100, while malformed chunks remain parameter errors', () => {
+  test('valid chunk floods return one 1100 per window before dropping further chunks', () => {
     const { send, responses, receiveHandler } = createReceiver();
     for (let id = 1; id <= 512; id += 1)
       send([validChunk], 'sendTransferChunk', id);
@@ -107,19 +120,83 @@ describe('Prime Transfer client bridge errors', () => {
       code: 1100,
       message: 'Requests too frequent',
     });
+    const responseCount = responses.length;
     send([{ ...validChunk, data: '' }]);
-    expect(responses.at(-1)?.payload.error).toMatchObject({ code: 1001 });
+    send([validChunk]);
+    expect(responses).toHaveLength(responseCount);
+    expect(receiveHandler).toHaveBeenCalledTimes(512);
     jest.setSystemTime(11_000);
     send([validChunk]);
     expect(receiveHandler).toHaveBeenCalledTimes(513);
   });
 
-  test('invalid chunks do not consume the valid-chunk allowance', () => {
-    const { send, receiveHandler } = createReceiver();
-    for (let id = 1; id <= 512; id += 1)
-      send([{ ...validChunk, data: '' }], 'sendTransferChunk', id);
+  test('invalid chunk floods bound both validation and error replies and recover next window', () => {
+    const { send, responses, receiveHandler } = createReceiver();
+    const readData = jest.fn(
+      () => `${'A'.repeat(PRIME_TRANSFER_CHUNK_SIZE - 1)}!`,
+    );
+    const malformed = {
+      ...validChunk,
+      get data() {
+        return readData();
+      },
+    };
+    for (let id = 1; id <= 2048; id += 1)
+      send([malformed], 'sendTransferChunk', id);
+    expect(receiveHandler).not.toHaveBeenCalled();
+    expect(readData).toHaveBeenCalledTimes(512);
+    expect(responses).toHaveLength(513);
+    for (const { payload } of responses.slice(0, 512))
+      expect(payload.error).toMatchObject({ code: 1001 });
+    expect(responses[512].payload.error).toMatchObject({ code: 1100 });
+    jest.setSystemTime(10_999);
+    send([validChunk]);
+    expect(readData).toHaveBeenCalledTimes(512);
+    expect(responses).toHaveLength(513);
+    jest.setSystemTime(11_000);
+    send([malformed]);
+    expect(responses.at(-1)?.payload.error).toMatchObject({ code: 1001 });
     send([validChunk]);
     expect(receiveHandler).toHaveBeenCalledTimes(1);
+    expect(readData).toHaveBeenCalledTimes(513);
+  });
+
+  test('mixed valid and invalid chunks share one allowance', () => {
+    const { send, responses, receiveHandler } = createReceiver();
+    for (let id = 1; id <= 512; id += 1)
+      send(
+        [{ ...validChunk, data: id % 2 === 0 ? 'AAAA' : 'A=' }],
+        'sendTransferChunk',
+        id,
+      );
+    expect(receiveHandler).toHaveBeenCalledTimes(256);
+    send([validChunk], 'sendTransferChunk', 513);
+    expect(responses.at(-1)?.payload.error).toMatchObject({ code: 1100 });
+    expect(receiveHandler).toHaveBeenCalledTimes(256);
+  });
+
+  test.each([
+    'AAAA',
+    'AA==',
+    'AAA=',
+    '/w==',
+    '//8=',
+    'A'.repeat(PRIME_TRANSFER_CHUNK_SIZE),
+  ])('canonical Base64 chunks reach the receiver: %#', (data) => {
+    const { send, receiveHandler } = createReceiver();
+    send([{ ...validChunk, data }]);
+    expect(receiveHandler).toHaveBeenCalledTimes(1);
+  });
+
+  test('a flood is isolated to its receiver and does not block cancellation', () => {
+    const flooded = createReceiver();
+    for (let id = 1; id <= 514; id += 1)
+      flooded.send([{ ...validChunk, data: 'A=' }], 'sendTransferChunk', id);
+    flooded.send([], 'cancelTransfer');
+    expect(flooded.receiveHandler).toHaveBeenCalledTimes(1);
+    const other = createReceiver();
+    other.send([validChunk]);
+    expect(other.receiveHandler).toHaveBeenCalledTimes(1);
   });
 
   test('ordinary method throttling returns 1100 and whitelisted calls remain allowed', () => {

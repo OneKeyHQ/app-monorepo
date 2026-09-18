@@ -129,6 +129,11 @@ import e2eeClientToClientApi, {
 import { createE2EEClientToClientApiProxy } from './e2ee/e2eeClientToClientApiProxy';
 import { createE2EEServerApiProxy } from './e2ee/e2eeServerApiProxy';
 import {
+  DEFAULT_TRANSFER_MESSAGE_SIZE,
+  assertTransferSize,
+  getTransferMessageLimit,
+} from './e2ee/transferSize';
+import {
   collectAndPruneUnavailableTransferCredentials,
   filterTransferWallets,
   getCliBotWalletTransferWalletId,
@@ -298,6 +303,8 @@ class ServicePrimeTransfer extends ServiceBase {
   private socket: Socket | null = null;
 
   private serverSupportsChunkedTransfer = false;
+
+  private serverMaxMessageSize = DEFAULT_TRANSFER_MESSAGE_SIZE;
 
   private networkTask: IPrimeTransferNetworkTask | undefined;
 
@@ -940,6 +947,7 @@ class ServicePrimeTransfer extends ServiceBase {
     this.e2eeClientToClientApiProxy = createE2EEClientToClientApiProxy({
       socket: this.socket as any,
       roomId,
+      maxMessageSize: this.serverMaxMessageSize,
     });
   }
 
@@ -1048,6 +1056,9 @@ class ServicePrimeTransfer extends ServiceBase {
         appDeviceName: platformEnv.appFullName,
       });
       this.serverSupportsChunkedTransfer = result?.chunkedTransferVersion === 1;
+      this.serverMaxMessageSize = getTransferMessageLimit(
+        result?.maxMessageSize,
+      );
       await primeTransferAtom.set(
         (v): IPrimeTransferAtomData => ({
           ...v,
@@ -2019,9 +2030,7 @@ class ServicePrimeTransfer extends ServiceBase {
         this.assertNetworkTask(task);
         return result;
       }
-      if (rawData.length > PRIME_TRANSFER_MAX_PAYLOAD_SIZE) {
-        throw new OneKeyLocalError('Transfer data exceeds the supported size');
-      }
+      assertTransferSize(rawData.length, PRIME_TRANSFER_MAX_PAYLOAD_SIZE);
       const manifest = {
         transferId: task.transferId,
         totalBytes: rawData.length,
@@ -2508,6 +2517,7 @@ class ServicePrimeTransfer extends ServiceBase {
 
   async handleDisconnect() {
     this.serverSupportsChunkedTransfer = false;
+    this.serverMaxMessageSize = DEFAULT_TRANSFER_MESSAGE_SIZE;
     await this.cancelNetworkTransfer();
     connectedPairingCode = null;
     connectedEncryptedKey = null;

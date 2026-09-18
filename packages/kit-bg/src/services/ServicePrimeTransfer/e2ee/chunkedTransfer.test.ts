@@ -1,3 +1,5 @@
+import { Buffer } from 'buffer';
+
 import {
   PRIME_TRANSFER_CHUNK_SIZE,
   PRIME_TRANSFER_CHUNK_TIMEOUT,
@@ -7,6 +9,7 @@ import type { IPrimeTransferChunkAck } from '@onekeyhq/shared/types/prime/primeT
 
 import {
   PrimeTransferChunkReceiver,
+  isValidPrimeTransferChunkData,
   sendPrimeTransferChunks,
   waitForTransferRequest,
 } from './chunkedTransfer';
@@ -45,6 +48,10 @@ describe('Prime Transfer chunk transport', () => {
     for (const totalBytes of [
       0,
       -1,
+      1,
+      2,
+      3,
+      6,
       NaN,
       Infinity,
       1.5,
@@ -71,6 +78,79 @@ describe('Prime Transfer chunk transport', () => {
     expect(() =>
       receiver.receive({ transferId: 'test-1', index: 0, data: 'BBBB' }),
     ).toThrow('Conflicting');
+  });
+
+  test('canonical padding validation matches Base64 round trips for every final sextet', () => {
+    const alphabet =
+      'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
+    for (const char of alphabet) {
+      for (const data of [`A${char}==`, `AA${char}=`]) {
+        const canonical =
+          Buffer.from(data, 'base64').toString('base64') === data;
+        expect(isValidPrimeTransferChunkData(data)).toBe(canonical);
+        const receiver = new PrimeTransferChunkReceiver({
+          transferId: 'padding',
+          totalBytes: 4,
+        });
+        if (canonical) {
+          receiver.receive({ transferId: 'padding', index: 0, data });
+          expect(receiver.complete()).toBe(data);
+        } else {
+          expect(() =>
+            receiver.receive({ transferId: 'padding', index: 0, data }),
+          ).toThrow('Invalid transfer chunk');
+          expect(receiver.receivedBytes).toBe(0);
+        }
+      }
+    }
+  });
+
+  test.each([49_151, 49_152, 49_153, 49_154])(
+    'real Base64 across the 64 KiB boundary reassembles without changing bytes: %s',
+    (length) => {
+      const source = Buffer.alloc(length, 0xaf);
+      const rawData = source.toString('base64');
+      const receiver = new PrimeTransferChunkReceiver({
+        transferId: 'boundary',
+        totalBytes: rawData.length,
+      });
+      const count = Math.ceil(rawData.length / PRIME_TRANSFER_CHUNK_SIZE);
+      for (let index = count - 1; index >= 0; index -= 1) {
+        receiver.receive({
+          transferId: 'boundary',
+          index,
+          data: rawData.slice(
+            index * PRIME_TRANSFER_CHUNK_SIZE,
+            (index + 1) * PRIME_TRANSFER_CHUNK_SIZE,
+          ),
+        });
+      }
+      expect(Buffer.from(receiver.complete(), 'base64')).toEqual(source);
+    },
+  );
+
+  test('padding in a non-final chunk is rejected before storing or reporting progress', () => {
+    const receiver = new PrimeTransferChunkReceiver({
+      transferId: 'interior',
+      totalBytes: PRIME_TRANSFER_CHUNK_SIZE + 4,
+    });
+    expect(() =>
+      receiver.receive({
+        transferId: 'interior',
+        index: 0,
+        data: `${'A'.repeat(PRIME_TRANSFER_CHUNK_SIZE - 4)}AA==`,
+      }),
+    ).toThrow('Invalid transfer chunk');
+    expect(receiver.receivedBytes).toBe(0);
+    receiver.receive({
+      transferId: 'interior',
+      index: 0,
+      data: 'A'.repeat(PRIME_TRANSFER_CHUNK_SIZE),
+    });
+    receiver.receive({ transferId: 'interior', index: 1, data: 'AA==' });
+    expect(receiver.complete()).toBe(
+      `${'A'.repeat(PRIME_TRANSFER_CHUNK_SIZE)}AA==`,
+    );
   });
 
   test('both endpoints progress only when data arrives and acknowledgements return', async () => {

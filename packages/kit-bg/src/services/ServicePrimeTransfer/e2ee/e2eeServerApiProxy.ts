@@ -21,6 +21,7 @@ interface IRoomManager {
     roomId: string;
     userId: string;
     chunkedTransferVersion?: number;
+    maxMessageSize?: number;
   }>;
 
   joinRoomAfterCreate(params: {
@@ -34,6 +35,7 @@ interface IRoomManager {
     roomId: string;
     userId: string;
     chunkedTransferVersion?: number;
+    maxMessageSize?: number;
   }>;
 
   leaveRoom(params: {

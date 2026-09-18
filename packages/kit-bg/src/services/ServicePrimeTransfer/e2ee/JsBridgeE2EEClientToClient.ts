@@ -2,12 +2,14 @@ import { JsBridgeBase } from '@onekeyfe/cross-inpage-provider-core';
 
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
-import {
-  PRIME_TRANSFER_CHUNK_SIZE,
-  PRIME_TRANSFER_MAX_CHUNKS,
-} from '@onekeyhq/shared/types/prime/primeTransferNetworkTypes';
+import { PRIME_TRANSFER_MAX_CHUNKS } from '@onekeyhq/shared/types/prime/primeTransferNetworkTypes';
 
+import { isValidPrimeTransferChunkData } from './chunkedTransfer';
 import { ETransferServerErrorCode } from './transferErrors';
+import {
+  assertLegacyTransferPacketSize,
+  getTransferMessageLimit,
+} from './transferSize';
 
 import type {
   IJsBridgeConfig,
@@ -17,6 +19,7 @@ import type {
 import type { Socket } from 'socket.io';
 
 const RATE_LIMIT_INTERVAL_MS = 3500;
+const CHUNK_REQUESTS_PER_SECOND = 512;
 const lastRequestTime: Map<string, number> = new Map();
 
 // Rate limiting whitelist - methods that are exempt from rate limiting
@@ -33,16 +36,25 @@ export class JsBridgeE2EEClientToClient extends JsBridgeBase {
       socket,
       roomId,
       isProxySide,
-    }: { socket: Socket; roomId: string; isProxySide: boolean },
+      maxMessageSize,
+    }: {
+      socket: Socket;
+      roomId: string;
+      isProxySide: boolean;
+      maxMessageSize?: number;
+    },
   ) {
     super(config);
     this.socket = socket;
     this.roomId = roomId;
     this.isProxySide = isProxySide;
+    this.maxMessageSize = getTransferMessageLimit(maxMessageSize);
     this.setup();
   }
 
   socket: Socket;
+
+  private readonly maxMessageSize: number;
 
   roomId: string;
 
@@ -54,16 +66,28 @@ export class JsBridgeE2EEClientToClient extends JsBridgeBase {
 
   private chunkRequestsInWindow = 0;
 
-  private getRequestErrorCode({
+  private getRequestRejection({
     payload,
     eventName,
   }: {
     payload: IJsBridgeMessagePayload;
     eventName: string;
-  }): ETransferServerErrorCode | undefined {
+  }): ETransferServerErrorCode | 'drop' | undefined {
     const req: IJsonRpcRequest = payload.data as IJsonRpcRequest;
 
     if (req.method === 'sendTransferChunk') {
+      const now = Date.now();
+      if (now - this.chunkWindowStartedAt >= 1000) {
+        this.chunkWindowStartedAt = now;
+        this.chunkRequestsInWindow = 0;
+      }
+      // Count every attempt before inspecting data. Report throttling once per
+      // window, then stop validating and replying to a sustained chunk flood.
+      if (this.chunkRequestsInWindow > CHUNK_REQUESTS_PER_SECOND) return 'drop';
+      this.chunkRequestsInWindow += 1;
+      if (this.chunkRequestsInWindow > CHUNK_REQUESTS_PER_SECOND) {
+        return ETransferServerErrorCode.RATE_LIMIT_EXCEEDED;
+      }
       const params = req?.params;
       const chunk = (Array.isArray(params) ? params[0] : undefined) as
         | { data?: unknown; transferId?: unknown; index?: unknown }
@@ -81,22 +105,11 @@ export class JsBridgeE2EEClientToClient extends JsBridgeBase {
         !Number.isSafeInteger(chunk.index) ||
         chunk.index < 0 ||
         chunk.index >= PRIME_TRANSFER_MAX_CHUNKS ||
-        typeof chunk.data !== 'string' ||
-        chunk.data.length === 0 ||
-        chunk.data.length > PRIME_TRANSFER_CHUNK_SIZE ||
-        !/^[A-Za-z0-9+/]*={0,2}$/.test(chunk.data)
+        !isValidPrimeTransferChunkData(chunk.data)
       ) {
         return ETransferServerErrorCode.INVALID_PARAMETER;
       }
-      const now = Date.now();
-      if (now - this.chunkWindowStartedAt >= 1000) {
-        this.chunkWindowStartedAt = now;
-        this.chunkRequestsInWindow = 0;
-      }
-      this.chunkRequestsInWindow += 1;
-      return this.chunkRequestsInWindow > 512
-        ? ETransferServerErrorCode.RATE_LIMIT_EXCEEDED
-        : undefined;
+      return undefined;
     }
 
     // Check if method is in whitelist
@@ -119,6 +132,11 @@ export class JsBridgeE2EEClientToClient extends JsBridgeBase {
 
   sendPayload(payload: IJsBridgeMessagePayload): void {
     if (this.isProxySide) {
+      assertLegacyTransferPacketSize({
+        roomId: this.roomId,
+        payload,
+        maxMessageSize: this.maxMessageSize,
+      });
       this.socket.emit('e2ee-c2c-request', {
         payload,
         roomId: this.roomId,
@@ -151,11 +169,12 @@ export class JsBridgeE2EEClientToClient extends JsBridgeBase {
       });
       this.socket.on(eventName, async (payload) => {
         const p = payload as IJsBridgeMessagePayload;
-        const errorCode = this.getRequestErrorCode({
+        const errorCode = this.getRequestRejection({
           payload: p,
           eventName: 'e2ee-c2c-request',
         });
 
+        if (errorCode === 'drop') return;
         if (errorCode !== undefined) {
           this.responseError({
             id: p.id ?? -9999,
