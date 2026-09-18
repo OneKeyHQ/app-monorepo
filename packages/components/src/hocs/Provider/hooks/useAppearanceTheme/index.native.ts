@@ -8,6 +8,7 @@ import { updateRootViewBackgroundColor } from '@onekeyhq/shared/src/modules3rdPa
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import type {
+  IGetAppThemeVariant,
   ISetSystemBarsOverride,
   IUpdateAppRootViewBackground,
   IUseAppearanceTheme,
@@ -84,6 +85,9 @@ function applySystemBars() {
     );
   }
 }
+
+export const getAppThemeVariant: IGetAppThemeVariant = () =>
+  overrideVariant ?? appVariant;
 
 export const setSystemBarsOverride: ISetSystemBarsOverride = (variant) => {
   if (overrideVariant === variant) {

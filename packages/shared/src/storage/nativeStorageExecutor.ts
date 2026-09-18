@@ -664,6 +664,10 @@ type IAppStorageTransactionJournal = {
   version: 1;
 };
 
+// Retain recovery metadata even when journal removal succeeds in memory but
+// its durability barrier fails. Only bg owns this JS state.
+let pendingAppStorageRecovery: string | undefined;
+
 function parseAppStorageTransactionJournal(
   raw: string,
 ): IAppStorageTransactionJournal {
@@ -706,10 +710,13 @@ function restoreAppStoragePreviousValues(
 }
 
 async function recoverInterruptedAppStorageBatch(mmkv: IMMKVInstance) {
-  const raw = mmkv.getString(APP_STORAGE_TRANSACTION_JOURNAL_KEY);
+  const raw =
+    pendingAppStorageRecovery ??
+    mmkv.getString(APP_STORAGE_TRANSACTION_JOURNAL_KEY);
   if (raw === undefined) {
     return;
   }
+  pendingAppStorageRecovery = raw;
   let journal: IAppStorageTransactionJournal;
   try {
     journal = parseAppStorageTransactionJournal(raw);
@@ -719,6 +726,7 @@ async function recoverInterruptedAppStorageBatch(mmkv: IMMKVInstance) {
     // a malformed journal cannot trap every later startup in the same failure.
     mmkv.remove(APP_STORAGE_TRANSACTION_JOURNAL_KEY);
     await syncNativeStorageMMKV(APP_STORAGE_MMKV_ID);
+    pendingAppStorageRecovery = undefined;
     logMigration('discarded invalid app-storage batch journal');
     return;
   }
@@ -726,6 +734,7 @@ async function recoverInterruptedAppStorageBatch(mmkv: IMMKVInstance) {
   await syncNativeStorageMMKV(APP_STORAGE_MMKV_ID);
   mmkv.remove(APP_STORAGE_TRANSACTION_JOURNAL_KEY);
   await syncNativeStorageMMKV(APP_STORAGE_MMKV_ID);
+  pendingAppStorageRecovery = undefined;
   logMigration(
     `recovered interrupted app-storage batch keyCount=${journal.previousValues.length}`,
   );
@@ -1124,9 +1133,10 @@ async function applyAppStorageChanges(
       }
     }
   };
-  mmkv.set(APP_STORAGE_TRANSACTION_JOURNAL_KEY, serializedJournal);
-  await syncNativeStorageMMKV(APP_STORAGE_MMKV_ID);
   try {
+    // Journal creation is part of the same recovery boundary as the batch.
+    mmkv.set(APP_STORAGE_TRANSACTION_JOURNAL_KEY, serializedJournal);
+    await syncNativeStorageMMKV(APP_STORAGE_MMKV_ID);
     changes.forEach(({ key, value }) => {
       if (value === undefined) {
         mmkv.remove(key);
@@ -1140,15 +1150,13 @@ async function applyAppStorageChanges(
     trimRemovedJournal();
   } catch (error) {
     // Keep the journal until rollback is durably complete. If rollback itself
-    // fails, the next process restores it before allowing business access.
+    // fails, the next queued request retries before allowing business access.
+    pendingAppStorageRecovery = serializedJournal;
     try {
-      restoreAppStoragePreviousValues(mmkv, journal.previousValues);
-      await syncNativeStorageMMKV(APP_STORAGE_MMKV_ID);
-      mmkv.remove(APP_STORAGE_TRANSACTION_JOURNAL_KEY);
-      await syncNativeStorageMMKV(APP_STORAGE_MMKV_ID);
+      await recoverInterruptedAppStorageBatch(mmkv);
       trimRemovedJournal();
     } catch {
-      logMigration('app-storage batch rollback deferred to next startup');
+      logMigration('app-storage batch rollback deferred to next request');
     }
     throw error;
   }
@@ -1191,6 +1199,7 @@ async function clearAppStorageAndLegacyData(mmkv: IMMKVInstance) {
 async function executeAsyncStorageRequest(request: INativeAsyncStorageRequest) {
   await ensureNativeAppStorageMigrated();
   const mmkv = getAppStorageMMKV();
+  await recoverInterruptedAppStorageBatch(mmkv);
 
   switch (request.operation) {
     case 'getItem':
