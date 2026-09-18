@@ -91,14 +91,14 @@ export async function installLedgerCoreApps({
     const retry = await installApp({ connectId, appName });
     if (retry?.success) return;
     const retryFailure = toError(retry?.payload);
-    if (
-      resolveLedgerInstallFailureAction({
-        code: retryFailure.code,
-        autoRetryUsed,
-      }) === 'alreadyInstalled'
-    ) {
-      return;
-    }
+    const retryAction = resolveLedgerInstallFailureAction({
+      code: retryFailure.code,
+      autoRetryUsed,
+    });
+    if (retryAction === 'alreadyInstalled') return;
+    // The retry gets the same benefit of the doubt as the first attempt: it
+    // may have landed the app and still failed on the catalog fetch.
+    if (retryAction !== 'terminal' && (await isAppOnDevice(appName))) return;
     throw retryFailure;
   };
 
