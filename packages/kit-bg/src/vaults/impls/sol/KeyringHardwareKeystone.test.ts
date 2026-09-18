@@ -1,11 +1,18 @@
 import { HardwareErrorCode } from '@onekeyfe/hwk-adapter-core';
-import { Keypair, SystemProgram, Transaction } from '@solana/web3.js';
+import {
+  Keypair,
+  SystemProgram,
+  Transaction,
+  TransactionMessage,
+  VersionedTransaction,
+} from '@solana/web3.js';
 import bs58 from 'bs58';
 import nacl from 'tweetnacl';
 
 import { parseToNativeTx } from '@onekeyhq/core/src/chains/sol/sdkSol/parse';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import {
+  ThirdPartyDeviceMismatch,
   ThirdPartyMethodNotSupported,
   ThirdPartyUserRejected,
 } from '@onekeyhq/shared/src/errors/errors/thirdPartyHardwareErrors';
@@ -159,6 +166,26 @@ describe('KeyringHardwareKeystone.signTransaction', () => {
     return { feePayer, encodedTx };
   }
 
+  function buildUnsignedVersionedTransaction() {
+    const feePayer = Keypair.generate();
+    const recipient = Keypair.generate();
+    const message = new TransactionMessage({
+      payerKey: feePayer.publicKey,
+      recentBlockhash: bs58.encode(Buffer.alloc(32, 7)),
+      instructions: [
+        SystemProgram.transfer({
+          fromPubkey: feePayer.publicKey,
+          toPubkey: recipient.publicKey,
+          lamports: 1000,
+        }),
+      ],
+    }).compileToV0Message();
+    const encodedTx = bs58.encode(
+      new VersionedTransaction(message).serialize(),
+    );
+    return { feePayer, encodedTx };
+  }
+
   function buildKeyring(solSignTransaction: jest.Mock) {
     const getAdapterForVendor = jest
       .fn()
@@ -211,6 +238,115 @@ describe('KeyringHardwareKeystone.signTransaction', () => {
     const finalTx = Transaction.from(Buffer.from(result.rawTx, 'base64'));
     expect(finalTx.verifySignatures()).toBe(true);
     expect(finalTx.feePayer?.toBase58()).toBe(feePayer.publicKey.toBase58());
+  });
+
+  it('signs a versioned transaction and keeps the device signature', async () => {
+    const { feePayer, encodedTx } = buildUnsignedVersionedTransaction();
+    const parsed = parseToNativeTx(encodedTx) as VersionedTransaction;
+    const messageBytes = parsed.message.serialize();
+    const signature = nacl.sign.detached(messageBytes, feePayer.secretKey);
+    const solSignTransaction = jest.fn().mockResolvedValue({
+      success: true,
+      payload: { signature: Buffer.from(signature).toString('hex') },
+    });
+    const { keyring } = buildKeyring(solSignTransaction);
+
+    const result = await keyring.signTransaction({
+      unsignedTx: {
+        encodedTx,
+        payload: { feePayer: feePayer.publicKey.toBase58() },
+      },
+      deviceParams: { dbDevice },
+    } as never);
+
+    expect(solSignTransaction).toHaveBeenCalledWith(
+      dbDevice.connectId,
+      dbDevice.deviceId,
+      expect.objectContaining({
+        serializedTx: Buffer.from(messageBytes).toString('hex'),
+      }),
+    );
+    expect(result.txid).toBe(bs58.encode(signature));
+    const finalTx = VersionedTransaction.deserialize(
+      Buffer.from(result.rawTx, 'base64'),
+    );
+    expect(Buffer.from(finalTx.signatures[0])).toEqual(Buffer.from(signature));
+  });
+
+  it('rejects a signature produced by another key instead of returning it', async () => {
+    const { feePayer, encodedTx } = buildUnsignedTransaction();
+    const parsed = parseToNativeTx(encodedTx) as Transaction;
+    // A different Keystone device or account answering the same scan.
+    const foreignSigner = Keypair.generate();
+    const signature = nacl.sign.detached(
+      parsed.serializeMessage(),
+      foreignSigner.secretKey,
+    );
+    const solSignTransaction = jest.fn().mockResolvedValue({
+      success: true,
+      payload: { signature: Buffer.from(signature).toString('hex') },
+    });
+    const { keyring } = buildKeyring(solSignTransaction);
+
+    await expect(
+      keyring.signTransaction({
+        unsignedTx: {
+          encodedTx,
+          payload: { feePayer: feePayer.publicKey.toBase58() },
+        },
+        deviceParams: { dbDevice },
+      } as never),
+    ).rejects.toBeInstanceOf(ThirdPartyDeviceMismatch);
+    expect(solSignTransaction).toHaveBeenCalledTimes(1);
+  });
+
+  it('rejects a versioned-transaction signature produced by another key', async () => {
+    const { feePayer, encodedTx } = buildUnsignedVersionedTransaction();
+    const parsed = parseToNativeTx(encodedTx) as VersionedTransaction;
+    const foreignSigner = Keypair.generate();
+    const signature = nacl.sign.detached(
+      parsed.message.serialize(),
+      foreignSigner.secretKey,
+    );
+    const solSignTransaction = jest.fn().mockResolvedValue({
+      success: true,
+      payload: { signature: Buffer.from(signature).toString('hex') },
+    });
+    const { keyring } = buildKeyring(solSignTransaction);
+
+    await expect(
+      keyring.signTransaction({
+        unsignedTx: {
+          encodedTx,
+          payload: { feePayer: feePayer.publicKey.toBase58() },
+        },
+        deviceParams: { dbDevice },
+      } as never),
+    ).rejects.toBeInstanceOf(ThirdPartyDeviceMismatch);
+  });
+
+  it('rejects a signature over a different message', async () => {
+    const { feePayer, encodedTx } = buildUnsignedTransaction();
+    // Correct signer, wrong payload: the device answered for another tx.
+    const signature = nacl.sign.detached(
+      Buffer.from('another transaction message'),
+      feePayer.secretKey,
+    );
+    const solSignTransaction = jest.fn().mockResolvedValue({
+      success: true,
+      payload: { signature: Buffer.from(signature).toString('hex') },
+    });
+    const { keyring } = buildKeyring(solSignTransaction);
+
+    await expect(
+      keyring.signTransaction({
+        unsignedTx: {
+          encodedTx,
+          payload: { feePayer: feePayer.publicKey.toBase58() },
+        },
+        deviceParams: { dbDevice },
+      } as never),
+    ).rejects.toBeInstanceOf(ThirdPartyDeviceMismatch);
   });
 
   it('rejects when parsing the encoded transaction fails', async () => {
