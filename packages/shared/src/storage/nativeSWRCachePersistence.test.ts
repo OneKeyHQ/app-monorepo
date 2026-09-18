@@ -160,15 +160,15 @@ describe('nativeSWRCachePersistence', () => {
     const getStringSpy = jest.spyOn(mmkv, 'getString');
 
     await persistence.ensureMigrated();
-    const serialized = persistence.readSerializedSubset({
+    const entries = persistence.readBootstrapEntries({
       keyPrefixes: ['home-overview-perps-worth:'],
       maxEntries: 1,
       maxSerializedChars: 1024,
     });
 
-    expect(JSON.parse(serialized)).toEqual({
-      'home-overview-perps-worth:new': { d: '2', t: 3 },
-    });
+    expect(entries).toEqual([
+      ['home-overview-perps-worth:new', JSON.stringify({ d: '2', t: 3 })],
+    ]);
     expect(getStringSpy).not.toHaveBeenCalledWith(unrelatedPhysicalKey);
     expect(mmkv.getString(unrelatedPhysicalKey ?? '')).toBe(
       JSON.stringify({ d: 'x'.repeat(128 * 1024), t: 2 }),
@@ -302,14 +302,12 @@ describe('nativeSWRCachePersistence', () => {
     const persistence = loadPersistence(mmkv);
 
     expect(
-      JSON.parse(
-        persistence.readSerializedSubset({
-          keyPrefixes: ['valid'],
-          maxEntries: 10,
-          maxSerializedChars: 1024,
-        }),
-      ),
-    ).toEqual({ valid: { d: 'kept', t: 2 } });
+      persistence.readBootstrapEntries({
+        keyPrefixes: ['valid'],
+        maxEntries: 10,
+        maxSerializedChars: 1024,
+      }),
+    ).toEqual([['valid', JSON.stringify({ d: 'kept', t: 2 })]]);
     expect(mmkv.getString(invalidPhysicalKey)).toBeUndefined();
     expect(mockSWRCacheCapacityLimit).toHaveBeenCalledWith(
       expect.objectContaining({ reason: 'keyLimit' }),
