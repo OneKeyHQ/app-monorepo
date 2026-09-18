@@ -852,6 +852,7 @@ describe('metro-dev-prebundle release transport', () => {
     );
     const lockDirectory = path.join(root, 'tag.lock');
     const ownerPath = path.join(lockDirectory, 'owner.json');
+    const staleMs = 60_000;
     let staleOwnerReads = 0;
     let releaseInitialReads;
     const initialReads = new Promise((resolve) => {
@@ -886,6 +887,8 @@ describe('metro-dev-prebundle release transport', () => {
         pid: 12_345,
         token: 'stale-owner',
       });
+      const staleTimestamp = new Date(Date.now() - staleMs * 2);
+      await fs.utimes(lockDirectory, staleTimestamp, staleTimestamp);
       const results = await Promise.all(
         ['first', 'second'].map((result) =>
           withCacheLock(
@@ -903,7 +906,7 @@ describe('metro-dev-prebundle release transport', () => {
             {
               fileSystem,
               processIsRunning: (pid) => pid === process.pid,
-              staleMs: 0,
+              staleMs,
               waitPollIntervalMs: 1,
               waitTimeoutMs: 1000,
             },
