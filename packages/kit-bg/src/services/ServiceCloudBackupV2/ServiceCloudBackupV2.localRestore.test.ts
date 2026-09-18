@@ -196,6 +196,29 @@ describe('local iCloud restore integration', () => {
     return prepared;
   }
 
+  function readUploadedBackup() {
+    const [uploaded] = mockProvider.backupData.mock.calls[0];
+    return {
+      payload: uploaded,
+      content: stringUtils.stableStringify(uploaded),
+    };
+  }
+
+  function mockSuccessfulBackup() {
+    jest.spyOn(timerUtils, 'wait').mockResolvedValue(undefined);
+    mockProvider.backupData.mockImplementation(async (uploaded) => ({
+      recordID: recordId,
+      content: stringUtils.stableStringify(uploaded),
+    }));
+    mockProvider.downloadData.mockImplementation(async () =>
+      readUploadedBackup(),
+    );
+    mockProvider.getAllBackups.mockResolvedValue({
+      items: [{ recordID: recordId }],
+      total: 1,
+    });
+  }
+
   it('decrypts in bg, returns only a one-use handle, and preserves local password authorization', async () => {
     const prepared = await prepareCached();
     expect(Object.keys(prepared)).toEqual(['restoreId']);
@@ -334,19 +357,7 @@ describe('local iCloud restore integration', () => {
   });
 
   it('caches a successfully verified uploaded backup without changing the cloud payload format', async () => {
-    jest.spyOn(timerUtils, 'wait').mockResolvedValue(undefined);
-    mockProvider.backupData.mockResolvedValue({
-      recordID: recordId,
-      content: 'synthetic-encrypted-content',
-    });
-    mockProvider.downloadData.mockResolvedValue({
-      payload,
-      content: 'synthetic-encrypted-content',
-    });
-    mockProvider.getAllBackups.mockResolvedValue({
-      items: [{ recordID: recordId }],
-      total: 1,
-    });
+    mockSuccessfulBackup();
     await service.backup({ data, password });
     expect(cached.set).toHaveBeenCalledWith({
       accountId: accountInfo.userId,
@@ -364,6 +375,123 @@ describe('local iCloud restore integration', () => {
     expect(
       await service.restorePreparePrivateData({ payload: uploaded, password }),
     ).toEqual(data.privateData);
+  });
+
+  it.each([
+    'authorization',
+    'encryption',
+    'upload',
+    'readback',
+    'mismatched readback',
+    'listing',
+    'sign-out',
+  ] as const)(
+    'refuses backup success after an account change during %s',
+    async (stage) => {
+      mockSuccessfulBackup();
+      let currentAccountId = accountInfo.userId;
+      const changeAccount = () => {
+        currentAccountId =
+          stage === 'sign-out' ? '' : 'another-cloudkit-account';
+      };
+      mockProvider.getCloudAccountInfo.mockImplementation(async () => ({
+        ...accountInfo,
+        userId: currentAccountId,
+      }));
+      transfer.decryptTransferDataCredentials.mockImplementation(
+        async ({ data: backupData }: { data: IPrimeTransferData }) => {
+          await promptPasswordVerify();
+          if (stage === 'authorization' || stage === 'sign-out')
+            changeAccount();
+          backupData.privateData.decryptedCredentials =
+            data.privateData.decryptedCredentials;
+          backupData.privateData.credentials = {};
+        },
+      );
+      if (stage === 'encryption') {
+        const buildPassword = service.buildFullBackupPassword.bind(service);
+        jest
+          .spyOn(service, 'buildFullBackupPassword')
+          .mockImplementationOnce(async (params, cloudAccount) => {
+            const fullPassword = await buildPassword(params, cloudAccount);
+            changeAccount();
+            return fullPassword;
+          });
+      } else if (stage === 'upload') {
+        mockProvider.backupData.mockImplementationOnce(async (uploaded) => {
+          changeAccount();
+          return {
+            recordID: recordId,
+            content: stringUtils.stableStringify(uploaded),
+          };
+        });
+      } else if (stage === 'readback' || stage === 'mismatched readback') {
+        mockProvider.downloadData.mockImplementationOnce(async () => {
+          changeAccount();
+          const backup = readUploadedBackup();
+          return stage === 'mismatched readback'
+            ? { ...backup, content: 'different-encrypted-content' }
+            : backup;
+        });
+      } else if (stage === 'listing') {
+        mockProvider.getAllBackups.mockImplementationOnce(async () => {
+          changeAccount();
+          return { items: [{ recordID: recordId }], total: 1 };
+        });
+      }
+      const wrappedData: IPrimeTransferData = {
+        ...data,
+        privateData: {
+          ...data.privateData,
+          decryptedCredentials: undefined,
+          credentials: { fixture: 'synthetic-wrapped-credential' },
+        },
+      };
+      await expect(
+        service.backup({ data: wrappedData, password }),
+      ).rejects.toThrow('iCloud account changed');
+      expect(promptPasswordVerify).toHaveBeenCalledTimes(1);
+      expect(mockProvider.backupData).toHaveBeenCalledTimes(
+        stage === 'authorization' ||
+          stage === 'encryption' ||
+          stage === 'sign-out'
+          ? 0
+          : 1,
+      );
+      expect(updateBackupStatus).not.toHaveBeenCalled();
+      expect(cached.set).not.toHaveBeenCalled();
+      expect(mockProvider.deleteBackup).not.toHaveBeenCalled();
+    },
+  );
+
+  it('stops before upload if the account cannot be revalidated after authorization', async () => {
+    mockSuccessfulBackup();
+    transfer.decryptTransferDataCredentials.mockImplementationOnce(async () => {
+      mockProvider.getCloudAccountInfo.mockRejectedValueOnce(
+        new Error('Cloud account unavailable'),
+      );
+    });
+    await expect(service.backup({ data, password })).rejects.toThrow(
+      'Cloud account unavailable',
+    );
+    expect(mockProvider.backupData).not.toHaveBeenCalled();
+    expect(updateBackupStatus).not.toHaveBeenCalled();
+    expect(cached.set).not.toHaveBeenCalled();
+  });
+
+  it('does not add iCloud account checks or password caching to Google Drive backups', async () => {
+    platformEnv.isNativeIOS = false;
+    mockProvider.getCloudAccountInfo.mockResolvedValue({
+      ...accountInfo,
+      providerType: ECloudBackupProviderType.GoogleDrive,
+    });
+    mockSuccessfulBackup();
+    await expect(service.backup({ data, password })).resolves.toMatchObject({
+      recordID: recordId,
+    });
+    expect(mockProvider.getCloudAccountInfo).toHaveBeenCalledTimes(1);
+    expect(updateBackupStatus).toHaveBeenCalledTimes(1);
+    expect(cached.set).not.toHaveBeenCalled();
   });
 
   it('clears only the relevant cache entry after successful remote deletion or password reset', async () => {
