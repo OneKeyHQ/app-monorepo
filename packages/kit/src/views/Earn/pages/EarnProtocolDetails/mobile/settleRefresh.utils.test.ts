@@ -1,5 +1,6 @@
 import {
-  DETAIL_SETTLE_REFRESH_OFFSETS_MS,
+  DETAIL_BALANCE_SETTLE_REFRESH_OFFSETS_MS,
+  DETAIL_PORTFOLIO_SETTLE_REFRESH_OFFSETS_MS,
   scheduleSettleRefreshes,
 } from './settleRefresh.utils';
 
@@ -27,32 +28,20 @@ describe('scheduleSettleRefreshes', () => {
     expect(refresh).toHaveBeenCalledTimes(3);
   });
 
-  it('stops re-reading once the page reports it has caught up', () => {
+  it('cancels every pending read', () => {
     const refresh = jest.fn();
-    let caughtUp = false;
-    scheduleSettleRefreshes({
-      refresh,
-      shouldStop: () => caughtUp,
-      offsetsMs: [100, 300],
-    });
+    const cancel = scheduleSettleRefreshes({ refresh, offsetsMs: [100, 300] });
 
     jest.advanceTimersByTime(100);
-    expect(refresh).toHaveBeenCalledTimes(2);
-    caughtUp = true;
-    jest.advanceTimersByTime(200);
-    expect(refresh).toHaveBeenCalledTimes(2);
-  });
-
-  it('cancels the pending reads', () => {
-    const refresh = jest.fn();
-    const cancel = scheduleSettleRefreshes({ refresh, offsetsMs: [100] });
-
     cancel();
-    jest.advanceTimersByTime(100);
-    expect(refresh).toHaveBeenCalledTimes(1);
+    jest.advanceTimersByTime(300);
+    expect(refresh).toHaveBeenCalledTimes(2);
   });
 
-  it('spreads the default offsets over the first minute', () => {
-    expect(DETAIL_SETTLE_REFRESH_OFFSETS_MS).toEqual([10_000, 30_000, 60_000]);
+  it('gives an existing position one fallback read and a new one a minute', () => {
+    expect(DETAIL_BALANCE_SETTLE_REFRESH_OFFSETS_MS).toEqual([10_000]);
+    expect(DETAIL_PORTFOLIO_SETTLE_REFRESH_OFFSETS_MS).toEqual([
+      10_000, 30_000, 60_000,
+    ]);
   });
 });

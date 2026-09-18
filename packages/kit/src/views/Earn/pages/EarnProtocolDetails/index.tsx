@@ -117,7 +117,11 @@ import {
   pickProtocolInfoDisplayName,
   resolveProviderSubtitle,
 } from './mobile/providerSubtitle.utils';
-import { scheduleSettleRefreshes } from './mobile/settleRefresh.utils';
+import {
+  DETAIL_BALANCE_SETTLE_REFRESH_OFFSETS_MS,
+  DETAIL_PORTFOLIO_SETTLE_REFRESH_OFFSETS_MS,
+  scheduleSettleRefreshes,
+} from './mobile/settleRefresh.utils';
 import { useMobileDetailLayout } from './mobile/useMobileDetailLayout';
 import {
   buildHeadlineApyParts,
@@ -1287,30 +1291,38 @@ const EarnProtocolDetailsPage = ({ route }: { route: IRouteProps }) => {
   // way the positions page does and reload once they clear. The wide layout
   // has its own activity indicator, so this stays phone-only.
   // One read after the clear is not always enough: a provider that answers
-  // from its own index can still report the pre-transaction state, and a
-  // first deposit then never grew a Portfolio tab until the page was reopened.
-  // Keep re-reading for a while, and stop as soon as the tab has appeared.
+  // from its own index can still report the pre-transaction state. An
+  // existing position gets one more read as a fallback. A vault with no
+  // position keeps re-reading, since the Portfolio tab appearing is the only
+  // sign the deposit has landed, and the timers go the moment it does.
   const hasPortfolioRef = useRef(hasPortfolio);
   hasPortfolioRef.current = hasPortfolio;
   const cancelSettleRefreshesRef = useRef<(() => void) | undefined>(undefined);
-  const refreshUntilSettled = useCallback(() => {
+  const awaitingPortfolioRef = useRef(false);
+  const cancelSettleRefreshes = useCallback(() => {
     cancelSettleRefreshesRef.current?.();
+    cancelSettleRefreshesRef.current = undefined;
+    awaitingPortfolioRef.current = false;
+  }, []);
+  const refreshUntilSettled = useCallback(() => {
+    cancelSettleRefreshes();
     const hadPortfolio = hasPortfolioRef.current;
+    awaitingPortfolioRef.current = !hadPortfolio;
     cancelSettleRefreshesRef.current = scheduleSettleRefreshes({
       refresh: () => {
         void refreshData();
       },
-      // A position that already existed changes in ways this page cannot
-      // check, so it takes every read; a new one is settled once the tab is up.
-      shouldStop: () => !hadPortfolio && hasPortfolioRef.current,
+      offsetsMs: hadPortfolio
+        ? DETAIL_BALANCE_SETTLE_REFRESH_OFFSETS_MS
+        : DETAIL_PORTFOLIO_SETTLE_REFRESH_OFFSETS_MS,
     });
-  }, [refreshData]);
-  useEffect(
-    () => () => {
-      cancelSettleRefreshesRef.current?.();
-    },
-    [],
-  );
+  }, [cancelSettleRefreshes, refreshData]);
+  useEffect(() => {
+    if (hasPortfolio && awaitingPortfolioRef.current) {
+      cancelSettleRefreshes();
+    }
+  }, [hasPortfolio, cancelSettleRefreshes]);
+  useEffect(() => cancelSettleRefreshes, [cancelSettleRefreshes]);
   const { refreshPending } = useStakingPendingTxs({
     accountId: isMobileLayout
       ? protocolInfo?.earnAccount?.accountId
