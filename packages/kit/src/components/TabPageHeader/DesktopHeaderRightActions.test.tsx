@@ -60,13 +60,15 @@ describe('DesktopHeaderRightActions', () => {
 
     const group = getHeaderRightGroup();
     expect(group.getAttribute('data-align-items')).toBe('center');
-    expect(group).toContainElement(
-      screen.getByTestId('swap-invitee-reward-top-nav-button'),
+    expect(
+      group.contains(screen.getByTestId('swap-invitee-reward-top-nav-button')),
+    ).toBe(true);
+    expect(group.contains(screen.getByTestId('header-update-button'))).toBe(
+      true,
     );
-    expect(group).toContainElement(screen.getByTestId('header-update-button'));
-    expect(group).toContainElement(
-      screen.getByTestId('header-right-notification'),
-    );
+    expect(
+      group.contains(screen.getByTestId('header-right-notification')),
+    ).toBe(true);
   });
 
   it('keeps the Earn gift in the same aligned group as update and notification', () => {
@@ -74,11 +76,13 @@ describe('DesktopHeaderRightActions', () => {
 
     const group = getHeaderRightGroup();
     expect(group.getAttribute('data-align-items')).toBe('center');
-    expect(group).toContainElement(screen.getByTestId('header-gift-action'));
-    expect(group).toContainElement(screen.getByTestId('header-update-button'));
-    expect(group).toContainElement(
-      screen.getByTestId('header-right-notification'),
+    expect(group.contains(screen.getByTestId('header-gift-action'))).toBe(true);
+    expect(group.contains(screen.getByTestId('header-update-button'))).toBe(
+      true,
     );
+    expect(
+      group.contains(screen.getByTestId('header-right-notification')),
+    ).toBe(true);
   });
 
   it('still renders the system icons when Swap has no custom gift', () => {
@@ -89,9 +93,11 @@ describe('DesktopHeaderRightActions', () => {
       screen.queryByTestId('swap-invitee-reward-top-nav-button'),
     ).toBeNull();
     expect(screen.queryByTestId('header-gift-action')).toBeNull();
-    expect(group).toContainElement(screen.getByTestId('header-update-button'));
-    expect(group).toContainElement(
-      screen.getByTestId('header-right-notification'),
+    expect(group.contains(screen.getByTestId('header-update-button'))).toBe(
+      true,
     );
+    expect(
+      group.contains(screen.getByTestId('header-right-notification')),
+    ).toBe(true);
   });
 });
