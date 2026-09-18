@@ -7,6 +7,7 @@ import { renderHook } from '@testing-library/react';
 import { IntlProvider, createIntl } from 'react-intl';
 
 import { BluetoothUnavailableWhileUsbConnectedError } from '@onekeyhq/shared/src/errors';
+import { FirmwareUpdateTransferInterruptedError } from '@onekeyhq/shared/src/errors/errors/hardwareErrors';
 import {
   EOneKeyErrorClassNames,
   type IOneKeyError,
@@ -49,6 +50,9 @@ const intlMessages: Record<string, string> = {
   [ETranslations.update_device_disconnected_desc]: deviceDisconnectedMessage,
   [ETranslations.hardware_third_party_operation_timeout]:
     operationTimedOutMessage,
+  [ETranslations.global_update_failed]: 'Update failed',
+  [ETranslations.firmware_update_error_transfer_interrupted]:
+    'Transfer interrupted. Please keep your device connected and try again.',
   [ETranslations.global_retry]: 'Retry',
 };
 
@@ -170,6 +174,24 @@ describe('firmware update device mismatch errors', () => {
 
     expect(presentation.title).toBe(genericErrorTitle);
     expect(presentation.sentence).toBe(deviceMismatchMessage);
+    expect(presentation.action).toEqual({ kind: 'retry' });
+  });
+});
+
+describe('firmware update transfer interrupted errors', () => {
+  it('localizes a stalled firmware transfer instead of hanging silently', () => {
+    const error = new FirmwareUpdateTransferInterruptedError();
+    const presentation = resolveFirmwareUpdateErrorPresentation({
+      error,
+      result: undefined,
+      lastFirmwareTipMessage: undefined,
+      intl,
+    });
+
+    expect(error.code).toBe(HardwareErrorCode.EmmcFileWriteFirmwareError);
+    expect(presentation.sentence).toBe(
+      'Transfer interrupted. Please keep your device connected and try again.',
+    );
     expect(presentation.action).toEqual({ kind: 'retry' });
   });
 });

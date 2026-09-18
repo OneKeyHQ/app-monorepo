@@ -15,8 +15,32 @@ export function formatChartPrice(price: number, maxCharacters = 8): string {
   ].find((item) => value >= 10 ** item.exponent);
   let unit = scale?.suffix ?? '';
   const parts = value.toExponential().split('e');
-  const digits = parts[0].replace('.', '');
-  const exponent = Number(parts[1]) - (scale?.exponent ?? 0);
+  let digits = parts[0].replace('.', '');
+  let exponent = Number(parts[1]) - (scale?.exponent ?? 0);
+  // Sub-$1 quotes must read exactly like the page header's `formatPrice`:
+  // four significant digits, rounded half-up. `toExponential()` returns the
+  // shortest round-trip decimal, so rounding that digit string reproduces
+  // BigNumber's ROUND_HALF_UP on the original decimal rather than the double's
+  // binary neighbour (0.0012345 -> "0.001235", not toFixed's "0.001234").
+  const isSubDollar = value > 0 && !unit && exponent < 0;
+  if (isSubDollar) {
+    if (digits.length > 4) {
+      const kept = digits.slice(0, 4);
+      if (digits.charAt(4) >= '5') {
+        const bumped = String(Number(kept) + 1);
+        if (bumped.length > kept.length) {
+          // 9999 -> 10000: one more integer digit, so the decimal point moves.
+          digits = bumped.slice(0, 4);
+          exponent += 1;
+        } else {
+          digits = bumped;
+        }
+      } else {
+        digits = kept;
+      }
+    }
+    digits = digits.replace(/0+$/, '') || '0';
+  }
   const decimalPosition = exponent + 1;
   let body: string;
   if (decimalPosition <= 0) {
@@ -29,11 +53,13 @@ export function formatChartPrice(price: number, maxCharacters = 8): string {
   }
   const zeroCount = -exponent - 1;
   const plainWouldLoseAllDigits = zeroCount >= Math.max(1, limit - 2) - 2;
+  // `> 4` mirrors `formatDisplayNumber`, which switches the header to the
+  // subscript form at the same point. The length test is only a width fallback
+  // for callers with a budget too small for the plain form.
   if (
     value > 0 &&
     !unit &&
-    body.length > limit &&
-    (zeroCount > 5 || plainWouldLoseAllDigits)
+    (zeroCount > 4 || (body.length > limit && plainWouldLoseAllDigits))
   ) {
     const zeros = String(zeroCount).replace(/[0-9]/g, (digit) =>
       '₀₁₂₃₄₅₆₇₈₉'.charAt(Number(digit)),
