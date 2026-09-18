@@ -23130,6 +23130,7 @@
     "packages/kit/src/views/Staking/components/TradeOrBuy.tsx": 20098,
     "packages/kit/src/views/Staking/components/UniversalClaim/index.tsx": 15015,
     "packages/kit/src/views/Staking/components/UniversalStake/index.tsx": 18293,
+    "packages/kit/src/views/Staking/components/UniversalWithdraw/checkAmountRequestUtils.ts": 19149,
     "packages/kit/src/views/Staking/components/UniversalWithdraw/index.tsx": 22762,
     "packages/kit/src/views/Staking/components/UniversalWithdraw/transactionConfirmationRequestUtils.ts": 20990,
     "packages/kit/src/views/Staking/components/ValuePriceListItem/index.tsx": 15555,
