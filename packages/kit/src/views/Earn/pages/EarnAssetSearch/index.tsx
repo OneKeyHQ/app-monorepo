@@ -32,7 +32,7 @@ export default function EarnAssetSearchModal() {
   );
 
   return (
-    <Page safeAreaEnabled={false}>
+    <Page>
       <Page.Header
         title={intl.formatMessage({
           id: ETranslations.earn_available_assets,

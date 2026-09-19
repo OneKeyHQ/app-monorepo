@@ -2001,12 +2001,7 @@ function TokenSelector() {
   ]);
 
   return (
-    <Page
-      lazyLoad
-      safeAreaEnabled={false}
-      onClose={clearSearchKey}
-      onUnmounted={clearSearchKey}
-    >
+    <Page lazyLoad onClose={clearSearchKey} onUnmounted={clearSearchKey}>
       <Page.Header
         title={
           title ??
