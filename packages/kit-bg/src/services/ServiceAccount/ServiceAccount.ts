@@ -132,6 +132,7 @@ import {
   prefixOf,
   swrCacheNamespaces,
   swrCacheUtils,
+  swrKeys,
 } from '@onekeyhq/shared/src/utils/swrCacheUtils';
 import thirdPartyDeviceUtils from '@onekeyhq/shared/src/utils/thirdPartyDeviceUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
@@ -362,6 +363,12 @@ class ServiceAccount extends ServiceBase {
       swrCacheUtils.removeByPrefix(
         prefixOf(swrCacheNamespaces.accountSelectorList),
       );
+    // Displayed balances are keyed by wallet and account ids and do not depend
+    // on names or list structure, so only removals drop them.
+    const dropAccountSelectorValuesSwr = () =>
+      swrCacheUtils.removeByPrefix(
+        prefixOf(swrCacheNamespaces.accountSelectorValues),
+      );
     // Bulk copy / bulk send snapshot wallet objects, account groups and the
     // seeded sender (names, addresses, xpubs) with no TTL, so they follow the
     // same contract: a mutation drops the namespaces and the next mount
@@ -394,7 +401,12 @@ class ServiceAccount extends ServiceBase {
       // sidebar also depends on accounts via ignoreEmptySingletonWalletAccounts
       dropWalletListSwr();
       dropAccountSelectorListSwr();
+      dropAccountSelectorValuesSwr();
       dropBulkAddressSwr();
+      swrCacheUtils.flushNow();
+    });
+    appEventBus.on(EAppEventBusNames.WalletRemove, ({ walletId }) => {
+      swrCacheUtils.remove(swrKeys.accountSelectorValues({ walletId }));
       swrCacheUtils.flushNow();
     });
     appEventBus.on(EAppEventBusNames.AccountUpdate, () => {
@@ -435,6 +447,7 @@ class ServiceAccount extends ServiceBase {
       void this.clearAccountCache();
       dropWalletListSwr();
       dropAccountSelectorListSwr();
+      dropAccountSelectorValuesSwr();
       dropBulkAddressSwr();
       swrCacheUtils.flushNow();
     });
