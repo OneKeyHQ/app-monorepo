@@ -19,6 +19,7 @@ import perfUtils, {
   EPerformanceTimerLogNames,
 } from '@onekeyhq/shared/src/utils/debug/perfUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
+import { applySharedBalanceExclusionToTokenGroups } from '@onekeyhq/shared/src/utils/sharedBalanceUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import tokenRebaseUtils from '@onekeyhq/shared/src/utils/tokenRebaseUtils';
 import { filterTokenSelectorTokenDataByDappTokenFilterParams } from '@onekeyhq/shared/src/utils/tokenSelectorFilterUtils';
@@ -516,6 +517,17 @@ class ServiceToken extends ServiceBase {
           tokenSelectorFilterParams,
         });
     }
+
+    // Shared-balance groups (OK-63633, Arc native USDC vs ERC-20 0x3600…):
+    // resolve ONCE over the FILTERED tokens ∪ smallBalanceTokens which marked
+    // rows must be skipped by totals and flag their fiat-map entries. Runs
+    // after the selector filters so a marked row whose primary was filtered
+    // out is counted once instead of zero times. Rows are never dropped — the
+    // ERC-20 interface stays listed / swappable.
+    applySharedBalanceExclusionToTokenGroups({
+      tokens: resp.data.data.tokens,
+      smallBalanceTokens: resp.data.data.smallBalanceTokens,
+    });
 
     if (mergeTokens) {
       const { tokens, riskTokens, smallBalanceTokens } = resp.data.data as any;

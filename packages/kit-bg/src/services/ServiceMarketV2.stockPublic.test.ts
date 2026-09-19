@@ -129,6 +129,28 @@ describe('ServiceMarketV2 public stock APIs', () => {
     expect(mockGet).toHaveBeenCalledTimes(3);
   });
 
+  it('does not reuse an offline basic-config failure after reconnect', async () => {
+    mockPauseMemoizationTasks = true;
+    const service = createService();
+    mockGet.mockRejectedValueOnce(new Error('offline'));
+    await expect(service.fetchMarketBasicConfig()).rejects.toThrow('offline');
+    expect(mockGet).toHaveBeenCalledTimes(1);
+    const response = {
+      code: 0,
+      message: 'OK',
+      data: {
+        spotCategories: [
+          { type: 'trending', name: 'Trending' },
+          { type: 'stocks', name: 'Stocks' },
+          { type: 'robinhood_meme', name: 'Robinhood' },
+        ],
+      },
+    };
+    mockGet.mockResolvedValue({ data: response });
+    await expect(service.fetchMarketBasicConfig()).resolves.toEqual(response);
+    expect(mockGet).toHaveBeenCalledTimes(2);
+  });
+
   it('loads a stock watchlist quote without resolving a token variant', async () => {
     const service = createService();
     const variants = jest.spyOn(service, 'fetchMarketStockTokenVariants');

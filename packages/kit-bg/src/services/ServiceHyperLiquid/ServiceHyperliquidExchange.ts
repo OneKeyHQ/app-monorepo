@@ -144,6 +144,13 @@ interface IOrderLogOptions {
   extra?: Record<string, unknown>;
 }
 
+interface IOrderAccountGuardOptions {
+  // Account the user confirmed; the signing client must still belong to it.
+  expectedAccountAddress?: string;
+}
+
+type IPlaceOrderRawOptions = IOrderLogOptions & IOrderAccountGuardOptions;
+
 interface IOrderAssetPrecision {
   szDecimals: number;
   type: 'perp' | 'spot';
@@ -176,6 +183,8 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
   }
 
   private _account: string | null = null;
+
+  private _userAddress: string | null = null;
 
   private _exchangeClient: ExchangeClient | null = null;
 
@@ -440,6 +449,7 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
       );
 
       this._account = account;
+      this._userAddress = params.userAddress;
       this._wallet = wallet;
     } catch (error) {
       throw new OneKeyLocalError(
@@ -466,7 +476,9 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
   /**
    * Get exchange client for trading operations with automatic agent authorization
    */
-  private async getExchangeClientForTrading(): Promise<ExchangeClient> {
+  private async getExchangeClientForTrading(
+    options: IOrderAccountGuardOptions = {},
+  ): Promise<ExchangeClient> {
     const isReady = await this._ensureAgentReady();
 
     if (!isReady) {
@@ -475,7 +487,36 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
       );
     }
 
-    return this.exchangeClient;
+    // Take the client and verify its owner in one synchronous step so a
+    // concurrent setup() for another account cannot swap it in between.
+    const client = this.exchangeClient;
+    this._assertExchangeUserAddress(options.expectedAccountAddress);
+    return client;
+  }
+
+  private async _resolveExpectedAccountAddress(
+    options: IOrderAccountGuardOptions,
+  ): Promise<string | undefined> {
+    if (options.expectedAccountAddress) {
+      return options.expectedAccountAddress;
+    }
+    const activeAccount = await perpsActiveAccountAtom.get();
+    return activeAccount?.accountAddress || undefined;
+  }
+
+  private _assertExchangeUserAddress(expectedAccountAddress?: string) {
+    if (!expectedAccountAddress) {
+      return;
+    }
+    if (
+      this._userAddress?.toLowerCase() !== expectedAccountAddress.toLowerCase()
+    ) {
+      throw new OneKeyLocalError(
+        appLocale.intl.formatMessage({
+          id: ETranslations.active_trading_account_changed__msg,
+        }),
+      );
+    }
   }
 
   @backgroundMethod()
@@ -841,14 +882,18 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
       orders: IOrderParams[];
       grouping: IOrderRequest['grouping'];
     },
-    options: IOrderLogOptions = {},
+    options: IPlaceOrderRawOptions = {},
   ): Promise<IOrderResponse> {
+    const expectedAccountAddress =
+      await this._resolveExpectedAccountAddress(options);
     await this.checkAccountCanTrade();
 
     const formattedOrders = await this._formatOrdersForHyperLiquid(orders, {
       allowZeroSize: grouping === 'positionTpsl',
     });
-    const client = await this.getExchangeClientForTrading();
+    const client = await this.getExchangeClientForTrading({
+      expectedAccountAddress,
+    });
     const requestPayload: IHyperLiquidOrderRequestPayload = {
       orders: formattedOrders,
       grouping,
@@ -918,6 +963,7 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
 
   async dispose(): Promise<void> {
     this._account = null;
+    this._userAddress = null;
     this._exchangeClient = null;
     this._builderFeeInfo = undefined;
     this._wallet = null;
@@ -1128,7 +1174,10 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
   }
 
   @backgroundMethod()
-  async orderOpen(params: IOrderOpenParams): Promise<IOrderResponse> {
+  async orderOpen(
+    params: IOrderOpenParams,
+    options: IOrderAccountGuardOptions = {},
+  ): Promise<IOrderResponse> {
     await this.checkAccountCanTrade();
     try {
       const isMarket = params.type === 'market';
@@ -1218,6 +1267,7 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
         },
         {
           action: 'orderOpen',
+          expectedAccountAddress: options.expectedAccountAddress,
           originalParams: params,
           extra: {
             hasTp: Boolean(params.tpTriggerPx),
@@ -1366,7 +1416,12 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
   }
 
   @backgroundMethod()
-  async modifyOrder(params: IModifyOrderParams): Promise<IModifyResponse> {
+  async modifyOrder(
+    params: IModifyOrderParams,
+    options: IOrderAccountGuardOptions = {},
+  ): Promise<IModifyResponse> {
+    const expectedAccountAddress =
+      await this._resolveExpectedAccountAddress(options);
     await this.checkAccountCanTrade();
 
     const order = buildHyperliquidModifyOrder(params);
@@ -1375,7 +1430,9 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
       { allowZeroSize: params.allowZeroSize },
     );
 
-    const client = await this.getExchangeClientForTrading();
+    const client = await this.getExchangeClientForTrading({
+      expectedAccountAddress,
+    });
     const requestPayload = buildHyperliquidModifyRequest({
       oid: params.oid,
       order: formattedOrder,
@@ -1666,6 +1723,7 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
         params,
         assetId: symbolMeta.assetId,
       }),
+      { expectedAccountAddress: params.expectedAccountAddress },
     );
   }
 
@@ -1681,6 +1739,7 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
     cloid?: IHex | null;
     slippage?: number;
     alwaysPlace?: true;
+    expectedAccountAddress?: string;
   }): Promise<IModifyResponse> {
     const symbolMeta =
       await this.backgroundApi.serviceHyperliquid.getSymbolMeta({
@@ -1709,38 +1768,44 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
             szDecimals: symbolMeta.universe?.szDecimals,
           })
         : formattedPrice;
-      return this.modifyOrder({
+      return this.modifyOrder(
+        {
+          oid: params.oid,
+          assetId: symbolMeta.assetId,
+          isBuy: params.isBuy,
+          sz: params.size,
+          price: executionPrice,
+          reduceOnly: params.reduceOnly,
+          orderType: {
+            trigger: {
+              isMarket: params.amendKind.isMarket,
+              triggerPx: formattedPrice,
+              tpsl: params.amendKind.tpsl,
+            },
+          },
+          cloid: params.cloid,
+          // Position TP/SL rests with sz "0"; keep it so HL preserves isPositionTpsl.
+          allowZeroSize: new BigNumber(params.size).isZero(),
+          alwaysPlace: params.alwaysPlace,
+        },
+        { expectedAccountAddress: params.expectedAccountAddress },
+      );
+    }
+
+    return this.modifyOrder(
+      {
         oid: params.oid,
         assetId: symbolMeta.assetId,
         isBuy: params.isBuy,
         sz: params.size,
-        price: executionPrice,
+        price: formattedPrice,
         reduceOnly: params.reduceOnly,
-        orderType: {
-          trigger: {
-            isMarket: params.amendKind.isMarket,
-            triggerPx: formattedPrice,
-            tpsl: params.amendKind.tpsl,
-          },
-        },
+        orderType: { limit: { tif: params.amendKind.tif } },
         cloid: params.cloid,
-        // Position TP/SL rests with sz "0"; keep it so HL preserves isPositionTpsl.
-        allowZeroSize: new BigNumber(params.size).isZero(),
         alwaysPlace: params.alwaysPlace,
-      });
-    }
-
-    return this.modifyOrder({
-      oid: params.oid,
-      assetId: symbolMeta.assetId,
-      isBuy: params.isBuy,
-      sz: params.size,
-      price: formattedPrice,
-      reduceOnly: params.reduceOnly,
-      orderType: { limit: { tif: params.amendKind.tif } },
-      cloid: params.cloid,
-      alwaysPlace: params.alwaysPlace,
-    });
+      },
+      { expectedAccountAddress: params.expectedAccountAddress },
+    );
   }
 
   @backgroundMethod()
@@ -1834,6 +1899,7 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
         },
         {
           action: 'setPositionTpsl',
+          expectedAccountAddress: params.expectedAccountAddress,
           originalParams: params,
           extra: {
             hasTp: Boolean(tpTriggerPx),
