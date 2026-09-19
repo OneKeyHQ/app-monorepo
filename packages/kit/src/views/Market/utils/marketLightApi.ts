@@ -160,10 +160,11 @@ const fetchMarketTokenListLight = async (
   options?: IFetchMarketTokenListLightOptions,
 ): Promise<IMarketTokenListResponseWithSource> => {
   const normalizedParams = normalizeMarketTokenListParams(params);
-  if (
-    options?.forceRemote ||
-    !shouldUseMarketHomeTokenListSeed(normalizedParams)
-  ) {
+  if (options?.forceRemote) {
+    void fetchMarketTokenListRemoteLight.delete(normalizedParams);
+    return fetchMarketTokenListFromApi(normalizedParams);
+  }
+  if (!shouldUseMarketHomeTokenListSeed(normalizedParams)) {
     return fetchMarketTokenListRemoteLight(normalizedParams);
   }
 
@@ -484,7 +485,7 @@ const fetchMarketTokenListBatchLight = async (
   return { list: cachedResults };
 };
 
-const fetchMarketBasicConfigLight = memoizee(
+const memoizedFetchMarketBasicConfigLight = memoizee(
   async () => {
     markMarketPerf('market-light-api-basic-config-start');
     const client = await getUtilityClient();
@@ -506,6 +507,15 @@ const fetchMarketBasicConfigLight = memoizee(
     promise: true,
   },
 );
+
+const fetchMarketBasicConfigLight = async () => {
+  try {
+    return await memoizedFetchMarketBasicConfigLight();
+  } catch (error) {
+    void memoizedFetchMarketBasicConfigLight.clear();
+    throw error;
+  }
+};
 
 const fetchMarketBannerListCached = memoizee(
   async (locale: string): Promise<IMarketBannerItem[]> => {

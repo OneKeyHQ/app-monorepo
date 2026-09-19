@@ -529,9 +529,17 @@ Cases are appended by AI after each bug fix. Do NOT reorder or delete entries �
 **Fix**: Backdate only the initial stale fixture and use a nonzero stale threshold so replacement locks remain fresh during acquisition.
 **Catchable by**: Section 6: tests cover race conditions; NEW — concurrency tests must make the intended stale fixture old without making newly created resources instantly stale
 
+## Case: Weak-network Market home hid Stocks and Robinhood tabs
+**Date**: 2026-09-18 | **Platforms**: Desktop, Web, Extension; Native when config cache is cold
+**Symptom**: OK-63704. On a weak or offline network, Market home only showed Favorites / Trending / Top coins / Perps. Stocks and Robinhood tabs disappeared.
+**Root Cause**: Those two tabs come only from `basic-config` `spotCategories`. The pre-config fallback listed `trending` alone. Desktop/web also skipped SWR for that config, and `memoizee({ promise: true })` reused the rejected fetch.
+**Fix**: Persist `basic-config` on every platform, drop failed memoizee entries, keep Stocks / Robinhood tab identities in the cold fallback, and show Retry on token-list empty errors.
+**Catchable by**: Section 4: edge cases loading vs empty; NEW — a remote-driven tab strip must not drop tab identities while its config request is pending or failed
+
 ## Case: Pinned TradingView release reused pre-pin CacheStorage
 **Date**: 2026-09-18 | **Platforms**: Web
 **Symptom**: WEB-01 pinned the chart embed trust root in the app build, but a client that had already cached a malicious asset under `onekey-tradingview-embed:${version}` could still execute those bytes after upgrade.
 **Root Cause**: The new worker kept the same CacheStorage namespace. `openTradingViewBootstrapCache()` looked for markers at the versioned `embed-manifest.json` URL, missed the old `/embed/latest.json` marker, and did not reset. `cacheTradingViewAssets()` then skipped integrity checks on cache hits.
 **Fix**: Move pinned/current caches to `onekey-tradingview-embed-pin-v1:`, delete the legacy `onekey-tradingview-embed:` namespace when adopting a release, and regression-test that a poisoned legacy entry is not served.
 **Catchable by**: Section 4: implementation matches original requirement — a trust-root change must also rotate or re-verify the persistent cache that will execute those bytes
+
