@@ -5,6 +5,12 @@ import {
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import type { ILocaleJSONSymbol } from '@onekeyhq/shared/src/locale';
 import { buildTradingViewEmbedProxyBaseUrl } from '@onekeyhq/shared/src/utils/tradingViewEmbedAssetProxy';
+import {
+  getTradingViewEmbedReleaseForManifestUrl,
+  getTradingViewEmbedReleaseManifestUrl,
+  isTradingViewEmbedManifestIntegrityValid,
+} from '@onekeyhq/shared/src/utils/tradingViewEmbedRelease';
+import type { ITradingViewEmbedRelease } from '@onekeyhq/shared/src/utils/tradingViewEmbedRelease';
 import { TRADING_VIEW_EMBED_SERVICE_WORKER_PATH } from '@onekeyhq/shared/src/utils/tradingViewEmbedServiceWorker';
 
 import { tradingViewLocaleMap } from '../../../utils/tradingViewLocaleMap';
@@ -85,7 +91,6 @@ const manifestPromises = new Map<
 >();
 const bootstrapPreloadPromises = new Map<string, Promise<void>>();
 
-const DEFAULT_MANIFEST_URL = 'https://tradingview.onekey.so/embed/latest.json';
 const LOCAL_HOSTNAMES = new Set(['127.0.0.1', 'localhost']);
 const CLAIM_CLIENTS_MESSAGE_TYPE = 'CLAIM_CLIENTS';
 const GET_EMBED_PROTOCOL_MESSAGE_TYPE = 'GET_TRADINGVIEW_EMBED_PROTOCOL';
@@ -105,30 +110,23 @@ const TRADING_VIEW_BOOTSTRAP_LOCALE_ALIASES: Record<string, string> = {
 };
 
 function resolveManifestUrl(runtimeUrl?: string): string {
-  const locationHref = globalThis.location?.href || DEFAULT_MANIFEST_URL;
-  const locationOrigin =
-    globalThis.location?.origin || new URL(locationHref).origin;
-  if (runtimeUrl) {
-    const runtimeOrigin = new URL(runtimeUrl, locationHref);
-    const manifestPath = LOCAL_HOSTNAMES.has(runtimeOrigin.hostname)
-      ? '/latest.json'
-      : '/embed/latest.json';
+  const locationHref = globalThis.location?.href || TRADING_VIEW_URL;
+  const runtimeOrigin = new URL(runtimeUrl || TRADING_VIEW_URL, locationHref);
+  if (LOCAL_HOSTNAMES.has(runtimeOrigin.hostname)) {
     return validateManifestUrl(
-      new URL(manifestPath, runtimeOrigin.origin),
+      new URL('/latest.json', runtimeOrigin.origin),
     ).toString();
   }
 
-  const configuredManifestUrl =
-    process.env.TRADINGVIEW_EMBED_MANIFEST_URL?.trim();
-  if (configuredManifestUrl) {
-    return validateManifestUrl(
-      new URL(configuredManifestUrl, locationOrigin),
-    ).toString();
+  // The embed runs in the wallet origin, so a remote chart host only supplies
+  // the release pinned in this build. Its mutable latest.json is never read.
+  const manifestUrl = getTradingViewEmbedReleaseManifestUrl(
+    runtimeOrigin.origin,
+  );
+  if (!manifestUrl) {
+    throw new OneKeyLocalError('TradingView embed release is not pinned');
   }
-
-  return validateManifestUrl(
-    new URL(DEFAULT_MANIFEST_URL, locationOrigin),
-  ).toString();
+  return validateManifestUrl(new URL(manifestUrl)).toString();
 }
 
 function validateManifestUrl(url: URL): URL {
@@ -689,10 +687,55 @@ function ensureServiceWorkerPrefetch(
   });
 }
 
+async function loadPinnedManifest(
+  manifestUrl: string,
+  release: ITradingViewEmbedRelease,
+): Promise<{
+  baseUrl: string;
+  manifest: ITradingViewEmbedManifest;
+}> {
+  const response = await fetch(manifestUrl, {
+    cache: 'no-store',
+    credentials: 'omit',
+    mode: 'cors',
+    redirect: 'error',
+  });
+  if (!response.ok) {
+    throw new OneKeyLocalError(
+      `TradingView embed manifest request failed: ${response.status}`,
+    );
+  }
+  const manifestBytes = await response.arrayBuffer();
+  if (
+    !(await isTradingViewEmbedManifestIntegrityValid(manifestBytes, release))
+  ) {
+    throw new OneKeyLocalError(
+      'TradingView embed manifest does not match the pinned release',
+    );
+  }
+  const manifest = JSON.parse(
+    new TextDecoder().decode(manifestBytes),
+  ) as unknown;
+  if (!isValidManifest(manifest) || manifest.version !== release.version) {
+    throw new OneKeyLocalError('TradingView embed manifest is invalid');
+  }
+  return {
+    baseUrl: resolveManifestBaseUrl(manifest, manifestUrl),
+    manifest,
+  };
+}
+
 async function loadManifest(manifestUrl: string): Promise<{
   baseUrl: string;
   manifest: ITradingViewEmbedManifest;
 }> {
+  const release = getTradingViewEmbedReleaseForManifestUrl(manifestUrl);
+  if (release) {
+    return loadPinnedManifest(manifestUrl, release);
+  }
+  if (!LOCAL_HOSTNAMES.has(new URL(manifestUrl).hostname)) {
+    throw new OneKeyLocalError('TradingView embed release is not pinned');
+  }
   const response = await fetch(manifestUrl, {
     cache: 'no-store',
     credentials: 'omit',
@@ -861,7 +904,7 @@ async function loadModule(
 }
 
 function resolveTradingViewLocale(runtimeUrl?: string): string {
-  const locationHref = globalThis.location?.href || DEFAULT_MANIFEST_URL;
+  const locationHref = globalThis.location?.href || TRADING_VIEW_URL;
   const url = new URL(runtimeUrl || locationHref, locationHref);
   const locale = url.searchParams.get('locale') || 'en';
   const tradingViewLocale =
