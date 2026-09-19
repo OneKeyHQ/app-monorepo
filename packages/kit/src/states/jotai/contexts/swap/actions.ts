@@ -67,7 +67,6 @@ import {
   swapTokenCatchMapMaxCount,
 } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import type {
-  ESwapQuoteSource,
   IFetchQuoteResult,
   IFetchQuotesParams,
   IFetchTokensParams,
@@ -93,6 +92,7 @@ import {
   ESwapLimitOrderMarketPriceUpdateInterval,
   ESwapProTradeType,
   ESwapQuoteKind,
+  ESwapQuoteSource,
   ESwapSlippageSegmentKey,
   ESwapTabSwitchType,
 } from '@onekeyhq/shared/types/swap/types';
@@ -1929,6 +1929,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
           fromToken,
           toToken,
           fromTokenAmount,
+          source: ESwapQuoteSource.MARKET,
           type: ESwapTabSwitchType.SWAP,
         },
       );
