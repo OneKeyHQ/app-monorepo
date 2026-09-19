@@ -708,42 +708,35 @@ describeIfIndexedDB('SWR cache per-entry records', () => {
     };
   }
 
-  it('migrates the legacy store and then persists only changed records', async () => {
+  it('persists only the changed records and ignores the previous single-record store', async () => {
     const { isolatedIDB, mod, swrCacheUtils } = loadWithSWRCache();
     mod.primeColdStartCacheMap([
       [
         LEGACY_SWR_KEY,
-        JSON.stringify({
-          'walletList:v1:0': { d: ['wallet'], t: 1 },
-          'accSelList:v1:hd-1': { d: { rows: 1 }, t: 2 },
-        }),
+        JSON.stringify({ 'walletList:v1:0': { d: ['legacy'], t: 1 } }),
+      ],
+      [
+        `${ENTRY_PREFIX}accSelList:v1:hd-1`,
+        JSON.stringify({ d: { rows: 1 }, t: 2 }),
       ],
     ]);
 
-    expect(swrCacheUtils.get('walletList:v1:0')).toEqual(['wallet']);
-    swrCacheUtils.set('walletList:v1:0', ['wallet', 'next']);
-    swrCacheUtils.flushNow();
-    await mod.flushColdStartCacheNow();
-
-    const persisted = await mod.readAllColdStartEntriesFromIdb();
-    expect(persisted.has(LEGACY_SWR_KEY)).toBe(false);
-    expect(
-      JSON.parse(persisted.get(`${ENTRY_PREFIX}walletList:v1:0`) as string).d,
-    ).toEqual(['wallet', 'next']);
-    expect(
-      JSON.parse(persisted.get(`${ENTRY_PREFIX}accSelList:v1:hd-1`) as string)
-        .d,
-    ).toEqual({ rows: 1 });
+    expect(swrCacheUtils.get('walletList:v1:0')).toBeUndefined();
+    expect(swrCacheUtils.get('accSelList:v1:hd-1')).toEqual({ rows: 1 });
 
     const puts = recordIdbPuts(isolatedIDB);
     try {
-      swrCacheUtils.set('accSelList:v1:hd-1', { rows: 2 });
+      swrCacheUtils.set('walletList:v1:0', ['wallet']);
       swrCacheUtils.flushNow();
       await mod.flushColdStartCacheNow();
     } finally {
       puts.restore();
     }
-    expect(puts.keys).toEqual([`${ENTRY_PREFIX}accSelList:v1:hd-1`]);
+    expect(puts.keys).toEqual([`${ENTRY_PREFIX}walletList:v1:0`]);
+    const persisted = await mod.readAllColdStartEntriesFromIdb();
+    expect(
+      JSON.parse(persisted.get(`${ENTRY_PREFIX}walletList:v1:0`) as string).d,
+    ).toEqual(['wallet']);
   });
 
   it('serves records primed after the first SWR read', () => {

@@ -34,9 +34,9 @@ function createBackend(initial: Record<string, unknown> = {}) {
 const physical = (key: string) => `${WEB_SWR_CACHE_ENTRY_PREFIX}${key}`;
 
 describe('web SWR cache entries', () => {
-  it('recognizes only SWR records and the legacy store as SWR keys', () => {
-    expect(isWebSWRCachePersistedKey(LEGACY_KEY)).toBe(true);
+  it('recognizes only per-entry SWR records as SWR keys', () => {
     expect(isWebSWRCachePersistedKey(physical('walletList:v1:0'))).toBe(true);
+    expect(isWebSWRCachePersistedKey(LEGACY_KEY)).toBe(false);
     expect(isWebSWRCachePersistedKey('__meta:buildHash')).toBe(false);
   });
 
@@ -54,35 +54,15 @@ describe('web SWR cache entries', () => {
     ]);
   });
 
-  it('splits the legacy store once and keeps newer per-entry records', () => {
-    const { entries, map } = createBackend({
-      [LEGACY_KEY]: JSON.stringify({
-        older: { d: 'legacy', t: 5 },
-        newer: { d: 'legacy', t: 50 },
-        only: { d: 'legacy', t: 7 },
-        invalid: { d: 'no timestamp' },
-      }),
-      [physical('older')]: entry('record', 9),
-      [physical('newer')]: entry('record', 30),
-    });
-
-    const read = new Map(entries.readSWRCacheEntries());
-
-    expect(map.has(LEGACY_KEY)).toBe(false);
-    expect(read.get('older')).toBe(entry('record', 9));
-    expect(read.get('newer')).toBe(entry('legacy', 50));
-    expect(read.get('only')).toBe(entry('legacy', 7));
-    expect(read.has('invalid')).toBe(false);
-  });
-
-  it('drops an unreadable legacy store without touching records', () => {
-    const { entries, map } = createBackend({
-      [LEGACY_KEY]: '{broken',
+  it('ignores the previous single-record store', () => {
+    const { entries, map, deletes } = createBackend({
+      [LEGACY_KEY]: JSON.stringify({ old: { d: 'legacy', t: 5 } }),
       [physical('a')]: entry(1, 10),
     });
 
     expect(entries.readSWRCacheEntries()).toEqual([['a', entry(1, 10)]]);
-    expect(map.has(LEGACY_KEY)).toBe(false);
+    expect(map.has(LEGACY_KEY)).toBe(true);
+    expect(deletes).toEqual([]);
   });
 
   it('writes and removes only the records a patch names', () => {
