@@ -31,6 +31,7 @@ import type {
 } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/types';
 import {
   ensureMarketTopCoinsCategory,
+  getMarketHomeFallbackSpotCategories,
   isMarketStockCategory,
 } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/utils';
 import { useSwapProTokenSearch } from '@onekeyhq/kit/src/views/Swap/hooks/useSwapPro';
@@ -191,18 +192,9 @@ function BaseMarketTokenSelectorContent({
     }
     // Keep the complete selector available while the remote config loads.
     return ensureMarketTopCoinsCategory(
-      [
-        {
-          id: 'trending',
-          name: intl.formatMessage({ id: ETranslations.dexmarket_trending }),
-        },
-        {
-          id: 'stocks',
-          name: intl.formatMessage({
-            id: ETranslations.perps_token_selector_stocks,
-          }),
-        },
-      ],
+      getMarketHomeFallbackSpotCategories((descriptor) =>
+        intl.formatMessage(descriptor),
+      ),
       intl.formatMessage({ id: ETranslations.market_top_coins }),
     );
   }, [apiSpotCategories, intl]);
