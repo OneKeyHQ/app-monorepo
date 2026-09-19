@@ -269,7 +269,7 @@ type IDiagCensus = {
   timeoutsScheduled: number;
   weakSites?: Map<string, number>;
   weakSampled?: number;
-  weakSampledDead?: number;
+  serializerSites?: Map<string, { count: number; depthSum: number }>;
 };
 
 function getDiagCensus(): IDiagCensus | undefined {
@@ -317,7 +317,16 @@ const diagRenderedByName = new Map<string, number>();
 // ancestor when it is anonymous itself. Leaf primitives dominate the plain
 // per-name count and say nothing about who caused the work.
 const diagRenderedByRoot = new Map<string, number>();
+// The same, over the whole session: a log export only keeps the last minutes.
+const diagRenderedByRootTotal = new Map<string, number>();
+let diagSampledCommitsTotal = 0;
 const DIAG_MAX_ROOT_LABELS = 400;
+
+function bumpBounded(target: Map<string, number>, key: string) {
+  if (target.size < DIAG_MAX_ROOT_LABELS || target.has(key)) {
+    target.set(key, (target.get(key) ?? 0) + 1);
+  }
+}
 
 type IDiagWalkFrame = {
   fiber: IDiagFiber;
@@ -332,6 +341,7 @@ function sampleRenderedFibers(root: { current: IDiagFiber | null }) {
   }
   diagLastSampleAt = now;
   diagSampledCommits += 1;
+  diagSampledCommitsTotal += 1;
   const stack: IDiagWalkFrame[] = [
     { fiber: root.current, lastNamed: '(root)', rootLabel: undefined },
   ];
@@ -351,15 +361,8 @@ function sampleRenderedFibers(root: { current: IDiagFiber | null }) {
             rootLabel =
               name === '(anonymous)' ? `${lastNamed} > (anonymous)` : name;
           }
-          if (
-            diagRenderedByRoot.size < DIAG_MAX_ROOT_LABELS ||
-            diagRenderedByRoot.has(rootLabel)
-          ) {
-            diagRenderedByRoot.set(
-              rootLabel,
-              (diagRenderedByRoot.get(rootLabel) ?? 0) + 1,
-            );
-          }
+          bumpBounded(diagRenderedByRoot, rootLabel);
+          bumpBounded(diagRenderedByRootTotal, rootLabel);
         }
         if (name !== '(anonymous)') {
           lastNamed = name;
@@ -445,13 +448,26 @@ function flushDiagCensus(
       .toSorted((left, right) => right[1] - left[1])
       .slice(0, DIAG_TOP)
       .map(([name, count]) => ({ name, count })),
-    // Cumulative since launch, each sample standing for 256 new keys.
+    // Everything below is cumulative since launch.
+    sampledCommitsTotal: diagSampledCommitsTotal,
+    topRenderRootsTotal: [...diagRenderedByRootTotal]
+      .toSorted((left, right) => right[1] - left[1])
+      .slice(0, 20)
+      .map(([name, count]) => ({ name, count })),
+    // Each sample stands for 256 new WeakMap keys.
     weakSampled: census.weakSampled,
-    weakSampledDead: census.weakSampledDead,
     topWeakSites: [...(census.weakSites ?? [])]
       .toSorted((left, right) => right[1] - left[1])
       .slice(0, DIAG_TOP)
       .map(([site, count]) => ({ site, count })),
+    topSerializerCallers: [...(census.serializerSites ?? [])]
+      .toSorted((left, right) => right[1].count - left[1].count)
+      .slice(0, 15)
+      .map(([caller, entry]) => ({
+        caller,
+        count: entry.count,
+        avgDepth: Math.round((entry.depthSum / entry.count) * 10) / 10,
+      })),
   });
   census.commits = 0;
   census.unmounts = 0;
@@ -597,13 +613,19 @@ export async function runDiagGcExperiment() {
     measureCollectionCost('after 1M short-lived weak-map keys', shortLivedMs),
   );
 
-  defaultLogger.app.perf.diagGcExperiment({
+  const report = {
     runtime:
       (globalThis as { __ONEKEY_RUNTIME_KIND__?: string })
         .__ONEKEY_RUNTIME_KIND__ ?? 'unknown',
     churnMB: EXPERIMENT_CHURN_MB,
     results,
-  });
+  };
+  defaultLogger.app.perf.diagGcExperiment(report);
+  // The log rotates; an export may only hold the last minutes of a session.
+  // Repeat the result so it is in whichever part gets exported.
+  setInterval(() => {
+    defaultLogger.app.perf.diagGcExperiment({ ...report, repeated: true });
+  }, 60_000);
 }
 
 let healthTimer: ReturnType<typeof setInterval> | null = null;

@@ -44,10 +44,12 @@ type IAppModule = typeof import('./App');
     intervalsCreated: 0,
     timeoutsScheduled: 0,
     // Cumulative over the session, from 1 in WEAK_SAMPLE new WeakMap keys:
-    // who creates them, and how many of the sampled keys have died since.
+    // who creates them.
     weakSites: new Map<string, number>(),
     weakSampled: 0,
-    weakSampledDead: 0,
+    // The worklets serializer clones whatever a worklet captures, recursively.
+    // Charged to the code that handed it the object, with how deep it went.
+    serializerSites: new Map<string, { count: number; depthSum: number }>(),
   };
   g.__ONEKEY_DIAG_CENSUS__ = census;
   const WEAK_SAMPLE = 256;
@@ -82,17 +84,29 @@ type IAppModule = typeof import('./App');
 
   const weakMapSet = WeakMap.prototype.set;
   const weakMapHas = WeakMap.prototype.has;
-  const NativeRegistry = g.FinalizationRegistry;
-  const nativeRegister =
-    typeof NativeRegistry === 'function'
-      ? NativeRegistry.prototype.register
-      : undefined;
-  const deathWatch =
-    typeof NativeRegistry === 'function'
-      ? new NativeRegistry(() => {
-          census.weakSampledDead += 1;
-        })
-      : undefined;
+  // Frames inside react-native-worklets' serializer; the caller of interest is
+  // whatever sits below the last of them.
+  const SERIALIZER_FRAMES = new Set([
+    'createSerializable',
+    'createShareable',
+    'createSynchronizable',
+    'makeShareable',
+    'cloneObjectProperties',
+    'clonePlainJSObject',
+    'cloneArray',
+    'cloneWorklet',
+    'cloneInitializer',
+    'cloneContextObject',
+    'cloneNonWorkletFunction',
+    'cloneHostObject',
+    'cloneTurboModuleLike',
+    'cloneMap',
+    'cloneSet',
+    'cloneCustom',
+    'cloneError',
+    'cloneImport',
+    'getFromCache',
+  ]);
   let weakTick = 0;
   const frameName = (line: string) => {
     const match = /^\s*at (.+?) \((?:.*?):(\d+):(\d+)\)\s*$/.exec(line);
@@ -107,25 +121,38 @@ type IAppModule = typeof import('./App');
       weakTick += 1;
       if (weakTick % WEAK_SAMPLE === 0) {
         census.weakSampled += 1;
-        try {
-          if (deathWatch && nativeRegister) {
-            nativeRegister.call(deathWatch, key, 0);
-          }
-        } catch {
-          // Not every key can be registered; the sample still counts.
-        }
-        const site =
-          String(new Error().stack ?? '')
-            .split('\n')
-            .slice(2, 7)
-            .map(frameName)
-            .filter(Boolean)
-            .join(' < ') || '(unknown)';
+        const frames = String(new Error().stack ?? '')
+          .split('\n')
+          .slice(2, 102)
+          .map(frameName)
+          .filter(Boolean);
+        const site = frames.slice(0, 5).join(' < ') || '(unknown)';
         if (
           census.weakSites.size < WEAK_MAX_SITES ||
           census.weakSites.has(site)
         ) {
           census.weakSites.set(site, (census.weakSites.get(site) ?? 0) + 1);
+        }
+        let lastSerializerFrame = -1;
+        let depth = 0;
+        for (let i = 0; i < frames.length; i += 1) {
+          if (SERIALIZER_FRAMES.has(frames[i])) {
+            lastSerializerFrame = i;
+            if (frames[i] === 'cloneObjectProperties') depth += 1;
+          }
+        }
+        if (lastSerializerFrame >= 0) {
+          const caller =
+            frames
+              .slice(lastSerializerFrame + 1, lastSerializerFrame + 9)
+              .join(' < ') || '(deeper than the captured stack)';
+          const entry = census.serializerSites.get(caller);
+          if (entry) {
+            entry.count += 1;
+            entry.depthSum += depth;
+          } else if (census.serializerSites.size < WEAK_MAX_SITES) {
+            census.serializerSites.set(caller, { count: 1, depthSum: depth });
+          }
         }
       }
     }
