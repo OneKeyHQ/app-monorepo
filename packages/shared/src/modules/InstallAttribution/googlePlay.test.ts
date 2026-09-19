@@ -6,7 +6,9 @@ import {
 import appStorage from '../../storage/appStorage';
 
 import {
+  extractInviteCodeFromInstallReferrer,
   parseGooglePlayInstallReferrer,
+  readGooglePlayInviteCodeAttribution,
   reportGooglePlayInstallAttribution,
 } from './googlePlay';
 
@@ -178,5 +180,96 @@ describe('Google Play install attribution', () => {
     expect(getInstallationTimeMock).not.toHaveBeenCalled();
     expect(getInstallReferrerMock).not.toHaveBeenCalled();
     expect(logAttributionMock).not.toHaveBeenCalled();
+  });
+});
+
+describe('extractInviteCodeFromInstallReferrer', () => {
+  it('reads ref_code alongside utm params', () => {
+    expect(
+      extractInviteCodeFromInstallReferrer(
+        'utm_source=referral&utm_medium=invite&utm_campaign=refer_a_friend&ref_code=ABC123',
+      ),
+    ).toBe('ABC123');
+  });
+
+  it('reads ref_code from a double-encoded referrer', () => {
+    expect(
+      extractInviteCodeFromInstallReferrer(
+        'utm_source%3Dreferral%26ref_code%3DABC123',
+      ),
+    ).toBe('ABC123');
+  });
+
+  it('returns undefined for an organic install', () => {
+    expect(
+      extractInviteCodeFromInstallReferrer(
+        'utm_source=google-play&utm_medium=organic',
+      ),
+    ).toBeUndefined();
+  });
+
+  it('returns undefined when Google Ads auto-tagging replaced the referrer', () => {
+    expect(
+      extractInviteCodeFromInstallReferrer(
+        'gclid=EAIaIQobChMI&utm_source=google-ads',
+      ),
+    ).toBeUndefined();
+  });
+
+  it('rejects a malformed code rather than passing it through', () => {
+    expect(
+      extractInviteCodeFromInstallReferrer('ref_code=abc-123'),
+    ).toBeUndefined();
+    expect(
+      extractInviteCodeFromInstallReferrer(`ref_code=${'a'.repeat(31)}`),
+    ).toBeUndefined();
+  });
+
+  it('ignores a "not set" placeholder value', () => {
+    expect(
+      extractInviteCodeFromInstallReferrer('ref_code=not%20set'),
+    ).toBeUndefined();
+  });
+
+  it('returns undefined for an empty referrer', () => {
+    expect(extractInviteCodeFromInstallReferrer('')).toBeUndefined();
+  });
+});
+
+describe('readGooglePlayInviteCodeAttribution', () => {
+  it('returns the code and the install timestamp', async () => {
+    const installedAt = new Date('2026-01-02T03:04:05.000Z');
+    getInstallReferrerMock.mockResolvedValue(
+      'utm_source=referral&ref_code=ABC123',
+    );
+    getInstallationTimeMock.mockResolvedValue(installedAt);
+
+    await expect(readGooglePlayInviteCodeAttribution()).resolves.toEqual({
+      code: 'ABC123',
+      installedAt: installedAt.getTime(),
+      hasReferrer: true,
+    });
+  });
+
+  it('returns no code for an empty referrer but still reports install time', async () => {
+    const installedAt = new Date('2026-01-02T03:04:05.000Z');
+    getInstallReferrerMock.mockResolvedValue('');
+    getInstallationTimeMock.mockResolvedValue(installedAt);
+
+    await expect(readGooglePlayInviteCodeAttribution()).resolves.toEqual({
+      code: undefined,
+      installedAt: installedAt.getTime(),
+      hasReferrer: false,
+    });
+  });
+
+  it('is not gated by the analytics one-shot marker', async () => {
+    getReportedMock.mockResolvedValue('1');
+    getInstallReferrerMock.mockResolvedValue('ref_code=ABC123');
+    getInstallationTimeMock.mockResolvedValue(new Date());
+
+    await expect(readGooglePlayInviteCodeAttribution()).resolves.toMatchObject({
+      code: 'ABC123',
+    });
   });
 });

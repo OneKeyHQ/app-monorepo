@@ -1,42 +1,18 @@
-import { useEffect, useState } from 'react';
-
 import { FormattedMessage, useIntl } from 'react-intl';
 
 import { SizableText, Stack } from '@onekeyhq/components';
-import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import type { IInvitePostConfig } from '@onekeyhq/shared/src/referralCode/type';
 
 import { ReferralBenefitsList } from '../../../components';
+import { useInvitePostConfig } from '../../../hooks/useInvitePostConfig';
+import { formatInviteeDiscountFromConfig } from '../../../utils';
 
 function InvitedByFriendContent({ referralCode }: { referralCode?: string }) {
   const intl = useIntl();
-  const [postConfig, setPostConfig] = useState<IInvitePostConfig | undefined>(
-    undefined,
+  const { postConfig } = useInvitePostConfig();
+  const inviteeDiscountAmount = formatInviteeDiscountFromConfig(
+    postConfig?.inviteeDiscount,
   );
-
-  useEffect(() => {
-    async function loadPostConfig() {
-      const cachedConfig =
-        await backgroundApiProxy.serviceReferralCode.getPostConfig();
-      if (cachedConfig) {
-        setPostConfig(cachedConfig);
-      }
-      const freshConfig =
-        await backgroundApiProxy.serviceReferralCode.fetchPostConfig();
-      if (freshConfig) {
-        setPostConfig(freshConfig);
-      }
-    }
-    void loadPostConfig();
-  }, []);
-
-  const inviteeDiscount = postConfig?.inviteeDiscount as
-    | { amount: number; unit: string }
-    | undefined;
-  const inviteeDiscountAmount = inviteeDiscount
-    ? `${inviteeDiscount.amount}${inviteeDiscount.unit}`
-    : '';
 
   const benefits = [
     {

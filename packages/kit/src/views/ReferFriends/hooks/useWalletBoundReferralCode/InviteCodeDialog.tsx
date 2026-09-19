@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
@@ -21,9 +21,16 @@ import { WalletAvatar } from '@onekeyhq/kit/src/components/WalletAvatar/WalletAv
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useSignatureConfirm } from '@onekeyhq/kit/src/hooks/useSignatureConfirm';
 import type { INavigationToMessageConfirmParams } from '@onekeyhq/kit/src/hooks/useSignatureConfirm';
+import { useInvitePostConfig } from '@onekeyhq/kit/src/views/ReferFriends/hooks/useInvitePostConfig';
+import {
+  DEFAULT_INVITEE_DISCOUNT_TEXT,
+  formatInviteeDiscountFromConfig,
+  isInviteeDiscountDeclined,
+} from '@onekeyhq/kit/src/views/ReferFriends/utils';
 import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import type { OneKeyError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 
 import { ReferFriendsTestIDs } from '../../testIDs';
 
@@ -36,6 +43,11 @@ import { useFetchWalletsWithBoundStatus } from './useFetchWalletsWithBoundStatus
 import { useGetReferralCodeWalletInfo } from './useGetReferralCodeWalletInfo';
 
 import type { IReferralCodeWalletInfo } from './types';
+
+// Upper bound on holding the invite hint back for the configured rebate. A
+// cached config answers at once; a fresh install has to fetch, and past this
+// the hint commits to the default rebate rather than keep waiting.
+const INVITEE_DISCOUNT_WAIT_MS = 1500;
 
 export function InviteCodeDialog({
   wallet,
@@ -64,11 +76,26 @@ export function InviteCodeDialog({
   });
 
   // Fetch cached invite code on mount
-  const { result: cachedCode } = usePromiseResult(async () => {
-    const code =
-      await backgroundApiProxy.serviceReferralCode.getCachedInviteCode();
-    return code;
-  }, []);
+  const { result: cachedCode, isLoading: isCachedCodeLoading } =
+    usePromiseResult(
+      async () => {
+        const code =
+          await backgroundApiProxy.serviceReferralCode.getCachedInviteCode();
+        return code;
+      },
+      [],
+      // `watchLoading` is what makes `isLoading` update at all — without it
+      // the draft gate below would never open. `undefinedResultIfError` keeps
+      // a failed read from surfacing as an unhandled rejection.
+      { watchLoading: true, undefinedResultIfError: true },
+    );
+
+  // Until the saved draft has been read, an empty field does not yet mean
+  // "nothing to restore", so the install-referrer suggestion stays hidden —
+  // otherwise a quick Apply could bind it over a draft about to appear. Keyed
+  // off the read settling rather than off its value, so a failed read still
+  // opens the gate instead of hiding the invite for the whole dialog session.
+  const isDraftSettled = isCachedCodeLoading === false;
 
   // Update form default value when cachedCode loads
   useEffect(() => {
@@ -91,6 +118,69 @@ export function InviteCodeDialog({
     });
     return () => subscription.unsubscribe();
   }, [form, handleCodeChange]);
+
+  // Invite code recovered from the store install referrer. Offered as a hint
+  // rather than pre-filled: it came from the download link, not from this
+  // user, and binding is irreversible, so accepting it stays a deliberate tap.
+  // Anything already in the field — a deeplink code or a saved draft — wins.
+  const { result: installReferral } = usePromiseResult(
+    async () =>
+      backgroundApiProxy.serviceReferralCode.getInstallReferralAutoFill(),
+    [],
+  );
+  const suggestedCode = installReferral?.code;
+
+  const { postConfig, isSettled: isPostConfigSettled } = useInvitePostConfig({
+    enabled: Boolean(suggestedCode),
+  });
+
+  // The rebate line is decided exactly once per dialog — when the config
+  // settles or when the wait runs out, whichever comes first — and the hint
+  // stays hidden until then. It therefore never shows one rate and swaps to
+  // another under a user about to make an irreversible bind, and a late
+  // response cannot change it. Only a timeout or a failed read falls back to
+  // the default; `null` means the server declined a rebate, so none is shown.
+  const [inviteeDiscount, setInviteeDiscount] = useState<
+    string | null | undefined
+  >(undefined);
+  useEffect(() => {
+    if (!suggestedCode || inviteeDiscount !== undefined) {
+      return undefined;
+    }
+    if (isPostConfigSettled) {
+      const discount = postConfig?.inviteeDiscount;
+      setInviteeDiscount(
+        isInviteeDiscountDeclined(discount)
+          ? null
+          : formatInviteeDiscountFromConfig(discount),
+      );
+      return undefined;
+    }
+    const timer = setTimeout(() => {
+      setInviteeDiscount(DEFAULT_INVITEE_DISCOUNT_TEXT);
+    }, INVITEE_DISCOUNT_WAIT_MS);
+    return () => clearTimeout(timer);
+  }, [suggestedCode, inviteeDiscount, isPostConfigSettled, postConfig]);
+
+  const currentCode = form.watch('referralCode');
+  const isSuggestionVisible =
+    isDraftSettled &&
+    Boolean(suggestedCode) &&
+    inviteeDiscount !== undefined &&
+    !currentCode?.trim();
+
+  // Once per mount: the hint's visibility flips on every keystroke that
+  // empties or fills the field, and that is not a new impression.
+  const isOfferLoggedRef = useRef(false);
+  useEffect(() => {
+    if (!isSuggestionVisible || isOfferLoggedRef.current) {
+      return;
+    }
+    isOfferLoggedRef.current = true;
+    defaultLogger.referral.page.installReferralOffered({
+      surface: 'bind_dialog',
+    });
+  }, [isSuggestionVisible]);
 
   const getReferralCodeWalletInfo = useGetReferralCodeWalletInfo();
   const { walletsWithStatus, isLoading: isLoadingWallets } =
@@ -213,13 +303,37 @@ export function InviteCodeDialog({
           preventClose?.();
           return;
         }
+        // An empty field while the hint is showing means "accept the
+        // invite" — Apply is the only affordance the hint offers.
+        const typedCode = form.getValues().referralCode?.trim();
+        const referralCode = typedCode || suggestedCode;
+        if (!referralCode) {
+          preventClose?.();
+          return;
+        }
         await confirmBindReferralCode({
-          referralCode: form.getValues().referralCode,
+          referralCode,
           preventClose,
           walletInfo,
           navigationToMessageConfirmAsync,
           onSuccess,
         });
+        // Retire the attribution if this was the inviter's code, however it
+        // got into the field — accepted from the hint or typed by hand.
+        try {
+          const isInviterCode =
+            await backgroundApiProxy.serviceReferralCode.consumeInstallReferralIfBound(
+              { referralCode },
+            );
+          if (isInviterCode) {
+            defaultLogger.referral.page.installReferralAccepted({
+              surface: 'bind_dialog',
+            });
+          }
+        } catch {
+          // Worst case the invite is offered once more, and the server
+          // rejects the duplicate bind.
+        }
       } catch (e) {
         const err = e as OneKeyError<
           unknown,
@@ -246,6 +360,7 @@ export function InviteCodeDialog({
     },
     [
       form,
+      suggestedCode,
       walletInfo,
       confirmBindReferralCode,
       navigationToMessageConfirmAsync,
@@ -363,7 +478,11 @@ export function InviteCodeDialog({
           <Form.Field
             name="referralCode"
             rules={{
-              required: true,
+              // A visible suggestion supplies the value on submit, so an
+              // empty field is legitimate. Empty values bypass `pattern` in
+              // react-hook-form, making `required` the only check that would
+              // otherwise reject them.
+              required: !isSuggestionVisible,
               pattern: {
                 value: /^[a-zA-Z0-9]{1,30}$/,
                 message: intl.formatMessage({
@@ -381,6 +500,23 @@ export function InviteCodeDialog({
             />
           </Form.Field>
         </Form>
+        {isSuggestionVisible ? (
+          // Sits below the input rather than in its placeholder: the field
+          // stays visibly empty, so Apply reads as accepting the invite
+          // instead of submitting something the user typed.
+          <SizableText size="$bodySm" color="$textSubdued">
+            {inviteeDiscount
+              ? intl.formatMessage(
+                  { id: ETranslations.referral_invited_by_code__desc },
+                  { code: suggestedCode, amount: inviteeDiscount },
+                )
+              : // The server declined a rebate: name the invite, promise none.
+                intl.formatMessage(
+                  { id: ETranslations.referral_modal_been_invited_title_code },
+                  { ABCDEF: suggestedCode },
+                )}
+          </SizableText>
+        ) : null}
       </YStack>
       <SizableText mt="$3" size="$bodyMd" color="$textSubdued">
         {intl.formatMessage({
