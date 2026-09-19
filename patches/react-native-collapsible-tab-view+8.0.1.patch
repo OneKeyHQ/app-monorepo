@@ -1,3 +1,16 @@
+diff --git a/node_modules/react-native-collapsible-tab-view/lib/typescript/src/Lazy.d.ts b/node_modules/react-native-collapsible-tab-view/lib/typescript/src/Lazy.d.ts
+index 87d8130..a5d8bb5 100644
+--- a/node_modules/react-native-collapsible-tab-view/lib/typescript/src/Lazy.d.ts
++++ b/node_modules/react-native-collapsible-tab-view/lib/typescript/src/Lazy.d.ts
+@@ -15,6 +15,7 @@ export declare const Lazy: React.FC<{
+      * Whether to start mounted. Defaults to true if we are the focused tab.
+      */
+     startMounted?: boolean;
++    forceStartMounted?: boolean;
+     children: React.ReactElement;
+ }>;
+ //# sourceMappingURL=Lazy.d.ts.map
+\ No newline at end of file
 diff --git a/node_modules/react-native-collapsible-tab-view/lib/typescript/src/index.d.ts b/node_modules/react-native-collapsible-tab-view/lib/typescript/src/index.d.ts
 index 83c5549..f0b35e5 100644
 --- a/node_modules/react-native-collapsible-tab-view/lib/typescript/src/index.d.ts
@@ -12,7 +25,7 @@ index 83c5549..f0b35e5 100644
  export { MaterialTabBar } from './MaterialTabBar/TabBar';
  export { MaterialTabItem } from './MaterialTabBar/TabItem';
 diff --git a/node_modules/react-native-collapsible-tab-view/lib/typescript/src/types.d.ts b/node_modules/react-native-collapsible-tab-view/lib/typescript/src/types.d.ts
-index 7a739fc..f2659c7 100644
+index 7a739fc..9e15110 100644
 --- a/node_modules/react-native-collapsible-tab-view/lib/typescript/src/types.d.ts
 +++ b/node_modules/react-native-collapsible-tab-view/lib/typescript/src/types.d.ts
 @@ -94,6 +94,20 @@ export type CollapsibleProps = {
@@ -57,8 +70,17 @@ index 7a739fc..f2659c7 100644
  };
  export type ScrollViewProps = ComponentProps<typeof Animated.ScrollView>;
  export type CollapsibleStyle = {
+@@ -198,6 +219,7 @@ export type TabItemProps<T extends TabName> = {
+ export type TabProps<T extends TabName> = {
+     readonly name: T;
+     label?: TabItemProps<T>['label'];
++    startMounted?: boolean;
+     children: React.ReactNode;
+ };
+ //# sourceMappingURL=types.d.ts.map
+\ No newline at end of file
 diff --git a/node_modules/react-native-collapsible-tab-view/src/Container.tsx b/node_modules/react-native-collapsible-tab-view/src/Container.tsx
-index e782b90..dbf088c 100644
+index e782b90..91b10c8 100644
 --- a/node_modules/react-native-collapsible-tab-view/src/Container.tsx
 +++ b/node_modules/react-native-collapsible-tab-view/src/Container.tsx
 @@ -1,9 +1,15 @@
@@ -812,6 +834,15 @@ index e782b90..dbf088c 100644
                style={[pagerProps?.style, StyleSheet.absoluteFill]}
              >
                {tabNamesArray.map((tabName, i) => {
+@@ -440,6 +843,8 @@ export const Container = React.memo(
+                     <TabNameContext.Provider value={tabName}>
+                       <Lazy
+                         startMounted={lazy ? undefined : true}
++                        // OneKey patch: per-tab eager mount (Tab `startMounted`).
++                        forceStartMounted={tabProps.get(tabName)?.startMounted}
+                         cancelLazyFadeIn={!lazy ? true : !!cancelLazyFadeIn}
+                         // ensure that we remount the tab if its name changes but the index doesn't
+                         key={tabName}
 diff --git a/node_modules/react-native-collapsible-tab-view/src/FlashList.tsx b/node_modules/react-native-collapsible-tab-view/src/FlashList.tsx
 index 9ce60da..d8f162e 100644
 --- a/node_modules/react-native-collapsible-tab-view/src/FlashList.tsx
@@ -955,6 +986,38 @@ index e7a6981..8e9ad9e 100644
        contentInset={memoContentInset}
        contentOffset={memoContentOffset}
        automaticallyAdjustContentInsets={false}
+diff --git a/node_modules/react-native-collapsible-tab-view/src/Lazy.tsx b/node_modules/react-native-collapsible-tab-view/src/Lazy.tsx
+index 583c28d..66822d2 100644
+--- a/node_modules/react-native-collapsible-tab-view/src/Lazy.tsx
++++ b/node_modules/react-native-collapsible-tab-view/src/Lazy.tsx
+@@ -27,11 +27,17 @@ export const Lazy: React.FC<{
+    * Whether to start mounted. Defaults to true if we are the focused tab.
+    */
+   startMounted?: boolean
++  /**
++   * OneKey patch: mount the children on the first render even when the tab is
++   * not focused. `startMounted` alone only seeds the fade-in opacity.
++   */
++  forceStartMounted?: boolean
+   children: React.ReactElement
+ }> = ({
+   children,
+   cancelLazyFadeIn,
+   startMounted: _startMounted,
++  forceStartMounted,
+   mountDelayMs = 50,
+ }) => {
+   const name = useTabNameContext()
+@@ -45,7 +51,8 @@ export const Lazy: React.FC<{
+   /**
+    * This is used to control when children are mounted
+    */
+-  const [canMount, setCanMount] = React.useState(false)
++  // OneKey patch: honor an explicit per-tab eager mount (see Tab `startMounted`).
++  const [canMount, setCanMount] = React.useState(!!forceStartMounted)
+   /**
+    * Ensure we don't mount after the component has been unmounted
+    */
 diff --git a/node_modules/react-native-collapsible-tab-view/src/MasonryFlashList.tsx b/node_modules/react-native-collapsible-tab-view/src/MasonryFlashList.tsx
 index 93756ae..6f39353 100644
 --- a/node_modules/react-native-collapsible-tab-view/src/MasonryFlashList.tsx
@@ -1483,7 +1546,7 @@ index 3d0be9d..f9ac35e 100644
  export type { HeaderMeasurements } from './hooks'
  
 diff --git a/node_modules/react-native-collapsible-tab-view/src/types.ts b/node_modules/react-native-collapsible-tab-view/src/types.ts
-index 00fbafc..32bbda1 100644
+index 00fbafc..9a1ca59 100644
 --- a/node_modules/react-native-collapsible-tab-view/src/types.ts
 +++ b/node_modules/react-native-collapsible-tab-view/src/types.ts
 @@ -132,6 +132,22 @@ export type CollapsibleProps = {
@@ -1532,3 +1595,13 @@ index 00fbafc..32bbda1 100644
  }
  
  export type ScrollViewProps = ComponentProps<typeof Animated.ScrollView>
+@@ -252,5 +277,9 @@ export type TabItemProps<T extends TabName> = {
+ export type TabProps<T extends TabName> = {
+   readonly name: T
+   label?: TabItemProps<T>['label']
++  // OneKey patch: mount this tab's content together with the container even
++  // while another tab is focused. Inactive tabs otherwise mount only on their
++  // first focus (Lazy's canMount starts false regardless of `lazy`).
++  startMounted?: boolean
+   children: React.ReactNode
+ }
