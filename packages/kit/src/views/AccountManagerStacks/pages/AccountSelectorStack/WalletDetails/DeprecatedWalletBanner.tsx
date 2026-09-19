@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback, useEffect, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -13,6 +13,10 @@ import type {
   IDBDevice,
   IDBWallet,
 } from '@onekeyhq/kit-bg/src/dbs/local/types';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import {
@@ -48,22 +52,46 @@ export function DeprecatedWalletBanner({
   );
 
   // A reset gives the device a new identity, so re-adding it creates a new
-  // wallet next to this stale one. Resolves to null when it was not re-added.
-  const { result: replacementWallet } = usePromiseResult(async () => {
-    const wallets =
-      await backgroundApiProxy.serviceAccount.getAllHwQrWalletWithDevice({
-        filterHiddenWallet: true,
-        filterQrWallet: true,
-      });
-    // Falls back to the wallet passed in when the device has no usable wallet.
-    const usable = resolveUsableWalletWithDevice(
-      walletWithDevice,
-      Object.values(wallets),
+  // wallet next to this stale one. Resolves to null when it was not re-added,
+  // and also when the lookup fails, so the warning always shows.
+  const { result: replacementWallet, run: reloadReplacementWallet } =
+    usePromiseResult(
+      async () => {
+        try {
+          const wallets =
+            await backgroundApiProxy.serviceAccount.getAllHwQrWalletWithDevice({
+              filterHiddenWallet: true,
+              filterQrWallet: true,
+            });
+          // Falls back to the wallet passed in when the device has no usable
+          // wallet.
+          const usable = resolveUsableWalletWithDevice(
+            walletWithDevice,
+            Object.values(wallets),
+          );
+          return usable && usable.wallet.id !== walletWithDevice.wallet.id
+            ? usable.wallet
+            : null;
+        } catch {
+          return null;
+        }
+      },
+      [walletWithDevice],
+      // The account selector's route can report unfocused, which would skip
+      // the run and leave the banner hidden.
+      { checkIsFocused: false },
     );
-    return usable && usable.wallet.id !== walletWithDevice.wallet.id
-      ? usable.wallet
-      : null;
-  }, [walletWithDevice]);
+
+  // The device can be added again, renamed or removed while this stays mounted.
+  useEffect(() => {
+    const fn = () => {
+      void reloadReplacementWallet();
+    };
+    appEventBus.on(EAppEventBusNames.WalletUpdate, fn);
+    return () => {
+      appEventBus.off(EAppEventBusNames.WalletUpdate, fn);
+    };
+  }, [reloadReplacementWallet]);
 
   const handlePrimaryPress = useCallback(() => {
     if (replacementWallet) {
