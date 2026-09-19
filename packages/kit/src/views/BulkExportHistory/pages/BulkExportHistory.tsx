@@ -386,7 +386,7 @@ function BulkExportHistoryContent({
     // Expired/logged-out users can still view previous tasks and download a
     // still-valid CSV; only creating a new task requires active Prime.
     if (!isPrimeSubscriptionActive) {
-      navigation.pushFullModal(EModalRoutes.PrimeModal, {
+      navigation.pushModal(EModalRoutes.PrimeModal, {
         screen: EPrimePages.PrimeDashboard,
         params: {
           fromFeature: EPrimeFeatures.HistoryExport,
