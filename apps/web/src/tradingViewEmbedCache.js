@@ -1,4 +1,7 @@
-import { verifyTradingViewEmbedAssetResponse } from './tradingViewEmbedAssetIntegrity';
+import {
+  TradingViewEmbedAssetIntegrityError,
+  verifyTradingViewEmbedAssetResponse,
+} from './tradingViewEmbedAssetIntegrity';
 
 export async function putTradingViewResponseInCache(cache, request, response) {
   try {
@@ -20,6 +23,11 @@ export async function matchVerifiedTradingViewCachedResponse(
     return undefined;
   }
   try {
+    if (!cachedResponse.ok || cachedResponse.status !== 200) {
+      throw new TradingViewEmbedAssetIntegrityError(
+        'tradingview_cached_response_not_ok',
+      );
+    }
     return await verifyTradingViewEmbedAssetResponse(cachedResponse, asset);
   } catch {
     try {

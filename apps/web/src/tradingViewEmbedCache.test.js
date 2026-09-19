@@ -98,6 +98,25 @@ describe('matchVerifiedTradingViewCachedResponse', () => {
     ).resolves.toBeUndefined();
   });
 
+  test('evicts a 302 cache hit even when the body matches the manifest', async () => {
+    const body = 'verified asset';
+    const cache = {
+      match: jest.fn(
+        async () =>
+          new Response(body, {
+            headers: { Location: 'https://evil.example/payload.js' },
+            status: 302,
+          }),
+      ),
+      delete: jest.fn(async () => true),
+    };
+
+    await expect(
+      matchVerifiedTradingViewCachedResponse(cache, request, createAsset(body)),
+    ).resolves.toBeUndefined();
+    expect(cache.delete).toHaveBeenCalledWith(request);
+  });
+
   test('returns undefined on a cache miss without deleting', async () => {
     const cache = {
       match: jest.fn(async () => undefined),
