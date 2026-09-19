@@ -90,12 +90,15 @@ export function StockDetailProvider({
   initialStockPreview,
   initialNetworkId,
   initialTokenAddress,
+  preserveInitialToken = false,
   children,
 }: PropsWithChildren<{
   stockId?: string;
   initialStockPreview?: IMarketStockDetailPreview;
   initialNetworkId?: string;
   initialTokenAddress?: string;
+  // Trading pages must keep showing the actual selected token even when paused.
+  preserveInitialToken?: boolean;
 }>) {
   const normalizedStockId = stockId?.trim().toUpperCase() || undefined;
   const stockPreview =
@@ -231,6 +234,7 @@ export function StockDetailProvider({
   );
 
   useEffect(() => {
+    if (preserveInitialToken) return;
     if (!normalizedStockId) {
       appliedTokenRouteRef.current = undefined;
       setSelectedTokenId(undefined);
@@ -269,6 +273,7 @@ export function StockDetailProvider({
     hasCurrentTokenVariants,
     initialNetworkId,
     initialTokenAddress,
+    preserveInitialToken,
     normalizedStockId,
     selectedTokenId,
     tokenVariantResult?.defaultTokenId,
@@ -278,8 +283,25 @@ export function StockDetailProvider({
   ]);
 
   const selectedTokenVariant = useMemo(
-    () => tokenVariants.find((item) => item.tokenId === selectedTokenId),
-    [selectedTokenId, tokenVariants],
+    () =>
+      tokenVariants.find((item) =>
+        preserveInitialToken
+          ? equalTokenNoCaseSensitive({
+              token1: item,
+              token2: {
+                networkId: initialNetworkId,
+                contractAddress: initialTokenAddress,
+              },
+            })
+          : item.tokenId === selectedTokenId,
+      ),
+    [
+      initialNetworkId,
+      initialTokenAddress,
+      preserveInitialToken,
+      selectedTokenId,
+      tokenVariants,
+    ],
   );
   const handleSetSelectedTokenId = useCallback(
     (tokenId: string) => {
@@ -308,7 +330,8 @@ export function StockDetailProvider({
       isTokenVariantPending: Boolean(
         normalizedStockId &&
         (!hasCurrentTokenVariants ||
-          (!tokenVariantResult?.failed &&
+          (!preserveInitialToken &&
+            !tokenVariantResult?.failed &&
             tokenVariants.some(isStockTokenVariantTradable) &&
             !selectedTokenVariant)),
       ),
@@ -321,7 +344,9 @@ export function StockDetailProvider({
         tokenVariantResult.failed,
       ),
       retryTokenVariants,
-      selectedTokenId,
+      selectedTokenId: preserveInitialToken
+        ? selectedTokenVariant?.tokenId
+        : selectedTokenId,
       selectedTokenVariant,
       setSelectedTokenId: handleSetSelectedTokenId,
       portfolioNetworkId: selectedTokenVariant?.networkId ?? initialNetworkId,
@@ -333,6 +358,7 @@ export function StockDetailProvider({
       isTokenVariantsLoading,
       handleSetSelectedTokenId,
       normalizedStockId,
+      preserveInitialToken,
       retryStockDetail,
       retryTokenVariants,
       selectedTokenId,

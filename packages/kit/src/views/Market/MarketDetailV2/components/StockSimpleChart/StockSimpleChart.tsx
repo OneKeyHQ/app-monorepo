@@ -15,6 +15,10 @@ import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import type { IMarketPriceSource } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IMarketTokenChart } from '@onekeyhq/shared/types/market';
+import type {
+  IMarketStockPublicDetail,
+  IMarketTokenDetail,
+} from '@onekeyhq/shared/types/marketV2';
 
 import { useStockDetail } from '../../hooks/StockDetailContext';
 import { useTokenDetail } from '../../hooks/useTokenDetail';
@@ -37,27 +41,58 @@ export type { IStockSimpleChartRange } from './stockSimpleChartData';
 const STOCK_SIMPLE_CHART_INITIAL_HEIGHT = 400;
 
 type IStockSimpleChartState = {
+  requestKey: string;
   data: IMarketTokenChart;
   status: 'pending' | 'success' | 'error';
 };
 
-export function StockSimpleChart({
-  coinGeckoId,
-  marketAssetId,
-  range,
-  priceMode,
-}: {
+type IStockSimpleChartProps = {
   coinGeckoId?: string;
   marketAssetId?: string;
   range: IStockSimpleChartRange;
   priceMode: IMarketPriceSource;
+};
+
+export function StockSimpleChart(props: IStockSimpleChartProps) {
+  const { isNative, networkId, tokenAddress, tokenDetail } = useTokenDetail();
+  const { stockDetail, stockId } = useStockDetail();
+  return (
+    <StockSimpleChartContent
+      {...props}
+      isNative={isNative}
+      networkId={networkId}
+      tokenAddress={tokenAddress}
+      tokenDetail={tokenDetail}
+      stockDetail={stockDetail}
+      stockId={stockId}
+    />
+  );
+}
+
+// Entry adapters own the asset identity; the chart never reads another page's atoms.
+export function StockSimpleChartContent({
+  coinGeckoId,
+  marketAssetId,
+  range,
+  priceMode,
+  isNative,
+  networkId,
+  tokenAddress,
+  tokenDetail,
+  stockDetail,
+  stockId,
+}: IStockSimpleChartProps & {
+  isNative: boolean;
+  networkId: string;
+  tokenAddress: string;
+  tokenDetail?: IMarketTokenDetail;
+  stockDetail?: IMarketStockPublicDetail | null;
+  stockId?: string;
 }) {
   const intl = useIntl();
   const [chartHeight, setChartHeight] = useState(
     STOCK_SIMPLE_CHART_INITIAL_HEIGHT,
   );
-  const { isNative, networkId, tokenAddress, tokenDetail } = useTokenDetail();
-  const { stockDetail, stockId } = useStockDetail();
   const {
     coinGeckoId: requestCoinGeckoId,
     isNative: requestIsNative,
@@ -77,6 +112,24 @@ export function StockSimpleChart({
     stockId,
     tokenAddress,
   });
+  const requestKey = JSON.stringify([
+    requestCoinGeckoId,
+    requestIsNative,
+    requestMarketAssetId,
+    requestNetworkId,
+    requestPriceMode,
+    requestRange,
+    requestStockId,
+    requestTokenAddress,
+  ]);
+  const requestReady =
+    requestPriceMode === 'share'
+      ? Boolean(requestStockId)
+      : Boolean(
+          requestMarketAssetId ||
+          requestCoinGeckoId ||
+          (requestNetworkId && (requestTokenAddress || requestIsNative)),
+        );
 
   const previousClose = resolveStockSimpleChartPreviousClose({
     priceMode: requestPriceMode,
@@ -106,6 +159,7 @@ export function StockSimpleChart({
     run: retry,
   } = usePromiseResult<IStockSimpleChartState>(
     async () => {
+      if (!requestReady) return { requestKey, data: [], status: 'pending' };
       try {
         const data = await fetchStockSimpleChartPoints({
           coinGeckoId: requestCoinGeckoId,
@@ -119,11 +173,12 @@ export function StockSimpleChart({
         });
 
         return {
+          requestKey,
           data,
           status: 'success',
         };
       } catch (_error) {
-        return { data: [], status: 'error' };
+        return { requestKey, data: [], status: 'error' };
       }
     },
     [
@@ -135,9 +190,11 @@ export function StockSimpleChart({
       requestRange,
       requestStockId,
       requestTokenAddress,
+      requestKey,
+      requestReady,
     ],
     {
-      initResult: { data: [], status: 'pending' },
+      initResult: { requestKey, data: [], status: 'pending' },
       watchLoading: true,
       checkIsFocused: false,
     },
@@ -158,7 +215,12 @@ export function StockSimpleChart({
   );
 
   let chartContent;
-  if (isLoading || chartState.status === 'pending') {
+  if (
+    !requestReady ||
+    chartState.requestKey !== requestKey ||
+    isLoading ||
+    chartState.status === 'pending'
+  ) {
     chartContent = (
       <Stack testID="stock-simple-chart-loading" width="100%" height="100%">
         <Skeleton width="100%" height="100%" />

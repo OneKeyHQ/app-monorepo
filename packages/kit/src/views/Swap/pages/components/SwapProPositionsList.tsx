@@ -11,19 +11,29 @@ import SwapProPositionListHeader from '../../components/SwapProPositionListHeade
 import { useSwapProPositionsListFilter } from '../../hooks/useSwapPro';
 import { useSwapProPositionsPnl } from '../../hooks/useSwapProPositionsPnl';
 
-function SwapProPositionItemSkeleton() {
+function SwapProPositionItemSkeleton({
+  stockLayout = false,
+}: {
+  stockLayout?: boolean;
+}) {
   return (
     <Stack
       flexDirection="row"
       alignItems="center"
-      minHeight="$11"
+      minHeight={stockLayout ? 56 : '$11'}
+      h={stockLayout ? 56 : undefined}
       gap="$3"
-      py="$2"
+      py={stockLayout ? '$0' : '$2'}
       px="$2"
       mx="$-2"
       borderRadius="$3"
     >
-      <XStack alignItems="center" gap="$2" flexGrow={1} flexBasis={0}>
+      <XStack
+        alignItems="center"
+        gap={stockLayout ? '$3' : '$2'}
+        flexGrow={1}
+        flexBasis={0}
+      >
         <Skeleton w="$8" h="$8" radius="round" />
         <YStack gap="$1">
           <Skeleton h="$5" w="$24" />
@@ -39,13 +49,24 @@ function SwapProPositionItemSkeleton() {
   );
 }
 
-function SwapProPositionsListSkeleton({ rowCount }: { rowCount: number }) {
+function SwapProPositionsListSkeleton({
+  rowCount,
+  stockLayout,
+}: {
+  rowCount: number;
+  stockLayout?: boolean;
+}) {
   return (
-    <YStack>
-      <SwapProPositionListHeader />
-      {Array.from({ length: rowCount }).map((_, index) => (
-        <SwapProPositionItemSkeleton key={`position-skeleton-${index}`} />
-      ))}
+    <YStack gap={stockLayout ? '$3.5' : undefined}>
+      <SwapProPositionListHeader stockLayout={stockLayout} />
+      <YStack>
+        {Array.from({ length: rowCount }).map((_, index) => (
+          <SwapProPositionItemSkeleton
+            key={`position-skeleton-${index}`}
+            stockLayout={stockLayout}
+          />
+        ))}
+      </YStack>
     </YStack>
   );
 }
@@ -61,6 +82,7 @@ interface ISwapProPositionsListProps {
   // Stock context: only show stock tokens, and hide the "find your token" footer.
   stockOnly?: boolean;
   hideSearch?: boolean;
+  stockLayout?: boolean;
 }
 
 const SwapProPositionsList = ({
@@ -73,6 +95,7 @@ const SwapProPositionsList = ({
   onRetry,
   stockOnly,
   hideSearch,
+  stockLayout = false,
 }: ISwapProPositionsListProps) => {
   const intl = useIntl();
   const { finallyTokenList } = useSwapProPositionsListFilter(
@@ -85,12 +108,17 @@ const SwapProPositionsList = ({
   const pnlMap = useSwapProPositionsPnl(displayTokenList);
 
   if (positionLoading && displayTokenList.length === 0) {
-    return <SwapProPositionsListSkeleton rowCount={stockOnly ? 3 : 2} />;
+    return (
+      <SwapProPositionsListSkeleton
+        rowCount={stockOnly ? 3 : 2}
+        stockLayout={stockLayout}
+      />
+    );
   }
   if (positionLoadError && displayTokenList.length === 0) {
     return (
-      <YStack>
-        <SwapProPositionListHeader />
+      <YStack gap={stockLayout ? '$3.5' : undefined}>
+        <SwapProPositionListHeader stockLayout={stockLayout} />
         <Empty
           illustration="GlobeError"
           title={intl.formatMessage({
@@ -107,23 +135,26 @@ const SwapProPositionsList = ({
     );
   }
   return (
-    <YStack>
-      <SwapProPositionListHeader />
-      {displayTokenList.length > 0 ? (
-        displayTokenList.map((item) => (
-          <SwapProPositionItem
-            key={`${item.networkId}-${item.contractAddress}`}
-            token={item}
-            onPress={onTokenPress}
-            pnl={pnlMap.get(`${item.networkId}-${item.contractAddress}`)}
+    <YStack gap={stockLayout ? '$3.5' : undefined}>
+      <SwapProPositionListHeader stockLayout={stockLayout} />
+      <YStack>
+        {displayTokenList.length > 0 ? (
+          displayTokenList.map((item) => (
+            <SwapProPositionItem
+              key={`${item.networkId}-${item.contractAddress}`}
+              token={item}
+              onPress={onTokenPress}
+              pnl={pnlMap.get(`${item.networkId}-${item.contractAddress}`)}
+              stockLayout={stockLayout}
+            />
+          ))
+        ) : (
+          <Empty
+            icon="SearchOutline"
+            title={intl.formatMessage({ id: ETranslations.global_no_results })}
           />
-        ))
-      ) : (
-        <Empty
-          icon="SearchOutline"
-          title={intl.formatMessage({ id: ETranslations.global_no_results })}
-        />
-      )}
+        )}
+      </YStack>
       {SwapProCurrentSymbolEnable ||
       !onSearchClick ||
       hideSearch ? undefined : (
