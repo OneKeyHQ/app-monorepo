@@ -24,6 +24,10 @@ type IAppModule = typeof import('./App');
 // every WeakMap / WeakRef / timer user goes through the counting wrappers.
 // The collector reads `__ONEKEY_DIAG_CENSUS__` once per census window.
 (() => {
+  // Never under jest: these wrappers replace globals for the whole worker.
+  if (typeof process !== 'undefined' && process.env?.JEST_WORKER_ID) {
+    return;
+  }
   /* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-argument, @typescript-eslint/unbound-method, no-extend-native, func-names */
   const g = globalThis as any;
   const census = {

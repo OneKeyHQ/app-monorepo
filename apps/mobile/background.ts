@@ -234,11 +234,22 @@ async function initializeBackgroundRuntime() {
 // engine build as the UI runtime but is nearly idle, so the baseline is clean
 // and whatever the experiment leaves behind cannot distort the UI runtime's
 // own measurements.
-setTimeout(() => {
-  const { runDiagGcExperiment } =
-    require('@onekeyhq/shared/src/performance/collectors/jsBlockCollector') as typeof import('@onekeyhq/shared/src/performance/collectors/jsBlockCollector');
-  void runDiagGcExperiment();
-}, 30_000);
+// Never under jest: tests load this entry, and a timer it leaves behind fires
+// after that test's environment is gone, inside whichever test the worker
+// runs next.
+if (typeof process === 'undefined' || !process.env?.JEST_WORKER_ID) {
+  setTimeout(() => {
+    try {
+      const { runDiagGcExperiment } =
+        require('@onekeyhq/shared/src/performance/collectors/jsBlockCollector') as typeof import('@onekeyhq/shared/src/performance/collectors/jsBlockCollector');
+      if (typeof runDiagGcExperiment === 'function') {
+        void runDiagGcExperiment();
+      }
+    } catch {
+      // A diagnostic must never take the runtime down with it.
+    }
+  }, 30_000);
+}
 
 void initializeBackgroundRuntime().catch((error: unknown) => {
   bgEntryLog(
