@@ -13,7 +13,6 @@ import {
   accountOverviewStateAtom,
   accountWorthAtom,
   allNetworksStateAtom,
-  approvalsInfoAtom,
   buildOverviewOwnerKey,
   contextAtomMethod,
   overviewDeFiDataStateAtom,
@@ -79,19 +78,6 @@ class ContextJotaiActionsAccountOverview extends ContextJotaiActionsBase {
         accountId: payload.accountId,
         updateAll: payload.updateAll,
         currency,
-      });
-    },
-  );
-
-  updateApprovalsInfo = contextAtomMethod(
-    (
-      get,
-      set,
-      payload: { hasRiskApprovals?: boolean; riskApprovalsCount?: number },
-    ) => {
-      set(approvalsInfoAtom(), {
-        ...get(approvalsInfoAtom()),
-        ...payload,
       });
     },
   );
@@ -197,7 +183,6 @@ export function useAccountOverviewActions() {
   const updateAccountWorth = actions.updateAccountWorth.use();
   const updateAccountOverviewState = actions.updateAccountOverviewState.use();
   const updateAllNetworksState = actions.updateAllNetworksState.use();
-  const updateApprovalsInfo = actions.updateApprovalsInfo.use();
   const updateWalletTopBanners = actions.updateWalletTopBanners.use();
   const updateAccountDeFiOverview = actions.updateAccountDeFiOverview.use();
   const updateOverviewDeFiDataState = actions.updateOverviewDeFiDataState.use();
@@ -206,7 +191,6 @@ export function useAccountOverviewActions() {
     updateAllNetworksState,
     updateAccountWorth,
     updateAccountOverviewState,
-    updateApprovalsInfo,
     updateWalletTopBanners,
     updateAccountDeFiOverview,
     updateOverviewDeFiDataState,
