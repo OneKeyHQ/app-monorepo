@@ -270,6 +270,7 @@ type IDiagCensus = {
   weakSites?: Map<string, number>;
   weakSampled?: number;
   serializerSites?: Map<string, { count: number; depthSum: number }>;
+  serializerShapes?: Map<string, number>;
 };
 
 function getDiagCensus(): IDiagCensus | undefined {
@@ -308,6 +309,9 @@ function diagFiberName(fiber: IDiagFiber): string {
   return '(anonymous)';
 }
 
+let diagRankingTick = 0;
+// Every 4 windows = every 2 minutes; the first window emits too.
+const DIAG_RANKING_EVERY_WINDOWS = 4;
 let diagSampledCommits = 0;
 let diagRenderedFibers = 0;
 let diagLastSampleAt = 0;
@@ -448,27 +452,55 @@ function flushDiagCensus(
       .toSorted((left, right) => right[1] - left[1])
       .slice(0, DIAG_TOP)
       .map(([name, count]) => ({ name, count })),
-    // Everything below is cumulative since launch.
     sampledCommitsTotal: diagSampledCommitsTotal,
-    topRenderRootsTotal: [...diagRenderedByRootTotal]
-      .toSorted((left, right) => right[1] - left[1])
-      .slice(0, 20)
-      .map(([name, count]) => ({ name, count })),
-    // Each sample stands for 256 new WeakMap keys.
+    // Each sample stands for 256 new WeakMap keys, cumulative since launch.
     weakSampled: census.weakSampled,
-    topWeakSites: [...(census.weakSites ?? [])]
-      .toSorted((left, right) => right[1] - left[1])
-      .slice(0, DIAG_TOP)
-      .map(([site, count]) => ({ site, count })),
-    topSerializerCallers: [...(census.serializerSites ?? [])]
-      .toSorted((left, right) => right[1].count - left[1].count)
-      .slice(0, 15)
-      .map(([caller, entry]) => ({
-        caller,
-        count: entry.count,
-        avgDepth: Math.round((entry.depthSum / entry.count) * 10) / 10,
-      })),
   });
+
+  // The native logger cuts a line at about 3000 characters, which silently
+  // broke the JSON of the combined line. Cumulative rankings go out as one
+  // short line per entry instead, a few times a session.
+  diagRankingTick += 1;
+  if (diagRankingTick % DIAG_RANKING_EVERY_WINDOWS === 1) {
+    const emit = (list: string, rows: Record<string, unknown>[]) => {
+      rows.forEach((row, rank) => {
+        defaultLogger.app.perf.diagRanking({ list, rank: rank + 1, ...row });
+      });
+    };
+    const clip = (text: string) => text.slice(0, 400);
+    emit(
+      'renderRootsTotal',
+      [...diagRenderedByRootTotal]
+        .toSorted((left, right) => right[1] - left[1])
+        .slice(0, 20)
+        .map(([name, count]) => ({ name: clip(name), count })),
+    );
+    emit(
+      'weakSites',
+      [...(census.weakSites ?? [])]
+        .toSorted((left, right) => right[1] - left[1])
+        .slice(0, 15)
+        .map(([site, count]) => ({ site: clip(site), keys: count * 256 })),
+    );
+    emit(
+      'serializerCallers',
+      [...(census.serializerSites ?? [])]
+        .toSorted((left, right) => right[1].count - left[1].count)
+        .slice(0, 15)
+        .map(([caller, entry]) => ({
+          caller: clip(caller),
+          keys: entry.count * 256,
+          avgDepth: Math.round((entry.depthSum / entry.count) * 10) / 10,
+        })),
+    );
+    emit(
+      'serializerShapes',
+      [...(census.serializerShapes ?? [])]
+        .toSorted((left, right) => right[1] - left[1])
+        .slice(0, 25)
+        .map(([shape, count]) => ({ shape: clip(shape), keys: count * 256 })),
+    );
+  }
   census.commits = 0;
   census.unmounts = 0;
   census.weakMapSets = 0;
@@ -603,6 +635,26 @@ export async function runDiagGcExperiment() {
     if (weak.keys.length + plain.length < 0) return;
   }
 
+  // Can a forced full collection undo it? Production Hermes usually strips
+  // the binding; when it is there, this is the cheapest possible mitigation.
+  const hermesGc = (
+    globalThis as { HermesInternal?: { gc?: () => void }; gc?: () => void }
+  ).HermesInternal?.gc;
+  const globalGc = (globalThis as { gc?: () => void }).gc;
+  const forceGc = typeof hermesGc === 'function' ? hermesGc : globalGc;
+  if (typeof forceGc === 'function') {
+    const [, fullGcMs] = timed(() => {
+      forceGc();
+      return 0;
+    });
+    results.push(measureCollectionCost('after a forced full GC', fullGcMs));
+    await experimentPause();
+    results.push(measureCollectionCost('after a forced full GC, again', 0));
+    await experimentPause();
+  } else {
+    results.push({ phase: 'forced full GC unavailable in this build' });
+  }
+
   // Weak-map entries that die young, as render-time caches produce them.
   const [, shortLivedMs] = timed(() => {
     const map = new WeakMap<object, number>();
@@ -620,11 +672,24 @@ export async function runDiagGcExperiment() {
     churnMB: EXPERIMENT_CHURN_MB,
     results,
   };
-  defaultLogger.app.perf.diagGcExperiment(report);
+  // One short line per phase as well: the combined line is close to the
+  // length at which the native logger truncates.
+  const emitExperiment = (repeated: boolean) => {
+    defaultLogger.app.perf.diagGcExperiment({ ...report, repeated });
+    results.forEach((row, index) => {
+      defaultLogger.app.perf.diagRanking({
+        list: 'gcExperiment',
+        rank: index + 1,
+        runtime: report.runtime,
+        ...row,
+      });
+    });
+  };
+  emitExperiment(false);
   // The log rotates; an export may only hold the last minutes of a session.
   // Repeat the result so it is in whichever part gets exported.
   setInterval(() => {
-    defaultLogger.app.perf.diagGcExperiment({ ...report, repeated: true });
+    emitExperiment(true);
   }, 60_000);
 }
 

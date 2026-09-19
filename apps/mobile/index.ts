@@ -50,6 +50,10 @@ type IAppModule = typeof import('./App');
     // The worklets serializer clones whatever a worklet captures, recursively.
     // Charged to the code that handed it the object, with how deep it went.
     serializerSites: new Map<string, { count: number; depthSum: number }>(),
+    // Most of it runs from a microtask that has lost its caller, so also
+    // record WHAT is cloned: the shape of plain objects and arrays, and for a
+    // worklet the start of its own source code.
+    serializerShapes: new Map<string, number>(),
   };
   g.__ONEKEY_DIAG_CENSUS__ = census;
   const WEAK_SAMPLE = 256;
@@ -108,6 +112,37 @@ type IAppModule = typeof import('./App');
     'getFromCache',
   ]);
   let weakTick = 0;
+  const describeKey = (key: any): string => {
+    try {
+      if (typeof key === 'function') {
+        const code = String(key.__initData?.code ?? '')
+          .replace(/\s+/g, ' ')
+          .slice(0, 90);
+        const closure = key.__closure
+          ? Object.keys(key.__closure).slice(0, 6).join(',')
+          : '';
+        return code
+          ? `worklet{${closure}} ${code}`
+          : `function ${String(key.name || '(anonymous)')}`;
+      }
+      if (Array.isArray(key)) {
+        const first = key[0];
+        const inner =
+          first && typeof first === 'object'
+            ? `{${Object.keys(first).slice(0, 6).join(',')}}`
+            : typeof first;
+        // Bucket the length so one growing array stays one shape.
+        let size = '>=1k';
+        if (key.length < 10) size = '<10';
+        else if (key.length < 100) size = '<100';
+        else if (key.length < 1000) size = '<1k';
+        return `array[${size}] of ${inner}`;
+      }
+      return `object{${Object.keys(key).slice(0, 8).join(',')}}`;
+    } catch {
+      return '(unreadable)';
+    }
+  };
   const frameName = (line: string) => {
     const match = /^\s*at (.+?) \((?:.*?):(\d+):(\d+)\)\s*$/.exec(line);
     if (!match) return '';
@@ -142,6 +177,16 @@ type IAppModule = typeof import('./App');
           }
         }
         if (lastSerializerFrame >= 0) {
+          const shape = describeKey(key);
+          if (
+            census.serializerShapes.size < WEAK_MAX_SITES ||
+            census.serializerShapes.has(shape)
+          ) {
+            census.serializerShapes.set(
+              shape,
+              (census.serializerShapes.get(shape) ?? 0) + 1,
+            );
+          }
           const caller =
             frames
               .slice(lastSerializerFrame + 1, lastSerializerFrame + 9)

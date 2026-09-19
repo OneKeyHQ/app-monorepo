@@ -85,6 +85,13 @@ export class AppPerfScene extends BaseScene {
     return [params];
   }
 
+  // DIAGNOSTIC BRANCH ONLY: one entry of a cumulative ranking per line, kept
+  // short because the native logger truncates long lines.
+  @LogToLocal()
+  public diagRanking(params: Record<string, unknown>) {
+    return [params];
+  }
+
   // DIAGNOSTIC BRANCH ONLY: what one collection costs under controlled heaps.
   @LogToLocal()
   public diagGcExperiment(params: Record<string, unknown>) {
