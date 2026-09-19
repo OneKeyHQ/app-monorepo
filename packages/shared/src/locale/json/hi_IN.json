@@ -5218,6 +5218,7 @@
   "transfer.transfer_verify_passcode_desc": "दूसरे डिवाइस {deviceName} के डेटा को डिक्रिप्ट करने के लिए उसका ऐप पासकोड सत्यापित करें।",
   "transfer.verify_passcode": "पासकोड सत्यापित करें",
   "transfer.web_only_supports_watch_only_transfer": "वेब केवल Watch-Only वॉलेट के लिए स्थानांतरण का समर्थन करता है।",
+  "transfer_data_too_large__msg": "ट्रांसफ़र डेटा का आकार बहुत बड़ा है ({size})। इस ट्रांसफ़र की सीमा {limit} है।",
   "transfer_exit_import__desc": "बाहर निकलने से इंपोर्ट बाधित हो सकता है। पहले से इंपोर्ट किए गए आइटम इस डिवाइस पर बने रहेंगे।",
   "transfer_keep_foreground__desc": "ट्रांसफ़र पूरा होने तक अपने डिवाइस को अनलॉक रखें और OneKey ऐप को फ़ोरग्राउंड में खुला रखें।",
   "transfer_keep_unlocked__desc": "इंपोर्ट पूरा होने तक कृपया अपना डिवाइस अनलॉक रखें और OneKey App को फ़ोरग्राउंड में खुला रखें।",

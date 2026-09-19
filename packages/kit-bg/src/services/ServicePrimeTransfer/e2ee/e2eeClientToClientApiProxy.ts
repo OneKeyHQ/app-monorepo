@@ -15,11 +15,19 @@ export class E2EEClientToClientApiProxy
   extends RemoteApiProxyBase
   implements IE2EEClientToClientApi
 {
-  constructor({ socket, roomId }: { socket: Socket; roomId: string }) {
+  constructor({
+    socket,
+    roomId,
+    maxMessageSize,
+  }: {
+    socket: Socket;
+    roomId: string;
+    maxMessageSize?: number;
+  }) {
     super();
     this.bridge = new JsBridgeE2EEClientToClient(
       {},
-      { socket, roomId, isProxySide: true },
+      { socket, roomId, isProxySide: true, maxMessageSize },
     );
   }
 
@@ -59,12 +67,15 @@ export class E2EEClientToClientApiProxy
 export function createE2EEClientToClientApiProxy({
   socket,
   roomId,
+  maxMessageSize,
 }: {
   socket: Socket;
   roomId: string;
+  maxMessageSize?: number;
 }) {
   return new E2EEClientToClientApiProxy({
     socket,
     roomId,
+    maxMessageSize,
   });
 }

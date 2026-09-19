@@ -5218,6 +5218,7 @@
   "transfer.transfer_verify_passcode_desc": "Verifica el código de la app del otro dispositivo, {deviceName}, para desencriptar sus datos",
   "transfer.verify_passcode": "Verificar código de acceso",
   "transfer.web_only_supports_watch_only_transfer": "La versión web solo admite transferencias para billeteras de solo lectura (Watch-Only).",
+  "transfer_data_too_large__msg": "Los datos de la transferencia son demasiado grandes ({size}). El límite para esta transferencia es {limit}.",
   "transfer_exit_import__desc": "Salir puede interrumpir la importación. Los elementos ya importados permanecerán en este dispositivo.",
   "transfer_keep_foreground__desc": "Mantén el dispositivo desbloqueado y la aplicación OneKey abierta en primer plano hasta que finalice la transferencia.",
   "transfer_keep_unlocked__desc": "Mantén tu dispositivo desbloqueado y la aplicación OneKey abierta en primer plano hasta que se complete la importación.",

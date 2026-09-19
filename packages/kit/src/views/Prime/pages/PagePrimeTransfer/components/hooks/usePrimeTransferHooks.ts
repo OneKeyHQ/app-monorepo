@@ -83,11 +83,13 @@ export function useModalExitPrevent({
         title,
         description: message,
         onConfirmText: intl.formatMessage({ id: ETranslations.global_quit }),
-        onConfirm: () => {
+        disableDrag: true,
+        dismissOnOverlayPress: false,
+        onConfirm: async () => {
+          await onConfirm?.();
           isNavExitConfirmShow = false;
           confirmedRemoveActionRef.current = data.action;
           setIsNavExitConfirmed(true);
-          void onConfirm?.();
         },
         onCancelText: intl.formatMessage({ id: ETranslations.global_cancel }),
         onClose: () => {

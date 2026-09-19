@@ -5218,6 +5218,7 @@
   "transfer.transfer_verify_passcode_desc": "別のデバイス {deviceName} のデータを復号するために、そのアプリのパスコードを認証してください",
   "transfer.verify_passcode": "パスコードを確認",
   "transfer.web_only_supports_watch_only_transfer": "Web 版では Watch-Only ウォレットの転送のみがサポートされています。",
+  "transfer_data_too_large__msg": "転送データが大きすぎます（{size}）。今回の転送の上限は {limit} です。",
   "transfer_exit_import__desc": "終了するとインポートが中断される可能性があります。インポート済みの項目はこのデバイスに残ります。",
   "transfer_keep_foreground__desc": "転送が完了するまで、デバイスのロックを解除したまま、OneKey アプリを最前面に開いておいてください。",
   "transfer_keep_unlocked__desc": "インポートが完了するまで、デバイスのロックを解除したまま、OneKey Appを前面で開いておいてください。",

@@ -29,7 +29,10 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { getPrimeTransferImportProgressPercent } from '@onekeyhq/shared/src/utils/primeTransferImportProgressUtils';
 import { stableStringify } from '@onekeyhq/shared/src/utils/stringUtils';
 
+import { confirmPrimeTransferImportExit } from './confirmPrimeTransferImportExit';
 import { usePrimeTransferExit } from './hooks/usePrimeTransferExit';
+
+import type { IntlShape } from 'react-intl';
 
 type IPrimeTransferImportTraceSnapshot = Awaited<
   ReturnType<
@@ -139,6 +142,14 @@ function PrimeTransferImportProcessingDialogContent({
   const previousImportTargetNameRef = useRef<string>('');
 
   const { importProgress } = primeTransferAtom;
+  const hadImportProgressRef = useRef(false);
+  useEffect(() => {
+    if (importProgress) {
+      hadImportProgressRef.current = true;
+    } else if (hadImportProgressRef.current) {
+      void dialogInstance.close();
+    }
+  }, [dialogInstance, importProgress]);
   const isDone = useMemo(() => {
     // return false;
     return Boolean(
@@ -359,11 +370,24 @@ function PrimeTransferImportProcessingDialogContent({
             </SizableText>
           </XStack>
         </MultipleClickStack>
+        {!isFlowEnded ? (
+          <SizableText
+            mt="$4"
+            size="$bodyMd"
+            color="$textSubdued"
+            textAlign="center"
+            testID="prime-transfer-import-keep-unlocked"
+          >
+            {intl.formatMessage({
+              id: ETranslations.transfer_keep_unlocked__desc,
+            })}
+          </SizableText>
+        ) : null}
       </YStack>
 
       <Dialog.Footer
         showCancelButton={false}
-        showConfirmButton={isFlowEnded} // cancel import not supported yet
+        showConfirmButton={isFlowEnded}
         confirmButtonProps={{
           variant: isFlowEnded ? 'primary' : 'secondary',
           testID: 'prime-transfer-import-dialog-confirm-button',
@@ -381,16 +405,11 @@ function PrimeTransferImportProcessingDialogContent({
                 } else {
                   disableExitPrevention();
                 }
-                setTimeout(async () => {
-                  await backgroundApiProxy.servicePrimeTransfer.resetImportProgress();
-                }, 600);
               }
             : async ({ preventClose }) => {
                 preventClose();
                 setIsCancelled(true);
-                setTimeout(async () => {
-                  await backgroundApiProxy.servicePrimeTransfer.resetImportProgress();
-                }, 600);
+                await backgroundApiProxy.servicePrimeTransfer.resetImportProgress();
               }
         }
       />
@@ -399,26 +418,23 @@ function PrimeTransferImportProcessingDialogContent({
 }
 
 export function showPrimeTransferImportProcessingDialog({
+  taskUUID,
+  intl,
   navigation,
   closeAfterDone,
   closeAfterCancel,
   closeAfterError,
   ...dialogProps
 }: IDialogShowProps & {
+  taskUUID?: string;
+  intl: IntlShape;
   navigation?: IAppNavigation;
   closeAfterDone?: boolean;
   closeAfterCancel?: boolean;
   closeAfterError?: boolean;
 }) {
   return Dialog.show({
-    showExitButton: !!platformEnv.isDev,
-    dismissOnOverlayPress: false,
-    onCancel() {
-      void backgroundApiProxy.servicePrimeTransfer.resetImportProgress();
-    },
-    onClose() {
-      void backgroundApiProxy.servicePrimeTransfer.resetImportProgress();
-    },
+    showExitButton: true,
     title: '',
     renderContent: (
       <PrimeTransferImportProcessingDialogContent
@@ -429,5 +445,21 @@ export function showPrimeTransferImportProcessingDialog({
       />
     ),
     ...dialogProps,
+    disableDrag: true,
+    dismissOnOverlayPress: false,
+    onBeforeClose: async (extra) => {
+      if (
+        dialogProps.onBeforeClose &&
+        !(await dialogProps.onBeforeClose(extra))
+      )
+        return false;
+      if (!(await confirmPrimeTransferImportExit(intl, taskUUID))) return false;
+      if (taskUUID) {
+        await backgroundApiProxy.servicePrimeTransfer.resetImportProgress({
+          taskUUID,
+        });
+      }
+      return true;
+    },
   });
 }

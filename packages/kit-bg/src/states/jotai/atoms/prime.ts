@@ -2,6 +2,7 @@
 import { cloneDeep } from 'lodash';
 
 import type { IPrimeGiftEligibility } from '@onekeyhq/shared/types/prime/primeGiftTypes';
+import type { IPrimeTransferNetworkProgress } from '@onekeyhq/shared/types/prime/primeTransferNetworkTypes';
 import type {
   IPrimeServerUserInfo,
   IPrimeUserInfo,
@@ -196,7 +197,9 @@ export type IPrimeTransferAtomData = {
       }
     | undefined;
   importCurrentCreatingTarget?: string;
+  networkProgress?: IPrimeTransferNetworkProgress;
   importProgress?: {
+    taskUUID?: string;
     totalDetailInfo?: IPrimeTransferImportProgressTotalDetailInfo;
     total: number;
     current: number;

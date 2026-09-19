@@ -5223,6 +5223,7 @@ export enum ETranslations {
   transfer_transfer_verify_passcode_desc = 'transfer.transfer_verify_passcode_desc',
   transfer_verify_passcode = 'transfer.verify_passcode',
   transfer_web_only_supports_watch_only_transfer = 'transfer.web_only_supports_watch_only_transfer',
+  transfer_data_too_large__msg = 'transfer_data_too_large__msg',
   transfer_exit_import__desc = 'transfer_exit_import__desc',
   transfer_keep_foreground__desc = 'transfer_keep_foreground__desc',
   transfer_keep_unlocked__desc = 'transfer_keep_unlocked__desc',

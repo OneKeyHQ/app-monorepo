@@ -5218,6 +5218,7 @@
   "transfer.transfer_verify_passcode_desc": "Bitte bestätigen Sie den App-Passcode für das andere Gerät, {deviceName}, um dessen Daten zu entschlüsseln",
   "transfer.verify_passcode": "Passcode überprüfen",
   "transfer.web_only_supports_watch_only_transfer": "Die Web-Version unterstützt nur Übertragungen für Watch-Only-Wallets.",
+  "transfer_data_too_large__msg": "Die Übertragungsdaten sind zu groß ({size}). Das Limit für diese Übertragung beträgt {limit}.",
   "transfer_exit_import__desc": "Das Beenden kann den Import unterbrechen. Bereits importierte Elemente bleiben auf diesem Gerät.",
   "transfer_keep_foreground__desc": "Bitte lassen Sie Ihr Gerät entsperrt und die OneKey App im Vordergrund geöffnet, bis die Übertragung abgeschlossen ist.",
   "transfer_keep_unlocked__desc": "Bitte lassen Sie Ihr Gerät entsperrt und die OneKey App im Vordergrund geöffnet, bis der Import abgeschlossen ist.",

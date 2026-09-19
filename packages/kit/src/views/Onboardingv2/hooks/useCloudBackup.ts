@@ -449,6 +449,7 @@ export function useCloudBackup() {
         isRestoreAction: true,
         intl,
         onSubmit: async (password: string) => {
+          let importTaskUUID: string | undefined;
           // Show progress dialog
           try {
             await cloudBackupExitPreventAtom.set(
@@ -469,11 +470,17 @@ export function useCloudBackup() {
             if (platformEnv.isNative) {
               await timerUtils.wait(350);
             }
+            importTaskUUID =
+              await backgroundApiProxy.servicePrimeTransfer.prepareImportTask();
+            if (!importTaskUUID) return;
             importProcessingDialog = showPrimeTransferImportProcessingDialog({
+              taskUUID: importTaskUUID,
+              intl,
               navigation,
             });
             const result =
               await backgroundApiProxy.serviceCloudBackupV2.restore({
+                taskUUID: importTaskUUID,
                 password,
                 payload,
               });
@@ -493,8 +500,13 @@ export function useCloudBackup() {
             }
             // eslint-disable-next-line no-useless-catch
           } catch (error) {
-            // password error
-            void importProcessingDialog?.close?.();
+            // Failed imports should close without asking the user to cancel them.
+            if (importTaskUUID) {
+              await backgroundApiProxy.servicePrimeTransfer.resetImportProgress(
+                { taskUUID: importTaskUUID },
+              );
+              await importProcessingDialog?.close();
+            }
             throw error;
           } finally {
             setCheckLoading(false);

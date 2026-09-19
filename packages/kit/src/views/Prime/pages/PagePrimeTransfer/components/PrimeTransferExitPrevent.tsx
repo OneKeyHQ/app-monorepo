@@ -4,6 +4,7 @@ import { useKeepAwake } from 'expo-keep-awake';
 import { useIntl } from 'react-intl';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { usePrimeTransferAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/prime';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
@@ -18,14 +19,20 @@ export function PrimeTransferExitPrevent({
   shouldPreventRemove?: boolean;
 }) {
   const intl = useIntl();
+  const [{ importProgress }] = usePrimeTransferAtom();
   const title = intl.formatMessage({
     id: ETranslations.confirm_exit_dialog_title,
   });
   const message = intl.formatMessage({
-    id: ETranslations.confirm_exit_dialog_desc,
+    id: importProgress?.isImporting
+      ? ETranslations.transfer_exit_import__desc
+      : ETranslations.confirm_exit_dialog_desc,
   });
 
   const onConfirmCallback = useCallback(async () => {
+    if (importProgress?.isImporting) {
+      await backgroundApiProxy.servicePrimeTransfer.resetImportProgress();
+    }
     try {
       await backgroundApiProxy.servicePrimeTransfer.clearSensitiveData();
     } catch (error) {
@@ -42,7 +49,7 @@ export function PrimeTransferExitPrevent({
     } catch (error) {
       console.error('onConfirmCallback refreshQrcodeHook error', error);
     }
-  }, []);
+  }, [importProgress?.isImporting]);
 
   // Prevents screen locking during transfer
   useKeepAwake();

@@ -5218,6 +5218,7 @@
   "transfer.transfer_verify_passcode_desc": "Vui lòng xác minh mật mã ứng dụng của thiết bị khác, {deviceName}, để giải mã dữ liệu",
   "transfer.verify_passcode": "Xác minh mã bảo mật",
   "transfer.web_only_supports_watch_only_transfer": "Trên web chỉ hỗ trợ chuyển dữ liệu cho ví chỉ xem.",
+  "transfer_data_too_large__msg": "Dữ liệu truyền quá lớn ({size}). Giới hạn cho lần truyền này là {limit}.",
   "transfer_exit_import__desc": "Thoát có thể làm gián đoạn quá trình nhập. Các mục đã nhập sẽ vẫn được giữ trên thiết bị này.",
   "transfer_keep_foreground__desc": "Vui lòng giữ thiết bị ở trạng thái mở khóa và giữ ứng dụng OneKey mở ở phía trước cho đến khi truyền xong.",
   "transfer_keep_unlocked__desc": "Vui lòng giữ thiết bị mở khóa và mở ứng dụng OneKey ở chế độ nền trước cho đến khi quá trình nhập hoàn tất.",

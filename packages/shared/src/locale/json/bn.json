@@ -5218,6 +5218,7 @@
   "transfer.transfer_verify_passcode_desc": "অন্য ডিভাইস {deviceName}-এর ডেটা ডিক্রিপ্ট করতে তার অ্যাপ পাসকোড যাচাই করুন।",
   "transfer.verify_passcode": "পাসকোড যাচাই করুন",
   "transfer.web_only_supports_watch_only_transfer": "ওয়েব শুধুমাত্র Watch-Only ওয়ালেট থেকে ট্রান্সফার সমর্থন করে।",
+  "transfer_data_too_large__msg": "ট্রান্সফারের ডেটার আকার খুব বড় ({size})। এই ট্রান্সফারের সীমা {limit}।",
   "transfer_exit_import__desc": "বেরিয়ে গেলে আমদানি বাধাগ্রস্ত হতে পারে। ইতিমধ্যে আমদানি করা আইটেম এই ডিভাইসে থাকবে।",
   "transfer_keep_foreground__desc": "স্থানান্তর সম্পূর্ণ না হওয়া পর্যন্ত আপনার ডিভাইস আনলক রাখুন এবং OneKey অ্যাপটি সামনে খোলা রাখুন।",
   "transfer_keep_unlocked__desc": "আমদানি সম্পূর্ণ না হওয়া পর্যন্ত আপনার ডিভাইস আনলক রাখুন এবং OneKey App সামনে খোলা রাখুন।",

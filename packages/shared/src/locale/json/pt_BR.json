@@ -5218,6 +5218,7 @@
   "transfer.transfer_verify_passcode_desc": "Verifique a senha do app do outro dispositivo, {deviceName}, para descriptografar seus dados",
   "transfer.verify_passcode": "Verificar código de acesso",
   "transfer.web_only_supports_watch_only_transfer": "A versão web só oferece suporte a transferências para carteiras Watch-Only.",
+  "transfer_data_too_large__msg": "Os dados a transferir são muito grandes ({size}). O limite para esta transferência é {limit}.",
   "transfer_exit_import__desc": "Sair pode interromper a importação. Os itens já importados permanecerão neste dispositivo.",
   "transfer_keep_foreground__desc": "Mantenha o dispositivo desbloqueado e o aplicativo OneKey aberto em primeiro plano até a transferência ser concluída.",
   "transfer_keep_unlocked__desc": "Mantenha o dispositivo desbloqueado e o aplicativo OneKey aberto em primeiro plano até a importação ser concluída.",

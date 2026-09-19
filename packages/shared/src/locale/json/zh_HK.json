@@ -5218,6 +5218,7 @@
   "transfer.transfer_verify_passcode_desc": "請驗證另一部裝置 {deviceName} 嘅 App 解鎖密碼，以解密裝置資料",
   "transfer.verify_passcode": "驗證密碼",
   "transfer.web_only_supports_watch_only_transfer": "Web 端僅支援 Watch-Only 錢包傳輸",
+  "transfer_data_too_large__msg": "傳輸資料過大（{size}），本次傳輸上限為 {limit}。",
   "transfer_exit_import__desc": "退出可能中斷匯入，已匯入的內容將保留在此裝置上。",
   "transfer_keep_foreground__desc": "請保持裝置解鎖，並保持 OneKey App 處於前景，直到傳輸完成。",
   "transfer_keep_unlocked__desc": "請保持裝置解鎖，並讓 OneKey App 在前景運行，直到匯入完成。",
