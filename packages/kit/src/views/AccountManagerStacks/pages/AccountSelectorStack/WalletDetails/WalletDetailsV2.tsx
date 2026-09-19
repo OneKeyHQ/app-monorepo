@@ -69,7 +69,7 @@ import {
   AccountSelectorMenuActionV2,
 } from './AccountSelectorActionV2';
 import { preloadAccountSelectorAvatarImages } from './accountSelectorAvatarPreload';
-import { EmptyView } from './EmptyView';
+import { EmptyNoAccountsView, EmptyView } from './EmptyView';
 import { useAddAccount } from './hooks/useAddAccount';
 import { useAccountSelectorValuesLoaderV2 } from './useAccountSelectorValuesLoaderV2';
 import { WalletDetailsHeader } from './WalletDetailsHeader';
@@ -341,6 +341,15 @@ function WalletDetailsViewV2({ num }: IWalletDetailsProps) {
     });
     return sectionDataFiltered;
   }, [sectionDataOriginal, searchText, accountAddressMap, addressMapLoading]);
+  // NativeList action titles are single-line, so empty-section messages are
+  // rendered by React above the list where they can wrap.
+  const emptySections = useMemo(
+    () =>
+      sectionData.filter(
+        (section) => !section.data.length && !!section.emptyText,
+      ),
+    [sectionData],
+  );
 
   // Load account values asynchronously in batches via atoms, scoped by selector num
   useAccountSelectorValuesLoaderV2({
@@ -433,7 +442,8 @@ function WalletDetailsViewV2({ num }: IWalletDetailsProps) {
   const generation = generationRef.current;
   const snapshot = useMemo<NativeListSnapshot>(() => {
     const rows: RowModel[] = [];
-    if (isDeprecatedWallet) {
+    // With an empty-section message, React renders the warning above it.
+    if (isDeprecatedWallet && !emptySections.length) {
       rows.push({
         type: 'system',
         variant: 'warning',
@@ -451,18 +461,6 @@ function WalletDetailsViewV2({ num }: IWalletDetailsProps) {
     }
     const byId = new Map(accountRows.map((row) => [row.key, row]));
     sectionData.forEach((section, sectionIndex) => {
-      if (!section.data.length && section.emptyText) {
-        rows.push({
-          type: 'action',
-          key: `empty:${sectionIndex}`,
-          presentation: 'accountSelector',
-          tone: 'primary',
-          title: section.emptyText,
-          actionKey: 'empty',
-          pressDisabled: true,
-          height: 56,
-        });
-      }
       section.data.forEach((item) => {
         const row = byId.get(item.id);
         if (row) rows.push(row);
@@ -510,6 +508,7 @@ function WalletDetailsViewV2({ num }: IWalletDetailsProps) {
   }, [
     appTheme,
     isDeprecatedWallet,
+    emptySections.length,
     accountRows,
     sectionData,
     isEditableRouteParams,
@@ -582,6 +581,7 @@ function WalletDetailsViewV2({ num }: IWalletDetailsProps) {
   const candidateList = useMemo(
     () => ({
       editable,
+      emptySections,
       focusedWalletInfo,
       hasData: sectionData.length > 0,
       hasResolved,
@@ -599,6 +599,7 @@ function WalletDetailsViewV2({ num }: IWalletDetailsProps) {
     }),
     [
       editable,
+      emptySections,
       focusedWalletInfo,
       hasResolved,
       initialScrollKey,
@@ -926,6 +927,15 @@ function WalletDetailsViewV2({ num }: IWalletDetailsProps) {
               </Button>
             ) : null}
           </Stack>
+        ) : null}
+        {!presentedList.isMockedStandardHwWallet &&
+        presentedList.emptySections.length ? (
+          <>
+            {deprecatedAlert}
+            {presentedList.emptySections.map((section) => (
+              <EmptyNoAccountsView key={section.walletId} section={section} />
+            ))}
+          </>
         ) : null}
         <Stack
           display={presentedList.isMockedStandardHwWallet ? 'none' : 'flex'}
