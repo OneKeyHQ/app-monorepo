@@ -42,7 +42,11 @@ import { useNetworkAnalytics, useTabAnalytics } from './hooks';
 import { DesktopLayout } from './layouts/DesktopLayout';
 import { shouldRestoreSpotCategoryFromAtom } from './layouts/marketTabSelectionGuards';
 import { MobileLayout } from './layouts/MobileLayout';
-import { ensureMarketTopCoinsCategory, isMarketStockCategory } from './utils';
+import {
+  ensureMarketTopCoinsCategory,
+  getMarketHomeFallbackSpotCategories,
+  isMarketStockCategory,
+} from './utils';
 
 import type { ITimeRangeSelectorValue } from './components/TimeRangeSelector';
 import type { ILiquidityFilter, IMarketCategoryItem } from './types';
@@ -147,14 +151,12 @@ const useMarketHomeLayoutProps = () => {
       );
     }
 
-    // Fallback before API responds
+    // Fallback before API responds: keep Stocks / Robinhood tab identities so
+    // their list components still mount under a weak or offline config fetch.
     return ensureMarketTopCoinsCategory(
-      [
-        {
-          id: 'trending',
-          name: intl.formatMessage({ id: ETranslations.dexmarket_trending }),
-        },
-      ],
+      getMarketHomeFallbackSpotCategories((descriptor) =>
+        intl.formatMessage(descriptor),
+      ),
       intl.formatMessage({ id: ETranslations.market_top_coins }),
     );
   }, [apiSpotCategories, intl]);
