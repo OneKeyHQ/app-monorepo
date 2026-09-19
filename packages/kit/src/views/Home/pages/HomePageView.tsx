@@ -931,7 +931,18 @@ export function HomePageView({
         renderSubHeader={renderSubHeader}
       >
         {pagerTabConfigs.map((tab) => (
-          <Tabs.Tab key={tab.name} name={tab.name}>
+          <Tabs.Tab
+            key={tab.name}
+            name={tab.name}
+            // The native pager mounts a pane only on its first focus, so after
+            // an account switch remounts this container with another tab
+            // active, nothing would fetch the new owner's tokens and the
+            // header (worth, WalletActions, banner) would stay on `unknown`
+            // until the user opens the wallet tab (OK-63721). The wallet
+            // pane owns that data, so it mounts eagerly (and frozen, see
+            // FreezeInactiveHomeTab); other panes keep mounting lazily.
+            startMounted={tab.id === EHomeWalletTab.Portfolio}
+          >
             <FreezeInactiveHomeTab
               tabName={tab.name}
               pressedTabName={activeTabName}
