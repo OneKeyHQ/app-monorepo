@@ -5,6 +5,7 @@ import {
   COMPACT_SPOT_HIDDEN_DESKTOP_COLUMNS,
   ensureMarketTopCoinsCategory,
   getMarketCategoryTooltipId,
+  getMarketHomeFallbackSpotCategories,
   isMarketStockCategory,
   isMarketStockCategoryById,
   isTrendingStyleSpotCategory,
@@ -440,6 +441,14 @@ describe('Market Stock Category Detection Tests', () => {
 });
 
 describe('Top Coins Category Fallback Tests', () => {
+  test('keeps Stocks and Robinhood tab identities before config arrives', () => {
+    expect(getMarketHomeFallbackSpotCategories(({ id }) => id)).toEqual([
+      { id: 'trending', name: ETranslations.dexmarket_trending },
+      { id: 'stocks', name: ETranslations.perps_token_selector_stocks },
+      { id: 'robinhood_meme', name: 'Robinhood' },
+    ]);
+  });
+
   test('appends Top Coins after the spot categories', () => {
     // The tab strip runs Favorites, Trending, Stocks, Top coins, Perps, and
     // Perps is appended after every spot category.

@@ -20629,6 +20629,7 @@
     "packages/kit/src/views/AccountManagerStacks/pages/AccountSelectorStack/WalletDetails/AccountSelectorActionV2.tsx": 3387,
     "packages/kit/src/views/AccountManagerStacks/pages/AccountSelectorStack/WalletDetails/AccountSelectorAddAccountButton.tsx": 16325,
     "packages/kit/src/views/AccountManagerStacks/pages/AccountSelectorStack/WalletDetails/AccountValue.tsx": 5698,
+    "packages/kit/src/views/AccountManagerStacks/pages/AccountSelectorStack/WalletDetails/DeprecatedWalletBanner.tsx": 16307,
     "packages/kit/src/views/AccountManagerStacks/pages/AccountSelectorStack/WalletDetails/EmptyView.tsx": 20181,
     "packages/kit/src/views/AccountManagerStacks/pages/AccountSelectorStack/WalletDetails/WalletDetailsHeader/AccountSearchBar.tsx": 3095,
     "packages/kit/src/views/AccountManagerStacks/pages/AccountSelectorStack/WalletDetails/WalletDetailsHeader/index.tsx": 20302,
