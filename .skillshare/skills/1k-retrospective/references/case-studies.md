@@ -585,3 +585,10 @@ Cases are appended by AI after each bug fix. Do NOT reorder or delete entries �
 **Fix**: Persist `basic-config` on every platform, drop failed memoizee entries, keep Stocks / Robinhood tab identities in the cold fallback, and show Retry on token-list empty errors.
 **Catchable by**: Section 4: edge cases loading vs empty; NEW — a remote-driven tab strip must not drop tab identities while its config request is pending or failed
 
+## Case: Pinned TradingView release reused pre-pin CacheStorage
+**Date**: 2026-09-18 | **Platforms**: Web
+**Symptom**: WEB-01 pinned the chart embed trust root in the app build, but a client that had already cached a malicious asset under `onekey-tradingview-embed:${version}` could still execute those bytes after upgrade.
+**Root Cause**: The new worker kept the same CacheStorage namespace. `openTradingViewBootstrapCache()` looked for markers at the versioned `embed-manifest.json` URL, missed the old `/embed/latest.json` marker, and did not reset. `cacheTradingViewAssets()` then skipped integrity checks on cache hits.
+**Fix**: Move pinned/current caches to `onekey-tradingview-embed-pin-v1:`, delete the legacy `onekey-tradingview-embed:` namespace when adopting a release, and regression-test that a poisoned legacy entry is not served.
+**Catchable by**: Section 4: implementation matches original requirement — a trust-root change must also rotate or re-verify the persistent cache that will execute those bytes
+
