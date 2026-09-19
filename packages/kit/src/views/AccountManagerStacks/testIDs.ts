@@ -44,6 +44,10 @@ export const AccountManagerTestIDs = {
   walletRemoveButton: 'account-manager-wallet-remove-button',
   walletRemoveConfirm: 'account-manager-wallet-remove-confirm',
 
+  // Deprecated wallet banner (device was reset)
+  deprecatedWalletPrimaryButton: 'account-manager-deprecated-wallet-primary',
+  deprecatedWalletRemoveButton: 'account-manager-deprecated-wallet-remove',
+
   // Bot wallet manager
   botWalletVisibilityToggleBtn: 'bot-wallet-manager-visibility-toggle-btn',
   botWalletExportMnemonicBtn: 'bot-wallet-manager-export-mnemonic-btn',

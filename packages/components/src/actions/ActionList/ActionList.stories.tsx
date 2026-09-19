@@ -129,6 +129,11 @@ type Story = StoryObj<typeof meta>;
 
 export const Playground: Story = {};
 
+// Never settles, so the skeleton rows stay under the real items for comparison.
+export const Loading: Story = {
+  args: { renderItemsAsync: () => new Promise(() => {}) },
+};
+
 export const WithSections: Story = {
   args: { items: undefined, sections: MANAGE_SECTIONS },
 };

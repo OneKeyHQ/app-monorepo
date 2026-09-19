@@ -489,7 +489,6 @@ export function useMarketTokenList({
         );
       } catch (error) {
         if (
-          platformEnv.isNative &&
           currentQueryKeyRef.current === requestQueryKey &&
           firstPageRequestSequenceRef.current === requestSequence
         ) {
@@ -529,7 +528,7 @@ export function useMarketTokenList({
         return undefined;
       }
       if (
-        platformEnv.isNative &&
+        currentQueryKeyRef.current === requestQueryKey &&
         firstPageRequestSequenceRef.current === requestSequence
       ) {
         setErrorQueryKey(undefined);
@@ -984,7 +983,7 @@ export function useMarketTokenList({
 
   const refetch = useCallback(() => {
     // A user refresh or Retry must reach the server even if a cached request failed.
-    forceRemoteFirstPageRef.current = Boolean(platformEnv.isNative);
+    forceRemoteFirstPageRef.current = true;
     return fetchMarketTokenList();
   }, [fetchMarketTokenList]);
 
