@@ -177,6 +177,37 @@ describe('account V2 formatting invalidation', () => {
     expect(format).toHaveBeenCalledTimes(1);
   });
 
+  it('never replaces a displayed text with an item that has no stored value', () => {
+    const getRows = createAccountSelectorValueRowsV2();
+    const input = fixture(2);
+    // What the service returns on a storage miss or a failed read.
+    const stub = (accountId: string) => ({
+      accountId,
+      value: undefined,
+      currency: undefined,
+    });
+
+    const result = getRows({
+      ...input,
+      accountValues: {
+        'account-0': stub('account-0'),
+        'account-1': stub('account-1'),
+      },
+      displayedValues: {
+        'account-0': { text: '$4.20', tone: 'secondary' as const },
+      },
+    });
+    expect(result.rows.map((row) => row.subtitleSegments?.[0])).toEqual([
+      { text: '$4.20', tone: 'secondary' },
+      { text: '--', tone: 'disabled' },
+    ]);
+    // Without a displayed text the placeholder is final, not pending.
+    expect(result.sources).toEqual({
+      'account-0': 'displayed',
+      'account-1': 'live',
+    });
+  });
+
   it('keeps the displayed text while wallet networks are unresolved in all-network mode', () => {
     const getRows = createAccountSelectorValueRowsV2();
     const input = fixture(2);

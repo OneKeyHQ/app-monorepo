@@ -54,8 +54,9 @@ export function formatAccountSelectorValueV2({
   targetCurrency,
   hideValue,
 }: IAccountValueV2): SelectorTextSegment | undefined {
-  if (!accountValue?.currency)
-    return { text: hideValue ? '****' : '--', tone: 'disabled' };
+  // A stub item (no stored value, or a failed read) carries no balance, so it
+  // must not replace the text the row last displayed.
+  if (!accountValue?.currency) return undefined;
   const resolved =
     activeAccountValue?.accountId === accountValue.accountId
       ? activeAccountValue

@@ -26,6 +26,7 @@ import {
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { INetworkDeriveInfo } from '@onekeyhq/kit-bg/src/vaults/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
@@ -38,6 +39,7 @@ import { accountSelectorAccountVisualV2 } from '../accountSelectorNativeListV2';
 import {
   mergeAccountSelectorValueDisplayRowsV2,
   readAccountSelectorValueDisplayRowsV2,
+  writeAccountSelectorValueDisplayCacheV2,
 } from './accountSelectorValueDisplayCacheV2';
 import { createAccountSelectorValueRowsV2 } from './accountSelectorValueRowsV2';
 
@@ -313,23 +315,30 @@ export function useAccountSelectorAccountRowsV2({
   const accountValues = valuesMap[num];
   const skipValues = !!(platformEnv.isWebDappMode || platformEnv.isE2E);
   const hideValue = !!settingsValue.hideValue;
-  // Read once per wallet: it only fills rows until their live values land.
-  const valueDisplayCache = useMemo(
-    () =>
-      valueDisplayCacheKey && !skipValues
-        ? swrCacheUtils.get<unknown>(valueDisplayCacheKey)
-        : undefined,
-    [valueDisplayCacheKey, skipValues],
-  );
+  // Value texts are formatted in the app locale; changing it restarts the app.
+  const valueLocale = appLocale.intl.locale;
+  // Read when the wallet or scope changes, not on every write: these texts
+  // only fill rows until their live values land, and this view may have
+  // written the scope since it last read the entry.
   const displayedValues = useMemo(
     () =>
-      readAccountSelectorValueDisplayRowsV2({
-        cache: valueDisplayCache,
-        scopeKey: valueDisplayScopeKey,
-        currency: currencyInfo.id,
-        hideValue,
-      }),
-    [valueDisplayCache, valueDisplayScopeKey, currencyInfo.id, hideValue],
+      valueDisplayCacheKey && !skipValues
+        ? readAccountSelectorValueDisplayRowsV2({
+            cache: swrCacheUtils.get<unknown>(valueDisplayCacheKey),
+            scopeKey: valueDisplayScopeKey,
+            currency: currencyInfo.id,
+            locale: valueLocale,
+            hideValue,
+          })
+        : undefined,
+    [
+      valueDisplayCacheKey,
+      valueDisplayScopeKey,
+      skipValues,
+      currencyInfo.id,
+      valueLocale,
+      hideValue,
+    ],
   );
   const { rows, sources } = useMemo(
     () =>
@@ -392,11 +401,13 @@ export function useAccountSelectorAccountRowsV2({
       cache: swrCacheUtils.get<unknown>(valueDisplayCacheKey),
       scopeKey: valueDisplayScopeKey,
       currency: currencyInfo.id,
+      locale: valueLocale,
       accountIds: rows.map((row) => row.key),
       liveRows,
       now: Date.now(),
     });
-    if (next) swrCacheUtils.set(valueDisplayCacheKey, next);
+    if (next)
+      writeAccountSelectorValueDisplayCacheV2(valueDisplayCacheKey, next);
   }, [
     currencyInfo.id,
     hideValue,
@@ -406,6 +417,7 @@ export function useAccountSelectorAccountRowsV2({
     sources,
     valueDisplayCacheKey,
     valueDisplayScopeKey,
+    valueLocale,
     valuesLoaded,
   ]);
   // Every row in [start, start + count) shows a balance (live or last

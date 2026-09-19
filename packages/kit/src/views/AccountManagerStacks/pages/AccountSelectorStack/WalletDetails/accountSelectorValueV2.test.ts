@@ -108,6 +108,19 @@ describe('account selector V2 values', () => {
     ).toEqual({ text: '$4.00', tone: 'secondary' });
   });
 
+  it('does not compute a balance from an item without a stored value', () => {
+    expect(
+      formatAccountSelectorValueV2({
+        ...defaults,
+        accountValue: {
+          accountId: 'account-1',
+          value: undefined,
+          currency: undefined,
+        },
+      }),
+    ).toBeUndefined();
+  });
+
   it('defers wallet-scoped totals until the wallet networks are resolved', () => {
     const params = {
       ...defaults,

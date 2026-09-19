@@ -179,6 +179,15 @@ export async function loadAccountSelectorValuesV2(
       sliceStarted = now();
     }
   }
+  // A failed last publication has no later one to carry its results: retry
+  // once, and do not report the load as complete if that fails too.
+  if (hasPending) {
+    try {
+      await publish();
+    } catch (_error) {
+      return false;
+    }
+  }
   return !isCancelled();
 }
 

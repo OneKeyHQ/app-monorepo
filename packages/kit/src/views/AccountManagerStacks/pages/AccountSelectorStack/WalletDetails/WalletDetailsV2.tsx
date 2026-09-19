@@ -457,7 +457,8 @@ function WalletDetailsViewV2({ num }: IWalletDetailsProps) {
     valuesLoaded,
   });
   const listIdentity = `${focusedWalletInfo?.wallet?.id ?? ''}:${linkedNetworkId ?? ''}:${usedDeriveType ?? ''}:${searchText}`;
-  const presentationScope = `${focusedWalletInfo?.wallet?.id ?? ''}:${linkedNetworkId ?? ''}:${usedDeriveType ?? ''}`;
+  // Everything that changes the list or its balances, not only the wallet.
+  const presentationScope = `${focusedWalletInfo?.wallet?.id ?? ''}:${valueDisplayScopeKey}`;
   const identityRef = useRef(listIdentity);
   const generationRef = useRef(1);
   if (identityRef.current !== listIdentity) {

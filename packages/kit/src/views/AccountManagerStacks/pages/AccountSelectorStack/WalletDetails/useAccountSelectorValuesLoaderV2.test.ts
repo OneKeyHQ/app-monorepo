@@ -202,6 +202,47 @@ describe('account V2 balance scheduling', () => {
     ).resolves.toBe(false);
   });
 
+  it('retries a failed last publication once before reporting the load', async () => {
+    // Atom writes in order: the prune, the only publication, its retry.
+    const withFailedWrites = (failedWrites: number[]) => {
+      const deps = dependencies();
+      const { set } = deps.valuesAtom;
+      let write = 0;
+      return {
+        ...deps,
+        valuesAtom: {
+          ...deps.valuesAtom,
+          set: jest.fn(async (update: Parameters<typeof set>[0]) => {
+            write += 1;
+            if (failedWrites.includes(write)) {
+              throw new OneKeyLocalError('bridge closed');
+            }
+            await set(update);
+          }),
+        },
+      };
+    };
+
+    const recovered = withFailedWrites([2]);
+    await expect(
+      loadAccountSelectorValuesV2(
+        { num: 0, accountsForValuesQuery: accounts(10) },
+        recovered,
+      ),
+    ).resolves.toBe(true);
+    expect(recovered.valuesAtom.set).toHaveBeenCalledTimes(3);
+    expect(Object.keys(recovered.valuesAtom.read()[0] ?? {})).toHaveLength(10);
+
+    const failed = withFailedWrites([2, 3]);
+    await expect(
+      loadAccountSelectorValuesV2(
+        { num: 0, accountsForValuesQuery: accounts(10) },
+        failed,
+      ),
+    ).resolves.toBe(false);
+    expect(failed.valuesAtom.set).toHaveBeenCalledTimes(3);
+  });
+
   it('drops cancelled responses and keeps concurrent selector nums isolated', async () => {
     const deps = dependencies();
     let cancelled = false;

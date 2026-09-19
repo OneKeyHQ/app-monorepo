@@ -134,7 +134,9 @@ export function createAccountSelectorValueRowsV2(
             text: nextContext.hideValue ? '****' : '--',
             tone: 'disabled',
           };
-          source = 'pending';
+          // An item loaded without a stored value will not get a balance, so
+          // its placeholder is final; it just never replaces a displayed text.
+          source = accountValue && !accountValue.currency ? 'live' : 'pending';
         }
       }
       sources[row.key] = source;
