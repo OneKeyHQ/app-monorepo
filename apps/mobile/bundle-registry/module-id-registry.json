@@ -18970,6 +18970,7 @@
     "packages/kit-bg/src/services/ServiceHyperLiquid/hyperLiquidApiClients.ts": 907,
     "packages/kit-bg/src/services/ServiceHyperLiquid/hyperLiquidCache.ts": 17780,
     "packages/kit-bg/src/services/ServiceHyperLiquid/marketPerpsUniverse.ts": 8348,
+    "packages/kit-bg/src/services/ServiceHyperLiquid/referrerCodeBinding.ts": 12746,
     "packages/kit-bg/src/services/ServiceHyperLiquid/usdcWithdrawRoute.ts": 10211,
     "packages/kit-bg/src/services/ServiceHyperLiquid/userAbstractionCache.ts": 14862,
     "packages/kit-bg/src/services/ServiceHyperLiquid/userAbstractionMode.ts": 14035,

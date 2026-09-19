@@ -31,7 +31,6 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
-import { captureException } from '@onekeyhq/shared/src/modules3rdParty/sentry';
 import {
   markPerpsColdStartPerf,
   markPerpsColdStartPerfOnce,
@@ -3575,13 +3574,23 @@ export default class ServiceHyperliquid extends ServiceBase {
         },
         setReferrerCode: (code) =>
           this.exchangeService.setReferrerCode({ code }),
-        onFailure: (error) => {
+        onFailure: async (error) => {
           void logHyperLiquidApiFailure({
             endpoint: 'exchange',
             action: 'setReferrer',
             error,
             extra: { source: 'deferredReferrerBinding' },
           });
+          if (
+            error &&
+            typeof error === 'object' &&
+            'name' in error &&
+            error.name === 'ApiRequestError'
+          ) {
+            return;
+          }
+          const { captureException } =
+            await import('@onekeyhq/shared/src/modules3rdParty/sentry');
           captureException(error);
         },
       });
