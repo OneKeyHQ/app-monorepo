@@ -230,6 +230,191 @@ function flushInboundCensus(windowMs: number) {
   inboundByName.clear();
 }
 
+// ---- DIAGNOSTIC BRANCH ONLY: React / weak-ref / timer census ---------------
+//
+// Reads the counters the mobile entry installs on `__ONEKEY_DIAG_CENSUS__`.
+// A commit is only counted when it happens; at most one commit per
+// DIAG_SAMPLE_GAP_MS is walked to see which components rendered, following
+// only the paths React marked as having performed work. The full tree is
+// walked once per window, to count what is mounted.
+
+const DIAG_SAMPLE_GAP_MS = 200;
+const DIAG_TOP = 12;
+const DIAG_MAX_WALK = 400_000;
+const PERFORMED_WORK = 1;
+// FunctionComponent, ClassComponent, ForwardRef, MemoComponent, SimpleMemo.
+const COMPOSITE_TAGS = new Set([0, 1, 11, 14, 15]);
+
+type IDiagFiber = {
+  tag: number;
+  flags: number;
+  subtreeFlags: number;
+  type: unknown;
+  child: IDiagFiber | null;
+  sibling: IDiagFiber | null;
+};
+
+type IDiagCensus = {
+  commits: number;
+  unmounts: number;
+  roots: Set<{ current: IDiagFiber | null }>;
+  onCommit?: (root: { current: IDiagFiber | null }) => void;
+  weakMapSets: number;
+  weakMapNewKeys: number;
+  weakSetAdds: number;
+  weakRefs: number;
+  finalizers: number;
+  intervalsLive: Set<unknown>;
+  intervalsCreated: number;
+  timeoutsScheduled: number;
+};
+
+function getDiagCensus(): IDiagCensus | undefined {
+  return (globalThis as { __ONEKEY_DIAG_CENSUS__?: IDiagCensus })
+    .__ONEKEY_DIAG_CENSUS__;
+}
+
+function nameOf(candidate: unknown): string | undefined {
+  if (typeof candidate === 'function') {
+    const fn = candidate as { displayName?: string; name?: string };
+    return fn.displayName || fn.name || undefined;
+  }
+  return undefined;
+}
+
+function diagFiberName(fiber: IDiagFiber): string {
+  const { type } = fiber;
+  const direct = nameOf(type);
+  if (direct) return direct;
+  if (type && typeof type === 'object') {
+    const wrapper = type as {
+      displayName?: string;
+      render?: unknown;
+      type?: unknown;
+    };
+    if (wrapper.displayName) return wrapper.displayName;
+    const inner = wrapper.render ?? wrapper.type;
+    const innerName = nameOf(inner);
+    if (innerName) return innerName;
+    if (inner && typeof inner === 'object') {
+      const nested = inner as { render?: unknown; type?: unknown };
+      const nestedName = nameOf(nested.render ?? nested.type);
+      if (nestedName) return nestedName;
+    }
+  }
+  return '(anonymous)';
+}
+
+let diagSampledCommits = 0;
+let diagRenderedFibers = 0;
+let diagLastSampleAt = 0;
+const diagRenderedByName = new Map<string, number>();
+
+function sampleRenderedFibers(root: { current: IDiagFiber | null }) {
+  const now = perfNow();
+  if (now - diagLastSampleAt < DIAG_SAMPLE_GAP_MS) {
+    return;
+  }
+  diagLastSampleAt = now;
+  diagSampledCommits += 1;
+  const stack: Array<IDiagFiber | null> = [root.current];
+  let visited = 0;
+  while (stack.length > 0 && visited < DIAG_MAX_WALK) {
+    const fiber = stack.pop();
+    if (fiber) {
+      visited += 1;
+      if (
+        (fiber.flags & PERFORMED_WORK) !== 0 &&
+        COMPOSITE_TAGS.has(fiber.tag)
+      ) {
+        diagRenderedFibers += 1;
+        const name = diagFiberName(fiber);
+        diagRenderedByName.set(name, (diagRenderedByName.get(name) ?? 0) + 1);
+      }
+      if (fiber.sibling) stack.push(fiber.sibling);
+      // A subtree React bailed out of keeps stale flags; its ancestor's
+      // subtreeFlags says nothing below rendered, so never descend into it.
+      if (fiber.child && (fiber.subtreeFlags & PERFORMED_WORK) !== 0) {
+        stack.push(fiber.child);
+      }
+    }
+  }
+}
+
+function countMountedFibers(census: IDiagCensus) {
+  let total = 0;
+  let composite = 0;
+  let liveRoots = 0;
+  for (const root of census.roots) {
+    if (!root.current?.child) {
+      // An unmounted root keeps no tree; forget it.
+      census.roots.delete(root);
+    } else {
+      liveRoots += 1;
+      const stack: Array<IDiagFiber | null> = [root.current];
+      while (stack.length > 0 && total < DIAG_MAX_WALK) {
+        const fiber = stack.pop();
+        if (fiber) {
+          total += 1;
+          if (COMPOSITE_TAGS.has(fiber.tag)) composite += 1;
+          if (fiber.sibling) stack.push(fiber.sibling);
+          if (fiber.child) stack.push(fiber.child);
+        }
+      }
+    }
+  }
+  return { total, composite, liveRoots };
+}
+
+function flushDiagCensus(
+  windowMs: number,
+  extra: Record<string, number | undefined> | undefined,
+) {
+  const census = getDiagCensus();
+  if (!census) {
+    return;
+  }
+  const walkStartedAt = perfNow();
+  const mounted = countMountedFibers(census);
+  const walkMs = Math.round(perfNow() - walkStartedAt);
+  defaultLogger.app.perf.diagCensus({
+    windowMs: Math.round(windowMs),
+    accountSwitches: extra?.accountSwitches,
+    commits: census.commits,
+    sampledCommits: diagSampledCommits,
+    renderedFibersSampled: diagRenderedFibers,
+    unmounts: census.unmounts,
+    mountedFibers: mounted.total,
+    mountedComponents: mounted.composite,
+    roots: mounted.liveRoots,
+    walkMs,
+    weakMapSets: census.weakMapSets,
+    weakMapNewKeys: census.weakMapNewKeys,
+    weakSetAdds: census.weakSetAdds,
+    weakRefs: census.weakRefs,
+    finalizers: census.finalizers,
+    intervalsLive: census.intervalsLive.size,
+    intervalsCreated: census.intervalsCreated,
+    timeoutsScheduled: census.timeoutsScheduled,
+    topRendered: [...diagRenderedByName]
+      .toSorted((left, right) => right[1] - left[1])
+      .slice(0, DIAG_TOP)
+      .map(([name, count]) => ({ name, count })),
+  });
+  census.commits = 0;
+  census.unmounts = 0;
+  census.weakMapSets = 0;
+  census.weakMapNewKeys = 0;
+  census.weakSetAdds = 0;
+  census.weakRefs = 0;
+  census.finalizers = 0;
+  census.intervalsCreated = 0;
+  census.timeoutsScheduled = 0;
+  diagSampledCommits = 0;
+  diagRenderedFibers = 0;
+  diagRenderedByName.clear();
+}
+
 let healthTimer: ReturnType<typeof setInterval> | null = null;
 
 export function startRuntimeHealthCensus({
@@ -240,6 +425,10 @@ export function startRuntimeHealthCensus({
   getExtra?: () => Record<string, number | undefined>;
 } = {}) {
   if (healthTimer) return;
+  const diagCensus = getDiagCensus();
+  if (diagCensus) {
+    diagCensus.onCommit = sampleRenderedFibers;
+  }
   let last = perfNow();
   let windowStartedAt = last;
   let ticks = 0;
@@ -312,6 +501,7 @@ export function startRuntimeHealthCensus({
     };
     defaultLogger.app.perf.runtimeHealthCensus(report);
     flushInboundCensus(report.windowMs);
+    flushDiagCensus(report.windowMs, report);
 
     windowStartedAt = now;
     countersAtWindowStart = counters;

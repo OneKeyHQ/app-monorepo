@@ -18,6 +18,121 @@ type IAppModule = typeof import('./App');
   }
 ).__ONEKEY_RUNTIME_KIND__ = 'main';
 
+// ── DIAGNOSTIC BRANCH ONLY: never merge ─────────────────────────────────────
+// Counters for the main-runtime GC investigation. Installed before anything
+// else loads, so the React renderer finds the hook when it initializes and
+// every WeakMap / WeakRef / timer user goes through the counting wrappers.
+// The collector reads `__ONEKEY_DIAG_CENSUS__` once per census window.
+(() => {
+  /* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-argument, @typescript-eslint/unbound-method, no-extend-native, func-names */
+  const g = globalThis as any;
+  const census = {
+    commits: 0,
+    unmounts: 0,
+    roots: new Set<any>(),
+    onCommit: undefined as undefined | ((root: any) => void),
+    weakMapSets: 0,
+    weakMapNewKeys: 0,
+    weakSetAdds: 0,
+    weakRefs: 0,
+    finalizers: 0,
+    intervalsLive: new Set<any>(),
+    intervalsCreated: 0,
+    timeoutsScheduled: 0,
+  };
+  g.__ONEKEY_DIAG_CENSUS__ = census;
+
+  // The production renderer reports every commit to this hook when it exists
+  // at the time the renderer module is evaluated; each call is wrapped in a
+  // try/catch on React's side.
+  if (!g.__REACT_DEVTOOLS_GLOBAL_HOOK__) {
+    g.__REACT_DEVTOOLS_GLOBAL_HOOK__ = {
+      supportsFiber: true,
+      isDisabled: false,
+      renderers: new Map(),
+      inject: () => 1,
+      onCommitFiberRoot: (_rendererId: number, root: any) => {
+        census.commits += 1;
+        census.roots.add(root);
+        census.onCommit?.(root);
+      },
+      onCommitFiberUnmount: () => {
+        census.unmounts += 1;
+      },
+      onPostCommitFiberRoot: () => undefined,
+      onScheduleFiberRoot: () => undefined,
+      checkDCE: () => undefined,
+      on: () => undefined,
+      off: () => undefined,
+      emit: () => undefined,
+      sub: () => () => undefined,
+    };
+  }
+
+  const weakMapSet = WeakMap.prototype.set;
+  const weakMapHas = WeakMap.prototype.has;
+  WeakMap.prototype.set = function (key: object, value: unknown) {
+    census.weakMapSets += 1;
+    if (!weakMapHas.call(this, key)) {
+      census.weakMapNewKeys += 1;
+    }
+    return weakMapSet.call(this, key, value);
+  };
+  const weakSetAdd = WeakSet.prototype.add;
+  WeakSet.prototype.add = function (value: object) {
+    census.weakSetAdds += 1;
+    return weakSetAdd.call(this, value);
+  };
+  const NativeWeakRef = g.WeakRef;
+  if (typeof NativeWeakRef === 'function') {
+    const CountingWeakRef = function (this: unknown, target: object) {
+      census.weakRefs += 1;
+      return Reflect.construct(
+        NativeWeakRef,
+        [target],
+        new.target || CountingWeakRef,
+      );
+    };
+    CountingWeakRef.prototype = NativeWeakRef.prototype;
+    g.WeakRef = CountingWeakRef;
+  }
+  const NativeFinalizationRegistry = g.FinalizationRegistry;
+  if (typeof NativeFinalizationRegistry === 'function') {
+    const register = NativeFinalizationRegistry.prototype.register;
+    NativeFinalizationRegistry.prototype.register = function (
+      ...args: unknown[]
+    ) {
+      census.finalizers += 1;
+      return register.apply(this, args);
+    };
+  }
+
+  const nativeSetInterval = g.setInterval;
+  const nativeClearInterval = g.clearInterval;
+  const nativeSetTimeout = g.setTimeout;
+  if (
+    typeof nativeSetInterval === 'function' &&
+    typeof nativeClearInterval === 'function' &&
+    typeof nativeSetTimeout === 'function'
+  ) {
+    g.setInterval = (...args: unknown[]) => {
+      const id = nativeSetInterval(...args);
+      census.intervalsCreated += 1;
+      census.intervalsLive.add(id);
+      return id;
+    };
+    g.clearInterval = (id: unknown) => {
+      census.intervalsLive.delete(id);
+      return nativeClearInterval(id);
+    };
+    g.setTimeout = (...args: unknown[]) => {
+      census.timeoutsScheduled += 1;
+      return nativeSetTimeout(...args);
+    };
+  }
+  /* eslint-enable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-argument, @typescript-eslint/unbound-method, no-extend-native, func-names */
+})();
+
 require('@onekeyhq/shared/src/polyfills');
 const { markRuntimePolyfillsReady } =
   require('@onekeyhq/shared/src/polyfills/runtimeCapabilities') as typeof import('@onekeyhq/shared/src/polyfills/runtimeCapabilities');
