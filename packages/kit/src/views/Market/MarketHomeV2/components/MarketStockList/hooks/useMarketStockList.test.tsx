@@ -595,6 +595,21 @@ it('does not replay deep persisted pagination on cold start', async () => {
   expect(fetchList).toHaveBeenCalledTimes(1);
 });
 
+it('persists the first page on desktop so the selector can hydrate', async () => {
+  platformEnv.isNative = false;
+  fetchList.mockResolvedValue(response);
+  const { result } = renderHook(() => useMarketStockList({}));
+  await waitFor(() => expect(result.current.items).toEqual(response.items));
+  const queryKey = JSON.stringify({
+    sortBy: 'marketCap',
+    sortType: 'desc',
+    locale: 'en-US',
+  });
+  expect(swrCacheUtils.get(swrKeys.marketHomeStocks(queryKey))).toMatchObject({
+    response,
+  });
+});
+
 it.each([
   { isNative: false, trigger: 'focus' },
   { isNative: true, trigger: 'focus' },

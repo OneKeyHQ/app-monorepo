@@ -477,4 +477,32 @@ describe('ServiceToken.fetchAccountTokens shared-balance groups (OK-63633)', () 
     expect(result.smallBalanceTokens.fiatValue).toBe('0');
     expect(result.tokens.fiatValue).toBe('1.456131');
   });
+
+  it('counts the ERC-20 row when the selector filter drops its primary', async () => {
+    // The dApp-token filter classifies rows by dappType / dappName /
+    // defiMarked. If it ever removes the primary but keeps the marked row,
+    // the marked row is the only USDC left and must be counted once.
+    const service = buildArcService({
+      tokens: buildArcTokenData([
+        { ...arcNativeUsdc, defiMarked: true },
+        arcErc20Usdc,
+      ]),
+      riskTokens: buildArcTokenData([]),
+      smallBalanceTokens: buildArcTokenData([]),
+    });
+
+    const result = await service.fetchAccountTokens({
+      accountId: "hd-1--m/44'/60'/0'/0/0",
+      networkId: ARC_NETWORK_ID,
+      saveToLocal: false,
+      withoutDappToken: true,
+      withoutWalletToken: false,
+    });
+
+    expect(result.tokens.data.map((t) => t.$key)).toEqual([ARC_ERC20_KEY]);
+    expect(
+      result.tokens.map[ARC_ERC20_KEY].sharedBalanceExcludedFromTotal,
+    ).toBe(undefined);
+    expect(result.tokens.fiatValue).toBe('1.456131');
+  });
 });
