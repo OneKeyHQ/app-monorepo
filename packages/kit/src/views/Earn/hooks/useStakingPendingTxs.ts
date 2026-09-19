@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
+import { debounce } from 'lodash';
+
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePrevious } from '@onekeyhq/kit/src/hooks/usePrevious';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
@@ -7,6 +9,7 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EAvailableAssetsTypeEnum } from '@onekeyhq/shared/types/earn';
@@ -42,6 +45,58 @@ const EMPTY_NETWORK_ACCOUNT_RESOLUTION: INetworkAccountResolution = {
   map: {},
   isComplete: false,
 };
+
+const ACCOUNTS_ADDED_REFRESH_DELAY_MS = 300;
+
+// A network account created while these hooks are mounted changes none of
+// their inputs, so the account map has to be told. `AddDBAccountsToWallet` is
+// what the local DB emits for every account row it adds, deriving a chain for
+// an existing wallet included; `AccountUpdate` covers imported, watching and
+// external accounts. A hardware wallet adds its default accounts in a series,
+// hence the trailing debounce.
+function useRefreshWhenAccountsAreAdded({
+  refresh,
+  indexedAccountId,
+  isEnabled = true,
+}: {
+  refresh: () => unknown;
+  indexedAccountId: string | undefined;
+  isEnabled?: boolean;
+}) {
+  const refreshRef = useRef(refresh);
+  refreshRef.current = refresh;
+  const walletId = indexedAccountId
+    ? accountUtils.parseIndexedAccountId({ indexedAccountId }).walletId
+    : undefined;
+  useEffect(() => {
+    if (!isEnabled) {
+      return undefined;
+    }
+    const run = debounce(
+      () => {
+        void refreshRef.current();
+      },
+      ACCOUNTS_ADDED_REFRESH_DELAY_MS,
+      { leading: false, trailing: true },
+    );
+    const onAccountsAdded = (payload?: { walletId?: string }) => {
+      if (walletId && payload?.walletId && payload.walletId !== walletId) {
+        return;
+      }
+      run();
+    };
+    const onAccountUpdate = () => {
+      run();
+    };
+    appEventBus.on(EAppEventBusNames.AddDBAccountsToWallet, onAccountsAdded);
+    appEventBus.on(EAppEventBusNames.AccountUpdate, onAccountUpdate);
+    return () => {
+      appEventBus.off(EAppEventBusNames.AddDBAccountsToWallet, onAccountsAdded);
+      appEventBus.off(EAppEventBusNames.AccountUpdate, onAccountUpdate);
+      run.cancel();
+    };
+  }, [walletId, isEnabled]);
+}
 
 type IFilteredPendingTxsResult = {
   filteredTxs: IStakePendingTx[];
@@ -499,18 +554,14 @@ export const useStakingPendingTxsByInfo = ({
   const networkAccountMap = networkAccountResolution.map;
   const isNetworkAccountMapComplete = networkAccountResolution.isComplete;
 
-  // A network account created while this hook is mounted changes none of the
-  // inputs above, so re-resolve on the event instead. This is what the retry
-  // of an unverified result used to provide by running every few seconds.
-  useEffect(() => {
-    const refreshOnAccountChange = () => {
-      void refreshNetworkAccountMap({ alwaysSetState: true });
-    };
-    appEventBus.on(EAppEventBusNames.AccountUpdate, refreshOnAccountChange);
-    return () => {
-      appEventBus.off(EAppEventBusNames.AccountUpdate, refreshOnAccountChange);
-    };
-  }, [refreshNetworkAccountMap]);
+  // This is what the retry of an unverified result used to provide by running
+  // every few seconds. With `precomputed` the parent listens instead: its new
+  // map is a dependency above, so one event costs one round of lookups.
+  useRefreshWhenAccountsAreAdded({
+    refresh: () => refreshNetworkAccountMap({ alwaysSetState: true }),
+    indexedAccountId,
+    isEnabled: !precomputed,
+  });
 
   const pendingNetworkIds = useMemo(
     () => Object.keys(networkAccountMap).sort(),
@@ -980,7 +1031,7 @@ export const useEarnPendingTxsSharedMeta = ({
   // Resolve account-per-network for the union. Mirrors the in-hook
   // resolver — kept aligned so subset short-circuits in
   // useStakingPendingTxsByInfo are byte-identical to a per-instance run.
-  const { result: networkAccountResolution } =
+  const networkAccountResolutionRequest =
     usePromiseResult<INetworkAccountResolution>(
       async () => {
         const map: Record<string, string> = {};
@@ -1043,7 +1094,16 @@ export const useEarnPendingTxsSharedMeta = ({
       [accountId, currentNetworkId, indexedAccount?.id, unionNetworkIds],
       { initResult: EMPTY_NETWORK_ACCOUNT_RESOLUTION },
     );
+  const networkAccountResolution = networkAccountResolutionRequest.result;
   const networkAccountMap = networkAccountResolution.map;
+
+  // Instances short-circuit to this map, so their own refresh cannot notice a
+  // new account: this is the resolution that has to run again.
+  useRefreshWhenAccountsAreAdded({
+    refresh: () =>
+      networkAccountResolutionRequest.run({ alwaysSetState: true }),
+    indexedAccountId: indexedAccount?.id,
+  });
 
   const { result: accountMetaByNetwork } = usePromiseResult<
     Record<string, INetworkAccountMeta>

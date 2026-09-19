@@ -57,7 +57,7 @@ jest.mock('@onekeyhq/shared/src/utils/networkUtils', () => ({
 jest.mock('@onekeyhq/kit/src/states/jotai/contexts/accountSelector', () => {
   const activeAccount = {
     account: { id: 'active-account' },
-    indexedAccount: { id: 'active-indexed-account' },
+    indexedAccount: { id: 'hd-1--0' },
     network: { id: 'evm--1' },
   };
   return {
@@ -122,6 +122,7 @@ import { EReplaceTxType } from '@onekeyhq/shared/types/tx';
 
 import {
   type IStakePendingTx,
+  useEarnPendingTxsSharedMeta,
   useStakingPendingTxsByInfo,
 } from './useStakingPendingTxs';
 
@@ -447,13 +448,26 @@ describe('useStakingPendingTxsByInfo history verification', () => {
     unmount();
   });
 
-  it('re-resolves the account map when an account is added', async () => {
-    backgroundMock.getNetworkAccountsInSameIndexedAccountId.mockResolvedValue([
-      {
-        network: { id: 'evm--1' },
-        account: { id: 'network-1-account' },
-      },
-    ]);
+  const emitAccountUpdate = () =>
+    appEventBus.emit(EAppEventBusNames.AccountUpdate, undefined);
+  const emitAccountsAddedTo = (walletId: string) =>
+    appEventBus.emit(EAppEventBusNames.AddDBAccountsToWallet, {
+      walletId,
+      accounts: [],
+    });
+  const accountsOf = (...networkIds: string[]) =>
+    networkIds.map((networkId) => ({
+      network: { id: networkId },
+      account: { id: `${networkId}-account` },
+    }));
+
+  it.each([
+    ['an account is imported or renamed', emitAccountUpdate],
+    ['a chain is derived for the wallet', () => emitAccountsAddedTo('hd-1')],
+  ])('re-resolves the account map when %s', async (_, emitEvent) => {
+    backgroundMock.getNetworkAccountsInSameIndexedAccountId.mockResolvedValue(
+      accountsOf('evm--1'),
+    );
     backgroundMock.getAccountLocalHistoryPendingTxs.mockResolvedValue([]);
 
     const { result, unmount } = renderHook(() =>
@@ -469,18 +483,11 @@ describe('useStakingPendingTxsByInfo history verification', () => {
     const settledAccountMaps =
       backgroundMock.getNetworkAccountsInSameIndexedAccountId.mock.calls.length;
 
-    backgroundMock.getNetworkAccountsInSameIndexedAccountId.mockResolvedValue([
-      {
-        network: { id: 'evm--1' },
-        account: { id: 'network-1-account' },
-      },
-      {
-        network: { id: 'evm--8453' },
-        account: { id: 'network-8453-account' },
-      },
-    ]);
+    backgroundMock.getNetworkAccountsInSameIndexedAccountId.mockResolvedValue(
+      accountsOf('evm--1', 'evm--8453'),
+    );
     await act(async () => {
-      appEventBus.emit(EAppEventBusNames.AccountUpdate, undefined);
+      emitEvent();
     });
 
     await waitFor(() => {
@@ -494,6 +501,99 @@ describe('useStakingPendingTxsByInfo history verification', () => {
         ),
       ).toBe(true);
     });
+
+    unmount();
+  });
+
+  it('answers a burst of added accounts with one re-resolution, and ignores other wallets', async () => {
+    backgroundMock.getNetworkAccountsInSameIndexedAccountId.mockResolvedValue(
+      accountsOf('evm--1'),
+    );
+    backgroundMock.getAccountLocalHistoryPendingTxs.mockResolvedValue([]);
+
+    const { result, unmount } = renderHook(() =>
+      useStakingPendingTxsByInfo({
+        networkIds: ['evm--1', 'evm--8453'],
+        tagMatcher: pendingTagMatcher,
+      }),
+    );
+
+    await waitFor(() => {
+      expect(result.current.isPendingHistoryVerified).toBe(true);
+    });
+    const accountMapCalls = () =>
+      backgroundMock.getNetworkAccountsInSameIndexedAccountId.mock.calls.length;
+    const settledAccountMaps = accountMapCalls();
+    const waitPastTheDebounce = () =>
+      act(async () => {
+        await new Promise((resolve) => {
+          setTimeout(resolve, 400);
+        });
+      });
+
+    await act(async () => {
+      emitAccountsAddedTo('hd-2');
+    });
+    await waitPastTheDebounce();
+    expect(accountMapCalls()).toBe(settledAccountMaps);
+
+    await act(async () => {
+      emitAccountsAddedTo('hd-1');
+      emitAccountsAddedTo('hd-1');
+      emitAccountsAddedTo('hd-1');
+    });
+    await waitPastTheDebounce();
+    expect(accountMapCalls()).toBe(settledAccountMaps + 1);
+
+    unmount();
+  });
+
+  it('re-resolves the shared account map that instances short-circuit to', async () => {
+    backgroundMock.getNetworkAccountsInSameIndexedAccountId.mockResolvedValue(
+      accountsOf('evm--1'),
+    );
+    backgroundMock.getAccountLocalHistoryPendingTxs.mockResolvedValue([]);
+    const networkIds = ['evm--1', 'evm--8453'];
+
+    const { result, unmount } = renderHook(() => {
+      const precomputed = useEarnPendingTxsSharedMeta({
+        extraNetworkIds: networkIds,
+      });
+      return useStakingPendingTxsByInfo({
+        networkIds,
+        tagMatcher: pendingTagMatcher,
+        precomputed,
+      });
+    });
+
+    await waitFor(() => {
+      expect(result.current.isPendingHistoryVerified).toBe(true);
+    });
+    const accountMapCalls = () =>
+      backgroundMock.getNetworkAccountsInSameIndexedAccountId.mock.calls.length;
+    const settledAccountMaps = accountMapCalls();
+    expect(
+      backgroundMock.getAccountLocalHistoryPendingTxs.mock.calls.some(
+        ([params]) => params.networkId === 'evm--8453',
+      ),
+    ).toBe(false);
+
+    backgroundMock.getNetworkAccountsInSameIndexedAccountId.mockResolvedValue(
+      accountsOf('evm--1', 'evm--8453'),
+    );
+    await act(async () => {
+      emitAccountsAddedTo('hd-1');
+    });
+
+    await waitFor(() => {
+      expect(
+        backgroundMock.getAccountLocalHistoryPendingTxs.mock.calls.some(
+          ([params]) => params.networkId === 'evm--8453',
+        ),
+      ).toBe(true);
+    });
+    // Only the parent asks again: the instance reads the parent's new map.
+    expect(accountMapCalls()).toBe(settledAccountMaps + 1);
 
     unmount();
   });
