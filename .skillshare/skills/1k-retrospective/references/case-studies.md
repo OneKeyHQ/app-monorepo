@@ -528,10 +528,3 @@ Cases are appended by AI after each bug fix. Do NOT reorder or delete entries �
 **Root Cause**: The test used `staleMs: 0` to make its fixture stale, which also made a newly created ownerless lock immediately reclaimable before its owner file was written.
 **Fix**: Backdate only the initial stale fixture and use a nonzero stale threshold so replacement locks remain fresh during acquisition.
 **Catchable by**: Section 6: tests cover race conditions; NEW — concurrency tests must make the intended stale fixture old without making newly created resources instantly stale
-
-## Case: Bulk export date sheet sat under the iOS modal
-**Date**: 2026-09-18 | **Platforms**: iOS
-**Symptom**: On Bulk Export Transaction History, opening a Select/Popover sheet (or pulling Control Center) showed the modal form still fully on top — the popup layer looked wrong (OK-63722).
-**Root Cause**: Native Popover portaled into the app-start `FullWindowOverlay`. iOS stacks those window subviews by add-order, so a later `presentation: 'modal'` page painted over the sheet.
-**Fix**: Give the native Popover portal its own `OverlayContainer` and bump `bringToFrontToken` on each open, matching Dialog / hardware-stage overlay raising (OK-62422).
-**Catchable by**: Section 3: Cross-platform impact — iOS window-overlay order vs UIKit modal pages; NEW — a portal hosted in the app-start overlay must re-front when opened from a modal page
