@@ -13,6 +13,7 @@ if (process.env.TAMAGUI_TARGET !== 'native') {
 
 module.exports = function (api) {
   api.cache(true);
+  const enableFunctionTrace = process.env.ONEKEY_FUNCTION_TRACE === '1';
   return babelTools.normalizeConfig({
     platform: babelTools.developmentConsts.platforms.app,
     config: {
@@ -54,6 +55,7 @@ module.exports = function (api) {
             experimentalFlattenThemesOnNative: true,
           },
         ],
+        enableFunctionTrace && require.resolve('./plugins/functionTrace.js'),
         [
           'react-native-worklets/plugin',
           {

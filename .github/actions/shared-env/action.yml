@@ -82,7 +82,7 @@ runs:
               fi
               printf '%s=%s\n' "$key" "$value" >> "$GITHUB_ENV"
               ;;
-            ONEKEY_ALLOW_SKIP_GPG_VERIFICATION)
+            ONEKEY_ALLOW_SKIP_GPG_VERIFICATION|ENABLE_STARTUP_PROFILE|ENABLE_FUNCTION_TRACE)
               if [[ "$value" != "true" && "$value" != "false" ]]; then
                 echo "::error::Invalid boolean workflow parameter: $key=$value"
                 exit 1

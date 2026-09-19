@@ -25,6 +25,7 @@ const {
 } = require('../bundle-groups.config');
 
 const { fileToIdMap } = require('./map');
+const { normalizeModulesForSourceMap } = require('./metroSourceMapCompat');
 const { reassignDescendantsToSegments } = require('./segmentAllocator');
 const {
   getSegmentsDir,
@@ -94,6 +95,7 @@ async function generateSegmentSourceMap(
     }
   }
 
+  normalizeModulesForSourceMap(segmentGraphModules);
   return sourceMapStringNonBlocking(segmentGraphModules, {
     excludeSource: false,
     processModuleFilter: () => true,
@@ -678,6 +680,7 @@ ${mixedImportWarnings.map((w) => `    ${w.parent} → ${w.child}`).join('\n')}`,
       mainGraphModules.push(modData);
     }
   }
+  normalizeModulesForSourceMap(mainGraphModules);
   const mainSourceMap = await sourceMapStringNonBlocking(mainGraphModules, {
     excludeSource: false,
     processModuleFilter: () => true,
