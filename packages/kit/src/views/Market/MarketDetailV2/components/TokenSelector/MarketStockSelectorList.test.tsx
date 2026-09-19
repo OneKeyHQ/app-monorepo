@@ -45,6 +45,7 @@ const mockSelectorListResult = {
   isLoadingMore: false,
   isLoadMoreError: false,
   canLoadMore: false,
+  isRevalidatingFirstPage: false,
   loadMore: jest.fn(),
   refresh: jest.fn(),
 };
@@ -146,6 +147,7 @@ describe('MarketStockSelectorList', () => {
     mockUseMarketStockColumns.mockClear();
     mockUseMarketStockSelectorList.mockClear();
     mockSelectorListResult.canLoadMore = false;
+    mockSelectorListResult.isRevalidatingFirstPage = false;
     mockSelectorListResult.items = [mockStock];
     mockSelectorListResult.isLoadMoreError = false;
     mockSelectorListResult.isLoadingMore = false;
@@ -195,6 +197,21 @@ describe('MarketStockSelectorList', () => {
     tableProps.onEndReached();
 
     expect(mockSelectorListResult.loadMore).toHaveBeenCalledTimes(1);
+  });
+
+  it('queues pagination when the cached first page is still revalidating', () => {
+    mockSelectorListResult.canLoadMore = false;
+    mockSelectorListResult.isRevalidatingFirstPage = true;
+    render(<MarketStockSelectorList onItemPress={mockOnItemPress} query="" />);
+
+    const tableProps = mockTableProps.mock.calls[0]?.[0] as {
+      onEndReached: () => void;
+      TableFooterComponent: ReactNode;
+    };
+    tableProps.onEndReached();
+
+    expect(mockSelectorListResult.loadMore).toHaveBeenCalledTimes(1);
+    expect(tableProps.TableFooterComponent).toBeNull();
   });
 
   it('keeps the table mounted when an empty page has a continuation cursor', () => {
