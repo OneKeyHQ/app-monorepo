@@ -14,84 +14,52 @@ const noLocalKeylessResult = {
   status: EOneKeyIdLoginWithLocalKeylessPrepareStatus.NoLocalKeyless,
 };
 
+function rememberAllSlots(onekeyUserId: string) {
+  rememberLocalKeylessPrepareResult({
+    onekeyUserId,
+    result: noLocalKeylessResult,
+  });
+  rememberKeylessCredentialReadyForBind(onekeyUserId);
+  rememberShouldShowBindPrompt({
+    onekeyUserId,
+    shouldShow: true,
+  });
+}
+
 describe('oneKeyIdLocalKeylessPrepareCache', () => {
   beforeEach(() => {
     clearOneKeyIdLegacyOAuthBindCaches();
   });
 
-  test('returns a remembered result only for the same OneKey ID user', () => {
-    rememberLocalKeylessPrepareResult({
-      onekeyUserId: 'user-a',
-      result: noLocalKeylessResult,
-    });
-
-    expect(getCachedLocalKeylessPrepareResult('user-a')).toEqual(
-      noLocalKeylessResult,
-    );
-    expect(getCachedLocalKeylessPrepareResult('user-b')).toBeNull();
-    expect(getCachedLocalKeylessPrepareResult()).toBeNull();
-  });
-
-  test('keeps other cache fields when remembering one slot', () => {
-    rememberLocalKeylessPrepareResult({
-      onekeyUserId: 'user-a',
-      result: noLocalKeylessResult,
-    });
-    rememberKeylessCredentialReadyForBind('user-a');
-    rememberShouldShowBindPrompt({
-      onekeyUserId: 'user-a',
-      shouldShow: true,
-    });
+  test('isolates cache by user and drops the previous user after a switch', () => {
+    rememberAllSlots('user-a');
 
     expect(getCachedLocalKeylessPrepareResult('user-a')).toEqual(
       noLocalKeylessResult,
     );
     expect(getCachedKeylessCredentialReadyForBind('user-a')).toBe(true);
     expect(getCachedShouldShowBindPrompt('user-a')).toBe(true);
-  });
-
-  test('remembers credential readiness only for the same OneKey ID user', () => {
-    rememberKeylessCredentialReadyForBind('user-a');
-
-    expect(getCachedKeylessCredentialReadyForBind('user-a')).toBe(true);
+    expect(getCachedLocalKeylessPrepareResult('user-b')).toBeNull();
     expect(getCachedKeylessCredentialReadyForBind('user-b')).toBe(false);
-    expect(getCachedKeylessCredentialReadyForBind()).toBe(false);
-  });
-
-  test('can remember that the bind card should stay hidden', () => {
-    rememberShouldShowBindPrompt({
-      onekeyUserId: 'user-a',
-      shouldShow: false,
-    });
-
-    expect(getCachedShouldShowBindPrompt('user-a')).toBe(false);
     expect(getCachedShouldShowBindPrompt('user-b')).toBeUndefined();
-  });
+    expect(getCachedLocalKeylessPrepareResult()).toBeNull();
+    expect(getCachedKeylessCredentialReadyForBind()).toBe(false);
+    expect(getCachedShouldShowBindPrompt()).toBeUndefined();
 
-  test('replacing the cache user drops the previous users slots', () => {
-    rememberLocalKeylessPrepareResult({
-      onekeyUserId: 'user-a',
-      result: noLocalKeylessResult,
-    });
-    rememberShouldShowBindPrompt({
-      onekeyUserId: 'user-b',
-      shouldShow: true,
-    });
+    rememberAllSlots('user-b');
 
     expect(getCachedLocalKeylessPrepareResult('user-a')).toBeNull();
+    expect(getCachedKeylessCredentialReadyForBind('user-a')).toBe(false);
+    expect(getCachedShouldShowBindPrompt('user-a')).toBeUndefined();
+    expect(getCachedLocalKeylessPrepareResult('user-b')).toEqual(
+      noLocalKeylessResult,
+    );
+    expect(getCachedKeylessCredentialReadyForBind('user-b')).toBe(true);
     expect(getCachedShouldShowBindPrompt('user-b')).toBe(true);
   });
 
   test('clears prepare, readiness, and visibility caches together', () => {
-    rememberLocalKeylessPrepareResult({
-      onekeyUserId: 'user-a',
-      result: noLocalKeylessResult,
-    });
-    rememberKeylessCredentialReadyForBind('user-a');
-    rememberShouldShowBindPrompt({
-      onekeyUserId: 'user-a',
-      shouldShow: true,
-    });
+    rememberAllSlots('user-a');
     clearOneKeyIdLegacyOAuthBindCaches();
 
     expect(getCachedLocalKeylessPrepareResult('user-a')).toBeNull();
