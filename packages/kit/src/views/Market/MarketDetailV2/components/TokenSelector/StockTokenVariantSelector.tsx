@@ -5,6 +5,7 @@ import { useIntl } from 'react-intl';
 
 import {
   Button,
+  DashText,
   Icon,
   NumberSizeableText,
   Popover,
@@ -14,10 +15,12 @@ import {
   Stack,
   XStack,
   YStack,
+  useMedia,
 } from '@onekeyhq/components';
+import { NetworkAvatarBase } from '@onekeyhq/kit/src/components/NetworkAvatar';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { equalsIgnoreCase } from '@onekeyhq/shared/src/utils/stringUtils';
+import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type {
   IMarketAccountPortfolioDisplayItem,
   IMarketStockTokenVariant,
@@ -28,6 +31,8 @@ import {
   useStockDetail,
 } from '../../hooks/StockDetailContext';
 import { getStockPortfolioVariantKey } from '../../utils/stockTokenVariant';
+
+import { StockSelectorPopover } from './StockSelectorPopover';
 
 // Figma 25497:17813 (Select): the panel is 384 wide and its header/rows share a
 // four-slot layout - a 32 avatar slot followed by three equal-width columns
@@ -104,12 +109,24 @@ function findVariantBalance({
     if (item.networkId) {
       return (
         item.networkId === variant.networkId &&
-        equalsIgnoreCase(item.tokenAddress, variant.contractAddress)
+        equalTokenNoCaseSensitive({
+          token1: variant,
+          token2: {
+            networkId: item.networkId,
+            contractAddress: item.tokenAddress,
+          },
+        })
       );
     }
     return (
       isPortfolioScope &&
-      equalsIgnoreCase(item.tokenAddress, variant.contractAddress)
+      equalTokenNoCaseSensitive({
+        token1: variant,
+        token2: {
+          networkId: variant.networkId,
+          contractAddress: item.tokenAddress,
+        },
+      })
     );
   });
   // Once the lookup is known to have run, no position means the account holds
@@ -130,6 +147,7 @@ function StockTokenVariantRow({
   isPortfolioScope,
   portfolioData,
   onSelect,
+  compact = false,
 }: {
   index: number;
   variant: IMarketStockTokenVariant;
@@ -137,6 +155,7 @@ function StockTokenVariantRow({
   isPortfolioScope: boolean;
   portfolioData?: IMarketAccountPortfolioDisplayItem[];
   onSelect: (variant: IMarketStockTokenVariant) => void;
+  compact?: boolean;
 }) {
   const resolvedVariantKeys = useContext(StockTokenVariantResolvedContext);
   const balance = findVariantBalance({
@@ -178,7 +197,12 @@ function StockTokenVariantRow({
         placeholder={<Stack width="100%" height="100%" />}
       />
 
-      <YStack flex={NAME_COLUMN_FLEX} flexBasis={0} minWidth={0} gap="$0.5">
+      <YStack
+        flex={compact ? 1 : NAME_COLUMN_FLEX}
+        flexBasis={0}
+        minWidth={0}
+        gap="$0.5"
+      >
         <XStack alignItems="center" gap="$1">
           <SizableText size="$bodyMdMedium" numberOfLines={1} flexShrink={1}>
             {variant.symbol || variant.name || VALUE_FALLBACK}
@@ -228,7 +252,7 @@ function StockTokenVariantRow({
       </XStack>
 
       <XStack
-        flex={PRICE_COLUMN_FLEX}
+        flex={compact ? 1 : PRICE_COLUMN_FLEX}
         flexBasis={0}
         minWidth={0}
         alignItems="center"
@@ -252,11 +276,19 @@ function StockTokenVariantRow({
 
 function StockTokenVariantSelectorContent({
   closePopover,
+  onSelect,
+  sortByBalance,
+  compact = false,
 }: {
   closePopover: () => void;
+  onSelect?: (variant: IMarketStockTokenVariant) => Promise<boolean>;
+  sortByBalance?: boolean;
+  compact?: boolean;
 }) {
   const intl = useIntl();
   const portfolioData = useContext(StockTokenVariantPortfolioContext);
+  const { md } = useMedia();
+  const compactColumns = compact && md;
   const {
     tokenVariants,
     selectedTokenId,
@@ -272,16 +304,32 @@ function StockTokenVariantSelectorContent({
       ? selectedTokenVariant.tokenId
       : undefined;
   }, [portfolioNetworkId, selectedTokenVariant]);
+  const orderedVariants = useMemo(() => {
+    if (!sortByBalance) return tokenVariants;
+    const balanceOf = (variant: IMarketStockTokenVariant) =>
+      new BigNumber(
+        findVariantBalance({
+          isBalanceResolved: false,
+          portfolioData,
+          variant,
+          isPortfolioScope: variant.tokenId === portfolioScopeTokenId,
+        }) ?? 0,
+      );
+    return [...tokenVariants].toSorted(
+      (a, b) => balanceOf(b).comparedTo(balanceOf(a)) ?? 0,
+    );
+  }, [portfolioData, portfolioScopeTokenId, sortByBalance, tokenVariants]);
 
   return (
     <YStack
       testID="stock-token-variant-selector-content"
-      width={POPOVER_WIDTH}
-      p="$1"
+      width={md ? '100%' : POPOVER_WIDTH}
+      py="$1"
+      px={compact ? '$2' : '$1'}
     >
       <XStack px="$2.5" py="$2" gap="$3" alignItems="center">
         <SizableText
-          flex={NAME_COLUMN_FLEX}
+          flex={compactColumns ? 1 : NAME_COLUMN_FLEX}
           flexBasis={0}
           minWidth={0}
           size="$bodySmMedium"
@@ -289,10 +337,10 @@ function StockTokenVariantSelectorContent({
           numberOfLines={1}
         >
           {`${intl.formatMessage({
-            id: ETranslations.dexmarket_token_name,
-          })}/${intl.formatMessage({
-            id: ETranslations.global_balance,
-          })}`}
+            id: compact
+              ? ETranslations.perp_relay_token__title
+              : ETranslations.dexmarket_token_name,
+          })}/${intl.formatMessage({ id: ETranslations.global_balance })}`}
         </SizableText>
         <Stack
           width={AVATAR_SLOT_WIDTH}
@@ -311,29 +359,57 @@ function StockTokenVariantSelectorContent({
             id: ETranslations.trade_stocks_token_issuer,
           })}
         </SizableText>
-        <SizableText
-          flex={PRICE_COLUMN_FLEX}
-          flexBasis={0}
-          minWidth={0}
-          size="$bodySmMedium"
-          color="$textSubdued"
-          numberOfLines={1}
-        >
-          {intl.formatMessage({ id: ETranslations.global_price })}
-        </SizableText>
+        {compact ? (
+          <Stack
+            flex={compactColumns ? 1 : PRICE_COLUMN_FLEX}
+            flexBasis={0}
+            minWidth={0}
+            alignItems="flex-start"
+          >
+            <DashText
+              size="$bodySmMedium"
+              color="$textSubdued"
+              numberOfLines={1}
+              dashOverlay
+              tooltip={intl.formatMessage({
+                id: ETranslations.market_token_price_onchain_tooltip,
+              })}
+            >
+              {intl.formatMessage({ id: ETranslations.market_token_price })}
+            </DashText>
+          </Stack>
+        ) : (
+          <SizableText
+            flex={PRICE_COLUMN_FLEX}
+            flexBasis={0}
+            minWidth={0}
+            size="$bodySmMedium"
+            color="$textSubdued"
+            numberOfLines={1}
+          >
+            {intl.formatMessage({ id: ETranslations.global_price })}
+          </SizableText>
+        )}
       </XStack>
       <ScrollView maxHeight={360} showsVerticalScrollIndicator={false}>
-        {tokenVariants.map((variant, index) => (
+        {orderedVariants.map((variant, index) => (
           <StockTokenVariantRow
             key={variant.tokenId}
             index={index}
+            compact={compactColumns}
             variant={variant}
             selected={variant.tokenId === selectedTokenId}
             isPortfolioScope={variant.tokenId === portfolioScopeTokenId}
             portfolioData={portfolioData}
             onSelect={(item) => {
-              setSelectedTokenId(item.tokenId);
-              closePopover();
+              if (onSelect) {
+                void onSelect(item).then((selected) => {
+                  if (selected) closePopover();
+                });
+              } else {
+                setSelectedTokenId(item.tokenId);
+                closePopover();
+              }
             }}
           />
         ))}
@@ -345,14 +421,21 @@ function StockTokenVariantSelectorContent({
 export function StockTokenVariantSelector({
   portfolioData,
   resolvedVariantKeys,
+  onSelect,
+  compact = false,
+  onOpenChange,
 }: {
   portfolioData?: IMarketAccountPortfolioDisplayItem[];
   resolvedVariantKeys?: string[];
+  onSelect?: (variant: IMarketStockTokenVariant) => Promise<boolean>;
+  compact?: boolean;
+  onOpenChange?: (open: boolean) => void;
 }) {
   const intl = useIntl();
   const {
     tokenVariants,
     isTokenVariantsLoading,
+    isTokenVariantPending,
     selectedTokenId,
     selectedTokenVariant,
     isTokenVariantsError,
@@ -369,9 +452,35 @@ export function StockTokenVariantSelector({
     () => new Set(resolvedVariantKeys ?? []),
     [resolvedVariantKeys],
   );
+  const renderContent = useCallback(
+    ({ closePopover }: { closePopover: () => void }) => (
+      <StockTokenVariantSelectorContent
+        closePopover={closePopover}
+        onSelect={onSelect}
+        sortByBalance={compact}
+        compact={compact}
+      />
+    ),
+    [compact, onSelect],
+  );
 
   if (!selectedTokenVariant) {
-    if (isTokenVariantsLoading) {
+    if (isTokenVariantPending || isTokenVariantsLoading) {
+      if (compact) {
+        return (
+          <XStack
+            testID="stock-token-variant-selector-loading"
+            alignItems="center"
+            gap="$2.5"
+          >
+            <Skeleton width={28} height={28} radius="round" />
+            <XStack alignItems="center" gap="$2">
+              <Skeleton width={56} height={24} />
+              <Stack width={18} height={18} />
+            </XStack>
+          </XStack>
+        );
+      }
       return (
         <Skeleton
           width={104}
@@ -395,11 +504,17 @@ export function StockTokenVariantSelector({
     return null;
   }
 
+  const SelectorPopover = compact ? StockSelectorPopover : Popover;
   const popover = (
-    <Popover
-      title={intl.formatMessage({
-        id: ETranslations.trade_stocks_token_details,
-      })}
+    <SelectorPopover
+      onOpenChange={onOpenChange}
+      title={
+        compact
+          ? 'Select stock tokens'
+          : intl.formatMessage({
+              id: ETranslations.trade_stocks_token_details,
+            })
+      }
       placement="bottom-start"
       // Flip above/below when needed, but never swap to end alignment: the
       // panel always opens rightward from the trigger.
@@ -424,13 +539,40 @@ export function StockTokenVariantSelector({
           hoverStyle={{ bg: '$bgHover' }}
           pressStyle={{ bg: '$bgActive' }}
         >
-          <Token
-            size="md"
-            tokenImageUri={selectedTokenVariant.logoUrl}
-            networkImageUri={selectedTokenVariant.networkLogoUrl}
-            showNetworkIcon
-            placeholder={<Stack width="100%" height="100%" />}
-          />
+          {compact ? (
+            <Stack width={28} height={28}>
+              <Token
+                size="sm"
+                w={28}
+                h={28}
+                tokenImageUri={selectedTokenVariant.logoUrl}
+                placeholder={<Stack width="100%" height="100%" />}
+              />
+              {selectedTokenVariant.networkLogoUrl ? (
+                <Stack
+                  position="absolute"
+                  right="$-1"
+                  bottom="$-1"
+                  p="$0.5"
+                  bg="$bgApp"
+                  borderRadius="$full"
+                >
+                  <NetworkAvatarBase
+                    size={12}
+                    logoURI={selectedTokenVariant.networkLogoUrl}
+                  />
+                </Stack>
+              ) : null}
+            </Stack>
+          ) : (
+            <Token
+              size="md"
+              tokenImageUri={selectedTokenVariant.logoUrl}
+              networkImageUri={selectedTokenVariant.networkLogoUrl}
+              showNetworkIcon
+              placeholder={<Stack width="100%" height="100%" />}
+            />
+          )}
           <XStack alignItems="center" gap="$2">
             <YStack justifyContent="center" minWidth={0}>
               <SizableText size="$headingMd" numberOfLines={1}>
@@ -440,16 +582,18 @@ export function StockTokenVariantSelector({
               </SizableText>
               {/* Figma 26230:23833 — the issuer sits under the symbol so the
                   trigger names who backs the token, not just which one it is. */}
-              <SizableText
-                size="$bodySm"
-                color="$textSubdued"
-                numberOfLines={1}
-              >
-                {intl.formatMessage(
-                  { id: ETranslations.market_issued_by },
-                  { issuer: getIssuerLabel(selectedTokenVariant.issuer) },
-                )}
-              </SizableText>
+              {compact ? null : (
+                <SizableText
+                  size="$bodySm"
+                  color="$textSubdued"
+                  numberOfLines={1}
+                >
+                  {intl.formatMessage(
+                    { id: ETranslations.market_issued_by },
+                    { issuer: getIssuerLabel(selectedTokenVariant.issuer) },
+                  )}
+                </SizableText>
+              )}
             </YStack>
             <Icon
               name="ChevronDownSmallOutline"
@@ -459,7 +603,7 @@ export function StockTokenVariantSelector({
           </XStack>
         </XStack>
       }
-      renderContent={StockTokenVariantSelectorContent}
+      renderContent={renderContent}
     />
   );
 

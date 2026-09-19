@@ -154,6 +154,7 @@ jest.mock('@onekeyhq/components', () => {
   }
 
   return {
+    useMedia: () => ({ md: false }),
     Button: StackComponent,
     Icon: () => <span data-testid="icon" />,
     NumberSizeableText: ({ children }: { children?: ReactNode }) => (

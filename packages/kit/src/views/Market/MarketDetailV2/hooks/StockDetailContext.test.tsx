@@ -7,6 +7,7 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import type {
   IMarketStockPublicDetail,
   IMarketStockTokenVariant,
+  IMarketStockTokenVariantsResponse,
 } from '@onekeyhq/shared/types/marketV2';
 
 import { StockDetailProvider, useStockDetail } from './StockDetailContext';
@@ -206,6 +207,48 @@ describe('StockDetailProvider', () => {
     expect(serviceMarketV2.fetchMarketStockTokenVariants.mock.calls).toEqual([
       [{ stockId: 'AAPL' }],
     ]);
+  });
+
+  it('settles a missing preserved token without falling back or waiting forever', async () => {
+    const request = createDeferred<IMarketStockTokenVariantsResponse>();
+    serviceMarketV2.fetchMarketStockTokenVariants.mockReturnValue(
+      request.promise,
+    );
+    const wrapper = ({ children }: PropsWithChildren) => (
+      <StockDetailProvider
+        stockId="AAPL"
+        preserveInitialToken
+        initialNetworkId="evm--1"
+        initialTokenAddress="0xselected"
+      >
+        {children}
+      </StockDetailProvider>
+    );
+    const { result } = renderHook(() => useStockDetail(), { wrapper });
+    expect(result.current.isTokenVariantPending).toBe(true);
+    await act(async () =>
+      request.resolve({
+        stockId: 'AAPL',
+        defaultTokenId: 'another-token',
+        items: [
+          {
+            tokenId: 'another-token',
+            issuer: 'ondo',
+            networkId: 'evm--1',
+            contractAddress: '0xother',
+            currency: 'USD',
+            status: 'active',
+            tradingEnabled: true,
+          },
+        ],
+      }),
+    );
+    await waitFor(() =>
+      expect(result.current.isTokenVariantPending).toBe(false),
+    );
+    expect(result.current.tokenVariants).toHaveLength(1);
+    expect(result.current.selectedTokenVariant).toBeUndefined();
+    expect(result.current.selectedTokenId).toBeUndefined();
   });
 
   it('releases initial layout loading when every token variant is paused', async () => {
