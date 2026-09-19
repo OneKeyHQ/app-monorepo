@@ -217,6 +217,7 @@ export const buildSentryReleaseName = () =>
   `${process.env.VERSION ?? ''} (${process.env.BUILD_NUMBER ?? ''})`;
 
 const FILTERED_ERROR_TYPES = new Set([
+  'ApiRequestError',
   'AxiosError',
   'HTTPClientError',
   EOneKeyErrorClassNames.OneKeyError,

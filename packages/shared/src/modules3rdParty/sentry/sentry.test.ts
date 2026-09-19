@@ -362,6 +362,15 @@ describe('integration: full error sanitization', () => {
 
 describe('isFilterErrorAndSkipSentry', () => {
   describe('filter by error type', () => {
+    test('should filter ApiRequestError', () => {
+      expect(
+        isFilterErrorAndSkipSentry({
+          type: 'ApiRequestError',
+          value: 'Referrer already set',
+        }),
+      ).toBe(true);
+    });
+
     test('should filter AxiosError', () => {
       expect(isFilterErrorAndSkipSentry({ type: 'AxiosError' })).toBe(true);
     });
@@ -653,24 +662,28 @@ describe('buildBasicOptions', () => {
       ]);
     });
 
-    test('should return null for filtered error types', () => {
-      const onError = jest.fn();
-      const options = buildBasicOptions({ onError });
-      const event: any = {
-        exception: {
-          values: [
-            {
-              type: 'AxiosError',
-              value: 'Network error',
-            },
-          ],
-        },
-      };
+    test.each(['AxiosError', 'ApiRequestError'])(
+      'should return null for %s',
+      (type) => {
+        const onError = jest.fn();
+        const options = buildBasicOptions({ onError });
+        const event: any = {
+          exception: {
+            values: [
+              {
+                type,
+                value: 'Network error',
+              },
+            ],
+          },
+        };
 
-      const result = callBeforeSend(options, event);
+        const result = callBeforeSend(options, event);
 
-      expect(result).toBeNull();
-    });
+        expect(result).toBeNull();
+        expect(onError).toHaveBeenCalledWith('Network error', undefined);
+      },
+    );
 
     test('should forward web-embed exceptions locally and drop the Sentry event', () => {
       const previousIsWebEmbed = platformEnv.isWebEmbed;
