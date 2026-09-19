@@ -5,6 +5,9 @@ export type IAccountSelectorValueItem = {
   accountId: string;
   value: Record<string, string> | string | undefined;
   currency: string | undefined;
+  // DeFi/Perps overview published with the value in one update, so a row never
+  // combines a value and an overview from different loads.
+  deFi?: IAccountSelectorDeFiItem;
 };
 
 export type IAccountSelectorDeFiItem =

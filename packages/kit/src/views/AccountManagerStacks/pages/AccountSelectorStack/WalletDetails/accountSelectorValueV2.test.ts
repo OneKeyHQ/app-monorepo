@@ -108,6 +108,41 @@ describe('account selector V2 values', () => {
     ).toEqual({ text: '$4.00', tone: 'secondary' });
   });
 
+  it('defers wallet-scoped totals until the wallet networks are resolved', () => {
+    const params = {
+      ...defaults,
+      walletId: 'hd-1',
+      linkedAccountId: 'hd-1--0',
+      linkedNetworkId: 'onekeyall--0',
+      accountValue: {
+        accountId: 'hd-1--0',
+        currency: 'usd',
+        value: { 'hd-1--0_evm--1': '7' },
+      },
+    };
+    expect(
+      formatAccountSelectorValueV2({ ...params, walletNetworksReady: false }),
+    ).toBeUndefined();
+    expect(
+      formatAccountSelectorValueV2({
+        ...params,
+        walletNetworksReady: true,
+        enabledNetworksCompatibleWithWalletId: [{ id: 'evm--1' }] as never,
+        networkInfoMap: {
+          'evm--1': { deriveType: 'default', mergeDeriveAssetsEnabled: false },
+        },
+      }),
+    ).toEqual({ text: '$7.00', tone: 'secondary' });
+    // Single-network rows never wait for the wallet networks.
+    expect(
+      formatAccountSelectorValueV2({
+        ...params,
+        linkedNetworkId: 'evm--1',
+        walletNetworksReady: false,
+      }),
+    ).toEqual({ text: '$7.00', tone: 'secondary' });
+  });
+
   it('keeps the source currency unit until the target exchange rate is available', () => {
     expect(
       formatAccountSelectorValueV2({

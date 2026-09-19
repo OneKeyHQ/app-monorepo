@@ -68,6 +68,7 @@ import {
   AccountSelectorMenuActionV2,
 } from './AccountSelectorActionV2';
 import { preloadAccountSelectorAvatarImages } from './accountSelectorAvatarPreload';
+import { buildAccountSelectorValueDisplayScopeKeyV2 } from './accountSelectorValueDisplayCacheV2';
 import { DeprecatedWalletBanner } from './DeprecatedWalletBanner';
 import { EmptyView } from './EmptyView';
 import { useAddAccount } from './hooks/useAddAccount';
@@ -79,6 +80,9 @@ import type { IAccountEditActionListV2Props } from './AccountEditActionListV2';
 
 const INITIAL_ACCOUNT_IMAGE_PRELOAD_COUNT = 16;
 const ACCOUNT_IMAGE_PRELOAD_BUDGET_MS = 200;
+// Longest a switched wallet waits for its avatars and first-screen balances
+// before it is presented anyway.
+const ACCOUNT_PRESENTATION_BUDGET_MS = 300;
 
 async function preloadAccountSelectorImages(
   sources: readonly ImageSource[],
@@ -343,11 +347,30 @@ function WalletDetailsViewV2({ num }: IWalletDetailsProps) {
   }, [sectionDataOriginal, searchText, accountAddressMap, addressMapLoading]);
 
   // Load account values asynchronously in batches via atoms, scoped by selector num
-  useAccountSelectorValuesLoaderV2({
+  const { valuesLoaded } = useAccountSelectorValuesLoaderV2({
     num,
     accountsForValuesQuery: listDataResult?.accountsForValuesQuery,
     linkedNetworkId,
   });
+  const valueDisplayCacheKey = useMemo(
+    () =>
+      selectedAccount?.focusedWallet
+        ? swrKeys.accountSelectorValues({
+            walletId: selectedAccount.focusedWallet,
+          })
+        : undefined,
+    [selectedAccount?.focusedWallet],
+  );
+  const valueDisplayScopeKey = useMemo(
+    () =>
+      buildAccountSelectorValueDisplayScopeKeyV2({
+        deriveType: usedDeriveType ?? '',
+        linkedNetworkId,
+        selectedNetworkId,
+        keepAllOtherAccounts,
+      }),
+    [usedDeriveType, linkedNetworkId, selectedNetworkId, keepAllOtherAccounts],
+  );
 
   const accountsCount = useMemo(
     () => listDataResult?.accountsCount ?? 0,
@@ -363,12 +386,15 @@ function WalletDetailsViewV2({ num }: IWalletDetailsProps) {
     [focusedWalletInfo?.wallet?.deprecated],
   );
 
-  const { enabledNetworksCompatibleWithWalletId, networkInfoMap } =
-    useEnabledNetworksCompatibleWithWalletIdInAllNetworks({
-      walletId: focusedWalletInfo?.wallet?.id ?? '',
-      networkId: selectedNetworkId,
-      withNetworksInfo: true,
-    });
+  const {
+    enabledNetworksCompatibleWithWalletId,
+    networkInfoMap,
+    isReady: walletNetworksReady,
+  } = useEnabledNetworksCompatibleWithWalletIdInAllNetworks({
+    walletId: focusedWalletInfo?.wallet?.id ?? '',
+    networkId: selectedNetworkId,
+    withNetworksInfo: true,
+  });
 
   useEffect(() => {
     const fn = async () => {
@@ -405,7 +431,11 @@ function WalletDetailsViewV2({ num }: IWalletDetailsProps) {
     isOthersUniversal,
     focusedWalletInfo,
   });
-  const { rows: accountRows, records } = useAccountSelectorAccountRowsV2({
+  const {
+    rows: accountRows,
+    records,
+    areRowValuesReady,
+  } = useAccountSelectorAccountRowsV2({
     num,
     sections: sectionData,
     selectedAccount,
@@ -419,7 +449,12 @@ function WalletDetailsViewV2({ num }: IWalletDetailsProps) {
     mergeDeriveAssetsEnabled: listDataResult?.mergeDeriveAssetsEnabled,
     enabledNetworksCompatibleWithWalletId,
     networkInfoMap,
+    walletNetworksReady,
     theme,
+    valueDisplayCacheKey,
+    valueDisplayScopeKey,
+    persistDisplayedValues: !searchText,
+    valuesLoaded,
   });
   const listIdentity = `${focusedWalletInfo?.wallet?.id ?? ''}:${linkedNetworkId ?? ''}:${usedDeriveType ?? ''}:${searchText}`;
   const presentationScope = `${focusedWalletInfo?.wallet?.id ?? ''}:${linkedNetworkId ?? ''}:${usedDeriveType ?? ''}`;
@@ -560,6 +595,19 @@ function WalletDetailsViewV2({ num }: IWalletDetailsProps) {
     !searchText && listHeight > 0 && selectedIndex * 60 > listHeight
       ? selectedKey
       : undefined;
+  // Rows the list shows first; the initial scroll brings the selected one in.
+  const firstScreenValuesReady = areRowValuesReady(
+    initialScrollKey
+      ? Math.max(
+          0,
+          Math.min(
+            selectedIndex,
+            accountRows.length - INITIAL_ACCOUNT_IMAGE_PRELOAD_COUNT,
+          ),
+        )
+      : 0,
+    INITIAL_ACCOUNT_IMAGE_PRELOAD_COUNT,
+  );
   const candidateList = useMemo(
     () => ({
       editable,
@@ -612,35 +660,65 @@ function WalletDetailsViewV2({ num }: IWalletDetailsProps) {
       setPreloadedList(candidateList);
     }
   }, [candidateList, preloadedList.presentationScope]);
+  // A new wallet/network/derive scope is presented once its avatars and
+  // first-screen balances are ready (within one budget), so a switch paints
+  // complete rows instead of placeholders that fill in afterwards.
+  const pendingPresentationScope =
+    candidateList.hasResolved &&
+    candidateList.presentationScope !== preloadedList.presentationScope
+      ? candidateList.presentationScope
+      : undefined;
+  const presentationWaitRef = useRef<{ scope?: string; id: number }>({
+    id: 0,
+  });
+  if (presentationWaitRef.current.scope !== pendingPresentationScope) {
+    presentationWaitRef.current = {
+      scope: pendingPresentationScope,
+      id: presentationWaitRef.current.id + 1,
+    };
+  }
+  const presentationWaitId = presentationWaitRef.current.id;
+  const [imagesReadyWaitId, setImagesReadyWaitId] = useState<number>();
+  const [expiredWaitId, setExpiredWaitId] = useState<number>();
   useEffect(() => {
-    if (
-      !candidateList.hasResolved ||
-      candidateList.presentationScope === preloadedList.presentationScope
-    ) {
-      return;
-    }
+    if (!pendingPresentationScope) return;
+    const timer = setTimeout(
+      () => setExpiredWaitId(presentationWaitId),
+      ACCOUNT_PRESENTATION_BUDGET_MS,
+    );
+    return () => clearTimeout(timer);
+  }, [pendingPresentationScope, presentationWaitId]);
+  useEffect(() => {
+    if (!pendingPresentationScope) return;
     let cancelled = false;
-    const targetPresentationScope = candidateList.presentationScope;
     void preloadAccountSelectorImages(
       initialImagePreloadSourcesRef.current,
     ).then(() => {
-      const latestCandidate = candidateListRef.current;
-      if (
-        !cancelled &&
-        latestCandidate.hasResolved &&
-        latestCandidate.presentationScope === targetPresentationScope
-      ) {
-        setPreloadedList(latestCandidate);
-      }
+      if (!cancelled) setImagesReadyWaitId(presentationWaitId);
     });
     return () => {
       cancelled = true;
     };
+  }, [pendingPresentationScope, presentationWaitId, initialImagePreloadScope]);
+  useEffect(() => {
+    if (!pendingPresentationScope) return;
+    const ready =
+      expiredWaitId === presentationWaitId ||
+      (imagesReadyWaitId === presentationWaitId && firstScreenValuesReady);
+    const latestCandidate = candidateListRef.current;
+    if (
+      ready &&
+      latestCandidate.hasResolved &&
+      latestCandidate.presentationScope === pendingPresentationScope
+    ) {
+      setPreloadedList(latestCandidate);
+    }
   }, [
-    candidateList.hasResolved,
-    candidateList.presentationScope,
-    initialImagePreloadScope,
-    preloadedList.presentationScope,
+    expiredWaitId,
+    firstScreenValuesReady,
+    imagesReadyWaitId,
+    pendingPresentationScope,
+    presentationWaitId,
   ]);
   const nativeSnapshot = useAccountSelectorNativeSnapshotV2({
     identity: presentedList.identity,

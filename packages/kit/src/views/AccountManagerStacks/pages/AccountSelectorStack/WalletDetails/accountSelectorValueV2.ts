@@ -31,6 +31,9 @@ type IAccountValueV2 = {
   mergeDeriveAssetsEnabled?: boolean;
   enabledNetworksCompatibleWithWalletId: IServerNetwork[];
   networkInfoMap: Record<string, INetworkDeriveInfo>;
+  // False until the wallet's compatible networks are known; wallet-scoped
+  // totals would otherwise filter out every token value.
+  walletNetworksReady?: boolean;
   currencyMap: Record<string, ICurrencyItem>;
   targetCurrency: string;
   hideValue: boolean;
@@ -46,10 +49,11 @@ export function formatAccountSelectorValueV2({
   mergeDeriveAssetsEnabled,
   enabledNetworksCompatibleWithWalletId,
   networkInfoMap,
+  walletNetworksReady,
   currencyMap,
   targetCurrency,
   hideValue,
-}: IAccountValueV2): SelectorTextSegment {
+}: IAccountValueV2): SelectorTextSegment | undefined {
   if (!accountValue?.currency)
     return { text: hideValue ? '****' : '--', tone: 'disabled' };
   const resolved =
@@ -100,6 +104,8 @@ export function formatAccountSelectorValueV2({
       networkId: linkedNetworkId,
     });
   } else {
+    // Not computable yet, as opposed to a known empty balance.
+    if (walletNetworksReady === false) return undefined;
     const deFiAll = Object.values(overview?.overview ?? {}).reduce(
       (sum, current) =>
         new BigNumber(sum).plus(current?.netWorth ?? '0').toFixed(),

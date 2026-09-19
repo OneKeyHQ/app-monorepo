@@ -645,3 +645,127 @@ describeIfIndexedDB('IDB-backed paths', () => {
     }
   });
 });
+
+describeIfIndexedDB('SWR cache per-entry records', () => {
+  type ISwrCacheUtilsModule = typeof import('../../utils/swrCacheUtils');
+  const LEGACY_SWR_KEY = EAppSyncStorageKeys.onekey_swr_cache as string;
+  const ENTRY_PREFIX = '__onekey_internal_swr_cache_v2_entry__:';
+
+  function loadWithSWRCache() {
+    let mod!: IColdStartModule;
+    let swr!: ISwrCacheUtilsModule;
+    let isolatedIDB!: typeof IndexedDBPromised;
+    jest.isolateModules(() => {
+      // eslint-disable-next-line global-require
+      ({ IndexedDBPromised: isolatedIDB } =
+        require('../../IndexedDBPromised') as {
+          IndexedDBPromised: typeof IndexedDBPromised;
+        });
+      // eslint-disable-next-line global-require
+      mod = require('./webColdStartStorage') as IColdStartModule;
+      const storage = mod.createWebColdStartStorage();
+      jest.doMock('./syncStorageInstance', () => ({
+        coldStartCacheStorage: storage,
+      }));
+      jest.doMock('../../logger/logger', () => ({
+        defaultLogger: {
+          app: {
+            perf: {
+              swrCacheCapacityLimit: () => undefined,
+              swrCacheSlowOp: () => undefined,
+            },
+          },
+        },
+      }));
+      // eslint-disable-next-line global-require
+      swr = require('../../utils/swrCacheUtils') as ISwrCacheUtilsModule;
+      // swrCacheUtils resolves its storage lazily; resolve it inside this
+      // registry so it binds to this test's storage instance.
+      swr.swrCacheUtils.isFresh('warmup', 0);
+    });
+    activeModule = mod;
+    return { isolatedIDB, mod, swrCacheUtils: swr.swrCacheUtils };
+  }
+
+  function recordIdbPuts(isolatedIDB: typeof IndexedDBPromised) {
+    const keys: string[] = [];
+    // eslint-disable-next-line @typescript-eslint/unbound-method
+    const realPut = isolatedIDB.prototype.put;
+    (isolatedIDB.prototype as unknown as { put: typeof realPut }).put =
+      function recordingPut(this: IndexedDBPromised<unknown>, ...args) {
+        keys.push(String(args[2]));
+        return (realPut as (...a: typeof args) => Promise<unknown>).apply(
+          this,
+          args,
+        ) as ReturnType<typeof realPut>;
+      } as typeof realPut;
+    return {
+      keys,
+      restore: () => {
+        (isolatedIDB.prototype as unknown as { put: typeof realPut }).put =
+          realPut;
+      },
+    };
+  }
+
+  it('migrates the legacy store and then persists only changed records', async () => {
+    const { isolatedIDB, mod, swrCacheUtils } = loadWithSWRCache();
+    mod.primeColdStartCacheMap([
+      [
+        LEGACY_SWR_KEY,
+        JSON.stringify({
+          'walletList:v1:0': { d: ['wallet'], t: 1 },
+          'accSelList:v1:hd-1': { d: { rows: 1 }, t: 2 },
+        }),
+      ],
+    ]);
+
+    expect(swrCacheUtils.get('walletList:v1:0')).toEqual(['wallet']);
+    swrCacheUtils.set('walletList:v1:0', ['wallet', 'next']);
+    swrCacheUtils.flushNow();
+    await mod.flushColdStartCacheNow();
+
+    const persisted = await mod.readAllColdStartEntriesFromIdb();
+    expect(persisted.has(LEGACY_SWR_KEY)).toBe(false);
+    expect(
+      JSON.parse(persisted.get(`${ENTRY_PREFIX}walletList:v1:0`) as string).d,
+    ).toEqual(['wallet', 'next']);
+    expect(
+      JSON.parse(persisted.get(`${ENTRY_PREFIX}accSelList:v1:hd-1`) as string)
+        .d,
+    ).toEqual({ rows: 1 });
+
+    const puts = recordIdbPuts(isolatedIDB);
+    try {
+      swrCacheUtils.set('accSelList:v1:hd-1', { rows: 2 });
+      swrCacheUtils.flushNow();
+      await mod.flushColdStartCacheNow();
+    } finally {
+      puts.restore();
+    }
+    expect(puts.keys).toEqual([`${ENTRY_PREFIX}accSelList:v1:hd-1`]);
+  });
+
+  it('serves records primed after the first SWR read', () => {
+    const { mod, swrCacheUtils } = loadWithSWRCache();
+    expect(swrCacheUtils.get('walletList:v1:0')).toBeUndefined();
+
+    mod.primeColdStartCacheMap([
+      [`${ENTRY_PREFIX}walletList:v1:0`, JSON.stringify({ d: ['late'], t: 5 })],
+    ]);
+
+    expect(swrCacheUtils.get('walletList:v1:0')).toEqual(['late']);
+  });
+
+  it('drops the runtime copy when the cold-start cache is reset', async () => {
+    const { mod, swrCacheUtils } = loadWithSWRCache();
+    mod.primeColdStartCacheMap([
+      [`${ENTRY_PREFIX}walletList:v1:0`, JSON.stringify({ d: ['old'], t: 5 })],
+    ]);
+    expect(swrCacheUtils.get('walletList:v1:0')).toEqual(['old']);
+
+    await mod.resetColdStartCache();
+
+    expect(swrCacheUtils.get('walletList:v1:0')).toBeUndefined();
+  });
+});

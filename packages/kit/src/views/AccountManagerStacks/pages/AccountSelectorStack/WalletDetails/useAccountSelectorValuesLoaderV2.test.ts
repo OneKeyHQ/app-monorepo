@@ -1,8 +1,5 @@
 /** @jest-environment jsdom */
-import type {
-  IAccountSelectorDeFiMap,
-  IAccountSelectorValuesMap,
-} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import type { IAccountSelectorValuesMap } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
 import {
@@ -51,7 +48,6 @@ function atom<T>(initial: T) {
 function dependencies() {
   return {
     valuesAtom: atom<IAccountSelectorValuesMap>({}),
-    deFiAtom: atom<IAccountSelectorDeFiMap>({}),
     buildValues: jest.fn(result),
     yieldToUI: jest.fn(async () => undefined),
     now: () => 0,
@@ -61,7 +57,7 @@ function dependencies() {
 }
 
 describe('account V2 balance scheduling', () => {
-  it('keeps 20 service batches but publishes 4 maps for 1000 immediately resolved accounts', async () => {
+  it('keeps 20 service batches but publishes 2 maps for 1000 immediately resolved accounts', async () => {
     const deps = dependencies();
     await loadAccountSelectorValuesV2(
       { num: 0, accountsForValuesQuery: accounts(1000) },
@@ -78,16 +74,13 @@ describe('account V2 balance scheduling', () => {
         (value) => Object.keys(value[0] ?? {}).length,
       ),
     ).toEqual([50, 1000]);
-    expect(deps.deFiAtom.publications).toHaveLength(2);
     expect(deps.yieldToUI).toHaveBeenCalledTimes(1);
     deps.valuesAtom.publications.length = 0;
-    deps.deFiAtom.publications.length = 0;
     await loadAccountSelectorValuesV2(
       { num: 0, accountsForValuesQuery: accounts(1000) },
       deps,
     );
     expect(deps.valuesAtom.publications).toHaveLength(0);
-    expect(deps.deFiAtom.publications).toHaveLength(0);
   });
 
   it('publishes and yields when the work budget expires, including failed batches', async () => {
@@ -112,7 +105,7 @@ describe('account V2 balance scheduling', () => {
     expect(deps.valuesAtom.read()[0]?.['account-50']).toBeUndefined();
   });
 
-  it('preserves refresh balances, prunes other wallets and clears stale network Perps', async () => {
+  it('preserves refresh balances, prunes other wallets and clears another network', async () => {
     const deps = dependencies();
     const input = {
       num: 0,
@@ -121,24 +114,92 @@ describe('account V2 balance scheduling', () => {
     };
     await loadAccountSelectorValuesV2(input, deps);
     deps.valuesAtom.publications.length = 0;
-    deps.deFiAtom.publications.length = 0;
     deps.buildValues.mockImplementation(async () => {
       throw new OneKeyLocalError('offline');
     });
-    await loadAccountSelectorValuesV2(
-      { ...input, linkedNetworkId: 'btc--0' },
-      deps,
-    );
+    await loadAccountSelectorValuesV2(input, deps);
     expect(deps.valuesAtom.publications).toHaveLength(0);
     expect(deps.valuesAtom.read()[0]?.['account-0'].value).toEqual({
       'account-0_evm--1': '1',
     });
-    expect(deps.deFiAtom.read()[0]).toEqual({});
+    // Perps worth loaded under another network must not stay on the rows.
     await loadAccountSelectorValuesV2(
-      { ...input, accountsForValuesQuery: accounts(2, 'other-wallet') },
+      { ...input, linkedNetworkId: 'btc--0' },
       deps,
     );
     expect(deps.valuesAtom.read()[0]).toEqual({});
+    deps.buildValues.mockImplementation(result);
+    await loadAccountSelectorValuesV2(
+      { ...input, linkedNetworkId: 'btc--0' },
+      deps,
+    );
+    await loadAccountSelectorValuesV2(
+      {
+        ...input,
+        accountsForValuesQuery: accounts(2, 'other-wallet'),
+        linkedNetworkId: 'btc--0',
+      },
+      deps,
+    );
+    expect(Object.keys(deps.valuesAtom.read()[0] ?? {})).toEqual([
+      'other-wallet-0',
+      'other-wallet-1',
+    ]);
+  });
+
+  it('publishes each value together with its DeFi in one update', async () => {
+    const deps = dependencies();
+    await loadAccountSelectorValuesV2(
+      { num: 0, accountsForValuesQuery: accounts(2) },
+      deps,
+    );
+    expect(deps.valuesAtom.publications).toHaveLength(1);
+    expect(deps.valuesAtom.read()[0]?.['account-1']).toEqual({
+      accountId: 'account-1',
+      currency: 'usd',
+      value: { 'account-1_evm--1': '1' },
+      deFi: { overview: {}, perpsNetWorthUsd: '3' },
+    });
+
+    // A changed overview alone is still one update that replaces the item.
+    deps.buildValues.mockImplementation(async (params) => ({
+      ...(await result(params)),
+      accountsDeFiOverview: params.accounts.map(() => ({
+        overview: {},
+        perpsNetWorthUsd: '4',
+      })),
+    }));
+    await loadAccountSelectorValuesV2(
+      { num: 0, accountsForValuesQuery: accounts(2) },
+      deps,
+    );
+    expect(deps.valuesAtom.publications).toHaveLength(2);
+    expect(deps.valuesAtom.read()[0]?.['account-0'].deFi).toEqual({
+      overview: {},
+      perpsNetWorthUsd: '4',
+    });
+  });
+
+  it('reports whether every batch of the account set was published', async () => {
+    const deps = dependencies();
+    await expect(
+      loadAccountSelectorValuesV2(
+        { num: 0, accountsForValuesQuery: accounts(60) },
+        deps,
+      ),
+    ).resolves.toBe(true);
+
+    let cancelled = false;
+    deps.buildValues.mockImplementation(async (params) => {
+      cancelled = true;
+      return result(params);
+    });
+    await expect(
+      loadAccountSelectorValuesV2(
+        { num: 0, accountsForValuesQuery: accounts(60, 'next') },
+        { ...deps, isCancelled: () => cancelled },
+      ),
+    ).resolves.toBe(false);
   });
 
   it('drops cancelled responses and keeps concurrent selector nums isolated', async () => {

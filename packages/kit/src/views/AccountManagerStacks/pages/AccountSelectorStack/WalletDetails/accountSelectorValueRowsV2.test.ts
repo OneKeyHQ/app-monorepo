@@ -27,7 +27,6 @@ function fixture(count = 1000) {
         { accountId: row.key, currency: 'usd', value: '1' },
       ]),
     ),
-    accountDeFi: {},
     activeAccountValue: undefined,
     context: {
       walletId: 'hd-1',
@@ -78,7 +77,7 @@ describe('account V2 formatting invalidation', () => {
             value: '2',
           },
         },
-      })[17].subtitleSegments?.[0].text,
+      }).rows[17].subtitleSegments?.[0].text,
     ).toBe('$2.00');
     expect(format).toHaveBeenCalledTimes(1001);
   });
@@ -90,18 +89,18 @@ describe('account V2 formatting invalidation', () => {
     getRows(input);
     const active = { accountId: 'account-0', currency: 'usd', value: '10' };
     expect(
-      getRows({ ...input, activeAccountValue: active })[0].subtitleSegments?.[0]
-        .text,
+      getRows({ ...input, activeAccountValue: active }).rows[0]
+        .subtitleSegments?.[0].text,
     ).toBe('$10.00');
     expect(format).toHaveBeenCalledTimes(4);
-    const rows = getRows({
+    const { rows } = getRows({
       ...input,
       activeAccountValue: { ...active, accountId: 'account-1' },
     });
     expect(rows[0].subtitleSegments?.[0].text).toBe('$1.00');
     expect(rows[1].subtitleSegments?.[0].text).toBe('$10.00');
     expect(format).toHaveBeenCalledTimes(6);
-    const selectedRows = getRows({
+    const { rows: selectedRows } = getRows({
       ...input,
       activeAccountValue: { ...active, accountId: 'account-1' },
       staticRows: input.staticRows.map((row) => ({
@@ -119,18 +118,118 @@ describe('account V2 formatting invalidation', () => {
     const getRows = createAccountSelectorValueRowsV2(format);
     const input = fixture(2);
     getRows(input);
-    const deFi = { 'account-0': { overview: {}, perpsNetWorthUsd: '3' } };
+    const withDeFi = {
+      ...input.accountValues,
+      'account-0': {
+        ...input.accountValues['account-0'],
+        deFi: { overview: {}, perpsNetWorthUsd: '3' },
+      },
+    };
     expect(
-      getRows({ ...input, accountDeFi: deFi })[0].subtitleSegments?.[0].text,
+      getRows({ ...input, accountValues: withDeFi }).rows[0]
+        .subtitleSegments?.[0].text,
     ).toBe('$4.00');
     expect(format).toHaveBeenCalledTimes(3);
     expect(
-      getRows({ ...input, context: { ...input.context, hideValue: true } })[0]
-        .subtitleSegments?.[0].text,
+      getRows({ ...input, context: { ...input.context, hideValue: true } })
+        .rows[0].subtitleSegments?.[0].text,
     ).toBe('****');
     expect(format).toHaveBeenCalledTimes(5);
     getRows({ ...input, staticRows: [], records: [] });
     getRows(input);
     expect(format).toHaveBeenCalledTimes(7);
+  });
+
+  it('shows displayed texts until each account value loads, then formats live data', () => {
+    const format = jest.fn(formatAccountSelectorValueV2);
+    const getRows = createAccountSelectorValueRowsV2(format);
+    const input = fixture(3);
+    const displayedValues = {
+      'account-0': { text: '$1.00', tone: 'secondary' as const },
+      'account-1': { text: '$9.99', tone: 'secondary' as const },
+    };
+
+    const cached = getRows({ ...input, accountValues: {}, displayedValues });
+    expect(cached.rows.map((row) => row.subtitleSegments?.[0])).toEqual([
+      displayedValues['account-0'],
+      displayedValues['account-1'],
+      { text: '--', tone: 'disabled' },
+    ]);
+    expect(cached.sources).toEqual({
+      'account-0': 'displayed',
+      'account-1': 'displayed',
+      'account-2': 'pending',
+    });
+    expect(format).not.toHaveBeenCalled();
+
+    // Only account-0 loaded: it switches to live data, account-1 keeps its text.
+    const partial = getRows({
+      ...input,
+      accountValues: { 'account-0': input.accountValues['account-0'] },
+      displayedValues,
+    });
+    expect(partial.rows[0].subtitleSegments?.[0]).toEqual({
+      text: '$1.00',
+      tone: 'secondary',
+    });
+    expect(partial.rows[1]).toBe(cached.rows[1]);
+    expect(partial.sources['account-0']).toBe('live');
+    expect(format).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps the displayed text while wallet networks are unresolved in all-network mode', () => {
+    const getRows = createAccountSelectorValueRowsV2();
+    const input = fixture(2);
+    const allNetworks = {
+      ...input,
+      context: {
+        ...input.context,
+        networkId: 'onekeyall--0',
+        walletNetworksReady: false,
+      },
+      accountValues: {
+        'account-0': {
+          accountId: 'account-0',
+          currency: 'usd',
+          value: { 'hd-1--0_evm--1': '7' },
+        },
+        'account-1': {
+          accountId: 'account-1',
+          currency: 'usd',
+          value: { 'hd-1--1_evm--1': '3' },
+        },
+      },
+      displayedValues: {
+        'account-0': { text: '$7.00', tone: 'secondary' as const },
+      },
+    };
+
+    const unresolved = getRows(allNetworks);
+    expect(unresolved.rows[0].subtitleSegments?.[0].text).toBe('$7.00');
+    expect(unresolved.rows[1].subtitleSegments?.[0].text).toBe('--');
+    expect(unresolved.sources).toEqual({
+      'account-0': 'displayed',
+      'account-1': 'pending',
+    });
+
+    const resolved = getRows({
+      ...allNetworks,
+      context: {
+        ...allNetworks.context,
+        walletNetworksReady: true,
+        enabledNetworksCompatibleWithWalletId: [{ id: 'evm--1' }] as never,
+        networkInfoMap: {
+          'evm--1': { deriveType: 'default', mergeDeriveAssetsEnabled: false },
+        },
+      },
+    });
+    expect(resolved.rows.map((row) => row.subtitleSegments?.[0].text)).toEqual([
+      '$7.00',
+      '$3.00',
+    ]);
+    expect(resolved.sources).toEqual({
+      'account-0': 'live',
+      'account-1': 'live',
+    });
   });
 });
