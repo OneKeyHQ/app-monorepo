@@ -29,6 +29,7 @@ import {
   buildMarketNetworkLogoUriMap,
   getNativeTokenInfo,
   getNetworkLogoUri,
+  normalizeStockMetadataValue,
   transformApiItemToToken,
 } from '../utils/tokenListHelpers';
 
@@ -462,6 +463,9 @@ export function useMarketWatchlistTokenList({
           // delisted favorites removable.
           if (!entry) return undefined;
           const { quote } = entry;
+          const priceChangeValue = normalizeStockMetadataValue(
+            quote?.priceChange24hPercent,
+          );
           return {
             id: key,
             assetId: watchlistItem.assetId,
@@ -481,8 +485,8 @@ export function useMarketWatchlistTokenList({
             chainId: '',
             decimals: 0,
             price: Number(quote?.price ?? NaN),
-            change24h: Number(quote?.priceChange24hPercent ?? NaN),
-            priceChangeRaw: quote?.priceChange24hPercent ?? '-',
+            change24h: Number(priceChangeValue ?? NaN),
+            priceChangeRaw: priceChangeValue ?? '-',
             marketCap: Number(quote?.marketCap ?? NaN),
             turnover: Number(quote?.volume24h ?? NaN),
             liquidity: 0,

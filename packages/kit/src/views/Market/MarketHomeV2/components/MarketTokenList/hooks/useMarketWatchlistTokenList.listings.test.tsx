@@ -123,6 +123,37 @@ it('loads assets by ID and stocks through the batch API without touching the cha
   );
   expect(mockBatch).not.toHaveBeenCalled();
 });
+it('treats empty stock price changes as missing without hiding zero values', async () => {
+  mockStockBatch.mockResolvedValue([
+    stockItem('ICBC', {
+      name: 'ICBC Quote',
+      priceChange24hPercent: '',
+    }),
+    stockItem('AAPL', {
+      name: 'Apple Quote',
+      priceChange24hPercent: '0',
+    }),
+  ]);
+  const watchlist = [
+    { stockId: 'ICBC', chainId: '', contractAddress: '', sortIndex: 0 },
+    { stockId: 'AAPL', chainId: '', contractAddress: '', sortIndex: 1 },
+  ];
+  const { result } = renderHook(() =>
+    useMarketWatchlistTokenList({ watchlist, pollingInterval: 0 }),
+  );
+  await waitFor(() =>
+    expect(result.current.data.map((item) => item.name)).toEqual([
+      'ICBC Quote',
+      'Apple Quote',
+    ]),
+  );
+  expect(result.current.data[0]?.priceChangeRaw).toBe('-');
+  expect(result.current.data[0]?.change24h).toBeNaN();
+  expect(result.current.data[1]).toMatchObject({
+    priceChangeRaw: '0',
+    change24h: 0,
+  });
+});
 it('requests every favorited stock in one batch call', async () => {
   const watchlist = [
     { stockId: 'TSLA', chainId: '', contractAddress: '', sortIndex: 0 },

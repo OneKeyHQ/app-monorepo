@@ -1,8 +1,11 @@
 /** @jest-environment jsdom */
 
 import { act, renderHook, waitFor } from '@testing-library/react';
+import { useController } from 'react-hook-form';
 
+import type { IAddressInputValue } from '@onekeyhq/kit/src/components/AddressInput';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import type { IGeneralInputValidation } from '@onekeyhq/shared/types/address';
 
 import { EImportMethod, useImportAddressForm } from './useImportAddressForm';
@@ -16,6 +19,9 @@ const mockNetworksResp = {
 const mockAddWatchingAccount = jest.fn(async () => undefined);
 const mockValidatePublicKey = jest.fn(
   async (): Promise<IGeneralInputValidation> => ({ isValid: false }),
+);
+const mockEnsureAccountNameNotDuplicate = jest.fn(
+  async (_params: { name: string }): Promise<void> => undefined,
 );
 
 jest.mock('react-intl', () => ({
@@ -37,7 +43,8 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
     },
     serviceAccount: {
       addWatchingAccount: () => mockAddWatchingAccount(),
-      ensureAccountNameNotDuplicate: async () => undefined,
+      ensureAccountNameNotDuplicate: (params: { name: string }) =>
+        mockEnsureAccountNameNotDuplicate(params),
       validateGeneralInputOfImporting: () => mockValidatePublicKey(),
     },
   },
@@ -74,6 +81,8 @@ describe('useImportAddressForm effective import method', () => {
     mockAddWatchingAccount.mockReset();
     mockValidatePublicKey.mockReset();
     mockValidatePublicKey.mockResolvedValue({ isValid: false });
+    mockEnsureAccountNameNotDuplicate.mockReset();
+    mockEnsureAccountNameNotDuplicate.mockResolvedValue(undefined);
   });
 
   it('enables a valid address after switching from public key to an address-only network', async () => {
@@ -263,5 +272,83 @@ describe('useImportAddressForm effective import method', () => {
       });
     });
     expect(result.current.isEnable).toBe(false);
+  });
+
+  it('re-enables an address import once a blurred duplicate account name is edited', async () => {
+    mockEnsureAccountNameNotDuplicate.mockImplementation(async ({ name }) => {
+      if (name === 'U') {
+        throw new OneKeyLocalError('Duplicate name');
+      }
+    });
+    const { result } = renderHook(() => {
+      const importForm = useImportAddressForm({});
+      // Register the fields the way Form.Field does, so RHF runs its own
+      // change/blur validation for them.
+      const { field: addressField } = useController({
+        control: importForm.form.control,
+        name: 'addressValue',
+        rules: {
+          validate: (value: IAddressInputValue) =>
+            value.pending || value.resolved ? undefined : 'Invalid address',
+        },
+      });
+      const { field: accountNameField } = useController({
+        control: importForm.form.control,
+        name: 'accountName',
+      });
+      return { ...importForm, addressField, accountNameField };
+    });
+
+    // RHF field validation settles within microtasks.
+    const flushFieldValidation = () =>
+      new Promise((resolve) => setTimeout(resolve, 0));
+
+    await act(async () => {
+      result.current.addressField.onChange({
+        raw: 'fixture-address',
+        resolved: 'fixture-address',
+        pending: false,
+      });
+      await flushFieldValidation();
+    });
+    expect(result.current.isEnable).toBe(true);
+
+    await act(async () => {
+      result.current.accountNameField.onChange('U');
+      await flushFieldValidation();
+    });
+    await waitFor(() =>
+      expect(
+        result.current.form.getFieldState('accountName').error?.message,
+      ).toBe('Duplicate name'),
+    );
+    // getFieldState reads the control's own state, which is set before the
+    // render that carries the error into useFormState has committed. On a slow
+    // runner the first poll wins that race, so wait for the rendered value.
+    await waitFor(() => expect(result.current.isEnable).toBe(false));
+
+    // Dismissing the keyboard re-validates the field rules and restores
+    // isValid while the duplicate-name error is still set.
+    await act(async () => {
+      result.current.accountNameField.onBlur();
+      await flushFieldValidation();
+    });
+    expect(result.current.isEnable).toBe(false);
+
+    await act(async () => {
+      result.current.accountNameField.onChange('Uppp');
+      await flushFieldValidation();
+    });
+    expect(result.current.form.getFieldState('accountName').error).toBe(
+      undefined,
+    );
+    expect(result.current.isEnable).toBe(true);
+
+    await waitFor(() =>
+      expect(mockEnsureAccountNameNotDuplicate).toHaveBeenLastCalledWith(
+        expect.objectContaining({ name: 'Uppp' }),
+      ),
+    );
+    expect(result.current.isEnable).toBe(true);
   });
 });
