@@ -240,14 +240,42 @@ const FILTER_ERROR_VALUES = new Set([
   'cancel timeout',
 ]);
 
-const isFilterErrorAndSkipSentry = (error?: {
-  type?: string | undefined;
-  value?: string | undefined;
-}) => {
+const NATIVE_CANCELLATION_ERROR_VALUES = new Set([
+  'User cancelled image selection',
+  'Purchase was cancelled.',
+]);
+
+const isFilterErrorAndSkipSentry = (
+  error?: {
+    type?: string | undefined;
+    value?: string | undefined;
+  },
+  originalException?: unknown,
+) => {
   if (!error) {
     return false;
   }
   if (error.type && FILTERED_ERROR_TYPES.has(error.type)) {
+    return true;
+  }
+
+  const errorCode =
+    originalException && typeof originalException === 'object'
+      ? (originalException as { code?: unknown }).code
+      : undefined;
+  if (
+    (error.type === 'CanceledError' && errorCode === 'ERR_CANCELED') ||
+    (error.type === 'ImageCropPickerError' &&
+      errorCode === 'E_PICKER_CANCELLED')
+  ) {
+    return true;
+  }
+  if (
+    platformEnv.isNative &&
+    error.type === 'Error' &&
+    error.value &&
+    NATIVE_CANCELLATION_ERROR_VALUES.has(error.value)
+  ) {
     return true;
   }
 
@@ -285,6 +313,7 @@ const isFilterErrorAndSkipSentry = (error?: {
 export const sanitizeSentryEvent = <T extends ISentrySanitizableEvent>(
   event: T,
   onError: ISentrySanitizationErrorHandler,
+  originalException?: unknown,
 ): T | null => {
   if (Array.isArray(event.exception?.values)) {
     for (let index = 0; index < event.exception.values.length; index += 1) {
@@ -310,10 +339,13 @@ export const sanitizeSentryEvent = <T extends ISentrySanitizableEvent>(
         }
         // Sanitize stacktrace (local variables, context lines)
         if (
-          isFilterErrorAndSkipSentry({
-            type: originalType,
-            value: originalValue,
-          })
+          isFilterErrorAndSkipSentry(
+            {
+              type: originalType,
+              value: originalValue,
+            },
+            originalException,
+          )
         ) {
           return null;
         }
@@ -347,7 +379,8 @@ export const buildBasicOptions = ({
     // zeroing the sample rate alone does NOT stop span creation.
     tracesSampleRate: 0,
     profilesSampleRate: 0,
-    beforeSend: (event, _hint) => sanitizeSentryEvent(event, onError),
+    beforeSend: (event, hint) =>
+      sanitizeSentryEvent(event, onError, hint.originalException),
   }) satisfies BrowserOptions;
 
 type ISentryTransportBuilder = Pick<

@@ -102,4 +102,32 @@ describe('initSentry', () => {
     );
     expect(event.breadcrumbs).toEqual([]);
   });
+
+  test('passes the native original exception to the cancellation filter', () => {
+    jest.isolateModules(() => {
+      // eslint-disable-next-line @typescript-eslint/no-require-imports, global-require
+      const {
+        initSentry,
+      }: { initSentry: () => void } = require('./index.native');
+      initSentry();
+    });
+
+    const beforeSend = initMock.mock.calls[0][0].beforeSend;
+    const event = {
+      type: undefined,
+      exception: {
+        values: [
+          {
+            type: 'ImageCropPickerError',
+            value: 'User cancelled image selection',
+          },
+        ],
+      },
+    };
+    expect(
+      beforeSend?.(event, {
+        originalException: { code: 'E_PICKER_CANCELLED' },
+      }),
+    ).toBeNull();
+  });
 });

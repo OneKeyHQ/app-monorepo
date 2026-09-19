@@ -1,10 +1,13 @@
 import { HardwareErrorCode } from '@onekeyfe/hd-shared';
+import { CanceledError } from 'axios';
 
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { IncorrectPinError } from '@onekeyhq/shared/src/errors/errors/appErrors';
 import { DeviceNotFound } from '@onekeyhq/shared/src/errors/errors/hardwareErrors';
 import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+
+import { capturedCanceledErrorResponse } from './__fixtures__/capturedCanceledErrorResponse';
 
 const mockSharedRPCWrite = jest.fn();
 const mockSharedRPCRegisterReadinessKey = jest.fn();
@@ -168,6 +171,23 @@ describe('background thread RPC handler', () => {
       },
     });
     expect(response).not.toHaveProperty('error.stack');
+  });
+
+  it('captures the Axios cancellation response written by the background handler', async () => {
+    const { setBackgroundThreadRequestExecutor } =
+      await import('./setupBackgroundThreadRPCHandler');
+    setBackgroundThreadRequestExecutor(() =>
+      Promise.reject(new CanceledError('canceled')),
+    );
+    mockSharedRPCWrite.mockClear();
+
+    dispatchServiceRequest('cancel-capture');
+    await flushRequest();
+
+    const responseCall = mockSharedRPCWrite.mock.calls.find(
+      ([key]) => key === 'onekey:bg:res:cancel-capture',
+    );
+    expect(responseCall?.[1]).toBe(capturedCanceledErrorResponse);
   });
 
   it('serializes a hardware error without the getter-only constructorName (OK-61417)', async () => {

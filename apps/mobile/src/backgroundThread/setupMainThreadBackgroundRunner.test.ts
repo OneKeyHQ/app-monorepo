@@ -1,4 +1,8 @@
+import axios, { CanceledError } from 'axios';
+
 import type { IGlobalStatesSyncBroadcastParams } from '@onekeyhq/shared/src/background/backgroundUtils';
+
+import { capturedCanceledErrorResponse } from './__fixtures__/capturedCanceledErrorResponse';
 
 const mockSharedRPCWrite = jest.fn();
 const mockSharedRPCRegisterReadinessKey = jest.fn();
@@ -132,6 +136,7 @@ jest.mock('./runtimeState', () => ({
 describe('main thread background runner', () => {
   beforeEach(() => {
     mockRejectErrorKeyAssignment = false;
+    mockSharedRPCWrite.mockClear();
   });
 
   afterAll(() => {
@@ -140,6 +145,55 @@ describe('main thread background runner', () => {
         __onekeyNativeBackgroundThreadTransport?: unknown;
       }
     ).__onekeyNativeBackgroundThreadTransport;
+  });
+
+  it('restores the captured bg Axios cancellation as a CanceledError', async () => {
+    await import('./setupMainThreadBackgroundRunner');
+
+    const transport = (
+      globalThis as typeof globalThis & {
+        __onekeyNativeBackgroundThreadTransport?: {
+          callServiceRequest: (
+            request: {
+              type: 'service-call';
+              method: string;
+              params: unknown[];
+              sync: boolean;
+            },
+            localFallback: () => Promise<unknown>,
+          ) => Promise<unknown>;
+        };
+      }
+    ).__onekeyNativeBackgroundThreadTransport;
+    const requestPromise = transport!.callServiceRequest(
+      {
+        type: 'service-call',
+        method: 'serviceTest.canceledError',
+        params: [],
+        sync: false,
+      },
+      () => Promise.resolve(undefined),
+    );
+    const requestCalls = mockSharedRPCWrite.mock.calls.filter(
+      ([key]) => typeof key === 'string' && key.startsWith('onekey:bg:req:'),
+    );
+    const callId = (requestCalls[requestCalls.length - 1]?.[0] as string).slice(
+      'onekey:bg:req:'.length,
+    );
+
+    mockInboundMessageHandler?.(
+      `onekey:bg:res:${callId}`,
+      capturedCanceledErrorResponse,
+    );
+
+    const error = await requestPromise.catch((rejection: unknown) => rejection);
+    expect(error).toBeInstanceOf(CanceledError);
+    expect(axios.isCancel(error)).toBe(true);
+    expect(error).toMatchObject({
+      name: 'CanceledError',
+      code: 'ERR_CANCELED',
+      message: 'canceled',
+    });
   });
 
   it('rejects a remote call when a legacy error contains constructorName', async () => {

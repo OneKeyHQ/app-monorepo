@@ -672,6 +672,92 @@ describe('buildBasicOptions', () => {
       expect(result).toBeNull();
     });
 
+    test('filters only actual Axios and image picker cancellations', () => {
+      const onError = jest.fn();
+      const options = buildBasicOptions({ onError });
+      const makeEvent = (type: string) => ({
+        type: undefined,
+        exception: { values: [{ type, value: 'canceled' }] },
+      });
+
+      expect(
+        options.beforeSend?.(makeEvent('CanceledError'), {
+          originalException: { code: 'ERR_CANCELED' },
+        }),
+      ).toBeNull();
+      expect(
+        options.beforeSend?.(makeEvent('ImageCropPickerError'), {
+          originalException: { code: 'E_PICKER_CANCELLED' },
+        }),
+      ).toBeNull();
+      expect(
+        options.beforeSend?.(makeEvent('OneKeyLocalError'), {}),
+      ).toBeNull();
+      expect(
+        options.beforeSend?.(makeEvent('CanceledError'), {
+          originalException: { code: 'OTHER_ERROR' },
+        }),
+      ).not.toBeNull();
+      expect(
+        options.beforeSend?.(makeEvent('ImageCropPickerError'), {
+          originalException: { code: 'E_PICKER_CANNOT_OPEN' },
+        }),
+      ).not.toBeNull();
+    });
+
+    test('filters native cancellation messages without hiding other errors', () => {
+      const previousIsNative = platformEnv.isNative;
+      platformEnv.isNative = true;
+      try {
+        const options = buildBasicOptions({ onError: jest.fn() });
+        const makeEvent = (type: string, value: string) => ({
+          type: undefined,
+          exception: { values: [{ type, value }] },
+        });
+
+        expect(
+          options.beforeSend?.(
+            makeEvent('Error', 'User cancelled image selection'),
+            {},
+          ),
+        ).toBeNull();
+        expect(
+          options.beforeSend?.(
+            makeEvent('Error', 'Purchase was cancelled.'),
+            {},
+          ),
+        ).toBeNull();
+        expect(
+          options.beforeSend?.(makeEvent('Error', 'Purchase failed.'), {}),
+        ).not.toBeNull();
+        expect(
+          options.beforeSend?.(
+            makeEvent('TypeError', 'User cancelled image selection'),
+            {},
+          ),
+        ).not.toBeNull();
+      } finally {
+        platformEnv.isNative = previousIsNative;
+      }
+    });
+
+    test('keeps native cancellation messages outside the native runtime', () => {
+      const previousIsNative = platformEnv.isNative;
+      platformEnv.isNative = false;
+      try {
+        const options = buildBasicOptions({ onError: jest.fn() });
+        const event = {
+          type: undefined,
+          exception: {
+            values: [{ type: 'Error', value: 'Purchase was cancelled.' }],
+          },
+        };
+        expect(options.beforeSend?.(event, {})).toBe(event);
+      } finally {
+        platformEnv.isNative = previousIsNative;
+      }
+    });
+
     test('should forward web-embed exceptions locally and drop the Sentry event', () => {
       const previousIsWebEmbed = platformEnv.isWebEmbed;
       platformEnv.isWebEmbed = true;

@@ -3,6 +3,7 @@ import {
   getSharedRPC,
   getSharedStore,
 } from '@onekeyfe/react-native-background-thread';
+import { CanceledError } from 'axios';
 
 import { isWebEmbedApiAllowedOrigin } from '@onekeyhq/kit-bg/src/apis/backgroundApiPermissions';
 import appGlobals from '@onekeyhq/shared/src/appGlobals';
@@ -300,9 +301,10 @@ function rehydrateTransportError({
 }): IBackgroundThreadTransportError {
   let error = new Error(errorMessage) as IBackgroundThreadTransportError;
   try {
-    error = createTransportError(
-      errorMessage,
-    ) as IBackgroundThreadTransportError;
+    error =
+      errorInfo?.name === 'CanceledError' && errorInfo.code === 'ERR_CANCELED'
+        ? new CanceledError(errorMessage)
+        : createTransportError(errorMessage);
   } catch (metadataError) {
     transportLog(
       `handleResponse: failed to create transport error. callId=${callId}, error=${
