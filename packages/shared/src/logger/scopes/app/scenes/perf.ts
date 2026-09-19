@@ -58,6 +58,13 @@ export class AppPerfScene extends BaseScene {
     return [params];
   }
 
+  // One line each time a full collection is forced to bring the cost of
+  // ordinary collections back down. Numbers only.
+  @LogToLocal()
+  public runtimeGcRelief(params: Record<string, number | string | undefined>) {
+    return [params];
+  }
+
   // Aggregated per window: event-loop blocks, JS heap and GC, process CPU
   // and memory. Numbers only.
   @LogToLocal()

@@ -6,6 +6,7 @@ import { CommonActions, StackActions } from '@react-navigation/native';
 import { debounce, isEqual, noop, upperFirst } from 'lodash';
 import pRetry from 'p-retry';
 import { useIntl } from 'react-intl';
+import { AppState } from 'react-native';
 
 import {
   Dialog,
@@ -54,6 +55,7 @@ import { initIntercom } from '@onekeyhq/shared/src/modules3rdParty/intercom';
 import performance from '@onekeyhq/shared/src/performance';
 import {
   createDistinctChangeCounter,
+  requestRuntimeGcRelief,
   startRuntimeHealthCensus,
   stopRuntimeHealthCensus,
 } from '@onekeyhq/shared/src/performance/collectors/jsBlockCollector';
@@ -968,8 +970,19 @@ export function Bootstrap() {
       EAppEventBusNames.AccountSelectorSelectedAccountUpdate,
       onSelectedAccountUpdate,
     );
+    // Going to the background is the one moment a full collection's pause
+    // cannot be seen; the census decides whether it is worth running.
+    const appStateSubscription = AppState.addEventListener(
+      'change',
+      (state) => {
+        if (state === 'background') {
+          requestRuntimeGcRelief('app-background');
+        }
+      },
+    );
     startRuntimeHealthCensus({
       sampleProcess: () => performance.sample(),
+      forceFullGc: () => performance.forceGarbageCollection(),
       getExtra: () => {
         const swrCache = swrCacheUtils.getSizeStats();
         return {
@@ -981,6 +994,7 @@ export function Bootstrap() {
     });
     return () => {
       stopRuntimeHealthCensus();
+      appStateSubscription.remove();
       appEventBus.off(
         EAppEventBusNames.AccountSelectorSelectedAccountUpdate,
         onSelectedAccountUpdate,

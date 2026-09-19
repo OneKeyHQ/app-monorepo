@@ -693,16 +693,90 @@ export async function runDiagGcExperiment() {
   }, 60_000);
 }
 
+// ---- GC relief ---------------------------------------------------------------
+//
+// On this engine every young-generation collection pays for the weak-map
+// entries the runtime has ever created, and the price does not fall when they
+// die: measured in isolation, a million entries make a collection ~16x more
+// expensive, for good. Reanimated's serializer and Tamagui's style resolution
+// create about that many in five minutes of active use, which is why a session
+// gets slower the longer it runs. A full collection releases the dead entries'
+// slots and brought the cost down by about half in the same measurement.
+//
+// A full collection stops the runtime for a few hundred milliseconds, so it
+// only runs when collections are already expensive, no more often than every
+// two minutes, and at a moment the event loop has been quiet for a second, or
+// when the app goes to the background where nobody can see the pause.
+const GC_RELIEF_ENABLED = true;
+const GC_RELIEF_MS_PER_GC = 8;
+const GC_RELIEF_MIN_GCS = 30;
+const GC_RELIEF_MIN_GAP_MS = 120_000;
+const GC_RELIEF_BACKGROUND_MS_PER_GC = 4;
+const GC_RELIEF_QUIET_TICKS = 10;
+const GC_RELIEF_QUIET_DRIFT_MS = 50;
+const GC_RELIEF_MAX_WAIT_MS = 20_000;
+
+let gcReliefRunner: ((reason: string) => void) | undefined;
+
+/**
+ * Ask for a full collection now, from a moment the caller knows is invisible
+ * to the user (the app going to the background). Does nothing unless the census
+ * is running and collections have become expensive.
+ */
+export function requestRuntimeGcRelief(reason: string) {
+  gcReliefRunner?.(reason);
+}
+
 let healthTimer: ReturnType<typeof setInterval> | null = null;
 
 export function startRuntimeHealthCensus({
   sampleProcess,
   getExtra,
+  forceFullGc,
 }: {
   sampleProcess?: () => Promise<IRuntimeHealthProcessSample>;
   getExtra?: () => Record<string, number | undefined>;
+  // Returns false where the engine exposes no such binding.
+  forceFullGc?: () => boolean;
 } = {}) {
   if (healthTimer) return;
+  let lastMsPerGc = 0;
+  let lastReliefAt = -GC_RELIEF_MIN_GAP_MS;
+  let reliefPendingSince: number | undefined;
+  let quietTicks = 0;
+  const runRelief = (reason: string, now: number) => {
+    reliefPendingSince = undefined;
+    if (!forceFullGc) return;
+    const before = readHermesCounters();
+    const startedAt = perfNow();
+    const ran = forceFullGc();
+    const fullGcMs = Math.round(perfNow() - startedAt);
+    lastReliefAt = now;
+    if (!ran) return;
+    const after = readHermesCounters();
+    defaultLogger.app.perf.runtimeGcRelief({
+      reason,
+      msPerGcBefore: Math.round(lastMsPerGc * 10) / 10,
+      fullGcMs,
+      heapMBBefore: before ? toMB(before.heapBytes) : undefined,
+      heapMBAfter: after ? toMB(after.heapBytes) : undefined,
+      liveMBBefore:
+        before?.liveBytes === undefined ? undefined : toMB(before.liveBytes),
+      liveMBAfter:
+        after?.liveBytes === undefined ? undefined : toMB(after.liveBytes),
+    });
+  };
+  if (GC_RELIEF_ENABLED && forceFullGc) {
+    gcReliefRunner = (reason: string) => {
+      const now = perfNow();
+      if (
+        lastMsPerGc >= GC_RELIEF_BACKGROUND_MS_PER_GC &&
+        now - lastReliefAt >= GC_RELIEF_MIN_GAP_MS
+      ) {
+        runRelief(reason, now);
+      }
+    };
+  }
   const diagCensus = getDiagCensus();
   if (diagCensus) {
     diagCensus.onCommit = sampleRenderedFibers;
@@ -778,6 +852,17 @@ export function startRuntimeHealthCensus({
       ...getExtra?.(),
     };
     defaultLogger.app.perf.runtimeHealthCensus(report);
+    if (report.gcCount && report.gcCount >= GC_RELIEF_MIN_GCS) {
+      lastMsPerGc = (report.gcMs ?? 0) / report.gcCount;
+      if (
+        gcReliefRunner &&
+        reliefPendingSince === undefined &&
+        lastMsPerGc >= GC_RELIEF_MS_PER_GC &&
+        now - lastReliefAt >= GC_RELIEF_MIN_GAP_MS
+      ) {
+        reliefPendingSince = now;
+      }
+    }
     flushInboundCensus(report.windowMs);
     flushDiagCensus(report.windowMs, report);
 
@@ -800,6 +885,19 @@ export function startRuntimeHealthCensus({
     const now = perfNow();
     const drift = now - last - HEALTH_TICK_MS;
     last = now;
+    quietTicks = drift < GC_RELIEF_QUIET_DRIFT_MS ? quietTicks + 1 : 0;
+    if (reliefPendingSince !== undefined) {
+      if (quietTicks >= GC_RELIEF_QUIET_TICKS) {
+        runRelief('expensive-collections', now);
+        // The pause it just caused is its own, not a block to report.
+        last = perfNow();
+        quietTicks = 0;
+        return;
+      }
+      if (now - reliefPendingSince >= GC_RELIEF_MAX_WAIT_MS) {
+        reliefPendingSince = undefined;
+      }
+    }
     if (drift >= HEALTH_SUSPENDED_MS) {
       // Time the app spent suspended belongs to no window.
       suspendedCount += 1;
@@ -837,4 +935,5 @@ export function stopRuntimeHealthCensus() {
   if (!healthTimer) return;
   clearInterval(healthTimer);
   healthTimer = null;
+  gcReliefRunner = undefined;
 }
