@@ -180,6 +180,9 @@ export function convertDeviceError(
     case HardwareErrorCode.BleDeviceNotBonded:
       return new HardwareErrors.DeviceNotBonded({ payload });
     case HardwareErrorCode.BleDeviceBondedCanceled:
+      if (platformEnv.isDesktop) {
+        return new HardwareErrors.UserCancel({ payload });
+      }
       return new HardwareErrors.BleDeviceBondedCanceled({ payload });
     case HardwareErrorCode.BleDeviceBondError:
     case HardwareErrorCode.BlePeerRemovedPairingInformation:
@@ -363,6 +366,17 @@ export function isOneKeyHardwareError(error: unknown): error is IOneKeyError {
     oneKeyError?.className === EOneKeyErrorClassNames.OneKeyHardwareError ||
     oneKeyError?.className === EOneKeyErrorClassNames.UnknownHardwareError ||
     oneKeyError?.$isHardwareError === true,
+  );
+}
+
+export function isDesktopBlePairingCanceledError(
+  error: unknown,
+): error is IOneKeyError {
+  const oneKeyError = error as IOneKeyError | undefined;
+  return Boolean(
+    platformEnv.isDesktop &&
+    isOneKeyHardwareError(error) &&
+    oneKeyError?.payload?.code === HardwareErrorCode.BleDeviceBondedCanceled,
   );
 }
 
