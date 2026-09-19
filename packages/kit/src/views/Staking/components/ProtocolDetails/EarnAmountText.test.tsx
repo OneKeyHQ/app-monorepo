@@ -59,6 +59,7 @@ jest.mock('@onekeyhq/shared/types/qrCode', () => ({
 }));
 
 import { render } from '@testing-library/react';
+
 import { EarnAmountText } from './EarnAmountText';
 
 describe('EarnAmountText', () => {
