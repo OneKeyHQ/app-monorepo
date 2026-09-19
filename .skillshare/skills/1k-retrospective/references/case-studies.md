@@ -529,6 +529,55 @@ Cases are appended by AI after each bug fix. Do NOT reorder or delete entries �
 **Fix**: Backdate only the initial stale fixture and use a nonzero stale threshold so replacement locks remain fresh during acquisition.
 **Catchable by**: Section 6: tests cover race conditions; NEW — concurrency tests must make the intended stale fixture old without making newly created resources instantly stale
 
+## Case: Home Market watchlist View more used a smaller font than other tabs
+**Date**: 2026-09-18 | **Platforms**: Desktop, Mobile, Web, Extension
+**Symptom**: OK-63673. Wallet Home Market watchlist "View more" rendered at 14px while Trending/Stocks/other category tabs used 16px, so switching tabs jumped the Market block height.
+**Root Cause**: Watchlist built a custom Button child (`$bodyMdMedium` + `$5.5` icon) copied from a Perps polish; category tabs kept the standard medium Button (`iconAfter` + `$bodyLgMedium`).
+**Fix**: Restore the watchlist footer to the same standard Button API as `MarketCategoryTokenList`. Leave Perps Home View more unchanged.
+**Catchable by**: Section 4: shared hook/utility modified → checked all consumers; NEW — duplicated UI across sibling tabs must share one control, not a later one-off restyle
+
+## Case: Home Market stock/top-coin rows were 60px while token rows were 68px
+**Date**: 2026-09-18 | **Platforms**: Desktop, Web, Extension
+**Symptom**: OK-63673 follow-up. Wallet Home Market rows measured 716×60 for stocks/top coins and 716×68 for trending tokens with an address, so switching tabs still jumped height after the View more font was unified.
+**Root Cause**: `Table` defaults `minHeight` to 60. One-line stock/native identity cells stay at that floor; address + copy-button cells grow to 68.
+**Fix**: Set home Market table `minHeight` / `estimatedItemSize` to 68 so every tab's rows match the taller token row.
+**Catchable by**: Section 3: UI changes verified on desktop; NEW — when a list mixes one-line and two-line cells, lock the row minHeight to the taller variant before declaring tab-switch height stable
+
+## Case: Market detail search stock list loaded from scratch every open
+**Date**: 2026-09-18 | **Platforms**: Desktop, Mobile, Web, Extension
+**Symptom**: OK-63683. Opening Market detail search showed a 1–2s spinner on Stocks, while Favorites / Trending / Top Coins returned immediately. Re-entering search loaded Stocks again.
+**Root Cause**: `useMarketStockSelectorList` cold-fetched `/utility/v1/stocks` on every mount (`undefinedResultIfReRun` + empty init, no SWR). Rows were published only from `listState` after an effect, so even a cached first page still rendered as empty + spinner. Home stocks already persisted under `swrKeys.marketHomeStocks`.
+**Fix**: Hydrate the default selector list from the selector SWR slot, falling back to the Home stocks cache; keep cached rows on screen while revalidating; only show the full-page spinner when there are no rows.
+**Catchable by**: Section 5: "not loaded" vs "empty"; NEW — a remounted picker that already has a sibling list cache must render that cache instead of treating the next fetch as a first load
+
+## Case: Market selector showed end-of-list while the cached first page was still revalidating
+**Date**: 2026-09-18 | **Platforms**: Desktop, Mobile, Web, Extension
+**Symptom**: After cache-first hydration, Market detail search Stocks showed `ListEndIndicator` during the silent first-page refresh, so a short cached page looked complete even though `nextCursor` still existed.
+**Root Cause**: `canLoadMore` used `!isLoading`. Cached rows made the returned `isLoading` false for the spinner, but `usePromiseResult`'s loading flag still flipped `canLoadMore` off; the footer treated "cannot load more" as end of list. `onEndReached` during that window was dropped.
+**Fix**: Track `isRevalidatingFirstPage` until the remote first page for this query settles; hide `ListEndIndicator` in that window; queue `loadMore` and flush it after the first page lands.
+**Catchable by**: Section 4: edge cases loading vs empty; NEW — a cache-first list must not render an end sentinel while the first remote page is still in flight
+
+## Case: Desktop Home stocks SWR was skipped so Market search could not hydrate
+**Date**: 2026-09-18 | **Platforms**: Desktop, Web, Extension
+**Symptom**: OK-63683 remaining P2. Opening Market detail search on desktop still waited on `/utility/v1/stocks` because Home never wrote `swrKeys.marketHomeStocks`.
+**Root Cause**: `useMarketStockList` only set `swrKey` when `platformEnv.isNative`, so desktop/web Home visits left the selector with no sibling cache.
+**Fix**: Persist Home stocks under `swrKeys.marketHomeStocks` on every platform so the selector can hydrate from the same slot.
+**Catchable by**: Section 3: identified which platforms consume modified code; NEW — a native-only SWR write cannot be the cache source for a cross-platform picker
+
+## Case: Queued stock selector load-more used the cached cursor
+**Date**: 2026-09-18 | **Platforms**: Desktop, Mobile, Web, Extension
+**Symptom**: After cache-first search hydration, scrolling to the bottom during the 1–2s first-page refetch could request page two with the cached `nextCursor` and append it onto a newer first page.
+**Root Cause**: `remoteQueryKeyRef` was written in the fetch callback before `listState` applied the remote first page. The queue effect then called `loadMore()` with the cached cursor still in the closure.
+**Fix**: Publish the remote first page as `currentListState` on the same render (Home’s pattern) so a flushed `loadMore` uses the remote cursor and items.
+**Catchable by**: Section 5: race conditions in async operations; NEW — a queued pagination flush must use the remote first page, not the cache snapshot that is still in React state
+
+## Case: Home Market 68px row minHeight stretched the table header
+**Date**: 2026-09-18 | **Platforms**: Desktop, Web, Extension
+**Symptom**: OK-63673 follow-up. Desktop Home Market data rows were locked to 68px, but `TableHeaderRow` spreads `rowProps` before `headerRowProps`, so the header also became 68px.
+**Root Cause**: `headerRowProps` only set padding/margin and did not override `minHeight`.
+**Fix**: Set desktop `headerRowProps.minHeight` to 0 so the header stays content-sized while data rows keep the 68px floor.
+**Catchable by**: Section 4: UI changes verified on desktop; NEW — when rowProps set minHeight, headerRowProps must override it or the header grows with the rows
+
 ## Case: Weak-network Market home hid Stocks and Robinhood tabs
 **Date**: 2026-09-18 | **Platforms**: Desktop, Web, Extension; Native when config cache is cold
 **Symptom**: OK-63704. On a weak or offline network, Market home only showed Favorites / Trending / Top coins / Perps. Stocks and Robinhood tabs disappeared.
