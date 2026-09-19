@@ -72,10 +72,13 @@ function SwapReviewDialogContent({
     adapter,
     approveTransactionSource,
   });
+  const shouldDisableGlobalApproveSync =
+    disableGlobalApproveSync ||
+    approveTransactionSource !== ESwapReviewApproveTransactionSource.None;
 
   return (
     <PreSwapDialogContent
-      disableGlobalApproveSync={disableGlobalApproveSync}
+      disableGlobalApproveSync={shouldDisableGlobalApproveSync}
       disableSaveSlippageForFutureOrders={disableSaveSlippageForFutureOrders}
       onConfirm={() => {
         if (isSwapReviewConfirmBlocked(reviewRebuildState.phase)) {

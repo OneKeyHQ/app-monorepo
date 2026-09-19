@@ -10,8 +10,8 @@ import {
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import type {
-  IBatchEstimateFeeParams,
-  IEstimateGasParams,
+  IBatchEstimateFeeRequestParams,
+  IEstimateGasRequestParams,
   IFeeInfoUnit,
   IServerBatchEstimateFeeResponse,
 } from '@onekeyhq/shared/types/fee';
@@ -28,179 +28,272 @@ class ServiceGas extends ServiceBase {
     super({ backgroundApi });
   }
 
-  _estimateFeeController: AbortController | null = null;
+  private _estimateFeeControllersByRequestId = new Map<
+    string,
+    Set<AbortController>
+  >();
 
-  @backgroundMethod()
-  public async abortEstimateFee() {
-    if (this._estimateFeeController) {
-      this._estimateFeeController.abort();
-      this._estimateFeeController = null;
+  private _legacyEstimateFeeControllers = new Set<AbortController>();
+
+  private _registerEstimateFeeController(
+    controller: AbortController,
+    requestId?: string,
+  ) {
+    if (!requestId) {
+      this._legacyEstimateFeeControllers.add(controller);
+      return;
+    }
+    const controllers =
+      this._estimateFeeControllersByRequestId.get(requestId) ??
+      new Set<AbortController>();
+    for (const previousController of controllers) {
+      previousController.abort();
+    }
+    controllers.clear();
+    controllers.add(controller);
+    this._estimateFeeControllersByRequestId.set(requestId, controllers);
+  }
+
+  private _unregisterEstimateFeeController(
+    controller: AbortController,
+    requestId?: string,
+  ) {
+    if (!requestId) {
+      this._legacyEstimateFeeControllers.delete(controller);
+      return;
+    }
+    const controllers = this._estimateFeeControllersByRequestId.get(requestId);
+    if (!controllers) {
+      return;
+    }
+    controllers.delete(controller);
+    if (controllers.size === 0) {
+      this._estimateFeeControllersByRequestId.delete(requestId);
     }
   }
 
+  private _assertEstimateFeeNotAborted(controller: AbortController) {
+    if (!controller.signal.aborted) {
+      return;
+    }
+
+    const error = new Error('Estimate fee aborted');
+    error.name = 'AbortError';
+    throw error;
+  }
+
   @backgroundMethod()
-  async batchEstimateFee(params: IBatchEstimateFeeParams) {
-    const controller = new AbortController();
-    this._estimateFeeController = controller;
+  public async abortEstimateFee(params?: {
+    requestId?: string;
+    requestIdPrefix?: string;
+  }) {
+    if (params?.requestIdPrefix) {
+      for (const [requestId, controllers] of this
+        ._estimateFeeControllersByRequestId) {
+        if (requestId.startsWith(params.requestIdPrefix)) {
+          for (const controller of controllers) {
+            controller.abort();
+          }
+          this._estimateFeeControllersByRequestId.delete(requestId);
+        }
+      }
+      return;
+    }
 
-    const { accountId, networkId, encodedTxs } = params;
-    const client = await this.getClient(EServiceEndpointEnum.Wallet);
+    if (!params?.requestId) {
+      for (const controller of this._legacyEstimateFeeControllers) {
+        controller.abort();
+      }
+      this._legacyEstimateFeeControllers.clear();
+      return;
+    }
 
-    const resp = await client.post<IServerBatchEstimateFeeResponse>(
-      '/wallet/v1/account/estimate-fee-batch',
-      {
-        networkId,
-        encodedTxList: encodedTxs,
-      },
-      {
-        signal: controller.signal,
-        headers:
-          await this.backgroundApi.serviceAccountProfile._getWalletTypeHeader({
-            accountId,
-          }),
-      },
+    const controllers = this._estimateFeeControllersByRequestId.get(
+      params.requestId,
     );
-
-    this._estimateFeeController = null;
-
-    const feeInfo = resp.data.data;
-
-    const batchFeeResult = {
-      common: {
-        baseFee: feeInfo.baseFee,
-        feeDecimals: feeInfo.feeDecimals,
-        feeSymbol: feeInfo.feeSymbol,
-        nativeDecimals: feeInfo.nativeDecimals,
-        nativeSymbol: feeInfo.nativeSymbol,
-        nativeTokenPrice: feeInfo.nativeTokenPrice?.price,
-      },
-      txFees: feeInfo.result,
-    };
-
-    return batchFeeResult;
+    if (!controllers) {
+      return;
+    }
+    for (const controller of controllers) {
+      controller.abort();
+    }
+    this._estimateFeeControllersByRequestId.delete(params.requestId);
   }
 
   @backgroundMethod()
-  async estimateFee(params: IEstimateGasParams) {
-    const { transfersInfo, ...rest } = params;
+  async batchEstimateFee(params: IBatchEstimateFeeRequestParams) {
     const controller = new AbortController();
-    this._estimateFeeController = controller;
+    const { accountId, networkId, encodedTxs, requestId } = params;
+    this._registerEstimateFeeController(controller, requestId);
 
-    // Global Gas Account opt-out driven by user setting (Settings → Wallet →
-    // "Use Gas Account by default"). When the user turns it off, force every
-    // fee estimation across the app (Send / Swap / Perps / Earn / dApp ...)
-    // to opt out of sponsored gas. Backend then returns no quote and
-    // downstream code naturally falls back to user-paid.
-    const { useGasAccountByDefault } = await settingsPersistAtom.get();
-    if (useGasAccountByDefault === false) {
-      rest.gasAccountEnabled = false;
+    try {
+      const client = await this.getClient(EServiceEndpointEnum.Wallet);
+      this._assertEstimateFeeNotAborted(controller);
+
+      const resp = await client.post<IServerBatchEstimateFeeResponse>(
+        '/wallet/v1/account/estimate-fee-batch',
+        {
+          networkId,
+          encodedTxList: encodedTxs,
+        },
+        {
+          signal: controller.signal,
+          headers:
+            await this.backgroundApi.serviceAccountProfile._getWalletTypeHeader(
+              {
+                accountId,
+              },
+            ),
+        },
+      );
+
+      this._assertEstimateFeeNotAborted(controller);
+      const feeInfo = resp.data.data;
+
+      const batchFeeResult = {
+        common: {
+          baseFee: feeInfo.baseFee,
+          feeDecimals: feeInfo.feeDecimals,
+          feeSymbol: feeInfo.feeSymbol,
+          nativeDecimals: feeInfo.nativeDecimals,
+          nativeSymbol: feeInfo.nativeSymbol,
+          nativeTokenPrice: feeInfo.nativeTokenPrice?.price,
+        },
+        txFees: feeInfo.result,
+      };
+
+      return batchFeeResult;
+    } finally {
+      this._unregisterEstimateFeeController(controller, requestId);
     }
+  }
 
-    const vault = await vaultFactory.getVault({
-      networkId: params.networkId,
-      accountId: params.accountId,
-    });
-    const resp = await vault.estimateFee(rest);
+  @backgroundMethod()
+  async estimateFee(params: IEstimateGasRequestParams) {
+    const { transfersInfo, requestId, ...rest } = params;
+    const controller = new AbortController();
+    this._registerEstimateFeeController(controller, requestId);
 
-    this._estimateFeeController = null;
+    try {
+      // Global Gas Account opt-out driven by user setting (Settings → Wallet →
+      // "Use Gas Account by default"). When the user turns it off, force every
+      // fee estimation across the app (Send / Swap / Perps / Earn / dApp ...)
+      // to opt out of sponsored gas. Backend then returns no quote and
+      // downstream code naturally falls back to user-paid.
+      const { useGasAccountByDefault } = await settingsPersistAtom.get();
+      this._assertEstimateFeeNotAborted(controller);
+      if (useGasAccountByDefault === false) {
+        rest.gasAccountEnabled = false;
+      }
 
-    const feeInfo = resp.data.data;
+      const vault = await vaultFactory.getVault({
+        networkId: params.networkId,
+        accountId: params.accountId,
+      });
+      this._assertEstimateFeeNotAborted(controller);
+      const resp = await vault.estimateFee(rest);
+      this._assertEstimateFeeNotAborted(controller);
 
-    const feeResult = {
-      common: {
-        baseFee: feeInfo.baseFee,
-        feeDecimals: feeInfo.feeDecimals,
-        feeSymbol: feeInfo.feeSymbol,
-        nativeDecimals: feeInfo.nativeDecimals,
-        nativeSymbol: feeInfo.nativeSymbol,
-        nativeTokenPrice: feeInfo.nativeTokenPrice?.price,
-      },
-      gas: feeInfo.gas,
-      gasEIP1559: feeInfo.gasEIP1559,
-      feeUTXO: feeInfo.feeUTXO,
-      feeTron: feeInfo.feeTron,
-      feeSol: feeInfo.computeUnitPrice
-        ? [
-            {
-              computeUnitPrice: feeInfo.computeUnitPrice,
-            },
-          ]
-        : undefined,
-      feeCkb: feeInfo.feeCkb
-        ? feeInfo.feeCkb.map((item) => ({
-            ...item,
-            feeRate: (params.encodedTx as IEncodedTxCkb).feeInfo.feeRate,
-          }))
-        : undefined,
-      feeAlgo: (isArray(feeInfo.feeAlgo)
-        ? feeInfo.feeAlgo
-        : [feeInfo.feeAlgo]
-      ).filter((item) => !!item),
-      feeDot: feeInfo.feeData
-        ?.map((item) => {
-          if (!item.extraTip || feeInfo.feeDecimals === undefined) {
-            return undefined;
+      const feeInfo = resp.data.data;
+
+      const feeResult = {
+        common: {
+          baseFee: feeInfo.baseFee,
+          feeDecimals: feeInfo.feeDecimals,
+          feeSymbol: feeInfo.feeSymbol,
+          nativeDecimals: feeInfo.nativeDecimals,
+          nativeSymbol: feeInfo.nativeSymbol,
+          nativeTokenPrice: feeInfo.nativeTokenPrice?.price,
+        },
+        gas: feeInfo.gas,
+        gasEIP1559: feeInfo.gasEIP1559,
+        feeUTXO: feeInfo.feeUTXO,
+        feeTron: feeInfo.feeTron,
+        feeSol: feeInfo.computeUnitPrice
+          ? [
+              {
+                computeUnitPrice: feeInfo.computeUnitPrice,
+              },
+            ]
+          : undefined,
+        feeCkb: feeInfo.feeCkb
+          ? feeInfo.feeCkb.map((item) => ({
+              ...item,
+              feeRate: (params.encodedTx as IEncodedTxCkb).feeInfo.feeRate,
+            }))
+          : undefined,
+        feeAlgo: (isArray(feeInfo.feeAlgo)
+          ? feeInfo.feeAlgo
+          : [feeInfo.feeAlgo]
+        ).filter((item) => !!item),
+        feeDot: feeInfo.feeData
+          ?.map((item) => {
+            if (!item.extraTip || feeInfo.feeDecimals === undefined) {
+              return undefined;
+            }
+            return {
+              extraTipInDot: new BigNumber(item.extraTip)
+                .shiftedBy(-feeInfo.feeDecimals)
+                .toFixed(),
+            };
+          })
+          .filter((item) => !!item),
+        feeBudget: feeInfo.feeBudget?.map((item) => {
+          if (!item.gasPrice) {
+            throw new OneKeyLocalError('gasPrice is undefined');
           }
           return {
-            extraTipInDot: new BigNumber(item.extraTip)
-              .shiftedBy(-feeInfo.feeDecimals)
-              .toFixed(),
+            ...item,
+            computationCostBase: item.computationCost
+              ? new BigNumber(item.computationCost)
+                  .dividedBy(
+                    new BigNumber(item.gasPrice).shiftedBy(feeInfo.feeDecimals),
+                  )
+                  .toFixed()
+              : '0',
           };
-        })
-        .filter((item) => !!item),
-      feeBudget: feeInfo.feeBudget?.map((item) => {
-        if (!item.gasPrice) {
-          throw new OneKeyLocalError('gasPrice is undefined');
-        }
-        return {
-          ...item,
-          computationCostBase: item.computationCost
-            ? new BigNumber(item.computationCost)
-                .dividedBy(
-                  new BigNumber(item.gasPrice).shiftedBy(feeInfo.feeDecimals),
-                )
-                .toFixed()
-            : '0',
-        };
-      }),
-      feeNeoN3: feeInfo.feeNeoN3,
-      megafuelEligible: feeInfo.megafuelEligible,
-      payer: feeInfo.payer,
-      gasAccountEligible: feeInfo.gasAccountEligible,
-      gasAccountQuote: feeInfo.gasAccountQuote,
-      gasAccountScenarioReason: feeInfo.gasAccountScenarioReason,
-    };
+        }),
+        feeNeoN3: feeInfo.feeNeoN3,
+        megafuelEligible: feeInfo.megafuelEligible,
+        payer: feeInfo.payer,
+        gasAccountEligible: feeInfo.gasAccountEligible,
+        gasAccountQuote: feeInfo.gasAccountQuote,
+        gasAccountScenarioReason: feeInfo.gasAccountScenarioReason,
+      };
 
-    // Since FIL's fee structure is similar to EIP1559, map FIL fees to EIP1559 format to reuse related logic
-    if (feeInfo.gasFil && !feeInfo.gasEIP1559) {
-      feeResult.common.feeSymbol = feeResult.common.nativeSymbol;
-      feeResult.common.feeDecimals = feeResult.common.nativeDecimals;
+      // Since FIL's fee structure is similar to EIP1559, map FIL fees to EIP1559 format to reuse related logic
+      if (feeInfo.gasFil && !feeInfo.gasEIP1559) {
+        feeResult.common.feeSymbol = feeResult.common.nativeSymbol;
+        feeResult.common.feeDecimals = feeResult.common.nativeDecimals;
 
-      feeResult.gasEIP1559 = feeInfo.gasFil.map((item) => ({
-        baseFeePerGas: new BigNumber(FIL_MIN_BASE_FEE)
-          .shiftedBy(-feeResult.common.feeDecimals)
-          .toFixed(),
-        maxFeePerGas: new BigNumber(item.gasFeeCap)
-          .shiftedBy(-feeResult.common.feeDecimals)
-          .toFixed(),
-        maxPriorityFeePerGas: new BigNumber(item.gasPremium)
-          .shiftedBy(-feeResult.common.feeDecimals)
-          .toFixed(),
-        gasLimit: item.gasLimit,
-        gasLimitForDisplay: item.gasLimit,
-      }));
+        feeResult.gasEIP1559 = feeInfo.gasFil.map((item) => ({
+          baseFeePerGas: new BigNumber(FIL_MIN_BASE_FEE)
+            .shiftedBy(-feeResult.common.feeDecimals)
+            .toFixed(),
+          maxFeePerGas: new BigNumber(item.gasFeeCap)
+            .shiftedBy(-feeResult.common.feeDecimals)
+            .toFixed(),
+          maxPriorityFeePerGas: new BigNumber(item.gasPremium)
+            .shiftedBy(-feeResult.common.feeDecimals)
+            .toFixed(),
+          gasLimit: item.gasLimit,
+          gasLimitForDisplay: item.gasLimit,
+        }));
+      }
+
+      if (transfersInfo && transfersInfo.length === 1 && feeInfo.feeAlgo) {
+        feeResult.feeAlgo = feeResult.feeAlgo.map((item) => {
+          return {
+            ...item,
+            baseFee: item.minFee,
+          };
+        });
+      }
+
+      return feeResult;
+    } finally {
+      this._unregisterEstimateFeeController(controller, requestId);
     }
-
-    if (transfersInfo && transfersInfo.length === 1 && feeInfo.feeAlgo) {
-      feeResult.feeAlgo = feeResult.feeAlgo.map((item) => {
-        return {
-          ...item,
-          baseFee: item.minFee,
-        };
-      });
-    }
-
-    return feeResult;
   }
 
   @backgroundMethod()

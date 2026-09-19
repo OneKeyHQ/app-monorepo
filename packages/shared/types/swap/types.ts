@@ -19,6 +19,12 @@ import type {
 } from '@onekeyhq/shared/src/eventSource';
 
 import type {
+  ISwapReviewPreparationArtifact,
+  ISwapReviewPreparationCapability,
+  ISwapReviewPreparationDeclaration,
+  ISwapReviewSession,
+} from './reviewPreparation';
+import type {
   IEstimateGasResp,
   IFeeAlgo,
   IFeeCkb,
@@ -38,6 +44,18 @@ import type { IToken } from '../token';
 import type { IDecodedTxActionTokenApprove } from '../tx';
 import type { NormalizedOrder, TypedDataDomain } from '@cowprotocol/contracts';
 import type { IDeviceType } from '@onekeyfe/hd-core';
+
+export { SWAP_REVIEW_PREPARATION_CAPABILITY_VERSION } from './reviewPreparation';
+export type {
+  ESwapReviewEntrySource,
+  ESwapReviewPreparationMode,
+  ESwapReviewPreparationOutputKind,
+  ISwapReviewPreparationDeclaration,
+  ISwapReviewPreparationArtifact,
+  ISwapReviewPreparationCapability,
+  ISwapReviewSession,
+  ISwapReviewSessionIdentityFields,
+} from './reviewPreparation';
 
 export enum EWrappedType {
   DEPOSIT = 'deposit',
@@ -449,8 +467,9 @@ interface ISocketRewardData {
 export interface ISocketExtraData {
   rewards: ISocketRewardData[];
 }
-interface IQuoteExtraData {
+export interface IQuoteExtraData {
   socketBridgeExtraData?: ISocketExtraData;
+  reviewPreparation?: ISwapReviewPreparationDeclaration;
 }
 
 export interface IQuoteRouteDataInfo {
@@ -633,10 +652,15 @@ export interface ISwapPreSwapData {
     swapInfo?: ISwapTxInfo;
     orderId?: string;
     slippagePercentage?: number;
+    identityFingerprint?: string;
+    sideEffectsCommitted?: boolean;
     skipSendTransAction?: boolean;
     encodedTx?: IEncodedTx;
     transferInfo?: ITransferInfo;
   };
+  reviewSession?: ISwapReviewSession;
+  preparationCapability?: ISwapReviewPreparationCapability;
+  preparationArtifact?: ISwapReviewPreparationArtifact;
   fee?: IFetchQuoteFee;
   supportNetworkFeeLevel?: boolean;
   supportPreBuild?: boolean;
@@ -648,6 +672,13 @@ export interface ISwapPreSwapData {
       txSize?: number;
     }[];
     gasFeeFiatValue?: string;
+    /** Scope metadata used to prevent stale review fees from reaching execution. */
+    sessionId?: string;
+    revision?: number;
+    identityFingerprint?: string;
+    freshnessFingerprint?: string;
+    /** Fingerprint of the selected network fee level and custom priority fee. */
+    feeSelectionFingerprint?: string;
   };
 }
 

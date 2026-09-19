@@ -173,6 +173,14 @@ export type IBatchEstimateFeeParams = {
   encodedTxs: IEncodedTx[];
 };
 
+export type IFeeRequestScope = {
+  /** Frontend-only owner key; never forward this field to fee APIs. */
+  requestId?: string;
+};
+
+export type IBatchEstimateFeeRequestParams = IBatchEstimateFeeParams &
+  IFeeRequestScope;
+
 // Gas Account scenario codes maintained as a frontend contract enum.
 // Backend intentionally does not expose these; new values land via coordinated
 // PR with the onchain server team (see scenario-gate.types.ts on backend).
@@ -206,6 +214,8 @@ export type IEstimateGasParams = {
   gasAccountEnabled?: boolean;
   scenario?: IGasAccountApiScenario;
 };
+
+export type IEstimateGasRequestParams = IEstimateGasParams & IFeeRequestScope;
 
 export type IGasPayer = 'user' | 'megafuel' | 'gasAccount';
 

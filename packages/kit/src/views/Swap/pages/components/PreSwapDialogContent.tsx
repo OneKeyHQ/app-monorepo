@@ -52,6 +52,7 @@ import type {
   IFetchQuoteResult,
   IQuoteTip,
   ISwapPreSwapData,
+  ISwapReviewSession,
   ISwapStep,
   ISwapToken,
   ISwapTxHistory,
@@ -78,12 +79,14 @@ import {
   SwapReviewSlippageEditor,
 } from '../../components/SwapReviewSlippageEditor';
 import { resolveQuoteShowTip } from '../../utils/quoteShowTipUtils';
+import { buildSwapReviewSessionFingerprint } from '../../utils/swapReviewPreparationV2';
 import {
   isSwapReviewConfirmBlocked,
   isSwapReviewRebuildInProgress,
 } from '../../utils/swapReviewRebuildStateMachine';
 import {
   NATIVE_BTC_MIN_SLIPPAGE_PERCENTAGE,
+  applySwapReviewApprovalResult,
   invalidateSwapReviewForSlippageChange,
   shouldShowSwapReviewToAmountSkeleton,
 } from '../../utils/swapReviewState';
@@ -93,6 +96,51 @@ import { getSwapExecutionTypeFromQuoteResult } from '../../utils/swapTypeUtils';
 
 import type { ISwapReviewRebuildOptions } from '../../hooks/useSwapReviewActions';
 import type { ISwapReviewRebuildState } from '../../utils/swapReviewRebuildStateMachine';
+
+type IPendingApprovalExecution = {
+  expectedQuoteResult?: IFetchQuoteResult;
+  expectedSession?: ISwapReviewSession;
+  expectedSessionFingerprint?: string;
+  approvalStepIndex: number;
+  isResetApprove: boolean;
+  txId?: string;
+};
+
+type IActiveApprovalAttempt = IPendingApprovalExecution;
+
+function isCurrentSwapReviewState({
+  current,
+  expectedQuoteResult,
+  expectedSession,
+  expectedSessionFingerprint,
+}: {
+  current: {
+    preSwapData: ISwapPreSwapData;
+    quoteResult?: IFetchQuoteResult;
+  };
+  expectedQuoteResult?: IFetchQuoteResult;
+  expectedSession?: ISwapReviewSession;
+  expectedSessionFingerprint?: string;
+}): boolean {
+  if (current.quoteResult !== expectedQuoteResult) {
+    return false;
+  }
+
+  const currentSession = current.preSwapData.reviewSession;
+  if (expectedSession || currentSession) {
+    return Boolean(
+      expectedSession &&
+      currentSession &&
+      currentSession.sessionId === expectedSession.sessionId &&
+      currentSession.revision === expectedSession.revision &&
+      expectedSessionFingerprint &&
+      buildSwapReviewSessionFingerprint(currentSession) ===
+        expectedSessionFingerprint,
+    );
+  }
+
+  return true;
+}
 
 interface IPreSwapDialogContentProps {
   onConfirm: () => void;
@@ -229,6 +277,13 @@ const PreSwapDialogContent = ({
   const swapStepsRef = useRef(swapSteps);
   const latestApproveTxIdRef = useRef('');
   const handledApproveStatusRef = useRef('');
+  const pendingApprovalExecutionRef = useRef<
+    IPendingApprovalExecution | undefined
+  >(undefined);
+  const activeApprovalAttemptRef = useRef<IActiveApprovalAttempt | undefined>(
+    undefined,
+  );
+  const [approvalExecutionVersion, setApprovalExecutionVersion] = useState(0);
   if (!isEqual(swapStepsRef.current, swapSteps)) {
     swapStepsRef.current = swapSteps;
   }
@@ -478,23 +533,85 @@ const PreSwapDialogContent = ({
   const tipOnCancel = useCallback(() => {
     setShowPreSwapTipInfo(undefined);
   }, []);
+
+  useEffect(() => {
+    const pendingApprovalExecution = pendingApprovalExecutionRef.current;
+    if (!pendingApprovalExecution) {
+      return;
+    }
+    pendingApprovalExecutionRef.current = undefined;
+
+    if (
+      !isCurrentSwapReviewState({
+        current: swapStepsRef.current,
+        expectedQuoteResult: pendingApprovalExecution.expectedQuoteResult,
+        expectedSession: pendingApprovalExecution.expectedSession,
+        expectedSessionFingerprint:
+          pendingApprovalExecution.expectedSessionFingerprint,
+      })
+    ) {
+      return;
+    }
+
+    const approvalStep =
+      swapStepsRef.current.steps[pendingApprovalExecution.approvalStepIndex];
+    if (
+      !approvalStep ||
+      approvalStep.type !== ESwapStepType.APPROVE_TX ||
+      approvalStep.status !== ESwapStepStatus.SUCCESS ||
+      Boolean(approvalStep.isResetApprove) !==
+        pendingApprovalExecution.isResetApprove ||
+      (pendingApprovalExecution.txId &&
+        approvalStep.txHash !== pendingApprovalExecution.txId)
+    ) {
+      return;
+    }
+
+    void preSwapStepsStart();
+  }, [approvalExecutionVersion, preSwapStepsStart]);
+
   useEffect(() => {
     if (disableGlobalApproveSync) {
       return;
     }
 
     const approveTransaction = inAppNotificationAtom.swapApprovingTransaction;
+    if (approveTransaction?.status === ESwapApproveTransactionStatus.PENDING) {
+      const isResetApproveTransaction = approveTransaction.amount === '0';
+      const pendingStepIndex = swapStepsRef.current.steps.findIndex(
+        (step) =>
+          step.type === ESwapStepType.APPROVE_TX &&
+          step.status === ESwapStepStatus.PENDING &&
+          Boolean(step.isResetApprove) === isResetApproveTransaction &&
+          (!approveTransaction.txId || step.txHash === approveTransaction.txId),
+      );
+      if (pendingStepIndex >= 0) {
+        const currentReviewState = swapStepsRef.current;
+        const expectedSession = currentReviewState.preSwapData.reviewSession;
+        activeApprovalAttemptRef.current = {
+          expectedQuoteResult: currentReviewState.quoteResult,
+          expectedSession,
+          expectedSessionFingerprint: expectedSession
+            ? buildSwapReviewSessionFingerprint(expectedSession)
+            : undefined,
+          approvalStepIndex: pendingStepIndex,
+          isResetApprove: isResetApproveTransaction,
+          txId: approveTransaction.txId,
+        };
+      }
+      return;
+    }
     if (approveTransaction?.txId) {
       latestApproveTxIdRef.current = approveTransaction.txId;
     }
 
-    if (
-      approveTransaction &&
-      approveTransaction.status !== ESwapApproveTransactionStatus.PENDING
-    ) {
+    if (approveTransaction) {
       const approveTxIdFromNotification = approveTransaction.txId ?? '';
       const trackedApproveTxId =
-        approveTxIdFromNotification || latestApproveTxIdRef.current || '';
+        approveTxIdFromNotification ||
+        activeApprovalAttemptRef.current?.txId ||
+        latestApproveTxIdRef.current ||
+        '';
       const isResetApproveTransaction = approveTransaction.amount === '0';
       const isFallbackTrackedApproveTxId =
         !approveTxIdFromNotification && !!trackedApproveTxId;
@@ -504,7 +621,6 @@ const PreSwapDialogContent = ({
       if (handledApproveStatusRef.current === approveStatusKey) {
         return;
       }
-      handledApproveStatusRef.current = approveStatusKey;
 
       const approveStepStatus =
         approveTransaction.status === ESwapApproveTransactionStatus.SUCCESS
@@ -512,26 +628,47 @@ const PreSwapDialogContent = ({
           : ESwapStepStatus.FAILED;
 
       const currentSwapSteps = swapStepsRef.current;
-      const stepIndex = currentSwapSteps.steps.findIndex((step) => {
-        if (
-          trackedApproveTxId &&
-          step.txHash === trackedApproveTxId &&
-          Boolean(step.isResetApprove) === isResetApproveTransaction
-        ) {
-          return (
-            !isFallbackTrackedApproveTxId ||
-            step.status === ESwapStepStatus.PENDING
-          );
-        }
-        return (
-          step.type === ESwapStepType.APPROVE_TX &&
-          step.status === ESwapStepStatus.PENDING &&
-          Boolean(step.isResetApprove) === isResetApproveTransaction &&
-          (!step.txHash || step.txHash === trackedApproveTxId)
-        );
+      const activeApprovalAttempt = activeApprovalAttemptRef.current;
+      if (
+        !activeApprovalAttempt ||
+        (approveTxIdFromNotification &&
+          activeApprovalAttempt.txId &&
+          approveTxIdFromNotification !== activeApprovalAttempt.txId) ||
+        activeApprovalAttempt.isResetApprove !== isResetApproveTransaction
+      ) {
+        return;
+      }
+      const approvalStep =
+        currentSwapSteps.steps[activeApprovalAttempt.approvalStepIndex];
+      if (
+        !approvalStep ||
+        approvalStep.type !== ESwapStepType.APPROVE_TX ||
+        approvalStep.status !== ESwapStepStatus.PENDING ||
+        Boolean(approvalStep.isResetApprove) !== isResetApproveTransaction ||
+        (activeApprovalAttempt.txId &&
+          approvalStep.txHash !== activeApprovalAttempt.txId)
+      ) {
+        return;
+      }
+      handledApproveStatusRef.current = approveStatusKey;
+      const expectedQuoteResult = currentSwapSteps.quoteResult;
+      const expectedSession = currentSwapSteps.preSwapData.reviewSession;
+      const expectedSessionFingerprint = expectedSession
+        ? buildSwapReviewSessionFingerprint(expectedSession)
+        : undefined;
+      const currentReviewState = applySwapReviewApprovalResult({
+        reviewState: currentSwapSteps,
+        expectedQuoteResult,
+        expectedSession,
+        expectedSessionFingerprint,
+        trackedApproveTxId,
+        approveTxId: approveTxIdFromNotification,
+        isResetApproveTransaction,
+        isFallbackTrackedApproveTxId,
+        approveStepStatus,
       });
 
-      if (stepIndex === -1) {
+      if (!currentReviewState) {
         setInAppNotificationAtom((prev) => ({
           ...prev,
           swapApprovingTransaction: undefined,
@@ -539,32 +676,41 @@ const PreSwapDialogContent = ({
         return;
       }
 
-      const updatedSteps: ISwapStep[] = [...currentSwapSteps.steps];
-      updatedSteps[stepIndex] = {
-        ...updatedSteps[stepIndex],
-        status: approveStepStatus,
-        txHash: approveTxIdFromNotification || updatedSteps[stepIndex].txHash,
-        stepSubTitle: undefined,
-      };
+      setSwapSteps((prevSteps) => {
+        const nextReviewState = applySwapReviewApprovalResult({
+          reviewState: prevSteps,
+          expectedQuoteResult,
+          expectedSession,
+          expectedSessionFingerprint,
+          trackedApproveTxId,
+          approveTxId: approveTxIdFromNotification,
+          isResetApproveTransaction,
+          isFallbackTrackedApproveTxId,
+          approveStepStatus,
+        });
 
-      setSwapSteps((prevSteps) => ({
-        ...prevSteps,
-        steps: updatedSteps,
-      }));
+        return nextReviewState ?? prevSteps;
+      });
       setInAppNotificationAtom((prev) => ({
         ...prev,
         swapApprovingTransaction: undefined,
       }));
 
       if (approveStepStatus !== ESwapStepStatus.SUCCESS) {
+        activeApprovalAttemptRef.current = undefined;
         return;
       }
 
-      void preSwapStepsStart({
-        steps: updatedSteps,
-        preSwapData: currentSwapSteps.preSwapData,
-        quoteResult: currentSwapSteps.quoteResult as IFetchQuoteResult,
-      });
+      pendingApprovalExecutionRef.current = {
+        expectedQuoteResult,
+        expectedSession,
+        expectedSessionFingerprint,
+        approvalStepIndex: activeApprovalAttempt.approvalStepIndex,
+        isResetApprove: isResetApproveTransaction,
+        txId: approveTxIdFromNotification || activeApprovalAttempt.txId,
+      };
+      activeApprovalAttemptRef.current = undefined;
+      setApprovalExecutionVersion((version) => version + 1);
     }
   }, [
     disableGlobalApproveSync,
@@ -577,7 +723,9 @@ const PreSwapDialogContent = ({
   useLayoutEffect(() => {
     if (
       swapStepsRef.current.preSwapData.supportNetworkFeeLevel &&
-      swapStepsRef.current.preSwapData.supportPreBuild
+      swapStepsRef.current.preSwapData.supportPreBuild &&
+      swapStepsRef.current.preSwapData.preparationCapability
+        ?.canPrepareBeforeReview === true
     ) {
       void preSwapBeforeStepActions(
         swapStepsRef.current.quoteResult,

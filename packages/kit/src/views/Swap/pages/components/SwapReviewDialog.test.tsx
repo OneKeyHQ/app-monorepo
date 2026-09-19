@@ -195,6 +195,35 @@ describe('SwapReviewDialog', () => {
     expect(onDone).toHaveBeenCalledTimes(1);
   });
 
+  it('disables the global approval listener when a dedicated source is selected', () => {
+    render(
+      <SwapReviewDialog
+        onDone={jest.fn()}
+        adapter={{
+          prepareReview: jest.fn(),
+          sendApproveTx: jest.fn(),
+          sendSwapTx: jest.fn(),
+          sendWrappedTx: jest.fn(),
+          sendSignMessage: jest.fn(),
+          buildApproveInfos: jest.fn(),
+        }}
+        reviewState={{
+          steps: [],
+          preSwapData: {},
+          quoteResult: undefined,
+        }}
+        storeName={EJotaiContextStoreNames.marketSwapReview}
+        approveTransactionSource={ESwapReviewApproveTransactionSource.Swap}
+      />,
+    );
+
+    expect(
+      screen
+        .getByTestId('pre-swap-dialog-content')
+        .getAttribute('data-disable-global-approve-sync'),
+    ).toBe('true');
+  });
+
   it('cleans up the provided review store on unmount', () => {
     const { unmount } = render(
       <SwapReviewDialog

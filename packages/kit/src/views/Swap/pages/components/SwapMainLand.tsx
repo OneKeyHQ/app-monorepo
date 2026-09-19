@@ -84,7 +84,10 @@ import {
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import type { INumberFormatProps } from '@onekeyhq/shared/src/utils/numberUtils';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
-import { equalsIgnoreCase } from '@onekeyhq/shared/src/utils/stringUtils';
+import {
+  equalsIgnoreCase,
+  stableStringify,
+} from '@onekeyhq/shared/src/utils/stringUtils';
 import {
   checkWrappedTokenPair,
   equalTokenNoCaseSensitive,
@@ -96,6 +99,7 @@ import type {
   IMarketPresetTokenContext,
   ISwapInitParams,
   ISwapPreSwapData,
+  ISwapReviewSession,
   ISwapStep,
   ISwapStockSpeedConfig,
   ISwapStockTradeConfig,
@@ -152,6 +156,11 @@ import { getSwapSafeInputBalanceAmount } from '../../utils/swapBalanceUtils';
 import { buildSwapPositionPrefetchScopes } from '../../utils/swapPositionPrefetchUtils';
 import { compareSwapProPositionNetworkIds } from '../../utils/swapProPositionsKeyUtils';
 import { buildSwapRateDifference } from '../../utils/swapRateDifferenceUtils';
+import {
+  advanceSwapReviewSession,
+  createSwapReviewSession,
+  resolveSwapReviewPreparationCapability,
+} from '../../utils/swapReviewPreparationV2';
 import {
   hasInFlightSwapReviewWork,
   shouldCloseSwapReviewOnFocusLoss,
@@ -210,6 +219,9 @@ const SwapMainLoad = ({
     Boolean(singleSwapBridgeHeader) &&
     swapInitParams?.swapSource === ESwapSource.MARKET;
   const [marketSwapApprovalFlowId] = useState(() => generateUUID());
+  const swapReviewSessionRef = useRef<ISwapReviewSession | undefined>(
+    undefined,
+  );
   useEffect(() => {
     if (isMarketEmbeddedSwap) {
       return registerMarketSwapApprovalFlow(marketSwapApprovalFlowId);
@@ -267,9 +279,11 @@ const SwapMainLoad = ({
   const toAddressInfo = useSwapAddressInfo(ESwapDirectionType.TO);
   const swapFromAddressInfo = useSwapAddressInfo(ESwapDirectionType.FROM);
   // Check custom RPC availability for the from network
-  const { isCustomRpcUnavailable } = useCustomRpcAvailability(
-    swapFromAddressInfo.networkId,
-  );
+  const {
+    isCustomRpcUnavailable,
+    isLoading: isCustomRpcAvailabilityLoading,
+    fingerprint: customRpcFingerprint,
+  } = useCustomRpcAvailability(swapFromAddressInfo.networkId);
   const quoteLoading = useSwapQuoteLoading();
   const quoteEventFetching = useSwapQuoteEventFetching();
   const [{ swapRecentTokenPairs }] = useInAppNotificationAtom();
@@ -321,15 +335,36 @@ const SwapMainLoad = ({
   const hasInFlightReviewWorkRef = useRef(hasInFlightReviewWork);
   hasInFlightReviewWorkRef.current = hasInFlightReviewWork;
 
+  const abortReviewFeeEstimates = useCallback(
+    (
+      session: ISwapReviewSession | undefined = swapReviewSessionRef.current,
+    ) => {
+      if (!session) {
+        void backgroundApiProxy.serviceGas.abortEstimateFee();
+        return;
+      }
+      void backgroundApiProxy.serviceGas.abortEstimateFee({
+        requestIdPrefix: `swap:${session.sessionId}:`,
+      });
+    },
+    [],
+  );
+
   const resetPendingReview = useCallback(() => {
     endGasAccountReviewSession();
     setSwapBuildTxFetching(false);
-    void backgroundApiProxy.serviceGas.abortEstimateFee();
+    abortReviewFeeEstimates();
+    swapReviewSessionRef.current = undefined;
     setSwapSteps({
       steps: [],
       preSwapData: {},
     });
-  }, [endGasAccountReviewSession, setSwapBuildTxFetching, setSwapSteps]);
+  }, [
+    abortReviewFeeEstimates,
+    endGasAccountReviewSession,
+    setSwapBuildTxFetching,
+    setSwapSteps,
+  ]);
   const dialogClose = useCallback(() => {
     if (reviewDialogTimerRef.current !== undefined) {
       clearTimeout(reviewDialogTimerRef.current);
@@ -983,9 +1018,91 @@ const SwapMainLoad = ({
         })
       : rateDifference;
 
+    let entrySource: ISwapReviewSession['entrySource'] = 'swap';
+    if (isMarketEmbeddedSwap) {
+      entrySource = 'market';
+    } else if (swapTypeSwitch === ESwapTabSwitchType.BRIDGE) {
+      entrySource = 'bridge';
+    } else if (swapTypeSwitch === ESwapTabSwitchType.LIMIT) {
+      entrySource = 'limit';
+    } else if (swapTypeSwitch === ESwapTabSwitchType.PRIVATE_SEND) {
+      entrySource = 'privateSend';
+    }
+    const preparationDeclaration =
+      currentQuoteRes.quoteExtraData?.reviewPreparation;
+    let approvalMode: ISwapReviewSession['approvalMode'] = 'none';
+    if (currentQuoteRes.allowanceResult) {
+      approvalMode = 'approve';
+      if (currentQuoteRes.allowanceResult.shouldResetApprove) {
+        approvalMode = 'reset-and-approve';
+      }
+    }
+    const reviewAccountId = focusSwapPro
+      ? swapProAccount.result?.id
+      : swapFromAddressInfo.accountInfo?.account?.id;
+    const reviewReceivingAccountId = focusSwapPro
+      ? swapProAccount.result?.id
+      : toAddressInfo.accountInfo?.account?.id;
+    const reviewReceiver = focusSwapPro
+      ? swapProAccount.result?.addressDetail.address
+      : toAddressInfo.address;
+    const reviewAccountNetworkId = focusSwapPro
+      ? swapProAccount.result?.addressDetail.networkId
+      : swapFromAddressInfo.networkId;
+    const reviewImplementation = focusSwapPro
+      ? swapProAccount.result?.impl
+      : swapFromAddressInfo.accountInfo?.account?.impl;
+    const reviewIdentity = {
+      entrySource,
+      accountId: reviewAccountId,
+      receivingAccountId: reviewReceivingAccountId,
+      fromNetworkId: fromSelectToken?.networkId,
+      toNetworkId: toSelectToken?.networkId,
+      fromTokenId: fromSelectToken?.contractAddress,
+      toTokenId: toSelectToken?.contractAddress,
+      implementation: reviewImplementation,
+      fromAmount: reviewTokenAmounts.fromTokenAmount,
+      toAmount: reviewTokenAmounts.toTokenAmount,
+      receiver: reviewReceiver,
+      provider: currentQuoteRes.info.provider,
+      quoteId: currentQuoteRes.quoteId,
+      eventId: currentQuoteRes.eventId,
+      protocol: currentQuoteRes.protocol,
+      outputKind: preparationDeclaration?.outputKind,
+      slippage: swapSlippageRef.current.value,
+      approvalMode,
+      feeMode: 'review-network-fee',
+      walletType: swapFromAddressInfo.accountInfo?.wallet?.type,
+      customRpcFingerprint,
+      gasAccountMode: currentQuoteRes.gasAccountEnabled ? 'enabled' : 'default',
+      marketVariant: isMarketEmbeddedSwap
+        ? swapInitParams?.swapSource
+        : undefined,
+      tradeSource: swapInitParams?.swapSource,
+      quoteContextFingerprint: stableStringify(
+        currentQuoteRes.quoteResultCtx ?? null,
+      ),
+      routeFingerprint: stableStringify(currentQuoteRes.routesData ?? []),
+    };
+    const reviewSession = swapReviewSessionRef.current
+      ? advanceSwapReviewSession({
+          current: swapReviewSessionRef.current,
+          identity: reviewIdentity,
+        })
+      : createSwapReviewSession({
+          sessionId: generateUUID(),
+          identity: reviewIdentity,
+        });
+    swapReviewSessionRef.current = reviewSession;
+    const preparationCapability = resolveSwapReviewPreparationCapability({
+      declaration: preparationDeclaration,
+      implementation: reviewImplementation,
+      provider: currentQuoteRes.info.provider,
+    });
+
     const nextReviewState = buildSwapReviewState({
-      accountId: swapFromAddressInfo.accountInfo?.account?.id,
-      networkId: swapFromAddressInfo.networkId,
+      accountId: reviewAccountId,
+      networkId: reviewAccountNetworkId,
       batchApproveAndSwapEnabled: settingsPersistAtom.swapBatchApproveAndSwap,
       fromToken: fromSelectToken,
       toToken: toSelectToken,
@@ -996,8 +1113,17 @@ const SwapMainLoad = ({
       shouldFallback:
         SwapBuildShouldFallBackNetworkIds.includes(
           fromSelectToken?.networkId ?? '',
-        ) || isCustomRpcUnavailable,
-      supportPreBuild,
+        ) ||
+        isCustomRpcUnavailable ||
+        isCustomRpcAvailabilityLoading,
+      supportPreBuild:
+        supportPreBuild &&
+        preparationCapability.canPrepareBeforeReview &&
+        preparationCapability.preparationMode === 'readOnlyPrebuild' &&
+        !isCustomRpcUnavailable &&
+        !isCustomRpcAvailabilityLoading,
+      reviewSession,
+      preparationCapability,
       slippage: swapSlippageRef.current.value,
       rateDifference: reviewRateDifference,
       defaultTokenCurrency: settingsPersistAtom.currencyInfo.id,
@@ -1021,27 +1147,54 @@ const SwapMainLoad = ({
     fromTokenAmount.value,
     swapToAmount.value,
     swapFromAddressInfo.accountInfo?.account?.id,
+    swapFromAddressInfo.accountInfo?.account?.impl,
+    swapFromAddressInfo.accountInfo?.wallet?.type,
     swapFromAddressInfo.networkId,
+    swapProAccount.result?.addressDetail.address,
+    swapProAccount.result?.addressDetail.networkId,
+    swapProAccount.result?.id,
+    swapProAccount.result?.impl,
+    toAddressInfo.accountInfo?.account?.id,
+    toAddressInfo.address,
     settingsPersistAtom.swapBatchApproveAndSwap,
     settingsPersistAtom.currencyInfo.id,
     currencyMap,
     supportPreBuild,
+    customRpcFingerprint,
+    isCustomRpcAvailabilityLoading,
     isCustomRpcUnavailable,
+    isMarketEmbeddedSwap,
     rateDifference,
     reviewStepTexts,
+    swapInitParams?.swapSource,
+    swapTypeSwitch,
   ]);
-  const onActionHandler = useCallback(() => {
+
+  useEffect(() => {
+    const session = swapReviewSessionRef.current;
+    const activeSession = swapStepData.preSwapData.reviewSession;
     if (
-      swapStepsRef.current.length > 0 &&
-      preSwapDataRef.current &&
-      quoteResultRef.current
+      !session ||
+      !activeSession ||
+      session.sessionId !== activeSession.sessionId ||
+      session.revision !== activeSession.revision ||
+      session.customRpcFingerprint === customRpcFingerprint
     ) {
-      void preSwapStepsStart({
-        steps: swapStepsRef.current,
-        preSwapData: preSwapDataRef.current,
-        quoteResult: quoteResultRef.current,
-      });
+      return;
     }
+
+    abortReviewFeeEstimates(session);
+    resetPendingReview();
+    void dialogRef.current?.close();
+  }, [
+    abortReviewFeeEstimates,
+    customRpcFingerprint,
+    resetPendingReview,
+    swapStepData.preSwapData.reviewSession,
+  ]);
+
+  const onActionHandler = useCallback(() => {
+    void preSwapStepsStart();
   }, [preSwapStepsStart]);
 
   const onActionHandlerBefore = useCallback(() => {
@@ -1134,10 +1287,12 @@ const SwapMainLoad = ({
   }, [markCurrentGasAccountReviewSubmitted, onActionHandlerBefore]);
 
   const onPreSwapClose = useCallback(() => {
+    const session = swapReviewSessionRef.current;
     endGasAccountReviewSession();
     dialogClose();
     setSwapBuildTxFetching(false);
-    void backgroundApiProxy.serviceGas.abortEstimateFee();
+    abortReviewFeeEstimates(session);
+    swapReviewSessionRef.current = undefined;
     setTimeout(() => {
       setSwapSteps({
         steps: [],
@@ -1145,6 +1300,7 @@ const SwapMainLoad = ({
       });
     }, 100);
   }, [
+    abortReviewFeeEstimates,
     setSwapBuildTxFetching,
     endGasAccountReviewSession,
     dialogClose,
@@ -1175,7 +1331,7 @@ const SwapMainLoad = ({
     if (isSwapProMarketPresetLoading) {
       return;
     }
-    if (!currentQuoteRes) {
+    if (!currentQuoteRes || isCustomRpcAvailabilityLoading) {
       return;
     }
     if (!focusSwapPro) {
@@ -1231,6 +1387,7 @@ const SwapMainLoad = ({
     swapProAccount?.result?.addressDetail.address,
     isSwapProMarketPresetLoading,
     currentQuoteRes,
+    isCustomRpcAvailabilityLoading,
     beginGasAccountReviewSession,
     parseQuoteResultToSteps,
     setSwapBuildTxFetching,

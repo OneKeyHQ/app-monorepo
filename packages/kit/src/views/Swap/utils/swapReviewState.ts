@@ -12,6 +12,7 @@ import type {
   ISwapApproveTransaction,
   ISwapGasInfo,
   ISwapPreSwapData,
+  ISwapReviewSession,
   ISwapStep,
   ISwapToken,
 } from '@onekeyhq/shared/types/swap/types';
@@ -20,6 +21,8 @@ import {
   ESwapStepType,
   ESwapTabSwitchType,
 } from '@onekeyhq/shared/types/swap/types';
+
+import { buildSwapReviewSessionFingerprint } from './swapReviewPreparationV2';
 
 import type { ESwapReviewRebuildPhase } from './swapReviewRebuildStateMachine';
 
@@ -178,56 +181,6 @@ export function calculateMinToAmountBySlippage({
   return minToAmountBN.toFixed();
 }
 
-export function invalidateSwapReviewForSlippageChange({
-  reviewState,
-  slippagePercentage,
-}: {
-  reviewState: ISwapReviewState;
-  slippagePercentage: number;
-}): ISwapReviewState {
-  const nextMinToAmount = calculateMinToAmountBySlippage({
-    toTokenAmount: reviewState.preSwapData.toTokenAmount,
-    toTokenDecimals: reviewState.preSwapData.toToken?.decimals,
-    slippage: slippagePercentage,
-  });
-  const minToAmount = nextMinToAmount ?? reviewState.preSwapData.minToAmount;
-
-  return {
-    ...reviewState,
-    quoteResult: reviewState.quoteResult
-      ? {
-          ...reviewState.quoteResult,
-          slippage: slippagePercentage,
-          minToAmount,
-          quoteResultCtx: buildCustomSlippageQuoteResultCtx(
-            reviewState.quoteResult.quoteResultCtx,
-          ),
-        }
-      : reviewState.quoteResult,
-    preSwapData: {
-      ...reviewState.preSwapData,
-      slippage: slippagePercentage,
-      minToAmount,
-      swapBuildResultData: undefined,
-      netWorkFee: undefined,
-      supportNetworkFeeLevel: false,
-      estimateNetworkFeeLoading: false,
-      requiresSlippageRebuildOnConfirm: true,
-    },
-  };
-}
-
-export type ISwapReviewGasInfoEntry = {
-  encodeTx: IEncodedTx;
-  gasInfo: ISwapGasInfo;
-};
-
-export type ISwapReviewState = {
-  steps: ISwapStep[];
-  preSwapData: ISwapPreSwapData;
-  quoteResult?: IFetchQuoteResult;
-};
-
 const CUSTOM_SLIPPAGE_QUOTE_CONTEXT_KEYS = [
   'okxQuoteResultCtx',
   'oneInchAggregateCtx',
@@ -256,6 +209,151 @@ export function buildCustomSlippageQuoteResultCtx(quoteResultCtx: unknown) {
   });
 
   return nextQuoteResultCtx;
+}
+
+export function invalidateSwapReviewForSlippageChange({
+  reviewState,
+  slippagePercentage,
+}: {
+  reviewState: ISwapReviewState;
+  slippagePercentage: number;
+}): ISwapReviewState {
+  const nextMinToAmount = calculateMinToAmountBySlippage({
+    toTokenAmount: reviewState.preSwapData.toTokenAmount,
+    toTokenDecimals: reviewState.preSwapData.toToken?.decimals,
+    slippage: slippagePercentage,
+  });
+  const minToAmount = nextMinToAmount ?? reviewState.preSwapData.minToAmount;
+  const currentReviewSession = reviewState.preSwapData.reviewSession;
+  const nextReviewSession = currentReviewSession
+    ? {
+        ...currentReviewSession,
+        revision: currentReviewSession.revision + 1,
+        slippage: slippagePercentage,
+      }
+    : undefined;
+
+  return {
+    ...reviewState,
+    quoteResult: reviewState.quoteResult
+      ? {
+          ...reviewState.quoteResult,
+          slippage: slippagePercentage,
+          minToAmount,
+          quoteResultCtx: buildCustomSlippageQuoteResultCtx(
+            reviewState.quoteResult.quoteResultCtx,
+          ),
+        }
+      : reviewState.quoteResult,
+    preSwapData: {
+      ...reviewState.preSwapData,
+      slippage: slippagePercentage,
+      minToAmount,
+      reviewSession: nextReviewSession,
+      preparationArtifact: undefined,
+      swapBuildResultData: undefined,
+      netWorkFee: undefined,
+      supportNetworkFeeLevel: false,
+      estimateNetworkFeeLoading: false,
+      requiresSlippageRebuildOnConfirm: true,
+    },
+  };
+}
+
+export type ISwapReviewGasInfoEntry = {
+  encodeTx: IEncodedTx;
+  gasInfo: ISwapGasInfo;
+};
+
+export type ISwapReviewState = {
+  steps: ISwapStep[];
+  preSwapData: ISwapPreSwapData;
+  quoteResult?: IFetchQuoteResult;
+};
+
+export function applySwapReviewApprovalResult({
+  reviewState,
+  expectedQuoteResult,
+  expectedSession,
+  expectedSessionFingerprint,
+  trackedApproveTxId,
+  approveTxId,
+  isResetApproveTransaction,
+  isFallbackTrackedApproveTxId,
+  approveStepStatus,
+}: {
+  reviewState: ISwapReviewState;
+  expectedQuoteResult?: IFetchQuoteResult;
+  expectedSession?: ISwapReviewSession;
+  expectedSessionFingerprint?: string;
+  trackedApproveTxId: string;
+  approveTxId?: string;
+  isResetApproveTransaction: boolean;
+  isFallbackTrackedApproveTxId: boolean;
+  approveStepStatus: ESwapStepStatus;
+}): ISwapReviewState | undefined {
+  if (reviewState.quoteResult !== expectedQuoteResult) {
+    return undefined;
+  }
+
+  const currentSession = reviewState.preSwapData.reviewSession;
+  if (expectedSession || currentSession) {
+    if (
+      !expectedSession ||
+      !currentSession ||
+      currentSession.sessionId !== expectedSession.sessionId ||
+      currentSession.revision !== expectedSession.revision ||
+      buildSwapReviewSessionFingerprint(currentSession) !==
+        expectedSessionFingerprint
+    ) {
+      return undefined;
+    }
+  }
+
+  const stepIndex = reviewState.steps.findIndex((step) => {
+    if (
+      trackedApproveTxId &&
+      step.txHash === trackedApproveTxId &&
+      Boolean(step.isResetApprove) === isResetApproveTransaction
+    ) {
+      return (
+        !isFallbackTrackedApproveTxId || step.status === ESwapStepStatus.PENDING
+      );
+    }
+    return (
+      step.type === ESwapStepType.APPROVE_TX &&
+      step.status === ESwapStepStatus.PENDING &&
+      Boolean(step.isResetApprove) === isResetApproveTransaction &&
+      (!step.txHash || step.txHash === trackedApproveTxId)
+    );
+  });
+  if (stepIndex === -1) {
+    return undefined;
+  }
+
+  const steps = [...reviewState.steps];
+  steps[stepIndex] = {
+    ...steps[stepIndex],
+    status: approveStepStatus,
+    txHash: approveTxId || steps[stepIndex].txHash,
+    stepSubTitle: undefined,
+  };
+
+  return {
+    ...reviewState,
+    steps,
+    preSwapData:
+      approveStepStatus === ESwapStepStatus.SUCCESS &&
+      reviewState.preSwapData.netWorkFee
+        ? {
+            ...reviewState.preSwapData,
+            netWorkFee: {
+              ...reviewState.preSwapData.netWorkFee,
+              gasInfos: undefined,
+            },
+          }
+        : reviewState.preSwapData,
+  };
 }
 
 export function buildRebuiltSwapReviewQuoteResult({

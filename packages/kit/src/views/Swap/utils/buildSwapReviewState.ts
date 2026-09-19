@@ -4,6 +4,9 @@ import type {
   ESwapTabSwitchType,
   IFetchQuoteResult,
   ISwapPreSwapData,
+  ISwapReviewPreparationArtifact,
+  ISwapReviewPreparationCapability,
+  ISwapReviewSession,
   ISwapStep,
   ISwapToken,
 } from '@onekeyhq/shared/types/swap/types';
@@ -217,6 +220,9 @@ export type IBuildSwapReviewStateInput = {
   swapType: ESwapTabSwitchType;
   shouldFallback?: boolean;
   supportPreBuild: boolean;
+  reviewSession?: ISwapReviewSession;
+  preparationCapability?: ISwapReviewPreparationCapability;
+  preparationArtifact?: ISwapReviewPreparationArtifact;
   slippage?: number;
   rateDifference?: ISwapPreSwapData['rateDifference'];
   defaultTokenCurrency?: string;
@@ -255,6 +261,9 @@ export function buildSwapReviewState({
   swapType,
   shouldFallback,
   supportPreBuild,
+  reviewSession,
+  preparationCapability,
+  preparationArtifact,
   slippage,
   rateDifference,
   defaultTokenCurrency,
@@ -353,6 +362,9 @@ export function buildSwapReviewState({
     toTokenAmount,
     providerInfo: quoteResult?.info,
     supportPreBuild,
+    reviewSession,
+    preparationCapability,
+    preparationArtifact,
     needFetchGas,
     minToAmount: quoteResult?.minToAmount,
     slippage: shouldHideSlippage ? undefined : slippage,

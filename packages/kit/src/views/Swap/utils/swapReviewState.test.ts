@@ -1,3 +1,4 @@
+import type { IEncodedTx } from '@onekeyhq/core/src/types';
 import {
   ESwapStepStatus,
   ESwapStepType,
@@ -6,11 +7,18 @@ import {
 import type {
   IFetchBuildTxResult,
   IFetchQuoteResult,
+  ISwapGasInfo,
+  ISwapReviewSessionIdentityFields,
   ISwapStep,
 } from '@onekeyhq/shared/types/swap/types';
 
 import {
+  buildSwapReviewSessionFingerprint,
+  createSwapReviewSession,
+} from './swapReviewPreparationV2';
+import {
   NATIVE_BTC_MIN_SLIPPAGE_PERCENTAGE,
+  applySwapReviewApprovalResult,
   buildCustomSlippageQuoteResultCtx,
   buildRebuiltSwapReviewQuoteResult,
   calculateMinToAmountBySlippage,
@@ -172,6 +180,166 @@ describe('markSubmittedSwapApprovalsCompleted', () => {
       ).toEqual(expectedStatuses);
     },
   );
+});
+
+describe('applySwapReviewApprovalResult', () => {
+  const identity: ISwapReviewSessionIdentityFields = {
+    entrySource: 'swap',
+    accountId: 'account-1',
+    quoteId: 'quote-1',
+  };
+  const session = createSwapReviewSession({
+    sessionId: 'session-1',
+    identity,
+  });
+  const quoteResult = {
+    fromAmount: '1',
+  } as IFetchQuoteResult;
+
+  const createReviewState = ({
+    isResetApprove = false,
+    quote = quoteResult,
+    sessionValue = session,
+    status = ESwapStepStatus.PENDING,
+    txHash = 'approve-tx',
+  }: {
+    isResetApprove?: boolean;
+    quote?: IFetchQuoteResult;
+    sessionValue?: typeof session;
+    status?: ESwapStepStatus;
+    txHash?: string;
+  } = {}) => ({
+    steps: [
+      {
+        type: ESwapStepType.APPROVE_TX,
+        status,
+        txHash,
+        isResetApprove,
+        stepSubTitle: 'waiting',
+      },
+    ] as ISwapStep[],
+    preSwapData: {
+      reviewSession: sessionValue,
+      netWorkFee: {
+        gasInfos: [
+          {
+            encodeTx: {} as IEncodedTx,
+            gasInfo: {} as ISwapGasInfo,
+          },
+        ],
+      },
+    },
+    quoteResult: quote,
+  });
+
+  const applyApproval = (
+    reviewState: ReturnType<typeof createReviewState>,
+    overrides: Partial<{
+      approveStepStatus: ESwapStepStatus;
+      approveTxId: string;
+      expectedQuoteResult: IFetchQuoteResult;
+      expectedSession: typeof session;
+      expectedSessionFingerprint: string;
+      isFallbackTrackedApproveTxId: boolean;
+      isResetApproveTransaction: boolean;
+      trackedApproveTxId: string;
+    }> = {},
+  ) =>
+    applySwapReviewApprovalResult({
+      reviewState,
+      expectedQuoteResult: overrides.expectedQuoteResult ?? quoteResult,
+      expectedSession: overrides.expectedSession ?? session,
+      expectedSessionFingerprint:
+        overrides.expectedSessionFingerprint ??
+        buildSwapReviewSessionFingerprint(session),
+      trackedApproveTxId: overrides.trackedApproveTxId ?? 'approve-tx',
+      approveTxId: overrides.approveTxId ?? 'approve-tx-final',
+      isResetApproveTransaction: overrides.isResetApproveTransaction ?? false,
+      isFallbackTrackedApproveTxId:
+        overrides.isFallbackTrackedApproveTxId ?? false,
+      approveStepStatus: overrides.approveStepStatus ?? ESwapStepStatus.SUCCESS,
+    });
+
+  it('updates the matching approval and clears the stale gas snapshot on success', () => {
+    const reviewState = createReviewState();
+
+    const result = applyApproval(reviewState);
+
+    expect(result?.steps[0]).toEqual(
+      expect.objectContaining({
+        status: ESwapStepStatus.SUCCESS,
+        txHash: 'approve-tx-final',
+        stepSubTitle: undefined,
+      }),
+    );
+    expect(result?.preSwapData.netWorkFee?.gasInfos).toBeUndefined();
+    expect(reviewState.steps[0].status).toBe(ESwapStepStatus.PENDING);
+    expect(reviewState.preSwapData.netWorkFee?.gasInfos).toHaveLength(1);
+  });
+
+  it('keeps the gas snapshot when approval fails', () => {
+    const reviewState = createReviewState();
+
+    const result = applyApproval(reviewState, {
+      approveStepStatus: ESwapStepStatus.FAILED,
+    });
+
+    expect(result?.steps[0].status).toBe(ESwapStepStatus.FAILED);
+    expect(result?.preSwapData.netWorkFee?.gasInfos).toBe(
+      reviewState.preSwapData.netWorkFee?.gasInfos,
+    );
+  });
+
+  it.each([
+    {
+      name: 'a different quote object',
+      overrides: {
+        expectedQuoteResult: { fromAmount: '1' } as IFetchQuoteResult,
+      },
+    },
+    {
+      name: 'a different session revision',
+      reviewState: createReviewState({
+        sessionValue: { ...session, revision: session.revision + 1 },
+      }),
+    },
+    {
+      name: 'a different session fingerprint',
+      overrides: {
+        expectedSessionFingerprint: 'stale-session-fingerprint',
+      },
+    },
+  ])('rejects approval for $name', ({ reviewState, overrides }) => {
+    const result = applyApproval(reviewState ?? createReviewState(), overrides);
+
+    expect(result).toBeUndefined();
+  });
+
+  it('does not apply a reset approval result to a regular approval step', () => {
+    const result = applyApproval(createReviewState(), {
+      isResetApproveTransaction: true,
+    });
+
+    expect(result).toBeUndefined();
+  });
+
+  it('does not reuse a fallback transaction id after the step is no longer pending', () => {
+    const reviewState = createReviewState({ status: ESwapStepStatus.SUCCESS });
+
+    const result = applyApproval(reviewState, {
+      isFallbackTrackedApproveTxId: true,
+    });
+
+    expect(result).toBeUndefined();
+  });
+
+  it('rejects approval when no matching step exists', () => {
+    const result = applyApproval(createReviewState(), {
+      trackedApproveTxId: 'different-tx',
+    });
+
+    expect(result).toBeUndefined();
+  });
 });
 
 describe('shouldShowNativeBtcLowSlippageWarning', () => {

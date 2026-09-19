@@ -1,4 +1,5 @@
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { stableStringify } from '@onekeyhq/shared/src/utils/stringUtils';
 
 import { usePromiseResult } from './usePromiseResult';
 
@@ -6,6 +7,11 @@ export interface ICustomRpcCheckResult {
   isCustomRpcUnavailable: boolean;
   customRpcUrl?: string;
   isCustomNetwork: boolean;
+}
+
+export interface IUseCustomRpcAvailabilityResult extends ICustomRpcCheckResult {
+  isLoading: boolean;
+  fingerprint: string;
 }
 
 export async function checkCustomRpcAvailability(
@@ -52,8 +58,8 @@ export async function checkCustomRpcAvailability(
 
 export function useCustomRpcAvailability(
   networkId: string | undefined,
-): ICustomRpcCheckResult {
-  const { result } = usePromiseResult(async () => {
+): IUseCustomRpcAvailabilityResult {
+  const { result, isLoading } = usePromiseResult(async () => {
     if (!networkId) {
       return {
         isCustomRpcUnavailable: false,
@@ -63,9 +69,28 @@ export function useCustomRpcAvailability(
     return checkCustomRpcAvailability(networkId);
   }, [networkId]);
 
+  const availabilityIsLoading = Boolean(isLoading) || result === undefined;
+  const isCustomRpcUnavailable = result?.isCustomRpcUnavailable ?? false;
+  const isCustomNetwork = result?.isCustomNetwork ?? false;
+  let status = 'available';
+  if (availabilityIsLoading) {
+    status = 'pending';
+  } else if (isCustomRpcUnavailable) {
+    status = 'unavailable';
+  } else if (isCustomNetwork) {
+    status = 'custom-network';
+  }
+
   return {
-    isCustomRpcUnavailable: result?.isCustomRpcUnavailable ?? false,
+    isCustomRpcUnavailable,
     customRpcUrl: result?.customRpcUrl,
-    isCustomNetwork: result?.isCustomNetwork ?? false,
+    isCustomNetwork,
+    isLoading: availabilityIsLoading,
+    fingerprint: stableStringify({
+      networkId: networkId ?? null,
+      status,
+      customRpcUrl: result?.customRpcUrl ?? null,
+      isCustomNetwork,
+    }),
   };
 }
