@@ -252,8 +252,10 @@ function StockTokenVariantRow({
 
 function StockTokenVariantSelectorContent({
   closePopover,
+  onSelectVariant,
 }: {
   closePopover: () => void;
+  onSelectVariant?: (variant: IMarketStockTokenVariant) => void;
 }) {
   const intl = useIntl();
   const portfolioData = useContext(StockTokenVariantPortfolioContext);
@@ -333,6 +335,7 @@ function StockTokenVariantSelectorContent({
             portfolioData={portfolioData}
             onSelect={(item) => {
               setSelectedTokenId(item.tokenId);
+              onSelectVariant?.(item);
               closePopover();
             }}
           />
@@ -345,9 +348,15 @@ function StockTokenVariantSelectorContent({
 export function StockTokenVariantSelector({
   portfolioData,
   resolvedVariantKeys,
+  onSelectVariant,
 }: {
   portfolioData?: IMarketAccountPortfolioDisplayItem[];
   resolvedVariantKeys?: string[];
+  /** Optional consumer bridge for contexts that need to sync the selected
+   * variant into another state owner (for example the Swap stock channel).
+   * The Market detail page continues to use StockDetailContext as its owner.
+   */
+  onSelectVariant?: (variant: IMarketStockTokenVariant) => void;
 }) {
   const intl = useIntl();
   const {
@@ -459,7 +468,12 @@ export function StockTokenVariantSelector({
           </XStack>
         </XStack>
       }
-      renderContent={StockTokenVariantSelectorContent}
+      renderContent={(props) => (
+        <StockTokenVariantSelectorContent
+          {...props}
+          onSelectVariant={onSelectVariant}
+        />
+      )}
     />
   );
 

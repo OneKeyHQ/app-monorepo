@@ -4,19 +4,15 @@ import type { ReactNode } from 'react';
 import { useIntl } from 'react-intl';
 
 import {
-  Accordion,
-  Button,
-  Dialog,
   InteractiveIcon,
   SizableText,
   Skeleton,
   XStack,
   YStack,
   useClipboard,
-  useDialogInstance,
 } from '@onekeyhq/components';
-import { ANIMATE_ONLY_OPACITY } from '@onekeyhq/components/src/utils/animationConstants';
 import { openExplorerAddressUrl } from '@onekeyhq/kit/src/utils/explorerUtils';
+import { useToMarketStockDetailPage } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketStockList/hooks/useToMarketStockDetailPage';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
@@ -30,18 +26,6 @@ const STOCK_ISSUER_NAMES: Record<string, string> = {
   ondo: 'Ondo',
   xstock: 'xStocks',
 };
-
-const TOKEN_RATIO_FAQ_ITEMS = [
-  {
-    question: ETranslations.trade_stocks_does_the_ratio_change,
-    answer: ETranslations.trade_stocks_ratio_change_explanation,
-  },
-  {
-    question:
-      ETranslations.trade_stocks_price_and_amount_display_after_ratio_change,
-    answer: ETranslations.trade_stocks_price_adjustment_message,
-  },
-] as const;
 
 function getStockIssuerName(source?: string) {
   const normalizedSource = source?.trim().toLowerCase();
@@ -79,89 +63,6 @@ function TokenDetailRow({
       </XStack>
       {children}
     </XStack>
-  );
-}
-
-function TokenRatioDialogContent() {
-  const intl = useIntl();
-  const dialog = useDialogInstance();
-  const handleClose = useCallback(() => {
-    void dialog.close();
-  }, [dialog]);
-
-  return (
-    <YStack gap="$4" testID={SwapTestIDs.stockTokenRatioDialog}>
-      <SizableText size="$headingMd" color="$text" textAlign="center">
-        {intl.formatMessage({
-          id: ETranslations.trade_stocks_token_to_share_ratio,
-        })}
-      </SizableText>
-      <SizableText size="$bodyMd" color="$text">
-        {intl.formatMessage({
-          id: ETranslations.trade_stocks_token_to_share_ratio_description,
-        })}
-      </SizableText>
-      <Accordion type="multiple" gap="$4">
-        {TOKEN_RATIO_FAQ_ITEMS.map(({ question, answer }) => (
-          <Accordion.Item key={question} value={question}>
-            <Accordion.Trigger
-              unstyled
-              flexDirection="row"
-              alignItems="center"
-              justifyContent="space-between"
-              borderWidth={0}
-              bg="$transparent"
-              p={0}
-              m={0}
-              cursor="pointer"
-            >
-              {({ open }: { open: boolean }) => (
-                <>
-                  <SizableText
-                    flex={1}
-                    textAlign="left"
-                    size="$bodyMdMedium"
-                    color="$text"
-                  >
-                    {intl.formatMessage({ id: question })}
-                  </SizableText>
-                  <SizableText size="$bodyMdMedium" color="$text">
-                    {open ? '−' : '+'}
-                  </SizableText>
-                </>
-              )}
-            </Accordion.Trigger>
-            <Accordion.HeightAnimator transition="quick">
-              <Accordion.Content
-                unstyled
-                p={0}
-                pt="$2"
-                transition="100ms"
-                animateOnly={ANIMATE_ONLY_OPACITY}
-                enterStyle={{ opacity: 0 }}
-                exitStyle={{ opacity: 0 }}
-              >
-                <SizableText size="$bodyMd" color="$textSubdued">
-                  {intl.formatMessage({ id: answer })}
-                </SizableText>
-              </Accordion.Content>
-            </Accordion.HeightAnimator>
-          </Accordion.Item>
-        ))}
-      </Accordion>
-      <Button
-        testID={SwapTestIDs.stockTokenRatioDialogClose}
-        w="100%"
-        size="small"
-        variant="accent"
-        borderWidth={0}
-        borderRadius="$3"
-        py="$3"
-        onPress={handleClose}
-      >
-        {intl.formatMessage({ id: ETranslations.global_got_it })}
-      </Button>
-    </YStack>
   );
 }
 
@@ -228,36 +129,21 @@ export function SwapStockTokenDetails({
   const tokenAddress = tokenDetail?.address;
   const issuerName = getStockIssuerName(stock?.source);
   const issuerWebsite = tokenDetail?.extraData?.website;
+  const toMarketStockDetailPage = useToMarketStockDetailPage();
   const handleOpenIssuerWebsite = useCallback(() => {
     if (issuerWebsite) {
       openUrlExternal(issuerWebsite);
     }
   }, [issuerWebsite]);
-  const handleShowRatioInfo = useCallback(() => {
-    Dialog.show({
-      showHeader: false,
-      showFooter: false,
-      contentContainerProps: {
-        p: '$6',
-      },
-      floatingPanelProps: {
-        width: 420,
-        borderRadius: '$5',
-      },
-      renderContent: <TokenRatioDialogContent />,
-    });
-  }, []);
+  const handleOpenMarketDetails = useCallback(() => {
+    if (stock?.stockId) {
+      void toMarketStockDetailPage(stock.stockId);
+    }
+  }, [stock?.stockId, toMarketStockDetailPage]);
 
   if (!loading && (!stock || !tokenAddress)) {
     return null;
   }
-
-  const ratioValue =
-    !loading && stock?.tokenToAssetRatio
-      ? [stock.tokenToAssetRatio, stock.underlyingAssetTicker]
-          .filter(Boolean)
-          .join(' ')
-      : undefined;
 
   return (
     <YStack mt="$6" gap="$2.5" testID={SwapTestIDs.stockTokenDetails}>
@@ -268,19 +154,6 @@ export function SwapStockTokenDetails({
         gap="$2"
         testID={loading ? SwapTestIDs.stockTokenDetailsLoading : undefined}
       >
-        <TokenDetailRow
-          label={intl.formatMessage({
-            id: ETranslations.trade_stocks_underlying_asset,
-          })}
-        >
-          {loading ? (
-            <Skeleton h="$5" w="$12" />
-          ) : (
-            <SizableText size="$bodyMdMedium" color="$text" numberOfLines={1}>
-              {stock?.underlyingAssetTicker ?? '--'}
-            </SizableText>
-          )}
-        </TokenDetailRow>
         <TokenDetailRow
           label={intl.formatMessage({
             id: ETranslations.trade_stocks_token_issuer,
@@ -304,25 +177,6 @@ export function SwapStockTokenDetails({
             </XStack>
           )}
         </TokenDetailRow>
-        {ratioValue ? (
-          <TokenDetailRow
-            label={intl.formatMessage({
-              id: ETranslations.trade_stocks_token_to_share_ratio,
-            })}
-            labelAction={
-              <InteractiveIcon
-                testID={SwapTestIDs.stockTokenRatioInfo}
-                icon="InfoCircleOutline"
-                size="$4"
-                onPress={handleShowRatioInfo}
-              />
-            }
-          >
-            <SizableText size="$bodyMdMedium" color="$text" numberOfLines={1}>
-              {ratioValue}
-            </SizableText>
-          </TokenDetailRow>
-        ) : null}
         <TokenDetailRow
           label={intl.formatMessage({
             id: ETranslations.trade_stocks_contract_address,
@@ -337,6 +191,26 @@ export function SwapStockTokenDetails({
             />
           )}
         </TokenDetailRow>
+        {stock?.stockId ? (
+          <XStack
+            testID="stock-token-details-market-link"
+            alignItems="center"
+            justifyContent="center"
+            gap="$1"
+            py="$2"
+            cursor="pointer"
+            onPress={handleOpenMarketDetails}
+          >
+            <SizableText size="$bodyMdMedium" color="$textInteractive">
+              {intl.formatMessage({
+                id: ETranslations.market_view_stock_token_details,
+              })}
+            </SizableText>
+            <SizableText size="$bodyMdMedium" color="$textInteractive">
+              ↗
+            </SizableText>
+          </XStack>
+        ) : null}
       </YStack>
     </YStack>
   );

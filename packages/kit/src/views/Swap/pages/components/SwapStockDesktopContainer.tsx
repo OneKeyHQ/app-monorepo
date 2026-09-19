@@ -57,6 +57,12 @@ import {
   StockSourceLogo,
 } from '@onekeyhq/kit/src/views/Market/components/PerpsBadges';
 import { PriceChangePercentage } from '@onekeyhq/kit/src/views/Market/components/PriceChangePercentage';
+import {
+  StockDetailProvider,
+  useStockDetail,
+} from '@onekeyhq/kit/src/views/Market/MarketDetailV2/hooks/StockDetailContext';
+import { useStockPortfolioData } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/hooks/useStockPortfolioData';
+import { StockTokenVariantSelector } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/components/TokenSelector/StockTokenVariantSelector';
 import { TokenList } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/components/SwapPanel/components/TokenInputSection/TokenList';
 import { TradeTypeSelector } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/components/SwapPanel/components/TradeTypeSelector';
 import { ESwapDirection } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/components/SwapPanel/hooks/useTradeType';
@@ -91,6 +97,7 @@ import type { IMarketTokenChart } from '@onekeyhq/shared/types/market';
 import type {
   IMarketBasicConfigNetwork,
   IMarketTokenDetail,
+  IMarketStockTokenVariant,
 } from '@onekeyhq/shared/types/marketV2';
 import {
   EProtocolOfExchange,
@@ -471,6 +478,105 @@ function useCurrentStockMarketDetail() {
     networkId: currentStockToken?.networkId,
     isNative: currentStockToken?.isNative,
   };
+}
+
+function buildSwapStockTokenFromVariant({
+  currentToken,
+  tokenDetail,
+  variant,
+}: {
+  currentToken?: ISwapToken;
+  tokenDetail?: IMarketTokenDetail;
+  variant: IMarketStockTokenVariant;
+}): ISwapToken | undefined {
+  if (!tokenDetail) {
+    return undefined;
+  }
+  return {
+    networkId: variant.networkId,
+    contractAddress: tokenDetail.address || variant.contractAddress,
+    decimals: tokenDetail.decimals,
+    symbol: tokenDetail.symbol || variant.symbol,
+    name: tokenDetail.name || variant.name,
+    logoURI: tokenDetail.logoUrl || variant.logoUrl,
+    networkLogoURI: variant.networkLogoUrl,
+    price: tokenDetail.price,
+    isNative: tokenDetail.isNative,
+    isStock: true,
+    stock: tokenDetail.stock ?? currentToken?.stock,
+  };
+}
+
+function StockTradeVariantHeader() {
+  const stockChannel = useSwapStockTradeContext();
+  const { selectedTokenVariant, isStockRoute } = useStockDetail();
+  const { portfolioData, resolvedVariantKeys } = useStockPortfolioData();
+  const [isLoading, setIsLoading] = useState(false);
+
+  const handleSelectVariant = useCallback(
+    async (variant: IMarketStockTokenVariant) => {
+      if (isLoading) {
+        return;
+      }
+      setIsLoading(true);
+      try {
+        const response =
+          await backgroundApiProxy.serviceMarketV2.fetchMarketTokenDetailByTokenAddress(
+            variant.contractAddress,
+            variant.networkId,
+            { autoHandleError: false },
+          );
+        const nextToken = buildSwapStockTokenFromVariant({
+          currentToken: stockChannel.currentStockToken,
+          tokenDetail: response?.data?.token,
+          variant,
+        });
+        if (nextToken) {
+          stockChannel.selectStockSwapToken(nextToken, {
+            resetReceiveAmount: true,
+          });
+        }
+      } catch (_error) {
+        // Keep the current trade identity when the shared Market detail
+        // endpoint is temporarily unavailable. The next selector open can
+        // retry without leaving the Swap channel half-selected.
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    [isLoading, stockChannel],
+  );
+
+  if (!isStockRoute || !selectedTokenVariant) {
+    return null;
+  }
+
+  return (
+    <XStack
+      testID="swap-stock-trade-variant-header"
+      minHeight={44}
+      alignItems="center"
+      justifyContent="space-between"
+      opacity={isLoading ? 0.6 : 1}
+    >
+      <StockTokenVariantSelector
+        portfolioData={portfolioData}
+        resolvedVariantKeys={resolvedVariantKeys}
+        onSelectVariant={handleSelectVariant}
+      />
+      <BaseMarketTokenPrice
+        price={
+          stockChannel.activeStockTokenDetail?.price ??
+          stockChannel.currentStockToken?.price ??
+          '--'
+        }
+        tokenName={selectedTokenVariant.name || ''}
+        tokenSymbol={selectedTokenVariant.symbol || ''}
+        currency="$"
+        size="$bodyLgMedium"
+      />
+    </XStack>
+  );
 }
 
 function StockMarketDataGridContent({
@@ -1439,8 +1545,10 @@ function StockTradeTicket({
       amountInputState.shouldRenderSkeleton ||
       deferInitialAmountContent),
   );
-  let resolvedStockTradeHeader = stockTradeHeader;
-  if (stockTradeHeader && showStockTradeIdentitySkeleton) {
+  let resolvedStockTradeHeader = stockTradeHeader ?? (
+    <StockTradeVariantHeader />
+  );
+  if (showStockTradeIdentitySkeleton) {
     resolvedStockTradeHeader = <StockTradeHeaderSkeleton />;
   }
   const isModalPage = useIsOverlayPage();
@@ -1649,8 +1757,13 @@ function StockMarketTokenHeader({
     : undefined;
   const stock = tokenDetail?.stock ?? selectedStock;
   const tokenSymbol = tokenDetail?.symbol ?? currentStockToken?.symbol;
+  // The stock header represents the underlying company. Token symbols such as
+  // AAPLon/AAPLB stay in the issuer selector and trade input, which keeps the
+  // Market and Trade surfaces aligned on the same stock-level identity.
   const tokenDisplaySymbol =
-    tokenSymbol ??
+    stock?.underlyingAssetTicker?.trim() ||
+    stock?.title?.trim() ||
+    tokenSymbol ||
     intl.formatMessage({
       id: ETranslations.swap_page_button_select_token,
     });
@@ -1661,11 +1774,14 @@ function StockMarketTokenHeader({
     priceChange24hPercent !== undefined &&
     priceChange24hPercent !== null &&
     priceChange24hPercent !== '';
-  const tokenSubtitle = getStockMarketTokenSubtitle({
-    currentStockSubtitle: selectedStock?.subtitle,
-    tokenDetailStockSubtitle: stock?.subtitle,
-    tokenDetailStockUnderlyingAssetName: stock?.underlyingAssetName,
-  });
+  const tokenSubtitle =
+    stock?.underlyingAssetName?.trim() ||
+    stock?.subtitle?.trim() ||
+    getStockMarketTokenSubtitle({
+      currentStockSubtitle: selectedStock?.subtitle,
+      tokenDetailStockSubtitle: stock?.subtitle,
+      tokenDetailStockUnderlyingAssetName: stock?.underlyingAssetName,
+    });
   const showTokenLabelsSkeleton = shouldShowStockMarketTokenLabelsSkeleton({
     channelStage,
     hasTokenData: Boolean(stock || tokenSubtitle),
@@ -2161,6 +2277,7 @@ function StockMobilePositionsSection({
   const [, setSwapTypeSwitch] = useSwapTypeSwitchAtom();
   const [swapFromToken] = useSwapSelectFromTokenAtom();
   const [swapToToken] = useSwapSelectToTokenAtom();
+  const { tokenVariants } = useStockDetail();
   const { selectStockSwapToken } = stockChannel;
   const {
     positionLoadError,
@@ -2180,10 +2297,22 @@ function StockMobilePositionsSection({
     if (!swapProEnableCurrentSymbol) {
       return undefined;
     }
+    // Current stock means the underlying company, not the currently selected
+    // issuer token. Reuse Market's variant list so positions across bStocks,
+    // Ondo and xStocks remain visible together.
+    if (tokenVariants.length > 0) {
+      return tokenVariants.map((variant) => ({
+        networkId: variant.networkId,
+        contractAddress: variant.contractAddress,
+        symbol: variant.symbol ?? '',
+        decimals: 0,
+        isStock: true,
+      }));
+    }
     return [swapFromToken, swapToToken].filter(
       (token): token is ISwapToken => !!token,
     );
-  }, [swapFromToken, swapProEnableCurrentSymbol, swapToToken]);
+  }, [swapFromToken, swapProEnableCurrentSymbol, swapToToken, tokenVariants]);
   const handlePositionPress = useCallback(
     (token: ISwapToken) => {
       if (token.isStock) {
@@ -2517,7 +2646,15 @@ function SwapStockDesktopContent({
           width="100%"
           maxWidth={embedded ? undefined : STOCK_DESKTOP_CONTENT_MAX_WIDTH}
         >
-          <XStack width="100%" gap="$1" px="$5" alignItems="flex-start">
+          <XStack
+            width="100%"
+            gap="$1"
+            px="$5"
+            alignItems="flex-start"
+            // Trade owns the right rail in the Figma desktop composition;
+            // embedded Market keeps its single-column ticket order.
+            flexDirection={embedded ? 'row' : 'row-reverse'}
+          >
             <YStack
               p={embedded ? '$0' : '$5'}
               flexBasis={embedded ? '100%' : '50%'}
@@ -2611,6 +2748,33 @@ function SwapStockDesktopContent({
   );
 }
 
+function SwapStockMarketDetailBridge({
+  children,
+  enabled,
+}: {
+  children: ReactNode;
+  enabled: boolean;
+}) {
+  const stockChannel = useSwapStockTradeContext();
+  const stockToken = stockChannel.currentStockToken;
+  const stockId = stockToken?.stock?.stockId;
+
+  if (!enabled) {
+    return <>{children}</>;
+  }
+
+  return (
+    <StockDetailProvider
+      key={stockId ?? 'stock-detail-pending'}
+      stockId={stockId}
+      initialNetworkId={stockToken?.networkId}
+      initialTokenAddress={stockToken?.contractAddress}
+    >
+      {children}
+    </StockDetailProvider>
+  );
+}
+
 export function SwapStockDesktopContainer(
   props: ISwapStockDesktopContainerProps,
 ) {
@@ -2620,7 +2784,9 @@ export function SwapStockDesktopContainer(
       stockSpeedConfig={stockSpeedConfig}
       stockTradeToken={stockTradeToken}
     >
-      <SwapStockDesktopContent {...props} />
+      <SwapStockMarketDetailBridge enabled={!props.embedded}>
+        <SwapStockDesktopContent {...props} />
+      </SwapStockMarketDetailBridge>
     </SwapStockTradeProvider>
   );
 }
@@ -2752,7 +2918,9 @@ export function SwapStockMobileContainer(
       stockSpeedConfig={stockSpeedConfig}
       stockTradeToken={stockTradeToken}
     >
-      <SwapStockMobileContent {...props} />
+      <SwapStockMarketDetailBridge enabled={!props.embedded}>
+        <SwapStockMobileContent {...props} />
+      </SwapStockMarketDetailBridge>
     </SwapStockTradeProvider>
   );
 }
