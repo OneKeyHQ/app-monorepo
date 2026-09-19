@@ -158,6 +158,9 @@ export function mergeAccountSelectorValueDisplayRowsV2({
 }
 
 let removalListenersRegistered = false;
+// Entries of wallets removed since this runtime started writing. A view that
+// still shows such a wallet must not write its balances back.
+const removedKeys = new Set<string>();
 
 // bg drops these entries when wallets or accounts are removed. On split
 // runtimes (iOS, Android, extension) a write this runtime has not flushed yet
@@ -173,11 +176,17 @@ function dropOnRemovals() {
     swrCacheUtils.flushNow();
   };
   appEventBus.on(EAppEventBusNames.WalletRemove, ({ walletId }) => {
-    swrCacheUtils.remove(swrKeys.accountSelectorValues({ walletId }));
+    const key = swrKeys.accountSelectorValues({ walletId });
+    removedKeys.add(key);
+    swrCacheUtils.remove(key);
     swrCacheUtils.flushNow();
   });
   appEventBus.on(EAppEventBusNames.AccountRemove, dropAll);
-  appEventBus.on(EAppEventBusNames.WalletClear, dropAll);
+  appEventBus.on(EAppEventBusNames.WalletClear, () => {
+    // Wallets created after a clear may reuse the removed ids.
+    removedKeys.clear();
+    dropAll();
+  });
 }
 
 export function writeAccountSelectorValueDisplayCacheV2(
@@ -185,5 +194,6 @@ export function writeAccountSelectorValueDisplayCacheV2(
   cache: IAccountSelectorValueDisplayCacheV2,
 ) {
   dropOnRemovals();
+  if (removedKeys.has(key)) return;
   swrCacheUtils.set(key, cache);
 }

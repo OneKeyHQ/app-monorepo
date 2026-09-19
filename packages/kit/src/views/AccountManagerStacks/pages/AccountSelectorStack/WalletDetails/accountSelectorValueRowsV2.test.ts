@@ -177,6 +177,74 @@ describe('account V2 formatting invalidation', () => {
     expect(format).toHaveBeenCalledTimes(1);
   });
 
+  it('formats every row again when the app locale changes', () => {
+    const format = jest.fn(formatAccountSelectorValueV2);
+    const getRows = createAccountSelectorValueRowsV2(format);
+    const input = fixture(3);
+    const english = getRows({
+      ...input,
+      context: { ...input.context, locale: 'en-US' },
+    });
+    expect(format).toHaveBeenCalledTimes(3);
+    expect(
+      getRows({ ...input, context: { ...input.context, locale: 'en-US' } }),
+    ).toBe(english);
+    expect(format).toHaveBeenCalledTimes(3);
+
+    getRows({ ...input, context: { ...input.context, locale: 'de' } });
+    expect(format).toHaveBeenCalledTimes(6);
+  });
+
+  it('does not show items loaded for another network until the reload lands', () => {
+    const getRows = createAccountSelectorValueRowsV2();
+    const input = fixture(2);
+    const records = input.records.map((record) => ({
+      ...record,
+      valuesNetworkId: 'evm--1',
+    }));
+    const loadedFor = (networkId: string) =>
+      Object.fromEntries(
+        Object.entries(input.accountValues).map(([key, value]) => [
+          key,
+          { ...value, networkId },
+        ]),
+      );
+    const displayedValues = {
+      'account-0': { text: '$7.00', tone: 'secondary' as const },
+    };
+
+    // The list switched to evm--1 while the atom still holds All Networks items.
+    const switched = getRows({
+      ...input,
+      records,
+      accountValues: loadedFor('onekeyall--0'),
+      displayedValues,
+    });
+    expect(switched.rows.map((row) => row.subtitleSegments?.[0].text)).toEqual([
+      '$7.00',
+      '--',
+    ]);
+    expect(switched.sources).toEqual({
+      'account-0': 'displayed',
+      'account-1': 'pending',
+    });
+
+    const reloaded = getRows({
+      ...input,
+      records,
+      accountValues: loadedFor('evm--1'),
+      displayedValues,
+    });
+    expect(reloaded.rows.map((row) => row.subtitleSegments?.[0].text)).toEqual([
+      '$1.00',
+      '$1.00',
+    ]);
+    expect(reloaded.sources).toEqual({
+      'account-0': 'live',
+      'account-1': 'live',
+    });
+  });
+
   it('never replaces a displayed text with an item that has no stored value', () => {
     const getRows = createAccountSelectorValueRowsV2();
     const input = fixture(2);

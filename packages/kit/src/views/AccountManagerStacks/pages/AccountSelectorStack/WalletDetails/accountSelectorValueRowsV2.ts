@@ -18,7 +18,11 @@ type IFormattingContext = Omit<
   | 'overview'
   | 'linkedAccountId'
   | 'linkedNetworkId'
-> & { networkId?: string };
+> & {
+  networkId?: string;
+  // App locale of the formatted texts: a change formats every row again.
+  locale?: string;
+};
 type IRowValueParams = Pick<
   IValueParams,
   'accountValue' | 'activeAccountValue' | 'linkedAccountId' | 'linkedNetworkId'
@@ -95,7 +99,11 @@ export function createAccountSelectorValueRowsV2(
         sources[row.key] = 'none';
         return row;
       }
-      const accountValue = accountValues?.[row.key];
+      const item = accountValues?.[row.key];
+      // An item loaded for another network scope is not this row's value
+      // yet: the list switched networks and its reload has not landed.
+      const accountValue =
+        item?.networkId === record.valuesNetworkId ? item : undefined;
       const params: IRowValueParams = {
         accountValue,
         // An active value only overrides its own account in the formatter.

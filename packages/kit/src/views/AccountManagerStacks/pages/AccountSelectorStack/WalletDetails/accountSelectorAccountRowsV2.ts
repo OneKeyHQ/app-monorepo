@@ -60,6 +60,9 @@ export type IAccountSelectorRowRecordV2 = {
   section: IAccountSelectorAccountsListSectionData;
   index: number;
   avatarNetworkId?: string;
+  // Network the values query uses for this account, as
+  // ServiceAccountSelector.buildAccountSelectorAccountsListData builds it.
+  valuesNetworkId: string;
   shouldShowCreateAddressButton: boolean;
   isCreatingAddress: boolean;
 };
@@ -159,6 +162,8 @@ export function useAccountSelectorAccountRowsV2({
             section,
             index,
             avatarNetworkId,
+            valuesNetworkId:
+              account?.createAtNetwork || selectedAccount.networkId || '',
             shouldShowCreateAddressButton: !!(linkNetwork && isEmptyAddress),
             isCreatingAddress: !!(
               addressCreationState?.indexedAccountId === indexedAccount?.id &&
@@ -350,7 +355,9 @@ export function useAccountSelectorAccountRowsV2({
         displayedValues,
         context: {
           walletId: wallet?.id ?? '',
-          networkId: network?.id,
+          // The selected network, like the list and its values query. The
+          // active account follows it only after a rebuild.
+          networkId: selectedAccount.networkId || network?.id,
           mergeDeriveAssetsEnabled,
           enabledNetworksCompatibleWithWalletId,
           networkInfoMap,
@@ -358,6 +365,7 @@ export function useAccountSelectorAccountRowsV2({
           currencyMap,
           targetCurrency: currencyInfo.id,
           hideValue,
+          locale: valueLocale,
         },
         skipValues,
       }),
@@ -369,6 +377,7 @@ export function useAccountSelectorAccountRowsV2({
       activeAccountValue,
       displayedValues,
       wallet?.id,
+      selectedAccount.networkId,
       network?.id,
       mergeDeriveAssetsEnabled,
       enabledNetworksCompatibleWithWalletId,
@@ -377,6 +386,7 @@ export function useAccountSelectorAccountRowsV2({
       currencyMap,
       currencyInfo.id,
       hideValue,
+      valueLocale,
       skipValues,
     ],
   );

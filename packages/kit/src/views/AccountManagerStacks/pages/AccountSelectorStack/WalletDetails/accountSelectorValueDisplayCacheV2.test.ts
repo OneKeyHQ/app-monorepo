@@ -239,11 +239,28 @@ describe('account selector value display cache', () => {
 
     emit(EAppEventBusNames.WalletRemove, { walletId: 'hd-1' });
     expect(swrCacheUtils.remove).toHaveBeenCalledWith('accSelValues:v1:hd-1');
+    // A view still showing the removed wallet cannot write it back.
+    writeAccountSelectorValueDisplayCacheV2('accSelValues:v1:hd-1', {
+      scopes: {},
+    });
+    writeAccountSelectorValueDisplayCacheV2('accSelValues:v1:hd-2', {
+      scopes: {},
+    });
+    expect(swrCacheUtils.set).toHaveBeenCalledTimes(3);
+    expect(swrCacheUtils.set).toHaveBeenLastCalledWith('accSelValues:v1:hd-2', {
+      scopes: {},
+    });
+
     emit(EAppEventBusNames.AccountRemove);
     emit(EAppEventBusNames.WalletClear);
     expect(swrCacheUtils.removeByPrefix).toHaveBeenCalledTimes(2);
     expect(swrCacheUtils.removeByPrefix).toHaveBeenCalledWith('accSelValues:');
     expect(swrCacheUtils.flushNow).toHaveBeenCalledTimes(3);
+    // After a clear, wallet ids can be reused.
+    writeAccountSelectorValueDisplayCacheV2('accSelValues:v1:hd-1', {
+      scopes: {},
+    });
+    expect(swrCacheUtils.set).toHaveBeenCalledTimes(4);
   });
 
   it('ignores malformed cache payloads', () => {

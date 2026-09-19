@@ -141,10 +141,13 @@ export async function loadAccountSelectorValuesV2(
         linkedNetworkId,
       });
       if (isCancelled()) return false;
-      const deFiByAccountId = new Map(
+      const loadedById = new Map(
         batch.map((account, index) => [
           account.accountId,
-          accountsDeFiOverview?.[index],
+          {
+            deFi: accountsDeFiOverview?.[index],
+            networkId: account.networkId,
+          },
         ]),
       );
       for (const value of accountsValue ?? []) {
@@ -152,7 +155,7 @@ export async function loadAccountSelectorValuesV2(
           // One publication carries both, so a row never mixes two loads.
           pendingValues[value.accountId] = {
             ...value,
-            deFi: deFiByAccountId.get(value.accountId),
+            ...loadedById.get(value.accountId),
           };
         }
       }

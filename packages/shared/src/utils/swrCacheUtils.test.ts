@@ -1203,6 +1203,65 @@ describe('SWR cache native entry mirror', () => {
     expect(swr.get('key')).toBe('fresh-bg');
   });
 
+  // A wallet removal on iOS/Android: bg deletes an entry that main wrote and
+  // has not flushed yet, then main receives the removal event.
+  describe('a key bg deletes while this runtime holds a pending write', () => {
+    const key = 'accSelValues:v1:hd-1';
+    const bgDeletes = () => {
+      fakeDiskGlobal.__swrEntries?.delete(key);
+      emitNativeEntries([[key, null]]);
+    };
+
+    it('stays deleted when the removal event arrives before the flush', () => {
+      fakeDiskGlobal.__swrEntries?.set(key, entry('earlier', 1));
+      const swr = loadFreshRuntime();
+      swr.set(key, 'pending');
+
+      bgDeletes();
+      // The pending write outranks the deletion, which carries no timestamp.
+      expect(swr.get(key)).toBe('pending');
+
+      swr.remove(key);
+      swr.flushNow();
+      expect(swr.get(key)).toBeUndefined();
+      expect(fakeDiskGlobal.__swrEntries?.has(key)).toBe(false);
+      expect(sentPatches()).toEqual([
+        { removePrefixes: [], removals: [[key, 10]], updates: [] },
+      ]);
+    });
+
+    it('is deleted again when the pending write flushed first', () => {
+      const swr = loadFreshRuntime();
+      swr.set(key, 'pending');
+
+      bgDeletes();
+      swr.flushNow();
+      // Without the removal event this runtime restores the deleted key.
+      expect(fakeDiskGlobal.__swrEntries?.get(key)).toBe(entry('pending', 10));
+
+      swr.remove(key);
+      swr.flushNow();
+      expect(fakeDiskGlobal.__swrEntries?.has(key)).toBe(false);
+    });
+
+    it('drops every pending write under a removed prefix', () => {
+      const swr = loadFreshRuntime();
+      swr.set(key, 'one');
+      swr.set('accSelValues:v1:hd-2', 'two');
+      swr.set('walletList:v1:0', 'kept');
+
+      swr.removeByPrefix('accSelValues:');
+      swr.flushNow();
+      expect(sentPatches()).toEqual([
+        {
+          removePrefixes: [{ prefix: 'accSelValues:', at: 10 }],
+          removals: [],
+          updates: [['walletList:v1:0', entry('kept', 10)]],
+        },
+      ]);
+    });
+  });
+
   it('rebuilds from a re-primed mirror while keeping unflushed writes', () => {
     fakeDiskGlobal.__swrEntries?.set('old', entry('old', 1));
     const swr = loadFreshRuntime();

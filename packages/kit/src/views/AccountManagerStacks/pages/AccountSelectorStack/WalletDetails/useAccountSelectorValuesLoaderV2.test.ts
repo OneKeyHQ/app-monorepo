@@ -147,7 +147,7 @@ describe('account V2 balance scheduling', () => {
     ]);
   });
 
-  it('publishes each value together with its DeFi in one update', async () => {
+  it('publishes each value together with its DeFi and query network in one update', async () => {
     const deps = dependencies();
     await loadAccountSelectorValuesV2(
       { num: 0, accountsForValuesQuery: accounts(2) },
@@ -159,6 +159,7 @@ describe('account V2 balance scheduling', () => {
       currency: 'usd',
       value: { 'account-1_evm--1': '1' },
       deFi: { overview: {}, perpsNetWorthUsd: '3' },
+      networkId: 'evm--1',
     });
 
     // A changed overview alone is still one update that replaces the item.
