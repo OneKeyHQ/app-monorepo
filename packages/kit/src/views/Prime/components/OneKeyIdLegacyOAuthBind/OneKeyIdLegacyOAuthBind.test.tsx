@@ -85,8 +85,15 @@ const mockPrepareOneKeyIdLoginWithLocalKeyless = jest.fn(async () => ({
 }));
 const mockApiFetchPrimeUserInfo = jest.fn(async () => undefined);
 const mockLogOneKeyIdLoginFailureReason = jest.fn();
-const mockYStack = jest.fn((_props: unknown) => null);
 const mockButton = jest.fn((_props: unknown) => null);
+const mockBindCardLifecycle = {
+  mountCount: 0,
+  unmountCount: 0,
+};
+const mockBoundStatusLifecycle = {
+  mountCount: 0,
+  unmountCount: 0,
+};
 const mockGetOneKeyIdOAuthBindProviders = jest.fn(() => [
   EOAuthSocialLoginProvider.Google,
   EOAuthSocialLoginProvider.Apple,
@@ -110,23 +117,60 @@ jest.mock('react-intl', () => ({
   }),
 }));
 
-jest.mock('@onekeyhq/components', () => ({
-  Button: (props: unknown) => mockButton(props),
-  Dialog: {
-    Footer: () => null,
-    show: (options: IDialogOptions) => mockDialogShow(options),
-  },
-  Icon: () => null,
-  SizableText: () => null,
-  Stack: ({ children }: { children?: ReactNode }) =>
-    createElement(Fragment, null, children),
-  Toast: { success: jest.fn() },
-  XStack: () => null,
-  YStack: (props: { children?: ReactNode }) => {
-    mockYStack(props);
-    return createElement(Fragment, null, props.children);
-  },
-}));
+jest.mock('@onekeyhq/components', () => {
+  const React = jest.requireActual<typeof import('react')>('react');
+
+  function MockLifecycleHost({
+    children,
+    lifecycle,
+  }: {
+    children?: React.ReactNode;
+    lifecycle: { mountCount: number; unmountCount: number };
+  }) {
+    React.useEffect(() => {
+      lifecycle.mountCount += 1;
+      return () => {
+        lifecycle.unmountCount += 1;
+      };
+    }, [lifecycle]);
+    return React.createElement(React.Fragment, null, children);
+  }
+
+  return {
+    Button: (props: unknown) => mockButton(props),
+    Dialog: {
+      Footer: () => null,
+      show: (options: IDialogOptions) => mockDialogShow(options),
+    },
+    Icon: () => null,
+    SizableText: () => null,
+    Stack: ({ children }: { children?: ReactNode }) =>
+      createElement(Fragment, null, children),
+    Toast: { success: jest.fn() },
+    XStack: () => null,
+    YStack: (props: {
+      children?: ReactNode;
+      overflow?: string;
+      p?: string;
+    }) => {
+      if (props.p === '$4') {
+        return React.createElement(
+          MockLifecycleHost,
+          { lifecycle: mockBindCardLifecycle },
+          props.children,
+        );
+      }
+      if (props.overflow === 'hidden') {
+        return React.createElement(
+          MockLifecycleHost,
+          { lifecycle: mockBoundStatusLifecycle },
+          props.children,
+        );
+      }
+      return React.createElement(React.Fragment, null, props.children);
+    },
+  };
+});
 
 jest.mock('@onekeyhq/kit/src/components/ListItem', () => ({
   ListItem: () => null,
@@ -246,34 +290,60 @@ async function startRequiredKeylessBind(onBindSuccess: () => Promise<void>) {
   return { resultPromise };
 }
 
-function wasInlineBindCardRendered() {
-  return mockYStack.mock.calls.some(
-    ([props]) => (props as { p?: string }).p === '$4',
+function resetBindPromptHostCounts() {
+  mockBindCardLifecycle.mountCount = 0;
+  mockBindCardLifecycle.unmountCount = 0;
+  mockBoundStatusLifecycle.mountCount = 0;
+  mockBoundStatusLifecycle.unmountCount = 0;
+}
+
+function renderBindPrompt({
+  isLoggedIn = true,
+  isFocused = true,
+}: {
+  isLoggedIn?: boolean;
+  isFocused?: boolean;
+} = {}) {
+  return render(
+    <OneKeyIdLegacyOAuthBindPrompt
+      isLoggedIn={isLoggedIn}
+      isFocused={isFocused}
+    />,
   );
 }
 
-function wasBoundStatusRendered() {
-  return mockYStack.mock.calls.some(
-    ([props]) => (props as { overflow?: string }).overflow === 'hidden',
-  );
+function getBindProviderButtonDisabledSequence(
+  provider: EOAuthSocialLoginProvider,
+) {
+  return mockButton.mock.calls
+    .filter(([props]) => {
+      const buttonProps = props as { testID?: string };
+      return buttonProps.testID === `onekey-id-bind-oauth-${provider}-btn`;
+    })
+    .map(([props]) => (props as { disabled?: boolean }).disabled);
 }
 
 function isBindProviderButtonEnabled(provider: EOAuthSocialLoginProvider) {
-  return mockButton.mock.calls.some(([props]) => {
-    const buttonProps = props as { disabled?: boolean; testID?: string };
-    return (
-      buttonProps.testID === `onekey-id-bind-oauth-${provider}-btn` &&
-      buttonProps.disabled === false
-    );
-  });
+  return getBindProviderButtonDisabledSequence(provider).some(
+    (disabled) => disabled === false,
+  );
+}
+
+function expectBindProviderButtonsEnabledOnFirstPaint() {
+  for (const provider of mockGetOneKeyIdOAuthBindProviders()) {
+    const disabledSequence = getBindProviderButtonDisabledSequence(provider);
+    expect(disabledSequence.length).toBeGreaterThan(0);
+    expect(disabledSequence[0]).toBe(false);
+    expect(disabledSequence.every((disabled) => disabled === false)).toBe(true);
+  }
 }
 
 async function waitForInlineBindCardReady() {
   await waitFor(() => {
-    expect(wasInlineBindCardRendered()).toBe(true);
-    expect(isBindProviderButtonEnabled(EOAuthSocialLoginProvider.Google)).toBe(
-      true,
-    );
+    expect(mockBindCardLifecycle).toEqual({ mountCount: 1, unmountCount: 0 });
+    for (const provider of mockGetOneKeyIdOAuthBindProviders()) {
+      expect(isBindProviderButtonEnabled(provider)).toBe(true);
+    }
   });
 }
 
@@ -281,6 +351,7 @@ describe('OneKeyIdLegacyOAuthBindPrompt readiness', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     clearOneKeyIdLegacyOAuthBindCaches();
+    resetBindPromptHostCounts();
     mockOneKeyAuthUser = {
       onekeyUserId: 'onekey-user-a',
       onekeyAccount: {
@@ -293,7 +364,7 @@ describe('OneKeyIdLegacyOAuthBindPrompt readiness', () => {
     const profileError = new OneKeyLocalError('profile unavailable');
     mockApiFetchPrimeUserInfo.mockRejectedValueOnce(profileError);
 
-    render(<OneKeyIdLegacyOAuthBindPrompt isLoggedIn isFocused />);
+    renderBindPrompt();
 
     await waitForInlineBindCardReady();
     expect(mockEnsureKeylessCredentialReady).toHaveBeenCalledTimes(1);
@@ -307,49 +378,73 @@ describe('OneKeyIdLegacyOAuthBindPrompt readiness', () => {
   });
 
   it('keeps the inline bind card mounted when the page loses and regains focus', async () => {
-    const { rerender } = render(
-      <OneKeyIdLegacyOAuthBindPrompt isLoggedIn isFocused />,
-    );
+    const { rerender } = renderBindPrompt();
 
     await waitForInlineBindCardReady();
-    mockYStack.mockClear();
     mockEnsureKeylessCredentialReady.mockClear();
     mockApiFetchPrimeUserInfo.mockClear();
+    mockButton.mockClear();
 
     rerender(<OneKeyIdLegacyOAuthBindPrompt isLoggedIn isFocused={false} />);
-    expect(wasInlineBindCardRendered()).toBe(true);
+    expect(mockBindCardLifecycle).toEqual({ mountCount: 1, unmountCount: 0 });
+    expectBindProviderButtonsEnabledOnFirstPaint();
     expect(mockEnsureKeylessCredentialReady).not.toHaveBeenCalled();
     expect(mockApiFetchPrimeUserInfo).not.toHaveBeenCalled();
 
+    mockButton.mockClear();
     rerender(<OneKeyIdLegacyOAuthBindPrompt isLoggedIn isFocused />);
-    expect(wasInlineBindCardRendered()).toBe(true);
+    expect(mockBindCardLifecycle).toEqual({ mountCount: 1, unmountCount: 0 });
+    expectBindProviderButtonsEnabledOnFirstPaint();
     await waitFor(() => {
       expect(mockEnsureKeylessCredentialReady).toHaveBeenCalledTimes(1);
     });
+    expect(mockBindCardLifecycle).toEqual({ mountCount: 1, unmountCount: 0 });
   });
 
-  it('keeps the inline bind card when a profile refresh writes empty identities', async () => {
-    const { rerender } = render(
-      <OneKeyIdLegacyOAuthBindPrompt isLoggedIn isFocused />,
-    );
-
+  it.each([
+    {
+      name: 'a profile refresh writes empty identities',
+      remount: false,
+    },
+    {
+      name: 'the bind card remounts with unknown identities',
+      remount: true,
+    },
+  ])('keeps the inline bind card when $name', async ({ remount }) => {
+    const view = renderBindPrompt();
     await waitForInlineBindCardReady();
+
     mockOneKeyAuthUser = {
       onekeyUserId: 'onekey-user-a',
       onekeyAccount: {
         identities: [],
       },
     };
-    mockYStack.mockClear();
-    rerender(<OneKeyIdLegacyOAuthBindPrompt isLoggedIn isFocused />);
 
-    expect(wasInlineBindCardRendered()).toBe(true);
+    if (remount) {
+      view.unmount();
+      expect(mockBindCardLifecycle).toEqual({
+        mountCount: 1,
+        unmountCount: 1,
+      });
+      mockButton.mockClear();
+      renderBindPrompt();
+      expect(mockBindCardLifecycle).toEqual({
+        mountCount: 2,
+        unmountCount: 1,
+      });
+      expectBindProviderButtonsEnabledOnFirstPaint();
+      return;
+    }
+
+    mockButton.mockClear();
+    view.rerender(<OneKeyIdLegacyOAuthBindPrompt isLoggedIn isFocused />);
+    expect(mockBindCardLifecycle).toEqual({ mountCount: 1, unmountCount: 0 });
+    expectBindProviderButtonsEnabledOnFirstPaint();
   });
 
   it('switches to the linked status when an OAuth identity arrives', async () => {
-    const { rerender } = render(
-      <OneKeyIdLegacyOAuthBindPrompt isLoggedIn isFocused />,
-    );
+    const { rerender } = renderBindPrompt();
 
     await waitForInlineBindCardReady();
     mockOneKeyAuthUser = {
@@ -364,43 +459,31 @@ describe('OneKeyIdLegacyOAuthBindPrompt readiness', () => {
         ],
       },
     };
-    mockYStack.mockClear();
     rerender(<OneKeyIdLegacyOAuthBindPrompt isLoggedIn isFocused />);
 
-    expect(wasInlineBindCardRendered()).toBe(false);
-    expect(wasBoundStatusRendered()).toBe(true);
+    expect(mockBindCardLifecycle).toEqual({ mountCount: 1, unmountCount: 1 });
+    expect(mockBoundStatusLifecycle).toEqual({
+      mountCount: 1,
+      unmountCount: 0,
+    });
   });
 
   it('keeps Google and Apple enabled after the bind card remounts', async () => {
-    const { unmount } = render(
-      <OneKeyIdLegacyOAuthBindPrompt isLoggedIn isFocused />,
-    );
+    const { unmount } = renderBindPrompt();
 
-    await waitFor(() => {
-      expect(
-        isBindProviderButtonEnabled(EOAuthSocialLoginProvider.Google),
-      ).toBe(true);
-      expect(isBindProviderButtonEnabled(EOAuthSocialLoginProvider.Apple)).toBe(
-        true,
-      );
-    });
+    await waitForInlineBindCardReady();
     unmount();
+    expect(mockBindCardLifecycle).toEqual({ mountCount: 1, unmountCount: 1 });
     mockButton.mockClear();
 
-    render(<OneKeyIdLegacyOAuthBindPrompt isLoggedIn isFocused />);
+    renderBindPrompt();
 
-    expect(isBindProviderButtonEnabled(EOAuthSocialLoginProvider.Google)).toBe(
-      true,
-    );
-    expect(isBindProviderButtonEnabled(EOAuthSocialLoginProvider.Apple)).toBe(
-      true,
-    );
+    expect(mockBindCardLifecycle).toEqual({ mountCount: 2, unmountCount: 1 });
+    expectBindProviderButtonsEnabledOnFirstPaint();
   });
 
   it('keeps the inline bind card when a profile write drops the user id', async () => {
-    const { rerender } = render(
-      <OneKeyIdLegacyOAuthBindPrompt isLoggedIn isFocused />,
-    );
+    const { rerender } = renderBindPrompt();
 
     await waitForInlineBindCardReady();
     mockEnsureKeylessCredentialReady.mockClear();
@@ -410,47 +493,26 @@ describe('OneKeyIdLegacyOAuthBindPrompt readiness', () => {
     mockOneKeyAuthUser = {
       onekeyAccount: undefined,
     };
-    mockYStack.mockClear();
     rerender(<OneKeyIdLegacyOAuthBindPrompt isLoggedIn isFocused />);
 
-    expect(wasInlineBindCardRendered()).toBe(true);
-    expect(isBindProviderButtonEnabled(EOAuthSocialLoginProvider.Google)).toBe(
-      true,
-    );
+    expect(mockBindCardLifecycle).toEqual({ mountCount: 1, unmountCount: 0 });
+    expectBindProviderButtonsEnabledOnFirstPaint();
     expect(mockEnsureKeylessCredentialReady).not.toHaveBeenCalled();
     expect(mockApiFetchPrimeUserInfo).not.toHaveBeenCalled();
     expect(mockPrepareOneKeyIdLoginWithLocalKeyless).not.toHaveBeenCalled();
   });
 
-  it('keeps the inline bind card after remount when identities are unknown', async () => {
-    const { unmount } = render(
-      <OneKeyIdLegacyOAuthBindPrompt isLoggedIn isFocused />,
-    );
-
-    await waitForInlineBindCardReady();
-    unmount();
-    mockOneKeyAuthUser = {
-      onekeyUserId: 'onekey-user-a',
-      onekeyAccount: {
-        identities: [],
-      },
-    };
-    mockYStack.mockClear();
-    render(<OneKeyIdLegacyOAuthBindPrompt isLoggedIn isFocused />);
-
-    expect(wasInlineBindCardRendered()).toBe(true);
-  });
-
   it('hides the inline bind card after logout', async () => {
-    const { rerender } = render(
-      <OneKeyIdLegacyOAuthBindPrompt isLoggedIn isFocused />,
-    );
+    const { rerender } = renderBindPrompt();
 
     await waitForInlineBindCardReady();
-    mockYStack.mockClear();
     rerender(<OneKeyIdLegacyOAuthBindPrompt isLoggedIn={false} isFocused />);
 
-    expect(wasInlineBindCardRendered()).toBe(false);
+    expect(mockBindCardLifecycle).toEqual({ mountCount: 1, unmountCount: 1 });
+    expect(mockBoundStatusLifecycle).toEqual({
+      mountCount: 0,
+      unmountCount: 0,
+    });
   });
 });
 
