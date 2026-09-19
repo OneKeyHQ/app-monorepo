@@ -415,6 +415,7 @@ function TokenListViewCmp(props: IProps) {
     indexedAccountId,
     mergeDeriveAddressData,
     enabled: tokenManagementEnabled && !isHomeProjectionPath,
+    customTokensOnly: true,
   });
 
   // The token list atoms are scoped to a singleton store, so they survive the

@@ -149,7 +149,10 @@ import {
   resolveSwapReviewTokenAmounts,
 } from '../../utils/buildSwapReviewState';
 import { getSwapSafeInputBalanceAmount } from '../../utils/swapBalanceUtils';
-import { buildSwapPositionPrefetchScopes } from '../../utils/swapPositionPrefetchUtils';
+import {
+  buildSwapPositionPrefetchScopes,
+  createSwapPositionPrefetchScheduler,
+} from '../../utils/swapPositionPrefetchUtils';
 import { compareSwapProPositionNetworkIds } from '../../utils/swapProPositionsKeyUtils';
 import { buildSwapRateDifference } from '../../utils/swapRateDifferenceUtils';
 import {
@@ -1385,26 +1388,44 @@ const SwapMainLoad = ({
     positionSupportNetworkLists.swap,
     swapProSupportNetworksReady,
   ]);
+  const positionPrefetchScheduler = useMemo(
+    () => createSwapPositionPrefetchScheduler(),
+    [],
+  );
+  useEffect(
+    () => () => {
+      positionPrefetchScheduler.cancel();
+    },
+    [positionPrefetchScheduler],
+  );
   useEffect(() => {
     const [primaryScope, ...additionalScopes] = positionPrefetchScopes;
     if (!platformEnv.isNative || !primaryScope) {
       return;
     }
-    void swapProLoadSupportNetworksTokenListRun(primaryScope.networkList, {
-      stockOnly: primaryScope.stockOnly,
-      additionalNetworkScopes: additionalScopes.map((scope) => ({
-        networkList: scope.networkList,
-        stockOnly: scope.stockOnly,
-      })),
-    });
+    positionPrefetchScheduler.request(() => {
+      void swapProLoadSupportNetworksTokenListRun(primaryScope.networkList, {
+        stockOnly: primaryScope.stockOnly,
+        additionalNetworkScopes: additionalScopes.map((scope) => ({
+          networkList: scope.networkList,
+          stockOnly: scope.stockOnly,
+        })),
+      });
+    }, isFocusedRef.current);
     // Activation still checks freshness; the loader owns in-flight and TTL
     // deduplication independently of the stable prefetch scope order.
   }, [
     focusSwapPro,
+    positionPrefetchScheduler,
     positionPrefetchScopes,
     swapProLoadSupportNetworksTokenListRun,
     swapTypeSwitch,
   ]);
+  useEffect(() => {
+    if (isFocused) {
+      positionPrefetchScheduler.flush();
+    }
+  }, [isFocused, positionPrefetchScheduler]);
 
   useSwapProErrorAlert({
     isSwapProActive: Boolean(focusSwapPro),

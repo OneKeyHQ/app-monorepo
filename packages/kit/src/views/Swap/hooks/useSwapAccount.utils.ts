@@ -98,6 +98,37 @@ export async function resolveSwapTargetNetworkAccount<TAccount>({
   }
 }
 
+type ISwapTargetNetworkAccountResult<TAccount> = {
+  account: TAccount | undefined;
+  deriveType: IAccountDeriveTypes;
+};
+
+const inFlightSwapTargetNetworkAccounts = new Map<string, Promise<unknown>>();
+
+// A swap screen mounts a dozen useSwapAddressInfo instances, and a token or
+// account change makes every one of them resolve the same target account in
+// the same tick. They share the lookup while it is in flight. Nothing is kept
+// once it settles, so a later change never reads a stale account.
+export function resolveSwapTargetNetworkAccountOnce<TAccount>({
+  key,
+  resolve,
+}: {
+  key: string;
+  resolve: () => Promise<ISwapTargetNetworkAccountResult<TAccount>>;
+}): Promise<ISwapTargetNetworkAccountResult<TAccount>> {
+  const inFlight = inFlightSwapTargetNetworkAccounts.get(key) as
+    | Promise<ISwapTargetNetworkAccountResult<TAccount>>
+    | undefined;
+  if (inFlight) {
+    return inFlight;
+  }
+  const pending = resolve().finally(() => {
+    inFlightSwapTargetNetworkAccounts.delete(key);
+  });
+  inFlightSwapTargetNetworkAccounts.set(key, pending);
+  return pending;
+}
+
 export function getSwapRecipientActionState({
   isActionDisabled,
   isRefreshAction,
