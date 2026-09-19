@@ -37,11 +37,9 @@ function PagePortal({ pagePortalId }: { pagePortalId: string }) {
 
 function PageProvider({
   children,
-  lazyLoad = false,
   scrollEnabled = false,
   scrollProps = { showsVerticalScrollIndicator: false },
   safeAreaEnabled = true,
-  fullPage,
   testID,
   backgroundColor,
   onMounted,
@@ -79,12 +77,7 @@ function PageProvider({
       {redirect ? null : (
         <PageContext.Provider value={value}>
           <>
-            <PageContainer
-              lazyLoad={lazyLoad}
-              fullPage={fullPage}
-              testID={testID}
-              backgroundColor={backgroundColor}
-            >
+            <PageContainer testID={testID} backgroundColor={backgroundColor}>
               {children}
             </PageContainer>
             <PagePortal pagePortalId={pagePortalId} />

@@ -98,7 +98,7 @@ function MobileBrowser() {
   }, [handleChangeHeaderTab]);
 
   return (
-    <Page fullPage>
+    <Page>
       <Page.Body>
         {/* custom header */}
         <YStack my="$2">

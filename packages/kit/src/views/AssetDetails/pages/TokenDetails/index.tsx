@@ -959,7 +959,7 @@ function TokenDetailsView() {
   }, [tokens, tokenMap, accountId, networkId, batchUpdateTokenDetails]);
 
   return (
-    <Page lazyLoad safeAreaEnabled={false}>
+    <Page safeAreaEnabled={false}>
       <Page.Header headerRight={headerRight} headerTitle={headerTitle} />
       <Page.Body>{tokenDetailsViewElement}</Page.Body>
       <TokenDetailsFooter
