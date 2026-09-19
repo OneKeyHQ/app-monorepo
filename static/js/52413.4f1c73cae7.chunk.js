@@ -1,0 +1,2 @@
+"use strict";(self.rspackChunkweb=self.rspackChunkweb||[]).push([[52413],{448044(e,r,a){a.r(r);var t=a(99743),l=a(200852);let rewardCenter=async(e,r)=>{let a=r?.urlResult;if(a?.data?.urlParamList){let e=a?.data?.origin;if([t.rq,t.$U,t.km].includes(e)&&a?.data?.pathname==="/reward-center")return{type:l.Wb.REWARD_CENTER,data:{}}}return null};a.d(r,{},{default:rewardCenter})}}]);
+//# sourceMappingURL=52413.4f1c73cae7.chunk.js.map

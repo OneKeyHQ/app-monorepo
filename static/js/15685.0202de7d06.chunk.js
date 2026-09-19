@@ -1,0 +1,2 @@
+"use strict";(self.rspackChunkweb=self.rspackChunkweb||[]).push([[15685],{290372(r,t,e){e.r(t);var a=e(754283),u=e(474257),s=e(200852);async function __rspack_default_export(r,t){if(!r||!r.startsWith(a.Lc))return null;try{let t=u.Ay.parseUrl(r),e=t?.urlParamList?.code,a=t?.urlParamList?.server;if(!e)return null;return{type:s.Wb.PRIME_TRANSFER,data:{code:e,server:a}}}catch(r){return null}}e.d(t,{default:()=>__rspack_default_export})}}]);
+//# sourceMappingURL=15685.0202de7d06.chunk.js.map
