@@ -8,6 +8,7 @@ import { CanceledError } from 'axios';
 import { isWebEmbedApiAllowedOrigin } from '@onekeyhq/kit-bg/src/apis/backgroundApiPermissions';
 import appGlobals from '@onekeyhq/shared/src/appGlobals';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import { isConfirmedAxiosCancellation } from '@onekeyhq/shared/src/errors/utils/errorUtils';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -301,10 +302,9 @@ function rehydrateTransportError({
 }): IBackgroundThreadTransportError {
   let error = new Error(errorMessage) as IBackgroundThreadTransportError;
   try {
-    error =
-      errorInfo?.name === 'CanceledError' && errorInfo.code === 'ERR_CANCELED'
-        ? new CanceledError(errorMessage)
-        : createTransportError(errorMessage);
+    error = isConfirmedAxiosCancellation(errorInfo)
+      ? new CanceledError(errorMessage)
+      : createTransportError(errorMessage);
   } catch (metadataError) {
     transportLog(
       `handleResponse: failed to create transport error. callId=${callId}, error=${

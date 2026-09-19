@@ -126,7 +126,10 @@ describe('initSentry', () => {
     };
     expect(
       beforeSend?.(event, {
-        originalException: { code: 'E_PICKER_CANCELLED' },
+        originalException: {
+          name: 'ImageCropPickerError',
+          code: 'E_PICKER_CANCELLED',
+        },
       }),
     ).toBeNull();
   });

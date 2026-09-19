@@ -672,7 +672,7 @@ describe('buildBasicOptions', () => {
       expect(result).toBeNull();
     });
 
-    test('filters only actual Axios and image picker cancellations', () => {
+    test('filters structured cancellations without matching their messages', () => {
       const onError = jest.fn();
       const options = buildBasicOptions({ onError });
       const makeEvent = (type: string) => ({
@@ -682,12 +682,20 @@ describe('buildBasicOptions', () => {
 
       expect(
         options.beforeSend?.(makeEvent('CanceledError'), {
-          originalException: { code: 'ERR_CANCELED' },
+          originalException: { name: 'CanceledError', code: 'ERR_CANCELED' },
         }),
       ).toBeNull();
       expect(
         options.beforeSend?.(makeEvent('ImageCropPickerError'), {
-          originalException: { code: 'E_PICKER_CANCELLED' },
+          originalException: {
+            name: 'ImageCropPickerError',
+            code: 'E_PICKER_CANCELLED',
+          },
+        }),
+      ).toBeNull();
+      expect(
+        options.beforeSend?.(makeEvent('Error'), {
+          originalException: { userCancelled: true },
         }),
       ).toBeNull();
       expect(
@@ -695,17 +703,25 @@ describe('buildBasicOptions', () => {
       ).toBeNull();
       expect(
         options.beforeSend?.(makeEvent('CanceledError'), {
-          originalException: { code: 'OTHER_ERROR' },
+          originalException: { name: 'CanceledError', code: 'OTHER_ERROR' },
         }),
       ).not.toBeNull();
       expect(
         options.beforeSend?.(makeEvent('ImageCropPickerError'), {
-          originalException: { code: 'E_PICKER_CANNOT_OPEN' },
+          originalException: {
+            name: 'ImageCropPickerError',
+            code: 'E_PICKER_CANNOT_OPEN',
+          },
+        }),
+      ).not.toBeNull();
+      expect(
+        options.beforeSend?.(makeEvent('Error'), {
+          originalException: { userCancelled: false },
         }),
       ).not.toBeNull();
     });
 
-    test('filters native cancellation messages without hiding other errors', () => {
+    test('filters only single native legacy cancellation events without an original exception', () => {
       const previousIsNative = platformEnv.isNative;
       platformEnv.isNative = true;
       try {
@@ -733,6 +749,25 @@ describe('buildBasicOptions', () => {
         expect(
           options.beforeSend?.(
             makeEvent('TypeError', 'User cancelled image selection'),
+            {},
+          ),
+        ).not.toBeNull();
+        expect(
+          options.beforeSend?.(makeEvent('Error', 'Purchase was cancelled.'), {
+            originalException: new Error('Purchase was cancelled.'),
+          }),
+        ).not.toBeNull();
+        expect(
+          options.beforeSend?.(
+            {
+              type: undefined,
+              exception: {
+                values: [
+                  { type: 'Error', value: 'Purchase was cancelled.' },
+                  { type: 'TypeError', value: 'Unrelated failure' },
+                ],
+              },
+            },
             {},
           ),
         ).not.toBeNull();

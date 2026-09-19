@@ -47,6 +47,7 @@ const mockGetPrimeInfiniPaymentEntryGuard = jest.fn<
   []
 >();
 const mockPurchaseByCrypto = jest.fn(async () => undefined);
+const mockPurchasePackageNative = jest.fn(async () => undefined);
 const mockPurchasePackageWeb = jest.fn(async () => undefined);
 const mockGooglePlayIsAvailable = jest.fn(async () => false);
 const mockPlatformEnv = {
@@ -170,6 +171,7 @@ jest.mock('../../hooks/usePrimeInfiniPurchase', () => ({
 
 jest.mock('../../hooks/usePrimePayment', () => ({
   usePrimePayment: () => ({
+    purchasePackageNative: mockPurchasePackageNative,
     purchasePackageWeb: mockPurchasePackageWeb,
   }),
 }));
@@ -230,6 +232,31 @@ describe('usePrimePurchaseCallback pending payment entry guard', () => {
 
   afterEach(() => {
     cleanup();
+  });
+
+  it('does not propagate a cancelled native purchase', async () => {
+    mockPlatformEnv.isNativeIOS = true;
+    mockPurchasePackageNative.mockRejectedValueOnce({ userCancelled: true });
+    const { result } = renderHook(() => usePrimePurchaseCallback());
+
+    await act(async () => {
+      await expect(
+        result.current.purchaseByNative({ selectedSubscriptionPeriod: 'P1Y' }),
+      ).resolves.toBeUndefined();
+    });
+  });
+
+  it('still propagates a failed native purchase', async () => {
+    mockPlatformEnv.isNativeIOS = true;
+    const error = new Error('Purchase failed');
+    mockPurchasePackageNative.mockRejectedValueOnce(error);
+    const { result } = renderHook(() => usePrimePurchaseCallback());
+
+    await act(async () => {
+      await expect(
+        result.current.purchaseByNative({ selectedSubscriptionPeriod: 'P1Y' }),
+      ).rejects.toBe(error);
+    });
   });
 
   it('resumes the crypto flow before showing payment methods', async () => {

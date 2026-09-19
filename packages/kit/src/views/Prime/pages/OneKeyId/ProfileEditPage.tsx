@@ -24,6 +24,7 @@ import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKey
 import { OneKeyIdAvatar } from '@onekeyhq/kit/src/components/OneKeyIdAvatar';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useRouteIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
+import { isImagePickerCanceledError } from '@onekeyhq/shared/src/errors/utils/errorUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
@@ -36,17 +37,6 @@ interface IPrimeProfileFormValues {
 }
 
 const normalizeNickname = (nickname?: string) => nickname?.trim() || '';
-const IMAGE_PICKER_CANCELLED_CODE = 'E_PICKER_CANCELLED';
-
-function isImagePickerCancelled(error: unknown) {
-  return (
-    typeof error === 'object' &&
-    error !== null &&
-    'code' in error &&
-    error.code === IMAGE_PICKER_CANCELLED_CODE
-  );
-}
-
 function ProfileEditPage() {
   const intl = useIntl();
   const navigation = useAppNavigation();
@@ -173,7 +163,7 @@ function ProfileEditPage() {
         form.setValue('avatar', image.data, { shouldDirty: true });
       }
     } catch (error) {
-      if (isImagePickerCancelled(error)) {
+      if (isImagePickerCanceledError(error)) {
         return;
       }
       Toast.error({

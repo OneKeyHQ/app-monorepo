@@ -33,6 +33,7 @@ import type {
 } from '@onekeyhq/kit-bg/src/services/ServiceHardware/DeviceSettingsManager';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
+import { isImagePickerCanceledError } from '@onekeyhq/shared/src/errors/utils/errorUtils';
 import { CoreSDKLoader } from '@onekeyhq/shared/src/hardware/instance';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
@@ -453,10 +454,18 @@ function WallpaperCustomCategorySection({
       return;
     }
 
-    const data = await ImageCrop.openPicker({
-      width: config.size?.width,
-      height: config.size?.height,
-    });
+    let data: Awaited<ReturnType<typeof ImageCrop.openPicker>>;
+    try {
+      data = await ImageCrop.openPicker({
+        width: config.size?.width,
+        height: config.size?.height,
+      });
+    } catch (error) {
+      if (isImagePickerCanceledError(error)) {
+        return;
+      }
+      throw error;
+    }
     if (!data.data) {
       return;
     }

@@ -1,6 +1,8 @@
 import { CanceledError } from 'axios';
 
 import {
+  isConfirmedAxiosCancellation,
+  isImagePickerCanceledError,
   isRequestCanceledError,
   markOneKeyIdFailureServerLogged,
   toPlainErrorObject,
@@ -34,6 +36,26 @@ describe('OneKey ID failure server log marker', () => {
   });
 });
 
+describe('isImagePickerCanceledError', () => {
+  it('requires the picker error type and cancellation code', () => {
+    expect(
+      isImagePickerCanceledError({
+        name: 'ImageCropPickerError',
+        code: 'E_PICKER_CANCELLED',
+      }),
+    ).toBe(true);
+    expect(isImagePickerCanceledError({ code: 'E_PICKER_CANCELLED' })).toBe(
+      false,
+    );
+    expect(
+      isImagePickerCanceledError({
+        name: 'ImageCropPickerError',
+        code: 'E_CANNOT_SAVE_IMAGE',
+      }),
+    ).toBe(false);
+  });
+});
+
 describe('isRequestCanceledError', () => {
   it('detects a live axios CanceledError', () => {
     expect(isRequestCanceledError(new CanceledError('canceled'))).toBe(true);
@@ -55,5 +77,21 @@ describe('isRequestCanceledError', () => {
     expect(isRequestCanceledError(new Error('boom'))).toBe(false);
     expect(isRequestCanceledError(undefined)).toBe(false);
     expect(isRequestCanceledError('canceled')).toBe(false);
+  });
+});
+
+describe('isConfirmedAxiosCancellation', () => {
+  it('accepts live or fully identified serialized cancellations', () => {
+    expect(isConfirmedAxiosCancellation(new CanceledError('canceled'))).toBe(
+      true,
+    );
+    expect(
+      isConfirmedAxiosCancellation({
+        name: 'CanceledError',
+        code: 'ERR_CANCELED',
+      }),
+    ).toBe(true);
+    expect(isConfirmedAxiosCancellation({ code: 'ERR_CANCELED' })).toBe(false);
+    expect(isConfirmedAxiosCancellation({ name: 'CanceledError' })).toBe(false);
   });
 });

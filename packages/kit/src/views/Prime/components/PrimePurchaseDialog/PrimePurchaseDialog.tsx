@@ -16,6 +16,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { EPrimeFeatures } from '@onekeyhq/shared/src/routes/prime';
 
 import { getPrimeInfiniPaymentEntryGuard } from '../../hooks/primeInfiniExternalCheckoutGuard';
+import primePaymentUtils from '../../hooks/primePaymentUtils';
 import { usePrimeInfiniPurchase } from '../../hooks/usePrimeInfiniPurchase';
 import { usePrimePayment } from '../../hooks/usePrimePayment';
 import { showPrimeInfiniPaymentErrorToast } from '../../primeInfiniPaymentError';
@@ -205,10 +206,19 @@ export function usePrimePurchaseCallback({
       // purchasePackageNative owns the post-purchase refresh for both
       // outcomes (claim -> refresh -> emit on success, one defensive refresh
       // on failure); refreshing here again would duplicate it.
-      await purchasePackageNative?.({
-        subscriptionPeriod: selectedSubscriptionPeriod,
-        featureName,
-      });
+      try {
+        await purchasePackageNative?.({
+          subscriptionPeriod: selectedSubscriptionPeriod,
+          featureName,
+        });
+      } catch (error) {
+        if (
+          primePaymentUtils.classifyPurchaseError(error).reason !==
+          'userCancelled'
+        ) {
+          throw error;
+        }
+      }
     },
     [purchasePackageNative],
   );

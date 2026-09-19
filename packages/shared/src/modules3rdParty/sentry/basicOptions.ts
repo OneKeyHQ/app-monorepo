@@ -4,6 +4,10 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 
 import { EOneKeyErrorClassNames } from '../../errors/types/errorTypes';
+import {
+  isConfirmedAxiosCancellation,
+  isImagePickerCanceledError,
+} from '../../errors/utils/errorUtils';
 
 import type { BrowserOptions, Stacktrace } from '@sentry/browser';
 
@@ -240,42 +244,49 @@ const FILTER_ERROR_VALUES = new Set([
   'cancel timeout',
 ]);
 
-const NATIVE_CANCELLATION_ERROR_VALUES = new Set([
+// Compatibility for native events that arrive without an original exception.
+const LEGACY_NATIVE_CANCELLATION_ERROR_VALUES = new Set([
   'User cancelled image selection',
   'Purchase was cancelled.',
 ]);
 
-const isFilterErrorAndSkipSentry = (
-  error?: {
-    type?: string | undefined;
-    value?: string | undefined;
-  },
-  originalException?: unknown,
+const isExpectedCancellation = (originalException: unknown) => {
+  if (isConfirmedAxiosCancellation(originalException)) {
+    return true;
+  }
+  if (isImagePickerCanceledError(originalException)) {
+    return true;
+  }
+  return Boolean(
+    originalException &&
+    typeof originalException === 'object' &&
+    (originalException as { userCancelled?: unknown }).userCancelled === true,
+  );
+};
+
+const isLegacyNativeCancellationEvent = (
+  event: ISentrySanitizableEvent,
+  originalException: unknown,
 ) => {
+  const values = event.exception?.values;
+  return Boolean(
+    platformEnv.isNative &&
+    (originalException === undefined || originalException === null) &&
+    values?.length === 1 &&
+    values[0].type === 'Error' &&
+    values[0].value &&
+    LEGACY_NATIVE_CANCELLATION_ERROR_VALUES.has(values[0].value),
+  );
+};
+
+const isFilterErrorAndSkipSentry = (error?: {
+  type?: string | undefined;
+  value?: string | undefined;
+}) => {
   if (!error) {
     return false;
   }
   if (error.type && FILTERED_ERROR_TYPES.has(error.type)) {
-    return true;
-  }
-
-  const errorCode =
-    originalException && typeof originalException === 'object'
-      ? (originalException as { code?: unknown }).code
-      : undefined;
-  if (
-    (error.type === 'CanceledError' && errorCode === 'ERR_CANCELED') ||
-    (error.type === 'ImageCropPickerError' &&
-      errorCode === 'E_PICKER_CANCELLED')
-  ) {
-    return true;
-  }
-  if (
-    platformEnv.isNative &&
-    error.type === 'Error' &&
-    error.value &&
-    NATIVE_CANCELLATION_ERROR_VALUES.has(error.value)
-  ) {
     return true;
   }
 
@@ -315,6 +326,12 @@ export const sanitizeSentryEvent = <T extends ISentrySanitizableEvent>(
   onError: ISentrySanitizationErrorHandler,
   originalException?: unknown,
 ): T | null => {
+  if (
+    isExpectedCancellation(originalException) ||
+    isLegacyNativeCancellationEvent(event, originalException)
+  ) {
+    return null;
+  }
   if (Array.isArray(event.exception?.values)) {
     for (let index = 0; index < event.exception.values.length; index += 1) {
       const exceptionValue = event.exception.values[index];
@@ -339,13 +356,10 @@ export const sanitizeSentryEvent = <T extends ISentrySanitizableEvent>(
         }
         // Sanitize stacktrace (local variables, context lines)
         if (
-          isFilterErrorAndSkipSentry(
-            {
-              type: originalType,
-              value: originalValue,
-            },
-            originalException,
-          )
+          isFilterErrorAndSkipSentry({
+            type: originalType,
+            value: originalValue,
+          })
         ) {
           return null;
         }
