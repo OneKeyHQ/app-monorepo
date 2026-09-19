@@ -31,6 +31,7 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import { captureException } from '@onekeyhq/shared/src/modules3rdParty/sentry';
 import {
   markPerpsColdStartPerf,
   markPerpsColdStartPerfOnce,
@@ -166,6 +167,7 @@ import { resolvePerpsDepositSelectedToken } from '../ServiceWebviewPerp/utils/de
 import { hyperLiquidApiClients } from './hyperLiquidApiClients';
 import hyperLiquidCache from './hyperLiquidCache';
 import { shouldRefreshMarketPerpsUniverse } from './marketPerpsUniverse';
+import { scheduleReferrerCodeBinding } from './referrerCodeBinding';
 import {
   createFetchUserAbstractionRawWithCache,
   invalidateUserAbstractionRawCache,
@@ -177,6 +179,7 @@ import {
   fetchRecentUserFundingHistory,
 } from './utils/fundingHistory';
 import { buildL2BookByCoinRequest } from './utils/l2Book';
+import { logHyperLiquidApiFailure } from './utils/logHyperLiquidApiFailure';
 import { resolveMarketOrderReferencePrice } from './utils/marketOrderReferencePrice';
 import {
   mergePerpDexSlots,
@@ -942,6 +945,7 @@ export default class ServiceHyperliquid extends ServiceBase {
     this.getUserApprovedMaxBuilderFeeWithCache.clear();
     hyperLiquidCache.activatedUser = {};
     hyperLiquidCache.referrerCodeSetDone = {};
+    hyperLiquidCache.referrerCodeSetInFlight = {};
 
     // Dispose exchange client and reset account status
     await this.disposeExchangeClients();
@@ -3556,25 +3560,31 @@ export default class ServiceHyperliquid extends ServiceBase {
     // Deferred: bind referral code after loading resolves.
     // Non-blocking, non-critical — avoids bandwidth contention during critical path.
     if (agentCredential) {
-      void (async () => {
-        const cacheKey = [
-          agentCredential.userAddress.toLowerCase(),
-          agentCredential.agentAddress.toLowerCase(),
-          agentCredential.agentName,
-        ].join('-');
-        if (!hyperLiquidCache?.referrerCodeSetDone?.[cacheKey]) {
+      const cacheKey = [
+        agentCredential.userAddress.toLowerCase(),
+        agentCredential.agentAddress.toLowerCase(),
+        agentCredential.agentName,
+      ].join('-');
+      void scheduleReferrerCodeBinding({
+        cache: hyperLiquidCache,
+        cacheKey,
+        getReferralCode: async () => {
           const { referralCode } =
             await this.backgroundApi.simpleDb.perp.getPerpData();
-          try {
-            // referrer code can be approved by agent
-            await this.exchangeService.setReferrerCode({
-              code: referralCode || HYPERLIQUID_REFERRAL_CODE,
-            });
-          } finally {
-            hyperLiquidCache.referrerCodeSetDone[cacheKey] = true;
-          }
-        }
-      })();
+          return referralCode || HYPERLIQUID_REFERRAL_CODE;
+        },
+        setReferrerCode: (code) =>
+          this.exchangeService.setReferrerCode({ code }),
+        onFailure: (error) => {
+          void logHyperLiquidApiFailure({
+            endpoint: 'exchange',
+            action: 'setReferrer',
+            error,
+            extra: { source: 'deferredReferrerBinding' },
+          });
+          captureException(error);
+        },
+      });
     }
   }
 
