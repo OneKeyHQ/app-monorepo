@@ -225,11 +225,17 @@ index b83ef32..4b1f048 100644
  }
  //# sourceMappingURL=mainThreadPressEvents.native.js.map
 diff --git a/node_modules/@tamagui/web/dist/cjs/helpers/webPropsToSkip.native.js b/node_modules/@tamagui/web/dist/cjs/helpers/webPropsToSkip.native.js
-index 421eb93..c6a975f 100644
+index 421eb93..fb18fee 100644
 --- a/node_modules/@tamagui/web/dist/cjs/helpers/webPropsToSkip.native.js
 +++ b/node_modules/@tamagui/web/dist/cjs/helpers/webPropsToSkip.native.js
-@@ -70,7 +70,8 @@ var webPropsToSkip = {
-   onScroll: 1,
+@@ -67,10 +67,13 @@ var webPropsToSkip = {
+   onChange: 1,
+   onInput: 1,
+   onBeforeInput: 1,
+-  onScroll: 1,
++  // OneKey patch: React Native ScrollView emits onScroll on native; skipping it
++  // dropped Sheet.ScrollView's scroll tracking (scrollBridge.y stayed 0).
++  // onScroll: 1,
    onCopy: 1,
    onCut: 1,
 -  onPaste: 1,
@@ -571,11 +577,17 @@ index bd0a1d6..e4d0431 100644
  }
  export { useMainThreadPressEvents };
 diff --git a/node_modules/@tamagui/web/dist/esm/helpers/webPropsToSkip.native.js b/node_modules/@tamagui/web/dist/esm/helpers/webPropsToSkip.native.js
-index a976632..d5f0121 100644
+index a976632..7d6dadf 100644
 --- a/node_modules/@tamagui/web/dist/esm/helpers/webPropsToSkip.native.js
 +++ b/node_modules/@tamagui/web/dist/esm/helpers/webPropsToSkip.native.js
-@@ -41,7 +41,8 @@ var webPropsToSkip = {
-   onScroll: 1,
+@@ -38,10 +38,13 @@ var webPropsToSkip = {
+   onChange: 1,
+   onInput: 1,
+   onBeforeInput: 1,
+-  onScroll: 1,
++  // OneKey patch: React Native ScrollView emits onScroll on native; skipping it
++  // dropped Sheet.ScrollView's scroll tracking (scrollBridge.y stayed 0).
++  // onScroll: 1,
    onCopy: 1,
    onCut: 1,
 -  onPaste: 1,
@@ -933,11 +945,17 @@ index 8ad8f79..618cd64 100644
    }
  }
 diff --git a/node_modules/@tamagui/web/src/helpers/webPropsToSkip.native.ts b/node_modules/@tamagui/web/src/helpers/webPropsToSkip.native.ts
-index 08cc802..8f8c675 100644
+index 08cc802..6b00a92 100644
 --- a/node_modules/@tamagui/web/src/helpers/webPropsToSkip.native.ts
 +++ b/node_modules/@tamagui/web/src/helpers/webPropsToSkip.native.ts
-@@ -48,7 +48,8 @@ export const webPropsToSkip = {
-   onScroll: 1,
+@@ -45,10 +45,13 @@ export const webPropsToSkip = {
+   onChange: 1,
+   onInput: 1,
+   onBeforeInput: 1,
+-  onScroll: 1,
++  // OneKey patch: React Native ScrollView emits onScroll on native; skipping it
++  // dropped Sheet.ScrollView's scroll tracking (scrollBridge.y stayed 0).
++  // onScroll: 1,
    onCopy: 1,
    onCut: 1,
 -  onPaste: 1,

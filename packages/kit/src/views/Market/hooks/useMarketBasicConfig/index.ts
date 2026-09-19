@@ -90,9 +90,7 @@ export function useMarketBasicConfig() {
     [locale, requestScope],
     {
       checkIsFocused: !platformEnv.isWeb,
-      swrKey: platformEnv.isNative
-        ? swrKeys.marketHomeConfig(locale)
-        : undefined,
+      swrKey: swrKeys.marketHomeConfig(locale),
       swrShouldPersist: (data) => Boolean(data),
       watchLoading: true,
       revalidateOnReconnect: true,
