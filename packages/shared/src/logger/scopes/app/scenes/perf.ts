@@ -58,13 +58,6 @@ export class AppPerfScene extends BaseScene {
     return [params];
   }
 
-  // One line each time a full collection is forced to bring the cost of
-  // ordinary collections back down. Numbers only.
-  @LogToLocal()
-  public runtimeGcRelief(params: Record<string, number | string | undefined>) {
-    return [params];
-  }
-
   // Aggregated per window: event-loop blocks, JS heap and GC, process CPU
   // and memory. Numbers only.
   @LogToLocal()
@@ -82,26 +75,6 @@ export class AppPerfScene extends BaseScene {
     byKind: { kind: string; count: number; kb: number }[];
     bySender: { sender: string; count: number; kb: number }[];
   }) {
-    return [params];
-  }
-
-  // DIAGNOSTIC BRANCH ONLY: React commits, mounted fibers, weak references
-  // and timers per window. Component names and counts, nothing else.
-  @LogToLocal()
-  public diagCensus(params: Record<string, unknown>) {
-    return [params];
-  }
-
-  // DIAGNOSTIC BRANCH ONLY: one entry of a cumulative ranking per line, kept
-  // short because the native logger truncates long lines.
-  @LogToLocal()
-  public diagRanking(params: Record<string, unknown>) {
-    return [params];
-  }
-
-  // DIAGNOSTIC BRANCH ONLY: what one collection costs under controlled heaps.
-  @LogToLocal()
-  public diagGcExperiment(params: Record<string, unknown>) {
     return [params];
   }
 

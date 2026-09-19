@@ -2,7 +2,6 @@
 
 const mockRuntimeHealthCensus = jest.fn<void, [Record<string, unknown>]>();
 const mockMainInboundCensus = jest.fn<void, [Record<string, unknown>]>();
-const mockRuntimeGcRelief = jest.fn<void, [Record<string, unknown>]>();
 jest.mock('../../logger/logger', () => ({
   defaultLogger: {
     app: {
@@ -12,9 +11,6 @@ jest.mock('../../logger/logger', () => ({
         },
         mainInboundCensus: (report: Record<string, unknown>) => {
           mockMainInboundCensus(report);
-        },
-        runtimeGcRelief: (report: Record<string, unknown>) => {
-          mockRuntimeGcRelief(report);
         },
       },
     },
@@ -26,7 +22,6 @@ import { OneKeyLocalError } from '../../errors';
 import {
   createDistinctChangeCounter,
   recordInboundFromBackground,
-  requestRuntimeGcRelief,
   startRuntimeHealthCensus,
   stopRuntimeHealthCensus,
 } from './jsBlockCollector';
@@ -370,197 +365,5 @@ describe('recordInboundFromBackground', () => {
       (mockMainInboundCensus.mock.calls[0][0] as { bySender: unknown[] })
         .bySender,
     ).toEqual([{ sender: 'rpc:others', count: 1, kb: 3 }]);
-  });
-});
-
-describe('gc relief', () => {
-  let now = 0;
-  let nowSpy: jest.SpyInstance;
-  // Per-collection cost the fake engine reports for the current window.
-  let msPerGc = 2;
-  const stats = {
-    js_numGCs: 0,
-    js_gcTime: 0,
-    js_heapSize: 300 * MB,
-    js_totalAllocatedBytes: 0,
-    js_allocatedBytes: 200 * MB,
-  };
-
-  const runIdle = (ms: number) => {
-    for (let elapsed = 0; elapsed < ms; elapsed += 100) {
-      now += 100;
-      jest.advanceTimersByTime(100);
-    }
-  };
-  // One census window in which the engine ran 400 collections.
-  const runWindow = () => {
-    stats.js_numGCs += 400;
-    stats.js_gcTime += (400 * msPerGc) / 1000;
-    runIdle(30_000);
-  };
-
-  beforeEach(() => {
-    jest.useFakeTimers();
-    now = 0;
-    msPerGc = 2;
-    nowSpy = jest.spyOn(performance, 'now').mockImplementation(() => now);
-    mockRuntimeGcRelief.mockClear();
-    (globalThis as IHermesGlobal).HermesInternal = {
-      getInstrumentedStats: () => ({ ...stats }),
-    };
-  });
-
-  afterEach(() => {
-    stopRuntimeHealthCensus();
-    delete (globalThis as IHermesGlobal).HermesInternal;
-    nowSpy.mockRestore();
-    jest.useRealTimers();
-  });
-
-  it('leaves a healthy runtime alone', () => {
-    const forceFullGc = jest.fn(() => true);
-    startRuntimeHealthCensus({ forceFullGc });
-
-    runWindow();
-    runWindow();
-    runIdle(5000);
-
-    expect(forceFullGc).not.toHaveBeenCalled();
-  });
-
-  it('forces one full collection once collections are expensive and the loop is quiet', () => {
-    const forceFullGc = jest.fn(() => true);
-    startRuntimeHealthCensus({ forceFullGc });
-
-    msPerGc = 12;
-    runWindow();
-    expect(forceFullGc).not.toHaveBeenCalled();
-    runIdle(1000);
-
-    expect(forceFullGc).toHaveBeenCalledTimes(1);
-    expect(mockRuntimeGcRelief).toHaveBeenCalledTimes(1);
-    expect(mockRuntimeGcRelief.mock.calls[0][0]).toMatchObject({
-      reason: 'expensive-collections',
-      msPerGcBefore: 12,
-      heapMBBefore: 300,
-      liveMBBefore: 200,
-    });
-  });
-
-  it('waits for a quiet second instead of pausing a busy runtime', () => {
-    const forceFullGc = jest.fn(() => true);
-    startRuntimeHealthCensus({ forceFullGc });
-
-    msPerGc = 12;
-    runWindow();
-    // Every tick arrives late: the loop is busy.
-    for (let i = 0; i < 40; i += 1) {
-      now += 180;
-      jest.advanceTimersByTime(100);
-    }
-    expect(forceFullGc).not.toHaveBeenCalled();
-
-    runIdle(1000);
-    expect(forceFullGc).toHaveBeenCalledTimes(1);
-  });
-
-  it('gives up when no quiet moment comes', () => {
-    const forceFullGc = jest.fn(() => true);
-    startRuntimeHealthCensus({ forceFullGc });
-
-    msPerGc = 12;
-    stats.js_numGCs += 400;
-    stats.js_gcTime += (400 * 12) / 1000;
-    runIdle(30_000);
-    for (let i = 0; i < 160; i += 1) {
-      now += 180;
-      jest.advanceTimersByTime(100);
-    }
-    expect(forceFullGc).not.toHaveBeenCalled();
-
-    // The request has expired; a quiet second now must not trigger it.
-    msPerGc = 2;
-    runIdle(1000);
-    expect(forceFullGc).not.toHaveBeenCalled();
-  });
-
-  it('runs at most once every two minutes', () => {
-    const forceFullGc = jest.fn(() => true);
-    startRuntimeHealthCensus({ forceFullGc });
-
-    msPerGc = 12;
-    runWindow();
-    runIdle(1000);
-    expect(forceFullGc).toHaveBeenCalledTimes(1);
-
-    // Still expensive in each of the next three windows, but too soon.
-    runWindow();
-    runWindow();
-    runWindow();
-    runIdle(1000);
-    expect(forceFullGc).toHaveBeenCalledTimes(1);
-
-    // Two minutes after the first one it may run again.
-    runWindow();
-    runWindow();
-    runIdle(1000);
-    expect(forceFullGc).toHaveBeenCalledTimes(2);
-  });
-
-  it('takes the chance when the app goes to the background, at a lower bar', () => {
-    const forceFullGc = jest.fn(() => true);
-    startRuntimeHealthCensus({ forceFullGc });
-
-    msPerGc = 2;
-    runWindow();
-    requestRuntimeGcRelief('app-background');
-    expect(forceFullGc).not.toHaveBeenCalled();
-
-    msPerGc = 5;
-    runWindow();
-    runIdle(1000);
-    // 5 ms is below the in-use threshold, so nothing ran on its own.
-    expect(forceFullGc).not.toHaveBeenCalled();
-    requestRuntimeGcRelief('app-background');
-
-    expect(forceFullGc).toHaveBeenCalledTimes(1);
-    expect(mockRuntimeGcRelief.mock.calls[0][0]).toMatchObject({
-      reason: 'app-background',
-    });
-  });
-
-  it('logs nothing where the engine has no binding to force a collection', () => {
-    const forceFullGc = jest.fn(() => false);
-    startRuntimeHealthCensus({ forceFullGc });
-
-    msPerGc = 12;
-    runWindow();
-    runIdle(1000);
-
-    expect(forceFullGc).toHaveBeenCalledTimes(1);
-    expect(mockRuntimeGcRelief).not.toHaveBeenCalled();
-  });
-
-  it('does not report its own pause as a blocked event loop', () => {
-    const forceFullGc = jest.fn(() => {
-      now += 400;
-      return true;
-    });
-    startRuntimeHealthCensus({ forceFullGc });
-
-    msPerGc = 12;
-    runWindow();
-    mockRuntimeHealthCensus.mockClear();
-    runIdle(1000);
-    expect(forceFullGc).toHaveBeenCalledTimes(1);
-    expect(mockRuntimeGcRelief.mock.calls[0][0]).toMatchObject({
-      fullGcMs: 400,
-    });
-
-    msPerGc = 2;
-    runWindow();
-    expect(mockRuntimeHealthCensus.mock.calls[0][0]).toMatchObject({
-      blockCount: 0,
-    });
   });
 });
