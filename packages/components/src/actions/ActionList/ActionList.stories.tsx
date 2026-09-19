@@ -130,12 +130,8 @@ type Story = StoryObj<typeof meta>;
 export const Playground: Story = {};
 
 // Never settles, so the skeleton rows stay under the real items for comparison.
-const pendingAsyncItems: NonNullable<
-  IActionListProps['renderItemsAsync']
-> = () => new Promise(() => {});
-
 export const Loading: Story = {
-  args: { renderItemsAsync: pendingAsyncItems },
+  args: { renderItemsAsync: () => new Promise(() => {}) },
 };
 
 export const WithSections: Story = {
