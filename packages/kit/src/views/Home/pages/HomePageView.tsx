@@ -21,6 +21,7 @@ import {
   useFocusedTab,
   useMedia,
   useScrollContentTabBarOffset,
+  useTheme,
 } from '@onekeyhq/components';
 import type { ITabBarItemProps } from '@onekeyhq/components/src/composite/Tabs/TabBar';
 import { TabBarItem } from '@onekeyhq/components/src/composite/Tabs/TabBar';
@@ -516,6 +517,17 @@ export function HomePageView({
     );
   }, []);
 
+  // react-native-collapsible-tab-view paints its header container white. In
+  // dark mode that white showed through wherever the header content has no
+  // opaque background: around and inside the offline banner (NetworkAlert
+  // uses margins and translucent critical colors) and at 1px layout seams
+  // above the tab bar (OK-63706). Paint the container with the page color.
+  const theme = useTheme();
+  const headerContainerStyle = useMemo(
+    () => ({ backgroundColor: theme.bgApp.val }),
+    [theme.bgApp.val],
+  );
+
   // Rendered on web only. On native the equivalent lives inside the history
   // list's ListHeaderComponent so its height stays inside the list's measurer.
   const renderSubHeader = useCallback(
@@ -925,13 +937,25 @@ export function HomePageView({
         headerHeight={platformEnv.isNative ? 292 : undefined}
         useNativeHeaderAnimation={platformEnv.isNativeAndroid}
         width={platformEnv.isNative ? (tabContainerWidth as number) : undefined}
+        headerContainerStyle={headerContainerStyle}
         renderHeader={renderHeader}
         renderTabBar={renderTabBar}
         onTabChange={handleTabChange}
         renderSubHeader={renderSubHeader}
       >
         {pagerTabConfigs.map((tab) => (
-          <Tabs.Tab key={tab.name} name={tab.name}>
+          <Tabs.Tab
+            key={tab.name}
+            name={tab.name}
+            // The native pager mounts a pane only on its first focus, so after
+            // an account switch remounts this container with another tab
+            // active, nothing would fetch the new owner's tokens and the
+            // header (worth, WalletActions, banner) would stay on `unknown`
+            // until the user opens the wallet tab (OK-63721). The wallet
+            // pane owns that data, so it mounts eagerly (and frozen, see
+            // FreezeInactiveHomeTab); other panes keep mounting lazily.
+            startMounted={tab.id === EHomeWalletTab.Portfolio}
+          >
             <FreezeInactiveHomeTab
               tabName={tab.name}
               pressedTabName={activeTabName}
@@ -956,6 +980,7 @@ export function HomePageView({
     account?.id,
     account?.indexedAccountId,
     isWalletNotBackedUp,
+    headerContainerStyle,
     renderHeader,
     renderTabBar,
     handleTabChange,

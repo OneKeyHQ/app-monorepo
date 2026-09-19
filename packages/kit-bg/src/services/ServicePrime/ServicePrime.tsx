@@ -4618,7 +4618,7 @@ class ServicePrime extends ServiceBase {
     const primeSubscription = this.buildPrimeSubscriptionInfo(serverUserInfo);
 
     const serverManagementUrl =
-      serverUserInfo.subscriptions?.[0]?.managementUrl;
+      serverUserInfo.subscriptions?.[0]?.managementUrl ?? undefined;
 
     // Sync the server KYT state into the settings cache before exposing
     // onekeyUserId, so the settings switch and intro dialog gate (both keyed by

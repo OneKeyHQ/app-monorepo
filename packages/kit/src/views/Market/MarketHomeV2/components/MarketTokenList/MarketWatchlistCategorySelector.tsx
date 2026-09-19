@@ -39,7 +39,11 @@ function useWatchlistFilterCategories() {
       },
       {
         id: 'spot' as const,
-        name: intl.formatMessage({ id: ETranslations.dexmarket_spot }),
+        // Borrowed Prime key: it is the only "Crypto" string translated as
+        // "cryptocurrency" in every locale (`global_crypto` reads "coin type").
+        name: intl.formatMessage({
+          id: ETranslations.prime_crypto_payment__label,
+        }),
       },
       {
         id: 'stocks' as const,
