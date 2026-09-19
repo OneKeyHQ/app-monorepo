@@ -182,12 +182,15 @@ const TabDeveloper = () => {
       enabledNum={[0]}
     >
       <Page>
-        <Page.Body pt={bodyPaddingTop}>
+        <Page.Body>
           <ScrollView
             flex={1}
             width="100%"
             paddingHorizontal="$5"
-            contentContainerStyle={{ paddingBottom: tabBarHeight ?? '$5' }}
+            contentContainerStyle={{
+              paddingTop: bodyPaddingTop,
+              paddingBottom: tabBarHeight ?? '$5',
+            }}
             gap="$5"
           >
             <PartContainer title="Components">

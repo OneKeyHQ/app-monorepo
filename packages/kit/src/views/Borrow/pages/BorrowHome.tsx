@@ -72,6 +72,10 @@ const SECTION_TAB_BAR_CONTAINER_STYLE = {
 type IBorrowHomeProps = {
   header?: React.ReactNode;
   isActive?: boolean;
+  // Top padding for the scroll content. The iOS 26 pushed page stays under
+  // its translucent native header and passes the bar height here, so content
+  // scrolls beneath the bar's glass instead of being clipped below it.
+  contentTopInset?: number;
   pendingTxs?: IStakePendingTx[];
   onRegisterBorrowRefresh?: (handler: (() => Promise<void>) | null) => void;
   onBorrowNetworksChange?: (networkIds: string[]) => void;
@@ -118,6 +122,7 @@ const BorrowHomeContent = memo(
   ({
     header,
     isActive = true,
+    contentTopInset = 0,
     onBorrowHistoryActionChange,
   }: IBorrowHomeProps) => {
     const intl = useIntl();
@@ -518,6 +523,7 @@ const BorrowHomeContent = memo(
         <ScrollView
           flex={1}
           contentContainerStyle={{
+            paddingTop: contentTopInset,
             paddingBottom:
               (tabBarHeight ?? 0) +
               (isPhone ? BORROW_MOBILE_ACTION_BAR_SCROLL_INSET : 0),
@@ -580,6 +586,7 @@ const BorrowHomeCmp = memo(
   ({
     header,
     isActive = true,
+    contentTopInset,
     pendingTxs,
     onRegisterBorrowRefresh,
     onBorrowNetworksChange,
@@ -598,6 +605,7 @@ const BorrowHomeCmp = memo(
           <BorrowHomeContent
             header={header}
             isActive={isActive}
+            contentTopInset={contentTopInset}
             onBorrowHistoryActionChange={onBorrowHistoryActionChange}
           />
         </BorrowDataGate>

@@ -40,7 +40,7 @@ diff --git a/node_modules/react-native-screens/ios/RNSFullWindowOverlay.mm b/nod
 index 1a820b4..6f60b43 100644
 --- a/node_modules/react-native-screens/ios/RNSFullWindowOverlay.mm
 +++ b/node_modules/react-native-screens/ios/RNSFullWindowOverlay.mm
-@@ -218,9 +218,31 @@ RNS_IGNORE_SUPER_CALL_END
+@@ -218,9 +218,31 @@ - (void)updateProps:(const facebook::react::Props::Shared &)props
      [self setAccessibilityContainerViewIsModal:newComponentProps.accessibilityContainerViewIsModal];
    }
  
@@ -73,10 +73,10 @@ index 1a820b4..6f60b43 100644
  
  // Needed because of this: https://github.com/facebook/react-native/pull/37274
 diff --git a/node_modules/react-native-screens/ios/RNSScreen.mm b/node_modules/react-native-screens/ios/RNSScreen.mm
-index 9b66012..09393b0 100644
+index 9b66012..6e0210e 100644
 --- a/node_modules/react-native-screens/ios/RNSScreen.mm
 +++ b/node_modules/react-native-screens/ios/RNSScreen.mm
-@@ -8,6 +8,7 @@
+@@ -8,9 +8,11 @@
  
  #import <React/RCTConversions.h>
  #import <React/RCTFabricComponentsPlugins.h>
@@ -84,7 +84,11 @@ index 9b66012..09393b0 100644
  #import <React/RCTRootComponentView.h>
  #import <React/RCTScrollViewComponentView.h>
  #import <React/RCTSurfaceTouchHandler.h>
-@@ -37,6 +38,20 @@ namespace react = facebook::react;
++#import <React/RCTViewComponentView.h>
+ #import <react/renderer/components/rnscreens/EventEmitters.h>
+ #import <react/renderer/components/rnscreens/Props.h>
+ #import <react/renderer/components/rnscreens/RCTComponentViewHelpers.h>
+@@ -37,6 +39,54 @@
  constexpr NSInteger SHEET_FIT_TO_CONTENTS = -1;
  constexpr NSInteger SHEET_LARGEST_UNDIMMED_DETENT_NONE = -1;
  
@@ -102,10 +106,44 @@ index 9b66012..09393b0 100644
 +// completion decrements. Flag is cleared only on the last decrement.
 +static NSInteger RNSScreenTransitionDepth = 0;
 +
++// OneKey patch: a view with this nativeID floats over the screen's content
++// scroll view just below the navigation bar (pinned tabs, column headers).
++// iOS 26 only blurs content that scrolls beneath bars, so the view joins the
++// top scroll edge effect through UIScrollEdgeElementContainerInteraction and
++// reads as one continuous glass region with the bar. Screens opt in by
++// configuring scrollEdgeEffects, which is what keeps this lookup running.
++static NSString *const RNSScrollEdgeElementContainerTopNativeID = @"rnscreens-scroll-edge-element-top";
++
++// OneKey patch: UIKit shapes a scroll edge element container from the UIKit
++// content inside it (labels, images, glass). React Native draws its own text
++// and icons, so the container would contribute an empty region. This invisible
++// label spans the container so the whole container joins the edge effect.
++// UILabel only registers while it has text, hence the blank string.
++@interface RNSScrollEdgeElementMarkerView : UILabel
++@end
++
++@implementation RNSScrollEdgeElementMarkerView
++
++- (instancetype)initWithFrame:(CGRect)frame
++{
++  if (self = [super initWithFrame:frame]) {
++    self.text = @" ";
++    self.textColor = UIColor.clearColor;
++    self.backgroundColor = UIColor.clearColor;
++    self.userInteractionEnabled = NO;
++    self.isAccessibilityElement = NO;
++    self.accessibilityElementsHidden = YES;
++    self.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
++  }
++  return self;
++}
++
++@end
++
  struct ContentWrapperBox {
    __weak RNSScreenContentWrapper *contentWrapper{nil};
    float contentHeightErrata{0.f};
-@@ -48,7 +63,12 @@ struct ContentWrapperBox {
+@@ -48,7 +98,13 @@ @interface RNSScreenView () <UIAdaptivePresentationControllerDelegate,
                               UISheetPresentationControllerDelegate,
  #endif
                               RCTRNSScreenViewProtocol,
@@ -116,32 +154,38 @@ index 9b66012..09393b0 100644
 +- (BOOL)hasCustomScrollEdgeEffects;
 +- (nullable UIScrollView *)contentScrollViewForEdgeEffects;
 +- (void)resetLastContentScrollViewEdgeEffects;
++- (void)updateScrollEdgeElementContainersForScrollView:(nullable UIScrollView *)scrollView;
  @end
  
  @implementation RNSScreenView {
-@@ -59,6 +79,7 @@ struct ContentWrapperBox {
+@@ -59,6 +115,10 @@ @implementation RNSScreenView {
    ContentWrapperBox _contentWrapperBox;
    bool _sheetHasInitialDetentSet;
    BOOL _shouldUpdateScrollEdgeEffects;
 +  __weak UIScrollView *_lastContentScrollViewForEdgeEffects;
++  // OneKey patch: views currently carrying a scroll edge element container
++  // interaction, so it can be removed once they leave or get recycled.
++  NSHashTable<UIView *> *_scrollEdgeElementContainers;
    UITapGestureRecognizer *_backdropTapGestureRecognizer;
    RCTSurfaceTouchHandler *_touchHandler;
    react::RNSScreenShadowNode::ConcreteState::Shared _state;
-@@ -95,6 +116,7 @@ struct ContentWrapperBox {
+@@ -95,6 +155,8 @@ - (void)initCommonProps
    _fullScreenSwipeEnabled = RNSOptionalBooleanUndefined;
    _fullScreenSwipeShadowEnabled = YES;
    _shouldUpdateScrollEdgeEffects = NO;
 +  _lastContentScrollViewForEdgeEffects = nil;
++  _scrollEdgeElementContainers = [NSHashTable weakObjectsHashTable];
  #if !TARGET_OS_TV
    _sheetExpandsWhenScrolledToEdge = YES;
  #endif // !TARGET_OS_TV
-@@ -599,6 +621,20 @@ RNS_IGNORE_SUPER_CALL_END
+@@ -599,6 +661,21 @@ - (void)didMoveToWindow
    } else {
      [_touchHandler detachFromView:self];
    }
 +
 +  if (self.window == nil) {
 +    [self resetLastContentScrollViewEdgeEffects];
++    [self updateScrollEdgeElementContainersForScrollView:nil];
 +  } else if ([self hasCustomScrollEdgeEffects]) {
 +    [self updateContentScrollViewEdgeEffectsIfExists];
 +  }
@@ -156,7 +200,7 @@ index 9b66012..09393b0 100644
  }
  
  - (nullable RCTSurfaceTouchHandler *)touchHandler
-@@ -1105,10 +1141,46 @@ RNS_IGNORE_SUPER_CALL_END
+@@ -1105,10 +1182,131 @@ - (void)overrideScrollViewBehaviorInFirstDescendantChainIfNeeded
    }
  }
  
@@ -202,10 +246,95 @@ index 9b66012..09393b0 100644
 +  }
 +
 +  _lastContentScrollViewForEdgeEffects = [self hasCustomScrollEdgeEffects] ? contentScrollView : nil;
++  [self updateScrollEdgeElementContainersForScrollView:_lastContentScrollViewForEdgeEffects];
++}
++
++- (void)collectScrollEdgeElementContainersInView:(UIView *)view into:(NSMutableArray<UIView *> *)containers
++{
++  for (UIView *subview in view.subviews) {
++    // Nested screens own their containers, and a container inside a scroll
++    // view scrolls with the content instead of overlaying its edge.
++    if ([subview isKindOfClass:RNSScreenView.class] || [subview isKindOfClass:UIScrollView.class]) {
++      continue;
++    }
++    if ([subview isKindOfClass:RCTViewComponentView.class] &&
++        [static_cast<RCTViewComponentView *>(subview).nativeId
++            isEqualToString:RNSScrollEdgeElementContainerTopNativeID]) {
++      [containers addObject:subview];
++      continue;
++    }
++    [self collectScrollEdgeElementContainersInView:subview into:containers];
++  }
++}
++
++- (void)updateScrollEdgeElementContainersForScrollView:(nullable UIScrollView *)scrollView
++{
++#if RNS_IPHONE_OS_VERSION_AVAILABLE(26_0)
++  if (@available(iOS 26, *)) {
++    NSMutableArray<UIView *> *containers = [NSMutableArray array];
++    if (scrollView != nil && self.window != nil) {
++      [self collectScrollEdgeElementContainersInView:self into:containers];
++    }
++
++    // Fabric recycles component views, so detach views that left this screen or
++    // no longer carry the nativeID. The marker is always the last subview, so
++    // removing it never shifts the indices Fabric mounts React children at.
++    for (UIView *attachedView in _scrollEdgeElementContainers.allObjects) {
++      if (![containers containsObject:attachedView]) {
++        for (id<UIInteraction> interaction in attachedView.interactions.copy) {
++          if ([interaction isKindOfClass:UIScrollEdgeElementContainerInteraction.class]) {
++            [attachedView removeInteraction:interaction];
++          }
++        }
++        for (UIView *subview in attachedView.subviews.copy) {
++          if ([subview isKindOfClass:RNSScrollEdgeElementMarkerView.class]) {
++            [subview removeFromSuperview];
++          }
++        }
++        [_scrollEdgeElementContainers removeObject:attachedView];
++      }
++    }
++
++    for (UIView *container in containers) {
++      UIScrollEdgeElementContainerInteraction *containerInteraction = nil;
++      for (id<UIInteraction> interaction in container.interactions) {
++        if ([interaction isKindOfClass:UIScrollEdgeElementContainerInteraction.class]) {
++          containerInteraction = static_cast<UIScrollEdgeElementContainerInteraction *>(interaction);
++          break;
++        }
++      }
++      // Replace rather than retarget when the content scroll view changes (e.g.
++      // a tab switch mounts a new list): the interaction is configured before
++      // it is added, as in UIKit's documented usage.
++      if (containerInteraction != nil && containerInteraction.scrollView != scrollView) {
++        [container removeInteraction:containerInteraction];
++        containerInteraction = nil;
++      }
++      if (containerInteraction == nil) {
++        containerInteraction = [UIScrollEdgeElementContainerInteraction new];
++        containerInteraction.scrollView = scrollView;
++        containerInteraction.edge = UIRectEdgeTop;
++        [container addInteraction:containerInteraction];
++      }
++
++      BOOL hasMarker = NO;
++      for (UIView *subview in container.subviews) {
++        if ([subview isKindOfClass:RNSScrollEdgeElementMarkerView.class]) {
++          hasMarker = YES;
++          break;
++        }
++      }
++      if (!hasMarker) {
++        [container addSubview:[[RNSScrollEdgeElementMarkerView alloc] initWithFrame:container.bounds]];
++      }
++      [_scrollEdgeElementContainers addObject:container];
++    }
++  }
++#endif // RNS_IPHONE_OS_VERSION_AVAILABLE(26_0)
  }
  
  #pragma mark - RNSSafeAreaProviding
-@@ -1385,6 +1457,14 @@ RNS_IGNORE_SUPER_CALL_END
+@@ -1385,6 +1583,14 @@ - (void)finalizeUpdates:(RNComponentViewUpdateMask)updateMask
  #endif // !TARGET_OS_TV && !TARGET_OS_VISION
  }
  
@@ -220,7 +349,7 @@ index 9b66012..09393b0 100644
  #pragma mark - Dynamic frameworks support
  
  // Needed because of this: https://github.com/facebook/react-native/pull/37274
-@@ -1437,6 +1517,28 @@ Class<RCTComponentViewProtocol> RNSScreenCls(void)
+@@ -1437,6 +1643,28 @@ - (instancetype)initWithView:(UIView *)view
  - (void)viewWillAppear:(BOOL)animated
  {
    [super viewWillAppear:animated];
@@ -309,7 +438,7 @@ index 192f5d2..2b6dcd1 100644
  #import "UIView+RNSUtility.h"
  #import "integrations/RNSDismissibleModalProtocol.h"
  #import "utils/UINavigationBar+RNSUtility.h"
-@@ -175,6 +224,11 @@ namespace react = facebook::react;
+@@ -175,6 +224,11 @@ @implementation RNSScreenStackView {
    RNSPercentDrivenInteractiveTransition *_interactionController;
    __weak RNSScreenStackManager *_manager;
    BOOL _updateScheduled;
@@ -321,7 +450,7 @@ index 192f5d2..2b6dcd1 100644
  }
  
  - (instancetype)initWithFrame:(CGRect)frame
-@@ -213,6 +267,24 @@ namespace react = facebook::react;
+@@ -213,6 +267,24 @@ - (void)initCommonProps
    // the header will render in collapsed state which is perhaps a bug
    // in UIKit but ¯\_(ツ)_/¯
    [_controller setViewControllers:@[ [UIViewController new] ]];
@@ -346,7 +475,7 @@ index 192f5d2..2b6dcd1 100644
  }
  
  #pragma mark - helper methods
-@@ -240,6 +312,153 @@ namespace react = facebook::react;
+@@ -240,6 +312,153 @@ - (void)emitOnFinishTransitioningEvent
    }
  }
  
@@ -500,7 +629,7 @@ index 192f5d2..2b6dcd1 100644
  - (void)navigationController:(UINavigationController *)navigationController
        willShowViewController:(UIViewController *)viewController
                      animated:(BOOL)animated
-@@ -278,21 +497,45 @@ RNS_IGNORE_SUPER_CALL_END
+@@ -278,21 +497,45 @@ - (void)presentationControllerDidDismiss:(UIPresentationController *)presentatio
  
  - (void)didMoveToWindow
  {
@@ -550,7 +679,7 @@ index 192f5d2..2b6dcd1 100644
    [self updateContainer];
    if (!wasScreenMounted) {
      // when stack hasn't been added to parent VC yet we do two things:
-@@ -313,10 +556,43 @@ RNS_IGNORE_SUPER_CALL_END
+@@ -313,10 +556,43 @@ - (void)reactAddControllerToClosestParent:(UIViewController *)controller
  {
    if (!controller.parentViewController) {
      UIView *parentView = (UIView *)self.reactSuperview;
@@ -596,7 +725,7 @@ index 192f5d2..2b6dcd1 100644
  #if !TARGET_OS_TV
          _controller.interactivePopGestureRecognizer.delegate = self;
  #if RNS_IPHONE_OS_VERSION_AVAILABLE(26_0)
-@@ -325,7 +601,7 @@ RNS_IGNORE_SUPER_CALL_END
+@@ -325,7 +601,7 @@ - (void)reactAddControllerToClosestParent:(UIViewController *)controller
          }
  #endif // Check for iOS >= 26.0
  #endif
@@ -605,7 +734,7 @@ index 192f5d2..2b6dcd1 100644
          // On iOS pre 12 we observed that `willShowViewController` delegate method does not always
          // get triggered when the navigation controller is instantiated. As the only thing we do in
          // that delegate method is ask nav header to update to the current state it does not hurt to
-@@ -375,6 +651,8 @@ RNS_IGNORE_SUPER_CALL_END
+@@ -375,6 +651,8 @@ - (void)setModalViewControllers:(NSArray<UIViewController *> *)controllers
  {
    // prevent re-entry
    if (_updatingModals) {
@@ -614,7 +743,7 @@ index 192f5d2..2b6dcd1 100644
      _scheduleModalsUpdate = YES;
      return;
    }
-@@ -383,12 +661,22 @@ RNS_IGNORE_SUPER_CALL_END
+@@ -383,12 +661,22 @@ - (void)setModalViewControllers:(NSArray<UIViewController *> *)controllers
    // accidently trigger modal dismiss if we don't verify to run the below code only when an actual
    // change in the list of presented modal was made.
    if ([_presentedModals isEqualToArray:controllers]) {
@@ -637,7 +766,7 @@ index 192f5d2..2b6dcd1 100644
      return;
    }
  
-@@ -429,6 +717,7 @@ RNS_IGNORE_SUPER_CALL_END
+@@ -429,6 +717,7 @@ - (void)setModalViewControllers:(NSArray<UIViewController *> *)controllers
    __weak RNSScreenStackView *weakSelf = self;
  
    void (^afterTransitions)(void) = ^{
@@ -645,7 +774,7 @@ index 192f5d2..2b6dcd1 100644
      [weakSelf emitOnFinishTransitioningEvent];
      weakSelf.updatingModals = NO;
      if (weakSelf.scheduleModalsUpdate) {
-@@ -444,6 +733,7 @@ RNS_IGNORE_SUPER_CALL_END
+@@ -444,6 +733,7 @@ - (void)setModalViewControllers:(NSArray<UIViewController *> *)controllers
    };
  
    void (^finish)(void) = ^{
@@ -653,7 +782,7 @@ index 192f5d2..2b6dcd1 100644
      NSUInteger oldCount = weakSelf.presentedModals.count;
      if (changeRootIndex < oldCount) {
        [weakSelf.presentedModals removeObjectsInRange:NSMakeRange(changeRootIndex, oldCount - changeRootIndex)];
-@@ -452,10 +742,13 @@ RNS_IGNORE_SUPER_CALL_END
+@@ -452,10 +742,13 @@ - (void)setModalViewControllers:(NSArray<UIViewController *> *)controllers
          changeRootController.parentViewController != nil || changeRootController.presentingViewController != nil;
  
      if (!isAttached || changeRootIndex >= controllers.count) {
@@ -671,7 +800,7 @@ index 192f5d2..2b6dcd1 100644
        afterTransitions();
        return;
      }
-@@ -532,16 +825,23 @@ RNS_IGNORE_SUPER_CALL_END
+@@ -532,16 +825,23 @@ - (void)setModalViewControllers:(NSArray<UIViewController *> *)controllers
                ? static_cast<RNSScreen *>(firstModalToBeDismissed).screenView.stackAnimation !=
                    RNSScreenStackAnimationNone
                : YES;
@@ -699,7 +828,7 @@ index 192f5d2..2b6dcd1 100644
                                  finish();
                                }];
          }
-@@ -578,12 +878,30 @@ RNS_IGNORE_SUPER_CALL_END
+@@ -578,12 +878,30 @@ - (void)setPushViewControllers:(NSArray<UIViewController *> *)controllers
  {
    // when there is no change we return immediately
    if ([_controller.viewControllers isEqualToArray:controllers]) {
@@ -731,7 +860,7 @@ index 192f5d2..2b6dcd1 100644
      return;
    }
    // when transition is ongoing, any updates made to the controller will not be reflected until the
-@@ -593,6 +911,7 @@ RNS_IGNORE_SUPER_CALL_END
+@@ -593,6 +911,7 @@ - (void)setPushViewControllers:(NSArray<UIViewController *> *)controllers
    // making any updated when transition is ongoing and schedule updates for when the transition
    // is complete.
    if (_controller.transitionCoordinator != nil) {
@@ -739,7 +868,7 @@ index 192f5d2..2b6dcd1 100644
      if (!_updateScheduled) {
        _updateScheduled = YES;
        __weak RNSScreenStackView *weakSelf = self;
-@@ -659,8 +978,15 @@ RNS_IGNORE_SUPER_CALL_END
+@@ -659,8 +978,15 @@ - (void)setPushViewControllers:(NSArray<UIViewController *> *)controllers
        NSMutableArray *newControllers = [NSMutableArray arrayWithArray:controllers];
        [newControllers removeLastObject];
  
@@ -755,7 +884,7 @@ index 192f5d2..2b6dcd1 100644
      } else {
        // don't really know what this case could be, but may need to handle it
        // somehow
-@@ -674,6 +1000,9 @@ RNS_IGNORE_SUPER_CALL_END
+@@ -674,6 +1000,9 @@ - (void)setPushViewControllers:(NSArray<UIViewController *> *)controllers
  
  - (void)updateContainer
  {
@@ -765,7 +894,7 @@ index 192f5d2..2b6dcd1 100644
    NSMutableArray<UIViewController *> *pushControllers = [NSMutableArray new];
    NSMutableArray<UIViewController *> *modalControllers = [NSMutableArray new];
    for (RNSScreenView *screen in _reactSubviews) {
-@@ -743,6 +1072,10 @@ RNS_IGNORE_SUPER_CALL_END
+@@ -743,6 +1072,10 @@ - (void)layoutSubviews
        modal.view.frame = correctFrame;
      }
    }
@@ -780,7 +909,7 @@ diff --git a/node_modules/react-native-screens/ios/RNSScreenStackHeaderConfig.mm
 index 1c84484..976b44f 100644
 --- a/node_modules/react-native-screens/ios/RNSScreenStackHeaderConfig.mm
 +++ b/node_modules/react-native-screens/ios/RNSScreenStackHeaderConfig.mm
-@@ -381,7 +381,18 @@ RNS_IGNORE_SUPER_CALL_END
+@@ -381,7 +381,18 @@ + (UINavigationBarAppearance *)buildAppearance:(UIViewController *)vc withConfig
        appearance.shadowImage = shadowImage;
      }
    } else {
@@ -800,7 +929,7 @@ index 1c84484..976b44f 100644
    }
  
    // set background color if specified
-@@ -391,7 +402,16 @@ RNS_IGNORE_SUPER_CALL_END
+@@ -391,7 +402,16 @@ + (UINavigationBarAppearance *)buildAppearance:(UIViewController *)vc withConfig
  
    switch (config.blurEffect) {
      case RNSBlurEffectStyleNone:
@@ -818,7 +947,7 @@ index 1c84484..976b44f 100644
        break;
  
      case RNSBlurEffectStyleSystemDefault:
-@@ -513,6 +533,14 @@ RNS_IGNORE_SUPER_CALL_END
+@@ -513,6 +533,14 @@ + (void)updateViewController:(UIViewController *)vc
      return;
    }
  
@@ -847,7 +976,7 @@ diff --git a/node_modules/react-native-screens/ios/helpers/scroll-view/RNSScroll
 index c0fb133..90d75f8 100644
 --- a/node_modules/react-native-screens/ios/helpers/scroll-view/RNSScrollEdgeEffectApplicator.mm
 +++ b/node_modules/react-native-screens/ios/helpers/scroll-view/RNSScrollEdgeEffectApplicator.mm
-@@ -20,6 +20,22 @@
+@@ -20,6 +20,22 @@ + (void)applyToScrollView:(nonnull UIScrollView *)scrollView
  #endif
  }
  
@@ -870,7 +999,7 @@ index c0fb133..90d75f8 100644
  #if RNS_IPHONE_OS_VERSION_AVAILABLE(26_0)
  + (void)configureEffect:(UIScrollEdgeEffect *)edgeEffect
                 withEnum:(RNSScrollEdgeEffect)effectEnum API_AVAILABLE(ios(26.0))
-@@ -27,20 +43,36 @@
+@@ -27,20 +43,36 @@ + (void)configureEffect:(UIScrollEdgeEffect *)edgeEffect
    if (@available(iOS 26, *)) {
      switch (effectEnum) {
        case RNSScrollEdgeEffectAutomatic:
@@ -962,7 +1091,7 @@ index 2434c61..e24018e 100644
  
  @implementation RNSScrollViewFinder
  
-@@ -41,4 +63,53 @@
+@@ -41,4 +63,53 @@ + (nullable UIScrollView *)findContentScrollViewWithDelegatingToProvider:(nullab
    return nil;
  }
  

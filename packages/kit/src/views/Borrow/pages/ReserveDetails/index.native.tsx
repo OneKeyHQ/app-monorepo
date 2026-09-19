@@ -5,10 +5,13 @@ import { useHeaderHeight } from '@react-navigation/elements';
 import {
   IconButton,
   Page,
+  ScrollView,
   SizableText,
   XStack,
   YStack,
   useIsModalPage,
+  useMedia,
+  useScrollContentTabBarOffset,
   useShare,
 } from '@onekeyhq/components';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
@@ -42,6 +45,8 @@ const ReserveDetailsPage = () => {
   const headerHeight = useHeaderHeight();
   const bodyPaddingTop =
     platformEnv.isNativeIOS26Plus && !isModalPage ? headerHeight : 0;
+  const { gtMd } = useMedia();
+  const tabBarHeight = useScrollContentTabBarOffset();
   const [devSettings] = useDevSettingsPersistAtom();
 
   const {
@@ -132,24 +137,44 @@ const ReserveDetailsPage = () => {
     [handleShare, isShareMetadataReady, shareUrl],
   );
 
+  const detailsPart = (
+    <DetailsPart
+      details={details}
+      isLoading={isLoading ?? false}
+      onRefresh={refreshData}
+      networkId={networkId}
+      provider={provider}
+      marketAddress={marketAddress}
+      reserveAddress={reserveAddress}
+      symbol={symbol}
+      logoURI={logoURI}
+    />
+  );
+
   return (
     <Page>
       <Page.Header headerTitle={headerTitle} headerRight={headerRight} />
-      <Page.Body pt={bodyPaddingTop}>
-        <YStack flex={1}>
-          <DetailsPart
-            details={details}
-            isLoading={isLoading ?? false}
-            onRefresh={refreshData}
-            networkId={networkId}
-            provider={provider}
-            marketAddress={marketAddress}
-            reserveAddress={reserveAddress}
-            symbol={symbol}
-            logoURI={logoURI}
-          />
-        </YStack>
-      </Page.Body>
+      {gtMd ? (
+        // The wide layout stacks every section without a scroller of its own,
+        // so the page scrolls here. It fills the page under the iOS 26
+        // translucent header and insets its content instead, letting the
+        // sections scroll beneath the bar's glass.
+        <Page.Body>
+          <ScrollView
+            flex={1}
+            contentContainerStyle={{
+              paddingTop: bodyPaddingTop,
+              paddingBottom: tabBarHeight,
+            }}
+          >
+            {detailsPart}
+          </ScrollView>
+        </Page.Body>
+      ) : (
+        <Page.Body pt={bodyPaddingTop}>
+          <YStack flex={1}>{detailsPart}</YStack>
+        </Page.Body>
+      )}
     </Page>
   );
 };

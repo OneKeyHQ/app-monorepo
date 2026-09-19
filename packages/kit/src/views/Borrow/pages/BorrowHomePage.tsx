@@ -100,9 +100,10 @@ function BorrowHomePageContent() {
         title={intl.formatMessage({ id: ETranslations.global_borrow })}
         headerRight={showBorrowHistoryAction ? renderHeaderRight : undefined}
       />
-      <Page.Body pt={bodyPaddingTop}>
+      <Page.Body>
         <BorrowHome
           isActive
+          contentTopInset={bodyPaddingTop}
           pendingTxs={borrowPendingTxs}
           onRegisterBorrowRefresh={handleRegisterBorrowRefresh}
           onBorrowNetworksChange={handleBorrowNetworksChange}
