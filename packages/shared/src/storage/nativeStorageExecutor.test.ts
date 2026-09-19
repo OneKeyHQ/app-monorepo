@@ -1,5 +1,7 @@
 /* eslint-disable @typescript-eslint/no-unsafe-call, onekey/no-raw-error */
 
+import type { INativeAsyncStorageRequest } from './nativeStorageTypes';
+
 type IScalar = string | number | boolean;
 
 class FakeMMKV {
@@ -217,10 +219,16 @@ describe('nativeStorageExecutor', () => {
       availableBytes: 1024 * 1024 * 1024,
       legacyBytes: mockLegacyData.size === 0 ? 0 : 6 * 1024 * 1024,
     }));
+    mockSyncNativeStorageMMKV.mockReset();
+    mockSyncNativeStorageMMKV.mockResolvedValue(undefined);
     nativeStorageGlobal.__onekeyNativeSyncStorageBroadcast = jest.fn(
       () => true,
     );
     jest.clearAllMocks();
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
   });
 
   it('holds business reads behind one migration promise', async () => {
@@ -922,6 +930,230 @@ describe('nativeStorageExecutor', () => {
     expect(mockAppMMKV.getString(BATCH_JOURNAL_KEY)).toBeUndefined();
   });
 
+  it('persists successful batches without leaving recovery metadata', async () => {
+    markAppStorageMigrated();
+    const { executeNativeStorageRequest } = loadExecutor();
+    const batches: INativeAsyncStorageRequest[] = [
+      {
+        scope: 'asyncStorage',
+        operation: 'multiSet',
+        entries: [
+          ['a', '{"old":true}'],
+          ['b', 'remove-me'],
+        ],
+      },
+      {
+        scope: 'asyncStorage',
+        operation: 'multiMerge',
+        entries: [['a', '{"new":true}']],
+      },
+      { scope: 'asyncStorage', operation: 'multiRemove', keys: ['b'] },
+    ];
+    for (const request of batches) {
+      await executeNativeStorageRequest(request);
+      expect(mockAppMMKV.getString(BATCH_JOURNAL_KEY)).toBeUndefined();
+    }
+    jest.resetModules();
+    await expect(
+      loadExecutor().executeNativeStorageRequest({
+        scope: 'asyncStorage',
+        operation: 'multiGet',
+        keys: ['a', 'b'],
+      }),
+    ).resolves.toEqual([
+      ['a', '{"old":true,"new":true}'],
+      ['b', null],
+    ]);
+  });
+
+  it.each(['write', 'sync'])(
+    'rolls back an initial journal %s failure immediately',
+    async (failure) => {
+      markAppStorageMigrated();
+      mockAppMMKV.set('app:a', 'old-a');
+      const { ensureNativeAppStorageMigrated, executeNativeStorageRequest } =
+        loadExecutor();
+      await ensureNativeAppStorageMigrated();
+      if (failure === 'write') {
+        mockAppMMKV.failOnSetKey = BATCH_JOURNAL_KEY;
+      } else {
+        mockSyncNativeStorageMMKV.mockRejectedValueOnce(
+          new Error('journal sync failed'),
+        );
+      }
+
+      await expect(
+        executeNativeStorageRequest({
+          scope: 'asyncStorage',
+          operation: 'multiSet',
+          entries: [['a', 'new-a']],
+        }),
+      ).rejects.toThrow('failed');
+      expect(mockAppMMKV.getString('app:a')).toBe('old-a');
+      expect(mockAppMMKV.getString(BATCH_JOURNAL_KEY)).toBeUndefined();
+    },
+  );
+
+  describe.each(['multiSet', 'multiRemove', 'multiMerge'] as const)(
+    '%s pending recovery',
+    (batchOperation) => {
+      it.each(
+        ['journal sync', 'rollback', 'journal deletion sync'].flatMap(
+          (failure) =>
+            (['clear', 'setItem'] as const).map((operation) => ({
+              failure,
+              operation,
+            })),
+        ),
+      )(
+        'blocks business access after $failure and preserves $operation across restart',
+        async ({ failure, operation }) => {
+          markAppStorageMigrated();
+          const oldValue = '{"old":true}';
+          mockAppMMKV.set('app:a', oldValue);
+          mockAppMMKV.set('app:untouched', 'keep');
+          mockLegacyData.set('a', oldValue);
+          const {
+            ensureNativeAppStorageMigrated,
+            executeNativeStorageRequest,
+          } = loadExecutor();
+          await ensureNativeAppStorageMigrated();
+
+          // Keep the live MMKV view separate from the last successful flush.
+          let durableValues = new Map(mockAppMMKV.values);
+          let unavailable = true;
+          let syncCount = 0;
+          const set = mockAppMMKV.set.bind(mockAppMMKV);
+          jest.spyOn(mockAppMMKV, 'set').mockImplementation((key, value) => {
+            if (
+              unavailable &&
+              failure === 'rollback' &&
+              key === 'app:a' &&
+              value === oldValue
+            ) {
+              throw new Error('rollback failed');
+            }
+            set(key, value);
+          });
+          mockSyncNativeStorageMMKV.mockImplementation(async () => {
+            syncCount += 1;
+            if (unavailable) {
+              if (failure === 'journal sync') {
+                // A rejected flush may still have persisted the journal.
+                durableValues = new Map(mockAppMMKV.values);
+                throw new Error('journal sync failed');
+              }
+              if (failure === 'rollback' && syncCount === 2) {
+                throw new Error('batch sync failed');
+              }
+              if (
+                failure === 'journal deletion sync' &&
+                mockAppMMKV.getString(BATCH_JOURNAL_KEY) === undefined
+              ) {
+                throw new Error('journal deletion sync failed');
+              }
+            }
+            durableValues = new Map(mockAppMMKV.values);
+          });
+          const batch: INativeAsyncStorageRequest =
+            batchOperation === 'multiRemove'
+              ? {
+                  scope: 'asyncStorage',
+                  operation: batchOperation,
+                  keys: ['a'],
+                }
+              : {
+                  scope: 'asyncStorage',
+                  operation: batchOperation,
+                  entries: [['a', '{"batch":true}']],
+                };
+          await expect(executeNativeStorageRequest(batch)).rejects.toThrow(
+            'failed',
+          );
+          expect(durableValues.has(BATCH_JOURNAL_KEY)).toBe(true);
+          expect(mockAppMMKV.getString(BATCH_JOURNAL_KEY) === undefined).toBe(
+            failure === 'journal deletion sync',
+          );
+
+          const blockedRequests: INativeAsyncStorageRequest[] = [
+            { scope: 'asyncStorage', operation: 'getItem', key: 'untouched' },
+            { scope: 'asyncStorage', operation: 'getAllKeys' },
+            {
+              scope: 'asyncStorage',
+              operation: 'multiGet',
+              keys: ['untouched'],
+            },
+            {
+              scope: 'asyncStorage',
+              operation: 'setItem',
+              key: 'untouched',
+              value: '{}',
+            },
+            {
+              scope: 'asyncStorage',
+              operation: 'removeItem',
+              key: 'untouched',
+            },
+            {
+              scope: 'asyncStorage',
+              operation: 'mergeItem',
+              key: 'new',
+              value: '{}',
+            },
+            {
+              scope: 'asyncStorage',
+              operation: 'multiSet',
+              entries: [['untouched', '{}']],
+            },
+            {
+              scope: 'asyncStorage',
+              operation: 'multiRemove',
+              keys: ['untouched'],
+            },
+            {
+              scope: 'asyncStorage',
+              operation: 'multiMerge',
+              entries: [['new', '{}']],
+            },
+            { scope: 'asyncStorage', operation: 'clear' },
+          ];
+          // Submit together to exercise rejection and retry inside the queue.
+          await Promise.all(
+            blockedRequests.map((request) =>
+              expect(executeNativeStorageRequest(request)).rejects.toThrow(
+                'failed',
+              ),
+            ),
+          );
+          expect(mockAppMMKV.getString('app:untouched')).toBe('keep');
+          expect(mockAppMMKV.getString('app:new')).toBeUndefined();
+          expect(mockLegacyStorage.getAllKeys).not.toHaveBeenCalled();
+          expect(mockLegacyData.get('a')).toBe(oldValue);
+
+          unavailable = false;
+          await executeNativeStorageRequest(
+            operation === 'clear'
+              ? { scope: 'asyncStorage', operation }
+              : { scope: 'asyncStorage', operation, key: 'a', value: 'latest' },
+          );
+          expect(durableValues.has(BATCH_JOURNAL_KEY)).toBe(false);
+          expect(mockAppMMKV.getString(MIGRATION_KEY)).toBe('1');
+          expect(mockLegacyData.has('a')).toBe(operation !== 'clear');
+
+          mockAppMMKV.values = new Map(durableValues);
+          jest.resetModules();
+          await expect(
+            loadExecutor().executeNativeStorageRequest({
+              scope: 'asyncStorage',
+              operation: 'getItem',
+              key: 'a',
+            }),
+          ).resolves.toBe(operation === 'clear' ? null : 'latest');
+        },
+      );
+    },
+  );
+
   it('recovers an interrupted batch before exposing MMKV business data', async () => {
     markAppStorageMigrated();
     mockAppMMKV.set('app:a', 'partially-applied');
@@ -1036,12 +1268,15 @@ describe('nativeStorageExecutor', () => {
       scope: 'bootstrap',
     })) as {
       coldStart: Array<[string, IScalar]>;
+      swrCacheEntries: Array<[string, string]>;
     };
-    const snapshotValue = new Map(snapshot.coldStart).get('onekey_swr_cache');
-    const snapshotStore = JSON.parse(snapshotValue as string) as Record<
-      string,
-      { d: unknown; t: number }
-    >;
+    expect(new Map(snapshot.coldStart).has('onekey_swr_cache')).toBe(false);
+    const snapshotStore = Object.fromEntries(
+      snapshot.swrCacheEntries.map(([key, serialized]) => [
+        key,
+        JSON.parse(serialized) as { d: unknown; t: number },
+      ]),
+    );
     const persistedStore = readPersistedSWRCache() as Record<
       string,
       { d: unknown; t: number }
@@ -1080,13 +1315,12 @@ describe('nativeStorageExecutor', () => {
     const snapshot = (await executeNativeStorageRequest({
       scope: 'bootstrap',
     })) as {
-      coldStart: Array<[string, IScalar]>;
+      swrCacheEntries: Array<[string, string]>;
     };
-    const snapshotValue = new Map(snapshot.coldStart).get('onekey_swr_cache');
-    const bootstrapStore = JSON.parse(snapshotValue as string) as Record<
-      string,
-      unknown
-    >;
+    const bootstrapStore = Object.fromEntries(snapshot.swrCacheEntries);
+    const bootstrapSerializedChars = `{${snapshot.swrCacheEntries
+      .map(([key, serialized]) => `${JSON.stringify(key)}:${serialized}`)
+      .join(',')}}`.length;
 
     expect(NATIVE_SWR_CACHE_BOOTSTRAP_MAX_SERIALIZED_CHARS).toBe(
       10 * 1024 * 1024,
@@ -1107,7 +1341,7 @@ describe('nativeStorageExecutor', () => {
         },
       ),
     );
-    expect((snapshotValue as string).length).toBeLessThanOrEqual(
+    expect(bootstrapSerializedChars).toBeLessThanOrEqual(
       NATIVE_SWR_CACHE_BOOTSTRAP_MAX_SERIALIZED_CHARS,
     );
     expect(mockSWRCacheCapacityLimit).toHaveBeenCalledWith(

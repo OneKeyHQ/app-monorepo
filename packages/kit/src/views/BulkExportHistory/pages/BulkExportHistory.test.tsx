@@ -15,6 +15,7 @@ import { EPrimeFeatures, EPrimePages } from '@onekeyhq/shared/src/routes/prime';
 import BulkExportHistory from './BulkExportHistory';
 
 const mockPush = jest.fn();
+const mockPushModal = jest.fn();
 const mockPushFullModal = jest.fn();
 const mockCreateExportTask = jest.fn(
   async (_params?: unknown): Promise<void> => undefined,
@@ -55,7 +56,7 @@ const mockIntl = {
 const mockNavigation = {
   push: mockPush,
   pushFullModal: mockPushFullModal,
-  pushModal: jest.fn(),
+  pushModal: mockPushModal,
 };
 const mockSelectedNetworkIds = ['evm--1'];
 const mockRangeNowMs = Date.now();
@@ -377,11 +378,12 @@ describe('BulkExportHistory create gating', () => {
     fireEvent.click(screen.getByTestId('bulk-export-history-create-btn'));
 
     await waitFor(() =>
-      expect(mockPushFullModal).toHaveBeenCalledWith(EModalRoutes.PrimeModal, {
+      expect(mockPushModal).toHaveBeenCalledWith(EModalRoutes.PrimeModal, {
         screen: EPrimePages.PrimeDashboard,
         params: { fromFeature: EPrimeFeatures.HistoryExport },
       }),
     );
+    expect(mockPushFullModal).not.toHaveBeenCalled();
     expectNoAccountResolutionOrCreate();
     expect(
       screen
@@ -412,6 +414,7 @@ describe('BulkExportHistory create gating', () => {
     fireEvent.click(createButton);
 
     await waitFor(() => expect(mockCreateExportTask).toHaveBeenCalledTimes(1));
+    expect(mockPushModal).not.toHaveBeenCalled();
     expect(mockPushFullModal).not.toHaveBeenCalled();
     expect(mockCreateExportTask).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -439,7 +442,8 @@ describe('BulkExportHistory create gating', () => {
     );
     fireEvent.click(screen.getByTestId('bulk-export-history-create-btn'));
 
-    await waitFor(() => expect(mockPushFullModal).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(mockPushModal).toHaveBeenCalledTimes(1));
+    expect(mockPushFullModal).not.toHaveBeenCalled();
     expectNoAccountResolutionOrCreate();
     expect(
       screen
@@ -472,7 +476,8 @@ describe('BulkExportHistory create gating', () => {
     mockAuthState.isPrimeSubscriptionActive = false;
     rerender(<BulkExportHistory {...mockExportPageProps} />);
     fireEvent.click(screen.getByTestId('bulk-export-history-create-btn'));
-    await waitFor(() => expect(mockPushFullModal).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(mockPushModal).toHaveBeenCalledTimes(2));
+    expect(mockPushFullModal).not.toHaveBeenCalled();
     expect(mockCreateExportTask).toHaveBeenCalledTimes(1);
     expect(
       screen
@@ -519,6 +524,7 @@ describe('BulkExportHistory create gating', () => {
       expect(createButton.disabled).toBe(true);
       fireEvent.click(createButton);
 
+      expect(mockPushModal).not.toHaveBeenCalled();
       expect(mockPushFullModal).not.toHaveBeenCalled();
       expectNoAccountResolutionOrCreate();
     },

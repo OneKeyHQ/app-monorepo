@@ -1,6 +1,9 @@
-import { useCallback, useContext, useMemo, useRef } from 'react';
+import { useCallback, useContext, useMemo, useRef, useState } from 'react';
 
-import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
+import {
+  KeyboardAwareScrollView,
+  useKeyboardState,
+} from 'react-native-keyboard-controller';
 
 import {
   usePropsAndStyle,
@@ -31,6 +34,14 @@ export function PageContainer({
   backgroundColor,
 }: IPageProps) {
   const { scrollEnabled, scrollProps } = useContext(PageContext);
+  const keyboardHeight = useKeyboardState((state) => state.height);
+  const [isFooterLiftedByKeyboard, setIsFooterLiftedByKeyboard] =
+    useState(false);
+  // Page.Footer lifts itself above the keyboard and shrinks the ScrollView, so
+  // the keyboard never covers it. Cancel the library's keyboard inset, or the
+  // content can scroll up into blank space.
+  const extraKeyboardSpace =
+    scrollEnabled && isFooterLiftedByKeyboard ? -keyboardHeight : 0;
 
   const rawContentContainerStyle = scrollProps?.contentContainerStyle;
   const keyboardShouldPersistTaps = scrollProps?.keyboardShouldPersistTaps;
@@ -94,6 +105,7 @@ export function PageContainer({
             contentContainerStyle={contentContainerStyle}
             bottomOffset={KEYBOARD_AWARE_SCROLL_BOTTOM_OFFSET}
             keyboardShouldPersistTaps={keyboardShouldPersistTaps}
+            extraKeyboardSpace={extraKeyboardSpace}
           >
             <ScrollViewRefProvider value={contextValue}>
               {children}
@@ -102,7 +114,7 @@ export function PageContainer({
         ) : (
           children
         )}
-        <BasicPageFooter />
+        <BasicPageFooter onKeyboardLiftChange={setIsFooterLiftedByKeyboard} />
       </BasicPage>
     ),
     [
@@ -116,6 +128,7 @@ export function PageContainer({
       scrollViewStyle,
       contentContainerStyle,
       keyboardShouldPersistTaps,
+      extraKeyboardSpace,
       contextValue,
       children,
     ],

@@ -104,33 +104,18 @@ const ACTION_LIST_MD_HEADING = {
   paddingVertical: '$2.5',
 } as const;
 
+// Mirrors ActionListItem's box: same padding, an icon-sized block, and a label
+// bar whose line height matches the label text, so loading causes no shift.
+// Both blocks are fixed-size, so content-sized sheets (which grow to the
+// placeholder's intrinsic width) are not stretched to their max width.
 export function ActionListSkeletonItem() {
-  const { gtMd } = useMedia();
+  const { md } = useMedia();
+  const iconSize = md ? ACTION_LIST_ICON_MD.size : '$5';
+  const LabelSkeleton = md ? Skeleton.BodyLg : Skeleton.BodyMd;
   return (
-    <XStack
-      flex={1}
-      mx="$2"
-      height="$11"
-      position="relative"
-      borderRadius="$2"
-      overflow="hidden"
-    >
-      {/* Content-sized sheets — the same condition the Popover sheet frame uses
-          — grow to the placeholder's intrinsic width, so an in-flow 100%-wide
-          skeleton expanded them to the max width until the real item replaced
-          it. The absolute fill keeps it out of that measurement. Full-width
-          sheets keep the in-flow placeholder. */}
-      {gtMd || platformEnv.isNativeIOSPad ? (
-        <Skeleton
-          position="absolute"
-          top={0}
-          left={0}
-          height="100%"
-          width="100%"
-        />
-      ) : (
-        <Skeleton height="100%" width="100%" />
-      )}
+    <XStack alignItems="center" px="$2" py="$1.5" $md={ACTION_LIST_ITEM_MD}>
+      <Skeleton w={iconSize} h={iconSize} mr="$3" />
+      <LabelSkeleton />
     </XStack>
   );
 }
