@@ -19,7 +19,6 @@ export * from './v4migration';
 export * from './gallery';
 export * from './activeAccountValue';
 export * from './prime';
-export * from './oneKeyIdLastLoginMethod';
 export * from './keyless';
 export * from './bannerClose';
 export * from './allNetworks';

@@ -1,7 +1,6 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 import { cloneDeep } from 'lodash';
 
-import type { IOneKeyIdLastLoginMethod } from '@onekeyhq/shared/src/consts/oneKeyIdLastLoginMethod';
 import type { IPrimeGiftEligibility } from '@onekeyhq/shared/types/prime/primeGiftTypes';
 import type {
   IPrimeServerUserInfo,
@@ -153,18 +152,6 @@ export const { target: primeLoginDialogAtom, use: usePrimeLoginDialogAtom } =
       promptForgetMasterPasswordDialog: undefined,
     },
   });
-
-export type IOneKeyIdLastLoginMethodPersistAtom = {
-  method?: IOneKeyIdLastLoginMethod;
-};
-export const {
-  target: oneKeyIdLastLoginMethodPersistAtom,
-  use: useOneKeyIdLastLoginMethodPersistAtom,
-} = globalAtom<IOneKeyIdLastLoginMethodPersistAtom>({
-  name: EAtomNames.oneKeyIdLastLoginMethodPersistAtom,
-  persist: true,
-  initialValue: {},
-});
 
 export enum EPrimeTransferStatus {
   init = 'init',

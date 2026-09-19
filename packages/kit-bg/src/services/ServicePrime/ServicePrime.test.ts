@@ -39,7 +39,6 @@ const mockPrimeLoginDialogAtom = {
   get: jest.fn(async () => ({})),
   set: jest.fn(async () => undefined),
 };
-const mockPersistOneKeyIdLastLoginMethod = jest.fn(async () => true);
 const mockOneKeyIdRemoteLogoutFlowLog = jest.fn();
 const mockOneKeyIdAuthStateMigrationLog = jest.fn();
 const mockOneKeyIdAuthStateRepairLog = jest.fn();
@@ -148,10 +147,6 @@ jest.mock('../../states/jotai/atoms/prime', () => ({
   primePersistAtomInitialValue: { isLoggedIn: false },
   primeServerMasterPasswordStatusAtom: mockPrimeServerMasterPasswordStatusAtom,
   primeLoginDialogAtom: mockPrimeLoginDialogAtom,
-}));
-
-jest.mock('../../states/jotai/atoms/oneKeyIdLastLoginMethod', () => ({
-  persistOneKeyIdLastLoginMethod: mockPersistOneKeyIdLastLoginMethod,
 }));
 
 jest.mock('../../states/jotai/atoms/devSettings', () => ({
@@ -4123,7 +4118,6 @@ describe('ServicePrime.apiEmailOtpLogin serialization', () => {
         'ServicePrime.apiEmailOtpLogin email OTP verification failed',
       ),
     });
-    expect(mockPersistOneKeyIdLastLoginMethod).not.toHaveBeenCalled();
   });
 
   it('records a post-verification login failure once and marks it for the UI runtime', async () => {
@@ -4157,7 +4151,6 @@ describe('ServicePrime.apiEmailOtpLogin serialization', () => {
     expect(mockOneKeyIdLoginFailedReasonLog).toHaveBeenCalledWith({
       reason: expect.stringContaining('ServicePrime.apiEmailOtpLogin failed'),
     });
-    expect(mockPersistOneKeyIdLastLoginMethod).not.toHaveBeenCalled();
   });
 
   it('repairs a v6.5.0 logged-out projection before the Email login guard', async () => {
@@ -4182,8 +4175,6 @@ describe('ServicePrime.apiEmailOtpLogin serialization', () => {
     expect(service.apiLoginWithPersistedLegacySession).toHaveBeenCalledWith({
       accessToken: 'next-email-token',
     });
-    expect(mockPersistOneKeyIdLastLoginMethod).toHaveBeenCalledTimes(1);
-    expect(mockPersistOneKeyIdLastLoginMethod).toHaveBeenCalledWith('email');
   });
 
   it('stops Email login when the auth state changes during repair', async () => {
@@ -4216,7 +4207,6 @@ describe('ServicePrime.apiEmailOtpLogin serialization', () => {
     expect(
       simpleDbPrime.markOneKeyIdLoggedOutPreservingSessions,
     ).not.toHaveBeenCalled();
-    expect(mockPersistOneKeyIdLastLoginMethod).not.toHaveBeenCalled();
   });
 
   it('rejects a queued stale Email login after another surface commits first', async () => {
@@ -4258,8 +4248,6 @@ describe('ServicePrime.apiEmailOtpLogin serialization', () => {
     await expect(queuedLogin).rejects.toThrow('already logged in');
     expect(mockVerifyEmailOtp).toHaveBeenCalledTimes(1);
     expect(service.apiLoginWithPersistedLegacySession).toHaveBeenCalledTimes(1);
-    expect(mockPersistOneKeyIdLastLoginMethod).toHaveBeenCalledTimes(1);
-    expect(mockPersistOneKeyIdLastLoginMethod).toHaveBeenCalledWith('email');
   });
 });
 
