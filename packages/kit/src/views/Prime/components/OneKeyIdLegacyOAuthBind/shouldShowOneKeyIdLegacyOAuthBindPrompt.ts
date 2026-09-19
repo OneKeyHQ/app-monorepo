@@ -1,12 +1,6 @@
 import { isLegacyOneKeyIdAccountMissingOAuthIdentity } from '@onekeyhq/shared/src/utils/oneKeyIdAccountUtils';
 import type { IOneKeyIdAccount } from '@onekeyhq/shared/types/prime/primeTypes';
 
-function hasClassifiableOneKeyIdIdentities(
-  onekeyAccount: IOneKeyIdAccount | undefined,
-): boolean {
-  return (onekeyAccount?.identities?.length ?? 0) > 0;
-}
-
 /**
  * Whether the inline legacy OAuth bind card should stay visible.
  *
@@ -23,7 +17,7 @@ export function shouldShowOneKeyIdLegacyOAuthBindPrompt({
   onekeyAccount: IOneKeyIdAccount | undefined;
   lastKnownShouldShow?: boolean;
 }): boolean {
-  if (!hasClassifiableOneKeyIdIdentities(onekeyAccount)) {
+  if ((onekeyAccount?.identities?.length ?? 0) === 0) {
     return lastKnownShouldShow;
   }
   return isLegacyOneKeyIdAccountMissingOAuthIdentity(onekeyAccount);

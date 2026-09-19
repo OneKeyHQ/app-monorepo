@@ -403,6 +403,10 @@ describe('OneKeyIdLegacyOAuthBindPrompt readiness', () => {
     );
 
     await waitForInlineBindCardReady();
+    mockEnsureKeylessCredentialReady.mockClear();
+    mockApiFetchPrimeUserInfo.mockClear();
+    mockPrepareOneKeyIdLoginWithLocalKeyless.mockClear();
+    mockButton.mockClear();
     mockOneKeyAuthUser = {
       onekeyAccount: undefined,
     };
@@ -410,6 +414,12 @@ describe('OneKeyIdLegacyOAuthBindPrompt readiness', () => {
     rerender(<OneKeyIdLegacyOAuthBindPrompt isLoggedIn isFocused />);
 
     expect(wasInlineBindCardRendered()).toBe(true);
+    expect(isBindProviderButtonEnabled(EOAuthSocialLoginProvider.Google)).toBe(
+      true,
+    );
+    expect(mockEnsureKeylessCredentialReady).not.toHaveBeenCalled();
+    expect(mockApiFetchPrimeUserInfo).not.toHaveBeenCalled();
+    expect(mockPrepareOneKeyIdLoginWithLocalKeyless).not.toHaveBeenCalled();
   });
 
   it('keeps the inline bind card after remount when identities are unknown', async () => {

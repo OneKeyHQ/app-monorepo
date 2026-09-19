@@ -68,6 +68,20 @@ describe('oneKeyIdLocalKeylessPrepareCache', () => {
     expect(getCachedShouldShowBindPrompt('user-b')).toBeUndefined();
   });
 
+  test('replacing the cache user drops the previous users slots', () => {
+    rememberLocalKeylessPrepareResult({
+      onekeyUserId: 'user-a',
+      result: noLocalKeylessResult,
+    });
+    rememberShouldShowBindPrompt({
+      onekeyUserId: 'user-b',
+      shouldShow: true,
+    });
+
+    expect(getCachedLocalKeylessPrepareResult('user-a')).toBeNull();
+    expect(getCachedShouldShowBindPrompt('user-b')).toBe(true);
+  });
+
   test('clears prepare, readiness, and visibility caches together', () => {
     rememberLocalKeylessPrepareResult({
       onekeyUserId: 'user-a',

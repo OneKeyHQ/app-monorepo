@@ -311,6 +311,11 @@ function OneKeyIdLegacyOAuthBindActions({
     } else if (onekeyUserId) {
       setLocalKeylessLoginPrepareResult(null);
     }
+    if (!onekeyUserId) {
+      return () => {
+        isMounted = false;
+      };
+    }
     // Never fake a NoLocalKeyless result when prepare rejects: the bg method
     // already degrades transient Supabase failures to NeedOAuthLogin, so a
     // rejection here means the bg bridge call itself failed and nothing is
@@ -330,9 +335,7 @@ function OneKeyIdLegacyOAuthBindActions({
             await backgroundApiProxy.serviceKeylessWallet.prepareOneKeyIdLoginWithLocalKeyless();
           if (isMounted) {
             setLocalKeylessLoginPrepareResult(result);
-            if (onekeyUserId) {
-              rememberLocalKeylessPrepareResult({ onekeyUserId, result });
-            }
+            rememberLocalKeylessPrepareResult({ onekeyUserId, result });
           }
           return;
         } catch (error) {
@@ -872,7 +875,7 @@ export function OneKeyIdLegacyOAuthBindPrompt({
     if (getCachedKeylessCredentialReadyForBind(onekeyUserId)) {
       setIsKeylessCredentialReady(true);
     }
-    if (!isFocused) {
+    if (!isFocused || !onekeyUserId) {
       return undefined;
     }
 
@@ -884,19 +887,13 @@ export function OneKeyIdLegacyOAuthBindPrompt({
         if (isCancelled) {
           return;
         }
-        const isReady =
-          keylessCredentialReadiness.status !== 'retryableIndeterminate';
         // Keep an already-shown card mounted across retryable/in-flight
         // refreshes. Only a confirmed non-retryable result can reveal it.
-        if (isReady) {
-          setIsKeylessCredentialReady(true);
-          if (onekeyUserId) {
-            rememberKeylessCredentialReadyForBind(onekeyUserId);
-          }
-        }
-        if (!isReady) {
+        if (keylessCredentialReadiness.status === 'retryableIndeterminate') {
           return;
         }
+        setIsKeylessCredentialReady(true);
+        rememberKeylessCredentialReadyForBind(onekeyUserId);
       } catch (error) {
         logOneKeyIdLoginFailureReason(
           `OneKeyIdLegacyOAuthBindPrompt credential readiness refresh failed: ${getSanitizedAuthErrorText(
