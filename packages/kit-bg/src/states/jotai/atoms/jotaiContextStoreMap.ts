@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 import { useCallback } from 'react';
 
-import { isEqual } from 'lodash';
+import { cloneDeep, isEqual } from 'lodash';
 
 import type { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
@@ -61,7 +61,12 @@ let memoMap: IJotaiContextStoreMap = {};
 // map. Send the final map of each batch instead, and nothing at all when a
 // Provider mounts and unmounts within the same batch.
 let pendingWrite: ((map: IJotaiContextStoreMap) => void) | undefined;
-let lastWrittenMap: IJotaiContextStoreMap = memoMap;
+// A snapshot, never `memoMap` itself: the tracker edits the live map in place
+// (`count -= 1`, `delete map[key]`) before handing over a shallow copy, so a
+// comparison against the live object would find the removal already applied on
+// both sides and drop the write, leaving the store listed in the atom and its
+// root Provider mounted after the last mirror is gone.
+let lastWrittenMap: IJotaiContextStoreMap = {};
 
 function flushContextTrackerMapWrite() {
   const write = pendingWrite;
@@ -69,8 +74,11 @@ function flushContextTrackerMapWrite() {
   if (!write || isEqual(memoMap, lastWrittenMap)) {
     return;
   }
-  lastWrittenMap = memoMap;
-  write(memoMap);
+  // The atom gets the snapshot too, so it never holds an object that is later
+  // edited under it without a write.
+  const snapshot = cloneDeep(memoMap);
+  lastWrittenMap = snapshot;
+  write(snapshot);
 }
 
 export function useJotaiContextTrackerMap() {

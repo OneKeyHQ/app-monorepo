@@ -30,6 +30,36 @@ function buildMap(...storeIds: string[]): IJotaiContextStoreMap {
 
 const flushMicrotasks = () => Promise.resolve().then(() => undefined);
 
+// What JotaiContextStoreMirrorTracker does on mount and unmount: it edits the
+// live map in place, then hands the hook a shallow copy of it.
+function trackerAdd(
+  setMap: (map: IJotaiContextStoreMap) => void,
+  storeId: string,
+) {
+  const live = getJotaiContextTrackerMap();
+  const value = live[storeId] ?? {
+    storeName: EJotaiContextStoreNames.swap,
+    count: 0,
+  };
+  value.count += 1;
+  setMap({ ...live, [storeId]: value });
+}
+
+function trackerRemove(
+  setMap: (map: IJotaiContextStoreMap) => void,
+  storeId: string,
+) {
+  const live = getJotaiContextTrackerMap();
+  const value = live[storeId];
+  value.count -= 1;
+  if (value.count <= 0) {
+    delete live[storeId];
+    setMap({ ...live });
+    return;
+  }
+  setMap({ ...live, [storeId]: value });
+}
+
 describe('jotaiContextStoreMap', () => {
   it('includes the market swap review store name', () => {
     expect(EJotaiContextStoreNames.marketSwapReview).toBe('marketSwapReview');
@@ -110,5 +140,82 @@ describe('useJotaiContextTrackerMap', () => {
     expect(mockSetMap).toHaveBeenCalledWith(buildMap('owner-1', 'owner-2'));
 
     second.unmount();
+  });
+
+  it('writes the removal when the last mirror of a store unmounts', async () => {
+    const { result } = renderHook(() => useJotaiContextTrackerMap());
+
+    trackerAdd(result.current.setMap, 'last-mirror');
+    await flushMicrotasks();
+    expect(mockSetMap).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        'last-mirror': expect.objectContaining({ count: 1 }),
+      }),
+    );
+    mockSetMap.mockClear();
+
+    trackerRemove(result.current.setMap, 'last-mirror');
+    await flushMicrotasks();
+
+    expect(mockSetMap).toHaveBeenCalledTimes(1);
+    expect(mockSetMap.mock.calls[0][0]).not.toHaveProperty('last-mirror');
+  });
+
+  it('writes a changed mirror count for a store that stays mounted', async () => {
+    const { result } = renderHook(() => useJotaiContextTrackerMap());
+
+    trackerAdd(result.current.setMap, 'two-mirrors');
+    await flushMicrotasks();
+    mockSetMap.mockClear();
+
+    trackerAdd(result.current.setMap, 'two-mirrors');
+    await flushMicrotasks();
+    expect(mockSetMap).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        'two-mirrors': expect.objectContaining({ count: 2 }),
+      }),
+    );
+    mockSetMap.mockClear();
+
+    trackerRemove(result.current.setMap, 'two-mirrors');
+    await flushMicrotasks();
+    expect(mockSetMap).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        'two-mirrors': expect.objectContaining({ count: 1 }),
+      }),
+    );
+
+    trackerRemove(result.current.setMap, 'two-mirrors');
+    await flushMicrotasks();
+  });
+
+  it('never hands the atom an object the tracker edits afterwards', async () => {
+    const { result } = renderHook(() => useJotaiContextTrackerMap());
+
+    trackerAdd(result.current.setMap, 'isolated');
+    await flushMicrotasks();
+    const written = mockSetMap.mock.calls.at(-1)?.[0] as IJotaiContextStoreMap;
+
+    // The tracker edits the live map on the next unmount, before any write.
+    const live = getJotaiContextTrackerMap();
+    live.isolated.count = 0;
+    delete live.isolated;
+
+    expect(written.isolated).toEqual(expect.objectContaining({ count: 1 }));
+
+    result.current.setMap({ ...live });
+    await flushMicrotasks();
+  });
+
+  it('still writes nothing for a mount and unmount inside one batch', async () => {
+    const { result } = renderHook(() => useJotaiContextTrackerMap());
+    await flushMicrotasks();
+    mockSetMap.mockClear();
+
+    trackerAdd(result.current.setMap, 'same-batch');
+    trackerRemove(result.current.setMap, 'same-batch');
+    await flushMicrotasks();
+
+    expect(mockSetMap).not.toHaveBeenCalled();
   });
 });
