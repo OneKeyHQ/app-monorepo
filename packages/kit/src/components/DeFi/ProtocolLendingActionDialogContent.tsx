@@ -374,6 +374,7 @@ function LendingAssetSelectorRow({
     <XStack alignSelf="center">
       <Popover
         title={intl.formatMessage({ id: ETranslations.token_selector_title })}
+        mountNativePortalBeforeOpen
         renderTrigger={
           <ProtocolPositionAssetPill
             symbol={item.symbol}
