@@ -229,6 +229,17 @@ async function initializeBackgroundRuntime() {
   );
 }
 
+// ── DIAGNOSTIC BRANCH ONLY: never merge ─────────────────────────────────────
+// Controlled GC experiment. It runs here because this runtime uses the same
+// engine build as the UI runtime but is nearly idle, so the baseline is clean
+// and whatever the experiment leaves behind cannot distort the UI runtime's
+// own measurements.
+setTimeout(() => {
+  const { runDiagGcExperiment } =
+    require('@onekeyhq/shared/src/performance/collectors/jsBlockCollector') as typeof import('@onekeyhq/shared/src/performance/collectors/jsBlockCollector');
+  void runDiagGcExperiment();
+}, 30_000);
+
 void initializeBackgroundRuntime().catch((error: unknown) => {
   bgEntryLog(
     `initialization failed: ${error instanceof Error ? error.message : 'unknown error'}`,

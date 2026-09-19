@@ -39,8 +39,15 @@ type IAppModule = typeof import('./App');
     intervalsLive: new Set<any>(),
     intervalsCreated: 0,
     timeoutsScheduled: 0,
+    // Cumulative over the session, from 1 in WEAK_SAMPLE new WeakMap keys:
+    // who creates them, and how many of the sampled keys have died since.
+    weakSites: new Map<string, number>(),
+    weakSampled: 0,
+    weakSampledDead: 0,
   };
   g.__ONEKEY_DIAG_CENSUS__ = census;
+  const WEAK_SAMPLE = 256;
+  const WEAK_MAX_SITES = 300;
 
   // The production renderer reports every commit to this hook when it exists
   // at the time the renderer module is evaluated; each call is wrapped in a
@@ -71,10 +78,52 @@ type IAppModule = typeof import('./App');
 
   const weakMapSet = WeakMap.prototype.set;
   const weakMapHas = WeakMap.prototype.has;
+  const NativeRegistry = g.FinalizationRegistry;
+  const nativeRegister =
+    typeof NativeRegistry === 'function'
+      ? NativeRegistry.prototype.register
+      : undefined;
+  const deathWatch =
+    typeof NativeRegistry === 'function'
+      ? new NativeRegistry(() => {
+          census.weakSampledDead += 1;
+        })
+      : undefined;
+  let weakTick = 0;
+  const frameName = (line: string) => {
+    const match = /^\s*at (.+?) \((?:.*?):(\d+):(\d+)\)\s*$/.exec(line);
+    if (!match) return '';
+    // An anonymous function is only identifiable by where it lives.
+    return match[1] === 'anonymous' ? `anonymous@${match[3]}` : match[1];
+  };
   WeakMap.prototype.set = function (key: object, value: unknown) {
     census.weakMapSets += 1;
     if (!weakMapHas.call(this, key)) {
       census.weakMapNewKeys += 1;
+      weakTick += 1;
+      if (weakTick % WEAK_SAMPLE === 0) {
+        census.weakSampled += 1;
+        try {
+          if (deathWatch && nativeRegister) {
+            nativeRegister.call(deathWatch, key, 0);
+          }
+        } catch {
+          // Not every key can be registered; the sample still counts.
+        }
+        const site =
+          String(new Error().stack ?? '')
+            .split('\n')
+            .slice(2, 7)
+            .map(frameName)
+            .filter(Boolean)
+            .join(' < ') || '(unknown)';
+        if (
+          census.weakSites.size < WEAK_MAX_SITES ||
+          census.weakSites.has(site)
+        ) {
+          census.weakSites.set(site, (census.weakSites.get(site) ?? 0) + 1);
+        }
+      }
     }
     return weakMapSet.call(this, key, value);
   };

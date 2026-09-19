@@ -267,6 +267,9 @@ type IDiagCensus = {
   intervalsLive: Set<unknown>;
   intervalsCreated: number;
   timeoutsScheduled: number;
+  weakSites?: Map<string, number>;
+  weakSampled?: number;
+  weakSampledDead?: number;
 };
 
 function getDiagCensus(): IDiagCensus | undefined {
@@ -309,33 +312,71 @@ let diagSampledCommits = 0;
 let diagRenderedFibers = 0;
 let diagLastSampleAt = 0;
 const diagRenderedByName = new Map<string, number>();
+// Renders charged to the component that started them: the topmost component
+// that rendered in each re-rendered subtree, labelled with its nearest named
+// ancestor when it is anonymous itself. Leaf primitives dominate the plain
+// per-name count and say nothing about who caused the work.
+const diagRenderedByRoot = new Map<string, number>();
+const DIAG_MAX_ROOT_LABELS = 400;
+
+type IDiagWalkFrame = {
+  fiber: IDiagFiber;
+  lastNamed: string;
+  rootLabel: string | undefined;
+};
 
 function sampleRenderedFibers(root: { current: IDiagFiber | null }) {
   const now = perfNow();
-  if (now - diagLastSampleAt < DIAG_SAMPLE_GAP_MS) {
+  if (now - diagLastSampleAt < DIAG_SAMPLE_GAP_MS || !root.current) {
     return;
   }
   diagLastSampleAt = now;
   diagSampledCommits += 1;
-  const stack: Array<IDiagFiber | null> = [root.current];
+  const stack: IDiagWalkFrame[] = [
+    { fiber: root.current, lastNamed: '(root)', rootLabel: undefined },
+  ];
   let visited = 0;
   while (stack.length > 0 && visited < DIAG_MAX_WALK) {
-    const fiber = stack.pop();
-    if (fiber) {
+    const frame = stack.pop();
+    if (frame) {
+      const { fiber } = frame;
       visited += 1;
-      if (
-        (fiber.flags & PERFORMED_WORK) !== 0 &&
-        COMPOSITE_TAGS.has(fiber.tag)
-      ) {
-        diagRenderedFibers += 1;
+      let { lastNamed, rootLabel } = frame;
+      if (COMPOSITE_TAGS.has(fiber.tag)) {
         const name = diagFiberName(fiber);
-        diagRenderedByName.set(name, (diagRenderedByName.get(name) ?? 0) + 1);
+        if ((fiber.flags & PERFORMED_WORK) !== 0) {
+          diagRenderedFibers += 1;
+          diagRenderedByName.set(name, (diagRenderedByName.get(name) ?? 0) + 1);
+          if (rootLabel === undefined) {
+            rootLabel =
+              name === '(anonymous)' ? `${lastNamed} > (anonymous)` : name;
+          }
+          if (
+            diagRenderedByRoot.size < DIAG_MAX_ROOT_LABELS ||
+            diagRenderedByRoot.has(rootLabel)
+          ) {
+            diagRenderedByRoot.set(
+              rootLabel,
+              (diagRenderedByRoot.get(rootLabel) ?? 0) + 1,
+            );
+          }
+        }
+        if (name !== '(anonymous)') {
+          lastNamed = name;
+        }
       }
-      if (fiber.sibling) stack.push(fiber.sibling);
+      // A sibling shares the parent's context, not this fiber's.
+      if (fiber.sibling) {
+        stack.push({
+          fiber: fiber.sibling,
+          lastNamed: frame.lastNamed,
+          rootLabel: frame.rootLabel,
+        });
+      }
       // A subtree React bailed out of keeps stale flags; its ancestor's
       // subtreeFlags says nothing below rendered, so never descend into it.
       if (fiber.child && (fiber.subtreeFlags & PERFORMED_WORK) !== 0) {
-        stack.push(fiber.child);
+        stack.push({ fiber: fiber.child, lastNamed, rootLabel });
       }
     }
   }
@@ -400,6 +441,17 @@ function flushDiagCensus(
       .toSorted((left, right) => right[1] - left[1])
       .slice(0, DIAG_TOP)
       .map(([name, count]) => ({ name, count })),
+    topRenderRoots: [...diagRenderedByRoot]
+      .toSorted((left, right) => right[1] - left[1])
+      .slice(0, DIAG_TOP)
+      .map(([name, count]) => ({ name, count })),
+    // Cumulative since launch, each sample standing for 256 new keys.
+    weakSampled: census.weakSampled,
+    weakSampledDead: census.weakSampledDead,
+    topWeakSites: [...(census.weakSites ?? [])]
+      .toSorted((left, right) => right[1] - left[1])
+      .slice(0, DIAG_TOP)
+      .map(([site, count]) => ({ site, count })),
   });
   census.commits = 0;
   census.unmounts = 0;
@@ -413,6 +465,145 @@ function flushDiagCensus(
   diagSampledCommits = 0;
   diagRenderedFibers = 0;
   diagRenderedByName.clear();
+  diagRenderedByRoot.clear();
+}
+
+// ---- DIAGNOSTIC BRANCH ONLY: controlled GC experiment -----------------------
+//
+// What makes one young-generation collection cost more? Each phase changes one
+// thing about the heap, then allocates the same amount of short-lived garbage
+// and reads what each collection cost. Garbage that dies at once leaves a
+// collection almost nothing to copy, so the figure is its fixed overhead —
+// the part that grows over a session in the UI runtime.
+
+const EXPERIMENT_CHURN_MB = 96;
+const EXPERIMENT_PAUSE_MS = 400;
+
+function churnShortLivedGarbage(megabytes: number) {
+  // ~64 bytes per iteration on Hermes: a small object and a small array.
+  const iterations = Math.round((megabytes * 1024 * 1024) / 64);
+  let sink = 0;
+  for (let i = 0; i < iterations; i += 1) {
+    const garbage = { a: i, b: [i, i + 1] };
+    sink += garbage.b.length;
+  }
+  return sink;
+}
+
+function measureCollectionCost(phase: string, buildMs: number) {
+  const before = readHermesCounters();
+  const startedAt = perfNow();
+  churnShortLivedGarbage(EXPERIMENT_CHURN_MB);
+  const churnMs = perfNow() - startedAt;
+  const after = readHermesCounters();
+  if (!before || !after) {
+    return { phase };
+  }
+  const gcs = after.gcCount - before.gcCount;
+  const gcMs = (after.gcTimeSeconds - before.gcTimeSeconds) * 1000;
+  return {
+    phase,
+    buildMs: Math.round(buildMs),
+    churnMs: Math.round(churnMs),
+    gcs,
+    gcMs: Math.round(gcMs),
+    msPerGc: gcs > 0 ? Math.round((gcMs / gcs) * 100) / 100 : 0,
+    mbPerGc:
+      gcs > 0
+        ? Math.round(
+            ((after.totalAllocatedBytes - before.totalAllocatedBytes) /
+              (1024 * 1024) /
+              gcs) *
+              100,
+          ) / 100
+        : 0,
+    heapMB: toMB(after.heapBytes),
+  };
+}
+
+const experimentPause = () =>
+  new Promise<void>((resolve) => {
+    setTimeout(resolve, EXPERIMENT_PAUSE_MS);
+  });
+
+export async function runDiagGcExperiment() {
+  if (!readHermesCounters()) {
+    return;
+  }
+  const results: Record<string, unknown>[] = [];
+  const timed = <T>(build: () => T): [T, number] => {
+    const startedAt = perfNow();
+    const value = build();
+    return [value, perfNow() - startedAt];
+  };
+
+  results.push(measureCollectionCost('baseline', 0));
+  await experimentPause();
+
+  // A large population of ordinary long-lived objects, no weak references.
+  const plainBuild = timed(() => {
+    const kept: { id: number }[] = [];
+    for (let i = 0; i < 1_000_000; i += 1) kept.push({ id: i });
+    return kept;
+  });
+  let plain = plainBuild[0];
+  results.push(measureCollectionCost('1M plain objects kept', plainBuild[1]));
+  plain = [];
+  await experimentPause();
+  results.push(measureCollectionCost('plain objects released', 0));
+  await experimentPause();
+
+  // Weak-map entries whose keys stay alive, at two sizes to see the slope.
+  for (const count of [300_000, 1_000_000]) {
+    const weakBuild = timed(() => {
+      const map = new WeakMap<object, number>();
+      const keys: object[] = [];
+      for (let i = 0; i < count; i += 1) {
+        const key = { id: i };
+        keys.push(key);
+        map.set(key, i);
+      }
+      return { map, keys };
+    });
+    let weak = weakBuild[0];
+    results.push(
+      measureCollectionCost(
+        `${count / 1000}k weak-map entries alive`,
+        weakBuild[1],
+      ),
+    );
+    weak = { map: new WeakMap(), keys: [] };
+    await experimentPause();
+    // Does the cost go away once every key is dead?
+    results.push(
+      measureCollectionCost(`${count / 1000}k weak-map entries released`, 0),
+    );
+    await experimentPause();
+    results.push(
+      measureCollectionCost(`${count / 1000}k released, second pass`, 0),
+    );
+    await experimentPause();
+    // Keep the bindings referenced so nothing is optimized away early.
+    if (weak.keys.length + plain.length < 0) return;
+  }
+
+  // Weak-map entries that die young, as render-time caches produce them.
+  const [, shortLivedMs] = timed(() => {
+    const map = new WeakMap<object, number>();
+    for (let i = 0; i < 1_000_000; i += 1) map.set({ id: i }, i);
+    return map;
+  });
+  results.push(
+    measureCollectionCost('after 1M short-lived weak-map keys', shortLivedMs),
+  );
+
+  defaultLogger.app.perf.diagGcExperiment({
+    runtime:
+      (globalThis as { __ONEKEY_RUNTIME_KIND__?: string })
+        .__ONEKEY_RUNTIME_KIND__ ?? 'unknown',
+    churnMB: EXPERIMENT_CHURN_MB,
+    results,
+  });
 }
 
 let healthTimer: ReturnType<typeof setInterval> | null = null;

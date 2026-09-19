@@ -85,6 +85,12 @@ export class AppPerfScene extends BaseScene {
     return [params];
   }
 
+  // DIAGNOSTIC BRANCH ONLY: what one collection costs under controlled heaps.
+  @LogToLocal()
+  public diagGcExperiment(params: Record<string, unknown>) {
+    return [params];
+  }
+
   @LogToLocal()
   public cpuWatchdogFired(params: {
     reason:
