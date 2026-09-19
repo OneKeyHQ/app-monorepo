@@ -21,6 +21,7 @@ import {
   useFocusedTab,
   useMedia,
   useScrollContentTabBarOffset,
+  useTheme,
 } from '@onekeyhq/components';
 import type { ITabBarItemProps } from '@onekeyhq/components/src/composite/Tabs/TabBar';
 import { TabBarItem } from '@onekeyhq/components/src/composite/Tabs/TabBar';
@@ -516,6 +517,17 @@ export function HomePageView({
     );
   }, []);
 
+  // react-native-collapsible-tab-view paints its header container white. In
+  // dark mode that white showed through wherever the header content has no
+  // opaque background: around and inside the offline banner (NetworkAlert
+  // uses margins and translucent critical colors) and at 1px layout seams
+  // above the tab bar (OK-63706). Paint the container with the page color.
+  const theme = useTheme();
+  const headerContainerStyle = useMemo(
+    () => ({ backgroundColor: theme.bgApp.val }),
+    [theme.bgApp.val],
+  );
+
   // Rendered on web only. On native the equivalent lives inside the history
   // list's ListHeaderComponent so its height stays inside the list's measurer.
   const renderSubHeader = useCallback(
@@ -925,6 +937,7 @@ export function HomePageView({
         headerHeight={platformEnv.isNative ? 292 : undefined}
         useNativeHeaderAnimation={platformEnv.isNativeAndroid}
         width={platformEnv.isNative ? (tabContainerWidth as number) : undefined}
+        headerContainerStyle={headerContainerStyle}
         renderHeader={renderHeader}
         renderTabBar={renderTabBar}
         onTabChange={handleTabChange}
@@ -956,6 +969,7 @@ export function HomePageView({
     account?.id,
     account?.indexedAccountId,
     isWalletNotBackedUp,
+    headerContainerStyle,
     renderHeader,
     renderTabBar,
     handleTabChange,
