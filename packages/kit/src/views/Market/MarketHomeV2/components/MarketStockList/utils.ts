@@ -1,7 +1,25 @@
+import {
+  DEFAULT_MARKET_STOCK_SORT_BY,
+  DEFAULT_MARKET_STOCK_SORT_TYPE,
+} from '@onekeyhq/shared/src/consts/marketConsts';
 import type {
   IMarketStockPublicItem,
   IMarketStockPublicListSortBy,
 } from '@onekeyhq/shared/types/marketV2';
+
+export function buildMarketStockListQueryKey({
+  category,
+  sortBy = DEFAULT_MARKET_STOCK_SORT_BY,
+  sortType = DEFAULT_MARKET_STOCK_SORT_TYPE,
+  locale,
+}: {
+  category?: string;
+  sortBy?: IMarketStockPublicListSortBy;
+  sortType?: 'asc' | 'desc';
+  locale: string;
+}) {
+  return JSON.stringify({ category, sortBy, sortType, locale });
+}
 
 const MARKET_STOCK_SORT_BY_COLUMN: Partial<
   Record<

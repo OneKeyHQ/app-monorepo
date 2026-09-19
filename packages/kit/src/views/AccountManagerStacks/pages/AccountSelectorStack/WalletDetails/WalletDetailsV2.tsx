@@ -19,7 +19,6 @@ import {
   Toast,
   resetAccountManagerStacksModal,
   useSafeAreaInsets,
-  useTheme,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useCreateQrWallet } from '@onekeyhq/kit/src/components/AccountSelector/hooks/useCreateQrWallet';
@@ -69,6 +68,7 @@ import {
   AccountSelectorMenuActionV2,
 } from './AccountSelectorActionV2';
 import { preloadAccountSelectorAvatarImages } from './accountSelectorAvatarPreload';
+import { DeprecatedWalletBanner } from './DeprecatedWalletBanner';
 import { EmptyNoAccountsView, EmptyView } from './EmptyView';
 import { useAddAccount } from './hooks/useAddAccount';
 import { useAccountSelectorValuesLoaderV2 } from './useAccountSelectorValuesLoaderV2';
@@ -393,7 +393,6 @@ function WalletDetailsViewV2({ num }: IWalletDetailsProps) {
 
   const { bottom, top } = useSafeAreaInsets();
   const theme = useAccountSelectorNativeListThemeV2();
-  const appTheme = useTheme();
   const editable = !!isEditableRouteParams && sectionData.length > 0;
   const isMockedStandardHwWallet = focusedWalletInfo?.wallet?.isMocked;
   const isHiddenWallet = !!focusedWalletInfo?.wallet?.passphraseState;
@@ -410,7 +409,7 @@ function WalletDetailsViewV2({ num }: IWalletDetailsProps) {
     deriveType?: IAccountDeriveTypes;
   }>();
   const creatingRef = useRef(false);
-  const { handleAddAccount } = useAddAccount({
+  const { handleAddAccount, canAddAccount } = useAddAccount({
     num,
     isOthersUniversal,
     focusedWalletInfo,
@@ -442,23 +441,6 @@ function WalletDetailsViewV2({ num }: IWalletDetailsProps) {
   const generation = generationRef.current;
   const snapshot = useMemo<NativeListSnapshot>(() => {
     const rows: RowModel[] = [];
-    // With an empty-section message, React renders the warning above it.
-    if (isDeprecatedWallet && !emptySections.length) {
-      rows.push({
-        type: 'system',
-        variant: 'warning',
-        key: 'deprecated-wallet',
-        title: intl.formatMessage({
-          id: ETranslations.wallet_wallet_device_has_been_reset_alert_title,
-        }),
-        message: intl.formatMessage({
-          id: ETranslations.wallet_wallet_device_has_been_reset_alert_desc,
-        }),
-        backgroundColor: appTheme.bgCautionSubdued.val,
-        borderColor: appTheme.borderCautionSubdued.val,
-        backgroundFullWidth: true,
-      });
-    }
     const byId = new Map(accountRows.map((row) => [row.key, row]));
     sectionData.forEach((section, sectionIndex) => {
       section.data.forEach((item) => {
@@ -469,7 +451,7 @@ function WalletDetailsViewV2({ num }: IWalletDetailsProps) {
         isEditableRouteParams &&
         !searchText &&
         focusedWalletInfo?.wallet?.id &&
-        !isMockedStandardHwWallet &&
+        canAddAccount &&
         sectionDataOriginal.length
       ) {
         rows.push({
@@ -506,15 +488,12 @@ function WalletDetailsViewV2({ num }: IWalletDetailsProps) {
       rows,
     };
   }, [
-    appTheme,
-    isDeprecatedWallet,
-    emptySections.length,
+    canAddAccount,
     accountRows,
     sectionData,
     isEditableRouteParams,
     searchText,
     focusedWalletInfo?.wallet?.id,
-    isMockedStandardHwWallet,
     sectionDataOriginal.length,
     intl,
     generation,
@@ -725,19 +704,6 @@ function WalletDetailsViewV2({ num }: IWalletDetailsProps) {
     ],
   );
 
-  const deprecatedAlert = presentedList.isDeprecatedWallet ? (
-    <Alert
-      fullBleed
-      type="warning"
-      title={intl.formatMessage({
-        id: ETranslations.wallet_wallet_device_has_been_reset_alert_title,
-      })}
-      description={intl.formatMessage({
-        id: ETranslations.wallet_wallet_device_has_been_reset_alert_desc,
-      })}
-    />
-  ) : null;
-
   const nativeListProps: Omit<
     NativeListProps,
     | 'initialScrollIndex'
@@ -877,7 +843,18 @@ function WalletDetailsViewV2({ num }: IWalletDetailsProps) {
             currentNetworkId={presentedList.linkedNetworkId}
           />
         ) : null}
-        {presentedList.isMockedStandardHwWallet ? deprecatedAlert : null}
+        {/* Kept outside the list so it stays in place while accounts scroll. */}
+        {presentedList.isDeprecatedWallet &&
+        presentedList.focusedWalletInfo?.wallet ? (
+          <DeprecatedWalletBanner
+            // Remount per wallet so a previous wallet's lookup never shows.
+            key={presentedList.focusedWalletInfo.wallet.id}
+            num={num}
+            wallet={presentedList.focusedWalletInfo.wallet}
+            device={presentedList.focusedWalletInfo.device}
+            editable={!!isEditableRouteParams}
+          />
+        ) : null}
         {presentedList.isMockedStandardHwWallet ? (
           <Stack flex={1} justifyContent="center" alignItems="center">
             <SizableText size="$bodyLg">
@@ -928,15 +905,11 @@ function WalletDetailsViewV2({ num }: IWalletDetailsProps) {
             ) : null}
           </Stack>
         ) : null}
-        {!presentedList.isMockedStandardHwWallet &&
-        presentedList.emptySections.length ? (
-          <>
-            {deprecatedAlert}
-            {presentedList.emptySections.map((section) => (
+        {!presentedList.isMockedStandardHwWallet
+          ? presentedList.emptySections.map((section) => (
               <EmptyNoAccountsView key={section.walletId} section={section} />
-            ))}
-          </>
-        ) : null}
+            ))
+          : null}
         <Stack
           display={presentedList.isMockedStandardHwWallet ? 'none' : 'flex'}
           flex={1}

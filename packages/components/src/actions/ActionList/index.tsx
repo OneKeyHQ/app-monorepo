@@ -105,17 +105,16 @@ const ACTION_LIST_MD_HEADING = {
   paddingVertical: '$2.5',
 } as const;
 
+// Mirrors ActionListItem's box: same padding, an icon-sized block, and a label
+// bar whose line height matches the label text, so loading causes no shift.
 export function ActionListSkeletonItem() {
+  const { md } = useMedia();
+  const iconSize = md ? ACTION_LIST_ICON_MD.size : '$5';
+  const LabelSkeleton = md ? Skeleton.BodyLg : Skeleton.BodyMd;
   return (
-    <XStack
-      flex={1}
-      mx="$2"
-      height="$8"
-      position="relative"
-      borderRadius="$2"
-      overflow="hidden"
-    >
-      <Skeleton height="100%" width="100%" />
+    <XStack alignItems="center" px="$2" py="$1.5" $md={ACTION_LIST_ITEM_MD}>
+      <Skeleton w={iconSize} h={iconSize} mr="$3" />
+      <LabelSkeleton />
     </XStack>
   );
 }

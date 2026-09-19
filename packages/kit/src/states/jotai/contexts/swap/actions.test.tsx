@@ -544,6 +544,7 @@ describe('useSwapActions', () => {
           protocol: ESwapTabSwitchType.SWAP,
           fromTokenAmount: '1',
           fromToken: bnbProToken,
+          source: ESwapQuoteSource.MARKET,
           toToken: usdcToken,
         }),
       );

@@ -2,6 +2,7 @@ import type { IMarketStockPublicItem } from '@onekeyhq/shared/types/marketV2';
 
 import {
   appendUniqueMarketStocks,
+  buildMarketStockListQueryKey,
   downsampleStockSparkline,
   getMarketStockSortByColumn,
   parseMarketStockNumber,
@@ -22,6 +23,35 @@ const createStock = (
 });
 
 describe('market stock list utils', () => {
+  it('builds the same query key Home stocks persist under', () => {
+    expect(
+      buildMarketStockListQueryKey({
+        locale: 'en-US',
+      }),
+    ).toBe(
+      JSON.stringify({
+        sortBy: 'marketCap',
+        sortType: 'desc',
+        locale: 'en-US',
+      }),
+    );
+    expect(
+      buildMarketStockListQueryKey({
+        category: 'tech',
+        locale: 'zh-CN',
+        sortBy: 'volume24h',
+        sortType: 'asc',
+      }),
+    ).toBe(
+      JSON.stringify({
+        category: 'tech',
+        sortBy: 'volume24h',
+        sortType: 'asc',
+        locale: 'zh-CN',
+      }),
+    );
+  });
+
   it('maps the four sortable stock columns to server fields', () => {
     expect(getMarketStockSortByColumn('price')).toBe('price');
     expect(getMarketStockSortByColumn('priceChange24hPercent')).toBe(
