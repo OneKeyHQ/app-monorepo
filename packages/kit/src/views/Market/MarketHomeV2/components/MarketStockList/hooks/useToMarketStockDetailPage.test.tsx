@@ -42,6 +42,7 @@ jest.mock('@onekeyhq/kit/src/hooks/useAppNavigation', () => ({
 const mockPrepareStockTokenDetail = jest.fn();
 const mockOpenExtensionMarketStockDetail = jest.fn(() => Promise.resolve());
 const mockPreloadMarketDetailV2Page = jest.fn(() => Promise.resolve());
+const mockGetRootState = jest.fn();
 
 jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
   __esModule: true,
@@ -54,7 +55,12 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
 
 jest.mock('@onekeyhq/components', () => ({
   ESplitViewType: { UNKNOWN: 'UNKNOWN' },
-  rootNavigationRef: { current: { navigate: jest.fn() } },
+  rootNavigationRef: {
+    current: {
+      getRootState: (): unknown => mockGetRootState() as unknown,
+      navigate: jest.fn(),
+    },
+  },
   switchTabAsync: (route: unknown) => mockSwitchTabAsync(route),
   useIsModalPage: () => mockIsModalPage,
   useMedia: () => ({ gtLg: true }),
@@ -120,6 +126,7 @@ describe('useToMarketStockDetailPage', () => {
     mockIsModalPage = false;
     mockCurrentRouteName = ETabMarketRoutes.MarketDetailV2;
     mockCurrentRouteParams = undefined;
+    mockGetRootState.mockReturnValue(undefined);
   });
 
   it('resets the tab stack before opening the selected stock', async () => {
@@ -307,6 +314,51 @@ describe('useToMarketStockDetailPage', () => {
         params: { stockId: 'AAPL' },
       },
     });
+  });
+
+  it('preserves native detail when the modal reselects its current stock', async () => {
+    mockIsModalPage = true;
+    mockedPlatformEnv.isDesktop = false;
+    mockedPlatformEnv.isNative = true;
+    mockCurrentRouteName = 'MobileTokenSelector';
+    mockGetRootState.mockReturnValue({
+      key: 'root',
+      index: 1,
+      routes: [
+        {
+          name: 'main',
+          state: {
+            key: 'discovery-stack',
+            index: 1,
+            routes: [
+              { key: 'list', name: ETabRoutes.Discovery },
+              {
+                key: 'stock-detail',
+                name: ETabMarketRoutes.MarketStockDetail,
+                params: { stockId: 'AAPL' },
+              },
+            ],
+          },
+        },
+        { key: 'selector', name: 'MobileTokenSelector' },
+      ],
+    });
+    const { result } = renderHook(() =>
+      useToMarketStockDetailPage({ replaceCurrentDetail: true }),
+    );
+
+    await act(async () => {
+      await result.current({
+        stockId: 'aapl',
+        symbol: 'AAPL',
+        name: 'Apple',
+        logoUrl: 'aapl.png',
+      });
+    });
+
+    expect(mockPrepareStockTokenDetail).not.toHaveBeenCalled();
+    expect(mockSwitchTabAsync).toHaveBeenCalledWith(ETabRoutes.Discovery);
+    expect(mockNavigate).toHaveBeenCalled();
   });
 
   it('preserves the selected stock preview in the detail route seed', async () => {

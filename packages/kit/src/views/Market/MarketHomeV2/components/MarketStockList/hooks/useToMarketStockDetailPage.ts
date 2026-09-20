@@ -1,6 +1,6 @@
 import { useCallback } from 'react';
 
-import { useRoute } from '@react-navigation/native';
+import { type RouteProp, useRoute } from '@react-navigation/native';
 
 import type { IPageNavigationProp } from '@onekeyhq/components';
 import {
@@ -14,6 +14,7 @@ import {
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useTokenDetailActions } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2';
 import { preloadMarketDetailV2Page } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/utils/marketDetailPagePreload';
+import { getCurrentMarketStockDetailId } from '@onekeyhq/kit/src/views/Market/utils/marketDetailNavigation';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -30,8 +31,6 @@ import { travelModeManager } from '@onekeyhq/shared/src/travelMode';
 import { closeExtensionPopupAfterExpandTabOpen } from '@onekeyhq/shared/src/utils/extUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import type { IMarketStockDetailPreview } from '@onekeyhq/shared/types/marketV2';
-
-import type { RouteProp } from '@react-navigation/native';
 
 interface IUseToMarketStockDetailPageOptions {
   replaceCurrentDetail?: boolean;
@@ -88,10 +87,15 @@ export function useToMarketStockDetailPage(
           : undefined;
       const shouldRetainCurrentStockTokenDetail = Boolean(
         options?.replaceCurrentDetail &&
-        (platformEnv.isDesktop || platformEnv.isWeb) &&
-        currentRouteName === ETabMarketRoutes.MarketStockDetail &&
         !stockTokenParams &&
-        currentStockId?.trim().toUpperCase() === stockId.trim().toUpperCase(),
+        (
+          getCurrentMarketStockDetailId() ??
+          (currentRouteName === ETabMarketRoutes.MarketStockDetail
+            ? currentStockId
+            : undefined)
+        )
+          ?.trim()
+          .toUpperCase() === stockId.trim().toUpperCase(),
       );
       const preloadPromise = preloadMarketDetailV2Page({
         includeBodyModules: true,

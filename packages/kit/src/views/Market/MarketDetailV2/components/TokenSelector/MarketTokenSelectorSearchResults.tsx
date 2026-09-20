@@ -87,16 +87,24 @@ function StockSearchSection({
   items,
   isLoading,
   isError,
+  isLoadingMore,
+  isLoadMoreError,
+  canLoadMore,
   showAll,
   onShowAll,
+  onLoadMore,
   onRetry,
   onPress,
 }: {
   items: IMarketStockPublicItem[];
   isLoading: boolean;
   isError: boolean;
+  isLoadingMore: boolean;
+  isLoadMoreError: boolean;
+  canLoadMore: boolean;
   showAll: boolean;
   onShowAll: () => void;
+  onLoadMore: () => void;
   onRetry: () => void;
   onPress: (item: IMarketStockPublicItem) => void;
 }) {
@@ -168,10 +176,33 @@ function StockSearchSection({
           />
         </YStack>
       ) : null}
-      {!showAll && items.length > SEARCH_SECTION_PREVIEW_LIMIT ? (
+      {!showAll &&
+      (items.length > SEARCH_SECTION_PREVIEW_LIMIT || canLoadMore) ? (
         <SearchMoreButton
           testID="market-token-selector-stock-search-show-more"
           onPress={onShowAll}
+        />
+      ) : null}
+      {showAll && isLoadingMore ? (
+        <YStack py="$4" alignItems="center">
+          <Spinner size="small" />
+        </YStack>
+      ) : null}
+      {showAll && isLoadMoreError ? (
+        <Button
+          testID="market-token-selector-stock-search-load-more-retry"
+          alignSelf="flex-start"
+          size="small"
+          variant="tertiary"
+          onPress={onLoadMore}
+        >
+          {intl.formatMessage({ id: ETranslations.global_retry })}
+        </Button>
+      ) : null}
+      {showAll && canLoadMore && !isLoadingMore && !isLoadMoreError ? (
+        <SearchMoreButton
+          testID="market-token-selector-stock-search-load-more"
+          onPress={onLoadMore}
         />
       ) : null}
     </YStack>
@@ -316,8 +347,12 @@ function MarketTokenSelectorSearchResults({
               items={stockResult.items}
               isLoading={stockResult.isLoading}
               isError={stockResult.isError}
+              isLoadingMore={stockResult.isLoadingMore}
+              isLoadMoreError={stockResult.isLoadMoreError}
+              canLoadMore={stockResult.canLoadMore}
               showAll={activeTab === 'stocks' || showAllStocks}
               onShowAll={() => setShowAllStocks(true)}
+              onLoadMore={() => void stockResult.loadMore()}
               onRetry={() => void stockResult.refresh()}
               onPress={onStockPress}
             />

@@ -11,10 +11,15 @@ import { MarketTokenSelectorSearchResults } from './MarketTokenSelectorSearchRes
 const mockStockPress = jest.fn();
 const mockMarketPress = jest.fn();
 const mockRefresh = jest.fn();
+const mockLoadMore = jest.fn(() => Promise.resolve());
 type IMockStockSelectorResult = {
   items: IMarketStockPublicItem[];
   isLoading: boolean;
   isError: boolean;
+  isLoadingMore: boolean;
+  isLoadMoreError: boolean;
+  canLoadMore: boolean;
+  loadMore: () => Promise<void>;
   refresh: () => void;
 };
 const mockUseMarketStockSelectorList = jest.fn<
@@ -35,6 +40,10 @@ const defaultStockResult = {
   items: [createStock('AAPL')],
   isLoading: false,
   isError: false,
+  isLoadingMore: false,
+  isLoadMoreError: false,
+  canLoadMore: false,
+  loadMore: mockLoadMore,
   refresh: mockRefresh,
 };
 
@@ -139,6 +148,7 @@ describe('MarketTokenSelectorSearchResults', () => {
     mockStockPress.mockReset();
     mockMarketPress.mockReset();
     mockRefresh.mockReset();
+    mockLoadMore.mockClear();
     mockUseMarketStockSelectorList.mockReset();
     mockUseMarketStockSelectorList.mockReturnValue(defaultStockResult);
   });
@@ -247,5 +257,45 @@ describe('MarketTokenSelectorSearchResults', () => {
     expect(screen.queryByTestId('search-row-TSLA')).toBeNull();
     fireEvent.click(screen.getByText('global.show_more'));
     expect(screen.getByTestId('search-row-TSLA')).toBeTruthy();
+  });
+
+  it('loads and retries additional stock search pages', () => {
+    mockUseMarketStockSelectorList.mockReturnValue({
+      ...defaultStockResult,
+      canLoadMore: true,
+    });
+    const { rerender } = render(
+      <MarketTokenSelectorSearchResults
+        query="stock"
+        marketItems={[]}
+        onStockPress={mockStockPress}
+        onMarketPress={mockMarketPress}
+      />,
+    );
+    fireEvent.click(
+      screen.getByTestId('market-token-selector-search-tab-stocks'),
+    );
+    fireEvent.click(
+      screen.getByTestId('market-token-selector-stock-search-load-more'),
+    );
+    expect(mockLoadMore).toHaveBeenCalledTimes(1);
+
+    mockUseMarketStockSelectorList.mockReturnValue({
+      ...defaultStockResult,
+      canLoadMore: true,
+      isLoadMoreError: true,
+    });
+    rerender(
+      <MarketTokenSelectorSearchResults
+        query="stock"
+        marketItems={[]}
+        onStockPress={mockStockPress}
+        onMarketPress={mockMarketPress}
+      />,
+    );
+    fireEvent.click(
+      screen.getByTestId('market-token-selector-stock-search-load-more-retry'),
+    );
+    expect(mockLoadMore).toHaveBeenCalledTimes(2);
   });
 });

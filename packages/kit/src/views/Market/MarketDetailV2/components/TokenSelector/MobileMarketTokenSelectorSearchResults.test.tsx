@@ -10,10 +10,15 @@ import { MobileMarketTokenSelectorSearchResults } from './MobileMarketTokenSelec
 
 const mockStockPress = jest.fn();
 const mockMarketPress = jest.fn();
+const mockLoadMore = jest.fn(() => Promise.resolve());
 type IMockStockSelectorResult = {
   items: IMarketStockPublicItem[];
   isLoading: boolean;
   isError: boolean;
+  isLoadingMore: boolean;
+  isLoadMoreError: boolean;
+  canLoadMore: boolean;
+  loadMore: () => Promise<void>;
   refresh: () => void;
 };
 const mockUseMarketStockSelectorList = jest.fn<
@@ -127,11 +132,16 @@ describe('MobileMarketTokenSelectorSearchResults', () => {
   beforeEach(() => {
     mockStockPress.mockReset();
     mockMarketPress.mockReset();
+    mockLoadMore.mockClear();
     mockUseMarketStockSelectorList.mockReset();
     mockUseMarketStockSelectorList.mockReturnValue({
       items: [stock],
       isLoading: false,
       isError: false,
+      isLoadingMore: false,
+      isLoadMoreError: false,
+      canLoadMore: false,
+      loadMore: mockLoadMore,
       refresh: jest.fn(),
     });
   });
@@ -175,5 +185,53 @@ describe('MobileMarketTokenSelectorSearchResults', () => {
     );
     expect(screen.queryByTestId('mobile-stock-AAPL')).toBeNull();
     expect(screen.getByTestId('mobile-market-evm--1:0xaapl')).toBeTruthy();
+  });
+
+  it('loads and retries additional mobile stock search pages', () => {
+    const stockResult = {
+      items: [stock],
+      isLoading: false,
+      isError: false,
+      isLoadingMore: false,
+      isLoadMoreError: false,
+      canLoadMore: true,
+      loadMore: mockLoadMore,
+      refresh: jest.fn(),
+    };
+    mockUseMarketStockSelectorList.mockReturnValue(stockResult);
+    const { rerender } = render(
+      <MobileMarketTokenSelectorSearchResults
+        query="aapl"
+        marketItems={[]}
+        onStockPress={mockStockPress}
+        onMarketPress={mockMarketPress}
+      />,
+    );
+    fireEvent.click(
+      screen.getByTestId('market-token-selector-search-tab-stocks'),
+    );
+    fireEvent.click(
+      screen.getByTestId('mobile-market-token-selector-stock-search-load-more'),
+    );
+    expect(mockLoadMore).toHaveBeenCalledTimes(1);
+
+    mockUseMarketStockSelectorList.mockReturnValue({
+      ...stockResult,
+      isLoadMoreError: true,
+    });
+    rerender(
+      <MobileMarketTokenSelectorSearchResults
+        query="aapl"
+        marketItems={[]}
+        onStockPress={mockStockPress}
+        onMarketPress={mockMarketPress}
+      />,
+    );
+    fireEvent.click(
+      screen.getByTestId(
+        'mobile-market-token-selector-stock-search-load-more-retry',
+      ),
+    );
+    expect(mockLoadMore).toHaveBeenCalledTimes(2);
   });
 });

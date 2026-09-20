@@ -170,6 +170,18 @@ export function findMarketTabStack(state?: INavigationStateNode) {
   );
 }
 
+export function getCurrentMarketStockDetailId() {
+  const navigation = rootNavigationRef.current as INavigationLike | undefined;
+  const stack = findMarketTabStack(navigation?.getRootState?.());
+  const routes = stack?.routes ?? [];
+  const current = routes[stack?.index ?? routes.length - 1];
+  const stockId = current?.params?.stockId;
+  return current?.name === ETabMarketRoutes.MarketStockDetail &&
+    typeof stockId === 'string'
+    ? stockId
+    : undefined;
+}
+
 function containsStack(
   state: INavigationStateNode | undefined,
   stackKey: string,

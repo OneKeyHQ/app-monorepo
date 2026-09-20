@@ -84,10 +84,10 @@ function MobileMarketTokenSelectorSearchResults({
     setShowAllMarkets(false);
   }, [query]);
 
-  const visibleStocks =
-    activeTab === 'stocks' || showAllStocks
-      ? stockResult.items
-      : stockResult.items.slice(0, SEARCH_SECTION_PREVIEW_LIMIT);
+  const isShowingAllStocks = activeTab === 'stocks' || showAllStocks;
+  const visibleStocks = isShowingAllStocks
+    ? stockResult.items
+    : stockResult.items.slice(0, SEARCH_SECTION_PREVIEW_LIMIT);
   const visibleMarkets =
     activeTab === 'market' || showAllMarkets
       ? marketItems
@@ -154,10 +154,37 @@ function MobileMarketTokenSelectorSearchResults({
               ))}
               {activeTab !== 'stocks' &&
               !showAllStocks &&
-              stockResult.items.length > SEARCH_SECTION_PREVIEW_LIMIT ? (
+              (stockResult.items.length > SEARCH_SECTION_PREVIEW_LIMIT ||
+                stockResult.canLoadMore) ? (
                 <SearchMoreButton
                   testID="mobile-market-token-selector-stock-search-show-more"
                   onPress={() => setShowAllStocks(true)}
+                />
+              ) : null}
+              {isShowingAllStocks && stockResult.isLoadingMore ? (
+                <YStack py="$4" alignItems="center">
+                  <Spinner size="small" />
+                </YStack>
+              ) : null}
+              {isShowingAllStocks && stockResult.isLoadMoreError ? (
+                <Button
+                  testID="mobile-market-token-selector-stock-search-load-more-retry"
+                  alignSelf="flex-start"
+                  ml="$3"
+                  size="small"
+                  variant="tertiary"
+                  onPress={() => void stockResult.loadMore()}
+                >
+                  {intl.formatMessage({ id: ETranslations.global_retry })}
+                </Button>
+              ) : null}
+              {isShowingAllStocks &&
+              stockResult.canLoadMore &&
+              !stockResult.isLoadingMore &&
+              !stockResult.isLoadMoreError ? (
+                <SearchMoreButton
+                  testID="mobile-market-token-selector-stock-search-load-more"
+                  onPress={() => void stockResult.loadMore()}
                 />
               ) : null}
             </YStack>
