@@ -538,7 +538,13 @@ export async function readColdStartCriticalEntriesFromIdb(): Promise<{
   return { allKeys, entries };
 }
 
-/** Namespace of a physical SWR record key, or undefined for anything else. */
+/**
+ * Namespace of a physical SWR record key.
+ *
+ * `undefined` for a key that is a namespace on its own, with nothing after
+ * it: those are read by exact key, because a `namespace:` range would skip
+ * the very record it is named after.
+ */
 function getSWRCacheNamespace(physicalKey: string): string | undefined {
   if (!isWebSWRCachePersistedKey(physicalKey)) {
     return undefined;
@@ -564,20 +570,26 @@ export async function readColdStartSWREntriesFromIdb(
   }: { maxEntriesPerNamespace?: number; maxEntries?: number } = {},
 ): Promise<Map<string, unknown>> {
   const namespaces = new Set<string>();
+  const exactKeys: string[] = [];
   allKeys.forEach((key) => {
+    if (!isWebSWRCachePersistedKey(key)) {
+      return;
+    }
     const namespace = getSWRCacheNamespace(key);
     if (namespace) {
       namespaces.add(namespace);
+    } else {
+      exactKeys.push(key);
     }
   });
   const entries = new Map<string, unknown>();
-  if (namespaces.size === 0) {
+  if (namespaces.size === 0 && exactKeys.length === 0) {
     return entries;
   }
   const db = await openDb();
   const tx = await db.transactionAsync([STORE_NAME], 'readonly');
   const store = tx.objectStore(STORE_NAME);
-  const reads = [...namespaces].map((namespace) => {
+  const rangeReads = [...namespaces].map((namespace) => {
     const lower = `${WEB_SWR_CACHE_ENTRY_PREFIX}${namespace}:`;
     // '\uffff' is above every character these keys use, so the range covers
     // exactly the records whose key starts with the prefix.
@@ -587,17 +599,21 @@ export async function readColdStartSWREntriesFromIdb(
       store.getAll(range, maxEntriesPerNamespace),
     ]);
   });
-  const results = await Promise.all(reads);
+  // Issued in the same turn as the ranges so they share the transaction.
+  const exactReads = exactKeys.map((key) => store.get(key));
+  const [results, exactValues] = await Promise.all([
+    Promise.all(rangeReads),
+    Promise.all(exactReads),
+  ]);
+  const take = (key: string, value: unknown) => {
+    if (entries.size >= maxEntries || value === undefined) {
+      return;
+    }
+    entries.set(key, value);
+  };
+  exactKeys.forEach((key, index) => take(key, exactValues[index]));
   results.forEach(([keys, values]) => {
-    keys.forEach((key, index) => {
-      if (entries.size >= maxEntries) {
-        return;
-      }
-      const value = values[index];
-      if (value !== undefined) {
-        entries.set(String(key), value);
-      }
-    });
+    keys.forEach((key, index) => take(String(key), values[index]));
   });
   return entries;
 }

@@ -900,6 +900,25 @@ describeIfIndexedDB('SWR cache per-entry records', () => {
     expect([...entries.keys()]).toEqual(['__meta:buildHash']);
   });
 
+  // PR 13609 review: a key that is a namespace on its own — swapHistoryPreviewList
+  // is the one in the tree — has nothing after it to range over, and a
+  // `namespace:` range skips the very record it is named after.
+  it('hydrates a key that is a namespace on its own', async () => {
+    const { mod, swrCacheUtils } = loadWithSWRCache();
+    swrCacheUtils.set('swapHistoryPreviewList', ['history']);
+    swrCacheUtils.set('marketTokenDetail:v1:a', 1);
+    swrCacheUtils.flushNow();
+    await mod.flushColdStartCacheNow();
+
+    const { allKeys } = await mod.readColdStartCriticalEntriesFromIdb();
+    const swrEntries = await mod.readColdStartSWREntriesFromIdb(allKeys);
+
+    expect([...swrEntries.keys()].sort()).toEqual([
+      `${ENTRY_PREFIX}marketTokenDetail:v1:a`,
+      `${ENTRY_PREFIX}swapHistoryPreviewList`,
+    ]);
+  });
+
   it('caps the SWR records it reads per namespace and overall', async () => {
     const { mod, swrCacheUtils } = loadWithSWRCache();
     ['marketTokenDetail', 'marketStockDetail'].forEach((namespace) => {
