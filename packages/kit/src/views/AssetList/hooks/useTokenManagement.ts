@@ -1,6 +1,6 @@
 import { useCallback } from 'react';
 
-import { flatten, uniqBy } from 'lodash';
+import { uniqBy } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
@@ -28,6 +28,7 @@ export function useTokenManagement({
   mergeDeriveAddressData,
   tokenListOwnerKey,
   enabled = true,
+  customTokensOnly = false,
 }: {
   networkId: string;
   accountId: string;
@@ -35,6 +36,10 @@ export function useTokenManagement({
   mergeDeriveAddressData?: boolean;
   tokenListOwnerKey?: string;
   enabled?: boolean;
+  // The home list and TokenListView only read `customTokens` (for the
+  // hide-zero predicate). Skips the hidden tokens, the raw list pull and the
+  // merge, which otherwise cost ~50 requests per run in all-networks mode.
+  customTokensOnly?: boolean;
 }) {
   const intl = useIntl();
   const isAllNetwork = networkId === getNetworkIdsMap().onekeyall;
@@ -102,9 +107,6 @@ export function useTokenManagement({
         pair.push({ accountId, networkId });
       }
 
-      const aggregateTokenConfigMap =
-        await backgroundApiProxy.serviceToken.getAggregateTokenConfigMap();
-
       // query aggregate tokens in both all networks and single network
       pair.push({
         accountId: indexedAccountId ?? accountId ?? '',
@@ -112,29 +114,24 @@ export function useTokenManagement({
         networkId: AGGREGATE_TOKEN_MOCK_NETWORK_ID,
       });
 
-      const hiddenTokens = flatten(
-        await Promise.all(
-          pair.map((item) =>
-            backgroundApiProxy.serviceCustomToken.getHiddenTokens({
-              accountId: item.accountId,
-              networkId: item.networkId,
-              accountXpubOrAddress: item.accountXpubOrAddress,
-            }),
-          ),
-        ),
-      );
+      const customTokens =
+        await backgroundApiProxy.serviceCustomToken.getCustomTokensBatch({
+          pairs: pair,
+        });
+      if (customTokensOnly) {
+        return {
+          sectionTokens: [],
+          addedTokens: [],
+          customTokens,
+        };
+      }
 
-      const customTokens = flatten(
-        await Promise.all(
-          pair.map((item) =>
-            backgroundApiProxy.serviceCustomToken.getCustomTokens({
-              accountId: item.accountId,
-              networkId: item.networkId,
-              accountXpubOrAddress: item.accountXpubOrAddress,
-            }),
-          ),
-        ),
-      );
+      const [aggregateTokenConfigMap, hiddenTokens] = await Promise.all([
+        backgroundApiProxy.serviceToken.getAggregateTokenConfigMap(),
+        backgroundApiProxy.serviceCustomToken.getHiddenTokensBatch({
+          pairs: pair,
+        }),
+      ]);
 
       // One bridge round-trip for the whole list. The single-item bg method
       // is `Promise.resolve(syncMerge)` so a Promise.all over .map paid 1
@@ -237,6 +234,7 @@ export function useTokenManagement({
     },
     [
       enabled,
+      customTokensOnly,
       isAllNetwork,
       indexedAccountId,
       // Reactive trigger (R-#3b): re-pull when the home list structure changes.
@@ -249,6 +247,10 @@ export function useTokenManagement({
     {
       checkIsFocused: false,
       watchLoading: true,
+      // An all-networks refresh bumps the structure generation once per
+      // settling network. That bump is still the only signal some add-token
+      // flows give the home list, so it stays a trigger and is coalesced.
+      debounced: customTokensOnly ? 300 : undefined,
     },
   );
 
