@@ -2,9 +2,9 @@
 
 This bug bounty program covers code within the OneKey repositories that directly impacts the security of OneKey products and users.
 
-All vulnerability reports must be submitted through one of the following channels:
-1. **Private disclosure**: Send an email to [security@onekey.so](mailto:[security@onekey.so]) — recommended for high-severity vulnerabilities. Private submissions remain fully eligible for bounties.
-2. **BugRap Platform**: Submit through our official page on [BugRap](https://bugrap.io/bounties/OneKey).
+All vulnerability reports must be submitted through our official page on [BugRap](https://bugrap.io/bounties/OneKey). Reports sent by email will not be reviewed or rewarded.
+
+For other matters — such as security leads or intelligence (e.g., ongoing attacks, phishing campaigns) — contact [security@onekey.so](mailto:security@onekey.so). Leads are not covered by the bounty tables below; OneKey may reward valuable intelligence at its discretion.
 
 ## Scope
 
@@ -260,7 +260,7 @@ OneKey reserves the right to take the following actions against researchers who 
 - **Cooldown**: Researchers who receive two or more warnings within a 90-day period will be placed on a **30-day cooldown**, during which no new submissions will be accepted or reviewed.
 - **Suspension**: Researchers who continue to submit low-quality or AI-generated reports after a cooldown period may be **permanently suspended** from the program.
 
-Reports with hallucinated vulnerabilities, vague technical content, or other forms of low-effort noise are treated as spam. Submitting such reports in volume is considered abuse of the program.
+Reports with hallucinated vulnerabilities, vague technical content, or other forms of low-effort noise are treated as spam. Submitting such reports in volume is considered abuse of the program. Sending vulnerability reports by email instead of BugRap is also treated as spam.
 
 OneKey tracks submission quality history per researcher. A consistent track record of high-quality submissions will be considered favorably when evaluating borderline reports. Conversely, a history of low-quality submissions may result in stricter scrutiny of future reports.
 
@@ -269,7 +269,7 @@ OneKey tracks submission quality history per researcher. A consistent track reco
 OneKey will not pursue legal action against researchers who:
 - Act in good faith and comply with this program's rules
 - Avoid privacy violations, data destruction, and service disruption
-- Report vulnerabilities through the designated channels
+- Report vulnerabilities through the designated channel (BugRap)
 - Do not publicly disclose vulnerabilities prior to OneKey's confirmation of remediation
 
 This safe harbor does not extend to activities that violate applicable law or that cause harm to OneKey, its users, or third parties.

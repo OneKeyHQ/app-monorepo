@@ -2,7 +2,7 @@ import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 
 import { useIntl } from 'react-intl';
-import { StyleSheet } from 'react-native';
+import { Platform, StyleSheet } from 'react-native';
 import Animated, {
   FadeIn,
   LinearTransition,
@@ -17,6 +17,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { MARK_IN_MS, easeOutFn } from '../../content/deviceScene';
 import { Input, passwordManagerIgnoreProps } from '../../forms/Input';
+import { useKeyboardState } from '../../hooks/useKeyboardController';
 import {
   Anchor,
   Button,
@@ -381,6 +382,8 @@ export interface IPassphraseFormProps {
    * ON — the first-run default.
    */
   initialKeepAccessible?: boolean;
+  /** Only adds early ASCII feedback for new Pro2/Neo wallets. */
+  asciiCreationFeedback?: boolean;
   /**
    * Protocol V2 entry: UTF-8 measured in bytes, NFKD-normalized before it
    * is handed out. Off, the printable-ASCII validation applies. The
@@ -417,6 +420,7 @@ export function PassphraseForm({
   onAttachPin,
   error,
   initialKeepAccessible,
+  asciiCreationFeedback,
   allowProtocolV2Utf8,
   resetSignal,
   activationSignal,
@@ -436,6 +440,8 @@ export function PassphraseForm({
   const [validationError, setValidationError] = useState<string | undefined>(
     undefined,
   );
+  const showAsciiCreationFeedback =
+    mode === 'create' && asciiCreationFeedback && !allowProtocolV2Utf8;
   useEffect(() => {
     setValue('');
     setSecure(true);
@@ -451,10 +457,21 @@ export function PassphraseForm({
     () => (mode === 'create' ? { keepAccessible } : undefined),
     [keepAccessible, mode],
   );
-  const handleChange = useCallback((text: string) => {
-    setValue(text);
-    setValidationError(undefined);
-  }, []);
+  const handleChange = useCallback(
+    (text: string) => {
+      setValue(text);
+      const failure =
+        text && showAsciiCreationFeedback
+          ? resolvePassphraseEntryFailure(text)
+          : undefined;
+      setValidationError(
+        failure
+          ? intl.formatMessage({ id: failure.id }, failure.values)
+          : undefined,
+      );
+    },
+    [intl, showAsciiCreationFeedback],
+  );
   const handleConfirm = useCallback(() => {
     // A refused entry speaks its prompt in place of a disabled button —
     // the same ratified grammar as the PIN pad's empty confirm. The
@@ -487,6 +504,15 @@ export function PassphraseForm({
     [secure, toggleSecure],
   );
   const shownError = validationError ?? error;
+  // While the system keyboard is up, the card gives back the attach-PIN
+  // alternative under Confirm: it is the way in for someone who is NOT
+  // typing, and its height is what pushed the card's top under the status
+  // bar on a phone with a tall keyboard (OK-63775). The flag turns with the
+  // keyboard's will-show on both native platforms, so the card is already
+  // shrinking as the keyboard rises, and the block returns once the keyboard
+  // is gone. A hardware keyboard raises no system keyboard and changes
+  // nothing; web and desktop always read false.
+  const { isVisible: isKeyboardVisible } = useKeyboardState();
   return (
     <YStack gap="$5">
       <YStack gap="$3">
@@ -515,6 +541,12 @@ export function PassphraseForm({
             value={value}
             onChangeText={handleChange}
             secureTextEntry={secure}
+            keyboardType={
+              showAsciiCreationFeedback && Platform.OS === 'ios'
+                ? 'ascii-capable'
+                : undefined
+            }
+            error={showAsciiCreationFeedback ? Boolean(shownError) : undefined}
             {...passwordManagerIgnoreProps}
             autoCapitalize="none"
             autoCorrect={false}
@@ -530,21 +562,25 @@ export function PassphraseForm({
               <Stack w="$1" h="$1" borderRadius="$full" bg="$textSubdued" />
             </Stack>
             <SizableText flex={1} size="$bodyMd" color="$textSubdued">
-              {intl.formatMessage(
-                { id: ETranslations.device_stage_allowed_characters__desc },
-                {
-                  link: (chunks: ReactNode[]) => (
-                    <Anchor
-                      key="link"
-                      href="https://www.ascii-code.com/"
-                      size="$bodyMd"
-                      color="$textSubdued"
-                    >
-                      {chunks}
-                    </Anchor>
-                  ),
-                },
-              )}
+              {showAsciiCreationFeedback
+                ? intl.formatMessage({
+                    id: ETranslations.passphrase_allowed_characters_desc,
+                  })
+                : intl.formatMessage(
+                    { id: ETranslations.device_stage_allowed_characters__desc },
+                    {
+                      link: (chunks: ReactNode[]) => (
+                        <Anchor
+                          key="link"
+                          href="https://www.ascii-code.com/"
+                          size="$bodyMd"
+                          color="$textSubdued"
+                        >
+                          {chunks}
+                        </Anchor>
+                      ),
+                    },
+                  )}
             </SizableText>
           </XStack>
           <XStack gap="$1" alignItems="flex-start">
@@ -586,7 +622,7 @@ export function PassphraseForm({
       >
         {intl.formatMessage({ id: ETranslations.global_confirm })}
       </Button>
-      {onAttachPin ? (
+      {onAttachPin && !isKeyboardVisible ? (
         <YStack gap="$5">
           {/* Each rule is a sized transparent box carrying a hairline
               bottom border: a box of hairline height alone rounds to
