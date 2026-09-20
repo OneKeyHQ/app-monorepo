@@ -1,9 +1,25 @@
-import { stripSensitiveFields } from './hyperliquid';
+import { HyperLiquidScene, stripSensitiveFields } from './hyperliquid';
 
 const accountAddress = '0x1111111111111111111111111111111111111111';
 const exchangeAccountAddress = '0x2222222222222222222222222222222222222222';
 
 describe('hyperliquid log payload', () => {
+  test('sends precheck failures through the server logger', () => {
+    const scene = new HyperLiquidScene();
+    const emit = jest.spyOn(scene, '_emitLog').mockImplementation(() => {});
+    scene.preTransferCheckFailure({
+      reason: 'requestFailed',
+      httpStatus: 500,
+      fallbackApplied: true,
+    });
+    expect(emit).toHaveBeenCalledTimes(1);
+    expect(emit).toHaveBeenCalledWith(
+      'preTransferCheckFailure',
+      [{ reason: 'requestFailed', httpStatus: 500, fallbackApplied: true }],
+      [expect.objectContaining({ type: 'server' })],
+    );
+  });
+
   test('drops wallet addresses nested inside extra.originalParams', () => {
     const payload = stripSensitiveFields({
       accountAddress,

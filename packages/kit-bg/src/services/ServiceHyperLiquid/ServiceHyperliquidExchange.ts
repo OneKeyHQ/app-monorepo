@@ -1,4 +1,8 @@
-import { ExchangeClient, HttpTransport } from '@nktkas/hyperliquid';
+import {
+  ExchangeClient,
+  HttpRequestError,
+  HttpTransport,
+} from '@nktkas/hyperliquid';
 import { BigNumber } from 'bignumber.js';
 import { isNumber } from 'lodash';
 
@@ -1985,24 +1989,53 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
           params,
         );
       const accountAddress = await wallet.getAddress();
-      const result = await hyperLiquidApiClients.infoClient.preTransferCheck({
-        source: accountAddress,
-        user: HYPEREVM_SYSTEM_ADDRESS,
-      });
-      const fee = result?.fee;
-      if (
-        typeof fee !== 'string' ||
-        !/^\d+(\.\d+)?$/.test(fee) ||
-        !new BigNumber(fee).isFinite() ||
-        result.isSanctioned !== false
-      ) {
+      try {
+        const result = await hyperLiquidApiClients.infoClient.preTransferCheck({
+          source: accountAddress,
+          user: HYPEREVM_SYSTEM_ADDRESS,
+        });
+        const fee = result?.fee;
+        if (
+          typeof fee !== 'string' ||
+          !/^\d+(\.\d+)?$/.test(fee) ||
+          !new BigNumber(fee).isFinite() ||
+          result.isSanctioned !== false
+        ) {
+          defaultLogger.perp.hyperliquid.preTransferCheckFailure({
+            reason:
+              result?.isSanctioned === true ? 'restricted' : 'invalidResponse',
+            fallbackApplied: false,
+          });
+          return undefined;
+        }
+        return {
+          accountAddress,
+          // The cent is a minimum buffer, not an extra charge on top of the fee.
+          reserve: BigNumber.maximum(fee, USDC_WITHDRAW_GAS_RESERVE).toFixed(),
+          isEstimate: false,
+        };
+      } catch (error) {
+        const httpStatus =
+          error instanceof HttpRequestError
+            ? error.response?.status
+            : undefined;
+        const fallbackApplied =
+          error instanceof HttpRequestError &&
+          // The SDK also wraps JSON parsing errors without a response.
+          !(error.cause instanceof SyntaxError) &&
+          (httpStatus === undefined || (httpStatus >= 500 && httpStatus < 600));
+        defaultLogger.perp.hyperliquid.preTransferCheckFailure({
+          reason: 'requestFailed',
+          httpStatus,
+          fallbackApplied,
+        });
+        if (fallbackApplied) {
+          // An unavailable fee estimate must not disable the withdrawal rail.
+          // Leave the activation fee plus a gas buffer in the source account.
+          return { accountAddress, reserve: '1.01', isEstimate: true };
+        }
         return undefined;
       }
-      return {
-        accountAddress,
-        // The cent is a minimum buffer, not an extra charge on top of the fee.
-        reserve: BigNumber.maximum(fee, USDC_WITHDRAW_GAS_RESERVE).toFixed(),
-      };
     } catch (error) {
       console.error('[getUsdcWithdrawReserve] Failed to check reserve:', error);
       return undefined;
