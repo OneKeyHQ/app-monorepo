@@ -49,12 +49,10 @@ let databasePromise: Promise<IndexedDBPromised<unknown>> | undefined;
 let flushTimer: ReturnType<typeof setTimeout> | undefined;
 let flushPromise: Promise<void> | undefined;
 const dirtyKeys = new Set<string>();
-/** Namespaces waiting for a whole-namespace delete on disk. Their records are
- *  not named here: the point of this queue is the ones the map never held. */
+/** Namespaces waiting for a range delete: the records the map never held. */
 const dirtyNamespaces = new Set<string>();
-/** Namespaces this session has cleared. A read of the database that started
- *  before the clear still carries their old records, so priming has to know
- *  which ones no longer describe anything. */
+/** Namespaces cleared this session. A database read that started before the
+ *  clear still carries their old records, so priming has to skip them. */
 const clearedNamespaces = new Set<string>();
 /** While a reset is in flight every write is dropped, so a writer that is
  *  mid-flush cannot put back what the reset is removing. */
@@ -170,10 +168,9 @@ export function flushUiSnapshotStoreNow(): Promise<void> {
       failedNamespaces.push(...namespaces);
     }
     if (database && namespaces.length > 0) {
-      // Before the writes below, and by range rather than by key: a namespace
-      // is cleared for records the map never held — a page that has not
-      // primed this namespace names none of them — while a key written after
-      // the clear belongs to what comes next and the range must not take it.
+      // By range, because the map names none of the records a page never
+      // primed. Before the writes, because a key written after the clear
+      // belongs to what comes next.
       try {
         const transaction = await database.createBucketTransaction(
           [RECORD_STORE],
@@ -273,10 +270,8 @@ export function primeWebUiSnapshotStore(entries: Iterable<[string, string]>) {
   }
   const map = getMap();
   for (const [key, value] of entries) {
-    // A namespace this session cleared has nothing left on disk that still
-    // describes anything, and the read behind these entries may have started
-    // before the clear. Priming them would put back what a wallet deletion
-    // removed, and the next launch would read it again.
+    // The read behind these entries may predate a clear, and priming them
+    // would put back what a wallet deletion removed.
     if (!map.has(key) && !clearedNamespaces.has(namespaceOfRecordKey(key))) {
       map.set(key, value);
     }
@@ -442,10 +437,9 @@ export function createWebUiSnapshotSyncBackend(
       if (isClearing) {
         return;
       }
-      // The map holds what this runtime has read, which early in a session is
-      // nothing: naming its keys would leave every record this page never
-      // primed on disk, for the late prime to load back. Dropping them here
-      // only keeps memory in step; the queued range delete is the clear.
+      // The map holds only what this runtime has read, so naming its keys
+      // would leave the rest on disk for the late prime to load back. This
+      // keeps memory in step; the queued range delete is the clear.
       const prefix = `${namespace}:`;
       const map = getMap();
       [...map.keys()]

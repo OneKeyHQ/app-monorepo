@@ -758,17 +758,6 @@ export interface IAppEventBusPayload {
     prefixes?: string[];
     clearedAll?: boolean;
   };
-  /**
-   * An entry the background runtime computed, for the UI runtime to persist.
-   *
-   * The store has one writer per namespace, and it is the UI runtime — see
-   * `setOnUiRuntime` in `swrCacheUtils` for why the write travels instead of
-   * a lock.
-   */
-  [EAppEventBusNames.SwrCacheWriteDelegated]: {
-    key: string;
-    data: unknown;
-  };
   [EAppEventBusNames.MemoryPressureWarning]: {
     /** 'low' (Android only) or 'critical' (iOS + Android). See native spec. */
     level: 'low' | 'critical';

@@ -216,5 +216,4 @@ export enum EAppEventBusNames {
   TrayActionWillNavigate = 'TrayActionWillNavigate',
   MemoryPressureWarning = 'MemoryPressureWarning',
   SwrCacheInvalidated = 'SwrCacheInvalidated',
-  SwrCacheWriteDelegated = 'SwrCacheWriteDelegated',
 }

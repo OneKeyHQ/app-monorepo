@@ -238,9 +238,12 @@ function AllNetworksManager() {
       await backgroundApiProxy.serviceAllNetwork.updateAllNetworksState({
         enabledNetworks: networksState.enabledNetworks,
         disabledNetworks: networksState.disabledNetworks,
-        cacheContext: { walletId, accountId },
       });
 
+      // Nothing is done to the selector's SWR entry here, deliberately. This
+      // page has no hook that owns it, and patching another screen's cache by
+      // hand is what gives a namespace a second writer. The selector fetches again
+      // when it next mounts, and that fetch is what updates the entry.
       appEventBus.emit(EAppEventBusNames.EnabledNetworksChanged, undefined);
 
       navigation.pop();
