@@ -560,6 +560,48 @@ describe('nativeSyncStorageMirror', () => {
     });
   });
 
+  it('does not resurrect an entry when a patch tombstone is newer than its update', async () => {
+    mockCallNativeStorage.mockImplementation(
+      async (request: Parameters<typeof buildMutationAcknowledgement>[0]) => {
+        if (request.scope === 'bootstrap') {
+          return { settings: [], coldStart: [], devSettings: [] };
+        }
+        if (request.operation === 'patchSWR' && request.patch) {
+          return {
+            store: request.store,
+            operation: 'patchSWR',
+            entries: request.patch.removals.map(([key]) => [key, null]),
+            sourceMutationId: request.sourceMutationId,
+          };
+        }
+        return buildMutationAcknowledgement(request);
+      },
+    );
+    const {
+      bootstrapNativeSyncStorageMirrors,
+      createNativeSyncStorageMirror,
+      waitForNativeSyncStorageMutations,
+    } = loadMirror();
+    const storage = createNativeSyncStorageMirror('coldStart');
+    await bootstrapNativeSyncStorageMirrors();
+
+    void storage.applySWRCachePatch?.({
+      removePrefixes: [],
+      removals: [['deleted', 10]],
+      updates: [['deleted', JSON.stringify({ d: 'stale', t: 5 })]],
+    });
+    await waitForNativeSyncStorageMutations();
+
+    expect(storage.readSWRCacheEntries?.()).toEqual([]);
+    expect(mockCallNativeStorage.mock.calls[1][0]).toMatchObject({
+      operation: 'patchSWR',
+      patch: {
+        removals: [['deleted', 10]],
+        updates: [['deleted', JSON.stringify({ d: 'stale', t: 5 })]],
+      },
+    });
+  });
+
   it('bounds an offline SWR patch queue by merging it into one patch', async () => {
     let isReady = true;
     const nativeStorageGlobal = globalThis as typeof globalThis & {
