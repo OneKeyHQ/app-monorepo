@@ -450,6 +450,8 @@ export interface IDeviceStageProps {
    * what the gallery shows.
    */
   passphraseKeepAccessible?: boolean;
+  /** Show immediate ASCII creation guidance only for Pro2/Neo new wallets. */
+  passphraseAsciiCreationFeedback?: boolean;
   /**
    * The request comes from a protocol V2 device: the passphrase form takes
    * UTF-8 measured in bytes and normalizes it to NFKD, the way the shipped

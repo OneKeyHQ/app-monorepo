@@ -2,7 +2,7 @@ import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 
 import { useIntl } from 'react-intl';
-import { StyleSheet } from 'react-native';
+import { Platform, StyleSheet } from 'react-native';
 import Animated, {
   FadeIn,
   LinearTransition,
@@ -382,6 +382,8 @@ export interface IPassphraseFormProps {
    * ON — the first-run default.
    */
   initialKeepAccessible?: boolean;
+  /** Only adds early ASCII feedback for new Pro2/Neo wallets. */
+  asciiCreationFeedback?: boolean;
   /**
    * Protocol V2 entry: UTF-8 measured in bytes, NFKD-normalized before it
    * is handed out. Off, the printable-ASCII validation applies. The
@@ -418,6 +420,7 @@ export function PassphraseForm({
   onAttachPin,
   error,
   initialKeepAccessible,
+  asciiCreationFeedback,
   allowProtocolV2Utf8,
   resetSignal,
   activationSignal,
@@ -437,6 +440,8 @@ export function PassphraseForm({
   const [validationError, setValidationError] = useState<string | undefined>(
     undefined,
   );
+  const showAsciiCreationFeedback =
+    mode === 'create' && asciiCreationFeedback && !allowProtocolV2Utf8;
   useEffect(() => {
     setValue('');
     setSecure(true);
@@ -452,10 +457,21 @@ export function PassphraseForm({
     () => (mode === 'create' ? { keepAccessible } : undefined),
     [keepAccessible, mode],
   );
-  const handleChange = useCallback((text: string) => {
-    setValue(text);
-    setValidationError(undefined);
-  }, []);
+  const handleChange = useCallback(
+    (text: string) => {
+      setValue(text);
+      const failure =
+        text && showAsciiCreationFeedback
+          ? resolvePassphraseEntryFailure(text)
+          : undefined;
+      setValidationError(
+        failure
+          ? intl.formatMessage({ id: failure.id }, failure.values)
+          : undefined,
+      );
+    },
+    [intl, showAsciiCreationFeedback],
+  );
   const handleConfirm = useCallback(() => {
     // A refused entry speaks its prompt in place of a disabled button —
     // the same ratified grammar as the PIN pad's empty confirm. The
@@ -525,6 +541,12 @@ export function PassphraseForm({
             value={value}
             onChangeText={handleChange}
             secureTextEntry={secure}
+            keyboardType={
+              showAsciiCreationFeedback && Platform.OS === 'ios'
+                ? 'ascii-capable'
+                : undefined
+            }
+            error={showAsciiCreationFeedback ? Boolean(shownError) : undefined}
             {...passwordManagerIgnoreProps}
             autoCapitalize="none"
             autoCorrect={false}
@@ -540,21 +562,25 @@ export function PassphraseForm({
               <Stack w="$1" h="$1" borderRadius="$full" bg="$textSubdued" />
             </Stack>
             <SizableText flex={1} size="$bodyMd" color="$textSubdued">
-              {intl.formatMessage(
-                { id: ETranslations.device_stage_allowed_characters__desc },
-                {
-                  link: (chunks: ReactNode[]) => (
-                    <Anchor
-                      key="link"
-                      href="https://www.ascii-code.com/"
-                      size="$bodyMd"
-                      color="$textSubdued"
-                    >
-                      {chunks}
-                    </Anchor>
-                  ),
-                },
-              )}
+              {showAsciiCreationFeedback
+                ? intl.formatMessage({
+                    id: ETranslations.passphrase_allowed_characters_desc,
+                  })
+                : intl.formatMessage(
+                    { id: ETranslations.device_stage_allowed_characters__desc },
+                    {
+                      link: (chunks: ReactNode[]) => (
+                        <Anchor
+                          key="link"
+                          href="https://www.ascii-code.com/"
+                          size="$bodyMd"
+                          color="$textSubdued"
+                        >
+                          {chunks}
+                        </Anchor>
+                      ),
+                    },
+                  )}
             </SizableText>
           </XStack>
           <XStack gap="$1" alignItems="flex-start">
