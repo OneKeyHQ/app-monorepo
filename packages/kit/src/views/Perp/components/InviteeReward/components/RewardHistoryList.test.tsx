@@ -103,7 +103,7 @@ describe('RewardHistoryList', () => {
       item,
       ...Array.from({ length: 10 }, (_, index) =>
         createHistoryItem({
-          date: `2026-09-${String(index + 2).padStart(2, '0')}`,
+          date: `2026-10-${String(index + 1).padStart(2, '0')}`,
           tx: `0x${String(index + 2).padStart(40, '0')}`,
           amount: String(index + 2),
         }),

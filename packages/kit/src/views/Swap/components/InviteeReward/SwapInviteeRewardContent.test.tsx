@@ -50,7 +50,8 @@ jest.mock('@onekeyhq/components', () => {
         children,
       ),
     Divider: Primitive,
-    Empty: Primitive,
+    Empty: ({ title }: { title?: ReactNode }) =>
+      React.createElement('div', null, title),
     ScrollView: ({ children }: { children?: ReactNode }) =>
       React.createElement('div', { 'data-testid': 'scroll-view' }, children),
     SizableText: Primitive,
