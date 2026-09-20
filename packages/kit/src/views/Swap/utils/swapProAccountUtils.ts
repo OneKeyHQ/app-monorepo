@@ -162,6 +162,7 @@ export function getSwapProErrorAlertAction({
 }
 
 export function shouldSyncSwapProAccountNetwork({
+  isFocused,
   isSwapProActive,
   targetNetworkId,
   currentNetworkId,
@@ -170,6 +171,7 @@ export function shouldSyncSwapProAccountNetwork({
   isSingletonAccountReady,
   isSingletonAccountCompatible,
 }: {
+  isFocused: boolean;
   isSwapProActive: boolean;
   targetNetworkId: string;
   currentNetworkId: string | undefined;
@@ -179,6 +181,7 @@ export function shouldSyncSwapProAccountNetwork({
   isSingletonAccountCompatible: boolean;
 }) {
   if (
+    !isFocused ||
     !isSwapProActive ||
     !targetNetworkId ||
     currentNetworkId === targetNetworkId

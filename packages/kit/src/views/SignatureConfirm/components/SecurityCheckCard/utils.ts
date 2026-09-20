@@ -73,24 +73,26 @@ export function normalizeSecurityFindingTitle(title: string) {
   return trimmedTitle.replace(/[。.！!]+$/u, '') || trimmedTitle;
 }
 
-export function shouldHideGenericPermitAlert({
+export function shouldHideGenericAuthorizationAlert({
   alert,
-  genericPermitAlert,
-  isPermitSignMethod,
-  isSiteVerified,
+  genericAlerts,
+  isTrustedAuthorization,
 }: {
   alert: string;
-  genericPermitAlert: string;
-  isPermitSignMethod: boolean;
-  isSiteVerified: boolean;
+  genericAlerts: string[];
+  isTrustedAuthorization: boolean;
 }) {
   const normalizedAlert = normalizeAlertText(alert);
-  return (
-    isPermitSignMethod &&
-    isSiteVerified &&
-    Boolean(normalizedAlert) &&
-    normalizedAlert === normalizeAlertText(genericPermitAlert)
-  );
+  if (!isTrustedAuthorization || !normalizedAlert) {
+    return false;
+  }
+  return genericAlerts.some((genericAlert) => {
+    const normalizedGenericAlert = normalizeAlertText(genericAlert);
+    return (
+      Boolean(normalizedGenericAlert) &&
+      normalizedAlert === normalizedGenericAlert
+    );
+  });
 }
 
 export function getParserAlertDisplay(alert: string) {
