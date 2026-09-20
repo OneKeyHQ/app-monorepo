@@ -586,6 +586,7 @@ function TopCoinsInformation({
 }
 
 export function TopCoinsDesktopLayout({
+  active,
   marketTradingView,
   swapToken,
   swapInputDraftKey,
@@ -605,6 +606,7 @@ export function TopCoinsDesktopLayout({
   onChartSwitch,
   onEnterChartFullscreen,
 }: {
+  active?: boolean;
   marketTradingView: ReactNode;
   swapToken: ISwapToken;
   swapInputDraftKey: string;
@@ -654,6 +656,7 @@ export function TopCoinsDesktopLayout({
           <YStack px="$5" pt="$5" pb="$6" gap="$4">
             <TokenPriceHeader />
             <TokenDetailChart
+              active={active}
               chartContainerTestID="market-top-coins-detail-chart"
               fullscreenZIndex={chartFullscreenZIndex}
               fullscreenStyle={MARKET_CHART_FULLSCREEN_STYLE}
