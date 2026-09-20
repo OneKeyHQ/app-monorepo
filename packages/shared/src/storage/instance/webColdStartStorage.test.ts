@@ -913,7 +913,7 @@ describeIfIndexedDB('SWR cache per-entry records', () => {
     const { allKeys } = await mod.readColdStartCriticalEntriesFromIdb();
     const swrEntries = await mod.readColdStartSWREntriesFromIdb(allKeys);
 
-    expect([...swrEntries.keys()].sort()).toEqual([
+    expect([...swrEntries.keys()].toSorted()).toEqual([
       `${ENTRY_PREFIX}marketTokenDetail:v1:a`,
       `${ENTRY_PREFIX}swapHistoryPreviewList`,
     ]);
