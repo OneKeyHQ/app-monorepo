@@ -1,6 +1,5 @@
 import { memo, useCallback, useRef } from 'react';
 
-import { EDeviceType } from '@onekeyfe/hd-shared';
 import { UI_RESPONSE } from '@onekeyfe/hwk-adapter-core/ui-events';
 import { Keyboard } from 'react-native';
 
@@ -38,6 +37,7 @@ import {
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { showIntercom } from '@onekeyhq/shared/src/modules3rdParty/intercom';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { isProtocolV2ProductType } from '@onekeyhq/shared/src/utils/hardwareDeviceTypes';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import { EHardwareTransportType } from '@onekeyhq/shared/types';
 import { EHardwareVendor } from '@onekeyhq/shared/types/device';
@@ -554,7 +554,7 @@ function DeviceStageContainerCmp() {
       passphraseAllowUtf8={
         stage?.payload?.source === 'wallet-session-coordinator' &&
         (stage?.passphraseMode !== 'create' ||
-          stage?.deviceType !== EDeviceType.Pro2)
+          !isProtocolV2ProductType(stage?.deviceType))
       }
       passphraseKeepAccessible={
         // The remembered Keep-accessible choice, read the way the legacy
