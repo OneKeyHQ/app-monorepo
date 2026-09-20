@@ -6,6 +6,8 @@ import type React from 'react';
 
 import { fireEvent, render } from '@testing-library/react';
 
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+
 import { PassphraseForm } from './AppInputs';
 
 jest.mock('react-intl', () => ({
@@ -253,5 +255,57 @@ describe('PassphraseForm Keep-accessible seed', () => {
     expect(exitWith(getByTestId, onSwitchToDevice)).toEqual([
       { keepAccessible: true },
     ]);
+  });
+});
+
+describe('PassphraseForm ASCII entry feedback', () => {
+  it('shows the allowed range and rejects non-ASCII characters while typing', () => {
+    const onSubmit = jest.fn();
+    const { getByTestId, getByText, queryByText } = render(
+      <PassphraseForm
+        mode="create"
+        allowProtocolV2Utf8={false}
+        onSubmit={onSubmit}
+      />,
+    );
+
+    expect(
+      getByText(ETranslations.passphrase_allowed_characters_desc),
+    ).toBeTruthy();
+    fireEvent.change(getByTestId('device-stage-passphrase-input'), {
+      target: { value: '中文😀' },
+    });
+    expect(
+      getByText(ETranslations.hardware_unsupported_passphrase_characters),
+    ).toBeTruthy();
+    fireEvent.click(getByTestId('device-stage-passphrase-confirm'));
+    expect(onSubmit).not.toHaveBeenCalled();
+
+    fireEvent.change(getByTestId('device-stage-passphrase-input'), {
+      target: { value: 'wallet 123!' },
+    });
+    expect(
+      queryByText(ETranslations.hardware_unsupported_passphrase_characters),
+    ).toBeNull();
+    fireEvent.click(getByTestId('device-stage-passphrase-confirm'));
+    expect(onSubmit).toHaveBeenCalledWith('wallet 123!', {
+      keepAccessible: true,
+    });
+  });
+
+  it('keeps Unicode entry available when verifying an existing wallet', () => {
+    const onSubmit = jest.fn();
+    const { getByTestId, queryByText } = render(
+      <PassphraseForm mode="verify" allowProtocolV2Utf8 onSubmit={onSubmit} />,
+    );
+
+    fireEvent.change(getByTestId('device-stage-passphrase-input'), {
+      target: { value: '中文😀' },
+    });
+    expect(
+      queryByText(ETranslations.hardware_unsupported_passphrase_characters),
+    ).toBeNull();
+    fireEvent.click(getByTestId('device-stage-passphrase-confirm'));
+    expect(onSubmit).toHaveBeenCalledWith('中文😀', undefined);
   });
 });

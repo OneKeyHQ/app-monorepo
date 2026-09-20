@@ -339,7 +339,8 @@ function HardwareSingletonDialogCmp(
           allowUseAttachPin={!!state?.payload?.existsAttachPinUser}
           deviceOnly={state?.payload?.deviceOnly === true}
           allowProtocolV2Utf8={
-            state?.payload?.source === 'wallet-session-coordinator'
+            state?.payload?.source === 'wallet-session-coordinator' &&
+            (isSingleInput || state?.payload?.deviceType !== EDeviceType.Pro2)
           }
           onConfirm={async ({ passphrase, hideImmediately }) => {
             await saveCachedHiddenWalletOptions({
