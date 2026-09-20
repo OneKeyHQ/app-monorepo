@@ -3,7 +3,6 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useIntl } from 'react-intl';
 
 import {
-  ListView,
   SearchBar,
   SizableText,
   Skeleton,
@@ -33,6 +32,7 @@ import {
 import { earnListScrollBehaviorProps } from '../../components/earnListScrollProps';
 import { EarnMobileSortControl } from '../../components/EarnMobileSortControl';
 import { EarnPageContainer } from '../../components/EarnPageContainer';
+import { EarnPageListView } from '../../components/EarnPageListView';
 import { NetworkFilterControl } from '../../components/NetworkFilterControl';
 import { EarnProviderMirror } from '../../EarnProviderMirror';
 import { useEarnAllProtocols } from '../../hooks/useEarnAllProtocols';
@@ -420,7 +420,7 @@ function EarnTokensContent() {
       {/* Virtualized full list (review feedback): the ListView owns the
           scrolling; filter/sort/search controls scroll with the content as
           the list header, same as the previous ScrollView layout */}
-      <ListView
+      <EarnPageListView
         flex={1}
         {...earnListScrollBehaviorProps}
         data={isInitialLoading ? EMPTY_ASSETS : sortedAssets}

@@ -3,7 +3,6 @@ import { useCallback, useMemo, useState } from 'react';
 import { useIntl } from 'react-intl';
 
 import {
-  ListView,
   NumberSizeableText,
   SearchBar,
   SizableText,
@@ -35,6 +34,7 @@ import {
 import { earnListScrollBehaviorProps } from '../../components/earnListScrollProps';
 import { EarnMobileSortControl } from '../../components/EarnMobileSortControl';
 import { EarnPageContainer } from '../../components/EarnPageContainer';
+import { EarnPageListView } from '../../components/EarnPageListView';
 import { NetworkFilterControl } from '../../components/NetworkFilterControl';
 import { EarnProviderMirror } from '../../EarnProviderMirror';
 import { EarnNavigation } from '../../earnUtils';
@@ -374,7 +374,7 @@ function EarnAllProtocolsContent() {
     >
       {/* Virtualized full list (review feedback): the ListView owns the
           scrolling; controls scroll with the content as the list header */}
-      <ListView
+      <EarnPageListView
         flex={1}
         {...earnListScrollBehaviorProps}
         data={sortedProviders}

@@ -13,8 +13,10 @@ import { TokenListSkeleton } from '../MarketHomeV2/components/MarketTokenList/co
 import { sortMarketTokenListData } from '../MarketHomeV2/components/MarketTokenList/utils/tokenListHelpers';
 
 import { BannerDetailListColumnHeader } from './BannerDetailListColumnHeader';
+import { BannerDetailMobileListFrame } from './BannerDetailMobileListFrame';
 
 import type { IBannerDetailSortType } from './BannerDetailListColumnHeader';
+import type { IBannerDetailHeaderOverlay } from './BannerDetailMobileListFrame';
 import type { FlatListProps } from 'react-native';
 
 type IBannerDetailStockFlatListProps = {
@@ -23,6 +25,7 @@ type IBannerDetailStockFlatListProps = {
   changeSortType?: IBannerDetailSortType;
   onChangeSortPress: () => void;
   onItemPress: (item: IMarketStockPublicItem) => void;
+  headerOverlay?: IBannerDetailHeaderOverlay;
 };
 
 // The mobile list for stock banners: the mobile Stocks tab's rows under the
@@ -34,6 +37,7 @@ export function BannerDetailStockFlatList({
   changeSortType,
   onChangeSortPress,
   onItemPress,
+  headerOverlay,
 }: IBannerDetailStockFlatListProps) {
   const intl = useIntl();
   const tabBarHeight = useTabBarHeight();
@@ -75,36 +79,50 @@ export function BannerDetailStockFlatList({
   }, [intl, isLoading]);
 
   return (
-    <Stack flex={1}>
-      <BannerDetailListColumnHeader
-        // Same label as the mobile home lists: the row's second line is the
-        // company name and the volume.
-        primaryColumnTitle={`${intl.formatMessage({
-          id: ETranslations.global_name,
-        })} / ${intl.formatMessage({
-          id: ETranslations.market_stock_volume__title,
-        })}`}
-        changeSortType={changeSortType}
-        change24hColumnTitle={intl.formatMessage({
-          id: ETranslations.market_stock_change__title,
-        })}
-        onChangeSortPress={onChangeSortPress}
-      />
-      {isLoading && sortedItems.length === 0 ? (
-        <TokenListSkeleton count={15} />
-      ) : (
-        <FlatList<IMarketStockPublicItem>
-          style={{ flex: 1 }}
-          data={sortedItems}
-          renderItem={renderItem}
-          keyExtractor={keyExtractor}
-          showsVerticalScrollIndicator={false}
-          initialNumToRender={15}
-          maxToRenderPerBatch={20}
-          contentContainerStyle={{ paddingBottom: tabBarHeight }}
-          ListEmptyComponent={emptyComponent}
+    <BannerDetailMobileListFrame
+      overlay={headerOverlay}
+      columnHeader={
+        <BannerDetailListColumnHeader
+          // Same label as the mobile home lists: the row's second line is the
+          // company name and the volume.
+          primaryColumnTitle={`${intl.formatMessage({
+            id: ETranslations.global_name,
+          })} / ${intl.formatMessage({
+            id: ETranslations.market_stock_volume__title,
+          })}`}
+          changeSortType={changeSortType}
+          change24hColumnTitle={intl.formatMessage({
+            id: ETranslations.market_stock_change__title,
+          })}
+          onChangeSortPress={onChangeSortPress}
         />
-      )}
-    </Stack>
+      }
+      renderList={(contentTopInset) => {
+        if (isLoading && sortedItems.length === 0) {
+          const skeleton = <TokenListSkeleton count={15} />;
+          return contentTopInset ? (
+            <Stack pt={contentTopInset}>{skeleton}</Stack>
+          ) : (
+            skeleton
+          );
+        }
+        return (
+          <FlatList<IMarketStockPublicItem>
+            style={{ flex: 1 }}
+            data={sortedItems}
+            renderItem={renderItem}
+            keyExtractor={keyExtractor}
+            showsVerticalScrollIndicator={false}
+            initialNumToRender={15}
+            maxToRenderPerBatch={20}
+            contentContainerStyle={{
+              paddingTop: contentTopInset,
+              paddingBottom: tabBarHeight,
+            }}
+            ListEmptyComponent={emptyComponent}
+          />
+        );
+      }}
+    />
   );
 }
