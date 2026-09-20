@@ -1,3 +1,5 @@
+import TronWeb from 'tronweb';
+
 import type { IEncodedTxTron } from '@onekeyhq/core/src/chains/tron/types';
 import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
 import type {
@@ -5,8 +7,12 @@ import type {
   ISignedMessagePro,
   ISignedTxPro,
 } from '@onekeyhq/core/src/types';
+import appCrypto from '@onekeyhq/shared/src/appCrypto';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
-import { ThirdPartyMethodNotSupported } from '@onekeyhq/shared/src/errors/errors/thirdPartyHardwareErrors';
+import {
+  ThirdPartyDeviceMismatch,
+  ThirdPartyMethodNotSupported,
+} from '@onekeyhq/shared/src/errors/errors/thirdPartyHardwareErrors';
 import { convertThirdPartyDeviceError } from '@onekeyhq/shared/src/errors/utils/thirdPartyDeviceErrorUtils';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
@@ -118,6 +124,43 @@ export class KeyringHardwareKeystone extends KeyringHardwareBase {
     });
   }
 
+  private _assertSignatureMatchesSigner({
+    digest,
+    signature,
+    signerAddress,
+  }: {
+    digest: string;
+    signature: string;
+    signerAddress: string;
+  }) {
+    try {
+      const recovery = Number.parseInt(signature.slice(-2), 16);
+      if (
+        hexUtils.isHexString(signature, 65) &&
+        [0, 1, 27, 28].includes(recovery)
+      ) {
+        const recoveredAddress = TronWeb.utils.crypto.ecRecover(
+          digest,
+          signature,
+        );
+        // The selected permission key may differ from the transaction owner.
+        if (
+          recoveredAddress.toLowerCase() ===
+          TronWeb.utils.address.toHex(signerAddress).toLowerCase()
+        ) {
+          return;
+        }
+      }
+    } catch {
+      // Invalid signatures must use the same error path as signer mismatches.
+    }
+    throw new ThirdPartyDeviceMismatch({
+      vendor: VENDOR_ERROR_CONTEXT.vendor,
+      autoToast: true,
+      payload: {},
+    });
+  }
+
   override async signTransaction(
     params: ISignTransactionParams,
   ): Promise<ISignedTxPro> {
@@ -134,6 +177,24 @@ export class KeyringHardwareKeystone extends KeyringHardwareBase {
         'Missing raw_data_hex in TRON encoded transaction',
       );
     }
+
+    if (
+      !hexUtils.isHexString(rawTxHex) ||
+      hexUtils.stripHexPrefix(rawTxHex).length % 2 !== 0
+    ) {
+      throw new OneKeyLocalError('Invalid TRON raw_data_hex');
+    }
+    const digest = (
+      await appCrypto.hash.sha256(
+        Buffer.from(hexUtils.stripHexPrefix(rawTxHex), 'hex'),
+      )
+    ).toString('hex');
+    if (digest !== encodedTx.txID?.toLowerCase()) {
+      throw new OneKeyLocalError(
+        'TRON transaction ID does not match raw_data_hex',
+      );
+    }
+    const signerAddress = await this.vault.getAccountAddress();
 
     const result = await adapter.hw.tronSignTransaction(
       checkedDeviceParams.deviceCommonParams?.operationId ?? dbDevice.connectId,
@@ -154,6 +215,7 @@ export class KeyringHardwareKeystone extends KeyringHardwareBase {
     }
 
     const { signature } = result.payload;
+    this._assertSignatureMatchesSigner({ digest, signature, signerAddress });
     return {
       txid: encodedTx.txID,
       encodedTx,
@@ -178,6 +240,17 @@ export class KeyringHardwareKeystone extends KeyringHardwareBase {
     ) {
       throw new ThirdPartyMethodNotSupported();
     }
+    if (
+      messages.some(
+        (message) =>
+          !hexUtils.isHexString(message.message) ||
+          hexUtils.stripHexPrefix(message.message).length % 2 !== 0,
+      )
+    ) {
+      throw new OneKeyLocalError(
+        'TRON messages must contain complete hex bytes',
+      );
+    }
     const checkedDeviceParams = checkIsDefined(deviceParams);
     const { dbDevice } = checkedDeviceParams;
     const account = await this.vault.getAccount();
@@ -186,6 +259,9 @@ export class KeyringHardwareKeystone extends KeyringHardwareBase {
 
     const signatures: ISignedMessagePro = [];
     for (const message of messages) {
+      const digest = TronWeb.utils.message.hashMessage(
+        Buffer.from(hexUtils.stripHexPrefix(message.message), 'hex'),
+      );
       // eslint-disable-next-line no-await-in-loop
       const result = await adapter.hw.tronSignMessage(
         operationId ?? dbDevice.connectId,
@@ -204,6 +280,11 @@ export class KeyringHardwareKeystone extends KeyringHardwareBase {
           VENDOR_ERROR_CONTEXT,
         );
       }
+      this._assertSignatureMatchesSigner({
+        digest,
+        signature: result.payload.signature,
+        signerAddress: account.address,
+      });
       signatures.push(hexUtils.addHexPrefix(result.payload.signature));
     }
     return signatures;
