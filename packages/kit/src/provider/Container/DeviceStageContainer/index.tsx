@@ -37,7 +37,6 @@ import {
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { showIntercom } from '@onekeyhq/shared/src/modules3rdParty/intercom';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { isProtocolV2ProductType } from '@onekeyhq/shared/src/utils/hardwareDeviceTypes';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import { EHardwareTransportType } from '@onekeyhq/shared/types';
 import { EHardwareVendor } from '@onekeyhq/shared/types/device';
@@ -552,9 +551,10 @@ function DeviceStageContainerCmp() {
       inputError={stage?.inputError}
       passphraseMode={stage?.passphraseMode}
       passphraseAllowUtf8={
-        stage?.payload?.source === 'wallet-session-coordinator' &&
-        (stage?.passphraseMode !== 'create' ||
-          !isProtocolV2ProductType(stage?.deviceType))
+        // Same key the legacy dialog used: only the wallet-session
+        // coordinator's requests reach a protocol V2 device, and those
+        // take NFKD UTF-8 instead of printable ASCII.
+        stage?.payload?.source === 'wallet-session-coordinator'
       }
       passphraseKeepAccessible={
         // The remembered Keep-accessible choice, read the way the legacy

@@ -25,7 +25,6 @@ import {
 } from '@onekeyhq/components/src/hooks/useForm';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   isPassphraseValid,
   normalizeProtocolV2Passphrase,
@@ -70,7 +69,6 @@ export function EnterPhase({
   const [settings] = useSettingsPersistAtom();
   const formOption = useMemo(
     () => ({
-      mode: allowProtocolV2Utf8 ? undefined : ('onChange' as const),
       defaultValues: {
         passphrase: '',
         confirmPassphrase: '',
@@ -135,18 +133,11 @@ export function EnterPhase({
             description={
               allowProtocolV2Utf8 ? undefined : (
                 <XStack gap="$1" pt="$2">
-                  <Stack>
-                    <SizableText size="$bodyMd" color="$textSubdued">
-                      {intl.formatMessage({
-                        id: ETranslations.passphrase_allowed_characters_desc,
-                      })}
-                    </SizableText>
-                    <SizableText size="$bodyMd" color="$textSubdued">
-                      {intl.formatMessage({
-                        id: ETranslations.passphrase_character_limit,
-                      })}
-                    </SizableText>
-                  </Stack>
+                  <SizableText size="$bodyMd" color="$textSubdued">
+                    {intl.formatMessage({
+                      id: ETranslations.passphrase_character_limit,
+                    })}
+                  </SizableText>
                   <Popover
                     placement="bottom"
                     floatingPanelProps={{
@@ -230,22 +221,13 @@ export function EnterPhase({
                 });
               },
               onChange: () => {
-                if (allowProtocolV2Utf8) {
-                  form.clearErrors();
-                }
+                form.clearErrors();
               },
             }}
           >
             <Input
               testID="hardware-ui-passphrase-input"
               secureTextEntry={secureEntry1}
-              keyboardType={
-                !allowProtocolV2Utf8 && platformEnv.isNativeIOS
-                  ? 'ascii-capable'
-                  : undefined
-              }
-              autoCapitalize="none"
-              autoCorrect={false}
               {...passwordManagerIgnoreProps}
               placeholder={intl.formatMessage({
                 id: ETranslations.global_enter_passphrase,

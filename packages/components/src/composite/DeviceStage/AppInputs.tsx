@@ -2,7 +2,7 @@ import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 
 import { useIntl } from 'react-intl';
-import { Platform, StyleSheet } from 'react-native';
+import { StyleSheet } from 'react-native';
 import Animated, {
   FadeIn,
   LinearTransition,
@@ -451,21 +451,10 @@ export function PassphraseForm({
     () => (mode === 'create' ? { keepAccessible } : undefined),
     [keepAccessible, mode],
   );
-  const handleChange = useCallback(
-    (text: string) => {
-      setValue(text);
-      const failure =
-        text && !allowProtocolV2Utf8
-          ? resolvePassphraseEntryFailure(text)
-          : undefined;
-      setValidationError(
-        failure
-          ? intl.formatMessage({ id: failure.id }, failure.values)
-          : undefined,
-      );
-    },
-    [allowProtocolV2Utf8, intl],
-  );
+  const handleChange = useCallback((text: string) => {
+    setValue(text);
+    setValidationError(undefined);
+  }, []);
   const handleConfirm = useCallback(() => {
     // A refused entry speaks its prompt in place of a disabled button —
     // the same ratified grammar as the PIN pad's empty confirm. The
@@ -526,12 +515,6 @@ export function PassphraseForm({
             value={value}
             onChangeText={handleChange}
             secureTextEntry={secure}
-            keyboardType={
-              !allowProtocolV2Utf8 && Platform.OS === 'ios'
-                ? 'ascii-capable'
-                : undefined
-            }
-            error={Boolean(shownError)}
             {...passwordManagerIgnoreProps}
             autoCapitalize="none"
             autoCorrect={false}
@@ -547,25 +530,21 @@ export function PassphraseForm({
               <Stack w="$1" h="$1" borderRadius="$full" bg="$textSubdued" />
             </Stack>
             <SizableText flex={1} size="$bodyMd" color="$textSubdued">
-              {mode === 'create' && !allowProtocolV2Utf8
-                ? intl.formatMessage({
-                    id: ETranslations.passphrase_allowed_characters_desc,
-                  })
-                : intl.formatMessage(
-                    { id: ETranslations.device_stage_allowed_characters__desc },
-                    {
-                      link: (chunks: ReactNode[]) => (
-                        <Anchor
-                          key="link"
-                          href="https://www.ascii-code.com/"
-                          size="$bodyMd"
-                          color="$textSubdued"
-                        >
-                          {chunks}
-                        </Anchor>
-                      ),
-                    },
-                  )}
+              {intl.formatMessage(
+                { id: ETranslations.device_stage_allowed_characters__desc },
+                {
+                  link: (chunks: ReactNode[]) => (
+                    <Anchor
+                      key="link"
+                      href="https://www.ascii-code.com/"
+                      size="$bodyMd"
+                      color="$textSubdued"
+                    >
+                      {chunks}
+                    </Anchor>
+                  ),
+                },
+              )}
             </SizableText>
           </XStack>
           <XStack gap="$1" alignItems="flex-start">
