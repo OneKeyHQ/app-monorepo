@@ -22,6 +22,7 @@ import { useTokenDetailActions } from '@onekeyhq/kit/src/states/jotai/contexts/m
 import { useMarketBasicConfig } from '@onekeyhq/kit/src/views/Market/hooks';
 import { usePerpsNavigation } from '@onekeyhq/kit/src/views/Market/hooks/usePerpsNavigation';
 import { useToMarketStockDetailPage } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketStockList/hooks/useToMarketStockDetailPage';
+import type { IMarketWatchlistDataCache } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketTokenList/hooks/useMarketWatchlistTokenList';
 import type { IMarketToken } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketTokenList/MarketTokenData';
 import { useMarketTopCoins } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketTopCoinsList/hooks/useMarketTopCoins';
 import type {
@@ -30,6 +31,7 @@ import type {
 } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/types';
 import {
   ensureMarketTopCoinsCategory,
+  getMarketHomeFallbackSpotCategories,
   isMarketStockCategory,
 } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/utils';
 import { useSwapProTokenSearch } from '@onekeyhq/kit/src/views/Swap/hooks/useSwapPro';
@@ -190,18 +192,9 @@ function BaseMarketTokenSelectorContent({
     }
     // Keep the complete selector available while the remote config loads.
     return ensureMarketTopCoinsCategory(
-      [
-        {
-          id: 'trending',
-          name: intl.formatMessage({ id: ETranslations.dexmarket_trending }),
-        },
-        {
-          id: 'stocks',
-          name: intl.formatMessage({
-            id: ETranslations.perps_token_selector_stocks,
-          }),
-        },
-      ],
+      getMarketHomeFallbackSpotCategories((descriptor) =>
+        intl.formatMessage(descriptor),
+      ),
       intl.formatMessage({ id: ETranslations.market_top_coins }),
     );
   }, [apiSpotCategories, intl]);
@@ -259,6 +252,13 @@ function BaseMarketTokenSelectorContent({
   const searchValueDebounce = useDebounce(searchValue, 500);
   const { searchLoading, searchTokenList } =
     useSwapProTokenSearch(searchValueDebounce);
+
+  // The favorites list is unmounted on every tab switch, so its fetched data
+  // is parked on this shell — which outlives the tabs — and handed back on
+  // remount instead of the list restarting from an empty state.
+  const watchlistDataCacheRef = useRef<IMarketWatchlistDataCache | undefined>(
+    undefined,
+  );
 
   const handleCategoryChange = useCallback(
     (categoryId: string) => {
@@ -458,6 +458,7 @@ function BaseMarketTokenSelectorContent({
             onItemPress={handleSelectToken}
             pollingInterval={TOKEN_SELECTOR_POLLING_INTERVAL}
             isWatchlistMode={Boolean(!searchValueDebounce && startListSelect)}
+            watchlistDataCacheRef={watchlistDataCacheRef}
             searchQuery={searchValueDebounce}
             searchLoading={searchLoading}
             searchResults={searchTokenList}

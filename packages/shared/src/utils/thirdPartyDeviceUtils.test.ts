@@ -293,6 +293,11 @@ describe('thirdPartyDeviceUtils', () => {
     }
   });
 
+  // Exempt from the test-integrity source-text rule, see
+  // development/lint/test-integrity.allowlist.json. Absence of an import from a
+  // module that ships in every platform's main bundle is a property of the
+  // module graph, and the test's own parity check above deliberately imports
+  // the SDK, so nothing observable at runtime can stand in for it.
   it('keeps the adapter SDK out of the runtime import graph', () => {
     // The whole point of the local copy: thirdPartyDeviceUtils is pulled into
     // every platform's main bundle, and a runtime import of

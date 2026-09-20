@@ -318,17 +318,7 @@ function MarketDetail({
           <MarketDetailHeader showFavoriteButton={showFavoriteButton} />
         )}
 
-        {/*
-         * The desktop detail body is a separate visual surface below the
-         * custom detail header. Keep its top corners rounded and clip its
-         * children so they do not paint square corners over BasicPage's
-         * shared outer frame.
-         */}
         <Page.Body
-          backgroundColor={isDesktopLayout ? '$bgApp' : undefined}
-          borderTopLeftRadius={isDesktopLayout ? '$4' : undefined}
-          borderTopRightRadius={isDesktopLayout ? '$4' : undefined}
-          overflow={isDesktopLayout ? 'hidden' : undefined}
           pt={isChartFullscreen && !platformEnv.isNative ? 0 : bodyPaddingTop}
           testID={MarketTestIDs.detailPage}
         >

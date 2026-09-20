@@ -94,6 +94,22 @@ function createRuntimeSelectedSyncStorage(
         onBlocked: () => undefined,
       });
     },
+    // Every optional capability is declared here and forwarded with `?.`, so
+    // a caller cannot tell from its presence whether the backend implements
+    // it. Reading entries answers `undefined` unless one really does.
+    readSWRCacheEntries() {
+      return runSync({
+        operation: (storage) => storage.readSWRCacheEntries?.(),
+        onBlocked: () => undefined,
+      });
+    },
+    subscribeSWRCacheEntries(listener) {
+      return runSync({
+        operation: (storage) =>
+          storage.subscribeSWRCacheEntries?.(listener) ?? (() => undefined),
+        onBlocked: () => () => undefined,
+      });
+    },
   };
 }
 

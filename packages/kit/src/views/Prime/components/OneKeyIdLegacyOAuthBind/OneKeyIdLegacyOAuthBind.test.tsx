@@ -1,18 +1,24 @@
 /** @jest-environment jsdom */
 
-import type { ReactElement } from 'react';
+import { Fragment, createElement } from 'react';
+import type { ReactElement, ReactNode } from 'react';
 
 import { render, waitFor } from '@testing-library/react';
 
 import { EOAuthSocialLoginProvider } from '@onekeyhq/shared/src/consts/authConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
-import { EOneKeyIdIdentityType } from '@onekeyhq/shared/types/prime/primeTypes';
+import { EOneKeyIdLoginWithLocalKeylessPrepareStatus } from '@onekeyhq/shared/src/keylessWallet/keylessWalletTypes';
+import {
+  EOneKeyIdIdentityType,
+  EOneKeyIdOAuthProvider,
+} from '@onekeyhq/shared/types/prime/primeTypes';
 
 import {
   OneKeyIdLegacyOAuthBindPrompt,
   showOneKeyIdLegacyOAuthBindDialog,
   showOneKeyIdLegacyOAuthBindDialogAfterCredentialUpgrade,
 } from './OneKeyIdLegacyOAuthBind';
+import { clearOneKeyIdLegacyOAuthBindCaches } from './oneKeyIdLocalKeylessPrepareCache';
 
 type IAccountSwitchResult = 'switched' | 'cancelled' | 'failed';
 
@@ -74,31 +80,97 @@ const mockEnsureKeylessCredentialReady = jest.fn(async () => ({
   status: 'ready' as const,
   hasLocalKeylessWallet: true as const,
 }));
+const mockPrepareOneKeyIdLoginWithLocalKeyless = jest.fn(async () => ({
+  status: EOneKeyIdLoginWithLocalKeylessPrepareStatus.NoLocalKeyless,
+}));
 const mockApiFetchPrimeUserInfo = jest.fn(async () => undefined);
 const mockLogOneKeyIdLoginFailureReason = jest.fn();
-const mockYStack = jest.fn((_props: unknown) => null);
+const mockButton = jest.fn((_props: unknown) => null);
+const mockBindCardLifecycle = {
+  mountCount: 0,
+  unmountCount: 0,
+};
+const mockBoundStatusLifecycle = {
+  mountCount: 0,
+  unmountCount: 0,
+};
+const mockGetOneKeyIdOAuthBindProviders = jest.fn(() => [
+  EOAuthSocialLoginProvider.Google,
+  EOAuthSocialLoginProvider.Apple,
+]);
 let mockOneKeyAuthUser:
   | {
-      onekeyUserId: string;
-      onekeyAccount: {
-        identities: { identityType: EOneKeyIdIdentityType }[];
+      onekeyUserId?: string;
+      onekeyAccount?: {
+        identities?: {
+          identityType: EOneKeyIdIdentityType;
+          oauthProvider?: EOneKeyIdOAuthProvider;
+        }[];
       };
     }
   | undefined;
 
-jest.mock('@onekeyhq/components', () => ({
-  Button: () => null,
-  Dialog: {
-    Footer: () => null,
-    show: (options: IDialogOptions) => mockDialogShow(options),
-  },
-  Icon: () => null,
-  SizableText: () => null,
-  Stack: () => null,
-  Toast: { success: jest.fn() },
-  XStack: () => null,
-  YStack: (props: unknown) => mockYStack(props),
+jest.mock('react-intl', () => ({
+  useIntl: () => ({
+    formatMessage: ({ id }: { id: string }, values?: Record<string, string>) =>
+      values ? `${id}:${JSON.stringify(values)}` : id,
+  }),
 }));
+
+jest.mock('@onekeyhq/components', () => {
+  const React = jest.requireActual<typeof import('react')>('react');
+
+  function MockLifecycleHost({
+    children,
+    lifecycle,
+  }: {
+    children?: React.ReactNode;
+    lifecycle: { mountCount: number; unmountCount: number };
+  }) {
+    React.useEffect(() => {
+      lifecycle.mountCount += 1;
+      return () => {
+        lifecycle.unmountCount += 1;
+      };
+    }, [lifecycle]);
+    return React.createElement(React.Fragment, null, children);
+  }
+
+  return {
+    Button: (props: unknown) => mockButton(props),
+    Dialog: {
+      Footer: () => null,
+      show: (options: IDialogOptions) => mockDialogShow(options),
+    },
+    Icon: () => null,
+    SizableText: () => null,
+    Stack: ({ children }: { children?: ReactNode }) =>
+      createElement(Fragment, null, children),
+    Toast: { success: jest.fn() },
+    XStack: () => null,
+    YStack: (props: {
+      children?: ReactNode;
+      overflow?: string;
+      p?: string;
+    }) => {
+      if (props.p === '$4') {
+        return React.createElement(
+          MockLifecycleHost,
+          { lifecycle: mockBindCardLifecycle },
+          props.children,
+        );
+      }
+      if (props.overflow === 'hidden') {
+        return React.createElement(
+          MockLifecycleHost,
+          { lifecycle: mockBoundStatusLifecycle },
+          props.children,
+        );
+      }
+      return React.createElement(React.Fragment, null, props.children);
+    },
+  };
+});
 
 jest.mock('@onekeyhq/kit/src/components/ListItem', () => ({
   ListItem: () => null,
@@ -157,7 +229,7 @@ jest.mock('../useOneKeyIdLocalKeylessOAuth', () => ({
 }));
 
 jest.mock('./oneKeyIdOAuthBindProviders', () => ({
-  getOneKeyIdOAuthBindProviders: () => [],
+  getOneKeyIdOAuthBindProviders: () => mockGetOneKeyIdOAuthBindProviders(),
 }));
 
 jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
@@ -166,6 +238,8 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
     serviceKeylessWallet: {
       ensureKeylessCredentialReadyForOneKeyIdBind: () =>
         mockEnsureKeylessCredentialReady(),
+      prepareOneKeyIdLoginWithLocalKeyless: () =>
+        mockPrepareOneKeyIdLoginWithLocalKeyless(),
     },
     servicePrime: {
       apiFetchPrimeUserInfo: () => mockApiFetchPrimeUserInfo(),
@@ -216,9 +290,68 @@ async function startRequiredKeylessBind(onBindSuccess: () => Promise<void>) {
   return { resultPromise };
 }
 
+function resetBindPromptHostCounts() {
+  mockBindCardLifecycle.mountCount = 0;
+  mockBindCardLifecycle.unmountCount = 0;
+  mockBoundStatusLifecycle.mountCount = 0;
+  mockBoundStatusLifecycle.unmountCount = 0;
+}
+
+function renderBindPrompt({
+  isLoggedIn = true,
+  isFocused = true,
+}: {
+  isLoggedIn?: boolean;
+  isFocused?: boolean;
+} = {}) {
+  return render(
+    <OneKeyIdLegacyOAuthBindPrompt
+      isLoggedIn={isLoggedIn}
+      isFocused={isFocused}
+    />,
+  );
+}
+
+function getBindProviderButtonDisabledSequence(
+  provider: EOAuthSocialLoginProvider,
+) {
+  return mockButton.mock.calls
+    .filter(([props]) => {
+      const buttonProps = props as { testID?: string };
+      return buttonProps.testID === `onekey-id-bind-oauth-${provider}-btn`;
+    })
+    .map(([props]) => (props as { disabled?: boolean }).disabled);
+}
+
+function isBindProviderButtonEnabled(provider: EOAuthSocialLoginProvider) {
+  return getBindProviderButtonDisabledSequence(provider).some(
+    (disabled) => disabled === false,
+  );
+}
+
+function expectBindProviderButtonsEnabledOnFirstPaint() {
+  for (const provider of mockGetOneKeyIdOAuthBindProviders()) {
+    const disabledSequence = getBindProviderButtonDisabledSequence(provider);
+    expect(disabledSequence.length).toBeGreaterThan(0);
+    expect(disabledSequence[0]).toBe(false);
+    expect(disabledSequence.every((disabled) => disabled === false)).toBe(true);
+  }
+}
+
+async function waitForInlineBindCardReady() {
+  await waitFor(() => {
+    expect(mockBindCardLifecycle).toEqual({ mountCount: 1, unmountCount: 0 });
+    for (const provider of mockGetOneKeyIdOAuthBindProviders()) {
+      expect(isBindProviderButtonEnabled(provider)).toBe(true);
+    }
+  });
+}
+
 describe('OneKeyIdLegacyOAuthBindPrompt readiness', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    clearOneKeyIdLegacyOAuthBindCaches();
+    resetBindPromptHostCounts();
     mockOneKeyAuthUser = {
       onekeyUserId: 'onekey-user-a',
       onekeyAccount: {
@@ -231,9 +364,9 @@ describe('OneKeyIdLegacyOAuthBindPrompt readiness', () => {
     const profileError = new OneKeyLocalError('profile unavailable');
     mockApiFetchPrimeUserInfo.mockRejectedValueOnce(profileError);
 
-    render(<OneKeyIdLegacyOAuthBindPrompt isLoggedIn isFocused />);
+    renderBindPrompt();
 
-    await waitFor(() => expect(mockYStack).toHaveBeenCalled());
+    await waitForInlineBindCardReady();
     expect(mockEnsureKeylessCredentialReady).toHaveBeenCalledTimes(1);
     expect(mockApiFetchPrimeUserInfo).toHaveBeenCalledTimes(1);
     expect(mockLogOneKeyIdLoginFailureReason).toHaveBeenCalledWith(
@@ -243,11 +376,150 @@ describe('OneKeyIdLegacyOAuthBindPrompt readiness', () => {
       profileError,
     );
   });
+
+  it('keeps the inline bind card mounted when the page loses and regains focus', async () => {
+    const { rerender } = renderBindPrompt();
+
+    await waitForInlineBindCardReady();
+    mockEnsureKeylessCredentialReady.mockClear();
+    mockApiFetchPrimeUserInfo.mockClear();
+    mockButton.mockClear();
+
+    rerender(<OneKeyIdLegacyOAuthBindPrompt isLoggedIn isFocused={false} />);
+    expect(mockBindCardLifecycle).toEqual({ mountCount: 1, unmountCount: 0 });
+    expectBindProviderButtonsEnabledOnFirstPaint();
+    expect(mockEnsureKeylessCredentialReady).not.toHaveBeenCalled();
+    expect(mockApiFetchPrimeUserInfo).not.toHaveBeenCalled();
+
+    mockButton.mockClear();
+    rerender(<OneKeyIdLegacyOAuthBindPrompt isLoggedIn isFocused />);
+    expect(mockBindCardLifecycle).toEqual({ mountCount: 1, unmountCount: 0 });
+    expectBindProviderButtonsEnabledOnFirstPaint();
+    await waitFor(() => {
+      expect(mockEnsureKeylessCredentialReady).toHaveBeenCalledTimes(1);
+    });
+    expect(mockBindCardLifecycle).toEqual({ mountCount: 1, unmountCount: 0 });
+  });
+
+  it.each([
+    {
+      name: 'a profile refresh writes empty identities',
+      remount: false,
+    },
+    {
+      name: 'the bind card remounts with unknown identities',
+      remount: true,
+    },
+  ])('keeps the inline bind card when $name', async ({ remount }) => {
+    const view = renderBindPrompt();
+    await waitForInlineBindCardReady();
+
+    mockOneKeyAuthUser = {
+      onekeyUserId: 'onekey-user-a',
+      onekeyAccount: {
+        identities: [],
+      },
+    };
+
+    if (remount) {
+      view.unmount();
+      expect(mockBindCardLifecycle).toEqual({
+        mountCount: 1,
+        unmountCount: 1,
+      });
+      mockButton.mockClear();
+      renderBindPrompt();
+      expect(mockBindCardLifecycle).toEqual({
+        mountCount: 2,
+        unmountCount: 1,
+      });
+      expectBindProviderButtonsEnabledOnFirstPaint();
+      return;
+    }
+
+    mockButton.mockClear();
+    view.rerender(<OneKeyIdLegacyOAuthBindPrompt isLoggedIn isFocused />);
+    expect(mockBindCardLifecycle).toEqual({ mountCount: 1, unmountCount: 0 });
+    expectBindProviderButtonsEnabledOnFirstPaint();
+  });
+
+  it('switches to the linked status when an OAuth identity arrives', async () => {
+    const { rerender } = renderBindPrompt();
+
+    await waitForInlineBindCardReady();
+    mockOneKeyAuthUser = {
+      onekeyUserId: 'onekey-user-a',
+      onekeyAccount: {
+        identities: [
+          { identityType: EOneKeyIdIdentityType.LegacyEmail },
+          {
+            identityType: EOneKeyIdIdentityType.OAuth,
+            oauthProvider: EOneKeyIdOAuthProvider.Google,
+          },
+        ],
+      },
+    };
+    rerender(<OneKeyIdLegacyOAuthBindPrompt isLoggedIn isFocused />);
+
+    expect(mockBindCardLifecycle).toEqual({ mountCount: 1, unmountCount: 1 });
+    expect(mockBoundStatusLifecycle).toEqual({
+      mountCount: 1,
+      unmountCount: 0,
+    });
+  });
+
+  it('keeps Google and Apple enabled after the bind card remounts', async () => {
+    const { unmount } = renderBindPrompt();
+
+    await waitForInlineBindCardReady();
+    unmount();
+    expect(mockBindCardLifecycle).toEqual({ mountCount: 1, unmountCount: 1 });
+    mockButton.mockClear();
+
+    renderBindPrompt();
+
+    expect(mockBindCardLifecycle).toEqual({ mountCount: 2, unmountCount: 1 });
+    expectBindProviderButtonsEnabledOnFirstPaint();
+  });
+
+  it('keeps the inline bind card when a profile write drops the user id', async () => {
+    const { rerender } = renderBindPrompt();
+
+    await waitForInlineBindCardReady();
+    mockEnsureKeylessCredentialReady.mockClear();
+    mockApiFetchPrimeUserInfo.mockClear();
+    mockPrepareOneKeyIdLoginWithLocalKeyless.mockClear();
+    mockButton.mockClear();
+    mockOneKeyAuthUser = {
+      onekeyAccount: undefined,
+    };
+    rerender(<OneKeyIdLegacyOAuthBindPrompt isLoggedIn isFocused />);
+
+    expect(mockBindCardLifecycle).toEqual({ mountCount: 1, unmountCount: 0 });
+    expectBindProviderButtonsEnabledOnFirstPaint();
+    expect(mockEnsureKeylessCredentialReady).not.toHaveBeenCalled();
+    expect(mockApiFetchPrimeUserInfo).not.toHaveBeenCalled();
+    expect(mockPrepareOneKeyIdLoginWithLocalKeyless).not.toHaveBeenCalled();
+  });
+
+  it('hides the inline bind card after logout', async () => {
+    const { rerender } = renderBindPrompt();
+
+    await waitForInlineBindCardReady();
+    rerender(<OneKeyIdLegacyOAuthBindPrompt isLoggedIn={false} isFocused />);
+
+    expect(mockBindCardLifecycle).toEqual({ mountCount: 1, unmountCount: 1 });
+    expect(mockBoundStatusLifecycle).toEqual({
+      mountCount: 0,
+      unmountCount: 0,
+    });
+  });
 });
 
 describe('showOneKeyIdLegacyOAuthBindDialog account switch handoff', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    clearOneKeyIdLegacyOAuthBindCaches();
     mockCurrentDialogOptions = undefined;
     mockOneKeyAuthUser = undefined;
   });
@@ -367,6 +639,7 @@ describe('showOneKeyIdLegacyOAuthBindDialog account switch handoff', () => {
 describe('showOneKeyIdLegacyOAuthBindDialogAfterCredentialUpgrade', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    clearOneKeyIdLegacyOAuthBindCaches();
     mockCurrentDialogOptions = undefined;
   });
 

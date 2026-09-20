@@ -104,6 +104,7 @@ function V4AccountNameSelector({
 export function RenameInputWithNameSelector({
   value,
   onChange,
+  onBlur,
   hasError,
   forceHasError,
   validationErrorMessage,
@@ -124,6 +125,9 @@ export function RenameInputWithNameSelector({
   maxLength?: number;
   value?: string;
   onChange?: (val: string) => void;
+  // Injected by Form.Field; forwarding it lets react-hook-form re-validate
+  // on blur so a required error clears once a name is typed.
+  onBlur?: IInputProps['onBlur'];
   hasError?: boolean;
   forceHasError?: boolean;
   validationErrorMessage?: string;
@@ -175,6 +179,7 @@ export function RenameInputWithNameSelector({
           autoFocus
           value={value}
           onChangeText={onChange}
+          onBlur={onBlur}
           flex={1}
           addOns={
             nameHistoryInfo?.entityId

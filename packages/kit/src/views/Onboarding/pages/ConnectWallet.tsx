@@ -23,6 +23,7 @@ import backgroundApiProxy from '../../../background/instance/backgroundApiProxy'
 import { AccountSelectorProviderMirror } from '../../../components/AccountSelector';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { useWalletConnection } from '../../../hooks/useWebDapp/useWalletConnection';
+import { OnboardingTestIDs } from '../../Onboardingv2/testIDs';
 
 import type { RouteProp } from '@react-navigation/core';
 
@@ -88,11 +89,13 @@ function WalletItemView({
   onPress,
   logo,
   name,
+  testID,
   loading,
 }: {
   onPress: () => void;
   logo: any;
   name: string;
+  testID?: string;
   loading?: boolean;
 }) {
   return (
@@ -104,6 +107,7 @@ function WalletItemView({
       p="$1"
     >
       <Stack
+        testID={testID}
         justifyContent="center"
         alignItems="center"
         bg="$bgStrong"
@@ -151,10 +155,12 @@ function WalletItem({
   logo,
   name,
   connectionInfo,
+  testID,
 }: {
   name?: string;
   logo: any;
   connectionInfo: IExternalConnectionInfo;
+  testID?: string;
 }) {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const { connectToWalletWithDialogShow, universalLoading, localLoading } =
@@ -168,6 +174,7 @@ function WalletItem({
       onPress={connectToWalletWithDialogShow}
       logo={logo}
       name={name || 'unknown'}
+      testID={testID}
       loading={localLoading}
     />
   );
@@ -201,6 +208,7 @@ export function ConnectWallet() {
           <WalletItem
             name={walletConnectInfo.name}
             logo={walletConnectInfo.logo}
+            testID={OnboardingTestIDs.connectExternalWalletWalletConnect}
             connectionInfo={{
               walletConnect: {
                 impl,

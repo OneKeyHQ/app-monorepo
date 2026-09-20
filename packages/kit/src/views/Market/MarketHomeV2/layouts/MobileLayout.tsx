@@ -3,7 +3,6 @@ import {
   memo,
   useCallback,
   useContext,
-  useEffect,
   useMemo,
   useRef,
   useState,
@@ -42,8 +41,8 @@ import {
 } from '../utils';
 
 import { useMarketTabsLogic, useSyncedMarketTab } from './hooks';
-import { getDefaultMarketStockCategoryId } from './marketStockCategoryUtils';
 import { getMarketWebSecondaryHeaderHeight } from './mobileLayoutUtils';
+import { useMarketSubCategorySelection } from './useMarketSubCategorySelection';
 
 import type {
   ILiquidityFilter,
@@ -76,6 +75,9 @@ interface ITabBarDynamicContext {
   stockCategories: IMarketCategoryItem[];
   selectedStockCategoryId: string;
   onSelectStockCategory: (categoryId: string) => void;
+  topCoinsCategories: IMarketCategoryItem[];
+  selectedTopCoinsCategoryId: string;
+  onSelectTopCoinsCategory: (categoryId: string) => void;
   perpsCategories: { tabId: string; name: string }[];
   selectedCategoryId: string;
   onSelectCategory: (categoryId: string) => void;
@@ -84,6 +86,7 @@ interface ITabBarDynamicContext {
 
 const TabBarDynamicContext = createContext<ITabBarDynamicContext | null>(null);
 const EMPTY_MARKET_STOCK_CATEGORIES: IMarketCategoryItem[] = [];
+const EMPTY_MARKET_TOP_COINS_CATEGORIES: IMarketCategoryItem[] = [];
 
 interface IMarketHomeTabBarProps extends TabBarProps<string> {
   watchlistTabName: string;
@@ -127,11 +130,18 @@ function MarketHomeTabBar({
     ) &&
     ctx.stockCategories.length > 0,
   );
+  const showTopCoinsCategorySelector = Boolean(
+    currentSpotCategoryId === MARKET_TOP_COINS_CATEGORY_ID &&
+    ctx.topCoinsCategories.length > 0,
+  );
   const secondaryHeaderHeight = getMarketWebSecondaryHeaderHeight({
     isWatchlistEmpty: ctx.isWatchlistEmpty,
     showWatchlistSubHeader,
     showSpotSubHeader,
-    hasSpotSecondaryControls: showSpotFilterBar || showStockCategorySelector,
+    hasSpotSecondaryControls:
+      showSpotFilterBar ||
+      showStockCategorySelector ||
+      showTopCoinsCategorySelector,
   });
 
   // Watchlist sub-header: conditional rendering (hidden when empty).
@@ -222,6 +232,18 @@ function MarketHomeTabBar({
               }}
             />
           ) : null}
+          {showTopCoinsCategorySelector ? (
+            <MarketStockCategorySelector
+              categories={ctx.topCoinsCategories}
+              selectedCategoryId={ctx.selectedTopCoinsCategoryId}
+              onSelectCategory={ctx.onSelectTopCoinsCategory}
+              containerStyle={{
+                px: '$5',
+                pt: '$3',
+                pb: '$3',
+              }}
+            />
+          ) : null}
           <MarketListColumnHeader />
         </YStack>
         <YStack
@@ -295,27 +317,12 @@ function MobileLayoutComponent({
   );
   const stockCategories =
     filterBarProps.stockCategories ?? EMPTY_MARKET_STOCK_CATEGORIES;
-  const [selectedStockCategoryId, setSelectedStockCategoryId] = useState(
-    getDefaultMarketStockCategoryId(stockCategories),
-  );
-  useEffect(() => {
-    if (stockCategories.length === 0) {
-      if (selectedStockCategoryId !== 'all') {
-        setSelectedStockCategoryId('all');
-      }
-      return;
-    }
-
-    if (
-      !stockCategories.some(
-        (category) => category.id === selectedStockCategoryId,
-      )
-    ) {
-      setSelectedStockCategoryId(
-        getDefaultMarketStockCategoryId(stockCategories),
-      );
-    }
-  }, [selectedStockCategoryId, stockCategories]);
+  const [selectedStockCategoryId, setSelectedStockCategoryId] =
+    useMarketSubCategorySelection(stockCategories);
+  const topCoinsCategories =
+    filterBarProps.topCoinsCategories ?? EMPTY_MARKET_TOP_COINS_CATEGORIES;
+  const [selectedTopCoinsCategoryId, setSelectedTopCoinsCategoryId] =
+    useMarketSubCategorySelection(topCoinsCategories);
   const [stockDataCategoryMap, setStockDataCategoryMap] = useState<
     Record<string, boolean>
   >({});
@@ -420,6 +427,9 @@ function MobileLayoutComponent({
       stockCategories,
       selectedStockCategoryId,
       onSelectStockCategory: setSelectedStockCategoryId,
+      topCoinsCategories,
+      selectedTopCoinsCategoryId,
+      onSelectTopCoinsCategory: setSelectedTopCoinsCategoryId,
       perpsCategories,
       selectedCategoryId,
       onSelectCategory: handleSelectCategory,
@@ -435,6 +445,10 @@ function MobileLayoutComponent({
       stockDataCategoryMap,
       stockCategories,
       selectedStockCategoryId,
+      setSelectedStockCategoryId,
+      topCoinsCategories,
+      selectedTopCoinsCategoryId,
+      setSelectedTopCoinsCategoryId,
       perpsCategories,
       selectedCategoryId,
       handleSelectCategory,
@@ -462,6 +476,7 @@ function MobileLayoutComponent({
       if (item.categoryId === MARKET_TOP_COINS_CATEGORY_ID) {
         tabContent = (
           <MobileMarketTopCoinsFlatList
+            selectedCategoryId={selectedTopCoinsCategoryId}
             listContainerProps={listContainerProps}
           />
         );
