@@ -145,8 +145,8 @@ export type IImageV2Props = Omit<
     resizeMode?: ImageProps['resizeMode'];
     contentFit?: IImageContentFit;
     cachePolicy?: IImageCachePolicy;
-    /** Loading visual. Skeleton must be explicitly requested.
-     * @default 'static'
+    /** Loading visual. Static and skeleton placeholders must be explicitly requested.
+     * @default 'none'
      */
     loadingStrategy?: IImageLoadingStrategy;
     recyclingKey?: string;
