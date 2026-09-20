@@ -216,18 +216,31 @@ describe('SwapInviteeRewardContent', () => {
     expect(onBeforeNavigate).toHaveBeenCalledTimes(1);
   });
 
-  it('keeps the unsupported-wallet state', () => {
-    mockPromiseResult.result = { status: 'unsupported' };
+  it('shows the no-wallet empty state when the account has no EVM address', () => {
+    const onBeforeNavigate = jest.fn();
 
-    render(<SwapInviteeRewardContent accountId="hd-1--account" />);
+    render(
+      <SwapInviteeRewardContent
+        accountId="watching--btc--bc1qwatch"
+        onBeforeNavigate={onBeforeNavigate}
+      />,
+    );
 
-    expect(screen.getByText('perps.account_not_support')).toBeTruthy();
+    expect(screen.getByText('referral.apply_code_no_wallet')).toBeTruthy();
+    fireEvent.click(screen.getByTestId('swap-invitee-reward-onboarding'));
+    expect(onBeforeNavigate).toHaveBeenCalledTimes(1);
+    expect(screen.queryByText('perps.account_not_support')).toBeNull();
   });
 
   it('keeps the retry action for request errors', () => {
     mockPromiseResult.result = { status: 'error' };
 
-    render(<SwapInviteeRewardContent accountId="hd-1--account" />);
+    render(
+      <SwapInviteeRewardContent
+        accountId="hd-1--account"
+        currentEvmAddress="0xcurrent"
+      />,
+    );
     fireEvent.click(screen.getByTestId('swap-invitee-reward-retry'));
 
     expect(mockRun).toHaveBeenCalledTimes(1);
