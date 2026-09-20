@@ -13,6 +13,10 @@ import {
   buildNativeTokenFromGasInfo,
   checkSwapLatestBalanceSufficient,
 } from '@onekeyhq/kit/src/views/Swap/utils/swapBalanceUtils';
+import {
+  isSwapGasAccountCandidate,
+  shouldRequestSwapGasAccount,
+} from '@onekeyhq/kit/src/views/Swap/utils/swapGasUtils';
 import type {
   IBuildUnsignedTxParams,
   ITransferInfo,
@@ -277,10 +281,13 @@ async function estimateUnsignedTxGasInfo({
       accountId,
       encodedTx: unsignedTxItem.encodedTx,
     });
-  // Gas Account sponsorship pre-check from the build-tx response carried on the
-  // unsigned tx; forwarded so estimate-fee can return real eligibility/quote.
-  const gasAccountEnabled =
-    !!unsignedTxItem.swapInfo?.swapBuildResData?.result?.gasAccountEnabled;
+  // Gas Account sponsorship request (OK-62562): backend provider pre-check
+  // carried on the unsigned tx, a single swap tx without approval, and no
+  // custom RPC; estimate-fee still returns the real eligibility / quote.
+  const gasAccountEnabled = await shouldRequestSwapGasAccount({
+    networkId,
+    swapInfo: unsignedTxItem.swapInfo,
+  });
   const gasRes = await backgroundApiProxy.serviceGas.estimateFee({
     ...estimateFeeParamsResult,
     accountAddress,
@@ -1294,8 +1301,11 @@ export async function sendMarketDirectUnsignedTxs({
   // For sponsored swaps, never reuse the preview gasInfos: re-run estimate-fee
   // right before sending so the broadcast uses a fresh, non-expired
   // gasAccountQuote.quoteId.
-  const needFreshGasForSponsor = unsignedTxArr.some(
-    (tx) => tx.swapInfo?.swapBuildResData?.result?.gasAccountEnabled,
+  const needFreshGasForSponsor = unsignedTxArr.some((tx) =>
+    isSwapGasAccountCandidate({
+      swapInfo: tx.swapInfo,
+      hasApproveTx: !!approveUnsignedTxArr?.length,
+    }),
   );
 
   if (
