@@ -52,6 +52,8 @@ export type IModalFiatCryptoParamList = {
     payout?: number;
     providerName?: string;
     address?: string;
-    checkoutId?: string;
+    // Durable Onramper transaction id (shown as "Order ID"); the per-attempt
+    // checkoutId is not a status-lookup key, so it is not surfaced here.
+    transactionId?: string;
   };
 };

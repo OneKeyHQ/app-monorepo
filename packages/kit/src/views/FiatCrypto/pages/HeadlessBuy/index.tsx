@@ -275,7 +275,7 @@ function HeadlessBuyPage() {
                 payout: quoteRef.current?.payout,
                 providerName: selectedProvider ?? quoteRef.current?.ramp,
                 address: effectiveAddress,
-                checkoutId: event.checkoutId,
+                transactionId: event.transactionId,
               },
             },
           ],

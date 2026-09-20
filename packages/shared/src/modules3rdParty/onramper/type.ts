@@ -76,7 +76,13 @@ export type IOnramperEventName =
   | 'loginRequired';
 
 export type IOnramperEvent = {
+  // Per-attempt checkout id (SDK `completed.checkoutId`). Not accepted by
+  // Onramper's GET /transactions/{id}; keep for support tracing only.
   checkoutId?: string;
+  // Durable Onramper transaction id (SDK 1.2.1+ `onramperTransactionId`),
+  // published at checkout finalize. This is the handle for order-status
+  // lookups (GET /transactions/{transactionId}) and what the UI shows.
+  transactionId?: string;
   errorCode?: string;
   message?: string;
   info?: Record<string, unknown>;

@@ -130,6 +130,7 @@ export function useOnramperCheckout({
         ...logCtxRef.current,
         errorCode: event.errorCode,
         checkoutId: event.checkoutId,
+        transactionId: event.transactionId,
       });
       if (
         isStructuralOnramperError({
@@ -171,6 +172,7 @@ export function useOnramperCheckout({
         defaultLogger.fiatCrypto.onramper.checkoutCompleted({
           ...logCtxRef.current,
           checkoutId: event.checkoutId,
+          transactionId: event.transactionId,
         });
         onCompletedRef.current(event);
       }),
@@ -325,8 +327,12 @@ export function useOnramperCheckout({
     defaultLogger.fiatCrypto.onramper.checkoutCompleted({
       ...logCtxRef.current,
       checkoutId: 'mock-checkout',
+      transactionId: 'mock-transaction',
     });
-    onCompletedRef.current({ checkoutId: 'mock-checkout' });
+    onCompletedRef.current({
+      checkoutId: 'mock-checkout',
+      transactionId: 'mock-transaction',
+    });
   }, []);
 
   const retry = useCallback(() => {

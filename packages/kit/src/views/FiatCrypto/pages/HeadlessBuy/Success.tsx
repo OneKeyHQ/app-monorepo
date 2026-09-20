@@ -53,21 +53,22 @@ function HeadlessBuySuccessPage() {
     payout,
     providerName,
     address,
-    checkoutId,
+    transactionId,
   } = route.params;
 
   const handleDone = useCallback(() => {
     navigation.popStack();
   }, [navigation]);
 
-  // Full id to the clipboard (the row shows it shortened) — it is the only
-  // handle support/Onramper can look an order up by.
+  // Full id to the clipboard (the row shows it shortened) — the Onramper
+  // transaction id is the handle support / GET /transactions/{id} look an
+  // order up by.
   const { copyText } = useClipboard();
   const handleCopyOrderId = useCallback(() => {
-    if (checkoutId) {
-      copyText(checkoutId);
+    if (transactionId) {
+      copyText(transactionId);
     }
-  }, [checkoutId, copyText]);
+  }, [transactionId, copyText]);
 
   return (
     <Page>
@@ -142,11 +143,11 @@ function HeadlessBuySuccessPage() {
                   </SizableText>
                 </DetailRow>
               ) : null}
-              {checkoutId ? (
+              {transactionId ? (
                 <DetailRow label="Order ID" onPress={handleCopyOrderId}>
                   <XStack ai="center" gap="$1.5">
                     <SizableText size="$bodyMdMedium">
-                      {accountUtils.shortenAddress({ address: checkoutId })}
+                      {accountUtils.shortenAddress({ address: transactionId })}
                     </SizableText>
                     <Icon name="Copy3Outline" size="$4" color="$iconSubdued" />
                   </XStack>

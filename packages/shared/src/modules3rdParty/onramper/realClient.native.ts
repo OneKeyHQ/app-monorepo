@@ -62,7 +62,7 @@ type ISdkEventPayload = {
   error?: { code?: string; message?: string; info?: Record<string, unknown> };
 };
 
-// Mirrors the SDK's `OnramperErrorCode` union (1.1.1) — used to validate codes
+// Mirrors the SDK's `OnramperErrorCode` union (1.2.2) — used to validate codes
 // recovered from degraded bridge errors below.
 const KNOWN_ERROR_CODES = new Set([
   'notInitialized',
@@ -155,8 +155,13 @@ export function createRealOnramperClient(
     ) =>
       client.addEventListener(name, (event: unknown) => {
         const e = event as ISdkEventPayload;
+        // The SDK wrapper mirrors `checkoutFinalized.response.onramperTransactionId`
+        // into `currentTransactionId` before fanning the event out, so it is
+        // already set when `completed` / a post-finalize `failed` arrives.
+        // Read it per event (not once) — reset()/signOut() clear it.
         listener({
           checkoutId: e.checkoutId,
+          transactionId: client.currentTransactionId ?? undefined,
           errorCode: e.error?.code,
           message: e.error?.message,
           info: e.error?.info,

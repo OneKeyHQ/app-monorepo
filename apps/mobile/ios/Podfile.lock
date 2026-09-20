@@ -575,7 +575,7 @@ PODS:
     - Yoga
   - OneKeyTextInput (3.0.149):
     - React-Core
-  - OnramperReactNative (1.1.1):
+  - OnramperReactNative (1.2.2):
     - hermes-engine
     - NitroModules
     - RCTRequired
@@ -4517,7 +4517,7 @@ SPEC CHECKSUMS:
   NitroModules: d5be9f4559fc5178388ccf3ba2e152230b766d67
   OneKeyImage: 3674f6fb60dfd3d8823b4eff50996363ac63a4ae
   OneKeyTextInput: 479b224a0a7b8e834d61aba83a11c8c5211b1b9a
-  OnramperReactNative: e6f817f8b6ad6c79fa59e67cd443f1e64d28065c
+  OnramperReactNative: 669aaea1b7c785d11c0ada49462f4bb4aaf2f9b6
   OpenSSL-Universal: ecee7b138fa75a74ecf00d7ffd248fb584739b9e
   Pbkdf2: db42b94e070022baf806b6d331bf87b56c75e7ab
   PerpDepthBar: 3fee83c308bf0321c14eb8bc6ecb3d28515ee334

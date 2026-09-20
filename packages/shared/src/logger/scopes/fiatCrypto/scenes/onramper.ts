@@ -23,9 +23,12 @@ export class OnramperScene extends BaseScene {
   public checkoutCompleted(params: {
     networkId: string;
     tokenSymbol: string;
-    // Onramper checkout id — the server-side handle for locating this order
+    // Onramper checkout id — per-attempt handle for locating this order
     // with Onramper support (device logs don't persist).
     checkoutId?: string;
+    // Durable Onramper transaction id — the key for GET /transactions/{id}
+    // order-status lookups on the backend.
+    transactionId?: string;
   }) {
     return params;
   }
@@ -38,6 +41,8 @@ export class OnramperScene extends BaseScene {
     // Present only when the SDK attaches it (post-checkout failures);
     // quote-stage failures have no checkout yet.
     checkoutId?: string;
+    // Present once checkout finalize succeeded (see checkoutCompleted).
+    transactionId?: string;
   }) {
     return params;
   }
