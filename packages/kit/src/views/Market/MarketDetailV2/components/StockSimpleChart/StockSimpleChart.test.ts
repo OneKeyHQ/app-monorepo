@@ -3,14 +3,18 @@ import type { IMarketTokenChart } from '@onekeyhq/shared/types/market';
 
 import {
   STOCK_SHARE_SIMPLE_CHART_RANGES,
+  STOCK_SIMPLE_CHART_POLLING_MS,
   TOKEN_SIMPLE_CHART_RANGES,
+  buildStockSimpleChartScopeKey,
   fetchStockSimpleChartPoints,
   mergeStockSimpleChartLivePrice,
   resolveStockSimpleChartBucketSeconds,
   resolveStockSimpleChartLivePrice,
+  resolveStockSimpleChartMinRefreshMs,
   resolveStockSimpleChartPreviousClose,
   resolveStockSimpleChartPulseLastPoint,
   resolveStockSimpleChartRequestScope,
+  shouldStoreStockSimpleChartSeries,
 } from './stockSimpleChartData';
 
 jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
@@ -834,5 +838,119 @@ describe('mergeStockSimpleChartLivePrice', () => {
         points,
       }),
     ).toBe(points);
+  });
+});
+
+describe('shouldStoreStockSimpleChartSeries', () => {
+  const baseParams = {
+    currentScopeKey: 'token|1D|evm--1|0xabc|||',
+    requestScopeKey: 'token|1D|evm--1|0xabc|||',
+    requestSeq: 2,
+    storedSeq: 1,
+  };
+
+  it('stores a newer response for the current scope', () => {
+    expect(shouldStoreStockSimpleChartSeries(baseParams)).toBe(true);
+  });
+
+  it('stores the first response of a session', () => {
+    expect(
+      shouldStoreStockSimpleChartSeries({
+        ...baseParams,
+        requestSeq: 1,
+        storedSeq: undefined,
+      }),
+    ).toBe(true);
+  });
+
+  // Two refreshes of one scope can overlap and answer out of order; the older
+  // one must not restore its series over the newer one.
+  it('drops a response overtaken by a later request', () => {
+    expect(
+      shouldStoreStockSimpleChartSeries({
+        ...baseParams,
+        requestSeq: 2,
+        storedSeq: 3,
+      }),
+    ).toBe(false);
+  });
+
+  it('drops a response whose scope the user has left', () => {
+    expect(
+      shouldStoreStockSimpleChartSeries({
+        ...baseParams,
+        currentScopeKey: 'token|1W|evm--1|0xabc|||',
+      }),
+    ).toBe(false);
+  });
+});
+
+describe('resolveStockSimpleChartMinRefreshMs', () => {
+  it('refetches fine-bucket ranges more often than coarse ones', () => {
+    const oneHour = resolveStockSimpleChartMinRefreshMs({ range: '1H' });
+    const oneYear = resolveStockSimpleChartMinRefreshMs({ range: '1Y' });
+    expect(oneHour).toBeLessThan(oneYear);
+  });
+
+  it('keeps every range on a positive floor', () => {
+    for (const range of TOKEN_SIMPLE_CHART_RANGES) {
+      expect(resolveStockSimpleChartMinRefreshMs({ range })).toBeGreaterThan(0);
+    }
+  });
+
+  // A per-range pollingInterval would make usePromiseResult withhold the
+  // dependency-triggered run for the full new duration on every range switch.
+  it('paces ranges without varying the polling interval', () => {
+    expect(STOCK_SIMPLE_CHART_POLLING_MS).toBeGreaterThan(0);
+    const floors = TOKEN_SIMPLE_CHART_RANGES.map((range) =>
+      resolveStockSimpleChartMinRefreshMs({ range }),
+    );
+    expect(Math.min(...floors)).toBeGreaterThanOrEqual(
+      STOCK_SIMPLE_CHART_POLLING_MS,
+    );
+  });
+});
+
+describe('buildStockSimpleChartScopeKey', () => {
+  const baseScope = {
+    networkId: 'evm--4663',
+    priceMode: 'token' as const,
+    range: '1D' as const,
+    tokenAddress: '0xabc',
+  };
+
+  it('matches itself for an unchanged scope', () => {
+    expect(buildStockSimpleChartScopeKey(baseScope)).toBe(
+      buildStockSimpleChartScopeKey(baseScope),
+    );
+  });
+
+  it('separates a different range, token, network or price mode', () => {
+    const key = buildStockSimpleChartScopeKey(baseScope);
+    expect(
+      buildStockSimpleChartScopeKey({ ...baseScope, range: '1W' }),
+    ).not.toBe(key);
+    expect(
+      buildStockSimpleChartScopeKey({ ...baseScope, tokenAddress: '0xdef' }),
+    ).not.toBe(key);
+    expect(
+      buildStockSimpleChartScopeKey({ ...baseScope, networkId: 'evm--56' }),
+    ).not.toBe(key);
+    expect(
+      buildStockSimpleChartScopeKey({ ...baseScope, priceMode: 'share' }),
+    ).not.toBe(key);
+  });
+
+  it('separates series that only differ by their upstream id', () => {
+    const key = buildStockSimpleChartScopeKey(baseScope);
+    expect(
+      buildStockSimpleChartScopeKey({ ...baseScope, stockId: 'AAPL' }),
+    ).not.toBe(key);
+    expect(
+      buildStockSimpleChartScopeKey({ ...baseScope, marketAssetId: 'bitcoin' }),
+    ).not.toBe(key);
+    expect(
+      buildStockSimpleChartScopeKey({ ...baseScope, coinGeckoId: 'bitcoin' }),
+    ).not.toBe(key);
   });
 });
