@@ -53,11 +53,13 @@ type IStockSimpleChartState = {
 };
 
 export function StockSimpleChart({
+  active = true,
   coinGeckoId,
   marketAssetId,
   range,
   priceMode,
 }: {
+  active?: boolean;
   coinGeckoId?: string;
   marketAssetId?: string;
   range: IStockSimpleChartRange;
@@ -109,14 +111,16 @@ export function StockSimpleChart({
   // moving freezes the chart with it. Simple mode mounts no TradingView, which
   // is what keeps that quote on the traded price everywhere else.
   useMarketKlineLivePrice({
-    enabled: resolveMarketKlineLivePriceEnabled({
-      currencyId,
-      isNative: requestIsNative,
-      marketAssetId: requestMarketAssetId,
-      networkId: requestNetworkId,
-      priceMode: requestPriceMode,
-      tokenAddress: requestTokenAddress,
-    }),
+    enabled:
+      active &&
+      resolveMarketKlineLivePriceEnabled({
+        currencyId,
+        isNative: requestIsNative,
+        marketAssetId: requestMarketAssetId,
+        networkId: requestNetworkId,
+        priceMode: requestPriceMode,
+        tokenAddress: requestTokenAddress,
+      }),
     networkId: requestNetworkId,
     tokenAddress: requestTokenAddress,
   });
@@ -160,10 +164,20 @@ export function StockSimpleChart({
     run: retry,
   } = usePromiseResult<IStockSimpleChartState>(
     async () => {
-      requestSeqRef.current += 1;
-      const seq = requestSeqRef.current;
       const cached = lastLoadedRef.current;
       const isCachedScope = cached?.key === scopeKey && cached.data.length > 0;
+      // A retained Desktop/Web route keeps this chart mounted after another
+      // route takes over the shared detail state, and focus checks are off here,
+      // so ownership is what stops the requests. The interval identity stays
+      // untouched, which lets the route refetch as soon as it is active again.
+      if (!active) {
+        return isCachedScope
+          ? { data: cached.data, scopeKey, status: 'success' }
+          : { data: [], scopeKey: '', status: 'pending' };
+      }
+
+      requestSeqRef.current += 1;
+      const seq = requestSeqRef.current;
       // One polling interval serves every range, so the per-range pace is
       // enforced here. A scope change skips this and reloads immediately.
       if (isCachedScope && Date.now() - cached.loadedAt < minRefreshMs) {
@@ -213,6 +227,7 @@ export function StockSimpleChart({
       }
     },
     [
+      active,
       requestCoinGeckoId,
       requestIsNative,
       requestMarketAssetId,

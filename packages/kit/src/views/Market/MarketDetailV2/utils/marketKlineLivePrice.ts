@@ -56,6 +56,27 @@ export function resolveMarketKlineLivePriceEnabled({
 }
 
 /**
+ * Decides whether a resolved poll may still write the quote. Two polls overlap
+ * whenever a reconnect or focus revalidation starts one while a paced tick is in
+ * flight, and the older one can answer last. Start order has to hold as well as
+ * scope: this write goes to a shared atom and stamps itself as the newest price,
+ * so an out-of-order one would pin a stale close until the next tick.
+ */
+export function shouldApplyMarketKlineLivePrice({
+  appliedSeq,
+  currentRequestScope,
+  requestScope,
+  requestSeq,
+}: {
+  appliedSeq: number | undefined;
+  currentRequestScope: string;
+  requestScope: string;
+  requestSeq: number;
+}): boolean {
+  return currentRequestScope === requestScope && requestSeq > (appliedSeq ?? 0);
+}
+
+/**
  * Reads the latest traded price out of a K-line window: the newest bucket's
  * close. Buckets are returned oldest-first but a feed is not trusted to sort,
  * so the newest timestamp is picked explicitly.

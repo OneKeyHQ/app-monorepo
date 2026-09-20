@@ -15,6 +15,7 @@ import {
   MARKET_KLINE_LIVE_PRICE_WINDOW_SECONDS,
   extractMarketKlineLivePrice,
   formatMarketKlineLivePrice,
+  shouldApplyMarketKlineLivePrice,
 } from '../utils/marketKlineLivePrice';
 
 /**
@@ -49,6 +50,10 @@ export function useMarketKlineLivePrice({
   const requestScope = `${String(enabled)}|${networkId}|${tokenAddress}`;
   const requestScopeRef = useRef(requestScope);
   requestScopeRef.current = requestScope;
+  // Ordering for overlapping polls of the same scope, so a slow older response
+  // cannot land after a newer one has already updated the quote.
+  const requestSeqRef = useRef(0);
+  const appliedSeqRef = useRef(0);
 
   usePromiseResult(
     async () => {
@@ -56,6 +61,8 @@ export function useMarketKlineLivePrice({
         return;
       }
 
+      requestSeqRef.current += 1;
+      const requestSeq = requestSeqRef.current;
       const timeTo = Math.floor(Date.now() / 1000);
       let response;
       try {
@@ -83,9 +90,18 @@ export function useMarketKlineLivePrice({
       // Display currency, price mode and Simple-vs-Pro can all change while the
       // request is in flight, and a USD close must not land on a quote that is
       // no longer USD — `applyChartPriceUpdate` only guards token identity.
-      if (!isMountedRef.current || requestScopeRef.current !== requestScope) {
+      if (
+        !isMountedRef.current ||
+        !shouldApplyMarketKlineLivePrice({
+          appliedSeq: appliedSeqRef.current,
+          currentRequestScope: requestScopeRef.current,
+          requestScope,
+          requestSeq,
+        })
+      ) {
         return;
       }
+      appliedSeqRef.current = requestSeq;
 
       // The header price cache drops any write that is not strictly newer than
       // the one it holds, so a quote timestamp is only useful while it stays

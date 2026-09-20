@@ -4,6 +4,7 @@ import {
   extractMarketKlineLivePrice,
   formatMarketKlineLivePrice,
   resolveMarketKlineLivePriceEnabled,
+  shouldApplyMarketKlineLivePrice,
 } from './marketKlineLivePrice';
 
 function buildPoint({
@@ -15,6 +16,53 @@ function buildPoint({
 }): IMarketTokenKLineDataPoint {
   return { o: c, h: c, l: c, c, v: 0, t };
 }
+
+describe('shouldApplyMarketKlineLivePrice', () => {
+  const baseGuard = {
+    appliedSeq: 1,
+    currentRequestScope: 'true|evm--4663|0xabc',
+    requestScope: 'true|evm--4663|0xabc',
+    requestSeq: 2,
+  };
+
+  it('applies a newer response of the current scope', () => {
+    expect(shouldApplyMarketKlineLivePrice(baseGuard)).toBe(true);
+  });
+
+  it('applies the first response, before anything has been written', () => {
+    expect(
+      shouldApplyMarketKlineLivePrice({
+        ...baseGuard,
+        appliedSeq: undefined,
+        requestSeq: 1,
+      }),
+    ).toBe(true);
+  });
+
+  // An overlapping pair can resolve out of order, and this write stamps itself
+  // as the newest price, so the older close must not be the one that lands.
+  it('drops a response that started before the applied one', () => {
+    expect(
+      shouldApplyMarketKlineLivePrice({ ...baseGuard, requestSeq: 1 }),
+    ).toBe(false);
+    expect(
+      shouldApplyMarketKlineLivePrice({
+        ...baseGuard,
+        appliedSeq: 3,
+        requestSeq: 2,
+      }),
+    ).toBe(false);
+  });
+
+  it('drops a response whose scope is no longer current', () => {
+    expect(
+      shouldApplyMarketKlineLivePrice({
+        ...baseGuard,
+        currentRequestScope: 'false|evm--4663|0xabc',
+      }),
+    ).toBe(false);
+  });
+});
 
 describe('resolveMarketKlineLivePriceEnabled', () => {
   const baseParams = {
