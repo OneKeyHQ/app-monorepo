@@ -3,13 +3,14 @@ import type { IMarketTokenChart } from '@onekeyhq/shared/types/market';
 
 import {
   STOCK_SHARE_SIMPLE_CHART_RANGES,
+  STOCK_SIMPLE_CHART_POLLING_MS,
   TOKEN_SIMPLE_CHART_RANGES,
   buildStockSimpleChartScopeKey,
   fetchStockSimpleChartPoints,
   mergeStockSimpleChartLivePrice,
   resolveStockSimpleChartBucketSeconds,
   resolveStockSimpleChartLivePrice,
-  resolveStockSimpleChartPollingInterval,
+  resolveStockSimpleChartMinRefreshMs,
   resolveStockSimpleChartPreviousClose,
   resolveStockSimpleChartPulseLastPoint,
   resolveStockSimpleChartRequestScope,
@@ -839,19 +840,29 @@ describe('mergeStockSimpleChartLivePrice', () => {
   });
 });
 
-describe('resolveStockSimpleChartPollingInterval', () => {
-  it('refreshes fine-bucket ranges faster than coarse ones', () => {
-    const oneHour = resolveStockSimpleChartPollingInterval({ range: '1H' });
-    const oneYear = resolveStockSimpleChartPollingInterval({ range: '1Y' });
+describe('resolveStockSimpleChartMinRefreshMs', () => {
+  it('refetches fine-bucket ranges more often than coarse ones', () => {
+    const oneHour = resolveStockSimpleChartMinRefreshMs({ range: '1H' });
+    const oneYear = resolveStockSimpleChartMinRefreshMs({ range: '1Y' });
     expect(oneHour).toBeLessThan(oneYear);
   });
 
-  it('keeps every range on a positive schedule', () => {
+  it('keeps every range on a positive floor', () => {
     for (const range of TOKEN_SIMPLE_CHART_RANGES) {
-      expect(resolveStockSimpleChartPollingInterval({ range })).toBeGreaterThan(
-        0,
-      );
+      expect(resolveStockSimpleChartMinRefreshMs({ range })).toBeGreaterThan(0);
     }
+  });
+
+  // A per-range pollingInterval would make usePromiseResult withhold the
+  // dependency-triggered run for the full new duration on every range switch.
+  it('paces ranges without varying the polling interval', () => {
+    expect(STOCK_SIMPLE_CHART_POLLING_MS).toBeGreaterThan(0);
+    const floors = TOKEN_SIMPLE_CHART_RANGES.map((range) =>
+      resolveStockSimpleChartMinRefreshMs({ range }),
+    );
+    expect(Math.min(...floors)).toBeGreaterThanOrEqual(
+      STOCK_SIMPLE_CHART_POLLING_MS,
+    );
   });
 });
 

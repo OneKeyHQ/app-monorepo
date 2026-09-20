@@ -1,6 +1,7 @@
 import { useRef } from 'react';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { useIsMounted } from '@onekeyhq/kit/src/hooks/useIsMounted';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import {
   tokenDetailAtom,
@@ -41,6 +42,13 @@ export function useMarketKlineLivePrice({
   const actions = useTokenDetailActions();
   const { store } = useMarketV2ContextData();
   const lastWrittenAtRef = useRef(0);
+  const isMountedRef = useIsMounted();
+  // `usePromiseResult` can drop a stale return value, but this hook writes to a
+  // shared atom as a side effect, which no nonce can roll back. The scope this
+  // request was started for has to be re-checked once it resolves.
+  const requestScope = `${String(enabled)}|${networkId}|${tokenAddress}`;
+  const requestScopeRef = useRef(requestScope);
+  requestScopeRef.current = requestScope;
 
   usePromiseResult(
     async () => {
@@ -49,18 +57,34 @@ export function useMarketKlineLivePrice({
       }
 
       const timeTo = Math.floor(Date.now() / 1000);
-      const response =
-        await backgroundApiProxy.serviceMarketV2.fetchMarketTokenKline({
-          interval: MARKET_KLINE_LIVE_PRICE_INTERVAL,
-          networkId,
-          tokenAddress,
-          timeFrom: timeTo - MARKET_KLINE_LIVE_PRICE_WINDOW_SECONDS,
-          timeTo,
-          autoHandleError: false,
-        });
+      let response;
+      try {
+        response = await backgroundApiProxy.serviceMarketV2.fetchMarketTokenKline(
+          {
+            interval: MARKET_KLINE_LIVE_PRICE_INTERVAL,
+            networkId,
+            tokenAddress,
+            timeFrom: timeTo - MARKET_KLINE_LIVE_PRICE_WINDOW_SECONDS,
+            timeTo,
+            autoHandleError: false,
+          },
+        );
+      } catch (_error) {
+        // A refresh that fails keeps the price already on screen. Rethrowing
+        // would surface as an unhandled rejection on every polling tick, since
+        // the polling chain discards this promise.
+        return;
+      }
 
       const price = extractMarketKlineLivePrice(response?.points);
       if (price === undefined) {
+        return;
+      }
+
+      // Display currency, price mode and Simple-vs-Pro can all change while the
+      // request is in flight, and a USD close must not land on a quote that is
+      // no longer USD — `applyChartPriceUpdate` only guards token identity.
+      if (!isMountedRef.current || requestScopeRef.current !== requestScope) {
         return;
       }
 
@@ -84,7 +108,7 @@ export function useMarketKlineLivePrice({
         lastUpdated,
       });
     },
-    [actions, enabled, networkId, store, tokenAddress],
+    [actions, enabled, isMountedRef, networkId, requestScope, store, tokenAddress],
     {
       pollingInterval: MARKET_KLINE_LIVE_PRICE_POLLING_MS,
       revalidateOnFocus: true,

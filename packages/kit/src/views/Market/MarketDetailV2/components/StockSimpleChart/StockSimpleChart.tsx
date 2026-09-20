@@ -24,12 +24,13 @@ import { resolveMarketKlineLivePriceEnabled } from '../../utils/marketKlineLiveP
 
 import {
   type IStockSimpleChartRange,
+  STOCK_SIMPLE_CHART_POLLING_MS,
   buildStockSimpleChartScopeKey,
   fetchStockSimpleChartPoints,
   mergeStockSimpleChartLivePrice,
   resolveStockSimpleChartBucketSeconds,
   resolveStockSimpleChartLivePrice,
-  resolveStockSimpleChartPollingInterval,
+  resolveStockSimpleChartMinRefreshMs,
   resolveStockSimpleChartPreviousClose,
   resolveStockSimpleChartPulseLastPoint,
   resolveStockSimpleChartRequestScope,
@@ -44,6 +45,10 @@ const STOCK_SIMPLE_CHART_INITIAL_HEIGHT = 400;
 type IStockSimpleChartState = {
   data: IMarketTokenChart;
   status: 'pending' | 'success' | 'error';
+  // Which asset and window this series was loaded for. `usePromiseResult` keeps
+  // the previous result until the next one lands, so without this the chart
+  // would draw the old line under the new range's axis and quote.
+  scopeKey: string;
 };
 
 export function StockSimpleChart({
@@ -105,6 +110,7 @@ export function StockSimpleChart({
   useMarketKlineLivePrice({
     enabled: resolveMarketKlineLivePriceEnabled({
       currencyId,
+      isNative: requestIsNative,
       marketAssetId: requestMarketAssetId,
       networkId: requestNetworkId,
       priceMode: requestPriceMode,
@@ -132,8 +138,15 @@ export function StockSimpleChart({
   // Keyed by scope so a failed refresh can fall back to the line already on
   // screen, while a range or token switch never redraws the previous asset.
   const lastLoadedRef = useRef<
-    { key: string; data: IMarketTokenChart } | undefined
+    { key: string; data: IMarketTokenChart; loadedAt: number } | undefined
   >(undefined);
+  // A late response from a scope the user already left must not overwrite the
+  // fallback that belongs to the current one.
+  const scopeKeyRef = useRef(scopeKey);
+  scopeKeyRef.current = scopeKey;
+  const minRefreshMs = resolveStockSimpleChartMinRefreshMs({
+    range: requestRange,
+  });
 
   const {
     result: chartState,
@@ -141,6 +154,14 @@ export function StockSimpleChart({
     run: retry,
   } = usePromiseResult<IStockSimpleChartState>(
     async () => {
+      const cached = lastLoadedRef.current;
+      const isCachedScope = cached?.key === scopeKey && cached.data.length > 0;
+      // One polling interval serves every range, so the per-range pace is
+      // enforced here. A scope change skips this and reloads immediately.
+      if (isCachedScope && Date.now() - cached.loadedAt < minRefreshMs) {
+        return { data: cached.data, scopeKey, status: 'success' };
+      }
+
       try {
         const data = await fetchStockSimpleChartPoints({
           coinGeckoId: requestCoinGeckoId,
@@ -153,9 +174,12 @@ export function StockSimpleChart({
           tokenAddress: requestTokenAddress,
         });
 
-        lastLoadedRef.current = { key: scopeKey, data };
+        if (scopeKeyRef.current === scopeKey) {
+          lastLoadedRef.current = { key: scopeKey, data, loadedAt: Date.now() };
+        }
         return {
           data,
+          scopeKey,
           status: 'success',
         };
       } catch (_error) {
@@ -163,9 +187,9 @@ export function StockSimpleChart({
         // drawn line with the error state.
         const lastLoaded = lastLoadedRef.current;
         if (lastLoaded?.key === scopeKey && lastLoaded.data.length) {
-          return { data: lastLoaded.data, status: 'success' };
+          return { data: lastLoaded.data, scopeKey, status: 'success' };
         }
-        return { data: [], status: 'error' };
+        return { data: [], scopeKey, status: 'error' };
       }
     },
     [
@@ -177,17 +201,16 @@ export function StockSimpleChart({
       requestRange,
       requestStockId,
       requestTokenAddress,
+      minRefreshMs,
       scopeKey,
     ],
     {
-      initResult: { data: [], status: 'pending' },
+      initResult: { data: [], scopeKey: '', status: 'pending' },
       watchLoading: true,
       checkIsFocused: false,
       // Without this the series stops at mount time and only its pinned tail
       // moves, drawing the time since as one straight segment.
-      pollingInterval: resolveStockSimpleChartPollingInterval({
-        range: requestRange,
-      }),
+      pollingInterval: STOCK_SIMPLE_CHART_POLLING_MS,
       revalidateOnReconnect: true,
     },
   );
@@ -207,11 +230,14 @@ export function StockSimpleChart({
   );
 
   let chartContent;
-  // Every polling tick re-enters the loading state, so the skeleton belongs to
-  // the first load only — a refresh keeps the current line on screen.
+  // A refresh of the current scope keeps its line on screen, since every polling
+  // tick re-enters the loading state. A result belonging to a scope the user has
+  // left is not shown at all: it would sit under the new range's axis and quote.
+  const isCurrentScopeLoaded = chartState.scopeKey === scopeKey;
   if (
-    (isLoading && !chartState.data.length) ||
-    chartState.status === 'pending'
+    chartState.status === 'pending' ||
+    !isCurrentScopeLoaded ||
+    (isLoading && !chartState.data.length)
   ) {
     chartContent = (
       <Stack testID="stock-simple-chart-loading" width="100%" height="100%">

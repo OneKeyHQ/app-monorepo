@@ -71,12 +71,23 @@ export function resolveStockSimpleChartPulseLastPoint({
   );
 }
 
-// The line only gains a point when a bucket closes, so each range refreshes at
-// roughly its own bucket rate: polling a year of daily buckets on the 1m
-// schedule would refetch the whole window to redraw the same line. The quote
-// pinned to the tail is kept live separately, so these rates only pace how the
-// drawn history catches up.
-const STOCK_SIMPLE_CHART_POLLING_MS: Record<IStockSimpleChartRange, number> = {
+/**
+ * One interval for every range, on purpose. `usePromiseResult` treats a changed
+ * `pollingInterval` as a timer retune: it withholds the dependency-triggered run
+ * for the full new duration, so a range switch would sit on the previous
+ * range's line for minutes. Per-range pacing is applied inside the request
+ * instead, via `resolveStockSimpleChartMinRefreshMs`.
+ */
+export const STOCK_SIMPLE_CHART_POLLING_MS = 30_000;
+
+// The line only gains a point when a bucket closes, so each range reloads at
+// roughly its own bucket rate: reloading a year of daily buckets every 30s would
+// redraw the same line. The quote pinned to the tail is kept live separately, so
+// these floors only pace how the drawn history catches up.
+const STOCK_SIMPLE_CHART_MIN_REFRESH_MS: Record<
+  IStockSimpleChartRange,
+  number
+> = {
   '1H': 30_000,
   '1D': 60_000,
   '1W': 300_000,
@@ -85,12 +96,12 @@ const STOCK_SIMPLE_CHART_POLLING_MS: Record<IStockSimpleChartRange, number> = {
   All: 600_000,
 };
 
-export function resolveStockSimpleChartPollingInterval({
+export function resolveStockSimpleChartMinRefreshMs({
   range,
 }: {
   range: IStockSimpleChartRange;
 }): number {
-  return STOCK_SIMPLE_CHART_POLLING_MS[range];
+  return STOCK_SIMPLE_CHART_MIN_REFRESH_MS[range];
 }
 
 /**

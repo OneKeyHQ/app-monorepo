@@ -61,12 +61,35 @@ describe('resolveMarketKlineLivePriceEnabled', () => {
     ).toBe(true);
   });
 
-  it('requires both halves of a token identity', () => {
+  it('requires a network and, for a contract token, its address', () => {
     expect(
       resolveMarketKlineLivePriceEnabled({ ...baseParams, networkId: '' }),
     ).toBe(false);
     expect(
       resolveMarketKlineLivePriceEnabled({ ...baseParams, tokenAddress: '' }),
+    ).toBe(false);
+  });
+
+  // A native coin legitimately has no contract address, and the historical
+  // series on the same chart already requests it that way.
+  it('accepts a native coin with no contract address', () => {
+    expect(
+      resolveMarketKlineLivePriceEnabled({
+        ...baseParams,
+        isNative: true,
+        tokenAddress: '',
+      }),
+    ).toBe(true);
+  });
+
+  it('still requires a network for a native coin', () => {
+    expect(
+      resolveMarketKlineLivePriceEnabled({
+        ...baseParams,
+        isNative: true,
+        networkId: '',
+        tokenAddress: '',
+      }),
     ).toBe(false);
   });
 });

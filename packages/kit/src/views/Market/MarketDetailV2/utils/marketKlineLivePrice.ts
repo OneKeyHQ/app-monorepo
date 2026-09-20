@@ -30,23 +30,28 @@ export const MARKET_KLINE_LIVE_PRICE_POLLING_MS = 6000;
  */
 export function resolveMarketKlineLivePriceEnabled({
   currencyId,
+  isNative,
   marketAssetId,
   networkId,
   priceMode,
   tokenAddress,
 }: {
   currencyId?: string;
+  isNative?: boolean;
   marketAssetId?: string;
   networkId: string;
   priceMode: IMarketPriceSource;
   tokenAddress: string;
 }): boolean {
+  // A native coin has no contract address, and the K-line endpoint accepts that
+  // identity — the historical series on this same chart already requests it that
+  // way. Requiring an address would leave native coins on the stale snapshot.
+  const hasTokenIdentity = Boolean(networkId && (tokenAddress || isNative));
   return Boolean(
     priceMode === 'token' &&
-    !marketAssetId &&
-    networkId &&
-    tokenAddress &&
-    currencyId?.toLowerCase() === MARKET_KLINE_LIVE_PRICE_CURRENCY,
+      !marketAssetId &&
+      hasTokenIdentity &&
+      currencyId?.toLowerCase() === MARKET_KLINE_LIVE_PRICE_CURRENCY,
   );
 }
 
