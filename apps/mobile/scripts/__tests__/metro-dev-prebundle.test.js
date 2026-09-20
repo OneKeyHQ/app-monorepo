@@ -381,6 +381,35 @@ describe('metro-dev-prebundle release transport', () => {
     ).rejects.toThrow('Downloaded asset is too large');
   });
 
+  it('downloads a large vendor asset with verified concurrent ranges', async () => {
+    const content = Buffer.alloc(2 * 1024 * 1024 + 1, 0x42);
+    const digest = `sha256:${sha256(content)}`;
+    const client = {
+      fetchBlob: jest.fn(async (_digest, _timeoutMs, options) => {
+        const [start, end] = options.range
+          .match(/bytes=(\d+)-(\d+)/)
+          .slice(1)
+          .map(Number);
+        return new Response(content.subarray(start, end + 1), {
+          headers: {
+            'content-range': `bytes ${start}-${end}/${content.length}`,
+          },
+          status: 206,
+        });
+      }),
+    };
+    const ociArtifact = {
+      client,
+      layersByFileName: new Map([
+        ['asset.bin', { digest, size: content.length }],
+      ]),
+    };
+    await expect(
+      downloadOciAsset({ fileName: 'asset.bin', ociArtifact }),
+    ).resolves.toEqual(content);
+    expect(client.fetchBlob).toHaveBeenCalledTimes(9);
+  });
+
   it('uses the dependency package root instead of nested package metadata', () => {
     const repoRoot = fs.mkdtempSync(
       path.join(os.tmpdir(), 'onekey-metro-package-root-'),
