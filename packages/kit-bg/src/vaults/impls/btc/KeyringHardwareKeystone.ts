@@ -22,7 +22,10 @@ import {
   AddressNotSupportSignMethodError,
   OneKeyLocalError,
 } from '@onekeyhq/shared/src/errors';
-import { ThirdPartyMethodNotSupported } from '@onekeyhq/shared/src/errors/errors/thirdPartyHardwareErrors';
+import {
+  ThirdPartyDeviceMismatch,
+  ThirdPartyMethodNotSupported,
+} from '@onekeyhq/shared/src/errors/errors/thirdPartyHardwareErrors';
 import { convertThirdPartyDeviceError } from '@onekeyhq/shared/src/errors/utils/thirdPartyDeviceErrorUtils';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
@@ -31,6 +34,7 @@ import { EHardwareVendor } from '@onekeyhq/shared/types/device';
 import { thirdPartyConnectionContextFromDevice } from '../../base/thirdPartyHardwareCommonParams';
 
 import { KeyringHardwareBtcBase } from './KeyringHardwareBtcBase';
+import { verifyKeystonePsbt } from './verifyKeystonePsbt';
 
 import type VaultBtc from './Vault';
 import type {
@@ -469,6 +473,11 @@ export class KeyringHardwareKeystone extends KeyringHardwareBtcBase {
     const btcNetwork = getBtcForkNetwork(networkInfo.networkChainCode);
 
     let enrichedPsbtHex = psbtHex;
+    const resolvedInputsToSign =
+      inputsToSign?.map((input) => ({ ...input })) ?? [];
+    if (!resolvedInputsToSign.length) {
+      throw new OneKeyLocalError('No BTC inputs requested for signing');
+    }
 
     // Taproot inputs must carry tapBip32Derivation so the device can match
     // them to its own keys. btcGetPublicKey/account sync normally leaves the
@@ -492,11 +501,12 @@ export class KeyringHardwareKeystone extends KeyringHardwareBtcBase {
           btcNetwork,
           addresses: inputsToSign.map((input) => input.address),
         });
-      for (const input of inputsToSign) {
+      for (const input of resolvedInputsToSign) {
         const pubkeyHex = resolvePubkeyHexByAddress({
           address: input.address,
           fallbackPubkeyHex: input.publicKey,
         });
+        input.publicKey = pubkeyHex;
         psbt.updateInput(input.index, {
           tapBip32Derivation: [
             {
@@ -530,24 +540,45 @@ export class KeyringHardwareKeystone extends KeyringHardwareBtcBase {
       throw convertThirdPartyDeviceError(result.payload, VENDOR_ERROR_CONTEXT);
     }
 
-    const signedPsbtHex = result.payload.signedPsbt;
-
-    // The device is an untrusted channel: reject a signed PSBT whose inputs,
-    // outputs or global map differ from the one we handed it. Must stay ahead
-    // of the finalize try/catch below, which tolerates failures by design.
-    const signedPsbt = BitcoinJS.Psbt.fromHex(signedPsbtHex, {
+    const unsignedPsbt = BitcoinJS.Psbt.fromHex(enrichedPsbtHex, {
       network: btcNetwork,
     });
-    verifyBtcSignedPsbtMatched({
-      unsignedPsbt: BitcoinJS.Psbt.fromHex(enrichedPsbtHex, {
-        network: btcNetwork,
-      }),
-      signedPsbt,
+    const returnedPsbt = BitcoinJS.Psbt.fromHex(result.payload.signedPsbt, {
+      network: btcNetwork,
     });
+    verifyBtcSignedPsbtMatched({ unsignedPsbt, signedPsbt: returnedPsbt });
+    let signedPsbt: BitcoinJS.Psbt;
+    try {
+      signedPsbt = verifyKeystonePsbt({
+        unsignedPsbt,
+        signedPsbt: returnedPsbt,
+        inputsToSign: resolvedInputsToSign,
+        network: btcNetwork,
+      });
+    } catch {
+      throw new ThirdPartyDeviceMismatch({
+        vendor: VENDOR_ERROR_CONTEXT.vendor,
+        autoToast: true,
+        payload: {},
+      });
+    }
+    const signedPsbtHex = signedPsbt.toHex();
 
     let rawTx = '';
     let finalizedPsbtHex = '';
     try {
+      // The default Taproot script finalizer does not check script satisfaction.
+      // Keep script-path signatures available for the PSBT's coordinating wallet.
+      if (
+        resolvedInputsToSign.some(({ index }) => {
+          const input = signedPsbt.data.inputs[index];
+          return input.tapScriptSig?.length && !input.tapKeySig;
+        })
+      ) {
+        throw new OneKeyLocalError(
+          'BTC Taproot script signatures require external finalization',
+        );
+      }
       inputsToSign?.forEach((v) => {
         signedPsbt.finalizeInput(v.index);
       });
@@ -556,8 +587,12 @@ export class KeyringHardwareKeystone extends KeyringHardwareBtcBase {
       }
       finalizedPsbtHex = signedPsbt.toHex();
     } catch {
-      // Device returned a partially-signed PSBT (multisig, or otherwise not
-      // ready to finalize): hand it back as-is rather than dropping signatures.
+      if (!signOnly) {
+        throw new OneKeyLocalError(
+          'BTC transaction signatures are incomplete or cannot be finalized',
+        );
+      }
+      // A sign-only request may intentionally collect only some signatures.
       finalizedPsbtHex = signedPsbtHex;
     }
 
