@@ -525,6 +525,7 @@ function StockChartModeControl({
 }
 
 export function StockChart({
+  active,
   chartContainerTestID,
   fullscreenStyle,
   fullscreenZIndex,
@@ -536,6 +537,7 @@ export function StockChart({
   isChartFullscreen,
   onEnterChartFullscreen,
 }: {
+  active?: boolean;
   chartContainerTestID: string;
   fullscreenStyle?: CSSProperties;
   fullscreenZIndex?: number;
@@ -637,7 +639,11 @@ export function StockChart({
       ) : null}
       <YStack width="100%" flex={1} minHeight={0} position="relative">
         {isSimpleMode ? (
-          <StockSimpleChart range={range} priceMode={priceMode} />
+          <StockSimpleChart
+            active={active}
+            range={range}
+            priceMode={priceMode}
+          />
         ) : (
           <>
             <Stack flex={1} minWidth={0} overflow="hidden">
@@ -1230,6 +1236,7 @@ function StockOverview({
 }
 
 export function StockDesktopLayout({
+  active,
   marketTradingView,
   swapToken,
   swapInputDraftKey,
@@ -1243,6 +1250,7 @@ export function StockDesktopLayout({
   onChartSwitch,
   onEnterChartFullscreen,
 }: {
+  active?: boolean;
   marketTradingView: ReactNode;
   swapToken: ISwapToken;
   swapInputDraftKey: string;
@@ -1295,6 +1303,7 @@ export function StockDesktopLayout({
               onPriceModeChange={handlePriceModeChange}
             />
             <StockChart
+              active={active}
               chartContainerTestID="stock-token-detail-tradingview"
               fullscreenZIndex={chartFullscreenZIndex}
               fullscreenStyle={{
