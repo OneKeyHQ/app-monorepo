@@ -47,6 +47,7 @@ import {
   useStockDetail,
 } from '../../hooks/StockDetailContext';
 import { useTokenDetail } from '../../hooks/useTokenDetail';
+import { isMarketTokenDecimalsReady } from '../../utils/marketTokenIdentity';
 
 import {
   EMarketPresetKey,
@@ -455,24 +456,23 @@ function SwapPanelWrapContent({
       savedPreference,
     ],
   );
-  // Keep the stock form visible while preparing the current pair, but never
-  // quote or review with placeholder precision or the previous payment token.
-  const executionReady =
-    !stockDetailDesktopLayout ||
-    Boolean(
-      isReady &&
-      selectedVariantMatchesTokenDetail &&
-      tokenDetail?.decimalsResolved !== false &&
-      typeof tokenDetail?.decimals === 'number' &&
-      Number.isInteger(tokenDetail.decimals) &&
-      tokenDetail.decimals >= 0 &&
-      speedConfigReady &&
-      paymentTokenPreferenceReady &&
-      paymentToken &&
-      paymentTokenCandidates.some((token) =>
-        equalTokenNoCaseSensitive({ token1: token, token2: paymentToken }),
-      ),
-    );
+  // Keep the form visible while identity is ready, but never quote or review
+  // with unresolved precision. Stock also waits for the selected variant and
+  // the saved payment token before executing.
+  const decimalsReady = isMarketTokenDecimalsReady(tokenDetail);
+  const executionReady = stockDetailDesktopLayout
+    ? Boolean(
+        isReady &&
+        selectedVariantMatchesTokenDetail &&
+        decimalsReady &&
+        speedConfigReady &&
+        paymentTokenPreferenceReady &&
+        paymentToken &&
+        paymentTokenCandidates.some((token) =>
+          equalTokenNoCaseSensitive({ token1: token, token2: paymentToken }),
+        ),
+      )
+    : decimalsReady;
   const currentFromTokenAmount =
     tradeType === ESwapDirection.BUY
       ? paymentAmount.toFixed()
