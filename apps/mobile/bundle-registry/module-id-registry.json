@@ -19869,6 +19869,7 @@
     "packages/kit/src/components/NFT/NFTDetails/CommonAsset/CommonAssetContent.tsx": 5088,
     "packages/kit/src/components/NFT/NFTDetails/CommonAsset/CommonAssetImage.tsx": 9595,
     "packages/kit/src/components/NFT/NFTDetails/CommonAsset/UnSupportedImageContainer.native.tsx": 14318,
+    "packages/kit/src/components/NFT/hooks/useNFTMediaFallback.ts": 13754,
     "packages/kit/src/components/NetworkAlert.tsx": 5252,
     "packages/kit/src/components/NetworkAvatar/NetworkAvatar.tsx": 21287,
     "packages/kit/src/components/NetworkAvatar/index.tsx": 17873,
