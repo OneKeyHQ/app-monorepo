@@ -6,6 +6,7 @@ import {
   buildReplacedMarketDetailParams,
   findMarketTabStack,
   getCurrentMarketStockDetailId,
+  getCurrentMarketStockDetailRoute,
   getNativeMarketListResetParams,
   openOrReplaceMarketDetailRoute,
   replaceFocusedMarketDetailRoute,
@@ -164,6 +165,7 @@ describe('marketDetailNavigation', () => {
     });
 
     expect(getCurrentMarketStockDetailId()).toBe('AAPL');
+    expect(getCurrentMarketStockDetailRoute()).toEqual({ stockId: 'AAPL' });
   });
 
   it('clears stale identity params when replacing a detail route', () => {

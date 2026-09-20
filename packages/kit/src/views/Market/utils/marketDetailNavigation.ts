@@ -170,16 +170,20 @@ export function findMarketTabStack(state?: INavigationStateNode) {
   );
 }
 
-export function getCurrentMarketStockDetailId() {
+export function getCurrentMarketStockDetailRoute() {
   const navigation = rootNavigationRef.current as INavigationLike | undefined;
   const stack = findMarketTabStack(navigation?.getRootState?.());
   const routes = stack?.routes ?? [];
   const current = routes[stack?.index ?? routes.length - 1];
-  const stockId = current?.params?.stockId;
-  return current?.name === ETabMarketRoutes.MarketStockDetail &&
-    typeof stockId === 'string'
-    ? stockId
-    : undefined;
+  if (current?.name !== ETabMarketRoutes.MarketStockDetail) {
+    return undefined;
+  }
+  return current.params;
+}
+
+export function getCurrentMarketStockDetailId() {
+  const stockId = getCurrentMarketStockDetailRoute()?.stockId;
+  return typeof stockId === 'string' ? stockId : undefined;
 }
 
 function containsStack(

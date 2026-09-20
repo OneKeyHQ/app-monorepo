@@ -11,7 +11,11 @@ import {
 } from '@onekeyhq/shared/src/routes';
 import { closeExtensionPopupAfterExpandTabOpen } from '@onekeyhq/shared/src/utils/extUtils';
 
-import { useToMarketStockDetailPage } from './useToMarketStockDetailPage';
+import {
+  hasExplicitMarketStockTokenIdentity,
+  shouldRetainCurrentStockTokenDetail,
+  useToMarketStockDetailPage,
+} from './useToMarketStockDetailPage';
 
 const mockReplace = jest.fn();
 const mockSetParams = jest.fn();
@@ -115,6 +119,59 @@ const mockCloseExtensionPopupAfterExpandTabOpen = jest.mocked(
   closeExtensionPopupAfterExpandTabOpen,
 );
 
+describe('shouldRetainCurrentStockTokenDetail', () => {
+  const sameStock = {
+    currentHasExplicitToken: false,
+    currentStockId: 'AAPL',
+    nextHasTokenParams: false,
+    nextStockId: 'aapl',
+    replaceCurrentDetail: true,
+  };
+
+  it('keeps an unresolved same-stock reselection', () => {
+    expect(shouldRetainCurrentStockTokenDetail(sameStock)).toBe(true);
+  });
+
+  it('does not keep an explicit variant when the base stock is reselected', () => {
+    expect(
+      shouldRetainCurrentStockTokenDetail({
+        ...sameStock,
+        currentHasExplicitToken: true,
+      }),
+    ).toBe(false);
+  });
+
+  it('does not keep a different stock', () => {
+    expect(
+      shouldRetainCurrentStockTokenDetail({
+        ...sameStock,
+        nextStockId: 'GOOG',
+      }),
+    ).toBe(false);
+  });
+});
+
+describe('hasExplicitMarketStockTokenIdentity', () => {
+  it('treats a contract address as an explicit variant', () => {
+    expect(hasExplicitMarketStockTokenIdentity({ tokenAddress: '0xabc' })).toBe(
+      true,
+    );
+  });
+
+  it('treats a native coin as an explicit variant', () => {
+    expect(hasExplicitMarketStockTokenIdentity({ isNative: true })).toBe(true);
+  });
+
+  it('ignores an unresolved stock route', () => {
+    expect(
+      hasExplicitMarketStockTokenIdentity({
+        isNative: false,
+        tokenAddress: '',
+      }),
+    ).toBe(false);
+  });
+});
+
 describe('useToMarketStockDetailPage', () => {
   beforeEach(() => {
     jest.clearAllMocks();
@@ -202,6 +259,39 @@ describe('useToMarketStockDetailPage', () => {
     expect(mockPrepareStockTokenDetail).not.toHaveBeenCalled();
     expect(mockSetParams).toHaveBeenCalledWith(
       expect.objectContaining({ stockId: 'aapl' }),
+    );
+  });
+
+  it('clears the previous variant when the current stock is reselected without one', async () => {
+    mockCurrentRouteName = ETabMarketRoutes.MarketStockDetail;
+    mockCurrentRouteParams = {
+      stockId: 'AAPL',
+      tokenAddress: '0xold',
+      network: 'evm--1',
+      isNative: false,
+    };
+    const { result } = renderHook(() =>
+      useToMarketStockDetailPage({ replaceCurrentDetail: true }),
+    );
+
+    await act(async () => {
+      await result.current({
+        stockId: 'aapl',
+        symbol: 'AAPL',
+        name: 'Apple Inc.',
+        logoUrl: 'aapl.png',
+      });
+    });
+
+    expect(mockPrepareStockTokenDetail).toHaveBeenCalledWith({
+      tokenAddress: '',
+      networkId: '',
+    });
+    expect(mockSetParams).toHaveBeenCalledWith(
+      expect.objectContaining({
+        stockId: 'aapl',
+        tokenAddress: undefined,
+      }),
     );
   });
 
