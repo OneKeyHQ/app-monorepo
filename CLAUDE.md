@@ -62,6 +62,12 @@ Never violate this dependency order:
 - Use `toLowerCase()` / `toUpperCase()`, never locale variants.
 - Load `@onekeyfe/hd-core` through `await CoreSDKLoader()`; never import it directly.
 - Use `localDb`, never import `localDbInstance` directly.
+- Never maintain SWR snapshot/cache entries by hand. `usePromiseResult` writes
+  what its fetcher returned, in the runtime that owns the hook; after a
+  mutation, refresh that hook and let it write the truth instead of calling
+  `swrCacheUtils.set` / `remove` / `clearAll` from feature code. Background
+  services must not write these namespaces at all — their remaining
+  invalidations are a known exception being removed, not a pattern to copy.
 - Do not commit code that fails lint or TypeScript checks.
 
 ## Data And Dependencies

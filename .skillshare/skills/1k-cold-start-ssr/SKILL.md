@@ -184,7 +184,8 @@ Example: `hd-1--0::ctx:renderedTokenListCacheAtom`
 
 ## SWR Cache (usePromiseResult)
 
-Separate from Jotai Cold Start SSR but shares the same `coldStartCacheStorage` MMKV instance.
+Separate from Jotai Cold Start SSR, and since the snapshot-namespace refactor
+it no longer shares one store with it: each SWR namespace has its own.
 
 **File:** `packages/shared/src/utils/swrCacheUtils.ts`
 
@@ -198,16 +199,40 @@ const effectiveInitResult =
 ```
 
 **Key characteristics:**
-- Stored in `coldStartCacheStorage` under key `onekey_swr_cache` (single JSON blob)
-- Max 80 entries with LRU eviction (oldest timestamp dropped first)
+- One store per namespace (`swrCacheNamespaceStorage` -> `SnapshotCache`): MMKV
+  per namespace on native, an IndexedDB-backed map on web/desktop
+- Namespace retention: 200 entries / 7 days, plus the in-memory budgets in
+  `swrCacheLimits`
+- A read names its key, so opening one screen loads one record rather than the
+  whole cache
 - Debounced 2s flush + immediate flush on `AppState 'background'`
 - Key builders centralized in `swrKeys` (e.g., `swrKeys.allNetworksCompatible(...)`, `swrKeys.defiEnabled(networkId)`)
-- Survives app restart (same MMKV instance as cold start cache)
+- Survives app restart
+
+**Writing rule — do not maintain entries by hand:**
+
+`usePromiseResult` is the writer. It persists what its fetcher returned, in the
+runtime that owns the hook, and that is the only code that should write an
+entry.
+
+- After a mutation, **refresh the hook** (`run({ alwaysSetState: true })`) and
+  let it write the truth. Do not call `swrCacheUtils.set` / `remove` /
+  `clearAll` from feature code to keep an entry in step, and do not patch an
+  entry that belongs to another screen's hook.
+- Background services must not write these namespaces. bg once primed
+  `unifiedNetworkSelectorMeta` after a network toggle, which gave that
+  namespace two writers over one MMKV file with no lock between the runtimes;
+  the selector now refreshes itself instead. The invalidations bg still issues
+  on wallet/account mutations are the remaining exception, not a pattern to
+  copy.
+- Routing a bg write into the UI runtime is not a fix either: on the extension
+  the event bus reaches every open foreground, so the routing turns one writer
+  into one per surface.
 
 **Relationship to Cold Start SSR:**
 - SWR cache handles **hook-level** data (network responses, computed results)
 - Cold Start SSR handles **atom-level** data (Jotai state)
-- Both persist to the same MMKV instance (`coldStartCacheStorage`) but under different keys
+- Each persists into its own namespace store rather than one shared instance
 - Both flush on `AppState 'background'`
 
 ## Key Differences: contextAtom vs globalAtom
