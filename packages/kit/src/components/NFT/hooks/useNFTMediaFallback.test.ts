@@ -46,6 +46,25 @@ describe('useNFTMediaFallback', () => {
     expect(result.current.kind).toBe('image');
   });
 
+  it('restarts the probe when a previously failed uri comes back', () => {
+    const { result, rerender } = renderHook(
+      ({ uri }: { uri: string }) => useNFTMediaFallback(uri),
+      { initialProps: { uri: 'https://cdn.example.com/a.png' } },
+    );
+    act(() => result.current.onError());
+    act(() => result.current.onError());
+    expect(result.current.kind).toBe('failed');
+
+    rerender({ uri: 'https://cdn.example.com/b.png' });
+    expect(result.current.kind).toBe('image');
+
+    rerender({ uri: 'https://cdn.example.com/a.png' });
+    expect(result.current.kind).toBe('image');
+
+    act(() => result.current.onError());
+    expect(result.current.kind).toBe('video');
+  });
+
   it('ignores a stale onError from a previous uri', () => {
     const { result, rerender } = renderHook(
       ({ uri }: { uri: string }) => useNFTMediaFallback(uri),
@@ -55,6 +74,14 @@ describe('useNFTMediaFallback', () => {
 
     rerender({ uri: 'https://cdn.example.com/b.png' });
     act(() => staleOnError());
+    expect(result.current.kind).toBe('image');
+
+    // The stale error must not leave the previous uri's progress behind
+    // either, or a later error for the current uri would be counted against the wrong uri.
+    act(() => result.current.onError());
+    expect(result.current.kind).toBe('video');
+
+    rerender({ uri: 'https://cdn.example.com/a.png' });
     expect(result.current.kind).toBe('image');
   });
 });
