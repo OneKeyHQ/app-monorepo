@@ -281,7 +281,7 @@ function applySWRPatchToMirror(
       throw new OneKeyLocalError('Native SWR cache patch entry is invalid');
     }
     const tombstoneAt = getTombstoneAt(key);
-    if (tombstoneAt !== undefined && t <= tombstoneAt) {
+    if (tombstoneAt !== undefined && t < tombstoneAt) {
       touched.add(key);
       return;
     }
@@ -330,7 +330,7 @@ function mergeSWRPatches(
     removedAt: number,
   ) => {
     updates.forEach((update, key) => {
-      if (matches(key) && update.t <= removedAt) {
+      if (matches(key) && update.t < removedAt) {
         updates.delete(key);
       }
     });
@@ -365,7 +365,7 @@ function mergeSWRPatches(
     patch.updates.forEach(([key, serialized]) => {
       const t = readSWREntryTimestamp(serialized) ?? 0;
       const tombstoneAt = getTombstoneAt(key);
-      if (tombstoneAt !== undefined && t <= tombstoneAt) {
+      if (tombstoneAt !== undefined && t < tombstoneAt) {
         return;
       }
       const existing = updates.get(key);
