@@ -4,6 +4,7 @@ import { useIntl } from 'react-intl';
 
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
+import { TRADING_VIEW_NATIVE_PREVIOUS_CLOSE_REFERENCE_LINE_ID as PREVIOUS_CLOSE_REFERENCE_LINE_ID } from './chartConstants';
 import { flattenTradingViewNativeChartComponentTree } from './utils/chartComponentTree';
 
 import type {
@@ -14,7 +15,6 @@ import type {
 
 const EMPTY_CHART_COMPONENTS: readonly ITradingViewNativeChartComponentNode[] =
   [];
-const PREVIOUS_CLOSE_REFERENCE_LINE_ID = 'system.previousCloseReferenceLine';
 
 export function useTradingViewNativeChartComponents({
   chartComponents = EMPTY_CHART_COMPONENTS,
