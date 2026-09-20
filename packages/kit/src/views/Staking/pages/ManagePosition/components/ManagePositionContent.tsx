@@ -391,10 +391,10 @@ const ManageSectionShell = ({
   );
 };
 
-// USDe eventually renders SpecialManageContent rather than the tabbed manage
-// form. Keep its loading shell on that same holdings layout so the first data
-// response does not replace an unrelated tab bar and form.
-const USDEManageSectionShell = ({
+// USDe and ADA eventually render SpecialManageContent rather than the tabbed
+// manage form. Keep their loading shell on that same holdings layout so the
+// first data response does not replace an unrelated tab bar and form.
+const SpecialManageSectionShell = ({
   fallbackTokenImageUri,
   isInModalContext,
 }: {
@@ -778,7 +778,11 @@ export function ManagePositionContent({
       ].includes(type),
     [type],
   );
-  const isUSDEManage = !isBorrowType && symbol.toLowerCase() === 'usde';
+  const normalizedSymbol = symbol.toLowerCase();
+  const isSpecialManage =
+    !isBorrowType && ['usde', 'ada'].includes(normalizedSymbol);
+  const isUSDEManage = !isBorrowType && normalizedSymbol === 'usde';
+  const isADAManage = !isBorrowType && normalizedSymbol === 'ada';
 
   const onHistory = useMemo(() => {
     // Return undefined if history is disabled or no account
@@ -894,9 +898,9 @@ export function ManagePositionContent({
   }, [alertsHolding, alerts, shouldShowWarning, warningElement]);
 
   if (isLoading && !managePageData) {
-    if (isUSDEManage) {
+    if (isSpecialManage) {
       return (
-        <USDEManageSectionShell
+        <SpecialManageSectionShell
           fallbackTokenImageUri={fallbackTokenImageUri}
           isInModalContext={isInModalContext}
         />
@@ -996,7 +1000,7 @@ export function ManagePositionContent({
   }
 
   // ADA special rendering (Stakefish provider)
-  if (!isBorrowType && symbol.toLowerCase() === 'ada') {
+  if (isADAManage) {
     return (
       <AdaManageContent
         managePageData={managePageData}

@@ -166,8 +166,11 @@ export function selectSwapCurrentEventQuotes({
 
   if (currentEventProviderKeys.length > 0) {
     const currentEventProviderKeySet = new Set(currentEventProviderKeys);
-    return quotes.filter((quote) =>
-      currentEventProviderKeySet.has(buildSwapQuoteProviderKey(quote)),
+    return quotes.filter(
+      (quote) =>
+        currentEventProviderKeySet.has(buildSwapQuoteProviderKey(quote)) &&
+        (!quoteEventTotalCount.eventId ||
+          quote.eventId === quoteEventTotalCount.eventId),
     );
   }
 

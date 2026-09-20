@@ -112,6 +112,22 @@ describe('swap quote progress', () => {
     ).toEqual([secondQuote]);
   });
 
+  it('does not show a previous-event quote while provider keys are mirrored', () => {
+    const previousQuote = buildQuote({
+      eventId: 'event-1',
+      provider: 'same-provider',
+    });
+    const currentProviderKeys = [buildSwapQuoteProviderKey(previousQuote)];
+
+    expect(
+      selectSwapCurrentEventQuotes({
+        quotes: [previousQuote],
+        quoteEventTotalCount: { eventId: 'event-2', count: 1 },
+        currentEventProviderKeys: currentProviderKeys,
+      }),
+    ).toEqual([]);
+  });
+
   it('waits for the quote event to settle before showing limit warnings', () => {
     expect(
       shouldShowSwapQuoteLimitWarning({
