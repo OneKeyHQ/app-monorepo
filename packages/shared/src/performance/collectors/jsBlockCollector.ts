@@ -336,6 +336,36 @@ function diagRouteName(fiber: IDiagFiber): string | undefined {
   return typeof name === 'string' ? name : undefined;
 }
 
+// An anonymous mount root says nothing about what was mounted, so name it
+// after the first named component found down its first-child chain. Layout
+// primitives are skipped: every subtree starts with a few of them.
+const DIAG_LAYOUT_NAMES = new Set([
+  'YStack',
+  'XStack',
+  'Stack',
+  'ZStack',
+  'View',
+  'ScrollView',
+  'Fragment',
+  'SizableText',
+  'Text',
+]);
+const DIAG_DESCRIBE_DEPTH = 24;
+
+function describeMountedSubtree(fiber: IDiagFiber): string {
+  let cursor = fiber.child;
+  for (let depth = 0; cursor && depth < DIAG_DESCRIBE_DEPTH; depth += 1) {
+    if (COMPOSITE_TAGS.has(cursor.tag)) {
+      const name = diagFiberName(cursor);
+      if (name !== '(anonymous)' && !DIAG_LAYOUT_NAMES.has(name)) {
+        return name;
+      }
+    }
+    cursor = cursor.child;
+  }
+  return '?';
+}
+
 const DIAG_MAX_LABELS = 400;
 
 function addBounded(target: Map<string, number>, key: string, count: number) {
@@ -450,9 +480,10 @@ function walkCommittedFibers(root: IDiagRoot) {
               mountRoot = `screen:${routeName}`;
             } else if (mountRoot === undefined) {
               // Something mounting inside a screen that is already there.
-              mountRoot = `${route} » ${
-                name === '(anonymous)' ? `${lastNamed} > (anonymous)` : name
-              }`;
+              mountRoot =
+                name === '(anonymous)' || DIAG_LAYOUT_NAMES.has(name)
+                  ? `${route} » ${lastNamed} > ${name} → ${describeMountedSubtree(fiber)}`
+                  : `${route} » ${name}`;
             }
             mountRootRun.add(mountRoot);
           } else {
@@ -532,7 +563,9 @@ function topOf(table: Map<string, number>, limit: number) {
     .slice(0, limit);
 }
 
-// Every 4 windows = every 2 minutes; the first window emits too.
+// The serializer rankings are long and change slowly: every 4 windows, the
+// first one included. The render rankings go out with every window, because
+// a scripted session is only a dozen windows long and ends on any of them.
 const DIAG_RANKING_EVERY_WINDOWS = 4;
 
 function flushDiagCensus(
@@ -609,16 +642,16 @@ function flushDiagCensus(
       })),
     );
   });
+  DIAG_LISTS.forEach((list) => {
+    emit(
+      `${list}Total`,
+      topOf(diagSession[list], 20).map(([name, count]) => ({
+        name: clip(name),
+        count,
+      })),
+    );
+  });
   if (diagWindowSeq % DIAG_RANKING_EVERY_WINDOWS === 1) {
-    DIAG_LISTS.forEach((list) => {
-      emit(
-        `${list}Total`,
-        topOf(diagSession[list], 20).map(([name, count]) => ({
-          name: clip(name),
-          count,
-        })),
-      );
-    });
     emit(
       'weakSites',
       topOf(census.weakSites ?? new Map<string, number>(), 15).map(

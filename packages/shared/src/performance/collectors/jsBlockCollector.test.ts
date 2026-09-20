@@ -581,6 +581,28 @@ describe('diag census', () => {
     expect(ranking('updateRoots')).toEqual({ SceneView: 2 });
   });
 
+  it('names an anonymous mount root after the first real component below it', () => {
+    const anonymous = component('ignored', 'mounted', {
+      children: [
+        component('YStack', 'mounted', {
+          children: [component('PerpPositionRow', 'mounted')],
+        }),
+      ],
+    });
+    anonymous.type = () => null;
+    commit(
+      component('SceneView', 'updated', {
+        route: 'Perp',
+        children: [component('YStack', 'updated', { children: [anonymous] })],
+      }),
+    );
+    flushWindow();
+
+    expect(ranking('mountRoots')).toEqual({
+      'Perp » YStack > (anonymous) → PerpPositionRow': 3,
+    });
+  });
+
   it('gives siblings their own roots', () => {
     commit(
       component('Providers', 'skipped', {
