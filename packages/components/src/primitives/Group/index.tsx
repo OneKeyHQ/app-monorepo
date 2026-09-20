@@ -105,10 +105,23 @@ function renderGroupChildren({
           ) {
             return child;
           }
-          return cloneElement(
-            child,
-            getEdgeRadiusProps({ isFirst, isLast, vertical, radius }),
+          // Only fill in corners the item has not set itself, so an explicit
+          // per-item radius keeps winning over the group default.
+          const edgeProps = getEdgeRadiusProps({
+            isFirst,
+            isLast,
+            vertical,
+            radius,
+          });
+          const childProps = child.props as Record<string, unknown>;
+          const missingProps = Object.fromEntries(
+            Object.entries(edgeProps).filter(
+              ([key]) => childProps[key] === undefined,
+            ),
           );
+          return Object.keys(missingProps).length > 0
+            ? cloneElement(child, missingProps)
+            : child;
         });
 
   if (separator === undefined || separator === null) {
