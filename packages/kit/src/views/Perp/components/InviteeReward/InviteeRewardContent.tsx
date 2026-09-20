@@ -1,5 +1,7 @@
+import { useIntl } from 'react-intl';
+
 import type { useInTabDialog } from '@onekeyhq/components';
-import { YStack } from '@onekeyhq/components';
+import { Divider, ScrollView, SizableText, YStack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { InviteeRewardNoWallet } from '@onekeyhq/kit/src/views/ReferFriends/components/InviteeRewardNoWallet';
@@ -9,6 +11,7 @@ import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 
 import { PerpsProviderMirror } from '../../PerpsProviderMirror';
 
+import { RewardHistoryList } from './components/RewardHistoryList';
 import { RewardSummaryCard } from './components/RewardSummaryCard';
 
 interface IInviteeRewardContentProps {
@@ -23,6 +26,7 @@ export function InviteeRewardContent({
   isMobile,
   onBeforeNavigate,
 }: IInviteeRewardContentProps) {
+  const intl = useIntl();
   const { result: data, isLoading } = usePromiseResult(
     async () => {
       if (!walletAddress) {
@@ -54,6 +58,20 @@ export function InviteeRewardContent({
         undistributed={data?.undistributed}
         tokenSymbol={data?.token.symbol}
       />
+      <Divider />
+      <YStack gap="$2">
+        <SizableText size="$headingSm">
+          {intl.formatMessage({
+            id: ETranslations.referral_reward_history,
+          })}
+        </SizableText>
+        <RewardHistoryList
+          key={walletAddress}
+          isLoading={isLoading}
+          history={data?.history}
+          token={data?.token}
+        />
+      </YStack>
     </YStack>
   );
 
@@ -65,7 +83,11 @@ export function InviteeRewardContent({
     );
   }
 
-  return content;
+  return (
+    <ScrollView minHeight={350} maxHeight={500}>
+      {content}
+    </ScrollView>
+  );
 }
 
 export async function showInviteeRewardDialog(

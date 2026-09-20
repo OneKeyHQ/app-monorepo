@@ -75,14 +75,32 @@ jest.mock('@onekeyhq/components', () => {
       React.createElement('span', null, description),
     );
 
+  const Pressable = ({
+    children,
+    onPress,
+    testID,
+  }: {
+    children?: ReactNode;
+    onPress?: () => void;
+    testID?: string;
+  }) =>
+    React.createElement(
+      'div',
+      { 'data-testid': testID, onClick: onPress },
+      children,
+    );
+
   return {
     Button,
+    Divider: Primitive,
     Empty,
     Icon: Primitive,
     NumberSizeableText: Primitive,
+    ScrollView: ({ children }: { children?: ReactNode }) =>
+      React.createElement('div', { 'data-testid': 'scroll-view' }, children),
     SizableText: Primitive,
     Skeleton: Primitive,
-    XStack: Primitive,
+    XStack: Pressable,
     YStack: Primitive,
   };
 });
@@ -146,7 +164,7 @@ describe('SwapInviteeRewardContent', () => {
     };
   });
 
-  it('renders only the aggregate reward summary', () => {
+  it('renders the aggregate reward summary and empty payout history', () => {
     render(
       <SwapInviteeRewardContent
         accountId="hd-1--account"
@@ -157,9 +175,58 @@ describe('SwapInviteeRewardContent', () => {
     expect(screen.getByText('9')).toBeTruthy();
     expect(screen.getByText('3')).toBeTruthy();
     expect(screen.queryByText('12')).toBeNull();
-    expect(screen.queryByText('referral.reward_history')).toBeNull();
-    expect(screen.queryByText('0xtransa...action')).toBeNull();
+    expect(screen.getByText('referral.reward_history')).toBeTruthy();
+    expect(screen.getByText('global.no_data')).toBeTruthy();
+    expect(screen.getByTestId('scroll-view')).toBeTruthy();
+  });
+
+  it('renders payout history on desktop and keeps the mobile page scroll host', () => {
+    mockPromiseResult.result = {
+      status: 'success',
+      data: {
+        totalBonus: '12',
+        undistributed: '3',
+        token: { symbol: 'USDC' },
+        history: [
+          {
+            date: '2026-09-08',
+            tx: '0x298e9a1234567890abcdef123456788e5941',
+            amount: '0.17',
+            token: {
+              networkId: 'evm--42161',
+              address: '0xtoken',
+              logoURI: '',
+              name: 'USD Coin',
+              symbol: 'USDC',
+            },
+          },
+        ],
+      },
+    };
+
+    const { rerender } = render(
+      <SwapInviteeRewardContent
+        accountId="hd-1--account"
+        currentEvmAddress="0xcurrent"
+      />,
+    );
+
+    expect(screen.getByText('referral.reward_history')).toBeTruthy();
+    expect(screen.getByText('2026-09-08')).toBeTruthy();
+    expect(screen.getByText('0x298e9a...8e5941')).toBeTruthy();
+    expect(screen.getByText('0.17')).toBeTruthy();
+    expect(screen.getByTestId('scroll-view')).toBeTruthy();
+
+    rerender(
+      <SwapInviteeRewardContent
+        accountId="hd-1--account"
+        currentEvmAddress="0xcurrent"
+        isMobile
+      />,
+    );
+
     expect(screen.queryByTestId('scroll-view')).toBeNull();
+    expect(screen.getByText('referral.reward_history')).toBeTruthy();
   });
 
   it('does not treat fully undistributed rewards as distributed', () => {

@@ -13,6 +13,7 @@ let mockPromiseResult: {
     token: {
       symbol: string;
       logoURI: string;
+      networkId?: string;
     };
     history: {
       date: string;
@@ -61,14 +62,32 @@ jest.mock('@onekeyhq/components', () => {
       React.createElement('span', null, description),
     );
 
+  const Pressable = ({
+    children,
+    onPress,
+    testID,
+  }: {
+    children?: ReactNode;
+    onPress?: () => void;
+    testID?: string;
+  }) =>
+    React.createElement(
+      'div',
+      { 'data-testid': testID, onClick: onPress },
+      children,
+    );
+
   return {
     Button,
+    Divider: Primitive,
     Empty,
     Icon: Primitive,
     NumberSizeableText: Primitive,
+    ScrollView: ({ children }: { children?: ReactNode }) =>
+      React.createElement('div', { 'data-testid': 'scroll-view' }, children),
     SizableText: Primitive,
     Skeleton: Primitive,
-    XStack: Primitive,
+    XStack: Pressable,
     YStack: Primitive,
     useInTabDialog: jest.fn(),
   };
@@ -101,11 +120,8 @@ jest.mock('@onekeyhq/shared/src/locale/appLocale', () => ({
   },
 }));
 
-jest.mock('@onekeyhq/shared/src/utils/openUrlUtils', () => ({
-  __esModule: true,
-  default: {
-    openUrlExternal: jest.fn(),
-  },
+jest.mock('@onekeyhq/kit/src/utils/explorerUtils', () => ({
+  openTransactionDetailsUrl: jest.fn(),
 }));
 
 jest.mock(
@@ -151,6 +167,7 @@ describe('InviteeRewardContent', () => {
         token: {
           symbol: 'USDC',
           logoURI: '',
+          networkId: 'evm--42161',
         },
         history: [],
       },
@@ -158,13 +175,46 @@ describe('InviteeRewardContent', () => {
     };
   });
 
-  it('renders only the aggregate reward summary', () => {
+  it('renders the aggregate reward summary and empty payout history', () => {
     render(<InviteeRewardContent walletAddress="0xwallet" />);
 
     expect(screen.getByTestId('reward-summary').textContent).toBe('12:3:USDC');
-    expect(screen.queryByText('referral.reward_history')).toBeNull();
-    expect(screen.queryByText('0xtransa...action')).toBeNull();
+    expect(screen.getByText('referral.reward_history')).toBeTruthy();
+    expect(screen.getByText('global.no_data')).toBeTruthy();
+    expect(screen.getByTestId('scroll-view')).toBeTruthy();
+  });
+
+  it('renders payout history on desktop and keeps the mobile page scroll host', () => {
+    mockPromiseResult.result = {
+      totalBonus: '12',
+      undistributed: '3',
+      token: {
+        symbol: 'USDC',
+        logoURI: '',
+        networkId: 'evm--42161',
+      },
+      history: [
+        {
+          date: '2026-09-08',
+          tx: '0x298e9a1234567890abcdef123456788e5941',
+          amount: '0.17',
+        },
+      ],
+    };
+
+    const { rerender } = render(
+      <InviteeRewardContent walletAddress="0xwallet" />,
+    );
+
+    expect(screen.getByText('referral.reward_history')).toBeTruthy();
+    expect(screen.getByText('2026-09-08')).toBeTruthy();
+    expect(screen.getByText('0x298e9a...8e5941')).toBeTruthy();
+    expect(screen.getByTestId('scroll-view')).toBeTruthy();
+
+    rerender(<InviteeRewardContent walletAddress="0xwallet" isMobile />);
+
     expect(screen.queryByTestId('scroll-view')).toBeNull();
+    expect(screen.getByText('referral.reward_history')).toBeTruthy();
   });
 
   it('keeps the no-wallet state', () => {
