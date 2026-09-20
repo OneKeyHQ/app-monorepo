@@ -11,7 +11,6 @@ import {
 import { memoFn } from '@onekeyhq/shared/src/utils/cacheUtils';
 import { getMarketWatchlistKey } from '@onekeyhq/shared/src/utils/marketWatchlistIdentity';
 import sortUtils from '@onekeyhq/shared/src/utils/sortUtils';
-import { swrCacheUtils } from '@onekeyhq/shared/src/utils/swrCacheUtils';
 import {
   equalTokenNoCaseSensitive,
   normalizeTokenContractAddress,
@@ -42,6 +41,7 @@ import {
   tokenDetailSwrScopeAtom,
   tokenDetailWebsocketAtom,
 } from './atoms';
+import { marketTokenDetailSnapshotCache } from './marketSnapshotCaches';
 
 export const homeResettingFlags: Record<string, number> = {};
 
@@ -66,16 +66,6 @@ async function waitOp(key: string, add: boolean) {
 }
 
 const CHART_PRICE_FRESHNESS_MS = 10_000;
-
-// A cached detail only seeds the first frame; polling replaces it right away.
-// Past a day the quote is too old to be worth showing even briefly.
-const TOKEN_DETAIL_SWR_MAX_AGE_MS = 24 * 60 * 60 * 1000;
-
-type IMarketTokenDetailSWREntry = {
-  token: IMarketTokenDetail;
-  websocket?: IMarketTokenDetailWebsocket;
-  perpsInfo?: IMarketPerpsInfo;
-};
 
 function isSameMarketTokenDetail({
   tokenDetail,
@@ -307,11 +297,10 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
       ) {
         return;
       }
-      const cached =
-        swrCacheUtils.getWithTimestamp<IMarketTokenDetailSWREntry>(swrKey);
+      // The cache applies its own max age, so a stale record reads as a miss.
+      const cached = marketTokenDetailSnapshotCache.get(swrKey);
       if (
         !cached?.data?.token ||
-        Date.now() - cached.updatedAt > TOKEN_DETAIL_SWR_MAX_AGE_MS ||
         !isSameMarketTokenDetail({
           tokenDetail: cached.data.token,
           tokenAddress,
@@ -583,7 +572,7 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
           set(tokenDetailWebsocketAtom(), undefined);
           set(perpsInfoAtom(), undefined);
           if (options?.swrKey) {
-            swrCacheUtils.remove(options.swrKey);
+            marketTokenDetailSnapshotCache.remove(options.swrKey);
           }
           return;
         }
@@ -625,7 +614,7 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
         set(tokenDetailWebsocketAtom(), websocketConfig);
         set(perpsInfoAtom(), perpsInfo);
         if (options?.swrKey) {
-          swrCacheUtils.set<IMarketTokenDetailSWREntry>(options.swrKey, {
+          marketTokenDetailSnapshotCache.set(options.swrKey, {
             token: tokenData,
             websocket: websocketConfig,
             perpsInfo,
