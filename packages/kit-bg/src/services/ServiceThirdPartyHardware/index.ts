@@ -1114,7 +1114,8 @@ class ServiceThirdPartyHardware extends ServiceBase {
           customNetworks: [],
           isCreateWallet: true,
           isAutoCreateMultiNetwork: true,
-          autoHandleExitError: true,
+          // Account creation must succeed before the UI finalizes this wallet.
+          autoHandleExitError: false,
           skipDeviceCancel: true,
           hideCheckingDeviceLoading: true,
           hardwareOperationContext,
