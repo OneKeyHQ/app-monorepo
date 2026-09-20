@@ -1,10 +1,15 @@
 #define WIN32_LEAN_AND_MEAN
+// Windows types and GUID definitions must precede the device property keys.
+// clang-format off
+#include <windows.h>
+#include <initguid.h>
+#include <devpropdef.h>
 #include <devpkey.h>
 #include <newdev.h>
 #include <setupapi.h>
 #include <shellapi.h>
 #include <string.h>
-#include <windows.h>
+// clang-format on
 
 #include <algorithm>
 #include <cwctype>
