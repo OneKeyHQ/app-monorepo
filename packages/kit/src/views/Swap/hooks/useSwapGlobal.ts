@@ -4,6 +4,7 @@ import { isNil } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import { useIsOverlayPage } from '@onekeyhq/components';
+import { useRouteIsFocused as useIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import {
   EJotaiContextStoreNames,
   useInAppNotificationAtom,
@@ -162,6 +163,7 @@ async function getLatestHomeSelectedAccount() {
  * @returns An object containing `fetchLoading`, indicating whether the swap network list is currently loading
  */
 export function useSwapInit(params?: ISwapInitParams) {
+  const isFocused = useIsFocused();
   const [swapNetworks, setSwapNetworks] = useSwapNetworksAtom();
   const [swapFromToken, setSwapFromToken] = useSwapSelectFromTokenAtom();
   const swapProFromToken = useSwapProInputToken();
@@ -1572,6 +1574,9 @@ export function useSwapInit(params?: ISwapInitParams) {
 
   useEffect(() => {
     void (async () => {
+      if (!isFocused) {
+        return;
+      }
       if (
         params?.importNetworkId &&
         swapAddressInfoRef.current?.networkId &&
@@ -1584,10 +1589,13 @@ export function useSwapInit(params?: ISwapInitParams) {
       }
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [params?.importNetworkId, updateSelectedAccountNetwork]);
+  }, [isFocused, params?.importNetworkId, updateSelectedAccountNetwork]);
 
   useEffect(() => {
     void (async () => {
+      if (!isFocused) {
+        return;
+      }
       await syncDefaultSelectedToken();
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1608,6 +1616,7 @@ export function useSwapInit(params?: ISwapInitParams) {
     swapActiveAccount.deriveType,
     selectedTokensRuntimeChannelSupport,
     isNativeProTokenOwner,
+    isFocused,
   ]);
   const [swapFromMarketJumpToken, setSwapFromMarketJumpToken] =
     useSwapFromMarketJumpTokenAtom();
