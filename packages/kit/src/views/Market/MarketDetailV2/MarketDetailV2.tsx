@@ -323,6 +323,7 @@ function MarketDetail({
           testID={MarketTestIDs.detailPage}
         >
           <MarketDetailResponsiveLayout
+            active={shouldOwnSharedMarketDetailState}
             isLayoutPending={shouldSkipMarketDataFetch}
             disablePerpsBanner={skipMarketDataFetch}
             isInitialContentPending={
