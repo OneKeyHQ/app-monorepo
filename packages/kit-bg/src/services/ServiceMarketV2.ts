@@ -487,32 +487,25 @@ class ServiceMarketV2 extends ServiceBase {
     timeFrom?: number;
     timeTo?: number;
   }) {
-    try {
-      const client = await this.getClient(EServiceEndpointEnum.Utility);
-      const response = await client.get<{
-        code: number;
-        message: string;
-        data: IMarketAccountTokenTransactionsResponse;
-      }>('/utility/v2/market/account/token/transactions', {
-        params: {
-          accountAddress,
-          tokenAddress,
-          networkId,
-          currency: 'usd',
-          ...(cursor !== undefined && { cursor }),
-          ...(timeFrom !== undefined && { timeFrom }),
-          ...(timeTo !== undefined && { timeTo }),
-        },
-      });
-      const { data } = response.data;
-      return data;
-    } catch (error) {
-      console.error(
-        '[ServiceMarketV2] fetchMarketAccountTokenTransactions error:',
-        error,
-      );
-      return { list: [] };
-    }
+    const client = await this.getClient(EServiceEndpointEnum.Utility);
+    const response = await client.get<{
+      code: number;
+      message: string;
+      data: IMarketAccountTokenTransactionsResponse;
+    }>('/utility/v2/market/account/token/transactions', {
+      params: {
+        accountAddress,
+        tokenAddress,
+        networkId,
+        currency: 'usd',
+        ...(cursor !== undefined && { cursor }),
+        ...(timeFrom !== undefined && { timeFrom }),
+        ...(timeTo !== undefined && { timeTo }),
+      },
+    });
+    // Let chart callers distinguish a failed refresh from a successful empty list.
+    const { data } = response.data;
+    return data;
   }
 
   @backgroundMethod()
