@@ -22,8 +22,12 @@ const mockSwitchTabAsync = jest.fn<Promise<void>, [unknown]>(() =>
 );
 let mockIsModalPage = false;
 let mockCurrentRouteName: string = ETabMarketRoutes.MarketDetailV2;
+let mockCurrentRouteParams: Partial<IMarketStockDetailRouteParams> | undefined;
 jest.mock('@react-navigation/native', () => ({
-  useRoute: () => ({ name: mockCurrentRouteName }),
+  useRoute: () => ({
+    name: mockCurrentRouteName,
+    params: mockCurrentRouteParams,
+  }),
 }));
 jest.mock('@onekeyhq/kit/src/hooks/useAppNavigation', () => ({
   __esModule: true,
@@ -115,6 +119,7 @@ describe('useToMarketStockDetailPage', () => {
     mockedPlatformEnv.isWeb = false;
     mockIsModalPage = false;
     mockCurrentRouteName = ETabMarketRoutes.MarketDetailV2;
+    mockCurrentRouteParams = undefined;
   });
 
   it('resets the tab stack before opening the selected stock', async () => {
@@ -168,6 +173,29 @@ describe('useToMarketStockDetailPage', () => {
     });
     expect(mockPopToTop).not.toHaveBeenCalled();
     expect(mockPush).not.toHaveBeenCalled();
+    expect(mockPrepareStockTokenDetail).toHaveBeenCalledTimes(1);
+  });
+
+  it('preserves loaded detail when reselecting the current unresolved stock', async () => {
+    mockCurrentRouteName = ETabMarketRoutes.MarketStockDetail;
+    mockCurrentRouteParams = { stockId: 'AAPL' };
+    const { result } = renderHook(() =>
+      useToMarketStockDetailPage({ replaceCurrentDetail: true }),
+    );
+
+    await act(async () => {
+      await result.current({
+        stockId: 'aapl',
+        symbol: 'AAPL',
+        name: 'Apple Inc.',
+        logoUrl: 'aapl.png',
+      });
+    });
+
+    expect(mockPrepareStockTokenDetail).not.toHaveBeenCalled();
+    expect(mockSetParams).toHaveBeenCalledWith(
+      expect.objectContaining({ stockId: 'aapl' }),
+    );
   });
 
   it.each(['desktop', 'web'])(

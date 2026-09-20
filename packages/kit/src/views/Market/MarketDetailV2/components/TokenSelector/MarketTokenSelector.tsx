@@ -52,6 +52,7 @@ import { resolveMarketStockId } from '../../utils/resolveIsStockToken';
 import { ALL_NETWORK_ID, TOKEN_SELECTOR_POLLING_INTERVAL } from './constants';
 import { MarketStockSelectorList } from './MarketStockSelectorList';
 import { MarketTokenSelectorList } from './MarketTokenSelectorList';
+import { MarketTokenSelectorSearchResults } from './MarketTokenSelectorSearchResults';
 import { navigateToMarketTokenDetail } from './navigateToMarketTokenDetail';
 
 type IMarketTokenSelectorItem = IMarketToken & {
@@ -393,6 +394,37 @@ function BaseMarketTokenSelectorContent({
     [closePopover, toMarketStockDetailPage],
   );
 
+  let selectorListContent: ReactElement;
+  if (searchValueDebounce) {
+    selectorListContent = (
+      <MarketTokenSelectorSearchResults
+        query={searchValueDebounce}
+        marketItems={searchTokenList}
+        isMarketLoading={searchLoading}
+        onStockPress={handleSelectStock}
+        onMarketPress={handleSelectToken}
+      />
+    );
+  } else if (isStockSelection) {
+    selectorListContent = (
+      <MarketStockSelectorList query="" onItemPress={handleSelectStock} />
+    );
+  } else {
+    selectorListContent = (
+      <MarketTokenSelectorList
+        networkId={allNetworkId}
+        selectedCategory={selectedCategory}
+        timeRange={selectorTimeRange}
+        onItemPress={handleSelectToken}
+        pollingInterval={TOKEN_SELECTOR_POLLING_INTERVAL}
+        isWatchlistMode={startListSelect}
+        watchlistDataCacheRef={watchlistDataCacheRef}
+        dataOverride={isTopCoinsSelection ? topCoinsSelectorData : undefined}
+        dataOverrideLoading={isTopCoinsLoading}
+      />
+    );
+  }
+
   return (
     <YStack testID="market-token-selector-content">
       <YStack gap="$1">
@@ -444,32 +476,7 @@ function BaseMarketTokenSelectorContent({
           </XStack>
         )}
 
-        {/* List content */}
-        {isStockSelection && !searchValueDebounce ? (
-          <MarketStockSelectorList
-            query={searchValueDebounce}
-            onItemPress={handleSelectStock}
-          />
-        ) : (
-          <MarketTokenSelectorList
-            networkId={allNetworkId}
-            selectedCategory={selectedCategory}
-            timeRange={selectorTimeRange}
-            onItemPress={handleSelectToken}
-            pollingInterval={TOKEN_SELECTOR_POLLING_INTERVAL}
-            isWatchlistMode={Boolean(!searchValueDebounce && startListSelect)}
-            watchlistDataCacheRef={watchlistDataCacheRef}
-            searchQuery={searchValueDebounce}
-            searchLoading={searchLoading}
-            searchResults={searchTokenList}
-            dataOverride={
-              isTopCoinsSelection && !searchValueDebounce
-                ? topCoinsSelectorData
-                : undefined
-            }
-            dataOverrideLoading={isTopCoinsLoading}
-          />
-        )}
+        {selectorListContent}
       </YStack>
     </YStack>
   );

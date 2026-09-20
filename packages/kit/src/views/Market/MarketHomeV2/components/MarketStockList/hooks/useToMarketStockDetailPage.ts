@@ -31,6 +31,8 @@ import { closeExtensionPopupAfterExpandTabOpen } from '@onekeyhq/shared/src/util
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import type { IMarketStockDetailPreview } from '@onekeyhq/shared/types/marketV2';
 
+import type { RouteProp } from '@react-navigation/native';
+
 interface IUseToMarketStockDetailPageOptions {
   replaceCurrentDetail?: boolean;
 }
@@ -50,7 +52,12 @@ export function useToMarketStockDetailPage(
 ) {
   const navigation =
     useAppNavigation<IPageNavigationProp<ITabMarketParamList>>();
-  const currentRouteName = useRoute().name;
+  const currentRoute = useRoute<RouteProp<ITabMarketParamList>>();
+  const currentRouteName = currentRoute.name;
+  const currentStockId =
+    currentRoute.params && 'stockId' in currentRoute.params
+      ? currentRoute.params.stockId
+      : undefined;
   const tokenDetailActions = useTokenDetailActions();
   const splitViewType = useSplitViewType();
   const isModalPage = useIsModalPage();
@@ -79,17 +86,26 @@ export function useToMarketStockDetailPage(
               isNative: stockPreview.isNative,
             }
           : undefined;
+      const shouldRetainCurrentStockTokenDetail = Boolean(
+        options?.replaceCurrentDetail &&
+        (platformEnv.isDesktop || platformEnv.isWeb) &&
+        currentRouteName === ETabMarketRoutes.MarketStockDetail &&
+        !stockTokenParams &&
+        currentStockId?.trim().toUpperCase() === stockId.trim().toUpperCase(),
+      );
       const preloadPromise = preloadMarketDetailV2Page({
         includeBodyModules: true,
         includeHeavyModules: true,
         isStockRoute: true,
         layout: preloadLayout,
       });
-      tokenDetailActions.current.prepareStockTokenDetail({
-        tokenAddress: stockTokenParams?.tokenAddress ?? '',
-        networkId: stockPreview?.networkId ?? '',
-        isNative: stockTokenParams?.isNative,
-      });
+      if (!shouldRetainCurrentStockTokenDetail) {
+        tokenDetailActions.current.prepareStockTokenDetail({
+          tokenAddress: stockTokenParams?.tokenAddress ?? '',
+          networkId: stockPreview?.networkId ?? '',
+          isNative: stockTokenParams?.isNative,
+        });
+      }
 
       if (
         splitViewType !== ESplitViewType.UNKNOWN &&
@@ -203,6 +219,7 @@ export function useToMarketStockDetailPage(
     },
     [
       navigation,
+      currentStockId,
       currentRouteName,
       isModalPage,
       options?.replaceCurrentDetail,
