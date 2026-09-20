@@ -6,6 +6,7 @@ import type {
   IMarketTokenDetailPreview,
 } from '@onekeyhq/shared/types/marketV2';
 
+import { isMatchingMarketTokenIdentity } from '../utils/marketTokenIdentity';
 import { resolveIsStockToken } from '../utils/resolveIsStockToken';
 
 import { useStockDetail } from './StockDetailContext';
@@ -75,16 +76,11 @@ function isSameTokenIdentity({
   if (!previewTokenDetail || !tokenDetail) {
     return false;
   }
-  return (
-    (!previewTokenDetail.networkId ||
-      !tokenDetail.networkId ||
-      previewTokenDetail.networkId === tokenDetail.networkId) &&
-    (previewTokenDetail.isNative === undefined ||
-      tokenDetail.isNative === undefined ||
-      previewTokenDetail.isNative === tokenDetail.isNative) &&
-    previewTokenDetail.address.toLowerCase() ===
-      tokenDetail.address.toLowerCase()
-  );
+  return isMatchingMarketTokenIdentity(previewTokenDetail, {
+    tokenAddress: tokenDetail.address ?? '',
+    networkId: tokenDetail.networkId ?? '',
+    isNative: Boolean(tokenDetail.isNative),
+  });
 }
 
 export function preserveMarketDetailPreviewImage({
@@ -145,27 +141,36 @@ export function useMarketDetailDisplayData() {
     [networkId, stockPreview, tokenAddress],
   );
 
-  const stableFullTokenDetail = useMemo(
-    () =>
-      preserveMarketDetailPreviewImage({
-        previewTokenDetail,
-        tokenDetail,
-      }),
-    [previewTokenDetail, tokenDetail],
-  );
-  const displayTokenDetail =
-    stableFullTokenDetail ?? previewTokenDetail ?? stockPreviewTokenDetail;
+  const { displayTokenDetail, isPreviewTokenDetail } = useMemo(() => {
+    const matchesPreview =
+      !previewTokenDetail ||
+      isSameTokenIdentity({ previewTokenDetail, tokenDetail });
+    if (tokenDetail && matchesPreview) {
+      return {
+        displayTokenDetail: preserveMarketDetailPreviewImage({
+          previewTokenDetail,
+          tokenDetail,
+        }),
+        isPreviewTokenDetail: false,
+      };
+    }
+    const previewDisplay = previewTokenDetail ?? stockPreviewTokenDetail;
+    return {
+      displayTokenDetail: previewDisplay,
+      isPreviewTokenDetail: Boolean(previewDisplay),
+    };
+  }, [previewTokenDetail, stockPreviewTokenDetail, tokenDetail]);
 
   return useMemo(
     () => ({
       ...tokenDetailData,
       tokenDetail: displayTokenDetail,
       fullTokenDetail: tokenDetail,
-      isPreviewTokenDetail: Boolean(displayTokenDetail && !tokenDetail),
+      isPreviewTokenDetail,
       isStockToken:
         tokenDetailData.isStockToken || resolveIsStockToken(displayTokenDetail),
     }),
-    [displayTokenDetail, tokenDetail, tokenDetailData],
+    [displayTokenDetail, isPreviewTokenDetail, tokenDetail, tokenDetailData],
   );
 }
 
