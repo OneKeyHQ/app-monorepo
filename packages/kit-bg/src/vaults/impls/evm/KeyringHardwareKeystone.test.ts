@@ -11,6 +11,7 @@ import {
   ThirdPartyDeviceMismatch,
   ThirdPartyUserRejected,
 } from '@onekeyhq/shared/src/errors/errors/thirdPartyHardwareErrors';
+import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 import { EMessageTypesEth } from '@onekeyhq/shared/types/message';
 
 import { KeyringHardwareKeystone } from './KeyringHardwareKeystone';
@@ -199,6 +200,8 @@ describe('KeyringHardwareKeystone.signMessage', () => {
     deviceId: 'wallet-id',
   };
   const accountPath = "m/44'/60'/0'/0/0";
+  const signer = new ethers.Wallet(`0x${'0c'.repeat(32)}`);
+  const otherSigner = new ethers.Wallet(`0x${'0d'.repeat(32)}`);
 
   function buildKeyring(hw: Record<string, jest.Mock>) {
     const getAdapterForVendor = jest.fn().mockResolvedValue({ hw });
@@ -210,6 +213,7 @@ describe('KeyringHardwareKeystone.signMessage', () => {
         },
         vault: {
           getAccountPath: jest.fn().mockResolvedValue(accountPath),
+          getAccountAddress: jest.fn().mockResolvedValue(signer.address),
         },
       },
     ) as KeyringHardwareKeystone;
@@ -217,9 +221,10 @@ describe('KeyringHardwareKeystone.signMessage', () => {
   }
 
   it('hex-encodes a plain personal_sign string and always sets hex:true', async () => {
+    const signature = await signer.signMessage('hello');
     const evmSignMessage = jest
       .fn()
-      .mockResolvedValue({ success: true, payload: { signature: '0xsig' } });
+      .mockResolvedValue({ success: true, payload: { signature } });
     const { keyring } = buildKeyring({ evmSignMessage });
 
     const signatures = await keyring.signMessage({
@@ -236,13 +241,16 @@ describe('KeyringHardwareKeystone.signMessage', () => {
         hex: true,
       }),
     );
-    expect(signatures).toEqual(['0xsig']);
+    expect(signatures).toEqual([signature]);
   });
 
   it('passes an already-hex personal_sign message through unchanged', async () => {
+    const signature = await signer.signMessage(
+      ethers.utils.arrayify('0xdeadbeef'),
+    );
     const evmSignMessage = jest
       .fn()
-      .mockResolvedValue({ success: true, payload: { signature: '0xsig' } });
+      .mockResolvedValue({ success: true, payload: { signature } });
     const { keyring } = buildKeyring({ evmSignMessage });
 
     await keyring.signMessage({
@@ -260,20 +268,29 @@ describe('KeyringHardwareKeystone.signMessage', () => {
   });
 
   it('sends the full EIP-712 struct plus the original dApp JSON for typed data v4', async () => {
-    const evmSignTypedData = jest
-      .fn()
-      .mockResolvedValue({ success: true, payload: { signature: '0xsig' } });
-    const { keyring } = buildKeyring({ evmSignTypedData });
     const typedData = {
       domain: { name: 'Test', chainId: 1 },
       types: {
-        EIP712Domain: [],
+        EIP712Domain: [
+          { name: 'name', type: 'string' },
+          { name: 'chainId', type: 'uint256' },
+        ],
         Mail: [{ name: 'contents', type: 'string' }],
       },
       primaryType: 'Mail',
       message: { contents: 'hi' },
     };
-    const messageJson = JSON.stringify(typedData);
+    const messageJson = stringUtils.stableStringify(typedData);
+    const signature = await signer._signTypedData(
+      typedData.domain,
+      { Mail: typedData.types.Mail },
+      typedData.message,
+    );
+    const evmSignTypedData = jest.fn().mockResolvedValue({
+      success: true,
+      payload: { signature },
+    });
+    const { keyring } = buildKeyring({ evmSignTypedData });
 
     await keyring.signMessage({
       messages: [
@@ -290,6 +307,201 @@ describe('KeyringHardwareKeystone.signMessage', () => {
         data: typedData,
         dataJson: messageJson,
       }),
+    );
+  });
+
+  it.each([
+    ['empty bytes', '0x', new Uint8Array()],
+    ['unprefixed hex', 'deadbeef', ethers.utils.arrayify('0xdeadbeef')],
+    [
+      'Unicode text',
+      '你好 Keystone',
+      ethers.utils.toUtf8Bytes('你好 Keystone'),
+    ],
+  ])(
+    'accepts a matching personal signature for %s',
+    async (_label, message, bytes) => {
+      const signature = await signer.signMessage(bytes);
+      const evmSignMessage = jest.fn().mockResolvedValue({
+        success: true,
+        payload: { signature },
+      });
+      const { keyring } = buildKeyring({ evmSignMessage });
+      await expect(
+        keyring.signMessage({
+          messages: [{ type: EMessageTypesEth.PERSONAL_SIGN, message }],
+          deviceParams: { dbDevice },
+        } as never),
+      ).resolves.toEqual([signature]);
+    },
+  );
+
+  it.each(['wrong account', 'wrong message', 'malformed signature'])(
+    'rejects personal_sign with %s',
+    async (scenario) => {
+      const signature =
+        scenario === 'malformed signature'
+          ? '0x00'
+          : await (
+              scenario === 'wrong account' ? otherSigner : signer
+            ).signMessage(
+              scenario === 'wrong message' ? 'different message' : 'hello',
+            );
+      const evmSignMessage = jest.fn().mockResolvedValue({
+        success: true,
+        payload: { signature },
+      });
+      const { keyring } = buildKeyring({ evmSignMessage });
+      await expect(
+        keyring.signMessage({
+          messages: [
+            { type: EMessageTypesEth.PERSONAL_SIGN, message: 'hello' },
+          ],
+          deviceParams: { dbDevice },
+        } as never),
+      ).rejects.toBeInstanceOf(ThirdPartyDeviceMismatch);
+    },
+  );
+
+  describe.each([
+    EMessageTypesEth.TYPED_DATA_V3,
+    EMessageTypesEth.TYPED_DATA_V4,
+  ])('typed message %s', (type) => {
+    const domain = { name: 'Keystone test', chainId: 1 };
+    const types = {
+      Mail: [
+        { name: 'contents', type: 'string' },
+        { name: 'amount', type: 'int256' },
+      ],
+    };
+    const contents = 'Keep "9007199254740993" and \\ unchanged';
+    const makeData = (amount: string) => ({
+      domain,
+      types: {
+        EIP712Domain: [
+          { name: 'name', type: 'string' },
+          { name: 'chainId', type: 'uint256' },
+        ],
+        ...types,
+      },
+      primaryType: 'Mail',
+      message: { contents, amount },
+    });
+
+    it.each([
+      ['9007199254740993', '9007199254740993'],
+      ['-9007199254740993', '-9007199254740993'],
+      ['90071992547409930', '9.007199254740993e16'],
+    ])(
+      'verifies exact unsafe integer %s without changing request JSON',
+      async (amount, literal) => {
+        const data = makeData(amount);
+        const message = stringUtils
+          .stableStringify(data)
+          .replace(`"${amount}"`, literal);
+        const signature = await signer._signTypedData(
+          domain,
+          types,
+          data.message,
+        );
+        const evmSignTypedData = jest.fn().mockResolvedValue({
+          success: true,
+          payload: { signature },
+        });
+        const { keyring } = buildKeyring({ evmSignTypedData });
+        await expect(
+          keyring.signMessage({
+            messages: [{ type, message }],
+            deviceParams: { dbDevice },
+          } as never),
+        ).resolves.toEqual([signature]);
+        expect(evmSignTypedData).toHaveBeenCalledWith(
+          dbDevice.connectId,
+          dbDevice.deviceId,
+          expect.objectContaining({ dataJson: message }),
+        );
+      },
+    );
+
+    it.each([
+      'matching',
+      'wrong account',
+      'wrong message',
+      'malformed signature',
+    ])('handles %s', async (scenario) => {
+      const data = makeData('123');
+      const signature =
+        scenario === 'malformed signature'
+          ? '0x00'
+          : await (
+              scenario === 'wrong account' ? otherSigner : signer
+            )._signTypedData(domain, types, {
+              ...data.message,
+              amount: scenario === 'wrong message' ? '124' : '123',
+            });
+      const evmSignTypedData = jest.fn().mockResolvedValue({
+        success: true,
+        payload: { signature },
+      });
+      const { keyring } = buildKeyring({ evmSignTypedData });
+      const result = keyring.signMessage({
+        messages: [{ type, message: stringUtils.stableStringify(data) }],
+        deviceParams: { dbDevice },
+      } as never);
+      if (scenario === 'matching') {
+        await expect(result).resolves.toEqual([signature]);
+      } else {
+        await expect(result).rejects.toBeInstanceOf(ThirdPartyDeviceMismatch);
+      }
+    });
+  });
+
+  it('rejects incomplete hex bytes before asking the device to sign', async () => {
+    const evmSignMessage = jest.fn();
+    const { keyring } = buildKeyring({ evmSignMessage });
+    await expect(
+      keyring.signMessage({
+        messages: [{ type: EMessageTypesEth.PERSONAL_SIGN, message: '0xabc' }],
+        deviceParams: { dbDevice },
+      } as never),
+    ).rejects.toThrow('complete hex bytes');
+    expect(evmSignMessage).not.toHaveBeenCalled();
+  });
+
+  it('verifies V4 arrays and rejects a signature over rounded integer values', async () => {
+    const domain = {};
+    const types = { Batch: [{ name: 'amounts', type: 'uint256[]' }] };
+    const data = {
+      domain,
+      types: { EIP712Domain: [], ...types },
+      primaryType: 'Batch',
+      message: { amounts: ['9007199254740993', '9007199254740995'] },
+    };
+    const message = stringUtils
+      .stableStringify(data)
+      .replace('"9007199254740993"', '9007199254740993')
+      .replace('"9007199254740995"', '9007199254740995');
+    const signature = await signer._signTypedData(domain, types, data.message);
+    const roundedSignature = await signer._signTypedData(domain, types, {
+      amounts: ['9007199254740992', '9007199254740996'],
+    });
+    const evmSignTypedData = jest
+      .fn()
+      .mockResolvedValueOnce({ success: true, payload: { signature } })
+      .mockResolvedValueOnce({
+        success: true,
+        payload: { signature: roundedSignature },
+      });
+    const { keyring } = buildKeyring({ evmSignTypedData });
+    const params = {
+      messages: [{ type: EMessageTypesEth.TYPED_DATA_V4, message }],
+      deviceParams: { dbDevice },
+    };
+    await expect(keyring.signMessage(params as never)).resolves.toEqual([
+      signature,
+    ]);
+    await expect(keyring.signMessage(params as never)).rejects.toBeInstanceOf(
+      ThirdPartyDeviceMismatch,
     );
   });
 

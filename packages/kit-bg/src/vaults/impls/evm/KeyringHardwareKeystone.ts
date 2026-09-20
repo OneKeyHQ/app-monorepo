@@ -1,9 +1,12 @@
 import { web3Errors } from '@onekeyfe/cross-inpage-provider-errors';
+import BigNumber from 'bignumber.js';
 
+import { hashMessage } from '@onekeyhq/core/src/chains/evm/message';
 import {
   buildSignedTxFromSignatureEvm,
   packUnsignedTxForSignEvm,
 } from '@onekeyhq/core/src/chains/evm/sdkEvm';
+import { ethers } from '@onekeyhq/core/src/chains/evm/sdkEvm/ethers';
 import { verifyEvmSignedTxMatched } from '@onekeyhq/core/src/chains/evm/sdkEvm/verify';
 import type { IVerifyEvmSignedTxMatchedParams } from '@onekeyhq/core/src/chains/evm/sdkEvm/verify';
 import type { IEncodedTxEvm } from '@onekeyhq/core/src/chains/evm/types';
@@ -203,6 +206,30 @@ export class KeyringHardwareKeystone extends KeyringHardwareBase {
     }
   }
 
+  private _assertMessageSignatureMatchesSigner({
+    digest,
+    signature,
+    signerAddress,
+  }: {
+    digest: string;
+    signature: string;
+    signerAddress: string;
+  }) {
+    try {
+      const recoveredAddress = ethers.utils.recoverAddress(digest, signature);
+      if (recoveredAddress.toLowerCase() === signerAddress.toLowerCase()) {
+        return;
+      }
+    } catch {
+      // Malformed signatures must follow the same rejection path as mismatches.
+    }
+    throw new ThirdPartyDeviceMismatch({
+      vendor: VENDOR_ERROR_CONTEXT.vendor,
+      autoToast: true,
+      payload: {},
+    });
+  }
+
   override async signMessage(
     params: ISignMessageParams,
   ): Promise<ISignedMessagePro> {
@@ -245,6 +272,16 @@ export class KeyringHardwareKeystone extends KeyringHardwareBase {
       const messageHex = hexUtils.isHexString(message.message)
         ? message.message
         : Buffer.from(message.message, 'utf-8').toString('hex');
+      if (hexUtils.stripHexPrefix(messageHex).length % 2 !== 0) {
+        throw web3Errors.rpc.invalidParams(
+          'personal_sign message must contain complete hex bytes',
+        );
+      }
+      const signerAddress = await this.vault.getAccountAddress();
+      const digest = hashMessage({
+        messageType: EMessageTypesEth.PERSONAL_SIGN,
+        message: hexUtils.addHexPrefix(messageHex),
+      });
       const result = await adapter.hw.evmSignMessage(
         operationId ?? dbDevice.connectId,
         dbDevice.deviceId,
@@ -262,6 +299,11 @@ export class KeyringHardwareKeystone extends KeyringHardwareBase {
           VENDOR_ERROR_CONTEXT,
         );
       }
+      this._assertMessageSignatureMatchesSigner({
+        digest,
+        signature: result.payload.signature,
+        signerAddress,
+      });
       return result.payload.signature;
     }
 
@@ -269,6 +311,28 @@ export class KeyringHardwareKeystone extends KeyringHardwareBase {
       message.type === EMessageTypesEth.TYPED_DATA_V3 ||
       message.type === EMessageTypesEth.TYPED_DATA_V4
     ) {
+      const signerAddress = await this.vault.getAccountAddress();
+      const data = JSON.parse(message.message) as EvmSignTypedDataFull['data'];
+      // Preserve unsafe integer literals for hashing the exact JSON sent to the
+      // device. Match whole strings first so numeric text stays untouched.
+      const verificationData = JSON.parse(
+        message.message.replace(
+          /"(?:[^"\\]|\\.)*"|-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?/g,
+          (token) => {
+            if (token.startsWith('"') || !Number.isFinite(Number(token))) {
+              return token;
+            }
+            const value = new BigNumber(token);
+            return value.isInteger() && !Number.isSafeInteger(Number(token))
+              ? `"${value.toFixed()}"`
+              : token;
+          },
+        ),
+      ) as Record<string, unknown>;
+      const digest = hashMessage({
+        messageType: message.type,
+        message: verificationData,
+      });
       // Full-payload mode only: Keystone always renders the whole EIP-712
       // struct for on-device review and rejects pre-hashed (`mode: 'hash'`)
       // signing outright.
@@ -279,7 +343,7 @@ export class KeyringHardwareKeystone extends KeyringHardwareBase {
           ...thirdPartyConnectionContextFromDevice(dbDevice),
           ...(operationId ? { operationId } : {}),
           path,
-          data: JSON.parse(message.message) as EvmSignTypedDataFull['data'],
+          data,
           // Keystone signs the serialized payload, so send the dApp's own
           // bytes: a JSON.parse/stringify round trip would rewrite integer
           // literals wider than 2^53 before the device ever displays them.
@@ -292,6 +356,11 @@ export class KeyringHardwareKeystone extends KeyringHardwareBase {
           VENDOR_ERROR_CONTEXT,
         );
       }
+      this._assertMessageSignatureMatchesSigner({
+        digest,
+        signature: result.payload.signature,
+        signerAddress,
+      });
       return result.payload.signature;
     }
 
