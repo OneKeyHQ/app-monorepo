@@ -6,6 +6,7 @@ import { useIntl } from 'react-intl';
 
 import { useDebounce } from '@onekeyhq/kit/src/hooks/useDebounce';
 import { useLocaleVariant } from '@onekeyhq/kit/src/hooks/useLocaleVariant';
+import { useRouteIsFocused as useIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import {
   ESwapProJumpTokenDirection,
   useSwapProJumpTokenAtom,
@@ -233,6 +234,7 @@ export function useSwapProToToken() {
 }
 
 export function useSwapProAccount() {
+  const isFocused = useIsFocused();
   const { activeAccount } = useActiveAccount({ num: 0 });
   const { selectedAccount } = useSelectedAccount({ num: 0 });
   const [isAccountSelectorStorageInitDone] =
@@ -388,6 +390,7 @@ export function useSwapProAccount() {
     }),
   );
   const shouldSyncAccountNetwork = shouldSyncSwapProAccountNetwork({
+    isFocused,
     isSwapProActive,
     targetNetworkId: accountNetworkSyncTargetId,
     currentNetworkId: selectedAccount.networkId ?? activeAccount?.network?.id,
