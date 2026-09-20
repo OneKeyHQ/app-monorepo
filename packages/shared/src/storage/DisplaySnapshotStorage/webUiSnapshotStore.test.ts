@@ -9,10 +9,31 @@
  */
 import { OneKeyLocalError } from '../../errors';
 
+// The node test environment has no IndexedDB globals, and the store only
+// needs the range object to hand to its object store.
+const globalWithKeyRange = globalThis as unknown as {
+  IDBKeyRange?: {
+    bound: (lower: string, upper: string) => { lower: string; upper: string };
+  };
+};
+globalWithKeyRange.IDBKeyRange ??= {
+  bound: (lower: string, upper: string) => ({ lower, upper }),
+};
+
+function describeDeleteTarget(target: unknown) {
+  if (typeof target === 'string') {
+    return target;
+  }
+  const range = target as { lower: string; upper: string };
+  return `range:${range.lower}..${range.upper}`;
+}
+
 let openAttempts = 0;
 let openShouldFail = true;
 let putCalls: { key: string; value: string }[] = [];
 let deleteCalls: string[] = [];
+/** Puts and deletes in the order the store issued them. */
+let operations: string[] = [];
 /** Stands in for an exhausted quota: only the transaction that asks to run
  *  when storage is full gets through. */
 let quotaRejectsWrites = false;
@@ -47,10 +68,12 @@ jest.mock('../../IndexedDBPromised', () => ({
         objectStore: () => ({
           put: (value: string, key: string) => {
             putCalls.push({ key, value });
+            operations.push(`put:${key}`);
             return Promise.resolve();
           },
-          delete: (key: string) => {
-            deleteCalls.push(key);
+          delete: (key: unknown) => {
+            deleteCalls.push(describeDeleteTarget(key));
+            operations.push(`delete:${describeDeleteTarget(key)}`);
             return Promise.resolve();
           },
           clear: () => Promise.resolve(),
@@ -66,6 +89,7 @@ const {
   __resetWebUiSnapshotStoreForTests,
   createWebUiSnapshotSyncBackend,
   flushUiSnapshotStoreNow,
+  primeWebUiSnapshotStore,
 } = require('./webUiSnapshotStore') as typeof import('./webUiSnapshotStore');
 
 const FLUSH_DEBOUNCE_MS = 2000;
@@ -87,6 +111,7 @@ describe('webUiSnapshotStore write-behind', () => {
     openShouldFail = true;
     putCalls = [];
     deleteCalls = [];
+    operations = [];
     quotaRejectsWrites = false;
     releaseTransaction = undefined;
     __resetWebUiSnapshotStoreForTests();
@@ -200,5 +225,51 @@ describe('webUiSnapshotStore write-behind', () => {
       'ctx-atom-snapshot:manifest',
     ]);
     expect(deleteCalls).toEqual(['market-token-detail:stale']);
+  });
+
+  it('clears a namespace on disk, including records it never read', async () => {
+    openShouldFail = false;
+    const backend = createWebUiSnapshotSyncBackend('swr-wallet-list');
+    // Nothing primed this namespace, so the map names none of its records —
+    // which is the case the wallet deletion has to survive.
+    backend.clearNamespace();
+
+    await flushUiSnapshotStoreNow();
+
+    expect(deleteCalls).toEqual(['range:swr-wallet-list:..swr-wallet-list;']);
+  });
+
+  it('clears the namespace before the writes queued after it', async () => {
+    openShouldFail = false;
+    const backend = createWebUiSnapshotSyncBackend('swr-wallet-list');
+    backend.clearNamespace();
+    backend.commit({
+      entries: [{ key: 'd:wallet-2', value: 'fresh' }],
+      commitMarker: { key: 'manifest', value: 'm1' },
+    });
+
+    await flushUiSnapshotStoreNow();
+
+    expect(operations).toEqual([
+      'delete:range:swr-wallet-list:..swr-wallet-list;',
+      'put:swr-wallet-list:d:wallet-2',
+      'put:swr-wallet-list:manifest',
+    ]);
+  });
+
+  it('does not prime back a namespace this session cleared', () => {
+    openShouldFail = false;
+    const cleared = createWebUiSnapshotSyncBackend('swr-wallet-list');
+    const untouched = createWebUiSnapshotSyncBackend('swr-market-token-detail');
+    cleared.clearNamespace();
+
+    // The startup read began before the clear and lands after it.
+    primeWebUiSnapshotStore([
+      ['swr-wallet-list:d:wallet-1', 'stale'],
+      ['swr-market-token-detail:d:btc', 'unrelated'],
+    ]);
+
+    expect(cleared.read('d:wallet-1')).toBeUndefined();
+    expect(untouched.read('d:btc')).toBe('unrelated');
   });
 });

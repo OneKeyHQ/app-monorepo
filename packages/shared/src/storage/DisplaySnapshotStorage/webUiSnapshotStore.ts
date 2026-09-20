@@ -49,6 +49,13 @@ let databasePromise: Promise<IndexedDBPromised<unknown>> | undefined;
 let flushTimer: ReturnType<typeof setTimeout> | undefined;
 let flushPromise: Promise<void> | undefined;
 const dirtyKeys = new Set<string>();
+/** Namespaces waiting for a whole-namespace delete on disk. Their records are
+ *  not named here: the point of this queue is the ones the map never held. */
+const dirtyNamespaces = new Set<string>();
+/** Namespaces this session has cleared. A read of the database that started
+ *  before the clear still carries their old records, so priming has to know
+ *  which ones no longer describe anything. */
+const clearedNamespaces = new Set<string>();
 /** While a reset is in flight every write is dropped, so a writer that is
  *  mid-flush cannot put back what the reset is removing. */
 let isClearing = false;
@@ -102,6 +109,21 @@ function scheduleFlush(key: string) {
   armFlushTimer(FLUSH_DEBOUNCE_MS);
 }
 
+function scheduleNamespaceClear(namespace: string) {
+  if (isClearing) {
+    return;
+  }
+  dirtyNamespaces.add(namespace);
+  clearedNamespaces.add(namespace);
+  flushFailureStreak = 0;
+  armFlushTimer(FLUSH_DEBOUNCE_MS);
+}
+
+function namespaceOfRecordKey(key: string) {
+  const separator = key.indexOf(':');
+  return separator === -1 ? key : key.slice(0, separator);
+}
+
 /** Write every pending key. Deletes go in their own transaction, which is
  *  allowed to run when the quota is exhausted, and which runs even when the
  *  write before it failed — that is when it matters. */
@@ -114,11 +136,13 @@ export function flushUiSnapshotStoreNow(): Promise<void> {
     // nothing left, so this is one extra flush, not a loop.
     return flushPromise.then(() => flushUiSnapshotStoreNow());
   }
-  if (dirtyKeys.size === 0) {
+  if (dirtyKeys.size === 0 && dirtyNamespaces.size === 0) {
     return Promise.resolve();
   }
   const keys = [...dirtyKeys];
   dirtyKeys.clear();
+  const namespaces = [...dirtyNamespaces];
+  dirtyNamespaces.clear();
   const next = (async () => {
     const map = getMap();
     const writes: { key: string; value: string }[] = [];
@@ -136,12 +160,38 @@ export function flushUiSnapshotStoreNow(): Promise<void> {
     // it would keep the store dirty and spend the retry budget below on
     // records that are gone.
     const failedKeys: string[] = [];
+    const failedNamespaces: string[] = [];
     let database: IndexedDBPromised<unknown> | undefined;
     try {
       database = await getDatabase();
     } catch {
       // Nothing reaches disk this round, writes and deletes alike.
       failedKeys.push(...keys);
+      failedNamespaces.push(...namespaces);
+    }
+    if (database && namespaces.length > 0) {
+      // Before the writes below, and by range rather than by key: a namespace
+      // is cleared for records the map never held — a page that has not
+      // primed this namespace names none of them — while a key written after
+      // the clear belongs to what comes next and the range must not take it.
+      try {
+        const transaction = await database.createBucketTransaction(
+          [RECORD_STORE],
+          'readwrite',
+          { allowWhenStorageFull: true },
+        );
+        const store = transaction.objectStore(RECORD_STORE);
+        await Promise.all(
+          namespaces.map((namespace) =>
+            store.delete(
+              IDBKeyRange.bound(`${namespace}:`, `${namespace};`, false, true),
+            ),
+          ),
+        );
+        await transaction.done;
+      } catch {
+        failedNamespaces.push(...namespaces);
+      }
     }
     if (database && writes.length > 0) {
       try {
@@ -176,7 +226,7 @@ export function flushUiSnapshotStoreNow(): Promise<void> {
         failedKeys.push(...removals);
       }
     }
-    if (failedKeys.length === 0) {
+    if (failedKeys.length === 0 && failedNamespaces.length === 0) {
       flushFailureStreak = 0;
       return;
     }
@@ -184,12 +234,13 @@ export function flushUiSnapshotStoreNow(): Promise<void> {
     // disk still serves the page from the map.
     flushFailureStreak += 1;
     failedKeys.forEach((key) => dirtyKeys.add(key));
+    failedNamespaces.forEach((namespace) => dirtyNamespaces.add(namespace));
   })().finally(() => {
     flushPromise = undefined;
     if (isClearing) {
       return;
     }
-    if (dirtyKeys.size === 0) {
+    if (dirtyKeys.size === 0 && dirtyNamespaces.size === 0) {
       // A chained explicit flush can drain the queue after an earlier tail
       // armed the timer; that timer would only wake to find nothing.
       if (flushTimer) {
@@ -222,7 +273,11 @@ export function primeWebUiSnapshotStore(entries: Iterable<[string, string]>) {
   }
   const map = getMap();
   for (const [key, value] of entries) {
-    if (!map.has(key)) {
+    // A namespace this session cleared has nothing left on disk that still
+    // describes anything, and the read behind these entries may have started
+    // before the clear. Priming them would put back what a wallet deletion
+    // removed, and the next launch would read it again.
+    if (!map.has(key) && !clearedNamespaces.has(namespaceOfRecordKey(key))) {
       map.set(key, value);
     }
   }
@@ -311,6 +366,7 @@ export async function resetWebUiSnapshotStore(): Promise<void> {
       flushTimer = undefined;
     }
     dirtyKeys.clear();
+    dirtyNamespaces.clear();
     flushFailureStreak = 0;
     getMap().clear();
     await flushPromise?.catch(() => undefined);
@@ -383,10 +439,19 @@ export function createWebUiSnapshotSyncBackend(
       keys.forEach((key) => drop(recordKey(key)));
     },
     clearNamespace() {
+      if (isClearing) {
+        return;
+      }
+      // The map holds what this runtime has read, which early in a session is
+      // nothing: naming its keys would leave every record this page never
+      // primed on disk, for the late prime to load back. Dropping them here
+      // only keeps memory in step; the queued range delete is the clear.
       const prefix = `${namespace}:`;
-      [...getMap().keys()]
+      const map = getMap();
+      [...map.keys()]
         .filter((key) => key.startsWith(prefix))
-        .forEach((key) => drop(key));
+        .forEach((key) => map.delete(key));
+      scheduleNamespaceClear(namespace);
     },
     compact() {
       // IndexedDB owns physical compaction; deleted records are gone with
@@ -401,6 +466,8 @@ export function __resetWebUiSnapshotStoreForTests() {
     flushTimer = undefined;
   }
   dirtyKeys.clear();
+  dirtyNamespaces.clear();
+  clearedNamespaces.clear();
   flushPromise = undefined;
   databasePromise = undefined;
   isClearing = false;
