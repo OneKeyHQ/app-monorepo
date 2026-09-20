@@ -42,19 +42,22 @@ jest.mock('@onekeyhq/kit/src/components/Token', () => ({
   Token: () => <div />,
 }));
 
-jest.mock('@onekeyhq/kit/src/utils/explorerUtils', () => ({
-  openTransactionDetailsUrl: jest.fn(),
+jest.mock('@onekeyhq/shared/src/utils/openUrlUtils', () => ({
+  __esModule: true,
+  default: {
+    openUrlExternal: jest.fn(),
+  },
 }));
 
-import { openTransactionDetailsUrl } from '@onekeyhq/kit/src/utils/explorerUtils';
 import type {
   IPerpsInviteeRewardHistoryItem,
   IPerpsInviteeRewardToken,
 } from '@onekeyhq/shared/src/referralCode/type';
+import openUrlUtils from '@onekeyhq/shared/src/utils/openUrlUtils';
 
 import { RewardHistoryList } from './RewardHistoryList';
 
-const mockOpenTransactionDetailsUrl = jest.mocked(openTransactionDetailsUrl);
+const mockOpenUrlExternal = jest.mocked(openUrlUtils.openUrlExternal);
 
 const token: IPerpsInviteeRewardToken = {
   address: '0xtoken',
@@ -94,7 +97,7 @@ describe('RewardHistoryList', () => {
     expect(screen.getByText('global.no_data')).toBeTruthy();
   });
 
-  it('renders the raw payout date and opens the token network explorer', () => {
+  it('renders the raw payout date and opens the Arbiscan transaction externally', () => {
     const item = createHistoryItem();
 
     render(<RewardHistoryList history={[item]} token={token} />);
@@ -102,14 +105,12 @@ describe('RewardHistoryList', () => {
     expect(screen.getByText('2026-09-08')).toBeTruthy();
     expect(screen.getByText('perps.get_reward')).toBeTruthy();
     expect(screen.getByText('0x298e9a...8e5941')).toBeTruthy();
-    expect(screen.queryByText('https://arbiscan.io/tx/')).toBeNull();
 
     fireEvent.click(screen.getByTestId(`perp-invitee-reward-tx-${item.tx}`));
 
-    expect(mockOpenTransactionDetailsUrl).toHaveBeenCalledWith({
-      networkId: 'evm--42161',
-      txid: item.tx,
-    });
+    expect(mockOpenUrlExternal).toHaveBeenCalledWith(
+      `https://arbiscan.io/tx/${item.tx}`,
+    );
   });
 
   it('pages extra payouts', () => {

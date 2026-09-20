@@ -11,12 +11,12 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import { Token } from '@onekeyhq/kit/src/components/Token';
-import { openTransactionDetailsUrl } from '@onekeyhq/kit/src/utils/explorerUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type {
   IPerpsInviteeRewardHistoryItem,
   IPerpsInviteeRewardToken,
 } from '@onekeyhq/shared/src/referralCode/type';
+import openUrlUtils from '@onekeyhq/shared/src/utils/openUrlUtils';
 
 const PAGE_SIZE = 10;
 
@@ -52,11 +52,11 @@ function RewardItemSkeleton() {
 function RewardItem({ item, token }: IRewardItemProps) {
   const intl = useIntl();
   const handleTxPress = useCallback(() => {
-    void openTransactionDetailsUrl({
-      networkId: token.networkId,
-      txid: item.tx,
-    });
-  }, [item.tx, token.networkId]);
+    if (item.tx) {
+      const explorerUrl = `https://arbiscan.io/tx/${item.tx}`;
+      openUrlUtils.openUrlExternal(explorerUrl);
+    }
+  }, [item.tx]);
 
   return (
     <YStack gap="$2">

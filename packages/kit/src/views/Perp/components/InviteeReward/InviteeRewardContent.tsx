@@ -50,7 +50,7 @@ export function InviteeRewardContent({
     );
   }
 
-  const showLoading = Boolean(isLoading || !data);
+  const showLoading = isLoading !== false;
 
   const content = (
     <YStack gap="$5">

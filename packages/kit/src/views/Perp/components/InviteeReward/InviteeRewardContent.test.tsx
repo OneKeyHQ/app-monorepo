@@ -120,8 +120,11 @@ jest.mock('@onekeyhq/shared/src/locale/appLocale', () => ({
   },
 }));
 
-jest.mock('@onekeyhq/kit/src/utils/explorerUtils', () => ({
-  openTransactionDetailsUrl: jest.fn(),
+jest.mock('@onekeyhq/shared/src/utils/openUrlUtils', () => ({
+  __esModule: true,
+  default: {
+    openUrlExternal: jest.fn(),
+  },
 }));
 
 jest.mock(
@@ -141,15 +144,20 @@ jest.mock('../../PerpsProviderMirror', () => ({
 
 jest.mock('./components/RewardSummaryCard', () => ({
   RewardSummaryCard: ({
+    isLoading,
     totalBonus,
     undistributed,
     tokenSymbol,
   }: {
+    isLoading?: boolean;
     totalBonus?: string;
     undistributed?: string;
     tokenSymbol?: string;
   }) => (
-    <div data-testid="reward-summary">
+    <div
+      data-testid="reward-summary"
+      data-loading={isLoading ? 'true' : 'false'}
+    >
       {totalBonus}:{undistributed}:{tokenSymbol}
     </div>
   ),
@@ -185,6 +193,44 @@ describe('InviteeRewardContent', () => {
 
     expect(screen.getByText('referral.reward_history')).toBeTruthy();
     expect(screen.queryByText('global.no_data')).toBeNull();
+  });
+
+  it('stops skeleton and summary loading after a settled request with no data', () => {
+    mockPromiseResult = {
+      result: undefined,
+      isLoading: undefined,
+    };
+
+    const { rerender } = render(
+      <InviteeRewardContent walletAddress="0xwallet" />,
+    );
+
+    expect(
+      screen.getByTestId('reward-summary').getAttribute('data-loading'),
+    ).toBe('true');
+    expect(screen.queryByText('global.no_data')).toBeNull();
+
+    mockPromiseResult = {
+      result: undefined,
+      isLoading: true,
+    };
+    rerender(<InviteeRewardContent walletAddress="0xwallet" />);
+
+    expect(
+      screen.getByTestId('reward-summary').getAttribute('data-loading'),
+    ).toBe('true');
+    expect(screen.queryByText('global.no_data')).toBeNull();
+
+    mockPromiseResult = {
+      result: undefined,
+      isLoading: false,
+    };
+    rerender(<InviteeRewardContent walletAddress="0xwallet" />);
+
+    expect(
+      screen.getByTestId('reward-summary').getAttribute('data-loading'),
+    ).toBe('false');
+    expect(screen.getByText('global.no_data')).toBeTruthy();
   });
 
   it('renders the aggregate reward summary and empty payout history', () => {
