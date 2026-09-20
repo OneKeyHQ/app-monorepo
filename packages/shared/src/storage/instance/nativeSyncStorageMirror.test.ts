@@ -600,6 +600,16 @@ describe('nativeSyncStorageMirror', () => {
         updates: [['deleted', JSON.stringify({ d: 'stale', t: 5 })]],
       },
     });
+
+    void storage.applySWRCachePatch?.({
+      removePrefixes: [],
+      removals: [],
+      updates: [['deleted', JSON.stringify({ d: 'fresh', t: 11 })]],
+    });
+    await waitForNativeSyncStorageMutations();
+    expect(new Map(storage.readSWRCacheEntries?.()).get('deleted')).toBe(
+      JSON.stringify({ d: 'fresh', t: 11 }),
+    );
   });
 
   it('bounds an offline SWR patch queue by merging it into one patch', async () => {
