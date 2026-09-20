@@ -12,6 +12,7 @@ import {
   ConnectTimeoutError,
   DeviceBondError,
   DeviceMethodCallTimeout,
+  DeviceNotBonded,
   NeedBluetoothTurnedOn,
   UserCancel,
 } from '../errors/hardwareErrors';
@@ -121,6 +122,49 @@ describe('convertDeviceError BLE connection timeout', () => {
 });
 
 describe('convertDeviceError invalid Bluetooth bond', () => {
+  it('uses existing pairing-failed feedback for desktop not-bonded errors', () => {
+    const originalIsDesktop = platformEnv.isDesktop;
+    platformEnv.isDesktop = true;
+
+    try {
+      const error = convertDeviceError({
+        code: HardwareErrorCode.BleDeviceNotBonded,
+        error: 'device is not bonded',
+        params: {
+          nativeErrorMessage:
+            'Notification subscription failed: Encryption is insufficient',
+        },
+      });
+
+      expect(error).toBeInstanceOf(DeviceNotBonded);
+      expect(error).toMatchObject({
+        code: HardwareErrorCode.BleDeviceNotBonded,
+        key: 'feedback.bluetooth_pairing_failed',
+      });
+      expect(error).not.toBeInstanceOf(DeviceBondError);
+    } finally {
+      platformEnv.isDesktop = originalIsDesktop;
+    }
+  });
+
+  it('keeps the existing unpaired feedback off desktop', () => {
+    const originalIsDesktop = platformEnv.isDesktop;
+    platformEnv.isDesktop = false;
+
+    try {
+      const error = convertDeviceError({
+        code: HardwareErrorCode.BleDeviceNotBonded,
+      });
+
+      expect(error).toBeInstanceOf(DeviceNotBonded);
+      expect(error).toMatchObject({
+        key: 'feedback.bluetooth_unpaired',
+      });
+    } finally {
+      platformEnv.isDesktop = originalIsDesktop;
+    }
+  });
+
   it('treats a canceled pairing as user cancellation on desktop', () => {
     const originalIsDesktop = platformEnv.isDesktop;
     platformEnv.isDesktop = true;
