@@ -58,6 +58,7 @@ type IBootstrapAttempt = {
 };
 
 type IPendingRemoteMutation = {
+  acknowledgedMutation?: INativeSyncStorageMutation;
   acknowledgements: IMutationAcknowledgement[];
   enqueuedAt: number;
   isSWRMergedPatch?: boolean;
@@ -915,9 +916,9 @@ function drainRemoteMutations(store: INativeSyncStorageName) {
         });
         return;
       }
-      const first = queue.pending.entries().next().value as
-        | [number, IPendingRemoteMutation]
-        | undefined;
+      const first = [...queue.pending.entries()].find(
+        ([, pending]) => !pending.acknowledgedMutation,
+      ) as [number, IPendingRemoteMutation] | undefined;
       if (!first) {
         return;
       }
@@ -992,7 +993,38 @@ function replayPendingRemoteMutations() {
 function replayPendingLocalMutations(store: INativeSyncStorageName) {
   const state = mirrors[store];
   remoteMutationQueues[store].pending.forEach((pending) => {
+    if (pending.acknowledgedMutation) return;
     applyLocalMutation(state, pending.mutation);
+  });
+}
+
+function applyAcknowledgedRemoteMutations(store: INativeSyncStorageName) {
+  const state = mirrors[store];
+  const queue = remoteMutationQueues[store];
+  const acknowledged: INativeSyncStorageMutation[] = [];
+  queue.pending.forEach((pending, mutationId) => {
+    if (pending.acknowledgedMutation) {
+      acknowledged.push(pending.acknowledgedMutation);
+      queue.pending.delete(mutationId);
+    }
+  });
+  acknowledged.forEach((mutation) => {
+    if (mutation.operation === 'set') {
+      applyLocalMutation(state, {
+        operation: 'set',
+        key: mutation.key,
+        value: mutation.value,
+      });
+    } else if (mutation.operation === 'patchSWR') {
+      applyLocalMutation(state, {
+        operation: 'patchSWR',
+        entries: mutation.entries,
+      });
+    } else if (mutation.operation === 'remove') {
+      applyLocalMutation(state, { operation: 'remove', key: mutation.key });
+    } else {
+      applyLocalMutation(state, { operation: 'clear' });
+    }
   });
 }
 
@@ -1066,10 +1098,35 @@ function acknowledgeRemoteMutation(
       'Native sync storage returned an invalid mutation acknowledgement',
     );
   }
-  queue.pending.delete(mutationId);
   pending.acknowledgements.forEach((acknowledgement) =>
     acknowledgement.resolve(),
   );
+  if (bootstrapAttempt) {
+    const state = mirrors[store];
+    const replay = [...state.mutationsBeforeBootstrap];
+    let localMutation: INativeSyncStorageLocalMutation;
+    if (canonical.operation === 'set') {
+      localMutation = {
+        operation: 'set',
+        key: canonical.key,
+        value: canonical.value,
+      };
+    } else if (canonical.operation === 'patchSWR') {
+      localMutation = {
+        operation: 'patchSWR',
+        entries: canonical.entries,
+      };
+    } else if (canonical.operation === 'remove') {
+      localMutation = { operation: 'remove', key: canonical.key };
+    } else {
+      localMutation = { operation: 'clear' };
+    }
+    if (!appendCompactedLocalMutation(replay, localMutation)) {
+      pending.acknowledgedMutation = canonical;
+      return;
+    }
+  }
+  queue.pending.delete(mutationId);
   applyCanonicalMutation(canonical, 'ack');
 }
 
@@ -1221,6 +1278,7 @@ function primeMirror(
     applyLocalMutation(state, mutation);
   }
   state.mutationsBeforeBootstrap = [];
+  applyAcknowledgedRemoteMutations(store);
   replayPendingLocalMutations(store);
   if (store === 'coldStart') {
     notifySWREntryListeners(null);
@@ -1301,6 +1359,8 @@ function startBootstrap(force: boolean) {
       collectBootstrapMutations = false;
       NATIVE_SYNC_STORAGE_NAMES.forEach((store) => {
         mirrors[store].mutationsBeforeBootstrap = [];
+        applyAcknowledgedRemoteMutations(store);
+        replayPendingLocalMutations(store);
       });
       // Initial startup keeps its existing error/retry UI. A running app keeps
       // its last usable mirror and retries refresh without retaining history.
