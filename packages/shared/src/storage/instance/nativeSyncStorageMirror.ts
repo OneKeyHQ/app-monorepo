@@ -586,7 +586,9 @@ function compactPendingRemoteMutations({
     const acknowledgements: IMutationAcknowledgement[] = [];
     queue.pending.forEach((pending, mutationId) => {
       if (mutationId !== queue.inFlightMutationId) {
-        acknowledgements.push(...pending.acknowledgements);
+        if (!pending.acknowledgedMutation) {
+          acknowledgements.push(...pending.acknowledgements);
+        }
         queue.pending.delete(mutationId);
       }
     });
@@ -603,6 +605,7 @@ function compactPendingRemoteMutations({
         const [mutationId, pending] = entry;
         return (
           mutationId !== queue.inFlightMutationId &&
+          !pending.acknowledgedMutation &&
           pending.mutation.operation === 'patchSWR' &&
           pending.request.operation === 'patchSWR'
         );
@@ -634,6 +637,7 @@ function compactPendingRemoteMutations({
 
   let superseded: Array<[number, IPendingRemoteMutation]> = [];
   queue.pending.forEach((pending, mutationId) => {
+    if (pending.acknowledgedMutation) return;
     if (pending.mutation.operation === 'clear') {
       superseded = [];
       return;
