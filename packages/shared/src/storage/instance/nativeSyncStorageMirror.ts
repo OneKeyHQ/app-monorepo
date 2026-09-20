@@ -58,7 +58,6 @@ type IBootstrapAttempt = {
 };
 
 type IPendingRemoteMutation = {
-  acknowledgedMutation?: INativeSyncStorageMutation;
   acknowledgements: IMutationAcknowledgement[];
   enqueuedAt: number;
   isSWRMergedPatch?: boolean;
@@ -557,19 +556,20 @@ function recordBootstrapMutation(
 ) {
   if (!collectBootstrapMutations) return;
   if (!appendCompactedLocalMutation(state.mutationsBeforeBootstrap, mutation)) {
-    // Never apply a snapshot whose intervening updates exceeded the budget.
-    // The live mirror and durable-write queue remain intact for the retry.
-    collectBootstrapMutations = false;
-    NATIVE_SYNC_STORAGE_NAMES.forEach((store) => {
-      mirrors[store].mutationsBeforeBootstrap = [];
-    });
-    const error = new OneKeyLocalError(
-      'Native storage snapshot replay budget exceeded',
+    abortBootstrapReplay(
+      new OneKeyLocalError('Native storage snapshot replay budget exceeded'),
     );
-    if (bootstrapAttempt) {
-      bootstrapAttempt.replayError = error;
-      bootstrapAttempt.reject(error);
-    }
+  }
+}
+
+function abortBootstrapReplay(error: Error) {
+  collectBootstrapMutations = false;
+  NATIVE_SYNC_STORAGE_NAMES.forEach((store) => {
+    mirrors[store].mutationsBeforeBootstrap = [];
+  });
+  if (bootstrapAttempt) {
+    bootstrapAttempt.replayError = error;
+    bootstrapAttempt.reject(error);
   }
 }
 
@@ -586,9 +586,7 @@ function compactPendingRemoteMutations({
     const acknowledgements: IMutationAcknowledgement[] = [];
     queue.pending.forEach((pending, mutationId) => {
       if (mutationId !== queue.inFlightMutationId) {
-        if (!pending.acknowledgedMutation) {
-          acknowledgements.push(...pending.acknowledgements);
-        }
+        acknowledgements.push(...pending.acknowledgements);
         queue.pending.delete(mutationId);
       }
     });
@@ -605,7 +603,6 @@ function compactPendingRemoteMutations({
         const [mutationId, pending] = entry;
         return (
           mutationId !== queue.inFlightMutationId &&
-          !pending.acknowledgedMutation &&
           pending.mutation.operation === 'patchSWR' &&
           pending.request.operation === 'patchSWR'
         );
@@ -637,7 +634,6 @@ function compactPendingRemoteMutations({
 
   let superseded: Array<[number, IPendingRemoteMutation]> = [];
   queue.pending.forEach((pending, mutationId) => {
-    if (pending.acknowledgedMutation) return;
     if (pending.mutation.operation === 'clear') {
       superseded = [];
       return;
@@ -920,9 +916,9 @@ function drainRemoteMutations(store: INativeSyncStorageName) {
         });
         return;
       }
-      const first = [...queue.pending.entries()].find(
-        ([, pending]) => !pending.acknowledgedMutation,
-      ) as [number, IPendingRemoteMutation] | undefined;
+      const first = queue.pending.entries().next().value as
+        | [number, IPendingRemoteMutation]
+        | undefined;
       if (!first) {
         return;
       }
@@ -997,21 +993,8 @@ function replayPendingRemoteMutations() {
 function replayPendingLocalMutations(store: INativeSyncStorageName) {
   const state = mirrors[store];
   remoteMutationQueues[store].pending.forEach((pending) => {
-    if (pending.acknowledgedMutation) return;
     applyLocalMutation(state, pending.mutation);
   });
-}
-
-function applyAcknowledgedRemoteMutations(store: INativeSyncStorageName) {
-  const queue = remoteMutationQueues[store];
-  const acknowledged: INativeSyncStorageMutation[] = [];
-  queue.pending.forEach((pending, mutationId) => {
-    if (pending.acknowledgedMutation) {
-      acknowledged.push(pending.acknowledgedMutation);
-      queue.pending.delete(mutationId);
-    }
-  });
-  acknowledged.forEach((mutation) => applyCanonicalMutation(mutation, 'ack'));
 }
 
 function perfNow(): number {
@@ -1108,7 +1091,11 @@ function acknowledgeRemoteMutation(
       localMutation = { operation: 'clear' };
     }
     if (!appendCompactedLocalMutation(replay, localMutation)) {
-      pending.acknowledgedMutation = canonical;
+      abortBootstrapReplay(
+        new OneKeyLocalError('Native storage snapshot replay budget exceeded'),
+      );
+      queue.pending.delete(mutationId);
+      applyCanonicalMutation(canonical, 'ack');
       return;
     }
   }
@@ -1264,7 +1251,6 @@ function primeMirror(
     applyLocalMutation(state, mutation);
   }
   state.mutationsBeforeBootstrap = [];
-  applyAcknowledgedRemoteMutations(store);
   replayPendingLocalMutations(store);
   if (store === 'coldStart') {
     notifySWREntryListeners(null);
@@ -1345,7 +1331,6 @@ function startBootstrap(force: boolean) {
       collectBootstrapMutations = false;
       NATIVE_SYNC_STORAGE_NAMES.forEach((store) => {
         mirrors[store].mutationsBeforeBootstrap = [];
-        applyAcknowledgedRemoteMutations(store);
         replayPendingLocalMutations(store);
       });
       // Initial startup keeps its existing error/retry UI. A running app keeps

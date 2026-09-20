@@ -208,7 +208,7 @@ describe('native sync storage backlog recovery', () => {
     });
   });
 
-  it('does not reject a refresh when own acknowledgements exceed the replay budget', async () => {
+  it('abandons a refresh when own acknowledgements exceed the replay budget', async () => {
     let resolveSnapshot:
       | ((snapshot: INativeStorageBootstrapSnapshot) => void)
       | undefined;
@@ -238,7 +238,7 @@ describe('native sync storage backlog recovery', () => {
     }
 
     resolveSnapshot?.(emptySnapshot);
-    await expect(refresh).resolves.toBeUndefined();
+    await expect(refresh).rejects.toThrow('snapshot replay budget exceeded');
 
     const value = JSON.parse(storage.getString(swrKey) ?? '{}') as Record<
       string,
@@ -246,6 +246,48 @@ describe('native sync storage backlog recovery', () => {
     >;
     expect(Object.keys(value)).toHaveLength(1002);
     expect(value['ack-1-500']).toEqual({ d: 'ack-1-500', t: 1002 });
+  });
+
+  it('does not replay an older acknowledged write after an over-budget refresh', async () => {
+    const module = loadMirror();
+    await module.bootstrapNativeSyncStorageMirrors();
+    let resolveSnapshot:
+      | ((snapshot: INativeStorageBootstrapSnapshot) => void)
+      | undefined;
+    mockCallNativeStorage.mockImplementationOnce(
+      () =>
+        new Promise<INativeStorageBootstrapSnapshot>((resolve) => {
+          resolveSnapshot = resolve;
+        }),
+    );
+    const refresh = module.refreshNativeSyncStorageMirrors();
+    const storage = module.createNativeSyncStorageMirror('coldStart');
+
+    for (let index = 0; index < 1000; index += 1) {
+      globals.__onekeyNativeSyncStorageApplyMutation?.({
+        store: 'coldStart',
+        operation: 'patchSWR',
+        entries: [[`history-${index}`, entry(index + 1)]],
+      });
+    }
+
+    void storage.applySWRCachePatch?.({
+      removePrefixes: [],
+      removals: [],
+      updates: [['race', entry(1)]],
+    });
+    await expect(refresh).rejects.toThrow('snapshot replay budget exceeded');
+
+    globals.__onekeyNativeSyncStorageApplyMutation?.({
+      store: 'coldStart',
+      operation: 'patchSWR',
+      entries: [['race', entry(2)]],
+    });
+    expect(JSON.parse(storage.getString(swrKey) ?? '{}').race).toEqual({
+      d: 2,
+      t: 2,
+    });
+    resolveSnapshot?.(emptySnapshot);
   });
 
   it('allows initial bootstrap with pending SWR writes over the replay budget', async () => {
