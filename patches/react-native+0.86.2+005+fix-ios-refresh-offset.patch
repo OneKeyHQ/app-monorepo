@@ -1,5 +1,5 @@
 diff --git a/node_modules/react-native/React/Fabric/Mounting/ComponentViews/ScrollView/RCTPullToRefreshViewComponentView.mm b/node_modules/react-native/React/Fabric/Mounting/ComponentViews/ScrollView/RCTPullToRefreshViewComponentView.mm
-index 60160ef..d58eed6 100644
+index 60160ef..a5a165d 100644
 --- a/node_modules/react-native/React/Fabric/Mounting/ComponentViews/ScrollView/RCTPullToRefreshViewComponentView.mm
 +++ b/node_modules/react-native/React/Fabric/Mounting/ComponentViews/ScrollView/RCTPullToRefreshViewComponentView.mm
 @@ -121,7 +121,9 @@ - (void)updateProps:(const Props::Shared &)props oldProps:(const Props::Shared &
@@ -27,8 +27,8 @@ index 60160ef..d58eed6 100644
 +  // Leave active gestures and the normal fully expanded refresh animation to UIKit.
 +  CGPoint offset = scrollView.contentOffset;
 +  CGFloat topOffset = -scrollView.adjustedContentInset.top;
-+  if (scrollView && !scrollView.dragging && !scrollView.decelerating && offset.y > -previousTopInset &&
-+      offset.y < topOffset) {
++  if (scrollView && !scrollView.tracking && !scrollView.dragging && !scrollView.decelerating &&
++      offset.y > -previousTopInset && offset.y < topOffset) {
 +    [scrollView setContentOffset:CGPointMake(offset.x, topOffset) animated:YES];
 +  }
 +}
