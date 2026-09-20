@@ -13,6 +13,8 @@ export const SettingTestIDs = {
   clearAppCacheItem: 'setting-clear-app-cache',
   addressBookItem: 'setting-address-book',
   aboutItem: 'setting-about',
+  exportDiagnosticLogsItem: 'setting-export-diagnostic-logs',
+  exportDiagnosticLogsHelpLink: 'setting-export-diagnostic-logs-help-link',
   devModeItem: 'setting-dev-mode',
   officialChannelsItem: 'setting-official-channels',
   travelModeItem: 'setting-travel-mode-item',
