@@ -9,9 +9,9 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import {
   DEFAULT_SYSTEM_BARS_OVERRIDE_OWNER,
+  type ISystemBarsVariant,
   resolveSystemBarsOverride,
   upsertSystemBarsOverridePin,
-  type ISystemBarsVariant,
 } from './resolveSystemBarsOverride';
 
 import type {
