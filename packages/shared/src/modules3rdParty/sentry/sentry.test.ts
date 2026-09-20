@@ -380,6 +380,34 @@ describe('isFilterErrorAndSkipSentry', () => {
       );
     });
 
+    test('should filter CanceledError', () => {
+      // axios sets name='CanceledError', so the 'AxiosError' entry never matches it
+      expect(
+        isFilterErrorAndSkipSentry({
+          type: 'CanceledError',
+          value: 'canceled',
+        }),
+      ).toBe(true);
+    });
+
+    test('should filter user-cancel error classes', () => {
+      expect(isFilterErrorAndSkipSentry({ type: 'UserCancelError' })).toBe(
+        true,
+      );
+      expect(
+        isFilterErrorAndSkipSentry({ type: 'OAuthLoginCancelError' }),
+      ).toBe(true);
+    });
+
+    test('should filter ImageCropPickerError', () => {
+      expect(
+        isFilterErrorAndSkipSentry({
+          type: 'ImageCropPickerError',
+          value: 'User cancelled image selection',
+        }),
+      ).toBe(true);
+    });
+
     test('should NOT filter unknown error types', () => {
       expect(isFilterErrorAndSkipSentry({ type: 'UnknownError' })).toBe(false);
       expect(isFilterErrorAndSkipSentry({ type: 'TypeError' })).toBe(false);
@@ -401,6 +429,17 @@ describe('isFilterErrorAndSkipSentry', () => {
         isFilterErrorAndSkipSentry({
           type: 'Error',
           value: 'cancel timeout',
+        }),
+      ).toBe(true);
+    });
+
+    test('should filter known values on any error type', () => {
+      // The message travels on whatever class the throwing layer used; a
+      // rehydrated cross-runtime error keeps the originating runtime's name.
+      expect(
+        isFilterErrorAndSkipSentry({
+          type: 'TypeError',
+          value: 'AbortError: AbortError',
         }),
       ).toBe(true);
     });
@@ -428,6 +467,59 @@ describe('isFilterErrorAndSkipSentry', () => {
           value: 'cancel timeout',
         }),
       ).toBe(true);
+    });
+  });
+
+  describe('filter by original exception', () => {
+    test('should filter on className when name was overwritten', () => {
+      // rehydrateTransportError builds a OneKeyLocalError, then copies the bg
+      // runtime's name onto it, so the event type no longer matches the list
+      expect(
+        isFilterErrorAndSkipSentry(
+          { type: 'CanceledError', value: 'canceled' },
+          { className: 'OneKeyLocalError', name: 'CanceledError' },
+        ),
+      ).toBe(true);
+    });
+
+    test('should filter on cancel codes', () => {
+      expect(
+        isFilterErrorAndSkipSentry(
+          { type: 'Whatever' },
+          { code: 'ERR_CANCELED' },
+        ),
+      ).toBe(true);
+      expect(
+        isFilterErrorAndSkipSentry(
+          { type: 'Whatever' },
+          { code: 'E_PICKER_CANCELLED' },
+        ),
+      ).toBe(true);
+    });
+
+    test('should NOT filter on unrelated className or code', () => {
+      expect(
+        isFilterErrorAndSkipSentry(
+          { type: 'Whatever' },
+          { code: 'ERR_NETWORK' },
+        ),
+      ).toBe(false);
+      expect(
+        isFilterErrorAndSkipSentry({ type: 'Whatever' }, { className: 'Nope' }),
+      ).toBe(false);
+    });
+
+    test('should ignore non-object and numeric-code exceptions', () => {
+      expect(isFilterErrorAndSkipSentry({ type: 'Whatever' }, null)).toBe(
+        false,
+      );
+      expect(isFilterErrorAndSkipSentry({ type: 'Whatever' }, 'boom')).toBe(
+        false,
+      );
+      // OneKeyError defaults to a numeric code; it must not match a code string
+      expect(
+        isFilterErrorAndSkipSentry({ type: 'Whatever' }, { code: -99_999 }),
+      ).toBe(false);
     });
   });
 
@@ -520,10 +612,11 @@ describe('buildBasicOptions', () => {
     const callBeforeSend = (
       options: ReturnType<typeof buildBasicOptions>,
       event: any,
+      hint: any = {},
     ) => {
       if (options.beforeSend) {
         // eslint-disable-next-line @typescript-eslint/no-unsafe-return
-        return options.beforeSend(event, {});
+        return options.beforeSend(event, hint);
       }
       // eslint-disable-next-line @typescript-eslint/no-unsafe-return
       return event;
@@ -670,6 +763,24 @@ describe('buildBasicOptions', () => {
       const result = callBeforeSend(options, event);
 
       expect(result).toBeNull();
+    });
+
+    test('should drop an event whose original exception carries a cancel code', () => {
+      const onError = jest.fn();
+      const options = buildBasicOptions({ onError });
+      const event: any = {
+        exception: {
+          values: [{ type: 'ImageCropPickerError', value: 'User cancelled' }],
+        },
+      };
+
+      const result = callBeforeSend(options, event, {
+        originalException: { code: 'E_PICKER_CANCELLED' },
+      });
+
+      expect(result).toBeNull();
+      // filtered events are still written to the local log
+      expect(onError).toHaveBeenCalled();
     });
 
     test('should forward web-embed exceptions locally and drop the Sentry event', () => {
