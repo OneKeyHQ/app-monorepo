@@ -600,6 +600,39 @@ describe('diag census', () => {
     });
   });
 
+  it('adds up a label that comes back after another one interleaved', () => {
+    commit(
+      component('Navigator', 'skipped', {
+        children: [
+          component('SceneView', 'skipped', {
+            route: 'Home',
+            children: [component('HomeHeader', 'updated')],
+          }),
+          component('SceneView', 'skipped', {
+            route: 'Swap',
+            children: [component('SwapMainLoad', 'updated')],
+          }),
+          component('SceneView', 'skipped', {
+            route: 'Home',
+            children: [
+              component('HomeList', 'updated', {
+                children: [component('HomeRow', 'updated')],
+              }),
+            ],
+          }),
+        ],
+      }),
+    );
+    flushWindow();
+
+    expect(ranking('updateRoutes')).toEqual({ Home: 3, Swap: 1 });
+    expect(ranking('updateRoots')).toEqual({
+      HomeHeader: 1,
+      SwapMainLoad: 1,
+      HomeList: 2,
+    });
+  });
+
   it('ignores the stale flags of a subtree React bailed out of', () => {
     const staleChild = component('RenderedLastTime', 'skipped', {
       staleFlags: true,
@@ -617,7 +650,7 @@ describe('diag census', () => {
     flushWindow();
 
     expect(lastLine()).toMatchObject({ updateRenders: 2 });
-    expect(ranking('rendered')).toEqual({ Parent: 1, Live: 1 });
+    expect(ranking('updateRoots')).toEqual({ Parent: 2 });
   });
 
   it('labels an anonymous root with its nearest named ancestor', () => {

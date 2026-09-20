@@ -246,7 +246,9 @@ function flushInboundCensus(windowMs: number) {
 //     mounts inside a screen already there, to that screen and the topmost
 //     mounted component.
 // The walk keeps its stack in parallel arrays, so it allocates nothing per
-// fiber: this build measures allocation and must not add to it.
+// fiber, and it writes a table once per run of fibers that share a label
+// rather than once per fiber: this build measures allocation and main-thread
+// time and must add as little of either as it can.
 
 const DIAG_WINDOW_TOP = 8;
 const DIAG_MAX_WALK = 400_000;
@@ -336,23 +338,17 @@ function diagRouteName(fiber: IDiagFiber): string | undefined {
 
 const DIAG_MAX_LABELS = 400;
 
-function bumpBounded(target: Map<string, number>, key: string) {
+function addBounded(target: Map<string, number>, key: string, count: number) {
   if (target.size < DIAG_MAX_LABELS || target.has(key)) {
-    target.set(key, (target.get(key) ?? 0) + 1);
+    target.set(key, (target.get(key) ?? 0) + count);
   }
 }
 
-const DIAG_LISTS = [
-  'rendered',
-  'updateRoots',
-  'updateRoutes',
-  'mountRoots',
-] as const;
+const DIAG_LISTS = ['updateRoots', 'updateRoutes', 'mountRoots'] as const;
 type IDiagList = (typeof DIAG_LISTS)[number];
 
 function createDiagTables(): Record<IDiagList, Map<string, number>> {
   return {
-    rendered: new Map(),
     updateRoots: new Map(),
     updateRoutes: new Map(),
     mountRoots: new Map(),
@@ -377,7 +373,34 @@ let diagCommitsSkipped = 0;
 let diagWalkMs = 0;
 let diagWalkBudgetMs = HEALTH_WINDOW_MS * DIAG_WALK_BUDGET_RATIO;
 
+// A depth-first walk stays inside one subtree for a long time, so consecutive
+// fibers nearly always carry the same label: count the run, write it once.
+function createLabelRun(list: IDiagList) {
+  let label: string | undefined;
+  let count = 0;
+  const flush = () => {
+    if (label !== undefined && count > 0) {
+      addBounded(diagWindow[list], label, count);
+      addBounded(diagSession[list], label, count);
+    }
+    count = 0;
+  };
+  return {
+    add(next: string) {
+      if (next !== label) {
+        flush();
+        label = next;
+      }
+      count += 1;
+    },
+    flush,
+  };
+}
+
 const NO_SCREEN = '(no screen)';
+const updateRootRun = createLabelRun('updateRoots');
+const updateRouteRun = createLabelRun('updateRoutes');
+const mountRootRun = createLabelRun('mountRoots');
 const walkFibers: Array<IDiagFiber | null> = [];
 const walkNamed: string[] = [];
 const walkUpdateRoots: Array<string | undefined> = [];
@@ -421,7 +444,6 @@ function walkCommittedFibers(root: IDiagRoot) {
           route = routeName;
         }
         if ((fiber.flags & PERFORMED_WORK) !== 0) {
-          bumpBounded(diagWindow.rendered, name);
           if (fiber.alternate === null) {
             diagMountRenders += 1;
             if (routeName !== undefined) {
@@ -432,18 +454,15 @@ function walkCommittedFibers(root: IDiagRoot) {
                 name === '(anonymous)' ? `${lastNamed} > (anonymous)` : name
               }`;
             }
-            bumpBounded(diagWindow.mountRoots, mountRoot);
-            bumpBounded(diagSession.mountRoots, mountRoot);
+            mountRootRun.add(mountRoot);
           } else {
             diagUpdateRenders += 1;
             if (updateRoot === undefined) {
               updateRoot =
                 name === '(anonymous)' ? `${lastNamed} > (anonymous)` : name;
             }
-            bumpBounded(diagWindow.updateRoots, updateRoot);
-            bumpBounded(diagSession.updateRoots, updateRoot);
-            bumpBounded(diagWindow.updateRoutes, route);
-            bumpBounded(diagSession.updateRoutes, route);
+            updateRootRun.add(updateRoot);
+            updateRouteRun.add(route);
           }
         }
         if (name !== '(anonymous)') {
@@ -476,6 +495,9 @@ function walkCommittedFibers(root: IDiagRoot) {
     depth -= 1;
     walkFibers[depth] = null;
   }
+  updateRootRun.flush();
+  updateRouteRun.flush();
+  mountRootRun.flush();
   diagWalkMs += perfNow() - startedAt;
 }
 
@@ -589,15 +611,13 @@ function flushDiagCensus(
   });
   if (diagWindowSeq % DIAG_RANKING_EVERY_WINDOWS === 1) {
     DIAG_LISTS.forEach((list) => {
-      if (list !== 'rendered') {
-        emit(
-          `${list}Total`,
-          topOf(diagSession[list], 20).map(([name, count]) => ({
-            name: clip(name),
-            count,
-          })),
-        );
-      }
+      emit(
+        `${list}Total`,
+        topOf(diagSession[list], 20).map(([name, count]) => ({
+          name: clip(name),
+          count,
+        })),
+      );
     });
     emit(
       'weakSites',
