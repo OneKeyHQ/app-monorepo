@@ -592,3 +592,10 @@ Cases are appended by AI after each bug fix. Do NOT reorder or delete entries �
 **Fix**: Move pinned/current caches to `onekey-tradingview-embed-pin-v1:`, delete the legacy `onekey-tradingview-embed:` namespace when adopting a release, and regression-test that a poisoned legacy entry is not served.
 **Catchable by**: Section 4: implementation matches original requirement — a trust-root change must also rotate or re-verify the persistent cache that will execute those bytes
 
+## Case: Swap invitee reward blocked watch-only EVM as unsupported
+**Date**: 2026-09-20 | **Platforms**: Desktop, Mobile, Web, Extension
+**Symptom**: Opening Swap 奖励 from a watch-only account showed “当前账户不支持。请连接一个 EVM 账户后重试” with no action, while Perps/Earn still allowed viewing.
+**Root Cause**: Viewing reused HD/HW invite-code identity (`getReferralCodeWalletInfo`) and `getCurrentEvmAccountAddress` only resolved an ETH sibling via `indexedAccountId`, which Others accounts do not have.
+**Fix**: Resolve Others EVM addresses from the stored account; fetch rebate by that address; map no-wallet / no-EVM empty state to Perps `InviteeRewardNoWallet`. Binding stays HD/HW-only.
+**Catchable by**: Section 4: shared hook/utility modified → checked all consumers; NEW — a viewing surface must not reuse a bind-only wallet-identity gate
+
