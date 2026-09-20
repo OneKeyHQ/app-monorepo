@@ -18,6 +18,9 @@ const INCLUDED_LOG_ITEM_IDS = [
 const EXCLUDED_LOG_ITEM_IDS = [
   ETranslations.settings_diagnostic_logs_recovery_phrases__msg,
   ETranslations.settings_diagnostic_logs_private_keys__msg,
+  ETranslations.settings_diagnostic_logs_passwords__msg,
+  ETranslations.settings_diagnostic_logs_pin_codes__msg,
+  ETranslations.settings_diagnostic_logs_sensitive_credentials__msg,
 ] as const;
 
 function DiagnosticLogCopySection({
@@ -61,7 +64,7 @@ export function showDiagnosticLogsContentsDialog({
   return Dialog.show({
     icon: 'InfoCircleOutline',
     title: intl.formatMessage({
-      id: ETranslations.settings_diagnostic_logs_contents__title,
+      id: ETranslations.settings_diagnostic_logs_privacy__title,
     }),
     showCancelButton: false,
     onConfirmText: intl.formatMessage({
@@ -69,6 +72,11 @@ export function showDiagnosticLogsContentsDialog({
     }),
     renderContent: (
       <YStack gap="$4">
+        <SizableText size="$bodyMd">
+          {intl.formatMessage({
+            id: ETranslations.settings_diagnostic_logs_sanitized__desc,
+          })}
+        </SizableText>
         <DiagnosticLogCopySection
           intl={intl}
           titleId={ETranslations.settings_diagnostic_logs_included__title}
