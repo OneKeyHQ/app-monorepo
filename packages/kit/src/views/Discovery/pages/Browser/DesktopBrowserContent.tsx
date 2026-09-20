@@ -30,6 +30,7 @@ import { releaseDesktopWebviewResources } from '../../utils/desktopWebviewCleanu
 import { webviewRefs } from '../../utils/explorerUtils';
 import DashboardContent from '../Dashboard/DashboardContent';
 
+import type { DidStartNavigationEvent } from 'electron';
 import type { TextInput } from 'react-native';
 
 interface IElectronWebView {
@@ -101,7 +102,7 @@ function BasicFind({ id, isActive }: { id: string; isActive: boolean }) {
     if (activeMatchOrdinal === matches) {
       findInWebView(getReadyWebView(id), prevSearchText.current, {
         findNext: true,
-        forward: false,
+        forward: true,
       });
     } else {
       findInWebView(getReadyWebView(id), prevSearchText.current, {
@@ -128,11 +129,14 @@ function BasicFind({ id, isActive }: { id: string; isActive: boolean }) {
         finalUpdate: boolean;
       };
     }) => {
+      if (!getReadyWebView(id)) {
+        return;
+      }
       console.log(result);
       setMatches(result.matches);
       setActiveMatchOrdinal(result.activeMatchOrdinal);
     },
-    [],
+    [id],
   );
 
   const handleTextChange = useThrottledCallback((text: string) => {
@@ -199,6 +203,16 @@ function BasicFind({ id, isActive }: { id: string; isActive: boolean }) {
 
     let webView: IElectronWebView | undefined;
     let retryTimer: ReturnType<typeof setTimeout> | undefined;
+    const resetMatchesOnNavigation = ({
+      isMainFrame,
+      isInPlace,
+    }: DidStartNavigationEvent) => {
+      const ref = webviewRefs[id] as IWebViewRefWithDomReady | undefined;
+      if (isMainFrame && !isInPlace && ref?.__domReady === false) {
+        setMatches(0);
+        setActiveMatchOrdinal(0);
+      }
+    };
     const replaySearch = () => {
       if (prevSearchText.current) {
         findInWebView(webView, prevSearchText.current, {
@@ -216,6 +230,10 @@ function BasicFind({ id, isActive }: { id: string; isActive: boolean }) {
       }
       webView = currentWebView;
       currentWebView.addEventListener('found-in-page', foundInPage);
+      currentWebView.addEventListener(
+        'did-start-navigation',
+        resetMatchesOnNavigation,
+      );
       currentWebView.addEventListener('dom-ready', replaySearch);
       if (ref?.__domReady) {
         replaySearch();
@@ -229,8 +247,14 @@ function BasicFind({ id, isActive }: { id: string; isActive: boolean }) {
       }
       handleTextChange.cancel();
       webView?.removeEventListener('dom-ready', replaySearch);
+      webView?.removeEventListener(
+        'did-start-navigation',
+        resetMatchesOnNavigation,
+      );
       webView?.removeEventListener('found-in-page', foundInPage);
-      stopFindInWebView(webView);
+      stopFindInWebView(
+        (webviewRefs[id]?.innerRef as IElectronWebView | undefined) ?? webView,
+      );
     };
   }, [foundInPage, handleTextChange, id, isActive, visible]);
 

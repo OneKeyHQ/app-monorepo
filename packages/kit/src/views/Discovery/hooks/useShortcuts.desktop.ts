@@ -4,6 +4,7 @@ import { useClipboard, useShortcuts } from '@onekeyhq/components';
 import type { IElectronWebView } from '@onekeyhq/kit/src/components/WebView/types';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useBrowserTabActions } from '@onekeyhq/kit/src/states/jotai/contexts/discovery';
+import { useAppIsLockedAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/passwordLock';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -36,6 +37,7 @@ export const useDiscoveryShortcuts = () => {
   const navigation = useAppNavigation();
 
   const { isAtBrowserTab } = useShortcutsRouteStatus();
+  const [isLocked] = useAppIsLockedAtom();
 
   const { activeTabId } = useActiveTabId();
   const { closeWebTab } = useBrowserTabActions().current;
@@ -70,7 +72,7 @@ export const useDiscoveryShortcuts = () => {
         case EShortcutEvents.Refresh:
         case EShortcutEvents.CloseTab:
         case EShortcutEvents.SearchInPage: {
-          if (!isAtBrowserTab.current) {
+          if (!isAtBrowserTab.current || isLocked) {
             return;
           }
           const webview = getActiveWebview(activeTabId);
@@ -133,6 +135,7 @@ export const useDiscoveryShortcuts = () => {
       copyText,
       handleCloseWebTab,
       isAtBrowserTab,
+      isLocked,
       navigation,
       tabs,
     ],

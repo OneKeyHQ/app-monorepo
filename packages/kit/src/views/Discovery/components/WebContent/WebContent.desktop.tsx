@@ -37,6 +37,10 @@ type IWebContentProps = IWebTab &
     customReceiveHandler?: IJsBridgeReceiveHandler;
   };
 
+type IWebViewRefWithDomReady = (typeof webviewRefs)[string] & {
+  __domReady?: boolean;
+};
+
 function shouldBlockAccess(validateState: EValidateUrlEnum | undefined) {
   return (
     Boolean(validateState) &&
@@ -109,8 +113,18 @@ function WebContent({ id, url, customReceiveHandler }: IWebContentProps) {
     onNavigation({ id, loading: true });
   }, [id, onNavigation]);
   const onDidStartNavigation = useCallback(
-    ({ url: willNavigationUrl, isMainFrame }: DidStartNavigationEvent) => {
+    ({
+      url: willNavigationUrl,
+      isMainFrame,
+      isInPlace,
+    }: DidStartNavigationEvent) => {
       if (isMainFrame) {
+        if (!isInPlace) {
+          const ref = webviewRefs[id] as IWebViewRefWithDomReady | undefined;
+          if (ref) {
+            ref.__domReady = false;
+          }
+        }
         setNavigationBlockAccessView(false);
         setNavigationUrlValidateState(undefined);
         setNavigationBlockedUrl(undefined);
@@ -199,9 +213,8 @@ function WebContent({ id, url, customReceiveHandler }: IWebContentProps) {
   }, [url]);
 
   const onDomReady = useCallback(() => {
-    const ref = webviewRefs[id];
+    const ref = webviewRefs[id] as IWebViewRefWithDomReady | undefined;
     if (ref) {
-      // @ts-expect-error
       ref.__domReady = true;
     }
     // Inject the Bitrefill bridge on every dom-ready so raw window.postMessage
