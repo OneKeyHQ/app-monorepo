@@ -1,11 +1,10 @@
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
-import { Button, Empty, SizableText, YStack } from '@onekeyhq/components';
+import { Button, SizableText, YStack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { InviteeRewardNoWallet } from '@onekeyhq/kit/src/views/ReferFriends/components/InviteeRewardNoWallet';
-import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { RewardSummaryCard } from './components/RewardSummaryCard';
@@ -17,21 +16,6 @@ interface ISwapInviteeRewardContentProps {
   isMobile?: boolean;
   // Only overlay hosts pass this; the pushed modal page has nothing to dismiss.
   onBeforeNavigate?: () => void | Promise<void>;
-}
-
-function UnsupportedWalletState() {
-  const intl = useIntl();
-
-  return (
-    <YStack flex={1} jc="center" ai="center" py="$10">
-      <Empty
-        icon="WalletOutline"
-        title={intl.formatMessage({
-          id: ETranslations.perps_account_not_support,
-        })}
-      />
-    </YStack>
-  );
 }
 
 function ErrorState({ onRetry }: { onRetry: () => void }) {
@@ -62,19 +46,13 @@ export function SwapInviteeRewardContent({
 }: ISwapInviteeRewardContentProps) {
   const { result, isLoading, run } = usePromiseResult(
     async () => {
-      if (!accountId) {
+      if (!accountId || !currentEvmAddress) {
         return undefined;
       }
 
       return loadSwapInviteeReward({
-        accountId,
         currentEvmAddress,
         dependencies: {
-          ethNetworkId: getNetworkIdsMap().eth,
-          getReferralCodeWalletInfo: (params) =>
-            backgroundApiProxy.serviceReferralCode.getReferralCodeWalletInfo(
-              params,
-            ),
           getSwapInviteeRewards: (params) =>
             backgroundApiProxy.serviceReferralCode.getSwapInviteeRewards(
               params,
@@ -89,17 +67,13 @@ export function SwapInviteeRewardContent({
     },
   );
 
-  if (!accountId) {
+  if (!accountId || !currentEvmAddress || result?.status === 'unsupported') {
     return (
       <InviteeRewardNoWallet
         testID="swap-invitee-reward-onboarding"
         onBeforeNavigate={onBeforeNavigate}
       />
     );
-  }
-
-  if (result?.status === 'unsupported') {
-    return <UnsupportedWalletState />;
   }
 
   if (result?.status === 'error') {
