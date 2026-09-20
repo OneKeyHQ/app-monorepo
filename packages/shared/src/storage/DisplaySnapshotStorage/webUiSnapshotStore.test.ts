@@ -52,8 +52,7 @@ const {
   __resetWebUiSnapshotStoreForTests,
   createWebUiSnapshotSyncBackend,
   flushUiSnapshotStoreNow,
-} =
-  require('./webUiSnapshotStore') as typeof import('./webUiSnapshotStore');
+} = require('./webUiSnapshotStore') as typeof import('./webUiSnapshotStore');
 
 const FLUSH_DEBOUNCE_MS = 2000;
 // One first attempt plus the retries the store allows before it goes quiet.
@@ -151,8 +150,7 @@ describe('webUiSnapshotStore write-behind', () => {
 
     expect(
       putCalls.some(
-        ({ key, value }) =>
-          key === 'ctx-atom-snapshot:b' && value === 'second',
+        ({ key, value }) => key === 'ctx-atom-snapshot:b' && value === 'second',
       ),
     ).toBe(true);
   });
