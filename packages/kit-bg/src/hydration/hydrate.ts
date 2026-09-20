@@ -60,6 +60,7 @@ import {
   resetColdStartCache,
   writeColdStartMeta,
 } from '@onekeyhq/shared/src/storage/instance/webColdStartStorage';
+import { isWebSWRCachePersistedKey } from '@onekeyhq/shared/src/storage/instance/webSWRCacheEntries';
 import { EAppSyncStorageKeys } from '@onekeyhq/shared/src/storage/syncStorageKeys';
 import { normalizeSwapColdStartCacheSnapshot } from '@onekeyhq/shared/src/utils/swapColdStartCacheSnapshotUtils';
 
@@ -75,7 +76,6 @@ const KILL_SWITCH_LS_KEY = '__cold_start_kill__';
 const COLD_START_RESULT_GLOBAL = '__ONEKEY_COLD_START_RESULT__';
 const CTX_SNAPSHOT_KEY =
   EAppSyncStorageKeys.onekey_jotai_context_atoms_snapshot;
-const SWR_CACHE_KEY = EAppSyncStorageKeys.onekey_swr_cache;
 const DEV_SAFE_L2_BALANCE_CACHE_KEYS = new Set<string>([
   CONTEXT_ATOM_COLD_START_CACHE_KEYS.swapBalanceDisplayCacheAtom,
   CONTEXT_ATOM_COLD_START_CACHE_KEYS.swapStockBalanceDisplayCacheAtom,
@@ -274,7 +274,7 @@ export function shouldProceedAfterReset(
 
 const promise: Promise<void> = (async () => {
   // In development, keep generic L2 context-atom hydration disabled to avoid
-  // schema drift between local code changes. Prime only the SWR blob and the
+  // schema drift between local code changes. Prime only the SWR records and the
   // versioned, display-only Swap balance caches so localhost can verify the
   // real first-frame experience without hydrating executable Swap state.
   if (process.env.NODE_ENV !== 'production') {
@@ -287,10 +287,11 @@ const promise: Promise<void> = (async () => {
         HYDRATION_TIMEOUT_MS,
       );
       const entriesToPrime: [string, unknown][] = [];
-      const swrCache = result?.get(SWR_CACHE_KEY);
-      if (typeof swrCache === 'string') {
-        entriesToPrime.push([SWR_CACHE_KEY, swrCache]);
-      }
+      result?.forEach((value, key) => {
+        if (typeof value === 'string' && isWebSWRCachePersistedKey(key)) {
+          entriesToPrime.push([key, value]);
+        }
+      });
       if (result) {
         const safeCtxSnapshot = filterDevSafeL2CtxSnapshot(
           parseL2CtxSnapshot(result),
