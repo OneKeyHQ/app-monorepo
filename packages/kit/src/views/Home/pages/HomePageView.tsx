@@ -1,4 +1,11 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  Fragment,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 
 import { useFocusEffect } from '@react-navigation/core';
 import { CanceledError } from 'axios';
@@ -25,6 +32,7 @@ import {
 } from '@onekeyhq/components';
 import type { ITabBarItemProps } from '@onekeyhq/components/src/composite/Tabs/TabBar';
 import { TabBarItem } from '@onekeyhq/components/src/composite/Tabs/TabBar';
+import { useMobileTabScrollToTop } from '@onekeyhq/kit/src/hooks/useMobileTabTouchScrollBridge';
 import { useTabContainerWidth } from '@onekeyhq/kit/src/hooks/useTabContainerWidth';
 import { getNetworksSupportBulkRevokeApproval } from '@onekeyhq/shared/src/config/presetNetworks';
 import {
@@ -210,17 +218,70 @@ function HomeTabContentMaxWidth({ children }: { children: React.ReactNode }) {
 function FreezeInactiveHomeTab({
   tabName,
   pressedTabName,
+  thawKey,
   children,
 }: {
   tabName: string;
   pressedTabName: string;
+  // See useHomeTabFreeze: what this pane must react to even while inactive.
+  thawKey?: string;
   children: React.ReactNode;
 }) {
   const focusedTab = useFocusedTab();
   const frozen = useHomeTabFreeze(
     isHomeTabActive({ tabName, focusedTab, pressedTabName }),
+    thawKey,
   );
   return <DelayedFreeze freeze={frozen}>{children}</DelayedFreeze>;
+}
+
+// Switching accounts used to rebuild everything inside Tabs.Container through
+// its key: header, tab bar and token list, 865 components on a phone. On the
+// native main runtime every mounted component leaves weak-map entries behind
+// that make each later garbage collection slower for the rest of the session,
+// and account switches were a tenth of them. So native keeps the container and
+// swaps the owner in place, the way a network switch has done since OK-53686:
+//   - the wallet pane already re-initializes on an owner change; when it is
+//     frozen behind another tab it is thawed once so that this still happens
+//     (what the eager remount gave OK-63721);
+//   - the other panes keep their fresh-state-per-owner behavior through their
+//     own key, which costs nothing until the pane is shown again, because a
+//     frozen pane does not render;
+//   - the list goes back to the top, as a rebuilt one did.
+// Other platforms keep the remount. Set to `false` to restore it everywhere.
+const HOME_TABS_SURVIVE_ACCOUNT_SWITCH = platformEnv.isNative;
+
+function getHomeTabsOwnerKey({
+  walletId,
+  indexedAccountId,
+  accountId,
+}: {
+  walletId: string | undefined;
+  indexedAccountId: string | undefined;
+  accountId: string | undefined;
+}) {
+  return `${walletId ?? ''}-${indexedAccountId ?? accountId ?? ''}`;
+}
+
+// Lives in the container's header because that is inside the tab context.
+function HomeTabsScrollToTopOnOwnerChange() {
+  const {
+    activeAccount: { wallet, account },
+  } = useActiveAccount({ num: 0 });
+  const ownerKey = getHomeTabsOwnerKey({
+    walletId: wallet?.id,
+    indexedAccountId: account?.indexedAccountId,
+    accountId: account?.id,
+  });
+  const scrollToTop = useMobileTabScrollToTop();
+  const lastOwnerKeyRef = useRef(ownerKey);
+  useEffect(() => {
+    if (lastOwnerKeyRef.current !== ownerKey) {
+      lastOwnerKeyRef.current = ownerKey;
+      scrollToTop();
+    }
+  }, [ownerKey, scrollToTop]);
+  return null;
 }
 
 export function HomePageView({
@@ -507,6 +568,9 @@ export function HomePageView({
   const renderHeader = useCallback(() => {
     return (
       <Stack {...homePageContentMaxWidthSx}>
+        {HOME_TABS_SURVIVE_ACCOUNT_SWITCH ? (
+          <HomeTabsScrollToTopOnOwnerChange />
+        ) : null}
         {platformEnv.isNative ? (
           <HeaderScrollGestureWrapper onRefresh={onHomePageRefresh}>
             <HomeAlerts />
@@ -910,9 +974,12 @@ export function HomePageView({
     // optimization here is intentionally HD-only because Others wallets
     // typically stay pinned to a single network and the cost of the
     // occasional remount is not worth special-casing.
-    const key = `${wallet?.id ?? ''}-${
-      account?.indexedAccountId ?? account?.id ?? ''
-    }`;
+    const ownerKey = getHomeTabsOwnerKey({
+      walletId: wallet?.id,
+      indexedAccountId: account?.indexedAccountId,
+      accountId: account?.id,
+    });
+    const key = HOME_TABS_SURVIVE_ACCOUNT_SWITCH ? 'home-tabs' : ownerKey;
     // The remount key resets the pager to the first tab while HomePageView's
     // activeTab state still points at the previously selected tab, so seed
     // the remounted container with that tab. But the new pagerTabConfigs and
@@ -959,12 +1026,27 @@ export function HomePageView({
             <FreezeInactiveHomeTab
               tabName={tab.name}
               pressedTabName={activeTabName}
+              thawKey={
+                HOME_TABS_SURVIVE_ACCOUNT_SWITCH &&
+                tab.id === EHomeWalletTab.Portfolio
+                  ? ownerKey
+                  : undefined
+              }
             >
               {platformEnv.isNative ||
               tab.id === EHomeWalletTab.Perps ||
               activeTabId === tab.id ||
               mountedHomeTabIds.has(tab.id) ? (
-                tab.component
+                <Fragment
+                  key={
+                    HOME_TABS_SURVIVE_ACCOUNT_SWITCH &&
+                    tab.id !== EHomeWalletTab.Portfolio
+                      ? ownerKey
+                      : 'pane'
+                  }
+                >
+                  {tab.component}
+                </Fragment>
               ) : (
                 <Stack flex={1} />
               )}

@@ -9,6 +9,29 @@ import {
 
 import { CollapsibleTabContext } from '@onekeyhq/components';
 
+// Puts the focused tab's list back at the top with the header expanded. Must
+// be called from inside the tab container, where the tab context lives.
+export function useMobileTabScrollToTop() {
+  const tabsContext = useContext(CollapsibleTabContext);
+  const refMap = tabsContext?.refMap;
+  const focusedTabShared = tabsContext?.focusedTab;
+  const tabContentInset = tabsContext?.contentInset ?? 0;
+
+  return useCallback(() => {
+    if (!refMap || !focusedTabShared) {
+      return;
+    }
+    runOnUI(() => {
+      'worklet';
+
+      const ref = refMap[focusedTabShared.value];
+      if (ref) {
+        scrollTo(ref, 0, -tabContentInset, false);
+      }
+    })();
+  }, [focusedTabShared, refMap, tabContentInset]);
+}
+
 export function useMobileTabTouchScrollBridge() {
   const tabsContext = useContext(CollapsibleTabContext);
   const refMap = tabsContext?.refMap;
