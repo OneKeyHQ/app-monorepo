@@ -98,9 +98,11 @@ function MockProChart() {
 function renderTokenDetailChart(
   marketAssetId?: string,
   marketTradingView: ReactNode = <MockProChart />,
+  active?: boolean,
 ) {
   return render(
     <TokenDetailChart
+      active={active}
       chartContainerTestID="market-token-chart"
       marketAssetId={marketAssetId}
       marketTradingView={marketTradingView}
@@ -165,6 +167,17 @@ describe('TokenDetailChart', () => {
 
     expect(mockStockSimpleChart).toHaveBeenCalledWith(
       expect.objectContaining({ marketAssetId: 'doge' }),
+    );
+  });
+
+  // A retained Desktop/Web route keeps this subtree mounted after another route
+  // takes over the shared detail state, and the chart polls with focus checks
+  // off, so ownership has to reach it.
+  it('forwards route ownership to Simple mode', () => {
+    renderTokenDetailChart(undefined, <MockProChart />, false);
+
+    expect(mockStockSimpleChart).toHaveBeenCalledWith(
+      expect.objectContaining({ active: false }),
     );
   });
 

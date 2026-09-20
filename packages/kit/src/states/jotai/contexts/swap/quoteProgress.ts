@@ -517,6 +517,16 @@ export function shouldShowSwapQuoteRequestLoading({
   return !quoteEventCompleted;
 }
 
+export function shouldShowSwapQuoteLimitWarning({
+  quoteEventCompleted,
+  quoteEventFetching,
+}: {
+  quoteEventCompleted: boolean;
+  quoteEventFetching: boolean;
+}) {
+  return quoteEventCompleted && !quoteEventFetching;
+}
+
 export function isSwapQuoteFromCurrentEvent({
   quote,
   quoteEventTotalCount,
