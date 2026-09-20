@@ -127,6 +127,7 @@ function useIframeWheelPassthrough({
 }
 
 export interface IDesktopLayoutProps {
+  active?: boolean;
   isChartFullscreen: boolean;
   isTradingViewNative: boolean;
   onChartSwitch: () => void;
@@ -144,6 +145,7 @@ export interface IDesktopLayoutProps {
 }
 
 export function DesktopLayout({
+  active,
   isChartFullscreen,
   isTradingViewNative,
   onChartSwitch,
@@ -560,6 +562,7 @@ export function DesktopLayout({
         style={SCROLL_CONTAINER_STYLE}
       >
         <StockDesktopLayout
+          active={active}
           marketTradingView={marketTradingView}
           swapToken={swapToken}
           swapInputDraftKey={swapInputDraftKey}
@@ -587,6 +590,7 @@ export function DesktopLayout({
         style={SCROLL_CONTAINER_STYLE}
       >
         <TopCoinsDesktopLayout
+          active={active}
           marketTradingView={marketTradingView}
           swapToken={swapToken}
           swapInputDraftKey={swapInputDraftKey}
@@ -617,6 +621,7 @@ export function DesktopLayout({
       style={SCROLL_CONTAINER_STYLE}
     >
       <TokenDesktopLayout
+        active={active}
         marketTradingView={marketTradingView}
         swapToken={swapToken}
         swapInputDraftKey={swapInputDraftKey}
