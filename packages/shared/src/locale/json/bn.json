@@ -2956,7 +2956,7 @@
   "p2sh_p2wpkh_desc": "\"bc1q\" দিয়ে শুরু হয়। P2SH-P2WPKH (m/84'/0'/0')",
   "p2tr_desc": "\"bc1p\" দিয়ে শুরু হয়। P2TR (m/86'/0'/0')",
   "p2wpkh_desc": "\"3\" দিয়ে শুরু হয়। P2WPKH (m/49'/0'/0')",
-  "passphrase_allowed_characters_desc": "অক্ষর, সংখ্যা এবং প্রতীক",
+  "passphrase_allowed_characters_desc": "অক্ষর, সংখ্যা এবং প্রতীক (ASCII 32-126)",
   "passphrase_allowed_characters_title": "অনুমোদিত অক্ষর",
   "passphrase_character_limit": "সর্বোচ্চ ৫০ অক্ষর",
   "passphrase_disabled_dialog_desc": "আপনার ডিভাইসে Passphrase সক্রিয় করুন গোপন ওয়ালেট তৈরি করতে।",
