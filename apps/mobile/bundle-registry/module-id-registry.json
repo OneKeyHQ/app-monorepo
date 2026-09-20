@@ -19196,6 +19196,8 @@
     "packages/kit-bg/src/states/jotai/contexts/tokenList/cellsPure/pure.ts": 22171,
     "packages/kit-bg/src/states/jotai/jotaiBgSync.ts": 1441,
     "packages/kit-bg/src/states/jotai/jotaiInit.ts": 21007,
+    "packages/kit-bg/src/states/jotai/jotaiInitFromNativeStorage.native.ts": 23336,
+    "packages/kit-bg/src/states/jotai/jotaiInitFromNativeStorage.ts": 13722,
     "packages/kit-bg/src/states/jotai/jotaiInitFromUi.ts": 17601,
     "packages/kit-bg/src/states/jotai/jotaiStorage.ts": 14492,
     "packages/kit-bg/src/states/jotai/jotaiStorageConsts.ts": 17546,

@@ -95,20 +95,83 @@ function withNativeBootstrapTimeout(promise: Promise<boolean>) {
   });
 }
 
+const BACKGROUND_RECONCILIATION_RETRY_DELAYS_MS = [1000, 3000, 10_000];
+
 /**
- * Intentional native cold-start correctness gate.
+ * The half of startup that needs bg, once it no longer holds the first frame.
  *
- * Native main and bg are isolated JS runtimes that still start concurrently,
- * but the business App must not be imported or mounted until bg has migrated
- * both legacy storage namespaces and returned the snapshot used to prime
- * main's synchronous in-memory storage mirrors. Without this gate, business
- * code could observe an unprimed mirror or race legacy-data migration.
+ * Both steps still matter after the mount: the mirrors are how this runtime's
+ * writes reach the settings store, and the RPC hydration is canonical — it
+ * carries anything bg changed while it was booting. Failing them silently
+ * would leave writes queued forever, so they retry and then say so.
+ */
+function startBackgroundRuntimeReconciliation({
+  force,
+  generation,
+}: {
+  force: boolean;
+  generation: number;
+}) {
+  void (async () => {
+    for (let attempt = 0; ; attempt += 1) {
+      if (generation !== bootstrapGeneration) {
+        return;
+      }
+      const startedAt = Date.now();
+      try {
+        await bootstrapNativeStorage({ force: force && attempt === 0 });
+        if (generation !== bootstrapGeneration) {
+          return;
+        }
+        await initializeJotaiFromBackground();
+        logBootstrapStage('background runtime reconciled', startedAt);
+        return;
+      } catch (error) {
+        const delayMs = BACKGROUND_RECONCILIATION_RETRY_DELAYS_MS[attempt];
+        writeBootstrapError(
+          `[StartupTiming] background runtime reconciliation failed (attempt ${
+            attempt + 1
+          }): ${error instanceof Error ? error.message : String(error)}${
+            delayMs === undefined ? '; giving up' : `; retrying in ${delayMs}ms`
+          }`,
+        );
+        if (delayMs === undefined) {
+          return;
+        }
+        await new Promise((resolve) => setTimeout(resolve, delayMs));
+      }
+    }
+  })();
+}
+
+function writeBootstrapError(message: string) {
+  try {
+    const { NativeLogger, LogLevel } =
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      require('@onekeyhq/shared/src/modules3rdParty/react-native-file-logger') as typeof import('@onekeyhq/shared/src/modules3rdParty/react-native-file-logger');
+    NativeLogger.write(LogLevel.Error, message);
+  } catch {
+    // Logging is best-effort during bootstrap.
+  }
+}
+
+/**
+ * Native cold-start gate.
  *
- * This intentionally puts the remaining bg-ready and snapshot latency on the
- * cold-start critical path, plus one-time migration latency after upgrading.
- * When investigating startup regressions, measure bg readiness, migration,
- * and snapshot transfer separately. Do not move the App require above this
- * bootstrap or make it fire-and-forget without an equivalent readiness gate.
+ * Native main and bg are isolated JS runtimes that start concurrently. The
+ * business App must not mount until this runtime holds the state it renders
+ * from — but that state is now readable here: settings, the cold-start cache
+ * and the Jotai store are MMKV files this runtime opens itself.
+ *
+ * So the gate has two shapes. When the Jotai store hydrates from its file,
+ * nothing here waits for bg: the mirrors and the canonical RPC hydration
+ * reconcile behind the first frame. When it cannot — Travel Mode, a store
+ * still on AsyncStorage, an empty store — the old order stands and bg gates
+ * the mount, because then bg is the only one who knows.
+ *
+ * Whichever shape it takes, the Travel Mode runtime launch is acknowledged
+ * first: every synchronous read is masked until it is, so a cache read placed
+ * above it silently finds nothing (OK-61505).
  */
 function startBootstrap(force = false) {
   if (!force && bootstrapPromise) {
@@ -119,21 +182,14 @@ function startBootstrap(force = false) {
   bootstrapFailureStage = undefined;
   bootstrapRecoveryTarget = undefined;
   notifySubscribers();
-  let stage: IBootstrapFailureStage = 'storage';
+  let stage: IBootstrapFailureStage = 'runtime-launch';
   const bootstrapWork = (async () => {
-    const stageStartedAt = Date.now();
-    await bootstrapNativeStorage({ force });
-    logBootstrapStage('storage mirrors', stageStartedAt);
-    if (generation !== bootstrapGeneration) {
-      return false;
-    }
     const { travelModeManager } =
       // eslint-disable-next-line @typescript-eslint/no-require-imports
       require('@onekeyhq/shared/src/travelMode') as typeof import('@onekeyhq/shared/src/travelMode');
     const { completeTravelModeRuntimeLaunchAcknowledgement } =
       // eslint-disable-next-line @typescript-eslint/no-require-imports
       require('@onekeyhq/shared/src/travelMode/runtimeLaunchAcknowledgement') as typeof import('@onekeyhq/shared/src/travelMode/runtimeLaunchAcknowledgement');
-    stage = 'runtime-launch';
     const runtimeLaunchStartedAt = Date.now();
     const runtimeLaunchAcknowledged =
       await completeTravelModeRuntimeLaunchAcknowledgement(travelModeManager);
@@ -144,16 +200,44 @@ function startBootstrap(force = false) {
     if (generation !== bootstrapGeneration) {
       return false;
     }
-    // Sync storage reads are masked until the runtime launch is acknowledged,
-    // so the cold-start snapshot can only be read from here on.
     hydrateColdStartSnapshotAfterRuntimeLaunch();
+
     stage = 'jotai';
     const jotaiStartedAt = Date.now();
-    await initializeJotaiFromBackground();
-    logBootstrapStage('jotai from background', jotaiStartedAt);
+    const { hydrateJotaiFromNativeStorage } =
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      require('@onekeyhq/kit-bg/src/states/jotai/jotaiInitFromNativeStorage') as typeof import('@onekeyhq/kit-bg/src/states/jotai/jotaiInitFromNativeStorage');
+    const fastHydration = await hydrateJotaiFromNativeStorage();
+    logBootstrapStage(
+      fastHydration.hydrated
+        ? `jotai from its own file (${fastHydration.atomCount} atoms)`
+        : `jotai file hydration skipped (${fastHydration.reason ?? 'unknown'})`,
+      jotaiStartedAt,
+    );
     if (generation !== bootstrapGeneration) {
       return false;
     }
+
+    if (fastHydration.hydrated) {
+      // Everything below this line needs bg, and nothing above it does.
+      startBackgroundRuntimeReconciliation({ force, generation });
+    } else {
+      stage = 'storage';
+      const storageStartedAt = Date.now();
+      await bootstrapNativeStorage({ force });
+      logBootstrapStage('storage mirrors', storageStartedAt);
+      if (generation !== bootstrapGeneration) {
+        return false;
+      }
+      stage = 'jotai';
+      const rpcStartedAt = Date.now();
+      await initializeJotaiFromBackground();
+      logBootstrapStage('jotai from background', rpcStartedAt);
+      if (generation !== bootstrapGeneration) {
+        return false;
+      }
+    }
+
     // The home header/banner images were started by the snapshot hydration
     // above; give them a bounded chance to land in the memory cache before
     // the first React frame lays them out (OK-61505).
