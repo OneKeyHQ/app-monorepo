@@ -848,29 +848,30 @@ describeIfIndexedDB('SWR cache per-entry records', () => {
     ).toEqual(['wallet']);
   });
 
-  it('deletes the legacy single-record store instead of priming it', async () => {
+  it('leaves the legacy single-record store on disk without priming it', async () => {
     const { mod } = loadWithSWRCache();
     const storage = mod.createWebColdStartStorage();
-    // A database written before the per-entry migration still carries it.
-    void storage.setObject(LEGACY_SWR_KEY as EAppSyncStorageKeys, {
-      'walletList:v1:0': { d: ['legacy'], t: 1 },
-    });
+    void storage.setObject(LEGACY_SWR_KEY as EAppSyncStorageKeys, { a: 1 });
+    await mod.flushColdStartCacheNow();
+
+    // A later session: the record is on disk, the map starts empty.
+    (globalThis as Record<string, unknown>).__ONEKEY_COLD_START_CACHE_MAP__ =
+      new Map();
+
+    const { allKeys, entries } =
+      await mod.readColdStartCriticalEntriesFromIdb();
+    mod.primeColdStartCacheMap([...entries]);
+
+    // Reported, so the build-hash gate still counts it, but never read in.
+    expect(allKeys).toContain(LEGACY_SWR_KEY);
+    expect(
+      storage.getString(LEGACY_SWR_KEY as EAppSyncStorageKeys),
+    ).toBeUndefined();
+
     await mod.flushColdStartCacheNow();
     expect(
       (await mod.readAllColdStartEntriesFromIdb()).has(LEGACY_SWR_KEY),
     ).toBe(true);
-
-    // What a later cold start does: read the store, prime what it found.
-    const onDisk = await mod.readAllColdStartEntriesFromIdb();
-    mod.primeColdStartCacheMap([...onDisk]);
-
-    expect(
-      storage.getString(LEGACY_SWR_KEY as EAppSyncStorageKeys),
-    ).toBeUndefined();
-    await mod.flushColdStartCacheNow();
-    expect(
-      (await mod.readAllColdStartEntriesFromIdb()).has(LEGACY_SWR_KEY),
-    ).toBe(false);
   });
 
   it('materializes only the non-SWR records, but reports every key', async () => {
@@ -897,25 +898,6 @@ describeIfIndexedDB('SWR cache per-entry records', () => {
     );
     // But no SWR value — nor the legacy record — is deserialized.
     expect([...entries.keys()]).toEqual(['__meta:buildHash']);
-  });
-
-  it('retires the legacy single-record store when the critical read sees it', async () => {
-    const { mod } = loadWithSWRCache();
-    const storage = mod.createWebColdStartStorage();
-    void storage.setObject(LEGACY_SWR_KEY as EAppSyncStorageKeys, { a: 1 });
-    await mod.flushColdStartCacheNow();
-    expect(
-      (await mod.readAllColdStartEntriesFromIdb()).has(LEGACY_SWR_KEY),
-    ).toBe(true);
-
-    // The critical read is the only step that still sees the whole key list,
-    // so it is what has to retire the record now that priming skips it.
-    await mod.readColdStartCriticalEntriesFromIdb();
-    await mod.flushColdStartCacheNow();
-
-    expect(
-      (await mod.readAllColdStartEntriesFromIdb()).has(LEGACY_SWR_KEY),
-    ).toBe(false);
   });
 
   it('caps the SWR records it reads per namespace and overall', async () => {

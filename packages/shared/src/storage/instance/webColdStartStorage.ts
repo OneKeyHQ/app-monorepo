@@ -59,10 +59,14 @@ const FLUSH_DEBOUNCE_MS = 2000;
 const GLOBAL_MAP_KEY = '__ONEKEY_COLD_START_CACHE_MAP__';
 
 // The SWR cache used to live in this one record. Since the per-entry
-// migration nothing reads it — swrCacheUtils takes the entries source on
-// web — but a database written before that still carries it, and the
-// cold-start read pulls the whole thing into memory. On a real profile it
-// was 736KB of a 1020KB read.
+// migration nothing reads it — swrCacheUtils takes the entries source on web
+// — but a database written before that still carries it, and it used to be
+// pulled into memory anyway: 736KB of a 1020KB read on a real profile.
+//
+// Left where it is rather than deleted. Nothing reads it now that the reads
+// below are keyed and ranged, so removing it would only reclaim disk in a
+// store the browser may evict on its own, at the cost of a delete on every
+// user's first launch after the update.
 const LEGACY_SWR_STORE_KEY = 'onekey_swr_cache';
 
 // Caps on the SWR records a cold start pulls into memory. They bound the
@@ -84,19 +88,6 @@ export const WEB_SWR_HYDRATION_MAX_ENTRIES = 200;
 // near the top of the file, ahead of the rest of the flush state) can
 // reference it without tripping no-use-before-define.
 let isClearing = false;
-
-/**
- * Queue the legacy single-record store for deletion.
- *
- * Leaving the key out of the map is what turns the scheduled flush into a
- * db.delete, so the record goes away instead of being read again on every
- * later cold start.
- */
-function dropLegacySWRStoreRecord(): void {
-  if (isClearing) return;
-  getMap().delete(LEGACY_SWR_STORE_KEY);
-  scheduleFlush(LEGACY_SWR_STORE_KEY);
-}
 
 function getMap(): Map<string, unknown> {
   const g = globalThis as Record<string, unknown>;
@@ -138,10 +129,9 @@ export function primeColdStartCacheMap(
   if (isClearing) return;
   const map = getMap();
   let primedSWRCacheEntries = false;
-  let sawLegacySWRStore = false;
   for (const [k, v] of entries) {
     if (k === LEGACY_SWR_STORE_KEY) {
-      sawLegacySWRStore = true;
+      // Skipped, not deleted: see the constant.
     } else if (!map.has(k)) {
       // Do NOT clobber entries already written by a facade .set/.setObject
       // call that fired while hydrate.ts was still awaiting IDB. The local
@@ -150,9 +140,6 @@ export function primeColdStartCacheMap(
       map.set(k, v);
       primedSWRCacheEntries ||= isWebSWRCachePersistedKey(k);
     }
-  }
-  if (sawLegacySWRStore) {
-    dropLegacySWRStoreRecord();
   }
   if (primedSWRCacheEntries) {
     swrCacheEntries.notifyEntriesReplaced();
@@ -535,11 +522,6 @@ export async function readColdStartCriticalEntriesFromIdb(): Promise<{
   const criticalKeys = allKeys.filter(
     (key) => !isWebSWRCachePersistedKey(key) && key !== LEGACY_SWR_STORE_KEY,
   );
-  if (allKeys.includes(LEGACY_SWR_STORE_KEY)) {
-    // This read is the only place left that sees the whole key list, so it
-    // is where the dead record gets retired.
-    dropLegacySWRStoreRecord();
-  }
   const entries = new Map<string, unknown>();
   if (criticalKeys.length > 0) {
     const tx = await db.transactionAsync([STORE_NAME], 'readonly');
