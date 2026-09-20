@@ -50,10 +50,12 @@ export function InviteeRewardContent({
     );
   }
 
+  const showLoading = Boolean(isLoading || !data);
+
   const content = (
     <YStack gap="$5">
       <RewardSummaryCard
-        isLoading={isLoading}
+        isLoading={showLoading}
         totalBonus={data?.totalBonus}
         undistributed={data?.undistributed}
         tokenSymbol={data?.token.symbol}
@@ -67,7 +69,7 @@ export function InviteeRewardContent({
         </SizableText>
         <RewardHistoryList
           key={walletAddress}
-          isLoading={isLoading}
+          isLoading={showLoading}
           history={data?.history}
           token={data?.token}
         />

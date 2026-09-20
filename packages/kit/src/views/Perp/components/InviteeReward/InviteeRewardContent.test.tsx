@@ -21,7 +21,7 @@ let mockPromiseResult: {
       amount: string;
     }[];
   };
-  isLoading: boolean;
+  isLoading?: boolean;
 };
 
 jest.mock('react-intl', () => ({
@@ -173,6 +173,18 @@ describe('InviteeRewardContent', () => {
       },
       isLoading: false,
     };
+  });
+
+  it('keeps the payout history in a loading state before the first result', () => {
+    mockPromiseResult = {
+      result: undefined,
+      isLoading: undefined,
+    };
+
+    render(<InviteeRewardContent walletAddress="0xwallet" />);
+
+    expect(screen.getByText('referral.reward_history')).toBeTruthy();
+    expect(screen.queryByText('global.no_data')).toBeNull();
   });
 
   it('renders the aggregate reward summary and empty payout history', () => {
