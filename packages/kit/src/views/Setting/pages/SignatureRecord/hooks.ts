@@ -41,18 +41,29 @@ export const useGetSignatureSections = <T extends { createdAt: number }>(
   const methodRef = useRef(method);
   const hasLoadedFirstPageRef = useRef(false);
   const resetGenRef = useRef(0);
-  const [query, setQuery] = useState<{ offset: number; limit: number }>({
+  const { networkId, searchContent: address } = useContext(SignatureContext);
+  const [query, setQuery] = useState<{
+    networkId?: string;
+    address?: string;
+    offset: number;
+    limit: number;
+  }>({
+    networkId,
+    address,
     offset: 0,
     limit: 10,
   });
-  const { networkId, searchContent: address } = useContext(SignatureContext);
+  const offset =
+    query.networkId === networkId && query.address === address
+      ? query.offset
+      : 0;
 
   // Reset accumulated data and pagination when filters change
   useEffect(() => {
     ref.current = [];
     hasLoadedFirstPageRef.current = false;
     resetGenRef.current += 1;
-    setQuery({ offset: 0, limit: 10 });
+    setQuery({ networkId, address, offset: 0, limit: 10 });
   }, [networkId, address]);
 
   const { result } = usePromiseResult(
@@ -61,7 +72,7 @@ export const useGetSignatureSections = <T extends { createdAt: number }>(
       const resp = await methodRef.current({
         networkId,
         address,
-        offset: query.offset,
+        offset,
         limit: query.limit,
       });
       // Skip stale results from before a filter reset
@@ -70,10 +81,10 @@ export const useGetSignatureSections = <T extends { createdAt: number }>(
       }
       const isSearch = !networkUtils.isAllNetwork({ networkId }) || address;
       if (!isSearch) {
-        if (query.offset === 0) {
+        if (offset === 0) {
           ref.current = [...resp];
         } else {
-          ref.current.splice(query.offset, query.limit, ...resp);
+          ref.current.splice(offset, query.limit, ...resp);
         }
       }
       hasLoadedFirstPageRef.current = true;
@@ -84,7 +95,7 @@ export const useGetSignatureSections = <T extends { createdAt: number }>(
         address,
       };
     },
-    [networkId, query.limit, query.offset, address],
+    [networkId, query.limit, offset, address],
     {
       initResult: { sections: [], ending: false, networkId: '', address: '' },
     },
@@ -102,8 +113,16 @@ export const useGetSignatureSections = <T extends { createdAt: number }>(
     if (ending || !isCurrentFilter || !hasLoadedFirstPageRef.current) {
       return;
     }
-    setQuery((prev) => ({ ...prev, offset: prev.offset + prev.limit }));
-  }, [ending, isCurrentFilter]);
+    setQuery((prev) => ({
+      ...prev,
+      networkId,
+      address,
+      offset:
+        (prev.networkId === networkId && prev.address === address
+          ? prev.offset
+          : 0) + prev.limit,
+    }));
+  }, [ending, isCurrentFilter, networkId, address]);
 
   return useMemo(() => ({ sections, onEndReached }), [sections, onEndReached]);
 };
