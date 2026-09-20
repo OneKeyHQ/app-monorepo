@@ -37,10 +37,6 @@ type IWebContentProps = IWebTab &
     customReceiveHandler?: IJsBridgeReceiveHandler;
   };
 
-type IWebViewRefWithDomReady = (typeof webviewRefs)[string] & {
-  __domReady?: boolean;
-};
-
 function shouldBlockAccess(validateState: EValidateUrlEnum | undefined) {
   return (
     Boolean(validateState) &&
@@ -52,7 +48,6 @@ function shouldBlockAccess(validateState: EValidateUrlEnum | undefined) {
 function WebContent({ id, url, customReceiveHandler }: IWebContentProps) {
   const navigation = useAppNavigation();
   const urlRef = useRef<string>('');
-  const readyDocumentUrlRef = useRef<string | undefined>(undefined);
   const phishingUrlRef = useRef<string>('');
   const [navigationBlockAccessView, setNavigationBlockAccessView] =
     useState(false);
@@ -114,27 +109,8 @@ function WebContent({ id, url, customReceiveHandler }: IWebContentProps) {
     onNavigation({ id, loading: true });
   }, [id, onNavigation]);
   const onDidStartNavigation = useCallback(
-    ({
-      url: willNavigationUrl,
-      isMainFrame,
-      isInPlace,
-    }: DidStartNavigationEvent) => {
+    ({ url: willNavigationUrl, isMainFrame }: DidStartNavigationEvent) => {
       if (isMainFrame) {
-        if (!isInPlace) {
-          const ref = webviewRefs[id] as IWebViewRefWithDomReady | undefined;
-          if (ref) {
-            if (ref.__domReady) {
-              try {
-                readyDocumentUrlRef.current = (
-                  ref.innerRef as IElectronWebView
-                ).getURL();
-              } catch {
-                readyDocumentUrlRef.current = undefined;
-              }
-            }
-            ref.__domReady = false;
-          }
-        }
         setNavigationBlockAccessView(false);
         setNavigationUrlValidateState(undefined);
         setNavigationBlockedUrl(undefined);
@@ -158,23 +134,6 @@ function WebContent({ id, url, customReceiveHandler }: IWebContentProps) {
     [getNavStatusInfo, id, onNavigation],
   );
   const onDidFinishLoad = useCallback(() => {
-    const ref = webviewRefs[id] as IWebViewRefWithDomReady | undefined;
-    const webview = ref?.innerRef as
-      | (IElectronWebView & { isLoadingMainFrame: () => boolean })
-      | undefined;
-    if (ref?.__domReady === false && readyDocumentUrlRef.current) {
-      try {
-        if (
-          !webview?.isLoadingMainFrame() &&
-          webview?.getURL() === readyDocumentUrlRef.current
-        ) {
-          ref.__domReady = true;
-          readyDocumentUrlRef.current = undefined;
-        }
-      } catch {
-        // The guest may have been destroyed while navigation was settling.
-      }
-    }
     notifyTabNavigationEnd(id);
     onNavigation({
       id,
@@ -240,11 +199,11 @@ function WebContent({ id, url, customReceiveHandler }: IWebContentProps) {
   }, [url]);
 
   const onDomReady = useCallback(() => {
-    const ref = webviewRefs[id] as IWebViewRefWithDomReady | undefined;
+    const ref = webviewRefs[id];
     if (ref) {
+      // @ts-expect-error
       ref.__domReady = true;
     }
-    readyDocumentUrlRef.current = undefined;
     // Inject the Bitrefill bridge on every dom-ready so raw window.postMessage
     // events from embed.bitrefill.com are re-emitted as $private JSBridge
     // requests reaching useDiscoveryMessageHandler.

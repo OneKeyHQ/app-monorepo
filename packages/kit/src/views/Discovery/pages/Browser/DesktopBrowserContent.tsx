@@ -30,9 +30,6 @@ import { releaseDesktopWebviewResources } from '../../utils/desktopWebviewCleanu
 import { webviewRefs } from '../../utils/explorerUtils';
 import DashboardContent from '../Dashboard/DashboardContent';
 
-import type { DidStartNavigationEvent } from 'electron';
-import type { TextInput } from 'react-native';
-
 interface IElectronWebView {
   stopFindInPage: (text: string) => void;
   findInPage: (
@@ -49,48 +46,17 @@ interface IElectronWebView {
   ) => void;
 }
 
-type IWebViewRefWithDomReady = (typeof webviewRefs)[string] & {
-  __domReady?: boolean;
-};
-
-function getReadyWebView(id: string): IElectronWebView | undefined {
-  const ref = webviewRefs[id] as IWebViewRefWithDomReady | undefined;
-  return ref?.__domReady
-    ? (ref.innerRef as IElectronWebView | undefined)
-    : undefined;
-}
-
-function findInWebView(
-  webView: IElectronWebView | undefined,
-  text: string,
-  params: { findNext: boolean; forward: boolean },
-) {
-  try {
-    webView?.findInPage(text, params);
-  } catch {
-    // A WebView can lose its guest process while navigating or being evicted.
-  }
-}
-
-function stopFindInWebView(webView: IElectronWebView | undefined) {
-  try {
-    webView?.stopFindInPage('clearSelection');
-  } catch {
-    // The guest may already have been destroyed.
-  }
-}
-
-function BasicFind({ id, isActive }: { id: string; isActive: boolean }) {
+function BasicFind({ id }: { id: string }) {
   const [matches, setMatches] = useState(0);
   const [activeMatchOrdinal, setActiveMatchOrdinal] = useState(0);
   const [visible, setIsVisible] = useState(false);
-  const inputRef = useRef<TextInput>(null);
   const prevSearchText = useRef('');
   const handleFindPrev = useCallback(() => {
     if (matches < 1) {
       return;
     }
-    findInWebView(getReadyWebView(id), prevSearchText.current, {
+    const webView = webviewRefs[id]?.innerRef as unknown as IElectronWebView;
+    webView.findInPage(prevSearchText.current, {
       findNext: false,
       forward: false,
     });
@@ -99,13 +65,14 @@ function BasicFind({ id, isActive }: { id: string; isActive: boolean }) {
     if (matches < 1) {
       return;
     }
+    const webView = webviewRefs[id]?.innerRef as unknown as IElectronWebView;
     if (activeMatchOrdinal === matches) {
-      findInWebView(getReadyWebView(id), prevSearchText.current, {
+      webView.findInPage(prevSearchText.current, {
         findNext: true,
-        forward: true,
+        forward: false,
       });
     } else {
-      findInWebView(getReadyWebView(id), prevSearchText.current, {
+      webView.findInPage(prevSearchText.current, {
         findNext: false,
         forward: true,
       });
@@ -129,154 +96,56 @@ function BasicFind({ id, isActive }: { id: string; isActive: boolean }) {
         finalUpdate: boolean;
       };
     }) => {
-      if (!getReadyWebView(id)) {
-        return;
-      }
       console.log(result);
       setMatches(result.matches);
       setActiveMatchOrdinal(result.activeMatchOrdinal);
     },
-    [id],
-  );
-
-  const handleTextChange = useThrottledCallback((text: string) => {
-    if (text.length === 0) {
-      stopFindInWebView(
-        webviewRefs[id]?.innerRef as IElectronWebView | undefined,
-      );
-      setMatches(0);
-      setActiveMatchOrdinal(0);
-    } else {
-      findInWebView(getReadyWebView(id), text, {
-        findNext: true,
-        forward: false,
-      });
-    }
-  }, 250);
-
-  const handleInputChange = useCallback(
-    (text: string) => {
-      prevSearchText.current = text;
-      handleTextChange(text);
-    },
-    [handleTextChange],
+    [],
   );
 
   const handleClose = useCallback(() => {
-    handleTextChange.cancel();
-    stopFindInWebView(
-      webviewRefs[id]?.innerRef as IElectronWebView | undefined,
-    );
     setIsVisible(false);
-    prevSearchText.current = '';
-    setMatches(0);
-    setActiveMatchOrdinal(0);
-  }, [handleTextChange, id]);
+    const webView = webviewRefs[id]?.innerRef as unknown as IElectronWebView;
+    if (webView) {
+      webView.removeEventListener('found-in-page', foundInPage);
+    }
+  }, [foundInPage, id]);
 
   useEffect(() => {
-    if (!isActive) {
-      return undefined;
-    }
     const callback = ({ tabId }: { tabId: string }) => {
       if (id !== tabId) {
         return;
       }
       setIsVisible(true);
-      inputRef.current?.focus();
+      const webView = webviewRefs[id]?.innerRef as unknown as IElectronWebView;
+      if (webView) {
+        webView.addEventListener('found-in-page', foundInPage);
+      }
     };
     appEventBus.on(EAppEventBusNames.ShowFindInWebPage, callback);
     return () => {
+      const webView = webviewRefs[id]?.innerRef as unknown as IElectronWebView;
+      if (webView) {
+        webView.removeEventListener('found-in-page', foundInPage);
+      }
       appEventBus.off(EAppEventBusNames.ShowFindInWebPage, callback);
     };
-  }, [id, isActive]);
+  }, [foundInPage, id]);
 
-  useEffect(() => {
-    if (visible) {
-      inputRef.current?.focus();
+  const handleTextChange = useThrottledCallback((text: string) => {
+    const webView = webviewRefs[id]?.innerRef as unknown as IElectronWebView;
+    if (!webView) {
+      return;
     }
-  }, [visible]);
-
-  useEffect(() => {
-    if (!visible || !isActive) {
-      return undefined;
+    if (text.length === 0) {
+      webView.stopFindInPage('clearSelection');
+      setMatches(0);
+      setActiveMatchOrdinal(0);
+    } else {
+      webView.findInPage(text, { findNext: true, forward: false });
     }
-
-    let webView: IElectronWebView | undefined;
-    let retryTimer: ReturnType<typeof setTimeout> | undefined;
-    let replayTimer: ReturnType<typeof setTimeout> | undefined;
-    let waitingForDomReady = false;
-    const resetMatchesOnNavigation = ({
-      isMainFrame,
-      isInPlace,
-    }: DidStartNavigationEvent) => {
-      const ref = webviewRefs[id] as IWebViewRefWithDomReady | undefined;
-      if (isMainFrame && !isInPlace && ref?.__domReady === false) {
-        waitingForDomReady = true;
-        setMatches(0);
-        setActiveMatchOrdinal(0);
-      }
-    };
-    const replaySearch = () => {
-      waitingForDomReady = false;
-      if (prevSearchText.current) {
-        findInWebView(webView, prevSearchText.current, {
-          findNext: true,
-          forward: false,
-        });
-      }
-    };
-    const replayAfterStop = () => {
-      if (waitingForDomReady) {
-        replayTimer = setTimeout(() => {
-          if (waitingForDomReady && getReadyWebView(id)) {
-            replaySearch();
-          }
-        }, 0);
-      }
-    };
-    const attachFindListener = () => {
-      const ref = webviewRefs[id] as IWebViewRefWithDomReady | undefined;
-      const currentWebView = ref?.innerRef as IElectronWebView | undefined;
-      if (!currentWebView) {
-        retryTimer = setTimeout(attachFindListener, 100);
-        return;
-      }
-      webView = currentWebView;
-      currentWebView.addEventListener('found-in-page', foundInPage);
-      currentWebView.addEventListener(
-        'did-start-navigation',
-        resetMatchesOnNavigation,
-      );
-      currentWebView.addEventListener('did-stop-loading', replayAfterStop);
-      currentWebView.addEventListener('did-fail-load', replayAfterStop);
-      currentWebView.addEventListener('dom-ready', replaySearch);
-      if (ref?.__domReady) {
-        replaySearch();
-      }
-    };
-    attachFindListener();
-
-    return () => {
-      if (retryTimer) {
-        clearTimeout(retryTimer);
-      }
-      if (replayTimer) {
-        clearTimeout(replayTimer);
-      }
-      handleTextChange.cancel();
-      webView?.removeEventListener('dom-ready', replaySearch);
-      webView?.removeEventListener('did-fail-load', replayAfterStop);
-      webView?.removeEventListener('did-stop-loading', replayAfterStop);
-      webView?.removeEventListener(
-        'did-start-navigation',
-        resetMatchesOnNavigation,
-      );
-      webView?.removeEventListener('found-in-page', foundInPage);
-      stopFindInWebView(
-        (webviewRefs[id]?.innerRef as IElectronWebView | undefined) ?? webView,
-      );
-    };
-  }, [foundInPage, handleTextChange, id, isActive, visible]);
+    prevSearchText.current = text;
+  }, 250);
 
   const disabled = matches === 0;
 
@@ -284,7 +153,6 @@ function BasicFind({ id, isActive }: { id: string; isActive: boolean }) {
     <AnimatePresence>
       {visible ? (
         <XStack
-          display={isActive ? 'flex' : 'none'}
           position="absolute"
           left="50%"
           top="$2.5"
@@ -314,8 +182,7 @@ function BasicFind({ id, isActive }: { id: string; isActive: boolean }) {
             <Input
               testID="discovery-input"
               autoFocus
-              ref={inputRef}
-              onChangeText={handleInputChange}
+              onChangeText={handleTextChange}
               containerProps={{
                 borderWidth: 0,
                 px: 0,
@@ -434,12 +301,10 @@ function BasicDesktopBrowserContent({
   // active tab and remounts/reloads when activated again.
 
   return (
-    <>
-      {platformEnv.isDesktop ? <Find id={id} isActive={isActive} /> : null}
-      <Freeze key={id} freeze={!isActive}>
-        {body}
-      </Freeze>
-    </>
+    <Freeze key={id} freeze={!isActive}>
+      {platformEnv.isDesktop ? <Find id={id} /> : null}
+      {body}
+    </Freeze>
   );
 }
 
