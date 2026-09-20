@@ -26,10 +26,10 @@ describe('desktop external URLs', () => {
     Object.defineProperty(process, 'platform', { value: originalPlatform });
   });
 
-  it('opens the macOS App Store subscriptions sheet for the Apple HTTPS entry', async () => {
+  it('preserves the Apple HTTPS entry without subscription-specific routing on macOS', async () => {
     await openExternalUrl(appleUrl);
     expect(mockOpenExternal).toHaveBeenCalledTimes(1);
-    expect(mockOpenExternal).toHaveBeenCalledWith(nativeUrl);
+    expect(mockOpenExternal).toHaveBeenCalledWith(appleUrl);
   });
 
   it.each(['win32', 'linux'] as const)(
@@ -41,13 +41,13 @@ describe('desktop external URLs', () => {
     },
   );
 
-  it('falls back to the Apple HTTPS entry when App Store handoff fails', async () => {
+  it('handles shell failures without an unhandled rejection', async () => {
     mockOpenExternal.mockRejectedValueOnce(
       new OneKeyLocalError('App Store unavailable'),
     );
-    await openExternalUrl(appleUrl);
-    expect(mockOpenExternal).toHaveBeenNthCalledWith(1, nativeUrl);
-    expect(mockOpenExternal).toHaveBeenNthCalledWith(2, appleUrl);
+    await expect(openExternalUrl(appleUrl)).resolves.toBeUndefined();
+    expect(mockOpenExternal).toHaveBeenCalledTimes(1);
+    expect(mockOpenExternal).toHaveBeenCalledWith(appleUrl);
   });
 
   it.each([

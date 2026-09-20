@@ -19,6 +19,7 @@ import { useConfirmOneKeyIdLogout } from '@onekeyhq/kit/src/components/OneKeyAut
 import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { APPLE_SUBSCRIPTION_MANAGEMENT_URL } from '@onekeyhq/shared/src/consts/primeConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -62,7 +63,7 @@ function PrimeUserInfoMoreButtonDropDownMenu({
     onekeyUserId: currentOneKeyUserId,
   });
 
-  const handleManageSubscription = useCallback(() => {
+  const handleManageSubscription = useCallback(async () => {
     if (managementTarget?.type === 'infini') {
       defaultLogger.prime.subscription.primeManageSubscriptionClick({
         target: 'infiniPage',
@@ -74,6 +75,21 @@ function PrimeUserInfoMoreButtonDropDownMenu({
       defaultLogger.prime.subscription.primeManageSubscriptionClick({
         target: 'externalUrl',
       });
+      if (
+        platformEnv.isDesktopMac &&
+        managementTarget.url === APPLE_SUBSCRIPTION_MANAGEMENT_URL
+      ) {
+        try {
+          const opened =
+            await globalThis.desktopApiProxy?.system?.openAppStoreSubscriptions?.();
+          if (opened) {
+            return;
+          }
+        } catch {
+          // Older shells reject unknown proxy methods. Fall back to Apple's
+          // HTTPS entry point if the API or native handoff is unavailable.
+        }
+      }
       openUrlUtils.openUrlExternal(managementTarget.url);
       return;
     }
@@ -177,9 +193,9 @@ function PrimeUserInfoMoreButtonDropDownMenu({
           })}
           icon="CreditCardOutline"
           onClose={handleActionListClose}
-          onPress={(close) => {
+          onPress={async (close) => {
             close();
-            handleManageSubscription();
+            await handleManageSubscription();
           }}
         />
       ) : null}

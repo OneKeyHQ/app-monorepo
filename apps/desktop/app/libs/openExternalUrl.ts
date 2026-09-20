@@ -1,8 +1,6 @@
 import { shell } from 'electron';
 import logger from 'electron-log/main';
 
-import { APPLE_SUBSCRIPTION_MANAGEMENT_URL } from '@onekeyhq/shared/src/consts/primeConsts';
-
 export async function openExternalUrl(url: string): Promise<void> {
   try {
     const parsed = new URL(url);
@@ -15,20 +13,6 @@ export async function openExternalUrl(url: string): Promise<void> {
       return;
     }
 
-    if (
-      process.platform === 'darwin' &&
-      url.trim() === APPLE_SUBSCRIPTION_MANAGEMENT_URL
-    ) {
-      try {
-        // Open the App Store subscriptions sheet instead of the web login.
-        await shell.openExternal(
-          'macappstores://apps.apple.com/account/subscriptions',
-        );
-        return;
-      } catch {
-        // Keep Apple's HTTPS entry point as a fallback if handoff fails.
-      }
-    }
     await shell.openExternal(url);
   } catch {
     logger.warn('[setWindowOpenHandler] unable to open external url');
