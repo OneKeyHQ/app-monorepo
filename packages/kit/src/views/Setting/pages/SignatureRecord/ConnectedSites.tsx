@@ -7,6 +7,7 @@ import {
   Image,
   SectionList,
   SizableText,
+  Skeleton,
   Stack,
   Tabs,
   XStack,
@@ -105,8 +106,9 @@ const keyExtractor = (item: unknown) => {
 };
 
 export const ConnectedSites = () => {
-  const { sections, onEndReached } = useGetSignatureSections(async (params) =>
-    backgroundApiProxy.serviceSignature.getConnectedSites(params),
+  const { sections, isLoading, onEndReached } = useGetSignatureSections(
+    async (params) =>
+      backgroundApiProxy.serviceSignature.getConnectedSites(params),
   );
 
   return (
@@ -125,7 +127,18 @@ export const ConnectedSites = () => {
       )}
       keyExtractor={keyExtractor}
       renderItem={({ item }) => <ConnectedSiteItem item={item} />}
-      ListEmptyComponent={ListEmptyComponent}
+      ListEmptyComponent={
+        isLoading ? (
+          <Skeleton.Group show>
+            <YStack px={SETTINGS_PAGE_CONTENT_PADDING_X} pt="$3" gap="$3">
+              <Skeleton w="100%" h="$24" />
+              <Skeleton w="100%" h="$24" />
+            </YStack>
+          </Skeleton.Group>
+        ) : (
+          ListEmptyComponent
+        )
+      }
       onEndReached={onEndReached}
       onEndReachedThreshold={0.3}
     />

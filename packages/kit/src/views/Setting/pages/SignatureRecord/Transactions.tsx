@@ -10,6 +10,7 @@ import {
   NumberSizeableText,
   SectionList,
   SizableText,
+  Skeleton,
   Stack,
   Tabs,
   XStack,
@@ -353,8 +354,9 @@ const keyExtractor = (item: unknown) => {
 };
 
 export const Transactions = () => {
-  const { sections, onEndReached } = useGetSignatureSections(async (params) =>
-    backgroundApiProxy.serviceSignature.getSignedTransactions(params),
+  const { sections, isLoading, onEndReached } = useGetSignatureSections(
+    async (params) =>
+      backgroundApiProxy.serviceSignature.getSignedTransactions(params),
   );
 
   return (
@@ -374,7 +376,18 @@ export const Transactions = () => {
       )}
       keyExtractor={keyExtractor}
       renderItem={({ item }) => <TransactionItem item={item} />}
-      ListEmptyComponent={ListEmptyComponent}
+      ListEmptyComponent={
+        isLoading ? (
+          <Skeleton.Group show>
+            <YStack px={SETTINGS_PAGE_CONTENT_PADDING_X} pt="$3" gap="$3">
+              <Skeleton w="100%" h="$24" />
+              <Skeleton w="100%" h="$24" />
+            </YStack>
+          </Skeleton.Group>
+        ) : (
+          ListEmptyComponent
+        )
+      }
       onEndReached={onEndReached}
       onEndReachedThreshold={0.3}
     />

@@ -35,6 +35,51 @@ jest.mock('@onekeyhq/kit/src/hooks/usePromiseResult', () => {
 });
 
 describe('useGetSignatureSections', () => {
+  it('keeps a new filter loading until its records settle', async () => {
+    const allNetworkId = 'onekeyall--0';
+    const ethereumNetworkId = 'evm--1';
+    const items = [{ createdAt: Date.now() }];
+    let resolveEthereum: ((value: typeof items) => void) | undefined;
+    const method = jest.fn(({ networkId }: ISignatureItemQueryParams) => {
+      if (networkId === ethereumNetworkId) {
+        return new Promise<typeof items>((resolve) => {
+          resolveEthereum = resolve;
+        });
+      }
+      return Promise.resolve(items);
+    });
+    let setNetworkId: (networkId: string) => void = () => undefined;
+    const Wrapper = ({ children }: PropsWithChildren) => {
+      const [networkId, setSelectedNetworkId] = useState(allNetworkId);
+      setNetworkId = setSelectedNetworkId;
+      const value = useMemo(() => ({ networkId }), [networkId]);
+      return (
+        <SignatureContext.Provider value={value}>
+          {children}
+        </SignatureContext.Provider>
+      );
+    };
+    const { result } = renderHook(() => useGetSignatureSections(method), {
+      wrapper: Wrapper,
+    });
+
+    await waitFor(() => {
+      expect(result.current.isLoading).toBe(false);
+      expect(result.current.sections[0]?.data).toEqual(items);
+    });
+
+    act(() => setNetworkId(ethereumNetworkId));
+    expect(result.current.isLoading).toBe(true);
+    expect(result.current.sections).toEqual([]);
+    await waitFor(() => expect(resolveEthereum).toBeDefined());
+
+    await act(async () => {
+      resolveEthereum?.(items);
+    });
+    expect(result.current.isLoading).toBe(false);
+    expect(result.current.sections[0]?.data).toEqual(items);
+  });
+
   it('starts at page zero when switching filters during a paginated request', async () => {
     const allNetworkId = 'onekeyall--0';
     const ethereumNetworkId = 'evm--1';

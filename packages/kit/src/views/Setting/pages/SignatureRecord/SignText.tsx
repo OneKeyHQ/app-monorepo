@@ -9,6 +9,7 @@ import {
   IconButton,
   SectionList,
   SizableText,
+  Skeleton,
   Stack,
   Tabs,
   TextArea,
@@ -135,8 +136,9 @@ const keyExtractor = (item: unknown) => {
 };
 
 export const SignText = () => {
-  const { sections, onEndReached } = useGetSignatureSections(async (params) =>
-    backgroundApiProxy.serviceSignature.getSignedMessages(params),
+  const { sections, isLoading, onEndReached } = useGetSignatureSections(
+    async (params) =>
+      backgroundApiProxy.serviceSignature.getSignedMessages(params),
   );
 
   return (
@@ -155,7 +157,18 @@ export const SignText = () => {
         />
       )}
       renderItem={({ item }) => <SignTextItem item={item} />}
-      ListEmptyComponent={ListEmptyComponent}
+      ListEmptyComponent={
+        isLoading ? (
+          <Skeleton.Group show>
+            <YStack px={SETTINGS_PAGE_CONTENT_PADDING_X} pt="$3" gap="$3">
+              <Skeleton w="100%" h="$24" />
+              <Skeleton w="100%" h="$24" />
+            </YStack>
+          </Skeleton.Group>
+        ) : (
+          ListEmptyComponent
+        )
+      }
       onEndReached={onEndReached}
       onEndReachedThreshold={0.3}
     />

@@ -66,7 +66,7 @@ export const useGetSignatureSections = <T extends { createdAt: number }>(
     setQuery({ networkId, address, offset: 0, limit: 10 });
   }, [networkId, address]);
 
-  const { result } = usePromiseResult(
+  const { result, isLoading } = usePromiseResult(
     async () => {
       const gen = resetGenRef.current;
       const resp = await methodRef.current({
@@ -98,6 +98,7 @@ export const useGetSignatureSections = <T extends { createdAt: number }>(
     [networkId, query.limit, offset, address],
     {
       initResult: { sections: [], ending: false, networkId: '', address: '' },
+      watchLoading: true,
     },
   );
 
@@ -108,6 +109,7 @@ export const useGetSignatureSections = <T extends { createdAt: number }>(
     [isCurrentFilter, result.sections],
   );
   const ending = isCurrentFilter ? result.ending : false;
+  const isSectionsLoading = Boolean(isLoading || !isCurrentFilter);
 
   const onEndReached = useCallback(() => {
     if (ending || !isCurrentFilter || !hasLoadedFirstPageRef.current) {
@@ -124,5 +126,8 @@ export const useGetSignatureSections = <T extends { createdAt: number }>(
     }));
   }, [ending, isCurrentFilter, networkId, address]);
 
-  return useMemo(() => ({ sections, onEndReached }), [sections, onEndReached]);
+  return useMemo(
+    () => ({ sections, isLoading: isSectionsLoading, onEndReached }),
+    [sections, isSectionsLoading, onEndReached],
+  );
 };
