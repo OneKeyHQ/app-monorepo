@@ -128,12 +128,19 @@ export type ITradingViewNativeChartComponentNode =
   | ITradingViewNativeChartComponentGroup
   | ITradingViewNativeChartLeafComponent;
 
+export interface ITradingViewNativeAccountMarksContext {
+  accountAddress?: string;
+  networkId: string;
+  tokenAddress: string;
+}
+
 export interface ITradingViewNativeProps {
   testID?: string;
   source: ITradingViewNativeSource;
   storageNamespace?: ITradingViewNativeStorageNamespace;
   forcedChartType?: ITradingViewNativeChartType;
   chartComponents?: readonly ITradingViewNativeChartComponentNode[];
+  accountMarksContext?: ITradingViewNativeAccountMarksContext;
   /**
    * Opt-in for stock detail charts, which can anchor the Prev close line on the
    * stock's previous session close. It shows the chart setting and lets the
