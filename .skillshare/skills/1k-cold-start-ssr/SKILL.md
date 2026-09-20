@@ -1,110 +1,209 @@
 ---
 name: 1k-cold-start-ssr
-description: "Jotai Cold Start SSR + unified startup timing schema — cold start optimization via MMKV snapshot hydration and the cross-platform `[StartupTiming]` log taxonomy for OneKey native app. Use when debugging startup performance regressions, analyzing cold start timeline, comparing iOS vs Android startup phases, or modifying the snapshot hydration pipeline. Triggers on: cold start, startup optimization, 启动时间, SSR hydration, Balance displayed regression, MMKV snapshot, contextAtomBase, flushColdStartCache, __ONEKEY_CTX_ATOM_SNAPSHOT__, StartupTiming, main_host.did_start, bg_runner.start, ios.main_entry.evaluated, android.app.on_create, android.activity.on_create."
+description: "UI snapshot cold start + unified startup timing schema — cold start optimization via snapshot namespaces (MMKV on native, IndexedDB on web) and the cross-platform `[StartupTiming]` log taxonomy. Use when debugging startup performance regressions, analyzing cold start timeline, comparing iOS vs Android startup phases, or modifying the snapshot hydration pipeline. Triggers on: cold start, startup optimization, 启动时间, SSR hydration, Balance displayed regression, UI snapshot, SnapshotCache, swr cache, contextAtomBase, flushColdStartCache, __ONEKEY_CTX_ATOM_SNAPSHOT__, StartupTiming, main_host.did_start, bg_runner.start, ios.main_entry.evaluated, android.app.on_create."
 disable-model-invocation: true
 ---
 
-# Jotai Cold Start SSR
+# UI Snapshot Cold Start
 
-Cold start optimization pattern for OneKey native app. Analogous to web SSR hydration — previous session's atom values are persisted to MMKV, pre-read at startup, and used as initial atom values so the first React render displays cached data immediately without waiting for network.
+Cold start optimization for the OneKey app. Analogous to web SSR hydration:
+what the last session displayed is persisted, read back synchronously at
+startup, and used as the initial value so the first render paints cached data
+instead of waiting for the network.
 
-**Currently supported:** Native (iOS/Android) only. Desktop/Web/Extension support planned.
+The persistence layer is the **UI snapshot store**: a set of namespaces, each
+with its own file (native) or key range (web/desktop), each with its own
+retention. Two consumers sit on top of it — the Jotai context-atom snapshot
+and the SWR cache (`usePromiseResult`).
 
-## Architecture Overview
+**Supported on:** native (iOS/Android), web, desktop, extension. The single
+shared cold-start store that preceded this — `coldStartCacheStorage` plus the
+`onekey_swr_cache` blob — is gone, so one feature's cache can no longer evict
+another's and a startup read no longer opens a file every feature writes.
+
+## Storage Layers
 
 ```
-Session N (runtime)                    Session N+1 (cold start)
-─────────────────────                  ──────────────────────────
-                                       
-Phase 3: SAVE                          Phase 1: PRE-READ
-atom value changes                     index.ts (entry point)
-  → coldStartValuesMap                   → MMKV.getString(snapshot)
-  → debounce 2s                          → globalThis.__ONEKEY_CTX_ATOM_SNAPSHOT__
-  → flushColdStartCache()               
-  → MMKV.set(snapshot JSON)             Phase 2: HYDRATION
-                                       contextAtomBase (module load)
-Also flushes on AppState               → read __ONEKEY_CTX_ATOM_SNAPSHOT__
-  'background' event                     → use as atom initialValue
-                                         → first render shows cached data
-                                       
-                                       Phase 4: REVALIDATION
-                                       BG thread fetches fresh data
-                                         → atoms update in-place
-                                         → UI re-renders with live data
+feature code
+  │
+  ├── uiSnapshotCaches.ts          ctx-atom-snapshot, account-selector,
+  │                                tokenlist-maintenance
+  ├── marketSnapshotCaches.ts      market-token-detail
+  └── swrCacheUtils                swr-<name> (one per SWR key prefix)
+        │
+        ▼
+  SnapshotCache                    manifest + records, per-namespace retention
+   (createNamespacedSnapshotCache) records at `d:<key>`, manifest at `manifest`
+        │
+        ▼
+  DisplaySnapshotStorage
+   native  → one MMKV instance per namespace: onekey-display-snapshot-<ns>
+   web/dsk → one IndexedDB database `onekey-ui-snapshot`, keys `<ns>:<key>`,
+             behind an in-memory map with a 2s debounced write-behind flush
 ```
 
-## The Three Phases (Code Locations)
+**Files:**
 
-### Phase 1: Snapshot Pre-read
+| Concern | File |
+|---|---|
+| Namespace registry | `packages/shared/src/storage/SnapshotCache/snapshotCacheNamespaces.ts` |
+| Cache semantics (manifest, retention, sweep) | `packages/shared/src/storage/SnapshotCache/createSnapshotCacheSync.ts` |
+| Native backend (MMKV) | `packages/shared/src/storage/DisplaySnapshotStorage/createDisplaySnapshotStorage.native.ts` |
+| Web backend (IndexedDB + map) | `packages/shared/src/storage/DisplaySnapshotStorage/webUiSnapshotStore.ts` |
+| Feature-declared namespaces | `packages/shared/src/storage/uiSnapshotCaches.ts` |
+| SWR namespace mapping | `packages/shared/src/utils/swrCacheNamespaceStorage.ts` |
 
-**File:** `apps/mobile/index.ts` (top of entry point, before any module imports)
+**Namespace registry:** every namespace must appear in
+`SNAPSHOT_CACHE_NAMESPACES` — "clear data" and the idle sweep need the whole
+set before the modules that use them are imported, and a missing namespace is
+invisible to both.
+
+**Reads name a key.** `get(key)` reads one record: no manifest read, no
+enumeration. That is what lets a namespace hold many entries cheaply.
+
+## Jotai Context-Atom Snapshot
+
+The scoped values a provider rendered last session, serialized as one record
+in the `ctx-atom-snapshot` namespace (`maxEntries: 1`, 30 days).
+
+### Save
+
+**File:** `packages/kit-bg/src/states/jotai/utils/index.ts`
 
 ```typescript
-// Reads cold start cache from dedicated MMKV instance into globalThis
-// MUST execute before any contextAtomBase module evaluates
-const _ctxRaw = coldStartCacheStorage.getString(
-  EAppSyncStorageKeys.onekey_jotai_context_atoms_snapshot,
-);
-if (_ctxRaw) {
-  (globalThis as any).__ONEKEY_CTX_ATOM_SNAPSHOT__ = JSON.parse(_ctxRaw);
-}
-```
-
-**Key constraints:**
-- Must be synchronous (MMKV is sync)
-- Must run before any `require()` that triggers `contextAtomBase`
-- Stored in dedicated `coldStartCacheStorage` MMKV instance (separate from app settings)
-
-### Phase 2: Hydration
-
-**File:** `packages/kit-bg/src/states/jotai/utils/index.ts` — `contextAtomBase()`
-
-```typescript
-// At module-load time, read cached value from pre-loaded snapshot
-let resolvedInitialValue = initialValue;
-if (snapshotKey) {
-  const ctxSnapshot = (globalThis as any).__ONEKEY_CTX_ATOM_SNAPSHOT__;
-  if (ctxSnapshot && snapshotKey in ctxSnapshot) {
-    const cached = ctxSnapshot[snapshotKey];
-    resolvedInitialValue = { ...initialValue, ...cached };
-  }
-}
-const atomBuilder = memoizee(() => atom(resolvedInitialValue));
-```
-
-**Key constraints:**
-- Runs at module evaluation time (not in React lifecycle)
-- `memoizee` ensures atom is created once with the cached value
-- Only applies to context atoms with a `name` — globalAtoms use MMKV per-key directly
-
-**Also:** `hydrateContextColdStartCacheForProvider()` — called at provider mount time for scoped hydration (per-account data).
-
-### Phase 3: Save (for next cold start)
-
-**File:** `packages/kit-bg/src/states/jotai/utils/index.ts` — `flushColdStartCache()`
-
-```typescript
-// Read-modify-write: patch only dirty keys into existing snapshot
-// Preserves cached values for scopes not rendered this session
-const snapshot = raw ? JSON.parse(raw) : {};
+// flushColdStartCache(): read-modify-write, patching only dirty keys so the
+// scopes this session never rendered keep their cached values.
+const raw = readContextAtomSnapshotRaw();
+const snapshot = parseColdStartSnapshotRaw(raw) ?? {};
 for (const name of coldStartDirtyKeys) {
   snapshot[name] = coldStartValuesMap.get(name);
 }
-coldStartCacheStorage.set(key, JSON.stringify(snapshot));
+writeContextAtomSnapshotRaw(prepareColdStartSnapshotForWrite(snapshot).serialized);
 ```
 
-**Trigger points:**
-- `scheduleColdStartSave()` — debounced 2s timer after any atom value change
-- `AppState 'background'` event — flush immediately when app goes to background
+Triggers: `scheduleColdStartSave()` (debounced 2s after any tracked atom
+change) and the app-background flush.
 
-**Key constraints:**
-- Uses read-modify-write (not full overwrite) to preserve unrendered scopes
-- All callers are on main thread — no cross-thread race
-- `coldStartValuesMap` tracks all rendered atom values via `wrappedUse()`
+### Hydrate
 
-### Snapshot Cleanup
+- **Native:** `hydrateContextColdStartCacheForProvider()` reads it when a
+  provider mounts — from `globalThis.__ONEKEY_CTX_ATOM_SNAPSHOT__` if
+  something already parsed it, otherwise straight from MMKV via
+  `readContextAtomSnapshotRaw()`. MMKV is sync, so no entry-point pre-read.
+- **Web/desktop:** `packages/kit-bg/src/hydration/hydrate.ts` parses it during
+  startup and publishes `globalThis.__ONEKEY_CTX_ATOM_SNAPSHOT__` before React
+  mounts. IndexedDB is async, which is why that module exists at all.
 
-`__ONEKEY_CTX_ATOM_SNAPSHOT__` is cleaned up on `HomePageReady` event (first screen rendered), not on `setTimeout(0)`. This ensures split-bundle lazy-loaded modules can still hydrate from the snapshot.
+`__ONEKEY_CTX_ATOM_SNAPSHOT__` is cleaned up on `HomePageReady` (first screen
+rendered), never on `setTimeout(0)`: split-bundle modules load asynchronously
+and still need it.
+
+### Cache keys
+
+Each participating context atom declares a `coldStartCacheKey` registered in
+`CONTEXT_ATOM_COLD_START_CACHE_KEYS` (`packages/shared/src/consts/jotaiConsts.ts`):
+
+```typescript
+const { atom: renderedTokenListCacheAtom } = contextAtom<ITokenListValue>(
+  defaultValue,
+  {
+    coldStartCache: true,
+    coldStartCacheKey: CONTEXT_ATOM_COLD_START_CACHE_KEYS.renderedTokenListCacheAtom,
+  },
+);
+```
+
+Snapshot keys are scoped per provider: `{scopeKey}::{coldStartCacheKey}`, e.g.
+`hd-1--0::ctx:renderedTokenListCacheAtom`. `scopeKey` comes from
+`store.__ONEKEY_JOTAI_COLD_START_SCOPE_KEY__`.
+
+**Adding one:** add the key to the const, pass
+`{ coldStartCache: true, coldStartCacheKey }` to `contextAtom()`. Tracking and
+saving are automatic. Only cache values that are safe to show stale — never
+security-sensitive or time-critical data.
+
+## Native Jotai Fast Hydration
+
+**File:** `packages/kit-bg/src/states/jotai/jotaiInitFromNativeStorage.native.ts`
+
+The background runtime owns the global atoms and remains the only writer, but
+what it sends back at startup is a copy of a file the UI runtime can read
+itself. `hydrateJotaiFromNativeStorage()` reads `jotaiMMKV` directly on the
+main runtime and injects the values through the same snapshot path the RPC
+hydration uses, which takes bg's boot off the front of the first frame. The
+RPC hydration still runs afterwards and stays canonical.
+
+It steps aside rather than guessing when it cannot be sure the file is the
+truth: Travel Mode, a store that has not finished migrating off AsyncStorage
+(`mmkv_migration_complete !== '1'`), or an empty store.
+
+## Web / Desktop Startup
+
+**File:** `packages/kit-bg/src/hydration/hydrate.ts` — loaded as the first
+module after polyfills in `apps/web/index.js` and `apps/desktop/index.js`, and
+run at module load so the hydration promise is fired before React mounts.
+
+In order:
+
+1. Reads only the namespaces the first frame needs, as key ranges:
+   `ctx-atom-snapshot`, `account-selector` (its recent-selection guard decides
+   which account home opens with) and the store's own markers.
+2. On a build-hash mismatch — or an unmarked database that already holds
+   records — wipes every namespace and writes the new marker eagerly.
+3. Primes the in-memory map those namespaces are read from.
+4. Publishes `globalThis.__ONEKEY_CTX_ATOM_SNAPSHOT__`.
+5. Primes every other namespace *after* the gate resolves. A page reads its own
+   namespace by exact key when it opens, so a slow database makes those land
+   late rather than not at all.
+6. Resolves the ready gate in `finally`, so React mounts even on failure.
+
+Bounded by `HYDRATION_TIMEOUT_MS` (300ms). Degrades to defaults on: dev mode
+(schema drift), the `__cold_start_kill__` localStorage switch, private mode /
+quota 0, build-hash mismatch, or a stalled database. Telemetry lands in
+`globalThis.__ONEKEY_COLD_START_RESULT__`:
+`'success' | 'timeout' | 'error' | 'killed' | 'skipped'`.
+
+## SWR Cache (usePromiseResult)
+
+Results of `usePromiseResult` hooks, so a screen revisit paints before its
+fetch returns.
+
+**File:** `packages/shared/src/utils/swrCacheUtils.ts`
+
+```typescript
+const swrCacheEntry = swrCacheUtils.getWithTimestamp<T>(swrKey);
+const effectiveInitResult =
+  swrCacheEntry !== undefined ? swrCacheEntry.data : options.initResult;
+```
+
+- One namespace per SWR key prefix (`swr-<name>`), plus `swr-other` for keys
+  whose prefix names no known namespace. Key builders are centralized in
+  `swrKeys`.
+- Namespace retention: 200 entries / 7 days, on top of the in-memory budgets
+  in `swrCacheLimits`.
+- Debounced 2s flush, plus an immediate flush when the app backgrounds.
+- A runtime keeps its own in-memory copy of what it has read. Nothing reloads
+  it from disk, so a write by the other runtime is not visible until the next
+  launch; revalidation on mount is what keeps a value from going stale.
+
+### Writing rule — do not maintain entries by hand
+
+`usePromiseResult` is the writer. It persists what its fetcher returned, in the
+runtime that owns the hook, and that is the only code that should write an
+entry.
+
+- After a mutation, **refresh the hook** (`run({ alwaysSetState: true })`) and
+  let it write the truth. Do not call `swrCacheUtils.set` / `remove` /
+  `clearAll` from feature code to keep an entry in step, and do not patch an
+  entry that belongs to another screen's hook.
+- Background services must not write these namespaces. bg once primed
+  `unifiedNetworkSelectorMeta` after a network toggle, which gave that
+  namespace two writers over one MMKV file with no lock between the runtimes;
+  the selector refreshes itself instead. The invalidations bg still issues on
+  wallet/account mutations are the remaining exception, not a pattern to copy.
+- Routing a bg write into the UI runtime is not a fix either: on the extension
+  the event bus reaches every open foreground, so the routing turns one writer
+  into one per surface.
 
 ## Split Bundle: main vs background Bundle Sizes
 
@@ -119,129 +218,17 @@ background.bundle ~20.7MB    BG thread, loaded in parallel Hermes runtime
 
 **Impact on cold start timeline:**
 - `common.jsbundle` (8.8MB): blocks native → JS handoff (~100ms)
-- `main.jsbundle` (10.1MB): async eval takes ~1300ms — **the single biggest bottleneck** (87% of total startup)
-- `background.bundle` (20.7MB): runs in parallel, apiProxy import ~700ms. Currently non-blocking but close to critical path (BG ready at +1261ms vs main eval at +1300ms)
-- Segment loads: icon segments ~25ms each, vault settings ~20ms each, loaded on-demand after first render
-
-**Rules of thumb:**
-- Any code added to `main.jsbundle` directly increases the 1300ms eval time
-- Move non-critical code to segments (lazy `import()`) to keep main bundle lean
-- `background.bundle` size is less critical since it runs in parallel, but if it gets slower than main eval it becomes a blocker
-- Use `apps/mobile/scripts/unionBuild.js` to analyze bundle composition
-
-## contextAtom Cold Start Cache Keys (SSR Keys)
-
-Each context atom that participates in Cold Start SSR must declare a `coldStartCacheKey`. These keys are registered in a central const:
-
-**File:** `packages/shared/src/consts/jotaiConsts.ts`
-
-```typescript
-export const CONTEXT_ATOM_COLD_START_CACHE_KEYS = {
-  accountWorthAtom: 'ctx:accountWorthAtom',
-  lastConfirmedOverviewBalanceAtom: 'ctx:lastConfirmedOverviewBalanceAtom',
-  walletTopBannersAtom: 'ctx:walletTopBannersAtom',
-  selectedAccountsAtom: 'ctx:selectedAccountsAtom',
-  accountSelectorStorageReadyAtom: 'ctx:accountSelectorStorageReadyAtom',
-  activeAccountsAtom: 'ctx:activeAccountsAtom',
-  renderedTokenListCacheAtom: 'ctx:renderedTokenListCacheAtom',
-} as const;
-```
-
-**Usage in atom definition:**
-
-```typescript
-// packages/kit/src/states/jotai/contexts/tokenList/atoms.ts
-const { atom: renderedTokenListCacheAtom } = contextAtom<ITokenListValue>(
-  defaultValue,
-  {
-    coldStartCache: true,
-    coldStartCacheKey: CONTEXT_ATOM_COLD_START_CACHE_KEYS.renderedTokenListCacheAtom,
-  },
-);
-```
-
-**Scoped key format in MMKV snapshot:**
-
-Context atoms are scoped by provider (e.g., different accounts). The snapshot stores scoped keys:
-
-```
-{scopeKey}::{coldStartCacheKey}
-```
-
-Example: `hd-1--0::ctx:renderedTokenListCacheAtom`
-
-- `scopeKey` comes from `store.__ONEKEY_JOTAI_COLD_START_SCOPE_KEY__` (set when creating the Jotai store for a provider)
-- `coldStartCacheKey` is the `ctx:xxx` string from the const above
-
-**Adding a new SSR-cached atom:**
-
-1. Add key to `CONTEXT_ATOM_COLD_START_CACHE_KEYS` in `jotaiConsts.ts`
-2. Pass `{ coldStartCache: true, coldStartCacheKey: CONTEXT_ATOM_COLD_START_CACHE_KEYS.yourKey }` to `contextAtom()`
-3. The atom will automatically be tracked by `wrappedUse()` and saved by `flushColdStartCache()`
-4. On next cold start, the cached value will be used as `initialValue` via Phase 2 hydration
-
-**Caution:** Only cache atoms whose data is safe to show stale (e.g., token list, balance). Don't cache atoms with security-sensitive or time-critical data.
-
-## SWR Cache (usePromiseResult)
-
-Separate from Jotai Cold Start SSR, and since the snapshot-namespace refactor
-it no longer shares one store with it: each SWR namespace has its own.
-
-**File:** `packages/shared/src/utils/swrCacheUtils.ts`
-
-**Purpose:** Cache results of `usePromiseResult` hooks so repeated renders / screen revisits don't re-fetch from network.
-
-```typescript
-// In usePromiseResult:
-const swrCacheEntry = swrCacheUtils.getWithTimestamp<T>(swrKey);
-const effectiveInitResult =
-  swrCacheEntry !== undefined ? swrCacheEntry.data : options.initResult;
-```
-
-**Key characteristics:**
-- One store per namespace (`swrCacheNamespaceStorage` -> `SnapshotCache`): MMKV
-  per namespace on native, an IndexedDB-backed map on web/desktop
-- Namespace retention: 200 entries / 7 days, plus the in-memory budgets in
-  `swrCacheLimits`
-- A read names its key, so opening one screen loads one record rather than the
-  whole cache
-- Debounced 2s flush + immediate flush on `AppState 'background'`
-- Key builders centralized in `swrKeys` (e.g., `swrKeys.allNetworksCompatible(...)`, `swrKeys.defiEnabled(networkId)`)
-- Survives app restart
-
-**Writing rule — do not maintain entries by hand:**
-
-`usePromiseResult` is the writer. It persists what its fetcher returned, in the
-runtime that owns the hook, and that is the only code that should write an
-entry.
-
-- After a mutation, **refresh the hook** (`run({ alwaysSetState: true })`) and
-  let it write the truth. Do not call `swrCacheUtils.set` / `remove` /
-  `clearAll` from feature code to keep an entry in step, and do not patch an
-  entry that belongs to another screen's hook.
-- Background services must not write these namespaces. bg once primed
-  `unifiedNetworkSelectorMeta` after a network toggle, which gave that
-  namespace two writers over one MMKV file with no lock between the runtimes;
-  the selector now refreshes itself instead. The invalidations bg still issues
-  on wallet/account mutations are the remaining exception, not a pattern to
-  copy.
-- Routing a bg write into the UI runtime is not a fix either: on the extension
-  the event bus reaches every open foreground, so the routing turns one writer
-  into one per surface.
-
-**Relationship to Cold Start SSR:**
-- SWR cache handles **hook-level** data (network responses, computed results)
-- Cold Start SSR handles **atom-level** data (Jotai state)
-- Each persists into its own namespace store rather than one shared instance
-- Both flush on `AppState 'background'`
+- `main.jsbundle` (10.1MB): async eval ~1300ms — **the single biggest bottleneck** (87% of total startup), so anything added to it lands on that number
+- `background.bundle` (20.7MB): parallel, apiProxy import ~700ms — non-blocking but close to the critical path (BG ready +1261ms vs main eval +1300ms), and a blocker if it ever overtakes it
+- Segments: icon ~25ms each, vault settings ~20ms each, on demand after first render. Move non-critical code into them; analyze with `apps/mobile/scripts/unionBuild.js`
 
 ## Key Differences: contextAtom vs globalAtom
 
 | | contextAtom (scoped) | globalAtom (singleton) |
 |---|---|---|
 | Examples | tokenListAtom, accountWorthAtom | settingsPersistAtom |
-| Cold start source | `__ONEKEY_CTX_ATOM_SNAPSHOT__` (Phase 1-2) | MMKV per-key direct read |
-| Storage | `coldStartCacheStorage` blob | `jotaiMMKV` per-key |
+| Cold start source | `ctx-atom-snapshot` namespace (via `__ONEKEY_CTX_ATOM_SNAPSHOT__` on web) | `jotaiMMKV` per-key direct read |
+| Storage | one UI snapshot record | `jotaiMMKV` per-key |
 | Write mechanism | `flushColdStartCache` debounced | `atomWithStorage` immediate |
 | Scope | Per-provider (account-specific) | Global singleton |
 
@@ -316,7 +303,6 @@ All native + JS startup timing lines carry tag `[StartupTiming]` with message fo
 
 | Label | File | Meaning |
 |---|---|---|
-| `MMKV contextAtom snapshot pre-read` | `apps/mobile/index.ts` | Phase 1 done — snapshot on `globalThis` |
 | `segment loader installed` | `apps/mobile/index.ts` | Prod split-bundle loader ready |
 | `BG transport setup` (misleading label) | `apps/mobile/index.ts` | Actually main thread's `require('./App')` chain total |
 | `main entry evaluated` | `apps/mobile/index.ts` | Main JS bundle top-level done |
@@ -360,7 +346,6 @@ bg_runner.start                                  +382ms    +315-338ms
 
 ── JS phase begins (separate clock from __ONEKEY_MAIN_ENTRY_START__) ──
 [BackgroundEntry] polyfills loaded                +116ms (from JS entry)
-MMKV contextAtom snapshot pre-read: 10 keys       +121ms (Phase 1)
 segment loader installed                          +122ms
 [StartupTiming] BG transport setup                +1821ms      ← actually require('./App') chain
 main entry evaluated                              +1822ms
@@ -426,9 +411,8 @@ platforms (75-85% of total cold start), much larger than any native phase.
 
 | Symptom | Likely Cause | Fix |
 |---------|-------------|-----|
-| `Balance displayed` 2x+ slower (JS-side drift) | Phase 2 hydration broken — atoms start empty, wait for network | Check `contextAtomBase` reads `__ONEKEY_CTX_ATOM_SNAPSHOT__` |
-| Snapshot pre-read shows 0 keys | Phase 3 save broken — previous session didn't flush | Check `flushColdStartCache`, AppState listener |
-| Snapshot pre-read missing entirely | Phase 1 not executing or MMKV not available | Check `index.ts` entry, `coldStartCacheStorage` instance |
+| `Balance displayed` 2x+ slower (JS-side drift) | Hydration broken — atoms start empty and wait for the network | Check that the provider hydration reads the `ctx-atom-snapshot` record |
+| Snapshot empty on a warm device | Save broken — the previous session never flushed | Check `flushColdStartCache` and the app-background trigger |
 | `main_host.did_start` regresses | Native/bundle load slower — common bundle growth, or Hermes/TurboModule init slower | Check `common.jsbundle` size; check `android.app.*` / `ios.app.super_did_finish_launching` for where |
 | `main_host.did_start` OK but `Balance displayed` slow | JS `require('./App')` or React mount got slower | Check `main entry evaluated` delta, new synchronous `require` in App tree |
 | Android-only slow, iOS OK | `android.app.*` phase regression (SoLoader, new-arch load, Expo lifecycle) | Compare phase durations against baseline |
@@ -439,17 +423,13 @@ platforms (75-85% of total cold start), much larger than any native phase.
 ### Step 5: Verify SSR Pipeline
 
 ```bash
-# 1. Check Phase 1 executed
-grep "MMKV contextAtom snapshot pre-read" "$LOG"
-# Expected: "N keys (+XXXms)"
+# 1. Check hydration (no explicit log; if Balance displayed is within
+#    baseline, the snapshot was read)
 
-# 2. Check Phase 2 hydration (no explicit log; if Balance displayed is
-#    within baseline, hydration is working)
-
-# 3. Check Phase 3 save (cold start cache flush after balance)
+# 2. Check the save path (cold start cache flush after balance)
 grep "ColdStartCache" "$LOG"
 
-# 4. Check cleanup timing
+# 3. Check cleanup timing
 grep "HomePageReady" "$LOG"
 
 # 5. Cross-platform comparison: line up the shared milestones
@@ -476,40 +456,41 @@ to spot per-phase regressions over builds.
 
 ## Critical Rules
 
-1. **Never remove Phase 2 module-load-time hydration** — this is the core of the SSR pattern. Without it, atoms start empty and the app waits for network (~2s regression).
+1. **Never remove module-load-time hydration** — reading the snapshot when the
+   atom is first created is the pattern. Without it, atoms start empty and the
+   app waits for the network (~2s regression).
 
-2. **Never use `setTimeout(0)` for snapshot cleanup** — split-bundle modules load asynchronously and need the snapshot. Use `HomePageReady` event.
+2. **Never use `setTimeout(0)` for snapshot cleanup** — split-bundle modules
+   load asynchronously and still need it. Use `HomePageReady`.
 
-3. **Always use read-modify-write in `flushColdStartCache`** — full overwrite drops cached values for unrendered scopes (e.g., different accounts).
+3. **Always read-modify-write in `flushColdStartCache`** — a full overwrite
+   drops the scopes this session never rendered (e.g. another account).
 
-4. **Phase 1 must execute before any `contextAtomBase`** — the snapshot must be on `globalThis` before modules evaluate. Place it at the very top of `index.ts`.
+4. **One writer per namespace.** A namespace is one file (native) or one key
+   range (web) shared by every runtime that opens it, and nothing locks across
+   runtimes. See the SWR writing rule above; the same applies to any feature
+   namespace.
 
-5. **`coldStartCacheStorage` is a separate MMKV instance** — isolated from app settings to prevent contention with unrelated writes.
+5. **Register every namespace** in `SNAPSHOT_CACHE_NAMESPACES`, or "clear data"
+   and the idle sweep will not see it.
 
-## MMKV Storage Map
+## Storage Map
 
 ```
-jotaiMMKV (per-key)              ← globalAtom persistence
+jotaiMMKV (per-key)                    ← globalAtom persistence
   "jotai:settingsPersistAtom"
-  "jotai:accountSelectorAtom"
-  "mmkv_migration_complete" = "1"
+  "mmkv_migration_complete" = "1"      ← the marker native fast hydration checks
 
-coldStartCacheStorage (blob)     ← contextAtom cold start SSR
-  "onekey_jotai_context_atoms_snapshot" = JSON blob
-    { "scopeA:ctx:tokenListAtom": {...}, "scopeA:ctx:accountWorthAtom": {...} }
+UI snapshot namespaces                 ← everything display-only
+  native:  onekey-display-snapshot-<namespace>   (one MMKV file each)
+  web/dsk: onekey-ui-snapshot                    (one IndexedDB database,
+                                                  keys `<namespace>:<key>`)
 
-syncStorage                      ← app settings, dev flags, SWR cache
-  "onekey_swr_cache"
-  "onekey_pending_install_task"
-  ...
+  ctx-atom-snapshot       1 record, 30d   contextAtom cold start
+  account-selector        1 record, 30d   recent selection (read before first frame)
+  tokenlist-maintenance   4 records, 30d  one-time maintenance markers
+  market-token-detail                     market detail snapshots
+  swr-<name> / swr-other  200 rec., 7d    usePromiseResult results
+
+syncStorage                            ← app settings, dev flags
 ```
-
-## Future: Desktop/Web/Extension Support
-
-Currently native-only. To extend to other platforms:
-
-1. **Desktop (Electron):** `electron-store` is synchronous — same pattern applies. Replace MMKV reads with electron-store reads in Phase 1.
-2. **Web:** Use `localStorage.getItem()` (synchronous) in Phase 1. Phase 3 writes via `localStorage.setItem()`.
-3. **Extension:** Extension background persists via chrome.storage. UI popup can read from `localStorage` for sync Phase 1. Cross-context sync via `__ONEKEY_JOTAI_INIT_STATES__` (existing mechanism).
-
-Key requirement for all platforms: Phase 1 must be **synchronous** and execute before module evaluation.
