@@ -841,13 +841,15 @@ export function useSwapQuote({
     [swapAddressInfo.address, swapToAddressInfo.address],
   );
 
+  const swapQuoteMixEventActionRef = useRef(swapQuoteMixEventAction);
+  swapQuoteMixEventActionRef.current = swapQuoteMixEventAction;
   const swapQuoteMixEvent = useCallback(
     async (event: ISwapQuoteEventPayload) => {
       if (event?.type === 'error') {
-        swapQuoteMixEventAction(JSON.stringify(event.event));
+        swapQuoteMixEventActionRef.current(JSON.stringify(event.event));
       }
     },
-    [swapQuoteMixEventAction],
+    [],
   );
 
   useEffect(() => {
@@ -985,6 +987,10 @@ export function useSwapQuote({
 
   const tabVisibilityGenerationRef = useRef(0);
   const isRouteMountedRef = useRef(false);
+  const pauseQuoteOnFocusLossRef = useRef(pauseQuoteOnFocusLoss);
+  pauseQuoteOnFocusLossRef.current = pauseQuoteOnFocusLoss;
+  const unsubscribeQuoteEventsRef = useRef(unsubscribeQuoteEvents);
+  unsubscribeQuoteEventsRef.current = unsubscribeQuoteEvents;
   const keepSwapQuoteAliveForProviderPicker = useCallback(() => {
     isQuoteVisibleRef.current = true;
     shouldRefreshPreservedInputQuoteOnFocusRef.current = false;
@@ -1007,6 +1013,9 @@ export function useSwapQuote({
           refreshPreservedInputQuoteOnFocus();
         } else {
           deferQuoteLifecycleAction(() => {
+            if (!isRouteMountedRef.current) {
+              return;
+            }
             if (tabVisibilityGenerationRef.current !== visibilityGeneration) {
               return;
             }
@@ -1026,6 +1035,8 @@ export function useSwapQuote({
     isRouteMountedRef.current = true;
     return () => {
       isRouteMountedRef.current = false;
+      pauseQuoteOnFocusLossRef.current();
+      unsubscribeQuoteEventsRef.current();
     };
   }, []);
 
@@ -1051,10 +1062,6 @@ export function useSwapQuote({
     }
     return () => {
       isEffectActive = false;
-      if (shouldUseRouteQuoteLifecycle && !isRouteMountedRef.current) {
-        pauseQuoteOnFocusLoss();
-        unsubscribeQuoteEvents();
-      }
     };
   }, [
     deferQuoteLifecycleAction,

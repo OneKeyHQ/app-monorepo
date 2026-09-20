@@ -76,7 +76,12 @@ jest.mock('../../../hooks/useDebounce', () => ({
 }));
 
 jest.mock('./useSwapAccount', () => ({
-  useSwapAddressInfo: () => ({}),
+  useSwapAddressInfo: () =>
+    (
+      globalThis as unknown as {
+        __swapQuoteAddressInfo: { address?: string; networkId?: string };
+      }
+    ).__swapQuoteAddressInfo,
 }));
 
 jest.mock('./useSwapPro', () => ({
@@ -132,6 +137,11 @@ const routeMock = (
   }
 ).__swapQuoteGetCurrentRouteMock;
 const focusMock = jest.mocked(useRouteIsFocused);
+const addressInfo: { address?: string; networkId?: string } = ((
+  globalThis as unknown as {
+    __swapQuoteAddressInfo: { address?: string; networkId?: string };
+  }
+).__swapQuoteAddressInfo = {});
 const getTabFocusCallback = () =>
   (
     globalThis as unknown as {
@@ -159,6 +169,7 @@ describe.each([false, true])(
       jest.useFakeTimers();
       jest.clearAllMocks();
       Object.assign(platformEnv, { isNative });
+      Object.assign(addressInfo, { address: undefined, networkId: undefined });
       focusMock.mockReturnValue(true);
       routeMock.mockReturnValue({ key: 'swap', name: 'Swap' });
     });
@@ -301,6 +312,51 @@ describe.each([false, true])(
 
       expect(eventBus.listenerCount(EAppEventBusNames.SwapQuoteEvent)).toBe(0);
       unmount();
+    });
+
+    it('flushes hidden-tab cleanup before native unmount completes', () => {
+      if (!isNative) {
+        return;
+      }
+
+      const { unmount } = renderHook(() =>
+        useSwapQuote({ isMarketEmbeddedSwap: false }),
+      );
+      act(() => getTabFocusCallback()(true, false));
+      act(() => getTabFocusCallback()(false, true));
+      unmount();
+
+      expect(lifecycleActions.current.closeQuoteEvent).toHaveBeenCalledWith(
+        'quote-1',
+      );
+      expect(eventBus.listenerCount(EAppEventBusNames.SwapQuoteEvent)).toBe(0);
+      const closeCount =
+        lifecycleActions.current.closeQuoteEvent.mock.calls.length;
+      act(() => jest.runAllTimers());
+      expect(lifecycleActions.current.closeQuoteEvent).toHaveBeenCalledTimes(
+        closeCount,
+      );
+    });
+
+    it('keeps quote listeners flat when the quote address changes', () => {
+      if (!isNative) {
+        return;
+      }
+
+      addressInfo.address = '0x1';
+      const { rerender, unmount } = renderHook(() =>
+        useSwapQuote({ isMarketEmbeddedSwap: true }),
+      );
+      expect(eventBus.listenerCount(EAppEventBusNames.SwapQuoteEvent)).toBe(2);
+
+      addressInfo.address = '0x2';
+      rerender(undefined);
+      addressInfo.address = '0x3';
+      rerender(undefined);
+      expect(eventBus.listenerCount(EAppEventBusNames.SwapQuoteEvent)).toBe(2);
+
+      unmount();
+      expect(eventBus.listenerCount(EAppEventBusNames.SwapQuoteEvent)).toBe(0);
     });
 
     it('keeps tab quotes alive for the provider picker and cancels stale hides', () => {
