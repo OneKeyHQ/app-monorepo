@@ -861,6 +861,7 @@ function primeMirror(
     applyLocalMutation(state, mutation);
   }
   state.mutationsBeforeBootstrap = [];
+  replayPendingLocalMutations(store);
 }
 
 function clearBootstrapRetryTimer() {
@@ -904,12 +905,6 @@ function startBootstrap(force: boolean) {
       mirrors[store].mutationsBeforeBootstrap = [];
     });
   }
-  // Only unacknowledged mutations need to cross into a new snapshot window.
-  NATIVE_SYNC_STORAGE_NAMES.forEach((store) => {
-    remoteMutationQueues[store].pending.forEach(({ mutation }) => {
-      recordBootstrapMutation(mirrors[store], mutation);
-    });
-  });
   const nextPromise = Promise.race([
     callNativeStorage<INativeStorageBootstrapSnapshot>({ scope: 'bootstrap' }),
     replayFailure,
@@ -917,11 +912,14 @@ function startBootstrap(force: boolean) {
     .then((snapshot) => {
       if (generation !== bootstrapGeneration) return bootstrapPromise;
       if (attempt.replayError) throw attempt.replayError;
+      // Pending local writes are still present in their remote queues. They
+      // are replayed by primeMirror after the snapshot and are not counted
+      // against the snapshot replay budget before it can be applied.
+      collectBootstrapMutations = false;
       primeMirror('settings', snapshot.settings);
       primeMirror('coldStart', snapshot.coldStart);
       primeMirror('devSettings', snapshot.devSettings);
       hasBootstrapSnapshot = true;
-      collectBootstrapMutations = false;
       bootstrapAttempt = undefined;
       bootstrapRetryAttempt = 0;
       replayPendingRemoteMutations();
