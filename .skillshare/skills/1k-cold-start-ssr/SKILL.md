@@ -196,11 +196,13 @@ entry.
   let it write the truth. Do not call `swrCacheUtils.set` / `remove` /
   `clearAll` from feature code to keep an entry in step, and do not patch an
   entry that belongs to another screen's hook.
-- Background services must not write these namespaces. bg once primed
-  `unifiedNetworkSelectorMeta` after a network toggle, which gave that
-  namespace two writers over one MMKV file with no lock between the runtimes;
-  the selector refreshes itself instead. The invalidations bg still issues on
-  wallet/account mutations are the remaining exception, not a pattern to copy.
+- Background services must not write these namespaces, and **a removal is a
+  write**. bg once primed `unifiedNetworkSelectorMeta` after a network toggle,
+  which gave that namespace two writers over one MMKV file with no lock
+  between the runtimes; the selector refreshes itself instead. bg's
+  invalidations now travel as announcements — it deletes nothing, and the
+  owner runtime performs the removal in its own flush, so every mutation of a
+  namespace stays on one thread.
 - Routing a bg write into the UI runtime is not a fix either: on the extension
   the event bus reaches every open foreground, so the routing turns one writer
   into one per surface.

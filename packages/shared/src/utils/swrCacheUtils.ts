@@ -2,6 +2,7 @@
 import { isEqual } from 'lodash';
 
 import { defaultLogger } from '../logger/logger';
+import platformEnv, { ERuntimeRole } from '../platformEnv';
 
 import {
   SWR_ACCOUNT_SELECTOR_MAX_ENTRIES,
@@ -331,6 +332,21 @@ function isDeletedLocally(key: string, diskTimestamp: number): boolean {
 const FLUSH_DEBOUNCE_MS = 2000;
 
 /**
+ * Whether this runtime is the one that touches the store.
+ *
+ * A removal is a write, and a namespace's records are one file (native) or one
+ * key range (web) that every runtime opens, with nothing to lock across them.
+ * So the background runtime does not delete: it announces what it dropped and
+ * the UI runtime, which owns the hooks that write these entries, performs the
+ * delete in its own flush. That keeps every mutation of a namespace on one
+ * thread, and it closes the window where bg's delete reached the file first
+ * and a write still pending here landed on top of it, outliving the removal.
+ */
+function isStoreOwnerRuntime() {
+  return platformEnv.runtimeRole !== ERuntimeRole.Background;
+}
+
+/**
  * The store this runtime has looked at, not the store on disk.
  *
  * Each namespace keeps its own records and a read names its key, so nothing
@@ -643,6 +659,14 @@ function clearPendingIntents() {
  * bg drops these namespaces on every wallet or account mutation, so this is
  * also what makes rename and delete reach the UI.
  */
+/** True while this runtime's own announcement is being delivered. `emit`
+ *  runs local listeners synchronously, so the subscription below would treat
+ *  this runtime's own removals as a remote instruction, record them again and
+ *  flush again — every couple of seconds, for the life of the process. A
+ *  genuine remote delivery arrives from the bridge, long after this is back
+ *  to false. */
+let _announcingOwnInvalidation = false;
+
 function publishInvalidation({
   keys,
   prefixes,
@@ -661,11 +685,16 @@ function publishInvalidation({
     // eslint-disable-next-line @typescript-eslint/no-require-imports
     const { appEventBus, EAppEventBusNames } =
       require('../eventBus/appEventBus') as typeof import('../eventBus/appEventBus');
-    appEventBus.emit(EAppEventBusNames.SwrCacheInvalidated, {
-      ...(keys.length > 0 ? { keys } : {}),
-      ...(prefixes.length > 0 ? { prefixes } : {}),
-      ...(clearedAll ? { clearedAll } : {}),
-    });
+    _announcingOwnInvalidation = true;
+    try {
+      appEventBus.emit(EAppEventBusNames.SwrCacheInvalidated, {
+        ...(keys.length > 0 ? { keys } : {}),
+        ...(prefixes.length > 0 ? { prefixes } : {}),
+        ...(clearedAll ? { clearedAll } : {}),
+      });
+    } finally {
+      _announcingOwnInvalidation = false;
+    }
   } catch {
     // A cache that cannot announce a removal still removed it locally.
   }
@@ -685,7 +714,7 @@ function publishInvalidation({
  * The cost of the other mistake is one refetch, so this over-invalidates on
  * purpose — the same trade `removeSwrCacheByPrefix` makes for digested keys.
  */
-function applyRemoteInvalidation({
+function dropInvalidatedFromMemory({
   keys,
   prefixes,
   clearedAll,
@@ -723,7 +752,53 @@ function applyRemoteInvalidation({
   });
 }
 
+function applyRemoteInvalidation(payload: {
+  keys?: string[];
+  prefixes?: string[];
+  clearedAll?: boolean;
+}) {
+  if (_announcingOwnInvalidation) {
+    return;
+  }
+  const { keys, prefixes, clearedAll } = payload;
+  const owns = isStoreOwnerRuntime();
+  if (owns) {
+    // The announcing runtime did not delete anything on disk, so this is
+    // where the removal is carried out. Recorded as this runtime's own
+    // intent, which also stops a read-through from adopting the record back
+    // out of the file before the flush reaches it.
+    const now = Date.now();
+    if (clearedAll) {
+      _clearedAllAt = now;
+    }
+    keys?.forEach((key) => _removedKeysAt.set(key, now));
+    prefixes?.forEach((prefix) => _removedPrefixesAt.push({ prefix, at: now }));
+    _dirty = true;
+    // A store this runtime never touched still has a file to delete from, and
+    // `flush` will not run before the store exists.
+    loadStore();
+  }
+  dropInvalidatedFromMemory(payload);
+  if (owns) {
+    // Not left to the debounce: what this carries is a deletion, and the
+    // window it closes is the one where the process ends before it lands.
+    flushNow();
+  }
+}
+
 let _invalidationSubscribed = false;
+/**
+ * Subscribe before anything reads the cache.
+ *
+ * The owner runtime performs the removals the other one announces, so missing
+ * an announcement now means a record nothing deletes. `loadStore` subscribes
+ * too, but only once something has read or written an entry — this is for the
+ * startup path, which runs earlier than the first read.
+ */
+export function ensureSwrCacheInvalidationSubscribed() {
+  subscribeToRemoteInvalidation();
+}
+
 function subscribeToRemoteInvalidation() {
   if (_invalidationSubscribed) {
     return;
@@ -749,11 +824,18 @@ function flush() {
     const updatedKeyCount = _updatedKeys.size;
     // Order matters: the wipes are what this runtime decided is gone, and
     // they must not take the writes that followed them with them.
-    if (_clearedAllAt > 0) {
-      clearAllSwrCacheNamespaces();
+    //
+    // Only on the runtime that owns the store. Elsewhere the removal travels
+    // as an announcement and is performed there — see `isStoreOwnerRuntime`.
+    if (isStoreOwnerRuntime()) {
+      if (_clearedAllAt > 0) {
+        clearAllSwrCacheNamespaces();
+      }
+      _removedPrefixesAt.forEach(({ prefix }) =>
+        removeSwrCacheByPrefix(prefix),
+      );
+      removeSwrCacheEntries([..._removedKeysAt.keys()]);
     }
-    _removedPrefixesAt.forEach(({ prefix }) => removeSwrCacheByPrefix(prefix));
-    removeSwrCacheEntries([..._removedKeysAt.keys()]);
     const updates: Array<readonly [string, ISwrCacheStoredEntry]> = [];
     _updatedKeys.forEach((key) => {
       const entry = _cache?.[key];
@@ -1695,8 +1777,8 @@ function getSizeStats() {
  * Two callers patching one key is how a namespace ends up with two writers
  * over one file and no lock between the runtimes.
  *
- * bg is not a writer. The invalidations it still issues on wallet and account
- * mutations are the remaining exception, and should move to the UI as well.
+ * bg is not a writer, and a removal is a write: it announces what it dropped
+ * and the runtime that owns the store performs the delete in its own flush.
  */
 export const swrCacheUtils = {
   get,
