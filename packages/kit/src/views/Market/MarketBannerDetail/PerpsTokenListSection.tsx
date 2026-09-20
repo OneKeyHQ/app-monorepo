@@ -39,11 +39,13 @@ import type { FlatListProps } from 'react-native';
 
 export function PerpsTokenListSection({
   tokenListId,
+  isActive = true,
   changeSortType,
   change24hColumnTitle,
   onChangeSortPress,
 }: {
   tokenListId: string;
+  isActive?: boolean;
   changeSortType?: IBannerDetailSortType;
   change24hColumnTitle: string;
   onChangeSortPress: () => void;
@@ -79,6 +81,8 @@ export function PerpsTokenListSection({
     {
       pollingInterval: timerUtils.getTimeDurationMs({ seconds: 30 }),
       watchLoading: true,
+      overrideIsFocused: (isFocused) => isFocused && isActive,
+      revalidateOnFocus: platformEnv.isWeb,
     },
   );
 
