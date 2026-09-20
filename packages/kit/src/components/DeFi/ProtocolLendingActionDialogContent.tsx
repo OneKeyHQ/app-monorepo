@@ -38,10 +38,14 @@ import {
   useUniversalBorrowRepay,
   useUniversalBorrowWithdraw,
 } from '@onekeyhq/kit/src/views/Borrow/hooks/useUniversalBorrowWithdrawRepayHooks';
+import { EarnAmountText } from '@onekeyhq/kit/src/views/Staking/components/ProtocolDetails/EarnAmountText';
 import { EarnText } from '@onekeyhq/kit/src/views/Staking/components/ProtocolDetails/EarnText';
 import { useManagePage } from '@onekeyhq/kit/src/views/Staking/pages/ManagePosition/hooks/useManagePage';
 import { buildBorrowTag } from '@onekeyhq/kit/src/views/Staking/utils/utils';
-import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  useSettingsPersistAtom,
+  useSettingsValuePersistAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -314,6 +318,8 @@ function RemainingDebtChangeRow({
 }
 
 function LendingSelectorRowContent({ item }: { item: ILendingSelectorItem }) {
+  const [{ hideValue }] = useSettingsValuePersistAtom();
+
   return (
     <>
       <Token size="sm" tokenImageUri={item.logoURI} bg="$bg" />
@@ -321,14 +327,15 @@ function LendingSelectorRowContent({ item }: { item: ILendingSelectorItem }) {
         {item.symbol}
       </SizableText>
       <YStack flex={1} alignItems="flex-end" minWidth={0}>
-        <NumberSizeableTextWrapper
-          hideValue
-          size="$bodyMdMedium"
-          formatter="balance"
-          numberOfLines={1}
-        >
-          {item.balanceText}
-        </NumberSizeableTextWrapper>
+        {hideValue ? (
+          <SizableText size="$bodyMdMedium" numberOfLines={1}>
+            ****
+          </SizableText>
+        ) : (
+          <EarnAmountText size="$bodyMdMedium" numberOfLines={1}>
+            {item.balanceText}
+          </EarnAmountText>
+        )}
         {item.descriptionText ? (
           <SizableText size="$bodySm" color="$textSubdued" numberOfLines={1}>
             {item.descriptionText}
@@ -374,6 +381,7 @@ function LendingAssetSelectorRow({
     <XStack alignSelf="center">
       <Popover
         title={intl.formatMessage({ id: ETranslations.token_selector_title })}
+        mountNativePortalBeforeOpen
         renderTrigger={
           <ProtocolPositionAssetPill
             symbol={item.symbol}

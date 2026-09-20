@@ -322,7 +322,10 @@ describe('useImportAddressForm effective import method', () => {
         result.current.form.getFieldState('accountName').error?.message,
       ).toBe('Duplicate name'),
     );
-    expect(result.current.isEnable).toBe(false);
+    // getFieldState reads the control's own state, which is set before the
+    // render that carries the error into useFormState has committed. On a slow
+    // runner the first poll wins that race, so wait for the rendered value.
+    await waitFor(() => expect(result.current.isEnable).toBe(false));
 
     // Dismissing the keyboard re-validates the field rules and restores
     // isValid while the duplicate-name error is still set.

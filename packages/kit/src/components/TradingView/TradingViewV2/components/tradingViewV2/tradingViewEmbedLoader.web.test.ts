@@ -1,5 +1,7 @@
 import { jest } from '@jest/globals';
 
+import { TRADING_VIEW_EMBED_PINNED_RELEASES } from '@onekeyhq/shared/src/utils/tradingViewEmbedPinnedReleases';
+import { computeTradingViewEmbedIntegrity } from '@onekeyhq/shared/src/utils/tradingViewEmbedRelease';
 import { TRADING_VIEW_EMBED_SERVICE_WORKER_PATH } from '@onekeyhq/shared/src/utils/tradingViewEmbedServiceWorker';
 
 import { preloadTradingViewEmbedBootstrapAssets } from './tradingViewEmbedLoader.web';
@@ -9,15 +11,95 @@ const serviceWorkerScriptUrl = new URL(
   'http://localhost',
 ).toString();
 
+const TEST_ORIGIN = 'https://tradingview.onekeytest.com';
+
 const buildAsset = (file: string) => ({
   file,
   integrity: 'sha384-dGVzdA==',
   size: 1,
 });
 
+const buildRemoteManifest = (version: string) => ({
+  schema: 2,
+  version,
+  baseUrl: `${TEST_ORIGIN}/${version}/embed/`,
+  entry: 'onekey-tradingview-embed.js',
+  bootstrap: {
+    commonAssets: [
+      'onekey-tradingview-embed.js',
+      'charting_library/charting_library.standalone.js',
+    ],
+    defaultLocale: 'en',
+    localeAssets: {
+      en: ['charting_library/bundles/en.hash.js'],
+    },
+  },
+  assets: [
+    buildAsset('onekey-tradingview-embed.js'),
+    buildAsset('charting_library/charting_library.standalone.js'),
+    buildAsset('charting_library/bundles/en.hash.js'),
+  ],
+});
+
+async function pinRelease(
+  origin: string,
+  version: string,
+  manifestText: string,
+): Promise<string> {
+  jest.replaceProperty(TRADING_VIEW_EMBED_PINNED_RELEASES, origin, {
+    manifestIntegrity: await computeTradingViewEmbedIntegrity(
+      new TextEncoder().encode(manifestText),
+    ),
+    version,
+  });
+  return `${origin}/${version}/embed/embed-manifest.json`;
+}
+
+function mockServiceWorkerController(version: string) {
+  const postMessage = jest.fn(
+    (message: { type?: string }, transfer: Transferable[] | undefined) => {
+      const replyPort = transfer?.[0] as MessagePort | undefined;
+      replyPort?.postMessage(
+        message.type === 'GET_TRADINGVIEW_EMBED_PROTOCOL'
+          ? { ok: true, protocol: 1 }
+          : { ok: true, version },
+      );
+    },
+  );
+  Object.defineProperty(globalThis, 'navigator', {
+    configurable: true,
+    value: {
+      serviceWorker: {
+        addEventListener: jest.fn(),
+        controller: {
+          postMessage,
+          scriptURL: serviceWorkerScriptUrl,
+        },
+        ready: Promise.resolve({}),
+        register: jest.fn(),
+        removeEventListener: jest.fn(),
+      },
+    },
+  });
+  return postMessage;
+}
+
 describe('preloadTradingViewEmbedBootstrapAssets', () => {
+  const initialNavigatorDescriptor = Object.getOwnPropertyDescriptor(
+    globalThis,
+    'navigator',
+  );
+
   afterEach(() => {
-    delete process.env.TRADINGVIEW_EMBED_MANIFEST_URL;
+    if (initialNavigatorDescriptor) {
+      Object.defineProperty(
+        globalThis,
+        'navigator',
+        initialNavigatorDescriptor,
+      );
+    } else {
+      Reflect.deleteProperty(globalThis, 'navigator');
+    }
     jest.restoreAllMocks();
   });
 
@@ -257,122 +339,88 @@ describe('preloadTradingViewEmbedBootstrapAssets', () => {
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
-  test('resolves the remote runtime manifest through the service worker', async () => {
-    const manifestPointer = {
-      schema: 2,
-      version: 'test-runtime',
-      baseUrl: 'https://tradingview.onekeytest.com/test-runtime/embed/',
-      entry: 'onekey-tradingview-embed.js',
-    };
-    const manifest = {
-      ...manifestPointer,
-      bootstrap: {
-        commonAssets: [
-          'onekey-tradingview-embed.js',
-          'charting_library/charting_library.standalone.js',
-        ],
-        defaultLocale: 'en',
-        localeAssets: {
-          en: ['charting_library/bundles/en.hash.js'],
-        },
-      },
-      assets: [
-        buildAsset('onekey-tradingview-embed.js'),
-        buildAsset('charting_library/charting_library.standalone.js'),
-        buildAsset('charting_library/bundles/en.hash.js'),
-      ],
-    };
-    const originalNavigatorDescriptor = Object.getOwnPropertyDescriptor(
-      globalThis,
-      'navigator',
+  test('loads only the pinned remote release through the service worker', async () => {
+    const manifest = buildRemoteManifest('test-runtime');
+    const manifestText = JSON.stringify(manifest);
+    const manifestUrl = await pinRelease(
+      TEST_ORIGIN,
+      manifest.version,
+      manifestText,
     );
-    const postMessage = jest.fn(
-      (message: { type?: string }, transfer: Transferable[] | undefined) => {
-        const replyPort = transfer?.[0] as MessagePort | undefined;
-        replyPort?.postMessage(
-          message.type === 'GET_TRADINGVIEW_EMBED_PROTOCOL'
-            ? { ok: true, protocol: 1 }
-            : { ok: true, version: manifest.version },
-        );
-      },
-    );
-    Object.defineProperty(globalThis, 'navigator', {
-      configurable: true,
-      value: {
-        serviceWorker: {
-          addEventListener: jest.fn(),
-          controller: {
-            postMessage,
-            scriptURL: serviceWorkerScriptUrl,
-          },
-          ready: Promise.resolve({}),
-          register: jest.fn(),
-          removeEventListener: jest.fn(),
-        },
-      },
-    });
+    const postMessage = mockServiceWorkerController(manifest.version);
     const fetchMock = jest
       .spyOn(globalThis, 'fetch')
+      .mockResolvedValueOnce(new Response(manifestText, { status: 200 }));
+
+    await preloadTradingViewEmbedBootstrapAssets(
+      `${TEST_ORIGIN}/?locale=fr-FR`,
+    );
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock).toHaveBeenCalledWith(manifestUrl, {
+      cache: 'no-store',
+      credentials: 'omit',
+      mode: 'cors',
+      redirect: 'error',
+    });
+    expect(postMessage).toHaveBeenCalledWith(
+      {
+        type: 'PREFETCH_TRADINGVIEW_EMBED',
+        payload: {
+          locale: 'fr',
+          manifest,
+          manifestUrl,
+          manifestVersion: manifest.version,
+        },
+      },
+      expect.any(Array),
+    );
+  });
+
+  test('rejects a remote manifest that does not match its pin', async () => {
+    const manifest = buildRemoteManifest('test-tampered');
+    await pinRelease(TEST_ORIGIN, manifest.version, JSON.stringify(manifest));
+    const postMessage = mockServiceWorkerController(manifest.version);
+    const tamperedManifest = {
+      ...manifest,
+      assets: manifest.assets.map((asset) => ({
+        ...asset,
+        integrity: 'sha384-YXR0YWNrZXI=',
+      })),
+    };
+    jest
+      .spyOn(globalThis, 'fetch')
       .mockResolvedValueOnce(
-        new Response(JSON.stringify(manifestPointer), { status: 200 }),
-      )
-      .mockResolvedValueOnce(
-        new Response(JSON.stringify(manifest), { status: 200 }),
+        new Response(JSON.stringify(tamperedManifest), { status: 200 }),
       );
 
-    try {
-      await preloadTradingViewEmbedBootstrapAssets(
-        'https://tradingview.onekeytest.com/?locale=fr-FR',
-      );
+    await expect(
+      preloadTradingViewEmbedBootstrapAssets(`${TEST_ORIGIN}/?locale=en`),
+    ).rejects.toThrow(
+      'TradingView embed manifest does not match the pinned release',
+    );
+    expect(postMessage).not.toHaveBeenCalledWith(
+      expect.objectContaining({ type: 'PREFETCH_TRADINGVIEW_EMBED' }),
+      expect.any(Array),
+    );
+  });
 
-      expect(fetchMock).toHaveBeenNthCalledWith(
-        1,
-        'https://tradingview.onekeytest.com/embed/latest.json',
-        {
-          cache: 'no-store',
-          credentials: 'omit',
-          mode: 'cors',
-          redirect: 'error',
-        },
-      );
-      expect(fetchMock).toHaveBeenNthCalledWith(
-        2,
-        new URL(
-          'https://tradingview.onekeytest.com/test-runtime/embed/embed-manifest.json',
-        ),
-        {
-          cache: 'no-store',
-          credentials: 'omit',
-          mode: 'cors',
-          redirect: 'error',
-        },
-      );
-      expect(postMessage).toHaveBeenCalledWith(
-        {
-          type: 'PREFETCH_TRADINGVIEW_EMBED',
-          payload: {
-            locale: 'fr',
-            manifest,
-            manifestUrl: 'https://tradingview.onekeytest.com/embed/latest.json',
-            manifestVersion: manifest.version,
-          },
-        },
-        expect.any(Array),
-      );
-    } finally {
-      if (originalNavigatorDescriptor) {
-        Object.defineProperty(
-          globalThis,
-          'navigator',
-          originalNavigatorDescriptor,
-        );
-      } else {
-        Reflect.deleteProperty(globalThis, 'navigator');
-      }
-    }
+  test('rejects a pinned manifest that names another version', async () => {
+    const manifest = buildRemoteManifest('test-other-version');
+    const manifestText = JSON.stringify(manifest);
+    await pinRelease(TEST_ORIGIN, 'test-pinned-version', manifestText);
+    mockServiceWorkerController('test-pinned-version');
+    jest
+      .spyOn(globalThis, 'fetch')
+      .mockResolvedValueOnce(new Response(manifestText, { status: 200 }));
+
+    await expect(
+      preloadTradingViewEmbedBootstrapAssets(`${TEST_ORIGIN}/?locale=en`),
+    ).rejects.toThrow('TradingView embed manifest is invalid');
   });
 
   test('rejects before fetching a remote manifest when service worker setup is blocked', async () => {
+    await pinRelease(TEST_ORIGIN, 'test-blocked', '{}');
     const originalNavigatorDescriptor = Object.getOwnPropertyDescriptor(
       globalThis,
       'navigator',
@@ -411,88 +459,16 @@ describe('preloadTradingViewEmbedBootstrapAssets', () => {
     }
   });
 
-  test('prefers the runtime TradingView origin over a build environment URL', async () => {
-    const manifest = {
-      schema: 2,
-      version: 'runtime-origin',
-      baseUrl: 'https://tradingview.onekey.so/runtime-origin/embed/',
-      entry: 'onekey-tradingview-embed.js',
-      bootstrap: {
-        commonAssets: [
-          'onekey-tradingview-embed.js',
-          'charting_library/charting_library.standalone.js',
-        ],
-        defaultLocale: 'en',
-        localeAssets: { en: ['charting_library/bundles/en.hash.js'] },
-      },
-      assets: [
-        buildAsset('onekey-tradingview-embed.js'),
-        buildAsset('charting_library/charting_library.standalone.js'),
-        buildAsset('charting_library/bundles/en.hash.js'),
-      ],
-    };
-    const originalNavigatorDescriptor = Object.getOwnPropertyDescriptor(
-      globalThis,
-      'navigator',
-    );
-    const postMessage = jest.fn(
-      (message: { type?: string }, transfer: Transferable[] | undefined) => {
-        const replyPort = transfer?.[0] as MessagePort | undefined;
-        replyPort?.postMessage(
-          message.type === 'GET_TRADINGVIEW_EMBED_PROTOCOL'
-            ? { ok: true, protocol: 1 }
-            : { ok: true, version: manifest.version },
-        );
-      },
-    );
-    Object.defineProperty(globalThis, 'navigator', {
-      configurable: true,
-      value: {
-        serviceWorker: {
-          addEventListener: jest.fn(),
-          controller: {
-            postMessage,
-            scriptURL: serviceWorkerScriptUrl,
-          },
-          ready: Promise.resolve({}),
-          register: jest.fn(),
-          removeEventListener: jest.fn(),
-        },
-      },
-    });
-    process.env.TRADINGVIEW_EMBED_MANIFEST_URL =
-      'https://tradingview.onekeytest.com/embed/latest.json';
-    const fetchMock = jest
-      .spyOn(globalThis, 'fetch')
-      .mockResolvedValueOnce(
-        new Response(JSON.stringify(manifest), { status: 200 }),
-      );
+  test('does not contact a remote chart host without a pinned release', () => {
+    const postMessage = mockServiceWorkerController('unused');
+    const fetchMock = jest.spyOn(globalThis, 'fetch');
 
-    try {
-      await preloadTradingViewEmbedBootstrapAssets(
+    expect(() =>
+      preloadTradingViewEmbedBootstrapAssets(
         'https://tradingview.onekey.so/?locale=en',
-      );
-
-      expect(fetchMock).toHaveBeenCalledWith(
-        'https://tradingview.onekey.so/embed/latest.json',
-        {
-          cache: 'no-store',
-          credentials: 'omit',
-          mode: 'cors',
-          redirect: 'error',
-        },
-      );
-    } finally {
-      delete process.env.TRADINGVIEW_EMBED_MANIFEST_URL;
-      if (originalNavigatorDescriptor) {
-        Object.defineProperty(
-          globalThis,
-          'navigator',
-          originalNavigatorDescriptor,
-        );
-      } else {
-        Reflect.deleteProperty(globalThis, 'navigator');
-      }
-    }
+      ),
+    ).toThrow('TradingView embed release is not pinned');
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(postMessage).not.toHaveBeenCalled();
   });
 });

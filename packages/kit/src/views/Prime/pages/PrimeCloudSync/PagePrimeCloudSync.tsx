@@ -16,7 +16,6 @@ import {
   Stack,
   Switch,
   resetToRoute,
-  startViewTransition,
   useMedia,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
@@ -174,11 +173,9 @@ function AutoLockUpdateDialogContent({
         })}
         onConfirm={async () => {
           try {
-            startViewTransition(async () => {
-              await backgroundApiProxy.servicePassword.setAppLockDuration(
-                Number(selectedValue),
-              );
-            });
+            await backgroundApiProxy.servicePassword.setAppLockDuration(
+              Number(selectedValue),
+            );
             onContinue();
           } catch (error) {
             onError(error as Error);
