@@ -726,6 +726,7 @@ describe('nativeSyncStorageMirror', () => {
       ...emptyPatch,
       updates: [
         ['gone', JSON.stringify({ d: 'stale', t: 2 })],
+        ['equal', JSON.stringify({ d: 'stale', t: 4 })],
         ['kept', JSON.stringify({ d: 'kept', t: 2 })],
       ],
     });
@@ -737,7 +738,7 @@ describe('nativeSyncStorageMirror', () => {
     }
     void storage.applySWRCachePatch?.({
       removePrefixes: [],
-      removals: [['gone', 4]],
+      removals: [['gone', 4], ['equal', 4]],
       updates: [['kept', JSON.stringify({ d: 'newer', t: 5 })]],
     });
     isReady = true;
@@ -751,8 +752,9 @@ describe('nativeSyncStorageMirror', () => {
         updates: Array<[string, string]>;
       };
     };
-    expect(request.patch.removals).toEqual([['gone', 4]]);
+    expect(request.patch.removals).toEqual([['gone', 4], ['equal', 4]]);
     expect(new Map(request.patch.updates).has('gone')).toBe(false);
+    expect(new Map(request.patch.updates).has('equal')).toBe(false);
     expect(new Map(request.patch.updates).get('kept')).toBe(
       JSON.stringify({ d: 'newer', t: 5 }),
     );
