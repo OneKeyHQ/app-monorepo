@@ -13,38 +13,8 @@ export class HardwareHomeScreenScene extends BaseScene {
     isCustomScreen: boolean;
     status: 'success' | 'failed';
     totalDurationMs?: number;
-    imagePreparationMs?: number;
     hardwareCallMs?: number;
     uploadSizeBytes?: number;
-    failureStage?: 'image-processing' | 'hardware-call';
-    errorCode?: string;
-    errorName?: string;
-  }) {
-    return params;
-  }
-
-  @LogToLocal()
-  public wallpaperApplyPhase(params: {
-    deviceType: IDeviceType;
-    status: 'success' | 'failed';
-    phaseDurationsMs: Partial<
-      Record<
-        | 'hardware-queue'
-        | 'validation'
-        | 'connection'
-        | 'sdk-init'
-        | 'sdk-call'
-        | 'settings-sync',
-        number
-      >
-    >;
-    failureStage?:
-      | 'hardware-queue'
-      | 'validation'
-      | 'connection'
-      | 'sdk-init'
-      | 'sdk-call'
-      | 'settings-sync';
     errorCode?: string;
     errorName?: string;
   }) {

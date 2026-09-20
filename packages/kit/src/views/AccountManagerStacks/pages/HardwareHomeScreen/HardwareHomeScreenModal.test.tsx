@@ -148,7 +148,6 @@ jest.mock('@onekeyhq/shared/src/logger/logger', () => ({
       homescreen: {
         setHomeScreen: jest.fn(),
         wallpaperApply: jest.fn(),
-        wallpaperApplyPhase: jest.fn(),
       },
     },
   },

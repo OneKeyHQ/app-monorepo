@@ -817,10 +817,7 @@ export default function HardwareHomeScreenModal({
             device?.deviceType,
           );
           let isCustomScreen = false;
-          let currentPhase: 'image-processing' | 'hardware-call' =
-            'image-processing';
-          let phaseStartedAt = applyStartedAt;
-          let imagePreparationMs: number | undefined;
+          let hardwareCallStartedAt: number | undefined;
           let hardwareCallMs: number | undefined;
           try {
             if (!device?.id || !selectedItem) {
@@ -895,9 +892,7 @@ export default function HardwareHomeScreenModal({
               throw new OneKeyLocalError(buildCustomHexError);
             }
 
-            imagePreparationMs = Date.now() - phaseStartedAt;
-            currentPhase = 'hardware-call';
-            phaseStartedAt = Date.now();
+            hardwareCallStartedAt = Date.now();
             const response =
               await backgroundApiProxy.serviceHardware.setDeviceHomeScreen({
                 dbDeviceId: device?.id,
@@ -909,7 +904,7 @@ export default function HardwareHomeScreenModal({
                   blurScreenHex: finallyBlurScreenHex,
                 },
               });
-            hardwareCallMs = Date.now() - phaseStartedAt;
+            hardwareCallMs = Date.now() - hardwareCallStartedAt;
             if (device.deviceType !== EDeviceType.Pro) {
               close();
             }
@@ -929,7 +924,6 @@ export default function HardwareHomeScreenModal({
                 isCustomScreen,
                 status: 'success',
                 totalDurationMs: Date.now() - applyStartedAt,
-                imagePreparationMs,
                 hardwareCallMs,
                 uploadSizeBytes:
                   'size' in response && typeof response.size === 'number'
@@ -939,11 +933,11 @@ export default function HardwareHomeScreenModal({
             }
           } catch (error) {
             if (isProtocolV2Wallpaper && device?.id && selectedItem) {
-              const phaseDurationMs = Date.now() - phaseStartedAt;
-              if (currentPhase === 'image-processing') {
-                imagePreparationMs = phaseDurationMs;
-              } else {
-                hardwareCallMs = phaseDurationMs;
+              if (
+                hardwareCallStartedAt !== undefined &&
+                hardwareCallMs === undefined
+              ) {
+                hardwareCallMs = Date.now() - hardwareCallStartedAt;
               }
               const errorValue = error as {
                 code?: unknown;
@@ -960,9 +954,7 @@ export default function HardwareHomeScreenModal({
                 isCustomScreen,
                 status: 'failed',
                 totalDurationMs: Date.now() - applyStartedAt,
-                imagePreparationMs,
                 hardwareCallMs,
-                failureStage: currentPhase,
                 errorCode,
                 errorName,
               });

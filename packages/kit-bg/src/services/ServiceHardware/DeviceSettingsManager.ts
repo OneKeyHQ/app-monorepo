@@ -21,7 +21,6 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
-import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import deviceHomeScreenUtils from '@onekeyhq/shared/src/utils/deviceHomeScreenUtils';
 import { devOnlyData } from '@onekeyhq/shared/src/utils/devModeUtils';
 import { isProtocolV2ProductType } from '@onekeyhq/shared/src/utils/hardwareDeviceTypes';
@@ -755,52 +754,13 @@ export class DeviceSettingsManager extends ServiceHardwareManagerBase {
 
     // Pro、Touch: custom upload wallpaper
     const needUploadResource = isCustomScreen && !isMonochrome;
-    const isProtocolV2Wallpaper =
-      needUploadResource && this._isProtocolV2Product(device);
-    type IWallpaperPhase =
-      | 'hardware-queue'
-      | 'validation'
-      | 'connection'
-      | 'sdk-init'
-      | 'sdk-call'
-      | 'settings-sync';
-    let phase: IWallpaperPhase = 'hardware-queue';
-    let phaseStartedAt = Date.now();
-    let phaseFinished = false;
-    const phaseDurationsMs: Partial<Record<IWallpaperPhase, number>> = {};
-    const finishPhase = () => {
-      phaseDurationsMs[phase] = Date.now() - phaseStartedAt;
-    };
-    const startPhase = (nextPhase: IWallpaperPhase) => {
-      finishPhase();
-      phase = nextPhase;
-      phaseStartedAt = Date.now();
-    };
-    const logWallpaperPhase = (
-      status: 'success' | 'failed',
-      errorCode?: string,
-      errorName?: string,
-    ) => {
-      if (isProtocolV2Wallpaper) {
-        finishPhase();
-        defaultLogger.hardware.homescreen.wallpaperApplyPhase({
-          deviceType: device.deviceType,
-          status,
-          phaseDurationsMs,
-          failureStage: status === 'failed' ? phase : undefined,
-          errorCode,
-          errorName,
-        });
-      }
-    };
 
     const finallyScreenHex = screenHex || nameHex || '';
     const finallyThumbnailHex: string | undefined = thumbnailHex;
 
-    const processing =
-      this.backgroundApi.serviceHardwareUI.withHardwareProcessing(
+    const result: DeviceUploadResourceResponse =
+      await this.backgroundApi.serviceHardwareUI.withHardwareProcessing(
         async () => {
-          startPhase('validation');
           // pro touch custom upload wallpaper
           if (needUploadResource) {
             if (this._isProtocolV2Product(device)) {
@@ -809,31 +769,25 @@ export class DeviceSettingsManager extends ServiceHardwareManagerBase {
                   'Upload Pro2 wallpaper error: screenBase64 not defined',
                 );
               }
-              startPhase('connection');
               const compatibleConnectId =
                 await this.serviceHardware.getCompatibleConnectId({
                   connectId: device.connectId,
                   featuresDeviceId: device.deviceId,
                   hardwareCallContext: EHardwareCallContext.USER_INTERACTION,
                 });
-              startPhase('sdk-init');
               const hardwareSDK = await this.getSDKInstance({
                 connectId: compatibleConnectId,
               });
-              startPhase('sdk-call');
               const response = await convertDeviceResponse(() =>
                 hardwareSDK.deviceUploadWallpaper(compatibleConnectId, {
                   jpegBase64: screenBase64,
                   fileName: screenItem.id.replace(/[^A-Za-z0-9_-]/g, '-'),
                 }),
               );
-              startPhase('settings-sync');
               await this._waitForProtocolV2SettingsSync({
                 device,
                 compatibleConnectId,
               });
-              logWallpaperPhase('success');
-              phaseFinished = true;
               return {
                 ...response,
                 message: response.message ?? 'Success',
@@ -892,24 +846,6 @@ export class DeviceSettingsManager extends ServiceHardwareManagerBase {
           debugMethodName: 'deviceSettings.applySettingsToDevice',
         },
       );
-    const result: DeviceUploadResourceResponse = await processing.catch(
-      (error: unknown) => {
-        if (!phaseFinished) {
-          const errorValue = error as { code?: unknown; errorCode?: unknown };
-          const code = errorValue?.code ?? errorValue?.errorCode;
-          const errorCode =
-            typeof code === 'string' || typeof code === 'number'
-              ? String(code)
-              : undefined;
-          logWallpaperPhase(
-            'failed',
-            errorCode,
-            error instanceof Error ? error.name : undefined,
-          );
-        }
-        throw error;
-      },
-    );
     if (!this._isProtocolV2Product(device) && !this._isTrezorDevice(device)) {
       // Fire-and-forget: the wallpaper is already applied and the processing
       // dialog closed; the caller must not stay pending on the read-back.
