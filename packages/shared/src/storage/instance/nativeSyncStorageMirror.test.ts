@@ -570,7 +570,16 @@ describe('nativeSyncStorageMirror', () => {
           return {
             store: request.store,
             operation: 'patchSWR',
-            entries: request.patch.removals.map(([key]) => [key, null]),
+            entries: [
+              ...request.patch.removals.map(([key]) => [key, null] as const),
+              ...request.patch.updates.filter(([key, serialized]) => {
+                const removedAt = request.patch.removals.find(
+                  ([removedKey]) => removedKey === key,
+                )?.[1];
+                const timestamp = (JSON.parse(serialized) as { t: number }).t;
+                return removedAt === undefined || timestamp >= removedAt;
+              }),
+            ],
             sourceMutationId: request.sourceMutationId,
           };
         }
@@ -609,6 +618,16 @@ describe('nativeSyncStorageMirror', () => {
     await waitForNativeSyncStorageMutations();
     expect(new Map(storage.readSWRCacheEntries?.()).get('deleted')).toBe(
       JSON.stringify({ d: 'fresh', t: 11 }),
+    );
+
+    void storage.applySWRCachePatch?.({
+      removePrefixes: [],
+      removals: [['equal', 20]],
+      updates: [['equal', JSON.stringify({ d: 'same-time', t: 20 })]],
+    });
+    await waitForNativeSyncStorageMutations();
+    expect(new Map(storage.readSWRCacheEntries?.()).get('equal')).toBe(
+      JSON.stringify({ d: 'same-time', t: 20 }),
     );
   });
 

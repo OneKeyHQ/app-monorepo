@@ -471,7 +471,7 @@ function applyPatchToStore(
       throw new OneKeyLocalError('Native SWR cache patch entry is invalid');
     }
     const tombstoneAt = getTombstoneAt(key);
-    if (tombstoneAt !== undefined && incoming.t <= tombstoneAt) {
+    if (tombstoneAt !== undefined && incoming.t < tombstoneAt) {
       affectedKeys.add(key);
       return;
     }
