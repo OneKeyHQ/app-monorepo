@@ -550,7 +550,7 @@ export default class ServiceHyperliquid extends ServiceBase {
   );
 
   private _flushSpotPrices(map: Record<string, ISpotAssetCtxEntry>) {
-    // allMids only sets markPx, spotAssetCtxs sets full entry — merge so neither overwrites the other
+    // Preserve context fields while updating cold-start price fallbacks.
     for (const [key, entry] of Object.entries(map)) {
       const existing = this._spotPriceCache[key];
       if (existing) {
@@ -2089,7 +2089,13 @@ export default class ServiceHyperliquid extends ServiceBase {
   async extractSpotPricesFromAllMids(mids: Record<string, string>) {
     const map: Record<string, ISpotAssetCtxEntry> = {};
     for (const [coin, price] of Object.entries(mids)) {
-      if (perpsUtils.isSpotInstrument(coin) && price) {
+      // allMids carries mid prices, not mark prices. Use it only until the
+      // first spot context arrives, or the ticker alternates between sources.
+      if (
+        perpsUtils.isSpotInstrument(coin) &&
+        price &&
+        this._spotPriceCache[coin]?.prevDayPx === undefined
+      ) {
         map[coin] = { markPx: price };
       }
     }
