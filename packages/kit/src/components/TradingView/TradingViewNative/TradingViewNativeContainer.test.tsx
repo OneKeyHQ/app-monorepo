@@ -14,6 +14,8 @@ import {
   createTradingViewNativeChartSettings,
 } from '@onekeyhq/shared/types/tradingViewNative';
 
+import { fetchAccountTransactionMarks } from '../utils/accountTransactionMarks';
+
 import { TRADING_VIEW_NATIVE_KLINE_INTERVALS } from './data/tradingViewNativeIntervals';
 import {
   createTradingViewNativeIndicatorSettingsValue,
@@ -33,7 +35,26 @@ import type {
 import type { ITradingViewNativeSubIndicatorInstanceConfig } from './utils/subIndicatorRender/types';
 import type { ITradingViewNativeIndicatorQuickBarState } from '../TradingViewChartControls/indicatorSelector/nativeIndicatorQuickBarState';
 
+jest.mock('./data/localAccountTransactionMarks', () => ({
+  ...jest.requireActual<typeof import('./data/localAccountTransactionMarks')>(
+    './data/localAccountTransactionMarks',
+  ),
+  fetchLocalAccountTransactionMarks: jest.fn(async () => []),
+}));
+
+jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
+  __esModule: true,
+  default: {},
+}));
+
 const mockHandleRetry = jest.fn();
+const mockFetchAccountTransactionMarks = jest.mocked(
+  fetchAccountTransactionMarks,
+);
+
+jest.mock('../utils/accountTransactionMarks', () => ({
+  fetchAccountTransactionMarks: jest.fn(async () => []),
+}));
 const mockPushModal = jest.fn();
 const mockNavigation = { pushModal: mockPushModal };
 
@@ -385,6 +406,7 @@ jest.mock('./TradingViewNativeFullscreenButton', () => ({
 describe('TradingViewNativeContainer', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockFetchAccountTransactionMarks.mockResolvedValue([]);
     mockDataProviderKey = 'market:evm--1:0xabc:TOKEN';
     mockActiveInterval = '60';
     mockChartType = 'candlestick';
@@ -408,6 +430,67 @@ describe('TradingViewNativeContainer', () => {
 
   afterEach(() => {
     jest.restoreAllMocks();
+  });
+
+  it('passes account trade marks to the renderer alongside custom chart components', async () => {
+    const mark = {
+      id: 'test-buy',
+      transactionHash: 'test-transaction',
+      label: 'B',
+      time: 1500,
+      text: 'Buy TOKEN',
+      color: '#0A7AFF',
+    } as const;
+    mockFetchAccountTransactionMarks.mockResolvedValue([mark]);
+    mockPoints = [{ t: 1000, o: 1, h: 2, l: 1, c: 2, v: 10 }];
+    mockDataState = { status: 'live' };
+    const context = {
+      accountAddress: 'test-account',
+      networkId: 'evm--1',
+      tokenAddress: '0xabc',
+    };
+    const referenceLine = {
+      id: 'test-reference',
+      type: 'referenceLine',
+      props: {
+        anchor: { type: 'price', price: 1 },
+        color: '#ffffff',
+        interactive: false,
+        style: 'solid',
+        title: 'Reference',
+      },
+    } as const;
+    render(
+      <TradingViewNativeContainer
+        source={{
+          kind: 'market',
+          networkId: 'evm--1',
+          tokenAddress: '0xabc',
+          symbol: 'TOKEN',
+          realtime: 'disabled',
+        }}
+        accountMarksContext={context}
+        chartComponents={[referenceLine]}
+      />,
+    );
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(mockFetchAccountTransactionMarks).toHaveBeenCalledWith(
+      expect.objectContaining({ ...context, from: 1000 }),
+    );
+    expect(mockTradingViewNativeChart.mock.calls.at(-1)?.[0]).toEqual(
+      expect.objectContaining({
+        chartComponents: [
+          referenceLine,
+          {
+            id: 'system.accountTradeMarks',
+            type: 'tradeMarks',
+            props: { marks: [mark] },
+          },
+        ],
+      }),
+    );
   });
 
   it('only shows the quick bar when opted into a mobile layout, including fullscreen', () => {
