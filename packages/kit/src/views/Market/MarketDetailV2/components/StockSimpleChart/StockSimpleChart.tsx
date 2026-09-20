@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -10,6 +10,7 @@ import {
   Stack,
   YStack,
 } from '@onekeyhq/components';
+import { useCurrency } from '@onekeyhq/kit/src/components/Currency';
 import { StockPriceLineChart } from '@onekeyhq/kit/src/components/StockPriceLineChart';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import type { IMarketPriceSource } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
@@ -17,14 +18,18 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IMarketTokenChart } from '@onekeyhq/shared/types/market';
 
 import { useStockDetail } from '../../hooks/StockDetailContext';
+import { useMarketKlineLivePrice } from '../../hooks/useMarketKlineLivePrice';
 import { useTokenDetail } from '../../hooks/useTokenDetail';
+import { resolveMarketKlineLivePriceEnabled } from '../../utils/marketKlineLivePrice';
 
 import {
   type IStockSimpleChartRange,
+  buildStockSimpleChartScopeKey,
   fetchStockSimpleChartPoints,
   mergeStockSimpleChartLivePrice,
   resolveStockSimpleChartBucketSeconds,
   resolveStockSimpleChartLivePrice,
+  resolveStockSimpleChartPollingInterval,
   resolveStockSimpleChartPreviousClose,
   resolveStockSimpleChartPulseLastPoint,
   resolveStockSimpleChartRequestScope,
@@ -58,6 +63,7 @@ export function StockSimpleChart({
   );
   const { isNative, networkId, tokenAddress, tokenDetail } = useTokenDetail();
   const { stockDetail, stockId } = useStockDetail();
+  const { id: currencyId } = useCurrency();
   const {
     coinGeckoId: requestCoinGeckoId,
     isNative: requestIsNative,
@@ -93,12 +99,41 @@ export function StockSimpleChart({
     stockDetail,
     tokenDetail,
   });
+  // This chart pins its last point to the quote above, so a quote that stops
+  // moving freezes the chart with it. Simple mode mounts no TradingView, which
+  // is what keeps that quote on the traded price everywhere else.
+  useMarketKlineLivePrice({
+    enabled: resolveMarketKlineLivePriceEnabled({
+      currencyId,
+      marketAssetId: requestMarketAssetId,
+      networkId: requestNetworkId,
+      priceMode: requestPriceMode,
+      tokenAddress: requestTokenAddress,
+    }),
+    networkId: requestNetworkId,
+    tokenAddress: requestTokenAddress,
+  });
   const intervalSeconds = resolveStockSimpleChartBucketSeconds({
     coinGeckoId: requestCoinGeckoId,
     marketAssetId: requestMarketAssetId,
     priceMode: requestPriceMode,
     range: requestRange,
   });
+
+  const scopeKey = buildStockSimpleChartScopeKey({
+    coinGeckoId: requestCoinGeckoId,
+    marketAssetId: requestMarketAssetId,
+    networkId: requestNetworkId,
+    priceMode: requestPriceMode,
+    range: requestRange,
+    stockId: requestStockId,
+    tokenAddress: requestTokenAddress,
+  });
+  // Keyed by scope so a failed refresh can fall back to the line already on
+  // screen, while a range or token switch never redraws the previous asset.
+  const lastLoadedRef = useRef<
+    { key: string; data: IMarketTokenChart } | undefined
+  >(undefined);
 
   const {
     result: chartState,
@@ -118,11 +153,18 @@ export function StockSimpleChart({
           tokenAddress: requestTokenAddress,
         });
 
+        lastLoadedRef.current = { key: scopeKey, data };
         return {
           data,
           status: 'success',
         };
       } catch (_error) {
+        // Refreshes run unattended, so a single failed one must not replace a
+        // drawn line with the error state.
+        const lastLoaded = lastLoadedRef.current;
+        if (lastLoaded?.key === scopeKey && lastLoaded.data.length) {
+          return { data: lastLoaded.data, status: 'success' };
+        }
         return { data: [], status: 'error' };
       }
     },
@@ -135,11 +177,18 @@ export function StockSimpleChart({
       requestRange,
       requestStockId,
       requestTokenAddress,
+      scopeKey,
     ],
     {
       initResult: { data: [], status: 'pending' },
       watchLoading: true,
       checkIsFocused: false,
+      // Without this the series stops at mount time and only its pinned tail
+      // moves, drawing the time since as one straight segment.
+      pollingInterval: resolveStockSimpleChartPollingInterval({
+        range: requestRange,
+      }),
+      revalidateOnReconnect: true,
     },
   );
 
@@ -158,7 +207,12 @@ export function StockSimpleChart({
   );
 
   let chartContent;
-  if (isLoading || chartState.status === 'pending') {
+  // Every polling tick re-enters the loading state, so the skeleton belongs to
+  // the first load only — a refresh keeps the current line on screen.
+  if (
+    (isLoading && !chartState.data.length) ||
+    chartState.status === 'pending'
+  ) {
     chartContent = (
       <Stack testID="stock-simple-chart-loading" width="100%" height="100%">
         <Skeleton width="100%" height="100%" />

@@ -71,6 +71,60 @@ export function resolveStockSimpleChartPulseLastPoint({
   );
 }
 
+// The line only gains a point when a bucket closes, so each range refreshes at
+// roughly its own bucket rate: polling a year of daily buckets on the 1m
+// schedule would refetch the whole window to redraw the same line. The quote
+// pinned to the tail is kept live separately, so these rates only pace how the
+// drawn history catches up.
+const STOCK_SIMPLE_CHART_POLLING_MS: Record<IStockSimpleChartRange, number> = {
+  '1H': 30_000,
+  '1D': 60_000,
+  '1W': 300_000,
+  '1M': 300_000,
+  '1Y': 600_000,
+  All: 600_000,
+};
+
+export function resolveStockSimpleChartPollingInterval({
+  range,
+}: {
+  range: IStockSimpleChartRange;
+}): number {
+  return STOCK_SIMPLE_CHART_POLLING_MS[range];
+}
+
+/**
+ * Identifies which asset and window a fetched series belongs to, so a refresh
+ * that fails can be told apart from one whose scope changed underneath it.
+ */
+export function buildStockSimpleChartScopeKey({
+  coinGeckoId,
+  marketAssetId,
+  networkId,
+  priceMode,
+  range,
+  stockId,
+  tokenAddress,
+}: {
+  coinGeckoId?: string;
+  marketAssetId?: string;
+  networkId: string;
+  priceMode: 'share' | 'token';
+  range: IStockSimpleChartRange;
+  stockId?: string;
+  tokenAddress: string;
+}): string {
+  return [
+    priceMode,
+    range,
+    networkId,
+    tokenAddress,
+    stockId ?? '',
+    marketAssetId ?? '',
+    coinGeckoId ?? '',
+  ].join('|');
+}
+
 export function resolveStockSimpleChartLivePrice({
   priceMode,
   stockDetail,

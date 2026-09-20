@@ -4,10 +4,12 @@ import type { IMarketTokenChart } from '@onekeyhq/shared/types/market';
 import {
   STOCK_SHARE_SIMPLE_CHART_RANGES,
   TOKEN_SIMPLE_CHART_RANGES,
+  buildStockSimpleChartScopeKey,
   fetchStockSimpleChartPoints,
   mergeStockSimpleChartLivePrice,
   resolveStockSimpleChartBucketSeconds,
   resolveStockSimpleChartLivePrice,
+  resolveStockSimpleChartPollingInterval,
   resolveStockSimpleChartPreviousClose,
   resolveStockSimpleChartPulseLastPoint,
   resolveStockSimpleChartRequestScope,
@@ -834,5 +836,65 @@ describe('mergeStockSimpleChartLivePrice', () => {
         points,
       }),
     ).toBe(points);
+  });
+});
+
+describe('resolveStockSimpleChartPollingInterval', () => {
+  it('refreshes fine-bucket ranges faster than coarse ones', () => {
+    const oneHour = resolveStockSimpleChartPollingInterval({ range: '1H' });
+    const oneYear = resolveStockSimpleChartPollingInterval({ range: '1Y' });
+    expect(oneHour).toBeLessThan(oneYear);
+  });
+
+  it('keeps every range on a positive schedule', () => {
+    for (const range of TOKEN_SIMPLE_CHART_RANGES) {
+      expect(resolveStockSimpleChartPollingInterval({ range })).toBeGreaterThan(
+        0,
+      );
+    }
+  });
+});
+
+describe('buildStockSimpleChartScopeKey', () => {
+  const baseScope = {
+    networkId: 'evm--4663',
+    priceMode: 'token' as const,
+    range: '1D' as const,
+    tokenAddress: '0xabc',
+  };
+
+  it('matches itself for an unchanged scope', () => {
+    expect(buildStockSimpleChartScopeKey(baseScope)).toBe(
+      buildStockSimpleChartScopeKey(baseScope),
+    );
+  });
+
+  it('separates a different range, token, network or price mode', () => {
+    const key = buildStockSimpleChartScopeKey(baseScope);
+    expect(
+      buildStockSimpleChartScopeKey({ ...baseScope, range: '1W' }),
+    ).not.toBe(key);
+    expect(
+      buildStockSimpleChartScopeKey({ ...baseScope, tokenAddress: '0xdef' }),
+    ).not.toBe(key);
+    expect(
+      buildStockSimpleChartScopeKey({ ...baseScope, networkId: 'evm--56' }),
+    ).not.toBe(key);
+    expect(
+      buildStockSimpleChartScopeKey({ ...baseScope, priceMode: 'share' }),
+    ).not.toBe(key);
+  });
+
+  it('separates series that only differ by their upstream id', () => {
+    const key = buildStockSimpleChartScopeKey(baseScope);
+    expect(
+      buildStockSimpleChartScopeKey({ ...baseScope, stockId: 'AAPL' }),
+    ).not.toBe(key);
+    expect(
+      buildStockSimpleChartScopeKey({ ...baseScope, marketAssetId: 'bitcoin' }),
+    ).not.toBe(key);
+    expect(
+      buildStockSimpleChartScopeKey({ ...baseScope, coinGeckoId: 'bitcoin' }),
+    ).not.toBe(key);
   });
 });
