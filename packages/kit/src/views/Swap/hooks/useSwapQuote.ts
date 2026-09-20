@@ -81,38 +81,6 @@ export function shouldKeepSwapQuoteAliveOnFocusLoss(routeName?: string) {
   return routeName === EModalSwapRoutes.SwapProviderSelect;
 }
 
-export function handleSwapQuoteTabVisibilityChange({
-  isFocus,
-  isHiddenModel,
-  setQuoteVisible,
-  subscribeQuoteEvents,
-  refreshPreservedInputQuote,
-  pauseQuote,
-  unsubscribeQuoteEvents,
-}: {
-  isFocus: boolean;
-  isHiddenModel: boolean;
-  setQuoteVisible: (isVisible: boolean) => void;
-  subscribeQuoteEvents: () => void;
-  refreshPreservedInputQuote: () => void;
-  pauseQuote: () => void;
-  unsubscribeQuoteEvents: () => void;
-}) {
-  const isQuoteVisible = isSwapQuoteTabEffectivelyVisible({
-    isFocus,
-    isHiddenModel,
-  });
-  setQuoteVisible(isQuoteVisible);
-  if (isQuoteVisible) {
-    subscribeQuoteEvents();
-    refreshPreservedInputQuote();
-  } else {
-    pauseQuote();
-    unsubscribeQuoteEvents();
-  }
-  return isQuoteVisible;
-}
-
 /**
  * React hook that manages fetching, updating, and synchronizing swap quotes for a decentralized exchange interface.
  *
@@ -1016,6 +984,12 @@ export function useSwapQuote({
   }, []);
 
   const tabVisibilityGenerationRef = useRef(0);
+  const isRouteMountedRef = useRef(false);
+  const keepSwapQuoteAliveForProviderPicker = useCallback(() => {
+    isQuoteVisibleRef.current = true;
+    shouldRefreshPreservedInputQuoteOnFocusRef.current = false;
+    subscribeQuoteEvents();
+  }, [subscribeQuoteEvents]);
 
   useListenTabFocusState(
     ETabRoutes.Swap,
@@ -1037,8 +1011,7 @@ export function useSwapQuote({
               return;
             }
             if (isProviderSelectRouteActive()) {
-              isQuoteVisibleRef.current = true;
-              shouldRefreshPreservedInputQuoteOnFocusRef.current = false;
+              keepSwapQuoteAliveForProviderPicker();
               return;
             }
             pauseQuoteOnFocusLoss();
@@ -1048,6 +1021,13 @@ export function useSwapQuote({
       }
     },
   );
+
+  useEffect(() => {
+    isRouteMountedRef.current = true;
+    return () => {
+      isRouteMountedRef.current = false;
+    };
+  }, []);
 
   useEffect(() => {
     let isEffectActive = true;
@@ -1061,7 +1041,7 @@ export function useSwapQuote({
             return;
           }
           if (isProviderSelectRouteActive()) {
-            subscribeQuoteEvents();
+            keepSwapQuoteAliveForProviderPicker();
             return;
           }
           pauseQuoteOnFocusLoss();
@@ -1071,7 +1051,8 @@ export function useSwapQuote({
     }
     return () => {
       isEffectActive = false;
-      if (shouldUseRouteQuoteLifecycle && !isProviderSelectRouteActive()) {
+      if (shouldUseRouteQuoteLifecycle && !isRouteMountedRef.current) {
+        pauseQuoteOnFocusLoss();
         unsubscribeQuoteEvents();
       }
     };
@@ -1079,6 +1060,7 @@ export function useSwapQuote({
     deferQuoteLifecycleAction,
     isFocused,
     isProviderSelectRouteActive,
+    keepSwapQuoteAliveForProviderPicker,
     pauseQuoteOnFocusLoss,
     refreshPreservedInputQuoteOnFocus,
     shouldUseRouteQuoteLifecycle,

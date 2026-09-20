@@ -59,7 +59,16 @@ jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms', () => ({
 
 jest.mock('../../../hooks/useListenTabFocusState', () => ({
   __esModule: true,
-  default: jest.fn(),
+  default: jest.fn((_routeName, callback) => {
+    (
+      globalThis as unknown as {
+        __swapQuoteTabFocusCallback: (
+          isFocus: boolean,
+          isHiddenModel: boolean,
+        ) => void;
+      }
+    ).__swapQuoteTabFocusCallback = callback;
+  }),
 }));
 
 jest.mock('../../../hooks/useDebounce', () => ({
@@ -91,9 +100,14 @@ jest.mock('../../../states/jotai/contexts/swap', () => {
       swapTypeSwitchAction: jest.fn(),
     },
   };
+  (
+    globalThis as unknown as {
+      __swapQuoteLifecycleActions: typeof actions;
+    }
+  ).__swapQuoteLifecycleActions = actions;
   return {
     useSwapActions: () => actions,
-    useSwapQuoteActionLockAtom: () => [{}, setter],
+    useSwapQuoteActionLockAtom: () => [{ quoteRequestId: 'quote-1' }, setter],
     useSwapTypeSwitchAtom: () => ['swap'],
     useSwapStockExecutionTokenSyncIdAtom: () => [undefined],
     useSwapSelectFromTokenAtom: () => [undefined, setter],
@@ -118,6 +132,25 @@ const routeMock = (
   }
 ).__swapQuoteGetCurrentRouteMock;
 const focusMock = jest.mocked(useRouteIsFocused);
+const getTabFocusCallback = () =>
+  (
+    globalThis as unknown as {
+      __swapQuoteTabFocusCallback: (
+        isFocus: boolean,
+        isHiddenModel: boolean,
+      ) => void;
+    }
+  ).__swapQuoteTabFocusCallback;
+const lifecycleActions = (
+  globalThis as unknown as {
+    __swapQuoteLifecycleActions: {
+      current: {
+        closeQuoteEvent: jest.Mock;
+        quoteEventHandler: jest.Mock;
+      };
+    };
+  }
+).__swapQuoteLifecycleActions;
 
 describe.each([false, true])(
   'Swap route quote lifecycle (native=%s)',
@@ -157,6 +190,24 @@ describe.each([false, true])(
       expect(quoteEventHandler).not.toHaveBeenCalled();
     });
 
+    it('cleans listeners when the provider picker route is also unmounted', () => {
+      routeMock.mockReturnValue({
+        key: 'provider-picker',
+        name: EModalSwapRoutes.SwapProviderSelect,
+      });
+      const { unmount } = renderHook(() =>
+        useSwapQuote({ isMarketEmbeddedSwap: true }),
+      );
+
+      expect(eventBus.listenerCount(EAppEventBusNames.SwapQuoteEvent)).toBe(2);
+      unmount();
+
+      expect(eventBus.listenerCount(EAppEventBusNames.SwapQuoteEvent)).toBe(0);
+      expect(
+        eventBus.listenerCount(EAppEventBusNames.SwapApprovingSuccess),
+      ).toBe(0);
+    });
+
     it('keeps receiving quotes while the provider picker blurs the swap route', () => {
       const { result, rerender } = renderHook(() => {
         useSwapQuote({ isMarketEmbeddedSwap: true });
@@ -178,7 +229,7 @@ describe.each([false, true])(
       expect(result.current).toHaveBeenCalledTimes(1);
     });
 
-    it('re-subscribes when the native provider picker route settles after focus loss', () => {
+    it('receives quotes while the native provider picker route settles after focus loss', () => {
       if (!isNative) {
         return;
       }
@@ -190,10 +241,12 @@ describe.each([false, true])(
       focusMock.mockReturnValue(false);
       rerender(undefined);
 
-      expect(eventBus.listenerCount(EAppEventBusNames.SwapQuoteEvent)).toBe(0);
+      expect(eventBus.listenerCount(EAppEventBusNames.SwapQuoteEvent)).toBe(2);
       expect(
         eventBus.listenerCount(EAppEventBusNames.SwapApprovingSuccess),
-      ).toBe(0);
+      ).toBe(1);
+      eventBus.emit(EAppEventBusNames.SwapQuoteEvent, { type: 'gap' });
+      expect(result.current).toHaveBeenCalledTimes(1);
 
       routeMock.mockReturnValue({
         key: 'provider-picker',
@@ -206,7 +259,75 @@ describe.each([false, true])(
         eventBus.listenerCount(EAppEventBusNames.SwapApprovingSuccess),
       ).toBe(1);
       eventBus.emit(EAppEventBusNames.SwapQuoteEvent, { type: 'test' });
-      expect(result.current).toHaveBeenCalledTimes(1);
+      expect(result.current).toHaveBeenCalledTimes(2);
+    });
+
+    it('pauses the quote before an unfocused route unmounts', () => {
+      if (!isNative) {
+        return;
+      }
+
+      const { unmount, rerender } = renderHook(() =>
+        useSwapQuote({ isMarketEmbeddedSwap: true }),
+      );
+      focusMock.mockReturnValue(false);
+      rerender(undefined);
+      unmount();
+      expect(lifecycleActions.current.closeQuoteEvent).toHaveBeenCalledWith(
+        'quote-1',
+      );
+      const closeCount =
+        lifecycleActions.current.closeQuoteEvent.mock.calls.length;
+      act(() => jest.runAllTimers());
+      expect(lifecycleActions.current.closeQuoteEvent).toHaveBeenCalledTimes(
+        closeCount,
+      );
+    });
+
+    it('drives tab visibility through the real focus listener', () => {
+      const { unmount } = renderHook(() =>
+        useSwapQuote({ isMarketEmbeddedSwap: false }),
+      );
+      act(() => getTabFocusCallback()(true, false));
+      expect(eventBus.listenerCount(EAppEventBusNames.SwapQuoteEvent)).toBe(2);
+
+      act(() => getTabFocusCallback()(false, true));
+      if (isNative) {
+        expect(eventBus.listenerCount(EAppEventBusNames.SwapQuoteEvent)).toBe(
+          2,
+        );
+      }
+      act(() => jest.runAllTimers());
+
+      expect(eventBus.listenerCount(EAppEventBusNames.SwapQuoteEvent)).toBe(0);
+      unmount();
+    });
+
+    it('keeps tab quotes alive for the provider picker and cancels stale hides', () => {
+      const { unmount } = renderHook(() =>
+        useSwapQuote({ isMarketEmbeddedSwap: false }),
+      );
+      act(() => getTabFocusCallback()(true, false));
+      routeMock.mockReturnValue({
+        key: 'provider-picker',
+        name: EModalSwapRoutes.SwapProviderSelect,
+      });
+      act(() => getTabFocusCallback()(false, true));
+      act(() => jest.runAllTimers());
+
+      expect(eventBus.listenerCount(EAppEventBusNames.SwapQuoteEvent)).toBe(2);
+      eventBus.emit(EAppEventBusNames.SwapQuoteEvent, { type: 'picker' });
+      expect(lifecycleActions.current.quoteEventHandler).toHaveBeenCalledTimes(
+        1,
+      );
+
+      routeMock.mockReturnValue({ key: 'swap', name: 'Swap' });
+      act(() => getTabFocusCallback()(true, false));
+      act(() => getTabFocusCallback()(false, true));
+      act(() => getTabFocusCallback()(true, false));
+      act(() => jest.runAllTimers());
+      expect(eventBus.listenerCount(EAppEventBusNames.SwapQuoteEvent)).toBe(2);
+      unmount();
     });
   },
 );
