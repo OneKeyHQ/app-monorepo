@@ -78,6 +78,20 @@ export class AppPerfScene extends BaseScene {
     return [params];
   }
 
+  // DIAGNOSTIC BRANCH ONLY: React commits, mounted fibers, weak references
+  // and timers per window. Component names and counts, nothing else.
+  @LogToLocal()
+  public diagCensus(params: Record<string, unknown>) {
+    return [params];
+  }
+
+  // DIAGNOSTIC BRANCH ONLY: one entry of a cumulative ranking per line, kept
+  // short because the native logger truncates long lines.
+  @LogToLocal()
+  public diagRanking(params: Record<string, unknown>) {
+    return [params];
+  }
+
   @LogToLocal()
   public cpuWatchdogFired(params: {
     reason:

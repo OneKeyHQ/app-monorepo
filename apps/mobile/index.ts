@@ -18,6 +18,246 @@ type IAppModule = typeof import('./App');
   }
 ).__ONEKEY_RUNTIME_KIND__ = 'main';
 
+// ── DIAGNOSTIC BRANCH ONLY: never merge ─────────────────────────────────────
+// Counters for the main-runtime GC investigation. Installed before anything
+// else loads, so the React renderer finds the hook when it initializes and
+// every WeakMap / WeakRef / timer user goes through the counting wrappers.
+// The collector reads `__ONEKEY_DIAG_CENSUS__` once per census window.
+(() => {
+  // Never under jest: these wrappers replace globals for the whole worker.
+  if (typeof process !== 'undefined' && process.env?.JEST_WORKER_ID) {
+    return;
+  }
+  /* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-argument, @typescript-eslint/unbound-method, no-extend-native, func-names */
+  const g = globalThis as any;
+  const census = {
+    commits: 0,
+    unmounts: 0,
+    roots: new Set<any>(),
+    onCommit: undefined as undefined | ((root: any) => void),
+    weakMapSets: 0,
+    weakMapNewKeys: 0,
+    weakSetAdds: 0,
+    weakRefs: 0,
+    finalizers: 0,
+    intervalsLive: new Set<any>(),
+    intervalsCreated: 0,
+    timeoutsScheduled: 0,
+    // Cumulative over the session, from 1 in WEAK_SAMPLE new WeakMap keys:
+    // who creates them.
+    weakSites: new Map<string, number>(),
+    weakSampled: 0,
+    // The worklets serializer clones whatever a worklet captures, recursively.
+    // Charged to the code that handed it the object, with how deep it went.
+    serializerSites: new Map<string, { count: number; depthSum: number }>(),
+    // Most of it runs from a microtask that has lost its caller, so also
+    // record WHAT is cloned: the shape of plain objects and arrays, and for a
+    // worklet the start of its own source code.
+    serializerShapes: new Map<string, number>(),
+  };
+  g.__ONEKEY_DIAG_CENSUS__ = census;
+  const WEAK_SAMPLE = 256;
+  const WEAK_MAX_SITES = 300;
+
+  // The production renderer reports every commit to this hook when it exists
+  // at the time the renderer module is evaluated; each call is wrapped in a
+  // try/catch on React's side.
+  if (!g.__REACT_DEVTOOLS_GLOBAL_HOOK__) {
+    g.__REACT_DEVTOOLS_GLOBAL_HOOK__ = {
+      supportsFiber: true,
+      isDisabled: false,
+      renderers: new Map(),
+      inject: () => 1,
+      onCommitFiberRoot: (_rendererId: number, root: any) => {
+        census.commits += 1;
+        census.roots.add(root);
+        census.onCommit?.(root);
+      },
+      onCommitFiberUnmount: () => {
+        census.unmounts += 1;
+      },
+      onPostCommitFiberRoot: () => undefined,
+      onScheduleFiberRoot: () => undefined,
+      checkDCE: () => undefined,
+      on: () => undefined,
+      off: () => undefined,
+      emit: () => undefined,
+      sub: () => () => undefined,
+    };
+  }
+
+  const weakMapSet = WeakMap.prototype.set;
+  const weakMapHas = WeakMap.prototype.has;
+  // Frames inside react-native-worklets' serializer; the caller of interest is
+  // whatever sits below the last of them.
+  const SERIALIZER_FRAMES = new Set([
+    'createSerializable',
+    'createShareable',
+    'createSynchronizable',
+    'makeShareable',
+    'cloneObjectProperties',
+    'clonePlainJSObject',
+    'cloneArray',
+    'cloneWorklet',
+    'cloneInitializer',
+    'cloneContextObject',
+    'cloneNonWorkletFunction',
+    'cloneHostObject',
+    'cloneTurboModuleLike',
+    'cloneMap',
+    'cloneSet',
+    'cloneCustom',
+    'cloneError',
+    'cloneImport',
+    'getFromCache',
+  ]);
+  let weakTick = 0;
+  const describeKey = (key: any): string => {
+    try {
+      if (typeof key === 'function') {
+        const code = String(key.__initData?.code ?? '')
+          .replace(/\s+/g, ' ')
+          .slice(0, 90);
+        const closure = key.__closure
+          ? Object.keys(key.__closure).slice(0, 6).join(',')
+          : '';
+        return code
+          ? `worklet{${closure}} ${code}`
+          : `function ${String(key.name || '(anonymous)')}`;
+      }
+      if (Array.isArray(key)) {
+        const first = key[0];
+        const inner =
+          first && typeof first === 'object'
+            ? `{${Object.keys(first).slice(0, 6).join(',')}}`
+            : typeof first;
+        // Bucket the length so one growing array stays one shape.
+        let size = '>=1k';
+        if (key.length < 10) size = '<10';
+        else if (key.length < 100) size = '<100';
+        else if (key.length < 1000) size = '<1k';
+        return `array[${size}] of ${inner}`;
+      }
+      return `object{${Object.keys(key).slice(0, 8).join(',')}}`;
+    } catch {
+      return '(unreadable)';
+    }
+  };
+  const frameName = (line: string) => {
+    const match = /^\s*at (.+?) \((?:.*?):(\d+):(\d+)\)\s*$/.exec(line);
+    if (!match) return '';
+    // An anonymous function is only identifiable by where it lives.
+    return match[1] === 'anonymous' ? `anonymous@${match[3]}` : match[1];
+  };
+  WeakMap.prototype.set = function (key: object, value: unknown) {
+    census.weakMapSets += 1;
+    if (!weakMapHas.call(this, key)) {
+      census.weakMapNewKeys += 1;
+      weakTick += 1;
+      if (weakTick % WEAK_SAMPLE === 0) {
+        census.weakSampled += 1;
+        const frames = String(new Error().stack ?? '')
+          .split('\n')
+          .slice(2, 102)
+          .map(frameName)
+          .filter(Boolean);
+        const site = frames.slice(0, 5).join(' < ') || '(unknown)';
+        if (
+          census.weakSites.size < WEAK_MAX_SITES ||
+          census.weakSites.has(site)
+        ) {
+          census.weakSites.set(site, (census.weakSites.get(site) ?? 0) + 1);
+        }
+        let lastSerializerFrame = -1;
+        let depth = 0;
+        for (let i = 0; i < frames.length; i += 1) {
+          if (SERIALIZER_FRAMES.has(frames[i])) {
+            lastSerializerFrame = i;
+            if (frames[i] === 'cloneObjectProperties') depth += 1;
+          }
+        }
+        if (lastSerializerFrame >= 0) {
+          const shape = describeKey(key);
+          if (
+            census.serializerShapes.size < WEAK_MAX_SITES ||
+            census.serializerShapes.has(shape)
+          ) {
+            census.serializerShapes.set(
+              shape,
+              (census.serializerShapes.get(shape) ?? 0) + 1,
+            );
+          }
+          const caller =
+            frames
+              .slice(lastSerializerFrame + 1, lastSerializerFrame + 9)
+              .join(' < ') || '(deeper than the captured stack)';
+          const entry = census.serializerSites.get(caller);
+          if (entry) {
+            entry.count += 1;
+            entry.depthSum += depth;
+          } else if (census.serializerSites.size < WEAK_MAX_SITES) {
+            census.serializerSites.set(caller, { count: 1, depthSum: depth });
+          }
+        }
+      }
+    }
+    return weakMapSet.call(this, key, value);
+  };
+  const weakSetAdd = WeakSet.prototype.add;
+  WeakSet.prototype.add = function (value: object) {
+    census.weakSetAdds += 1;
+    return weakSetAdd.call(this, value);
+  };
+  const NativeWeakRef = g.WeakRef;
+  if (typeof NativeWeakRef === 'function') {
+    const CountingWeakRef = function (this: unknown, target: object) {
+      census.weakRefs += 1;
+      return Reflect.construct(
+        NativeWeakRef,
+        [target],
+        new.target || CountingWeakRef,
+      );
+    };
+    CountingWeakRef.prototype = NativeWeakRef.prototype;
+    g.WeakRef = CountingWeakRef;
+  }
+  const NativeFinalizationRegistry = g.FinalizationRegistry;
+  if (typeof NativeFinalizationRegistry === 'function') {
+    const register = NativeFinalizationRegistry.prototype.register;
+    NativeFinalizationRegistry.prototype.register = function (
+      ...args: unknown[]
+    ) {
+      census.finalizers += 1;
+      return register.apply(this, args);
+    };
+  }
+
+  const nativeSetInterval = g.setInterval;
+  const nativeClearInterval = g.clearInterval;
+  const nativeSetTimeout = g.setTimeout;
+  if (
+    typeof nativeSetInterval === 'function' &&
+    typeof nativeClearInterval === 'function' &&
+    typeof nativeSetTimeout === 'function'
+  ) {
+    g.setInterval = (...args: unknown[]) => {
+      const id = nativeSetInterval(...args);
+      census.intervalsCreated += 1;
+      census.intervalsLive.add(id);
+      return id;
+    };
+    g.clearInterval = (id: unknown) => {
+      census.intervalsLive.delete(id);
+      return nativeClearInterval(id);
+    };
+    g.setTimeout = (...args: unknown[]) => {
+      census.timeoutsScheduled += 1;
+      return nativeSetTimeout(...args);
+    };
+  }
+  /* eslint-enable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-argument, @typescript-eslint/unbound-method, no-extend-native, func-names */
+})();
+
 require('@onekeyhq/shared/src/polyfills');
 const { markRuntimePolyfillsReady } =
   require('@onekeyhq/shared/src/polyfills/runtimeCapabilities') as typeof import('@onekeyhq/shared/src/polyfills/runtimeCapabilities');

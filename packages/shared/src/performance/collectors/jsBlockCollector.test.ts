@@ -2,6 +2,8 @@
 
 const mockRuntimeHealthCensus = jest.fn<void, [Record<string, unknown>]>();
 const mockMainInboundCensus = jest.fn<void, [Record<string, unknown>]>();
+const mockDiagCensus = jest.fn<void, [Record<string, unknown>]>();
+const mockDiagRanking = jest.fn<void, [Record<string, unknown>]>();
 jest.mock('../../logger/logger', () => ({
   defaultLogger: {
     app: {
@@ -11,6 +13,12 @@ jest.mock('../../logger/logger', () => ({
         },
         mainInboundCensus: (report: Record<string, unknown>) => {
           mockMainInboundCensus(report);
+        },
+        diagCensus: (report: Record<string, unknown>) => {
+          mockDiagCensus(report);
+        },
+        diagRanking: (report: Record<string, unknown>) => {
+          mockDiagRanking(report);
         },
       },
     },
@@ -365,5 +373,331 @@ describe('recordInboundFromBackground', () => {
       (mockMainInboundCensus.mock.calls[0][0] as { bySender: unknown[] })
         .bySender,
     ).toEqual([{ sender: 'rpc:others', count: 1, kb: 3 }]);
+  });
+});
+
+// DIAGNOSTIC BRANCH ONLY.
+describe('diag census', () => {
+  type IFakeFiber = {
+    tag: number;
+    flags: number;
+    subtreeFlags: number;
+    type: unknown;
+    alternate: IFakeFiber | null;
+    memoizedProps?: unknown;
+    child: IFakeFiber | null;
+    sibling: IFakeFiber | null;
+  };
+  type IFakeCensus = {
+    commits: number;
+    unmounts: number;
+    roots: Set<{ current: IFakeFiber | null }>;
+    onCommit?: (root: { current: IFakeFiber | null }) => void;
+    weakMapSets: number;
+    weakMapNewKeys: number;
+    weakSetAdds: number;
+    weakRefs: number;
+    finalizers: number;
+    intervalsLive: Set<unknown>;
+    intervalsCreated: number;
+    timeoutsScheduled: number;
+  };
+  type IDiagGlobal = { __ONEKEY_DIAG_CENSUS__?: IFakeCensus };
+
+  const PERFORMED_WORK = 1;
+  const previous = {} as IFakeFiber;
+
+  // A function component. `how` is what React did with it in this commit.
+  const component = (
+    name: string,
+    how: 'mounted' | 'updated' | 'skipped',
+    {
+      route,
+      children = [],
+      staleFlags = false,
+    }: { route?: string; children?: IFakeFiber[]; staleFlags?: boolean } = {},
+  ): IFakeFiber => {
+    children.forEach((child, index) => {
+      child.sibling = children[index + 1] ?? null;
+    });
+    const type = { [name]: () => null }[name];
+    return {
+      tag: 0,
+      flags: how === 'skipped' && !staleFlags ? 0 : PERFORMED_WORK,
+      subtreeFlags: children.some(
+        (child) => ((child.flags | child.subtreeFlags) & PERFORMED_WORK) !== 0,
+      )
+        ? PERFORMED_WORK
+        : 0,
+      type,
+      alternate: how === 'mounted' ? null : previous,
+      memoizedProps: route ? { route: { name: route } } : {},
+      child: children[0] ?? null,
+      sibling: null,
+    };
+  };
+
+  let now = 0;
+  let nowSpy: jest.SpyInstance;
+  let census: IFakeCensus;
+
+  const commit = (tree: IFakeFiber) => {
+    const root = {
+      current: { ...component('HostRoot', 'skipped'), tag: 3, child: tree },
+    };
+    root.current.subtreeFlags = PERFORMED_WORK;
+    census.commits += 1;
+    census.roots.add(root);
+    census.onCommit?.(root);
+  };
+  const flushWindow = () => {
+    for (let elapsed = 0; elapsed < 30_000; elapsed += 100) {
+      now += 100;
+      jest.advanceTimersByTime(100);
+    }
+  };
+  const ranking = (list: string, window?: number): Record<string, number> => {
+    const counts: Record<string, number> = {};
+    mockDiagRanking.mock.calls.forEach(([row]) => {
+      if (
+        row.list === list &&
+        (window === undefined || row.window === window)
+      ) {
+        counts[String(row.name)] = Number(row.count);
+      }
+    });
+    return counts;
+  };
+  const lastLine = () => mockDiagCensus.mock.calls.at(-1)?.[0] ?? {};
+
+  beforeEach(() => {
+    jest.useFakeTimers();
+    now = 0;
+    nowSpy = jest.spyOn(performance, 'now').mockImplementation(() => now);
+    mockDiagCensus.mockClear();
+    mockDiagRanking.mockClear();
+    census = {
+      commits: 0,
+      unmounts: 0,
+      roots: new Set(),
+      weakMapSets: 0,
+      weakMapNewKeys: 0,
+      weakSetAdds: 0,
+      weakRefs: 0,
+      finalizers: 0,
+      intervalsLive: new Set(),
+      intervalsCreated: 0,
+      timeoutsScheduled: 0,
+    };
+    (globalThis as IDiagGlobal).__ONEKEY_DIAG_CENSUS__ = census;
+    startRuntimeHealthCensus();
+  });
+
+  afterEach(() => {
+    stopRuntimeHealthCensus();
+    delete (globalThis as IDiagGlobal).__ONEKEY_DIAG_CENSUS__;
+    nowSpy.mockRestore();
+    jest.useRealTimers();
+  });
+
+  it('tells opening a screen from re-rendering what is already there', () => {
+    commit(
+      component('Container', 'updated', {
+        children: [
+          component('Navigator', 'updated', {
+            children: [
+              component('SceneView', 'mounted', {
+                route: 'MarketDetail',
+                children: [
+                  component('Header', 'mounted'),
+                  component('Chart', 'mounted'),
+                ],
+              }),
+            ],
+          }),
+        ],
+      }),
+    );
+    flushWindow();
+
+    expect(lastLine()).toMatchObject({
+      commits: 1,
+      commitsWalked: 1,
+      commitsSkipped: 0,
+      updateRenders: 2,
+      mountRenders: 3,
+    });
+    expect(ranking('updateRoots')).toEqual({ Container: 2 });
+    expect(ranking('mountRoots')).toEqual({ 'screen:MarketDetail': 3 });
+  });
+
+  it('charges an update to the screen it happens in, however deep', () => {
+    commit(
+      component('Navigator', 'skipped', {
+        children: [
+          component('SceneView', 'skipped', {
+            route: 'Home',
+            children: [component('HomePage', 'skipped')],
+          }),
+          component('SceneView', 'skipped', {
+            route: 'Swap',
+            children: [
+              component('SwapMainLoad', 'updated', {
+                children: [
+                  component('SwapPanel', 'updated'),
+                  component('SwapHistory', 'updated'),
+                ],
+              }),
+            ],
+          }),
+        ],
+      }),
+    );
+    flushWindow();
+
+    expect(ranking('updateRoutes')).toEqual({ Swap: 3 });
+    expect(ranking('updateRoots')).toEqual({ SwapMainLoad: 3 });
+    expect(lastLine()).toMatchObject({ updateRenders: 3, mountRenders: 0 });
+  });
+
+  it('names the screen when something mounts inside one that is already there', () => {
+    commit(
+      component('SceneView', 'updated', {
+        route: 'Home',
+        children: [
+          component('TokenList', 'updated', {
+            children: [
+              component('TokenRow', 'mounted', {
+                children: [component('TokenIcon', 'mounted')],
+              }),
+            ],
+          }),
+        ],
+      }),
+    );
+    flushWindow();
+
+    expect(ranking('mountRoots')).toEqual({ 'Home » TokenRow': 2 });
+    expect(ranking('updateRoots')).toEqual({ SceneView: 2 });
+  });
+
+  it('gives siblings their own roots', () => {
+    commit(
+      component('Providers', 'skipped', {
+        children: [
+          component('ThemeProvider', 'updated', {
+            children: [component('ThemedText', 'updated')],
+          }),
+          component('BannerProvider', 'updated'),
+        ],
+      }),
+    );
+    flushWindow();
+
+    expect(ranking('updateRoots')).toEqual({
+      ThemeProvider: 2,
+      BannerProvider: 1,
+    });
+  });
+
+  it('ignores the stale flags of a subtree React bailed out of', () => {
+    const staleChild = component('RenderedLastTime', 'skipped', {
+      staleFlags: true,
+    });
+    const bailedOut = component('Memoized', 'skipped', {
+      children: [staleChild],
+    });
+    // React clears subtreeFlags on the fiber it bails out of, not below it.
+    bailedOut.subtreeFlags = 0;
+    commit(
+      component('Parent', 'updated', {
+        children: [bailedOut, component('Live', 'updated')],
+      }),
+    );
+    flushWindow();
+
+    expect(lastLine()).toMatchObject({ updateRenders: 2 });
+    expect(ranking('rendered')).toEqual({ Parent: 1, Live: 1 });
+  });
+
+  it('labels an anonymous root with its nearest named ancestor', () => {
+    const anonymous = component('ignored', 'updated');
+    anonymous.type = () => null;
+    commit(component('Screen', 'skipped', { children: [anonymous] }));
+    flushWindow();
+
+    expect(ranking('updateRoots')).toEqual({ 'Screen > (anonymous)': 1 });
+  });
+
+  it('keeps running totals a script can be compared on, and starts each window from zero', () => {
+    const baseline = Number(lastLine().totalUpdateRenders ?? 0);
+    commit(component('A', 'updated'));
+    commit(component('B', 'mounted'));
+    census.weakMapNewKeys = 40;
+    census.unmounts = 7;
+    flushWindow();
+    const first = lastLine();
+    const totalsBefore = {
+      updates: Number(first.totalUpdateRenders),
+      mounts: Number(first.totalMountRenders),
+      keys: Number(first.totalWeakMapNewKeys),
+      unmounts: Number(first.totalUnmounts),
+      commits: Number(first.totalCommits),
+    };
+    expect(first).toMatchObject({
+      commits: 2,
+      updateRenders: 1,
+      mountRenders: 1,
+    });
+    expect(totalsBefore.updates).toBeGreaterThanOrEqual(baseline + 1);
+
+    commit(component('A', 'updated'));
+    census.weakMapNewKeys = 2;
+    flushWindow();
+    const second = lastLine();
+
+    expect(second).toMatchObject({
+      commits: 1,
+      updateRenders: 1,
+      mountRenders: 0,
+      weakMapNewKeys: 2,
+      unmounts: 0,
+      totalUpdateRenders: totalsBefore.updates + 1,
+      totalMountRenders: totalsBefore.mounts,
+      totalWeakMapNewKeys: totalsBefore.keys + 2,
+      totalUnmounts: totalsBefore.unmounts,
+      totalCommits: totalsBefore.commits + 1,
+    });
+    expect(ranking('updateRoots', Number(second.window))).toEqual({ A: 1 });
+  });
+
+  it('stops walking once a window has spent its budget, and says so', () => {
+    // Every clock read moves time on: one walk costs a second here.
+    nowSpy.mockImplementation(() => {
+      now += 1000;
+      return now;
+    });
+    for (let index = 0; index < 5; index += 1) {
+      commit(component('Busy', 'updated'));
+    }
+    nowSpy.mockImplementation(() => now);
+    flushWindow();
+
+    expect(lastLine()).toMatchObject({
+      commits: 5,
+      commitsWalked: 3,
+      commitsSkipped: 2,
+      updateRenders: 3,
+    });
+  });
+
+  it('says nothing without the entry probe', () => {
+    stopRuntimeHealthCensus();
+    delete (globalThis as IDiagGlobal).__ONEKEY_DIAG_CENSUS__;
+    mockDiagCensus.mockClear();
+    startRuntimeHealthCensus();
+    flushWindow();
+
+    expect(mockDiagCensus).not.toHaveBeenCalled();
   });
 });
