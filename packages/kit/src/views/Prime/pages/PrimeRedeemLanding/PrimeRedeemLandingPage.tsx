@@ -28,10 +28,6 @@ import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKey
 import { useAppRoute } from '@onekeyhq/kit/src/hooks/useAppRoute';
 import { LayoutHeaderLanguageSelector } from '@onekeyhq/kit/src/views/Onboardingv2/components/Layout';
 import { DOWNLOAD_URL } from '@onekeyhq/shared/src/config/appConfig';
-import {
-  EAppEventBusNames,
-  appEventBus,
-} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -39,6 +35,11 @@ import {
   type ETabHomeRoutes as ETabHomeRoutesType,
   type ITabHomeParamList,
 } from '@onekeyhq/shared/src/routes';
+import {
+  createHideTabBarOwnerId,
+  releaseHideTabBar,
+  requestHideTabBar,
+} from '@onekeyhq/shared/src/tabBar/hideTabBarRequests';
 import {
   getBoundOAuthProviders,
   getOneKeyIdOAuthProviderIcon,
@@ -549,9 +550,10 @@ function PrimeRedeemLandingPage() {
       if (!platformEnv.isWeb) {
         return undefined;
       }
-      appEventBus.emit(EAppEventBusNames.HideTabBar, true);
+      const ownerId = createHideTabBarOwnerId('prime-redeem-landing');
+      requestHideTabBar(ownerId);
       return () => {
-        appEventBus.emit(EAppEventBusNames.HideTabBar, false);
+        releaseHideTabBar(ownerId);
       };
     }, []),
   );
