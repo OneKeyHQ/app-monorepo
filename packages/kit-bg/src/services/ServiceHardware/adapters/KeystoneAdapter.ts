@@ -8,7 +8,6 @@ import {
   EThirdPartyHardwareUiAction,
   type IThirdPartyHardwareUiState,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import {
   EHardwareVendor,
@@ -33,40 +32,22 @@ type IQrDisplayEvent = {
   };
 };
 
-type IKeystoneLifecycleHw = IHardwareWallet & {
-  connectDevice(searchTargetId: string): Promise<Response<string>>;
-  searchDeviceTargets?: (
-    options?: IThirdPartyHardwareSearchOptions,
-  ) => Promise<IThirdPartyHardwareSearchTarget[]>;
-  listConnectionTargets?: (
-    options?: IThirdPartyHardwareSearchOptions,
-  ) => Promise<
-    Array<
-      Omit<IThirdPartyHardwareSearchTarget, 'searchTargetId'> & {
-        targetId: string;
-      }
-    >
-  >;
-  releaseOperation(operationId: string): Promise<void>;
-};
-
 function toConnectedDevicePayload(
   info: DeviceInfo,
-  fallbackConnectId: string,
   operationId: string,
 ): IThirdPartyConnectedDevicePayload | undefined {
-  if (!info.deviceId) return undefined;
+  if (!info.deviceId || !info.connectId) return undefined;
   return {
     operationId,
-    connectId: info.connectId || fallbackConnectId,
+    connectId: info.connectId,
     deviceId: info.deviceId,
     model: info.model,
-    modelName: (info as DeviceInfo & { modelName?: string }).modelName,
+    modelName: info.modelName,
     label: info.label,
     firmwareVersion: info.firmwareVersion,
     connectionType: info.connectionType,
     capabilities: info.capabilities,
-    raw: (info as DeviceInfo & { raw?: Record<string, unknown> }).raw || {},
+    raw: info.raw || {},
   };
 }
 
@@ -187,13 +168,7 @@ export class KeystoneAdapter
     options?: IThirdPartyHardwareSearchOptions,
   ): Promise<DeviceInfo[]> {
     defaultLogger.hardware.sdkLog.log('[3rdPartyHW][Keystone] searchDevices');
-    return (
-      this.hw as IHardwareWallet & {
-        searchDevices(
-          options?: IThirdPartyHardwareSearchOptions,
-        ): Promise<DeviceInfo[]>;
-      }
-    ).searchDevices(options);
+    return this.hw.searchDevices(options);
   }
 
   async searchDeviceTargets(
@@ -202,23 +177,9 @@ export class KeystoneAdapter
     defaultLogger.hardware.sdkLog.log(
       '[3rdPartyHW][Keystone] searchDeviceTargets',
     );
-    const lifecycleHw = this.hw as IKeystoneLifecycleHw;
-    if (lifecycleHw.searchDeviceTargets) {
-      const targets = await lifecycleHw.searchDeviceTargets(options);
-      return targets.map((target) => ({
-        ...target,
-        vendor: EHardwareVendor.keystone,
-      }));
-    }
-    if (!lifecycleHw.listConnectionTargets) {
-      throw new OneKeyLocalError({
-        message: 'Keystone SDK does not support searchDeviceTargets',
-      });
-    }
-    const targets = await lifecycleHw.listConnectionTargets(options);
+    const targets = await this.hw.searchDeviceTargets(options);
     return targets.map((target) => ({
       ...target,
-      searchTargetId: target.targetId,
       vendor: EHardwareVendor.keystone,
     }));
   }
@@ -253,9 +214,7 @@ export class KeystoneAdapter
   ): Promise<Response<IThirdPartyConnectedDevicePayload>> {
     this.activeOperationId = undefined;
     defaultLogger.hardware.sdkLog.log('[3rdPartyHW][Keystone] connectDevice');
-    const connected = await (this.hw as IKeystoneLifecycleHw).connectDevice(
-      searchTargetId,
-    );
+    const connected = await this.hw.connectDevice(searchTargetId);
     if (!connected.success) {
       return { success: false, payload: connected.payload };
     }
@@ -263,20 +222,12 @@ export class KeystoneAdapter
     this.activeOperationId = operationId;
     const info = await this.hw.getDeviceInfo(operationId, '');
     if (!info.success) {
-      await (this.hw as IKeystoneLifecycleHw)
-        .releaseOperation(operationId)
-        .catch(() => undefined);
+      await this.hw.releaseOperation(operationId).catch(() => undefined);
       return { success: false, payload: info.payload };
     }
-    const device = toConnectedDevicePayload(
-      info.payload,
-      searchTargetId,
-      operationId,
-    );
+    const device = toConnectedDevicePayload(info.payload, operationId);
     if (!device) {
-      await (this.hw as IKeystoneLifecycleHw)
-        .releaseOperation(operationId)
-        .catch(() => undefined);
+      await this.hw.releaseOperation(operationId).catch(() => undefined);
       return {
         success: false,
         payload: {
@@ -296,7 +247,7 @@ export class KeystoneAdapter
     defaultLogger.hardware.sdkLog.log(
       '[3rdPartyHW][Keystone] releaseOperation',
     );
-    await (this.hw as IKeystoneLifecycleHw).releaseOperation(operationId);
+    await this.hw.releaseOperation(operationId);
     this.emitConnectionStateChange({ type: 'disconnected', operationId });
   }
 
