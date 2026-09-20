@@ -1,6 +1,7 @@
 import { useCallback, useMemo } from 'react';
 
 import { EDeviceType } from '@onekeyfe/hd-shared';
+import { useNavigationState } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 
 import {
@@ -32,6 +33,7 @@ import {
   LayoutHeaderBack,
   LayoutHeaderLanguageSelector,
   LayoutHeaderTitle,
+  OnboardingNativeHeaderBack,
 } from '../components/Layout';
 import { showLegacyDevicesDialog } from '../components/LegacyDevicesDialog';
 import { showOtherDevicesDialog } from '../components/OtherDevicesDialog';
@@ -109,6 +111,11 @@ export default function PickYourDevice() {
   const bodyTopInset = useNativeHeader ? glassTopInset : undefined;
   const renderHeaderLanguage = useCallback(
     () => <LayoutHeaderLanguageSelector />,
+    [],
+  );
+  const isFirstScreen = useNavigationState((state) => state.index) === 0;
+  const renderHeaderBack = useCallback(
+    () => <OnboardingNativeHeaderBack exit />,
     [],
   );
   const pickTitle = intl.formatMessage({ id: ETranslations.pick_your_device });
@@ -315,10 +322,14 @@ export default function PickYourDevice() {
       {useNativeHeader ? (
         // Deeper onboarding screen: the navigator supplies the native system
         // back (chevron); we only host the centered title + glass language
-        // switcher in the native bar.
+        // switcher in the native bar. Opened on its own (Device Management's
+        // "add device" resets straight to this screen), the stack has no
+        // history and so no system back — the shell supplies the exit cross,
+        // as on the first onboarding screen: leaving here leaves onboarding.
         <Page.Header
           headerTitleAlign="center"
           headerTitle={pickTitle}
+          headerLeft={isFirstScreen ? renderHeaderBack : undefined}
           headerRight={renderHeaderLanguage}
         />
       ) : (

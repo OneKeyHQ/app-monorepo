@@ -599,6 +599,41 @@ Cases are appended by AI after each bug fix. Do NOT reorder or delete entries �
 **Fix**: Resolve Others EVM addresses from the stored account; fetch rebate by that address; map no-wallet / no-EVM empty state to Perps `InviteeRewardNoWallet`. Binding stays HD/HW-only.
 **Catchable by**: Section 4: shared hook/utility modified → checked all consumers; NEW — a viewing surface must not reuse a bind-only wallet-identity gate
 
+## Case: Market detail search omitted stock listings
+**Date**: 2026-09-20 | **Platforms**: Desktop, Mobile, Web, Extension
+**Symptom**: Searching AAPL from Market detail returned tokenized chain assets such as AAPLx, but not the aggregated AAPL stock listing shown by universal search.
+**Root Cause**: Both detail token selectors only called the V2 market-token search path; the stock selector hook already supported `/utility/v1/stocks/search` but was unmounted whenever a search query was present.
+**Fix**: Run stock and market-token search independently, render separate Stocks and Market sections, and preserve `stockId` navigation separately from chain `network + address` navigation.
+**Catchable by**: Section 4: Data flow end-to-end API → state → UI; NEW — every product search entry must wire all product identity APIs that its result UI promises
+
+## Case: Reselecting the current stock cleared its chart
+**Date**: 2026-09-20 | **Platforms**: Desktop, Web
+**Symptom**: OK-63786. Selecting the stock already open in Market detail left the page on the same symbol but removed its K-line.
+**Root Cause**: Stock rows do not carry a resolved token variant, so same-stock navigation called `prepareStockTokenDetail` with an empty identity. That cleared the loaded token state, while the unchanged route identity did not restart the detail request.
+**Fix**: Preserve the loaded token state when a retained desktop/web stock route reselects the same `stockId` without an explicit variant, while still applying the route parameter update.
+**Catchable by**: Section 4: state data flow end-to-end; NEW — idempotent same-identity navigation must not clear state whose refetch key remains unchanged
+
+## Case: Mobile stock selector could not identify the detail behind its modal
+**Date**: 2026-09-20 | **Platforms**: Mobile
+**Symptom**: OK-63786 follow-up. Reselecting the currently displayed stock from the mobile selector still cleared the K-line.
+**Root Cause**: The same-stock guard read `useRoute()` from the selector modal, so it never saw the `MarketStockDetail` route and `stockId` underneath the overlay.
+**Fix**: Resolve the active stock identity from the nested Market/Discovery stack in the root navigation state before deciding whether to preserve loaded token detail.
+**Catchable by**: Section 4: logic moved between scopes carries its surrounding context; NEW — modal actions that mutate background-page state must derive identity from the owning stack, not the modal route
+
+## Case: Grouped Market stock search stopped after its first page
+**Date**: 2026-09-20 | **Platforms**: Desktop, Mobile, Web, Extension
+**Symptom**: Market detail search exposed only the first 20 matching stock listings even when the API returned another cursor.
+**Root Cause**: The grouped search result components consumed the stock hook's first-page items but ignored `canLoadMore`, `loadMore`, and load-more error state.
+**Fix**: Add progressive Show more pagination to expanded Stocks results on desktop and mobile, including loading feedback and retry after a failed page.
+**Catchable by**: Section 4: data flow end-to-end API → state → UI; NEW — every paginated hook consumer must wire the cursor, loading, and retry outputs or explicitly document a result cap
+
+## Case: Whitespace Market search showed the default stock list
+**Date**: 2026-09-20 | **Platforms**: Desktop, Mobile, Web, Extension
+**Symptom**: Typing only spaces in Market detail search hid the category tabs and rendered the unfiltered stock list as search results.
+**Root Cause**: Search mode used a truthy debounce string, so `"   "` entered grouped search. The stock hook then trimmed the query to empty and called the default list endpoint.
+**Fix**: Gate search mode on the trimmed query, and pass `searchOnly` so grouped search never hydrates the default stock list.
+**Catchable by**: Section 4: empty vs loaded data; NEW — a search surface that reuses a list hook must distinguish "no query" from "unfiltered browse"
+
 ## Case: Simple mode chart froze because it had no live price source at all
 **Date**: 2026-09-20 | **Platforms**: Desktop, Web, Extension (wide layout only; Simple mode never mounts on native)
 **Symptom**: OK-63597 reopened. On the market detail page the price and the K-line looked stuck and drifted ~0.6-1% from third-party quotes, minutes at a time. Pro mode on the same token stayed live. The earlier fix had aligned chart and header, so they now looked stale together instead of disagreeing.

@@ -159,6 +159,17 @@ it('loads selector pages and appends unique stocks', async () => {
   expect(result.current.canLoadMore).toBe(false);
 });
 
+it('does not load the default stock list for whitespace search-only queries', async () => {
+  const { result } = renderHook(() =>
+    useMarketStockSelectorList({ query: '  ', searchOnly: true }),
+  );
+
+  await waitFor(() => expect(result.current.isLoading).toBe(false));
+  expect(result.current.items).toEqual([]);
+  expect(fetchList).not.toHaveBeenCalled();
+  expect(searchStocks).not.toHaveBeenCalled();
+});
+
 it('passes the normalized query and cursor to search pages', async () => {
   searchStocks.mockImplementation(async (params) =>
     params.cursor ? secondPage : firstPage,
