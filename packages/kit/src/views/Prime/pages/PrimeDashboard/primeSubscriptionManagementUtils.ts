@@ -1,4 +1,5 @@
 /* cspell:ignore Infini infini */
+import { APPLE_SUBSCRIPTION_MANAGEMENT_URL } from '@onekeyhq/shared/src/consts/primeConsts';
 import type {
   IPrimeSubscriptionInfo,
   IPrimeUserInfo,
@@ -76,8 +77,10 @@ export function getPrimeSubscriptionManagementTarget({
   let hasChannel = false;
   let hasRevenueCat = false;
   let managementUrl: string | undefined;
+  let appleManagementUrl: string | undefined;
   for (const subscription of userInfo.primeSubscription?.subscriptions ?? []) {
     const channel = subscription.channel?.trim().toLowerCase();
+    const url = subscription.managementUrl?.trim();
     if (channel === 'infini') {
       return { type: 'infini' };
     }
@@ -87,11 +90,14 @@ export function getPrimeSubscriptionManagementTarget({
         hasRevenueCat = true;
       }
       if (!managementUrl && channel !== 'redemption') {
-        const url = subscription.managementUrl?.trim();
         if (url) {
           managementUrl = url;
         }
       }
+    } else if (url === APPLE_SUBSCRIPTION_MANAGEMENT_URL) {
+      // Apple records may omit the channel. Only recognize the canonical
+      // store URL so legacy Infini marketing URLs still use their own flow.
+      appleManagementUrl = url;
     }
   }
 
@@ -108,6 +114,10 @@ export function getPrimeSubscriptionManagementTarget({
       type: 'external',
       url: revenueCatManagementUrl,
     };
+  }
+
+  if (appleManagementUrl) {
+    return { type: 'external', url: appleManagementUrl };
   }
 
   return {

@@ -6,6 +6,89 @@ import {
 } from './primeSubscriptionManagementUtils';
 
 describe('primeSubscriptionManagementUtils', () => {
+  it.each([undefined, '', ' '])(
+    'recognizes the canonical Apple management URL with channel %s',
+    (channel) => {
+      expect(
+        getPrimeSubscriptionManagementTarget({
+          userInfo: {
+            primeSubscription: {
+              isActive: true,
+              expiresAt: Date.now() + 60_000,
+              subscriptions: [
+                {
+                  channel,
+                  managementUrl:
+                    ' https://apps.apple.com/account/subscriptions ',
+                },
+              ],
+            },
+          },
+        }),
+      ).toEqual({
+        type: 'external',
+        url: 'https://apps.apple.com/account/subscriptions',
+      });
+    },
+  );
+
+  it.each([
+    'https://apps.apple.com.example.com/account/subscriptions',
+    'https://apps.apple.com@other.example.com/account/subscriptions',
+    'https://apps.apple.com/account/subscriptions?redirect=example.com',
+    'http://apps.apple.com/account/subscriptions',
+  ])('does not infer an Apple subscription from %s', (managementUrl) => {
+    expect(
+      getPrimeSubscriptionManagementTarget({
+        userInfo: {
+          primeSubscription: {
+            isActive: true,
+            expiresAt: Date.now() + 60_000,
+            subscriptions: [{ managementUrl }],
+          },
+        },
+      }),
+    ).toEqual({
+      type: 'unavailable',
+      reason: 'missing-channel-and-management-url',
+    });
+  });
+
+  it('does not infer an Apple subscription from a stale aggregate URL', () => {
+    expect(
+      getPrimeSubscriptionManagementTarget({
+        userInfo: {
+          primeSubscription: {
+            isActive: true,
+            expiresAt: Date.now() + 60_000,
+            subscriptions: [{ channel: 'redemption' }],
+          },
+          subscriptionManageUrl: 'https://apps.apple.com/account/subscriptions',
+        },
+      }),
+    ).toEqual({
+      type: 'unavailable',
+      reason: 'channel-without-management-url',
+    });
+  });
+
+  it('prefers a later Infini record over a channel-less Apple record', () => {
+    expect(
+      getPrimeSubscriptionManagementTarget({
+        userInfo: {
+          primeSubscription: {
+            isActive: true,
+            expiresAt: Date.now() + 60_000,
+            subscriptions: [
+              { managementUrl: 'https://apps.apple.com/account/subscriptions' },
+              { channel: 'infini', managementUrl: 'https://onekey.so/invite' },
+            ],
+          },
+        },
+      }),
+    ).toEqual({ type: 'infini' });
+  });
+
   it('routes Infini to the in-app management page and ignores its marketing URL', () => {
     expect(
       getPrimeSubscriptionManagementTarget({

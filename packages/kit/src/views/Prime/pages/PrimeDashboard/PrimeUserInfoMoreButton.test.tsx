@@ -305,6 +305,7 @@ describe('PrimeUserInfoMoreButton manage subscription', () => {
     jest.clearAllMocks();
     mockPlatformEnv.isNative = false;
     mockPlatformEnv.isNativeIOS = false;
+    mockPlatformEnv.isMas = false;
     mockUser.primeSubscription = {
       isActive: true,
       subscriptions: [{ channel: 'redemption' }],
@@ -313,6 +314,28 @@ describe('PrimeUserInfoMoreButton manage subscription', () => {
     mockManagementResolution = undefined;
     mockPromiseResultMethod = undefined;
     mockGetCustomerInfo.mockReset();
+  });
+
+  it('opens Apple subscription management on MAS when the server omits the channel', () => {
+    mockPlatformEnv.isMas = true;
+    mockUser.primeSubscription = {
+      isActive: true,
+      subscriptions: [
+        {
+          managementUrl: 'https://apps.apple.com/account/subscriptions',
+        },
+      ],
+    };
+    render(<PrimeUserInfoMoreButton />);
+
+    fireEvent.click(
+      screen.getByTestId(PrimeTestIDs.manageSubscriptionMenuItem),
+    );
+
+    expect(mockOpenUrlExternal).toHaveBeenCalledWith(
+      'https://apps.apple.com/account/subscriptions',
+    );
+    expect(mockToastMessage).not.toHaveBeenCalled();
   });
 
   it('shows the entry and explains when only a redemption subscription exists', () => {

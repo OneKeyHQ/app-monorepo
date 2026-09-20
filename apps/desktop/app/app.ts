@@ -75,6 +75,7 @@ import {
   applyDesktopNetworkThrottleToKnownSessions,
   applyDesktopNetworkThrottleToWebContents,
 } from './libs/networkThrottle';
+import { openExternalUrl } from './libs/openExternalUrl';
 // Side-effect import: registers synchronous IPC handler for renderer MMKV access
 // eslint-disable-next-line import-js/order
 import './libs/react-native-mmkv-desktop-main';
@@ -1022,24 +1023,8 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
     isAppReady = true;
   });
 
-  // Gate shell.openExternal behind a protocol whitelist so a tainted main
-  // renderer (XSS) cannot weaponize window.open() into phishing redirects
-  // via javascript:/file:/data: URIs. Only https:// (and mailto:) are
-  // forwarded to the OS browser. See SlowMist audit Desktop-14.
   browserWindow.webContents.setWindowOpenHandler(({ url }) => {
-    try {
-      const parsed = new URL(url);
-      if (parsed.protocol !== 'https:' && parsed.protocol !== 'mailto:') {
-        logger.warn(
-          '[setWindowOpenHandler] blocked non-https url:',
-          parsed.protocol,
-        );
-        return { action: 'deny' };
-      }
-      void shell.openExternal(url);
-    } catch {
-      logger.warn('[setWindowOpenHandler] blocked malformed url');
-    }
+    void openExternalUrl(url);
     return { action: 'deny' };
   });
 
