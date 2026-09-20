@@ -35,13 +35,13 @@ export const shortcutsMap: Record<
   EShortcutEvents,
   { keys: string[]; desc: string }
 > = {
-  // Disable account selector in development to avoid the Chrome DevTools Cmd/Ctrl+P shortcut.
+  // Disable shortcuts in development environment to avoid conflicts with Chrome DevTools default shortcuts (Cmd/Ctrl+F and Cmd/Ctrl+P)
   [EShortcutEvents.UniversalSearch]: {
     keys: [shortcutsKeys.CmdOrCtrl, 'K'],
     desc: 'Universal Search',
   },
   [EShortcutEvents.SearchInPage]: {
-    keys: [shortcutsKeys.CmdOrCtrl, 'F'],
+    keys: platformEnv.isDev ? [] : [shortcutsKeys.CmdOrCtrl, 'F'],
     desc: 'Search in Page',
   },
   [EShortcutEvents.AccountSelector]: {
