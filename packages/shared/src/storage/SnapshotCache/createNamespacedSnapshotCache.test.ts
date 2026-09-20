@@ -25,7 +25,6 @@ const describeIfIndexedDB = hasIndexedDB ? describe : describe.skip;
 function makeCache(namespace: string) {
   return createNamespacedSnapshotCache<number>({
     namespace: namespace as ISnapshotCacheNamespace,
-    keyPrefix: `${namespace}:`,
     maxAgeMs: 60_000,
     maxEntries: 2,
   });

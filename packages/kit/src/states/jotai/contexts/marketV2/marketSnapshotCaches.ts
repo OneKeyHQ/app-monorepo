@@ -1,8 +1,4 @@
 import { createNamespacedSnapshotCache } from '@onekeyhq/shared/src/storage/SnapshotCache';
-import {
-  prefixOf,
-  swrCacheNamespaces,
-} from '@onekeyhq/shared/src/utils/swrCacheUtils';
 import type {
   IMarketPerpsInfo,
   IMarketTokenDetail,
@@ -26,14 +22,14 @@ const TOKEN_DETAIL_MAX_ENTRIES = 30;
  * Detail payloads for the market detail page, keyed by network, address,
  * currency and locale.
  *
- * On native this is its own MMKV file: browsing many tokens cannot push other
- * features out of the shared cold-start budget, and nothing is loaded at
- * startup because a read names its key.
+ * On native this is its own MMKV file, and on web its own key space in the
+ * shared snapshot database: browsing many tokens cannot push other features
+ * out of the shared cold-start budget, and nothing is loaded at startup
+ * because a read names its key.
  */
 export const marketTokenDetailSnapshotCache =
   createNamespacedSnapshotCache<IMarketTokenDetailSnapshot>({
     namespace: 'market-token-detail',
-    keyPrefix: prefixOf(swrCacheNamespaces.marketTokenDetail),
     maxAgeMs: TOKEN_DETAIL_MAX_AGE_MS,
     maxEntries: TOKEN_DETAIL_MAX_ENTRIES,
   });

@@ -54,7 +54,6 @@ describe('createNamespacedSnapshotCache (native)', () => {
   it('costs nothing until the namespace is actually used', () => {
     createNamespacedSnapshotCache<number>({
       namespace: 'market-token-detail',
-      keyPrefix: 'marketTokenDetail:',
       maxAgeMs: 1000,
       maxEntries: 2,
     });
@@ -64,7 +63,6 @@ describe('createNamespacedSnapshotCache (native)', () => {
   it('gives the namespace its own file and applies its retention', () => {
     const cache = createNamespacedSnapshotCache<number>({
       namespace: 'market-token-detail',
-      keyPrefix: 'marketTokenDetail:',
       maxAgeMs: 60_000,
       maxEntries: 2,
     });
@@ -90,7 +88,6 @@ describe('createNamespacedSnapshotCache (native)', () => {
     try {
       const cache = createNamespacedSnapshotCache<number>({
         namespace: 'market-token-detail',
-        keyPrefix: 'marketTokenDetail:',
         maxAgeMs: 60_000,
         maxEntries: 10,
       });
@@ -107,7 +104,6 @@ describe('createNamespacedSnapshotCache (native)', () => {
   it('holds nothing while Travel Mode is masking, and drops what the last launch left', () => {
     const real = createNamespacedSnapshotCache<number>({
       namespace: 'market-token-detail',
-      keyPrefix: 'marketTokenDetail:',
       maxAgeMs: 60_000,
       maxEntries: 10,
     });
@@ -117,7 +113,6 @@ describe('createNamespacedSnapshotCache (native)', () => {
     travelModeMasking = true;
     const masked = createNamespacedSnapshotCache<number>({
       namespace: 'market-token-detail',
-      keyPrefix: 'marketTokenDetail:',
       maxAgeMs: 60_000,
       maxEntries: 10,
     });

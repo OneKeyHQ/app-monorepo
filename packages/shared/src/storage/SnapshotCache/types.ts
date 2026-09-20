@@ -7,11 +7,6 @@ export type INamespacedSnapshotCacheConfig = {
    * inside the shared UI snapshot database.
    */
   namespace: ISnapshotCacheNamespace;
-  /**
-   * Web / desktop: the shared store is keyed by the caller's SWR keys, so
-   * clearing a namespace goes by their common prefix.
-   */
-  keyPrefix: string;
   /** Records older than this are a miss, and the sweep reclaims them. */
   maxAgeMs: number;
   /** How many records the namespace keeps before the oldest write is dropped. */
