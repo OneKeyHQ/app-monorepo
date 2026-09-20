@@ -3,6 +3,7 @@ import { useCallback, useEffect, useLayoutEffect, useMemo } from 'react';
 import { useNavigation } from '@react-navigation/core';
 import { isEmpty } from 'lodash';
 import { useIntl } from 'react-intl';
+import { Platform, StyleSheet } from 'react-native';
 
 import {
   Badge,
@@ -279,7 +280,14 @@ function DeviceListItem({
   );
 }
 
-const ItemSeparatorComponent = () => <Divider borderColor="$neutral4" />;
+const ItemSeparatorComponent = () =>
+  Platform.select({
+    // Avoid iOS border rasterization dropping hairlines at fractional row offsets.
+    ios: (
+      <Stack height={StyleSheet.hairlineWidth} bg="$neutral4" flexShrink={0} />
+    ),
+    default: <Divider borderColor="$neutral4" />,
+  });
 
 const ListEmptyComponent = () => (
   <Stack p="$16">
