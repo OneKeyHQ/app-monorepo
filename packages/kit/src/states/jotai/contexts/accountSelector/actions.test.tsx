@@ -25,7 +25,6 @@ import {
   HARDWARE_ERROR_DIALOG_TYPES,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
-import { EAppSyncStorageKeys } from '@onekeyhq/shared/src/storage/syncStorageKeys';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 import {
@@ -2165,29 +2164,26 @@ describe('useAccountSelectorActions', () => {
       0: selectedAccount,
       1: selectedAccount,
     });
-    mockColdStartCacheStorageData.set(
-      EAppSyncStorageKeys.onekey_account_selector_recent_selection,
-      {
-        [EAccountSelectorSceneName.swap]: {
-          version: 1,
-          updatedAt: Date.now(),
-          selectedAccountsMap: {
-            0: selectedAccount,
-            1: wrongRecipientAccount,
+    mockColdStartCacheStorageData.set('recent-selection', {
+      [EAccountSelectorSceneName.swap]: {
+        version: 1,
+        updatedAt: Date.now(),
+        selectedAccountsMap: {
+          0: selectedAccount,
+          1: wrongRecipientAccount,
+        },
+        updateMeta: {
+          0: {
+            eventEmitDisabled: false,
+            updatedAt: Date.now(),
           },
-          updateMeta: {
-            0: {
-              eventEmitDisabled: false,
-              updatedAt: Date.now(),
-            },
-            1: {
-              eventEmitDisabled: true,
-              updatedAt: Date.now(),
-            },
+          1: {
+            eventEmitDisabled: true,
+            updatedAt: Date.now(),
           },
         },
       },
-    );
+    });
 
     const { store, Wrapper } = createWrapper(EAccountSelectorSceneName.swap);
     const { result } = renderHook(() => useAccountSelectorActions().current, {

@@ -83,7 +83,7 @@ describe('shouldProceedAfterReset', () => {
     // writing the new marker now would falsely vouch for stale entries.
     const recheck = new Map<string, unknown>([
       ['ui-snapshot-meta:buildHash', 'abc'],
-      ['onekey_jotai_context_atoms_snapshot', '{"stale":true}'],
+      ['ctx-atom-snapshot:d:v1', '{"stale":true}'],
     ]);
     expect(shouldProceedAfterReset(recheck)).toBe(false);
   });
@@ -146,7 +146,7 @@ describe('countNonMetaEntries', () => {
   it('counts payload keys but skips meta keys mixed in', () => {
     const m = new Map<string, unknown>([
       ['ui-snapshot-meta:buildHash', 'x'],
-      ['onekey_jotai_context_atoms_snapshot', '{}'],
+      ['ctx-atom-snapshot:d:v1', '{}'],
       ['swr:cache', '{}'],
     ]);
     expect(countNonMetaEntries(m)).toBe(2);
