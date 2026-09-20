@@ -52,6 +52,7 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
+import { isProtocolV2ProductType } from '@onekeyhq/shared/src/utils/hardwareDeviceTypes';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import {
   EFirmwareUpdateTipMessages,
@@ -340,7 +341,8 @@ function HardwareSingletonDialogCmp(
           deviceOnly={state?.payload?.deviceOnly === true}
           allowProtocolV2Utf8={
             state?.payload?.source === 'wallet-session-coordinator' &&
-            (isSingleInput || state?.payload?.deviceType !== EDeviceType.Pro2)
+            (isSingleInput ||
+              !isProtocolV2ProductType(state?.payload?.deviceType))
           }
           onConfirm={async ({ passphrase, hideImmediately }) => {
             await saveCachedHiddenWalletOptions({
