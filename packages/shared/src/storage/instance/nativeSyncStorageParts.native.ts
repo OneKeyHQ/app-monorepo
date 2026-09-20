@@ -38,6 +38,17 @@ function getNativeStorageInstance(
   return createNativeSyncStorageMirror(store);
 }
 
+/** The cold-start file itself, for main's read path. `undefined` when it
+ *  cannot be opened, which simply leaves the mirror as the only source. */
+function getDirectColdStartMMKVOrUndefined(): IMMKVInstance | undefined {
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    return require('./coldStartCacheMMKVInstance').default as IMMKVInstance;
+  } catch {
+    return undefined;
+  }
+}
+
 function getNativeMutationHandler(store: INativeSyncStorageName) {
   if (!platformEnv.isNativeBackgroundThread) {
     return undefined;
@@ -176,9 +187,60 @@ export function createNativeColdStartCacheStorage(): ISyncStorage {
       },
     };
   }
-  return createMMKVSyncStorage(instance, {
+  // Native main. Reads try the cold-start file itself and fall back to the
+  // mirror; writes stay on the mirror, so bg is still the only writer.
+  //
+  // It is the same file bg owns, and reading it here is what lets a cold start
+  // paint from cache at all: the mirror holds nothing until bg answers the
+  // bootstrap request, which on a dev build lands about 2.5s after main's
+  // entry has been evaluated. Before the MMKV migration this store was read
+  // directly in both runtimes; the mirror came with the shape AsyncStorage
+  // had needed.
+  const mirrorBacked = createMMKVSyncStorage(instance, {
     onMutation,
   });
+  const directInstance = getDirectColdStartMMKVOrUndefined();
+  if (!directInstance) {
+    return mirrorBacked;
+  }
+  const direct = createMMKVSyncStorage(directInstance);
+  function readThrough<T>(
+    readDirect: () => T | undefined,
+    readMirror: () => T | undefined,
+  ): T | undefined {
+    try {
+      const value = readDirect();
+      if (value !== undefined) {
+        return value;
+      }
+    } catch {
+      // An unreadable file is a miss, not a failure: fall back to the mirror.
+    }
+    return readMirror();
+  }
+  return {
+    ...mirrorBacked,
+    getString: (key) =>
+      readThrough(
+        () => direct.getString(key),
+        () => mirrorBacked.getString(key),
+      ),
+    getNumber: (key) =>
+      readThrough(
+        () => direct.getNumber(key),
+        () => mirrorBacked.getNumber(key),
+      ),
+    getBoolean: (key) =>
+      readThrough(
+        () => direct.getBoolean(key),
+        () => mirrorBacked.getBoolean(key),
+      ),
+    getObject: <T>(key: EAppSyncStorageKeys) =>
+      readThrough<T>(
+        () => direct.getObject<T>(key),
+        () => mirrorBacked.getObject<T>(key),
+      ),
+  };
 }
 
 /** Dev-settings storage owner for the native main runtime (mirror-backed). */
