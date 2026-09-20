@@ -59,16 +59,15 @@ export function useMarketKlineLivePrice({
       const timeTo = Math.floor(Date.now() / 1000);
       let response;
       try {
-        response = await backgroundApiProxy.serviceMarketV2.fetchMarketTokenKline(
-          {
+        response =
+          await backgroundApiProxy.serviceMarketV2.fetchMarketTokenKline({
             interval: MARKET_KLINE_LIVE_PRICE_INTERVAL,
             networkId,
             tokenAddress,
             timeFrom: timeTo - MARKET_KLINE_LIVE_PRICE_WINDOW_SECONDS,
             timeTo,
             autoHandleError: false,
-          },
-        );
+          });
       } catch (_error) {
         // A refresh that fails keeps the price already on screen. Rethrowing
         // would surface as an unhandled rejection on every polling tick, since
@@ -108,7 +107,15 @@ export function useMarketKlineLivePrice({
         lastUpdated,
       });
     },
-    [actions, enabled, isMountedRef, networkId, requestScope, store, tokenAddress],
+    [
+      actions,
+      enabled,
+      isMountedRef,
+      networkId,
+      requestScope,
+      store,
+      tokenAddress,
+    ],
     {
       pollingInterval: MARKET_KLINE_LIVE_PRICE_POLLING_MS,
       revalidateOnFocus: true,

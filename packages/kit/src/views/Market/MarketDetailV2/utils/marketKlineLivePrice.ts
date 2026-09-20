@@ -49,9 +49,9 @@ export function resolveMarketKlineLivePriceEnabled({
   const hasTokenIdentity = Boolean(networkId && (tokenAddress || isNative));
   return Boolean(
     priceMode === 'token' &&
-      !marketAssetId &&
-      hasTokenIdentity &&
-      currencyId?.toLowerCase() === MARKET_KLINE_LIVE_PRICE_CURRENCY,
+    !marketAssetId &&
+    hasTokenIdentity &&
+    currencyId?.toLowerCase() === MARKET_KLINE_LIVE_PRICE_CURRENCY,
   );
 }
 
