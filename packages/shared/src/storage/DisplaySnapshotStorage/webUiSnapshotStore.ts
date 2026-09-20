@@ -52,6 +52,11 @@ const dirtyKeys = new Set<string>();
 /** While a reset is in flight every write is dropped, so a writer that is
  *  mid-flush cannot put back what the reset is removing. */
 let isClearing = false;
+/** Consecutive failed flushes. A failure re-queues its keys, so without a
+ *  bound the tail below would reopen a permanently broken database every
+ *  couple of seconds for the life of the page. Any real write resets it. */
+let flushFailureStreak = 0;
+const MAX_CONSECUTIVE_FLUSH_RETRIES = 3;
 
 function getDatabase() {
   if (!databasePromise) {
@@ -76,28 +81,37 @@ function getDatabase() {
   return databasePromise;
 }
 
-function scheduleFlush(key: string) {
-  if (isClearing) {
-    return;
-  }
-  dirtyKeys.add(key);
+function armFlushTimer(delayMs: number) {
   if (flushTimer) {
     return;
   }
   flushTimer = setTimeout(() => {
     flushTimer = undefined;
     void flushUiSnapshotStoreNow();
-  }, FLUSH_DEBOUNCE_MS);
+  }, delayMs);
+}
+
+function scheduleFlush(key: string) {
+  if (isClearing) {
+    return;
+  }
+  dirtyKeys.add(key);
+  // A fresh write earns the store another round of attempts: this is the
+  // point a previously unreachable database is worth trying again.
+  flushFailureStreak = 0;
+  armFlushTimer(FLUSH_DEBOUNCE_MS);
 }
 
 /** Write every pending key. Deletes go in their own transaction, which is
  *  allowed to run when the quota is exhausted — that is when it matters. */
 export function flushUiSnapshotStoreNow(): Promise<void> {
   if (flushPromise) {
-    // Keys written while this flush runs are not in it. Returning its promise
-    // is right — the caller waits for work already in flight — but the timer
-    // that called us is gone, so the tail below schedules the next one.
-    return flushPromise;
+    // The in-flight flush took its key list when it started, so it does not
+    // carry what the caller just wrote. Waiting on it alone would report the
+    // caller's record durable while it is still only in the map. Chain a
+    // second pass instead; it stops at the empty check below when there is
+    // nothing left, so this is one extra flush, not a loop.
+    return flushPromise.then(() => flushUiSnapshotStoreNow());
   }
   if (dirtyKeys.size === 0) {
     return Promise.resolve();
@@ -139,21 +153,38 @@ export function flushUiSnapshotStoreNow(): Promise<void> {
         await Promise.all(removals.map((key) => store.delete(key)));
         await transaction.done;
       }
+      flushFailureStreak = 0;
     } catch {
       // Re-queue so the next flush tries again. A cache that cannot reach
       // disk still serves the page from the map.
+      flushFailureStreak += 1;
       keys.forEach((key) => dirtyKeys.add(key));
     }
   })().finally(() => {
     flushPromise = undefined;
-    // Written during the flush, or re-queued by a failure: either way nothing
-    // else is scheduled for them.
-    if (dirtyKeys.size > 0 && !isClearing) {
-      const pending = [...dirtyKeys][0];
-      if (pending !== undefined) {
-        scheduleFlush(pending);
-      }
+    if (isClearing) {
+      return;
     }
+    if (dirtyKeys.size === 0) {
+      // A chained explicit flush can drain the queue after an earlier tail
+      // armed the timer; that timer would only wake to find nothing.
+      if (flushTimer) {
+        clearTimeout(flushTimer);
+        flushTimer = undefined;
+      }
+      return;
+    }
+    if (flushFailureStreak === 0) {
+      // Written while this flush ran. The timer that would have covered them
+      // already fired into this flush, so nothing else is scheduled for them.
+      armFlushTimer(FLUSH_DEBOUNCE_MS);
+      return;
+    }
+    if (flushFailureStreak <= MAX_CONSECUTIVE_FLUSH_RETRIES) {
+      armFlushTimer(FLUSH_DEBOUNCE_MS * flushFailureStreak);
+    }
+    // Past the cap the keys stay queued and the map keeps serving them; the
+    // next real write is what tries the database again.
   });
   flushPromise = next;
   return next;
@@ -256,6 +287,7 @@ export async function resetWebUiSnapshotStore(): Promise<void> {
       flushTimer = undefined;
     }
     dirtyKeys.clear();
+    flushFailureStreak = 0;
     getMap().clear();
     await flushPromise?.catch(() => undefined);
     const database = await getDatabase();
@@ -348,5 +380,6 @@ export function __resetWebUiSnapshotStoreForTests() {
   flushPromise = undefined;
   databasePromise = undefined;
   isClearing = false;
+  flushFailureStreak = 0;
   getMap().clear();
 }
