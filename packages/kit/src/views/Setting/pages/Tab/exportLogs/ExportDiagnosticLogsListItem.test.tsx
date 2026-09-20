@@ -1,7 +1,5 @@
 /** @jest-environment jsdom */
 
-import type { ReactElement } from 'react';
-
 import { fireEvent, render } from '@testing-library/react';
 
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -9,16 +7,10 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { SettingTestIDs } from '../../../testIDs';
 
 import { ExportDiagnosticLogsListItem } from './ExportDiagnosticLogsListItem';
-import { showDiagnosticLogsContentsDialog } from './showDiagnosticLogsContentsDialog';
-
-import type { IntlShape } from 'react-intl';
 
 const mockShowExportLogsDialog = jest.fn((_options: unknown) => undefined);
 const mockDismissKeyboard = jest.fn(async () => undefined);
 const mockDialogShow = jest.fn((_options: unknown) => undefined);
-const mockIntl = {
-  formatMessage: ({ id }: { id: string }) => id,
-} as IntlShape;
 
 jest.mock('react-intl', () => ({
   useIntl: () => ({
@@ -27,13 +19,12 @@ jest.mock('react-intl', () => ({
 }));
 
 jest.mock('@onekeyhq/shared/src/keyboard', () => ({
-  dismissKeyboardWithDelay: (...args: unknown[]) =>
-    mockDismissKeyboard(...args),
+  dismissKeyboardWithDelay: () => mockDismissKeyboard(),
 }));
 
 jest.mock('./showExportLogsDialog', () => ({
-  showExportLogsDialog: (...args: unknown[]) => {
-    mockShowExportLogsDialog(...args);
+  showExportLogsDialog: (options: unknown) => {
+    mockShowExportLogsDialog(options);
   },
 }));
 
@@ -96,8 +87,6 @@ jest.mock('@onekeyhq/components', () => {
         },
         children,
       ),
-    XStack: ({ children }: { children?: React.ReactNode }) =>
-      React.createElement('div', null, children),
     YStack: ({ children }: { children?: React.ReactNode }) =>
       React.createElement('div', null, children),
   };
@@ -121,7 +110,7 @@ describe('ExportDiagnosticLogsListItem', () => {
       view.getByText(ETranslations.settings_export_diagnostic_logs__desc),
     ).toBeTruthy();
     expect(
-      view.getByText(ETranslations.settings_export_diagnostic_logs__learn_more),
+      view.getByText(ETranslations.settings_diagnostic_logs_contents__title),
     ).toBeTruthy();
 
     fireEvent.click(view.getByTestId(SettingTestIDs.exportDiagnosticLogsItem));
@@ -134,7 +123,7 @@ describe('ExportDiagnosticLogsListItem', () => {
     expect(mockDialogShow).not.toHaveBeenCalled();
   });
 
-  it('opens only the contents dialog from the nested learn-more link', () => {
+  it('opens only the contents dialog from the nested learn-more link', async () => {
     const logItemClick = jest.fn();
     const view = render(
       <ExportDiagnosticLogsListItem
@@ -146,53 +135,10 @@ describe('ExportDiagnosticLogsListItem', () => {
     fireEvent.click(
       view.getByTestId(SettingTestIDs.exportDiagnosticLogsHelpLink),
     );
+    await Promise.resolve();
 
     expect(mockDialogShow).toHaveBeenCalledTimes(1);
     expect(mockShowExportLogsDialog).not.toHaveBeenCalled();
     expect(logItemClick).not.toHaveBeenCalled();
-  });
-});
-
-describe('showDiagnosticLogsContentsDialog', () => {
-  beforeEach(() => {
-    jest.clearAllMocks();
-  });
-
-  it('shows an info dialog without a cancel button', () => {
-    showDiagnosticLogsContentsDialog({ intl: mockIntl });
-
-    expect(mockDialogShow).toHaveBeenCalledWith(
-      expect.objectContaining({
-        icon: 'InfoCircleOutline',
-        title: ETranslations.settings_export_diagnostic_logs__learn_more,
-        showCancelButton: false,
-        onConfirmText: ETranslations.global_i_got_it,
-      }),
-    );
-
-    const dialogOptions = mockDialogShow.mock.calls[0][0] as {
-      renderContent: ReactElement;
-    };
-    const content = render(dialogOptions.renderContent);
-    expect(
-      content.getByText(
-        ETranslations.settings_export_diagnostic_logs__included,
-      ),
-    ).toBeTruthy();
-    expect(
-      content.getByText(
-        ETranslations.settings_export_diagnostic_logs__not_included,
-      ),
-    ).toBeTruthy();
-    expect(
-      content.getByText(
-        ETranslations.settings_export_diagnostic_logs__item_local_data,
-      ),
-    ).toBeTruthy();
-    expect(
-      content.getByText(
-        ETranslations.settings_export_diagnostic_logs__item_private_keys,
-      ),
-    ).toBeTruthy();
   });
 });

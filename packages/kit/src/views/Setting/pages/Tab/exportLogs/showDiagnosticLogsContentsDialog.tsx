@@ -1,27 +1,35 @@
-import { Dialog, SizableText, XStack, YStack } from '@onekeyhq/components';
+import {
+  Dialog,
+  Icon,
+  SizableText,
+  XStack,
+  YStack,
+} from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import type { IntlShape } from 'react-intl';
 
 const INCLUDED_LOG_ITEM_IDS = [
-  ETranslations.settings_export_diagnostic_logs__item_local_data,
-  ETranslations.settings_export_diagnostic_logs__item_crash_reports,
-  ETranslations.settings_export_diagnostic_logs__item_public_addresses,
+  ETranslations.settings_diagnostic_logs_app_device_info__msg,
+  ETranslations.settings_diagnostic_logs_errors__msg,
+  ETranslations.settings_diagnostic_logs_public_addresses__msg,
 ] as const;
 
 const EXCLUDED_LOG_ITEM_IDS = [
-  ETranslations.settings_export_diagnostic_logs__item_recovery_phrases,
-  ETranslations.settings_export_diagnostic_logs__item_private_keys,
+  ETranslations.settings_diagnostic_logs_recovery_phrases__msg,
+  ETranslations.settings_diagnostic_logs_private_keys__msg,
 ] as const;
 
 function DiagnosticLogCopySection({
   intl,
   titleId,
   itemIds,
+  included = false,
 }: {
   intl: IntlShape;
   titleId: ETranslations;
   itemIds: readonly ETranslations[];
+  included?: boolean;
 }) {
   return (
     <YStack gap="$2">
@@ -30,9 +38,12 @@ function DiagnosticLogCopySection({
       </SizableText>
       {itemIds.map((itemId) => (
         <XStack key={itemId} gap="$2" alignItems="flex-start">
-          <SizableText size="$bodyMd" color="$textSubdued">
-            •
-          </SizableText>
+          <Icon
+            name={included ? 'CheckRadioOutline' : 'XCircleOutline'}
+            size="$5"
+            flexShrink={0}
+            color="$iconSubdued"
+          />
           <SizableText size="$bodyMd" flex={1}>
             {intl.formatMessage({ id: itemId })}
           </SizableText>
@@ -50,7 +61,7 @@ export function showDiagnosticLogsContentsDialog({
   return Dialog.show({
     icon: 'InfoCircleOutline',
     title: intl.formatMessage({
-      id: ETranslations.settings_export_diagnostic_logs__learn_more,
+      id: ETranslations.settings_diagnostic_logs_contents__title,
     }),
     showCancelButton: false,
     onConfirmText: intl.formatMessage({
@@ -60,12 +71,13 @@ export function showDiagnosticLogsContentsDialog({
       <YStack gap="$4">
         <DiagnosticLogCopySection
           intl={intl}
-          titleId={ETranslations.settings_export_diagnostic_logs__included}
+          titleId={ETranslations.settings_diagnostic_logs_included__title}
           itemIds={INCLUDED_LOG_ITEM_IDS}
+          included
         />
         <DiagnosticLogCopySection
           intl={intl}
-          titleId={ETranslations.settings_export_diagnostic_logs__not_included}
+          titleId={ETranslations.settings_diagnostic_logs_excluded__title}
           itemIds={EXCLUDED_LOG_ITEM_IDS}
         />
       </YStack>

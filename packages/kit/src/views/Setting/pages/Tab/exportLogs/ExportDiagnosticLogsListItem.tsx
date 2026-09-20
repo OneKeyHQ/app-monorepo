@@ -54,7 +54,7 @@ export function ExportDiagnosticLogsListItem({
           </SizableText>
           <Stack
             alignSelf="flex-start"
-            cursor="pointer"
+            cursor="default"
             testID={SettingTestIDs.exportDiagnosticLogsHelpLink}
             onPress={handleLearnMorePress}
           >
@@ -62,9 +62,11 @@ export function ExportDiagnosticLogsListItem({
               size="$bodyMd"
               color="$textSubdued"
               textDecorationLine="underline"
+              cursor="default"
+              hoverStyle={{ color: '$text' }}
             >
               {intl.formatMessage({
-                id: ETranslations.settings_export_diagnostic_logs__learn_more,
+                id: ETranslations.settings_diagnostic_logs_contents__title,
               })}
             </SizableText>
           </Stack>
