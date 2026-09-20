@@ -40,7 +40,6 @@ interface IPerpsRecordTableProps {
   sortOrder: IPerpsInvitesSortOrder;
   onSort: (field: IPerpsInvitesSortBy) => void;
   isLoadingMore?: boolean;
-  hasUserSorted?: boolean;
 }
 
 interface ICellContentProps {
@@ -53,7 +52,6 @@ interface IHeaderContentProps {
   sortBy: IPerpsInvitesSortBy;
   sortOrder: IPerpsInvitesSortOrder;
   onSort: (field: IPerpsInvitesSortBy) => void;
-  hasUserSorted?: boolean;
 }
 
 interface ISortableHeaderProps {
@@ -65,7 +63,6 @@ interface ISortableHeaderProps {
   width: string | number;
   jc?: 'flex-start' | 'flex-end';
   tooltipContent?: string;
-  hasUserSorted?: boolean;
 }
 
 // Module-level constants to avoid re-creating on every render
@@ -86,41 +83,35 @@ function SortableHeader({
   width,
   jc = 'flex-start',
   tooltipContent,
-  hasUserSorted,
 }: ISortableHeaderProps) {
-  // Only show active styling when user has explicitly clicked a sort header
-  const isActive = hasUserSorted && sortBy === field;
+  const isActive = sortBy === field;
+  let iconName:
+    | 'ChevronGrabberVerOutline'
+    | 'ChevronTopSmallOutline'
+    | 'ChevronDownSmallOutline' = 'ChevronGrabberVerOutline';
+  if (isActive) {
+    iconName =
+      sortOrder === 'asc'
+        ? 'ChevronTopSmallOutline'
+        : 'ChevronDownSmallOutline';
+  }
 
   return (
-    <XStack w={width} minWidth={0} ai="center" jc={jc} gap="$1">
+    <XStack w={width} ai="center" jc={jc} gap="$1">
       <XStack
         ai="center"
         gap="$1"
-        minWidth={0}
-        cursor="pointer"
-        userSelect="none"
-        hoverStyle={HOVER_OPACITY_STYLE}
         onPress={() => onSort(field)}
-        testID={`perps-reward-sort-${field}`}
+        cursor="pointer"
+        hoverStyle={HOVER_OPACITY_STYLE}
       >
         <SizableText
-          pointerEvents="none"
           size="$headingXs"
           color={isActive ? '$text' : '$textSubdued'}
           textTransform="uppercase"
         >
           {label}
         </SizableText>
-        <Icon
-          pointerEvents="none"
-          name={
-            isActive && sortOrder === 'asc'
-              ? 'ChevronTopSmallOutline'
-              : 'ChevronDownSmallOutline'
-          }
-          size="$4"
-          color={isActive ? '$icon' : '$iconSubdued'}
-        />
       </XStack>
       {tooltipContent ? (
         <Popover.Tooltip
@@ -134,6 +125,18 @@ function SortableHeader({
           }
         />
       ) : null}
+      <XStack
+        ai="center"
+        onPress={() => onSort(field)}
+        cursor="pointer"
+        hoverStyle={HOVER_OPACITY_STYLE}
+      >
+        <Icon
+          name={iconName}
+          size="$4"
+          color={isActive ? '$icon' : '$iconSubdued'}
+        />
+      </XStack>
     </XStack>
   );
 }
@@ -262,7 +265,6 @@ function ScrollableHeaderContent({
   sortBy,
   sortOrder,
   onSort,
-  hasUserSorted,
 }: IHeaderContentProps) {
   const intl = useIntl();
 
@@ -277,7 +279,6 @@ function ScrollableHeaderContent({
         sortOrder={sortOrder}
         onSort={onSort}
         width={columnWidths.invitedAt}
-        hasUserSorted={hasUserSorted}
       />
 
       <XStack w={columnWidths.referralCode}>
@@ -301,7 +302,6 @@ function ScrollableHeaderContent({
         sortOrder={sortOrder}
         onSort={onSort}
         width={columnWidths.firstTrade}
-        hasUserSorted={hasUserSorted}
       />
 
       <SortableHeader
@@ -313,7 +313,6 @@ function ScrollableHeaderContent({
         sortOrder={sortOrder}
         onSort={onSort}
         width={columnWidths.volume}
-        hasUserSorted={hasUserSorted}
       />
 
       <SortableHeader
@@ -328,7 +327,6 @@ function ScrollableHeaderContent({
         tooltipContent={intl.formatMessage({
           id: ETranslations.referral_perps_onekey_fee_exclusion_notice,
         })}
-        hasUserSorted={hasUserSorted}
       />
 
       <SortableHeader
@@ -339,7 +337,6 @@ function ScrollableHeaderContent({
         onSort={onSort}
         width={columnWidths.reward}
         jc="flex-end"
-        hasUserSorted={hasUserSorted}
       />
     </>
   );
@@ -351,7 +348,6 @@ export function PerpsRecordTable({
   sortOrder,
   onSort,
   isLoadingMore,
-  hasUserSorted,
 }: IPerpsRecordTableProps) {
   const media = useMedia();
   const isCompact = media.xl;
@@ -442,7 +438,6 @@ export function PerpsRecordTable({
                   sortBy={sortBy}
                   sortOrder={sortOrder}
                   onSort={onSort}
-                  hasUserSorted={hasUserSorted}
                 />
               </XStack>
               {records.map((record) => (
@@ -481,7 +476,6 @@ export function PerpsRecordTable({
           sortBy={sortBy}
           sortOrder={sortOrder}
           onSort={onSort}
-          hasUserSorted={hasUserSorted}
         />
       </XStack>
       {records.map((record) => (

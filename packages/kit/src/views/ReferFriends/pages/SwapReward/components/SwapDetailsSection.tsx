@@ -29,7 +29,6 @@ import type { ISwapInviteColumnWidths } from './useSwapTableColumns';
 import type { ISwapRecordsTab } from '../types';
 
 const SCROLL_CONTENT_STYLE = { flexGrow: 1 };
-const HOVER_OPACITY_STYLE = { opacity: 0.75 };
 
 interface ISwapDetailsSectionProps {
   records: ISwapInviteItem[];
@@ -42,7 +41,6 @@ interface ISwapDetailsSectionProps {
   sortBy: ISwapInvitesSortBy;
   sortOrder: ISwapInvitesSortOrder;
   onSort: (field: ISwapInvitesSortBy) => void;
-  hasUserSorted: boolean;
   isLoadingMore: boolean;
   isTabLoading: boolean;
   hasError: boolean;
@@ -196,7 +194,6 @@ function ErrorState({ onRetry }: { onRetry: () => void }) {
 
 function SortableHeader({
   field,
-  hasUserSorted,
   label,
   onSort,
   sortBy,
@@ -205,7 +202,6 @@ function SortableHeader({
   justifyContent = 'flex-start',
 }: {
   field: ISwapInvitesSortBy;
-  hasUserSorted: boolean;
   label: string;
   onSort: (field: ISwapInvitesSortBy) => void;
   sortBy: ISwapInvitesSortBy;
@@ -213,7 +209,17 @@ function SortableHeader({
   width: string | number;
   justifyContent?: 'flex-start' | 'flex-end';
 }) {
-  const isActive = hasUserSorted && sortBy === field;
+  const isActive = sortBy === field;
+  let iconName:
+    | 'ChevronGrabberVerOutline'
+    | 'ChevronTopSmallOutline'
+    | 'ChevronDownSmallOutline' = 'ChevronGrabberVerOutline';
+  if (isActive) {
+    iconName =
+      sortOrder === 'asc'
+        ? 'ChevronTopSmallOutline'
+        : 'ChevronDownSmallOutline';
+  }
 
   return (
     <XStack
@@ -223,13 +229,10 @@ function SortableHeader({
       ai="center"
       jc={justifyContent}
       cursor="pointer"
-      userSelect="none"
-      hoverStyle={HOVER_OPACITY_STYLE}
+      hoverStyle={{ opacity: 0.75 }}
       onPress={() => onSort(field)}
-      testID={`swap-reward-sort-${field}`}
     >
       <SizableText
-        pointerEvents="none"
         size="$headingXs"
         color={isActive ? '$text' : '$textSubdued'}
         textTransform="uppercase"
@@ -237,12 +240,7 @@ function SortableHeader({
         {label}
       </SizableText>
       <Icon
-        pointerEvents="none"
-        name={
-          isActive && sortOrder === 'asc'
-            ? 'ChevronTopSmallOutline'
-            : 'ChevronDownSmallOutline'
-        }
+        name={iconName}
         size="$4"
         color={isActive ? '$icon' : '$iconSubdued'}
       />
