@@ -1,7 +1,8 @@
 // Web/desktop cold-start cache backend. Replaces the no-op stub previously
 // returned by `coldStartCacheStorage` on non-native platforms.
 //
-// Stores L2 contextAtom snapshot + L3 SWR cache only. L1 per-atom globalAtom
+// Stores L2 contextAtom snapshot + L3 SWR cache only (one record per SWR key,
+// see webSWRCacheEntries). L1 per-atom globalAtom
 // mirror was removed to avoid duplicating sensitive PersistAtom fields
 // (sensitiveEncodeKey, encryptedSecurityPasswordR1) into a second IDB. Web/
 // desktop globalAtoms reconcile asynchronously via jotaiInit instead.
@@ -39,6 +40,11 @@ import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
 import { IndexedDBPromised } from '../../IndexedDBPromised';
 
+import {
+  createWebSWRCacheEntries,
+  isWebSWRCachePersistedKey,
+} from './webSWRCacheEntries';
+
 import type { ISyncStorage } from './syncStorageInstance';
 import type { EAppSyncStorageKeys } from '../syncStorageKeys';
 
@@ -73,6 +79,24 @@ function getMap(): Map<string, unknown> {
   return map;
 }
 
+// SWR entries live as one record per key in the same map/IDB store, so a
+// SWR flush dirties only the keys it changed. Writes follow the facade's
+// reset latch.
+const swrCacheEntries = createWebSWRCacheEntries({
+  keys: () => getMap().keys(),
+  get: (key) => getMap().get(key),
+  set: (key, value) => {
+    if (isClearing) return;
+    getMap().set(key, value);
+    scheduleFlush(key);
+  },
+  delete: (key) => {
+    if (isClearing) return;
+    getMap().delete(key);
+    scheduleFlush(key);
+  },
+});
+
 /** Merge entries loaded from IDB into the in-memory map. Called by
  *  hydrate.ts after its IDB getAll resolves. Values are raw strings as
  *  written by the ISyncStorage facade. */
@@ -80,6 +104,7 @@ export function primeColdStartCacheMap(
   entries: Iterable<[string, unknown]>,
 ): void {
   const map = getMap();
+  let primedSWRCacheEntries = false;
   for (const [k, v] of entries) {
     // Do NOT clobber entries already written by a facade .set/.setObject
     // call that fired while hydrate.ts was still awaiting IDB. The local
@@ -87,7 +112,11 @@ export function primeColdStartCacheMap(
     // keys present in both.
     if (!map.has(k)) {
       map.set(k, v);
+      primedSWRCacheEntries ||= isWebSWRCachePersistedKey(k);
     }
+  }
+  if (primedSWRCacheEntries) {
+    swrCacheEntries.notifyEntriesReplaced();
   }
 }
 
@@ -395,6 +424,8 @@ export async function resetColdStartCache(): Promise<void> {
   } finally {
     isClearing = false;
   }
+  // The SWR runtime copy would otherwise keep serving the wiped entries.
+  swrCacheEntries.notifyEntriesReplaced();
 }
 
 /** Awaitable counterpart of the synchronous ISyncStorage.clearAll() facade.
@@ -536,6 +567,15 @@ export function createWebColdStartStorage(): ISyncStorage {
     },
     getAllKeys() {
       return Array.from(getMap().keys());
+    },
+    applySWRCachePatch(patch) {
+      swrCacheEntries.applySWRCachePatch(patch);
+    },
+    readSWRCacheEntries() {
+      return swrCacheEntries.readSWRCacheEntries();
+    },
+    subscribeSWRCacheEntries(listener) {
+      return swrCacheEntries.subscribeSWRCacheEntries(listener);
     },
   };
 }

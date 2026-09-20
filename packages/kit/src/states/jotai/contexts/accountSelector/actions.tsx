@@ -865,20 +865,42 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
     return repairedSelectedAccountsMap;
   };
 
+  // The background fix returns its input untouched unless the selection is an
+  // others-wallet account on a concrete network, so every HD, hardware and QR
+  // selection paid a round trip for nothing; every account switch issued about
+  // twenty of them across the mounted selector scenes.
+  fixOthersWalletAccountNetworkPair = async ({
+    selectedAccount,
+    source,
+  }: {
+    selectedAccount: IAccountSelectorSelectedAccount;
+    source?: string;
+  }): Promise<IAccountSelectorSelectedAccount> => {
+    if (
+      !accountSelectorUtils.hasOthersWalletAccountNetworkPair({
+        selectedAccount,
+      })
+    ) {
+      return selectedAccount;
+    }
+    return backgroundApiProxy.serviceAccountSelector.fixOthersWalletAccountNetworkPair(
+      { selectedAccount, source },
+    );
+  };
+
   isIncompatibleOthersWalletNetworkPair = async ({
     selectedAccount,
   }: {
     selectedAccount: IAccountSelectorSelectedAccount | undefined;
   }) => {
-    const walletId = selectedAccount?.walletId;
     const networkId = selectedAccount?.networkId;
     const othersWalletAccountId = selectedAccount?.othersWalletAccountId;
     if (
-      !walletId ||
       !networkId ||
       !othersWalletAccountId ||
-      !accountUtils.isOthersWallet({ walletId }) ||
-      networkUtils.isAllNetwork({ networkId })
+      !accountSelectorUtils.hasOthersWalletAccountNetworkPair({
+        selectedAccount,
+      })
     ) {
       return false;
     }
@@ -2611,11 +2633,10 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
               data: current,
               mergedByData: eventPayload.selectedAccount,
             });
-          newSelectedAccount =
-            await serviceAccountSelector.fixOthersWalletAccountNetworkPair({
-              selectedAccount: newSelectedAccount,
-              source: 'syncHomeAndSwapSelectedAccount',
-            });
+          newSelectedAccount = await this.fixOthersWalletAccountNetworkPair({
+            selectedAccount: newSelectedAccount,
+            source: 'syncHomeAndSwapSelectedAccount',
+          });
           await this.updateSelectedAccount.call(set, {
             updateMeta: {
               eventEmitDisabled: true, // stop update infinite loop here
@@ -3020,11 +3041,10 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
         ) {
           return;
         }
-        selectedAccount =
-          await serviceAccountSelector.fixOthersWalletAccountNetworkPair({
-            selectedAccount,
-            source: `saveToStorage:${sceneName}:${num}`,
-          });
+        selectedAccount = await this.fixOthersWalletAccountNetworkPair({
+          selectedAccount,
+          source: `saveToStorage:${sceneName}:${num}`,
+        });
         // If the pair is still broken after the fix (e.g. the account row was
         // removed), keep the previously saved record instead of persisting an
         // unresolvable selection.
@@ -3088,7 +3108,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
               mergedByData: selectedAccount,
             });
           const fixedNewSelectedAccount =
-            await serviceAccountSelector.fixOthersWalletAccountNetworkPair({
+            await this.fixOthersWalletAccountNetworkPair({
               selectedAccount: newSelectedAccount,
               source: 'saveToStorage:syncHome',
             });

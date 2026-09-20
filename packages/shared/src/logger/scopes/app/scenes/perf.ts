@@ -47,6 +47,37 @@ export class AppPerfScene extends BaseScene {
     return [params];
   }
 
+  // Atom names only, aggregated per window: never a line per write.
+  @LogToLocal()
+  public uiAtomWriteCensus(params: {
+    windowMs: number;
+    total: number;
+    atomCount: number;
+    byAtom: { atom: string; count: number }[];
+  }) {
+    return [params];
+  }
+
+  // Aggregated per window: event-loop blocks, JS heap and GC, process CPU
+  // and memory. Numbers only.
+  @LogToLocal()
+  public runtimeHealthCensus(params: Record<string, number | undefined>) {
+    return [params];
+  }
+
+  // How much data the background pushed into this runtime, per window.
+  // Sender names and sizes only, never payloads.
+  @LogToLocal()
+  public mainInboundCensus(params: {
+    windowMs: number;
+    total: number;
+    totalKB: number;
+    byKind: { kind: string; count: number; kb: number }[];
+    bySender: { sender: string; count: number; kb: number }[];
+  }) {
+    return [params];
+  }
+
   @LogToLocal()
   public cpuWatchdogFired(params: {
     reason:
