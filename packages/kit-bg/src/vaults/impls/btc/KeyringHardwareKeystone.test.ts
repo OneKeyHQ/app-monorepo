@@ -1,14 +1,17 @@
 import * as BitcoinJS from 'bitcoinjs-lib';
 
 import {
+  getBitcoinECPair,
   getBtcForkNetwork,
   initBitcoinEcc,
+  tweakSigner,
 } from '@onekeyhq/core/src/chains/btc/sdkBtc';
 import { EAddressEncodings } from '@onekeyhq/core/src/types';
 import {
   AddressNotSupportSignMethodError,
   OneKeyLocalError,
 } from '@onekeyhq/shared/src/errors';
+import { ThirdPartyDeviceMismatch } from '@onekeyhq/shared/src/errors/errors/thirdPartyHardwareErrors';
 
 import { EDBAccountType } from '../../../dbs/local/consts';
 
@@ -389,6 +392,12 @@ describe('KeyringHardwareKeystone signing', () => {
     ),
     network: btcNetwork,
   }).address!;
+  const signingKey = Buffer.from('01'.padStart(64, '0'), 'hex');
+  const signer = getBitcoinECPair().fromPrivateKey(signingKey);
+  const taprootSigner = tweakSigner(
+    signingKey,
+    Buffer.from(publicKeyHex, 'hex'),
+  );
   const accountPath = "m/84'/0'/0'";
   const fullPath = `${accountPath}/0/0`;
 
@@ -472,9 +481,13 @@ describe('KeyringHardwareKeystone signing', () => {
           request: { psbt: string },
         ) => {
           submittedPsbtHex = request.psbt;
+          const signed = BitcoinJS.Psbt.fromHex(request.psbt, {
+            network: btcNetwork,
+          });
+          signed.signInput(0, signer);
           return {
             success: true,
-            payload: { signedPsbt: request.psbt },
+            payload: { signedPsbt: signed.toHex() },
           };
         },
       );
@@ -541,9 +554,13 @@ describe('KeyringHardwareKeystone signing', () => {
           request: { psbt: string },
         ) => {
           submittedPsbtHex = request.psbt;
+          const signed = BitcoinJS.Psbt.fromHex(request.psbt, {
+            network: btcNetwork,
+          });
+          signed.signInput(0, taprootSigner);
           return {
             success: true,
-            payload: { signedPsbt: request.psbt },
+            payload: { signedPsbt: signed.toHex() },
           };
         },
       );
@@ -598,6 +615,186 @@ describe('KeyringHardwareKeystone signing', () => {
     ]);
     expect(btcSignPsbt).toHaveBeenCalledTimes(1);
   });
+
+  function buildTaprootRequest(inputCount = 1) {
+    const psbt = new BitcoinJS.Psbt({ network: btcNetwork });
+    for (let index = 0; index < inputCount; index += 1) {
+      psbt.addInput({
+        hash: Buffer.alloc(32, index + 1),
+        index: 0,
+        witnessUtxo: {
+          script: BitcoinJS.address.toOutputScript(
+            taprootAccountAddress,
+            btcNetwork,
+          ),
+          value: 10_000n,
+        },
+        tapInternalKey: Buffer.from(publicKeyHex, 'hex').subarray(1),
+      });
+    }
+    psbt.addOutput({
+      address: recipientAddress,
+      value: BigInt(inputCount * 10_000 - 1000),
+    });
+    return {
+      unsignedTx: {
+        encodedTx: {
+          psbtHex: psbt.toHex(),
+          inputsToSign: [
+            {
+              index: 0,
+              address: taprootAccountAddress,
+              publicKey: publicKeyHex,
+            },
+          ],
+        },
+      },
+      deviceParams: {
+        dbDevice: { connectId: 'keystone-wallet:test', deviceId: 'wallet-id' },
+      },
+    };
+  }
+
+  function buildTaprootKeyring(
+    transform: (psbt: BitcoinJS.Psbt) => BitcoinJS.Psbt,
+  ) {
+    const btcSignPsbt = jest
+      .fn()
+      .mockImplementation(
+        async (
+          _connectId: string,
+          _deviceId: string,
+          request: { psbt: string },
+        ) => ({
+          success: true,
+          payload: {
+            signedPsbt: transform(
+              BitcoinJS.Psbt.fromHex(request.psbt, { network: btcNetwork }),
+            ).toHex(),
+          },
+        }),
+      );
+    const { keyring } = buildSigningKeyring({
+      btcSignPsbt,
+      btcGetMasterFingerprint: jest.fn().mockResolvedValue({
+        success: true,
+        payload: { masterFingerprint: 'aabbccdd' },
+      }),
+      addressEncoding: EAddressEncodings.P2TR,
+      signingAccountAddress: taprootAccountAddress,
+      signingAccountPath: "m/86'/0'/0'",
+    });
+    Object.assign(keyring.vault, {
+      validateAddress: jest
+        .fn()
+        .mockResolvedValue({ encoding: EAddressEncodings.P2TR }),
+    });
+    return { keyring, btcSignPsbt };
+  }
+
+  it.each([false, true])(
+    'rejects an unchanged unsigned PSBT with signOnly=%s',
+    async (signOnly) => {
+      const { keyring } = buildTaprootKeyring((psbt) => psbt);
+      await expect(
+        keyring.signPsbt({ ...buildTaprootRequest(), signOnly } as never),
+      ).rejects.toBeInstanceOf(ThirdPartyDeviceMismatch);
+    },
+  );
+
+  it.each([false, true])(
+    'returns a complete transaction for a valid PSBT, already finalized=%s',
+    async (finalized) => {
+      const { keyring } = buildTaprootKeyring((psbt) => {
+        psbt.signInput(0, taprootSigner);
+        if (finalized) psbt.finalizeAllInputs();
+        return psbt;
+      });
+      const result = await keyring.signPsbt({
+        ...buildTaprootRequest(),
+        signOnly: false,
+      } as never);
+      expect(
+        BitcoinJS.Transaction.fromHex(result.rawTx).ins[0].witness,
+      ).toHaveLength(1);
+    },
+  );
+
+  it('preserves a verified partial PSBT only for signOnly requests', async () => {
+    const { keyring } = buildTaprootKeyring((psbt) =>
+      psbt.signInput(0, taprootSigner),
+    );
+    const params = buildTaprootRequest(2);
+    const result = await keyring.signPsbt({
+      ...params,
+      signOnly: true,
+    } as never);
+    expect(result.rawTx).toBe('');
+    expect(
+      BitcoinJS.Psbt.fromHex(result.psbtHex!).data.inputs[0].tapKeySig,
+    ).toBeDefined();
+    expect(
+      BitcoinJS.Psbt.fromHex(result.psbtHex!).data.inputs[1].tapKeySig,
+    ).toBeUndefined();
+    await expect(
+      keyring.signPsbt({ ...params, signOnly: false } as never),
+    ).rejects.toThrow('cannot be finalized');
+  });
+
+  it.each([false, true])(
+    'preserves incomplete Taproot script signatures without finalizing, device finalized=%s',
+    async (finalized) => {
+      const cosigner = getBitcoinECPair().fromPrivateKey(
+        Buffer.from('02'.padStart(64, '0'), 'hex'),
+      );
+      const script = BitcoinJS.script.compile([
+        signer.publicKey.slice(1),
+        BitcoinJS.opcodes.OP_CHECKSIGVERIFY,
+        cosigner.publicKey.slice(1),
+        BitcoinJS.opcodes.OP_CHECKSIG,
+      ]);
+      const payment = BitcoinJS.payments.p2tr({
+        internalPubkey: cosigner.publicKey.slice(1),
+        scriptTree: { output: script },
+        redeem: { output: script, redeemVersion: 0xc0 },
+        network: btcNetwork,
+      });
+      const psbt = new BitcoinJS.Psbt({ network: btcNetwork });
+      psbt.addInput({
+        hash: Buffer.alloc(32, 1),
+        index: 0,
+        witnessUtxo: { script: payment.output!, value: 10_000n },
+        tapInternalKey: cosigner.publicKey.slice(1),
+        tapLeafScript: [
+          {
+            script,
+            leafVersion: 0xc0,
+            controlBlock: payment.witness![payment.witness!.length - 1],
+          },
+        ],
+      });
+      psbt.addOutput({ address: recipientAddress, value: 9000n });
+      const params = buildTaprootRequest();
+      params.unsignedTx.encodedTx.psbtHex = psbt.toHex();
+      const { keyring } = buildTaprootKeyring((submitted) => {
+        submitted.signInput(0, signer);
+        if (finalized) submitted.finalizeAllInputs();
+        return submitted;
+      });
+      const result = await keyring.signPsbt({
+        ...params,
+        signOnly: true,
+      } as never);
+      expect(result.rawTx).toBe('');
+      expect(result.finalizedPsbtHex).toBe(result.psbtHex);
+      const input = BitcoinJS.Psbt.fromHex(result.psbtHex!).data.inputs[0];
+      expect(input.tapScriptSig).toHaveLength(1);
+      expect(input.finalScriptWitness).toBeUndefined();
+      await expect(
+        keyring.signPsbt({ ...params, signOnly: false } as never),
+      ).rejects.toThrow('cannot be finalized');
+    },
+  );
 
   it('rejects a signed PSBT whose outputs differ from the submitted one', async () => {
     const attackerAddress = BitcoinJS.payments.p2wpkh({

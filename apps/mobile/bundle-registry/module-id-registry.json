@@ -20495,6 +20495,7 @@
     "packages/kit-bg/src/vaults/impls/btc/sdkBtc/ClientBtc.ts": 9901,
     "packages/kit-bg/src/vaults/impls/btc/sdkBtc/findAddressUtils.ts": 21145,
     "packages/kit-bg/src/vaults/impls/btc/settings.ts": 16417,
+    "packages/kit-bg/src/vaults/impls/btc/verifyKeystonePsbt.ts": 11020,
     "packages/kit-bg/src/vaults/impls/cfx/KeyringExternal.ts": 11940,
     "packages/kit-bg/src/vaults/impls/cfx/KeyringHardware.ts": 8210,
     "packages/kit-bg/src/vaults/impls/cfx/KeyringHd.ts": 12186,
