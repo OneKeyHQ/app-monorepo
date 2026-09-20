@@ -592,12 +592,17 @@ function getDialogContent(
 
   switch (action) {
     case EThirdPartyHardwareUiAction.requestDeviceNotFound:
-      // TODO: replace with ETranslations + ICU {device} placeholder when available
       return {
-        title: `Connect ${device}`,
+        title: intl.formatMessage(
+          { id: ETranslations.device_stage_connect_vendor__title },
+          { vendor: device },
+        ),
         message:
           payload?.message ||
-          `Please connect and unlock your ${device} device, then press Confirm.`,
+          intl.formatMessage(
+            { id: ETranslations.device_stage_connect_vendor__desc },
+            { vendor: device },
+          ),
         showFooter: true,
       };
     case EThirdPartyHardwareUiAction.requestBtcHighIndexConfirm:
@@ -617,7 +622,6 @@ function getDialogContent(
         showFooter: true,
       };
     case EThirdPartyHardwareUiAction.requestTrezorThpPairing:
-      // Temporary ETranslationsMock copy until real i18n keys land.
       return {
         title: intl.formatMessage({
           id: ETranslations.trezor_thp_pairing__title,

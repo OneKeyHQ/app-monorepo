@@ -27,6 +27,8 @@ import {
   ThirdPartyMethodNotSupported,
 } from '@onekeyhq/shared/src/errors/errors/thirdPartyHardwareErrors';
 import { convertThirdPartyDeviceError } from '@onekeyhq/shared/src/errors/utils/thirdPartyDeviceErrorUtils';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import { EHardwareVendor } from '@onekeyhq/shared/types/device';
@@ -588,9 +590,11 @@ export class KeyringHardwareKeystone extends KeyringHardwareBtcBase {
       finalizedPsbtHex = signedPsbt.toHex();
     } catch {
       if (!signOnly) {
-        throw new OneKeyLocalError(
-          'BTC transaction signatures are incomplete or cannot be finalized',
-        );
+        const key = ETranslations.feedback_failed_to_sign_transaction;
+        throw new OneKeyLocalError({
+          key,
+          message: appLocale.intl.formatMessage({ id: key }),
+        });
       }
       // A sign-only request may intentionally collect only some signatures.
       finalizedPsbtHex = signedPsbtHex;
