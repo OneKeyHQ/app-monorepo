@@ -1269,7 +1269,7 @@ export function ConnectYourDevicePage() {
       });
     } catch (error: any) {
       if (isDesktopBlePairingCanceledError(error)) {
-        return;
+        throw error;
       }
       if (isOneKeyHardwareError(error)) {
         const { code, message } = error;
@@ -1668,6 +1668,9 @@ export function ConnectYourDevicePage() {
         // land its exit, so it would stand over the update dialog.
         void backgroundApiProxy.serviceHardwareUI.deviceStageDismissUnowned();
         console.error('handleDeviceConnect error:', error);
+        if (isDesktopBlePairingCanceledError(error)) {
+          return;
+        }
         throw error;
       }
     },

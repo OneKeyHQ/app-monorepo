@@ -187,7 +187,7 @@ export function convertDeviceError(
       });
     case HardwareErrorCode.BleDeviceBondedCanceled:
       if (platformEnv.isDesktop) {
-        return new HardwareErrors.UserCancel({ payload });
+        return new HardwareErrors.UserCancel({ payload, autoToast: false });
       }
       return new HardwareErrors.BleDeviceBondedCanceled({ payload });
     case HardwareErrorCode.BleDeviceBondError:

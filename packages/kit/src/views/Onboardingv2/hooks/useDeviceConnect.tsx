@@ -253,7 +253,7 @@ export function useDeviceConnect({
         return features;
       } catch (error: any) {
         if (isDesktopBlePairingCanceledError(error)) {
-          return;
+          throw error;
         }
         if (isOneKeyHardwareError(error)) {
           const { code, message } = error;

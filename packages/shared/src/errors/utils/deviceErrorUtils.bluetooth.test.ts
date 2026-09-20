@@ -179,6 +179,7 @@ describe('convertDeviceError invalid Bluetooth bond', () => {
       expect(error).toMatchObject({
         code: HardwareErrorCode.ActionCancelled,
         key: 'hardware.user_cancel_error',
+        autoToast: false,
         payload: {
           code: HardwareErrorCode.BleDeviceBondedCanceled,
         },
