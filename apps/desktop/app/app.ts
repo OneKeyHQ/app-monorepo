@@ -79,6 +79,7 @@ import {
 // eslint-disable-next-line import-js/order
 import './libs/react-native-mmkv-desktop-main';
 import { registerInfoHandlers } from './libs/registerInfoHandlers';
+import { shouldReloadAppShellAfterFailedLoad } from './libs/rendererLoadRecovery';
 import { registerShortcuts, unregisterShortcuts } from './libs/shortcuts';
 import * as store from './libs/store';
 import { getBackgroundColor } from './libs/utils';
@@ -1682,12 +1683,22 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
     const safelyBrowserWindow = getSafelyBrowserWindow();
     safelyBrowserWindow?.webContents.on(
       'did-fail-load',
-      (_, __, ___, validatedURL) => {
-        const redirectPath = validatedURL.replace(`${PROTOCOL}://`, '');
-        if (validatedURL.startsWith(PROTOCOL) && !redirectPath.includes('.')) {
-          const w = getSafelyBrowserWindow();
-          void w?.loadURL(src);
+      (_, errorCode, __, validatedURL, isMainFrame) => {
+        if (
+          !shouldReloadAppShellAfterFailedLoad({
+            validatedURL,
+            isMainFrame,
+            errorCode,
+            appShellUrl: src,
+          })
+        ) {
+          return;
         }
+        logger.info('browserWindow >>>> reload app shell after failed load', {
+          errorCode,
+        });
+        const w = getSafelyBrowserWindow();
+        void w?.loadURL(src);
       },
     );
   }
