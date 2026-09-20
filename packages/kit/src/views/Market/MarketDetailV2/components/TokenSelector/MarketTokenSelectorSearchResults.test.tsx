@@ -24,7 +24,7 @@ type IMockStockSelectorResult = {
 };
 const mockUseMarketStockSelectorList = jest.fn<
   IMockStockSelectorResult,
-  [{ query: string }]
+  [{ query: string; searchOnly?: boolean }]
 >();
 
 const createStock = (stockId: string): IMarketStockPublicItem => ({
@@ -167,6 +167,7 @@ describe('MarketTokenSelectorSearchResults', () => {
     expect(screen.getAllByText('global.market')).toHaveLength(2);
     expect(mockUseMarketStockSelectorList).toHaveBeenCalledWith({
       query: 'aapl',
+      searchOnly: true,
     });
 
     fireEvent.click(screen.getByTestId('search-row-AAPL'));
@@ -297,5 +298,21 @@ describe('MarketTokenSelectorSearchResults', () => {
       screen.getByTestId('market-token-selector-stock-search-load-more-retry'),
     );
     expect(mockLoadMore).toHaveBeenCalledTimes(2);
+  });
+
+  it('asks the stock hook for search-only results', () => {
+    render(
+      <MarketTokenSelectorSearchResults
+        query="   "
+        marketItems={[]}
+        onStockPress={mockStockPress}
+        onMarketPress={mockMarketPress}
+      />,
+    );
+
+    expect(mockUseMarketStockSelectorList).toHaveBeenCalledWith({
+      query: '   ',
+      searchOnly: true,
+    });
   });
 });

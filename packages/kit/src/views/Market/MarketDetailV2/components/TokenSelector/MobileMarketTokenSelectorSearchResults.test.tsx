@@ -23,7 +23,7 @@ type IMockStockSelectorResult = {
 };
 const mockUseMarketStockSelectorList = jest.fn<
   IMockStockSelectorResult,
-  [{ query: string }]
+  [{ query: string; searchOnly?: boolean }]
 >();
 
 const stock: IMarketStockPublicItem = {
@@ -233,5 +233,21 @@ describe('MobileMarketTokenSelectorSearchResults', () => {
       ),
     );
     expect(mockLoadMore).toHaveBeenCalledTimes(2);
+  });
+
+  it('asks the stock hook for search-only results', () => {
+    render(
+      <MobileMarketTokenSelectorSearchResults
+        query="   "
+        marketItems={[]}
+        onStockPress={mockStockPress}
+        onMarketPress={mockMarketPress}
+      />,
+    );
+
+    expect(mockUseMarketStockSelectorList).toHaveBeenCalledWith({
+      query: '   ',
+      searchOnly: true,
+    });
   });
 });

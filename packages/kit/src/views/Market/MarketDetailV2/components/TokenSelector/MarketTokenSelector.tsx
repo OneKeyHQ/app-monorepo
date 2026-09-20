@@ -251,8 +251,8 @@ function BaseMarketTokenSelectorContent({
 
   const [searchValue, setSearchValue] = useState('');
   const searchValueDebounce = useDebounce(searchValue, 500);
-  const { searchLoading, searchTokenList } =
-    useSwapProTokenSearch(searchValueDebounce);
+  const searchQuery = searchValueDebounce.trim();
+  const { searchLoading, searchTokenList } = useSwapProTokenSearch(searchQuery);
 
   // The favorites list is unmounted on every tab switch, so its fetched data
   // is parked on this shell — which outlives the tabs — and handed back on
@@ -337,10 +337,10 @@ function BaseMarketTokenSelectorContent({
         tokenDetailActions,
         beforeNavigate: () => void closePopover?.(),
         showFavoriteButton,
-        resolveMarketAsset: startListSelect || Boolean(searchValueDebounce),
+        resolveMarketAsset: startListSelect || Boolean(searchQuery),
         tokenDetailPreview: token.tokenDetailPreview,
         marketTokenCategory:
-          startListSelect || searchValueDebounce ? undefined : selectedCategory,
+          startListSelect || searchQuery ? undefined : selectedCategory,
       });
     },
     [
@@ -349,7 +349,7 @@ function BaseMarketTokenSelectorContent({
       closePopover,
       navigateToPerps,
       toMarketStockDetailPage,
-      searchValueDebounce,
+      searchQuery,
       selectedCategory,
       showFavoriteButton,
       startListSelect,
@@ -358,7 +358,7 @@ function BaseMarketTokenSelectorContent({
 
   const handleSelectToken = useCallback(
     (item: IMarketTokenSelectorItem) => {
-      if (isTopCoinsSelection && !searchValueDebounce) {
+      if (isTopCoinsSelection && !searchQuery) {
         const topCoin = item.marketAssetId
           ? topCoinsById.get(item.marketAssetId)
           : undefined;
@@ -380,7 +380,7 @@ function BaseMarketTokenSelectorContent({
       handleTopCoinPress,
       isTopCoinsSelection,
       navigateToTokenDetail,
-      searchValueDebounce,
+      searchQuery,
       topCoinsById,
     ],
   );
@@ -395,10 +395,10 @@ function BaseMarketTokenSelectorContent({
   );
 
   let selectorListContent: ReactElement;
-  if (searchValueDebounce) {
+  if (searchQuery) {
     selectorListContent = (
       <MarketTokenSelectorSearchResults
-        query={searchValueDebounce}
+        query={searchQuery}
         marketItems={searchTokenList}
         isMarketLoading={searchLoading}
         onStockPress={handleSelectStock}
@@ -447,7 +447,7 @@ function BaseMarketTokenSelectorContent({
         </XStack>
 
         {/* Tabs - hidden during search */}
-        {searchValueDebounce ? null : (
+        {searchQuery ? null : (
           <XStack
             borderBottomWidth="$px"
             borderBottomColor="$borderSubdued"

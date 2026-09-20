@@ -74,14 +74,15 @@ function MobileTokenSelectorContent() {
 
   const [searchValue, setSearchValue] = useState('');
   const searchValueDebounce = useDebounce(searchValue, 500);
+  const searchQuery = searchValueDebounce.trim();
   const { searchLoading, searchTokenList } = useSwapProTokenSearch(
-    searchValueDebounce,
+    searchQuery,
     selectedNetworkId,
   );
   const liveTokenOverride = useLiveTokenOverride();
 
   useEffect(() => {
-    if (!searchValueDebounce) {
+    if (!searchQuery) {
       return;
     }
     searchTokenList.slice(0, 20).forEach((token) => {
@@ -90,7 +91,7 @@ function MobileTokenSelectorContent() {
         tokenImageUris: token.logoUrls,
       });
     });
-  }, [searchTokenList, searchValueDebounce]);
+  }, [searchTokenList, searchQuery]);
 
   const handleNetworkIdChange = useCallback(
     (networkId: string) => {
@@ -142,7 +143,7 @@ function MobileTokenSelectorContent() {
         tokenDetailActions,
         beforeNavigate: () => navigation.popStack(),
         showFavoriteButton,
-        resolveMarketAsset: startListSelect || Boolean(searchValueDebounce),
+        resolveMarketAsset: startListSelect || Boolean(searchQuery),
         tokenDetailPreview: token.tokenDetailPreview,
       });
     },
@@ -151,7 +152,7 @@ function MobileTokenSelectorContent() {
       tokenDetailActions,
       navigation,
       navigateToPerps,
-      searchValueDebounce,
+      searchQuery,
       showFavoriteButton,
       startListSelect,
     ],
@@ -210,9 +211,9 @@ function MobileTokenSelectorContent() {
           />
         </Stack>
 
-        {searchValueDebounce ? (
+        {searchQuery ? (
           <MobileMarketTokenSelectorSearchResults
-            query={searchValueDebounce}
+            query={searchQuery}
             marketItems={searchTokenList}
             isMarketLoading={searchLoading}
             onStockPress={handleSearchStockSelect}

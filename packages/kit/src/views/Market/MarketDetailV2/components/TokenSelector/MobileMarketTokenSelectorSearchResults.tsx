@@ -76,7 +76,10 @@ function MobileMarketTokenSelectorSearchResults({
     useState<IMarketTokenSelectorSearchTab>('all');
   const [showAllStocks, setShowAllStocks] = useState(false);
   const [showAllMarkets, setShowAllMarkets] = useState(false);
-  const stockResult = useMarketStockSelectorList({ query });
+  const stockResult = useMarketStockSelectorList({
+    query,
+    searchOnly: true,
+  });
 
   useEffect(() => {
     setActiveTab('all');
