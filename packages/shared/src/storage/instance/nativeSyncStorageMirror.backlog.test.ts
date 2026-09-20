@@ -147,6 +147,73 @@ describe('native sync storage backlog recovery', () => {
     });
   });
 
+  it('does not reject a refresh when pending SWR writes exceed the replay budget', async () => {
+    const module = loadMirror();
+    await module.bootstrapNativeSyncStorageMirrors();
+    globals.__onekeyNativeStorageIsTransportReady = () => false;
+    const storage = module.createNativeSyncStorageMirror('coldStart');
+
+    for (let batch = 0; batch < 100; batch += 1) {
+      void storage.applySWRCachePatch?.({
+        removePrefixes: [],
+        removals: [],
+        updates: Array.from({ length: 11 }, (_, index) => {
+          const key = `pending-${batch}-${index}`;
+          return [
+            key,
+            JSON.stringify({ d: key, t: batch * 11 + index + 1 }),
+          ] as const;
+        }),
+      });
+    }
+
+    await module.refreshNativeSyncStorageMirrors();
+
+    const value = JSON.parse(storage.getString(swrKey) ?? '{}') as Record<
+      string,
+      unknown
+    >;
+    expect(Object.keys(value)).toHaveLength(1000);
+    expect(value['pending-99-10']).toEqual({
+      d: 'pending-99-10',
+      t: 1100,
+    });
+    expect(mockCallNativeStorage).toHaveBeenCalledTimes(2);
+  });
+
+  it('allows initial bootstrap with pending SWR writes over the replay budget', async () => {
+    globals.__onekeyNativeStorageIsTransportReady = () => false;
+    const module = loadMirror();
+    const storage = module.createNativeSyncStorageMirror('coldStart');
+
+    for (let batch = 0; batch < 100; batch += 1) {
+      void storage.applySWRCachePatch?.({
+        removePrefixes: [],
+        removals: [],
+        updates: Array.from({ length: 11 }, (_, index) => {
+          const key = `pending-${batch}-${index}`;
+          return [
+            key,
+            JSON.stringify({ d: key, t: batch * 11 + index + 1 }),
+          ] as const;
+        }),
+      });
+    }
+
+    await module.bootstrapNativeSyncStorageMirrors();
+
+    const value = JSON.parse(storage.getString(swrKey) ?? '{}') as Record<
+      string,
+      unknown
+    >;
+    expect(Object.keys(value)).toHaveLength(1000);
+    expect(value['pending-99-10']).toEqual({
+      d: 'pending-99-10',
+      t: 1100,
+    });
+    expect(mockCallNativeStorage).toHaveBeenCalledTimes(1);
+  });
+
   it('coalesces 10000 same-key broadcasts while a snapshot is in flight', async () => {
     let resolveSnapshot:
       | ((snapshot: INativeStorageBootstrapSnapshot) => void)
