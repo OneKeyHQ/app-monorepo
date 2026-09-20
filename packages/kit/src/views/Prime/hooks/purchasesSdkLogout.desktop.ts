@@ -8,8 +8,13 @@ let logoutPromise: Promise<boolean> | undefined;
 async function logoutMacAppStorePurchasesSdk(): Promise<boolean> {
   try {
     const api = globalThis.desktopApiProxy?.inAppPurchase;
-    // Older application shells cannot have initialized the RevenueCat bridge.
-    if (!api?.revenueCatLogOut) {
+    let isAvailable = false;
+    try {
+      isAvailable = Boolean(await api?.revenueCatIsAvailable?.());
+    } catch {
+      // Proxy methods exist even when an older shell has no native bridge.
+    }
+    if (!isAvailable) {
       return true;
     }
     await api.revenueCatLogOut();
