@@ -10,6 +10,7 @@ import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import {
   FIRST_BTC_TAPROOT_ADDRESS_PATH,
   FIRST_EVM_ADDRESS_PATH,
+  IMPL_EVM,
 } from '@onekeyhq/shared/src/engine/engineConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
@@ -689,6 +690,19 @@ class ServiceReferralCode extends ServiceBase {
     indexedAccountId?: string;
   }): Promise<string | undefined> {
     try {
+      // Others accounts (watch-only / imported / external) have no indexed
+      // sibling. Use the stored EVM address when the account itself is EVM.
+      if (accountId && accountUtils.isOthersAccount({ accountId })) {
+        const dbAccount =
+          await this.backgroundApi.serviceAccount.getDBAccountSafe({
+            accountId,
+          });
+        if (dbAccount?.impl === IMPL_EVM && dbAccount.address) {
+          return dbAccount.address;
+        }
+        return undefined;
+      }
+
       let currentIndexedAccountId = indexedAccountId;
       if (!currentIndexedAccountId && accountId) {
         const dbAccount =
