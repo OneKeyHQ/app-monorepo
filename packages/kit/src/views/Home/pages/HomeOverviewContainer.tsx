@@ -49,6 +49,7 @@ import {
   useAccountOverviewStateAtom,
   useAccountWorthAtom,
   useAllNetworksStateStateAtom,
+  useHomePortfolioDisplayAtom,
   useLastConfirmedOverviewBalanceAtom,
   useOverviewDeFiDataStateAtom,
   useOverviewTokenCacheStateAtom,
@@ -121,6 +122,7 @@ function HomeOverviewContainer() {
   const [allNetworksState] = useAllNetworksStateStateAtom();
   const [lastConfirmedOverviewBalance, setLastConfirmedOverviewBalance] =
     useLastConfirmedOverviewBalanceAtom();
+  const [, setHomePortfolioDisplay] = useHomePortfolioDisplayAtom();
   const [overviewTokenCacheState] = useOverviewTokenCacheStateAtom();
   const [overviewDeFiDataState] = useOverviewDeFiDataStateAtom();
   const [{ currencyMap }] = useCurrencyPersistAtom();
@@ -982,11 +984,107 @@ function HomeOverviewContainer() {
     });
   }, [renderedBalanceString, settings.currencyInfo.id, currencyMap]);
 
+  const currentTokenWorthUsd = useMemo(() => {
+    if (!isCurrentAccountWorthReady) {
+      return undefined;
+    }
+    const tokenWorth = calculateAccountTokensValue({
+      accountId: account?.id ?? '',
+      networkId: network?.id ?? '',
+      tokensWorth: accountWorth,
+      mergeDeriveAssetsEnabled: !!vaultSettings?.mergeDeriveAssetsEnabled,
+    });
+    return convertFiat({
+      value: tokenWorth,
+      sourceCurrency: accountWorth.currency ?? settings.currencyInfo.id,
+      targetCurrency: USD_CURRENCY_ID,
+      currencyMap,
+    });
+  }, [
+    account?.id,
+    accountWorth,
+    currencyMap,
+    isCurrentAccountWorthReady,
+    network?.id,
+    settings.currencyInfo.id,
+    vaultSettings?.mergeDeriveAssetsEnabled,
+  ]);
+
   // Track when balance is first displayed
   const balanceReady =
     !showSkeleton &&
     renderedBalanceString !== null &&
     renderedBalanceString !== undefined;
+  useEffect(() => {
+    const isCurrentOwnerBalance =
+      !!currentOverviewOwnerKey &&
+      !(canReuseLatestDisplayedBalance && !currentConfirmedBalance);
+    const isLive =
+      isCurrentOwnerBalance &&
+      !shouldHoldCurrentConfirmedBalance &&
+      resolvedBalanceString !== undefined &&
+      renderedBalanceString === resolvedBalanceString;
+    const hasKnownDeFi =
+      isLive &&
+      isDeFiOverviewOwnerMatched &&
+      shouldIncludeKnownDeFiWorth({
+        isAllNetworks: !!network?.isAllNetworks,
+        isDeFiReady: isCurrentAccountDeFiReady,
+        deFiGraceExpired,
+        isDeFiOverviewOwnerMatched,
+      });
+    const deFiFiatUsd = hasKnownDeFi
+      ? convertFiat({
+          value: accountDeFiOverview.netWorth ?? 0,
+          sourceCurrency:
+            accountDeFiOverview.currency || settings.currencyInfo.id,
+          targetCurrency: USD_CURRENCY_ID,
+          currencyMap,
+        })
+      : undefined;
+    let perpsFiatUsd: string | undefined;
+    if (isLive) {
+      perpsFiatUsd = isPerpsEnabled ? perpsNetWorthUsd : '0';
+    }
+    const next = {
+      ownerKey: isCurrentOwnerBalance ? currentOverviewOwnerKey : '',
+      totalFiatUsd: isCurrentOwnerBalance && !showSkeleton
+        ? (renderedBalanceString ?? '0')
+        : undefined,
+      tokenFiatUsd: isLive ? currentTokenWorthUsd : undefined,
+      defiFiatUsd: deFiFiatUsd,
+      perpsFiatUsd,
+      isLive,
+    };
+    setHomePortfolioDisplay((prev) =>
+      Object.keys(next).every(
+        (key) =>
+          prev[key as keyof typeof next] === next[key as keyof typeof next],
+      )
+        ? prev
+        : next,
+    );
+  }, [
+    accountDeFiOverview.currency,
+    accountDeFiOverview.netWorth,
+    canReuseLatestDisplayedBalance,
+    currencyMap,
+    currentConfirmedBalance,
+    currentOverviewOwnerKey,
+    currentTokenWorthUsd,
+    deFiGraceExpired,
+    isCurrentAccountDeFiReady,
+    isDeFiOverviewOwnerMatched,
+    isPerpsEnabled,
+    network?.isAllNetworks,
+    perpsNetWorthUsd,
+    renderedBalanceString,
+    resolvedBalanceString,
+    settings.currencyInfo.id,
+    setHomePortfolioDisplay,
+    shouldHoldCurrentConfirmedBalance,
+    showSkeleton,
+  ]);
   useEffect(() => {
     if (balanceReady && !(globalThis as any).__onekeyBalanceDisplayed) {
       (globalThis as any).__onekeyBalanceDisplayed = true;

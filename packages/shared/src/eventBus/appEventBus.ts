@@ -62,6 +62,7 @@ import type { EDecodedTxStatus } from '../../types/tx';
 import type { EHomeWalletTab } from '../../types/wallet';
 import type { IOneKeyError } from '../errors/types/errorTypes';
 import type { EModalRoutes, ETabRoutes, IWebViewPageParams } from '../routes';
+import type { IPortfolioCategoryFiat } from '../utils/portfolioPayload';
 import type { INativeStorageContractViolation } from '../storage/nativeStorageTypes';
 import type { IStorageFullDiagnostics } from '../storageChecker/types';
 import type { IWalletConnectSession } from '../walletConnect/types';
@@ -403,6 +404,8 @@ export interface IAppEventBusPayload {
     networkId?: string;
     ownerAccountId?: string;
     ownerNetworkId?: string;
+    homeTotalFiatUsd?: string;
+    homeCategoryFiatUsd?: IPortfolioCategoryFiat;
     totalFiat: string;
     totalFiatCurrency: string;
     totalTokenCount: number;
