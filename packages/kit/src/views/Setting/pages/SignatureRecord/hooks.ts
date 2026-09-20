@@ -55,9 +55,7 @@ export const useGetSignatureSections = <T extends { createdAt: number }>(
     setQuery({ offset: 0, limit: 10 });
   }, [networkId, address]);
 
-  const {
-    result: { sections, ending },
-  } = usePromiseResult(
+  const { result } = usePromiseResult(
     async () => {
       const gen = resetGenRef.current;
       const resp = await methodRef.current({
@@ -68,7 +66,7 @@ export const useGetSignatureSections = <T extends { createdAt: number }>(
       });
       // Skip stale results from before a filter reset
       if (resetGenRef.current !== gen) {
-        return { sections: [], ending: false };
+        return { sections: [], ending: false, networkId, address };
       }
       const isSearch = !networkUtils.isAllNetwork({ networkId }) || address;
       if (!isSearch) {
@@ -82,18 +80,30 @@ export const useGetSignatureSections = <T extends { createdAt: number }>(
       return {
         sections: groupBy(isSearch ? resp : ref.current),
         ending: resp.length < query.limit,
+        networkId,
+        address,
       };
     },
     [networkId, query.limit, query.offset, address],
-    { initResult: { sections: [], ending: false } },
+    {
+      initResult: { sections: [], ending: false, networkId: '', address: '' },
+    },
   );
 
+  const isCurrentFilter =
+    result.networkId === networkId && result.address === address;
+  const sections = useMemo(
+    () => (isCurrentFilter ? result.sections : []),
+    [isCurrentFilter, result.sections],
+  );
+  const ending = isCurrentFilter ? result.ending : false;
+
   const onEndReached = useCallback(() => {
-    if (ending || !hasLoadedFirstPageRef.current) {
+    if (ending || !isCurrentFilter || !hasLoadedFirstPageRef.current) {
       return;
     }
     setQuery((prev) => ({ ...prev, offset: prev.offset + prev.limit }));
-  }, [ending]);
+  }, [ending, isCurrentFilter]);
 
   return useMemo(() => ({ sections, onEndReached }), [sections, onEndReached]);
 };
