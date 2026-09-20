@@ -195,7 +195,6 @@ const mockColdStartCacheStorage = {
     mockColdStartCacheStorageData.set(key, value);
   }),
 };
-const mockFlushColdStartCacheNow = jest.fn(async () => undefined);
 const mockWriteContextAtomColdStartCacheValues: jest.MockedFunction<IWriteContextAtomColdStartCacheValues> =
   jest.fn();
 const mockAddTonImportedAccountByMnemonic = jest.fn<
@@ -303,10 +302,6 @@ jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
     isWeb: false,
     isWebDappMode: false,
   },
-}));
-
-jest.mock('@onekeyhq/shared/src/storage/instance/webColdStartStorage', () => ({
-  flushColdStartCacheNow: () => mockFlushColdStartCacheNow(),
 }));
 
 jest.mock('@onekeyhq/shared/src/storage/uiSnapshotCaches', () => ({

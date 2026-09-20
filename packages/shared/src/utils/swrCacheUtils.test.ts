@@ -678,3 +678,84 @@ describe('SWR cache budgets and reload throttling', () => {
     expect(diskGlobal.__swrNamespaceReadCount).toBe(3);
   });
 });
+
+describe('SWR cache cross-runtime invalidation', () => {
+  beforeEach(() => {
+    resetDisk();
+  });
+
+  // The bus has to come from the same module registry as the cache under
+  // test: `loadFreshRuntime` resets it, and a bus required before that is a
+  // different instance with its own listeners.
+  function bus() {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    return require('../eventBus/appEventBus') as typeof import('../eventBus/appEventBus');
+  }
+
+  it('announces what it removed, and not what it wrote', () => {
+    const cache = loadFreshRuntime();
+    const { appEventBus, EAppEventBusNames } = bus();
+    const seen: unknown[] = [];
+    const listener = (payload: unknown) => seen.push(payload);
+    appEventBus.on(EAppEventBusNames.SwrCacheInvalidated, listener);
+    try {
+      cache.set('walletList:a', 'written');
+      cache.flushNow();
+      expect(seen).toHaveLength(0);
+
+      cache.remove('walletList:a');
+      cache.removeByPrefix('accSelList:');
+      cache.flushNow();
+
+      expect(seen).toEqual([
+        { keys: ['walletList:a'], prefixes: ['accSelList:'] },
+      ]);
+    } finally {
+      appEventBus.off(EAppEventBusNames.SwrCacheInvalidated, listener);
+    }
+  });
+
+  it('drops what the other runtime removed, so the next read goes to disk', () => {
+    disk().set('walletList:a', { d: 'from-disk', t: 1000 });
+    const cache = loadFreshRuntime();
+    const { appEventBus, EAppEventBusNames } = bus();
+    expect(cache.get('walletList:a')).toBe('from-disk');
+
+    // The other runtime deleted the wallet and dropped its namespace.
+    disk().delete('walletList:a');
+    appEventBus.emit(EAppEventBusNames.SwrCacheInvalidated, {
+      prefixes: ['walletList:'],
+    });
+
+    expect(cache.get('walletList:a')).toBeUndefined();
+  });
+
+  it('keeps a pending local write over a remote removal', () => {
+    const cache = loadFreshRuntime();
+    const { appEventBus, EAppEventBusNames } = bus();
+    cache.set('walletList:a', 'mine');
+
+    appEventBus.emit(EAppEventBusNames.SwrCacheInvalidated, {
+      prefixes: ['walletList:'],
+    });
+
+    // Not yet flushed: dropping it here would lose a write nobody replaced.
+    expect(cache.get('walletList:a')).toBe('mine');
+  });
+
+  it('clears everything it has not written when the other runtime clears', () => {
+    disk().set('walletList:a', { d: 'from-disk', t: 1000 });
+    const cache = loadFreshRuntime();
+    const { appEventBus, EAppEventBusNames } = bus();
+    expect(cache.get('walletList:a')).toBe('from-disk');
+    cache.set('marketTokenDetail:b', 'mine');
+
+    disk().clear();
+    appEventBus.emit(EAppEventBusNames.SwrCacheInvalidated, {
+      clearedAll: true,
+    });
+
+    expect(cache.get('walletList:a')).toBeUndefined();
+    expect(cache.get('marketTokenDetail:b')).toBe('mine');
+  });
+});

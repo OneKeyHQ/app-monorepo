@@ -343,6 +343,7 @@ function loadStore(): ISWRStore {
   if (_cache === undefined) {
     _cache = {};
     resetCacheSerializedChars(_cache);
+    subscribeToRemoteInvalidation();
   }
   return _cache;
 }
@@ -630,6 +631,102 @@ function clearPendingIntents() {
 
 // Only the changed entries are serialized; the mirror applies them per key
 // and bg's acknowledgement comes back through the subscription.
+/**
+ * Tell the other runtime what this one removed.
+ *
+ * Both runtimes hold their own copy of the entries they have read, and only
+ * removals need to cross: a write the other runtime has not seen is a miss
+ * there, and a miss reads the file. A removal is the opposite — the stale
+ * value is a hit, so nothing sends it back to the file, and the entity the
+ * caller just deleted would keep painting until the next launch.
+ *
+ * bg drops these namespaces on every wallet or account mutation, so this is
+ * also what makes rename and delete reach the UI.
+ */
+function publishInvalidation({
+  keys,
+  prefixes,
+  clearedAll,
+}: {
+  keys: string[];
+  prefixes: string[];
+  clearedAll: boolean;
+}) {
+  if (!clearedAll && keys.length === 0 && prefixes.length === 0) {
+    return;
+  }
+  try {
+    // Lazy: the event bus reaches back into storage, and this module is on
+    // that path.
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const { appEventBus, EAppEventBusNames } =
+      require('../eventBus/appEventBus') as typeof import('../eventBus/appEventBus');
+    appEventBus.emit(EAppEventBusNames.SwrCacheInvalidated, {
+      ...(keys.length > 0 ? { keys } : {}),
+      ...(prefixes.length > 0 ? { prefixes } : {}),
+      ...(clearedAll ? { clearedAll } : {}),
+    });
+  } catch {
+    // A cache that cannot announce a removal still removed it locally.
+  }
+}
+
+/** Drop what the other runtime removed, so the next read goes to the file. */
+function applyRemoteInvalidation({
+  keys,
+  prefixes,
+  clearedAll,
+}: {
+  keys?: string[];
+  prefixes?: string[];
+  clearedAll?: boolean;
+}) {
+  const store = _cache;
+  if (!store) {
+    return;
+  }
+  if (clearedAll) {
+    // Keys this runtime has written since are still pending, and a flush will
+    // put them back; everything else is the other runtime's business.
+    Object.keys(store).forEach((key) => {
+      if (!_updatedKeys.has(key)) {
+        removeCachedEntry(store, key);
+      }
+    });
+    return;
+  }
+  keys?.forEach((key) => {
+    if (!_updatedKeys.has(key)) {
+      removeCachedEntry(store, key);
+    }
+  });
+  prefixes?.forEach((prefix) => {
+    Object.keys(store).forEach((key) => {
+      if (key.startsWith(prefix) && !_updatedKeys.has(key)) {
+        removeCachedEntry(store, key);
+      }
+    });
+  });
+}
+
+let _invalidationSubscribed = false;
+function subscribeToRemoteInvalidation() {
+  if (_invalidationSubscribed) {
+    return;
+  }
+  _invalidationSubscribed = true;
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const { appEventBus, EAppEventBusNames } =
+      require('../eventBus/appEventBus') as typeof import('../eventBus/appEventBus');
+    appEventBus.on(EAppEventBusNames.SwrCacheInvalidated, (payload) => {
+      applyRemoteInvalidation(payload);
+    });
+  } catch {
+    // Without the bus this runtime keeps its own copy until it reloads.
+  }
+}
+
 function flush() {
   if (!_dirty || !_cache) return;
   try {
@@ -653,6 +750,11 @@ function flush() {
     if (updates.length > 0) {
       writeSwrCacheEntries(updates);
     }
+    publishInvalidation({
+      keys: [..._removedKeysAt.keys()],
+      prefixes: _removedPrefixesAt.map(({ prefix }) => prefix),
+      clearedAll: _clearedAllAt > 0,
+    });
     clearPendingIntents();
     const durationMs = Math.round(perfNow() - startedAt);
     if (durationMs >= SWR_CACHE_SLOW_OP_LOG_THRESHOLD_MS) {

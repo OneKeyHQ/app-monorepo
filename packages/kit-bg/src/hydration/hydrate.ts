@@ -68,8 +68,13 @@ import type { IColdStartHydrationStatus } from '../states/jotai/coldStartReady';
 
 const BUILD_HASH_KEY = 'build-hash';
 const CTX_SNAPSHOT_NAMESPACE = 'ctx-atom-snapshot';
+// Namespaces the first frame reads, loaded before the ready gate resolves.
+// The account selector's recent-selection guard is one of them: it decides
+// which account the home screen opens with, so finding it late is the same as
+// not finding it. Everything else is primed after the gate.
 const STARTUP_NAMESPACES = [
   CTX_SNAPSHOT_NAMESPACE,
+  'account-selector',
   UI_SNAPSHOT_META_NAMESPACE,
 ] as const;
 const KILL_SWITCH_LS_KEY = '__cold_start_kill__';

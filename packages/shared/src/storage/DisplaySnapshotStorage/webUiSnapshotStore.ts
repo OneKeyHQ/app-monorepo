@@ -94,6 +94,9 @@ function scheduleFlush(key: string) {
  *  allowed to run when the quota is exhausted — that is when it matters. */
 export function flushUiSnapshotStoreNow(): Promise<void> {
   if (flushPromise) {
+    // Keys written while this flush runs are not in it. Returning its promise
+    // is right — the caller waits for work already in flight — but the timer
+    // that called us is gone, so the tail below schedules the next one.
     return flushPromise;
   }
   if (dirtyKeys.size === 0) {
@@ -143,6 +146,14 @@ export function flushUiSnapshotStoreNow(): Promise<void> {
     }
   })().finally(() => {
     flushPromise = undefined;
+    // Written during the flush, or re-queued by a failure: either way nothing
+    // else is scheduled for them.
+    if (dirtyKeys.size > 0 && !isClearing) {
+      const pending = [...dirtyKeys][0];
+      if (pending !== undefined) {
+        scheduleFlush(pending);
+      }
+    }
   });
   flushPromise = next;
   return next;

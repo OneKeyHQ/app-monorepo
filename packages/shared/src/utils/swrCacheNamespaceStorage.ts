@@ -12,7 +12,10 @@
  * shared map that the hydration primes. That is what lets `swrCacheUtils`
  * keep a synchronous `get`.
  */
-import { createNamespacedSnapshotCache } from '../storage/SnapshotCache';
+import {
+  createNamespacedSnapshotCache,
+  isValidSnapshotCacheKey,
+} from '../storage/SnapshotCache';
 import {
   SWR_CACHE_FALLBACK_NAMESPACE,
   swrCacheNamespaceName,
@@ -60,6 +63,43 @@ export function swrKeyNamespace(key: string): ISnapshotCacheNamespace {
   );
 }
 
+/**
+ * What a namespace may hold as a key is narrower than what an SWR key may be:
+ * the cache accepts any string up to 20,000 characters, a record key is
+ * `[A-Za-z0-9][A-Za-z0-9._:/-]*` and at most 480. A token symbol, an account
+ * label or a long address set puts a key outside that set, and the storage
+ * layer answers by dropping it — silently, on both write and read.
+ *
+ * So a key that does not fit is stored under a digest of itself instead. The
+ * leading segment is kept, both so a namespace-wide prefix still matches and
+ * so the record stays readable.
+ */
+function digestOf(key: string) {
+  // Two FNV-1a passes with different offsets: 64 bits, which is far more than
+  // a namespace's few hundred keys need to stay collision-free, and cheap
+  // enough for a read path.
+  let low = 0x81_1c_9d_c5;
+  let high = 0x01_00_01_93;
+  for (let index = 0; index < key.length; index += 1) {
+    const code = key.charCodeAt(index);
+    low = Math.imul(low ^ code, 0x01_00_01_93) >>> 0;
+    high = Math.imul(high ^ (code + index), 0x85_eb_ca_6b) >>> 0;
+  }
+  return `${low.toString(36)}${high.toString(36)}`;
+}
+
+/** Marks a digested record, in characters the record key rule allows. */
+const DIGEST_MARKER = '__digest__';
+
+function toStorageKey(key: string) {
+  if (isValidSnapshotCacheKey(key)) {
+    return key;
+  }
+  const prefix = swrKeyPrefix(key);
+  const safePrefix = isValidSnapshotCacheKey(prefix) ? prefix : 'swr';
+  return `${safePrefix}:${DIGEST_MARKER}${digestOf(key)}`;
+}
+
 function getCache(namespace: ISnapshotCacheNamespace) {
   let cache = caches.get(namespace);
   if (!cache) {
@@ -78,7 +118,7 @@ export function readSwrCacheEntry(
   key: string,
 ): ISwrCacheStoredEntry | undefined {
   try {
-    return getCache(swrKeyNamespace(key)).get(key)?.data;
+    return getCache(swrKeyNamespace(key)).get(toStorageKey(key))?.data;
   } catch {
     return undefined;
   }
@@ -102,7 +142,9 @@ export function writeSwrCacheEntries(
   });
   byNamespace.forEach((group, namespace) => {
     try {
-      getCache(namespace).setMany(group);
+      getCache(namespace).setMany(
+        group.map(([key, entry]) => [toStorageKey(key), entry] as const),
+      );
     } catch {
       // One namespace that cannot be written must not stop the rest.
     }
@@ -112,7 +154,7 @@ export function writeSwrCacheEntries(
 export function removeSwrCacheEntries(keys: readonly string[]): void {
   keys.forEach((key) => {
     try {
-      getCache(swrKeyNamespace(key)).remove(key);
+      getCache(swrKeyNamespace(key)).remove(toStorageKey(key));
     } catch {
       // Best effort.
     }
@@ -133,8 +175,20 @@ export function removeSwrCacheByPrefix(prefix: string): void {
       cache.clear();
       return;
     }
-    cache
-      .keys()
+    const keys = cache.keys();
+    // A digested key carries nothing of the original past its namespace, so a
+    // narrower prefix cannot be matched against it. Clearing the namespace
+    // drops more than asked, which for a cache costs a refetch; leaving a key
+    // the caller asked to invalidate would cost correctness.
+    if (
+      keys.some((key) =>
+        key.startsWith(`${swrKeyPrefix(prefix)}:${DIGEST_MARKER}`),
+      )
+    ) {
+      cache.clear();
+      return;
+    }
+    keys
       .filter((key) => key.startsWith(prefix))
       .forEach((key) => cache.remove(key));
   } catch {
