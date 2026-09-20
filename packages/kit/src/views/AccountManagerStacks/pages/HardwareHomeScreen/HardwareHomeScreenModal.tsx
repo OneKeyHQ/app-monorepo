@@ -812,6 +812,16 @@ export default function HardwareHomeScreenModal({
           testID: 'hardware-wallpaper-apply-button',
         }}
         onConfirm={async (close) => {
+          const applyStartedAt = Date.now();
+          const isProtocolV2Wallpaper = isProtocolV2ProductType(
+            device?.deviceType,
+          );
+          let isCustomScreen = false;
+          let currentPhase: 'image-processing' | 'hardware-call' =
+            'image-processing';
+          let phaseStartedAt = applyStartedAt;
+          let imagePreparationMs: number | undefined;
+          let hardwareCallMs: number | undefined;
           try {
             if (!device?.id || !selectedItem) {
               return;
@@ -827,7 +837,14 @@ export default function HardwareHomeScreenModal({
               isUserUpload,
             } = selectedItem;
 
-            const isCustomScreen = resType === 'custom' || isUserUpload;
+            isCustomScreen = resType === 'custom' || !!isUserUpload;
+            if (isProtocolV2Wallpaper) {
+              defaultLogger.hardware.homescreen.wallpaperApply({
+                deviceType: device.deviceType,
+                isCustomScreen,
+                status: 'started',
+              });
+            }
 
             let buildCustomHexError: string | undefined = '';
 
@@ -885,6 +902,24 @@ export default function HardwareHomeScreenModal({
               throw new OneKeyLocalError(buildCustomHexError);
             }
 
+            imagePreparationMs = Date.now() - phaseStartedAt;
+            if (isProtocolV2Wallpaper) {
+              defaultLogger.hardware.homescreen.wallpaperApplyPhase({
+                deviceType: device.deviceType,
+                phase: currentPhase,
+                status: 'success',
+                durationMs: imagePreparationMs,
+              });
+            }
+            currentPhase = 'hardware-call';
+            phaseStartedAt = Date.now();
+            if (isProtocolV2Wallpaper) {
+              defaultLogger.hardware.homescreen.wallpaperApplyPhase({
+                deviceType: device.deviceType,
+                phase: currentPhase,
+                status: 'started',
+              });
+            }
             const response =
               await backgroundApiProxy.serviceHardware.setDeviceHomeScreen({
                 dbDeviceId: device?.id,
@@ -896,6 +931,7 @@ export default function HardwareHomeScreenModal({
                   blurScreenHex: finallyBlurScreenHex,
                 },
               });
+            hardwareCallMs = Date.now() - phaseStartedAt;
             if (device.deviceType !== EDeviceType.Pro) {
               close();
             }
@@ -909,7 +945,60 @@ export default function HardwareHomeScreenModal({
                     id: ETranslations.hardware_wallpaper_add_success_information,
                   }),
             });
+            if (isProtocolV2Wallpaper) {
+              defaultLogger.hardware.homescreen.wallpaperApplyPhase({
+                deviceType: device.deviceType,
+                phase: currentPhase,
+                status: 'success',
+                durationMs: hardwareCallMs,
+              });
+              defaultLogger.hardware.homescreen.wallpaperApply({
+                deviceType: device.deviceType,
+                isCustomScreen,
+                status: 'success',
+                totalDurationMs: Date.now() - applyStartedAt,
+                imagePreparationMs,
+                hardwareCallMs,
+              });
+            }
           } catch (error) {
+            if (isProtocolV2Wallpaper && device?.id && selectedItem) {
+              const phaseDurationMs = Date.now() - phaseStartedAt;
+              if (currentPhase === 'image-processing') {
+                imagePreparationMs = phaseDurationMs;
+              } else {
+                hardwareCallMs = phaseDurationMs;
+              }
+              const errorValue = error as {
+                code?: unknown;
+                errorCode?: unknown;
+              };
+              const code = errorValue?.code ?? errorValue?.errorCode;
+              const errorCode =
+                typeof code === 'string' || typeof code === 'number'
+                  ? String(code)
+                  : undefined;
+              const errorName = error instanceof Error ? error.name : undefined;
+              defaultLogger.hardware.homescreen.wallpaperApplyPhase({
+                deviceType: device.deviceType,
+                phase: currentPhase,
+                status: 'failed',
+                durationMs: phaseDurationMs,
+                errorCode,
+                errorName,
+              });
+              defaultLogger.hardware.homescreen.wallpaperApply({
+                deviceType: device.deviceType,
+                isCustomScreen,
+                status: 'failed',
+                totalDurationMs: Date.now() - applyStartedAt,
+                imagePreparationMs,
+                hardwareCallMs,
+                failureStage: currentPhase,
+                errorCode,
+                errorName,
+              });
+            }
             errorToastUtils.toastIfError(error);
             throw error;
           } finally {

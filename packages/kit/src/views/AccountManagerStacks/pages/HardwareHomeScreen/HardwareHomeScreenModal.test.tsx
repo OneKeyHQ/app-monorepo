@@ -143,7 +143,13 @@ jest.mock('@onekeyhq/shared/src/errors/utils/errorToastUtils', () => ({
 
 jest.mock('@onekeyhq/shared/src/logger/logger', () => ({
   defaultLogger: {
-    hardware: { homescreen: { setHomeScreen: jest.fn() } },
+    hardware: {
+      homescreen: {
+        setHomeScreen: jest.fn(),
+        wallpaperApply: jest.fn(),
+        wallpaperApplyPhase: jest.fn(),
+      },
+    },
   },
 }));
 
