@@ -460,11 +460,16 @@ function BasicEarnHome({
   // delay the detail page uses. Fired at once, the refresh landed while the
   // node could still be a block behind and cached the pre-transaction balance
   // for the positions page (OK-63659).
+  // Native Explore renders Earn next to Browser and Market inside one focused
+  // route, so route focus alone would keep polling every Earn network while a
+  // dapp page is on screen.
+  const isPendingTxsActive = showContent !== false;
   useStakingPendingTxsByInfo({
     filter: pendingTxsFilter,
     precomputed: sharedPendingTxsMeta,
     onRefresh: refreshAfterPendingTxs,
     onRefreshDelayMs: STAKING_TX_SETTLE_DELAY_MS,
+    isActive: isPendingTxsActive,
   });
 
   const borrowRefreshHandlerRef = useRef<(() => Promise<void>) | null>(null);
@@ -503,6 +508,7 @@ function BasicEarnHome({
     onRefresh: handleBorrowPendingRefresh,
     onRefreshDelayMs: BORROW_PENDING_REFRESH_DELAY,
     precomputed: sharedPendingTxsMeta,
+    isActive: isPendingTxsActive,
   });
   const prevBorrowPendingIdsRef = useRef<string | null>(null);
 

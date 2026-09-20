@@ -429,6 +429,10 @@ export function MobileLayout({
     ],
   );
   const { accountAddress, xpub } = useNetworkAccount(networkId);
+  const accountMarksContext = useMemo(
+    () => ({ accountAddress, networkId, tokenAddress }),
+    [accountAddress, networkId, tokenAddress],
+  );
 
   const { portfolioData, isRefreshing } = usePortfolioData({
     tokenAddress,
@@ -789,6 +793,7 @@ export function MobileLayout({
                       key={marketTradingViewKey}
                       testID={MarketTestIDs.detailChart}
                       source={tradingViewNativeSource}
+                      accountMarksContext={accountMarksContext}
                       onPriceUpdate={handleNativeChartPriceUpdate}
                       enablePreviousClose={isStockDetailChart}
                       previousClose={stockPreviousClose}
@@ -884,6 +889,7 @@ export function MobileLayout({
       </YStack>
     );
   }, [
+    accountMarksContext,
     disablePerpsBanner,
     handleHeaderHorizontalSwipe,
     handleIndicatorsDialogOpenChange,
