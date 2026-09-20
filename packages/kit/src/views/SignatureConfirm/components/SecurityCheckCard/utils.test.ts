@@ -159,34 +159,22 @@ describe('SecurityCheckCard confirmation finding', () => {
       'You are using order authorization. Ensure the dApp is trustworthy to avoid asset loss.';
     const genericAlerts = [genericPermitAlert, genericOrderAlert];
 
-    expect(
-      shouldHideGenericAuthorizationAlert({
-        alert: genericPermitAlert,
-        genericAlerts,
-        isTrustedAuthorization: true,
-      }),
-    ).toBe(true);
-    expect(
-      shouldHideGenericAuthorizationAlert({
-        alert: genericOrderAlert,
-        genericAlerts,
-        isTrustedAuthorization: true,
-      }),
-    ).toBe(true);
-    expect(
-      shouldHideGenericAuthorizationAlert({
-        alert: genericPermitAlert,
-        genericAlerts,
-        isTrustedAuthorization: false,
-      }),
-    ).toBe(false);
-    expect(
-      shouldHideGenericAuthorizationAlert({
-        alert: genericOrderAlert,
-        genericAlerts,
-        isTrustedAuthorization: false,
-      }),
-    ).toBe(false);
+    for (const alert of genericAlerts) {
+      expect(
+        shouldHideGenericAuthorizationAlert({
+          alert,
+          genericAlerts,
+          isTrustedAuthorization: true,
+        }),
+      ).toBe(true);
+      expect(
+        shouldHideGenericAuthorizationAlert({
+          alert,
+          genericAlerts,
+          isTrustedAuthorization: false,
+        }),
+      ).toBe(false);
+    }
     expect(
       shouldHideGenericAuthorizationAlert({
         alert: '',
