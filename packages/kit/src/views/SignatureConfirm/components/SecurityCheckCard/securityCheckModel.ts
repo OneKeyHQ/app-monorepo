@@ -35,7 +35,7 @@ import {
   getParserAlertDisplay,
   normalizeAlertText,
   normalizeSecurityFindingTitle,
-  shouldHideGenericPermitAlert,
+  shouldHideGenericAuthorizationAlert,
   shouldShowNoIssueSection,
 } from './utils';
 
@@ -668,11 +668,18 @@ function getPermitContext({
     unsignedMessage &&
     isPrimaryTypePermitSign({ unsignedMessage }),
   );
+  const isOrderSignMethod = Boolean(
+    kind === 'message' &&
+    unsignedMessage &&
+    isPrimaryTypeOrderSign({ unsignedMessage }),
+  );
   const isSiteVerified = urlSecurityInfo?.level === EHostSecurityLevel.Security;
   return {
     isPermitSignMethod,
+    isOrderSignMethod,
     isSiteVerified,
-    isTrustedPermit: isPermitSignMethod && isSiteVerified,
+    isTrustedAuthorization:
+      (isPermitSignMethod || isOrderSignMethod) && isSiteVerified,
   };
 }
 
@@ -680,10 +687,11 @@ function getValidParserAlerts(
   params: IBuildSecurityCheckModelParams,
   {
     isPermitSignMethod,
-    isSiteVerified,
+    isOrderSignMethod,
+    isTrustedAuthorization,
   }: Pick<
     ReturnType<typeof getPermitContext>,
-    'isPermitSignMethod' | 'isSiteVerified'
+    'isPermitSignMethod' | 'isOrderSignMethod' | 'isTrustedAuthorization'
   >,
 ) {
   const { kind, decodedTxs, messageDisplay, intl } = params;
@@ -696,26 +704,32 @@ function getValidParserAlerts(
   const genericPermitAlert = intl.formatMessage({
     id: ETranslations.dapp_connect_permit_sign_alert,
   });
+  const genericOrderAlert = intl.formatMessage({
+    id: ETranslations.dapp_connect_security_checks_order_signature_request__desc,
+  });
+  const genericAlerts = [
+    ...(isPermitSignMethod ? [genericPermitAlert] : []),
+    ...(isOrderSignMethod ? [genericPermitAlert, genericOrderAlert] : []),
+  ];
   return dedupeAlertTexts(parserAlerts.filter(Boolean)).filter(
     (alert) =>
-      !shouldHideGenericPermitAlert({
+      !shouldHideGenericAuthorizationAlert({
         alert,
-        genericPermitAlert,
-        isPermitSignMethod,
-        isSiteVerified,
+        genericAlerts,
+        isTrustedAuthorization,
       }),
   );
 }
 
 function getConfirmationCauses({
   params,
-  isTrustedPermit,
+  isTrustedAuthorization,
   validParserAlerts,
   displayComponents,
   hasAddressRisk,
 }: {
   params: IBuildSecurityCheckModelParams;
-  isTrustedPermit: boolean;
+  isTrustedAuthorization: boolean;
   validParserAlerts: string[];
   displayComponents: IDisplayComponent[];
   hasAddressRisk: boolean;
@@ -785,7 +799,7 @@ function getConfirmationCauses({
   }
 
   if (kind === 'message') {
-    if (isTrustedPermit) {
+    if (isTrustedAuthorization) {
       if (validParserAlerts.length) {
         causes.parserAlerts = validParserAlerts;
       }
@@ -831,8 +845,9 @@ function getOperationFindings(
   params: IBuildSecurityCheckModelParams,
   {
     isPermitSignMethod,
+    isOrderSignMethod,
     isSiteVerified,
-    isTrustedPermit,
+    isTrustedAuthorization,
   }: ReturnType<typeof getPermitContext>,
   validParserAlerts: string[],
 ): ISecurityCheckFinding[] {
@@ -853,7 +868,6 @@ function getOperationFindings(
     const isTypedData =
       unsignedMessage.type === EMessageTypesEth.TYPED_DATA_V3 ||
       unsignedMessage.type === EMessageTypesEth.TYPED_DATA_V4;
-    const isOrderSignMethod = isPrimaryTypeOrderSign({ unsignedMessage });
 
     if (isTypedData && !isSiteVerified) {
       if (isPermitSignMethod) {
@@ -951,7 +965,7 @@ function getOperationFindings(
     });
   }
 
-  if (kind === 'message' && isConfirmationRequired && !isTrustedPermit) {
+  if (kind === 'message' && isConfirmationRequired && !isTrustedAuthorization) {
     findings.push({
       id: 'message-confirmation-required',
       category: 'operation',
@@ -1060,7 +1074,7 @@ export function buildSecurityCheckModel(
   );
   const causes = getConfirmationCauses({
     params,
-    isTrustedPermit: permitContext.isTrustedPermit,
+    isTrustedAuthorization: permitContext.isTrustedAuthorization,
     validParserAlerts,
     displayComponents,
     hasAddressRisk,
@@ -1093,9 +1107,9 @@ export function buildSecurityCheckModel(
     isSecurityCheckPending,
   });
   // Confirmation follows explicit reasons, not card warning severity. Common
-  // High/Medium site or Prime risk is evaluated before the trusted Permit
-  // exemption. Tx parser/Hex findings, parse fallbacks, and ordinary address
-  // tags are display-only.
+  // High/Medium site or Prime risk is evaluated before the trusted Permit or
+  // Order exemption. Tx parser/Hex findings, parse fallbacks, and ordinary
+  // address tags are display-only.
   const hasRiskConfirmation = Boolean(
     causes.site ||
     causes.prime ||

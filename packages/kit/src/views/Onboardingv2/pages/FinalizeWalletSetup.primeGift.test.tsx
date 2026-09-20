@@ -386,7 +386,7 @@ describe('onboarding Prime gift with a Pro discovery record without a serial', (
       await screen.findByTestId('prime-gift-offer-onboarding'),
     ).toBeTruthy();
     expect(
-      screen.getByText(ETranslations.prime_gift_offer__title),
+      screen.getByText(ETranslations.prime_gift_claim_duration__action),
     ).toBeTruthy();
     fireEvent.click(screen.getByTestId('prime-gift-offer-onboarding'));
     expect(mockNavigation.pushModal).toHaveBeenCalledWith(
