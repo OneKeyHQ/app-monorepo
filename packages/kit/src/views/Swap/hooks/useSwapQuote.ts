@@ -16,6 +16,7 @@ import type { ISwapQuoteProvideResult } from '@onekeyhq/shared/src/logger/scopes
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import { EModalSwapRoutes } from '@onekeyhq/shared/src/routes/swap';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import {
   SWAP_PRO_QUOTE_INPUT_DEBOUNCE_MS,
@@ -260,7 +261,11 @@ export function useSwapQuote({
   const shouldUseRouteQuoteLifecycle = isModalPage || isMarketEmbeddedSwap;
   const isQuoteVisibleRef = useRef(isFocused);
   if (shouldUseRouteQuoteLifecycle || !isFocused) {
-    isQuoteVisibleRef.current = isFocused;
+    isQuoteVisibleRef.current =
+      isFocused ||
+      shouldKeepSwapQuoteAliveOnFocusLoss(
+        rootNavigationRef.current?.getCurrentRoute()?.name,
+      );
   }
 
   // Automatic quote effects are paused while this route is hidden. Remember
@@ -1001,40 +1006,79 @@ export function useSwapQuote({
     [],
   );
 
+  const deferQuoteLifecycleAction = useCallback((action: () => void) => {
+    if (!platformEnv.isNative) {
+      action();
+      return;
+    }
+
+    void timerUtils.setTimeoutPromised(action, 250);
+  }, []);
+
+  const tabVisibilityGenerationRef = useRef(0);
+
   useListenTabFocusState(
     ETabRoutes.Swap,
     (isFocus: boolean, isHiddenModel: boolean) => {
       if (!shouldUseRouteQuoteLifecycle) {
-        handleSwapQuoteTabVisibilityChange({
+        const isQuoteVisible = isSwapQuoteTabEffectivelyVisible({
           isFocus,
           isHiddenModel,
-          setQuoteVisible: (isVisible) => {
-            isQuoteVisibleRef.current = isVisible;
-          },
-          subscribeQuoteEvents,
-          refreshPreservedInputQuote: refreshPreservedInputQuoteOnFocus,
-          pauseQuote: pauseQuoteOnFocusLoss,
-          unsubscribeQuoteEvents,
         });
+        const visibilityGeneration = tabVisibilityGenerationRef.current + 1;
+        tabVisibilityGenerationRef.current = visibilityGeneration;
+        isQuoteVisibleRef.current = isQuoteVisible;
+        if (isQuoteVisible) {
+          subscribeQuoteEvents();
+          refreshPreservedInputQuoteOnFocus();
+        } else {
+          deferQuoteLifecycleAction(() => {
+            if (tabVisibilityGenerationRef.current !== visibilityGeneration) {
+              return;
+            }
+            if (isProviderSelectRouteActive()) {
+              isQuoteVisibleRef.current = true;
+              shouldRefreshPreservedInputQuoteOnFocusRef.current = false;
+              return;
+            }
+            pauseQuoteOnFocusLoss();
+            unsubscribeQuoteEvents();
+          });
+        }
       }
     },
   );
 
   useEffect(() => {
+    let isEffectActive = true;
     if (shouldUseRouteQuoteLifecycle) {
       if (isFocused) {
         subscribeQuoteEvents();
         refreshPreservedInputQuoteOnFocus();
-      } else if (!isProviderSelectRouteActive()) {
-        pauseQuoteOnFocusLoss();
+      } else {
+        deferQuoteLifecycleAction(() => {
+          if (!isEffectActive) {
+            return;
+          }
+          if (!isProviderSelectRouteActive()) {
+            pauseQuoteOnFocusLoss();
+            unsubscribeQuoteEvents();
+          }
+        });
       }
     }
     return () => {
-      if (shouldUseRouteQuoteLifecycle && !isProviderSelectRouteActive()) {
+      isEffectActive = false;
+      if (
+        shouldUseRouteQuoteLifecycle &&
+        !isFocused &&
+        !isProviderSelectRouteActive()
+      ) {
         unsubscribeQuoteEvents();
       }
     };
   }, [
+    deferQuoteLifecycleAction,
     isFocused,
     isProviderSelectRouteActive,
     pauseQuoteOnFocusLoss,

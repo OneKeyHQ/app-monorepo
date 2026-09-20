@@ -143,6 +143,43 @@ export function buildSwapQuoteProviderKey(quote: {
   return `${quote.info.provider}-${quote.info.providerName}`;
 }
 
+/**
+ * Keeps the current event's quotes visible while the mirrored provider-key
+ * state catches up with the quote list state.
+ *
+ * Quote results and provider keys are published by separate atom updates. On
+ * native route transitions the provider picker can render between those
+ * updates, so filtering only by the provider keys briefly hides every quote.
+ */
+export function selectSwapCurrentEventQuotes({
+  quotes,
+  quoteEventTotalCount,
+  currentEventProviderKeys,
+}: {
+  quotes: IFetchQuoteResult[];
+  quoteEventTotalCount: ISwapQuoteEventTotalCount;
+  currentEventProviderKeys: string[];
+}) {
+  if (quoteEventTotalCount.count <= 0) {
+    return quotes;
+  }
+
+  if (currentEventProviderKeys.length > 0) {
+    const currentEventProviderKeySet = new Set(currentEventProviderKeys);
+    return quotes.filter((quote) =>
+      currentEventProviderKeySet.has(buildSwapQuoteProviderKey(quote)),
+    );
+  }
+
+  if (!quoteEventTotalCount.eventId) {
+    return [];
+  }
+
+  return quotes.filter(
+    (quote) => quote.eventId === quoteEventTotalCount.eventId,
+  );
+}
+
 export function buildSwapManualProviderSelectionIntent(
   quote: { info: ISwapQuoteProviderIdentity } | undefined,
 ): ISwapQuoteSelectionIntent | undefined {
