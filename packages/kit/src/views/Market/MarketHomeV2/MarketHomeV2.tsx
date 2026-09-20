@@ -42,7 +42,11 @@ import { useNetworkAnalytics, useTabAnalytics } from './hooks';
 import { DesktopLayout } from './layouts/DesktopLayout';
 import { shouldRestoreSpotCategoryFromAtom } from './layouts/marketTabSelectionGuards';
 import { MobileLayout } from './layouts/MobileLayout';
-import { ensureMarketTopCoinsCategory, isMarketStockCategory } from './utils';
+import {
+  ensureMarketTopCoinsCategory,
+  getMarketHomeFallbackSpotCategories,
+  isMarketStockCategory,
+} from './utils';
 
 import type { ITimeRangeSelectorValue } from './components/TimeRangeSelector';
 import type { ILiquidityFilter, IMarketCategoryItem } from './types';
@@ -70,6 +74,7 @@ const useMarketHomeLayoutProps = () => {
     formattedMinLiquidity,
     spotCategories: apiSpotCategories,
     stockCategories: apiStockCategories,
+    assetCategories: apiAssetCategories,
     isLoading: isMarketBasicConfigLoading,
   } = useMarketBasicConfig();
   const [selectedNetworkId, setSelectedNetworkId] = useSelectedNetworkIdAtom();
@@ -146,14 +151,12 @@ const useMarketHomeLayoutProps = () => {
       );
     }
 
-    // Fallback before API responds
+    // Fallback before API responds: keep Stocks / Robinhood tab identities so
+    // their list components still mount under a weak or offline config fetch.
     return ensureMarketTopCoinsCategory(
-      [
-        {
-          id: 'trending',
-          name: intl.formatMessage({ id: ETranslations.dexmarket_trending }),
-        },
-      ],
+      getMarketHomeFallbackSpotCategories((descriptor) =>
+        intl.formatMessage(descriptor),
+      ),
       intl.formatMessage({ id: ETranslations.market_top_coins }),
     );
   }, [apiSpotCategories, intl]);
@@ -165,6 +168,15 @@ const useMarketHomeLayoutProps = () => {
         name: category.name,
       })),
     [apiStockCategories],
+  );
+
+  const topCoinsCategories: IMarketCategoryItem[] = useMemo(
+    () =>
+      apiAssetCategories.map((category) => ({
+        id: category.category,
+        name: category.name,
+      })),
+    [apiAssetCategories],
   );
 
   const spotCategoryToRestore = spotCategoryToSelect ?? selectedSpotCategory;
@@ -301,6 +313,7 @@ const useMarketHomeLayoutProps = () => {
         selectedCategory,
         categories,
         stockCategories,
+        topCoinsCategories,
         onCategoryChange: applySelectedCategory,
       },
       selectedNetworkId: effectiveSelectedNetworkId,
@@ -316,6 +329,7 @@ const useMarketHomeLayoutProps = () => {
       selectedCategory,
       categories,
       stockCategories,
+      topCoinsCategories,
       applySelectedCategory,
     ],
   );

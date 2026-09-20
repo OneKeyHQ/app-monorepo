@@ -20,6 +20,7 @@ import { useIntl } from 'react-intl';
 import { InputAccessoryView } from 'react-native';
 
 import {
+  Accordion,
   Alert,
   Button,
   DashText,
@@ -219,6 +220,8 @@ enum ESendMode {
   PUBLIC = 'public',
   PRIVATE = 'private',
 }
+
+const PRIVATE_SEND_QUOTE_ACCORDION_VALUE = 'private-send-quote-details';
 
 type IPrivateSendQuoteResult = {
   selectedQuote?: IFetchQuoteResult;
@@ -4593,9 +4596,23 @@ function SendAmountInputContainer() {
             </Stack>
           </XStack>
         </XStack>
-        <HeightTransition hide={!isPrivateSendQuoteDetailsExpanded}>
-          {renderPrivateSendQuoteDetails}
-        </HeightTransition>
+        <Accordion
+          type="single"
+          collapsible
+          value={
+            isPrivateSendQuoteDetailsExpanded
+              ? PRIVATE_SEND_QUOTE_ACCORDION_VALUE
+              : ''
+          }
+        >
+          <Accordion.Item value={PRIVATE_SEND_QUOTE_ACCORDION_VALUE}>
+            <Accordion.HeightAnimator transition="quick">
+              <Accordion.Content unstyled>
+                {renderPrivateSendQuoteDetails}
+              </Accordion.Content>
+            </Accordion.HeightAnimator>
+          </Accordion.Item>
+        </Accordion>
         {showPrivateSendBalanceRow ? (
           <>
             <Stack h="$px" bg="$borderSubdued" my="$2" />

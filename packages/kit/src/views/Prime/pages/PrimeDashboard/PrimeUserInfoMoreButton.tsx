@@ -47,7 +47,6 @@ function PrimeUserInfoMoreButtonDropDownMenu({
   const primeSubscription = user?.primeSubscription;
   const isPrime = primeSubscription?.isActive;
   const primeExpiredAt = primeSubscription?.expiresAt;
-  const subscriptionManageUrl = user?.subscriptionManageUrl;
   const currentOneKeyUserId = user?.onekeyUserId;
   const { getCustomerInfo } = usePrimePayment();
   const [devSettings] = useDevSettingsPersistAtom();
@@ -57,7 +56,6 @@ function PrimeUserInfoMoreButtonDropDownMenu({
 
   const managementTarget = usePrimeSubscriptionManagementTarget({
     primeSubscription,
-    subscriptionManageUrl,
     onekeyUserId: currentOneKeyUserId,
   });
 
