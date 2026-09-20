@@ -2,6 +2,7 @@
 import { isEqual } from 'lodash';
 
 import { defaultLogger } from '../logger/logger';
+import platformEnv, { ERuntimeRole } from '../platformEnv';
 
 import {
   SWR_ACCOUNT_SELECTOR_MAX_ENTRIES,
@@ -736,6 +737,17 @@ function subscribeToRemoteInvalidation() {
     appEventBus.on(EAppEventBusNames.SwrCacheInvalidated, (payload) => {
       applyRemoteInvalidation(payload);
     });
+    // The emitting runtime hears its own event, so only the runtime that owns
+    // the store may act on this one — otherwise bg would hand the write over
+    // and still perform it itself.
+    if (platformEnv.runtimeRole !== ERuntimeRole.Background) {
+      appEventBus.on(
+        EAppEventBusNames.SwrCacheWriteDelegated,
+        ({ key, data }) => {
+          set(key, data);
+        },
+      );
+    }
   } catch {
     // Without the bus this runtime keeps its own copy until it reloads.
   }
@@ -884,6 +896,40 @@ function set<T>(key: string, data: T): void {
   }
   evictOldestOverBudget(store, now);
   scheduleFlush();
+}
+
+/**
+ * Persist an entry through the runtime that owns the store.
+ *
+ * `unsMeta` is written from both halves of the app: bg primes it once the
+ * user changes which networks are enabled, and the UI writes back what its
+ * own fetch returned. On native those are two JS heaps over one shared MMKV
+ * file, and a namespace commit is a sequence rather than an operation —
+ * marker check, records, marker, evictions
+ * (`createDisplaySnapshotStorage.native.ts`). Two runtimes can interleave
+ * inside it, and the loser's record lands in the file with no manifest entry:
+ * still readable by key, but never counted against retention and never swept.
+ *
+ * Nothing can take a lock across the two heaps, so the write travels instead.
+ * bg publishes what it computed and the UI runtime persists it, where its own
+ * flush already serializes every mutation of that namespace. Desktop and web
+ * run both halves in one runtime, where this is a plain `set`.
+ */
+function setOnUiRuntime<T>(key: string, data: T): void {
+  if (platformEnv.runtimeRole !== ERuntimeRole.Background) {
+    set(key, data);
+    return;
+  }
+  try {
+    // Lazy for the same reason as `publishInvalidation`: the event bus
+    // reaches back into storage, and this module is on that path.
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const { appEventBus, EAppEventBusNames } =
+      require('../eventBus/appEventBus') as typeof import('../eventBus/appEventBus');
+    appEventBus.emit(EAppEventBusNames.SwrCacheWriteDelegated, { key, data });
+  } catch {
+    // Without the bus the entry is simply not cached and the UI fetches it again.
+  }
 }
 
 function isFresh(key: string, maxAge: number): boolean {
@@ -1690,6 +1736,7 @@ export const swrCacheUtils = {
   getWithTimestamp,
   getFreshPerpsL2BookSnapshot,
   set,
+  setOnUiRuntime,
   removeByPrefix,
   remove,
   isFresh,

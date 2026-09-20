@@ -801,4 +801,61 @@ describe('SWR cache cross-runtime invalidation', () => {
     expect(cache.get('walletList:a')).toBeUndefined();
     expect(cache.get('marketTokenDetail:b')).toBeUndefined();
   });
+
+  // Required from the same registry as the cache under test, for the reason
+  // `bus` gives.
+  function platform() {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    return require('../platformEnv') as typeof import('../platformEnv');
+  }
+
+  it('hands a background write to the UI runtime instead of persisting it', () => {
+    const cache = loadFreshRuntime();
+    const { appEventBus, EAppEventBusNames } = bus();
+    const { default: platformEnv, ERuntimeRole } = platform();
+    const seen: unknown[] = [];
+    const listener = (payload: unknown) => seen.push(payload);
+    appEventBus.on(EAppEventBusNames.SwrCacheWriteDelegated, listener);
+    const role = jest.replaceProperty(
+      platformEnv,
+      'runtimeRole',
+      ERuntimeRole.Background,
+    );
+    try {
+      cache.setOnUiRuntime('unsMeta:v1:wallet-1', 'primed');
+      cache.flushNow();
+
+      expect(seen).toEqual([{ key: 'unsMeta:v1:wallet-1', data: 'primed' }]);
+      // bg must not commit this namespace itself: the UI writes the same key.
+      expect(readDiskStore()).toEqual({});
+    } finally {
+      role.restore();
+      appEventBus.off(EAppEventBusNames.SwrCacheWriteDelegated, listener);
+    }
+  });
+
+  it('persists a write the background runtime handed over', () => {
+    const cache = loadFreshRuntime();
+    const { appEventBus, EAppEventBusNames } = bus();
+    // The first read is what subscribes this runtime to the bus.
+    expect(cache.get('unsMeta:v1:wallet-1')).toBeUndefined();
+
+    appEventBus.emit(EAppEventBusNames.SwrCacheWriteDelegated, {
+      key: 'unsMeta:v1:wallet-1',
+      data: 'primed',
+    });
+    cache.flushNow();
+
+    expect(cache.get('unsMeta:v1:wallet-1')).toBe('primed');
+    expect(readDiskStore()['unsMeta:v1:wallet-1']?.d).toBe('primed');
+  });
+
+  it('writes straight through when this runtime owns the store', () => {
+    const cache = loadFreshRuntime();
+
+    cache.setOnUiRuntime('unsMeta:v1:wallet-1', 'primed');
+    cache.flushNow();
+
+    expect(readDiskStore()['unsMeta:v1:wallet-1']?.d).toBe('primed');
+  });
 });

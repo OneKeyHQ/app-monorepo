@@ -1665,7 +1665,10 @@ class ServiceNetwork extends ServiceBase {
           excludeTestNetwork: true,
         });
 
-      swrCacheUtils.set(
+      // Handed to the UI runtime rather than written here: on native the two
+      // runtimes share this namespace's MMKV file but not a lock, and the UI
+      // writes the same key through `usePromiseResult`.
+      swrCacheUtils.setOnUiRuntime(
         swrKeys.unifiedNetworkSelectorMeta({ walletId, accountId }),
         {
           allNetworksState: {
