@@ -1261,6 +1261,18 @@ export function bootstrapNativeSyncStorageMirrors() {
   return startBootstrap(false);
 }
 
+/**
+ * Whether the mirrors hold bg's snapshot yet.
+ *
+ * Until they do they answer nothing, which is what a reader consults before
+ * falling back to the file. Once they do they are authoritative and must be
+ * preferred: they carry this runtime's own pending writes and deletions,
+ * which the file has not seen.
+ */
+export function isNativeSyncStorageMirrorBootstrapped() {
+  return bootstrapComplete;
+}
+
 export function refreshNativeSyncStorageMirrors() {
   return startBootstrap(true);
 }

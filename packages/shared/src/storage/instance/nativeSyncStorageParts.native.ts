@@ -38,15 +38,117 @@ function getNativeStorageInstance(
   return createNativeSyncStorageMirror(store);
 }
 
-/** The cold-start file itself, for main's read path. `undefined` when it
- *  cannot be opened, which simply leaves the mirror as the only source. */
-function getDirectColdStartMMKVOrUndefined(): IMMKVInstance | undefined {
+/** The store's own file, for main's pre-bootstrap read path. `undefined`
+ *  when it cannot be opened, which leaves the mirror as the only source. */
+function getDirectMMKVOrUndefined(
+  store: INativeSyncStorageName,
+): IMMKVInstance | undefined {
   try {
+    if (store === 'settings') {
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      return require('./mmkvStorageInstance').default as IMMKVInstance;
+    }
+    if (store === 'devSettings') {
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      return require('./mmkvDevSettingStorageInstance')
+        .default as IMMKVInstance;
+    }
     // eslint-disable-next-line @typescript-eslint/no-require-imports
     return require('./coldStartCacheMMKVInstance').default as IMMKVInstance;
   } catch {
     return undefined;
   }
+}
+
+/**
+ * Travel Mode, resolved on first read rather than while the factories run:
+ * the travel-mode module imports this one, so touching it any earlier would
+ * recurse. Unreachable counts as masked, so a failure here costs the fast
+ * path rather than the guarantee.
+ */
+let travelModeMaskingRef: { isMaskingDataSync: () => boolean } | undefined;
+function isTravelModeMasking(): boolean {
+  try {
+    if (!travelModeMaskingRef) {
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      travelModeMaskingRef = (
+        require('../../travelMode') as typeof import('../../travelMode')
+      ).travelModeManager;
+    }
+    return travelModeMaskingRef?.isMaskingDataSync() ?? true;
+  } catch {
+    return true;
+  }
+}
+
+/**
+ * Main's read path for a bg-owned store.
+ *
+ * The mirror answers nothing until bg replies to the bootstrap request, so
+ * until then reads come from the file itself — that window is the whole cold
+ * start. Once the mirror is primed it is authoritative and the file is not
+ * consulted again: the mirror carries this runtime's own pending writes and
+ * deletions, which the file has not seen.
+ *
+ * Writes are untouched and still go through the mirror, so bg remains the
+ * only writer. Masking is bg's job, so while Travel Mode is on the fast path
+ * steps aside and every read waits for the mirror bg fills.
+ */
+function withPreBootstrapDirectReads(
+  mirrorBacked: ISyncStorage,
+  store: INativeSyncStorageName,
+): ISyncStorage {
+  const directInstance = getDirectMMKVOrUndefined(store);
+  if (!directInstance) {
+    return mirrorBacked;
+  }
+  const direct = createMMKVSyncStorage(directInstance);
+  const shouldReadDirect = () => {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const { isNativeSyncStorageMirrorBootstrapped } =
+      require('./nativeSyncStorageMirror') as typeof import('./nativeSyncStorageMirror');
+    return !isNativeSyncStorageMirrorBootstrapped() && !isTravelModeMasking();
+  };
+  function readThrough<T>(
+    readDirect: () => T | undefined,
+    readMirror: () => T | undefined,
+  ): T | undefined {
+    if (!shouldReadDirect()) {
+      return readMirror();
+    }
+    try {
+      const value = readDirect();
+      if (value !== undefined) {
+        return value;
+      }
+    } catch {
+      // An unreadable file is a miss, not a failure.
+    }
+    return readMirror();
+  }
+  return {
+    ...mirrorBacked,
+    getString: (key) =>
+      readThrough(
+        () => direct.getString(key),
+        () => mirrorBacked.getString(key),
+      ),
+    getNumber: (key) =>
+      readThrough(
+        () => direct.getNumber(key),
+        () => mirrorBacked.getNumber(key),
+      ),
+    getBoolean: (key) =>
+      readThrough(
+        () => direct.getBoolean(key),
+        () => mirrorBacked.getBoolean(key),
+      ),
+    getObject: <T>(key: EAppSyncStorageKeys) =>
+      readThrough<T>(
+        () => direct.getObject<T>(key),
+        () => mirrorBacked.getObject<T>(key),
+      ),
+  };
 }
 
 function getNativeMutationHandler(store: INativeSyncStorageName) {
@@ -95,10 +197,17 @@ function getNativeMutationHandler(store: INativeSyncStorageName) {
 
 /** App settings storage. Native bg owns MMKV; native main uses a mirror. */
 export function createNativeSettingsSyncStorage(): ISyncStorage {
-  return createMMKVSyncStorage(getNativeStorageInstance('settings'), {
-    checkResetting: true,
-    onMutation: getNativeMutationHandler('settings'),
-  });
+  const mirrorBacked = createMMKVSyncStorage(
+    getNativeStorageInstance('settings'),
+    {
+      checkResetting: true,
+      onMutation: getNativeMutationHandler('settings'),
+    },
+  );
+  if (platformEnv.isNativeBackgroundThread) {
+    return mirrorBacked;
+  }
+  return withPreBootstrapDirectReads(mirrorBacked, 'settings');
 }
 
 /** Cold-start cache storage.
@@ -187,60 +296,10 @@ export function createNativeColdStartCacheStorage(): ISyncStorage {
       },
     };
   }
-  // Native main. Reads try the cold-start file itself and fall back to the
-  // mirror; writes stay on the mirror, so bg is still the only writer.
-  //
-  // It is the same file bg owns, and reading it here is what lets a cold start
-  // paint from cache at all: the mirror holds nothing until bg answers the
-  // bootstrap request, which on a dev build lands about 2.5s after main's
-  // entry has been evaluated. Before the MMKV migration this store was read
-  // directly in both runtimes; the mirror came with the shape AsyncStorage
-  // had needed.
-  const mirrorBacked = createMMKVSyncStorage(instance, {
-    onMutation,
-  });
-  const directInstance = getDirectColdStartMMKVOrUndefined();
-  if (!directInstance) {
-    return mirrorBacked;
-  }
-  const direct = createMMKVSyncStorage(directInstance);
-  function readThrough<T>(
-    readDirect: () => T | undefined,
-    readMirror: () => T | undefined,
-  ): T | undefined {
-    try {
-      const value = readDirect();
-      if (value !== undefined) {
-        return value;
-      }
-    } catch {
-      // An unreadable file is a miss, not a failure: fall back to the mirror.
-    }
-    return readMirror();
-  }
-  return {
-    ...mirrorBacked,
-    getString: (key) =>
-      readThrough(
-        () => direct.getString(key),
-        () => mirrorBacked.getString(key),
-      ),
-    getNumber: (key) =>
-      readThrough(
-        () => direct.getNumber(key),
-        () => mirrorBacked.getNumber(key),
-      ),
-    getBoolean: (key) =>
-      readThrough(
-        () => direct.getBoolean(key),
-        () => mirrorBacked.getBoolean(key),
-      ),
-    getObject: <T>(key: EAppSyncStorageKeys) =>
-      readThrough<T>(
-        () => direct.getObject<T>(key),
-        () => mirrorBacked.getObject<T>(key),
-      ),
-  };
+  return withPreBootstrapDirectReads(
+    createMMKVSyncStorage(instance, { onMutation }),
+    'coldStart',
+  );
 }
 
 /** Dev-settings storage owner for the native main runtime (mirror-backed). */
