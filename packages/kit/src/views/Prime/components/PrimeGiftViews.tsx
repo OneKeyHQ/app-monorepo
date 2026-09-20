@@ -238,7 +238,11 @@ export function PrimeGiftClaimFooter({
           testID: 'prime-gift-claim-primary',
         }}
       >
-        <SizableText size="$bodySm" color="$textSubdued" $md={{ mb: '$2' }}>
+        <SizableText
+          size="$bodySm"
+          color="$textSubdued"
+          $md={{ mb: '$2', textAlign: 'center' }}
+        >
           {intl.formatMessage({
             id: ETranslations.prime_gift_eligible_device_once__desc,
           })}
