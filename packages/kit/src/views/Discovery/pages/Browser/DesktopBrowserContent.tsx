@@ -14,11 +14,13 @@ import {
   XStack,
 } from '@onekeyhq/components';
 import { ANIMATE_ONLY_OPACITY_TRANSFORM } from '@onekeyhq/components/src/utils/animationConstants';
+import { useShortcutsOnRouteFocused } from '@onekeyhq/kit/src/hooks/useShortcutsOnRouteFocused';
 import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { EShortcutEvents } from '@onekeyhq/shared/src/shortcuts/shortcuts.enum';
 
 import WebContent from '../../components/WebContent/WebContent';
 import { useDiscoveryMessageHandler } from '../../hooks/useDiscoveryMessageHandler';
@@ -246,6 +248,13 @@ function BasicDesktopBrowserContent({
   const isActive = activeTabId === id;
   const isHomeTab = !tab?.url;
   const [homePageReady, setHomePageReady] = useState(!isHomeTab);
+
+  const handleFindShortcut = useCallback(() => {
+    if (isActive && tab?.url) {
+      appEventBus.emit(EAppEventBusNames.ShowFindInWebPage, { tabId: id });
+    }
+  }, [id, isActive, tab?.url]);
+  useShortcutsOnRouteFocused(EShortcutEvents.SearchInPage, handleFindShortcut);
 
   // Keep-alive LRU: only the most-recently-active window of tabs keeps its
   // WebView mounted. Evicted (cold) tabs unmount their WebView to free memory;

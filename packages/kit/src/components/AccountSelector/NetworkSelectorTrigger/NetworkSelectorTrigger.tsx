@@ -113,11 +113,6 @@ function NetworkSelectorTriggerHomeCmp({
 
   useDebugComponentRemountLog({ name: 'NetworkSelectorTriggerHome' });
 
-  useShortcutsOnRouteFocused(
-    EShortcutEvents.NetworkSelector,
-    showChainSelector,
-  );
-
   const networkTriggerText = useMemo(() => {
     if (network?.isAllNetworks) {
       return intl.formatMessage({
@@ -142,6 +137,8 @@ function NetworkSelectorTriggerHomeCmp({
     showChainSelector,
     recordNetworkHistoryEnabled,
   ]);
+
+  useShortcutsOnRouteFocused(EShortcutEvents.NetworkSelector, handlePress);
 
   if (hideOnNoAccount && !accountName) {
     return null;
