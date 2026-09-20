@@ -5,7 +5,9 @@ import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import resetUtils from '../../utils/resetUtils';
 
 import type {
+  INativeSWRCacheEntriesListener,
   INativeSWRCachePatchIntent,
+  INativeSWRCacheSerializedEntry,
   INativeSyncStorageLocalMutation,
 } from '../nativeStorageTypes';
 import type { EAppSyncStorageKeys } from '../syncStorageKeys';
@@ -21,6 +23,10 @@ export type IMMKVInstance = {
   clearAll(): unknown;
   getAllKeys(): string[];
   applySWRCachePatch?: (patch: INativeSWRCachePatchIntent) => unknown;
+  readSWRCacheEntries?: () => INativeSWRCacheSerializedEntry[] | undefined;
+  subscribeSWRCacheEntries?: (
+    listener: INativeSWRCacheEntriesListener,
+  ) => () => void;
 };
 
 const normalizedAcknowledgements = new WeakMap<
@@ -128,10 +134,20 @@ export function createMMKVSyncStorage<TKey extends string = string>(
     ...(mmkv.applySWRCachePatch
       ? { applySWRCachePatch: mmkv.applySWRCachePatch }
       : {}),
+    ...(mmkv.readSWRCacheEntries
+      ? { readSWRCacheEntries: mmkv.readSWRCacheEntries }
+      : {}),
+    ...(mmkv.subscribeSWRCacheEntries
+      ? { subscribeSWRCacheEntries: mmkv.subscribeSWRCacheEntries }
+      : {}),
   } as typeof storage & {
     applySWRCachePatch?: (
       patch: INativeSWRCachePatchIntent,
     ) => void | Promise<void>;
+    readSWRCacheEntries?: () => INativeSWRCacheSerializedEntry[] | undefined;
+    subscribeSWRCacheEntries?: (
+      listener: INativeSWRCacheEntriesListener,
+    ) => () => void;
   };
 }
 

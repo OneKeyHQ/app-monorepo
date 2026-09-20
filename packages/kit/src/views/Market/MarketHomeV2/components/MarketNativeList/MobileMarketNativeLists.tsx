@@ -38,10 +38,7 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { parseDexCoin } from '@onekeyhq/shared/src/utils/perpsUtils';
-import type {
-  IMarketAssetListItem,
-  IMarketWatchListItemV2,
-} from '@onekeyhq/shared/types/market';
+import type { IMarketWatchListItemV2 } from '@onekeyhq/shared/types/market';
 import type { IMarketStockInfo } from '@onekeyhq/shared/types/marketV2';
 
 import { usePerpsNavigation } from '../../../hooks/usePerpsNavigation';
@@ -82,6 +79,7 @@ import type {
 } from '../MarketPerpsList/hooks/useMarketPerpsTokenList';
 import type { IMarketToken } from '../MarketTokenList/MarketTokenData';
 import type { IWatchlistFilterType } from '../MarketTokenList/MarketWatchlistCategorySelector';
+import type { IMarketTopCoinsDataCache } from '../MarketTopCoinsList/hooks/useMarketTopCoins';
 import type {
   ActionAnchorInvalidatedEvent,
   MarketRow,
@@ -1037,11 +1035,13 @@ export const MobileMarketNativeStockList = memo(
 );
 
 export type IMobileMarketNativeTopCoinsListProps = ISharedListProps & {
-  dataCacheRef: RefObject<IMarketAssetListItem[] | undefined>;
+  dataCacheRef: RefObject<IMarketTopCoinsDataCache | undefined>;
+  selectedCategoryId: string;
 };
 
 function MobileMarketNativeTopCoinsListImpl({
   dataCacheRef,
+  selectedCategoryId,
   listContainerProps,
   shouldSuppressItemPress,
 }: IMobileMarketNativeTopCoinsListProps) {
@@ -1049,7 +1049,7 @@ function MobileMarketNativeTopCoinsListImpl({
   const listRef = useRef<NativeListRef>(null);
   const presentation = useMarketNativeListPresentation();
   const { data, handleItemPress, isLoading, isError, refresh } =
-    useMarketTopCoins({ dataCacheRef });
+    useMarketTopCoins({ categoryId: selectedCategoryId, dataCacheRef });
   const rows = useMemo(
     () => data.map((item) => buildTopCoinMarketRow({ item, presentation })),
     [data, presentation],

@@ -173,7 +173,7 @@ describe('native sync storage backlog recovery', () => {
       string,
       unknown
     >;
-    expect(Object.keys(value)).toHaveLength(1000);
+    expect(Object.keys(value)).toHaveLength(1002);
     expect(value['pending-1-500']).toEqual({
       d: 'pending-1-500',
       t: 1002,
@@ -218,7 +218,7 @@ describe('native sync storage backlog recovery', () => {
       string,
       unknown
     >;
-    expect(Object.keys(value)).toHaveLength(1000);
+    expect(Object.keys(value)).toHaveLength(1002);
     expect(value['in-flight-1-500']).toEqual({
       d: 'in-flight-1-500',
       t: 1002,
@@ -250,7 +250,7 @@ describe('native sync storage backlog recovery', () => {
       string,
       unknown
     >;
-    expect(Object.keys(value)).toHaveLength(1000);
+    expect(Object.keys(value)).toHaveLength(1002);
     expect(value['pending-1-500']).toEqual({
       d: 'pending-1-500',
       t: 1002,

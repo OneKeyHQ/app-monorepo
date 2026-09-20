@@ -1,17 +1,20 @@
+/* cspell:ignore ISWR */
 import { OneKeyLocalError } from '../../errors';
 import { defaultLogger } from '../../logger/logger';
-import { SWR_CACHE_SLOW_OP_LOG_THRESHOLD_MS } from '../../utils/swrCacheLimits';
+import {
+  SWR_CACHE_SLOW_OP_LOG_THRESHOLD_MS,
+  isValidSWRCacheKey,
+} from '../../utils/swrCacheLimits';
 import { callNativeStorage } from '../nativeStorageBridge';
 import { parseNativeSyncStorageMutation } from '../nativeStorageTypes';
-import {
-  applyNativeSWRCacheCanonicalEntries,
-  applyNativeSWRCachePatchToSerializedStore,
-} from '../nativeSWRCachePersistence';
 
 import { appendCompactedLocalMutation } from './nativeSyncStorageReplayBuffer';
 
 import type {
+  INativeSWRCacheCanonicalEntry,
+  INativeSWRCacheEntriesListener,
   INativeSWRCachePatchIntent,
+  INativeSWRCacheSerializedEntry,
   INativeStorageBootstrapSnapshot,
   INativeStorageGlobal,
   INativeStorageScalar,
@@ -21,14 +24,32 @@ import type {
   INativeSyncStorageRequest,
 } from '../nativeStorageTypes';
 
+type ISWRMirrorEntry = { serialized: string; t: number };
+
 type IMirrorState = {
   values: Map<string, INativeStorageScalar>;
+  // The cold-start SWR store stays one entry per key. Patches, replays and
+  // compaction touch only the keys they name; nothing re-serializes the store.
+  swrEntries: Map<string, ISWRMirrorEntry>;
+  swrPairChars: number;
   mutationsBeforeBootstrap: INativeSyncStorageLocalMutation[];
+};
+
+type ISWRPatchMutationPair = {
+  mutation: Extract<INativeSyncStorageLocalMutation, { operation: 'patchSWR' }>;
+  request: Extract<INativeSyncStorageRequest, { operation: 'patchSWR' }>;
 };
 
 type IMutationAcknowledgement = {
   promise: Promise<void>;
   resolve: () => void;
+};
+
+type ICompactedRemoteMutation = {
+  acknowledgements?: IMutationAcknowledgement[];
+  isSWRMergedPatch?: boolean;
+  mutation: INativeSyncStorageLocalMutation;
+  request: INativeSyncStorageRequest;
 };
 
 type IBootstrapAttempt = {
@@ -38,9 +59,8 @@ type IBootstrapAttempt = {
 
 type IPendingRemoteMutation = {
   acknowledgements: IMutationAcknowledgement[];
-  baselineValue?: string;
   enqueuedAt: number;
-  isSWRCompactionSnapshot?: boolean;
+  isSWRMergedPatch?: boolean;
   mutation: INativeSyncStorageLocalMutation;
   request: INativeSyncStorageRequest;
 };
@@ -82,6 +102,325 @@ const SWR_PATCH_COMPACTION_MAX_PENDING = 100;
 const SWR_PATCH_COMPACTION_MAX_CHARS = 10 * 1024 * 1024;
 const SWR_CACHE_KEY = 'onekey_swr_cache';
 
+// `JSON.stringify({ d, t })` ends every entry this way; other shapes fall
+// back to a parse.
+const SWR_ENTRY_TIMESTAMP_TAIL = /,"t":(\d{1,16})\}$/;
+
+const swrEntryListeners = new Set<INativeSWRCacheEntriesListener>();
+
+function createMirrorState(): IMirrorState {
+  return {
+    values: new Map(),
+    swrEntries: new Map(),
+    swrPairChars: 0,
+    mutationsBeforeBootstrap: [],
+  };
+}
+
+function readSWREntryTimestamp(serialized: string): number | undefined {
+  const tail = SWR_ENTRY_TIMESTAMP_TAIL.exec(serialized.slice(-24));
+  if (tail) {
+    const t = Number(tail[1]);
+    return Number.isSafeInteger(t) ? t : undefined;
+  }
+  try {
+    const parsed = JSON.parse(serialized) as unknown;
+    const t =
+      parsed && typeof parsed === 'object' && !Array.isArray(parsed)
+        ? (parsed as { t?: unknown }).t
+        : undefined;
+    return typeof t === 'number' && Number.isSafeInteger(t) && t >= 0
+      ? t
+      : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+function getSWRPairChars(key: string, serialized: string) {
+  return JSON.stringify(key).length + 1 + serialized.length;
+}
+
+function setSWREntry(
+  state: IMirrorState,
+  key: string,
+  serialized: string,
+  t: number,
+) {
+  const previous = state.swrEntries.get(key);
+  state.swrPairChars += previous
+    ? serialized.length - previous.serialized.length
+    : getSWRPairChars(key, serialized);
+  state.swrEntries.set(key, { serialized, t });
+}
+
+function deleteSWREntry(state: IMirrorState, key: string) {
+  const previous = state.swrEntries.get(key);
+  if (!previous) return;
+  state.swrPairChars -= getSWRPairChars(key, previous.serialized);
+  state.swrEntries.delete(key);
+}
+
+function clearSWREntries(state: IMirrorState) {
+  state.swrEntries.clear();
+  state.swrPairChars = 0;
+}
+
+// Length of the store as `serializeSWREntries` would write it, so the
+// slow-op size stays comparable with the bg runtime's serialized store.
+function getSWRStoreChars(state: IMirrorState) {
+  return 2 + state.swrPairChars + Math.max(0, state.swrEntries.size - 1);
+}
+
+function serializeSWREntries(state: IMirrorState) {
+  const pairs: string[] = [];
+  state.swrEntries.forEach(({ serialized }, key) => {
+    pairs.push(`${JSON.stringify(key)}:${serialized}`);
+  });
+  return `{${pairs.join(',')}}`;
+}
+
+// Whole-store values only arrive through the legacy `set` path.
+function replaceSWREntries(state: IMirrorState, serializedStore: string) {
+  clearSWREntries(state);
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(serializedStore);
+  } catch {
+    return;
+  }
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return;
+  Object.entries(parsed as Record<string, unknown>).forEach(([key, value]) => {
+    if (
+      !isValidSWRCacheKey(key) ||
+      !value ||
+      typeof value !== 'object' ||
+      Array.isArray(value)
+    ) {
+      return;
+    }
+    const t = (value as { t?: unknown }).t;
+    if (typeof t !== 'number' || !Number.isSafeInteger(t) || t < 0) return;
+    setSWREntry(state, key, JSON.stringify(value), t);
+  });
+}
+
+function applySWRCanonicalEntries(
+  state: IMirrorState,
+  entries: INativeSWRCacheCanonicalEntry[],
+) {
+  entries.forEach(([key, serialized]) => {
+    if (!isValidSWRCacheKey(key)) return;
+    if (serialized === null) {
+      deleteSWREntry(state, key);
+      return;
+    }
+    const t = readSWREntryTimestamp(serialized);
+    if (t === undefined) {
+      throw new OneKeyLocalError('Native SWR cache canonical entry is invalid');
+    }
+    setSWREntry(state, key, serialized, t);
+  });
+}
+
+// Same rules as the bg persistence: tombstones drop entries no newer than
+// they are, updates win ties. Budget pruning is left to bg; its
+// acknowledgement carries any eviction back as a deletion.
+function applySWRPatchToMirror(
+  state: IMirrorState,
+  patch: INativeSWRCachePatchIntent,
+): INativeSWRCacheCanonicalEntry[] {
+  const touched = new Set<string>();
+  const removeIfNotNewer = (key: string, removedAt: number) => {
+    const current = state.swrEntries.get(key);
+    if (current && current.t <= removedAt) {
+      deleteSWREntry(state, key);
+    }
+    touched.add(key);
+  };
+  if (patch.clearBefore !== undefined) {
+    const clearBefore = patch.clearBefore;
+    [...state.swrEntries.keys()].forEach((key) =>
+      removeIfNotNewer(key, clearBefore),
+    );
+  }
+  patch.removePrefixes.forEach(({ at, prefix }) => {
+    [...state.swrEntries.keys()].forEach((key) => {
+      if (key.startsWith(prefix)) {
+        removeIfNotNewer(key, at);
+      }
+    });
+  });
+  patch.removals.forEach(([key, removedAt]) => {
+    removeIfNotNewer(key, removedAt);
+  });
+  patch.updates.forEach(([key, serialized]) => {
+    const t = readSWREntryTimestamp(serialized);
+    if (t === undefined) {
+      throw new OneKeyLocalError('Native SWR cache patch entry is invalid');
+    }
+    const current = state.swrEntries.get(key);
+    if (!current || t >= current.t) {
+      setSWREntry(state, key, serialized, t);
+    }
+    touched.add(key);
+  });
+  return [...touched].map(
+    (key) => [key, state.swrEntries.get(key)?.serialized ?? null] as const,
+  );
+}
+
+function getSWRPatchChars(patch: INativeSWRCachePatchIntent) {
+  return (
+    (patch.clearBefore === undefined ? 0 : 16) +
+    patch.removePrefixes.reduce(
+      (subtotal, item) => subtotal + item.prefix.length + 16,
+      0,
+    ) +
+    patch.removals.reduce(
+      (subtotal, item) => subtotal + item[0].length + 16,
+      0,
+    ) +
+    patch.updates.reduce(
+      (subtotal, item) => subtotal + item[0].length + item[1].length + 8,
+      0,
+    )
+  );
+}
+
+// Later patches win per key. A tombstone drops the earlier updates it would
+// have deleted, because bg applies a patch's removals before its updates.
+function mergeSWRPatches(
+  state: IMirrorState,
+  pairs: ISWRPatchMutationPair[],
+): ISWRPatchMutationPair {
+  let clearBefore: number | undefined;
+  const removePrefixes = new Map<string, number>();
+  const removals = new Map<string, number>();
+  const updates = new Map<string, { serialized: string; t: number }>();
+  const touched = new Set<string>();
+  const dropUpdatesRemovedBy = (
+    matches: (key: string) => boolean,
+    removedAt: number,
+  ) => {
+    updates.forEach((update, key) => {
+      if (matches(key) && update.t <= removedAt) {
+        updates.delete(key);
+      }
+    });
+  };
+  pairs.forEach(({ mutation, request }) => {
+    const { patch } = request;
+    if (patch.clearBefore !== undefined) {
+      clearBefore = Math.max(clearBefore ?? 0, patch.clearBefore);
+      dropUpdatesRemovedBy(() => true, patch.clearBefore);
+    }
+    patch.removePrefixes.forEach(({ at, prefix }) => {
+      removePrefixes.set(prefix, Math.max(removePrefixes.get(prefix) ?? 0, at));
+      dropUpdatesRemovedBy((key) => key.startsWith(prefix), at);
+    });
+    patch.removals.forEach(([key, removedAt]) => {
+      removals.set(key, Math.max(removals.get(key) ?? 0, removedAt));
+      dropUpdatesRemovedBy((candidate) => candidate === key, removedAt);
+    });
+    patch.updates.forEach(([key, serialized]) => {
+      const t = readSWREntryTimestamp(serialized) ?? 0;
+      const existing = updates.get(key);
+      // bg keeps the newer entry when it applies these patches one by one, so
+      // a later patch carrying an older timestamp must not win the merge.
+      if (existing && existing.t > t) {
+        return;
+      }
+      updates.delete(key);
+      updates.set(key, { serialized, t });
+    });
+    mutation.entries.forEach(([key]) => touched.add(key));
+  });
+  return {
+    // The mirror already holds the result of every merged patch, so the
+    // replayed entries are read back from it rather than re-derived.
+    mutation: {
+      operation: 'patchSWR',
+      entries: [...touched].map(
+        (key) => [key, state.swrEntries.get(key)?.serialized ?? null] as const,
+      ),
+    },
+    request: {
+      scope: 'syncStorage',
+      operation: 'patchSWR',
+      store: 'coldStart',
+      patch: {
+        ...(clearBefore === undefined ? {} : { clearBefore }),
+        removePrefixes: [...removePrefixes].map(([prefix, at]) => ({
+          at,
+          prefix,
+        })),
+        removals: [...removals],
+        updates: [...updates].map(
+          ([key, { serialized }]) => [key, serialized] as const,
+        ),
+      },
+    },
+  };
+}
+
+function notifySWREntryListeners(
+  changes: INativeSWRCacheCanonicalEntry[] | null,
+) {
+  swrEntryListeners.forEach((listener) => {
+    try {
+      listener(changes);
+    } catch {
+      // A listener failure must not break mirror consistency.
+    }
+  });
+}
+
+// Keys a canonical mutation can change; whole-store operations touch all.
+function snapshotSWREntries(
+  state: IMirrorState,
+  mutation: INativeSyncStorageLocalMutation,
+) {
+  const before = new Map<string, string | undefined>();
+  if (mutation.operation === 'patchSWR') {
+    mutation.entries.forEach(([key]) => {
+      before.set(key, state.swrEntries.get(key)?.serialized);
+    });
+    return { before, wholeStore: false };
+  }
+  if (mutation.operation !== 'clear' && mutation.key !== SWR_CACHE_KEY) {
+    return undefined;
+  }
+  state.swrEntries.forEach(({ serialized }, key) => {
+    before.set(key, serialized);
+  });
+  return { before, wholeStore: true };
+}
+
+function notifySWREntryChanges(
+  state: IMirrorState,
+  snapshot: { before: Map<string, string | undefined>; wholeStore: boolean },
+) {
+  if (swrEntryListeners.size === 0) return;
+  const changes: INativeSWRCacheCanonicalEntry[] = [];
+  snapshot.before.forEach((previous, key) => {
+    const current = state.swrEntries.get(key)?.serialized;
+    if (current !== previous) {
+      changes.push([key, current ?? null]);
+    }
+  });
+  if (snapshot.wholeStore) {
+    state.swrEntries.forEach(({ serialized }, key) => {
+      if (!snapshot.before.has(key)) {
+        changes.push([key, serialized]);
+      }
+    });
+  }
+  if (changes.length > 0) {
+    notifySWREntryListeners(changes);
+  }
+}
+
 function createRemoteMutationQueue(): IRemoteMutationQueue {
   return {
     diagnostics: {
@@ -105,9 +444,9 @@ function createRemoteMutationQueue(): IRemoteMutationQueue {
 }
 
 const mirrors: Record<INativeSyncStorageName, IMirrorState> = {
-  settings: { values: new Map(), mutationsBeforeBootstrap: [] },
-  coldStart: { values: new Map(), mutationsBeforeBootstrap: [] },
-  devSettings: { values: new Map(), mutationsBeforeBootstrap: [] },
+  settings: createMirrorState(),
+  coldStart: createMirrorState(),
+  devSettings: createMirrorState(),
 };
 
 const remoteMutationQueues: Record<
@@ -138,24 +477,27 @@ function applyLocalMutation(
 ) {
   switch (mutation.operation) {
     case 'set':
+      if (mutation.key === SWR_CACHE_KEY) {
+        if (typeof mutation.value === 'string') {
+          replaceSWREntries(state, mutation.value);
+        }
+        break;
+      }
       state.values.set(mutation.key, mutation.value);
       break;
-    case 'patchSWR': {
-      const current = state.values.get(SWR_CACHE_KEY);
-      state.values.set(
-        SWR_CACHE_KEY,
-        applyNativeSWRCacheCanonicalEntries(
-          typeof current === 'string' ? current : undefined,
-          mutation.entries,
-        ),
-      );
+    case 'patchSWR':
+      applySWRCanonicalEntries(state, mutation.entries);
       break;
-    }
     case 'remove':
+      if (mutation.key === SWR_CACHE_KEY) {
+        clearSWREntries(state);
+        break;
+      }
       state.values.delete(mutation.key);
       break;
     case 'clear':
       state.values.clear();
+      clearSWREntries(state);
       break;
     default: {
       const exhaustive: never = mutation;
@@ -189,16 +531,14 @@ function recordBootstrapMutation(
 }
 
 function compactPendingRemoteMutations({
-  baselineValue,
   mutation,
   queue,
   request,
 }: {
-  baselineValue?: string;
   mutation: INativeSyncStorageLocalMutation;
   queue: IRemoteMutationQueue;
   request: INativeSyncStorageRequest;
-}) {
+}): ICompactedRemoteMutation {
   if (mutation.operation === 'clear') {
     const acknowledgements: IMutationAcknowledgement[] = [];
     queue.pending.forEach((pending, mutationId) => {
@@ -210,85 +550,43 @@ function compactPendingRemoteMutations({
     return { mutation, request, acknowledgements };
   }
   if (mutation.operation === 'patchSWR') {
+    if (request.operation !== 'patchSWR') {
+      return { mutation, request };
+    }
     const eligiblePending = [...queue.pending.entries()].filter(
-      ([mutationId, pending]) =>
-        mutationId !== queue.inFlightMutationId &&
-        (pending.request.operation === 'patchSWR' ||
-          (pending.request.store === 'coldStart' &&
-            (pending.request.operation === 'set' ||
-              pending.request.operation === 'remove') &&
-            pending.request.key === SWR_CACHE_KEY)),
+      (
+        entry,
+      ): entry is [number, IPendingRemoteMutation & ISWRPatchMutationPair] => {
+        const [mutationId, pending] = entry;
+        return (
+          mutationId !== queue.inFlightMutationId &&
+          pending.mutation.operation === 'patchSWR' &&
+          pending.request.operation === 'patchSWR'
+        );
+      },
     );
-    const patchRequests = eligiblePending
-      .map(([, pending]) => pending.request)
-      .filter(
-        (
-          pendingRequest,
-        ): pendingRequest is Extract<
-          INativeSyncStorageRequest,
-          { operation: 'patchSWR' }
-        > => pendingRequest.operation === 'patchSWR',
-      );
-    const patchChars = [...patchRequests, request].reduce(
-      (total, patchRequest) =>
-        total +
-        (patchRequest.operation === 'patchSWR'
-          ? (patchRequest.patch.clearBefore === undefined ? 0 : 16) +
-            patchRequest.patch.removePrefixes.reduce(
-              (subtotal, item) => subtotal + item.prefix.length + 16,
-              0,
-            ) +
-            patchRequest.patch.removals.reduce(
-              (subtotal, item) => subtotal + item[0].length + 16,
-              0,
-            ) +
-            patchRequest.patch.updates.reduce(
-              (subtotal, item) =>
-                subtotal + item[0].length + item[1].length + 8,
-              0,
-            )
-          : 0),
-      0,
+    const patchChars = eligiblePending.reduce(
+      (total, [, pending]) => total + getSWRPatchChars(pending.request.patch),
+      getSWRPatchChars(request.patch),
     );
+    // Once merged, later patches keep folding into the same request so an
+    // outage never rebuilds a long queue.
     const shouldCompact =
-      eligiblePending.some(([, pending]) => pending.isSWRCompactionSnapshot) ||
-      patchRequests.length + 1 > SWR_PATCH_COMPACTION_MAX_PENDING ||
+      eligiblePending.some(([, pending]) => pending.isSWRMergedPatch) ||
+      eligiblePending.length + 1 > SWR_PATCH_COMPACTION_MAX_PENDING ||
       patchChars > SWR_PATCH_COMPACTION_MAX_CHARS;
     if (!shouldCompact) {
-      return { baselineValue, mutation, request };
+      return { mutation, request };
     }
-
-    const oldestBaseline =
-      eligiblePending.find(
-        ([, pending]) => pending.baselineValue !== undefined,
-      )?.[1].baselineValue ?? baselineValue;
+    const merged = mergeSWRPatches(mirrors.coldStart, [
+      ...eligiblePending.map(([, pending]) => pending),
+      { mutation, request },
+    ]);
     const acknowledgements = eligiblePending.flatMap(
       ([, pending]) => pending.acknowledgements,
     );
     eligiblePending.forEach(([mutationId]) => queue.pending.delete(mutationId));
-    const currentValue = mirrors.coldStart.values.get(SWR_CACHE_KEY);
-    const serializedValue =
-      typeof currentValue === 'string' ? currentValue : '{}';
-    return {
-      baselineValue: oldestBaseline,
-      isSWRCompactionSnapshot: true,
-      mutation: {
-        operation: 'set' as const,
-        key: SWR_CACHE_KEY,
-        value: serializedValue,
-      },
-      request: {
-        scope: 'syncStorage' as const,
-        operation: 'set' as const,
-        store: 'coldStart' as const,
-        key: SWR_CACHE_KEY,
-        value: serializedValue,
-        ...(oldestBaseline === undefined
-          ? {}
-          : { previousValue: oldestBaseline }),
-      },
-      acknowledgements,
-    };
+    return { ...merged, isSWRMergedPatch: true, acknowledgements };
   }
 
   let superseded: Array<[number, IPendingRemoteMutation]> = [];
@@ -306,7 +604,7 @@ function compactPendingRemoteMutations({
     }
   });
   if (superseded.length === 0) {
-    return { baselineValue, mutation, request };
+    return { mutation, request };
   }
 
   let compactedRequest = request;
@@ -325,16 +623,15 @@ function compactPendingRemoteMutations({
   }
   superseded.forEach(([mutationId]) => queue.pending.delete(mutationId));
   return {
-    baselineValue: superseded[0][1].baselineValue ?? baselineValue,
-    mutation,
-    request: compactedRequest,
     acknowledgements: superseded.flatMap(
       ([, pending]) => pending.acknowledgements,
     ),
+    mutation,
+    request: compactedRequest,
   };
 }
 
-function createMutationAcknowledgement(): IMutationAcknowledgement {
+function createMutationAcknowledgement() {
   let resolveAcknowledgement: (() => void) | undefined;
   const promise = new Promise<void>((resolve) => {
     resolveAcknowledgement = resolve;
@@ -614,18 +911,14 @@ function enqueueRemoteMutation(
   store: INativeSyncStorageName,
   mutation: INativeSyncStorageLocalMutation,
   request: INativeSyncStorageRequest,
-  baselineValue?: string,
 ) {
   const queue = remoteMutationQueues[store];
   const compacted = compactPendingRemoteMutations({
-    baselineValue,
     mutation,
     queue,
     request,
   });
   const mutationId = (mutationSequence += 1);
-  // Superseded callers already wait for the same final durable write. Reuse
-  // those groups instead of retaining one promise and ID link per overwrite.
   const acknowledgements = compacted.acknowledgements?.length
     ? compacted.acknowledgements
     : [createMutationAcknowledgement()];
@@ -636,9 +929,8 @@ function enqueueRemoteMutation(
   };
   queue.pending.set(mutationId, {
     acknowledgements,
-    baselineValue: compacted.baselineValue,
     enqueuedAt: Date.now(),
-    isSWRCompactionSnapshot: compacted.isSWRCompactionSnapshot,
+    isSWRMergedPatch: compacted.isSWRMergedPatch,
     mutation: compacted.mutation,
     request: requestWithMutationId,
   });
@@ -689,17 +981,24 @@ function applyCanonicalMutation(
   } else {
     localMutation = { operation: 'clear' };
   }
+  const swrSnapshot =
+    mutation.store === 'coldStart'
+      ? snapshotSWREntries(state, localMutation)
+      : undefined;
   recordBootstrapMutation(state, localMutation);
   applyLocalMutation(state, localMutation);
   replayPendingLocalMutations(mutation.store);
-  // Every SWR patch here, replays included, re-serializes the whole store.
+  if (swrSnapshot) {
+    // Replayed local writes cover their own keys, so an acknowledgement of
+    // this runtime's write reports nothing; only bg-originated changes do.
+    notifySWREntryChanges(state, swrSnapshot);
+  }
   const durationMs = Math.round(perfNow() - startedAt);
   if (durationMs >= SWR_CACHE_SLOW_OP_LOG_THRESHOLD_MS) {
-    const swrStore = state.values.get(SWR_CACHE_KEY);
     defaultLogger.app.perf.swrCacheSlowOp({
       op: 'mirrorApply',
       durationMs,
-      storeChars: typeof swrStore === 'string' ? swrStore.length : 0,
+      storeChars: getSWRStoreChars(state),
       source,
       mutationOp: mutation.operation,
       replayedCount: remoteMutationQueues[mutation.store].pending.size,
@@ -736,11 +1035,10 @@ function mutate(
   store: INativeSyncStorageName,
   mutation: INativeSyncStorageLocalMutation,
   request: INativeSyncStorageRequest,
-  baselineValue?: string,
 ) {
   const state = mirrors[store];
   applyLocalMutation(state, mutation);
-  return enqueueRemoteMutation(store, mutation, request, baselineValue);
+  return enqueueRemoteMutation(store, mutation, request);
 }
 
 function applyBroadcastMutation(mutation: INativeSyncStorageMutation) {
@@ -762,8 +1060,12 @@ getNativeStorageGlobal().__onekeyNativeSyncStorageTransportReady = () => {
 
 export function createNativeSyncStorageMirror(store: INativeSyncStorageName) {
   const state = mirrors[store];
+  const isColdStart = store === 'coldStart';
   const mirror = {
     getString(key: string) {
+      if (isColdStart && key === SWR_CACHE_KEY) {
+        return serializeSWREntries(state);
+      }
       const value = state.values.get(key);
       return typeof value === 'string' ? value : undefined;
     },
@@ -776,7 +1078,12 @@ export function createNativeSyncStorageMirror(store: INativeSyncStorageName) {
       return typeof value === 'boolean' ? value : undefined;
     },
     set(key: string, value: INativeStorageScalar) {
-      const previousValue = state.values.get(key);
+      // The legacy whole-store write still carries its baseline so bg can
+      // three-way merge instead of replacing entries it wrote meanwhile.
+      const previousValue =
+        isColdStart && key === SWR_CACHE_KEY
+          ? serializeSWREntries(state)
+          : state.values.get(key);
       return mutate(
         store,
         { operation: 'set', key, value },
@@ -788,24 +1095,13 @@ export function createNativeSyncStorageMirror(store: INativeSyncStorageName) {
           value,
           ...(previousValue === undefined ? {} : { previousValue }),
         },
-        store === 'coldStart' &&
-          key === SWR_CACHE_KEY &&
-          typeof previousValue === 'string'
-          ? previousValue
-          : undefined,
       );
     },
     remove(key: string) {
-      const previousValue = state.values.get(key);
       return mutate(
         store,
         { operation: 'remove', key },
         { scope: 'syncStorage', operation: 'remove', store, key },
-        store === 'coldStart' &&
-          key === SWR_CACHE_KEY &&
-          typeof previousValue === 'string'
-          ? previousValue
-          : undefined,
       );
     },
     clearAll() {
@@ -816,30 +1112,40 @@ export function createNativeSyncStorageMirror(store: INativeSyncStorageName) {
       );
     },
     getAllKeys() {
-      return [...state.values.keys()];
+      const keys = [...state.values.keys()];
+      if (isColdStart) {
+        keys.push(SWR_CACHE_KEY);
+      }
+      return keys;
     },
   };
   return {
     ...mirror,
-    ...(store === 'coldStart'
+    ...(isColdStart
       ? {
           applySWRCachePatch(patch: INativeSWRCachePatchIntent) {
-            const current = state.values.get(SWR_CACHE_KEY);
-            const optimistic = applyNativeSWRCachePatchToSerializedStore(
-              typeof current === 'string' ? current : undefined,
-              patch,
-            );
+            const entries = applySWRPatchToMirror(state, patch);
             return mutate(
               'coldStart',
-              { operation: 'patchSWR', entries: optimistic.entries },
+              { operation: 'patchSWR', entries },
               {
                 scope: 'syncStorage',
                 operation: 'patchSWR',
                 store: 'coldStart',
                 patch,
               },
-              typeof current === 'string' ? current : '{}',
             );
+          },
+          readSWRCacheEntries(): INativeSWRCacheSerializedEntry[] {
+            return [...state.swrEntries].map(
+              ([key, { serialized }]) => [key, serialized] as const,
+            );
+          },
+          subscribeSWRCacheEntries(listener: INativeSWRCacheEntriesListener) {
+            swrEntryListeners.add(listener);
+            return () => {
+              swrEntryListeners.delete(listener);
+            };
           },
         }
       : {}),
@@ -849,17 +1155,34 @@ export function createNativeSyncStorageMirror(store: INativeSyncStorageName) {
 function primeMirror(
   store: INativeSyncStorageName,
   entries: INativeStorageBootstrapSnapshot[INativeSyncStorageName],
+  swrEntries: INativeSWRCacheSerializedEntry[] = [],
 ) {
   const state = mirrors[store];
   state.values.clear();
+  clearSWREntries(state);
   for (const [key, value] of entries) {
-    state.values.set(key, value);
+    if (store === 'coldStart' && key === SWR_CACHE_KEY) {
+      if (typeof value === 'string') {
+        replaceSWREntries(state, value);
+      }
+    } else {
+      state.values.set(key, value);
+    }
   }
+  swrEntries.forEach(([key, serialized]) => {
+    const t = readSWREntryTimestamp(serialized);
+    if (isValidSWRCacheKey(key) && t !== undefined) {
+      setSWREntry(state, key, serialized, t);
+    }
+  });
   for (const mutation of state.mutationsBeforeBootstrap) {
     applyLocalMutation(state, mutation);
   }
   state.mutationsBeforeBootstrap = [];
   replayPendingLocalMutations(store);
+  if (store === 'coldStart') {
+    notifySWREntryListeners(null);
+  }
 }
 
 function clearBootstrapRetryTimer() {
@@ -915,7 +1238,11 @@ function startBootstrap(force: boolean) {
       // against the snapshot replay budget before it can be applied.
       collectBootstrapMutations = false;
       primeMirror('settings', snapshot.settings);
-      primeMirror('coldStart', snapshot.coldStart);
+      primeMirror(
+        'coldStart',
+        snapshot.coldStart,
+        snapshot.swrCacheEntries ?? [],
+      );
       primeMirror('devSettings', snapshot.devSettings);
       hasBootstrapSnapshot = true;
       bootstrapAttempt = undefined;

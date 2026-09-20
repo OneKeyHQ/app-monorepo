@@ -57,7 +57,7 @@ export function AccountSearchBar({
   const { activeAccount } = useActiveAccount({ num });
   const { isPrimeAvailable } = usePrimeAvailable();
   const { user, isPrimeActive } = useOneKeyAuth();
-  const { handleAddAccount } = useAddAccount({
+  const { handleAddAccount, canAddAccount } = useAddAccount({
     num,
     isOthersUniversal,
     focusedWalletInfo,
@@ -121,7 +121,7 @@ export function AccountSearchBar({
         onChangeText={handleSearch}
       />
 
-      {editable ? (
+      {editable && canAddAccount ? (
         <ActionList
           nativeSheet
           title={intl.formatMessage({ id: ETranslations.global_add_account })}
