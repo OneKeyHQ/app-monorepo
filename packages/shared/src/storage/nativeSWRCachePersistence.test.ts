@@ -252,6 +252,17 @@ describe('nativeSWRCachePersistence', () => {
       }),
     ).toEqual([['deleted', null]]);
     expect(JSON.parse(persistence.readSerialized())).toEqual({});
+
+    expect(
+      persistence.applyPatch({
+        removePrefixes: [],
+        removals: [],
+        updates: [['deleted', JSON.stringify({ d: 'fresh', t: 11 })]],
+      }),
+    ).toEqual([['deleted', JSON.stringify({ d: 'fresh', t: 11 })]]);
+    expect(JSON.parse(persistence.readSerialized())).toEqual({
+      deleted: { d: 'fresh', t: 11 },
+    });
   });
 
   it('bounds account entries across runtime patches and removes evicted physical keys', async () => {
