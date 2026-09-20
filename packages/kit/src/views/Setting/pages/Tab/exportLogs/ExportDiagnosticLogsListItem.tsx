@@ -32,8 +32,8 @@ export function ExportDiagnosticLogsListItem({
   }, [intl, logItemClick]);
 
   const handleLearnMorePress = useCallback(
-    (event?: GestureResponderEvent) => {
-      event?.stopPropagation();
+    (event: GestureResponderEvent) => {
+      event.stopPropagation();
       void showDiagnosticLogsContentsDialog({ intl });
     },
     [intl],

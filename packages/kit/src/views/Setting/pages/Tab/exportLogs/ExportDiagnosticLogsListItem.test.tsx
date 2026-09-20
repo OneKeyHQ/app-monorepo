@@ -53,18 +53,14 @@ jest.mock('../ListItem', () => {
     }) =>
       React.createElement(
         'div',
-        null,
-        React.createElement(
-          'button',
-          {
-            type: 'button',
-            onClick: () => {
-              void onPress?.();
-            },
-            'data-testid': testID,
+        {
+          role: 'button',
+          onClick: () => {
+            void onPress?.();
           },
-          title,
-        ),
+          'data-testid': testID,
+        },
+        title,
         subtitle,
       ),
   };
@@ -86,7 +82,7 @@ jest.mock('@onekeyhq/components', () => {
       testID,
     }: {
       children?: React.ReactNode;
-      onPress?: (event?: { stopPropagation: () => void }) => void;
+      onPress?: (event: { stopPropagation: () => void }) => void;
       testID?: string;
     }) =>
       React.createElement(
@@ -112,7 +108,7 @@ describe('ExportDiagnosticLogsListItem', () => {
     jest.clearAllMocks();
   });
 
-  it('opens the upload dialog from the row and the contents dialog from the link', async () => {
+  it('opens the upload dialog from the row', async () => {
     const logItemClick = jest.fn();
     const view = render(
       <ExportDiagnosticLogsListItem
@@ -136,13 +132,24 @@ describe('ExportDiagnosticLogsListItem', () => {
       title: ETranslations.settings_upload_state_logs,
     });
     expect(mockDialogShow).not.toHaveBeenCalled();
+  });
+
+  it('opens only the contents dialog from the nested learn-more link', () => {
+    const logItemClick = jest.fn();
+    const view = render(
+      <ExportDiagnosticLogsListItem
+        title="Export diagnostic logs"
+        logItemClick={logItemClick}
+      />,
+    );
 
     fireEvent.click(
       view.getByTestId(SettingTestIDs.exportDiagnosticLogsHelpLink),
     );
-    expect(logItemClick).toHaveBeenCalledTimes(1);
+
     expect(mockDialogShow).toHaveBeenCalledTimes(1);
-    expect(mockShowExportLogsDialog).toHaveBeenCalledTimes(1);
+    expect(mockShowExportLogsDialog).not.toHaveBeenCalled();
+    expect(logItemClick).not.toHaveBeenCalled();
   });
 });
 
