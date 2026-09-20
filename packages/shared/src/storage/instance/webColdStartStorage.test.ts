@@ -6,9 +6,10 @@
 // globalThis.indexedDB so the IndexedDBPromised facade's jest branch
 // (platformEnv.isJest -> globalThis.indexedDB) finds a real factory.
 
-import { IndexedDBPromised } from '../../IndexedDBPromised';
 import { registerColdStartFlushTrigger } from '../coldStartFlushTrigger';
 import { EAppSyncStorageKeys } from '../syncStorageKeys';
+
+import type { IndexedDBPromised } from '../../IndexedDBPromised';
 
 // Mock coldStartFlushTrigger so the lifecycle-attachment test can assert
 // against a spy without depending on platformEnv (which resolves to
@@ -58,6 +59,100 @@ function loadModule(): IColdStartModule {
   });
   activeModule = mod;
   return mod;
+}
+
+/**
+ * Same as loadModule, but also hands back the IndexedDBPromised class that
+ * THIS registry loaded. jest.isolateModules re-evaluates the module graph,
+ * so the class imported at the top of this file is a different identity —
+ * patching it would leave the module under test untouched and quietly turn
+ * an injection-driven test into one that asserts nothing.
+ */
+function loadModuleWithIdb(): {
+  mod: IColdStartModule;
+  isolatedIDB: typeof IndexedDBPromised;
+} {
+  let mod!: IColdStartModule;
+  let isolatedIDB!: typeof IndexedDBPromised;
+  jest.isolateModules(() => {
+    // eslint-disable-next-line global-require
+    ({ IndexedDBPromised: isolatedIDB } =
+      require('../../IndexedDBPromised') as {
+        IndexedDBPromised: typeof IndexedDBPromised;
+      });
+    // eslint-disable-next-line global-require
+    mod = require('./webColdStartStorage');
+  });
+  activeModule = mod;
+  return { mod, isolatedIDB };
+}
+
+/**
+ * Instrument the write path a flush actually takes.
+ *
+ * runFlushOnce batches its records into one transaction per kind rather than
+ * calling db.put / db.delete per key, so hooking those no longer observes a
+ * flush at all — it silently makes a test pass without exercising anything.
+ * Everything a test needs to drive lives on transactionAsync:
+ *
+ * - `failNext` and `delayMs` act before the transaction opens, which is after
+ *   runFlushOnce has snapshotted and cleared dirtyKeys. A failure there
+ *   reaches the same catch as a rejected request.
+ * - `onPut` wraps the store, and stays synchronous: awaiting between requests
+ *   would let the transaction auto-commit before the rest were queued.
+ */
+function patchIdbWrites(
+  idb: typeof IndexedDBPromised,
+  hook: {
+    onPut?: (key: string) => void;
+    onTransaction?: (mode: string) => void;
+    failNext?: () => boolean;
+    delayMs?: number;
+  },
+): () => void {
+  // eslint-disable-next-line @typescript-eslint/unbound-method
+  const realTransactionAsync = idb.prototype.transactionAsync;
+  const proto = idb.prototype as unknown as {
+    transactionAsync: typeof realTransactionAsync;
+  };
+  proto.transactionAsync = async function patchedTransactionAsync(
+    this: IndexedDBPromised<unknown>,
+    ...args: Parameters<typeof realTransactionAsync>
+  ) {
+    hook.onTransaction?.(String(args[1]));
+    if (hook.delayMs) {
+      await new Promise((resolve) => setTimeout(resolve, hook.delayMs));
+    }
+    if (hook.failNext?.()) {
+      // Test-only synthetic rejection; the catch site inspects it as unknown.
+      // eslint-disable-next-line no-restricted-syntax, onekey/no-raw-error
+      throw new Error('forced flush failure');
+    }
+    const tx = await (
+      realTransactionAsync as (...a: typeof args) => Promise<any>
+    ).apply(this, args);
+    const { onPut } = hook;
+    if (!onPut) {
+      return tx;
+    }
+    const realObjectStore = tx.objectStore.bind(tx) as (name: string) => any;
+    tx.objectStore = (name: string) => {
+      const store = realObjectStore(name);
+      const realPut = store.put.bind(store) as (
+        value: unknown,
+        key: unknown,
+      ) => Promise<unknown>;
+      store.put = (value: unknown, key: unknown) => {
+        onPut(String(key));
+        return realPut(value, key);
+      };
+      return store;
+    };
+    return tx;
+  } as typeof realTransactionAsync;
+  return () => {
+    proto.transactionAsync = realTransactionAsync;
+  };
 }
 
 beforeEach(async () => {
@@ -179,41 +274,79 @@ describeIfIndexedDB('IDB-backed paths', () => {
   });
 
   it('flushDirtyKeysToIdb re-queues on failure so the value lands on the next flush', async () => {
-    const mod = loadModule();
+    const { mod, isolatedIDB } = loadModuleWithIdb();
 
-    // Patch IndexedDBPromised.prototype.put to throw on the first call only.
-    // dbPromise stays valid (open() is not perturbed), so the second flush
-    // can succeed against the same underlying instance.
-    // eslint-disable-next-line @typescript-eslint/unbound-method
-    const realPut = IndexedDBPromised.prototype.put;
+    // Fail the first flush only. dbPromise stays valid (open() is not
+    // perturbed), so the second flush can succeed against the same instance.
     let throwOnce = true;
-    (IndexedDBPromised.prototype as unknown as { put: typeof realPut }).put =
-      async function patchedPut(this: IndexedDBPromised<unknown>, ...args) {
-        if (throwOnce) {
-          throwOnce = false;
-          // Test-only synthetic rejection; the catch site only inspects the
-          // value as `unknown`, so a raw Error is sufficient.
-          // eslint-disable-next-line no-restricted-syntax, onekey/no-raw-error
-          throw new Error('forced put failure');
+    const restoreWrites = patchIdbWrites(isolatedIDB, {
+      failNext: () => {
+        if (!throwOnce) {
+          return false;
         }
-        return (realPut as (...a: typeof args) => Promise<unknown>).apply(
-          this,
-          args,
-        ) as ReturnType<typeof realPut>;
-      } as typeof realPut;
+        throwOnce = false;
+        return true;
+      },
+    });
 
     try {
       mod.writeColdStartMeta('__meta:buildHash', 'v2');
       await mod.flushColdStartCacheNow();
     } finally {
-      (IndexedDBPromised.prototype as unknown as { put: typeof realPut }).put =
-        realPut;
+      restoreWrites();
     }
+    // Guards against the test silently passing because the injection point
+    // stopped being on the flush path.
+    expect(throwOnce).toBe(false);
 
     // Second flush should succeed and the requeued key should land.
     await mod.flushColdStartCacheNow();
     const out = await mod.readAllColdStartEntriesFromIdb();
     expect(out.get('__meta:buildHash')).toBe('v2');
+  });
+
+  it('writes every dirty key in one transaction, and deletes in their own', async () => {
+    const { mod, isolatedIDB } = loadModuleWithIdb();
+    const storage = mod.createWebColdStartStorage();
+    // Warm the connection so the opening transaction is not counted.
+    await mod.readAllColdStartEntriesFromIdb();
+
+    const modes: string[] = [];
+    const written: string[] = [];
+    let restoreWrites = patchIdbWrites(isolatedIDB, {
+      onTransaction: (mode) => modes.push(mode),
+      onPut: (key) => written.push(key),
+    });
+    try {
+      mod.writeColdStartMeta('__meta:a', '1');
+      mod.writeColdStartMeta('__meta:b', '2');
+      mod.writeColdStartMeta('__meta:c', '3');
+      await mod.flushColdStartCacheNow();
+    } finally {
+      restoreWrites();
+    }
+    // Three records, one commit round-trip.
+    expect(written.toSorted()).toEqual(['__meta:a', '__meta:b', '__meta:c']);
+    expect(modes).toEqual(['readwrite']);
+
+    modes.length = 0;
+    restoreWrites = patchIdbWrites(isolatedIDB, {
+      onTransaction: (mode) => modes.push(mode),
+    });
+    try {
+      void storage.delete(EAppSyncStorageKeys.onekey_debug_render_tracker);
+      mod.writeColdStartMeta('__meta:d', '4');
+      await mod.flushColdStartCacheNow();
+    } finally {
+      restoreWrites();
+    }
+    // Deletes keep a transaction of their own so they stay allowed while the
+    // disk-full guard is raised.
+    expect(modes).toEqual(['readwrite', 'readwrite']);
+
+    const out = await mod.readAllColdStartEntriesFromIdb();
+    expect(out.get('__meta:a')).toBe('1');
+    expect(out.get('__meta:d')).toBe('4');
   });
 
   it('resetColdStartCache wipes both map and IDB', async () => {
@@ -352,33 +485,22 @@ describeIfIndexedDB('IDB-backed paths', () => {
     });
     activeModule = mod;
 
-    // Slow down put() so we have a window to dirty a new key while the
+    // Hold the flush open so we have a window to dirty a new key while the
     // first batch is still in flight.
-    // eslint-disable-next-line @typescript-eslint/unbound-method
-    const realPut = isolatedIDB.prototype.put;
-    (isolatedIDB.prototype as unknown as { put: typeof realPut }).put =
-      async function delayedPut(this: IndexedDBPromised<unknown>, ...args) {
-        await new Promise((r) => setTimeout(r, 100));
-        return (realPut as (...a: typeof args) => Promise<unknown>).apply(
-          this,
-          args,
-        ) as ReturnType<typeof realPut>;
-      } as typeof realPut;
+    const restoreWrites = patchIdbWrites(isolatedIDB, { delayMs: 100 });
 
     try {
       mod.writeColdStartMeta('__meta:a', '1');
       const firstFlush = mod.flushColdStartCacheNow();
-      // Yield long enough that the first put() has been issued (so
-      // dirtyKeys has been snapshotted+cleared inside runFlushOnce) but
-      // not yet resolved (still inside the 100ms delay). The followup
-      // write below then lands AFTER the snapshot — the drain loop must
-      // pick it up.
+      // Yield long enough that the first batch has started (so dirtyKeys has
+      // been snapshotted+cleared inside runFlushOnce) but not yet written
+      // (still inside the 100ms delay). The followup write below then lands
+      // AFTER the snapshot — the drain loop must pick it up.
       await new Promise((r) => setTimeout(r, 20));
       mod.writeColdStartMeta('__meta:b', '2');
       await firstFlush;
     } finally {
-      (isolatedIDB.prototype as unknown as { put: typeof realPut }).put =
-        realPut;
+      restoreWrites();
     }
 
     const out = await mod.readAllColdStartEntriesFromIdb();
@@ -393,25 +515,24 @@ describeIfIndexedDB('IDB-backed paths', () => {
   // forever. The fix re-arms a fresh 2s timer when a flush throws.
 
   it('failed flush re-arms the debounce timer for the next try', async () => {
+    const { mod, isolatedIDB } = loadModuleWithIdb();
+    // Open the connection while real timers are still running: fake-indexeddb
+    // needs them, so a first openDb() under fake timers never settles and the
+    // flush would stall before reaching the injection point.
+    await mod.readAllColdStartEntriesFromIdb();
+
     jest.useFakeTimers();
     try {
-      const mod = loadModule();
-
-      // eslint-disable-next-line @typescript-eslint/unbound-method
-      const realPut = IndexedDBPromised.prototype.put;
       let failNext = true;
-      (IndexedDBPromised.prototype as unknown as { put: typeof realPut }).put =
-        async function patchedPut(this: IndexedDBPromised<unknown>, ...args) {
-          if (failNext) {
-            failNext = false;
-            // eslint-disable-next-line no-restricted-syntax, onekey/no-raw-error
-            throw new Error('forced first-put failure');
+      const restoreWrites = patchIdbWrites(isolatedIDB, {
+        failNext: () => {
+          if (!failNext) {
+            return false;
           }
-          return (realPut as (...a: typeof args) => Promise<unknown>).apply(
-            this,
-            args,
-          ) as ReturnType<typeof realPut>;
-        } as typeof realPut;
+          failNext = false;
+          return true;
+        },
+      });
 
       try {
         // Writes through the facade arm the 2s debounce timer; we never
@@ -419,20 +540,19 @@ describeIfIndexedDB('IDB-backed paths', () => {
         // re-armed timer scheduled by runFlushOnce on failure.
         mod.writeColdStartMeta('__meta:retry', 'val');
 
-        // First flush fires; the patched put throws; key is requeued and
+        // First flush fires; the patched write throws; key is requeued and
         // a new 2s timer is armed.
         await jest.advanceTimersByTimeAsync(2000);
 
-        // Second flush fires against the now-unpatched put and succeeds.
+        // Second flush fires against the now-passing write and succeeds.
         await jest.advanceTimersByTimeAsync(2000);
 
         // Drain any straggling timers (none expected, but harmless).
         await jest.runOnlyPendingTimersAsync();
       } finally {
-        (
-          IndexedDBPromised.prototype as unknown as { put: typeof realPut }
-        ).put = realPut;
+        restoreWrites();
       }
+      expect(failNext).toBe(false);
 
       // Switch to real timers before awaiting the IDB read, otherwise the
       // fake-indexeddb internals that depend on setTimeout never resolve.
@@ -500,13 +620,13 @@ describeIfIndexedDB('IDB-backed paths', () => {
     });
     activeModule = mod;
 
-    // eslint-disable-next-line @typescript-eslint/unbound-method
-    const realPut = isolatedIDB.prototype.put;
-    (isolatedIDB.prototype as unknown as { put: typeof realPut }).put =
-      async function alwaysRejectPut(this: IndexedDBPromised<unknown>) {
-        // eslint-disable-next-line no-restricted-syntax, onekey/no-raw-error
-        throw new Error('forced permanent put failure');
-      } as typeof realPut;
+    let injectedFailures = 0;
+    const restoreWrites = patchIdbWrites(isolatedIDB, {
+      failNext: () => {
+        injectedFailures += 1;
+        return true;
+      },
+    });
 
     try {
       mod.writeColdStartMeta('__meta:permafail', 'doomed');
@@ -552,9 +672,11 @@ describeIfIndexedDB('IDB-backed paths', () => {
       // a flush failure — only dirtyKeys), but no entry should be queued
       // for a doomed retry.
       expect(map.get('__meta:permafail')).toBe('doomed');
+      // Guards the test against silently passing because the injection
+      // point stopped being on the flush path.
+      expect(injectedFailures).toBeGreaterThan(0);
     } finally {
-      (isolatedIDB.prototype as unknown as { put: typeof realPut }).put =
-        realPut;
+      restoreWrites();
     }
   });
 
@@ -689,23 +811,10 @@ describeIfIndexedDB('SWR cache per-entry records', () => {
 
   function recordIdbPuts(isolatedIDB: typeof IndexedDBPromised) {
     const keys: string[] = [];
-    // eslint-disable-next-line @typescript-eslint/unbound-method
-    const realPut = isolatedIDB.prototype.put;
-    (isolatedIDB.prototype as unknown as { put: typeof realPut }).put =
-      function recordingPut(this: IndexedDBPromised<unknown>, ...args) {
-        keys.push(String(args[2]));
-        return (realPut as (...a: typeof args) => Promise<unknown>).apply(
-          this,
-          args,
-        ) as ReturnType<typeof realPut>;
-      } as typeof realPut;
-    return {
-      keys,
-      restore: () => {
-        (isolatedIDB.prototype as unknown as { put: typeof realPut }).put =
-          realPut;
-      },
-    };
+    const restore = patchIdbWrites(isolatedIDB, {
+      onPut: (key) => keys.push(key),
+    });
+    return { keys, restore };
   }
 
   it('persists only the changed records and ignores the previous single-record store', async () => {
@@ -737,6 +846,115 @@ describeIfIndexedDB('SWR cache per-entry records', () => {
     expect(
       JSON.parse(persisted.get(`${ENTRY_PREFIX}walletList:v1:0`) as string).d,
     ).toEqual(['wallet']);
+  });
+
+  it('deletes the legacy single-record store instead of priming it', async () => {
+    const { mod } = loadWithSWRCache();
+    const storage = mod.createWebColdStartStorage();
+    // A database written before the per-entry migration still carries it.
+    void storage.setObject(LEGACY_SWR_KEY as EAppSyncStorageKeys, {
+      'walletList:v1:0': { d: ['legacy'], t: 1 },
+    });
+    await mod.flushColdStartCacheNow();
+    expect(
+      (await mod.readAllColdStartEntriesFromIdb()).has(LEGACY_SWR_KEY),
+    ).toBe(true);
+
+    // What a later cold start does: read the store, prime what it found.
+    const onDisk = await mod.readAllColdStartEntriesFromIdb();
+    mod.primeColdStartCacheMap([...onDisk]);
+
+    expect(
+      storage.getString(LEGACY_SWR_KEY as EAppSyncStorageKeys),
+    ).toBeUndefined();
+    await mod.flushColdStartCacheNow();
+    expect(
+      (await mod.readAllColdStartEntriesFromIdb()).has(LEGACY_SWR_KEY),
+    ).toBe(false);
+  });
+
+  it('materializes only the non-SWR records, but reports every key', async () => {
+    const { mod, swrCacheUtils } = loadWithSWRCache();
+    const storage = mod.createWebColdStartStorage();
+    mod.writeColdStartMeta('__meta:buildHash', 'abc');
+    void storage.setObject(LEGACY_SWR_KEY as EAppSyncStorageKeys, { a: 1 });
+    swrCacheUtils.set('marketTokenDetail:v1:a', 1);
+    swrCacheUtils.set('walletList:v1:0', 2);
+    swrCacheUtils.flushNow();
+    await mod.flushColdStartCacheNow();
+
+    const { allKeys, entries } =
+      await mod.readColdStartCriticalEntriesFromIdb();
+
+    // Every key is reported, so the build-hash gate can still count them.
+    expect(allKeys).toEqual(
+      expect.arrayContaining([
+        '__meta:buildHash',
+        LEGACY_SWR_KEY,
+        `${ENTRY_PREFIX}marketTokenDetail:v1:a`,
+        `${ENTRY_PREFIX}walletList:v1:0`,
+      ]),
+    );
+    // But no SWR value — nor the legacy record — is deserialized.
+    expect([...entries.keys()]).toEqual(['__meta:buildHash']);
+  });
+
+  it('retires the legacy single-record store when the critical read sees it', async () => {
+    const { mod } = loadWithSWRCache();
+    const storage = mod.createWebColdStartStorage();
+    void storage.setObject(LEGACY_SWR_KEY as EAppSyncStorageKeys, { a: 1 });
+    await mod.flushColdStartCacheNow();
+    expect(
+      (await mod.readAllColdStartEntriesFromIdb()).has(LEGACY_SWR_KEY),
+    ).toBe(true);
+
+    // The critical read is the only step that still sees the whole key list,
+    // so it is what has to retire the record now that priming skips it.
+    await mod.readColdStartCriticalEntriesFromIdb();
+    await mod.flushColdStartCacheNow();
+
+    expect(
+      (await mod.readAllColdStartEntriesFromIdb()).has(LEGACY_SWR_KEY),
+    ).toBe(false);
+  });
+
+  it('caps the SWR records it reads per namespace and overall', async () => {
+    const { mod, swrCacheUtils } = loadWithSWRCache();
+    ['marketTokenDetail', 'marketStockDetail'].forEach((namespace) => {
+      for (let i = 0; i < 6; i += 1) {
+        swrCacheUtils.set(`${namespace}:v1:${String(i).padStart(2, '0')}`, i);
+      }
+    });
+    swrCacheUtils.flushNow();
+    await mod.flushColdStartCacheNow();
+
+    const { allKeys } = await mod.readColdStartCriticalEntriesFromIdb();
+
+    const perNamespace = await mod.readColdStartSWREntriesFromIdb(allKeys, {
+      maxEntriesPerNamespace: 2,
+    });
+    expect([...perNamespace.keys()].toSorted()).toEqual([
+      `${ENTRY_PREFIX}marketStockDetail:v1:00`,
+      `${ENTRY_PREFIX}marketStockDetail:v1:01`,
+      `${ENTRY_PREFIX}marketTokenDetail:v1:00`,
+      `${ENTRY_PREFIX}marketTokenDetail:v1:01`,
+    ]);
+
+    const overall = await mod.readColdStartSWREntriesFromIdb(allKeys, {
+      maxEntriesPerNamespace: 6,
+      maxEntries: 3,
+    });
+    expect(overall.size).toBe(3);
+
+    // A range never reaches into an adjacent namespace.
+    const single = await mod.readColdStartSWREntriesFromIdb(
+      allKeys.filter((key) => key.includes('marketStockDetail')),
+      { maxEntriesPerNamespace: 10 },
+    );
+    expect(single.size).toBe(6);
+    expect(
+      [...single.keys()].every((key) => key.includes('marketStockDetail')),
+    ).toBe(true);
   });
 
   it('serves records primed after the first SWR read', () => {

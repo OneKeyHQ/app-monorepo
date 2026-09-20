@@ -43,16 +43,15 @@
       // `__ONEKEY_CTX_ATOM_SNAPSHOT__` global — so the self-contained,
       // currency-gated, provisional SLC token-list slim cold-start activates in
       // dev for local verification, while the generic L2 context-atom hydration
-      // (the schema-drift-prone part) stays OFF. We also pre-read the SWR blob
-      // so localhost can verify web cold-start cache paths that use
-      // usePromiseResult({ swrKey }). Prod keeps its real hydrate.ts path
-      // untouched.
+      // (the schema-drift-prone part) stays OFF. The SWR cache is NOT pre-read
+      // here: it moved to one record per key, so the single `onekey_swr_cache`
+      // blob this used to fetch is a dead record that hydrate.ts now deletes.
+      // Prod keeps its real hydrate.ts path untouched.
       (function () {
         try {
           var DBN = 'onekey-cold-start-cache';
           var SNAP_KEY = 'onekey_jotai_context_atoms_snapshot';
-          var SWR_KEY = 'onekey_swr_cache';
-          var KEYS = [SNAP_KEY, SWR_KEY];
+          var KEYS = [SNAP_KEY];
           navigator.storageBuckets
             .open(DBN, { persisted: true, durability: 'strict' })
             .then(function (bk) {

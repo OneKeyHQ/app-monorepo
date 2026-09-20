@@ -17,7 +17,9 @@
 // browser support matrix.
 //
 // What this module does (in module-load order):
-//   1. Opens IndexedDB('onekey-cold-start-cache') and reads all entries.
+//   1. Opens IndexedDB('onekey-cold-start-cache') and reads the keys plus
+//      the records first paint needs (L2 snapshot + meta markers). The SWR
+//      records are read after the gate, capped per namespace.
 //   2. On build-hash mismatch (or legacy unmarked DB with real entries),
 //      clears the DB and writes the new marker eagerly (bounded force-
 //      flush) so the very next reload sees a marked DB.
@@ -25,9 +27,9 @@
 //      synchronous reads by swrCacheUtils / coldStartCacheStorage succeed.
 //   4. Populates globalThis.__ONEKEY_CTX_ATOM_SNAPSHOT__ (L2) from the
 //      'onekey_jotai_context_atoms_snapshot' single-key blob.
-//   5. L3 (SWR cache) needs no explicit prime: swrCacheUtils.loadStore()
-//      lazily reads coldStartCacheStorage on first use, which is now backed
-//      by our pre-populated map.
+//   5. L3 (SWR cache) is primed after the ready gate resolves, so a slow
+//      IndexedDB delays it instead of dropping it. swrCacheUtils reads the
+//      map lazily and is notified when the entry set changes.
 //   6. Always resolves globalColdStartHydrationReadyHandler in `finally`
 //      so GlobalJotaiReady (web/desktop branch) can unblock React. The
 //      resolved value is a `didHydrate` boolean for telemetry; the gate
@@ -57,10 +59,11 @@ import {
   flushColdStartCacheNow,
   primeColdStartCacheMap,
   readAllColdStartEntriesFromIdb,
+  readColdStartCriticalEntriesFromIdb,
+  readColdStartSWREntriesFromIdb,
   resetColdStartCache,
   writeColdStartMeta,
 } from '@onekeyhq/shared/src/storage/instance/webColdStartStorage';
-import { isWebSWRCachePersistedKey } from '@onekeyhq/shared/src/storage/instance/webSWRCacheEntries';
 import { EAppSyncStorageKeys } from '@onekeyhq/shared/src/storage/syncStorageKeys';
 import { normalizeSwapColdStartCacheSnapshot } from '@onekeyhq/shared/src/utils/swapColdStartCacheSnapshotUtils';
 
@@ -237,12 +240,41 @@ let didHydrate = false;
 // Count entries excluding internal meta-keys. Used by the F6 invalidation
 // path to distinguish a brand-new DB (no entries, no marker) from a legacy
 // DB that predates the BUILD_HASH marker (real entries, no marker).
-export function countNonMetaEntries(entries: Map<string, unknown>): number {
+export function countNonMetaKeys(keys: Iterable<string>): number {
   let n = 0;
-  for (const k of entries.keys()) {
+  for (const k of keys) {
     if (!k.startsWith(META_KEY_PREFIX)) n += 1;
   }
   return n;
+}
+
+export function countNonMetaEntries(entries: Map<string, unknown>): number {
+  return countNonMetaKeys(entries.keys());
+}
+
+/**
+ * Load the SWR records and merge them into the map, off the ready gate.
+ *
+ * L3 has no mount-time signal — swrCacheUtils reads the primed map lazily
+ * and primeColdStartCacheMap tells it when the entry set changed — so these
+ * records do not belong inside the hydration budget. Keeping them out means
+ * a slow IndexedDB makes the cache land late instead of not at all, which
+ * is what the all-or-nothing timeout used to do to every layer at once.
+ */
+function schedulePrimeSWREntries(allKeys: readonly string[]): void {
+  if (allKeys.length === 0) {
+    return;
+  }
+  void (async () => {
+    try {
+      const swrEntries = await readColdStartSWREntriesFromIdb(allKeys);
+      if (swrEntries.size > 0) {
+        primeColdStartCacheMap(swrEntries);
+      }
+    } catch {
+      // Best effort: a failed late read is an ordinary cache miss.
+    }
+  })();
 }
 
 /**
@@ -283,29 +315,20 @@ const promise: Promise<void> = (async () => {
     );
     try {
       const result = await withTimeout(
-        readAllColdStartEntriesFromIdb(),
+        readColdStartCriticalEntriesFromIdb(),
         HYDRATION_TIMEOUT_MS,
       );
-      const entriesToPrime: [string, unknown][] = [];
-      result?.forEach((value, key) => {
-        if (typeof value === 'string' && isWebSWRCachePersistedKey(key)) {
-          entriesToPrime.push([key, value]);
-        }
-      });
       if (result) {
         const safeCtxSnapshot = filterDevSafeL2CtxSnapshot(
-          parseL2CtxSnapshot(result),
+          parseL2CtxSnapshot(result.entries),
         );
         if (Object.keys(safeCtxSnapshot).length) {
-          entriesToPrime.push([
-            CTX_SNAPSHOT_KEY,
-            JSON.stringify(safeCtxSnapshot),
+          primeColdStartCacheMap([
+            [CTX_SNAPSHOT_KEY, JSON.stringify(safeCtxSnapshot)],
           ]);
           setGlobal('__ONEKEY_CTX_ATOM_SNAPSHOT__', safeCtxSnapshot);
         }
-      }
-      if (entriesToPrime.length) {
-        primeColdStartCacheMap(entriesToPrime);
+        schedulePrimeSWREntries(result.allKeys);
       }
     } catch {
       // Dev-only best effort: keep the old skipped behavior if IDB is missing
@@ -327,9 +350,10 @@ const promise: Promise<void> = (async () => {
   }
 
   let entries: Map<string, unknown>;
+  let swrKeys: readonly string[] = [];
   try {
     const result = await withTimeout(
-      readAllColdStartEntriesFromIdb(),
+      readColdStartCriticalEntriesFromIdb(),
       HYDRATION_TIMEOUT_MS,
     );
     if (result === undefined) {
@@ -340,7 +364,8 @@ const promise: Promise<void> = (async () => {
       status = 'timeout';
       return;
     }
-    entries = result;
+    entries = result.entries;
+    swrKeys = result.allKeys;
   } catch (e) {
     setGlobal('__ONEKEY_COLD_START_ERROR__', e);
     status = 'error';
@@ -364,7 +389,7 @@ const promise: Promise<void> = (async () => {
       typeof storedHashRaw === 'string' ? storedHashRaw : undefined;
     const isMismatch =
       (storedHash !== undefined && storedHash !== BUILD_HASH) ||
-      (storedHash === undefined && countNonMetaEntries(entries) > 0);
+      (storedHash === undefined && countNonMetaKeys(swrKeys) > 0);
     if (isMismatch) {
       try {
         await resetColdStartCache();
@@ -407,6 +432,7 @@ const promise: Promise<void> = (async () => {
       // future cold starts will see. L1 mirror was removed, so there are no
       // in-flight mirror writes to replay across the reset.
       entries = new Map();
+      swrKeys = [];
     }
   }
 
@@ -437,8 +463,9 @@ const promise: Promise<void> = (async () => {
   );
   setGlobal('__ONEKEY_CTX_ATOM_SNAPSHOT__', ctxSnapshot);
 
-  // L3: swrCacheUtils.loadStore() lazily reads coldStartCacheStorage on first
-  // call → hits the primed map automatically. No explicit step needed here.
+  // L3: loaded after the gate, then merged into the same map. See
+  // schedulePrimeSWREntries.
+  schedulePrimeSWREntries(swrKeys);
 
   status = 'success';
   didHydrate = Object.keys(ctxSnapshot).length > 0;
