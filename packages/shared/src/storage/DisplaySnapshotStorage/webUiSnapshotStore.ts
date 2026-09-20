@@ -103,7 +103,8 @@ function scheduleFlush(key: string) {
 }
 
 /** Write every pending key. Deletes go in their own transaction, which is
- *  allowed to run when the quota is exhausted — that is when it matters. */
+ *  allowed to run when the quota is exhausted, and which runs even when the
+ *  write before it failed — that is when it matters. */
 export function flushUiSnapshotStoreNow(): Promise<void> {
   if (flushPromise) {
     // The in-flight flush took its key list when it started, so it does not
@@ -130,9 +131,20 @@ export function flushUiSnapshotStoreNow(): Promise<void> {
         writes.push({ key, value });
       }
     });
+    // Collected per phase rather than from `keys`: a write the quota rejected
+    // has to come back, and a delete that already landed must not — re-queuing
+    // it would keep the store dirty and spend the retry budget below on
+    // records that are gone.
+    const failedKeys: string[] = [];
+    let database: IndexedDBPromised<unknown> | undefined;
     try {
-      const database = await getDatabase();
-      if (writes.length > 0) {
+      database = await getDatabase();
+    } catch {
+      // Nothing reaches disk this round, writes and deletes alike.
+      failedKeys.push(...keys);
+    }
+    if (database && writes.length > 0) {
+      try {
         const transaction = await database.createBucketTransaction(
           [RECORD_STORE],
           'readwrite',
@@ -142,8 +154,16 @@ export function flushUiSnapshotStoreNow(): Promise<void> {
           writes.map(({ key, value }) => store.put(value, key)),
         );
         await transaction.done;
+      } catch {
+        failedKeys.push(...writes.map(({ key }) => key));
       }
-      if (removals.length > 0) {
+    }
+    if (database && removals.length > 0) {
+      // Deliberately outside the write's failure path. An exhausted quota
+      // rejects the write transaction before it opens, and deleting is how
+      // the page gives that space back, so a failed write is exactly when
+      // this still has to run.
+      try {
         const transaction = await database.createBucketTransaction(
           [RECORD_STORE],
           'readwrite',
@@ -152,14 +172,18 @@ export function flushUiSnapshotStoreNow(): Promise<void> {
         const store = transaction.objectStore(RECORD_STORE);
         await Promise.all(removals.map((key) => store.delete(key)));
         await transaction.done;
+      } catch {
+        failedKeys.push(...removals);
       }
-      flushFailureStreak = 0;
-    } catch {
-      // Re-queue so the next flush tries again. A cache that cannot reach
-      // disk still serves the page from the map.
-      flushFailureStreak += 1;
-      keys.forEach((key) => dirtyKeys.add(key));
     }
+    if (failedKeys.length === 0) {
+      flushFailureStreak = 0;
+      return;
+    }
+    // Re-queue so the next flush tries again. A cache that cannot reach
+    // disk still serves the page from the map.
+    flushFailureStreak += 1;
+    failedKeys.forEach((key) => dirtyKeys.add(key));
   })().finally(() => {
     flushPromise = undefined;
     if (isClearing) {

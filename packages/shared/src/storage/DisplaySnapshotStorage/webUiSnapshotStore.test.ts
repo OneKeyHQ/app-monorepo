@@ -12,6 +12,10 @@ import { OneKeyLocalError } from '../../errors';
 let openAttempts = 0;
 let openShouldFail = true;
 let putCalls: { key: string; value: string }[] = [];
+let deleteCalls: string[] = [];
+/** Stands in for an exhausted quota: only the transaction that asks to run
+ *  when storage is full gets through. */
+let quotaRejectsWrites = false;
 let releaseTransaction: (() => void) | undefined;
 
 jest.mock('../../IndexedDBPromised', () => ({
@@ -26,7 +30,14 @@ jest.mock('../../IndexedDBPromised', () => ({
       }
     }
 
-    async createBucketTransaction() {
+    async createBucketTransaction(
+      _storeNames: unknown,
+      _mode: unknown,
+      options?: { allowWhenStorageFull?: boolean },
+    ) {
+      if (quotaRejectsWrites && !options?.allowWhenStorageFull) {
+        throw new OneKeyLocalError('disk is full');
+      }
       if (releaseTransaction) {
         await new Promise<void>((resolve) => {
           releaseTransaction = resolve;
@@ -38,7 +49,10 @@ jest.mock('../../IndexedDBPromised', () => ({
             putCalls.push({ key, value });
             return Promise.resolve();
           },
-          delete: () => Promise.resolve(),
+          delete: (key: string) => {
+            deleteCalls.push(key);
+            return Promise.resolve();
+          },
           clear: () => Promise.resolve(),
         }),
         done: Promise.resolve(),
@@ -72,6 +86,8 @@ describe('webUiSnapshotStore write-behind', () => {
     openAttempts = 0;
     openShouldFail = true;
     putCalls = [];
+    deleteCalls = [];
+    quotaRejectsWrites = false;
     releaseTransaction = undefined;
     __resetWebUiSnapshotStoreForTests();
   });
@@ -153,5 +169,36 @@ describe('webUiSnapshotStore write-behind', () => {
         ({ key, value }) => key === 'ctx-atom-snapshot:b' && value === 'second',
       ),
     ).toBe(true);
+  });
+
+  it('deletes even when the quota rejected the write in the same batch', async () => {
+    openShouldFail = false;
+    quotaRejectsWrites = true;
+    // One queue serves every namespace, so a put and a delete from two of
+    // them share a batch — which is the case a full quota has to survive.
+    const writer = createWebUiSnapshotSyncBackend('ctx-atom-snapshot');
+    const sweeper = createWebUiSnapshotSyncBackend('market-token-detail');
+    writer.commit({
+      entries: [{ key: 'a', value: 'first' }],
+      commitMarker: { key: 'manifest', value: 'm1' },
+    });
+    sweeper.remove(['stale']);
+
+    await flushUiSnapshotStoreNow();
+
+    expect(putCalls).toHaveLength(0);
+    expect(deleteCalls).toEqual(['market-token-detail:stale']);
+
+    // Only the rejected write is queued again: the delete already landed, so
+    // retrying it would spend the store's attempts on a record that is gone.
+    quotaRejectsWrites = false;
+    jest.advanceTimersByTime(FLUSH_DEBOUNCE_MS);
+    await settle();
+
+    expect(putCalls.map(({ key }) => key).toSorted()).toEqual([
+      'ctx-atom-snapshot:a',
+      'ctx-atom-snapshot:manifest',
+    ]);
+    expect(deleteCalls).toEqual(['market-token-detail:stale']);
   });
 });
