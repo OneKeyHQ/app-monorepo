@@ -92,6 +92,35 @@ export class AppPerfScene extends BaseScene {
     return params;
   }
 
+  @LogToLocal({ level: 'warn' })
+  public swrCacheSnapshotState(params: {
+    eventCount: number;
+    eventType: 'aborted' | 'failed' | 'recovered';
+    cooldownMs: number;
+    maxReplayKeys: number;
+    maxReplaySerializedChars: number;
+    pendingMutationCount: number;
+    replayMutationCount: number;
+    replaySWRKeyCount: number;
+    replaySWRSerializedChars: number;
+    reason: 'replayBudgetExceeded' | 'requestFailed';
+    retryAttempt: number;
+    store: 'all' | 'settings' | 'coldStart' | 'devSettings';
+  }) {
+    return { ...params, runtime: platformEnv.runtimeRole };
+  }
+
+  @LogToLocal({ level: 'warn' })
+  public swrCacheWriteState(params: {
+    affectedEntryCount: number;
+    cooldownMs: number;
+    eventCount: number;
+    maxIncomingEntrySerializedChars: number;
+    reason: 'staleTimestamp';
+  }) {
+    return { ...params, runtime: platformEnv.runtimeRole };
+  }
+
   // Whole-store SWR work is synchronous on the calling JS runtime, so a slow
   // pass on `main` is a UI stall. `runtime` tells main from background.
   @LogToLocal({ level: 'warn' })
