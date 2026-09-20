@@ -45,7 +45,6 @@ const TonResponseError = {
   BadRequest: 1,
   InvalidManifestUrl: 2,
   ContentManifest: 3,
-  UnknownApp: 100,
 } as const;
 
 export declare interface ITonAddressItem {
@@ -160,15 +159,6 @@ class ProviderApiTon extends ProviderApiBase {
         TonResponseError.InvalidManifestUrl,
         'App manifest not found',
       );
-    }
-
-    // Older injected providers use an empty connect request to restore a session.
-    if (request.data.params.length === 0) {
-      const account = await this.restoreConnection(request);
-      if (!account) {
-        throw new Web3RpcError(TonResponseError.UnknownApp, 'Unknown app');
-      }
-      return account;
     }
 
     const connectRequest: unknown = request.data.params[1];

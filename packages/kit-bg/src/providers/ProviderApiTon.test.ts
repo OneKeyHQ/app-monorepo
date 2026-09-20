@@ -61,17 +61,6 @@ describe('TON connection restoration', () => {
     await expect(provider.restoreConnection(request([]))).resolves.toBeNull();
     expect(getResponse).not.toHaveBeenCalled();
     expect(serviceDApp.openConnectionModal).not.toHaveBeenCalled();
-    await expect(provider.connect(request([]), [])).rejects.toMatchObject({
-      code: 100,
-    });
-    expect(serviceDApp.openConnectionModal).not.toHaveBeenCalled();
-  });
-
-  it('supports the empty connect request sent by older providers', async () => {
-    const { provider, request, response } = setup([
-      { account: { id: 'account' } },
-    ]);
-    await expect(provider.connect(request([]), [])).resolves.toEqual(response);
   });
 
   it('still validates the manifest origin for an explicit connect request', async () => {
@@ -98,7 +87,15 @@ describe('TON connection restoration', () => {
     }
   });
 
-  it.each([undefined, {}, [2], [2, null], [2, {}], [2, { manifestUrl: 123 }]])(
+  it.each([
+    undefined,
+    {},
+    [],
+    [2],
+    [2, null],
+    [2, {}],
+    [2, { manifestUrl: 123 }],
+  ])(
     'rejects malformed connect parameters without a TypeError: %j',
     async (params) => {
       const { provider, request, serviceDApp } = setup();
