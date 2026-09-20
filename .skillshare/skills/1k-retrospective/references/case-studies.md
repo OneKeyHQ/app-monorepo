@@ -599,3 +599,10 @@ Cases are appended by AI after each bug fix. Do NOT reorder or delete entries �
 **Fix**: Resolve Others EVM addresses from the stored account; fetch rebate by that address; map no-wallet / no-EVM empty state to Perps `InviteeRewardNoWallet`. Binding stays HD/HW-only.
 **Catchable by**: Section 4: shared hook/utility modified → checked all consumers; NEW — a viewing surface must not reuse a bind-only wallet-identity gate
 
+## Case: Trusted-site Order signatures still required a risk checkbox
+**Date**: 2026-09-20 | **Platforms**: extension, desktop, web, iOS, Android
+**Symptom**: On a verified host such as swap.cow.fi, CowSwap Order signatures still showed the generic risk card and required “I understand the risk”.
+**Root Cause**: The August trusted-Permit hotfix only set `isTrustedPermit`. Order reused `isConfirmationRequired` and generic parser alerts, so Security-rated sites still entered the message confirmation gate.
+**Fix**: Treat verified Permit and Order as `isTrustedAuthorization`, hide only the exact generic Permit/Order alert texts, and keep specific parser alerts, address-risk tags, and High/Medium site or Prime results gated.
+**Catchable by**: Section 4: Shared hook/utility modified → checked all consumers; NEW — a trusted-site exemption for one typed-data method must be checked against sibling methods that share the same confirmation fields
+
