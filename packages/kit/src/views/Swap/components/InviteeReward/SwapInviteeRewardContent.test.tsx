@@ -95,7 +95,6 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
   __esModule: true,
   default: {
     serviceReferralCode: {
-      getReferralCodeWalletInfo: jest.fn(),
       getSwapInviteeRewards: jest.fn(),
     },
   },
@@ -217,18 +216,10 @@ describe('SwapInviteeRewardContent', () => {
   });
 
   it('shows the no-wallet empty state when the account has no EVM address', () => {
-    const onBeforeNavigate = jest.fn();
-
-    render(
-      <SwapInviteeRewardContent
-        accountId="watching--btc--bc1qwatch"
-        onBeforeNavigate={onBeforeNavigate}
-      />,
-    );
+    render(<SwapInviteeRewardContent accountId="watching--btc--bc1qwatch" />);
 
     expect(screen.getByText('referral.apply_code_no_wallet')).toBeTruthy();
-    fireEvent.click(screen.getByTestId('swap-invitee-reward-onboarding'));
-    expect(onBeforeNavigate).toHaveBeenCalledTimes(1);
+    expect(screen.getByTestId('swap-invitee-reward-onboarding')).toBeTruthy();
     expect(screen.queryByText('perps.account_not_support')).toBeNull();
   });
 
