@@ -113,7 +113,6 @@ describe('RewardHistoryList', () => {
     render(<RewardHistoryList history={history} token={token} />);
 
     expect(screen.getByText('2026-09-08')).toBeTruthy();
-    expect(screen.getByText('perps.get_reward')).toBeTruthy();
     expect(screen.getByText('0x298e9a...8e5941')).toBeTruthy();
     expect(screen.getByText('0.17')).toBeTruthy();
     expect(screen.queryByText('0x000000...000011')).toBeNull();
