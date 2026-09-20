@@ -331,17 +331,30 @@ type ISectionListData = {
   data: ISignedTransaction[];
 };
 
-const ListEmptyComponent = () => {
+const ListEmptyComponent = ({ onRetry }: { onRetry?: () => void }) => {
   const intl = useIntl();
   return (
     <Empty
       title={intl.formatMessage({
-        id: ETranslations.settings_no_signed_transactions,
+        id: onRetry
+          ? ETranslations.global_an_error_occurred
+          : ETranslations.settings_no_signed_transactions,
       })}
       description={intl.formatMessage({
-        id: ETranslations.settings_no_signed_transactions_desc,
+        id: onRetry
+          ? ETranslations.global_an_error_occurred_desc
+          : ETranslations.settings_no_signed_transactions_desc,
       })}
-      illustration="Document"
+      illustration={onRetry ? undefined : 'Document'}
+      buttonProps={
+        onRetry
+          ? {
+              children: intl.formatMessage({ id: ETranslations.global_retry }),
+              onPress: onRetry,
+              testID: 'signature-transactions-retry',
+            }
+          : undefined
+      }
     />
   );
 };
@@ -354,9 +367,15 @@ const keyExtractor = (item: unknown) => {
 };
 
 export const Transactions = () => {
-  const { sections, isLoading, onEndReached } = useGetSignatureSections(
-    async (params) =>
+  const { sections, isLoading, hasError, onRetry, onEndReached } =
+    useGetSignatureSections(async (params) =>
       backgroundApiProxy.serviceSignature.getSignedTransactions(params),
+    );
+
+  const listEmptyComponent = hasError ? (
+    <ListEmptyComponent onRetry={onRetry} />
+  ) : (
+    ListEmptyComponent
   );
 
   return (
@@ -385,7 +404,7 @@ export const Transactions = () => {
             </YStack>
           </Skeleton.Group>
         ) : (
-          ListEmptyComponent
+          listEmptyComponent
         )
       }
       onEndReached={onEndReached}

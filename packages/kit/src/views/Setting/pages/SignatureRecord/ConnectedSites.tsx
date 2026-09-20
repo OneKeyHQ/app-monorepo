@@ -84,17 +84,30 @@ type ISectionListData = {
   data: IConnectedSite[];
 };
 
-const ListEmptyComponent = () => {
+const ListEmptyComponent = ({ onRetry }: { onRetry?: () => void }) => {
   const intl = useIntl();
   return (
     <Empty
       title={intl.formatMessage({
-        id: ETranslations.settings_no_connected_sites,
+        id: onRetry
+          ? ETranslations.global_an_error_occurred
+          : ETranslations.settings_no_connected_sites,
       })}
       description={intl.formatMessage({
-        id: ETranslations.settings_no_connected_sites_desc,
+        id: onRetry
+          ? ETranslations.global_an_error_occurred_desc
+          : ETranslations.settings_no_connected_sites_desc,
       })}
-      illustration="DocumentGlobeCenter"
+      illustration={onRetry ? undefined : 'DocumentGlobeCenter'}
+      buttonProps={
+        onRetry
+          ? {
+              children: intl.formatMessage({ id: ETranslations.global_retry }),
+              onPress: onRetry,
+              testID: 'signature-connected-sites-retry',
+            }
+          : undefined
+      }
     />
   );
 };
@@ -106,9 +119,15 @@ const keyExtractor = (item: unknown) => {
 };
 
 export const ConnectedSites = () => {
-  const { sections, isLoading, onEndReached } = useGetSignatureSections(
-    async (params) =>
+  const { sections, isLoading, hasError, onRetry, onEndReached } =
+    useGetSignatureSections(async (params) =>
       backgroundApiProxy.serviceSignature.getConnectedSites(params),
+    );
+
+  const listEmptyComponent = hasError ? (
+    <ListEmptyComponent onRetry={onRetry} />
+  ) : (
+    ListEmptyComponent
   );
 
   return (
@@ -136,7 +155,7 @@ export const ConnectedSites = () => {
             </YStack>
           </Skeleton.Group>
         ) : (
-          ListEmptyComponent
+          listEmptyComponent
         )
       }
       onEndReached={onEndReached}

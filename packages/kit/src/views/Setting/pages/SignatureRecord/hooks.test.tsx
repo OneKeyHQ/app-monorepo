@@ -12,6 +12,7 @@ import { useGetSignatureSections } from './hooks';
 
 jest.mock('@onekeyhq/kit/src/hooks/usePromiseResult', () => {
   const {
+    useCallback,
     useEffect,
     useRef,
     useState: useMockState,
@@ -23,18 +24,72 @@ jest.mock('@onekeyhq/kit/src/hooks/usePromiseResult', () => {
       options: { initResult: T },
     ) => {
       const [result, setResult] = useMockState(options.initResult);
+      const [isLoading, setIsLoading] = useMockState(false);
       const methodRef = useRef(method);
       methodRef.current = method;
       const [networkId, limit, offset, address] = deps;
+      const run = useCallback(async () => {
+        setIsLoading(true);
+        try {
+          setResult(await methodRef.current());
+        } finally {
+          setIsLoading(false);
+        }
+      }, [setIsLoading, setResult]);
       useEffect(() => {
-        void methodRef.current().then(setResult);
-      }, [networkId, limit, offset, address, setResult]);
-      return { result };
+        void run();
+      }, [networkId, limit, offset, address, run]);
+      return { result, isLoading, run };
     },
   };
 });
 
 describe('useGetSignatureSections', () => {
+  it('shows a retry state when the first page of a filter fails', async () => {
+    const allNetworkId = 'onekeyall--0';
+    const ethereumNetworkId = 'evm--1';
+    const items = [{ createdAt: Date.now() }];
+    let failEthereum = true;
+    const method = jest.fn(({ networkId }: ISignatureItemQueryParams) => {
+      if (networkId === ethereumNetworkId && failEthereum) {
+        return Promise.reject(new Error('query failed'));
+      }
+      return Promise.resolve(items);
+    });
+    let setNetworkId: (networkId: string) => void = () => undefined;
+    const Wrapper = ({ children }: PropsWithChildren) => {
+      const [networkId, setSelectedNetworkId] = useState(allNetworkId);
+      setNetworkId = setSelectedNetworkId;
+      const value = useMemo(() => ({ networkId }), [networkId]);
+      return (
+        <SignatureContext.Provider value={value}>
+          {children}
+        </SignatureContext.Provider>
+      );
+    };
+    const { result } = renderHook(() => useGetSignatureSections(method), {
+      wrapper: Wrapper,
+    });
+
+    await waitFor(() =>
+      expect(result.current.sections[0]?.data).toEqual(items),
+    );
+    act(() => setNetworkId(ethereumNetworkId));
+    await waitFor(() => {
+      expect(result.current.isLoading).toBe(false);
+      expect(result.current.hasError).toBe(true);
+      expect(result.current.sections).toEqual([]);
+    });
+
+    failEthereum = false;
+    act(() => result.current.onRetry());
+    await waitFor(() => {
+      expect(result.current.isLoading).toBe(false);
+      expect(result.current.hasError).toBe(false);
+      expect(result.current.sections[0]?.data).toEqual(items);
+    });
+  });
+
   it('keeps a new filter loading until its records settle', async () => {
     const allNetworkId = 'onekeyall--0';
     const ethereumNetworkId = 'evm--1';

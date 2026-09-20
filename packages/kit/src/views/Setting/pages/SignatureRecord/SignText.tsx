@@ -31,15 +31,30 @@ import { SETTINGS_PAGE_CONTENT_PADDING_X } from '../Tab/settingsSurface';
 
 import { useGetSignatureSections } from './hooks';
 
-const ListEmptyComponent = () => {
+const ListEmptyComponent = ({ onRetry }: { onRetry?: () => void }) => {
   const intl = useIntl();
   return (
     <Empty
-      title={intl.formatMessage({ id: ETranslations.settings_no_signed_text })}
-      description={intl.formatMessage({
-        id: ETranslations.settings_no_signed_text_desc,
+      title={intl.formatMessage({
+        id: onRetry
+          ? ETranslations.global_an_error_occurred
+          : ETranslations.settings_no_signed_text,
       })}
-      illustration="DocumentGlobe"
+      description={intl.formatMessage({
+        id: onRetry
+          ? ETranslations.global_an_error_occurred_desc
+          : ETranslations.settings_no_signed_text_desc,
+      })}
+      illustration={onRetry ? undefined : 'DocumentGlobe'}
+      buttonProps={
+        onRetry
+          ? {
+              children: intl.formatMessage({ id: ETranslations.global_retry }),
+              onPress: onRetry,
+              testID: 'signature-signed-text-retry',
+            }
+          : undefined
+      }
     />
   );
 };
@@ -136,9 +151,15 @@ const keyExtractor = (item: unknown) => {
 };
 
 export const SignText = () => {
-  const { sections, isLoading, onEndReached } = useGetSignatureSections(
-    async (params) =>
+  const { sections, isLoading, hasError, onRetry, onEndReached } =
+    useGetSignatureSections(async (params) =>
       backgroundApiProxy.serviceSignature.getSignedMessages(params),
+    );
+
+  const listEmptyComponent = hasError ? (
+    <ListEmptyComponent onRetry={onRetry} />
+  ) : (
+    ListEmptyComponent
   );
 
   return (
@@ -166,7 +187,7 @@ export const SignText = () => {
             </YStack>
           </Skeleton.Group>
         ) : (
-          ListEmptyComponent
+          listEmptyComponent
         )
       }
       onEndReached={onEndReached}

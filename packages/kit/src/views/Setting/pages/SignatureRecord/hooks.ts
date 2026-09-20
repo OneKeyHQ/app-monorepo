@@ -66,18 +66,38 @@ export const useGetSignatureSections = <T extends { createdAt: number }>(
     setQuery({ networkId, address, offset: 0, limit: 10 });
   }, [networkId, address]);
 
-  const { result, isLoading } = usePromiseResult(
+  const { result, isLoading, run } = usePromiseResult(
     async () => {
       const gen = resetGenRef.current;
-      const resp = await methodRef.current({
-        networkId,
-        address,
-        offset,
-        limit: query.limit,
-      });
+      let resp: T[];
+      try {
+        resp = await methodRef.current({
+          networkId,
+          address,
+          offset,
+          limit: query.limit,
+        });
+      } catch (error) {
+        if (resetGenRef.current !== gen || offset !== 0) {
+          throw error;
+        }
+        return {
+          sections: [],
+          ending: true,
+          networkId,
+          address,
+          hasError: true,
+        };
+      }
       // Skip stale results from before a filter reset
       if (resetGenRef.current !== gen) {
-        return { sections: [], ending: false, networkId, address };
+        return {
+          sections: [],
+          ending: false,
+          networkId,
+          address,
+          hasError: false,
+        };
       }
       const isSearch = !networkUtils.isAllNetwork({ networkId }) || address;
       if (!isSearch) {
@@ -93,11 +113,18 @@ export const useGetSignatureSections = <T extends { createdAt: number }>(
         ending: resp.length < query.limit,
         networkId,
         address,
+        hasError: false,
       };
     },
     [networkId, query.limit, offset, address],
     {
-      initResult: { sections: [], ending: false, networkId: '', address: '' },
+      initResult: {
+        sections: [],
+        ending: false,
+        networkId: '',
+        address: '',
+        hasError: false,
+      },
       watchLoading: true,
     },
   );
@@ -110,6 +137,11 @@ export const useGetSignatureSections = <T extends { createdAt: number }>(
   );
   const ending = isCurrentFilter ? result.ending : false;
   const isSectionsLoading = Boolean(isLoading || !isCurrentFilter);
+  const hasError = isCurrentFilter && result.hasError;
+
+  const onRetry = useCallback(() => {
+    void run();
+  }, [run]);
 
   const onEndReached = useCallback(() => {
     if (ending || !isCurrentFilter || !hasLoadedFirstPageRef.current) {
@@ -127,7 +159,13 @@ export const useGetSignatureSections = <T extends { createdAt: number }>(
   }, [ending, isCurrentFilter, networkId, address]);
 
   return useMemo(
-    () => ({ sections, isLoading: isSectionsLoading, onEndReached }),
-    [sections, isSectionsLoading, onEndReached],
+    () => ({
+      sections,
+      isLoading: isSectionsLoading,
+      hasError,
+      onRetry,
+      onEndReached,
+    }),
+    [sections, isSectionsLoading, hasError, onRetry, onEndReached],
   );
 };
