@@ -417,7 +417,8 @@ function TokenListBlock({
   const [portfolioSyncRequestPhase, setPortfolioSyncRequestPhase] =
     useState<IPortfolioSyncRequestPhase>();
   const [silentPortfolioPayload, setSilentPortfolioPayload] = useState<
-    IAppEventBusPayload[EAppEventBusNames.AllNetworksTokenListSettled] | undefined
+    | IAppEventBusPayload[EAppEventBusNames.AllNetworksTokenListSettled]
+    | undefined
   >();
   const portfolioSyncDeviceDbId =
     device?.id ?? wallet?.associatedDeviceInfo?.id ?? '';
@@ -3054,9 +3055,7 @@ function TokenListBlock({
       targetCurrency: USD_CURRENCY_ID,
       currencyMap,
     });
-    if (
-      !new BigNumber(tokenFiatUsd).eq(homePortfolioDisplay.tokenFiatUsd)
-    ) {
+    if (!new BigNumber(tokenFiatUsd).eq(homePortfolioDisplay.tokenFiatUsd)) {
       return;
     }
     if (hasPortfolioSyncTarget) {
@@ -3538,6 +3537,7 @@ function TokenListBlock({
       disabled: Boolean(
         !hasPortfolioSyncTarget ||
         !hasCurrentHomePortfolioSnapshot ||
+        homePortfolioDisplay.totalFiatUsd === undefined ||
         isPortfolioSyncing ||
         hardwareUiState ||
         firmwareUpdateWorkflowRunning,
@@ -3551,6 +3551,7 @@ function TokenListBlock({
     hasCurrentHomePortfolioSnapshot,
     hasPortfolioSyncTarget,
     hardwareUiState,
+    homePortfolioDisplay.totalFiatUsd,
     isPortfolioSyncing,
     showPortfolioSyncButton,
     updatePortfolioSyncUiState,

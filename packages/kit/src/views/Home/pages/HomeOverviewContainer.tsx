@@ -1048,9 +1048,10 @@ function HomeOverviewContainer() {
     }
     const next = {
       ownerKey: isCurrentOwnerBalance ? currentOverviewOwnerKey : '',
-      totalFiatUsd: isCurrentOwnerBalance && !showSkeleton
-        ? (renderedBalanceString ?? '0')
-        : undefined,
+      totalFiatUsd:
+        isCurrentOwnerBalance && !showSkeleton
+          ? renderedBalanceString
+          : undefined,
       tokenFiatUsd: isLive ? currentTokenWorthUsd : undefined,
       defiFiatUsd: deFiFiatUsd,
       perpsFiatUsd,
