@@ -39,6 +39,8 @@ let operations: string[] = [];
 let quotaRejectsWrites = false;
 /** Stands in for a namespace range delete that aborts. */
 let rangeDeleteShouldFail = false;
+/** Stands in for a per-key delete that aborts. */
+let keyDeleteShouldFail = false;
 let releaseTransaction: (() => void) | undefined;
 
 jest.mock('../../IndexedDBPromised', () => ({
@@ -78,6 +80,9 @@ jest.mock('../../IndexedDBPromised', () => ({
               return Promise.reject(
                 new OneKeyLocalError('range delete aborted'),
               );
+            }
+            if (keyDeleteShouldFail && typeof key === 'string') {
+              return Promise.reject(new OneKeyLocalError('delete aborted'));
             }
             deleteCalls.push(describeDeleteTarget(key));
             operations.push(`delete:${describeDeleteTarget(key)}`);
@@ -121,6 +126,7 @@ describe('webUiSnapshotStore write-behind', () => {
     operations = [];
     quotaRejectsWrites = false;
     rangeDeleteShouldFail = false;
+    keyDeleteShouldFail = false;
     releaseTransaction = undefined;
     __resetWebUiSnapshotStoreForTests();
   });
@@ -324,6 +330,44 @@ describe('webUiSnapshotStore write-behind', () => {
     ]);
   });
 
+  it('holds the manifest back when the delete it depends on failed', async () => {
+    openShouldFail = false;
+    keyDeleteShouldFail = true;
+    const backend = createWebUiSnapshotSyncBackend('swr-acc-sel-values');
+    const untouched = createWebUiSnapshotSyncBackend('swr-market-token-detail');
+    // What `createSnapshotCacheSync.remove()` produces: a manifest that no
+    // longer lists the key, and the key's record to delete.
+    backend.commit({
+      entries: [],
+      commitMarker: { key: 'manifest', value: 'm2' },
+      removeKeys: ['d:wallet-1'],
+    });
+    untouched.commit({
+      entries: [{ key: 'd:btc', value: 'unrelated' }],
+      commitMarker: { key: 'manifest', value: 'm1' },
+    });
+
+    await flushUiSnapshotStoreNow();
+
+    // `get()` reads a record by key and never consults the manifest, so a
+    // marker published now would drop a record that is still readable.
+    expect(putCalls.map(({ key }) => key)).not.toContain(
+      'swr-acc-sel-values:manifest',
+    );
+    expect(putCalls.map(({ key }) => key).toSorted()).toEqual([
+      'swr-market-token-detail:d:btc',
+      'swr-market-token-detail:manifest',
+    ]);
+
+    keyDeleteShouldFail = false;
+    jest.advanceTimersByTime(FLUSH_DEBOUNCE_MS);
+    await settle();
+
+    expect(operations.slice(-2)).toEqual([
+      'delete:swr-acc-sel-values:d:wallet-1',
+      'put:swr-acc-sel-values:manifest',
+    ]);
+  });
 
   it('does not prime back a namespace this session cleared', () => {
     openShouldFail = false;

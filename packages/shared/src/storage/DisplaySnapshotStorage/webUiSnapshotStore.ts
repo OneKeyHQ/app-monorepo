@@ -159,6 +159,8 @@ export function flushUiSnapshotStoreNow(): Promise<void> {
     // records that are gone.
     const failedKeys: string[] = [];
     const failedNamespaces: string[] = [];
+    /** Namespaces whose writes have to wait for a delete that did not land. */
+    const blockedNamespaces = new Set<string>();
     let database: IndexedDBPromised<unknown> | undefined;
     try {
       database = await getDatabase();
@@ -188,6 +190,7 @@ export function flushUiSnapshotStoreNow(): Promise<void> {
         await transaction.done;
       } catch {
         failedNamespaces.push(...namespaces);
+        namespaces.forEach((namespace) => blockedNamespaces.add(namespace));
       }
     }
     if (database && removals.length > 0) {
@@ -213,19 +216,25 @@ export function flushUiSnapshotStoreNow(): Promise<void> {
         await transaction.done;
       } catch {
         failedKeys.push(...removals);
+        // The writes behind this delete carry the manifest that drops these
+        // very keys, so the marker waits for the delete too. Publishing it
+        // now would leave a record nothing lists and every `get()` still
+        // serves, which is the state deleting first exists to avoid.
+        removals.forEach((key) =>
+          blockedNamespaces.add(namespaceOfRecordKey(key)),
+        );
       }
     }
-    // A clear that failed runs again before the next batch's writes, and the
-    // range takes everything under the namespace with it. So the writes this
-    // batch holds for that namespace wait for the retry too: persisting them
-    // now would only hand the retry something else to delete, and they would
-    // not be queued any more to come back.
+    // Both delete phases above run before the writes, and a write is only
+    // correct once the delete it depends on has landed: a failed clear would
+    // otherwise be retried after these writes and take them with it, and a
+    // failed key delete would leave a record the manifest no longer lists.
+    // So the batch's writes for those namespaces are re-queued with them.
     let pendingWrites = writes;
-    if (database && failedNamespaces.length > 0) {
-      const blocked = new Set(failedNamespaces);
+    if (database && blockedNamespaces.size > 0) {
       pendingWrites = [];
       writes.forEach((write) => {
-        if (blocked.has(namespaceOfRecordKey(write.key))) {
+        if (blockedNamespaces.has(namespaceOfRecordKey(write.key))) {
           failedKeys.push(write.key);
         } else {
           pendingWrites.push(write);
