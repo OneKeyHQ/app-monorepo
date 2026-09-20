@@ -592,6 +592,27 @@ Cases are appended by AI after each bug fix. Do NOT reorder or delete entries �
 **Fix**: Move pinned/current caches to `onekey-tradingview-embed-pin-v1:`, delete the legacy `onekey-tradingview-embed:` namespace when adopting a release, and regression-test that a poisoned legacy entry is not served.
 **Catchable by**: Section 4: implementation matches original requirement — a trust-root change must also rotate or re-verify the persistent cache that will execute those bytes
 
+## Case: Stale HideTabBar cleanup covered the market trade buttons
+**Date**: 2026-09-20 | **Platforms**: iOS, Android
+**Symptom**: OK-63513. After switching tokens a couple of times on the market detail page, the bottom tab bar reappeared over the trade buttons, so the buttons looked cut off or missing.
+**Root Cause**: `EAppEventBusNames.HideTabBar` carries a bare boolean, so the last writer wins. A leaving market detail instance ran its focus cleanup after the surviving instance had already asked for a hidden tab bar, and its `false` resurrected it. The focus effect does not depend on route params, so an in-place `setParams` switch never re-asserted `true`. The trade footer is a plain flex sibling padded only by `useSafeAreaInsets().bottom`, so a visible tab bar drew straight over it.
+**Fix**: Route every writer through a `hideTabBarRequests` registry that resolves the union of live per-instance requests, and pad the trade footer with `usePageFooterSafeAreaBottom() + usePageFooterTabBarHeight()` so a visible tab bar cannot overlap it.
+**Catchable by**: Section 4: state atoms modified → verified all readers/writers; NEW — a global boolean owned by several screens needs per-instance request ownership, and a footer outside Page.Footer must claim the tab bar inset itself instead of trusting the hide path
+
+## Case: Market detail footer used a stricter identity than the chart
+**Date**: 2026-09-20 | **Platforms**: iOS, Android, Desktop, Web, Extension
+**Symptom**: OK-63513 follow-up. After switching tokens on market detail, some tokens (BTC, Solana, ERC-20) lost the bottom trade buttons even when the chart rendered.
+**Root Cause**: Footer visibility compared raw `address.toLowerCase()` + `networkId` + `decimalsResolved`. Route/store identity can be a short code (`sol`), a CoinGecko id (`bitcoin`), or an empty native address, while `tokenDetail` uses `btc--0` / `sol--101` and may omit or case-fold the address. Switching also clears `tokenDetail` before the next fetch, so the mobile footer waited on full detail while the chart already accepted a matching preview.
+**Fix**: One `isMatchingMarketTokenIdentity` for chart, footer, and preview merge. Footer show/hide is identity-only; decimals stay on quote/stock skeleton. Mobile footer reads the same display token (preview or detail) as the chart.
+**Catchable by**: Section 4: shared hook/utility modified → checked all consumers; NEW — two surfaces that represent the same market token must share one identity compare, and decimal readiness must not unmount the trade footer
+
+## Case: Market display preferred stale detail over the new preview
+**Date**: 2026-09-20 | **Platforms**: iOS, Android, Desktop, Web, Extension
+**Symptom**: OK-63513 follow-up review. Switching tokens could still hide the footer, pass `bitcoin` into Swap, or treat a previous native coin as the current mint.
+**Root Cause**: `displayTokenDetail` kept the old full detail whenever it existed, even if a new preview belonged to another token. Native identity treated any contract vs empty address as the same asset. Placeholder networks matched every chain. Discovery hide-tab-bar had no unmount release.
+**Fix**: Prefer the new preview when identities differ; native shortcut only for empty/zero/ticker; placeholder nets only match a concrete chain or the same placeholder string; Swap execution blanks non-contract ids; Discovery releases its owner on unmount.
+**Catchable by**: Section 4: shared hook/utility modified → checked all consumers; NEW — a display fallback must not keep previous full detail over a newer matching preview
+
 ## Case: Swap invitee reward blocked watch-only EVM as unsupported
 **Date**: 2026-09-20 | **Platforms**: Desktop, Mobile, Web, Extension
 **Symptom**: Opening Swap 奖励 from a watch-only account showed “当前账户不支持。请连接一个 EVM 账户后重试” with no action, while Perps/Earn still allowed viewing.
