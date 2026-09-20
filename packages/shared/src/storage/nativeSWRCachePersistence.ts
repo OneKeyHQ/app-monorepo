@@ -2,6 +2,7 @@
 import { isPlainObject } from 'lodash';
 
 import { OneKeyLocalError } from '../errors';
+import { defaultLogger } from '../logger/logger';
 import { isValidSWRCacheKey } from '../utils/swrCacheLimits';
 import {
   SWR_CACHE_MAX_ENTRIES,
@@ -55,8 +56,58 @@ const SWR_CACHE_ENTRY_PREFIX = '__onekey_internal_swr_cache_v2_entry__:';
 const SWR_CACHE_MIGRATION_MARKER = '__onekey_internal_swr_cache_v2_migrated__';
 const SWR_CACHE_MIGRATION_MARKER_VALUE = '1';
 const SWR_CACHE_MAX_LEGACY_PARSE_CHARS = SWR_CACHE_MAX_SERIALIZED_CHARS * 2;
+const SWR_CACHE_WRITE_LOG_COOLDOWN_MS = 10 * 60_000;
+const SWR_CACHE_WRITE_LOG_MAX_COUNT = 12;
+
+const staleTimestampLogState = {
+  affectedEntryCount: 0,
+  eventCount: 0,
+  loggedCount: 0,
+  lastLoggedAt: undefined as number | undefined,
+  maxIncomingEntrySerializedChars: 0,
+};
 
 const persistenceStates = new WeakMap<object, IPersistenceState>();
+
+function reportStaleTimestampDrops(
+  affectedEntryCount: number,
+  maxIncomingEntrySerializedChars: number,
+) {
+  if (affectedEntryCount === 0) return;
+  staleTimestampLogState.affectedEntryCount += affectedEntryCount;
+  staleTimestampLogState.eventCount += 1;
+  staleTimestampLogState.maxIncomingEntrySerializedChars = Math.max(
+    staleTimestampLogState.maxIncomingEntrySerializedChars,
+    maxIncomingEntrySerializedChars,
+  );
+  const now = Date.now();
+  if (staleTimestampLogState.loggedCount >= SWR_CACHE_WRITE_LOG_MAX_COUNT) {
+    return;
+  }
+  if (
+    staleTimestampLogState.lastLoggedAt !== undefined &&
+    now - staleTimestampLogState.lastLoggedAt < SWR_CACHE_WRITE_LOG_COOLDOWN_MS
+  ) {
+    return;
+  }
+  staleTimestampLogState.loggedCount += 1;
+  try {
+    defaultLogger.app.perf.swrCacheWriteState({
+      affectedEntryCount: staleTimestampLogState.affectedEntryCount,
+      cooldownMs: SWR_CACHE_WRITE_LOG_COOLDOWN_MS,
+      eventCount: staleTimestampLogState.eventCount,
+      maxIncomingEntrySerializedChars:
+        staleTimestampLogState.maxIncomingEntrySerializedChars,
+      reason: 'staleTimestamp',
+    });
+  } catch {
+    // Cache persistence must not depend on diagnostic logging availability.
+  }
+  staleTimestampLogState.lastLoggedAt = now;
+  staleTimestampLogState.affectedEntryCount = 0;
+  staleTimestampLogState.eventCount = 0;
+  staleTimestampLogState.maxIncomingEntrySerializedChars = 0;
+}
 
 function getPersistenceState(mmkv: MMKVStorageInstance) {
   let state = persistenceStates.get(mmkv as object);
@@ -422,6 +473,8 @@ function applyPatchToStore(
   patch: INativeSWRCachePatchIntent,
 ) {
   const affectedKeys = new Set<string>();
+  let staleTimestampDropCount = 0;
+  let maxStaleIncomingEntrySerializedChars = 0;
   const removalTimestamps = new Map<string, number>();
   patch.removals.forEach(([key, removedAt]) => {
     removalTimestamps.set(
@@ -472,12 +525,23 @@ function applyPatchToStore(
     }
     const tombstoneAt = getTombstoneAt(key);
     if (tombstoneAt !== undefined && incoming.t < tombstoneAt) {
+      staleTimestampDropCount += 1;
+      maxStaleIncomingEntrySerializedChars = Math.max(
+        maxStaleIncomingEntrySerializedChars,
+        serializedEntry.length,
+      );
       affectedKeys.add(key);
       return;
     }
     const current = store[key];
     if (!current || incoming.t >= current.t) {
       defineStoreEntry(store, key, incoming);
+    } else {
+      staleTimestampDropCount += 1;
+      maxStaleIncomingEntrySerializedChars = Math.max(
+        maxStaleIncomingEntrySerializedChars,
+        serializedEntry.length,
+      );
     }
     affectedKeys.add(key);
   });
@@ -487,6 +551,10 @@ function applyPatchToStore(
     delete store[key];
     affectedKeys.add(key);
   });
+  reportStaleTimestampDrops(
+    staleTimestampDropCount,
+    maxStaleIncomingEntrySerializedChars,
+  );
   const entries: INativeSWRCacheCanonicalEntry[] = [...affectedKeys].map(
     (key) => [key, store[key] ? JSON.stringify(store[key]) : null] as const,
   );

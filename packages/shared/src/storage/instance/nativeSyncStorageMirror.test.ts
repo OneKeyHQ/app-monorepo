@@ -1,6 +1,7 @@
 const mockCallNativeStorage = jest.fn();
 const mockNativeStorageQueueState = jest.fn();
 const mockSWRCacheSlowOp = jest.fn();
+const mockSWRCacheSnapshotState = jest.fn();
 
 jest.mock('../../logger/logger', () => ({
   defaultLogger: {
@@ -13,6 +14,9 @@ jest.mock('../../logger/logger', () => ({
       perf: {
         swrCacheSlowOp: (params: unknown) => {
           mockSWRCacheSlowOp(params);
+        },
+        swrCacheSnapshotState: (params: unknown) => {
+          mockSWRCacheSnapshotState(params);
         },
       },
     },
@@ -85,6 +89,7 @@ describe('nativeSyncStorageMirror', () => {
     mockCallNativeStorage.mockReset();
     mockNativeStorageQueueState.mockReset();
     mockSWRCacheSlowOp.mockReset();
+    mockSWRCacheSnapshotState.mockReset();
     delete (
       globalThis as typeof globalThis & {
         __onekeyNativeStorageIsTransportReady?: () => boolean;
@@ -271,6 +276,32 @@ describe('nativeSyncStorageMirror', () => {
     );
     expect(diagnosticPayload).not.toContain('sensitive-key');
     expect(diagnosticPayload).not.toContain('sensitive-value');
+  });
+
+  it('labels a failed SWR persistence request without logging its key or value', async () => {
+    mockCallNativeStorage.mockRejectedValueOnce(new Error('SWR write failed'));
+    const { createNativeSyncStorageMirror, waitForNativeSyncStorageMutations } =
+      loadMirror();
+    const storage = createNativeSyncStorageMirror('coldStart');
+
+    void storage.applySWRCachePatch?.({
+      removePrefixes: [],
+      removals: [],
+      updates: [['private-key', JSON.stringify({ d: 'private-value', t: 1 })]],
+    });
+    await waitForNativeSyncStorageMutations();
+
+    expect(mockNativeStorageQueueState).toHaveBeenCalledWith(
+      expect.objectContaining({
+        operation: 'patchSWR',
+        store: 'coldStart',
+      }),
+    );
+    const diagnosticPayload = JSON.stringify(
+      mockNativeStorageQueueState.mock.calls,
+    );
+    expect(diagnosticPayload).not.toContain('private-key');
+    expect(diagnosticPayload).not.toContain('private-value');
   });
 
   it('suppresses rapidly repeated failure episodes during the cooldown', async () => {

@@ -8,6 +8,7 @@ import {
 
 const mockSyncMMKV = jest.fn(async () => undefined);
 const mockSWRCacheCapacityLimit = jest.fn();
+const mockSWRCacheWriteState = jest.fn();
 
 jest.mock('../logger/logger', () => ({
   defaultLogger: {
@@ -15,6 +16,9 @@ jest.mock('../logger/logger', () => ({
       perf: {
         swrCacheCapacityLimit: (params: unknown) => {
           mockSWRCacheCapacityLimit(params);
+        },
+        swrCacheWriteState: (params: unknown) => {
+          mockSWRCacheWriteState(params);
         },
       },
     },
@@ -57,6 +61,7 @@ describe('nativeSWRCachePersistence', () => {
     jest.resetModules();
     mockSyncMMKV.mockClear();
     mockSWRCacheCapacityLimit.mockReset();
+    mockSWRCacheWriteState.mockReset();
   });
 
   it('migrates the legacy blob to independently stored entries', async () => {
@@ -252,6 +257,13 @@ describe('nativeSWRCachePersistence', () => {
       }),
     ).toEqual([['deleted', null]]);
     expect(JSON.parse(persistence.readSerialized())).toEqual({});
+    expect(mockSWRCacheWriteState).toHaveBeenCalledWith(
+      expect.objectContaining({
+        affectedEntryCount: 1,
+        eventCount: 1,
+        reason: 'staleTimestamp',
+      }),
+    );
 
     expect(
       persistence.applyPatch({

@@ -10,12 +10,18 @@ import type {
 } from '../nativeStorageTypes';
 
 const mockCallNativeStorage = jest.fn();
+const mockSWRCacheSnapshotState = jest.fn();
 
 jest.mock('../../logger/logger', () => ({
   defaultLogger: {
     app: {
       background: { nativeStorageQueueState: jest.fn() },
-      perf: { swrCacheSlowOp: jest.fn() },
+      perf: {
+        swrCacheSlowOp: jest.fn(),
+        swrCacheSnapshotState: (params: unknown) => {
+          mockSWRCacheSnapshotState(params);
+        },
+      },
     },
   },
 }));
@@ -73,6 +79,7 @@ describe('native sync storage backlog recovery', () => {
       .mockImplementation(async (request: INativeStorageRequest) =>
         acknowledge(request),
       );
+    mockSWRCacheSnapshotState.mockReset();
     globals.__onekeyNativeStorageIsTransportReady = () => true;
     delete globals.__onekeyNativeSyncStorageTransportReady;
   });
@@ -246,6 +253,13 @@ describe('native sync storage backlog recovery', () => {
     >;
     expect(Object.keys(value)).toHaveLength(1002);
     expect(value['ack-1-500']).toEqual({ d: 'ack-1-500', t: 1002 });
+    expect(mockSWRCacheSnapshotState).toHaveBeenCalledWith(
+      expect.objectContaining({
+        eventCount: 1,
+        eventType: 'aborted',
+        reason: 'replayBudgetExceeded',
+      }),
+    );
   });
 
   it('preserves newer broadcasts after an over-budget refresh', async () => {
@@ -396,6 +410,35 @@ describe('native sync storage backlog recovery', () => {
     expect(mockCallNativeStorage).toHaveBeenCalledTimes(2);
     await jest.advanceTimersByTimeAsync(1);
     expect(mockCallNativeStorage).toHaveBeenCalledTimes(3);
+    expect(mockSWRCacheSnapshotState).toHaveBeenCalledWith(
+      expect.objectContaining({ eventType: 'failed', reason: 'requestFailed' }),
+    );
+    expect(mockSWRCacheSnapshotState).toHaveBeenCalledWith(
+      expect.objectContaining({
+        eventType: 'recovered',
+        reason: 'requestFailed',
+      }),
+    );
+  });
+
+  it('suppresses repeated snapshot failures during the diagnostic cooldown', async () => {
+    const module = loadMirror();
+    await module.bootstrapNativeSyncStorageMirrors();
+    mockCallNativeStorage
+      .mockRejectedValueOnce(new Error('first snapshot timeout'))
+      .mockRejectedValueOnce(new Error('second snapshot timeout'));
+
+    await expect(module.refreshNativeSyncStorageMirrors()).rejects.toThrow();
+    await expect(module.refreshNativeSyncStorageMirrors()).rejects.toThrow();
+
+    expect(mockSWRCacheSnapshotState).toHaveBeenCalledTimes(1);
+    expect(mockSWRCacheSnapshotState).toHaveBeenCalledWith(
+      expect.objectContaining({
+        eventCount: 1,
+        eventType: 'failed',
+        reason: 'requestFailed',
+      }),
+    );
   });
 
   it('backs off repeated refresh failures and pauses retries while transport is unavailable', async () => {
