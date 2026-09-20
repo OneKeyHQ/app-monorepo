@@ -132,7 +132,7 @@ export function ImageV2({ style: defaultStyle, ...props }: IImageV2Props) {
     tintColor: _tintColor,
     cachePolicy: _cachePolicy,
     autoplay: _autoplay,
-    loadingStrategy = 'static',
+    loadingStrategy = 'none',
     ...imageProps
   } = restProps;
   const [hasError, setHasError] = useState(false);
