@@ -373,4 +373,34 @@ describe('KeystoneAdapter', () => {
       'hwk-keystone-interaction',
     );
   });
+
+  it('rejects missing connection identity instead of using the discovery target', async () => {
+    const hw = {
+      on: jest.fn(),
+      connectDevice: jest.fn().mockResolvedValue({
+        success: true,
+        payload: 'hwk-keystone-interaction',
+      }),
+      getDeviceInfo: jest.fn().mockResolvedValue({
+        success: true,
+        payload: { deviceId: 'ab'.repeat(32), connectId: '' },
+      }),
+      releaseOperation: jest.fn().mockResolvedValue(undefined),
+    };
+    const adapter = new KeystoneAdapter(hw as never);
+    const onConnectionStateChange = jest.fn();
+    adapter.onConnectionStateChange(onConnectionStateChange);
+
+    await expect(adapter.connectDevice('discovery-target')).resolves.toEqual({
+      success: false,
+      payload: {
+        code: HardwareErrorCode.DeviceMismatch,
+        error: 'Keystone did not return a stable wallet identity',
+      },
+    });
+    expect(hw.releaseOperation).toHaveBeenCalledWith(
+      'hwk-keystone-interaction',
+    );
+    expect(onConnectionStateChange).not.toHaveBeenCalled();
+  });
 });

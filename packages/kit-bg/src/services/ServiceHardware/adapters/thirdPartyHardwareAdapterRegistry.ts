@@ -14,6 +14,7 @@ import { EHardwareVendor } from '@onekeyhq/shared/types/device';
 
 import type { IThirdPartyHardwareAdapter } from './types';
 import type {
+  IConnector,
   IHardwareBridge,
   UiResponseEvent,
 } from '@onekeyfe/hwk-adapter-core';
@@ -278,16 +279,10 @@ export const thirdPartyHardwareAdapterRegistry = {
     const { KeystoneAdapter } = await import('./KeystoneAdapter');
     const { KeystoneAdapter: HwkKeystoneAdapter } =
       await import('@onekeyfe/hwk-keystone-adapter');
-    // Unsupported USB environments must not block QR-only usage, so fall back to undefined
-    // (matches the adapter's own "undefined usbConnector = QR-only" contract).
-    let usbConnector:
-      | Awaited<
-          ReturnType<
-            typeof import('@onekeyhq/shared/src/hardware/connector-loader/keystone').createKeystoneUsbConnector
-          >
-        >
-      | undefined;
-    try {
+    // Native is QR-only. Connector loading failures on USB-capable targets
+    // must surface instead of silently changing the available transports.
+    let usbConnector: IConnector | undefined;
+    if (!platformEnv.isNative) {
       const { createKeystoneUsbConnector } =
         await import('@onekeyhq/shared/src/hardware/connector-loader/keystone');
       if (platformEnv.isExtensionBackground) {
@@ -301,12 +296,6 @@ export const thirdPartyHardwareAdapterRegistry = {
       } else {
         usbConnector = await createKeystoneUsbConnector();
       }
-    } catch (error) {
-      defaultLogger.hardware.sdkLog.log(
-        `[3rdPartyHW][Registry] keystone USB connector unavailable, QR-only: ${
-          error instanceof Error ? error.message : String(error)
-        }`,
-      );
     }
     const hw = new HwkKeystoneAdapter({ origin: 'OneKey', usbConnector });
     defaultLogger.hardware.sdkLog.log(
