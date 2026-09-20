@@ -84,4 +84,24 @@ describe('useNFTMediaFallback', () => {
     rerender({ uri: 'https://cdn.example.com/a.png' });
     expect(result.current.kind).toBe('image');
   });
+
+  it('ignores a stale onError from an earlier generation of the same uri', () => {
+    const { result, rerender } = renderHook(
+      ({ uri }: { uri: string }) => useNFTMediaFallback(uri),
+      { initialProps: { uri: 'https://cdn.example.com/a.png' } },
+    );
+    const staleOnError = result.current.onError;
+
+    rerender({ uri: 'https://cdn.example.com/b.png' });
+    rerender({ uri: 'https://cdn.example.com/a.png' });
+    expect(result.current.kind).toBe('image');
+
+    // The media element from the first A generation may still report its
+    // error after A came back; it must not skip the fresh A candidate.
+    act(() => staleOnError());
+    expect(result.current.kind).toBe('image');
+
+    act(() => result.current.onError());
+    expect(result.current.kind).toBe('video');
+  });
 });

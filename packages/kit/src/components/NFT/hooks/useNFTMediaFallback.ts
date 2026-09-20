@@ -14,24 +14,35 @@ export function useNFTMediaFallback(uri: string | undefined) {
   const order = useMemo(() => getNFTMediaProbeOrder(uri), [uri]);
   const [progress, setProgress] = useState<{
     uri: string | undefined;
+    // Bumped on every reseed so onError can tell apart two probes of the same
+    // uri (A -> B -> A): a media element left over from the first A run must
+    // not advance the second one.
+    generation: number;
     attempt: number;
-  }>({ uri, attempt: 0 });
+  }>({ uri, generation: 0, attempt: 0 });
   // Reseed during render whenever the uri changes so a uri that comes back
   // after another one restarts from the first candidate instead of resuming
   // the attempt it failed at earlier.
-  if (progress.uri !== uri) {
-    setProgress({ uri, attempt: 0 });
+  const isCurrent = progress.uri === uri;
+  if (!isCurrent) {
+    setProgress({ uri, generation: progress.generation + 1, attempt: 0 });
   }
-  const attempt = progress.uri === uri ? progress.attempt : 0;
+  // The reseeding render is discarded by React, but derive the values it would
+  // commit anyway so nothing observes the stale progress.
+  const attempt = isCurrent ? progress.attempt : 0;
+  const generation = isCurrent ? progress.generation : progress.generation + 1;
   const kind: INFTMediaRenderKind = order[attempt] ?? 'failed';
 
   const onError = useCallback(() => {
-    // A media element for a previous uri may still report its error after the
-    // row moved on; only advance the probe for the uri currently rendered.
+    // A media element for a previous uri, or an earlier run of the same uri,
+    // may still report its error after the row moved on; only advance the
+    // probe generation that rendered it.
     setProgress((prev) =>
-      prev.uri === uri ? { uri, attempt: prev.attempt + 1 } : prev,
+      prev.generation === generation
+        ? { ...prev, attempt: prev.attempt + 1 }
+        : prev,
     );
-  }, [uri]);
+  }, [generation]);
 
   return { kind, onError };
 }
