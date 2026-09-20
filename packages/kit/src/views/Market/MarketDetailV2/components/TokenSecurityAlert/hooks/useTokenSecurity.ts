@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useRef } from 'react';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useLocaleVariant } from '@onekeyhq/kit/src/hooks/useLocaleVariant';
@@ -28,6 +28,10 @@ export const useTokenSecurity = ({
   networkId,
 }: IUseTokenSecurityParams): IUseTokenSecurityResult => {
   const locale = useLocaleVariant().toLowerCase();
+  // Set once this mount has an answer of its own. There is no polling here,
+  // so a fetched report is stamped once and would otherwise age out of the
+  // window below while it is still the only answer anyone has.
+  const fetchedKeyRef = useRef<string | undefined>(undefined);
   // Every instance for the same token shares this key, so a component that
   // mounts after the first request settled starts from that result.
   const securitySwrKey =
@@ -57,9 +61,10 @@ export const useTokenSecurity = ({
       const tokenSecurityData =
         batchData[tokenAddress] || batchData[tokenAddress.toLowerCase()];
 
+      fetchedKeyRef.current = securitySwrKey;
       return tokenSecurityData || null;
     },
-    [tokenAddress, networkId],
+    [tokenAddress, networkId, securitySwrKey],
     {
       initResult: null,
       // A key change already swaps in that token's cached result or null.
@@ -68,12 +73,15 @@ export const useTokenSecurity = ({
     },
   );
 
-  // A successful fetch re-stamps the entry, so an entry still older than the
-  // window means what we are holding is the replayed copy.
-  const isSecurityResultFresh = securitySwrKey
+  // The window only ever gates a replayed report. Once this mount has fetched
+  // the report itself it is this session's answer and stays on screen for as
+  // long as the page is open, however long that is.
+  const hasFetchedThisSession = fetchedKeyRef.current === securitySwrKey;
+  const isReplayedResultFresh = securitySwrKey
     ? swrCacheUtils.isFresh(securitySwrKey, SECURITY_RESULT_MAX_AGE_MS)
     : true;
-  const currentSecurityData = isSecurityResultFresh ? securityData : null;
+  const currentSecurityData =
+    hasFetchedThisSession || isReplayedResultFresh ? securityData : null;
 
   // Note: Removed trusted_token special handling since we now use dynamic structure
   // and rely on API's riskType directly. Backend should handle data filtering.

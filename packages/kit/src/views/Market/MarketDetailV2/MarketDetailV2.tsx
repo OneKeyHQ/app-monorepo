@@ -7,12 +7,8 @@ import {
   useState,
 } from 'react';
 
-import {
-  getDefaultHeaderHeight,
-  useHeaderHeight,
-} from '@react-navigation/elements';
+import { useHeaderHeight } from '@react-navigation/elements';
 import { useFocusEffect, useIsFocused } from '@react-navigation/native';
-import { Platform, useWindowDimensions } from 'react-native';
 
 import type { IPageScreenProps } from '@onekeyhq/components';
 import {
@@ -20,7 +16,6 @@ import {
   useIsModalPage,
   useMedia,
   usePreventRemove,
-  useSafeAreaInsets,
 } from '@onekeyhq/components';
 import { getRootRoutersLength } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import { useSetSplitViewDetailFullscreen } from '@onekeyhq/kit/src/provider/Container/TableSplitViewContainer';
@@ -44,6 +39,7 @@ import type { IMarketTokenDetailPreview } from '@onekeyhq/shared/types/marketV2'
 import { AccountSelectorProviderMirror } from '../../../components/AccountSelector';
 import { TradingViewEmbedGlobalPreload } from '../../../provider/TradingViewEmbedGlobalPreload';
 import { useHeaderHeightCacheKey } from '../../Earn/hooks/useHeaderHeightCacheKey';
+import { useNativeStackHeaderHeightEstimate } from '../../Earn/hooks/useNativeStackHeaderHeightEstimate';
 import { useSettledHeaderHeight } from '../../Earn/hooks/useSettledHeaderHeight';
 import { useMarketEnterAnalytics } from '../hooks';
 import { MarketWatchListProviderMirrorV2 } from '../MarketWatchListProviderMirrorV2';
@@ -67,20 +63,6 @@ import {
 } from './utils/marketDetailPreview';
 
 import type { NavigationAction } from '@react-navigation/routers';
-
-// What react-navigation's native stack reports for this pushed screen before
-// its bar is measured (same inputs as NativeStackView).
-function useNativeStackHeaderHeightEstimate() {
-  const { width, height } = useWindowDimensions();
-  const { top } = useSafeAreaInsets();
-  const isIPhoneLandscape =
-    Platform.OS === 'ios' && !Platform.isPad && width > height;
-  return getDefaultHeaderHeight(
-    { width, height },
-    false,
-    isIPhoneLandscape ? 0 : top,
-  );
-}
 
 function normalizeRouteBooleanParam(
   value: boolean | string | undefined,

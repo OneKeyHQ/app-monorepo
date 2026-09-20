@@ -22,6 +22,7 @@ import type { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import { LegacyUniversalSearchInput } from '../../../components/TabPageHeader/LegacyUniversalSearchInput';
 import { useHeaderHeightCacheKey } from '../hooks/useHeaderHeightCacheKey';
+import { useNativeStackHeaderHeightEstimate } from '../hooks/useNativeStackHeaderHeightEstimate';
 import { useSettledHeaderHeight } from '../hooks/useSettledHeaderHeight';
 import { EarnTestIDs } from '../testIDs';
 
@@ -151,6 +152,7 @@ export function EarnPageContainer({
   // the navbar at scroll offset 0.
   const headerHeight = useHeaderHeight();
   const headerHeightCacheKey = useHeaderHeightCacheKey();
+  const estimatedHeaderHeight = useNativeStackHeaderHeightEstimate();
   // OK-59841: useHeaderHeight() reports react-navigation's synchronous estimate
   // (97.67 on a Dynamic Island device) before the native measurement (113)
   // lands, so a body laid out against the raw value drops by 15.33pt a beat
@@ -161,6 +163,7 @@ export function EarnPageContainer({
     useSettledHeaderHeight(headerHeight, {
       enabled: useNativeHeader,
       cacheKey: headerHeightCacheKey,
+      estimatedHeaderHeight,
     });
 
   // This element becomes UIKit's custom titleView, and a titleView

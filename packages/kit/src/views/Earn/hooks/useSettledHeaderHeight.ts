@@ -57,6 +57,9 @@ export function useSettledHeaderHeight(
     maxHoldMs?: number;
     // The height react-navigation reports before the bar is measured
     // (getDefaultHeaderHeight), so it is never mistaken for a measurement.
+    // Every caller passes it: without it a late measurement cannot be told
+    // apart from an estimate that never changed, and the wrong one of the two
+    // would be remembered for the rest of the session.
     estimatedHeaderHeight?: number;
     // Identifies the window shape the remembered height belongs to. Callers
     // that can rotate pass their window size.
@@ -66,20 +69,13 @@ export function useSettledHeaderHeight(
   const [settledHeight, setSettledHeight] = useState<number | undefined>(() =>
     enabled ? deviceSettledHeaderHeights.get(cacheKey) : 0,
   );
-  // What this mount saw before its bar was measured: 0 while a route still
-  // hides its header, or react-navigation's estimate.
-  const [mountHeaderHeight] = useState(headerHeight);
   const holdDeadlineRef = useRef<number | undefined>(undefined);
-  const mountedAtRef = useRef<number | undefined>(undefined);
-  // Lets the effect re-run on a timer when `headerHeight` itself never changes.
-  const [recheckTick, setRecheckTick] = useState(0);
 
   useEffect(() => {
     if (!enabled) {
       setSettledHeight(0);
       return undefined;
     }
-    mountedAtRef.current ??= Date.now();
 
     if (settledHeight === headerHeight) {
       return undefined;
@@ -108,23 +104,6 @@ export function useSettledHeaderHeight(
       if (isPlaceholder) {
         return undefined;
       }
-      // Callers without an `estimatedHeaderHeight` cannot name the estimate, so
-      // a height this mount has reported since its very first render is still
-      // suspect. Only while the mount is young, though: past the hold cap the
-      // estimate has long been replaced, and a value that has not moved is the
-      // measurement. Re-check on a timer, because `headerHeight` staying put is
-      // exactly the case that never re-runs this effect on its own.
-      if (headerHeight === mountHeaderHeight) {
-        const remainingSuspicion =
-          (mountedAtRef.current ?? Date.now()) + maxHoldMs - Date.now();
-        if (remainingSuspicion > 0) {
-          const timer = setTimeout(
-            () => setRecheckTick((tick) => tick + 1),
-            remainingSuspicion,
-          );
-          return () => clearTimeout(timer);
-        }
-      }
       const timer = setTimeout(accept, settleMs);
       return () => clearTimeout(timer);
     }
@@ -144,11 +123,9 @@ export function useSettledHeaderHeight(
     enabled,
     estimatedHeaderHeight,
     headerHeight,
-    mountHeaderHeight,
     settleMs,
     maxHoldMs,
     settledHeight,
-    recheckTick,
   ]);
 
   return {

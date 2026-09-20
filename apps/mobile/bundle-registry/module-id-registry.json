@@ -21352,6 +21352,7 @@
     "packages/kit/src/views/Earn/hooks/useEarnPortfolio.ts": 19113,
     "packages/kit/src/views/Earn/hooks/useFAQListInfo.ts": 19493,
     "packages/kit/src/views/Earn/hooks/useHeaderHeightCacheKey.ts": 5819,
+    "packages/kit/src/views/Earn/hooks/useNativeStackHeaderHeightEstimate.ts": 1398,
     "packages/kit/src/views/Earn/hooks/useNavigateToEarnAsset.ts": 402,
     "packages/kit/src/views/Earn/hooks/usePortfolioAction.ts": 2643,
     "packages/kit/src/views/Earn/hooks/useSettledHeaderHeight.ts": 15662,
