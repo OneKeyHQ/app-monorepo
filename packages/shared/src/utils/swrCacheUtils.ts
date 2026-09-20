@@ -1163,6 +1163,7 @@ const NS = {
   recentNetworks: 'recentNets',
   walletListSideBar: 'walletList',
   accountSelectorList: 'accSelList',
+  accountSelectorValues: 'accSelValues',
   discoveryHomePageData: 'disHomePage',
   discoveryHomeBookmarks: 'disHomeBookmarks',
   perpsOrderBookTickOptions: 'perpsOrderBookTicks',
@@ -1490,6 +1491,12 @@ export const swrKeys = {
       selectedNetworkId ?? '',
       keepAllOtherAccounts ? '1' : '0',
     ].join(':'),
+  // Balance texts the account selector rows last displayed, one entry per
+  // wallet (see accountSelectorValueDisplayCacheV2). Only UI text is kept, so
+  // a wallet revisit or a cold start paints the previous balances on the first
+  // frame; live values still load and replace them.
+  accountSelectorValues: ({ walletId }: { walletId: string }) =>
+    [NS.accountSelectorValues, 'v1', walletId].join(':'),
   perpsOrderBookTickOptions: () =>
     [NS.perpsOrderBookTickOptions, 'v1'].join(':'),
   perpsL2BookSnapshot: ({
