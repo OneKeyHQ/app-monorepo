@@ -2,10 +2,12 @@ import type { IMarketTokenKLineDataPoint } from '@onekeyhq/shared/types/marketV2
 import { createTradingViewNativeChartSettings } from '@onekeyhq/shared/types/tradingViewNative';
 
 import {
+  TRADING_VIEW_NATIVE_CHART_TOP_PADDING,
   TRADING_VIEW_NATIVE_PREVIOUS_CLOSE_REFERENCE_LINE_ID,
   TRADING_VIEW_NATIVE_REFERENCE_LINE_LABEL_SEPARATOR_WIDTH,
 } from '../chartConstants';
 
+import { getTradingViewNativeChartLayout } from './chartLayout';
 import {
   type IBuildTradingViewNativeChartSceneOptions,
   buildTradingViewNativeChartScene,
@@ -55,17 +57,79 @@ function buildPreviousCloseScene(
 }
 
 describe('TradingViewNative chart component scene', () => {
-  it.each([
+  it.each<{
+    previousClose: number;
+    position: 'above' | 'below';
+    minPrice?: number;
+    maxPrice?: number;
+    hasVolume?: boolean;
+    height?: number;
+    labelSpacing?: number;
+  }>([
     { previousClose: 103.5, position: 'below' },
     { previousClose: 104, position: 'above' },
     { previousClose: 104.5, position: 'above' },
+    { previousClose: 104, position: 'above', maxPrice: 104 },
+    { previousClose: 104.1, position: 'above', maxPrice: 104.1 },
+    { previousClose: 103.9, position: 'below', maxPrice: 104 },
+    { previousClose: 104, position: 'above', minPrice: 104 },
+    { previousClose: 104.1, position: 'above', minPrice: 104 },
+    { previousClose: 103.9, position: 'below', minPrice: 103.9 },
+    {
+      previousClose: 103.9,
+      position: 'below',
+      minPrice: 103.9,
+      hasVolume: true,
+    },
+    {
+      previousClose: 104,
+      position: 'above',
+      maxPrice: 104,
+      height: 86,
+      labelSpacing: 10,
+    },
+    {
+      previousClose: 103.9,
+      position: 'below',
+      minPrice: 103.9,
+      height: 86,
+      labelSpacing: 10,
+    },
   ])(
-    'docks overlapping labels in price order without moving either line: %o',
-    ({ previousClose, position }) => {
-      const scene = buildPreviousCloseScene(previousClose);
+    'docks labels inside the price pane in price order without moving either line: %o',
+    ({
+      previousClose,
+      position,
+      minPrice = 90,
+      maxPrice = 110,
+      hasVolume = false,
+      height = 240,
+      labelSpacing = 20,
+    }) => {
+      const overrides = {
+        hasVolume,
+        height,
+        pinnedPriceRange: { minPrice, maxPrice },
+      };
+      const scene = buildPreviousCloseScene(previousClose, overrides);
+      const layout = getTradingViewNativeChartLayout({
+        ...overrides,
+        candleIntervalSeconds: 3600,
+        chartType: 'area',
+        minimumTimeTickIndexSpacing: 1,
+        points: POINTS,
+        priceAxisWidth: 80,
+        visiblePointRange: scene.visiblePointRange,
+        width: 320,
+      });
+      expect(layout).not.toBeNull();
+      if (!layout) {
+        return;
+      }
       const chartSettings = createTradingViewNativeChartSettings();
       chartSettings.options.latestPrice = false;
       const withoutCurrentLabel = buildPreviousCloseScene(previousClose, {
+        ...overrides,
         chartSettings,
       });
       const currentLabel = scene.commands.flatMap((command) =>
@@ -79,11 +143,30 @@ describe('TradingViewNative chart component scene', () => {
       );
       expect(currentLabel).toBeDefined();
       expect(referenceLabels).toHaveLength(2);
+      for (const label of [currentLabel, ...referenceLabels]) {
+        expect(label.y).toBeGreaterThanOrEqual(
+          TRADING_VIEW_NATIVE_CHART_TOP_PADDING,
+        );
+        expect(label.y + label.height).toBeLessThanOrEqual(
+          TRADING_VIEW_NATIVE_CHART_TOP_PADDING + layout.priceChartHeight,
+        );
+      }
+      const currentLabelText = scene.commands.flatMap((command) =>
+        command.kind === 'text' &&
+        command.paint === 'currentPriceLabelText' &&
+        command.customPaintId === undefined
+          ? [command]
+          : [],
+      )[0];
+      expect(currentLabelText.y).toBeGreaterThan(currentLabel.y);
+      expect(currentLabelText.y).toBeLessThan(
+        currentLabel.y + currentLabel.height,
+      );
       for (const label of referenceLabels) {
         if (position === 'above') {
-          expect(label.y + label.height).toBe(currentLabel.y);
+          expect(label.y + labelSpacing).toBe(currentLabel.y);
         } else {
-          expect(label.y).toBe(currentLabel.y + currentLabel.height);
+          expect(label.y).toBe(currentLabel.y + labelSpacing);
         }
       }
       const referenceLine = scene.commands.find(
@@ -99,6 +182,7 @@ describe('TradingViewNative chart component scene', () => {
         ),
       );
       const withoutReference = buildPreviousCloseScene(previousClose, {
+        ...overrides,
         chartComponents: [],
       });
       expect(

@@ -1335,6 +1335,9 @@ export function buildTradingViewNativeChartScene({
         measureTextWidth(resolvedCurrentPriceLabel, 'priceAxis') +
         FLOATING_PRICE_LABEL_HORIZONTAL_PADDING * 2;
       const labelLeft = Math.min(priceAxisX, width - labelWidth);
+      const labelTop =
+        chartComponentCommandLayers.currentPriceLabelTop ??
+        currentPriceLayout.labelTop;
       currentPriceLabelCommands.push(
         {
           ...(chartSettings
@@ -1345,7 +1348,7 @@ export function buildTradingViewNativeChartScene({
           paint: direction,
           width: labelWidth,
           x: labelLeft,
-          y: currentPriceLayout.labelTop,
+          y: labelTop,
         },
         {
           font: 'priceAxis',
@@ -1354,7 +1357,7 @@ export function buildTradingViewNativeChartScene({
           text: resolvedCurrentPriceLabel,
           x: labelLeft + FLOATING_PRICE_LABEL_HORIZONTAL_PADDING,
           y:
-            currentPriceLayout.labelTop +
+            labelTop +
             CURRENT_PRICE_LABEL_HEIGHT / 2 +
             priceAxisFontSize / 2 +
             PRICE_AXIS_TEXT_BASELINE_OFFSET,

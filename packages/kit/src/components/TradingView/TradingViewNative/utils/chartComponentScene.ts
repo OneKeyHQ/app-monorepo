@@ -1,6 +1,7 @@
 import {
   TRADING_VIEW_NATIVE_AXIS_FONT_SIZE as AXIS_FONT_SIZE,
   TRADING_VIEW_NATIVE_CHART_HORIZONTAL_PADDING as CHART_HORIZONTAL_PADDING,
+  TRADING_VIEW_NATIVE_CHART_TOP_PADDING as CHART_TOP_PADDING,
   TRADING_VIEW_NATIVE_FLOATING_PRICE_LABEL_HORIZONTAL_PADDING as FLOATING_PRICE_LABEL_HORIZONTAL_PADDING,
   TRADING_VIEW_NATIVE_PREVIOUS_CLOSE_REFERENCE_LINE_ID as PREVIOUS_CLOSE_REFERENCE_LINE_ID,
   TRADING_VIEW_NATIVE_PRICE_AXIS_TEXT_BASELINE_OFFSET as PRICE_AXIS_TEXT_BASELINE_OFFSET,
@@ -28,6 +29,7 @@ import type {
 } from '../types';
 
 interface ITradingViewNativeChartComponentCommandLayers {
+  currentPriceLabelTop?: number;
   priceLabelCommands: ITradingViewNativeChartSceneCommand[];
   textLabelCommands: ITradingViewNativeChartSceneCommand[];
 }
@@ -72,6 +74,7 @@ export function appendTradingViewNativeChartComponentCommands({
 
   const priceLabelCommands: ITradingViewNativeChartSceneCommand[] = [];
   const textLabelCommands: ITradingViewNativeChartSceneCommand[] = [];
+  let currentPriceLabelTop = currentPriceLabel?.top;
   components.forEach((component) => {
     if (component.type !== 'referenceLine') {
       return;
@@ -86,17 +89,36 @@ export function appendTradingViewNativeChartComponentCommands({
       priceScaleMode,
     });
     if (priceLayout) {
-      // Move the previous-close labels together without moving their price line.
-      const labelTop =
+      let labelTop = priceLayout.labelTop;
+      if (
         component.id === PREVIOUS_CLOSE_REFERENCE_LINE_ID &&
         currentPriceLabel !== undefined &&
         priceLayout.labelTop < currentPriceLabel.top + PRICE_LABEL_HEIGHT &&
         priceLayout.labelTop + PRICE_LABEL_HEIGHT > currentPriceLabel.top
-          ? currentPriceLabel.top +
-            (anchor.price < currentPriceLabel.price
-              ? PRICE_LABEL_HEIGHT
-              : -PRICE_LABEL_HEIGHT)
-          : priceLayout.labelTop;
+      ) {
+        // Keep the pair inside the price pane without reversing the price order.
+        const previousCloseAbove = anchor.price >= currentPriceLabel.price;
+        const labelSpacing = Math.min(
+          PRICE_LABEL_HEIGHT,
+          Math.max(priceChartHeight - PRICE_LABEL_HEIGHT, 0),
+        );
+        const groupTop = Math.min(
+          Math.max(
+            currentPriceLabel.top - (previousCloseAbove ? labelSpacing : 0),
+            CHART_TOP_PADDING,
+          ),
+          Math.max(
+            CHART_TOP_PADDING +
+              priceChartHeight -
+              PRICE_LABEL_HEIGHT -
+              labelSpacing,
+            CHART_TOP_PADDING,
+          ),
+        );
+        labelTop = groupTop + (previousCloseAbove ? 0 : labelSpacing);
+        currentPriceLabelTop =
+          groupTop + (previousCloseAbove ? labelSpacing : 0);
+      }
       const priceLabel = formatTradingViewNativePriceTick(anchor.price);
       const priceLabelWidth =
         measureTextWidth(priceLabel, 'priceAxis') +
@@ -216,5 +238,5 @@ export function appendTradingViewNativeChartComponentCommands({
       }
     }
   });
-  return { priceLabelCommands, textLabelCommands };
+  return { currentPriceLabelTop, priceLabelCommands, textLabelCommands };
 }
