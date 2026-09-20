@@ -1207,6 +1207,7 @@ function TokenListBlock({
     indexedAccountId: indexedAccount?.id,
     mergeDeriveAddressData: !!mergeDeriveAddressData,
     enabled: !deferCellsTokenManagement || tokenListState.initialized,
+    customTokensOnly: true,
   });
   const cellsNonZeroInputs = useMemo(
     () => ({

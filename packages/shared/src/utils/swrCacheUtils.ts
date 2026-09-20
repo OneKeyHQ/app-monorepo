@@ -1871,6 +1871,14 @@ function getFreshPerpsL2BookSnapshot({
   return entry;
 }
 
+// What this runtime holds in memory right now; never triggers a load.
+function getSizeStats() {
+  return {
+    entryCount: _cache ? Object.keys(_cache).length : 0,
+    serializedChars: _cache ? _cacheSerializedChars : 0,
+  };
+}
+
 export const swrCacheUtils = {
   get,
   getWithTimestamp,
@@ -1882,4 +1890,5 @@ export const swrCacheUtils = {
   clearAll,
   flushNow,
   reloadFromStorage,
+  getSizeStats,
 };

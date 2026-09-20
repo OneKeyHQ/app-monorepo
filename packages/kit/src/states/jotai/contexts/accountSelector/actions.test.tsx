@@ -1459,6 +1459,50 @@ describe('useAccountSelectorActions', () => {
     );
   });
 
+  it('saves an HD selection without asking the background to fix a pair', async () => {
+    const hdSelectedAccount = {
+      ...defaultSelectedAccount(),
+      walletId: 'hd-1',
+      focusedWallet: 'hd-1',
+      indexedAccountId: 'hd-1--0',
+      networkId: 'evm--1',
+      deriveType: 'default' as const,
+    };
+    mockGetSelectedAccount.mockResolvedValue(undefined);
+
+    const { store, Wrapper } = createWrapper();
+    store.set(selectedAccountsAtom(), {
+      0: hdSelectedAccount,
+    });
+    const { result } = renderHook(() => useAccountSelectorActions().current, {
+      wrapper: Wrapper,
+    });
+
+    await act(async () => {
+      await result.current.saveToStorage({
+        selectedAccount: hdSelectedAccount,
+        sceneName: EAccountSelectorSceneName.home,
+        num: 0,
+        selectedAccountUpdatedAt: Date.now(),
+      });
+    });
+
+    // Only an others-wallet account on a concrete network has a pair to fix;
+    // the background hands every other selection straight back.
+    expect(mockFixOthersWalletAccountNetworkPair).not.toHaveBeenCalled();
+    expect(mockSaveSelectedAccount).toHaveBeenCalledWith(
+      expect.objectContaining({
+        sceneName: EAccountSelectorSceneName.home,
+        num: 0,
+        selectedAccount: expect.objectContaining({
+          walletId: 'hd-1',
+          indexedAccountId: 'hd-1--0',
+          networkId: 'evm--1',
+        }),
+      }),
+    );
+  });
+
   it('skips persisting an all-default selected account', async () => {
     const { Wrapper } = createWrapper();
     const { result } = renderHook(() => useAccountSelectorActions().current, {
