@@ -231,6 +231,26 @@ function applySWRPatchToMirror(
   patch: INativeSWRCachePatchIntent,
 ): INativeSWRCacheCanonicalEntry[] {
   const touched = new Set<string>();
+  const removalTimestamps = new Map<string, number>();
+  patch.removals.forEach(([key, removedAt]) => {
+    removalTimestamps.set(
+      key,
+      Math.max(removalTimestamps.get(key) ?? 0, removedAt),
+    );
+  });
+  const getTombstoneAt = (key: string) => {
+    let tombstoneAt = patch.clearBefore;
+    patch.removePrefixes.forEach(({ at, prefix }) => {
+      if (key.startsWith(prefix)) {
+        tombstoneAt = Math.max(tombstoneAt ?? 0, at);
+      }
+    });
+    const removedAt = removalTimestamps.get(key);
+    if (removedAt !== undefined) {
+      tombstoneAt = Math.max(tombstoneAt ?? 0, removedAt);
+    }
+    return tombstoneAt;
+  };
   const removeIfNotNewer = (key: string, removedAt: number) => {
     const current = state.swrEntries.get(key);
     if (current && current.t <= removedAt) {
@@ -258,6 +278,11 @@ function applySWRPatchToMirror(
     const t = readSWREntryTimestamp(serialized);
     if (t === undefined) {
       throw new OneKeyLocalError('Native SWR cache patch entry is invalid');
+    }
+    const tombstoneAt = getTombstoneAt(key);
+    if (tombstoneAt !== undefined && t <= tombstoneAt) {
+      touched.add(key);
+      return;
     }
     const current = state.swrEntries.get(key);
     if (!current || t >= current.t) {
@@ -309,6 +334,19 @@ function mergeSWRPatches(
       }
     });
   };
+  const getTombstoneAt = (key: string) => {
+    let tombstoneAt = clearBefore;
+    removePrefixes.forEach((removedAt, prefix) => {
+      if (key.startsWith(prefix)) {
+        tombstoneAt = Math.max(tombstoneAt ?? 0, removedAt);
+      }
+    });
+    const removedAt = removals.get(key);
+    if (removedAt !== undefined) {
+      tombstoneAt = Math.max(tombstoneAt ?? 0, removedAt);
+    }
+    return tombstoneAt;
+  };
   pairs.forEach(({ mutation, request }) => {
     const { patch } = request;
     if (patch.clearBefore !== undefined) {
@@ -325,6 +363,10 @@ function mergeSWRPatches(
     });
     patch.updates.forEach(([key, serialized]) => {
       const t = readSWREntryTimestamp(serialized) ?? 0;
+      const tombstoneAt = getTombstoneAt(key);
+      if (tombstoneAt !== undefined && t <= tombstoneAt) {
+        return;
+      }
       const existing = updates.get(key);
       // bg keeps the newer entry when it applies these patches one by one, so
       // a later patch carrying an older timestamp must not win the merge.

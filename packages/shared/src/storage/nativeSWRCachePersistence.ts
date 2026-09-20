@@ -422,6 +422,26 @@ function applyPatchToStore(
   patch: INativeSWRCachePatchIntent,
 ) {
   const affectedKeys = new Set<string>();
+  const removalTimestamps = new Map<string, number>();
+  patch.removals.forEach(([key, removedAt]) => {
+    removalTimestamps.set(
+      key,
+      Math.max(removalTimestamps.get(key) ?? 0, removedAt),
+    );
+  });
+  const getTombstoneAt = (key: string) => {
+    let tombstoneAt = patch.clearBefore;
+    patch.removePrefixes.forEach(({ at, prefix }) => {
+      if (key.startsWith(prefix)) {
+        tombstoneAt = Math.max(tombstoneAt ?? 0, at);
+      }
+    });
+    const removedAt = removalTimestamps.get(key);
+    if (removedAt !== undefined) {
+      tombstoneAt = Math.max(tombstoneAt ?? 0, removedAt);
+    }
+    return tombstoneAt;
+  };
   const removeIfNotNewer = (key: string, removedAt: number) => {
     const current = store[key];
     if (current && current.t <= removedAt) {
@@ -449,6 +469,11 @@ function applyPatchToStore(
     const incoming = parseEntry(serializedEntry);
     if (!incoming) {
       throw new OneKeyLocalError('Native SWR cache patch entry is invalid');
+    }
+    const tombstoneAt = getTombstoneAt(key);
+    if (tombstoneAt !== undefined && incoming.t <= tombstoneAt) {
+      affectedKeys.add(key);
+      return;
     }
     const current = store[key];
     if (!current || incoming.t >= current.t) {

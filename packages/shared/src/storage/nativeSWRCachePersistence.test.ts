@@ -239,6 +239,21 @@ describe('nativeSWRCachePersistence', () => {
     });
   });
 
+  it('does not resurrect an entry when a patch tombstone is newer than its update', async () => {
+    const mmkv = new FakeMMKV();
+    const persistence = loadPersistence(mmkv);
+    await persistence.ensureMigrated();
+
+    expect(
+      persistence.applyPatch({
+        removePrefixes: [],
+        removals: [['deleted', 10]],
+        updates: [['deleted', JSON.stringify({ d: 'stale', t: 5 })]],
+      }),
+    ).toEqual([['deleted', null]]);
+    expect(JSON.parse(persistence.readSerialized())).toEqual({});
+  });
+
   it('bounds account entries across runtime patches and removes evicted physical keys', async () => {
     const mmkv = new FakeMMKV();
     const persistence = loadPersistence(mmkv);
