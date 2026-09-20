@@ -20,6 +20,23 @@ export interface IParsedOAuthStates {
   expectedOneKeyState: string | null;
 }
 
+// Cancellation codes reported by the OAuth SDKs. Matched on code rather than
+// message because SDK and browser error text is locale-dependent and changes
+// between versions.
+const OAUTH_CANCEL_ERROR_CODES = new Set([
+  'SIGN_IN_CANCELLED', // @react-native-google-signin
+  'ERR_REQUEST_CANCELED', // expo-apple-authentication
+  'ERR_CANCELED', // expo-apple-authentication, older releases
+]);
+
+// chrome.identity.launchWebAuthFlow surfaces failures through
+// runtime.lastError with no error code, so this one flow has to match text.
+// Chromium hardcodes these strings and does not localize extension API errors.
+const CHROME_OAUTH_CANCEL_MESSAGES = [
+  'The user did not approve',
+  'User did not approve',
+];
+
 // ============================================================================
 // Abstract Base Class
 // ============================================================================
@@ -205,13 +222,15 @@ export abstract class OAuthPopupBase {
    * Check if error indicates user cancelled OAuth.
    */
   protected static isUserCancelledError(error: unknown): boolean {
-    if (error instanceof Error) {
-      return (
-        error.message.includes('The user did not approve') ||
-        error.message.includes('cancelled') ||
-        error.message.includes('canceled')
-      );
+    if (!(error instanceof Error)) {
+      return false;
     }
-    return false;
+    const { code } = error as Error & { code?: unknown };
+    if (typeof code === 'string' && OAUTH_CANCEL_ERROR_CODES.has(code)) {
+      return true;
+    }
+    return CHROME_OAUTH_CANCEL_MESSAGES.some((message) =>
+      error.message.includes(message),
+    );
   }
 }

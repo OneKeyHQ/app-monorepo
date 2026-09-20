@@ -22,6 +22,10 @@ import {
   YStack,
   useMedia,
 } from '@onekeyhq/components';
+import {
+  type IPickerImage,
+  isImagePickerCancelledError,
+} from '@onekeyhq/components/src/composite/ImageCrop/type';
 import { ANIMATE_ONLY_OPACITY_TRANSFORM } from '@onekeyhq/components/src/utils/animationConstants';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
@@ -453,10 +457,24 @@ function WallpaperCustomCategorySection({
       return;
     }
 
-    const data = await ImageCrop.openPicker({
-      width: config.size?.width,
-      height: config.size?.height,
-    });
+    let data: IPickerImage;
+    try {
+      data = await ImageCrop.openPicker({
+        width: config.size?.width,
+        height: config.size?.height,
+      });
+    } catch (error) {
+      // Without this the rejection escapes an onPress handler nobody awaits,
+      // so a plain cancel surfaced in Sentry as an unhandled rejection.
+      if (!isImagePickerCancelledError(error)) {
+        Toast.error({
+          title: intl.formatMessage({
+            id: ETranslations.hardware_wallpaper_crop_failed__msg,
+          }),
+        });
+      }
+      return;
+    }
     if (!data.data) {
       return;
     }

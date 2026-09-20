@@ -6,9 +6,9 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import appGlobals from '../../appGlobals';
 import { appLocale } from '../../locale/appLocale';
 import platformEnv from '../../platformEnv';
+import { EOneKeyErrorClassNames } from '../types/errorTypes';
 
 import type {
-  EOneKeyErrorClassNames,
   IOneKeyError,
   IOneKeyHardwareErrorPayload,
 } from '../types/errorTypes';
@@ -287,6 +287,16 @@ export function isRequestCanceledError(error: unknown): boolean {
   );
 }
 
+// A user backing out of one of our own flows. Keyed on the error class, never
+// on message text: our own wording changes on refactors, and platform/SDK
+// wording is locale-dependent.
+export function isUserCancelError(error: unknown): boolean {
+  return isErrorByClassName({
+    error,
+    className: EOneKeyErrorClassNames.UserCancelError,
+  });
+}
+
 const errorUtils = {
   autoPrintErrorIgnore,
   isRequestCanceledError,
@@ -297,6 +307,7 @@ const errorUtils = {
   errorsIntlFormatter,
   getDeviceErrorPayloadMessage,
   isErrorByClassName,
+  isUserCancelError,
   getCurrentCallStackV1,
   getCurrentCallStack,
   logCurrentCallStack,

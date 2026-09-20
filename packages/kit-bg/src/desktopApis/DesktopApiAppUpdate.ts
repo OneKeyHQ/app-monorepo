@@ -571,19 +571,22 @@ class DesktopApiAppUpdate {
     } else {
       await clearUpdateCache();
     }
-    this.updateCancellationToken = new CancellationToken();
+    const cancellationToken = new CancellationToken();
+    this.updateCancellationToken = cancellationToken;
 
     try {
       logger.info('auto-updater', 'Download update');
-      await autoUpdater.downloadUpdate(this.updateCancellationToken);
+      await autoUpdater.downloadUpdate(cancellationToken);
       logger.info('auto-updater', 'Download update success');
     } catch (e) {
       this.failActiveUpdaterRehydrate(e);
       this.isDownloading = false;
       logger.info('auto-updater', 'Update cancelled', e);
-      // CancellationError
-      // node_modules/electron-updater/node_modules/builder-util-runtime/out/CancellationToken.js 104L
-      if ((e as Error).message !== 'cancelled') {
+      // electron-updater rejects with a CancellationError that carries neither
+      // a name nor a code, and whose message belongs to the library. The token
+      // we cancelled ourselves is the authoritative signal. Read the local one:
+      // a newly started download replaces the instance field.
+      if (!cancellationToken.cancelled) {
         throw e;
       }
     }

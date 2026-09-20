@@ -15,6 +15,7 @@ import {
   resetPrimeModal,
   useUpdateEffect,
 } from '@onekeyhq/components';
+import { isImagePickerCancelledError } from '@onekeyhq/components/src/composite/ImageCrop/type';
 import {
   type UseFormReturn,
   useForm,
@@ -36,16 +37,6 @@ interface IPrimeProfileFormValues {
 }
 
 const normalizeNickname = (nickname?: string) => nickname?.trim() || '';
-const IMAGE_PICKER_CANCELLED_CODE = 'E_PICKER_CANCELLED';
-
-function isImagePickerCancelled(error: unknown) {
-  return (
-    typeof error === 'object' &&
-    error !== null &&
-    'code' in error &&
-    error.code === IMAGE_PICKER_CANCELLED_CODE
-  );
-}
 
 function ProfileEditPage() {
   const intl = useIntl();
@@ -173,7 +164,7 @@ function ProfileEditPage() {
         form.setValue('avatar', image.data, { shouldDirty: true });
       }
     } catch (error) {
-      if (isImagePickerCancelled(error)) {
+      if (isImagePickerCancelledError(error)) {
         return;
       }
       Toast.error({

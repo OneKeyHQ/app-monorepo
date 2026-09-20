@@ -10,6 +10,7 @@ import {
   useDevicePinOnAppEnabledAtom,
   useDeviceTypeAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/deviceDetails';
+import { UserCancelError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 
@@ -38,7 +39,7 @@ function DeviceSectionAdvancePassphrase() {
             }
           },
           onCancelOpenPassphrase: async () => {
-            reject(new Error('User canceled'));
+            reject(new UserCancelError());
           },
         });
       });

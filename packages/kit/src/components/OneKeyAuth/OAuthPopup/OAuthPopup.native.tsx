@@ -368,24 +368,9 @@ export class OAuthPopup extends OAuthPopupBase {
    * Check if error indicates user cancelled Apple Sign-In.
    */
   private static isAppleUserCancelledError(error: unknown): boolean {
-    // expo-apple-authentication throws an error with code 'ERR_CANCELED' when user cancels
-    if (error instanceof Error) {
-      const errorWithCode = error as Error & { code?: string };
-      if (errorWithCode.code === 'ERR_REQUEST_CANCELED') {
-        return true;
-      }
-      if (errorWithCode.code === 'ERR_CANCELED') {
-        return true;
-      }
-      // Also check message for cancellation indicators
-      const message = error.message.toLowerCase();
-      return (
-        message.includes('cancelled') ||
-        message.includes('canceled') ||
-        message.includes('user canceled')
-      );
-    }
-    return false;
+    // expo-apple-authentication reports cancellation with ERR_REQUEST_CANCELED
+    // (ERR_CANCELED on older releases); both are in the shared code list.
+    return OAuthPopup.isUserCancelledError(error);
   }
 
   /**
