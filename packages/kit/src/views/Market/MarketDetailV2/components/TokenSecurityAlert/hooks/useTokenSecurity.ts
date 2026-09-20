@@ -2,6 +2,8 @@ import { useMemo } from 'react';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { swrKeys } from '@onekeyhq/shared/src/utils/swrCacheUtils';
+import { normalizeTokenContractAddress } from '@onekeyhq/shared/src/utils/tokenUtils';
 
 import { analyzeSecurityData, formatSecurityData } from '../utils';
 
@@ -14,6 +16,19 @@ export const useTokenSecurity = ({
   tokenAddress,
   networkId,
 }: IUseTokenSecurityParams): IUseTokenSecurityResult => {
+  // Every instance for the same token shares this key, so a component that
+  // mounts after the first request settled starts from that result.
+  const securitySwrKey =
+    tokenAddress && networkId
+      ? swrKeys.marketTokenSecurity({
+          networkId,
+          tokenAddress:
+            normalizeTokenContractAddress({
+              networkId,
+              contractAddress: tokenAddress,
+            }) ?? tokenAddress,
+        })
+      : undefined;
   const { result: securityData } = usePromiseResult(
     async () => {
       if (!tokenAddress) {
@@ -34,7 +49,9 @@ export const useTokenSecurity = ({
     [tokenAddress, networkId],
     {
       initResult: null,
-      undefinedResultIfReRun: true,
+      // A key change already swaps in that token's cached result or null.
+      undefinedResultIfReRun: !securitySwrKey,
+      swrKey: securitySwrKey,
     },
   );
 

@@ -11,6 +11,7 @@ import {
 import { memoFn } from '@onekeyhq/shared/src/utils/cacheUtils';
 import { getMarketWatchlistKey } from '@onekeyhq/shared/src/utils/marketWatchlistIdentity';
 import sortUtils from '@onekeyhq/shared/src/utils/sortUtils';
+import { swrCacheUtils } from '@onekeyhq/shared/src/utils/swrCacheUtils';
 import {
   equalTokenNoCaseSensitive,
   normalizeTokenContractAddress,
@@ -64,6 +65,16 @@ async function waitOp(key: string, add: boolean) {
 }
 
 const CHART_PRICE_FRESHNESS_MS = 10_000;
+
+// A cached detail only seeds the first frame; polling replaces it right away.
+// Past a day the quote is too old to be worth showing even briefly.
+const TOKEN_DETAIL_SWR_MAX_AGE_MS = 24 * 60 * 60 * 1000;
+
+type IMarketTokenDetailSWREntry = {
+  token: IMarketTokenDetail;
+  websocket?: IMarketTokenDetailWebsocket;
+  perpsInfo?: IMarketPerpsInfo;
+};
 
 function isSameMarketTokenDetail({
   tokenDetail,
@@ -261,6 +272,55 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
     },
   );
 
+  // Fill an empty detail from the last response for this token so a revisit
+  // renders real values on its first frame; the running poll replaces it.
+  seedTokenDetailFromCache = contextAtomMethod(
+    (
+      get,
+      set,
+      payload: { tokenAddress: string; networkId: string; swrKey: string },
+    ) => {
+      const { tokenAddress, networkId, swrKey } = payload;
+      if (
+        isSameMarketTokenDetail({
+          tokenDetail: get(tokenDetailAtom()),
+          tokenAddress,
+          networkId,
+        })
+      ) {
+        return;
+      }
+      // Only seed the identity the atoms currently point at.
+      if (
+        !equalTokenNoCaseSensitive({
+          token1: {
+            networkId: get(networkIdAtom()),
+            contractAddress: get(tokenAddressAtom()),
+          },
+          token2: { networkId, contractAddress: tokenAddress },
+        })
+      ) {
+        return;
+      }
+      const cached =
+        swrCacheUtils.getWithTimestamp<IMarketTokenDetailSWREntry>(swrKey);
+      if (
+        !cached?.data?.token ||
+        Date.now() - cached.updatedAt > TOKEN_DETAIL_SWR_MAX_AGE_MS ||
+        !isSameMarketTokenDetail({
+          tokenDetail: cached.data.token,
+          tokenAddress,
+          networkId,
+        })
+      ) {
+        return;
+      }
+      set(tokenDetailAtom(), cached.data.token);
+      set(tokenDetailWebsocketAtom(), cached.data.websocket);
+      set(perpsInfoAtom(), cached.data.perpsInfo);
+    },
+  );
+
   applyChartPriceUpdate = contextAtomMethod(
     (
       get,
@@ -450,7 +510,13 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
   });
 
   fetchTokenDetail = contextAtomMethod(
-    async (get, set, tokenAddress: string, networkId: string) => {
+    async (
+      get,
+      set,
+      tokenAddress: string,
+      networkId: string,
+      options?: { swrKey?: string },
+    ) => {
       const requestId = get(tokenDetailRequestIdAtom()) + 1;
       set(tokenDetailRequestIdAtom(), requestId);
       let isStale = false;
@@ -510,6 +576,9 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
           set(tokenDetailPreviewAtom(), undefined);
           set(tokenDetailWebsocketAtom(), undefined);
           set(perpsInfoAtom(), undefined);
+          if (options?.swrKey) {
+            swrCacheUtils.remove(options.swrKey);
+          }
           return;
         }
 
@@ -549,6 +618,13 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
         set(tokenDetailPreviewAtom(), undefined);
         set(tokenDetailWebsocketAtom(), websocketConfig);
         set(perpsInfoAtom(), perpsInfo);
+        if (options?.swrKey) {
+          swrCacheUtils.set<IMarketTokenDetailSWREntry>(options.swrKey, {
+            token: tokenData,
+            websocket: websocketConfig,
+            perpsInfo,
+          });
+        }
 
         return finalTokenData;
       } catch (error) {
@@ -993,6 +1069,7 @@ export function useTokenDetailActions() {
   const fetchTokenDetail = actions.fetchTokenDetail.use();
   const clearTokenDetail = actions.clearTokenDetail.use();
   const prepareStockTokenDetail = actions.prepareStockTokenDetail.use();
+  const seedTokenDetailFromCache = actions.seedTokenDetailFromCache.use();
   const changeActiveToken = actions.changeActiveToken.use();
   const applyChartPriceUpdate = actions.applyChartPriceUpdate.use();
 
@@ -1010,6 +1087,7 @@ export function useTokenDetailActions() {
     fetchTokenDetail,
     clearTokenDetail,
     prepareStockTokenDetail,
+    seedTokenDetailFromCache,
     changeActiveToken,
     applyChartPriceUpdate,
   });

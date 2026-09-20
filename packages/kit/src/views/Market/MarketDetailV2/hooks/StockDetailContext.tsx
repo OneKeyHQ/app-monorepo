@@ -10,11 +10,13 @@ import {
 import type { PropsWithChildren } from 'react';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { useLocaleVariant } from '@onekeyhq/kit/src/hooks/useLocaleVariant';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import {
-  equalTokenNoCaseSensitive,
-  normalizeTokenContractAddress,
-} from '@onekeyhq/shared/src/utils/tokenUtils';
+  swrCacheUtils,
+  swrKeys,
+} from '@onekeyhq/shared/src/utils/swrCacheUtils';
+import { normalizeTokenContractAddress } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type {
   IMarketStockDetailPreview,
   IMarketStockPublicDetail,
@@ -22,8 +24,8 @@ import type {
 } from '@onekeyhq/shared/types/marketV2';
 
 import {
-  getDefaultStockTokenVariant,
   isStockTokenVariantTradable,
+  resolveStockTokenVariantSelection,
 } from '../utils/stockTokenVariant';
 
 export { isStockTokenVariantTradable } from '../utils/stockTokenVariant';
@@ -102,8 +104,14 @@ export function StockDetailProvider({
     initialStockPreview?.stockId.trim().toUpperCase() === normalizedStockId
       ? initialStockPreview
       : undefined;
-  const [selectedTokenId, setSelectedTokenId] = useState<string>();
-  const appliedTokenRouteRef = useRef<string | undefined>(undefined);
+  // Stock copy (about, trading-hour reasons) is localized.
+  const locale = useLocaleVariant().toLowerCase();
+  const stockDetailSwrKey = normalizedStockId
+    ? swrKeys.marketStockDetail({ stockId: normalizedStockId, locale })
+    : undefined;
+  const tokenVariantsSwrKey = normalizedStockId
+    ? swrKeys.marketStockTokenVariants({ stockId: normalizedStockId, locale })
+    : undefined;
   const tokenRouteKey = JSON.stringify([
     normalizedStockId,
     initialNetworkId,
@@ -114,6 +122,28 @@ export function StockDetailProvider({
         })
       : initialTokenAddress,
   ]);
+  // Pick the variant from cached variants during the first render, so a
+  // revisit knows its token identity before any request settles.
+  const [initialSelectedTokenId] = useState(() => {
+    if (!tokenVariantsSwrKey) return undefined;
+    const cached =
+      swrCacheUtils.get<IStockTokenVariantsRequestResult>(tokenVariantsSwrKey);
+    if (!cached || cached.failed || cached.stockId !== normalizedStockId) {
+      return undefined;
+    }
+    return resolveStockTokenVariantSelection({
+      variants: cached.items,
+      defaultTokenId: cached.defaultTokenId,
+      routeNetworkId: initialNetworkId,
+      routeTokenAddress: initialTokenAddress,
+    })?.tokenId;
+  });
+  const [selectedTokenId, setSelectedTokenId] = useState<string | undefined>(
+    initialSelectedTokenId,
+  );
+  const appliedTokenRouteRef = useRef<string | undefined>(
+    initialSelectedTokenId ? tokenRouteKey : undefined,
+  );
   // Keep the last successful detail per stock so a superseded response cannot
   // replace the fallback used by the currently selected stock.
   const successfulStockDetailsRef = useRef(
@@ -173,6 +203,8 @@ export function StockDetailProvider({
         ? STOCK_DETAIL_POLLING_INTERVAL
         : undefined,
       revalidateOnReconnect: true,
+      swrKey: stockDetailSwrKey,
+      swrShouldPersist: (r) => !r.failed && Boolean(r.data),
     },
   );
 
@@ -216,6 +248,8 @@ export function StockDetailProvider({
         ? STOCK_TOKEN_VARIANTS_POLLING_INTERVAL
         : undefined,
       revalidateOnReconnect: true,
+      swrKey: tokenVariantsSwrKey,
+      swrShouldPersist: (r) => !r.failed,
     },
   );
 
@@ -245,26 +279,15 @@ export function StockDetailProvider({
     );
     if (!routeChanged && hasCurrentToken) return;
 
-    const routeToken = tokenVariants.find(
-      (item) =>
-        isStockTokenVariantTradable(item) &&
-        equalTokenNoCaseSensitive({
-          token1: {
-            networkId: item.networkId,
-            contractAddress: item.contractAddress,
-          },
-          token2: {
-            networkId: initialNetworkId,
-            contractAddress: initialTokenAddress,
-          },
-        }),
-    );
-    const defaultToken = getDefaultStockTokenVariant(
-      tokenVariants,
-      tokenVariantResult?.defaultTokenId,
-    );
     appliedTokenRouteRef.current = tokenRouteKey;
-    setSelectedTokenId(routeToken?.tokenId ?? defaultToken?.tokenId);
+    setSelectedTokenId(
+      resolveStockTokenVariantSelection({
+        variants: tokenVariants,
+        defaultTokenId: tokenVariantResult?.defaultTokenId,
+        routeNetworkId: initialNetworkId,
+        routeTokenAddress: initialTokenAddress,
+      })?.tokenId,
+    );
   }, [
     hasCurrentTokenVariants,
     initialNetworkId,

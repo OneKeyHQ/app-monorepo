@@ -1173,6 +1173,10 @@ const NS = {
   marketHomeConfig: 'marketHomeConfig',
   marketHomeStocks: 'marketHomeStocks',
   marketHomeTokenList: 'marketHomeTokenList',
+  marketStockDetail: 'marketStockDetail',
+  marketStockTokenVariants: 'marketStockVariants',
+  marketTokenDetail: 'marketTokenDetail',
+  marketTokenSecurity: 'marketTokenSecurity',
   tokenSelectorView: 'tokenSelectorView',
   specifiedTokenSelectorView: 'specifiedTokenSelectorView',
   swapHistoryPreviewList: 'swapHistoryPreviewList',
@@ -1534,6 +1538,46 @@ export const swrKeys = {
     [NS.marketHomeConfig, 'v1', locale].join(':'),
   marketHomeStocks: (queryKey: string) =>
     [NS.marketHomeStocks, 'v1', queryKey].join(':'),
+  marketStockDetail: ({
+    stockId,
+    locale,
+  }: {
+    stockId: string;
+    locale: string;
+  }) => [NS.marketStockDetail, 'v1', stockId, locale].join(':'),
+  marketStockTokenVariants: ({
+    stockId,
+    locale,
+  }: {
+    stockId: string;
+    locale: string;
+  }) => [NS.marketStockTokenVariants, 'v1', stockId, locale].join(':'),
+  marketTokenDetail: ({
+    networkId,
+    tokenAddress,
+    currencyId,
+    locale,
+  }: {
+    networkId: string;
+    tokenAddress: string;
+    currencyId: string;
+    locale: string;
+  }) =>
+    [
+      NS.marketTokenDetail,
+      'v1',
+      networkId,
+      tokenAddress,
+      currencyId,
+      locale,
+    ].join(':'),
+  marketTokenSecurity: ({
+    networkId,
+    tokenAddress,
+  }: {
+    networkId: string;
+    tokenAddress: string;
+  }) => [NS.marketTokenSecurity, 'v1', networkId, tokenAddress].join(':'),
   marketHomeTokenList: ({
     networkId,
     locale,

@@ -4,6 +4,10 @@ import type { PropsWithChildren } from 'react';
 import { act, renderHook, waitFor } from '@testing-library/react';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import {
+  swrCacheUtils,
+  swrKeys,
+} from '@onekeyhq/shared/src/utils/swrCacheUtils';
 import type {
   IMarketStockPublicDetail,
   IMarketStockTokenVariant,
@@ -34,6 +38,10 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
       fetchMarketStockTokenVariants: jest.fn(),
     },
   },
+}));
+
+jest.mock('@onekeyhq/kit/src/hooks/useLocaleVariant', () => ({
+  useLocaleVariant: () => 'en-US',
 }));
 
 jest.mock('@onekeyhq/kit/src/hooks/useRouteIsFocused', () => {
@@ -104,6 +112,8 @@ describe('StockDetailProvider', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     focusControl.__resetFocus();
+    // Stock resources are cached per stock; keep each case on a cold start.
+    swrCacheUtils.clearAll();
   });
 
   it('exposes a matching route preview before the stock detail request settles', () => {
@@ -206,6 +216,41 @@ describe('StockDetailProvider', () => {
     expect(serviceMarketV2.fetchMarketStockTokenVariants.mock.calls).toEqual([
       [{ stockId: 'AAPL' }],
     ]);
+  });
+
+  it('selects a cached variant on the first render of a revisit', () => {
+    serviceMarketV2.fetchMarketStockTokenVariants.mockReturnValue(
+      new Promise(() => undefined),
+    );
+    serviceMarketV2.fetchMarketStockDetail.mockReturnValue(
+      new Promise(() => undefined),
+    );
+    swrCacheUtils.set(
+      swrKeys.marketStockTokenVariants({ stockId: 'AAPL', locale: 'en-us' }),
+      {
+        stockId: 'AAPL',
+        defaultTokenId: 'aapl-ondo',
+        items: [
+          {
+            tokenId: 'aapl-ondo',
+            issuer: 'ondo',
+            networkId: 'evm--56',
+            contractAddress: '0xondo',
+            currency: 'USD',
+            status: 'active',
+            tradingEnabled: true,
+          },
+        ],
+      },
+    );
+    const wrapper = ({ children }: PropsWithChildren) => (
+      <StockDetailProvider stockId="AAPL">{children}</StockDetailProvider>
+    );
+    const { result } = renderHook(() => useStockDetail(), { wrapper });
+
+    // The token identity is known before any request settles.
+    expect(result.current.isTokenVariantPending).toBe(false);
+    expect(result.current.selectedTokenVariant?.tokenId).toBe('aapl-ondo');
   });
 
   it('releases initial layout loading when every token variant is paused', async () => {
