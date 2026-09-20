@@ -190,6 +190,31 @@ export function flushUiSnapshotStoreNow(): Promise<void> {
         failedNamespaces.push(...namespaces);
       }
     }
+    if (database && removals.length > 0) {
+      // Ahead of the writes, which carry the manifest marker that drops these
+      // very keys. `get()` reads a record by key and never consults the
+      // manifest, so a record left behind by a failed delete is still served:
+      // a wallet the user removed paints again on the next launch. Deleting
+      // first inverts that — the manifest still lists a record that is gone,
+      // which reads as a miss.
+      //
+      // Deliberately outside the write's failure path. An exhausted quota
+      // rejects the write transaction before it opens, and deleting is how
+      // the page gives that space back, so a failed write is exactly when
+      // this still has to run.
+      try {
+        const transaction = await database.createBucketTransaction(
+          [RECORD_STORE],
+          'readwrite',
+          { allowWhenStorageFull: true },
+        );
+        const store = transaction.objectStore(RECORD_STORE);
+        await Promise.all(removals.map((key) => store.delete(key)));
+        await transaction.done;
+      } catch {
+        failedKeys.push(...removals);
+      }
+    }
     // A clear that failed runs again before the next batch's writes, and the
     // range takes everything under the namespace with it. So the writes this
     // batch holds for that namespace wait for the retry too: persisting them
@@ -220,24 +245,6 @@ export function flushUiSnapshotStoreNow(): Promise<void> {
         await transaction.done;
       } catch {
         failedKeys.push(...pendingWrites.map(({ key }) => key));
-      }
-    }
-    if (database && removals.length > 0) {
-      // Deliberately outside the write's failure path. An exhausted quota
-      // rejects the write transaction before it opens, and deleting is how
-      // the page gives that space back, so a failed write is exactly when
-      // this still has to run.
-      try {
-        const transaction = await database.createBucketTransaction(
-          [RECORD_STORE],
-          'readwrite',
-          { allowWhenStorageFull: true },
-        );
-        const store = transaction.objectStore(RECORD_STORE);
-        await Promise.all(removals.map((key) => store.delete(key)));
-        await transaction.done;
-      } catch {
-        failedKeys.push(...removals);
       }
     }
     if (failedKeys.length === 0 && failedNamespaces.length === 0) {

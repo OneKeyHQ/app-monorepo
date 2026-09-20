@@ -1,5 +1,7 @@
 import { createMMKV } from 'react-native-mmkv';
 
+import { OneKeyLocalError } from '../../errors';
+
 import { createDisplaySnapshotStorage } from './createDisplaySnapshotStorage.native';
 
 jest.mock('react-native-mmkv', () => ({
@@ -91,13 +93,64 @@ describe('DisplaySnapshotStorage MMKV backend', () => {
     });
     expect(getMockState().operations).toEqual([
       'get:route/a',
+      // Removals precede the writes and the marker: see the resurrection
+      // test below for why the order is load-bearing.
+      'remove:manifest/retired',
       'set:chunk/a',
       'set:manifest/a',
       'set:route/a',
-      'remove:manifest/retired',
       'get:route/a',
       'get:chunk/a',
     ]);
+  });
+
+  /**
+   * `get()` reads a record by key and never consults the manifest, so the
+   * physical record must not outlive the manifest entry that deleted it —
+   * otherwise a wallet the user removed is still served on the next launch.
+   */
+  it('removes the record before the marker, so a kill between them cannot revive it', () => {
+    const storage = createDisplaySnapshotStorage({
+      namespace: 'home-native-kill-test',
+      maxRecordBytes: 128,
+      maxReadBatchSize: 4,
+    });
+    storage.commit({
+      entries: [{ key: 'd:wallet-list', value: 'stale-wallets' }],
+      commitMarker: { key: 'manifest', value: 'generation-1' },
+    });
+    expect(storage.read('d:wallet-list')).toBe('stale-wallets');
+
+    const state = getMockState();
+    state.operations.length = 0;
+    // The process dies once the new manifest is about to be published.
+    const realSet = state.values.set.bind(state.values);
+    let killed = false;
+    jest
+      .spyOn(state.values, 'set')
+      .mockImplementation((key: string, value: string) => {
+        if (key === 'manifest') {
+          killed = true;
+          throw new OneKeyLocalError('process killed before the marker landed');
+        }
+        return realSet(key, value);
+      });
+
+    expect(() =>
+      storage.commit({
+        entries: [],
+        commitMarker: { key: 'manifest', value: 'generation-2' },
+        removeKeys: ['d:wallet-list'],
+      }),
+    ).toThrow();
+    jest.restoreAllMocks();
+
+    expect(killed).toBe(true);
+    // The manifest still names the record, but the record is already gone,
+    // so the read is a miss rather than a resurrected wallet list.
+    expect(storage.read('manifest')).toBe('generation-1');
+    expect(storage.read('d:wallet-list')).toBeUndefined();
+    expect(state.operations[0]).toBe('remove:d:wallet-list');
   });
 
   it('does not write data when its route marker expectation is stale', () => {

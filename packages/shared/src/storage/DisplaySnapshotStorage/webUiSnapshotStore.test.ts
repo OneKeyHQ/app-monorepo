@@ -301,6 +301,30 @@ describe('webUiSnapshotStore write-behind', () => {
     ]);
   });
 
+  /**
+   * `get()` reads a record by key and never consults the manifest, so the
+   * physical record must not outlive the manifest entry that deleted it. The
+   * two land in separate transactions here, so the delete has to go first.
+   */
+  it('deletes records before writing the manifest that drops them', async () => {
+    openShouldFail = false;
+    const backend = createWebUiSnapshotSyncBackend('swr-wallet-list');
+    backend.commit({
+      entries: [{ key: 'd:wallet-2', value: 'fresh' }],
+      commitMarker: { key: 'manifest', value: 'm2' },
+      removeKeys: ['d:wallet-1'],
+    });
+
+    await flushUiSnapshotStoreNow();
+
+    expect(operations).toEqual([
+      'delete:swr-wallet-list:d:wallet-1',
+      'put:swr-wallet-list:d:wallet-2',
+      'put:swr-wallet-list:manifest',
+    ]);
+  });
+
+
   it('does not prime back a namespace this session cleared', () => {
     openShouldFail = false;
     const cleared = createWebUiSnapshotSyncBackend('swr-wallet-list');

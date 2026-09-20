@@ -39,11 +39,20 @@ export function createDisplaySnapshotStorage(
             );
           }
         }
-        input.entries.forEach(({ key, value }) => storage.set(key, value));
-        // MMKV has no multi-key transaction. The marker is deliberately last so
-        // readers never discover an incomplete generation after a process kill.
-        storage.set(input.commitMarker.key, input.commitMarker.value);
+        // MMKV has no multi-key transaction, so the order decides what a
+        // process kill leaves behind.
+        //
+        // Removals go first. `get()` reads a record by key and does not
+        // consult the manifest, so a record that outlives the manifest entry
+        // deleting it is still served — a wallet the user removed paints
+        // again on the next launch. Removing first inverts that: the kill
+        // leaves a manifest still listing a record that is already gone,
+        // which reads as a miss.
         input.removeKeys?.forEach((key) => storage.remove(key));
+        input.entries.forEach(({ key, value }) => storage.set(key, value));
+        // The marker stays last so readers never discover an incomplete
+        // generation after a process kill.
+        storage.set(input.commitMarker.key, input.commitMarker.value);
       },
       remove(keys) {
         keys.forEach((key) => storage.remove(key));
