@@ -8,7 +8,12 @@ import {
 } from 'react';
 import type { ReactNode } from 'react';
 
-import { StyleSheet, View, useWindowDimensions } from 'react-native';
+import {
+  PixelRatio,
+  StyleSheet,
+  View,
+  useWindowDimensions,
+} from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
   Easing,
@@ -353,9 +358,13 @@ const styles = StyleSheet.create({
   // The native edge stroke: a hairline ring worn OVER the face — RN
   // children always paint above their parent's border, so a border on
   // the shell itself would vanish under the edge-to-edge stage layers.
+  // Android wears a full 1dp, snapped to whole pixels: its hairline is a
+  // single physical pixel, which sank into a dark page behind the shell.
   ring: {
     ...StyleSheet.absoluteFill,
-    borderWidth: StyleSheet.hairlineWidth,
+    borderWidth: IS_NATIVE_ANDROID
+      ? PixelRatio.roundToNearestPixel(1)
+      : StyleSheet.hairlineWidth,
     borderCurve: 'continuous',
   },
   face: {
@@ -843,8 +852,12 @@ export function MorphOverlay<T>({
   // web outline — is the dark theme's neutral3 whatever the app's theme:
   // the shell is committed dark, and a light-theme edge on it read as a
   // pale halo. (borderDisabled maps to neutral3 in both themes, so the
-  // native ring and the web outline are one value.)
-  const shellEdgeColor = getTokenValue('$neutral3Dark', 'color');
+  // iOS ring and the web outline are one value.) Android steps up to
+  // neutral5: near-black panels there crush neutral3 into the dark page.
+  const shellEdgeColor = getTokenValue(
+    IS_NATIVE_ANDROID ? '$neutral5Dark' : '$neutral3Dark',
+    'color',
+  );
   const media = useMedia();
   // The window class, on the Dialog's own sheet↔panel line (md, a
   // phone-class window). The shell hangs from the top on both sides of
