@@ -757,32 +757,42 @@ export class DeviceSettingsManager extends ServiceHardwareManagerBase {
     const needUploadResource = isCustomScreen && !isMonochrome;
     const isProtocolV2Wallpaper =
       needUploadResource && this._isProtocolV2Product(device);
-    let phase:
+    type IWallpaperPhase =
       | 'hardware-queue'
       | 'validation'
       | 'connection'
       | 'sdk-init'
       | 'sdk-call'
-      | 'settings-sync' = 'hardware-queue';
+      | 'settings-sync';
+    let phase: IWallpaperPhase = 'hardware-queue';
     let phaseStartedAt = Date.now();
     let phaseFinished = false;
+    const phaseDurationsMs: Partial<Record<IWallpaperPhase, number>> = {};
+    const finishPhase = () => {
+      phaseDurationsMs[phase] = Date.now() - phaseStartedAt;
+    };
+    const startPhase = (nextPhase: IWallpaperPhase) => {
+      finishPhase();
+      phase = nextPhase;
+      phaseStartedAt = Date.now();
+    };
     const logWallpaperPhase = (
-      status: 'started' | 'success' | 'failed',
+      status: 'success' | 'failed',
       errorCode?: string,
       errorName?: string,
     ) => {
       if (isProtocolV2Wallpaper) {
+        finishPhase();
         defaultLogger.hardware.homescreen.wallpaperApplyPhase({
           deviceType: device.deviceType,
-          phase,
           status,
-          durationMs: Date.now() - phaseStartedAt,
+          phaseDurationsMs,
+          failureStage: status === 'failed' ? phase : undefined,
           errorCode,
           errorName,
         });
       }
     };
-    logWallpaperPhase('started');
 
     const finallyScreenHex = screenHex || nameHex || '';
     const finallyThumbnailHex: string | undefined = thumbnailHex;
@@ -790,9 +800,7 @@ export class DeviceSettingsManager extends ServiceHardwareManagerBase {
     const processing =
       this.backgroundApi.serviceHardwareUI.withHardwareProcessing(
         async () => {
-          logWallpaperPhase('success');
-          phase = 'validation';
-          phaseStartedAt = Date.now();
+          startPhase('validation');
           // pro touch custom upload wallpaper
           if (needUploadResource) {
             if (this._isProtocolV2Product(device)) {
@@ -801,32 +809,25 @@ export class DeviceSettingsManager extends ServiceHardwareManagerBase {
                   'Upload Pro2 wallpaper error: screenBase64 not defined',
                 );
               }
-              phase = 'connection';
-              phaseStartedAt = Date.now();
+              startPhase('connection');
               const compatibleConnectId =
                 await this.serviceHardware.getCompatibleConnectId({
                   connectId: device.connectId,
                   featuresDeviceId: device.deviceId,
                   hardwareCallContext: EHardwareCallContext.USER_INTERACTION,
                 });
-              logWallpaperPhase('success');
-              phase = 'sdk-init';
-              phaseStartedAt = Date.now();
+              startPhase('sdk-init');
               const hardwareSDK = await this.getSDKInstance({
                 connectId: compatibleConnectId,
               });
-              logWallpaperPhase('success');
-              phase = 'sdk-call';
-              phaseStartedAt = Date.now();
+              startPhase('sdk-call');
               const response = await convertDeviceResponse(() =>
                 hardwareSDK.deviceUploadWallpaper(compatibleConnectId, {
                   jpegBase64: screenBase64,
                   fileName: screenItem.id.replace(/[^A-Za-z0-9_-]/g, '-'),
                 }),
               );
-              logWallpaperPhase('success');
-              phase = 'settings-sync';
-              phaseStartedAt = Date.now();
+              startPhase('settings-sync');
               await this._waitForProtocolV2SettingsSync({
                 device,
                 compatibleConnectId,

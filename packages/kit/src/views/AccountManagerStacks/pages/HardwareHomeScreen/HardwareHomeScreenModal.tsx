@@ -903,23 +903,8 @@ export default function HardwareHomeScreenModal({
             }
 
             imagePreparationMs = Date.now() - phaseStartedAt;
-            if (isProtocolV2Wallpaper) {
-              defaultLogger.hardware.homescreen.wallpaperApplyPhase({
-                deviceType: device.deviceType,
-                phase: currentPhase,
-                status: 'success',
-                durationMs: imagePreparationMs,
-              });
-            }
             currentPhase = 'hardware-call';
             phaseStartedAt = Date.now();
-            if (isProtocolV2Wallpaper) {
-              defaultLogger.hardware.homescreen.wallpaperApplyPhase({
-                deviceType: device.deviceType,
-                phase: currentPhase,
-                status: 'started',
-              });
-            }
             const response =
               await backgroundApiProxy.serviceHardware.setDeviceHomeScreen({
                 dbDeviceId: device?.id,
@@ -946,12 +931,6 @@ export default function HardwareHomeScreenModal({
                   }),
             });
             if (isProtocolV2Wallpaper) {
-              defaultLogger.hardware.homescreen.wallpaperApplyPhase({
-                deviceType: device.deviceType,
-                phase: currentPhase,
-                status: 'success',
-                durationMs: hardwareCallMs,
-              });
               defaultLogger.hardware.homescreen.wallpaperApply({
                 deviceType: device.deviceType,
                 isCustomScreen,
@@ -979,14 +958,6 @@ export default function HardwareHomeScreenModal({
                   ? String(code)
                   : undefined;
               const errorName = error instanceof Error ? error.name : undefined;
-              defaultLogger.hardware.homescreen.wallpaperApplyPhase({
-                deviceType: device.deviceType,
-                phase: currentPhase,
-                status: 'failed',
-                durationMs: phaseDurationMs,
-                errorCode,
-                errorName,
-              });
               defaultLogger.hardware.homescreen.wallpaperApply({
                 deviceType: device.deviceType,
                 isCustomScreen,

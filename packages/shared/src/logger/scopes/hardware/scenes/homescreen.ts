@@ -25,17 +25,25 @@ export class HardwareHomeScreenScene extends BaseScene {
   @LogToLocal()
   public wallpaperApplyPhase(params: {
     deviceType: IDeviceType;
-    phase:
-      | 'image-processing'
-      | 'hardware-call'
+    status: 'success' | 'failed';
+    phaseDurationsMs: Partial<
+      Record<
+        | 'hardware-queue'
+        | 'validation'
+        | 'connection'
+        | 'sdk-init'
+        | 'sdk-call'
+        | 'settings-sync',
+        number
+      >
+    >;
+    failureStage?:
       | 'hardware-queue'
       | 'validation'
       | 'connection'
       | 'sdk-init'
       | 'sdk-call'
       | 'settings-sync';
-    status: 'started' | 'success' | 'failed';
-    durationMs?: number;
     errorCode?: string;
     errorName?: string;
   }) {
