@@ -5,6 +5,10 @@ import type { IElectronWebView } from '@onekeyhq/kit/src/components/WebView/type
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useBrowserTabActions } from '@onekeyhq/kit/src/states/jotai/contexts/discovery';
 import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
+import {
   EDiscoveryModalRoutes,
   EModalRoutes,
   ETabRoutes,
@@ -64,7 +68,8 @@ export const useDiscoveryShortcuts = () => {
         case EShortcutEvents.GoForwardHistory:
         case EShortcutEvents.GoBackHistory:
         case EShortcutEvents.Refresh:
-        case EShortcutEvents.CloseTab: {
+        case EShortcutEvents.CloseTab:
+        case EShortcutEvents.SearchInPage: {
           if (!isAtBrowserTab.current) {
             return;
           }
@@ -90,6 +95,16 @@ export const useDiscoveryShortcuts = () => {
               case EShortcutEvents.CloseTab:
                 handleCloseWebTab();
                 break;
+              case EShortcutEvents.SearchInPage:
+                if (
+                  activeTabId &&
+                  tabs.some((tab) => tab.id === activeTabId && tab.url)
+                ) {
+                  appEventBus.emit(EAppEventBusNames.ShowFindInWebPage, {
+                    tabId: activeTabId,
+                  });
+                }
+                break;
               default:
                 break;
             }
@@ -113,7 +128,14 @@ export const useDiscoveryShortcuts = () => {
           break;
       }
     },
-    [activeTabId, copyText, handleCloseWebTab, isAtBrowserTab, navigation],
+    [
+      activeTabId,
+      copyText,
+      handleCloseWebTab,
+      isAtBrowserTab,
+      navigation,
+      tabs,
+    ],
   );
 
   useShortcuts(undefined, handleShortcuts);

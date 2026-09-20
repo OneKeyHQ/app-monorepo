@@ -14,13 +14,11 @@ import {
   XStack,
 } from '@onekeyhq/components';
 import { ANIMATE_ONLY_OPACITY_TRANSFORM } from '@onekeyhq/components/src/utils/animationConstants';
-import { useShortcutsOnRouteFocused } from '@onekeyhq/kit/src/hooks/useShortcutsOnRouteFocused';
 import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { EShortcutEvents } from '@onekeyhq/shared/src/shortcuts/shortcuts.enum';
 
 import WebContent from '../../components/WebContent/WebContent';
 import { useDiscoveryMessageHandler } from '../../hooks/useDiscoveryMessageHandler';
@@ -50,6 +48,37 @@ interface IElectronWebView {
   ) => void;
 }
 
+type IWebViewRefWithDomReady = (typeof webviewRefs)[string] & {
+  __domReady?: boolean;
+};
+
+function getReadyWebView(id: string): IElectronWebView | undefined {
+  const ref = webviewRefs[id] as IWebViewRefWithDomReady | undefined;
+  return ref?.__domReady
+    ? (ref.innerRef as IElectronWebView | undefined)
+    : undefined;
+}
+
+function findInWebView(
+  webView: IElectronWebView | undefined,
+  text: string,
+  params: { findNext: boolean; forward: boolean },
+) {
+  try {
+    webView?.findInPage(text, params);
+  } catch {
+    // A WebView can lose its guest process while navigating or being evicted.
+  }
+}
+
+function stopFindInWebView(webView: IElectronWebView | undefined) {
+  try {
+    webView?.stopFindInPage('clearSelection');
+  } catch {
+    // The guest may already have been destroyed.
+  }
+}
+
 function BasicFind({ id, isActive }: { id: string; isActive: boolean }) {
   const [matches, setMatches] = useState(0);
   const [activeMatchOrdinal, setActiveMatchOrdinal] = useState(0);
@@ -60,8 +89,7 @@ function BasicFind({ id, isActive }: { id: string; isActive: boolean }) {
     if (matches < 1) {
       return;
     }
-    const webView = webviewRefs[id]?.innerRef as unknown as IElectronWebView;
-    webView?.findInPage(prevSearchText.current, {
+    findInWebView(getReadyWebView(id), prevSearchText.current, {
       findNext: false,
       forward: false,
     });
@@ -70,14 +98,13 @@ function BasicFind({ id, isActive }: { id: string; isActive: boolean }) {
     if (matches < 1) {
       return;
     }
-    const webView = webviewRefs[id]?.innerRef as unknown as IElectronWebView;
     if (activeMatchOrdinal === matches) {
-      webView?.findInPage(prevSearchText.current, {
+      findInWebView(getReadyWebView(id), prevSearchText.current, {
         findNext: true,
         forward: false,
       });
     } else {
-      webView?.findInPage(prevSearchText.current, {
+      findInWebView(getReadyWebView(id), prevSearchText.current, {
         findNext: false,
         forward: true,
       });
@@ -108,14 +135,44 @@ function BasicFind({ id, isActive }: { id: string; isActive: boolean }) {
     [],
   );
 
+  const handleTextChange = useThrottledCallback((text: string) => {
+    if (text.length === 0) {
+      stopFindInWebView(
+        webviewRefs[id]?.innerRef as IElectronWebView | undefined,
+      );
+      setMatches(0);
+      setActiveMatchOrdinal(0);
+    } else {
+      findInWebView(getReadyWebView(id), text, {
+        findNext: true,
+        forward: false,
+      });
+    }
+  }, 250);
+
+  const handleInputChange = useCallback(
+    (text: string) => {
+      prevSearchText.current = text;
+      handleTextChange(text);
+    },
+    [handleTextChange],
+  );
+
   const handleClose = useCallback(() => {
+    handleTextChange.cancel();
+    stopFindInWebView(
+      webviewRefs[id]?.innerRef as IElectronWebView | undefined,
+    );
     setIsVisible(false);
     prevSearchText.current = '';
     setMatches(0);
     setActiveMatchOrdinal(0);
-  }, []);
+  }, [handleTextChange, id]);
 
   useEffect(() => {
+    if (!isActive) {
+      return undefined;
+    }
     const callback = ({ tabId }: { tabId: string }) => {
       if (id !== tabId) {
         return;
@@ -127,7 +184,7 @@ function BasicFind({ id, isActive }: { id: string; isActive: boolean }) {
     return () => {
       appEventBus.off(EAppEventBusNames.ShowFindInWebPage, callback);
     };
-  }, [id]);
+  }, [id, isActive]);
 
   useEffect(() => {
     if (visible) {
@@ -142,21 +199,26 @@ function BasicFind({ id, isActive }: { id: string; isActive: boolean }) {
 
     let webView: IElectronWebView | undefined;
     let retryTimer: ReturnType<typeof setTimeout> | undefined;
+    const replaySearch = () => {
+      if (prevSearchText.current) {
+        findInWebView(webView, prevSearchText.current, {
+          findNext: true,
+          forward: false,
+        });
+      }
+    };
     const attachFindListener = () => {
-      const currentWebView = webviewRefs[id]?.innerRef as
-        | IElectronWebView
-        | undefined;
+      const ref = webviewRefs[id] as IWebViewRefWithDomReady | undefined;
+      const currentWebView = ref?.innerRef as IElectronWebView | undefined;
       if (!currentWebView) {
         retryTimer = setTimeout(attachFindListener, 100);
         return;
       }
       webView = currentWebView;
-      webView.addEventListener('found-in-page', foundInPage);
-      if (prevSearchText.current) {
-        webView.findInPage(prevSearchText.current, {
-          findNext: true,
-          forward: false,
-        });
+      currentWebView.addEventListener('found-in-page', foundInPage);
+      currentWebView.addEventListener('dom-ready', replaySearch);
+      if (ref?.__domReady) {
+        replaySearch();
       }
     };
     attachFindListener();
@@ -165,28 +227,12 @@ function BasicFind({ id, isActive }: { id: string; isActive: boolean }) {
       if (retryTimer) {
         clearTimeout(retryTimer);
       }
+      handleTextChange.cancel();
+      webView?.removeEventListener('dom-ready', replaySearch);
       webView?.removeEventListener('found-in-page', foundInPage);
+      stopFindInWebView(webView);
     };
-  }, [foundInPage, id, isActive, visible]);
-
-  const handleTextChange = useThrottledCallback((text: string) => {
-    prevSearchText.current = text;
-    const webView = webviewRefs[id]?.innerRef as unknown as IElectronWebView;
-    if (!webView) {
-      if (text.length === 0) {
-        setMatches(0);
-        setActiveMatchOrdinal(0);
-      }
-      return;
-    }
-    if (text.length === 0) {
-      webView.stopFindInPage('clearSelection');
-      setMatches(0);
-      setActiveMatchOrdinal(0);
-    } else {
-      webView.findInPage(text, { findNext: true, forward: false });
-    }
-  }, 250);
+  }, [foundInPage, handleTextChange, id, isActive, visible]);
 
   const disabled = matches === 0;
 
@@ -225,7 +271,7 @@ function BasicFind({ id, isActive }: { id: string; isActive: boolean }) {
               testID="discovery-input"
               autoFocus
               ref={inputRef}
-              onChangeText={handleTextChange}
+              onChangeText={handleInputChange}
               containerProps={{
                 borderWidth: 0,
                 px: 0,
@@ -289,13 +335,6 @@ function BasicDesktopBrowserContent({
   const isActive = activeTabId === id;
   const isHomeTab = !tab?.url;
   const [homePageReady, setHomePageReady] = useState(!isHomeTab);
-
-  const handleFindShortcut = useCallback(() => {
-    if (isActive && tab?.url) {
-      appEventBus.emit(EAppEventBusNames.ShowFindInWebPage, { tabId: id });
-    }
-  }, [id, isActive, tab?.url]);
-  useShortcutsOnRouteFocused(EShortcutEvents.SearchInPage, handleFindShortcut);
 
   // Keep-alive LRU: only the most-recently-active window of tabs keeps its
   // WebView mounted. Evicted (cold) tabs unmount their WebView to free memory;
