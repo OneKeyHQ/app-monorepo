@@ -194,10 +194,20 @@ describe('local account transaction marks', () => {
       text: '9.9 TOKEN',
     };
     expect(
-      mergeAccountTransactionMarks({ localMarks, serverMarks: [] }),
+      mergeAccountTransactionMarks({
+        localMarks,
+        serverMarks: [],
+        from: params.from,
+        to: params.to,
+      }),
     ).toEqual(localMarks);
     expect(
-      mergeAccountTransactionMarks({ localMarks, serverMarks: [serverMark] }),
+      mergeAccountTransactionMarks({
+        localMarks,
+        serverMarks: [serverMark],
+        from: params.from,
+        to: params.to,
+      }),
     ).toEqual([serverMark]);
   });
 });

@@ -72,8 +72,8 @@ export function useTradingViewNativeAccountMarks({
         networkId,
         tokenAddress,
         from: range.from,
-        // A swap can settle before the latest candle arrives.
-        to: Math.max(range.to, Math.floor(Date.now() / 1000)),
+        // The container already includes the latest candle's full interval.
+        to: range.to,
       };
       const loadMarks = async (
         source: 'localMarks' | 'serverMarks',
@@ -160,7 +160,7 @@ export function useTradingViewNativeAccountMarks({
     if (result?.request !== request || from === undefined || to === undefined) {
       return EMPTY_COMPONENTS;
     }
-    const marks = mergeAccountTransactionMarks(result);
+    const marks = mergeAccountTransactionMarks({ ...result, from, to });
     if (!marks.length) {
       return EMPTY_COMPONENTS;
     }

@@ -97,9 +97,13 @@ export async function fetchLocalAccountTransactionMarks(
 export function mergeAccountTransactionMarks({
   localMarks,
   serverMarks,
+  from,
+  to,
 }: {
   localMarks: readonly IAccountTransactionMark[];
   serverMarks: readonly IAccountTransactionMark[];
+  from: number;
+  to: number;
 }): IAccountTransactionMark[] {
   const marks = new Map<string, IAccountTransactionMark>();
   // Indexed fills replace the provisional local time/amount for the same transaction.
@@ -109,5 +113,8 @@ export function mergeAccountTransactionMarks({
       mark,
     );
   }
-  return [...marks.values()].toSorted((a, b) => a.time - b.time).slice(-60);
+  return [...marks.values()]
+    .filter((mark) => mark.time >= from && mark.time <= to)
+    .toSorted((a, b) => a.time - b.time)
+    .slice(-60);
 }

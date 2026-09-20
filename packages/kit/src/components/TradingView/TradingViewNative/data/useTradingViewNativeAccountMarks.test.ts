@@ -221,7 +221,58 @@ describe('useTradingViewNativeAccountMarks', () => {
     expect(result.current[0].props.marks).toEqual([sellMark]);
   });
 
-  it('refreshes after buys and sells, retries index lag, and uses the current time', async () => {
+  it('keeps historical requests inside the loaded candles during swap retries', async () => {
+    jest.setSystemTime(4_000_000);
+    const { result } = renderHook(() =>
+      useTradingViewNativeAccountMarks(params),
+    );
+    await flushRequests();
+    act(() => {
+      appEventBus.emit(EAppEventBusNames.SwapTxHistoryStatusUpdate, {
+        status: ESwapTxHistoryStatus.SUCCESS,
+        toToken: token,
+      });
+    });
+    await flushRequests();
+    await act(async () => {
+      jest.advanceTimersByTime(10_000);
+    });
+    for (const fetch of [fetchMarks, fetchLocalMarks]) {
+      expect(fetch).toHaveBeenCalledTimes(5);
+      expect(fetch.mock.calls.map(([request]) => request)).toEqual(
+        Array.from({ length: 5 }, () => ({
+          ...context,
+          from: params.from,
+          to: params.to,
+        })),
+      );
+    }
+    expect(result.current[0].props.marks).toEqual([buyMark]);
+  });
+
+  it('keeps historical local marks when a failed refresh retains 60 newer indexed fills', async () => {
+    const newerMarks = Array.from({ length: 60 }, (_, index) => ({
+      ...buyMark,
+      id: `newer-${index}`,
+      transactionHash: `newer-transaction-${index}`,
+      time: 3000 + index,
+    }));
+    fetchMarks.mockResolvedValueOnce(newerMarks);
+    const { result, rerender } = renderHook(useTradingViewNativeAccountMarks, {
+      initialProps: { ...params, to: 4000 },
+    });
+    await flushRequests();
+    expect(result.current[0].props.marks).toHaveLength(60);
+
+    fetchMarks.mockRejectedValueOnce(new Error('Unavailable'));
+    fetchLocalMarks.mockResolvedValueOnce([buyMark]);
+    rerender(params);
+    expect(result.current).toEqual([]);
+    await flushRequests();
+    expect(result.current[0].props.marks).toEqual([buyMark]);
+  });
+
+  it('refreshes after buys and sells and retries index lag within the loaded range', async () => {
     fetchMarks.mockResolvedValueOnce([]).mockResolvedValueOnce([]);
     const { result, unmount } = renderHook(() =>
       useTradingViewNativeAccountMarks(params),
@@ -238,7 +289,7 @@ describe('useTradingViewNativeAccountMarks', () => {
     expect(fetchMarks).toHaveBeenLastCalledWith({
       ...context,
       from: 1000,
-      to: 2100,
+      to: 2000,
     });
     expect(result.current).toEqual([]);
     await act(async () => {
