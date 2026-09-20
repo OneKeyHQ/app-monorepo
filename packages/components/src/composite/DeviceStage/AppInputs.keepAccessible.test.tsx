@@ -264,6 +264,7 @@ describe('PassphraseForm ASCII entry feedback', () => {
     const { getByTestId, getByText, queryByText } = render(
       <PassphraseForm
         mode="create"
+        asciiCreationFeedback
         allowProtocolV2Utf8={false}
         onSubmit={onSubmit}
       />,
@@ -291,6 +292,28 @@ describe('PassphraseForm ASCII entry feedback', () => {
     expect(onSubmit).toHaveBeenCalledWith('wallet 123!', {
       keepAccessible: true,
     });
+  });
+
+  it('keeps the previous feedback for other devices in create mode', () => {
+    const onSubmit = jest.fn();
+    const { getByTestId, queryByText } = render(
+      <PassphraseForm mode="create" onSubmit={onSubmit} />,
+    );
+
+    expect(
+      queryByText(ETranslations.passphrase_allowed_characters_desc),
+    ).toBeNull();
+    fireEvent.change(getByTestId('device-stage-passphrase-input'), {
+      target: { value: '中文😀' },
+    });
+    expect(
+      queryByText(ETranslations.hardware_unsupported_passphrase_characters),
+    ).toBeNull();
+    fireEvent.click(getByTestId('device-stage-passphrase-confirm'));
+    expect(
+      queryByText(ETranslations.hardware_unsupported_passphrase_characters),
+    ).toBeTruthy();
+    expect(onSubmit).not.toHaveBeenCalled();
   });
 
   it('keeps Unicode entry available when verifying an existing wallet', () => {

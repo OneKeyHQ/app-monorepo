@@ -381,6 +381,8 @@ export interface IPassphraseFormProps {
    * ON — the first-run default.
    */
   initialKeepAccessible?: boolean;
+  /** Only adds early ASCII feedback for new Pro2/Neo wallets. */
+  asciiCreationFeedback?: boolean;
   /**
    * Protocol V2 entry: UTF-8 measured in bytes, NFKD-normalized before it
    * is handed out. Off, the printable-ASCII validation applies. The
@@ -417,6 +419,7 @@ export function PassphraseForm({
   onAttachPin,
   error,
   initialKeepAccessible,
+  asciiCreationFeedback,
   allowProtocolV2Utf8,
   resetSignal,
   activationSignal,
@@ -436,6 +439,8 @@ export function PassphraseForm({
   const [validationError, setValidationError] = useState<string | undefined>(
     undefined,
   );
+  const showAsciiCreationFeedback =
+    mode === 'create' && asciiCreationFeedback && !allowProtocolV2Utf8;
   useEffect(() => {
     setValue('');
     setSecure(true);
@@ -455,7 +460,7 @@ export function PassphraseForm({
     (text: string) => {
       setValue(text);
       const failure =
-        text && !allowProtocolV2Utf8
+        text && showAsciiCreationFeedback
           ? resolvePassphraseEntryFailure(text)
           : undefined;
       setValidationError(
@@ -464,7 +469,7 @@ export function PassphraseForm({
           : undefined,
       );
     },
-    [allowProtocolV2Utf8, intl],
+    [intl, showAsciiCreationFeedback],
   );
   const handleConfirm = useCallback(() => {
     // A refused entry speaks its prompt in place of a disabled button —
@@ -527,11 +532,11 @@ export function PassphraseForm({
             onChangeText={handleChange}
             secureTextEntry={secure}
             keyboardType={
-              !allowProtocolV2Utf8 && Platform.OS === 'ios'
+              showAsciiCreationFeedback && Platform.OS === 'ios'
                 ? 'ascii-capable'
                 : undefined
             }
-            error={Boolean(shownError)}
+            error={showAsciiCreationFeedback ? Boolean(shownError) : undefined}
             {...passwordManagerIgnoreProps}
             autoCapitalize="none"
             autoCorrect={false}
@@ -547,7 +552,7 @@ export function PassphraseForm({
               <Stack w="$1" h="$1" borderRadius="$full" bg="$textSubdued" />
             </Stack>
             <SizableText flex={1} size="$bodyMd" color="$textSubdued">
-              {mode === 'create' && !allowProtocolV2Utf8
+              {showAsciiCreationFeedback
                 ? intl.formatMessage({
                     id: ETranslations.passphrase_allowed_characters_desc,
                   })

@@ -319,6 +319,8 @@ function HardwareSingletonDialogCmp(
         state?.payload?.passphraseState ||
         state?.payload?.expectedPassphraseState
       );
+      const isPro2NeoPassphraseCreation =
+        !isSingleInput && isProtocolV2ProductType(state?.payload?.deviceType);
       const saveCachedHiddenWalletOptions = async ({
         hideImmediately,
       }: {
@@ -339,10 +341,10 @@ function HardwareSingletonDialogCmp(
           isVerifyMode={isSingleInput}
           allowUseAttachPin={!!state?.payload?.existsAttachPinUser}
           deviceOnly={state?.payload?.deviceOnly === true}
+          asciiCreationFeedback={isPro2NeoPassphraseCreation}
           allowProtocolV2Utf8={
             state?.payload?.source === 'wallet-session-coordinator' &&
-            (isSingleInput ||
-              !isProtocolV2ProductType(state?.payload?.deviceType))
+            !isPro2NeoPassphraseCreation
           }
           onConfirm={async ({ passphrase, hideImmediately }) => {
             await saveCachedHiddenWalletOptions({

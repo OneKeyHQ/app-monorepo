@@ -43,6 +43,8 @@ export type IEnterPhaseProps = {
   isVerifyMode?: boolean;
   allowUseAttachPin?: boolean;
   deviceOnly?: boolean;
+  /** Only adds early ASCII feedback for new Pro2/Neo wallets. */
+  asciiCreationFeedback?: boolean;
   allowProtocolV2Utf8?: boolean;
   onConfirm: (p: {
     passphrase: string;
@@ -61,6 +63,7 @@ export function EnterPhase({
   isVerifyMode,
   allowUseAttachPin,
   deviceOnly,
+  asciiCreationFeedback,
   allowProtocolV2Utf8,
   onConfirm,
   switchOnDevice,
@@ -68,9 +71,11 @@ export function EnterPhase({
 }: IEnterPhaseProps) {
   const intl = useIntl();
   const [settings] = useSettingsPersistAtom();
+  const showAsciiCreationFeedback =
+    !isVerifyMode && asciiCreationFeedback && !allowProtocolV2Utf8;
   const formOption = useMemo(
     () => ({
-      mode: allowProtocolV2Utf8 ? undefined : ('onChange' as const),
+      mode: showAsciiCreationFeedback ? ('onChange' as const) : undefined,
       defaultValues: {
         passphrase: '',
         confirmPassphrase: '',
@@ -91,7 +96,12 @@ export function EnterPhase({
         });
       },
     }),
-    [allowProtocolV2Utf8, onConfirm, settings.hiddenWalletImmediately],
+    [
+      allowProtocolV2Utf8,
+      onConfirm,
+      settings.hiddenWalletImmediately,
+      showAsciiCreationFeedback,
+    ],
   );
   const form = useForm<IEnterPhaseFormValues>(formOption);
 
@@ -135,18 +145,26 @@ export function EnterPhase({
             description={
               allowProtocolV2Utf8 ? undefined : (
                 <XStack gap="$1" pt="$2">
-                  <Stack>
-                    <SizableText size="$bodyMd" color="$textSubdued">
-                      {intl.formatMessage({
-                        id: ETranslations.passphrase_allowed_characters_desc,
-                      })}
-                    </SizableText>
+                  {showAsciiCreationFeedback ? (
+                    <Stack>
+                      <SizableText size="$bodyMd" color="$textSubdued">
+                        {intl.formatMessage({
+                          id: ETranslations.passphrase_allowed_characters_desc,
+                        })}
+                      </SizableText>
+                      <SizableText size="$bodyMd" color="$textSubdued">
+                        {intl.formatMessage({
+                          id: ETranslations.passphrase_character_limit,
+                        })}
+                      </SizableText>
+                    </Stack>
+                  ) : (
                     <SizableText size="$bodyMd" color="$textSubdued">
                       {intl.formatMessage({
                         id: ETranslations.passphrase_character_limit,
                       })}
                     </SizableText>
-                  </Stack>
+                  )}
                   <Popover
                     placement="bottom"
                     floatingPanelProps={{
@@ -230,7 +248,7 @@ export function EnterPhase({
                 });
               },
               onChange: () => {
-                if (allowProtocolV2Utf8) {
+                if (!showAsciiCreationFeedback) {
                   form.clearErrors();
                 }
               },
@@ -240,12 +258,12 @@ export function EnterPhase({
               testID="hardware-ui-passphrase-input"
               secureTextEntry={secureEntry1}
               keyboardType={
-                !allowProtocolV2Utf8 && platformEnv.isNativeIOS
+                showAsciiCreationFeedback && platformEnv.isNativeIOS
                   ? 'ascii-capable'
                   : undefined
               }
-              autoCapitalize="none"
-              autoCorrect={false}
+              autoCapitalize={showAsciiCreationFeedback ? 'none' : undefined}
+              autoCorrect={showAsciiCreationFeedback ? false : undefined}
               {...passwordManagerIgnoreProps}
               placeholder={intl.formatMessage({
                 id: ETranslations.global_enter_passphrase,

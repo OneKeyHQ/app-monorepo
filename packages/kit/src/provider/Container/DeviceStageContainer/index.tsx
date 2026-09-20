@@ -109,6 +109,9 @@ function DeviceStageContainerCmp() {
   const [settings, setSettings] = useSettingsPersistAtom();
 
   const step: IDeviceStageStep = (stage?.step as IDeviceStageStep) ?? 'off';
+  const isPro2NeoPassphraseCreation =
+    stage?.passphraseMode === 'create' &&
+    isProtocolV2ProductType(stage?.deviceType);
 
   // Channel badge (design hard rule: BLE waits must declare the channel).
   // Same source and formula as the legacy CommonDeviceLoading dialog: the
@@ -551,10 +554,10 @@ function DeviceStageContainerCmp() {
       allowAuthDevSkip={devSettings.enabled}
       inputError={stage?.inputError}
       passphraseMode={stage?.passphraseMode}
+      passphraseAsciiCreationFeedback={isPro2NeoPassphraseCreation}
       passphraseAllowUtf8={
         stage?.payload?.source === 'wallet-session-coordinator' &&
-        (stage?.passphraseMode !== 'create' ||
-          !isProtocolV2ProductType(stage?.deviceType))
+        !isPro2NeoPassphraseCreation
       }
       passphraseKeepAccessible={
         // The remembered Keep-accessible choice, read the way the legacy
