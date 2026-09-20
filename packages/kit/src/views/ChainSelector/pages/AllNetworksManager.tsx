@@ -20,6 +20,7 @@ import type {
 } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { isEnabledNetworksInAllNetworks } from '@onekeyhq/shared/src/utils/networkUtils';
+import { swrKeys } from '@onekeyhq/shared/src/utils/swrCacheUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
@@ -149,31 +150,50 @@ function AllNetworksManager() {
     }
   }, [networksState, networks.mainNetworks, networks.allNetworks]);
 
-  usePromiseResult(async () => {
-    const [allNetworksState, { networks: allNetworks }] = await Promise.all([
-      backgroundApiProxy.serviceAllNetwork.getAllNetworksState(),
-      backgroundApiProxy.serviceNetwork.getAllNetworks(),
-    ]);
-    setNetworksState({
-      enabledNetworks: allNetworksState.enabledNetworks,
-      disabledNetworks: allNetworksState.disabledNetworks,
-    });
+  // Carries the selector's `swrKey`, and returns the selector's shape. The
+  // home header can push this page without the selector ever mounting, so
+  // this fetch is the only one that can put the post-save state in that
+  // cache — and it belongs to this runtime, where the hook lives.
+  const { run: refreshNetworkMeta } = usePromiseResult(
+    async () => {
+      const [allNetworksState, { networks: allNetworks }] = await Promise.all([
+        backgroundApiProxy.serviceAllNetwork.getAllNetworksState(),
+        backgroundApiProxy.serviceNetwork.getAllNetworks(),
+      ]);
+      setNetworksState({
+        enabledNetworks: allNetworksState.enabledNetworks,
+        disabledNetworks: allNetworksState.disabledNetworks,
+      });
 
-    const compatibleNetworks =
-      await backgroundApiProxy.serviceNetwork.getChainSelectorNetworksCompatibleWithAccountId(
-        {
-          accountId,
-          walletId,
-          networkIds: allNetworks.map((network) => network.id),
-          excludeTestNetwork: true,
+      const compatibleNetworks =
+        await backgroundApiProxy.serviceNetwork.getChainSelectorNetworksCompatibleWithAccountId(
+          {
+            accountId,
+            walletId,
+            networkIds: allNetworks.map((network) => network.id),
+            excludeTestNetwork: true,
+          },
+        );
+      setNetworks({
+        allNetworks,
+        mainNetworks: compatibleNetworks.mainnetItems,
+        frequentlyUsedNetworks: compatibleNetworks.frequentlyUsedItems,
+      });
+
+      return {
+        allNetworksState: {
+          enabledNetworks: allNetworksState.enabledNetworks,
+          disabledNetworks: allNetworksState.disabledNetworks,
         },
-      );
-    setNetworks({
-      allNetworks,
-      mainNetworks: compatibleNetworks.mainnetItems,
-      frequentlyUsedNetworks: compatibleNetworks.frequentlyUsedItems,
-    });
-  }, [accountId, walletId]);
+        allNetworks,
+        compatibleNetworks,
+      };
+    },
+    [accountId, walletId],
+    {
+      swrKey: swrKeys.unifiedNetworkSelectorMeta({ walletId, accountId }),
+    },
+  );
 
   const renderHeaderTitle = useCallback(() => {
     return (
@@ -240,10 +260,11 @@ function AllNetworksManager() {
         disabledNetworks: networksState.disabledNetworks,
       });
 
-      // Nothing is done to the selector's SWR entry here, deliberately. This
-      // page has no hook that owns it, and patching another screen's cache by
-      // hand is what gives a namespace a second writer. The selector fetches again
-      // when it next mounts, and that fetch is what updates the entry.
+      // The refresh is what writes the new state into the cache — fire and
+      // forget, as the bg prime it replaces was, and `alwaysSetState` so the
+      // write still lands after this page pops.
+      void refreshNetworkMeta({ alwaysSetState: true });
+
       appEventBus.emit(EAppEventBusNames.EnabledNetworksChanged, undefined);
 
       navigation.pop();
@@ -262,6 +283,7 @@ function AllNetworksManager() {
     networksState.disabledNetworks,
     networksState.enabledNetworks,
     onNetworksChanged,
+    refreshNetworkMeta,
     walletId,
   ]);
 
