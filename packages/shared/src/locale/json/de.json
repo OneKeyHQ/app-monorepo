@@ -2956,7 +2956,7 @@
   "p2sh_p2wpkh_desc": "Beginnt mit \"bc1q\". P2SH-P2WPKH (m/84'/0'/0')",
   "p2tr_desc": "Beginnt mit \"bc1p\". P2TR (m/86'/0'/0')",
   "p2wpkh_desc": "Beginnt mit \"3\". P2WPKH (m/49'/0'/0')",
-  "passphrase_allowed_characters_desc": "Buchstaben, Zahlen & Symbole (ASCII 32-126)",
+  "passphrase_allowed_characters_desc": "Buchstaben, Zahlen & Symbole",
   "passphrase_allowed_characters_title": "Erlaubte Zeichen",
   "passphrase_character_limit": "Maximal 50 Zeichen",
   "passphrase_disabled_dialog_desc": "Aktivieren Sie Passphrase auf Ihrem Gerät, um versteckte Wallets zu erstellen.",

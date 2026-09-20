@@ -2956,7 +2956,7 @@
   "p2sh_p2wpkh_desc": "Починається з \"bc1q\". P2SH-P2WPKH (m/84'/0'/0')",
   "p2tr_desc": "Починається з \"bc1p\". P2TR (m/86'/0'/0')",
   "p2wpkh_desc": "Починається з \"3\". P2WPKH (m/49'/0'/0')",
-  "passphrase_allowed_characters_desc": "Літери, цифри та символи (ASCII 32-126)",
+  "passphrase_allowed_characters_desc": "Літери, цифри та символи",
   "passphrase_allowed_characters_title": "Дозволені символи",
   "passphrase_character_limit": "Максимум 50 символів",
   "passphrase_disabled_dialog_desc": "Увімкніть Passphrase на вашому пристрої, щоб створювати приховані гаманці.",

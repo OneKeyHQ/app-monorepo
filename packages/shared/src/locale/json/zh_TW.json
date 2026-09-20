@@ -2956,7 +2956,7 @@
   "p2sh_p2wpkh_desc": "以“bc1q”開頭。P2SH-P2WPKH (m/84'/0'/0')",
   "p2tr_desc": "以“bc1p”開頭。P2TR (m/86'/0'/0')",
   "p2wpkh_desc": "開頭為 \"3\" 的 P2WPKH (m/49'/0'/0')",
-  "passphrase_allowed_characters_desc": "字母、數字和符號 (ASCII 32-126)",
+  "passphrase_allowed_characters_desc": "字母、數字和符號",
   "passphrase_allowed_characters_title": "允許的字符",
   "passphrase_character_limit": "最多 50 個字元",
   "passphrase_disabled_dialog_desc": "在您的裝置上啟用 Passphrase 以建立隱藏錢包。",
