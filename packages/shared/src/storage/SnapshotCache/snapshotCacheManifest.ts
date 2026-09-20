@@ -79,12 +79,12 @@ function planRetention(
   entries: Record<string, number>,
   { maxEntries, maxAgeMs }: ISnapshotCacheRetentionConfig,
   now: number,
-  protectedKey?: string,
+  protectedKeys?: ReadonlySet<string>,
 ): { entries: Record<string, number>; removeKeys: string[] } {
   const removeKeys: string[] = [];
   const kept: Array<[string, number]> = [];
   Object.entries(entries).forEach(([key, timestamp]) => {
-    if (key !== protectedKey && now - timestamp >= maxAgeMs) {
+    if (!protectedKeys?.has(key) && now - timestamp >= maxAgeMs) {
       removeKeys.push(key);
       return;
     }
@@ -96,7 +96,7 @@ function planRetention(
     (left, right) => left[1] - right[1] || (left[0] < right[0] ? -1 : 1),
   );
   while (kept.length > maxEntries) {
-    const victimIndex = kept.findIndex(([key]) => key !== protectedKey);
+    const victimIndex = kept.findIndex(([key]) => !protectedKeys?.has(key));
     if (victimIndex < 0) {
       break;
     }
@@ -123,7 +123,32 @@ export function planSnapshotCacheWrite({
     { ...manifest.e, [key]: updatedAt },
     config,
     now,
-    key,
+    new Set([key]),
+  );
+  return {
+    manifest: { v: SNAPSHOT_CACHE_MANIFEST_VERSION, e: entries },
+    removeKeys,
+    changed: true,
+  };
+}
+
+/** One plan for a batch of writes, so a flush commits its manifest once. */
+export function planSnapshotCacheWriteMany({
+  manifest,
+  updates,
+  config,
+  now,
+}: {
+  manifest: ISnapshotCacheManifest;
+  updates: ReadonlyMap<string, number>;
+  config: ISnapshotCacheRetentionConfig;
+  now: number;
+}): ISnapshotCacheRetentionPlan {
+  const { entries, removeKeys } = planRetention(
+    { ...manifest.e, ...Object.fromEntries(updates) },
+    config,
+    now,
+    new Set(updates.keys()),
   );
   return {
     manifest: { v: SNAPSHOT_CACHE_MANIFEST_VERSION, e: entries },

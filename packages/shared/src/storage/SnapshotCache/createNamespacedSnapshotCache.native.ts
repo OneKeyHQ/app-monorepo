@@ -58,7 +58,9 @@ function createInertSnapshotCache<T>(): ISnapshotCacheSync<T> {
   return {
     get: () => undefined,
     set: () => undefined,
+    setMany: () => undefined,
     remove: () => undefined,
+    keys: () => [],
     sweep: () => undefined,
     clear: () => undefined,
   };

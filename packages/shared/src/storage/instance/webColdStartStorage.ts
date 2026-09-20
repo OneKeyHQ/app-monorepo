@@ -40,12 +40,6 @@ import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
 import { IndexedDBPromised } from '../../IndexedDBPromised';
 
-import {
-  WEB_SWR_CACHE_ENTRY_PREFIX,
-  createWebSWRCacheEntries,
-  isWebSWRCachePersistedKey,
-} from './webSWRCacheEntries';
-
 import type { ISyncStorage } from './syncStorageInstance';
 import type { EAppSyncStorageKeys } from '../syncStorageKeys';
 
@@ -68,14 +62,6 @@ const GLOBAL_MAP_KEY = '__ONEKEY_COLD_START_CACHE_MAP__';
 // store the browser may evict on its own, at the cost of a delete on every
 // user's first launch after the update.
 const LEGACY_SWR_STORE_KEY = 'onekey_swr_cache';
-
-// Caps on the SWR records a cold start pulls into memory. They bound the
-// heap copy the way NATIVE_SWR_CACHE_BOOTSTRAP_MAX_ENTRIES does on native;
-// the per-namespace cap additionally stops one busy namespace from crowding
-// out the rest. Selection inside a namespace is by key order, because the
-// write timestamp lives in the value and IndexedDB can only range over keys.
-export const WEB_SWR_HYDRATION_MAX_ENTRIES_PER_NAMESPACE = 20;
-export const WEB_SWR_HYDRATION_MAX_ENTRIES = 200;
 
 // ---- In-memory state ----
 
@@ -102,33 +88,16 @@ function getMap(): Map<string, unknown> {
 // SWR entries live as one record per key in the same map/IDB store, so a
 // SWR flush dirties only the keys it changed. Writes follow the facade's
 // reset latch.
-const swrCacheEntries = createWebSWRCacheEntries({
-  keys: () => getMap().keys(),
-  get: (key) => getMap().get(key),
-  set: (key, value) => {
-    if (isClearing) return;
-    getMap().set(key, value);
-    scheduleFlush(key);
-  },
-  delete: (key) => {
-    if (isClearing) return;
-    getMap().delete(key);
-    scheduleFlush(key);
-  },
-});
-
 /** Merge entries loaded from IDB into the in-memory map. Called by
  *  hydrate.ts after its IDB getAll resolves. Values are raw strings as
  *  written by the ISyncStorage facade. */
 export function primeColdStartCacheMap(
   entries: Iterable<[string, unknown]>,
 ): void {
-  // The SWR records are primed after the ready gate resolves, so a prime can
-  // now arrive while resetColdStartCache is mid-wipe. Same latch the facade
-  // mutators take: a prime must not resurrect what the reset is clearing.
+  // A prime can arrive while resetColdStartCache is mid-wipe. Same latch the
+  // facade mutators take: a prime must not resurrect what the reset clears.
   if (isClearing) return;
   const map = getMap();
-  let primedSWRCacheEntries = false;
   for (const [k, v] of entries) {
     if (k === LEGACY_SWR_STORE_KEY) {
       // Skipped, not deleted: see the constant.
@@ -138,11 +107,7 @@ export function primeColdStartCacheMap(
       // map is treated as more authoritative than the stale IDB snapshot for
       // keys present in both.
       map.set(k, v);
-      primedSWRCacheEntries ||= isWebSWRCachePersistedKey(k);
     }
-  }
-  if (primedSWRCacheEntries) {
-    swrCacheEntries.notifyEntriesReplaced();
   }
 }
 
@@ -479,7 +444,6 @@ export async function resetColdStartCache(): Promise<void> {
     isClearing = false;
   }
   // The SWR runtime copy would otherwise keep serving the wiped entries.
-  swrCacheEntries.notifyEntriesReplaced();
 }
 
 /** Awaitable counterpart of the synchronous ISyncStorage.clearAll() facade.
@@ -519,9 +483,7 @@ export async function readColdStartCriticalEntriesFromIdb(): Promise<{
 }> {
   const db = await openDb();
   const allKeys = (await db.getAllKeys(STORE_NAME)).map(String);
-  const criticalKeys = allKeys.filter(
-    (key) => !isWebSWRCachePersistedKey(key) && key !== LEGACY_SWR_STORE_KEY,
-  );
+  const criticalKeys = allKeys.filter((key) => key !== LEGACY_SWR_STORE_KEY);
   const entries = new Map<string, unknown>();
   if (criticalKeys.length > 0) {
     const tx = await db.transactionAsync([STORE_NAME], 'readonly');
@@ -538,90 +500,6 @@ export async function readColdStartCriticalEntriesFromIdb(): Promise<{
   return { allKeys, entries };
 }
 
-/**
- * Namespace of a physical SWR record key.
- *
- * `undefined` for a key that is a namespace on its own, with nothing after
- * it: those are read by exact key, because a `namespace:` range would skip
- * the very record it is named after.
- */
-function getSWRCacheNamespace(physicalKey: string): string | undefined {
-  if (!isWebSWRCachePersistedKey(physicalKey)) {
-    return undefined;
-  }
-  const rest = physicalKey.slice(WEB_SWR_CACHE_ENTRY_PREFIX.length);
-  const separator = rest.indexOf(':');
-  return separator > 0 ? rest.slice(0, separator) : undefined;
-}
-
-/**
- * Read the SWR records, capped per namespace and overall.
- *
- * Each namespace is one key range: IndexedDB stores records sorted by key,
- * so a bounded range is a seek plus a sequential read rather than a scan of
- * the store, and `count` stops it inside the engine — records past the cap
- * are never deserialized. All ranges share one transaction.
- */
-export async function readColdStartSWREntriesFromIdb(
-  allKeys: readonly string[],
-  {
-    maxEntriesPerNamespace = WEB_SWR_HYDRATION_MAX_ENTRIES_PER_NAMESPACE,
-    maxEntries = WEB_SWR_HYDRATION_MAX_ENTRIES,
-  }: { maxEntriesPerNamespace?: number; maxEntries?: number } = {},
-): Promise<Map<string, unknown>> {
-  const namespaces = new Set<string>();
-  const exactKeys: string[] = [];
-  allKeys.forEach((key) => {
-    if (!isWebSWRCachePersistedKey(key)) {
-      return;
-    }
-    const namespace = getSWRCacheNamespace(key);
-    if (namespace) {
-      namespaces.add(namespace);
-    } else {
-      exactKeys.push(key);
-    }
-  });
-  const entries = new Map<string, unknown>();
-  if (namespaces.size === 0 && exactKeys.length === 0) {
-    return entries;
-  }
-  const db = await openDb();
-  const tx = await db.transactionAsync([STORE_NAME], 'readonly');
-  const store = tx.objectStore(STORE_NAME);
-  const rangeReads = [...namespaces].map((namespace) => {
-    const lower = `${WEB_SWR_CACHE_ENTRY_PREFIX}${namespace}:`;
-    // '\uffff' is above every character these keys use, so the range covers
-    // exactly the records whose key starts with the prefix.
-    const range = IDBKeyRange.bound(lower, `${lower}\uffff`);
-    return Promise.all([
-      store.getAllKeys(range, maxEntriesPerNamespace),
-      store.getAll(range, maxEntriesPerNamespace),
-    ]);
-  });
-  // Issued in the same turn as the ranges so they share the transaction.
-  const exactReads = exactKeys.map((key) => store.get(key));
-  const [results, exactValues] = await Promise.all([
-    Promise.all(rangeReads),
-    Promise.all(exactReads),
-  ]);
-  const take = (key: string, value: unknown) => {
-    if (entries.size >= maxEntries || value === undefined) {
-      return;
-    }
-    entries.set(key, value);
-  };
-  exactKeys.forEach((key, index) => take(key, exactValues[index]));
-  results.forEach(([keys, values]) => {
-    keys.forEach((key, index) => take(String(key), values[index]));
-  });
-  return entries;
-}
-
-// ---- Test-only helpers ----
-// Reset all module-level state. Intended for unit tests so each test starts
-// from a clean slate without `jest.resetModules()` (which would also re-
-// instantiate the lodash import etc.). Not exported from the public surface.
 export function __resetForTests(): void {
   (globalThis as Record<string, unknown>)[GLOBAL_MAP_KEY] = undefined;
   // Close any open IDB connection before dropping the reference. Leaving it
@@ -736,15 +614,6 @@ export function createWebColdStartStorage(): ISyncStorage {
     },
     getAllKeys() {
       return Array.from(getMap().keys());
-    },
-    applySWRCachePatch(patch) {
-      swrCacheEntries.applySWRCachePatch(patch);
-    },
-    readSWRCacheEntries() {
-      return swrCacheEntries.readSWRCacheEntries();
-    },
-    subscribeSWRCacheEntries(listener) {
-      return swrCacheEntries.subscribeSWRCacheEntries(listener);
     },
   };
 }

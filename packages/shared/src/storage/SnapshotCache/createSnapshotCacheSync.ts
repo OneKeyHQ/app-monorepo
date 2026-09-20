@@ -2,6 +2,7 @@ import {
   parseSnapshotCacheManifest,
   planSnapshotCacheSweep,
   planSnapshotCacheWrite,
+  planSnapshotCacheWriteMany,
   serializeSnapshotCacheManifest,
 } from './snapshotCacheManifest';
 
@@ -20,6 +21,8 @@ import type { IDisplaySnapshotStorageSync } from '../DisplaySnapshotStorage/type
  */
 
 export const SNAPSHOT_CACHE_MANIFEST_KEY = 'manifest';
+// Enough to outlast the other runtime's own commit and its retry.
+const MAX_COMMIT_ATTEMPTS = 4;
 const DATA_KEY_PREFIX = 'd:';
 
 // Mirrors the backing store's own key rule, minus the prefix this module adds.
@@ -36,7 +39,19 @@ type ISnapshotCacheRecord<T> = {
 export type ISnapshotCacheSync<T> = {
   get: (key: string) => { data: T; updatedAt: number } | undefined;
   set: (key: string, data: T) => void;
+  /**
+   * One commit for many keys. Two runtimes write some of these namespaces, so
+   * a flush that committed per key would both cost a manifest round trip each
+   * time and lose more races than it needs to.
+   */
+  setMany: (entries: readonly (readonly [string, T])[]) => void;
   remove: (key: string) => void;
+  /**
+   * The keys this namespace holds, from the manifest alone. Listing them
+   * loads no payloads, which is the property the absent enumeration API was
+   * protecting — a caller that needs to drop a subset still has to name it.
+   */
+  keys: () => string[];
   /** Drops expired and over-count entries, then compacts. For idle callers. */
   sweep: () => void;
   clear: () => void;
@@ -140,8 +155,53 @@ export function createSnapshotCacheSync<T>({
             removeKeys: plan.removeKeys,
           });
         } catch {
-          // A concurrent writer moved the marker; re-read and try once more.
-          if (attempt === 0) {
+          // A concurrent writer moved the marker; re-read and try again.
+          if (attempt < MAX_COMMIT_ATTEMPTS - 1) {
+            write(attempt + 1);
+          }
+        }
+      };
+      try {
+        write(0);
+      } catch {
+        // Persisting a snapshot must never fail the caller.
+      }
+    },
+
+    keys() {
+      try {
+        return Object.keys(readManifest().manifest.e);
+      } catch {
+        return [];
+      }
+    },
+
+    setMany(entries) {
+      const valid = entries.filter(([key]) => isValidSnapshotCacheKey(key));
+      if (valid.length === 0) {
+        return;
+      }
+      const write = (attempt: number) => {
+        const timestamp = now();
+        const { raw, manifest } = readManifest();
+        const plan = planSnapshotCacheWriteMany({
+          manifest,
+          updates: new Map(valid.map(([key]) => [key, timestamp])),
+          config: retention,
+          now: timestamp,
+        });
+        try {
+          commitManifest({
+            raw,
+            manifest: plan.manifest,
+            entries: valid.map(([key, data]) => ({
+              key: dataKey(key),
+              value: JSON.stringify({ d: data, t: timestamp }),
+            })),
+            removeKeys: plan.removeKeys,
+          });
+        } catch {
+          if (attempt < MAX_COMMIT_ATTEMPTS - 1) {
             write(attempt + 1);
           }
         }

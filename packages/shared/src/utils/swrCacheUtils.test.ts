@@ -1,7 +1,4 @@
-import {
-  SWR_ACCOUNT_SELECTOR_MAX_ENTRIES,
-  SWR_ACCOUNT_SELECTOR_MAX_SERIALIZED_CHARS,
-} from './swrCacheLimits';
+import { SWR_ACCOUNT_SELECTOR_MAX_SERIALIZED_CHARS } from './swrCacheLimits';
 import {
   SWR_CACHE_MAX_ENTRIES,
   SWR_CACHE_MAX_ENTRY_SERIALIZED_CHARS,
@@ -31,183 +28,73 @@ jest.mock('../logger/logger', () => ({
   },
 }));
 
-// On globalThis so jest.resetModules() rebuilds the module (a fresh runtime)
-// while the "MMKV file" persists — exactly the cross-runtime setup under test.
-type IFakeDisk = Record<string, string>;
-type IFakeEntriesListener = (
-  entries: Array<readonly [string, string | null]> | null,
-) => void;
-const fakeDiskGlobal = globalThis as typeof globalThis & {
-  __swrFakeDisk?: IFakeDisk;
-  __swrFakeDiskReadCount?: number;
-  __swrPatches?: unknown[];
-  __swrUsePatch?: boolean;
-  __swrUseEntries?: boolean;
-  __swrDeclareEmptyEntries?: boolean;
-  __swrEntries?: Map<string, string>;
-  __swrEntryListeners?: Set<IFakeEntriesListener>;
+/**
+ * The persisted half of the cache.
+ *
+ * Records live one per key in the namespace its key names, and both runtimes
+ * write them, so the fake store below is a plain per-key map on globalThis:
+ * `jest.resetModules()` then stands for a second runtime opening the same
+ * files.
+ */
+type IStoredEntry = { d: unknown; t: number };
+const diskGlobal = globalThis as typeof globalThis & {
+  __swrNamespaceDisk?: Map<string, IStoredEntry>;
+  __swrNamespaceReadCount?: number;
 };
 
-jest.mock('../storage/instance/syncStorageInstance', () => {
-  const readDisk = () =>
-    (globalThis as { __swrFakeDisk?: Record<string, string> }).__swrFakeDisk ??
-    {};
-  // Counts reads from either accessor so the throttle assertions stay honest.
-  const countRead = () => {
-    const globalState = globalThis as { __swrFakeDiskReadCount?: number };
-    globalState.__swrFakeDiskReadCount =
-      (globalState.__swrFakeDiskReadCount ?? 0) + 1;
-  };
-  const storage = {
-    set: () => {},
-    setObject: (key: string, value: Record<string, unknown>) => {
-      readDisk()[key] = JSON.stringify(value);
-    },
-    getObject: (key: string) => {
-      countRead();
-      const raw = readDisk()[key];
-      return raw === undefined
-        ? undefined
-        : (JSON.parse(raw) as Record<string, unknown>);
-    },
-    // Mirrors the real backends: setObject stores JSON, getString hands the
-    // raw string back, so a caller can tell "absent" from "unparseable".
-    getString: (key: string) => {
-      countRead();
-      return readDisk()[key];
-    },
-    getNumber: () => undefined,
-    getBoolean: () => undefined,
-    delete: (key: string) => {
-      delete readDisk()[key];
-    },
-    clearAll: () => {
-      const disk = readDisk();
-      Object.keys(disk).forEach((key) => delete disk[key]);
-    },
-    getAllKeys: () => Object.keys(readDisk()),
-    ...((globalThis as { __swrUsePatch?: boolean }).__swrUsePatch
-      ? {
-          applySWRCachePatch: (patch: {
-            clearBefore?: number;
-            removePrefixes: Array<{ at: number; prefix: string }>;
-            removals: Array<readonly [string, number]>;
-            updates: Array<readonly [string, string]>;
-          }) => {
-            const globalState = globalThis as {
-              __swrPatches?: unknown[];
-            };
-            globalState.__swrPatches ??= [];
-            globalState.__swrPatches.push(patch);
-            const disk = readDisk();
-            const store = disk.onekey_swr_cache
-              ? (JSON.parse(disk.onekey_swr_cache) as Record<
-                  string,
-                  { t: number }
-                >)
-              : {};
-            const removeIfOlder = (key: string, at: number) => {
-              if (store[key] && store[key].t <= at) {
-                delete store[key];
-              }
-            };
-            if (patch.clearBefore !== undefined) {
-              Object.keys(store).forEach((key) =>
-                removeIfOlder(key, patch.clearBefore as number),
-              );
-            }
-            patch.removePrefixes.forEach(({ at, prefix }) => {
-              Object.keys(store).forEach((key) => {
-                if (key.startsWith(prefix)) removeIfOlder(key, at);
-              });
-            });
-            patch.removals.forEach(([key, at]) => removeIfOlder(key, at));
-            patch.updates.forEach(([key, entry]) => {
-              store[key] = JSON.parse(entry) as { t: number };
-            });
-            disk.onekey_swr_cache = JSON.stringify(store);
-          },
-        }
-      : {}),
-    // Mirrors the runtime wrapper on a backend without the capability: the
-    // methods exist and forward with `?.`, so they answer undefined.
-    ...((globalThis as { __swrDeclareEmptyEntries?: boolean })
-      .__swrDeclareEmptyEntries
-      ? {
-          applySWRCachePatch: () => undefined,
-          readSWRCacheEntries: () => undefined,
-          subscribeSWRCacheEntries: () => () => undefined,
-        }
-      : {}),
-    // The native main mirror: one serialized entry per key, patches applied
-    // per key, bg changes pushed to subscribers. Never a whole-store string.
-    ...((globalThis as { __swrUseEntries?: boolean }).__swrUseEntries
-      ? {
-          applySWRCachePatch: (patch: {
-            removals: Array<readonly [string, number]>;
-            updates: Array<readonly [string, string]>;
-          }) => {
-            const globalState = globalThis as {
-              __swrEntries?: Map<string, string>;
-              __swrPatches?: unknown[];
-            };
-            globalState.__swrPatches ??= [];
-            globalState.__swrPatches.push(patch);
-            const entries = (globalState.__swrEntries ??= new Map());
-            patch.removals.forEach(([key]) => entries.delete(key));
-            patch.updates.forEach(([key, entry]) => entries.set(key, entry));
-          },
-          readSWRCacheEntries: () => [
-            ...((globalThis as { __swrEntries?: Map<string, string> })
-              .__swrEntries ?? new Map<string, string>()),
-          ],
-          subscribeSWRCacheEntries: (
-            listener: (
-              entries: Array<readonly [string, string | null]> | null,
-            ) => void,
-          ) => {
-            const globalState = globalThis as {
-              __swrEntryListeners?: Set<typeof listener>;
-            };
-            const listeners = (globalState.__swrEntryListeners ??= new Set());
-            listeners.add(listener);
-            return () => {
-              listeners.delete(listener);
-            };
-          },
-        }
-      : {}),
+function disk(): Map<string, IStoredEntry> {
+  diskGlobal.__swrNamespaceDisk ??= new Map<string, IStoredEntry>();
+  return diskGlobal.__swrNamespaceDisk;
+}
+
+jest.mock('./swrCacheNamespaceStorage', () => {
+  const store = () => {
+    const global = globalThis as {
+      __swrNamespaceDisk?: Map<string, { d: unknown; t: number }>;
+    };
+    global.__swrNamespaceDisk ??= new Map();
+    return global.__swrNamespaceDisk;
   };
   return {
-    __esModule: true,
-    coldStartCacheStorage: storage,
-    syncStorage: storage,
-    createMMKVSyncStorage: () => storage,
+    readSwrCacheEntry: (key: string) => {
+      const global = globalThis as { __swrNamespaceReadCount?: number };
+      global.__swrNamespaceReadCount =
+        (global.__swrNamespaceReadCount ?? 0) + 1;
+      return store().get(key);
+    },
+    writeSwrCacheEntries: (
+      entries: Array<readonly [string, { d: unknown; t: number }]>,
+    ) => entries.forEach(([key, entry]) => store().set(key, entry)),
+    removeSwrCacheEntries: (keys: string[]) =>
+      keys.forEach((key) => store().delete(key)),
+    removeSwrCacheByPrefix: (prefix: string) =>
+      [...store().keys()]
+        .filter((key) => key.startsWith(prefix))
+        .forEach((key) => store().delete(key)),
+    clearAllSwrCacheNamespaces: () => store().clear(),
   };
 });
-
-const DISK_KEY = 'onekey_swr_cache';
-
-function readDiskStore(): Record<string, { d: unknown; t: number }> {
-  const raw = fakeDiskGlobal.__swrFakeDisk?.[DISK_KEY];
-  return raw
-    ? (JSON.parse(raw) as Record<string, { d: unknown; t: number }>)
-    : {};
-}
-
-// Simulates the other runtime flushing: a wholesale write straight to disk.
-function otherRuntimeFlush(store: Record<string, { d: unknown; t: number }>) {
-  if (!fakeDiskGlobal.__swrFakeDisk) {
-    fakeDiskGlobal.__swrFakeDisk = {};
-  }
-  fakeDiskGlobal.__swrFakeDisk[DISK_KEY] = JSON.stringify(store);
-}
 
 function loadFreshRuntime() {
   jest.resetModules();
   // eslint-disable-next-line @typescript-eslint/no-require-imports
   return (require('./swrCacheUtils') as typeof import('./swrCacheUtils'))
     .swrCacheUtils;
+}
+
+function resetDisk() {
+  diskGlobal.__swrNamespaceDisk = new Map<string, IStoredEntry>();
+  diskGlobal.__swrNamespaceReadCount = 0;
+}
+
+/** The persisted records, as a plain object for assertions. */
+function readDiskStore(): Record<string, IStoredEntry> {
+  return Object.fromEntries(disk().entries());
+}
+
+/** What the other runtime committing its own records looks like from here. */
+function otherRuntimeFlush(entries: Record<string, IStoredEntry>) {
+  Object.entries(entries).forEach(([key, entry]) => disk().set(key, entry));
 }
 
 describe('SWR cache keys', () => {
@@ -382,286 +269,178 @@ describe('SWR cache keys', () => {
   });
 });
 
-describe('SWR cache cross-runtime flush merge', () => {
+describe('SWR cache persistence', () => {
+  beforeEach(() => {
+    resetDisk();
+    mockSWRCacheSlowOp.mockClear();
+    mockSWRCacheCapacityLimit.mockClear();
+  });
+
+  it('reads a key it has never seen from the namespace that holds it', () => {
+    disk().set('marketTokenDetail:a', { d: 'from-disk', t: 1000 });
+    const cache = loadFreshRuntime();
+
+    expect(cache.get('marketTokenDetail:a')).toBe('from-disk');
+    // Nothing was loaded before the key was asked for.
+    expect(diskGlobal.__swrNamespaceReadCount).toBe(1);
+  });
+
+  it('keeps what it read, instead of going back for every read', () => {
+    disk().set('marketTokenDetail:a', { d: 'from-disk', t: 1000 });
+    const cache = loadFreshRuntime();
+
+    cache.get('marketTokenDetail:a');
+    cache.get('marketTokenDetail:a');
+
+    expect(diskGlobal.__swrNamespaceReadCount).toBe(1);
+  });
+
+  it('does not rewrite a value it only read', () => {
+    disk().set('marketTokenDetail:a', { d: 'from-disk', t: 1000 });
+    const cache = loadFreshRuntime();
+
+    cache.get('marketTokenDetail:a');
+    cache.flushNow();
+
+    expect(disk().get('marketTokenDetail:a')).toEqual({
+      d: 'from-disk',
+      t: 1000,
+    });
+  });
+
+  it('writes what changed, and leaves other namespaces alone', () => {
+    disk().set('walletList:other', { d: 'untouched', t: 1 });
+    const cache = loadFreshRuntime();
+
+    cache.set('marketTokenDetail:a', 'mine');
+    cache.flushNow();
+
+    expect(disk().get('marketTokenDetail:a')).toMatchObject({ d: 'mine' });
+    expect(disk().get('walletList:other')).toEqual({ d: 'untouched', t: 1 });
+  });
+
+  it('does not read back a key it removed before the flush landed', () => {
+    disk().set('marketTokenDetail:a', { d: 'from-disk', t: 1000 });
+    const cache = loadFreshRuntime();
+
+    cache.remove('marketTokenDetail:a');
+
+    expect(cache.get('marketTokenDetail:a')).toBeUndefined();
+    cache.flushNow();
+    expect(disk().has('marketTokenDetail:a')).toBe(false);
+  });
+
+  it('does not read back a key under a prefix it dropped', () => {
+    disk().set('walletList:a', { d: 'from-disk', t: 1000 });
+    const cache = loadFreshRuntime();
+
+    cache.removeByPrefix('walletList:');
+
+    expect(cache.get('walletList:a')).toBeUndefined();
+    cache.flushNow();
+    expect(disk().has('walletList:a')).toBe(false);
+  });
+
+  it('clears every namespace, then persists what was written after', () => {
+    disk().set('walletList:a', { d: 'old', t: 1000 });
+    disk().set('marketTokenDetail:b', { d: 'old', t: 1000 });
+    const cache = loadFreshRuntime();
+
+    cache.clearAll();
+    cache.set('marketTokenDetail:b', 'written-after');
+    cache.flushNow();
+
+    expect(disk().has('walletList:a')).toBe(false);
+    expect(disk().get('marketTokenDetail:b')).toMatchObject({
+      d: 'written-after',
+    });
+  });
+
+  it("picks up the other runtime's write after a reload", () => {
+    disk().set('perpsL2Book:a', { d: 'first', t: 1000 });
+    const cache = loadFreshRuntime();
+    expect(cache.get('perpsL2Book:a')).toBe('first');
+
+    // The other runtime commits its own record.
+    disk().set('perpsL2Book:a', { d: 'theirs', t: 2000 });
+    expect(cache.get('perpsL2Book:a')).toBe('first');
+
+    cache.reloadFromStorage();
+
+    expect(cache.get('perpsL2Book:a')).toBe('theirs');
+  });
+
+  it('keeps a pending write across a reload', () => {
+    const cache = loadFreshRuntime();
+    cache.set('perpsL2Book:a', 'mine');
+    disk().set('perpsL2Book:a', { d: 'theirs', t: 1 });
+
+    cache.reloadFromStorage();
+
+    // The reload flushes first, so the newer local write is what survives.
+    expect(cache.get('perpsL2Book:a')).toBe('mine');
+    expect(disk().get('perpsL2Book:a')).toMatchObject({ d: 'mine' });
+  });
+
+  it('lets an unchanged result ride along instead of starting a flush', () => {
+    jest.useFakeTimers();
+    try {
+      const cache = loadFreshRuntime();
+      cache.set('marketTokenDetail:a', { value: 1 });
+      cache.flushNow();
+      const firstWrite = disk().get('marketTokenDetail:a')?.t as number;
+
+      jest.advanceTimersByTime(5000);
+      cache.set('marketTokenDetail:a', { value: 1 });
+      jest.advanceTimersByTime(5000);
+
+      // No flush was scheduled, so the record still carries the first write.
+      expect(disk().get('marketTokenDetail:a')?.t).toBe(firstWrite);
+
+      cache.set('marketTokenDetail:b', { value: 2 });
+      jest.advanceTimersByTime(5000);
+
+      // The next flush carries the refreshed timestamp with it.
+      expect(disk().get('marketTokenDetail:a')?.t).toBeGreaterThan(firstWrite);
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  it('reports a slow flush with the size of what it wrote', () => {
+    const cache = loadFreshRuntime();
+    let elapsed = 0;
+    jest.spyOn(performance, 'now').mockImplementation(() => {
+      elapsed += 100;
+      return elapsed;
+    });
+    try {
+      cache.set('marketTokenDetail:a', 'value');
+      cache.flushNow();
+    } finally {
+      jest.restoreAllMocks();
+    }
+
+    expect(mockSWRCacheSlowOp).toHaveBeenCalledWith(
+      expect.objectContaining({ op: 'flush', updatedKeyCount: 1 }),
+    );
+  });
+});
+
+describe('SWR cache budgets and reload throttling', () => {
   let nowSpy: jest.SpyInstance<number, []>;
 
   const setNow = (ms: number) => nowSpy.mockReturnValue(ms);
 
   beforeEach(() => {
-    fakeDiskGlobal.__swrUsePatch = false;
-    fakeDiskGlobal.__swrPatches = [];
-    fakeDiskGlobal.__swrFakeDisk = {};
-    fakeDiskGlobal.__swrFakeDiskReadCount = 0;
+    resetDisk();
+    mockSWRCacheSlowOp.mockClear();
     mockSWRCacheCapacityLimit.mockReset();
     nowSpy = jest.spyOn(Date, 'now').mockReturnValue(1000);
   });
 
   afterEach(() => {
     nowSpy.mockRestore();
-  });
-
-  it('keeps keys the other runtime persisted after this copy hydrated', () => {
-    const swr = loadFreshRuntime();
-    setNow(1000);
-    swr.set('mine', 'a');
-    // The old wholesale overwrite erased this on the next local flush.
-    otherRuntimeFlush({
-      ...readDiskStore(),
-      theirs: { d: 'b', t: 5000 },
-    });
-    swr.flushNow();
-
-    const disk = readDiskStore();
-    expect(disk.mine).toMatchObject({ d: 'a', t: 1000 });
-    expect(disk.theirs).toMatchObject({ d: 'b', t: 5000 });
-  });
-
-  it('resolves per-key conflicts by timestamp in both directions', () => {
-    const swr = loadFreshRuntime();
-    setNow(1000);
-    swr.set('diskNewer', 'stale-local');
-    swr.set('localNewer', 'old-local');
-    otherRuntimeFlush({
-      diskNewer: { d: 'fresh-disk', t: 2000 },
-      localNewer: { d: 'stale-disk', t: 500 },
-    });
-    setNow(1500);
-    swr.set('localNewer', 'fresh-local');
-    swr.flushNow();
-
-    const disk = readDiskStore();
-    expect(disk.diskNewer).toMatchObject({ d: 'fresh-disk', t: 2000 });
-    expect(disk.localNewer).toMatchObject({ d: 'fresh-local', t: 1500 });
-    // Adopted locally too, so reads see the other runtime's fresher value.
-    expect(swr.get('diskNewer')).toBe('fresh-disk');
-  });
-
-  it('refreshes the timestamp of an unchanged result without rewriting the store', () => {
-    jest.useFakeTimers({ doNotFake: ['Date'] });
-    try {
-      otherRuntimeFlush({ polled: { d: { price: 1 }, t: 1 } });
-      const swr = loadFreshRuntime();
-
-      setNow(2);
-      swr.set('polled', { price: 1 });
-      jest.advanceTimersByTime(10_000);
-
-      expect(readDiskStore().polled).toEqual({ d: { price: 1 }, t: 1 });
-      expect(swr.getWithTimestamp('polled')).toEqual({
-        data: { price: 1 },
-        updatedAt: 2,
-      });
-
-      setNow(3);
-      swr.set('polled', { price: 2 });
-      jest.advanceTimersByTime(10_000);
-
-      expect(readDiskStore().polled).toEqual({ d: { price: 2 }, t: 3 });
-    } finally {
-      jest.useRealTimers();
-    }
-  });
-
-  it('rebuilds the store from this copy when the disk JSON is unparseable', () => {
-    otherRuntimeFlush({
-      kept: { d: 'disk', t: 500 },
-      alsoKept: { d: 'disk2', t: 600 },
-    });
-    const swr = loadFreshRuntime();
-    expect(swr.get('kept')).toBe('disk');
-    // A write cut short by an app kill leaves exactly this half-written state.
-    fakeDiskGlobal.__swrFakeDisk = { [DISK_KEY]: '{"kept":{"d":"disk"' };
-    setNow(3000);
-    swr.set('fresh', 'local');
-    swr.flushNow();
-
-    const disk = readDiskStore();
-    expect(disk.fresh).toMatchObject({ d: 'local', t: 3000 });
-    // Writing only the pending key is the wholesale overwrite this prevents.
-    expect(disk.kept).toMatchObject({ d: 'disk', t: 500 });
-    expect(disk.alsoKept).toMatchObject({ d: 'disk2', t: 600 });
-  });
-
-  it('keeps the in-memory copy when a reload hits an unparseable disk', () => {
-    otherRuntimeFlush({ kept: { d: 'disk', t: 500 } });
-    const swr = loadFreshRuntime();
-    expect(swr.get('kept')).toBe('disk');
-    // Not dirty, so the reload has nothing to write back before rebuilding.
-    fakeDiskGlobal.__swrFakeDisk = { [DISK_KEY]: '{"kept":{"d":"disk"' };
-    swr.reloadFromStorage();
-
-    // Dropping it leaves the next flush nothing to repair the file with.
-    expect(swr.get('kept')).toBe('disk');
-
-    setNow(3000);
-    swr.set('fresh', 'local');
-    swr.flushNow();
-    const disk = readDiskStore();
-    expect(disk.kept).toMatchObject({ d: 'disk', t: 500 });
-    expect(disk.fresh).toMatchObject({ d: 'local', t: 3000 });
-  });
-
-  it('leaves an unparseable file alone when this copy has nothing to restore', () => {
-    const corrupt = '{"kept":{"d":"disk"';
-    fakeDiskGlobal.__swrFakeDisk = { [DISK_KEY]: corrupt };
-    // Hydrated after the corruption, so this copy cannot rebuild the file.
-    const swr = loadFreshRuntime();
-    expect(swr.get('kept')).toBeUndefined();
-
-    swr.reloadFromStorage();
-    swr.flushNow();
-
-    // A parseable empty file makes the runtime holding a full copy truncate
-    // itself instead of repairing.
-    expect(fakeDiskGlobal.__swrFakeDisk?.[DISK_KEY]).toBe(corrupt);
-  });
-
-  it('keeps entries in memory when the backend never persists anything', () => {
-    // Mirrors the extension stub: writes go nowhere, so this copy is the only one.
-    const swr = loadFreshRuntime();
-    swr.set('walletList', 'wallets');
-    swr.flushNow();
-    fakeDiskGlobal.__swrFakeDisk = {};
-
-    setNow(2000);
-    swr.set('tokenList', 'tokens');
-    swr.flushNow();
-    fakeDiskGlobal.__swrFakeDisk = {};
-
-    expect(swr.get('tokenList')).toBe('tokens');
-    // A pending-keys-only merge would drop everything not rewritten since.
-    expect(swr.get('walletList')).toBe('wallets');
-  });
-
-  it('keeps the in-memory copy when a reload finds no store at all', () => {
-    const swr = loadFreshRuntime();
-    swr.set('walletList', 'wallets');
-    swr.flushNow();
-    // Mirrors the extension stub: writes go nowhere, so this copy is the only one.
-    fakeDiskGlobal.__swrFakeDisk = {};
-
-    swr.reloadFromStorage();
-
-    // The reload runs on the perps first-frame path every 30s, so clearing
-    // here drops every namespace for the rest of the session.
-    expect(swr.get('walletList')).toBe('wallets');
-  });
-
-  it('carries the whole copy forward when the file becomes readable mid-repair', () => {
-    otherRuntimeFlush({
-      kept: { d: 'disk', t: 500 },
-      alsoKept: { d: 'disk2', t: 600 },
-    });
-    const swr = loadFreshRuntime();
-    expect(swr.get('kept')).toBe('disk');
-    fakeDiskGlobal.__swrFakeDisk = { [DISK_KEY]: '{"kept":{"d":"disk"' };
-
-    // Schedules the repair from this copy.
-    swr.reloadFromStorage();
-    // The other runtime republishes a small but parseable store before the
-    // repair lands, so the merge must not silently carry nothing forward.
-    otherRuntimeFlush({ theirs: { d: 'new', t: 700 } });
-    swr.flushNow();
-
-    const disk = readDiskStore();
-    expect(disk.theirs).toMatchObject({ d: 'new', t: 700 });
-    expect(disk.kept).toMatchObject({ d: 'disk', t: 500 });
-    expect(disk.alsoKept).toMatchObject({ d: 'disk2', t: 600 });
-    expect(swr.get('kept')).toBe('disk');
-  });
-
-  it('does not resurrect a removed key from the other runtime copy', () => {
-    otherRuntimeFlush({ doomed: { d: 'x', t: 1000 } });
-    const swr = loadFreshRuntime();
-    expect(swr.get('doomed')).toBe('x');
-    setNow(2000);
-    swr.remove('doomed');
-    swr.flushNow();
-    expect(readDiskStore().doomed).toBeUndefined();
-
-    // A rewrite that postdates the removal wins again.
-    otherRuntimeFlush({ doomed: { d: 'rewritten', t: 3000 } });
-    setNow(3500);
-    swr.set('unrelated', 1);
-    swr.flushNow();
-    expect(readDiskStore().doomed).toMatchObject({ d: 'rewritten' });
-  });
-
-  it('does not resurrect a key another runtime removed after hydration', () => {
-    otherRuntimeFlush({
-      doomed: { d: 'stale', t: 1000 },
-      kept: { d: 'existing', t: 1000 },
-    });
-    const staleRuntime = loadFreshRuntime();
-    expect(staleRuntime.get('doomed')).toBe('stale');
-
-    // The other runtime invalidates and flushes while this runtime still has
-    // the old entry in its JS heap.
-    otherRuntimeFlush({
-      kept: { d: 'existing', t: 1000 },
-    });
-    setNow(2000);
-    staleRuntime.set('unrelated', 'local-write');
-    staleRuntime.flushNow();
-
-    const disk = readDiskStore();
-    expect(disk.doomed).toBeUndefined();
-    expect(disk.kept).toMatchObject({ d: 'existing' });
-    expect(disk.unrelated).toMatchObject({ d: 'local-write', t: 2000 });
-  });
-
-  it('applies prefix removal against the disk copy as well', () => {
-    otherRuntimeFlush({
-      'walletList:a': { d: 1, t: 1000 },
-      'walletList:b': { d: 2, t: 1200 },
-      'kept:c': { d: 3, t: 1000 },
-    });
-    const swr = loadFreshRuntime();
-    setNow(2000);
-    swr.removeByPrefix('walletList:');
-    swr.flushNow();
-
-    const disk = readDiskStore();
-    expect(disk['walletList:a']).toBeUndefined();
-    expect(disk['walletList:b']).toBeUndefined();
-    expect(disk['kept:c']).toMatchObject({ d: 3 });
-  });
-
-  it('clearAll drops older disk entries but keeps ones written after it', () => {
-    otherRuntimeFlush({
-      older: { d: 1, t: 1000 },
-    });
-    const swr = loadFreshRuntime();
-    setNow(2000);
-    swr.clearAll();
-    otherRuntimeFlush({
-      ...readDiskStore(),
-      older: { d: 1, t: 1000 },
-      newer: { d: 2, t: 3000 },
-    });
-    swr.flushNow();
-
-    const disk = readDiskStore();
-    expect(disk.older).toBeUndefined();
-    expect(disk.newer).toMatchObject({ d: 2 });
-  });
-
-  it('enforces the entry cap on the merged result', () => {
-    const bulk: Record<string, { d: unknown; t: number }> = {};
-    for (let i = 0; i < SWR_CACHE_MAX_ENTRIES; i += 1) {
-      bulk[`bulk:${i}`] = { d: i, t: 10_000 + i };
-    }
-    otherRuntimeFlush(bulk);
-    const swr = loadFreshRuntime();
-    setNow(50_000);
-    swr.set('fresh', 'kept');
-    swr.flushNow();
-
-    const disk = readDiskStore();
-    expect(Object.keys(disk).length).toBe(SWR_CACHE_MAX_ENTRIES);
-    expect(disk.fresh).toMatchObject({ d: 'kept' });
-    // The oldest merged entry is the one evicted.
-    expect(disk['bulk:0']).toBeUndefined();
   });
 
   it('keeps the newest entries within count and total budgets', () => {
@@ -691,64 +470,6 @@ describe('SWR cache cross-runtime flush merge', () => {
     expect(SWR_CACHE_MAX_KEY_CHARS).toBe(20_000);
     expect(SWR_CACHE_MAX_KEY_UTF8_BYTES).toBe(59_000);
     expect(SWR_CACHE_MAX_SERIALIZED_CHARS).toBe(100 * 1024 * 1024);
-  });
-
-  it('bounds account scopes during hydration without evicting other namespaces', () => {
-    const accounts = Object.fromEntries(
-      Array.from({ length: 8 }, (_, i) => [
-        `accSelList:v1:hd-${i}:default:::1`,
-        { d: { walletId: `hd-${i}` }, t: i + 1 },
-      ]),
-    );
-    otherRuntimeFlush({ ...accounts, walletList: { d: 'keep', t: 0 } });
-    const swr = loadFreshRuntime();
-
-    expect(swr.get('accSelList:v1:hd-0:default:::1')).toBeUndefined();
-    expect(swr.get('accSelList:v1:hd-7:default:::1')).toEqual({
-      walletId: 'hd-7',
-    });
-    expect(swr.get('walletList')).toBe('keep');
-    swr.flushNow();
-    expect(
-      Object.keys(readDiskStore()).filter((key) =>
-        key.startsWith('accSelList:'),
-      ),
-    ).toHaveLength(SWR_ACCOUNT_SELECTOR_MAX_ENTRIES);
-  });
-
-  it('keeps recent account scopes bounded through updates and cross-runtime merges', () => {
-    const swr = loadFreshRuntime();
-    swr.set('walletList', 'keep');
-    for (let i = 0; i < 6; i += 1) {
-      setNow(1000 + i);
-      swr.set(`accSelList:v1:hd-${i}:default:::1`, i);
-    }
-    expect(swr.get('accSelList:v1:hd-2:default:::1')).toBeUndefined();
-    expect(swr.get('accSelList:v1:hd-3:default:::1')).toBe(3);
-    setNow(2000);
-    swr.set('accSelList:v1:hd-3:default:::1', 'refreshed');
-    swr.flushNow();
-    otherRuntimeFlush({
-      ...readDiskStore(),
-      'accSelList:v1:hd-0:default:::1': { d: 'stale', t: 500 },
-      'accSelList:v1:hd-6:default:::1': { d: 6, t: 3000 },
-      unrelated: { d: 'other runtime', t: 0 },
-    });
-    setNow(4000);
-    swr.set('unrelated-local', 'new');
-    swr.flushNow();
-
-    expect(swr.get('accSelList:v1:hd-0:default:::1')).toBeUndefined();
-    expect(swr.get('accSelList:v1:hd-4:default:::1')).toBeUndefined();
-    expect(swr.get('accSelList:v1:hd-3:default:::1')).toBe('refreshed');
-    expect(swr.get('accSelList:v1:hd-6:default:::1')).toBe(6);
-    expect(readDiskStore().walletList.d).toBe('keep');
-    expect(readDiskStore().unrelated.d).toBe('other runtime');
-    expect(
-      Object.keys(readDiskStore()).filter((key) =>
-        key.startsWith('accSelList:'),
-      ),
-    ).toHaveLength(SWR_ACCOUNT_SELECTOR_MAX_ENTRIES);
   });
 
   it('enforces the account serialized budget on writes and persistence pruning', () => {
@@ -939,476 +660,21 @@ describe('SWR cache cross-runtime flush merge', () => {
     });
     const swr = loadFreshRuntime();
     expect(swr.get(key)).toEqual(staleBook);
-    expect(fakeDiskGlobal.__swrFakeDiskReadCount).toBe(1);
+    expect(diskGlobal.__swrNamespaceReadCount).toBe(1);
 
+    // Stale enough to reload: the copy held here is dropped and read again.
     setNow(40_000);
     expect(getSnapshot(swr)?.data).toEqual(staleBook);
-    expect(fakeDiskGlobal.__swrFakeDiskReadCount).toBe(2);
+    expect(diskGlobal.__swrNamespaceReadCount).toBe(2);
 
+    // Inside the throttle window nothing is dropped, so nothing is re-read.
     setNow(40_001);
     expect(getSnapshot(swr)?.data).toEqual(staleBook);
-    expect(fakeDiskGlobal.__swrFakeDiskReadCount).toBe(2);
+    expect(diskGlobal.__swrNamespaceReadCount).toBe(2);
 
+    // An explicit reload is never throttled; the next read goes to disk.
     swr.reloadFromStorage();
-    expect(fakeDiskGlobal.__swrFakeDiskReadCount).toBe(3);
-  });
-});
-
-describe('SWR cache native incremental persistence', () => {
-  beforeEach(() => {
-    fakeDiskGlobal.__swrFakeDisk = {};
-    fakeDiskGlobal.__swrPatches = [];
-    fakeDiskGlobal.__swrUsePatch = true;
-    mockSWRCacheCapacityLimit.mockReset();
-  });
-
-  afterEach(() => {
-    fakeDiskGlobal.__swrUsePatch = false;
-  });
-
-  it('includes account eviction intents in the native patch', () => {
-    const swr = loadFreshRuntime();
-    const clock = jest.spyOn(Date, 'now');
-    try {
-      for (let i = 0; i < 5; i += 1) {
-        clock.mockReturnValue(1000 + i);
-        swr.set(`accSelList:v1:hd-${i}`, i);
-        swr.flushNow();
-      }
-      const disk = readDiskStore();
-      expect(Object.keys(disk).toSorted()).toEqual([
-        'accSelList:v1:hd-2',
-        'accSelList:v1:hd-3',
-        'accSelList:v1:hd-4',
-      ]);
-      expect(fakeDiskGlobal.__swrPatches?.at(-1)).toMatchObject({
-        removals: [['accSelList:v1:hd-1', 1004]],
-      });
-    } finally {
-      clock.mockRestore();
-    }
-  });
-
-  it('flushes only the changed entry instead of the hydrated store', () => {
-    otherRuntimeFlush({
-      existing: { d: 'x'.repeat(100_000), t: 1 },
-    });
-    const swr = loadFreshRuntime();
-    expect(swr.get('existing')).toHaveLength(100_000);
-
-    jest.spyOn(Date, 'now').mockReturnValue(2);
-    swr.set('changed', 'small');
-    swr.flushNow();
-
-    expect(fakeDiskGlobal.__swrPatches).toEqual([
-      {
-        removePrefixes: [],
-        removals: [],
-        updates: [['changed', JSON.stringify({ d: 'small', t: 2 })]],
-      },
-    ]);
-    expect(JSON.stringify(fakeDiskGlobal.__swrPatches)).not.toContain(
-      'x'.repeat(100),
-    );
-    expect(readDiskStore()).toEqual({
-      existing: { d: 'x'.repeat(100_000), t: 1 },
-      changed: { d: 'small', t: 2 },
-    });
-    jest.restoreAllMocks();
-  });
-
-  it('lets an unchanged result ride along with the next flush instead of starting one', () => {
-    jest.useFakeTimers({ doNotFake: ['Date'] });
-    const clock = jest.spyOn(Date, 'now');
-    try {
-      const swr = loadFreshRuntime();
-      clock.mockReturnValue(1);
-      swr.set('polled', { price: 1 });
-      swr.flushNow();
-      expect(fakeDiskGlobal.__swrPatches).toHaveLength(1);
-
-      clock.mockReturnValue(2);
-      swr.set('polled', { price: 1 });
-      jest.advanceTimersByTime(10_000);
-
-      expect(fakeDiskGlobal.__swrPatches).toHaveLength(1);
-      expect(readDiskStore().polled).toEqual({ d: { price: 1 }, t: 1 });
-      expect(swr.getWithTimestamp('polled')?.updatedAt).toBe(2);
-
-      clock.mockReturnValue(3);
-      swr.set('changed', 'value');
-      jest.advanceTimersByTime(10_000);
-
-      expect(fakeDiskGlobal.__swrPatches).toHaveLength(2);
-      expect(fakeDiskGlobal.__swrPatches?.[1]).toEqual({
-        removePrefixes: [],
-        removals: [],
-        updates: [
-          ['polled', JSON.stringify({ d: { price: 1 }, t: 2 })],
-          ['changed', JSON.stringify({ d: 'value', t: 3 })],
-        ],
-      });
-    } finally {
-      clock.mockRestore();
-      jest.useRealTimers();
-    }
-  });
-
-  it('drops invalid mutation keys without blocking a later flush', () => {
-    const swr = loadFreshRuntime();
-    const invalidKey = 'x'.repeat(SWR_CACHE_MAX_KEY_CHARS + 1);
-
-    swr.set(invalidKey, 'poison');
-    swr.remove(invalidKey);
-    swr.removeByPrefix(invalidKey);
-    swr.set('valid', 'persisted');
-    swr.flushNow();
-
-    const patches = fakeDiskGlobal.__swrPatches as Array<{
-      removePrefixes: Array<{ at: number; prefix: string }>;
-      removals: Array<readonly [string, number]>;
-      updates: Array<readonly [string, string]>;
-    }>;
-    expect(patches).toHaveLength(1);
-    expect(patches[0].removePrefixes).toEqual([]);
-    expect(patches[0].removals).toEqual([]);
-    expect(patches[0].updates.map(([key]) => key)).toEqual(['valid']);
-    expect(readDiskStore().valid?.d).toBe('persisted');
-    expect(mockSWRCacheCapacityLimit).toHaveBeenCalledWith(
-      expect.objectContaining({ reason: 'keyLimit' }),
-    );
-  });
-});
-
-describe('SWR cache native entry mirror', () => {
-  const entry = (data: unknown, t: number) => JSON.stringify({ d: data, t });
-  const emitNativeEntries = (
-    entries: Array<readonly [string, string | null]> | null,
-  ) => {
-    fakeDiskGlobal.__swrEntryListeners?.forEach((listener) =>
-      listener(entries),
-    );
-  };
-  const sentPatches = () =>
-    fakeDiskGlobal.__swrPatches as Array<{
-      removals: Array<readonly [string, number]>;
-      updates: Array<readonly [string, string]>;
-    }>;
-
-  beforeEach(() => {
-    fakeDiskGlobal.__swrFakeDisk = {};
-    fakeDiskGlobal.__swrFakeDiskReadCount = 0;
-    fakeDiskGlobal.__swrPatches = [];
-    fakeDiskGlobal.__swrUsePatch = false;
-    fakeDiskGlobal.__swrUseEntries = true;
-    fakeDiskGlobal.__swrDeclareEmptyEntries = false;
-    fakeDiskGlobal.__swrEntries = new Map();
-    fakeDiskGlobal.__swrEntryListeners = new Set();
-    mockSWRCacheCapacityLimit.mockReset();
-    jest.spyOn(Date, 'now').mockReturnValue(10);
-  });
-
-  afterEach(() => {
-    fakeDiskGlobal.__swrUseEntries = false;
-    fakeDiskGlobal.__swrDeclareEmptyEntries = false;
-    jest.restoreAllMocks();
-  });
-
-  it('ignores a wrapper that declares the capabilities but implements none', () => {
-    // The runtime storage wrapper always declares the optional methods and
-    // forwards them with `?.`, so only a real answer may enable this path.
-    fakeDiskGlobal.__swrUseEntries = false;
-    fakeDiskGlobal.__swrDeclareEmptyEntries = true;
-    otherRuntimeFlush({ onDisk: { d: 'value', t: 1 } });
-    const swr = loadFreshRuntime();
-
-    // Hydrated by reading the store, and nothing subscribed to the mirror.
-    expect(swr.get('onDisk')).toBe('value');
-    expect(fakeDiskGlobal.__swrFakeDiskReadCount).toBeGreaterThan(0);
-    expect(fakeDiskGlobal.__swrEntryListeners?.size ?? 0).toBe(0);
-  });
-
-  it('hydrates from the mirror entries without reading a whole store', () => {
-    fakeDiskGlobal.__swrEntries?.set('first', entry('one', 1));
-    fakeDiskGlobal.__swrEntries?.set('second', entry({ nested: true }, 2));
-    const swr = loadFreshRuntime();
-
-    expect(swr.get('first')).toBe('one');
-    expect(swr.getWithTimestamp('second')).toEqual({
-      data: { nested: true },
-      updatedAt: 2,
-    });
-    expect(fakeDiskGlobal.__swrFakeDiskReadCount).toBe(0);
-    expect(fakeDiskGlobal.__swrEntryListeners?.size).toBe(1);
-  });
-
-  it('flushes only changed entries and adopts what bg reports back', () => {
-    fakeDiskGlobal.__swrEntries?.set('existing', entry('x'.repeat(10_000), 1));
-    const swr = loadFreshRuntime();
-    expect(swr.get('existing')).toHaveLength(10_000);
-
-    swr.set('changed', 'small');
-    swr.flushNow();
-
-    expect(sentPatches()).toEqual([
-      {
-        removePrefixes: [],
-        removals: [],
-        updates: [['changed', entry('small', 10)]],
-      },
-    ]);
-    expect(fakeDiskGlobal.__swrFakeDiskReadCount).toBe(0);
-
-    emitNativeEntries([
-      ['changed', entry('small', 10)],
-      ['fromBg', entry('bg', 11)],
-    ]);
-    expect(swr.get('fromBg')).toBe('bg');
-    expect(swr.get('changed')).toBe('small');
-
-    emitNativeEntries([['changed', null]]);
-    expect(swr.get('changed')).toBeUndefined();
-    expect(swr.get('existing')).toHaveLength(10_000);
-  });
-
-  it('keeps a pending local write over an older canonical entry', () => {
-    const swr = loadFreshRuntime();
-    swr.set('key', 'local');
-
-    emitNativeEntries([['key', entry('older-bg', 4)]]);
-    expect(swr.getWithTimestamp('key')).toEqual({
-      data: 'local',
-      updatedAt: 10,
-    });
-
-    emitNativeEntries([['key', entry('newer-bg', 12)]]);
-    expect(swr.getWithTimestamp('key')).toEqual({
-      data: 'newer-bg',
-      updatedAt: 12,
-    });
-    swr.flushNow();
-    expect(sentPatches()).toEqual([]);
-  });
-
-  it('does not resurrect a locally removed entry from an older canonical entry', () => {
-    fakeDiskGlobal.__swrEntries?.set('key', entry('seeded', 1));
-    const swr = loadFreshRuntime();
-    expect(swr.get('key')).toBe('seeded');
-
-    swr.remove('key');
-    emitNativeEntries([['key', entry('stale-bg', 3)]]);
-    expect(swr.get('key')).toBeUndefined();
-
-    emitNativeEntries([['key', entry('fresh-bg', 12)]]);
-    expect(swr.get('key')).toBe('fresh-bg');
-  });
-
-  // A wallet removal on iOS/Android: bg deletes an entry that main wrote and
-  // has not flushed yet, then main receives the removal event.
-  describe('a key bg deletes while this runtime holds a pending write', () => {
-    const key = 'accSelValues:v1:hd-1';
-    const bgDeletes = () => {
-      fakeDiskGlobal.__swrEntries?.delete(key);
-      emitNativeEntries([[key, null]]);
-    };
-
-    it('stays deleted when the removal event arrives before the flush', () => {
-      fakeDiskGlobal.__swrEntries?.set(key, entry('earlier', 1));
-      const swr = loadFreshRuntime();
-      swr.set(key, 'pending');
-
-      bgDeletes();
-      // The pending write outranks the deletion, which carries no timestamp.
-      expect(swr.get(key)).toBe('pending');
-
-      swr.remove(key);
-      swr.flushNow();
-      expect(swr.get(key)).toBeUndefined();
-      expect(fakeDiskGlobal.__swrEntries?.has(key)).toBe(false);
-      expect(sentPatches()).toEqual([
-        { removePrefixes: [], removals: [[key, 10]], updates: [] },
-      ]);
-    });
-
-    it('is deleted again when the pending write flushed first', () => {
-      const swr = loadFreshRuntime();
-      swr.set(key, 'pending');
-
-      bgDeletes();
-      swr.flushNow();
-      // Without the removal event this runtime restores the deleted key.
-      expect(fakeDiskGlobal.__swrEntries?.get(key)).toBe(entry('pending', 10));
-
-      swr.remove(key);
-      swr.flushNow();
-      expect(fakeDiskGlobal.__swrEntries?.has(key)).toBe(false);
-    });
-
-    it('drops every pending write under a removed prefix', () => {
-      const swr = loadFreshRuntime();
-      swr.set(key, 'one');
-      swr.set('accSelValues:v1:hd-2', 'two');
-      swr.set('walletList:v1:0', 'kept');
-
-      swr.removeByPrefix('accSelValues:');
-      swr.flushNow();
-      expect(sentPatches()).toEqual([
-        {
-          removePrefixes: [{ prefix: 'accSelValues:', at: 10 }],
-          removals: [],
-          updates: [['walletList:v1:0', entry('kept', 10)]],
-        },
-      ]);
-    });
-  });
-
-  it('rebuilds from a re-primed mirror while keeping unflushed writes', () => {
-    fakeDiskGlobal.__swrEntries?.set('old', entry('old', 1));
-    const swr = loadFreshRuntime();
-    expect(swr.get('old')).toBe('old');
-    swr.set('pending', 'local');
-
-    fakeDiskGlobal.__swrEntries = new Map([['fresh', entry('fresh', 2)]]);
-    emitNativeEntries(null);
-
-    expect(swr.get('old')).toBeUndefined();
-    expect(swr.get('fresh')).toBe('fresh');
-    expect(swr.get('pending')).toBe('local');
-    swr.flushNow();
-    expect(sentPatches()).toEqual([
-      {
-        removePrefixes: [],
-        removals: [],
-        updates: [['pending', entry('local', 10)]],
-      },
-    ]);
-  });
-
-  it('reloads by flushing pending writes only', () => {
-    fakeDiskGlobal.__swrEntries?.set('seeded', entry('seeded', 1));
-    const swr = loadFreshRuntime();
-    swr.set('changed', 'value');
-
-    swr.reloadFromStorage();
-
-    expect(sentPatches()).toHaveLength(1);
-    expect(swr.get('seeded')).toBe('seeded');
-    expect(swr.get('changed')).toBe('value');
-    expect(fakeDiskGlobal.__swrFakeDiskReadCount).toBe(0);
-  });
-});
-
-describe('SWR cache slow-op log', () => {
-  let perfSpy: jest.SpyInstance<number, []>;
-
-  // Every clock read advances by `stepMs`, so each timed phase "takes" it.
-  const tickPerfClock = (stepMs: number) => {
-    let now = 0;
-    perfSpy.mockImplementation(() => {
-      now += stepMs;
-      return now;
-    });
-  };
-
-  beforeEach(() => {
-    fakeDiskGlobal.__swrFakeDisk = {};
-    fakeDiskGlobal.__swrPatches = [];
-    fakeDiskGlobal.__swrUsePatch = true;
-    mockSWRCacheSlowOp.mockReset();
-    jest.spyOn(Date, 'now').mockReturnValue(2);
-    perfSpy = jest.spyOn(globalThis.performance, 'now');
-  });
-
-  afterEach(() => {
-    fakeDiskGlobal.__swrUsePatch = false;
-    jest.restoreAllMocks();
-  });
-
-  it('reports a slow flush with the store size and per-phase timings', () => {
-    otherRuntimeFlush({ existing: { d: 'x'.repeat(1000), t: 1 } });
-    const storeChars = fakeDiskGlobal.__swrFakeDisk?.[DISK_KEY]?.length;
-    const swr = loadFreshRuntime();
-    swr.set('changed', 'small');
-
-    tickPerfClock(30);
-    swr.flushNow();
-
-    expect(mockSWRCacheSlowOp).toHaveBeenCalledTimes(1);
-    expect(mockSWRCacheSlowOp).toHaveBeenCalledWith({
-      op: 'flush',
-      durationMs: 120,
-      storeChars,
-      entryCount: 2,
-      readMs: 30,
-      pruneMs: 30,
-      patchMs: 30,
-      adoptMs: 30,
-      updatedKeyCount: 1,
-      patchChars: JSON.stringify({ d: 'small', t: 2 }).length,
-    });
-  });
-
-  it('attaches Hermes heap deltas to a slow flush when the runtime exposes them', () => {
-    const hermesGlobal = globalThis as { HermesInternal?: unknown };
-    let sample = 0;
-    hermesGlobal.HermesInternal = {
-      getInstrumentedStats: () => {
-        sample += 1;
-        const after = sample > 1;
-        return {
-          js_numGCs: after ? 12 : 10,
-          js_gcTime: after ? 1.53 : 1.5,
-          js_heapSize: after ? 160 : 100,
-          js_totalAllocatedBytes: after ? 1400 : 1000,
-        };
-      },
-    };
-    try {
-      const swr = loadFreshRuntime();
-      swr.set('changed', 'small');
-
-      tickPerfClock(30);
-      swr.flushNow();
-
-      expect(mockSWRCacheSlowOp).toHaveBeenCalledWith(
-        expect.objectContaining({
-          op: 'flush',
-          heapBytes: 160,
-          allocatedBytes: 400,
-          gcCount: 2,
-          gcMs: 30,
-        }),
-      );
-    } finally {
-      delete hermesGlobal.HermesInternal;
-    }
-  });
-
-  it('stays silent while a flush fits the long-task budget', () => {
-    const swr = loadFreshRuntime();
-    swr.set('changed', 'small');
-
-    tickPerfClock(10);
-    swr.flushNow();
-
-    expect(readDiskStore().changed?.d).toBe('small');
-    expect(mockSWRCacheSlowOp).not.toHaveBeenCalled();
-  });
-
-  it('reports a slow reload on its own, without a clean flush', () => {
-    otherRuntimeFlush({ existing: { d: 'value', t: 1 } });
-    const storeChars = fakeDiskGlobal.__swrFakeDisk?.[DISK_KEY]?.length;
-    const swr = loadFreshRuntime();
-
-    tickPerfClock(60);
-    swr.reloadFromStorage();
-
-    expect(mockSWRCacheSlowOp).toHaveBeenCalledTimes(1);
-    expect(mockSWRCacheSlowOp).toHaveBeenCalledWith({
-      op: 'reload',
-      durationMs: 60,
-      storeChars,
-      entryCount: 1,
-    });
+    expect(swr.get(key)).toEqual(staleBook);
+    expect(diskGlobal.__swrNamespaceReadCount).toBe(3);
   });
 });

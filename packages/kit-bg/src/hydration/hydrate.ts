@@ -60,7 +60,6 @@ import {
   primeColdStartCacheMap,
   readAllColdStartEntriesFromIdb,
   readColdStartCriticalEntriesFromIdb,
-  readColdStartSWREntriesFromIdb,
   resetColdStartCache,
   writeColdStartMeta,
 } from '@onekeyhq/shared/src/storage/instance/webColdStartStorage';
@@ -253,31 +252,6 @@ export function countNonMetaEntries(entries: Map<string, unknown>): number {
 }
 
 /**
- * Load the SWR records and merge them into the map, off the ready gate.
- *
- * L3 has no mount-time signal — swrCacheUtils reads the primed map lazily
- * and primeColdStartCacheMap tells it when the entry set changed — so these
- * records do not belong inside the hydration budget. Keeping them out means
- * a slow IndexedDB makes the cache land late instead of not at all, which
- * is what the all-or-nothing timeout used to do to every layer at once.
- */
-function schedulePrimeSWREntries(allKeys: readonly string[]): void {
-  if (allKeys.length === 0) {
-    return;
-  }
-  void (async () => {
-    try {
-      const swrEntries = await readColdStartSWREntriesFromIdb(allKeys);
-      if (swrEntries.size > 0) {
-        primeColdStartCacheMap(swrEntries);
-      }
-    } catch {
-      // Best effort: a failed late read is an ordinary cache miss.
-    }
-  })();
-}
-
-/**
  * Load the UI snapshot namespaces, off the ready gate.
  *
  * Nothing reads these at boot: a snapshot cache is read by the page that owns
@@ -363,7 +337,6 @@ const promise: Promise<void> = (async () => {
           ]);
           setGlobal('__ONEKEY_CTX_ATOM_SNAPSHOT__', safeCtxSnapshot);
         }
-        schedulePrimeSWREntries(result.allKeys);
       }
     } catch {
       // Dev-only best effort: keep the old skipped behavior if IDB is missing
@@ -474,7 +447,7 @@ const promise: Promise<void> = (async () => {
     }
   }
 
-  // Synchronous-read backing store for swrCacheUtils + coldStartCacheStorage.
+  // Synchronous-read backing store for coldStartCacheStorage.
   primeColdStartCacheMap(entries);
 
   // Refresh the build-hash marker (first install: writes it for the first
@@ -500,10 +473,6 @@ const promise: Promise<void> = (async () => {
     parseL2CtxSnapshot(entries),
   );
   setGlobal('__ONEKEY_CTX_ATOM_SNAPSHOT__', ctxSnapshot);
-
-  // L3: loaded after the gate, then merged into the same map. See
-  // schedulePrimeSWREntries.
-  schedulePrimeSWREntries(swrKeys);
 
   status = 'success';
   didHydrate = Object.keys(ctxSnapshot).length > 0;
