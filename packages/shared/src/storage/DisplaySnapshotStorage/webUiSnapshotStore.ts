@@ -190,7 +190,24 @@ export function flushUiSnapshotStoreNow(): Promise<void> {
         failedNamespaces.push(...namespaces);
       }
     }
-    if (database && writes.length > 0) {
+    // A clear that failed runs again before the next batch's writes, and the
+    // range takes everything under the namespace with it. So the writes this
+    // batch holds for that namespace wait for the retry too: persisting them
+    // now would only hand the retry something else to delete, and they would
+    // not be queued any more to come back.
+    let pendingWrites = writes;
+    if (database && failedNamespaces.length > 0) {
+      const blocked = new Set(failedNamespaces);
+      pendingWrites = [];
+      writes.forEach((write) => {
+        if (blocked.has(namespaceOfRecordKey(write.key))) {
+          failedKeys.push(write.key);
+        } else {
+          pendingWrites.push(write);
+        }
+      });
+    }
+    if (database && pendingWrites.length > 0) {
       try {
         const transaction = await database.createBucketTransaction(
           [RECORD_STORE],
@@ -198,11 +215,11 @@ export function flushUiSnapshotStoreNow(): Promise<void> {
         );
         const store = transaction.objectStore(RECORD_STORE);
         await Promise.all(
-          writes.map(({ key, value }) => store.put(value, key)),
+          pendingWrites.map(({ key, value }) => store.put(value, key)),
         );
         await transaction.done;
       } catch {
-        failedKeys.push(...writes.map(({ key }) => key));
+        failedKeys.push(...pendingWrites.map(({ key }) => key));
       }
     }
     if (database && removals.length > 0) {

@@ -37,6 +37,8 @@ let operations: string[] = [];
 /** Stands in for an exhausted quota: only the transaction that asks to run
  *  when storage is full gets through. */
 let quotaRejectsWrites = false;
+/** Stands in for a namespace range delete that aborts. */
+let rangeDeleteShouldFail = false;
 let releaseTransaction: (() => void) | undefined;
 
 jest.mock('../../IndexedDBPromised', () => ({
@@ -72,6 +74,11 @@ jest.mock('../../IndexedDBPromised', () => ({
             return Promise.resolve();
           },
           delete: (key: unknown) => {
+            if (rangeDeleteShouldFail && typeof key !== 'string') {
+              return Promise.reject(
+                new OneKeyLocalError('range delete aborted'),
+              );
+            }
             deleteCalls.push(describeDeleteTarget(key));
             operations.push(`delete:${describeDeleteTarget(key)}`);
             return Promise.resolve();
@@ -113,6 +120,7 @@ describe('webUiSnapshotStore write-behind', () => {
     deleteCalls = [];
     operations = [];
     quotaRejectsWrites = false;
+    rangeDeleteShouldFail = false;
     releaseTransaction = undefined;
     __resetWebUiSnapshotStoreForTests();
   });
@@ -251,6 +259,42 @@ describe('webUiSnapshotStore write-behind', () => {
     await flushUiSnapshotStoreNow();
 
     expect(operations).toEqual([
+      'delete:range:swr-wallet-list:..swr-wallet-list;',
+      'put:swr-wallet-list:d:wallet-2',
+      'put:swr-wallet-list:manifest',
+    ]);
+  });
+
+  it('holds back the writes of a namespace whose clear failed', async () => {
+    openShouldFail = false;
+    rangeDeleteShouldFail = true;
+    const cleared = createWebUiSnapshotSyncBackend('swr-wallet-list');
+    const untouched = createWebUiSnapshotSyncBackend('swr-market-token-detail');
+    cleared.clearNamespace();
+    // Queued after the clear, so the retry's range delete would take it.
+    cleared.commit({
+      entries: [{ key: 'd:wallet-2', value: 'kept' }],
+      commitMarker: { key: 'manifest', value: 'm1' },
+    });
+    untouched.commit({
+      entries: [{ key: 'd:btc', value: 'unrelated' }],
+      commitMarker: { key: 'manifest', value: 'm1' },
+    });
+
+    await flushUiSnapshotStoreNow();
+
+    // The other namespace is not held up by it.
+    expect(putCalls.map(({ key }) => key).toSorted()).toEqual([
+      'swr-market-token-detail:d:btc',
+      'swr-market-token-detail:manifest',
+    ]);
+
+    rangeDeleteShouldFail = false;
+    jest.advanceTimersByTime(FLUSH_DEBOUNCE_MS);
+    await settle();
+
+    // The clear lands first, then the writes it was going to delete.
+    expect(operations.slice(-3)).toEqual([
       'delete:range:swr-wallet-list:..swr-wallet-list;',
       'put:swr-wallet-list:d:wallet-2',
       'put:swr-wallet-list:manifest',
