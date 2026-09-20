@@ -338,6 +338,27 @@ describe('PrimeUserInfoMoreButton manage subscription', () => {
     expect(mockToastMessage).not.toHaveBeenCalled();
   });
 
+  it('does not use the channel-less Apple fallback on native iOS', () => {
+    mockPlatformEnv.isNative = true;
+    mockPlatformEnv.isNativeIOS = true;
+    mockUser.primeSubscription = {
+      isActive: true,
+      subscriptions: [
+        { managementUrl: 'https://apps.apple.com/account/subscriptions' },
+      ],
+    };
+    render(<PrimeUserInfoMoreButton />);
+
+    fireEvent.click(
+      screen.getByTestId(PrimeTestIDs.manageSubscriptionMenuItem),
+    );
+
+    expect(mockOpenUrlExternal).not.toHaveBeenCalled();
+    expect(mockToastMessage).toHaveBeenCalledWith({
+      title: ETranslations.prime_subscription_management_unsupported__msg,
+    });
+  });
+
   it('shows the entry and explains when only a redemption subscription exists', () => {
     mockUser.subscriptionManageUrl = 'https://example.com/stale-manage';
     render(<PrimeUserInfoMoreButton />);

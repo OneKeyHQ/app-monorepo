@@ -1,5 +1,6 @@
 /* cspell:ignore Infini infini */
 import { APPLE_SUBSCRIPTION_MANAGEMENT_URL } from '@onekeyhq/shared/src/consts/primeConsts';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type {
   IPrimeSubscriptionInfo,
   IPrimeUserInfo,
@@ -94,9 +95,9 @@ export function getPrimeSubscriptionManagementTarget({
           managementUrl = url;
         }
       }
-    } else if (url === APPLE_SUBSCRIPTION_MANAGEMENT_URL) {
-      // Apple records may omit the channel. Only recognize the canonical
-      // store URL so legacy Infini marketing URLs still use their own flow.
+    } else if (platformEnv.isMas && url === APPLE_SUBSCRIPTION_MANAGEMENT_URL) {
+      // Only MAS builds infer missing channels from Apple's canonical URL.
+      // Other platforms and legacy Infini records keep their existing flow.
       appleManagementUrl = url;
     }
   }

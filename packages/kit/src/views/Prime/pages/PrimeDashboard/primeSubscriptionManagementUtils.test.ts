@@ -1,13 +1,54 @@
 /* cspell:ignore Infini infini */
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+
 import {
   getPrimeSubscriptionManagementSourceKey,
   getPrimeSubscriptionManagementTarget,
   hasRevenueCatSubscriptionChannel,
 } from './primeSubscriptionManagementUtils';
 
+jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
+  __esModule: true,
+  default: { isMas: false, isDesktopMac: false },
+}));
+
 describe('primeSubscriptionManagementUtils', () => {
+  beforeEach(() => {
+    platformEnv.isMas = true;
+    platformEnv.isDesktopMac = true;
+  });
+
+  it.each([
+    ['a direct macOS download', true],
+    ['another platform', false],
+  ] as const)(
+    'does not infer a channel-less Apple subscription on %s',
+    (_platform, isDesktopMac) => {
+      platformEnv.isMas = false;
+      platformEnv.isDesktopMac = isDesktopMac;
+      expect(
+        getPrimeSubscriptionManagementTarget({
+          userInfo: {
+            primeSubscription: {
+              isActive: true,
+              expiresAt: Date.now() + 60_000,
+              subscriptions: [
+                {
+                  managementUrl: 'https://apps.apple.com/account/subscriptions',
+                },
+              ],
+            },
+          },
+        }),
+      ).toEqual({
+        type: 'unavailable',
+        reason: 'missing-channel-and-management-url',
+      });
+    },
+  );
+
   it.each([undefined, '', ' '])(
-    'recognizes the canonical Apple management URL with channel %s',
+    'recognizes the canonical Apple management URL on MAS with channel %s',
     (channel) => {
       expect(
         getPrimeSubscriptionManagementTarget({
@@ -110,6 +151,8 @@ describe('primeSubscriptionManagementUtils', () => {
   });
 
   it('routes a non-Infini subscription with a management URL externally', () => {
+    platformEnv.isMas = false;
+    platformEnv.isDesktopMac = false;
     expect(
       getPrimeSubscriptionManagementTarget({
         userInfo: {
