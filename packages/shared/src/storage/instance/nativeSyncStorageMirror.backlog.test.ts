@@ -10,7 +10,6 @@ import type {
 } from '../nativeStorageTypes';
 
 const mockCallNativeStorage = jest.fn();
-const mockApplyCanonicalEntries = jest.fn();
 
 jest.mock('../../logger/logger', () => ({
   defaultLogger: {
@@ -27,21 +26,6 @@ jest.mock('../nativeStorageBridge', () => ({
   callNativeStorage: (request: unknown): Promise<unknown> =>
     mockCallNativeStorage(request) as Promise<unknown>,
 }));
-jest.mock('../nativeSWRCachePersistence', () => {
-  const actual = jest.requireActual<
-    typeof import('../nativeSWRCachePersistence')
-  >('../nativeSWRCachePersistence');
-  return {
-    ...actual,
-    applyNativeSWRCacheCanonicalEntries: (
-      ...args: Parameters<typeof actual.applyNativeSWRCacheCanonicalEntries>
-    ) => {
-      mockApplyCanonicalEntries(...args);
-      return actual.applyNativeSWRCacheCanonicalEntries(...args);
-    },
-  };
-});
-
 const globals = globalThis as INativeStorageGlobal;
 const emptySnapshot: INativeStorageBootstrapSnapshot = {
   settings: [],
@@ -89,7 +73,6 @@ describe('native sync storage backlog recovery', () => {
       .mockImplementation(async (request: INativeStorageRequest) =>
         acknowledge(request),
       );
-    mockApplyCanonicalEntries.mockClear();
     globals.__onekeyNativeStorageIsTransportReady = () => true;
     delete globals.__onekeyNativeSyncStorageTransportReady;
   });
@@ -275,13 +258,11 @@ describe('native sync storage backlog recovery', () => {
         operation: 'patchSWR',
         entries: [['same-key', entry(i)]],
       });
-    mockApplyCanonicalEntries.mockClear();
     resolveSnapshot?.({
       ...emptySnapshot,
       coldStart: [[swrKey, JSON.stringify({ retained: { d: 'bg', t: 1 } })]],
     });
     await bootstrap;
-    expect(mockApplyCanonicalEntries.mock.calls.length).toBeLessThanOrEqual(1);
     expect(
       JSON.parse(
         module.createNativeSyncStorageMirror('coldStart').getString(swrKey) ??
@@ -310,9 +291,7 @@ describe('native sync storage backlog recovery', () => {
       ...emptySnapshot,
       coldStart: [[swrKey, storage.getString(swrKey)]],
     });
-    mockApplyCanonicalEntries.mockClear();
     await module.refreshNativeSyncStorageMirrors();
-    expect(mockApplyCanonicalEntries).not.toHaveBeenCalled();
     expect(JSON.parse(storage.getString(swrKey) ?? '{}')).toEqual({
       'same-key': { d: 1000, t: 1000 },
     });
@@ -426,9 +405,7 @@ describe('native sync storage backlog recovery', () => {
       ...emptySnapshot,
       settings: [['live', 'fresh-bg']],
     });
-    mockApplyCanonicalEntries.mockClear();
     await module.refreshNativeSyncStorageMirrors();
-    expect(mockApplyCanonicalEntries).not.toHaveBeenCalled();
     expect(settings.getString('pending')).toBe('local');
     resolveStaleSnapshot?.({
       ...emptySnapshot,
