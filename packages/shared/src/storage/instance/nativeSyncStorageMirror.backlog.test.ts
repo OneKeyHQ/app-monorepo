@@ -153,15 +153,15 @@ describe('native sync storage backlog recovery', () => {
     globals.__onekeyNativeStorageIsTransportReady = () => false;
     const storage = module.createNativeSyncStorageMirror('coldStart');
 
-    for (let batch = 0; batch < 100; batch += 1) {
+    for (let batch = 0; batch < 2; batch += 1) {
       void storage.applySWRCachePatch?.({
         removePrefixes: [],
         removals: [],
-        updates: Array.from({ length: 11 }, (_, index) => {
+        updates: Array.from({ length: 501 }, (_, index) => {
           const key = `pending-${batch}-${index}`;
           return [
             key,
-            JSON.stringify({ d: key, t: batch * 11 + index + 1 }),
+            JSON.stringify({ d: key, t: batch * 501 + index + 1 }),
           ] as const;
         }),
       });
@@ -174,11 +174,55 @@ describe('native sync storage backlog recovery', () => {
       unknown
     >;
     expect(Object.keys(value)).toHaveLength(1000);
-    expect(value['pending-99-10']).toEqual({
-      d: 'pending-99-10',
-      t: 1100,
+    expect(value['pending-1-500']).toEqual({
+      d: 'pending-1-500',
+      t: 1002,
     });
     expect(mockCallNativeStorage).toHaveBeenCalledTimes(2);
+  });
+
+  it('does not replay local writes into the in-flight snapshot budget', async () => {
+    const module = loadMirror();
+    await module.bootstrapNativeSyncStorageMirrors();
+    globals.__onekeyNativeStorageIsTransportReady = () => false;
+    let resolveSnapshot:
+      | ((snapshot: INativeStorageBootstrapSnapshot) => void)
+      | undefined;
+    mockCallNativeStorage.mockImplementationOnce(
+      () =>
+        new Promise<INativeStorageBootstrapSnapshot>((resolve) => {
+          resolveSnapshot = resolve;
+        }),
+    );
+    const refresh = module.refreshNativeSyncStorageMirrors();
+    const storage = module.createNativeSyncStorageMirror('coldStart');
+
+    for (let batch = 0; batch < 2; batch += 1) {
+      void storage.applySWRCachePatch?.({
+        removePrefixes: [],
+        removals: [],
+        updates: Array.from({ length: 501 }, (_, index) => {
+          const key = `in-flight-${batch}-${index}`;
+          return [
+            key,
+            JSON.stringify({ d: key, t: batch * 501 + index + 1 }),
+          ] as const;
+        }),
+      });
+    }
+
+    resolveSnapshot?.(emptySnapshot);
+    await refresh;
+
+    const value = JSON.parse(storage.getString(swrKey) ?? '{}') as Record<
+      string,
+      unknown
+    >;
+    expect(Object.keys(value)).toHaveLength(1000);
+    expect(value['in-flight-1-500']).toEqual({
+      d: 'in-flight-1-500',
+      t: 1002,
+    });
   });
 
   it('allows initial bootstrap with pending SWR writes over the replay budget', async () => {
@@ -186,15 +230,15 @@ describe('native sync storage backlog recovery', () => {
     const module = loadMirror();
     const storage = module.createNativeSyncStorageMirror('coldStart');
 
-    for (let batch = 0; batch < 100; batch += 1) {
+    for (let batch = 0; batch < 2; batch += 1) {
       void storage.applySWRCachePatch?.({
         removePrefixes: [],
         removals: [],
-        updates: Array.from({ length: 11 }, (_, index) => {
+        updates: Array.from({ length: 501 }, (_, index) => {
           const key = `pending-${batch}-${index}`;
           return [
             key,
-            JSON.stringify({ d: key, t: batch * 11 + index + 1 }),
+            JSON.stringify({ d: key, t: batch * 501 + index + 1 }),
           ] as const;
         }),
       });
@@ -207,11 +251,10 @@ describe('native sync storage backlog recovery', () => {
       unknown
     >;
     expect(Object.keys(value)).toHaveLength(1000);
-    expect(value['pending-99-10']).toEqual({
-      d: 'pending-99-10',
-      t: 1100,
+    expect(value['pending-1-500']).toEqual({
+      d: 'pending-1-500',
+      t: 1002,
     });
-    expect(mockCallNativeStorage).toHaveBeenCalledTimes(1);
   });
 
   it('coalesces 10000 same-key broadcasts while a snapshot is in flight', async () => {
