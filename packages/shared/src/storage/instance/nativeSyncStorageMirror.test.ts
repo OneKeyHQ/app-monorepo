@@ -567,13 +567,14 @@ describe('nativeSyncStorageMirror', () => {
           return { settings: [], coldStart: [], devSettings: [] };
         }
         if (request.operation === 'patchSWR' && request.patch) {
+          const patch = request.patch;
           return {
             store: request.store,
             operation: 'patchSWR',
             entries: [
-              ...request.patch.removals.map(([key]) => [key, null] as const),
-              ...request.patch.updates.filter(([key, serialized]) => {
-                const removedAt = request.patch.removals.find(
+              ...patch.removals.map(([key]) => [key, null] as const),
+              ...patch.updates.filter(([key, serialized]) => {
+                const removedAt = patch.removals.find(
                   ([removedKey]) => removedKey === key,
                 )?.[1];
                 const timestamp = (JSON.parse(serialized) as { t: number }).t;
