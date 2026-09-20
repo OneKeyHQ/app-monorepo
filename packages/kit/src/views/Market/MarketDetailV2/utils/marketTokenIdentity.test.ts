@@ -54,13 +54,22 @@ describe('isMatchingMarketTokenIdentity', () => {
     ).toBe(false);
   });
 
-  it('matches a CoinGecko placeholder network with BTC', () => {
+  it('matches a CoinGecko id with the same id on a concrete network', () => {
     expect(
       isMatchingMarketTokenIdentity(
-        { address: '', networkId: 'coingecko' },
+        { address: 'bitcoin', networkId: 'coingecko' },
         { tokenAddress: 'bitcoin', networkId: btcNetworkId, isNative: false },
       ),
     ).toBe(true);
+  });
+
+  it('does not match a placeholder ticker with a leftover native coin', () => {
+    expect(
+      isMatchingMarketTokenIdentity(
+        { address: 'ethereum', networkId: 'coingecko' },
+        { tokenAddress: '', networkId: btcNetworkId, isNative: true },
+      ),
+    ).toBe(false);
   });
 
   it('does not match an empty placeholder preview with an empty native detail', () => {

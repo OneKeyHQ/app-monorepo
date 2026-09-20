@@ -105,17 +105,23 @@ export function isMatchingMarketTokenIdentity(
       normalizedLeft && normalizedRight && normalizedLeft === normalizedRight,
     );
   }
+  const leftNetworkId = normalizeMarketNetworkId(token.networkId);
+  const rightNetworkId = normalizeMarketNetworkId(identity.networkId);
+  const sameConcreteNetwork =
+    leftNetworkId.includes('--') &&
+    rightNetworkId.includes('--') &&
+    leftNetworkId === rightNetworkId;
+
   if (!leftContract && !rightContract) {
-    if (!left && !right) {
-      const leftId = normalizeMarketNetworkId(token.networkId);
-      const rightId = normalizeMarketNetworkId(identity.networkId);
-      return (
-        leftId.includes('--') && rightId.includes('--') && leftId === rightId
-      );
+    if (left && right) {
+      return left.toLowerCase() === right.toLowerCase();
     }
-    return !left || !right || left.toLowerCase() === right.toLowerCase();
+    // Empty addresses only match on the same concrete chain. A CoinGecko
+    // placeholder plus a leftover native detail must not look like one token.
+    return sameConcreteNetwork;
   }
   return (
+    sameConcreteNetwork &&
     native &&
     (!leftContract || isZeroHexAddress(left)) &&
     (!rightContract || isZeroHexAddress(right))
