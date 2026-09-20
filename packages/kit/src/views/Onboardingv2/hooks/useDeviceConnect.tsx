@@ -19,7 +19,10 @@ import {
   OneKeyHardwareError,
   OneKeyLocalError,
 } from '@onekeyhq/shared/src/errors';
-import { isOneKeyHardwareError } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
+import {
+  isDesktopBlePairingCanceledError,
+  isOneKeyHardwareError,
+} from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import {
   EAppEventBusNames,
@@ -249,6 +252,9 @@ export function useDeviceConnect({
         setCurrentDevice?.(connectedDevice);
         return features;
       } catch (error: any) {
+        if (isDesktopBlePairingCanceledError(error)) {
+          throw error;
+        }
         if (isOneKeyHardwareError(error)) {
           const { code, message } = error;
           if (
