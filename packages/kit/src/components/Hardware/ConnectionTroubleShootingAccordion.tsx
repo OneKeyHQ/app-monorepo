@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { useCallback, useMemo } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
@@ -26,6 +26,7 @@ import {
 } from '@onekeyhq/shared/src/config/appConfig';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { showIntercom } from '@onekeyhq/shared/src/modules3rdParty/intercom';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 
 // Define stable components outside of render function to avoid React warnings
@@ -283,9 +284,79 @@ export function ConnectionTroubleShootingAccordion({
 
 export function DeviceNotFoundDialogContent() {
   const intl = useIntl();
+  const [isRepairing, setIsRepairing] = useState(false);
+  const [repairMessage, setRepairMessage] = useState('');
+
+  const repairUsbDriver = async () => {
+    setIsRepairing(true);
+    try {
+      const { status } =
+        await globalThis.desktopApiProxy.system.repairOneKeyUsbDriver();
+      switch (status) {
+        case 'repaired':
+          setRepairMessage(
+            'USB driver repaired. Reconnect your device and try again.',
+          );
+          break;
+        case 'already-correct':
+          setRepairMessage(
+            'WinUSB is already selected. The connection problem has another cause.',
+          );
+          break;
+        case 'no-device':
+          setRepairMessage(
+            'No supported OneKey USB device was found. Connect and unlock it first.',
+          );
+          break;
+        case 'multiple-devices':
+          setRepairMessage(
+            'Connect only one supported OneKey USB device, then try again.',
+          );
+          break;
+        case 'cancelled':
+          setRepairMessage(
+            'Administrator approval was cancelled. No driver was changed.',
+          );
+          break;
+        case 'reboot-required':
+          setRepairMessage('Restart Windows to finish the driver repair.');
+          break;
+        case 'no-winusb-descriptor':
+        case 'no-winusb-driver':
+          setRepairMessage(
+            'This device cannot be repaired automatically. Contact OneKey support.',
+          );
+          break;
+        default:
+          setRepairMessage(
+            'Driver repair was unavailable or failed. Contact OneKey support.',
+          );
+      }
+    } catch {
+      setRepairMessage('Driver repair failed. Contact OneKey support.');
+    } finally {
+      setIsRepairing(false);
+    }
+  };
 
   return (
     <YStack gap="$2">
+      {platformEnv.isDesktopWin ? (
+        <>
+          <Button
+            testID="hardware-ui-repair-usb-driver-btn"
+            onPress={() => {
+              void repairUsbDriver();
+            }}
+            disabled={isRepairing}
+            loading={isRepairing}
+            size="large"
+          >
+            Repair OneKey USB driver (Windows admin approval)
+          </Button>
+          {repairMessage ? <SizableText>{repairMessage}</SizableText> : null}
+        </>
+      ) : null}
       <Button
         testID="hardware-ui-troubleshooting-btn"
         onPress={() => {
