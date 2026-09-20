@@ -999,7 +999,6 @@ function replayPendingLocalMutations(store: INativeSyncStorageName) {
 }
 
 function applyAcknowledgedRemoteMutations(store: INativeSyncStorageName) {
-  const state = mirrors[store];
   const queue = remoteMutationQueues[store];
   const acknowledged: INativeSyncStorageMutation[] = [];
   queue.pending.forEach((pending, mutationId) => {
@@ -1008,24 +1007,7 @@ function applyAcknowledgedRemoteMutations(store: INativeSyncStorageName) {
       queue.pending.delete(mutationId);
     }
   });
-  acknowledged.forEach((mutation) => {
-    if (mutation.operation === 'set') {
-      applyLocalMutation(state, {
-        operation: 'set',
-        key: mutation.key,
-        value: mutation.value,
-      });
-    } else if (mutation.operation === 'patchSWR') {
-      applyLocalMutation(state, {
-        operation: 'patchSWR',
-        entries: mutation.entries,
-      });
-    } else if (mutation.operation === 'remove') {
-      applyLocalMutation(state, { operation: 'remove', key: mutation.key });
-    } else {
-      applyLocalMutation(state, { operation: 'clear' });
-    }
-  });
+  acknowledged.forEach((mutation) => applyCanonicalMutation(mutation, 'ack'));
 }
 
 function perfNow(): number {
