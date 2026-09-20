@@ -50,6 +50,9 @@ export function PerpCandles({
     <Stack w="100%" h="100%" flex={1}>
       {reloadHook > 0 && activeTradeInstrument.coin ? (
         <TradingViewPerpsV2
+          // The embedded chart caches marks by symbol, so accounts must not
+          // share its instance even after the current symbol's marks are cleared.
+          key={currentAccount?.accountAddress?.toLowerCase() ?? 'disconnected'}
           webviewKey={reloadHook.toString()}
           userAddress={currentAccount?.accountAddress}
           enablePerpsTradingUi={enablePerpsTradingUi}
