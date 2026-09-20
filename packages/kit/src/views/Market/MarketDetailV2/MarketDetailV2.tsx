@@ -22,15 +22,16 @@ import { useSetSplitViewDetailFullscreen } from '@onekeyhq/kit/src/provider/Cont
 import { useTokenDetailActions } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2';
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { MARKET_TOP_COINS_CATEGORY_ID } from '@onekeyhq/shared/src/consts/marketConsts';
-import {
-  EAppEventBusNames,
-  appEventBus,
-} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type {
   ETabMarketRoutes,
   ITabMarketParamList,
 } from '@onekeyhq/shared/src/routes';
+import {
+  createHideTabBarOwnerId,
+  releaseHideTabBar,
+  requestHideTabBar,
+} from '@onekeyhq/shared/src/tabBar/hideTabBarRequests';
 import { parseTokenDetailPreviewParam } from '@onekeyhq/shared/src/utils/marketTokenPreviewRoute';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
@@ -484,10 +485,15 @@ function MarketDetailV2(
         return;
       }
 
-      appEventBus.emit(EAppEventBusNames.HideTabBar, true);
+      // Own the request per instance: switching tokens can collapse the stack
+      // while two detail instances are live, and the leaving one must not
+      // release the survivor's request and let the tab bar cover the trade
+      // buttons.
+      const ownerId = createHideTabBarOwnerId('market-detail');
+      requestHideTabBar(ownerId);
 
       return () => {
-        appEventBus.emit(EAppEventBusNames.HideTabBar, false);
+        releaseHideTabBar(ownerId);
       };
     }, [effectiveIsChartFullscreen, media.md]),
   );

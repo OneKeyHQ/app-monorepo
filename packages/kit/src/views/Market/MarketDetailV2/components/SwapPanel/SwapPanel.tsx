@@ -12,7 +12,8 @@ import {
   View,
   XStack,
   YStack,
-  useSafeAreaInsets,
+  usePageFooterSafeAreaBottom,
+  usePageFooterTabBarHeight,
 } from '@onekeyhq/components';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import { useAccountSelectorTrigger } from '@onekeyhq/kit/src/components/AccountSelector/hooks/useAccountSelectorTrigger';
@@ -99,7 +100,7 @@ export function SwapPanel({
   disableTrade,
   portfolioData,
   onShowSwapDialog,
-  isTradeReady = true,
+  executionReady = true,
 }: {
   swapToken: ISwapToken;
   disableTrade?: boolean;
@@ -107,10 +108,15 @@ export function SwapPanel({
   onShowSwapDialog?: (swapToken?: ISwapToken) => void;
   // False until the token detail confirms the token can be traded. The footer
   // keeps its place and shows the buttons disabled instead of appearing late.
-  isTradeReady?: boolean;
+  executionReady?: boolean;
 }) {
   const intl = useIntl();
-  const { bottom } = useSafeAreaInsets();
+  // This footer is a plain flex sibling, not a Page.Footer, so it must claim the
+  // same bottom inset itself. A visible tab bar draws over the buttons, which is
+  // the safety net for any missed HideTabBar request.
+  const footerSafeAreaBottom = usePageFooterSafeAreaBottom();
+  const tabBarHeight = usePageFooterTabBarHeight();
+  const bottomInset = footerSafeAreaBottom + tabBarHeight;
   const navigation = useAppNavigation();
   const myPositionInfo = useMemo(() => {
     const positionInfo = portfolioData?.find(
@@ -148,7 +154,7 @@ export function SwapPanel({
   const handleTrade = useCallback(() => {
     // Swap needs the token's decimals; the buttons are disabled until then,
     // but Android's gesture layer can still deliver a tap.
-    if (!isTradeReady) {
+    if (!executionReady) {
       return;
     }
     const direction = ESwapProJumpTokenDirection.BUY;
@@ -167,14 +173,14 @@ export function SwapPanel({
     });
     navigation.pop();
     navigation.switchTab(ETabRoutes.Swap);
-  }, [setSwapProJumpTokenAtom, swapToken, navigation, isTradeReady]);
+  }, [executionReady, setSwapProJumpTokenAtom, swapToken, navigation]);
 
   const handleInstant = useCallback(() => {
-    if (!isTradeReady) {
+    if (!executionReady) {
       return;
     }
     onShowSwapDialog?.(swapToken);
-  }, [onShowSwapDialog, swapToken, isTradeReady]);
+  }, [executionReady, onShowSwapDialog, swapToken]);
 
   if (!swapToken) {
     return (
@@ -264,11 +270,11 @@ export function SwapPanel({
             </XStack>
           ) : null}
         </XStack>
-        <Stack px="$5" pb={bottom || '$4'} pt="$2.5">
+        <Stack px="$5" pb={bottomInset || '$4'} pt="$2.5">
           <SwapPanelFooterButtons
             onTrade={handleTrade}
             onInstant={handleInstant}
-            disabled={!isTradeReady}
+            disabled={!executionReady}
           />
         </Stack>
       </YStack>
@@ -287,7 +293,7 @@ export function SwapPanel({
         <TradeButton
           swapToken={swapToken}
           onShowSwapDialog={onShowSwapDialog}
-          disabled={!isTradeReady}
+          disabled={!executionReady}
         />
       </AccountSelectorProviderMirror>
     </View>

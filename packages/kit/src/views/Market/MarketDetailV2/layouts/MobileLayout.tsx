@@ -82,14 +82,17 @@ import { MobileInformationTabs } from '../components/InformationTabs/layout/Mobi
 import { LazyMobileMarketTradingView } from '../components/MarketTradingView/LazyMarketTradingView';
 import { PerpetualTradingBanner } from '../components/PerpetualTradingBanner/PerpetualTradingBanner';
 import { useStockDetail } from '../hooks/StockDetailContext';
+import { useMarketDetailDisplayData } from '../hooks/useMarketDetailDisplayData';
 import { useMarketNativeChartPriceUpdate } from '../hooks/useMarketNativeChartPriceUpdate';
-import {
-  useMarketTradingViewParams,
-  useTokenDetail,
-} from '../hooks/useTokenDetail';
+import { useMarketTradingViewParams } from '../hooks/useTokenDetail';
 import { useTradingViewSubIndicatorCount } from '../hooks/useTradingViewSubIndicatorCount';
 import { getMarketDetailTradingViewNativeSource } from '../utils/getMarketDetailTradingViewNativeSource';
 import { getMarketStockChartPreviousClose } from '../utils/marketStockPreviousClose';
+import {
+  hasMarketContractAddress,
+  isMarketTokenDecimalsReady,
+  isMatchingMarketTokenIdentity,
+} from '../utils/marketTokenIdentity';
 import {
   getMarketTradingViewSubIndicatorCount,
   normalizeMarketTradingViewSubIndicatorCountPersist,
@@ -397,7 +400,7 @@ export function MobileLayout({
     websocketConfig,
     perpsInfo,
     isStockToken,
-  } = useTokenDetail();
+  } = useMarketDetailDisplayData();
   const { isStockRoute, selectedTokenVariant, stockDetail, stockId } =
     useStockDetail();
   const networkId =
@@ -1102,37 +1105,42 @@ export function MobileLayout({
     ],
   );
 
+  const hasSwapContract = hasMarketContractAddress(tokenDetail?.address);
   const toSwapPanelToken = useMemo(() => {
     return {
       networkId,
-      contractAddress: tokenDetail?.address || '',
+      contractAddress: hasSwapContract ? tokenDetail?.address || '' : '',
       symbol: tokenDetail?.symbol || '',
       decimals: tokenDetail?.decimals ?? 0,
       logoURI: tokenDetail?.logoUrl,
       price: tokenDetail?.price,
-      isNative: tokenDetail?.isNative,
+      isNative: Boolean(tokenDetail?.isNative) || isNative || !hasSwapContract,
       isStock: isStockToken,
     };
   }, [
     networkId,
+    hasSwapContract,
     tokenDetail?.address,
     tokenDetail?.decimals,
     tokenDetail?.logoUrl,
     tokenDetail?.price,
     tokenDetail?.symbol,
     tokenDetail?.isNative,
+    isNative,
     isStockToken,
   ]);
-  const isSwapTokenReady =
-    tokenDetail?.address?.toLowerCase() === tokenAddress.toLowerCase() &&
-    tokenDetail?.networkId === networkId &&
-    tokenDetail?.decimalsResolved !== false &&
-    typeof tokenDetail?.decimals === 'number' &&
-    Number.isInteger(tokenDetail.decimals) &&
-    tokenDetail.decimals >= 0;
+  const isSwapTokenReady = Boolean(
+    tokenDetail &&
+    isMatchingMarketTokenIdentity(tokenDetail, {
+      tokenAddress,
+      networkId,
+      isNative,
+    }),
+  );
+  const isSwapExecutionReady = isMarketTokenDecimalsReady(tokenDetail);
 
   const showSwapDialog = (swapToken?: ISwapToken) => {
-    if (!isSwapTokenReady) {
+    if (!isSwapTokenReady || !isSwapExecutionReady) {
       return;
     }
     if (swapToken) {
@@ -1171,14 +1179,14 @@ export function MobileLayout({
   };
 
   // The footer keeps its place from the first frame: the buttons never move,
-  // they only go from disabled to enabled once the detail confirms the token
-  // can be traded.
+  // they only go from disabled to enabled once the detail confirms both that
+  // this is the token on screen and that Swap has the decimals it needs.
   const swapPanelFooter: ReactNode = disableTrade ? null : (
     <LazySwapPanel
       swapToken={toSwapPanelToken}
       portfolioData={portfolioData}
       onShowSwapDialog={showSwapDialog}
-      isTradeReady={isSwapTokenReady}
+      executionReady={isSwapTokenReady && isSwapExecutionReady}
     />
   );
 
