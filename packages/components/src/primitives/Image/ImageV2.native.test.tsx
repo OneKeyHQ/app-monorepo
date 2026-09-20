@@ -125,14 +125,19 @@ describe('native ImageV2 rendition ownership', () => {
     );
   });
 
-  it('uses a theme backing by default and only enables skeleton explicitly', () => {
+  it('defaults to no loading visual and enables placeholders explicitly', () => {
     const uri = 'https://uni.onekey-asset.com/token.png';
     const { rerender } = render(<ImageV2 src={uri} />);
     expect(mockNativeImage).toHaveBeenLastCalledWith(
       expect.objectContaining({
-        loadingStrategy: 'static',
+        loadingStrategy: 'none',
         placeholderColor: '#222222',
       }),
+    );
+
+    rerender(<ImageV2 src={uri} loadingStrategy="static" />);
+    expect(mockNativeImage).toHaveBeenLastCalledWith(
+      expect.objectContaining({ loadingStrategy: 'static' }),
     );
 
     rerender(<ImageV2 src={uri} loadingStrategy="skeleton" />);
