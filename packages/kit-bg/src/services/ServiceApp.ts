@@ -178,6 +178,18 @@ class ServiceApp extends ServiceBase {
     }
     defaultLogger.setting.page.clearDataStep('coldStartCache-clearAll');
 
+    // The UI snapshot namespaces are their own stores and are not covered by
+    // the wipe above.
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      const { clearAllSnapshotCaches } =
+        require('@onekeyhq/shared/src/storage/SnapshotCache') as typeof import('@onekeyhq/shared/src/storage/SnapshotCache');
+      await clearAllSnapshotCaches();
+    } catch {
+      console.error('clearAllSnapshotCaches() error');
+    }
+    defaultLogger.setting.page.clearDataStep('uiSnapshotCaches-clearAll');
+
     await timerUtils.wait(100);
 
     try {

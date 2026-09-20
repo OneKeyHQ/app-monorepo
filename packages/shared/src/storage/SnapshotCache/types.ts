@@ -1,10 +1,12 @@
+import type { ISnapshotCacheNamespace } from './snapshotCacheNamespaces';
+
 export type INamespacedSnapshotCacheConfig = {
   /**
    * Native: the dedicated MMKV file this namespace gets, as
-   * `onekey-display-snapshot-<namespace>`. Lowercase letters, digits and
-   * hyphens only.
+   * `onekey-display-snapshot-<namespace>`. Web/desktop: the key space it owns
+   * inside the shared UI snapshot database.
    */
-  namespace: string;
+  namespace: ISnapshotCacheNamespace;
   /**
    * Web / desktop: the shared store is keyed by the caller's SWR keys, so
    * clearing a namespace goes by their common prefix.

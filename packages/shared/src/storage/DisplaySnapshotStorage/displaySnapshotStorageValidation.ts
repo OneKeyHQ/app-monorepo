@@ -9,8 +9,33 @@ const MAX_KEY_LENGTH = 512;
 const NAMESPACE_PATTERN = /^[a-z0-9][a-z0-9-]{0,63}$/;
 const KEY_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._:/-]*$/;
 
+/**
+ * UTF-8 byte length without requiring `TextEncoder`.
+ *
+ * This runs in every runtime the app has — Hermes, a browser, a jsdom test —
+ * and a size check that throws where the global is missing turns a bounded
+ * write into a silently dropped one.
+ */
 function getUtf8ByteLength(value: string): number {
-  return new TextEncoder().encode(value).length;
+  if (typeof TextEncoder !== 'undefined') {
+    return new TextEncoder().encode(value).length;
+  }
+  let bytes = 0;
+  for (let index = 0; index < value.length; index += 1) {
+    const code = value.charCodeAt(index);
+    if (code < 0x80) {
+      bytes += 1;
+    } else if (code < 0x8_00) {
+      bytes += 2;
+    } else if (code >= 0xd8_00 && code <= 0xdb_ff) {
+      // A surrogate pair is one 4-byte code point; skip its low half.
+      bytes += 4;
+      index += 1;
+    } else {
+      bytes += 3;
+    }
+  }
+  return bytes;
 }
 
 export function validateDisplaySnapshotStorageConfig(

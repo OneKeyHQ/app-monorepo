@@ -6,7 +6,6 @@ import { act, renderHook } from '@testing-library/react';
 import { createStore } from 'jotai';
 
 import { useMarketNativeChartPriceUpdate } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/hooks/useMarketNativeChartPriceUpdate';
-import { swrCacheUtils } from '@onekeyhq/shared/src/utils/swrCacheUtils';
 import type {
   IMarketAssetDetailData,
   IMarketWatchListItemV2,
@@ -29,6 +28,7 @@ import {
   tokenDetailWebsocketAtom,
 } from './atoms';
 import { useMarketAssetTokenDetailAction } from './marketAssetDetail';
+import { marketTokenDetailSnapshotCache } from './marketSnapshotCaches';
 
 const mockFetchMarketAssetDetail: jest.MockedFunction<
   (params: {
@@ -450,7 +450,7 @@ describe('cached token detail seed', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
-    swrCacheUtils.clearAll();
+    marketTokenDetailSnapshotCache.clear();
   });
 
   afterEach(() => jest.restoreAllMocks());
@@ -479,7 +479,7 @@ describe('cached token detail seed', () => {
     expect(store.get(tokenDetailAtom())).toMatchObject({ symbol: 'AAPLon' });
 
     // What a previous visit in the other language left behind.
-    swrCacheUtils.set(zhSwrKey, {
+    marketTokenDetailSnapshotCache.set(zhSwrKey, {
       token: { ...token, symbol: '苹果on' },
       websocket,
       perpsInfo,
@@ -545,7 +545,7 @@ describe('cached token detail seed', () => {
     const { result } = renderHook(() => useTokenDetailActions().current, {
       wrapper: Wrapper,
     });
-    swrCacheUtils.set(swrKey, { token, websocket, perpsInfo });
+    marketTokenDetailSnapshotCache.set(swrKey, { token, websocket, perpsInfo });
 
     act(() => {
       result.current.prepareStockTokenDetail({
@@ -567,7 +567,7 @@ describe('cached token detail seed', () => {
     const { result } = renderHook(() => useTokenDetailActions().current, {
       wrapper: Wrapper,
     });
-    swrCacheUtils.set(swrKey, { token, websocket, perpsInfo });
+    marketTokenDetailSnapshotCache.set(swrKey, { token, websocket, perpsInfo });
     const now = Date.now();
     jest.spyOn(Date, 'now').mockReturnValue(now + 25 * 60 * 60 * 1000);
 

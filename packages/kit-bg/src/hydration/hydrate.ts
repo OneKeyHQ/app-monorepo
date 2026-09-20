@@ -278,6 +278,41 @@ function schedulePrimeSWREntries(allKeys: readonly string[]): void {
 }
 
 /**
+ * Load the UI snapshot namespaces, off the ready gate.
+ *
+ * Nothing reads these at boot: a snapshot cache is read by the page that owns
+ * it, by exact key, when that page opens. So this belongs behind the gate for
+ * the same reason L3 does, and an extra `open()` never lands on first paint.
+ */
+function schedulePrimeUiSnapshotStore(): void {
+  void (async () => {
+    try {
+      const { primeWebUiSnapshotStore, readWebUiSnapshotEntriesFromIdb } =
+        // eslint-disable-next-line @typescript-eslint/no-require-imports
+        require('@onekeyhq/shared/src/storage/DisplaySnapshotStorage/webUiSnapshotStore') as typeof import('@onekeyhq/shared/src/storage/DisplaySnapshotStorage/webUiSnapshotStore');
+      const entries = await readWebUiSnapshotEntriesFromIdb();
+      if (entries.size > 0) {
+        primeWebUiSnapshotStore(entries);
+      }
+    } catch {
+      // Best effort: a failed late read is an ordinary cache miss.
+    }
+  })();
+}
+
+async function resetWebUiSnapshotStoreBestEffort(): Promise<void> {
+  try {
+    const { resetWebUiSnapshotStore } =
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      require('@onekeyhq/shared/src/storage/DisplaySnapshotStorage/webUiSnapshotStore') as typeof import('@onekeyhq/shared/src/storage/DisplaySnapshotStorage/webUiSnapshotStore');
+    await resetWebUiSnapshotStore();
+  } catch {
+    // These are re-creatable snapshots bounded by their own max age; a wipe
+    // that cannot run must not fail the hydration that owns first paint.
+  }
+}
+
+/**
  * Decide whether the post-`resetColdStartCache` IDB recheck is clean enough
  * to proceed with priming + marker refresh.
  *
@@ -392,6 +427,9 @@ const promise: Promise<void> = (async () => {
       (storedHash === undefined && countNonMetaKeys(swrKeys) > 0);
     if (isMismatch) {
       try {
+        // A build that changes a stored shape invalidates the UI snapshots
+        // for the same reason it invalidates this store.
+        await resetWebUiSnapshotStoreBestEffort();
         await resetColdStartCache();
       } catch (e) {
         // Surface the wipe failure as a terminal error: stale entries (which
@@ -491,5 +529,10 @@ const promise: Promise<void> = (async () => {
     // always releases the gate so React mount is never blocked by a miss.
     globalColdStartHydrationReadyHandler.resolveReady(didHydrate);
   });
+
+// Independent of every layer above and of each of their early exits, but
+// ordered after them: a build-hash mismatch wipes these namespaces too, and
+// priming from a read that started earlier would put back what it removed.
+void promise.finally(schedulePrimeUiSnapshotStore);
 
 setGlobal('__ONEKEY_COLD_START_PROMISE__', promise);

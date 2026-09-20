@@ -1,48 +1,35 @@
-import { swrCacheUtils } from '../../utils/swrCacheUtils';
+import { createDisplaySnapshotStorageSyncCore } from '../DisplaySnapshotStorage/createDisplaySnapshotStorageCore';
+import { createWebUiSnapshotSyncBackend } from '../DisplaySnapshotStorage/webUiSnapshotStore';
+
+import { createSnapshotCacheSync } from './createSnapshotCacheSync';
 
 import type { ISnapshotCacheSync } from './createSnapshotCacheSync';
 import type { INamespacedSnapshotCacheConfig } from './types';
 
+const DEFAULT_MAX_RECORD_BYTES = 256 * 1024;
+// Reads are by exact key; a batch only ever covers one screen's worth.
+const MAX_READ_BATCH_SIZE = 32;
+
 /**
- * Web / desktop: keep using the shared cold-start store.
+ * Web / desktop: one shared IndexedDB database, one key space per namespace.
  *
- * Splitting a namespace off into its own IndexedDB database buys little here
- * and costs an extra `open()` on the startup path — reads are served from the
- * in-memory map either way, and hydration already loads by key and by range.
- * The native build has its own file per namespace because the problems there
- * (one shared mmap, one bootstrap window, no compaction) are real.
- *
- * Keys are the caller's fully qualified SWR keys, so nothing about what is
- * already on disk changes.
+ * A namespace gets the same contract as on native — its own manifest, its own
+ * age and count limits, reads by exact key — without the extra `open()` that
+ * a database per namespace would put on the startup path. Splitting the
+ * physical store is worth it where one shared mmap is the problem, which is
+ * the native build, not here.
  */
 export function createNamespacedSnapshotCache<T>({
-  keyPrefix,
+  namespace,
   maxAgeMs,
+  maxEntries,
+  maxRecordBytes = DEFAULT_MAX_RECORD_BYTES,
 }: INamespacedSnapshotCacheConfig): ISnapshotCacheSync<T> {
-  return {
-    get(key) {
-      const cached = swrCacheUtils.getWithTimestamp<T>(key);
-      if (!cached) {
-        return undefined;
-      }
-      // The shared store has no age of its own, so the namespace's own limit
-      // is applied on the way out — same contract as the native build.
-      if (Date.now() - cached.updatedAt >= maxAgeMs) {
-        return undefined;
-      }
-      return { data: cached.data, updatedAt: cached.updatedAt };
-    },
-    set(key, data) {
-      swrCacheUtils.set<T>(key, data);
-    },
-    remove(key) {
-      swrCacheUtils.remove(key);
-    },
-    // The shared store runs its own eviction, and it has no way to drop just
-    // this namespace's expired keys without enumerating it.
-    sweep() {},
-    clear() {
-      swrCacheUtils.removeByPrefix(keyPrefix);
-    },
-  };
+  return createSnapshotCacheSync<T>({
+    storage: createDisplaySnapshotStorageSyncCore(
+      { namespace, maxRecordBytes, maxReadBatchSize: MAX_READ_BATCH_SIZE },
+      () => createWebUiSnapshotSyncBackend(namespace),
+    ),
+    retention: { maxAgeMs, maxEntries },
+  });
 }
