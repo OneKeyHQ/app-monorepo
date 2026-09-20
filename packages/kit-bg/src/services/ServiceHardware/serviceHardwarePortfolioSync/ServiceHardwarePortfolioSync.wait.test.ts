@@ -1344,7 +1344,7 @@ describe('ServiceHardwarePortfolioSync.syncSettledPortfolio', () => {
     });
   }
 
-  test('selects v2 before server packing and carries category changes into the upload', async () => {
+  test('syncs the Home amount without fetching categories on Pro2 v2', async () => {
     const portfolioSyncResultSpy = jest
       .spyOn(defaultLogger.hardware.connection, 'portfolioSyncResult')
       .mockImplementation((params) => params);
@@ -1370,6 +1370,8 @@ describe('ServiceHardwarePortfolioSync.syncSettledPortfolio', () => {
     await serviceInternals.syncSettledPortfolio({
       ...buildHardwarePayload(),
       totalFiat: '100',
+      homeTotalFiatUsd: '80',
+      homeCategoryFiatUsd: { defiFiat: '20', perpsFiat: '30' },
     });
     expect(serviceInternals.submitPortfolioJsonToServer).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -1380,7 +1382,7 @@ describe('ServiceHardwarePortfolioSync.syncSettledPortfolio', () => {
             tokensFiat: '$100.00',
             defiFiat: '$20.00',
             perpsFiat: '$30.00',
-            totalFiat: '$150.00',
+            totalFiat: '$80.00',
             ts: expect.any(Number),
           }),
         }),
@@ -1402,10 +1404,11 @@ describe('ServiceHardwarePortfolioSync.syncSettledPortfolio', () => {
       }),
     );
     expect(uploadPortfolioPackage).toHaveBeenCalledTimes(1);
+    expect(getCategory).not.toHaveBeenCalled();
     portfolioSyncResultSpy.mockRestore();
   });
 
-  test('selects v2 for Neo firmware 1.0.2', async () => {
+  test('syncs the Home amount without fetching categories on Neo v2', async () => {
     const portfolioSyncResultSpy = jest
       .spyOn(defaultLogger.hardware.connection, 'portfolioSyncResult')
       .mockImplementation((params) => params);
@@ -1433,7 +1436,7 @@ describe('ServiceHardwarePortfolioSync.syncSettledPortfolio', () => {
       totalFiat: '100',
     });
 
-    expect(getCategory).toHaveBeenCalled();
+    expect(getCategory).not.toHaveBeenCalled();
     expect(serviceInternals.submitPortfolioJsonToServer).toHaveBeenCalledWith(
       expect.objectContaining({
         artifacts: expect.objectContaining({
@@ -1441,9 +1444,9 @@ describe('ServiceHardwarePortfolioSync.syncSettledPortfolio', () => {
             v: 2,
             account: expect.objectContaining({ label: '1' }),
             tokensFiat: '$100.00',
-            defiFiat: '$20.00',
-            perpsFiat: '$30.00',
-            totalFiat: '$150.00',
+            defiFiat: '—',
+            perpsFiat: '—',
+            totalFiat: '$100.00',
           }),
         }),
       }),
@@ -2172,10 +2175,24 @@ describe('ServiceHardwarePortfolioSync.syncSettledPortfolio', () => {
       busyResults: [false],
       hardwareTransportType: EHardwareTransportType.BLE,
     });
+    jest.mocked(localDb.getDeviceSafe).mockResolvedValue({
+      id: 'db-device-1',
+      connectId: 'PRO2_CONNECT_ID',
+      deviceId: 'PRO2_DEVICE_ID',
+      deviceType: EDeviceType.Pro2,
+      deviceStateInfo: {
+        identity: { deviceId: 'PRO2_DEVICE_ID' },
+        versions: { firmware: '1.0.2' },
+      },
+    } as Awaited<ReturnType<typeof localDb.getDeviceSafe>>);
+    const getCategory = jest.fn();
+    (
+      service as unknown as { getPortfolioCategoryFiat: typeof getCategory }
+    ).getPortfolioCategoryFiat = getCategory;
 
     await expect(
       service.syncPortfolio({
-        eventPayload: buildHardwarePayload(),
+        eventPayload: { ...buildHardwarePayload(), totalFiat: '600' },
         syncMode: 'interactive',
       }),
     ).resolves.toBe(true);
@@ -2202,6 +2219,20 @@ describe('ServiceHardwarePortfolioSync.syncSettledPortfolio', () => {
     expect(serviceInternals.submitPortfolioJsonToServer).toHaveBeenCalledTimes(
       1,
     );
+    expect(serviceInternals.submitPortfolioJsonToServer).toHaveBeenCalledWith(
+      expect.objectContaining({
+        artifacts: expect.objectContaining({
+          portfolio: expect.objectContaining({
+            v: 2,
+            tokensFiat: '$600.00',
+            defiFiat: '—',
+            perpsFiat: '—',
+            totalFiat: '$600.00',
+          }),
+        }),
+      }),
+    );
+    expect(getCategory).not.toHaveBeenCalled();
     expect(uploadPortfolioPackage).toHaveBeenCalledWith({
       connectId: 'PRO2_CONNECT_ID',
       hardwareTransportType: EHardwareTransportType.BLE,

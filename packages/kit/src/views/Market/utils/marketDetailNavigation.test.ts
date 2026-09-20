@@ -5,6 +5,8 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   buildReplacedMarketDetailParams,
   findMarketTabStack,
+  getCurrentMarketStockDetailId,
+  getCurrentMarketStockDetailRoute,
   getNativeMarketListResetParams,
   openOrReplaceMarketDetailRoute,
   replaceFocusedMarketDetailRoute,
@@ -136,6 +138,34 @@ describe('marketDetailNavigation', () => {
     expect(findMarketTabStack(selectorOverlayStackedState)).toEqual(
       stackedTokenDetailsState.routes[0].state,
     );
+  });
+
+  it('reads the current stock detail identity under a selector overlay', () => {
+    getRootStateMock.mockReturnValue({
+      key: 'root',
+      index: 1,
+      routes: [
+        {
+          name: 'main',
+          state: {
+            key: 'discovery-stack',
+            index: 1,
+            routes: [
+              { key: 'list', name: 'TabDiscovery' },
+              {
+                key: 'stock-detail',
+                name: 'MarketStockDetail',
+                params: { stockId: 'AAPL' },
+              },
+            ],
+          },
+        },
+        { key: 'modal', name: 'MobileTokenSelector' },
+      ],
+    });
+
+    expect(getCurrentMarketStockDetailId()).toBe('AAPL');
+    expect(getCurrentMarketStockDetailRoute()).toEqual({ stockId: 'AAPL' });
   });
 
   it('clears stale identity params when replacing a detail route', () => {
