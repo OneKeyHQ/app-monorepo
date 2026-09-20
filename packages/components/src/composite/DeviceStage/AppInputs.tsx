@@ -17,6 +17,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { MARK_IN_MS, easeOutFn } from '../../content/deviceScene';
 import { Input, passwordManagerIgnoreProps } from '../../forms/Input';
+import { useKeyboardState } from '../../hooks/useKeyboardController';
 import {
   Anchor,
   Button,
@@ -487,6 +488,15 @@ export function PassphraseForm({
     [secure, toggleSecure],
   );
   const shownError = validationError ?? error;
+  // While the system keyboard is up, the card gives back the attach-PIN
+  // alternative under Confirm: it is the way in for someone who is NOT
+  // typing, and its height is what pushed the card's top under the status
+  // bar on a phone with a tall keyboard (OK-63775). The flag turns with the
+  // keyboard's will-show on both native platforms, so the card is already
+  // shrinking as the keyboard rises, and the block returns once the keyboard
+  // is gone. A hardware keyboard raises no system keyboard and changes
+  // nothing; web and desktop always read false.
+  const { isVisible: isKeyboardVisible } = useKeyboardState();
   return (
     <YStack gap="$5">
       <YStack gap="$3">
@@ -586,7 +596,7 @@ export function PassphraseForm({
       >
         {intl.formatMessage({ id: ETranslations.global_confirm })}
       </Button>
-      {onAttachPin ? (
+      {onAttachPin && !isKeyboardVisible ? (
         <YStack gap="$5">
           {/* Each rule is a sized transparent box carrying a hairline
               bottom border: a box of hairline height alone rounds to
