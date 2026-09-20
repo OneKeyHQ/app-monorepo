@@ -128,21 +128,23 @@ function StandardOnboardingNavigator() {
   // Android's system bars have the same foreground problem the glass
   // header does: they are painted globally from the app theme (see
   // useAppearanceTheme), so a light-themed app shows white bars around
-  // this dark-locked content. Same focus-driven fix — pin the bars dark
-  // while onboarding is foreground, hand them back on blur. The pin
-  // lives as an override slot inside the bars' own module, so an app
-  // theme change mid-onboarding repaints through the same effective
-  // value instead of racing this write (no stale-capture ref needed).
+  // this dark-locked content. Pin them dark for the whole onboarding
+  // session — including while a root modal (e.g. Prime gift) is layered
+  // on top. Releasing on blur snaps the window back to the app's light
+  // theme for a frame (OK-63777). Theme-locked modals add their own
+  // named pin; this owner is released only when onboarding unmounts.
   if (platformEnv.isNativeAndroid) {
-    setSystemBarsOverride(isFocused ? 'dark' : null);
+    setSystemBarsOverride('dark', 'onboarding');
   }
-  // The render-time write above already handles focus AND blur (useIsFocused
-  // re-renders on both, relinquishing to appGlassStyle when not focused). The
-  // ONLY case it can't reach is unmount-without-blur (onboarding replaced by
-  // main), so the effect cleanup exists purely for that. Keep it unmount-only
-  // ([] deps) and read the latest app style from a ref — an [appGlassStyle]
-  // dep would fire the cleanup on every theme toggle with the STALE captured
-  // value, writing it back over the render-time variant a frame later.
+  // The iOS glass render-time write above handles focus AND blur
+  // (useIsFocused re-renders on both, relinquishing to appGlassStyle
+  // when not focused). The ONLY case it can't reach is
+  // unmount-without-blur (onboarding replaced by main), so the effect
+  // cleanup exists purely for that. Keep it unmount-only ([] deps)
+  // and read the latest app style from a ref — an [appGlassStyle]
+  // dep would fire the cleanup on every theme toggle with the STALE
+  // captured value, writing it back over the render-time variant a
+  // frame later.
   const appGlassStyleRef = useRef<'light' | 'dark'>(appGlassStyle);
   appGlassStyleRef.current = appGlassStyle;
   useEffect(() => {
@@ -153,15 +155,14 @@ function StandardOnboardingNavigator() {
       setGlassHeaderUIStyle(appGlassStyleRef.current);
     };
   }, []);
-  // The bars' own unmount-without-blur cover, same shape as the glass
-  // cleanup above; `null` reads the live app variant inside the module,
-  // so no ref ride-along is needed here.
+  // Release the onboarding pin only on unmount (replaced by main). Blur
+  // must not clear it — a dark-locked modal on top still needs dark bars.
   useEffect(() => {
     if (!platformEnv.isNativeAndroid) {
       return undefined;
     }
     return () => {
-      setSystemBarsOverride(null);
+      setSystemBarsOverride(null, 'onboarding');
     };
   }, []);
   return (

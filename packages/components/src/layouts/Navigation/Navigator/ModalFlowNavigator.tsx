@@ -51,6 +51,7 @@ interface IModalFlowNavigatorProps<
   name?: string;
   onMounted?: () => void;
   onUnmounted?: () => void;
+  flowTheme?: 'light' | 'dark';
 }
 
 const ModalStack = hasStackNavigatorModal
@@ -79,6 +80,7 @@ function ModalFlowNavigator<RouteName extends string, P extends ParamListBase>({
   onMounted,
   onUnmounted,
   pageType: pageTypeFromProps,
+  flowTheme,
 }: IModalFlowNavigatorProps<RouteName, P> & {
   pageType?: EPageType;
 }) {
@@ -119,9 +121,10 @@ function ModalFlowNavigator<RouteName extends string, P extends ParamListBase>({
         bgColor,
         titleColor,
         pageType: contextValue.pageType,
+        applyThemedContentStyle: Boolean(flowTheme),
       }),
     }),
-    [bgColor, titleColor, contextValue.pageType],
+    [bgColor, contextValue.pageType, flowTheme, titleColor],
   );
   return (
     <PageTypeContext.Provider value={contextValue}>

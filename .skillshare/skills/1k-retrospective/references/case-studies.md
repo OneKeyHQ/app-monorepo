@@ -599,3 +599,10 @@ Cases are appended by AI after each bug fix. Do NOT reorder or delete entries �
 **Fix**: Resolve Others EVM addresses from the stored account; fetch rebate by that address; map no-wallet / no-EVM empty state to Perps `InviteeRewardNoWallet`. Binding stays HD/HW-only.
 **Catchable by**: Section 4: shared hook/utility modified → checked all consumers; NEW — a viewing surface must not reuse a bind-only wallet-identity gate
 
+## Case: Android Prime gift theme flash after wallet creation
+**Date**: 2026-09-20 | **Platforms**: Android
+**Symptom**: After creating a wallet, tapping 领取 Prime flashed a light/white frame before the dark claim page appeared.
+**Root Cause**: Onboarding released the Android system-bar/window dark override on blur, while PrimeGiftModal's Tamagui dark theme did not pin bars or paint native contentStyle, so the app's light theme showed for a frame.
+**Fix**: Owner-stacked system-bar overrides (dark wins); keep onboarding's Android pin until unmount; theme-locked root modals set dark contentStyle and pin bars while mounted.
+**Catchable by**: Section 3: Cross-Platform Impact; NEW — a theme-locked overlay must own native chrome (system bars / contentStyle) instead of relying on the previous route's pin
+

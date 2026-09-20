@@ -2,12 +2,16 @@ export type IUseAppearanceTheme = (themeVariant: 'light' | 'dark') => void;
 
 /**
  * Pins the system bars (status + navigation) to a variant while a
- * theme-locked foreground surface is up; `null` hands them back to the
- * app theme. Effective on Android — iOS paints its status text per page
- * (see BasicPage's PageStatusBar) and has no navigation bar to color —
- * and a no-op on web.
+ * theme-locked foreground surface is up. Each `owner` holds its own pin;
+ * `null` releases only that owner. Dark pins win over light. With no
+ * remaining pins the bars follow the app theme. Effective on Android —
+ * iOS paints its status text per page (see BasicPage's PageStatusBar)
+ * and has no navigation bar to color — and a no-op on web.
  */
-export type ISetSystemBarsOverride = (variant: 'light' | 'dark' | null) => void;
+export type ISetSystemBarsOverride = (
+  variant: 'light' | 'dark' | null,
+  owner?: string,
+) => void;
 
 /**
  * The app-theme window-background paint (NavigationContainer's), routed
