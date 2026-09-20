@@ -300,6 +300,7 @@ export function useSwapInit(params?: ISwapInitParams) {
     undefined,
   );
   const hasSyncedSwapSelectedAccountFromHomeStorageRef = useRef(false);
+  const appliedImportNetworkIdRef = useRef<string | undefined>(undefined);
   const consumedSwapInitParamsKeyRef = useRef<string | undefined>(undefined);
   const markSwapInitParamsConsumed = useCallback(() => {
     if (swapInitParamsConsumptionKey) {
@@ -1574,22 +1575,31 @@ export function useSwapInit(params?: ISwapInitParams) {
 
   useEffect(() => {
     void (async () => {
-      if (!isFocused) {
+      const importNetworkId = params?.importNetworkId;
+      const currentNetworkId = swapAddressInfoRef.current?.networkId;
+      if (
+        !isFocused ||
+        !importNetworkId ||
+        !currentNetworkId ||
+        appliedImportNetworkIdRef.current === importNetworkId
+      ) {
         return;
       }
-      if (
-        params?.importNetworkId &&
-        swapAddressInfoRef.current?.networkId &&
-        params?.importNetworkId !== swapAddressInfoRef.current.networkId
-      ) {
+      appliedImportNetworkIdRef.current = importNetworkId;
+      if (importNetworkId !== currentNetworkId) {
         await updateSelectedAccountNetwork({
           num: 0,
-          networkId: params?.importNetworkId,
+          networkId: importNetworkId,
         });
       }
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isFocused, params?.importNetworkId, updateSelectedAccountNetwork]);
+  }, [
+    isFocused,
+    params?.importNetworkId,
+    swapAddressInfo.networkId,
+    updateSelectedAccountNetwork,
+  ]);
 
   useEffect(() => {
     void (async () => {
