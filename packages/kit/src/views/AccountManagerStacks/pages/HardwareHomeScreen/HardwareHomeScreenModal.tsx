@@ -838,13 +838,6 @@ export default function HardwareHomeScreenModal({
             } = selectedItem;
 
             isCustomScreen = resType === 'custom' || !!isUserUpload;
-            if (isProtocolV2Wallpaper) {
-              defaultLogger.hardware.homescreen.wallpaperApply({
-                deviceType: device.deviceType,
-                isCustomScreen,
-                status: 'started',
-              });
-            }
 
             let buildCustomHexError: string | undefined = '';
 
@@ -938,6 +931,10 @@ export default function HardwareHomeScreenModal({
                 totalDurationMs: Date.now() - applyStartedAt,
                 imagePreparationMs,
                 hardwareCallMs,
+                uploadSizeBytes:
+                  'size' in response && typeof response.size === 'number'
+                    ? response.size
+                    : undefined,
               });
             }
           } catch (error) {

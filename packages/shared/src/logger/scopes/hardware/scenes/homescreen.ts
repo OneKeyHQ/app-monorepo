@@ -11,10 +11,11 @@ export class HardwareHomeScreenScene extends BaseScene {
   public wallpaperApply(params: {
     deviceType: IDeviceType;
     isCustomScreen: boolean;
-    status: 'started' | 'success' | 'failed';
+    status: 'success' | 'failed';
     totalDurationMs?: number;
     imagePreparationMs?: number;
     hardwareCallMs?: number;
+    uploadSizeBytes?: number;
     failureStage?: 'image-processing' | 'hardware-call';
     errorCode?: string;
     errorName?: string;
