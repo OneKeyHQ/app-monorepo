@@ -144,6 +144,109 @@ describe('useSettledHeaderHeight', () => {
     expect(second.result.current.paddingTop).toBe(113);
   });
 
+  it('keeps the known height on re-entry while the measurement is late', () => {
+    const first = renderHook(() => useSettledHeaderHeight(113, opts));
+    act(() => {
+      jest.advanceTimersByTime(SETTLE_MS);
+    });
+    first.unmount();
+
+    // A heavy first render can delay the native measurement past the settle
+    // window; the estimate must not replace the known height meanwhile.
+    const second = renderHook(
+      ({ height }) => useSettledHeaderHeight(height, opts),
+      { initialProps: { height: 97.67 } },
+    );
+    act(() => {
+      jest.advanceTimersByTime(SETTLE_MS * 4);
+    });
+    expect(second.result.current.paddingTop).toBe(113);
+
+    second.rerender({ height: 113 });
+    act(() => {
+      jest.advanceTimersByTime(SETTLE_MS);
+    });
+    expect(second.result.current.paddingTop).toBe(113);
+  });
+
+  it('waits for the measured height instead of settling a placeholder', () => {
+    const { result, rerender } = renderHook(
+      ({ height }) =>
+        useSettledHeaderHeight(height, {
+          ...opts,
+          estimatedHeaderHeight: 97.67,
+        }),
+      { initialProps: { height: 0 } },
+    );
+
+    // Header still hidden, then react-navigation's estimate: neither is a
+    // measurement, so the settle window alone must not reveal the body.
+    act(() => {
+      jest.advanceTimersByTime(SETTLE_MS * 2);
+    });
+    rerender({ height: 97.67 });
+    act(() => {
+      jest.advanceTimersByTime(SETTLE_MS);
+    });
+    expect(result.current.isSettled).toBe(false);
+
+    rerender({ height: 113 });
+    act(() => {
+      jest.advanceTimersByTime(SETTLE_MS);
+    });
+    expect(result.current.isSettled).toBe(true);
+    expect(result.current.paddingTop).toBe(113);
+  });
+
+  it('reveals a placeholder at the cap without remembering it', () => {
+    const first = renderHook(() =>
+      useSettledHeaderHeight(97.67, {
+        ...opts,
+        estimatedHeaderHeight: 97.67,
+      }),
+    );
+    act(() => {
+      jest.advanceTimersByTime(MAX_HOLD_MS);
+    });
+    expect(first.result.current.isSettled).toBe(true);
+    first.unmount();
+
+    // The next mount has nothing trustworthy to start from yet.
+    const second = renderHook(() =>
+      useSettledHeaderHeight(97.67, {
+        ...opts,
+        estimatedHeaderHeight: 97.67,
+      }),
+    );
+    expect(second.result.current.isSettled).toBe(false);
+  });
+
+  it('keeps the known height on re-entry through a hidden header and the estimate', () => {
+    const first = renderHook(() => useSettledHeaderHeight(113, opts));
+    act(() => {
+      jest.advanceTimersByTime(SETTLE_MS);
+    });
+    first.unmount();
+
+    const second = renderHook(
+      ({ height }) =>
+        useSettledHeaderHeight(height, {
+          ...opts,
+          estimatedHeaderHeight: 97.67,
+        }),
+      { initialProps: { height: 0 } },
+    );
+    act(() => {
+      jest.advanceTimersByTime(SETTLE_MS * 2);
+    });
+    second.rerender({ height: 97.67 });
+    act(() => {
+      jest.advanceTimersByTime(SETTLE_MS * 4);
+    });
+    expect(second.result.current.isSettled).toBe(true);
+    expect(second.result.current.paddingTop).toBe(113);
+  });
+
   it('settles immediately when disabled, so other platforms never hide', () => {
     const { result } = renderHook(() =>
       useSettledHeaderHeight(44, { ...opts, enabled: false }),

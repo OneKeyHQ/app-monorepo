@@ -46,9 +46,11 @@ const SWAP_PRO_ENTRY_DIRECTION_MAP: Record<
 function TradeButton({
   swapToken,
   onShowSwapDialog,
+  disabled,
 }: {
   swapToken: ISwapToken;
   onShowSwapDialog?: (swapToken?: ISwapToken) => void;
+  disabled?: boolean;
 }) {
   const intl = useIntl();
   const { activeAccount, showAccountSelector } = useAccountSelectorTrigger({
@@ -79,6 +81,7 @@ function TradeButton({
         testID="market-no-account-btn"
         size="large"
         variant="primary"
+        disabled={disabled}
         onPress={() => onShowSwapDialog?.(swapToken)}
       >
         {intl.formatMessage({ id: ETranslations.dexmarket_details_trade })}
@@ -92,11 +95,15 @@ export function SwapPanel({
   disableTrade,
   portfolioData,
   onShowSwapDialog,
+  isTradeReady = true,
 }: {
   swapToken: ISwapToken;
   disableTrade?: boolean;
   portfolioData?: IMarketAccountPortfolioDisplayItem[];
   onShowSwapDialog?: (swapToken?: ISwapToken) => void;
+  // False until the token detail confirms the token can be traded. The footer
+  // keeps its place and shows the buttons disabled instead of appearing late.
+  isTradeReady?: boolean;
 }) {
   const intl = useIntl();
   const { bottom } = useSafeAreaInsets();
@@ -135,6 +142,11 @@ export function SwapPanel({
   const [, setSwapProJumpTokenAtom] = useSwapProJumpTokenAtom();
 
   const handleTrade = useCallback(() => {
+    // Swap needs the token's decimals; the buttons are disabled until then,
+    // but Android's gesture layer can still deliver a tap.
+    if (!isTradeReady) {
+      return;
+    }
     const direction = ESwapProJumpTokenDirection.BUY;
     setSwapProJumpTokenAtom({
       token: swapToken,
@@ -151,11 +163,14 @@ export function SwapPanel({
     });
     navigation.pop();
     navigation.switchTab(ETabRoutes.Swap);
-  }, [setSwapProJumpTokenAtom, swapToken, navigation]);
+  }, [setSwapProJumpTokenAtom, swapToken, navigation, isTradeReady]);
 
   const handleInstant = useCallback(() => {
+    if (!isTradeReady) {
+      return;
+    }
     onShowSwapDialog?.(swapToken);
-  }, [onShowSwapDialog, swapToken]);
+  }, [onShowSwapDialog, swapToken, isTradeReady]);
 
   if (!swapToken) {
     return (
@@ -249,6 +264,7 @@ export function SwapPanel({
           <SwapPanelFooterButtons
             onTrade={handleTrade}
             onInstant={handleInstant}
+            disabled={!isTradeReady}
           />
         </Stack>
       </YStack>
@@ -267,6 +283,7 @@ export function SwapPanel({
         <TradeButton
           swapToken={swapToken}
           onShowSwapDialog={onShowSwapDialog}
+          disabled={!isTradeReady}
         />
       </AccountSelectorProviderMirror>
     </View>

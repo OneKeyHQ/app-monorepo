@@ -44,11 +44,22 @@ export function useSettledHeaderHeight(
     enabled = platformEnv.isNativeIOS26Plus,
     settleMs = HEADER_HEIGHT_SETTLE_MS,
     maxHoldMs = HEADER_HEIGHT_MAX_HOLD_MS,
-  }: { enabled?: boolean; settleMs?: number; maxHoldMs?: number } = {},
+    estimatedHeaderHeight,
+  }: {
+    enabled?: boolean;
+    settleMs?: number;
+    maxHoldMs?: number;
+    // The height react-navigation reports before the bar is measured
+    // (getDefaultHeaderHeight), so it is never mistaken for a measurement.
+    estimatedHeaderHeight?: number;
+  } = {},
 ): { paddingTop: number; isSettled: boolean } {
   const [settledHeight, setSettledHeight] = useState<number | undefined>(() =>
     enabled ? deviceSettledHeaderHeight : 0,
   );
+  // What this mount saw before its bar was measured: 0 while a route still
+  // hides its header, or react-navigation's estimate.
+  const [mountHeaderHeight] = useState(headerHeight);
   const holdDeadlineRef = useRef<number | undefined>(undefined);
 
   useEffect(() => {
@@ -61,8 +72,17 @@ export function useSettledHeaderHeight(
       return undefined;
     }
 
+    // 0 means the header is not shown yet, and the estimate is only a guess.
+    // A heavy first render can hold the real measurement past the settle
+    // window, so neither may be taken as the settled height early.
+    const isPlaceholder =
+      headerHeight <= 0 || headerHeight === estimatedHeaderHeight;
+
     const accept = () => {
-      deviceSettledHeaderHeight = headerHeight;
+      // A placeholder revealed at the hold cap must not seed later mounts.
+      if (!isPlaceholder) {
+        deviceSettledHeaderHeight = headerHeight;
+      }
       setSettledHeight(headerHeight);
     };
 
@@ -72,6 +92,9 @@ export function useSettledHeaderHeight(
     // report the estimate again, and taking it immediately would replace a good
     // remembered height with a transient one.
     if (settledHeight !== undefined) {
+      if (isPlaceholder || headerHeight === mountHeaderHeight) {
+        return undefined;
+      }
       const timer = setTimeout(accept, settleMs);
       return () => clearTimeout(timer);
     }
@@ -80,9 +103,21 @@ export function useSettledHeaderHeight(
       holdDeadlineRef.current = Date.now() + maxHoldMs;
     }
     const remainingHold = Math.max(0, holdDeadlineRef.current - Date.now());
-    const timer = setTimeout(accept, Math.min(settleMs, remainingHold));
+    // A placeholder is only taken once the hold runs out.
+    const timer = setTimeout(
+      accept,
+      isPlaceholder ? remainingHold : Math.min(settleMs, remainingHold),
+    );
     return () => clearTimeout(timer);
-  }, [enabled, headerHeight, settleMs, maxHoldMs, settledHeight]);
+  }, [
+    enabled,
+    estimatedHeaderHeight,
+    headerHeight,
+    mountHeaderHeight,
+    settleMs,
+    maxHoldMs,
+    settledHeight,
+  ]);
 
   return {
     // Before anything is known the live estimate is the best guess, and the
