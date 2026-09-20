@@ -12,7 +12,8 @@ import {
   View,
   XStack,
   YStack,
-  useSafeAreaInsets,
+  usePageFooterSafeAreaBottom,
+  usePageFooterTabBarHeight,
 } from '@onekeyhq/components';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import { useAccountSelectorTrigger } from '@onekeyhq/kit/src/components/AccountSelector/hooks/useAccountSelectorTrigger';
@@ -92,14 +93,21 @@ export function SwapPanel({
   disableTrade,
   portfolioData,
   onShowSwapDialog,
+  executionReady = true,
 }: {
   swapToken: ISwapToken;
   disableTrade?: boolean;
   portfolioData?: IMarketAccountPortfolioDisplayItem[];
   onShowSwapDialog?: (swapToken?: ISwapToken) => void;
+  executionReady?: boolean;
 }) {
   const intl = useIntl();
-  const { bottom } = useSafeAreaInsets();
+  // This footer is a plain flex sibling, not a Page.Footer, so it must claim the
+  // same bottom inset itself. A visible tab bar draws over the buttons, which is
+  // the safety net for any missed HideTabBar request.
+  const footerSafeAreaBottom = usePageFooterSafeAreaBottom();
+  const tabBarHeight = usePageFooterTabBarHeight();
+  const bottomInset = footerSafeAreaBottom + tabBarHeight;
   const navigation = useAppNavigation();
   const myPositionInfo = useMemo(() => {
     const positionInfo = portfolioData?.find(
@@ -135,6 +143,9 @@ export function SwapPanel({
   const [, setSwapProJumpTokenAtom] = useSwapProJumpTokenAtom();
 
   const handleTrade = useCallback(() => {
+    if (!executionReady) {
+      return;
+    }
     const direction = ESwapProJumpTokenDirection.BUY;
     setSwapProJumpTokenAtom({
       token: swapToken,
@@ -151,11 +162,14 @@ export function SwapPanel({
     });
     navigation.pop();
     navigation.switchTab(ETabRoutes.Swap);
-  }, [setSwapProJumpTokenAtom, swapToken, navigation]);
+  }, [executionReady, setSwapProJumpTokenAtom, swapToken, navigation]);
 
   const handleInstant = useCallback(() => {
+    if (!executionReady) {
+      return;
+    }
     onShowSwapDialog?.(swapToken);
-  }, [onShowSwapDialog, swapToken]);
+  }, [executionReady, onShowSwapDialog, swapToken]);
 
   if (!swapToken) {
     return (
@@ -245,10 +259,11 @@ export function SwapPanel({
             </XStack>
           ) : null}
         </XStack>
-        <Stack px="$5" pb={bottom || '$4'} pt="$2.5">
+        <Stack px="$5" pb={bottomInset || '$4'} pt="$2.5">
           <SwapPanelFooterButtons
             onTrade={handleTrade}
             onInstant={handleInstant}
+            disabled={!executionReady}
           />
         </Stack>
       </YStack>
