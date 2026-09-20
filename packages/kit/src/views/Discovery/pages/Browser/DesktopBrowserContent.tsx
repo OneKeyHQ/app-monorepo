@@ -32,6 +32,8 @@ import { releaseDesktopWebviewResources } from '../../utils/desktopWebviewCleanu
 import { webviewRefs } from '../../utils/explorerUtils';
 import DashboardContent from '../Dashboard/DashboardContent';
 
+import type { TextInput } from 'react-native';
+
 interface IElectronWebView {
   stopFindInPage: (text: string) => void;
   findInPage: (
@@ -48,17 +50,18 @@ interface IElectronWebView {
   ) => void;
 }
 
-function BasicFind({ id }: { id: string }) {
+function BasicFind({ id, isActive }: { id: string; isActive: boolean }) {
   const [matches, setMatches] = useState(0);
   const [activeMatchOrdinal, setActiveMatchOrdinal] = useState(0);
   const [visible, setIsVisible] = useState(false);
+  const inputRef = useRef<TextInput>(null);
   const prevSearchText = useRef('');
   const handleFindPrev = useCallback(() => {
     if (matches < 1) {
       return;
     }
     const webView = webviewRefs[id]?.innerRef as unknown as IElectronWebView;
-    webView.findInPage(prevSearchText.current, {
+    webView?.findInPage(prevSearchText.current, {
       findNext: false,
       forward: false,
     });
@@ -69,12 +72,12 @@ function BasicFind({ id }: { id: string }) {
     }
     const webView = webviewRefs[id]?.innerRef as unknown as IElectronWebView;
     if (activeMatchOrdinal === matches) {
-      webView.findInPage(prevSearchText.current, {
+      webView?.findInPage(prevSearchText.current, {
         findNext: true,
         forward: false,
       });
     } else {
-      webView.findInPage(prevSearchText.current, {
+      webView?.findInPage(prevSearchText.current, {
         findNext: false,
         forward: true,
       });
@@ -107,11 +110,7 @@ function BasicFind({ id }: { id: string }) {
 
   const handleClose = useCallback(() => {
     setIsVisible(false);
-    const webView = webviewRefs[id]?.innerRef as unknown as IElectronWebView;
-    if (webView) {
-      webView.removeEventListener('found-in-page', foundInPage);
-    }
-  }, [foundInPage, id]);
+  }, []);
 
   useEffect(() => {
     const callback = ({ tabId }: { tabId: string }) => {
@@ -119,24 +118,64 @@ function BasicFind({ id }: { id: string }) {
         return;
       }
       setIsVisible(true);
-      const webView = webviewRefs[id]?.innerRef as unknown as IElectronWebView;
-      if (webView) {
-        webView.addEventListener('found-in-page', foundInPage);
-      }
+      inputRef.current?.focus();
     };
     appEventBus.on(EAppEventBusNames.ShowFindInWebPage, callback);
     return () => {
-      const webView = webviewRefs[id]?.innerRef as unknown as IElectronWebView;
-      if (webView) {
-        webView.removeEventListener('found-in-page', foundInPage);
-      }
       appEventBus.off(EAppEventBusNames.ShowFindInWebPage, callback);
     };
-  }, [foundInPage, id]);
+  }, [id]);
+
+  useEffect(() => {
+    if (visible) {
+      inputRef.current?.focus();
+    }
+  }, [visible]);
+
+  useEffect(() => {
+    if (!visible || !isActive) {
+      return undefined;
+    }
+
+    let webView: IElectronWebView | undefined;
+    let retryTimer: ReturnType<typeof setTimeout> | undefined;
+    let waitingForWebView = false;
+    const attachFindListener = () => {
+      const currentWebView = webviewRefs[id]?.innerRef as
+        | IElectronWebView
+        | undefined;
+      if (!currentWebView) {
+        waitingForWebView = true;
+        retryTimer = setTimeout(attachFindListener, 100);
+        return;
+      }
+      webView = currentWebView;
+      webView.addEventListener('found-in-page', foundInPage);
+      if (waitingForWebView && prevSearchText.current) {
+        webView.findInPage(prevSearchText.current, {
+          findNext: true,
+          forward: false,
+        });
+      }
+    };
+    attachFindListener();
+
+    return () => {
+      if (retryTimer) {
+        clearTimeout(retryTimer);
+      }
+      webView?.removeEventListener('found-in-page', foundInPage);
+    };
+  }, [foundInPage, id, isActive, visible]);
 
   const handleTextChange = useThrottledCallback((text: string) => {
+    prevSearchText.current = text;
     const webView = webviewRefs[id]?.innerRef as unknown as IElectronWebView;
     if (!webView) {
+      if (text.length === 0) {
+        setMatches(0);
+        setActiveMatchOrdinal(0);
+      }
       return;
     }
     if (text.length === 0) {
@@ -146,7 +185,6 @@ function BasicFind({ id }: { id: string }) {
     } else {
       webView.findInPage(text, { findNext: true, forward: false });
     }
-    prevSearchText.current = text;
   }, 250);
 
   const disabled = matches === 0;
@@ -184,6 +222,7 @@ function BasicFind({ id }: { id: string }) {
             <Input
               testID="discovery-input"
               autoFocus
+              ref={inputRef}
               onChangeText={handleTextChange}
               containerProps={{
                 borderWidth: 0,
@@ -311,7 +350,7 @@ function BasicDesktopBrowserContent({
 
   return (
     <Freeze key={id} freeze={!isActive}>
-      {platformEnv.isDesktop ? <Find id={id} /> : null}
+      {platformEnv.isDesktop ? <Find id={id} isActive={isActive} /> : null}
       {body}
     </Freeze>
   );

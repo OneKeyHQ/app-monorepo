@@ -11,12 +11,10 @@ import {
   XStack,
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { EShortcutEvents } from '@onekeyhq/shared/src/shortcuts/shortcuts.enum';
 import { useDebugComponentRemountLog } from '@onekeyhq/shared/src/utils/debug/debugUtils';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
-import { useShortcutsOnRouteFocused } from '../../../hooks/useShortcutsOnRouteFocused';
 import {
   useAccountSelectorStorageReadyAtom,
   useSelectedAccount,
@@ -137,8 +135,6 @@ function NetworkSelectorTriggerHomeCmp({
     showChainSelector,
     recordNetworkHistoryEnabled,
   ]);
-
-  useShortcutsOnRouteFocused(EShortcutEvents.NetworkSelector, handlePress);
 
   if (hideOnNoAccount && !accountName) {
     return null;
