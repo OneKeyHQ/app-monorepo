@@ -6,7 +6,6 @@ import type { ReactNode } from 'react';
 import { fireEvent, render, screen } from '@testing-library/react';
 
 const mockRun = jest.fn();
-const mockToOnBoardingPage = jest.fn();
 let mockPromiseResult: {
   result?:
     | {
@@ -14,21 +13,8 @@ let mockPromiseResult: {
         data: {
           totalBonus: string;
           undistributed: string;
-          token: {
-            symbol: string;
-          };
-          history: {
-            date: string;
-            tx: string;
-            amount: string;
-            token: {
-              networkId: string;
-              address: string;
-              logoURI: string;
-              name: string;
-              symbol: string;
-            };
-          }[];
+          token: { symbol: string };
+          history: { date: string; tx: string; amount: string }[];
         };
       }
     | { status: 'unsupported' }
@@ -47,42 +33,28 @@ jest.mock('@onekeyhq/components', () => {
   const React = jest.requireActual<typeof import('react')>('react');
   const Primitive = ({ children }: { children?: ReactNode }) =>
     React.createElement('div', null, children);
-  const Button = ({
-    children,
-    onPress,
-    testID,
-  }: {
-    children?: ReactNode;
-    onPress?: () => void;
-    testID?: string;
-  }) =>
-    React.createElement(
-      'button',
-      { onClick: onPress, 'data-testid': testID },
-      children,
-    );
-  const Empty = ({
-    title,
-    description,
-  }: {
-    title?: ReactNode;
-    description?: ReactNode;
-  }) =>
-    React.createElement(
-      'div',
-      null,
-      React.createElement('span', null, title),
-      React.createElement('span', null, description),
-    );
 
   return {
-    Button,
-    Empty,
-    Icon: Primitive,
-    NumberSizeableText: Primitive,
+    Button: ({
+      children,
+      onPress,
+      testID,
+    }: {
+      children?: ReactNode;
+      onPress?: () => void;
+      testID?: string;
+    }) =>
+      React.createElement(
+        'button',
+        { onClick: onPress, 'data-testid': testID },
+        children,
+      ),
+    Divider: Primitive,
+    Empty: ({ title }: { title?: ReactNode }) =>
+      React.createElement('div', null, title),
+    ScrollView: ({ children }: { children?: ReactNode }) =>
+      React.createElement('div', { 'data-testid': 'scroll-view' }, children),
     SizableText: Primitive,
-    Skeleton: Primitive,
-    XStack: Primitive,
     YStack: Primitive,
   };
 });
@@ -103,33 +75,50 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
 jest.mock(
   '@onekeyhq/kit/src/views/Onboarding/hooks/useToOnBoardingPage',
   () => ({
-    useToOnBoardingPage: () => mockToOnBoardingPage,
+    useToOnBoardingPage: jest.fn(),
   }),
 );
 
-jest.mock('@onekeyhq/kit/src/components/Token', () => ({
-  Token: () => <div />,
+jest.mock('./components/RewardSummaryCard', () => ({
+  RewardSummaryCard: ({
+    distributedBonus,
+    undistributed,
+    tokenSymbol,
+  }: {
+    distributedBonus?: string;
+    undistributed?: string;
+    tokenSymbol?: string;
+  }) => (
+    <div data-testid="reward-summary">
+      {distributedBonus}:{undistributed}:{tokenSymbol}
+    </div>
+  ),
 }));
 
-jest.mock('@onekeyhq/kit/src/hooks/useFormatDate', () => ({
-  __esModule: true,
-  default: () => ({ formatDate: (date: string) => date }),
-}));
-
-jest.mock('@onekeyhq/kit/src/utils/explorerUtils', () => ({
-  openTransactionDetailsUrl: jest.fn(),
-}));
-
-jest.mock('@onekeyhq/kit/src/components/InfoIcon', () => ({
-  InfoIcon: () => <div data-testid="reward-summary-info" />,
+jest.mock('./components/RewardHistoryList', () => ({
+  RewardHistoryList: ({ history }: { history?: unknown[] }) => (
+    <div
+      data-testid="reward-history-list"
+      data-count={String(history?.length ?? 0)}
+    />
+  ),
 }));
 
 import { SwapInviteeRewardContent } from './SwapInviteeRewardContent';
 
+function renderContent({ isMobile }: { isMobile?: boolean } = {}) {
+  return render(
+    <SwapInviteeRewardContent
+      accountId="hd-1--account"
+      currentEvmAddress="0xcurrent"
+      isMobile={isMobile}
+    />,
+  );
+}
+
 describe('SwapInviteeRewardContent', () => {
   beforeEach(() => {
     mockRun.mockReset();
-    mockToOnBoardingPage.mockReset();
     mockPromiseResult = {
       result: {
         status: 'success',
@@ -145,19 +134,36 @@ describe('SwapInviteeRewardContent', () => {
     };
   });
 
-  it('renders only the aggregate reward summary', () => {
-    render(
+  it('renders distributed rewards, empty history, and the desktop scroll host', () => {
+    const { rerender } = renderContent();
+
+    expect(screen.getByTestId('reward-summary').textContent).toBe('9:3:USDC');
+    expect(screen.getByText('referral.reward_history')).toBeTruthy();
+    expect(
+      screen.getByTestId('reward-history-list').getAttribute('data-count'),
+    ).toBe('0');
+    expect(screen.getByTestId('scroll-view')).toBeTruthy();
+
+    mockPromiseResult.result = {
+      status: 'success',
+      data: {
+        totalBonus: '12',
+        undistributed: '3',
+        token: { symbol: 'USDC' },
+        history: [{ date: '2026-09-08', tx: '0xtx', amount: '0.17' }],
+      },
+    };
+    rerender(
       <SwapInviteeRewardContent
         accountId="hd-1--account"
         currentEvmAddress="0xcurrent"
+        isMobile
       />,
     );
 
-    expect(screen.getByText('9')).toBeTruthy();
-    expect(screen.getByText('3')).toBeTruthy();
-    expect(screen.queryByText('12')).toBeNull();
-    expect(screen.queryByText('referral.reward_history')).toBeNull();
-    expect(screen.queryByText('0xtransa...action')).toBeNull();
+    expect(
+      screen.getByTestId('reward-history-list').getAttribute('data-count'),
+    ).toBe('1');
     expect(screen.queryByTestId('scroll-view')).toBeNull();
   });
 
@@ -172,15 +178,11 @@ describe('SwapInviteeRewardContent', () => {
       },
     };
 
-    render(
-      <SwapInviteeRewardContent
-        accountId="hd-1--account"
-        currentEvmAddress="0xcurrent"
-      />,
-    );
+    renderContent();
 
-    expect(screen.getByText('0')).toBeTruthy();
-    expect(screen.getAllByText('0.46')).toHaveLength(1);
+    expect(screen.getByTestId('reward-summary').textContent).toBe(
+      '0:0.46:USDC',
+    );
   });
 
   it('shows only the total bonus when no rewards are undistributed', () => {
@@ -194,44 +196,24 @@ describe('SwapInviteeRewardContent', () => {
       },
     };
 
-    render(
-      <SwapInviteeRewardContent
-        accountId="hd-1--account"
-        currentEvmAddress="0xcurrent"
-      />,
+    renderContent();
+
+    expect(screen.getByTestId('reward-summary').textContent).toBe(
+      '0.46:0:USDC',
     );
-
-    expect(screen.getAllByText('0.46')).toHaveLength(1);
-    expect(screen.queryByText('0')).toBeNull();
   });
 
-  it('keeps the no-wallet state', () => {
-    const onBeforeNavigate = jest.fn();
-
-    render(<SwapInviteeRewardContent onBeforeNavigate={onBeforeNavigate} />);
-
-    expect(screen.getByText('referral.apply_code_no_wallet')).toBeTruthy();
-    fireEvent.click(screen.getByTestId('swap-invitee-reward-onboarding'));
-    expect(onBeforeNavigate).toHaveBeenCalledTimes(1);
-  });
-
-  it('shows the no-wallet empty state when the account has no EVM address', () => {
+  it('shows the no-wallet empty state without an EVM address', () => {
     render(<SwapInviteeRewardContent accountId="watching--btc--bc1qwatch" />);
 
     expect(screen.getByText('referral.apply_code_no_wallet')).toBeTruthy();
-    expect(screen.getByTestId('swap-invitee-reward-onboarding')).toBeTruthy();
     expect(screen.queryByText('perps.account_not_support')).toBeNull();
   });
 
   it('keeps the retry action for request errors', () => {
     mockPromiseResult.result = { status: 'error' };
 
-    render(
-      <SwapInviteeRewardContent
-        accountId="hd-1--account"
-        currentEvmAddress="0xcurrent"
-      />,
-    );
+    renderContent();
     fireEvent.click(screen.getByTestId('swap-invitee-reward-retry'));
 
     expect(mockRun).toHaveBeenCalledTimes(1);
