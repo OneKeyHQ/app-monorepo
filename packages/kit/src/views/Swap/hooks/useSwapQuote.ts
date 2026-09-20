@@ -1069,11 +1069,7 @@ export function useSwapQuote({
     }
     return () => {
       isEffectActive = false;
-      if (
-        shouldUseRouteQuoteLifecycle &&
-        !isFocused &&
-        !isProviderSelectRouteActive()
-      ) {
+      if (shouldUseRouteQuoteLifecycle && !isProviderSelectRouteActive()) {
         unsubscribeQuoteEvents();
       }
     };
