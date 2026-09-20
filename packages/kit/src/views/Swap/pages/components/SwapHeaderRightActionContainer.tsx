@@ -1,10 +1,15 @@
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { debounce } from 'lodash';
 import { useIntl } from 'react-intl';
-import { useWindowDimensions } from 'react-native';
+import { StyleSheet, useWindowDimensions } from 'react-native';
+import Animated, {
+  useAnimatedStyle,
+  useSharedValue,
+  withTiming,
+} from 'react-native-reanimated';
 
 import type { ColorTokens, IPageNavigationProp } from '@onekeyhq/components';
 import {
@@ -175,6 +180,70 @@ const SwapSettingsSlippageItem = ({
 const SWAP_SETTINGS_DIALOG_TOP_SAFE_GAP = 16;
 const SWAP_SETTINGS_DIALOG_CHROME_HEIGHT = 220;
 const SWAP_SETTINGS_DIALOG_MIN_CONTENT_HEIGHT = 120;
+
+const swapSlippageTransition = {
+  duration: 150,
+} as const;
+
+const swapSlippageTransitionStyles = StyleSheet.create({
+  hidden: {
+    overflow: 'hidden',
+  },
+});
+
+const SwapSlippageHeightTransition = ({
+  children,
+}: {
+  children?: ReactNode;
+}) => {
+  const measuredHeight = useSharedValue(0);
+  const shouldAnimate = useSharedValue(0);
+  const [hasMeasuredHeight, setHasMeasuredHeight] = useState(false);
+  const hasMeasuredHeightRef = useRef(false);
+  const animationFrameRef = useRef<number | null>(null);
+
+  useEffect(
+    () => () => {
+      if (animationFrameRef.current !== null) {
+        cancelAnimationFrame(animationFrameRef.current);
+      }
+    },
+    [],
+  );
+
+  const containerStyle = useAnimatedStyle(() => {
+    const height = shouldAnimate.value
+      ? withTiming(measuredHeight.value, swapSlippageTransition)
+      : measuredHeight.value;
+
+    return {
+      height: hasMeasuredHeight ? height : undefined,
+    };
+  }, [hasMeasuredHeight, measuredHeight, shouldAnimate]);
+
+  const handleLayout = useCallback(
+    ({ nativeEvent }: { nativeEvent: { layout: { height: number } } }) => {
+      measuredHeight.value = Math.ceil(nativeEvent.layout.height);
+      if (!hasMeasuredHeightRef.current) {
+        hasMeasuredHeightRef.current = true;
+        setHasMeasuredHeight(true);
+        animationFrameRef.current = requestAnimationFrame(() => {
+          shouldAnimate.value = 1;
+          animationFrameRef.current = null;
+        });
+      }
+    },
+    [measuredHeight, shouldAnimate],
+  );
+
+  return (
+    <Animated.View
+      style={[swapSlippageTransitionStyles.hidden, containerStyle]}
+    >
+      <Animated.View onLayout={handleLayout}>{children}</Animated.View>
+    </Animated.View>
+  );
+};
 
 const SwapSlippageCustomContent = ({
   swapSlippage,
@@ -422,6 +491,22 @@ const SwapSettingsDialogContent = ({
     resetQuoteAction,
     slippageItem,
   ]);
+  const slippageContent = useMemo(
+    () => (
+      <YStack gap="$5">
+        <SwapSettingsSlippageItem
+          title={intl.formatMessage({
+            id: ETranslations.swap_page_provider_slippage_tolerance,
+          })}
+          rightTrigger={rightTrigger}
+        />
+        {slippageItem.key === ESwapSlippageSegmentKey.CUSTOM ? (
+          <SwapSlippageCustomContent swapSlippage={slippageItem} />
+        ) : null}
+      </YStack>
+    ),
+    [intl, rightTrigger, slippageItem],
+  );
   return (
     <ScrollView
       mx="$-5"
@@ -434,19 +519,13 @@ const SwapSettingsDialogContent = ({
       <YStack gap="$5">
         {showSwapSettingsSlippage ? (
           <>
-            <HeightTransition>
-              <YStack gap="$5">
-                <SwapSettingsSlippageItem
-                  title={intl.formatMessage({
-                    id: ETranslations.swap_page_provider_slippage_tolerance,
-                  })}
-                  rightTrigger={rightTrigger}
-                />
-                {slippageItem.key === ESwapSlippageSegmentKey.CUSTOM ? (
-                  <SwapSlippageCustomContent swapSlippage={slippageItem} />
-                ) : null}
-              </YStack>
-            </HeightTransition>
+            {platformEnv.isNative ? (
+              <HeightTransition>{slippageContent}</HeightTransition>
+            ) : (
+              <SwapSlippageHeightTransition>
+                {slippageContent}
+              </SwapSlippageHeightTransition>
+            )}
             <Divider />
           </>
         ) : null}

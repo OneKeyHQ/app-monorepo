@@ -29,6 +29,7 @@ import {
   shouldOfferSwapQuoteRefresh,
   shouldPlaySwapQuoteRefreshAnimation,
   shouldShowSwapQuoteActionLoading,
+  shouldShowSwapQuoteLimitWarning,
   shouldShowSwapQuoteRequestLoading,
 } from './quoteProgress';
 
@@ -61,6 +62,20 @@ function buildQuote({
 }
 
 describe('swap quote progress', () => {
+  it('waits for the quote event to settle before showing limit warnings', () => {
+    expect(
+      shouldShowSwapQuoteLimitWarning({
+        quoteEventCompleted: false,
+        quoteEventFetching: true,
+      }),
+    ).toBe(false);
+    expect(
+      shouldShowSwapQuoteLimitWarning({
+        quoteEventCompleted: true,
+        quoteEventFetching: false,
+      }),
+    ).toBe(true);
+  });
   it('validates the amount on the active quote side', () => {
     expect(
       isSwapQuoteInputAmountValid({
