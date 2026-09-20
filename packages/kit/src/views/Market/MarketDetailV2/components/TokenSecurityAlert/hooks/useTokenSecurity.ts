@@ -1,8 +1,12 @@
 import { useMemo } from 'react';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { useLocaleVariant } from '@onekeyhq/kit/src/hooks/useLocaleVariant';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
-import { swrKeys } from '@onekeyhq/shared/src/utils/swrCacheUtils';
+import {
+  swrCacheUtils,
+  swrKeys,
+} from '@onekeyhq/shared/src/utils/swrCacheUtils';
 import { normalizeTokenContractAddress } from '@onekeyhq/shared/src/utils/tokenUtils';
 
 import { analyzeSecurityData, formatSecurityData } from '../utils';
@@ -12,10 +16,18 @@ import type {
   IUseTokenSecurityResult,
 } from '../types';
 
+// A security verdict is a claim about right now: a token rated safe days ago
+// may since have been re-rated. The persisted copy is only there to spare the
+// first frame, so it is shown for minutes, not across sessions — past that the
+// panel waits for this session's answer rather than presenting an old one as
+// current.
+const SECURITY_RESULT_MAX_AGE_MS = 5 * 60 * 1000;
+
 export const useTokenSecurity = ({
   tokenAddress,
   networkId,
 }: IUseTokenSecurityParams): IUseTokenSecurityResult => {
+  const locale = useLocaleVariant().toLowerCase();
   // Every instance for the same token shares this key, so a component that
   // mounts after the first request settled starts from that result.
   const securitySwrKey =
@@ -27,6 +39,7 @@ export const useTokenSecurity = ({
               networkId,
               contractAddress: tokenAddress,
             }) ?? tokenAddress,
+          locale,
         })
       : undefined;
   const { result: securityData } = usePromiseResult(
@@ -55,6 +68,13 @@ export const useTokenSecurity = ({
     },
   );
 
+  // A successful fetch re-stamps the entry, so an entry still older than the
+  // window means what we are holding is the replayed copy.
+  const isSecurityResultFresh = securitySwrKey
+    ? swrCacheUtils.isFresh(securitySwrKey, SECURITY_RESULT_MAX_AGE_MS)
+    : true;
+  const currentSecurityData = isSecurityResultFresh ? securityData : null;
+
   // Note: Removed trusted_token special handling since we now use dynamic structure
   // and rely on API's riskType directly. Backend should handle data filtering.
 
@@ -64,8 +84,8 @@ export const useTokenSecurity = ({
         status,
         riskCount: risks,
         cautionCount: cautions,
-      } = analyzeSecurityData(securityData);
-      const formatted = formatSecurityData(securityData);
+      } = analyzeSecurityData(currentSecurityData);
+      const formatted = formatSecurityData(currentSecurityData);
 
       return {
         securityStatus: status,
@@ -73,10 +93,10 @@ export const useTokenSecurity = ({
         cautionCount: cautions,
         formattedData: formatted,
       };
-    }, [securityData]);
+    }, [currentSecurityData]);
 
   return {
-    securityData,
+    securityData: currentSecurityData,
     securityStatus,
     riskCount,
     cautionCount,

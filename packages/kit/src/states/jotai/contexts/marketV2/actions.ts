@@ -39,6 +39,7 @@ import {
   tokenDetailLoadingAtom,
   tokenDetailPreviewAtom,
   tokenDetailRequestIdAtom,
+  tokenDetailSwrScopeAtom,
   tokenDetailWebsocketAtom,
 } from './atoms';
 
@@ -281,7 +282,11 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
       payload: { tokenAddress: string; networkId: string; swrKey: string },
     ) => {
       const { tokenAddress, networkId, swrKey } = payload;
+      // Same token in the same scope: what is on screen already came from this
+      // key. A scope change (currency, locale) keeps the token identity but
+      // makes the displayed fields stale, so it must fall through and seed.
       if (
+        get(tokenDetailSwrScopeAtom()) === swrKey &&
         isSameMarketTokenDetail({
           tokenDetail: get(tokenDetailAtom()),
           tokenAddress,
@@ -318,6 +323,7 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
       set(tokenDetailAtom(), cached.data.token);
       set(tokenDetailWebsocketAtom(), cached.data.websocket);
       set(perpsInfoAtom(), cached.data.perpsInfo);
+      set(tokenDetailSwrScopeAtom(), swrKey);
     },
   );
 
@@ -624,6 +630,9 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
             websocket: websocketConfig,
             perpsInfo,
           });
+          // This response is the scope now, so a seed for the same key cannot
+          // put an older cached copy back over it.
+          set(tokenDetailSwrScopeAtom(), options.swrKey);
         }
 
         return finalTokenData;

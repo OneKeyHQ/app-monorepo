@@ -1571,13 +1571,18 @@ export const swrKeys = {
       currencyId,
       locale,
     ].join(':'),
+  // Each item carries a localized `content` that the UI shows as-is, so a
+  // report cached in one language must not be replayed in another.
   marketTokenSecurity: ({
     networkId,
     tokenAddress,
+    locale,
   }: {
     networkId: string;
     tokenAddress: string;
-  }) => [NS.marketTokenSecurity, 'v1', networkId, tokenAddress].join(':'),
+    locale: string;
+  }) =>
+    [NS.marketTokenSecurity, 'v1', networkId, tokenAddress, locale].join(':'),
   marketHomeTokenList: ({
     networkId,
     locale,

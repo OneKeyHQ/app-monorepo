@@ -455,6 +455,47 @@ describe('cached token detail seed', () => {
 
   afterEach(() => jest.restoreAllMocks());
 
+  // PR 13609 review: the scope carries currency and locale, so the same token
+  // in another language is a different key. Guarding on token identity alone
+  // made the seed bail and leave the previous language's fields on screen.
+  it('seeds the other-locale copy for a token already on screen', async () => {
+    const { store, Wrapper } = createWrapper();
+    const { result } = renderHook(() => useTokenDetailActions().current, {
+      wrapper: Wrapper,
+    });
+    const zhSwrKey = `${swrKey}:zh-cn`;
+    mockFetchMarketTokenDetailByTokenAddress.mockResolvedValueOnce({
+      data: { token, websocket, perpsInfo },
+    });
+
+    act(() => result.current.prepareStockTokenDetail(target));
+    await act(async () => {
+      await result.current.fetchTokenDetail(
+        target.tokenAddress,
+        target.networkId,
+        { swrKey },
+      );
+    });
+    expect(store.get(tokenDetailAtom())).toMatchObject({ symbol: 'AAPLon' });
+
+    // What a previous visit in the other language left behind.
+    swrCacheUtils.set(zhSwrKey, {
+      token: { ...token, symbol: '苹果on' },
+      websocket,
+      perpsInfo,
+    });
+
+    act(() =>
+      result.current.seedTokenDetailFromCache({
+        tokenAddress: target.tokenAddress,
+        networkId: target.networkId,
+        swrKey: zhSwrKey,
+      }),
+    );
+
+    expect(store.get(tokenDetailAtom())).toMatchObject({ symbol: '苹果on' });
+  });
+
   it('writes a successful detail and seeds it back for the same token', async () => {
     const { store, Wrapper } = createWrapper();
     const { result } = renderHook(() => useTokenDetailActions().current, {

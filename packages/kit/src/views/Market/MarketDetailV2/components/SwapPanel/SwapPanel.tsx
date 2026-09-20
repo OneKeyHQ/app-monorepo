@@ -66,6 +66,10 @@ function TradeButton({
         <Button
           size="large"
           variant="primary"
+          // Same readiness gate as the Trade button it stands in for: this
+          // branch otherwise let the account selector open before the token
+          // was known, which is the one path the guard used to miss.
+          disabled={disabled}
           onPress={showAccountSelector}
           testID="market-no-account-btn"
         >

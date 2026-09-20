@@ -253,6 +253,122 @@ describe('StockDetailProvider', () => {
     expect(result.current.selectedTokenVariant?.tokenId).toBe('aapl-ondo');
   });
 
+  // PR 13609 review: a cached list can predate the route's variant. Resolving
+  // against it must not retire the route, or the fetched list that finally
+  // carries that variant is skipped and the page trades the wrong token.
+  it('applies the route variant from the fetched list when the cache lacked it', async () => {
+    const routeVariant: IMarketStockTokenVariant = {
+      tokenId: 'aapl-backed',
+      issuer: 'backed',
+      networkId: 'evm--1',
+      contractAddress: '0xbacked',
+      currency: 'USD',
+      status: 'active',
+      tradingEnabled: true,
+    };
+    const defaultVariant: IMarketStockTokenVariant = {
+      tokenId: 'aapl-ondo',
+      issuer: 'ondo',
+      networkId: 'evm--56',
+      contractAddress: '0xondo',
+      currency: 'USD',
+      status: 'active',
+      tradingEnabled: true,
+    };
+    // The snapshot only knows the default issuer.
+    swrCacheUtils.set(
+      swrKeys.marketStockTokenVariants({ stockId: 'AAPL', locale: 'en-us' }),
+      {
+        stockId: 'AAPL',
+        defaultTokenId: 'aapl-ondo',
+        items: [defaultVariant],
+      },
+    );
+    serviceMarketV2.fetchMarketStockDetail.mockReturnValue(
+      new Promise(() => undefined),
+    );
+    serviceMarketV2.fetchMarketStockTokenVariants.mockResolvedValue({
+      stockId: 'AAPL',
+      defaultTokenId: 'aapl-ondo',
+      items: [defaultVariant, routeVariant],
+    });
+
+    const wrapper = ({ children }: PropsWithChildren) => (
+      <StockDetailProvider
+        stockId="AAPL"
+        initialNetworkId="evm--1"
+        initialTokenAddress="0xbacked"
+      >
+        {children}
+      </StockDetailProvider>
+    );
+    const { result } = renderHook(() => useStockDetail(), { wrapper });
+
+    // First frame renders the only token the cache knew about.
+    expect(result.current.selectedTokenVariant?.tokenId).toBe('aapl-ondo');
+
+    await waitFor(() =>
+      expect(result.current.selectedTokenVariant?.tokenId).toBe('aapl-backed'),
+    );
+  });
+
+  // PR 13609 review: on a revisit usePromiseResult replays the cached payload,
+  // but the per-stock fallbacks used to start empty, so the first failed
+  // request replaced what the page was already showing with an error.
+  it('keeps the hydrated detail and variants when the first request fails', async () => {
+    const variant: IMarketStockTokenVariant = {
+      tokenId: 'aapl-ondo',
+      issuer: 'ondo',
+      networkId: 'evm--56',
+      contractAddress: '0xondo',
+      currency: 'USD',
+      status: 'active',
+      tradingEnabled: true,
+    };
+    swrCacheUtils.set(
+      swrKeys.marketStockTokenVariants({ stockId: 'AAPL', locale: 'en-us' }),
+      { stockId: 'AAPL', defaultTokenId: 'aapl-ondo', items: [variant] },
+    );
+    swrCacheUtils.set(
+      swrKeys.marketStockDetail({ stockId: 'AAPL', locale: 'en-us' }),
+      { stockId: 'AAPL', data: { stockId: 'AAPL', name: 'Apple Inc.' } },
+    );
+    serviceMarketV2.fetchMarketStockDetail.mockRejectedValue(
+      new Error('offline'),
+    );
+    serviceMarketV2.fetchMarketStockTokenVariants.mockRejectedValue(
+      new Error('offline'),
+    );
+
+    const wrapper = ({ children }: PropsWithChildren) => (
+      <StockDetailProvider stockId="AAPL">{children}</StockDetailProvider>
+    );
+    const { result } = renderHook(() => useStockDetail(), { wrapper });
+
+    // Wait for the rejections to be processed, not merely dispatched: the
+    // replayed cache is on screen from the first frame, so asserting before
+    // the failure lands would pass either way.
+    await waitFor(() =>
+      expect(
+        serviceMarketV2.fetchMarketStockDetail.mock.calls.length,
+      ).toBeGreaterThan(0),
+    );
+    await waitFor(() =>
+      expect(
+        serviceMarketV2.fetchMarketStockTokenVariants.mock.calls.length,
+      ).toBeGreaterThan(0),
+    );
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(result.current.isStockDetailError).toBe(false);
+    expect(result.current.stockDetail?.name).toBe('Apple Inc.');
+    expect(result.current.tokenVariants).toHaveLength(1);
+    expect(result.current.selectedTokenVariant?.tokenId).toBe('aapl-ondo');
+  });
+
   it('releases initial layout loading when every token variant is paused', async () => {
     serviceMarketV2.fetchMarketStockTokenVariants.mockResolvedValue({
       stockId: 'AAPL',
