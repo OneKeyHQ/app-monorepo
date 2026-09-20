@@ -91,6 +91,7 @@ export enum ESwapQuoteKind {
 
 export enum ESwapQuoteSource {
   MARKET = 'Market',
+  SWEEP = 'Sweep',
 }
 
 export enum ESwapSource {
@@ -918,6 +919,7 @@ export type ISwapQuoteEventData =
 
 // build_tx
 export interface IFetchBuildTxParams extends IFetchSwapQuoteBaseParams {
+  source?: ESwapQuoteSource;
   userAddress: string;
   receivingAddress: string;
   slippagePercentage: number;
