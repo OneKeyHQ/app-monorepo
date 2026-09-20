@@ -248,7 +248,7 @@ describe('native sync storage backlog recovery', () => {
     expect(value['ack-1-500']).toEqual({ d: 'ack-1-500', t: 1002 });
   });
 
-  it('does not replay an older acknowledged write after an over-budget refresh', async () => {
+  it('preserves newer broadcasts after an over-budget refresh', async () => {
     const module = loadMirror();
     await module.bootstrapNativeSyncStorageMirrors();
     let resolveSnapshot:
@@ -276,17 +276,25 @@ describe('native sync storage backlog recovery', () => {
       removals: [],
       updates: [['race', entry(1)]],
     });
-    await expect(refresh).rejects.toThrow('snapshot replay budget exceeded');
+    await module.waitForNativeSyncStorageMutations();
 
     globals.__onekeyNativeSyncStorageApplyMutation?.({
       store: 'coldStart',
-      operation: 'patchSWR',
-      entries: [['race', entry(2)]],
+      operation: 'set',
+      key: swrKey,
+      value: JSON.stringify({ race: { d: 2, t: 2 } }),
     });
+    await expect(refresh).rejects.toThrow('snapshot replay budget exceeded');
     expect(JSON.parse(storage.getString(swrKey) ?? '{}').race).toEqual({
       d: 2,
       t: 2,
     });
+    mockCallNativeStorage.mockResolvedValueOnce({
+      ...emptySnapshot,
+      swrCacheEntries: [['race', entry(3)]],
+    });
+    await module.refreshNativeSyncStorageMirrors();
+    expect(new Map(storage.readSWRCacheEntries?.()).get('race')).toBe(entry(3));
     resolveSnapshot?.(emptySnapshot);
   });
 

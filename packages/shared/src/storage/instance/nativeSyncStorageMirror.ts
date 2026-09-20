@@ -329,7 +329,7 @@ function mergeSWRPatches(
     removedAt: number,
   ) => {
     updates.forEach((update, key) => {
-      if (matches(key) && update.t < removedAt) {
+      if (matches(key) && update.t <= removedAt) {
         updates.delete(key);
       }
     });
@@ -1070,35 +1070,6 @@ function acknowledgeRemoteMutation(
   pending.acknowledgements.forEach((acknowledgement) =>
     acknowledgement.resolve(),
   );
-  if (bootstrapAttempt) {
-    const state = mirrors[store];
-    const replay = [...state.mutationsBeforeBootstrap];
-    let localMutation: INativeSyncStorageLocalMutation;
-    if (canonical.operation === 'set') {
-      localMutation = {
-        operation: 'set',
-        key: canonical.key,
-        value: canonical.value,
-      };
-    } else if (canonical.operation === 'patchSWR') {
-      localMutation = {
-        operation: 'patchSWR',
-        entries: canonical.entries,
-      };
-    } else if (canonical.operation === 'remove') {
-      localMutation = { operation: 'remove', key: canonical.key };
-    } else {
-      localMutation = { operation: 'clear' };
-    }
-    if (!appendCompactedLocalMutation(replay, localMutation)) {
-      abortBootstrapReplay(
-        new OneKeyLocalError('Native storage snapshot replay budget exceeded'),
-      );
-      queue.pending.delete(mutationId);
-      applyCanonicalMutation(canonical, 'ack');
-      return;
-    }
-  }
   queue.pending.delete(mutationId);
   applyCanonicalMutation(canonical, 'ack');
 }
