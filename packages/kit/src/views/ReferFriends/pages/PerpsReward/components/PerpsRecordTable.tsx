@@ -92,21 +92,35 @@ function SortableHeader({
   const isActive = hasUserSorted && sortBy === field;
 
   return (
-    <XStack w={width} ai="center" jc={jc} gap="$1">
+    <XStack w={width} minWidth={0} ai="center" jc={jc} gap="$1">
       <XStack
         ai="center"
         gap="$1"
-        onPress={() => onSort(field)}
+        minWidth={0}
         cursor="pointer"
+        userSelect="none"
         hoverStyle={HOVER_OPACITY_STYLE}
+        onPress={() => onSort(field)}
+        testID={`perps-reward-sort-${field}`}
       >
         <SizableText
+          pointerEvents="none"
           size="$headingXs"
           color={isActive ? '$text' : '$textSubdued'}
           textTransform="uppercase"
         >
           {label}
         </SizableText>
+        <Icon
+          pointerEvents="none"
+          name={
+            isActive && sortOrder === 'asc'
+              ? 'ChevronTopSmallOutline'
+              : 'ChevronDownSmallOutline'
+          }
+          size="$4"
+          color={isActive ? '$icon' : '$iconSubdued'}
+        />
       </XStack>
       {tooltipContent ? (
         <Popover.Tooltip
@@ -120,22 +134,6 @@ function SortableHeader({
           }
         />
       ) : null}
-      <XStack
-        ai="center"
-        onPress={() => onSort(field)}
-        cursor="pointer"
-        hoverStyle={HOVER_OPACITY_STYLE}
-      >
-        <Icon
-          name={
-            isActive && sortOrder === 'asc'
-              ? 'ChevronTopSmallOutline'
-              : 'ChevronDownSmallOutline'
-          }
-          size="$4"
-          color={isActive ? '$icon' : '$iconSubdued'}
-        />
-      </XStack>
     </XStack>
   );
 }

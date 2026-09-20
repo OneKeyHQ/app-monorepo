@@ -29,6 +29,7 @@ import type { ISwapInviteColumnWidths } from './useSwapTableColumns';
 import type { ISwapRecordsTab } from '../types';
 
 const SCROLL_CONTENT_STYLE = { flexGrow: 1 };
+const HOVER_OPACITY_STYLE = { opacity: 0.75 };
 
 interface ISwapDetailsSectionProps {
   records: ISwapInviteItem[];
@@ -222,10 +223,13 @@ function SortableHeader({
       ai="center"
       jc={justifyContent}
       cursor="pointer"
-      hoverStyle={{ opacity: 0.75 }}
+      userSelect="none"
+      hoverStyle={HOVER_OPACITY_STYLE}
       onPress={() => onSort(field)}
+      testID={`swap-reward-sort-${field}`}
     >
       <SizableText
+        pointerEvents="none"
         size="$headingXs"
         color={isActive ? '$text' : '$textSubdued'}
         textTransform="uppercase"
@@ -233,6 +237,7 @@ function SortableHeader({
         {label}
       </SizableText>
       <Icon
+        pointerEvents="none"
         name={
           isActive && sortOrder === 'asc'
             ? 'ChevronTopSmallOutline'
