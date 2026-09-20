@@ -24,8 +24,14 @@ import {
   setNativeStorageMigrationLedgerComplete,
   syncNativeStorageMMKV,
 } from './nativeStorageMigrationModule';
-import { createNativeStorageMigrationInconsistentErrorMessage } from './nativeStorageTypes';
 import {
+  NATIVE_STORAGE_BOOTSTRAP_DEFAULT_STORES,
+  createNativeStorageMigrationInconsistentErrorMessage,
+} from './nativeStorageTypes';
+import {
+  NATIVE_SWR_CACHE_BOOTSTRAP_MAX_ENTRIES,
+  NATIVE_SWR_CACHE_BOOTSTRAP_MAX_SERIALIZED_CHARS,
+  SWR_CACHE_BOOTSTRAP_KEY_PREFIXES,
   getNativeSWRCachePersistence,
   isNativeSWRCachePhysicalKey,
 } from './nativeSWRCachePersistence';
@@ -78,11 +84,13 @@ const APP_STORAGE_MIGRATION_SIZE_OVERHEAD_RATIO = 1.15;
 const LEGACY_READ_CHUNK_SIZE = 100;
 const MAX_MMKV_KEY_BYTE_LENGTH = 60_000;
 const SWR_CACHE_KEY = 'onekey_swr_cache';
-// An empty prefix selects the newest entries across every business namespace.
-// The count and payload caps keep the main-runtime heap copy bounded.
-const SWR_CACHE_BOOTSTRAP_KEY_PREFIXES = [''] as const;
-export const NATIVE_SWR_CACHE_BOOTSTRAP_MAX_ENTRIES = 100;
-export const NATIVE_SWR_CACHE_BOOTSTRAP_MAX_SERIALIZED_CHARS = 10 * 1024 * 1024;
+// Re-exported for the callers that already read the bootstrap window from
+// here; the limits themselves belong to the persistence layer that applies
+// them.
+export {
+  NATIVE_SWR_CACHE_BOOTSTRAP_MAX_ENTRIES,
+  NATIVE_SWR_CACHE_BOOTSTRAP_MAX_SERIALIZED_CHARS,
+};
 const SWR_CACHE_MAX_LEGACY_PARSE_CHARS = SWR_CACHE_MAX_SERIALIZED_CHARS * 2;
 const SYNC_STORAGE_QUEUE_RESULT_CACHE_LIMIT = 32;
 const SYNC_STORAGE_QUEUE_RESULT_CACHE_MAX_VALUE_CHARS = 8 * 1024 * 1024;
@@ -1598,37 +1606,83 @@ function readSyncStorageEntries(
   return entries;
 }
 
-async function buildBootstrapSnapshot(): Promise<INativeStorageBootstrapSnapshot> {
+async function buildBootstrapSnapshot(
+  stores: INativeSyncStorageName[] = NATIVE_STORAGE_BOOTSTRAP_DEFAULT_STORES,
+): Promise<INativeStorageBootstrapSnapshot> {
+  const startedAt = Date.now();
   await prepareNativeStorageForBackgroundStartup();
+  const syncStoresReadyAt = Date.now();
   await ensureNativeAppStorageMigrated();
+  const appStorageReadyAt = Date.now();
   const swrCachePersistence = getSWRCachePersistence();
-  // Sent per entry: the UI mirror keeps them that way and never joins them.
+  // Sent per entry: a UI mirror keeps them that way and never joins them.
   let swrCacheEntries: INativeSWRCacheSerializedEntry[] = [];
+  const wantsColdStart = stores.includes('coldStart');
   try {
+    // Runs whether or not the entries are wanted: the UI runtime reads this
+    // file directly, and it must not find a half-migrated store.
     await swrCachePersistence.ensureMigrated();
-    swrCacheEntries = swrCachePersistence.readBootstrapEntries({
-      keyPrefixes: SWR_CACHE_BOOTSTRAP_KEY_PREFIXES,
-      maxEntries: NATIVE_SWR_CACHE_BOOTSTRAP_MAX_ENTRIES,
-      maxSerializedChars: NATIVE_SWR_CACHE_BOOTSTRAP_MAX_SERIALIZED_CHARS,
-    });
+    if (wantsColdStart) {
+      swrCacheEntries = swrCachePersistence.readBootstrapEntries({
+        keyPrefixes: SWR_CACHE_BOOTSTRAP_KEY_PREFIXES,
+        maxEntries: NATIVE_SWR_CACHE_BOOTSTRAP_MAX_ENTRIES,
+        maxSerializedChars: NATIVE_SWR_CACHE_BOOTSTRAP_MAX_SERIALIZED_CHARS,
+      });
+    }
   } catch {
     logMigration('SWR per-entry cache migration failed; using safe fallback');
   }
-  return {
-    settings: readSyncStorageEntries(
-      getSyncStorageMMKV('settings'),
-      'settings',
-    ),
-    coldStart: readSyncStorageEntries(
-      getSyncStorageMMKV('coldStart'),
-      'coldStart',
-    ),
-    devSettings: readSyncStorageEntries(
-      getSyncStorageMMKV('devSettings'),
-      'devSettings',
-    ),
+  const swrReadyAt = Date.now();
+  const readStore = (store: INativeSyncStorageName) =>
+    stores.includes(store)
+      ? readSyncStorageEntries(getSyncStorageMMKV(store), store)
+      : [];
+  const snapshot = {
+    settings: readStore('settings'),
+    coldStart: readStore('coldStart'),
+    devSettings: readStore('devSettings'),
     swrCacheEntries,
   };
+  logBootstrapSnapshotTiming({
+    startedAt,
+    syncStoresReadyAt,
+    appStorageReadyAt,
+    swrReadyAt,
+  });
+  return snapshot;
+}
+
+/** Where bg's half of the cold-start gate goes. Migration is one-time; the
+ *  reads are paid on every launch. */
+function logBootstrapSnapshotTiming({
+  startedAt,
+  syncStoresReadyAt,
+  appStorageReadyAt,
+  swrReadyAt,
+}: {
+  startedAt: number;
+  syncStoresReadyAt: number;
+  appStorageReadyAt: number;
+  swrReadyAt: number;
+}) {
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const { NativeLogger, LogLevel } =
+      require('../modules3rdParty/react-native-file-logger') as typeof import('../modules3rdParty/react-native-file-logger');
+    NativeLogger.write(
+      LogLevel.Info,
+      [
+        '[StartupTiming] bg bootstrap snapshot built:',
+        `sync stores ${syncStoresReadyAt - startedAt}ms,`,
+        `app storage ${appStorageReadyAt - syncStoresReadyAt}ms,`,
+        `swr ${swrReadyAt - appStorageReadyAt}ms,`,
+        `read ${Date.now() - swrReadyAt}ms,`,
+        `total ${Date.now() - startedAt}ms`,
+      ].join(' '),
+    );
+  } catch {
+    // Logging is best-effort during bootstrap.
+  }
 }
 
 async function executeMaskedNativeStorageRequest(
@@ -1707,7 +1761,7 @@ async function executeRealNativeStorageRequest(
         'Jotai migration recovery must be handled by its storage owner',
       );
     case 'bootstrap': {
-      const result = await buildBootstrapSnapshot();
+      const result = await buildBootstrapSnapshot(request.stores);
       return result;
     }
     default: {

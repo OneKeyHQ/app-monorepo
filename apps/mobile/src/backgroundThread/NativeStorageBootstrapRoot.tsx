@@ -55,6 +55,27 @@ function initializeJotaiFromBackground() {
   );
 }
 
+/** Each stage of the gate that holds the first frame, so a startup
+ *  regression can be attributed to one of them instead of the whole wait. */
+function logBootstrapStage(stage: string, startedAt: number) {
+  try {
+    const { NativeLogger, LogLevel } =
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      require('@onekeyhq/shared/src/modules3rdParty/react-native-file-logger') as typeof import('@onekeyhq/shared/src/modules3rdParty/react-native-file-logger');
+    const mainEntryStartedAt = (
+      globalThis as unknown as { __ONEKEY_MAIN_ENTRY_START__?: number }
+    ).__ONEKEY_MAIN_ENTRY_START__;
+    NativeLogger.write(
+      LogLevel.Info,
+      `[StartupTiming] gate stage ${stage} took ${Date.now() - startedAt}ms (+${
+        Date.now() - (mainEntryStartedAt ?? Date.now())
+      }ms)`,
+    );
+  } catch {
+    // Logging is best-effort during bootstrap.
+  }
+}
+
 function withNativeBootstrapTimeout(promise: Promise<boolean>) {
   return new Promise<boolean>((resolve, reject) => {
     const timer = setTimeout(() => {
@@ -100,7 +121,9 @@ function startBootstrap(force = false) {
   notifySubscribers();
   let stage: IBootstrapFailureStage = 'storage';
   const bootstrapWork = (async () => {
+    const stageStartedAt = Date.now();
     await bootstrapNativeStorage({ force });
+    logBootstrapStage('storage mirrors', stageStartedAt);
     if (generation !== bootstrapGeneration) {
       return false;
     }
@@ -111,8 +134,10 @@ function startBootstrap(force = false) {
       // eslint-disable-next-line @typescript-eslint/no-require-imports
       require('@onekeyhq/shared/src/travelMode/runtimeLaunchAcknowledgement') as typeof import('@onekeyhq/shared/src/travelMode/runtimeLaunchAcknowledgement');
     stage = 'runtime-launch';
+    const runtimeLaunchStartedAt = Date.now();
     const runtimeLaunchAcknowledged =
       await completeTravelModeRuntimeLaunchAcknowledgement(travelModeManager);
+    logBootstrapStage('travel mode runtime launch', runtimeLaunchStartedAt);
     if (!runtimeLaunchAcknowledged) {
       throw new OneKeyLocalError('Unknown error');
     }
@@ -123,7 +148,9 @@ function startBootstrap(force = false) {
     // so the cold-start snapshot can only be read from here on.
     hydrateColdStartSnapshotAfterRuntimeLaunch();
     stage = 'jotai';
+    const jotaiStartedAt = Date.now();
     await initializeJotaiFromBackground();
+    logBootstrapStage('jotai from background', jotaiStartedAt);
     if (generation !== bootstrapGeneration) {
       return false;
     }

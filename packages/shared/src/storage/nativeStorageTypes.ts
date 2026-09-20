@@ -54,6 +54,12 @@ export type INativeStorageBootstrapSnapshot = {
   swrCacheEntries?: INativeSWRCacheSerializedEntry[];
 };
 
+/** The stores a bootstrap request asks bg to read. Omitted means all of them;
+ *  a store left out comes back empty rather than missing, so a caller that
+ *  does not mirror it pays nothing for it. */
+export const NATIVE_STORAGE_BOOTSTRAP_DEFAULT_STORES: INativeSyncStorageName[] =
+  ['settings', 'coldStart', 'devSettings'];
+
 export type INativeStorageMigrationRecoveryTarget = 'appStorage' | 'jotai';
 
 const NATIVE_STORAGE_MIGRATION_INCONSISTENT_ERROR_PREFIX =
@@ -190,7 +196,7 @@ export type INativeStorageRequest =
       operation: 'resetMigrationTarget';
       target: INativeStorageMigrationRecoveryTarget;
     }
-  | { scope: 'bootstrap' };
+  | { scope: 'bootstrap'; stores?: INativeSyncStorageName[] };
 
 export type INativeStorageCall = (
   request: INativeStorageRequest,

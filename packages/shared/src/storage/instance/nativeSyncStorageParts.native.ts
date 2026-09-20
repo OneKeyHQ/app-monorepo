@@ -209,8 +209,14 @@ export function createNativeColdStartCacheStorage(): ISyncStorage {
     return createInertColdStartStorage();
   }
   const onMutation = getNativeMutationHandler('coldStart');
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  const { getNativeSWRCachePersistence, isNativeSWRCachePhysicalKey } =
+  const {
+    getNativeSWRCachePersistence,
+    isNativeSWRCachePhysicalKey,
+    SWR_CACHE_BOOTSTRAP_KEY_PREFIXES,
+    NATIVE_SWR_CACHE_BOOTSTRAP_MAX_ENTRIES,
+    NATIVE_SWR_CACHE_BOOTSTRAP_MAX_SERIALIZED_CHARS,
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+  } =
     require('../nativeSWRCachePersistence') as typeof import('../nativeSWRCachePersistence');
   const persistence = getNativeSWRCachePersistence(instance);
   const base = createMMKVSyncStorage(instance, {
@@ -224,6 +230,18 @@ export function createNativeColdStartCacheStorage(): ISyncStorage {
   return {
     ...base,
     applySWRCachePatch: publishSWRPatch,
+    // Declaring this is what keeps `swrCacheUtils` on the per-entry path:
+    // without it every flush reads and re-serializes the whole store.
+    readSWRCacheEntries: () =>
+      persistence.readBootstrapEntries({
+        keyPrefixes: SWR_CACHE_BOOTSTRAP_KEY_PREFIXES,
+        maxEntries: NATIVE_SWR_CACHE_BOOTSTRAP_MAX_ENTRIES,
+        maxSerializedChars: NATIVE_SWR_CACHE_BOOTSTRAP_MAX_SERIALIZED_CHARS,
+      }),
+    // Nothing to report: the runtime holding this store is also its only
+    // writer, and it already knows about its own patches. The one writer in
+    // the other runtime is the clear that precedes an app restart.
+    subscribeSWRCacheEntries: () => () => undefined,
     set(key, value) {
       if (key === swrKey) {
         if (typeof value !== 'string') {

@@ -117,7 +117,10 @@ describe('nativeSyncStorageMirror', () => {
 
     expect(settings.getBoolean('setting')).toBe(true);
     expect(coldStart.getString('cache')).toBe('value');
-    expect(mockCallNativeStorage).toHaveBeenCalledWith({ scope: 'bootstrap' });
+    expect(mockCallNativeStorage).toHaveBeenCalledWith({
+      scope: 'bootstrap',
+      stores: ['settings', 'devSettings'],
+    });
   });
 
   it('updates UI memory immediately and serializes mutations to bg', async () => {
@@ -1076,7 +1079,7 @@ describe('nativeSyncStorageMirror', () => {
 
     expect(storage.getString('key')).toBe('newer-local-value');
     expect(mockCallNativeStorage.mock.calls).toEqual([
-      [{ scope: 'bootstrap' }],
+      [{ scope: 'bootstrap', stores: ['settings', 'devSettings'] }],
       [
         {
           scope: 'syncStorage',
@@ -1089,7 +1092,7 @@ describe('nativeSyncStorageMirror', () => {
           previousValue: 'initial-bg',
         },
       ],
-      [{ scope: 'bootstrap' }],
+      [{ scope: 'bootstrap', stores: ['settings', 'devSettings'] }],
       [
         {
           scope: 'syncStorage',

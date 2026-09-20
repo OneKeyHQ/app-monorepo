@@ -16,6 +16,7 @@ import type {
   INativeStorageBootstrapSnapshot,
   INativeStorageGlobal,
   INativeStorageScalar,
+  INativeSyncStorageEntry,
   INativeSyncStorageLocalMutation,
   INativeSyncStorageMutation,
   INativeSyncStorageName,
@@ -84,6 +85,11 @@ const NATIVE_SYNC_STORAGE_NAMES: INativeSyncStorageName[] = [
   'coldStart',
   'devSettings',
 ];
+
+/** The stores this runtime actually keeps a copy of. The cold-start cache is
+ *  read from its own file, so it is neither requested nor primed — the mirror
+ *  state it still owns only serves mutations bg broadcasts. */
+const MIRRORED_STORES: INativeSyncStorageName[] = ['settings', 'devSettings'];
 
 const MUTATION_RETRY_BASE_DELAY_MS = 500;
 const MUTATION_RETRY_MAX_DELAY_MS = 30_000;
@@ -1211,6 +1217,48 @@ function primeMirror(
   }
 }
 
+/** What the blocking half of cold start actually spent, split into the wait
+ *  on bg and this runtime's own work, with the payload that crossed. */
+function logBootstrapTiming({
+  requestedAt,
+  receivedAt,
+  snapshot,
+}: {
+  requestedAt: number;
+  receivedAt: number;
+  snapshot: INativeStorageBootstrapSnapshot;
+}) {
+  try {
+    const entryChars = (entries: INativeSyncStorageEntry[] = []) =>
+      entries.reduce(
+        (total, [key, value]) => total + key.length + String(value).length,
+        0,
+      );
+    const swrChars = (snapshot.swrCacheEntries ?? []).reduce(
+      (total, [key, serialized]) =>
+        total + key.length + (serialized?.length ?? 0),
+      0,
+    );
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const { NativeLogger, LogLevel } =
+      require('../../modules3rdParty/react-native-file-logger') as typeof import('../../modules3rdParty/react-native-file-logger');
+    NativeLogger.write(
+      LogLevel.Info,
+      [
+        '[StartupTiming] storage bootstrap snapshot:',
+        `bg round trip ${receivedAt - requestedAt}ms,`,
+        `apply ${Date.now() - receivedAt}ms,`,
+        `settings ${snapshot.settings?.length ?? 0} entries/${entryChars(snapshot.settings)} chars,`,
+        `devSettings ${snapshot.devSettings?.length ?? 0} entries/${entryChars(snapshot.devSettings)} chars,`,
+        `unasked coldStart ${snapshot.coldStart?.length ?? 0} entries/${entryChars(snapshot.coldStart)} chars,`,
+        `unasked swr ${(snapshot.swrCacheEntries ?? []).length} entries/${swrChars} chars`,
+      ].join(' '),
+    );
+  } catch {
+    // Logging is best-effort during bootstrap.
+  }
+}
+
 function startBootstrap(force: boolean) {
   if (!force && bootstrapPromise) {
     return bootstrapPromise;
@@ -1227,22 +1275,38 @@ function startBootstrap(force: boolean) {
     });
   }
   const generation = (bootstrapGeneration += 1);
+  const requestedAt = Date.now();
   const nextPromise = callNativeStorage<INativeStorageBootstrapSnapshot>({
     scope: 'bootstrap',
+    // The cold-start cache is left out on purpose: this runtime reads that
+    // file itself, so asking bg for it would ship the whole SWR cache across
+    // the bridge for nobody. bg still migrates it as part of the request.
+    stores: MIRRORED_STORES,
   })
     .then((snapshot) => {
       if (generation !== bootstrapGeneration) {
         return bootstrapPromise;
       }
+      const receivedAt = Date.now();
       primeMirror('settings', snapshot.settings);
-      primeMirror(
-        'coldStart',
-        snapshot.coldStart,
-        snapshot.swrCacheEntries ?? [],
-      );
       primeMirror('devSettings', snapshot.devSettings);
+      // Only when bg was asked for it. A store nobody asked for comes back
+      // empty, and priming from that would announce an emptiness bg never
+      // reported.
+      if (snapshot.coldStart?.length || snapshot.swrCacheEntries?.length) {
+        primeMirror(
+          'coldStart',
+          snapshot.coldStart,
+          snapshot.swrCacheEntries ?? [],
+        );
+      }
       bootstrapComplete = true;
       replayPendingRemoteMutations();
+      logBootstrapTiming({
+        requestedAt,
+        receivedAt,
+        snapshot,
+      });
     })
     .catch((error: unknown) => {
       if (generation !== bootstrapGeneration && bootstrapPromise) {

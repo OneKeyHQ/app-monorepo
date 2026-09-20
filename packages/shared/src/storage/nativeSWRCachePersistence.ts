@@ -156,6 +156,18 @@ function getPhysicalEntryKey(key: string) {
   return `${SWR_CACHE_ENTRY_PREFIX}${key}`;
 }
 
+/**
+ * How much of the cache a runtime loads into its JS heap at startup.
+ *
+ * Every entry read here is deserialized and kept, so the window is bounded by
+ * count and by size rather than by what the file happens to hold. The empty
+ * prefix means "any namespace", ordered by write time, so the bound falls on
+ * the least recently written entries.
+ */
+export const SWR_CACHE_BOOTSTRAP_KEY_PREFIXES = [''] as const;
+export const NATIVE_SWR_CACHE_BOOTSTRAP_MAX_ENTRIES = 100;
+export const NATIVE_SWR_CACHE_BOOTSTRAP_MAX_SERIALIZED_CHARS = 10 * 1024 * 1024;
+
 export function isNativeSWRCachePhysicalKey(key: string) {
   return (
     key === SWR_CACHE_MIGRATION_MARKER || key.startsWith(SWR_CACHE_ENTRY_PREFIX)
