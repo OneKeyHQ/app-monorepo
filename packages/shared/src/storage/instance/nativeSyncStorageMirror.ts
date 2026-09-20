@@ -658,7 +658,6 @@ function replayPendingRemoteMutations() {
 function replayPendingLocalMutations(store: INativeSyncStorageName) {
   const state = mirrors[store];
   remoteMutationQueues[store].pending.forEach((pending) => {
-    recordBootstrapMutation(state, pending.mutation);
     applyLocalMutation(state, pending.mutation);
   });
 }
@@ -740,7 +739,6 @@ function mutate(
   baselineValue?: string,
 ) {
   const state = mirrors[store];
-  recordBootstrapMutation(state, mutation);
   applyLocalMutation(state, mutation);
   return enqueueRemoteMutation(store, mutation, request, baselineValue);
 }
