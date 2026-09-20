@@ -88,7 +88,6 @@ export function makeModalStackNavigatorOptions({
   isVerticalLayout?: boolean;
   optionsInfo?: IScreenOptionsInfo<any>;
   pageType?: EPageType;
-  applyThemedContentStyle?: boolean;
 }): StackNavigationOptions {
   const options: StackNavigationOptions = {
     detachPreviousScreen: false,

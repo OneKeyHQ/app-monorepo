@@ -63,14 +63,12 @@ export function makeModalStackNavigatorOptions({
   bgColor,
   titleColor,
   pageType,
-  applyThemedContentStyle,
 }: {
   bgColor: VariableVal;
   titleColor: VariableVal;
   isVerticalLayout?: boolean;
   optionsInfo?: IScreenOptionsInfo<any>;
   pageType?: EPageType;
-  applyThemedContentStyle?: boolean;
 }): IStackNavigationOptions {
   // Onboarding screens opt into the native (iOS 26 Liquid Glass) header; every
   // other modal (including fullScreenPush, e.g. ActionCenter) keeps the opaque
@@ -93,10 +91,6 @@ export function makeModalStackNavigatorOptions({
         titleColor,
       }),
     };
-    if (applyThemedContentStyle) {
-      // @ts-expect-error VariableVal is accepted as a native color at runtime
-      options.contentStyle = { backgroundColor: bgColor };
-    }
   }
 
   // Android Pad

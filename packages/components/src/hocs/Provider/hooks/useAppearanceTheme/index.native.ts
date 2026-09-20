@@ -7,13 +7,6 @@ import { getTokenValue } from '@onekeyhq/components/src/shared/tamagui';
 import { updateRootViewBackgroundColor } from '@onekeyhq/shared/src/modules3rdParty/rootview-background';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import {
-  DEFAULT_SYSTEM_BARS_OVERRIDE_OWNER,
-  type ISystemBarsVariant,
-  resolveSystemBarsOverride,
-  upsertSystemBarsOverridePin,
-} from './resolveSystemBarsOverride';
-
 import type {
   IGetAppThemeVariant,
   ISetSystemBarsOverride,
@@ -40,11 +33,11 @@ const setLightContent = (isAnimated = true) => {
 };
 
 // The system chrome's writers, one effective value: the app theme
-// underneath, and named foreground pins on top (onboarding and
-// theme-locked modals keep content dark while the app theme usually
-// is not). Dark pins win so stacked dark surfaces never flash light
-// when one of them blurs. Every writer repaints through
-// applySystemBars, so ordering can never leave a stale coat.
+// underneath, and a foreground surface's pin on top (onboarding locks
+// its content dark while the app theme usually is not — the iOS 26
+// glass header's problem shape, solved the same way). Every writer
+// repaints through applySystemBars, so ordering can never leave a
+// stale coat.
 //
 // Two mechanisms per repaint, because Android changed the rules: the
 // bar-color calls above paint real bar surfaces up to Android 14, and
@@ -53,31 +46,26 @@ const setLightContent = (isAnimated = true) => {
 // (the app content sits inset by fitsSystemWindows), so the window
 // paint below is what actually colors the bands. The icon styles work
 // on both eras.
-let appVariant: ISystemBarsVariant | undefined;
-const overridePins = new Map<string, ISystemBarsVariant>();
+let appVariant: 'light' | 'dark' | undefined;
+let overrideVariant: 'light' | 'dark' | null = null;
 // The app's own window-background request (NavigationContainer keeps it
 // on the app theme), replayed on override release.
 let appRootViewBackground:
   | {
       color: string;
-      themeVariant: ISystemBarsVariant;
+      themeVariant: 'light' | 'dark';
       themeSetting?: 'light' | 'dark' | 'system';
     }
   | undefined;
 
-function getOverrideVariant(): ISystemBarsVariant | null {
-  return resolveSystemBarsOverride(overridePins.values());
-}
-
 function applySystemBars() {
-  const overrideVariant = getOverrideVariant();
   const effective = overrideVariant ?? appVariant;
   if (effective === 'light') {
     setLightContent();
   } else if (effective === 'dark') {
     setDarkContent();
   }
-  // The window paint: an active pin uses its variant's app ground;
+  // The window paint: the override pins it to its variant's app ground;
   // otherwise the app's own request is replayed verbatim (it also
   // carries the iOS user-interface-style side effect).
   if (overrideVariant) {
@@ -99,15 +87,13 @@ function applySystemBars() {
 }
 
 export const getAppThemeVariant: IGetAppThemeVariant = () =>
-  getOverrideVariant() ?? appVariant;
+  overrideVariant ?? appVariant;
 
-export const setSystemBarsOverride: ISetSystemBarsOverride = (
-  variant,
-  owner = DEFAULT_SYSTEM_BARS_OVERRIDE_OWNER,
-) => {
-  if (!upsertSystemBarsOverridePin(overridePins, owner, variant)) {
+export const setSystemBarsOverride: ISetSystemBarsOverride = (variant) => {
+  if (overrideVariant === variant) {
     return;
   }
+  overrideVariant = variant;
   applySystemBars();
 };
 
@@ -120,7 +106,7 @@ export const updateAppRootViewBackground: IUpdateAppRootViewBackground = (
   themeSetting,
 ) => {
   appRootViewBackground = { color, themeVariant, themeSetting };
-  if (getOverrideVariant()) {
+  if (overrideVariant) {
     applySystemBars();
     return;
   }
