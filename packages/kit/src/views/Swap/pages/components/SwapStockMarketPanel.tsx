@@ -392,7 +392,9 @@ export function SwapStockMarketPanel() {
               });
           }}
         >
-          View full data in Markets
+          {intl.formatMessage({
+            id: ETranslations.button_view_full_stock_data_in_markets,
+          })}
         </Button>
       </XStack>
     </YStack>

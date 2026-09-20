@@ -510,7 +510,9 @@ export function StockTokenVariantSelector({
       onOpenChange={onOpenChange}
       title={
         compact
-          ? 'Select stock tokens'
+          ? intl.formatMessage({
+              id: ETranslations.title_select_stock_tokens,
+            })
           : intl.formatMessage({
               id: ETranslations.trade_stocks_token_details,
             })

@@ -111,7 +111,11 @@ export function SwapStockPositions({
           borderColor="$borderActive"
         >
           <SizableText size="$bodyLgMedium">
-            {mobile ? 'My positions' : 'All positions'}
+            {intl.formatMessage({
+              id: mobile
+                ? ETranslations.title_my_positions
+                : ETranslations.title_all_positions,
+            })}
           </SizableText>
         </XStack>
       </XStack>
@@ -220,7 +224,9 @@ export function SwapStockCurrentPosition() {
   return (
     <SwapSmoothReveal visible={hasPosition} parentGap={28} keepMounted>
       <YStack testID="swap-stock-current-position" gap="$3">
-        <SizableText size="$bodyLgMedium">Position</SizableText>
+        <SizableText size="$bodyLgMedium">
+          {intl.formatMessage({ id: ETranslations.label_position })}
+        </SizableText>
         <XStack gap="$5">
           <YStack flex={1} gap="$1">
             <SizableText size="$bodySm" color="$textSubdued">
@@ -243,7 +249,7 @@ export function SwapStockCurrentPosition() {
           </YStack>
           <YStack flex={1} gap="$1">
             <SizableText size="$bodySm" color="$textSubdued">
-              Avg cost
+              {intl.formatMessage({ id: ETranslations.label_average_cost })}
             </SizableText>
             <NumberSizeableText
               size="$bodyLgMedium"

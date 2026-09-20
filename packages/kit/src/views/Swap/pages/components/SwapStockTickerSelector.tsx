@@ -59,7 +59,9 @@ function StockTickerList({ closePopover }: { closePopover: () => void }) {
       <Stack px="$4" pt="$4" pb="$4">
         <SearchBar
           testID="swap-stock-ticker-search"
-          placeholder="Search stocks"
+          placeholder={intl.formatMessage({
+            id: ETranslations.placeholder_stock_search,
+          })}
           value={query}
           onChangeText={setQuery}
           containerProps={{ borderRadius: '$3' }}
@@ -120,8 +122,9 @@ function StockTickerList({ closePopover }: { closePopover: () => void }) {
                 textAlign="center"
                 maxWidth={280}
               >
-                Try another ticker or company name, or paste a token contract
-                address.
+                {intl.formatMessage({
+                  id: ETranslations.empty_stock_search_description,
+                })}
               </SizableText>
             </YStack>
           ) : (
@@ -197,6 +200,7 @@ function StockTickerList({ closePopover }: { closePopover: () => void }) {
 }
 
 export function SwapStockTickerSelector() {
+  const intl = useIntl();
   const { md } = useMedia();
   const selection = useSwapStockSelection();
   const { stockDetail, stockPreview, stockId } = useStockDetail();
@@ -209,7 +213,9 @@ export function SwapStockTickerSelector() {
       onOpenChange={(open) => {
         if (!open) selection?.cancelSelection();
       }}
-      title="Search stocks"
+      title={intl.formatMessage({
+        id: ETranslations.placeholder_stock_search,
+      })}
       showHeader={false}
       placement="bottom-start"
       floatingPanelProps={{ width: 360, borderRadius: '$4' }}

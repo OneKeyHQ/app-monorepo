@@ -21799,6 +21799,7 @@
     "packages/kit/src/views/Market/MarketDetailV2/components/TokenSelector/MarketTokenSelectorList.tsx": 2729,
     "packages/kit/src/views/Market/MarketDetailV2/components/TokenSelector/MarketTokenSelectorRow.tsx": 10712,
     "packages/kit/src/views/Market/MarketDetailV2/components/TokenSelector/MobileTokenSelector.tsx": 5560,
+    "packages/kit/src/views/Market/MarketDetailV2/components/TokenSelector/StockSelectorPopover.native.tsx": 4306,
     "packages/kit/src/views/Market/MarketDetailV2/components/TokenSelector/StockTokenVariantSelector.tsx": 17055,
     "packages/kit/src/views/Market/MarketDetailV2/components/TokenSelector/constants.ts": 8450,
     "packages/kit/src/views/Market/MarketDetailV2/components/TokenSelector/dismissMobileTokenSelectorKeyboard.ts": 13339,
