@@ -12,6 +12,7 @@ import {
   OneKeyLocalError,
 } from '@onekeyhq/shared/src/errors';
 import { ThirdPartyDeviceMismatch } from '@onekeyhq/shared/src/errors/errors/thirdPartyHardwareErrors';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { EDBAccountType } from '../../../dbs/local/consts';
 
@@ -738,7 +739,9 @@ describe('KeyringHardwareKeystone signing', () => {
     ).toBeUndefined();
     await expect(
       keyring.signPsbt({ ...params, signOnly: false } as never),
-    ).rejects.toThrow('cannot be finalized');
+    ).rejects.toMatchObject({
+      key: ETranslations.feedback_failed_to_sign_transaction,
+    });
   });
 
   it.each([false, true])(
@@ -792,7 +795,9 @@ describe('KeyringHardwareKeystone signing', () => {
       expect(input.finalScriptWitness).toBeUndefined();
       await expect(
         keyring.signPsbt({ ...params, signOnly: false } as never),
-      ).rejects.toThrow('cannot be finalized');
+      ).rejects.toMatchObject({
+        key: ETranslations.feedback_failed_to_sign_transaction,
+      });
     },
   );
 
