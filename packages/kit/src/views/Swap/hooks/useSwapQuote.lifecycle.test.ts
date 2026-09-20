@@ -177,5 +177,36 @@ describe.each([false, true])(
       eventBus.emit(EAppEventBusNames.SwapQuoteEvent, { type: 'test' });
       expect(result.current).toHaveBeenCalledTimes(1);
     });
+
+    it('re-subscribes when the native provider picker route settles after focus loss', () => {
+      if (!isNative) {
+        return;
+      }
+
+      const { result, rerender } = renderHook(() => {
+        useSwapQuote({ isMarketEmbeddedSwap: true });
+        return useSwapActions().current.quoteEventHandler;
+      });
+      focusMock.mockReturnValue(false);
+      rerender(undefined);
+
+      expect(eventBus.listenerCount(EAppEventBusNames.SwapQuoteEvent)).toBe(0);
+      expect(
+        eventBus.listenerCount(EAppEventBusNames.SwapApprovingSuccess),
+      ).toBe(0);
+
+      routeMock.mockReturnValue({
+        key: 'provider-picker',
+        name: EModalSwapRoutes.SwapProviderSelect,
+      });
+      act(() => jest.runAllTimers());
+
+      expect(eventBus.listenerCount(EAppEventBusNames.SwapQuoteEvent)).toBe(2);
+      expect(
+        eventBus.listenerCount(EAppEventBusNames.SwapApprovingSuccess),
+      ).toBe(1);
+      eventBus.emit(EAppEventBusNames.SwapQuoteEvent, { type: 'test' });
+      expect(result.current).toHaveBeenCalledTimes(1);
+    });
   },
 );

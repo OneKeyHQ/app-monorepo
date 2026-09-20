@@ -1060,10 +1060,12 @@ export function useSwapQuote({
           if (!isEffectActive) {
             return;
           }
-          if (!isProviderSelectRouteActive()) {
-            pauseQuoteOnFocusLoss();
-            unsubscribeQuoteEvents();
+          if (isProviderSelectRouteActive()) {
+            subscribeQuoteEvents();
+            return;
           }
+          pauseQuoteOnFocusLoss();
+          unsubscribeQuoteEvents();
         });
       }
     }
