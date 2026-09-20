@@ -730,7 +730,7 @@ describe('SWR cache cross-runtime invalidation', () => {
     expect(cache.get('walletList:a')).toBeUndefined();
   });
 
-  it('keeps a pending local write over a remote removal', () => {
+  it('drops a pending local write when the other runtime removes it', () => {
     const cache = loadFreshRuntime();
     const { appEventBus, EAppEventBusNames } = bus();
     cache.set('walletList:a', 'mine');
@@ -739,11 +739,54 @@ describe('SWR cache cross-runtime invalidation', () => {
       prefixes: ['walletList:'],
     });
 
-    // Not yet flushed: dropping it here would lose a write nobody replaced.
-    expect(cache.get('walletList:a')).toBe('mine');
+    // The wallet is gone, so a write still queued for it describes nothing.
+    expect(cache.get('walletList:a')).toBeUndefined();
   });
 
-  it('clears everything it has not written when the other runtime clears', () => {
+  /**
+   * The order the runtimes actually run in: main has a write queued when bg
+   * deletes the wallet. bg persists and announces before main's debounce
+   * fires, so main must not carry the old entry back to the store.
+   */
+  it('does not write a removed entry back to the store on the next flush', () => {
+    const cache = loadFreshRuntime();
+    const { appEventBus, EAppEventBusNames } = bus();
+
+    // main: a list read lands in the cache and is queued for the store.
+    cache.set('walletList:a', 'stale-wallet');
+
+    // bg: removeByPrefix + flushNow already cleared the shared store, then
+    // announced it.
+    disk().delete('walletList:a');
+    appEventBus.emit(EAppEventBusNames.SwrCacheInvalidated, {
+      prefixes: ['walletList:'],
+    });
+
+    // main: its own debounced flush runs afterwards.
+    cache.flushNow();
+
+    // The store first: an entry carried back here outlives the process and
+    // paints on the next cold start, which is the damage that matters.
+    expect(readDiskStore()['walletList:a']).toBeUndefined();
+    expect(cache.get('walletList:a')).toBeUndefined();
+  });
+
+  it('drops a pending local write when the other runtime clears everything', () => {
+    const cache = loadFreshRuntime();
+    const { appEventBus, EAppEventBusNames } = bus();
+    cache.set('marketTokenDetail:b', 'mine');
+
+    disk().clear();
+    appEventBus.emit(EAppEventBusNames.SwrCacheInvalidated, {
+      clearedAll: true,
+    });
+    cache.flushNow();
+
+    expect(cache.get('marketTokenDetail:b')).toBeUndefined();
+    expect(readDiskStore()['marketTokenDetail:b']).toBeUndefined();
+  });
+
+  it('clears everything it holds when the other runtime clears', () => {
     disk().set('walletList:a', { d: 'from-disk', t: 1000 });
     const cache = loadFreshRuntime();
     const { appEventBus, EAppEventBusNames } = bus();
@@ -756,6 +799,6 @@ describe('SWR cache cross-runtime invalidation', () => {
     });
 
     expect(cache.get('walletList:a')).toBeUndefined();
-    expect(cache.get('marketTokenDetail:b')).toBe('mine');
+    expect(cache.get('marketTokenDetail:b')).toBeUndefined();
   });
 });

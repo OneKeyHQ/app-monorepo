@@ -671,7 +671,20 @@ function publishInvalidation({
   }
 }
 
-/** Drop what the other runtime removed, so the next read goes to the file. */
+/**
+ * Drop what the other runtime removed, so the next read goes to the file.
+ *
+ * A pending local write is dropped with the entry rather than protected from
+ * it. Protecting it treats the two runtimes as writers racing over one value,
+ * which is the wrong model for a removal: the other runtime published this
+ * only after its own delete reached the shared store, so what is pending here
+ * describes an entity that no longer exists. Keeping it would serve the
+ * deleted value and then write it back to the store on the next flush, where
+ * it survives into the next cold start's first frame.
+ *
+ * The cost of the other mistake is one refetch, so this over-invalidates on
+ * purpose — the same trade `removeSwrCacheByPrefix` makes for digested keys.
+ */
 function applyRemoteInvalidation({
   keys,
   prefixes,
@@ -686,26 +699,27 @@ function applyRemoteInvalidation({
     return;
   }
   if (clearedAll) {
-    // Keys this runtime has written since are still pending, and a flush will
-    // put them back; everything else is the other runtime's business.
-    Object.keys(store).forEach((key) => {
-      if (!_updatedKeys.has(key)) {
-        removeCachedEntry(store, key);
-      }
-    });
+    Object.keys(store).forEach((key) => removeCachedEntry(store, key));
+    _updatedKeys.clear();
     return;
   }
   keys?.forEach((key) => {
-    if (!_updatedKeys.has(key)) {
-      removeCachedEntry(store, key);
-    }
+    removeCachedEntry(store, key);
+    _updatedKeys.delete(key);
   });
   prefixes?.forEach((prefix) => {
     Object.keys(store).forEach((key) => {
-      if (key.startsWith(prefix) && !_updatedKeys.has(key)) {
+      if (key.startsWith(prefix)) {
         removeCachedEntry(store, key);
       }
     });
+    // Swept separately: a pending key that has already been evicted from the
+    // store would otherwise stay queued and be written back.
+    for (const key of _updatedKeys) {
+      if (key.startsWith(prefix)) {
+        _updatedKeys.delete(key);
+      }
+    }
   });
 }
 
