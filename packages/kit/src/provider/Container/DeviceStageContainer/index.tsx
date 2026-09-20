@@ -37,6 +37,7 @@ import {
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { showIntercom } from '@onekeyhq/shared/src/modules3rdParty/intercom';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { isProtocolV2ProductType } from '@onekeyhq/shared/src/utils/hardwareDeviceTypes';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import { EHardwareTransportType } from '@onekeyhq/shared/types';
 import { EHardwareVendor } from '@onekeyhq/shared/types/device';
@@ -108,6 +109,9 @@ function DeviceStageContainerCmp() {
   const [settings, setSettings] = useSettingsPersistAtom();
 
   const step: IDeviceStageStep = (stage?.step as IDeviceStageStep) ?? 'off';
+  const isPro2NeoPassphraseCreation =
+    stage?.passphraseMode === 'create' &&
+    isProtocolV2ProductType(stage?.deviceType);
 
   // Channel badge (design hard rule: BLE waits must declare the channel).
   // Same source and formula as the legacy CommonDeviceLoading dialog: the
@@ -550,11 +554,10 @@ function DeviceStageContainerCmp() {
       allowAuthDevSkip={devSettings.enabled}
       inputError={stage?.inputError}
       passphraseMode={stage?.passphraseMode}
+      passphraseAsciiCreationFeedback={isPro2NeoPassphraseCreation}
       passphraseAllowUtf8={
-        // Same key the legacy dialog used: only the wallet-session
-        // coordinator's requests reach a protocol V2 device, and those
-        // take NFKD UTF-8 instead of printable ASCII.
-        stage?.payload?.source === 'wallet-session-coordinator'
+        stage?.payload?.source === 'wallet-session-coordinator' &&
+        !isPro2NeoPassphraseCreation
       }
       passphraseKeepAccessible={
         // The remembered Keep-accessible choice, read the way the legacy
