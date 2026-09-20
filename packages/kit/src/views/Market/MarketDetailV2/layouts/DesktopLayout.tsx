@@ -228,6 +228,10 @@ export function DesktopLayout({
   });
 
   const { accountAddress, xpub } = useNetworkAccount(networkId);
+  const accountMarksContext = useMemo(
+    () => ({ accountAddress, networkId, tokenAddress }),
+    [accountAddress, networkId, tokenAddress],
+  );
   const chartFullscreenZIndex = useOverlayZIndex(isChartFullscreen);
 
   const { portfolioData, isRefreshing } = usePortfolioData({
@@ -446,6 +450,9 @@ export function DesktopLayout({
           key={getTradingViewNativeSourceKey(tradingViewNativeSource)}
           testID={MarketTestIDs.detailChart}
           source={tradingViewNativeSource}
+          accountMarksContext={
+            isStockSharePrice ? undefined : accountMarksContext
+          }
           enablePreviousClose={shouldUseStockDesktopLayout}
           previousClose={stockPreviousClose}
           onPriceUpdate={handleNativeChartPriceUpdate}
@@ -525,6 +532,7 @@ export function DesktopLayout({
       />
     );
   }, [
+    accountMarksContext,
     handleNativeChartPriceUpdate,
     handleTradingViewTouchScroll,
     hideChartTrailingControls,
