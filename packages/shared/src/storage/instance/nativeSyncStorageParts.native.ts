@@ -10,6 +10,7 @@ import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
 import platformEnv from '../../platformEnv';
 import { EAppSyncStorageKeys } from '../syncStorageKeys';
+import { isTravelModeMaskingSync } from '../travelModeMaskingGate';
 
 import { createMMKVSyncStorage } from './createMMKVSyncStorage';
 
@@ -20,22 +21,18 @@ import type {
   INativeSyncStorageName,
 } from '../nativeStorageTypes';
 
-function getNativeStorageInstance(
-  store: 'settings' | 'coldStart',
-): IMMKVInstance {
+/** Settings are written by bg alone, so main gets the mirror it can post
+ *  writes through; bg gets the file. */
+function getNativeSettingsInstance(): IMMKVInstance {
   if (platformEnv.isNativeBackgroundThread) {
-    if (store === 'settings') {
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
-      return require('./mmkvStorageInstance').default as IMMKVInstance;
-    }
     // eslint-disable-next-line @typescript-eslint/no-require-imports
-    return require('./coldStartCacheMMKVInstance').default as IMMKVInstance;
+    return require('./mmkvStorageInstance').default as IMMKVInstance;
   }
 
   // eslint-disable-next-line @typescript-eslint/no-require-imports
   const { createNativeSyncStorageMirror } =
     require('./nativeSyncStorageMirror') as typeof import('./nativeSyncStorageMirror');
-  return createNativeSyncStorageMirror(store);
+  return createNativeSyncStorageMirror('settings');
 }
 
 /** The store's own file, for main's pre-bootstrap read path. `undefined`
@@ -57,27 +54,6 @@ function getDirectMMKVOrUndefined(
     return require('./coldStartCacheMMKVInstance').default as IMMKVInstance;
   } catch {
     return undefined;
-  }
-}
-
-/**
- * Travel Mode, resolved on first read rather than while the factories run:
- * the travel-mode module imports this one, so touching it any earlier would
- * recurse. Unreachable counts as masked, so a failure here costs the fast
- * path rather than the guarantee.
- */
-let travelModeMaskingRef: { isMaskingDataSync: () => boolean } | undefined;
-function isTravelModeMasking(): boolean {
-  try {
-    if (!travelModeMaskingRef) {
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
-      travelModeMaskingRef = (
-        require('../../travelMode') as typeof import('../../travelMode')
-      ).travelModeManager;
-    }
-    return travelModeMaskingRef?.isMaskingDataSync() ?? true;
-  } catch {
-    return true;
   }
 }
 
@@ -107,7 +83,9 @@ function withPreBootstrapDirectReads(
     // eslint-disable-next-line @typescript-eslint/no-require-imports
     const { isNativeSyncStorageMirrorBootstrapped } =
       require('./nativeSyncStorageMirror') as typeof import('./nativeSyncStorageMirror');
-    return !isNativeSyncStorageMirrorBootstrapped() && !isTravelModeMasking();
+    return (
+      !isNativeSyncStorageMirrorBootstrapped() && !isTravelModeMaskingSync()
+    );
   };
   function readThrough<T>(
     readDirect: () => T | undefined,
@@ -197,109 +175,133 @@ function getNativeMutationHandler(store: INativeSyncStorageName) {
 
 /** App settings storage. Native bg owns MMKV; native main uses a mirror. */
 export function createNativeSettingsSyncStorage(): ISyncStorage {
-  const mirrorBacked = createMMKVSyncStorage(
-    getNativeStorageInstance('settings'),
-    {
-      checkResetting: true,
-      onMutation: getNativeMutationHandler('settings'),
-    },
-  );
+  const mirrorBacked = createMMKVSyncStorage(getNativeSettingsInstance(), {
+    checkResetting: true,
+    onMutation: getNativeMutationHandler('settings'),
+  });
   if (platformEnv.isNativeBackgroundThread) {
     return mirrorBacked;
   }
   return withPreBootstrapDirectReads(mirrorBacked, 'settings');
 }
 
-/** Cold-start cache storage.
- *  Native bg: backed by `coldStartCacheMMKVInstance` (synchronous MMKV) with
- *    SWR cache entries routed through the physical-key persistence layer.
- *  Native main: synchronous in-memory mirror with serialized writes to bg. */
+/** Cold-start cache storage, owned by whichever runtime is reading it.
+ *
+ *  Both runtimes work the file directly, with SWR entries routed through the
+ *  physical-key persistence layer. Nothing here is a source of truth: every
+ *  value is a cache that the app can rebuild, so it needs none of the
+ *  single-writer guarantees the settings store relies on, and a mirror only
+ *  bought main a copy it can now read itself.
+ *
+ *  Travel Mode is answered here rather than by bg, because bg is no longer in
+ *  the path. While it is on the store is inert and its file is emptied. */
 export function createNativeColdStartCacheStorage(): ISyncStorage {
-  const instance = getNativeStorageInstance('coldStart');
-  const onMutation = getNativeMutationHandler('coldStart');
-  if (platformEnv.isNativeBackgroundThread) {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const { getNativeSWRCachePersistence, isNativeSWRCachePhysicalKey } =
-      require('../nativeSWRCachePersistence') as typeof import('../nativeSWRCachePersistence');
-    const persistence = getNativeSWRCachePersistence(instance);
-    const base = createMMKVSyncStorage(instance, {
-      onMutation,
-    });
-    const swrKey = EAppSyncStorageKeys.onekey_swr_cache;
-    const publishSWRPatch = (patch: INativeSWRCachePatchIntent) => {
-      const entries = persistence.applyPatch(patch);
-      onMutation?.({ operation: 'patchSWR', entries });
-    };
-    return {
-      ...base,
-      applySWRCachePatch: publishSWRPatch,
-      set(key, value) {
-        if (key === swrKey) {
-          if (typeof value !== 'string') {
-            throw new OneKeyLocalError(
-              'Native SWR cache value must be serialized',
-            );
-          }
-          const entries = persistence.replaceSerialized(value);
-          onMutation?.({ operation: 'patchSWR', entries });
-          return;
-        }
-        return base.set(key, value);
-      },
-      setObject<T extends Record<string, any>>(
-        key: EAppSyncStorageKeys,
-        value: T,
-      ) {
-        if (key === swrKey) {
-          const entries = persistence.replaceSerialized(JSON.stringify(value));
-          onMutation?.({ operation: 'patchSWR', entries });
-          return;
-        }
-        return base.setObject(key, value);
-      },
-      getString(key) {
-        return key === swrKey
-          ? persistence.readSerialized()
-          : base.getString(key);
-      },
-      getObject<T>(key: EAppSyncStorageKeys): T | undefined {
-        if (key !== swrKey) {
-          return base.getObject<T>(key);
-        }
-        try {
-          return JSON.parse(persistence.readSerialized()) as T;
-        } catch {
-          return undefined;
-        }
-      },
-      delete(key) {
-        if (key === swrKey) {
-          const entries = persistence.replaceSerialized('{}');
-          onMutation?.({ operation: 'patchSWR', entries });
-          return;
-        }
-        return base.delete(key);
-      },
-      clearAll() {
-        const acknowledgement = base.clearAll();
-        persistence.invalidate();
-        return acknowledgement;
-      },
-      getAllKeys() {
-        const keys = instance
-          .getAllKeys()
-          .filter((key) => !isNativeSWRCachePhysicalKey(key));
-        if (!keys.includes(swrKey)) {
-          keys.push(swrKey);
-        }
-        return keys;
-      },
-    };
+  const instance = getDirectMMKVOrUndefined('coldStart');
+  if (!instance) {
+    return createInertColdStartStorage();
   }
-  return withPreBootstrapDirectReads(
-    createMMKVSyncStorage(instance, { onMutation }),
-    'coldStart',
-  );
+  if (isTravelModeMaskingSync()) {
+    try {
+      instance.clearAll();
+    } catch {
+      // Best effort: an unreadable file is already telling nothing.
+    }
+    return createInertColdStartStorage();
+  }
+  const onMutation = getNativeMutationHandler('coldStart');
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const { getNativeSWRCachePersistence, isNativeSWRCachePhysicalKey } =
+    require('../nativeSWRCachePersistence') as typeof import('../nativeSWRCachePersistence');
+  const persistence = getNativeSWRCachePersistence(instance);
+  const base = createMMKVSyncStorage(instance, {
+    onMutation,
+  });
+  const swrKey = EAppSyncStorageKeys.onekey_swr_cache;
+  const publishSWRPatch = (patch: INativeSWRCachePatchIntent) => {
+    const entries = persistence.applyPatch(patch);
+    onMutation?.({ operation: 'patchSWR', entries });
+  };
+  return {
+    ...base,
+    applySWRCachePatch: publishSWRPatch,
+    set(key, value) {
+      if (key === swrKey) {
+        if (typeof value !== 'string') {
+          throw new OneKeyLocalError(
+            'Native SWR cache value must be serialized',
+          );
+        }
+        const entries = persistence.replaceSerialized(value);
+        onMutation?.({ operation: 'patchSWR', entries });
+        return;
+      }
+      return base.set(key, value);
+    },
+    setObject<T extends Record<string, any>>(
+      key: EAppSyncStorageKeys,
+      value: T,
+    ) {
+      if (key === swrKey) {
+        const entries = persistence.replaceSerialized(JSON.stringify(value));
+        onMutation?.({ operation: 'patchSWR', entries });
+        return;
+      }
+      return base.setObject(key, value);
+    },
+    getString(key) {
+      return key === swrKey
+        ? persistence.readSerialized()
+        : base.getString(key);
+    },
+    getObject<T>(key: EAppSyncStorageKeys): T | undefined {
+      if (key !== swrKey) {
+        return base.getObject<T>(key);
+      }
+      try {
+        return JSON.parse(persistence.readSerialized()) as T;
+      } catch {
+        return undefined;
+      }
+    },
+    delete(key) {
+      if (key === swrKey) {
+        const entries = persistence.replaceSerialized('{}');
+        onMutation?.({ operation: 'patchSWR', entries });
+        return;
+      }
+      return base.delete(key);
+    },
+    clearAll() {
+      const acknowledgement = base.clearAll();
+      persistence.invalidate();
+      return acknowledgement;
+    },
+    getAllKeys() {
+      const keys = instance
+        .getAllKeys()
+        .filter((key) => !isNativeSWRCachePhysicalKey(key));
+      if (!keys.includes(swrKey)) {
+        keys.push(swrKey);
+      }
+      return keys;
+    },
+  };
+}
+
+/** What the cold-start cache looks like while Travel Mode is on: present,
+ *  answering nothing, keeping nothing. The SWR entry methods are absent on
+ *  purpose — `swrCacheUtils` checks for them and falls back to the whole-store
+ *  path, which this instance also drops. */
+function createInertColdStartStorage(): ISyncStorage {
+  return createMMKVSyncStorage({
+    getString: () => undefined,
+    getNumber: () => undefined,
+    getBoolean: () => undefined,
+    set: () => undefined,
+    remove: () => undefined,
+    clearAll: () => undefined,
+    getAllKeys: () => [],
+  });
 }
 
 /** Dev-settings storage owner for the native main runtime (mirror-backed). */

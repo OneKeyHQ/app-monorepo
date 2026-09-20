@@ -1,6 +1,7 @@
 // The native module by name, not through the barrel: the barrel's entry is
 // the IndexedDB build, and only this one returns the synchronous storage.
 import { createDisplaySnapshotStorage } from '../DisplaySnapshotStorage/createDisplaySnapshotStorage.native';
+import { isTravelModeMaskingSync } from '../travelModeMaskingGate';
 
 import { createSnapshotCacheSync } from './createSnapshotCacheSync';
 
@@ -28,12 +29,37 @@ export function createNamespacedSnapshotCache<T>({
   maxEntries,
   maxRecordBytes = DEFAULT_MAX_RECORD_BYTES,
 }: INamespacedSnapshotCacheConfig): ISnapshotCacheSync<T> {
+  const storage = createDisplaySnapshotStorage({
+    namespace,
+    maxRecordBytes,
+    maxReadBatchSize: MAX_READ_BATCH_SIZE,
+  });
+  // Travel Mode: this namespace does not exist for the length of the launch.
+  // A cache declared here is a module-level const, so reaching this line is
+  // the app saying it intends to use the namespace — which is also the moment
+  // to drop whatever the previous launch left in it. Reads and writes are
+  // dropped rather than gated per call because the profile cannot change
+  // without both runtimes restarting.
+  if (isTravelModeMaskingSync()) {
+    try {
+      storage.clearNamespace();
+    } catch {
+      // Best effort: a namespace that will not open holds nothing readable.
+    }
+    return createInertSnapshotCache<T>();
+  }
   return createSnapshotCacheSync<T>({
-    storage: createDisplaySnapshotStorage({
-      namespace,
-      maxRecordBytes,
-      maxReadBatchSize: MAX_READ_BATCH_SIZE,
-    }),
+    storage,
     retention: { maxAgeMs, maxEntries },
   });
+}
+
+function createInertSnapshotCache<T>(): ISnapshotCacheSync<T> {
+  return {
+    get: () => undefined,
+    set: () => undefined,
+    remove: () => undefined,
+    sweep: () => undefined,
+    clear: () => undefined,
+  };
 }
