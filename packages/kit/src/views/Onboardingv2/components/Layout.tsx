@@ -191,23 +191,25 @@ LayoutHeaderLanguageSelector.displayName = 'LayoutHeaderLanguageSelector';
 // Icon-only (unlike LayoutHeaderBack, which renders a text "Back" button on
 // gtMd) so it sits cleanly in the system glass capsule, while preserving the
 // onboardingExit analytics + the back-vs-exit (arrow vs cross) distinction.
-const OnboardingNativeHeaderBack = memo(({ exit }: { exit?: boolean }) => {
-  const navigation = useAppNavigation();
-  const handleBack = useCallback(() => {
-    if (exit) {
-      defaultLogger.account.wallet.onboardingExit();
-    }
-    navigation.pop();
-  }, [navigation, exit]);
-  return (
-    <IconButton
-      testID={OnboardingTestIDs.layoutHeaderBackBtn}
-      icon={exit ? 'CrossedLargeOutline' : 'ArrowLeftOutline'}
-      variant="tertiary"
-      onPress={handleBack}
-    />
-  );
-});
+export const OnboardingNativeHeaderBack = memo(
+  ({ exit }: { exit?: boolean }) => {
+    const navigation = useAppNavigation();
+    const handleBack = useCallback(() => {
+      if (exit) {
+        defaultLogger.account.wallet.onboardingExit();
+      }
+      navigation.pop();
+    }, [navigation, exit]);
+    return (
+      <IconButton
+        testID={OnboardingTestIDs.layoutHeaderBackBtn}
+        icon={exit ? 'CrossedLargeOutline' : 'ArrowLeftOutline'}
+        variant="tertiary"
+        onPress={handleBack}
+      />
+    );
+  },
+);
 OnboardingNativeHeaderBack.displayName = 'OnboardingNativeHeaderBack';
 
 const FOOTER_FADE_START = { x: 0.5, y: 0 };
