@@ -34,6 +34,7 @@ import {
   resolveStockSimpleChartPreviousClose,
   resolveStockSimpleChartPulseLastPoint,
   resolveStockSimpleChartRequestScope,
+  shouldStoreStockSimpleChartSeries,
 } from './stockSimpleChartData';
 
 export type { IStockSimpleChartRange } from './stockSimpleChartData';
@@ -138,12 +139,17 @@ export function StockSimpleChart({
   // Keyed by scope so a failed refresh can fall back to the line already on
   // screen, while a range or token switch never redraws the previous asset.
   const lastLoadedRef = useRef<
-    { key: string; data: IMarketTokenChart; loadedAt: number } | undefined
+    | { key: string; data: IMarketTokenChart; loadedAt: number; seq: number }
+    | undefined
   >(undefined);
   // A late response from a scope the user already left must not overwrite the
   // fallback that belongs to the current one.
   const scopeKeyRef = useRef(scopeKey);
   scopeKeyRef.current = scopeKey;
+  // Two refreshes of the same scope can overlap, and the later one can answer
+  // first. Ordering the writes keeps an older series from being restored by the
+  // paced polls that read this fallback.
+  const requestSeqRef = useRef(0);
   const minRefreshMs = resolveStockSimpleChartMinRefreshMs({
     range: requestRange,
   });
@@ -154,6 +160,8 @@ export function StockSimpleChart({
     run: retry,
   } = usePromiseResult<IStockSimpleChartState>(
     async () => {
+      requestSeqRef.current += 1;
+      const seq = requestSeqRef.current;
       const cached = lastLoadedRef.current;
       const isCachedScope = cached?.key === scopeKey && cached.data.length > 0;
       // One polling interval serves every range, so the per-range pace is
@@ -174,8 +182,20 @@ export function StockSimpleChart({
           tokenAddress: requestTokenAddress,
         });
 
-        if (scopeKeyRef.current === scopeKey) {
-          lastLoadedRef.current = { key: scopeKey, data, loadedAt: Date.now() };
+        if (
+          shouldStoreStockSimpleChartSeries({
+            currentScopeKey: scopeKeyRef.current,
+            requestScopeKey: scopeKey,
+            requestSeq: seq,
+            storedSeq: lastLoadedRef.current?.seq,
+          })
+        ) {
+          lastLoadedRef.current = {
+            key: scopeKey,
+            data,
+            loadedAt: Date.now(),
+            seq,
+          };
         }
         return {
           data,

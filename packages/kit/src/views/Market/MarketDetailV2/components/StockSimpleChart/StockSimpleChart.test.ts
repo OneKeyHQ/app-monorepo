@@ -14,6 +14,7 @@ import {
   resolveStockSimpleChartPreviousClose,
   resolveStockSimpleChartPulseLastPoint,
   resolveStockSimpleChartRequestScope,
+  shouldStoreStockSimpleChartSeries,
 } from './stockSimpleChartData';
 
 jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
@@ -837,6 +838,50 @@ describe('mergeStockSimpleChartLivePrice', () => {
         points,
       }),
     ).toBe(points);
+  });
+});
+
+describe('shouldStoreStockSimpleChartSeries', () => {
+  const baseParams = {
+    currentScopeKey: 'token|1D|evm--1|0xabc|||',
+    requestScopeKey: 'token|1D|evm--1|0xabc|||',
+    requestSeq: 2,
+    storedSeq: 1,
+  };
+
+  it('stores a newer response for the current scope', () => {
+    expect(shouldStoreStockSimpleChartSeries(baseParams)).toBe(true);
+  });
+
+  it('stores the first response of a session', () => {
+    expect(
+      shouldStoreStockSimpleChartSeries({
+        ...baseParams,
+        requestSeq: 1,
+        storedSeq: undefined,
+      }),
+    ).toBe(true);
+  });
+
+  // Two refreshes of one scope can overlap and answer out of order; the older
+  // one must not restore its series over the newer one.
+  it('drops a response overtaken by a later request', () => {
+    expect(
+      shouldStoreStockSimpleChartSeries({
+        ...baseParams,
+        requestSeq: 2,
+        storedSeq: 3,
+      }),
+    ).toBe(false);
+  });
+
+  it('drops a response whose scope the user has left', () => {
+    expect(
+      shouldStoreStockSimpleChartSeries({
+        ...baseParams,
+        currentScopeKey: 'token|1W|evm--1|0xabc|||',
+      }),
+    ).toBe(false);
   });
 });
 

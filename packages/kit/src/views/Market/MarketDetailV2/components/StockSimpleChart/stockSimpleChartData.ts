@@ -96,6 +96,27 @@ const STOCK_SIMPLE_CHART_MIN_REFRESH_MS: Record<
   All: 600_000,
 };
 
+/**
+ * Whether a finished request may publish its series as the fallback that the
+ * paced polls and the failure path read back. Refreshes of one scope can overlap
+ * and answer out of order, so an older response must not restore an older line
+ * over a newer one; a response whose scope the user has already left must not
+ * write at all.
+ */
+export function shouldStoreStockSimpleChartSeries({
+  currentScopeKey,
+  requestScopeKey,
+  requestSeq,
+  storedSeq,
+}: {
+  currentScopeKey: string;
+  requestScopeKey: string;
+  requestSeq: number;
+  storedSeq: number | undefined;
+}): boolean {
+  return currentScopeKey === requestScopeKey && requestSeq > (storedSeq ?? 0);
+}
+
 export function resolveStockSimpleChartMinRefreshMs({
   range,
 }: {
