@@ -224,7 +224,7 @@ export function ImageV2({ style: defaultStyle, ...props }: IImageV2Props) {
     resizeMode,
     contentFit,
     cachePolicy,
-    loadingStrategy = 'static',
+    loadingStrategy = 'none',
     recyclingKey,
     retryTimes = 1,
     canRetry = true,
