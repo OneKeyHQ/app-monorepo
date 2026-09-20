@@ -30,35 +30,31 @@
 
     <% if ( (platform === 'desktop' || platform === 'web') && isDev ) { %>
     <script>
-      // DEV-ONLY (gated by isDev — ZERO prod effect): pre-read the cold-start
-      // cache from IndexedDB HERE, during HTML parse, while the main thread is
-      // still free.
+      // DEV-ONLY (gated by isDev — ZERO prod effect): pre-read the context
+      // atom snapshot from IndexedDB HERE, during HTML parse, while the main
+      // thread is still free.
       //
-      // WHY: the cold-start IDB read costs ~1.5s when it happens during the boot
-      // JS storm (the IDB onsuccess callback is starved by jotaiInit / React /
-      // render work), but only ~3ms pre-bundle. AND hydrate.ts skips cold-start
-      // entirely in dev (production-only, to avoid schema drift between code
-      // changes). This pre-read populates ONLY the webColdStartStorage in-memory
-      // Map with the single `onekey_jotai_context_atoms_snapshot` blob — NOT the
+      // WHY: the read costs ~1.5s when it happens during the boot JS storm (its
+      // onsuccess callback is starved by jotaiInit / React / render work), but
+      // only ~3ms pre-bundle. AND hydrate.ts keeps the generic context-atom
+      // hydration off in dev, to avoid schema drift between code changes. This
+      // pre-read fills the UI snapshot map with one record — NOT the
       // `__ONEKEY_CTX_ATOM_SNAPSHOT__` global — so the self-contained,
-      // currency-gated, provisional SLC token-list slim cold-start activates in
-      // dev for local verification, while the generic L2 context-atom hydration
-      // (the schema-drift-prone part) stays OFF. The SWR cache is NOT pre-read
-      // here: it moved to one record per key, so the single `onekey_swr_cache`
-      // blob this used to fetch is a dead record that hydrate.ts now deletes.
-      // Prod keeps its real hydrate.ts path untouched.
+      // currency-gated, provisional SLC token-list slim cold start activates in
+      // dev for local verification. Prod keeps its real hydrate.ts path.
       (function () {
         try {
-          var DBN = 'onekey-cold-start-cache';
-          var SNAP_KEY = 'onekey_jotai_context_atoms_snapshot';
-          var KEYS = [SNAP_KEY];
+          var DBN = 'onekey-ui-snapshot';
+          // The record as its namespace stores it; the cache layer in the
+          // bundle parses and age-checks it.
+          var KEYS = ['ctx-atom-snapshot:d:v1'];
           navigator.storageBuckets
             .open(DBN, { persisted: true, durability: 'strict' })
             .then(function (bk) {
               return new Promise(function (res, rej) {
                 var r = bk.indexedDB.open(DBN, 1);
                 r.onupgradeneeded = function () {
-                  try { r.result.createObjectStore('kv'); } catch (e) {}
+                  try { r.result.createObjectStore('records'); } catch (e) {}
                 };
                 r.onsuccess = function () { res(r.result); };
                 r.onerror = function () { rej(r.error); };
@@ -66,8 +62,8 @@
             })
             .then(function (db) {
               return new Promise(function (res, rej) {
-                var tx = db.transaction('kv', 'readonly');
-                var store = tx.objectStore('kv');
+                var tx = db.transaction('records', 'readonly');
+                var store = tx.objectStore('records');
                 var remaining = KEYS.length;
                 var entries = [];
                 var done = function () {
@@ -89,11 +85,11 @@
             })
             .then(function (entries) {
               var g = globalThis;
-              var map = g.__ONEKEY_COLD_START_CACHE_MAP__;
-              if (!map) { map = new Map(); g.__ONEKEY_COLD_START_CACHE_MAP__ = map; }
+              var map = g.__ONEKEY_UI_SNAPSHOT_MAP__;
+              if (!map) { map = new Map(); g.__ONEKEY_UI_SNAPSHOT_MAP__ = map; }
               entries.forEach(function (entry) {
                 if (typeof entry.value !== 'string') return;
-                // Do NOT clobber a value a facade write may already have set.
+                // Do NOT clobber a value a write may already have set.
                 if (!map.has(entry.key)) map.set(entry.key, entry.value);
               });
             })
