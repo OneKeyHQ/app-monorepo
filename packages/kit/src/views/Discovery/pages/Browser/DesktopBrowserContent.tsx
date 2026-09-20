@@ -203,22 +203,35 @@ function BasicFind({ id, isActive }: { id: string; isActive: boolean }) {
 
     let webView: IElectronWebView | undefined;
     let retryTimer: ReturnType<typeof setTimeout> | undefined;
+    let replayTimer: ReturnType<typeof setTimeout> | undefined;
+    let waitingForDomReady = false;
     const resetMatchesOnNavigation = ({
       isMainFrame,
       isInPlace,
     }: DidStartNavigationEvent) => {
       const ref = webviewRefs[id] as IWebViewRefWithDomReady | undefined;
       if (isMainFrame && !isInPlace && ref?.__domReady === false) {
+        waitingForDomReady = true;
         setMatches(0);
         setActiveMatchOrdinal(0);
       }
     };
     const replaySearch = () => {
+      waitingForDomReady = false;
       if (prevSearchText.current) {
         findInWebView(webView, prevSearchText.current, {
           findNext: true,
           forward: false,
         });
+      }
+    };
+    const replayAfterStop = () => {
+      if (waitingForDomReady) {
+        replayTimer = setTimeout(() => {
+          if (waitingForDomReady && getReadyWebView(id)) {
+            replaySearch();
+          }
+        }, 0);
       }
     };
     const attachFindListener = () => {
@@ -234,6 +247,8 @@ function BasicFind({ id, isActive }: { id: string; isActive: boolean }) {
         'did-start-navigation',
         resetMatchesOnNavigation,
       );
+      currentWebView.addEventListener('did-stop-loading', replayAfterStop);
+      currentWebView.addEventListener('did-fail-load', replayAfterStop);
       currentWebView.addEventListener('dom-ready', replaySearch);
       if (ref?.__domReady) {
         replaySearch();
@@ -245,8 +260,13 @@ function BasicFind({ id, isActive }: { id: string; isActive: boolean }) {
       if (retryTimer) {
         clearTimeout(retryTimer);
       }
+      if (replayTimer) {
+        clearTimeout(replayTimer);
+      }
       handleTextChange.cancel();
       webView?.removeEventListener('dom-ready', replaySearch);
+      webView?.removeEventListener('did-fail-load', replayAfterStop);
+      webView?.removeEventListener('did-stop-loading', replayAfterStop);
       webView?.removeEventListener(
         'did-start-navigation',
         resetMatchesOnNavigation,

@@ -52,6 +52,7 @@ function shouldBlockAccess(validateState: EValidateUrlEnum | undefined) {
 function WebContent({ id, url, customReceiveHandler }: IWebContentProps) {
   const navigation = useAppNavigation();
   const urlRef = useRef<string>('');
+  const readyDocumentUrlRef = useRef<string | undefined>(undefined);
   const phishingUrlRef = useRef<string>('');
   const [navigationBlockAccessView, setNavigationBlockAccessView] =
     useState(false);
@@ -122,6 +123,15 @@ function WebContent({ id, url, customReceiveHandler }: IWebContentProps) {
         if (!isInPlace) {
           const ref = webviewRefs[id] as IWebViewRefWithDomReady | undefined;
           if (ref) {
+            if (ref.__domReady) {
+              try {
+                readyDocumentUrlRef.current = (
+                  ref.innerRef as IElectronWebView
+                ).getURL();
+              } catch {
+                readyDocumentUrlRef.current = undefined;
+              }
+            }
             ref.__domReady = false;
           }
         }
@@ -148,6 +158,23 @@ function WebContent({ id, url, customReceiveHandler }: IWebContentProps) {
     [getNavStatusInfo, id, onNavigation],
   );
   const onDidFinishLoad = useCallback(() => {
+    const ref = webviewRefs[id] as IWebViewRefWithDomReady | undefined;
+    const webview = ref?.innerRef as
+      | (IElectronWebView & { isLoadingMainFrame: () => boolean })
+      | undefined;
+    if (ref?.__domReady === false && readyDocumentUrlRef.current) {
+      try {
+        if (
+          !webview?.isLoadingMainFrame() &&
+          webview?.getURL() === readyDocumentUrlRef.current
+        ) {
+          ref.__domReady = true;
+          readyDocumentUrlRef.current = undefined;
+        }
+      } catch {
+        // The guest may have been destroyed while navigation was settling.
+      }
+    }
     notifyTabNavigationEnd(id);
     onNavigation({
       id,
@@ -217,6 +244,7 @@ function WebContent({ id, url, customReceiveHandler }: IWebContentProps) {
     if (ref) {
       ref.__domReady = true;
     }
+    readyDocumentUrlRef.current = undefined;
     // Inject the Bitrefill bridge on every dom-ready so raw window.postMessage
     // events from embed.bitrefill.com are re-emitted as $private JSBridge
     // requests reaching useDiscoveryMessageHandler.
