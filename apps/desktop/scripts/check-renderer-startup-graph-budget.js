@@ -34,10 +34,13 @@ const budgetPath =
     'thresholds',
     'desktop.startup.json',
   );
+const { collectEmittedModuleBytes } = require(
+  path.join(repoRoot, 'development/perf-ci/lib/emittedModuleBytes'),
+);
 
 const DEFAULT_BUDGETS = {
   moduleCount: 7000,
-  sourceSizeBytes: 32 * MB,
+  startupModuleBytes: 16 * MB,
   initialScriptCount: 24,
   initialScriptRawBytes: 17 * MB,
   initialScriptGzipBytes: 5 * MB,
@@ -79,9 +82,9 @@ function loadBudgets() {
       'DESKTOP_RENDERER_STARTUP_MODULE_BUDGET',
       config.moduleCount ?? DEFAULT_BUDGETS.moduleCount,
     ),
-    sourceSizeBytes: numberEnv(
-      'DESKTOP_RENDERER_STARTUP_SOURCE_SIZE_BUDGET_BYTES',
-      config.sourceSizeBytes ?? DEFAULT_BUDGETS.sourceSizeBytes,
+    startupModuleBytes: numberEnv(
+      'DESKTOP_RENDERER_STARTUP_MODULE_BYTES_BUDGET',
+      config.startupModuleBytes ?? DEFAULT_BUDGETS.startupModuleBytes,
     ),
     initialScriptCount: numberEnv(
       'DESKTOP_RENDERER_STARTUP_INITIAL_SCRIPT_COUNT_BUDGET',
@@ -175,24 +178,30 @@ function getFileSizeRows(files) {
 }
 
 function getModuleRows(scriptFiles) {
+  // Bytes are the module's share of the emitted files, not the length of its
+  // pre-compile source: comments and type declarations are not downloaded.
+  const { modules: emitted, unmappedBytes } = collectEmittedModuleBytes({
+    buildDir,
+    files: scriptFiles,
+    normalizeSource,
+  });
   const modules = new Map();
   for (const file of scriptFiles) {
     const mapPath = path.join(buildDir, `${file}.map`);
     if (fs.existsSync(mapPath)) {
       const map = JSON.parse(fs.readFileSync(mapPath, 'utf8'));
       const sources = map.sources || [];
-      const contents = map.sourcesContent || [];
       for (let index = 0; index < sources.length; index += 1) {
         const source = normalizeSource(sources[index]);
-        const bytes = Buffer.byteLength(contents[index] || '');
         const existing = modules.get(source);
         if (existing) {
-          existing.bytes = Math.max(existing.bytes, bytes);
           existing.files.add(file);
         } else {
           modules.set(source, {
             source,
-            bytes,
+            // A module the bundler kept in `sources` but emitted nothing for
+            // still counts against moduleCount, at zero bytes.
+            bytes: emitted.get(source)?.bytes ?? 0,
             category: categorizeModule(source),
             packageName: getPackageName(source),
             files: new Set([file]),
@@ -202,10 +211,13 @@ function getModuleRows(scriptFiles) {
     }
   }
 
-  return [...modules.values()].map((module) => ({
-    ...module,
-    files: [...module.files],
-  }));
+  return {
+    rows: [...modules.values()].map((module) => ({
+      ...module,
+      files: [...module.files],
+    })),
+    unmappedBytes,
+  };
 }
 
 function sum(rows, key) {
@@ -268,7 +280,7 @@ function main() {
     (file) => !fs.existsSync(path.join(buildDir, `${file}.map`)),
   );
   const initialScripts = getFileSizeRows(initialScriptFiles);
-  const moduleRows = getModuleRows(initialScriptFiles);
+  const { rows: moduleRows, unmappedBytes } = getModuleRows(initialScriptFiles);
   const allScriptFiles = walkFiles(buildDir).filter(
     (file) => /\.m?js$/.test(file) && !file.endsWith('.map'),
   );
@@ -277,16 +289,18 @@ function main() {
     0,
   );
 
-  const sourceSizeBytes = sum(moduleRows, 'bytes');
+  const startupModuleBytes = sum(moduleRows, 'bytes');
   const summary = {
     moduleCount: moduleRows.length,
-    sourceSizeBytes,
+    startupModuleBytes,
     initialScriptCount: initialScripts.length,
     initialScriptRawBytes: sum(initialScripts, 'bytes'),
     initialScriptGzipBytes: sum(initialScripts, 'gzipBytes'),
     initialScriptBrotliBytes: sum(initialScripts, 'brotliBytes'),
     allScriptCount: allScriptFiles.length,
     allScriptRawBytes,
+    // Bundler runtime and glue: emitted, but owned by no module.
+    unmappedBytes,
     largestModuleBytes: Math.max(0, ...moduleRows.map((row) => row.bytes)),
     categories: groupCount(moduleRows, 'category'),
   };
@@ -299,9 +313,9 @@ function main() {
   const budgetChecks = [
     makeBudgetCheck('moduleCount', summary.moduleCount, budgets.moduleCount),
     makeBudgetCheck(
-      'sourceSizeBytes',
-      summary.sourceSizeBytes,
-      budgets.sourceSizeBytes,
+      'startupModuleBytes',
+      summary.startupModuleBytes,
+      budgets.startupModuleBytes,
     ),
     makeBudgetCheck(
       'initialScriptCount',
@@ -385,7 +399,9 @@ function main() {
   console.log(`Initial scripts:        ${summary.initialScriptCount}`);
   console.log(`Startup modules:        ${summary.moduleCount}`);
   console.log(
-    `Startup source size:    ${formatBytes(summary.sourceSizeBytes)}`,
+    `Startup module bytes:   ${formatBytes(
+      summary.startupModuleBytes,
+    )} (+${formatBytes(summary.unmappedBytes)} runtime/glue)`,
   );
   console.log(
     `Initial raw/gzip/br:    ${formatBytes(
