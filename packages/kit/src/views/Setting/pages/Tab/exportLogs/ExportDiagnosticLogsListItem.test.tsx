@@ -10,6 +10,7 @@ import { SettingTestIDs } from '../../../testIDs';
 
 import { ExportDiagnosticLogsListItem } from './ExportDiagnosticLogsListItem';
 import { showDiagnosticLogsContentsDialog } from './showDiagnosticLogsContentsDialog';
+
 import type { IntlShape } from 'react-intl';
 
 const mockShowExportLogsDialog = jest.fn((_options: unknown) => undefined);
@@ -151,7 +152,7 @@ describe('showDiagnosticLogsContentsDialog', () => {
   });
 
   it('shows an info dialog without a cancel button', () => {
-    showDiagnosticLogsContentsDialog(mockIntl);
+    showDiagnosticLogsContentsDialog({ intl: mockIntl });
 
     expect(mockDialogShow).toHaveBeenCalledWith(
       expect.objectContaining({

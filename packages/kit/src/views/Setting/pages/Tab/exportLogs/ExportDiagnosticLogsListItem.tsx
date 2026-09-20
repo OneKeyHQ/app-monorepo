@@ -17,8 +17,6 @@ import type { GestureResponderEvent } from 'react-native';
 
 export function ExportDiagnosticLogsListItem({
   logItemClick,
-  subtitle: _subtitle,
-  onPress: _onPress,
   ...props
 }: ICustomElementProps) {
   const intl = useIntl();
@@ -36,7 +34,7 @@ export function ExportDiagnosticLogsListItem({
   const handleLearnMorePress = useCallback(
     (event?: GestureResponderEvent) => {
       event?.stopPropagation();
-      void showDiagnosticLogsContentsDialog(intl);
+      void showDiagnosticLogsContentsDialog({ intl });
     },
     [intl],
   );

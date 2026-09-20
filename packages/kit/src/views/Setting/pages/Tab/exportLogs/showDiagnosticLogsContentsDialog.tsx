@@ -1,5 +1,3 @@
-import { useIntl } from 'react-intl';
-
 import { Dialog, SizableText, XStack, YStack } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
@@ -17,13 +15,14 @@ const EXCLUDED_LOG_ITEM_IDS = [
 ] as const;
 
 function DiagnosticLogCopySection({
+  intl,
   titleId,
   itemIds,
 }: {
+  intl: IntlShape;
   titleId: ETranslations;
   itemIds: readonly ETranslations[];
 }) {
-  const intl = useIntl();
   return (
     <YStack gap="$2">
       <SizableText size="$headingSm">
@@ -43,22 +42,11 @@ function DiagnosticLogCopySection({
   );
 }
 
-function DiagnosticLogsContentsDialogContent() {
-  return (
-    <YStack gap="$4">
-      <DiagnosticLogCopySection
-        titleId={ETranslations.settings_export_diagnostic_logs__included}
-        itemIds={INCLUDED_LOG_ITEM_IDS}
-      />
-      <DiagnosticLogCopySection
-        titleId={ETranslations.settings_export_diagnostic_logs__not_included}
-        itemIds={EXCLUDED_LOG_ITEM_IDS}
-      />
-    </YStack>
-  );
-}
-
-export function showDiagnosticLogsContentsDialog(intl: IntlShape) {
+export function showDiagnosticLogsContentsDialog({
+  intl,
+}: {
+  intl: IntlShape;
+}) {
   return Dialog.show({
     icon: 'InfoCircleOutline',
     title: intl.formatMessage({
@@ -68,6 +56,19 @@ export function showDiagnosticLogsContentsDialog(intl: IntlShape) {
     onConfirmText: intl.formatMessage({
       id: ETranslations.global_i_got_it,
     }),
-    renderContent: <DiagnosticLogsContentsDialogContent />,
+    renderContent: (
+      <YStack gap="$4">
+        <DiagnosticLogCopySection
+          intl={intl}
+          titleId={ETranslations.settings_export_diagnostic_logs__included}
+          itemIds={INCLUDED_LOG_ITEM_IDS}
+        />
+        <DiagnosticLogCopySection
+          intl={intl}
+          titleId={ETranslations.settings_export_diagnostic_logs__not_included}
+          itemIds={EXCLUDED_LOG_ITEM_IDS}
+        />
+      </YStack>
+    ),
   });
 }
