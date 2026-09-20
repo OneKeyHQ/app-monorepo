@@ -208,6 +208,46 @@ describe('native sync storage backlog recovery', () => {
     });
   });
 
+  it('does not reject a refresh when own acknowledgements exceed the replay budget', async () => {
+    let resolveSnapshot:
+      | ((snapshot: INativeStorageBootstrapSnapshot) => void)
+      | undefined;
+    const module = loadMirror();
+    await module.bootstrapNativeSyncStorageMirrors();
+    mockCallNativeStorage.mockImplementationOnce(
+      () =>
+        new Promise<INativeStorageBootstrapSnapshot>((resolve) => {
+          resolveSnapshot = resolve;
+        }),
+    );
+    const refresh = module.refreshNativeSyncStorageMirrors();
+    const storage = module.createNativeSyncStorageMirror('coldStart');
+
+    for (let batch = 0; batch < 2; batch += 1) {
+      void storage.applySWRCachePatch?.({
+        removePrefixes: [],
+        removals: [],
+        updates: Array.from({ length: 501 }, (_, index) => {
+          const key = `ack-${batch}-${index}`;
+          return [
+            key,
+            JSON.stringify({ d: key, t: batch * 501 + index + 1 }),
+          ] as const;
+        }),
+      });
+    }
+
+    resolveSnapshot?.(emptySnapshot);
+    await expect(refresh).resolves.toBeUndefined();
+
+    const value = JSON.parse(storage.getString(swrKey) ?? '{}') as Record<
+      string,
+      unknown
+    >;
+    expect(Object.keys(value)).toHaveLength(1002);
+    expect(value['ack-1-500']).toEqual({ d: 'ack-1-500', t: 1002 });
+  });
+
   it('allows initial bootstrap with pending SWR writes over the replay budget', async () => {
     globals.__onekeyNativeStorageIsTransportReady = () => false;
     const module = loadMirror();
