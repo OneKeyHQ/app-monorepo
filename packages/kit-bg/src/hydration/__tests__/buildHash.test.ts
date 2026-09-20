@@ -68,12 +68,12 @@ describe('shouldProceedAfterReset', () => {
     expect(shouldProceedAfterReset(new Map())).toBe(true);
   });
 
-  it('proceeds when recheck contains only __meta:* entries', () => {
+  it('proceeds when recheck contains only ui-snapshot-meta:* entries', () => {
     // Meta-only is indistinguishable from a brand-new DB to downstream
     // consumers (countNonMetaEntries == 0).
     const recheck = new Map<string, unknown>([
-      ['__meta:buildHash', 'abc'],
-      ['__meta:other', 'def'],
+      ['ui-snapshot-meta:buildHash', 'abc'],
+      ['ui-snapshot-meta:other', 'def'],
     ]);
     expect(shouldProceedAfterReset(recheck)).toBe(true);
   });
@@ -82,7 +82,7 @@ describe('shouldProceedAfterReset', () => {
     // db.clear must have failed (silently swallowed by resetColdStartCache);
     // writing the new marker now would falsely vouch for stale entries.
     const recheck = new Map<string, unknown>([
-      ['__meta:buildHash', 'abc'],
+      ['ui-snapshot-meta:buildHash', 'abc'],
       ['onekey_jotai_context_atoms_snapshot', '{"stale":true}'],
     ]);
     expect(shouldProceedAfterReset(recheck)).toBe(false);
@@ -135,17 +135,17 @@ describe('countNonMetaEntries', () => {
     expect(countNonMetaEntries(new Map())).toBe(0);
   });
 
-  it('ignores __meta:* keys', () => {
+  it('ignores ui-snapshot-meta:* keys', () => {
     const m = new Map<string, unknown>([
-      ['__meta:buildHash', 'x'],
-      ['__meta:other', 'y'],
+      ['ui-snapshot-meta:buildHash', 'x'],
+      ['ui-snapshot-meta:other', 'y'],
     ]);
     expect(countNonMetaEntries(m)).toBe(0);
   });
 
   it('counts payload keys but skips meta keys mixed in', () => {
     const m = new Map<string, unknown>([
-      ['__meta:buildHash', 'x'],
+      ['ui-snapshot-meta:buildHash', 'x'],
       ['onekey_jotai_context_atoms_snapshot', '{}'],
       ['swr:cache', '{}'],
     ]);

@@ -162,25 +162,81 @@ export function primeWebUiSnapshotStore(entries: Iterable<[string, string]>) {
   }
 }
 
-export async function readWebUiSnapshotEntriesFromIdb(): Promise<
-  Map<string, string>
-> {
+/**
+ * Load records from IndexedDB.
+ *
+ * With `namespaces`, only those are read, one key range each: records are
+ * stored sorted by key, so a range is a seek and a sequential read rather
+ * than a scan. That is what lets the startup path load the one namespace the
+ * first frame needs without paying for the rest.
+ */
+export async function readWebUiSnapshotEntriesFromIdb(options?: {
+  namespaces?: readonly string[];
+}): Promise<Map<string, string>> {
   const database = await getDatabase();
-  const entries = (await database.getAllEntries(RECORD_STORE)) as Map<
-    string,
-    unknown
-  >;
   const result = new Map<string, string>();
-  entries.forEach((value, key) => {
-    if (typeof value === 'string') {
+  const collect = (key: unknown, value: unknown) => {
+    if (typeof key === 'string' && typeof value === 'string') {
       result.set(key, value);
     }
-  });
+  };
+  if (!options?.namespaces) {
+    const entries = (await database.getAllEntries(RECORD_STORE)) as Map<
+      string,
+      unknown
+    >;
+    entries.forEach((value, key) => collect(key, value));
+    return result;
+  }
+  const transaction = await database.createBucketTransaction(
+    [RECORD_STORE],
+    'readonly',
+  );
+  const store = transaction.objectStore(RECORD_STORE);
+  await Promise.all(
+    options.namespaces.map(async (namespace) => {
+      const range = IDBKeyRange.bound(
+        `${namespace}:`,
+        `${namespace};`,
+        false,
+        true,
+      );
+      const [keys, values] = await Promise.all([
+        store.getAllKeys(range),
+        store.getAll(range),
+      ]);
+      keys.forEach((key, index) => collect(key, values[index]));
+    }),
+  );
+  await transaction.done;
   return result;
 }
 
+/**
+ * Markers that describe the store itself rather than a namespace's records —
+ * the build hash the hydration compares against. Written without a manifest
+ * because nothing retains them and the startup path reads them before any
+ * namespace exists.
+ */
+export const UI_SNAPSHOT_META_NAMESPACE = 'ui-snapshot-meta';
+
+export function readUiSnapshotMeta(key: string): string | undefined {
+  return getMap().get(
+    buildUiSnapshotRecordKey(UI_SNAPSHOT_META_NAMESPACE, key),
+  );
+}
+
+export function writeUiSnapshotMeta(key: string, value: string): void {
+  if (isClearing) {
+    return;
+  }
+  const recordKey = buildUiSnapshotRecordKey(UI_SNAPSHOT_META_NAMESPACE, key);
+  getMap().set(recordKey, value);
+  scheduleFlush(recordKey);
+}
+
 /** Wipe every namespace. Used by the app's own "clear data", which restarts
- *  afterwards, so nothing needs to survive this. */
+ *  afterwards, and by a build whose stored shapes no longer match. */
 export async function resetWebUiSnapshotStore(): Promise<void> {
   isClearing = true;
   try {

@@ -432,9 +432,9 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
     }
     try {
       // eslint-disable-next-line @typescript-eslint/no-require-imports
-      const { flushColdStartCacheNow } =
-        require('@onekeyhq/shared/src/storage/instance/webColdStartStorage') as typeof import('@onekeyhq/shared/src/storage/instance/webColdStartStorage');
-      await flushColdStartCacheNow();
+      const { flushUiSnapshotStoreNow } =
+        require('@onekeyhq/shared/src/storage/DisplaySnapshotStorage/webUiSnapshotStore') as typeof import('@onekeyhq/shared/src/storage/DisplaySnapshotStorage/webUiSnapshotStore');
+      await flushUiSnapshotStoreNow();
     } catch {
       // Native MMKV writes are synchronous; extension background has no cache.
     }

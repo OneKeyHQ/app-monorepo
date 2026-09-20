@@ -567,11 +567,11 @@ async function flushWebColdStartCacheNowIfNeeded() {
   }
   try {
     // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const { flushColdStartCacheNow } =
-      require('@onekeyhq/shared/src/storage/instance/webColdStartStorage') as typeof import('@onekeyhq/shared/src/storage/instance/webColdStartStorage');
-    await flushColdStartCacheNow();
+    const { flushUiSnapshotStoreNow } =
+      require('@onekeyhq/shared/src/storage/DisplaySnapshotStorage/webUiSnapshotStore') as typeof import('@onekeyhq/shared/src/storage/DisplaySnapshotStorage/webUiSnapshotStore');
+    await flushUiSnapshotStoreNow();
   } catch {
-    /* webColdStartStorage may not be loaded on extension UI */
+    /* The snapshot store may not be loaded on extension UI */
   }
 }
 
@@ -634,11 +634,11 @@ function ensureColdStartAppStateListener() {
     if (platformEnv.isWeb || platformEnv.isDesktop) {
       try {
         // eslint-disable-next-line @typescript-eslint/no-require-imports
-        const { flushColdStartCacheNow } =
-          require('@onekeyhq/shared/src/storage/instance/webColdStartStorage') as typeof import('@onekeyhq/shared/src/storage/instance/webColdStartStorage');
-        void flushColdStartCacheNow();
+        const { flushUiSnapshotStoreNow } =
+          require('@onekeyhq/shared/src/storage/DisplaySnapshotStorage/webUiSnapshotStore') as typeof import('@onekeyhq/shared/src/storage/DisplaySnapshotStorage/webUiSnapshotStore');
+        void flushUiSnapshotStoreNow();
       } catch {
-        /* webColdStartStorage may not be loaded on extension UI */
+        /* The snapshot store may not be loaded on extension UI */
       }
     }
   });

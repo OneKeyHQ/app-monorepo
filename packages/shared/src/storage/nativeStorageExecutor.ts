@@ -1,14 +1,9 @@
-/* cspell:ignore IMMKV ISWR */
+/* cspell:ignore IMMKV */
 import { isPlainObject } from 'lodash';
 
 import { OneKeyLocalError } from '../errors';
 import platformEnv from '../platformEnv';
 import { travelModeManager } from '../travelMode';
-import { COLD_START_SNAPSHOT_HARD_MAX_CHARS } from '../utils/coldStartCacheSnapshotUtils';
-import {
-  SWR_CACHE_MAX_SERIALIZED_CHARS,
-  pruneSWRCacheStore,
-} from '../utils/swrCacheUtils';
 
 import { getLegacyAsyncStorageForMigration } from './legacyAsyncStorageMigration';
 import { retryLegacyAsyncStorageOperation } from './legacyAsyncStorageRetry';
@@ -28,20 +23,12 @@ import {
   NATIVE_STORAGE_BOOTSTRAP_DEFAULT_STORES,
   createNativeStorageMigrationInconsistentErrorMessage,
 } from './nativeStorageTypes';
-import {
-  NATIVE_SWR_CACHE_BOOTSTRAP_MAX_ENTRIES,
-  NATIVE_SWR_CACHE_BOOTSTRAP_MAX_SERIALIZED_CHARS,
-  SWR_CACHE_BOOTSTRAP_KEY_PREFIXES,
-  getNativeSWRCachePersistence,
-  isNativeSWRCachePhysicalKey,
-} from './nativeSWRCachePersistence';
 import { broadcastNativeSyncStorageMutation } from './nativeSyncStorageBroadcast';
 import { EAppSyncStorageKeys } from './syncStorageKeys';
 
 import type { ILegacyAsyncStorageNativeModule } from './legacyAsyncStorageMigration';
 import type {
   INativeAsyncStorageRequest,
-  INativeSWRCacheSerializedEntry,
   INativeStorageBootstrapSnapshot,
   INativeStorageRequest,
   INativeStorageScalar,
@@ -83,15 +70,6 @@ const APP_STORAGE_MIGRATION_DISK_RESERVE_BYTES = 32 * 1024 * 1024;
 const APP_STORAGE_MIGRATION_SIZE_OVERHEAD_RATIO = 1.15;
 const LEGACY_READ_CHUNK_SIZE = 100;
 const MAX_MMKV_KEY_BYTE_LENGTH = 60_000;
-const SWR_CACHE_KEY = 'onekey_swr_cache';
-// Re-exported for the callers that already read the bootstrap window from
-// here; the limits themselves belong to the persistence layer that applies
-// them.
-export {
-  NATIVE_SWR_CACHE_BOOTSTRAP_MAX_ENTRIES,
-  NATIVE_SWR_CACHE_BOOTSTRAP_MAX_SERIALIZED_CHARS,
-};
-const SWR_CACHE_MAX_LEGACY_PARSE_CHARS = SWR_CACHE_MAX_SERIALIZED_CHARS * 2;
 const SYNC_STORAGE_QUEUE_RESULT_CACHE_LIMIT = 32;
 const SYNC_STORAGE_QUEUE_RESULT_CACHE_MAX_VALUE_CHARS = 8 * 1024 * 1024;
 const SYNC_STORAGE_QUEUE_RESULT_CACHE_TTL_MS = 5 * 60_000;
@@ -231,11 +209,6 @@ function getSyncStorageMMKV(store: INativeSyncStorageName): IMMKVInstance {
       // eslint-disable-next-line @typescript-eslint/no-require-imports
       return require('./instance/mmkvStorageInstance').default as IMMKVInstance;
     }
-    case 'coldStart': {
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
-      return require('./instance/coldStartCacheMMKVInstance')
-        .default as IMMKVInstance;
-    }
     case 'devSettings': {
       // eslint-disable-next-line @typescript-eslint/no-require-imports
       return require('./instance/mmkvDevSettingStorageInstance')
@@ -248,10 +221,6 @@ function getSyncStorageMMKV(store: INativeSyncStorageName): IMMKVInstance {
       );
     }
   }
-}
-
-function getSWRCachePersistence() {
-  return getNativeSWRCachePersistence(getSyncStorageMMKV('coldStart'));
 }
 
 function getUtf8ByteLength(value: string) {
@@ -1296,66 +1265,9 @@ function enqueueAsyncStorageRequest(request: INativeAsyncStorageRequest) {
   return execution;
 }
 
-type ISWREntry = { t?: number; [key: string]: unknown };
-type ISWRStore = Record<string, ISWREntry>;
-
-function parseSWRStore(value: INativeStorageScalar | undefined) {
-  if (typeof value !== 'string') {
-    return undefined;
-  }
-  try {
-    const parsed = JSON.parse(value) as unknown;
-    return isPlainObject(parsed) ? (parsed as ISWRStore) : undefined;
-  } catch {
-    return undefined;
-  }
-}
-
-function serializeMergedSWRStore({
-  currentValue,
-  previousValue,
-  nextValue,
-}: {
-  currentValue: string | undefined;
-  previousValue: INativeStorageScalar | undefined;
-  nextValue: string;
-}) {
-  const current = parseSWRStore(currentValue);
-  const previous = parseSWRStore(previousValue);
-  const next = parseSWRStore(nextValue);
-  if (!next) {
-    return '{}';
-  }
-  if (!current || !previous) {
-    return pruneSWRCacheStore(next).serialized;
-  }
-
-  const merged: ISWRStore = { ...current };
-  for (const [key, previousEntry] of Object.entries(previous)) {
-    if (!(key in next)) {
-      const currentEntry = merged[key];
-      if ((currentEntry?.t ?? 0) <= (previousEntry?.t ?? 0)) {
-        delete merged[key];
-      }
-    }
-  }
-  for (const [key, nextEntry] of Object.entries(next)) {
-    const previousEntry = previous[key];
-    if (JSON.stringify(previousEntry) !== JSON.stringify(nextEntry)) {
-      const currentEntry = merged[key];
-      if (!currentEntry || (nextEntry?.t ?? 0) >= (currentEntry?.t ?? 0)) {
-        defineEnumerableValue(merged, key, nextEntry);
-      }
-    }
-  }
-  return pruneSWRCacheStore(merged).serialized;
-}
-
 async function syncDurableSyncStorageMutation(store: INativeSyncStorageName) {
   if (store === 'settings') {
     await syncNativeStorageMMKV('onekey-app-setting');
-  } else if (store === 'coldStart') {
-    await syncNativeStorageMMKV('onekey-cold-start-cache');
   } else if (store === 'devSettings') {
     await syncNativeStorageMMKV('onekey-app-dev-setting');
   }
@@ -1398,11 +1310,6 @@ async function executeSyncStorageRequest(request: INativeSyncStorageRequest) {
       let valueChars = 0;
       if (mutation.operation === 'set' && typeof mutation.value === 'string') {
         valueChars = mutation.value.length;
-      } else if (mutation.operation === 'patchSWR') {
-        valueChars = mutation.entries.reduce(
-          (total, [, value]) => total + (value?.length ?? 0),
-          0,
-        );
       }
       completedSyncStorageResults.delete(sourceQueueId);
       completedSyncStorageResults.set(sourceQueueId, {
@@ -1417,38 +1324,7 @@ async function executeSyncStorageRequest(request: INativeSyncStorageRequest) {
   };
   switch (request.operation) {
     case 'set': {
-      if (
-        request.store === 'coldStart' &&
-        request.key === SWR_CACHE_KEY &&
-        typeof request.value === 'string'
-      ) {
-        const persistence = getSWRCachePersistence();
-        const value = serializeMergedSWRStore({
-          currentValue: persistence.readSerialized(),
-          previousValue: request.previousValue,
-          nextValue: request.value,
-        });
-        const entries = persistence.replaceSerialized(value);
-        await syncDurableSyncStorageMutation('coldStart');
-        return publishMutation({
-          store: 'coldStart',
-          operation: 'patchSWR',
-          entries,
-          ...(request.sourceMutationId === undefined
-            ? {}
-            : { sourceMutationId: request.sourceMutationId }),
-        });
-      }
-      const value =
-        request.store === 'coldStart' &&
-        request.key === SWR_CACHE_KEY &&
-        typeof request.value === 'string'
-          ? serializeMergedSWRStore({
-              currentValue: mmkv.getString(request.key),
-              previousValue: request.previousValue,
-              nextValue: request.value,
-            })
-          : request.value;
+      const { value } = request;
       mmkv.set(request.key, value);
       await syncDurableSyncStorageMutation(request.store);
       return publishMutation({
@@ -1461,31 +1337,7 @@ async function executeSyncStorageRequest(request: INativeSyncStorageRequest) {
           : { sourceMutationId: request.sourceMutationId }),
       });
     }
-    case 'patchSWR': {
-      const entries = getSWRCachePersistence().applyPatch(request.patch);
-      await syncDurableSyncStorageMutation('coldStart');
-      return publishMutation({
-        store: 'coldStart',
-        operation: 'patchSWR',
-        entries,
-        ...(request.sourceMutationId === undefined
-          ? {}
-          : { sourceMutationId: request.sourceMutationId }),
-      });
-    }
     case 'remove':
-      if (request.store === 'coldStart' && request.key === SWR_CACHE_KEY) {
-        const entries = getSWRCachePersistence().replaceSerialized('{}');
-        await syncDurableSyncStorageMutation('coldStart');
-        return publishMutation({
-          store: 'coldStart',
-          operation: 'patchSWR',
-          entries,
-          ...(request.sourceMutationId === undefined
-            ? {}
-            : { sourceMutationId: request.sourceMutationId }),
-        });
-      }
       mmkv.remove(request.key);
       await syncDurableSyncStorageMutation(request.store);
       return publishMutation({
@@ -1498,9 +1350,6 @@ async function executeSyncStorageRequest(request: INativeSyncStorageRequest) {
       });
     case 'clear':
       mmkv.clearAll();
-      if (request.store === 'coldStart') {
-        getSWRCachePersistence().invalidate();
-      }
       await syncDurableSyncStorageMutation(request.store);
       return publishMutation({
         store: request.store,
@@ -1518,89 +1367,17 @@ async function executeSyncStorageRequest(request: INativeSyncStorageRequest) {
   }
 }
 
-function persistSanitizedColdStartValue({
-  key,
-  mmkv,
-  value,
-}: {
-  key: string;
-  mmkv: IMMKVInstance;
-  value: string | undefined;
-}) {
-  try {
-    if (value === undefined) {
-      mmkv.remove(key);
-    } else {
-      mmkv.set(key, value);
-    }
-  } catch {
-    logMigration('cold-start cache size maintenance failed');
-  }
-}
-
-function sanitizeColdStartValue({
-  key,
-  mmkv,
-  value,
-}: {
-  key: string;
-  mmkv: IMMKVInstance;
-  value: INativeStorageScalar;
-}): INativeStorageScalar | undefined {
-  if (typeof value !== 'string') {
-    return value;
-  }
-  if (key === SWR_CACHE_KEY) {
-    if (value.length > SWR_CACHE_MAX_LEGACY_PARSE_CHARS) {
-      persistSanitizedColdStartValue({ key, mmkv, value: undefined });
-      return undefined;
-    }
-    const store = parseSWRStore(value);
-    if (!store) {
-      persistSanitizedColdStartValue({ key, mmkv, value: undefined });
-      return undefined;
-    }
-    const sanitized = pruneSWRCacheStore(store).serialized;
-    if (sanitized !== value) {
-      persistSanitizedColdStartValue({ key, mmkv, value: sanitized });
-    }
-    return sanitized;
-  }
-  if (value.length > COLD_START_SNAPSHOT_HARD_MAX_CHARS) {
-    persistSanitizedColdStartValue({ key, mmkv, value: undefined });
-    return undefined;
-  }
-  return value;
-}
-
-function readSyncStorageEntries(
-  mmkv: IMMKVInstance,
-  store: INativeSyncStorageName,
-) {
+function readSyncStorageEntries(mmkv: IMMKVInstance) {
   const entries: INativeSyncStorageEntry[] = [];
   for (const key of mmkv.getAllKeys()) {
-    const isInternalSWRCacheKey =
-      store === 'coldStart' &&
-      (key === SWR_CACHE_KEY || isNativeSWRCachePhysicalKey(key));
-    if (!isInternalSWRCacheKey) {
-      const stringValue = mmkv.getString(key);
-      let value: INativeStorageScalar | undefined = stringValue;
-      if (stringValue !== undefined) {
-        value = stringValue;
-      } else {
-        const numberValue = mmkv.getNumber(key);
-        if (numberValue !== undefined) {
-          value = numberValue;
-        } else {
-          value = mmkv.getBoolean(key);
-        }
-      }
-      if (value !== undefined && store === 'coldStart') {
-        value = sanitizeColdStartValue({ key, mmkv, value });
-      }
-      if (value !== undefined) {
-        entries.push([key, value]);
-      }
+    const stringValue = mmkv.getString(key);
+    let value: INativeStorageScalar | undefined = stringValue;
+    if (stringValue === undefined) {
+      const numberValue = mmkv.getNumber(key);
+      value = numberValue === undefined ? mmkv.getBoolean(key) : numberValue;
+    }
+    if (value !== undefined) {
+      entries.push([key, value]);
     }
   }
   return entries;
@@ -1614,40 +1391,18 @@ async function buildBootstrapSnapshot(
   const syncStoresReadyAt = Date.now();
   await ensureNativeAppStorageMigrated();
   const appStorageReadyAt = Date.now();
-  const swrCachePersistence = getSWRCachePersistence();
-  // Sent per entry: a UI mirror keeps them that way and never joins them.
-  let swrCacheEntries: INativeSWRCacheSerializedEntry[] = [];
-  const wantsColdStart = stores.includes('coldStart');
-  try {
-    // Runs whether or not the entries are wanted: the UI runtime reads this
-    // file directly, and it must not find a half-migrated store.
-    await swrCachePersistence.ensureMigrated();
-    if (wantsColdStart) {
-      swrCacheEntries = swrCachePersistence.readBootstrapEntries({
-        keyPrefixes: SWR_CACHE_BOOTSTRAP_KEY_PREFIXES,
-        maxEntries: NATIVE_SWR_CACHE_BOOTSTRAP_MAX_ENTRIES,
-        maxSerializedChars: NATIVE_SWR_CACHE_BOOTSTRAP_MAX_SERIALIZED_CHARS,
-      });
-    }
-  } catch {
-    logMigration('SWR per-entry cache migration failed; using safe fallback');
-  }
-  const swrReadyAt = Date.now();
   const readStore = (store: INativeSyncStorageName) =>
     stores.includes(store)
-      ? readSyncStorageEntries(getSyncStorageMMKV(store), store)
+      ? readSyncStorageEntries(getSyncStorageMMKV(store))
       : [];
   const snapshot = {
     settings: readStore('settings'),
-    coldStart: readStore('coldStart'),
     devSettings: readStore('devSettings'),
-    swrCacheEntries,
   };
   logBootstrapSnapshotTiming({
     startedAt,
     syncStoresReadyAt,
     appStorageReadyAt,
-    swrReadyAt,
   });
   return snapshot;
 }
@@ -1658,12 +1413,10 @@ function logBootstrapSnapshotTiming({
   startedAt,
   syncStoresReadyAt,
   appStorageReadyAt,
-  swrReadyAt,
 }: {
   startedAt: number;
   syncStoresReadyAt: number;
   appStorageReadyAt: number;
-  swrReadyAt: number;
 }) {
   try {
     // eslint-disable-next-line @typescript-eslint/no-require-imports
@@ -1675,8 +1428,7 @@ function logBootstrapSnapshotTiming({
         '[StartupTiming] bg bootstrap snapshot built:',
         `sync stores ${syncStoresReadyAt - startedAt}ms,`,
         `app storage ${appStorageReadyAt - syncStoresReadyAt}ms,`,
-        `swr ${swrReadyAt - appStorageReadyAt}ms,`,
-        `read ${Date.now() - swrReadyAt}ms,`,
+        `read ${Date.now() - appStorageReadyAt}ms,`,
         `total ${Date.now() - startedAt}ms`,
       ].join(' '),
     );
@@ -1695,7 +1447,6 @@ async function executeMaskedNativeStorageRequest(
       : [];
     return {
       settings,
-      coldStart: [],
       devSettings: [],
     };
   }
@@ -1717,14 +1468,6 @@ async function executeMaskedNativeStorageRequest(
   if (request.operation === 'clear') {
     return {
       operation: 'clear',
-      store: request.store,
-      sourceMutationId: request.sourceMutationId,
-    };
-  }
-  if (request.operation === 'patchSWR') {
-    return {
-      entries: [],
-      operation: 'patchSWR',
       store: request.store,
       sourceMutationId: request.sourceMutationId,
     };

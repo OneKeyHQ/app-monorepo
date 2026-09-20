@@ -27,10 +27,6 @@ function createFakeInstance(values: Map<string, string>) {
   };
 }
 
-jest.mock('./coldStartCacheMMKVInstance', () => ({
-  __esModule: true,
-  default: createFakeInstance(coldStartFileValues),
-}));
 jest.mock('./mmkvStorageInstance', () => ({
   __esModule: true,
   default: createFakeInstance(fileValues),
@@ -60,12 +56,6 @@ describe('native sync storage reads on main', () => {
     const { createNativeSettingsSyncStorage } =
       await import('./nativeSyncStorageParts.native');
     return createNativeSettingsSyncStorage();
-  }
-
-  async function createColdStartStorage() {
-    const { createNativeColdStartCacheStorage } =
-      await import('./nativeSyncStorageParts.native');
-    return createNativeColdStartCacheStorage();
   }
 
   describe('settings', () => {
@@ -110,37 +100,6 @@ describe('native sync storage reads on main', () => {
       const storage = await createSettingsStorage();
 
       expect(storage.getString('k' as never)).toBe('from-mirror');
-    });
-  });
-
-  describe('cold-start cache', () => {
-    it('reads the file even after the mirror is bootstrapped', async () => {
-      coldStartFileValues.set('k', 'from-file');
-      mirrorValues.set('k', 'from-mirror');
-      mirrorBootstrapped = true;
-      const storage = await createColdStartStorage();
-
-      expect(storage.getString('k' as never)).toBe('from-file');
-    });
-
-    it('writes to the file rather than posting them to bg', async () => {
-      const storage = await createColdStartStorage();
-
-      void storage.set('k' as never, 'written-by-main');
-
-      expect(coldStartFileValues.get('k')).toBe('written-by-main');
-      expect(mirrorValues.size).toBe(0);
-    });
-
-    it('is inert and empties the file while Travel Mode is masking', async () => {
-      coldStartFileValues.set('k', 'from-the-launch-before');
-      travelModeMasking = true;
-      const storage = await createColdStartStorage();
-
-      expect(coldStartFileValues.size).toBe(0);
-      void storage.set('k' as never, 'written-while-masked');
-      expect(storage.getString('k' as never)).toBeUndefined();
-      expect(coldStartFileValues.size).toBe(0);
     });
   });
 });

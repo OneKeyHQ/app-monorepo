@@ -2,68 +2,62 @@
 // polyfills in `apps/web/index.js` (and `apps/desktop/index.js`); runs at
 // module load so the hydration promise is fired before React mounts.
 //
-// L1 (per-atom globalAtom mirror) was REMOVED to avoid duplicating sensitive
-// PersistAtom fields (sensitiveEncodeKey, encryptedSecurityPasswordR1) into
-// a second IDB store. Web/desktop globalAtoms now reconcile asynchronously
-// via jotaiInit (same as the pre-PR behavior) — short flicker is accepted
-// in exchange for keeping sensitive material in a single store. L2 (context
-// atom snapshot) and L3 (SWR cache) remain because they introduce *new*
-// persistence channels rather than mirroring existing source-of-truth data.
+// Per-atom globalAtom mirroring was removed to avoid duplicating sensitive
+// PersistAtom fields into a second store; web/desktop globalAtoms reconcile
+// asynchronously via jotaiInit instead. What remains is the context-atom
+// snapshot, which introduces a persistence channel of its own rather than
+// mirroring a source of truth.
 //
-// Storage isolation: the cold-start IDB lives in its own bucket on
-// Chromium (Chrome / Edge / Electron) via navigator.storageBuckets, and in
-// the default-origin IDB factory on Firefox / Safari. See
-// packages/shared/src/storage/instance/webColdStartStorage.ts for the
-// browser support matrix.
+// The snapshots live in one IndexedDB database, `onekey-ui-snapshot`, keyed
+// `<namespace>:<key>`, in its own storage bucket on Chromium and in the
+// default factory elsewhere.
 //
-// What this module does (in module-load order):
-//   1. Opens IndexedDB('onekey-cold-start-cache') and reads the keys plus
-//      the records first paint needs (L2 snapshot + meta markers). The SWR
-//      records are read after the gate, capped per namespace.
-//   2. On build-hash mismatch (or legacy unmarked DB with real entries),
-//      clears the DB and writes the new marker eagerly (bounded force-
-//      flush) so the very next reload sees a marked DB.
-//   3. Primes the in-memory map that backs webColdStartStorage so all
-//      synchronous reads by swrCacheUtils / coldStartCacheStorage succeed.
-//   4. Populates globalThis.__ONEKEY_CTX_ATOM_SNAPSHOT__ (L2) from the
-//      'onekey_jotai_context_atoms_snapshot' single-key blob.
-//   5. L3 (SWR cache) is primed after the ready gate resolves, so a slow
-//      IndexedDB delays it instead of dropping it. swrCacheUtils reads the
-//      map lazily and is notified when the entry set changes.
-//   6. Always resolves globalColdStartHydrationReadyHandler in `finally`
-//      so GlobalJotaiReady (web/desktop branch) can unblock React. The
-//      resolved value is a `didHydrate` boolean for telemetry; the gate
-//      releases regardless of value.
+// What this module does, in module-load order:
+//   1. Reads the two namespaces first paint needs — the context-atom snapshot
+//      and the store's own markers — as key ranges, so the rest of the
+//      database is not touched.
+//   2. On a build-hash mismatch (or an unmarked database that already holds
+//      records) wipes every namespace and writes the new marker eagerly, so
+//      the very next reload sees a marked store.
+//   3. Primes the map those namespaces are read from synchronously.
+//   4. Populates `globalThis.__ONEKEY_CTX_ATOM_SNAPSHOT__`.
+//   5. Primes every other namespace after the gate resolves: a page reads its
+//      own namespace by exact key when it opens, so a slow IndexedDB makes
+//      those land late rather than not at all.
+//   6. Always resolves globalColdStartHydrationReadyHandler in `finally` so
+//      GlobalJotaiReady can unblock React. The resolved value is a
+//      `didHydrate` boolean for telemetry; the gate releases either way.
 //
 // Failure modes (all caught, all degrade to defaults):
-//   • Dev (NODE_ENV !== 'production') — skip generic L2 to avoid schema drift;
-//     prime only SWR plus versioned, display-only Swap balance caches
+//   • Dev (NODE_ENV !== 'production') — skip the generic snapshot to avoid
+//     schema drift; prime only versioned, display-only Swap balance caches
 //   • Kill switch — localStorage.__cold_start_kill__ set
-//   • Private mode / quota=0 — openIDB rejects
-//   • Build hash mismatch — clear DB, fall back to defaults
-//   • IDB stall — capped by HYDRATION_TIMEOUT_MS (300ms). On timeout we
-//     set globalThis.__ONEKEY_COLD_START_TIMEOUT__ = true and unblock the
-//     ready gate so React can still mount.
+//   • Private mode / quota=0 — opening the database rejects
+//   • Build hash mismatch — wipe, fall back to defaults
+//   • A stalled database — capped by HYDRATION_TIMEOUT_MS (300ms). On timeout
+//     `globalThis.__ONEKEY_COLD_START_TIMEOUT__` is set and the ready gate is
+//     released so React can still mount.
 //
 // Telemetry: globalThis.__ONEKEY_COLD_START_RESULT__ holds one of
-//   'success' | 'timeout' | 'error' | 'killed' | 'skipped'
-// describing the terminal state. 'success' means at least the L2 ctx
-// snapshot was primed from IDB; everything else fell back to defaults
-// ('skipped' is the deliberate dev-mode restricted-prime path).
+//   'success' | 'timeout' | 'error' | 'killed' | 'skipped'.
 
 import { CONTEXT_ATOM_COLD_START_CACHE_KEYS } from '@onekeyhq/shared/src/consts/jotaiConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
-  flushColdStartCacheNow,
-  primeColdStartCacheMap,
-  readAllColdStartEntriesFromIdb,
-  readColdStartCriticalEntriesFromIdb,
-  resetColdStartCache,
-  writeColdStartMeta,
-} from '@onekeyhq/shared/src/storage/instance/webColdStartStorage';
-import { EAppSyncStorageKeys } from '@onekeyhq/shared/src/storage/syncStorageKeys';
+  UI_SNAPSHOT_META_NAMESPACE,
+  flushUiSnapshotStoreNow,
+  primeWebUiSnapshotStore,
+  readUiSnapshotMeta,
+  readWebUiSnapshotEntriesFromIdb,
+  resetWebUiSnapshotStore,
+  writeUiSnapshotMeta,
+} from '@onekeyhq/shared/src/storage/DisplaySnapshotStorage/webUiSnapshotStore';
+import {
+  readContextAtomSnapshotRaw,
+  writeContextAtomSnapshotRaw,
+} from '@onekeyhq/shared/src/storage/uiSnapshotCaches';
 import { normalizeSwapColdStartCacheSnapshot } from '@onekeyhq/shared/src/utils/swapColdStartCacheSnapshotUtils';
 
 import { globalColdStartHydrationReadyHandler } from '../states/jotai/coldStartReady';
@@ -72,12 +66,14 @@ import type { IColdStartHydrationStatus } from '../states/jotai/coldStartReady';
 
 // ---- Constants ----
 
-const META_KEY_PREFIX = '__meta:';
-const BUILD_HASH_KEY = '__meta:buildHash';
+const BUILD_HASH_KEY = 'build-hash';
+const CTX_SNAPSHOT_NAMESPACE = 'ctx-atom-snapshot';
+const STARTUP_NAMESPACES = [
+  CTX_SNAPSHOT_NAMESPACE,
+  UI_SNAPSHOT_META_NAMESPACE,
+] as const;
 const KILL_SWITCH_LS_KEY = '__cold_start_kill__';
 const COLD_START_RESULT_GLOBAL = '__ONEKEY_COLD_START_RESULT__';
-const CTX_SNAPSHOT_KEY =
-  EAppSyncStorageKeys.onekey_jotai_context_atoms_snapshot;
 const DEV_SAFE_L2_BALANCE_CACHE_KEYS = new Set<string>([
   CONTEXT_ATOM_COLD_START_CACHE_KEYS.swapBalanceDisplayCacheAtom,
   CONTEXT_ATOM_COLD_START_CACHE_KEYS.swapStockBalanceDisplayCacheAtom,
@@ -151,15 +147,10 @@ function readKillSwitch(): boolean {
   }
 }
 
-function parseL2CtxSnapshot(
-  entries: Map<string, unknown>,
-): Record<string, unknown> {
-  // L2 still goes through the ISyncStorage facade (set/setObject), which
-  // JSON-stringifies on the way in. Keep the JSON.parse on read; if some
-  // future caller starts writing this key raw, the typeof check degrades
-  // to returning {} rather than throwing.
-  const raw = entries.get(CTX_SNAPSHOT_KEY);
-  if (typeof raw !== 'string' || !raw) return {};
+/** The snapshot as its own writers left it: one serialized record. */
+function parseCtxSnapshot(): Record<string, unknown> {
+  const raw = readContextAtomSnapshotRaw();
+  if (!raw) return {};
   try {
     return JSON.parse(raw) as Record<string, unknown>;
   } catch {
@@ -236,13 +227,13 @@ const t0 = typeof performance !== 'undefined' ? performance.now() : Date.now();
 let status: IColdStartHydrationStatus = 'error';
 let didHydrate = false;
 
-// Count entries excluding internal meta-keys. Used by the F6 invalidation
-// path to distinguish a brand-new DB (no entries, no marker) from a legacy
-// DB that predates the BUILD_HASH marker (real entries, no marker).
+// Records that are not the store's own markers. Used by the invalidation path
+// to tell a brand-new store (nothing, no marker) from one written before the
+// marker existed (records, no marker).
 export function countNonMetaKeys(keys: Iterable<string>): number {
   let n = 0;
   for (const k of keys) {
-    if (!k.startsWith(META_KEY_PREFIX)) n += 1;
+    if (!k.startsWith(`${UI_SNAPSHOT_META_NAMESPACE}:`)) n += 1;
   }
   return n;
 }
@@ -252,18 +243,15 @@ export function countNonMetaEntries(entries: Map<string, unknown>): number {
 }
 
 /**
- * Load the UI snapshot namespaces, off the ready gate.
+ * Load every remaining namespace, off the ready gate.
  *
- * Nothing reads these at boot: a snapshot cache is read by the page that owns
- * it, by exact key, when that page opens. So this belongs behind the gate for
- * the same reason L3 does, and an extra `open()` never lands on first paint.
+ * A page reads its own namespace by exact key when it opens, so none of this
+ * is needed for the first frame and a slow database makes it land late rather
+ * than not at all.
  */
 function schedulePrimeUiSnapshotStore(): void {
   void (async () => {
     try {
-      const { primeWebUiSnapshotStore, readWebUiSnapshotEntriesFromIdb } =
-        // eslint-disable-next-line @typescript-eslint/no-require-imports
-        require('@onekeyhq/shared/src/storage/DisplaySnapshotStorage/webUiSnapshotStore') as typeof import('@onekeyhq/shared/src/storage/DisplaySnapshotStorage/webUiSnapshotStore');
       const entries = await readWebUiSnapshotEntriesFromIdb();
       if (entries.size > 0) {
         primeWebUiSnapshotStore(entries);
@@ -274,33 +262,20 @@ function schedulePrimeUiSnapshotStore(): void {
   })();
 }
 
-async function resetWebUiSnapshotStoreBestEffort(): Promise<void> {
-  try {
-    const { resetWebUiSnapshotStore } =
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
-      require('@onekeyhq/shared/src/storage/DisplaySnapshotStorage/webUiSnapshotStore') as typeof import('@onekeyhq/shared/src/storage/DisplaySnapshotStorage/webUiSnapshotStore');
-    await resetWebUiSnapshotStore();
-  } catch {
-    // These are re-creatable snapshots bounded by their own max age; a wipe
-    // that cannot run must not fail the hydration that owns first paint.
-  }
-}
-
 /**
  * Decide whether the post-`resetColdStartCache` IDB recheck is clean enough
  * to proceed with priming + marker refresh.
  *
- * `resetColdStartCache` swallows `db.clear` failures (best-effort
- * semantics — see webColdStartStorage), so a successful await does NOT
- * guarantee the store is empty. If we naively trusted the return value and
+ * The wipe is best effort, so a successful await does NOT guarantee the store
+ * is empty. If we naively trusted the return value and
  * wrote the new BUILD_HASH marker, the marker would match on the next boot
  * and we would prime stale entries written under a different schema. Worst-
  * case those entries deserialize into atom state and cause schema drift.
  *
  * Rules:
- *   • `undefined` (readAllColdStartEntriesFromIdb timed out / threw)
+ *   • `undefined` (the recheck timed out or threw)
  *       → DO NOT proceed; cannot verify the wipe took.
- *   • Map containing only `__meta:*` keys
+ *   • Map holding only the store's own markers
  *       → proceed; meta entries are non-payload and a meta-only DB is
  *         indistinguishable from a brand-new DB to downstream consumers.
  *   • Map containing any non-meta key
@@ -314,164 +289,122 @@ export function shouldProceedAfterReset(
 }
 
 const promise: Promise<void> = (async () => {
-  // In development, keep generic L2 context-atom hydration disabled to avoid
-  // schema drift between local code changes. Prime only the SWR records and the
-  // versioned, display-only Swap balance caches so localhost can verify the
-  // real first-frame experience without hydrating executable Swap state.
+  // In development, keep generic context-atom hydration disabled to avoid
+  // schema drift between local code changes. Prime only the versioned,
+  // display-only Swap balance caches so localhost can verify the real
+  // first-frame experience without hydrating executable Swap state.
   if (process.env.NODE_ENV !== 'production') {
     defaultLogger.app.appUpdate.log(
-      '[ColdStartHydration] dev mode, priming SWR and safe display caches',
+      '[ColdStartHydration] dev mode, priming safe display caches only',
     );
     try {
-      const result = await withTimeout(
-        readColdStartCriticalEntriesFromIdb(),
+      const entries = await withTimeout(
+        readWebUiSnapshotEntriesFromIdb({
+          namespaces: [...STARTUP_NAMESPACES],
+        }),
         HYDRATION_TIMEOUT_MS,
       );
-      if (result) {
-        const safeCtxSnapshot = filterDevSafeL2CtxSnapshot(
-          parseL2CtxSnapshot(result.entries),
-        );
+      if (entries) {
+        primeWebUiSnapshotStore(entries);
+        const safeCtxSnapshot = filterDevSafeL2CtxSnapshot(parseCtxSnapshot());
         if (Object.keys(safeCtxSnapshot).length) {
-          primeColdStartCacheMap([
-            [CTX_SNAPSHOT_KEY, JSON.stringify(safeCtxSnapshot)],
-          ]);
+          writeContextAtomSnapshotRaw(JSON.stringify(safeCtxSnapshot));
           setGlobal('__ONEKEY_CTX_ATOM_SNAPSHOT__', safeCtxSnapshot);
         }
       }
     } catch {
-      // Dev-only best effort: keep the old skipped behavior if IDB is missing
-      // or slow.
+      // Dev-only best effort: keep the old skipped behavior if the database
+      // is missing or slow.
     }
     // Deliberate no-op: mark as 'skipped' so the finally block does not log
-    // this as 'error' (the initial value). Keeps dev-mode skips distinct from
-    // genuine IDB failures for any telemetry / debugging that inspects status.
+    // this as 'error' (the initial value).
     status = 'skipped';
     return;
   }
 
   if (readKillSwitch()) {
-    // This branch is only reachable in production (the dev-mode early return
-    // above guards it), and the unified finally block logs `status=killed`,
-    // so no extra log is needed here.
     status = 'killed';
     return;
   }
 
-  let entries: Map<string, unknown>;
-  let swrKeys: readonly string[] = [];
+  let entries: Map<string, string>;
   try {
     const result = await withTimeout(
-      readColdStartCriticalEntriesFromIdb(),
+      readWebUiSnapshotEntriesFromIdb({ namespaces: [...STARTUP_NAMESPACES] }),
       HYDRATION_TIMEOUT_MS,
     );
     if (result === undefined) {
-      // Timed out — leave the in-memory map untouched (any early facade
-      // writes from swrCacheUtils etc. stay) and bail. The empty
-      // pre-hydration map degrades to defaults via jotaiInit.
+      // Timed out — leave the in-memory map untouched (any early writes stay)
+      // and bail. The empty pre-hydration map degrades to defaults.
       setGlobal('__ONEKEY_COLD_START_TIMEOUT__', true);
       status = 'timeout';
       return;
     }
-    entries = result.entries;
-    swrKeys = result.allKeys;
+    entries = result;
   } catch (e) {
     setGlobal('__ONEKEY_COLD_START_ERROR__', e);
     status = 'error';
     return;
   }
 
-  // Detect deploy-time schema change. We invalidate on:
-  //   (a) marker present but differs from the current BUILD_HASH, OR
-  //   (b) marker absent but the DB has real (non-meta) entries — this is
-  //       a legacy DB written before the marker existed, and we have no
-  //       way to vouch for its schema, so treat it as a mismatch.
-  //
-  // The marker is the natural invalidation point for legacy DBs written by
-  // the pre-structured-clone implementation (values were JSON-strings).
-  // Because BUILD_HASH is sourced from the CI-injected commit SHA, any
-  // deploy that flips the storage shape produces a new hash and triggers
-  // the reset below on the next cold boot.
+  // Detect a deploy-time schema change. Invalidate when the marker is present
+  // and differs, or absent while the store already holds records — the latter
+  // was written before the marker existed and cannot be vouched for.
   if (BUILD_HASH !== undefined) {
-    const storedHashRaw = entries.get(BUILD_HASH_KEY);
-    const storedHash =
-      typeof storedHashRaw === 'string' ? storedHashRaw : undefined;
+    const storedHash = entries.get(
+      `${UI_SNAPSHOT_META_NAMESPACE}:${BUILD_HASH_KEY}`,
+    );
     const isMismatch =
       (storedHash !== undefined && storedHash !== BUILD_HASH) ||
-      (storedHash === undefined && countNonMetaKeys(swrKeys) > 0);
+      (storedHash === undefined && countNonMetaKeys(entries.keys()) > 0);
     if (isMismatch) {
       try {
-        // A build that changes a stored shape invalidates the UI snapshots
-        // for the same reason it invalidates this store.
-        await resetWebUiSnapshotStoreBestEffort();
-        await resetColdStartCache();
+        await resetWebUiSnapshotStore();
       } catch (e) {
-        // Surface the wipe failure as a terminal error: stale entries (which
-        // may include legacy L1 jotai/* keys from a prior build) MUST NOT
-        // survive into the prime path, otherwise hydration could re-publish
-        // values written under a different schema. Falling through with the
-        // marker-write step would also fail against the same broken IDB.
+        // Surface the wipe failure as terminal: records written under another
+        // schema must not reach the prime path, and the marker write below
+        // would fail against the same broken database anyway.
         setGlobal('__ONEKEY_COLD_START_ERROR__', e);
         status = 'error';
         return;
       }
-      // Recheck: resetColdStartCache swallows db.clear failures internally
-      // (best-effort semantics), so a successful await does not prove IDB
-      // is empty. If we trust the return value and write the new marker on
-      // top of stale entries, the next boot's BUILD_HASH gate matches and
-      // primes data written under a different schema. Re-read IDB and bail
-      // out terminally if it still has non-meta entries.
-      let recheck: Map<string, unknown> | undefined;
-      try {
-        recheck = await withTimeout(
-          readAllColdStartEntriesFromIdb(),
-          HYDRATION_TIMEOUT_MS,
-        );
-      } catch (e) {
-        setGlobal('__ONEKEY_COLD_START_ERROR__', e);
-        status = 'error';
-        return;
-      }
+      const recheck = await withTimeout(
+        readWebUiSnapshotEntriesFromIdb(),
+        HYDRATION_TIMEOUT_MS,
+      );
       if (!shouldProceedAfterReset(recheck)) {
         setGlobal(
           '__ONEKEY_COLD_START_ERROR__',
-          new OneKeyLocalError('cold-start reset incomplete'),
+          new OneKeyLocalError(
+            'UI snapshot store still holds records after a reset',
+          ),
         );
         status = 'error';
         return;
       }
-      // Drop the stale entries; the freshly-written marker (below) is what
-      // future cold starts will see. L1 mirror was removed, so there are no
-      // in-flight mirror writes to replay across the reset.
       entries = new Map();
-      swrKeys = [];
     }
   }
 
-  // Synchronous-read backing store for coldStartCacheStorage.
-  primeColdStartCacheMap(entries);
+  primeWebUiSnapshotStore(entries);
 
-  // Refresh the build-hash marker (first install: writes it for the first
-  // time so future cold starts can detect mismatch). Force-flush eagerly,
-  // bounded by BUILD_HASH_FLUSH_TIMEOUT_MS, so a closing tab cannot leave
-  // the marker stuck in the in-memory dirty set — that would render the F6
-  // invalidation gate permanently no-op for users who don't dwell.
-  if (BUILD_HASH !== undefined && entries.get(BUILD_HASH_KEY) !== BUILD_HASH) {
-    writeColdStartMeta(BUILD_HASH_KEY, BUILD_HASH);
+  // Refresh the marker (first install: writes it for the first time). Flushed
+  // eagerly and bounded, so the next cold start sees a marked store without a
+  // wedged write stalling the mount.
+  if (
+    BUILD_HASH !== undefined &&
+    readUiSnapshotMeta(BUILD_HASH_KEY) !== BUILD_HASH
+  ) {
+    writeUiSnapshotMeta(BUILD_HASH_KEY, BUILD_HASH);
     try {
-      await withTimeout(flushColdStartCacheNow(), BUILD_HASH_FLUSH_TIMEOUT_MS);
+      await withTimeout(flushUiSnapshotStoreNow(), BUILD_HASH_FLUSH_TIMEOUT_MS);
     } catch {
-      // flushColdStartCacheNow swallows its own errors; an unexpected throw
-      // here must not block the ready signal.
+      // The debounced flush will carry it; a failed eager write only costs
+      // one more invalidation on the next boot.
     }
   }
 
-  // L2: contextAtom snapshot consumed at hydrateContextColdStartCacheForProvider.
-  // didHydrate is driven by this — it is the only layer whose presence affects
-  // first paint now that L1 is removed. L3 hits the primed map lazily and has
-  // no observable mount-time signal.
-  const ctxSnapshot = normalizeSwapColdStartCacheSnapshot(
-    parseL2CtxSnapshot(entries),
-  );
+  const ctxSnapshot = normalizeSwapColdStartCacheSnapshot(parseCtxSnapshot());
   setGlobal('__ONEKEY_CTX_ATOM_SNAPSHOT__', ctxSnapshot);
 
   status = 'success';
@@ -499,9 +432,8 @@ const promise: Promise<void> = (async () => {
     globalColdStartHydrationReadyHandler.resolveReady(didHydrate);
   });
 
-// Independent of every layer above and of each of their early exits, but
-// ordered after them: a build-hash mismatch wipes these namespaces too, and
-// priming from a read that started earlier would put back what it removed.
+// Every other namespace, after the gate and after any wipe above: priming
+// from a read that started earlier would put back what the wipe removed.
 void promise.finally(schedulePrimeUiSnapshotStore);
 
 setGlobal('__ONEKEY_COLD_START_PROMISE__', promise);
