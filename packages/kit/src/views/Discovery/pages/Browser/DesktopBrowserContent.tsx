@@ -110,6 +110,9 @@ function BasicFind({ id, isActive }: { id: string; isActive: boolean }) {
 
   const handleClose = useCallback(() => {
     setIsVisible(false);
+    prevSearchText.current = '';
+    setMatches(0);
+    setActiveMatchOrdinal(0);
   }, []);
 
   useEffect(() => {
@@ -139,19 +142,17 @@ function BasicFind({ id, isActive }: { id: string; isActive: boolean }) {
 
     let webView: IElectronWebView | undefined;
     let retryTimer: ReturnType<typeof setTimeout> | undefined;
-    let waitingForWebView = false;
     const attachFindListener = () => {
       const currentWebView = webviewRefs[id]?.innerRef as
         | IElectronWebView
         | undefined;
       if (!currentWebView) {
-        waitingForWebView = true;
         retryTimer = setTimeout(attachFindListener, 100);
         return;
       }
       webView = currentWebView;
       webView.addEventListener('found-in-page', foundInPage);
-      if (waitingForWebView && prevSearchText.current) {
+      if (prevSearchText.current) {
         webView.findInPage(prevSearchText.current, {
           findNext: true,
           forward: false,
@@ -193,6 +194,7 @@ function BasicFind({ id, isActive }: { id: string; isActive: boolean }) {
     <AnimatePresence>
       {visible ? (
         <XStack
+          display={isActive ? 'flex' : 'none'}
           position="absolute"
           left="50%"
           top="$2.5"
@@ -349,10 +351,12 @@ function BasicDesktopBrowserContent({
   // active tab and remounts/reloads when activated again.
 
   return (
-    <Freeze key={id} freeze={!isActive}>
+    <>
       {platformEnv.isDesktop ? <Find id={id} isActive={isActive} /> : null}
-      {body}
-    </Freeze>
+      <Freeze key={id} freeze={!isActive}>
+        {body}
+      </Freeze>
+    </>
   );
 }
 
