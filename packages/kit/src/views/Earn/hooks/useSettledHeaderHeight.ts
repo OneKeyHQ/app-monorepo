@@ -20,10 +20,15 @@ const HEADER_HEIGHT_MAX_HOLD_MS = 250;
 // first page that settles it can hand the value to every later mount. Without
 // this, re-entering a page gated again from scratch and blanked the body a
 // second time even though the answer was already known.
-let deviceSettledHeaderHeight: number | undefined;
+//
+// It is a property of the window shape too: the bar is not the same height in
+// landscape, and on iPad not the same in split view. Keyed by shape, a mount
+// in a shape nobody has measured yet simply starts fresh instead of inheriting
+// another shape's answer.
+const deviceSettledHeaderHeights = new Map<string, number>();
 
 export function resetDeviceSettledHeaderHeightForTest() {
-  deviceSettledHeaderHeight = undefined;
+  deviceSettledHeaderHeights.clear();
 }
 
 /**
@@ -45,6 +50,7 @@ export function useSettledHeaderHeight(
     settleMs = HEADER_HEIGHT_SETTLE_MS,
     maxHoldMs = HEADER_HEIGHT_MAX_HOLD_MS,
     estimatedHeaderHeight,
+    cacheKey = 'default',
   }: {
     enabled?: boolean;
     settleMs?: number;
@@ -52,21 +58,28 @@ export function useSettledHeaderHeight(
     // The height react-navigation reports before the bar is measured
     // (getDefaultHeaderHeight), so it is never mistaken for a measurement.
     estimatedHeaderHeight?: number;
+    // Identifies the window shape the remembered height belongs to. Callers
+    // that can rotate pass their window size.
+    cacheKey?: string;
   } = {},
 ): { paddingTop: number; isSettled: boolean } {
   const [settledHeight, setSettledHeight] = useState<number | undefined>(() =>
-    enabled ? deviceSettledHeaderHeight : 0,
+    enabled ? deviceSettledHeaderHeights.get(cacheKey) : 0,
   );
   // What this mount saw before its bar was measured: 0 while a route still
   // hides its header, or react-navigation's estimate.
   const [mountHeaderHeight] = useState(headerHeight);
   const holdDeadlineRef = useRef<number | undefined>(undefined);
+  const mountedAtRef = useRef<number | undefined>(undefined);
+  // Lets the effect re-run on a timer when `headerHeight` itself never changes.
+  const [recheckTick, setRecheckTick] = useState(0);
 
   useEffect(() => {
     if (!enabled) {
       setSettledHeight(0);
       return undefined;
     }
+    mountedAtRef.current ??= Date.now();
 
     if (settledHeight === headerHeight) {
       return undefined;
@@ -81,7 +94,7 @@ export function useSettledHeaderHeight(
     const accept = () => {
       // A placeholder revealed at the hold cap must not seed later mounts.
       if (!isPlaceholder) {
-        deviceSettledHeaderHeight = headerHeight;
+        deviceSettledHeaderHeights.set(cacheKey, headerHeight);
       }
       setSettledHeight(headerHeight);
     };
@@ -92,8 +105,25 @@ export function useSettledHeaderHeight(
     // report the estimate again, and taking it immediately would replace a good
     // remembered height with a transient one.
     if (settledHeight !== undefined) {
-      if (isPlaceholder || headerHeight === mountHeaderHeight) {
+      if (isPlaceholder) {
         return undefined;
+      }
+      // Callers without an `estimatedHeaderHeight` cannot name the estimate, so
+      // a height this mount has reported since its very first render is still
+      // suspect. Only while the mount is young, though: past the hold cap the
+      // estimate has long been replaced, and a value that has not moved is the
+      // measurement. Re-check on a timer, because `headerHeight` staying put is
+      // exactly the case that never re-runs this effect on its own.
+      if (headerHeight === mountHeaderHeight) {
+        const remainingSuspicion =
+          (mountedAtRef.current ?? Date.now()) + maxHoldMs - Date.now();
+        if (remainingSuspicion > 0) {
+          const timer = setTimeout(
+            () => setRecheckTick((tick) => tick + 1),
+            remainingSuspicion,
+          );
+          return () => clearTimeout(timer);
+        }
       }
       const timer = setTimeout(accept, settleMs);
       return () => clearTimeout(timer);
@@ -110,6 +140,7 @@ export function useSettledHeaderHeight(
     );
     return () => clearTimeout(timer);
   }, [
+    cacheKey,
     enabled,
     estimatedHeaderHeight,
     headerHeight,
@@ -117,6 +148,7 @@ export function useSettledHeaderHeight(
     settleMs,
     maxHoldMs,
     settledHeight,
+    recheckTick,
   ]);
 
   return {

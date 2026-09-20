@@ -21,6 +21,7 @@ import type { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import type { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import { LegacyUniversalSearchInput } from '../../../components/TabPageHeader/LegacyUniversalSearchInput';
+import { useHeaderHeightCacheKey } from '../hooks/useHeaderHeightCacheKey';
 import { useSettledHeaderHeight } from '../hooks/useSettledHeaderHeight';
 import { EarnTestIDs } from '../testIDs';
 
@@ -149,6 +150,7 @@ export function EarnPageContainer({
   // height — without it, the first content item sits clipped behind
   // the navbar at scroll offset 0.
   const headerHeight = useHeaderHeight();
+  const headerHeightCacheKey = useHeaderHeightCacheKey();
   // OK-59841: useHeaderHeight() reports react-navigation's synchronous estimate
   // (97.67 on a Dynamic Island device) before the native measurement (113)
   // lands, so a body laid out against the raw value drops by 15.33pt a beat
@@ -156,7 +158,10 @@ export function EarnPageContainer({
   // Same gate EarnPositions already uses; the settled height is remembered per
   // device, so only the first push of a session is ever held.
   const { paddingTop: nativeHeaderHeight, isSettled: isHeaderHeightSettled } =
-    useSettledHeaderHeight(headerHeight, { enabled: useNativeHeader });
+    useSettledHeaderHeight(headerHeight, {
+      enabled: useNativeHeader,
+      cacheKey: headerHeightCacheKey,
+    });
 
   // This element becomes UIKit's custom titleView, and a titleView
   // inherits no width constraint from the bar. Without an explicit bound the

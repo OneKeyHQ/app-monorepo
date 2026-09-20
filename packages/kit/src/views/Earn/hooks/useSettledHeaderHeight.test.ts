@@ -247,6 +247,63 @@ describe('useSettledHeaderHeight', () => {
     expect(second.result.current.paddingTop).toBe(113);
   });
 
+  // PR 13609 review: a remount after
+  // rotation reports its final height on the very first render and never
+  // changes it, which is indistinguishable from the pre-measurement value by
+  // equality alone. Both guards against that are covered here.
+  it('adopts the new window shape instead of the height remembered for the old one', () => {
+    const portrait = renderHook(() =>
+      useSettledHeaderHeight(116, { ...opts, cacheKey: '390x844' }),
+    );
+    act(() => {
+      jest.advanceTimersByTime(SETTLE_MS);
+    });
+    expect(portrait.result.current.paddingTop).toBe(116);
+    portrait.unmount();
+
+    // Landscape: a shape nobody has measured, so nothing is inherited. The
+    // height is final from the first render and never moves again.
+    const landscape = renderHook(() =>
+      useSettledHeaderHeight(76, { ...opts, cacheKey: '844x390' }),
+    );
+    act(() => {
+      jest.advanceTimersByTime(SETTLE_MS + MAX_HOLD_MS);
+    });
+    expect(landscape.result.current.isSettled).toBe(true);
+    expect(landscape.result.current.paddingTop).toBe(76);
+
+    // And the portrait answer survives for portrait.
+    landscape.unmount();
+    const back = renderHook(() =>
+      useSettledHeaderHeight(116, { ...opts, cacheKey: '390x844' }),
+    );
+    expect(back.result.current.paddingTop).toBe(116);
+  });
+
+  it('adopts a first-frame height that never moves once the mount is past the hold', () => {
+    const first = renderHook(() => useSettledHeaderHeight(113, opts));
+    act(() => {
+      jest.advanceTimersByTime(SETTLE_MS);
+    });
+    first.unmount();
+
+    // Same shape, but this mount's real measurement arrives before the first
+    // render and stays put — the caller passes no estimate, so it can only be
+    // told apart from the estimate by outliving the hold window.
+    const second = renderHook(() => useSettledHeaderHeight(120, opts));
+    expect(second.result.current.paddingTop).toBe(113);
+    // The re-check lands first and only re-runs the effect; the settle window
+    // that follows is what accepts. Two acts because the state update from the
+    // first timer is not flushed until its act block exits.
+    act(() => {
+      jest.advanceTimersByTime(MAX_HOLD_MS);
+    });
+    act(() => {
+      jest.advanceTimersByTime(SETTLE_MS * 2);
+    });
+    expect(second.result.current.paddingTop).toBe(120);
+  });
+
   it('settles immediately when disabled, so other platforms never hide', () => {
     const { result } = renderHook(() =>
       useSettledHeaderHeight(44, { ...opts, enabled: false }),

@@ -43,6 +43,7 @@ import type { IMarketTokenDetailPreview } from '@onekeyhq/shared/types/marketV2'
 
 import { AccountSelectorProviderMirror } from '../../../components/AccountSelector';
 import { TradingViewEmbedGlobalPreload } from '../../../provider/TradingViewEmbedGlobalPreload';
+import { useHeaderHeightCacheKey } from '../../Earn/hooks/useHeaderHeightCacheKey';
 import { useSettledHeaderHeight } from '../../Earn/hooks/useSettledHeaderHeight';
 import { useMarketEnterAnalytics } from '../hooks';
 import { MarketWatchListProviderMirrorV2 } from '../MarketWatchListProviderMirrorV2';
@@ -315,10 +316,12 @@ function MarketDetail({
   // reports the Liquid Glass bar ~15pt taller a beat later, which dropped the
   // whole body mid-push. Reuse the height this device already settled on.
   const estimatedHeaderHeight = useNativeStackHeaderHeightEstimate();
+  const headerHeightCacheKey = useHeaderHeightCacheKey();
   const { paddingTop: settledHeaderHeight, isSettled: isHeaderHeightSettled } =
     useSettledHeaderHeight(headerHeight, {
       enabled: usesTranslucentHeader,
       estimatedHeaderHeight,
+      cacheKey: headerHeightCacheKey,
     });
   const bodyPaddingTop = usesTranslucentHeader ? settledHeaderHeight : 0;
 

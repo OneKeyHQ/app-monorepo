@@ -22,6 +22,7 @@ import { PortfolioTabContent } from '../../components/PortfolioTabContent';
 import { EarnProviderMirror } from '../../EarnProviderMirror';
 import { useEarnHideSmallAssets } from '../../hooks/useEarnHideSmallAssets';
 import { useEarnPortfolio } from '../../hooks/useEarnPortfolio';
+import { useHeaderHeightCacheKey } from '../../hooks/useHeaderHeightCacheKey';
 import { useSettledHeaderHeight } from '../../hooks/useSettledHeaderHeight';
 import {
   STAKING_TX_SETTLE_DELAY_MS,
@@ -34,12 +35,13 @@ function EarnPositionsContent() {
   const intl = useIntl();
   const isFocused = useIsFocused();
   const headerHeight = useHeaderHeight();
+  const headerHeightCacheKey = useHeaderHeightCacheKey();
   const tabBarHeight = useScrollContentTabBarOffset();
   // Owns both the inset and whether it can be trusted yet (OK-59958): on
   // re-entry it returns the height this device already settled on, so the body
   // is never hidden a second time.
   const { paddingTop: bodyPaddingTop, isSettled: isHeaderHeightSettled } =
-    useSettledHeaderHeight(headerHeight);
+    useSettledHeaderHeight(headerHeight, { cacheKey: headerHeightCacheKey });
   const portfolioData = useEarnPortfolio({ isActive: isFocused });
   const { hideSmallAssets, setHideSmallAssets } = useEarnHideSmallAssets();
   const { refresh } = portfolioData;
