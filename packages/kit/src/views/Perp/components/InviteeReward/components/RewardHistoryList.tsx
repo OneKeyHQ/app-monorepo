@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -112,15 +112,8 @@ export function RewardHistoryList({
   const intl = useIntl();
   const [displayCount, setDisplayCount] = useState(PAGE_SIZE);
 
-  const displayedHistory = useMemo(() => {
-    if (!history) return [];
-    return history.slice(0, displayCount);
-  }, [history, displayCount]);
-
-  const hasMore = useMemo(() => {
-    if (!history) return false;
-    return displayCount < history.length;
-  }, [history, displayCount]);
+  const displayedHistory = history?.slice(0, displayCount) ?? [];
+  const hasMore = Boolean(history && displayCount < history.length);
 
   const handleShowMore = useCallback(() => {
     setDisplayCount((prev) => prev + PAGE_SIZE);

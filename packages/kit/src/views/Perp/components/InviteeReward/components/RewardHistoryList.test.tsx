@@ -97,38 +97,33 @@ describe('RewardHistoryList', () => {
     expect(screen.getByText('global.no_data')).toBeTruthy();
   });
 
-  it('renders the raw payout date and opens the Arbiscan transaction externally', () => {
+  it('renders raw dates, pages extra payouts, and opens Arbiscan externally', () => {
     const item = createHistoryItem();
+    const history = [
+      item,
+      ...Array.from({ length: 10 }, (_, index) =>
+        createHistoryItem({
+          date: `2026-09-${String(index + 2).padStart(2, '0')}`,
+          tx: `0x${String(index + 2).padStart(40, '0')}`,
+          amount: String(index + 2),
+        }),
+      ),
+    ];
 
-    render(<RewardHistoryList history={[item]} token={token} />);
+    render(<RewardHistoryList history={history} token={token} />);
 
     expect(screen.getByText('2026-09-08')).toBeTruthy();
     expect(screen.getByText('perps.get_reward')).toBeTruthy();
     expect(screen.getByText('0x298e9a...8e5941')).toBeTruthy();
+    expect(screen.getByText('0.17')).toBeTruthy();
+    expect(screen.queryByText('0x000000...000011')).toBeNull();
 
     fireEvent.click(screen.getByTestId(`perp-invitee-reward-tx-${item.tx}`));
-
     expect(mockOpenUrlExternal).toHaveBeenCalledWith(
       `https://arbiscan.io/tx/${item.tx}`,
     );
-  });
-
-  it('pages extra payouts', () => {
-    const history = Array.from({ length: 11 }, (_, index) =>
-      createHistoryItem({
-        date: `2026-09-${String(index + 1).padStart(2, '0')}`,
-        tx: `0x${String(index + 1).padStart(40, '0')}`,
-        amount: String(index + 1),
-      }),
-    );
-
-    render(<RewardHistoryList history={history} token={token} />);
-
-    expect(screen.getByText('0x000000...000001')).toBeTruthy();
-    expect(screen.queryByText('0x000000...000011')).toBeNull();
 
     fireEvent.click(screen.getByTestId('perp-invitee-reward-show-more'));
-
     expect(screen.getByText('0x000000...000011')).toBeTruthy();
   });
 });

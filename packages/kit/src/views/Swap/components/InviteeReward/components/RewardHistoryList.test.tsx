@@ -85,8 +85,12 @@ describe('RewardHistoryList', () => {
     jest.clearAllMocks();
   });
 
-  it('formats the server date with the active app locale', () => {
-    render(
+  it('formats the server date and shows an empty state without payouts', () => {
+    const { rerender } = render(<RewardHistoryList history={[]} />);
+
+    expect(screen.getByText('global.no_data')).toBeTruthy();
+
+    rerender(
       <RewardHistoryList
         history={[
           createHistoryItem({
@@ -105,12 +109,7 @@ describe('RewardHistoryList', () => {
     expect(
       screen.getByText('referral.reward_history_reward_title'),
     ).toBeTruthy();
-  });
-
-  it('shows the empty state when there is no payout history', () => {
-    render(<RewardHistoryList history={[]} />);
-
-    expect(screen.getByText('global.no_data')).toBeTruthy();
+    expect(screen.getByText('1')).toBeTruthy();
   });
 
   it('pages extra payouts and opens the matching explorer url', () => {
