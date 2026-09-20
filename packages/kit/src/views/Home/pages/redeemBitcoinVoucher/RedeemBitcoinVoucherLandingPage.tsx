@@ -16,16 +16,17 @@ import {
 } from '@onekeyhq/components';
 import { useAppRoute } from '@onekeyhq/kit/src/hooks/useAppRoute';
 import { EOneKeyDeepLinkPath } from '@onekeyhq/shared/src/consts/deeplinkConsts';
-import {
-  EAppEventBusNames,
-  appEventBus,
-} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   type ETabHomeRoutes as ETabHomeRoutesType,
   type ITabHomeParamList,
 } from '@onekeyhq/shared/src/routes';
+import {
+  createHideTabBarOwnerId,
+  releaseHideTabBar,
+  requestHideTabBar,
+} from '@onekeyhq/shared/src/tabBar/hideTabBarRequests';
 import uriUtils from '@onekeyhq/shared/src/utils/uriUtils';
 
 import { LayoutHeaderLanguageSelector } from '../../../Onboardingv2/components/Layout';
@@ -222,9 +223,10 @@ function RedeemBitcoinVoucherLandingPage() {
   useFocusEffect(
     useCallback(() => {
       if (!platformEnv.isWeb) return undefined;
-      appEventBus.emit(EAppEventBusNames.HideTabBar, true);
+      const ownerId = createHideTabBarOwnerId('redeem-bitcoin-voucher-landing');
+      requestHideTabBar(ownerId);
       return () => {
-        appEventBus.emit(EAppEventBusNames.HideTabBar, false);
+        releaseHideTabBar(ownerId);
       };
     }, []),
   );
