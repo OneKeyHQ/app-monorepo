@@ -7,7 +7,7 @@ import { useIsOverlayPage } from '@onekeyhq/components';
 import { useRouteIsFocused as useIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import type { IAllNetworkAccountInfo } from '@onekeyhq/kit-bg/src/services/ServiceAllNetwork/ServiceAllNetwork';
 import {
-  useInAppNotificationAtom,
+  useInAppNotificationSwapHistoryPendingList,
   useSettingsPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
@@ -723,7 +723,7 @@ export function useSwapSelectedTokenInfo({
 }) {
   const swapAddressInfo = useSwapAddressInfo(ESwapDirectionType.FROM); // always fetch from account balance
   const swapAddressInfoTo = useSwapAddressInfo(ESwapDirectionType.TO);
-  const [{ swapHistoryPendingList }] = useInAppNotificationAtom();
+  const swapHistoryPendingList = useInAppNotificationSwapHistoryPendingList();
   const { loadSwapSelectTokenDetail } = useSwapActions().current;
   const swapHistoryPendingListRef = useRef(swapHistoryPendingList);
   if (swapHistoryPendingListRef.current !== swapHistoryPendingList) {

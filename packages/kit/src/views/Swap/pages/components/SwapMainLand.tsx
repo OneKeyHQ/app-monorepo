@@ -63,7 +63,7 @@ import { MarketWatchListProviderMirrorV2 } from '@onekeyhq/kit/src/views/Market/
 import {
   EJotaiContextStoreNames,
   useCurrencyPersistAtom,
-  useInAppNotificationAtom,
+  useInAppNotificationSwapRecentTokenPairs,
   useSettingsPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { useAppIsLockedAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/passwordLock';
@@ -287,7 +287,7 @@ const SwapMainLoad = ({
   );
   const quoteLoading = useSwapQuoteLoading();
   const quoteEventFetching = useSwapQuoteEventFetching();
-  const [{ swapRecentTokenPairs }] = useInAppNotificationAtom();
+  const swapRecentTokenPairs = useInAppNotificationSwapRecentTokenPairs();
   const [fromTokenAmount, setFromInputAmount] = useSwapFromTokenAmountAtom();
   const { cleanQuoteInterval, quoteAction, selectFromToken, selectToToken } =
     useSwapActions().current;

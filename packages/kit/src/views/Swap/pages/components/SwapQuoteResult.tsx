@@ -31,7 +31,8 @@ import {
   resolveSwapQuoteForDisplay,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap/quoteProgress';
 import {
-  useInAppNotificationAtom,
+  useInAppNotificationSwapApproving,
+  useSetInAppNotificationAtom,
   useSettingsPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -160,10 +161,9 @@ const SwapQuoteResult = ({
     [fromAccountId],
   );
 
-  const [
-    { swapApprovingTransaction, swapApprovingLoading },
-    setInAppNotificationAtom,
-  ] = useInAppNotificationAtom();
+  const { swapApprovingTransaction, swapApprovingLoading } =
+    useInAppNotificationSwapApproving();
+  const setInAppNotificationAtom = useSetInAppNotificationAtom();
   const [swapLimitExpirySelect, setSwapLimitExpirySelect] =
     useSwapLimitExpirationTimeAtom();
   const [swapLimitPartiallyFill, setSwapLimitPartiallyFill] =

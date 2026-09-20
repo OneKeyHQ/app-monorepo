@@ -14,7 +14,7 @@ import {
   useSwapTypeSwitchAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import { validateAmountInput } from '@onekeyhq/kit/src/utils/validateAmountInput';
-import { useInAppNotificationAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { useSetInAppNotificationAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   clampLimitRateDecimals,
   countSignificantRateDecimals,
@@ -45,7 +45,7 @@ export const useSwapLimitRate = () => {
   const [toSelectTokenSwap] = useSwapSelectToTokenAtom();
   const fromSelectTokenPro = useSwapProInputToken();
   const toSelectTokenPro = useSwapProToToken();
-  const [, setInAppNotification] = useInAppNotificationAtom();
+  const setInAppNotification = useSetInAppNotificationAtom();
   const {
     limitOrderMarketPriceIntervalAction,
     cleanLimitOrderMarketPriceInterval,

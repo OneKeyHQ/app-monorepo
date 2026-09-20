@@ -31,7 +31,8 @@ import {
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import {
   useCurrencyPersistAtom,
-  useInAppNotificationAtom,
+  useInAppNotificationSwapPercentageInputStageShowForNative,
+  useSetInAppNotificationAtom,
   useSettingsPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -75,8 +76,8 @@ export function PercentageStageOnKeyboard({
   stageList?: number[];
 }) {
   const isShow = useIsKeyboardShown();
-  const [{ swapPercentageInputStageShowForNative }] =
-    useInAppNotificationAtom();
+  const swapPercentageInputStageShowForNative =
+    useInAppNotificationSwapPercentageInputStageShowForNative();
   let viewShow = platformEnv.isNativeIOS;
   if (!platformEnv.isNativeIOS) {
     viewShow = isShow && swapPercentageInputStageShowForNative;
@@ -207,7 +208,7 @@ const SwapInputContainer = ({
     direction === ESwapDirectionType.FROM
       ? isInitialFromTokenSelectionPending
       : isInitialToTokenSelectionPending;
-  const [, setInAppNotification] = useInAppNotificationAtom();
+  const setInAppNotification = useSetInAppNotificationAtom();
   const [balanceDisplayCache] = useSwapBalanceDisplayCacheAtom();
   const currentBalanceDisplayAccountKey =
     buildSwapSelectedTokensColdStartAccountKey(activeAccount ?? accountInfo);

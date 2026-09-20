@@ -50,7 +50,7 @@ import { shouldRedirectOnboardingToTravelMode } from '@onekeyhq/kit/src/utils/on
 import {
   EJotaiContextStoreNames,
   filterSwapHistoryPendingList,
-  useInAppNotificationAtom,
+  useInAppNotificationSwapOrders,
   useSettingsAtom,
   useSettingsPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
@@ -842,9 +842,11 @@ export function SwapStockHeaderRightActionContainer({
 }) {
   const navigation =
     useAppNavigation<IPageNavigationProp<IModalSwapParamList>>();
-  const [
-    { swapHistoryPendingList, swapLimitOrders, swapLimitOrdersAccountIdKey },
-  ] = useInAppNotificationAtom();
+  const {
+    swapHistoryPendingList,
+    swapLimitOrders,
+    swapLimitOrdersAccountIdKey,
+  } = useInAppNotificationSwapOrders();
   const { shouldShowSwapLocalData, shouldShowSwapLimitOrders } =
     useSwapLimitOrdersLocalDataVisibility(swapLimitOrdersAccountIdKey);
   const historyBadgeCount = useMemo(() => {
@@ -950,9 +952,11 @@ const SwapHeaderRightActionContainer = ({
 }) => {
   const navigation =
     useAppNavigation<IPageNavigationProp<IModalSwapParamList>>();
-  const [
-    { swapHistoryPendingList, swapLimitOrders, swapLimitOrdersAccountIdKey },
-  ] = useInAppNotificationAtom();
+  const {
+    swapHistoryPendingList,
+    swapLimitOrders,
+    swapLimitOrdersAccountIdKey,
+  } = useInAppNotificationSwapOrders();
   const intl = useIntl();
   const { gtLg, md } = useMedia();
   const InTabDialog = useInTabDialog();

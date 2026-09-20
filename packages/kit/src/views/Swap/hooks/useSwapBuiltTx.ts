@@ -22,7 +22,7 @@ import type {
 } from '@onekeyhq/core/src/types';
 import {
   useCurrencyPersistAtom,
-  useInAppNotificationAtom,
+  useSetInAppNotificationAtom,
   useSettingsAtom,
   useSettingsPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
@@ -278,7 +278,7 @@ export function useSwapBuildTx({
   } = useSwapBuildTxInfo();
   const { slippageItem } = useSwapSlippagePercentageModeInfo();
   const [, setSwapBuildTxFetching] = useSwapBuildTxFetchingAtom();
-  const [, setInAppNotificationAtom] = useInAppNotificationAtom();
+  const setInAppNotificationAtom = useSetInAppNotificationAtom();
   const [swapTypeSwitch] = useSwapTypeSwitchAtom();
   const swapFromAddressInfo = useSwapAddressInfo(ESwapDirectionType.FROM);
   const swapToAddressInfo = useSwapAddressInfo(ESwapDirectionType.TO);

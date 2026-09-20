@@ -6,7 +6,7 @@ import { useIntl } from 'react-intl';
 
 import { useRouteIsFocused as useIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import {
-  useInAppNotificationAtom,
+  useInAppNotificationSwapApproving,
   useSettingsAtom,
   useSettingsPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
@@ -435,8 +435,8 @@ export function useSwapActionState() {
   const swapToAddressInfo = useSwapAddressInfo(ESwapDirectionType.TO);
   const [swapUseLimitPrice] = useSwapLimitPriceUseRateAtom();
   const [swapTypeSwitchValue] = useSwapTypeSwitchAtom();
-  const [{ swapApprovingLoading, swapApprovingTransaction }] =
-    useInAppNotificationAtom();
+  const { swapApprovingLoading, swapApprovingTransaction } =
+    useInAppNotificationSwapApproving();
   const isZeroProviderQuoteCompleted = useSwapZeroProviderQuoteCompleted();
 
   const swapApprovingMatchLoading = useMemo(() => {

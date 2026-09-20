@@ -6,7 +6,7 @@ import { useIntl } from 'react-intl';
 import { useIsOverlayPage } from '@onekeyhq/components';
 import {
   EJotaiContextStoreNames,
-  useInAppNotificationAtom,
+  useSetInAppNotificationAtom,
   useSwapFromMarketJumpTokenAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { writeContextAtomColdStartCacheValues } from '@onekeyhq/kit-bg/src/states/jotai/utils';
@@ -195,7 +195,7 @@ export function useSwapInit(params?: ISwapInitParams) {
     buildSwapInitParamsConsumptionKey(params);
   const swapAddressInfoRef =
     useRef<ReturnType<typeof useSwapAddressInfo>>(undefined);
-  const [, setInAppNotification] = useInAppNotificationAtom();
+  const setInAppNotification = useSetInAppNotificationAtom();
   const [swapTypeSwitch] = useSwapTypeSwitchAtom();
   const [fromTokenAmount, setFromTokenAmount] = useSwapFromTokenAmountAtom();
   const [toTokenAmount, setToTokenAmount] = useSwapToTokenAmountAtom();
