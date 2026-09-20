@@ -23,7 +23,13 @@ function findParserAlertSentenceEnd(text: string) {
 
 // Address details stay next to the address row. The card uses their presence
 // only to suppress a contradictory success verdict, never as whole-card status.
-export function getAddressRiskStatus(components: IDisplayComponent[]) {
+// Backend warning Address.tags are informational first-interaction,
+// first-transfer, or contract-recipient hints kept on that row; after a
+// completed Safe transaction scan they are a display exception, not card risk.
+export function getAddressRiskStatus(
+  components: IDisplayComponent[],
+  ignoreWarningAddressTags = false,
+) {
   let status: Extract<IBadgeType, 'critical' | 'warning'> | undefined;
 
   components.forEach((component) => {
@@ -32,6 +38,9 @@ export function getAddressRiskStatus(components: IDisplayComponent[]) {
     }
     component.tags.forEach((tag) => {
       if (!ADDRESS_RISK_TAG_DISPLAY_TYPES.has(tag.displayType)) {
+        return;
+      }
+      if (ignoreWarningAddressTags && tag.displayType === 'warning') {
         return;
       }
       if (tag.displayType === 'critical') {

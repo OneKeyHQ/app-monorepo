@@ -1051,7 +1051,13 @@ export function buildSecurityCheckModel(
   const permitContext = getPermitContext(params);
   const validParserAlerts = getValidParserAlerts(params, permitContext);
   const displayComponents = getDisplayComponents(params);
-  const hasAddressRisk = Boolean(getAddressRiskStatus(displayComponents));
+  const ignoreWarningAddressTags =
+    kind === 'transaction' &&
+    requestScanCoverage === 'completed' &&
+    transactionSecurityInfo?.level === EHostSecurityLevel.Security;
+  const hasAddressRisk = Boolean(
+    getAddressRiskStatus(displayComponents, ignoreWarningAddressTags),
+  );
   const causes = getConfirmationCauses({
     params,
     isTrustedPermit: permitContext.isTrustedPermit,
