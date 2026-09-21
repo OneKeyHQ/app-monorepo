@@ -6,3 +6,16 @@ export const TREZOR_BLE_SUPPORTED_MODEL_NAMES = [
   'safe 7',
   'trezor safe 7',
 ] as const;
+
+// Models whose firmware provides the SetBrightness device-management command.
+export const TREZOR_BRIGHTNESS_SUPPORTED_MODEL_NAMES = [
+  't2t1',
+  'model t',
+  'trezor model t',
+  't3t1',
+  'safe 5',
+  'trezor safe 5',
+  't3w1',
+  'safe 7',
+  'trezor safe 7',
+] as const;

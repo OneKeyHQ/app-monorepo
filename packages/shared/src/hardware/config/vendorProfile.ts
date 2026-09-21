@@ -39,13 +39,8 @@ export interface IHardwareVendorProfile {
     persistentDeviceId(transport: 'usb' | 'ble'): boolean;
     /** Whether a connectId can be used to identify an existing device. */
     matchDeviceByConnectId(connectId: string): boolean;
-    /**
-     * Whether a connectId-based match must be confirmed by an independent seed
-     * check before the record is reused — a connectId that isn't a stable
-     * per-device identity (see `persistentConnectId`) can coincide across
-     * different physical devices/seeds.
-     */
-    seedVerifyOnConnectIdMatch: boolean;
+    /** Additional verification required before reusing a connectId-matched record. */
+    connectIdMatchVerification: 'none' | 'ledgerChainFingerprint';
   };
   /** What Device Manager may show for this vendor. */
   deviceManager: {
@@ -70,10 +65,8 @@ export interface IHardwareVendorProfile {
     /** Whether wallet UI can expose hidden-wallet creation */
     hiddenWallet: boolean;
   };
-  /** Whether the device supports entering PIN via software (on-screen) */
+  /** Default for the persisted inputPinOnSoftware preference, not a protocol capability. */
   supportsSoftwarePin: boolean;
-  /** Whether an app must be open on the device before operations */
-  requiresAppOpen: boolean;
   /** Whether this vendor's wallets support cloud sync */
   supportsCloudSync: boolean;
   /** Verification method and the event channel used while awaiting confirmation. */
@@ -97,13 +90,12 @@ const onekeyProfile: IHardwareVendorProfile = {
     // OneKey always has device_id, so this path isn't used
     matchDeviceByConnectId: () => true,
     // OneKey always matches by deviceId, never by connectId alone.
-    seedVerifyOnConnectIdMatch: false,
+    connectIdMatchVerification: 'none',
   },
   deviceManager: { details: true, about: true, settings: true },
   firmware: { showVersion: true, verify: true, update: true },
   passphrase: { setting: true, hiddenWallet: true },
   supportsSoftwarePin: true,
-  requiresAppOpen: false,
   supportsCloudSync: true,
   addressVerification: { mode: 'device', confirmationEvent: 'buttonRequest' },
   addAccountDefaultNetworkMode: 'onekeyDefault',
@@ -125,13 +117,12 @@ const ledgerProfile: IHardwareVendorProfile = {
     matchDeviceByConnectId: (connectId) => Boolean(connectId),
     // USB connectId is ephemeral and BLE's, while persistent, isn't a proof of
     // identity by itself — require a seed check before reusing the record.
-    seedVerifyOnConnectIdMatch: true,
+    connectIdMatchVerification: 'ledgerChainFingerprint',
   },
   deviceManager: { details: true, about: false, settings: false },
   firmware: { showVersion: false, verify: false, update: false },
   passphrase: { setting: false, hiddenWallet: false },
   supportsSoftwarePin: false,
-  requiresAppOpen: true,
   supportsCloudSync: false,
   addressVerification: { mode: 'device', confirmationEvent: 'confirmOnDevice' },
   addAccountDefaultNetworkMode: 'ledgerAppAware',
@@ -155,17 +146,14 @@ const trezorProfile: IHardwareVendorProfile = {
     persistentDeviceId: () => true,
     matchDeviceByConnectId: (connectId) => Boolean(connectId),
     // Trezor always matches by deviceId, never by connectId alone.
-    seedVerifyOnConnectIdMatch: false,
+    connectIdMatchVerification: 'none',
   },
   deviceManager: { details: true, about: false, settings: true },
   firmware: { showVersion: true, verify: false, update: false },
   passphrase: { setting: true, hiddenWallet: true },
-  // THP firmware reads PIN on its own touchscreen during handshake. The host
-  // SDK never holds a PIN matrix — different from Trezor T1 (legacy) where
-  // PIN was entered host-side. We don't ship the T1 path, so always false.
+  // Trezor PIN entry follows SDK requests (on-device entry or host matrix).
+  // This preference does not enable or disable those protocol-driven prompts.
   supportsSoftwarePin: false,
-  // Trezor has no Ledger-style per-chain "app" concept.
-  requiresAppOpen: false,
   supportsCloudSync: false,
   addressVerification: { mode: 'device', confirmationEvent: 'confirmOnDevice' },
   addAccountDefaultNetworkMode: 'onekeyDefault',
@@ -199,13 +187,12 @@ const keystoneProfile: IHardwareVendorProfile = {
     // The wallet-id-derived connectId is stable across QR and USB, unlike
     // Ledger's ephemeral session handles.
     matchDeviceByConnectId: (connectId) => Boolean(connectId),
-    seedVerifyOnConnectIdMatch: false,
+    connectIdMatchVerification: 'none',
   },
   deviceManager: { details: true, about: false, settings: false },
   firmware: { showVersion: false, verify: false, update: false },
   passphrase: { setting: false, hiddenWallet: false },
   supportsSoftwarePin: false,
-  requiresAppOpen: false,
   supportsCloudSync: false,
   addressVerification: { mode: 'manual', confirmationEvent: 'none' },
   addAccountDefaultNetworkMode: 'onekeyDefault',
@@ -263,13 +250,12 @@ function buildUnknownVendorProfile(vendor: string): IHardwareVendorProfile {
       persistentConnectId: () => false,
       persistentDeviceId: () => false,
       matchDeviceByConnectId: () => false,
-      seedVerifyOnConnectIdMatch: true,
+      connectIdMatchVerification: 'none',
     },
     deviceManager: { details: false, about: false, settings: false },
     firmware: { showVersion: false, verify: false, update: false },
     passphrase: { setting: false, hiddenWallet: false },
     supportsSoftwarePin: false,
-    requiresAppOpen: false,
     supportsCloudSync: false,
     addressVerification: { mode: 'manual', confirmationEvent: 'none' },
     addAccountDefaultNetworkMode: 'onekeyDefault',

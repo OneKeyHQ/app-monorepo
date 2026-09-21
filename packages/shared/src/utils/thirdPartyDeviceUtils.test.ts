@@ -247,6 +247,55 @@ describe('thirdPartyDeviceUtils', () => {
     ).toBe(false);
   });
 
+  it.each([
+    ['T2T1', true],
+    ['T3T1', true],
+    ['T3W1', true],
+    ['  Trezor   Safe 5  ', true],
+    ['Trezor Model T', true],
+    ['Safe 7', true],
+    ['T1B1', false],
+    ['T2B1', false],
+    ['T3B1', false],
+    ['Safe 3', false],
+    ['unknown', false],
+    ['', false],
+    [undefined, false],
+  ] as const)(
+    'checks brightness support for Trezor model %s',
+    (vendorModel, expected) => {
+      expect(
+        thirdPartyDeviceUtils.isTrezorBrightnessSupportedDevice({
+          settings: { vendorModel },
+        }),
+      ).toBe(expected);
+    },
+  );
+
+  it('uses persisted model data without treating an unknown model as supported', () => {
+    expect(thirdPartyDeviceUtils.isTrezorBrightnessSupportedDevice()).toBe(
+      false,
+    );
+    expect(
+      thirdPartyDeviceUtils.isTrezorBrightnessSupportedDevice({
+        settingsRaw: JSON.stringify({ vendorModel: 'T3T1' }),
+      }),
+    ).toBe(true);
+    expect(
+      thirdPartyDeviceUtils.isTrezorBrightnessSupportedDevice({
+        settings: { vendorModelName: 'Trezor Safe 5' },
+      }),
+    ).toBe(true);
+    expect(
+      thirdPartyDeviceUtils.isTrezorBrightnessSupportedDevice({
+        settings: {
+          vendorModel: 'future-model',
+          vendorModelName: 'Trezor Safe 5',
+        },
+      }),
+    ).toBe(false);
+  });
+
   it('detects Trezor BLE support by model name', () => {
     expect(thirdPartyDeviceUtils.isTrezorBleSupportedModel('T3W1')).toBe(true);
     expect(thirdPartyDeviceUtils.isTrezorBleSupportedModel('t3w1')).toBe(true);

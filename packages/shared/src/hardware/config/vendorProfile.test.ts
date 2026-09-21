@@ -51,23 +51,19 @@ describe('hardware vendor profile', () => {
     ).toBe('ledgerAppAware');
   });
 
-  it('requires a seed check on connectId match only for Ledger', () => {
-    // Ledger's connectId is not a stable per-device identity, so reusing a
-    // connectId-matched record must be gated on a seed check. OneKey and
-    // Trezor always match by deviceId and never reach that gate.
-    expect(
-      getVendorProfile(EHardwareVendor.onekey).identity
-        .seedVerifyOnConnectIdMatch,
-    ).toBe(false);
-    expect(
-      getVendorProfile(EHardwareVendor.trezor).identity
-        .seedVerifyOnConnectIdMatch,
-    ).toBe(false);
-    expect(
-      getVendorProfile(EHardwareVendor.ledger).identity
-        .seedVerifyOnConnectIdMatch,
-    ).toBe(true);
-  });
+  it.each([
+    [EHardwareVendor.onekey, 'none'],
+    [EHardwareVendor.trezor, 'none'],
+    [EHardwareVendor.keystone, 'none'],
+    [EHardwareVendor.ledger, 'ledgerChainFingerprint'],
+  ] as const)(
+    'uses the expected connection identity check for %s',
+    (vendor, strategy) => {
+      expect(getVendorProfile(vendor).identity.connectIdMatchVerification).toBe(
+        strategy,
+      );
+    },
+  );
 
   it.each([
     [EHardwareVendor.onekey, 'device', 'buttonRequest'],
@@ -125,7 +121,7 @@ describe('hardware vendor profile', () => {
     expect(profile.identity.matchDeviceByConnectId('anything')).toBe(false);
     expect(profile.identity.persistentConnectId('usb')).toBe(false);
     expect(profile.identity.persistentDeviceId('ble')).toBe(false);
-    expect(profile.identity.seedVerifyOnConnectIdMatch).toBe(true);
+    expect(profile.identity.connectIdMatchVerification).toBe('none');
     // Same instance on repeat so callers can compare profiles by identity.
     expect(getVendorProfile(futureVendor)).toBe(profile);
   });

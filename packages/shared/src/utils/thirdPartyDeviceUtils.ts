@@ -1,6 +1,9 @@
 import { EFirmwareType } from '@onekeyfe/hd-shared';
 
-import { TREZOR_BLE_SUPPORTED_MODEL_NAMES } from '../hardware/config/trezor';
+import {
+  TREZOR_BLE_SUPPORTED_MODEL_NAMES,
+  TREZOR_BRIGHTNESS_SUPPORTED_MODEL_NAMES,
+} from '../hardware/config/trezor';
 
 import type { EHardwareVendor } from '../../types/device';
 
@@ -291,17 +294,16 @@ function isTrezorBleSupportedDevice(device?: IThirdPartyDeviceLike): boolean {
   return isTrezorBleSupportedModel(getDeviceSettings(device)?.vendorModel);
 }
 
-function isTrezorBleBindingSupportedPlatform({
-  isDesktop,
-  isSupportDesktopBle,
-}: {
-  isDesktop?: boolean;
-  isSupportDesktopBle?: boolean;
-}): boolean {
-  if (typeof isSupportDesktopBle === 'boolean') {
-    return isSupportDesktopBle;
-  }
-  return isDesktop === true;
+function isTrezorBrightnessSupportedDevice(
+  device?: IThirdPartyDeviceLike,
+): boolean {
+  const settings = getDeviceSettings(device);
+  const model = normalizeThirdPartyModelName(
+    settings?.vendorModel || settings?.vendorModelName,
+  );
+  return (
+    TREZOR_BRIGHTNESS_SUPPORTED_MODEL_NAMES as readonly string[]
+  ).includes(model);
 }
 
 function getDeviceModelName({
@@ -353,8 +355,8 @@ export default {
   getFirmwareType,
   getSerialNo,
   isBtcOnlyFirmware,
-  isTrezorBleBindingSupportedPlatform,
   isTrezorBleSupportedDevice,
+  isTrezorBrightnessSupportedDevice,
   isTrezorBleSupportedModel,
   normalizeThirdPartyModelName,
 };

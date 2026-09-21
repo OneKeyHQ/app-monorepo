@@ -4182,17 +4182,17 @@ class ServiceAccount extends ServiceBase {
           isMockedStandardHwWallet,
         });
       },
-      // Gated by vendor capability, not `vendor === ledger`, so a future vendor
-      // with the same non-persistent-identity connectId opts in via its profile
-      // instead of a new branch here.
-      verifySeedMatchFn: vendorProfile?.identity.seedVerifyOnConnectIdMatch
-        ? async (matchedDevice) =>
-            verifyLedgerSeedMatch(
-              this.backgroundApi,
-              matchedDevice,
-              hardwareCallConnectId,
-            )
-        : undefined,
+      // Ledger's chain fingerprint is a vendor-specific identity check.
+      verifySeedMatchFn:
+        vendorProfile?.identity.connectIdMatchVerification ===
+        'ledgerChainFingerprint'
+          ? async (matchedDevice) =>
+              verifyLedgerSeedMatch(
+                this.backgroundApi,
+                matchedDevice,
+                hardwareCallConnectId,
+              )
+          : undefined,
       transportType,
     });
     const deviceLabel = getStandardHwWalletLabelForNameSync({
