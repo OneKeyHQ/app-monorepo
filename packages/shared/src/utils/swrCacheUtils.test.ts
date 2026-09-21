@@ -679,240 +679,62 @@ describe('SWR cache budgets and reload throttling', () => {
   });
 });
 
-describe('SWR cache cross-runtime invalidation', () => {
+describe('SWR cache removals', () => {
   beforeEach(() => {
     resetDisk();
   });
 
-  // The bus has to come from the same module registry as the cache under
-  // test: `loadFreshRuntime` resets it, and a bus required before that is a
-  // different instance with its own listeners.
-  function bus() {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    return require('../eventBus/appEventBus') as typeof import('../eventBus/appEventBus');
-  }
-
-  it('announces what it removed, and not what it wrote', () => {
+  it('announces nothing: the UI runtime drops its own entries', () => {
     const cache = loadFreshRuntime();
-    const { appEventBus, EAppEventBusNames } = bus();
-    const seen: unknown[] = [];
-    const listener = (payload: unknown) => seen.push(payload);
-    appEventBus.on(EAppEventBusNames.SwrCacheInvalidated, listener);
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const { appEventBus } =
+      require('../eventBus/appEventBus') as typeof import('../eventBus/appEventBus');
+    const emit = jest.spyOn(appEventBus, 'emit');
     try {
       cache.set('walletList:a', 'written');
-      cache.flushNow();
-      expect(seen).toHaveLength(0);
-
       cache.remove('walletList:a');
       cache.removeByPrefix('accSelList:');
+      cache.clearAll();
       cache.flushNow();
 
-      expect(seen).toEqual([
-        { keys: ['walletList:a'], prefixes: ['accSelList:'] },
-      ]);
+      // The mutation events the UI already receives are what trigger a drop,
+      // so the cache itself has nothing to tell the other runtime.
+      expect(emit).not.toHaveBeenCalled();
     } finally {
-      appEventBus.off(EAppEventBusNames.SwrCacheInvalidated, listener);
+      emit.mockRestore();
     }
   });
 
-  it('drops what the other runtime removed, so the next read goes to disk', () => {
+  it('deletes from the store in the runtime that asked for it', () => {
     disk().set('walletList:a', { d: 'from-disk', t: 1000 });
+    disk().set('accSelList:b', { d: 'from-disk', t: 1000 });
     const cache = loadFreshRuntime();
-    const { appEventBus, EAppEventBusNames } = bus();
     expect(cache.get('walletList:a')).toBe('from-disk');
 
-    // The other runtime deleted the wallet and dropped its namespace.
-    disk().delete('walletList:a');
-    appEventBus.emit(EAppEventBusNames.SwrCacheInvalidated, {
-      prefixes: ['walletList:'],
-    });
+    cache.remove('walletList:a');
+    cache.removeByPrefix('accSelList:');
+    cache.flushNow();
 
-    expect(cache.get('walletList:a')).toBeUndefined();
+    expect(readDiskStore()['walletList:a']).toBeUndefined();
+    expect(readDiskStore()['accSelList:b']).toBeUndefined();
   });
 
-  it('drops a pending local write when the other runtime removes it', () => {
-    const cache = loadFreshRuntime();
-    const { appEventBus, EAppEventBusNames } = bus();
-    cache.set('walletList:a', 'mine');
-
-    appEventBus.emit(EAppEventBusNames.SwrCacheInvalidated, {
-      prefixes: ['walletList:'],
-    });
-
-    // The wallet is gone, so a write still queued for it describes nothing.
-    expect(cache.get('walletList:a')).toBeUndefined();
-  });
-
-  /**
-   * The order the runtimes actually run in: main has a write queued when bg
-   * deletes the wallet. bg persists and announces before main's debounce
-   * fires, so main must not carry the old entry back to the store.
-   */
   it('does not write a removed entry back to the store on the next flush', () => {
     const cache = loadFreshRuntime();
-    const { appEventBus, EAppEventBusNames } = bus();
-
-    // main: a list read lands in the cache and is queued for the store.
-    cache.set('walletList:a', 'stale-wallet');
-
-    // bg: removeByPrefix + flushNow already cleared the shared store, then
-    // announced it.
-    disk().delete('walletList:a');
-    appEventBus.emit(EAppEventBusNames.SwrCacheInvalidated, {
-      prefixes: ['walletList:'],
-    });
-
-    // main: its own debounced flush runs afterwards.
+    cache.set('walletList:a', 'mine');
+    cache.remove('walletList:a');
     cache.flushNow();
 
-    // The store first: an entry carried back here outlives the process and
-    // paints on the next cold start, which is the damage that matters.
     expect(readDiskStore()['walletList:a']).toBeUndefined();
     expect(cache.get('walletList:a')).toBeUndefined();
   });
 
-  it('drops a pending local write when the other runtime clears everything', () => {
+  it('does not adopt a removed key back out of the store', () => {
     const cache = loadFreshRuntime();
-    const { appEventBus, EAppEventBusNames } = bus();
-    cache.set('marketTokenDetail:b', 'mine');
-
-    disk().clear();
-    appEventBus.emit(EAppEventBusNames.SwrCacheInvalidated, {
-      clearedAll: true,
-    });
-    cache.flushNow();
-
-    expect(cache.get('marketTokenDetail:b')).toBeUndefined();
-    expect(readDiskStore()['marketTokenDetail:b']).toBeUndefined();
-  });
-
-  // Required from the same registry as the cache under test, for the reason
-  // `bus` gives.
-  function platform() {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    return require('../platformEnv') as typeof import('../platformEnv');
-  }
-
-  function ensureSubscribed() {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    (
-      require('./swrCacheUtils') as typeof import('./swrCacheUtils')
-    ).ensureSwrCacheInvalidationSubscribed();
-  }
-
-  it('announces a removal from a background runtime instead of deleting it', () => {
-    disk().set('walletList:a', { d: 'from-disk', t: 1000 });
-    const cache = loadFreshRuntime();
-    const { appEventBus, EAppEventBusNames } = bus();
-    const { default: platformEnv, ERuntimeRole } = platform();
-    const seen: unknown[] = [];
-    const listener = (payload: unknown) => seen.push(payload);
-    appEventBus.on(EAppEventBusNames.SwrCacheInvalidated, listener);
-    const role = jest.replaceProperty(
-      platformEnv,
-      'runtimeRole',
-      ERuntimeRole.Background,
-    );
-    try {
-      cache.remove('walletList:a');
-      cache.flushNow();
-
-      // The file belongs to the runtime that owns the hooks writing it, and
-      // every deletion path is reached from the UI, so it is there to hear it.
-      expect(readDiskStore()['walletList:a']?.d).toBe('from-disk');
-      expect(seen).toEqual([{ keys: ['walletList:a'] }]);
-    } finally {
-      role.restore();
-      appEventBus.off(EAppEventBusNames.SwrCacheInvalidated, listener);
-    }
-  });
-
-  it('does not announce a removal it carried out for another runtime', () => {
-    disk().set('walletList:a', { d: 'from-disk', t: 1000 });
-    const cache = loadFreshRuntime();
-    const { appEventBus, EAppEventBusNames } = bus();
-    const seen: unknown[] = [];
-    const listener = (payload: unknown) => seen.push(payload);
-    appEventBus.on(EAppEventBusNames.SwrCacheInvalidated, listener);
-    try {
-      expect(cache.get('walletList:a')).toBe('from-disk');
-
-      appEventBus.emit(EAppEventBusNames.SwrCacheInvalidated, {
-        keys: ['walletList:a'],
-      });
-
-      expect(readDiskStore()['walletList:a']).toBeUndefined();
-      // Only the announcement that was injected. A second one would reach the
-      // other foregrounds, each of which would answer with its own.
-      expect(seen).toEqual([{ keys: ['walletList:a'] }]);
-    } finally {
-      appEventBus.off(EAppEventBusNames.SwrCacheInvalidated, listener);
-    }
-  });
-
-  it('performs a removal the other runtime announced', () => {
-    disk().set('walletList:a', { d: 'from-disk', t: 1000 });
-    const cache = loadFreshRuntime();
-    const { appEventBus, EAppEventBusNames } = bus();
-    expect(cache.get('walletList:a')).toBe('from-disk');
-
-    appEventBus.emit(EAppEventBusNames.SwrCacheInvalidated, {
-      keys: ['walletList:a'],
-    });
-
-    expect(readDiskStore()['walletList:a']).toBeUndefined();
-  });
-
-  it('performs a removal announced before it had read anything', () => {
-    disk().set('walletList:a', { d: 'from-disk', t: 1000 });
-    loadFreshRuntime();
-    const { appEventBus, EAppEventBusNames } = bus();
-    // Nothing has touched the cache, so only the startup subscription can
-    // have heard this.
-    ensureSubscribed();
-
-    appEventBus.emit(EAppEventBusNames.SwrCacheInvalidated, {
-      prefixes: ['walletList:'],
-    });
-
-    expect(readDiskStore()['walletList:a']).toBeUndefined();
-  });
-
-  it('does not act on its own announcement', () => {
-    disk().set('walletList:a', { d: 'from-disk', t: 1000 });
-    const cache = loadFreshRuntime();
-    const { appEventBus, EAppEventBusNames } = bus();
-    const seen: unknown[] = [];
-    const listener = (payload: unknown) => seen.push(payload);
-    appEventBus.on(EAppEventBusNames.SwrCacheInvalidated, listener);
-    try {
-      cache.remove('walletList:a');
-      cache.flushNow();
-      expect(seen).toHaveLength(1);
-
-      // Re-recording its own removal would leave the store dirty, so every
-      // later flush would delete and publish again, for the life of the
-      // process. A second flush with nothing new must be a no-op.
-      cache.flushNow();
-      expect(seen).toHaveLength(1);
-    } finally {
-      appEventBus.off(EAppEventBusNames.SwrCacheInvalidated, listener);
-    }
-  });
-
-  it('clears everything it holds when the other runtime clears', () => {
-    disk().set('walletList:a', { d: 'from-disk', t: 1000 });
-    const cache = loadFreshRuntime();
-    const { appEventBus, EAppEventBusNames } = bus();
-    expect(cache.get('walletList:a')).toBe('from-disk');
-    cache.set('marketTokenDetail:b', 'mine');
-
-    disk().clear();
-    appEventBus.emit(EAppEventBusNames.SwrCacheInvalidated, {
-      clearedAll: true,
-    });
+    cache.remove('walletList:a');
+    // An older record still on disk, e.g. written by a previous session.
+    disk().set('walletList:a', { d: 'stale', t: 500 });
 
     expect(cache.get('walletList:a')).toBeUndefined();
-    expect(cache.get('marketTokenDetail:b')).toBeUndefined();
   });
 });

@@ -220,11 +220,12 @@ owns the hook. See **Rules** above; the history behind them:
   refreshes itself instead. Routing a bg write *through* the UI runtime is not
   a fix either: on the extension the bus reaches every open foreground, so the
   routing turns one writer into one per surface.
-- Removals bg still triggers travel as announcements over
-  `SwrCacheInvalidated`: it deletes nothing, and the owner performs the delete
-  and drops its own pending writes for those keys, so nothing it queued
-  outlives the removal. The owner never announces in turn — an announcement
-  answered with an announcement loops between foregrounds.
+- Removals are the UI runtime's too, and nothing crosses the runtime boundary
+  for the cache's sake: the mutation events (`WalletRemove`, `AccountUpdate`,
+  `RefreshBookmarkList`, …) already reach every runtime, so the UI drops its
+  own entries on them in `kit/src/utils/swrCacheMutationInvalidation.ts` —
+  with `flushNow`, so a force-kill cannot leave a deleted wallet to be painted
+  on the next cold open.
 
 ## Split Bundle: main vs background Bundle Sizes
 

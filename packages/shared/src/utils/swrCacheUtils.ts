@@ -2,7 +2,6 @@
 import { isEqual } from 'lodash';
 
 import { defaultLogger } from '../logger/logger';
-import platformEnv, { ERuntimeRole } from '../platformEnv';
 
 import {
   SWR_ACCOUNT_SELECTOR_MAX_ENTRIES,
@@ -314,18 +313,6 @@ const _updatedKeys = new Set<string>();
 
 // Without these, the copy still sitting on disk would revive a key deleted here.
 const _removedKeysAt = new Map<string, number>();
-/**
- * The removals this runtime is carrying out for another one.
- *
- * They are performed like any other, but never announced again. Every live
- * runtime already received the original announcement, and an announcement
- * that produces another announcement has no end: with two foregrounds open —
- * an extension popup and a side panel — each would treat the other's echo as
- * a new instruction and publish its own, for the life of the pages.
- */
-let _remoteRemovedKeys = new Set<string>();
-let _remoteRemovedPrefixes = new Set<string>();
-let _remoteClearedAll = false;
 let _removedPrefixesAt: Array<{ prefix: string; at: number }> = [];
 let _clearedAllAt = 0;
 
@@ -344,34 +331,18 @@ function isDeletedLocally(key: string, diskTimestamp: number): boolean {
 const FLUSH_DEBOUNCE_MS = 2000;
 
 /**
- * Whether this runtime is the one that touches the store.
- *
- * A removal is a write, and a namespace's records are one file (native) or one
- * key range (web) that every runtime opens, with nothing to lock across them.
- * So the background runtime does not delete: it announces what it dropped and
- * the UI runtime, which owns the hooks that write these entries, performs the
- * delete in its own flush. Every deletion path is reached from the UI — it is
- * either a `@backgroundMethod` the UI called or a bg flow that first prompts
- * for a password — so the runtime that performs it is there to hear about it.
- */
-function isStoreOwnerRuntime() {
-  return platformEnv.runtimeRole !== ERuntimeRole.Background;
-}
-
-/**
  * The store this runtime has looked at, not the store on disk.
  *
  * Each namespace keeps its own records and a read names its key, so nothing
  * is loaded up front: a miss reads through to the namespace, and what comes
- * back is kept here for the next read. That is also how a write by the other
- * runtime becomes visible — `reloadFromStorage` drops what is not pending and
- * the next read goes back to the file.
+ * back is kept here for the next read. That is also how the perps snapshots
+ * bg writes become visible — `reloadFromStorage` drops what is not pending
+ * and the next read goes back to the file.
  */
 function loadStore(): ISWRStore {
   if (_cache === undefined) {
     _cache = {};
     resetCacheSerializedChars(_cache);
-    subscribeToRemoteInvalidation();
   }
   return _cache;
 }
@@ -654,189 +625,7 @@ function clearPendingIntents() {
   _removedKeysAt.clear();
   _removedPrefixesAt = [];
   _clearedAllAt = 0;
-  _remoteRemovedKeys = new Set<string>();
-  _remoteRemovedPrefixes = new Set<string>();
-  _remoteClearedAll = false;
   _dirty = false;
-}
-
-// Only the changed entries are serialized; the mirror applies them per key
-// and bg's acknowledgement comes back through the subscription.
-/**
- * Tell the other runtime what this one removed.
- *
- * Both runtimes hold their own copy of the entries they have read, and only
- * removals need to cross: a write the other runtime has not seen is a miss
- * there, and a miss reads the file. A removal is the opposite — the stale
- * value is a hit, so nothing sends it back to the file, and the entity the
- * caller just deleted would keep painting until the next launch.
- *
- * bg drops these namespaces on every wallet or account mutation, so this is
- * also what makes rename and delete reach the UI.
- */
-/** True while this runtime's own announcement is being delivered. `emit`
- *  runs local listeners synchronously, so the subscription below would treat
- *  this runtime's own removals as a remote instruction, record them again and
- *  flush again — every couple of seconds, for the life of the process. A
- *  genuine remote delivery arrives from the bridge, long after this is back
- *  to false. */
-let _announcingOwnInvalidation = false;
-
-function publishInvalidation({
-  keys,
-  prefixes,
-  clearedAll,
-}: {
-  keys: string[];
-  prefixes: string[];
-  clearedAll: boolean;
-}) {
-  if (!clearedAll && keys.length === 0 && prefixes.length === 0) {
-    return;
-  }
-  try {
-    // Lazy: the event bus reaches back into storage, and this module is on
-    // that path.
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const { appEventBus, EAppEventBusNames } =
-      require('../eventBus/appEventBus') as typeof import('../eventBus/appEventBus');
-    _announcingOwnInvalidation = true;
-    try {
-      appEventBus.emit(EAppEventBusNames.SwrCacheInvalidated, {
-        ...(keys.length > 0 ? { keys } : {}),
-        ...(prefixes.length > 0 ? { prefixes } : {}),
-        ...(clearedAll ? { clearedAll } : {}),
-      });
-    } finally {
-      _announcingOwnInvalidation = false;
-    }
-  } catch {
-    // A cache that cannot announce a removal still removed it locally.
-  }
-}
-
-/**
- * Drop what the other runtime removed, so the next read goes to the file.
- *
- * A pending local write is dropped with the entry rather than protected from
- * it. Protecting it treats the two runtimes as writers racing over one value,
- * which is the wrong model for a removal: the other runtime published this
- * only after its own delete reached the shared store, so what is pending here
- * describes an entity that no longer exists. Keeping it would serve the
- * deleted value and then write it back to the store on the next flush, where
- * it survives into the next cold start's first frame.
- *
- * The cost of the other mistake is one refetch, so this over-invalidates on
- * purpose — the same trade `removeSwrCacheByPrefix` makes for digested keys.
- */
-function dropInvalidatedFromMemory({
-  keys,
-  prefixes,
-  clearedAll,
-}: {
-  keys?: string[];
-  prefixes?: string[];
-  clearedAll?: boolean;
-}) {
-  const store = _cache;
-  if (!store) {
-    return;
-  }
-  if (clearedAll) {
-    Object.keys(store).forEach((key) => removeCachedEntry(store, key));
-    _updatedKeys.clear();
-    return;
-  }
-  keys?.forEach((key) => {
-    removeCachedEntry(store, key);
-    _updatedKeys.delete(key);
-  });
-  prefixes?.forEach((prefix) => {
-    Object.keys(store).forEach((key) => {
-      if (key.startsWith(prefix)) {
-        removeCachedEntry(store, key);
-      }
-    });
-    // Swept separately: a pending key that has already been evicted from the
-    // store would otherwise stay queued and be written back.
-    for (const key of _updatedKeys) {
-      if (key.startsWith(prefix)) {
-        _updatedKeys.delete(key);
-      }
-    }
-  });
-}
-
-function applyRemoteInvalidation(payload: {
-  keys?: string[];
-  prefixes?: string[];
-  clearedAll?: boolean;
-}) {
-  if (_announcingOwnInvalidation) {
-    return;
-  }
-  const { keys, prefixes, clearedAll } = payload;
-  const owns = isStoreOwnerRuntime();
-  if (owns) {
-    // Recorded as this runtime's own intent: it is what performs the delete,
-    // and a value still pending here would otherwise land on the file after
-    // it. Recording also stops a read-through from adopting the record back
-    // out of the file before the flush reaches it. Tracked as remote-origin
-    // so the flush below does not announce it again.
-    const now = Date.now();
-    if (clearedAll) {
-      _clearedAllAt = now;
-      _remoteClearedAll = true;
-    }
-    keys?.forEach((key) => {
-      _removedKeysAt.set(key, now);
-      _remoteRemovedKeys.add(key);
-    });
-    prefixes?.forEach((prefix) => {
-      _removedPrefixesAt.push({ prefix, at: now });
-      _remoteRemovedPrefixes.add(prefix);
-    });
-    _dirty = true;
-    // A store this runtime never touched still has a file to delete from, and
-    // `flush` will not run before the store exists.
-    loadStore();
-  }
-  dropInvalidatedFromMemory(payload);
-  if (owns) {
-    // Not left to the debounce: what this carries is a deletion, and the
-    // window it closes is the one where the process ends before it lands.
-    flushNow();
-  }
-}
-
-let _invalidationSubscribed = false;
-/**
- * Subscribe before anything reads the cache.
- *
- * A runtime that misses an announcement keeps serving the entry from memory
- * and can write it back. `loadStore` subscribes too, but only once something
- * has read or written an entry — this is for the startup path, which runs
- * earlier than the first read.
- */
-export function ensureSwrCacheInvalidationSubscribed() {
-  subscribeToRemoteInvalidation();
-}
-
-function subscribeToRemoteInvalidation() {
-  if (_invalidationSubscribed) {
-    return;
-  }
-  _invalidationSubscribed = true;
-  try {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const { appEventBus, EAppEventBusNames } =
-      require('../eventBus/appEventBus') as typeof import('../eventBus/appEventBus');
-    appEventBus.on(EAppEventBusNames.SwrCacheInvalidated, (payload) => {
-      applyRemoteInvalidation(payload);
-    });
-  } catch {
-    // Without the bus this runtime keeps its own copy until it reloads.
-  }
 }
 
 function flush() {
@@ -847,18 +636,11 @@ function flush() {
     const updatedKeyCount = _updatedKeys.size;
     // Order matters: the wipes are what this runtime decided is gone, and
     // they must not take the writes that followed them with them.
-    //
-    // Only on the runtime that owns the store. Elsewhere the removal travels
-    // as an announcement and is performed there — see `isStoreOwnerRuntime`.
-    if (isStoreOwnerRuntime()) {
-      if (_clearedAllAt > 0) {
-        clearAllSwrCacheNamespaces();
-      }
-      _removedPrefixesAt.forEach(({ prefix }) =>
-        removeSwrCacheByPrefix(prefix),
-      );
-      removeSwrCacheEntries([..._removedKeysAt.keys()]);
+    if (_clearedAllAt > 0) {
+      clearAllSwrCacheNamespaces();
     }
+    _removedPrefixesAt.forEach(({ prefix }) => removeSwrCacheByPrefix(prefix));
+    removeSwrCacheEntries([..._removedKeysAt.keys()]);
     const updates: Array<readonly [string, ISwrCacheStoredEntry]> = [];
     _updatedKeys.forEach((key) => {
       const entry = _cache?.[key];
@@ -869,15 +651,6 @@ function flush() {
     if (updates.length > 0) {
       writeSwrCacheEntries(updates);
     }
-    publishInvalidation({
-      keys: [..._removedKeysAt.keys()].filter(
-        (key) => !_remoteRemovedKeys.has(key),
-      ),
-      prefixes: _removedPrefixesAt
-        .map(({ prefix }) => prefix)
-        .filter((prefix) => !_remoteRemovedPrefixes.has(prefix)),
-      clearedAll: _clearedAllAt > 0 && !_remoteClearedAll,
-    });
     clearPendingIntents();
     const durationMs = Math.round(perfNow() - startedAt);
     if (durationMs >= SWR_CACHE_SLOW_OP_LOG_THRESHOLD_MS) {
@@ -1804,9 +1577,11 @@ function getSizeStats() {
  * Two callers patching one key is how a namespace ends up with two writers
  * over one file and no lock between the runtimes.
  *
- * bg is not a writer, and a removal is a write: it announces what it dropped
- * and the runtime that owns the store performs the delete in its own flush.
- * An announcement is never answered with another one.
+ * bg is not a writer, and a removal is a write. It does not invalidate these
+ * namespaces either: the UI runtime receives the same mutation events and
+ * drops its own entries (`kit/src/utils/swrCacheMutationInvalidation.ts`),
+ * so nothing has to cross the runtime boundary for the cache's sake. The
+ * exception is the perps snapshots, which bg both owns and writes.
  */
 export const swrCacheUtils = {
   get,
