@@ -5,6 +5,7 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import { Token } from '@onekeyhq/kit/src/components/Token';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IMarketStockPublicItem } from '@onekeyhq/shared/types/marketV2';
 
 import { SubtitleText } from '../../../components/PerpsBadges';
@@ -50,6 +51,7 @@ export function MobileMarketStockListItem({
         <Token
           size="md"
           borderRadius="$full"
+          round={platformEnv.isNativeAndroid}
           tokenImageUri={item.logoUrl}
           fallbackIcon="CryptoCoinOutline"
         />
