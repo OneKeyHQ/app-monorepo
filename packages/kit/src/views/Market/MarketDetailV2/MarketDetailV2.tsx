@@ -45,6 +45,7 @@ import { useSettledHeaderHeight } from '../../Earn/hooks/useSettledHeaderHeight'
 import { useMarketEnterAnalytics } from '../hooks';
 import { MarketWatchListProviderMirrorV2 } from '../MarketWatchListProviderMirrorV2';
 import { MarketTestIDs } from '../testIDs';
+import { finishMarketDetailTabBarTransition } from '../utils/marketDetailNavigation';
 
 import { MarketDetailHeader } from './components/MarketDetailHeader';
 import {
@@ -491,6 +492,7 @@ function MarketDetailV2(
       // buttons.
       const ownerId = createHideTabBarOwnerId('market-detail');
       requestHideTabBar(ownerId);
+      finishMarketDetailTabBarTransition();
 
       return () => {
         releaseHideTabBar(ownerId);
