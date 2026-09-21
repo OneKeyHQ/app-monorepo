@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -12,6 +12,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IMarketBasicConfigToken } from '@onekeyhq/shared/types/marketV2';
 
 import { useWatchListV2Action } from '../../../components/watchListHooksV2';
+import { mapRecommendTokensToWatchlistItems } from '../../../utils/mapRecommendTokensToWatchlistItems';
 import { getMarketRecommendContainerPaddingTop } from '../../layouts/mobileLayoutUtils';
 
 import { RecommendItem } from './RecommendItem';
@@ -100,6 +101,8 @@ export function MarketRecommendList({
   const [selectedTokens, setSelectedTokens] = useState<
     IMarketBasicConfigToken[]
   >(enableSelection ? defaultTokens : []);
+  const [isAdding, setIsAdding] = useState(false);
+  const isAddingRef = useRef(false);
 
   useEffect(() => {
     setSelectedTokens(enableSelection ? defaultTokens : []);
@@ -107,6 +110,9 @@ export function MarketRecommendList({
 
   const handleRecommendItemChange = useCallback(
     (checked: boolean, tokenKey: string) => {
+      if (isAddingRef.current) {
+        return;
+      }
       const token = uniqueTokens.find((t) => getTokenKey(t) === tokenKey);
       if (!token) return;
 
@@ -125,12 +131,13 @@ export function MarketRecommendList({
   );
 
   const handleAddTokens = useCallback(async () => {
-    if (enableSelection) {
-      const items = selectedTokens.map((token) => ({
-        chainId: token.chainId,
-        contractAddress: token.contractAddress,
-        isNative: token.isNative,
-      }));
+    if (!enableSelection || isAddingRef.current) {
+      return;
+    }
+    isAddingRef.current = true;
+    setIsAdding(true);
+    try {
+      const items = await mapRecommendTokensToWatchlistItems(selectedTokens);
 
       const added = await actions.addIntoWatchListV2(items);
       if (!added) {
@@ -150,6 +157,9 @@ export function MarketRecommendList({
       setTimeout(() => {
         setSelectedTokens(defaultTokens);
       }, 50);
+    } finally {
+      isAddingRef.current = false;
+      setIsAdding(false);
     }
   }, [actions, selectedTokens, defaultTokens, enableSelection]);
 
@@ -160,7 +170,8 @@ export function MarketRecommendList({
           testID="market-confirm-button-btn"
           width="100%"
           size="large"
-          disabled={!selectedTokens.length}
+          disabled={!selectedTokens.length || isAdding}
+          loading={isAdding}
           variant="primary"
           onPress={handleAddTokens}
         >
@@ -172,7 +183,7 @@ export function MarketRecommendList({
           )}
         </Button>
       ) : null,
-    [selectedTokens.length, handleAddTokens, intl, enableSelection],
+    [selectedTokens.length, handleAddTokens, intl, enableSelection, isAdding],
   );
 
   if (!uniqueTokens.length) {
@@ -216,6 +227,7 @@ export function MarketRecommendList({
                   key={tokenKey}
                   address={tokenKey}
                   checked={isChecked}
+                  disabled={isAdding}
                   icon={item.logo || ''}
                   symbol={item.symbol}
                   tokenName={item.name}
