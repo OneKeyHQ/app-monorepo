@@ -22057,6 +22057,7 @@
     "packages/kit/src/views/Market/router/types.ts": 2754,
     "packages/kit/src/views/Market/testIDs.ts": 14131,
     "packages/kit/src/views/Market/utils/legacyMarketNetwork.ts": 17261,
+    "packages/kit/src/views/Market/utils/mapRecommendTokensToWatchlistItems.ts": 14050,
     "packages/kit/src/views/Market/utils/marketBannerUtils.ts": 21399,
     "packages/kit/src/views/Market/utils/marketDetailNavigation.ts": 21253,
     "packages/kit/src/views/Market/utils/marketHomeTokenListSeed.ts": 18601,
