@@ -47,7 +47,7 @@ export function buildUiSnapshotRecordKey(namespace: string, key: string) {
 
 let databasePromise: Promise<IndexedDBPromised<unknown>> | undefined;
 let flushTimer: ReturnType<typeof setTimeout> | undefined;
-let flushPromise: Promise<void> | undefined;
+let flushPromise: Promise<boolean> | undefined;
 const dirtyKeys = new Set<string>();
 /** Namespaces waiting for a range delete: the records the map never held. */
 const dirtyNamespaces = new Set<string>();
@@ -122,20 +122,32 @@ function namespaceOfRecordKey(key: string) {
   return separator === -1 ? key : key.slice(0, separator);
 }
 
-/** Write every pending key. Deletes go in their own transaction, which is
- *  allowed to run when the quota is exhausted, and which runs even when the
- *  write before it failed — that is when it matters. */
-export function flushUiSnapshotStoreNow(): Promise<void> {
+/**
+ * Write every pending key. Deletes go in their own transaction, which is
+ * allowed to run when the quota is exhausted, and which runs even when the
+ * write before it failed — that is when it matters.
+ *
+ * Resolves `true` only when this batch reached the database. A failure is not
+ * thrown: the page is served from the map either way, and no caller can mend
+ * a database that will not open. But it is also not silence — a caller that
+ * waited in order to be sure (a wallet deletion, before the surface that asked
+ * for it can close) has to be able to tell a commit from a retry that is now
+ * scheduled on a timer this runtime may not live to see.
+ */
+export function flushUiSnapshotStoreNow(): Promise<boolean> {
   if (flushPromise) {
     // The in-flight flush took its key list when it started, so it does not
     // carry what the caller just wrote. Waiting on it alone would report the
     // caller's record durable while it is still only in the map. Chain a
     // second pass instead; it stops at the empty check below when there is
     // nothing left, so this is one extra flush, not a loop.
+    // The chained pass is the one that answers the caller: a failure in the
+    // flush ahead of it re-queued its keys, so they are in this pass's batch
+    // too and its verdict covers both.
     return flushPromise.then(() => flushUiSnapshotStoreNow());
   }
   if (dirtyKeys.size === 0 && dirtyNamespaces.size === 0) {
-    return Promise.resolve();
+    return Promise.resolve(true);
   }
   const keys = [...dirtyKeys];
   dirtyKeys.clear();
@@ -258,13 +270,14 @@ export function flushUiSnapshotStoreNow(): Promise<void> {
     }
     if (failedKeys.length === 0 && failedNamespaces.length === 0) {
       flushFailureStreak = 0;
-      return;
+      return true;
     }
     // Re-queue so the next flush tries again. A cache that cannot reach
     // disk still serves the page from the map.
     flushFailureStreak += 1;
     failedKeys.forEach((key) => dirtyKeys.add(key));
     failedNamespaces.forEach((namespace) => dirtyNamespaces.add(namespace));
+    return false;
   })().finally(() => {
     flushPromise = undefined;
     if (isClearing) {
