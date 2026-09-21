@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -101,6 +101,8 @@ export function MarketRecommendList({
   const [selectedTokens, setSelectedTokens] = useState<
     IMarketBasicConfigToken[]
   >(enableSelection ? defaultTokens : []);
+  const [isAdding, setIsAdding] = useState(false);
+  const isAddingRef = useRef(false);
 
   useEffect(() => {
     setSelectedTokens(enableSelection ? defaultTokens : []);
@@ -126,7 +128,12 @@ export function MarketRecommendList({
   );
 
   const handleAddTokens = useCallback(async () => {
-    if (enableSelection) {
+    if (!enableSelection || isAddingRef.current) {
+      return;
+    }
+    isAddingRef.current = true;
+    setIsAdding(true);
+    try {
       const items = await mapRecommendTokensToWatchlistItems(selectedTokens);
 
       const added = await actions.addIntoWatchListV2(items);
@@ -147,6 +154,9 @@ export function MarketRecommendList({
       setTimeout(() => {
         setSelectedTokens(defaultTokens);
       }, 50);
+    } finally {
+      isAddingRef.current = false;
+      setIsAdding(false);
     }
   }, [actions, selectedTokens, defaultTokens, enableSelection]);
 
@@ -157,7 +167,8 @@ export function MarketRecommendList({
           testID="market-confirm-button-btn"
           width="100%"
           size="large"
-          disabled={!selectedTokens.length}
+          disabled={!selectedTokens.length || isAdding}
+          loading={isAdding}
           variant="primary"
           onPress={handleAddTokens}
         >
@@ -169,7 +180,7 @@ export function MarketRecommendList({
           )}
         </Button>
       ) : null,
-    [selectedTokens.length, handleAddTokens, intl, enableSelection],
+    [selectedTokens.length, handleAddTokens, intl, enableSelection, isAdding],
   );
 
   if (!uniqueTokens.length) {

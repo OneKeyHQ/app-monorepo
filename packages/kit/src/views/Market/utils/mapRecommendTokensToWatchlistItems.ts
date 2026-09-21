@@ -1,8 +1,9 @@
+import pLimit from 'p-limit';
+
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
+import type { IMarketAssetVariant } from '@onekeyhq/shared/types/market';
 import type { IMarketBasicConfigToken } from '@onekeyhq/shared/types/marketV2';
-
-import { resolveMarketListingWatchlistIdentity } from './marketListingWatchlistIdentity';
 
 export type IRecommendWatchlistInput = Pick<
   IMarketBasicConfigToken,
@@ -105,38 +106,87 @@ function collectRecommendSymbols(tokens: IRecommendWatchlistInput[]) {
   );
 }
 
+function collectAssetListingIdentities({
+  assetId,
+  selectedVariant,
+  variants,
+}: {
+  assetId: string;
+  selectedVariant?: Pick<
+    IMarketAssetVariant,
+    'networkId' | 'tokenAddress' | 'isNative'
+  > | null;
+  variants?: Array<
+    | Pick<IMarketAssetVariant, 'networkId' | 'tokenAddress' | 'isNative'>
+    | null
+    | undefined
+  >;
+}): IRecommendListingIdentity[] {
+  const listings: IRecommendListingIdentity[] = [];
+  const seen = new Set<string>();
+  for (const variant of [selectedVariant, ...(variants ?? [])]) {
+    const contractAddress = variant?.tokenAddress ?? '';
+    const key = variant?.networkId
+      ? `${variant.networkId}:${contractAddress.toLowerCase()}`
+      : '';
+    const isUsable =
+      Boolean(key) &&
+      (Boolean(variant?.isNative) || Boolean(contractAddress.trim()));
+    if (isUsable && variant?.networkId && !seen.has(key)) {
+      seen.add(key);
+      listings.push({
+        assetId,
+        chainId: variant.networkId,
+        contractAddress,
+      });
+    }
+  }
+  return listings;
+}
+
+const resolveRecommendListingLimit = pLimit(4);
+
 async function loadRecommendListingIdentities(
   tokens: IRecommendWatchlistInput[],
 ): Promise<IRecommendListingIdentity[]> {
+  const symbols = collectRecommendSymbols(tokens);
+  if (symbols.size === 0) {
+    return [];
+  }
+
   const { list } = await backgroundApiProxy.serviceMarket.fetchMarketAssetList({
     currency: 'usd',
     type: 'top_coins',
     page: 1,
     limit: 100,
   });
-  const symbols = collectRecommendSymbols(tokens);
   const candidates = list.filter((item) =>
-    symbols.size === 0 ? true : symbols.has(item.symbol.toUpperCase()),
+    symbols.has(item.symbol.toUpperCase()),
   );
   const resolved = await Promise.all(
-    candidates.map(async (item) => {
-      const identity = await resolveMarketListingWatchlistIdentity(
-        'asset',
-        item.assetId,
-      );
-      if (!identity) {
-        return undefined;
-      }
-      return {
-        assetId: item.assetId,
-        chainId: identity.chainId,
-        contractAddress: identity.contractAddress,
-      };
-    }),
+    candidates.map((item) =>
+      resolveRecommendListingLimit(async () => {
+        try {
+          const detail =
+            await backgroundApiProxy.serviceMarket.fetchMarketAssetDetail({
+              assetId: item.assetId,
+              currency: 'usd',
+              autoHandleError: false,
+            });
+          return collectAssetListingIdentities({
+            assetId: item.assetId,
+            selectedVariant: detail.selectedVariant,
+            variants: detail.variants,
+          });
+        } catch {
+          // Keep listings that already resolved; one failed detail
+          // must not send the whole batch down the DEX fallback.
+          return [];
+        }
+      }),
+    ),
   );
-  return resolved.filter((item): item is IRecommendListingIdentity =>
-    Boolean(item),
-  );
+  return resolved.flat();
 }
 
 export async function mapRecommendTokensToWatchlistItems(

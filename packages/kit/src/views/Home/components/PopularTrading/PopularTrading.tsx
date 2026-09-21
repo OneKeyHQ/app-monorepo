@@ -52,6 +52,7 @@ import { CategorySelector } from '../../../Market/MarketHomeV2/components/Catego
 import { getNativeTokenInfo } from '../../../Market/MarketHomeV2/components/MarketTokenList/utils/tokenListHelpers';
 import { useMarketTopCoinResolver } from '../../../Market/MarketHomeV2/components/MarketTopCoinsList/hooks/useMarketTopCoins';
 import { EMarketHomeTab } from '../../../Market/MarketHomeV2/types';
+import { mapRecommendTokensToWatchlistItems } from '../../../Market/utils/mapRecommendTokensToWatchlistItems';
 import { openOrReplaceMarketDetailRoute } from '../../../Market/utils/marketDetailNavigation';
 import { RichBlock } from '../RichBlock/RichBlock';
 import { RichTable } from '../RichTable';
@@ -220,8 +221,10 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
     FAVORITES_CATEGORY_ID,
   );
 
+  const [isAdding, setIsAdding] = useState(false);
   const initializedRef = useRef(false);
   const hasShownCategorySelectorRef = useRef(false);
+  const isAddingRef = useRef(false);
   const refreshDataRef = useRef<() => Promise<void>>(async () => {});
   const handleRemoveFromWatchlistRef = useRef<
     (record: IFavoriteTokenDisplay) => void
@@ -787,13 +790,17 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
 
   // Handle add tokens button press
   const handleAddTokens = useCallback(async () => {
-    if (selectedTokens.length === 0) return;
+    if (selectedTokens.length === 0 || isAddingRef.current) {
+      return;
+    }
+    isAddingRef.current = true;
+    setIsAdding(true);
 
     try {
-      const nextWatchListItems = selectedTokens.map((token, index) => ({
-        chainId: token.chainId,
-        contractAddress: token.contractAddress,
-        isNative: token.isNative,
+      const mappedItems =
+        await mapRecommendTokensToWatchlistItems(selectedTokens);
+      const nextWatchListItems = mappedItems.map((item, index) => ({
+        ...item,
         sortIndex: 1000 - (index + 1),
       }));
 
@@ -829,6 +836,9 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
           id: ETranslations.global_an_error_occurred,
         }),
       });
+    } finally {
+      isAddingRef.current = false;
+      setIsAdding(false);
     }
   }, [selectedTokens, intl, refreshData]);
 
@@ -1185,7 +1195,8 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
         testID="home-header-actions-btn"
         size="small"
         variant="secondary"
-        disabled={selectedTokens.length === 0}
+        disabled={selectedTokens.length === 0 || isAdding}
+        loading={isAdding}
         onPress={handleAddTokens}
       >
         {intl.formatMessage(
@@ -1194,7 +1205,7 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
         )}
       </Button>
     ),
-    [selectedTokens.length, handleAddTokens, intl],
+    [selectedTokens.length, handleAddTokens, intl, isAdding],
   );
 
   const renderContent = useCallback(() => {

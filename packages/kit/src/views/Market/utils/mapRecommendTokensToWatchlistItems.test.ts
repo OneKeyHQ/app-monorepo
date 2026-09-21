@@ -1,10 +1,12 @@
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+
 import {
   mapRecommendTokensToWatchlistItems,
   matchRecommendTokenAssetId,
 } from './mapRecommendTokensToWatchlistItems';
 
 const mockAssetList = jest.fn();
-const mockResolveIdentity = jest.fn();
+const mockAssetDetail = jest.fn();
 
 jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
   __esModule: true,
@@ -12,13 +14,10 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
     serviceMarket: {
       fetchMarketAssetList: (...args: unknown[]): unknown =>
         mockAssetList(...args),
+      fetchMarketAssetDetail: (...args: unknown[]): unknown =>
+        mockAssetDetail(...args),
     },
   },
-}));
-
-jest.mock('./marketListingWatchlistIdentity', () => ({
-  resolveMarketListingWatchlistIdentity: (...args: unknown[]): unknown =>
-    mockResolveIdentity(...args),
 }));
 
 const btc = {
@@ -76,9 +75,13 @@ it('keeps unmatched recommend tokens as dex identities', async () => {
   mockAssetList.mockResolvedValue({
     list: [{ assetId: 'btc', symbol: 'BTC' }],
   });
-  mockResolveIdentity.mockResolvedValue({
-    chainId: 'btc--0',
-    contractAddress: '',
+  mockAssetDetail.mockResolvedValue({
+    selectedVariant: {
+      networkId: 'btc--0',
+      tokenAddress: '',
+      isNative: true,
+    },
+    variants: [],
   });
   await expect(
     mapRecommendTokensToWatchlistItems([btc, aster]),
@@ -90,7 +93,11 @@ it('keeps unmatched recommend tokens as dex identities', async () => {
       isNative: false,
     },
   ]);
-  expect(mockResolveIdentity).toHaveBeenCalledWith('asset', 'btc');
+  expect(mockAssetDetail).toHaveBeenCalledWith({
+    assetId: 'btc',
+    currency: 'usd',
+    autoHandleError: false,
+  });
 });
 
 it('persists explicit listing identities without fetching top coins', async () => {
@@ -141,6 +148,91 @@ it('returns an empty list when nothing is selected', async () => {
   await expect(mapRecommendTokensToWatchlistItems([])).resolves.toEqual([]);
 });
 
+it('keeps resolved listings when another asset detail fails', async () => {
+  mockAssetList.mockResolvedValue({
+    list: [
+      { assetId: 'btc', symbol: 'BTC' },
+      { assetId: 'eth', symbol: 'ETH' },
+    ],
+  });
+  mockAssetDetail.mockImplementation(
+    async ({ assetId }: { assetId: string }) => {
+      if (assetId === 'eth') {
+        throw new OneKeyLocalError('offline');
+      }
+      return {
+        selectedVariant: {
+          networkId: 'btc--0',
+          tokenAddress: '',
+          isNative: true,
+        },
+        variants: [],
+      };
+    },
+  );
+  await expect(
+    mapRecommendTokensToWatchlistItems([
+      btc,
+      {
+        chainId: 'evm--1',
+        contractAddress: '',
+        isNative: false,
+        symbol: 'ETH',
+      },
+    ]),
+  ).resolves.toEqual([
+    { chainId: '', contractAddress: '', assetId: 'btc' },
+    {
+      chainId: 'evm--1',
+      contractAddress: '',
+      isNative: false,
+    },
+  ]);
+});
+
+it('maps a recommend token through a non-default asset variant', async () => {
+  mockAssetList.mockResolvedValue({
+    list: [{ assetId: 'aster', symbol: 'ASTER' }],
+  });
+  mockAssetDetail.mockResolvedValue({
+    selectedVariant: {
+      networkId: 'evm--1',
+      tokenAddress: '0xdefault',
+      isNative: false,
+    },
+    variants: [
+      {
+        networkId: aster.chainId,
+        tokenAddress: aster.contractAddress,
+        isNative: false,
+      },
+    ],
+  });
+  await expect(mapRecommendTokensToWatchlistItems([aster])).resolves.toEqual([
+    { chainId: '', contractAddress: '', assetId: 'aster' },
+  ]);
+});
+
+it('skips the top-coin scan when selected tokens have no symbols', async () => {
+  await expect(
+    mapRecommendTokensToWatchlistItems([
+      {
+        chainId: 'btc--0',
+        contractAddress: '',
+        isNative: false,
+      },
+    ]),
+  ).resolves.toEqual([
+    {
+      chainId: 'btc--0',
+      contractAddress: '',
+      isNative: false,
+    },
+  ]);
+  expect(mockAssetList).not.toHaveBeenCalled();
+  expect(mockAssetDetail).not.toHaveBeenCalled();
+});
+
 it('only resolves top coins whose symbol matches the selection', async () => {
   mockAssetList.mockResolvedValue({
     list: [
@@ -148,11 +240,19 @@ it('only resolves top coins whose symbol matches the selection', async () => {
       { assetId: 'sol', symbol: 'SOL' },
     ],
   });
-  mockResolveIdentity.mockResolvedValue({
-    chainId: 'btc--0',
-    contractAddress: '',
+  mockAssetDetail.mockResolvedValue({
+    selectedVariant: {
+      networkId: 'btc--0',
+      tokenAddress: '',
+      isNative: true,
+    },
+    variants: [],
   });
   await mapRecommendTokensToWatchlistItems([btc]);
-  expect(mockResolveIdentity).toHaveBeenCalledTimes(1);
-  expect(mockResolveIdentity).toHaveBeenCalledWith('asset', 'btc');
+  expect(mockAssetDetail).toHaveBeenCalledTimes(1);
+  expect(mockAssetDetail).toHaveBeenCalledWith({
+    assetId: 'btc',
+    currency: 'usd',
+    autoHandleError: false,
+  });
 });
