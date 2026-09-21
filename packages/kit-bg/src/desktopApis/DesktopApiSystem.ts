@@ -307,10 +307,6 @@ class DesktopApiSystem {
     safelyBrowserWindow?.reload();
   }
 
-  async getHardwareAccelerationEnabled(): Promise<boolean> {
-    return !store.getDisableHardwareAcceleration();
-  }
-
   async restartApp(options?: { resetDesktopStore?: boolean }): Promise<void> {
     if (options?.resetDesktopStore) {
       globalThis.$desktopMainAppFunctions?.prepareForAppReset?.();
@@ -330,19 +326,6 @@ class DesktopApiSystem {
     } else {
       app.exit(0);
     }
-  }
-
-  async setHardwareAccelerationEnabled(enabled: boolean): Promise<void> {
-    if (typeof enabled !== 'boolean') {
-      throw new OneKeyLocalError(
-        'setHardwareAccelerationEnabled: enabled must be a boolean',
-      );
-    }
-
-    store.setDisableHardwareAcceleration(!enabled);
-    logger.info('Hardware acceleration preference changed', { enabled });
-
-    await this.restartApp();
   }
 
   async quitApp(): Promise<void> {

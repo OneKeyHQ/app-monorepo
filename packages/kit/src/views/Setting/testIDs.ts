@@ -75,7 +75,6 @@ export const SettingTestIDs = {
     'setting-tab-use-gas-account-by-default-switch',
   tabSplitViewSwitch: 'setting-tab-split-view-switch',
   tabHapticFeedbackSwitch: 'setting-tab-haptic-feedback-switch',
-  tabHardwareAccelerationSwitch: 'setting-tab-hardware-acceleration-switch',
 
   // Dev split bundle test page
   devSplitBundleRefreshBtn: 'setting-dev-split-bundle-refresh-btn',

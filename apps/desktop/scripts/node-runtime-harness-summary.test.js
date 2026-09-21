@@ -16,7 +16,7 @@ const createPassingReport = () => ({
   driftsAfterAppInit: [],
   driftsAfterRepair: [],
   driftsBeforeRepair: [],
-  electron: '43.2.0',
+  electron: '43.1.1',
   isPackaged: true,
   node: '24.18.0',
   nodeRuntimeCheckNames: ['global.Buffer', 'node:fs.readFile'],
