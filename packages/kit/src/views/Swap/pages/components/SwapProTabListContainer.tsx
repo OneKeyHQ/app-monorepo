@@ -269,11 +269,23 @@ const SwapProTabListContainer = memo(
                 "Current tokens" toggle here, and the list shows every order
                 regardless of the shared current-symbol filter. Swap & Bridge
                 and Pro share this surface, so they clear the same (non-stock)
-                dataset. */}
+                dataset. The toggle still keeps its space, so every tab starts
+                its list at the same offset and switching tabs cannot move the
+                list or its empty state. */}
+            <YStack
+              opacity={0}
+              pointerEvents="none"
+              aria-hidden
+              accessibilityElementsHidden
+              importantForAccessibility="no-hide-descendants"
+            >
+              <SwapProCurrentSymbolEnable />
+            </YStack>
             {shouldRenderListContent ? (
               <XStack mx="$-6">
                 <SwapMarketHistoryList
                   isPushModal
+                  padded={false}
                   firstSectionRightAction={
                     <SwapHistoryClearButton
                       scope="swap"

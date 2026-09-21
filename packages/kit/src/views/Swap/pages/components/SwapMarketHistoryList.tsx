@@ -51,6 +51,11 @@ interface ISwapMarketHistoryListProps {
   isPushModal?: boolean;
   filterToken?: ISwapToken[];
   protocol?: EProtocolOfExchange;
+  // Whether the list keeps its own vertical padding. Swap Pro's tab container
+  // reserves the shared tab-bar offset for every tab, so it turns the padding
+  // off to keep this list level with the sibling tabs instead of adding a
+  // second offset that would move the list and its empty state.
+  padded?: boolean;
   // Rendered on the right of the FIRST section header (the latest date / pending
   // row), so a list-level action like Clear shares the date's row instead of
   // taking a dedicated line above the list.
@@ -61,6 +66,7 @@ const SwapMarketHistoryList = ({
   showType,
   filterToken,
   isPushModal,
+  padded = true,
   protocol,
   firstSectionRightAction,
 }: ISwapMarketHistoryListProps) => {
@@ -221,7 +227,7 @@ const SwapMarketHistoryList = ({
       key={`swap-history-${swapHistoryAlertDismissed ? 'dismissed' : 'shown'}`}
       renderItem={renderItem}
       sections={sectionData}
-      py="$2"
+      py={padded ? '$2' : undefined}
       renderSectionHeader={({ section }) => {
         const { title, status } = section;
         // Section titles are unique (per-day dates + a single "Pending"), so
