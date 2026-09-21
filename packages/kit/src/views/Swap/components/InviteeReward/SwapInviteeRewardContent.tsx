@@ -1,12 +1,19 @@
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
-import { Button, SizableText, YStack } from '@onekeyhq/components';
+import {
+  Button,
+  Divider,
+  ScrollView,
+  SizableText,
+  YStack,
+} from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { InviteeRewardNoWallet } from '@onekeyhq/kit/src/views/ReferFriends/components/InviteeRewardNoWallet';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
+import { RewardHistoryList } from './components/RewardHistoryList';
 import { RewardSummaryCard } from './components/RewardSummaryCard';
 import { loadSwapInviteeReward } from './utils';
 
@@ -44,6 +51,7 @@ export function SwapInviteeRewardContent({
   isMobile,
   onBeforeNavigate,
 }: ISwapInviteeRewardContentProps) {
+  const intl = useIntl();
   const { result, isLoading, run } = usePromiseResult(
     async () => {
       if (!accountId || !currentEvmAddress) {
@@ -99,6 +107,19 @@ export function SwapInviteeRewardContent({
         undistributed={data?.undistributed}
         tokenSymbol={data?.token.symbol}
       />
+      <Divider />
+      <YStack gap="$2">
+        <SizableText size="$headingSm">
+          {intl.formatMessage({
+            id: ETranslations.referral_reward_history,
+          })}
+        </SizableText>
+        <RewardHistoryList
+          key={`${accountId}:${currentEvmAddress}`}
+          isLoading={showLoading}
+          history={data?.history}
+        />
+      </YStack>
     </YStack>
   );
 
@@ -110,5 +131,9 @@ export function SwapInviteeRewardContent({
     );
   }
 
-  return content;
+  return (
+    <ScrollView minHeight={350} maxHeight={500}>
+      {content}
+    </ScrollView>
+  );
 }

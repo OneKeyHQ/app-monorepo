@@ -64,6 +64,7 @@ import type { IOneKeyError } from '../errors/types/errorTypes';
 import type { EModalRoutes, ETabRoutes, IWebViewPageParams } from '../routes';
 import type { INativeStorageContractViolation } from '../storage/nativeStorageTypes';
 import type { IStorageFullDiagnostics } from '../storageChecker/types';
+import type { IPortfolioCategoryFiat } from '../utils/portfolioPayload';
 import type { IWalletConnectSession } from '../walletConnect/types';
 import type { DeviceStateEvent } from '@onekeyfe/hd-core';
 import type { FuseResult } from 'fuse.js';
@@ -403,6 +404,8 @@ export interface IAppEventBusPayload {
     networkId?: string;
     ownerAccountId?: string;
     ownerNetworkId?: string;
+    homeTotalFiatUsd?: string;
+    homeCategoryFiatUsd?: IPortfolioCategoryFiat;
     totalFiat: string;
     totalFiatCurrency: string;
     totalTokenCount: number;
@@ -742,6 +745,19 @@ export interface IAppEventBusPayload {
   [EAppEventBusNames.HomePageReady]: undefined;
   [EAppEventBusNames.ModalNavigatorMounted]: undefined;
   [EAppEventBusNames.TrayActionWillNavigate]: undefined;
+  /**
+   * Keys the other runtime dropped from the SWR cache.
+   *
+   * Only removals travel. A write becomes visible on its own: the runtime that
+   * has not seen the key reads through to the file on its next miss. A removal
+   * cannot — the copy in memory is a hit, so nothing goes back to the file, and
+   * a deleted wallet would keep painting until the app restarts.
+   */
+  [EAppEventBusNames.SwrCacheInvalidated]: {
+    keys?: string[];
+    prefixes?: string[];
+    clearedAll?: boolean;
+  };
   [EAppEventBusNames.MemoryPressureWarning]: {
     /** 'low' (Android only) or 'critical' (iOS + Android). See native spec. */
     level: 'low' | 'critical';

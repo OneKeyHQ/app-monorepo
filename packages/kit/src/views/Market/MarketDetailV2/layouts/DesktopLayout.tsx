@@ -36,6 +36,11 @@ import {
 } from '../hooks/useTokenDetail';
 import { getMarketDetailTradingViewNativeSource } from '../utils/getMarketDetailTradingViewNativeSource';
 import { getMarketStockChartPreviousClose } from '../utils/marketStockPreviousClose';
+import {
+  hasMarketContractAddress,
+  isMarketTokenDecimalsReady,
+  isMatchingMarketTokenIdentity,
+} from '../utils/marketTokenIdentity';
 
 import { StockDesktopLayout } from './StockDesktopLayout';
 import { TokenDesktopLayout } from './TokenDesktopLayout';
@@ -127,6 +132,7 @@ function useIframeWheelPassthrough({
 }
 
 export interface IDesktopLayoutProps {
+  active?: boolean;
   isChartFullscreen: boolean;
   isTradingViewNative: boolean;
   onChartSwitch: () => void;
@@ -144,6 +150,7 @@ export interface IDesktopLayoutProps {
 }
 
 export function DesktopLayout({
+  active,
   isChartFullscreen,
   isTradingViewNative,
   onChartSwitch,
@@ -249,14 +256,18 @@ export function DesktopLayout({
     ? (displayTokenDetail?.decimals ?? 0)
     : 0;
 
+  const genericHasSwapContract = hasMarketContractAddress(
+    displayTokenDetail?.address,
+  );
+  const genericSwapContractAddress = genericHasSwapContract
+    ? displayTokenDetail?.address || ''
+    : '';
   const swapToken = useMemo(
     () => ({
       networkId: selectedTokenVariant?.networkId || networkId,
       contractAddress: shouldUseStockDesktopLayout
         ? stockTokenAddress
-        : displayTokenDetail?.address ||
-          selectedTokenVariant?.contractAddress ||
-          '',
+        : genericSwapContractAddress,
       symbol: shouldUseStockDesktopLayout
         ? selectedTokenVariant?.symbol ||
           (stockDisplayMatchesVariant ? displayTokenDetail?.symbol : '') ||
@@ -273,18 +284,24 @@ export function DesktopLayout({
         ? selectedTokenVariant?.price ||
           (stockDisplayMatchesVariant ? displayTokenDetail?.price : undefined)
         : displayTokenDetail?.price || selectedTokenVariant?.price,
-      isNative,
+      isNative: shouldUseStockDesktopLayout
+        ? isNative
+        : Boolean(displayTokenDetail?.isNative) ||
+          isNative ||
+          !genericHasSwapContract,
       isStock: shouldUseStockDesktopLayout,
     }),
     [
       networkId,
       selectedTokenVariant,
       stockTokenAddress,
-      displayTokenDetail?.address,
+      genericHasSwapContract,
+      genericSwapContractAddress,
       displayTokenDetail?.symbol,
       displayTokenDetail?.decimals,
       displayTokenDetail?.logoUrl,
       displayTokenDetail?.price,
+      displayTokenDetail?.isNative,
       isNative,
       shouldUseStockDesktopLayout,
       stockDisplayMatchesVariant,
@@ -306,15 +323,20 @@ export function DesktopLayout({
       }`;
   const isSwapTokenIdentityReady = shouldUseStockDesktopLayout
     ? stockDisplayMatchesVariant
-    : displayTokenDetail?.address?.toLowerCase() ===
-        tokenAddress.toLowerCase() &&
-      displayTokenDetail?.networkId === networkId;
-  const isSwapTokenReady =
-    Boolean(isSwapTokenIdentityReady) &&
-    displayTokenDetail?.decimalsResolved !== false &&
-    typeof displayTokenDetail?.decimals === 'number' &&
-    Number.isInteger(displayTokenDetail.decimals) &&
-    displayTokenDetail.decimals >= 0;
+    : Boolean(
+        displayTokenDetail &&
+        isMatchingMarketTokenIdentity(displayTokenDetail, {
+          tokenAddress,
+          networkId,
+          isNative,
+        }),
+      );
+  // Generic tokens show the trade panel once identity matches. Stock still
+  // uses decimal readiness so the embedded Swap can show its own skeleton.
+  const isSwapTokenReady = shouldUseStockDesktopLayout
+    ? Boolean(isSwapTokenIdentityReady) &&
+      isMarketTokenDecimalsReady(displayTokenDetail)
+    : Boolean(isSwapTokenIdentityReady);
   const isTerminalStockTradeUnavailable =
     shouldUseStockDesktopLayout &&
     !selectedTokenVariant &&
@@ -560,6 +582,7 @@ export function DesktopLayout({
         style={SCROLL_CONTAINER_STYLE}
       >
         <StockDesktopLayout
+          active={active}
           marketTradingView={marketTradingView}
           swapToken={swapToken}
           swapInputDraftKey={swapInputDraftKey}
@@ -587,6 +610,7 @@ export function DesktopLayout({
         style={SCROLL_CONTAINER_STYLE}
       >
         <TopCoinsDesktopLayout
+          active={active}
           marketTradingView={marketTradingView}
           swapToken={swapToken}
           swapInputDraftKey={swapInputDraftKey}
@@ -617,6 +641,7 @@ export function DesktopLayout({
       style={SCROLL_CONTAINER_STYLE}
     >
       <TokenDesktopLayout
+        active={active}
         marketTradingView={marketTradingView}
         swapToken={swapToken}
         swapInputDraftKey={swapInputDraftKey}
