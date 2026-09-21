@@ -1,6 +1,9 @@
 import { EHardwareVendor } from '@onekeyhq/shared/types/device';
 
-import { resolveOperationReleaseForAttempt } from './finalizeWalletSetupOperationUtils';
+import {
+  FinalizeWalletSetupAttempts,
+  resolveOperationReleaseForAttempt,
+} from './finalizeWalletSetupOperationUtils';
 
 const ownOperation = {
   vendor: EHardwareVendor.ledger,
@@ -80,5 +83,39 @@ describe('resolveOperationReleaseForAttempt', () => {
       operationToRelease: undefined,
       shouldClearActiveOperation: false,
     });
+  });
+});
+
+describe('FinalizeWalletSetupAttempts', () => {
+  it('does not let an old completion hide the current first contact', () => {
+    const attempts = new FinalizeWalletSetupAttempts();
+    const first = attempts.begin();
+    attempts.startFirstContact(first);
+    const second = attempts.begin();
+    attempts.startFirstContact(second);
+    attempts.finishFirstContact(first);
+    expect(attempts.isCurrent(first)).toBe(false);
+    expect(attempts.isCurrent(second)).toBe(true);
+    expect(attempts.invalidate()).toBe(true);
+    expect(attempts.isCurrent(second)).toBe(false);
+  });
+
+  it('does not cancel a newer operation after its first contact completed', () => {
+    const attempts = new FinalizeWalletSetupAttempts();
+    const first = attempts.begin();
+    const second = attempts.begin();
+    attempts.startFirstContact(second);
+    attempts.finishFirstContact(second);
+    attempts.startFirstContact(first);
+    expect(attempts.invalidate()).toBe(false);
+  });
+
+  it('invalidates late results after unmount without cancelling completed work', () => {
+    const attempts = new FinalizeWalletSetupAttempts();
+    const first = attempts.begin();
+    attempts.startFirstContact(first);
+    attempts.finishFirstContact(first);
+    expect(attempts.invalidate()).toBe(false);
+    expect(attempts.isCurrent(first)).toBe(false);
   });
 });
