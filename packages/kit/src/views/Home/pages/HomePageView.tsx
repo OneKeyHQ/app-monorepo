@@ -74,8 +74,8 @@ import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { runAfterTokensDone } from '../../../hooks/useRunAfterTokensDone';
 import { useShortcutsOnRouteFocused } from '../../../hooks/useShortcutsOnRouteFocused';
 import {
+  buildOverviewOwnerKey,
   useAccountOverviewActions,
-  useApprovalsInfoAtom,
 } from '../../../states/jotai/contexts/accountOverview';
 import {
   useAccountSelectorStorageInitDoneAtom,
@@ -343,11 +343,11 @@ export function HomePageView({
     },
   );
 
-  const [{ hasRiskApprovals }] = useApprovalsInfoAtom();
+  const approvalOwnerKey = buildOverviewOwnerKey(account?.id, network?.id);
   const { updateApprovalsInfo } = useAccountOverviewActions().current;
   const tabsRef = useRef<ITabContainerRef | null>(null);
   const homeTabsScrollToTopRef = useRef<(() => void) | undefined>(undefined);
-  // Keep the measured native tab bar height outside the account-keyed container
+  // Keep the measured native tab bar height outside the tab container
   // so remounts do not briefly reserve the library's default 48pt height.
   const nativeTabBarHeightRef = useRef<number | undefined>(undefined);
   const nativeTabBarContainerStyle = useMemo(
@@ -386,11 +386,6 @@ export function HomePageView({
       };
     }, []),
   );
-
-  const hasRiskApprovalsRef = useRef(hasRiskApprovals);
-  useEffect(() => {
-    hasRiskApprovalsRef.current = hasRiskApprovals;
-  }, [hasRiskApprovals]);
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const addressType = deriveInfo?.labelKey
@@ -482,9 +477,11 @@ export function HomePageView({
     let cancelled = false;
 
     // Keep the red-dot state from becoming stale across account/network switches.
-    if (hasRiskApprovalsRef.current) {
-      updateApprovalsInfo({ hasRiskApprovals: false, riskApprovalsCount: 0 });
-    }
+    updateApprovalsInfo({
+      ownerKey: approvalOwnerKey,
+      hasRiskApprovals: false,
+      riskApprovalsCount: 0,
+    });
 
     const run = async (_trigger: string) => {
       if (!isBulkRevokeApprovalEnabled) return;
@@ -506,6 +503,7 @@ export function HomePageView({
           (i) => i.isRiskContract,
         );
         updateApprovalsInfo({
+          ownerKey: approvalOwnerKey,
           hasRiskApprovals: riskApprovals.length > 0,
           riskApprovalsCount: riskApprovals.length,
         });
@@ -535,6 +533,7 @@ export function HomePageView({
   }, [
     account?.address,
     account?.id,
+    approvalOwnerKey,
     indexedAccount?.id,
     isBulkRevokeApprovalEnabled,
     network?.id,

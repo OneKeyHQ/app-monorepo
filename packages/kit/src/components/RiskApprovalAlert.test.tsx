@@ -26,6 +26,7 @@ const mockSetVisibilityResult = jest.fn();
 const mockConsoleError = jest.fn<void, [message: string, error: unknown]>();
 let mockAlertProps: IMockAlertProps | undefined;
 let mockHasRiskApprovals = true;
+let mockApprovalsOwnerKey = 'account-1__evm--1';
 let mockVisibilityMethod: (() => Promise<unknown>) | undefined;
 let mockVisibilityOptions: IMockVisibilityOptions | undefined;
 let mockVisibilityResult:
@@ -115,6 +116,7 @@ jest.mock('../hooks/usePromiseResult', () => ({
 jest.mock('../states/jotai/contexts/accountOverview', () => ({
   useApprovalsInfoAtom: () => [
     {
+      ownerKey: mockApprovalsOwnerKey,
       hasRiskApprovals: mockHasRiskApprovals,
       riskApprovalsCount: 2,
     },
@@ -156,6 +158,7 @@ describe('RiskApprovalAlert', () => {
     jest.clearAllMocks();
     mockAlertProps = undefined;
     mockHasRiskApprovals = true;
+    mockApprovalsOwnerKey = 'account-1__evm--1';
     mockVisibilityMethod = undefined;
     mockVisibilityOptions = undefined;
     mockVisibilityResult = {
@@ -278,6 +281,14 @@ describe('RiskApprovalAlert', () => {
       networkId: 'evm--1',
       shouldShow: true,
     };
+
+    render(<RiskApprovalAlert />);
+
+    expect(mockAlertProps).toBeUndefined();
+  });
+
+  it('does not render approvals owned by the previous account', () => {
+    mockApprovalsOwnerKey = 'account-2__evm--1';
 
     render(<RiskApprovalAlert />);
 

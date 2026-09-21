@@ -1,3 +1,4 @@
+import { CanceledError } from 'axios';
 import BigNumber from 'bignumber.js';
 import { debounce, isNil, uniq, uniqBy } from 'lodash';
 
@@ -95,11 +96,22 @@ class ServiceToken extends ServiceBase {
   }
 
   @backgroundMethod()
-  public async abortFetchAccountTokens(options?: { excludedFlags?: string[] }) {
+  public async abortFetchAccountTokens(options?: {
+    excludedFlags?: string[];
+    includedFlags?: string[];
+  }) {
     const excludedFlags = options?.excludedFlags ?? [];
+    const includedFlags = options?.includedFlags ?? [];
     const nextControllers: IFetchAccountTokensController[] = [];
 
     this._fetchAccountTokensControllers.forEach((item) => {
+      if (
+        includedFlags.length > 0 &&
+        (!item.flag || !includedFlags.includes(item.flag))
+      ) {
+        nextControllers.push(item);
+        return;
+      }
       if (item.flag && excludedFlags.includes(item.flag)) {
         nextControllers.push(item);
         return;
@@ -222,6 +234,25 @@ class ServiceToken extends ServiceBase {
       dbAccount?: IDBAccount;
     },
   ): Promise<IFetchAccountTokensResp> {
+    const controller = new AbortController();
+    this._fetchAccountTokensControllers.push({
+      controller,
+      flag: params.flag,
+    });
+    try {
+      return await this.fetchAccountTokensInternal(params, controller);
+    } finally {
+      this.removeFetchAccountTokensController(controller);
+    }
+  }
+
+  private async fetchAccountTokensInternal(
+    params: IFetchAccountTokensParams & {
+      mergeTokens?: boolean;
+      dbAccount?: IDBAccount;
+    },
+    controller: AbortController,
+  ): Promise<IFetchAccountTokensResp> {
     const {
       mergeTokens,
       flag,
@@ -240,6 +271,11 @@ class ServiceToken extends ServiceBase {
       ...rest
     } = params;
     const { networkId } = rest;
+    const throwIfRequestAborted = () => {
+      if (controller.signal.aborted) {
+        throw new CanceledError('fetchAccountTokens canceled');
+      }
+    };
 
     // All-network flows must fan out per real network before reaching this
     // method; the wallet API always rejects the all-network mock id, so a
@@ -280,6 +316,7 @@ class ServiceToken extends ServiceBase {
       this.backgroundApi.serviceAccount.getAccountXpub(accountParams),
       this.backgroundApi.serviceAccount.getAccountAddressForApi(accountParams),
     ]);
+    throwIfRequestAborted();
     if (!accountAddress && !xpub) {
       console.log(
         `fetchAccountTokens ERROR: accountAddress and xpub are both empty`,
@@ -295,6 +332,7 @@ class ServiceToken extends ServiceBase {
         getAccountXpubFn: async () => xpub,
         getAccountAddressFn: async () => accountAddress,
       });
+    throwIfRequestAborted();
 
     /* eslint-disable prefer-const */
     let [
@@ -342,6 +380,7 @@ class ServiceToken extends ServiceBase {
       }),
       this.backgroundApi.serviceToken.getAllAggregateTokenInfo(),
     ]);
+    throwIfRequestAborted();
     /* eslint-enable prefer-const */
 
     if (aggregateCustomTokens?.length > 0) {
@@ -383,11 +422,6 @@ class ServiceToken extends ServiceBase {
     rest.blockedTokens = blockedTokens;
 
     // const client = await this.getClient(EServiceEndpointEnum.Wallet);
-    const controller = new AbortController();
-    this._fetchAccountTokensControllers.push({
-      controller,
-      flag,
-    });
     // const resp = await client.post<{
     //   data: IFetchAccountTokensResp;
     // }>(
@@ -411,36 +445,34 @@ class ServiceToken extends ServiceBase {
       accountId,
       networkId,
     });
+    throwIfRequestAborted();
     const requestCurrency =
       (await settingsPersistAtom.get())?.currencyInfo?.id ?? USD_CURRENCY_ID;
+    throwIfRequestAborted();
 
-    const resp = await (async () => {
-      try {
-        return await vault.fetchTokenList({
-          accountId,
-          requestApiParams: {
-            ...rest,
-            accountAddress,
-            xpub,
-            isAllNetwork: isAllNetworks,
-            isForceRefresh: isManualRefresh,
-          },
-          flag,
-          signal: controller.signal,
-          // Pin the server pricing currency at capture time — the axios
-          // interceptor would otherwise re-read settings.currencyInfo.id at send
-          // time, and a mid-flight currency switch would tag the cache wrongly.
-          requestCurrency,
-        });
-      } finally {
-        this.removeFetchAccountTokensController(controller);
-      }
-    })();
+    const resp = await vault.fetchTokenList({
+      accountId,
+      requestApiParams: {
+        ...rest,
+        accountAddress,
+        xpub,
+        isAllNetwork: isAllNetworks,
+        isForceRefresh: isManualRefresh,
+      },
+      flag,
+      signal: controller.signal,
+      // Pin the server pricing currency at capture time — the axios
+      // interceptor would otherwise re-read settings.currencyInfo.id at send
+      // time, and a mid-flight currency switch would tag the cache wrongly.
+      requestCurrency,
+    });
+    throwIfRequestAborted();
 
     const resolvedCurrency = await this.normalizeTokensRespToUsd(
       resp.data.data,
       requestCurrency,
     );
+    throwIfRequestAborted();
 
     let allTokens: ITokenData | undefined;
 
@@ -549,6 +581,7 @@ class ServiceToken extends ServiceBase {
       resp.data.data.allTokens = allTokens;
     }
 
+    throwIfRequestAborted();
     if (saveToLocal) {
       let tokenListValue = new BigNumber(0);
       tokenListValue = tokenListValue

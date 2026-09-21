@@ -68,8 +68,28 @@ jest.mock('@onekeyhq/kit/src/hooks/useRouteIsFocused', () => {
     return v;
   };
 
+  const useRouteIsFocusedWhenEnabled = ({ enabled }: { enabled: boolean }) => {
+    const [v, setV] = ReactModule.useState<boolean>(
+      enabled ? currentFocus : true,
+    );
+    ReactModule.useEffect(() => {
+      if (!enabled) {
+        setV(true);
+        return undefined;
+      }
+      listeners.push(setV);
+      setV(currentFocus);
+      return () => {
+        const idx = listeners.indexOf(setV);
+        if (idx >= 0) listeners.splice(idx, 1);
+      };
+    }, [enabled]);
+    return v;
+  };
+
   return {
     useRouteIsFocused,
+    useRouteIsFocusedWhenEnabled,
     __setFocus,
     __resetFocus,
   };
@@ -1283,6 +1303,30 @@ describe('usePromiseResult', () => {
         expect(result.current.result).toBe('data');
       });
       expect(method).toHaveBeenCalledTimes(1);
+    });
+
+    it('does not subscribe to route focus when checkIsFocused is false', async () => {
+      const method = jest.fn(async () => 'data');
+      let renderCount = 0;
+
+      const { result } = renderHook(() => {
+        renderCount += 1;
+        return usePromiseResult(method, [method], {
+          checkIsFocused: false,
+          initResult: 'init',
+        });
+      });
+
+      await waitFor(() => {
+        expect(result.current.result).toBe('data');
+      });
+      const renderCountBeforeFocusChange = renderCount;
+
+      act(() => {
+        focusControl.__setFocus(false);
+      });
+
+      expect(renderCount).toBe(renderCountBeforeFocusChange);
     });
 
     it('does not start fetch when not focused at mount (default checkIsFocused: true)', async () => {

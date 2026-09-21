@@ -145,9 +145,11 @@ export const { atom: allNetworksStateAtom, use: useAllNetworksStateStateAtom } =
 
 export const { atom: approvalsInfoAtom, use: useApprovalsInfoAtom } =
   contextAtom<{
+    ownerKey: string;
     hasRiskApprovals: boolean;
     riskApprovalsCount: number;
   }>({
+    ownerKey: '',
     hasRiskApprovals: false,
     riskApprovalsCount: 0,
   });

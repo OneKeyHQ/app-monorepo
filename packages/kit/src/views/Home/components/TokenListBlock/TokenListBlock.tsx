@@ -46,7 +46,11 @@ import {
   useOverviewTokenCacheStateAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/accountOverview';
 import { buildOverviewOwnerKey } from '@onekeyhq/kit/src/states/jotai/contexts/accountOverview/atoms';
-import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
+import {
+  activeAccountEpochAtom,
+  useAccountSelectorContextData,
+  useActiveAccount,
+} from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import {
   useListStructureAtom,
   useTokenListActions,
@@ -279,6 +283,14 @@ function TokenListBlock({
       vaultSettings,
     },
   } = useActiveAccount({ num: 0 });
+  const accountSelectorStore = useAccountSelectorContextData().store;
+  const activeAccountEpoch =
+    accountSelectorStore?.get(activeAccountEpochAtom())[0] ?? 0;
+  const isAccountEpochCurrent = useCallback(
+    (epoch: number) =>
+      (accountSelectorStore?.get(activeAccountEpochAtom())[0] ?? 0) === epoch,
+    [accountSelectorStore],
+  );
   const [firmwareUpdateWorkflowRunning] =
     useFirmwareUpdateWorkflowRunningAtom();
   const [hardwareUiState] = useHardwareUiStateAtom();
@@ -634,6 +646,7 @@ function TokenListBlock({
 
   const { run } = usePromiseResult(
     async () => {
+      const requestAccountEpoch = activeAccountEpoch;
       let accountId = account?.id ?? '';
       let portfolioTotalFiat = '0';
       let portfolioTotalFiatCurrency: string | undefined;
@@ -685,8 +698,9 @@ function TokenListBlock({
         tokenListRefreshEventStarted = true;
 
         await backgroundApiProxy.serviceToken.abortFetchAccountTokens({
-          excludedFlags: ['token-selector'],
+          includedFlags: ['home-token-list'],
         });
+        if (!isAccountEpochCurrent(requestAccountEpoch)) return;
 
         let r: IFetchAccountTokensResp = getEmptyTokenData();
 
@@ -699,6 +713,7 @@ function TokenListBlock({
                 excludeEmptyAccount: true,
               },
             );
+          if (!isAccountEpochCurrent(requestAccountEpoch)) return;
 
           const resp = await Promise.all(
             networkAccounts.map((networkAccount) =>
@@ -713,6 +728,7 @@ function TokenListBlock({
               }),
             ),
           );
+          if (!isAccountEpochCurrent(requestAccountEpoch)) return;
           portfolioTotalFiatCurrency = getWalletAssetStatusCurrency(resp);
           portfolioTotalFiat = resp
             .reduce(
@@ -801,6 +817,7 @@ function TokenListBlock({
             indexedAccountId: indexedAccount?.id,
             ...walletTokenFilterParams,
           });
+          if (!isAccountEpochCurrent(requestAccountEpoch)) return;
 
           portfolioTotalFiatCurrency = getWalletAssetStatusCurrency([r]);
           const accountWorth = sumTokenGroupsFiatValueIgnoringUnavailable(r);
@@ -831,6 +848,7 @@ function TokenListBlock({
           portfolioSyncTargetKey,
         );
         if (
+          isAccountEpochCurrent(requestAccountEpoch) &&
           portfolioSyncRequest &&
           activePortfolioSyncRequest?.id === portfolioSyncRequest.id &&
           currencyInfo?.id &&
@@ -905,6 +923,8 @@ function TokenListBlock({
           }
         }
 
+        if (!isAccountEpochCurrent(requestAccountEpoch)) return;
+
         // TokenList cells Phase-2 BG `ingestRound` (design §5 step 2). Hand the
         // SAME settled slices this single-network round just wrote to the atoms
         // over to the BG view-model so it can build + push the BG frames the UI
@@ -967,6 +987,7 @@ function TokenListBlock({
         endTokenListRefreshEvent();
       } catch (e) {
         endTokenListRefreshEvent();
+        if (!isAccountEpochCurrent(requestAccountEpoch)) return;
         if (e instanceof CanceledError) {
           // A successor refresh aborts this fetch after capturing the same
           // request. Finishing here would clear it before that run transfers.
@@ -988,6 +1009,7 @@ function TokenListBlock({
         }
       } finally {
         if (
+          isAccountEpochCurrent(requestAccountEpoch) &&
           portfolioSyncRequest &&
           !skipPortfolioSyncRequestFinish &&
           (ownsPortfolioSyncCommunication ||
@@ -996,11 +1018,14 @@ function TokenListBlock({
           finishPortfolioSyncRequest(portfolioSyncRequest.id);
         }
         endTokenListRefreshEvent();
-        setIsHeaderRefreshing(false);
+        if (isAccountEpochCurrent(requestAccountEpoch)) {
+          setIsHeaderRefreshing(false);
+        }
       }
     },
     [
       account,
+      activeAccountEpoch,
       accountName,
       currencyInfo?.id,
       device?.connectId,
@@ -1017,6 +1042,7 @@ function TokenListBlock({
       indexedAccount?.id,
       indexedAccount?.index,
       indexedAccount?.name,
+      isAccountEpochCurrent,
       updateTokenListState,
       setIsHeaderRefreshing,
       syncTokenFilterToOverview,
@@ -1340,6 +1366,7 @@ function TokenListBlock({
       allNetworkDataInit?: boolean;
       isSingleRequest?: boolean;
     }) => {
+      const requestAccountEpoch = activeAccountEpoch;
       const response = await backgroundApiProxy.serviceToken.fetchAccountTokens(
         {
           dbAccount,
@@ -1360,6 +1387,9 @@ function TokenListBlock({
             riskTokenManagementRawData.current.unblockedTokens,
         },
       );
+      if (!isAccountEpochCurrent(requestAccountEpoch)) {
+        throw new CanceledError('stale Home account request');
+      }
       const r: IAllNetworkTokenListResp = {
         ...response,
         tokenSelectorFilterMode: 'wallet-token',
@@ -1486,6 +1516,7 @@ function TokenListBlock({
       // for the new owner — and the next same-owner stamp write would then
       // vouch for it.
       const isStaleOwnerRequest = () =>
+        !isAccountEpochCurrent(requestAccountEpoch) ||
         activeOwnerRef.current.accountId !== account?.id ||
         activeOwnerRef.current.networkId !== network?.id;
 
@@ -1558,7 +1589,9 @@ function TokenListBlock({
     [
       account?.createAtNetwork,
       account?.id,
+      activeAccountEpoch,
       indexedAccount?.id,
+      isAccountEpochCurrent,
       mergeDeriveAddressData,
       network?.id,
       updateAccountOverviewState,
@@ -1665,6 +1698,7 @@ function TokenListBlock({
       networkId?: string;
       allNetworkDataInit?: boolean;
     }) => {
+      const requestAccountEpoch = activeAccountEpoch;
       const portfolioSyncRequest = getPortfolioSyncRequestForTarget(
         portfolioSyncTargetKey,
       );
@@ -1689,6 +1723,7 @@ function TokenListBlock({
         backgroundApiProxy.simpleDb.aggregateToken.getRawData(),
         updateCurrentAccountTask,
       ]);
+      if (!isAccountEpochCurrent(requestAccountEpoch)) return;
 
       perfTokenListView.markEnd('allNetworkRequestsStarted_getRawData');
 
@@ -1743,8 +1778,10 @@ function TokenListBlock({
     },
     [
       account?.id,
+      activeAccountEpoch,
       getPortfolioSyncRequestForTarget,
       indexedAccount?.id,
+      isAccountEpochCurrent,
       network?.id,
       portfolioSyncTargetKey,
       setOverviewTokenCacheState,
@@ -1881,6 +1918,7 @@ function TokenListBlock({
       networkId: string;
       generation: number;
     }) => {
+      const requestAccountEpoch = activeAccountEpoch;
       perfTokenListView.markStart('handleAllNetworkCacheData');
 
       // Refresh the shared cached aggregate raw data (consumed by the
@@ -1892,6 +1930,7 @@ function TokenListBlock({
       aggregateTokenRawData.current =
         (await backgroundApiProxy.simpleDb.aggregateToken.getRawData()) ??
         undefined;
+      if (!isAccountEpochCurrent(requestAccountEpoch)) return;
 
       // Per-account worth map for the overview update below.
       let tokenListValue: Record<string, string> = {};
@@ -1989,7 +2028,9 @@ function TokenListBlock({
     [
       account?.createAtNetwork,
       account?.id,
+      activeAccountEpoch,
       indexedAccount?.id,
+      isAccountEpochCurrent,
       mergeDeriveAddressData,
       seedAndFlushCache,
       setOverviewTokenCacheState,
@@ -2092,6 +2133,7 @@ function TokenListBlock({
   ]);
 
   const updateAllNetworksTokenList = useCallback(async () => {
+    const requestAccountEpoch = activeAccountEpoch;
     if (allNetworksTokenListUpdateInFlightRef.current) {
       allNetworksTokenListUpdatePendingRef.current = true;
       return;
@@ -2142,6 +2184,7 @@ function TokenListBlock({
       const shouldSyncTokenFilterToOverview =
         allNetworksResult[0].syncTokenFilterToOverview;
       const isStaleOwnerRequest = () =>
+        !isAccountEpochCurrent(requestAccountEpoch) ||
         activeOwnerRef.current.accountId !== account?.id ||
         activeOwnerRef.current.networkId !== network?.id;
 
@@ -2317,6 +2360,8 @@ function TokenListBlock({
         finishPortfolioSyncRequest(portfolioSyncRequest.id);
       }
 
+      if (isStaleOwnerRequest()) return;
+
       // Authoritative ingest (facade, design §2): ingest the FULL merged
       // snapshot (REPLACE semantics — `vm.lastStructure` compares full-vs-full),
       // cancel any trailing progressive flush, and bump the epoch (P1-g) so a
@@ -2479,6 +2524,7 @@ function TokenListBlock({
     account?.address,
     account?.id,
     account?.indexedAccountId,
+    activeAccountEpoch,
     accountName,
     cellsNonZeroInputs,
     device?.connectId,
@@ -2488,6 +2534,7 @@ function TokenListBlock({
     indexedAccount?.id,
     indexedAccount?.index,
     indexedAccount?.name,
+    isAccountEpochCurrent,
     mergeDeriveAddressData,
     allNetworkAccounts,
     allNetworksResult,
@@ -2544,6 +2591,7 @@ function TokenListBlock({
     // so dropping the late response simply leaves that hydration in place
     // until the new owner's own `initTokenListData` resolves.
     let cancelled = false;
+    const requestAccountEpoch = activeAccountEpoch;
     const initTokenListData = async ({
       accountId,
       networkId,
@@ -2714,7 +2762,7 @@ function TokenListBlock({
       // Owner-change or unmount happened while we were awaiting the local
       // token cache — drop the result so we don't overwrite the new owner's
       // freshly hydrated atoms with this stale response.
-      if (cancelled) return;
+      if (cancelled || !isAccountEpochCurrent(requestAccountEpoch)) return;
 
       defaultLogger.account.allNetworkAccountPerf.homeTokenListRefreshTrace({
         runtime: 'main',
@@ -2864,12 +2912,14 @@ function TokenListBlock({
   }, [
     account?.address,
     account?.id,
+    activeAccountEpoch,
     // @ts-expect-error
     account?.xpub,
     // @ts-expect-error
     account?.xpubSegwit,
     handleClearAllNetworkData,
     indexedAccount?.id,
+    isAccountEpochCurrent,
     mergeDeriveAddressData,
     network?.id,
     setOverviewTokenCacheState,
@@ -3364,7 +3414,10 @@ function TokenListBlock({
 
       explicitRefreshSeqRef.current += 1;
       const seq = explicitRefreshSeqRef.current;
-      const isLatest = () => explicitRefreshSeqRef.current === seq;
+      const requestAccountEpoch = activeAccountEpoch;
+      const isLatest = () =>
+        explicitRefreshSeqRef.current === seq &&
+        isAccountEpochCurrent(requestAccountEpoch);
 
       let emittedRefreshing = false;
       try {
@@ -3395,7 +3448,7 @@ function TokenListBlock({
         // network's data. Mirrors the abort in the closure-bound `run` path;
         // the seq guard alone only coordinates between explicit refreshes.
         await backgroundApiProxy.serviceToken.abortFetchAccountTokens({
-          excludedFlags: ['token-selector'],
+          includedFlags: ['home-token-list'],
         });
         if (!isLatest()) return;
 
@@ -3499,7 +3552,13 @@ function TokenListBlock({
         }
       }
     },
-    [walletTokenFilterParams, updateAccountOverviewState, updateAccountWorth],
+    [
+      activeAccountEpoch,
+      isAccountEpochCurrent,
+      walletTokenFilterParams,
+      updateAccountOverviewState,
+      updateAccountWorth,
+    ],
   );
 
   useEffect(() => {
@@ -3560,13 +3619,12 @@ function TokenListBlock({
     showLpTokensOnly,
   ]);
 
-  // The fetch above is gated on this tab being focused, and an account switch
-  // remounts the whole home tab container. When that happens while another
-  // home tab is active, nothing fetches the new owner until the user returns,
+  // The fetch above is gated on this tab being focused. When the active owner
+  // changes while another home tab is active, nothing fetches the new owner,
   // leaving the always-visible header worth on a skeleton. The off-tab
   // network-switch path (RefreshTokenList with refreshByProvidedAccounts,
-  // emitted by HomePageView) cannot cover this: it fires before the remounted
-  // list has subscribed. Refresh the mounted owner explicitly instead.
+  // emitted by HomePageView) does not guarantee that the blurred wallet pane
+  // runs its focused fetch. Refresh the mounted owner explicitly instead.
   const activeHomeTabId = useContext(HomeStickyHeaderContext)?.activeTabId;
   useEffect(() => {
     const target = resolveOffTabTokenListRefreshOnMount({
@@ -3578,9 +3636,9 @@ function TokenListBlock({
     if (target) {
       void refreshSingleNetworkTokenListByTarget(target);
     }
-    // The sequence guard is per instance, and an account switch remounts this
-    // block. Invalidate this owner's in-flight explicit refresh on owner change
-    // or unmount so a late stage of it (vault settings, abort, worth write)
+    // The sequence guard is per instance. Invalidate this owner's in-flight
+    // explicit refresh on owner change or unmount so a late stage of it
+    // (vault settings, abort, worth write)
     // cannot abort or overwrite the successor instance's fetch.
     return () => {
       explicitRefreshSeqRef.current += 1;
