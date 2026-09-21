@@ -21,6 +21,11 @@ let mockCommunityRecognized = false;
 jest.mock('react-native', () => ({
   useWindowDimensions: () => ({ width: mockWindowWidth }),
 }));
+jest.mock('react-intl', () => ({
+  useIntl: () => ({
+    formatMessage: ({ id }: { id: string }) => id,
+  }),
+}));
 
 jest.mock('@onekeyhq/components', () => {
   const React = jest.requireActual<typeof import('react')>('react');
@@ -170,16 +175,17 @@ describe('MarketDetailHeader native layout', () => {
     expect(options.headerShown).toBe(true);
     expect(options.headerTitle).toBe('');
     expect(items).toHaveLength(2);
-    expect(items?.[0]).not.toHaveProperty('hidesSharedBackground', true);
     expect(title.hidesSharedBackground).toBe(true);
     expect(titleProps.flex).toBeUndefined();
     const back = items?.[0];
-    expect(back?.type).toBe('custom');
-    if (back?.type === 'custom' && isValidElement(back.element)) {
-      expect(back.element.props).toEqual(
-        expect.objectContaining({ onPress: mockBackPress }),
-      );
-    }
+    expect(back).toEqual(
+      expect.objectContaining({
+        type: 'button',
+        identifier: 'market-detail-back',
+        icon: { type: 'sfSymbol', name: 'chevron.backward' },
+        onPress: mockBackPress,
+      }),
+    );
   });
 
   it('bounds long titles and updates the budget for window and action changes', () => {

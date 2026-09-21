@@ -1,5 +1,6 @@
 import { useCallback, useMemo, useRef } from 'react';
 
+import { useIntl } from 'react-intl';
 import { useWindowDimensions } from 'react-native';
 
 import {
@@ -24,6 +25,7 @@ import { TabPageHeader } from '@onekeyhq/kit/src/components/TabPageHeader';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useNetworkLogoUri } from '@onekeyhq/kit/src/hooks/useNetworkLogoUri';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import {
   ECopyFrom,
@@ -49,6 +51,8 @@ import { ShareButton } from '../TokenDetailHeader/ShareButton';
 
 import { TabPageHeaderContainer } from './TabPageHeaderContainer';
 
+import type { NativeStackHeaderItem } from '@react-navigation/native-stack';
+
 // Holds the address line while a stock route resolves its token, so the
 // title does not re-center when the address arrives.
 function AddressLineSkeleton() {
@@ -61,6 +65,7 @@ export function MarketDetailHeader({
   showFavoriteButton?: boolean;
 }) {
   const media = useMedia();
+  const intl = useIntl();
   const { width: windowWidth } = useWindowDimensions();
   const { left: safeAreaLeft, right: safeAreaRight } = useSafeAreaInsets();
   const listingIdentity = useMarketDetailWatchlistIdentity();
@@ -296,19 +301,27 @@ export function MarketDetailHeader({
   // Drive the back button through useMarketDetailBackNavigation so the
   // detail-specific routing (Search → Discovery, single-route stacks
   // resetting to Market home, split-view pop, SwapPro return) keeps
-  // working under iOS 26's native bar. The default system back would
-  // only pop the current stack and would render no entry at all when
-  // state.index === 0.
+  // working under iOS 26's native bar. Keep this as a native bar item so
+  // UIKit does not expose a React custom-view frame during pop transitions.
   const buildNativeHeaderLeftItems = useCallback(
-    () => [
-      glassBarItem(<NavBackButton onPress={handleBackPress} />),
+    (): NativeStackHeaderItem[] => [
+      {
+        type: 'button',
+        label: intl.formatMessage({ id: ETranslations.global_back }),
+        accessibilityLabel: intl.formatMessage({
+          id: ETranslations.global_back,
+        }),
+        icon: { type: 'sfSymbol', name: 'chevron.backward' },
+        identifier: 'market-detail-back',
+        onPress: handleBackPress,
+      },
       {
         type: 'custom' as const,
         element: renderNativeHeaderTitle(),
         hidesSharedBackground: true,
       },
     ],
-    [handleBackPress, renderNativeHeaderTitle],
+    [handleBackPress, intl, renderNativeHeaderTitle],
   );
 
   if (media.md && platformEnv.isNativeIOS26Plus) {
