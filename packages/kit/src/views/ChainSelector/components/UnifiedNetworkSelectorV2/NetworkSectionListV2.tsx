@@ -1,4 +1,4 @@
-import type { Dispatch, SetStateAction } from 'react';
+import type { Dispatch, RefObject, SetStateAction } from 'react';
 import { useCallback, useMemo, useRef, useState } from 'react';
 
 import { NativeList } from '@onekeyfe/react-native-native-list';
@@ -36,6 +36,7 @@ import type {
   RowModel,
   TrailingAccessory,
 } from '@onekeyfe/react-native-native-list';
+import type { View } from 'react-native';
 
 type INetworkSectionV2 = {
   key: string;
@@ -45,6 +46,7 @@ type INetworkSectionV2 = {
 };
 
 type INetworkSectionListPropsV2 = {
+  webSectionIndexContainerRef: RefObject<View | null>;
   recentNetworksEnabled?: boolean;
   accountNetworkValues: Record<string, string>;
   mainnetItems: IServerNetwork[];
@@ -69,6 +71,7 @@ type INetworkSectionListPropsV2 = {
 const LIST_STYLE_V2 = { flex: 1 };
 
 export function NetworkSectionListV2({
+  webSectionIndexContainerRef,
   recentNetworksEnabled,
   walletId,
   accountId,
@@ -403,6 +406,7 @@ export function NetworkSectionListV2({
             testID="network-selector-single-native-list-v2"
             style={LIST_STYLE_V2}
             snapshot={snapshot}
+            webSectionIndexContainerRef={webSectionIndexContainerRef}
             initialScrollKey={initialScrollKey ?? rows[0].key}
             onRowAction={handleRowAction}
             onActionAnchorInvalidated={onActionAnchorInvalidated}
