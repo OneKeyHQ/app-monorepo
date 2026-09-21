@@ -47,6 +47,9 @@ type INetworkSectionV2 = {
 
 type INetworkSectionListPropsV2 = {
   webSectionIndexContainerRef: RefObject<View | null>;
+  // Space kept free under the web index rail, so it matches the height
+  // available in the all-networks tab and the letters stay put across tabs.
+  webSectionIndexBottomInset?: number;
   recentNetworksEnabled?: boolean;
   accountNetworkValues: Record<string, string>;
   mainnetItems: IServerNetwork[];
@@ -72,6 +75,7 @@ const LIST_STYLE_V2 = { flex: 1 };
 
 export function NetworkSectionListV2({
   webSectionIndexContainerRef,
+  webSectionIndexBottomInset = 0,
   recentNetworksEnabled,
   walletId,
   accountId,
@@ -327,7 +331,9 @@ export function NetworkSectionListV2({
       capabilities: {
         sectionIndex: {
           enabled: !searchText,
-          centeredInWindow: platformEnv.isNative || platformEnv.isDesktop,
+          // Native centers the index in the window. On web targets this
+          // flag only routes the rail into the list-area container below.
+          centeredInWindow: true,
         },
       },
       selection: { mode: 'none', selectedKeys: [] },
@@ -416,6 +422,20 @@ export function NetworkSectionListV2({
           <Empty
             illustration="BlockQuestionMark"
             title={intl.formatMessage({ id: ETranslations.global_no_results })}
+          />
+        ) : null}
+        {!platformEnv.isNative ? (
+          // Bounds the web index rail to the list area so it starts at the
+          // list top instead of floating beside the header and search bar.
+          <Stack
+            ref={webSectionIndexContainerRef}
+            testID={ChainSelectorTestIDs.unifiedSectionIndexContainer}
+            position="absolute"
+            top={0}
+            right={0}
+            bottom={webSectionIndexBottomInset}
+            left={0}
+            pointerEvents="box-none"
           />
         ) : null}
         {tooltipElement}
