@@ -20,7 +20,6 @@ import {
 import { CONTEXT_ATOM_COLD_START_CACHE_KEYS } from '@onekeyhq/shared/src/consts/jotaiConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { coldStartCacheStorage } from '@onekeyhq/shared/src/storage/instance/syncStorageInstance';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import { swapProSelectTokenAtom } from '../contexts/swap/atoms';
@@ -151,6 +150,13 @@ function ThrowingRootStoreConsumer({
   useJotaiContextRootStore(data);
   throw new OneKeyLocalError('abort root render');
 }
+
+const mockReadContextAtomSnapshotRaw = jest.fn<string | undefined, []>();
+
+jest.mock('@onekeyhq/shared/src/storage/uiSnapshotCaches', () => ({
+  readContextAtomSnapshotRaw: () => mockReadContextAtomSnapshotRaw(),
+  writeContextAtomSnapshotRaw: () => undefined,
+}));
 
 describe('jotaiContextStore reset flow', () => {
   const data = {
@@ -409,10 +415,8 @@ describe('jotaiContextStore reset flow', () => {
           jest.fn() as unknown as IJotaiSetAtom<Args, Result>,
         ] as [Awaited<Value2>, IJotaiSetAtom<Args, Result>],
     });
-    jest.spyOn(coldStartCacheStorage, 'getString').mockReturnValue(
-      JSON.stringify({
-        [scopedKey]: cachedValue,
-      }),
+    mockReadContextAtomSnapshotRaw.mockReturnValue(
+      JSON.stringify({ [scopedKey]: cachedValue }),
     );
 
     try {

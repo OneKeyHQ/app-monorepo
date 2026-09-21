@@ -76,8 +76,10 @@ import {
   EModalRoutes,
   EOnboardingPages,
 } from '@onekeyhq/shared/src/routes';
-import { coldStartCacheStorage } from '@onekeyhq/shared/src/storage/instance/syncStorageInstance';
-import { EAppSyncStorageKeys } from '@onekeyhq/shared/src/storage/syncStorageKeys';
+import {
+  ACCOUNT_SELECTOR_RECENT_SELECTION_KEY,
+  accountSelectorSnapshotCache,
+} from '@onekeyhq/shared/src/storage/uiSnapshotCaches';
 import accountSelectorUtils from '@onekeyhq/shared/src/utils/accountSelectorUtils';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { memoFn } from '@onekeyhq/shared/src/utils/cacheUtils';
@@ -299,10 +301,9 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
       if (!sceneId) {
         return undefined;
       }
-      const cache =
-        coldStartCacheStorage.getObject<IAccountSelectorRecentSelectionCache>(
-          EAppSyncStorageKeys.onekey_account_selector_recent_selection,
-        );
+      const cache = accountSelectorSnapshotCache.get(
+        ACCOUNT_SELECTOR_RECENT_SELECTION_KEY,
+      )?.data as IAccountSelectorRecentSelectionCache | undefined;
       const item = cache?.[sceneId];
       const now = Date.now();
       if (
@@ -344,9 +345,8 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
       }
       const now = Date.now();
       const cache =
-        coldStartCacheStorage.getObject<IAccountSelectorRecentSelectionCache>(
-          EAppSyncStorageKeys.onekey_account_selector_recent_selection,
-        ) ?? {};
+        (accountSelectorSnapshotCache.get(ACCOUNT_SELECTOR_RECENT_SELECTION_KEY)
+          ?.data as IAccountSelectorRecentSelectionCache | undefined) ?? {};
       const nextCache: IAccountSelectorRecentSelectionCache = {};
       Object.entries(cache).forEach(([key, item]) => {
         if (
@@ -417,8 +417,8 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
         }
       }
 
-      await coldStartCacheStorage.setObject(
-        EAppSyncStorageKeys.onekey_account_selector_recent_selection,
+      accountSelectorSnapshotCache.set(
+        ACCOUNT_SELECTOR_RECENT_SELECTION_KEY,
         nextCache,
       );
     } catch {
@@ -432,9 +432,9 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
     }
     try {
       // eslint-disable-next-line @typescript-eslint/no-require-imports
-      const { flushColdStartCacheNow } =
-        require('@onekeyhq/shared/src/storage/instance/webColdStartStorage') as typeof import('@onekeyhq/shared/src/storage/instance/webColdStartStorage');
-      await flushColdStartCacheNow();
+      const { flushUiSnapshotStoreNow } =
+        require('@onekeyhq/shared/src/storage/DisplaySnapshotStorage/webUiSnapshotStore') as typeof import('@onekeyhq/shared/src/storage/DisplaySnapshotStorage/webUiSnapshotStore');
+      await flushUiSnapshotStoreNow();
     } catch {
       // Native MMKV writes are synchronous; extension background has no cache.
     }
