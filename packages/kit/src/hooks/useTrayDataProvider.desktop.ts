@@ -1316,7 +1316,12 @@ export function useTrayDataProvider() {
               marketVariantId: variant.variantId,
               marketTokenCategory: MARKET_TOP_COINS_CATEGORY_ID,
             };
-            await switchTabAsync(ETabRoutes.Market);
+            // A newer tray action can land during the overlay-dismiss wait
+            // inside switchTabAsync; let it abandon the tab switch too, not
+            // only the detail navigation.
+            await switchTabAsync(ETabRoutes.Market, {
+              shouldContinue: () => !isStaleNavigation(),
+            });
             if (isStaleNavigation()) return;
             rootNavigationRef.current?.navigate(ERootRoutes.Main, {
               screen: ETabRoutes.Market,
