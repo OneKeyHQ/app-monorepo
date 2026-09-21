@@ -56,6 +56,13 @@ export const { atom: tokenDetailLoadingAtom, use: useTokenDetailLoadingAtom } =
 
 export const { atom: tokenDetailRequestIdAtom } = contextAtom<number>(0);
 
+// Which SWR scope the detail in `tokenDetailAtom` belongs to. The scope
+// carries the currency and locale, so the same token in another language is a
+// different scope and its cached copy still has to be seeded.
+export const { atom: tokenDetailSwrScopeAtom } = contextAtom<
+  string | undefined
+>(undefined);
+
 export const {
   atom: tokenDetailWebsocketAtom,
   use: useTokenDetailWebsocketAtom,

@@ -473,8 +473,9 @@ function UnifiedNetworkSelectorV2() {
           await backgroundApiProxy.serviceAllNetwork.updateAllNetworksState({
             enabledNetworks: newEnabledNetworks,
             disabledNetworks: newDisabledNetworks,
-            cacheContext: { walletId, accountId },
           });
+          // The listener below refreshes `networkMeta`, and that refresh is
+          // what writes the new state into the SWR cache.
           appEventBus.emit(EAppEventBusNames.AddedCustomNetwork, undefined);
         } else {
           // Network tab: select network and close modal (original behavior)
@@ -487,8 +488,6 @@ function UnifiedNetworkSelectorV2() {
     handleNetworkPressItem,
     networksState,
     updateNetworksSelection,
-    walletId,
-    accountId,
   ]);
 
   const handleEditCustomNetwork = useCallback(
@@ -561,8 +560,14 @@ function UnifiedNetworkSelectorV2() {
         await backgroundApiProxy.serviceAllNetwork.updateAllNetworksState({
           enabledNetworks: networksState.enabledNetworks,
           disabledNetworks: networksState.disabledNetworks,
-          cacheContext: { walletId, accountId },
         });
+
+        // Write the new state into the SWR cache from here, so the next cold
+        // open paints it instead of the state this save replaced. It has to be
+        // this runtime: the entry belongs to the hook above, and a second
+        // writer on the other side of the bridge would be racing it over one
+        // MMKV file. `alwaysSetState` because the modal is closing.
+        void refreshNetworkMeta({ alwaysSetState: true });
 
         appEventBus.emit(EAppEventBusNames.EnabledNetworksChanged, undefined);
       }
@@ -601,6 +606,7 @@ function UnifiedNetworkSelectorV2() {
     networksState.enabledNetworks,
     num,
     onNetworksChanged,
+    refreshNetworkMeta,
     walletId,
     isSameEnabledNetworks,
     isOthersWallet,
