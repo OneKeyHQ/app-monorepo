@@ -24,6 +24,20 @@ const mockPaymentToken = {
   decimals: 18,
   isNative: true,
 };
+const mockUsdcToken = {
+  networkId: 'evm--1',
+  contractAddress: '0xusdc',
+  symbol: 'USDC',
+  decimals: 6,
+  isNative: false,
+};
+const mockBtcMarketToken = {
+  networkId: 'btc--0',
+  contractAddress: '',
+  symbol: 'BTC',
+  decimals: 8,
+  isNative: true,
+};
 
 let mockDefaultTokens = [mockPaymentToken];
 
@@ -476,5 +490,88 @@ describe('MarketDetailEmbeddedSwap', () => {
     expect(mockEmbeddedSwap.mock.lastCall?.[0].stockTradeToken).toEqual(
       expect.objectContaining({ contractAddress: '0xnext', decimals: 18 }),
     );
+  });
+
+  it('restores a Market-owned cross-network pair after a blur remount', () => {
+    mockDefaultTokens = [mockPaymentToken, mockUsdcToken];
+    const view = render(
+      <MarketEmbeddedSwap
+        swapToken={mockBtcMarketToken}
+        inputDraftKey="btc-asset"
+      />,
+    );
+    const captureDraft = mockEmbeddedSwap.mock.lastCall?.[0]
+      .onInputDraftChange as (draft: ISwapInputAmountDraft) => void;
+    captureDraft({
+      fromToken: mockBtcMarketToken,
+      toToken: mockPaymentToken,
+      fromTokenAmount: { value: '0.00056', isInput: true },
+      toTokenAmount: { value: '', isInput: false },
+    });
+
+    // Leaving the Market tab unmounts the trade ticket; the retained draft is
+    // what seeds it again on the way back.
+    view.rerender(
+      <MarketEmbeddedSwap
+        swapToken={mockBtcMarketToken}
+        inputDraftKey="btc-asset"
+        disabled
+      />,
+    );
+    view.rerender(
+      <MarketEmbeddedSwap
+        swapToken={mockBtcMarketToken}
+        inputDraftKey="btc-asset"
+      />,
+    );
+
+    expect(mockEmbeddedSwap.mock.lastCall?.[0].swapInitParams).toEqual(
+      expect.objectContaining({
+        importFromToken: mockBtcMarketToken,
+        importNetworkId: mockBtcMarketToken.networkId,
+        importToToken: mockPaymentToken,
+      }),
+    );
+    expect(mockEmbeddedSwap.mock.lastCall?.[0].initialInputAmountDraft).toEqual(
+      expect.objectContaining({
+        fromTokenAmount: { value: '0.00056', isInput: true },
+      }),
+    );
+  });
+
+  it('drops a restored pair that no longer holds the Market token', () => {
+    mockDefaultTokens = [mockPaymentToken, mockUsdcToken];
+    const view = render(
+      <MarketEmbeddedSwap swapToken={marketToken} inputDraftKey="asset-1" />,
+    );
+    const captureDraft = mockEmbeddedSwap.mock.lastCall?.[0]
+      .onInputDraftChange as (draft: ISwapInputAmountDraft) => void;
+    captureDraft({
+      fromToken: mockPaymentToken,
+      toToken: mockUsdcToken,
+      fromTokenAmount: { value: '1', isInput: true },
+      toTokenAmount: { value: '', isInput: false },
+    });
+
+    view.rerender(
+      <MarketEmbeddedSwap
+        swapToken={marketToken}
+        inputDraftKey="asset-1"
+        disabled
+      />,
+    );
+    view.rerender(
+      <MarketEmbeddedSwap swapToken={marketToken} inputDraftKey="asset-1" />,
+    );
+
+    expect(mockEmbeddedSwap.mock.lastCall?.[0].swapInitParams).toEqual(
+      expect.objectContaining({
+        importFromToken: mockPaymentToken,
+        importToToken: marketToken,
+      }),
+    );
+    expect(
+      mockEmbeddedSwap.mock.lastCall?.[0].initialInputAmountDraft,
+    ).toBeUndefined();
   });
 });

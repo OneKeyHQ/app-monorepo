@@ -24,6 +24,34 @@ const stockMarketToken: ISwapToken = {
   ...marketToken,
   isStock: true,
 };
+const btc: ISwapToken = {
+  contractAddress: '',
+  decimals: 8,
+  isNative: true,
+  networkId: 'btc--0',
+  symbol: 'BTC',
+};
+const eth: ISwapToken = {
+  contractAddress: '',
+  decimals: 18,
+  isNative: true,
+  networkId: 'evm--1',
+  symbol: 'ETH',
+};
+const usdc: ISwapToken = {
+  contractAddress: '0xusdc',
+  decimals: 6,
+  isNative: false,
+  networkId: 'evm--1',
+  symbol: 'USDC',
+};
+const nextMarketToken: ISwapToken = {
+  contractAddress: '0xnext',
+  decimals: 18,
+  isNative: false,
+  networkId: 'evm--1',
+  symbol: 'NEXT',
+};
 
 describe('buildMarketEmbeddedSwapInitParams', () => {
   it('does not initialize shared Swap before a complete pair exists', () => {
@@ -86,6 +114,67 @@ describe('buildMarketEmbeddedSwapInitParams', () => {
     ).toMatchObject({
       importFromToken: bnb,
       importToToken: { ...stockMarketToken, networkId: 'evm--56' },
+    });
+  });
+
+  it('keeps a saved draft pair whose pay token is on another network', () => {
+    const inputDraft: ISwapInputAmountDraft = {
+      fromToken: btc,
+      fromTokenAmount: { isInput: true, value: '0.00056' },
+      toToken: eth,
+      toTokenAmount: { isInput: false, value: '' },
+    };
+
+    expect(
+      buildMarketEmbeddedSwapInitParams({
+        defaultTokens: [eth, usdc],
+        inputDraft,
+        swapToken: btc,
+      }),
+    ).toMatchObject({
+      importFromToken: btc,
+      importNetworkId: btc.networkId,
+      importToToken: eth,
+    });
+  });
+
+  it('discards a saved draft pair that no longer holds the Market token', () => {
+    const inputDraft: ISwapInputAmountDraft = {
+      fromToken: eth,
+      fromTokenAmount: { isInput: true, value: '1' },
+      toToken: usdc,
+      toTokenAmount: { isInput: false, value: '' },
+    };
+
+    expect(
+      buildMarketEmbeddedSwapInitParams({
+        defaultTokens: [eth, usdc],
+        inputDraft,
+        swapToken: nextMarketToken,
+      }),
+    ).toMatchObject({
+      importFromToken: eth,
+      importToToken: nextMarketToken,
+    });
+  });
+
+  it('reuses only the pay token of a draft without a resolved pair', () => {
+    const inputDraft: ISwapInputAmountDraft = {
+      fromToken: usdc,
+      fromTokenAmount: { isInput: true, value: '1' },
+      toToken: undefined,
+      toTokenAmount: { isInput: false, value: '' },
+    };
+
+    expect(
+      buildMarketEmbeddedSwapInitParams({
+        defaultTokens: [eth, usdc],
+        inputDraft,
+        swapToken: nextMarketToken,
+      }),
+    ).toMatchObject({
+      importFromToken: usdc,
+      importToToken: nextMarketToken,
     });
   });
 });

@@ -24,7 +24,10 @@ import type {
 import { useSpeedSwapInit } from '../components/SwapPanel/hooks/useSpeedSwapInit';
 
 import { MarketStockTradeTarget } from './components/MarketStockTradeTarget';
-import { buildMarketEmbeddedSwapInitParams } from './marketEmbeddedSwapUtils';
+import {
+  buildMarketEmbeddedSwapInitParams,
+  isStaleMarketDraftPair,
+} from './marketEmbeddedSwapUtils';
 
 type IEmbeddedSwapProps = {
   storeName?: EJotaiContextStoreNames;
@@ -188,6 +191,14 @@ function MarketEmbeddedSwapContent({
   if (initialDraft.key !== inputDraftKey) {
     setInitialDraft({ key: inputDraftKey, draft: undefined });
   }
+  // An amount belongs to the pair that produced it. A stale restored pair would
+  // otherwise carry its amount onto a different token.
+  const restorableInputAmountDraft = isStaleMarketDraftPair(
+    initialInputAmountDraft,
+    swapTokenSeed,
+  )
+    ? undefined
+    : initialInputAmountDraft;
   const { defaultTokens, speedConfigReady, speedSwapConfig } = useSpeedSwapInit(
     swapTokenSeed.networkId,
     true,
@@ -196,10 +207,10 @@ function MarketEmbeddedSwapContent({
     () =>
       buildMarketEmbeddedSwapInitParams({
         defaultTokens,
-        inputDraft: initialInputAmountDraft,
+        inputDraft: restorableInputAmountDraft,
         swapToken: swapTokenSeed,
       }),
-    [defaultTokens, initialInputAmountDraft, swapTokenSeed],
+    [defaultTokens, restorableInputAmountDraft, swapTokenSeed],
   );
   const stockSpeedConfig = useMemo<ISwapStockSpeedConfig | undefined>(
     () =>
@@ -261,7 +272,7 @@ function MarketEmbeddedSwapContent({
         stockTradeToken={stockTradeTokenSeed}
         stockTradePortfolioData={stockTradePortfolioData}
         stockTradeResolvedVariantKeys={stockTradeResolvedVariantKeys}
-        initialInputAmountDraft={initialInputAmountDraft}
+        initialInputAmountDraft={restorableInputAmountDraft}
         onInputDraftChange={onInputDraftChange}
       />
     </Stack>
