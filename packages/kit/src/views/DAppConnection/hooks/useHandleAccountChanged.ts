@@ -91,10 +91,17 @@ export function useHandleDiscoveryAccountChanged({
               othersWalletAccountId: revertTo.othersWalletAccountId,
               networkId: revertTo.networkId,
               deriveType: revertTo.deriveType,
-              focusedWallet: revertTo.focusedWallet ?? v.focusedWallet,
+              // Persisted sessions may carry `focusedWallet: ''`, which the
+              // selector treats as "not ready"; fall back on any falsy value.
+              focusedWallet: revertTo.focusedWallet || v.focusedWallet,
             }),
           });
-        })();
+        })().catch((error) => {
+          console.error(
+            'useHandleDiscoveryAccountChanged: account change handler failed',
+            error,
+          );
+        });
       }
     },
     200,
