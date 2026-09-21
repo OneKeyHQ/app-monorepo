@@ -7,7 +7,6 @@ import {
   type NativeListRef,
   type NativeListSnapshot,
   type RowModel,
-  type VisibleRangeChangedEvent,
 } from '@onekeyfe/react-native-native-list';
 import { debounce, noop } from 'lodash';
 import { useIntl } from 'react-intl';
@@ -311,17 +310,6 @@ export function AccountSelectorWalletListSideBarV2({
   const { md } = useMedia();
   const listRef = useRef<NativeListRef | null>(null);
   const didInitialScrollRef = useRef(false);
-  const initialScrollFrameRef = useRef<
-    ReturnType<typeof requestAnimationFrame> | undefined
-  >(undefined);
-  useEffect(
-    () => () => {
-      if (initialScrollFrameRef.current !== undefined) {
-        cancelAnimationFrame(initialScrollFrameRef.current);
-      }
-    },
-    [],
-  );
   const containerRef = useRef<View>(null);
   const tooltipTokenRef = useRef<string | undefined>(undefined);
   const [walletTooltip, setWalletTooltip] = useState<{
@@ -520,37 +508,18 @@ export function AccountSelectorWalletListSideBarV2({
       }),
     [selectedAccount.focusedWallet, wallets],
   );
-  const snapshotRowKeys = useMemo(
-    () => new Set(snapshot.rows.map((row) => row.key)),
-    [snapshot.rows],
-  );
-  const handleVisibleRangeChanged = useCallback(
-    (event: VisibleRangeChangedEvent) => {
-      const firstKey = event.firstKey;
-      const list = listRef.current;
-      if (
-        didInitialScrollRef.current ||
-        !initialScrollKey ||
-        !firstKey ||
-        !snapshotRowKeys.has(firstKey) ||
-        !list
-      ) {
-        return;
-      }
+  useEffect(() => {
+    if (!initialScrollKey || didInitialScrollRef.current || !listRef.current) {
+      return;
+    }
 
-      // A range from the current snapshot means the host has applied its rows and layout.
-      didInitialScrollRef.current = true;
-      initialScrollFrameRef.current = requestAnimationFrame(() => {
-        initialScrollFrameRef.current = undefined;
-        listRef.current?.scrollToKey({
-          key: initialScrollKey,
-          animated: false,
-          viewPosition: 0.5,
-        });
-      });
-    },
-    [initialScrollKey, snapshotRowKeys],
-  );
+    didInitialScrollRef.current = true;
+    listRef.current.scrollToKey({
+      key: initialScrollKey,
+      animated: false,
+      viewPosition: 0.5,
+    });
+  }, [initialScrollKey]);
 
   if (shouldHideWalletList) {
     return null;
@@ -587,7 +556,6 @@ export function AccountSelectorWalletListSideBarV2({
         style={{ flex: 1 }}
         testID="account-selector-wallet-list-v2"
         snapshot={snapshot}
-        onVisibleRangeChanged={handleVisibleRangeChanged}
         onActionAnchorInvalidated={(event) => {
           if (event.token === tooltipTokenRef.current) closeWalletTooltip();
         }}
