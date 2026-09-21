@@ -539,7 +539,10 @@ describe('MarketDetailEmbeddedSwap', () => {
     );
   });
 
-  it('drops a restored pair that no longer holds the Market token', () => {
+  it('keeps a user-selected pair that no longer holds the Market token', () => {
+    // The user changed the receive token on this Market asset, so the draft pair
+    // no longer holds the Market token. It is their own choice under this
+    // inputDraftKey: pair and amount must both come back after a blur remount.
     mockDefaultTokens = [mockPaymentToken, mockUsdcToken];
     const view = render(
       <MarketEmbeddedSwap swapToken={marketToken} inputDraftKey="asset-1" />,
@@ -549,6 +552,46 @@ describe('MarketDetailEmbeddedSwap', () => {
     captureDraft({
       fromToken: mockPaymentToken,
       toToken: mockUsdcToken,
+      fromTokenAmount: { value: '1', isInput: true },
+      toTokenAmount: { value: '', isInput: false },
+    });
+
+    view.rerender(
+      <MarketEmbeddedSwap
+        swapToken={marketToken}
+        inputDraftKey="asset-1"
+        disabled
+      />,
+    );
+    view.rerender(
+      <MarketEmbeddedSwap swapToken={marketToken} inputDraftKey="asset-1" />,
+    );
+
+    expect(mockEmbeddedSwap.mock.lastCall?.[0].swapInitParams).toEqual(
+      expect.objectContaining({
+        importFromToken: mockPaymentToken,
+        importToToken: mockUsdcToken,
+      }),
+    );
+    expect(mockEmbeddedSwap.mock.lastCall?.[0].initialInputAmountDraft).toEqual(
+      expect.objectContaining({
+        fromTokenAmount: { value: '1', isInput: true },
+      }),
+    );
+  });
+
+  it('drops an amount whose pair is not the seeded pair', () => {
+    // Half-resolved draft: only the pay token can be reused for the target
+    // network, so the amount must not follow it.
+    mockDefaultTokens = [mockPaymentToken, mockUsdcToken];
+    const view = render(
+      <MarketEmbeddedSwap swapToken={marketToken} inputDraftKey="asset-1" />,
+    );
+    const captureDraft = mockEmbeddedSwap.mock.lastCall?.[0]
+      .onInputDraftChange as (draft: ISwapInputAmountDraft) => void;
+    captureDraft({
+      fromToken: mockPaymentToken,
+      toToken: undefined,
       fromTokenAmount: { value: '1', isInput: true },
       toTokenAmount: { value: '', isInput: false },
     });

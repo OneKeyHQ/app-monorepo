@@ -26,7 +26,7 @@ import { useSpeedSwapInit } from '../components/SwapPanel/hooks/useSpeedSwapInit
 import { MarketStockTradeTarget } from './components/MarketStockTradeTarget';
 import {
   buildMarketEmbeddedSwapInitParams,
-  isStaleMarketDraftPair,
+  isDraftAmountRestorable,
 } from './marketEmbeddedSwapUtils';
 
 type IEmbeddedSwapProps = {
@@ -191,14 +191,6 @@ function MarketEmbeddedSwapContent({
   if (initialDraft.key !== inputDraftKey) {
     setInitialDraft({ key: inputDraftKey, draft: undefined });
   }
-  // An amount belongs to the pair that produced it. A stale restored pair would
-  // otherwise carry its amount onto a different token.
-  const restorableInputAmountDraft = isStaleMarketDraftPair(
-    initialInputAmountDraft,
-    swapTokenSeed,
-  )
-    ? undefined
-    : initialInputAmountDraft;
   const { defaultTokens, speedConfigReady, speedSwapConfig } = useSpeedSwapInit(
     swapTokenSeed.networkId,
     true,
@@ -207,10 +199,10 @@ function MarketEmbeddedSwapContent({
     () =>
       buildMarketEmbeddedSwapInitParams({
         defaultTokens,
-        inputDraft: restorableInputAmountDraft,
+        inputDraft: initialInputAmountDraft,
         swapToken: swapTokenSeed,
       }),
-    [defaultTokens, restorableInputAmountDraft, swapTokenSeed],
+    [defaultTokens, initialInputAmountDraft, swapTokenSeed],
   );
   const stockSpeedConfig = useMemo<ISwapStockSpeedConfig | undefined>(
     () =>
@@ -240,6 +232,15 @@ function MarketEmbeddedSwapContent({
     return <MarketEmbeddedSwapLoading />;
   }
   hasRenderedSwapRef.current = true;
+
+  // An amount belongs to the pair that produced it: it may only be forwarded
+  // when the seeded pair is exactly the draft's pair.
+  const restorableInputAmountDraft = isDraftAmountRestorable(
+    initialInputAmountDraft,
+    effectiveSwapInitParams,
+  )
+    ? initialInputAmountDraft
+    : undefined;
 
   const resolvedStockTradeHeader =
     stockTradeHeader ??

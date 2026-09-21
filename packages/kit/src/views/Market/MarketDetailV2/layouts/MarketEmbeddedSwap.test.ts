@@ -2,7 +2,10 @@ import type { ISwapInputAmountDraft } from '@onekeyhq/kit/src/states/jotai/conte
 import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
 import { ESwapSource } from '@onekeyhq/shared/types/swap/types';
 
-import { buildMarketEmbeddedSwapInitParams } from './marketEmbeddedSwapUtils';
+import {
+  buildMarketEmbeddedSwapInitParams,
+  isDraftAmountRestorable,
+} from './marketEmbeddedSwapUtils';
 
 const bnb: ISwapToken = {
   contractAddress: '',
@@ -138,7 +141,10 @@ describe('buildMarketEmbeddedSwapInitParams', () => {
     });
   });
 
-  it('discards a saved draft pair that no longer holds the Market token', () => {
+  it('restores a user-selected pair that no longer holds the Market token', () => {
+    // Market detail for NEXT; the user switched the receive token to USDC, so
+    // the draft no longer holds NEXT. It is the user's own choice under this
+    // inputDraftKey, and must survive a blur/refocus.
     const inputDraft: ISwapInputAmountDraft = {
       fromToken: eth,
       fromTokenAmount: { isInput: true, value: '1' },
@@ -154,7 +160,7 @@ describe('buildMarketEmbeddedSwapInitParams', () => {
       }),
     ).toMatchObject({
       importFromToken: eth,
-      importToToken: nextMarketToken,
+      importToToken: usdc,
     });
   });
 
@@ -176,5 +182,52 @@ describe('buildMarketEmbeddedSwapInitParams', () => {
       importFromToken: usdc,
       importToToken: nextMarketToken,
     });
+  });
+
+  it('forwards the retained amount only for the pair that produced it', () => {
+    const inputDraft: ISwapInputAmountDraft = {
+      fromToken: btc,
+      fromTokenAmount: { isInput: true, value: '0.00056' },
+      toToken: eth,
+      toTokenAmount: { isInput: false, value: '' },
+    };
+    const params = buildMarketEmbeddedSwapInitParams({
+      defaultTokens: [eth, usdc],
+      inputDraft,
+      swapToken: btc,
+    });
+
+    expect(isDraftAmountRestorable(inputDraft, params)).toBe(true);
+    expect(
+      isDraftAmountRestorable(inputDraft, {
+        ...params,
+        importFromToken: usdc,
+      }),
+    ).toBe(false);
+    expect(
+      isDraftAmountRestorable(inputDraft, {
+        ...params,
+        importToToken: usdc,
+      }),
+    ).toBe(false);
+  });
+
+  it('never forwards an amount from a draft without a resolved pair', () => {
+    const inputDraft: ISwapInputAmountDraft = {
+      fromToken: btc,
+      fromTokenAmount: { isInput: true, value: '0.00056' },
+      toToken: undefined,
+      toTokenAmount: { isInput: false, value: '' },
+    };
+    const params = buildMarketEmbeddedSwapInitParams({
+      defaultTokens: [eth, usdc],
+      inputDraft,
+      swapToken: nextMarketToken,
+    });
+
+    expect(params).toBeDefined();
+    expect(isDraftAmountRestorable(inputDraft, params)).toBe(false);
+    expect(isDraftAmountRestorable(inputDraft, undefined)).toBe(false);
+    expect(isDraftAmountRestorable(undefined, params)).toBe(false);
   });
 });

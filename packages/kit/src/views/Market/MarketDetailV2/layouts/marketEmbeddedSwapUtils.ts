@@ -21,14 +21,14 @@ function isSameSwapToken(token1?: ISwapToken, token2?: ISwapToken) {
 }
 
 /**
- * A retained draft may seed the ticket as-is only while it still describes this
- * Market asset's trade: both sides are resolved, the pair is not degenerate, and
- * the Market token is still one of them. Restoring such a pair keeps both sides
- * as the user left them — including a pay token on another network, which
- * otherwise gets replaced by a channel default while the entered amount stays
- * behind on the new token.
+ * A retained draft pair may be restored as-is while it is a resolved,
+ * non-degenerate pair. A pair that no longer holds the Market token is still
+ * restorable: under the same inputDraftKey it can only come from the user's own
+ * token selection on this asset, while a real asset change resets the draft
+ * (`inputDraftKey`). Restoring both sides verbatim is also what keeps a payment
+ * token on another network from being replaced by a channel default.
  */
-export function isMarketDraftPairForToken(
+export function isRestorableMarketDraftPair(
   inputDraft: ISwapInputAmountDraft | undefined,
   swapToken: ISwapToken,
 ): inputDraft is ISwapInputAmountDraft & {
@@ -39,28 +39,27 @@ export function isMarketDraftPairForToken(
   if (!fromToken || !toToken || swapToken.isStock) {
     return false;
   }
-  if (isSameSwapToken(fromToken, toToken)) {
-    return false;
-  }
-  return (
-    isSameSwapToken(fromToken, swapToken) || isSameSwapToken(toToken, swapToken)
-  );
+  return !isSameSwapToken(fromToken, toToken);
 }
 
 /**
- * A resolved pair that lost the Market token belongs to an older identity, so
- * neither of its tokens nor its amount may seed this ticket. Stock pairs are
- * exempt: their target is owned by Market's selectedTokenVariant, not by the
- * draft.
+ * An amount belongs to the pair that produced it. The shared Swap ticket only
+ * consumes the retained amount; both of its tokens come from the seeded params
+ * (`SwapMainLand` -> `initialSelectedTokensOnInit`), so the amount may only be
+ * forwarded while the seeded pair is exactly the draft's pair. Otherwise a
+ * fallback pay token or a stock variant switch would receive an amount typed for
+ * another token.
  */
-export function isStaleMarketDraftPair(
+export function isDraftAmountRestorable(
   inputDraft: ISwapInputAmountDraft | undefined,
-  swapToken: ISwapToken,
+  params: ISwapInitParams | undefined,
 ) {
+  if (!inputDraft?.fromToken || !inputDraft?.toToken || !params) {
+    return false;
+  }
   return (
-    !swapToken.isStock &&
-    Boolean(inputDraft?.fromToken && inputDraft?.toToken) &&
-    !isMarketDraftPairForToken(inputDraft, swapToken)
+    isSameSwapToken(inputDraft.fromToken, params.importFromToken) &&
+    isSameSwapToken(inputDraft.toToken, params.importToToken)
   );
 }
 
@@ -98,20 +97,17 @@ export function buildMarketEmbeddedSwapInitParams({
   // The stock variant is controlled by Market's selectedTokenVariant, so a stock
   // ticket always targets the latest variant token when the selection changes
   // while the embedded Swap remains mounted.
-  const shouldRestoreDraftPair = isMarketDraftPairForToken(
+  const shouldRestoreDraftPair = isRestorableMarketDraftPair(
     inputDraft,
     swapToken,
   );
   const importToToken = shouldRestoreDraftPair ? inputDraft.toToken : swapToken;
-  let draftFromToken: ISwapToken | undefined;
-  if (shouldRestoreDraftPair) {
-    draftFromToken = inputDraft.fromToken;
-  } else if (!isStaleMarketDraftPair(inputDraft, swapToken)) {
-    draftFromToken = getSameNetworkDraftFromToken({
-      inputDraft,
-      importToToken,
-    });
-  }
+  const draftFromToken = shouldRestoreDraftPair
+    ? inputDraft.fromToken
+    : getSameNetworkDraftFromToken({
+        inputDraft,
+        importToToken,
+      });
   const importFromToken =
     draftFromToken ??
     defaultTokens.find((token) => !isSameSwapToken(token, importToToken));
