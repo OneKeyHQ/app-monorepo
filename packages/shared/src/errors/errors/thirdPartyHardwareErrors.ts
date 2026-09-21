@@ -396,7 +396,7 @@ export class ThirdPartyDeviceSearchMismatch extends ThirdPartyHardwareError {
   constructor(props?: IOneKeyErrorHardwareProps & { vendor?: string }) {
     super(
       normalizeErrorProps(props, {
-        defaultKey: ETranslationsMock.hardware_third_party_usb_wrong_device,
+        defaultKey: ETranslations.hardware_not_same,
       }),
     );
     this.vendor = props?.vendor;
@@ -416,7 +416,7 @@ export class ThirdPartySecureChannelError extends ThirdPartyHardwareError {
   constructor(props?: IOneKeyErrorHardwareProps & { vendor?: string }) {
     super(
       normalizeErrorProps(props, {
-        defaultKey: ETranslationsMock.hardware_third_party_secure_channel_error,
+        defaultKey: ETranslations.global_connection_failed_help_text,
         defaultAutoToast: true,
       }),
     );
