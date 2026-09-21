@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef } from 'react';
 
 import BigNumber from 'bignumber.js';
+import pLimit from 'p-limit';
 
 import {
   resetAboveMainRoute,
@@ -23,6 +24,7 @@ import {
 import type { INetworkDeriveInfo } from '@onekeyhq/kit-bg/src/vaults/types';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { getPresetNetworks } from '@onekeyhq/shared/src/config/presetNetworks';
+import { MARKET_TOP_COINS_CATEGORY_ID } from '@onekeyhq/shared/src/consts/marketConsts';
 import { PERPS_NETWORK_ID } from '@onekeyhq/shared/src/consts/perp';
 import {
   EAppEventBusNames,
@@ -721,8 +723,16 @@ export function useTrayDataProvider() {
         const watchListData =
           await backgroundApiProxy.serviceMarketV2.getMarketWatchListV2();
         if (watchListData?.data?.length) {
+          // Listing favorites (Market top coins / stocks) have no chainId, so
+          // they need their own quote source instead of the spot batch
+          // (OK-63844, OK-63845).
           const spotItems = watchListData.data.filter(
-            (item: any) => !item.perpsCoin && item.chainId,
+            (item) =>
+              !item.perpsCoin && !item.assetId && !item.stockId && item.chainId,
+          );
+          const assetItems = watchListData.data.filter((item) => item.assetId);
+          const stockItems = watchListData.data.filter(
+            (item) => !item.assetId && item.stockId,
           );
           const perpsItems = watchListData.data.filter(
             (item: any) => !!item.perpsCoin,
@@ -734,6 +744,8 @@ export function useTrayDataProvider() {
               contractAddress?: string;
               isNative?: boolean;
               perpsCoin?: string;
+              assetId?: string;
+              stockId?: string;
             };
             item: ITrayWatchlistItem;
           }> = [];
@@ -778,7 +790,10 @@ export function useTrayDataProvider() {
                       price: formatTrayUsdPrice(coin.price),
                       change24h: Number(coin.priceChange24hPercent || 0),
                       type: 'spot',
-                      tokenAddress,
+                      // Natives such as SUI resolve to a Move type-tag address
+                      // that the detail route needs; the Market list opens
+                      // them with this same API address (OK-63847).
+                      tokenAddress: coin.address || tokenAddress,
                       networkId: spotItem.chainId,
                       isNative: spotIsNative,
                       communityRecognized: coin.communityRecognized,
@@ -789,6 +804,80 @@ export function useTrayDataProvider() {
               }
             } catch {
               // spot fetch failed
+            }
+          }
+
+          if (assetItems.length > 0 || stockItems.length > 0) {
+            const limit = pLimit(4);
+            const [assetResults, stockResults] = await Promise.all([
+              Promise.all(
+                assetItems.map((item) =>
+                  limit(async () => {
+                    try {
+                      const quote =
+                        await backgroundApiProxy.serviceMarketV2.fetchMarketListingWatchlistQuote(
+                          { assetId: item.assetId },
+                        );
+                      return { item, quote };
+                    } catch {
+                      // A delisted or failing asset must not hide the rest.
+                      return { item, quote: undefined };
+                    }
+                  }),
+                ),
+              ),
+              (async () => {
+                if (stockItems.length === 0) return [];
+                try {
+                  return await backgroundApiProxy.serviceMarketV2.fetchMarketStockBatch(
+                    {
+                      stockIds: Array.from(
+                        new Set(stockItems.map((item) => item.stockId ?? '')),
+                      ),
+                    },
+                  );
+                } catch {
+                  return [];
+                }
+              })(),
+            ]);
+
+            for (const { item, quote } of assetResults) {
+              if (quote?.symbol) {
+                watchlistResults.push({
+                  sourceItem: item,
+                  item: {
+                    symbol: quote.symbol.toUpperCase(),
+                    name: quote.name || '',
+                    icon: quote.logoUrl || '',
+                    price: formatTrayUsdPrice(quote.price ?? 0),
+                    change24h: Number(quote.priceChange24hPercent || 0),
+                    type: 'spot',
+                    assetId: item.assetId,
+                  },
+                });
+              }
+            }
+
+            const stockById = new Map(
+              stockResults.map((stock) => [stock.stockId.toUpperCase(), stock]),
+            );
+            for (const item of stockItems) {
+              const stock = stockById.get((item.stockId ?? '').toUpperCase());
+              if (stock?.symbol) {
+                watchlistResults.push({
+                  sourceItem: item,
+                  item: {
+                    symbol: stock.symbol.toUpperCase(),
+                    name: stock.name || '',
+                    icon: stock.logoUrl || '',
+                    price: formatTrayUsdPrice(stock.price ?? 0),
+                    change24h: Number(stock.priceChange24hPercent || 0),
+                    type: 'spot',
+                    stockId: stock.stockId,
+                  },
+                });
+              }
             }
           }
 
@@ -1139,6 +1228,73 @@ export function useTrayDataProvider() {
             appEventBus.emit(EAppEventBusNames.PerpSwitchActiveInstrument, {
               mode: 'perp',
               coin,
+            });
+          })();
+          return;
+        }
+
+        if (action.stockId) {
+          const stockId = action.stockId;
+          void switchTabAsync(ETabRoutes.Market).then(() => {
+            rootNavigationRef.current?.navigate(ERootRoutes.Main, {
+              screen: ETabRoutes.Market,
+              params: {
+                screen: ETabMarketRoutes.MarketStockDetail,
+                params: { stockId },
+              },
+            });
+          });
+          return;
+        }
+
+        if (action.assetId) {
+          const assetId = action.assetId;
+          void (async () => {
+            // Same resolution the Market list performs for a top-coin row:
+            // the asset's default variant decides network and address.
+            let variant:
+              | {
+                  variantId: string;
+                  networkId: string;
+                  tokenAddress: string;
+                  isNative: boolean;
+                }
+              | undefined;
+            try {
+              const { selectedVariant } =
+                await backgroundApiProxy.serviceMarket.fetchMarketAssetDetail({
+                  assetId,
+                  currency: 'usd',
+                  autoHandleError: false,
+                });
+              variant = selectedVariant;
+            } catch (e) {
+              defaultLogger.app.error.log(
+                `[TrayDataProvider] asset navigation error: ${
+                  (e as Error)?.message || String(e)
+                }`,
+              );
+              return;
+            }
+            if (!variant) return;
+            const shortCode = networkUtils.getNetworkShortCode({
+              networkId: variant.networkId,
+            });
+            const params = {
+              tokenAddress: variant.tokenAddress,
+              network: shortCode || variant.networkId,
+              isNative: variant.isNative,
+              marketTokenId: assetId,
+              marketVariantId: variant.variantId,
+              marketTokenCategory: MARKET_TOP_COINS_CATEGORY_ID,
+            };
+            await switchTabAsync(ETabRoutes.Market);
+            rootNavigationRef.current?.navigate(ERootRoutes.Main, {
+              screen: ETabRoutes.Market,
+              params: {
+                screen: ETabMarketRoutes.MarketDetailV2,
+                params,
+              },
             });
           })();
           return;

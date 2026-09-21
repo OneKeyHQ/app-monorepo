@@ -21,6 +21,8 @@ type ITrayWatchlistSourceItem = {
   contractAddress?: string;
   isNative?: boolean;
   perpsCoin?: string;
+  assetId?: string;
+  stockId?: string;
 };
 
 type ITrayWatchlistResolvedItem = {
@@ -91,6 +93,12 @@ function getTrayWatchlistSourceKey(
   if (item.perpsCoin) {
     return `perps:${item.perpsCoin.toUpperCase()}`;
   }
+  if (item.assetId) {
+    return `asset:${item.assetId}`;
+  }
+  if (item.stockId) {
+    return `stock:${item.stockId.toUpperCase()}`;
+  }
   if (!item.chainId) return undefined;
   const { normalizedTokenAddress } = getTrayWatchlistNativeInfo({
     isNative: item.isNative,
@@ -147,9 +155,11 @@ export function getTrayMarketNavigationTarget({
       };
     }
   | undefined {
-  const resolvedIsNative = isNative || !tokenAddress;
-
-  if (resolvedIsNative) {
+  // Natives without an address (EVM/BTC/SOL) only resolve on the native
+  // route. Natives that do carry one (Move type tags such as `0x2::sui::SUI`)
+  // must keep it: the token route is what the Market list opens for them, and
+  // the detail identity check fails without the address (OK-63847).
+  if (!tokenAddress) {
     return {
       screen: ETabMarketRoutes.MarketNativeDetail,
       params: {
@@ -159,14 +169,12 @@ export function getTrayMarketNavigationTarget({
     };
   }
 
-  if (!tokenAddress) return undefined;
-
   return {
     screen: ETabMarketRoutes.MarketDetailV2,
     params: {
       tokenAddress,
       network,
-      isNative: false,
+      isNative: Boolean(isNative),
     },
   };
 }

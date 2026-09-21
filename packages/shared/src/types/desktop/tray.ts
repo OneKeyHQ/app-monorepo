@@ -27,6 +27,9 @@ export interface ITrayWatchlistItem {
   tokenAddress?: string;
   networkId?: string;
   isNative?: boolean;
+  // Market listing favorites (top coins / stocks) carry no chain identity.
+  assetId?: string;
+  stockId?: string;
   perpsCoin?: string;
   maxLeverage?: number;
   // Perp dex venue label parsed from the prefixed coin name
@@ -112,6 +115,8 @@ export interface ITrayAction {
   tokenAddress?: string;
   isNative?: boolean;
   perpsCoin?: string;
+  assetId?: string;
+  stockId?: string;
 }
 
 // Mirror of ipcMessageKeys.TRAY_* in apps/desktop/app/config.ts.

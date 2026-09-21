@@ -167,6 +167,34 @@ describe('trayDataProviderUtils', () => {
     ]);
   });
 
+  test('buildTrayWatchlistInSourceOrder keeps asset and stock listings in place', () => {
+    // OK-63844 / OK-63845: listing favorites have no chainId and must be
+    // ordered by their own identity instead of being dropped.
+    const sourceItems = [
+      { assetId: 'bitcoin', chainId: '', contractAddress: '' },
+      { chainId: 'evm--1', contractAddress: '0xabc', isNative: false },
+      { stockId: 'AAPL', chainId: '', contractAddress: '' },
+      { perpsCoin: 'ETH' },
+    ];
+
+    const result = buildTrayWatchlistInSourceOrder({
+      sourceItems,
+      resolvedItems: [
+        { sourceItem: sourceItems[3], item: buildTicker('ETH', 'perps') },
+        { sourceItem: sourceItems[2], item: buildTicker('AAPL', 'spot') },
+        { sourceItem: sourceItems[1], item: buildTicker('ABC', 'spot') },
+        { sourceItem: sourceItems[0], item: buildTicker('BTC', 'spot') },
+      ],
+    });
+
+    expect(result.map((item) => item.symbol)).toEqual([
+      'BTC',
+      'ABC',
+      'AAPL',
+      'ETH',
+    ]);
+  });
+
   test('getTrayWatchlistNativeInfo treats SUI native as native even with an address', () => {
     const result = getTrayWatchlistNativeInfo({
       contractAddress: '0x2::sui::SUI',
@@ -189,7 +217,9 @@ describe('trayDataProviderUtils', () => {
     expect(result.normalizedTokenAddress).toBe('');
   });
 
-  test('getTrayMarketNavigationTarget uses native route for SUI native actions', () => {
+  test('getTrayMarketNavigationTarget keeps the native type-tag address for SUI native actions', () => {
+    // OK-63847: MarketNativeDetail without an address never matches the Sui
+    // detail identity (`0x…2::sui::SUI`), which left the trade panel blank.
     const result = getTrayMarketNavigationTarget({
       network: 'sui',
       tokenAddress: '0x2::sui::SUI',
@@ -197,13 +227,13 @@ describe('trayDataProviderUtils', () => {
     });
 
     expect(result).toEqual({
-      screen: ETabMarketRoutes.MarketNativeDetail,
+      screen: ETabMarketRoutes.MarketDetailV2,
       params: {
+        tokenAddress: '0x2::sui::SUI',
         network: 'sui',
         isNative: true,
       },
     });
-    expect(result?.params).not.toHaveProperty('tokenAddress');
   });
 
   test('getTrayMarketNavigationTarget uses native route for empty-address spot actions', () => {
