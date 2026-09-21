@@ -16,13 +16,27 @@ jest.mock('@onekeyhq/shared/src/utils/swrCacheUtils', () => ({
     remove: jest.fn(),
     removeByPrefix: jest.fn(),
     flushNow: jest.fn(),
-    flushNowAndPersist: jest.fn(() => Promise.resolve()),
+    flushNowAndPersist: jest.fn(() => Promise.resolve(true)),
     clearUiOwnedNamespaces: jest.fn(),
   },
   swrKeys: {
     accountSelectorValues: jest.fn(
       ({ walletId }: { walletId: string }) => `accSelValues:v1:${walletId}`,
     ),
+  },
+}));
+
+const mockRemovalNotPersisted = jest.fn();
+
+jest.mock('@onekeyhq/shared/src/logger/logger', () => ({
+  defaultLogger: {
+    app: {
+      perf: {
+        swrCacheRemovalNotPersisted: (params: unknown) => {
+          mockRemovalNotPersisted(params);
+        },
+      },
+    },
   },
 }));
 
@@ -58,6 +72,9 @@ describe('swrCacheMutationInvalidation', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    // `clearAllMocks` drops the recorded calls but keeps an implementation a
+    // previous case installed, so the committed case is restored here.
+    (swrCacheUtils.flushNowAndPersist as jest.Mock).mockResolvedValue(true);
   });
 
   it('drops the shape namespaces when a wallet is renamed', () => {
@@ -152,6 +169,30 @@ describe('swrCacheMutationInvalidation', () => {
     commit();
     await pending;
     expect(returned).toBe(true);
+  });
+
+  it.each([
+    ['removedWallet', () => dropSwrCacheForRemovedWallet('hd-1')],
+    ['removedAccount', () => dropSwrCacheForRemovedAccount()],
+  ])(
+    'records a removal the store could not commit for %s',
+    async (reason, drop) => {
+      // The store re-queues a batch it could not write and retries it on a timer
+      // — which an extension popup, closing right after the deletion, takes with
+      // it. Nothing here can mend that, so the outcome is recorded rather than
+      // thrown, and the caller still returns.
+      (swrCacheUtils.flushNowAndPersist as jest.Mock).mockResolvedValue(false);
+
+      await expect(drop()).resolves.toBeUndefined();
+
+      expect(mockRemovalNotPersisted).toHaveBeenCalledWith({ reason });
+    },
+  );
+
+  it('records nothing when the store committed', async () => {
+    await dropSwrCacheForRemovedAccount();
+
+    expect(mockRemovalNotPersisted).not.toHaveBeenCalled();
   });
 
   it('registers once, however many times it is called', () => {

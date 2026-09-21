@@ -893,19 +893,29 @@ function flushNow(): void {
   void flushSnapshotStore();
 }
 
-/** Resolves once the snapshot store has committed, for a caller that can wait. */
-async function flushNowAndPersist(): Promise<void> {
+/**
+ * Flush and wait for the snapshot store, for a caller that can wait.
+ *
+ * Resolves `true` when what was pending is on disk. The store re-queues a
+ * batch it could not write and retries it on a timer, so a `false` here means
+ * the removal is still only in memory — and the surface that asked for it may
+ * close before that timer fires. The caller decides what that is worth; there
+ * is nothing to be done about a database that will not open, so this reports
+ * rather than throws.
+ */
+async function flushNowAndPersist(): Promise<boolean> {
   if (_flushTimer !== undefined) {
     clearTimeout(_flushTimer);
     _flushTimer = undefined;
   }
   flush();
-  await flushSnapshotStore();
+  return flushSnapshotStore();
 }
 
-function flushSnapshotStore(): Promise<void> {
+function flushSnapshotStore(): Promise<boolean> {
   if (platformEnv.isNative) {
-    return Promise.resolve();
+    // MMKV is written synchronously inside `flush()` above.
+    return Promise.resolve(true);
   }
   try {
     // eslint-disable-next-line @typescript-eslint/no-require-imports
@@ -913,8 +923,9 @@ function flushSnapshotStore(): Promise<void> {
       require('../storage/DisplaySnapshotStorage/webUiSnapshotStore') as typeof import('../storage/DisplaySnapshotStorage/webUiSnapshotStore');
     return flushUiSnapshotStoreNow();
   } catch {
-    // The store may not be loaded on every surface.
-    return Promise.resolve();
+    // The store may not be loaded on every surface, and this cannot tell that
+    // apart from a store that failed to load — so it does not claim a commit.
+    return Promise.resolve(false);
   }
 }
 

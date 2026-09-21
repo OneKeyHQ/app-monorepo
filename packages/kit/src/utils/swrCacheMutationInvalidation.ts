@@ -22,6 +22,7 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import {
   prefixOf,
   swrCacheNamespaces,
@@ -69,6 +70,26 @@ const dropDiscoveryBookmarksSwr = () =>
   );
 
 /**
+ * Wait for the removal to reach disk, and record it when it did not.
+ *
+ * Awaited, not fire-and-forget: on web and the extension the snapshot store
+ * commits its deletes behind a debounce of its own, and an extension popup
+ * closed right after the deletion takes that timer with it.
+ *
+ * A store that could not write says so rather than throwing, and there is
+ * nothing here that can mend it — the wallet is already gone from the
+ * database, and failing the deletion over a display cache would be worse than
+ * the stale frame it would prevent. So the outcome is recorded and the caller
+ * continues; the store retries on its own while this surface lives.
+ */
+async function persistRemoval(reason: 'removedWallet' | 'removedAccount') {
+  const persisted = await swrCacheUtils.flushNowAndPersist();
+  if (!persisted) {
+    defaultLogger.app.perf.swrCacheRemovalNotPersisted({ reason });
+  }
+}
+
+/**
  * The drop the runtime that asked for the deletion performs itself.
  *
  * The listener below already covers it, but only once bg's event has crossed
@@ -82,10 +103,7 @@ export async function dropSwrCacheForRemovedWallet(walletId: string) {
   dropWalletListSwr();
   dropAccountSelectorListSwr();
   dropBulkAddressSwr();
-  // Awaited, not fire-and-forget: on web and the extension the snapshot store
-  // commits its deletes behind a debounce of its own, and an extension popup
-  // closed right after the deletion takes that timer with it.
-  await swrCacheUtils.flushNowAndPersist();
+  await persistRemoval('removedWallet');
 }
 
 export async function dropSwrCacheForRemovedAccount() {
@@ -93,7 +111,7 @@ export async function dropSwrCacheForRemovedAccount() {
   dropAccountSelectorListSwr();
   dropAccountSelectorValuesSwr();
   dropBulkAddressSwr();
-  await swrCacheUtils.flushNowAndPersist();
+  await persistRemoval('removedAccount');
 }
 
 let registered = false;
