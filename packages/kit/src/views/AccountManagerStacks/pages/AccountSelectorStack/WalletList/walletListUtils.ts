@@ -52,6 +52,25 @@ export function getWalletChildrenLength(
   return (wallet.hiddenWallets?.length ?? 0) + (wallet.botWallets?.length ?? 0);
 }
 
+export function findWalletListScrollKey({
+  wallets,
+  focusedWallet,
+}: {
+  wallets: readonly IAccountSelectorWalletInfo[];
+  focusedWallet: string | undefined;
+}): string | undefined {
+  if (!focusedWallet) {
+    return undefined;
+  }
+
+  return wallets.find(
+    (wallet) =>
+      wallet.id === focusedWallet ||
+      wallet.hiddenWallets?.some((child) => child.id === focusedWallet) ||
+      wallet.botWallets?.some((child) => child.id === focusedWallet),
+  )?.id;
+}
+
 export function buildGroupedAccountSelectorWallets(
   entries: IBuildWalletListEntry[],
 ): IAccountSelectorWalletInfo[] {

@@ -3,6 +3,7 @@ import { BOT_WALLET_STATUS_DEACTIVATED } from '@onekeyhq/shared/src/consts/dbCon
 
 import {
   buildGroupedAccountSelectorWallets,
+  findWalletListScrollKey,
   getWalletChildrenLength,
 } from './walletListUtils';
 
@@ -141,5 +142,31 @@ describe('walletListUtils', () => {
         ],
       }),
     ).toBe(3);
+  });
+
+  it('resolves focused child wallets to their top-level scroll key', () => {
+    const wallets = [
+      {
+        ...createWallet({ id: 'hd-parent', name: 'Parent' }),
+        hiddenWallets: [
+          createWallet({ id: 'hidden-child', name: 'Hidden child' }),
+        ],
+        botWallets: [createWallet({ id: 'bot-child', name: 'Bot child' })],
+      },
+      createWallet({ id: 'hd-2', name: 'Wallet 2' }),
+    ];
+
+    expect(findWalletListScrollKey({ wallets, focusedWallet: 'hd-2' })).toBe(
+      'hd-2',
+    );
+    expect(
+      findWalletListScrollKey({ wallets, focusedWallet: 'hidden-child' }),
+    ).toBe('hd-parent');
+    expect(
+      findWalletListScrollKey({ wallets, focusedWallet: 'bot-child' }),
+    ).toBe('hd-parent');
+    expect(
+      findWalletListScrollKey({ wallets, focusedWallet: 'missing' }),
+    ).toBeUndefined();
   });
 });
