@@ -128,6 +128,7 @@ export class HyperLiquidScene extends BaseScene {
   }
 
   @LogToServer()
+  @LogToLocal({ level: 'error' })
   public preTransferCheckFailure(params: {
     reason: 'requestFailed' | 'invalidResponse' | 'restricted';
     httpStatus?: number;

@@ -4,7 +4,7 @@ const accountAddress = '0x1111111111111111111111111111111111111111';
 const exchangeAccountAddress = '0x2222222222222222222222222222222222222222';
 
 describe('hyperliquid log payload', () => {
-  test('sends precheck failures through the server logger', () => {
+  test('sends precheck failures through the server and local error loggers', () => {
     const scene = new HyperLiquidScene();
     const emit = jest.spyOn(scene, '_emitLog').mockImplementation(() => {});
     scene.preTransferCheckFailure({
@@ -16,7 +16,10 @@ describe('hyperliquid log payload', () => {
     expect(emit).toHaveBeenCalledWith(
       'preTransferCheckFailure',
       [{ reason: 'requestFailed', httpStatus: 500, fallbackApplied: true }],
-      [expect.objectContaining({ type: 'server' })],
+      [
+        expect.objectContaining({ type: 'local', level: 'error' }),
+        expect.objectContaining({ type: 'server' }),
+      ],
     );
   });
 
