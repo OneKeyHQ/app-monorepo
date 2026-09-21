@@ -128,6 +128,16 @@ export class HyperLiquidScene extends BaseScene {
   }
 
   @LogToServer()
+  @LogToLocal({ level: 'error' })
+  public preTransferCheckFailure(params: {
+    reason: 'requestFailed' | 'invalidResponse' | 'restricted';
+    httpStatus?: number;
+    fallbackApplied: boolean;
+  }) {
+    return params;
+  }
+
+  @LogToServer()
   public setReferrer(
     params: IHyperLiquidLogParams<
       ISetReferrerRequest,
