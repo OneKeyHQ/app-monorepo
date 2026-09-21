@@ -146,10 +146,6 @@ jest.mock('./instance/mmkvStorageInstance', () => ({
   __esModule: true,
   default: mockSettingsMMKV,
 }));
-jest.mock('./instance/coldStartCacheMMKVInstance', () => ({
-  __esModule: true,
-  default: mockColdStartMMKV,
-}));
 jest.mock('./instance/mmkvDevSettingStorageInstance', () => ({
   __esModule: true,
   default: mockDevSettingsMMKV,
@@ -175,15 +171,6 @@ function markAppStorageMigrated() {
   mockAppMMKV.set(MIGRATION_KEY, '1');
   mockAppMMKV.set(LEGACY_RETENTION_KEY, 'retained-v1');
   mockMigrationLedger.set('app-storage-v1', 'complete-v1');
-}
-
-function readPersistedSWRCache() {
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  const { getNativeSWRCachePersistence } =
-    require('./nativeSWRCachePersistence') as typeof import('./nativeSWRCachePersistence');
-  return JSON.parse(
-    getNativeSWRCachePersistence(mockColdStartMMKV).readSerialized(),
-  ) as Record<string, unknown>;
 }
 
 describe('nativeStorageExecutor', () => {
@@ -1214,149 +1201,6 @@ describe('nativeStorageExecutor', () => {
       );
     },
   );
-
-  it('merges stale main-runtime SWR writes without deleting newer bg entries', async () => {
-    const previous = JSON.stringify({ a: { d: 'old', t: 1 } });
-    mockColdStartMMKV.set(
-      'onekey_swr_cache',
-      JSON.stringify({
-        a: { d: 'new-bg', t: 3 },
-        b: { d: 'bg-only', t: 2 },
-      }),
-    );
-    const { executeNativeStorageRequest } = loadExecutor();
-
-    await executeNativeStorageRequest({
-      scope: 'syncStorage',
-      operation: 'set',
-      store: 'coldStart',
-      key: 'onekey_swr_cache',
-      value: JSON.stringify({ c: { d: 'ui', t: 4 } }),
-      previousValue: previous,
-    });
-
-    expect(readPersistedSWRCache()).toEqual({
-      a: { d: 'new-bg', t: 3 },
-      b: { d: 'bg-only', t: 2 },
-      c: { d: 'ui', t: 4 },
-    });
-    expect(
-      nativeStorageGlobal.__onekeyNativeSyncStorageBroadcast,
-    ).toHaveBeenCalledWith(
-      expect.objectContaining({
-        store: 'coldStart',
-        operation: 'patchSWR',
-      }),
-    );
-  });
-
-  it('retains a large legacy SWR entry within the overall budgets', async () => {
-    markAppStorageMigrated();
-    const homeKey = 'home-overview-perps-worth:account-1';
-    const largeValue = 'x'.repeat(1024 * 1024);
-    mockColdStartMMKV.set(
-      'onekey_swr_cache',
-      JSON.stringify({
-        [homeKey]: { d: 'small', t: 2 },
-        'non-home': { d: 'keep-on-disk', t: 1 },
-        large: { d: largeValue, t: 3 },
-      }),
-    );
-    const { executeNativeStorageRequest } = loadExecutor();
-
-    const snapshot = (await executeNativeStorageRequest({
-      scope: 'bootstrap',
-    })) as {
-      coldStart: Array<[string, IScalar]>;
-      swrCacheEntries: Array<[string, string]>;
-    };
-    expect(new Map(snapshot.coldStart).has('onekey_swr_cache')).toBe(false);
-    const snapshotStore = Object.fromEntries(
-      snapshot.swrCacheEntries.map(([key, serialized]) => [
-        key,
-        JSON.parse(serialized) as { d: unknown; t: number },
-      ]),
-    );
-    const persistedStore = readPersistedSWRCache() as Record<
-      string,
-      { d: unknown; t: number }
-    >;
-
-    expect(snapshotStore).toMatchObject({
-      [homeKey]: { d: 'small', t: 2 },
-      'non-home': { d: 'keep-on-disk', t: 1 },
-    });
-    expect(snapshotStore.large).toEqual({ d: largeValue, t: 3 });
-    expect(persistedStore).toMatchObject({
-      [homeKey]: { d: 'small', t: 2 },
-      'non-home': { d: 'keep-on-disk', t: 1 },
-    });
-    expect(persistedStore.large).toEqual({ d: largeValue, t: 3 });
-    expect(mockColdStartMMKV.getString('onekey_swr_cache')).toBeUndefined();
-  });
-
-  it('bounds steady-state SWR bootstrap across business namespaces', async () => {
-    markAppStorageMigrated();
-    const {
-      executeNativeStorageRequest,
-      NATIVE_SWR_CACHE_BOOTSTRAP_MAX_ENTRIES,
-      NATIVE_SWR_CACHE_BOOTSTRAP_MAX_SERIALIZED_CHARS,
-    } = loadExecutor();
-    const sourceEntryCount = NATIVE_SWR_CACHE_BOOTSTRAP_MAX_ENTRIES + 6;
-    const entries = Object.fromEntries(
-      Array.from({ length: sourceEntryCount }, (_, index) => [
-        `${index % 2 === 0 ? 'marketHomeTokenList' : 'disHomePage'}:entry-${index}`,
-        { d: String(index), t: index + 1 },
-      ]),
-    );
-    mockColdStartMMKV.set('onekey_swr_cache', JSON.stringify(entries));
-
-    await executeNativeStorageRequest({ scope: 'bootstrap' });
-    const snapshot = (await executeNativeStorageRequest({
-      scope: 'bootstrap',
-    })) as {
-      swrCacheEntries: Array<[string, string]>;
-    };
-    const bootstrapStore = Object.fromEntries(snapshot.swrCacheEntries);
-    const bootstrapSerializedChars = `{${snapshot.swrCacheEntries
-      .map(([key, serialized]) => `${JSON.stringify(key)}:${serialized}`)
-      .join(',')}}`.length;
-
-    expect(NATIVE_SWR_CACHE_BOOTSTRAP_MAX_SERIALIZED_CHARS).toBe(
-      10 * 1024 * 1024,
-    );
-    expect(NATIVE_SWR_CACHE_BOOTSTRAP_MAX_ENTRIES).toBe(100);
-    expect(Object.keys(bootstrapStore)).toHaveLength(
-      NATIVE_SWR_CACHE_BOOTSTRAP_MAX_ENTRIES,
-    );
-    expect(Object.keys(bootstrapStore)).toEqual(
-      Array.from(
-        { length: NATIVE_SWR_CACHE_BOOTSTRAP_MAX_ENTRIES },
-        (_, index) => {
-          const entryIndex =
-            sourceEntryCount - NATIVE_SWR_CACHE_BOOTSTRAP_MAX_ENTRIES + index;
-          return `${
-            entryIndex % 2 === 0 ? 'marketHomeTokenList' : 'disHomePage'
-          }:entry-${entryIndex}`;
-        },
-      ),
-    );
-    expect(bootstrapSerializedChars).toBeLessThanOrEqual(
-      NATIVE_SWR_CACHE_BOOTSTRAP_MAX_SERIALIZED_CHARS,
-    );
-    expect(mockSWRCacheCapacityLimit).toHaveBeenCalledWith(
-      expect.objectContaining({
-        affectedEntryCount: 6,
-        maxEntries: NATIVE_SWR_CACHE_BOOTSTRAP_MAX_ENTRIES,
-        namespaces: expect.arrayContaining([
-          'disHomePage',
-          'marketHomeTokenList',
-        ]),
-        reason: 'bootstrapEntryCountLimit',
-      }),
-    );
-    expect(readPersistedSWRCache()).toEqual(entries);
-  });
 
   it('applies and acknowledges native recovery intent in bg before snapshot', async () => {
     markAppStorageMigrated();

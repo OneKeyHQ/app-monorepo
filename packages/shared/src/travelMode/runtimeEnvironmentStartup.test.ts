@@ -50,7 +50,7 @@ describe('masked native runtime startup', () => {
 
   it('loads actual storage entry points without constructing physical backends', async () => {
     // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const { syncStorage, coldStartCacheStorage } =
+    const { syncStorage } =
       require('../storage/instance/syncStorageInstance') as typeof import('../storage/instance/syncStorageInstance');
     // eslint-disable-next-line @typescript-eslint/no-require-imports
     const { devSettingSyncStorage } =
@@ -71,7 +71,6 @@ describe('masked native runtime startup', () => {
     expect(
       syncStorage.getString(EAppSyncStorageKeys.perf_switch),
     ).toBeUndefined();
-    expect(coldStartCacheStorage.getAllKeys()).toEqual([]);
     expect(
       devSettingSyncStorage.getBoolean(
         EDevSettingSyncStorageKeys.onekey_native_network_throttle_enabled,
