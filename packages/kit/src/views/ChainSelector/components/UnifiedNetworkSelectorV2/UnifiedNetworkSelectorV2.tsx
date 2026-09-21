@@ -14,6 +14,7 @@ import {
   resetChainSelectorModal,
 } from '@onekeyhq/components';
 import { PagerView } from '@onekeyhq/components/src/composite/Carousel/pager';
+import { DESKTOP_MODE_UI_HEADER_HEIGHT } from '@onekeyhq/components/src/utils';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import { useAccountSelectorCreateAddress } from '@onekeyhq/kit/src/components/AccountSelector/hooks/useAccountSelectorCreateAddress';
@@ -56,6 +57,7 @@ import { preloadNetworkImagesV2 } from './useNetworkListPresentationV2';
 import type { IServerNetworkMatch } from '../../types';
 import type { ITabType } from '../UnifiedNetworkSelector/TabSwitcher';
 import type { RouteProp } from '@react-navigation/core';
+import type { View } from 'react-native';
 import type NativePagerView from 'react-native-pager-view';
 
 const TAB_TO_INDEX: Record<ITabType, number> = { portfolio: 0, network: 1 };
@@ -182,6 +184,7 @@ function UnifiedNetworkSelectorV2() {
   activeTabRef.current = activeTab;
 
   const pagerRef = useRef<NativePagerView>(null);
+  const webSectionIndexContainerRef = useRef<View>(null);
 
   const handleTabChange = useCallback((tab: ITabType) => {
     setActiveTab(tab);
@@ -694,7 +697,7 @@ function UnifiedNetworkSelectorV2() {
     return false;
   }, [enabledNetworks, isCreatingEnabledAddresses, isCreatingMissingAddresses]);
 
-  return (
+  const page = (
     <Page
       // Page safeAreaEnabled + SectionList contentContainerStyle.paddingBottom
       // double-counted the home indicator inset (~34px each). Defer
@@ -727,6 +730,7 @@ function UnifiedNetworkSelectorV2() {
             >
               <Stack flex={1}>
                 <PortfolioContentV2
+                  webSectionIndexContainerRef={webSectionIndexContainerRef}
                   walletId={walletId}
                   accountId={accountId}
                   indexedAccountId={indexedAccountId}
@@ -749,6 +753,7 @@ function UnifiedNetworkSelectorV2() {
               </Stack>
               <Stack flex={1}>
                 <NetworkContentV2
+                  webSectionIndexContainerRef={webSectionIndexContainerRef}
                   walletId={walletId}
                   accountId={accountId}
                   indexedAccountId={indexedAccountId}
@@ -768,6 +773,7 @@ function UnifiedNetworkSelectorV2() {
                 display={activeTab === 'portfolio' ? 'flex' : 'none'}
               >
                 <PortfolioContentV2
+                  webSectionIndexContainerRef={webSectionIndexContainerRef}
                   walletId={walletId}
                   accountId={accountId}
                   indexedAccountId={indexedAccountId}
@@ -793,6 +799,7 @@ function UnifiedNetworkSelectorV2() {
                 display={activeTab === 'network' ? 'flex' : 'none'}
               >
                 <NetworkContentV2
+                  webSectionIndexContainerRef={webSectionIndexContainerRef}
                   walletId={walletId}
                   accountId={accountId}
                   indexedAccountId={indexedAccountId}
@@ -809,6 +816,7 @@ function UnifiedNetworkSelectorV2() {
         ) : (
           <Stack flex={1}>
             <NetworkContentV2
+              webSectionIndexContainerRef={webSectionIndexContainerRef}
               walletId={walletId}
               accountId={accountId}
               indexedAccountId={indexedAccountId}
@@ -871,6 +879,26 @@ function UnifiedNetworkSelectorV2() {
         </Page.Footer>
       ) : null}
     </Page>
+  );
+
+  if (!platformEnv.isDesktop) {
+    return page;
+  }
+
+  return (
+    <Stack flex={1} position="relative">
+      {page}
+      <Stack
+        ref={webSectionIndexContainerRef}
+        testID={ChainSelectorTestIDs.unifiedSectionIndexContainer}
+        position="absolute"
+        top={-DESKTOP_MODE_UI_HEADER_HEIGHT}
+        right={0}
+        bottom={0}
+        left={0}
+        pointerEvents="box-none"
+      />
+    </Stack>
   );
 }
 
