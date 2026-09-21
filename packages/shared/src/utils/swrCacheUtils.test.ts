@@ -817,11 +817,35 @@ describe('SWR cache cross-runtime invalidation', () => {
       cache.remove('walletList:a');
       cache.flushNow();
 
-      // The file belongs to the runtime that owns the hooks writing it.
+      // The file belongs to the runtime that owns the hooks writing it, and
+      // every deletion path is reached from the UI, so it is there to hear it.
       expect(readDiskStore()['walletList:a']?.d).toBe('from-disk');
       expect(seen).toEqual([{ keys: ['walletList:a'] }]);
     } finally {
       role.restore();
+      appEventBus.off(EAppEventBusNames.SwrCacheInvalidated, listener);
+    }
+  });
+
+  it('does not announce a removal it carried out for another runtime', () => {
+    disk().set('walletList:a', { d: 'from-disk', t: 1000 });
+    const cache = loadFreshRuntime();
+    const { appEventBus, EAppEventBusNames } = bus();
+    const seen: unknown[] = [];
+    const listener = (payload: unknown) => seen.push(payload);
+    appEventBus.on(EAppEventBusNames.SwrCacheInvalidated, listener);
+    try {
+      expect(cache.get('walletList:a')).toBe('from-disk');
+
+      appEventBus.emit(EAppEventBusNames.SwrCacheInvalidated, {
+        keys: ['walletList:a'],
+      });
+
+      expect(readDiskStore()['walletList:a']).toBeUndefined();
+      // Only the announcement that was injected. A second one would reach the
+      // other foregrounds, each of which would answer with its own.
+      expect(seen).toEqual([{ keys: ['walletList:a'] }]);
+    } finally {
       appEventBus.off(EAppEventBusNames.SwrCacheInvalidated, listener);
     }
   });

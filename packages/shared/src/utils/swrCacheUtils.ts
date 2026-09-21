@@ -314,6 +314,18 @@ const _updatedKeys = new Set<string>();
 
 // Without these, the copy still sitting on disk would revive a key deleted here.
 const _removedKeysAt = new Map<string, number>();
+/**
+ * The removals this runtime is carrying out for another one.
+ *
+ * They are performed like any other, but never announced again. Every live
+ * runtime already received the original announcement, and an announcement
+ * that produces another announcement has no end: with two foregrounds open —
+ * an extension popup and a side panel — each would treat the other's echo as
+ * a new instruction and publish its own, for the life of the pages.
+ */
+let _remoteRemovedKeys = new Set<string>();
+let _remoteRemovedPrefixes = new Set<string>();
+let _remoteClearedAll = false;
 let _removedPrefixesAt: Array<{ prefix: string; at: number }> = [];
 let _clearedAllAt = 0;
 
@@ -338,9 +350,9 @@ const FLUSH_DEBOUNCE_MS = 2000;
  * key range (web) that every runtime opens, with nothing to lock across them.
  * So the background runtime does not delete: it announces what it dropped and
  * the UI runtime, which owns the hooks that write these entries, performs the
- * delete in its own flush. That keeps every mutation of a namespace on one
- * thread, and it closes the window where bg's delete reached the file first
- * and a write still pending here landed on top of it, outliving the removal.
+ * delete in its own flush. Every deletion path is reached from the UI — it is
+ * either a `@backgroundMethod` the UI called or a bg flow that first prompts
+ * for a password — so the runtime that performs it is there to hear about it.
  */
 function isStoreOwnerRuntime() {
   return platformEnv.runtimeRole !== ERuntimeRole.Background;
@@ -642,6 +654,9 @@ function clearPendingIntents() {
   _removedKeysAt.clear();
   _removedPrefixesAt = [];
   _clearedAllAt = 0;
+  _remoteRemovedKeys = new Set<string>();
+  _remoteRemovedPrefixes = new Set<string>();
+  _remoteClearedAll = false;
   _dirty = false;
 }
 
@@ -763,16 +778,24 @@ function applyRemoteInvalidation(payload: {
   const { keys, prefixes, clearedAll } = payload;
   const owns = isStoreOwnerRuntime();
   if (owns) {
-    // The announcing runtime did not delete anything on disk, so this is
-    // where the removal is carried out. Recorded as this runtime's own
-    // intent, which also stops a read-through from adopting the record back
-    // out of the file before the flush reaches it.
+    // Recorded as this runtime's own intent: it is what performs the delete,
+    // and a value still pending here would otherwise land on the file after
+    // it. Recording also stops a read-through from adopting the record back
+    // out of the file before the flush reaches it. Tracked as remote-origin
+    // so the flush below does not announce it again.
     const now = Date.now();
     if (clearedAll) {
       _clearedAllAt = now;
+      _remoteClearedAll = true;
     }
-    keys?.forEach((key) => _removedKeysAt.set(key, now));
-    prefixes?.forEach((prefix) => _removedPrefixesAt.push({ prefix, at: now }));
+    keys?.forEach((key) => {
+      _removedKeysAt.set(key, now);
+      _remoteRemovedKeys.add(key);
+    });
+    prefixes?.forEach((prefix) => {
+      _removedPrefixesAt.push({ prefix, at: now });
+      _remoteRemovedPrefixes.add(prefix);
+    });
     _dirty = true;
     // A store this runtime never touched still has a file to delete from, and
     // `flush` will not run before the store exists.
@@ -790,10 +813,10 @@ let _invalidationSubscribed = false;
 /**
  * Subscribe before anything reads the cache.
  *
- * The owner runtime performs the removals the other one announces, so missing
- * an announcement now means a record nothing deletes. `loadStore` subscribes
- * too, but only once something has read or written an entry — this is for the
- * startup path, which runs earlier than the first read.
+ * A runtime that misses an announcement keeps serving the entry from memory
+ * and can write it back. `loadStore` subscribes too, but only once something
+ * has read or written an entry — this is for the startup path, which runs
+ * earlier than the first read.
  */
 export function ensureSwrCacheInvalidationSubscribed() {
   subscribeToRemoteInvalidation();
@@ -847,9 +870,13 @@ function flush() {
       writeSwrCacheEntries(updates);
     }
     publishInvalidation({
-      keys: [..._removedKeysAt.keys()],
-      prefixes: _removedPrefixesAt.map(({ prefix }) => prefix),
-      clearedAll: _clearedAllAt > 0,
+      keys: [..._removedKeysAt.keys()].filter(
+        (key) => !_remoteRemovedKeys.has(key),
+      ),
+      prefixes: _removedPrefixesAt
+        .map(({ prefix }) => prefix)
+        .filter((prefix) => !_remoteRemovedPrefixes.has(prefix)),
+      clearedAll: _clearedAllAt > 0 && !_remoteClearedAll,
     });
     clearPendingIntents();
     const durationMs = Math.round(perfNow() - startedAt);
@@ -1779,6 +1806,7 @@ function getSizeStats() {
  *
  * bg is not a writer, and a removal is a write: it announces what it dropped
  * and the runtime that owns the store performs the delete in its own flush.
+ * An announcement is never answered with another one.
  */
 export const swrCacheUtils = {
   get,
