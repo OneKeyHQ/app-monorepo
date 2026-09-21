@@ -1,4 +1,12 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
+import type { MutableRefObject } from 'react';
 
 import { useFocusEffect } from '@react-navigation/core';
 import { CanceledError } from 'axios';
@@ -21,6 +29,7 @@ import {
   useFocusedTab,
   useMedia,
   useScrollContentTabBarOffset,
+  useTabsScrollToTop,
   useTheme,
 } from '@onekeyhq/components';
 import type { ITabBarItemProps } from '@onekeyhq/components/src/composite/Tabs/TabBar';
@@ -225,6 +234,29 @@ function FreezeInactiveHomeTab({
   return <DelayedFreeze freeze={frozen}>{children}</DelayedFreeze>;
 }
 
+// Tabs.Container no longer remounts on an account switch (OK-63873), so the
+// panes keep their scroll offsets across it. The page still wants a switched
+// account to start at the top, the way the remount used to leave it. The pane
+// refs only exist inside the container, so this bridge, mounted in the
+// always-mounted wallet pane, hands the container-scoped scroll-to-top up to
+// HomePageView through a ref.
+function HomeTabsScrollToTopBridge({
+  scrollToTopRef,
+}: {
+  scrollToTopRef: MutableRefObject<(() => void) | undefined>;
+}) {
+  const scrollToTop = useTabsScrollToTop();
+  useLayoutEffect(() => {
+    scrollToTopRef.current = scrollToTop;
+    return () => {
+      if (scrollToTopRef.current === scrollToTop) {
+        scrollToTopRef.current = undefined;
+      }
+    };
+  }, [scrollToTop, scrollToTopRef]);
+  return null;
+}
+
 export function HomePageView({
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   onPressHide,
@@ -295,6 +327,7 @@ export function HomePageView({
   const [{ hasRiskApprovals }] = useApprovalsInfoAtom();
   const { updateApprovalsInfo } = useAccountOverviewActions().current;
   const tabsRef = useRef<ITabContainerRef | null>(null);
+  const homeTabsScrollToTopRef = useRef<(() => void) | undefined>(undefined);
   // Keep the measured native tab bar height outside the account-keyed container
   // so remounts do not briefly reserve the library's default 48pt height.
   const nativeTabBarHeightRef = useRef<number | undefined>(undefined);
@@ -873,6 +906,23 @@ export function HomePageView({
   // token list for the new network. The list resolves the request from the
   // explicit account/network in the payload because its own closures are
   // frozen on the previous network.
+  // Start a switched account at the top of every pane. This is the same
+  // identity the container used to be keyed on (wallet + indexedAccountId,
+  // account.id for Others wallets), so a pure network switch keeps its scroll
+  // position exactly as before. Layout effect: the reset lands in the same
+  // frame as the replayed token list, not one frame after it.
+  const homeScrollOwnerKey = `${wallet?.id ?? ''}-${
+    account?.indexedAccountId ?? account?.id ?? ''
+  }`;
+  const prevHomeScrollOwnerKeyRef = useRef(homeScrollOwnerKey);
+  useLayoutEffect(() => {
+    if (prevHomeScrollOwnerKeyRef.current === homeScrollOwnerKey) {
+      return;
+    }
+    prevHomeScrollOwnerKeyRef.current = homeScrollOwnerKey;
+    homeTabsScrollToTopRef.current?.();
+  }, [homeScrollOwnerKey]);
+
   const prevNetworkIdRef = useRef(network?.id);
   useEffect(() => {
     const nextNetworkId = network?.id;
@@ -927,33 +977,21 @@ export function HomePageView({
         </Keyboard.AwareScrollView>
       );
     }
-    // Exclude isDeFiEnabled/isNFTEnabled from key to prevent Tabs.Container
-    // from being destroyed and recreated when these values change async.
-    // Tabs render conditionally inside the container instead.
+    // Tabs.Container is deliberately NOT keyed on the wallet / account /
+    // network (OK-53686, OK-63873). A remount destroys every pane (the token
+    // list, each Token image, TabHeaderSettings) and repaints them from
+    // scratch: a 3-row skeleton where the list was, icon skeletons, and the
+    // settings icon blinking out — the "home list jitter" on every account
+    // switch. All panes already track `account.id` / `network.id` changes
+    // through their own hooks (HD wallets change account.id on a network
+    // switch, which has run through this no-remount path since #11386), and
+    // the token list is re-stamped for the new owner synchronously by the
+    // cells producer's per-owner replay, so nothing here needs a fresh mount.
+    // isDeFiEnabled/isNFTEnabled stay out for the same reason: tabs render
+    // conditionally inside the container instead.
     //
-    // Also exclude `account?.id` and `network?.id`: for HD wallets the
-    // per-network account.id differs across networks even when the user is
-    // on the same indexedAccount, and including network.id forces a full
-    // remount of Tabs.Container (and the FlashList inside TokenListView) on
-    // every network switch. The remount produces a brief blank frame while
-    // FlashList re-measures, even when the target has cache. Keying on
-    // wallet + indexedAccountId (with account.id as the Others-wallet
-    // fallback, since those have no indexedAccountId) keeps the subtree
-    // mounted across pure network switches — the singleton token-list atoms
-    // are then driven by account/network changes via the per-owner cache
-    // hydration in TokenListBlock.
-    //
-    // Caveat: Others wallets (imported / watching / external) have no
-    // `indexedAccountId`, so they fall back to `account.id`, which IS
-    // network-scoped for those wallet types. Switching networks on an
-    // Others wallet therefore still remounts Tabs.Container — the
-    // optimization here is intentionally HD-only because Others wallets
-    // typically stay pinned to a single network and the cost of the
-    // occasional remount is not worth special-casing.
-    const key = `${wallet?.id ?? ''}-${
-      account?.indexedAccountId ?? account?.id ?? ''
-    }`;
-    // The remount key resets the pager to the first tab while HomePageView's
+    // The container still remounts when the not-backed-up branch above
+    // toggles, which resets the pager to the first tab while HomePageView's
     // activeTab state still points at the previously selected tab, so seed
     // the remounted container with that tab. But the new pagerTabConfigs and
     // the stale activeTabName can land in the same render (the reset effect
@@ -969,7 +1007,6 @@ export function HomePageView({
     return (
       <Tabs.Container
         ref={tabsRef as any}
-        key={key}
         // Both implementations only read this prop at mount.
         initialTabName={seedTabName || undefined}
         allowHeaderOverscroll
@@ -999,6 +1036,11 @@ export function HomePageView({
             // FreezeInactiveHomeTab); other panes keep mounting lazily.
             startMounted={tab.id === EHomeWalletTab.Portfolio}
           >
+            {tab.id === EHomeWalletTab.Portfolio ? (
+              <HomeTabsScrollToTopBridge
+                scrollToTopRef={homeTabsScrollToTopRef}
+              />
+            ) : null}
             <FreezeInactiveHomeTab
               tabName={tab.name}
               pressedTabName={activeTabName}
@@ -1019,9 +1061,6 @@ export function HomePageView({
   }, [
     tabBarHeight,
     tabContainerWidth,
-    wallet?.id,
-    account?.id,
-    account?.indexedAccountId,
     isWalletNotBackedUp,
     headerContainerStyle,
     renderHeader,

@@ -54,8 +54,10 @@ import {
 import { registerColdStartFlushTrigger } from '@onekeyhq/shared/src/storage/coldStartFlushTrigger';
 import {
   TOKEN_LIST_CLEANUP_VERSION_KEY,
+  buildTokenListOwnerSlimCacheKey,
   readContextAtomSnapshotRaw,
   tokenListMaintenanceCache,
+  tokenListOwnerSlimCache,
   writeContextAtomSnapshotRaw,
 } from '@onekeyhq/shared/src/storage/uiSnapshotCaches';
 import { parseColdStartSnapshotRaw } from '@onekeyhq/shared/src/utils/coldStartCacheSnapshotUtils';
@@ -215,6 +217,102 @@ export function persistSlimColdCache(params: {
     scopedKey: buildSlimScopedKey(scopeKey),
     value: slim,
   });
+  persistOwnerSlimCache({ store, slim });
+}
+
+// --- PER-OWNER SLIM SLOT (OK-63873) ----------------------------------------
+
+/**
+ * Also keep the bundle in the per-owner namespace (bounded MRU, see
+ * `tokenListOwnerSlimCache`) so a switch BACK to this owner after a cold start
+ * can paint synchronously. Skipped for an unstamped bundle (no owner yet). An
+ * EMPTY bundle is written too: an owner that held tokens and later moved
+ * everything out must not replay its old rows on the next switch.
+ */
+function persistOwnerSlimCache({
+  store,
+  slim,
+}: {
+  store: IJotaiContextStore;
+  slim: ITokenListSlimColdCache;
+}): void {
+  const storeName = resolveStoreData(store)?.storeName;
+  if (!storeName || !slim.ownerKey) {
+    return;
+  }
+  try {
+    tokenListOwnerSlimCache.set(
+      buildTokenListOwnerSlimCacheKey({ storeName, ownerKey: slim.ownerKey }),
+      slim as unknown as Record<string, unknown>,
+    );
+  } catch {
+    /* best-effort: the owner slot is a paint hint, never authoritative */
+  }
+}
+
+/** Read the per-owner slim bundle, verifying it is stamped for `ownerKey`. */
+export function readOwnerSlimCache({
+  storeName,
+  ownerKey,
+}: {
+  storeName: string;
+  ownerKey: string;
+}): ITokenListSlimColdCache | undefined {
+  if (!storeName || !ownerKey) {
+    return undefined;
+  }
+  try {
+    const record = tokenListOwnerSlimCache.get(
+      buildTokenListOwnerSlimCacheKey({ storeName, ownerKey }),
+    );
+    const slim = record?.data as ITokenListSlimColdCache | undefined;
+    if (!slim || slim.ownerKey !== ownerKey) {
+      return undefined;
+    }
+    return slim;
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * Owner-switch hydrate from the per-owner slot (OK-63873). Same contract as
+ * `hydrateCellsFromColdStart` (currency gate, fan-out via apply, provisional
+ * generation) but keyed by the TARGET owner, so it never paints another
+ * owner's rows. Returns true when it painted.
+ */
+export function hydrateCellsFromOwnerSlimCache(params: {
+  store: IJotaiContextStore;
+  projection: IStoreProjection;
+  deps: IApplyDeps;
+  /** registry / cold-start name of the store (explicit for anonymous mounts). */
+  storeName: string;
+  /** identity stamp for apply's store guard. */
+  storeData: Parameters<IApplyDeps['resolveCurrentStore']>[0];
+  ownerKey: string;
+  currentCurrency: string;
+}): boolean {
+  const {
+    store,
+    projection,
+    deps,
+    storeName,
+    storeData,
+    ownerKey,
+    currentCurrency,
+  } = params;
+  const slim = readOwnerSlimCache({ storeName, ownerKey });
+  if (!shouldUseSlim(slim, currentCurrency)) {
+    return false;
+  }
+  fanOutSlimToApply({
+    store,
+    projection,
+    deps,
+    bundle: slim as ITokenListSlimColdCache,
+    storeData,
+  });
+  return true;
 }
 
 // --- DEBOUNCED PERSIST SCHEDULER -------------------------------------------
@@ -605,18 +703,22 @@ export function useTokenListCellsColdStartHydrate(
     });
   }, [store]);
 
-  const hydratedKeyRef = useRef<string | undefined>(undefined);
+  // Once per STORE, not per owner (OK-63873): the boot bundle belongs to the
+  // owner that was on screen at the last flush. Re-applying it on every owner
+  // switch used to clearAll + paint the boot owner's rows under the new
+  // owner (then skeleton via ownerMismatch) for nothing; switches are served
+  // by the per-owner replay in the producer instead.
+  const hydratedStoreRef = useRef<IJotaiContextStore | undefined>(undefined);
 
   useLayoutEffect(() => {
     scheduleColdStartCleanupOnce();
     if (!store || !deps || !ownerKey || !currencyId) {
       return;
     }
-    const guardKey = ownerKey;
-    if (hydratedKeyRef.current === guardKey) {
+    if (hydratedStoreRef.current === store) {
       return;
     }
-    hydratedKeyRef.current = guardKey;
+    hydratedStoreRef.current = store;
     const projection = ensureStoreProjection(store);
     hydrateCellsFromColdStart({
       store,

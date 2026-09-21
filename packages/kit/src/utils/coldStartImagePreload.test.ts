@@ -73,7 +73,7 @@ describe('coldStartImagePreload wallet banner images (OK-61505)', () => {
   it('collects remote banner images ahead of token logos, sized to the banner card', () => {
     expect(getColdStartImageUrisFromSnapshot(snapshot)).toEqual([
       { uri: bannerUri, resizeWidth: WALLET_BANNER_IMAGE_SIZE },
-      tokenUri,
+      { uri: tokenUri, resizeWidth: 32 },
     ]);
   });
 
@@ -225,7 +225,7 @@ describe('coldStartImagePreload header network logos (OK-61505)', () => {
     expect(items).toEqual([
       { uri: bannerUri, resizeWidth: WALLET_BANNER_IMAGE_SIZE },
       { uri: ethNetworkLogoUri, resizeWidth: HEADER_NETWORK_LOGO_SIZE },
-      tokenUri,
+      { uri: tokenUri, resizeWidth: 32 },
     ]);
   });
 });

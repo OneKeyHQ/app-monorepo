@@ -1,0 +1,110 @@
+/**
+ * TokenList cells — synchronous OWNER-SWITCH replay (OK-63873).
+ *
+ * Fans the frames remembered for an owner (`ownerFrameReplayCache`) back
+ * through the UNCHANGED apply contract so an account/network switch paints the
+ * target owner's rows BEFORE the first frame instead of a skeleton. The replay
+ * is PROVISIONAL, exactly like the cold-start paint: after applying, the
+ * projection generation is reset to -1 so the very next real structure frame
+ * (the PULL, or a fresh gen-0 round after a BG owner eviction) always
+ * supersedes it — never dropped by apply's generation guard.
+ */
+import type { IJotaiContextStoreData } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+
+import {
+  applyRiskyFrame,
+  applyStructureSnapshot,
+  applyValuationFrame,
+} from './apply';
+
+import type { IApplyDeps } from './apply';
+import type { IOwnerReplayFrames } from './ownerFrameReplayCache';
+import type { IStoreProjection } from './projection';
+import type { IJotaiContextStore } from '../../../utils/createJotaiContext';
+
+export interface IReplayOwnerFramesResult {
+  /** a structure frame was replayed (rows painted). */
+  structure: boolean;
+  /** a risky frame was replayed (the owner reset must not blank it). */
+  risky: boolean;
+}
+
+/**
+ * Replay `frames` for `ownerKey` into `store`. Returns what was replayed.
+ * Guards:
+ *   - currency mismatch -> nothing (stale fiat would paint a wrong number);
+ *   - no structure frame -> nothing (valuation cannot lazy-build cells);
+ *   - frames stamped for another owner -> nothing (defensive).
+ * Idempotent per owner: if the projection is already stamped for `ownerKey`
+ * (cold-start hydrate or a live frame landed first) it does not re-apply.
+ */
+export function replayOwnerFrames({
+  store,
+  projection,
+  deps,
+  frames,
+  storeData,
+  ownerKey,
+  currentCurrency,
+}: {
+  store: IJotaiContextStore;
+  projection: IStoreProjection;
+  deps: IApplyDeps;
+  frames: IOwnerReplayFrames | undefined;
+  storeData: IJotaiContextStoreData;
+  ownerKey: string;
+  currentCurrency: string;
+}): IReplayOwnerFramesResult {
+  const none: IReplayOwnerFramesResult = { structure: false, risky: false };
+  if (!frames || !ownerKey || !currentCurrency) {
+    return none;
+  }
+  if (frames.currencyId !== currentCurrency) {
+    return none;
+  }
+  const structure = frames.structure?.structure;
+  if (!structure || structure.ownerKey !== ownerKey) {
+    return none;
+  }
+  // Already stamped for this owner — by the cold-start hydrate (provisional,
+  // generation -1), an earlier replay, or a live frame. Either way the paint
+  // on screen is this owner's; re-applying would only clear and rebuild it.
+  if (projection.curOwnerKey === ownerKey) {
+    return none;
+  }
+
+  // Re-stamp storeData to THIS store so apply's identity guard passes (the
+  // remembered payload may have been stamped for a sibling mount).
+  applyStructureSnapshot(store, projection, { ...structure, storeData }, deps);
+
+  const valuation = frames.valuation?.valuation;
+  if (valuation && valuation.ownerKey === ownerKey) {
+    applyValuationFrame(
+      store,
+      projection,
+      { ...valuation, storeData },
+      deps,
+      (fn) => fn(),
+    );
+  }
+
+  let risky = false;
+  const riskyPush = frames.risky;
+  if (riskyPush && riskyPush.ownerKey === ownerKey) {
+    applyRiskyFrame(
+      store,
+      {
+        riskyTokens: riskyPush.riskyTokens,
+        riskyMap: riskyPush.riskyMap,
+        storeData,
+        ownerKey,
+      },
+      deps,
+    );
+    risky = true;
+  }
+
+  // Provisional paint: let the next real frame of any generation win.
+  projection.curGeneration = -1;
+  return { structure: true, risky };
+}

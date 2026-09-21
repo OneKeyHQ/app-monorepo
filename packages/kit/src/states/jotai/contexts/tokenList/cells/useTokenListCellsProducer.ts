@@ -15,6 +15,11 @@
  *     on BOTH structure and valuation applies so the debounced write captures a
  *     NON-EMPTY compactFiat (the structure-only persist would freeze it empty),
  *   - the anonymous-store / no-identity ABORT by passing `enabled: false`.
+ *   - the OWNER-SWITCH REPLAY (OK-63873): every applied payload is remembered
+ *     per owner on the main heap; when the owner changes, the remembered frames
+ *     (or, after a cold start, the per-owner persisted slim bundle) are fanned
+ *     out SYNCHRONOUSLY in a layout effect so the target owner's rows paint
+ *     before the async PULL instead of a skeleton.
  *
  * Apply funnels through the UNCHANGED apply contract (`applyStructureSnapshot` /
  * `applyValuationFrame` / `applyRiskyFrame`); the cold-start T0 hydrate
@@ -22,7 +27,7 @@
  * already painted the projection cells before this effect runs and they hold
  * until the first PULL/push supersedes them at a higher generation.
  */
-import { useEffect, useMemo, useRef } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef } from 'react';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import type { IJotaiContextStoreData } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
@@ -31,12 +36,10 @@ import {
   isAgg,
   metaEqual,
 } from '@onekeyhq/kit-bg/src/states/jotai/contexts/tokenList/cellsPure/pure';
-import type {
-  IStructureSnapshot,
-  IValuationFrame,
-} from '@onekeyhq/kit-bg/src/states/jotai/contexts/tokenList/cellsPure/types';
-import { EAppEventBusNames } from '@onekeyhq/shared/src/eventBus/appEventBus';
-import type { IAccountToken, ITokenFiat } from '@onekeyhq/shared/types/token';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 
 import {
   listStructureAtom,
@@ -54,8 +57,15 @@ import {
 } from './apply';
 import {
   cancelPendingSlimColdCache,
+  hydrateCellsFromOwnerSlimCache,
   schedulePersistSlimColdCache,
 } from './coldStart';
+import {
+  clearOwnerReplayCache,
+  getOwnerReplayFrames,
+  rememberOwnerReplayFrame,
+} from './ownerFrameReplayCache';
+import { replayOwnerFrames } from './ownerReplay';
 import {
   aggCell,
   cell,
@@ -73,34 +83,31 @@ import {
 } from './registry';
 
 import type { IApplyDeps } from './apply';
+import type {
+  IFramesPull,
+  IRiskyPush,
+  IStructurePush,
+  IValuationPush,
+} from './ownerFrameReplayCache';
 
 type ITokenFrameKind = 'structure' | 'valuation' | 'risky';
 
-interface IStructurePush {
-  ownerKey: string;
-  structureVersion: number;
-  structure: IStructureSnapshot;
-}
-interface IValuationPush {
-  ownerKey: string;
-  valuationVersion: number;
-  valuation: IValuationFrame;
-}
-interface IRiskyPush {
-  ownerKey: string;
-  riskyVersion: number;
-  riskyTokens: IAccountToken[];
-  riskyMap: Record<string, ITokenFiat>;
-}
-interface IFramesPull {
-  ownerKey: string;
-  structureVersion: number;
-  valuationVersion: number;
-  structure: IStructureSnapshot | undefined;
-  valuation: IValuationFrame | undefined;
-  riskyVersion: number;
-  riskyTokens: IAccountToken[];
-  riskyMap: Record<string, ITokenFiat>;
+let replayCacheInvalidationRegistered = false;
+
+/**
+ * Drop the main-heap replay frames when a wallet or account is removed so a
+ * re-imported owner (same accountId) never replays the snapshot it had before
+ * deletion. Whole-cache clear: the persisted per-owner slot still covers the
+ * other owners, and the next switch to them re-fills the memory cache.
+ */
+function ensureReplayCacheInvalidationOnce(): void {
+  if (replayCacheInvalidationRegistered) {
+    return;
+  }
+  replayCacheInvalidationRegistered = true;
+  const clear = () => clearOwnerReplayCache();
+  appEventBus.on(EAppEventBusNames.WalletRemove, clear);
+  appEventBus.on(EAppEventBusNames.AccountRemove, clear);
 }
 
 /**
@@ -169,8 +176,63 @@ export function useTokenListCellsProducer(
 
   const enabled = !!(store && deps && ownerKey && identity);
 
+  // Owner-switch replay (OK-63873). Layout effect so it runs BEFORE paint and
+  // BEFORE the subscription effect below: the projection is re-stamped for the
+  // new owner from the remembered frames (same-session revisit) or, failing
+  // that, from the per-owner persisted slim bundle (first visit after a cold
+  // start). Either way `ownerMismatch` is already false on the first painted
+  // frame; the PULL then reconciles (the replay is provisional: generation is
+  // reset so any real frame supersedes it).
+  const replayedRiskyOwnerRef = useRef<string | undefined>(undefined);
+  useLayoutEffect(() => {
+    ensureReplayCacheInvalidationOnce();
+    if (!enabled || !store || !deps || !identity) {
+      return;
+    }
+    const projection = ensureStoreProjection(store);
+    const currentCurrency = currencyIdRef.current;
+    const replayed = replayOwnerFrames({
+      store,
+      projection,
+      deps,
+      frames: getOwnerReplayFrames({
+        storeName: identity.resolvedStoreName,
+        ownerKey,
+      }),
+      storeData: identity.storeData,
+      ownerKey,
+      currentCurrency,
+    });
+    replayedRiskyOwnerRef.current = replayed.risky ? ownerKey : undefined;
+    if (replayed.structure) {
+      return;
+    }
+    // Already stamped for this owner (the boot-blob cold-start hydrate or a
+    // live frame landed first): nothing to paint, and no MMKV read on the
+    // startup path.
+    if (projection.curOwnerKey === ownerKey) {
+      return;
+    }
+    hydrateCellsFromOwnerSlimCache({
+      store,
+      projection,
+      deps,
+      storeName: identity.resolvedStoreName,
+      storeData: identity.storeData,
+      ownerKey,
+      currentCurrency,
+    });
+  }, [deps, enabled, identity, ownerKey, store]);
+
   useEffect(() => {
     if (!enabled || !store || !deps || !identity) {
+      return;
+    }
+    // The owner reset blanks the risky list so a no-risky owner never shows
+    // the previous owner's risky tokens. A risky frame replayed for THIS owner
+    // in the layout effect above is already correct — blanking it here would
+    // flash empty → list again once the PULL restores it.
+    if (replayedRiskyOwnerRef.current === ownerKey) {
       return;
     }
     applyRiskyFrame(
@@ -227,7 +289,8 @@ export function useTokenListCellsProducer(
         getOwnerKey: (p) => (p as IStructurePush).ownerKey,
         getVersion: (p) => (p as IStructurePush).structureVersion,
         apply: (p) => {
-          const { structure } = p as IStructurePush;
+          const push = p as IStructurePush;
+          const { structure } = push;
           if (!structure || !store || !deps || !identity) {
             return;
           }
@@ -238,6 +301,13 @@ export function useTokenListCellsProducer(
             { ...structure, storeData: identity.storeData },
             deps,
           );
+          rememberOwnerReplayFrame({
+            storeName: identity.resolvedStoreName,
+            ownerKey: push.ownerKey,
+            kind: 'structure',
+            payload: push,
+            currencyId: currencyIdRef.current,
+          });
         },
         fromPull: (pulled) =>
           pulled.structure
@@ -254,7 +324,8 @@ export function useTokenListCellsProducer(
         getOwnerKey: (p) => (p as IValuationPush).ownerKey,
         getVersion: (p) => (p as IValuationPush).valuationVersion,
         apply: (p) => {
-          const { valuation } = p as IValuationPush;
+          const push = p as IValuationPush;
+          const { valuation } = push;
           if (!valuation || !store || !deps || !identity) {
             return;
           }
@@ -265,6 +336,13 @@ export function useTokenListCellsProducer(
             deps,
             (fn) => fn(),
           );
+          rememberOwnerReplayFrame({
+            storeName: identity.resolvedStoreName,
+            ownerKey: push.ownerKey,
+            kind: 'valuation',
+            payload: push,
+            currencyId: currencyIdRef.current,
+          });
         },
         fromPull: (pulled) =>
           pulled.valuation
@@ -284,7 +362,8 @@ export function useTokenListCellsProducer(
         getOwnerKey: (p) => (p as IRiskyPush).ownerKey,
         getVersion: (p) => (p as IRiskyPush).riskyVersion,
         apply: (p) => {
-          const { riskyTokens, riskyMap } = p as IRiskyPush;
+          const push = p as IRiskyPush;
+          const { riskyTokens, riskyMap } = push;
           if (!store || !deps || !identity) {
             return;
           }
@@ -298,6 +377,13 @@ export function useTokenListCellsProducer(
             },
             deps,
           );
+          rememberOwnerReplayFrame({
+            storeName: identity.resolvedStoreName,
+            ownerKey: push.ownerKey,
+            kind: 'risky',
+            payload: push,
+            currencyId: currencyIdRef.current,
+          });
         },
         fromPull: (pulled) =>
           ({

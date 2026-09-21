@@ -53,3 +53,43 @@ export const tokenListMaintenanceCache = createNamespacedSnapshotCache<number>({
 });
 
 export const TOKEN_LIST_CLEANUP_VERSION_KEY = 'cleanup-version';
+
+const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
+
+/**
+ * Per-owner slim token-list bundles (OK-63873). The context-atom snapshot
+ * above holds ONE bundle per store (the owner on screen at the last flush),
+ * which only covers a cold start into that same owner. This namespace keeps
+ * the most recent owners so an account/network switch after a cold start
+ * paints the target owner's rows synchronously instead of a skeleton. Reads
+ * are by exact key (one small record), never on the startup path.
+ */
+export const TOKEN_LIST_OWNER_SLIM_CACHE_MAX_ENTRIES = 8;
+
+export const tokenListOwnerSlimCache = createNamespacedSnapshotCache<
+  Record<string, unknown>
+>({
+  namespace: 'tokenlist-owner-slim',
+  maxAgeMs: SEVEN_DAYS_MS,
+  maxEntries: TOKEN_LIST_OWNER_SLIM_CACHE_MAX_ENTRIES,
+});
+
+/**
+ * Cache keys may only carry `[A-Za-z0-9._:/-]`; an owner key embeds derive
+ * paths (`hd-1--m/86'/0'/0'__btc--0`), so escape every other character as
+ * `-xHH-` (reversible, collision-free) and scope by store name.
+ */
+export function buildTokenListOwnerSlimCacheKey({
+  storeName,
+  ownerKey,
+}: {
+  storeName: string;
+  ownerKey: string;
+}): string {
+  const escape = (value: string) =>
+    value.replace(
+      /[^A-Za-z0-9._:/]/g,
+      (ch) => `-x${ch.charCodeAt(0).toString(16)}-`,
+    );
+  return `${escape(storeName)}/${escape(ownerKey)}`;
+}

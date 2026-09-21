@@ -13,6 +13,7 @@ import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import {
   type ITokenSize,
+  getHomeTokenListImageResizeWidth,
   getTokenImageResizeWidth,
 } from '../components/Token/tokenSize';
 
@@ -536,12 +537,26 @@ function collectColdStartImages(
     return { criticalItems: [], remainingUris: [] };
   }
   const criticalItems = getColdStartCriticalImageItemsFromSnapshot(snapshot);
-  collectWalletTokenImageUris({ uris, snapshot });
+  // Home token logos are prewarmed at the exact size the home list renders on
+  // this device (phones `lg`, tablets/desktop `md`): the native memory-cache
+  // key carries the decode thumbnail size, so a prewarm at any other width
+  // only fills the disk cache and the first row paint still shows an icon
+  // skeleton (OK-63873). Other logos keep the default width.
+  const walletTokenUris = new Set<string>();
+  collectWalletTokenImageUris({ uris: walletTokenUris, snapshot });
+  const walletTokenResizeWidth = getHomeTokenListImageResizeWidth();
+  const walletTokenItems: IImagePreloadItem[] = [...walletTokenUris].map(
+    (uri) => ({ uri, resizeWidth: walletTokenResizeWidth }),
+  );
   collectSwapImageUris({ uris, snapshot });
   collectPerpsImageUris({ uris, snapshot });
+  const remainingItems: IImagePreloadInput[] = [
+    ...walletTokenItems,
+    ...[...uris].filter((uri) => !walletTokenUris.has(uri)),
+  ];
   return {
     criticalItems: criticalItems.slice(0, limit),
-    remainingUris: [...uris].slice(
+    remainingUris: remainingItems.slice(
       0,
       Math.max(limit - criticalItems.length, 0),
     ),
