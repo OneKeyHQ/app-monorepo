@@ -17,10 +17,7 @@ import {
   parseColdStartSnapshotRaw,
   prepareColdStartSnapshotForWrite,
 } from '@onekeyhq/shared/src/utils/coldStartCacheSnapshotUtils';
-import {
-  ensureSwrCacheInvalidationSubscribed,
-  swrCacheUtils,
-} from '@onekeyhq/shared/src/utils/swrCacheUtils';
+import { swrCacheUtils } from '@onekeyhq/shared/src/utils/swrCacheUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import {
@@ -623,13 +620,6 @@ let coldStartAppStateListenerRegistered = false;
 function ensureColdStartAppStateListener() {
   if (coldStartAppStateListenerRegistered) return;
   coldStartAppStateListenerRegistered = true;
-  // Early enough to catch a removal the other runtime announces before this
-  // one has read its first cache entry; the owner runtime is what performs it.
-  try {
-    ensureSwrCacheInvalidationSubscribed();
-  } catch {
-    // Without the bus the cache keeps its own copy until the next launch.
-  }
   // eslint-disable-next-line @typescript-eslint/no-require-imports
   const { registerColdStartFlushTrigger } =
     require('@onekeyhq/shared/src/storage/coldStartFlushTrigger') as typeof import('@onekeyhq/shared/src/storage/coldStartFlushTrigger');
