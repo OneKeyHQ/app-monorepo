@@ -146,6 +146,7 @@ export function MarketDetailHeader({
         gap="$2"
         flexShrink={1}
         minWidth={0}
+        width={nativeHeaderTitleMaxWidth}
         maxWidth={nativeHeaderTitleMaxWidth}
       >
         <Token
@@ -315,13 +316,8 @@ export function MarketDetailHeader({
         identifier: 'market-detail-back',
         onPress: handleBackPress,
       },
-      {
-        type: 'custom' as const,
-        element: renderNativeHeaderTitle(),
-        hidesSharedBackground: true,
-      },
     ],
-    [handleBackPress, intl, renderNativeHeaderTitle],
+    [handleBackPress, intl],
   );
 
   if (media.md && platformEnv.isNativeIOS26Plus) {
@@ -332,9 +328,10 @@ export function MarketDetailHeader({
     return (
       <Page.Header
         headerShown
-        // Keep the identity in the leading item group. A growing titleView can
-        // overlap the back capsule during the first iOS 26 native layout.
-        headerTitle=""
+        // A fixed-width titleView avoids the initial intrinsic-size growth that
+        // previously let long identities overlap the bar items. Keeping it in
+        // the native title slot also avoids a custom left-item snapshot on pop.
+        headerTitle={renderNativeHeaderTitle}
         unstable_headerLeftItems={buildNativeHeaderLeftItems}
         unstable_headerRightItems={buildNativeHeaderRightItems}
       />
