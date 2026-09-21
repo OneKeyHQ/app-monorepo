@@ -299,8 +299,10 @@ function shouldDropLiveMergeTailPoint({
   );
 }
 
-const STOCK_SIMPLE_CHART_SESSION_CLIP_RANGES =
-  new Set<IStockSimpleChartRange>(['1H', '1D']);
+const STOCK_SIMPLE_CHART_SESSION_CLIP_RANGES = new Set<IStockSimpleChartRange>([
+  '1H',
+  '1D',
+]);
 
 /**
  * Start of the visible 1H/1D window while a share is in an active session.
