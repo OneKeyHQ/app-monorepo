@@ -2086,21 +2086,25 @@ export default class ServiceHyperliquid extends ServiceBase {
     void this.recalculateSpotTotalUsd({ force: true });
   }
 
-  async extractSpotPricesFromAllMids(mids: Record<string, string>) {
+  async extractSpotPricesFromAllMids(
+    mids: Record<string, string>,
+    liveSpotCtxCoins?: ReadonlySet<string>,
+  ) {
     const map: Record<string, ISpotAssetCtxEntry> = {};
     for (const [coin, price] of Object.entries(mids)) {
-      // allMids carries mid prices, not mark prices. Use it only until the
-      // first spot context arrives, or the ticker alternates between sources.
+      // Prefer marks only while their context subscription owns the price.
       if (
         perpsUtils.isSpotInstrument(coin) &&
         price &&
-        this._spotPriceCache[coin]?.prevDayPx === undefined
+        !liveSpotCtxCoins?.has(coin) &&
+        this._spotPriceCache[coin]?.markPx !== price
       ) {
         map[coin] = { markPx: price };
       }
     }
     if (Object.keys(map).length > 0) {
       this._flushSpotPrices(map);
+      void this.recalculateSpotTotalUsd({ force: true });
     }
   }
 

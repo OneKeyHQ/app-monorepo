@@ -92,6 +92,7 @@ import {
 import {
   SUBSCRIPTION_TYPE_INFO,
   calculateRequiredSubscriptionsMap,
+  generateSubscriptionKey,
   getOrderBookSubscriptionCoin,
   getSubscriptionResumeAction,
   isOrderBookOptionsTargetReady,
@@ -121,7 +122,13 @@ interface IActiveSubscription {
   lastActivity: number;
   isActive: boolean;
   spec: ISubscriptionSpec<ESubscriptionType>;
+  spotAssetCtxCoins?: ReadonlySet<string>;
 }
+
+const SPOT_ASSET_CTXS_SUBSCRIPTION_KEY = generateSubscriptionKey(
+  ESubscriptionType.SPOT_ASSET_CTXS,
+  {},
+);
 
 interface IPublicTradesSubscription {
   refCount: number;
@@ -2705,6 +2712,8 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
         if (allMidsData?.mids) {
           void this.backgroundApi.serviceHyperliquid.extractSpotPricesFromAllMids(
             allMidsData.mids,
+            this._activeSubscriptions.get(SPOT_ASSET_CTXS_SUBSCRIPTION_KEY)
+              ?.spotAssetCtxCoins,
           );
         }
         // Re-trigger spot calculation if it was deferred (SPOT_STATE arrived before ALL_MIDS)
@@ -2828,6 +2837,16 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
       }
 
       if (subscriptionType === ESubscriptionType.SPOT_ASSET_CTXS) {
+        const subscription = this._activeSubscriptions.get(
+          SPOT_ASSET_CTXS_SUBSCRIPTION_KEY,
+        );
+        if (!subscription || !Array.isArray(data)) return;
+        // Source ownership expires with the subscription on unsubscribe/close.
+        subscription.spotAssetCtxCoins = new Set(
+          (data as IWsSpotAssetCtxs)
+            .filter((ctx) => ctx?.coin && ctx?.markPx)
+            .map((ctx) => ctx.coin),
+        );
         void this.backgroundApi.serviceHyperliquid.updateSpotAssetCtxsMap(
           data as IWsSpotAssetCtxs,
         );

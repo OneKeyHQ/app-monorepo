@@ -65,14 +65,29 @@ describe('PerpCandles account isolation', () => {
     expect(mockChartMount).toHaveBeenCalledTimes(2);
   });
 
-  it('discards the chart on disconnect and reconnect', () => {
+  it('clears account marks on disconnect and reuses the anonymous chart on reconnect', () => {
     const { rerender } = render(<PerpCandles />);
     mockAccountAddress = undefined;
     rerender(<PerpCandles />);
+    expect(mockChartUnmount).toHaveBeenCalledTimes(1);
     mockAccountAddress = '0xABC';
     rerender(<PerpCandles />);
-    expect(mockChartUnmount).toHaveBeenCalledTimes(2);
-    expect(mockChartMount).toHaveBeenCalledTimes(3);
+    expect(mockChartUnmount).toHaveBeenCalledTimes(1);
+    expect(mockChartMount).toHaveBeenCalledTimes(2);
+  });
+
+  it('keeps the cold-start chart when the first account resolves, then isolates switches', () => {
+    mockAccountAddress = undefined;
+    const { rerender } = render(<PerpCandles />);
+    mockAccountAddress = '0xABC';
+    rerender(<PerpCandles />);
+    expect(mockChartMount).toHaveBeenCalledTimes(1);
+    expect(mockChartUnmount).not.toHaveBeenCalled();
+
+    mockAccountAddress = '0xDEF';
+    rerender(<PerpCandles />);
+    expect(mockChartMount).toHaveBeenCalledTimes(2);
+    expect(mockChartUnmount).toHaveBeenCalledTimes(1);
   });
 
   it('keeps the chart when only the address casing changes', () => {
