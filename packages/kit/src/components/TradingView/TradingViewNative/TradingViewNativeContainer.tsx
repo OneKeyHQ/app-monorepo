@@ -994,7 +994,7 @@ const TradingViewNativeContent = memo(
               initialRightOffset={initialRightOffset}
               isMobileLayout={isMobileControlsLayout}
               resizesWithSubIndicatorPanes={Boolean(
-                onNativeIndicatorQuickBarChange,
+                onNativeIndicatorQuickBarChange && !isNativeChartFullscreen,
               )}
               isSwitchingInterval={isSwitchingInterval}
               locale={intl.locale}
