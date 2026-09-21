@@ -228,6 +228,14 @@ const mockCreateQrWalletService = jest.fn<
 const mockCreateHWWalletService = jest.fn();
 const mockCreateHWHiddenWalletService = jest.fn();
 const mockRestoreTempCreatedWallet = jest.fn();
+const mockCreateKeystoneWalletWithDefaultAccounts = jest.fn<
+  ReturnType<
+    IBackgroundApi['serviceThirdPartyHardware']['createKeystoneWalletWithDefaultAccounts']
+  >,
+  Parameters<
+    IBackgroundApi['serviceThirdPartyHardware']['createKeystoneWalletWithDefaultAccounts']
+  >
+>();
 const mockGetAllHwQrWalletWithDevice = jest.fn();
 const mockUpdateWalletsDeprecatedState = jest.fn();
 const mockShowQrHiddenCreateGuideDialogIfErrorMatched = jest.fn();
@@ -349,6 +357,11 @@ jest.mock(
 jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
   __esModule: true,
   default: {
+    serviceThirdPartyHardware: {
+      createKeystoneWalletWithDefaultAccounts: (
+        ...args: Parameters<typeof mockCreateKeystoneWalletWithDefaultAccounts>
+      ) => mockCreateKeystoneWalletWithDefaultAccounts(...args),
+    },
     serviceAccount: {
       addTonImportedAccountByMnemonic: (
         ...args: Parameters<typeof mockAddTonImportedAccountByMnemonic>
@@ -553,6 +566,75 @@ describe('useAccountSelectorActions', () => {
 
   afterEach(() => {
     jest.restoreAllMocks();
+  });
+
+  describe('Keystone wallet list refresh', () => {
+    it('notifies the open selector only after the wallet is restored', async () => {
+      const restored = createDeferred<void>();
+      const restoreStarted = createDeferred<void>();
+      const emitSpy = jest.spyOn(appEventBus, 'emit');
+      mockCreateKeystoneWalletWithDefaultAccounts.mockResolvedValueOnce({
+        wallet: { id: 'hw-keystone', isTemp: true } as IWallet,
+        indexedAccount: undefined,
+        isOverrideWallet: false,
+      });
+      mockRestoreTempCreatedWallet.mockImplementationOnce(() => {
+        restoreStarted.resolve();
+        return restored.promise;
+      });
+      const { Wrapper } = createWrapper();
+      const { result } = renderHook(() => useAccountSelectorActions().current, {
+        wrapper: Wrapper,
+      });
+
+      await act(async () => {
+        const creating = result.current.createKeystoneWalletWithDefaultAccounts(
+          {},
+        );
+        await restoreStarted.promise;
+        expect(emitSpy).not.toHaveBeenCalledWith(
+          EAppEventBusNames.WalletUpdate,
+          undefined,
+        );
+        restored.resolve();
+        await creating;
+      });
+
+      expect(
+        emitSpy.mock.calls.filter(
+          ([event]) => event === EAppEventBusNames.WalletUpdate,
+        ),
+      ).toEqual([[EAppEventBusNames.WalletUpdate, undefined]]);
+    });
+
+    it('does not announce a wallet when restoration fails', async () => {
+      const error = new Error('restore failed');
+      const emitSpy = jest.spyOn(appEventBus, 'emit');
+      mockCreateKeystoneWalletWithDefaultAccounts.mockResolvedValueOnce({
+        wallet: { id: 'hw-keystone', isTemp: true } as IWallet,
+        indexedAccount: undefined,
+        isOverrideWallet: false,
+      });
+      mockRestoreTempCreatedWallet.mockRejectedValueOnce(error);
+      const { Wrapper } = createWrapper();
+      const { result } = renderHook(() => useAccountSelectorActions().current, {
+        wrapper: Wrapper,
+      });
+
+      await act(async () => {
+        await expect(
+          result.current.createKeystoneWalletWithDefaultAccounts({}),
+        ).rejects.toBe(error);
+      });
+      expect(emitSpy).not.toHaveBeenCalledWith(
+        EAppEventBusNames.WalletUpdate,
+        undefined,
+      );
+      expect(emitSpy).not.toHaveBeenCalledWith(
+        EAppEventBusNames.FinalizeWalletSetupStep,
+        { step: EFinalizeWalletSetupSteps.Ready },
+      );
+    });
   });
 
   it('selects deprecated wallets but rejects unavailable wallets', async () => {
