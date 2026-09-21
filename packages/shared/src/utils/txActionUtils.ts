@@ -226,7 +226,6 @@ export function checkDecodedTxHasScalingBalanceMultiplier(
 }
 
 // Address-tag severities that must survive a local-display replacement.
-// SecurityCheckCard.getAddressRiskStatus reads the same set.
 export const ADDRESS_RISK_TAG_DISPLAY_TYPES: ReadonlySet<string> = new Set([
   'warning',
   'critical',
