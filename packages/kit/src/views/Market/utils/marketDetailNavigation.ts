@@ -63,8 +63,9 @@ function watchMarketDetailTransitionTarget(navigation: INavigationLike) {
   if (marketDetailTransitionStateUnsubscribe || !navigation.addListener) {
     return;
   }
-  // The dispatch that preceded this call emits `state` once React commits it,
-  // so this listener still sees where that navigation actually landed.
+  // Do not evaluate the current route here: callers dispatch in the same
+  // synchronous tick, with no await/yield in between. The first `state` event
+  // arrives after React commits and therefore observes the navigation target.
   marketDetailTransitionStateUnsubscribe = navigation.addListener(
     'state',
     () => {
@@ -76,6 +77,10 @@ function watchMarketDetailTransitionTarget(navigation: INavigationLike) {
   );
 }
 
+/**
+ * Call in the same synchronous tick as the paired navigation dispatch. There
+ * must be no await/yield between this call and that dispatch.
+ */
 export function prepareMarketDetailTabBarTransition() {
   // Android only: its native tab bar reports the pre-hide scene height, so the
   // hide has to land in the same commit as the navigation. iOS sizes scenes

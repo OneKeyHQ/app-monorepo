@@ -208,6 +208,16 @@ describe('marketDetailNavigation', () => {
       expect(isTabBarHiddenByRequest()).toBe(false);
     });
 
+    it('waits for committed navigation state instead of evaluating immediately', () => {
+      focusRoute(ETabMarketRoutes.TabMarket);
+      prepareMarketDetailTabBarTransition();
+      expect(isTabBarHiddenByRequest()).toBe(true);
+
+      focusRoute(ETabMarketRoutes.MarketDetailV2);
+      emitNavigationState();
+      expect(isTabBarHiddenByRequest()).toBe(true);
+    });
+
     it('releases the request once the transition deadline passes', () => {
       prepareMarketDetailTabBarTransition();
       jest.advanceTimersByTime(1500);
