@@ -2649,6 +2649,17 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
     );
   }
 
+  recordSpotAssetCtxCoins(data: IWsSpotAssetCtxs) {
+    const subscription = this._activeSubscriptions.get(
+      SPOT_ASSET_CTXS_SUBSCRIPTION_KEY,
+    );
+    if (!subscription) return;
+    // REST and WS marks share ownership, scoped to the current subscription.
+    subscription.spotAssetCtxCoins = new Set(
+      data.filter((ctx) => ctx?.coin && ctx?.markPx).map((ctx) => ctx.coin),
+    );
+  }
+
   private async _handleSubscriptionData(
     subscriptionType: ESubscriptionType,
     event: CustomEvent,
@@ -2837,16 +2848,8 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
       }
 
       if (subscriptionType === ESubscriptionType.SPOT_ASSET_CTXS) {
-        const subscription = this._activeSubscriptions.get(
-          SPOT_ASSET_CTXS_SUBSCRIPTION_KEY,
-        );
-        if (!subscription || !Array.isArray(data)) return;
-        // Source ownership expires with the subscription on unsubscribe/close.
-        subscription.spotAssetCtxCoins = new Set(
-          (data as IWsSpotAssetCtxs)
-            .filter((ctx) => ctx?.coin && ctx?.markPx)
-            .map((ctx) => ctx.coin),
-        );
+        if (!Array.isArray(data)) return;
+        this.recordSpotAssetCtxCoins(data as IWsSpotAssetCtxs);
         void this.backgroundApi.serviceHyperliquid.updateSpotAssetCtxsMap(
           data as IWsSpotAssetCtxs,
         );

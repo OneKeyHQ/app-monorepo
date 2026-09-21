@@ -1,5 +1,8 @@
 /* cspell:ignore HWAVE */
 
+import type { ISpotMetaAndAssetCtxsResponse } from '@onekeyhq/shared/types/hyperliquid/sdk';
+import { ESubscriptionType } from '@onekeyhq/shared/types/hyperliquid/types';
+
 import {
   perpsActiveAccountAtom,
   perpsSpotBalancesAtom,
@@ -8,6 +11,10 @@ import {
 import { globalJotaiStorageReadyHandler } from '../../states/jotai/jotaiStorage';
 
 import ServiceHyperliquid from './ServiceHyperliquid';
+import ServiceHyperliquidSubscription from './ServiceHyperliquidSubscription';
+import { generateSubscriptionKey } from './utils/SubscriptionConfig';
+
+import type { ISubscriptionSpec } from './utils/SubscriptionConfig';
 
 jest.mock('p-timeout', () => ({ __esModule: true, default: jest.fn() }));
 jest.mock('@nktkas/hyperliquid', () => ({}));
@@ -64,6 +71,7 @@ describe('ServiceHyperliquid spot price source', () => {
           perp: {
             getPerpData: async () => ({}),
             getSpotMeta: async () => ({ tokens: [], universes: [] }),
+            setSpotMeta: async () => undefined,
           },
         },
         serviceHyperliquidCache: {
@@ -143,6 +151,86 @@ describe('ServiceHyperliquid spot price source', () => {
         prevDayPx: '0',
       }),
     });
+  });
+
+  it('protects REST marks before the first WS frame only within the active subscription', async () => {
+    const subscriptions = new ServiceHyperliquidSubscription({
+      backgroundApi: service.backgroundApi,
+    });
+    service.backgroundApi.serviceHyperliquid = service;
+    service.backgroundApi.serviceHyperliquidSubscription = subscriptions;
+    const spec: ISubscriptionSpec<ESubscriptionType.SPOT_ASSET_CTXS> = {
+      type: ESubscriptionType.SPOT_ASSET_CTXS,
+      key: generateSubscriptionKey(ESubscriptionType.SPOT_ASSET_CTXS, {}),
+      params: {},
+      priority: 2,
+    };
+    const internals = subscriptions as unknown as {
+      _activeSubscriptions: Map<string, { spec: typeof spec }>;
+      _handleSubscriptionData: (
+        type: ESubscriptionType,
+        event: CustomEvent,
+      ) => Promise<void>;
+      _updateNetworkLiveness: () => void;
+      _emitHyperliquidDataUpdate: () => void;
+    };
+    jest
+      .spyOn(internals, '_updateNetworkLiveness')
+      .mockImplementation(() => {});
+    jest
+      .spyOn(internals, '_emitHyperliquidDataUpdate')
+      .mockImplementation(() => {});
+    const hydrate = (markPx: string) =>
+      (
+        service as unknown as {
+          _applySpotMetaAndAssetCtxsResult: (
+            result: ISpotMetaAndAssetCtxsResponse,
+          ) => Promise<void>;
+        }
+      )._applySpotMetaAndAssetCtxsResult([
+        { tokens: [], universe: [] },
+        [{ ...spotCtx, markPx }],
+      ]);
+    const receiveMids = async () => {
+      await internals._handleSubscriptionData(ESubscriptionType.ALL_MIDS, {
+        detail: { mids: { '@241': '0.002' } },
+      } as CustomEvent);
+      jest.advanceTimersByTime(1000);
+    };
+    const expectPrice = (markPx: string) =>
+      expect(spotAssetCtxsMapAtom.set).toHaveBeenLastCalledWith({
+        '@241': expect.objectContaining({ markPx }),
+      });
+
+    // REST alone must not disable the mids fallback without a subscription.
+    await hydrate('0.0014');
+    await receiveMids();
+    expectPrice('0.002');
+
+    internals._activeSubscriptions.set(spec.key, { spec });
+    await hydrate('0.0015');
+    await receiveMids();
+    expectPrice('0.0015');
+    await internals._handleSubscriptionData(ESubscriptionType.SPOT_ASSET_CTXS, {
+      detail: [{ ...spotCtx, markPx: '0.0016' }],
+    } as CustomEvent);
+    await receiveMids();
+    expectPrice('0.0016');
+
+    subscriptions.socketCloseHandler({
+      target: { readyState: 3 },
+    } as unknown as WebSocketEventMap['close']);
+    await hydrate('0.0017');
+    await receiveMids();
+    expectPrice('0.002');
+
+    // Reconnect must not inherit ownership from the closed subscription.
+    internals._activeSubscriptions.set(spec.key, { spec });
+    await receiveMids();
+    expectPrice('0.002');
+    await hydrate('0.0018');
+    await receiveMids();
+    expectPrice('0.0018');
   });
 
   it('resumes mids and requests a valuation refresh after context ownership ends', async () => {

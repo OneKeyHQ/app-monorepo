@@ -159,7 +159,7 @@ describe('spot context price ownership', () => {
       }
       prices.updateSpotAssetCtxsMap.mockClear();
       await receive(ESubscriptionType.SPOT_ASSET_CTXS, [ctx]);
-      expect(prices.updateSpotAssetCtxsMap).not.toHaveBeenCalled();
+      expect(prices.updateSpotAssetCtxsMap).toHaveBeenCalledWith([ctx]);
       await receiveMids();
       expect(prices.extractSpotPricesFromAllMids).toHaveBeenLastCalledWith(
         { '@241': '0.002' },

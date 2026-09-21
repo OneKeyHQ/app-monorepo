@@ -2636,6 +2636,9 @@ export default class ServiceHyperliquid extends ServiceBase {
     // wait 2-3s for the WS SPOT_ASSET_CTXS message and flash a skeleton.
     const assetCtxs = result[1];
     if (Array.isArray(assetCtxs) && assetCtxs.length > 0) {
+      this.backgroundApi.serviceHyperliquidSubscription.recordSpotAssetCtxCoins(
+        assetCtxs,
+      );
       void this.updateSpotAssetCtxsMap(assetCtxs);
     }
   }
