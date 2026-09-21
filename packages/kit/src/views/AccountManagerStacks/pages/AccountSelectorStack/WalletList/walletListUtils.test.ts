@@ -3,7 +3,7 @@ import { BOT_WALLET_STATUS_DEACTIVATED } from '@onekeyhq/shared/src/consts/dbCon
 
 import {
   buildGroupedAccountSelectorWallets,
-  findWalletListScrollKey,
+  findWalletListScrollTarget,
   getWalletChildrenLength,
 } from './walletListUtils';
 
@@ -144,29 +144,55 @@ describe('walletListUtils', () => {
     ).toBe(3);
   });
 
-  it('resolves focused child wallets to their top-level scroll key', () => {
-    const wallets = [
+  it('resolves focused group members to their top-level scroll target', () => {
+    const rows = [
       {
-        ...createWallet({ id: 'hd-parent', name: 'Parent' }),
-        hiddenWallets: [
-          createWallet({ id: 'hidden-child', name: 'Hidden child' }),
+        type: 'walletGroup' as const,
+        key: 'hd-parent',
+        parent: {
+          type: 'identity' as const,
+          key: 'hd-parent',
+          title: 'Parent',
+          height: 68,
+          leading: { kind: 'wallet' as const },
+        },
+        children: [
+          {
+            type: 'identity' as const,
+            key: 'hidden-child',
+            title: 'Hidden child',
+            height: 68,
+            leading: { kind: 'wallet' as const },
+          },
+          {
+            type: 'identity' as const,
+            key: 'bot-child',
+            title: 'Bot child',
+            height: 90,
+            leading: { kind: 'wallet' as const },
+          },
         ],
-        botWallets: [createWallet({ id: 'bot-child', name: 'Bot child' })],
       },
-      createWallet({ id: 'hd-2', name: 'Wallet 2' }),
+      {
+        type: 'identity' as const,
+        key: 'hd-2',
+        title: 'Wallet 2',
+        height: 68,
+        leading: { kind: 'wallet' as const },
+      },
     ];
 
-    expect(findWalletListScrollKey({ wallets, focusedWallet: 'hd-2' })).toBe(
-      'hd-2',
+    expect(findWalletListScrollTarget({ rows, focusedWallet: 'hd-2' })).toEqual(
+      { key: 'hd-2', viewOffset: 0 },
     );
     expect(
-      findWalletListScrollKey({ wallets, focusedWallet: 'hidden-child' }),
-    ).toBe('hd-parent');
+      findWalletListScrollTarget({ rows, focusedWallet: 'hidden-child' }),
+    ).toEqual({ key: 'hd-parent', viewOffset: 11 });
     expect(
-      findWalletListScrollKey({ wallets, focusedWallet: 'bot-child' }),
-    ).toBe('hd-parent');
+      findWalletListScrollTarget({ rows, focusedWallet: 'bot-child' }),
+    ).toEqual({ key: 'hd-parent', viewOffset: -80 });
     expect(
-      findWalletListScrollKey({ wallets, focusedWallet: 'missing' }),
+      findWalletListScrollTarget({ rows, focusedWallet: 'missing' }),
     ).toBeUndefined();
   });
 });

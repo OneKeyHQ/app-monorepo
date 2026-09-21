@@ -61,7 +61,7 @@ import { useAddHiddenWallet } from '../WalletDetails/hooks/useAddHiddenWallet';
 import { AccountSelectorCreateWalletButton } from './AccountSelectorCreateWalletButton';
 import {
   buildGroupedAccountSelectorWallets,
-  findWalletListScrollKey,
+  findWalletListScrollTarget,
 } from './walletListUtils';
 
 import type { IAccountSelectorWalletInfo } from '../../../type';
@@ -500,26 +500,31 @@ export function AccountSelectorWalletListSideBarV2({
       wallets,
     ]);
 
-  const initialScrollKey = useMemo(
+  const initialScrollTarget = useMemo(
     () =>
-      findWalletListScrollKey({
-        wallets,
+      findWalletListScrollTarget({
+        rows: snapshot.rows,
         focusedWallet: selectedAccount.focusedWallet,
       }),
-    [selectedAccount.focusedWallet, wallets],
+    [selectedAccount.focusedWallet, snapshot.rows],
   );
   useEffect(() => {
-    if (!initialScrollKey || didInitialScrollRef.current || !listRef.current) {
+    if (
+      !initialScrollTarget ||
+      didInitialScrollRef.current ||
+      !listRef.current
+    ) {
       return;
     }
 
     didInitialScrollRef.current = true;
     listRef.current.scrollToKey({
-      key: initialScrollKey,
+      key: initialScrollTarget.key,
       animated: false,
       viewPosition: 0.5,
+      viewOffset: initialScrollTarget.viewOffset,
     });
-  }, [initialScrollKey]);
+  }, [initialScrollTarget]);
 
   if (shouldHideWalletList) {
     return null;
