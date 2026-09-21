@@ -369,6 +369,52 @@ describe('webUiSnapshotStore write-behind', () => {
     ]);
   });
 
+  it('reports a delete that did not reach the database', async () => {
+    openShouldFail = false;
+    keyDeleteShouldFail = true;
+    const backend = createWebUiSnapshotSyncBackend('swr-wallet-list');
+    backend.commit({
+      entries: [],
+      commitMarker: { key: 'manifest', value: 'm2' },
+      removeKeys: ['d:wallet-1'],
+    });
+
+    // A caller that waited in order to be sure — a wallet deletion, before the
+    // surface that asked for it can close — must not read this as committed:
+    // the removal is back on the queue behind a timer this runtime may not
+    // live to see.
+    await expect(flushUiSnapshotStoreNow()).resolves.toBe(false);
+
+    keyDeleteShouldFail = false;
+    await expect(flushUiSnapshotStoreNow()).resolves.toBe(true);
+    expect(operations).toContain('delete:swr-wallet-list:d:wallet-1');
+  });
+
+  it('reports a commit when the database took the whole batch', async () => {
+    openShouldFail = false;
+    const backend = createWebUiSnapshotSyncBackend('swr-wallet-list');
+    backend.commit({
+      entries: [{ key: 'd:wallet-2', value: 'fresh' }],
+      commitMarker: { key: 'manifest', value: 'm2' },
+      removeKeys: ['d:wallet-1'],
+    });
+
+    await expect(flushUiSnapshotStoreNow()).resolves.toBe(true);
+    // Nothing pending is a commit too, not a failure.
+    await expect(flushUiSnapshotStoreNow()).resolves.toBe(true);
+  });
+
+  it('reports the database that never opened', async () => {
+    const backend = createWebUiSnapshotSyncBackend('swr-wallet-list');
+    backend.commit({
+      entries: [],
+      commitMarker: { key: 'manifest', value: 'm2' },
+      removeKeys: ['d:wallet-1'],
+    });
+
+    await expect(flushUiSnapshotStoreNow()).resolves.toBe(false);
+  });
+
   it('does not prime back a namespace this session cleared', () => {
     openShouldFail = false;
     const cleared = createWebUiSnapshotSyncBackend('swr-wallet-list');
