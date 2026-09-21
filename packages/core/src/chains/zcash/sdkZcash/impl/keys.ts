@@ -18,6 +18,8 @@ import type {
   IZcashDeriveTransparentXpubFromUfvkParams,
   IZcashGetChainTipParams,
   IZcashNetwork,
+  IZcashParseTransparentTransactionsParams,
+  IZcashParsedTransparentTransaction,
   IZcashSignPcztParams,
   IZcashTransparentHardwareCreateParams,
   IZcashTransparentHardwareFinalizeParams,
@@ -44,6 +46,14 @@ function bytesToHex(bytes: Uint8Array): string {
   return Array.from(bytes)
     .map((b) => b.toString(16).padStart(2, '0'))
     .join('');
+}
+
+export async function validateAddress(params: {
+  network: IZcashNetwork;
+  address: string;
+}): Promise<boolean> {
+  const keys = await getKeys();
+  return keys.validateAddress(params.network, params.address);
 }
 
 export async function deriveAccount(
@@ -163,6 +173,15 @@ export async function signPczt(
     // wasm boundary can fix.
     seed.fill(0);
   }
+}
+
+export async function parseTransparentTransactions(
+  params: IZcashParseTransparentTransactionsParams,
+): Promise<IZcashParsedTransparentTransaction[]> {
+  const keys = await getKeys();
+  return JSON.parse(
+    keys.parseTransparentTransactions(stringUtils.stableStringify(params)),
+  ) as IZcashParsedTransparentTransaction[];
 }
 
 export async function quoteTransparentTx(

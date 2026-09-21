@@ -28,10 +28,6 @@ export interface IPrivacyChainDB {
   // the question of which account a given send was going to use. Absent means
   // the private-by-default answer, which is the one that leaks nothing.
   preferPublicSends?: Record<string, boolean>;
-  // networkId -> runtime storage schema version last seen. A mismatch means
-  // the chain's local database must be rebuilt from viewing keys; the
-  // database file itself carries no app-readable tag.
-  runtimeSchemaVersions?: Record<string, string>;
 }
 
 export class SimpleDbEntityPrivacyChain extends SimpleDbEntityBase<IPrivacyChainDB> {
@@ -101,31 +97,6 @@ export class SimpleDbEntityPrivacyChain extends SimpleDbEntityBase<IPrivacyChain
       preferPublicSends: {
         ...rawData?.preferPublicSends,
         [networkId]: preferPublic,
-      },
-    }));
-  }
-
-  async getRuntimeSchemaVersion({
-    networkId,
-  }: {
-    networkId: string;
-  }): Promise<string | undefined> {
-    const rawData = await this.getRawData();
-    return rawData?.runtimeSchemaVersions?.[networkId];
-  }
-
-  async saveRuntimeSchemaVersion({
-    networkId,
-    version,
-  }: {
-    networkId: string;
-    version: string;
-  }) {
-    await this.setRawData((rawData) => ({
-      ...rawData,
-      runtimeSchemaVersions: {
-        ...rawData?.runtimeSchemaVersions,
-        [networkId]: version,
       },
     }));
   }

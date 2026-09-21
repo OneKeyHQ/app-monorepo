@@ -16,6 +16,11 @@ import {
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useIsCellularNetwork } from '@onekeyhq/kit/src/hooks/useIsCellularNetwork';
+import {
+  formatPrivacyChainSyncProgress,
+  getPrivacyChainBackfillProgress,
+  getPrivacyChainSyncLabel,
+} from '@onekeyhq/kit/src/utils/privacyChainSyncDisplay';
 import { usePrivacyChainAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { FLOAT_NAV_BAR_Z_INDEX } from '@onekeyhq/shared/src/consts/zIndexConsts';
 import {
@@ -139,27 +144,7 @@ function BasicPrivacyChainSyncLight() {
   if (!networkId) {
     return null;
   }
-  const entry = Object.entries(progress)
-    .filter(
-      ([key, value]) =>
-        key.startsWith(`${networkId}:`) && !value.isBackfillComplete,
-    )
-    .map(([, value]) => value)
-    .toSorted((left, right) => {
-      const remaining = (value: typeof left) => {
-        if (
-          value.backfillTargetHeight === null ||
-          value.backfillScannedHeight === null
-        ) {
-          return Number.MAX_SAFE_INTEGER;
-        }
-        return Math.max(
-          0,
-          value.backfillTargetHeight - value.backfillScannedHeight,
-        );
-      };
-      return remaining(right) - remaining(left);
-    })[0];
+  const entry = getPrivacyChainBackfillProgress(progress, networkId);
   const isRunning = boostingNetworkIds.includes(networkId);
   const isPaused = !isRunning && pausedNetworkIds.includes(networkId);
   // The service already decides this and publishes it; inferring it from
@@ -173,39 +158,31 @@ function BasicPrivacyChainSyncLight() {
   }
   // Only native can tell metered from not; elsewhere the label would guess.
   const connection = platformEnv.isNative
-    ? ` · ${intl.formatMessage({
+    ? intl.formatMessage({
         id: isCellular
           ? ETranslationsMock.privacy_scan_on_cellular
           : ETranslationsMock.privacy_scan_on_wifi,
-      })}`
+      })
     : '';
-  const pct =
-    entry?.backfillProgress === null || entry?.backfillProgress === undefined
-      ? ''
-      : `${Math.floor(entry.backfillProgress * 100)}% · `;
-  const scanned = entry?.backfillScannedHeight;
-  const target = entry?.backfillTargetHeight;
-  const heights =
-    typeof scanned === 'number' && typeof target === 'number'
-      ? `${scanned.toLocaleString('en-US')} / ${target.toLocaleString('en-US')}`
-      : '';
-  // The state is its own line, not something to infer from an icon.
-  let stateLabel: string;
-  if (isRunning) {
-    stateLabel = intl.formatMessage({
-      id: ETranslationsMock.privacy_scan_state_scanning,
-    });
-  } else if (isPaused) {
-    stateLabel = intl.formatMessage({
-      id: ETranslationsMock.privacy_scan_paused,
-    });
-  } else {
-    stateLabel = intl.formatMessage({
-      id: ETranslationsMock.privacy_scan_state_held,
-    });
-  }
+  const stateLabel = intl.formatMessage({
+    id: getPrivacyChainSyncLabel({
+      paused: isPaused,
+      held: isHeldByData,
+      preparing: !entry,
+      backfilling: true,
+    }),
+  });
   const detailLine = entry
-    ? `${pct}${heights}${connection}`.replace(/^ · /, '')
+    ? [
+        formatPrivacyChainSyncProgress({
+          scanned: entry.backfillScannedHeight,
+          target: entry.backfillTargetHeight,
+          progress: entry.backfillProgress,
+        }),
+        connection,
+      ]
+        .filter(Boolean)
+        .join(' · ')
     : intl.formatMessage({ id: ETranslationsMock.privacy_scan_starting });
 
   return (
@@ -223,7 +200,7 @@ function BasicPrivacyChainSyncLight() {
             // Side padding so the card below can take a real width instead of
             // shrinking to fit: a `flex: 1` text column inside a shrink-to-fit
             // parent collapses to its minimum content width, which wraps the
-            // label mid-word ("Scan / ning") and overlaps the lines under it.
+            // label inside a word and overlaps the lines under it.
             paddingHorizontal: '$4' as const,
           }
         : { top: EDGE_CLEARANCE, right: '$5' as const })}
@@ -319,7 +296,7 @@ function BasicPrivacyChainSyncLight() {
         {isRunning ? (
           <SizableText size="$bodySm" color="$textCaution">
             {intl.formatMessage({
-              id: ETranslationsMock.privacy_scan_extra_power,
+              id: ETranslationsMock.privacy_enable_foreground,
             })}
           </SizableText>
         ) : null}

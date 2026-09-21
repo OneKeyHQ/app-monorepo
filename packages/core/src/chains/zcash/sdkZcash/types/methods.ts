@@ -11,7 +11,6 @@ import type { IZcashSdkApi } from './sdk';
 // Worker. App main/bg share a runtime on web/desktop and have separate heaps
 // on extension/mobile; the Worker always has its own heap.
 export const ZCASH_SDK_METHODS = [
-  'smokeTest',
   'runRuntimeSelfTest',
   // Recovery: tears down a wedged carrier (never leased -- it must run
   // PAST a stuck lease, that is its whole job).
@@ -21,14 +20,15 @@ export const ZCASH_SDK_METHODS = [
   'setPerfTrace',
   'capabilities',
   'getChainTip',
-  'getRuntimeVersions',
 
   // keys side
+  'validateAddress',
   'deriveAccount',
   'deriveAddressFromUfvk',
   'signPczt',
   'deriveTransparentXpubFromUfvk',
   'combinePczt',
+  'parseTransparentTransactions',
   'quoteTransparentTx',
   'buildTransparentTxWithSeed',
   'buildTransparentTxWithAccountXprv',

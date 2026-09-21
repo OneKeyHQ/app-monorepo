@@ -38,6 +38,7 @@ function balance(
 ): ITestBalance {
   const shielded = String(BigInt(ironwood) + BigInt(orchard));
   return {
+    isComplete: true,
     shielded,
     spendable: shielded,
     pendingChange: '0',
@@ -82,7 +83,6 @@ describe('Zcash send amount intent', () => {
             zcash: {
               getPrivacyModeState: async () => ({
                 intent: 'on',
-                preferTransparentForShieldedSends: preferTransparent,
               }),
             },
           },

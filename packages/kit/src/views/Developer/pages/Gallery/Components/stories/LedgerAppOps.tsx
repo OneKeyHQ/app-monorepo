@@ -251,7 +251,9 @@ const LedgerAppOpsTester = () => {
             showOnDevice,
           },
         );
-      appendLog(`zcash UFVK → ${JSON.stringify(res.viewingKey)}`);
+      appendLog(
+        `zcash viewing key request succeeded: ${res.viewingKey.success}`,
+      );
       appendLog(
         `zcash shielded address → ${JSON.stringify(res.shieldedAddress)}`,
       );

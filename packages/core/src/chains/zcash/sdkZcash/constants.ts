@@ -68,21 +68,3 @@ export const ZCASH_DECIMALS = 8;
 // zcashDeriveAndSaveOneAccountMeta). NOT the same as
 // the product scan floor, which starts at Orchard activation.
 export const ZCASH_SAPLING_ACTIVATION_HEIGHT_MAINNET = 419_200;
-
-// OUR wallet's address-derivation compatibility ledger — deliberately NOT the
-// SDK's or the protocol's version. Bump ONLY when WE change what a given key
-// derives to; stored addresses stamped with an older version are re-derived
-// from the persisted UFVK (no password needed) and overwritten. When bumping
-// the zcash runtime packages, run sdkZcash/scripts/verify-address-golden.js:
-// if outputs changed, the same diff must bump this and update the goldens.
-//
-// v1: UA = Orchard + Sapling + P2PKH, SDK-default diversifier
-//     (pre-migration webzjs behavior, kept for provenance)
-// v2: UA = Orchard + P2PKH (no Sapling receiver — prover removed, don't
-//     advertise what we can't spend), diversifier fixed at index 0 so the
-//     embedded P2PKH equals the BIP-44 t-addr
-//     (shipped with a webzjs dep bump in the same diff, pre-migration)
-// v3: UA = Orchard only. The independent BIP-44 transparent address remains
-//     available as its own receive option; embedding it in the UA would link
-//     transparent and shielded activity at the receiver boundary.
-export const ZCASH_ADDRESS_SCHEME_VERSION = 3;

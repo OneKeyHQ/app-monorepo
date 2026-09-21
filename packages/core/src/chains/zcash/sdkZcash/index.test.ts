@@ -3,7 +3,7 @@ import {
   encodeAddress,
   getZcashAccountIndexFromXpub,
   isShieldedAddress,
-  validateZcashAddress,
+  validateZcashTransparentAddress,
 } from '.';
 
 import bs58check from 'bs58check';
@@ -71,56 +71,38 @@ describe('zcash transparent address codec', () => {
   });
 });
 
-describe('validateZcashAddress', () => {
+describe('validateZcashTransparentAddress', () => {
   const network = getBtcForkNetwork('zec');
 
   it('accepts a valid t1 (P2PKH) address', () => {
-    const r = validateZcashAddress({ address: T1, network });
+    const r = validateZcashTransparentAddress({ address: T1, network });
     expect(r.isValid).toBe(true);
     expect(r.displayAddress).toBe(T1);
     expect(r.normalizedAddress).toBe(T1);
   });
 
   it('accepts a valid t3 (P2SH) address', () => {
-    const r = validateZcashAddress({ address: T3, network });
+    const r = validateZcashTransparentAddress({ address: T3, network });
     expect(r.isValid).toBe(true);
     expect(r.displayAddress).toBe(T3);
   });
 
-  it('accepts a valid unified (u1) address', () => {
-    // real mainnet UA, single orchard receiver (bech32m, HRP "u", 83-byte
-    // jumbled payload)
-    const UA =
-      'u1nclshqcdr93nn3fdm7wawe68k0mklfs8a5czcht775gynnscm0xwhnealcv7vhfzw24mhnlehqhmrgg48dy5grwj6ststevlt3446fagw0ckl3z7y7c54dr5z7xjthtmrfs6gq6x53h';
-    const r = validateZcashAddress({ address: UA, network });
-    expect(r.isValid).toBe(true);
-    expect(r.displayAddress).toBe(UA);
-    expect(r.normalizedAddress).toBe(UA);
-  });
-
-  it('rejects malformed unified and legacy shielded addresses', () => {
-    // u1-prefixed but not valid bech32m
-    expect(
-      validateZcashAddress({ address: 'u1someunifiedaddress', network })
-        .isValid,
-    ).toBe(false);
-    // valid-checksum bech32m but payload shorter than the 48-byte F4Jumble floor
-    expect(
-      validateZcashAddress({ address: 'u1qqqqu7e3lz', network }).isValid,
-    ).toBe(false);
-    // Sapling destinations need the removed Sapling prover
-    expect(
-      validateZcashAddress({ address: 'zs1sapling', network }).isValid,
-    ).toBe(false);
+  it('does not accept shielded addresses in the transparent validator', () => {
+    for (const address of ['u1someunifiedaddress', 'zs1sapling', 'zc123']) {
+      expect(
+        validateZcashTransparentAddress({ address, network }).isValid,
+      ).toBe(false);
+    }
   });
 
   it('rejects malformed and non-Zcash addresses', () => {
     expect(
-      validateZcashAddress({ address: 'notanaddress', network }).isValid,
+      validateZcashTransparentAddress({ address: 'notanaddress', network })
+        .isValid,
     ).toBe(false);
     // a raw BTC mainnet address is not a Zcash t-address
-    expect(validateZcashAddress({ address: BTC_P2PKH, network }).isValid).toBe(
-      false,
-    );
+    expect(
+      validateZcashTransparentAddress({ address: BTC_P2PKH, network }).isValid,
+    ).toBe(false);
   });
 });

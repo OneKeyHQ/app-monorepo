@@ -45,7 +45,6 @@ Desktop/web/extension use
 web-embed uses the deliberately separate keys-only `zcashKeysWebSdk.ts`.
 Both expose the same `IZcashSdkApi` bridge shape, but wallet-side methods fail
 closed in the mobile carrier until the native scanner exists. The full API is:
-`smokeTest`,
 `getChainTip`, `deriveAccount`, `deriveAddressFromUfvk`, `signPczt`,
 `syncWallet`, `getBalance`, `getHistory`, `getPendingBroadcasts`,
 `createPczt`, `shieldFunds`, `quoteShieldFunds`,

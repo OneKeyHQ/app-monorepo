@@ -1,4 +1,3 @@
-import { bech32m } from 'bech32';
 import bs58check from 'bs58check';
 
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
@@ -67,48 +66,15 @@ const INVALID_ADDRESS: IAddressValidation = {
   displayAddress: '',
 };
 
-// Unified addresses (ZIP 316): bech32m, HRP "u" on mainnet. The payload is
-// F4Jumbled, so receivers can't be inspected without reversing it -- checksum +
-// HRP + the minimum jumbled length (48 bytes -> 77 five-bit words) is the
-// full syntactic check; the wasm PCZT builder does the semantic one at send
-// time. Sapling (zs) / Sprout (zc) destinations stay rejected: creating a
-// Sapling output needs the removed Sapling prover.
-const ZCASH_UA_HRP_MAIN = 'u';
-const ZCASH_UA_MIN_WORDS = 77;
-const ZCASH_UA_BECH32_LIMIT = 1024;
-
-export function isValidUnifiedAddress(address: string): boolean {
-  try {
-    const decoded = bech32m.decode(address, ZCASH_UA_BECH32_LIMIT);
-    return (
-      decoded.prefix === ZCASH_UA_HRP_MAIN &&
-      decoded.words.length >= ZCASH_UA_MIN_WORDS
-    );
-  } catch {
-    return false;
-  }
-}
-
-// Validates a Zcash transparent (t1/t3) address by decoding it to the
-// BTC-legacy intermediate and reusing the BTC validator, or a unified (u1)
-// address by bech32m syntax. Sapling/Sprout and malformed inputs are rejected.
-export function validateZcashAddress({
+// Transparent validation does not load WASM. Unified receivers are validated
+// by the stateless keys SDK before entering the send flow.
+export function validateZcashTransparentAddress({
   address,
   network,
 }: {
   address: string;
   network: IBtcForkNetwork;
 }): IAddressValidation {
-  if (address.startsWith('u1')) {
-    if (isValidUnifiedAddress(address)) {
-      return {
-        isValid: true,
-        displayAddress: address,
-        normalizedAddress: address,
-      };
-    }
-    return INVALID_ADDRESS;
-  }
   let intermediate: string;
   try {
     intermediate = decodeAddress(address); // throws for shielded / malformed

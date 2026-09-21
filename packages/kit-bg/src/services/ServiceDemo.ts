@@ -76,27 +76,6 @@ class ServiceDemo extends ServiceBase {
     super({ backgroundApi });
   }
 
-  // ---------------------------------------------- zcash runtime smoke (dev)
-
-  // Runs the WebZjs smoke test from the BACKGROUND runtime, so the sdk shim
-  // resolves per-platform the same way Kaspa does: ext -> offscreen document
-  // (crossOriginIsolated), desktop/web -> bg runtime, native -> web-embed.
-  // Calling from the gallery UI directly would resolve to index.web and load
-  // the wasm in the UI page (no offscreen, no COI).
-  @backgroundMethodForDev()
-  async zcashWebzjsSmokeTest(params: {
-    $$devOnlyPassword: string;
-    lightwalletdUrl: string;
-    mnemonic: string;
-    birthdayOffset?: number;
-  }) {
-    const zcashSdk = (
-      await import('@onekeyhq/core/src/chains/zcash/sdkZcash/sdk')
-    ).default;
-    const api = await zcashSdk.getZcashApi();
-    return api.smokeTest(params);
-  }
-
   @backgroundMethodForDev()
   async zcashRuntimeSelfTest(params: {
     $$devOnlyPassword: string;

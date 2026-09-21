@@ -13,8 +13,7 @@ import type {
 // created/proved by the watch-only wallet in the carrier and signed by the
 // keys wasm.
 export type IEncodedTxZcash = IEncodedTxBtc & {
-  // Missing on development-era PCZT transactions; those remain privacy txs.
-  zcashMode?: 'transparent' | 'privacy';
+  zcashMode: 'transparent' | 'privacy';
   zcashTo: string; // t1/t3 transparent or u1 unified
   zcashAmountValue: string; // zatoshi
   // Per-pool withdraw: note selection limited to this pool (see createPczt).

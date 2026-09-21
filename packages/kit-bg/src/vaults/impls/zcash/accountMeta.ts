@@ -1,4 +1,3 @@
-import { ZCASH_ADDRESS_SCHEME_VERSION } from '@onekeyhq/core/src/chains/zcash/sdkZcash/constants';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 
@@ -100,7 +99,6 @@ export async function resolveAndSaveZcashAccountMeta({
       birthdayHeight,
       birthdaySource,
       birthdayTimestamp: privacyModeState.birthdayTimestamp,
-      addressSchemeVersion: ZCASH_ADDRESS_SCHEME_VERSION,
       createdAt: Date.now(),
     },
   });

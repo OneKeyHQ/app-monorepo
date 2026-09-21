@@ -63,10 +63,6 @@ state.
 - A later mined observation always wins over a persisted rejection marker.
 - Account deletion removes official wallet data and runtime lifecycle state in
   the same SQLite transaction.
-- Legacy SimpleDB journals migrate into the runtime before the App deletes
-  them. A journal entry missing from the wallet is guarded for one normal
-  transaction-expiry window and then stops blocking new sends if scanning never
-  observes it.
 - Tests must cover accepted, unknown, definite rejection, duplicate-known,
   crash recovery, and Pending-to-Confirmed reconciliation.
 

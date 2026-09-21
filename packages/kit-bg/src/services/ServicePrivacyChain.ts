@@ -1298,9 +1298,14 @@ class ServicePrivacyChain extends ServiceBase {
   }
 
   @backgroundMethod()
-  async clearTransactionHistoryCache(): Promise<void> {
+  async clearTransactionHistoryCache(params?: {
+    networkId: string;
+  }): Promise<void> {
     const processedRuntimeAccounts = new Set<string>();
-    for (const networkId of await this.getLocalWalletNetworkIds()) {
+    const networkIds = params
+      ? [params.networkId]
+      : await this.getLocalWalletNetworkIds();
+    for (const networkId of networkIds) {
       // eslint-disable-next-line no-await-in-loop
       const vault = await vaultFactory.getChainOnlyVault({ networkId });
       const capability = requireLocalWalletCapability(vault);
@@ -1465,9 +1470,6 @@ class ServicePrivacyChain extends ServiceBase {
     }
   }
 
-  // The same count the ceiling is enforced against, shaped for a page.
-  // Enforcement stays in assertEnabledAccountLimit.
-  @backgroundMethod()
   // Everything the sync settings page shows about the network as a whole, in
   // one call: the chain's own scan data footprint and where it scans from.
   // Both are optional on the capability, so a chain that cannot answer simply
@@ -1512,6 +1514,7 @@ class ServicePrivacyChain extends ServiceBase {
     };
   }
 
+  // The same count enforced by assertEnabledAccountLimit, shaped for a page.
   @backgroundMethod()
   async getLocalWalletSlotUsage({
     networkId,
@@ -1805,6 +1808,7 @@ class ServicePrivacyChain extends ServiceBase {
         const { accounts } = await capability.listAccounts();
         const enabled = accounts.filter(({ syncEnabled }) => syncEnabled);
         if (enabled.length === 0) {
+          // eslint-disable-next-line no-continue
           continue;
         }
         const entries = await Promise.all(

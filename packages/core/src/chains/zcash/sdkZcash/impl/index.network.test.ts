@@ -2,7 +2,12 @@
 import sdk from '@onekeyhq/core/src/chains/zcash/sdkZcash/impl';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
-import { pickLightwalletdUrl, withWallet } from './carrier';
+import {
+  getEndpointHealth,
+  pickLightwalletdUrl,
+  recordEndpointHealth,
+  withWallet,
+} from './carrier';
 
 import type { IZcashWalletAccount } from '../types/sdk';
 
@@ -32,6 +37,21 @@ function networkError() {
 }
 
 describe('Zcash endpoint outcomes through the leased API', () => {
+  it('does not carry latency from the previous endpoint into a new sample', () => {
+    pickLightwalletdUrl('https://previous.example.invalid');
+    recordEndpointHealth({ ok: true, latencyMs: 42 });
+    recordEndpointHealth({ ok: true });
+    expect(getEndpointHealth()?.latencyMs).toBe(42);
+
+    pickLightwalletdUrl(account.lightwalletdUrl);
+    recordEndpointHealth({ ok: true });
+    expect(getEndpointHealth()).toMatchObject({
+      url: account.lightwalletdUrl,
+      ok: true,
+      latencyMs: null,
+    });
+  });
+
   it('rotates after two failed scans separated by local preparation and successful tip reads', async () => {
     const api = await sdk.getZcashApi();
     const startUrl = pickLightwalletdUrl(account.lightwalletdUrl);
@@ -95,12 +115,12 @@ describe('Zcash endpoint outcomes through the leased API', () => {
 
     await expect(
       api.syncWallet(account, { activeUfvks: [account.ufvk] }),
-    ).resolves.toMatchObject({ synced: true });
+    ).resolves.toMatchObject({ stateChanged: true });
     expect(pickLightwalletdUrl(account.lightwalletdUrl)).toBe(startUrl);
     await api.prepareWalletAccounts([account]);
     await expect(
       api.syncWallet(account, { activeUfvks: [account.ufvk] }),
-    ).resolves.toMatchObject({ synced: true });
+    ).resolves.toMatchObject({ stateChanged: true });
     expect(pickLightwalletdUrl(account.lightwalletdUrl)).not.toBe(startUrl);
   });
 

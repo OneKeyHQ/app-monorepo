@@ -84,9 +84,9 @@ describe('isPrivacyChainHistoryVisible', () => {
     ).toBe(false);
   });
 
-  it('does not hide legacy rows without a side marker', () => {
+  it('does not expose unclassified rows in a selected side', () => {
     expect(isPrivacyChainHistoryVisible({ selectedSide: 'private' })).toBe(
-      true,
+      false,
     );
   });
 

@@ -5,7 +5,6 @@ jest.mock('../../../dbs/local/localDbInstance', () => ({
   default: {},
 }));
 
-import { ZCASH_ADDRESS_SCHEME_VERSION } from '@onekeyhq/core/src/chains/zcash/sdkZcash/constants';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { SimpleDbEntityZcash } from '../../../dbs/simple/entity/SimpleDbEntityZcash';
@@ -48,7 +47,6 @@ describe('Zcash local privacy data deletion', () => {
       seedFingerprintHex: '00',
       hdIndex: 0,
       birthdayHeight: 2_000_000,
-      addressSchemeVersion: ZCASH_ADDRESS_SCHEME_VERSION,
       createdAt: 1,
     };
   }
@@ -261,6 +259,23 @@ describe('Zcash chain-only deletion expiry guard', () => {
             },
           },
         });
+      Object.assign(vault, {
+        collectTxsByApi: async () => ({ ['22'.repeat(32)]: 'raw-transaction' }),
+        zcashGetApi: async () => ({
+          parseTransparentTransactions: async () => [
+            {
+              txid: '22'.repeat(32),
+              isCoinbase: false,
+              outputs: [
+                {
+                  valueZat: '100000',
+                  scriptPubKey: `76a914${'33'.repeat(20)}88ac`,
+                },
+              ],
+            },
+          ],
+        }),
+      });
       const check = vault.zcashAssertNoUnresolvedBroadcast(accountId);
       if (height > 100) {
         await expect(check).resolves.toBeUndefined();
@@ -456,4 +471,33 @@ describe('Zcash privacy mode account state', () => {
       paused: false,
     });
   });
+});
+
+it('drops chain data without clearing device-wide privacy preferences', async () => {
+  const dropWalletDatabase = jest.fn().mockResolvedValue(undefined);
+  const clearZcash = jest.fn().mockResolvedValue(undefined);
+  const clearPrivacyChain = jest.fn().mockResolvedValue(undefined);
+  const removeScanStartPrompted = jest.fn().mockResolvedValue(undefined);
+  const vault = Object.assign(Object.create(Vault.prototype) as Vault, {
+    zcashGetApi: async () => ({ dropWalletDatabase }),
+    backgroundApi: {
+      simpleDb: {
+        zcash: {
+          listCleanupAccountIds: async () => ['zcash-account'],
+          clearRawData: clearZcash,
+        },
+        privacyChain: {
+          clearRawData: clearPrivacyChain,
+          removeScanStartPrompted,
+        },
+      },
+    },
+  });
+  await vault.getLocalWalletCapability().dropLocalData?.();
+  expect(dropWalletDatabase).toHaveBeenCalledTimes(1);
+  expect(clearZcash).toHaveBeenCalledTimes(1);
+  expect(removeScanStartPrompted).toHaveBeenCalledWith({
+    accountId: 'zcash-account',
+  });
+  expect(clearPrivacyChain).not.toHaveBeenCalled();
 });

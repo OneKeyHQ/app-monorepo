@@ -314,8 +314,8 @@ separate deriver package:
 - `pczt_sign_with_usk_bytes(...)` signs from the returned bytes -- seed-free,
   and with all key-object lifetimes internal to the call (the
   freed-a-consumed-wrapper bug class cannot occur through it).
-- The TS layer (sign + derive) uses only these two; the legacy seed-taking
-  constructors remain compiled for compatibility but have no TS callers.
+- This describes the retired WebZjs prototype. The first release uses the
+  independent OneKey keys package and ships no prototype compatibility layer.
 - Remaining discipline: freeze `webzjs-keys` independently of wallet-driven
   upstream bumps (only touch it for keys-relevant changes), and keep the
   wallet-package no-seed red line under review.

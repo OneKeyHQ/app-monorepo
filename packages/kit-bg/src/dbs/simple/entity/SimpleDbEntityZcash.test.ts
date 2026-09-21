@@ -163,36 +163,6 @@ describe('SimpleDbEntityZcash privacy mode', () => {
     ]);
   });
 
-  it('persists the transparent-first preference across privacy mode lifecycle changes', async () => {
-    const entity = createEntity({ accounts: {} });
-    await entity.initializePrivacyModeOff({ accountId: 'account' });
-    await entity.beginPrivacyModeEnable({
-      accountId: 'account',
-      birthdayHeight: 2000,
-    });
-    await entity.completePrivacyModeEnable({ accountId: 'account' });
-
-    await entity.setPreferTransparentForShieldedSends({
-      accountId: 'account',
-      enabled: true,
-    });
-    await entity.beginPrivacyModeDisable({
-      accountId: 'account',
-      resumeFromHeight: 2900,
-    });
-    await entity.completePrivacyModeDisable({ accountId: 'account' });
-
-    await expect(
-      entity.getPrivacyModeState({ accountId: 'account' }),
-    ).resolves.toMatchObject({
-      intent: 'off',
-      preferTransparentForShieldedSends: true,
-    });
-    await expect(
-      entity.getPrivacyModeState({ accountId: 'other-account' }),
-    ).resolves.toEqual({ intent: 'off' });
-  });
-
   it('records an imported month only when enable is explicitly requested', async () => {
     const entity = createEntity({ accounts: {} });
     await entity.initializePrivacyModeOff({ accountId: 'account' });

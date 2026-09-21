@@ -6192,11 +6192,19 @@ class ServiceAccount extends ServiceBase {
     /** DeviceStage confirm channel: the address the person expects, shown
      * on the confirm card to check against the device screen. */
     expectedAddress?: string;
+    localWalletAddressForm?: 'public' | 'private';
   }): Promise<string[]> {
     const { prepareParams, deviceParams, networkId, walletId } =
       await this.getPrepareHDOrHWAccountsParams(params);
 
     prepareParams.isVerifyAddressAction = true;
+    if (params.localWalletAddressForm && 'deviceParams' in prepareParams) {
+      prepareParams.chainExtraParams = {
+        ...prepareParams.chainExtraParams,
+        localWalletAddressForm: params.localWalletAddressForm,
+        receiveAddressPath: params.customReceiveAddressPath,
+      };
+    }
 
     const vault = await vaultFactory.getWalletOnlyVault({
       networkId,

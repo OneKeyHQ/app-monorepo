@@ -6,16 +6,15 @@ import {
   Button,
   Dialog,
   Divider,
-  ESwitchSize,
   Icon,
   SizableText,
   Stack,
-  Switch,
   XStack,
   YStack,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { useUnresolvedBroadcastDialog } from '@onekeyhq/kit/src/hooks/useUnresolvedBroadcastDialog';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -55,49 +54,24 @@ export function LocalWalletPoolStatus({
   settingsMode?: boolean;
 }) {
   const intl = useIntl();
-  const navigation = useAppNavigation();
+  const canEnable =
+    accountUtils.isHdAccount({ accountId }) ||
+    accountUtils.isHwAccount({ accountId });
 
-  // The network-wide page, not this account's: from a token page the next
-  // question is usually "what is this chain doing on my device", and every
-  // account's own controls are one tap further in.
-  const openSettings = useCallback(() => {
-    navigation.pushModal(EModalRoutes.AccountManagerStacks, {
-      screen: EAccountManagerStacksRoutes.PrivacyNetworks,
-      params: {
-        walletId: accountUtils.getWalletIdFromAccountId({ accountId }),
-      },
-    });
-  }, [accountId, navigation]);
-
+  const refreshAfterBroadcast = useCallback(() => {
+    appEventBus.emit(EAppEventBusNames.RefreshHistoryList, undefined);
+    lw.refresh();
+  }, [lw]);
+  const showUnresolvedBroadcastDialog = useUnresolvedBroadcastDialog(
+    refreshAfterBroadcast,
+  );
   const handleGuardError = useCallback(
     (error: unknown): boolean => {
       if (!isUnresolvedPrivacyChainBroadcastError(error)) return false;
-      Dialog.confirm({
-        title: intl.formatMessage({ id: ETranslations.global_retry }),
-        description: (
-          <YStack gap="$2">
-            <SizableText size="$bodyMd">
-              {intl.formatMessage({
-                id: ETranslations.global_an_error_occurred_desc,
-              })}
-            </SizableText>
-            <SizableText size="$bodySm" color="$textSubdued">
-              {intl.formatMessage(
-                { id: ETranslations.tx_confirm_eta_minutes__desc },
-                { minutes: 15 },
-              )}
-            </SizableText>
-          </YStack>
-        ),
-        onConfirmText: intl.formatMessage({ id: ETranslations.global_refresh }),
-        onConfirm: () => {
-          appEventBus.emit(EAppEventBusNames.RefreshHistoryList, undefined);
-          lw.refresh();
-        },
-      });
+      showUnresolvedBroadcastDialog();
       return true;
     },
-    [intl, lw],
+    [showUnresolvedBroadcastDialog],
   );
 
   const handleEnable = useCallback(async () => {
@@ -266,21 +240,18 @@ export function LocalWalletPoolStatus({
                 id: ETranslationsMock.privacy_scan_resume,
               })}
             </Button>
-          ) : (
+          ) : null}
+          {!isPaused && canEnable ? (
             <Button
               testID="local-wallet-enable-button"
               size="medium"
               variant="primary"
               loading={lw.busy}
-              disabled={
-                !accountUtils.isHdAccount({ accountId }) &&
-                !accountUtils.isHwAccount({ accountId })
-              }
               onPress={handleEnable}
             >
               {intl.formatMessage({ id: ETranslations.global_enable })}
             </Button>
-          )}
+          ) : null}
         </YStack>
         {settingsMode ? (
           <Button
@@ -449,7 +420,7 @@ export function LocalWalletPoolStatus({
 // The row keeps its height whether or not there is text, so the history list
 // below it does not move on every poll.
 export function LocalWalletSyncRow({
-  networkId,
+  networkId: _networkId,
   accountId,
   pool: lw,
 }: {

@@ -42,8 +42,7 @@ export type IZcashShieldedReservation = {
   expiryHeight?: number;
   // 'unsigned': PCZT built for a review page that may still be abandoned;
   // released by the next build or by expiry. 'signed': carried to broadcast.
-  // Missing on rows written before the state existed; treated as signed.
-  state?: 'unsigned' | 'signed';
+  state: 'unsigned' | 'signed';
 };
 
 export type IZcashPrivacyModeIntent = 'off' | 'on';
@@ -65,7 +64,6 @@ export type IZcashBirthdayMonthHint = {
 
 export type IZcashPrivacyModeState = {
   intent: IZcashPrivacyModeIntent;
-  preferTransparentForShieldedSends?: boolean;
   birthdayHeight?: number;
   birthdaySource?: IZcashBirthdaySource;
   birthdayTimestamp?: number;
@@ -105,11 +103,6 @@ export interface IZcashAccountMeta {
   // Approximate user-provided recovery month. This is diagnostic input, not
   // a second scan cursor; birthdayHeight remains the only scanner authority.
   birthdayTimestamp?: number;
-  // OUR address-derivation ledger (ZCASH_ADDRESS_SCHEME_VERSION at write
-  // time). Addresses are a cache of (UFVK × scheme version): when this lags
-  // the current version, the zcash vault lazily re-derives from the UFVK (no
-  // password) and overwrites. Absent on pre-versioning records.
-  addressSchemeVersion?: number;
   createdAt: number;
 }
 
@@ -486,31 +479,6 @@ export class SimpleDbEntityZcash extends SimpleDbEntityBase<IZcashDB> {
   }): Promise<boolean> {
     const state = await this.getPrivacyModeState({ accountId });
     return state.intent === 'on' && state.operation === undefined;
-  }
-
-  async setPreferTransparentForShieldedSends({
-    accountId,
-    enabled,
-  }: {
-    accountId: string;
-    enabled: boolean;
-  }): Promise<void> {
-    await this.setRawData((rawData) => {
-      const current = rawData?.privacyModeAccounts?.[accountId];
-      return {
-        ...rawData,
-        accounts: rawData?.accounts ?? {},
-        privacyModeAccounts: {
-          ...rawData?.privacyModeAccounts,
-          [accountId]: {
-            ...current,
-            intent: current?.intent ?? 'off',
-            preferTransparentForShieldedSends: enabled,
-            updatedAt: Date.now(),
-          },
-        },
-      };
-    });
   }
 
   async listPrivacyModeEnabledAccountIds(): Promise<string[]> {

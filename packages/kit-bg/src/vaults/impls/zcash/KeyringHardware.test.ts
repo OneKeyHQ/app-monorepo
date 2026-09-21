@@ -33,7 +33,7 @@ function createKeyring({
     .spyOn(KeyringHardwareBase.prototype, 'getHardwareSDKInstance')
     .mockResolvedValue(sdk as never);
   return Object.assign(Object.create(KeyringHardware.prototype), {
-    vault: { accountId: 'hw-1--acc', ...vault },
+    vault: { accountId: 'hw-1--acc', zcashGetApi: mockGetZcashApi, ...vault },
     backgroundApi: {
       simpleDb: { zcash: simpleDbZcash ?? {} },
       serviceAccount: {
@@ -182,7 +182,7 @@ describe('Zcash KeyringHardware', () => {
         spentOutpoints: request.selectedOutpoints,
       };
       const sdk = {
-        zcashGetUnifiedAddress: jest.fn().mockResolvedValue({
+        zcashGetAddress: jest.fn().mockResolvedValue({
           success: true,
           payload: [
             {
@@ -286,7 +286,7 @@ describe('Zcash KeyringHardware', () => {
 
   it('saves device-provided viewing metadata on privacy setup', async () => {
     const saveAccountMeta = jest.fn();
-    const zcashGetUnifiedAddress = jest.fn().mockResolvedValue({
+    const zcashGetAddress = jest.fn().mockResolvedValue({
       success: true,
       payload: [
         {
@@ -305,7 +305,7 @@ describe('Zcash KeyringHardware', () => {
       getChainTip: jest.fn().mockResolvedValue(3_000_000),
     });
     const keyring = createKeyring({
-      sdk: { zcashGetUnifiedAddress },
+      sdk: { zcashGetAddress },
       simpleDbZcash: {
         getPrivacyModeState: jest.fn().mockResolvedValue({
           intent: 'on',
@@ -327,21 +327,20 @@ describe('Zcash KeyringHardware', () => {
       deviceParams: deviceParams as never,
     });
 
-    expect(zcashGetUnifiedAddress).toHaveBeenCalledWith(
-      'connect-1',
-      'device-1',
-      {
-        passphraseState: 'pp',
-        bundle: [
-          {
-            path: "m/32'/133'/2'",
-            showOnOneKey: false,
-            includeUfvk: true,
-            includeSeedFingerprint: true,
-          },
-        ],
-      },
-    );
+    expect(zcashGetAddress).toHaveBeenCalledWith('connect-1', 'device-1', {
+      passphraseState: 'pp',
+      bundle: [
+        {
+          path: "m/32'/133'/2'",
+          showOnOneKey: false,
+          addressType: 2,
+          scope: 0,
+          diversifierIndex: 0,
+          includeUfvk: true,
+          includeSeedFingerprint: true,
+        },
+      ],
+    });
     expect(saveAccountMeta).toHaveBeenCalledWith({
       accountId: 'hw-1--acc',
       expectedPrivacyModeState: { intent: 'on', birthdayHeight: 2_500_000 },
@@ -371,7 +370,7 @@ describe('Zcash KeyringHardware', () => {
     });
     const keyring = createKeyring({
       sdk: {
-        zcashGetUnifiedAddress: jest.fn().mockResolvedValue({
+        zcashGetAddress: jest.fn().mockResolvedValue({
           success: true,
           payload: [
             {
@@ -422,7 +421,7 @@ describe('Zcash KeyringHardware', () => {
     });
     const keyring = createKeyring({
       sdk: {
-        zcashGetUnifiedAddress: jest.fn().mockResolvedValue({
+        zcashGetAddress: jest.fn().mockResolvedValue({
           success: true,
           payload: [
             {

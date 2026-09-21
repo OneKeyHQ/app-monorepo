@@ -13,9 +13,12 @@ import {
   deriveTransparentXpubFromUfvk,
   finalizeTransparentHardwarePczt,
   getChainTip,
+  parseTransparentTransactions,
   quoteTransparentTx,
+  validateAddress,
 } from './keys';
 
+const mockValidateAddress = jest.fn();
 const mockChainTipAt = jest.fn<Promise<number>, [string]>();
 const mockUfvkFromSeed = jest.fn();
 const mockSeedFingerprint = jest.fn();
@@ -23,6 +26,7 @@ const mockUnifiedAddress = jest.fn();
 const mockTransparentAddressFromUfvk = jest.fn();
 const mockTransparentAccountPubKeyFromUfvk = jest.fn();
 const mockTransparentTxQuote = jest.fn();
+const mockParseTransparentTransactions = jest.fn();
 const mockTransparentTxBuildWithAccountXprv = jest.fn();
 const mockShieldCreate = jest.fn();
 const mockShieldSign = jest.fn();
@@ -36,12 +40,14 @@ const mockGetRuntimeWasm = jest.fn(async () => ({
   pcztExtractStateless: mockExtractStateless,
 }));
 const mockGetKeys = jest.fn(async () => ({
+  validateAddress: mockValidateAddress,
   ufvkFromSeed: mockUfvkFromSeed,
   seedFingerprint: mockSeedFingerprint,
   unifiedAddress: mockUnifiedAddress,
   transparentAddressFromUfvk: mockTransparentAddressFromUfvk,
   transparentAccountPubKeyFromUfvk: mockTransparentAccountPubKeyFromUfvk,
   transparentTxQuote: mockTransparentTxQuote,
+  parseTransparentTransactions: mockParseTransparentTransactions,
   transparentShieldCreateWithSeed: mockShieldCreate,
   transparentShieldSignWithSeed: mockShieldSign,
   transparentTxCreateWithAccountXpub: mockHardwareCreate,
@@ -348,5 +354,37 @@ describe('getChainTip', () => {
         lightwalletdUrl: 'https://lightwalletd.example',
       }),
     ).resolves.toBeNull();
+  });
+});
+
+describe('validateAddress', () => {
+  it('decodes through keys without opening the wallet or querying the network', async () => {
+    mockGetRuntime.mockClear();
+    mockGetRuntimeWasm.mockClear();
+    mockValidateAddress.mockReturnValueOnce(true).mockReturnValueOnce(false);
+    await expect(
+      validateAddress({ network: 'main', address: 'supported' }),
+    ).resolves.toBe(true);
+    await expect(
+      validateAddress({ network: 'main', address: 'unsupported' }),
+    ).resolves.toBe(false);
+    expect(mockValidateAddress).toHaveBeenCalledWith('main', 'supported');
+    expect(mockGetRuntime).not.toHaveBeenCalled();
+    expect(mockGetRuntimeWasm).not.toHaveBeenCalled();
+  });
+});
+
+describe('parseTransparentTransactions', () => {
+  it('uses only the stateless keys module', async () => {
+    mockGetRuntime.mockClear();
+    mockGetRuntimeWasm.mockClear();
+    const params = { transactions: [] };
+    mockParseTransparentTransactions.mockReturnValue('[]');
+    await expect(parseTransparentTransactions(params)).resolves.toEqual([]);
+    expect(mockParseTransparentTransactions).toHaveBeenCalledWith(
+      stringUtils.stableStringify(params),
+    );
+    expect(mockGetRuntime).not.toHaveBeenCalled();
+    expect(mockGetRuntimeWasm).not.toHaveBeenCalled();
   });
 });

@@ -24,9 +24,14 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { LazyLoadPage } from '@onekeyhq/kit/src/components/LazyLoadPage';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
-import { useIsCellularNetwork } from '@onekeyhq/kit/src/hooks/useIsCellularNetwork';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useRouteIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
+import { useUnresolvedBroadcastDialog } from '@onekeyhq/kit/src/hooks/useUnresolvedBroadcastDialog';
+import {
+  formatPrivacyChainSyncProgress,
+  getPrivacyChainBackfillProgress,
+  getPrivacyChainSyncLabel,
+} from '@onekeyhq/kit/src/utils/privacyChainSyncDisplay';
 import { AccountManagerTestIDs } from '@onekeyhq/kit/src/views/AccountManagerStacks/testIDs';
 import {
   BirthdayDialogForm,
@@ -43,7 +48,6 @@ import type {
 } from '@onekeyhq/kit-bg/src/vaults/localWallet/types';
 import { ETranslations, ETranslationsMock } from '@onekeyhq/shared/src/locale';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
-import { EAccountManagerStacksRoutes } from '@onekeyhq/shared/src/routes/accountManagerStacks';
 import { EModalSettingRoutes } from '@onekeyhq/shared/src/routes/setting';
 import type { IModalSettingParamList } from '@onekeyhq/shared/src/routes/setting';
 import { formatMonth } from '@onekeyhq/shared/src/utils/dateUtils';
@@ -62,7 +66,7 @@ const ZcashDebugSettings = LazyLoadPage(
 );
 
 // Monero's sync page groups by question ("what is it doing", "where does it
-// scan from", "what does it keep"). Same idea here, chain-agnostically.
+// scan from", "what does it keep"). Same idea here, for every local-wallet chain.
 function SectionTitle({ children }: { children: string }) {
   return (
     <SizableText
@@ -164,9 +168,11 @@ function SlotReplaceForm({
 // and commitment trees are scanned once and serve every viewing key -- so
 // deleting one account frees almost nothing.
 function PrivacyChainStorageSection({
+  networkId,
   storageBytes,
   onChanged,
 }: {
+  networkId: string;
   storageBytes: number | null | undefined;
   onChanged: () => void;
 }) {
@@ -185,14 +191,16 @@ function PrivacyChainStorageSection({
       onConfirm: async () => {
         setBusy(true);
         try {
-          await backgroundApiProxy.servicePrivacyChain.clearTransactionHistoryCache();
+          await backgroundApiProxy.servicePrivacyChain.clearTransactionHistoryCache(
+            { networkId },
+          );
           onChanged();
         } finally {
           setBusy(false);
         }
       },
     });
-  }, [intl, onChanged]);
+  }, [intl, networkId, onChanged]);
 
   if (storageBytes === undefined) {
     return null;
@@ -239,7 +247,7 @@ function PrivacyChainStorageSection({
 // here would have no owner.
 function PrivacyChainNetworkSections({
   networkId,
-  isScanning,
+  enabledAccountCount,
   isPaused,
   isHeldByData,
   progress,
@@ -250,7 +258,7 @@ function PrivacyChainNetworkSections({
   onChanged,
 }: {
   networkId: string;
-  isScanning: boolean;
+  enabledAccountCount?: number;
   isPaused: boolean;
   isHeldByData: boolean;
   progress: Record<string, ILocalWalletSyncProgress>;
@@ -264,8 +272,19 @@ function PrivacyChainNetworkSections({
 }) {
   const intl = useIntl();
   const navigation = useAppNavigation();
-  const isCellular = useIsCellularNetwork();
   const [busy, setBusy] = useState(false);
+  let endpointStatus = '';
+  if (endpointHealth && !endpointHealth.ok) {
+    endpointStatus = intl.formatMessage({
+      id: ETranslationsMock.privacy_sync_node_unreachable,
+    });
+  } else if (endpointHealth && endpointHealth.latencyMs !== null) {
+    endpointStatus = intl.formatMessage(
+      { id: ETranslationsMock.privacy_sync_node_latency },
+      { ms: endpointHealth.latencyMs },
+    );
+  }
+
   const { result: preferPublicSends, run: refreshPreference } =
     usePromiseResult(
       async () =>
@@ -273,6 +292,7 @@ function PrivacyChainNetworkSections({
           networkId,
         }),
       [networkId],
+      { revalidateOnFocus: true },
     );
   const { result: allowCellular, run: refreshAllowCellular } = usePromiseResult(
     async () =>
@@ -291,33 +311,7 @@ function PrivacyChainNetworkSections({
 
   // The furthest-behind account decides the headline: accounts share one scan
   // queue, so the slowest one is what "how far along is this chain" means.
-  const behind = Object.entries(progress)
-    .filter(([key]) => key.startsWith(`${networkId}:`))
-    .map(([, value]) => value)
-    .filter((value) => !value.isBackfillComplete)
-    .map((value) =>
-      typeof value.backfillTargetHeight === 'number' &&
-      typeof value.backfillScannedHeight === 'number'
-        ? {
-            remaining: Math.max(
-              0,
-              value.backfillTargetHeight - value.backfillScannedHeight,
-            ),
-            ratio: value.backfillProgress,
-            scanned: value.backfillScannedHeight,
-            target: value.backfillTargetHeight,
-          }
-        : { remaining: Number.MAX_SAFE_INTEGER, ratio: null },
-    )
-    .toSorted((left, right) => right.remaining - left.remaining)[0];
-
-  const behindHeights =
-    behind &&
-    behind.remaining !== Number.MAX_SAFE_INTEGER &&
-    typeof behind.scanned === 'number' &&
-    typeof behind.target === 'number'
-      ? { scanned: behind.scanned, target: behind.target }
-      : undefined;
+  const behind = getPrivacyChainBackfillProgress(progress, networkId);
 
   // Where the shared scan sits at the tip. Once backfill is done every account
   // is at the same height, so this is a fact about the chain, not about any
@@ -331,59 +325,33 @@ function PrivacyChainNetworkSections({
         typeof value.chainTip === 'number',
     );
 
-  // Only two things actually STOP the scan: the user, and the metered-data
-  // gate. `isScanning` is not one of them -- it says whether a FOREGROUND
-  // BOOST is running, and using it here painted the ordinary follow-the-tip
-  // state with a pause icon and an "Up to date" that claimed a finish line
-  // this chain does not have.
   const heldByData = isHeldByData;
-  let stateLabel: string;
-  let stateIcon: IKeyOfIcons;
-  if (isPaused) {
+  const stateLabel = intl.formatMessage({
+    id: getPrivacyChainSyncLabel({
+      disabled: enabledAccountCount === 0,
+      paused: isPaused,
+      held: heldByData,
+      preparing: enabledAccountCount === undefined || (!behind && !atTip),
+      backfilling: Boolean(behind),
+    }),
+  });
+  let stateIcon: IKeyOfIcons = 'RefreshCcwOutline';
+  if (enabledAccountCount === 0 || isPaused) {
     stateIcon = 'PauseOutline';
-    stateLabel = intl.formatMessage({
-      id: ETranslationsMock.privacy_scan_paused,
-    });
   } else if (heldByData) {
     stateIcon = 'SignalOutline';
-    stateLabel = intl.formatMessage({
-      id: ETranslationsMock.privacy_scan_state_held,
-    });
-  } else if (behind) {
-    stateIcon = 'RefreshCcwOutline';
-    stateLabel = intl.formatMessage({
-      id: ETranslationsMock.privacy_scan_state_scanning,
-    });
-  } else {
-    stateIcon = 'RefreshCcwOutline';
-    stateLabel = intl.formatMessage({
-      id: ETranslationsMock.privacy_sync_state_following,
-    });
   }
-
-  // One number for the whole network, and no block heights. There is a single
-  // scan; per-account figures differ only because birthdays do, and the worst
-  // one is what decides when everything is usable.
-  const ratio =
-    behind && behind.remaining !== Number.MAX_SAFE_INTEGER
-      ? behind.ratio
-      : null;
-  // One sentence in both states: scanned height / chain tip. The percentage
-  // only joins it while backfill is running, because only backfill ends.
-  const num = (v: number) => v.toLocaleString('en-US');
-  let detail: string | undefined;
-  if (behindHeights) {
-    detail = [
-      `${num(behindHeights.scanned)} / ${num(behindHeights.target)}`,
-      ratio === null ? '' : `${Math.floor(ratio * 100)}%`,
-    ]
-      .filter(Boolean)
-      .join(' · ');
-  } else if (atTip) {
-    detail = `${num(atTip.tipScannedHeight ?? 0)} / ${num(
-      atTip.chainTip ?? 0,
-    )}`;
-  }
+  const ratio = behind?.backfillProgress ?? null;
+  const detail = behind
+    ? formatPrivacyChainSyncProgress({
+        scanned: behind.backfillScannedHeight,
+        target: behind.backfillTargetHeight,
+        progress: behind.backfillProgress,
+      })
+    : formatPrivacyChainSyncProgress({
+        scanned: atTip?.tipScannedHeight,
+        target: atTip?.chainTip,
+      });
 
   const run = useCallback(
     async (fn: () => Promise<void>) => {
@@ -409,9 +377,9 @@ function PrivacyChainNetworkSections({
         testID="privacy-sync-status"
         icon={stateIcon}
         title={stateLabel}
-        subtitle={detail}
+        subtitle={enabledAccountCount === 0 ? undefined : detail}
       >
-        {isScanning || isPaused ? (
+        {enabledAccountCount !== undefined && enabledAccountCount > 0 ? (
           <Button
             testID="privacy-sync-toggle-btn"
             size="small"
@@ -505,11 +473,12 @@ function PrivacyChainNetworkSections({
           value={preferPublicSends === true}
           disabled={busy || preferPublicSends === undefined}
           onChange={(next) =>
-            void run(() =>
-              backgroundApiProxy.servicePrivacyChain.setLocalWalletSendPreference(
+            void run(async () => {
+              await backgroundApiProxy.servicePrivacyChain.setLocalWalletSendPreference(
                 { networkId, preferPublic: next },
-              ),
-            )
+              );
+              await refreshPreference();
+            })
           }
         />
       </ListItem>
@@ -527,26 +496,7 @@ function PrivacyChainNetworkSections({
                 : ETranslationsMock.privacy_sync_node_default,
             }),
             endpointUrl.replace(/^https?:\/\//, ''),
-            // What the scan last saw, so "nothing is moving" is attributable to
-            // the node instead of looking like a wallet bug. Absent until
-            // something has actually scanned.
-            // eslint-disable-next-line no-nested-ternary
-            endpointHealth === undefined
-              ? ''
-              : endpointHealth.ok
-                ? endpointHealth.latencyMs === null
-                  ? ''
-                  : intl.formatMessage(
-                      {
-                        id: ETranslationsMock.privacy_sync_node_latency,
-                        defaultMessage:
-                          ETranslationsMock.privacy_sync_node_latency,
-                      },
-                      { ms: endpointHealth.latencyMs },
-                    )
-                : intl.formatMessage({
-                    id: ETranslationsMock.privacy_sync_node_unreachable,
-                  }),
+            endpointStatus,
           ]
             .filter(Boolean)
             .join(' · ')}
@@ -604,7 +554,6 @@ export default function PrivacyNetworkSettings({
   const walletId = walletIdProp ?? route.params?.walletId;
   const networkIdFilter = route.params?.networkId;
   const intl = useIntl();
-  const navigation = useAppNavigation();
   const isFocused = useRouteIsFocused();
   const [devSettings] = useDevSettingsPersistAtom();
   const [busyAccountId, setBusyAccountId] = useState<string | undefined>();
@@ -664,17 +613,19 @@ export default function PrivacyNetworkSettings({
       ? entries[0].networkId
       : undefined);
 
-  const [
-    { boostingNetworkIds, dataBlockedNetworkIds, pausedNetworkIds, progress },
-  ] = usePrivacyChainAtom();
+  const [{ dataBlockedNetworkIds, pausedNetworkIds, progress }] =
+    usePrivacyChainAtom();
 
-  const { result: networkInfo, run: refreshNetworkInfo } =
-    usePromiseResult(async () => {
+  const { result: networkInfo, run: refreshNetworkInfo } = usePromiseResult(
+    async () => {
       if (!soleNetworkId) return undefined;
       return backgroundApiProxy.servicePrivacyChain.getLocalWalletNetworkInfo({
         networkId: soleNetworkId,
       });
-    }, [soleNetworkId]);
+    },
+    [soleNetworkId],
+    { revalidateOnFocus: true },
+  );
 
   // One line per network; the count includes slots this page cannot show.
   const { result: slotUsages } = usePromiseResult(async () => {
@@ -693,18 +644,12 @@ export default function PrivacyNetworkSettings({
     );
   }, [entries]);
 
-  const showUnresolvedBroadcastDialog = useCallback(() => {
-    Dialog.confirm({
-      title: intl.formatMessage({ id: ETranslations.global_retry }),
-      description: intl.formatMessage({
-        id: ETranslations.global_an_error_occurred_desc,
-      }),
-      onConfirmText: intl.formatMessage({ id: ETranslations.global_refresh }),
-      onConfirm: () => {
-        void refreshEntries();
-      },
-    });
-  }, [intl, refreshEntries]);
+  const refreshAfterBroadcast = useCallback(() => {
+    void refreshEntries();
+  }, [refreshEntries]);
+  const showUnresolvedBroadcastDialog = useUnresolvedBroadcastDialog(
+    refreshAfterBroadcast,
+  );
 
   const askBirthdayAndEnable = useCallback(
     (entry: IPrivacyAccountEntry, enabledAccountCount = 0) => {
@@ -879,7 +824,7 @@ export default function PrivacyNetworkSettings({
           let birthdayHeight: number | undefined;
           if (mode === 'height') {
             const parsed = Number(height);
-            if (!height || !Number.isSafeInteger(parsed) || parsed <= 0) {
+            if (!height.trim()) {
               preventClose();
               return;
             }
@@ -1015,10 +960,10 @@ export default function PrivacyNetworkSettings({
             above, not to the list. Two rows rather than two small buttons --
             an account has exactly two decisions, where its scan starts and
             whether its viewing key stays on this device, and each deserves a
-            line that says so. Off accounts show neither. */}
-        {entry.enabled ? (
-          <YStack testID={`privacy-network-account-detail-${entry.accountId}`}>
-            <Divider mx="$4" />
+            line that says so. */}
+        <YStack testID={`privacy-network-account-detail-${entry.accountId}`}>
+          <Divider mx="$4" />
+          {entry.enabled ? (
             <ListItem
               mx="$0"
               testID={`privacy-network-birthday-${entry.accountId}`}
@@ -1034,21 +979,21 @@ export default function PrivacyNetworkSettings({
               drillIn
               onPress={() => editBirthday(entry)}
             />
-            <ListItem
-              mx="$0"
-              testID={`privacy-network-delete-${entry.accountId}`}
-              icon="DeleteOutline"
-              title={intl.formatMessage({
-                id: ETranslationsMock.privacy_account_delete_key_title,
-              })}
-              subtitle={intl.formatMessage({
-                id: ETranslationsMock.privacy_account_delete_key_desc,
-              })}
-              titleProps={{ color: '$textCritical' }}
-              onPress={() => deleteAccountData(entry)}
-            />
-          </YStack>
-        ) : null}
+          ) : null}
+          <ListItem
+            mx="$0"
+            testID={`privacy-network-delete-${entry.accountId}`}
+            icon="DeleteOutline"
+            title={intl.formatMessage({
+              id: ETranslationsMock.privacy_account_delete_key_title,
+            })}
+            subtitle={intl.formatMessage({
+              id: ETranslationsMock.privacy_account_delete_key_desc,
+            })}
+            titleProps={{ color: '$textCritical' }}
+            onPress={() => deleteAccountData(entry)}
+          />
+        </YStack>
       </YStack>
     );
   };
@@ -1057,7 +1002,8 @@ export default function PrivacyNetworkSettings({
     <Page testID="settings-privacy-network-page">
       <Page.Header
         title={
-          title ?? intl.formatMessage({ id: ETranslations.trade_privacy_mode })
+          title ??
+          intl.formatMessage({ id: ETranslationsMock.privacy_wallet_menu_item })
         }
       />
       <Page.Body>
@@ -1108,7 +1054,11 @@ export default function PrivacyNetworkSettings({
             {soleNetworkId ? (
               <PrivacyChainNetworkSections
                 networkId={soleNetworkId}
-                isScanning={boostingNetworkIds.includes(soleNetworkId)}
+                enabledAccountCount={
+                  slotUsages?.find(
+                    ({ networkId }) => networkId === soleNetworkId,
+                  )?.usage.used
+                }
                 isPaused={pausedNetworkIds.includes(soleNetworkId)}
                 isHeldByData={dataBlockedNetworkIds.includes(soleNetworkId)}
                 progress={progress}
@@ -1138,6 +1088,7 @@ export default function PrivacyNetworkSettings({
             )}
             {soleNetworkId ? (
               <PrivacyChainStorageSection
+                networkId={soleNetworkId}
                 storageBytes={networkInfo?.storageBytes}
                 onChanged={() => {
                   void refreshNetworkInfo();

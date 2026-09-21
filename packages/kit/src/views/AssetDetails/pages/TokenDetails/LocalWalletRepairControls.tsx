@@ -23,7 +23,7 @@ import type {
   ILocalWalletAccountState,
   ILocalWalletSyncProgress,
 } from '@onekeyhq/kit-bg/src/vaults/localWallet/types';
-import { ETranslationsMock } from '@onekeyhq/shared/src/locale';
+import { ETranslations, ETranslationsMock } from '@onekeyhq/shared/src/locale';
 
 // Recovery controls for a local-wallet account. Every action goes through
 // servicePrivacyChain; the copy speaks of "the chain" rather than a coin.
@@ -271,7 +271,7 @@ export function SetupRepairControl({
       loading={busy}
       onPress={handlePress}
     >
-      {intl.formatMessage({ id: ETranslationsMock.privacy_repair_action })}
+      {intl.formatMessage({ id: ETranslations.global_retry })}
     </Button>
   );
 }
@@ -315,11 +315,7 @@ export function ScanRepairControl({
         let birthdayHeightValue: number | undefined;
         if (mode === 'height') {
           const parsedHeight = Number(height);
-          if (
-            !height ||
-            !Number.isSafeInteger(parsedHeight) ||
-            parsedHeight <= 0
-          ) {
+          if (!height.trim()) {
             Toast.error({
               title: intl.formatMessage({
                 id: ETranslationsMock.privacy_repair_err_height,

@@ -135,14 +135,6 @@ export function canonicalizeZcashWalletAccounts(
   return Array.from(canonical.values());
 }
 
-// Versions baked into the runtime build (zcash_client_sqlite decides the
-// on-disk schema). The host stores the last seen value to detect a runtime
-// swap that requires rebuilding the database.
-export async function getRuntimeVersions(): Promise<Record<string, string>> {
-  const rt = await getRuntime();
-  return JSON.parse(rt.dependencyVersions()) as Record<string, string>;
-}
-
 // The host is the account authority. A runtime account without a host record
 // (meta lost, GC that failed offline) would otherwise be trial-decrypted on
 // every pass forever, with its history on disk and no code path to remove it.
@@ -334,7 +326,6 @@ export async function syncWallet(
   ) {
     lastPassEndedAt = Date.now();
     return {
-      synced: true,
       stateChanged: false,
       chainTip: options?.chainTip ?? before.chainTip,
       fullyScanned: before.fullyScanned,
@@ -565,12 +556,6 @@ export async function syncWallet(
     noteNetworkOutcome(null);
   }
   return {
-    // Always true now. The old implementation reported false when the carrier
-    // had no threads: WebZjs needed a thread pool and therefore
-    // crossOriginIsolated, which a system WebView cannot provide. This runtime
-    // is single-threaded, and a real device run confirmed it scans with
-    // crossOriginIsolated false.
-    synced: true,
     // Lets the caller skip serialization, list refreshes and other expensive
     // follow-up work when a bounded pass found nothing new.
     //

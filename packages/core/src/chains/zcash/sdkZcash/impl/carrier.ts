@@ -561,10 +561,13 @@ export function recordEndpointHealth(sample: {
   ok: boolean;
   latencyMs?: number | null;
 }): void {
+  const url = lastPreferredUrl ?? ZCASH_LIGHTWALLETD_MAINNET_FALLBACKS[0];
   endpointHealth = {
-    url: lastPreferredUrl ?? ZCASH_LIGHTWALLETD_MAINNET_FALLBACKS[0],
+    url,
     ok: sample.ok,
-    latencyMs: sample.latencyMs ?? endpointHealth?.latencyMs ?? null,
+    latencyMs:
+      sample.latencyMs ??
+      (endpointHealth?.url === url ? endpointHealth.latencyMs : null),
     atMs: Date.now(),
   };
 }

@@ -424,6 +424,7 @@ export type IPrepareImportedAccountsParams = {
   debugCryptoProbeId?: string;
 } & IPbkdf2KdfParams;
 export type IPrepareHDOrHWAccountChainExtraParams = {
+  localWalletAddressForm?: 'public' | 'private';
   receiveAddressPath?: string;
 };
 export type IPrepareHdAccountsParamsBase = {

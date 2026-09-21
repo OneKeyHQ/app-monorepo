@@ -376,6 +376,7 @@ function TokenDetailsHeaderContent({
   ]);
 
   const { handleOnReceive } = useReceiveToken({
+    localWalletAddressForm: selectedPool?.kind,
     accountId,
     networkId,
     walletId,

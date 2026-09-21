@@ -9,6 +9,7 @@ import {
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { IMPL_ZCASH } from '@onekeyhq/shared/src/engine/engineConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import type { IDeviceSharedCallParams } from '@onekeyhq/shared/types/device';
 import { EHardwareCallContext } from '@onekeyhq/shared/types/device';
@@ -78,22 +79,6 @@ class ServiceZcash extends ServiceBase {
   @backgroundMethod()
   async getPrivacyModeState({ accountId }: { accountId: string }) {
     return this.backgroundApi.simpleDb.zcash.getPrivacyModeState({ accountId });
-  }
-
-  @backgroundMethod()
-  async setPreferTransparentForShieldedSends({
-    networkId,
-    accountId,
-    enabled,
-  }: {
-    networkId: string;
-    accountId: string;
-    enabled: boolean;
-  }): Promise<void> {
-    await this.assertZcashAccountContext({ networkId, accountId });
-    await this.backgroundApi.simpleDb.zcash.setPreferTransparentForShieldedSends(
-      { accountId, enabled },
-    );
   }
 
   @backgroundMethod()
@@ -391,6 +376,11 @@ class ServiceZcash extends ServiceBase {
     networkId: string;
     accountId: string;
   }): Promise<IZcashAccountMeta | undefined> {
+    if (!platformEnv.isDev) {
+      throw new OneKeyLocalError(
+        'Zcash diagnostics are only available in development',
+      );
+    }
     return this.getLocalWalletAccountMeta({
       networkId: params.networkId,
       accountId: params.accountId,

@@ -101,7 +101,10 @@ const settings: IVaultSettings = {
     // batched trial decryption -- see scan_blocks_inline), so the cost is
     // linear with no amortization. Five keeps a low-end device usable.
     maxEnabledAccounts: 5,
-    addressForms: { publicLabel: 'Transparent', privateLabel: 'Unified' },
+    addressForms: {
+      publicLabel: 'Transparent address',
+      privateLabel: 'Private address',
+    },
     blockTimeSeconds: ZCASH_TARGET_BLOCK_SECONDS,
     scanRegionHints: [
       {

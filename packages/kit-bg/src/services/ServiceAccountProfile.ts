@@ -6,6 +6,7 @@ import {
   backgroundMethod,
   toastIfError,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import { IMPL_ZCASH } from '@onekeyhq/shared/src/engine/engineConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
@@ -536,6 +537,16 @@ class ServiceAccountProfile extends ServiceBase {
       input: rawAddress,
     };
 
+    // Start the combined local/server check before address normalization so a
+    // local WASM load cannot serialize the server round trip behind it.
+    const validation =
+      !skipValidateAddress &&
+      networkId &&
+      networkUtils.getNetworkImpl({ networkId }) === IMPL_ZCASH
+        ? serviceValidator.validateAddress({ networkId, address })
+        : undefined;
+    validation?.catch(() => undefined);
+
     let isLocalValid = false;
     try {
       const { displayAddress, isValid } =
@@ -585,10 +596,8 @@ class ServiceAccountProfile extends ServiceBase {
     }
 
     if (!skipValidateAddress) {
-      result.validStatus = await serviceValidator.validateAddress({
-        networkId,
-        address,
-      });
+      result.validStatus = await (validation ??
+        serviceValidator.validateAddress({ networkId, address }));
     }
 
     if (enableNameResolve) {

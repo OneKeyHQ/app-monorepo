@@ -11,37 +11,6 @@ export type IZcashRuntimeSelfTestResult = {
 
 /* cspell:ignore Ufvks */
 
-// Report returned by the WebZjs smoke test — proves a given carrier
-// (offscreen / desktop bg / webembed) can actually load and run the wasm.
-export type IZcashSmokeParams = {
-  lightwalletdUrl: string;
-  mnemonic: string;
-  // scan this many blocks back from the chain tip (keep small for a smoke run)
-  birthdayOffset?: number;
-};
-
-export type IZcashSmokeResult = {
-  crossOriginIsolated: boolean;
-  hasSharedArrayBuffer: boolean;
-  // 'started' | 'skipped (no COI)' | 'error: ...'
-  threadPool: string;
-  walletWasmLoaded: boolean;
-  keysWasmLoaded: boolean;
-  chainTip: number | null;
-  unifiedAddress: string | null;
-  transparentAddress: string | null;
-  // sync is only attempted when crossOriginIsolated (threads available)
-  syncMs: number | null;
-  fullyScanned: number | null;
-  balances: unknown;
-  historyLength: number | null;
-  // keys module: spending-key derivation + PCZT signing availability
-  pcztSignAvailable: boolean;
-  uskDerived: boolean;
-  error?: string;
-  errorStack?: string | null;
-};
-
 export type IZcashNetwork = 'main' | 'test';
 
 // ---- keys side (works on every carrier, no sync/threads needed) ----
@@ -73,8 +42,7 @@ export type IZcashDeriveAccountResult = {
   chainTip: number | null;
 };
 
-// Re-derive display addresses from the persisted UFVK — used by the
-// addressSchemeVersion lazy self-heal; needs no seed and no password.
+// Derive display addresses from a UFVK without a seed or password.
 export type IZcashDeriveAddressFromUfvkParams = {
   network: IZcashNetwork;
   ufvk: string;
@@ -141,6 +109,16 @@ export type IZcashTransparentTxRequest = {
   change?: { address: string; derivationPath: string };
 };
 
+export type IZcashParseTransparentTransactionsParams = {
+  transactions: { txid: string; rawTx: string }[];
+};
+
+export type IZcashParsedTransparentTransaction = {
+  txid: string;
+  isCoinbase: boolean;
+  outputs: { valueZat: string; scriptPubKey: string }[];
+};
+
 export type IZcashTransparentTxQuote = {
   feeZat: string;
   inputTotalZat: string;
@@ -203,7 +181,6 @@ export type IZcashWalletAccount = {
 };
 
 export type IZcashSyncResult = {
-  synced: boolean; // false when the carrier has no threads (no COI)
   // false when a bounded pass observes no wallet-state mutation; callers can
   // skip serialization, UI refreshes, and other expensive follow-up work
   stateChanged: boolean;
@@ -491,8 +468,8 @@ export type IZcashPoolDetail = {
 };
 
 export type IZcashBalance = {
-  // Absent on older carriers; only true proves the account's backfill is complete.
-  isComplete?: boolean;
+  // True only when this account's backfill is complete.
+  isComplete: boolean;
   // zatoshi strings (1 ZEC = 1e8 zatoshi); bigint-safe across the bridge
   shielded: string; // orchard + ironwood pools, summed
   // What a send can actually draw on right now, under this build's spend
@@ -621,17 +598,17 @@ export type IZcashSdkApi = {
     stage: IZcashRuntimeSelfTestStage;
   }) => Promise<IZcashRuntimeSelfTestResult>;
 
-  // Legacy carrier load and network probe; does not scan or sign transactions.
-  smokeTest: (params: IZcashSmokeParams) => Promise<IZcashSmokeResult>;
-
   // No keys/wallet needed -- used to anchor a birthday BEFORE derivation is
   // attempted (see KeyringHd.zcashDeriveAndSaveOneAccountMeta's pending-
   // birthday capture) and for the manual rescan-from-earlier repair. Returns
   // null on failure (offline etc) rather than throwing.
   getChainTip: (params: IZcashGetChainTipParams) => Promise<number | null>;
-  // Build-time dependency versions; `zcash_client_sqlite` is the storage
-  // schema the host must remember to detect an incompatible runtime swap.
-  getRuntimeVersions: () => Promise<Record<string, string>>;
+
+  // Stateless recipient decoding; does not open scan storage or use the network.
+  validateAddress: (params: {
+    network: IZcashNetwork;
+    address: string;
+  }) => Promise<boolean>;
 
   // keys side
   deriveAccount: (
@@ -651,6 +628,9 @@ export type IZcashSdkApi = {
   combinePczt: (
     params: IZcashCombinePcztParams,
   ) => Promise<{ pcztHex: string }>;
+  parseTransparentTransactions: (
+    params: IZcashParseTransparentTransactionsParams,
+  ) => Promise<IZcashParsedTransparentTransaction[]>;
   quoteTransparentTx: (
     params: IZcashTransparentTxRequest,
   ) => Promise<IZcashTransparentTxQuote>;

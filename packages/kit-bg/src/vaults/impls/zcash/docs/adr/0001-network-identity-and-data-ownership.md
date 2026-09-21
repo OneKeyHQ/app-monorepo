@@ -43,8 +43,7 @@ Data ownership is split as follows:
   incomplete backend page sequence must not delete cached transparent rows.
 - Generic SimpleDB history may retain only the exact transparent projection
   (`privacyChainHistorySide: public`, pool IDs exactly `[0]`). Private and mixed
-  rows are runtime-only. A one-time boundary migration also removes those rows
-  from old `zcash--0` and current `zec--0` cache keys.
+  rows are runtime-only. No development-data compatibility migration is shipped.
 
 The runtime uses one rebuildable SQLite database per Zcash network. Every
 registered account, including accounts derived from different seeds, shares

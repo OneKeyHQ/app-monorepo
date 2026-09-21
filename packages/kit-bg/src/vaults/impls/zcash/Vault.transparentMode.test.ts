@@ -5,7 +5,7 @@ jest.mock('../../../dbs/local/localDbInstance', () => ({
   default: {},
 }));
 
-import { ZCASH_ADDRESS_SCHEME_VERSION } from '@onekeyhq/core/src/chains/zcash/sdkZcash/constants';
+import { getBtcForkNetwork } from '@onekeyhq/core/src/chains/btc/sdkBtc/networks';
 import type {
   IZcashHistoryItem,
   IZcashSdkApi,
@@ -66,6 +66,59 @@ describe('Zcash Transparent Mode runtime boundary', () => {
 
   afterEach(() => {
     jest.restoreAllMocks();
+  });
+
+  it.each([true, false])(
+    'only exposes health from the selected sync endpoint (matching: %s)',
+    async (matches) => {
+      const { runtime, vault } = createVault();
+      const url = 'https://selected.example.invalid';
+      const health = {
+        url: matches ? url : 'https://previous.example.invalid',
+        ok: true,
+        latencyMs: 42,
+        atMs: 123,
+      };
+      runtime.mockResolvedValue({
+        getEndpointHealth: async () => health,
+      } as unknown as IZcashSdkApi);
+      jest.spyOn(vault, 'zcashResolveLightwalletdUrl').mockResolvedValue(url);
+
+      const endpoint = await vault
+        .getLocalWalletCapability()
+        .getSyncEndpoint?.();
+
+      expect(endpoint?.url).toBe(url);
+      expect(endpoint?.health).toEqual(matches ? health : undefined);
+    },
+  );
+
+  const unifiedAddress =
+    'u1y2z9wqt9du4stq2keex78l4vvlkfh3c0n7le0pz80lc4ttcuz5h9qyts73awns77lkgw8zy67qwf0s86rauwg6e9wz7te7yf6vxjtk5g';
+
+  it('validates Unified addresses locally while the WASM carrier is unavailable', async () => {
+    const { runtime, vault } = createVault();
+    runtime.mockRejectedValue(new Error('keys WASM unavailable'));
+    await expect(vault.validateAddress(unifiedAddress)).resolves.toEqual({
+      isValid: true,
+      normalizedAddress: unifiedAddress,
+      displayAddress: unifiedAddress,
+    });
+    await expect(
+      vault.validateAddress(`${unifiedAddress.slice(0, -1)}q`),
+    ).resolves.toMatchObject({ isValid: false });
+    expect(runtime).not.toHaveBeenCalled();
+  });
+
+  it('validates transparent addresses without loading the WASM runtime', async () => {
+    const { runtime, vault } = createVault();
+    jest
+      .spyOn(vault, 'getBtcForkNetwork')
+      .mockResolvedValue(getBtcForkNetwork('zec'));
+    await expect(
+      vault.validateAddress('t1UYsZVJkLPeMjxEtACvSxfWuNmddpWfxzs'),
+    ).resolves.toMatchObject({ isValid: true });
+    expect(runtime).not.toHaveBeenCalled();
   });
 
   it('enables transparent-first only for shielded destinations', () => {
@@ -190,7 +243,7 @@ describe('Zcash Transparent Mode runtime boundary', () => {
 });
 
 describe('Zcash hardware account address authority', () => {
-  const staleMeta = {
+  const storedMeta = {
     ufvk: 'uview1-device',
     unifiedAddress: 'u1-device',
     transparentAddress: 't1-device',
@@ -198,7 +251,6 @@ describe('Zcash hardware account address authority', () => {
     hdIndex: 0,
     birthdayHeight: 3_000_000,
     birthdaySource: 'manual-height',
-    addressSchemeVersion: ZCASH_ADDRESS_SCHEME_VERSION - 1,
     createdAt: 1,
   } as IZcashAccountMeta;
 
@@ -211,7 +263,7 @@ describe('Zcash hardware account address authority', () => {
             getPreferPublicSends: async () => false,
           },
           zcash: {
-            getAccountMeta: jest.fn(async () => staleMeta),
+            getAccountMeta: jest.fn(async () => storedMeta),
             saveAccountMeta: jest.fn(async () => undefined),
           },
         },
@@ -227,20 +279,20 @@ describe('Zcash hardware account address authority', () => {
     jest.restoreAllMocks();
   });
 
-  it('keeps the address the device displayed when the scheme version moves', async () => {
+  it('keeps the address the device displayed', async () => {
     const { runtime, vault } = createVault();
 
     await expect(
       vault.zcashGetAccountMeta({ accountId: "hw-1--m/44'/133'/0'" }),
-    ).resolves.toBe(staleMeta);
+    ).resolves.toBe(storedMeta);
     expect(runtime).not.toHaveBeenCalled();
   });
 
-  it('still re-derives for software accounts, where the app is the authority', async () => {
+  it('reads software account addresses without loading the runtime', async () => {
     const { runtime, vault } = createVault();
 
     await vault.zcashGetAccountMeta({ accountId: "hd-1--m/44'/133'/0'" });
-    expect(runtime).toHaveBeenCalledTimes(1);
+    expect(runtime).not.toHaveBeenCalled();
   });
 });
 

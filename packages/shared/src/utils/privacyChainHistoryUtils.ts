@@ -96,11 +96,7 @@ export function isPrivacyChainHistoryVisible({
       return txPoolIds.some((poolId) => poolId !== 0);
     }
   }
-  // Unknown covers cached rows written by an older app/runtime. Showing them
-  // on both sides is safer than hiding real history until the next refresh.
-  return (
-    !selectedSide || !txSide || txSide === 'mixed' || txSide === selectedSide
-  );
+  return !selectedSide || txSide === 'mixed' || txSide === selectedSide;
 }
 
 export function projectPrivacyChainHistoryTxToPool({

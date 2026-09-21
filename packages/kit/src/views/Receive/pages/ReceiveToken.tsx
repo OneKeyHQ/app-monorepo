@@ -98,6 +98,7 @@ function ReceiveToken() {
     btcUsedAddress,
     btcUsedAddressPath,
     exchangeSource,
+    localWalletAddressForm,
   } = route.params;
 
   const { account, network, wallet, vaultSettings, deriveType, deriveInfo } =
@@ -161,22 +162,15 @@ function ReceiveToken() {
   }, [localWalletAddressForms, network?.id, currentAccount?.id]);
   const [receiveAddressForm, setReceiveAddressForm] = useState<
     'public' | 'private'
-  >('public');
+  >(localWalletAddressForm ?? 'public');
   const localWalletPrivateAddress = localWalletAddresses?.privateAddress;
 
-  useEffect(() => {
-    if (!localWalletPrivateAddress) {
-      setReceiveAddressForm('public');
-    }
-  }, [localWalletPrivateAddress]);
-
-  const displayAddress = isBtcUsedAddressVerifyMode
-    ? btcUsedAddress
-    : ((receiveAddressForm === 'private'
-        ? localWalletPrivateAddress
-        : undefined) ??
-      currentAccount?.address ??
-      '');
+  let displayAddress = currentAccount?.address ?? '';
+  if (isBtcUsedAddressVerifyMode) {
+    displayAddress = btcUsedAddress;
+  } else if (receiveAddressForm === 'private') {
+    displayAddress = localWalletPrivateAddress ?? '';
+  }
   const verificationPath = isBtcUsedAddressVerifyMode
     ? btcUsedAddressPath
     : currentAccount?.addressDetail?.receiveAddressPath;
@@ -243,6 +237,7 @@ function ReceiveToken() {
   ]);
 
   const shouldShowQRCode = useMemo(() => {
+    if (!displayAddress) return false;
     if (!isHardwareWallet) {
       return true;
     }
@@ -255,7 +250,7 @@ function ReceiveToken() {
     }
 
     return false;
-  }, [addressState, isHardwareWallet]);
+  }, [addressState, isHardwareWallet, displayAddress]);
 
   useEffect(() => {
     const url = network?.logoURI;
@@ -365,6 +360,10 @@ function ReceiveToken() {
     setAddressState(EAddressState.Unverified);
   }, []);
 
+  useEffect(() => {
+    resetVerifyState();
+  }, [displayAddress, verificationPath, resetVerifyState]);
+
   const handleVerifyOnDevicePress = useCallback(async () => {
     if (isVerifyingRef.current) return;
     if (!currentDeriveType) return;
@@ -386,10 +385,15 @@ function ReceiveToken() {
           confirmOnDevice: EConfirmOnDeviceType.EveryItem,
           customReceiveAddressPath: verificationPath,
           expectedAddress: displayAddress,
+          localWalletAddressForm: localWalletAddressForms
+            ? receiveAddressForm
+            : undefined,
         });
 
-      const isSameAddress =
-        addresses?.[0]?.toLowerCase() === displayAddress.toLowerCase();
+      if (verifyAttemptRef.current !== attempt) return;
+      const isSameAddress = localWalletAddressForms
+        ? addresses?.[0] === displayAddress
+        : addresses?.[0]?.toLowerCase() === displayAddress.toLowerCase();
 
       defaultLogger.transaction.receive.showReceived({
         walletType: wallet?.type,
@@ -446,6 +450,8 @@ function ReceiveToken() {
     currentAccount?.indexedAccountId,
     currentDeriveType,
     displayAddress,
+    localWalletAddressForms,
+    receiveAddressForm,
     intl,
     networkId,
     verificationPath,

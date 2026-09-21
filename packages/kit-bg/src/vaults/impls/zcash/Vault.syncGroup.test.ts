@@ -26,13 +26,16 @@ it('refreshes queued scans and serializes enable rescans with every active key',
     startedFirst = resolve;
   });
   const syncWallet = jest
-    .fn<Promise<{ synced: boolean }>, [unknown, { activeUfvks: string[] }]>()
+    .fn<
+      Promise<{ stateChanged: boolean }>,
+      [unknown, { activeUfvks: string[] }]
+    >()
     .mockImplementationOnce(async () => {
       startedFirst?.();
       await firstScan;
-      return { synced: true };
+      return { stateChanged: true };
     })
-    .mockResolvedValue({ synced: true });
+    .mockResolvedValue({ stateChanged: true });
   const queueLocalWalletRescanFrom = jest
     .fn()
     .mockResolvedValue({ queued: true });
@@ -49,10 +52,6 @@ it('refreshes queued scans and serializes enable rescans with every active key',
       backgroundApi: {
         servicePrivacyChain: { isLocalWalletScanAllowed: async () => true },
         simpleDb: {
-          privacyChain: {
-            getRuntimeSchemaVersion: async () => '0.22.0',
-            saveRuntimeSchemaVersion: async () => undefined,
-          },
           zcash: {
             getPrivacyModeState: async ({ accountId }: { accountId: string }) =>
               states[accountId],
@@ -70,7 +69,6 @@ it('refreshes queued scans and serializes enable rescans with every active key',
       zcashGetWalletAccount: async () => ({ ufvk: 'a' }),
       zcashGetApi: async () => ({
         syncWallet,
-        getRuntimeVersions: async () => ({ zcash_client_sqlite: '0.22.0' }),
       }),
       queueLocalWalletRescanFrom,
     },
@@ -103,16 +101,16 @@ it('refreshes queued scans and serializes enable rescans with every active key',
 });
 
 it('does not open the scanner when cellular permission is unavailable', async () => {
-  const zcashEnsureRuntimeSchemaCompatible = jest.fn();
+  const zcashGetApi = jest.fn();
   const vault = Object.create(Vault.prototype) as Vault;
   Object.assign(vault, {
     backgroundApi: {
       servicePrivacyChain: { isLocalWalletScanAllowed: async () => false },
     },
-    zcashEnsureRuntimeSchemaCompatible,
+    zcashGetApi,
   });
   await expect(
     vault.syncLocalWalletGroup({ accountIds: ['a'] }),
   ).resolves.toEqual({ synced: false });
-  expect(zcashEnsureRuntimeSchemaCompatible).not.toHaveBeenCalled();
+  expect(zcashGetApi).not.toHaveBeenCalled();
 });

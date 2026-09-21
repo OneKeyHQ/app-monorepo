@@ -10,13 +10,16 @@ import {
   privacyChainPoolOwnerKey,
   usePrivacyChainPoolDisplayAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/privacyChainPool';
+import {
+  formatPrivacyChainSyncProgress,
+  getPrivacyChainSyncLabel,
+} from '@onekeyhq/kit/src/utils/privacyChainSyncDisplay';
 import type {
   ILocalWalletAccountBalance,
   ILocalWalletPoolBalance,
   ILocalWalletSyncProgress,
 } from '@onekeyhq/kit-bg/src/vaults/localWallet/types';
 import type { IVaultSettings } from '@onekeyhq/kit-bg/src/vaults/types';
-import { ETranslationsMock } from '@onekeyhq/shared/src/locale';
 import { formatDistanceStrict } from '@onekeyhq/shared/src/utils/dateUtils';
 import {
   PRIVACY_CHAIN_SYNC_POLL_MS,
@@ -26,8 +29,6 @@ import {
 import type { IntlShape } from 'react-intl';
 
 type ILocalWalletSettings = NonNullable<IVaultSettings['localWallet']>;
-
-const num = (v: number) => v.toLocaleString('en-US');
 
 // Durations go through dateUtils, which carries the app locale into date-fns.
 // Hand-rolling "min"/"h" here meant two more strings to translate and two more
@@ -85,11 +86,6 @@ export function buildLocalWalletSyncStatusText({
     const target = syncProgress.backfillTargetHeight;
     const hasHeights =
       typeof scanned === 'number' && typeof target === 'number';
-    const heights = hasHeights ? `${num(scanned)} / ${num(target)}` : '';
-    const pct =
-      syncProgress.backfillProgress === null
-        ? ''
-        : `${Math.floor(syncProgress.backfillProgress * 100)}%`;
     const remaining = hasHeights ? Math.max(0, target - scanned) : 0;
     const region =
       typeof scanned === 'number'
@@ -101,10 +97,19 @@ export function buildLocalWalletSyncStatusText({
       ? ` · ${intl.formatMessage({ id: region.labelId })}`
       : '';
     const eta = formatEtaSuffix(remaining, scanRatePerSec);
-    const line = [heights, pct].filter(Boolean).join(' · ') + regionText + eta;
+    const line =
+      formatPrivacyChainSyncProgress({
+        scanned,
+        target,
+        progress: syncProgress.backfillProgress,
+      }) +
+      regionText +
+      eta;
     return (
       line ||
-      intl.formatMessage({ id: ETranslationsMock.privacy_scan_state_scanning })
+      intl.formatMessage({
+        id: getPrivacyChainSyncLabel({ backfilling: true }),
+      })
     );
   }
   // Caught up, not finished: a chain has no end, so saying "up to date" both
@@ -114,10 +119,7 @@ export function buildLocalWalletSyncStatusText({
   // compare.
   const at = syncProgress.tipScannedHeight;
   const tip = syncProgress.chainTip;
-  const heights =
-    typeof at === 'number' && typeof tip === 'number'
-      ? `${num(at)} / ${num(tip)}`
-      : '';
+  const heights = formatPrivacyChainSyncProgress({ scanned: at, target: tip });
   const lag = syncProgress.tipLag;
   const behind =
     isTipLagWorthMentioning(
@@ -129,7 +131,7 @@ export function buildLocalWalletSyncStatusText({
   return heights
     ? `${heights}${behind}`
     : intl.formatMessage({
-        id: ETranslationsMock.privacy_sync_state_following,
+        id: getPrivacyChainSyncLabel({ backfilling: false }),
       });
 }
 

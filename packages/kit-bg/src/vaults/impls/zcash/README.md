@@ -1,5 +1,11 @@
 # Zcash integration
 
+> This README records the retired WebZjs prototype. Its status, package names
+> and deferred features below are historical, not the first-release contract.
+> See [the current architecture](../../../../../core/src/chains/zcash/ARCHITECTURE.md)
+> for the shared OneKey WASM runtime and platform/storage ownership. The first
+> release ships no compatibility layer for prototype wallet data.
+
 Status: **transparent + shielded (Sapling/Orchard/Ironwood) receive & balance
 working end-to-end; send via PCZT implemented; hardware deferred.** Dev-only
 (`SUPPORTED_IMPLS`, not `PRODUCTION_IMPLS`).

@@ -2,10 +2,12 @@ import {
   backgroundClass,
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import { IMPL_ZCASH } from '@onekeyhq/shared/src/engine/engineConsts';
 import { InvalidAddress, NotImplemented } from '@onekeyhq/shared/src/errors';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import { noopObject } from '@onekeyhq/shared/src/utils/miscUtils';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type {
   IAddressValidateBaseStatus,
@@ -28,49 +30,47 @@ class ServiceValidator extends ServiceBase {
     networkId: string;
     address: string;
   }): Promise<IAddressValidateBaseStatus> {
-    // Both server and local validation are required. If server-level validation fails due to a network issue, we will fall back to local validation."
     const { networkId, address } = params;
     if (!networkId) {
       return 'invalid';
     }
-    try {
-      const isCustomNetwork =
-        await this.backgroundApi.serviceNetwork.isCustomNetwork({
-          networkId,
-        });
-      if (isCustomNetwork) {
-        throw new NotImplemented(
-          'Custom network is not supported validate address online',
-        );
-      }
-      const resp = await this.serverValidateAddress(params);
-      const serverValid = resp.data.data.isValid;
-      if (!serverValid) {
+    const [local, server] = await Promise.allSettled([
+      this.localValidateAddress(params),
+      (async () => {
+        const isCustomNetwork =
+          await this.backgroundApi.serviceNetwork.isCustomNetwork({
+            networkId,
+          });
+        if (isCustomNetwork) {
+          throw new NotImplemented(
+            'Custom networks have no server address validator',
+          );
+        }
+        return this.serverValidateAddress(params);
+      })(),
+    ]);
+
+    // The local SDK owns Zcash recipient support. Server indexing support must
+    // not veto a receiver that the shipped transaction builder can pay.
+    // Both checks still run; allowlist and risk checks remain separate gates.
+    if (local.status === 'fulfilled') {
+      if (!local.value.isValid) {
         return 'invalid';
       }
-      const localValidation = await this.localValidateAddress({
-        networkId,
-        address,
-      });
-      return localValidation.isValid ? 'valid' : 'invalid';
-    } catch (serverError) {
-      try {
-        const localValidation = await this.localValidateAddress({
-          networkId,
-          address,
-        });
-        return localValidation.isValid ? 'valid' : 'invalid';
-      } catch (localError) {
-        console.error('failed to validateAddress', serverError, localError);
-        defaultLogger.addressInput.validation.failWithUnknownError({
-          networkId,
-          address,
-          serverError: (serverError as Error).message,
-          localError: (localError as Error).message,
-        });
-        return 'unknown';
+      if (networkUtils.getNetworkImpl({ networkId }) === IMPL_ZCASH) {
+        return 'valid';
       }
+      return server.status === 'fulfilled' && !server.value.data.data.isValid
+        ? 'invalid'
+        : 'valid';
     }
+    defaultLogger.addressInput.validation.failWithUnknownError({
+      networkId,
+      address,
+      serverError: server.status === 'rejected' ? String(server.reason) : '',
+      localError: String(local.reason),
+    });
+    return 'unknown';
   }
 
   public serverValidateAddress = memoizee(
@@ -132,6 +132,40 @@ class ServiceValidator extends ServiceBase {
       promise: true,
     },
   );
+
+  async validateAddressBatch(params: {
+    networkIdList: string[];
+    accountAddress: string;
+  }): Promise<{ isValid: boolean; networkIds: string[] }> {
+    const localNetworkIds = params.networkIdList.filter(
+      (networkId) => networkUtils.getNetworkImpl({ networkId }) === IMPL_ZCASH,
+    );
+    const [server, ...local] = await Promise.allSettled([
+      this.serverBatchValidateAddress(params),
+      ...localNetworkIds.map(async (networkId) => {
+        const validation = await this.localValidateAddress({
+          networkId,
+          address: params.accountAddress,
+        });
+        return validation.isValid ? networkId : undefined;
+      }),
+    ]);
+    const localMatches = local.flatMap((result) =>
+      result.status === 'fulfilled' && result.value ? [result.value] : [],
+    );
+    if (server.status === 'rejected' && localMatches.length === 0) {
+      throw server.reason;
+    }
+    const networkIds = [
+      ...(server.status === 'fulfilled'
+        ? server.value.networkIds.filter(
+            (networkId) => !localNetworkIds.includes(networkId),
+          )
+        : []),
+      ...localMatches,
+    ];
+    return { isValid: networkIds.length > 0, networkIds };
+  }
 
   @backgroundMethod()
   async localValidateAddress({

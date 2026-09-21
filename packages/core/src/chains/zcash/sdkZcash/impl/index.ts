@@ -25,8 +25,10 @@ import {
   deriveTransparentXpubFromUfvk,
   finalizeTransparentHardwarePczt,
   getChainTip,
+  parseTransparentTransactions,
   quoteTransparentTx,
   signPczt,
+  validateAddress,
 } from './keys';
 import { runRuntimeSelfTest } from './runtimeSelfTest';
 import {
@@ -44,7 +46,6 @@ import {
   getBalance,
   getEndpointHealth,
   getHistory,
-  getRuntimeVersions,
   getSyncProgress,
   getTxDetails,
   prepareWalletAccounts,
@@ -60,53 +61,8 @@ import {
 import type {
   IZcashCapabilities,
   IZcashSdkApi,
-  IZcashSmokeParams,
-  IZcashSmokeResult,
   IZcashWalletAccount,
 } from '../types/sdk';
-
-// Reports what this carrier can actually do. Every carrier runs the same
-// implementation, so a difference here is a carrier problem (assets not
-// served, network blocked), never a logic difference.
-async function smokeTest(
-  params: IZcashSmokeParams,
-): Promise<IZcashSmokeResult> {
-  const result: IZcashSmokeResult = {
-    crossOriginIsolated: !!globalThis.crossOriginIsolated,
-    hasSharedArrayBuffer: typeof SharedArrayBuffer !== 'undefined',
-    // Kept for contract compatibility. This runtime is single-threaded, so
-    // there is no pool to start and no crossOriginIsolated requirement — a
-    // real Android device scans fine with it false.
-    threadPool: 'not required (single-threaded runtime)',
-    walletWasmLoaded: false,
-    keysWasmLoaded: false,
-    chainTip: null,
-    unifiedAddress: null,
-    transparentAddress: null,
-    syncMs: null,
-    fullyScanned: null,
-    balances: null,
-    historyLength: null,
-    pcztSignAvailable: false,
-    uskDerived: false,
-  };
-
-  try {
-    const keys = await getKeys();
-    result.keysWasmLoaded = true;
-    result.pcztSignAvailable = typeof keys.pcztSignWithSeed === 'function';
-
-    const rt = await getRuntime();
-    result.walletWasmLoaded = true;
-
-    result.chainTip = await rt.chainTipAt(params.lightwalletdUrl);
-  } catch (e) {
-    result.error = e instanceof Error ? e.message : String(e);
-    result.errorStack = e instanceof Error ? (e.stack ?? null) : null;
-  }
-
-  return result;
-}
 
 // Merging the two halves is a host decision: a payment can only go out if the
 // runtime can prove the bundle AND the keys package can sign it. Neither crate
@@ -257,16 +213,16 @@ const api: IZcashSdkApi = {
   resetCarrier,
   setPerfTrace,
   capabilities,
-  smokeTest,
   runRuntimeSelfTest,
   getChainTip,
-  getRuntimeVersions,
   deriveAccount,
   deriveAddressFromUfvk,
   signPczt,
+  validateAddress,
   deriveTransparentXpubFromUfvk,
   // Stateless PCZT merge: only the wasm module, no wallet database.
   combinePczt,
+  parseTransparentTransactions,
   quoteTransparentTx,
   buildTransparentTxWithSeed,
   buildTransparentTxWithAccountXprv,

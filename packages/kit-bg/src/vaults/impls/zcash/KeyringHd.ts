@@ -1,7 +1,4 @@
-import {
-  ZCASH_LIGHTWALLETD_MAINNET,
-  ZCASH_NETWORK_MAIN,
-} from '@onekeyhq/core/src/chains/zcash/sdkZcash/constants';
+import { ZCASH_NETWORK_MAIN } from '@onekeyhq/core/src/chains/zcash/sdkZcash/constants';
 import { fetchZcashChainTipDirect } from '@onekeyhq/core/src/chains/zcash/sdkZcash/impl/chainTipDirect';
 import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
 import { seedFromHdCredentialAsync } from '@onekeyhq/core/src/secret';
@@ -15,12 +12,14 @@ import { KeyringHd as KeyringHdBtc } from '../btc/KeyringHd';
 
 import { resolveAndSaveZcashAccountMeta } from './accountMeta';
 import { getZcashLifecycleMutex } from './lifecycle';
+import { signTransparentTransaction } from './signTransparentTransaction';
 
 import type {
   IEncodedTxZcash,
   IZcashVaultPcztApi,
   IZcashVaultTransparentApi,
 } from './types';
+import type Vault from './Vault';
 import type { IDBAccount } from '../../../dbs/local/types';
 import type {
   IExportAccountSecretKeysParams,
@@ -137,86 +136,29 @@ export class KeyringHd extends KeyringHdBtc {
     const request = await zcashVault.zcashPrepareFreshTransparentRequest({
       encodedTx,
     });
-    const plan = checkIsDefined(encodedTx.zcashTransparentPlan);
-    await this.backgroundApi.simpleDb.zcash.reserveTransparentOutpoints({
+    return signTransparentTransaction({
+      journal: this.backgroundApi.simpleDb.zcash,
       accountId: this.vault.accountId,
-      ownerId: plan.ownerId,
-      outpoints: request.selectedOutpoints,
-      currentHeight: request.targetHeight,
-      expiryHeight: request.expiryHeight,
-    });
-    let pendingSaved = false;
-    try {
-      const credentials = await this.baseGetCredentialsInfo({ password });
-      const seedBuf = await seedFromHdCredentialAsync({
-        hdCredential: checkIsDefined(credentials.hd),
-        password,
-        ...getPbkdf2KdfParamsForNonDbTx(),
-      });
-      try {
-        const zcashSdk = (
-          await import('@onekeyhq/core/src/chains/zcash/sdkZcash/sdk')
-        ).default;
-        const result = await (
-          await zcashSdk.getZcashApi()
-        ).buildTransparentTxWithSeed({
-          ...request,
-          seedHex: seedBuf.toString('hex'),
+      encodedTx,
+      request,
+      sign: async () => {
+        const credentials = await this.baseGetCredentialsInfo({ password });
+        const seedBuf = await seedFromHdCredentialAsync({
+          hdCredential: checkIsDefined(credentials.hd),
+          password,
+          ...getPbkdf2KdfParamsForNonDbTx(),
         });
-        const expectedOutpoints = new Set(
-          request.selectedOutpoints.map(
-            (outpoint) => `${outpoint.txid}:${outpoint.vout}`,
-          ),
-        );
-        if (
-          result.feeZat !== encodedTx.fee ||
-          result.expiryHeight !== request.expiryHeight ||
-          result.spentOutpoints.length !== expectedOutpoints.size ||
-          result.spentOutpoints.some(
-            (outpoint) =>
-              !expectedOutpoints.has(`${outpoint.txid}:${outpoint.vout}`),
-          )
-        ) {
-          throw new OneKeyLocalError(
-            'Zcash transparent signing result did not match the reviewed transaction',
-          );
+        try {
+          const api = await (this.vault as Vault).zcashGetApi();
+          return await api.buildTransparentTxWithSeed({
+            ...request,
+            seedHex: seedBuf.toString('hex'),
+          });
+        } finally {
+          seedBuf.fill(0);
         }
-        const signedEncodedTx: IEncodedTxZcash = {
-          ...encodedTx,
-          zcashTransparentBuild: result,
-        };
-        await this.backgroundApi.simpleDb.zcash.saveTransparentPendingTx({
-          accountId: this.vault.accountId,
-          requireLiveReservation: true,
-          tx: {
-            ownerId: plan.ownerId,
-            rawTx: result.rawTx,
-            txid: result.txid,
-            spentOutpoints: result.spentOutpoints,
-            expiryHeight: result.expiryHeight,
-            createdAt: Date.now(),
-            broadcastState: 'unknown',
-            broadcastAuthorized: false,
-          },
-        });
-        pendingSaved = true;
-        return {
-          txid: result.txid,
-          rawTx: result.rawTx,
-          encodedTx: signedEncodedTx,
-        };
-      } finally {
-        seedBuf.fill(0);
-      }
-    } catch (error) {
-      if (!pendingSaved) {
-        await this.backgroundApi.simpleDb.zcash.releaseTransparentReservation({
-          accountId: this.vault.accountId,
-          ownerId: plan.ownerId,
-        });
-      }
-      throw error;
-    }
+      },
+    });
   }
 
   // Signs a proved PCZT hex with the USK re-derived from the seed.
@@ -236,10 +178,7 @@ export class KeyringHd extends KeyringHdBtc {
       ...getPbkdf2KdfParamsForNonDbTx(),
     });
     try {
-      const zcashSdk = (
-        await import('@onekeyhq/core/src/chains/zcash/sdkZcash/sdk')
-      ).default;
-      const api = await zcashSdk.getZcashApi();
+      const api = await (this.vault as Vault).zcashGetApi();
       return await api.signPczt({
         network: ZCASH_NETWORK_MAIN,
         seedHex: seedBuf.toString('hex'),
@@ -335,10 +274,9 @@ export class KeyringHd extends KeyringHdBtc {
       backgroundApi: this.backgroundApi,
       account,
       derive: async ({ hdIndex }) => {
-        const zcashSdk = (
-          await import('@onekeyhq/core/src/chains/zcash/sdkZcash/sdk')
-        ).default;
-        const api = await zcashSdk.getZcashApi();
+        const vault = this.vault as Vault;
+        const api = await vault.zcashGetApi();
+        const lightwalletdUrl = await vault.zcashResolveLightwalletdUrl();
 
         // lightwalletd calls go through a proxy that occasionally resets
         // mid-response (transient, not a real failure) -- absorb a few retries.
@@ -350,14 +288,14 @@ export class KeyringHd extends KeyringHdBtc {
               network: ZCASH_NETWORK_MAIN,
               seedHex,
               hdIndex,
-              lightwalletdUrl: ZCASH_LIGHTWALLETD_MAINNET,
+              lightwalletdUrl,
             });
             if (derived.chainTip !== null) return derived;
             return {
               ...derived,
               // eslint-disable-next-line no-await-in-loop
               chainTip: await fetchZcashChainTipDirect({
-                lightwalletdUrl: ZCASH_LIGHTWALLETD_MAINNET,
+                lightwalletdUrl,
               }),
             };
           } catch (e) {

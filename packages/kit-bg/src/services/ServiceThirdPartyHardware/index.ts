@@ -946,6 +946,11 @@ class ServiceThirdPartyHardware extends ServiceBase {
     path: string;
     showOnDevice?: boolean;
   }) {
+    if (!platformEnv.isDev) {
+      throw new OneKeyLocalError(
+        'Zcash diagnostics are only available in development',
+      );
+    }
     await this.ensureAdaptersInitialized(params.vendor);
     const adapter = this.getThirdPartyAdapter(params.vendor);
     if (!adapter) {

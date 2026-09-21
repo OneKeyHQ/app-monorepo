@@ -71,7 +71,7 @@
 
 持久化(SimpleDbEntityZcash, 按 app 账户ID 键控):
   { ufvk, unifiedAddress, transparentAddress, seedFingerprintHex,
-    hdIndex, birthdayHeight, addressSchemeVersion, createdAt }
+    hdIndex, birthdayHeight, createdAt }
 ```
 
 - 一切跨边界签名走 **PCZT**(D3),硬件签名将来插同一接缝。

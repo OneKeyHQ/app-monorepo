@@ -63,6 +63,8 @@ jest.mock('@onekeyhq/shared/src/utils/networkUtils', () => ({
     isEvmNetwork: ({ networkId }: { networkId: string }) =>
       networkId.startsWith('evm--'),
     isBTCNetwork: () => false,
+    getNetworkImpl: ({ networkId }: { networkId: string }) =>
+      networkId.split('--')[0],
   },
 }));
 
@@ -211,6 +213,50 @@ const baseArgs = {
 };
 
 describe('ServiceAccountProfile.queryAddress request overlap', () => {
+  it('starts combined validation while local normalization is still pending', async () => {
+    const { service, backgroundApi, validate } = makeService();
+    const normalization = deferred<{
+      isValid: boolean;
+      displayAddress: string;
+      normalizedAddress: string;
+    }>();
+    backgroundApi.serviceValidator.localValidateAddress.mockImplementation(
+      () => normalization.promise,
+    );
+    const pending = service.queryAddress({ ...baseArgs, networkId: 'zec--0' });
+    await flushMicrotasks();
+    expect(
+      backgroundApi.serviceValidator.validateAddress,
+    ).toHaveBeenCalledTimes(1);
+    validate.resolve('valid');
+    normalization.resolve({
+      isValid: true,
+      displayAddress: RECIPIENT,
+      normalizedAddress: RECIPIENT,
+    });
+    await expect(pending).resolves.toMatchObject({ validStatus: 'valid' });
+  });
+
+  it('keeps other chains validation after local address normalization', async () => {
+    const { service, backgroundApi, validate } = makeService();
+    const normalizedAddress = 'normalized-recipient';
+    backgroundApi.serviceValidator.localValidateAddress.mockResolvedValue({
+      isValid: true,
+      displayAddress: normalizedAddress,
+      normalizedAddress,
+    });
+    const pending = service.queryAddress(baseArgs);
+    await flushMicrotasks();
+    expect(backgroundApi.serviceValidator.validateAddress).toHaveBeenCalledWith(
+      {
+        networkId: NETWORK_ID,
+        address: normalizedAddress,
+      },
+    );
+    validate.resolve('valid');
+    await expect(pending).resolves.toMatchObject({ validStatus: 'valid' });
+  });
+
   const unhandled: unknown[] = [];
   const onUnhandled = (reason: unknown) => {
     unhandled.push(reason);

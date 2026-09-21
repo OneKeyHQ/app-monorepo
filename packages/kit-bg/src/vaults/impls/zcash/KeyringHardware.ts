@@ -20,12 +20,14 @@ import { KeyringHardwareBase } from '../../base/KeyringHardwareBase';
 
 import { resolveAndSaveZcashAccountMeta } from './accountMeta';
 import { getZcashLifecycleMutex } from './lifecycle';
+import { signTransparentTransaction } from './signTransparentTransaction';
 
 import type {
   IEncodedTxZcash,
   IZcashVaultPcztApi,
   IZcashVaultTransparentApi,
 } from './types';
+import type Vault from './Vault';
 import type { IDBAccount } from '../../../dbs/local/types';
 import type {
   IBuildPrepareAccountsPrefixedPathParams,
@@ -33,7 +35,7 @@ import type {
   ISignMessageParams,
   ISignTransactionParams,
 } from '../../types';
-import type { ZcashUnifiedAddress } from '@onekeyfe/hd-core';
+import type { ZcashAddress } from '@onekeyfe/hd-core';
 
 // ZIP-32 account path the device derives shielded keys from.
 const buildZcashShieldedPath = (index: number) => `m/32'/133'/${index}'`;
@@ -43,13 +45,6 @@ export class KeyringHardware extends KeyringHardwareBase {
 
   private async getZcashSdk({ connectId }: { connectId: string }) {
     return this.getHardwareSDKInstance({ connectId });
-  }
-
-  private async getZcashApi() {
-    const zcashSdk = (
-      await import('@onekeyhq/core/src/chains/zcash/sdkZcash/sdk')
-    ).default;
-    return zcashSdk.getZcashApi();
   }
 
   override buildPrepareAccountsPrefixedPath(
@@ -76,14 +71,17 @@ export class KeyringHardware extends KeyringHardwareBase {
     deviceParams: IDeviceSharedCallParams;
     indexes: number[];
     showOnOnekeyFn: (arrIndex: number) => boolean | undefined;
-  }): Promise<ZcashUnifiedAddress[]> {
+  }): Promise<ZcashAddress[]> {
     const { connectId, deviceId } = deviceParams.dbDevice;
     const sdk = await this.getZcashSdk({ connectId });
-    const response = await sdk.zcashGetUnifiedAddress(connectId, deviceId, {
+    const response = await sdk.zcashGetAddress(connectId, deviceId, {
       ...deviceParams.deviceCommonParams,
       bundle: indexes.map((index, arrIndex) => ({
         path: buildZcashShieldedPath(index),
         showOnOneKey: showOnOnekeyFn(arrIndex) ?? false,
+        addressType: 2,
+        scope: 0,
+        diversifierIndex: 0,
         includeUfvk: true,
         includeSeedFingerprint: true,
       })),
@@ -105,6 +103,56 @@ export class KeyringHardware extends KeyringHardwareBase {
       }
     }
     return items;
+  }
+
+  override async batchGetAddresses(
+    params: IPrepareHardwareAccountsParams,
+  ): Promise<ZcashAddress[]> {
+    return this.baseGetDeviceAccountAddresses<ZcashAddress>({
+      params,
+      usedIndexes: params.indexes,
+      sdkGetAddressFn: async ({ connectId, deviceId, showOnOnekeyFn }) => {
+        const sdk = await this.getZcashSdk({ connectId });
+        const isPrivate =
+          params.chainExtraParams?.localWalletAddressForm === 'private';
+        const customPath = params.chainExtraParams?.receiveAddressPath;
+        const bundle = params.indexes.map((index, position) => {
+          let scope: 0 | 1 = 0;
+          let diversifierIndex = 0;
+          if (customPath && !isPrivate) {
+            const match = customPath.match(
+              /^m\/44'\/133'\/(\d+)'\/([01])\/(\d+)$/,
+            );
+            if (!match || Number(match[1]) !== index) {
+              throw new OneKeyLocalError(
+                'zcash: invalid address verification path',
+              );
+            }
+            scope = match[2] === '1' ? 1 : 0;
+            diversifierIndex = Number(match[3]);
+            if (
+              !Number.isSafeInteger(diversifierIndex) ||
+              diversifierIndex >= 0x80_00_00_00
+            ) {
+              throw new OneKeyLocalError(
+                'zcash: invalid address verification index',
+              );
+            }
+          }
+          return {
+            path: buildZcashShieldedPath(index),
+            addressType: isPrivate ? (2 as const) : (1 as const),
+            scope,
+            diversifierIndex,
+            showOnOneKey: showOnOnekeyFn(position) ?? true,
+          };
+        });
+        return sdk.zcashGetAddress(connectId, deviceId, {
+          ...params.deviceParams.deviceCommonParams,
+          bundle,
+        });
+      },
+    });
   }
 
   override async prepareAccounts(
@@ -129,7 +177,7 @@ export class KeyringHardware extends KeyringHardwareBase {
             }),
           }),
         });
-        const api = await this.getZcashApi();
+        const api = await (this.vault as Vault).zcashGetApi();
         const ret: ICoreApiGetAddressItem[] = [];
         for (let i = 0; i < deviceItems.length; i += 1) {
           const index = usedIndexes[i];
@@ -200,7 +248,7 @@ export class KeyringHardware extends KeyringHardwareBase {
           indexes: [hdIndex],
           showOnOnekeyFn: () => false,
         });
-        const api = await this.getZcashApi();
+        const api = await (this.vault as Vault).zcashGetApi();
         const ufvk = checkIsDefined(item.ufvk);
         const [derived, chainTip] = await Promise.all([
           api.deriveAddressFromUfvk({
@@ -354,7 +402,6 @@ export class KeyringHardware extends KeyringHardwareBase {
     const request = await vault.zcashPrepareFreshTransparentRequest({
       encodedTx,
     });
-    const plan = checkIsDefined(encodedTx.zcashTransparentPlan);
     const account = await this.backgroundApi.serviceAccount.getDBAccount({
       accountId,
     });
@@ -362,109 +409,58 @@ export class KeyringHardware extends KeyringHardwareBase {
     if (account.pathIndex !== request.accountIndex || !accountXpub) {
       throw new OneKeyLocalError('zcash: hardware signing account changed');
     }
-    await this.backgroundApi.simpleDb.zcash.reserveTransparentOutpoints({
+    return signTransparentTransaction({
+      journal: this.backgroundApi.simpleDb.zcash,
       accountId,
-      ownerId: plan.ownerId,
-      outpoints: request.selectedOutpoints,
-      currentHeight: request.targetHeight,
-      expiryHeight: request.expiryHeight,
-    });
-    let pendingSaved = false;
-    try {
-      const [viewingKeys] = await this.fetchDeviceViewingKeys({
-        deviceParams,
-        indexes: [request.accountIndex],
-        showOnOnekeyFn: () => false,
-      });
-      const api = await this.getZcashApi();
-      const { xpub } = await api.deriveTransparentXpubFromUfvk({
-        network: request.network,
-        ufvk: checkIsDefined(viewingKeys.ufvk),
-        hdIndex: request.accountIndex,
-      });
-      if (xpub !== accountXpub) {
-        throw new OneKeyLocalError(
-          'zcash: device viewing key does not match this account',
-        );
-      }
-      const original = await api.createTransparentHardwarePczt({
-        request,
-        accountXpub: xpub,
-        seedFingerprintHex: checkIsDefined(viewingKeys.seedFingerprint),
-      });
-      const { connectId, deviceId } = deviceParams.dbDevice;
-      const sdk = await this.getZcashSdk({ connectId });
-      const response = await sdk.zcashSignPczt(connectId, deviceId, {
-        ...deviceParams.deviceCommonParams,
-        pczt: original.pcztHex,
-      });
-      if (!response.success) {
-        throw convertDeviceError(response.payload);
-      }
-      const result = await api.finalizeTransparentHardwarePczt({
-        request,
-        accountXpub: xpub,
-        originalPcztHex: original.pcztHex,
-        signedPcztHex: response.payload.pczt,
-      });
-      const expectedOutpoints = new Set(
-        request.selectedOutpoints.map(
-          (outpoint) => `${outpoint.txid}:${outpoint.vout}`,
-        ),
-      );
-      if (
-        result.feeZat !== encodedTx.fee ||
-        result.expiryHeight !== request.expiryHeight ||
-        result.spentOutpoints.length !== expectedOutpoints.size ||
-        result.spentOutpoints.some(
-          (outpoint) =>
-            !expectedOutpoints.has(`${outpoint.txid}:${outpoint.vout}`),
-        )
-      ) {
-        throw new OneKeyLocalError(
-          'Zcash transparent signing result did not match the reviewed transaction',
-        );
-      }
-      if (
-        !(await this.backgroundApi.serviceAccount.getDBAccountSafe({
-          accountId,
-        }))
-      ) {
-        throw new OneKeyLocalError('zcash: account removed during signing');
-      }
-      await this.backgroundApi.simpleDb.zcash.saveTransparentPendingTx({
-        accountId,
-        requireLiveReservation: true,
-        tx: {
-          ownerId: plan.ownerId,
-          rawTx: result.rawTx,
-          txid: result.txid,
-          spentOutpoints: result.spentOutpoints,
-          expiryHeight: result.expiryHeight,
-          createdAt: Date.now(),
-          broadcastState: 'unknown',
-          broadcastAuthorized: false,
-        },
-      });
-      pendingSaved = true;
-      const signedEncodedTx: IEncodedTxZcash = {
-        ...encodedTx,
-        zcashTransparentBuild: result,
-      };
-      return {
-        txid: result.txid,
-        rawTx: result.rawTx,
-        encodedTx: signedEncodedTx,
-      };
-    } catch (error) {
-      if (!pendingSaved) {
-        await this.backgroundApi.simpleDb.zcash.releaseTransparentReservation({
-          accountId,
-          ownerId: plan.ownerId,
+      encodedTx,
+      request,
+      sign: async () => {
+        const [viewingKeys] = await this.fetchDeviceViewingKeys({
+          deviceParams,
+          indexes: [request.accountIndex],
+          showOnOnekeyFn: () => false,
         });
-      }
-      throw error;
-    }
+        const api = await (this.vault as Vault).zcashGetApi();
+        const { xpub } = await api.deriveTransparentXpubFromUfvk({
+          network: request.network,
+          ufvk: checkIsDefined(viewingKeys.ufvk),
+          hdIndex: request.accountIndex,
+        });
+        if (xpub !== accountXpub) {
+          throw new OneKeyLocalError(
+            'zcash: device viewing key does not match this account',
+          );
+        }
+        const original = await api.createTransparentHardwarePczt({
+          request,
+          accountXpub: xpub,
+          seedFingerprintHex: checkIsDefined(viewingKeys.seedFingerprint),
+        });
+        const { connectId, deviceId } = deviceParams.dbDevice;
+        const sdk = await this.getZcashSdk({ connectId });
+        const response = await sdk.zcashSignPczt(connectId, deviceId, {
+          ...deviceParams.deviceCommonParams,
+          pczt: original.pcztHex,
+        });
+        if (!response.success) {
+          throw convertDeviceError(response.payload);
+        }
+        const result = await api.finalizeTransparentHardwarePczt({
+          request,
+          accountXpub: xpub,
+          originalPcztHex: original.pcztHex,
+          signedPcztHex: response.payload.pczt,
+        });
+        if (
+          !(await this.backgroundApi.serviceAccount.getDBAccountSafe({
+            accountId,
+          }))
+        ) {
+          throw new OneKeyLocalError('zcash: account removed during signing');
+        }
+        return result;
+      },
+    });
   }
 
   override signMessage(
