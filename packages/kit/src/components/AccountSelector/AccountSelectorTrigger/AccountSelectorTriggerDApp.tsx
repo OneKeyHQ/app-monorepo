@@ -276,7 +276,13 @@ export function AccountSelectorTriggerBrowserSingle({ num }: { num: number }) {
   const {
     activeAccount: { account, indexedAccount, wallet },
     showAccountSelector,
-  } = useAccountSelectorTrigger({ num, linkNetwork: true });
+  } = useAccountSelectorTrigger({
+    num,
+    linkNetwork: true,
+    // This trigger re-points a live dApp session; un-backed-up HD wallets must
+    // not be selectable here either (OK-63750).
+    hideNonBackedUpWallet: true,
+  });
 
   const media = useMedia();
   const intl = useIntl();

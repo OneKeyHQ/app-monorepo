@@ -244,6 +244,20 @@ export function useShouldUpdateConnectedAccount() {
         return;
       }
 
+      // Every path that re-points a live dApp session (browser toolbar,
+      // CurrentConnectionModal, ConnectionList, network switch) funnels
+      // through here. Apply the same backup gate as the connect approval so
+      // an un-backed-up HD wallet, including one connected before this gate
+      // existed, cannot expose a new address to the dApp (OK-63750).
+      // checkIsWalletNotBackedUp is fail-closed for HD wallets.
+      if (
+        await backgroundApiProxy.serviceAccount.checkIsWalletNotBackedUp({
+          walletId: willUpdateAccountInfo.walletId ?? '',
+        })
+      ) {
+        return;
+      }
+
       const { serviceDApp } = backgroundApiProxy;
       await backgroundApiProxy.serviceDApp.updateConnectionSession({
         origin,
