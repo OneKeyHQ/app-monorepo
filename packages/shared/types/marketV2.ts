@@ -541,6 +541,8 @@ export interface IMarketBasicConfigToken {
   symbol: string;
   logo?: string;
   communityRecognized?: boolean;
+  // Present when the recommended token is a top-coin listing.
+  assetId?: string;
 }
 
 export interface IMarketBasicConfigNetworkFeature {

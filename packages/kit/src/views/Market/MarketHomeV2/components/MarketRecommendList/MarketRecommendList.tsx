@@ -12,6 +12,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IMarketBasicConfigToken } from '@onekeyhq/shared/types/marketV2';
 
 import { useWatchListV2Action } from '../../../components/watchListHooksV2';
+import { mapRecommendTokensToWatchlistItems } from '../../../utils/mapRecommendTokensToWatchlistItems';
 import { getMarketRecommendContainerPaddingTop } from '../../layouts/mobileLayoutUtils';
 
 import { RecommendItem } from './RecommendItem';
@@ -126,11 +127,7 @@ export function MarketRecommendList({
 
   const handleAddTokens = useCallback(async () => {
     if (enableSelection) {
-      const items = selectedTokens.map((token) => ({
-        chainId: token.chainId,
-        contractAddress: token.contractAddress,
-        isNative: token.isNative,
-      }));
+      const items = await mapRecommendTokensToWatchlistItems(selectedTokens);
 
       const added = await actions.addIntoWatchListV2(items);
       if (!added) {
