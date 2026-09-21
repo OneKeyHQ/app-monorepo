@@ -27,8 +27,8 @@ import {
   STOCK_SIMPLE_CHART_POLLING_MS,
   buildStockSimpleChartScopeKey,
   fetchStockSimpleChartPoints,
-  mergeStockSimpleChartLivePrice,
   resolveStockSimpleChartBucketSeconds,
+  resolveStockSimpleChartDisplayPoints,
   resolveStockSimpleChartLivePrice,
   resolveStockSimpleChartMinRefreshMs,
   resolveStockSimpleChartPreviousClose,
@@ -255,13 +255,21 @@ export function StockSimpleChart({
   // changes. Ticking it on a timer would redraw the line without moving it.
   const chartData = useMemo(
     () =>
-      mergeStockSimpleChartLivePrice({
+      resolveStockSimpleChartDisplayPoints({
         intervalSeconds,
         livePrice,
         nowSeconds: Math.floor(Date.now() / 1000),
         points: chartState.data,
+        priceMode: requestPriceMode,
+        range: requestRange,
       }),
-    [chartState.data, intervalSeconds, livePrice],
+    [
+      chartState.data,
+      intervalSeconds,
+      livePrice,
+      requestPriceMode,
+      requestRange,
+    ],
   );
 
   let chartContent;
