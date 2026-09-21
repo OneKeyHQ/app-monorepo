@@ -729,23 +729,43 @@ describe('SWR cache removals', () => {
     expect(cache.get('walletList:a')).toBeUndefined();
   });
 
-  it('wipes the namespaces this runtime owns and spares the ones bg writes', () => {
-    disk().set('walletList:a', { d: 'ui', t: 1000 });
-    disk().set('unsMeta:v1:hd-1:', { d: 'ui', t: 1000 });
-    disk().set('earnAccount:v3:evm--1:', { d: 'ui', t: 1000 });
-    disk().set('perpsL2Book:v1:ETH', { d: 'bg-owned', t: 1000 });
+  it('wipes every namespace this runtime owns and spares the ones bg writes', () => {
+    const cache = loadFreshRuntime();
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const { BG_OWNED_SWR_NAMESPACES, prefixOf, swrCacheNamespaces } =
+      require('./swrCacheNamespaceNames') as typeof import('./swrCacheNamespaceNames');
+    const all = Object.values(swrCacheNamespaces);
+    const bgOwned = new Set<string>(BG_OWNED_SWR_NAMESPACES);
+    // Driven off the registry rather than a hand-picked few: a namespace added
+    // later must not be able to survive the wipe unnoticed.
+    all.forEach((namespace) =>
+      disk().set(`${prefixOf(namespace)}seed`, { d: namespace, t: 1000 }),
+    );
+
+    cache.clearUiOwnedNamespaces();
+
+    const left = new Set(Object.keys(readDiskStore()));
+    // A reset re-uses wallet ids, so every namespace keyed by one has to go,
+    // not only the wallet-shaped ones.
+    expect(
+      all.filter((ns) => !bgOwned.has(ns) && left.has(`${prefixOf(ns)}seed`)),
+    ).toEqual([]);
+    // Clearing a file bg is writing would put two writers on it.
+    expect(
+      all.filter((ns) => bgOwned.has(ns) && !left.has(`${prefixOf(ns)}seed`)),
+    ).toEqual([]);
+  });
+
+  it('leaves a record bg wrote before the wipe readable afterwards', () => {
+    disk().set('perpsL2Book:v1:ETH:5:1', { d: 'from-bg', t: 1000 });
     const cache = loadFreshRuntime();
 
     cache.clearUiOwnedNamespaces();
 
-    const left = Object.keys(readDiskStore());
-    // Every namespace keyed by a wallet id goes, not only the wallet-shaped
-    // ones — a reset re-uses those ids.
-    expect(left).not.toContain('walletList:a');
-    expect(left).not.toContain('unsMeta:v1:hd-1:');
-    expect(left).not.toContain('earnAccount:v3:evm--1:');
-    // bg writes this one; clearing it here would put two writers on the file.
-    expect(left).toContain('perpsL2Book:v1:ETH');
+    // `clearAll` would mark everything older than itself deleted, and
+    // `isDeletedLocally` would then suppress the read-through for bg's perps
+    // records for the rest of the session. A removal per namespace does not.
+    expect(cache.get('perpsL2Book:v1:ETH:5:1')).toBe('from-bg');
   });
 
   it('does not adopt a removed key back out of the store', () => {
