@@ -67,14 +67,17 @@ describe('shouldPublishBorrowMarketChange', () => {
     EBorrowDataStatus.WaitingForAccount,
     EBorrowDataStatus.LoadingReserves,
     EBorrowDataStatus.Refreshing,
-  ])('publishes market identity while target data is %s', (dataStatus) => {
-    expect(
-      shouldPublishBorrowMarketChange({
-        isMarketChangePending: true,
-        dataStatus,
-      }),
-    ).toBe(true);
-  });
+  ])(
+    'keeps the visible market stable while target data is %s',
+    (dataStatus) => {
+      expect(
+        shouldPublishBorrowMarketChange({
+          isMarketChangePending: true,
+          dataStatus,
+        }),
+      ).toBe(false);
+    },
+  );
 
   it.each([EBorrowDataStatus.Ready, EBorrowDataStatus.Error])(
     'publishes the target market at terminal status %s',

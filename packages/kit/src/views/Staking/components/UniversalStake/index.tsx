@@ -12,6 +12,7 @@ import {
   Alert,
   Dialog,
   Divider,
+  HeightTransition,
   Icon,
   IconButton,
   Image,
@@ -535,6 +536,8 @@ export function UniversalStake({
   const { handleOpenWebSite } = useBrowserAction().current;
   const showEstimateGasAlert = useShowStakeEstimateGasAlert();
   const [amountValue, setAmountValue] = useState('');
+  const transactionConfirmationAmountRef = useRef(amountValue);
+  transactionConfirmationAmountRef.current = amountValue;
   const [approving, setApproving] = useState<boolean>(false);
   const [submitting, setSubmitting] = useState<boolean>(false);
   const [selectedValidator, setSelectedValidator] = useState<
@@ -734,13 +737,17 @@ export function UniversalStake({
   // window: protocols whose response carries no summary would otherwise pulse
   // the skeleton on every amount edit, and a failed first request would leave
   // the skeleton stuck forever.
-  const transactionConfirmationSettledRef = useRef(false);
+  const [transactionConfirmationSettled, setTransactionConfirmationSettled] =
+    useState(false);
 
   const debouncedFetchTransactionConfirmation = useDebouncedCallback(
     async (amount?: string) => {
       setTransactionConfirmationLoading(true);
       try {
         const resp = await fetchTransactionConfirmation(amount || '0');
+        if (transactionConfirmationAmountRef.current !== amount) {
+          return;
+        }
         setTransactionConfirmation(resp);
         if (resp && amount && Number(amount) > 0) {
           onQuoteReset?.();
@@ -748,8 +755,10 @@ export function UniversalStake({
       } catch {
         // keep stale state
       } finally {
-        transactionConfirmationSettledRef.current = true;
-        setTransactionConfirmationLoading(false);
+        if (transactionConfirmationAmountRef.current === amount) {
+          setTransactionConfirmationSettled(true);
+          setTransactionConfirmationLoading(false);
+        }
       }
     },
     350,
@@ -978,8 +987,16 @@ export function UniversalStake({
       void debouncedFetchEstimateFeeResp(amountValue);
     }
     prevShouldApproveRef.current = shouldApprove;
-
-    void debouncedFetchTransactionConfirmation(amountValue);
+    if (!isInvalidAmount(amountValue) && amountValueBN.isGreaterThan(0)) {
+      void debouncedFetchTransactionConfirmation(amountValue);
+    } else {
+      debouncedFetchTransactionConfirmation.cancel();
+      setTransactionConfirmation(undefined);
+      setTransactionConfirmationLoading(false);
+    }
+    return () => {
+      debouncedFetchTransactionConfirmation.cancel();
+    };
   }, [
     shouldApprove,
     amountValue,
@@ -2283,7 +2300,8 @@ export function UniversalStake({
     !isPendleLikeLayout &&
     (!protocolSwitchConfig || shouldReserveCompactSummary) &&
     !isDisabled &&
-    !transactionConfirmationSettledRef.current;
+    isPositiveAmount &&
+    !transactionConfirmationSettled;
 
   const summaryLoadingContent = useMemo(() => {
     if (!summaryPending) {
@@ -2480,9 +2498,15 @@ export function UniversalStake({
               />
             </XStack>
           ) : null}
-          {summaryContent}
-          {summaryLoadingContent}
-          {summaryContent || summaryLoadingContent ? <Divider my="$5" /> : null}
+          <HeightTransition>
+            {summaryContent || summaryLoadingContent ? (
+              <>
+                {summaryContent}
+                {summaryLoadingContent}
+                <Divider my="$5" />
+              </>
+            ) : null}
+          </HeightTransition>
           <YStack gap="$5">
             {ongoingValidator ? (
               <EarnValidatorSelect

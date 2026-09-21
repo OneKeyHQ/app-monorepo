@@ -9,6 +9,7 @@ import {
   NavBackButton,
   Page,
   SizableText,
+  Skeleton,
   XStack,
   YStack,
   glassBarItem,
@@ -47,6 +48,12 @@ import { useMarketDetailWatchlistIdentity } from '../../hooks/useMarketDetailWat
 import { ShareButton } from '../TokenDetailHeader/ShareButton';
 
 import { TabPageHeaderContainer } from './TabPageHeaderContainer';
+
+// Holds the address line while a stock route resolves its token, so the
+// title does not re-center when the address arrives.
+function AddressLineSkeleton() {
+  return <Skeleton.BodySm w={96} />;
+}
 
 export function MarketDetailHeader({
   showFavoriteButton = true,
@@ -167,7 +174,9 @@ export function MarketDetailHeader({
             ) : null}
           </XStack>
 
-          {tokenDetail?.communityRecognized || tokenDetail?.address ? (
+          {tokenDetail?.communityRecognized ||
+          tokenDetail?.address ||
+          !isNative ? (
             <XStack ai="center" gap="$1" minWidth={0}>
               {tokenDetail?.communityRecognized ? (
                 <TokenTagsPopover
@@ -208,6 +217,9 @@ export function MarketDetailHeader({
                   />
                 </XStack>
               ) : null}
+              {!tokenDetail?.address && !isNative ? (
+                <AddressLineSkeleton />
+              ) : null}
             </XStack>
           ) : null}
         </YStack>
@@ -219,6 +231,7 @@ export function MarketDetailHeader({
       tokenDetail?.communityRecognized,
       tokenDetail?.stock,
       tokenDetail?.address,
+      isNative,
       stableLogoUrls,
       networkLogoUri,
       isOverlayPage,
@@ -390,6 +403,9 @@ export function MarketDetailHeader({
                       onPress={handleCopyAddress}
                     />
                   </XStack>
+                ) : null}
+                {!tokenDetail?.address && !isNative ? (
+                  <AddressLineSkeleton />
                 ) : null}
               </XStack>
             </YStack>

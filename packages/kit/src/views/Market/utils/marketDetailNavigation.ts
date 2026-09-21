@@ -170,6 +170,22 @@ export function findMarketTabStack(state?: INavigationStateNode) {
   );
 }
 
+export function getCurrentMarketStockDetailRoute() {
+  const navigation = rootNavigationRef.current as INavigationLike | undefined;
+  const stack = findMarketTabStack(navigation?.getRootState?.());
+  const routes = stack?.routes ?? [];
+  const current = routes[stack?.index ?? routes.length - 1];
+  if (current?.name !== ETabMarketRoutes.MarketStockDetail) {
+    return undefined;
+  }
+  return current.params;
+}
+
+export function getCurrentMarketStockDetailId() {
+  const stockId = getCurrentMarketStockDetailRoute()?.stockId;
+  return typeof stockId === 'string' ? stockId : undefined;
+}
+
 function containsStack(
   state: INavigationStateNode | undefined,
   stackKey: string,

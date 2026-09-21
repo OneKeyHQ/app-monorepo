@@ -1,5 +1,5 @@
 import type { RefObject } from 'react';
-import { useEffect, useMemo, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
 
 import { isEqual } from 'lodash';
 import { useIntl } from 'react-intl';
@@ -17,7 +17,6 @@ import type {
   IAccountSelectorSelectedAccount,
 } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityAccountSelector';
 import {
-  useAccountSelectorDeFiMapAtom,
   useAccountSelectorValuesMapAtom,
   useActiveAccountValueAtom,
   useCurrencyPersistAtom,
@@ -27,14 +26,21 @@ import {
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { INetworkDeriveInfo } from '@onekeyhq/kit-bg/src/vaults/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
+import { swrCacheUtils } from '@onekeyhq/shared/src/utils/swrCacheUtils';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 
 import { AccountManagerTestIDs } from '../../../testIDs';
 import { accountSelectorAccountVisualV2 } from '../accountSelectorNativeListV2';
 
+import {
+  mergeAccountSelectorValueDisplayRowsV2,
+  readAccountSelectorValueDisplayRowsV2,
+  writeAccountSelectorValueDisplayCacheV2,
+} from './accountSelectorValueDisplayCacheV2';
 import { createAccountSelectorValueRowsV2 } from './accountSelectorValueRowsV2';
 
 import type {
@@ -43,6 +49,7 @@ import type {
   NativeListSnapshot,
   NativeListTheme,
   RowPatch,
+  SelectorTextSegment,
 } from '@onekeyfe/react-native-native-list';
 
 export type IAccountSelectorRowRecordV2 = {
@@ -53,6 +60,9 @@ export type IAccountSelectorRowRecordV2 = {
   section: IAccountSelectorAccountsListSectionData;
   index: number;
   avatarNetworkId?: string;
+  // Network the values query uses for this account, as
+  // ServiceAccountSelector.buildAccountSelectorAccountsListData builds it.
+  valuesNetworkId: string;
   shouldShowCreateAddressButton: boolean;
   isCreatingAddress: boolean;
 };
@@ -72,6 +82,11 @@ export function useAccountSelectorAccountRowsV2({
   enabledNetworksCompatibleWithWalletId,
   networkInfoMap,
   theme,
+  walletNetworksReady,
+  valueDisplayCacheKey,
+  valueDisplayScopeKey,
+  persistDisplayedValues,
+  valuesLoaded,
 }: {
   num: number;
   sections: IAccountSelectorAccountsListSectionData[];
@@ -86,14 +101,23 @@ export function useAccountSelectorAccountRowsV2({
   mergeDeriveAssetsEnabled?: boolean;
   enabledNetworksCompatibleWithWalletId: IServerNetwork[];
   networkInfoMap: Record<string, INetworkDeriveInfo>;
+  // The two values above are resolved for the focused wallet.
+  walletNetworksReady: boolean;
   theme: NativeListTheme;
+  // SWR key of the focused wallet's displayed balances and the
+  // network/derive scope inside it.
+  valueDisplayCacheKey?: string;
+  valueDisplayScopeKey: string;
+  // False while the rows are a filtered subset (search).
+  persistDisplayedValues: boolean;
+  // Every value batch of the current account set has been published.
+  valuesLoaded: boolean;
 }) {
   const intl = useIntl();
   const {
     activeAccount: { network },
   } = useActiveAccount({ num });
   const [valuesMap] = useAccountSelectorValuesMapAtom();
-  const [deFiMap] = useAccountSelectorDeFiMapAtom();
   const [activeAccountValue] = useActiveAccountValueAtom();
   const [addressCreationState] = useIndexedAccountAddressCreationStateAtom();
   const [{ currencyMap }] = useCurrencyPersistAtom();
@@ -138,6 +162,8 @@ export function useAccountSelectorAccountRowsV2({
             section,
             index,
             avatarNetworkId,
+            valuesNetworkId:
+              account?.createAtNetwork || selectedAccount.networkId || '',
             shouldShowCreateAddressButton: !!(linkNetwork && isEmptyAddress),
             isCreatingAddress: !!(
               addressCreationState?.indexedAccountId === indexedAccount?.id &&
@@ -292,45 +318,130 @@ export function useAccountSelectorAccountRowsV2({
   // The cache owns only the current account set, not previous wallets.
   const getValueRows = useMemo(() => createAccountSelectorValueRowsV2(), []);
   const accountValues = valuesMap[num];
-  const accountDeFi = deFiMap[num];
-  const rows = useMemo(
+  const skipValues = !!(platformEnv.isWebDappMode || platformEnv.isE2E);
+  const hideValue = !!settingsValue.hideValue;
+  // Value texts are formatted in the app locale; changing it restarts the app.
+  const valueLocale = appLocale.intl.locale;
+  // Read when the wallet or scope changes, not on every write: these texts
+  // only fill rows until their live values land, and this view may have
+  // written the scope since it last read the entry.
+  const displayedValues = useMemo(
+    () =>
+      valueDisplayCacheKey && !skipValues
+        ? readAccountSelectorValueDisplayRowsV2({
+            cache: swrCacheUtils.get<unknown>(valueDisplayCacheKey),
+            scopeKey: valueDisplayScopeKey,
+            currency: currencyInfo.id,
+            locale: valueLocale,
+            hideValue,
+          })
+        : undefined,
+    [
+      valueDisplayCacheKey,
+      valueDisplayScopeKey,
+      skipValues,
+      currencyInfo.id,
+      valueLocale,
+      hideValue,
+    ],
+  );
+  const { rows, sources } = useMemo(
     () =>
       getValueRows({
         staticRows,
         records,
         accountValues,
-        accountDeFi,
         activeAccountValue,
+        displayedValues,
         context: {
           walletId: wallet?.id ?? '',
-          networkId: network?.id,
+          // The selected network, like the list and its values query. The
+          // active account follows it only after a rebuild.
+          networkId: selectedAccount.networkId || network?.id,
           mergeDeriveAssetsEnabled,
           enabledNetworksCompatibleWithWalletId,
           networkInfoMap,
+          walletNetworksReady,
           currencyMap,
           targetCurrency: currencyInfo.id,
-          hideValue: !!settingsValue.hideValue,
+          hideValue,
+          locale: valueLocale,
         },
-        skipValues: !!(platformEnv.isWebDappMode || platformEnv.isE2E),
+        skipValues,
       }),
     [
       getValueRows,
       staticRows,
       records,
       accountValues,
-      accountDeFi,
       activeAccountValue,
+      displayedValues,
       wallet?.id,
+      selectedAccount.networkId,
       network?.id,
       mergeDeriveAssetsEnabled,
       enabledNetworksCompatibleWithWalletId,
       networkInfoMap,
+      walletNetworksReady,
       currencyMap,
       currencyInfo.id,
-      settingsValue.hideValue,
+      hideValue,
+      valueLocale,
+      skipValues,
     ],
   );
-  return { records, rows };
+  // Remember what the rows display once the account set finished loading,
+  // so the next visit or cold start can paint it before values load.
+  useEffect(() => {
+    if (
+      !valueDisplayCacheKey ||
+      !persistDisplayedValues ||
+      !valuesLoaded ||
+      skipValues ||
+      hideValue
+    ) {
+      return;
+    }
+    const liveRows: Record<string, SelectorTextSegment> = {};
+    rows.forEach((row) => {
+      const segment = row.subtitleSegments?.[0];
+      if (segment && sources[row.key] === 'live') liveRows[row.key] = segment;
+    });
+    const next = mergeAccountSelectorValueDisplayRowsV2({
+      cache: swrCacheUtils.get<unknown>(valueDisplayCacheKey),
+      scopeKey: valueDisplayScopeKey,
+      currency: currencyInfo.id,
+      locale: valueLocale,
+      accountIds: rows.map((row) => row.key),
+      liveRows,
+      now: Date.now(),
+    });
+    if (next)
+      writeAccountSelectorValueDisplayCacheV2(valueDisplayCacheKey, next);
+  }, [
+    currencyInfo.id,
+    hideValue,
+    persistDisplayedValues,
+    rows,
+    skipValues,
+    sources,
+    valueDisplayCacheKey,
+    valueDisplayScopeKey,
+    valueLocale,
+    valuesLoaded,
+  ]);
+  // Every row in [start, start + count) shows a balance (live or last
+  // displayed), or loading finished and the rest will not get one.
+  const areRowValuesReady = useCallback(
+    (start: number, count: number) =>
+      skipValues ||
+      (valuesLoaded && walletNetworksReady) ||
+      rows
+        .slice(start, start + count)
+        .every((row) => sources[row.key] !== 'pending'),
+    [rows, skipValues, sources, valuesLoaded, walletNetworksReady],
+  );
+  return { records, rows, areRowValuesReady };
 }
 
 const accountRowPatchFieldsV2 = new Set<keyof IdentityRow>([

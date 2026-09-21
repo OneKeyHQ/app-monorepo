@@ -67,10 +67,17 @@ function readCachedStockListResponse(swrKey: string) {
   return cached.data.firstPage ?? cached.data.response;
 }
 
-export function useMarketStockSelectorList({ query }: { query?: string }) {
+export function useMarketStockSelectorList({
+  query,
+  searchOnly = false,
+}: {
+  query?: string;
+  searchOnly?: boolean;
+}) {
   const locale = useLocaleVariant();
   const normalizedQuery = query?.trim() ?? '';
   const queryKey = normalizedQuery;
+  const shouldUseDefaultList = !searchOnly && !normalizedQuery;
   const queryKeyRef = useRef(queryKey);
   queryKeyRef.current = queryKey;
   const defaultListQueryKey = useMemo(
@@ -83,15 +90,15 @@ export function useMarketStockSelectorList({ query }: { query?: string }) {
     [locale],
   );
   const emptyListSwrKey = useMemo(() => {
-    if (normalizedQuery) {
+    if (!shouldUseDefaultList) {
       return undefined;
     }
     const key = swrKeys.marketHomeStocks(`selector:${defaultListQueryKey}`);
     dropStaleStockListCache(key);
     return key;
-  }, [defaultListQueryKey, normalizedQuery]);
+  }, [defaultListQueryKey, shouldUseDefaultList]);
   const cachedEmptyListInitResult = useMemo(() => {
-    if (normalizedQuery) {
+    if (!shouldUseDefaultList) {
       return EMPTY_STOCK_SELECTOR_RESULT;
     }
     const response =
@@ -105,7 +112,7 @@ export function useMarketStockSelectorList({ query }: { query?: string }) {
       return EMPTY_STOCK_SELECTOR_RESULT;
     }
     return { queryKey: '', response };
-  }, [defaultListQueryKey, emptyListSwrKey, normalizedQuery]);
+  }, [defaultListQueryKey, emptyListSwrKey, shouldUseDefaultList]);
 
   const [listState, setListState] = useState<IMarketStockSelectorListState>({
     queryKey: UNINITIALIZED_STOCK_SELECTOR_QUERY_KEY,
@@ -131,6 +138,15 @@ export function useMarketStockSelectorList({ query }: { query?: string }) {
     async () => {
       const requestQueryKey = queryKey;
       try {
+        if (searchOnly && !normalizedQuery) {
+          if (queryKeyRef.current === requestQueryKey) {
+            remoteQueryKeyRef.current = requestQueryKey;
+          }
+          return {
+            queryKey: requestQueryKey,
+            response: { items: [], total: 0 },
+          };
+        }
         const response = normalizedQuery
           ? await backgroundApiProxy.serviceMarketV2.searchMarketStocks({
               query: normalizedQuery,
@@ -150,7 +166,7 @@ export function useMarketStockSelectorList({ query }: { query?: string }) {
         return { queryKey: requestQueryKey, failed: true };
       }
     },
-    [normalizedQuery, queryKey],
+    [normalizedQuery, queryKey, searchOnly],
     {
       initResult: cachedEmptyListInitResult,
       watchLoading: true,
@@ -245,6 +261,9 @@ export function useMarketStockSelectorList({ query }: { query?: string }) {
     setIsLoadMoreError(false);
 
     try {
+      if (searchOnly && !normalizedQuery) {
+        return;
+      }
       const response = normalizedQuery
         ? await backgroundApiProxy.serviceMarketV2.searchMarketStocks({
             query: normalizedQuery,
@@ -295,6 +314,7 @@ export function useMarketStockSelectorList({ query }: { query?: string }) {
     nextCursor,
     normalizedQuery,
     queryKey,
+    searchOnly,
   ]);
 
   useEffect(() => {

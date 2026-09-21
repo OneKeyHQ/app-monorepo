@@ -26,6 +26,39 @@ describe('formatUsdcWithdrawFeeText', () => {
     ).toBe('$1.20');
   });
 
+  it('marks a fallback reserve as estimated alongside the CCTP fee', () => {
+    expect(
+      formatUsdcWithdrawFeeText({
+        feeQuote: cctpQuote,
+        reserve: '1.01',
+        includeReserve: true,
+        isReserveEstimate: true,
+      }),
+    ).toBe('≈ $1.21');
+  });
+
+  it('does not apply a fallback estimate to a legacy bridge fee', () => {
+    expect(
+      formatUsdcWithdrawFeeText({
+        feeQuote: {
+          components: [
+            {
+              kind: 'legacyBridge',
+              amount: '1',
+              token: 'USDC',
+              debitedFrom: 'withdrawAmount',
+              isEstimate: false,
+            },
+          ],
+          quotedAt: 1,
+        },
+        reserve: '1.01',
+        includeReserve: false,
+        isReserveEstimate: true,
+      }),
+    ).toBe('$1.00');
+  });
+
   it('keeps the sub-cent indicator for the minimum reserve', () => {
     expect(
       formatUsdcWithdrawFeeText({
@@ -84,6 +117,14 @@ describe('formatUsdcWithdrawFeeText', () => {
         includeReserve: true,
       }),
     ).toBe('$1.23');
+    expect(
+      formatUsdcWithdrawFeeText({
+        feeQuote: hyperEvmQuote,
+        reserve: '1.01',
+        includeReserve: true,
+        isReserveEstimate: true,
+      }),
+    ).toBe('≈ $1.01');
   });
 
   it('does not show the preview while the account reserve is unknown', () => {

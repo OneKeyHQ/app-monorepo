@@ -72,8 +72,11 @@ export type IBuildPortfolioPayloadParams = {
   aggregateTokenMap?: Record<string, ITokenFiat>;
   currencyMap: Record<string, ICurrencyItem>;
   displayCurrency: IPortfolioDisplayCurrency;
-  // Category net worth is fetched in USD for the same account/network scope.
+  // Category net worth uses USD for the same account/network scope.
   categoryFiat?: IPortfolioCategoryFiat;
+  // Home's rendered total can differ from the token subtotal while a category
+  // is loading or the balance header is holding its last confirmed value.
+  homeTotalFiatUsd?: string;
   schemaVersion?: 1 | 2;
   totalFiat: string;
   totalFiatCurrency: string;
@@ -438,6 +441,7 @@ export function buildPortfolioPayload({
   categoryFiat,
   currencyMap,
   displayCurrency,
+  homeTotalFiatUsd,
   schemaVersion = 1,
   totalFiat: rawTotalFiat,
   totalFiatCurrency,
@@ -576,6 +580,18 @@ export function buildPortfolioPayload({
     targetCurrency: displayCurrency.id,
     value: categoryFiat?.perpsFiat,
   }).value;
+  const homeTotal =
+    homeTotalFiatUsd === undefined
+      ? undefined
+      : convertFiatStrictToDisplayCurrency({
+          currencyMap,
+          sourceCurrency: 'usd',
+          targetCurrency: displayCurrency.id,
+          value: homeTotalFiatUsd,
+        }).value;
+  if (homeTotal === null) {
+    throw new OneKeyLocalError('Unable to convert Home Portfolio total');
+  }
   const formatCategory = (value: string | null, field: string) =>
     value === null
       ? '—'
@@ -588,6 +604,30 @@ export function buildPortfolioPayload({
           field,
         );
 
+  let v2TotalFiat = totalFiat;
+  if (homeTotal !== undefined) {
+    v2TotalFiat = validatePortfolioDisplayBytes(
+      formatPortfolioNetWorth(
+        new BigNumber(homeTotal),
+        currencyPrefix,
+        formatPro2PortfolioTotalFiat,
+      ),
+      'totalFiat',
+    );
+  } else if (categoryFiat !== undefined) {
+    v2TotalFiat =
+      defi === null || perps === null
+        ? '—'
+        : validatePortfolioDisplayBytes(
+            formatPortfolioNetWorth(
+              totalFiatValue.plus(defi).plus(perps),
+              currencyPrefix,
+              formatPro2PortfolioTotalFiat,
+            ),
+            'totalFiat',
+          );
+  }
+
   return {
     ...payload,
     v: 2,
@@ -598,18 +638,7 @@ export function buildPortfolioPayload({
     ),
     defiFiat: formatCategory(defi, 'defiFiat'),
     perpsFiat: formatCategory(perps, 'perpsFiat'),
-    // A partial valuation must not be presented as a complete account total.
-    totalFiat:
-      defi === null || perps === null
-        ? '—'
-        : validatePortfolioDisplayBytes(
-            formatPortfolioNetWorth(
-              totalFiatValue.plus(defi).plus(perps),
-              currencyPrefix,
-              formatPro2PortfolioTotalFiat,
-            ),
-            'totalFiat',
-          ),
+    totalFiat: v2TotalFiat,
   };
 }
 

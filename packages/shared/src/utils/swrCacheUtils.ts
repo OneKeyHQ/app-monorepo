@@ -2,7 +2,7 @@
 import { isEqual } from 'lodash';
 
 import { defaultLogger } from '../logger/logger';
-import { EAppSyncStorageKeys } from '../storage/syncStorageKeys';
+import platformEnv, { ERuntimeRole } from '../platformEnv';
 
 import {
   SWR_ACCOUNT_SELECTOR_MAX_ENTRIES,
@@ -15,15 +15,19 @@ import {
   SWR_CACHE_SLOW_OP_LOG_THRESHOLD_MS,
   isValidSWRCacheKey,
 } from './swrCacheLimits';
+// Namespaces live in their own module; the storage layer names its own from
+// the same list and must not import this one.
+import { swrCacheNamespaces as NS } from './swrCacheNamespaceNames';
+import {
+  clearAllSwrCacheNamespaces,
+  readSwrCacheEntry,
+  removeSwrCacheByPrefix,
+  removeSwrCacheEntries,
+  writeSwrCacheEntries,
+} from './swrCacheNamespaceStorage';
 
+import type { ISwrCacheStoredEntry } from './swrCacheNamespaceStorage';
 import type * as HL from '../../types/hyperliquid/sdk';
-import type { ISyncStorage } from '../storage/instance/syncStorageInstance';
-import type {
-  INativeSWRCacheCanonicalEntry,
-  INativeSWRCacheEntriesListener,
-  INativeSWRCachePatchIntent,
-  INativeSWRCacheSerializedEntry,
-} from '../storage/nativeStorageTypes';
 import type { EAppSWRCacheScopes } from '../storage/syncStorageKeys';
 
 export {
@@ -295,10 +299,7 @@ export function pruneSWRCacheStore<T extends IPrunableSWREntry>(
   };
 }
 
-let _syncStorage: ISyncStorage | undefined;
 let _cache: ISWRStore | undefined;
-let _nativeEntriesSubscribed = false;
-let _nativeEntriesSource: INativeSWRCacheEntriesSource | null | undefined;
 let _cacheEntrySerializedChars = new Map<string, number>();
 let _cacheSerializedChars = 2;
 let _dirty = false;
@@ -330,245 +331,68 @@ function isDeletedLocally(key: string, diskTimestamp: number): boolean {
 
 const FLUSH_DEBOUNCE_MS = 2000;
 
-function getSyncStorage(): ISyncStorage {
-  if (!_syncStorage) {
-    // Lazy require to avoid circular dependency at module load time.
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const { coldStartCacheStorage } =
-      require('../storage/instance/syncStorageInstance') as typeof import('../storage/instance/syncStorageInstance');
-    _syncStorage = coldStartCacheStorage;
-  }
-  return _syncStorage;
+/**
+ * Whether this runtime is the one that touches the store.
+ *
+ * A removal is a write, and a namespace's records are one file (native) or one
+ * key range (web) that every runtime opens, with nothing to lock across them.
+ * So the background runtime does not delete: it announces what it dropped and
+ * the UI runtime, which owns the hooks that write these entries, performs the
+ * delete in its own flush. That keeps every mutation of a namespace on one
+ * thread, and it closes the window where bg's delete reached the file first
+ * and a write still pending here landed on top of it, outliving the removal.
+ */
+function isStoreOwnerRuntime() {
+  return platformEnv.runtimeRole !== ERuntimeRole.Background;
 }
 
-type INativeSWRCacheEntriesSource = {
-  applyPatch: (patch: INativeSWRCachePatchIntent) => void | Promise<void>;
-  read: () => INativeSWRCacheSerializedEntry[];
-  subscribe: (listener: INativeSWRCacheEntriesListener) => () => void;
-};
-
-// Native main: the mirror holds one serialized entry per key and reports
-// what bg changed, so this copy is kept current without whole-store reads.
-// The runtime storage wrapper declares every optional capability and forwards
-// it with `?.`, so presence proves nothing: only a backend that implements the
-// read answers with an array. Detected once per runtime.
-function getNativeSWRCacheEntriesSource():
-  | INativeSWRCacheEntriesSource
-  | undefined {
-  if (_nativeEntriesSource !== undefined) {
-    return _nativeEntriesSource ?? undefined;
-  }
-  const { applySWRCachePatch, readSWRCacheEntries, subscribeSWRCacheEntries } =
-    getSyncStorage();
-  const entries = readSWRCacheEntries?.();
-  _nativeEntriesSource =
-    applySWRCachePatch &&
-    readSWRCacheEntries &&
-    subscribeSWRCacheEntries &&
-    Array.isArray(entries)
-      ? {
-          applyPatch: applySWRCachePatch,
-          read: () => readSWRCacheEntries() ?? [],
-          subscribe: subscribeSWRCacheEntries,
-        }
-      : null;
-  return _nativeEntriesSource ?? undefined;
-}
-
-function parseSerializedSWRCacheEntry(
-  key: string,
-  serialized: string,
-): ISerializedSWRCacheEntry<ISWREntry> | undefined {
-  try {
-    const entry = JSON.parse(serialized) as unknown;
-    if (!entry || typeof entry !== 'object' || Array.isArray(entry)) {
-      return undefined;
-    }
-    const updatedAt = (entry as ISWREntry).t;
-    return {
-      entry: entry as ISWREntry,
-      entrySerializedChars: serialized.length,
-      index: 0,
-      key,
-      serializedChars: JSON.stringify(key).length + 1 + serialized.length,
-      updatedAt: typeof updatedAt === 'number' ? updatedAt : 0,
-    };
-  } catch {
-    return undefined;
-  }
-}
-
-function hydrateFromNativeEntries(
-  source: INativeSWRCacheEntriesSource,
-): ISWRStore {
-  const removedKeys: string[] = [];
-  const capacityDrops: ISWRCacheCapacityDrop[] = [];
-  const candidates: ISerializedSWRCacheEntry<ISWREntry>[] = [];
-  source.read().forEach(([key, serialized], index) => {
-    if (!isValidSWRCacheKey(key)) {
-      capacityDrops.push({ key, reason: 'keyLimit' });
-      return;
-    }
-    if (serialized.length > SWR_CACHE_MAX_ENTRY_SERIALIZED_CHARS) {
-      capacityDrops.push({
-        entrySerializedChars: serialized.length,
-        key,
-        reason: 'entryLimit',
-      });
-      return;
-    }
-    const candidate = parseSerializedSWRCacheEntry(key, serialized);
-    if (!candidate) {
-      return;
-    }
-    candidate.index = index;
-    candidates.push(candidate);
-  });
-  const retained = retainSWRCacheCandidates(
-    candidates,
-    resolveSWRCacheBudgets(),
-    removedKeys,
-    capacityDrops,
-  );
-  const store: ISWRStore = {};
-  _cacheEntrySerializedChars = new Map();
-  _cacheSerializedChars = 2;
-  retained.forEach((candidate) => setCachedEntry(store, candidate));
-  if (removedKeys.length > 0) {
-    const removedAt = Date.now();
-    removedKeys.forEach((key) => {
-      _updatedKeys.delete(key);
-      _removedKeysAt.set(key, removedAt);
-    });
-    _dirty = true;
-  }
-  return store;
-}
-
-// The mirror was primed again (bootstrap or bg restart): rebuild from it,
-// keeping this runtime's not yet flushed writes and deletions on top.
-function rehydrateFromNativeEntries(source: INativeSWRCacheEntriesSource) {
-  const previous = _cache;
-  const store = hydrateFromNativeEntries(source);
-  _cache = store;
-  if (!previous) {
-    return;
-  }
-  for (const key of _updatedKeys) {
-    const entry = previous[key];
-    const candidate = entry ? serializeSWRCacheEntry(key, entry) : undefined;
-    if (candidate) {
-      setCachedEntry(store, candidate);
-    }
-  }
-  for (const key of Object.keys(store)) {
-    if (!_updatedKeys.has(key) && isDeletedLocally(key, store[key].t ?? 0)) {
-      removeCachedEntry(store, key);
-    }
-  }
-}
-
-// Same precedence as the flush merge: a pending local write beats anything
-// older, a local deletion beats anything not newer than it.
-function adoptNativeCanonicalEntries(entries: INativeSWRCacheCanonicalEntry[]) {
-  const store = _cache;
-  if (!store) {
-    return;
-  }
-  entries.forEach(([key, serialized]) => {
-    if (!isValidSWRCacheKey(key)) {
-      return;
-    }
-    const incoming =
-      serialized === null ||
-      serialized.length > SWR_CACHE_MAX_ENTRY_SERIALIZED_CHARS
-        ? undefined
-        : parseSerializedSWRCacheEntry(key, serialized);
-    if (serialized !== null && !incoming) {
-      return;
-    }
-    if (_updatedKeys.has(key)) {
-      const local = store[key];
-      if (!incoming || (local && (local.t ?? 0) >= incoming.updatedAt)) {
-        return;
-      }
-      _updatedKeys.delete(key);
-      setCachedEntry(store, incoming);
-      return;
-    }
-    if (!incoming) {
-      removeCachedEntry(store, key);
-      return;
-    }
-    if (isDeletedLocally(key, incoming.updatedAt)) {
-      return;
-    }
-    setCachedEntry(store, incoming);
-  });
-}
-
-function subscribeToNativeEntries(source: INativeSWRCacheEntriesSource) {
-  if (_nativeEntriesSubscribed) {
-    return;
-  }
-  _nativeEntriesSubscribed = true;
-  source.subscribe((entries) => {
-    if (entries === null) {
-      rehydrateFromNativeEntries(source);
-    } else {
-      adoptNativeCanonicalEntries(entries);
-    }
-  });
-}
-
+/**
+ * The store this runtime has looked at, not the store on disk.
+ *
+ * Each namespace keeps its own records and a read names its key, so nothing
+ * is loaded up front: a miss reads through to the namespace, and what comes
+ * back is kept here for the next read. That is also how a write by the other
+ * runtime becomes visible — `reloadFromStorage` drops what is not pending and
+ * the next read goes back to the file.
+ */
 function loadStore(): ISWRStore {
-  if (_cache !== undefined) return _cache;
-  try {
-    const nativeEntries = getNativeSWRCacheEntriesSource();
-    if (nativeEntries) {
-      _cache = hydrateFromNativeEntries(nativeEntries);
-      subscribeToNativeEntries(nativeEntries);
-    } else {
-      const loaded =
-        getSyncStorage().getObject<ISWRStore>(
-          EAppSyncStorageKeys.onekey_swr_cache,
-        ) ?? {};
-      _cache = adoptPrunedStore(loaded);
-    }
-    if (_dirty) {
-      scheduleFlush();
-    }
-  } catch {
+  if (_cache === undefined) {
     _cache = {};
     resetCacheSerializedChars(_cache);
+    subscribeToRemoteInvalidation();
   }
   return _cache;
 }
 
-// getObject() reports an unparseable store and an absent one identically, and
-// treating corruption as absent would let flush() drop everything else.
-function readStoreFromDisk(): {
-  store: ISWRStore | undefined;
-  unreadable: boolean;
-  rawChars: number;
-} {
-  let raw: string | undefined;
-  try {
-    raw = getSyncStorage().getString(EAppSyncStorageKeys.onekey_swr_cache);
-  } catch {
-    return { store: undefined, unreadable: true, rawChars: 0 };
+/** Read a key this runtime has not seen yet, honouring its own pending
+ *  deletions so a read cannot put back what `remove` just dropped. */
+function readThroughToStore<T>(key: string): ISWREntry<T> | undefined {
+  const stored = readSwrCacheEntry(key);
+  if (!stored || typeof stored.t !== 'number') {
+    return undefined;
   }
-  if (!raw) {
-    return { store: undefined, unreadable: false, rawChars: 0 };
+  if (isDeletedLocally(key, stored.t)) {
+    return undefined;
   }
-  const rawChars = raw.length;
-  try {
-    return { store: JSON.parse(raw) as ISWRStore, unreadable: false, rawChars };
-  } catch {
-    return { store: undefined, unreadable: true, rawChars };
+  const entry = { d: stored.d, t: stored.t } as ISWREntry<T>;
+  const serialized = serializeSWRCacheEntry(key, entry);
+  if (!serialized) {
+    return undefined;
   }
+  setCachedEntry(loadStore(), serialized);
+  // Adopting a value that is already on disk is not a change to persist.
+  _updatedKeys.delete(key);
+  return entry;
 }
 
+function lookupEntry<T>(key: string): ISWREntry<T> | undefined {
+  const store = loadStore();
+  const entry = store[key] as ISWREntry<T> | undefined;
+  if (entry) {
+    return entry;
+  }
+  return readThroughToStore<T>(key);
+}
 function perfNow(): number {
   return globalThis.performance?.now?.() ?? Date.now();
 }
@@ -629,45 +453,35 @@ function diffHermesHeapStats(before: IHermesHeapStats | undefined) {
   };
 }
 
+/**
+ * Forget what this runtime has read, so the next read goes back to disk.
+ *
+ * Both runtimes write these namespaces. Nothing notifies this one when the
+ * other commits, so the way its writes become visible is to drop the copy
+ * held here — pending writes first, so nothing still pending is lost.
+ */
 function reloadFromStorage(): void {
-  if (getNativeSWRCacheEntriesSource()) {
-    // The mirror subscription already delivered every bg write; only this
-    // runtime's own pending writes are outstanding.
-    flush();
-    return;
-  }
   flush();
   const startedAt = perfNow();
   const heapBefore = readHermesHeapStats();
-  const { store, unreadable, rawChars } = readStoreFromDisk();
-  if (unreadable && _cache && Object.keys(_cache).length > 0) {
-    // Repairing from an empty copy instead would leave a parseable empty
-    // store, costing the runtime holding a full copy its only chance.
-    //
-    // Every key is marked pending, not just the dirty ones: if the other
-    // runtime makes the file parseable again before this flush lands, the
-    // merge would otherwise carry nothing forward and the adoption would drop
-    // this copy from memory as well.
-    for (const key of Object.keys(_cache)) {
-      _updatedKeys.add(key);
+  const store = loadStore();
+  const retained: ISWRStore = {};
+  // A key still waiting to be flushed is this runtime's newest value; every
+  // other key is a copy of the file and can be read again on demand.
+  _updatedKeys.forEach((key) => {
+    const entry = store[key];
+    if (entry) {
+      retained[key] = entry;
     }
-    _dirty = true;
-    scheduleFlush();
-  } else if (store) {
-    // Only when a store was actually read: on a backend that persists nothing
-    // this copy is the only one, and the perps first-frame path reloads every
-    // 30s, so clearing here would drop every namespace for the session.
-    _cache = adoptPrunedStore(store);
-    if (_dirty) {
-      scheduleFlush();
-    }
-  }
+  });
+  _cache = retained;
+  resetCacheSerializedChars(retained);
   const durationMs = Math.round(perfNow() - startedAt);
   if (durationMs >= SWR_CACHE_SLOW_OP_LOG_THRESHOLD_MS) {
     defaultLogger.app.perf.swrCacheSlowOp({
       op: 'reload',
       durationMs,
-      storeChars: rawChars,
+      storeChars: _cacheSerializedChars,
       entryCount: _cacheEntrySerializedChars.size,
       ...diffHermesHeapStats(heapBefore),
     });
@@ -823,44 +637,6 @@ function evictOldestAccountSelectorEntries(
   });
 }
 
-function adoptPrunedStore(store: ISWRStore): ISWRStore {
-  const result = pruneSWRCacheStore(store);
-  resetCacheSerializedChars(result.store);
-  if (result.removedKeys.length > 0) {
-    const removedAt = Date.now();
-    result.removedKeys.forEach((key) => {
-      _updatedKeys.delete(key);
-      if (isValidSWRCacheKey(key)) {
-        _removedKeysAt.set(key, removedAt);
-      }
-    });
-    _dirty = true;
-  }
-  return result.store;
-}
-
-function buildNativeSWRCachePatch() {
-  const patch: INativeSWRCachePatchIntent = {
-    ...(Number.isSafeInteger(_clearedAllAt) && _clearedAllAt > 0
-      ? { clearBefore: _clearedAllAt }
-      : {}),
-    removePrefixes: [..._removedPrefixesAt],
-    removals: [..._removedKeysAt],
-    updates: [..._updatedKeys].flatMap((key) => {
-      const entry = _cache?.[key];
-      if (!entry) {
-        return [];
-      }
-      return [[key, JSON.stringify(entry)] as const];
-    }),
-  };
-  const patchChars = patch.updates.reduce(
-    (sum, [, value]) => sum + value.length,
-    0,
-  );
-  return { patch, patchChars };
-}
-
 function clearPendingIntents() {
   _updatedKeys.clear();
   _removedKeysAt.clear();
@@ -871,21 +647,210 @@ function clearPendingIntents() {
 
 // Only the changed entries are serialized; the mirror applies them per key
 // and bg's acknowledgement comes back through the subscription.
-function flushToNativeEntries(source: INativeSWRCacheEntriesSource) {
+/**
+ * Tell the other runtime what this one removed.
+ *
+ * Both runtimes hold their own copy of the entries they have read, and only
+ * removals need to cross: a write the other runtime has not seen is a miss
+ * there, and a miss reads the file. A removal is the opposite — the stale
+ * value is a hit, so nothing sends it back to the file, and the entity the
+ * caller just deleted would keep painting until the next launch.
+ *
+ * bg drops these namespaces on every wallet or account mutation, so this is
+ * also what makes rename and delete reach the UI.
+ */
+/** True while this runtime's own announcement is being delivered. `emit`
+ *  runs local listeners synchronously, so the subscription below would treat
+ *  this runtime's own removals as a remote instruction, record them again and
+ *  flush again — every couple of seconds, for the life of the process. A
+ *  genuine remote delivery arrives from the bridge, long after this is back
+ *  to false. */
+let _announcingOwnInvalidation = false;
+
+function publishInvalidation({
+  keys,
+  prefixes,
+  clearedAll,
+}: {
+  keys: string[];
+  prefixes: string[];
+  clearedAll: boolean;
+}) {
+  if (!clearedAll && keys.length === 0 && prefixes.length === 0) {
+    return;
+  }
+  try {
+    // Lazy: the event bus reaches back into storage, and this module is on
+    // that path.
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const { appEventBus, EAppEventBusNames } =
+      require('../eventBus/appEventBus') as typeof import('../eventBus/appEventBus');
+    _announcingOwnInvalidation = true;
+    try {
+      appEventBus.emit(EAppEventBusNames.SwrCacheInvalidated, {
+        ...(keys.length > 0 ? { keys } : {}),
+        ...(prefixes.length > 0 ? { prefixes } : {}),
+        ...(clearedAll ? { clearedAll } : {}),
+      });
+    } finally {
+      _announcingOwnInvalidation = false;
+    }
+  } catch {
+    // A cache that cannot announce a removal still removed it locally.
+  }
+}
+
+/**
+ * Drop what the other runtime removed, so the next read goes to the file.
+ *
+ * A pending local write is dropped with the entry rather than protected from
+ * it. Protecting it treats the two runtimes as writers racing over one value,
+ * which is the wrong model for a removal: the other runtime published this
+ * only after its own delete reached the shared store, so what is pending here
+ * describes an entity that no longer exists. Keeping it would serve the
+ * deleted value and then write it back to the store on the next flush, where
+ * it survives into the next cold start's first frame.
+ *
+ * The cost of the other mistake is one refetch, so this over-invalidates on
+ * purpose — the same trade `removeSwrCacheByPrefix` makes for digested keys.
+ */
+function dropInvalidatedFromMemory({
+  keys,
+  prefixes,
+  clearedAll,
+}: {
+  keys?: string[];
+  prefixes?: string[];
+  clearedAll?: boolean;
+}) {
+  const store = _cache;
+  if (!store) {
+    return;
+  }
+  if (clearedAll) {
+    Object.keys(store).forEach((key) => removeCachedEntry(store, key));
+    _updatedKeys.clear();
+    return;
+  }
+  keys?.forEach((key) => {
+    removeCachedEntry(store, key);
+    _updatedKeys.delete(key);
+  });
+  prefixes?.forEach((prefix) => {
+    Object.keys(store).forEach((key) => {
+      if (key.startsWith(prefix)) {
+        removeCachedEntry(store, key);
+      }
+    });
+    // Swept separately: a pending key that has already been evicted from the
+    // store would otherwise stay queued and be written back.
+    for (const key of _updatedKeys) {
+      if (key.startsWith(prefix)) {
+        _updatedKeys.delete(key);
+      }
+    }
+  });
+}
+
+function applyRemoteInvalidation(payload: {
+  keys?: string[];
+  prefixes?: string[];
+  clearedAll?: boolean;
+}) {
+  if (_announcingOwnInvalidation) {
+    return;
+  }
+  const { keys, prefixes, clearedAll } = payload;
+  const owns = isStoreOwnerRuntime();
+  if (owns) {
+    // The announcing runtime did not delete anything on disk, so this is
+    // where the removal is carried out. Recorded as this runtime's own
+    // intent, which also stops a read-through from adopting the record back
+    // out of the file before the flush reaches it.
+    const now = Date.now();
+    if (clearedAll) {
+      _clearedAllAt = now;
+    }
+    keys?.forEach((key) => _removedKeysAt.set(key, now));
+    prefixes?.forEach((prefix) => _removedPrefixesAt.push({ prefix, at: now }));
+    _dirty = true;
+    // A store this runtime never touched still has a file to delete from, and
+    // `flush` will not run before the store exists.
+    loadStore();
+  }
+  dropInvalidatedFromMemory(payload);
+  if (owns) {
+    // Not left to the debounce: what this carries is a deletion, and the
+    // window it closes is the one where the process ends before it lands.
+    flushNow();
+  }
+}
+
+let _invalidationSubscribed = false;
+/**
+ * Subscribe before anything reads the cache.
+ *
+ * The owner runtime performs the removals the other one announces, so missing
+ * an announcement now means a record nothing deletes. `loadStore` subscribes
+ * too, but only once something has read or written an entry — this is for the
+ * startup path, which runs earlier than the first read.
+ */
+export function ensureSwrCacheInvalidationSubscribed() {
+  subscribeToRemoteInvalidation();
+}
+
+function subscribeToRemoteInvalidation() {
+  if (_invalidationSubscribed) {
+    return;
+  }
+  _invalidationSubscribed = true;
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const { appEventBus, EAppEventBusNames } =
+      require('../eventBus/appEventBus') as typeof import('../eventBus/appEventBus');
+    appEventBus.on(EAppEventBusNames.SwrCacheInvalidated, (payload) => {
+      applyRemoteInvalidation(payload);
+    });
+  } catch {
+    // Without the bus this runtime keeps its own copy until it reloads.
+  }
+}
+
+function flush() {
+  if (!_dirty || !_cache) return;
   try {
     const startedAt = perfNow();
     const heapBefore = readHermesHeapStats();
     const updatedKeyCount = _updatedKeys.size;
-    const { patch, patchChars } = buildNativeSWRCachePatch();
-    // A pending write that bg since superseded leaves nothing to send.
-    if (
-      patch.clearBefore !== undefined ||
-      patch.removePrefixes.length > 0 ||
-      patch.removals.length > 0 ||
-      patch.updates.length > 0
-    ) {
-      void source.applyPatch(patch);
+    // Order matters: the wipes are what this runtime decided is gone, and
+    // they must not take the writes that followed them with them.
+    //
+    // Only on the runtime that owns the store. Elsewhere the removal travels
+    // as an announcement and is performed there — see `isStoreOwnerRuntime`.
+    if (isStoreOwnerRuntime()) {
+      if (_clearedAllAt > 0) {
+        clearAllSwrCacheNamespaces();
+      }
+      _removedPrefixesAt.forEach(({ prefix }) =>
+        removeSwrCacheByPrefix(prefix),
+      );
+      removeSwrCacheEntries([..._removedKeysAt.keys()]);
     }
+    const updates: Array<readonly [string, ISwrCacheStoredEntry]> = [];
+    _updatedKeys.forEach((key) => {
+      const entry = _cache?.[key];
+      if (entry) {
+        updates.push([key, { d: entry.d, t: entry.t }]);
+      }
+    });
+    if (updates.length > 0) {
+      writeSwrCacheEntries(updates);
+    }
+    publishInvalidation({
+      keys: [..._removedKeysAt.keys()],
+      prefixes: _removedPrefixesAt.map(({ prefix }) => prefix),
+      clearedAll: _clearedAllAt > 0,
+    });
     clearPendingIntents();
     const durationMs = Math.round(perfNow() - startedAt);
     if (durationMs >= SWR_CACHE_SLOW_OP_LOG_THRESHOLD_MS) {
@@ -899,96 +864,15 @@ function flushToNativeEntries(source: INativeSWRCacheEntriesSource) {
         patchMs: durationMs,
         adoptMs: 0,
         updatedKeyCount,
-        patchChars,
+        patchChars: updates.reduce(
+          (sum, [key]) => sum + (_cacheEntrySerializedChars.get(key) ?? 0),
+          0,
+        ),
         ...diffHermesHeapStats(heapBefore),
       });
     }
   } catch {
-    // Mirror apply failure is non-fatal; cache is best-effort.
-  }
-}
-
-function flush() {
-  if (!_dirty || !_cache) return;
-  const nativeEntries = getNativeSWRCacheEntriesSource();
-  if (nativeEntries) {
-    flushToNativeEntries(nativeEntries);
-    return;
-  }
-  try {
-    const startedAt = perfNow();
-    const heapBefore = readHermesHeapStats();
-    // Each runtime keeps its own JS cache. Native persistence is bg-owned, so
-    // native callers send only changed entries and deletion intents; other
-    // platforms retain the full-store adapter below.
-    const { store: disk, unreadable, rawChars } = readStoreFromDisk();
-    const readAt = perfNow();
-    const merged: ISWRStore = {};
-    if (unreadable) {
-      // Nothing on disk survives, so rebuild from this copy — a pending-keys
-      // only write would drop every entry it still holds.
-      Object.assign(merged, _cache);
-    } else if (disk) {
-      for (const [key, entry] of Object.entries(disk)) {
-        if (entry && !isDeletedLocally(key, entry.t ?? 0)) {
-          merged[key] = entry;
-        }
-      }
-    }
-    for (const key of _updatedKeys) {
-      const entry = _cache[key];
-      if (entry) {
-        const diskEntry = merged[key];
-        if (!diskEntry || (entry.t ?? 0) >= (diskEntry.t ?? 0)) {
-          merged[key] = entry;
-        }
-      }
-    }
-    const limitedMerged = pruneSWRCacheStore(merged).store;
-    const prunedAt = perfNow();
-    const updatedKeyCount = _updatedKeys.size;
-    let patchChars = 0;
-    const storage = getSyncStorage();
-    if (storage.applySWRCachePatch) {
-      const built = buildNativeSWRCachePatch();
-      patchChars = built.patchChars;
-      void storage.applySWRCachePatch(built.patch);
-    } else {
-      void storage.setObject(
-        EAppSyncStorageKeys.onekey_swr_cache,
-        limitedMerged,
-      );
-    }
-    const patchedAt = perfNow();
-    // Adopting the merged store also refreshes this runtime's copy, which
-    // otherwise only ages — reads pick up what the other runtime persisted.
-    // Skipped without a store to merge against: `merged` is then only the
-    // pending keys, and on a backend that persists nothing (both extension
-    // runtimes get the no-op stub) this copy is the only one.
-    if (disk) {
-      _cache = limitedMerged;
-      resetCacheSerializedChars(limitedMerged);
-    }
-    clearPendingIntents();
-    const finishedAt = perfNow();
-    const durationMs = Math.round(finishedAt - startedAt);
-    if (durationMs >= SWR_CACHE_SLOW_OP_LOG_THRESHOLD_MS) {
-      defaultLogger.app.perf.swrCacheSlowOp({
-        op: 'flush',
-        durationMs,
-        storeChars: rawChars,
-        entryCount: _cacheEntrySerializedChars.size,
-        readMs: Math.round(readAt - startedAt),
-        pruneMs: Math.round(prunedAt - readAt),
-        patchMs: Math.round(patchedAt - prunedAt),
-        adoptMs: Math.round(finishedAt - patchedAt),
-        updatedKeyCount,
-        patchChars,
-        ...diffHermesHeapStats(heapBefore),
-      });
-    }
-  } catch {
-    // MMKV write failure is non-fatal; cache is best-effort.
+    // Persisting is best effort; the copy in memory still serves the screen.
   }
 }
 
@@ -1013,15 +897,14 @@ function reportInvalidSWRCacheKey(key: string) {
 
 function get<T>(key: string): T | undefined {
   if (!isValidSWRCacheKey(key)) return undefined;
-  const entry = loadStore()[key] as ISWREntry<T> | undefined;
-  return entry?.d;
+  return lookupEntry<T>(key)?.d;
 }
 
 function getWithTimestamp<T>(
   key: string,
 ): { data: T; updatedAt: number } | undefined {
   if (!isValidSWRCacheKey(key)) return undefined;
-  const entry = loadStore()[key] as ISWREntry<T> | undefined;
+  const entry = lookupEntry<T>(key);
   if (!entry) return undefined;
   return { data: entry.d, updatedAt: entry.t };
 }
@@ -1033,7 +916,7 @@ function set<T>(key: string, data: T): void {
   }
   const store = loadStore();
   const now = Date.now();
-  const existing = store[key];
+  const existing = lookupEntry(key);
   // Pollers re-set an unchanged payload for as long as a screen stays open,
   // and every flush re-reads and re-serializes the whole store. An unchanged
   // result only refreshes the timestamp: the key stays pending so the fresher
@@ -1152,52 +1035,6 @@ function flushNow(): void {
 }
 
 // --- Centralized SWR key namespaces ---
-// Leading segment of every key produced by the matching swrKeys.X(...).
-// Pair with `swrCacheUtils.removeByPrefix(prefixOf(namespace))` to
-// invalidate a whole namespace at once.
-const NS = {
-  allNetworksCompatible: 'allNetCompat',
-  unifiedNetworkSelectorMeta: 'unsMeta',
-  unifiedNetworkSelectorValues: 'unsValues',
-  networkContentData: 'netContent',
-  recentNetworks: 'recentNets',
-  walletListSideBar: 'walletList',
-  accountSelectorList: 'accSelList',
-  discoveryHomePageData: 'disHomePage',
-  discoveryHomeBookmarks: 'disHomeBookmarks',
-  perpsOrderBookTickOptions: 'perpsOrderBookTicks',
-  perpsL2BookSnapshot: 'perpsL2Book',
-  historyTxDetail: 'historyTxDetail',
-  marketHomeBanners: 'marketHomeBanners',
-  marketHomeConfig: 'marketHomeConfig',
-  marketHomeStocks: 'marketHomeStocks',
-  marketHomeTokenList: 'marketHomeTokenList',
-  tokenSelectorView: 'tokenSelectorView',
-  specifiedTokenSelectorView: 'specifiedTokenSelectorView',
-  swapHistoryPreviewList: 'swapHistoryPreviewList',
-  swapStockChart: 'swapStockChart',
-  swapStockTokenDetail: 'swapStockTokenDetail',
-  swapStockSpeedConfig: 'swapStockSpeedConfig',
-  swapStockPayTokenDetails: 'swapStockPayTokenDetails',
-  borrowMarkets: 'borrowMarkets',
-  borrowReserves: 'borrowReserves',
-  borrowHealthFactor: 'borrowHealthFactor',
-  borrowRewards: 'borrowRewards',
-  borrowEModeStatus: 'borrowEModeStatus',
-  earnAccount: 'earnAccount',
-  earnProtocolDetail: 'earnProtocolDetail',
-  fiatCryptoTokenList: 'fiatCryptoTokenList',
-  fiatCryptoNetworkSupport: 'fiatCryptoNetSupport',
-  bulkSendAddressesInputSeed: 'bulkSendSeed',
-  bulkCopyAddressesWallets: 'bulkCopyWallets',
-  bulkCopyAddressesNetworkIds: 'bulkCopyNetIds',
-  bulkCopyAddressesAccounts: 'bulkCopyAccounts',
-  chainSelectorInputNetworks: 'chainSelNets',
-  homeWalletTabSupport: 'homeWalletTabs',
-} as const;
-export type ISwrCacheNamespace = (typeof NS)[keyof typeof NS];
-export const swrCacheNamespaces = NS;
-export const prefixOf = (namespace: ISwrCacheNamespace) => `${namespace}:`;
 
 function isAccountSelectorCacheKey(key: string) {
   return key.startsWith(`${NS.accountSelectorList}:`);
@@ -1490,6 +1327,12 @@ export const swrKeys = {
       selectedNetworkId ?? '',
       keepAllOtherAccounts ? '1' : '0',
     ].join(':'),
+  // Balance texts the account selector rows last displayed, one entry per
+  // wallet (see accountSelectorValueDisplayCacheV2). Only UI text is kept, so
+  // a wallet revisit or a cold start paints the previous balances on the first
+  // frame; live values still load and replace them.
+  accountSelectorValues: ({ walletId }: { walletId: string }) =>
+    [NS.accountSelectorValues, 'v1', walletId].join(':'),
   perpsOrderBookTickOptions: () =>
     [NS.perpsOrderBookTickOptions, 'v1'].join(':'),
   perpsL2BookSnapshot: ({
@@ -1527,6 +1370,51 @@ export const swrKeys = {
     [NS.marketHomeConfig, 'v1', locale].join(':'),
   marketHomeStocks: (queryKey: string) =>
     [NS.marketHomeStocks, 'v1', queryKey].join(':'),
+  marketStockDetail: ({
+    stockId,
+    locale,
+  }: {
+    stockId: string;
+    locale: string;
+  }) => [NS.marketStockDetail, 'v1', stockId, locale].join(':'),
+  marketStockTokenVariants: ({
+    stockId,
+    locale,
+  }: {
+    stockId: string;
+    locale: string;
+  }) => [NS.marketStockTokenVariants, 'v1', stockId, locale].join(':'),
+  marketTokenDetail: ({
+    networkId,
+    tokenAddress,
+    currencyId,
+    locale,
+  }: {
+    networkId: string;
+    tokenAddress: string;
+    currencyId: string;
+    locale: string;
+  }) =>
+    [
+      NS.marketTokenDetail,
+      'v1',
+      networkId,
+      tokenAddress,
+      currencyId,
+      locale,
+    ].join(':'),
+  // Each item carries a localized `content` that the UI shows as-is, so a
+  // report cached in one language must not be replayed in another.
+  marketTokenSecurity: ({
+    networkId,
+    tokenAddress,
+    locale,
+  }: {
+    networkId: string;
+    tokenAddress: string;
+    locale: string;
+  }) =>
+    [NS.marketTokenSecurity, 'v1', networkId, tokenAddress, locale].join(':'),
   marketHomeTokenList: ({
     networkId,
     locale,
@@ -1879,6 +1767,19 @@ function getSizeStats() {
   };
 }
 
+/**
+ * Writing contract.
+ *
+ * Entries are written by the SWR layer alone: `usePromiseResult` persists what
+ * its fetcher returned, in the runtime that owns the hook. Feature code does
+ * not maintain them by hand — after a mutation, refresh the hook and let it
+ * write the truth, rather than `set`/`remove`-ing a key to keep it in step.
+ * Two callers patching one key is how a namespace ends up with two writers
+ * over one file and no lock between the runtimes.
+ *
+ * bg is not a writer, and a removal is a write: it announces what it dropped
+ * and the runtime that owns the store performs the delete in its own flush.
+ */
 export const swrCacheUtils = {
   get,
   getWithTimestamp,
@@ -1892,3 +1793,6 @@ export const swrCacheUtils = {
   reloadFromStorage,
   getSizeStats,
 };
+
+export { prefixOf, swrCacheNamespaces } from './swrCacheNamespaceNames';
+export type { ISwrCacheNamespace } from './swrCacheNamespaceNames';
