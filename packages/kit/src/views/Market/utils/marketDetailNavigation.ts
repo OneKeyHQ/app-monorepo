@@ -85,6 +85,11 @@ export function prepareMarketDetailTabBarTransition() {
     return;
   }
 
+  const navigation = rootNavigationRef.current as INavigationLike | undefined;
+  if (!navigation) {
+    return;
+  }
+
   if (!marketDetailTransitionHideOwnerId) {
     marketDetailTransitionHideOwnerId = createHideTabBarOwnerId(
       'market-detail-transition',
@@ -92,10 +97,7 @@ export function prepareMarketDetailTabBarTransition() {
   }
   requestHideTabBar(marketDetailTransitionHideOwnerId);
 
-  const navigation = rootNavigationRef.current as INavigationLike | undefined;
-  if (navigation) {
-    watchMarketDetailTransitionTarget(navigation);
-  }
+  watchMarketDetailTransitionTarget(navigation);
 
   // Deadline from the first request of a burst. Re-arming per call would let
   // back to back navigations extend the hidden window without bound.
@@ -436,6 +438,7 @@ export function openOrReplaceMarketDetailRoute({
     return true;
   }
 
+  prepareMarketDetailTabBarTransition();
   dispatchResetToSingleDetail({
     navigation,
     stackKey: stack.key,
@@ -443,7 +446,6 @@ export function openOrReplaceMarketDetailRoute({
     routeName,
     params: nextParams,
   });
-  prepareMarketDetailTabBarTransition();
   return true;
 }
 
@@ -476,6 +478,7 @@ export function replaceFocusedMarketDetailRoute({
     return true;
   }
 
+  prepareMarketDetailTabBarTransition();
   navigation.dispatch(StackActions.replace(routeName, nextParams));
   return true;
 }

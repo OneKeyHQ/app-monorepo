@@ -21,6 +21,24 @@ const dispatchMock = jest.fn();
 const getRootStateMock = jest.fn();
 const getCurrentRouteMock = jest.fn();
 const navigationStateListeners = new Set<() => void>();
+const rootNavigationMock = {
+  dispatch: (...args: unknown[]) => {
+    dispatchMock(...args);
+  },
+  getRootState: (): unknown => getRootStateMock() as unknown,
+  getCurrentRoute: (): unknown => getCurrentRouteMock() as unknown,
+  addListener: (type: string, callback: () => void) => {
+    if (type !== 'state') {
+      return () => {};
+    }
+    navigationStateListeners.add(callback);
+    return () => {
+      navigationStateListeners.delete(callback);
+    };
+  },
+};
+let mockRootNavigationCurrent: typeof rootNavigationMock | undefined =
+  rootNavigationMock;
 
 const emitNavigationState = () => {
   // A listener may unsubscribe itself here; removing the current entry mid
@@ -32,21 +50,8 @@ const emitNavigationState = () => {
 
 jest.mock('@onekeyhq/components', () => ({
   rootNavigationRef: {
-    current: {
-      dispatch: (...args: unknown[]) => {
-        dispatchMock(...args);
-      },
-      getRootState: (): unknown => getRootStateMock() as unknown,
-      getCurrentRoute: (): unknown => getCurrentRouteMock() as unknown,
-      addListener: (type: string, callback: () => void) => {
-        if (type !== 'state') {
-          return () => {};
-        }
-        navigationStateListeners.add(callback);
-        return () => {
-          navigationStateListeners.delete(callback);
-        };
-      },
+    get current() {
+      return mockRootNavigationCurrent;
     },
   },
 }));
@@ -148,6 +153,7 @@ describe('marketDetailNavigation', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     platformEnv.isNative = true;
+    mockRootNavigationCurrent = rootNavigationMock;
     getRootStateMock.mockReturnValue(undefined);
     getCurrentRouteMock.mockReturnValue(undefined);
   });
@@ -192,6 +198,12 @@ describe('marketDetailNavigation', () => {
 
     it('never hides the tab bar off Android', () => {
       platformEnv.isNativeAndroid = false;
+      prepareMarketDetailTabBarTransition();
+      expect(isTabBarHiddenByRequest()).toBe(false);
+    });
+
+    it('does not hide the tab bar before navigation is ready', () => {
+      mockRootNavigationCurrent = undefined;
       prepareMarketDetailTabBarTransition();
       expect(isTabBarHiddenByRequest()).toBe(false);
     });
@@ -551,6 +563,7 @@ describe('marketDetailNavigation', () => {
   });
 
   it('replaces the focused detail when switching to a stock page', () => {
+    platformEnv.isNativeAndroid = true;
     getCurrentRouteMock.mockReturnValue({ name: 'MarketDetailV2' });
 
     expect(
@@ -567,6 +580,7 @@ describe('marketDetailNavigation', () => {
         params: buildReplacedMarketDetailParams({ stockId: 'AAPL' }),
       },
     });
+    expect(isTabBarHiddenByRequest()).toBe(true);
   });
 
   it('does not touch a non-detail focused route', () => {
