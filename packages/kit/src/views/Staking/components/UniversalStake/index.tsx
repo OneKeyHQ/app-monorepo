@@ -1330,8 +1330,9 @@ export function UniversalStake({
     // OK-59196: Stakefish signs a provider-facing message before any hook runs,
     // so the disclaimer has to gate this pre-transaction step. Not a duplicate
     // of the gate inside useUniversalStake — that one only covers the transaction
-    // itself, and once accepted this call resolves immediately.
-    if (isStakefishEthStake && !stakefishPermitSignatureRef.current) {
+    // itself, and once accepted this call resolves immediately. Only create-new
+    // validator stakes sign, so a top up never reaches this dialog.
+    if (isStakefishCreateNewValidator && !stakefishPermitSignatureRef.current) {
       const riskAcceptedBeforeSigning = await showEarnRiskWarningDialog({
         provider: providerName,
         symbol: actionSymbol,
@@ -1343,8 +1344,11 @@ export function UniversalStake({
       }
     }
 
-    // Stakefish ETH: sign before building the staking transaction.
-    if (isStakefishEthStake && !stakefishPermitSignatureRef.current) {
+    // Stakefish ETH: sign before building the staking transaction. Only the
+    // create-new-validator flow needs it; the Earn API routes a top up by
+    // publicKey (the selected validator) and the signature would take priority
+    // over it in the stake build, so signing a top up only blocks the build.
+    if (isStakefishCreateNewValidator && !stakefishPermitSignatureRef.current) {
       setApproving(true);
       try {
         const { signature, message } = await signPersonalMessage({
@@ -1365,14 +1369,16 @@ export function UniversalStake({
       setApproving(false);
     }
 
-    // Determine permitSignature source: Morpho uses permitSignatureRef, Stakefish uses stakefishPermitSignatureRef
+    // Determine permitSignature source: Morpho uses permitSignatureRef, Stakefish uses stakefishPermitSignatureRef.
+    // Stakefish only attaches it for a new validator; a top up must stay
+    // signature-free so the Earn API routes it by publicKey.
     let finalPermitSignature: string | undefined;
     let finalMessage: string | undefined;
     let finalUnsignedMessage: IEarnPermit2ApproveSignData | undefined;
     if (usePermit2Approve) {
       finalPermitSignature = permitSignatureRef.current;
       finalUnsignedMessage = permit2DataRef.current;
-    } else if (isStakefishEthStake) {
+    } else if (isStakefishCreateNewValidator) {
       finalPermitSignature = stakefishPermitSignatureRef.current;
       finalMessage = stakefishPermitMessageRef.current;
     }
@@ -1492,7 +1498,6 @@ export function UniversalStake({
     showEstimateGasAlert,
     checkEstimateGasAlert,
     isStakefishProvider,
-    isStakefishEthStake,
     isPendleProvider,
     selectedValidator,
     isStakefishCreateNewValidator,
