@@ -295,13 +295,13 @@ export function HomePageView({
   const [{ hasRiskApprovals }] = useApprovalsInfoAtom();
   const { updateApprovalsInfo } = useAccountOverviewActions().current;
   const tabsRef = useRef<ITabContainerRef | null>(null);
-  // Keep the measured iOS tab bar height outside the account-keyed container
+  // Keep the measured native tab bar height outside the account-keyed container
   // so remounts do not briefly reserve the library's default 48pt height.
   const nativeTabBarHeightRef = useRef<number | undefined>(undefined);
   const nativeTabBarContainerStyle = useMemo(
     () => ({
       ...NATIVE_TAB_BAR_CONTAINER_STYLE,
-      onLayout: platformEnv.isNativeIOS
+      onLayout: platformEnv.isNative
         ? (event: LayoutChangeEvent) => {
             const height = Math.round(event.nativeEvent.layout.height);
             if (height > 0) {
@@ -976,7 +976,7 @@ export function HomePageView({
         disableWebTabContentVisibility
         headerHeight={platformEnv.isNative ? 292 : undefined}
         tabBarHeight={
-          platformEnv.isNativeIOS ? nativeTabBarHeightRef.current : undefined
+          platformEnv.isNative ? nativeTabBarHeightRef.current : undefined
         }
         useNativeHeaderAnimation={platformEnv.isNativeAndroid}
         width={platformEnv.isNative ? (tabContainerWidth as number) : undefined}
