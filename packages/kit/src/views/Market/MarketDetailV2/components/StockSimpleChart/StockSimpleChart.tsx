@@ -263,6 +263,7 @@ export function StockSimpleChart({
   const chartData = useMemo(
     () =>
       resolveStockSimpleChartDisplayPoints({
+        clipKey: chartClipKey,
         intervalSeconds,
         isOpen: isMarketOpen,
         livePrice,

@@ -450,11 +450,12 @@ export function mergeStockSimpleChartLivePrice({
 /**
  * Display series for the simple chart: drop last-session prints that would
  * stretch the time axis across a weekend/overnight close, then pin the live
- * quote. If clipping removed every point, keep a single `[now, live]` so the
- * title and the line still agree. Without a usable live quote, keep the
- * unclipped history so the chart is not mounted empty.
+ * quote. A clock gap can empty the window (Sunday 20:00 ET, holiday
+ * crosses) even while the backend is closed — only collapse to
+ * `[now, live]` when the market is open. Otherwise keep the source series.
  */
 export function resolveStockSimpleChartDisplayPoints({
+  clipKey,
   intervalSeconds,
   isOpen,
   livePrice,
@@ -463,6 +464,7 @@ export function resolveStockSimpleChartDisplayPoints({
   priceMode,
   range,
 }: {
+  clipKey?: 'clip' | 'keep';
   intervalSeconds?: number;
   isOpen?: boolean;
   livePrice?: string | number;
@@ -471,16 +473,24 @@ export function resolveStockSimpleChartDisplayPoints({
   priceMode: 'share' | 'token';
   range: IStockSimpleChartRange;
 }): IMarketTokenChart {
-  const clipped = clipStockSimpleChartToActiveRange({
-    isOpen,
-    nowSeconds,
-    points,
-    priceMode,
-    range,
-  });
+  const clipped =
+    clipKey === 'keep'
+      ? points
+      : clipStockSimpleChartToActiveRange({
+          isOpen,
+          nowSeconds,
+          points,
+          priceMode,
+          range,
+        });
   if (clipped.length === 0 && points.length > 0) {
     const price = Number(livePrice);
-    if (Number.isFinite(price) && price > 0 && Number.isFinite(nowSeconds)) {
+    if (
+      isOpen === true &&
+      Number.isFinite(price) &&
+      price > 0 &&
+      Number.isFinite(nowSeconds)
+    ) {
       return [[nowSeconds, price]];
     }
     return points;

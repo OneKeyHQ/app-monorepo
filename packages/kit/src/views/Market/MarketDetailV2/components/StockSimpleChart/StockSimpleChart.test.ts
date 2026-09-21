@@ -997,6 +997,7 @@ describe('resolveStockSimpleChartDisplayPoints', () => {
   it('pins a lone live point when last session is the only history', () => {
     expect(
       resolveStockSimpleChartDisplayPoints({
+        isOpen: true,
         livePrice: '223.58',
         nowSeconds: mondayPremarketNow,
         points: [[fridayClose, 222]],
@@ -1012,6 +1013,40 @@ describe('resolveStockSimpleChartDisplayPoints', () => {
       resolveStockSimpleChartDisplayPoints({
         livePrice: undefined,
         nowSeconds: mondayPremarketNow,
+        points,
+        priceMode: 'share',
+        range: '1H',
+      }),
+    ).toBe(points);
+  });
+
+  it('keeps Friday through the Sunday 20:00 ET weekend-edge gap', () => {
+    // Sunday 2026-09-20 20:02 EDT — after weekendEnd, before overnight 20:05.
+    const sundayEdgeGapNow = Date.parse('2026-09-21T00:02:00Z') / 1000;
+    const points: IMarketTokenChart = [[fridayClose, 222]];
+    expect(
+      resolveStockSimpleChartDisplayPoints({
+        isOpen: false,
+        livePrice: '222.1',
+        nowSeconds: sundayEdgeGapNow,
+        points,
+        priceMode: 'share',
+        range: '1D',
+      }),
+    ).toBe(points);
+  });
+
+  it('keeps last session when a closed holiday sits in a clock gap', () => {
+    // Thursday 2026-09-17 09:30:30 EDT — opening-cross gap on a closed day.
+    const holidayGapNow = Date.parse('2026-09-17T13:30:30Z') / 1000;
+    const previousClose = Date.parse('2026-09-16T20:00:00Z') / 1000;
+    const points: IMarketTokenChart = [[previousClose, 222]];
+    expect(
+      resolveStockSimpleChartDisplayPoints({
+        clipKey: 'clip',
+        isOpen: false,
+        livePrice: '222.1',
+        nowSeconds: holidayGapNow,
         points,
         priceMode: 'share',
         range: '1H',
