@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef } from 'react';
 
 import BigNumber from 'bignumber.js';
 
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import type { IProtocolPositionActionSuccessParams } from '@onekeyhq/kit/src/components/DeFi/ProtocolPositionActionDialog';
 import { useAccountOverviewActions } from '@onekeyhq/kit/src/states/jotai/contexts/accountOverview';
 import { useDeFiListActions } from '@onekeyhq/kit/src/states/jotai/contexts/deFiList';
@@ -261,11 +262,20 @@ export function useDeFiListRefresh({
   ]);
 
   const handleActionSuccess = useCallback(
-    async (_params: IProtocolPositionActionSuccessParams) => {
-      // The dialog persists the Earn order before invoking this callback.
-      // History owns the completed transaction classification and the single
-      // post-indexer DeFi refresh. This event is handled even while the
-      // History tab is hidden, so the DeFi tab does not need a second fetch.
+    async ({ accountId, networkId }: IProtocolPositionActionSuccessParams) => {
+      // The callback is the authoritative success edge for the action. Route
+      // it directly to the concrete account/network so the DeFi tab does not
+      // depend on the History container being mounted to start the positions
+      // request. ServiceDeFi emits DeFiPositionRefreshed for the active tab
+      // and coalesces the delayed/local-confirm refreshes by the same key.
+      void backgroundApiProxy.serviceDeFi
+        .refreshAccountDeFiPositionsAfterAction({
+          accountId,
+          networkId,
+        })
+        .catch((error) => {
+          console.error('[DeFiListBlock] action refresh failed', error);
+        });
       appEventBus.emit(EAppEventBusNames.HistoryTxStatusChanged, undefined);
     },
     [],

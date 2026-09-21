@@ -20,7 +20,7 @@ iOS 旧观察把这个风险落到了可观测 UI 时序：15 个 DeFi-enabled f
 
 ### 交易事件
 
-Action success、`LocalPendingTxConfirmed`、History classified completion 都能触发同一个 ServiceDeFi immediate force refresh；其中 `DeFiListBlock` 的 action-success 还先通过 `AccountDataUpdate` 触发 tab polling/fan-out，再直接调用 force refresh。40/80 秒 timer 已按 account/network 合并并重置，但 immediate 请求尚未去重。`DeFiPositionRefreshed` payload 没有 owner generation/fetchedAt；tab polling、All Network fan-out 和事件回写可能乱序。
+Action success、`LocalPendingTxConfirmed`、History classified completion 都能触发同一个 ServiceDeFi immediate force refresh。DeFi tab 的 action-success 现在直接把 account/network 路由给 ServiceDeFi，再通知 History 更新；不再先用通用 `AccountDataUpdate` 触发一次 tab polling/fan-out。40/80 秒 timer 已按 account/network 合并并重置，immediate 请求也按同一 key 做 in-flight 去重。`DeFiPositionRefreshed` payload 仍没有 owner generation/fetchedAt；tab polling、All Network fan-out 和事件回写可能乱序。
 
 ## 主要工程问题
 
