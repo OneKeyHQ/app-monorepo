@@ -16,14 +16,23 @@ import {
   requestHideTabBar,
 } from '@onekeyhq/shared/src/tabBar/hideTabBarRequests';
 
-const MARKET_DETAIL_TRANSITION_HIDE_TIMEOUT_MS = 5000;
+// The request only bridges the gap between dispatching the navigation and
+// MarketDetailV2 claiming ownership in its focus effect, which is a couple of
+// frames. This hides the app wide tab bar, so the ceiling stays tight: a
+// navigation that never reaches a detail screen must not sit on it.
+const MARKET_DETAIL_TRANSITION_HIDE_TIMEOUT_MS = 1500;
 let marketDetailTransitionHideOwnerId: string | undefined;
 let marketDetailTransitionHideTimer: ReturnType<typeof setTimeout> | undefined;
+let marketDetailTransitionStateUnsubscribe: (() => void) | undefined;
 
 export function finishMarketDetailTabBarTransition() {
   if (marketDetailTransitionHideTimer) {
     clearTimeout(marketDetailTransitionHideTimer);
     marketDetailTransitionHideTimer = undefined;
+  }
+  if (marketDetailTransitionStateUnsubscribe) {
+    marketDetailTransitionStateUnsubscribe();
+    marketDetailTransitionStateUnsubscribe = undefined;
   }
   if (marketDetailTransitionHideOwnerId) {
     releaseHideTabBar(marketDetailTransitionHideOwnerId);
@@ -31,8 +40,48 @@ export function finishMarketDetailTabBarTransition() {
   }
 }
 
+/**
+ * A pushed detail route enters the navigation state before its component
+ * mounts, so the request keeps waiting while the focused route still is one.
+ * A root level overlay is inconclusive: it covers the tab bar anyway and the
+ * detail route underneath still takes over once the overlay closes.
+ */
+function canMarketDetailTransitionStillLand(navigation: INavigationLike) {
+  const rootRoutes = navigation.getRootState?.()?.routes;
+  if (!rootRoutes?.length) {
+    return true;
+  }
+  const focusedRootRoute =
+    rootRoutes[navigation.getRootState?.()?.index ?? rootRoutes.length - 1];
+  if (focusedRootRoute?.name !== ERootRoutes.Main) {
+    return true;
+  }
+  return isFocusedMarketDetailRouteName(navigation.getCurrentRoute?.()?.name);
+}
+
+function watchMarketDetailTransitionTarget(navigation: INavigationLike) {
+  if (marketDetailTransitionStateUnsubscribe || !navigation.addListener) {
+    return;
+  }
+  // The dispatch that preceded this call emits `state` once React commits it,
+  // so this listener still sees where that navigation actually landed.
+  marketDetailTransitionStateUnsubscribe = navigation.addListener(
+    'state',
+    () => {
+      if (canMarketDetailTransitionStillLand(navigation)) {
+        return;
+      }
+      finishMarketDetailTabBarTransition();
+    },
+  );
+}
+
 export function prepareMarketDetailTabBarTransition() {
-  if (!platformEnv.isNative) {
+  // Android only: its native tab bar reports the pre-hide scene height, so the
+  // hide has to land in the same commit as the navigation. iOS sizes scenes
+  // from the container bounds regardless of tab bar visibility and has not
+  // been measured for this, so it keeps releasing the tab bar on focus.
+  if (!platformEnv.isNativeAndroid) {
     return;
   }
 
@@ -43,13 +92,19 @@ export function prepareMarketDetailTabBarTransition() {
   }
   requestHideTabBar(marketDetailTransitionHideOwnerId);
 
-  if (marketDetailTransitionHideTimer) {
-    clearTimeout(marketDetailTransitionHideTimer);
+  const navigation = rootNavigationRef.current as INavigationLike | undefined;
+  if (navigation) {
+    watchMarketDetailTransitionTarget(navigation);
   }
-  marketDetailTransitionHideTimer = setTimeout(
-    finishMarketDetailTabBarTransition,
-    MARKET_DETAIL_TRANSITION_HIDE_TIMEOUT_MS,
-  );
+
+  // Deadline from the first request of a burst. Re-arming per call would let
+  // back to back navigations extend the hidden window without bound.
+  if (!marketDetailTransitionHideTimer) {
+    marketDetailTransitionHideTimer = setTimeout(
+      finishMarketDetailTabBarTransition,
+      MARKET_DETAIL_TRANSITION_HIDE_TIMEOUT_MS,
+    );
+  }
 }
 
 const REPLACEABLE_MARKET_DETAIL_ROUTE_NAMES = new Set<string>([
@@ -114,6 +169,7 @@ type INavigationLike = {
   dispatch: (action: object) => void;
   getRootState?: () => INavigationStateNode | undefined;
   getCurrentRoute?: () => { name?: string; key?: string } | undefined;
+  addListener?: (type: 'state', callback: () => void) => () => void;
 };
 
 export function isReplaceableMarketDetailRouteName(name?: string) {
