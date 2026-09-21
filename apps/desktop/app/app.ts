@@ -1033,12 +1033,15 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
     );
   });
 
-  browserWindow.on('resize', () => {
+  const saveWindowBounds = () => {
     const safelyWindow = getSafelyBrowserWindow();
     if (safelyWindow) {
-      store.setWinBounds(safelyWindow.getBounds());
+      store.setWinBounds(safelyWindow.getNormalBounds());
     }
-  });
+  };
+  browserWindow.on('resized', saveWindowBounds);
+  browserWindow.on('moved', saveWindowBounds);
+  browserWindow.on('close', saveWindowBounds);
   browserWindow.on('closed', () => {
     unregisterShortcuts();
     mainWindow = null;
