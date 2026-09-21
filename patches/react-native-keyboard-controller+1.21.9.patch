@@ -1,0 +1,54 @@
+diff --git a/node_modules/react-native-keyboard-controller/src/module.ts b/node_modules/react-native-keyboard-controller/src/module.ts
+--- a/node_modules/react-native-keyboard-controller/src/module.ts
++++ b/node_modules/react-native-keyboard-controller/src/module.ts
+@@ -1,3 +1,5 @@
++import { Platform } from "react-native";
++
+ import { KeyboardControllerNative, KeyboardEvents } from "./bindings";
+ 
+ import type {
+@@ -32,17 +34,41 @@ const dismiss = async (options?: Partial<DismissOptions>): Promise<void> => {
+ 
+   return new Promise((resolve) => {
+     if (isClosed) {
++      // Android keyboards can live in a separate window (for example a
++      // BottomSheetDialog). The activity listener does not observe that
++      // window, so its cached visibility can be stale even while an input is
++      // focused. Always forward the native dismissal on Android.
++      if (Platform.OS === "android") {
++        KeyboardControllerNative.dismiss(keepFocus, animated);
++      }
+       resolve();
+ 
+       return;
+     }
+ 
+-    const subscription = KeyboardEvents.addListener("keyboardDidHide", () => {
+-      resolve(undefined);
++    let settled = false;
++    let fallbackTimer: ReturnType<typeof setTimeout> | undefined;
++    let subscription: ReturnType<typeof KeyboardEvents.addListener>;
++    const finish = () => {
++      if (settled) {
++        return;
++      }
++      settled = true;
++      if (fallbackTimer) {
++        clearTimeout(fallbackTimer);
++      }
+       subscription.remove();
+-    });
++      resolve(undefined);
++    };
++    subscription = KeyboardEvents.addListener("keyboardDidHide", finish);
+ 
+     KeyboardControllerNative.dismiss(keepFocus, animated);
++    if (Platform.OS === "android") {
++      // WindowInsets events from custom Dialog windows are not delivered to
++      // the controller attached to the activity root. Do not leave callers
++      // and this event subscription pending forever when that happens.
++      fallbackTimer = setTimeout(finish, 500);
++    }
+   });
+ };
+ const isVisible = () => !isClosed;
