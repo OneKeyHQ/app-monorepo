@@ -7,7 +7,6 @@ import {
   appEventBus,
 } from '../../eventBus/appEventBus';
 import { ETranslations } from '../../locale';
-import { ETranslationsMock } from '../../locale/enum/translationsMock';
 import { EOneKeyErrorClassNames } from '../types/errorTypes';
 import { normalizeErrorProps } from '../utils/errorUtils';
 
@@ -242,7 +241,7 @@ export class ThirdPartyAppAlreadyInstalled extends ThirdPartyHardwareError {
     super(
       normalizeErrorProps(props, {
         defaultKey:
-          ETranslationsMock.hardware_third_party_app_already_installed,
+          ETranslations.hardware_third_party_app_already_installed__msg,
         defaultAutoToast: false,
       }),
     );
