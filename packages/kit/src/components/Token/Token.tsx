@@ -127,6 +127,7 @@ export function Token({
   const sharedImageProps = {
     size: tokenImageSize,
     borderRadius: borderRadius as IImageProps['borderRadius'],
+    round: !isNFT,
     bg: resolvedBg,
     borderWidth: shouldShowBorder ? ('$px' as const) : undefined,
     borderColor: shouldShowBorder ? ('$neutral2Dark' as const) : undefined,

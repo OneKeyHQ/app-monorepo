@@ -5,12 +5,14 @@ import { render } from '@testing-library/react-native';
 import { Token } from './Token';
 
 type IMockImageProps = {
+  round?: boolean;
   source?: { uri?: string };
 };
 
 // Records mount / unmount of the underlying image so the tests can prove the
 // image element survives prop changes instead of being torn down and rebuilt.
 const mockImageLifecycle: string[] = [];
+const mockImageProps: IMockImageProps[] = [];
 const mockNetworkAvatarBase = jest.fn<null, [{ logoURI?: string }]>(() => null);
 
 jest.mock('react-intl', () => ({
@@ -27,6 +29,7 @@ jest.mock('@onekeyhq/components', () => {
   }
 
   function Image(props: IMockImageProps) {
+    mockImageProps.push(props);
     const uri = props.source?.uri;
     React.useEffect(() => {
       mockImageLifecycle.push(`mount:${uri ?? ''}`);
@@ -79,6 +82,7 @@ describe('Token', () => {
 
   beforeEach(() => {
     mockImageLifecycle.length = 0;
+    mockImageProps.length = 0;
     mockNetworkAvatarBase.mockClear();
   });
 
@@ -113,5 +117,13 @@ describe('Token', () => {
     rerender(<Token tokenImageUri={tokenImageUri} />);
 
     expect(mockImageLifecycle).toEqual([`mount:${tokenImageUri}`]);
+  });
+
+  it('rounds fungible tokens in the native image without rounding NFTs', () => {
+    const { rerender } = render(<Token tokenImageUri={tokenImageUri} />);
+    expect(mockImageProps.at(-1)?.round).toBe(true);
+
+    rerender(<Token tokenImageUri={tokenImageUri} isNFT />);
+    expect(mockImageProps.at(-1)?.round).toBe(false);
   });
 });
