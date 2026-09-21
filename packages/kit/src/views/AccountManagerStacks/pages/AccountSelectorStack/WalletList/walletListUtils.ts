@@ -90,6 +90,8 @@ export function findWalletListScrollTarget({
           focusedIndex * 12 +
           heights[focusedIndex] / 2;
 
+        // TODO: Clamp group alignment to the NativeList viewport height so
+        // focused members stay visible when a group is taller than the viewport.
         return {
           key: row.key,
           viewOffset: groupHeight / 2 - memberCenter,
