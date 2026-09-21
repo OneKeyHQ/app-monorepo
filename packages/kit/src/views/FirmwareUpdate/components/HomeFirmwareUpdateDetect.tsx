@@ -1,6 +1,6 @@
 import { memo, useEffect, useMemo } from 'react';
 
-import { useNetworkRestore } from '@onekeyhq/kit/src/hooks/useNetworkRestore';
+import { useNetInfo } from '@onekeyhq/components';
 import { useRouteIsFocused as useIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import { useAppIsLockedAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
@@ -16,7 +16,7 @@ function HomeFirmwareUpdateDetectCmp() {
   const connectId = activeAccount.device?.connectId;
 
   const isFocused = useIsFocused();
-  const { isInternetReachable } = useNetworkRestore();
+  const { isRawInternetReachable } = useNetInfo();
 
   // const activeAccountRef = useRef(activeAccount);
   // activeAccountRef.current = activeAccount;
@@ -33,7 +33,7 @@ function HomeFirmwareUpdateDetectCmp() {
       !isHardware ||
       !connectId ||
       !isFocused ||
-      isInternetReachable !== true
+      isRawInternetReachable !== true
     ) {
       return undefined;
     }
@@ -49,7 +49,7 @@ function HomeFirmwareUpdateDetectCmp() {
     detector.start();
 
     return detector.cancel;
-  }, [isHardware, connectId, isFocused, isInternetReachable]);
+  }, [isHardware, connectId, isFocused, isRawInternetReachable]);
 
   return null;
 }
