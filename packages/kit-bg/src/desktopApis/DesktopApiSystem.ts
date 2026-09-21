@@ -307,6 +307,35 @@ class DesktopApiSystem {
     safelyBrowserWindow?.reload();
   }
 
+  async getHardwareAccelerationEnabled(): Promise<boolean> {
+    return !store.getDisableHardwareAcceleration();
+  }
+
+  async setHardwareAccelerationEnabled(enabled: boolean): Promise<void> {
+    if (typeof enabled !== 'boolean') {
+      throw new OneKeyLocalError(
+        'setHardwareAccelerationEnabled: enabled must be a boolean',
+      );
+    }
+
+    store.setDisableHardwareAcceleration(!enabled);
+    logger.info('Hardware acceleration preference changed', { enabled });
+
+    // Mac App Store/TestFlight builds cannot relaunch inside the sandbox.
+    // Exit after persisting so the setting takes effect when the user reopens.
+    if (process.mas) {
+      app.quit();
+      return;
+    }
+
+    app.relaunch();
+    if (process.platform === 'darwin') {
+      app.quit();
+    } else {
+      app.exit(0);
+    }
+  }
+
   async quitApp(): Promise<void> {
     globalThis.$desktopMainAppFunctions?.quitOrMinimizeApp?.();
   }

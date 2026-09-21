@@ -73,6 +73,13 @@ export const setDisableKeyboardShortcuts = (config: {
   });
 };
 
+export const getDisableHardwareAcceleration = () =>
+  store.get(EDesktopStoreKeys.DisableHardwareAcceleration, false);
+
+export const setDisableHardwareAcceleration = (disabled: boolean) => {
+  store.set(EDesktopStoreKeys.DisableHardwareAcceleration, disabled);
+};
+
 export const getTheme = () => store.get(EDesktopStoreKeys.Theme, 'system');
 
 export const setTheme = (theme: string) =>

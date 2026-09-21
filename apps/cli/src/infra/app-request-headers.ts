@@ -123,7 +123,7 @@ export function buildCliAppUserAgent(): string {
   return (
     `Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) ` +
     `AppleWebKit/537.36 (KHTML, like Gecko) OneKeyWallet/${version} ` +
-    `Chrome/150.0.7871.114 Electron/43.1.1 Safari/537.36`
+    `Chrome/150.0.7871.129 Electron/43.2.0 Safari/537.36`
   );
 }
 

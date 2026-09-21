@@ -169,6 +169,7 @@ export enum EDesktopStoreKeys {
   EncryptedData = 'EncryptedData',
   Language = 'language',
   DisableKeyboardShortcuts = 'disableKeyboardShortcuts',
+  DisableHardwareAcceleration = 'disableHardwareAcceleration',
   ASCFile = 'ascFile',
   UpdateBuildNumber = 'updateBuildNumber',
   UpdateBundleData = 'updateBundleData',
@@ -215,6 +216,7 @@ export type IDesktopStoreMap = {
   [EDesktopStoreKeys.DisableKeyboardShortcuts]: {
     disableAllShortcuts: boolean;
   };
+  [EDesktopStoreKeys.DisableHardwareAcceleration]: boolean;
   [EDesktopStoreKeys.ASCFile]: string;
   [EDesktopStoreKeys.UpdateBuildNumber]: string;
   [EDesktopStoreKeys.NativeBuildNumber]: string;

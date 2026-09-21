@@ -105,6 +105,11 @@ import { destroyTrayWindow, getTrayWindow } from './tray/trayWindow';
 
 import type { IpcMainLike } from '@onekeyfe/hwk-trezor-connector-electron-ble/main';
 
+if (store.getDisableHardwareAcceleration()) {
+  app.disableHardwareAcceleration();
+  logger.info('Hardware acceleration disabled by desktop preference');
+}
+
 // cspell:ignore pkexec
 // Main-process (sender) side of the DESKTOP_API_CALL IPC boundary: normalize
 // errors/results so Electron's structured clone never throws "An object could

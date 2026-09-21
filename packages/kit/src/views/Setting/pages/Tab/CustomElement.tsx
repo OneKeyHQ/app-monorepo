@@ -1026,6 +1026,67 @@ export function MenuBarTrayListItem({
   );
 }
 
+export function HardwareAccelerationListItem({
+  logItemClick,
+  analyticsSource,
+  ...props
+}: ICustomElementProps) {
+  const [isEnabled, setIsEnabled] = useState<boolean>();
+
+  useEffect(() => {
+    let isDisposed = false;
+    void globalThis.desktopApiProxy.system
+      .getHardwareAccelerationEnabled()
+      .then((enabled) => {
+        if (!isDisposed) {
+          setIsEnabled(enabled);
+        }
+      })
+      .catch(() => {
+        if (!isDisposed) {
+          setIsEnabled(true);
+        }
+      });
+    return () => {
+      isDisposed = true;
+    };
+  }, []);
+
+  const toggleHardwareAcceleration = useCallback(
+    (value: boolean) => {
+      if (isEnabled === undefined || value === isEnabled) return;
+      maybeLogSettingsSearchResultClick({
+        source: analyticsSource,
+        logItemClick,
+      });
+      logSettingValueChanged({
+        itemId: 'hardware-acceleration',
+        from: String(isEnabled),
+        to: String(value),
+      });
+      setIsEnabled(value);
+      void globalThis.desktopApiProxy.system
+        .setHardwareAccelerationEnabled(value)
+        .catch(() => {
+          setIsEnabled(isEnabled);
+        });
+    },
+    [analyticsSource, isEnabled, logItemClick],
+  );
+
+  return (
+    <TabSettingsListItem {...props} userSelect="none">
+      <Switch
+        testID={SettingTestIDs.tabHardwareAccelerationSwitch}
+        disabled={isEnabled === undefined}
+        size={ESwitchSize.small}
+        value={isEnabled ?? true}
+        onChange={toggleHardwareAcceleration}
+      />
+    </TabSettingsListItem>
+  );
+}
+
 export function HapticFeedbackListItem({
   logItemClick,
   analyticsSource,

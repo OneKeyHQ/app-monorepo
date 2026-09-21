@@ -69,6 +69,7 @@ import {
   CurrencyListItem,
   DesktopBluetoothListItem,
   HapticFeedbackListItem,
+  HardwareAccelerationListItem,
   HardwareTransportTypeListItem,
   LanguageListItem,
   ListVersionItem,
@@ -431,6 +432,16 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
               : undefined,
           ],
           [
+            platformEnv.isDesktop
+              ? {
+                  id: 'hardware-acceleration',
+                  icon: 'ComputerOutline',
+                  title: 'Hardware acceleration',
+                  subtitle:
+                    'Uses the GPU to improve rendering performance. Turn this off if the app flickers or displays incorrectly. Changes take effect after reopening the app.',
+                  renderElement: <HardwareAccelerationListItem />,
+                }
+              : undefined,
             platformEnv.isSupportDesktopBle
               ? {
                   id: 'desktop-bluetooth',
