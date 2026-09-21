@@ -22,7 +22,8 @@ export interface ITrayWatchlistItem {
   iconUrls?: string[];
   networkIcon?: string;
   price: string;
-  change24h: number;
+  // Undefined when the quote carries no 24h change; UI hides the line.
+  change24h?: number;
   type: 'spot' | 'perps';
   tokenAddress?: string;
   networkId?: string;

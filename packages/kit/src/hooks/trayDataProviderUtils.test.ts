@@ -6,6 +6,8 @@ import { EDecodedTxStatus } from '@onekeyhq/shared/types/tx';
 
 import {
   TRAY_DATA_REFRESH_EVENT_NAMES,
+  TRAY_QUOTE_PLACEHOLDER,
+  buildTrayListingQuoteDisplay,
   buildTrayWatchlistInSourceOrder,
   collectTrayTrackedTxs,
   formatTrayUsdPrice,
@@ -135,6 +137,47 @@ describe('trayDataProviderUtils', () => {
   test('formatTrayUsdPrice always formats token rows in USD', () => {
     expect(formatTrayUsdPrice('1234.567')).toBe('$1,234.57');
     expect(formatTrayUsdPrice('0')).toBe('$0.00');
+  });
+
+  test('buildTrayListingQuoteDisplay formats a complete listing quote', () => {
+    expect(
+      buildTrayListingQuoteDisplay({
+        price: '1234.567',
+        priceChange24hPercent: '-1.5',
+      }),
+    ).toEqual({ price: '$1,234.57', change24h: -1.5 });
+    expect(
+      buildTrayListingQuoteDisplay({
+        price: 0,
+        priceChange24hPercent: 0,
+      }),
+    ).toEqual({ price: '$0.00', change24h: 0 });
+  });
+
+  test('buildTrayListingQuoteDisplay keeps a missing quote visible as missing', () => {
+    expect(buildTrayListingQuoteDisplay({})).toEqual({
+      price: TRAY_QUOTE_PLACEHOLDER,
+      change24h: undefined,
+    });
+    expect(
+      buildTrayListingQuoteDisplay({
+        price: null,
+        priceChange24hPercent: undefined,
+      }),
+    ).toEqual({ price: TRAY_QUOTE_PLACEHOLDER, change24h: undefined });
+    // Non-numeric markers from the listing API mean "no data", not zero.
+    expect(
+      buildTrayListingQuoteDisplay({
+        price: ' - ',
+        priceChange24hPercent: '-',
+      }),
+    ).toEqual({ price: TRAY_QUOTE_PLACEHOLDER, change24h: undefined });
+    expect(
+      buildTrayListingQuoteDisplay({
+        price: '42',
+        priceChange24hPercent: '',
+      }),
+    ).toEqual({ price: '$42.00', change24h: undefined });
   });
 
   test('buildTrayWatchlistInSourceOrder preserves mixed spot and perps order', () => {

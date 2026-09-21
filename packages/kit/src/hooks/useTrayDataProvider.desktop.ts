@@ -2,7 +2,9 @@ import { useCallback, useEffect, useRef } from 'react';
 
 import BigNumber from 'bignumber.js';
 import pLimit from 'p-limit';
+import { useIntl } from 'react-intl';
 
+import { Toast } from '@onekeyhq/components';
 import {
   resetAboveMainRoute,
   rootNavigationRef,
@@ -30,6 +32,7 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import {
   EPerpPageEnterSource,
@@ -80,6 +83,7 @@ import { hasDeFiSupportedEnabledNetwork } from '../views/Home/hooks/homeWalletTa
 import {
   type ITrayActiveAccountScope,
   TRAY_DATA_REFRESH_EVENT_NAMES,
+  buildTrayListingQuoteDisplay,
   buildTrayWatchlistInSourceOrder,
   collectTrayTrackedTxs,
   formatTrayUsdPrice,
@@ -91,6 +95,11 @@ import {
 
 const TRAY_ROUTE_HOME = '/main/tab-home';
 const TRAY_ROUTE_MARKET = '/main/tab-market';
+
+// Every tray action bumps this so an async navigation (top-coin detail
+// resolve) that outlives a newer tap cannot steer the UI back to the old
+// destination — same guard useToMarketDetailPage keeps for the Market list.
+const trayNavigationGenerationRef = { current: 0 };
 
 async function refreshTrayPendingTxStatuses(
   txs: IAccountHistoryTx[],
@@ -507,6 +516,7 @@ async function getTrayEnabledNetworkScope({
 }
 
 export function useTrayDataProvider() {
+  const intl = useIntl();
   const [activeAccountValue] = useActiveAccountValueAtom();
   const [appIsLocked] = useAppIsLockedAtom();
   const [
@@ -850,8 +860,10 @@ export function useTrayDataProvider() {
                     symbol: quote.symbol.toUpperCase(),
                     name: quote.name || '',
                     icon: quote.logoUrl || '',
-                    price: formatTrayUsdPrice(quote.price ?? 0),
-                    change24h: Number(quote.priceChange24hPercent || 0),
+                    ...buildTrayListingQuoteDisplay({
+                      price: quote.price,
+                      priceChange24hPercent: quote.priceChange24hPercent,
+                    }),
                     type: 'spot',
                     assetId: item.assetId,
                   },
@@ -871,8 +883,10 @@ export function useTrayDataProvider() {
                     symbol: stock.symbol.toUpperCase(),
                     name: stock.name || '',
                     icon: stock.logoUrl || '',
-                    price: formatTrayUsdPrice(stock.price ?? 0),
-                    change24h: Number(stock.priceChange24hPercent || 0),
+                    ...buildTrayListingQuoteDisplay({
+                      price: stock.price,
+                      priceChange24hPercent: stock.priceChange24hPercent,
+                    }),
                     type: 'spot',
                     stockId: stock.stockId,
                   },
@@ -1144,6 +1158,11 @@ export function useTrayDataProvider() {
       const nav = rootNavigationRef.current;
       if (!nav) return;
 
+      const navigationGeneration = trayNavigationGenerationRef.current + 1;
+      trayNavigationGenerationRef.current = navigationGeneration;
+      const isStaleNavigation = () =>
+        trayNavigationGenerationRef.current !== navigationGeneration;
+
       // Tamagui Popover/Sheet portal to body at high zIndex and would
       // obscure any tray-triggered RN modal. Ask open overlays to dismiss.
       appEventBus.emit(EAppEventBusNames.TrayActionWillNavigate, undefined);
@@ -1274,8 +1293,17 @@ export function useTrayDataProvider() {
                   (e as Error)?.message || String(e)
                 }`,
               );
+              if (isStaleNavigation()) return;
+              // fetchMarketAssetDetail runs with autoHandleError: false, so
+              // this is the only feedback the user gets for a failed tap.
+              Toast.error({
+                title: intl.formatMessage({
+                  id: ETranslations.global_an_error_occurred,
+                }),
+              });
               return;
             }
+            if (isStaleNavigation()) return;
             if (!variant) return;
             const shortCode = networkUtils.getNetworkShortCode({
               networkId: variant.networkId,
@@ -1289,6 +1317,7 @@ export function useTrayDataProvider() {
               marketTokenCategory: MARKET_TOP_COINS_CATEGORY_ID,
             };
             await switchTabAsync(ETabRoutes.Market);
+            if (isStaleNavigation()) return;
             rootNavigationRef.current?.navigate(ERootRoutes.Main, {
               screen: ETabRoutes.Market,
               params: {
@@ -1338,7 +1367,7 @@ export function useTrayDataProvider() {
         }
       }
     },
-    [handleOpenTransactionDetail],
+    [handleOpenTransactionDetail, intl],
   );
 
   useEffect(() => {

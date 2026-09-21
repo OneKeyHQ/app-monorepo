@@ -67,6 +67,48 @@ export function formatTrayUsdPrice(usdPrice: BigNumber.Value): string {
   return `$${new BigNumber(usdPrice || 0).toFormat(2)}`;
 }
 
+// Same placeholder the Market watchlist renders for a row without a quote.
+export const TRAY_QUOTE_PLACEHOLDER = '--';
+
+// Mirrors Market's normalizeStockMetadataValue: listing quotes may omit a
+// field or carry a non-numeric marker such as ' - ', and both mean "no data".
+function normalizeTrayQuoteValue(
+  value?: string | number | null,
+): string | undefined {
+  if (value === null || value === undefined) {
+    return undefined;
+  }
+  const stringValue = typeof value === 'string' ? value.trim() : String(value);
+  if (!stringValue) {
+    return undefined;
+  }
+  if (!Number.isFinite(Number(stringValue))) {
+    return undefined;
+  }
+  return stringValue;
+}
+
+// A halted, delisted, or pre-market listing favorite legitimately has no
+// price/change. Keep that state visible instead of inventing `$0.00 / +0.00%`,
+// which is indistinguishable from an asset that really fell to zero.
+export function buildTrayListingQuoteDisplay({
+  price,
+  priceChange24hPercent,
+}: {
+  price?: string | number | null;
+  priceChange24hPercent?: string | number | null;
+}): Pick<ITrayWatchlistItem, 'price' | 'change24h'> {
+  const priceRaw = normalizeTrayQuoteValue(price);
+  const changeRaw = normalizeTrayQuoteValue(priceChange24hPercent);
+  return {
+    price:
+      priceRaw === undefined
+        ? TRAY_QUOTE_PLACEHOLDER
+        : formatTrayUsdPrice(priceRaw),
+    change24h: changeRaw === undefined ? undefined : Number(changeRaw),
+  };
+}
+
 export function getTrayWatchlistNativeInfo({
   isNative,
   contractAddress,
