@@ -50,6 +50,7 @@ import {
   shouldLegacyContainerRaiseHardwareErrorDialog,
 } from '@onekeyhq/shared/src/hardware/deviceStageOwnership';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 import { isProtocolV2ProductType } from '@onekeyhq/shared/src/utils/hardwareDeviceTypes';
@@ -832,7 +833,12 @@ function HardwareUiStateContainerCmpControlled() {
   useEffect(() => {
     let isDisposed = false;
     let isReplacingWithBleBondError = false;
-    const showBleBondErrorDialog = () => {
+    const showBleBondErrorDialog = (errorCode?: number | string) => {
+      defaultLogger.hardware.sdkLog.log(
+        `[BleBondDiagnostic][App] action=show-bond-recovery-dialog errorCode=${String(
+          errorCode ?? 'unknown',
+        )}`,
+      );
       hardwareErrorDialogTypeRef.current =
         HARDWARE_ERROR_DIALOG_TYPES.BLE_DEVICE_BOND_ERROR;
       hardwareErrorDialogInstanceRef.current = Dialog.show(
@@ -846,6 +852,17 @@ function HardwareUiStateContainerCmpControlled() {
           errorType === HARDWARE_ERROR_DIALOG_TYPES.DEVICE_NOT_FOUND;
         const isBleDeviceBondError =
           errorType === HARDWARE_ERROR_DIALOG_TYPES.BLE_DEVICE_BOND_ERROR;
+        if (isBleDeviceBondError) {
+          defaultLogger.hardware.sdkLog.log(
+            `[BleBondDiagnostic][App] action=receive-bond-error-dialog-event errorCode=${String(
+              errorDialogPayload.errorCode ?? 'unknown',
+            )} stageShowing=${String(
+              stageIsShowingRef.current,
+            )} existingDialog=${String(
+              Boolean(hardwareErrorDialogInstanceRef.current?.isExist()),
+            )}`,
+          );
+        }
         // OK-59934: one failure, one surface — the stage lands the failure
         // itself while it is on, and this dialog speaks for everything the
         // stage is not carrying (device search, the firmware update
@@ -881,7 +898,7 @@ function HardwareUiStateContainerCmpControlled() {
                 // Keep the repair guidance visible even if closing fails.
               }
               if (!isDisposed) {
-                showBleBondErrorDialog();
+                showBleBondErrorDialog(errorDialogPayload.errorCode);
               }
               isReplacingWithBleBondError = false;
             })();
@@ -892,7 +909,7 @@ function HardwareUiStateContainerCmpControlled() {
         void serviceHardwareUI.cleanHardwareUiState();
 
         if (isBleDeviceBondError) {
-          showBleBondErrorDialog();
+          showBleBondErrorDialog(errorDialogPayload.errorCode);
           return;
         }
 
