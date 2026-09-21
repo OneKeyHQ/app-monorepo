@@ -1,3 +1,4 @@
+import type { RefObject } from 'react';
 import { useCallback, useContext, useEffect, useMemo, useRef } from 'react';
 
 import { NativeList } from '@onekeyfe/react-native-native-list';
@@ -32,10 +33,17 @@ import type {
   SelectionDeltaEvent,
   TrailingAccessory,
 } from '@onekeyfe/react-native-native-list';
+import type { View } from 'react-native';
 
 const LIST_STYLE_V2 = { flex: 1 };
 
-export default function NetworksSectionListV2() {
+type INetworksSectionListV2Props = {
+  webSectionIndexContainerRef: RefObject<View | null>;
+};
+
+export default function NetworksSectionListV2({
+  webSectionIndexContainerRef,
+}: INetworksSectionListV2Props) {
   const intl = useIntl();
   const {
     walletId,
@@ -382,6 +390,7 @@ export default function NetworksSectionListV2() {
             testID="network-selector-portfolio-native-list-v2"
             style={LIST_STYLE_V2}
             snapshot={snapshot}
+            webSectionIndexContainerRef={webSectionIndexContainerRef}
             onRowAction={handleRowAction}
             onSelectionDelta={handleSelectionDelta}
             onActionAnchorInvalidated={onActionAnchorInvalidated}
