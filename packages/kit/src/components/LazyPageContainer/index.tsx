@@ -3,6 +3,7 @@ import type { PropsWithChildren } from 'react';
 
 import { useIsFocused, useRoute } from '@react-navigation/core';
 
+import { useTabScene } from '@onekeyhq/components/src/layouts/Navigation/BottomTabs';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 
 import { useIsFirstFocused } from '../../hooks/useIsFirstFocused';
@@ -12,18 +13,22 @@ export function LazyPageContainer({
   eager,
 }: PropsWithChildren<{ eager?: boolean }>) {
   const route = useRoute();
+  const tabScene = useTabScene();
   const isPageFocused = useIsFocused();
   const isFirstFocused = useIsFirstFocused(isPageFocused);
-  // A root tab scene is only ever mounted while blurred because the navigator
-  // preloaded it: a tab that was never visited and never preloaded renders
-  // TabView's lazy placeholder and never reaches this component. So a first
-  // render without focus means "preloaded", and the page tree should be built
-  // during that idle window instead of on the tap — otherwise preloading
-  // mounts an empty shell and the user still waits for the whole page on
-  // first open.
-  const preloaded = useRef(!isPageFocused);
-  const render = Boolean(eager || isFirstFocused || preloaded.current);
+  // The navigator tells us whether this scene was preloaded; do not infer it
+  // from "mounted while blurred", which is also true for a lazy module that
+  // only resolves after the user has navigated away, and would then mount the
+  // page body on a device where preloading is switched off entirely.
+  // A preloaded scene should build its page tree during that idle window
+  // rather than on the tap — otherwise preloading mounts an empty shell and
+  // the user still waits for the whole page the first time they open the tab.
+  const preloadedAtMount = useRef(Boolean(tabScene?.preloaded));
+  const render = Boolean(eager || isFirstFocused || preloadedAtMount.current);
 
+  // Root tab name where available, so this stage can be joined with the
+  // navigator's own stages; nested screens have their own route name.
+  const tabName = tabScene?.tabName ?? route.name;
   const hasLoggedRef = useRef(false);
   useEffect(() => {
     if (!render || hasLoggedRef.current) {
@@ -32,10 +37,10 @@ export function LazyPageContainer({
     hasLoggedRef.current = true;
     defaultLogger.app.perf.tabPreloadStage({
       stage: 'pageBodyRendered',
-      tab: route.name,
-      aheadOfFocus: preloaded.current,
+      tab: tabName,
+      aheadOfFocus: preloadedAtMount.current,
     });
-  }, [render, route.name]);
+  }, [render, tabName]);
 
   return render ? children : null;
 }

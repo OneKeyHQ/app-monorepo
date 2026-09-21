@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/naming-convention */
-import { useCallback, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
 
 import TabView from '@onekeyfe/react-native-tab-view';
@@ -14,6 +14,8 @@ import { Platform, StyleSheet, View } from 'react-native';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 
 import { Spinner, Stack } from '../../../primitives';
+
+import { TabSceneContext } from './TabSceneContext';
 
 import type {
   NativeBottomTabDescriptorMap,
@@ -66,6 +68,7 @@ function SceneWithActivationPlaceholder({
   routeKey,
   routeName,
   focused,
+  preloaded,
   activated,
   onActivated,
   children,
@@ -73,10 +76,15 @@ function SceneWithActivationPlaceholder({
   routeKey: string;
   routeName: string;
   focused: boolean;
+  preloaded: boolean;
   activated: boolean;
   onActivated: (routeKey: string) => void;
   children: ReactNode;
 }) {
+  const sceneInfo = useMemo(
+    () => ({ tabName: routeName, preloaded }),
+    [routeName, preloaded],
+  );
   const handleLayout = useCallback(() => {
     defaultLogger.app.perf.tabPreloadStage({
       stage: 'sceneRevealed',
@@ -88,7 +96,9 @@ function SceneWithActivationPlaceholder({
 
   return (
     <View style={styles.scene}>
-      {children}
+      <TabSceneContext.Provider value={sceneInfo}>
+        {children}
+      </TabSceneContext.Provider>
       {/* A preloaded scene is laid out while still blurred, so let every
           scene that has not been activated yet raise the signal. Gating this
           on `focused` kept each preloaded tab behind SceneLoadingView until
@@ -131,6 +141,7 @@ export function NativeBottomTabView({
         routeKey={route.key}
         routeName={route.name}
         focused={state.routes[state.index]?.key === route.key}
+        preloaded={Boolean(state.preloadedRouteKeys?.includes(route.key))}
         activated={activatedRouteKeys.includes(route.key)}
         onActivated={handleSceneActivated}
       >
@@ -142,6 +153,7 @@ export function NativeBottomTabView({
       descriptors,
       handleSceneActivated,
       state.index,
+      state.preloadedRouteKeys,
       state.routes,
     ],
   );

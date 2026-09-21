@@ -170,22 +170,33 @@ export function TabNavigator() {
       const mainRoute = rootState?.routes?.find(
         (r) => r.name === ERootRoutes.Main,
       );
-      const tabStateKey = mainRoute?.state?.key;
+      const tabState = mainRoute?.state;
+      const tabStateKey = tabState?.key;
 
       if (!tabStateKey) {
         scheduleNext();
         return;
       }
 
+      const tabName = preloadQueue[index];
+      // TabRouter's PRELOAD handler does not care whether the route is already
+      // focused, so a queued tab the user opened before its timer fired still
+      // gets dispatched. Reporting that as coverage would overstate how often
+      // preloading actually got there first.
+      const focusedTabName =
+        tabState?.index !== undefined
+          ? tabState?.routes?.[tabState.index]?.name
+          : undefined;
+
       try {
         rootNavigationRef.current?.dispatch({
-          ...CommonActions.preload(preloadQueue[index]),
+          ...CommonActions.preload(tabName),
           target: tabStateKey,
         });
         defaultLogger.app.perf.tabPreloadStage({
           stage: 'dispatch',
-          tab: preloadQueue[index],
-          aheadOfFocus: true,
+          tab: tabName,
+          aheadOfFocus: focusedTabName !== tabName,
         });
       } catch {
         // Tab might not exist in current config (e.g. perp disabled).
