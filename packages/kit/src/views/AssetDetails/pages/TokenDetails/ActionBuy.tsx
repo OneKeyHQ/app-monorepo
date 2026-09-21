@@ -25,6 +25,7 @@ import {
   openUrlExternal,
 } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import type { IFiatCryptoType } from '@onekeyhq/shared/types/fiatCrypto';
+import { EHeadlessBuyEntry } from '@onekeyhq/shared/types/fiatCrypto';
 
 import type { IActionProps } from './type';
 
@@ -88,7 +89,12 @@ export async function openFiatCryptoWidget({
   // funnel stays intact; falls through to the web widget when unavailable.
   if (
     type === 'buy' &&
-    (await tryOpenHeadlessBuy({ networkId, tokenAddress, accountId }))
+    (await tryOpenHeadlessBuy({
+      networkId,
+      tokenAddress,
+      accountId,
+      entryFrom: EHeadlessBuyEntry.TokenDetail,
+    }))
   ) {
     return;
   }

@@ -3,6 +3,7 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { EModalFiatCryptoRoutes } from '@onekeyhq/shared/src/routes/fiatCrypto';
 import type { IFiatCryptoToken } from '@onekeyhq/shared/types/fiatCrypto';
+import { EHeadlessBuyEntry } from '@onekeyhq/shared/types/fiatCrypto';
 
 // Dev-only launcher for previewing the Onramper Headless buy page on the
 // Simulator with the mock client. Not part of any production flow.
@@ -40,6 +41,7 @@ function HeadlessBuyGallery() {
                   networkId: PREVIEW_TOKEN.networkId,
                   tokenAddress: PREVIEW_TOKEN.address,
                   token: PREVIEW_TOKEN,
+                  entryFrom: EHeadlessBuyEntry.DevGallery,
                 },
               });
             }}

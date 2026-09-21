@@ -15,6 +15,7 @@ import {
 } from '@onekeyhq/components';
 import { NetworkAvatar } from '@onekeyhq/kit/src/components/NetworkAvatar';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type {
   EModalFiatCryptoRoutes,
   IModalFiatCryptoParamList,
@@ -67,8 +68,14 @@ function HeadlessBuySuccessPage() {
   const handleCopyOrderId = useCallback(() => {
     if (transactionId) {
       copyText(transactionId);
+      // A copied order id usually means the user is about to contact support.
+      defaultLogger.fiatCrypto.onramper.orderIdCopied({
+        networkId,
+        tokenSymbol,
+        transactionId,
+      });
     }
-  }, [transactionId, copyText]);
+  }, [transactionId, copyText, networkId, tokenSymbol]);
 
   return (
     <Page>

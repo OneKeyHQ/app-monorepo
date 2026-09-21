@@ -30,6 +30,7 @@ import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { validateAmountInput } from '@onekeyhq/kit/src/utils/validateAmountInput';
 import { SendAutoSizeAmountInput } from '@onekeyhq/kit/src/views/Send/components/SendAutoSizeAmountInput';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import type { IOnramperLogContext } from '@onekeyhq/shared/src/logger/scopes/fiatCrypto/scenes/onramper';
 import type {
   IOnramperEvent,
   IOnramperQuote,
@@ -87,7 +88,7 @@ function HeadlessBuyPage() {
     useRoute<
       RouteProp<IModalFiatCryptoParamList, EModalFiatCryptoRoutes.HeadlessBuy>
     >();
-  const { networkId, accountId, tokenAddress, token } = route.params;
+  const { networkId, accountId, tokenAddress, token, entryFrom } = route.params;
   const navigation = useAppNavigation();
   const reactNavigation = useNavigation();
 
@@ -135,9 +136,22 @@ function HeadlessBuyPage() {
 
   const amount = Number(amountText) || 0;
 
+  // Logging context comes from the checkout hook, which is declared further
+  // down (it needs handleCompleted); the ref is assigned right after the hook.
+  const getLogContextRef = useRef<() => IOnramperLogContext>(() => ({
+    networkId,
+    tokenSymbol: '',
+    entryFrom,
+  }));
+
   const enterReview = useCallback(() => {
+    defaultLogger.fiatCrypto.onramper.reviewEntered({
+      ...getLogContextRef.current(),
+      amount,
+      via: 'preview',
+    });
     setMode('review');
-  }, []);
+  }, [amount]);
 
   // Preset tap = one-step buy entry: fill the amount AND jump straight to
   // review (the quote debounce runs there; the zone shows its quoting state
@@ -145,6 +159,11 @@ function HeadlessBuyPage() {
   const handlePresetSelect = useCallback(
     (value: string) => {
       handleAmountChange(value);
+      defaultLogger.fiatCrypto.onramper.reviewEntered({
+        ...getLogContextRef.current(),
+        amount: Number(value) || 0,
+        via: 'preset',
+      });
       setMode('review');
     },
     [handleAmountChange],
@@ -190,9 +209,10 @@ function HeadlessBuyPage() {
       defaultLogger.fiatCrypto.onramper.enterAmountPage({
         networkId,
         tokenSymbol: activeToken.symbol,
+        entryFrom,
       });
     }
-  }, [activeToken, networkId]);
+  }, [activeToken, networkId, entryFrom]);
 
   const { result: address } = usePromiseResult(async () => {
     if (!accountId) {
@@ -294,20 +314,6 @@ function HeadlessBuyPage() {
     ],
   );
 
-  const openWebFallback = useCallback(async () => {
-    const { url } =
-      await backgroundApiProxy.serviceFiatCrypto.generateWidgetUrl({
-        networkId,
-        tokenAddress: activeToken?.address ?? tokenAddress,
-        accountId,
-        // This page is buy-only (sell always stays on the web widget).
-        type: 'buy',
-      });
-    if (url) {
-      openFiatCryptoUrl(url);
-    }
-  }, [networkId, activeToken?.address, tokenAddress, accountId]);
-
   const {
     actionState,
     nativeButton,
@@ -317,7 +323,9 @@ function HeadlessBuyPage() {
     errorCode,
     payMock,
     retry,
+    refreshQuote,
     signOut,
+    getLogContext,
   } = useOnramperCheckout({
     amount,
     // Quote from the first digit — the ≈crypto estimate is live while typing.
@@ -335,17 +343,50 @@ function HeadlessBuyPage() {
     // verified-phone country) — staging tests must run behind a US/EU VPN.
     onlyOnramps,
     buttonStyle: HEADLESS_BUY_BUTTON_STYLE,
+    entryFrom,
     onCompleted: handleCompleted,
   });
   quoteRef.current = quote;
+  getLogContextRef.current = getLogContext;
+
+  const openWebFallback = useCallback(async () => {
+    const { url } =
+      await backgroundApiProxy.serviceFiatCrypto.generateWidgetUrl({
+        networkId,
+        tokenAddress: activeToken?.address ?? tokenAddress,
+        accountId,
+        // This page is buy-only (sell always stays on the web widget).
+        type: 'buy',
+      });
+    defaultLogger.fiatCrypto.onramper.webFallbackPressed({
+      ...getLogContext(),
+      errorCode,
+      hasUrl: Boolean(url),
+    });
+    if (url) {
+      openFiatCryptoUrl(url);
+    }
+  }, [
+    networkId,
+    activeToken?.address,
+    tokenAddress,
+    accountId,
+    getLogContext,
+    errorCode,
+  ]);
 
   // Leaving review abandons the mounted native pay button: the SDK's prepared
   // intents are single-mount, so remounting the same element on a later entry
   // renders blank. Re-quote on exit so the next entry gets a fresh button.
   const exitReview = useCallback(() => {
+    defaultLogger.fiatCrypto.onramper.reviewExited({
+      ...getLogContext(),
+      amount,
+      actionState,
+    });
     setMode('input');
-    retry();
-  }, [retry]);
+    refreshQuote();
+  }, [refreshQuote, getLogContext, amount, actionState]);
 
   // In review, every page-leave intent (header X / back arrow, Android back,
   // iOS swipe) returns to the input view instead of closing the modal.
@@ -446,6 +487,14 @@ function HeadlessBuyPage() {
     providerOptions.length > 1 || Boolean(selectedProvider);
 
   const handleSelectProvider = useCallback(() => {
+    const pickProvider = (slug: string | undefined) => {
+      defaultLogger.fiatCrypto.onramper.providerSelected({
+        ...getLogContext(),
+        from: selectedProvider,
+        to: slug,
+      });
+      setSelectedProvider(slug);
+    };
     ActionList.show({
       title: 'Select provider',
       sections: [
@@ -453,17 +502,17 @@ function HeadlessBuyPage() {
           items: [
             {
               label: 'Auto (recommended)',
-              onPress: () => setSelectedProvider(undefined),
+              onPress: () => pickProvider(undefined),
             },
             ...providerOptions.map((slug) => ({
               label: getProviderDisplayName(slug),
-              onPress: () => setSelectedProvider(slug),
+              onPress: () => pickProvider(slug),
             })),
           ],
         },
       ],
     });
-  }, [providerOptions]);
+  }, [providerOptions, selectedProvider, getLogContext]);
 
   // Drops the stored OnramperID login so the next checkout re-runs email +
   // phone verification. User-facing on all builds: the SDK keeps the OIDC
@@ -476,7 +525,13 @@ function HeadlessBuyPage() {
         testID="headless-buy-signout"
         icon="LogoutOutline"
         onPress={async () => {
-          await signOut();
+          try {
+            await signOut();
+          } catch {
+            // Already logged by the hook (signOutFailed).
+            Toast.error({ title: 'Sign out failed' });
+            return;
+          }
           Toast.success({
             title: 'Signed out of OnramperID',
             message: 'The next purchase will re-verify email and phone',

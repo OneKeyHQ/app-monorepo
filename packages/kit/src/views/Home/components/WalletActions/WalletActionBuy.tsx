@@ -25,6 +25,7 @@ import {
   openUrlExternal,
 } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
+import { EHeadlessBuyEntry } from '@onekeyhq/shared/types/fiatCrypto';
 
 export function WalletActionBuy({
   onClose,
@@ -196,6 +197,7 @@ export function WalletActionBuy({
               networkId: network?.id ?? '',
               tokenAddress: nativeToken.address,
               accountId: a?.id ?? '',
+              entryFrom: EHeadlessBuyEntry.HomeWalletAction,
             })
           ) {
             return;

@@ -33,6 +33,7 @@ import openUrlUtils, {
   openUrlInDiscovery,
 } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
+import { EHeadlessBuyEntry } from '@onekeyhq/shared/types/fiatCrypto';
 import {
   ESwapSource,
   ESwapTabSwitchType,
@@ -235,6 +236,7 @@ function ReceiveSelectorContent() {
             networkId: networkId ?? '',
             tokenAddress: token.address,
             accountId,
+            entryFrom: EHeadlessBuyEntry.ReceiveSelector,
           })
         ) {
           return;

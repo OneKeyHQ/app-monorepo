@@ -3,9 +3,14 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import type { IOnramperLogContext } from '@onekeyhq/shared/src/logger/scopes/fiatCrypto/scenes/onramper';
 import {
+  ONRAMPER_EVENT_NAMES,
   createOnramperClient,
+  getErrorMessageForLog,
   getOnramperConfig,
+  getOnramperErrorFieldsForLog,
+  getUrlHostForLog,
   isStructuralOnramperError,
 } from '@onekeyhq/shared/src/modules3rdParty/onramper';
 import type {
@@ -13,6 +18,7 @@ import type {
   IOnramperClient,
   IOnramperEvent,
   IOnramperQuote,
+  IOnramperSession,
 } from '@onekeyhq/shared/src/modules3rdParty/onramper';
 
 import { getOnramperErrorMessage } from './onramperErrorCopy';
@@ -33,6 +39,8 @@ type IParams = {
   // Must be reference-stable (useMemo) — it is a debounce-effect dependency.
   onlyOnramps?: string[];
   buttonStyle: IOnramperButtonStyle;
+  // Surface that launched the buy page — rides on every funnel event.
+  entryFrom?: string;
   onCompleted: (event: IOnramperEvent) => void;
 };
 
@@ -46,11 +54,17 @@ type IResult = {
   // failures back to the input screen instead of a generic retry.
   errorCode: string | undefined;
   payMock: () => void;
+  // User-pressed Retry (logged as a funnel signal).
   retry: () => void;
+  // Silent re-quote for flow-driven refreshes (e.g. leaving review).
+  refreshQuote: () => void;
   // Clears the stored OnramperID login (OIDC tokens); the next checkout
   // re-runs email + phone verification. Exposed for the header sign-out
   // button.
   signOut: () => Promise<void>;
+  // Logging context (network / token / entry / elapsed) for page-level events
+  // so they line up with the hook's own timeline.
+  getLogContext: () => IOnramperLogContext;
 };
 
 // Owns the Headless checkout lifecycle: session mint + client init, the debounced
@@ -66,6 +80,7 @@ export function useOnramperCheckout({
   country,
   onlyOnramps,
   buttonStyle,
+  entryFrom,
   onCompleted,
 }: IParams): IResult {
   const [actionState, setActionState] = useState<EBuyActionState>(
@@ -80,15 +95,66 @@ export function useOnramperCheckout({
   const [ready, setReady] = useState(false);
   const [retryNonce, setRetryNonce] = useState(0);
 
+  // Reference-stable logging context so the (dep-free) event callbacks can read
+  // the current token without re-subscribing. `elapsedMs` counts from the
+  // first render of the page so every event can be placed on one timeline.
+  const mountedAtRef = useRef(Date.now());
+  const logCtxRef = useRef({
+    networkId: network,
+    tokenSymbol: destination.toUpperCase(),
+    entryFrom,
+  });
+  logCtxRef.current = {
+    networkId: network,
+    tokenSymbol: destination.toUpperCase(),
+    entryFrom,
+  };
+  const getLogContext = useCallback(
+    (): IOnramperLogContext => ({
+      ...logCtxRef.current,
+      elapsedMs: Date.now() - mountedAtRef.current,
+    }),
+    [],
+  );
+
+  // Latest quote / amount for event enrichment (checkoutCompleted/Failed fire
+  // from dep-free listeners).
+  const quoteRef = useRef<IOnramperQuote | undefined>(undefined);
+  const amountRef = useRef(amount);
+  amountRef.current = amount;
+  const errorCodeRef = useRef<string | undefined>(undefined);
+  errorCodeRef.current = errorCode;
+
   const createClient = useCallback(
     () =>
       createOnramperClient({
         // Real config on device (clientId from Onramper); the mock ignores it.
         ...getOnramperConfig(),
-        onSessionExpired: () =>
-          backgroundApiProxy.serviceFiatCrypto.fetchOnramperSession(),
+        onSessionExpired: async () => {
+          defaultLogger.fiatCrypto.onramper.sessionRefreshRequested(
+            getLogContext(),
+          );
+          const startedAt = Date.now();
+          try {
+            const session =
+              await backgroundApiProxy.serviceFiatCrypto.fetchOnramperSession();
+            defaultLogger.fiatCrypto.onramper.sessionRefreshed({
+              ...getLogContext(),
+              durationMs: Date.now() - startedAt,
+              sessionId: session.sessionId,
+            });
+            return session;
+          } catch (error) {
+            defaultLogger.fiatCrypto.onramper.sessionRefreshFailed({
+              ...getLogContext(),
+              durationMs: Date.now() - startedAt,
+              errorMessage: getErrorMessageForLog(error),
+            });
+            throw error;
+          }
+        },
       }),
-    [],
+    [getLogContext],
   );
   // Lazily create a single client for the lifetime of the page.
   const clientRef = useRef<IOnramperClient | null>(null);
@@ -101,44 +167,34 @@ export function useOnramperCheckout({
   const hasButtonRef = useRef(false);
   const quoteLoggedRef = useRef(false);
 
-  // Reference-stable logging context so the (dep-free) event callbacks can read
-  // the current token without re-subscribing.
-  const logCtxRef = useRef({
-    networkId: network,
-    tokenSymbol: destination.toUpperCase(),
-  });
-  logCtxRef.current = {
-    networkId: network,
-    tokenSymbol: destination.toUpperCase(),
-  };
-
   // Keep callbacks fresh without re-subscribing the event listeners.
   const onCompletedRef = useRef(onCompleted);
   onCompletedRef.current = onCompleted;
 
-  const goWebFallback = useCallback((code?: string) => {
-    defaultLogger.fiatCrypto.onramper.webFallbackShown({
-      ...logCtxRef.current,
-      errorCode: code,
-    });
-    setActionState(EBuyActionState.WebFallback);
-  }, []);
-
-  const handleFailed = useCallback(
-    (event: IOnramperEvent) => {
-      defaultLogger.fiatCrypto.onramper.checkoutFailed({
-        ...logCtxRef.current,
-        errorCode: event.errorCode,
-        checkoutId: event.checkoutId,
-        transactionId: event.transactionId,
+  const goWebFallback = useCallback(
+    (error?: { code?: string; message?: string }) => {
+      defaultLogger.fiatCrypto.onramper.webFallbackShown({
+        ...getLogContext(),
+        errorCode: error?.code,
+        errorMessage: getErrorMessageForLog(error),
       });
+      setActionState(EBuyActionState.WebFallback);
+    },
+    [getLogContext],
+  );
+
+  // Shared failure policy for the SDK's `failed` event and the quote loop's
+  // thrown rejection: structural → web fallback, everything else retryable.
+  // Logging is the caller's job — the two paths emit different events.
+  const applyFailure = useCallback(
+    (event: IOnramperEvent) => {
       if (
         isStructuralOnramperError({
           code: event.errorCode,
           message: event.message,
         })
       ) {
-        goWebFallback(event.errorCode);
+        goWebFallback({ code: event.errorCode, message: event.message });
       } else {
         setErrorMessage(
           getOnramperErrorMessage({
@@ -153,8 +209,68 @@ export function useOnramperCheckout({
     },
     [goWebFallback],
   );
-  const handleFailedRef = useRef(handleFailed);
-  handleFailedRef.current = handleFailed;
+
+  const handleCheckoutFailed = useCallback(
+    (event: IOnramperEvent) => {
+      defaultLogger.fiatCrypto.onramper.checkoutFailed({
+        ...getLogContext(),
+        ...getOnramperErrorFieldsForLog({
+          code: event.errorCode,
+          message: event.message,
+          info: event.info,
+        }),
+        amount: amountRef.current,
+        ramp: quoteRef.current?.ramp,
+        checkoutId: event.checkoutId,
+        transactionId: event.transactionId,
+      });
+      applyFailure(event);
+    },
+    [applyFailure, getLogContext],
+  );
+  const handleCheckoutFailedRef = useRef(handleCheckoutFailed);
+  handleCheckoutFailedRef.current = handleCheckoutFailed;
+
+  const handleCheckoutCompleted = useCallback(
+    (event: IOnramperEvent) => {
+      defaultLogger.fiatCrypto.onramper.checkoutCompleted({
+        ...getLogContext(),
+        amount: amountRef.current,
+        ramp: quoteRef.current?.ramp,
+        checkoutId: event.checkoutId,
+        transactionId: event.transactionId,
+      });
+      onCompletedRef.current(event);
+    },
+    [getLogContext],
+  );
+  const handleCheckoutCompletedRef = useRef(handleCheckoutCompleted);
+  handleCheckoutCompletedRef.current = handleCheckoutCompleted;
+
+  // Every other SDK checkout event is diagnostics only: logged, never acted on.
+  const handleSdkEvent = useCallback(
+    (event: IOnramperEvent) => {
+      if (!event.type) {
+        return;
+      }
+      defaultLogger.fiatCrypto.onramper.sdkCheckoutEvent({
+        ...getLogContext(),
+        event: event.type,
+        intentId: event.intentId,
+        requirementTypes: event.requirementTypes,
+        requirementType: event.requirementType,
+        headlessCheckoutId: event.headlessCheckoutId,
+        transactionId: event.transactionId,
+        renderType: event.renderType,
+        paymentType: event.paymentType,
+        urlHost: getUrlHostForLog(event.url),
+        reason: event.reason,
+      });
+    },
+    [getLogContext],
+  );
+  const handleSdkEventRef = useRef(handleSdkEvent);
+  handleSdkEventRef.current = handleSdkEvent;
 
   // Init: mint session (skipped for the mock) → initialize → wire events.
   useEffect(() => {
@@ -168,34 +284,83 @@ export function useOnramperCheckout({
     setReady(false);
     let cancelled = false;
     const removeListeners = [
-      client.addEventListener('completed', (event) => {
-        defaultLogger.fiatCrypto.onramper.checkoutCompleted({
-          ...logCtxRef.current,
-          checkoutId: event.checkoutId,
-          transactionId: event.transactionId,
-        });
-        onCompletedRef.current(event);
-      }),
-      client.addEventListener('failed', (event) =>
-        handleFailedRef.current(event),
+      ...ONRAMPER_EVENT_NAMES.map((name) =>
+        client.addEventListener(name, (event) => {
+          if (name === 'completed') {
+            handleCheckoutCompletedRef.current(event);
+          } else if (name === 'failed') {
+            handleCheckoutFailedRef.current(event);
+          } else {
+            handleSdkEventRef.current(event);
+          }
+        }),
       ),
+      client.addStateListener((state) => {
+        defaultLogger.fiatCrypto.onramper.sdkStateChanged({
+          ...getLogContext(),
+          state: state.kind,
+          requirementTypes: state.requirementTypes,
+          renderType: state.renderType,
+          paymentType: state.paymentType,
+          errorCode: state.errorCode,
+          errorMessage: getErrorMessageForLog(
+            state.message ? { message: state.message } : undefined,
+          ),
+        });
+      }),
     ];
     void (async () => {
+      const mintStartedAt = Date.now();
+      let session: IOnramperSession;
       try {
-        const session = client.isMock
+        session = client.isMock
           ? { sessionId: 'mock', sessionToken: 'mock' }
           : await backgroundApiProxy.serviceFiatCrypto.fetchOnramperSession();
-        if (cancelled) {
-          return;
+      } catch (error) {
+        if (!cancelled) {
+          defaultLogger.fiatCrypto.onramper.sessionMintFailed({
+            ...getLogContext(),
+            durationMs: Date.now() - mintStartedAt,
+            errorMessage: getErrorMessageForLog(error),
+          });
+          goWebFallback({ code: 'sessionMintFailed' });
         }
+        return;
+      }
+      if (cancelled) {
+        return;
+      }
+      defaultLogger.fiatCrypto.onramper.sessionMinted({
+        ...getLogContext(),
+        durationMs: Date.now() - mintStartedAt,
+        sessionId: session.sessionId,
+        tokenFamilyId: session.tokenFamilyId,
+        expiresAt: session.expiresAt,
+      });
+      const initStartedAt = Date.now();
+      try {
         await client.initialize(session);
+      } catch (error) {
         if (!cancelled) {
-          setReady(true);
+          const err = error as { code?: string; message?: string };
+          defaultLogger.fiatCrypto.onramper.clientInitFailed({
+            ...getLogContext(),
+            durationMs: Date.now() - initStartedAt,
+            ...getOnramperErrorFieldsForLog({
+              code: err?.code,
+              message: err?.message,
+            }),
+          });
+          goWebFallback({ code: err?.code ?? 'clientInitFailed' });
         }
-      } catch {
-        if (!cancelled) {
-          goWebFallback('sessionMintFailed');
-        }
+        return;
+      }
+      if (!cancelled) {
+        defaultLogger.fiatCrypto.onramper.clientInitialized({
+          ...getLogContext(),
+          durationMs: Date.now() - initStartedAt,
+        });
+        setReady(true);
       }
     })();
     return () => {
@@ -211,8 +376,12 @@ export function useOnramperCheckout({
       setTimeout(() => {
         try {
           client.destroy();
-        } catch {
+        } catch (error) {
           // Best-effort teardown; the instance is already unreachable.
+          defaultLogger.fiatCrypto.onramper.clientDestroyFailed({
+            ...getLogContext(),
+            errorMessage: getErrorMessageForLog(error),
+          });
         }
       }, 400);
     };
@@ -236,6 +405,10 @@ export function useOnramperCheckout({
     // re-fires this effect (address is a dep); until then hold Preparing.
     // The mock stays exempt — the Simulator/Gallery preview has no account.
     if (!isMock && !address) {
+      defaultLogger.fiatCrypto.onramper.quoteBlockedNoAddress({
+        ...getLogContext(),
+        amount,
+      });
       setActionState(EBuyActionState.Preparing);
       return undefined;
     }
@@ -249,11 +422,21 @@ export function useOnramperCheckout({
     );
     setErrorMessage(undefined);
     setErrorCode(undefined);
+    const provider = onlyOnramps?.[0];
     const timer = setTimeout(() => {
       const client = clientRef.current;
       if (!client) {
         return;
       }
+      defaultLogger.fiatCrypto.onramper.quoteRequested({
+        ...getLogContext(),
+        seq,
+        amount,
+        source,
+        destination,
+        provider,
+      });
+      const startedAt = Date.now();
       void (async () => {
         try {
           const result = await client.getCheckoutRequirements(
@@ -269,23 +452,53 @@ export function useOnramperCheckout({
             },
             buttonStyle,
           );
+          const durationMs = Date.now() - startedAt;
           if (cancelled || seq !== reqSeqRef.current) {
+            defaultLogger.fiatCrypto.onramper.quoteStale({
+              ...getLogContext(),
+              seq,
+              outcome: 'success',
+            });
             return;
           }
+          quoteRef.current = result.quote;
           setQuote(result.quote);
           setNativeButton(result.button);
           hasButtonRef.current = true;
+          defaultLogger.fiatCrypto.onramper.quoteResolved({
+            ...getLogContext(),
+            seq,
+            durationMs,
+            amount,
+            quoteId: result.quote.quoteId,
+            ramp: result.quote.ramp,
+            payout: result.quote.payout,
+            networkFee: result.quote.networkFee,
+            transactionFee: result.quote.transactionFee,
+            recommendations: result.quote.recommendations,
+          });
           if (!quoteLoggedRef.current) {
             quoteLoggedRef.current = true;
             defaultLogger.fiatCrypto.onramper.quoteReceived({
-              ...logCtxRef.current,
+              ...getLogContext(),
               amount,
+              durationMs,
               quoteId: result.quote.quoteId,
+              ramp: result.quote.ramp,
+              payout: result.quote.payout,
+              networkFee: result.quote.networkFee,
+              transactionFee: result.quote.transactionFee,
             });
           }
           setActionState(EBuyActionState.Ready);
         } catch (error) {
+          const durationMs = Date.now() - startedAt;
           if (cancelled || seq !== reqSeqRef.current) {
+            defaultLogger.fiatCrypto.onramper.quoteStale({
+              ...getLogContext(),
+              seq,
+              outcome: 'failure',
+            });
             return;
           }
           const err = error as {
@@ -293,9 +506,21 @@ export function useOnramperCheckout({
             message?: string;
             info?: Record<string, unknown>;
           };
+          defaultLogger.fiatCrypto.onramper.quoteFailed({
+            ...getLogContext(),
+            ...getOnramperErrorFieldsForLog({
+              code: err?.code,
+              message: err?.message,
+              info: err?.info,
+            }),
+            seq,
+            durationMs,
+            amount,
+            provider,
+          });
           // Same classification policy as the SDK's `failed` event —
           // structural → web fallback, everything else retryable.
-          handleFailedRef.current({
+          applyFailure({
             errorCode: err?.code,
             message: err?.message,
             info: err?.info,
@@ -320,26 +545,26 @@ export function useOnramperCheckout({
     onlyOnramps,
     buttonStyle,
     retryNonce,
-    goWebFallback,
+    applyFailure,
+    getLogContext,
   ]);
 
   const payMock = useCallback(() => {
-    defaultLogger.fiatCrypto.onramper.checkoutCompleted({
-      ...logCtxRef.current,
-      checkoutId: 'mock-checkout',
-      transactionId: 'mock-transaction',
-    });
-    onCompletedRef.current({
+    handleCheckoutCompletedRef.current({
+      type: 'completed',
       checkoutId: 'mock-checkout',
       transactionId: 'mock-transaction',
     });
   }, []);
 
-  const retry = useCallback(() => {
+  // Re-quote after a failure or a review exit. `reason` only feeds the log:
+  // a user-pressed Retry is a funnel signal, an exit-driven re-quote is not.
+  const refreshQuote = useCallback(() => {
     // Drop the previous quote's data and button up front: the button handle is
     // single-consume (remounting the old element renders blank) and a fast
     // exit-review → re-enter must show loading states, not the prior quote's
     // figures, until the fresh quote lands.
+    quoteRef.current = undefined;
     setQuote(undefined);
     setNativeButton(null);
     hasButtonRef.current = false;
@@ -361,18 +586,39 @@ export function useOnramperCheckout({
         // example does the same between checkouts.
         try {
           await clientRef.current?.reset();
-        } catch {
+        } catch (error) {
           // A reset failure must not block the re-quote; the quote loop
           // surfaces its own error if the client is genuinely unusable.
+          defaultLogger.fiatCrypto.onramper.resetFailed({
+            ...getLogContext(),
+            errorMessage: getErrorMessageForLog(error),
+          });
         }
         setRetryNonce((n) => n + 1);
       })();
     }, 64);
-  }, []);
+  }, [getLogContext]);
+
+  const retry = useCallback(() => {
+    defaultLogger.fiatCrypto.onramper.retryPressed({
+      ...getLogContext(),
+      errorCode: errorCodeRef.current,
+    });
+    refreshQuote();
+  }, [getLogContext, refreshQuote]);
 
   const signOut = useCallback(async () => {
-    await clientRef.current?.signOut();
-  }, []);
+    defaultLogger.fiatCrypto.onramper.signOutPressed(getLogContext());
+    try {
+      await clientRef.current?.signOut();
+    } catch (error) {
+      defaultLogger.fiatCrypto.onramper.signOutFailed({
+        ...getLogContext(),
+        errorMessage: getErrorMessageForLog(error),
+      });
+      throw error;
+    }
+  }, [getLogContext]);
 
   return {
     actionState,
@@ -383,6 +629,8 @@ export function useOnramperCheckout({
     errorCode,
     payMock,
     retry,
+    refreshQuote,
     signOut,
+    getLogContext,
   };
 }

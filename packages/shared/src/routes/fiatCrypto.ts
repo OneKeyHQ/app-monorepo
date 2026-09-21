@@ -29,6 +29,8 @@ export type IModalFiatCryptoParamList = {
     // Full token object when navigating from the token list; direct-buy entry
     // points pass only tokenAddress and the page resolves the rest.
     token?: IFiatCryptoToken;
+    // Launching surface (EHeadlessBuyEntry) — analytics only.
+    entryFrom?: string;
   };
   [EModalFiatCryptoRoutes.HeadlessBuyTokenSelector]: {
     networkId: string;

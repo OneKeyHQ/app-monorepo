@@ -68,14 +68,48 @@ export type IOnramperCheckoutRequirements = {
   quote: IOnramperQuote;
 };
 
+// Mirrors the SDK's `CheckoutEvent['type']` union (1.2.2) minus
+// `stateChanged`, which is exposed through `addStateListener` instead.
 export type IOnramperEventName =
+  | 'checkoutStarted'
+  | 'loginRequired'
+  | 'readyToCheckout'
+  | 'requirementSatisfied'
+  | 'checkoutFinalized'
+  | 'renderingStarted'
   | 'completed'
   | 'failed'
+  | 'cancelled'
+  // Provider-lifecycle events from third-party checkout webviews.
+  | 'providerReady'
   | 'paymentAuthorized'
   | 'paymentProcessing'
-  | 'loginRequired';
+  | 'paymentCancelled'
+  | 'providerError';
 
+export const ONRAMPER_EVENT_NAMES: IOnramperEventName[] = [
+  'checkoutStarted',
+  'loginRequired',
+  'readyToCheckout',
+  'requirementSatisfied',
+  'checkoutFinalized',
+  'renderingStarted',
+  'completed',
+  'failed',
+  'cancelled',
+  'providerReady',
+  'paymentAuthorized',
+  'paymentProcessing',
+  'paymentCancelled',
+  'providerError',
+];
+
+// Flattened, event-agnostic shape of an SDK checkout event: the fields each
+// SDK variant carries are hoisted to optional top-level members so one
+// listener type serves every event name. `type` is absent on the synthetic
+// events the quote loop builds from thrown rejections.
 export type IOnramperEvent = {
+  type?: IOnramperEventName;
   // Per-attempt checkout id (SDK `completed.checkoutId`). Not accepted by
   // Onramper's GET /transactions/{id}; keep for support tracing only.
   checkoutId?: string;
@@ -86,7 +120,46 @@ export type IOnramperEvent = {
   errorCode?: string;
   message?: string;
   info?: Record<string, unknown>;
+  // checkoutStarted
+  intentId?: string;
+  // loginRequired — requirement `type` values (tos / amount_limit / …).
+  requirementTypes?: string[];
+  // requirementSatisfied
+  requirementType?: string;
+  // checkoutFinalized
+  headlessCheckoutId?: string;
+  // checkoutFinalized / renderingStarted
+  renderType?: string;
+  paymentType?: string;
+  url?: string;
+  // providerError
+  reason?: string;
 };
+
+// Mirrors the SDK's `OnramperState['kind']` union (1.2.2).
+export type IOnramperStateKind =
+  | 'idle'
+  | 'initializing'
+  | 'ready'
+  | 'checkoutPreparing'
+  | 'requireLogin'
+  | 'authenticating'
+  | 'readyToCheckout'
+  | 'finalizing'
+  | 'rendering'
+  | 'completed'
+  | 'failed';
+
+export type IOnramperState = {
+  kind: IOnramperStateKind;
+  requirementTypes?: string[];
+  renderType?: string;
+  paymentType?: string;
+  errorCode?: string;
+  message?: string;
+};
+
+export type IOnramperStateListener = (state: IOnramperState) => void;
 
 export type IOnramperError = {
   code?: string;
@@ -108,6 +181,9 @@ export type IOnramperClient = {
     name: IOnramperEventName,
     listener: IOnramperEventListener,
   ) => () => void;
+  // SDK state machine transitions (diagnostics only — the UI drives off the
+  // checkout events above).
+  addStateListener: (listener: IOnramperStateListener) => () => void;
   reset: () => Promise<void>;
   signOut: () => Promise<void>;
   destroy: () => void;

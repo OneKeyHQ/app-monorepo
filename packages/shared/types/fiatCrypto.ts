@@ -58,3 +58,17 @@ export type IFiatCryptoTokenListWithNetworks = {
   // rows that must open the address type selector instead of a direct action.
   mergeDeriveAssetsNetworkIds: string[];
 };
+
+// Where a native Headless buy attempt was started from. Carried through the
+// entry gate, the buy page route params and every funnel event so a failing
+// checkout can be traced back to the surface that launched it.
+export enum EHeadlessBuyEntry {
+  HomeWalletAction = 'homeWalletAction',
+  HomeInsufficientGasDialog = 'homeInsufficientGasDialog',
+  TokenDetail = 'tokenDetail',
+  BuyTokenList = 'buyTokenList',
+  Market = 'market',
+  SendInsufficientBalance = 'sendInsufficientBalance',
+  ReceiveSelector = 'receiveSelector',
+  DevGallery = 'devGallery',
+}

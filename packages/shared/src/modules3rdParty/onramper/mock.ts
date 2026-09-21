@@ -69,6 +69,10 @@ export function createMockOnramperClient(
         set.delete(listener);
       };
     },
+    addStateListener() {
+      // The mock has no state machine; nothing is ever published.
+      return () => {};
+    },
     async reset() {
       // no-op for the mock
     },

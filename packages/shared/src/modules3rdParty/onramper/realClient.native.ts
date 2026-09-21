@@ -9,9 +9,17 @@ import type {
   ICreateOnramperClientParams,
   IOnramperClient,
   IOnramperConfig,
+  IOnramperEvent,
   IOnramperEventListener,
   IOnramperEventName,
+  IOnramperState,
+  IOnramperStateListener,
 } from './type';
+import type {
+  CheckoutEvent,
+  EventName,
+  OnramperState,
+} from '@onramper/onramper-react-native';
 
 // Onramper credentials. BOTH are required by the SDK's configure() — apiKey is
 // the publishable key (the hosted widget embeds the same key in its URL, it is
@@ -55,12 +63,94 @@ export function getOnramperConfig(): IOnramperConfig {
   };
 }
 
-// SDK checkout events nest the failure under `error` ({ error: { code, message,
-// info } }); flatten to the IOnramperEvent shape the kit layer consumes.
-type ISdkEventPayload = {
-  checkoutId?: string;
-  error?: { code?: string; message?: string; info?: Record<string, unknown> };
-};
+// Flattens an SDK checkout event to the event-agnostic IOnramperEvent shape
+// the kit layer consumes (the SDK nests per-variant data, e.g. the failure
+// under `error` and the finalize payload under `response`). `transactionId`
+// is read from the client per event, not once: the SDK wrapper mirrors
+// `checkoutFinalized.response.onramperTransactionId` into
+// `currentTransactionId` BEFORE fanning the event out, so it is already set
+// when `completed` / a post-finalize `failed` arrives, and reset()/signOut()
+// clear it again.
+function toOnramperEvent(
+  e: CheckoutEvent,
+  transactionId: string | undefined,
+): IOnramperEvent {
+  switch (e.type) {
+    case 'checkoutStarted':
+      return { type: e.type, transactionId, intentId: e.intentId };
+    case 'loginRequired':
+      return {
+        type: e.type,
+        transactionId,
+        requirementTypes: e.requirements.map((r) => r.type),
+      };
+    case 'requirementSatisfied':
+      return {
+        type: e.type,
+        transactionId,
+        requirementType: e.requirementType,
+      };
+    case 'checkoutFinalized':
+      return {
+        type: e.type,
+        transactionId,
+        headlessCheckoutId: e.response.headlessCheckoutId,
+        renderType: e.response.headlessCheckoutData.renderType,
+        paymentType: e.response.headlessCheckoutData.checkoutPaymentType,
+        url: e.response.headlessCheckoutData.url,
+      };
+    case 'renderingStarted':
+      return {
+        type: e.type,
+        transactionId,
+        renderType: e.renderType,
+        url: e.url,
+      };
+    case 'completed':
+      return { type: e.type, transactionId, checkoutId: e.checkoutId };
+    case 'failed':
+      return {
+        type: e.type,
+        transactionId,
+        errorCode: e.error.code,
+        message: e.error.message,
+        info: e.error.info,
+      };
+    case 'providerError':
+      return { type: e.type, transactionId, reason: e.reason };
+    case 'stateChanged':
+      // Delivered through addStateListener; never subscribed here.
+      return { transactionId };
+    default:
+      // readyToCheckout / cancelled / providerReady / paymentAuthorized /
+      // paymentProcessing / paymentCancelled carry no payload.
+      return { type: e.type, transactionId };
+  }
+}
+
+function toOnramperState(s: OnramperState): IOnramperState {
+  switch (s.kind) {
+    case 'requireLogin':
+      return {
+        kind: s.kind,
+        requirementTypes: s.requirements.map((r) => r.type),
+      };
+    case 'rendering':
+      return {
+        kind: s.kind,
+        renderType: s.renderType,
+        paymentType: s.paymentType,
+      };
+    case 'failed':
+      return {
+        kind: s.kind,
+        errorCode: s.error.code,
+        message: s.error.message,
+      };
+    default:
+      return { kind: s.kind };
+  }
+}
 
 // Mirrors the SDK's `OnramperErrorCode` union (1.2.2) — used to validate codes
 // recovered from degraded bridge errors below.
@@ -153,20 +243,13 @@ export function createRealOnramperClient(
       name: IOnramperEventName,
       listener: IOnramperEventListener,
     ) =>
-      client.addEventListener(name, (event: unknown) => {
-        const e = event as ISdkEventPayload;
-        // The SDK wrapper mirrors `checkoutFinalized.response.onramperTransactionId`
-        // into `currentTransactionId` before fanning the event out, so it is
-        // already set when `completed` / a post-finalize `failed` arrives.
-        // Read it per event (not once) — reset()/signOut() clear it.
-        listener({
-          checkoutId: e.checkoutId,
-          transactionId: client.currentTransactionId ?? undefined,
-          errorCode: e.error?.code,
-          message: e.error?.message,
-          info: e.error?.info,
-        });
-      }),
+      client.addEventListener<EventName>(name, (event) =>
+        listener(
+          toOnramperEvent(event, client.currentTransactionId ?? undefined),
+        ),
+      ),
+    addStateListener: (listener: IOnramperStateListener) =>
+      client.addStateListener((state) => listener(toOnramperState(state))),
     reset: () => client.reset(),
     signOut: () => client.signOut(),
     destroy: () => client.destroy(),

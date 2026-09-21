@@ -186,11 +186,31 @@ class ServiceFiatCrypto extends ServiceBase {
     // The backend restricts sessions to exactly this scope pair anyway.
     const scope = ['quotes:read', 'checkout:write'];
     const client = await this.getClient(EServiceEndpointEnum.Wallet);
-    const resp = await client.post<{ data: IOnramperSessionResponse }>(
-      '/wallet/v1/fiat-pay/onramper-session',
-      { scope },
-    );
-    return resp.data.data;
+    const startedAt = Date.now();
+    try {
+      const resp = await client.post<{ data: IOnramperSessionResponse }>(
+        '/wallet/v1/fiat-pay/onramper-session',
+        { scope },
+      );
+      const session = resp.data.data;
+      defaultLogger.fiatCrypto.request.onramperSessionMinted({
+        durationMs: Date.now() - startedAt,
+        sessionId: session.sessionId,
+        expiresAt: session.expiresAt,
+      });
+      return session;
+    } catch (error) {
+      const err = error as {
+        message?: string;
+        response?: { status?: number };
+      };
+      defaultLogger.fiatCrypto.request.onramperSessionMintFailed({
+        durationMs: Date.now() - startedAt,
+        status: err?.response?.status,
+        message: err?.message,
+      });
+      throw error;
+    }
   }
 
   // Resolve a buy-list token for the native Headless SDK path. Reads the

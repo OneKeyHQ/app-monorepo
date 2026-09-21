@@ -21,6 +21,7 @@ import {
   normalizeToEarnSymbol,
 } from '@onekeyhq/shared/types/earn/earnProvider.constants';
 import type { IFiatCryptoType } from '@onekeyhq/shared/types/fiatCrypto';
+import { EHeadlessBuyEntry } from '@onekeyhq/shared/types/fiatCrypto';
 import type {
   IMarketDetailPlatformNetwork,
   IMarketPreferredToken,
@@ -152,6 +153,7 @@ export const useMarketTradeActions = (
           networkId,
           tokenAddress: realContractAddress,
           accountId: networkAccount?.id,
+          entryFrom: EHeadlessBuyEntry.Market,
         }))
       ) {
         return;

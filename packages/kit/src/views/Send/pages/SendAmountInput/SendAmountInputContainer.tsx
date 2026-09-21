@@ -108,6 +108,7 @@ import tokenRebaseUtils from '@onekeyhq/shared/src/utils/tokenRebaseUtils';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import { UNAVAILABLE_DISPLAY } from '@onekeyhq/shared/src/utils/tokenValueUtils';
 import type { IAddressValidateStatus } from '@onekeyhq/shared/types/address';
+import { EHeadlessBuyEntry } from '@onekeyhq/shared/types/fiatCrypto';
 import { ELightningUnit } from '@onekeyhq/shared/types/lightning';
 import type { IAccountNFT } from '@onekeyhq/shared/types/nft';
 import { ENFTType } from '@onekeyhq/shared/types/nft';
@@ -2317,6 +2318,7 @@ function SendAmountInputContainer() {
           networkId,
           tokenAddress: tokenInfo?.address ?? '',
           accountId: currentAccountId,
+          entryFrom: EHeadlessBuyEntry.SendInsufficientBalance,
         })
       ) {
         return;

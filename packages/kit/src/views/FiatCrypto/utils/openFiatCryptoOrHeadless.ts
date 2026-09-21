@@ -1,9 +1,14 @@
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import appGlobals from '@onekeyhq/shared/src/appGlobals';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { canUseHeadless } from '@onekeyhq/shared/src/modules3rdParty/onramper';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalRoutes, ERootRoutes } from '@onekeyhq/shared/src/routes';
 import { EModalFiatCryptoRoutes } from '@onekeyhq/shared/src/routes/fiatCrypto';
-import type { IFiatCryptoToken } from '@onekeyhq/shared/types/fiatCrypto';
+import type {
+  EHeadlessBuyEntry,
+  IFiatCryptoToken,
+} from '@onekeyhq/shared/types/fiatCrypto';
 
 export type ITryOpenHeadlessBuyParams = {
   networkId: string;
@@ -12,7 +17,31 @@ export type ITryOpenHeadlessBuyParams = {
   // Provided when navigating from the token list; direct-buy entries omit it and
   // the token is resolved from the cached list.
   token?: IFiatCryptoToken;
+  // Launching surface — analytics only.
+  entryFrom: EHeadlessBuyEntry;
 };
+
+type IEntryDecisionReason = Parameters<
+  typeof defaultLogger.fiatCrypto.onramper.entryDecided
+>[0]['reason'];
+
+// The native path is only ever a candidate on iOS; logging the gate on every
+// other platform's buy tap would be pure noise.
+function logEntryDecision(
+  params: ITryOpenHeadlessBuyParams,
+  reason: IEntryDecisionReason,
+) {
+  if (!platformEnv.isNativeIOS) {
+    return;
+  }
+  defaultLogger.fiatCrypto.onramper.entryDecided({
+    entryFrom: params.entryFrom,
+    networkId: params.networkId,
+    tokenAddress: params.tokenAddress,
+    decision: reason === 'ok' ? 'native' : 'web',
+    reason,
+  });
+}
 
 // The single choke point for every buy entry. Returns true if it navigated to
 // the native Headless buy page (the caller must stop); returns false when the
@@ -24,13 +53,12 @@ export type ITryOpenHeadlessBuyParams = {
 // the aggregate Overview tab), SellOrBuy list, WalletActionBuy,
 // WalletActions/index, Market tradeHook, Send SendAmountInputContainer,
 // ReceiveSelector.
-export async function tryOpenHeadlessBuy({
-  networkId,
-  tokenAddress,
-  accountId,
-  token,
-}: ITryOpenHeadlessBuyParams): Promise<boolean> {
+export async function tryOpenHeadlessBuy(
+  params: ITryOpenHeadlessBuyParams,
+): Promise<boolean> {
+  const { networkId, tokenAddress, accountId, token, entryFrom } = params;
   if (!canUseHeadless()) {
+    logEntryDecision(params, 'headlessUnavailable');
     return false;
   }
 
@@ -39,6 +67,7 @@ export async function tryOpenHeadlessBuy({
   // '' when none is active). The web widget collects an address itself, so
   // it keeps handling that case.
   if (!accountId) {
+    logEntryDecision(params, 'noAccount');
     return false;
   }
 
@@ -57,15 +86,31 @@ export async function tryOpenHeadlessBuy({
         accountId,
       });
   }
-  if (!resolvedToken?.headlessSupported || !resolvedToken.onramperNetworkCode) {
+  if (!resolvedToken) {
+    logEntryDecision(params, 'tokenNotFound');
+    return false;
+  }
+  if (!resolvedToken.headlessSupported) {
+    logEntryDecision(params, 'headlessNotSupported');
+    return false;
+  }
+  if (!resolvedToken.onramperNetworkCode) {
+    logEntryDecision(params, 'noNetworkCode');
     return false;
   }
 
+  logEntryDecision(params, 'ok');
   appGlobals.$navigationRef.current?.navigate(ERootRoutes.Modal, {
     screen: EModalRoutes.FiatCryptoModal,
     params: {
       screen: EModalFiatCryptoRoutes.HeadlessBuy,
-      params: { networkId, accountId, tokenAddress, token: resolvedToken },
+      params: {
+        networkId,
+        accountId,
+        tokenAddress,
+        token: resolvedToken,
+        entryFrom,
+      },
     },
   });
   return true;

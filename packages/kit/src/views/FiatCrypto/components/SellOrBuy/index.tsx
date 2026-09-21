@@ -11,6 +11,7 @@ import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { openFiatCryptoUrl } from '@onekeyhq/shared/src/utils/openUrlUtils';
+import { EHeadlessBuyEntry } from '@onekeyhq/shared/types/fiatCrypto';
 import type {
   IFiatCryptoToken,
   IFiatCryptoType,
@@ -101,6 +102,7 @@ export const SellOrBuyContent = memo(
             tokenAddress: token.address,
             accountId: realAccountId,
             token,
+            entryFrom: EHeadlessBuyEntry.BuyTokenList,
           }))
         ) {
           return;

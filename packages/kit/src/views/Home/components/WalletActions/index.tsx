@@ -32,6 +32,7 @@ import {
 } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { openFiatCryptoUrl } from '@onekeyhq/shared/src/utils/openUrlUtils';
+import { EHeadlessBuyEntry } from '@onekeyhq/shared/types/fiatCrypto';
 import type { IToken } from '@onekeyhq/shared/types/token';
 
 import { useSupportNetworkId } from '../../../FiatCrypto/hooks';
@@ -201,6 +202,8 @@ function WalletActionSend({
                             networkId: network.id,
                             tokenAddress: '',
                             accountId: account?.id ?? '',
+                            entryFrom:
+                              EHeadlessBuyEntry.HomeInsufficientGasDialog,
                           })
                         ) {
                           return;
