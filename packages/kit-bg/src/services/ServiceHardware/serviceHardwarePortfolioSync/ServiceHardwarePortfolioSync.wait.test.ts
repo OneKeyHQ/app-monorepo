@@ -1345,6 +1345,9 @@ describe('ServiceHardwarePortfolioSync.syncSettledPortfolio', () => {
   }
 
   test('syncs the Home amount without fetching categories on Pro2 v2', async () => {
+    const now = 1_784_592_000_000;
+    jest.spyOn(Date, 'now').mockReturnValue(now);
+    jest.spyOn(Date.prototype, 'getTimezoneOffset').mockReturnValue(-540);
     const portfolioSyncResultSpy = jest
       .spyOn(defaultLogger.hardware.connection, 'portfolioSyncResult')
       .mockImplementation((params) => params);
@@ -1366,7 +1369,6 @@ describe('ServiceHardwarePortfolioSync.syncSettledPortfolio', () => {
     (
       service as unknown as { getPortfolioCategoryFiat: typeof getCategory }
     ).getPortfolioCategoryFiat = getCategory;
-    const now = Date.now();
     await serviceInternals.syncSettledPortfolio({
       ...buildHardwarePayload(),
       totalFiat: '100',
@@ -1393,8 +1395,7 @@ describe('ServiceHardwarePortfolioSync.syncSettledPortfolio', () => {
         artifacts: { portfolio: { ts: number } };
       }
     ).artifacts.portfolio.ts;
-    expect(submittedTimestamp).toBeGreaterThanOrEqual(now);
-    expect(submittedTimestamp).toBeLessThanOrEqual(Date.now());
+    expect(submittedTimestamp).toBe(now + 9 * 60 * 60 * 1000);
     expect(portfolioSyncResultSpy).toHaveBeenCalledWith(
       expect.objectContaining({
         deviceType: EDeviceType.Pro2,
