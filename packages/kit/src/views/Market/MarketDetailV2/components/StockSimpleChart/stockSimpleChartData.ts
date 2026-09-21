@@ -305,24 +305,29 @@ const STOCK_SIMPLE_CHART_SESSION_CLIP_RANGES = new Set<IStockSimpleChartRange>([
 ]);
 
 /**
- * Start of the visible 1H/1D window while a share is in an active session.
+ * Start of the visible 1H/1D window while a share session is in progress.
  *
  * The 1H/1D feeds keep last Friday's prints over the weekend so a closed
  * market still has a line. Once Monday pre-market opens, those prints are
  * still in the payload — the time axis then stretches Friday→now into one
- * long horizontal segment. Clip them off while the session is open; leave
- * them when the market is closed or in a session gap.
+ * long horizontal segment. Token series already arrive windowed; this clip
+ * is share-only. Clock math cannot see holidays, so an explicit `isOpen
+ * === false` keeps last session. Weekday session gaps still clip so the
+ * Monday 09:30 opening cross does not restore Friday.
  */
 export function resolveStockSimpleChartActiveRangeStartSeconds({
+  isOpen,
   nowSeconds,
   priceMode,
   range,
 }: {
+  isOpen?: boolean;
   nowSeconds: number;
   priceMode: 'share' | 'token';
   range: IStockSimpleChartRange;
 }): number | undefined {
   if (
+    priceMode !== 'share' ||
     !STOCK_SIMPLE_CHART_SESSION_CLIP_RANGES.has(range) ||
     !Number.isFinite(nowSeconds)
   ) {
@@ -332,31 +337,53 @@ export function resolveStockSimpleChartActiveRangeStartSeconds({
   if (!rangeSeconds) {
     return undefined;
   }
-  if (priceMode === 'share') {
-    const nowMs = nowSeconds * 1000;
-    const hours = getUSMarketTradingHours(new Date(nowMs));
-    if (
-      hours.isNowInSessionGap ||
-      (nowMs >= hours.weekendStartInstant && nowMs < hours.weekendEndInstant)
-    ) {
-      return undefined;
-    }
+  const nowMs = nowSeconds * 1000;
+  const hours = getUSMarketTradingHours(new Date(nowMs));
+  if (nowMs >= hours.weekendStartInstant && nowMs < hours.weekendEndInstant) {
+    return undefined;
+  }
+  if (isOpen === false && !hours.isNowInSessionGap) {
+    return undefined;
   }
   return nowSeconds - rangeSeconds;
 }
 
+export function resolveStockSimpleChartClipKey({
+  isOpen,
+  nowSeconds,
+  priceMode,
+  range,
+}: {
+  isOpen?: boolean;
+  nowSeconds: number;
+  priceMode: 'share' | 'token';
+  range: IStockSimpleChartRange;
+}): 'clip' | 'keep' {
+  return resolveStockSimpleChartActiveRangeStartSeconds({
+    isOpen,
+    nowSeconds,
+    priceMode,
+    range,
+  }) === undefined
+    ? 'keep'
+    : 'clip';
+}
+
 export function clipStockSimpleChartToActiveRange({
+  isOpen,
   nowSeconds,
   points,
   priceMode,
   range,
 }: {
+  isOpen?: boolean;
   nowSeconds: number;
   points: IMarketTokenChart;
   priceMode: 'share' | 'token';
   range: IStockSimpleChartRange;
 }): IMarketTokenChart {
   const clipStart = resolveStockSimpleChartActiveRangeStartSeconds({
+    isOpen,
     nowSeconds,
     priceMode,
     range,
@@ -424,10 +451,12 @@ export function mergeStockSimpleChartLivePrice({
  * Display series for the simple chart: drop last-session prints that would
  * stretch the time axis across a weekend/overnight close, then pin the live
  * quote. If clipping removed every point, keep a single `[now, live]` so the
- * title and the line still agree.
+ * title and the line still agree. Without a usable live quote, keep the
+ * unclipped history so the chart is not mounted empty.
  */
 export function resolveStockSimpleChartDisplayPoints({
   intervalSeconds,
+  isOpen,
   livePrice,
   nowSeconds,
   points,
@@ -435,6 +464,7 @@ export function resolveStockSimpleChartDisplayPoints({
   range,
 }: {
   intervalSeconds?: number;
+  isOpen?: boolean;
   livePrice?: string | number;
   nowSeconds: number;
   points: IMarketTokenChart;
@@ -442,30 +472,25 @@ export function resolveStockSimpleChartDisplayPoints({
   range: IStockSimpleChartRange;
 }): IMarketTokenChart {
   const clipped = clipStockSimpleChartToActiveRange({
+    isOpen,
     nowSeconds,
     points,
     priceMode,
     range,
   });
-  const merged = mergeStockSimpleChartLivePrice({
+  if (clipped.length === 0 && points.length > 0) {
+    const price = Number(livePrice);
+    if (Number.isFinite(price) && price > 0 && Number.isFinite(nowSeconds)) {
+      return [[nowSeconds, price]];
+    }
+    return points;
+  }
+  return mergeStockSimpleChartLivePrice({
     intervalSeconds,
     livePrice,
     nowSeconds,
     points: clipped,
   });
-  if (merged.length > 0) {
-    return merged;
-  }
-  const price = Number(livePrice);
-  if (
-    points.length > 0 &&
-    Number.isFinite(price) &&
-    price > 0 &&
-    Number.isFinite(nowSeconds)
-  ) {
-    return [[nowSeconds, price]];
-  }
-  return merged;
 }
 
 // Five minutes short of a day, to stay on the 5m series. The chart loses its

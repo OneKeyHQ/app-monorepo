@@ -11,6 +11,7 @@ import {
   mergeStockSimpleChartLivePrice,
   resolveStockSimpleChartActiveRangeStartSeconds,
   resolveStockSimpleChartBucketSeconds,
+  resolveStockSimpleChartClipKey,
   resolveStockSimpleChartDisplayPoints,
   resolveStockSimpleChartLivePrice,
   resolveStockSimpleChartMinRefreshMs,
@@ -920,6 +921,54 @@ describe('clipStockSimpleChartToActiveRange', () => {
       }),
     ).toBe(points);
   });
+
+  it('does not clip token series', () => {
+    expect(
+      resolveStockSimpleChartActiveRangeStartSeconds({
+        nowSeconds: mondayPremarketNow,
+        priceMode: 'token',
+        range: '1H',
+      }),
+    ).toBeUndefined();
+  });
+
+  it('keeps last session on a weekday holiday when the backend is closed', () => {
+    // Thursday 2026-09-17 11:00 EDT — clock says regular session.
+    const holidayNow = Date.parse('2026-09-17T15:00:00Z') / 1000;
+    expect(
+      resolveStockSimpleChartActiveRangeStartSeconds({
+        isOpen: false,
+        nowSeconds: holidayNow,
+        priceMode: 'share',
+        range: '1H',
+      }),
+    ).toBeUndefined();
+  });
+
+  it('still clips through the Monday opening-cross gap', () => {
+    // Monday 2026-09-21 09:30:30 EDT — 09:30 opening cross.
+    const openingCrossNow = Date.parse('2026-09-21T13:30:30Z') / 1000;
+    expect(
+      resolveStockSimpleChartClipKey({
+        isOpen: false,
+        nowSeconds: openingCrossNow,
+        priceMode: 'share',
+        range: '1D',
+      }),
+    ).toBe('clip');
+    expect(
+      clipStockSimpleChartToActiveRange({
+        isOpen: false,
+        nowSeconds: openingCrossNow,
+        points: [
+          [fridayClose, 222],
+          [mondayPremarketLater, 223.4],
+        ],
+        priceMode: 'share',
+        range: '1D',
+      }),
+    ).toEqual([[mondayPremarketLater, 223.4]]);
+  });
 });
 
 describe('resolveStockSimpleChartDisplayPoints', () => {
@@ -955,6 +1004,19 @@ describe('resolveStockSimpleChartDisplayPoints', () => {
         range: '1H',
       }),
     ).toEqual([[mondayPremarketNow, 223.58]]);
+  });
+
+  it('keeps last-session history until a live quote exists', () => {
+    const points: IMarketTokenChart = [[fridayClose, 222]];
+    expect(
+      resolveStockSimpleChartDisplayPoints({
+        livePrice: undefined,
+        nowSeconds: mondayPremarketNow,
+        points,
+        priceMode: 'share',
+        range: '1H',
+      }),
+    ).toBe(points);
   });
 });
 
