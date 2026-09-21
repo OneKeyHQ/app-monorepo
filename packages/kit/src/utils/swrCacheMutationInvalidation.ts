@@ -68,6 +68,31 @@ const dropDiscoveryBookmarksSwr = () =>
     prefixOf(swrCacheNamespaces.discoveryHomeBookmarks),
   );
 
+/**
+ * The drop the runtime that asked for the deletion performs itself.
+ *
+ * The listener below already covers it, but only once bg's event has crossed
+ * back. This runtime is the one that is certainly alive at this point — it is
+ * awaiting the call — so doing it here means a process that goes down in
+ * between cannot leave the deleted entity in the store. Both paths delete, and
+ * a delete is idempotent.
+ */
+export function dropSwrCacheForRemovedWallet(walletId: string) {
+  swrCacheUtils.remove(swrKeys.accountSelectorValues({ walletId }));
+  dropWalletListSwr();
+  dropAccountSelectorListSwr();
+  dropBulkAddressSwr();
+  swrCacheUtils.flushNow();
+}
+
+export function dropSwrCacheForRemovedAccount() {
+  dropWalletListSwr();
+  dropAccountSelectorListSwr();
+  dropAccountSelectorValuesSwr();
+  dropBulkAddressSwr();
+  swrCacheUtils.flushNow();
+}
+
 let registered = false;
 
 export function registerSwrCacheMutationInvalidation() {
