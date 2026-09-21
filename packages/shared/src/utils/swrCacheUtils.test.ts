@@ -55,7 +55,27 @@ jest.mock('./swrCacheNamespaceStorage', () => {
     global.__swrNamespaceDisk ??= new Map();
     return global.__swrNamespaceDisk;
   };
+  const prefixOfKey = (key: string) => {
+    const separator = key.indexOf(':');
+    return separator === -1 ? key : key.slice(0, separator);
+  };
+  /**
+   * Which namespace a key belongs to, routed off the real registry: a leading
+   * segment it declares names the namespace, and anything else lands in the
+   * fallback one. That is what puts `defiEnabled:<networkId>` somewhere no
+   * `swrKeys` entry mentions.
+   */
+  const namespaceOfKey = (key: string) => {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const { swrCacheNamespaces } =
+      require('./swrCacheNamespaceNames') as typeof import('./swrCacheNamespaceNames');
+    const prefix = prefixOfKey(key);
+    return Object.values<string>(swrCacheNamespaces).includes(prefix)
+      ? prefix
+      : '<fallback>';
+  };
   return {
+    swrKeyPrefix: prefixOfKey,
     readSwrCacheEntry: (key: string) => {
       const global = globalThis as { __swrNamespaceReadCount?: number };
       global.__swrNamespaceReadCount =
@@ -71,7 +91,14 @@ jest.mock('./swrCacheNamespaceStorage', () => {
       [...store().keys()]
         .filter((key) => key.startsWith(prefix))
         .forEach((key) => store().delete(key)),
-    clearAllSwrCacheNamespaces: () => store().clear(),
+    clearAllSwrCacheNamespaces: (options?: {
+      exceptSwrPrefixes?: readonly string[];
+    }) => {
+      const kept = new Set<string>(options?.exceptSwrPrefixes ?? []);
+      [...store().keys()]
+        .filter((key) => !kept.has(namespaceOfKey(key)))
+        .forEach((key) => store().delete(key));
+    },
   };
 });
 
@@ -679,216 +706,131 @@ describe('SWR cache budgets and reload throttling', () => {
   });
 });
 
-describe('SWR cache cross-runtime invalidation', () => {
+describe('SWR cache removals', () => {
   beforeEach(() => {
     resetDisk();
   });
 
-  // The bus has to come from the same module registry as the cache under
-  // test: `loadFreshRuntime` resets it, and a bus required before that is a
-  // different instance with its own listeners.
-  function bus() {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    return require('../eventBus/appEventBus') as typeof import('../eventBus/appEventBus');
-  }
-
-  it('announces what it removed, and not what it wrote', () => {
+  it('announces nothing: the UI runtime drops its own entries', () => {
     const cache = loadFreshRuntime();
-    const { appEventBus, EAppEventBusNames } = bus();
-    const seen: unknown[] = [];
-    const listener = (payload: unknown) => seen.push(payload);
-    appEventBus.on(EAppEventBusNames.SwrCacheInvalidated, listener);
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const { appEventBus } =
+      require('../eventBus/appEventBus') as typeof import('../eventBus/appEventBus');
+    const emit = jest.spyOn(appEventBus, 'emit');
     try {
       cache.set('walletList:a', 'written');
-      cache.flushNow();
-      expect(seen).toHaveLength(0);
-
       cache.remove('walletList:a');
       cache.removeByPrefix('accSelList:');
+      cache.clearAll();
       cache.flushNow();
 
-      expect(seen).toEqual([
-        { keys: ['walletList:a'], prefixes: ['accSelList:'] },
-      ]);
+      // The mutation events the UI already receives are what trigger a drop,
+      // so the cache itself has nothing to tell the other runtime.
+      expect(emit).not.toHaveBeenCalled();
     } finally {
-      appEventBus.off(EAppEventBusNames.SwrCacheInvalidated, listener);
+      emit.mockRestore();
     }
   });
 
-  it('drops what the other runtime removed, so the next read goes to disk', () => {
+  it('deletes from the store in the runtime that asked for it', () => {
     disk().set('walletList:a', { d: 'from-disk', t: 1000 });
+    disk().set('accSelList:b', { d: 'from-disk', t: 1000 });
     const cache = loadFreshRuntime();
-    const { appEventBus, EAppEventBusNames } = bus();
     expect(cache.get('walletList:a')).toBe('from-disk');
 
-    // The other runtime deleted the wallet and dropped its namespace.
-    disk().delete('walletList:a');
-    appEventBus.emit(EAppEventBusNames.SwrCacheInvalidated, {
-      prefixes: ['walletList:'],
-    });
+    cache.remove('walletList:a');
+    cache.removeByPrefix('accSelList:');
+    cache.flushNow();
 
-    expect(cache.get('walletList:a')).toBeUndefined();
+    expect(readDiskStore()['walletList:a']).toBeUndefined();
+    expect(readDiskStore()['accSelList:b']).toBeUndefined();
   });
 
-  it('drops a pending local write when the other runtime removes it', () => {
-    const cache = loadFreshRuntime();
-    const { appEventBus, EAppEventBusNames } = bus();
-    cache.set('walletList:a', 'mine');
-
-    appEventBus.emit(EAppEventBusNames.SwrCacheInvalidated, {
-      prefixes: ['walletList:'],
-    });
-
-    // The wallet is gone, so a write still queued for it describes nothing.
-    expect(cache.get('walletList:a')).toBeUndefined();
-  });
-
-  /**
-   * The order the runtimes actually run in: main has a write queued when bg
-   * deletes the wallet. bg persists and announces before main's debounce
-   * fires, so main must not carry the old entry back to the store.
-   */
   it('does not write a removed entry back to the store on the next flush', () => {
     const cache = loadFreshRuntime();
-    const { appEventBus, EAppEventBusNames } = bus();
-
-    // main: a list read lands in the cache and is queued for the store.
-    cache.set('walletList:a', 'stale-wallet');
-
-    // bg: removeByPrefix + flushNow already cleared the shared store, then
-    // announced it.
-    disk().delete('walletList:a');
-    appEventBus.emit(EAppEventBusNames.SwrCacheInvalidated, {
-      prefixes: ['walletList:'],
-    });
-
-    // main: its own debounced flush runs afterwards.
+    cache.set('walletList:a', 'mine');
+    cache.remove('walletList:a');
     cache.flushNow();
 
-    // The store first: an entry carried back here outlives the process and
-    // paints on the next cold start, which is the damage that matters.
     expect(readDiskStore()['walletList:a']).toBeUndefined();
     expect(cache.get('walletList:a')).toBeUndefined();
   });
 
-  it('drops a pending local write when the other runtime clears everything', () => {
+  it('wipes every namespace this runtime owns and spares the ones bg writes', () => {
     const cache = loadFreshRuntime();
-    const { appEventBus, EAppEventBusNames } = bus();
-    cache.set('marketTokenDetail:b', 'mine');
-
-    disk().clear();
-    appEventBus.emit(EAppEventBusNames.SwrCacheInvalidated, {
-      clearedAll: true,
-    });
-    cache.flushNow();
-
-    expect(cache.get('marketTokenDetail:b')).toBeUndefined();
-    expect(readDiskStore()['marketTokenDetail:b']).toBeUndefined();
-  });
-
-  // Required from the same registry as the cache under test, for the reason
-  // `bus` gives.
-  function platform() {
     // eslint-disable-next-line @typescript-eslint/no-require-imports
-    return require('../platformEnv') as typeof import('../platformEnv');
-  }
-
-  function ensureSubscribed() {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    (
-      require('./swrCacheUtils') as typeof import('./swrCacheUtils')
-    ).ensureSwrCacheInvalidationSubscribed();
-  }
-
-  it('announces a removal from a background runtime instead of deleting it', () => {
-    disk().set('walletList:a', { d: 'from-disk', t: 1000 });
-    const cache = loadFreshRuntime();
-    const { appEventBus, EAppEventBusNames } = bus();
-    const { default: platformEnv, ERuntimeRole } = platform();
-    const seen: unknown[] = [];
-    const listener = (payload: unknown) => seen.push(payload);
-    appEventBus.on(EAppEventBusNames.SwrCacheInvalidated, listener);
-    const role = jest.replaceProperty(
-      platformEnv,
-      'runtimeRole',
-      ERuntimeRole.Background,
+    const { BG_OWNED_SWR_NAMESPACES, prefixOf, swrCacheNamespaces } =
+      require('./swrCacheNamespaceNames') as typeof import('./swrCacheNamespaceNames');
+    const all = Object.values(swrCacheNamespaces);
+    const bgOwned = new Set<string>(BG_OWNED_SWR_NAMESPACES);
+    // Driven off the registry rather than a hand-picked few: a namespace added
+    // later must not be able to survive the wipe unnoticed.
+    all.forEach((namespace) =>
+      disk().set(`${prefixOf(namespace)}seed`, { d: namespace, t: 1000 }),
     );
-    try {
-      cache.remove('walletList:a');
-      cache.flushNow();
 
-      // The file belongs to the runtime that owns the hooks writing it.
-      expect(readDiskStore()['walletList:a']?.d).toBe('from-disk');
-      expect(seen).toEqual([{ keys: ['walletList:a'] }]);
-    } finally {
-      role.restore();
-      appEventBus.off(EAppEventBusNames.SwrCacheInvalidated, listener);
-    }
+    cache.clearUiOwnedNamespaces();
+
+    const left = new Set(Object.keys(readDiskStore()));
+    // A reset re-uses wallet ids, so every namespace keyed by one has to go,
+    // not only the wallet-shaped ones.
+    expect(
+      all.filter((ns) => !bgOwned.has(ns) && left.has(`${prefixOf(ns)}seed`)),
+    ).toEqual([]);
+    // Clearing a file bg is writing would put two writers on it.
+    expect(
+      all.filter((ns) => bgOwned.has(ns) && !left.has(`${prefixOf(ns)}seed`)),
+    ).toEqual([]);
   });
 
-  it('performs a removal the other runtime announced', () => {
-    disk().set('walletList:a', { d: 'from-disk', t: 1000 });
+  it('drops a namespace whose key carries no colon from memory as well', () => {
     const cache = loadFreshRuntime();
-    const { appEventBus, EAppEventBusNames } = bus();
-    expect(cache.get('walletList:a')).toBe('from-disk');
+    // `swrKeys.swapHistoryPreviewList()` is the bare namespace: a
+    // `<namespace>:` prefix match clears the store and leaves this runtime
+    // still holding the entry, so the previous profile's Swap history keeps
+    // rendering until something fetches it again.
+    const bareKey = swrKeys.swapHistoryPreviewList();
+    expect(bareKey).not.toContain(':');
+    cache.set(bareKey, 'previous profile');
 
-    appEventBus.emit(EAppEventBusNames.SwrCacheInvalidated, {
-      keys: ['walletList:a'],
-    });
+    cache.clearUiOwnedNamespaces();
 
-    expect(readDiskStore()['walletList:a']).toBeUndefined();
+    expect(cache.get(bareKey)).toBeUndefined();
+    expect(readDiskStore()[bareKey]).toBeUndefined();
   });
 
-  it('performs a removal announced before it had read anything', () => {
-    disk().set('walletList:a', { d: 'from-disk', t: 1000 });
-    loadFreshRuntime();
-    const { appEventBus, EAppEventBusNames } = bus();
-    // Nothing has touched the cache, so only the startup subscription can
-    // have heard this.
-    ensureSubscribed();
-
-    appEventBus.emit(EAppEventBusNames.SwrCacheInvalidated, {
-      prefixes: ['walletList:'],
-    });
-
-    expect(readDiskStore()['walletList:a']).toBeUndefined();
-  });
-
-  it('does not act on its own announcement', () => {
-    disk().set('walletList:a', { d: 'from-disk', t: 1000 });
+  it('drops a key whose prefix names no declared namespace', () => {
     const cache = loadFreshRuntime();
-    const { appEventBus, EAppEventBusNames } = bus();
-    const seen: unknown[] = [];
-    const listener = (payload: unknown) => seen.push(payload);
-    appEventBus.on(EAppEventBusNames.SwrCacheInvalidated, listener);
-    try {
-      cache.remove('walletList:a');
-      cache.flushNow();
-      expect(seen).toHaveLength(1);
+    // A literal prefix, so the storage layer files it under the fallback
+    // namespace and a wipe assembled from the registry misses it both on disk
+    // and in memory.
+    const fallbackKey = swrKeys.defiEnabled('evm--1');
+    cache.set(fallbackKey, 'previous profile');
 
-      // Re-recording its own removal would leave the store dirty, so every
-      // later flush would delete and publish again, for the life of the
-      // process. A second flush with nothing new must be a no-op.
-      cache.flushNow();
-      expect(seen).toHaveLength(1);
-    } finally {
-      appEventBus.off(EAppEventBusNames.SwrCacheInvalidated, listener);
-    }
+    cache.clearUiOwnedNamespaces();
+
+    expect(cache.get(fallbackKey)).toBeUndefined();
+    expect(readDiskStore()[fallbackKey]).toBeUndefined();
   });
 
-  it('clears everything it holds when the other runtime clears', () => {
-    disk().set('walletList:a', { d: 'from-disk', t: 1000 });
+  it('leaves a record bg wrote before the wipe readable afterwards', () => {
+    disk().set('perpsL2Book:v1:ETH:5:1', { d: 'from-bg', t: 1000 });
     const cache = loadFreshRuntime();
-    const { appEventBus, EAppEventBusNames } = bus();
-    expect(cache.get('walletList:a')).toBe('from-disk');
-    cache.set('marketTokenDetail:b', 'mine');
 
-    disk().clear();
-    appEventBus.emit(EAppEventBusNames.SwrCacheInvalidated, {
-      clearedAll: true,
-    });
+    cache.clearUiOwnedNamespaces();
+
+    // `clearAll` would mark everything older than itself deleted, and
+    // `isDeletedLocally` would then suppress the read-through for bg's perps
+    // records for the rest of the session. A removal per namespace does not.
+    expect(cache.get('perpsL2Book:v1:ETH:5:1')).toBe('from-bg');
+  });
+
+  it('does not adopt a removed key back out of the store', () => {
+    const cache = loadFreshRuntime();
+    cache.remove('walletList:a');
+    // An older record still on disk, e.g. written by a previous session.
+    disk().set('walletList:a', { d: 'stale', t: 500 });
 
     expect(cache.get('walletList:a')).toBeUndefined();
-    expect(cache.get('marketTokenDetail:b')).toBeUndefined();
   });
 });

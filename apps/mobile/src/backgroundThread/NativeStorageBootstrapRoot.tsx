@@ -10,6 +10,7 @@ import {
   useColorScheme,
 } from 'react-native';
 
+import { registerSwrCacheMutationInvalidation } from '@onekeyhq/kit/src/utils/swrCacheMutationInvalidation';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import {
   EAppRestartMode,
@@ -424,6 +425,14 @@ const styles = StyleSheet.create({
   },
   restartText: { color: '#fff', fontWeight: '600' },
 });
+
+// Registered here, in the module that awaits the background runtime, because
+// the wait is what it has to precede: a wallet removal interrupted by a crash
+// is completed by bg's startup recovery, which emits its mutation event before
+// this module requires `../../App` — and the event bus does not replay to a
+// listener that subscribes afterwards. Module scope, so no component has to
+// mount first.
+registerSwrCacheMutationInvalidation();
 
 export function NativeStorageBootstrapRoot() {
   const [, rerender] = useReducer((value: number) => value + 1, 0);
