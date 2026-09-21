@@ -42,6 +42,7 @@ import {
 } from '@onekeyhq/shared/src/logger/scopes/perp/perpPageSource';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
+import { EShortcutEvents } from '@onekeyhq/shared/src/shortcuts/shortcuts.enum';
 import { travelModeManager } from '@onekeyhq/shared/src/travelMode';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
@@ -61,6 +62,7 @@ import { WebDappEmptyView } from '../../../components/WebDapp/WebDappEmptyView';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { runAfterTokensDone } from '../../../hooks/useRunAfterTokensDone';
+import { useShortcutsOnRouteFocused } from '../../../hooks/useShortcutsOnRouteFocused';
 import {
   useAccountOverviewActions,
   useApprovalsInfoAtom,
@@ -254,6 +256,26 @@ export function HomePageView({
   const { showUnifiedNetworkSelector } = useUnifiedNetworkSelectorTrigger({
     num: 0,
   });
+  const handleNetworkSelectorShortcut = useCallback(() => {
+    if (
+      platformEnv.isWebDappMode ||
+      accountUtils.hasNoUsableWallet({ wallet, account })
+    ) {
+      return;
+    }
+    showUnifiedNetworkSelector({
+      recordNetworkHistoryEnabled: true,
+      defaultTab:
+        network?.isAllNetworks &&
+        !accountUtils.isOthersWallet({ walletId: wallet?.id ?? '' })
+          ? 'portfolio'
+          : undefined,
+    });
+  }, [account, network?.isAllNetworks, showUnifiedNetworkSelector, wallet]);
+  useShortcutsOnRouteFocused(
+    EShortcutEvents.NetworkSelector,
+    handleNetworkSelectorShortcut,
+  );
   const [accountSelectorStorageInitDone] =
     useAccountSelectorStorageInitDoneAtom();
   const accountSelectorActiveAccountInitDone =
