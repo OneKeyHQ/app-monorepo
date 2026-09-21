@@ -513,6 +513,19 @@ describe('account switch display cache', () => {
     expect(store.get(cell(ctx, 'a'))?.balance).toBe('2000000000000000000');
   });
 
+  it('retains canonical USD cells when the selected display currency is not USD', () => {
+    const target = setup();
+    const { ctx, store, deps } = target;
+    const restore = createTokenListOwnerCache(ctx, deps, STORE_DATA);
+    seed(target, 'A__all', '11');
+    restore('B__all', 'eur');
+    seed(target, 'B__all', '22');
+    expect(restore('A__all', 'eur')).toBe(true);
+    expect(store.get(cell(ctx, 'a'))?.balance).toBe('11');
+    expect(store.get(cell(ctx, 'a'))?.currency).toBe('usd');
+    expect(store.get(aggCell(ctx, 'aggregate_agg1'))?.fiatValue).toBe('90');
+  });
+
   it('does not reuse another network, currency, or an incomplete projection', () => {
     const target = setup();
     const { ctx, store, deps, projection } = target;

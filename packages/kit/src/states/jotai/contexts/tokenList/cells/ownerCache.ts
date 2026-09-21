@@ -61,7 +61,8 @@ export function createTokenListOwnerCache(
         if (!deps.isAgg(key, value)) {
           const fiatAtom = projection.cells.get(key);
           const fiat = fiatAtom && store.get(fiatAtom);
-          if (fiat && fiat.currency === currency) changedFiatById[key] = fiat;
+          if (fiat && (fiat.currency === 'usd' || fiat.currency === currency))
+            changedFiatById[key] = fiat;
           else complete = false;
         }
       }
@@ -70,7 +71,7 @@ export function createTokenListOwnerCache(
         for (const network of networks) {
           const fiatAtom = projection.aggSubCells.get(key)?.get(network);
           const fiat = fiatAtom && store.get(fiatAtom);
-          if (fiat && fiat.currency === currency)
+          if (fiat && (fiat.currency === 'usd' || fiat.currency === currency))
             changedAggFiat[key][network] = fiat;
           else complete = false;
         }
