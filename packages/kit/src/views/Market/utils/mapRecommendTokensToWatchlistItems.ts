@@ -9,6 +9,7 @@ export type IRecommendWatchlistInput = Pick<
   'chainId' | 'contractAddress' | 'isNative'
 > & {
   assetId?: string;
+  stockId?: string;
   symbol?: string;
 };
 
@@ -17,6 +18,7 @@ export type IRecommendWatchlistItem = {
   contractAddress: string;
   isNative?: boolean;
   assetId?: string;
+  stockId?: string;
 };
 
 export type IRecommendListingIdentity = {
@@ -41,6 +43,33 @@ function toListingWatchlistItem(assetId: string): IRecommendWatchlistItem {
     contractAddress: '',
     assetId,
   };
+}
+
+function toStockWatchlistItem(stockId: string): IRecommendWatchlistItem {
+  return {
+    chainId: '',
+    contractAddress: '',
+    stockId,
+  };
+}
+
+function hasExplicitListingId(token: IRecommendWatchlistInput) {
+  return Boolean(token.assetId?.trim() || token.stockId?.trim());
+}
+
+export function toRecommendWatchlistItem({
+  token,
+  listings,
+}: {
+  token: IRecommendWatchlistInput;
+  listings: IRecommendListingIdentity[];
+}): IRecommendWatchlistItem {
+  const stockId = token.stockId?.trim();
+  if (stockId) {
+    return toStockWatchlistItem(stockId);
+  }
+  const assetId = matchRecommendTokenAssetId({ token, listings });
+  return assetId ? toListingWatchlistItem(assetId) : toDexWatchlistItem(token);
 }
 
 export function matchRecommendTokenAssetId({
@@ -116,23 +145,20 @@ export async function mapRecommendTokensToWatchlistItems(
   if (!tokens.length) {
     return [];
   }
-  if (tokens.every((token) => token.assetId?.trim())) {
+  if (tokens.every((token) => hasExplicitListingId(token))) {
     return tokens.map((token) =>
-      toListingWatchlistItem(token.assetId?.trim() ?? ''),
+      toRecommendWatchlistItem({ token, listings: [] }),
     );
   }
 
   let listings: IRecommendListingIdentity[] = [];
   try {
-    listings = await loadRecommendListingIdentities(tokens);
+    listings = await loadRecommendListingIdentities(
+      tokens.filter((token) => !hasExplicitListingId(token)),
+    );
   } catch {
     listings = [];
   }
 
-  return tokens.map((token) => {
-    const assetId = matchRecommendTokenAssetId({ token, listings });
-    return assetId
-      ? toListingWatchlistItem(assetId)
-      : toDexWatchlistItem(token);
-  });
+  return tokens.map((token) => toRecommendWatchlistItem({ token, listings }));
 }

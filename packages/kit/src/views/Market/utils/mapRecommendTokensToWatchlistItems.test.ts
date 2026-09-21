@@ -98,12 +98,32 @@ it('persists explicit listing identities without fetching top coins', async () =
     mapRecommendTokensToWatchlistItems([
       { ...btc, assetId: 'btc' },
       { ...aster, assetId: 'aster' },
+      {
+        chainId: 'evm--1',
+        contractAddress: '0xstock',
+        isNative: false,
+        symbol: 'AAPL',
+        stockId: 'AAPL',
+      },
     ]),
   ).resolves.toEqual([
     { chainId: '', contractAddress: '', assetId: 'btc' },
     { chainId: '', contractAddress: '', assetId: 'aster' },
+    { chainId: '', contractAddress: '', stockId: 'AAPL' },
   ]);
   expect(mockAssetList).not.toHaveBeenCalled();
+});
+
+it('prefers stockId so the favorite opens stock detail', async () => {
+  await expect(
+    mapRecommendTokensToWatchlistItems([
+      {
+        ...aster,
+        assetId: 'aster',
+        stockId: 'AAPL',
+      },
+    ]),
+  ).resolves.toEqual([{ chainId: '', contractAddress: '', stockId: 'AAPL' }]);
 });
 
 it('falls back to dex identities when the top-coin list cannot load', async () => {
