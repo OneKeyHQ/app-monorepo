@@ -25,7 +25,6 @@ import {
   HARDWARE_ERROR_DIALOG_TYPES,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
-import { EAppSyncStorageKeys } from '@onekeyhq/shared/src/storage/syncStorageKeys';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 import {
@@ -196,7 +195,6 @@ const mockColdStartCacheStorage = {
     mockColdStartCacheStorageData.set(key, value);
   }),
 };
-const mockFlushColdStartCacheNow = jest.fn(async () => undefined);
 const mockWriteContextAtomColdStartCacheValues: jest.MockedFunction<IWriteContextAtomColdStartCacheValues> =
   jest.fn();
 const mockAddTonImportedAccountByMnemonic = jest.fn<
@@ -306,16 +304,16 @@ jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
   },
 }));
 
-jest.mock('@onekeyhq/shared/src/storage/instance/webColdStartStorage', () => ({
-  flushColdStartCacheNow: () => mockFlushColdStartCacheNow(),
-}));
-
-jest.mock('@onekeyhq/shared/src/storage/instance/syncStorageInstance', () => ({
-  coldStartCacheStorage: {
-    delete: (key: string) => mockColdStartCacheStorage.delete(key),
-    getObject: (key: string) => mockColdStartCacheStorage.getObject(key),
-    setObject: (key: string, value: unknown) =>
+jest.mock('@onekeyhq/shared/src/storage/uiSnapshotCaches', () => ({
+  ACCOUNT_SELECTOR_RECENT_SELECTION_KEY: 'recent-selection',
+  accountSelectorSnapshotCache: {
+    get: (key: string) => {
+      const data = mockColdStartCacheStorage.getObject(key);
+      return data === undefined ? undefined : { data, updatedAt: Date.now() };
+    },
+    set: (key: string, value: unknown) =>
       mockColdStartCacheStorage.setObject(key, value),
+    remove: (key: string) => mockColdStartCacheStorage.delete(key),
   },
 }));
 
@@ -2161,29 +2159,26 @@ describe('useAccountSelectorActions', () => {
       0: selectedAccount,
       1: selectedAccount,
     });
-    mockColdStartCacheStorageData.set(
-      EAppSyncStorageKeys.onekey_account_selector_recent_selection,
-      {
-        [EAccountSelectorSceneName.swap]: {
-          version: 1,
-          updatedAt: Date.now(),
-          selectedAccountsMap: {
-            0: selectedAccount,
-            1: wrongRecipientAccount,
+    mockColdStartCacheStorageData.set('recent-selection', {
+      [EAccountSelectorSceneName.swap]: {
+        version: 1,
+        updatedAt: Date.now(),
+        selectedAccountsMap: {
+          0: selectedAccount,
+          1: wrongRecipientAccount,
+        },
+        updateMeta: {
+          0: {
+            eventEmitDisabled: false,
+            updatedAt: Date.now(),
           },
-          updateMeta: {
-            0: {
-              eventEmitDisabled: false,
-              updatedAt: Date.now(),
-            },
-            1: {
-              eventEmitDisabled: true,
-              updatedAt: Date.now(),
-            },
+          1: {
+            eventEmitDisabled: true,
+            updatedAt: Date.now(),
           },
         },
       },
-    );
+    });
 
     const { store, Wrapper } = createWrapper(EAccountSelectorSceneName.swap);
     const { result } = renderHook(() => useAccountSelectorActions().current, {
@@ -2207,8 +2202,7 @@ describe('useAccountSelectorActions', () => {
   });
 
   it('keeps a network switch made after a recent wallet pick across a restart (OK-62330)', async () => {
-    const recentCacheKey =
-      EAppSyncStorageKeys.onekey_account_selector_recent_selection;
+    const recentCacheKey = 'recent-selection';
     const ethSelection = {
       ...createHdSelectedAccount('hd-1--0'),
       networkId: 'evm--1',
@@ -2285,8 +2279,7 @@ describe('useAccountSelectorActions', () => {
   });
 
   it('does not create a recent selection cache from a network switch alone', async () => {
-    const recentCacheKey =
-      EAppSyncStorageKeys.onekey_account_selector_recent_selection;
+    const recentCacheKey = 'recent-selection';
     const { store, Wrapper } = createWrapper();
     store.set(accountSelectorContextDataAtom(), {
       sceneName: EAccountSelectorSceneName.home,

@@ -1,7 +1,8 @@
 {
   "rendererStartupGraph": {
+    "_comment": "startupModuleBytes is each startup module's share of the emitted bundles, attributed through the source maps. It replaced sourceSizeBytes, which measured pre-compile source and so charged the budget for comments and type declarations that are never downloaded.",
     "moduleCount": 6800,
-    "sourceSizeBytes": 32505856,
+    "startupModuleBytes": 14680064,
     "initialScriptCount": 30,
     "initialScriptRawBytes": 15728640,
     "initialScriptGzipBytes": 3984589,
