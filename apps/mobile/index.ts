@@ -150,6 +150,13 @@ if (process.env.STORYBOOK_ENABLED === 'true') {
     require('@onekeyfe/react-native-device-utils') as IReactNativeDeviceUtilsModule;
   const { NativeStorageBootstrapRoot } =
     require('./src/backgroundThread/NativeStorageBootstrapRoot') as typeof import('./src/backgroundThread/NativeStorageBootstrapRoot');
+  // Before the root awaits the background runtime, because a wallet removal
+  // interrupted by a crash is completed by bg's startup recovery, which emits
+  // its mutation event well before this runtime requires `./App` — and the
+  // event bus does not replay to a listener that registers later.
+  const { registerSwrCacheMutationInvalidation } =
+    require('@onekeyhq/kit/src/utils/swrCacheMutationInvalidation') as typeof import('@onekeyhq/kit/src/utils/swrCacheMutationInvalidation');
+  registerSwrCacheMutationInvalidation();
 
   {
     const _e = (globalThis as any).__ONEKEY_MAIN_ENTRY_START__ as number;

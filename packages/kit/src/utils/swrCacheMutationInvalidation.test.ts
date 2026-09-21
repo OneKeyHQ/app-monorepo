@@ -16,6 +16,7 @@ jest.mock('@onekeyhq/shared/src/utils/swrCacheUtils', () => ({
     remove: jest.fn(),
     removeByPrefix: jest.fn(),
     flushNow: jest.fn(),
+    clearUiOwnedNamespaces: jest.fn(),
   },
   swrKeys: {
     accountSelectorValues: jest.fn(
@@ -92,6 +93,15 @@ describe('swrCacheMutationInvalidation', () => {
 
     // The sidebar does not show account names.
     expect(droppedPrefixes()).toEqual(['accSelList:', ...BULK_PREFIXES]);
+  });
+
+  it('wipes every namespace this runtime owns when the wallet db is cleared', () => {
+    appEventBus.emit(EAppEventBusNames.WalletClear, undefined);
+
+    // Not a list of wallet-shaped prefixes: a reset re-uses wallet ids, so a
+    // namespace keyed by one would carry the previous profile's snapshot.
+    expect(swrCacheUtils.clearUiOwnedNamespaces).toHaveBeenCalledTimes(1);
+    expect(droppedPrefixes()).toEqual([]);
   });
 
   it('drops the bookmark namespace on either bookmark announcement', () => {

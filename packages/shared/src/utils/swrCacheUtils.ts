@@ -16,7 +16,11 @@ import {
 } from './swrCacheLimits';
 // Namespaces live in their own module; the storage layer names its own from
 // the same list and must not import this one.
-import { swrCacheNamespaces as NS } from './swrCacheNamespaceNames';
+import {
+  BG_OWNED_SWR_NAMESPACES,
+  swrCacheNamespaces as NS,
+  prefixOf,
+} from './swrCacheNamespaceNames';
 import {
   clearAllSwrCacheNamespaces,
   readSwrCacheEntry,
@@ -825,6 +829,32 @@ function clearAll(): void {
   scheduleFlush();
 }
 
+/**
+ * Drop every namespace this runtime owns, for a reset that wipes the wallet
+ * and account database.
+ *
+ * Narrower than `clearAll` on purpose, in two ways. It leaves the namespaces
+ * bg writes alone, so a wipe here cannot collide with them. And it records a
+ * removal per namespace rather than one `clearedAll` mark, so the read-through
+ * suppression that mark implies cannot also swallow bg's later perps writes
+ * for the rest of the session.
+ *
+ * Wider than dropping the wallet-shaped namespaces: a reset re-uses wallet ids
+ * (`hd-1`), so any namespace keyed by one — the network selector's, the token
+ * selectors', Earn, Borrow — would otherwise carry the previous run's snapshot
+ * into a supposedly empty profile.
+ */
+function clearUiOwnedNamespaces(): void {
+  const bgOwned = new Set<string>(BG_OWNED_SWR_NAMESPACES);
+  Object.values(NS).forEach((namespace) => {
+    if (bgOwned.has(namespace)) {
+      return;
+    }
+    removeByPrefix(prefixOf(namespace));
+  });
+  flushNow();
+}
+
 /** Call on app background to persist immediately. */
 function flushNow(): void {
   if (_flushTimer !== undefined) {
@@ -1592,6 +1622,7 @@ export const swrCacheUtils = {
   remove,
   isFresh,
   clearAll,
+  clearUiOwnedNamespaces,
   flushNow,
   reloadFromStorage,
   getSizeStats,

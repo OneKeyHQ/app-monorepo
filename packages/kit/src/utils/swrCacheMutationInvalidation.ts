@@ -133,11 +133,12 @@ export function registerSwrCacheMutationInvalidation() {
     swrCacheUtils.flushNow();
   });
   appEventBus.on(EAppEventBusNames.WalletClear, () => {
-    dropWalletListSwr();
-    dropAccountSelectorListSwr();
-    dropAccountSelectorValuesSwr();
-    dropBulkAddressSwr();
-    swrCacheUtils.flushNow();
+    // Not just the wallet-shaped namespaces: this wipes the wallet and account
+    // database, and a reset re-uses wallet ids (`hd-1`), so any namespace
+    // keyed by one — the network selector's, the token selectors', Earn,
+    // Borrow — would carry the previous profile's snapshot into the new one.
+    // bg's namespaces are left to bg; see `clearUiOwnedNamespaces`.
+    swrCacheUtils.clearUiOwnedNamespaces();
   });
 
   // Both events are emitted by the bookmark mutation itself; which one depends
