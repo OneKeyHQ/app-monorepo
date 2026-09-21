@@ -64,8 +64,8 @@ import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { runAfterTokensDone } from '../../../hooks/useRunAfterTokensDone';
 import { useShortcutsOnRouteFocused } from '../../../hooks/useShortcutsOnRouteFocused';
 import {
+  buildOverviewOwnerKey,
   useAccountOverviewActions,
-  useApprovalsInfoAtom,
 } from '../../../states/jotai/contexts/accountOverview';
 import {
   useAccountSelectorStorageInitDoneAtom,
@@ -292,10 +292,10 @@ export function HomePageView({
     },
   );
 
-  const [{ hasRiskApprovals }] = useApprovalsInfoAtom();
+  const approvalOwnerKey = buildOverviewOwnerKey(account?.id, network?.id);
   const { updateApprovalsInfo } = useAccountOverviewActions().current;
   const tabsRef = useRef<ITabContainerRef | null>(null);
-  // Keep the measured native tab bar height outside the account-keyed container
+  // Keep the measured native tab bar height outside the tab container
   // so remounts do not briefly reserve the library's default 48pt height.
   const nativeTabBarHeightRef = useRef<number | undefined>(undefined);
   const nativeTabBarContainerStyle = useMemo(
@@ -334,11 +334,6 @@ export function HomePageView({
       };
     }, []),
   );
-
-  const hasRiskApprovalsRef = useRef(hasRiskApprovals);
-  useEffect(() => {
-    hasRiskApprovalsRef.current = hasRiskApprovals;
-  }, [hasRiskApprovals]);
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const addressType = deriveInfo?.labelKey
@@ -430,9 +425,11 @@ export function HomePageView({
     let cancelled = false;
 
     // Keep the red-dot state from becoming stale across account/network switches.
-    if (hasRiskApprovalsRef.current) {
-      updateApprovalsInfo({ hasRiskApprovals: false, riskApprovalsCount: 0 });
-    }
+    updateApprovalsInfo({
+      ownerKey: approvalOwnerKey,
+      hasRiskApprovals: false,
+      riskApprovalsCount: 0,
+    });
 
     const run = async (_trigger: string) => {
       if (!isBulkRevokeApprovalEnabled) return;
@@ -454,6 +451,7 @@ export function HomePageView({
           (i) => i.isRiskContract,
         );
         updateApprovalsInfo({
+          ownerKey: approvalOwnerKey,
           hasRiskApprovals: riskApprovals.length > 0,
           riskApprovalsCount: riskApprovals.length,
         });
@@ -483,6 +481,7 @@ export function HomePageView({
   }, [
     account?.address,
     account?.id,
+    approvalOwnerKey,
     indexedAccount?.id,
     isBulkRevokeApprovalEnabled,
     network?.id,
@@ -927,40 +926,9 @@ export function HomePageView({
         </Keyboard.AwareScrollView>
       );
     }
-    // Exclude isDeFiEnabled/isNFTEnabled from key to prevent Tabs.Container
-    // from being destroyed and recreated when these values change async.
-    // Tabs render conditionally inside the container instead.
-    //
-    // Also exclude `account?.id` and `network?.id`: for HD wallets the
-    // per-network account.id differs across networks even when the user is
-    // on the same indexedAccount, and including network.id forces a full
-    // remount of Tabs.Container (and the FlashList inside TokenListView) on
-    // every network switch. The remount produces a brief blank frame while
-    // FlashList re-measures, even when the target has cache. Keying on
-    // wallet + indexedAccountId (with account.id as the Others-wallet
-    // fallback, since those have no indexedAccountId) keeps the subtree
-    // mounted across pure network switches — the singleton token-list atoms
-    // are then driven by account/network changes via the per-owner cache
-    // hydration in TokenListBlock.
-    //
-    // Caveat: Others wallets (imported / watching / external) have no
-    // `indexedAccountId`, so they fall back to `account.id`, which IS
-    // network-scoped for those wallet types. Switching networks on an
-    // Others wallet therefore still remounts Tabs.Container — the
-    // optimization here is intentionally HD-only because Others wallets
-    // typically stay pinned to a single network and the cost of the
-    // occasional remount is not worth special-casing.
-    const key = `${wallet?.id ?? ''}-${
-      account?.indexedAccountId ?? account?.id ?? ''
-    }`;
-    // The remount key resets the pager to the first tab while HomePageView's
-    // activeTab state still points at the previously selected tab, so seed
-    // the remounted container with that tab. But the new pagerTabConfigs and
-    // the stale activeTabName can land in the same render (the reset effect
-    // above runs only after it), and the web Tabs.Container initializes
-    // focusedTab with whatever name it receives without falling back when
-    // the name is missing from the tab set — leaving content, highlight and
-    // active state out of sync. Validate here and fall back to the first tab.
+    // Keep the pager mounted across account and network switches. Account-bound
+    // panes react to their owner-scoped atoms; remounting this container also
+    // restarts account-independent Market/Recommended requests.
     const seedTabName = pagerTabConfigs.some(
       (tab) => tab.name === activeTabName,
     )
@@ -969,7 +937,6 @@ export function HomePageView({
     return (
       <Tabs.Container
         ref={tabsRef as any}
-        key={key}
         // Both implementations only read this prop at mount.
         initialTabName={seedTabName || undefined}
         allowHeaderOverscroll
@@ -987,18 +954,7 @@ export function HomePageView({
         renderSubHeader={renderSubHeader}
       >
         {pagerTabConfigs.map((tab) => (
-          <Tabs.Tab
-            key={tab.name}
-            name={tab.name}
-            // The native pager mounts a pane only on its first focus, so after
-            // an account switch remounts this container with another tab
-            // active, nothing would fetch the new owner's tokens and the
-            // header (worth, WalletActions, banner) would stay on `unknown`
-            // until the user opens the wallet tab (OK-63721). The wallet
-            // pane owns that data, so it mounts eagerly (and frozen, see
-            // FreezeInactiveHomeTab); other panes keep mounting lazily.
-            startMounted={tab.id === EHomeWalletTab.Portfolio}
-          >
+          <Tabs.Tab key={tab.name} name={tab.name}>
             <FreezeInactiveHomeTab
               tabName={tab.name}
               pressedTabName={activeTabName}
@@ -1019,9 +975,6 @@ export function HomePageView({
   }, [
     tabBarHeight,
     tabContainerWidth,
-    wallet?.id,
-    account?.id,
-    account?.indexedAccountId,
     isWalletNotBackedUp,
     headerContainerStyle,
     renderHeader,

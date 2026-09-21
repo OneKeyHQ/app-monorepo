@@ -108,6 +108,7 @@ import {
   accountSelectorStorageReadyAtom,
   accountSelectorSyncLoadingAtom,
   accountSelectorUpdateMetaAtom,
+  activeAccountEpochAtom,
   activeAccountsAtom,
   contextAtomMethod,
   defaultActiveAccountInfo,
@@ -1355,6 +1356,34 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
 
   mutexUpdateSelectedAccount = new Semaphore(1);
 
+  advanceActiveAccountEpoch = contextAtomMethod(
+    (
+      get,
+      set,
+      payload: {
+        num: number;
+        sceneName: EAccountSelectorSceneName | undefined;
+      },
+    ) => {
+      const { num, sceneName } = payload;
+      const epochs = get(activeAccountEpochAtom());
+      const nextEpoch = (epochs[num] ?? 0) + 1;
+      set(activeAccountEpochAtom(), {
+        ...epochs,
+        [num]: nextEpoch,
+      });
+
+      if (sceneName === EAccountSelectorSceneName.home && num === 0) {
+        void backgroundApiProxy.serviceToken
+          .abortFetchAccountTokens({
+            includedFlags: ['home-token-list'],
+          })
+          .catch(() => undefined);
+      }
+      return nextEpoch;
+    },
+  );
+
   updateSelectedAccount = contextAtomMethod(
     async (
       get,
@@ -1502,6 +1531,10 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
             newSelectedAccount.othersWalletAccountId = undefined;
           }
         }
+        this.advanceActiveAccountEpoch.call(set, {
+          num,
+          sceneName: sceneInfo?.sceneName,
+        });
         this.setSelectedAccountsAtom(
           set,
           (v) => ({
@@ -1721,6 +1754,10 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
           ) &&
           !isEmpty(newSelectedAccount)
         ) {
+          this.advanceActiveAccountEpoch.call(set, {
+            num,
+            sceneName: requestContextData?.sceneName,
+          });
           this.setSelectedAccountsAtom(
             set,
             (v) => ({

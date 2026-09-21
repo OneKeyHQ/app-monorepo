@@ -44,10 +44,12 @@ import {
   accountSelectorStorageInitDoneAtom,
   accountSelectorStorageReadyAtom,
   accountSelectorUpdateMetaAtom,
+  activeAccountEpochAtom,
   activeAccountsAtom,
   defaultActiveAccountInfo,
   defaultSelectedAccount,
   selectedAccountsAtom,
+  useActiveAccount,
 } from './atoms';
 
 import type { IAccountSelectorContextData } from './atoms';
@@ -152,6 +154,9 @@ const mockShouldSyncHomeAndSwapSelectedAccount: jest.MockedFunction<
 > = jest.fn();
 const mockClearAccountCache: jest.MockedFunction<() => Promise<void>> =
   jest.fn();
+const mockAbortFetchAccountTokens: jest.MockedFunction<
+  (options: { includedFlags?: string[] }) => Promise<void>
+> = jest.fn();
 const mockGetAllHdHwQrWallets: jest.MockedFunction<
   () => Promise<{
     wallets: IWallet[];
@@ -407,6 +412,11 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
         ...args: Parameters<typeof mockAddDefaultNetworkAccountsService>
       ) => mockAddDefaultNetworkAccountsService(...args),
     },
+    serviceToken: {
+      abortFetchAccountTokens: (
+        options: Parameters<typeof mockAbortFetchAccountTokens>[0],
+      ) => mockAbortFetchAccountTokens(options),
+    },
     serviceNetwork: {
       isDeriveTypeAvailableForNetwork: () =>
         mockIsDeriveTypeAvailableForNetwork(),
@@ -508,6 +518,7 @@ describe('useAccountSelectorActions', () => {
     mockShouldSyncHomeAndSwapSelectedAccount.mockResolvedValue(false);
     mockShouldSyncWithHomeSource.mockResolvedValue(false);
     mockClearAccountCache.mockResolvedValue(undefined);
+    mockAbortFetchAccountTokens.mockResolvedValue(undefined);
     mockGetAllHdHwQrWallets.mockResolvedValue({ wallets: [] });
     mockGetAllHwQrWalletWithDevice.mockResolvedValue({});
     mockGetWalletDevice.mockResolvedValue(undefined);
@@ -569,6 +580,74 @@ describe('useAccountSelectorActions', () => {
       ),
     ).toBe(false);
     expect(await confirm(undefined, 'hw-missing')).toBe(false);
+  });
+
+  it('advances the Home owner epoch and aborts only Home token requests', async () => {
+    const { store, Wrapper } = createWrapper(EAccountSelectorSceneName.home);
+    store.set(accountSelectorContextDataAtom(), {
+      sceneName: EAccountSelectorSceneName.home,
+    });
+    const { result } = renderHook(() => useAccountSelectorActions().current, {
+      wrapper: Wrapper,
+    });
+
+    await act(async () => {
+      await result.current.updateSelectedAccount({
+        num: 0,
+        builder: (account) => ({
+          ...account,
+          walletId: 'hd-1',
+          indexedAccountId: 'hd-1--0',
+          networkId: 'evm--1',
+        }),
+      });
+      await result.current.updateSelectedAccount({
+        num: 0,
+        builder: (account) => ({
+          ...account,
+          indexedAccountId: 'hd-1--1',
+        }),
+      });
+    });
+
+    expect(store.get(activeAccountEpochAtom())[0]).toBe(2);
+    expect(mockAbortFetchAccountTokens).toHaveBeenCalledTimes(2);
+    expect(mockAbortFetchAccountTokens).toHaveBeenLastCalledWith({
+      includedFlags: ['home-token-list'],
+    });
+  });
+
+  it('does not rerender an active-account slot when another slot changes', () => {
+    const { store, Wrapper } = createWrapper();
+    const slotZero = {
+      ...defaultActiveAccountInfo(),
+      accountName: 'slot-zero',
+      ready: true,
+    };
+    store.set(activeAccountsAtom(), { 0: slotZero });
+    let renderCount = 0;
+    const { result } = renderHook(
+      () => {
+        renderCount += 1;
+        return useActiveAccount({ num: 0 });
+      },
+      { wrapper: Wrapper },
+    );
+    const renderCountBeforeOtherSlotUpdate = renderCount;
+
+    act(() => {
+      store.set(activeAccountsAtom(), {
+        ...store.get(activeAccountsAtom()),
+        1: {
+          ...defaultActiveAccountInfo(),
+          accountName: 'slot-one',
+          ready: true,
+        },
+      });
+    });
+
+    expect(result.current.activeAccount).toBe(slotZero);
+    expect(renderCount).toBe(renderCountBeforeOtherSlotUpdate);
   });
 
   it('marks active account init done when reload finishes before storage init', async () => {
