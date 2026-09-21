@@ -383,6 +383,15 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
         targetUpdateMeta: updateMeta,
       });
 
+      // The other scene follows the account only and keeps its own network,
+      // like the live home<->swap sync. Copying the whole selection let a swap
+      // refresh put swap's chain into home's entry, and home restored it over
+      // All Networks on its next init.
+      let pendingHomeSync:
+        | Parameters<
+            AccountSelectorActions['setRecentAccountSelectorSelectionCacheHomeSync']
+          >[0]
+        | undefined;
       const selectedAccountForHomeSync = selectedAccountsMap[0];
       const updateMetaForHomeSync = updateMeta[0];
       if (
@@ -401,19 +410,41 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
             sceneName: homeSyncSceneName,
           });
         if (homeSyncSceneId) {
-          const homeSyncSelectedAccountsMap = cloneDeep(
-            nextCache[homeSyncSceneId]?.selectedAccountsMap ?? {},
-          );
-          const homeSyncUpdateMeta = cloneDeep(
-            nextCache[homeSyncSceneId]?.updateMeta ?? {},
-          );
-          homeSyncSelectedAccountsMap[0] = selectedAccountForHomeSync;
-          homeSyncUpdateMeta[0] = updateMetaForHomeSync;
-          setCacheItem({
-            targetSceneId: homeSyncSceneId,
-            targetSelectedAccountsMap: homeSyncSelectedAccountsMap,
-            targetUpdateMeta: homeSyncUpdateMeta,
-          });
+          const homeSyncCachedAccount =
+            nextCache[homeSyncSceneId]?.selectedAccountsMap?.[0];
+          const homeSyncAccount = homeSyncCachedAccount?.networkId
+            ? accountSelectorUtils.buildMergedSelectedAccount({
+                data: homeSyncCachedAccount,
+                mergedByData: selectedAccountForHomeSync,
+              })
+            : undefined;
+          if (
+            homeSyncAccount &&
+            !accountSelectorUtils.hasOthersWalletAccountNetworkPair({
+              selectedAccount: homeSyncAccount,
+            })
+          ) {
+            setCacheItem({
+              targetSceneId: homeSyncSceneId,
+              targetSelectedAccountsMap: {
+                ...nextCache[homeSyncSceneId]?.selectedAccountsMap,
+                0: homeSyncAccount,
+              },
+              targetUpdateMeta: {
+                ...nextCache[homeSyncSceneId]?.updateMeta,
+                0: updateMetaForHomeSync,
+              },
+            });
+          } else {
+            pendingHomeSync = {
+              sceneId,
+              homeSyncSceneName,
+              homeSyncSceneId,
+              homeSyncCachedAccount,
+              selectedAccount: selectedAccountForHomeSync,
+              updateMeta: updateMetaForHomeSync,
+            };
+          }
         }
       }
 
@@ -421,9 +452,86 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
         ACCOUNT_SELECTOR_RECENT_SELECTION_KEY,
         nextCache,
       );
+
+      if (pendingHomeSync) {
+        await this.setRecentAccountSelectorSelectionCacheHomeSync(
+          pendingHomeSync,
+        );
+      }
     } catch {
       // The recent selection cache only protects the quick-kill window.
     }
+  }
+
+  // Runs after the source entry is already stored, because it has to ask the
+  // background: a scene without a cached network takes it from its saved
+  // record, and an others-wallet account keeps its identity by moving to a
+  // network it supports, as the live sync does.
+  async setRecentAccountSelectorSelectionCacheHomeSync({
+    sceneId,
+    homeSyncSceneName,
+    homeSyncSceneId,
+    homeSyncCachedAccount,
+    selectedAccount,
+    updateMeta,
+  }: {
+    sceneId: string;
+    homeSyncSceneName: EAccountSelectorSceneName;
+    homeSyncSceneId: string;
+    homeSyncCachedAccount: IAccountSelectorSelectedAccount | undefined;
+    selectedAccount: IAccountSelectorSelectedAccount;
+    updateMeta: IAccountSelectorUpdateMeta;
+  }) {
+    const homeSyncCurrentAccount = homeSyncCachedAccount?.networkId
+      ? homeSyncCachedAccount
+      : await backgroundApiProxy.simpleDb.accountSelector.getSelectedAccount({
+          sceneName: homeSyncSceneName,
+          num: 0,
+        });
+    const homeSyncAccount = await this.fixOthersWalletAccountNetworkPair({
+      selectedAccount: accountSelectorUtils.buildMergedSelectedAccount({
+        data: homeSyncCurrentAccount,
+        mergedByData: selectedAccount,
+      }),
+      source: 'setRecentAccountSelectorSelectionCache:homeSync',
+    });
+
+    const cache =
+      (accountSelectorSnapshotCache.get(ACCOUNT_SELECTOR_RECENT_SELECTION_KEY)
+        ?.data as IAccountSelectorRecentSelectionCache | undefined) ?? {};
+    const isSameSelectedAccount = (
+      a: IAccountSelectorSelectedAccount | undefined,
+      b: IAccountSelectorSelectedAccount | undefined,
+    ) => isEqual(omitBy(a, isUndefined), omitBy(b, isUndefined));
+    // Either scene stored a newer selection while the background answered;
+    // that write is the authoritative one for its entry.
+    if (
+      !isSameSelectedAccount(
+        cache[sceneId]?.selectedAccountsMap?.[0],
+        selectedAccount,
+      ) ||
+      !isSameSelectedAccount(
+        cache[homeSyncSceneId]?.selectedAccountsMap?.[0],
+        homeSyncCachedAccount,
+      )
+    ) {
+      return;
+    }
+    accountSelectorSnapshotCache.set(ACCOUNT_SELECTOR_RECENT_SELECTION_KEY, {
+      ...cache,
+      [homeSyncSceneId]: {
+        version: ACCOUNT_SELECTOR_RECENT_SELECTION_CACHE_VERSION,
+        updatedAt: Date.now(),
+        selectedAccountsMap: {
+          ...cache[homeSyncSceneId]?.selectedAccountsMap,
+          0: homeSyncAccount,
+        },
+        updateMeta: {
+          ...cache[homeSyncSceneId]?.updateMeta,
+          0: updateMeta,
+        },
+      },
+    });
   }
 
   async flushRecentAccountSelectorSelectionCacheNowIfNeeded() {
