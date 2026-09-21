@@ -52,6 +52,10 @@ import { CategorySelector } from '../../../Market/MarketHomeV2/components/Catego
 import { getNativeTokenInfo } from '../../../Market/MarketHomeV2/components/MarketTokenList/utils/tokenListHelpers';
 import { useMarketTopCoinResolver } from '../../../Market/MarketHomeV2/components/MarketTopCoinsList/hooks/useMarketTopCoins';
 import { EMarketHomeTab } from '../../../Market/MarketHomeV2/types';
+import {
+  copyRecommendListingIds,
+  mapRecommendTokensToWatchlistItems,
+} from '../../../Market/utils/mapRecommendTokensToWatchlistItems';
 import { openOrReplaceMarketDetailRoute } from '../../../Market/utils/marketDetailNavigation';
 import { RichBlock } from '../RichBlock/RichBlock';
 import { RichTable } from '../RichTable';
@@ -88,19 +92,21 @@ import type { IMarketCategoryItem } from '../../../Market/MarketHomeV2/types';
 function RecommendCardItem({
   token,
   checked,
+  disabled = false,
   onChange,
 }: {
   token: IFavoriteTokenDisplay;
   checked: boolean;
+  disabled?: boolean;
   onChange: (checked: boolean, tokenKey: string) => void;
 }) {
   const { sharedFrameStyles } = useMemo(
     () =>
       getSharedButtonStyles({
-        disabled: false,
+        disabled,
         loading: false,
       }),
-    [],
+    [disabled],
   );
 
   return (
@@ -116,7 +122,12 @@ function RecommendCardItem({
       borderRadius="$3"
       borderWidth={1}
       borderColor="$neutral3"
-      onPress={() => onChange(!checked, getTokenKey(token))}
+      onPress={() => {
+        if (disabled) {
+          return;
+        }
+        onChange(!checked, getTokenKey(token));
+      }}
       ai="center"
       $sm={{
         px: '$2.5',
@@ -220,8 +231,10 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
     FAVORITES_CATEGORY_ID,
   );
 
+  const [isAdding, setIsAdding] = useState(false);
   const initializedRef = useRef(false);
   const hasShownCategorySelectorRef = useRef(false);
+  const isAddingRef = useRef(false);
   const refreshDataRef = useRef<() => Promise<void>>(async () => {});
   const handleRemoveFromWatchlistRef = useRef<
     (record: IFavoriteTokenDisplay) => void
@@ -677,6 +690,7 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
           chainId: token.chainId,
           contractAddress: token.contractAddress,
           isNative: token.isNative ?? false,
+          ...copyRecommendListingIds(token),
         }));
 
         const response =
@@ -723,6 +737,11 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
               volume24h: getMarketTokenDisplayVolume24h(item),
               communityRecognized: item.communityRecognized,
               stock: item.stock,
+              ...copyRecommendListingIds({
+                assetId: targetItem.assetId,
+                stockId: targetItem.stockId,
+                stock: item.stock,
+              }),
             };
           })
           .filter((item): item is IFavoriteTokenDisplay => item !== null);
@@ -773,6 +792,9 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
 
   const handleRecommendItemChange = useCallback(
     (checked: boolean, tokenKey: string) => {
+      if (isAddingRef.current) {
+        return;
+      }
       const token = favoriteTokens.find((t) => getTokenKey(t) === tokenKey);
       if (!token) return;
 
@@ -787,13 +809,17 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
 
   // Handle add tokens button press
   const handleAddTokens = useCallback(async () => {
-    if (selectedTokens.length === 0) return;
+    if (selectedTokens.length === 0 || isAddingRef.current) {
+      return;
+    }
+    isAddingRef.current = true;
+    setIsAdding(true);
 
     try {
-      const nextWatchListItems = selectedTokens.map((token, index) => ({
-        chainId: token.chainId,
-        contractAddress: token.contractAddress,
-        isNative: token.isNative,
+      const mappedItems =
+        await mapRecommendTokensToWatchlistItems(selectedTokens);
+      const nextWatchListItems = mappedItems.map((item, index) => ({
+        ...item,
         sortIndex: 1000 - (index + 1),
       }));
 
@@ -829,6 +855,9 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
           id: ETranslations.global_an_error_occurred,
         }),
       });
+    } finally {
+      isAddingRef.current = false;
+      setIsAdding(false);
     }
   }, [selectedTokens, intl, refreshData]);
 
@@ -1061,6 +1090,7 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
         key={getTokenKey(token)}
         token={token}
         checked={isTokenSelected(token)}
+        disabled={isAdding}
         onChange={handleRecommendItemChange}
       />
     );
@@ -1089,6 +1119,7 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
     selectedTokens,
     handleRecommendItemChange,
     shouldUseTableLayout,
+    isAdding,
   ]);
 
   // Navigate to Market favorites tab
@@ -1185,7 +1216,8 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
         testID="home-header-actions-btn"
         size="small"
         variant="secondary"
-        disabled={selectedTokens.length === 0}
+        disabled={selectedTokens.length === 0 || isAdding}
+        loading={isAdding}
         onPress={handleAddTokens}
       >
         {intl.formatMessage(
@@ -1194,7 +1226,7 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
         )}
       </Button>
     ),
-    [selectedTokens.length, handleAddTokens, intl],
+    [selectedTokens.length, handleAddTokens, intl, isAdding],
   );
 
   const renderContent = useCallback(() => {
