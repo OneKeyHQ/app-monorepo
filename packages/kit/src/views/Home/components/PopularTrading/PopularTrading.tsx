@@ -52,7 +52,10 @@ import { CategorySelector } from '../../../Market/MarketHomeV2/components/Catego
 import { getNativeTokenInfo } from '../../../Market/MarketHomeV2/components/MarketTokenList/utils/tokenListHelpers';
 import { useMarketTopCoinResolver } from '../../../Market/MarketHomeV2/components/MarketTopCoinsList/hooks/useMarketTopCoins';
 import { EMarketHomeTab } from '../../../Market/MarketHomeV2/types';
-import { mapRecommendTokensToWatchlistItems } from '../../../Market/utils/mapRecommendTokensToWatchlistItems';
+import {
+  copyRecommendListingIds,
+  mapRecommendTokensToWatchlistItems,
+} from '../../../Market/utils/mapRecommendTokensToWatchlistItems';
 import { openOrReplaceMarketDetailRoute } from '../../../Market/utils/marketDetailNavigation';
 import { RichBlock } from '../RichBlock/RichBlock';
 import { RichTable } from '../RichTable';
@@ -89,19 +92,21 @@ import type { IMarketCategoryItem } from '../../../Market/MarketHomeV2/types';
 function RecommendCardItem({
   token,
   checked,
+  disabled = false,
   onChange,
 }: {
   token: IFavoriteTokenDisplay;
   checked: boolean;
+  disabled?: boolean;
   onChange: (checked: boolean, tokenKey: string) => void;
 }) {
   const { sharedFrameStyles } = useMemo(
     () =>
       getSharedButtonStyles({
-        disabled: false,
+        disabled,
         loading: false,
       }),
-    [],
+    [disabled],
   );
 
   return (
@@ -117,7 +122,12 @@ function RecommendCardItem({
       borderRadius="$3"
       borderWidth={1}
       borderColor="$neutral3"
-      onPress={() => onChange(!checked, getTokenKey(token))}
+      onPress={() => {
+        if (disabled) {
+          return;
+        }
+        onChange(!checked, getTokenKey(token));
+      }}
       ai="center"
       $sm={{
         px: '$2.5',
@@ -680,6 +690,7 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
           chainId: token.chainId,
           contractAddress: token.contractAddress,
           isNative: token.isNative ?? false,
+          ...copyRecommendListingIds(token),
         }));
 
         const response =
@@ -726,6 +737,11 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
               volume24h: getMarketTokenDisplayVolume24h(item),
               communityRecognized: item.communityRecognized,
               stock: item.stock,
+              ...copyRecommendListingIds({
+                assetId: targetItem.assetId,
+                stockId: targetItem.stockId,
+                stock: item.stock,
+              }),
             };
           })
           .filter((item): item is IFavoriteTokenDisplay => item !== null);
@@ -776,6 +792,9 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
 
   const handleRecommendItemChange = useCallback(
     (checked: boolean, tokenKey: string) => {
+      if (isAddingRef.current) {
+        return;
+      }
       const token = favoriteTokens.find((t) => getTokenKey(t) === tokenKey);
       if (!token) return;
 
@@ -1071,6 +1090,7 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
         key={getTokenKey(token)}
         token={token}
         checked={isTokenSelected(token)}
+        disabled={isAdding}
         onChange={handleRecommendItemChange}
       />
     );
@@ -1099,6 +1119,7 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
     selectedTokens,
     handleRecommendItemChange,
     shouldUseTableLayout,
+    isAdding,
   ]);
 
   // Navigate to Market favorites tab

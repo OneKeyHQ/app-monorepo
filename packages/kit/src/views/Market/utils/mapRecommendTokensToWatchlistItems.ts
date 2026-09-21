@@ -58,6 +58,17 @@ function hasExplicitListingId(token: IRecommendWatchlistInput) {
   return Boolean(token.assetId?.trim() || token.stockId?.trim());
 }
 
+export function copyRecommendListingIds(token: {
+  assetId?: string;
+  stockId?: string;
+  stock?: { stockId?: string };
+}): Pick<IRecommendWatchlistInput, 'assetId' | 'stockId'> {
+  return {
+    assetId: token.assetId,
+    stockId: token.stockId ?? token.stock?.stockId,
+  };
+}
+
 export function toRecommendWatchlistItem({
   token,
   listings,

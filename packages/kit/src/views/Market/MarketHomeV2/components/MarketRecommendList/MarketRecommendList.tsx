@@ -110,6 +110,9 @@ export function MarketRecommendList({
 
   const handleRecommendItemChange = useCallback(
     (checked: boolean, tokenKey: string) => {
+      if (isAddingRef.current) {
+        return;
+      }
       const token = uniqueTokens.find((t) => getTokenKey(t) === tokenKey);
       if (!token) return;
 
@@ -224,6 +227,7 @@ export function MarketRecommendList({
                   key={tokenKey}
                   address={tokenKey}
                   checked={isChecked}
+                  disabled={isAdding}
                   icon={item.logo || ''}
                   symbol={item.symbol}
                   tokenName={item.name}

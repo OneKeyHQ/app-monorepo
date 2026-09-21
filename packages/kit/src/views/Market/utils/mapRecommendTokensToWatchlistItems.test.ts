@@ -1,6 +1,7 @@
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
 import {
+  copyRecommendListingIds,
   mapRecommendTokensToWatchlistItems,
   matchRecommendTokenAssetId,
 } from './mapRecommendTokensToWatchlistItems';
@@ -119,6 +120,37 @@ it('persists explicit listing identities without fetching top coins', async () =
     { chainId: '', contractAddress: '', stockId: 'AAPL' },
   ]);
   expect(mockAssetList).not.toHaveBeenCalled();
+});
+
+it('keeps stockId when home recommend cards copy listing ids', async () => {
+  const recommendToken = {
+    chainId: 'evm--1',
+    contractAddress: '0xstock',
+    isNative: false,
+    symbol: 'AAPL',
+    stockId: 'AAPL',
+  };
+  const homeDisplayToken = {
+    chainId: recommendToken.chainId,
+    contractAddress: recommendToken.contractAddress,
+    isNative: recommendToken.isNative,
+    symbol: recommendToken.symbol,
+    ...copyRecommendListingIds(recommendToken),
+  };
+  await expect(
+    mapRecommendTokensToWatchlistItems([homeDisplayToken]),
+  ).resolves.toEqual([{ chainId: '', contractAddress: '', stockId: 'AAPL' }]);
+  expect(mockAssetList).not.toHaveBeenCalled();
+});
+
+it('prefers an explicit stockId over the nested stock payload', () => {
+  expect(
+    copyRecommendListingIds({
+      assetId: 'aster',
+      stockId: 'AAPL',
+      stock: { stockId: 'OTHER' },
+    }),
+  ).toEqual({ assetId: 'aster', stockId: 'AAPL' });
 });
 
 it('prefers stockId so the favorite opens stock detail', async () => {
