@@ -704,7 +704,7 @@ fi
       try {
         safelyBrowserWindow?.setTitleBarOverlay({
           symbolColor: theme === 'dark' ? '#ffffff' : '#000000',
-          color: '#00000000',
+          color: getBackgroundColor(theme),
         });
       } catch {
         // noop

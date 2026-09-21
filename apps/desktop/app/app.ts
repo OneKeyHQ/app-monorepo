@@ -802,7 +802,7 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
       isWin || isLinux
         ? {
             height: 52,
-            color: '#00000000',
+            color: isWin ? getBackgroundColor(theme) : '#00000000',
             symbolColor: isDarkTheme ? '#ffffff' : '#000000',
           }
         : false,
