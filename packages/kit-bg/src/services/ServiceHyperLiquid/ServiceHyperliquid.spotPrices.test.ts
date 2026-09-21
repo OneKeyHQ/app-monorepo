@@ -52,7 +52,6 @@ const spotCtx = {
   totalSupply: '999062061.4525643587',
   dayBaseVlm: '246978.51',
 };
-const liveSpotCtxCoins = new Set([spotCtx.coin]);
 
 describe('ServiceHyperliquid spot price source', () => {
   let service: ServiceHyperliquid;
@@ -92,10 +91,7 @@ describe('ServiceHyperliquid spot price source', () => {
 
   it('keeps the mark price when allMids arrives after the spot context', async () => {
     await service.updateSpotAssetCtxsMap([spotCtx]);
-    await service.extractSpotPricesFromAllMids(
-      { '@241': spotCtx.midPx },
-      liveSpotCtxCoins,
-    );
+    await service.extractSpotPricesFromAllMids({ '@241': spotCtx.midPx }, true);
     jest.advanceTimersByTime(1000);
 
     expect(spotAssetCtxsMapAtom.set).toHaveBeenLastCalledWith({
@@ -128,10 +124,7 @@ describe('ServiceHyperliquid spot price source', () => {
 
     // Exact prices from OK-63600: the mid must not overwrite the mark again.
     await service.updateSpotAssetCtxsMap([{ ...spotCtx, markPx: '0.001' }]);
-    await service.extractSpotPricesFromAllMids(
-      { '@241': '0.001239' },
-      liveSpotCtxCoins,
-    );
+    await service.extractSpotPricesFromAllMids({ '@241': '0.001239' }, true);
     jest.advanceTimersByTime(1000);
     expect(spotAssetCtxsMapAtom.set).toHaveBeenLastCalledWith({
       '@241': expect.objectContaining({ markPx: '0.001' }),
@@ -140,10 +133,7 @@ describe('ServiceHyperliquid spot price source', () => {
 
   it('preserves the context price even when the previous day price is zero', async () => {
     await service.updateSpotAssetCtxsMap([{ ...spotCtx, prevDayPx: '0' }]);
-    await service.extractSpotPricesFromAllMids(
-      { '@241': spotCtx.midPx },
-      liveSpotCtxCoins,
-    );
+    await service.extractSpotPricesFromAllMids({ '@241': spotCtx.midPx }, true);
     jest.advanceTimersByTime(1000);
     expect(spotAssetCtxsMapAtom.set).toHaveBeenLastCalledWith({
       '@241': expect.objectContaining({
@@ -153,34 +143,33 @@ describe('ServiceHyperliquid spot price source', () => {
     });
   });
 
-  it('protects REST marks before the first WS frame only within the active subscription', async () => {
-    const subscriptions = new ServiceHyperliquidSubscription({
-      backgroundApi: service.backgroundApi,
-    });
-    service.backgroundApi.serviceHyperliquid = service;
-    service.backgroundApi.serviceHyperliquidSubscription = subscriptions;
+  describe('spot subscription startup', () => {
     const spec: ISubscriptionSpec<ESubscriptionType.SPOT_ASSET_CTXS> = {
       type: ESubscriptionType.SPOT_ASSET_CTXS,
       key: generateSubscriptionKey(ESubscriptionType.SPOT_ASSET_CTXS, {}),
       params: {},
       priority: 2,
     };
-    const internals = subscriptions as unknown as {
-      _activeSubscriptions: Map<string, { spec: typeof spec }>;
+    let subscriptions: ServiceHyperliquidSubscription;
+    let client: {
+      subscribe: jest.Mock<Promise<void>, []>;
+      unsubscribe: jest.Mock<Promise<void>, []>;
+    };
+    let internals: {
+      _client: typeof client;
+      _createSubscription: (value: typeof spec) => Promise<void>;
+      _destroySubscription: (value: typeof spec) => Promise<boolean>;
+      _cleanupAllSubscriptions: () => Promise<void>;
+      _closeClient: () => Promise<void>;
       _handleSubscriptionData: (
         type: ESubscriptionType,
         event: CustomEvent,
       ) => Promise<void>;
+      getWebSocketClient: () => Promise<typeof client>;
       _updateNetworkLiveness: () => void;
       _emitHyperliquidDataUpdate: () => void;
     };
-    jest
-      .spyOn(internals, '_updateNetworkLiveness')
-      .mockImplementation(() => {});
-    jest
-      .spyOn(internals, '_emitHyperliquidDataUpdate')
-      .mockImplementation(() => {});
-    const hydrate = (markPx: string) =>
+    const hydrate = (markPx = '0.0015') =>
       (
         service as unknown as {
           _applySpotMetaAndAssetCtxsResult: (
@@ -191,9 +180,9 @@ describe('ServiceHyperliquid spot price source', () => {
         { tokens: [], universe: [] },
         [{ ...spotCtx, markPx }],
       ]);
-    const receiveMids = async () => {
+    const receiveMids = async (price: string) => {
       await internals._handleSubscriptionData(ESubscriptionType.ALL_MIDS, {
-        detail: { mids: { '@241': '0.002' } },
+        detail: { mids: { '@241': price } },
       } as CustomEvent);
       jest.advanceTimersByTime(1000);
     };
@@ -201,36 +190,182 @@ describe('ServiceHyperliquid spot price source', () => {
       expect(spotAssetCtxsMapAtom.set).toHaveBeenLastCalledWith({
         '@241': expect.objectContaining({ markPx }),
       });
+    const closeSocket = () =>
+      subscriptions.socketCloseHandler({
+        target: { readyState: 3 },
+      } as unknown as WebSocketEventMap['close']);
+    const beginSubscription = async () => {
+      let acknowledge!: () => void;
+      let reject!: (error: Error) => void;
+      let started!: () => void;
+      const requested = new Promise<void>((resolve) => {
+        started = resolve;
+      });
+      client.subscribe.mockImplementationOnce(
+        () =>
+          new Promise<void>((resolve, rejectRequest) => {
+            acknowledge = resolve;
+            reject = rejectRequest;
+            started();
+          }),
+      );
+      subscriptions.pendingSubSpecsMap[spec.key] = spec;
+      const completed = internals._createSubscription(spec);
+      await requested;
+      return {
+        acknowledge: async () => {
+          acknowledge();
+          await completed;
+        },
+        reject: async () => {
+          reject(new Error('subscribe failed'));
+          await completed;
+        },
+      };
+    };
 
-    // REST alone must not disable the mids fallback without a subscription.
-    await hydrate('0.0014');
-    await receiveMids();
-    expectPrice('0.002');
+    beforeEach(() => {
+      subscriptions = new ServiceHyperliquidSubscription({
+        backgroundApi: service.backgroundApi,
+      });
+      service.backgroundApi.serviceHyperliquid = service;
+      service.backgroundApi.serviceHyperliquidSubscription = subscriptions;
+      client = {
+        subscribe: jest.fn<Promise<void>, []>().mockResolvedValue(undefined),
+        unsubscribe: jest.fn<Promise<void>, []>().mockResolvedValue(undefined),
+      };
+      internals = subscriptions as unknown as typeof internals;
+      internals._client = client;
+      jest.spyOn(internals, 'getWebSocketClient').mockResolvedValue(client);
+      jest
+        .spyOn(internals, '_updateNetworkLiveness')
+        .mockImplementation(() => {});
+      jest
+        .spyOn(internals, '_emitHyperliquidDataUpdate')
+        .mockImplementation(() => {});
+    });
 
-    internals._activeSubscriptions.set(spec.key, { spec });
-    await hydrate('0.0015');
-    await receiveMids();
-    expectPrice('0.0015');
-    await internals._handleSubscriptionData(ESubscriptionType.SPOT_ASSET_CTXS, {
-      detail: [{ ...spotCtx, markPx: '0.0016' }],
-    } as CustomEvent);
-    await receiveMids();
-    expectPrice('0.0016');
+    it.each(['before request', 'before ACK', 'after ACK'] as const)(
+      'protects REST marks received %s, then accepts fresh WS marks',
+      async (timing) => {
+        if (timing === 'before request') await hydrate();
+        const request = await beginSubscription();
+        if (timing === 'before ACK') await hydrate();
+        if (timing !== 'after ACK') {
+          await receiveMids('0.002');
+          expectPrice('0.0015');
+        }
+        await request.acknowledge();
+        if (timing === 'after ACK') await hydrate();
+        await receiveMids('0.0021');
+        expectPrice('0.0015');
+        await internals._handleSubscriptionData(
+          ESubscriptionType.SPOT_ASSET_CTXS,
+          {
+            detail: [{ ...spotCtx, markPx: '0.0016' }],
+          } as CustomEvent,
+        );
+        await receiveMids('0.0022');
+        expectPrice('0.0016');
+      },
+    );
 
-    subscriptions.socketCloseHandler({
-      target: { readyState: 3 },
-    } as unknown as WebSocketEventMap['close']);
-    await hydrate('0.0017');
-    await receiveMids();
-    expectPrice('0.002');
+    it('preserves a WS context received before subscribe ACK', async () => {
+      const request = await beginSubscription();
+      await internals._handleSubscriptionData(
+        ESubscriptionType.SPOT_ASSET_CTXS,
+        {
+          detail: [spotCtx],
+        } as CustomEvent,
+      );
+      await receiveMids('0.002');
+      expectPrice(spotCtx.markPx);
+      await request.acknowledge();
+      await receiveMids('0.0021');
+      expectPrice(spotCtx.markPx);
+    });
 
-    // Reconnect must not inherit ownership from the closed subscription.
-    internals._activeSubscriptions.set(spec.key, { spec });
-    await receiveMids();
-    expectPrice('0.002');
-    await hydrate('0.0018');
-    await receiveMids();
-    expectPrice('0.0018');
+    it('keeps changing cold fallback mids until an actual context arrives', async () => {
+      await hydrate();
+      await receiveMids('0.002');
+      expectPrice('0.002');
+      const request = await beginSubscription();
+      await receiveMids('0.0021');
+      expectPrice('0.0021');
+      await request.acknowledge();
+      await receiveMids('0.0022');
+      expectPrice('0.0022');
+    });
+
+    it.each(['failure', 'cancel', 'close'] as const)(
+      'releases price protection on creation %s and does not revive it on retry',
+      async (ending) => {
+        const request = await beginSubscription();
+        await hydrate();
+        await receiveMids('0.002');
+        expectPrice('0.0015');
+        if (ending === 'failure') {
+          const errorSpy = jest
+            .spyOn(console, 'error')
+            .mockImplementation(() => {});
+          await request.reject();
+          errorSpy.mockRestore();
+        } else {
+          if (ending === 'cancel') {
+            delete subscriptions.pendingSubSpecsMap[spec.key];
+          } else {
+            closeSocket();
+          }
+          await request.acknowledge();
+        }
+        // Start the next real creation before mids overwrite the old mark.
+        const retry = await beginSubscription();
+        await receiveMids('0.0021');
+        expectPrice('0.0021');
+        await retry.acknowledge();
+        await hydrate('0.0018');
+        await receiveMids('0.0022');
+        expectPrice('0.0018');
+      },
+    );
+
+    it.each(['unsubscribe', 'close'] as const)(
+      'uses new mid prices after %s and during the next subscription',
+      async (ending) => {
+        const request = await beginSubscription();
+        await request.acknowledge();
+        await hydrate();
+        if (ending === 'unsubscribe') {
+          await internals._destroySubscription(spec);
+        } else {
+          closeSocket();
+        }
+        await receiveMids('0.002');
+        expectPrice('0.002');
+        const retry = await beginSubscription();
+        await retry.acknowledge();
+        jest.mocked(spotAssetCtxsMapAtom.set).mockClear();
+        await receiveMids('0.0021');
+        expectPrice('0.0021');
+        expect(spotAssetCtxsMapAtom.set).toHaveBeenCalledTimes(1);
+      },
+    );
+
+    it('clears sources when cleanup falls back to closing a failed unsubscribe', async () => {
+      const request = await beginSubscription();
+      await request.acknowledge();
+      await hydrate();
+      client.unsubscribe.mockRejectedValueOnce(new Error('unsubscribe failed'));
+      const closeSpy = jest
+        .spyOn(internals, '_closeClient')
+        .mockResolvedValue(undefined);
+      await internals._cleanupAllSubscriptions();
+      expect(closeSpy).toHaveBeenCalled();
+      const retry = await beginSubscription();
+      await receiveMids('0.0021');
+      expectPrice('0.0021');
+      await retry.acknowledge();
+    });
   });
 
   it('resumes mids and requests a valuation refresh after context ownership ends', async () => {
@@ -249,10 +384,7 @@ describe('ServiceHyperliquid spot price source', () => {
     });
 
     await service.updateSpotAssetCtxsMap([{ ...spotCtx, markPx: '0.0021' }]);
-    await service.extractSpotPricesFromAllMids(
-      { '@241': '0.0022' },
-      liveSpotCtxCoins,
-    );
+    await service.extractSpotPricesFromAllMids({ '@241': '0.0022' }, true);
     expect(spotAssetCtxsMapAtom.set).toHaveBeenLastCalledWith({
       '@241': expect.objectContaining({ markPx: '0.0021' }),
     });
@@ -282,10 +414,7 @@ describe('ServiceHyperliquid spot price source', () => {
     expect((await perpsSpotBalancesAtom.get())?.spotTotalUsd).toBe('2');
 
     await service.updateSpotAssetCtxsMap([{ ...spotCtx, markPx: '0.003' }]);
-    await service.extractSpotPricesFromAllMids(
-      { '@241': '0.004' },
-      liveSpotCtxCoins,
-    );
+    await service.extractSpotPricesFromAllMids({ '@241': '0.004' }, true);
     await jest.advanceTimersByTimeAsync(1000);
     expect((await perpsSpotBalancesAtom.get())?.spotTotalUsd).toBe('3');
     await perpsSpotBalancesAtom.set(undefined);

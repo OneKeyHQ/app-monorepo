@@ -61,6 +61,7 @@ describe('spot context price ownership', () => {
     extractSpotPricesFromAllMids: jest.Mock;
     updateSpotAssetCtxsMap: jest.Mock;
     recalculateSpotTotalUsd: jest.Mock;
+    clearSpotContextPriceSources: jest.Mock;
   };
   let internals: {
     _activeSubscriptions: Map<
@@ -105,6 +106,7 @@ describe('spot context price ownership', () => {
       extractSpotPricesFromAllMids: jest.fn(),
       updateSpotAssetCtxsMap: jest.fn(),
       recalculateSpotTotalUsd: jest.fn(),
+      clearSpotContextPriceSources: jest.fn(),
     };
     service = new ServiceHyperliquidSubscription({
       backgroundApi: {
@@ -129,11 +131,11 @@ describe('spot context price ownership', () => {
     jest.useRealTimers();
   });
 
-  it('owns only valid context coins after their first frame, without requiring prevDayPx', async () => {
+  it('reports an active context subscription before and after its first frame', async () => {
     await receiveMids();
     expect(prices.extractSpotPricesFromAllMids).toHaveBeenLastCalledWith(
       { '@241': '0.002' },
-      undefined,
+      true,
     );
     await receive(ESubscriptionType.SPOT_ASSET_CTXS, [
       ctx,
@@ -142,7 +144,7 @@ describe('spot context price ownership', () => {
     await receiveMids();
     expect(prices.extractSpotPricesFromAllMids).toHaveBeenLastCalledWith(
       { '@241': '0.002' },
-      new Set(['@241']),
+      true,
     );
   });
 
@@ -163,19 +165,20 @@ describe('spot context price ownership', () => {
       await receiveMids();
       expect(prices.extractSpotPricesFromAllMids).toHaveBeenLastCalledWith(
         { '@241': '0.002' },
-        undefined,
+        false,
       );
+      expect(prices.clearSpotContextPriceSources).toHaveBeenCalled();
       subscribe();
       await receiveMids();
       expect(prices.extractSpotPricesFromAllMids).toHaveBeenLastCalledWith(
         { '@241': '0.002' },
-        undefined,
+        true,
       );
       await receive(ESubscriptionType.SPOT_ASSET_CTXS, [ctx]);
       await receiveMids();
       expect(prices.extractSpotPricesFromAllMids).toHaveBeenLastCalledWith(
         { '@241': '0.002' },
-        new Set(['@241']),
+        true,
       );
     },
   );

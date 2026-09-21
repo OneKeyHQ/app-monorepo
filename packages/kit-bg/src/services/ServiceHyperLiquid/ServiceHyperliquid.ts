@@ -515,6 +515,9 @@ export default class ServiceHyperliquid extends ServiceBase {
   // Avoids async atom reads in the hot path — written to atom on a throttled schedule
   private _spotPriceCache: Record<string, ISpotAssetCtxEntry> = {};
 
+  // Track provenance explicitly: the price cache also contains mids.
+  private _spotContextPriceCoins = new Set<string>();
+
   private _spotPriceDirty = false;
 
   private _spotPriceFlushTimer: ReturnType<typeof setTimeout> | null = null;
@@ -2082,24 +2085,31 @@ export default class ServiceHyperliquid extends ServiceBase {
         };
       }
     });
+    this._spotContextPriceCoins = new Set(Object.keys(map));
     this._flushSpotPrices(map);
     void this.recalculateSpotTotalUsd({ force: true });
   }
 
+  clearSpotContextPriceSources() {
+    this._spotContextPriceCoins.clear();
+  }
+
   async extractSpotPricesFromAllMids(
     mids: Record<string, string>,
-    liveSpotCtxCoins?: ReadonlySet<string>,
+    preferSpotContextPrices = false,
   ) {
     const map: Record<string, ISpotAssetCtxEntry> = {};
     for (const [coin, price] of Object.entries(mids)) {
-      // Prefer marks only while their context subscription owns the price.
+      // Keep actual context prices only while their subscription is wanted.
       if (
         perpsUtils.isSpotInstrument(coin) &&
         price &&
-        !liveSpotCtxCoins?.has(coin) &&
-        this._spotPriceCache[coin]?.markPx !== price
+        !(preferSpotContextPrices && this._spotContextPriceCoins.has(coin))
       ) {
-        map[coin] = { markPx: price };
+        this._spotContextPriceCoins.delete(coin);
+        if (this._spotPriceCache[coin]?.markPx !== price) {
+          map[coin] = { markPx: price };
+        }
       }
     }
     if (Object.keys(map).length > 0) {
@@ -2636,9 +2646,6 @@ export default class ServiceHyperliquid extends ServiceBase {
     // wait 2-3s for the WS SPOT_ASSET_CTXS message and flash a skeleton.
     const assetCtxs = result[1];
     if (Array.isArray(assetCtxs) && assetCtxs.length > 0) {
-      this.backgroundApi.serviceHyperliquidSubscription.recordSpotAssetCtxCoins(
-        assetCtxs,
-      );
       void this.updateSpotAssetCtxsMap(assetCtxs);
     }
   }
