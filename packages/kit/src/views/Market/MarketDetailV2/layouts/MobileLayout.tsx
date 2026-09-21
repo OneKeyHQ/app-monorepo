@@ -488,9 +488,9 @@ export function MobileLayout({
     : undefined;
   const [nativeIndicatorSettings] =
     useMarketTradingViewIndicatorSettingsPersistAtom();
-  // The native chart reports its sub-indicator panes only after it mounts.
-  // Start from the saved panes so the chart does not grow a frame later.
-  const persistedNativeSubIndicatorCount = useMemo(
+  // Size the container from the same settings the native chart renders. Its
+  // count callback runs after paint, which would resize the chart a frame late.
+  const nativeSubIndicatorCount = useMemo(
     () =>
       getTradingViewNativeSubIndicatorInstances(
         normalizeTradingViewNativeIndicatorSettings(nativeIndicatorSettings),
@@ -500,7 +500,7 @@ export function MobileLayout({
   let initialSubIndicatorCount =
     MARKET_DETAIL_TRADING_VIEW_DEFAULT_SUB_INDICATOR_COUNT;
   if (isTradingViewNative) {
-    initialSubIndicatorCount = persistedNativeSubIndicatorCount;
+    initialSubIndicatorCount = nativeSubIndicatorCount;
   } else if (
     typeof persistedWebViewSubIndicatorCount === 'number' &&
     Number.isFinite(persistedWebViewSubIndicatorCount)
@@ -650,6 +650,9 @@ export function MobileLayout({
         MARKET_DETAIL_INITIAL_SUB_INDICATOR_STABILIZATION_MS,
       onCountSettled: persistWebViewSubIndicatorCount,
     });
+  const chartSubIndicatorCount = isTradingViewNative
+    ? nativeSubIndicatorCount
+    : tradingViewSubIndicatorCount;
   const isTradingViewScrollLocked =
     isTradingViewIndicatorsDialogOpen || isTradingViewInteractionOverlayOpen;
   const secondTabTouchStartRef = useRef<{
@@ -774,12 +777,11 @@ export function MobileLayout({
         TRADING_VIEW_NATIVE_SUB_INDICATOR_PANE_HEIGHT;
       return (
         fixedMainChartHeight +
-        tradingViewSubIndicatorCount *
-          TRADING_VIEW_NATIVE_SUB_INDICATOR_PANE_HEIGHT
+        chartSubIndicatorCount * TRADING_VIEW_NATIVE_SUB_INDICATOR_PANE_HEIGHT
       );
     }
     return 'calc(100vh - 96px - 74px - 250px)';
-  }, [layoutHeight, tradingViewSubIndicatorCount]);
+  }, [chartSubIndicatorCount, layoutHeight]);
 
   const shouldReserveNativeIndicatorQuickBar =
     platformEnv.isNative &&
@@ -934,9 +936,6 @@ export function MobileLayout({
                       isChartSwitchDisabled={!marketTradingViewParams}
                       onChartSwitch={onChartSwitch}
                       onNativeChartFullscreenChange={onChartFullscreenChange}
-                      onNativeSubIndicatorCountChange={
-                        handleNativeSubIndicatorCountChange
-                      }
                     />
                   ) : (
                     // Same controls row + masked canvas the chart mounts with.
