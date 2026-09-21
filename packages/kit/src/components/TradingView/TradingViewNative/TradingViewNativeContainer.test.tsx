@@ -2294,25 +2294,37 @@ describe('TradingViewNativeContainer', () => {
     );
   });
 
-  it('uses the compact chart presentation without legends or volume', () => {
+  it('hides saved indicators in compact mode and restores them in default mode', () => {
     mockDataState = { status: 'live' };
-    mockPoints = [
-      { c: 100, h: 101, l: 99, o: 100, t: 1000, v: 10 },
-      { c: 101, h: 102, l: 100, o: 100, t: 2000, v: 20 },
-    ];
+    mockPoints = Array.from({ length: 25 }, (_, index) => ({
+      c: 100 + index,
+      h: 101 + index,
+      l: 99 + index,
+      o: 100 + index,
+      t: 1000 + index,
+      v: 10,
+    }));
+    const settings = createTradingViewNativeIndicatorSettingsValue();
+    settings.indicators.forEach((indicator) => {
+      indicator.active = ['EMA', 'RSI', 'VOL'].includes(indicator.id);
+    });
+    mockInitialIndicatorSettings =
+      getTradingViewNativeIndicatorSettings(settings);
+    const onNativeSubIndicatorCountChange = jest.fn();
+    const source = {
+      kind: 'hyperliquid',
+      coin: 'ETH',
+      environment: 'mainnet',
+    } as const;
 
-    render(
+    const { rerender } = render(
       <TradingViewNativeContainer
         nativeChartDisplayMode="compact"
         nativeControlsLayoutMode="mobile"
-        source={{
-          kind: 'market',
-          networkId: 'evm--1',
-          tokenAddress: '0xabc',
-          symbol: 'TOKEN',
-          realtime: 'disabled',
-        }}
+        source={source}
+        showNativeIndicatorQuickBar
         onNativeChartFullscreenChange={jest.fn()}
+        onNativeSubIndicatorCountChange={onNativeSubIndicatorCountChange}
       />,
     );
 
@@ -2320,6 +2332,8 @@ describe('TradingViewNativeContainer', () => {
       expect.objectContaining({
         extendTimeAxisBorderToCanvasEdge: true,
         hasVolume: false,
+        indicatorSeries: [],
+        subIndicatorPanes: [],
         priceAxisFontSize: 11,
         priceAxisTickCount: 4,
         showLegend: false,
@@ -2332,8 +2346,44 @@ describe('TradingViewNativeContainer', () => {
       expect.objectContaining({ compactMobileLayout: true }),
     );
     expect(mockTradingViewNativeFullscreenButton).toHaveBeenCalledWith(
-      expect.objectContaining({ timeAxisHeight: 20 }),
+      expect.objectContaining({
+        timeAxisHeight: 20,
+        visibleSubIndicatorCount: 0,
+      }),
     );
+    expect(onNativeSubIndicatorCountChange).toHaveBeenLastCalledWith(0);
+    expect(
+      screen.queryByTestId('trading-view-native-indicator-quick-bar'),
+    ).toBeNull();
+    expect(
+      screen.queryByTestId('trading-view-native-indicator-settings-trigger'),
+    ).toBeNull();
+    expect(mockPersistedIndicatorSettings).toBeUndefined();
+
+    rerender(
+      <TradingViewNativeContainer
+        nativeControlsLayoutMode="mobile"
+        source={source}
+        showNativeIndicatorQuickBar
+        onNativeSubIndicatorCountChange={onNativeSubIndicatorCountChange}
+      />,
+    );
+    const chartProps = mockTradingViewNativeChart.mock.calls.at(
+      -1,
+    )?.[0] as ITradingViewNativeChartProps;
+    expect(chartProps.indicatorSeries?.map(({ key }) => key)).toEqual([
+      'ema-1',
+      'ema-2',
+      'ema-3',
+    ]);
+    expect(
+      chartProps.subIndicatorPanes?.map(({ indicator }) => indicator),
+    ).toEqual(['VOL', 'RSI']);
+    expect(onNativeSubIndicatorCountChange).toHaveBeenLastCalledWith(2);
+    expect(
+      screen.queryByTestId('trading-view-native-indicator-quick-bar'),
+    ).not.toBeNull();
+    expect(mockPersistedIndicatorSettings).toBeUndefined();
   });
   it('keeps shared chart defaults outside compact mode', () => {
     render(
