@@ -2302,6 +2302,177 @@ describe('useAccountSelectorActions', () => {
     expect(mockColdStartCacheStorageData.get(recentCacheKey)).toBeUndefined();
   });
 
+  describe('recent-selection cache shared by home and swap', () => {
+    const recentUpdateMeta = () => ({
+      0: { eventEmitDisabled: false, updatedAt: Date.now() },
+    });
+    const getRecentSelection = (sceneName: EAccountSelectorSceneName) =>
+      (
+        mockColdStartCacheStorageData.get('recent-selection') as
+          | Record<
+              string,
+              { selectedAccountsMap: Record<number, ISelectedAccount> }
+            >
+          | undefined
+      )?.[sceneName]?.selectedAccountsMap[0];
+
+    it('keeps home on All Networks when it re-inits after swap followed a home account pick', async () => {
+      mockShouldSyncHomeAndSwapSelectedAccount.mockResolvedValue(true);
+      const homePick = {
+        ...createHdSelectedAccount('hd-1--1'),
+        networkId: 'onekeyall--0',
+      };
+      const swapOnEthereum = {
+        ...createHdSelectedAccount('hd-1--0'),
+        networkId: 'evm--1',
+      };
+      mockGetSelectedAccount.mockImplementation(async ({ sceneName }) =>
+        sceneName === EAccountSelectorSceneName.swap
+          ? swapOnEthereum
+          : homePick,
+      );
+
+      // confirmAccountSelect ends with this write.
+      await getAccountSelectorActions().setRecentAccountSelectorSelectionCache({
+        sceneName: EAccountSelectorSceneName.home,
+        num: 0,
+        selectedAccountsMap: { 0: homePick },
+        updateMeta: recentUpdateMeta(),
+      });
+
+      const swap = createWrapper(EAccountSelectorSceneName.swap);
+      swap.store.set(accountSelectorContextDataAtom(), {
+        sceneName: EAccountSelectorSceneName.swap,
+      });
+      swap.store.set(selectedAccountsAtom(), { 0: swapOnEthereum });
+      const { result: swapResult } = renderHook(
+        () => useAccountSelectorActions().current,
+        { wrapper: swap.Wrapper },
+      );
+      await act(async () => {
+        await swapResult.current.syncHomeAndSwapSelectedAccount({
+          eventPayload: {
+            selectedAccount: homePick,
+            sceneName: EAccountSelectorSceneName.home,
+            num: 0,
+          },
+          sceneName: EAccountSelectorSceneName.swap,
+          num: 0,
+        });
+      });
+      expect(swap.store.get(selectedAccountsAtom())[0]).toMatchObject({
+        indexedAccountId: 'hd-1--1',
+        networkId: 'evm--1',
+      });
+
+      // Android re-creates the Activity, or the app restarts, within the
+      // recent window: home runs initFromStorage again.
+      mockGetSelectedAccountsMap.mockResolvedValue({ 0: homePick });
+      const home = createWrapper(EAccountSelectorSceneName.home);
+      const { result: homeResult } = renderHook(
+        () => useAccountSelectorActions().current,
+        { wrapper: home.Wrapper },
+      );
+      await act(async () => {
+        await homeResult.current.initFromStorage({
+          sceneName: EAccountSelectorSceneName.home,
+        });
+      });
+
+      expect(home.store.get(selectedAccountsAtom())[0]).toMatchObject({
+        indexedAccountId: 'hd-1--1',
+        networkId: 'onekeyall--0',
+      });
+    });
+
+    it('restores a swap account pick on home with the network home had saved', async () => {
+      const homeSaved = {
+        ...createHdSelectedAccount('hd-1--0'),
+        networkId: 'onekeyall--0',
+      };
+      const swapPick = {
+        ...createHdSelectedAccount('hd-1--1'),
+        networkId: 'evm--1',
+      };
+      mockGetSelectedAccount.mockImplementation(async ({ sceneName }) =>
+        sceneName === EAccountSelectorSceneName.home ? homeSaved : undefined,
+      );
+
+      await getAccountSelectorActions().setRecentAccountSelectorSelectionCache({
+        sceneName: EAccountSelectorSceneName.swap,
+        num: 0,
+        selectedAccountsMap: { 0: swapPick },
+        updateMeta: recentUpdateMeta(),
+      });
+      expect(getRecentSelection(EAccountSelectorSceneName.swap)).toMatchObject({
+        indexedAccountId: 'hd-1--1',
+        networkId: 'evm--1',
+      });
+
+      // Killed before simpleDb learned about the pick.
+      mockGetSelectedAccountsMap.mockResolvedValue({ 0: homeSaved });
+      const { store, Wrapper } = createWrapper(EAccountSelectorSceneName.home);
+      const { result } = renderHook(() => useAccountSelectorActions().current, {
+        wrapper: Wrapper,
+      });
+      await act(async () => {
+        await result.current.initFromStorage({
+          sceneName: EAccountSelectorSceneName.home,
+        });
+      });
+
+      expect(store.get(selectedAccountsAtom())[0]).toMatchObject({
+        indexedAccountId: 'hd-1--1',
+        networkId: 'onekeyall--0',
+      });
+    });
+
+    it('keeps the picked imported account when the other scene is on a chain it does not support', async () => {
+      const importedBtcPick = {
+        ...defaultSelectedAccount(),
+        walletId: WALLET_TYPE_IMPORTED,
+        othersWalletAccountId: 'imported--btc-p2tr',
+        networkId: 'btc--0',
+        deriveType: 'default' as const,
+        focusedWallet: WALLET_TYPE_IMPORTED,
+      };
+      mockFixOthersWalletAccountNetworkPair.mockImplementation(
+        async ({ selectedAccount }) => ({
+          ...selectedAccount,
+          networkId: 'btc--0',
+        }),
+      );
+      // Swap already holds a recent entry of its own, on Ethereum.
+      await getAccountSelectorActions().setRecentAccountSelectorSelectionCache({
+        sceneName: EAccountSelectorSceneName.swap,
+        selectedAccountsMap: {
+          0: { ...createHdSelectedAccount('hd-1--0'), networkId: 'evm--1' },
+        },
+        updateMeta: recentUpdateMeta(),
+      });
+
+      await getAccountSelectorActions().setRecentAccountSelectorSelectionCache({
+        sceneName: EAccountSelectorSceneName.home,
+        num: 0,
+        selectedAccountsMap: { 0: importedBtcPick },
+        updateMeta: recentUpdateMeta(),
+      });
+
+      expect(mockFixOthersWalletAccountNetworkPair).toHaveBeenCalledWith(
+        expect.objectContaining({
+          selectedAccount: expect.objectContaining({
+            othersWalletAccountId: 'imported--btc-p2tr',
+            networkId: 'evm--1',
+          }),
+        }),
+      );
+      expect(getRecentSelection(EAccountSelectorSceneName.swap)).toMatchObject({
+        othersWalletAccountId: 'imported--btc-p2tr',
+        networkId: 'btc--0',
+      });
+    });
+  });
+
   it('keeps a locked temp hidden wallet selection during storage init', async () => {
     const lockedHiddenWalletSelection = {
       ...defaultSelectedAccount(),
