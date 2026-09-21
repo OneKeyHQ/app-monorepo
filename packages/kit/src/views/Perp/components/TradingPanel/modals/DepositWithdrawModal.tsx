@@ -2405,8 +2405,14 @@ function DepositWithdrawContent({
         feeQuote: withdrawFeeQuote,
         reserve: matchedWithdrawReserve?.reserve,
         includeReserve: needsWithdrawReserve,
+        isReserveEstimate: matchedWithdrawReserve?.isEstimate,
       }),
-    [needsWithdrawReserve, withdrawFeeQuote, matchedWithdrawReserve?.reserve],
+    [
+      needsWithdrawReserve,
+      withdrawFeeQuote,
+      matchedWithdrawReserve?.reserve,
+      matchedWithdrawReserve?.isEstimate,
+    ],
   );
 
   const withdrawSubmitDisabled =
