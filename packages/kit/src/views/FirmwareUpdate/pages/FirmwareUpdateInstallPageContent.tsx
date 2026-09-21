@@ -2,7 +2,13 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Button, Page, SizableText, Stack } from '@onekeyhq/components';
+import {
+  Button,
+  Page,
+  SizableText,
+  Stack,
+  usePreventRemove,
+} from '@onekeyhq/components';
 import {
   EFirmwareUpdateSteps,
   firmwareUpdateStepInfoAtom,
@@ -81,6 +87,34 @@ async function recheckFirmwareRelease(
       : undefined,
     resolvedTransportType: transport.transportType,
   });
+}
+
+// Module-level so the header options stay reference-stable across renders.
+const renderNoHeaderLeft = () => null;
+
+/**
+ * Once the update succeeded there is nothing to go back to. The header drops
+ * its back button, and a back gesture or hardware back closes the whole modal
+ * instead of revealing the changelog page underneath.
+ */
+function FirmwareUpdateDoneBackGuard() {
+  const navigation = useAppNavigation();
+  const isClosingRef = useRef(false);
+  usePreventRemove(true, ({ data }) => {
+    const { type } = data.action;
+    // popStack() below re-enters this callback with the parent's action, and
+    // anything that is not a plain back (e.g. the onboarding reset) passes.
+    if (isClosingRef.current || (type !== 'GO_BACK' && type !== 'POP')) {
+      navigation.dispatch(data.action);
+      return;
+    }
+    isClosingRef.current = true;
+    navigation.popStack();
+  });
+  return (
+    // headerLeft covers the custom header, headerBackVisible the native iOS one.
+    <Page.Header headerLeft={renderNoHeaderLeft} headerBackVisible={false} />
+  );
 }
 
 /** Shell shared by the legacy and V2 install routes. */
@@ -454,6 +488,7 @@ export function FirmwareUpdateInstallPageContent({
           onCancelAttempt={() => setIsCancelAttemptRequested(true)}
         />
       ) : null}
+      {mode === 'done' ? <FirmwareUpdateDoneBackGuard /> : null}
       <FirmwareUpdateInstallView
         mode={mode}
         deviceType={result?.deviceType}
