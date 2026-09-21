@@ -2308,9 +2308,7 @@ describe('useAccountSelectorActions', () => {
     });
     const getRecentSelection = (sceneName: EAccountSelectorSceneName) =>
       (
-        mockColdStartCacheStorageData.get(
-          EAppSyncStorageKeys.onekey_account_selector_recent_selection,
-        ) as
+        mockColdStartCacheStorageData.get('recent-selection') as
           | Record<
               string,
               { selectedAccountsMap: Record<number, ISelectedAccount> }

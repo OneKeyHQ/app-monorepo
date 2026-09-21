@@ -497,9 +497,8 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
     });
 
     const cache =
-      coldStartCacheStorage.getObject<IAccountSelectorRecentSelectionCache>(
-        EAppSyncStorageKeys.onekey_account_selector_recent_selection,
-      ) ?? {};
+      (accountSelectorSnapshotCache.get(ACCOUNT_SELECTOR_RECENT_SELECTION_KEY)
+        ?.data as IAccountSelectorRecentSelectionCache | undefined) ?? {};
     const isSameSelectedAccount = (
       a: IAccountSelectorSelectedAccount | undefined,
       b: IAccountSelectorSelectedAccount | undefined,
@@ -518,24 +517,21 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
     ) {
       return;
     }
-    await coldStartCacheStorage.setObject(
-      EAppSyncStorageKeys.onekey_account_selector_recent_selection,
-      {
-        ...cache,
-        [homeSyncSceneId]: {
-          version: ACCOUNT_SELECTOR_RECENT_SELECTION_CACHE_VERSION,
-          updatedAt: Date.now(),
-          selectedAccountsMap: {
-            ...cache[homeSyncSceneId]?.selectedAccountsMap,
-            0: homeSyncAccount,
-          },
-          updateMeta: {
-            ...cache[homeSyncSceneId]?.updateMeta,
-            0: updateMeta,
-          },
+    accountSelectorSnapshotCache.set(ACCOUNT_SELECTOR_RECENT_SELECTION_KEY, {
+      ...cache,
+      [homeSyncSceneId]: {
+        version: ACCOUNT_SELECTOR_RECENT_SELECTION_CACHE_VERSION,
+        updatedAt: Date.now(),
+        selectedAccountsMap: {
+          ...cache[homeSyncSceneId]?.selectedAccountsMap,
+          0: homeSyncAccount,
+        },
+        updateMeta: {
+          ...cache[homeSyncSceneId]?.updateMeta,
+          0: updateMeta,
         },
       },
-    );
+    });
   }
 
   async flushRecentAccountSelectorSelectionCacheNowIfNeeded() {
