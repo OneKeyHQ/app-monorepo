@@ -92,8 +92,10 @@ export function useHandleDiscoveryAccountChanged({
               networkId: revertTo.networkId,
               deriveType: revertTo.deriveType,
               // Persisted sessions may carry `focusedWallet: ''`, which the
-              // selector treats as "not ready"; fall back on any falsy value.
-              focusedWallet: revertTo.focusedWallet || v.focusedWallet,
+              // selector treats as "not ready". Prefer the session wallet so
+              // the picker does not stay focused on the rejected wallet.
+              focusedWallet:
+                revertTo.focusedWallet || revertTo.walletId || v.focusedWallet,
             }),
           });
         })().catch((error) => {
