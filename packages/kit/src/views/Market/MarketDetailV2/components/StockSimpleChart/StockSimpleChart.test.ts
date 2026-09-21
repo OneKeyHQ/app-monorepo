@@ -945,12 +945,16 @@ describe('clipStockSimpleChartToActiveRange', () => {
     ).toBeUndefined();
   });
 
-  it('still clips through the Monday opening-cross gap', () => {
+  it('still clips through the Monday opening-cross gap while open', () => {
     // Monday 2026-09-21 09:30:30 EDT — 09:30 opening cross.
     const openingCrossNow = Date.parse('2026-09-21T13:30:30Z') / 1000;
+    const points: IMarketTokenChart = [
+      [fridayClose, 222],
+      [mondayPremarketLater, 223.4],
+    ];
     expect(
       resolveStockSimpleChartClipKey({
-        isOpen: false,
+        isOpen: true,
         nowSeconds: openingCrossNow,
         priceMode: 'share',
         range: '1D',
@@ -958,16 +962,41 @@ describe('clipStockSimpleChartToActiveRange', () => {
     ).toBe('clip');
     expect(
       clipStockSimpleChartToActiveRange({
-        isOpen: false,
+        isOpen: true,
         nowSeconds: openingCrossNow,
-        points: [
-          [fridayClose, 222],
-          [mondayPremarketLater, 223.4],
-        ],
+        points,
         priceMode: 'share',
         range: '1D',
       }),
     ).toEqual([[mondayPremarketLater, 223.4]]);
+    expect(
+      clipStockSimpleChartToActiveRange({
+        isOpen: false,
+        nowSeconds: openingCrossNow,
+        points,
+        priceMode: 'share',
+        range: '1D',
+      }),
+    ).toBe(points);
+  });
+
+  it('does not truncate a closed holiday during a clock gap', () => {
+    // Thursday 2026-09-17 09:30:30 EDT — opening-cross gap on a closed day.
+    const holidayGapNow = Date.parse('2026-09-17T13:30:30Z') / 1000;
+    const points: IMarketTokenChart = [
+      [Date.parse('2026-09-16T08:05:00Z') / 1000, 220],
+      [Date.parse('2026-09-16T13:35:00Z') / 1000, 221],
+      [Date.parse('2026-09-16T20:00:00Z') / 1000, 222],
+    ];
+    expect(
+      clipStockSimpleChartToActiveRange({
+        isOpen: false,
+        nowSeconds: holidayGapNow,
+        points,
+        priceMode: 'share',
+        range: '1D',
+      }),
+    ).toBe(points);
   });
 });
 
@@ -1033,7 +1062,7 @@ describe('resolveStockSimpleChartDisplayPoints', () => {
         priceMode: 'share',
         range: '1D',
       }),
-    ).toBe(points);
+    ).toEqual([...points, [sundayEdgeGapNow, 222.1]]);
   });
 
   it('keeps last session when a closed holiday sits in a clock gap', () => {
@@ -1043,7 +1072,6 @@ describe('resolveStockSimpleChartDisplayPoints', () => {
     const points: IMarketTokenChart = [[previousClose, 222]];
     expect(
       resolveStockSimpleChartDisplayPoints({
-        clipKey: 'clip',
         isOpen: false,
         livePrice: '222.1',
         nowSeconds: holidayGapNow,
@@ -1051,7 +1079,7 @@ describe('resolveStockSimpleChartDisplayPoints', () => {
         priceMode: 'share',
         range: '1H',
       }),
-    ).toBe(points);
+    ).toEqual([...points, [holidayGapNow, 222.1]]);
   });
 });
 

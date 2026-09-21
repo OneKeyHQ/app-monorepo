@@ -312,8 +312,8 @@ const STOCK_SIMPLE_CHART_SESSION_CLIP_RANGES = new Set<IStockSimpleChartRange>([
  * still in the payload — the time axis then stretches Friday→now into one
  * long horizontal segment. Token series already arrive windowed; this clip
  * is share-only. Clock math cannot see holidays, so an explicit `isOpen
- * === false` keeps last session. Weekday session gaps still clip so the
- * Monday 09:30 opening cross does not restore Friday.
+ * === false` keeps last session, including weekday clock gaps. Monday
+ * 09:30 still clips while the backend reports the market open.
  */
 export function resolveStockSimpleChartActiveRangeStartSeconds({
   isOpen,
@@ -342,7 +342,7 @@ export function resolveStockSimpleChartActiveRangeStartSeconds({
   if (nowMs >= hours.weekendStartInstant && nowMs < hours.weekendEndInstant) {
     return undefined;
   }
-  if (isOpen === false && !hours.isNowInSessionGap) {
+  if (isOpen === false) {
     return undefined;
   }
   return nowSeconds - rangeSeconds;
@@ -452,7 +452,8 @@ export function mergeStockSimpleChartLivePrice({
  * stretch the time axis across a weekend/overnight close, then pin the live
  * quote. A clock gap can empty the window (Sunday 20:00 ET, holiday
  * crosses) even while the backend is closed — only collapse to
- * `[now, live]` when the market is open. Otherwise keep the source series.
+ * `[now, live]` when the market is open. Otherwise keep the source series
+ * and still pin the title quote so the last label does not jump.
  */
 export function resolveStockSimpleChartDisplayPoints({
   clipKey,
@@ -493,7 +494,12 @@ export function resolveStockSimpleChartDisplayPoints({
     ) {
       return [[nowSeconds, price]];
     }
-    return points;
+    return mergeStockSimpleChartLivePrice({
+      intervalSeconds,
+      livePrice,
+      nowSeconds,
+      points,
+    });
   }
   return mergeStockSimpleChartLivePrice({
     intervalSeconds,
