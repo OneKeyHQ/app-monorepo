@@ -1502,7 +1502,6 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
                       q.eventId &&
                       activeQuoteEventTotalCount.eventId === q.eventId,
                   );
-                set(swapQuoteListAtom(), [...newQuoteList]);
                 const currentEventProviderKeys = [
                   ...new Set([
                     ...get(swapQuoteCurrentEventProviderKeysAtom()),
@@ -1515,6 +1514,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
                   swapQuoteCurrentEventProviderKeysAtom(),
                   currentEventProviderKeys,
                 );
+                set(swapQuoteListAtom(), [...newQuoteList]);
                 set(
                   swapQuoteCurrentEventReceivedCountAtom(),
                   Math.min(
