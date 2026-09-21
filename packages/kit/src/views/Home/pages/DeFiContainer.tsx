@@ -774,6 +774,11 @@ function DeFiContainer() {
             <Upgrade />
             <SupportHub />
           </YStack>
+          {/* Keep enough scroll range for the last protocol to clear the
+              sticky header after a chip click. Without this tail space the
+              browser clamps the final anchor at maxScroll while it is still
+              hidden behind the sticky chip strip. */}
+          <Stack h="$24" />
           {addPaddingOnListFooter ? <Stack h="$16" /> : null}
         </YStack>
         {portalTarget && isTabFocused && shouldShowChipStrip ? (

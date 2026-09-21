@@ -1061,14 +1061,9 @@ function useProtocolPositionActionSubmit({
             // not request Gas Account sponsorship.
             gasAccountScenario: 'defi',
             onSuccess: async (data: ISendTxOnSuccessData[]) => {
-              void addDeFiActionEarnOrders({
-                action,
-                networkId,
-                data,
-                orderIdsByBusinessTxIndex,
-              }).catch(logDeFiActionEarnOrderError);
-              // Block on the confirming sheet until the tx settles, then run
-              // the caller's refresh so the position reflects the result.
+              // Block on the confirming sheet until the tx settles. Persist the
+              // completed Earn order before notifying the caller so history
+              // can own the following DeFi refresh.
               const finalStatus = await showDeFiActionTxConfirmDialog({
                 accountId,
                 networkId,
@@ -1083,6 +1078,16 @@ function useProtocolPositionActionSubmit({
               }
               if (finalStatus !== EOnChainHistoryTxStatus.Success) {
                 return;
+              }
+              try {
+                await addDeFiActionEarnOrders({
+                  action,
+                  networkId,
+                  data,
+                  orderIdsByBusinessTxIndex,
+                });
+              } catch (error) {
+                logDeFiActionEarnOrderError(error);
               }
               await onSuccess?.({ accountId, networkId, data });
             },

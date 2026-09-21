@@ -130,6 +130,13 @@ class ServiceDeFi extends ServiceBase {
     ReturnType<typeof setTimeout>[]
   >();
 
+  private _deFiForceRefreshInFlight = new Map<
+    string,
+    Promise<
+      IAppEventBusPayload[EAppEventBusNames.DeFiPositionRefreshed] | undefined
+    >
+  >();
+
   _localDeFiOverviewCache: Record<
     string,
     {
@@ -501,7 +508,36 @@ class ServiceDeFi extends ServiceBase {
     });
   }
 
-  private async _runDeFiForceRefresh(params: {
+  private _runDeFiForceRefresh(params: {
+    accountId: string;
+    indexedAccountId?: string;
+    networkId: string;
+  }) {
+    const key = this._buildDeFiForceRefreshKey(
+      params.accountId,
+      params.networkId,
+    );
+    const inFlight = this._deFiForceRefreshInFlight.get(key);
+    if (inFlight) return inFlight;
+
+    const request = this._runDeFiForceRefreshInternal(params);
+    this._deFiForceRefreshInFlight.set(key, request);
+    void request.then(
+      () => {
+        if (this._deFiForceRefreshInFlight.get(key) === request) {
+          this._deFiForceRefreshInFlight.delete(key);
+        }
+      },
+      () => {
+        if (this._deFiForceRefreshInFlight.get(key) === request) {
+          this._deFiForceRefreshInFlight.delete(key);
+        }
+      },
+    );
+    return request;
+  }
+
+  private async _runDeFiForceRefreshInternal(params: {
     accountId: string;
     indexedAccountId?: string;
     networkId: string;
