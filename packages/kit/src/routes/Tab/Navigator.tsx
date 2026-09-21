@@ -18,6 +18,7 @@ import {
   useSplitSubView,
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import { ERootRoutes } from '@onekeyhq/shared/src/routes/root';
@@ -180,6 +181,11 @@ export function TabNavigator() {
         rootNavigationRef.current?.dispatch({
           ...CommonActions.preload(preloadQueue[index]),
           target: tabStateKey,
+        });
+        defaultLogger.app.perf.tabPreloadStage({
+          stage: 'dispatch',
+          tab: preloadQueue[index],
+          aheadOfFocus: true,
         });
       } catch {
         // Tab might not exist in current config (e.g. perp disabled).

@@ -11,6 +11,8 @@ import {
 } from '@react-navigation/native';
 import { Platform, StyleSheet, View } from 'react-native';
 
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+
 import { Spinner, Stack } from '../../../primitives';
 
 import type {
@@ -62,18 +64,27 @@ function SceneLoadingView() {
 
 function SceneWithActivationPlaceholder({
   routeKey,
+  routeName,
+  focused,
   activated,
   onActivated,
   children,
 }: {
   routeKey: string;
+  routeName: string;
+  focused: boolean;
   activated: boolean;
   onActivated: (routeKey: string) => void;
   children: ReactNode;
 }) {
   const handleLayout = useCallback(() => {
+    defaultLogger.app.perf.tabPreloadStage({
+      stage: 'sceneRevealed',
+      tab: routeName,
+      aheadOfFocus: !focused,
+    });
     onActivated(routeKey);
-  }, [onActivated, routeKey]);
+  }, [focused, onActivated, routeKey, routeName]);
 
   return (
     <View style={styles.scene}>
@@ -118,13 +129,21 @@ export function NativeBottomTabView({
     ({ route }: { route: Route<string> }) => (
       <SceneWithActivationPlaceholder
         routeKey={route.key}
+        routeName={route.name}
+        focused={state.routes[state.index]?.key === route.key}
         activated={activatedRouteKeys.includes(route.key)}
         onActivated={handleSceneActivated}
       >
         {descriptors[route.key]?.render()}
       </SceneWithActivationPlaceholder>
     ),
-    [activatedRouteKeys, descriptors, handleSceneActivated],
+    [
+      activatedRouteKeys,
+      descriptors,
+      handleSceneActivated,
+      state.index,
+      state.routes,
+    ],
   );
   const renderLazyPlaceholder = useCallback(() => <SceneLoadingView />, []);
   const getActiveTintColor = useCallback(
