@@ -10,10 +10,12 @@ import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
 import UnifiedNetworkSelectorPageV2 from './UnifiedNetworkSelectorV2';
 
+import type { NetworkContentV2 } from './NetworkContentV2';
 import type PortfolioContentV2 from './PortfolioContentV2';
 import type { IServerNetworkMatch } from '../../types';
 
 type IPortfolioProps = ComponentProps<typeof PortfolioContentV2>;
+type INetworkProps = ComponentProps<typeof NetworkContentV2>;
 type INetworksState = IPortfolioProps['networksState'];
 type IMeta = {
   allNetworksState: INetworksState;
@@ -48,6 +50,7 @@ const mockEnvironmentContext = createContext<IEnvironment>({
   walletId: 'wallet-1',
 });
 const mockPortfolio = jest.fn((_props: IPortfolioProps) => null);
+const mockNetwork = jest.fn((_props: INetworkProps) => null);
 const mockRefresh = jest.fn();
 const mockNavigation = { push: jest.fn() };
 const mockActions = { current: { updateSelectedAccountNetwork: jest.fn() } };
@@ -162,7 +165,9 @@ jest.mock('./PortfolioContentV2', () => ({
   __esModule: true,
   default: (props: IPortfolioProps) => mockPortfolio(props),
 }));
-jest.mock('./NetworkContentV2', () => ({ NetworkContentV2: () => null }));
+jest.mock('./NetworkContentV2', () => ({
+  NetworkContentV2: (props: INetworkProps) => mockNetwork(props),
+}));
 jest.mock('../UnifiedNetworkSelector/TabSwitcher', () => ({
   TabSwitcher: () => null,
 }));
@@ -199,6 +204,17 @@ describe('network selector selection revalidation', () => {
       selectorElement({ networkMeta: refreshed, walletId: 'wallet-1' }),
     );
     expect(portfolioProps().networksState).toEqual(refreshed.allNetworksState);
+  });
+
+  it('uses separate section index hosts for the two tabs', () => {
+    render(
+      selectorElement({ networkMeta: mockCachedMeta, walletId: 'wallet-1' }),
+    );
+    expect(mockPortfolio).toHaveBeenCalled();
+    expect(mockNetwork).toHaveBeenCalled();
+    expect(
+      mockPortfolio.mock.calls.at(-1)?.[0].webSectionIndexContainerRef,
+    ).not.toBe(mockNetwork.mock.calls.at(-1)?.[0].webSectionIndexContainerRef);
   });
 
   it.each(['functional', 'replacement'] as const)(

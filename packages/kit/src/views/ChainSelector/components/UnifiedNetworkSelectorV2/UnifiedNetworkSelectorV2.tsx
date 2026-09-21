@@ -184,7 +184,8 @@ function UnifiedNetworkSelectorV2() {
   activeTabRef.current = activeTab;
 
   const pagerRef = useRef<NativePagerView>(null);
-  const webSectionIndexContainerRef = useRef<View>(null);
+  const portfolioWebSectionIndexContainerRef = useRef<View>(null);
+  const networkWebSectionIndexContainerRef = useRef<View>(null);
 
   const handleTabChange = useCallback((tab: ITabType) => {
     setActiveTab(tab);
@@ -730,7 +731,9 @@ function UnifiedNetworkSelectorV2() {
             >
               <Stack flex={1}>
                 <PortfolioContentV2
-                  webSectionIndexContainerRef={webSectionIndexContainerRef}
+                  webSectionIndexContainerRef={
+                    portfolioWebSectionIndexContainerRef
+                  }
                   walletId={walletId}
                   accountId={accountId}
                   indexedAccountId={indexedAccountId}
@@ -753,7 +756,9 @@ function UnifiedNetworkSelectorV2() {
               </Stack>
               <Stack flex={1}>
                 <NetworkContentV2
-                  webSectionIndexContainerRef={webSectionIndexContainerRef}
+                  webSectionIndexContainerRef={
+                    networkWebSectionIndexContainerRef
+                  }
                   walletId={walletId}
                   accountId={accountId}
                   indexedAccountId={indexedAccountId}
@@ -773,7 +778,9 @@ function UnifiedNetworkSelectorV2() {
                 display={activeTab === 'portfolio' ? 'flex' : 'none'}
               >
                 <PortfolioContentV2
-                  webSectionIndexContainerRef={webSectionIndexContainerRef}
+                  webSectionIndexContainerRef={
+                    portfolioWebSectionIndexContainerRef
+                  }
                   walletId={walletId}
                   accountId={accountId}
                   indexedAccountId={indexedAccountId}
@@ -799,7 +806,9 @@ function UnifiedNetworkSelectorV2() {
                 display={activeTab === 'network' ? 'flex' : 'none'}
               >
                 <NetworkContentV2
-                  webSectionIndexContainerRef={webSectionIndexContainerRef}
+                  webSectionIndexContainerRef={
+                    networkWebSectionIndexContainerRef
+                  }
                   walletId={walletId}
                   accountId={accountId}
                   indexedAccountId={indexedAccountId}
@@ -816,7 +825,7 @@ function UnifiedNetworkSelectorV2() {
         ) : (
           <Stack flex={1}>
             <NetworkContentV2
-              webSectionIndexContainerRef={webSectionIndexContainerRef}
+              webSectionIndexContainerRef={networkWebSectionIndexContainerRef}
               walletId={walletId}
               accountId={accountId}
               indexedAccountId={indexedAccountId}
@@ -889,7 +898,6 @@ function UnifiedNetworkSelectorV2() {
     <Stack flex={1} position="relative">
       {page}
       <Stack
-        ref={webSectionIndexContainerRef}
         testID={ChainSelectorTestIDs.unifiedSectionIndexContainer}
         position="absolute"
         top={-DESKTOP_MODE_UI_HEADER_HEIGHT}
@@ -897,7 +905,28 @@ function UnifiedNetworkSelectorV2() {
         bottom={0}
         left={0}
         pointerEvents="box-none"
-      />
+      >
+        <Stack
+          ref={portfolioWebSectionIndexContainerRef}
+          position="absolute"
+          top={0}
+          right={0}
+          bottom={0}
+          left={0}
+          display={activeTab === 'portfolio' ? 'flex' : 'none'}
+          pointerEvents="box-none"
+        />
+        <Stack
+          ref={networkWebSectionIndexContainerRef}
+          position="absolute"
+          top={0}
+          right={0}
+          bottom={0}
+          left={0}
+          display={activeTab === 'network' ? 'flex' : 'none'}
+          pointerEvents="box-none"
+        />
+      </Stack>
     </Stack>
   );
 }
