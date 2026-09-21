@@ -576,11 +576,17 @@ describe('TradingViewNativeContainer', () => {
         .getByTestId('page-quick-bar')
         .contains(screen.getByTestId(quickBarTestId)),
     ).toBe(true);
+    expect(mockTradingViewNativeChart.mock.calls.at(-1)?.[0]).toEqual(
+      expect.objectContaining({ resizesWithSubIndicatorPanes: true }),
+    );
     fireEvent.click(screen.getByRole('button', { name: 'RSI' }));
 
     rerender(<ChartWithFooter fullscreen />);
     expect(screen.getByTestId('page-quick-bar').childElementCount).toBe(0);
     expect(screen.getAllByTestId(quickBarTestId)).toHaveLength(1);
+    expect(mockTradingViewNativeChart.mock.calls.at(-1)?.[0]).toEqual(
+      expect.objectContaining({ resizesWithSubIndicatorPanes: false }),
+    );
     expect(
       screen.getByRole('button', { name: 'RSI' }).getAttribute('aria-pressed'),
     ).toBe('true');

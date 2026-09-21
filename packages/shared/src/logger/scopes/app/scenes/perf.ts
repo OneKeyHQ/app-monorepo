@@ -123,6 +123,16 @@ export class AppPerfScene extends BaseScene {
     return params;
   }
 
+  // A deletion path waited for the snapshot store and the store reported the
+  // batch still in memory: it re-queued the removal behind a timer that an
+  // extension popup, closing right after the deletion, would take with it.
+  @LogToLocal({ level: 'warn' })
+  public swrCacheRemovalNotPersisted(params: {
+    reason: 'removedWallet' | 'removedAccount';
+  }) {
+    return { ...params, runtime: platformEnv.runtimeRole };
+  }
+
   // Whole-store SWR work is synchronous on the calling JS runtime, so a slow
   // pass on `main` is a UI stall. `runtime` tells main from background.
   @LogToLocal({ level: 'warn' })
