@@ -993,6 +993,9 @@ const TradingViewNativeContent = memo(
               indicatorSeriesSettingsKey={mainIndicatorSettingsKey}
               initialRightOffset={initialRightOffset}
               isMobileLayout={isMobileControlsLayout}
+              resizesWithSubIndicatorPanes={Boolean(
+                onNativeIndicatorQuickBarChange,
+              )}
               isSwitchingInterval={isSwitchingInterval}
               locale={intl.locale}
               priceAxisTickCount={
