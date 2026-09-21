@@ -36,7 +36,7 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { getVendorProfile } from '@onekeyhq/shared/src/hardware/config/vendorProfile';
-import { ETranslations, ETranslationsMock } from '@onekeyhq/shared/src/locale';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { showIntercom } from '@onekeyhq/shared/src/modules3rdParty/intercom';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -364,8 +364,8 @@ function ReceiveToken() {
           // The path block only renders when a path exists, so the copy must
           // not ask the user to compare one that is never shown.
           id: manualVerificationPath
-            ? ETranslationsMock.hardware_third_party_manual_verify_desc
-            : ETranslationsMock.hardware_third_party_manual_verify_address_only_desc,
+            ? ETranslations.hardware_third_party_manual_verify__desc
+            : ETranslations.hardware_third_party_manual_verify_address_only__desc,
         }),
         onConfirmText: intl.formatMessage({
           id: ETranslations.global_i_got_it,

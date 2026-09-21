@@ -11,7 +11,8 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
-import { ETranslationsMock } from '@onekeyhq/shared/src/locale';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EHardwareVendor } from '@onekeyhq/shared/types/device';
 
@@ -177,7 +178,9 @@ export function registerBleBindingUi({
       );
       appEventBus.emit(EAppEventBusNames.ShowToast, {
         method: 'warning',
-        title: ETranslationsMock.hardware_third_party_ble_binding_not_saved,
+        title: appLocale.intl.formatMessage({
+          id: ETranslations.hardware_third_party_ble_binding_not_saved__msg,
+        }),
       });
     };
     const persist = async (): Promise<IBindingPersistResult> => {
