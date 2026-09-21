@@ -2,6 +2,8 @@ import type { ReactNode } from 'react';
 
 import { render } from '@testing-library/react-native';
 
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+
 import { Token } from './Token';
 
 type IMockImageProps = {
@@ -84,6 +86,7 @@ describe('Token', () => {
     mockImageLifecycle.length = 0;
     mockImageProps.length = 0;
     mockNetworkAvatarBase.mockClear();
+    platformEnv.isNativeAndroid = false;
   });
 
   it('keeps the token image mounted when the network logo arrives later', () => {
@@ -119,11 +122,17 @@ describe('Token', () => {
     expect(mockImageLifecycle).toEqual([`mount:${tokenImageUri}`]);
   });
 
-  it('rounds fungible tokens in the native image without rounding NFTs', () => {
+  it('rounds Android fungible tokens in the native image without rounding NFTs', () => {
+    platformEnv.isNativeAndroid = true;
     const { rerender } = render(<Token tokenImageUri={tokenImageUri} />);
     expect(mockImageProps.at(-1)?.round).toBe(true);
 
     rerender(<Token tokenImageUri={tokenImageUri} isNFT />);
-    expect(mockImageProps.at(-1)?.round).toBe(false);
+    expect(mockImageProps.at(-1)?.round).toBeUndefined();
+  });
+
+  it('keeps the previous image path outside Android', () => {
+    render(<Token tokenImageUri={tokenImageUri} />);
+    expect(mockImageProps.at(-1)?.round).toBeUndefined();
   });
 });
