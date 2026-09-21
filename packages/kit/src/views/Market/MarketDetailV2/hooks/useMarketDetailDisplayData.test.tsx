@@ -2,14 +2,28 @@
 
 import { renderHook } from '@testing-library/react';
 
-import type { IMarketTokenDetail } from '@onekeyhq/shared/types/marketV2';
+import type {
+  IMarketTokenDetail,
+  IMarketTokenDetailPreview,
+} from '@onekeyhq/shared/types/marketV2';
 
 import {
   preserveMarketDetailPreviewImage,
   useMarketDetailDisplayData,
 } from './useMarketDetailDisplayData';
 
-const mockTokenDetailData = {
+const mockTokenDetailData: {
+  tokenDetail: IMarketTokenDetail | undefined;
+  tokenDetailPreview: IMarketTokenDetailPreview | undefined;
+  isLoading: boolean;
+  tokenAddress: string;
+  networkId: string;
+  isNative: boolean;
+  websocketConfig: undefined;
+  perpsInfo: undefined;
+  isReady: boolean;
+  isStockToken: boolean;
+} = {
   tokenDetail: undefined,
   tokenDetailPreview: undefined,
   isLoading: false,
@@ -41,6 +55,7 @@ jest.mock('./StockDetailContext', () => ({
 describe('useMarketDetailDisplayData', () => {
   beforeEach(() => {
     mockTokenDetailData.tokenDetail = undefined;
+    mockTokenDetailData.tokenDetailPreview = undefined;
     mockTokenDetailData.tokenAddress = '';
     mockTokenDetailData.networkId = '';
     mockStockPreview = undefined;
@@ -68,6 +83,38 @@ describe('useMarketDetailDisplayData', () => {
     });
     expect(result.current.isPreviewTokenDetail).toBe(true);
     expect(result.current.isStockToken).toBe(true);
+  });
+
+  it('prefers a new preview over a stale full token detail', () => {
+    mockTokenDetailData.tokenAddress =
+      '0x0000000000000000000000000000000000000002';
+    mockTokenDetailData.networkId = 'evm--1';
+    mockTokenDetailData.tokenDetail = {
+      address: '0x0000000000000000000000000000000000000001',
+      networkId: 'evm--1',
+      symbol: 'OLD',
+      name: 'Old Token',
+      decimals: 18,
+      logoUrl: 'https://example.com/old.png',
+    } as IMarketTokenDetail;
+    mockTokenDetailData.tokenDetailPreview = {
+      address: '0x0000000000000000000000000000000000000002',
+      networkId: 'evm--1',
+      symbol: 'NEW',
+      name: 'New Token',
+      decimals: 18,
+      tokenImageUri: 'https://example.com/new.png',
+      selectedAt: 1,
+    };
+
+    const { result } = renderHook(() => useMarketDetailDisplayData());
+
+    expect(result.current.tokenDetail).toMatchObject({
+      address: '0x0000000000000000000000000000000000000002',
+      symbol: 'NEW',
+      logoUrl: 'https://example.com/new.png',
+    });
+    expect(result.current.isPreviewTokenDetail).toBe(true);
   });
 });
 
@@ -101,6 +148,32 @@ describe('preserveMarketDetailPreviewImage', () => {
       ...tokenDetail,
       logoUrl: previewTokenDetail.logoUrl,
       logoUrls: undefined,
+    });
+  });
+
+  it('treats an empty native address and a CoinGecko id as the same token', () => {
+    const btcPreview: IMarketTokenDetail = {
+      ...previewTokenDetail,
+      address: 'bitcoin',
+      networkId: 'btc--0',
+      isNative: false,
+    };
+    const btcDetail: IMarketTokenDetail = {
+      ...tokenDetail,
+      address: '',
+      networkId: 'btc--0',
+      isNative: true,
+    };
+
+    expect(
+      preserveMarketDetailPreviewImage({
+        previewTokenDetail: btcPreview,
+        tokenDetail: btcDetail,
+      }),
+    ).toEqual({
+      ...btcDetail,
+      logoUrl: btcPreview.logoUrl,
+      logoUrls: btcPreview.logoUrls,
     });
   });
 

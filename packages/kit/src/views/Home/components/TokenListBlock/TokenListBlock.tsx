@@ -42,6 +42,7 @@ import {
   useAccountOverviewActions,
   useAccountWorthAtom,
   useAllNetworksStateStateAtom,
+  useHomePortfolioDisplayAtom,
   useOverviewTokenCacheStateAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/accountOverview';
 import { buildOverviewOwnerKey } from '@onekeyhq/kit/src/states/jotai/contexts/accountOverview/atoms';
@@ -64,6 +65,7 @@ import {
   subcell,
 } from '@onekeyhq/kit/src/states/jotai/contexts/tokenList/cells/projection';
 import { buildTapTimeHomeTokenMap } from '@onekeyhq/kit/src/states/jotai/contexts/tokenList/cells/tapTimeHomeMap';
+import { convertFiat } from '@onekeyhq/kit/src/utils/fiatConvert';
 import { useTokenManagement } from '@onekeyhq/kit/src/views/AssetList/hooks/useTokenManagement';
 import type { IDBAccount } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import type { ISimpleDBAggregateToken } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityAggregateToken';
@@ -74,6 +76,7 @@ import type { IAllNetworkAccountInfo } from '@onekeyhq/kit-bg/src/services/Servi
 import {
   EJotaiContextStoreNames,
   type IDeviceStageState,
+  useCurrencyPersistAtom,
   useFirmwareUpdateWorkflowRunningAtom,
   useHardwareUiStateAtom,
   useSettingsPersistAtom,
@@ -352,6 +355,8 @@ function TokenListBlock({
     deriveInfoItems.length > 1;
 
   const [accountTokensWorth] = useAccountWorthAtom();
+  const [homePortfolioDisplay] = useHomePortfolioDisplayAtom();
+  const [{ currencyMap }] = useCurrencyPersistAtom();
   const [, setOverviewTokenCacheState] = useOverviewTokenCacheStateAtom();
 
   const walletTokenFilterParams = useMemo(
@@ -411,6 +416,10 @@ function TokenListBlock({
   );
   const [portfolioSyncRequestPhase, setPortfolioSyncRequestPhase] =
     useState<IPortfolioSyncRequestPhase>();
+  const [silentPortfolioPayload, setSilentPortfolioPayload] = useState<
+    | IAppEventBusPayload[EAppEventBusNames.AllNetworksTokenListSettled]
+    | undefined
+  >();
   const portfolioSyncDeviceDbId =
     device?.id ?? wallet?.associatedDeviceInfo?.id ?? '';
   const portfolioSyncDeviceType =
@@ -2075,6 +2084,7 @@ function TokenListBlock({
         }
         return;
       }
+      setSilentPortfolioPayload(undefined);
 
       if (shouldSyncTokenFilterToOverview) {
         void backgroundApiProxy.serviceToken.updateLocalAggregateTokenMap({
@@ -2156,7 +2166,9 @@ function TokenListBlock({
               networkId: network?.id,
               ownerAccountId: allNetworksResult[0].ownerAccountId,
               ownerNetworkId: allNetworksResult[0].ownerNetworkId,
-              totalFiat: snapshot.createAtNetworkWorth,
+              totalFiat: Object.values(snapshot.accountsWorth)
+                .reduce((total, worth) => total.plus(worth), new BigNumber(0))
+                .toFixed(),
               totalFiatCurrency: assetStatusCurrency,
               totalTokenCount: portfolioTokens.length,
               tokenMap: {
@@ -2201,9 +2213,7 @@ function TokenListBlock({
                 finishPortfolioSyncRequest(portfolioSyncRequest.id, { error });
               }
             } else if (!portfolioSyncRequest) {
-              void backgroundApiProxy.serviceHardwarePortfolioSync.notifyAllNetworksTokenListSettled(
-                portfolioSyncPayload,
-              );
+              setSilentPortfolioPayload(portfolioSyncPayload);
             }
           } else if (portfolioSyncRequest) {
             // Empty incomplete aggregation would upload default natives too
@@ -2922,6 +2932,9 @@ function TokenListBlock({
     const totalFiatCurrency = accountTokensWorth.currency ?? currencyInfo?.id;
     if (
       !hasCurrentHomePortfolioSnapshot ||
+      homePortfolioDisplay.ownerKey !==
+        buildOverviewOwnerKey(account?.id, network?.id) ||
+      homePortfolioDisplay.totalFiatUsd === undefined ||
       !totalFiatCurrency ||
       !network ||
       !wallet ||
@@ -2984,6 +2997,11 @@ function TokenListBlock({
       networkId: network.id,
       ownerAccountId: account?.id,
       ownerNetworkId: network.id,
+      homeTotalFiatUsd: homePortfolioDisplay.totalFiatUsd,
+      homeCategoryFiatUsd: {
+        defiFiat: homePortfolioDisplay.defiFiatUsd,
+        perpsFiat: homePortfolioDisplay.perpsFiatUsd,
+      },
       totalFiat: accountTokensValue,
       totalFiatCurrency,
       totalTokenCount: portfolioTokens.length,
@@ -3002,6 +3020,7 @@ function TokenListBlock({
     device?.connectId,
     device?.id,
     hasCurrentHomePortfolioSnapshot,
+    homePortfolioDisplay,
     indexedAccount?.id,
     indexedAccount?.index,
     indexedAccount?.name,
@@ -3013,6 +3032,53 @@ function TokenListBlock({
     portfolioSyncDeviceType,
     tokenListStore,
     wallet,
+  ]);
+
+  useEffect(() => {
+    if (
+      !network?.isAllNetworks ||
+      !silentPortfolioPayload ||
+      silentPortfolioPayload.ownerAccountId !== account?.id ||
+      silentPortfolioPayload.ownerNetworkId !== network.id ||
+      !homePortfolioDisplay.isLive ||
+      homePortfolioDisplay.ownerKey !==
+        buildOverviewOwnerKey(account?.id, network.id) ||
+      homePortfolioDisplay.tokenFiatUsd === undefined ||
+      homePortfolioDisplay.totalFiatUsd === undefined ||
+      portfolioSyncRequestPhase
+    ) {
+      return;
+    }
+    const tokenFiatUsd = convertFiat({
+      value: silentPortfolioPayload.totalFiat,
+      sourceCurrency: silentPortfolioPayload.totalFiatCurrency,
+      targetCurrency: USD_CURRENCY_ID,
+      currencyMap,
+    });
+    if (!new BigNumber(tokenFiatUsd).eq(homePortfolioDisplay.tokenFiatUsd)) {
+      return;
+    }
+    if (hasPortfolioSyncTarget) {
+      void backgroundApiProxy.serviceHardwarePortfolioSync.notifyAllNetworksTokenListSettled(
+        {
+          ...silentPortfolioPayload,
+          homeTotalFiatUsd: homePortfolioDisplay.totalFiatUsd,
+          homeCategoryFiatUsd: {
+            defiFiat: homePortfolioDisplay.defiFiatUsd,
+            perpsFiat: homePortfolioDisplay.perpsFiatUsd,
+          },
+        },
+      );
+    }
+  }, [
+    account?.id,
+    currencyMap,
+    hasPortfolioSyncTarget,
+    homePortfolioDisplay,
+    network?.id,
+    network?.isAllNetworks,
+    portfolioSyncRequestPhase,
+    silentPortfolioPayload,
   ]);
 
   const handleSyncPortfolio = useCallback(() => {
@@ -3471,6 +3537,7 @@ function TokenListBlock({
       disabled: Boolean(
         !hasPortfolioSyncTarget ||
         !hasCurrentHomePortfolioSnapshot ||
+        homePortfolioDisplay.totalFiatUsd === undefined ||
         isPortfolioSyncing ||
         hardwareUiState ||
         firmwareUpdateWorkflowRunning,
@@ -3484,6 +3551,7 @@ function TokenListBlock({
     hasCurrentHomePortfolioSnapshot,
     hasPortfolioSyncTarget,
     hardwareUiState,
+    homePortfolioDisplay.totalFiatUsd,
     isPortfolioSyncing,
     showPortfolioSyncButton,
     updatePortfolioSyncUiState,
