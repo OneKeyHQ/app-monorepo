@@ -64,10 +64,14 @@ function MobileInformationTabsHeader({
     [focusedTab, onTabPress],
   );
   const renderTabBarItem = useCallback(
-    (itemProps: React.ComponentProps<typeof Tabs.TabBarItem>) => (
+    (
+      itemProps: React.ComponentProps<typeof Tabs.TabBarItem>,
+      index: number,
+    ) => (
       <Tabs.TabBarItem
         key={itemProps.name}
         {...itemProps}
+        testID={`market-detail-information-tab-${index}`}
         label={
           itemProps.name === holdersTabName ? holdersTabLabel : itemProps.name
         }
