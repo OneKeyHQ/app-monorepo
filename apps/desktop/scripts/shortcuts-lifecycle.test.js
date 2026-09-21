@@ -88,6 +88,8 @@ function loadShortcuts() {
     clearTimeout: jest.fn(),
     clearInterval: jest.fn(),
     setImmediate: jest.fn(),
+    flushWindowState: undefined,
+    saveMainWindowStateImmediately: undefined,
   });
   const evaluate = (source) =>
     vm.runInContext(

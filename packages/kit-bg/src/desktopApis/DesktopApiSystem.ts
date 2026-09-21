@@ -311,18 +311,9 @@ class DesktopApiSystem {
     return !store.getDisableHardwareAcceleration();
   }
 
-  async setHardwareAccelerationEnabled(enabled: boolean): Promise<void> {
-    if (typeof enabled !== 'boolean') {
-      throw new OneKeyLocalError(
-        'setHardwareAccelerationEnabled: enabled must be a boolean',
-      );
-    }
-
-    store.setDisableHardwareAcceleration(!enabled);
-    logger.info('Hardware acceleration preference changed', { enabled });
-
+  async restartApp(): Promise<void> {
     // Mac App Store/TestFlight builds cannot relaunch inside the sandbox.
-    // Exit after persisting so the setting takes effect when the user reopens.
+    // Exit so process-start settings take effect when the user reopens the app.
     if (process.mas) {
       app.quit();
       return;
@@ -334,6 +325,19 @@ class DesktopApiSystem {
     } else {
       app.exit(0);
     }
+  }
+
+  async setHardwareAccelerationEnabled(enabled: boolean): Promise<void> {
+    if (typeof enabled !== 'boolean') {
+      throw new OneKeyLocalError(
+        'setHardwareAccelerationEnabled: enabled must be a boolean',
+      );
+    }
+
+    store.setDisableHardwareAcceleration(!enabled);
+    logger.info('Hardware acceleration preference changed', { enabled });
+
+    await this.restartApp();
   }
 
   async quitApp(): Promise<void> {

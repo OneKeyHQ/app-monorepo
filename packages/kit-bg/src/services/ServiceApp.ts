@@ -392,10 +392,16 @@ class ServiceApp extends ServiceBase {
       await timerUtils.wait(600);
     }
 
-    // resetData wipes localDb / appStorage / v4 db — the background runtime
-    // is now holding stale state and bundle moduleIds may have re-keyed via
-    // OTA. mode=All forces both runtimes cold so nothing reads from the
-    // dead state.
+    // Desktop preferences include process-start settings such as hardware
+    // acceleration, so a renderer reload is not enough after clearing them.
+    if (platformEnv.isDesktop) {
+      await globalThis.desktopApiProxy.system.restartApp();
+      return;
+    }
+
+    // resetData wipes localDb / appStorage / v4 db — the background runtime is
+    // now holding stale state. mode=All forces both native runtimes cold so
+    // nothing reads from the dead state.
     await this.restartApp({
       mode: EAppRestartMode.All,
       reason: 'auth.resetData',

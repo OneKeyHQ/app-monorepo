@@ -840,15 +840,20 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
   });
   applyDesktopNetworkThrottleToWebContents(browserWindow.webContents);
   const initialNormalWindowBounds = browserWindow.getBounds();
-  if (savedWindowIsMaximized) {
-    browserWindow.maximize();
-  }
 
   const getSafelyBrowserWindow = () => {
     if (browserWindow && !browserWindow.isDestroyed()) {
       return browserWindow;
     }
     return undefined;
+  };
+  let shouldRestoreMaximizedState = savedWindowIsMaximized;
+  const showMainWindowWithRestoredState = () => {
+    showMainWindow();
+    if (shouldRestoreMaximizedState) {
+      shouldRestoreMaximizedState = false;
+      browserWindow.maximize();
+    }
   };
 
   store.processPreLaunchPendingTask();
@@ -872,7 +877,7 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
 
   if (isMac) {
     browserWindow.once('ready-to-show', () => {
-      showMainWindow();
+      showMainWindowWithRestoredState();
     });
   }
 
@@ -1028,7 +1033,7 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
     logger.info('browserWindow >>>> did-finish-load');
     // fix white flicker on Windows & Linux
     if (!isMac) {
-      showMainWindow();
+      showMainWindowWithRestoredState();
     }
     const safelyBrowserWindow = getSafelyBrowserWindow();
     safelyBrowserWindow?.webContents.send(

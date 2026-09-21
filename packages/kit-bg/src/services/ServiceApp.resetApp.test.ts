@@ -73,6 +73,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import appStorage from '@onekeyhq/shared/src/storage/appStorage';
 import resetUtils from '@onekeyhq/shared/src/utils/resetUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+
 import localDb from '../dbs/local/localDb';
 
 import ServiceApp from './ServiceApp';
@@ -237,6 +238,49 @@ describe('ServiceApp.resetApp', () => {
       mode: EAppRestartMode.All,
       reason: 'auth.resetData',
     });
+  });
+
+  test('restarts the Electron process after a desktop App Reset', async () => {
+    platformEnv.isDesktop = true;
+    platformEnv.isNative = false;
+    const restartAppInMainProcess = jest.fn().mockResolvedValue(undefined);
+    Object.defineProperty(globalThis, 'desktopApiProxy', {
+      configurable: true,
+      value: {
+        system: {
+          restartApp: restartAppInMainProcess,
+        },
+      },
+    });
+    const service = new ServiceApp({
+      backgroundApi: {
+        serviceIdentityExit: {
+          prepareIdentityAuthForAppReset: jest
+            .fn()
+            .mockResolvedValue(undefined),
+        },
+        serviceNotification: {
+          unregisterClient: jest.fn().mockResolvedValue(undefined),
+        },
+      },
+    });
+    jest
+      .spyOn(
+        service as unknown as {
+          resetData: () => Promise<void>;
+        },
+        'resetData',
+      )
+      .mockResolvedValue(undefined);
+    const restartRenderer = jest
+      .spyOn(service, 'restartApp')
+      .mockResolvedValue(undefined);
+    jest.spyOn(timerUtils, 'wait').mockResolvedValue(undefined);
+
+    await service.resetApp();
+
+    expect(restartAppInMainProcess).toHaveBeenCalledTimes(1);
+    expect(restartRenderer).not.toHaveBeenCalled();
   });
 
   test('does not restart after a storage reset failure', async () => {
