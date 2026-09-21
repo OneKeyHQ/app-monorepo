@@ -93,6 +93,10 @@ export function Token({
   const resolvedBg =
     bgProp ?? (themeVariant === 'light' ? '$bgApp' : '$neutral6Dark');
   const shouldShowBorder = themeVariant === 'dark';
+  const shouldUseNativeRound =
+    platformEnv.isNativeAndroid &&
+    !isNFT &&
+    (rest.borderRadius === undefined || rest.borderRadius === '$full');
 
   const fallbackElement = useMemo(
     () => (
@@ -128,7 +132,7 @@ export function Token({
   const sharedImageProps = {
     size: tokenImageSize,
     borderRadius: borderRadius as IImageProps['borderRadius'],
-    ...(platformEnv.isNativeAndroid && !isNFT ? { round: true } : undefined),
+    ...(shouldUseNativeRound ? { round: true } : undefined),
     bg: resolvedBg,
     borderWidth: shouldShowBorder ? ('$px' as const) : undefined,
     borderColor: shouldShowBorder ? ('$neutral2Dark' as const) : undefined,
