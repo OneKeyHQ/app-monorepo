@@ -16,7 +16,7 @@ diff --git a/node_modules/react-native-keyboard-controller/src/module.ts b/node_
 +      // window, so its cached visibility can be stale even while an input is
 +      // focused. Always forward the native dismissal on Android.
 +      if (Platform.OS === "android") {
-+        KeyboardControllerNative.dismiss(keepFocus, animated);
++        KeyboardControllerNative.dismiss(true, animated);
 +      }
        resolve();
  
