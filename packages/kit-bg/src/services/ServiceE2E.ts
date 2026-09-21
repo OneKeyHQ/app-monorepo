@@ -716,7 +716,7 @@ class ServiceE2E extends ServiceBase {
     // This dev wipe means to reset all wallet state, so the broad clear
     // is intentional — keeping non-account namespaces around would leave
     // them referencing IDs that no longer exist in localDb.
-    // ServiceApp.resetApp clears the entire coldStartCacheStorage (jotai
+    // ServiceApp.resetApp clears every UI snapshot namespace (jotai
     // snapshot included); this path is narrower (SWR only). flushNow
     // persists the empty snapshot immediately — clearAll alone debounces
     // the MMKV write 2s, which could lose the wipe on a fast kill.
