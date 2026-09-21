@@ -10,6 +10,47 @@ import {
   ETabDiscoveryRoutes,
   ETabMarketRoutes,
 } from '@onekeyhq/shared/src/routes';
+import {
+  createHideTabBarOwnerId,
+  releaseHideTabBar,
+  requestHideTabBar,
+} from '@onekeyhq/shared/src/tabBar/hideTabBarRequests';
+
+const MARKET_DETAIL_TRANSITION_HIDE_TIMEOUT_MS = 5000;
+let marketDetailTransitionHideOwnerId: string | undefined;
+let marketDetailTransitionHideTimer: ReturnType<typeof setTimeout> | undefined;
+
+export function finishMarketDetailTabBarTransition() {
+  if (marketDetailTransitionHideTimer) {
+    clearTimeout(marketDetailTransitionHideTimer);
+    marketDetailTransitionHideTimer = undefined;
+  }
+  if (marketDetailTransitionHideOwnerId) {
+    releaseHideTabBar(marketDetailTransitionHideOwnerId);
+    marketDetailTransitionHideOwnerId = undefined;
+  }
+}
+
+export function prepareMarketDetailTabBarTransition() {
+  if (!platformEnv.isNative) {
+    return;
+  }
+
+  if (!marketDetailTransitionHideOwnerId) {
+    marketDetailTransitionHideOwnerId = createHideTabBarOwnerId(
+      'market-detail-transition',
+    );
+  }
+  requestHideTabBar(marketDetailTransitionHideOwnerId);
+
+  if (marketDetailTransitionHideTimer) {
+    clearTimeout(marketDetailTransitionHideTimer);
+  }
+  marketDetailTransitionHideTimer = setTimeout(
+    finishMarketDetailTabBarTransition,
+    MARKET_DETAIL_TRANSITION_HIDE_TIMEOUT_MS,
+  );
+}
 
 const REPLACEABLE_MARKET_DETAIL_ROUTE_NAMES = new Set<string>([
   ETabMarketRoutes.MarketDetail,
@@ -346,6 +387,7 @@ export function openOrReplaceMarketDetailRoute({
     routeName,
     params: nextParams,
   });
+  prepareMarketDetailTabBarTransition();
   return true;
 }
 

@@ -5,6 +5,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   buildReplacedMarketDetailParams,
   findMarketTabStack,
+  finishMarketDetailTabBarTransition,
   getCurrentMarketStockDetailId,
   getCurrentMarketStockDetailRoute,
   getNativeMarketListResetParams,
@@ -131,6 +132,7 @@ describe('marketDetailNavigation', () => {
   });
 
   afterEach(() => {
+    finishMarketDetailTabBarTransition();
     platformEnv.isNative = false;
   });
 
