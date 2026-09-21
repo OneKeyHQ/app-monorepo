@@ -343,6 +343,7 @@ async function softRestartRenderer() {
     // destroy() force-terminates the old renderer process (same as today's hard
     // restart), giving the recreated window a clean customElements registry and
     // killing any in-flight JS in the old renderer so it cannot re-trigger.
+    saveMainWindowStateImmediately?.();
     getSafelyMainWindow()?.destroy();
     mainWindow = null;
     isAppReady = false;
@@ -1072,6 +1073,9 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
     });
   };
   const scheduleWindowStateSave = () => {
+    if (skipDesktopStatePersistenceOnQuit) {
+      return;
+    }
     captureWindowState();
     if (saveWindowStateTimer) {
       clearTimeout(saveWindowStateTimer);
