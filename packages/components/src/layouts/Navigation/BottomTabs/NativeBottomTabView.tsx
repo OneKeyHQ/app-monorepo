@@ -62,13 +62,11 @@ function SceneLoadingView() {
 
 function SceneWithActivationPlaceholder({
   routeKey,
-  focused,
   activated,
   onActivated,
   children,
 }: {
   routeKey: string;
-  focused: boolean;
   activated: boolean;
   onActivated: (routeKey: string) => void;
   children: ReactNode;
@@ -80,7 +78,11 @@ function SceneWithActivationPlaceholder({
   return (
     <View style={styles.scene}>
       {children}
-      {focused && !activated ? (
+      {/* A preloaded scene is laid out while still blurred, so let every
+          scene that has not been activated yet raise the signal. Gating this
+          on `focused` kept each preloaded tab behind SceneLoadingView until
+          its first tap, which hid the whole benefit of preloading. */}
+      {!activated ? (
         <View
           collapsable={false}
           pointerEvents="none"
@@ -116,20 +118,13 @@ export function NativeBottomTabView({
     ({ route }: { route: Route<string> }) => (
       <SceneWithActivationPlaceholder
         routeKey={route.key}
-        focused={state.routes[state.index]?.key === route.key}
         activated={activatedRouteKeys.includes(route.key)}
         onActivated={handleSceneActivated}
       >
         {descriptors[route.key]?.render()}
       </SceneWithActivationPlaceholder>
     ),
-    [
-      activatedRouteKeys,
-      descriptors,
-      handleSceneActivated,
-      state.index,
-      state.routes,
-    ],
+    [activatedRouteKeys, descriptors, handleSceneActivated],
   );
   const renderLazyPlaceholder = useCallback(() => <SceneLoadingView />, []);
   const getActiveTintColor = useCallback(
