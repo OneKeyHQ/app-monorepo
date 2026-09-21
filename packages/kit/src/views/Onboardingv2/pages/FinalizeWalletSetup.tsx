@@ -118,7 +118,10 @@ import {
   registerOnboardingCompletion,
 } from '../utils/enterWalletAfterOnboarding';
 
-import { resolveOperationReleaseForAttempt } from './finalizeWalletSetupOperationUtils';
+import {
+  FinalizeWalletSetupAttempts,
+  resolveOperationReleaseForAttempt,
+} from './finalizeWalletSetupOperationUtils';
 
 import type {
   IFinalizeWalletSetupActiveOperation,
@@ -298,14 +301,7 @@ function FinalizeWalletSetupPage({
   // without this, a remount (back-swipe + re-select) fires a second
   // createWallet concurrently with the abandoned one.
   const hardwareCreateInFlightRef = useRef(false);
-  // True only while the Keystone connectDevice call itself is pending. Scopes
-  // the unmount cancel to the first-contact window: cancelling later phases
-  // would abort wallet/account creation that used to finish in background.
-  const keystoneFirstContactInFlightRef = useRef(false);
-  // Identifies one setup run. A retry re-enters createWallet while the
-  // abandoned run may still be settling, and only the latest attempt owns the
-  // shared refs below.
-  const setupAttemptRef = useRef(0);
+  const setupAttemptsRef = useRef(new FinalizeWalletSetupAttempts());
   const activeThirdPartyOperationRef = useRef<
     IFinalizeWalletSetupActiveOperation | undefined
   >(undefined);
@@ -416,12 +412,11 @@ function FinalizeWalletSetupPage({
   const { connectDevice, createHWWallet } = useDeviceConnect();
   const { ensureBurst, endBurst } = useDeviceStageBurst();
   const createWallet = useCallback(async () => {
-    const attempt = setupAttemptRef.current + 1;
-    setupAttemptRef.current = attempt;
+    const attempt = setupAttemptsRef.current.begin();
     // The operation this run opened itself, so a superseded run can still
     // release it without touching the ref a newer run owns.
     let ownThirdPartyOperation: IFinalizeWalletSetupOperation | undefined;
-    const isCurrentAttempt = () => setupAttemptRef.current === attempt;
+    const isCurrentAttempt = () => setupAttemptsRef.current.isCurrent(attempt);
     // The stage hold is opened inside the hardware branch below, and only
     // there: a software wallet (new mnemonic, import, keyless restore) has
     // no device, and a hold taken here regardless painted the connecting
@@ -551,6 +546,7 @@ function FinalizeWalletSetupPage({
           await backgroundApiProxy.serviceAccount.getWallets({
             nestedHiddenWallets: false,
           });
+        if (deviceData.vendor && !isCurrentAttempt()) return;
         const existingWalletIds = new Set(
           walletsBeforeCreate.map((walletItem) => walletItem.id),
         );
@@ -589,6 +585,7 @@ function FinalizeWalletSetupPage({
               vendor: deviceData.vendor,
               operationId: connectedDevice.operationId,
             };
+            if (!isCurrentAttempt()) return;
             activeThirdPartyOperationRef.current = {
               ...ownThirdPartyOperation,
               attempt,
@@ -634,6 +631,7 @@ function FinalizeWalletSetupPage({
             const ensureResult = await ensureLedgerCoreAppsReady({
               connectId: connectedDevice.operationId,
             });
+            if (!isCurrentAttempt()) return;
             if (!ensureResult.ok) {
               throw (
                 ensureResult.error ??
@@ -707,14 +705,15 @@ function FinalizeWalletSetupPage({
             ) {
               // QR: one scan yields identity and accounts, handled in background.
               goNextStep(EFinalizeWalletSetupSteps.ConnectingDevice);
-              keystoneFirstContactInFlightRef.current = true;
+              setupAttemptsRef.current.startFirstContact(attempt);
               try {
                 await actions.current.createKeystoneWalletWithDefaultAccounts(
                   {},
                 );
               } finally {
-                keystoneFirstContactInFlightRef.current = false;
+                setupAttemptsRef.current.finishFirstContact(attempt);
               }
+              if (!isCurrentAttempt()) return;
               thirdPartyWalletCreated = true;
             } else if (deviceData.vendor === EHardwareVendor.keystone) {
               const keystoneSearchTarget = deviceData.searchTarget;
@@ -726,7 +725,7 @@ function FinalizeWalletSetupPage({
               // A device search target only describes how to reach Keystone.
               // Account derivation stays in the wallet creation operation.
               goNextStep(EFinalizeWalletSetupSteps.ConnectingDevice);
-              keystoneFirstContactInFlightRef.current = true;
+              setupAttemptsRef.current.startFirstContact(attempt);
               const connected =
                 await backgroundApiProxy.serviceThirdPartyHardware.connectDevice(
                   {
@@ -734,7 +733,7 @@ function FinalizeWalletSetupPage({
                     searchTargetId: keystoneSearchTarget.searchTargetId,
                   },
                 );
-              keystoneFirstContactInFlightRef.current = false;
+              setupAttemptsRef.current.finishFirstContact(attempt);
               if (!connected.success) {
                 throw convertThirdPartyDeviceError(
                   connected.payload as { error: string; code: number },
@@ -747,6 +746,7 @@ function FinalizeWalletSetupPage({
                 vendor: deviceData.vendor,
                 operationId: connectedDevice.operationId,
               };
+              if (!isCurrentAttempt()) return;
               activeThirdPartyOperationRef.current = {
                 ...ownThirdPartyOperation,
                 attempt,
@@ -799,6 +799,7 @@ function FinalizeWalletSetupPage({
                   device: thirdPartyDevice,
                 },
               });
+              if (!isCurrentAttempt()) return;
               thirdPartyWalletCreated = true;
             }
             if (deviceData.vendor === EHardwareVendor.trezor) {
@@ -827,6 +828,7 @@ function FinalizeWalletSetupPage({
                 vendor: deviceData.vendor,
                 operationId: connected.operationId,
               };
+              if (!isCurrentAttempt()) return;
               activeThirdPartyOperationRef.current = {
                 ...ownThirdPartyOperation,
                 attempt,
@@ -861,6 +863,7 @@ function FinalizeWalletSetupPage({
                 if (isCurrentAttempt()) {
                   hardwareCreateInFlightRef.current = false;
                 }
+                if (!isCurrentAttempt()) return;
                 navigation.pop();
                 Dialog.show({
                   title: intl.formatMessage({
@@ -930,6 +933,7 @@ function FinalizeWalletSetupPage({
                   },
                   { mode: 'onboarding' },
                 );
+              if (!isCurrentAttempt()) return;
               accountCreationResultRef.current = accountCreationResult;
             }
             await trackHardwareWalletConnection({
@@ -939,6 +943,7 @@ function FinalizeWalletSetupPage({
               isSoftwareWalletOnlyUser,
               vendor: deviceData.vendor,
             });
+            if (!isCurrentAttempt()) return;
             // After a reset the same device re-onboards with a new device_id;
             // mark the stale wallet deprecated so only the current one lights
             // up. Trezor-specific dedup, matched on the device's transport
@@ -972,6 +977,7 @@ function FinalizeWalletSetupPage({
         // stage leave before the page turns to its ready state, so the
         // processing capsule never overlaps the Enter-wallet button
         // (OK-62092). The finally's endBurst is a no-op after this.
+        if (deviceData.vendor && !isCurrentAttempt()) return;
         await endBurst();
         await waitForDeviceStageExit();
         const { wallets: walletsAfterCreate } =
@@ -999,7 +1005,7 @@ function FinalizeWalletSetupPage({
       if (isCurrentAttempt()) {
         hardwareCreateInFlightRef.current = false;
         // A throw means connectDevice has settled; nothing is left to cancel.
-        keystoneFirstContactInFlightRef.current = false;
+        setupAttemptsRef.current.finishFirstContact(attempt);
       }
       console.error('createWallet error:', error);
       const hardwareError = error as IOneKeyError<IOneKeyErrorI18nInfo> & {
@@ -1051,7 +1057,8 @@ function FinalizeWalletSetupPage({
             );
           });
       }
-      await endBurst();
+      // A replacement attempt reuses the flow's hold; only its owner may end it.
+      if (!deviceData?.vendor || isCurrentAttempt()) await endBurst();
     }
   }, [
     ensureBurst,
@@ -1078,6 +1085,7 @@ function FinalizeWalletSetupPage({
   ]);
 
   useEffect(() => {
+    const setupAttempts = setupAttemptsRef.current;
     void createWallet();
     return () => {
       // Leaving mid-first-contact must not strand the SDK job: Keystone
@@ -1085,9 +1093,12 @@ function FinalizeWalletSetupPage({
       // attempt forever. Keystone-only, and only during the connectDevice window
       // — a vendor-wide cancel on Ledger/Trezor would tear down unrelated
       // jobs (e.g. an app install) and pending UI requests.
+      const shouldCancelFirstContact = deviceData?.vendor
+        ? setupAttempts.invalidate()
+        : false;
       if (
         deviceData?.vendor === EHardwareVendor.keystone &&
-        keystoneFirstContactInFlightRef.current
+        shouldCancelFirstContact
       ) {
         void backgroundApiProxy.serviceThirdPartyHardware.thirdPartyHardwareCancel(
           { vendor: EHardwareVendor.keystone },
@@ -1150,7 +1161,6 @@ function FinalizeWalletSetupPage({
     // An event-bus error (useConnectDeviceError) can render this button while
     // createWallet is still pending; without this, retry silently no-ops.
     hardwareCreateInFlightRef.current = false;
-    keystoneFirstContactInFlightRef.current = false;
     createdWalletRef.current = undefined;
     readyReferralCheckHandledRef.current = false;
     referralCheckPromiseRef.current = Promise.resolve(undefined);

@@ -39,3 +39,35 @@ export function resolveOperationReleaseForAttempt({
     shouldClearActiveOperation: false,
   };
 }
+
+// First-contact cleanup belongs to the attempt that started it, not the last
+// asynchronous callback to return. Invalidating also retires late UI results.
+export class FinalizeWalletSetupAttempts {
+  private current = 0;
+
+  private firstContact: number | undefined;
+
+  begin(): number {
+    this.current += 1;
+    return this.current;
+  }
+
+  isCurrent(attempt: number): boolean {
+    return attempt === this.current;
+  }
+
+  startFirstContact(attempt: number): void {
+    if (this.isCurrent(attempt)) this.firstContact = attempt;
+  }
+
+  finishFirstContact(attempt: number): void {
+    if (this.firstContact === attempt) this.firstContact = undefined;
+  }
+
+  invalidate(): boolean {
+    const shouldCancelFirstContact = this.firstContact === this.current;
+    this.current += 1;
+    this.firstContact = undefined;
+    return shouldCancelFirstContact;
+  }
+}

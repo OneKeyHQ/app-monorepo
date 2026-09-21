@@ -55,8 +55,14 @@ export function WalletRenameButton({
     const { label } = getVendorProfile(
       wallet?.associatedDeviceInfo?.vendor,
     ).presentation;
-    return label.mode === 'device' && label.asciiOnly;
-  }, [wallet?.associatedDeviceInfo?.vendor]);
+    return (
+      isProtocolV2ProductType(wallet?.associatedDeviceInfo?.deviceType) ||
+      (label.mode === 'device' && label.asciiOnly)
+    );
+  }, [
+    wallet?.associatedDeviceInfo?.deviceType,
+    wallet?.associatedDeviceInfo?.vendor,
+  ]);
 
   const labelAsciiAlphanumericWithSpacesOnly = useMemo(
     () => isProtocolV2ProductType(wallet?.associatedDeviceInfo?.deviceType),

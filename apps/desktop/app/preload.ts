@@ -422,7 +422,8 @@ const desktopApi = {
   thirdPartyBle: {
     scan: (options?: ElectronBleScanOptions) =>
       ipcRenderer.invoke(THIRD_PARTY_BLE_CHANNELS.scan, options),
-    stopScan: () => ipcRenderer.invoke(THIRD_PARTY_BLE_CHANNELS.stopScan),
+    stopScan: (vendor?: string) =>
+      ipcRenderer.invoke(THIRD_PARTY_BLE_CHANNELS.stopScan, vendor),
     connect: (id: string, options?: ElectronBleConnectOptions) =>
       ipcRenderer.invoke(THIRD_PARTY_BLE_CHANNELS.connect, id, options),
     disconnect: (id: string) =>
@@ -440,8 +441,8 @@ const desktopApi = {
     // cspell:ignore Rssi
     readRssi: (id: string) =>
       ipcRenderer.invoke(THIRD_PARTY_BLE_CHANNELS.readRssi, id),
-    cancelPairing: () =>
-      ipcRenderer.invoke(THIRD_PARTY_BLE_CHANNELS.cancelPairing),
+    cancelPairing: (options?: { vendor: string; id?: string }) =>
+      ipcRenderer.invoke(THIRD_PARTY_BLE_CHANNELS.cancelPairing, options),
     onNotification: (handler: (id: string, hexData: string) => void) => {
       const subscription = (_: unknown, id: string, hexData: string) => {
         handler(id, hexData);

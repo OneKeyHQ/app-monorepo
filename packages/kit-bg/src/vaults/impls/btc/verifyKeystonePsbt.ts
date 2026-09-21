@@ -107,8 +107,7 @@ export function verifyKeystonePsbt({
           (signature.length === 65 && signature[64] !== 0)) &&
         allowedHashTypes.includes(hashTypeFor(signature));
       const keySignature =
-        returned.tapKeySig ??
-        (witness.length === 1 ? witness[0] : original.tapKeySig);
+        returned.tapKeySig ?? (witness.length === 1 ? witness[0] : undefined);
       if (keySignature) {
         // Script-path/multisig requests may carry the signer's account address.
         // Only key-path spending identifies the output by that address directly.
@@ -138,10 +137,7 @@ export function verifyKeystonePsbt({
         verified.data.inputs[index].tapKeySig = keySignature;
         hasRequestedSignature = true;
       }
-      const scriptSignatures = [
-        ...(original.tapScriptSig ?? []),
-        ...(returned.tapScriptSig ?? []),
-      ];
+      const scriptSignatures = [...(returned.tapScriptSig ?? [])];
       const validateScriptSignature = (
         entry: NonNullable<PsbtInput['tapScriptSig']>[number],
       ) => {
@@ -189,24 +185,26 @@ export function verifyKeystonePsbt({
           entry,
         ]),
       );
-      for (const entry of scriptSignatures) {
+      for (const entry of [
+        ...(original.tapScriptSig ?? []),
+        ...scriptSignatures,
+      ]) {
         if (!validateScriptSignature(entry))
           throw new OneKeyLocalError('Invalid BTC Taproot script signature');
         signaturesByKey.set(
           `${Buffer.from(entry.pubkey).toString('hex')}:${Buffer.from(entry.leafHash).toString('hex')}`,
           entry,
         );
-        hasRequestedSignature ||= equalBytes(entry.pubkey, toXOnly(pubkey));
+        hasRequestedSignature ||=
+          scriptSignatures.includes(entry) &&
+          equalBytes(entry.pubkey, toXOnly(pubkey));
       }
       if (signaturesByKey.size)
         verified.data.inputs[index].tapScriptSig = Array.from(
           signaturesByKey.values(),
         );
     } else {
-      const signatures = [
-        ...(original.partialSig ?? []),
-        ...(returned.partialSig ?? []),
-      ];
+      const signatures = [...(returned.partialSig ?? [])];
       const validatePartial = (
         entry: NonNullable<PsbtInput['partialSig']>[number],
       ) => {
@@ -247,11 +245,12 @@ export function verifyKeystonePsbt({
           entry,
         ]),
       );
-      for (const entry of signatures) {
+      for (const entry of [...(original.partialSig ?? []), ...signatures]) {
         if (!validatePartial(entry))
           throw new OneKeyLocalError('Invalid BTC input signature');
         signaturesByKey.set(Buffer.from(entry.pubkey).toString('hex'), entry);
-        hasRequestedSignature ||= equalBytes(entry.pubkey, pubkey);
+        hasRequestedSignature ||=
+          signatures.includes(entry) && equalBytes(entry.pubkey, pubkey);
       }
       if (signaturesByKey.size)
         verified.data.inputs[index].partialSig = Array.from(

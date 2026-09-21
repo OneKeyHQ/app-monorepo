@@ -121,6 +121,27 @@ describe('verifyKeystonePsbt', () => {
         },
       );
 
+      it('requires the requested signature in the response even when already present in the request', () => {
+        const request = buildRequest(kind);
+        const responseWithoutSignature = request.unsignedPsbt.clone();
+        request.unsignedPsbt.signInput(
+          0,
+          kind === 'taproot' ? tweakedSigner : signer,
+        );
+        expect(() =>
+          verifyKeystonePsbt({
+            ...request,
+            signedPsbt: responseWithoutSignature,
+          }),
+        ).toThrow('Missing requested');
+        expect(() =>
+          verifyKeystonePsbt({
+            ...request,
+            signedPsbt: request.unsignedPsbt.clone(),
+          }),
+        ).not.toThrow();
+      });
+
       it('rejects the original unsigned PSBT', () => {
         const request = buildRequest(kind);
         expect(() =>
