@@ -395,7 +395,9 @@ class ServiceApp extends ServiceBase {
     // Desktop preferences include process-start settings such as hardware
     // acceleration, so a renderer reload is not enough after clearing them.
     if (platformEnv.isDesktop) {
-      await globalThis.desktopApiProxy.system.restartApp();
+      await globalThis.desktopApiProxy.system.restartApp({
+        resetDesktopStore: true,
+      });
       return;
     }
 

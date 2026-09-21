@@ -279,7 +279,9 @@ describe('ServiceApp.resetApp', () => {
 
     await service.resetApp();
 
-    expect(restartAppInMainProcess).toHaveBeenCalledTimes(1);
+    expect(restartAppInMainProcess).toHaveBeenCalledWith({
+      resetDesktopStore: true,
+    });
     expect(restartRenderer).not.toHaveBeenCalled();
   });
 

@@ -311,7 +311,12 @@ class DesktopApiSystem {
     return !store.getDisableHardwareAcceleration();
   }
 
-  async restartApp(): Promise<void> {
+  async restartApp(options?: { resetDesktopStore?: boolean }): Promise<void> {
+    if (options?.resetDesktopStore) {
+      globalThis.$desktopMainAppFunctions?.prepareForAppReset?.();
+      store.clear();
+    }
+
     // Mac App Store/TestFlight builds cannot relaunch inside the sandbox.
     // Exit so process-start settings take effect when the user reopens the app.
     if (process.mas) {

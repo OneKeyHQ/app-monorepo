@@ -90,6 +90,9 @@ function loadShortcuts() {
     setImmediate: jest.fn(),
     flushWindowState: undefined,
     saveMainWindowStateImmediately: undefined,
+    cancelWindowStateSave: undefined,
+    cancelMainWindowStateSave: undefined,
+    skipDesktopStatePersistenceOnQuit: false,
   });
   const evaluate = (source) =>
     vm.runInContext(

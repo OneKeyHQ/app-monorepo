@@ -233,6 +233,8 @@ const APP_TITLE_NAME = 'OneKey';
 app.name = APP_NAME;
 let mainWindow: BrowserWindow | null;
 let saveMainWindowStateImmediately: (() => void) | undefined;
+let cancelMainWindowStateSave: (() => void) | undefined;
+let skipDesktopStatePersistenceOnQuit = false;
 let isAppReady = false;
 // Custom scheme used to serve the renderer bundle via interceptFileProtocol.
 // Module-scoped so softRestartRenderer and createMainWindow reference the SAME
@@ -873,6 +875,10 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
     getBundleIndexHtmlPath: () => bundleIndexHtmlPath,
     useJsBundle: () => !!bundleIndexHtmlPath,
     softRestartRenderer,
+    prepareForAppReset: () => {
+      skipDesktopStatePersistenceOnQuit = true;
+      cancelMainWindowStateSave?.();
+    },
   };
 
   if (isMac) {
@@ -1084,7 +1090,17 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
     }
     persistWindowState();
   };
+  const cancelWindowStateSave = () => {
+    if (saveWindowStateTimer) {
+      clearTimeout(saveWindowStateTimer);
+      saveWindowStateTimer = undefined;
+    }
+    if (saveMainWindowStateImmediately === flushWindowState) {
+      saveMainWindowStateImmediately = undefined;
+    }
+  };
   saveMainWindowStateImmediately = flushWindowState;
+  cancelMainWindowStateSave = cancelWindowStateSave;
   browserWindow.on('resize', scheduleWindowStateSave);
   browserWindow.on('move', scheduleWindowStateSave);
   browserWindow.on('maximize', scheduleWindowStateSave);
@@ -1093,6 +1109,9 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
   browserWindow.on('closed', () => {
     if (saveMainWindowStateImmediately === flushWindowState) {
       saveMainWindowStateImmediately = undefined;
+    }
+    if (cancelMainWindowStateSave === cancelWindowStateSave) {
+      cancelMainWindowStateSave = undefined;
     }
     unregisterShortcuts();
     mainWindow = null;
@@ -2061,7 +2080,10 @@ app.on('before-quit', (event) => {
   // is not mistaken for a crash on next boot.
   // Skip reset when in recovery mode (count >= 3) so recovery is still
   // offered if the user closes the recovery window without resolving.
-  if (store.getConsecutiveBootFailCount() < 3) {
+  if (
+    !skipDesktopStatePersistenceOnQuit &&
+    store.getConsecutiveBootFailCount() < 3
+  ) {
     store.resetConsecutiveBootFailCount();
   }
 
@@ -2070,7 +2092,9 @@ app.on('before-quit', (event) => {
   }
   const safelyMainWindow = getSafelyMainWindow();
   if (safelyMainWindow) {
-    saveMainWindowStateImmediately?.();
+    if (!skipDesktopStatePersistenceOnQuit) {
+      saveMainWindowStateImmediately?.();
+    }
     safelyMainWindow.removeAllListeners();
     safelyMainWindow.removeAllListeners('close');
     safelyMainWindow.close();
