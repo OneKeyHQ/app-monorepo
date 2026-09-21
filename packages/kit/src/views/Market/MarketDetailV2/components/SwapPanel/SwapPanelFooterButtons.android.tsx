@@ -20,29 +20,36 @@ import { MarketTestIDs } from '../../../testIDs';
 type IProps = {
   onTrade: () => void;
   onInstant: () => void;
+  disabled?: boolean;
 };
 
-function SwapPanelFooterButtons({ onTrade, onInstant }: IProps) {
+function SwapPanelFooterButtons({ onTrade, onInstant, disabled }: IProps) {
   const intl = useIntl();
 
+  // RNGH intercepts above the Button, so its `disabled` cannot stop these
+  // gestures — the tap has to be dropped here as well.
   const tradeGesture = useMemo(
     () =>
-      Gesture.Tap().onEnd(() => {
-        'worklet';
+      Gesture.Tap()
+        .enabled(!disabled)
+        .onEnd(() => {
+          'worklet';
 
-        runOnJS(onTrade)();
-      }),
-    [onTrade],
+          runOnJS(onTrade)();
+        }),
+    [onTrade, disabled],
   );
 
   const instantGesture = useMemo(
     () =>
-      Gesture.Tap().onEnd(() => {
-        'worklet';
+      Gesture.Tap()
+        .enabled(!disabled)
+        .onEnd(() => {
+          'worklet';
 
-        runOnJS(onInstant)();
-      }),
-    [onInstant],
+          runOnJS(onInstant)();
+        }),
+    [onInstant, disabled],
   );
 
   return (
@@ -53,6 +60,7 @@ function SwapPanelFooterButtons({ onTrade, onInstant }: IProps) {
             testID={MarketTestIDs.detailSwapButton}
             size="large"
             variant="secondary"
+            disabled={disabled}
           >
             {intl.formatMessage({ id: ETranslations.dexmarket_details_trade })}
           </Button>
@@ -65,6 +73,7 @@ function SwapPanelFooterButtons({ onTrade, onInstant }: IProps) {
             size="large"
             variant="accent"
             icon="FlashSolid"
+            disabled={disabled}
           >
             {intl.formatMessage({ id: ETranslations.dexmarket_quick_buy })}
           </Button>

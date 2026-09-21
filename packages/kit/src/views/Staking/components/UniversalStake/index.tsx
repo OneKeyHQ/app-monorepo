@@ -12,6 +12,7 @@ import {
   Alert,
   Dialog,
   Divider,
+  HeightTransition,
   Icon,
   IconButton,
   Image,
@@ -736,7 +737,8 @@ export function UniversalStake({
   // window: protocols whose response carries no summary would otherwise pulse
   // the skeleton on every amount edit, and a failed first request would leave
   // the skeleton stuck forever.
-  const transactionConfirmationSettledRef = useRef(false);
+  const [transactionConfirmationSettled, setTransactionConfirmationSettled] =
+    useState(false);
 
   const debouncedFetchTransactionConfirmation = useDebouncedCallback(
     async (amount?: string) => {
@@ -754,7 +756,7 @@ export function UniversalStake({
         // keep stale state
       } finally {
         if (transactionConfirmationAmountRef.current === amount) {
-          transactionConfirmationSettledRef.current = true;
+          setTransactionConfirmationSettled(true);
           setTransactionConfirmationLoading(false);
         }
       }
@@ -2298,7 +2300,8 @@ export function UniversalStake({
     !isPendleLikeLayout &&
     (!protocolSwitchConfig || shouldReserveCompactSummary) &&
     !isDisabled &&
-    !transactionConfirmationSettledRef.current;
+    isPositiveAmount &&
+    !transactionConfirmationSettled;
 
   const summaryLoadingContent = useMemo(() => {
     if (!summaryPending) {
@@ -2495,9 +2498,15 @@ export function UniversalStake({
               />
             </XStack>
           ) : null}
-          {summaryContent}
-          {summaryLoadingContent}
-          {summaryContent || summaryLoadingContent ? <Divider my="$5" /> : null}
+          <HeightTransition>
+            {summaryContent || summaryLoadingContent ? (
+              <>
+                {summaryContent}
+                {summaryLoadingContent}
+                <Divider my="$5" />
+              </>
+            ) : null}
+          </HeightTransition>
           <YStack gap="$5">
             {ongoingValidator ? (
               <EarnValidatorSelect
