@@ -73,7 +73,6 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import appStorage from '@onekeyhq/shared/src/storage/appStorage';
 import resetUtils from '@onekeyhq/shared/src/utils/resetUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
-
 import localDb from '../dbs/local/localDb';
 
 import ServiceApp from './ServiceApp';
@@ -106,15 +105,53 @@ const mockRemoveSecureItem = (
 
 describe('ServiceApp.resetApp', () => {
   const originalIsNative = platformEnv.isNative;
+  const originalIsDesktop = platformEnv.isDesktop;
+  const desktopApiProxyDescriptor = Object.getOwnPropertyDescriptor(
+    globalThis,
+    'desktopApiProxy',
+  );
 
   beforeEach(() => {
     platformEnv.isNative = originalIsNative;
+    platformEnv.isDesktop = originalIsDesktop;
     jest.clearAllMocks();
   });
 
   afterEach(() => {
     platformEnv.isNative = originalIsNative;
+    platformEnv.isDesktop = originalIsDesktop;
+    if (desktopApiProxyDescriptor) {
+      Object.defineProperty(
+        globalThis,
+        'desktopApiProxy',
+        desktopApiProxyDescriptor,
+      );
+    } else {
+      Reflect.deleteProperty(globalThis, 'desktopApiProxy');
+    }
     jest.restoreAllMocks();
+  });
+
+  test('clears the complete Electron store during App Reset', async () => {
+    platformEnv.isDesktop = true;
+    const storeClear = jest.fn().mockResolvedValue(undefined);
+    Object.defineProperty(globalThis, 'desktopApiProxy', {
+      configurable: true,
+      value: {
+        storage: {
+          storeClear,
+        },
+      },
+    });
+    const service = new ServiceApp({ backgroundApi: {} as never });
+
+    await (
+      service as unknown as {
+        resetDesktopStore: () => Promise<void>;
+      }
+    ).resetDesktopStore();
+
+    expect(storeClear).toHaveBeenCalledTimes(1);
   });
 
   test('destroys both native LSE keys during App Reset', async () => {

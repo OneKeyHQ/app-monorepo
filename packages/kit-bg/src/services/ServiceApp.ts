@@ -105,6 +105,17 @@ class ServiceApp extends ServiceBase {
     localSecretEnvelopeService.clearCapabilityCache();
   }
 
+  private async resetDesktopStore() {
+    if (!platformEnv.isDesktop) {
+      return;
+    }
+    try {
+      await globalThis.desktopApiProxy?.storage.storeClear();
+    } catch (error) {
+      console.error('desktopApi.storeClear() error', error);
+    }
+  }
+
   private async resetData() {
     let appStorageClearError: unknown;
     let nativeJotaiResetError: unknown;
@@ -311,11 +322,7 @@ class ServiceApp extends ServiceBase {
       }
 
       if (platformEnv.isDesktop) {
-        try {
-          await globalThis.desktopApiProxy?.storage.storeClear();
-        } catch (error) {
-          console.error('desktopApi.storeClear() error', error);
-        }
+        await this.resetDesktopStore();
       }
     }
     if (appStorageClearError) {
