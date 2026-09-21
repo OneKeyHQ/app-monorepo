@@ -154,22 +154,24 @@ config.resolver.unstable_enablePackageExports = false;
 // Manual alias for a subpath export when package exports are disabled.
 const hyperliquidSigningPath = require.resolve('@nktkas/hyperliquid/signing');
 
-// OneKey HWK SDK sub-path aliases. With
+// Hardware SDK and BTC signing sub-path aliases. With
 // `unstable_enablePackageExports=false` above, Metro can't read the `exports`
-// map in the SDK packages, so each sub-path consumer apps import (e.g.
+// map in these packages, so each sub-path consumer apps import (e.g.
 // `@onekeyfe/hwk-adapter-core/errors`) needs an explicit redirect. We
 // `require.resolve` here in Node-land where the `exports` map IS honored, so
 // the target file path is correct.
 //
-// When the SDK adds new sub-paths (or `unstable_enablePackageExports` becomes
+// When these packages add new sub-paths (or `unstable_enablePackageExports` becomes
 // safe to enable globally), append/remove entries from this array.
-const HWK_SUBPATH_ALIASES = [
+const SUBPATH_EXPORT_ALIASES = [
   '@onekeyfe/hwk-adapter-core/errors',
   '@onekeyfe/hwk-adapter-core/ui-events',
   '@onekeyfe/hwk-trezor-connector-webusb/constants',
+  'bitcoinjs-lib/src/bufferutils',
+  'bitcoinjs-lib/src/payments/bip341',
 ];
-const hwkSubpathAliasMap = new Map(
-  HWK_SUBPATH_ALIASES.map((spec) => [spec, require.resolve(spec)]),
+const subpathExportAliasMap = new Map(
+  SUBPATH_EXPORT_ALIASES.map((spec) => [spec, require.resolve(spec)]),
 );
 
 // @mysten/sui 2.x only exposes package exports; Metro package exports are disabled above.
@@ -260,12 +262,12 @@ config.resolver.resolveRequest = (context, moduleName, platform) => {
       filePath: hyperliquidSigningPath,
     };
   }
-  // OneKey HWK SDK sub-path resolution (see HWK_SUBPATH_ALIASES above).
-  const hwkAliasPath = hwkSubpathAliasMap.get(moduleName);
-  if (hwkAliasPath) {
+  // Resolve only the explicitly listed sub-path exports above.
+  const subpathAliasPath = subpathExportAliasMap.get(moduleName);
+  if (subpathAliasPath) {
     return {
       type: 'sourceFile',
-      filePath: hwkAliasPath,
+      filePath: subpathAliasPath,
     };
   }
   if (
