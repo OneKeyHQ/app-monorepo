@@ -32,6 +32,8 @@ import SwapMarketHistoryList from './SwapMarketHistoryList';
 import SwapProCurrentSymbolEnable from './SwapProCurrentSymbolEnable';
 import SwapProPositionsList from './SwapProPositionsList';
 
+import type { LayoutChangeEvent } from 'react-native';
+
 interface ISwapProTabListContainerProps {
   onTokenPress: (token: ISwapToken) => void;
   onOpenOrdersClick: (item: IFetchLimitOrderRes) => void;
@@ -88,6 +90,15 @@ const SwapProTabListContainer = memo(
     const [swapTypeSwitch] = useSwapTypeSwitchAtom();
     const [swapToToken] = useSwapSelectToTokenAtom();
     const [shouldRenderLists, setShouldRenderLists] = useState(false);
+    const [currentSymbolRowHeight, setCurrentSymbolRowHeight] = useState(0);
+
+    const handleCurrentSymbolRowLayout = useCallback(
+      (event: LayoutChangeEvent) => {
+        const { height } = event.nativeEvent.layout;
+        setCurrentSymbolRowHeight((prev) => (prev === height ? prev : height));
+      },
+      [],
+    );
 
     const {
       positionLoadError,
@@ -221,11 +232,16 @@ const SwapProTabListContainer = memo(
             display={activeTab === ETabName.Positions ? 'flex' : 'none'}
             flex={1}
           >
-            <SwapProCurrentSymbolEnable
-              analyticsTab={
-                focusSwapPro ? ESwapProAnalyticsTab.POSITIONS : undefined
-              }
-            />
+            {/* Measured so the Order history empty state can line up with the
+                lists that have this row above them; the row is not rendered
+                there, and no other list offset changes. */}
+            <YStack onLayout={handleCurrentSymbolRowLayout}>
+              <SwapProCurrentSymbolEnable
+                analyticsTab={
+                  focusSwapPro ? ESwapProAnalyticsTab.POSITIONS : undefined
+                }
+              />
+            </YStack>
             {shouldRenderPositionsContent ? (
               <SwapProPositionsList
                 onTokenPress={onTokenPress}
@@ -269,23 +285,14 @@ const SwapProTabListContainer = memo(
                 "Current tokens" toggle here, and the list shows every order
                 regardless of the shared current-symbol filter. Swap & Bridge
                 and Pro share this surface, so they clear the same (non-stock)
-                dataset. The toggle still keeps its space, so every tab starts
-                its list at the same offset and switching tabs cannot move the
-                list or its empty state. */}
-            <YStack
-              opacity={0}
-              pointerEvents="none"
-              aria-hidden
-              accessibilityElementsHidden
-              importantForAccessibility="no-hide-descendants"
-            >
-              <SwapProCurrentSymbolEnable />
-            </YStack>
+                dataset. Only the empty state is offset downwards, by the row
+                measured above, so the placeholder matches the sibling tabs
+                while real rows keep their position. */}
             {shouldRenderListContent ? (
               <XStack mx="$-6">
                 <SwapMarketHistoryList
                   isPushModal
-                  padded={false}
+                  siblingRowHeight={currentSymbolRowHeight}
                   firstSectionRightAction={
                     <SwapHistoryClearButton
                       scope="swap"
