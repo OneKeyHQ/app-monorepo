@@ -468,6 +468,7 @@ export function hydrateCellsFromColdStart(params: {
   projection: IStoreProjection;
   deps: IApplyDeps;
   currentCurrency: string;
+  ownerKey?: string;
 }): boolean {
   const { store, projection, deps, currentCurrency } = params;
 
@@ -478,6 +479,9 @@ export function hydrateCellsFromColdStart(params: {
   }
   // shouldUseSlim returning true guarantees `slim` is defined.
   const bundle = slim as ITokenListSlimColdCache;
+  if (params.ownerKey !== undefined && bundle.ownerKey !== params.ownerKey) {
+    return false;
+  }
 
   const storeData = resolveStoreData(store);
   if (!storeData) {
@@ -618,11 +622,16 @@ export function useTokenListCellsColdStartHydrate(
     }
     hydratedKeyRef.current = guardKey;
     const projection = ensureStoreProjection(store);
+    // Boot data must never replace a live projection on an account switch.
+    if (projection.curOwnerKey) {
+      return;
+    }
     hydrateCellsFromColdStart({
       store,
       projection,
       deps,
       currentCurrency: currencyId,
+      ownerKey,
     });
   }, [store, deps, ownerKey, currencyId]);
 }

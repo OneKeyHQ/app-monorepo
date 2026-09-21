@@ -22,7 +22,7 @@
  * already painted the projection cells before this effect runs and they hold
  * until the first PULL/push supersedes them at a higher generation.
  */
-import { useEffect, useMemo, useRef } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef } from 'react';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import type { IJotaiContextStoreData } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
@@ -38,6 +38,10 @@ import type {
 import { EAppEventBusNames } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import type { IAccountToken, ITokenFiat } from '@onekeyhq/shared/types/token';
 
+import {
+  activeAccountsAtom,
+  useAccountSelectorContextData,
+} from '../../accountSelector';
 import {
   listStructureAtom,
   riskyListFrameAtom,
@@ -56,6 +60,7 @@ import {
   cancelPendingSlimColdCache,
   schedulePersistSlimColdCache,
 } from './coldStart';
+import { createTokenListOwnerCache } from './ownerCache';
 import {
   aggCell,
   cell,
@@ -71,6 +76,7 @@ import {
   isPrimaryColdStartWriter,
   registerMountedStore,
 } from './registry';
+import { getHomeTokenListOwnerKey } from './useHomeTokenListOwnerKey';
 
 import type { IApplyDeps } from './apply';
 
@@ -119,6 +125,7 @@ export function useTokenListCellsProducer(
   storeName?: string,
 ): void {
   const { store } = useTokenListContextData();
+  const { store: accountSelectorStore } = useAccountSelectorContextData();
 
   // Stable deps bag bound to this store. `meta/cell/subcell/aggCell` resolve the
   // SAME per-store projection the leaves read (via the WeakMap), so the shell
@@ -167,10 +174,40 @@ export function useTokenListCellsProducer(
     return { storeData, resolvedStoreName };
   }, [store, storeName]);
 
+  useLayoutEffect(() => {
+    if (!store || !deps || !identity || !accountSelectorStore) return;
+    const restoreOwner = createTokenListOwnerCache(
+      store,
+      deps,
+      identity.storeData,
+    );
+    // Hydrate in the selector notification, before React commits the new owner.
+    // An effect after that commit would already have unmounted the token rows.
+    return accountSelectorStore.sub(activeAccountsAtom(), () => {
+      restoreOwner(
+        getHomeTokenListOwnerKey(
+          accountSelectorStore.get(activeAccountsAtom())[0],
+        ),
+        currencyIdRef.current,
+      );
+    });
+  }, [accountSelectorStore, store, deps, identity]);
+
+  const isCurrentOwner = () =>
+    getHomeTokenListOwnerKey(
+      accountSelectorStore?.get(activeAccountsAtom())[0],
+    ) === ownerKey;
+
   const enabled = !!(store && deps && ownerKey && identity);
 
   useEffect(() => {
-    if (!enabled || !store || !deps || !identity) {
+    if (
+      !enabled ||
+      !store ||
+      !deps ||
+      !identity ||
+      store.get(riskyListFrameAtom()).ownerKey === ownerKey
+    ) {
       return;
     }
     applyRiskyFrame(
@@ -228,7 +265,7 @@ export function useTokenListCellsProducer(
         getVersion: (p) => (p as IStructurePush).structureVersion,
         apply: (p) => {
           const { structure } = p as IStructurePush;
-          if (!structure || !store || !deps || !identity) {
+          if (!structure || !store || !deps || !identity || !isCurrentOwner()) {
             return;
           }
           // Re-stamp storeData to THIS store so apply's identity guard passes.
@@ -255,7 +292,7 @@ export function useTokenListCellsProducer(
         getVersion: (p) => (p as IValuationPush).valuationVersion,
         apply: (p) => {
           const { valuation } = p as IValuationPush;
-          if (!valuation || !store || !deps || !identity) {
+          if (!valuation || !store || !deps || !identity || !isCurrentOwner()) {
             return;
           }
           applyValuationFrame(
@@ -285,7 +322,7 @@ export function useTokenListCellsProducer(
         getVersion: (p) => (p as IRiskyPush).riskyVersion,
         apply: (p) => {
           const { riskyTokens, riskyMap } = p as IRiskyPush;
-          if (!store || !deps || !identity) {
+          if (!store || !deps || !identity || !isCurrentOwner()) {
             return;
           }
           applyRiskyFrame(
@@ -308,6 +345,6 @@ export function useTokenListCellsProducer(
           }) satisfies IRiskyPush,
       },
     ],
-    extraDeps: [store, deps, storeName],
+    extraDeps: [store, deps, storeName, accountSelectorStore],
   });
 }

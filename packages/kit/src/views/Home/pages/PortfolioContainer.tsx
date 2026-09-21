@@ -2,6 +2,7 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -14,6 +15,7 @@ import {
   useMedia,
   useScrollContentTabBarOffset,
 } from '@onekeyhq/components';
+import { CollapsibleTabContext } from '@onekeyhq/components/src/composite/Tabs/CollapsibleTabContext';
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
@@ -44,6 +46,8 @@ import {
   findScrollableAncestorFromLocalNode,
   getStickySidebarMaxHeight,
 } from './defiDesktopStickyDom';
+
+import type { ScrollView } from 'react-native';
 
 const SIDEBAR_STICKY_UNPIN_GAP = 8;
 
@@ -272,15 +276,24 @@ function PortfolioContainer() {
 
 function PortfolioContainerWithProvider() {
   const {
-    activeAccount: { account },
+    activeAccount: { account, wallet },
   } = useActiveAccount({ num: 0 });
   const tabBarHeight = useScrollContentTabBarOffset();
+  const scrollRef = useRef<ScrollView>(null);
+  const { contentInset } = useContext(CollapsibleTabContext);
+  const accountKey = `${wallet?.id ?? ''}-${account?.indexedAccountId ?? account?.id ?? ''}`;
+  useLayoutEffect(() => {
+    if (platformEnv.isNative) {
+      scrollRef.current?.scrollTo({ y: -contentInset, animated: false });
+    }
+  }, [accountKey, contentInset]);
   return (
     <HomeTokenListProviderMirrorWrapper accountId={account?.id ?? ''}>
       <ProviderJotaiContextHistoryList>
         <EarnProviderMirror storeName={EJotaiContextStoreNames.earn}>
           <ProviderJotaiContextDeFiList>
             <Tabs.ScrollView
+              ref={scrollRef}
               showsVerticalScrollIndicator={false}
               contentContainerStyle={{ paddingBottom: tabBarHeight }}
               nestedScrollEnabled={platformEnv.isNativeAndroid}
