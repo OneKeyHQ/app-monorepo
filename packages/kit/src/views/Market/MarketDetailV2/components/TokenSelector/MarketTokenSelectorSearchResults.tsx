@@ -65,7 +65,9 @@ function SearchMoreButton({
   return (
     <Button
       testID={testID}
-      alignSelf="flex-start"
+      alignSelf="center"
+      mx="$0"
+      my="$2"
       size="small"
       variant="tertiary"
       onPress={onPress}
