@@ -20599,6 +20599,7 @@
     "packages/kit/src/utils/passwordUtils.ts": 4082,
     "packages/kit/src/utils/sensitiveErrorMessageUtils.ts": 19050,
     "packages/kit/src/utils/shareUtils.ts": 2069,
+    "packages/kit/src/utils/swrCacheMutationInvalidation.ts": 6044,
     "packages/kit/src/utils/toastExistingWalletSwitch.tsx": 9581,
     "packages/kit/src/utils/tokenImagePrewarm.ts": 9526,
     "packages/kit/src/utils/tokenSelectorAccountCompatibility.ts": 852,

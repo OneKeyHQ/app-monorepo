@@ -5,6 +5,7 @@
  */
 import {
   __resetSwrCacheNamespaceStorageForTests,
+  clearAllSwrCacheNamespaces,
   readSwrCacheEntry,
   removeSwrCacheByPrefix,
   removeSwrCacheEntries,
@@ -100,5 +101,40 @@ describeIfIndexedDB('swrCacheNamespaceStorage', () => {
     removeSwrCacheByPrefix('walletList:v1:');
 
     expect(readSwrCacheEntry(key)).toBeUndefined();
+  });
+
+  it('clears the fallback namespace a key with an undeclared prefix lands in', () => {
+    // `swrKeys.defiEnabled` is a literal prefix that names no declared
+    // namespace, so its records live in the fallback namespace. A wipe
+    // assembled from the key registry cannot reach them.
+    writeSwrCacheEntries([
+      ['defiEnabled:evm--1', { d: 'fallback', t: 9 }],
+      ['perpsUnifoldSourceSelection:v1:evm:1:ETH', { d: 'fallback', t: 9 }],
+      ['walletList:v1:plain', { d: 'declared', t: 9 }],
+    ]);
+
+    clearAllSwrCacheNamespaces();
+
+    expect(readSwrCacheEntry('defiEnabled:evm--1')).toBeUndefined();
+    expect(
+      readSwrCacheEntry('perpsUnifoldSourceSelection:v1:evm:1:ETH'),
+    ).toBeUndefined();
+    expect(readSwrCacheEntry('walletList:v1:plain')).toBeUndefined();
+  });
+
+  it('spares the namespaces named in exceptSwrPrefixes', () => {
+    writeSwrCacheEntries([
+      ['perpsL2Book:v1:ETH:5:1', { d: 'from-bg', t: 10 }],
+      ['walletList:v1:plain', { d: 'from-ui', t: 10 }],
+    ]);
+
+    clearAllSwrCacheNamespaces({ exceptSwrPrefixes: ['perpsL2Book'] });
+
+    // Clearing a store bg is writing would put two writers on one file.
+    expect(readSwrCacheEntry('perpsL2Book:v1:ETH:5:1')).toEqual({
+      d: 'from-bg',
+      t: 10,
+    });
+    expect(readSwrCacheEntry('walletList:v1:plain')).toBeUndefined();
   });
 });
