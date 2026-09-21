@@ -4135,6 +4135,8 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
           await serviceAccount.restoreTempCreatedWallet({
             walletId: wallet.id,
           });
+          // Account creation events precede restoration in the Keystone flow.
+          appEventBus.emit(EAppEventBusNames.WalletUpdate, undefined);
           return {
             isOverrideWallet,
             wallet,
