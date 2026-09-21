@@ -104,16 +104,16 @@ function ConnectionList() {
                 num,
                 handleAccountChangedParams,
                 prevAccountInfo,
-              }) => {
-                void handleAccountInfoChanged({
+              }) =>
+                handleAccountInfoChanged({
                   origin,
                   accountSelectorNum: num,
                   prevAccountInfo,
                   accountChangedParams: handleAccountChangedParams,
                   storageType: prevAccountInfo.storageType,
                   afterUpdate: () => run(),
-                });
-              }}
+                })
+              }
             />
           )}
           ItemSeparatorComponent={ItemSeparatorComponent}

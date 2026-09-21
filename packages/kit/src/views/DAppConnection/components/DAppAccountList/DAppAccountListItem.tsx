@@ -398,7 +398,7 @@ function DAppAccountListStandAloneItem({
       if (account?.address || account?.addressDetail?.isValid) {
         setIsDataReady(true);
       }
-      handleAccountChanged?.(params, changedNum);
+      return handleAccountChanged?.(params, changedNum);
     },
     [handleAccountChanged],
   );

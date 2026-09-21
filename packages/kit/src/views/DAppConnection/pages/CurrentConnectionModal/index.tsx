@@ -180,16 +180,16 @@ function CurrentConnectionModal() {
                     key={account.num}
                     num={account.num}
                     // compressionUiMode
-                    handleAccountChanged={async (accountChangedParams) => {
-                      await handleAccountInfoChanged({
+                    handleAccountChanged={(accountChangedParams) =>
+                      handleAccountInfoChanged({
                         origin: memoizedResult?.origin ?? '',
                         accountSelectorNum: account.num,
                         prevAccountInfo: account,
                         accountChangedParams,
                         storageType: account.storageType,
                         afterUpdate: fetchAccountsInfo,
-                      });
-                    }}
+                      })
+                    }
                   />
                 </YStack>
               )}

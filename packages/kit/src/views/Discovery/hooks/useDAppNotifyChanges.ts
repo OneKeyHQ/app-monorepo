@@ -20,7 +20,10 @@ import { getWebviewWrapperRef } from '../utils/explorerUtils';
 
 import { useWebTabDataById } from './useWebTabs';
 
-import type { IHandleAccountChangedParams } from '../../DAppConnection/hooks/useHandleAccountChanged';
+import type {
+  IHandleAccountChangedParams,
+  IHandleAccountChangedResult,
+} from '../../DAppConnection/hooks/useHandleAccountChanged';
 import type { JsBridgeBase } from '@onekeyfe/cross-inpage-provider-core';
 import type { IWebViewWrapperRef } from '@onekeyfe/onekey-cross-webview';
 
@@ -235,7 +238,7 @@ export function useShouldUpdateConnectedAccount() {
       accountChangedParams: IHandleAccountChangedParams;
       storageType: IConnectionStorageType;
       afterUpdate: () => void;
-    }) => {
+    }): Promise<IHandleAccountChangedResult> => {
       const willUpdateAccountInfo =
         getAccountInfoByActiveAccount(accountChangedParams);
       if (
@@ -250,12 +253,21 @@ export function useShouldUpdateConnectedAccount() {
       // an un-backed-up HD wallet, including one connected before this gate
       // existed, cannot expose a new address to the dApp (OK-63750).
       // checkIsWalletNotBackedUp is fail-closed for HD wallets.
+      // shouldUpdateConnectedAccount already requires a wallet id; the
+      // explicit guard keeps this fail-closed without a `?? ''` fallback.
+      //
+      // The selector state was committed before this handler ran, so on
+      // rejection ask the caller to roll it back to the session's account and
+      // refresh from the session so the UI matches what the dApp still sees.
+      const { walletId } = willUpdateAccountInfo;
       if (
-        await backgroundApiProxy.serviceAccount.checkIsWalletNotBackedUp({
-          walletId: willUpdateAccountInfo.walletId ?? '',
-        })
+        !walletId ||
+        (await backgroundApiProxy.serviceAccount.checkIsWalletNotBackedUp({
+          walletId,
+        }))
       ) {
-        return;
+        afterUpdate();
+        return { revertTo: prevAccountInfo };
       }
 
       const { serviceDApp } = backgroundApiProxy;
