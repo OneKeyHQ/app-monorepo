@@ -1,7 +1,6 @@
 import { createStore } from 'jotai';
 
 import { CONTEXT_ATOM_COLD_START_CACHE_KEYS } from '@onekeyhq/shared/src/consts/jotaiConsts';
-import { EAppSyncStorageKeys } from '@onekeyhq/shared/src/storage/syncStorageKeys';
 import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
 import { ESwapTabSwitchType } from '@onekeyhq/shared/types/swap/types';
 
@@ -13,6 +12,13 @@ import {
 } from '../../../states/jotai/contexts/swap/atoms';
 
 import { hydrateSwapDefaultTokensFromGlobalHomeSnapshot } from './swapRootColdStartUtils';
+
+let mockStoredSnapshotRaw: string | undefined;
+
+jest.mock('@onekeyhq/shared/src/storage/uiSnapshotCaches', () => ({
+  readContextAtomSnapshotRaw: () => mockStoredSnapshotRaw,
+  writeContextAtomSnapshotRaw: () => undefined,
+}));
 
 const stockToken: ISwapToken = {
   networkId: 'evm--56',
@@ -35,21 +41,17 @@ function setHomeColdStartSnapshot() {
       },
   };
   const globalCache = globalThis as typeof globalThis & {
-    __ONEKEY_COLD_START_CACHE_MAP__?: Map<string, unknown>;
     __ONEKEY_CTX_ATOM_SNAPSHOT__?: Record<string, unknown>;
   };
-  globalCache.__ONEKEY_COLD_START_CACHE_MAP__ = new Map([
-    [EAppSyncStorageKeys.onekey_jotai_context_atoms_snapshot, snapshot],
-  ]);
+  mockStoredSnapshotRaw = JSON.stringify(snapshot);
   delete globalCache.__ONEKEY_CTX_ATOM_SNAPSHOT__;
 }
 
 function clearColdStartSnapshot() {
   const globalCache = globalThis as typeof globalThis & {
-    __ONEKEY_COLD_START_CACHE_MAP__?: Map<string, unknown>;
     __ONEKEY_CTX_ATOM_SNAPSHOT__?: Record<string, unknown>;
   };
-  delete globalCache.__ONEKEY_COLD_START_CACHE_MAP__;
+  mockStoredSnapshotRaw = undefined;
   delete globalCache.__ONEKEY_CTX_ATOM_SNAPSHOT__;
 }
 

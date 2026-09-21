@@ -10434,7 +10434,6 @@ __metadata:
     "@reown/appkit-ethers5-react-native": "https://github.com/OneKeyHQ/app-modules#9d96daccc13625e5b3c8b236f9357956b049b884"
     "@rozenite/expo-atlas-plugin": "npm:1.0.0-alpha.16"
     "@rozenite/metro": "npm:1.0.0-alpha.16"
-    "@rozenite/mmkv-plugin": "npm:1.0.0-alpha.16"
     "@rozenite/network-activity-plugin": "npm:1.0.0-alpha.16"
     "@rozenite/react-navigation-plugin": "npm:1.0.0-alpha.16"
     "@sentry/react-native": "npm:8.2.0"
@@ -15081,20 +15080,6 @@ __metadata:
     semver: "npm:^7.7.2"
     tslib: "npm:^2.3.0"
   checksum: 10/8488c34b3a96edb69e06b69700189f123129fcdf424c28c7e4969e646ee835a136b9a7c39a59f83e49facf4ea09a2422be2e18821478a18a1aac89affc6d14ea
-  languageName: node
-  linkType: hard
-
-"@rozenite/mmkv-plugin@npm:1.0.0-alpha.16":
-  version: 1.0.0-alpha.16
-  resolution: "@rozenite/mmkv-plugin@npm:1.0.0-alpha.16"
-  dependencies:
-    "@rozenite/plugin-bridge": "npm:1.0.0-alpha.16"
-    nanoevents: "npm:^9.1.0"
-  peerDependencies:
-    react: "*"
-    react-native: "*"
-    react-native-mmkv: "*"
-  checksum: 10/d35e47ff3e547887460775632d26634019b4e23e17c627281cc8650df28f5424e82c53d771cf5f5151cc7d72ff889ecbb6de24be61395da58683006ef18b18e6
   languageName: node
   linkType: hard
 

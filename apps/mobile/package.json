@@ -61,7 +61,6 @@
     "@react-native/metro-config": "0.86.2",
     "@rozenite/expo-atlas-plugin": "1.0.0-alpha.16",
     "@rozenite/metro": "1.0.0-alpha.16",
-    "@rozenite/mmkv-plugin": "1.0.0-alpha.16",
     "@rozenite/network-activity-plugin": "1.0.0-alpha.16",
     "@rozenite/react-navigation-plugin": "1.0.0-alpha.16",
     "@storybook/addon-ondevice-actions": "10.4.7",
