@@ -4,6 +4,7 @@ import {
   fillMarketKLineGaps,
   getMarketApiKLineIntervalSeconds,
 } from '@onekeyhq/shared/src/utils/marketKLineUtils';
+import { getUSMarketTradingHours } from '@onekeyhq/shared/src/utils/tradingHoursUtils';
 import type { IMarketTokenChart } from '@onekeyhq/shared/types/market';
 import type { IMarketStockPublicChartPeriod } from '@onekeyhq/shared/types/marketV2';
 
@@ -298,6 +299,101 @@ function shouldDropLiveMergeTailPoint({
   );
 }
 
+const STOCK_SIMPLE_CHART_SESSION_CLIP_RANGES = new Set<IStockSimpleChartRange>([
+  '1H',
+  '1D',
+]);
+
+/**
+ * Start of the visible 1H/1D window while a share session is in progress.
+ *
+ * The 1H/1D feeds keep last Friday's prints over the weekend so a closed
+ * market still has a line. Once Monday pre-market opens, those prints are
+ * still in the payload — the time axis then stretches Friday→now into one
+ * long horizontal segment. Token series already arrive windowed; this clip
+ * is share-only. Clock math cannot see holidays, so an explicit `isOpen
+ * === false` keeps last session, including weekday clock gaps. Monday
+ * 09:30 still clips while the backend reports the market open.
+ */
+export function resolveStockSimpleChartActiveRangeStartSeconds({
+  isOpen,
+  nowSeconds,
+  priceMode,
+  range,
+}: {
+  isOpen?: boolean;
+  nowSeconds: number;
+  priceMode: 'share' | 'token';
+  range: IStockSimpleChartRange;
+}): number | undefined {
+  if (
+    priceMode !== 'share' ||
+    !STOCK_SIMPLE_CHART_SESSION_CLIP_RANGES.has(range) ||
+    !Number.isFinite(nowSeconds)
+  ) {
+    return undefined;
+  }
+  const rangeSeconds = STOCK_SIMPLE_CHART_RANGE_SECONDS[range];
+  if (!rangeSeconds) {
+    return undefined;
+  }
+  const nowMs = nowSeconds * 1000;
+  const hours = getUSMarketTradingHours(new Date(nowMs));
+  if (nowMs >= hours.weekendStartInstant && nowMs < hours.weekendEndInstant) {
+    return undefined;
+  }
+  if (isOpen === false) {
+    return undefined;
+  }
+  return nowSeconds - rangeSeconds;
+}
+
+export function resolveStockSimpleChartClipKey({
+  isOpen,
+  nowSeconds,
+  priceMode,
+  range,
+}: {
+  isOpen?: boolean;
+  nowSeconds: number;
+  priceMode: 'share' | 'token';
+  range: IStockSimpleChartRange;
+}): 'clip' | 'keep' {
+  return resolveStockSimpleChartActiveRangeStartSeconds({
+    isOpen,
+    nowSeconds,
+    priceMode,
+    range,
+  }) === undefined
+    ? 'keep'
+    : 'clip';
+}
+
+export function clipStockSimpleChartToActiveRange({
+  isOpen,
+  nowSeconds,
+  points,
+  priceMode,
+  range,
+}: {
+  isOpen?: boolean;
+  nowSeconds: number;
+  points: IMarketTokenChart;
+  priceMode: 'share' | 'token';
+  range: IStockSimpleChartRange;
+}): IMarketTokenChart {
+  const clipStart = resolveStockSimpleChartActiveRangeStartSeconds({
+    isOpen,
+    nowSeconds,
+    priceMode,
+    range,
+  });
+  if (clipStart === undefined) {
+    return points;
+  }
+  return points.filter(([timestamp]) => timestamp >= clipStart);
+}
+
 /**
  * Pins the line's last displayed price to the title quote without rewriting a
  * closed bucket's cutoff. K-line `t` is the bucket start, so a still-open (or
@@ -349,6 +445,68 @@ export function mergeStockSimpleChartLivePrice({
   }
 
   return [...historical, [nowSeconds, price]];
+}
+
+/**
+ * Display series for the simple chart: drop last-session prints that would
+ * stretch the time axis across a weekend/overnight close, then pin the live
+ * quote. A clock gap can empty the window (Sunday 20:00 ET, holiday
+ * crosses) even while the backend is closed — only collapse to
+ * `[now, live]` when the market is open. Otherwise keep the source series
+ * and still pin the title quote so the last label does not jump.
+ */
+export function resolveStockSimpleChartDisplayPoints({
+  clipKey,
+  intervalSeconds,
+  isOpen,
+  livePrice,
+  nowSeconds,
+  points,
+  priceMode,
+  range,
+}: {
+  clipKey?: 'clip' | 'keep';
+  intervalSeconds?: number;
+  isOpen?: boolean;
+  livePrice?: string | number;
+  nowSeconds: number;
+  points: IMarketTokenChart;
+  priceMode: 'share' | 'token';
+  range: IStockSimpleChartRange;
+}): IMarketTokenChart {
+  const clipped =
+    clipKey === 'keep'
+      ? points
+      : clipStockSimpleChartToActiveRange({
+          isOpen,
+          nowSeconds,
+          points,
+          priceMode,
+          range,
+        });
+  if (clipped.length === 0 && points.length > 0) {
+    const price = Number(livePrice);
+    if (
+      isOpen === true &&
+      Number.isFinite(price) &&
+      price > 0 &&
+      Number.isFinite(nowSeconds)
+    ) {
+      return [[nowSeconds, price]];
+    }
+    return mergeStockSimpleChartLivePrice({
+      intervalSeconds,
+      livePrice,
+      nowSeconds,
+      points,
+    });
+  }
+  return mergeStockSimpleChartLivePrice({
+    intervalSeconds,
+    livePrice,
+    nowSeconds,
+    points: clipped,
+  });
 }
 
 // Five minutes short of a day, to stay on the 5m series. The chart loses its
