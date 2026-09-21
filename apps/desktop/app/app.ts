@@ -232,6 +232,7 @@ const APP_NAME = 'OneKey Wallet';
 const APP_TITLE_NAME = 'OneKey';
 app.name = APP_NAME;
 let mainWindow: BrowserWindow | null;
+let saveMainWindowStateImmediately: (() => void) | undefined;
 let isAppReady = false;
 // Custom scheme used to serve the renderer bundle via interceptFileProtocol.
 // Module-scoped so softRestartRenderer and createMainWindow reference the SAME
@@ -783,19 +784,18 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
   // eslint-disable-next-line @typescript-eslint/no-unsafe-call
   const display = screen.getPrimaryDisplay();
   const dimensions = display.workAreaSize;
-  let savedWinBounds: {
-    x?: number;
-    y?: number;
-    width?: number;
-    height?: number;
-  } = store.getWinBounds();
+  const savedWindowState = store.getWinBounds();
+  const { isMaximized: savedWindowIsMaximized = false, ...savedWinBounds } =
+    savedWindowState;
 
   if (
-    savedWinBounds &&
-    ((savedWinBounds?.width || 0) < minWidth ||
-      (savedWinBounds?.height || 0) < minHeight / ratio)
+    (savedWinBounds?.width || 0) < minWidth ||
+    (savedWinBounds?.height || 0) < minHeight / ratio
   ) {
-    savedWinBounds = {};
+    delete savedWinBounds.x;
+    delete savedWinBounds.y;
+    delete savedWinBounds.width;
+    delete savedWinBounds.height;
   }
   const browserWindow = new BrowserWindow({
     show: false,
@@ -839,6 +839,10 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
     ...savedWinBounds,
   });
   applyDesktopNetworkThrottleToWebContents(browserWindow.webContents);
+  const initialNormalWindowBounds = browserWindow.getBounds();
+  if (savedWindowIsMaximized) {
+    browserWindow.maximize();
+  }
 
   const getSafelyBrowserWindow = () => {
     if (browserWindow && !browserWindow.isDestroyed()) {
@@ -1038,16 +1042,53 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
     );
   });
 
-  const saveWindowBounds = () => {
+  let normalWindowBounds = initialNormalWindowBounds;
+  let windowIsMaximized = savedWindowIsMaximized;
+  let saveWindowStateTimer: ReturnType<typeof setTimeout> | undefined;
+  const captureWindowState = () => {
     const safelyWindow = getSafelyBrowserWindow();
-    if (safelyWindow) {
-      store.setWinBounds(safelyWindow.getNormalBounds());
+    if (!safelyWindow) {
+      return;
+    }
+    if (safelyWindow.isNormal()) {
+      normalWindowBounds = safelyWindow.getBounds();
+      windowIsMaximized = false;
+    } else if (safelyWindow.isMaximized()) {
+      windowIsMaximized = true;
     }
   };
-  browserWindow.on('resized', saveWindowBounds);
-  browserWindow.on('moved', saveWindowBounds);
-  browserWindow.on('close', saveWindowBounds);
+  const persistWindowState = () => {
+    saveWindowStateTimer = undefined;
+    captureWindowState();
+    store.setWinBounds({
+      ...normalWindowBounds,
+      isMaximized: windowIsMaximized,
+    });
+  };
+  const scheduleWindowStateSave = () => {
+    captureWindowState();
+    if (saveWindowStateTimer) {
+      clearTimeout(saveWindowStateTimer);
+    }
+    saveWindowStateTimer = setTimeout(persistWindowState, 250);
+  };
+  const flushWindowState = () => {
+    if (saveWindowStateTimer) {
+      clearTimeout(saveWindowStateTimer);
+      saveWindowStateTimer = undefined;
+    }
+    persistWindowState();
+  };
+  saveMainWindowStateImmediately = flushWindowState;
+  browserWindow.on('resize', scheduleWindowStateSave);
+  browserWindow.on('move', scheduleWindowStateSave);
+  browserWindow.on('maximize', scheduleWindowStateSave);
+  browserWindow.on('unmaximize', scheduleWindowStateSave);
+  browserWindow.on('close', flushWindowState);
   browserWindow.on('closed', () => {
+    if (saveMainWindowStateImmediately === flushWindowState) {
+      saveMainWindowStateImmediately = undefined;
+    }
     unregisterShortcuts();
     mainWindow = null;
     isAppReady = false;
@@ -2024,6 +2065,7 @@ app.on('before-quit', (event) => {
   }
   const safelyMainWindow = getSafelyMainWindow();
   if (safelyMainWindow) {
+    saveMainWindowStateImmediately?.();
     safelyMainWindow.removeAllListeners();
     safelyMainWindow.removeAllListeners('close');
     safelyMainWindow.close();

@@ -206,8 +206,12 @@ export type IDesktopStoreNetworkThrottle = {
   profile: IDesktopStoreNetworkThrottleProfile;
 };
 
+export type IDesktopWindowState = Partial<Electron.Rectangle> & {
+  isMaximized?: boolean;
+};
+
 export type IDesktopStoreMap = {
-  [EDesktopStoreKeys.WinBounds]: Electron.Rectangle;
+  [EDesktopStoreKeys.WinBounds]: IDesktopWindowState;
   [EDesktopStoreKeys.UpdateSettings]: IDesktopStoreUpdateSettings;
   [EDesktopStoreKeys.DevTools]: boolean;
   [EDesktopStoreKeys.Theme]: string;

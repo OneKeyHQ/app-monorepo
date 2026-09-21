@@ -1055,21 +1055,31 @@ export function HardwareAccelerationListItem({
   const toggleHardwareAcceleration = useCallback(
     (value: boolean) => {
       if (isEnabled === undefined || value === isEnabled) return;
-      maybeLogSettingsSearchResultClick({
-        source: analyticsSource,
-        logItemClick,
+      Dialog.show({
+        title: 'Apply hardware acceleration change?',
+        description:
+          'OneKey will close to apply this change. It may restart automatically; otherwise, reopen it manually.',
+        onConfirmText: 'Apply and close',
+        onConfirm: async () => {
+          maybeLogSettingsSearchResultClick({
+            source: analyticsSource,
+            logItemClick,
+          });
+          logSettingValueChanged({
+            itemId: 'hardware-acceleration',
+            from: String(isEnabled),
+            to: String(value),
+          });
+          setIsEnabled(value);
+          try {
+            await globalThis.desktopApiProxy.system.setHardwareAccelerationEnabled(
+              value,
+            );
+          } catch {
+            setIsEnabled(isEnabled);
+          }
+        },
       });
-      logSettingValueChanged({
-        itemId: 'hardware-acceleration',
-        from: String(isEnabled),
-        to: String(value),
-      });
-      setIsEnabled(value);
-      void globalThis.desktopApiProxy.system
-        .setHardwareAccelerationEnabled(value)
-        .catch(() => {
-          setIsEnabled(isEnabled);
-        });
     },
     [analyticsSource, isEnabled, logItemClick],
   );

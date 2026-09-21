@@ -438,7 +438,7 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
                   icon: 'ComputerOutline',
                   title: 'Hardware acceleration',
                   subtitle:
-                    'Uses the GPU to improve rendering performance. Turn this off if the app flickers or displays incorrectly. Changes take effect after reopening the app.',
+                    'Uses the GPU to improve rendering performance. Turn this off if the app flickers or displays incorrectly. Changing this setting closes the app so it can take effect.',
                   renderElement: <HardwareAccelerationListItem />,
                 }
               : undefined,
