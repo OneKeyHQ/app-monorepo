@@ -1,6 +1,7 @@
 const mockCallNativeStorage = jest.fn();
 const mockNativeStorageQueueState = jest.fn();
 const mockSWRCacheSlowOp = jest.fn();
+const mockSWRCacheSnapshotState = jest.fn();
 
 jest.mock('../../logger/logger', () => ({
   defaultLogger: {
@@ -13,6 +14,9 @@ jest.mock('../../logger/logger', () => ({
       perf: {
         swrCacheSlowOp: (params: unknown) => {
           mockSWRCacheSlowOp(params);
+        },
+        swrCacheSnapshotState: (params: unknown) => {
+          mockSWRCacheSnapshotState(params);
         },
       },
     },
@@ -85,6 +89,7 @@ describe('nativeSyncStorageMirror', () => {
     mockCallNativeStorage.mockReset();
     mockNativeStorageQueueState.mockReset();
     mockSWRCacheSlowOp.mockReset();
+    mockSWRCacheSnapshotState.mockReset();
     delete (
       globalThis as typeof globalThis & {
         __onekeyNativeStorageIsTransportReady?: () => boolean;
@@ -271,6 +276,32 @@ describe('nativeSyncStorageMirror', () => {
     );
     expect(diagnosticPayload).not.toContain('sensitive-key');
     expect(diagnosticPayload).not.toContain('sensitive-value');
+  });
+
+  it('labels a failed SWR persistence request without logging its key or value', async () => {
+    mockCallNativeStorage.mockRejectedValueOnce(new Error('SWR write failed'));
+    const { createNativeSyncStorageMirror, waitForNativeSyncStorageMutations } =
+      loadMirror();
+    const storage = createNativeSyncStorageMirror('coldStart');
+
+    void storage.applySWRCachePatch?.({
+      removePrefixes: [],
+      removals: [],
+      updates: [['private-key', JSON.stringify({ d: 'private-value', t: 1 })]],
+    });
+    await waitForNativeSyncStorageMutations();
+
+    expect(mockNativeStorageQueueState).toHaveBeenCalledWith(
+      expect.objectContaining({
+        operation: 'patchSWR',
+        store: 'coldStart',
+      }),
+    );
+    const diagnosticPayload = JSON.stringify(
+      mockNativeStorageQueueState.mock.calls,
+    );
+    expect(diagnosticPayload).not.toContain('private-key');
+    expect(diagnosticPayload).not.toContain('private-value');
   });
 
   it('suppresses rapidly repeated failure episodes during the cooldown', async () => {
@@ -560,6 +591,78 @@ describe('nativeSyncStorageMirror', () => {
     });
   });
 
+  it('does not resurrect an entry when a patch tombstone is newer than its update', async () => {
+    mockCallNativeStorage.mockImplementation(
+      async (request: Parameters<typeof buildMutationAcknowledgement>[0]) => {
+        if (request.scope === 'bootstrap') {
+          return { settings: [], coldStart: [], devSettings: [] };
+        }
+        if (request.operation === 'patchSWR' && request.patch) {
+          const patch = request.patch;
+          return {
+            store: request.store,
+            operation: 'patchSWR',
+            entries: [
+              ...patch.removals.map(([key]) => [key, null] as const),
+              ...patch.updates.filter(([key, serialized]) => {
+                const removedAt = patch.removals.find(
+                  ([removedKey]) => removedKey === key,
+                )?.[1];
+                const timestamp = (JSON.parse(serialized) as { t: number }).t;
+                return removedAt === undefined || timestamp >= removedAt;
+              }),
+            ],
+            sourceMutationId: request.sourceMutationId,
+          };
+        }
+        return buildMutationAcknowledgement(request);
+      },
+    );
+    const {
+      bootstrapNativeSyncStorageMirrors,
+      createNativeSyncStorageMirror,
+      waitForNativeSyncStorageMutations,
+    } = loadMirror();
+    const storage = createNativeSyncStorageMirror('coldStart');
+    await bootstrapNativeSyncStorageMirrors();
+
+    void storage.applySWRCachePatch?.({
+      removePrefixes: [],
+      removals: [['deleted', 10]],
+      updates: [['deleted', JSON.stringify({ d: 'stale', t: 5 })]],
+    });
+    await waitForNativeSyncStorageMutations();
+
+    expect(storage.readSWRCacheEntries?.()).toEqual([]);
+    expect(mockCallNativeStorage.mock.calls[1][0]).toMatchObject({
+      operation: 'patchSWR',
+      patch: {
+        removals: [['deleted', 10]],
+        updates: [['deleted', JSON.stringify({ d: 'stale', t: 5 })]],
+      },
+    });
+
+    void storage.applySWRCachePatch?.({
+      removePrefixes: [],
+      removals: [],
+      updates: [['deleted', JSON.stringify({ d: 'fresh', t: 11 })]],
+    });
+    await waitForNativeSyncStorageMutations();
+    expect(new Map(storage.readSWRCacheEntries?.()).get('deleted')).toBe(
+      JSON.stringify({ d: 'fresh', t: 11 }),
+    );
+
+    void storage.applySWRCachePatch?.({
+      removePrefixes: [],
+      removals: [['equal', 20]],
+      updates: [['equal', JSON.stringify({ d: 'same-time', t: 20 })]],
+    });
+    await waitForNativeSyncStorageMutations();
+    expect(new Map(storage.readSWRCacheEntries?.()).get('equal')).toBe(
+      JSON.stringify({ d: 'same-time', t: 20 }),
+    );
+  });
+
   it('bounds an offline SWR patch queue by merging it into one patch', async () => {
     let isReady = true;
     const nativeStorageGlobal = globalThis as typeof globalThis & {
@@ -654,6 +757,7 @@ describe('nativeSyncStorageMirror', () => {
       ...emptyPatch,
       updates: [
         ['gone', JSON.stringify({ d: 'stale', t: 2 })],
+        ['equal', JSON.stringify({ d: 'stale', t: 4 })],
         ['kept', JSON.stringify({ d: 'kept', t: 2 })],
       ],
     });
@@ -665,7 +769,10 @@ describe('nativeSyncStorageMirror', () => {
     }
     void storage.applySWRCachePatch?.({
       removePrefixes: [],
-      removals: [['gone', 4]],
+      removals: [
+        ['gone', 4],
+        ['equal', 4],
+      ],
       updates: [['kept', JSON.stringify({ d: 'newer', t: 5 })]],
     });
     isReady = true;
@@ -679,8 +786,12 @@ describe('nativeSyncStorageMirror', () => {
         updates: Array<[string, string]>;
       };
     };
-    expect(request.patch.removals).toEqual([['gone', 4]]);
+    expect(request.patch.removals).toEqual([
+      ['gone', 4],
+      ['equal', 4],
+    ]);
     expect(new Map(request.patch.updates).has('gone')).toBe(false);
+    expect(new Map(request.patch.updates).has('equal')).toBe(false);
     expect(new Map(request.patch.updates).get('kept')).toBe(
       JSON.stringify({ d: 'newer', t: 5 }),
     );

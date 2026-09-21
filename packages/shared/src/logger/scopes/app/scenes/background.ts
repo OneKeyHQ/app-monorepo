@@ -26,6 +26,7 @@ export class BackgroundScene extends BaseScene {
     stallDurationMs: number;
     stallThresholdMs?: number;
     store: INativeSyncStorageName;
+    operation?: 'set' | 'patchSWR' | 'remove' | 'clear';
   }) {
     return params;
   }

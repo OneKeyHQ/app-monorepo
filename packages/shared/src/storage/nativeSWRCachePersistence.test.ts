@@ -8,6 +8,7 @@ import {
 
 const mockSyncMMKV = jest.fn(async () => undefined);
 const mockSWRCacheCapacityLimit = jest.fn();
+const mockSWRCacheWriteState = jest.fn();
 
 jest.mock('../logger/logger', () => ({
   defaultLogger: {
@@ -15,6 +16,9 @@ jest.mock('../logger/logger', () => ({
       perf: {
         swrCacheCapacityLimit: (params: unknown) => {
           mockSWRCacheCapacityLimit(params);
+        },
+        swrCacheWriteState: (params: unknown) => {
+          mockSWRCacheWriteState(params);
         },
       },
     },
@@ -57,6 +61,7 @@ describe('nativeSWRCachePersistence', () => {
     jest.resetModules();
     mockSyncMMKV.mockClear();
     mockSWRCacheCapacityLimit.mockReset();
+    mockSWRCacheWriteState.mockReset();
   });
 
   it('migrates the legacy blob to independently stored entries', async () => {
@@ -237,6 +242,47 @@ describe('nativeSWRCachePersistence', () => {
     expect(JSON.parse(persistence.readSerialized())).toEqual({
       'wallet:b': { d: 2, t: 30 },
     });
+  });
+
+  it('does not resurrect an entry when a patch tombstone is newer than its update', async () => {
+    const mmkv = new FakeMMKV();
+    const persistence = loadPersistence(mmkv);
+    await persistence.ensureMigrated();
+
+    expect(
+      persistence.applyPatch({
+        removePrefixes: [],
+        removals: [['deleted', 10]],
+        updates: [['deleted', JSON.stringify({ d: 'stale', t: 5 })]],
+      }),
+    ).toEqual([['deleted', null]]);
+    expect(JSON.parse(persistence.readSerialized())).toEqual({});
+    expect(mockSWRCacheWriteState).toHaveBeenCalledWith(
+      expect.objectContaining({
+        affectedEntryCount: 1,
+        eventCount: 1,
+        reason: 'staleTimestamp',
+      }),
+    );
+
+    expect(
+      persistence.applyPatch({
+        removePrefixes: [],
+        removals: [],
+        updates: [['deleted', JSON.stringify({ d: 'fresh', t: 11 })]],
+      }),
+    ).toEqual([['deleted', JSON.stringify({ d: 'fresh', t: 11 })]]);
+    expect(JSON.parse(persistence.readSerialized())).toEqual({
+      deleted: { d: 'fresh', t: 11 },
+    });
+
+    expect(
+      persistence.applyPatch({
+        removePrefixes: [],
+        removals: [['equal', 20]],
+        updates: [['equal', JSON.stringify({ d: 'same-time', t: 20 })]],
+      }),
+    ).toEqual([['equal', JSON.stringify({ d: 'same-time', t: 20 })]]);
   });
 
   it('bounds account entries across runtime patches and removes evicted physical keys', async () => {

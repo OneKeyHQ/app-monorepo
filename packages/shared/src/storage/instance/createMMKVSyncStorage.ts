@@ -29,6 +29,11 @@ export type IMMKVInstance = {
   ) => () => void;
 };
 
+const normalizedAcknowledgements = new WeakMap<
+  PromiseLike<unknown>,
+  Promise<void>
+>();
+
 function normalizeMutationAcknowledgement(
   value: unknown,
 ): void | Promise<void> {
@@ -37,7 +42,15 @@ function normalizeMutationAcknowledgement(
     (typeof value === 'object' || typeof value === 'function') &&
     typeof (value as { then?: unknown }).then === 'function'
   ) {
-    return Promise.resolve(value as PromiseLike<unknown>).then(() => undefined);
+    const thenable = value as PromiseLike<unknown>;
+    let acknowledgement = normalizedAcknowledgements.get(thenable);
+    if (!acknowledgement) {
+      // The native mirror shares confirmation for superseded writes. Keep
+      // that sharing here instead of retaining a new reaction per overwrite.
+      acknowledgement = Promise.resolve(thenable).then(() => undefined);
+      normalizedAcknowledgements.set(thenable, acknowledgement);
+    }
+    return acknowledgement;
   }
   return undefined;
 }

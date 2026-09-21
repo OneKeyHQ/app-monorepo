@@ -24121,6 +24121,7 @@
     "packages/shared/src/storage/instance/nativeAsyncStorageInstance.ts": 4502,
     "packages/shared/src/storage/instance/nativeSyncStorageMirror.ts": 13208,
     "packages/shared/src/storage/instance/nativeSyncStorageParts.native.ts": 23497,
+    "packages/shared/src/storage/instance/nativeSyncStorageReplayBuffer.ts": 12580,
     "packages/shared/src/storage/instance/nonNativeColdStartStorage.native.ts": 22828,
     "packages/shared/src/storage/instance/secureStorageInstance.ts": 22803,
     "packages/shared/src/storage/instance/supabaseStorageInstance.ts": 1748,
