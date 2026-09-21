@@ -196,12 +196,31 @@ export function removeSwrCacheByPrefix(prefix: string): void {
   }
 }
 
-export function clearAllSwrCacheNamespaces(): void {
+/**
+ * Clear SWR namespaces from the store itself.
+ *
+ * Driven off the storage layer's own list, not the key registry: a key whose
+ * leading segment names no declared namespace is written to
+ * `SWR_CACHE_FALLBACK_NAMESPACE`, so `defiEnabled:<networkId>` and friends
+ * live in a namespace no `swrKeys` entry mentions. Walking the registry would
+ * leave them behind.
+ *
+ * `exceptSwrPrefixes` names SWR prefixes to keep (`perpsL2Book`), which is how
+ * a caller spares the namespaces another runtime writes.
+ */
+export function clearAllSwrCacheNamespaces(options?: {
+  exceptSwrPrefixes?: readonly string[];
+}): void {
   // eslint-disable-next-line @typescript-eslint/no-require-imports
   const { SNAPSHOT_CACHE_NAMESPACES } =
     require('../storage/SnapshotCache/snapshotCacheNamespaces') as typeof import('../storage/SnapshotCache/snapshotCacheNamespaces');
-  SNAPSHOT_CACHE_NAMESPACES.filter((namespace) =>
-    namespace.startsWith('swr-'),
+  const kept = new Set(
+    (options?.exceptSwrPrefixes ?? []).map((prefix) =>
+      swrCacheNamespaceName(prefix),
+    ),
+  );
+  SNAPSHOT_CACHE_NAMESPACES.filter(
+    (namespace) => namespace.startsWith('swr-') && !kept.has(namespace),
   ).forEach((namespace) => {
     try {
       getCache(namespace).clear();

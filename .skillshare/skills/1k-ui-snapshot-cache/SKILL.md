@@ -1,15 +1,14 @@
 ---
-name: 1k-cold-start-ssr
-description: "UI snapshot cold start + unified startup timing schema — cold start optimization via snapshot namespaces (MMKV on native, IndexedDB on web) and the cross-platform `[StartupTiming]` log taxonomy. Use when debugging startup performance regressions, analyzing cold start timeline, comparing iOS vs Android startup phases, or modifying the snapshot hydration pipeline. Triggers on: cold start, startup optimization, 启动时间, SSR hydration, Balance displayed regression, UI snapshot, SnapshotCache, swr cache, contextAtomBase, flushColdStartCache, __ONEKEY_CTX_ATOM_SNAPSHOT__, StartupTiming, main_host.did_start, bg_runner.start, ios.main_entry.evaluated, android.app.on_create."
+name: 1k-ui-snapshot-cache
+description: "UI snapshot cache (display-only, main-thread) + unified startup timing schema — cold-start reads from snapshot namespaces (MMKV on native, IndexedDB on web) and the cross-platform `[StartupTiming]` log taxonomy. Use when adding or debugging a UI snapshot / SWR cache, debugging startup performance regressions, analyzing cold start timeline, or comparing iOS vs Android startup phases. Triggers on: ui snapshot cache, SnapshotCache, swr cache, usePromiseResult cache, cold start, startup optimization, 启动时间, SSR hydration, Balance displayed regression, contextAtomBase, flushColdStartCache, __ONEKEY_CTX_ATOM_SNAPSHOT__, StartupTiming, main_host.did_start, bg_runner.start."
 disable-model-invocation: true
 ---
 
-# UI Snapshot Cold Start
+# UI Snapshot Cache
 
-Cold start optimization for the OneKey app. Analogous to web SSR hydration:
-what the last session displayed is persisted, read back synchronously at
-startup, and used as the initial value so the first render paints cached data
-instead of waiting for the network.
+Where the app keeps what it last displayed, so a screen paints before its
+fetch returns. Analogous to web SSR hydration: the values are persisted, read
+back synchronously at startup, and used as the initial value.
 
 The persistence layer is the **UI snapshot store**: a set of namespaces, each
 with its own file (native) or key range (web/desktop), each with its own
@@ -20,6 +19,31 @@ and the SWR cache (`usePromiseResult`).
 shared cold-start store that preceded this — `coldStartCacheStorage` plus the
 `onekey_swr_cache` blob — is gone, so one feature's cache can no longer evict
 another's and a startup read no longer opens a file every feature writes.
+
+## Rules
+
+1. **The cache belongs to the main thread.** The UI runtime owns its reads,
+   writes and removals. bg does not write these namespaces — it has no hook to
+   own an entry and no key to name it by. Desktop and web run one runtime,
+   which is that owner.
+2. **On a mutation, refresh or remove — never patch.** After creating,
+   updating or editing an entity, refresh the hook that owns the entry
+   (`run({ alwaysSetState: true })`) and let the SWR layer persist what the
+   fetcher returned. After deleting one, remove its entry. What is forbidden is
+   maintaining a value by hand — a `set` with a locally assembled object, or a
+   patch to an entry belonging to another screen's hook. Do it in the UI
+   runtime: there is normally no reason to route this through bg, and that
+   detour gives one namespace two writers over one file with no lock between
+   the runtimes.
+3. **Cold start reads it directly.** The first frame reads a record
+   synchronously, without waiting for bg: MMKV on native, and on web/desktop
+   the map that hydration primes before React mounts. A read names its key, so
+   a screen loads its own record and nothing else.
+4. **Nothing sensitive goes in it.** Passwords and password-control state,
+   master-password material, keys, mnemonics, auth tokens: fetched from bg on
+   every read, never persisted here. This store is read off disk before any
+   authentication has happened, and what it holds is display data that is safe
+   to show stale.
 
 ## Storage Layers
 
@@ -186,26 +210,22 @@ const effectiveInitResult =
   it from disk, so a write by the other runtime is not visible until the next
   launch; revalidation on mount is what keeps a value from going stale.
 
-### Writing rule — do not maintain entries by hand
+### Who writes an entry
 
-`usePromiseResult` is the writer. It persists what its fetcher returned, in the
-runtime that owns the hook, and that is the only code that should write an
-entry.
+`usePromiseResult` — it persists what its fetcher returned, in the runtime that
+owns the hook. See **Rules** above; the history behind them:
 
-- After a mutation, **refresh the hook** (`run({ alwaysSetState: true })`) and
-  let it write the truth. Do not call `swrCacheUtils.set` / `remove` /
-  `clearAll` from feature code to keep an entry in step, and do not patch an
-  entry that belongs to another screen's hook.
-- Background services must not write these namespaces, and **a removal is a
-  write**. bg once primed `unifiedNetworkSelectorMeta` after a network toggle,
-  which gave that namespace two writers over one MMKV file with no lock
-  between the runtimes; the selector refreshes itself instead. bg's
-  invalidations now travel as announcements — it deletes nothing, and the
-  owner runtime performs the removal in its own flush, so every mutation of a
-  namespace stays on one thread.
-- Routing a bg write into the UI runtime is not a fix either: on the extension
-  the event bus reaches every open foreground, so the routing turns one writer
-  into one per surface.
+- bg once primed `unifiedNetworkSelectorMeta` after a network toggle, giving
+  that namespace two writers over one MMKV file with no lock. The selector
+  refreshes itself instead. Routing a bg write *through* the UI runtime is not
+  a fix either: on the extension the bus reaches every open foreground, so the
+  routing turns one writer into one per surface.
+- Removals are the UI runtime's too, and nothing crosses the runtime boundary
+  for the cache's sake: the mutation events (`WalletRemove`, `AccountUpdate`,
+  `RefreshBookmarkList`, …) already reach every runtime, so the UI drops its
+  own entries on them in `kit/src/utils/swrCacheMutationInvalidation.ts` —
+  with `flushNow`, so a force-kill cannot leave a deleted wallet to be painted
+  on the next cold open.
 
 ## Split Bundle: main vs background Bundle Sizes
 
@@ -369,45 +389,30 @@ Balance displayed                                 +2073-2693ms ← target TTI
 
 #### iOS baseline — total ~?s tap-to-Balance (TBD, awaiting fixed build)
 
-> ⚠ The first iOS instrumented build (commit `18c67990d7`) had a Swift
-> lazy-init bug: `appLaunchCFTime` was a module-level `let` that only
-> initialized on first read (now in `didFinishLaunching`), collapsing every
-> "+from launch" to ~0ms. Fixed in `ee1877d289` by moving the anchor to
-> `AppDelegate.appLaunchCFTime` (`static let`) and force-evaluating it inside
-> `AppDelegate.init()`. Re-baseline iOS once the new build is on a device.
-
-Approximate iOS timeline shape (deltas between phases are reliable from the
-buggy build; absolute "+from launch" needs the fixed build):
+> ⚠ The first iOS instrumented build (`18c67990d7`) had a Swift lazy-init bug
+> that collapsed every "+from launch" to ~0ms; fixed in `ee1877d289` by
+> force-evaluating `AppDelegate.appLaunchCFTime` in `init()`. Phase *deltas*
+> below are reliable; absolute "+from launch" needs a re-baseline.
 
 ```
-ios.app.did_finish_launching.start                +Xms (was 0 due to lazy bug)
-  main_host.did_start (common bundle loaded)      +X+14ms
-  bg_runner.start                                  +X+14ms
-  ios.app.jpush_register                            2ms
-  ios.app.super_did_finish_launching                0ms     ← RN init happens in factory.startReactNative, not super
+ios.app.did_finish_launching.start                +Xms
+  main_host.did_start / bg_runner.start           +X+14ms
+  ios.app.super_did_finish_launching                0ms  ← RN init is in factory.startReactNative
 ios.app.did_finish_launching.done                +X+22ms
-ios.main_entry.deferred                          +X+34ms   (defer delay ~21ms)
-ios.main_entry.evaluated                         +X+41ms   (just dispatch — async load)
+ios.main_entry.deferred / .evaluated             +X+34ms / +X+41ms (async load)
 
 ── JS phase ──
 [BackgroundEntry] polyfills loaded                +51ms (from JS entry)
-[StartupTiming] BG transport setup                +844ms       ← ~1ms/2 of Android
-[StartupTiming] main entry evaluated              +844ms
+[StartupTiming] BG transport setup / main entry   +844ms
 [BackgroundEntry] backgroundApiProxy ready        +767ms
 Balance displayed                                 +1077-1127ms (warm) ← target TTI
 ```
 
-**iOS vs Android (warm restart medians, JS side):**
-| Metric | iOS | Android | Ratio |
-|---|---|---|---|
-| Balance displayed (from JS entry) | ~1100ms | ~2200ms | 2.0× |
-| BG transport setup (`require('./App')` chain) | ~790ms | ~1700ms | 2.2× |
-| backgroundApiProxy ready (BG thread) | ~720ms | ~1500ms | 2.1× |
-| `[BackgroundEntry] polyfills loaded` | ~51ms | ~115ms | 2.3× |
-
-**Conclusion:** Hermes-iOS executes the same JS bundle ~2× faster than
-Hermes-Android on this device. JS parse time is the dominant cost on both
-platforms (75-85% of total cold start), much larger than any native phase.
+**iOS vs Android (warm restart medians, JS side):** Balance displayed
+~1100ms vs ~2200ms, BG transport setup ~790 vs ~1700, apiProxy ready ~720 vs
+~1500, polyfills ~51 vs ~115 — Hermes-iOS runs the same bundle ~2× faster on
+this device. JS parse dominates on both (75-85% of cold start), far above any
+native phase.
 
 ### Step 4: Common Regression Patterns
 
@@ -443,18 +448,14 @@ grep 'StartupTiming' "$LOG" | awk -F'\\] ' '{print $NF}' | head -40
 
 ### Step 6: Parse for Tracking / Regression Dashboard
 
-Since all native + JS timing lines share the `[StartupTiming]` tag with a consistent
-`<label>: <detail> (+<cumulative>ms from launch)` shape, a minimal parser is:
-
 ```bash
-# Extract label → cumulative_ms pairs
 grep 'StartupTiming' "$LOG" \
   | sed -E 's/.*\[StartupTiming\] ([a-z0-9_.]+).*\+([0-9]+)ms from launch.*/\1\t\2/' \
-  | grep -v 'StartupTiming'  # drop lines without cumulative
+  | grep -v 'StartupTiming'   # drop lines without a cumulative value
 ```
 
-Feed into a time-series store (Sentry, internal dashboard, etc.) keyed by label
-to spot per-phase regressions over builds.
+Feed label → cumulative_ms into a time-series store keyed by label to spot
+per-phase regressions across builds.
 
 ## Critical Rules
 
