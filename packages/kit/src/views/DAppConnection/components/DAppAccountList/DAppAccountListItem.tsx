@@ -262,6 +262,10 @@ function DAppAccountListItem({
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   skeletonRenderDuration,
   preselectKeylessProvider,
+  // dApp connections must not be attached to an HD wallet that has not been
+  // backed up (OK-63750): the picker hides those wallets, and the approval /
+  // switch handlers additionally run checkIsWalletNotBackedUp as a hard gate.
+  hideNonBackedUpWallet = true,
 }: {
   num: number;
   handleAccountChanged?: IHandleAccountChanged;
@@ -272,6 +276,7 @@ function DAppAccountListItem({
   beforeShowTrigger?: () => Promise<void>;
   skeletonRenderDuration?: number;
   preselectKeylessProvider?: EOAuthSocialLoginProvider;
+  hideNonBackedUpWallet?: boolean;
 }) {
   useHandleDiscoveryAccountChanged({
     num,
@@ -312,6 +317,7 @@ function DAppAccountListItem({
             // compressionUiMode={compressionUiMode}
             beforeShowTrigger={beforeShowTrigger}
             loadingDuration={loadingDuration}
+            hideNonBackedUpWallet={hideNonBackedUpWallet}
           />
         </YGroup.Item>
       </YGroup>

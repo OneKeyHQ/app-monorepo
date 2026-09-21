@@ -216,6 +216,8 @@ interface IAccountSelectorTriggerDappConnectionProps extends IXStackProps {
   num: number;
   beforeShowTrigger?: () => Promise<void>;
   loadingDuration?: number;
+  // Hide HD wallets that are not backed up yet in the account picker.
+  hideNonBackedUpWallet?: boolean;
 }
 
 export const AccountSelectorTriggerDappConnection: ComponentType<IAccountSelectorTriggerDappConnectionProps> =
@@ -226,6 +228,7 @@ export const AccountSelectorTriggerDappConnection: ComponentType<IAccountSelecto
         disabled,
         beforeShowTrigger,
         loadingDuration,
+        hideNonBackedUpWallet,
         ...rest
       }: IAccountSelectorTriggerDappConnectionProps,
       _: any,
@@ -238,7 +241,11 @@ export const AccountSelectorTriggerDappConnection: ComponentType<IAccountSelecto
       const {
         activeAccount: { account, wallet, indexedAccount },
         showAccountSelector,
-      } = useAccountSelectorTrigger({ num, linkNetwork: true });
+      } = useAccountSelectorTrigger({
+        num,
+        linkNetwork: true,
+        hideNonBackedUpWallet,
+      });
 
       const triggerDisabled = isLoading || disabled;
 
