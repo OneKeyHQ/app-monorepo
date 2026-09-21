@@ -509,21 +509,26 @@ export function AccountSelectorWalletListSideBarV2({
     [selectedAccount.focusedWallet, snapshot.rows],
   );
   useEffect(() => {
-    if (
-      !initialScrollTarget ||
-      didInitialScrollRef.current ||
-      !listRef.current
-    ) {
+    if (!initialScrollTarget || didInitialScrollRef.current) {
       return;
     }
 
-    didInitialScrollRef.current = true;
-    listRef.current.scrollToKey({
-      key: initialScrollTarget.key,
-      animated: false,
-      viewPosition: 0.5,
-      viewOffset: initialScrollTarget.viewOffset,
+    const frame = requestAnimationFrame(() => {
+      const list = listRef.current;
+      if (!list || didInitialScrollRef.current) {
+        return;
+      }
+
+      didInitialScrollRef.current = true;
+      list.scrollToKey({
+        key: initialScrollTarget.key,
+        animated: false,
+        viewPosition: 0.5,
+        viewOffset: initialScrollTarget.viewOffset,
+      });
     });
+
+    return () => cancelAnimationFrame(frame);
   }, [initialScrollTarget]);
 
   if (shouldHideWalletList) {
