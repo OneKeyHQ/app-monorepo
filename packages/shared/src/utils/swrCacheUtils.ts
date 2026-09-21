@@ -2,6 +2,7 @@
 import { isEqual } from 'lodash';
 
 import { defaultLogger } from '../logger/logger';
+import platformEnv from '../platformEnv';
 
 import {
   SWR_ACCOUNT_SELECTOR_MAX_ENTRIES,
@@ -19,13 +20,13 @@ import {
 import {
   BG_OWNED_SWR_NAMESPACES,
   swrCacheNamespaces as NS,
-  prefixOf,
 } from './swrCacheNamespaceNames';
 import {
   clearAllSwrCacheNamespaces,
   readSwrCacheEntry,
   removeSwrCacheByPrefix,
   removeSwrCacheEntries,
+  swrKeyPrefix,
   writeSwrCacheEntries,
 } from './swrCacheNamespaceStorage';
 
@@ -846,22 +847,75 @@ function clearAll(): void {
  */
 function clearUiOwnedNamespaces(): void {
   const bgOwned = new Set<string>(BG_OWNED_SWR_NAMESPACES);
-  Object.values(NS).forEach((namespace) => {
-    if (bgOwned.has(namespace)) {
+  const isBgOwned = (key: string) => bgOwned.has(swrKeyPrefix(key));
+  // By namespace, not by key prefix: `swrKeys.swapHistoryPreviewList()` is the
+  // bare namespace with no colon after it, so a `<namespace>:` prefix match
+  // would clear its file and leave the entry in this runtime's memory.
+  const store = loadStore();
+  const now = Date.now();
+  Object.keys(store).forEach((key) => {
+    if (isBgOwned(key)) {
       return;
     }
-    removeByPrefix(prefixOf(namespace));
+    removeCachedEntry(store, key);
+    _updatedKeys.delete(key);
+    _removedKeysAt.set(key, now);
   });
+  _dirty = true;
+  // The store holds records this runtime never read, and records under the
+  // fallback namespace that no `swrKeys` entry names, so the wipe is asked of
+  // the storage layer by namespace rather than assembled from the registry.
+  try {
+    clearAllSwrCacheNamespaces({
+      exceptSwrPrefixes: BG_OWNED_SWR_NAMESPACES,
+    });
+  } catch {
+    // Best effort; the removals recorded above still persist below.
+  }
   flushNow();
 }
 
-/** Call on app background to persist immediately. */
+/**
+ * Persist what is pending, without waiting for the debounce.
+ *
+ * On native that is the whole story: the snapshot store writes MMKV
+ * synchronously. Everywhere else it queues an IndexedDB transaction behind a
+ * debounce of its own, so this kicks that too — an extension popup closed
+ * right after a wallet deletion takes its timers with it, and the generic
+ * app-background flush does not cover extension surfaces.
+ */
 function flushNow(): void {
   if (_flushTimer !== undefined) {
     clearTimeout(_flushTimer);
     _flushTimer = undefined;
   }
   flush();
+  void flushSnapshotStore();
+}
+
+/** Resolves once the snapshot store has committed, for a caller that can wait. */
+async function flushNowAndPersist(): Promise<void> {
+  if (_flushTimer !== undefined) {
+    clearTimeout(_flushTimer);
+    _flushTimer = undefined;
+  }
+  flush();
+  await flushSnapshotStore();
+}
+
+function flushSnapshotStore(): Promise<void> {
+  if (platformEnv.isNative) {
+    return Promise.resolve();
+  }
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const { flushUiSnapshotStoreNow } =
+      require('../storage/DisplaySnapshotStorage/webUiSnapshotStore') as typeof import('../storage/DisplaySnapshotStorage/webUiSnapshotStore');
+    return flushUiSnapshotStoreNow();
+  } catch {
+    // The store may not be loaded on every surface.
+    return Promise.resolve();
+  }
 }
 
 // --- Centralized SWR key namespaces ---
@@ -1624,6 +1678,7 @@ export const swrCacheUtils = {
   clearAll,
   clearUiOwnedNamespaces,
   flushNow,
+  flushNowAndPersist,
   reloadFromStorage,
   getSizeStats,
 };

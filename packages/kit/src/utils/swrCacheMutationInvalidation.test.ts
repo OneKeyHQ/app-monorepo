@@ -16,6 +16,7 @@ jest.mock('@onekeyhq/shared/src/utils/swrCacheUtils', () => ({
     remove: jest.fn(),
     removeByPrefix: jest.fn(),
     flushNow: jest.fn(),
+    flushNowAndPersist: jest.fn(() => Promise.resolve()),
     clearUiOwnedNamespaces: jest.fn(),
   },
   swrKeys: {
@@ -31,7 +32,11 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { swrCacheUtils } from '@onekeyhq/shared/src/utils/swrCacheUtils';
 
-import { registerSwrCacheMutationInvalidation } from './swrCacheMutationInvalidation';
+import {
+  dropSwrCacheForRemovedAccount,
+  dropSwrCacheForRemovedWallet,
+  registerSwrCacheMutationInvalidation,
+} from './swrCacheMutationInvalidation';
 
 const BULK_PREFIXES = [
   'bulkCopyWallets:',
@@ -116,6 +121,37 @@ describe('swrCacheMutationInvalidation', () => {
       'disHomeBookmarks:',
     ]);
     expect(swrCacheUtils.flushNow).toHaveBeenCalledTimes(2);
+  });
+
+  it.each([
+    ['a removed wallet', () => dropSwrCacheForRemovedWallet('hd-1')],
+    ['a removed account', () => dropSwrCacheForRemovedAccount()],
+  ])('waits for the store to commit its deletes for %s', async (_, drop) => {
+    // An extension popup closed right after the deletion takes the snapshot
+    // store's own debounce timer with it, and the generic app-background flush
+    // does not cover extension surfaces — so the caller has to be able to wait
+    // for the commit, not just for the intent.
+    let commit = () => {};
+    (swrCacheUtils.flushNowAndPersist as jest.Mock).mockImplementation(
+      () =>
+        new Promise<void>((resolve) => {
+          commit = resolve;
+        }),
+    );
+
+    let returned = false;
+    const pending = drop().then(() => {
+      returned = true;
+    });
+
+    // The removals are recorded before the wait, and the wait is real.
+    expect(droppedPrefixes()).toContain('walletList:');
+    await Promise.resolve();
+    expect(returned).toBe(false);
+
+    commit();
+    await pending;
+    expect(returned).toBe(true);
   });
 
   it('registers once, however many times it is called', () => {

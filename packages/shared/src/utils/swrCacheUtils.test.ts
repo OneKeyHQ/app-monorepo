@@ -55,7 +55,27 @@ jest.mock('./swrCacheNamespaceStorage', () => {
     global.__swrNamespaceDisk ??= new Map();
     return global.__swrNamespaceDisk;
   };
+  const prefixOfKey = (key: string) => {
+    const separator = key.indexOf(':');
+    return separator === -1 ? key : key.slice(0, separator);
+  };
+  /**
+   * Which namespace a key belongs to, routed off the real registry: a leading
+   * segment it declares names the namespace, and anything else lands in the
+   * fallback one. That is what puts `defiEnabled:<networkId>` somewhere no
+   * `swrKeys` entry mentions.
+   */
+  const namespaceOfKey = (key: string) => {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const { swrCacheNamespaces } =
+      require('./swrCacheNamespaceNames') as typeof import('./swrCacheNamespaceNames');
+    const prefix = prefixOfKey(key);
+    return Object.values<string>(swrCacheNamespaces).includes(prefix)
+      ? prefix
+      : '<fallback>';
+  };
   return {
+    swrKeyPrefix: prefixOfKey,
     readSwrCacheEntry: (key: string) => {
       const global = globalThis as { __swrNamespaceReadCount?: number };
       global.__swrNamespaceReadCount =
@@ -71,7 +91,14 @@ jest.mock('./swrCacheNamespaceStorage', () => {
       [...store().keys()]
         .filter((key) => key.startsWith(prefix))
         .forEach((key) => store().delete(key)),
-    clearAllSwrCacheNamespaces: () => store().clear(),
+    clearAllSwrCacheNamespaces: (options?: {
+      exceptSwrPrefixes?: readonly string[];
+    }) => {
+      const kept = new Set<string>(options?.exceptSwrPrefixes ?? []);
+      [...store().keys()]
+        .filter((key) => !kept.has(namespaceOfKey(key)))
+        .forEach((key) => store().delete(key));
+    },
   };
 });
 
@@ -754,6 +781,36 @@ describe('SWR cache removals', () => {
     expect(
       all.filter((ns) => bgOwned.has(ns) && !left.has(`${prefixOf(ns)}seed`)),
     ).toEqual([]);
+  });
+
+  it('drops a namespace whose key carries no colon from memory as well', () => {
+    const cache = loadFreshRuntime();
+    // `swrKeys.swapHistoryPreviewList()` is the bare namespace: a
+    // `<namespace>:` prefix match clears the store and leaves this runtime
+    // still holding the entry, so the previous profile's Swap history keeps
+    // rendering until something fetches it again.
+    const bareKey = swrKeys.swapHistoryPreviewList();
+    expect(bareKey).not.toContain(':');
+    cache.set(bareKey, 'previous profile');
+
+    cache.clearUiOwnedNamespaces();
+
+    expect(cache.get(bareKey)).toBeUndefined();
+    expect(readDiskStore()[bareKey]).toBeUndefined();
+  });
+
+  it('drops a key whose prefix names no declared namespace', () => {
+    const cache = loadFreshRuntime();
+    // A literal prefix, so the storage layer files it under the fallback
+    // namespace and a wipe assembled from the registry misses it both on disk
+    // and in memory.
+    const fallbackKey = swrKeys.defiEnabled('evm--1');
+    cache.set(fallbackKey, 'previous profile');
+
+    cache.clearUiOwnedNamespaces();
+
+    expect(cache.get(fallbackKey)).toBeUndefined();
+    expect(readDiskStore()[fallbackKey]).toBeUndefined();
   });
 
   it('leaves a record bg wrote before the wipe readable afterwards', () => {

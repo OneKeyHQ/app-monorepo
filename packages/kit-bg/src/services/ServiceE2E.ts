@@ -710,7 +710,6 @@ class ServiceE2E extends ServiceBase {
 
     await this.backgroundApi.simpleDb.accountSelector.clearRawData();
 
-    // Wipe every SWR namespace (walletList, accountSelectorList,
     // The SWR namespaces are dropped by the UI runtime on the WalletClear
     // below — it owns the hooks that wrote them. ServiceApp.resetApp is the
     // path that clears every UI snapshot namespace outright.

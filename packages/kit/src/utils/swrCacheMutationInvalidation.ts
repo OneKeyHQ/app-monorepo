@@ -77,20 +77,23 @@ const dropDiscoveryBookmarksSwr = () =>
  * between cannot leave the deleted entity in the store. Both paths delete, and
  * a delete is idempotent.
  */
-export function dropSwrCacheForRemovedWallet(walletId: string) {
+export async function dropSwrCacheForRemovedWallet(walletId: string) {
   swrCacheUtils.remove(swrKeys.accountSelectorValues({ walletId }));
   dropWalletListSwr();
   dropAccountSelectorListSwr();
   dropBulkAddressSwr();
-  swrCacheUtils.flushNow();
+  // Awaited, not fire-and-forget: on web and the extension the snapshot store
+  // commits its deletes behind a debounce of its own, and an extension popup
+  // closed right after the deletion takes that timer with it.
+  await swrCacheUtils.flushNowAndPersist();
 }
 
-export function dropSwrCacheForRemovedAccount() {
+export async function dropSwrCacheForRemovedAccount() {
   dropWalletListSwr();
   dropAccountSelectorListSwr();
   dropAccountSelectorValuesSwr();
   dropBulkAddressSwr();
-  swrCacheUtils.flushNow();
+  await swrCacheUtils.flushNowAndPersist();
 }
 
 let registered = false;

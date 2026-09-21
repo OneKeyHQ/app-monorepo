@@ -2631,8 +2631,9 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
       // const num = 0;
       await serviceAccount.removeAccount({ account, indexedAccount });
       // Dropped here as well as from the mutation event: this runtime is the
-      // one certain to be alive for it.
-      dropSwrCacheForRemovedAccount();
+      // one certain to be alive for it. Awaited so the store has committed
+      // before the caller can navigate away or the surface can close.
+      await dropSwrCacheForRemovedAccount();
       // set(accountSelectorEditModeAtom(), false);
       if (accountUtils.isOthersAccount({ accountId: account?.id })) {
         await this.autoSelectNextAccount.call(set, {
@@ -2672,8 +2673,9 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
           removeSameDeviceWallets,
         });
         // Dropped here as well as from the mutation event: this runtime is the
-        // one certain to be alive for it.
-        dropSwrCacheForRemovedWallet(walletId);
+        // one certain to be alive for it. Awaited so the store has committed
+        // before the caller can navigate away or the surface can close.
+        await dropSwrCacheForRemovedWallet(walletId);
         set(accountSelectorEditModeAtom(), false);
 
         await this.autoSelectNextAccount.call(set, {
