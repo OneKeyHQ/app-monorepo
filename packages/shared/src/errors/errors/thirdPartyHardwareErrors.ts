@@ -28,18 +28,18 @@ export const THIRD_PARTY_HW_BLE_CONNECT_FAILED_CODE =
   ThirdPartyHwErrorCode.BleConnectFailed;
 export const THIRD_PARTY_HW_PIN_MISMATCH_CODE =
   ThirdPartyHwErrorCode.PinMismatch;
-// Literal until the SDK bump lands: HardwareErrorCode.BlePairingCancelled.
-export const THIRD_PARTY_HW_BLE_PAIRING_CANCELLED_CODE = 10_310;
+export const THIRD_PARTY_HW_BLE_PAIRING_CANCELLED_CODE =
+  ThirdPartyHwErrorCode.BlePairingCancelled;
 export const THIRD_PARTY_HW_OPERATION_NOT_FOUND_CODE =
   ThirdPartyHwErrorCode.OperationNotFound;
 export const THIRD_PARTY_HW_OPERATION_ENDED_CODE =
   ThirdPartyHwErrorCode.OperationEnded;
-// Minted by the SDK as LedgerSecureChannelError / LedgerFirmwareMetadataError /
-// AppAlreadyInstalled. Literals because the pinned alpha.4 HardwareErrorCode
-// enum predates them; switch to the enum members from alpha.5.
-export const THIRD_PARTY_HW_SECURE_CHANNEL_ERROR_CODE = 10_311;
-export const THIRD_PARTY_HW_FIRMWARE_METADATA_ERROR_CODE = 10_312;
-export const THIRD_PARTY_HW_APP_ALREADY_INSTALLED_CODE = 10_504;
+export const THIRD_PARTY_HW_SECURE_CHANNEL_ERROR_CODE =
+  ThirdPartyHwErrorCode.LedgerSecureChannelError;
+export const THIRD_PARTY_HW_FIRMWARE_METADATA_ERROR_CODE =
+  ThirdPartyHwErrorCode.LedgerFirmwareMetadataError;
+export const THIRD_PARTY_HW_APP_ALREADY_INSTALLED_CODE =
+  ThirdPartyHwErrorCode.AppAlreadyInstalled;
 
 // ---------------------------------------------------------------------------
 // Base class for third-party hardware errors
