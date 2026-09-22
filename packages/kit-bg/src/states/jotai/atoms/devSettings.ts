@@ -129,6 +129,10 @@ export interface IDevSettings {
   networkThrottleEnabled?: boolean;
   // Force kaspa refTx fetch to fail, so QA can verify the blind-sign fallback.
   mockKaspaRefTxFetchFailed?: boolean;
+  // Override the remote visibility flag so the entries it gates keep rendering
+  // regardless of its value. Default off; only honored while dev mode is
+  // enabled.
+  ignoreReviewControl?: boolean;
 }
 
 export type IDevSettingsKeys = keyof IDevSettings;
@@ -146,6 +150,15 @@ export function getDevSettingsNetworkThrottleEnabled(
     return false;
   }
   return devSettings.settings?.networkThrottleEnabled ?? defaultEnabled;
+}
+
+export function getDevSettingsIgnoreReviewControl(
+  devSettings: IDevSettingsPersistAtom,
+) {
+  if (!devSettings.enabled) {
+    return false;
+  }
+  return Boolean(devSettings.settings?.ignoreReviewControl);
 }
 export const {
   target: devSettingsPersistAtom,
