@@ -156,9 +156,19 @@ jobs:
           yarn install --immutable --immutable-cache --check-cache
           echo "✅ All dependencies verified successfully"
 
+      # Another run may have published this exact key while installation ran.
+      - name: Check dependency image before building
+        id: existing-snapshot
+        if: runner.os == 'Linux' && steps.dependencies.outputs.snapshot-kind != 'exact'
+        uses: actions/cache/restore@v4
+        with:
+          path: ${{ steps.dependencies.outputs.cache-path }}
+          key: ${{ steps.dependencies.outputs.cache-key }}
+          lookup-only: true
+
       - name: Build dependency image
         id: snapshot
-        if: runner.os == 'Linux' && steps.dependencies.outputs.snapshot-kind != 'exact'
+        if: runner.os == 'Linux' && steps.dependencies.outputs.snapshot-kind != 'exact' && steps.existing-snapshot.outputs.cache-hit != 'true'
         run: python3 .github/scripts/ci-dependencies.py build
 
       - name: Publish dependency image from x

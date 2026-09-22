@@ -34,9 +34,26 @@ runs:
       env:
         SEGMENT_DOWNLOAD_TIMEOUT_MINS: '2'
 
+    - name: Resolve legacy x snapshot
+      if: steps.snapshot.outputs.cache-matched-key == ''
+      id: legacy-key
+      shell: bash
+      run: python3 .github/scripts/ci-dependencies.py x_fallback
+
+    - name: Restore legacy dependency image from x
+      if: steps.legacy-key.outputs.key != ''
+      id: legacy
+      uses: actions/cache/restore@v4
+      continue-on-error: true
+      with:
+        path: ${{ steps.fingerprint.outputs.path }}
+        key: ${{ steps.legacy-key.outputs.key }}
+      env:
+        SEGMENT_DOWNLOAD_TIMEOUT_MINS: '2'
+
     - name: Mount and validate dependencies
       id: install
       shell: bash
       env:
-        DEPENDENCY_SNAPSHOT_KEY: ${{ steps.snapshot.outputs.cache-matched-key }}
+        DEPENDENCY_SNAPSHOT_KEY: ${{ steps.snapshot.outputs.cache-matched-key || steps.legacy.outputs.cache-matched-key }}
       run: python3 .github/scripts/ci-dependencies.py install

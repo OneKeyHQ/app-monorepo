@@ -182,6 +182,53 @@ class SnapshotTests(unittest.TestCase):
             dependencies.Snapshot().reset_changed_patches({'foo+1.0.0.patch': '0' * 64})
         self.assertTrue((outside / 'keep').exists())
 
+    def test_legacy_fallback_uses_committed_x_inputs_and_survives_cache_code_changes(self):
+        runtime = {'node': 'v24.21.0', 'arch': 'x86_64'}
+        (self.root / 'patches/example.patch').rename(self.root / 'patches/removed+1.0.0.patch')
+        for name in ['.github/scripts/ci-dependencies.py', '.github/actions/install-dependencies/action.yml']:
+            target = self.root / name
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_text('old cache implementation')
+        subprocess.run(['git', 'add', '-A'], cwd=self.root, check=True)
+        subprocess.run(['git', '-c', 'user.name=Fixture', '-c', 'user.email=fixture@example.invalid',
+                        'commit', '-qm', 'x inputs'], cwd=self.root, check=True)
+        ref = subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=self.root, text=True).strip()
+        expected = 'ci-deps-squashfs-v1-' + dependencies.fingerprint(self.root, runtime)
+        compatibility = dependencies.fingerprint(self.root, runtime, compatible=True)
+        removed_hash = dependencies.checksum(self.root / 'patches/removed+1.0.0.patch')
+        (self.root / 'patches/removed+1.0.0.patch').unlink()
+        (self.root / 'patches/added+2.0.0.patch').write_text('new patch')
+        (self.root / 'package.json').write_text('{"dependencies":{"added":"2.0.0"}}')
+        (self.root / 'yarn.lock').write_text('changed lock')
+        (self.root / '.github/scripts/ci-dependencies.py').write_text('new snapshot reader')
+        (self.root / '.github/actions/install-dependencies/action.yml').write_text('new restore steps')
+        subprocess.run(['git', 'add', '-A'], cwd=self.root, check=True)
+        self.assertEqual(compatibility, dependencies.fingerprint(self.root, runtime, compatible=True))
+        legacy = dependencies.legacy_snapshot(self.root, runtime, compatibility, ref)
+        self.assertEqual(legacy['key'], expected)
+        self.assertEqual(legacy['patches'], {'removed+1.0.0.patch': removed_hash})
+        self.assertEqual(legacy['source_commit'], ref)
+        (self.root / 'package.json').write_text('{"scripts":{"postinstall":"changed.js"}}')
+        changed = dependencies.fingerprint(self.root, runtime, compatible=True)
+        with self.assertRaisesRegex(ValueError, 'incompatible'):
+            dependencies.legacy_snapshot(self.root, runtime, changed, ref)
+
+    def test_legacy_manifest_rejects_unbound_key_and_corruption_before_mount(self):
+        snapshot = dependencies.Snapshot()
+        snapshot.cache.mkdir(parents=True)
+        snapshot.state = {'key': 'v2-key', 'legacy': {'key': 'v1-x-key', 'patches': {}}}
+        (snapshot.cache / 'dependencies.squashfs').write_bytes(b'corrupt')
+        manifest = {'key': 'v1-x-key', 'roots': ['node_modules'], 'bytes': 7, 'sha256': 'wrong'}
+        (snapshot.cache / 'manifest.json').write_text(json.dumps(manifest))
+        with patch.object(dependencies.subprocess, 'run', wraps=subprocess.run) as run:
+            with patch.dict(os.environ, {'DEPENDENCY_SNAPSHOT_KEY': 'arbitrary-v1-key'}):
+                with self.assertRaisesRegex(ValueError, 'compatibility'):
+                    snapshot.mount()
+            with patch.dict(os.environ, {'DEPENDENCY_SNAPSHOT_KEY': 'v1-x-key'}):
+                with self.assertRaisesRegex(ValueError, 'checksum'):
+                    snapshot.mount()
+            self.assertFalse(any(call.args[0][0] == 'sudo' for call in run.call_args_list))
+
     def test_clean_retry_removes_new_workspace_roots(self):
         snapshot = dependencies.Snapshot()
         for name in ['node_modules', 'apps/web/node_modules']:
@@ -311,6 +358,23 @@ class SnapshotIntegrationTests(unittest.TestCase):
                     self.assertEqual((root / 'node_modules/isarray/index.js').read_bytes(), originals['isarray'])
                     self.assertEqual((root / 'node_modules/is-number/index.js').read_bytes().count(b'NEW_CHANGED'), 1)
                     exact.cleanup(remove=True)
+                    legacy = prepare('legacy')
+                    legacy.state['legacy'] = dependencies.legacy_snapshot(
+                        root, legacy.state['runtime'], legacy.state['compatibility'], 'HEAD')
+                    shutil.copytree(seed.cache, legacy.cache, dirs_exist_ok=True)
+                    # v1 used the same image layout, but its manifest had no runtime/patch metadata.
+                    manifest = json.loads((legacy.cache / 'manifest.json').read_text())
+                    manifest = {name: manifest[name] for name in ['roots', 'bytes', 'sha256']}
+                    manifest['key'] = legacy.state['legacy']['key']
+                    (legacy.cache / 'manifest.json').write_text(json.dumps(manifest))
+                    os.environ['DEPENDENCY_SNAPSHOT_KEY'] = manifest['key']
+                    legacy.install()
+                    self.assertEqual(legacy.state['snapshot_kind'], 'incremental')
+                    self.assertEqual(legacy.state['reset_packages'], ['is-number', 'is-odd', 'isarray'])
+                    self.assertEqual((root / 'node_modules/isarray/index.js').read_bytes(), originals['isarray'])
+                    self.assertEqual((root / 'node_modules/is-number/index.js').read_bytes().count(b'NEW_CHANGED'), 1)
+                    self.assertEqual((root / 'node_modules/is-odd/index.js').read_bytes().count(b'NEW_ADDED'), 1)
+                    legacy.cleanup(remove=True)
                     self.assertTrue(all(not snapshot.state['mounts'] for snapshot in snapshots))
                 finally:
                     # Unmount before TemporaryDirectory can remove any fixture paths.
