@@ -25,6 +25,11 @@ import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 
 import ServiceBase from '../ServiceBase';
 
+import {
+  groupNetworkIdsByImpl,
+  pickNetworkIdsWithoutAccount,
+} from './networksWithoutAccount';
+
 import type { IDBAccount } from '../../dbs/local/types';
 import type {
   IAccountDeriveInfo,
@@ -835,6 +840,70 @@ class ServiceAllNetwork extends ServiceBase {
         },
       );
     return mainnetItems;
+  }
+
+  // Which of `networkIds` this indexed account has no usable address on.
+  // Networks sharing an impl share derivation, so each impl group is checked
+  // once: any derive type counts when the network merges derive assets,
+  // otherwise the user's current global derive type must have an account.
+  // Runs the per-group lookups in-process so the UI pays one round trip
+  // instead of three per group.
+  @backgroundMethod()
+  async getNetworkIdsWithoutAccountInIndexedAccount({
+    indexedAccountId,
+    networkIds,
+  }: {
+    indexedAccountId: string;
+    networkIds: string[];
+  }): Promise<string[]> {
+    if (!indexedAccountId || networkIds.length === 0) {
+      return [];
+    }
+    const { serviceAccount, serviceNetwork } = this.backgroundApi;
+    const { networks } = await serviceNetwork.getAllNetworks();
+    const networkById = new Map(networks.map((n) => [n.id, n]));
+    const groups = groupNetworkIdsByImpl(
+      networkIds
+        .map((id) => networkById.get(id))
+        .filter((n): n is IServerNetwork => Boolean(n)),
+    );
+    if (groups.length === 0) {
+      return [];
+    }
+    const { accounts: allDbAccounts } = await serviceAccount.getAllAccounts();
+    const perGroup = await Promise.all(
+      groups.map(async (group) => {
+        const firstNetworkId = group.networkIds[0];
+        const [{ networkAccounts }, vaultSettings] = await Promise.all([
+          serviceAccount.getNetworkAccountsInSameIndexedAccountIdWithDeriveTypes(
+            {
+              allDbAccounts,
+              skipDbQueryIfNotFoundFromAllDbAccounts: true,
+              indexedAccountId,
+              networkId: firstNetworkId,
+              excludeEmptyAccount: true,
+            },
+          ),
+          serviceNetwork.getVaultSettings({ networkId: firstNetworkId }),
+        ]);
+        const mergeDeriveAssetsEnabled =
+          !!vaultSettings.mergeDeriveAssetsEnabled;
+        const currentDeriveType = mergeDeriveAssetsEnabled
+          ? ''
+          : await serviceNetwork.getGlobalDeriveTypeOfNetwork({
+              networkId: firstNetworkId,
+            });
+        return pickNetworkIdsWithoutAccount({
+          group,
+          mergeDeriveAssetsEnabled,
+          accountDeriveTypes: (networkAccounts ?? []).map(
+            (account) => account.deriveType,
+          ),
+          currentDeriveType,
+        });
+      }),
+    );
+    return perGroup.flat();
   }
 
   @backgroundMethod()
