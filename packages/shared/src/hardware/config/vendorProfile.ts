@@ -33,7 +33,7 @@ export interface IHardwareVendorProfile {
   identity: {
     /** Meaning of the legacy primary connectId, independent of its persistence. */
     role: 'transportLocator' | 'walletIdentity';
-    /** Vendor-level fallback used when a scanned device reports no capability. */
+    /** Persistence fallback for scanned locators, not a requirement on SDK calls. */
     persistentConnectId(transport: 'usb' | 'ble'): boolean;
     /** Whether the deviceId persists across sessions for the given transport */
     persistentDeviceId(transport: 'usb' | 'ble'): boolean;
