@@ -10,7 +10,7 @@ import {
   EThirdPartyHardwareRetryAction,
   getThirdPartyHardwareRetryAction,
 } from '../../hardware/thirdPartyHardwareRetry';
-import { ETranslations, ETranslationsMock } from '../../locale';
+import { ETranslations } from '../../locale';
 import {
   THIRD_PARTY_HW_APP_ALREADY_INSTALLED_CODE,
   THIRD_PARTY_HW_BLE_PAIRING_CANCELLED_CODE,
@@ -48,15 +48,15 @@ describe('convertThirdPartyDeviceError', () => {
     ],
     [
       ThirdPartyHwErrorCode.TronCustomContractRequired,
-      ETranslationsMock.hardware_third_party_tron_custom_contract_required__msg,
+      ETranslations.hardware_third_party_tron_custom_contract_required__msg,
     ],
     [
       ThirdPartyHwErrorCode.TronDataSigningRequired,
-      ETranslationsMock.hardware_third_party_tron_data_signing_required__msg,
+      ETranslations.hardware_third_party_tron_data_signing_required__msg,
     ],
     [
       ThirdPartyHwErrorCode.TronSignByHashRequired,
-      ETranslationsMock.hardware_third_party_tron_sign_by_hash_required__msg,
+      ETranslations.hardware_third_party_tron_sign_by_hash_required__msg,
     ],
   ] as const)(
     'maps setting error %s to the matching chain guidance',
@@ -79,7 +79,7 @@ describe('convertThirdPartyDeviceError', () => {
     });
     expect(error.code).toBe(ThirdPartyHwErrorCode.PayloadTooLarge);
     expect(error.key).toBe(
-      ETranslationsMock.hardware_third_party_payload_too_large__msg,
+      ETranslations.hardware_third_party_payload_too_large__msg,
     );
     expect(error.payload?.recovery).toEqual({ scope: 'transport' });
   });
