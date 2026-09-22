@@ -116,7 +116,7 @@ describe('normalizeThirdPartySearchDevicesForTransport', () => {
 });
 
 describe('mapThirdPartyDeviceToSearchDevice', () => {
-  it('uses the vendor profile when callers omit identity fallbacks', () => {
+  it('uses the vendor profile for device identity', () => {
     const mapped = mapThirdPartyDeviceToSearchDevice({
       device: {
         vendor: 'trezor',
@@ -154,8 +154,6 @@ describe('mapThirdPartyDeviceToSearchDevice', () => {
         connectionType: 'usb',
         capabilities: { persistentDeviceIdentity: false },
       },
-      hasPersistentConnectId: () => true,
-      hasPersistentDeviceId: () => true,
     });
 
     expect(mapped.connectId).toBeNull();
@@ -176,9 +174,6 @@ describe('mapThirdPartyDeviceToSearchDevice', () => {
     const mapped = mapThirdPartyDeviceToSearchDevice({
       device: target,
       defaultDeviceName: 'Keystone',
-      canMatchDeviceByConnectId: (connectId) => Boolean(connectId),
-      hasPersistentConnectId: () => true,
-      hasPersistentDeviceId: () => true,
     });
 
     expect(mapped.connectId).toBe(target.connectId);

@@ -1,5 +1,8 @@
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
-import { getVendorProfile } from '@onekeyhq/shared/src/hardware/config/vendorProfile';
+import {
+  type IHardwareVendorProfile,
+  getVendorProfile,
+} from '@onekeyhq/shared/src/hardware/config/vendorProfile';
 import { getThirdPartyDeviceDisplayName } from '@onekeyhq/shared/src/utils/thirdPartyDeviceName';
 import type {
   EHardwareVendor,
@@ -86,30 +89,17 @@ export function normalizeThirdPartySearchDevicesForTransport({
 export function mapThirdPartyDeviceToSearchDevice({
   device,
   defaultDeviceName,
-  canMatchDeviceByConnectId,
-  hasPersistentConnectId,
-  hasPersistentDeviceId,
+  profile = getVendorProfile(device.vendor as EHardwareVendor),
 }: {
   device: DeviceInfo;
   defaultDeviceName?: string;
-  canMatchDeviceByConnectId?: (connectId: string) => boolean;
-  /**
-   * True if this vendor's connectId is stable across sessions on the given
-   * transport. Drives whether USB connectId is preserved or dropped:
-   *   - Trezor USB: serial number, stable → keep
-   *   - Ledger USB: DMK-generated ephemeral UUID → drop, downstream matches
-   *     by chain fingerprint instead
-   */
-  hasPersistentConnectId?: (transport: 'usb' | 'ble') => boolean;
-  hasPersistentDeviceId?: (transport: 'usb' | 'ble') => boolean;
+  profile?: IHardwareVendorProfile;
 }): SearchDevice {
-  const profile = getVendorProfile(device.vendor as EHardwareVendor);
   const rawName =
     device.label || (device as DeviceInfo & { name?: string }).name || '';
   const stableConnectId =
     device.connectId &&
-    (canMatchDeviceByConnectId?.(device.connectId) ??
-      profile.identity.matchDeviceByConnectId(device.connectId))
+    profile.identity.matchDeviceByConnectId(device.connectId)
       ? device.connectId
       : null;
   const connectorClaimsPersistentIdentity =
@@ -129,7 +119,6 @@ export function mapThirdPartyDeviceToSearchDevice({
       // null it out — downstream code matches by chain fingerprint instead.
       connectId =
         (connectorClaimsPersistentIdentity ??
-        hasPersistentConnectId?.('usb') ??
         profile.identity.persistentConnectId('usb'))
           ? stableConnectId
           : null;
@@ -145,14 +134,12 @@ export function mapThirdPartyDeviceToSearchDevice({
     model: device.model,
     name: rawName,
   });
-  const resolvePersistentDeviceId = (transport: 'usb' | 'ble') =>
-    hasPersistentDeviceId?.(transport) ??
-    profile.identity.persistentDeviceId(transport);
   const transport = device.connectionType;
   const hasStableDeviceId =
     transport === 'usb' || transport === 'ble'
-      ? resolvePersistentDeviceId(transport)
-      : resolvePersistentDeviceId('usb') || resolvePersistentDeviceId('ble');
+      ? profile.identity.persistentDeviceId(transport)
+      : profile.identity.persistentDeviceId('usb') ||
+        profile.identity.persistentDeviceId('ble');
   const firmwareDeviceId = hasStableDeviceId ? device.deviceId || null : null;
 
   // Stash the full DeviceInfo (which itself carries `raw.features` and
