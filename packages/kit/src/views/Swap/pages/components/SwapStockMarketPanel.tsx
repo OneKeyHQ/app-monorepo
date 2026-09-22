@@ -122,10 +122,17 @@ function StockPrice({
       </Button>
     );
   } else if (loading) {
-    content = (
+    // The mobile column is 44px tall and its two lines fill it, so the blocks
+    // would sit flush against each other: trim the quote block and leave a gap.
+    content = mobile ? (
+      <YStack alignItems="flex-end" gap="$1">
+        <Skeleton width={112} height={24} />
+        <Skeleton width={88} height={16} />
+      </YStack>
+    ) : (
       <>
-        <Skeleton width={mobile ? 112 : 128} height={mobile ? 28 : 40} />
-        <Skeleton width={mobile ? 88 : 116} height={mobile ? 16 : 24} />
+        <Skeleton width={128} height={40} />
+        <Skeleton width={116} height={24} />
       </>
     );
   } else {
