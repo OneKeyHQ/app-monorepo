@@ -6,6 +6,7 @@ import {
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 
 import {
   getOwnerReplayFrames,
@@ -19,7 +20,29 @@ export interface IPrewarmHomeTokenListOwnerParams {
   othersWalletAccountId?: string;
 }
 
+const HOME_STORE_NAME = EJotaiContextStoreNames.homeTokenList;
+
 const inFlight = new Map<string, Promise<boolean>>();
+
+// Owner keys resolved by earlier prewarms (the selector prewarms its listed
+// rows while open). A tap on one of those rows then confirms from the replay
+// cache without another background round trip. Only a hint: an entry
+// short-circuits while the replay cache still holds frames for that owner,
+// which is cleared with it on wallet / account removal.
+const RESOLVED_OWNER_KEYS_CAP = 64;
+const resolvedOwnerKeys = new Map<string, string>();
+
+function rememberResolvedOwnerKey(key: string, ownerKey: string): void {
+  resolvedOwnerKeys.delete(key);
+  resolvedOwnerKeys.set(key, ownerKey);
+  while (resolvedOwnerKeys.size > RESOLVED_OWNER_KEYS_CAP) {
+    const oldest = resolvedOwnerKeys.keys().next().value;
+    if (oldest === undefined) {
+      break;
+    }
+    resolvedOwnerKeys.delete(oldest);
+  }
+}
 
 function paramsKey(params: IPrewarmHomeTokenListOwnerParams): string {
   return [
@@ -41,10 +64,25 @@ function paramsKey(params: IPrewarmHomeTokenListOwnerParams): string {
 export async function prewarmHomeTokenListOwner(
   params: IPrewarmHomeTokenListOwnerParams,
 ): Promise<boolean> {
-  if (!params.networkId) {
+  if (
+    !params.networkId ||
+    // All Networks (and its merge) is owned by the UI; the background has
+    // nothing to prewarm there, so no round trip for any caller.
+    networkUtils.isAllNetwork({ networkId: params.networkId })
+  ) {
     return false;
   }
   const key = paramsKey(params);
+  const knownOwnerKey = resolvedOwnerKeys.get(key);
+  if (
+    knownOwnerKey &&
+    getOwnerReplayFrames({
+      storeName: HOME_STORE_NAME,
+      ownerKey: knownOwnerKey,
+    })?.structure
+  ) {
+    return true;
+  }
   const pending = inFlight.get(key);
   if (pending) {
     return pending;
@@ -63,6 +101,7 @@ export async function prewarmHomeTokenListOwner(
       if (!structure) {
         return false;
       }
+      rememberResolvedOwnerKey(key, ownerKey);
       // The header worth for the switch frame; the same shape the
       // single-network cache seed writes after the publish.
       if (worth && params.networkId && !getOwnerWorth(ownerKey)) {
@@ -77,7 +116,7 @@ export async function prewarmHomeTokenListOwner(
           currency: worth.currency,
         });
       }
-      const storeName = EJotaiContextStoreNames.homeTokenList;
+      const storeName = HOME_STORE_NAME;
       if (getOwnerReplayFrames({ storeName, ownerKey })?.structure) {
         return true;
       }
