@@ -628,7 +628,10 @@ describe('hasInFlightSwapReviewWork', () => {
     ).toBe(true);
     expect(
       hasInFlightSwapReviewWork({
-        steps: [undefined, step(ESwapStepStatus.READY)] as unknown as ISwapStep[],
+        steps: [
+          undefined,
+          step(ESwapStepStatus.READY),
+        ] as unknown as ISwapStep[],
         preSwapData: {},
       }),
     ).toBe(false);
