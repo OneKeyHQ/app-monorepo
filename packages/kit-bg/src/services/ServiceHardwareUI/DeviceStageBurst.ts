@@ -1,6 +1,8 @@
 import { EDeviceType, HardwareErrorCode } from '@onekeyfe/hd-shared';
+import { HardwareErrorCode as ThirdPartyHwErrorCode } from '@onekeyfe/hwk-adapter-core';
 
 import type { IAirGapUrJson } from '@onekeyhq/qr-wallet-sdk';
+import { EThirdPartyDevicePermissionDeniedReason } from '@onekeyhq/shared/src/errors/errors/thirdPartyHardwareErrors';
 import type {
   IOneKeyError,
   IOneKeyErrorI18nInfo,
@@ -34,6 +36,7 @@ import {
   setDeviceStageBurstActive,
 } from '@onekeyhq/shared/src/hardware/deviceStageOwnership';
 import { logSolanaTxDiagnostic } from '@onekeyhq/shared/src/logger/solanaTxDiagnostics';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EFirmwareUpdateTipMessages } from '@onekeyhq/shared/types/device';
@@ -2237,7 +2240,21 @@ export class DeviceStageBurstScope {
    * failure — the stage stands down instead of landing a notice under it. */
   private isDialogOwnedFailure(error: unknown): boolean {
     const typed = error as IOneKeyError<IOneKeyErrorI18nInfo> | undefined;
+    const permissionReason = typed?.payload?.params?.permissionDeniedReason;
+    // Only the native host permission gate opens the dedicated BLE settings dialog.
+    const hasThirdPartyPermissionDialog =
+      platformEnv.isNative &&
+      Boolean(this.activeVendor) &&
+      isHardwareErrorByCode({
+        error: typed,
+        code: ThirdPartyHwErrorCode.DevicePermissionDenied,
+      }) &&
+      (permissionReason ===
+        EThirdPartyDevicePermissionDeniedReason.permissionDenied ||
+        permissionReason ===
+          EThirdPartyDevicePermissionDeniedReason.bluetoothTurnedOff);
     return Boolean(
+      hasThirdPartyPermissionDialog ||
       isHardwareErrorByCode({
         error: typed,
         code: DEDICATED_DIALOG_ERROR_CODES,
