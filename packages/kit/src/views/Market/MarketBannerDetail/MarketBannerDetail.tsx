@@ -1,4 +1,5 @@
 import { useCallback, useMemo, useState } from 'react';
+import type { CSSProperties } from 'react';
 
 import { useRoute } from '@react-navigation/core';
 import { useHeaderHeight } from '@react-navigation/elements';
@@ -87,6 +88,22 @@ type IMarketBannerDetailRouteParams = RouteProp<
 // Stock metadata uses the liquidity column for volume, so only token lists hide it.
 const BANNER_DETAIL_HIDDEN_DESKTOP_COLUMNS = ['liquidity'] as const;
 
+const WEB_TAB_PANEL_STYLE: CSSProperties = {
+  display: 'flex',
+  flexDirection: 'column',
+  flex: 1,
+  minHeight: 0,
+  minWidth: 0,
+};
+// Preserve table measurements and scroll state while keeping inactive controls
+// out of keyboard navigation and the accessibility tree.
+const WEB_HIDDEN_TAB_PANEL_STYLE: CSSProperties = {
+  ...WEB_TAB_PANEL_STYLE,
+  position: 'absolute',
+  inset: 0,
+  visibility: 'hidden',
+};
+
 function getBannerSpotTabLabelId(
   name: 'spot' | 'perps',
   isStock: boolean,
@@ -94,9 +111,10 @@ function getBannerSpotTabLabelId(
   if (name === 'perps') {
     return ETranslations.global_perp;
   }
+  // Non-stock lists read as "Crypto", matching the Favorites filter.
   return isStock
     ? ETranslations.perps_token_selector_stocks
-    : ETranslations.dexmarket_spot;
+    : ETranslations.prime_crypto_payment__label;
 }
 
 function MarketBannerDetailContent({ title }: { title: string }) {
@@ -105,9 +123,11 @@ function MarketBannerDetailContent({ title }: { title: string }) {
   const isPerps = type === EMarketBannerType.Perps;
   const isMixed = isMarketMixedBanner(type);
   const [activeTab, setActiveTab] = useState<'spot' | 'perps'>('spot');
+  const [hasOpenedPerps, setHasOpenedPerps] = useState(false);
   const showPerps = isPerps || (isMixed && activeTab === 'perps');
   const handleTabPress = useCallback((name: string) => {
     if (name === 'spot' || name === 'perps') setActiveTab(name);
+    if (name === 'perps') setHasOpenedPerps(true);
   }, []);
   const isIndex = isMarketIndexQuoteBanner({ type, assetType });
   const isStock =
@@ -300,27 +320,38 @@ function MarketBannerDetailContent({ title }: { title: string }) {
     [isDesktopTable],
   );
 
-  const renderTokenList = useMemo(() => {
+  const renderPerpsTokenList = useMemo(() => {
+    const perpsSection = (
+      <PerpsTokenListSection
+        tokenListId={tokenListId}
+        isActive={showPerps}
+        changeSortType={changeSortType}
+        change24hColumnTitle={intl.formatMessage({
+          id: ETranslations.dexmarket_banner_token_24hchange,
+        })}
+        onChangeSortPress={handleChangeSortPress}
+      />
+    );
+    return isDesktopTable ? (
+      <YStack px="$3" flex={1}>
+        {perpsSection}
+      </YStack>
+    ) : (
+      perpsSection
+    );
+  }, [
+    tokenListId,
+    showPerps,
+    changeSortType,
+    intl,
+    handleChangeSortPress,
+    isDesktopTable,
+  ]);
+
+  const renderSpotTokenList = useMemo(() => {
     const change24hColumnTitle = intl.formatMessage({
       id: ETranslations.dexmarket_banner_token_24hchange,
     });
-    if (showPerps) {
-      const perpsSection = (
-        <PerpsTokenListSection
-          tokenListId={tokenListId}
-          changeSortType={changeSortType}
-          change24hColumnTitle={change24hColumnTitle}
-          onChangeSortPress={handleChangeSortPress}
-        />
-      );
-      return isDesktopTable ? (
-        <YStack px="$3" flex={1}>
-          {perpsSection}
-        </YStack>
-      ) : (
-        perpsSection
-      );
-    }
     // Narrow layouts use the mobile home lists' rows: the desktop table's
     // intrinsic width would overflow the viewport.
     if (!gtMd) {
@@ -401,10 +432,8 @@ function MarketBannerDetailContent({ title }: { title: string }) {
     // Native tablet: the legacy table, without the web scroller.
     return tokenList;
   }, [
-    showPerps,
     useStockColumns,
     hiddenDesktopColumns,
-    tokenListId,
     listResult,
     onItemPress,
     gtMd,
@@ -420,6 +449,36 @@ function MarketBannerDetailContent({ title }: { title: string }) {
     handleChangeSortPress,
     intl,
   ]);
+
+  let tokenList = showPerps ? renderPerpsTokenList : renderSpotTokenList;
+  if (platformEnv.isWeb && isMixed) {
+    tokenList = (
+      <YStack flex={1} position="relative">
+        <div
+          role="tabpanel"
+          aria-label={intl.formatMessage({
+            id: getBannerSpotTabLabelId('spot', isStock),
+          })}
+          aria-hidden={showPerps}
+          style={showPerps ? WEB_HIDDEN_TAB_PANEL_STYLE : WEB_TAB_PANEL_STYLE}
+        >
+          {renderSpotTokenList}
+        </div>
+        {hasOpenedPerps ? (
+          <div
+            role="tabpanel"
+            aria-label={intl.formatMessage({
+              id: ETranslations.global_perp,
+            })}
+            aria-hidden={!showPerps}
+            style={showPerps ? WEB_TAB_PANEL_STYLE : WEB_HIDDEN_TAB_PANEL_STYLE}
+          >
+            {renderPerpsTokenList}
+          </div>
+        ) : null}
+      </YStack>
+    );
+  }
 
   let bodyTopInset: number;
   if (gtMd) {
@@ -473,7 +532,7 @@ function MarketBannerDetailContent({ title }: { title: string }) {
                 ))}
               </XStack>
             ) : null}
-            {renderTokenList}
+            {tokenList}
           </YStack>
         </Stack>
       </Page.Body>

@@ -33,6 +33,7 @@ import openUrlUtils, {
   openUrlInDiscovery,
 } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
+import { EHeadlessBuyEntry } from '@onekeyhq/shared/types/fiatCrypto';
 import {
   ESwapSource,
   ESwapTabSwitchType,
@@ -47,6 +48,7 @@ import useAppNavigation from '../../../hooks/useAppNavigation';
 import { useExchangeAppDetection } from '../../../hooks/useExchangeAppDetection';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
+import { tryOpenHeadlessBuy } from '../../FiatCrypto/utils/openFiatCryptoOrHeadless';
 import { HomeTokenListProviderMirror } from '../../Home/components/HomeTokenListProvider/HomeTokenListProviderMirror';
 import { WalletActionBuy } from '../../Home/components/WalletActions/WalletActionBuy';
 import { WalletActionReceive } from '../../Home/components/WalletActions/WalletActionReceive';
@@ -227,8 +229,18 @@ function ReceiveSelectorContent() {
   );
 
   const handleBuyOnPress = useCallback(
-    ({ onPress }: { onPress: () => void }) => {
+    async ({ onPress }: { onPress: () => void }) => {
       if (token && isSupported && url) {
+        if (
+          await tryOpenHeadlessBuy({
+            networkId: networkId ?? '',
+            tokenAddress: token.address,
+            accountId,
+            entryFrom: EHeadlessBuyEntry.ReceiveSelector,
+          })
+        ) {
+          return;
+        }
         if (platformEnv.isDesktop || platformEnv.isNative) {
           openFiatCryptoUrl(url);
         } else {
@@ -238,7 +250,7 @@ function ReceiveSelectorContent() {
         onPress();
       }
     },
-    [token, isSupported, url],
+    [token, isSupported, url, networkId, accountId],
   );
 
   const handleSwapOnPress = useCallback(() => {

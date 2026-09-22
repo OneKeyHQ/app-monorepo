@@ -127,7 +127,11 @@ describe('Portfolio v2 category retrieval', () => {
         data: {
           success: true,
           data: { totals: { netWorth: 20 } },
-          meta: { degraded: false, networkIds: ['evm--1'] },
+          meta: {
+            degraded: false,
+            networkIds: ['evm--1'],
+            requestedNetworkIds: ['evm--1'],
+          },
         },
       },
     });
@@ -204,7 +208,7 @@ describe('Portfolio v2 category retrieval', () => {
     };
   }
 
-  test('fetches USD net worth for the selected account and enabled networks', async () => {
+  test('fetches USD category net worth using the Home Perps snapshot policy', async () => {
     const mocks = prepare();
     await expect(
       mocks.internals.getPortfolioCategoryFiat(eventPayload),
@@ -240,7 +244,6 @@ describe('Portfolio v2 category retrieval', () => {
     });
     expect(mocks.getHyperliquidPortfolioSnapshot).toHaveBeenCalledWith({
       address: '0x3333',
-      force: true,
     });
   });
 
@@ -275,6 +278,81 @@ describe('Portfolio v2 category retrieval', () => {
       perpsFiat: '30',
     });
     expect(mocks.post).not.toHaveBeenCalled();
+  });
+
+  test('treats a confirmed zero DeFi response as zero', async () => {
+    const mocks = prepare();
+    mocks.post.mockResolvedValue({
+      data: {
+        data: {
+          success: true,
+          data: { totals: { netWorth: 0 } },
+          meta: {
+            degraded: false,
+            networkIds: [],
+            requestedNetworkIds: ['evm--1'],
+          },
+        },
+      },
+    });
+
+    await expect(
+      mocks.internals.getPortfolioCategoryFiat(eventPayload),
+    ).resolves.toEqual({
+      defiFiat: '0',
+      deFiSource: 'live',
+      perpsFiat: '30',
+    });
+  });
+
+  test('keeps DeFi unknown when the requested network is not confirmed', async () => {
+    const mocks = prepare();
+    mocks.post.mockResolvedValue({
+      data: {
+        data: {
+          success: true,
+          data: { totals: { netWorth: 0 } },
+          meta: {
+            degraded: false,
+            networkIds: ['evm--1'],
+            requestedNetworkIds: [],
+          },
+        },
+      },
+    });
+
+    await expect(
+      mocks.internals.getPortfolioCategoryFiat(eventPayload),
+    ).resolves.toEqual({
+      defiFiat: undefined,
+      deFiSource: 'unknown',
+      perpsFiat: '30',
+    });
+  });
+
+  test('rejects nonzero DeFi totals without actual network coverage', async () => {
+    const mocks = prepare();
+    mocks.post.mockResolvedValue({
+      data: {
+        data: {
+          success: true,
+          data: { totals: { netWorth: 20 } },
+          meta: {
+            degraded: false,
+            networkIds: [],
+            requestedNetworkIds: ['evm--1'],
+          },
+        },
+      },
+    });
+
+    await expect(
+      mocks.internals.getPortfolioCategoryFiat(eventPayload),
+    ).resolves.toEqual({
+      defiFiat: undefined,
+      deFiSource: 'unknown',
+      perpsFiat: '30',
+    });
   });
 
   test('treats a missing perps account row as zero instead of unknown', async () => {
@@ -397,7 +475,11 @@ describe('Portfolio v2 category retrieval', () => {
         data: {
           success: true,
           data: { totals: { netWorth: 20 } },
-          meta: { degraded: false, networkIds: ['evm--1'] },
+          meta: {
+            degraded: false,
+            networkIds: ['evm--1'],
+            requestedNetworkIds: ['evm--1'],
+          },
         },
       },
     });
@@ -445,7 +527,11 @@ describe('Portfolio v2 category retrieval', () => {
           data: {
             success: true,
             data: { totals: { netWorth: 20 } },
-            meta: { degraded: false, networkIds: ['evm--1'] },
+            meta: {
+              degraded: false,
+              networkIds: ['evm--1'],
+              requestedNetworkIds: ['evm--1'],
+            },
           },
         },
       })
@@ -495,7 +581,11 @@ describe('Portfolio v2 category retrieval', () => {
           data: {
             success: true,
             data: { totals: { netWorth: 20 } },
-            meta: { degraded: false, networkIds: ['evm--1'] },
+            meta: {
+              degraded: false,
+              networkIds: ['evm--1'],
+              requestedNetworkIds: ['evm--1'],
+            },
           },
         },
       })
@@ -579,7 +669,11 @@ describe('Portfolio v2 category retrieval', () => {
           data: {
             success: true,
             data: { totals: { netWorth: 20 } },
-            meta: { degraded: false, networkIds: ['evm--1'] },
+            meta: {
+              degraded: false,
+              networkIds: ['evm--1'],
+              requestedNetworkIds: ['evm--1'],
+            },
           },
         },
       })
@@ -620,7 +714,11 @@ describe('Portfolio v2 category retrieval', () => {
           data: {
             success: true,
             data: { totals: { netWorth: 20 } },
-            meta: { degraded: false, networkIds: ['btc--0'] },
+            meta: {
+              degraded: false,
+              networkIds: ['btc--0'],
+              requestedNetworkIds: ['btc--0'],
+            },
           },
         },
       })
@@ -647,7 +745,11 @@ describe('Portfolio v2 category retrieval', () => {
         data: {
           success: true,
           data: { totals: { netWorth: 20 } },
-          meta: { degraded: true, networkIds: ['evm--1'] },
+          meta: {
+            degraded: true,
+            networkIds: ['evm--1'],
+            requestedNetworkIds: ['evm--1'],
+          },
         },
       },
     });
@@ -1242,7 +1344,10 @@ describe('ServiceHardwarePortfolioSync.syncSettledPortfolio', () => {
     });
   }
 
-  test('selects v2 before server packing and carries category changes into the upload', async () => {
+  test('syncs the Home amount without fetching categories on Pro2 v2', async () => {
+    const now = 1_784_592_000_000;
+    jest.spyOn(Date, 'now').mockReturnValue(now);
+    jest.spyOn(Date.prototype, 'getTimezoneOffset').mockReturnValue(-540);
     const portfolioSyncResultSpy = jest
       .spyOn(defaultLogger.hardware.connection, 'portfolioSyncResult')
       .mockImplementation((params) => params);
@@ -1264,10 +1369,11 @@ describe('ServiceHardwarePortfolioSync.syncSettledPortfolio', () => {
     (
       service as unknown as { getPortfolioCategoryFiat: typeof getCategory }
     ).getPortfolioCategoryFiat = getCategory;
-    const now = Date.now();
     await serviceInternals.syncSettledPortfolio({
       ...buildHardwarePayload(),
       totalFiat: '100',
+      homeTotalFiatUsd: '80',
+      homeCategoryFiatUsd: { defiFiat: '20', perpsFiat: '30' },
     });
     expect(serviceInternals.submitPortfolioJsonToServer).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -1278,7 +1384,7 @@ describe('ServiceHardwarePortfolioSync.syncSettledPortfolio', () => {
             tokensFiat: '$100.00',
             defiFiat: '$20.00',
             perpsFiat: '$30.00',
-            totalFiat: '$150.00',
+            totalFiat: '$80.00',
             ts: expect.any(Number),
           }),
         }),
@@ -1289,8 +1395,7 @@ describe('ServiceHardwarePortfolioSync.syncSettledPortfolio', () => {
         artifacts: { portfolio: { ts: number } };
       }
     ).artifacts.portfolio.ts;
-    expect(submittedTimestamp).toBeGreaterThanOrEqual(now);
-    expect(submittedTimestamp).toBeLessThanOrEqual(Date.now());
+    expect(submittedTimestamp).toBe(now + 9 * 60 * 60 * 1000);
     expect(portfolioSyncResultSpy).toHaveBeenCalledWith(
       expect.objectContaining({
         deviceType: EDeviceType.Pro2,
@@ -1300,10 +1405,11 @@ describe('ServiceHardwarePortfolioSync.syncSettledPortfolio', () => {
       }),
     );
     expect(uploadPortfolioPackage).toHaveBeenCalledTimes(1);
+    expect(getCategory).not.toHaveBeenCalled();
     portfolioSyncResultSpy.mockRestore();
   });
 
-  test('selects v2 for Neo firmware 1.0.2', async () => {
+  test('syncs the Home amount without fetching categories on Neo v2', async () => {
     const portfolioSyncResultSpy = jest
       .spyOn(defaultLogger.hardware.connection, 'portfolioSyncResult')
       .mockImplementation((params) => params);
@@ -1331,7 +1437,7 @@ describe('ServiceHardwarePortfolioSync.syncSettledPortfolio', () => {
       totalFiat: '100',
     });
 
-    expect(getCategory).toHaveBeenCalled();
+    expect(getCategory).not.toHaveBeenCalled();
     expect(serviceInternals.submitPortfolioJsonToServer).toHaveBeenCalledWith(
       expect.objectContaining({
         artifacts: expect.objectContaining({
@@ -1339,9 +1445,9 @@ describe('ServiceHardwarePortfolioSync.syncSettledPortfolio', () => {
             v: 2,
             account: expect.objectContaining({ label: '1' }),
             tokensFiat: '$100.00',
-            defiFiat: '$20.00',
-            perpsFiat: '$30.00',
-            totalFiat: '$150.00',
+            defiFiat: '—',
+            perpsFiat: '—',
+            totalFiat: '$100.00',
           }),
         }),
       }),
@@ -2070,10 +2176,24 @@ describe('ServiceHardwarePortfolioSync.syncSettledPortfolio', () => {
       busyResults: [false],
       hardwareTransportType: EHardwareTransportType.BLE,
     });
+    jest.mocked(localDb.getDeviceSafe).mockResolvedValue({
+      id: 'db-device-1',
+      connectId: 'PRO2_CONNECT_ID',
+      deviceId: 'PRO2_DEVICE_ID',
+      deviceType: EDeviceType.Pro2,
+      deviceStateInfo: {
+        identity: { deviceId: 'PRO2_DEVICE_ID' },
+        versions: { firmware: '1.0.2' },
+      },
+    } as Awaited<ReturnType<typeof localDb.getDeviceSafe>>);
+    const getCategory = jest.fn();
+    (
+      service as unknown as { getPortfolioCategoryFiat: typeof getCategory }
+    ).getPortfolioCategoryFiat = getCategory;
 
     await expect(
       service.syncPortfolio({
-        eventPayload: buildHardwarePayload(),
+        eventPayload: { ...buildHardwarePayload(), totalFiat: '600' },
         syncMode: 'interactive',
       }),
     ).resolves.toBe(true);
@@ -2100,6 +2220,20 @@ describe('ServiceHardwarePortfolioSync.syncSettledPortfolio', () => {
     expect(serviceInternals.submitPortfolioJsonToServer).toHaveBeenCalledTimes(
       1,
     );
+    expect(serviceInternals.submitPortfolioJsonToServer).toHaveBeenCalledWith(
+      expect.objectContaining({
+        artifacts: expect.objectContaining({
+          portfolio: expect.objectContaining({
+            v: 2,
+            tokensFiat: '$600.00',
+            defiFiat: '—',
+            perpsFiat: '—',
+            totalFiat: '$600.00',
+          }),
+        }),
+      }),
+    );
+    expect(getCategory).not.toHaveBeenCalled();
     expect(uploadPortfolioPackage).toHaveBeenCalledWith({
       connectId: 'PRO2_CONNECT_ID',
       hardwareTransportType: EHardwareTransportType.BLE,

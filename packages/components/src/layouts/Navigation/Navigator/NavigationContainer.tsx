@@ -12,6 +12,7 @@ import {
   DarkTheme,
   DefaultTheme,
   NavigationContainer as RNNavigationContainer,
+  StackActions,
 } from '@react-navigation/native';
 
 import { useSplitMainView } from '@onekeyhq/components/src/hooks/useSplitView';
@@ -247,8 +248,15 @@ export function resetAboveMainRoute() {
  *
  * Use this in flows that open a modal, then dismiss + switch tab
  * (e.g. UniversalSearch → pick DApp → Discovery tab).
+ *
+ * `shouldContinue` is re-checked after the overlay-dismiss wait so a caller
+ * that was superseded during that window can abandon the tab switch itself,
+ * not only whatever it planned to do afterwards.
  */
-export const switchTabAsync = async (route: ETabRoutes): Promise<void> => {
+export const switchTabAsync = async (
+  route: ETabRoutes,
+  options?: { shouldContinue?: () => boolean },
+): Promise<void> => {
   const rootActiveTab = getActiveTabFromRef(rootNavigationRef);
   const rootHasOverlay = hasOverlayAboveMain(rootNavigationRef);
 
@@ -277,6 +285,9 @@ export const switchTabAsync = async (route: ETabRoutes): Promise<void> => {
   if (rootHasOverlay) {
     resetAboveMainRoute();
     await timerUtils.wait(100);
+    if (options?.shouldContinue && !options.shouldContinue()) {
+      return;
+    }
   }
 
   if (rootActiveTab !== route) {
@@ -571,17 +582,34 @@ export const navigateFromOverlayToTab = async (options: {
   await switchTabAsync(options.targetTab);
 };
 
+/**
+ * Pop the focused tab's stack back to its root screen in a single transition.
+ *
+ * Dispatches one POP_TO_TOP targeted at the nested tab stack instead of
+ * calling goBack() once per screen, so a multi-page flow (e.g. bulk send
+ * addresses → amounts → process) returns straight to the tab home rather than
+ * replaying every intermediate page on the way back (OK-63708). Any overlay
+ * above Main is dismissed first, matching the previous behavior.
+ */
 export const popToTabRootScreen = async () => {
+  if (hasOverlayAboveMain(rootNavigationRef)) {
+    resetAboveMainRoute();
+    await timerUtils.wait(100);
+  }
   const rootState = rootNavigationRef.current?.getRootState();
-  const tabRoute = rootState?.routes?.[rootState.index];
-  if (!tabRoute?.state) {
+  const mainRoute = rootState?.routes?.find(
+    (route) => route.name === ERootRoutes.Main,
+  );
+  const tabState = mainRoute?.state;
+  if (!tabState || tabState.index === undefined) {
     return;
   }
-  if (tabRoute?.state?.index !== undefined) {
-    if (rootNavigationRef.current?.canGoBack()) {
-      rootNavigationRef.current?.goBack();
-      await timerUtils.wait(150);
-      await popToTabRootScreen();
-    }
+  const tabStackState = tabState.routes?.[tabState.index]?.state;
+  if (!tabStackState?.key || !tabStackState.index) {
+    return;
   }
+  rootNavigationRef.current?.dispatch({
+    ...StackActions.popToTop(),
+    target: tabStackState.key,
+  });
 };

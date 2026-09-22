@@ -2019,16 +2019,8 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
   }
 
   private async getCurrencyMapForBuild() {
-    let { currencyMap } = await currencyPersistAtom.get();
+    const { currencyMap } = await currencyPersistAtom.get();
     const settings = await settingsPersistAtom.get();
-    if (!currencyMap[settings.currencyInfo.id]) {
-      try {
-        await this.backgroundApi.serviceSetting.fetchCurrencyList();
-        currencyMap = (await currencyPersistAtom.get()).currencyMap;
-      } catch {
-        // Strict conversion will emit null values if the rate is still absent.
-      }
-    }
     return {
       currencyMap,
       displayCurrency: settings.currencyInfo,
@@ -2237,10 +2229,16 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
                 const value = new BigNumber(
                   result?.data?.totals?.netWorth ?? NaN,
                 );
+                const hasRequestedNetwork =
+                  result?.meta?.requestedNetworkIds.includes(account.networkId);
+                const hasCompleteNetworkCoverage =
+                  result?.meta?.networkIds.includes(account.networkId) ||
+                  (result?.meta?.networkIds.length === 0 && value.isZero());
                 if (
                   !result?.success ||
                   result.meta?.degraded !== false ||
-                  !result.meta.networkIds.includes(account.networkId) ||
+                  !hasRequestedNetwork ||
+                  !hasCompleteNetworkCoverage ||
                   !value.isFinite()
                 ) {
                   return undefined;
@@ -2311,7 +2309,6 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
           await this.backgroundApi.serviceHyperliquid.getHyperliquidPortfolioSnapshot(
             {
               address,
-              force: true,
             },
           );
         return snapshot && !snapshot.isDegraded
@@ -3069,36 +3066,15 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
       telemetry.schemaVersion = schemaVersion;
       telemetry.firmwareVersion =
         device?.deviceStateInfo?.versions?.firmware ?? undefined;
-      const categoryResult =
-        schemaVersion === 2
-          ? await this.getPortfolioCategoryFiat(
-              eventPayload,
-              options?.oneKeyOperationLease?.signal,
-              syncMode === 'silent'
-                ? this.getCategoryFiatCacheKey({ eventPayload, targetKey })
-                : undefined,
-            )
-          : undefined;
-      telemetry.deFiSource = categoryResult?.deFiSource;
-      const categoryFiat = categoryResult
-        ? {
-            defiFiat: categoryResult.defiFiat,
-            perpsFiat: categoryResult.perpsFiat,
-          }
-        : undefined;
       if (!this.isCurrentSyncGeneration(targetKey, generation)) {
         return;
       }
       const artifacts = buildPortfolioSyncArtifacts({
-        categoryFiat,
         currencyMap,
         displayCurrency,
         eventPayload,
         schemaVersion,
-        timestamp:
-          schemaVersion === 2
-            ? updatedAt
-            : getPortfolioDisplayTimestamp({ timestamp: updatedAt }),
+        timestamp: getPortfolioDisplayTimestamp({ timestamp: updatedAt }),
       });
       telemetry.portfolioJsonBytes = artifacts.portfolioJsonBytes.byteLength;
       telemetry.tokenCount = artifacts.portfolio.tokens.length;

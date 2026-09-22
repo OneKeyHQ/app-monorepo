@@ -47,6 +47,37 @@ export class AppPerfScene extends BaseScene {
     return [params];
   }
 
+  // Atom names only, aggregated per window: never a line per write.
+  @LogToLocal()
+  public uiAtomWriteCensus(params: {
+    windowMs: number;
+    total: number;
+    atomCount: number;
+    byAtom: { atom: string; count: number }[];
+  }) {
+    return [params];
+  }
+
+  // Aggregated per window: event-loop blocks, JS heap and GC, process CPU
+  // and memory. Numbers only.
+  @LogToLocal()
+  public runtimeHealthCensus(params: Record<string, number | undefined>) {
+    return [params];
+  }
+
+  // How much data the background pushed into this runtime, per window.
+  // Sender names and sizes only, never payloads.
+  @LogToLocal()
+  public mainInboundCensus(params: {
+    windowMs: number;
+    total: number;
+    totalKB: number;
+    byKind: { kind: string; count: number; kb: number }[];
+    bySender: { sender: string; count: number; kb: number }[];
+  }) {
+    return [params];
+  }
+
   @LogToLocal()
   public cpuWatchdogFired(params: {
     reason:
@@ -92,6 +123,16 @@ export class AppPerfScene extends BaseScene {
     return params;
   }
 
+  // A deletion path waited for the snapshot store and the store reported the
+  // batch still in memory: it re-queued the removal behind a timer that an
+  // extension popup, closing right after the deletion, would take with it.
+  @LogToLocal({ level: 'warn' })
+  public swrCacheRemovalNotPersisted(params: {
+    reason: 'removedWallet' | 'removedAccount';
+  }) {
+    return { ...params, runtime: platformEnv.runtimeRole };
+  }
+
   // Whole-store SWR work is synchronous on the calling JS runtime, so a slow
   // pass on `main` is a UI stall. `runtime` tells main from background.
   @LogToLocal({ level: 'warn' })
@@ -109,6 +150,10 @@ export class AppPerfScene extends BaseScene {
     source?: 'ack' | 'broadcast';
     mutationOp?: 'set' | 'patchSWR' | 'remove' | 'clear';
     replayedCount?: number;
+    heapBytes?: number;
+    allocatedBytes?: number;
+    gcCount?: number;
+    gcMs?: number;
   }) {
     return { ...params, runtime: platformEnv.runtimeRole };
   }

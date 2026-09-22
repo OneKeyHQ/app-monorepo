@@ -21,6 +21,7 @@ import {
   useFocusedTab,
   useMedia,
   useScrollContentTabBarOffset,
+  useTheme,
 } from '@onekeyhq/components';
 import type { ITabBarItemProps } from '@onekeyhq/components/src/composite/Tabs/TabBar';
 import { TabBarItem } from '@onekeyhq/components/src/composite/Tabs/TabBar';
@@ -41,6 +42,7 @@ import {
 } from '@onekeyhq/shared/src/logger/scopes/perp/perpPageSource';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
+import { EShortcutEvents } from '@onekeyhq/shared/src/shortcuts/shortcuts.enum';
 import { travelModeManager } from '@onekeyhq/shared/src/travelMode';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
@@ -60,6 +62,7 @@ import { WebDappEmptyView } from '../../../components/WebDapp/WebDappEmptyView';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { runAfterTokensDone } from '../../../hooks/useRunAfterTokensDone';
+import { useShortcutsOnRouteFocused } from '../../../hooks/useShortcutsOnRouteFocused';
 import {
   useAccountOverviewActions,
   useApprovalsInfoAtom,
@@ -253,6 +256,26 @@ export function HomePageView({
   const { showUnifiedNetworkSelector } = useUnifiedNetworkSelectorTrigger({
     num: 0,
   });
+  const handleNetworkSelectorShortcut = useCallback(() => {
+    if (
+      platformEnv.isWebDappMode ||
+      accountUtils.hasNoUsableWallet({ wallet, account })
+    ) {
+      return;
+    }
+    showUnifiedNetworkSelector({
+      recordNetworkHistoryEnabled: true,
+      defaultTab:
+        network?.isAllNetworks &&
+        !accountUtils.isOthersWallet({ walletId: wallet?.id ?? '' })
+          ? 'portfolio'
+          : undefined,
+    });
+  }, [account, network?.isAllNetworks, showUnifiedNetworkSelector, wallet]);
+  useShortcutsOnRouteFocused(
+    EShortcutEvents.NetworkSelector,
+    handleNetworkSelectorShortcut,
+  );
   const [accountSelectorStorageInitDone] =
     useAccountSelectorStorageInitDoneAtom();
   const accountSelectorActiveAccountInitDone =
@@ -272,6 +295,23 @@ export function HomePageView({
   const [{ hasRiskApprovals }] = useApprovalsInfoAtom();
   const { updateApprovalsInfo } = useAccountOverviewActions().current;
   const tabsRef = useRef<ITabContainerRef | null>(null);
+  // Keep the measured native tab bar height outside the account-keyed container
+  // so remounts do not briefly reserve the library's default 48pt height.
+  const nativeTabBarHeightRef = useRef<number | undefined>(undefined);
+  const nativeTabBarContainerStyle = useMemo(
+    () => ({
+      ...NATIVE_TAB_BAR_CONTAINER_STYLE,
+      onLayout: platformEnv.isNative
+        ? (event: LayoutChangeEvent) => {
+            const height = Math.round(event.nativeEvent.layout.height);
+            if (height > 0) {
+              nativeTabBarHeightRef.current = height;
+            }
+          }
+        : undefined,
+    }),
+    [],
+  );
 
   // Force PagerView to re-sync after bottom tab switch (freeze/unfreeze)
   const wasBlurredRef = useRef(false);
@@ -516,6 +556,17 @@ export function HomePageView({
     );
   }, []);
 
+  // react-native-collapsible-tab-view paints its header container white. In
+  // dark mode that white showed through wherever the header content has no
+  // opaque background: around and inside the offline banner (NetworkAlert
+  // uses margins and translucent critical colors) and at 1px layout seams
+  // above the tab bar (OK-63706). Paint the container with the page color.
+  const theme = useTheme();
+  const headerContainerStyle = useMemo(
+    () => ({ backgroundColor: theme.bgApp.val }),
+    [theme.bgApp.val],
+  );
+
   // Rendered on web only. On native the equivalent lives inside the history
   // list's ListHeaderComponent so its height stays inside the list's measurer.
   const renderSubHeader = useCallback(
@@ -732,7 +783,7 @@ export function HomePageView({
         return (
           <Tabs.TabBar
             {...tabBarProps}
-            containerStyle={NATIVE_TAB_BAR_CONTAINER_STYLE}
+            containerStyle={nativeTabBarContainerStyle}
             tabNames={tabBarTabNames}
             indexDecimal={perpTabShowWeb ? undefined : tabBarProps.indexDecimal}
             onTabPress={handleTabPress}
@@ -790,6 +841,7 @@ export function HomePageView({
       switchToPerpsWebTab,
       perpTabShowWeb,
       isSmallScreen,
+      nativeTabBarContainerStyle,
       tabConfigs,
       tabBarTabNames,
     ],
@@ -923,15 +975,30 @@ export function HomePageView({
         allowHeaderOverscroll
         disableWebTabContentVisibility
         headerHeight={platformEnv.isNative ? 292 : undefined}
+        tabBarHeight={
+          platformEnv.isNative ? nativeTabBarHeightRef.current : undefined
+        }
         useNativeHeaderAnimation={platformEnv.isNativeAndroid}
         width={platformEnv.isNative ? (tabContainerWidth as number) : undefined}
+        headerContainerStyle={headerContainerStyle}
         renderHeader={renderHeader}
         renderTabBar={renderTabBar}
         onTabChange={handleTabChange}
         renderSubHeader={renderSubHeader}
       >
         {pagerTabConfigs.map((tab) => (
-          <Tabs.Tab key={tab.name} name={tab.name}>
+          <Tabs.Tab
+            key={tab.name}
+            name={tab.name}
+            // The native pager mounts a pane only on its first focus, so after
+            // an account switch remounts this container with another tab
+            // active, nothing would fetch the new owner's tokens and the
+            // header (worth, WalletActions, banner) would stay on `unknown`
+            // until the user opens the wallet tab (OK-63721). The wallet
+            // pane owns that data, so it mounts eagerly (and frozen, see
+            // FreezeInactiveHomeTab); other panes keep mounting lazily.
+            startMounted={tab.id === EHomeWalletTab.Portfolio}
+          >
             <FreezeInactiveHomeTab
               tabName={tab.name}
               pressedTabName={activeTabName}
@@ -956,6 +1023,7 @@ export function HomePageView({
     account?.id,
     account?.indexedAccountId,
     isWalletNotBackedUp,
+    headerContainerStyle,
     renderHeader,
     renderTabBar,
     handleTabChange,

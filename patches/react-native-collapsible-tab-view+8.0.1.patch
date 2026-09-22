@@ -1,3 +1,16 @@
+diff --git a/node_modules/react-native-collapsible-tab-view/lib/typescript/src/Lazy.d.ts b/node_modules/react-native-collapsible-tab-view/lib/typescript/src/Lazy.d.ts
+index 87d8130..a5d8bb5 100644
+--- a/node_modules/react-native-collapsible-tab-view/lib/typescript/src/Lazy.d.ts
++++ b/node_modules/react-native-collapsible-tab-view/lib/typescript/src/Lazy.d.ts
+@@ -15,6 +15,7 @@ export declare const Lazy: React.FC<{
+      * Whether to start mounted. Defaults to true if we are the focused tab.
+      */
+     startMounted?: boolean;
++    forceStartMounted?: boolean;
+     children: React.ReactElement;
+ }>;
+ //# sourceMappingURL=Lazy.d.ts.map
+\ No newline at end of file
 diff --git a/node_modules/react-native-collapsible-tab-view/lib/typescript/src/index.d.ts b/node_modules/react-native-collapsible-tab-view/lib/typescript/src/index.d.ts
 index 83c5549..f0b35e5 100644
 --- a/node_modules/react-native-collapsible-tab-view/lib/typescript/src/index.d.ts
@@ -12,7 +25,7 @@ index 83c5549..f0b35e5 100644
  export { MaterialTabBar } from './MaterialTabBar/TabBar';
  export { MaterialTabItem } from './MaterialTabBar/TabItem';
 diff --git a/node_modules/react-native-collapsible-tab-view/lib/typescript/src/types.d.ts b/node_modules/react-native-collapsible-tab-view/lib/typescript/src/types.d.ts
-index 7a739fc..f2659c7 100644
+index 7a739fc..9e15110 100644
 --- a/node_modules/react-native-collapsible-tab-view/lib/typescript/src/types.d.ts
 +++ b/node_modules/react-native-collapsible-tab-view/lib/typescript/src/types.d.ts
 @@ -94,6 +94,20 @@ export type CollapsibleProps = {
@@ -57,8 +70,17 @@ index 7a739fc..f2659c7 100644
  };
  export type ScrollViewProps = ComponentProps<typeof Animated.ScrollView>;
  export type CollapsibleStyle = {
+@@ -198,6 +219,7 @@ export type TabItemProps<T extends TabName> = {
+ export type TabProps<T extends TabName> = {
+     readonly name: T;
+     label?: TabItemProps<T>['label'];
++    startMounted?: boolean;
+     children: React.ReactNode;
+ };
+ //# sourceMappingURL=types.d.ts.map
+\ No newline at end of file
 diff --git a/node_modules/react-native-collapsible-tab-view/src/Container.tsx b/node_modules/react-native-collapsible-tab-view/src/Container.tsx
-index e782b90..dbf088c 100644
+index e782b90..91b10c8 100644
 --- a/node_modules/react-native-collapsible-tab-view/src/Container.tsx
 +++ b/node_modules/react-native-collapsible-tab-view/src/Container.tsx
 @@ -1,9 +1,15 @@
@@ -812,6 +834,15 @@ index e782b90..dbf088c 100644
                style={[pagerProps?.style, StyleSheet.absoluteFill]}
              >
                {tabNamesArray.map((tabName, i) => {
+@@ -440,6 +843,8 @@ export const Container = React.memo(
+                     <TabNameContext.Provider value={tabName}>
+                       <Lazy
+                         startMounted={lazy ? undefined : true}
++                        // OneKey patch: per-tab eager mount (Tab `startMounted`).
++                        forceStartMounted={tabProps.get(tabName)?.startMounted}
+                         cancelLazyFadeIn={!lazy ? true : !!cancelLazyFadeIn}
+                         // ensure that we remount the tab if its name changes but the index doesn't
+                         key={tabName}
 diff --git a/node_modules/react-native-collapsible-tab-view/src/FlashList.tsx b/node_modules/react-native-collapsible-tab-view/src/FlashList.tsx
 index 9ce60da..d8f162e 100644
 --- a/node_modules/react-native-collapsible-tab-view/src/FlashList.tsx
@@ -955,6 +986,38 @@ index e7a6981..8e9ad9e 100644
        contentInset={memoContentInset}
        contentOffset={memoContentOffset}
        automaticallyAdjustContentInsets={false}
+diff --git a/node_modules/react-native-collapsible-tab-view/src/Lazy.tsx b/node_modules/react-native-collapsible-tab-view/src/Lazy.tsx
+index 583c28d..66822d2 100644
+--- a/node_modules/react-native-collapsible-tab-view/src/Lazy.tsx
++++ b/node_modules/react-native-collapsible-tab-view/src/Lazy.tsx
+@@ -27,11 +27,17 @@ export const Lazy: React.FC<{
+    * Whether to start mounted. Defaults to true if we are the focused tab.
+    */
+   startMounted?: boolean
++  /**
++   * OneKey patch: mount the children on the first render even when the tab is
++   * not focused. `startMounted` alone only seeds the fade-in opacity.
++   */
++  forceStartMounted?: boolean
+   children: React.ReactElement
+ }> = ({
+   children,
+   cancelLazyFadeIn,
+   startMounted: _startMounted,
++  forceStartMounted,
+   mountDelayMs = 50,
+ }) => {
+   const name = useTabNameContext()
+@@ -45,7 +51,8 @@ export const Lazy: React.FC<{
+   /**
+    * This is used to control when children are mounted
+    */
+-  const [canMount, setCanMount] = React.useState(false)
++  // OneKey patch: honor an explicit per-tab eager mount (see Tab `startMounted`).
++  const [canMount, setCanMount] = React.useState(!!forceStartMounted)
+   /**
+    * Ensure we don't mount after the component has been unmounted
+    */
 diff --git a/node_modules/react-native-collapsible-tab-view/src/MasonryFlashList.tsx b/node_modules/react-native-collapsible-tab-view/src/MasonryFlashList.tsx
 index 93756ae..6f39353 100644
 --- a/node_modules/react-native-collapsible-tab-view/src/MasonryFlashList.tsx
@@ -1161,7 +1224,7 @@ index 2bd6b9c..80c7377 100644
        contentOffset={memoContentOffset}
        automaticallyAdjustContentInsets={false}
 diff --git a/node_modules/react-native-collapsible-tab-view/src/hooks.tsx b/node_modules/react-native-collapsible-tab-view/src/hooks.tsx
-index ba7dffa..30657ae 100644
+index ba7dffa..bd7c2e4 100644
 --- a/node_modules/react-native-collapsible-tab-view/src/hooks.tsx
 +++ b/node_modules/react-native-collapsible-tab-view/src/hooks.tsx
 @@ -8,11 +8,12 @@ import {
@@ -1282,9 +1345,18 @@ index ba7dffa..30657ae 100644
  }
  /**
   * Hook to access some key styles that make the whole thing work.
-@@ -160,9 +220,11 @@ export function useCollapsibleStyle(): CollapsibleStyle {
-             ? containerHeightWithMinHeader - (tabBarHeight || 0)
-             : containerHeightWithMinHeader + (headerHeight || 0),
+@@ -156,13 +216,17 @@ export function useCollapsibleStyle(): CollapsibleStyle {
+       style: { width },
+       contentContainerStyle: {
+         minHeight:
+-          IS_IOS && !allowHeaderOverscroll
+-            ? containerHeightWithMinHeader - (tabBarHeight || 0)
+-            : containerHeightWithMinHeader + (headerHeight || 0),
++          // OneKey patch: Header padding needs scrollable space even in short iOS tabs.
++          // IS_IOS && !allowHeaderOverscroll
++          //   ? containerHeightWithMinHeader - (tabBarHeight || 0)
++          //   : containerHeightWithMinHeader + (headerHeight || 0),
++          containerHeightWithMinHeader + (headerHeight || 0),
          paddingTop:
 -          IS_IOS && !allowHeaderOverscroll
 -            ? 0
@@ -1297,7 +1369,7 @@ index ba7dffa..30657ae 100644
        },
        progressViewOffset:
          // on iOS we need the refresh control to be at the top if overscrolling
-@@ -260,15 +322,19 @@ export const useScrollHandlerY = (name: TabName) => {
+@@ -260,15 +324,19 @@ export const useScrollHandlerY = (name: TabName) => {
      contentInset,
      containerHeight,
      scrollYCurrent,
@@ -1317,7 +1389,7 @@ index ba7dffa..30657ae 100644
    } = useTabsContext()
  
    const enabled = useSharedValue(false)
-@@ -296,10 +362,13 @@ export const useScrollHandlerY = (name: TabName) => {
+@@ -296,10 +364,13 @@ export const useScrollHandlerY = (name: TabName) => {
    useAnimatedReaction(
      () => scrollAnimation.value,
      (val) => {
@@ -1332,7 +1404,7 @@ index ba7dffa..30657ae 100644
    )
  
    const onMomentumEnd = () => {
-@@ -403,11 +472,24 @@ export const useScrollHandlerY = (name: TabName) => {
+@@ -403,11 +474,24 @@ export const useScrollHandlerY = (name: TabName) => {
                accDiffClamp.value = Math.max(0, nextValue)
              }
            }
@@ -1357,7 +1429,7 @@ index ba7dffa..30657ae 100644
          // ensure the header stops snapping
          cancelAnimation(accDiffClamp)
  
-@@ -416,6 +498,11 @@ export const useScrollHandlerY = (name: TabName) => {
+@@ -416,6 +500,11 @@ export const useScrollHandlerY = (name: TabName) => {
        onEndDrag: () => {
          if (!enabled.value) return
  
@@ -1369,7 +1441,7 @@ index ba7dffa..30657ae 100644
          if (IS_IOS) {
            // we delay this by one frame so that onMomentumBegin may fire on iOS
            afterDrag.value = withDelay(
-@@ -465,6 +552,9 @@ export const useScrollHandlerY = (name: TabName) => {
+@@ -465,6 +554,9 @@ export const useScrollHandlerY = (name: TabName) => {
        return isChangingPane
      },
      (isSyncNeeded, wasSyncNeeded) => {
@@ -1379,15 +1451,14 @@ index ba7dffa..30657ae 100644
        if (
          isSyncNeeded &&
          isSyncNeeded !== wasSyncNeeded &&
-@@ -505,10 +595,68 @@ export const useScrollHandlerY = (name: TabName) => {
+@@ -505,10 +597,68 @@ export const useScrollHandlerY = (name: TabName) => {
          }
        }
      },
 -    [revealHeaderOnScroll, refMap, snapThreshold, enabled, scrollTo]
 +    [revealHeaderOnScroll, refMap, snapThreshold, enabled, scrollTo, useNativeHeaderAnimation]
-   )
- 
--  return { scrollHandler, enable }
++  )
++
 +  // Native animated scroll handler: uses RN Animated.event with useNativeDriver
 +  // for same-frame header animation on Android
 +  const enabledRef = useRef(false)
@@ -1441,8 +1512,9 @@ index ba7dffa..30657ae 100644
 +      runOnJS(setEnabledRefFn)(toggle)
 +    },
 +    [origEnable, setEnabledRefFn]
-+  )
-+
+   )
+ 
+-  return { scrollHandler, enable }
 +  return {
 +    scrollHandler: nativeScrollHandler || scrollHandler,
 +    enable: nativeScrollHandler ? enableWithRef : enable,
@@ -1450,7 +1522,7 @@ index ba7dffa..30657ae 100644
  }
  
  type ForwardRefType<T> =
-@@ -579,11 +727,11 @@ export function useAfterMountEffect(
+@@ -579,11 +729,11 @@ export function useAfterMountEffect(
  export function useConvertAnimatedToValue<T>(
    animatedValue: Animated.SharedValue<T>
  ) {
@@ -1483,7 +1555,7 @@ index 3d0be9d..f9ac35e 100644
  export type { HeaderMeasurements } from './hooks'
  
 diff --git a/node_modules/react-native-collapsible-tab-view/src/types.ts b/node_modules/react-native-collapsible-tab-view/src/types.ts
-index 00fbafc..32bbda1 100644
+index 00fbafc..9a1ca59 100644
 --- a/node_modules/react-native-collapsible-tab-view/src/types.ts
 +++ b/node_modules/react-native-collapsible-tab-view/src/types.ts
 @@ -132,6 +132,22 @@ export type CollapsibleProps = {
@@ -1532,3 +1604,13 @@ index 00fbafc..32bbda1 100644
  }
  
  export type ScrollViewProps = ComponentProps<typeof Animated.ScrollView>
+@@ -252,5 +277,9 @@ export type TabItemProps<T extends TabName> = {
+ export type TabProps<T extends TabName> = {
+   readonly name: T
+   label?: TabItemProps<T>['label']
++  // OneKey patch: mount this tab's content together with the container even
++  // while another tab is focused. Inactive tabs otherwise mount only on their
++  // first focus (Lazy's canMount starts false regardless of `lazy`).
++  startMounted?: boolean
+   children: React.ReactNode
+ }

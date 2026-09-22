@@ -51,17 +51,6 @@ function buildMutationAcknowledgement(request: {
       sourceMutationId: request.sourceMutationId,
     };
   }
-  if (request.operation === 'patchSWR' && request.patch) {
-    return {
-      store: request.store,
-      operation: 'patchSWR',
-      entries: [
-        ...request.patch.removals.map(([key]) => [key, null] as const),
-        ...request.patch.updates,
-      ],
-      sourceMutationId: request.sourceMutationId,
-    };
-  }
   return {
     store: request.store,
     operation: 'clear',
@@ -105,19 +94,21 @@ describe('nativeSyncStorageMirror', () => {
   it('primes synchronous UI reads from a bg-owned bootstrap snapshot', async () => {
     mockCallNativeStorage.mockResolvedValueOnce({
       settings: [['setting', true]],
-      coldStart: [['cache', 'value']],
       devSettings: [['dev', false]],
     });
     const { bootstrapNativeSyncStorageMirrors, createNativeSyncStorageMirror } =
       loadMirror();
     const settings = createNativeSyncStorageMirror('settings');
-    const coldStart = createNativeSyncStorageMirror('coldStart');
+    const devSettings = createNativeSyncStorageMirror('devSettings');
 
     await bootstrapNativeSyncStorageMirrors();
 
     expect(settings.getBoolean('setting')).toBe(true);
-    expect(coldStart.getString('cache')).toBe('value');
-    expect(mockCallNativeStorage).toHaveBeenCalledWith({ scope: 'bootstrap' });
+    expect(devSettings.getBoolean('dev')).toBe(false);
+    expect(mockCallNativeStorage).toHaveBeenCalledWith({
+      scope: 'bootstrap',
+      stores: ['settings', 'devSettings'],
+    });
   });
 
   it('updates UI memory immediately and serializes mutations to bg', async () => {
@@ -126,7 +117,7 @@ describe('nativeSyncStorageMirror', () => {
     );
     const { createNativeSyncStorageMirror, waitForNativeSyncStorageMutations } =
       loadMirror();
-    const storage = createNativeSyncStorageMirror('coldStart');
+    const storage = createNativeSyncStorageMirror('devSettings');
 
     void storage.set('key', 'first');
     void storage.set('key', 'second');
@@ -139,7 +130,7 @@ describe('nativeSyncStorageMirror', () => {
         {
           scope: 'syncStorage',
           operation: 'set',
-          store: 'coldStart',
+          store: 'devSettings',
           key: 'key',
           sourceMutationId: 1,
           sourceRuntimeId: expect.any(String),
@@ -150,7 +141,7 @@ describe('nativeSyncStorageMirror', () => {
         {
           scope: 'syncStorage',
           operation: 'set',
-          store: 'coldStart',
+          store: 'devSettings',
           key: 'key',
           value: 'third',
           previousValue: 'first',
@@ -167,7 +158,6 @@ describe('nativeSyncStorageMirror', () => {
         request.scope === 'bootstrap'
           ? {
               settings: [['key', 'stale-bg']],
-              coldStart: [],
               devSettings: [],
             }
           : buildMutationAcknowledgement(request),
@@ -201,16 +191,16 @@ describe('nativeSyncStorageMirror', () => {
     const { createNativeSyncStorageMirror, waitForNativeSyncStorageMutations } =
       loadMirror();
     const settings = createNativeSyncStorageMirror('settings');
-    const coldStart = createNativeSyncStorageMirror('coldStart');
+    const devSettings = createNativeSyncStorageMirror('devSettings');
 
     void settings.set('settings-key', 'settings-value');
-    void coldStart.set('cache-key', 'cache-value');
+    void devSettings.set('cache-key', 'cache-value');
     await Promise.resolve();
     await Promise.resolve();
 
     expect(mockCallNativeStorage).toHaveBeenCalledTimes(2);
     expect(mockCallNativeStorage.mock.calls[1][0]).toEqual(
-      expect.objectContaining({ store: 'coldStart' }),
+      expect.objectContaining({ store: 'devSettings' }),
     );
     expect(settingsRequest).toBeDefined();
     expect(resolveSettings).toBeDefined();
@@ -287,7 +277,7 @@ describe('nativeSyncStorageMirror', () => {
       );
     const { createNativeSyncStorageMirror, waitForNativeSyncStorageMutations } =
       loadMirror();
-    const storage = createNativeSyncStorageMirror('coldStart');
+    const storage = createNativeSyncStorageMirror('devSettings');
 
     void storage.set('key', 'first');
     await waitForNativeSyncStorageMutations();
@@ -354,7 +344,7 @@ describe('nativeSyncStorageMirror', () => {
     );
     const { createNativeSyncStorageMirror, waitForNativeSyncStorageMutations } =
       loadMirror();
-    const storage = createNativeSyncStorageMirror('coldStart');
+    const storage = createNativeSyncStorageMirror('devSettings');
 
     void storage.set('key', 'first');
     void storage.set('key', 'second');
@@ -371,7 +361,7 @@ describe('nativeSyncStorageMirror', () => {
         {
           scope: 'syncStorage',
           operation: 'set',
-          store: 'coldStart',
+          store: 'devSettings',
           key: 'key',
           value: 'third',
           sourceMutationId: 3,
@@ -465,169 +455,10 @@ describe('nativeSyncStorageMirror', () => {
     ]);
   });
 
-  it('preserves the committed SWR baseline when pending writes compact', async () => {
-    let isReady = true;
-    const nativeStorageGlobal = globalThis as typeof globalThis & {
-      __onekeyNativeStorageIsTransportReady?: () => boolean;
-      __onekeyNativeSyncStorageTransportReady?: () => void;
-    };
-    nativeStorageGlobal.__onekeyNativeStorageIsTransportReady = () => isReady;
-    const initialValue = JSON.stringify({ initial: { d: 'bg', t: 1 } });
-    const firstValue = JSON.stringify({ first: { d: 'main', t: 2 } });
-    const finalValue = JSON.stringify({ final: { d: 'main', t: 3 } });
-    mockCallNativeStorage.mockImplementation(
-      async (request: Parameters<typeof buildMutationAcknowledgement>[0]) =>
-        request.scope === 'bootstrap'
-          ? {
-              settings: [],
-              coldStart: [['onekey_swr_cache', initialValue]],
-              devSettings: [],
-            }
-          : buildMutationAcknowledgement(request),
-    );
-    const {
-      bootstrapNativeSyncStorageMirrors,
-      createNativeSyncStorageMirror,
-      waitForNativeSyncStorageMutations,
-    } = loadMirror();
-    const storage = createNativeSyncStorageMirror('coldStart');
-    await bootstrapNativeSyncStorageMirrors();
-
-    isReady = false;
-    void storage.set('onekey_swr_cache', firstValue);
-    void storage.set('onekey_swr_cache', finalValue);
-    isReady = true;
-    nativeStorageGlobal.__onekeyNativeSyncStorageTransportReady?.();
-    await waitForNativeSyncStorageMutations();
-
-    expect(mockCallNativeStorage.mock.calls[1][0]).toEqual({
-      scope: 'syncStorage',
-      operation: 'set',
-      store: 'coldStart',
-      key: 'onekey_swr_cache',
-      value: finalValue,
-      previousValue: initialValue,
-      sourceMutationId: 2,
-      sourceRuntimeId: expect.any(String),
-    });
-    expect(mockCallNativeStorage).toHaveBeenCalledTimes(2);
-  });
-
-  it('sends only changed SWR entries to bg instead of the full cache blob', async () => {
-    const initialValue = JSON.stringify({
-      existing: { d: 'large-existing-value', t: 1 },
-    });
-    mockCallNativeStorage.mockImplementation(
-      async (request: Parameters<typeof buildMutationAcknowledgement>[0]) =>
-        request.scope === 'bootstrap'
-          ? {
-              settings: [],
-              coldStart: [['onekey_swr_cache', initialValue]],
-              devSettings: [],
-            }
-          : buildMutationAcknowledgement(request),
-    );
-    const {
-      bootstrapNativeSyncStorageMirrors,
-      createNativeSyncStorageMirror,
-      waitForNativeSyncStorageMutations,
-    } = loadMirror();
-    const storage = createNativeSyncStorageMirror('coldStart');
-    await bootstrapNativeSyncStorageMirrors();
-
-    void storage.applySWRCachePatch?.({
-      removePrefixes: [],
-      removals: [],
-      updates: [['changed', JSON.stringify({ d: 'small', t: 2 })]],
-    });
-    await waitForNativeSyncStorageMutations();
-
-    expect(mockCallNativeStorage.mock.calls[1][0]).toEqual({
-      scope: 'syncStorage',
-      operation: 'patchSWR',
-      store: 'coldStart',
-      patch: {
-        removePrefixes: [],
-        removals: [],
-        updates: [['changed', JSON.stringify({ d: 'small', t: 2 })]],
-      },
-      sourceMutationId: 1,
-      sourceRuntimeId: expect.any(String),
-    });
-    expect(JSON.parse(storage.getString('onekey_swr_cache') ?? '{}')).toEqual({
-      existing: { d: 'large-existing-value', t: 1 },
-      changed: { d: 'small', t: 2 },
-    });
-  });
-
-  it('bounds an offline SWR patch queue with a mergeable snapshot', async () => {
-    let isReady = true;
-    const nativeStorageGlobal = globalThis as typeof globalThis & {
-      __onekeyNativeStorageIsTransportReady?: () => boolean;
-      __onekeyNativeSyncStorageTransportReady?: () => void;
-    };
-    nativeStorageGlobal.__onekeyNativeStorageIsTransportReady = () => isReady;
-    const initialValue = JSON.stringify({ initial: { d: 'bg', t: 1 } });
-    mockCallNativeStorage.mockImplementation(
-      async (request: Parameters<typeof buildMutationAcknowledgement>[0]) =>
-        request.scope === 'bootstrap'
-          ? {
-              settings: [],
-              coldStart: [['onekey_swr_cache', initialValue]],
-              devSettings: [],
-            }
-          : buildMutationAcknowledgement(request),
-    );
-    const {
-      bootstrapNativeSyncStorageMirrors,
-      createNativeSyncStorageMirror,
-      waitForNativeSyncStorageMutations,
-    } = loadMirror();
-    const storage = createNativeSyncStorageMirror('coldStart');
-    await bootstrapNativeSyncStorageMirrors();
-
-    isReady = false;
-    for (let index = 0; index < 101; index += 1) {
-      void storage.applySWRCachePatch?.({
-        removePrefixes: [],
-        removals: [],
-        updates: [
-          [
-            `changed-${index}`,
-            JSON.stringify({ d: `value-${index}`, t: index + 2 }),
-          ],
-        ],
-      });
-    }
-    isReady = true;
-    nativeStorageGlobal.__onekeyNativeSyncStorageTransportReady?.();
-    await waitForNativeSyncStorageMutations();
-
-    expect(mockCallNativeStorage).toHaveBeenCalledTimes(2);
-    const request = mockCallNativeStorage.mock.calls[1][0];
-    expect(request).toMatchObject({
-      scope: 'syncStorage',
-      operation: 'set',
-      store: 'coldStart',
-      key: 'onekey_swr_cache',
-      previousValue: initialValue,
-    });
-    expect(
-      Object.keys(
-        JSON.parse(
-          request.operation === 'set' && typeof request.value === 'string'
-            ? request.value
-            : '{}',
-        ) as Record<string, unknown>,
-      ),
-    ).toHaveLength(102);
-  });
-
   it('applies bg broadcasts and replays them over an in-flight snapshot', async () => {
     let resolveBootstrap:
       | ((snapshot: {
           settings: [string, string][];
-          coldStart: never[];
           devSettings: never[];
         }) => void)
       | undefined;
@@ -659,7 +490,6 @@ describe('nativeSyncStorageMirror', () => {
     });
     resolveBootstrap?.({
       settings: [['key', 'stale-snapshot']],
-      coldStart: [],
       devSettings: [],
     });
     await bootstrap;
@@ -667,69 +497,14 @@ describe('nativeSyncStorageMirror', () => {
     expect(storage.getString('key')).toBe('fresh-bg');
   });
 
-  it('reports a slow SWR apply with its source, and stays silent when fast', async () => {
-    mockCallNativeStorage.mockImplementation(
-      async (request: Parameters<typeof buildMutationAcknowledgement>[0]) =>
-        request.scope === 'bootstrap'
-          ? { settings: [], coldStart: [], devSettings: [] }
-          : buildMutationAcknowledgement(request),
-    );
-    const {
-      bootstrapNativeSyncStorageMirrors,
-      createNativeSyncStorageMirror,
-      waitForNativeSyncStorageMutations,
-    } = loadMirror();
-    const storage = createNativeSyncStorageMirror('coldStart');
-    await bootstrapNativeSyncStorageMirrors();
-    const perfSpy = jest.spyOn(globalThis.performance, 'now');
-    const applyBroadcast = (
-      globalThis as typeof globalThis & {
-        __onekeyNativeSyncStorageApplyMutation?: (mutation: {
-          store: 'coldStart';
-          operation: 'patchSWR';
-          entries: Array<readonly [string, string | null]>;
-        }) => void;
-      }
-    ).__onekeyNativeSyncStorageApplyMutation;
-
-    // An acknowledgement applied within the budget leaves no trace.
-    perfSpy.mockReturnValue(0);
-    void storage.applySWRCachePatch?.({
-      removePrefixes: [],
-      removals: [],
-      updates: [['mine', JSON.stringify({ d: 'a', t: 1 })]],
-    });
-    await waitForNativeSyncStorageMutations();
-    expect(mockSWRCacheSlowOp).not.toHaveBeenCalled();
-
-    perfSpy.mockReturnValueOnce(0).mockReturnValueOnce(80);
-    applyBroadcast?.({
-      store: 'coldStart',
-      operation: 'patchSWR',
-      entries: [['theirs', JSON.stringify({ d: 'b', t: 2 })]],
-    });
-
-    expect(mockSWRCacheSlowOp).toHaveBeenCalledTimes(1);
-    expect(mockSWRCacheSlowOp).toHaveBeenCalledWith({
-      op: 'mirrorApply',
-      durationMs: 80,
-      storeChars: storage.getString('onekey_swr_cache')?.length,
-      source: 'broadcast',
-      mutationOp: 'patchSWR',
-      replayedCount: 0,
-    });
-  });
-
   it('refreshes all mirrors after the bg runtime restarts', async () => {
     mockCallNativeStorage
       .mockResolvedValueOnce({
         settings: [['key', 'first-bg']],
-        coldStart: [],
         devSettings: [],
       })
       .mockResolvedValueOnce({
         settings: [['key', 'restarted-bg']],
-        coldStart: [],
         devSettings: [],
       });
     const {
@@ -750,7 +525,6 @@ describe('nativeSyncStorageMirror', () => {
     let resolveFirst:
       | ((snapshot: {
           settings: [string, string][];
-          coldStart: never[];
           devSettings: never[];
         }) => void)
       | undefined;
@@ -779,7 +553,6 @@ describe('nativeSyncStorageMirror', () => {
     const retry = refreshNativeSyncStorageMirrors();
     resolveFirst?.({
       settings: [['key', 'stale']],
-      coldStart: [],
       devSettings: [],
     });
     await Promise.resolve();
@@ -787,7 +560,6 @@ describe('nativeSyncStorageMirror', () => {
 
     resolveSecond?.({
       settings: [['key', 'fresh']],
-      coldStart: [],
       devSettings: [],
     });
     await Promise.all([first, retry]);
@@ -799,13 +571,11 @@ describe('nativeSyncStorageMirror', () => {
     mockCallNativeStorage
       .mockResolvedValueOnce({
         settings: [['key', 'initial-bg']],
-        coldStart: [],
         devSettings: [],
       })
       .mockRejectedValueOnce(new Error('background restarted'))
       .mockResolvedValueOnce({
         settings: [['key', 'stale-after-restart']],
-        coldStart: [],
         devSettings: [],
       })
       .mockResolvedValueOnce({
@@ -845,7 +615,7 @@ describe('nativeSyncStorageMirror', () => {
 
     expect(storage.getString('key')).toBe('newer-local-value');
     expect(mockCallNativeStorage.mock.calls).toEqual([
-      [{ scope: 'bootstrap' }],
+      [{ scope: 'bootstrap', stores: ['settings', 'devSettings'] }],
       [
         {
           scope: 'syncStorage',
@@ -858,7 +628,7 @@ describe('nativeSyncStorageMirror', () => {
           previousValue: 'initial-bg',
         },
       ],
-      [{ scope: 'bootstrap' }],
+      [{ scope: 'bootstrap', stores: ['settings', 'devSettings'] }],
       [
         {
           scope: 'syncStorage',

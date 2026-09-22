@@ -10,11 +10,13 @@ import {
 import type { PropsWithChildren } from 'react';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { useLocaleVariant } from '@onekeyhq/kit/src/hooks/useLocaleVariant';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import {
-  equalTokenNoCaseSensitive,
-  normalizeTokenContractAddress,
-} from '@onekeyhq/shared/src/utils/tokenUtils';
+  swrCacheUtils,
+  swrKeys,
+} from '@onekeyhq/shared/src/utils/swrCacheUtils';
+import { normalizeTokenContractAddress } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type {
   IMarketStockDetailPreview,
   IMarketStockPublicDetail,
@@ -22,8 +24,8 @@ import type {
 } from '@onekeyhq/shared/types/marketV2';
 
 import {
-  getDefaultStockTokenVariant,
   isStockTokenVariantTradable,
+  resolveStockTokenVariantSelection,
 } from '../utils/stockTokenVariant';
 
 export { isStockTokenVariantTradable } from '../utils/stockTokenVariant';
@@ -102,8 +104,14 @@ export function StockDetailProvider({
     initialStockPreview?.stockId.trim().toUpperCase() === normalizedStockId
       ? initialStockPreview
       : undefined;
-  const [selectedTokenId, setSelectedTokenId] = useState<string>();
-  const appliedTokenRouteRef = useRef<string | undefined>(undefined);
+  // Stock copy (about, trading-hour reasons) is localized.
+  const locale = useLocaleVariant().toLowerCase();
+  const stockDetailSwrKey = normalizedStockId
+    ? swrKeys.marketStockDetail({ stockId: normalizedStockId, locale })
+    : undefined;
+  const tokenVariantsSwrKey = normalizedStockId
+    ? swrKeys.marketStockTokenVariants({ stockId: normalizedStockId, locale })
+    : undefined;
   const tokenRouteKey = JSON.stringify([
     normalizedStockId,
     initialNetworkId,
@@ -114,16 +122,71 @@ export function StockDetailProvider({
         })
       : initialTokenAddress,
   ]);
-  // Keep the last successful detail per stock so a superseded response cannot
-  // replace the fallback used by the currently selected stock.
-  const successfulStockDetailsRef = useRef(
-    new Map<string, IStockDetailRequestResult>(),
+  // Pick the variant from cached variants during the first render, so a
+  // revisit knows its token identity before any request settles.
+  const [initialSelectedTokenId] = useState(() => {
+    if (!tokenVariantsSwrKey) return undefined;
+    const cached =
+      swrCacheUtils.get<IStockTokenVariantsRequestResult>(tokenVariantsSwrKey);
+    if (!cached || cached.failed || cached.stockId !== normalizedStockId) {
+      return undefined;
+    }
+    return resolveStockTokenVariantSelection({
+      variants: cached.items,
+      defaultTokenId: cached.defaultTokenId,
+      routeNetworkId: initialNetworkId,
+      routeTokenAddress: initialTokenAddress,
+    })?.tokenId;
+  });
+  const [selectedTokenId, setSelectedTokenId] = useState<string | undefined>(
+    initialSelectedTokenId,
   );
+  // A cached list is enough to pick a token to render, but not enough to call
+  // the route handled: the snapshot can predate the route's variant, and
+  // marking it applied here made the effect below skip the fetched list that
+  // finally contained it.
+  const appliedTokenRouteRef = useRef<string | undefined>(undefined);
+  // Set only where a variant list actually came back from the network, which
+  // is the one thing that may retire the route.
+  const fetchedTokenVariantsStockIdRef = useRef<string | undefined>(undefined);
+  // Keep the last successful detail per stock so a superseded response cannot
+  // replace the fallback used by the currently selected stock. Seeded from the
+  // same cache usePromiseResult replays, so a first fetch that fails on a
+  // revisit falls back to what the page is already showing instead of
+  // replacing it with an error.
+  const [successfulStockDetails] = useState(() => {
+    const seeded = new Map<string, IStockDetailRequestResult>();
+    const cached = stockDetailSwrKey
+      ? swrCacheUtils.get<IStockDetailRequestResult>(stockDetailSwrKey)
+      : undefined;
+    if (
+      normalizedStockId &&
+      cached &&
+      !cached.failed &&
+      cached.data &&
+      cached.stockId === normalizedStockId
+    ) {
+      seeded.set(normalizedStockId, cached);
+    }
+    return seeded;
+  });
   // Same idea for the variant list, kept per stock because a failed fetch here
   // must not drop the token the user already selected.
-  const successfulTokenVariantsRef = useRef(
-    new Map<string, IStockTokenVariantsRequestResult>(),
-  );
+  const [successfulTokenVariants] = useState(() => {
+    const seeded = new Map<string, IStockTokenVariantsRequestResult>();
+    const cached = tokenVariantsSwrKey
+      ? swrCacheUtils.get<IStockTokenVariantsRequestResult>(tokenVariantsSwrKey)
+      : undefined;
+    if (
+      normalizedStockId &&
+      cached &&
+      !cached.failed &&
+      cached.stockId === normalizedStockId
+    ) {
+      seeded.set(normalizedStockId, cached);
+    }
+    return seeded;
+  });
 
   const {
     result: stockDetailResult,
@@ -141,21 +204,21 @@ export function StockDetailProvider({
           return { stockId: normalizedStockId, failed: true };
         }
         const result = { stockId: normalizedStockId, data };
-        successfulStockDetailsRef.current.set(normalizedStockId, result);
+        successfulStockDetails.set(normalizedStockId, result);
         return result;
       } catch (_error) {
         // A polling tick that fails must not turn a loaded page into an error
         // page: keep the last good payload and retry silently on the next
         // tick. Only a stock we never loaded surfaces the retryable error.
-        const lastStockDetail =
-          successfulStockDetailsRef.current.get(normalizedStockId);
+        const lastStockDetail = successfulStockDetails.get(normalizedStockId);
         if (lastStockDetail) {
           return lastStockDetail;
         }
         return { stockId: normalizedStockId, failed: true };
       }
     },
-    [normalizedStockId],
+    // The map is useState-stable, so naming it here never re-runs the request.
+    [normalizedStockId, successfulStockDetails],
     {
       watchLoading: true,
       // `checkIsFocused` stays at the repo default (true). It is what gates the
@@ -173,6 +236,8 @@ export function StockDetailProvider({
         ? STOCK_DETAIL_POLLING_INTERVAL
         : undefined,
       revalidateOnReconnect: true,
+      swrKey: stockDetailSwrKey,
+      swrShouldPersist: (r) => !r.failed && Boolean(r.data),
     },
   );
 
@@ -193,11 +258,11 @@ export function StockDetailProvider({
           items: response.items,
           defaultTokenId: response.defaultTokenId,
         };
-        successfulTokenVariantsRef.current.set(normalizedStockId, result);
+        successfulTokenVariants.set(normalizedStockId, result);
+        fetchedTokenVariantsStockIdRef.current = normalizedStockId;
         return result;
       } catch (_error) {
-        const cachedResult =
-          successfulTokenVariantsRef.current.get(normalizedStockId);
+        const cachedResult = successfulTokenVariants.get(normalizedStockId);
         return {
           stockId: normalizedStockId,
           items: cachedResult?.items ?? [],
@@ -206,7 +271,7 @@ export function StockDetailProvider({
         };
       }
     },
-    [normalizedStockId],
+    [normalizedStockId, successfulTokenVariants],
     {
       watchLoading: true,
       // Same focus contract as the detail request above, and `revalidateOnFocus`
@@ -216,6 +281,8 @@ export function StockDetailProvider({
         ? STOCK_TOKEN_VARIANTS_POLLING_INTERVAL
         : undefined,
       revalidateOnReconnect: true,
+      swrKey: tokenVariantsSwrKey,
+      swrShouldPersist: (r) => !r.failed,
     },
   );
 
@@ -245,26 +312,20 @@ export function StockDetailProvider({
     );
     if (!routeChanged && hasCurrentToken) return;
 
-    const routeToken = tokenVariants.find(
-      (item) =>
-        isStockTokenVariantTradable(item) &&
-        equalTokenNoCaseSensitive({
-          token1: {
-            networkId: item.networkId,
-            contractAddress: item.contractAddress,
-          },
-          token2: {
-            networkId: initialNetworkId,
-            contractAddress: initialTokenAddress,
-          },
-        }),
+    // Resolving against a cached list only picks something to render. Until a
+    // fetched list has been resolved against, the route stays outstanding so a
+    // later list carrying its variant is still applied.
+    if (fetchedTokenVariantsStockIdRef.current === normalizedStockId) {
+      appliedTokenRouteRef.current = tokenRouteKey;
+    }
+    setSelectedTokenId(
+      resolveStockTokenVariantSelection({
+        variants: tokenVariants,
+        defaultTokenId: tokenVariantResult?.defaultTokenId,
+        routeNetworkId: initialNetworkId,
+        routeTokenAddress: initialTokenAddress,
+      })?.tokenId,
     );
-    const defaultToken = getDefaultStockTokenVariant(
-      tokenVariants,
-      tokenVariantResult?.defaultTokenId,
-    );
-    appliedTokenRouteRef.current = tokenRouteKey;
-    setSelectedTokenId(routeToken?.tokenId ?? defaultToken?.tokenId);
   }, [
     hasCurrentTokenVariants,
     initialNetworkId,
