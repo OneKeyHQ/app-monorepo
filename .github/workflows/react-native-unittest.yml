@@ -1,8 +1,6 @@
 name: 03-react-native-unittest
 
 on:
-  schedule:
-    - cron: '0 22 * * *'
   workflow_dispatch:
 
 permissions:

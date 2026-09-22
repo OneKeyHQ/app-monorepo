@@ -22,31 +22,30 @@ jobs:
   # Runs unionBuild to produce allocation reports, then validates
   # forbidden packages, module budgets, and architectural rules.
   native-startup-graph-budget:
-    name: Native startup graph budget
+    name: Native
     runs-on: ubuntu-24.04
-
-    strategy:
-      matrix:
-        node-version: [24.x]
+    timeout-minutes: 14
 
     steps:
       - uses: actions/checkout@v4
         with:
           lfs: true
 
-      - name: Use Node.js ${{ matrix.node-version }}
+      - name: Use Node.js 24.x
         uses: actions/setup-node@v6
         with:
-          node-version: ${{ matrix.node-version }}
+          node-version: 24.x
           cache: 'yarn'
+          check-latest: true
           registry-url: 'https://npm.pkg.github.com'
           scope: '@onekeyhq'
 
       - name: Install Dependencies
+        id: dependencies
         env:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NODE_OPTIONS: '--max_old_space_size=8192'
-        run: yarn install --immutable
+        uses: ./.github/actions/install-dependencies
 
       - name: Union Build (three-bundle split)
         env:
@@ -103,32 +102,35 @@ jobs:
             apps/mobile/out-dir-analysis/budget-check-ai-hints-*.md
           retention-days: 30
 
-  web-startup-graph-budget:
-    name: Web startup graph budget
-    runs-on: ubuntu-24.04
+      - name: Unmount dependency image
+        if: always() && steps.dependencies.outcome != 'skipped'
+        run: python3 .github/scripts/ci-dependencies.py cleanup
 
-    strategy:
-      matrix:
-        node-version: [24.x]
+  web-startup-graph-budget:
+    name: Web
+    runs-on: ubuntu-24.04
+    timeout-minutes: 14
 
     steps:
       - uses: actions/checkout@v4
         with:
           lfs: true
 
-      - name: Use Node.js ${{ matrix.node-version }}
+      - name: Use Node.js 24.x
         uses: actions/setup-node@v6
         with:
-          node-version: ${{ matrix.node-version }}
+          node-version: 24.x
           cache: 'yarn'
+          check-latest: true
           registry-url: 'https://npm.pkg.github.com'
           scope: '@onekeyhq'
 
       - name: Install Dependencies
+        id: dependencies
         env:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NODE_OPTIONS: '--max_old_space_size=8192'
-        run: yarn install --immutable
+        uses: ./.github/actions/install-dependencies
 
       # Current GitHub Actions cold-entry median baseline, measured on
       # ubuntu-24.04 with 3 fresh-browser runs in PR #12286 run 28733529052.
@@ -198,32 +200,35 @@ jobs:
             apps/web/out-dir-analysis/web-cold-budget-report-ai-hints.md
           retention-days: 30
 
-  desktop-startup-budget:
-    name: Desktop startup budget
-    runs-on: ubuntu-24.04
+      - name: Unmount dependency image
+        if: always() && steps.dependencies.outcome != 'skipped'
+        run: python3 .github/scripts/ci-dependencies.py cleanup
 
-    strategy:
-      matrix:
-        node-version: [24.x]
+  desktop-startup-budget:
+    name: Desktop
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
 
     steps:
       - uses: actions/checkout@v4
         with:
           lfs: true
 
-      - name: Use Node.js ${{ matrix.node-version }}
+      - name: Use Node.js 24.x
         uses: actions/setup-node@v6
         with:
-          node-version: ${{ matrix.node-version }}
+          node-version: 24.x
           cache: 'yarn'
+          check-latest: true
           registry-url: 'https://npm.pkg.github.com'
           scope: '@onekeyhq'
 
       - name: Install Dependencies
+        id: dependencies
         env:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NODE_OPTIONS: '--max_old_space_size=8192'
-        run: yarn install --immutable
+        uses: ./.github/actions/install-dependencies
 
       - name: Build desktop renderer budget artifact with release Rspack config
         env:
@@ -255,34 +260,41 @@ jobs:
             apps/desktop/app/dist/meta.json
           retention-days: 30
 
-  ext-build-budget:
-    name: Extension build budget
-    runs-on: ubuntu-24.04
+      - name: Unmount dependency image
+        if: always() && steps.dependencies.outcome != 'skipped'
+        run: python3 .github/scripts/ci-dependencies.py cleanup
 
-    strategy:
-      matrix:
-        node-version: [24.x]
+  ext-build-budget:
+    name: Extension
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
 
     steps:
       - uses: actions/checkout@v4
         with:
           lfs: true
 
-      - name: Use Node.js ${{ matrix.node-version }}
+      - name: Use Node.js 24.x
         uses: actions/setup-node@v6
         with:
-          node-version: ${{ matrix.node-version }}
+          node-version: 24.x
           cache: 'yarn'
+          check-latest: true
           registry-url: 'https://npm.pkg.github.com'
           scope: '@onekeyhq'
 
       - name: Install Dependencies
+        id: dependencies
         env:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NODE_OPTIONS: '--max_old_space_size=8192'
-        run: yarn install --immutable
+        uses: ./.github/actions/install-dependencies
 
       - name: Check extension production build budgets
         env:
           NODE_OPTIONS: '--max_old_space_size=8192'
         run: yarn app:ext:build
+
+      - name: Unmount dependency image
+        if: always() && steps.dependencies.outcome != 'skipped'
+        run: python3 .github/scripts/ci-dependencies.py cleanup

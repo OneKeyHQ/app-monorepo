@@ -26,13 +26,10 @@ env:
 
 jobs:
   supply-chain:
-    name: Supply Chain - Minimum Release Age
+    name: Release Age
     runs-on: ubuntu-24.04
+    timeout-minutes: 10
     if: github.event_name == 'pull_request'
-
-    strategy:
-      matrix:
-        node-version: [24.x]
 
     steps:
       - uses: actions/checkout@v4
@@ -40,11 +37,12 @@ jobs:
           lfs: true
           fetch-depth: 0
 
-      - name: Use Node.js ${{ matrix.node-version }}
+      - name: Use Node.js 24.x
         uses: actions/setup-node@v6
         with:
-          node-version: ${{ matrix.node-version }}
+          node-version: 24.x
           cache: 'yarn'
+          check-latest: true
           registry-url: 'https://npm.pkg.github.com'
           scope: '@onekeyhq'
 
@@ -55,11 +53,11 @@ jobs:
             echo "AI prompt generation failed; inspect the failed step log and minimum-release-age.log." > ci-ai/security-checks-ai-prompt.md
 
       - name: Install Dependency
+        id: dependencies
         env:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NODE_OPTIONS: '--max_old_space_size=4096'
-        run: |
-          yarn install --immutable
+        uses: ./.github/actions/install-dependencies
 
       - name: Check minimum release age
         run: |
@@ -90,3 +88,7 @@ jobs:
             echo "- Open: \`minimum-release-age.log\` and \`security-checks-ai-prompt.md\`"
           } >> "$GITHUB_STEP_SUMMARY"
           echo "::notice title=CI diagnostics::Download ci-ai-security-checks-diagnostics and inspect minimum-release-age.log"
+
+      - name: Unmount dependency image
+        if: always() && steps.dependencies.outcome != 'skipped'
+        run: python3 .github/scripts/ci-dependencies.py cleanup
