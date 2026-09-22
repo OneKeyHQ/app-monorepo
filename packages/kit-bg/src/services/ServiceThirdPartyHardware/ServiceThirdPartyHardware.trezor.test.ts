@@ -212,6 +212,36 @@ describe('ServiceThirdPartyHardware Trezor BLE binding', () => {
     });
   });
 
+  it('connects the selected Trezor target instead of a saved address on another channel', async () => {
+    const connected = {
+      success: true,
+      payload: { operationId: 'selected-operation' },
+    };
+    const connectDevice = jest.fn().mockResolvedValue(connected);
+    const adapter = { connectDevice } as unknown as IThirdPartyHardwareAdapter;
+    const service = new ServiceThirdPartyHardware({
+      backgroundApi: {} as IBackgroundApi,
+    });
+    (
+      service as unknown as {
+        thirdPartyAdapters: Map<string, IThirdPartyHardwareAdapter>;
+      }
+    ).thirdPartyAdapters.set('trezor', adapter);
+    db.getDeviceByQuery.mockResolvedValue({
+      deviceId: 'expected-device',
+      usbConnectId: 'stored-usb',
+      bleConnectId: 'stored-ble',
+    } as IDBDevice);
+    await expect(
+      service.connectDevice({
+        vendor: EHardwareVendor.trezor,
+        searchTargetId: 'selected-ble',
+        deviceId: 'expected-device',
+      }),
+    ).resolves.toBe(connected);
+    expect(connectDevice).toHaveBeenCalledWith('selected-ble');
+  });
+
   it('filters Trezor search results by requested transport type', async () => {
     const searchDevices = jest.fn().mockResolvedValue([
       {

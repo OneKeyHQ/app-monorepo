@@ -202,7 +202,10 @@ import {
 } from '../../states/jotai/atoms';
 import { hardwareForceTransportAtom } from '../../states/jotai/atoms/desktopBluetooth';
 import { verifySeedMatch as verifyLedgerSeedMatch } from '../../vaults/base/ledgerFingerprintUtils';
-import { withHardwareOperationContext } from '../../vaults/base/thirdPartyHardwareCommonParams';
+import {
+  thirdPartyConnectionContextFromDevice,
+  withHardwareOperationContext,
+} from '../../vaults/base/thirdPartyHardwareCommonParams';
 import { vaultFactory } from '../../vaults/factory';
 import { getVaultSettings } from '../../vaults/settings';
 import ServiceBase from '../ServiceBase';
@@ -3585,18 +3588,71 @@ class ServiceAccount extends ServiceBase {
   private async getFeaturesForHwWalletCreate({
     dbDevice,
     compatibleConnectId,
+    hardwareOperationContext,
   }: {
     dbDevice: Pick<
       IDBDevice,
       'vendor' | 'deviceId' | 'deviceStateInfo' | 'featuresInfo'
     >;
     compatibleConnectId: string;
+    hardwareOperationContext?: IHardwareOperationContext;
   }): Promise<IOneKeyDeviceFeatures> {
     let features: IOneKeyDeviceFeatures | undefined;
     const vendorProfile = getVendorProfile(
       dbDevice.vendor ?? EHardwareVendor.onekey,
     );
-    if (dbDevice.vendor && vendorProfile.isThirdParty) {
+    if (dbDevice.vendor === EHardwareVendor.trezor) {
+      const adapter =
+        await this.backgroundApi.serviceThirdPartyHardware.getAdapterForVendor(
+          dbDevice.vendor,
+        );
+      if (!adapter?.hw.getFeatures) {
+        throw new OneKeyLocalError('Trezor device features are unavailable');
+      }
+      if (!dbDevice.deviceId) {
+        throw new ThirdPartyDeviceMismatch({
+          vendor: dbDevice.vendor,
+          payload: {},
+        });
+      }
+      const operationId = hardwareOperationContext?.operationId;
+      const storedDevice = operationId
+        ? undefined
+        : await localDb.getDeviceByQuery({
+            featuresDeviceId: dbDevice.deviceId,
+            vendor: dbDevice.vendor,
+          });
+      // A selected operation owns its channel and lifetime. Without one, let
+      // the SDK discover and verify the device using the saved channel hints.
+      const result = await adapter.hw.getFeatures(
+        operationId || compatibleConnectId,
+        {
+          ...(operationId
+            ? { operationId }
+            : thirdPartyConnectionContextFromDevice(storedDevice ?? dbDevice)),
+          expectedDeviceIdentity: {
+            vendor: dbDevice.vendor,
+            type: 'deviceId',
+            value: dbDevice.deviceId,
+          },
+        },
+      );
+      if (!result.success) {
+        throw convertDeviceError(
+          result.payload as IOneKeyHardwareErrorPayload,
+          {
+            vendor: dbDevice.vendor,
+          },
+        );
+      }
+      if (result.payload.device_id !== dbDevice.deviceId) {
+        throw new ThirdPartyDeviceMismatch({
+          vendor: dbDevice.vendor,
+          payload: {},
+        });
+      }
+      features = result.payload as IOneKeyDeviceFeatures;
+    } else if (dbDevice.vendor && vendorProfile.isThirdParty) {
       let operationId: string | undefined;
       try {
         const connected =
@@ -3609,24 +3665,6 @@ class ServiceAccount extends ServiceBase {
         // throw cannot leave it held.
         if (connected.success) {
           operationId = connected.payload.operationId;
-        }
-        if (dbDevice.vendor === EHardwareVendor.trezor) {
-          if (!connected.success) {
-            throw convertDeviceError(
-              connected.payload as IOneKeyHardwareErrorPayload,
-              { vendor: dbDevice.vendor },
-            );
-          }
-          // Reject reset devices before creating wallet records.
-          if (
-            !connected.payload.deviceId ||
-            connected.payload.deviceId !== dbDevice.deviceId
-          ) {
-            throw new ThirdPartyDeviceMismatch({
-              vendor: dbDevice.vendor,
-              payload: {},
-            });
-          }
         }
         if (connected.success) {
           features = connected.payload.features as IOneKeyDeviceFeatures;
@@ -4081,6 +4119,7 @@ class ServiceAccount extends ServiceBase {
           featuresInfo: features,
         },
         compatibleConnectId,
+        hardwareOperationContext: params.hardwareOperationContext,
       });
     }
 

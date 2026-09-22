@@ -906,20 +906,8 @@ class ServiceThirdPartyHardware extends ServiceBase {
     if (!adapter) {
       throw createThirdPartyAdapterNotRegisteredError(params.vendor);
     }
-    if (params.vendor === EHardwareVendor.trezor && params.deviceId) {
-      const dbDevice = await localDb.getDeviceByQuery({
-        featuresDeviceId: params.deviceId,
-        vendor: params.vendor,
-      });
-      if (dbDevice) {
-        // Same intent as the ladder this replaced: address the device by its
-        // stored locator rather than the raw search target. Transport recovery
-        // now happens in the SDK, which receives both channel locators.
-        return callTrezorWithDevice(dbDevice, (connectId) =>
-          adapter.connectDevice(connectId),
-        );
-      }
-    }
+    // This entry connects the target selected by the user. Automatic recovery
+    // belongs to identity-scoped SDK calls, not a replacement DB locator here.
     return adapter.connectDevice(searchTargetId);
   }
 

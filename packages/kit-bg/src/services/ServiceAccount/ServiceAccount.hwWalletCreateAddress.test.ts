@@ -5,6 +5,8 @@ import localDb from '../../dbs/local/localDb';
 
 import ServiceAccount from './ServiceAccount';
 
+import type { IDBDevice } from '../../dbs/local/types';
+
 jest.mock('../../states/jotai/atoms/desktopBluetooth', () => ({
   hardwareForceTransportAtom: {
     get: jest.fn().mockResolvedValue({ forceTransportType: undefined }),
@@ -40,6 +42,7 @@ jest.mock('../../dbs/local/localDb', () => ({
   __esModule: true,
   default: {
     createHwWallet: jest.fn(),
+    getDeviceByQuery: jest.fn(),
   },
 }));
 
@@ -51,10 +54,12 @@ type IHwWalletCreateAddressService = {
   getFeaturesForHwWalletCreate(params: {
     dbDevice: {
       vendor: EHardwareVendor;
-      connectProtocol: 'V1' | 'V2';
-      deviceStateInfo: unknown;
+      connectProtocol?: 'V1' | 'V2';
+      deviceStateInfo?: unknown;
+      deviceId?: string;
     };
     compatibleConnectId: string;
+    hardwareOperationContext?: { operationId: string };
   }): Promise<{
     protocol?: string;
     deviceId?: string;
@@ -70,10 +75,119 @@ type IHwWalletCreateAddressService = {
 
 describe('ServiceAccount hardware wallet creation address', () => {
   const createHwWalletMock = jest.spyOn(localDb, 'createHwWallet');
+  const getDeviceByQueryMock = jest.spyOn(localDb, 'getDeviceByQuery');
 
   beforeEach(() => {
     createHwWalletMock.mockReset();
+    getDeviceByQueryMock.mockReset();
   });
+
+  it.each([
+    'connected',
+    'ended',
+    'wrong-device',
+    'automatic',
+    'automatic-saved',
+  ] as const)(
+    'keeps the caller-owned operation while reading device features (%s)',
+    async (scenario) => {
+      const automatic = scenario.startsWith('automatic');
+      if (scenario === 'automatic-saved') {
+        getDeviceByQueryMock.mockResolvedValue({
+          id: 'device-record',
+          vendor: EHardwareVendor.trezor,
+          usbConnectId: 'saved-usb',
+          bleConnectId: 'saved-ble',
+        } as IDBDevice);
+      }
+      const getFeatures = jest.fn().mockResolvedValue(
+        scenario === 'ended'
+          ? {
+              success: false,
+              payload: { code: 10_113, error: 'Operation ended' },
+            }
+          : {
+              success: true,
+              payload: {
+                device_id:
+                  scenario === 'wrong-device'
+                    ? 'other-device'
+                    : 'selected-device',
+              },
+            },
+      );
+      const connectDevice = jest.fn();
+      const releaseOperation = jest.fn();
+      const service = new ServiceAccount({
+        backgroundApi: {
+          serviceThirdPartyHardware: {
+            getAdapterForVendor: jest
+              .fn()
+              .mockResolvedValue({ hw: { getFeatures } }),
+            connectDevice,
+            releaseOperation,
+          },
+        },
+      }) as unknown as IHwWalletCreateAddressService;
+      const reading = service.getFeaturesForHwWalletCreate({
+        dbDevice: {
+          vendor: EHardwareVendor.trezor,
+          deviceId: 'selected-device',
+        },
+        compatibleConnectId: 'other-channel-hint',
+        hardwareOperationContext: automatic
+          ? undefined
+          : { operationId: 'caller-operation' },
+      });
+      if (scenario === 'connected' || automatic) {
+        await expect(reading).resolves.toEqual({
+          device_id: 'selected-device',
+        });
+      } else {
+        await expect(reading).rejects.toThrow();
+      }
+      expect(getFeatures).toHaveBeenCalledWith(
+        automatic ? 'other-channel-hint' : 'caller-operation',
+        expect.objectContaining({
+          expectedDeviceIdentity: {
+            vendor: EHardwareVendor.trezor,
+            type: 'deviceId',
+            value: 'selected-device',
+          },
+        }),
+      );
+      expect(getFeatures.mock.calls[0][1]).toEqual(
+        automatic
+          ? {
+              ...(scenario === 'automatic-saved'
+                ? {
+                    knownConnections: [
+                      { transport: 'usb', connectId: 'saved-usb' },
+                      { transport: 'ble', connectId: 'saved-ble' },
+                    ],
+                    extra: { dbDeviceId: 'device-record' },
+                  }
+                : { knownConnections: [] }),
+              expectedDeviceIdentity: {
+                vendor: EHardwareVendor.trezor,
+                type: 'deviceId',
+                value: 'selected-device',
+              },
+            }
+          : {
+              operationId: 'caller-operation',
+              expectedDeviceIdentity: {
+                vendor: EHardwareVendor.trezor,
+                type: 'deviceId',
+                value: 'selected-device',
+              },
+            },
+      );
+      expect(getDeviceByQueryMock).toHaveBeenCalledTimes(automatic ? 1 : 0);
+      expect(connectDevice).not.toHaveBeenCalled();
+      expect(releaseOperation).not.toHaveBeenCalled();
+    },
+  );
 
   it.each([
     EHardwareVendor.keystone,
