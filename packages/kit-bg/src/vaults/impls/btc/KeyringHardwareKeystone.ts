@@ -4,10 +4,14 @@ import {
   checkBtcAddressIsUsed,
   convertBtcForkXpub,
   getBtcForkNetwork,
+  getPublicKeyFromXpub,
   initBitcoinEcc,
   isTaprootPath,
+  pubkeyToPayment,
 } from '@onekeyhq/core/src/chains/btc/sdkBtc';
+import { toXOnly } from '@onekeyhq/core/src/chains/btc/sdkBtc/bip371';
 import { buildPsbt } from '@onekeyhq/core/src/chains/btc/sdkBtc/providerUtils';
+import { verifyBitcoinMessage } from '@onekeyhq/core/src/chains/btc/sdkBtc/signMessage';
 import { verifyBtcSignedPsbtMatched } from '@onekeyhq/core/src/chains/btc/sdkBtc/verify';
 import type { IEncodedTxBtc } from '@onekeyhq/core/src/chains/btc/types';
 import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
@@ -31,6 +35,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
+import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
 import { EHardwareVendor } from '@onekeyhq/shared/types/device';
 
 import { thirdPartyConnectionContextFromDevice } from '../../base/thirdPartyHardwareCommonParams';
@@ -509,16 +514,31 @@ export class KeyringHardwareKeystone extends KeyringHardwareBtcBase {
           fallbackPubkeyHex: input.publicKey,
         });
         input.publicKey = pubkeyHex;
-        psbt.updateInput(input.index, {
-          tapBip32Derivation: [
-            {
-              masterFingerprint: fp,
-              pubkey: Buffer.from(pubkeyHex, 'hex').subarray(1, 33),
-              path: resolvePathByAddress(input.address),
-              leafHashes: [],
-            },
-          ],
-        });
+        const pubkey = toXOnly(Buffer.from(pubkeyHex, 'hex'));
+        const path = resolvePathByAddress(input.address);
+        const existing = psbt.data.inputs[input.index].tapBip32Derivation?.find(
+          (entry) => Buffer.from(entry.pubkey).equals(pubkey),
+        );
+        if (existing) {
+          if (
+            !Buffer.from(existing.masterFingerprint).equals(fp) ||
+            existing.path !== path
+          ) {
+            throw new OneKeyLocalError('BTC Taproot derivation mismatch');
+          }
+          // Preserve script-path leaf hashes and other signers' metadata.
+        } else {
+          psbt.updateInput(input.index, {
+            tapBip32Derivation: [
+              {
+                masterFingerprint: fp,
+                pubkey,
+                path,
+                leafHashes: [],
+              },
+            ],
+          });
+        }
       }
       enrichedPsbtHex = psbt.toHex();
     }
@@ -621,6 +641,20 @@ export class KeyringHardwareKeystone extends KeyringHardwareBtcBase {
     const path =
       params.chainExtraParams?.receiveAddressPath ??
       `${dbAccount.path}/${dbAccount.relPath ?? '0/0'}`;
+    if (!path.startsWith(`${dbAccount.path}/`)) {
+      throw new OneKeyLocalError(
+        'BTC message path does not belong to the account',
+      );
+    }
+    const network = getBtcForkNetwork(networkInfo.networkChainCode);
+    const pubkey = Buffer.from(
+      getPublicKeyFromXpub({
+        xpub: (dbAccount as IDBUtxoAccount).xpub,
+        network,
+        relPath: path.slice(dbAccount.path.length + 1),
+      }),
+      'hex',
+    );
 
     const signatures: ISignedMessagePro = [];
     for (const payload of messages as Array<{
@@ -658,7 +692,37 @@ export class KeyringHardwareKeystone extends KeyringHardwareBtcBase {
           VENDOR_ERROR_CONTEXT,
         );
       }
-      signatures.push(result.payload.signature);
+      const { signature } = result.payload;
+      let matched = false;
+      if (hexUtils.isHexString(signature, 65)) {
+        const bytes = Buffer.from(hexUtils.stripHexPrefix(signature), 'hex');
+        const header = bytes[0];
+        if (header >= 31 && header <= 42) {
+          // Compact ECDSA messages identify a public key, including for m/86.
+          // Verify its BIP137 address type instead of a Taproot output address.
+          let encoding = EAddressEncodings.P2PKH;
+          if (header >= 39) {
+            encoding = EAddressEncodings.P2WPKH;
+          } else if (header >= 35) {
+            encoding = EAddressEncodings.P2SH_P2WPKH;
+          }
+          const { address } = pubkeyToPayment({ network, pubkey, encoding });
+          matched = verifyBitcoinMessage({
+            message: payload.message,
+            address: checkIsDefined(address),
+            signature: bytes.toString('base64'),
+            format: 'ecdsa',
+          });
+        }
+      }
+      if (!matched) {
+        throw new ThirdPartyDeviceMismatch({
+          vendor: VENDOR_ERROR_CONTEXT.vendor,
+          autoToast: true,
+          payload: {},
+        });
+      }
+      signatures.push(signature);
     }
     return signatures;
   }
