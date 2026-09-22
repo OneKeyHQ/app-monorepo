@@ -61,8 +61,10 @@ function StockMarketDataItem({
           />
         ) : null}
       </XStack>
+      {/* Same 14px medium as the Token details values below, so the two
+          stat blocks read as one set. */}
       <SizableText
-        size={compact ? '$bodySmMedium' : '$bodyLg'}
+        size={compact ? '$bodySmMedium' : '$bodyMdMedium'}
         color="$text"
         numberOfLines={1}
       >
