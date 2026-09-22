@@ -12,18 +12,34 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import {
+  type ITradingViewNativeSource,
+  TradingViewNative,
+  getTradingViewNativeSourceKey,
+} from '@onekeyhq/kit/src/components/TradingView/TradingViewNative';
 import { BaseMarketTokenPrice } from '@onekeyhq/kit/src/views/Market/components/MarketTokenPrice';
 import { MarketTooltipLabel } from '@onekeyhq/kit/src/views/Market/components/MarketTooltipLabel';
 import { StockMarketStatusBadge } from '@onekeyhq/kit/src/views/Market/components/PerpsBadges';
 import { PriceChangePercentage } from '@onekeyhq/kit/src/views/Market/components/PriceChangePercentage';
 import type { IStockSimpleChartRange } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/components/StockSimpleChart/StockSimpleChart';
 import { StockSimpleChartContent } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/components/StockSimpleChart/StockSimpleChart';
-import { STOCK_SHARE_SIMPLE_CHART_RANGES } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/components/StockSimpleChart/stockSimpleChartData';
+import {
+  STOCK_SHARE_SIMPLE_CHART_RANGES,
+  TOKEN_SIMPLE_CHART_RANGES,
+} from '@onekeyhq/kit/src/views/Market/MarketDetailV2/components/StockSimpleChart/stockSimpleChartData';
 import { StockTokenInfoPopover } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/components/StockTokenInfo/StockTokenInfoPopover';
 import { StockTokenVariantSelector } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/components/TokenSelector/StockTokenVariantSelector';
 import { useStockDetail } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/hooks/StockDetailContext';
+import {
+  MARKET_CHART_TOOLBAR_HEIGHT,
+  MARKET_SIMPLE_CHART_RANGE_GAP,
+  MARKET_SIMPLE_CHART_RANGE_MIN_WIDTH,
+} from '@onekeyhq/kit/src/views/Market/MarketDetailV2/layouts/components/marketSimpleChartConstants';
+import { StockChartModeControl } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/layouts/components/StockChartModeControl';
+import { getMarketStockChartPreviousClose } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/utils/marketStockPreviousClose';
 import { buildStockInfoFromPublicDetail } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/utils/stockPublicDataUtils';
 import { useToMarketStockDetailPage } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketStockList/hooks/useToMarketStockDetailPage';
+import { useMarketDetailChartDisplayModePersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { SwapTestIDs } from '../../testIDs';
@@ -31,6 +47,7 @@ import {
   SWAP_DESKTOP_CARD_SHADOW_NATIVE_STYLE,
   SWAP_DESKTOP_CARD_SHADOW_WEB_STYLE,
 } from '../../utils/swapDesktopCardShadow';
+import { getSwapKLineTradingViewNativeSource } from '../modal/swapKLineTradingViewNativeUtils';
 
 import { SwapStockMarketDataGrid } from './SwapStockMarketData';
 import { useSwapStockSelection } from './SwapStockMarketProvider';
@@ -296,13 +313,45 @@ export function SwapStockMarketPanel() {
   const intl = useIntl();
   const [priceMode, setPriceMode] = useState<'share' | 'token'>('share');
   const [range, setRange] = useState<IStockSimpleChartRange>('1D');
-  const { stockDetail, stockId, isStockDetailError, retryStockDetail } =
-    useStockDetail();
+  // Shared with the Market stock detail chart, so the choice follows the user
+  // between the two surfaces.
+  const [{ mode: chartMode }, setChartDisplayMode] =
+    useMarketDetailChartDisplayModePersistAtom();
+  const {
+    stockDetail,
+    stockId,
+    selectedTokenVariant,
+    isStockDetailError,
+    retryStockDetail,
+  } = useStockDetail();
   const { displayStockTokenDetail: tokenDetail, currentStockToken } =
     useSwapStockTradeContext();
   const selection = useSwapStockSelection();
   const { status } = useSwapStockPrice(priceMode);
   const toMarket = useToMarketStockDetailPage();
+  const chartRanges =
+    priceMode === 'share'
+      ? STOCK_SHARE_SIMPLE_CHART_RANGES
+      : TOKEN_SIMPLE_CHART_RANGES;
+  const rangeSelectorWidth =
+    chartRanges.length * MARKET_SIMPLE_CHART_RANGE_MIN_WIDTH +
+    (chartRanges.length - 1) * MARKET_SIMPLE_CHART_RANGE_GAP;
+  // Pro follows the Market page: the share quote charts the listing itself,
+  // the token quote charts the selected on-chain token.
+  const proChartSource = useMemo<ITradingViewNativeSource | undefined>(() => {
+    if (priceMode === 'share') {
+      return stockId ? { kind: 'stock', stockId } : undefined;
+    }
+    return getSwapKLineTradingViewNativeSource({ token: currentStockToken });
+  }, [currentStockToken, priceMode, stockId]);
+  const isSimpleChart = chartMode === 'simple' || !proChartSource;
+  const previousClose = getMarketStockChartPreviousClose({
+    priceSource: priceMode,
+    stockDetail,
+    selectedTokenVariant,
+    tokenDetail,
+    tokenDetailNetworkId: currentStockToken?.networkId,
+  });
   const marketData = useMemo(
     () =>
       tokenDetail && stockDetail
@@ -370,51 +419,98 @@ export function SwapStockMarketPanel() {
           </XStack>
         </XStack>
         <YStack height={360} gap="$4">
-          <XStack height={40} alignItems="center" gap="$0.5">
-            {STOCK_SHARE_SIMPLE_CHART_RANGES.map((value) => (
-              <Button
-                key={value}
-                testID={`swap-stock-chart-range-${value}`}
-                size="small"
-                variant="tertiary"
-                m="$0"
-                h={32}
-                minWidth={32}
-                borderRadius="$full"
-                px="$2"
-                bg={range === value ? '$bgActive' : '$transparent'}
-                onPress={() => setRange(value)}
-              >
-                {intl.formatMessage({ id: STOCK_CHART_RANGE_LABELS[value] })}
-              </Button>
-            ))}
-          </XStack>
-          <StockSimpleChartContent
-            priceMode={priceMode}
-            range={range}
-            stockId={stockId}
-            stockDetail={stockDetail}
-            tokenDetail={tokenDetail}
-            networkId={currentStockToken?.networkId ?? ''}
-            tokenAddress={currentStockToken?.contractAddress ?? ''}
-            isNative={!!currentStockToken?.isNative}
-            requestError={Boolean(
-              selection?.identityResolutionError ||
-              (isStockDetailError && !stockId),
+          <YStack flex={1} minHeight={0} minWidth={0}>
+            {isSimpleChart ? (
+              <StockSimpleChartContent
+                priceMode={priceMode}
+                range={range}
+                stockId={stockId}
+                stockDetail={stockDetail}
+                tokenDetail={tokenDetail}
+                networkId={currentStockToken?.networkId ?? ''}
+                tokenAddress={currentStockToken?.contractAddress ?? ''}
+                isNative={!!currentStockToken?.isNative}
+                requestError={Boolean(
+                  selection?.identityResolutionError ||
+                  (isStockDetailError && !stockId),
+                )}
+                onRequestRetry={() => {
+                  if (selection?.identityResolutionError) {
+                    selection.retryIdentityResolution();
+                  } else {
+                    void retryStockDetail();
+                  }
+                }}
+                coinGeckoId={
+                  typeof tokenDetail?.coingeckoId === 'string'
+                    ? tokenDetail.coingeckoId
+                    : undefined
+                }
+              />
+            ) : (
+              <Stack flex={1} minWidth={0} overflow="hidden">
+                <TradingViewNative
+                  key={getTradingViewNativeSourceKey(proChartSource)}
+                  testID="swap-stock-pro-chart"
+                  source={proChartSource}
+                  enablePreviousClose
+                  previousClose={previousClose}
+                  forcedChartType="candlestick"
+                  enableNativeChartSettings
+                  nativeControlsLayoutMode="desktop"
+                  nativeControlsFlushHorizontalInset
+                />
+              </Stack>
             )}
-            onRequestRetry={() => {
-              if (selection?.identityResolutionError) {
-                selection.retryIdentityResolution();
-              } else {
-                void retryStockDetail();
-              }
-            }}
-            coinGeckoId={
-              typeof tokenDetail?.coingeckoId === 'string'
-                ? tokenDetail.coingeckoId
-                : undefined
-            }
-          />
+          </YStack>
+          {/* Same toolbar as the Market stock chart: ranges lead, Simple/Pro
+              trails. Pro carries its own interval row inside the widget. */}
+          <XStack
+            testID="swap-stock-chart-toolbar"
+            height={MARKET_CHART_TOOLBAR_HEIGHT}
+            py="$1"
+            gap="$3"
+            alignItems="center"
+          >
+            <XStack
+              flex={1}
+              minWidth={isSimpleChart ? rangeSelectorWidth : 0}
+              alignItems="center"
+              gap="$0.5"
+            >
+              {isSimpleChart
+                ? chartRanges.map((value) => (
+                    <Stack
+                      key={value}
+                      minWidth={MARKET_SIMPLE_CHART_RANGE_MIN_WIDTH}
+                      height={32}
+                      flexShrink={0}
+                    >
+                      <Button
+                        testID={`swap-stock-chart-range-${value}`}
+                        minWidth={MARKET_SIMPLE_CHART_RANGE_MIN_WIDTH}
+                        height={32}
+                        m="$0"
+                        px="$2"
+                        borderWidth={0}
+                        size="small"
+                        variant={range === value ? 'secondary' : 'tertiary'}
+                        borderRadius="$full"
+                        onPress={() => setRange(value)}
+                      >
+                        {intl.formatMessage({
+                          id: STOCK_CHART_RANGE_LABELS[value],
+                        })}
+                      </Button>
+                    </Stack>
+                  ))
+                : null}
+            </XStack>
+            <StockChartModeControl
+              mode={chartMode}
+              onChange={(mode) => setChartDisplayMode({ mode })}
+            />
+          </XStack>
         </YStack>
         <Stack h="$4" />
       </YStack>
