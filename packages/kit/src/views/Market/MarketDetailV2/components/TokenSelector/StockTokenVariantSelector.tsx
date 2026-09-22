@@ -25,6 +25,7 @@ import type {
   IMarketAccountPortfolioDisplayItem,
   IMarketStockTokenVariant,
 } from '@onekeyhq/shared/types/marketV2';
+import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
 
 import {
   isStockTokenVariantTradable,
@@ -421,12 +422,14 @@ function StockTokenVariantSelectorContent({
 export function StockTokenVariantSelector({
   portfolioData,
   resolvedVariantKeys,
+  fallbackToken,
   onSelect,
   compact = false,
   onOpenChange,
 }: {
   portfolioData?: IMarketAccountPortfolioDisplayItem[];
   resolvedVariantKeys?: string[];
+  fallbackToken?: Pick<ISwapToken, 'logoURI' | 'symbol'>;
   onSelect?: (variant: IMarketStockTokenVariant) => Promise<boolean>;
   compact?: boolean;
   onOpenChange?: (open: boolean) => void;
@@ -499,6 +502,26 @@ export function StockTokenVariantSelector({
         >
           {intl.formatMessage({ id: ETranslations.global_retry })}
         </Button>
+      );
+    }
+    if (compact && fallbackToken) {
+      return (
+        <XStack
+          testID="stock-token-variant-selector-fallback"
+          alignItems="center"
+          gap="$2.5"
+        >
+          <Token
+            size="sm"
+            w={28}
+            h={28}
+            tokenImageUri={fallbackToken.logoURI}
+            placeholder={<Stack width="100%" height="100%" />}
+          />
+          <SizableText size="$headingMd" numberOfLines={1}>
+            {fallbackToken.symbol || VALUE_FALLBACK}
+          </SizableText>
+        </XStack>
       );
     }
     return null;

@@ -49,7 +49,8 @@ const STOCK_CHART_RANGE_LABELS: Record<IStockSimpleChartRange, ETranslations> =
 
 function useSwapStockPrice(priceMode: 'share' | 'token') {
   const { stockDetail, selectedTokenVariant } = useStockDetail();
-  const { displayStockTokenDetail: tokenDetail } = useSwapStockTradeContext();
+  const { displayStockTokenDetail: tokenDetail, currentStockToken } =
+    useSwapStockTradeContext();
   const price = priceMode === 'share' ? stockDetail?.price : tokenDetail?.price;
   const percent =
     priceMode === 'share'
@@ -71,9 +72,11 @@ function useSwapStockPrice(priceMode: 'share' | 'token') {
   const status = stockDetail
     ? buildStockInfoFromPublicDetail(stockDetail, {
         source: tokenDetail?.stock?.source ?? selectedTokenVariant?.issuer,
-        isPaused: tokenDetail?.stock?.isPaused,
+        isPaused:
+          tokenDetail?.stock?.isPaused ??
+          selectedTokenVariant?.tradingHours?.isPaused,
       })
-    : undefined;
+    : (tokenDetail?.stock ?? currentStockToken?.stock);
   return { price, percent, change, status };
 }
 
@@ -221,6 +224,7 @@ export function SwapStockVariantSelector() {
         <Stack minHeight={28}>
           <StockTokenVariantSelector
             compact
+            fallbackToken={currentStockToken}
             onOpenChange={(open) => {
               if (!open) selection?.cancelSelection();
             }}

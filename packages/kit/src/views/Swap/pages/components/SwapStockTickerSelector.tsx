@@ -28,7 +28,6 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { SwapTestIDs } from '../../testIDs';
 
 import { useSwapStockSelection } from './SwapStockMarketProvider';
-import { useSwapStockTradeContext } from './SwapStockTradeProvider';
 
 function StockTickerList({ closePopover }: { closePopover: () => void }) {
   const intl = useIntl();
@@ -204,10 +203,7 @@ export function SwapStockTickerSelector() {
   const { md } = useMedia();
   const selection = useSwapStockSelection();
   const { stockDetail, stockPreview, stockId } = useStockDetail();
-  const { displayStockTokenDetail, currentStockToken } =
-    useSwapStockTradeContext();
   const stock = stockDetail ?? stockPreview;
-  const legacy = displayStockTokenDetail?.stock ?? currentStockToken?.stock;
   return (
     <StockSelectorPopover
       onOpenChange={(open) => {
@@ -238,29 +234,20 @@ export function SwapStockTickerSelector() {
           cursor="pointer"
           hoverStyle={{ bg: '$bgHover' }}
         >
-          <Token
-            size="xl"
-            tokenImageUri={stock?.logoUrl ?? currentStockToken?.logoURI}
-          />
+          <Token size="xl" tokenImageUri={stock?.logoUrl} />
           <YStack minWidth={0} flexShrink={1}>
             <SizableText
               size={md ? '$headingLg' : '$headingXl'}
               numberOfLines={1}
             >
-              {stock?.symbol ??
-                legacy?.underlyingAssetTicker ??
-                stockId ??
-                '--'}
+              {stock?.symbol ?? stockId ?? '--'}
             </SizableText>
             <SizableText
               size={md ? '$bodyMd' : '$bodyMdMedium'}
               color="$textSubdued"
               numberOfLines={1}
             >
-              {stock?.name ??
-                legacy?.underlyingAssetName ??
-                legacy?.subtitle ??
-                '--'}
+              {stock?.name ?? '--'}
             </SizableText>
           </YStack>
           <Icon name="ChevronDownSmallOutline" size="$5" color="$iconSubdued" />

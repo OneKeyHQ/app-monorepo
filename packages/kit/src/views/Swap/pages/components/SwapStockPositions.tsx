@@ -1,5 +1,5 @@
 import type { PropsWithChildren } from 'react';
-import { createContext, useContext, useMemo } from 'react';
+import { createContext, useCallback, useContext, useMemo } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
@@ -19,7 +19,10 @@ import { resolveMarketStockId } from '@onekeyhq/kit/src/views/Market/MarketDetai
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type { IMarketBasicConfigNetwork } from '@onekeyhq/shared/types/marketV2';
-import type { ISwapNetwork } from '@onekeyhq/shared/types/swap/types';
+import type {
+  ISwapNetwork,
+  ISwapToken,
+} from '@onekeyhq/shared/types/swap/types';
 
 import { useSwapProSupportNetworksTokenList } from '../../hooks/useSwapPro';
 
@@ -65,6 +68,35 @@ export function SwapStockPositions({
   const { currentStockToken, selectStockSwapToken } =
     useSwapStockTradeContext();
   const [onlyCurrent, setOnlyCurrent] = useSwapProEnableCurrentSymbolAtom();
+  const selectPositionToken = useCallback(
+    (token: ISwapToken) => {
+      const tokenStockTicker = token.stock?.underlyingAssetTicker
+        ?.trim()
+        .toUpperCase();
+      const belongsToCurrentStock = Boolean(
+        stockId &&
+        (resolveMarketStockId(token) === stockId ||
+          tokenStockTicker === stockId ||
+          tokenVariants.some((variant) =>
+            equalTokenNoCaseSensitive({ token1: variant, token2: token }),
+          )),
+      );
+      const tokenWithStockIdentity =
+        belongsToCurrentStock && token.stock
+          ? {
+              ...token,
+              stock: {
+                ...token.stock,
+                stockId: token.stock.stockId ?? stockId,
+              },
+            }
+          : token;
+      selectStockSwapToken(tokenWithStockIdentity, {
+        resetReceiveAmount: true,
+      });
+    },
+    [selectStockSwapToken, stockId, tokenVariants],
+  );
   const filterToken = useMemo(
     () =>
       mobile && onlyCurrent && currentStockToken
@@ -150,9 +182,7 @@ export function SwapStockPositions({
         positionLoading={positions.positionLoading}
         positionLoadError={positions.positionLoadError}
         filterToken={filterToken}
-        onTokenPress={(token) =>
-          selectStockSwapToken(token, { resetReceiveAmount: true })
-        }
+        onTokenPress={selectPositionToken}
         onRetry={() =>
           void positions.swapProLoadSupportNetworksTokenListRun(networks, {
             forceRefresh: true,
