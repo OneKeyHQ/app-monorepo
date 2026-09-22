@@ -129,7 +129,11 @@ class Benchmark:
         relative = Path('node_modules') / package / filename
         with zipfile.ZipFile(archives[0]) as archive:
             pristine = archive.read(relative.as_posix())
-        target = (installed / filename).read_bytes() + f'\n// {marker}\n'.encode()
+        source = (installed / filename).read_bytes()
+        anchor = b'var Reflect;\n' if package == 'reflect-metadata' else b'var toString = {}.toString;\n'
+        if source.count(anchor) != 1:
+            raise ValueError('Fixture marker anchor is not unique')
+        target = source.replace(anchor, anchor.rstrip(b'\n') + f' // {marker}\n'.encode(), 1)
         work = self.runner / f'generate-{package}'
         path = work / relative
         path.parent.mkdir(parents=True)
@@ -147,7 +151,8 @@ class Benchmark:
         self.fixtures.mkdir(exist_ok=True)
         base_package = (self.root / 'package.json').read_bytes()
         base_lock = (self.root / 'yarn.lock').read_bytes()
-        metadata = {'base_commit': BASE, 'base_package_sha': sha(base_package),
+        metadata = {'base_commit': BASE, 'fixture_version': 'line-replacement-v2',
+                    'base_package_sha': sha(base_package),
                     'base_lock_sha': sha(base_lock), 'base_patches': patches(self.root)}
         patch_dir = self.fixtures / 'patches' / 'patches'
         self.generate_patch('reflect-metadata', 'Reflect.js',
@@ -174,6 +179,10 @@ class Benchmark:
                              for p in self.fixtures.rglob('*') if p.is_file()}
         write_json(self.fixtures / 'manifest.json', metadata)
 
+    def fixtures_refresh(self):
+        self.snapshot.mount()
+        self.fixtures_create()
+
     def fixture_apply(self):
         metadata = json.loads((self.fixtures / 'manifest.json').read_text())
         if metadata['base_commit'] != BASE or patches(self.root) != metadata['base_patches']:
@@ -185,6 +194,7 @@ class Benchmark:
         for name, expected in metadata['files'].items():
             if sha((self.fixtures / name).read_bytes()) != expected:
                 raise ValueError(f'Corrupt target fixture: {name}')
+        self.metrics['fixture_version'] = metadata.get('fixture_version', 'append-v1')
         scenario = self.metrics['scenario']
         if scenario == 'deps':
             for name in ['package.json', 'yarn.lock']:
@@ -274,6 +284,13 @@ class Benchmark:
                     elif path.is_file() and path.name != '.yarn-state.yml':
                         tree[relative] = {'sha256': dependencies.checksum(path),
                                           'executable': bool(path.stat().st_mode & 0o111)}
+                        diagnostic = ('/__pycache__/' in relative and path.suffix == '.pyc') or (
+                            '/build/' in relative and (path.name in {'Makefile', 'config.gypi', 'binding.Makefile'}
+                            or path.name.endswith(('.target.mk', '.o.d', '.o.d.raw'))))
+                        if diagnostic and path.stat().st_size < 1024 * 1024:
+                            destination = self.results / 'diagnostic' / relative
+                            destination.parent.mkdir(parents=True, exist_ok=True)
+                            shutil.copyfile(path, destination)
         with gzip.open(self.results / 'tree.json.gz', 'wt') as stream:
             json.dump(tree, stream, sort_keys=True)
         if self.metrics['scenario'] == 'deps':
@@ -301,7 +318,8 @@ def compare():
     root = Path(os.environ['BENCHMARK_RESULTS'])
     summary = []
     failure = False
-    for scenario in ['same', 'deps', 'patches']:
+    scopes = {'all': ['same', 'deps', 'patches'], 'changes': ['deps', 'patches'], 'same': ['same']}
+    for scenario in scopes[os.environ.get('BENCHMARK_SCENARIO_SCOPE', 'all')]:
         before_dir = root / f'x-cache-{scenario}-yarn-only'
         before_metrics = json.loads((before_dir / 'metrics.json').read_text())
         with gzip.open(before_dir / 'tree.json.gz', 'rt') as stream:

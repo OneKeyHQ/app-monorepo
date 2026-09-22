@@ -1,22 +1,31 @@
 name: X Snapshot Benchmark
-run-name: ${{ format('X snapshot / {0} / {1}', inputs.phase || 'seed',
-  inputs.seed_run || github.run_id) }}
+run-name: ${{ format('X snapshot / {0} / {1} / {2}', inputs.phase,
+  inputs.seed_run || github.run_id, inputs.scenarios || 'all') }}
 on:
-  push:
-    branches:
-      - codex/ci-x-cache-benchmark
   workflow_dispatch:
     inputs:
       phase:
         type: choice
         options:
           - seed
+          - fixtures
           - compare
         default: seed
         description: Create the pinned x fixture, then compare parallel consumers.
       seed_run:
         type: string
         description: Completed seed run ID (required for compare).
+      fixture_run:
+        type: string
+        description: Optional refreshed fixture run ID; defaults to seed_run.
+      scenarios:
+        type: choice
+        options:
+          - all
+          - changes
+          - same
+        default: all
+        description: Scenario subset for a repeated comparison.
 permissions:
   contents: read
   packages: read
@@ -80,7 +89,7 @@ jobs:
           fixtures_create
       - name: Upload target fixtures
         uses: actions/upload-artifact@v4
-        with:
+        with: &a9
           name: x-cache-fixtures
           path: ${{ runner.temp }}/x-cache-fixtures
           retention-days: 3
@@ -93,10 +102,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        scenario:
-          - same
-          - deps
-          - patches
+        scenario: ${{ fromJSON(inputs.scenarios == 'changes' && '["deps","patches"]' ||
+          inputs.scenarios == 'same' && '["same"]' ||
+          '["same","deps","patches"]') }}
         method:
           - yarn-only
           - x-reset-all
@@ -116,12 +124,13 @@ jobs:
           name: x-cache-fixtures
           path: ${{ runner.temp }}/x-cache-fixtures
           github-token: ${{ secrets.GITHUB_TOKEN }}
-          run-id: ${{ inputs.seed_run }}
+          run-id: ${{ inputs.fixture_run || inputs.seed_run }}
       - name: Apply target fixture
         run: python3 "$RUNNER_TEMP/x-cache-tools/ci-x-cache-benchmark.py" fixture_apply
       - name: Start dependency timer
         run: python3 "$RUNNER_TEMP/x-cache-tools/ci-x-cache-benchmark.py" begin
-      - name: Restore x Yarn archives
+      - &a6
+        name: Restore x Yarn archives
         uses: actions/cache/restore@v4
         with:
           path: ${{ steps.fixture.outputs.yarn-path }}
@@ -132,11 +141,11 @@ jobs:
       - name: Restore x image
         if: ${{ matrix.method != 'yarn-only' }}
         uses: actions/cache/restore@v4
-        with:
+        with: &a7
           path: ${{ steps.fixture.outputs.path }}
           key: ${{ steps.fixture.outputs.key }}
           fail-on-cache-miss: true
-        env:
+        env: &a8
           SEGMENT_DOWNLOAD_TIMEOUT_MINS: "2"
       - name: Install target dependencies
         run: python3 "$RUNNER_TEMP/x-cache-tools/ci-x-cache-benchmark.py" install
@@ -189,6 +198,7 @@ jobs:
       - name: Compare full installed dependency trees
         env:
           BENCHMARK_RESULTS: ${{ runner.temp }}/x-cache-results-all
+          BENCHMARK_SCENARIO_SCOPE: ${{ inputs.scenarios || 'all' }}
         run: python3 .github/scripts/ci-x-cache-benchmark.py compare
       - name: Upload comparison
         if: always()
@@ -198,3 +208,28 @@ jobs:
           path: ${{ runner.temp }}/x-cache-results-all/comparison.json
           retention-days: 3
           if-no-files-found: error
+  fixtures:
+    name: Refresh target fixtures
+    if: ${{ inputs.phase == 'fixtures' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - *a1
+      - *a2
+      - *a3
+      - *a4
+      - *a5
+      - *a6
+      - name: Restore x image
+        uses: actions/cache/restore@v4
+        with: *a7
+        env: *a8
+      - name: Regenerate target fixtures
+        run: python3 "$RUNNER_TEMP/x-cache-tools/ci-x-cache-benchmark.py"
+          fixtures_refresh
+      - name: Upload target fixtures
+        uses: actions/upload-artifact@v4
+        with: *a9
+      - name: Unmount dependency image
+        if: always()
+        run: python3 "$RUNNER_TEMP/x-cache-tools/ci-x-cache-benchmark.py" cleanup
