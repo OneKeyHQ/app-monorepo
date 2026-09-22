@@ -1750,6 +1750,7 @@ export function useSpeedSwapActions(props: {
             networkId: snapshot.networkId,
             buildUnsignedParams: snapshot.buildUnsignedParams,
             approveUnsignedTxArr,
+            quoteResult: snapshot.quoteResult,
             networkFeeLevel,
             customPriorityFee,
             preparedUnsignedTx,
@@ -2270,6 +2271,7 @@ export function useSpeedSwapActions(props: {
       networkId,
       customPriorityFee,
       approvesInfo,
+      quoteResult,
       onSuccess,
       onCancel,
     }: {
@@ -2280,6 +2282,7 @@ export function useSpeedSwapActions(props: {
       networkId?: string;
       customPriorityFee?: ISwapReviewCustomPriorityFee;
       approvesInfo?: IApproveInfo[];
+      quoteResult?: IFetchQuoteResult;
       onSuccess?: (data: ISendTxOnSuccessData[]) => void;
       onCancel?: () => void;
     }) => {
@@ -2318,6 +2321,7 @@ export function useSpeedSwapActions(props: {
                 approveUnsignedTxArr,
                 networkFeeLevel,
                 customPriorityFee,
+                quoteResult,
               });
 
               if (
@@ -2348,6 +2352,7 @@ export function useSpeedSwapActions(props: {
               buildUnsignedParams,
               networkFeeLevel,
               customPriorityFee,
+              quoteResult,
             });
             const gasInfo =
               feeState.gasInfos[feeState.gasInfos.length - 1]?.gasInfo;
@@ -2789,6 +2794,7 @@ export function useSpeedSwapActions(props: {
             networkFeeLevel,
             networkId: snapshot.networkId,
             customPriorityFee,
+            quoteResult: snapshot.quoteResult,
             approvesInfo: approvesInfo?.length ? approvesInfo : undefined,
             onSuccess: async (data) => {
               const result = await handleMarketSwapBuildTxSuccess(data);
@@ -2825,6 +2831,7 @@ export function useSpeedSwapActions(props: {
           networkId: snapshot.networkId,
           buildUnsignedParams: snapshot.buildUnsignedParams,
           approveUnsignedTxArr,
+          quoteResult: snapshot.quoteResult,
           gasInfos,
           networkFeeLevel,
           customPriorityFee,
@@ -2923,6 +2930,7 @@ export function useSpeedSwapActions(props: {
             networkFeeLevel,
             networkId: snapshot.networkId,
             customPriorityFee,
+            quoteResult: snapshot.quoteResult,
             onSuccess: async (data) => {
               const result = await handleMarketSwapBuildTxSuccess(data);
               if (result) {
@@ -2943,6 +2951,7 @@ export function useSpeedSwapActions(props: {
           accountId: snapshot.accountId,
           networkId: snapshot.networkId,
           buildUnsignedParams: snapshot.buildUnsignedParams,
+          quoteResult: snapshot.quoteResult,
           gasInfos,
           networkFeeLevel,
           customPriorityFee,

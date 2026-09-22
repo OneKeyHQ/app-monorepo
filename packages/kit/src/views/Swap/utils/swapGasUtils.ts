@@ -56,7 +56,8 @@ export function isSwapGasAccountCandidate({
  * custom RPC when one is enabled (`signAndSendTransaction` without
  * `useDefaultRpc`), so a sponsor quote could never be honored there. Mirror
  * the confirm page, which suppresses sponsorship for `isCustomRpcEnabled`, by
- * not requesting it in the first place.
+ * not requesting it in the first place. If the lookup itself fails, fall back
+ * to user-paid gas instead of failing the whole swap.
  */
 export async function shouldRequestSwapGasAccount({
   networkId,
@@ -72,7 +73,13 @@ export async function shouldRequestSwapGasAccount({
   if (!isSwapGasAccountCandidate({ swapInfo, quoteResult, hasApproveTx })) {
     return false;
   }
-  const customRpcInfo =
-    await backgroundApiProxy.serviceCustomRpc.getCustomRpcForNetwork(networkId);
-  return !(customRpcInfo?.rpc && customRpcInfo?.enabled);
+  try {
+    const customRpcInfo =
+      await backgroundApiProxy.serviceCustomRpc.getCustomRpcForNetwork(
+        networkId,
+      );
+    return !(customRpcInfo?.rpc && customRpcInfo?.enabled);
+  } catch {
+    return false;
+  }
 }
