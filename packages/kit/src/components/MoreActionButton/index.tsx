@@ -463,6 +463,7 @@ function MoreActionAboutCard({
 
   return (
     <XStack
+      testID="action-center-about"
       mx={isDesktopMode ? '$1' : '$5'}
       minHeight={isDesktopMode ? 40 : 44}
       px="$4"
