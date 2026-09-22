@@ -159,8 +159,9 @@ it again. Reopening the login dialog restores defaults and hides the panel.
   step. Each frame adds a fresh `requestId` to the fragment. Web also supplies
   `parentOrigin`; native and desktop use their host bridge. Changing this page
   does not change the selected Supabase project.
-- **8-digit test OTP** supports the current test project; production keeps six
-  digits. Test verification checks `verifyOtp` and `getUser` using an isolated
+- **Email OTP** accepts non-empty numeric codes without truncating or enforcing
+  a fixed length; Supabase validates its configured code length, including
+  Test2's ten-digit codes. Test verification checks `verifyOtp` and `getUser` using an isolated
   memory-only client and does not commit a OneKey ID login or run its success
   continuations.
 

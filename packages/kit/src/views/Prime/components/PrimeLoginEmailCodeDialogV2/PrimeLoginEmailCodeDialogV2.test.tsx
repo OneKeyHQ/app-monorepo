@@ -346,8 +346,14 @@ describe('PrimeLoginEmailCodeDialogV2', () => {
   test.each([
     { isolatedTest: false, code: '123456' },
     { isolatedTest: false, code: '12345678' },
+    { isolatedTest: false, code: '1234567890' },
+    { isolatedTest: false, code: '7' },
+    { isolatedTest: false, code: '00012345678901234567890' },
     { isolatedTest: true, code: '123456' },
     { isolatedTest: true, code: '12345678' },
+    { isolatedTest: true, code: '1234567890' },
+    { isolatedTest: true, code: '7' },
+    { isolatedTest: true, code: '00012345678901234567890' },
   ])(
     'accepts $code with isolatedTest=$isolatedTest',
     async ({ isolatedTest, code }) => {
@@ -362,13 +368,15 @@ describe('PrimeLoginEmailCodeDialogV2', () => {
           onLoginSuccess={onLoginSuccess}
         />,
       );
-      const input = screen.getByTestId('prime-otp-code');
+      const input = screen.getByTestId<HTMLInputElement>('prime-otp-code');
       expect(input.getAttribute('placeholder')).toBe(
         ETranslations.prime_enter_verification_code,
       );
       await waitFor(() => expect(input.hasAttribute('disabled')).toBe(false));
       expect(document.activeElement).toBe(input);
       fireEvent.change(input, { target: { value: code } });
+      expect(input.value).toBe(code);
+      expect(input.hasAttribute('maxlength')).toBe(false);
       const confirm = screen.getByRole('button', { name: 'confirm' });
       await waitFor(() => expect(confirm.hasAttribute('disabled')).toBe(false));
       fireEvent.click(confirm);
@@ -415,7 +423,7 @@ describe('PrimeLoginEmailCodeDialogV2', () => {
   );
 
   test.each([false, true])(
-    'rejects incomplete codes with isolatedTest=%s',
+    'rejects empty or non-numeric codes with isolatedTest=%s',
     async (isolatedTest) => {
       const sendCode = jest.fn().mockResolvedValue(undefined);
       const loginWithCode = jest.fn();
@@ -430,7 +438,7 @@ describe('PrimeLoginEmailCodeDialogV2', () => {
       await waitFor(() => expect(sendCode).toHaveBeenCalledTimes(1));
       const input = screen.getByTestId('prime-otp-code');
       const confirm = screen.getByRole('button', { name: 'confirm' });
-      for (const code of ['', '12345', '1234567', 'abcdef']) {
+      for (const code of ['', 'abcdef']) {
         fireEvent.change(input, { target: { value: code } });
         expect(confirm.hasAttribute('disabled')).toBe(true);
         fireEvent.click(confirm);

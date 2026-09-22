@@ -96,7 +96,7 @@ export function PrimeLoginEmailCodeDialogV2(props: {
   const didSendCodeSucceedRef = useRef(false);
   const isMountedRef = useIsMounted();
   const [verificationCode, setVerificationCode] = useState('');
-  const isVerificationCodeValid = /^(?:\d{6}|\d{8})$/.test(verificationCode);
+  const isVerificationCodeValid = /^\d+$/.test(verificationCode);
   const [state, setState] = useState<{
     status: 'initial' | 'error' | 'done';
     errorMessageId?: ETranslations;
@@ -549,12 +549,11 @@ export function PrimeLoginEmailCodeDialogV2(props: {
           })}
           error={state.status === 'error'}
           keyboardType="number-pad"
-          maxLength={8}
           disabled={!isCodeInputEnabled || state.status === 'done'}
           value={verificationCode}
           onChangeText={(value) => {
             if (!isCodeInputEnabled || state.status === 'done') return;
-            setVerificationCode(value.replace(/[^0-9]/g, '').slice(0, 8));
+            setVerificationCode(value.replace(/[^0-9]/g, ''));
             setState({ status: 'initial' });
           }}
         />
