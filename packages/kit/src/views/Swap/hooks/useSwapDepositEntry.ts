@@ -20,8 +20,24 @@ import { resolveSwapNetworkAccount } from './useSwapAccount';
 // While that cross-network lookup is still pending the verdict keeps showing
 // "Deposit to Trade" (so the button does not flicker), and a tap in that
 // window resolves the account from `activeAccount` on demand instead of being
-// dropped. One lookup at a time; a result for a token that is no longer
-// selected is discarded.
+// dropped. One lookup at a time; a result for a token or account that is no
+// longer selected is discarded.
+function buildSwapDepositSelectionKey({
+  token,
+  activeAccount,
+}: {
+  token?: ISwapToken;
+  activeAccount?: IAccountSelectorActiveAccountInfo;
+}) {
+  return [
+    getTokenIdentityKey(token),
+    activeAccount?.wallet?.id,
+    activeAccount?.indexedAccount?.id,
+    activeAccount?.account?.id,
+    activeAccount?.dbAccount?.id,
+  ].join('|');
+}
+
 export function useSwapDepositEntryPress({
   token,
   accountInfo,
@@ -64,8 +80,8 @@ export function useSwapDepositEntryPress({
           resolvingRef.current = false;
         }
         if (
-          getTokenIdentityKey(latest.current.token) !==
-          getTokenIdentityKey(pressed.token)
+          buildSwapDepositSelectionKey(latest.current) !==
+          buildSwapDepositSelectionKey(pressed)
         ) {
           return;
         }

@@ -154,6 +154,36 @@ describe('useSwapDepositEntryPress', () => {
     expect(mockPushModal).not.toHaveBeenCalled();
   });
 
+  it('drops a result when the active account changes during the lookup', async () => {
+    const lookup = createDeferred<{ account: INetworkAccount | undefined }>();
+    mockResolveSwapNetworkAccount.mockReturnValue(lookup.promise);
+    const { result, rerender } = renderHook(
+      ({ account }: { account: IAccountSelectorActiveAccountInfo }) =>
+        useSwapDepositEntryPress({
+          token: bnbUsdc,
+          accountInfo: undefined,
+          activeAccount: account,
+          onClose: jest.fn(),
+        }),
+      { initialProps: { account: activeAccount } },
+    );
+    act(() => {
+      result.current();
+    });
+    rerender({
+      account: {
+        ...activeAccount,
+        indexedAccount: { id: 'indexed-2' },
+      } as unknown as IAccountSelectorActiveAccountInfo,
+    });
+    await act(async () => {
+      lookup.resolve({ account: bnbAccount });
+      await lookup.promise;
+    });
+    // The lookup ran for the previous wallet; Receive must not open for it.
+    expect(mockPushModal).not.toHaveBeenCalled();
+  });
+
   it('stays a no-op when no account can be resolved', async () => {
     mockResolveSwapNetworkAccount.mockResolvedValue({ account: undefined });
     const { result } = renderHook(() =>
