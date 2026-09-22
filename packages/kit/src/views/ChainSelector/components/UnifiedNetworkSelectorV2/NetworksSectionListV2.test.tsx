@@ -244,6 +244,16 @@ describe('portfolio NativeList selection adapter V2', () => {
     ).toBe(true);
   });
 
+  it('hosts the section index in the list container on web', () => {
+    render(<HarnessV2 />);
+    expect(
+      getNativePropsV2().snapshot.capabilities?.sectionIndex?.centeredInWindow,
+    ).toBe(true);
+    expect(getNativePropsV2().webSectionIndexContainerRef).toBe(
+      mockSectionIndexContainerRef,
+    );
+  });
+
   it('centers the section index in the window on desktop', () => {
     mockIsDesktop = true;
     render(<HarnessV2 />);
