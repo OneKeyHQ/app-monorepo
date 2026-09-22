@@ -98,7 +98,11 @@ import {
   isWalletListResolvedNoWallet,
   shouldShowNoWalletContent,
 } from './homePageNoWalletContent';
-import { isHomeTabActive, useHomeTabFreeze } from './homeTabFreeze';
+import {
+  isHomeTabActive,
+  useHomeTabFreeze,
+  useHomeTabOwnerThaw,
+} from './homeTabFreeze';
 import { NFTListContainerWithProvider } from './NFTListContainer';
 import { PerpsContainer } from './PerpsContainer';
 import { PortfolioContainerWithProvider } from './PortfolioContainer';
@@ -218,18 +222,26 @@ function HomeTabContentMaxWidth({ children }: { children: React.ReactNode }) {
 // frozen cannot take the tab view's scroll-offset sync (the header then
 // snaps to the wrong collapse state once it thaws). So the pressed target
 // thaws on the tab press itself, and blur only freezes after a delay.
+//
+// `ownerKey` is the account identity the container used to be keyed on. A
+// pane that feeds always-visible state (the wallet pane owns the token data
+// behind the header worth) passes it so an account switch made from another
+// tab thaws it for one commit; see useHomeTabOwnerThaw.
 function FreezeInactiveHomeTab({
   tabName,
   pressedTabName,
+  ownerKey,
   children,
 }: {
   tabName: string;
   pressedTabName: string;
+  ownerKey?: string;
   children: React.ReactNode;
 }) {
   const focusedTab = useFocusedTab();
+  const ownerThaw = useHomeTabOwnerThaw(ownerKey);
   const frozen = useHomeTabFreeze(
-    isHomeTabActive({ tabName, focusedTab, pressedTabName }),
+    ownerThaw || isHomeTabActive({ tabName, focusedTab, pressedTabName }),
   );
   return <DelayedFreeze freeze={frozen}>{children}</DelayedFreeze>;
 }
@@ -1044,6 +1056,14 @@ export function HomePageView({
             <FreezeInactiveHomeTab
               tabName={tab.name}
               pressedTabName={activeTabName}
+              // Only the wallet pane feeds the header while another tab is
+              // focused; the other panes pick the new owner up on their next
+              // focus, as before.
+              ownerKey={
+                tab.id === EHomeWalletTab.Portfolio
+                  ? homeScrollOwnerKey
+                  : undefined
+              }
             >
               {platformEnv.isNative ||
               tab.id === EHomeWalletTab.Perps ||
@@ -1071,6 +1091,7 @@ export function HomePageView({
     activeTabName,
     activeTabId,
     mountedHomeTabIds,
+    homeScrollOwnerKey,
   ]);
 
   const handleSwitchWalletHomeTab = useCallback(
