@@ -6,7 +6,7 @@ import {
   HARDWARE_ERROR_DIALOG_TYPES,
   appEventBus,
 } from '../../eventBus/appEventBus';
-import { ETranslations, ETranslationsMock } from '../../locale';
+import { ETranslations } from '../../locale';
 import { EOneKeyErrorClassNames } from '../types/errorTypes';
 import { normalizeErrorProps } from '../utils/errorUtils';
 
@@ -747,8 +747,7 @@ export class ThirdPartyPayloadTooLarge extends ThirdPartyHardwareError {
   constructor(props?: IOneKeyErrorHardwareProps) {
     super(
       normalizeErrorProps(props, {
-        defaultKey:
-          ETranslationsMock.hardware_third_party_payload_too_large__msg,
+        defaultKey: ETranslations.hardware_third_party_payload_too_large__msg,
         defaultAutoToast: true,
       }),
     );
@@ -840,17 +839,15 @@ export class ThirdPartyEvmTxTypeNotSupported extends ThirdPartyHardwareError {
 // Generic error classes (non-EVM chains: SOL / TRON / BTC)
 // ---------------------------------------------------------------------------
 
-const LEDGER_SIGNING_SETTINGS: Partial<
-  Record<number, ETranslations | ETranslationsMock>
-> = {
+const LEDGER_SIGNING_SETTINGS: Partial<Record<number, ETranslations>> = {
   [ThirdPartyHwErrorCode.SolanaBlindSigningRequired]:
     ETranslations.hardware_third_party_evm_blind_signing_required,
   [ThirdPartyHwErrorCode.TronCustomContractRequired]:
-    ETranslationsMock.hardware_third_party_tron_custom_contract_required__msg,
+    ETranslations.hardware_third_party_tron_custom_contract_required__msg,
   [ThirdPartyHwErrorCode.TronDataSigningRequired]:
-    ETranslationsMock.hardware_third_party_tron_data_signing_required__msg,
+    ETranslations.hardware_third_party_tron_data_signing_required__msg,
   [ThirdPartyHwErrorCode.TronSignByHashRequired]:
-    ETranslationsMock.hardware_third_party_tron_sign_by_hash_required__msg,
+    ETranslations.hardware_third_party_tron_sign_by_hash_required__msg,
 };
 
 /** Names match the settings shown by the respective Ledger chain app. */
