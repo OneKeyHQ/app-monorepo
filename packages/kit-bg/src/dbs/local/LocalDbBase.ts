@@ -6251,7 +6251,6 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     usbConnectId,
     bleConnectId,
     verifiedDeviceIdentity,
-    verifiedLedgerFingerprint,
     assertBindingActive,
   }: {
     dbDeviceId: string;
@@ -6259,8 +6258,6 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     usbConnectId?: string;
     bleConnectId?: string;
     verifiedDeviceIdentity?: IVerifiedDeviceIdentity;
-    /** @deprecated Pass verifiedDeviceIdentity instead. */
-    verifiedLedgerFingerprint?: { chain: string; fingerprint: string };
     /** Background-local lifecycle guard; never persisted or sent over RPC. */
     assertBindingActive?: () => void;
   }) {
@@ -6303,17 +6300,6 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
           ) {
             throw new OneKeyLocalError(
               'A wallet identity cannot be replaced with a transport locator',
-            );
-          }
-          if (
-            verifiedLedgerFingerprint &&
-            (currentSettings.vendor !== EHardwareVendor.ledger ||
-              currentSettings.chainFingerprints?.[
-                verifiedLedgerFingerprint.chain
-              ] !== verifiedLedgerFingerprint.fingerprint)
-          ) {
-            throw new OneKeyLocalError(
-              'Verified Ledger binding no longer matches the device record',
             );
           }
           if (connectId !== undefined) {

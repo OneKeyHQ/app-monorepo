@@ -2,6 +2,7 @@ import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import {
   type IHardwareVendorProfile,
   getVendorProfile,
+  resolvePersistentConnectIdCapability,
 } from '@onekeyhq/shared/src/hardware/config/vendorProfile';
 import { getThirdPartyDeviceDisplayName } from '@onekeyhq/shared/src/utils/thirdPartyDeviceName';
 import type {
@@ -102,8 +103,6 @@ export function mapThirdPartyDeviceToSearchDevice({
     profile.identity.matchDeviceByConnectId(device.connectId)
       ? device.connectId
       : null;
-  const connectorClaimsPersistentIdentity =
-    device.capabilities?.persistentDeviceIdentity;
 
   let connectId: string | null;
   switch (device.connectionType) {
@@ -117,11 +116,13 @@ export function mapThirdPartyDeviceToSearchDevice({
       // Vendors with a stable USB connectId (Trezor: serial number, OneKey
       // ditto) keep it. Vendors with ephemeral USB connectId (Ledger DMK)
       // null it out — downstream code matches by chain fingerprint instead.
-      connectId =
-        (connectorClaimsPersistentIdentity ??
-        profile.identity.persistentConnectId('usb'))
-          ? stableConnectId
-          : null;
+      connectId = resolvePersistentConnectIdCapability({
+        profile,
+        transport: 'usb',
+        capabilities: device.capabilities,
+      })
+        ? stableConnectId
+        : null;
       break;
     default:
       // Transport unknown — fall back to connectId shape heuristic.
