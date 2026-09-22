@@ -52,9 +52,9 @@ import { getSwapKLineTradingViewNativeSource } from '../modal/swapKLineTradingVi
 import { SwapStockMarketDataGrid } from './SwapStockMarketData';
 import { useSwapStockSelection } from './SwapStockMarketProvider';
 import {
-  SwapStockCurrentPosition,
-  useSwapStockPositions,
-} from './SwapStockPositions';
+  SwapStockMyPosition,
+  useSwapStockPortfolio,
+} from './SwapStockPortfolio';
 import { SwapStockTickerSelector } from './SwapStockTickerSelector';
 import { SwapStockTokenDetails } from './SwapStockTokenDetails';
 import { useSwapStockTradeContext } from './SwapStockTradeProvider';
@@ -244,23 +244,12 @@ export function SwapStockMobileHeader() {
 
 export function SwapStockVariantSelector() {
   const selection = useSwapStockSelection();
-  const positions = useSwapStockPositions();
+  // The same per-variant lookup the Market page feeds its selector, so the
+  // balances in the list match the My position table below the chart.
+  const portfolio = useSwapStockPortfolio();
   const intl = useIntl();
   const { currentStockToken, displayStockTokenDetail } =
     useSwapStockTradeContext();
-  const portfolioData = useMemo(
-    () =>
-      positions?.positionTokenList.map((token) => ({
-        networkId: token.networkId,
-        accountAddress: token.accountAddress ?? '',
-        tokenAddress: token.contractAddress,
-        amount: token.balanceParsed ?? '',
-        symbol: token.symbol,
-        tokenPrice: token.price ?? '',
-        totalPrice: '',
-      })),
-    [positions?.positionTokenList],
-  );
   return (
     <YStack gap="$1">
       <XStack
@@ -279,7 +268,8 @@ export function SwapStockVariantSelector() {
               if (!open) selection?.cancelSelection();
             }}
             onSelect={selection?.selectVariant}
-            portfolioData={portfolioData}
+            portfolioData={portfolio?.portfolioData}
+            resolvedVariantKeys={portfolio?.resolvedVariantKeys}
           />
         </Stack>
         <StockTokenInfoPopover
@@ -514,7 +504,7 @@ export function SwapStockMarketPanel() {
         </YStack>
         <Stack h="$4" />
       </YStack>
-      <SwapStockCurrentPosition />
+      <SwapStockMyPosition />
       <SwapStockMarketDataGrid tokenDetail={marketData} />
       <SwapStockTokenDetails
         summary

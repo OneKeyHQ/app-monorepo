@@ -1,0 +1,128 @@
+import { useCallback, useMemo, useRef } from 'react';
+
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { useStockDetail } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/hooks/StockDetailContext';
+import {
+  fetchStockPortfolioData,
+  getStockPortfolioVariantKey,
+} from '@onekeyhq/kit/src/views/Market/MarketDetailV2/hooks/useStockPortfolioData';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+import type { INetworkAccount } from '@onekeyhq/shared/types/account';
+import type { IMarketAccountPortfolioDisplayItem } from '@onekeyhq/shared/types/marketV2';
+
+import { useSwapProPositionAccountIdentity } from './useSwapPro';
+
+function getNetworkAccountXpub(account: INetworkAccount) {
+  if ('xpubSegwit' in account && account.xpubSegwit) {
+    return account.xpubSegwit;
+  }
+  if ('xpub' in account && account.xpub) {
+    return account.xpub;
+  }
+  return undefined;
+}
+
+/**
+ * The Trade counterpart of the Market page's `useStockPortfolioData`: every
+ * token variant of the current stock is looked up for the swap account, so
+ * the panel lists all of the company's positions rather than only the token
+ * being traded. `usePromiseResult` keeps the last result while a refresh is
+ * in flight, so the list never blinks out between polls.
+ */
+export function useSwapStockPortfolioData() {
+  const { accountId, indexedAccountId } = useSwapProPositionAccountIdentity();
+  const { stockId, tokenVariants } = useStockDetail();
+  const successfulPortfolioCacheRef = useRef(
+    new Map<string, IMarketAccountPortfolioDisplayItem[]>(),
+  );
+  const hasAccount = Boolean(accountId || indexedAccountId);
+  // Only the variant identities restart the query; the 6s variant metadata
+  // refresh hands back a new array every tick and must not.
+  const tokenVariantsKey = useMemo(
+    () =>
+      tokenVariants
+        .map(
+          (variant) =>
+            `${getStockPortfolioVariantKey(variant)}:${variant.tokenId}:${
+              variant.logoUrl ?? ''
+            }:${variant.networkLogoUrl ?? ''}`,
+        )
+        .join('|'),
+    [tokenVariants],
+  );
+  const tokenVariantsRef = useRef(tokenVariants);
+  tokenVariantsRef.current = tokenVariants;
+
+  const resolveNetworkAccount = useCallback(
+    async (networkId: string) => {
+      const deriveType =
+        await backgroundApiProxy.serviceNetwork.getGlobalDeriveTypeOfNetwork({
+          networkId,
+        });
+      const networkAccount =
+        await backgroundApiProxy.serviceAccount.getNetworkAccount({
+          accountId: indexedAccountId ? undefined : accountId,
+          indexedAccountId,
+          networkId,
+          deriveType,
+        });
+      return {
+        id: networkAccount.id,
+        address: networkAccount.address,
+        xpub: getNetworkAccountXpub(networkAccount),
+      };
+    },
+    [accountId, indexedAccountId],
+  );
+
+  const {
+    result: portfolioResult,
+    isLoading: isRefreshing,
+    run: fetchPortfolio,
+  } = usePromiseResult(
+    async () => {
+      // Undefined rather than empty: with no account nothing was checked.
+      if (!stockId || !hasAccount) return undefined;
+      return fetchStockPortfolioData({
+        stockId,
+        tokenVariants: tokenVariantsRef.current,
+        successfulPortfolioCache: successfulPortfolioCacheRef.current,
+        resolveNetworkAccount,
+        fetchPortfolio: (params) =>
+          backgroundApiProxy.serviceMarketV2.fetchMarketAccountPortfolio({
+            ...params,
+            throwOnError: true,
+          }),
+      });
+    },
+    // The request reads the latest variants from a ref; see tokenVariantsKey.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [hasAccount, resolveNetworkAccount, stockId, tokenVariantsKey],
+    {
+      watchLoading: true,
+      pollingInterval:
+        stockId && hasAccount
+          ? timerUtils.getTimeDurationMs({ seconds: 15 })
+          : undefined,
+      revalidateOnReconnect: true,
+    },
+  );
+
+  const portfolioData = useMemo(
+    () => portfolioResult?.items ?? [],
+    [portfolioResult],
+  );
+  const resolvedVariantKeys = useMemo(
+    () => portfolioResult?.resolvedVariantKeys ?? [],
+    [portfolioResult],
+  );
+
+  return {
+    portfolioData,
+    resolvedVariantKeys,
+    isRefreshing: Boolean(isRefreshing),
+    hasAccount,
+    fetchPortfolio,
+  };
+}
