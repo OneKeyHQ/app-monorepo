@@ -120,6 +120,7 @@ const NATIVE_TAB_BAR_CONTAINER_STYLE = { position: 'relative' } as const;
 // layout with the banner band). Measured heights per header variant are kept
 // for the session so a later switch back paints with the exact height.
 const NATIVE_HEADER_HEIGHT_SEED = 292;
+// Header container height (alerts excluded) per layout variant.
 const learnedNativeHeaderHeights = new Map<string, number>();
 
 interface IAndroidScrollContainerProps {
@@ -598,15 +599,22 @@ export function HomePageView({
   // learns the header height from onLayout, one or two frames after a layout
   // change, and the tab content padding follows it, so a switch between a
   // funded account (actions + banner band) and an empty one (add-money block)
-  // showed the list shifted for those frames. Remember the measured height per
-  // header variant and hand the container the expected height in the same
-  // commit the variant changes; onLayout only corrects a wrong hint.
+  // showed the list shifted for those frames. Remember the measured height of
+  // the header container per layout variant and hand the tab container the
+  // expected total in the same commit the variant changes; onLayout only
+  // corrects a wrong hint. The alert band above the container (risk approval,
+  // watch-only, network) is measured separately and added live, so accounts
+  // with and without alerts never share a remembered height.
   const [nativeHeaderHeightHint, setNativeHeaderHeightHint] = useState(
     NATIVE_HEADER_HEIGHT_SEED,
   );
-  const headerVariantRef = useRef<string | undefined>(undefined);
+  const nativeHeaderAlertsHeightRef = useRef(0);
+  const handleHeaderAlertsLayout = useCallback((event: LayoutChangeEvent) => {
+    nativeHeaderAlertsHeightRef.current = Math.round(
+      event.nativeEvent.layout.height,
+    );
+  }, []);
   const handleHeaderVariantChange = useCallback((variant: string) => {
-    headerVariantRef.current = variant;
     let learned = learnedNativeHeaderHeights.get(variant);
     if (!learned) {
       // First time this launch: the height measured on an earlier launch.
@@ -620,45 +628,53 @@ export function HomePageView({
       }
     }
     if (learned) {
-      setNativeHeaderHeightHint(learned);
+      setNativeHeaderHeightHint(learned + nativeHeaderAlertsHeightRef.current);
     }
   }, []);
-  const handleHeaderLayout = useCallback((event: LayoutChangeEvent) => {
-    const height = Math.round(event.nativeEvent.layout.height);
-    const variant = headerVariantRef.current;
-    if (!variant || height <= 0) {
-      return;
-    }
-    if (learnedNativeHeaderHeights.get(variant) !== height) {
-      learnedNativeHeaderHeights.set(variant, height);
-      try {
-        homeHeaderLayoutCache.set(variant, height);
-      } catch {
-        // The hint is a paint optimization; failing to remember it is fine.
+  const handleHeaderContainerLayout = useCallback(
+    (variant: string, rawHeight: number) => {
+      const height = Math.round(rawHeight);
+      if (height <= 0) {
+        return;
       }
-    }
-    setNativeHeaderHeightHint(height);
-  }, []);
+      if (learnedNativeHeaderHeights.get(variant) !== height) {
+        learnedNativeHeaderHeights.set(variant, height);
+        try {
+          homeHeaderLayoutCache.set(variant, height);
+        } catch {
+          // The hint is a paint optimization; failing to remember it is fine.
+        }
+      }
+      setNativeHeaderHeightHint(height + nativeHeaderAlertsHeightRef.current);
+    },
+    [],
+  );
 
   const renderHeader = useCallback(() => {
     return (
-      <Stack
-        {...homePageContentMaxWidthSx}
-        onLayout={platformEnv.isNative ? handleHeaderLayout : undefined}
-      >
+      <Stack {...homePageContentMaxWidthSx}>
         {platformEnv.isNative ? (
-          <HeaderScrollGestureWrapper onRefresh={onHomePageRefresh}>
-            <HomeAlerts />
-          </HeaderScrollGestureWrapper>
+          <Stack onLayout={handleHeaderAlertsLayout}>
+            <HeaderScrollGestureWrapper onRefresh={onHomePageRefresh}>
+              <HomeAlerts />
+            </HeaderScrollGestureWrapper>
+          </Stack>
         ) : null}
         <HomeHeaderContainer
           onHeaderVariantChange={
             platformEnv.isNative ? handleHeaderVariantChange : undefined
           }
+          onHeaderLayout={
+            platformEnv.isNative ? handleHeaderContainerLayout : undefined
+          }
         />
       </Stack>
     );
-  }, [handleHeaderLayout, handleHeaderVariantChange]);
+  }, [
+    handleHeaderAlertsLayout,
+    handleHeaderContainerLayout,
+    handleHeaderVariantChange,
+  ]);
 
   // react-native-collapsible-tab-view paints its header container white. In
   // dark mode that white showed through wherever the header content has no

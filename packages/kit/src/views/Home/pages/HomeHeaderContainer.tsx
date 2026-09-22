@@ -1,10 +1,18 @@
-import { memo, useEffect, useLayoutEffect, useMemo, useRef } from 'react';
+import {
+  memo,
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+} from 'react';
 
 import {
   HeaderScrollGestureWrapper,
   Stack,
   YStack,
 } from '@onekeyhq/components';
+
 import { WALLET_TYPE_HD } from '@onekeyhq/shared/src/consts/dbConsts';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type { IHomePageViewedState } from '@onekeyhq/shared/src/logger/scopes/account/scenes/wallet';
@@ -20,6 +28,7 @@ import WalletBanner from '../components/WalletBanner';
 import { HomeTestIDs } from '../testIDs';
 
 import { HomeOverviewContainer } from './HomeOverviewContainer';
+import type { LayoutChangeEvent } from 'react-native';
 
 /**
  * Identifies the header layout (OK-63873). The header is measured by the
@@ -31,10 +40,13 @@ import { HomeOverviewContainer } from './HomeOverviewContainer';
  */
 export interface IHomeHeaderContainerProps {
   onHeaderVariantChange?: (variant: string) => void;
+  /** The measured height of this container (alerts above it excluded). */
+  onHeaderLayout?: (variant: string, height: number) => void;
 }
 
 function BaseHomeHeaderContainer({
   onHeaderVariantChange,
+  onHeaderLayout,
 }: IHomeHeaderContainerProps) {
   const {
     activeAccount: { wallet, account, network, vaultSettings },
@@ -85,6 +97,12 @@ function BaseHomeHeaderContainer({
   useLayoutEffect(() => {
     onHeaderVariantChange?.(headerVariant);
   }, [headerVariant, onHeaderVariantChange]);
+  const handleLayout = useCallback(
+    (event: LayoutChangeEvent) => {
+      onHeaderLayout?.(headerVariant, event.nativeEvent.layout.height);
+    },
+    [headerVariant, onHeaderLayout],
+  );
 
   // Funnel denominator for backup / receive completion rates: log once per
   // (walletId, state) tuple seen this session. Skip `unknown` so we don't
@@ -118,6 +136,7 @@ function BaseHomeHeaderContainer({
       $gtMd={{ gap: '$8' }}
       bg="$bgApp"
       pointerEvents="box-none"
+      onLayout={onHeaderLayout ? handleLayout : undefined}
     >
       <Stack
         testID={HomeTestIDs.headerContainer}
