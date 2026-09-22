@@ -1,5 +1,12 @@
 import type { PropsWithChildren } from 'react';
-import { createContext, useCallback, useContext, useMemo, useRef } from 'react';
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+} from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
@@ -13,10 +20,12 @@ import {
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { useRouteIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import { useSwapProEnableCurrentSymbolAtom } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import { useStockDetail } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/hooks/StockDetailContext';
 import { resolveMarketStockId } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/utils/resolveIsStockToken';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type {
   IMarketAccountPortfolioItem,
@@ -45,6 +54,11 @@ type ICurrentPositionResult = {
 };
 const PositionsContext = createContext<IPositions | undefined>(undefined);
 
+// The stock detail page's portfolio polls every 15s. This list is checked at
+// the same cadence; the loader's own runtime window still decides whether a
+// check turns into a request, so an unchanged list costs nothing.
+const STOCK_POSITIONS_REFRESH_INTERVAL_MS = 15_000;
+
 export function SwapStockPositionsProvider({
   children,
   networks,
@@ -56,6 +70,21 @@ export function SwapStockPositionsProvider({
   const positions = useSwapProSupportNetworksTokenList(networks, ready, {
     stockOnly: true,
   });
+  const isFocused = useRouteIsFocused();
+  const { swapProLoadSupportNetworksTokenListRun } = positions;
+  useEffect(() => {
+    // Native keeps its own prefetch scheduler. Focus gating matches the market
+    // portfolio's polling: a surface behind another one does not refresh.
+    if (platformEnv.isNative || !ready || !isFocused) {
+      return;
+    }
+    const timer = setInterval(() => {
+      void swapProLoadSupportNetworksTokenListRun(networks, {
+        stockOnly: true,
+      });
+    }, STOCK_POSITIONS_REFRESH_INTERVAL_MS);
+    return () => clearInterval(timer);
+  }, [isFocused, networks, ready, swapProLoadSupportNetworksTokenListRun]);
   return (
     <PositionsContext.Provider value={positions}>
       {children}

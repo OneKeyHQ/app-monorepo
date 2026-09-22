@@ -18,6 +18,7 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { swrKeys } from '@onekeyhq/shared/src/utils/swrCacheUtils';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import { mevSwapNetworks } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import {
@@ -70,6 +71,11 @@ type IStockPayToken = IToken & {
 };
 
 const EMPTY_STOCK_PAY_TOKENS: IStockPayToken[] = [];
+
+// The stock detail page's portfolio polls at this cadence. The pay token list
+// keeps the same rhythm so both surfaces show balances of the same age.
+const STOCK_PAY_TOKEN_DETAILS_POLLING_INTERVAL_MS =
+  timerUtils.getTimeDurationMs({ seconds: 15 });
 
 function buildStockPayTokenPreferenceScope({
   accountId,
@@ -480,11 +486,20 @@ export function useSwapStockPayTokens({
       },
       watchLoading: shouldLoadPayTokenDetails,
       revalidateOnFocus: true,
+      pollingInterval: shouldLoadPayTokenDetails
+        ? STOCK_PAY_TOKEN_DETAILS_POLLING_INTERVAL_MS
+        : undefined,
       swrKey: shouldLoadPayTokenDetails
         ? swrKeys.swapStockPayTokenDetails({
             scope: payTokenDetailsScope,
           })
         : undefined,
+      // Only a real balance response may seed the next cold start: the
+      // no-account placeholder carries zeroed balances that would otherwise be
+      // replayed as if they were the account's funds. Same rule as the market
+      // stock caches, which never persist a failed or empty payload.
+      swrShouldPersist: (result) =>
+        hasActiveAccount && result.tokens.length > 0,
     },
   );
   const payTokenDetailsReady =
