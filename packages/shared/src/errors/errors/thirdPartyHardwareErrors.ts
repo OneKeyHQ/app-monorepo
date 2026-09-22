@@ -6,7 +6,7 @@ import {
   HARDWARE_ERROR_DIALOG_TYPES,
   appEventBus,
 } from '../../eventBus/appEventBus';
-import { ETranslations } from '../../locale';
+import { ETranslations, ETranslationsMock } from '../../locale';
 import { EOneKeyErrorClassNames } from '../types/errorTypes';
 import { normalizeErrorProps } from '../utils/errorUtils';
 
@@ -743,6 +743,20 @@ export class ThirdPartyTransportNotAvailable extends ThirdPartyHardwareError {
   override code = ThirdPartyHwErrorCode.TransportNotAvailable;
 }
 
+export class ThirdPartyPayloadTooLarge extends ThirdPartyHardwareError {
+  constructor(props?: IOneKeyErrorHardwareProps) {
+    super(
+      normalizeErrorProps(props, {
+        defaultKey:
+          ETranslationsMock.hardware_third_party_payload_too_large__msg,
+        defaultAutoToast: true,
+      }),
+    );
+  }
+
+  override code = ThirdPartyHwErrorCode.PayloadTooLarge;
+}
+
 // ---------------------------------------------------------------------------
 // EVM-specific Ledger Ethereum App errors (mapped from Ledger APDU codes)
 // ---------------------------------------------------------------------------
@@ -824,26 +838,38 @@ export class ThirdPartyEvmTxTypeNotSupported extends ThirdPartyHardwareError {
 
 // ---------------------------------------------------------------------------
 // Generic error classes (non-EVM chains: SOL / TRON / BTC)
-// Device screen shows the exact setting name, so one generic copy per bucket.
 // ---------------------------------------------------------------------------
 
-/**
- * "Please enable Blind signing and follow the on-device instructions."
- * Covers every non-EVM app-setting toggle that blocks signing:
- *   SOL BlindSigning, TRON Custom Contracts / Data Signing / Sign by Hash.
- */
+const LEDGER_SIGNING_SETTINGS: Partial<
+  Record<number, ETranslations | ETranslationsMock>
+> = {
+  [ThirdPartyHwErrorCode.SolanaBlindSigningRequired]:
+    ETranslations.hardware_third_party_evm_blind_signing_required,
+  [ThirdPartyHwErrorCode.TronCustomContractRequired]:
+    ETranslationsMock.hardware_third_party_tron_custom_contract_required__msg,
+  [ThirdPartyHwErrorCode.TronDataSigningRequired]:
+    ETranslationsMock.hardware_third_party_tron_data_signing_required__msg,
+  [ThirdPartyHwErrorCode.TronSignByHashRequired]:
+    ETranslationsMock.hardware_third_party_tron_sign_by_hash_required__msg,
+};
+
+/** Names match the settings shown by the respective Ledger chain app. */
 export class ThirdPartyEnableBlindSigning extends ThirdPartyHardwareError {
   constructor(
     props?: IOneKeyErrorHardwareProps & { vendor?: string; code?: number },
   ) {
+    const code =
+      props?.code ?? ThirdPartyHwErrorCode.SolanaBlindSigningRequired;
     super(
       normalizeErrorProps(props, {
-        defaultKey: ETranslations.hardware_third_party_enable_blind_signing,
+        defaultKey:
+          LEDGER_SIGNING_SETTINGS[code] ??
+          ETranslations.hardware_third_party_evm_blind_signing_required,
         defaultAutoToast: true,
       }),
     );
     this.vendor = props?.vendor;
-    this.code = props?.code ?? ThirdPartyHwErrorCode.SolanaBlindSigningRequired;
+    this.code = code;
   }
 }
 

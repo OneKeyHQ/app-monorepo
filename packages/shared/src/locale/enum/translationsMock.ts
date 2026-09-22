@@ -1,6 +1,11 @@
 export enum ETranslationsMock {
   mock_do_not_delete_this_key = 'mock',
 
+  hardware_third_party_payload_too_large__msg = 'The data is too large for USB. Use a QR connection or reduce the data size, then try again.',
+  hardware_third_party_tron_custom_contract_required__msg = 'On your Ledger, open the Tron app, go to Settings, and enable Custom Contracts, then try again.',
+  hardware_third_party_tron_data_signing_required__msg = 'On your Ledger, open the Tron app, go to Settings, and enable Transactions Data, then try again.',
+  hardware_third_party_tron_sign_by_hash_required__msg = 'On your Ledger, open the Tron app, go to Settings, and enable Sign by Hash, then try again.',
+
   // ----------------------------------------------
   v4_migration_input_v4_password = 'Enter v4 password',
   v4_migration_input_v4_password_desc = 'Your v5 password has been changed, please enter your v4 password to continue',

@@ -135,7 +135,7 @@ export function convertThirdPartyDeviceError(
     case ThirdPartyHwErrorCode.AppTooOld:
       return new ThirdPartyErrors.ThirdPartyAppTooOld(props);
 
-    // Non-EVM generic: "Please enable Blind signing and follow device prompts"
+    // Each Ledger chain app has its own signing settings.
     case ThirdPartyHwErrorCode.SolanaBlindSigningRequired:
     case ThirdPartyHwErrorCode.TronCustomContractRequired:
     case ThirdPartyHwErrorCode.TronDataSigningRequired:
@@ -276,6 +276,9 @@ export function convertThirdPartyDeviceError(
 
     case ThirdPartyHwErrorCode.TransportNotAvailable:
       return new ThirdPartyErrors.ThirdPartyTransportNotAvailable(props);
+
+    case ThirdPartyHwErrorCode.PayloadTooLarge:
+      return new ThirdPartyErrors.ThirdPartyPayloadTooLarge(props);
 
     default:
       return new ThirdPartyErrors.ThirdPartyUnknownError(props);
