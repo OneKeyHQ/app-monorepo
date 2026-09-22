@@ -321,24 +321,120 @@ function startScreenRecording({ outputDir, udid }) {
 
 function startNativeLogCapture({ logPath, outputDir }) {
   const outputPath = path.join(outputDir, 'native-log-segment.log');
-  const outputFd = fs.openSync(outputPath, 'w');
-  const child = spawn('tail', ['-c', '0', '-F', logPath], {
-    stdio: ['ignore', outputFd, 'ignore'],
-  });
+  const manifestPath = path.join(outputDir, 'native-log-capture.json');
+  const directory = path.dirname(logPath);
+  const identity = (stat) => `${stat.dev}:${stat.ino}`;
+  const inventory = () =>
+    fs
+      .readdirSync(directory)
+      .filter((name) => /^app.*\.log$/.test(name))
+      .flatMap((name) => {
+        try {
+          const filePath = path.join(directory, name);
+          const stat = fs.statSync(filePath);
+          return stat.isFile() ? [{ filePath, stat }] : [];
+        } catch (error) {
+          if (error.code === 'ENOENT') return [];
+          throw error;
+        }
+      })
+      .sort((a, b) => a.stat.birthtimeMs - b.stat.birthtimeMs);
+  const ignored = new Set(inventory().map(({ stat }) => identity(stat)));
+  const initialFd = fs.openSync(logPath, 'r');
+  const initialStat = fs.fstatSync(initialFd);
+  const sources = new Map([
+    [
+      identity(initialStat),
+      {
+        fd: initialFd,
+        name: path.basename(logPath),
+        startByte: initialStat.size,
+      },
+    ],
+  ]);
+  const errors = [];
+  const startedAt = new Date().toISOString();
+  const discover = () => {
+    try {
+      for (const { filePath, stat } of inventory()) {
+        const key = identity(stat);
+        if (sources.has(key)) {
+          sources.get(key).name = path.basename(filePath);
+        } else if (!ignored.has(key)) {
+          // Keep descriptors open across native logger renames and cleanup.
+          const fd = fs.openSync(filePath, 'r');
+          const openedKey = identity(fs.fstatSync(fd));
+          if (sources.has(openedKey) || ignored.has(openedKey)) {
+            fs.closeSync(fd);
+          } else {
+            sources.set(openedKey, {
+              fd,
+              name: path.basename(filePath),
+              startByte: 0,
+            });
+          }
+        }
+      }
+    } catch (error) {
+      errors.push(error.code || error.message);
+    }
+  };
+  const timer = setInterval(discover, 1000);
   let stopped = false;
+  let result = null;
   return {
     outputPath,
+    manifestPath,
     stop: async () => {
-      if (stopped) return;
+      if (stopped) return result;
       stopped = true;
-      if (child.exitCode === null) {
-        child.kill('SIGTERM');
-        await new Promise((resolve) => {
-          child.once('exit', resolve);
-          setTimeout(resolve, 3000);
-        });
+      clearInterval(timer);
+      discover();
+      const endedAt = new Date().toISOString();
+      const outputFd = fs.openSync(outputPath, 'w');
+      const buffer = Buffer.alloc(1024 * 1024);
+      const ranges = [];
+      try {
+        for (const [key, source] of sources) {
+          const endByte = fs.fstatSync(source.fd).size;
+          if (endByte < source.startByte) errors.push('source-truncated');
+          let position = source.startByte;
+          while (position < endByte) {
+            const count = fs.readSync(
+              source.fd,
+              buffer,
+              0,
+              Math.min(buffer.length, endByte - position),
+              position,
+            );
+            if (count === 0) {
+              errors.push('source-ended-before-snapshot');
+              break;
+            }
+            fs.writeSync(outputFd, buffer, 0, count);
+            position += count;
+          }
+          ranges.push({
+            identity: key,
+            name: source.name,
+            startByte: source.startByte,
+            endByte,
+            copiedBytes: position - source.startByte,
+          });
+        }
+      } finally {
+        fs.closeSync(outputFd);
+        for (const { fd } of sources.values()) fs.closeSync(fd);
       }
-      fs.closeSync(outputFd);
+      result = {
+        startedAt,
+        endedAt,
+        complete: errors.length === 0,
+        errors,
+        sources: ranges,
+      };
+      writeJson(manifestPath, result);
+      return result;
     },
   };
 }
@@ -1151,7 +1247,7 @@ async function main() {
 
   const exitCode = await childExitPromise;
   stopSampler();
-  await nativeLogCapture?.stop();
+  const nativeLogCaptureResult = await nativeLogCapture?.stop();
   if (recording) await recording.stop();
   const formalEndMeta = fs.existsSync(formalEndPath)
     ? readJson(formalEndPath)
@@ -1191,7 +1287,9 @@ async function main() {
       fs.statSync(recording.videoPath).size > 0,
     );
   const logsCollected =
-    finalRunMeta?.logCollectionMode === 'native-file' && nativeLogBytes > 0;
+    finalRunMeta?.logCollectionMode === 'native-file' &&
+    nativeLogBytes > 0 &&
+    nativeLogCaptureResult?.complete === true;
   const evidenceCollected =
     logsCollected && processMetricsCollected && screenRecordingCollected;
   const measurementContext = {
@@ -1246,6 +1344,7 @@ async function main() {
       processSamples: path.join(outputDir, 'process-samples.jsonl'),
       nativeLogSegment: nativeLogSegmentPath,
       nativeLogBytes,
+      nativeLogCapture: nativeLogCapture?.manifestPath || null,
       screenRecording: recording?.videoPath || null,
       logCollectionMode: 'native-file',
     },
@@ -1266,6 +1365,7 @@ if (require.main === module) {
 }
 
 module.exports = {
+  startNativeLogCapture,
   parseNativeLog,
   describeCensusWindow,
   summarizeObservedCensusWindows,

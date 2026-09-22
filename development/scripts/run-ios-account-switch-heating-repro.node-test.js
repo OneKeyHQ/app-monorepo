@@ -5,6 +5,7 @@ const path = require('node:path');
 const { test } = require('node:test');
 
 const {
+  startNativeLogCapture,
   parseNativeLog,
   describeCensusWindow,
   summarizeObservedCensusWindows,
@@ -15,6 +16,35 @@ const {
   summarizeNativeLog,
   summarizeSamples,
 } = require('./run-ios-account-switch-heating-repro');
+
+test('captures native file rotation once without including pre-run bytes', async () => {
+  const directory = fs.mkdtempSync(
+    path.join(os.tmpdir(), 'native-log-rotation-'),
+  );
+  const logPath = path.join(directory, 'app-latest.log');
+  fs.writeFileSync(logPath, 'old latest\n');
+  fs.writeFileSync(path.join(directory, 'app-old.log'), 'old archive\n');
+  const capture = startNativeLogCapture({ logPath, outputDir: directory });
+  try {
+    fs.appendFileSync(logPath, 'first RPC\n');
+    fs.renameSync(logPath, path.join(directory, 'app-2026-09-22.0.log'));
+    fs.writeFileSync(logPath, 'second RPC\n');
+    fs.renameSync(logPath, path.join(directory, 'app-2026-09-22.1.log'));
+    fs.writeFileSync(logPath, 'third RPC\n');
+    const result = await capture.stop();
+    assert.equal(result.complete, true);
+    assert.equal(result.sources.length, 3);
+    assert.equal(
+      fs.readFileSync(capture.outputPath, 'utf8'),
+      'first RPC\nsecond RPC\nthird RPC\n',
+    );
+    assert.deepEqual(await capture.stop(), result);
+    assert.equal(fs.readFileSync(logPath, 'utf8'), 'third RPC\n');
+  } finally {
+    await capture.stop();
+    fs.rmSync(directory, { recursive: true, force: true });
+  }
+});
 
 const context = {
   formalStartedAt: '2026-09-22T12:00:00.000Z',
