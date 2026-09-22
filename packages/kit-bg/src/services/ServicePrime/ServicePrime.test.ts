@@ -44,6 +44,7 @@ const mockOneKeyIdAuthStateMigrationLog = jest.fn();
 const mockOneKeyIdAuthStateRepairLog = jest.fn();
 const mockOneKeyIdLoginFailedReasonLog = jest.fn();
 const mockPrimeCryptoPaymentFlowLog = jest.fn();
+const mockHardwareSdkServiceEvent = jest.fn();
 const mockToastIfErrorMethods = new Set<string>();
 
 const VALID_DEV_ONLY_PASSWORD = 'valid-dev-only-password';
@@ -118,6 +119,9 @@ jest.mock('@onekeyhq/shared/src/logger/logger', () => {
         }
         if (loggerMethod === 'prime.subscription.onekeyIdLoginFailedReason') {
           return mockOneKeyIdLoginFailedReasonLog;
+        }
+        if (loggerMethod === 'hardware.sdkLog.serviceEvent') {
+          return mockHardwareSdkServiceEvent;
         }
         return createLoggerProxy(nextPath);
       },
@@ -293,6 +297,8 @@ jest.mock('./primeAuthSessionAccess', () => ({
   clearSupabaseStorageLocalCache: jest.fn(),
 }));
 
+const { HardwareErrorCode } = require('@onekeyfe/hd-shared');
+
 const {
   EOAuthSocialLoginProvider,
 } = require('@onekeyhq/shared/src/consts/authConsts');
@@ -301,10 +307,17 @@ const {
   OneKeyErrorPrimeLoginInvalidToken,
   OneKeyLocalError,
   OneKeyServerApiError,
+  PinCancelled,
+  UserCancel,
+  UserCancelFromOutside,
 } = require('@onekeyhq/shared/src/errors');
 const {
   EOneKeyErrorClassNames,
 } = require('@onekeyhq/shared/src/errors/types/errorTypes');
+const {
+  convertDeviceError,
+  convertDeviceResponse,
+} = require('@onekeyhq/shared/src/errors/utils/deviceErrorUtils');
 const errorToastUtils =
   require('@onekeyhq/shared/src/errors/utils/errorToastUtils').default;
 const {
@@ -315,9 +328,15 @@ const {
   appEventBus,
 } = require('@onekeyhq/shared/src/eventBus/appEventBus');
 const {
+  ETranslations,
+} = require('@onekeyhq/shared/src/locale/enum/translations');
+const {
   stashRequestAuthTokenOfError,
   takeRequestAuthTokenOfError,
 } = require('@onekeyhq/shared/src/request/requestAuthTokenErrorStash');
+const {
+  getPrimeGiftVerifyFailureLogPayload,
+} = require('@onekeyhq/shared/src/utils/primeGiftVerifyError');
 const stringUtils = require('@onekeyhq/shared/src/utils/stringUtils').default;
 const {
   EPrimeAuthSessionSource,
@@ -7368,9 +7387,15 @@ describe('ServicePrime hardware Prime gift orchestration', () => {
     const { service, verify, simpleDbPrime, legacyRead, legacyWrite } =
       createGiftService();
     verify.mockRejectedValueOnce(new Error('Device cancelled'));
-    await expect(
-      service.apiPreparePrimeGiftRedemption(prepareParams),
-    ).rejects.toThrow('Device cancelled');
+    const failedPrepare = await service
+      .apiPreparePrimeGiftRedemption(prepareParams)
+      .catch((error: unknown) => error);
+    expect(failedPrepare).toBeInstanceOf(OneKeyLocalError);
+    expect(failedPrepare).toMatchObject({
+      message: ETranslations.prime_gift_verify_failed__msg,
+      key: ETranslations.prime_gift_verify_failed__msg,
+      autoToast: false,
+    });
     await service.apiPreparePrimeGiftRedemption(prepareParams);
     expect(simpleDbPrime.getAuthSessionSource).not.toHaveBeenCalled();
     expect(
@@ -7403,10 +7428,325 @@ describe('ServicePrime hardware Prime gift orchestration', () => {
       service.apiPreparePrimeGiftRedemption(prepareParams),
     ).resolves.toMatchObject({ code: 'TEST_CODE' });
     mockPrimePersistAtom.get.mockResolvedValue({ isLoggedIn: false });
-    await expect(
-      service.apiPreparePrimeGiftRedemption(prepareParams),
-    ).rejects.toThrow();
+    const loginExpired = await service
+      .apiPreparePrimeGiftRedemption(prepareParams)
+      .catch((error: unknown) => error);
+    expect(loginExpired).toBeInstanceOf(OneKeyLocalError);
+    expect(loginExpired).toMatchObject({
+      message: ETranslations.id_login_expired_description,
+      key: ETranslations.id_login_expired_description,
+      autoToast: false,
+    });
     expect(verify).toHaveBeenCalledTimes(1);
+    expect(mockHardwareSdkServiceEvent).not.toHaveBeenCalled();
+  });
+
+  describe('device verification failures during gift prepare', () => {
+    function expectFriendlyVerifyFailedError(error: unknown) {
+      expect(error).toBeInstanceOf(OneKeyLocalError);
+      expect(error).toMatchObject({
+        message: ETranslations.prime_gift_verify_failed__msg,
+        key: ETranslations.prime_gift_verify_failed__msg,
+        autoToast: false,
+      });
+      expect(toPlainErrorObject(error)).toMatchObject({
+        message: ETranslations.prime_gift_verify_failed__msg,
+        key: ETranslations.prime_gift_verify_failed__msg,
+        autoToast: false,
+      });
+    }
+
+    const SENSITIVE_LOG_VALUES = [
+      'DEVICE_SERIAL',
+      'TEST_CODE',
+      'user-a',
+      'receiver@example.com',
+      'access_token=',
+      'secret-auth-material',
+    ];
+
+    function leakText(prefix: string) {
+      return `${prefix} DEVICE_SERIAL TEST_CODE user-a receiver@example.com access_token=secret-auth-material`;
+    }
+
+    function expectSafeVerifyFailureLog(
+      originalError: unknown,
+      expected: Record<string, unknown>,
+    ) {
+      const logged = getPrimeGiftVerifyFailureLogPayload(originalError);
+      expect(logged).toEqual(expected);
+      expect(mockHardwareSdkServiceEvent).toHaveBeenCalledTimes(1);
+      expect(mockHardwareSdkServiceEvent).toHaveBeenCalledWith(
+        'firmwareAuthenticateForPrimeGift',
+        expected,
+      );
+      const serialized = JSON.stringify(
+        mockHardwareSdkServiceEvent.mock.calls[0][1],
+      );
+      for (const value of SENSITIVE_LOG_VALUES) {
+        expect(serialized).not.toContain(value);
+      }
+    }
+
+    it.each([
+      {
+        name: 'USB SDK failure',
+        error: Object.assign(
+          new Error(leakText('Protocol V2 USB read failed: transferIn')),
+          {
+            name: 'TransportError DEVICE_SERIAL',
+            code: 'TEST_CODE',
+            requestId: 'user-a',
+            cause: { message: leakText('usb cause') },
+            payload: {
+              serialNo: 'DEVICE_SERIAL',
+              primeCode: 'TEST_CODE',
+              userId: 'user-a',
+              email: 'receiver@example.com',
+              code: 'TEST_CODE',
+            },
+          },
+        ),
+        expectedLog: { reason: 'usbReadFailed' },
+      },
+      {
+        name: 'firmware verification failure',
+        error: Object.assign(
+          new OneKeyServerApiError({
+            code: 500,
+            message: leakText('Firmware verification failed'),
+            requestId: 'user-a',
+          }),
+          {
+            cause: { message: leakText('verify cause') },
+            payload: {
+              serialNo: 'DEVICE_SERIAL',
+              primeCode: 'TEST_CODE',
+              code: 'TEST_CODE',
+            },
+          },
+        ),
+        expectedLog: {
+          reason: 'firmwareVerificationFailed',
+          errorName: EOneKeyErrorClassNames.OneKeyServerApiError,
+          errorCode: 500,
+        },
+      },
+      {
+        name: 'plain serialized error',
+        error: {
+          name: 'Error',
+          message: leakText('Protocol V2 USB read failed: transferIn'),
+          code: 'TEST_CODE',
+          requestId: 'user-a',
+          cause: { message: leakText('serialized usb cause') },
+          payload: {
+            serialNo: 'DEVICE_SERIAL',
+            userId: 'user-a',
+            email: 'receiver@example.com',
+          },
+        },
+        expectedLog: { reason: 'usbReadFailed', errorName: 'Error' },
+      },
+    ])(
+      'converts $name into a friendly verify-failed error and logs a structured diagnostic',
+      async ({ error: originalError, expectedLog }) => {
+        const { service, verify } = createGiftService();
+        verify.mockRejectedValueOnce(originalError);
+
+        const error = await service
+          .apiPreparePrimeGiftRedemption(prepareParams)
+          .catch((caught: unknown) => caught);
+
+        expect(error).not.toBe(originalError);
+        expectFriendlyVerifyFailedError(error);
+        expectSafeVerifyFailureLog(originalError, expectedLog);
+        expect(verify).toHaveBeenCalledTimes(1);
+      },
+    );
+
+    it('retries successfully after a converted verification failure', async () => {
+      const { service, verify } = createGiftService();
+      verify.mockRejectedValueOnce(
+        new Error('Protocol V2 USB read failed: transferIn'),
+      );
+
+      await expect(
+        service.apiPreparePrimeGiftRedemption(prepareParams),
+      ).rejects.toBeInstanceOf(OneKeyLocalError);
+      await expect(
+        service.apiPreparePrimeGiftRedemption(prepareParams),
+      ).resolves.toMatchObject({
+        serialNo: 'DEVICE_SERIAL',
+        onekeyUserId: 'user-a',
+        code: 'TEST_CODE',
+        verification: { hasCode: true, status: 'available' },
+      });
+      expect(verify).toHaveBeenCalledTimes(2);
+    });
+
+    it.each([
+      {
+        name: 'converted ActionCancelled UserCancel',
+        createError: () =>
+          convertDeviceError({ code: HardwareErrorCode.ActionCancelled }),
+      },
+      {
+        name: 'converted PinCancelled',
+        createError: () =>
+          convertDeviceError({ code: HardwareErrorCode.PinCancelled }),
+      },
+      {
+        name: 'UserCancel instance',
+        createError: () => new UserCancel(),
+      },
+      {
+        name: 'PinCancelled instance',
+        createError: () => new PinCancelled(),
+      },
+      {
+        name: 'convertDeviceResponse CallQueueActionCancelled',
+        createError: async () => {
+          const error = await convertDeviceResponse(async () => ({
+            success: false,
+            payload: {
+              code: HardwareErrorCode.CallQueueActionCancelled,
+              error: 'Action cancelled by user on call queue',
+            },
+          })).then(
+            () => undefined,
+            (caught: unknown) => caught,
+          );
+          expect(error).toBeDefined();
+          return error;
+        },
+      },
+      {
+        name: 'serialized ActionCancelled',
+        createError: () => ({
+          $isHardwareError: true,
+          code: HardwareErrorCode.ActionCancelled,
+        }),
+      },
+      {
+        name: 'serialized CallQueueActionCancelled payload.code',
+        createError: () => ({
+          className: EOneKeyErrorClassNames.OneKeyHardwareError,
+          payload: { code: HardwareErrorCode.CallQueueActionCancelled },
+        }),
+      },
+      {
+        name: 'serialized PinCancelled',
+        createError: () => ({
+          $isHardwareError: true,
+          className: EOneKeyErrorClassNames.OneKeyHardwareError,
+          payload: { code: HardwareErrorCode.PinCancelled },
+        }),
+      },
+      {
+        name: 'UserCancelFromOutside instance',
+        createError: () => new UserCancelFromOutside(),
+      },
+      {
+        name: 'serialized HardwareUserCancelFromOutside',
+        createError: () => ({
+          className: EOneKeyErrorClassNames.HardwareUserCancelFromOutside,
+          message: 'UserCancelFromOutside',
+        }),
+      },
+      {
+        name: 'hardware busy preflight',
+        createError: () =>
+          new OneKeyLocalError({
+            message: ETranslations.feedback_hardware_is_busy,
+            key: ETranslations.feedback_hardware_is_busy,
+            autoToast: false,
+          }),
+      },
+      {
+        name: 'missing connect preflight',
+        createError: () =>
+          new OneKeyLocalError({
+            message: ETranslations.prime_gift_connect_device__msg,
+            key: ETranslations.prime_gift_connect_device__msg,
+            autoToast: false,
+          }),
+      },
+    ])(
+      'rethrows $name without converting it or writing a failure log',
+      async ({ createError }) => {
+        const { service, verify } = createGiftService();
+        const originalError = await createError();
+        verify.mockRejectedValueOnce(originalError);
+
+        const error = await service
+          .apiPreparePrimeGiftRedemption(prepareParams)
+          .catch((caught: unknown) => caught);
+
+        expect(error).toBe(originalError);
+        expect(error).not.toMatchObject({
+          key: ETranslations.prime_gift_verify_failed__msg,
+        });
+        expect(mockHardwareSdkServiceEvent).not.toHaveBeenCalled();
+        expect(verify).toHaveBeenCalledTimes(1);
+      },
+    );
+
+    it('retries successfully after a preserved hardware-busy preflight error', async () => {
+      const { service, verify } = createGiftService();
+      const busy = new OneKeyLocalError({
+        message: ETranslations.feedback_hardware_is_busy,
+        key: ETranslations.feedback_hardware_is_busy,
+        autoToast: false,
+      });
+      verify.mockRejectedValueOnce(busy);
+
+      await expect(
+        service.apiPreparePrimeGiftRedemption(prepareParams),
+      ).rejects.toBe(busy);
+      await expect(
+        service.apiPreparePrimeGiftRedemption(prepareParams),
+      ).resolves.toMatchObject({ code: 'TEST_CODE' });
+      expect(verify).toHaveBeenCalledTimes(2);
+      expect(mockHardwareSdkServiceEvent).not.toHaveBeenCalled();
+    });
+
+    it('still converts an unrelated OneKeyLocalError into a friendly verify-failed error', async () => {
+      const { service, verify } = createGiftService();
+      const originalError = new OneKeyLocalError({
+        message: 'Some other local failure',
+        key: ETranslations.prime_gift_user_info_failed__msg,
+        autoToast: false,
+      });
+      verify.mockRejectedValueOnce(originalError);
+
+      const error = await service
+        .apiPreparePrimeGiftRedemption(prepareParams)
+        .catch((caught: unknown) => caught);
+
+      expect(error).not.toBe(originalError);
+      expectFriendlyVerifyFailedError(error);
+      expect(verify).toHaveBeenCalledTimes(1);
+      expect(mockHardwareSdkServiceEvent).toHaveBeenCalledTimes(1);
+    });
+
+    it('does not treat a plain Device cancelled Error as user cancellation', async () => {
+      const { service, verify } = createGiftService();
+      const originalError = new Error('Device cancelled');
+      verify.mockRejectedValueOnce(originalError);
+
+      const error = await service
+        .apiPreparePrimeGiftRedemption(prepareParams)
+        .catch((caught: unknown) => caught);
+
+      expect(error).not.toBe(originalError);
+      expectFriendlyVerifyFailedError(error);
+      expectSafeVerifyFailureLog(originalError, {
+        reason: 'unknown',
+        errorName: 'Error',
+      });
+      expect(verify).toHaveBeenCalledTimes(1);
+    });
   });
 
   it.each([

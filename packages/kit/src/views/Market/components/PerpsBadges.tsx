@@ -32,6 +32,9 @@ import {
 } from '@onekeyhq/shared/src/utils/tradingHoursUtils';
 import type { IMarketStockInfo } from '@onekeyhq/shared/types/marketV2';
 
+import { formatStockLastUpdateTime } from '../utils/stockLastUpdate';
+
+import { shouldShowOptionalSegment } from './utils/inlineStatusFit';
 import { truncatePerpsSubtitle } from './utils/perpsSubtitle';
 
 const LeverageBadge = memo(
@@ -190,6 +193,15 @@ const SubtitleBadge = memo(
 );
 SubtitleBadge.displayName = 'SubtitleBadge';
 
+/**
+ * Unified subtitle size across every Market/Perps list and selector row: 11px
+ * on desktop, 12px on mobile. Text that sits beside the localized name (a
+ * volume, for one) reads it from here so the pair never diverges.
+ */
+function getSubtitleTextSize(gtMd: boolean): ISizableTextProps['size'] {
+  return gtMd ? '$bodyXs' : '$bodySm';
+}
+
 // Localized name rendered as plain subdued text (no badge background).
 // Used in Market/Perps list rows: placed under the symbol on desktop and
 // before the volume on mobile.
@@ -200,16 +212,23 @@ const SubtitleText = memo(
     size: sizeOverride,
   }: {
     subtitle: string;
+    /**
+     * Caps the name so it can ellipsize, as the selector rows do; only a capped
+     * name gets the full-name hover tooltip. Uncapped, the name fills its row
+     * and already reads in full.
+     */
     maxWidth?: number;
     /** Opt out of the shared size where a surface has its own scale — the
      *  Market list tables run their subtitle at the row's own secondary size. */
     size?: ISizableTextProps['size'];
   }) => {
     const { gtMd } = useMedia();
-    // Unified subtitle size across every Market/Perps list and selector row:
-    // 11px on desktop, 12px on mobile. Keep this the single source of truth so
-    // the localized name never diverges between lists.
-    const size = sizeOverride ?? (gtMd ? '$bodyXs' : '$bodySm');
+    const size = sizeOverride ?? getSubtitleTextSize(gtMd);
+    // The uncapped list rows also skip the layout-driven measurement: it could
+    // record "truncated" mid-layout and never re-measure, popping the tooltip
+    // over a name that fits.
+    const hasTruncationTooltip =
+      !platformEnv.isNative && maxWidth !== undefined;
     const textRef = useRef<HTMLElement | null>(null);
     const tooltipRef = useRef<ITooltipRef>({
       closeTooltip: () => Promise.resolve(),
@@ -228,9 +247,6 @@ const SubtitleText = memo(
     // On web the name is clipped via CSS ellipsis, so detect truncation by
     // comparing the full content width against the clamped layout width.
     const measureTruncation = useCallback(() => {
-      if (platformEnv.isNative) {
-        return;
-      }
       const el = textRef.current;
       if (el && typeof el.scrollWidth === 'number') {
         const nextIsTruncated = el.scrollWidth > el.clientWidth + 1;
@@ -243,7 +259,11 @@ const SubtitleText = memo(
     // The View wrapper carries onLayout (not exposed on SizableText) so we can
     // re-measure truncation whenever the row is laid out or resized.
     const textElement = (
-      <Stack minWidth={0} flexShrink={1} onLayout={measureTruncation}>
+      <Stack
+        minWidth={0}
+        flexShrink={1}
+        onLayout={hasTruncationTooltip ? measureTruncation : undefined}
+      >
         <SizableText
           // SizableText forwards its ref to the underlying DOM node on web, but
           // the public prop types don't expose `ref`; attach it via spread so
@@ -262,7 +282,7 @@ const SubtitleText = memo(
       </Stack>
     );
 
-    if (platformEnv.isNative) {
+    if (!hasTruncationTooltip) {
       return textElement;
     }
 
@@ -427,15 +447,28 @@ const STOCK_MARKET_STATUS_CHIPS: Record<
  * trading-hours panel) — the wrapping trigger owns the press, so the hover
  * tooltip must not compete with it.
  */
+// Matches the inline row's `gap="$1"`.
+const INLINE_STATUS_ROW_GAP = 4;
+
+const STOCK_FROZEN_QUOTE_VARIANTS = new Set([
+  EUSMarketStatusVariant.Overnight,
+  EUSMarketStatusVariant.Closed,
+  EUSMarketStatusVariant.Halted,
+]);
+
 const StockIsOpenBadge = memo(
   ({
     stock,
     disableTooltip,
     variant: displayVariant = 'badge',
+    showLastUpdate = true,
   }: {
     stock: IMarketStockInfo;
     disableTooltip?: boolean;
     variant?: 'badge' | 'inline';
+    /** Off for the token price: that quote trades around the clock, so its
+     *  own timestamp is always now. */
+    showLastUpdate?: boolean;
   }) => {
     const intl = useIntl();
     const { source, isOpen, isPaused, description } = stock;
@@ -459,6 +492,64 @@ const StockIsOpenBadge = memo(
       [source, isOpen, isPaused, marketStatus],
     );
 
+    // Outside regular trading the share price is frozen, so the inline chip
+    // reports when it last moved. While the market trades the quote is live
+    // and the timestamp would only add noise.
+    const lastUpdateText = useMemo(() => {
+      if (
+        !showLastUpdate ||
+        displayVariant !== 'inline' ||
+        !variant ||
+        !STOCK_FROZEN_QUOTE_VARIANTS.has(variant)
+      ) {
+        return undefined;
+      }
+      const time = formatStockLastUpdateTime(stock.priceUpdatedAt);
+      if (!time) {
+        return undefined;
+      }
+      return `${intl.formatMessage({
+        id: ETranslations.market_last_updated,
+      })} ${time}`;
+    }, [displayVariant, intl, showLastUpdate, stock.priceUpdatedAt, variant]);
+
+    // Measured so a translation that outgrows the row drops the countdown
+    // instead of running under the trade panel beside it. The text stack is
+    // only recorded while the countdown renders, so the width it reports is
+    // always the full one; the leading icon is measured separately because it
+    // sits outside that stack but still takes room from the row.
+    const [availableWidth, setAvailableWidth] = useState(0);
+    const [iconWidth, setIconWidth] = useState(0);
+    const [measurement, setMeasurement] = useState({ key: '', width: 0 });
+    const handleRowLayout = useCallback(
+      ({ nativeEvent }: { nativeEvent: { layout: { width: number } } }) => {
+        setAvailableWidth(Math.round(nativeEvent.layout.width));
+      },
+      [],
+    );
+    const handleIconLayout = useCallback(
+      ({ nativeEvent }: { nativeEvent: { layout: { width: number } } }) => {
+        setIconWidth(Math.round(nativeEvent.layout.width));
+      },
+      [],
+    );
+    const showsOptionalSegmentRef = useRef(true);
+    const measurementKeyRef = useRef('');
+    const handleContentLayout = useCallback(
+      ({ nativeEvent }: { nativeEvent: { layout: { width: number } } }) => {
+        if (!showsOptionalSegmentRef.current) {
+          return;
+        }
+        const width = Math.round(nativeEvent.layout.width);
+        setMeasurement((previous) =>
+          previous.key === measurementKeyRef.current && previous.width === width
+            ? previous
+            : { key: measurementKeyRef.current, width },
+        );
+      },
+      [],
+    );
+
     // Only the inline chip has room for it, and only a closed market has
     // something to count down to.
     const nextOpenText = useNextOpenCountdownText({
@@ -469,30 +560,58 @@ const StockIsOpenBadge = memo(
       nextOpenMinutes: stock.nextOpenMinutes,
     });
 
+    // A countdown that ticks down to a shorter string can fit again, so every
+    // wording change starts a fresh measurement instead of reusing the width
+    // of the row that did not fit.
+    const measurementKey = `${lastUpdateText ?? ''}|${nextOpenText ?? ''}`;
+    measurementKeyRef.current = measurementKey;
+    if (measurement.key !== measurementKey && measurement.width !== 0) {
+      setMeasurement({ key: measurementKey, width: 0 });
+    }
+    const contentWidth =
+      measurement.key === measurementKey ? measurement.width : 0;
+
     if (!variant) {
       return null;
     }
     const chip = STOCK_MARKET_STATUS_CHIPS[variant];
+    const showNextOpen =
+      Boolean(nextOpenText) &&
+      shouldShowOptionalSegment({
+        availableWidth,
+        contentWidth,
+        // The icon box plus the row's own `$1` gap before the text stack.
+        reservedWidth: iconWidth ? iconWidth + INLINE_STATUS_ROW_GAP : 0,
+      });
+    showsOptionalSegmentRef.current = showNextOpen;
 
     const badge =
       displayVariant === 'inline' ? (
-        <XStack alignItems="center" gap="$1">
+        <XStack alignItems="center" gap="$1" onLayout={handleRowLayout}>
           {/* Figma 26560:24978 pads the icon box by 2px so the glyph is not
               flush against the label's cap height. */}
-          <Stack px="$0.5">
+          <Stack px="$0.5" onLayout={handleIconLayout}>
             <Icon name={chip.icon} size="$4" color={chip.color} />
           </Stack>
-          <XStack alignItems="center" gap="$2">
+          <XStack alignItems="center" gap="$2" onLayout={handleContentLayout}>
             <SizableText size="$bodyMd" color={chip.color}>
               {chip.titleId !== undefined
                 ? intl.formatMessage({ id: chip.titleId })
                 : chip.title}
             </SizableText>
-            {nextOpenText ? (
+            {lastUpdateText ? (
               <>
                 {/* Figma 26560:25110 */}
                 <Stack width="$px" height={12} bg="$borderSubdued" />
                 <SizableText size="$bodyMd" color="$textSubdued">
+                  {lastUpdateText}
+                </SizableText>
+              </>
+            ) : null}
+            {showNextOpen ? (
+              <>
+                <Stack width="$px" height={12} bg="$borderSubdued" />
+                <SizableText size="$bodyMd" color="$textSubdued" flexShrink={0}>
                   {nextOpenText}
                 </SizableText>
               </>
@@ -543,9 +662,11 @@ const StockMarketStatusBadge = memo(
   ({
     stock,
     variant,
+    showLastUpdate,
   }: {
     stock?: IMarketStockInfo;
     variant?: 'badge' | 'inline';
+    showLastUpdate?: boolean;
   }) => {
     if (!stock) {
       return null;
@@ -554,7 +675,12 @@ const StockMarketStatusBadge = memo(
       <TradingHoursTrigger
         stock={stock}
         renderTrigger={
-          <StockIsOpenBadge stock={stock} disableTooltip variant={variant} />
+          <StockIsOpenBadge
+            stock={stock}
+            disableTooltip
+            variant={variant}
+            showLastUpdate={showLastUpdate}
+          />
         }
       />
     );
@@ -594,6 +720,7 @@ const StockSourceLogo = memo(
 StockSourceLogo.displayName = 'StockSourceLogo';
 
 export {
+  getSubtitleTextSize,
   LeverageBadge,
   PerpDexBadge,
   StockIsOpenBadge,

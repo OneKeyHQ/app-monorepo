@@ -38,8 +38,10 @@ import {
   tokenDetailLoadingAtom,
   tokenDetailPreviewAtom,
   tokenDetailRequestIdAtom,
+  tokenDetailSwrScopeAtom,
   tokenDetailWebsocketAtom,
 } from './atoms';
+import { marketTokenDetailSnapshotCache } from './marketSnapshotCaches';
 
 export const homeResettingFlags: Record<string, number> = {};
 
@@ -118,24 +120,54 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
   );
 
   prepareTokenDetailPreview = contextAtomMethod(
-    (get, set, payload: IMarketTokenDetailPreview | undefined) => {
+    (
+      get,
+      set,
+      payload: IMarketTokenDetailPreview | undefined,
+      retainedTarget?: {
+        tokenAddress: string;
+        networkId: string;
+        isNative: boolean;
+      },
+    ) => {
+      const detail = get(tokenDetailAtom());
+      const preview = get(tokenDetailPreviewAtom());
+      // Retained routes may reconnect their effects without changing identity.
+      // Read the shared store now: another route may have owned it while hidden.
+      if (
+        retainedTarget &&
+        get(tokenAddressAtom()) === retainedTarget.tokenAddress &&
+        get(networkIdAtom()) === retainedTarget.networkId &&
+        get(isNativeAtom()) === Boolean(retainedTarget.isNative) &&
+        (!detail ||
+          isSameMarketTokenDetail({
+            tokenDetail: detail,
+            ...retainedTarget,
+          })) &&
+        (!preview ||
+          (preview.address === retainedTarget.tokenAddress &&
+            preview.networkId === retainedTarget.networkId))
+      ) {
+        return;
+      }
       set(tokenDetailRequestIdAtom(), get(tokenDetailRequestIdAtom()) + 1);
       set(tokenDetailAtom(), undefined);
       set(tokenDetailPreviewAtom(), payload);
       set(tokenDetailLoadingAtom(), false);
       set(tokenDetailWebsocketAtom(), undefined);
       set(perpsInfoAtom(), undefined);
-
-      if (!payload) {
-        set(tokenAddressAtom(), '');
-        set(networkIdAtom(), '');
-        set(isNativeAtom(), false);
-        return;
-      }
-
-      set(tokenAddressAtom(), payload.address);
-      set(networkIdAtom(), payload.networkId);
-      set(isNativeAtom(), Boolean(payload.isNative));
+      set(
+        tokenAddressAtom(),
+        retainedTarget?.tokenAddress ?? payload?.address ?? '',
+      );
+      set(
+        networkIdAtom(),
+        retainedTarget?.networkId ?? payload?.networkId ?? '',
+      );
+      set(
+        isNativeAtom(),
+        Boolean(retainedTarget?.isNative ?? payload?.isNative),
+      );
     },
   );
 
@@ -228,6 +260,59 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
       set(isNativeAtom(), Boolean(target.isNative));
       set(tokenDetailWebsocketAtom(), undefined);
       set(perpsInfoAtom(), undefined);
+    },
+  );
+
+  // Fill an empty detail from the last response for this token so a revisit
+  // renders real values on its first frame; the running poll replaces it.
+  seedTokenDetailFromCache = contextAtomMethod(
+    (
+      get,
+      set,
+      payload: { tokenAddress: string; networkId: string; swrKey: string },
+    ) => {
+      const { tokenAddress, networkId, swrKey } = payload;
+      // Same token in the same scope: what is on screen already came from this
+      // key. A scope change (currency, locale) keeps the token identity but
+      // makes the displayed fields stale, so it must fall through and seed.
+      if (
+        get(tokenDetailSwrScopeAtom()) === swrKey &&
+        isSameMarketTokenDetail({
+          tokenDetail: get(tokenDetailAtom()),
+          tokenAddress,
+          networkId,
+        })
+      ) {
+        return;
+      }
+      // Only seed the identity the atoms currently point at.
+      if (
+        !equalTokenNoCaseSensitive({
+          token1: {
+            networkId: get(networkIdAtom()),
+            contractAddress: get(tokenAddressAtom()),
+          },
+          token2: { networkId, contractAddress: tokenAddress },
+        })
+      ) {
+        return;
+      }
+      // The cache applies its own max age, so a stale record reads as a miss.
+      const cached = marketTokenDetailSnapshotCache.get(swrKey);
+      if (
+        !cached?.data?.token ||
+        !isSameMarketTokenDetail({
+          tokenDetail: cached.data.token,
+          tokenAddress,
+          networkId,
+        })
+      ) {
+        return;
+      }
+      set(tokenDetailAtom(), cached.data.token);
+      set(tokenDetailWebsocketAtom(), cached.data.websocket);
+      set(perpsInfoAtom(), cached.data.perpsInfo);
+      set(tokenDetailSwrScopeAtom(), swrKey);
     },
   );
 
@@ -420,7 +505,13 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
   });
 
   fetchTokenDetail = contextAtomMethod(
-    async (get, set, tokenAddress: string, networkId: string) => {
+    async (
+      get,
+      set,
+      tokenAddress: string,
+      networkId: string,
+      options?: { swrKey?: string },
+    ) => {
       const requestId = get(tokenDetailRequestIdAtom()) + 1;
       set(tokenDetailRequestIdAtom(), requestId);
       let isStale = false;
@@ -480,6 +571,9 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
           set(tokenDetailPreviewAtom(), undefined);
           set(tokenDetailWebsocketAtom(), undefined);
           set(perpsInfoAtom(), undefined);
+          if (options?.swrKey) {
+            marketTokenDetailSnapshotCache.remove(options.swrKey);
+          }
           return;
         }
 
@@ -519,6 +613,16 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
         set(tokenDetailPreviewAtom(), undefined);
         set(tokenDetailWebsocketAtom(), websocketConfig);
         set(perpsInfoAtom(), perpsInfo);
+        if (options?.swrKey) {
+          marketTokenDetailSnapshotCache.set(options.swrKey, {
+            token: tokenData,
+            websocket: websocketConfig,
+            perpsInfo,
+          });
+          // This response is the scope now, so a seed for the same key cannot
+          // put an older cached copy back over it.
+          set(tokenDetailSwrScopeAtom(), options.swrKey);
+        }
 
         return finalTokenData;
       } catch (error) {
@@ -746,10 +850,17 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
         return;
       }
 
+      const [sortIndex] = sortUtils.buildTopSortIndexes({
+        oldList: prev.data,
+        count: 1,
+      });
       const item: IMarketWatchListItemV2 = {
         chainId: '',
         contractAddress: '',
         perpsCoin,
+        // Without an index the save fills in "after the last item", which
+        // sank every perps favorite below the spot ones.
+        sortIndex,
       };
 
       this.invalidateWatchListV2Refresh.call(set);
@@ -956,6 +1067,7 @@ export function useTokenDetailActions() {
   const fetchTokenDetail = actions.fetchTokenDetail.use();
   const clearTokenDetail = actions.clearTokenDetail.use();
   const prepareStockTokenDetail = actions.prepareStockTokenDetail.use();
+  const seedTokenDetailFromCache = actions.seedTokenDetailFromCache.use();
   const changeActiveToken = actions.changeActiveToken.use();
   const applyChartPriceUpdate = actions.applyChartPriceUpdate.use();
 
@@ -973,6 +1085,7 @@ export function useTokenDetailActions() {
     fetchTokenDetail,
     clearTokenDetail,
     prepareStockTokenDetail,
+    seedTokenDetailFromCache,
     changeActiveToken,
     applyChartPriceUpdate,
   });

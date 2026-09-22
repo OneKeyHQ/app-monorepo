@@ -205,10 +205,19 @@ export class Analytics {
     ) {
       return;
     }
+    // Transport fields, not event properties: the utility service maps them to
+    // PostHog's dedupe uuid and event time, so an event delivered twice (its
+    // acknowledgement lost) is counted once. `$`-prefixed names are reserved
+    // and must never be used for business properties.
+    const {
+      $insertId: insertId,
+      $timestamp: timestamp,
+      ...props
+    } = eventProps ?? {};
     const deviceInfo = await this.lazyDeviceInfo();
     const event = {
       ...deviceInfo,
-      ...eventProps,
+      ...props,
       tier: deviceInfo.tier,
       distinct_id: this.instanceId,
     } as Record<string, unknown>;
@@ -231,6 +240,10 @@ export class Analytics {
     await axios.post(TRACK_EVENT_PATH, {
       eventName,
       eventProps: event,
+      ...(typeof insertId === 'string' && insertId ? { insertId } : {}),
+      ...(typeof timestamp === 'number' && Number.isFinite(timestamp)
+        ? { timestamp }
+        : {}),
     });
   }
 

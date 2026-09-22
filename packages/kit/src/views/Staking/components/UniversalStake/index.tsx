@@ -12,6 +12,7 @@ import {
   Alert,
   Dialog,
   Divider,
+  HeightTransition,
   Icon,
   IconButton,
   Image,
@@ -535,6 +536,8 @@ export function UniversalStake({
   const { handleOpenWebSite } = useBrowserAction().current;
   const showEstimateGasAlert = useShowStakeEstimateGasAlert();
   const [amountValue, setAmountValue] = useState('');
+  const transactionConfirmationAmountRef = useRef(amountValue);
+  transactionConfirmationAmountRef.current = amountValue;
   const [approving, setApproving] = useState<boolean>(false);
   const [submitting, setSubmitting] = useState<boolean>(false);
   const [selectedValidator, setSelectedValidator] = useState<
@@ -734,13 +737,17 @@ export function UniversalStake({
   // window: protocols whose response carries no summary would otherwise pulse
   // the skeleton on every amount edit, and a failed first request would leave
   // the skeleton stuck forever.
-  const transactionConfirmationSettledRef = useRef(false);
+  const [transactionConfirmationSettled, setTransactionConfirmationSettled] =
+    useState(false);
 
   const debouncedFetchTransactionConfirmation = useDebouncedCallback(
     async (amount?: string) => {
       setTransactionConfirmationLoading(true);
       try {
         const resp = await fetchTransactionConfirmation(amount || '0');
+        if (transactionConfirmationAmountRef.current !== amount) {
+          return;
+        }
         setTransactionConfirmation(resp);
         if (resp && amount && Number(amount) > 0) {
           onQuoteReset?.();
@@ -748,8 +755,10 @@ export function UniversalStake({
       } catch {
         // keep stale state
       } finally {
-        transactionConfirmationSettledRef.current = true;
-        setTransactionConfirmationLoading(false);
+        if (transactionConfirmationAmountRef.current === amount) {
+          setTransactionConfirmationSettled(true);
+          setTransactionConfirmationLoading(false);
+        }
       }
     },
     350,
@@ -978,8 +987,16 @@ export function UniversalStake({
       void debouncedFetchEstimateFeeResp(amountValue);
     }
     prevShouldApproveRef.current = shouldApprove;
-
-    void debouncedFetchTransactionConfirmation(amountValue);
+    if (!isInvalidAmount(amountValue) && amountValueBN.isGreaterThan(0)) {
+      void debouncedFetchTransactionConfirmation(amountValue);
+    } else {
+      debouncedFetchTransactionConfirmation.cancel();
+      setTransactionConfirmation(undefined);
+      setTransactionConfirmationLoading(false);
+    }
+    return () => {
+      debouncedFetchTransactionConfirmation.cancel();
+    };
   }, [
     shouldApprove,
     amountValue,
@@ -1313,8 +1330,9 @@ export function UniversalStake({
     // OK-59196: Stakefish signs a provider-facing message before any hook runs,
     // so the disclaimer has to gate this pre-transaction step. Not a duplicate
     // of the gate inside useUniversalStake — that one only covers the transaction
-    // itself, and once accepted this call resolves immediately.
-    if (isStakefishEthStake && !stakefishPermitSignatureRef.current) {
+    // itself, and once accepted this call resolves immediately. Only create-new
+    // validator stakes sign, so a top up never reaches this dialog.
+    if (isStakefishCreateNewValidator && !stakefishPermitSignatureRef.current) {
       const riskAcceptedBeforeSigning = await showEarnRiskWarningDialog({
         provider: providerName,
         symbol: actionSymbol,
@@ -1326,8 +1344,11 @@ export function UniversalStake({
       }
     }
 
-    // Stakefish ETH: sign before building the staking transaction.
-    if (isStakefishEthStake && !stakefishPermitSignatureRef.current) {
+    // Stakefish ETH: sign before building the staking transaction. Only the
+    // create-new-validator flow needs it; the Earn API routes a top up by
+    // publicKey (the selected validator) and the signature would take priority
+    // over it in the stake build, so signing a top up only blocks the build.
+    if (isStakefishCreateNewValidator && !stakefishPermitSignatureRef.current) {
       setApproving(true);
       try {
         const { signature, message } = await signPersonalMessage({
@@ -1348,14 +1369,16 @@ export function UniversalStake({
       setApproving(false);
     }
 
-    // Determine permitSignature source: Morpho uses permitSignatureRef, Stakefish uses stakefishPermitSignatureRef
+    // Determine permitSignature source: Morpho uses permitSignatureRef, Stakefish uses stakefishPermitSignatureRef.
+    // Stakefish only attaches it for a new validator; a top up must stay
+    // signature-free so the Earn API routes it by publicKey.
     let finalPermitSignature: string | undefined;
     let finalMessage: string | undefined;
     let finalUnsignedMessage: IEarnPermit2ApproveSignData | undefined;
     if (usePermit2Approve) {
       finalPermitSignature = permitSignatureRef.current;
       finalUnsignedMessage = permit2DataRef.current;
-    } else if (isStakefishEthStake) {
+    } else if (isStakefishCreateNewValidator) {
       finalPermitSignature = stakefishPermitSignatureRef.current;
       finalMessage = stakefishPermitMessageRef.current;
     }
@@ -1475,7 +1498,6 @@ export function UniversalStake({
     showEstimateGasAlert,
     checkEstimateGasAlert,
     isStakefishProvider,
-    isStakefishEthStake,
     isPendleProvider,
     selectedValidator,
     isStakefishCreateNewValidator,
@@ -2283,7 +2305,8 @@ export function UniversalStake({
     !isPendleLikeLayout &&
     (!protocolSwitchConfig || shouldReserveCompactSummary) &&
     !isDisabled &&
-    !transactionConfirmationSettledRef.current;
+    isPositiveAmount &&
+    !transactionConfirmationSettled;
 
   const summaryLoadingContent = useMemo(() => {
     if (!summaryPending) {
@@ -2333,7 +2356,7 @@ export function UniversalStake({
               tokenSelectorTriggerProps={{
                 selectedTokenImageUri: tokenImageUri,
                 selectedTokenImageLoading: tokenImageLoading,
-                selectedTokenSymbol: tokenSymbol?.toUpperCase(),
+                selectedTokenSymbol: tokenSymbol,
                 selectedNetworkImageUri: networkLogoURI,
                 ...tokenSelectorTriggerProps,
               }}
@@ -2480,9 +2503,15 @@ export function UniversalStake({
               />
             </XStack>
           ) : null}
-          {summaryContent}
-          {summaryLoadingContent}
-          {summaryContent || summaryLoadingContent ? <Divider my="$5" /> : null}
+          <HeightTransition>
+            {summaryContent || summaryLoadingContent ? (
+              <>
+                {summaryContent}
+                {summaryLoadingContent}
+                <Divider my="$5" />
+              </>
+            ) : null}
+          </HeightTransition>
           <YStack gap="$5">
             {ongoingValidator ? (
               <EarnValidatorSelect

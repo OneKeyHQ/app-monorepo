@@ -97,6 +97,7 @@ describe('travelModeCommandPolicy', () => {
     ['serviceMarketV2', 'fetchMarketBannerStockTokenList'],
     ['serviceMarketV2', 'fetchMarketBannerPerpsTokenList'],
     ['serviceMarketV2', 'fetchMarketChains'],
+    ['serviceMarketV2', 'fetchMarketStockBatch'],
     ['serviceMarketV2', 'fetchMarketStockList'],
     ['serviceMarketV2', 'fetchMarketPerpsTokenList'],
     ['serviceMarketV2', 'fetchMarketTokenList'],

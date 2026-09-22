@@ -19,8 +19,6 @@ import { DesktopTabItem } from '@onekeyhq/components/src/layouts/Navigation/Tab/
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { TRADING_VIEW_NATIVE_THEME_COLORS } from '@onekeyhq/shared/types/tradingViewNative';
 
-import { TRADING_VIEW_PREVIOUS_CLOSE_LABEL } from '../../constants';
-
 import {
   createTradingViewChartSettingsValue,
   toggleTradingViewSettingsMockAppearanceItem,
@@ -721,7 +719,9 @@ export function TradingViewChartSettings({
           ) : null}
           {isOptionVisible('previousClose') ? (
             <SettingsCheckboxRow
-              label={TRADING_VIEW_PREVIOUS_CLOSE_LABEL}
+              label={intl.formatMessage({
+                id: ETranslations.market_prev_close,
+              })}
               testID="previous-close"
               value={settingsValue.options.previousClose}
               disabled={submitInProgress}

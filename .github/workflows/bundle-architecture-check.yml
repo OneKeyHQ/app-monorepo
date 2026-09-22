@@ -46,10 +46,11 @@ jobs:
             echo "AI prompt generation failed; inspect the failed step log and bundle architecture logs." > ci-ai/bundle-architecture-ai-prompt.md
 
       - name: Install Dependencies
+        id: dependencies
         env:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NODE_OPTIONS: '--max_old_space_size=8192'
-        run: yarn install --immutable
+        uses: ./.github/actions/install-dependencies
 
       - name: Build union graph and allocation reports
         env:
@@ -105,6 +106,10 @@ jobs:
             echo "- Open: \`bundle-architecture-check.log\`, \`bundle-architecture-union-build.log\`, and \`bundle-architecture-ai-prompt.md\`"
           } >> "$GITHUB_STEP_SUMMARY"
           echo "::notice title=CI diagnostics::Download allocation-reports and inspect bundle-architecture-check.log"
+
+      - name: Unmount dependency image
+        if: always() && steps.dependencies.outcome != 'skipped'
+        run: python3 .github/scripts/ci-dependencies.py cleanup
 
   notify-failure:
     name: Notify on Failure

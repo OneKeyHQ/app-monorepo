@@ -6,6 +6,7 @@ import type {
 } from '@onekeyhq/shared/types/tradingViewNative';
 
 import type { ITradingViewNativeChartInterval } from './data/tradingViewNativeIntervals';
+import type { ITradingViewNativeIndicatorQuickBarState } from '../TradingViewChartControls/indicatorSelector/nativeIndicatorQuickBarState';
 
 export type { ITradingViewNativeChartType } from '@onekeyhq/shared/types/tradingViewNative';
 
@@ -127,12 +128,19 @@ export type ITradingViewNativeChartComponentNode =
   | ITradingViewNativeChartComponentGroup
   | ITradingViewNativeChartLeafComponent;
 
+export interface ITradingViewNativeAccountMarksContext {
+  accountAddress?: string;
+  networkId: string;
+  tokenAddress: string;
+}
+
 export interface ITradingViewNativeProps {
   testID?: string;
   source: ITradingViewNativeSource;
   storageNamespace?: ITradingViewNativeStorageNamespace;
   forcedChartType?: ITradingViewNativeChartType;
   chartComponents?: readonly ITradingViewNativeChartComponentNode[];
+  accountMarksContext?: ITradingViewNativeAccountMarksContext;
   /**
    * Opt-in for stock detail charts, which can anchor the Prev close line on the
    * stock's previous session close. It shows the chart setting and lets the
@@ -142,6 +150,7 @@ export interface ITradingViewNativeProps {
   /** Previous session close anchoring the Prev close reference line. */
   previousClose?: number;
   enableNativeChartSettings?: boolean;
+  nativeChartSettingsInToolbar?: boolean;
   initialRightOffset?: ITradingViewNativeInitialRightOffset;
   nativeChartDisplayMode?: ITradingViewNativeChartDisplayMode;
   /** Limits new selections without hiding sub-indicators that are already active. */
@@ -154,6 +163,7 @@ export interface ITradingViewNativeProps {
    */
   nativeControlsFlushHorizontalInset?: boolean;
   showNativeChartCloseControl?: boolean;
+  showNativeIndicatorQuickBar?: boolean;
   isNativeChartFullscreen?: boolean;
   nativeChartFullscreenHeader?: ReactNode;
   isChartSwitchDisabled?: boolean;
@@ -162,6 +172,9 @@ export interface ITradingViewNativeProps {
   onIntervalChange?: (data: ITradingViewNativeIntervalChangeData) => void;
   onNativeChartClose?: () => void;
   onNativeSubIndicatorCountChange?: (count: number | null) => void;
+  onNativeIndicatorQuickBarChange?: (
+    state: ITradingViewNativeIndicatorQuickBarState,
+  ) => void;
   onNativeChartFullscreenChange?: (isFullscreen: boolean) => void;
   onPriceUpdate?: (data: ITradingViewNativePriceUpdateData) => void;
 }

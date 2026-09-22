@@ -231,11 +231,19 @@ export function useImportAddressForm({
     [method, isKeyExportEnabled],
   );
 
+  const inactiveFieldName = isPublicKeyImport
+    ? 'addressValue'
+    : 'publicKeyValue';
+  // RHF mutates `errors` in place, so its identity can't drive the memo below.
+  // A blur re-validates the rules and restores isValid while a manual
+  // duplicate-name error is still set; clearing that error afterwards changes
+  // no other dependency and would leave the confirm button disabled.
+  const hasActiveFieldError = Object.keys(formErrors).some(
+    (name) => name !== inactiveFieldName,
+  );
+
   const isEnable = useMemo(() => {
-    const inactiveFieldName = isPublicKeyImport
-      ? 'addressValue'
-      : 'publicKeyValue';
-    if (Object.keys(formErrors).some((name) => name !== inactiveFieldName)) {
+    if (hasActiveFieldError) {
       return false;
     }
     if (!isPublicKeyImport) {
@@ -243,12 +251,12 @@ export function useImportAddressForm({
     }
     return validateResult?.isValid ?? false;
   }, [
+    hasActiveFieldError,
     isPublicKeyImport,
     addressValue.pending,
     addressValue.resolved,
     validateResult,
     formIsValid,
-    formErrors,
   ]);
 
   onSubmitRef.current = useCallback(

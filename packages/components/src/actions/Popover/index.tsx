@@ -389,7 +389,9 @@ function RawPopover({
   const keepChildrenMounted = Boolean(props.keepChildrenMounted);
   const shouldUseWebKeepMountedTransition =
     keepChildrenMounted && !platformEnv.isNative;
-  const hasInitializedWebKeepMountedRef = useRef(false);
+  const openedWebKeepMountedContentElementsRef = useRef(
+    new WeakSet<HTMLElement>(),
+  );
   const shouldAnimateContent = !keepChildrenMounted;
   const zIndex = useOverlayZIndex(isOpen);
   const content = (
@@ -442,19 +444,19 @@ function RawPopover({
       popperElement.style.removeProperty('transform');
       popperElement.style.removeProperty('visibility');
     }
-    const isInitialClosedMount =
-      !hasInitializedWebKeepMountedRef.current && !state.isOpen;
-    let transition = `${WEB_KEEP_MOUNTED_TRANSITION}, visibility 0ms linear 150ms`;
-    if (isInitialClosedMount) {
-      transition = 'none';
-    } else if (state.isOpen) {
+    const hasOpened =
+      openedWebKeepMountedContentElementsRef.current.has(contentElement);
+    let transition = 'none';
+    if (state.isOpen) {
       transition = WEB_KEEP_MOUNTED_TRANSITION;
+      openedWebKeepMountedContentElementsRef.current.add(contentElement);
+    } else if (hasOpened) {
+      transition = `${WEB_KEEP_MOUNTED_TRANSITION}, visibility 0ms linear 150ms`;
     }
     contentElement.style.transition = transition;
     contentElement.style.opacity = state.isOpen ? '1' : '0';
     contentElement.style.transform = `scale(${state.isOpen ? 1 : 0.95})`;
     contentElement.style.visibility = state.isOpen ? 'visible' : 'hidden';
-    hasInitializedWebKeepMountedRef.current = true;
   }, []);
   useIsomorphicLayoutEffect(() => {
     contentStateRef.current = { isOpen, shouldUseWebKeepMountedTransition };

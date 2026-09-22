@@ -20,7 +20,10 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IMarketAccountPortfolioItem } from '@onekeyhq/shared/types/marketV2';
 import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
 
-import { MARKET_DESKTOP_CONTENT_FRAME_PROPS } from '../../marketDesktopLayoutConstants';
+import {
+  MARKET_DESKTOP_CONTENT_FRAME_PROPS,
+  MARKET_DETAIL_TRADE_COLUMN_PROPS,
+} from '../../marketDesktopLayoutConstants';
 import { PerpetualTradingBanner } from '../components/PerpetualTradingBanner/PerpetualTradingBanner';
 import { TokenActivityOverview } from '../components/TokenActivityOverview/TokenActivityOverview';
 import { TokenDetailHeader } from '../components/TokenDetailHeader/TokenDetailHeader';
@@ -34,7 +37,6 @@ import { MarketEmbeddedSwap } from './MarketEmbeddedSwap';
 import type { DesktopInformationTabs } from '../components/InformationTabs/layout/DesktopInformationTabs';
 
 const TOKEN_DETAIL_MAIN_COLUMN_WIDTH = 832;
-const TOKEN_DETAIL_TRADE_COLUMN_WIDTH = 384;
 const TOKEN_DETAIL_COLUMN_GAP = 24;
 const TOKEN_DETAIL_HORIZONTAL_GUTTER = 20;
 const TOKEN_DETAIL_CHART_SECTION_MIN_HEIGHT = 848;
@@ -134,6 +136,7 @@ export function TokenPriceHeader() {
 }
 
 export function TokenDesktopLayout({
+  active,
   marketTradingView,
   swapToken,
   swapInputDraftKey,
@@ -152,6 +155,7 @@ export function TokenDesktopLayout({
   onEnterChartFullscreen,
   InformationTabsComponent,
 }: {
+  active?: boolean;
   marketTradingView: ReactNode;
   swapToken: ISwapToken;
   swapInputDraftKey: string;
@@ -213,6 +217,7 @@ export function TokenDesktopLayout({
           >
             <TokenPriceHeader />
             <TokenDetailChart
+              active={active}
               chartContainerTestID="market-token-detail-standard-chart"
               fullscreenZIndex={chartFullscreenZIndex}
               fullscreenStyle={MARKET_CHART_FULLSCREEN_STYLE}
@@ -248,10 +253,9 @@ export function TokenDesktopLayout({
 
         <YStack
           testID="market-token-detail-standard-trade"
-          width={TOKEN_DETAIL_TRADE_COLUMN_WIDTH}
-          flexShrink={0}
+          {...MARKET_DETAIL_TRADE_COLUMN_PROPS}
         >
-          <PerpetualTradingBanner px="$5" py="$5" />
+          <PerpetualTradingBanner px="$5" py="$5" reserveSpace />
           <MarketEmbeddedSwap
             swapToken={swapToken}
             inputDraftKey={swapInputDraftKey}

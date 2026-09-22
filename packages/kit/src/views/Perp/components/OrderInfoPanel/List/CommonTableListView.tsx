@@ -4,6 +4,7 @@ import {
   useCallback,
   useEffect,
   useId,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -14,6 +15,7 @@ import { InputAccessoryView, Keyboard } from 'react-native';
 
 import type {
   IDebugRenderTrackerProps,
+  IElement,
   IInputProps,
   IXStackProps,
 } from '@onekeyhq/components';
@@ -510,9 +512,8 @@ export function CommonTableListView<T>({
   );
 
   const [hoveredRowIndex, setHoveredRowIndex] = useState<number | null>(null);
-  const [desktopRowHeights, setDesktopRowHeights] = useState<
-    Record<string, number>
-  >({});
+  const desktopScrollableRowsRef = useRef<IElement | null>(null);
+  const desktopFixedRowsRef = useRef<IElement | null>(null);
 
   const paginatedData = useMemo<T[]>(() => {
     if (!enablePagination || data.length <= pageSize || !currentListPage) {
@@ -546,10 +547,70 @@ export function CommonTableListView<T>({
   const headerScrollViewRef = useRef<React.ElementRef<
     typeof ScrollView
   > | null>(null);
+  const [desktopContentWidth, setDesktopContentWidth] = useState<number>();
+  const desktopBodyScrollOffsetRef = useRef(0);
+  const handleDesktopContentSizeChange = useCallback((width: number) => {
+    setDesktopContentWidth(width > 0 ? width : undefined);
+  }, []);
+
+  // Fixed-column rows live in a separate stack, so mirror each scrollable
+  // row's height onto them. ResizeObserver writes land before paint, while
+  // async onLayout left fixed rows misaligned (and collapsed after a hidden
+  // tab measured 0) for several frames on tab switch.
+  useLayoutEffect(() => {
+    if (
+      platformEnv.isNative ||
+      isMobile ||
+      !hasFixedColumns ||
+      paginatedData.length === 0
+    ) {
+      return;
+    }
+    const scrollableRows: unknown = desktopScrollableRowsRef.current;
+    const fixedRows: unknown = desktopFixedRowsRef.current;
+    if (
+      !(scrollableRows instanceof HTMLElement) ||
+      !(fixedRows instanceof HTMLElement)
+    ) {
+      return;
+    }
+    const syncRowHeights = () => {
+      const count = Math.min(
+        scrollableRows.children.length,
+        fixedRows.children.length,
+      );
+      for (let index = 0; index < count; index += 1) {
+        const { height } =
+          scrollableRows.children[index].getBoundingClientRect();
+        const fixedRow = fixedRows.children[index];
+        // Hidden tabs measure 0; keep the last height until shown again.
+        if (height > 0 && fixedRow instanceof HTMLElement) {
+          fixedRow.style.height = `${height}px`;
+        }
+      }
+    };
+    syncRowHeights();
+    const observer = new ResizeObserver(syncRowHeights);
+    Array.from(scrollableRows.children).forEach((row) => observer.observe(row));
+    return () => observer.disconnect();
+  }, [hasFixedColumns, isMobile, paginatedData]);
+
+  // A web vertical scrollbar reduces the body's available width. Keep the
+  // header viewport equal so scrollTo is not clamped before the body's end.
+  useEffect(() => {
+    if (!platformEnv.isNative && desktopContentWidth !== undefined) {
+      headerScrollViewRef.current?.scrollTo({
+        x: desktopBodyScrollOffsetRef.current,
+        animated: false,
+      });
+    }
+  }, [desktopContentWidth]);
+
   // The fixed header row lives outside the body scroller, so mirror the
   // body's horizontal offset onto it.
   const handleDesktopBodyScroll = useCallback(
     (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+      desktopBodyScrollOffsetRef.current = event.nativeEvent.contentOffset.x;
       headerScrollViewRef.current?.scrollTo({
         x: event.nativeEvent.contentOffset.x,
         animated: false,
@@ -909,6 +970,7 @@ export function CommonTableListView<T>({
   );
   const desktopHeader = (
     <XStack
+      width={desktopContentWidth}
       borderBottomWidth="$px"
       borderBottomColor={borderColor}
       bg={headerBgColor}
@@ -969,7 +1031,6 @@ export function CommonTableListView<T>({
         showsHorizontalScrollIndicator
         nestedScrollEnabled
         onScroll={handleDesktopBodyScroll}
-        // RNW drops throttled scroll events without a trailing emit.
         scrollEventThrottle={1}
         contentContainerStyle={{
           minWidth: scrollableMinWidth,
@@ -979,6 +1040,7 @@ export function CommonTableListView<T>({
       >
         <YStack flex={1} minWidth={scrollableMinWidth} cursor="default">
           <YStack
+            ref={desktopScrollableRowsRef}
             flex={!platformEnv.isNative ? undefined : 1}
             flexShrink={!platformEnv.isNative ? 0 : undefined}
             pb={enablePagination ? 0 : '$4'}
@@ -1004,18 +1066,7 @@ export function CommonTableListView<T>({
                     setHoveredRowIndex,
                   );
                   return !platformEnv.isNative && hasFixedColumns ? (
-                    <YStack
-                      key={key}
-                      flexShrink={0}
-                      onLayout={(event) => {
-                        const { height } = event.nativeEvent.layout;
-                        setDesktopRowHeights((previous) =>
-                          previous[key] === height
-                            ? previous
-                            : { ...previous, [key]: height },
-                        );
-                      }}
-                    >
+                    <YStack key={key} flexShrink={0}>
                       {row}
                     </YStack>
                   ) : (
@@ -1051,6 +1102,7 @@ export function CommonTableListView<T>({
             isDark={isDark}
           />
           <YStack
+            ref={desktopFixedRowsRef}
             flex={!platformEnv.isNative ? undefined : 1}
             flexShrink={!platformEnv.isNative ? 0 : undefined}
             pb={enablePagination ? 0 : '$4'}
@@ -1070,11 +1122,7 @@ export function CommonTableListView<T>({
                     setHoveredRowIndex,
                   );
                   return !platformEnv.isNative ? (
-                    <YStack
-                      key={key}
-                      height={desktopRowHeights[key]}
-                      flexShrink={0}
-                    >
+                    <YStack key={key} flexShrink={0}>
                       {row}
                     </YStack>
                   ) : (
@@ -1092,6 +1140,9 @@ export function CommonTableListView<T>({
     <YStack flex={1} testID="perp-desktop-table">
       {desktopHeader}
       <PerpTableScrollView
+        onContentSizeChange={
+          platformEnv.isNative ? undefined : handleDesktopContentSizeChange
+        }
         contentContainerStyle={
           !platformEnv.isNative || showDesktopEmptyState
             ? { flexGrow: 1 }

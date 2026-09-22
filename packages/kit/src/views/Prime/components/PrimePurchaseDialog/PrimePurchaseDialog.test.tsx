@@ -120,6 +120,7 @@ const mockPlatformEnv = {
   isNativeAndroid: false,
   isNativeAndroidGooglePlay: false,
   isNativeIOS: false,
+  isMas: false,
 };
 const mockListItem = jest.fn<
   null,
@@ -238,6 +239,9 @@ jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
     get isNativeIOS() {
       return mockPlatformEnv.isNativeIOS;
     },
+    get isMas() {
+      return mockPlatformEnv.isMas;
+    },
   },
 }));
 
@@ -312,6 +316,7 @@ describe('usePrimePurchaseCallback pending payment entry guard', () => {
     mockPlatformEnv.isNativeAndroid = false;
     mockPlatformEnv.isNativeAndroidGooglePlay = false;
     mockPlatformEnv.isNativeIOS = false;
+    mockPlatformEnv.isMas = false;
     mockPackagesResult = undefined;
     mockGooglePlayIsAvailable.mockResolvedValue(false);
     mockPendingChoice = 'resume';
@@ -441,42 +446,48 @@ describe('usePrimePurchaseCallback pending payment entry guard', () => {
     },
   );
 
-  it('keeps the iOS pending-payment cancel action without opening crypto recovery', async () => {
-    mockPlatformEnv.isNativeIOS = true;
-    mockGetPrimeInfiniPaymentEntryGuard.mockResolvedValue({
-      isLoggedIn: true,
-      hasPendingPayment: true,
-      onekeyUserId: 'user-1',
-    });
-    const { result } = renderHook(() => usePrimePurchaseCallback());
-    await act(async () => {
-      await result.current.purchase({ selectedSubscriptionPeriod: 'P1Y' });
-    });
-    expect(mockShowPrimeInfiniWaitingDialog).not.toHaveBeenCalled();
-    expect(mockPurchaseByCrypto).not.toHaveBeenCalled();
-    expect(mockPurchasePackageNative).not.toHaveBeenCalled();
-    expect(mockSupersedePaymentSession).not.toHaveBeenCalled();
-  });
+  it.each(['isNativeIOS', 'isMas'] as const)(
+    'keeps the Apple Store pending-payment cancel action on %s without opening crypto recovery',
+    async (platform) => {
+      mockPlatformEnv[platform] = true;
+      mockGetPrimeInfiniPaymentEntryGuard.mockResolvedValue({
+        isLoggedIn: true,
+        hasPendingPayment: true,
+        onekeyUserId: 'user-1',
+      });
+      const { result } = renderHook(() => usePrimePurchaseCallback());
+      await act(async () => {
+        await result.current.purchase({ selectedSubscriptionPeriod: 'P1Y' });
+      });
+      expect(mockShowPrimeInfiniWaitingDialog).not.toHaveBeenCalled();
+      expect(mockPurchaseByCrypto).not.toHaveBeenCalled();
+      expect(mockPurchasePackageNative).not.toHaveBeenCalled();
+      expect(mockSupersedePaymentSession).not.toHaveBeenCalled();
+    },
+  );
 
-  it('continues to Google Play after consent without opening the unsupported crypto page', async () => {
-    mockPendingChoice = 'replace';
-    mockPlatformEnv.isNativeAndroidGooglePlay = true;
-    mockGetPrimeInfiniPaymentEntryGuard.mockResolvedValue({
-      isLoggedIn: true,
-      hasPendingPayment: true,
-      onekeyUserId: 'user-1',
-    });
-    const { result } = renderHook(() => usePrimePurchaseCallback());
-    await act(async () => {
-      await result.current.purchase({ selectedSubscriptionPeriod: 'P1Y' });
-    });
-    expect(mockSupersedePaymentSession).toHaveBeenCalledTimes(1);
-    expect(mockPurchasePackageNative).toHaveBeenCalledWith({
-      subscriptionPeriod: 'P1Y',
-      featureName: undefined,
-    });
-    expect(mockPurchaseByCrypto).not.toHaveBeenCalled();
-  });
+  it.each(['isNativeAndroidGooglePlay', 'isNativeIOS', 'isMas'] as const)(
+    'continues to the store on %s after consent without opening the unsupported crypto page',
+    async (platform) => {
+      mockPendingChoice = 'replace';
+      mockPlatformEnv[platform] = true;
+      mockGetPrimeInfiniPaymentEntryGuard.mockResolvedValue({
+        isLoggedIn: true,
+        hasPendingPayment: true,
+        onekeyUserId: 'user-1',
+      });
+      const { result } = renderHook(() => usePrimePurchaseCallback());
+      await act(async () => {
+        await result.current.purchase({ selectedSubscriptionPeriod: 'P1Y' });
+      });
+      expect(mockSupersedePaymentSession).toHaveBeenCalledTimes(1);
+      expect(mockPurchasePackageNative).toHaveBeenCalledWith({
+        subscriptionPeriod: 'P1Y',
+        featureName: undefined,
+      });
+      expect(mockPurchaseByCrypto).not.toHaveBeenCalled();
+    },
+  );
 
   it('leaves the stored order alone when the warning is dismissed', async () => {
     mockPendingChoice = 'cancel';
@@ -540,6 +551,26 @@ describe('usePrimePurchaseCallback pending payment entry guard', () => {
       expect(mockPurchaseByCrypto).not.toHaveBeenCalled();
     },
   );
+
+  it('starts App Store purchase on MAS without offering credit card or crypto', async () => {
+    mockPlatformEnv.isMas = true;
+    mockGetPrimeInfiniPaymentEntryGuard.mockResolvedValue({
+      isLoggedIn: true,
+      hasPendingPayment: false,
+      onekeyUserId: 'user-1',
+    });
+    const { result } = renderHook(() => usePrimePurchaseCallback());
+    await act(async () => {
+      await result.current.purchase({ selectedSubscriptionPeriod: 'P1Y' });
+    });
+    expect(mockPurchasePackageNative).toHaveBeenCalledWith({
+      subscriptionPeriod: 'P1Y',
+      featureName: undefined,
+    });
+    expect(mockPurchasePackageWeb).not.toHaveBeenCalled();
+    expect(mockPurchaseByCrypto).not.toHaveBeenCalled();
+    expect(mockDialogShow).not.toHaveBeenCalled();
+  });
 
   it('shows payment methods when no blocking payment exists', async () => {
     mockGetPrimeInfiniPaymentEntryGuard.mockResolvedValue({

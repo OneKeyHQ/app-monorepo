@@ -19,9 +19,11 @@ import { useConfirmOneKeyIdLogout } from '@onekeyhq/kit/src/components/OneKeyAut
 import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { APPLE_SUBSCRIPTION_MANAGEMENT_URL } from '@onekeyhq/shared/src/consts/primeConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { isPrimeAppleStorePayment } from '@onekeyhq/shared/src/prime/primePaymentCapabilities';
 import { EPrimePages } from '@onekeyhq/shared/src/routes/prime';
 import { formatDateFns } from '@onekeyhq/shared/src/utils/dateUtils';
 import openUrlUtils from '@onekeyhq/shared/src/utils/openUrlUtils';
@@ -47,7 +49,6 @@ function PrimeUserInfoMoreButtonDropDownMenu({
   const primeSubscription = user?.primeSubscription;
   const isPrime = primeSubscription?.isActive;
   const primeExpiredAt = primeSubscription?.expiresAt;
-  const subscriptionManageUrl = user?.subscriptionManageUrl;
   const currentOneKeyUserId = user?.onekeyUserId;
   const { getCustomerInfo } = usePrimePayment();
   const [devSettings] = useDevSettingsPersistAtom();
@@ -57,11 +58,10 @@ function PrimeUserInfoMoreButtonDropDownMenu({
 
   const managementTarget = usePrimeSubscriptionManagementTarget({
     primeSubscription,
-    subscriptionManageUrl,
     onekeyUserId: currentOneKeyUserId,
   });
 
-  const handleManageSubscription = useCallback(() => {
+  const handleManageSubscription = useCallback(async () => {
     if (managementTarget?.type === 'infini') {
       defaultLogger.prime.subscription.primeManageSubscriptionClick({
         target: 'infiniPage',
@@ -73,6 +73,21 @@ function PrimeUserInfoMoreButtonDropDownMenu({
       defaultLogger.prime.subscription.primeManageSubscriptionClick({
         target: 'externalUrl',
       });
+      if (
+        platformEnv.isDesktopMac &&
+        managementTarget.url === APPLE_SUBSCRIPTION_MANAGEMENT_URL
+      ) {
+        try {
+          const opened =
+            await globalThis.desktopApiProxy?.system?.openAppStoreSubscriptions?.();
+          if (opened) {
+            return;
+          }
+        } catch {
+          // Older shells reject unknown proxy methods. Fall back to Apple's
+          // HTTPS entry point if the API or native handoff is unavailable.
+        }
+      }
       openUrlUtils.openUrlExternal(managementTarget.url);
       return;
     }
@@ -141,7 +156,7 @@ function PrimeUserInfoMoreButtonDropDownMenu({
     <>
       {userInfoView}
 
-      {platformEnv.isNativeIOS ? null : (
+      {isPrimeAppleStorePayment() ? null : (
         <ActionList.Item
           testID={PrimeTestIDs.redemptionMenuItem}
           label={intl.formatMessage({
@@ -176,9 +191,9 @@ function PrimeUserInfoMoreButtonDropDownMenu({
           })}
           icon="CreditCardOutline"
           onClose={handleActionListClose}
-          onPress={(close) => {
+          onPress={async (close) => {
             close();
-            handleManageSubscription();
+            await handleManageSubscription();
           }}
         />
       ) : null}

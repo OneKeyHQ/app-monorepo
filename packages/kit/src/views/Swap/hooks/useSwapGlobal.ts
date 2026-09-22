@@ -4,6 +4,7 @@ import { isNil } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import { useIsOverlayPage } from '@onekeyhq/components';
+import { useRouteIsFocused as useIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import {
   EJotaiContextStoreNames,
   useInAppNotificationAtom,
@@ -162,6 +163,7 @@ async function getLatestHomeSelectedAccount() {
  * @returns An object containing `fetchLoading`, indicating whether the swap network list is currently loading
  */
 export function useSwapInit(params?: ISwapInitParams) {
+  const isFocused = useIsFocused();
   const [swapNetworks, setSwapNetworks] = useSwapNetworksAtom();
   const [swapFromToken, setSwapFromToken] = useSwapSelectFromTokenAtom();
   const swapProFromToken = useSwapProInputToken();
@@ -298,6 +300,7 @@ export function useSwapInit(params?: ISwapInitParams) {
     undefined,
   );
   const hasSyncedSwapSelectedAccountFromHomeStorageRef = useRef(false);
+  const appliedImportNetworkIdRef = useRef<string | undefined>(undefined);
   const consumedSwapInitParamsKeyRef = useRef<string | undefined>(undefined);
   const markSwapInitParamsConsumed = useCallback(() => {
     if (swapInitParamsConsumptionKey) {
@@ -1572,22 +1575,37 @@ export function useSwapInit(params?: ISwapInitParams) {
 
   useEffect(() => {
     void (async () => {
+      const importNetworkId = params?.importNetworkId;
+      const currentNetworkId = swapAddressInfoRef.current?.networkId;
       if (
-        params?.importNetworkId &&
-        swapAddressInfoRef.current?.networkId &&
-        params?.importNetworkId !== swapAddressInfoRef.current.networkId
+        !isFocused ||
+        !importNetworkId ||
+        !currentNetworkId ||
+        appliedImportNetworkIdRef.current === importNetworkId
       ) {
+        return;
+      }
+      appliedImportNetworkIdRef.current = importNetworkId;
+      if (importNetworkId !== currentNetworkId) {
         await updateSelectedAccountNetwork({
           num: 0,
-          networkId: params?.importNetworkId,
+          networkId: importNetworkId,
         });
       }
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [params?.importNetworkId, updateSelectedAccountNetwork]);
+  }, [
+    isFocused,
+    params?.importNetworkId,
+    swapAddressInfo.networkId,
+    updateSelectedAccountNetwork,
+  ]);
 
   useEffect(() => {
     void (async () => {
+      if (!isFocused) {
+        return;
+      }
       await syncDefaultSelectedToken();
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1608,6 +1626,7 @@ export function useSwapInit(params?: ISwapInitParams) {
     swapActiveAccount.deriveType,
     selectedTokensRuntimeChannelSupport,
     isNativeProTokenOwner,
+    isFocused,
   ]);
   const [swapFromMarketJumpToken, setSwapFromMarketJumpToken] =
     useSwapFromMarketJumpTokenAtom();

@@ -109,7 +109,11 @@ jest.mock('./Content', () => ({
 jest.mock('./Footer', () => ({ Footer: () => null }));
 jest.mock('./Header', () => {
   const React = jest.requireActual('react') as typeof import('react');
-  return { DialogHeaderContext: React.createContext({}) };
+  return {
+    DialogHeader: () => null,
+    DialogHeaderCloseButton: () => null,
+    DialogHeaderContext: React.createContext({}),
+  };
 });
 jest.mock('./DialogScrollView', () => ({}));
 jest.mock('./renderToContainer', () => ({}));

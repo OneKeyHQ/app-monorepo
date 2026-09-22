@@ -12,6 +12,12 @@ import type {
   ITradingViewNativeReferenceLineComponent,
 } from './types';
 
+jest.mock('react-intl', () => ({
+  useIntl: () => ({
+    formatMessage: ({ id }: { id: string }) => id,
+  }),
+}));
+
 const CUSTOM_REFERENCE_LINE: ITradingViewNativeReferenceLineComponent = {
   id: 'custom.referenceLine',
   props: {
@@ -71,7 +77,7 @@ describe('useTradingViewNativeChartComponents', () => {
       color: '#initial',
       interactive: false,
       style: 'dashed',
-      title: 'Prev close',
+      title: 'market.prev_close',
     });
 
     // The quote refreshes with a new close.

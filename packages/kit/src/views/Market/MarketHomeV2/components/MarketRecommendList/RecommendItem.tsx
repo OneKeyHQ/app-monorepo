@@ -16,6 +16,7 @@ import { MarketTokenIcon } from '../../../components/MarketTokenIcon';
 export function RecommendItem({
   icon,
   checked = false,
+  disabled = false,
   onChange,
   tokenName,
   symbol,
@@ -26,6 +27,7 @@ export function RecommendItem({
   icon: string;
   tokenName: string;
   checked: boolean;
+  disabled?: boolean;
   symbol: string;
   address: string;
   networkId?: string;
@@ -35,10 +37,10 @@ export function RecommendItem({
   const { sharedFrameStyles } = useMemo(
     () =>
       getSharedButtonStyles({
-        disabled: false,
+        disabled,
         loading: false,
       }),
-    [],
+    [disabled],
   );
   return (
     <XStack
@@ -53,6 +55,9 @@ export function RecommendItem({
       borderWidth={1}
       borderColor="$neutral3"
       onPress={() => {
+        if (disabled) {
+          return;
+        }
         onChange(!checked, address);
       }}
       ai="center"

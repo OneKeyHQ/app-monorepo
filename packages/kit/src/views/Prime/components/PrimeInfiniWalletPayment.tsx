@@ -47,7 +47,9 @@ import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useSignatureConfirm } from '@onekeyhq/kit/src/hooks/useSignatureConfirm';
 import { useAccountSelectorActions } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector/actions';
 import type { IAccountSelectorActiveAccountInfo } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector/atoms';
+import { convertTokenFiatToCurrency } from '@onekeyhq/kit/src/utils/fiatConvert';
 import {
+  useCurrencyPersistAtom,
   useDevSettingsPersistAtom,
   usePrimePersistAtom,
   useSettingsPersistAtom,
@@ -60,6 +62,7 @@ import { EAppEventBusNames } from '@onekeyhq/shared/src/eventBus/appEventBusName
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { isPrimeCryptoPaymentSupported } from '@onekeyhq/shared/src/prime/primePaymentCapabilities';
 import {
   EAssetSelectorRoutes,
   EModalRoutes,
@@ -918,6 +921,7 @@ function PrimeInfiniWalletPaymentContent({
   const flowContextRef = useRef(useContext(PrimeInfiniPaymentFlowContext));
   const intl = useIntl();
   const [settings] = useSettingsPersistAtom();
+  const [{ currencyMap = {} }] = useCurrencyPersistAtom();
   const navigation = useAppNavigation<IPageNavigationProp<IPrimeParamList>>();
   const { user, isLoggedIn, isReady: isAuthReady } = useOneKeyAuth();
   const actions = useAccountSelectorActions();
@@ -1630,6 +1634,13 @@ function PrimeInfiniWalletPaymentContent({
   const displayAccountName = displaySelectionSnapshot.accountDisplayName;
   const displayAsset = displaySelectionSnapshot.asset;
   const displayBalanceDetail = displaySelectionSnapshot.balanceDetail;
+  const displayFiatBalanceDetail = displayBalanceDetail
+    ? convertTokenFiatToCurrency({
+        tokenFiat: displayBalanceDetail,
+        targetCurrency: settings.currencyInfo.id,
+        currencyMap,
+      })
+    : undefined;
   const displaySelectionIdentity =
     displayAccount?.id &&
     displayAccountAddress &&
@@ -4207,9 +4218,11 @@ function PrimeInfiniWalletPaymentContent({
           }
           balance={displayBalanceDetail?.balanceParsed}
           valueProps={
-            displayBalanceDetail?.fiatValue
+            displayFiatBalanceDetail?.fiatValue &&
+            (!displayFiatBalanceDetail.currency ||
+              displayFiatBalanceDetail.currency === settings.currencyInfo.id)
               ? {
-                  value: displayBalanceDetail.fiatValue,
+                  value: displayFiatBalanceDetail.fiatValue,
                   currency: settings.currencyInfo.symbol,
                 }
               : undefined
@@ -5435,8 +5448,7 @@ export default function PrimeInfiniWalletPayment() {
     selectedSubscriptionPeriod === 'P1M' ? 'P1M' : 'P1Y';
   const plan: IPrimeInfiniSubscriptionPlan =
     effectiveSubscriptionPeriod === 'P1Y' ? 'yearly' : 'monthly';
-  const isCryptoPaymentSupported =
-    !platformEnv.isNativeIOS && !platformEnv.isNativeAndroidGooglePlay;
+  const isCryptoPaymentSupported = isPrimeCryptoPaymentSupported();
 
   useEffect(() => {
     if (isCryptoPaymentSupported) {

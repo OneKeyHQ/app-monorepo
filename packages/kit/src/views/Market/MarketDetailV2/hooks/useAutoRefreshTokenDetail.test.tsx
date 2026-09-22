@@ -23,6 +23,7 @@ const mockSetTokenAddress = jest.fn();
 const mockSetTokenDetail = jest.fn();
 const mockSetTokenDetailLoading = jest.fn();
 const mockSetTokenDetailWebsocket = jest.fn();
+const mockSeedTokenDetailFromCache = jest.fn();
 let promiseFactory: (() => Promise<unknown>) | undefined;
 let promiseOptions: Record<string, unknown> | undefined;
 let promiseResult: unknown;
@@ -30,6 +31,10 @@ let mockCurrencyId = 'usd';
 
 jest.mock('@onekeyhq/kit/src/components/Currency', () => ({
   useCurrency: () => ({ id: mockCurrencyId }),
+}));
+
+jest.mock('@onekeyhq/kit/src/hooks/useLocaleVariant', () => ({
+  useLocaleVariant: () => 'en-US',
 }));
 
 jest.mock('@onekeyhq/kit/src/hooks/usePromiseResult', () => ({
@@ -55,6 +60,7 @@ jest.mock('@onekeyhq/kit/src/states/jotai/contexts/marketV2', () => ({
       setTokenDetail: mockSetTokenDetail,
       setTokenDetailLoading: mockSetTokenDetailLoading,
       setTokenDetailWebsocket: mockSetTokenDetailWebsocket,
+      seedTokenDetailFromCache: mockSeedTokenDetailFromCache,
     },
   }),
 }));
@@ -156,7 +162,17 @@ describe('useAutoRefreshTokenDetail', () => {
       await promiseFactory?.();
     });
 
-    expect(mockFetchTokenDetail).toHaveBeenCalledWith('0xabc', 'evm--1');
+    // The response is currency-converted and localized, so both scope the
+    // cached copy a revisit starts from.
+    const swrKey = 'marketTokenDetail:v1:evm--1:0xabc:usd:en-us';
+    expect(mockSeedTokenDetailFromCache).toHaveBeenCalledWith({
+      tokenAddress: '0xabc',
+      networkId: 'evm--1',
+      swrKey,
+    });
+    expect(mockFetchTokenDetail).toHaveBeenCalledWith('0xabc', 'evm--1', {
+      swrKey,
+    });
     expect(mockFetchAssetTokenDetail).not.toHaveBeenCalled();
   });
 
@@ -736,6 +752,44 @@ describe('initial detail layout readiness', () => {
     const { result } = renderHook(() =>
       useAutoRefreshTokenDetail({ ...input, skipMarketDataFetch: true }),
     );
+    expect(result.current.isInitialTokenDetailPending).toBe(false);
+  });
+
+  it('pauses a retained Desktop/Web route and waits for a fresh request on refocus', async () => {
+    const { result, rerender } = renderHook(
+      ({ active }: { active: boolean }) =>
+        useAutoRefreshTokenDetail({
+          ...input,
+          active,
+          resumeOnEffectReconnect: true,
+        }),
+      { initialProps: { active: true } },
+    );
+
+    await act(async () => {
+      await promiseFactory?.();
+    });
+    expect(result.current.isInitialTokenDetailPending).toBe(false);
+    expect(mockFetchTokenDetail).toHaveBeenCalledTimes(1);
+    expect(promiseOptions?.resumeOnEffectReconnect).toBe(true);
+
+    mockSetTokenDetailLoading.mockClear();
+    rerender({ active: false });
+    expect(result.current.isInitialTokenDetailPending).toBe(false);
+    expect(promiseOptions?.pollingInterval).toBe(6000);
+    await act(async () => {
+      await promiseFactory?.();
+    });
+    expect(mockFetchTokenDetail).toHaveBeenCalledTimes(1);
+    expect(mockSetTokenDetailLoading).not.toHaveBeenCalled();
+
+    rerender({ active: true });
+    expect(result.current.isInitialTokenDetailPending).toBe(true);
+    expect(promiseOptions?.pollingInterval).toBe(6000);
+    await act(async () => {
+      await promiseFactory?.();
+    });
+    expect(mockFetchTokenDetail).toHaveBeenCalledTimes(2);
     expect(result.current.isInitialTokenDetailPending).toBe(false);
   });
 });

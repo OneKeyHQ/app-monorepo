@@ -41,7 +41,6 @@ interface ISwapDetailsSectionProps {
   sortBy: ISwapInvitesSortBy;
   sortOrder: ISwapInvitesSortOrder;
   onSort: (field: ISwapInvitesSortBy) => void;
-  hasUserSorted: boolean;
   isLoadingMore: boolean;
   isTabLoading: boolean;
   hasError: boolean;
@@ -195,7 +194,6 @@ function ErrorState({ onRetry }: { onRetry: () => void }) {
 
 function SortableHeader({
   field,
-  hasUserSorted,
   label,
   onSort,
   sortBy,
@@ -204,7 +202,6 @@ function SortableHeader({
   justifyContent = 'flex-start',
 }: {
   field: ISwapInvitesSortBy;
-  hasUserSorted: boolean;
   label: string;
   onSort: (field: ISwapInvitesSortBy) => void;
   sortBy: ISwapInvitesSortBy;
@@ -212,7 +209,17 @@ function SortableHeader({
   width: string | number;
   justifyContent?: 'flex-start' | 'flex-end';
 }) {
-  const isActive = hasUserSorted && sortBy === field;
+  const isActive = sortBy === field;
+  let iconName:
+    | 'ChevronGrabberVerOutline'
+    | 'ChevronTopSmallOutline'
+    | 'ChevronDownSmallOutline' = 'ChevronGrabberVerOutline';
+  if (isActive) {
+    iconName =
+      sortOrder === 'asc'
+        ? 'ChevronTopSmallOutline'
+        : 'ChevronDownSmallOutline';
+  }
 
   return (
     <XStack
@@ -233,11 +240,7 @@ function SortableHeader({
         {label}
       </SizableText>
       <Icon
-        name={
-          isActive && sortOrder === 'asc'
-            ? 'ChevronTopSmallOutline'
-            : 'ChevronDownSmallOutline'
-        }
+        name={iconName}
         size="$4"
         color={isActive ? '$icon' : '$iconSubdued'}
       />

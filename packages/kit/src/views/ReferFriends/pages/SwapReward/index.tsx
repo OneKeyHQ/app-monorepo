@@ -93,7 +93,6 @@ function SwapRewardPageWrapper() {
   const [hideZeroVolume, setHideZeroVolume] = useState(true);
   const [sortBy, setSortBy] = useState<ISwapInvitesSortBy>('volume');
   const [sortOrder, setSortOrder] = useState<ISwapInvitesSortOrder>('desc');
-  const [hasUserSorted, setHasUserSorted] = useState(false);
   const [cursor, setCursor] = useState<string>();
 
   const refreshRequestIdRef = useRef(0);
@@ -639,7 +638,6 @@ function SwapRewardPageWrapper() {
 
   const handleSort = useCallback(
     (field: ISwapInvitesSortBy) => {
-      setHasUserSorted(true);
       if (sortBy === field) {
         setSortOrder((order) => (order === 'desc' ? 'asc' : 'desc'));
       } else {
@@ -751,7 +749,6 @@ function SwapRewardPageWrapper() {
                 sortBy={sortBy}
                 sortOrder={sortOrder}
                 onSort={handleSort}
-                hasUserSorted={hasUserSorted}
                 isLoadingMore={isLoadingMore}
                 isTabLoading={isTabLoading}
                 hasError={hasListError}

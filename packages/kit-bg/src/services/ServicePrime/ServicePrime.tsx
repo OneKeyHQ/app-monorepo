@@ -51,6 +51,10 @@ import {
   isOneKeyIdOAuthIdentityBound,
 } from '@onekeyhq/shared/src/utils/oauthProviderUtils';
 import { isLegacyOneKeyIdAccountMissingOAuthIdentity } from '@onekeyhq/shared/src/utils/oneKeyIdAccountUtils';
+import {
+  getPrimeGiftVerifyFailureLogPayload,
+  isPrimeGiftVerifyCancellationError,
+} from '@onekeyhq/shared/src/utils/primeGiftVerifyError';
 import { isValidPrimeInfiniPaymentContract } from '@onekeyhq/shared/src/utils/primeInfiniPaymentCacheUtils';
 import { getPrimeInfiniPaymentSafeError } from '@onekeyhq/shared/src/utils/primeInfiniPaymentDiagnostics';
 import {
@@ -74,6 +78,7 @@ import type {
   IPrimeGiftClaimResult,
   IPrimeGiftEligibility,
   IPrimeGiftPreparedRedemption,
+  IPrimeGiftVerifyV2Result,
 } from '@onekeyhq/shared/types/prime/primeGiftTypes';
 import type {
   IOneKeyIdAccount,
@@ -541,10 +546,33 @@ class ServicePrime extends ServiceBase {
   }: IPrimeGiftClaimParams): Promise<IPrimeGiftPreparedRedemption> {
     return this.primeGiftMutex.runExclusive(async () => {
       await this.getPrimeGiftUser();
-      const verification =
-        await this.backgroundApi.serviceHardware.hardwareVerifyManager.firmwareAuthenticateForPrimeGift(
-          { device, serialNo },
+      let verification: IPrimeGiftVerifyV2Result;
+      try {
+        verification =
+          await this.backgroundApi.serviceHardware.hardwareVerifyManager.firmwareAuthenticateForPrimeGift(
+            { device, serialNo },
+          );
+      } catch (error) {
+        if (
+          isPrimeGiftVerifyCancellationError(error) ||
+          (error instanceof OneKeyLocalError &&
+            (error.key === ETranslations.feedback_hardware_is_busy ||
+              error.key === ETranslations.prime_gift_connect_device__msg))
+        ) {
+          throw error;
+        }
+        defaultLogger.hardware.sdkLog.serviceEvent(
+          'firmwareAuthenticateForPrimeGift',
+          getPrimeGiftVerifyFailureLogPayload(error),
         );
+        throw new OneKeyLocalError({
+          message: appLocale.intl.formatMessage({
+            id: ETranslations.prime_gift_verify_failed__msg,
+          }),
+          key: ETranslations.prime_gift_verify_failed__msg,
+          autoToast: false,
+        });
+      }
       return {
         serialNo,
         onekeyUserId: expectedOneKeyUserId,
@@ -4591,7 +4619,7 @@ class ServicePrime extends ServiceBase {
     const primeSubscription = this.buildPrimeSubscriptionInfo(serverUserInfo);
 
     const serverManagementUrl =
-      serverUserInfo.subscriptions?.[0]?.managementUrl;
+      serverUserInfo.subscriptions?.[0]?.managementUrl ?? undefined;
 
     // Sync the server KYT state into the settings cache before exposing
     // onekeyUserId, so the settings switch and intro dialog gate (both keyed by
