@@ -1062,6 +1062,19 @@ const BaseDevSettingsSection = () => {
                         <Switch size={ESwitchSize.small} />
                       </SectionFieldItem>
                       <SectionFieldItem
+                        icon="CurrencyDollarOutline"
+                        name="ignoreReviewControl"
+                        title="忽略远端入口开关，强制显示 Buy/Sell"
+                        subtitle={
+                          devSettings.settings?.ignoreReviewControl
+                            ? '已强制显示被远端开关隐藏的 Buy/Sell 等入口'
+                            : '远端开关关闭时会隐藏 Buy/Sell 等入口（默认关闭，需手动开启）'
+                        }
+                        searchKeywords="buy sell fiat visibility 出入金 入口"
+                      >
+                        <Switch size={ESwitchSize.small} />
+                      </SectionFieldItem>
+                      <SectionFieldItem
                         icon="ShieldOutline"
                         name="disableIpTableFailover"
                         title="禁用 IP 快速故障切换"
