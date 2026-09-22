@@ -233,6 +233,14 @@ export type ITradingViewNativeChartSceneCommand =
       y: number;
     }
   | {
+      kind: 'tradeMarkLabel';
+      label: 'B' | 'S';
+      cx: number;
+      cy: number;
+      customPaintId?: string;
+      paint: ITradingViewNativeChartScenePaint;
+    }
+  | {
       kind: 'watermark';
       opacity: number;
       rect: ITradingViewNativeChartSceneRect;

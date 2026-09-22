@@ -39,6 +39,11 @@ const mockPath = {
   lineTo: jest.fn(),
   moveTo: jest.fn(),
 };
+const mockMakeFromSVGString = jest.fn((svg: string) => ({
+  svg,
+  computeTightBounds: jest.fn(() => ({ x: 2, y: 3, width: 6, height: 10 })),
+  offset: jest.fn(),
+}));
 const mockGradientShader = { dispose: jest.fn() };
 let mockFontGlyphsByFamily: Record<string, string> = {};
 let mockFontDisposeByFamily: Record<string, jest.Mock> = {};
@@ -154,7 +159,10 @@ jest.mock('@shopify/react-native-skia', () => ({
       },
     },
     Paint: () => mockCreatePaint(),
-    Path: { Make: () => mockPath },
+    Path: {
+      Make: () => mockPath,
+      MakeFromSVGString: (svg: string) => mockMakeFromSVGString(svg),
+    },
     PathEffect: { MakeDash: jest.fn() },
     Shader: { MakeLinearGradient: jest.fn(() => mockGradientShader) },
     XYWHRect: (x: number, y: number, width: number, height: number) => ({
@@ -256,6 +264,50 @@ describe('TradingViewNative Skia scene renderer', () => {
     mockHasMatchFamilyStyleCharacter = true;
     mockSystemFontFamilies = [];
   });
+
+  it.each(['B', 'S'] as const)(
+    'draws %s as a centered vector without font metrics or reparsing on redraw',
+    (label) => {
+      const resources = createResources();
+      mockBuildTradingViewNativeChartScene.mockReturnValue(
+        createScene({
+          commands: [
+            {
+              kind: 'tradeMarkLabel',
+              label,
+              cx: 50,
+              cy: 30,
+              customPaintId: 'chart.tradeMarks.text',
+              paint: 'currentPriceLabelText',
+            },
+          ],
+          customPaintStyles: {
+            'chart.tradeMarks.text': { color: '#FFFFFF', opacity: 1 },
+          },
+        }),
+      );
+      const paths = mockMakeFromSVGString.mock.results.map(
+        (result) => result.value as ReturnType<typeof mockMakeFromSVGString>,
+      );
+      for (const path of paths) {
+        expect(path.offset).toHaveBeenCalledWith(-5, -8);
+      }
+      mockMakeFromSVGString.mockClear();
+
+      createPicture(resources);
+      createPicture(resources);
+
+      expect(mockCanvas.translate).toHaveBeenCalledWith(50, 30);
+      expect(mockCanvas.drawPath).toHaveBeenCalledWith(
+        resources.tradeMarkLabelPaths[label],
+        resources.customPaints['chart.tradeMarks.text'],
+      );
+      expect(mockCanvas.drawText).not.toHaveBeenCalled();
+      expect(mockMakeFromSVGString).not.toHaveBeenCalled();
+      expect(mockCanvas.save).toHaveBeenCalledTimes(2);
+      expect(mockCanvas.restore).toHaveBeenCalledTimes(2);
+    },
+  );
 
   it('keeps the primary font without requesting a fallback when it has every glyph', () => {
     const legendText = '开高低收';

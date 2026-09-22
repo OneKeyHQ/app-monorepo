@@ -9,6 +9,7 @@ import {
   type SkFont,
   type SkFontMgr,
   type SkPaint,
+  type SkPath,
   type SkPicture,
   type SkSVG,
   type SkTypeface,
@@ -31,6 +32,7 @@ import {
 } from '../utils/chartScene';
 
 import { getTradingViewNativeSkiaTextFont } from './chartSkiaText';
+import { TRADE_MARK_LABEL_PATHS } from './tradeMarkLabelPaths';
 
 export interface ITradingViewNativeSkiaResources {
   customPaintSignatures: Record<string, string>;
@@ -38,6 +40,7 @@ export interface ITradingViewNativeSkiaResources {
   fonts: Record<ITradingViewNativeChartSceneFont, SkFont>;
   legendSubscriptFont: SkFont | null;
   paints: Record<ITradingViewNativeChartScenePaint, SkPaint>;
+  tradeMarkLabelPaths: Record<'B' | 'S', SkPath | null>;
   watermarkPaint: SkPaint;
   watermarkSvg: SkSVG | null;
 }
@@ -243,6 +246,17 @@ function createTradingViewNativeSkiaPaint(
   return paint;
 }
 
+function createTradingViewNativeTradeMarkLabelPath(label: 'B' | 'S') {
+  'worklet';
+
+  const path = Skia.Path.MakeFromSVGString(TRADE_MARK_LABEL_PATHS[label]);
+  if (path) {
+    const bounds = path.computeTightBounds();
+    path.offset(-bounds.x - bounds.width / 2, -bounds.y - bounds.height / 2);
+  }
+  return path;
+}
+
 export function createTradingViewNativeSkiaResources({
   colors,
   fontFamily,
@@ -306,6 +320,10 @@ export function createTradingViewNativeSkiaResources({
     },
     legendSubscriptFont,
     paints,
+    tradeMarkLabelPaths: {
+      B: createTradingViewNativeTradeMarkLabelPath('B'),
+      S: createTradingViewNativeTradeMarkLabelPath('S'),
+    },
     watermarkPaint: Skia.Paint(),
     watermarkSvg,
   };
@@ -502,6 +520,23 @@ function drawTradingViewNativeSkiaCommands({
           ),
         );
         break;
+      case 'tradeMarkLabel': {
+        const path = resources.tradeMarkLabelPaths[command.label];
+        if (path) {
+          canvas.save();
+          canvas.translate(command.cx, command.cy);
+          canvas.drawPath(
+            path,
+            getTradingViewNativeSkiaCommandPaint({
+              customPaintId: command.customPaintId,
+              fallbackPaint: command.paint,
+              resources,
+            }),
+          );
+          canvas.restore();
+        }
+        break;
+      }
       case 'watermark':
         if (resources.watermarkSvg) {
           canvas.save();
