@@ -1595,7 +1595,7 @@ export function useSwapProTokenDetailInfo() {
   };
 }
 
-function useSwapProPositionAccountIdentity() {
+export function useSwapProPositionAccountIdentity() {
   const { activeAccount } = useActiveAccount({ num: 0 });
   const { selectedAccount } = useSelectedAccount({ num: 0 });
   const [isAccountSelectorStorageInitDone] =
