@@ -1,0 +1,121 @@
+name: Dependency Snapshot Experiment
+
+on:
+  push:
+    branches: [codex/ci-squashfs-experiment]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: read
+
+concurrency:
+  group: dependency-snapshot-experiment-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  YARN_ENABLE_GLOBAL_CACHE: true
+  # Manual/push runs must use the same validation as public PR installation.
+  YARN_ENABLE_HARDENED_MODE: true
+  NODE_OPTIONS: --max_old_space_size=4096
+
+jobs:
+  prepare:
+    name: Prepare snapshots
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          lfs: true
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24.21.0
+          cache: yarn
+          registry-url: https://npm.pkg.github.com
+          scope: '@onekeyhq'
+      - name: Install filesystem tools
+        run: |
+          command -v mksquashfs || { sudo apt-get update -qq && sudo apt-get install -y squashfs-tools; }
+          mksquashfs -version
+          df -h . "$RUNNER_TEMP"
+      - name: Record runner
+        run: python3 .github/scripts/dependency-benchmark.py metadata
+      - name: Install dependencies
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python3 .github/scripts/dependency-benchmark.py install
+      - name: Build both snapshots
+        run: python3 .github/scripts/dependency-benchmark.py build
+      - uses: actions/upload-artifact@v4
+        with:
+          name: deps-tar
+          path: |
+            ${{ runner.temp }}/onekey-dependency-benchmark/deps.tar.zst
+            ${{ runner.temp }}/onekey-dependency-benchmark/manifest.json
+          compression-level: 0
+          retention-days: 1
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v4
+        with:
+          name: deps-squashfs
+          path: |
+            ${{ runner.temp }}/onekey-dependency-benchmark/deps.squashfs
+            ${{ runner.temp }}/onekey-dependency-benchmark/manifest.json
+          compression-level: 0
+          retention-days: 1
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: measurements-prepare
+          path: ci-dependency-results
+          retention-days: 7
+
+  compare:
+    name: ${{ matrix.mode }} / ${{ matrix.workload }}
+    needs: prepare
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        mode: [packages, tar, squashfs]
+        workload: [unit, lint, native]
+    env:
+      BENCHMARK_MODE: ${{ matrix.mode }}
+      BENCHMARK_WORKLOAD: ${{ matrix.workload }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          lfs: true
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24.21.0
+          cache: yarn
+          registry-url: https://npm.pkg.github.com
+          scope: '@onekeyhq'
+      - name: Record runner
+        run: python3 .github/scripts/dependency-benchmark.py metadata
+      - uses: actions/download-artifact@v4
+        if: matrix.mode != 'packages'
+        with:
+          name: deps-${{ matrix.mode }}
+          path: ${{ runner.temp }}/onekey-dependency-benchmark
+      - name: Restore dependencies
+        run: python3 .github/scripts/dependency-benchmark.py restore --mode "$BENCHMARK_MODE"
+      - name: Validate installation
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python3 .github/scripts/dependency-benchmark.py install
+      - name: Execute workload
+        run: python3 .github/scripts/dependency-benchmark.py workload --workload "$BENCHMARK_WORKLOAD"
+      - name: Measure writable layer and unmount
+        if: always()
+        run: python3 .github/scripts/dependency-benchmark.py cleanup
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: measurements-${{ matrix.mode }}-${{ matrix.workload }}
+          path: ci-dependency-results
+          retention-days: 7
