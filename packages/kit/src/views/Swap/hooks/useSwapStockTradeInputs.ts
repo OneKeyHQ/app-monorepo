@@ -222,8 +222,9 @@ function useStockInputTokenBalance({
   const { result: detailState, isLoading: detailLoading } = usePromiseResult(
     async () => {
       const requestScope = balanceScope;
+      // An explicit refresh (manual, or a settled swap on the sell side)
+      // always revalidates, even where pay-token details own the refreshes.
       const shouldExplicitlyRevalidate =
-        !refreshOwnedByPayTokenDetails &&
         explicitRevalidationOwnerScopeRef.current === balanceOwnerScope;
       if (shouldExplicitlyRevalidate) {
         explicitRevalidationOwnerScopeRef.current = '';
@@ -336,6 +337,13 @@ function useStockInputTokenBalance({
     };
   }, [balanceOwnerScope, enabled, refreshOwnedByPayTokenDetails, token]);
 
+  // Manual refresh: re-fetch for the current token + account. The snapshot
+  // below keeps the last figure on screen until the new one lands.
+  const refresh = useCallback(() => {
+    explicitRevalidationOwnerScopeRef.current = balanceOwnerScope;
+    setRefreshKey((value) => value + 1);
+  }, [balanceOwnerScope]);
+
   const detailResolved = detailState.scope === balanceScope;
   const authoritativeBalance =
     detailResolved && detailState.hasAuthoritativeBalance
@@ -400,6 +408,13 @@ function useStockInputTokenBalance({
     balance: balanceViewState.balance,
     displayBalance: balanceViewState.displayBalance,
     ownerScope: balanceOwnerScope,
+    refresh,
+    // True while a request for the current scope is in flight, including a
+    // manual refresh; `settledBalance` keeps the last figure meanwhile.
+    refreshing: enabled && Boolean(token) && (!detailResolved || detailLoading),
+    // Authoritative when resolved, otherwise the figure carried over from the
+    // previous snapshot (same token + account) or seeded from the token.
+    settledBalance: balanceState?.balance,
     tokenDetail: balanceViewState.tokenDetail,
     loading: isStockBalanceInitializing({
       balance: balanceViewState.displayBalance,
@@ -656,6 +671,24 @@ export function useSwapStockAmountInputState({
   });
   const amountInputToken = authoritativeStockInputToken ?? inputToken;
   const resolvedInputTokenBalance = stockInputTokenBalance.balance ?? '0';
+  // The settled figure (kept while a refresh is in flight) decides the zero
+  // verdict, so the refresh control never flips back to Max mid-refresh; it
+  // turns Max into a balance refresh exactly like the Swap page (OK-63470).
+  const isBalanceLoadedZero = useMemo(() => {
+    if (!inputToken || stockInputTokenBalance.settledBalance === undefined) {
+      return false;
+    }
+    const balanceBN = new BigNumber(stockInputTokenBalance.settledBalance);
+    return balanceBN.isFinite() && balanceBN.isZero();
+  }, [inputToken, stockInputTokenBalance.settledBalance]);
+  const { refresh: refreshInputTokenBalance } = stockInputTokenBalance;
+  const balanceRefreshing = stockInputTokenBalance.refreshing;
+  const onBalanceRefreshPress = useCallback(() => {
+    if (balanceRefreshing) {
+      return;
+    }
+    refreshInputTokenBalance();
+  }, [balanceRefreshing, refreshInputTokenBalance]);
   const reserveGas = useMemo(() => {
     if (!inputToken?.isNative) {
       return undefined;
@@ -809,10 +842,10 @@ export function useSwapStockAmountInputState({
     if (!isBuySide || !inputToken) {
       return false;
     }
-    if (stockInputTokenBalance.balance === undefined) {
+    if (stockInputTokenBalance.settledBalance === undefined) {
       return false;
     }
-    const balanceBN = new BigNumber(resolvedInputTokenBalance);
+    const balanceBN = new BigNumber(stockInputTokenBalance.settledBalance);
     const amountBN = new BigNumber(fromTokenAmount.value ?? '0');
     if (
       balanceBN.isNaN() ||
@@ -827,12 +860,13 @@ export function useSwapStockAmountInputState({
     fromTokenAmount.value,
     inputToken,
     isBuySide,
-    resolvedInputTokenBalance,
-    stockInputTokenBalance.balance,
+    stockInputTokenBalance.settledBalance,
   ]);
 
+  // Sync the settled figure so the action button keeps its verdict while a
+  // same-token refresh is in flight instead of dropping to "unknown".
   useSwapStockSelectedBalanceSync({
-    balance: stockInputTokenBalance.balance,
+    balance: stockInputTokenBalance.settledBalance,
     enabled: inputTokenReady,
     ownerScope: stockInputTokenBalance.ownerScope,
   });
@@ -841,6 +875,7 @@ export function useSwapStockAmountInputState({
     amountFiatValue,
     balanceActionsReady,
     balanceLoading: stockInputTokenBalance.loading,
+    balanceRefreshing,
     currencySymbol,
     disableNativePayToken,
     displayBalance,
@@ -848,8 +883,10 @@ export function useSwapStockAmountInputState({
     inputToken: amountInputToken,
     inputTokenNetworkLogoURI,
     inputValue: fromTokenAmount.value,
+    isBalanceLoadedZero,
     isBuySide,
     onBalanceMaxPress,
+    onBalanceRefreshPress,
     onAmountChange,
     onSelectPercentageStage,
     payToken,

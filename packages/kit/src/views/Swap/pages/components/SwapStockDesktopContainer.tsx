@@ -1211,6 +1211,7 @@ function StockAmountInput({
     amountFiatValue,
     balanceActionsReady,
     balanceLoading,
+    balanceRefreshing,
     currencySymbol,
     disableNativePayToken,
     displayBalance,
@@ -1218,9 +1219,11 @@ function StockAmountInput({
     inputToken,
     inputTokenNetworkLogoURI,
     inputValue,
+    isBalanceLoadedZero,
     isBuySide,
     onAmountChange,
     onBalanceMaxPress,
+    onBalanceRefreshPress,
     onSelectPercentageStage,
     payToken,
     payTokenOptionsLoading,
@@ -1279,6 +1282,18 @@ function StockAmountInput({
   );
   const showTokenSelectorLoading =
     !inputToken && (fetchLoading || (isBuySide && payTokenOptionsLoading));
+  // A zero balance swaps Max for a refresh action (spinning while it reloads),
+  // matching the Swap page's From row.
+  const balanceMaxPress = balanceActionsReady ? onBalanceMaxPress : undefined;
+  const balanceActionPress = isBalanceLoadedZero
+    ? onBalanceRefreshPress
+    : balanceMaxPress;
+  const balanceMaxTestID = balanceActionsReady
+    ? SwapTestIDs.maxButton
+    : undefined;
+  const balanceActionTestID = isBalanceLoadedZero
+    ? SwapTestIDs.balanceRefreshButton
+    : balanceMaxTestID;
 
   if (forceLoading || shouldRenderSkeleton || deferInitialContent) {
     return <StockAmountInputSkeleton isBuySide={isBuySide} />;
@@ -1324,10 +1339,12 @@ function StockAmountInput({
         balanceProps={{
           value: inputToken ? displayBalance : undefined,
           loading: balanceLoading,
-          onPress: balanceActionsReady ? onBalanceMaxPress : undefined,
+          onPress: balanceActionPress,
+          actionIconName: isBalanceLoadedZero ? 'RefreshCcwOutline' : undefined,
+          actionLoading: isBalanceLoadedZero && balanceRefreshing,
           hideIcon: true,
           tokenSymbol: inputToken?.symbol,
-          testID: balanceActionsReady ? SwapTestIDs.maxButton : undefined,
+          testID: balanceActionTestID,
         }}
         maxAmountText={intl.formatMessage({ id: ETranslations.global_max })}
         inputProps={{
