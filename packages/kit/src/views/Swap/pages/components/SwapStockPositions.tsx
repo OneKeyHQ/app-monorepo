@@ -29,6 +29,10 @@ import type {
 } from '@onekeyhq/shared/types/swap/types';
 
 import { useSwapProSupportNetworksTokenList } from '../../hooks/useSwapPro';
+import {
+  SWAP_DESKTOP_CARD_SHADOW_NATIVE_STYLE,
+  SWAP_DESKTOP_CARD_SHADOW_WEB_STYLE,
+} from '../../utils/swapDesktopCardShadow';
 
 import SwapProPositionsList from './SwapProPositionsList';
 import { SwapSmoothReveal } from './SwapSmoothReveal';
@@ -138,6 +142,9 @@ export function SwapStockPositions({
       borderColor="$borderSubdued"
       borderRadius={mobile ? '$0' : '$5'}
       gap={mobile ? '$0' : '$3'}
+      elevationAndroid={mobile ? undefined : '$1'}
+      $platform-web={mobile ? undefined : SWAP_DESKTOP_CARD_SHADOW_WEB_STYLE}
+      style={mobile ? undefined : SWAP_DESKTOP_CARD_SHADOW_NATIVE_STYLE}
     >
       <XStack
         h={mobile ? 48 : undefined}

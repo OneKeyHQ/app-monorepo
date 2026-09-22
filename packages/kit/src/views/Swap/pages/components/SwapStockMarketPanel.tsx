@@ -26,6 +26,10 @@ import { useToMarketStockDetailPage } from '@onekeyhq/kit/src/views/Market/Marke
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { SwapTestIDs } from '../../testIDs';
+import {
+  SWAP_DESKTOP_CARD_SHADOW_NATIVE_STYLE,
+  SWAP_DESKTOP_CARD_SHADOW_WEB_STYLE,
+} from '../../utils/swapDesktopCardShadow';
 
 import { SwapStockMarketDataGrid } from './SwapStockMarketData';
 import { useSwapStockSelection } from './SwapStockMarketProvider';
@@ -294,6 +298,9 @@ export function SwapStockMarketPanel() {
       px="$5"
       py="$5"
       gap="$7"
+      elevationAndroid="$1"
+      $platform-web={SWAP_DESKTOP_CARD_SHADOW_WEB_STYLE}
+      style={SWAP_DESKTOP_CARD_SHADOW_NATIVE_STYLE}
     >
       <YStack gap="$4">
         <SwapStockTickerSelector />

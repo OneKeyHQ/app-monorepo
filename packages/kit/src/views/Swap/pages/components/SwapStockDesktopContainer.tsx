@@ -93,6 +93,10 @@ import {
 } from '../../hooks/useSwapStockTradeInputs';
 import { SwapTestIDs } from '../../testIDs';
 import {
+  SWAP_DESKTOP_CARD_SHADOW_NATIVE_STYLE,
+  SWAP_DESKTOP_CARD_SHADOW_WEB_STYLE,
+} from '../../utils/swapDesktopCardShadow';
+import {
   type ISwapRecentTokenPair,
   buildSwapRecentTokenPairsFromHistory,
   getSwapMarketPendingHistoryKey,
@@ -1324,6 +1328,9 @@ function SwapStockDesktopContent({
       borderRadius={embedded ? '$0' : '$5'}
       bg="$bgApp"
       gap="$4"
+      elevationAndroid={embedded ? undefined : '$1'}
+      $platform-web={embedded ? undefined : SWAP_DESKTOP_CARD_SHADOW_WEB_STYLE}
+      style={embedded ? undefined : SWAP_DESKTOP_CARD_SHADOW_NATIVE_STYLE}
     >
       <XStack alignItems="center" justifyContent="space-between">
         <StockTradeSideSwitch
