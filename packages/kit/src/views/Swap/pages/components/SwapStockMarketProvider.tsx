@@ -136,7 +136,14 @@ function SwapStockSelectionProvider({
             selectStockSwapToken(token, { resetReceiveAmount: true });
           }
         };
-        if (await checkRiskToken(token)) {
+        const isRiskToken = await checkRiskToken(token);
+        if (
+          request !== requestRef.current ||
+          initialIdentity !== identityRef.current
+        ) {
+          return false;
+        }
+        if (isRiskToken) {
           navigation.push(EModalSwapRoutes.TokenRiskReminder, {
             storeName,
             token,

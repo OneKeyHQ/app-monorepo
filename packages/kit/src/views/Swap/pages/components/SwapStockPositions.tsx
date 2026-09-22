@@ -1,5 +1,5 @@
 import type { PropsWithChildren } from 'react';
-import { createContext, useCallback, useContext, useMemo } from 'react';
+import { createContext, useCallback, useContext, useMemo, useRef } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
@@ -18,7 +18,11 @@ import { useStockDetail } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/ho
 import { resolveMarketStockId } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/utils/resolveIsStockToken';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
-import type { IMarketBasicConfigNetwork } from '@onekeyhq/shared/types/marketV2';
+import type {
+  IMarketAccountPortfolioItem,
+  IMarketAccountPortfolioResponse,
+  IMarketBasicConfigNetwork,
+} from '@onekeyhq/shared/types/marketV2';
 import type {
   ISwapNetwork,
   ISwapToken,
@@ -31,6 +35,10 @@ import { SwapSmoothReveal } from './SwapSmoothReveal';
 import { useSwapStockTradeContext } from './SwapStockTradeProvider';
 
 type IPositions = ReturnType<typeof useSwapProSupportNetworksTokenList>;
+type ICurrentPositionResult = {
+  scope: string;
+  position?: IMarketAccountPortfolioItem;
+};
 const PositionsContext = createContext<IPositions | undefined>(undefined);
 
 export function SwapStockPositionsProvider({
@@ -209,16 +217,27 @@ export function SwapStockCurrentPosition() {
   const scope = token
     ? `${token.networkId}:${token.contractAddress}:${token.accountAddress}`
     : '';
+  const lastSuccessfulResultRef = useRef<ICurrentPositionResult | undefined>(
+    undefined,
+  );
   const { result } = usePromiseResult(
     async () => {
       if (!token?.accountAddress) return undefined;
-      const response =
-        await backgroundApiProxy.serviceMarketV2.fetchMarketAccountPortfolio({
-          networkId: token.networkId,
-          tokenAddress: token.contractAddress,
-          accountAddress: token.accountAddress,
-        });
-      return {
+      let response: IMarketAccountPortfolioResponse;
+      try {
+        response =
+          await backgroundApiProxy.serviceMarketV2.fetchMarketAccountPortfolio({
+            networkId: token.networkId,
+            tokenAddress: token.contractAddress,
+            accountAddress: token.accountAddress,
+            throwOnError: true,
+          });
+      } catch {
+        return lastSuccessfulResultRef.current?.scope === scope
+          ? lastSuccessfulResultRef.current
+          : undefined;
+      }
+      const nextResult = {
         scope,
         position: response.list.find((item) =>
           equalTokenNoCaseSensitive({
@@ -230,6 +249,8 @@ export function SwapStockCurrentPosition() {
           }),
         ),
       };
+      lastSuccessfulResultRef.current = nextResult;
+      return nextResult;
     },
     // Portfolio requests depend on identity, not the frequently refreshed balance.
     // eslint-disable-next-line react-hooks/exhaustive-deps
