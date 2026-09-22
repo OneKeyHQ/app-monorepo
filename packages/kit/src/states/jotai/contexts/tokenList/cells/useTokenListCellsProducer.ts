@@ -42,6 +42,10 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 
 import {
+  activeAccountsAtom,
+  useAccountSelectorContextData,
+} from '../../accountSelector';
+import {
   listStructureAtom,
   riskyListFrameAtom,
   useTokenListContextData,
@@ -81,6 +85,7 @@ import {
   isPrimaryColdStartWriter,
   registerMountedStore,
 } from './registry';
+import { getHomeTokenListOwnerKey } from './useHomeTokenListOwnerKey';
 
 import type { IApplyDeps } from './apply';
 import type {
@@ -126,6 +131,7 @@ export function useTokenListCellsProducer(
   storeName?: string,
 ): void {
   const { store } = useTokenListContextData();
+  const { store: accountSelectorStore } = useAccountSelectorContextData();
 
   // Stable deps bag bound to this store. `meta/cell/subcell/aggCell` resolve the
   // SAME per-store projection the leaves read (via the WeakMap), so the shell
@@ -175,6 +181,23 @@ export function useTokenListCellsProducer(
   }, [store, storeName]);
 
   const enabled = !!(store && deps && ownerKey && identity);
+
+  // Late-frame guard: a push for THIS hook's owner may still arrive after the
+  // account selector has already published another owner and before React
+  // re-runs the subscription with the new key. Applying it would re-stamp the
+  // projection for the outgoing owner right after the replay painted the
+  // incoming one. Compare against the selector store synchronously (the same
+  // key derivation as `ownerKey`, so a resolved key always agrees); fail open
+  // when the selector has not resolved an owner yet.
+  const isCurrentOwner = (): boolean => {
+    if (!accountSelectorStore) {
+      return true;
+    }
+    const activeOwnerKey = getHomeTokenListOwnerKey(
+      accountSelectorStore.get(activeAccountsAtom())[0],
+    );
+    return !activeOwnerKey || activeOwnerKey === ownerKey;
+  };
 
   // Owner-switch replay (OK-63873). Layout effect so it runs BEFORE paint and
   // BEFORE the subscription effect below: the projection is re-stamped for the
@@ -291,7 +314,7 @@ export function useTokenListCellsProducer(
         apply: (p) => {
           const push = p as IStructurePush;
           const { structure } = push;
-          if (!structure || !store || !deps || !identity) {
+          if (!structure || !store || !deps || !identity || !isCurrentOwner()) {
             return;
           }
           // Re-stamp storeData to THIS store so apply's identity guard passes.
@@ -326,7 +349,7 @@ export function useTokenListCellsProducer(
         apply: (p) => {
           const push = p as IValuationPush;
           const { valuation } = push;
-          if (!valuation || !store || !deps || !identity) {
+          if (!valuation || !store || !deps || !identity || !isCurrentOwner()) {
             return;
           }
           applyValuationFrame(
@@ -364,7 +387,7 @@ export function useTokenListCellsProducer(
         apply: (p) => {
           const push = p as IRiskyPush;
           const { riskyTokens, riskyMap } = push;
-          if (!store || !deps || !identity) {
+          if (!store || !deps || !identity || !isCurrentOwner()) {
             return;
           }
           applyRiskyFrame(
@@ -394,6 +417,6 @@ export function useTokenListCellsProducer(
           }) satisfies IRiskyPush,
       },
     ],
-    extraDeps: [store, deps, storeName],
+    extraDeps: [store, deps, storeName, accountSelectorStore],
   });
 }

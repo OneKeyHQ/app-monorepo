@@ -566,8 +566,17 @@ export function hydrateCellsFromColdStart(params: {
   projection: IStoreProjection;
   deps: IApplyDeps;
   currentCurrency: string;
+  /**
+   * When given, the boot bundle must be stamped for this owner. The bundle
+   * belongs to whichever owner was on screen at the last flush, and the
+   * account-selector snapshot can restore a different one (selection changed
+   * after that flush, or off the home scene); painting the wrong owner's rows
+   * only to replace them with a skeleton via `ownerMismatch` is worse than a
+   * plain miss (the per-owner slim slot then covers the real owner).
+   */
+  ownerKey?: string;
 }): boolean {
-  const { store, projection, deps, currentCurrency } = params;
+  const { store, projection, deps, currentCurrency, ownerKey } = params;
 
   const slim = readSlimColdCache(store);
   // Merge gate (spec §11.4): currency mismatch / absent -> miss, do not paint.
@@ -576,6 +585,9 @@ export function hydrateCellsFromColdStart(params: {
   }
   // shouldUseSlim returning true guarantees `slim` is defined.
   const bundle = slim as ITokenListSlimColdCache;
+  if (ownerKey !== undefined && bundle.ownerKey !== ownerKey) {
+    return false;
+  }
 
   const storeData = resolveStoreData(store);
   if (!storeData) {
@@ -720,11 +732,17 @@ export function useTokenListCellsColdStartHydrate(
     }
     hydratedStoreRef.current = store;
     const projection = ensureStoreProjection(store);
+    // A live frame or replay already stamped this store for an owner: the
+    // boot bundle is older than what is on screen and must not replace it.
+    if (projection.curOwnerKey) {
+      return;
+    }
     hydrateCellsFromColdStart({
       store,
       projection,
       deps,
       currentCurrency: currencyId,
+      ownerKey,
     });
   }, [store, deps, ownerKey, currencyId]);
 }
