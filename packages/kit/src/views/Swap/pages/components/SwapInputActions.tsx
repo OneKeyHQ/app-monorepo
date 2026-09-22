@@ -72,15 +72,14 @@ const SwapInputActions = ({
           >
             {/* Rendered while the balance cannot cover the input (interactive
                 tint, same as the Max control) or while the balance is a loaded
-                zero (subdued, the action button already offers the deposit),
-                on a pill that stands out from the input card. */}
+                zero (subdued, the action button already offers the deposit). */}
             <Button
               testID="swap-btn"
               height="$5"
               px="$1.5"
               py="$0"
               pt={platformEnv.isNativeIOS ? '$1' : '$0'}
-              bg="$bgStrong"
+              bg="$bgSubdued"
               size="small"
               onPress={handleBuyPress}
             >

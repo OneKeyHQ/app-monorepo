@@ -2,7 +2,6 @@ import { shouldOfferSwapDepositAction } from './swapDepositActionUtils';
 
 const ready = {
   balance: '0',
-  isBalanceLoading: false,
   hasBalanceError: false,
   hasFromToken: true,
   hasToToken: true,
@@ -31,9 +30,6 @@ describe('shouldOfferSwapDepositAction', () => {
     expect(shouldOfferSwapDepositAction({ ...ready, balance: undefined })).toBe(
       false,
     );
-    expect(
-      shouldOfferSwapDepositAction({ ...ready, isBalanceLoading: true }),
-    ).toBe(false);
     expect(
       shouldOfferSwapDepositAction({
         ...ready,

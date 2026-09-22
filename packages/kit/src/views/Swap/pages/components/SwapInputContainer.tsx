@@ -393,7 +393,9 @@ const SwapInputContainer = ({
   // A loaded zero balance keeps the Top up chip visible (subdued, because the
   // action button already reads "Deposit to Trade") and turns Max into a
   // refresh action so the user can re-check the balance after depositing.
-  // The balance atom holds '' until it loads, so '' never counts as zero.
+  // The balance atom holds '' until it loads, so '' never counts as zero; a
+  // same-token refresh keeps the last value, so the chip and the refresh
+  // control stay put while it reloads.
   const isFromBalanceLoadedZero = useMemo(() => {
     if (direction !== ESwapDirectionType.FROM || !fromToken || !address) {
       return false;
@@ -406,12 +408,13 @@ const SwapInputContainer = ({
   }, [address, direction, fromToken, fromTokenBalance]);
   const { loadSwapSelectTokenDetail } = useSwapActions().current;
   const onBalanceRefreshPress = useCallback(() => {
+    if (balanceLoading) return;
     void loadSwapSelectTokenDetail(
       ESwapDirectionType.FROM,
       swapAddressInfo,
       true,
     );
-  }, [loadSwapSelectTokenDetail, swapAddressInfo]);
+  }, [balanceLoading, loadSwapSelectTokenDetail, swapAddressInfo]);
 
   const fromBalanceActionPress = isFromBalanceLoadedZero
     ? onBalanceRefreshPress
@@ -481,6 +484,7 @@ const SwapInputContainer = ({
           actionIconName: isFromBalanceLoadedZero
             ? 'RefreshCcwOutline'
             : undefined,
+          actionLoading: isFromBalanceLoadedZero && !!balanceLoading,
           testID:
             direction === ESwapDirectionType.FROM
               ? fromBalanceActionTestID

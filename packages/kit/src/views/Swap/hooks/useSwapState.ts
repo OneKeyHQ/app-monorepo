@@ -60,7 +60,6 @@ import {
   useSwapSelectFromTokenAtom,
   useSwapSelectToTokenAtom,
   useSwapSelectTokenDetailBalanceErrorAtom,
-  useSwapSelectTokenDetailFetchingAtom,
   useSwapShouldRefreshQuoteAtom,
   useSwapSilenceQuoteLoading,
   useSwapSlippageOverrideAtom,
@@ -433,8 +432,6 @@ export function useSwapActionState() {
   const [alerts] = useSwapAlertsAtom();
   const [selectedFromTokenBalance] =
     useSwapActiveSelectedFromTokenBalanceAtom();
-  const [swapSelectTokenDetailFetching] =
-    useSwapSelectTokenDetailFetchingAtom();
   const [swapSelectTokenDetailBalanceError] =
     useSwapSelectTokenDetailBalanceErrorAtom();
   const isCrossChain = fromToken?.networkId !== toToken?.networkId;
@@ -835,7 +832,6 @@ export function useSwapActionState() {
     if (
       shouldOfferSwapDepositAction({
         balance: selectedFromTokenBalance,
-        isBalanceLoading: swapSelectTokenDetailFetching.from,
         hasBalanceError: swapSelectTokenDetailBalanceError.from,
         hasFromToken: !!fromToken,
         hasToToken: !!toToken,
@@ -875,7 +871,6 @@ export function useSwapActionState() {
     swapApprovingMatchLoading,
     buildTxFetching,
     selectedFromTokenBalance,
-    swapSelectTokenDetailFetching.from,
     swapSelectTokenDetailBalanceError.from,
     fromToken,
     toToken,

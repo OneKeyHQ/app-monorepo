@@ -2,8 +2,9 @@ import BigNumber from 'bignumber.js';
 
 export interface IShouldOfferSwapDepositActionParams {
   // From-token balance display string; '' (or undefined) until it has loaded.
+  // A same-token refresh keeps the last value, so an in-flight fetch never
+  // flips the verdict.
   balance: string | undefined;
-  isBalanceLoading: boolean;
   // The last balance fetch failed; the stored '0.0' is a fallback, not a zero.
   hasBalanceError: boolean;
   hasFromToken: boolean;
@@ -21,7 +22,6 @@ export interface IShouldOfferSwapDepositActionParams {
 // editing the amount is the cheaper fix; the Top up chip covers deposits.
 export function shouldOfferSwapDepositAction({
   balance,
-  isBalanceLoading,
   hasBalanceError,
   hasFromToken,
   hasToToken,
@@ -34,7 +34,7 @@ export function shouldOfferSwapDepositAction({
   if (noConnectWallet || noProviderSupportsTrade || isStockBalanceUnavailable) {
     return false;
   }
-  if (isBalanceLoading || hasBalanceError || !balance) return false;
+  if (hasBalanceError || !balance) return false;
   const balanceBN = new BigNumber(balance);
   return balanceBN.isFinite() && balanceBN.isZero();
 }

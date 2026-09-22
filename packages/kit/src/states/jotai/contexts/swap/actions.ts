@@ -2640,10 +2640,9 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         ...previous,
         [type]: requestId,
       }));
-      set(swapSelectTokenDetailBalanceErrorAtom(), (previous) => ({
-        ...previous,
-        [type]: false,
-      }));
+      // Resolved together with the result below, so a refresh keeps the
+      // previous verdict on screen instead of briefly clearing a stale error.
+      let balanceFetchFailed = false;
       if (shouldFetchBalance) {
         set(swapSelectTokenDetailFetchingAtom(), (previous) => ({
           ...previous,
@@ -2743,11 +2742,16 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
               ...pre,
               [type]: true,
             }));
-            // reset balance
-            if (type === ESwapDirectionType.FROM) {
-              set(swapSelectedFromTokenBalanceAtom(), '');
-            } else {
-              set(swapSelectedToTokenBalanceAtom(), '');
+            // A forced refresh re-checks the same token, so its last balance
+            // stays on screen while the fetching flag reports progress; a
+            // token or account switch still clears it so a stale figure never
+            // shows for the new selection.
+            if (!fetchBalance) {
+              if (type === ESwapDirectionType.FROM) {
+                set(swapSelectedFromTokenBalanceAtom(), '');
+              } else {
+                set(swapSelectedToTokenBalanceAtom(), '');
+              }
             }
             const contractAddress =
               await getSwapTokenBalanceContractAddress(token);
@@ -2839,14 +2843,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
             // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
             if (e?.cause !== ESwapFetchCancelCause.SWAP_TOKENS_CANCEL) {
               balanceDisplay = '0.0';
-              if (
-                get(swapSelectTokenDetailRequestIdAtom())[type] === requestId
-              ) {
-                set(swapSelectTokenDetailBalanceErrorAtom(), (pre) => ({
-                  ...pre,
-                  [type]: true,
-                }));
-              }
+              balanceFetchFailed = true;
             }
           } finally {
             if (get(swapSelectTokenDetailRequestIdAtom())[type] === requestId) {
@@ -2864,6 +2861,10 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         } else {
           set(swapSelectedToTokenBalanceAtom(), balanceDisplay ?? '');
         }
+        set(swapSelectTokenDetailBalanceErrorAtom(), (previous) => ({
+          ...previous,
+          [type]: balanceFetchFailed,
+        }));
         if (
           token &&
           accountAddress &&

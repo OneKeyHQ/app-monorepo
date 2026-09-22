@@ -11,6 +11,7 @@ import {
   Popover,
   SizableText,
   Skeleton,
+  Spinner,
   Stack,
   XStack,
   getFontSize,
@@ -68,6 +69,8 @@ export type IAmountInputFormItemProps = IFormFieldProps<
       // Replaces the Max label with an icon, e.g. a refresh action while the
       // balance is empty and there is nothing to max out.
       actionIconName?: IKeyOfIcons;
+      // Shows a spinner in place of the action icon while its request runs.
+      actionLoading?: boolean;
     };
     balanceHelperProps?: {
       onPress?: () => void;
@@ -438,7 +441,14 @@ export function AmountInput({
               {balanceProps.tokenSymbol}
             </SizableText>
           ) : null}
-          {enableMaxAmount && balanceProps.actionIconName ? (
+          {enableMaxAmount &&
+          balanceProps.actionIconName &&
+          balanceProps.actionLoading ? (
+            <Spinner size="small" color="$textInteractive" ml="$1" />
+          ) : null}
+          {enableMaxAmount &&
+          balanceProps.actionIconName &&
+          !balanceProps.actionLoading ? (
             <Icon
               name={balanceProps.actionIconName}
               size="$4"
