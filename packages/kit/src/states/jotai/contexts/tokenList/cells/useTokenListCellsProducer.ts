@@ -199,18 +199,13 @@ export function useTokenListCellsProducer(
     return !activeOwnerKey || activeOwnerKey === ownerKey;
   };
 
-  // Owner-switch replay (OK-63873). Layout effect so it runs BEFORE paint and
-  // BEFORE the subscription effect below: the projection is re-stamped for the
-  // new owner from the remembered frames (same-session revisit) or, failing
-  // that, from the per-owner persisted slim bundle (first visit after a cold
-  // start). Either way `ownerMismatch` is already false on the first painted
-  // frame; the PULL then reconciles (the replay is provisional: generation is
-  // reset so any real frame supersedes it).
-  const replayedRiskyOwnerRef = useRef<string | undefined>(undefined);
-  useLayoutEffect(() => {
-    ensureReplayCacheInvalidationOnce();
-    if (!enabled || !store || !deps || !identity) {
-      return;
+  // Owner-switch replay (OK-63873): re-stamp the projection for the incoming
+  // owner from the remembered frames (same-session revisit) or, failing that,
+  // from the per-owner persisted slim bundle (first visit after a cold start).
+  // Provisional either way: generation is reset so any real frame supersedes it.
+  const replayForOwner = (nextOwnerKey: string): boolean => {
+    if (!store || !deps || !identity || !nextOwnerKey) {
+      return false;
     }
     const projection = ensureStoreProjection(store);
     const currentCurrency = currencyIdRef.current;
@@ -220,21 +215,20 @@ export function useTokenListCellsProducer(
       deps,
       frames: getOwnerReplayFrames({
         storeName: identity.resolvedStoreName,
-        ownerKey,
+        ownerKey: nextOwnerKey,
       }),
       storeData: identity.storeData,
-      ownerKey,
+      ownerKey: nextOwnerKey,
       currentCurrency,
     });
-    replayedRiskyOwnerRef.current = replayed.risky ? ownerKey : undefined;
     if (replayed.structure) {
-      return;
+      return replayed.risky;
     }
     // Already stamped for this owner (the boot-blob cold-start hydrate or a
     // live frame landed first): nothing to paint, and no MMKV read on the
     // startup path.
-    if (projection.curOwnerKey === ownerKey) {
-      return;
+    if (projection.curOwnerKey === nextOwnerKey) {
+      return false;
     }
     hydrateCellsFromOwnerSlimCache({
       store,
@@ -242,9 +236,52 @@ export function useTokenListCellsProducer(
       deps,
       storeName: identity.resolvedStoreName,
       storeData: identity.storeData,
-      ownerKey,
+      ownerKey: nextOwnerKey,
       currentCurrency,
     });
+    return false;
+  };
+  const replayForOwnerRef = useRef(replayForOwner);
+  replayForOwnerRef.current = replayForOwner;
+
+  // Fast path: replay in the SAME tick the account selector publishes the new
+  // owner, before React renders anything for it. The first render after a
+  // switch then already sees `listStructure.ownerKey === ownerKey`, so the
+  // list view never takes its `ownerMismatch` skeleton branch. That branch
+  // would swap the row container for a `ListLoading` element for one commit
+  // (invisible: the layout effect below repaints in the same task) and every
+  // row would remount — re-requesting each icon, which on desktop/web is a
+  // blank circle for ~500 ms when the browser cache misses.
+  useEffect(() => {
+    if (!enabled || !accountSelectorStore) {
+      return undefined;
+    }
+    return accountSelectorStore.sub(activeAccountsAtom(), () => {
+      const nextOwnerKey = getHomeTokenListOwnerKey(
+        accountSelectorStore.get(activeAccountsAtom())[0],
+      );
+      if (!nextOwnerKey || !store) {
+        return;
+      }
+      if (ensureStoreProjection(store).curOwnerKey === nextOwnerKey) {
+        return;
+      }
+      replayForOwnerRef.current(nextOwnerKey);
+    });
+  }, [accountSelectorStore, enabled, store]);
+
+  // Layout effect fallback (runs BEFORE paint and BEFORE the subscription
+  // effect below) for owner changes that did not come through the selector
+  // publish above (mount, currency/store identity changes). `ownerMismatch` is
+  // false on the first painted frame either way; the PULL then reconciles.
+  const replayedRiskyOwnerRef = useRef<string | undefined>(undefined);
+  useLayoutEffect(() => {
+    ensureReplayCacheInvalidationOnce();
+    if (!enabled || !store || !deps || !identity) {
+      return;
+    }
+    const replayedRisky = replayForOwnerRef.current(ownerKey);
+    replayedRiskyOwnerRef.current = replayedRisky ? ownerKey : undefined;
   }, [deps, enabled, identity, ownerKey, store]);
 
   useEffect(() => {
