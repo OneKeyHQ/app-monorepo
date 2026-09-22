@@ -12,7 +12,6 @@ import {
   Stack,
   YStack,
 } from '@onekeyhq/components';
-
 import { WALLET_TYPE_HD } from '@onekeyhq/shared/src/consts/dbConsts';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type { IHomePageViewedState } from '@onekeyhq/shared/src/logger/scopes/account/scenes/wallet';
@@ -28,6 +27,7 @@ import WalletBanner from '../components/WalletBanner';
 import { HomeTestIDs } from '../testIDs';
 
 import { HomeOverviewContainer } from './HomeOverviewContainer';
+
 import type { LayoutChangeEvent } from 'react-native';
 
 /**
