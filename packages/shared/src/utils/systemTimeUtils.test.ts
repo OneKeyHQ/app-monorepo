@@ -3,6 +3,8 @@ const mockGet = jest.fn<
   [string, unknown]
 >();
 const mockEmit = jest.fn<void, [string, unknown]>();
+const mockTimeCheckLog = jest.fn();
+const mockTimeRefreshLog = jest.fn();
 
 jest.mock('../appApiClient/appApiClient', () => ({
   appApiClient: {
@@ -33,7 +35,9 @@ jest.mock('../platformEnv', () => ({
 
 jest.mock('../logger/logger', () => ({
   defaultLogger: {
-    app: { systemTime: { check: jest.fn(), refresh: jest.fn() } },
+    app: {
+      systemTime: { check: mockTimeCheckLog, refresh: mockTimeRefreshLog },
+    },
   },
 }));
 
@@ -83,6 +87,100 @@ describe('system time error notifications', () => {
     jest.clearAllTimers();
     jest.useRealTimers();
     jest.restoreAllMocks();
+  });
+
+  it('keeps initial and periodic healthy time checks silent', async () => {
+    mockGet.mockImplementation(async () => ({
+      headers: { date: new Date(Date.now()).toUTCString() },
+    }));
+    systemTimeUtils.startServerTimeInterval();
+
+    for (let i = 0; i < 3; i += 1) {
+      monotonicTime += 5 * MINUTE;
+      await jest.advanceTimersByTimeAsync(5 * MINUTE);
+    }
+
+    expect(mockGet).toHaveBeenCalledTimes(3);
+    expect(systemTimeUtils.systemTimeStatus).toBe('VALID');
+    expect(mockTimeCheckLog).not.toHaveBeenCalled();
+    expect(mockTimeRefreshLog).not.toHaveBeenCalled();
+  });
+
+  it('logs the first anomaly and recovery while bounding rapid state changes', () => {
+    for (let i = 0; i < 20; i += 1) {
+      monotonicTime += 1000;
+      systemTimeUtils.updateServerTime({
+        serverTime: BASE_TIME,
+        localTime: BASE_TIME + 20 * MINUTE,
+      });
+      systemTimeUtils.updateServerTime({
+        serverTime: BASE_TIME,
+        localTime: BASE_TIME,
+      });
+    }
+
+    expect(mockTimeCheckLog).toHaveBeenCalledTimes(2);
+    expect(mockTimeCheckLog).toHaveBeenNthCalledWith(
+      1,
+      expect.objectContaining({ status: 'INVALID', differenceMs: 20 * MINUTE }),
+    );
+    expect(mockTimeCheckLog).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({ previousStatus: 'INVALID', status: 'VALID' }),
+    );
+
+    monotonicTime += MINUTE;
+    systemTimeUtils.updateServerTime({
+      serverTime: BASE_TIME,
+      localTime: BASE_TIME + 20 * MINUTE,
+    });
+    expect(mockTimeCheckLog).toHaveBeenCalledTimes(3);
+    expect(mockTimeCheckLog).toHaveBeenLastCalledWith(
+      expect.objectContaining({ status: 'INVALID', suppressedCount: 19 }),
+    );
+  });
+
+  it('retains a rate-limited recovery for the next healthy check', () => {
+    systemTimeUtils.updateServerTime({
+      serverTime: BASE_TIME,
+      localTime: BASE_TIME + 20 * MINUTE,
+    });
+    monotonicTime += MINUTE;
+    systemTimeUtils.updateServerTime({ serverTime: BASE_TIME });
+    systemTimeUtils.updateServerTime({
+      serverTime: BASE_TIME,
+      localTime: BASE_TIME + 20 * MINUTE,
+    });
+    systemTimeUtils.updateServerTime({ serverTime: BASE_TIME });
+    expect(mockTimeCheckLog).toHaveBeenCalledTimes(3);
+
+    monotonicTime += MINUTE;
+    systemTimeUtils.updateServerTime({ serverTime: BASE_TIME });
+    expect(mockTimeCheckLog).toHaveBeenCalledTimes(4);
+    expect(mockTimeCheckLog).toHaveBeenLastCalledWith(
+      expect.objectContaining({ status: 'VALID', suppressedCount: 1 }),
+    );
+    systemTimeUtils.updateServerTime({ serverTime: BASE_TIME });
+    expect(mockTimeCheckLog).toHaveBeenCalledTimes(4);
+  });
+
+  it('bounds repeated refresh failures and reports the suppressed count', async () => {
+    mockGet.mockRejectedValue(new Error('Offline'));
+    for (let i = 0; i < 10; i += 1) {
+      await expect(systemTimeUtils.refreshServerTime()).rejects.toThrow(
+        'Offline',
+      );
+    }
+    expect(mockTimeRefreshLog).toHaveBeenCalledTimes(1);
+
+    monotonicTime += MINUTE;
+    await expect(systemTimeUtils.refreshServerTime()).rejects.toThrow(
+      'Offline',
+    );
+    expect(mockTimeRefreshLog).toHaveBeenCalledTimes(2);
+    expect(mockTimeRefreshLog).toHaveBeenLastCalledWith(
+      expect.objectContaining({ result: 'request-error', suppressedCount: 9 }),
+    );
   });
 
   it.each(['network failure', 'missing Date'])(

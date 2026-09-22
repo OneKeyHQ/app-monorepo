@@ -141,7 +141,16 @@ class SystemTimeUtils {
 
   private _lastServerTimeLocalBase: number | undefined;
 
-  private _lastTimeCheckLogAt: number | undefined;
+  private _lastTimeCheckLogAt: Partial<Record<ELocalSystemTimeStatus, number>> =
+    {};
+
+  private _lastLoggedTimeCheckStatus: ELocalSystemTimeStatus | undefined;
+
+  private _suppressedTimeCheckLogs = 0;
+
+  private _lastRefreshFailureLogAt: number | undefined;
+
+  private _suppressedRefreshFailureLogs = 0;
 
   private _lastServerTimeIsReal = false;
 
@@ -278,22 +287,32 @@ class SystemTimeUtils {
     serverTime: number | undefined;
     localTimeValid: boolean;
   }) {
+    // Healthy checks are silent unless an emitted anomaly still needs a recovery.
+    if (
+      localTimeValid &&
+      this._lastLoggedTimeCheckStatus !== ELocalSystemTimeStatus.INVALID
+    ) {
+      return;
+    }
     const status = localTimeValid
       ? ELocalSystemTimeStatus.VALID
       : ELocalSystemTimeStatus.INVALID;
     const observedAt = Date.now();
     const monotonicTime = getMonotonicTimeNow();
     const logTime = monotonicTime ?? observedAt;
+    const lastLogAt = this._lastTimeCheckLogAt[status];
     if (
-      status === this.systemTimeStatus &&
-      (localTimeValid ||
-        (!isNil(this._lastTimeCheckLogAt) &&
-          logTime >= this._lastTimeCheckLogAt &&
-          logTime - this._lastTimeCheckLogAt < 60_000))
+      !isNil(lastLogAt) &&
+      logTime >= lastLogAt &&
+      logTime - lastLogAt < 60_000
     ) {
+      this._suppressedTimeCheckLogs += 1;
       return;
     }
-    this._lastTimeCheckLogAt = logTime;
+    // Separate budgets retain the first recovery without letting flapping bypass
+    // the limit: at most one invalid sample and one recovery sample per minute.
+    this._lastTimeCheckLogAt[status] = logTime;
+    this._lastLoggedTimeCheckStatus = status;
 
     const wallElapsedMs = isNil(this._lastServerTimeLocalBase)
       ? undefined
@@ -313,6 +332,7 @@ class SystemTimeUtils {
       requestId,
       previousStatus: this.systemTimeStatus,
       status,
+      suppressedCount: this._suppressedTimeCheckLogs,
       localTime,
       serverTime,
       differenceMs: isNil(serverTime) ? undefined : localTime - serverTime,
@@ -330,6 +350,7 @@ class SystemTimeUtils {
           ? undefined
           : wallElapsedMs - monotonicElapsedMs,
     });
+    this._suppressedTimeCheckLogs = 0;
   }
 
   hasFreshServerTimeInCurrentProcess(): boolean {
@@ -362,12 +383,23 @@ class SystemTimeUtils {
     ) => {
       const completedAt = Date.now();
       const monotonicCompletedAt = getMonotonicTimeNow();
+      const logTime = monotonicCompletedAt ?? completedAt;
+      if (
+        !isNil(this._lastRefreshFailureLogAt) &&
+        logTime >= this._lastRefreshFailureLogAt &&
+        logTime - this._lastRefreshFailureLogAt < 60_000
+      ) {
+        this._suppressedRefreshFailureLogs += 1;
+        return;
+      }
+      this._lastRefreshFailureLogAt = logTime;
       defaultLogger.app.systemTime.refresh({
         startedAt,
         completedAt,
         platform: platformEnv.appPlatform,
         runtime: platformEnv.runtimeRole,
         result,
+        suppressedCount: this._suppressedRefreshFailureLogs,
         wallDurationMs: completedAt - startedAt,
         monotonicDurationMs:
           isNil(monotonicStartedAt) || isNil(monotonicCompletedAt)
@@ -378,6 +410,7 @@ class SystemTimeUtils {
         requestId,
         errorCode,
       });
+      this._suppressedRefreshFailureLogs = 0;
     };
 
     try {
@@ -424,7 +457,6 @@ class SystemTimeUtils {
         logResult('invalid-date');
         return false;
       }
-      logResult('success');
       const localTimestamp = Date.now();
       this.updateServerTime({
         serverTime: serverTimestamp,
