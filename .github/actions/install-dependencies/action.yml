@@ -1,18 +1,19 @@
 name: Install dependencies
-description: Reuse a mounted Linux dependency snapshot while preserving immutable Yarn validation.
-
-inputs:
-  save-snapshot:
-    description: Populate a missing snapshot after a successful installation.
-    default: 'false'
-  verify-cache:
-    description: Re-fetch and verify package archives before publishing a refreshed snapshot.
-    default: 'false'
+description: Restore an x dependency snapshot and run immutable Yarn validation without publishing caches.
 
 outputs:
   snapshot-hit:
-    description: Whether the installation successfully reused the snapshot.
+    description: Whether the installation successfully reused a snapshot.
     value: ${{ steps.install.outputs.snapshot-hit }}
+  snapshot-kind:
+    description: Exact, incremental, or no snapshot reuse.
+    value: ${{ steps.install.outputs.snapshot-kind }}
+  cache-key:
+    description: Fingerprint to publish from Cache Refresh after verification.
+    value: ${{ steps.fingerprint.outputs.key }}
+  cache-path:
+    description: Local snapshot directory.
+    value: ${{ steps.fingerprint.outputs.path }}
 
 runs:
   using: composite
@@ -22,13 +23,14 @@ runs:
       shell: bash
       run: python3 .github/scripts/ci-dependencies.py prepare
 
-    - name: Restore dependency image
+    - name: Restore dependency image from x
       id: snapshot
       uses: actions/cache/restore@v4
       continue-on-error: true
       with:
         path: ${{ steps.fingerprint.outputs.path }}
         key: ${{ steps.fingerprint.outputs.key }}
+        restore-keys: ${{ steps.fingerprint.outputs.prefix }}
       env:
         SEGMENT_DOWNLOAD_TIMEOUT_MINS: '2'
 
@@ -36,24 +38,5 @@ runs:
       id: install
       shell: bash
       env:
-        DEPENDENCY_SNAPSHOT_HIT: ${{ steps.snapshot.outputs.cache-hit }}
+        DEPENDENCY_SNAPSHOT_KEY: ${{ steps.snapshot.outputs.cache-matched-key }}
       run: python3 .github/scripts/ci-dependencies.py install
-
-    - name: Verify refreshed package archives
-      if: inputs.verify-cache == 'true'
-      shell: bash
-      run: yarn install --immutable --immutable-cache --check-cache
-
-    - name: Build missing dependency image
-      id: build
-      if: inputs.save-snapshot == 'true' && steps.snapshot.outputs.cache-hit != 'true'
-      shell: bash
-      run: python3 .github/scripts/ci-dependencies.py build
-
-    - name: Save dependency image
-      if: steps.build.outputs.built == 'true'
-      uses: actions/cache/save@v4
-      continue-on-error: true
-      with:
-        path: ${{ steps.fingerprint.outputs.path }}
-        key: ${{ steps.fingerprint.outputs.key }}

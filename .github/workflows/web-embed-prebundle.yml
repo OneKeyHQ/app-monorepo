@@ -56,10 +56,25 @@ jobs:
         uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
         with:
           node-version: 24.x
-          cache: yarn
+          package-manager-cache: false
           check-latest: true
           registry-url: https://npm.pkg.github.com
           scope: '@onekeyhq'
+
+      - name: Locate Yarn cache
+        id: yarn-cache
+        shell: bash
+        run: |
+          echo "path=$(yarn config get cacheFolder)" >> "$GITHUB_OUTPUT"
+          echo "arch=$(node -p process.arch)" >> "$GITHUB_OUTPUT"
+
+      - name: Restore Yarn cache from x
+        uses: actions/cache/restore@v4
+        with:
+          path: ${{ steps.yarn-cache.outputs.path }}
+          key: node-cache-${{ runner.os }}-${{ steps.yarn-cache.outputs.arch }}-yarn-${{ hashFiles('yarn.lock') }}
+          restore-keys: |
+            node-cache-${{ runner.os }}-${{ steps.yarn-cache.outputs.arch }}-yarn-
 
       - name: Install dependency graph
         env:
@@ -132,10 +147,25 @@ jobs:
         uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
         with:
           node-version: 24.x
-          cache: yarn
+          package-manager-cache: false
           registry-url: https://npm.pkg.github.com
           check-latest: true
           scope: '@onekeyhq'
+
+      - name: Locate Yarn cache
+        id: yarn-cache
+        shell: bash
+        run: |
+          echo "path=$(yarn config get cacheFolder)" >> "$GITHUB_OUTPUT"
+          echo "arch=$(node -p process.arch)" >> "$GITHUB_OUTPUT"
+
+      - name: Restore Yarn cache from x
+        uses: actions/cache/restore@v4
+        with:
+          path: ${{ steps.yarn-cache.outputs.path }}
+          key: node-cache-${{ runner.os }}-${{ steps.yarn-cache.outputs.arch }}-yarn-${{ hashFiles('yarn.lock') }}
+          restore-keys: |
+            node-cache-${{ runner.os }}-${{ steps.yarn-cache.outputs.arch }}-yarn-
 
       - name: Install dependencies
         env:

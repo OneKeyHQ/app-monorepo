@@ -61,6 +61,7 @@ env:
 
 jobs:
   refresh-cache:
+    if: github.ref == 'refs/heads/x'
     # Job name: Refresh Node.js and Yarn cache for multiple operating systems
     name: Refresh setup-node yarn cache (${{ matrix.os }})
 
@@ -113,9 +114,6 @@ jobs:
         if: runner.os == 'Linux'
         id: dependencies
         uses: ./.github/actions/install-dependencies
-        with:
-          save-snapshot: 'true'
-          verify-cache: 'true'
         env:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NODE_OPTIONS: '--max_old_space_size=4096'
@@ -148,12 +146,24 @@ jobs:
 
       # Step 6: Verify dependency integrity
       - name: Verify dependency integrity
-        if: runner.os != 'Linux'
         shell: bash
         run: |
           echo "Verifying installed dependencies..."
           yarn install --immutable --immutable-cache --check-cache
           echo "✅ All dependencies verified successfully"
+
+      - name: Build dependency image
+        id: snapshot
+        if: runner.os == 'Linux' && steps.dependencies.outputs.snapshot-kind != 'exact'
+        run: python3 .github/scripts/ci-dependencies.py build
+
+      - name: Publish dependency image from x
+        if: steps.snapshot.outputs.built == 'true'
+        uses: actions/cache/save@v4
+        continue-on-error: true
+        with:
+          path: ${{ steps.dependencies.outputs.cache-path }}
+          key: ${{ steps.dependencies.outputs.cache-key }}
 
       - name: Unmount dependency image
         if: always() && runner.os == 'Linux' && steps.dependencies.outcome != 'skipped'

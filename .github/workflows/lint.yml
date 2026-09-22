@@ -40,13 +40,25 @@ jobs:
         uses: actions/setup-node@v6
         with:
           node-version: ${{ matrix.node-version }}
-          cache: 'yarn'
+          package-manager-cache: false
           check-latest: true
           registry-url: 'https://npm.pkg.github.com'
           scope: '@onekeyhq'
 
-      - name: Test dependency snapshot lifecycle
-        run: python3 .github/scripts/ci-dependencies-test.py
+      - name: Locate Yarn cache
+        id: yarn-cache
+        shell: bash
+        run: |
+          echo "path=$(yarn config get cacheFolder)" >> "$GITHUB_OUTPUT"
+          echo "arch=$(node -p process.arch)" >> "$GITHUB_OUTPUT"
+
+      - name: Restore Yarn cache from x
+        uses: actions/cache/restore@v4
+        with:
+          path: ${{ steps.yarn-cache.outputs.path }}
+          key: node-cache-${{ runner.os }}-${{ steps.yarn-cache.outputs.arch }}-yarn-${{ hashFiles('yarn.lock') }}
+          restore-keys: |
+            node-cache-${{ runner.os }}-${{ steps.yarn-cache.outputs.arch }}-yarn-
 
       - name: Write lint AI prompt
         run: |
@@ -64,6 +76,11 @@ jobs:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NODE_OPTIONS: '--max_old_space_size=4096'
         uses: ./.github/actions/install-dependencies
+
+      - name: Test dependency snapshot lifecycle
+        env:
+          CI_DEPENDENCY_INTEGRATION: 'true'
+        run: python3 .github/scripts/ci-dependencies-test.py
 
       - name: Check third-party native storage compatibility
         run: yarn check:third-party-native-storage
