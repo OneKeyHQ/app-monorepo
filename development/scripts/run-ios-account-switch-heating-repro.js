@@ -402,7 +402,10 @@ function summarizeSamples(
     cooldown:
       Number.isFinite(observationStartSec) && Number.isFinite(observationEndSec)
         ? {
-            note: 'Post-diagnostic Home cooldown. Export and navigation precede this window; this is not immediate post-QA idle.',
+            note: observation.note,
+            immediate:
+              observation.kind === 'post-QA Home idle' &&
+              Math.abs(observationStartSec - formalEndSec) < 1,
             complete: observationEndSec - observationStartSec >= 60,
             whole: summarizeWindow(observationStartSec, observationEndSec),
             after10: summarizeWindow(
@@ -414,6 +417,10 @@ function summarizeSamples(
               observationStartSec + 10,
             ),
             last10: summarizeWindow(observationEndSec - 10, observationEndSec),
+            after60: summarizeWindow(
+              observationStartSec + 60,
+              observationEndSec,
+            ),
           }
         : null,
   };
@@ -891,6 +898,17 @@ function summarizeAcceptance({
     42,
     '<=',
   );
+  const idle = processSummary.cooldown?.immediate
+    ? processSummary.cooldown
+    : null;
+  add('immediateIdleCpuAfter10s', idle?.after10.cpuAvg, 30);
+  add(
+    'immediateIdleRssAfter60s',
+    idle?.after60.samples >= 5 ? idle.after60.rssDeltaMB : null,
+    0,
+    '<=',
+    'Observed RSS delta during seconds 60–70 after the last account switch; not a longer-term leak guarantee.',
+  );
   for (const [name, note] of [
     [
       'clickVisualFeedbackP95',
@@ -903,14 +921,6 @@ function summarizeAcceptance({
     [
       'accountEffectiveLatency',
       'Existing semantic IDs do not expose committed account ownership/data freshness.',
-    ],
-    [
-      'immediateIdleCpuAfter10s',
-      'QA export remains at its planned time; diagnostic cooldown is a separate window.',
-    ],
-    [
-      'immediateIdleRssAfter60s',
-      'Diagnostic export prevents an uncontaminated immediate post-QA idle measurement.',
     ],
     [
       'physicalDeviceThermalState',
@@ -940,57 +950,6 @@ function summarizeAcceptance({
       'Single simulator run; missing metrics never imply a full performance pass.',
     checks,
   };
-}
-
-async function collectExportedArchives({
-  appDataPath,
-  formalStartedAt,
-  outputDir,
-}) {
-  const threshold = new Date(formalStartedAt).getTime() - 1000;
-  const deadline = Date.now() + 60_000;
-  const findArchives = () => {
-    const matches = [];
-    const visit = (directory) => {
-      for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
-        const fullPath = path.join(directory, entry.name);
-        if (entry.isDirectory()) {
-          visit(fullPath);
-        } else if (
-          /\.(zip|tar|gz)$/iu.test(entry.name) &&
-          fs.statSync(fullPath).mtimeMs >= threshold
-        ) {
-          matches.push(fullPath);
-        }
-      }
-    };
-    visit(appDataPath);
-    return matches;
-  };
-  let found = [];
-  while (Date.now() < deadline) {
-    const candidates = findArchives();
-    found = [];
-    for (const candidate of candidates) {
-      // The exporter creates its destination before the zip is complete.
-      if (path.extname(candidate).toLowerCase() === '.zip') {
-        const validation = await runAsync('/usr/bin/unzip', ['-tq', candidate]);
-        if (!validation.error) found.push(candidate);
-      } else {
-        found.push(candidate);
-      }
-    }
-    if (found.length > 0) break;
-    await sleep(1000);
-  }
-  return found.map((sourcePath, index) => {
-    const targetPath = path.join(
-      outputDir,
-      `exported-state-logs-${index + 1}${path.extname(sourcePath)}`,
-    );
-    fs.copyFileSync(sourcePath, targetPath);
-    return targetPath;
-  });
 }
 
 async function waitForJsonFile(filePath, child) {
@@ -1190,28 +1149,6 @@ async function main() {
     });
   }
 
-  // iOS removes the temporary export after the share sheet is dismissed.
-  // Preserve a complete archive during the original diagnostic export step,
-  // before the additional Home cooldown closes that sheet.
-  const exportedArchivesPromise = formalMeta
-    ? waitForJsonFile(formalEndPath, child)
-        .then((formalEnd) =>
-          formalEnd
-            ? collectExportedArchives({
-                appDataPath,
-                formalStartedAt: formalMeta.formalStartedAt,
-                outputDir,
-              })
-            : [],
-        )
-        .catch((error) => {
-          writeJson(path.join(outputDir, 'export-capture-error.json'), {
-            code: error?.code || 'UNKNOWN',
-          });
-          return [];
-        })
-    : Promise.resolve([]);
-
   const exitCode = await childExitPromise;
   stopSampler();
   await nativeLogCapture?.stop();
@@ -1231,7 +1168,6 @@ async function main() {
   const finalRunMeta = fs.existsSync(runMetaPath)
     ? readJson(runMetaPath)
     : formalMeta;
-  const exportedArchives = await exportedArchivesPromise;
   const maxPositiveDriftMs =
     actionTimeline.length > 0
       ? Math.max(...actionTimeline.map((action) => action.driftMs))
@@ -1255,9 +1191,7 @@ async function main() {
       fs.statSync(recording.videoPath).size > 0,
     );
   const logsCollected =
-    finalRunMeta?.exportRequested === true &&
-    exportedArchives.length > 0 &&
-    nativeLogBytes > 0;
+    finalRunMeta?.logCollectionMode === 'native-file' && nativeLogBytes > 0;
   const evidenceCollected =
     logsCollected && processMetricsCollected && screenRecordingCollected;
   const measurementContext = {
@@ -1313,7 +1247,7 @@ async function main() {
       nativeLogSegment: nativeLogSegmentPath,
       nativeLogBytes,
       screenRecording: recording?.videoPath || null,
-      exportedArchives,
+      logCollectionMode: 'native-file',
     },
   };
   writeJson(path.join(outputDir, 'summary.json'), summary);
