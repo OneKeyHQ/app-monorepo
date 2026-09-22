@@ -45,8 +45,8 @@ jobs:
   unittest:
     name: Unit Tests (${{ matrix.shard }}/5)
     runs-on: ubuntu-24.04
-    # Manual benchmarks keep the slow baseline observable.
-    timeout-minutes: ${{ github.event_name == 'workflow_dispatch' && 30 || 12 }}
+    # Include a cold install and first-time image publication; benchmarks keep the slow baseline observable.
+    timeout-minutes: ${{ github.event_name == 'workflow_dispatch' && 30 || 13 }}
 
     strategy:
       fail-fast: false
@@ -93,8 +93,8 @@ jobs:
           BENCHMARK_WORKERS: ${{ inputs.max_workers }}
         run: |
           mkdir -p ci-ai
-          # Four workers exceeded prebundle test deadlines on the four-core runner.
-          test_command=(yarn test --maxWorkers=3)
+          # Three workers also exceeded prebundle deadlines on a cold four-core runner.
+          test_command=(yarn test --maxWorkers=2)
           if [ -n "$BENCHMARK_WORKERS" ]; then
             node <<'NODE' > ci-ai/runner.json
           const os = require('node:os');

@@ -1,6 +1,8 @@
 """Regressions for dependency cache invalidation and safe fallback."""
 
 import importlib.util
+import contextlib
+import io
 import json
 import os
 from pathlib import Path
@@ -80,7 +82,8 @@ class SnapshotTests(unittest.TestCase):
         with patch.dict(os.environ, {'DEPENDENCY_SNAPSHOT_HIT': 'true'}), \
                 patch.object(snapshot, 'mount', side_effect=ValueError('invalid snapshot')), \
                 patch.object(snapshot, 'cleanup') as cleanup, \
-                patch.object(dependencies.subprocess, 'call', return_value=0) as install:
+                patch.object(dependencies.subprocess, 'call', return_value=0) as install, \
+                contextlib.redirect_stdout(io.StringIO()):
             snapshot.install()
         cleanup.assert_called_once_with(remove=True)
         install.assert_called_once_with(['yarn', 'install', '--immutable'], cwd=self.root)
@@ -90,7 +93,8 @@ class SnapshotTests(unittest.TestCase):
         snapshot = dependencies.Snapshot()
         with patch.dict(os.environ, {'DEPENDENCY_SNAPSHOT_HIT': 'true'}), \
                 patch.object(snapshot, 'mount'), patch.object(snapshot, 'cleanup') as cleanup, \
-                patch.object(dependencies.subprocess, 'call', side_effect=[1, 1]) as install:
+                patch.object(dependencies.subprocess, 'call', side_effect=[1, 1]) as install, \
+                contextlib.redirect_stdout(io.StringIO()):
             with self.assertRaises(subprocess.CalledProcessError):
                 snapshot.install()
         self.assertEqual(install.call_count, 2)

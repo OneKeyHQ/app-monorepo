@@ -4,7 +4,7 @@ name: Cache Refresh
 # Refresh the setup-node yarn cache across Linux, macOS, and Windows to ensure CI/CD pipelines use up-to-date dependencies
 #
 # How it works:
-# 1. Automatically triggers when package.json changes on x branch (dependency updates)
+# 1. Automatically triggers when dependency or snapshot inputs change on x
 # 2. Can also be manually triggered from GitHub UI
 # 3. Runs in parallel on ubuntu-24.04, macos-26, and windows-2025 (same versions as other workflows)
 # 4. Uses actions/setup-node's cache: 'yarn' feature to create/update cache for each OS
@@ -18,7 +18,7 @@ name: Cache Refresh
 # - Reduces first-run time for other workflows (cache is pre-warmed)
 #
 # Triggers:
-# - Automatic: When package.json is modified and pushed to x branch
+# - Automatic: When dependency or snapshot inputs are modified on x
 # - Manual: Via GitHub Actions UI
 #
 # How to manually trigger:
@@ -31,7 +31,7 @@ on:
   # Manual trigger: Allow running this workflow manually from GitHub UI
   workflow_dispatch:
 
-  # Auto trigger: Run when package.json changes on x branch
+  # Keep the default-branch snapshot available to pull requests.
   push:
     branches:
       - x
@@ -173,7 +173,7 @@ jobs:
 #
 # 5. Caches expire automatically after 7 days of no use
 #
-# 6. This workflow auto-runs when package.json changes on x branch
+# 6. This workflow auto-runs when dependency or snapshot inputs change on x
 #
 # 7. Can also be manually triggered when cache is about to expire or after major dependency updates
 #

@@ -24,7 +24,8 @@ env:
 jobs:
   lint:
     runs-on: ubuntu-24.04
-    timeout-minutes: 14
+    # About eight minutes of checks plus six minutes for a cold install and margin.
+    timeout-minutes: 15
 
     strategy:
       matrix:
