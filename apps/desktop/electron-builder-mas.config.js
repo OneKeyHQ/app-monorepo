@@ -4,11 +4,19 @@ const {
   baseFiles,
   macExcludePrebuilds,
 } = require('./electron-builder-files.config');
+const { verifyBuild } = require('./scripts/build-revenuecat-macos');
+
+const masBuildNumber = process.env.MAS_BUILD_NUMBER;
+if (masBuildNumber && !/^[1-9]\d*$/.test(masBuildNumber)) {
+  // oxlint-disable-next-line onekey/no-raw-error -- This build config cannot import the application runtime.
+  throw new Error('MAS_BUILD_NUMBER must be a positive integer');
+}
 
 module.exports = {
   ...baseElectronBuilderConfig,
+  'beforePack': async () => verifyBuild(),
   'appId': 'so.onekey.wallet',
-  'buildVersion': `${process.env.BUILD_NUMBER}0`,
+  'buildVersion': masBuildNumber || `${process.env.BUILD_NUMBER}0`,
   'dmg': {
     'sign': false,
   },
@@ -24,6 +32,21 @@ module.exports = {
     'entitlements': 'entitlements.mac.plist',
     'x64ArchFiles': '*',
     'extraResources': [
+      {
+        'from': 'native-modules/revenuecat-macos/build/universal',
+        'to': 'revenuecat',
+        'filter': [
+          '*.node',
+          '*.dylib',
+          '*.js',
+          '*-LICENSE.txt',
+          'build-info.json',
+        ],
+      },
+      {
+        'from': 'native-modules/revenuecat-macos/build/universal/Resources',
+        'to': '.',
+      },
       {
         'from': 'resources/icons/Assets.car',
         'to': 'Assets.car',
