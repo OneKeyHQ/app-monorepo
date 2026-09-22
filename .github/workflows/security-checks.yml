@@ -26,13 +26,9 @@ env:
 
 jobs:
   supply-chain:
-    name: Supply Chain - Minimum Release Age
+    name: Release Age
     runs-on: ubuntu-24.04
     if: github.event_name == 'pull_request'
-
-    strategy:
-      matrix:
-        node-version: [24.x]
 
     steps:
       - uses: actions/checkout@v4
@@ -40,10 +36,10 @@ jobs:
           lfs: true
           fetch-depth: 0
 
-      - name: Use Node.js ${{ matrix.node-version }}
+      - name: Use Node.js 24.x
         uses: actions/setup-node@v6
         with:
-          node-version: ${{ matrix.node-version }}
+          node-version: 24.x
           cache: 'yarn'
           registry-url: 'https://npm.pkg.github.com'
           scope: '@onekeyhq'
