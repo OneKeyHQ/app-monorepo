@@ -1277,12 +1277,22 @@ function TokenListBlock({
     if (!cellsOwnerKey || !isWorthCommittedForOwner) {
       return;
     }
+    // Live rounds leave `currency` unset (their values are in the display
+    // currency of that moment). Stamp it: a restore after the user changed the
+    // display currency is then converted by `Currency` / `convertFiat` like
+    // the cached-worth paths, instead of being shown under the new symbol
+    // as-is.
+    const currency = accountTokensWorth.currency ?? cellsCurrencyId;
+    if (!currency) {
+      return;
+    }
     rememberOwnerWorth(cellsOwnerKey, {
       worth: accountTokensWorth.worth,
       createAtNetworkWorth: accountTokensWorth.createAtNetworkWorth,
-      currency: accountTokensWorth.currency,
+      currency,
     });
   }, [
+    cellsCurrencyId,
     cellsOwnerKey,
     isWorthCommittedForOwner,
     accountTokensWorth.worth,
@@ -1294,7 +1304,9 @@ function TokenListBlock({
       return;
     }
     const cached = getOwnerWorth(cellsOwnerKey);
-    if (!cached) {
+    // Without a currency tag the snapshot cannot be converted and could paint
+    // under the wrong symbol; the skeleton until the fetch is the honest paint.
+    if (!cached?.currency) {
       return;
     }
     updateAccountWorth({
