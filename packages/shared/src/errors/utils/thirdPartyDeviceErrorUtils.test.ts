@@ -7,6 +7,11 @@ import {
   appEventBus,
 } from '../../eventBus/appEventBus';
 import {
+  EThirdPartyHardwareRetryAction,
+  getThirdPartyHardwareRetryAction,
+} from '../../hardware/thirdPartyHardwareRetry';
+import { ETranslations, ETranslationsMock } from '../../locale';
+import {
   THIRD_PARTY_HW_APP_ALREADY_INSTALLED_CODE,
   THIRD_PARTY_HW_BLE_PAIRING_CANCELLED_CODE,
   THIRD_PARTY_HW_DEVICE_PATH_FORBIDDEN_CODE,
@@ -24,6 +29,7 @@ import {
 } from '../errors/thirdPartyHardwareErrors';
 
 import { convertDeviceError } from './deviceErrorUtils';
+import { toPlainErrorObject } from './errorUtils';
 import {
   classifyThirdPartyHwCreateFailures,
   convertThirdPartyDeviceError,
@@ -35,6 +41,49 @@ import {
 } from './thirdPartyDeviceErrorUtils';
 
 describe('convertThirdPartyDeviceError', () => {
+  it.each([
+    [
+      ThirdPartyHwErrorCode.SolanaBlindSigningRequired,
+      ETranslations.hardware_third_party_evm_blind_signing_required,
+    ],
+    [
+      ThirdPartyHwErrorCode.TronCustomContractRequired,
+      ETranslationsMock.hardware_third_party_tron_custom_contract_required__msg,
+    ],
+    [
+      ThirdPartyHwErrorCode.TronDataSigningRequired,
+      ETranslationsMock.hardware_third_party_tron_data_signing_required__msg,
+    ],
+    [
+      ThirdPartyHwErrorCode.TronSignByHashRequired,
+      ETranslationsMock.hardware_third_party_tron_sign_by_hash_required__msg,
+    ],
+  ] as const)(
+    'maps setting error %s to the matching chain guidance',
+    (code, key) => {
+      const error = convertThirdPartyDeviceError({
+        code,
+        error: 'Setting disabled',
+      });
+      expect(error.code).toBe(code);
+      expect(error.key).toBe(key);
+      expect(error.autoToast).toBe(true);
+    },
+  );
+
+  it('preserves the USB size limit instead of reporting an unknown error', () => {
+    const error = convertThirdPartyDeviceError({
+      code: ThirdPartyHwErrorCode.PayloadTooLarge,
+      error: 'Request exceeds USB framing capacity',
+      recovery: { scope: 'transport' },
+    });
+    expect(error.code).toBe(ThirdPartyHwErrorCode.PayloadTooLarge);
+    expect(error.key).toBe(
+      ETranslationsMock.hardware_third_party_payload_too_large__msg,
+    );
+    expect(error.payload?.recovery).toEqual({ scope: 'transport' });
+  });
+
   it('maps invalid firmware metadata responses to network errors', () => {
     const error = convertThirdPartyDeviceError({
       code: ThirdPartyHwErrorCode.UnknownError,
@@ -325,6 +374,63 @@ describe('convertThirdPartyDeviceError', () => {
 });
 
 describe('convertDeviceError', () => {
+  it('keeps the selected Trezor retry policy after conversion and serialization', () => {
+    const error = convertDeviceError(
+      {
+        code: ThirdPartyHwErrorCode.OperationEnded,
+        error: 'Connection lost',
+        recovery: { scope: 'operation' },
+      },
+      { vendor: EHardwareVendor.trezor },
+    );
+    const wireError = JSON.parse(
+      JSON.stringify(toPlainErrorObject(error)),
+    ) as typeof error;
+    expect(wireError.payload?.recovery).toEqual({ scope: 'operation' });
+    expect(
+      getThirdPartyHardwareRetryAction({
+        errorCode: Number(wireError.code),
+        recovery: wireError.payload?.recovery,
+        searchTarget: {
+          vendor: EHardwareVendor.trezor,
+          searchTargetId: 'selected-usb',
+          connectionType: 'usb',
+          kind: 'physical',
+          searchTargetReusePolicy: 'reconnectable',
+        },
+      }),
+    ).toBe(EThirdPartyHardwareRetryAction.retrySelectedSearchTarget);
+  });
+
+  it('preserves the app name and recovery hint through the common entry', () => {
+    const error = convertDeviceError({
+      code: ThirdPartyHwErrorCode.AppNotInstalled,
+      error: 'Missing app',
+      appName: 'Bitcoin',
+      recovery: { scope: 'call' },
+    });
+    expect(error.info).toMatchObject({ appName: 'Bitcoin' });
+    expect(error.payload?.recovery).toEqual({ scope: 'call' });
+  });
+
+  it('does not retry when the common entry receives an ambiguous signing result', () => {
+    const error = convertDeviceError({
+      code: ThirdPartyHwErrorCode.OperationEnded,
+      error: 'Signing response lost',
+      params: { operationMayHaveCompleted: true },
+      recovery: { scope: 'unknown' },
+    });
+    expect(
+      getThirdPartyHardwareRetryAction({
+        errorCode: Number(error.code),
+        recovery: error.payload?.recovery,
+        searchTarget: undefined,
+        operationMayHaveCompleted:
+          error.payload?.params?.operationMayHaveCompleted,
+      }),
+    ).toBe(EThirdPartyHardwareRetryAction.doNotRetry);
+  });
+
   it('preserves invalid firmware metadata tags for third-party hardware errors', () => {
     const sdkPayload = {
       code: ThirdPartyHwErrorCode.UnknownError,

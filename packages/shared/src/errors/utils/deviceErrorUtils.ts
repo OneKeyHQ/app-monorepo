@@ -323,6 +323,8 @@ export function convertDeviceError(
             code: Number(code),
             error: payload.error ?? message ?? '',
             params: payload.params,
+            appName: payload.appName,
+            recovery: payload.recovery,
           },
           {
             silentMode: options?.silentMode,

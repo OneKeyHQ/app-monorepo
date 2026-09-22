@@ -117,6 +117,7 @@ export type IOneKeyHardwareErrorPayload = {
   error?: string;
   message?: string;
   params?: any;
+  appName?: string;
   connectId?: string;
   deviceId?: string;
   recovery?: IHardwareErrorRecoveryHint;

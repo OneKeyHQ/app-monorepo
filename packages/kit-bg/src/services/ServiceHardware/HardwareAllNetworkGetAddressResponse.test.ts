@@ -1,3 +1,5 @@
+import { HardwareErrorCode } from '@onekeyfe/hwk-adapter-core';
+
 import { HardwareAllNetworkGetAddressResponse } from './HardwareAllNetworkGetAddressResponse';
 
 import type { IHwAllNetworkPrepareAccountsItem } from '../../vaults/types';
@@ -7,6 +9,30 @@ describe('HardwareAllNetworkGetAddressResponse', () => {
     path: "m/44'/60'/0'/0/0",
     hwSdkNetwork: 'evm' as const,
   };
+
+  test('preserves third-party recovery and app context on failed bundle items', async () => {
+    const response = new HardwareAllNetworkGetAddressResponse();
+    const pendingItem = response.getItem(request);
+    response.onSdkItemCallResponse({
+      path: request.path,
+      network: request.hwSdkNetwork,
+      success: false,
+      payload: {
+        code: HardwareErrorCode.AppNotInstalled,
+        errorCode: HardwareErrorCode.AppNotInstalled,
+        error: 'Missing app',
+        appName: 'Ethereum',
+        recovery: { scope: 'call' },
+        connectId: '',
+        deviceId: '',
+      },
+    });
+    await expect(pendingItem).rejects.toMatchObject({
+      code: HardwareErrorCode.AppNotInstalled,
+      info: { appName: 'Ethereum' },
+      payload: { recovery: { scope: 'call' } },
+    });
+  });
 
   test('rejects a pending item that is absent from the completed SDK response', async () => {
     const response = new HardwareAllNetworkGetAddressResponse();
