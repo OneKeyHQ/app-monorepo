@@ -1,7 +1,8 @@
 import type { ComponentType, ReactElement } from 'react';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
+import { Animated, Easing } from 'react-native';
 
 import {
   Icon,
@@ -11,7 +12,6 @@ import {
   Popover,
   SizableText,
   Skeleton,
-  Spinner,
   Stack,
   XStack,
   getFontSize,
@@ -69,7 +69,7 @@ export type IAmountInputFormItemProps = IFormFieldProps<
       // Replaces the Max label with an icon, e.g. a refresh action while the
       // balance is empty and there is nothing to max out.
       actionIconName?: IKeyOfIcons;
-      // Shows a spinner in place of the action icon while its request runs.
+      // Spins the action icon in place while its request runs.
       actionLoading?: boolean;
     };
     balanceHelperProps?: {
@@ -98,6 +98,55 @@ export type IAmountInputFormItemProps = IFormFieldProps<
     reversible?: boolean;
   } & Omit<IStackProps, 'onChange'>
 >;
+
+const ACTION_ICON_SPIN_DURATION_MS = 800;
+
+// Rotates the balance action icon in place while its request runs. The icon
+// stays the same glyph and always completes the turn it is on, so it comes to
+// rest upright rather than snapping back mid-spin.
+function SpinningActionIcon({
+  name,
+  spinning,
+  color,
+}: {
+  name: IKeyOfIcons;
+  spinning: boolean;
+  color: '$textInteractive' | '$textPlaceholder';
+}) {
+  const rotation = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    if (!spinning) return undefined;
+    Animated.loop(
+      Animated.timing(rotation, {
+        toValue: 1,
+        duration: ACTION_ICON_SPIN_DURATION_MS,
+        easing: Easing.linear,
+        useNativeDriver: true,
+      }),
+    ).start();
+    return () => {
+      rotation.stopAnimation((value: number) => {
+        Animated.timing(rotation, {
+          toValue: 1,
+          duration: (1 - value) * ACTION_ICON_SPIN_DURATION_MS,
+          easing: Easing.linear,
+          useNativeDriver: true,
+        }).start(() => rotation.setValue(0));
+      });
+    };
+  }, [rotation, spinning]);
+  const rotate = rotation.interpolate({
+    inputRange: [0, 1],
+    outputRange: ['0deg', '360deg'],
+  });
+  return (
+    <Stack ml="$1">
+      <Animated.View style={{ transform: [{ rotate }] }}>
+        <Icon name={name} size="$4" color={color} />
+      </Animated.View>
+    </Stack>
+  );
+}
 
 export function AmountInput({
   inputProps,
@@ -441,21 +490,13 @@ export function AmountInput({
               {balanceProps.tokenSymbol}
             </SizableText>
           ) : null}
-          {enableMaxAmount &&
-          balanceProps.actionIconName &&
-          balanceProps.actionLoading ? (
-            <Spinner size="small" color="$textInteractive" ml="$1" />
-          ) : null}
-          {enableMaxAmount &&
-          balanceProps.actionIconName &&
-          !balanceProps.actionLoading ? (
-            <Icon
+          {enableMaxAmount && balanceProps.actionIconName ? (
+            <SpinningActionIcon
               name={balanceProps.actionIconName}
-              size="$4"
+              spinning={!!balanceProps.actionLoading}
               color={
                 balanceProps.onPress ? '$textInteractive' : '$textPlaceholder'
               }
-              ml="$1"
             />
           ) : null}
           {enableMaxAmount && !balanceProps.actionIconName ? (
