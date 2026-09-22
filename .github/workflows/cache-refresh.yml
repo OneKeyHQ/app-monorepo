@@ -50,6 +50,10 @@ on:
       - '.github/scripts/ci-dependencies.py'
       - '.github/actions/install-dependencies/**'
 
+permissions:
+  contents: read
+  packages: read
+
 # Cancel currently running workflows from the same group
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}

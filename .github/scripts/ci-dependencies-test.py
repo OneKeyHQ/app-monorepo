@@ -316,6 +316,10 @@ class SnapshotIntegrationTests(unittest.TestCase):
                     # Unmount before TemporaryDirectory can remove any fixture paths.
                     for snapshot in reversed(snapshots):
                         snapshot.cleanup()
+                        # OverlayFS creates root-owned work subdirectories even after unmount.
+                        for work in snapshot.temp.glob('work-*'):
+                            subprocess.run(['sudo', 'chown', '-R', f'{os.getuid()}:{os.getgid()}',
+                                            str(work)], check=True)
 
 
 if __name__ == '__main__':
