@@ -48,6 +48,7 @@ import type {
 } from '@onekeyhq/shared/types/fee';
 import { ESendPreCheckTimingEnum } from '@onekeyhq/shared/types/send';
 import type {
+  IFetchQuoteResult,
   ISwapGasInfo,
   ISwapTokenBase,
 } from '@onekeyhq/shared/types/swap/types';
@@ -74,6 +75,9 @@ type IMarketDirectSendParams = {
   networkId: string;
   buildUnsignedParams: ISendTxBaseParams & IBuildUnsignedTxParams;
   approveUnsignedTxArr?: IUnsignedTxPro[];
+  // The review quote; an allowance it still requires opts the swap out of
+  // Gas Account (OK-62562), mirroring the Swap review / send path.
+  quoteResult?: IFetchQuoteResult;
   gasInfos?: IMarketGasInfoEntry[];
   networkFeeLevel?: ESwapNetworkFeeLevel;
   customPriorityFee?: IMarketPresetPriorityFeeOverride;
@@ -267,6 +271,7 @@ async function estimateUnsignedTxGasInfo({
   unsignedTxItem,
   networkFeeLevel,
   customPriorityFee,
+  quoteResult,
 }: {
   accountAddress: string;
   accountId: string;
@@ -274,6 +279,7 @@ async function estimateUnsignedTxGasInfo({
   unsignedTxItem: IUnsignedTxPro;
   networkFeeLevel?: ESwapNetworkFeeLevel;
   customPriorityFee?: IMarketPresetPriorityFeeOverride;
+  quoteResult?: IFetchQuoteResult;
 }): Promise<Omit<IMarketGasInfoEntry, 'encodeTx'>> {
   const estimateFeeParamsResult =
     await backgroundApiProxy.serviceGas.buildEstimateFeeParams({
@@ -287,6 +293,7 @@ async function estimateUnsignedTxGasInfo({
   const gasAccountEnabled = await shouldRequestSwapGasAccount({
     networkId,
     swapInfo: unsignedTxItem.swapInfo,
+    quoteResult,
   });
   const gasRes = await backgroundApiProxy.serviceGas.estimateFee({
     ...estimateFeeParamsResult,
@@ -324,6 +331,7 @@ async function resolveMarketGasInfosSequentially({
   approveUnsignedTxArr,
   networkFeeLevel,
   customPriorityFee,
+  quoteResult,
 }: {
   accountAddress: string;
   accountId: string;
@@ -332,6 +340,7 @@ async function resolveMarketGasInfosSequentially({
   approveUnsignedTxArr?: IUnsignedTxPro[];
   networkFeeLevel?: ESwapNetworkFeeLevel;
   customPriorityFee?: IMarketPresetPriorityFeeOverride;
+  quoteResult?: IFetchQuoteResult;
 }): Promise<IMarketGasInfoEntry[]> {
   const gasInfos: IMarketGasInfoEntry[] = [];
   const unsignedTxArr = buildUnsignedTxArr({
@@ -409,6 +418,7 @@ async function resolveMarketGasInfosSequentially({
           unsignedTxItem,
           networkFeeLevel,
           customPriorityFee,
+          quoteResult,
         });
 
         if (i === unsignedTxArr.length - 2) {
@@ -435,6 +445,7 @@ async function resolveMarketGasInfosSequentially({
         unsignedTxItem: unsignedTx,
         networkFeeLevel,
         customPriorityFee,
+        quoteResult,
       })),
     },
   ];
@@ -448,6 +459,7 @@ async function resolveMarketGasInfos({
   approveUnsignedTxArr,
   networkFeeLevel,
   customPriorityFee,
+  quoteResult,
 }: {
   accountAddress: string;
   accountId: string;
@@ -456,6 +468,7 @@ async function resolveMarketGasInfos({
   approveUnsignedTxArr?: IUnsignedTxPro[];
   networkFeeLevel?: ESwapNetworkFeeLevel;
   customPriorityFee?: IMarketPresetPriorityFeeOverride;
+  quoteResult?: IFetchQuoteResult;
 }): Promise<IMarketGasInfoEntry[]> {
   const unsignedTxArr = buildUnsignedTxArr({
     unsignedTx,
@@ -495,6 +508,7 @@ async function resolveMarketGasInfos({
         approveUnsignedTxArr,
         networkFeeLevel,
         customPriorityFee,
+        quoteResult,
       });
     }
 
@@ -519,6 +533,7 @@ async function resolveMarketGasInfos({
     approveUnsignedTxArr,
     networkFeeLevel,
     customPriorityFee,
+    quoteResult,
   });
 }
 
@@ -966,6 +981,7 @@ export async function estimateMarketDirectGasInfos({
   approveUnsignedTxArr,
   networkFeeLevel,
   customPriorityFee,
+  quoteResult,
   gasAccountAnalytics,
   preparedUnsignedTx,
 }: IEstimateMarketDirectGasInfosParams): Promise<{
@@ -996,6 +1012,7 @@ export async function estimateMarketDirectGasInfos({
     approveUnsignedTxArr,
     networkFeeLevel,
     customPriorityFee,
+    quoteResult,
   });
 
   let gasAccountAnalyticsContext: IGasAccountAnalyticsContext | undefined;
@@ -1273,6 +1290,7 @@ export async function sendMarketDirectUnsignedTxs({
   tronResourceRentalInfo,
   useDefaultRpc,
   validateFinalGasInfos,
+  quoteResult,
   gasAccountAnalytics,
 }: IMarketDirectSendParams): Promise<ISendTxOnSuccessData[]> {
   if (!accountId || !networkId || !accountAddress) {
@@ -1304,6 +1322,7 @@ export async function sendMarketDirectUnsignedTxs({
   const needFreshGasForSponsor = unsignedTxArr.some((tx) =>
     isSwapGasAccountCandidate({
       swapInfo: tx.swapInfo,
+      quoteResult,
       hasApproveTx: !!approveUnsignedTxArr?.length,
     }),
   );
@@ -1320,6 +1339,7 @@ export async function sendMarketDirectUnsignedTxs({
       approveUnsignedTxArr,
       networkFeeLevel,
       customPriorityFee,
+      quoteResult,
     });
   }
 

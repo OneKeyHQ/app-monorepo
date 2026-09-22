@@ -180,6 +180,18 @@ describe('shouldRequestSwapGasAccount (OK-62562)', () => {
     ).resolves.toBe(false);
   });
 
+  it('falls back to user-paid gas when the custom RPC lookup fails', async () => {
+    mockGetCustomRpcForNetwork.mockRejectedValueOnce(
+      new Error('custom rpc storage unavailable'),
+    );
+    await expect(
+      shouldRequestSwapGasAccount({
+        networkId: 'evm--1',
+        swapInfo: sponsoredSwapInfo,
+      }),
+    ).resolves.toBe(false);
+  });
+
   it('does not look up the custom RPC for a non-candidate swap', async () => {
     await expect(
       shouldRequestSwapGasAccount({

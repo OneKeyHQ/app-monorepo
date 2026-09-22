@@ -481,6 +481,71 @@ describe('marketDirectSendTx', () => {
     );
   });
 
+  it('does not request Gas Account sponsorship while the review quote still needs an allowance', async () => {
+    const sponsoredUnsignedTx = createSponsoredUnsignedTx();
+    mockPrepareSendConfirmUnsignedTx.mockResolvedValue(sponsoredUnsignedTx);
+
+    await estimateMarketDirectGasInfos({
+      accountAddress: '0xuser',
+      accountId: 'account-1',
+      networkId: 'evm--1',
+      buildUnsignedParams: {
+        accountId: 'account-1',
+        networkId: 'evm--1',
+        encodedTx: sponsoredUnsignedTx.encodedTx,
+        swapInfo: sponsoredUnsignedTx.swapInfo,
+        isInternalSwap: true,
+      },
+      quoteResult: {
+        allowanceResult: { allowanceTarget: '0xspender', amount: '10' },
+      } as never,
+    });
+
+    expect(mockGetCustomRpcForNetwork).not.toHaveBeenCalled();
+    expect(mockEstimateFee).toHaveBeenCalledWith(
+      expect.objectContaining({ gasAccountEnabled: false }),
+    );
+  });
+
+  it('reuses the preview gas for a swap sent after a standalone approve instead of re-estimating for sponsorship', async () => {
+    const sponsoredUnsignedTx = createSponsoredUnsignedTx();
+    mockPrepareSendConfirmUnsignedTx.mockResolvedValue(sponsoredUnsignedTx);
+
+    await sendMarketDirectUnsignedTxs({
+      accountAddress: '0xuser',
+      accountId: 'account-1',
+      networkId: 'evm--1',
+      buildUnsignedParams: {
+        accountId: 'account-1',
+        networkId: 'evm--1',
+        encodedTx: sponsoredUnsignedTx.encodedTx,
+        swapInfo: sponsoredUnsignedTx.swapInfo,
+        isInternalSwap: true,
+      },
+      quoteResult: {
+        allowanceResult: { allowanceTarget: '0xspender', amount: '10' },
+      } as never,
+      gasInfos: [
+        {
+          encodeTx: sponsoredUnsignedTx.encodedTx,
+          gasInfo: {
+            common: createEstimateFeeResult().common,
+            gas: {
+              gasPrice: '2',
+              gasLimit: '22000',
+            },
+          } as never,
+        },
+      ],
+    });
+
+    expect(mockEstimateFee).not.toHaveBeenCalled();
+    expect(mockSignAndSendTransaction).toHaveBeenCalledTimes(1);
+    expect(mockSignAndSendTransaction).toHaveBeenCalledWith(
+      expect.objectContaining({ gasAccountUiState: undefined }),
+    );
+  });
+
   it('sends batch approve plus swap with batch fee estimation when supported', async () => {
     const approveUnsignedTx = createUnsignedTx({
       encodedTx: {
