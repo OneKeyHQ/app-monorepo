@@ -1,8 +1,30 @@
 import { createKeystoneWebUsbConnector } from '@onekeyfe/hwk-keystone-connector-usb/webusb';
+import { createLedgerWebHidConnector } from '@onekeyfe/hwk-ledger-connector-webhid';
 import { createTrezorWebUsbConnector } from '@onekeyfe/hwk-trezor-connector-webusb';
 
 import OffscreenApiThirdPartyHardware from './OffscreenApiThirdPartyHardware';
 import { emitOffscreenEventToBackground } from './offscreenEventBus';
+
+import type { SdkEvent, SdkEventListener } from '@onekeyfe/hwk-ledger-adapter';
+
+const mockLedgerSdkListeners = new Set<SdkEventListener>();
+
+jest.mock('@onekeyfe/hwk-ledger-adapter', () => ({
+  onSdkEvent: (listener: SdkEventListener) => {
+    mockLedgerSdkListeners.add(listener);
+    return () => {
+      mockLedgerSdkListeners.delete(listener);
+    };
+  },
+}));
+
+jest.mock('@onekeyfe/hwk-ledger-connector-webhid', () => ({
+  createLedgerWebHidConnector: jest.fn(() => ({
+    searchDevices: jest.fn().mockResolvedValue([]),
+    on: jest.fn(),
+    reset: jest.fn(),
+  })),
+}));
 
 jest.mock('./offscreenEventBus', () => ({
   emitOffscreenEventToBackground: jest.fn(),
@@ -93,6 +115,40 @@ const mockedCreateTrezorWebUsbConnector = jest.mocked(
 const mockedEmitOffscreenEventToBackground = jest.mocked(
   emitOffscreenEventToBackground,
 );
+
+describe('OffscreenApiThirdPartyHardware Ledger logging', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockLedgerSdkListeners.clear();
+  });
+
+  it.each([0, 1, 3])(
+    'forwards each log once after %i connector resets',
+    async (resetCount) => {
+      const api = new OffscreenApiThirdPartyHardware();
+      await api.searchDevices({ vendor: 'ledger' });
+
+      for (let index = 0; index < resetCount; index += 1) {
+        api.reset({ vendor: 'ledger' });
+        await api.searchDevices({ vendor: 'ledger' });
+      }
+
+      expect(createLedgerWebHidConnector).toHaveBeenCalledTimes(resetCount + 1);
+      const event: SdkEvent = {
+        type: 'log',
+        level: 'debug',
+        message: 'Connector ready',
+      };
+      mockLedgerSdkListeners.forEach((listener) => listener(event));
+
+      expect(mockedEmitOffscreenEventToBackground).toHaveBeenCalledTimes(1);
+      expect(mockedEmitOffscreenEventToBackground).toHaveBeenCalledWith(
+        'hwkSdkEvent',
+        event,
+      );
+    },
+  );
+});
 
 describe('OffscreenApiThirdPartyHardware Trezor logging', () => {
   beforeEach(() => {
