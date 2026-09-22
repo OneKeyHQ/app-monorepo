@@ -68,18 +68,37 @@ describe('thirdPartyConnectionContextFromDevice', () => {
     });
   });
 
-  it('still promotes a legacy locator when the record has no channel column', () => {
-    const promoted = thirdPartyConnectionContextFromDevice({
-      vendor: EHardwareVendor.trezor,
-      connectId: 'only-legacy-locator',
-    });
-    expect(promoted.knownConnections).toEqual([
-      {
-        transport: platformEnv.isNative ? 'ble' : 'usb',
-        connectId: 'only-legacy-locator',
-      },
-    ]);
-  });
+  it.each([true, false])(
+    'uses the legacy platform fallback only until an explicit channel exists (native=%s)',
+    (isNative) => {
+      const platform = jest.replaceProperty(platformEnv, 'isNative', isNative);
+      try {
+        for (const vendor of [EHardwareVendor.trezor, EHardwareVendor.ledger]) {
+          const record = { vendor, connectId: 'only-legacy-locator' };
+          expect(thirdPartyConnectionContextFromDevice(record)).toEqual({
+            knownConnections: [
+              {
+                transport: isNative ? 'ble' : 'usb',
+                connectId: record.connectId,
+              },
+            ],
+          });
+          expect(
+            thirdPartyConnectionContextFromDevice({
+              ...record,
+              bleConnectId: 'verified-new-ble',
+            }),
+          ).toEqual({
+            knownConnections: [
+              { transport: 'ble', connectId: 'verified-new-ble' },
+            ],
+          });
+        }
+      } finally {
+        platform.restore();
+      }
+    },
+  );
 
   it('does not invent a DB id for legacy calls', () => {
     expect(
