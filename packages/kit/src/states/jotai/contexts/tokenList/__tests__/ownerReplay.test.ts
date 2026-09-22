@@ -107,6 +107,7 @@ jest.mock('@onekeyhq/shared/src/storage/uiSnapshotCaches', () => {
         ownerSlimRecords.set(key, data);
       },
       setMany: () => undefined,
+      touch: () => undefined,
       remove: (key: string) => {
         ownerSlimRecords.delete(key);
       },
@@ -857,5 +858,171 @@ describe('per-owner persisted slim slot — cold-start switch paint', () => {
         ownerKey: 'a-x2d-b',
       }),
     );
+  });
+});
+
+describe('settled-only persistence and empty paints (OK-63873 round 2)', () => {
+  it('an empty remembered structure is a MISS: the skeleton until the PULL beats a wrong empty state', () => {
+    const { store, ctx, projection, deps } = setup();
+    applyAndRememberRound({
+      ctx,
+      projection,
+      deps,
+      ownerKey: OWNER_B,
+      tokenKey: 'b',
+      fiatValue: '9',
+      generation: 1,
+    });
+    // A's only remembered round found nothing (a brand-new account whose
+    // authoritative round had not landed when the user switched away).
+    rememberOwnerReplayFrame({
+      storeName: STORE_NAME,
+      ownerKey: OWNER_A,
+      kind: 'structure',
+      payload: {
+        ownerKey: OWNER_A,
+        structureVersion: 0,
+        structure: makeStructure({ ownerKey: OWNER_A, generation: 0 }),
+      },
+      currencyId: CURRENCY,
+    });
+    const result = replayOwnerFrames({
+      store: ctx,
+      projection,
+      deps,
+      frames: getOwnerReplayFrames({
+        storeName: STORE_NAME,
+        ownerKey: OWNER_A,
+      }),
+      storeData: STORE_DATA,
+      ownerKey: OWNER_A,
+      currentCurrency: CURRENCY,
+    });
+    expect(result).toEqual({ structure: false, risky: false });
+    // Nothing was stamped for A: the list view takes its ownerMismatch skeleton.
+    expect(store.get(listStructureAtom()).ownerKey).toBe(OWNER_B);
+    expect(projection.curOwnerKey).toBe(OWNER_B);
+  });
+
+  it('an empty persisted slot is a MISS for the same reason', () => {
+    const { ctx, projection, deps } = setup();
+    const key = buildTokenListOwnerSlimCacheKey({
+      storeName: STORE_NAME,
+      ownerKey: OWNER_A,
+    });
+    ownerSlimRecords.set(key, {
+      orderedIds: [],
+      smallBalanceIds: [],
+      aggMembership: {},
+      compactFiat: {},
+      compactAggFiat: {},
+      compactMeta: {},
+      gen: 0,
+      ownerKey: OWNER_A,
+      currency: CURRENCY,
+    });
+    const painted = hydrateCellsFromOwnerSlimCache({
+      store: ctx,
+      projection,
+      deps,
+      storeName: STORE_NAME,
+      storeData: STORE_DATA,
+      ownerKey: OWNER_A,
+      currentCurrency: CURRENCY,
+    });
+    expect(painted).toBe(false);
+    expect(projection.curOwnerKey).toBeUndefined();
+  });
+
+  it('the debounced persist skips a provisional paint and writes once the round settles', () => {
+    const { ctx, projection, deps } = setup();
+    applyAndRememberRound({
+      ctx,
+      projection,
+      deps,
+      ownerKey: OWNER_A,
+      tokenKey: 'a',
+      fiatValue: '7',
+      generation: 2,
+    });
+    const key = buildTokenListOwnerSlimCacheKey({
+      storeName: STORE_NAME,
+      ownerKey: OWNER_A,
+    });
+    // A cache seed / progressive paint landed last: not the owner's list yet.
+    projection.lastRoundProvisional = true;
+    schedulePersistSlimColdCache({
+      store: ctx,
+      projection,
+      getCurrency: () => CURRENCY,
+    });
+    jest.advanceTimersByTime(PERSIST_DEBOUNCE_MS);
+    expect(ownerSlimRecords.has(key)).toBe(false);
+
+    // The authoritative round confirms it.
+    projection.lastRoundProvisional = false;
+    schedulePersistSlimColdCache({
+      store: ctx,
+      projection,
+      getCurrency: () => CURRENCY,
+    });
+    jest.advanceTimersByTime(PERSIST_DEBOUNCE_MS);
+    expect(ownerSlimRecords.get(key)).toMatchObject({
+      ownerKey: OWNER_A,
+      orderedIds: ['a'],
+    });
+  });
+
+  it('a replay or slot hydrate marks the paint provisional, so a persist that fires after a switch does not write it back', () => {
+    const { ctx, projection, deps } = setup();
+    applyAndRememberRound({
+      ctx,
+      projection,
+      deps,
+      ownerKey: OWNER_A,
+      tokenKey: 'a',
+      fiatValue: '7',
+      generation: 2,
+    });
+    applyAndRememberRound({
+      ctx,
+      projection,
+      deps,
+      ownerKey: OWNER_B,
+      tokenKey: 'b',
+      fiatValue: '9',
+      generation: 1,
+    });
+    expect(projection.lastRoundProvisional).toBe(false);
+    // Owner B's settled round scheduled a persist; the user switches back to
+    // A before it fires.
+    schedulePersistSlimColdCache({
+      store: ctx,
+      projection,
+      getCurrency: () => CURRENCY,
+    });
+    replayOwnerFrames({
+      store: ctx,
+      projection,
+      deps,
+      frames: getOwnerReplayFrames({
+        storeName: STORE_NAME,
+        ownerKey: OWNER_A,
+      }),
+      storeData: STORE_DATA,
+      ownerKey: OWNER_A,
+      currentCurrency: CURRENCY,
+    });
+    expect(projection.lastRoundProvisional).toBe(true);
+    jest.advanceTimersByTime(PERSIST_DEBOUNCE_MS);
+    // Neither owner was written from the replayed paint.
+    expect(
+      ownerSlimRecords.has(
+        buildTokenListOwnerSlimCacheKey({
+          storeName: STORE_NAME,
+          ownerKey: OWNER_A,
+        }),
+      ),
+    ).toBe(false);
   });
 });

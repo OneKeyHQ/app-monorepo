@@ -64,8 +64,8 @@ interface IOwnerReplayPayloadByKind {
   risky: IRiskyPush;
 }
 
-/** Mirrors the BG `FrameChannelHost` owner cap. */
-export const OWNER_REPLAY_CACHE_CAP = 8;
+/** Mirrors the BG `FrameChannelHost` owner cap (`OWNER_VM_CAP`). */
+export const OWNER_REPLAY_CACHE_CAP = 32;
 
 // Keyed by `${storeName}\u0000${ownerKey}`; insertion order = LRU order (the
 // head is the least recently used owner).

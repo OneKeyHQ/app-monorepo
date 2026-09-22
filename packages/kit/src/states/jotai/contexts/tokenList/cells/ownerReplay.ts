@@ -10,6 +10,7 @@
  * supersedes it — never dropped by apply's generation guard.
  */
 import type { IJotaiContextStoreData } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import type { IStructureSnapshot } from '@onekeyhq/kit-bg/src/states/jotai/contexts/tokenList/cellsPure/types';
 
 import {
   applyRiskyFrame,
@@ -104,6 +105,14 @@ export function replayOwnerFrames({
   if (!structure || structure.ownerKey !== ownerKey) {
     return none;
   }
+  // An empty remembered list is not worth painting: for a funded owner it is
+  // a round that had not landed yet (a brand-new account, a seed before the
+  // default tokens loaded) and would show the empty state for a beat before
+  // the rows arrive. The skeleton until the PULL is the honest paint, and a
+  // genuinely empty owner reaches its empty state through that PULL.
+  if (isEmptyStructure(structure)) {
+    return none;
+  }
   // Already stamped for this owner — by the cold-start hydrate (provisional,
   // generation -1), an earlier replay, or a live frame. Either way the paint
   // on screen is this owner's; re-applying would only clear and rebuild it.
@@ -142,7 +151,17 @@ export function replayOwnerFrames({
     risky = true;
   }
 
-  // Provisional paint: let the next real frame of any generation win.
+  // Provisional paint: let the next real frame of any generation win, and
+  // keep the persist from writing this replay back as the owner's list.
   projection.curGeneration = -1;
+  projection.lastRoundProvisional = true;
   return { structure: true, risky };
+}
+
+function isEmptyStructure(structure: IStructureSnapshot): boolean {
+  return (
+    structure.orderedIds.length === 0 &&
+    structure.smallBalanceIds.length === 0 &&
+    Object.keys(structure.aggMembership ?? {}).length === 0
+  );
 }

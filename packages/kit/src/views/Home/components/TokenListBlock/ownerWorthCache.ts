@@ -105,11 +105,14 @@ export function getOwnerWorth(
     return hit;
   }
   try {
-    const record = tokenListOwnerWorthCache.get(slotKey(ownerKey));
+    const key = slotKey(ownerKey);
+    const record = tokenListOwnerWorthCache.get(key);
     const data = record?.data as Partial<IOwnerWorthSnapshot> | undefined;
     if (!data || typeof data.worth !== 'object' || data.worth === null) {
       return undefined;
     }
+    // Same recency rule as the slim slot: a revisit keeps the owner resident.
+    tokenListOwnerWorthCache.touch(key);
     const snapshot: IOwnerWorthSnapshot = {
       worth: data.worth,
       // Consumers feed this straight into BigNumber; anything but a string is

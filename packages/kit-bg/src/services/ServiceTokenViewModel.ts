@@ -205,11 +205,14 @@ export interface IRawTokenListPullResult {
 }
 
 /**
- * MRU cap on resident owners. Bounds BG heap growth across owner switches; 8 is
- * comfortably above the count of stores a single session paints concurrently
- * (home + urlAccount + a transient switch target).
+ * MRU cap on resident owners. Bounds BG heap growth across owner switches. The
+ * cap is also the number of accounts a session can rotate through without the
+ * home token list falling back to a skeleton on the switch (OK-63873): an
+ * evicted owner has no frames for the UI to PULL until its next fetch round.
+ * Wallets with more accounts than the old cap of 8 hit that on every switch.
+ * Frames are a few KB per owner, so 32 stays well within budget.
  */
-const OWNER_VM_CAP = 8;
+export const OWNER_VM_CAP = 32;
 /** pull-blob key for the per-owner diff `prev`. */
 const PREV_BLOB_KEY = 'prev';
 /** pull-blob key for the per-owner merged raw list. */
@@ -297,11 +300,18 @@ class ServiceTokenViewModel extends ServiceBase {
       accountId,
       networkId,
       rawKeys = '',
+      source,
     } = params;
 
     if (!ownerKey) {
       return;
     }
+
+    // A cache seed or a progressive paint is not the round's final answer
+    // (OK-63873): the UI paints it but must not persist it as the owner's
+    // last-known list. Everything else (single-network rounds, the
+    // authoritative all-networks round, older call sites) is settled.
+    const provisional = source === 'cacheSeed' || source === 'progPaint';
 
     // Mark MRU + ensure the owner slot exists. `ingestRound` REPLACES (not
     // concats) the owner's slices each round: `buildFrames` takes the full
@@ -335,6 +345,10 @@ class ServiceTokenViewModel extends ServiceBase {
     };
 
     const { structure, valuation } = buildFrames(input, prev);
+    if (structure) {
+      structure.provisional = provisional;
+    }
+    valuation.provisional = provisional;
 
     // Structure FIRST (preserve the legacy emit order), then valuation.
     if (structure) {

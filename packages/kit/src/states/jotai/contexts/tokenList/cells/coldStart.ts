@@ -207,6 +207,12 @@ export function persistSlimColdCache(params: {
   if (!currency) {
     return;
   }
+  // A provisional paint (cache seed, progressive paint, replay, boot bundle)
+  // is never the owner's last-known list; see
+  // `IStoreProjection.lastRoundProvisional`.
+  if (projection.lastRoundProvisional) {
+    return;
+  }
   const scopeKey = getColdStartScopeKey(store);
   if (!scopeKey) {
     return;
@@ -275,13 +281,15 @@ export function readOwnerSlimCache({
     return undefined;
   }
   try {
-    const record = tokenListOwnerSlimCache.get(
-      buildTokenListOwnerSlimCacheKey({ storeName, ownerKey }),
-    );
+    const key = buildTokenListOwnerSlimCacheKey({ storeName, ownerKey });
+    const record = tokenListOwnerSlimCache.get(key);
     const slim = record?.data as ITokenListSlimColdCache | undefined;
     if (!slim || slim.ownerKey !== ownerKey) {
       return undefined;
     }
+    // A switch back to this owner: keep its slot resident (the count bound
+    // is by manifest timestamp, see `tokenListOwnerSlimCache`).
+    tokenListOwnerSlimCache.touch(key);
     return slim;
   } catch {
     return undefined;
@@ -316,6 +324,9 @@ export function hydrateCellsFromOwnerSlimCache(params: {
   } = params;
   const slim = readOwnerSlimCache({ storeName, ownerKey });
   if (!shouldUseSlim(slim, currentCurrency)) {
+    return false;
+  }
+  if (isEmptySlimBundle(slim as ITokenListSlimColdCache)) {
     return false;
   }
   fanOutSlimToApply({
@@ -566,6 +577,9 @@ export function fanOutSlimToApply(params: {
   // reset so this session's first structure frame (BG VM starts at gen 0)
   // supersedes the hydrated paint instead of being dropped by apply's gen guard.
   projection.curGeneration = -1;
+  // A hydrated paint is provisional: it must not be written back as the
+  // owner's list (see `IStoreProjection.lastRoundProvisional`).
+  projection.lastRoundProvisional = true;
 }
 
 /**
@@ -601,6 +615,9 @@ export function hydrateCellsFromColdStart(params: {
   if (ownerKey !== undefined && bundle.ownerKey !== ownerKey) {
     return false;
   }
+  if (isEmptySlimBundle(bundle)) {
+    return false;
+  }
 
   const storeData = resolveStoreData(store);
   if (!storeData) {
@@ -609,6 +626,20 @@ export function hydrateCellsFromColdStart(params: {
 
   fanOutSlimToApply({ store, projection, deps, bundle, storeData });
   return true;
+}
+
+/**
+ * An empty bundle is written (so a drained owner never replays its old rows)
+ * but never painted: for a funded owner it is a round that had not landed
+ * when the persist fired, and the empty state would show for a beat before
+ * the rows arrive. The skeleton until the PULL is the honest paint.
+ */
+function isEmptySlimBundle(bundle: ITokenListSlimColdCache): boolean {
+  return (
+    bundle.orderedIds.length === 0 &&
+    bundle.smallBalanceIds.length === 0 &&
+    Object.keys(bundle.aggMembership ?? {}).length === 0
+  );
 }
 
 // --- VERSION-FLAG CLEANUP --------------------------------------------------

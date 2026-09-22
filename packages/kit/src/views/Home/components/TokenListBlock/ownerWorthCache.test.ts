@@ -29,6 +29,7 @@ jest.mock('@onekeyhq/shared/src/storage/uiSnapshotCaches', () => {
         mockRecords.set(key, data);
       },
       setMany: () => undefined,
+      touch: () => undefined,
       remove: (key: string) => mockRecords.delete(key),
       keys: () => Array.from(mockRecords.keys()),
       sweep: () => undefined,

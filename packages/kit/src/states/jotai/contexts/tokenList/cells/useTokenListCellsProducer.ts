@@ -62,6 +62,7 @@ import {
 import {
   cancelPendingSlimColdCache,
   clearPersistedOwnerSlimCache,
+  flushPendingSlimColdCache,
   hydrateCellsFromOwnerSlimCache,
   schedulePersistSlimColdCache,
 } from './coldStart';
@@ -224,6 +225,13 @@ export function useTokenListCellsProducer(
       return false;
     }
     const projection = ensureStoreProjection(store);
+    // The outgoing owner's debounced persist would otherwise fire after the
+    // switch and read the incoming owner's paint. Write it now, while the
+    // projection is still the outgoing owner's (a no-op when that paint is
+    // provisional), instead of losing its settled list.
+    if (projection.curOwnerKey && projection.curOwnerKey !== nextOwnerKey) {
+      flushPendingSlimColdCache(store);
+    }
     const currentCurrency = currencyIdRef.current;
     const replayed = replayOwnerFrames({
       store,
@@ -356,6 +364,12 @@ export function useTokenListCellsProducer(
       if (kind === 'risky' || !store || !identity) {
         return;
       }
+      // Never persist a cache-seed / progressive paint (see
+      // `IStoreProjection.lastRoundProvisional`); the authoritative round's
+      // valuation frame re-arms the persist.
+      if (ensureStoreProjection(store).lastRoundProvisional) {
+        return;
+      }
       if (isPrimaryColdStartWriter(identity.resolvedStoreName, store)) {
         schedulePersistSlimColdCache({
           store,
@@ -377,12 +391,14 @@ export function useTokenListCellsProducer(
             return;
           }
           // Re-stamp storeData to THIS store so apply's identity guard passes.
+          const projection = ensureStoreProjection(store);
           applyStructureSnapshot(
             store,
-            ensureStoreProjection(store),
+            projection,
             { ...structure, storeData: identity.storeData },
             deps,
           );
+          projection.lastRoundProvisional = !!structure.provisional;
           rememberOwnerReplayFrame({
             storeName: identity.resolvedStoreName,
             ownerKey: push.ownerKey,
@@ -411,13 +427,15 @@ export function useTokenListCellsProducer(
           if (!valuation || !store || !deps || !identity || !isCurrentOwner()) {
             return;
           }
+          const projection = ensureStoreProjection(store);
           applyValuationFrame(
             store,
-            ensureStoreProjection(store),
+            projection,
             { ...valuation, storeData: identity.storeData },
             deps,
             (fn) => fn(),
           );
+          projection.lastRoundProvisional = !!valuation.provisional;
           rememberOwnerReplayFrame({
             storeName: identity.resolvedStoreName,
             ownerKey: push.ownerKey,

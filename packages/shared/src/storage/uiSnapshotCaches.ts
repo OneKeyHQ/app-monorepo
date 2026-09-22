@@ -54,6 +54,19 @@ export const tokenListMaintenanceCache = createNamespacedSnapshotCache<number>({
 
 export const TOKEN_LIST_CLEANUP_VERSION_KEY = 'cleanup-version';
 
+/**
+ * Measured height of each native home header layout (OK-63873), keyed by the
+ * layout variant. The collapsible tab container needs the height of the
+ * incoming layout before it is laid out to keep the tab content aligned on an
+ * account switch; remembering it across launches means the first switch after
+ * a cold start is aligned too.
+ */
+export const homeHeaderLayoutCache = createNamespacedSnapshotCache<number>({
+  namespace: 'home-header-layout',
+  maxAgeMs: THIRTY_DAYS_MS,
+  maxEntries: 8,
+});
+
 const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
 
 /**
@@ -63,8 +76,13 @@ const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
  * the most recent owners so an account/network switch after a cold start
  * paints the target owner's rows synchronously instead of a skeleton. Reads
  * are by exact key (one small record), never on the startup path.
+ *
+ * The count bound is by write time, so a switch back to a remembered owner
+ * calls `touch` to keep it resident; without that a wallet with more accounts
+ * than the cap evicted every owner on each rotation and switched into a
+ * skeleton. Bundles are ~5-25 KB each.
  */
-export const TOKEN_LIST_OWNER_SLIM_CACHE_MAX_ENTRIES = 8;
+export const TOKEN_LIST_OWNER_SLIM_CACHE_MAX_ENTRIES = 32;
 
 export const tokenListOwnerSlimCache = createNamespacedSnapshotCache<
   Record<string, unknown>
