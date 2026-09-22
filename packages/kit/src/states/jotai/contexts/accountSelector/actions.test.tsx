@@ -4128,7 +4128,14 @@ describe('useAccountSelectorActions', () => {
   });
 
   it('rechecks a pending storage save after account pair normalization', async () => {
-    const pendingSelection = createHdSelectedAccount('hd-1--0');
+    const pendingSelection: ISelectedAccount = {
+      ...defaultSelectedAccount(),
+      walletId: WALLET_TYPE_IMPORTED,
+      focusedWallet: WALLET_TYPE_IMPORTED,
+      othersWalletAccountId: 'imported--evm-1',
+      networkId: 'evm--1',
+      deriveType: 'default',
+    };
     const fixedSelectionDeferred = createDeferred<ISelectedAccount>();
     mockFixOthersWalletAccountNetworkPair.mockReturnValueOnce(
       fixedSelectionDeferred.promise,
@@ -4165,7 +4172,20 @@ describe('useAccountSelectorActions', () => {
   });
 
   it('coalesces concurrent storage saves for the same selection revision', async () => {
-    const selectedAccount = createHdSelectedAccount('hd-1--0');
+    const selectedAccount: ISelectedAccount = {
+      ...defaultSelectedAccount(),
+      walletId: WALLET_TYPE_IMPORTED,
+      focusedWallet: WALLET_TYPE_IMPORTED,
+      othersWalletAccountId: 'imported--evm-1',
+      networkId: 'evm--1',
+      deriveType: 'default',
+    };
+    mockGetDBAccount.mockResolvedValue({
+      id: 'imported--evm-1',
+      impl: 'evm',
+      createAtNetwork: 'evm--1',
+      networks: ['evm--1'],
+    } as IDBAccount);
     const fixedSelectionDeferred = createDeferred<ISelectedAccount>();
     mockFixOthersWalletAccountNetworkPair.mockReturnValueOnce(
       fixedSelectionDeferred.promise,
@@ -5591,6 +5611,13 @@ describe('useAccountSelectorActions', () => {
   });
 
   it('applies a newer home-swap event that raced with a concurrent local commit', async () => {
+    const incomingSelection: ISelectedAccount = {
+      ...defaultSelectedAccount(),
+      walletId: WALLET_TYPE_IMPORTED,
+      othersWalletAccountId: 'imported--evm-1',
+      networkId: 'evm--1',
+      deriveType: 'default',
+    };
     // The exact-match CAS read its expected revision before the async
     // merge/fix work; a local commit landing during that work made the CAS
     // drop the sync even though the event was NEWER, and nothing retried it.
@@ -5623,7 +5650,7 @@ describe('useAccountSelectorActions', () => {
     await act(async () => {
       const syncPromise = result.current.syncHomeAndSwapSelectedAccount({
         eventPayload: {
-          selectedAccount: createHdSelectedAccount('hd-1--1'),
+          selectedAccount: incomingSelection,
           selectedAccountUpdatedAt: 2000,
           sceneName: EAccountSelectorSceneName.swap,
           num: 0,
@@ -5648,7 +5675,7 @@ describe('useAccountSelectorActions', () => {
 
     expect(syncOutcome).toBe('commit');
     expect(store.get(selectedAccountsAtom())[0]).toMatchObject({
-      indexedAccountId: 'hd-1--1',
+      othersWalletAccountId: 'imported--evm-1',
     });
     expect(store.get(accountSelectorUpdateMetaAtom())[0]?.updatedAt).toBe(2000);
   });

@@ -321,15 +321,16 @@ abstract class SimpleDbEntityBase<T> {
             data: next.data,
             updatedAt,
           };
-          const previousSavedData: ISimpleDbEntitySavedData<T> | undefined = !isNil(
-            previousData,
-          )
-            ? {
-                data: previousData as T,
-                updatedAt: previousUpdatedAt,
-              }
-            : undefined;
-          const serializeSavedData = (value: ISimpleDbEntitySavedData<T>): string =>
+          const previousSavedData: ISimpleDbEntitySavedData<T> | undefined =
+            !isNil(previousData)
+              ? {
+                  data: previousData as T,
+                  updatedAt: previousUpdatedAt,
+                }
+              : undefined;
+          const serializeSavedData = (
+            value: ISimpleDbEntitySavedData<T>,
+          ): string =>
             appStorageUtils.canSaveAsObject() && !isString(value)
               ? (value as unknown as string)
               : JSON.stringify(value);
@@ -355,7 +356,9 @@ abstract class SimpleDbEntityBase<T> {
             }
             restoreCompleted = true;
           };
-          const restorePreviousDataWithRetry = async (originalError?: unknown) => {
+          const restorePreviousDataWithRetry = async (
+            originalError?: unknown,
+          ) => {
             restoreStarted = true;
             try {
               await restorePreviousData();

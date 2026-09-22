@@ -4,16 +4,16 @@ const mockSetMap = jest.fn();
 jest.mock('../utils', () => ({
   __esModule: true,
   globalAtom: () => ({
-    target: { atom: () => ({}) },
+    target: { atom: () => ({}), set: jest.fn(async () => undefined) },
     use: () => [{}, mockSetMap],
   }),
 }));
 
-import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
-
 jest.mock('jotai', () => ({ useSetAtom: () => mockSetMap }));
 
 import { renderHook } from '@testing-library/react-native';
+
+import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import {
   EJotaiContextStoreNames,

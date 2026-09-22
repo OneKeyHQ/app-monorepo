@@ -16,6 +16,7 @@ let capturedConfirmDisabled: boolean | undefined;
 const mockResolve = jest.fn(async (_params: unknown) => undefined);
 const mockReject = jest.fn();
 const mockToastError = jest.fn((_params: unknown) => undefined);
+const mockCheckIsWalletNotBackedUp = jest.fn(async (_params: unknown) => false);
 const mockIsAccountIdDeactivatedBotWallet = jest.fn(
   async (_params: unknown) => false,
 );
@@ -76,7 +77,8 @@ jest.mock('../../../background/instance/backgroundApiProxy', () => ({
   __esModule: true,
   default: {
     serviceAccount: {
-      checkIsWalletNotBackedUp: jest.fn(async () => false),
+      checkIsWalletNotBackedUp: (params: unknown) =>
+        mockCheckIsWalletNotBackedUp(params),
     },
     serviceDApp: {
       approveConnectionSession: async (params: unknown) =>
@@ -243,6 +245,7 @@ describe('ConnectionModal account consistency', () => {
     capturedOnConfirm = undefined;
     capturedConfirmDisabled = undefined;
     mockReject.mockImplementation(() => undefined);
+    mockCheckIsWalletNotBackedUp.mockResolvedValue(false);
     mockIsAccountIdDeactivatedBotWallet.mockImplementation(async () => false);
     mockSaveConnectionSession.mockImplementation(async () => undefined);
     mockUpdateConnectionSession.mockImplementation(async () => undefined);
@@ -250,6 +253,64 @@ describe('ConnectionModal account consistency', () => {
     mockApproveConnectionSession.mockImplementation(async () => ({
       approved: true,
     }));
+  });
+
+  it('keeps approval pending when the selected wallet has not been backed up', async () => {
+    mockCheckIsWalletNotBackedUp.mockResolvedValue(true);
+    render(<ConnectionModal />);
+    await act(async () => {
+      await capturedHandleAccountChanged?.(
+        {
+          activeAccount: buildActiveAccount({ accountId: 'account-a' }),
+          selectedAccount: rawSelection,
+        },
+        0,
+      );
+    });
+    await act(async () => {
+      await capturedOnConfirm?.();
+    });
+    expect(mockCheckIsWalletNotBackedUp).toHaveBeenCalledTimes(1);
+    expect(mockApproveConnectionSession).not.toHaveBeenCalled();
+    expect(mockResolve).not.toHaveBeenCalled();
+    expect(mockReject).not.toHaveBeenCalled();
+  });
+
+  it('rejects an approval superseded while the backup check is pending', async () => {
+    const backupCheck = createDeferred<boolean>();
+    mockCheckIsWalletNotBackedUp.mockReturnValueOnce(backupCheck.promise);
+    render(<ConnectionModal />);
+    await act(async () => {
+      await capturedHandleAccountChanged?.(
+        {
+          activeAccount: buildActiveAccount({ accountId: 'account-a' }),
+          selectedAccount: rawSelection,
+        },
+        0,
+      );
+    });
+    let approval: Promise<void> | undefined;
+    await act(async () => {
+      approval = capturedOnConfirm?.();
+    });
+    expect(mockCheckIsWalletNotBackedUp).toHaveBeenCalledTimes(1);
+    await act(async () => {
+      await capturedHandleAccountChanged?.(
+        {
+          activeAccount: buildActiveAccount({ accountId: 'account-b' }),
+          selectedAccount: { ...rawSelection, indexedAccountId: 'hd-1--1' },
+        },
+        0,
+      );
+    });
+    await act(async () => {
+      backupCheck.resolve(false);
+      await approval;
+    });
+    expect(mockApproveConnectionSession).not.toHaveBeenCalled();
+    expect(mockResolve).not.toHaveBeenCalled();
+    expect(mockToastError).toHaveBeenCalledTimes(1);
+    expect(mockReject).not.toHaveBeenCalled();
   });
 
   it('shows an account without an address and disables approval instead of keeping the previous one', async () => {

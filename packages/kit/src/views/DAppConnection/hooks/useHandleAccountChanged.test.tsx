@@ -60,7 +60,7 @@ jest.mock('@onekeyhq/kit/src/states/jotai/contexts/accountSelector', () => ({
   useAccountSelectorContextData: () => ({ store: mockContextStore }),
 }));
 
-import { renderHook } from '@testing-library/react-native';
+import { act, renderHook } from '@testing-library/react-native';
 
 import { useHandleDiscoveryAccountChanged } from './useHandleAccountChanged';
 
@@ -280,6 +280,34 @@ describe('useHandleDiscoveryAccountChanged', () => {
     expect(handleAccountChanged).toHaveBeenLastCalledWith(
       expect.objectContaining({ selectedAccount }),
       0,
+    );
+  });
+
+  it('guards a rejected account rollback against the selection sent to the handler', async () => {
+    const selectedAccount = {
+      deriveType: 'default' as const,
+      focusedWallet: 'wallet-1',
+      othersWalletAccountId: undefined,
+      indexedAccountId: 'indexed-account-1',
+      networkId: 'evm--1',
+      walletId: 'wallet-1',
+    };
+    mockContextStore = createMockAccountSelectorStore(selectedAccount);
+    const handleAccountChanged = jest.fn(async () => ({
+      revertTo: { ...selectedAccount, walletId: 'previous-wallet' },
+    }));
+    renderHook(() =>
+      useHandleDiscoveryAccountChanged({ handleAccountChanged, num: 0 }),
+    );
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(mockUpdateSelectedAccount).toHaveBeenCalledWith(
+      expect.objectContaining({
+        num: 0,
+        expectedSelection: selectedAccount,
+        builder: expect.any(Function),
+      }),
     );
   });
 

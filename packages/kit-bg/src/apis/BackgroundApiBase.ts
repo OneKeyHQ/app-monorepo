@@ -69,11 +69,11 @@ import {
   settingsAtomInitialValue,
   settingsPersistAtom,
 } from '../states/jotai/atoms';
+import { updateJotaiContextStoreRegistration as updateJotaiContextStoreRegistrationInBackground } from '../states/jotai/atoms/jotaiContextStoreMap';
 import {
   type IPasswordAtom,
   passwordAtomInitialValue,
 } from '../states/jotai/atoms/passwordLock';
-import { updateJotaiContextStoreRegistration as updateJotaiContextStoreRegistrationInBackground } from '../states/jotai/atoms/jotaiContextStoreMap';
 import { jotaiBgSync } from '../states/jotai/jotaiBgSync';
 import { jotaiInit } from '../states/jotai/jotaiInit';
 

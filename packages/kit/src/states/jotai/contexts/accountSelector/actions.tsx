@@ -4444,11 +4444,10 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
                 mergedByData: eventPayload.selectedAccount,
               });
             phase = 'fix-selection';
-            newSelectedAccount =
-              await this.fixOthersWalletAccountNetworkPair({
-                selectedAccount: newSelectedAccount,
-                source: 'syncHomeAndSwapSelectedAccount',
-              });
+            newSelectedAccount = await this.fixOthersWalletAccountNetworkPair({
+              selectedAccount: newSelectedAccount,
+              source: 'syncHomeAndSwapSelectedAccount',
+            });
             phase = 'selection-update';
             const selectionResult = await this.updateSelectedAccount.call(set, {
               // Compare-if-newer instead of the exact-match CAS: a CAS keyed on
@@ -5555,11 +5554,10 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
               return;
             }
             storagePhase = 'fix-selection';
-            selectedAccount =
-              await this.fixOthersWalletAccountNetworkPair({
-                selectedAccount,
-                source: `saveToStorage:${sceneName}:${num}`,
-              });
+            selectedAccount = await this.fixOthersWalletAccountNetworkPair({
+              selectedAccount,
+              source: `saveToStorage:${sceneName}:${num}`,
+            });
             if (!isPayloadStillCurrent()) {
               logStorageResult({ outcome: EStorageSaveOutcome.StaleAfterFix });
               return;
