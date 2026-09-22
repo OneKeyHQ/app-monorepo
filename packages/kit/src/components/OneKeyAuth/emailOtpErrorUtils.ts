@@ -6,6 +6,32 @@ import { getEmailOtpRateLimitRetryAfterSeconds } from './emailOtpRateLimitError'
 
 import type { IntlShape } from 'react-intl';
 
+export function isEmailOtpSendKnownFailure(error: unknown): boolean {
+  const candidate = error as
+    | {
+        name?: unknown;
+        code?: unknown;
+        status?: unknown;
+        data?: { isEmailOtpSendFailure?: unknown };
+      }
+    | undefined;
+  if (candidate?.data?.isEmailOtpSendFailure === true) return true;
+  if (
+    isTransientNetworkLikeError(error) ||
+    candidate?.name === 'TimeoutError' ||
+    candidate?.name === 'NetworkError'
+  )
+    return true;
+  // Recognize structured send failures without guessing from message text.
+  // Unknown errors stay permissive so users can submit a code they received.
+  return (
+    candidate?.name === 'AuthApiError' &&
+    ((candidate.status === 400 && candidate.code === 'captcha_failed') ||
+      (candidate.status === 429 &&
+        candidate.code === 'over_email_send_rate_limit'))
+  );
+}
+
 // Returns undefined when the dialog must NOT toast: bridged server errors
 // flagged autoToast are already surfaced by the global error toast with the
 // server's own message, and a second generic toast here would contradict it.
@@ -41,6 +67,9 @@ export function getEmailOtpRequestErrorMessage({
     isTransientNetworkLikeError(error)
   ) {
     return intl.formatMessage({ id: ETranslations.global_network_error });
+  }
+  if (typeof oneKeyError?.message === 'string' && oneKeyError.message) {
+    return oneKeyError.message;
   }
   return intl.formatMessage({
     id: ETranslations.global_unknown_error_retry_message,

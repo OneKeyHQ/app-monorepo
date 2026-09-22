@@ -149,6 +149,17 @@ export const MAC_DESKTOP_USE_NATIVE_APPLE_SIGNIN = false;
 // Email OTP
 export const EMAIL_OTP_COUNTDOWN_SECONDS = 60;
 
+export type IEmailOtpCaptchaConfig = {
+  enabled: boolean;
+  pageUrl: string;
+};
+
+// Enable only with the production widget and its hosted verification page.
+export const EMAIL_OTP_CAPTCHA_CONFIG: IEmailOtpCaptchaConfig = {
+  enabled: false,
+  pageUrl: '',
+};
+
 // Default OAuth method selection (OneKeyAuth)
 export const DEFAULT_EXTENSION_OAUTH_METHOD: EExtensionOAuthMethod =
   EExtensionOAuthMethod.CHROME_IDENTITY_API;

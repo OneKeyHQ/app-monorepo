@@ -392,8 +392,14 @@ export function useOneKeyAuth() {
     // })
     () => {
       return {
-        sendCode: async ({ email }: { email: string }) => {
-          await supabaseSignInWithOtp({ email });
+        sendCode: async ({
+          email,
+          captchaToken,
+        }: {
+          email: string;
+          captchaToken?: string;
+        }) => {
+          await supabaseSignInWithOtp({ email, captchaToken });
         },
         loginWithCode: async ({
           code,

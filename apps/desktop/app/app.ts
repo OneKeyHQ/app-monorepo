@@ -818,7 +818,9 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
     webPreferences: {
       spellcheck: false,
       webviewTag: true,
-      webSecurity: isPerfCiMode ? true : !isDev,
+      // Disabling origin checks breaks Turnstile child-frame commits in
+      // Chromium and terminates the renderer, even during development.
+      webSecurity: true,
       // @ts-expect-error
       nativeWindowOpen: true,
       allowRunningInsecureContent: false,

@@ -13,18 +13,13 @@ import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/ato
 import type { EOAuthSocialLoginProvider } from '@onekeyhq/shared/src/consts/authConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
-import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { isTransientNetworkLikeError } from '@onekeyhq/shared/src/utils/transientNetworkErrorUtils';
 import type { IKeylessOAuthSessionRollbackHandle } from '@onekeyhq/shared/types/prime/identityExitTypes';
 
-import {
-  createEmailOtpRateLimitError,
-  parseEmailOtpRateLimitRetryAfterSeconds,
-} from '../emailOtpRateLimitError';
 import { OAuthPopup } from '../OAuthPopup';
 import { ensureOneKeyOAuthState } from '../oauthUtils';
 
+import { requestEmailOtp } from './requestEmailOtp';
 import { useSupabaseAuthContext } from './SupabaseAuthContext';
 
 import type { SupabaseClient } from '@supabase/supabase-js';
@@ -243,44 +238,13 @@ export function useSupabaseAuth() {
   // ============ Email OTP Methods ============
 
   const signInWithOtp = useCallback(
-    async ({ email }: { email: string }) => {
-      const res = await (
-        await getSupabaseClient()
-      ).client.auth.signInWithOtp({
+    async ({ email, captchaToken }: { email: string; captchaToken?: string }) =>
+      requestEmailOtp({
+        client: (await getSupabaseClient()).client,
         email,
-        options: {
-          shouldCreateUser: true,
-        },
-      });
-      if (res.error && res.error.message) {
-        const retryAfterSeconds = parseEmailOtpRateLimitRetryAfterSeconds(
-          res.error,
-        );
-        if (retryAfterSeconds !== undefined) {
-          const rateLimitMessage = intl.formatMessage(
-            {
-              id: ETranslations.email_verification_rate_limit,
-            },
-            { rest: String(retryAfterSeconds) },
-          );
-          throw createEmailOtpRateLimitError({
-            message: rateLimitMessage,
-            retryAfterSeconds,
-          });
-        }
-
-        throwLocalizedOneKeyIdLoginError({
-          intl,
-          key: isTransientNetworkLikeError(res.error)
-            ? ETranslations.global_network_error
-            : ETranslations.global_unknown_error_retry_message,
-          reason: `OneKey ID email verification code request failed: ${getSanitizedAuthErrorText(
-            res.error,
-          )}`,
-        });
-      }
-      return res;
-    },
+        captchaToken,
+        intl,
+      }),
     [intl],
   );
 
