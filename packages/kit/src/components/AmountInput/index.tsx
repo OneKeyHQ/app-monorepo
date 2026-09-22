@@ -17,6 +17,7 @@ import {
 } from '@onekeyhq/components';
 import type {
   IInputProps,
+  IKeyOfIcons,
   IStackProps,
   IXStackProps,
 } from '@onekeyhq/components';
@@ -64,6 +65,9 @@ export type IAmountInputFormItemProps = IFormFieldProps<
       hideIcon?: boolean;
       tokenSymbol?: string;
       testID?: string;
+      // Replaces the Max label with an icon, e.g. a refresh action while the
+      // balance is empty and there is nothing to max out.
+      actionIconName?: IKeyOfIcons;
     };
     balanceHelperProps?: {
       onPress?: () => void;
@@ -434,7 +438,17 @@ export function AmountInput({
               {balanceProps.tokenSymbol}
             </SizableText>
           ) : null}
-          {enableMaxAmount ? (
+          {enableMaxAmount && balanceProps.actionIconName ? (
+            <Icon
+              name={balanceProps.actionIconName}
+              size="$4"
+              color={
+                balanceProps.onPress ? '$textInteractive' : '$textPlaceholder'
+              }
+              ml="$1"
+            />
+          ) : null}
+          {enableMaxAmount && !balanceProps.actionIconName ? (
             <SizableText
               pl="$1"
               size="$bodySmMedium"

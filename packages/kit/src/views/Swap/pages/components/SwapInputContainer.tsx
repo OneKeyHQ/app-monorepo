@@ -18,6 +18,7 @@ import { AmountInput } from '@onekeyhq/kit/src/components/AmountInput';
 import { useDebounce } from '@onekeyhq/kit/src/hooks/useDebounce';
 import {
   useRateDifferenceAtom,
+  useSwapActions,
   useSwapAlertsAtom,
   useSwapBalanceDisplayCacheAtom,
   useSwapFromTokenAmountAtom,
@@ -165,7 +166,8 @@ const SwapInputContainer = ({
   const [settingsPersistAtom] = useSettingsPersistAtom();
   const [{ currencyMap }] = useCurrencyPersistAtom();
   const [alerts] = useSwapAlertsAtom();
-  const { address, accountInfo, activeAccount } = useSwapAddressInfo(direction);
+  const swapAddressInfo = useSwapAddressInfo(direction);
+  const { address, accountInfo, activeAccount } = swapAddressInfo;
   const [rateDifference] = useRateDifferenceAtom();
   const amountPrice = useMemo(() => {
     return getSwapTokenDisplayFiatValue({
@@ -388,13 +390,49 @@ const SwapInputContainer = ({
     leading: true,
   });
 
+  // A loaded zero balance keeps the Top up chip visible (subdued, because the
+  // action button already reads "Deposit to Trade") and turns Max into a
+  // refresh action so the user can re-check the balance after depositing.
+  // The balance atom holds '' until it loads, so '' never counts as zero.
+  const isFromBalanceLoadedZero = useMemo(() => {
+    if (direction !== ESwapDirectionType.FROM || !fromToken || !address) {
+      return false;
+    }
+    if (!fromTokenBalance) {
+      return false;
+    }
+    const balanceBN = new BigNumber(fromTokenBalance);
+    return balanceBN.isFinite() && balanceBN.isZero();
+  }, [address, direction, fromToken, fromTokenBalance]);
+  const { loadSwapSelectTokenDetail } = useSwapActions().current;
+  const onBalanceRefreshPress = useCallback(() => {
+    void loadSwapSelectTokenDetail(
+      ESwapDirectionType.FROM,
+      swapAddressInfo,
+      true,
+    );
+  }, [loadSwapSelectTokenDetail, swapAddressInfo]);
+
+  const fromBalanceActionPress = isFromBalanceLoadedZero
+    ? onBalanceRefreshPress
+    : onBalanceMaxPress;
+  const fromBalanceActionTestID = isFromBalanceLoadedZero
+    ? SwapTestIDs.balanceRefreshButton
+    : SwapTestIDs.maxButton;
+
   const showActionBuy = useMemo(
     () =>
       direction === ESwapDirectionType.FROM &&
       !!accountInfo?.account?.id &&
       !!fromToken &&
-      fromInputHasError.hasBalanceError,
-    [direction, accountInfo?.account?.id, fromToken, fromInputHasError],
+      (fromInputHasError.hasBalanceError || isFromBalanceLoadedZero),
+    [
+      direction,
+      accountInfo?.account?.id,
+      fromToken,
+      fromInputHasError,
+      isFromBalanceLoadedZero,
+    ],
   );
   const readOnly = useMemo(() => {
     if (direction === ESwapDirectionType.TO) {
@@ -421,6 +459,7 @@ const SwapInputContainer = ({
           accountInfo={accountInfo}
           showPercentageInput={showPercentageInputDebounce}
           showActionBuy={showActionBuy}
+          actionBuyHighlighted={!isFromBalanceLoadedZero}
           onSelectStage={onSelectPercentageStage}
         />
       </XStack>
@@ -437,11 +476,14 @@ const SwapInputContainer = ({
           loading: showBalanceSkeleton,
           onPress:
             direction === ESwapDirectionType.FROM
-              ? onBalanceMaxPress
+              ? fromBalanceActionPress
               : undefined,
+          actionIconName: isFromBalanceLoadedZero
+            ? 'RefreshCcwOutline'
+            : undefined,
           testID:
             direction === ESwapDirectionType.FROM
-              ? SwapTestIDs.maxButton
+              ? fromBalanceActionTestID
               : undefined,
         }}
         valueProps={{

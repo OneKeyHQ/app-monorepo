@@ -26,12 +26,16 @@ import { useSwapDepositEntryPress } from '../../hooks/useSwapDepositEntry';
 const SwapInputActions = ({
   showPercentageInput,
   showActionBuy,
+  actionBuyHighlighted = true,
   onSelectStage,
   fromToken,
   accountInfo,
 }: {
   showPercentageInput: boolean;
   showActionBuy: boolean;
+  // Green when the chip is the recovery action (partial balance); subdued
+  // when the main button already reads "Deposit to Trade" (zero balance).
+  actionBuyHighlighted?: boolean;
   onSelectStage?: (stage: number) => void;
   fromToken?: ISwapToken;
   accountInfo?: IAccountSelectorActiveAccountInfo;
@@ -48,6 +52,9 @@ const SwapInputActions = ({
     token: fromToken,
     accountInfo,
   });
+  const actionBuyColor = actionBuyHighlighted
+    ? '$textInteractive'
+    : '$textSubdued';
 
   return (
     <XStack gap="$0.5">
@@ -63,9 +70,10 @@ const SwapInputActions = ({
               opacity: 0,
             }}
           >
-            {/* Only rendered while the balance cannot cover the input, so
-                it reads as the recovery action: same interactive tint as the
-                Max control, on a pill that stands out from the input card. */}
+            {/* Rendered while the balance cannot cover the input (interactive
+                tint, same as the Max control) or while the balance is a loaded
+                zero (subdued, the action button already offers the deposit),
+                on a pill that stands out from the input card. */}
             <Button
               testID="swap-btn"
               height="$5"
@@ -80,10 +88,10 @@ const SwapInputActions = ({
                 <Icon
                   name="CreditCardCvvOutline"
                   size="$4"
-                  color="$textInteractive"
+                  color={actionBuyColor}
                   mt={platformEnv.isNative ? 2 : undefined}
                 />
-                <SizableText size="$bodySmMedium" color="$textInteractive">
+                <SizableText size="$bodySmMedium" color={actionBuyColor}>
                   {intl.formatMessage({ id: ETranslations.global_top_up })}
                 </SizableText>
               </XStack>
