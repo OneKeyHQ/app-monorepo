@@ -52,10 +52,11 @@ describe('getDeviceAvatarImage', () => {
     ['NE0001B', 'neoWhite'],
     ['NE0001E', 'neoGreen'],
     ['NE0001F', 'neoPink'],
-    // Letters the Neo does not come in, and no serial, wear black.
-    ['NE0001C', 'neoBlack'],
-    ['NE0001D', 'neoBlack'],
-    [undefined, 'neoBlack'],
+    // Letters the Neo does not come in, and no serial, wear white — the
+    // Neo's default finish, unlike the Pro 2's black.
+    ['NE0001C', 'neoWhite'],
+    ['NE0001D', 'neoWhite'],
+    [undefined, 'neoWhite'],
   ])('resolves a Neo serial %s to %s', (serialNo, expected) => {
     expect(getDeviceAvatarImage(NEO_DEVICE_TYPE, serialNo)).toBe(expected);
   });
