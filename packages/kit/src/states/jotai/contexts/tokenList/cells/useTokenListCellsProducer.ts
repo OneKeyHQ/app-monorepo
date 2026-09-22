@@ -265,7 +265,7 @@ export function useTokenListCellsProducer(
     );
     const unregister =
       identity.resolvedStoreName === EJotaiContextStoreNames.homeTokenList
-        ? registerHomeTokenListPreparer(async (target) => {
+        ? registerHomeTokenListPreparer(async (target, signal) => {
             const targetOwner = getHomeTokenListOwnerKey(target);
             const currency = currencyIdRef.current;
             if (
@@ -284,6 +284,7 @@ export function useTokenListCellsProducer(
               await backgroundApiProxy.serviceTokenViewModel.getTokenListFrames(
                 { ownerKey: targetOwner },
               );
+            if (signal.aborted) return undefined;
             let structure = pulled.structure;
             let valuation = pulled.valuation;
             let risky = {
@@ -293,8 +294,8 @@ export function useTokenListCellsProducer(
             };
             let local: Awaited<ReturnType<typeof loadHomeTokenListCache>>;
             if (!structure || !valuation) {
-              local = await loadHomeTokenListCache(target, targetOwner);
-              if (!local) return undefined;
+              local = await loadHomeTokenListCache(target, targetOwner, signal);
+              if (signal.aborted || !local) return undefined;
               const [defaults, customTokens] = await Promise.all([
                 backgroundApiProxy.serviceToken.getHomeDefaultTokenMap(),
                 backgroundApiProxy.serviceCustomToken.getCustomTokens({
@@ -302,6 +303,7 @@ export function useTokenListCellsProducer(
                   networkId: target.network?.id ?? '',
                 }),
               ]);
+              if (signal.aborted) return undefined;
               const frames = buildFrames(
                 {
                   ...local.ingest,
@@ -334,7 +336,7 @@ export function useTokenListCellsProducer(
               risky,
             };
             return () => {
-              if (currencyIdRef.current !== currency) return;
+              if (signal.aborted || currencyIdRef.current !== currency) return;
               restoreOwner.seed(targetOwner, currency, snapshot);
               restoreOwner(targetOwner, currency);
               if (local && target.account && target.network) {
@@ -345,7 +347,7 @@ export function useTokenListCellsProducer(
                   accountId: target.account.id,
                   worth: local.worth,
                   initialized: true,
-                  updateAll: true,
+                  updateAll: !!target.network.isAllNetworks && local.complete,
                   createAtNetworkWorth: '0',
                   currency: local.currency,
                 });

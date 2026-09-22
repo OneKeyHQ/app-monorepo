@@ -25,12 +25,15 @@ import {
   HARDWARE_ERROR_DIALOG_TYPES,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 import {
   EAccountSelectorAutoSelectTriggerBy,
   EAccountSelectorSceneName,
 } from '@onekeyhq/shared/types';
+
+import { registerHomeTokenListPreparer } from '../tokenList/cells/ownerCache';
 
 import {
   getAccountSelectorActions,
@@ -529,6 +532,57 @@ describe('useAccountSelectorActions', () => {
 
   afterEach(() => {
     jest.restoreAllMocks();
+  });
+
+  it('does not hold the shared selector lock while Home prepares its snapshot', async () => {
+    const previousNative = platformEnv.isNative;
+    platformEnv.isNative = true;
+    const entered = createDeferred<void>();
+    const preparation = createDeferred<() => void>();
+    const commit = jest.fn();
+    const unregister = registerHomeTokenListPreparer(async () => {
+      entered.resolve();
+      return preparation.promise;
+    });
+    const home = createWrapper(EAccountSelectorSceneName.home);
+    const swap = createWrapper(EAccountSelectorSceneName.swap);
+    home.store.set(accountSelectorContextDataAtom(), {
+      sceneName: EAccountSelectorSceneName.home,
+    });
+    swap.store.set(accountSelectorContextDataAtom(), {
+      sceneName: EAccountSelectorSceneName.swap,
+    });
+    const { result: homeActions } = renderHook(
+      () => useAccountSelectorActions().current,
+      { wrapper: home.Wrapper },
+    );
+    const { result: swapActions } = renderHook(
+      () => useAccountSelectorActions().current,
+      { wrapper: swap.Wrapper },
+    );
+    try {
+      await act(async () => {
+        const pending = homeActions.current.reloadActiveAccountInfo({
+          num: 0,
+          selectedAccount: defaultSelectedAccount(),
+          forceReload: true,
+        });
+        await entered.promise;
+        await swapActions.current.reloadActiveAccountInfo({
+          num: 0,
+          selectedAccount: defaultSelectedAccount(),
+          forceReload: true,
+        });
+        expect(swap.store.get(activeAccountsAtom())[0]?.ready).toBe(true);
+        expect(commit).not.toHaveBeenCalled();
+        preparation.resolve(commit);
+        await pending;
+        expect(commit).toHaveBeenCalledTimes(1);
+      });
+    } finally {
+      unregister();
+      platformEnv.isNative = previousNative;
+    }
   });
 
   it('selects deprecated wallets but rejects unavailable wallets', async () => {

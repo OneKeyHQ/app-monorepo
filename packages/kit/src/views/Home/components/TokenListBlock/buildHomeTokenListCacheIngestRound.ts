@@ -1,5 +1,9 @@
 import type { IIngestRoundParams } from '@onekeyhq/kit-bg/src/services/ServiceTokenViewModel';
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  PROMISE_CONCURRENCY_LIMIT,
+  promiseAllSettledEnhanced,
+} from '@onekeyhq/shared/src/utils/promiseUtils';
 import { sumFiatValuesFromTokens } from '@onekeyhq/shared/src/utils/tokenValueUtils';
 import type {
   IAccountToken,
@@ -84,6 +88,7 @@ export function buildHomeTokenListCacheIngestRound({
 export async function loadHomeTokenListCache(
   target: import('../../../../states/jotai/contexts/accountSelector').IAccountSelectorActiveAccountInfo,
   ownerKey: string,
+  signal?: AbortSignal,
 ) {
   const { default: backgroundApiProxy } =
     await import('../../../../background/instance/backgroundApiProxy');
@@ -101,7 +106,7 @@ export async function loadHomeTokenListCache(
     vaultSettings,
     deriveInfoItems,
   } = target;
-  if (!account || !network || !wallet) return undefined;
+  if (signal?.aborted || !account || !network || !wallet) return undefined;
   const mergeDerive =
     !!vaultSettings?.mergeDeriveAssetsEnabled &&
     !accountUtils.isOthersWallet({ walletId: wallet.id }) &&
@@ -138,15 +143,17 @@ export async function loadHomeTokenListCache(
   } else {
     accounts = [{ accountId: account.id, networkId: network.id }];
   }
-  const results = await Promise.allSettled(
-    accounts.map((item) =>
-      backgroundApiProxy.serviceToken.getAccountLocalTokens(item),
-    ),
+  if (signal?.aborted) return undefined;
+  const results = await promiseAllSettledEnhanced(
+    accounts.map((item) => async () => {
+      if (signal?.aborted) return undefined;
+      return backgroundApiProxy.serviceToken.getAccountLocalTokens(item);
+    }),
+    { concurrency: PROMISE_CONCURRENCY_LIMIT, continueOnError: true },
   );
+  if (signal?.aborted) return undefined;
   const cached = results.flatMap((item, index) =>
-    item.status === 'fulfilled' && item.value.hasCache
-      ? [{ ...item.value, ...accounts[index] }]
-      : [],
+    item?.hasCache ? [{ ...item, ...accounts[index] }] : [],
   );
   if (!cached.length) return undefined;
   const complete = cached.length === accounts.length;
@@ -175,6 +182,7 @@ export async function loadHomeTokenListCache(
     const aggregateConfig = (
       await backgroundApiProxy.simpleDb.aggregateToken.getRawData()
     )?.aggregateTokenConfigMap;
+    if (signal?.aborted) return undefined;
     const rounds = cached.map((item) => {
       let aggregateTokenListMap: Record<
         string,

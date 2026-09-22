@@ -622,20 +622,44 @@ describe('Home switch preparation', () => {
     expect(await prepareHomeTokenListSwitch(target)).toBeUndefined();
   });
 
+  it('aborts superseded preparation and rejects an already prepared stale commit', async () => {
+    const commit = jest.fn();
+    const signals: AbortSignal[] = [];
+    const unregister = registerHomeTokenListPreparer(
+      async (_target, signal) => {
+        signals.push(signal);
+        return commit;
+      },
+    );
+    try {
+      const first = await prepareHomeTokenListSwitch(target);
+      const second = await prepareHomeTokenListSwitch(target);
+      expect(signals[0].aborted).toBe(true);
+      first?.();
+      expect(commit).not.toHaveBeenCalled();
+      second?.();
+      expect(commit).toHaveBeenCalledTimes(1);
+    } finally {
+      unregister();
+    }
+  });
+
   it('an unavailable local cache cannot block selection or commit after timeout', async () => {
     jest.useFakeTimers();
     const commit = jest.fn();
     let resolve: ((value: () => void) => void) | undefined;
-    const unregister = registerHomeTokenListPreparer(
-      () =>
-        new Promise((done) => {
-          resolve = done;
-        }),
-    );
+    let preparationSignal: AbortSignal | undefined;
+    const unregister = registerHomeTokenListPreparer((_target, signal) => {
+      preparationSignal = signal;
+      return new Promise((done) => {
+        resolve = done;
+      });
+    });
     try {
       const pending = prepareHomeTokenListSwitch(target);
       jest.advanceTimersByTime(2000);
       expect(await pending).toBeUndefined();
+      expect(preparationSignal?.aborted).toBe(true);
       resolve?.(commit);
       await Promise.resolve();
       expect(commit).not.toHaveBeenCalled();

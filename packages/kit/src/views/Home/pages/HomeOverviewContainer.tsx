@@ -719,14 +719,9 @@ function HomeOverviewContainer() {
     vaultSettings?.mergeDeriveAssetsEnabled,
   ]);
 
-  const isCurrentTokenCoverageComplete =
-    overviewTokenCacheState.ownerKey === currentOverviewOwnerKey &&
-    overviewTokenCacheState.isComplete === true;
   const isCurrentAllNetworksBalanceFullyReady =
     !network?.isAllNetworks ||
-    (isCurrentAccountWorthReady &&
-      isCurrentAccountDeFiReady &&
-      isCurrentTokenCoverageComplete);
+    (isCurrentAccountWorthReady && isCurrentAccountDeFiReady);
   const isCurrentAccountWorthOwner =
     !!accountWorth.accountId &&
     (accountWorth.accountId === (account?.id ?? '') ||
@@ -736,8 +731,7 @@ function HomeOverviewContainer() {
   const isCurrentTokenSnapshotCommitted =
     isCurrentAccountWorthOwner &&
     accountWorth.initialized &&
-    accountWorth.updateAll === true &&
-    isCurrentTokenCoverageComplete;
+    accountWorth.updateAll === true;
 
   useEffect(() => {
     if (
@@ -790,8 +784,7 @@ function HomeOverviewContainer() {
     resolveHomeOverviewBalanceHold({
       isAllNetworks: !!network?.isAllNetworks,
       hasConfirmedBalance: !!currentConfirmedBalance,
-      isTokenWorthReady:
-        isCurrentAccountWorthReady && isCurrentTokenCoverageComplete,
+      isTokenWorthReady: isCurrentAccountWorthReady,
       isTokenSnapshotCommitted: isCurrentTokenSnapshotCommitted,
       isDeFiReady: isCurrentAccountDeFiReady,
       isDeFiRefreshing: isRefreshingDeFiList,

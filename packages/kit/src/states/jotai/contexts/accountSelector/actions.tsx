@@ -756,21 +756,21 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
         selectedAccount: IAccountSelectorSelectedAccount;
         forceReload?: boolean;
       },
-    ): Promise<IAccountSelectorActiveAccountInfo> =>
-      this.mutex.runExclusive(async () => {
+    ): Promise<IAccountSelectorActiveAccountInfo> => {
+      const { num, selectedAccount, forceReload } = payload;
+      const markActiveAccountInitDone = () => {
+        set(accountSelectorActiveAccountInitDoneAtom(), {
+          ...get(accountSelectorActiveAccountInitDoneAtom()),
+          [num]: true,
+        });
+      };
+      const prepared = await this.mutex.runExclusive(async () => {
         const { serviceAccountSelector } = backgroundApiProxy;
-        const { num, selectedAccount, forceReload } = payload;
         // console.log('buildActiveAccountInfoFromSelectedAccount', {
         // selectedAccount,
         // });
         const currentActiveAccount =
           get(activeAccountsAtom())?.[num] || defaultActiveAccountInfo();
-        const markActiveAccountInitDone = () => {
-          set(accountSelectorActiveAccountInitDoneAtom(), {
-            ...get(accountSelectorActiveAccountInitDoneAtom()),
-            [num]: true,
-          });
-        };
         if (
           !forceReload &&
           shouldKeepCurrentActiveAccountForIncompleteSelection({
@@ -780,7 +780,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
           })
         ) {
           markActiveAccountInitDone();
-          return currentActiveAccount;
+          return { activeAccount: currentActiveAccount, skipped: true };
         }
         let activeAccount: IAccountSelectorActiveAccountInfo | undefined;
         try {
@@ -802,21 +802,27 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
         //   selectedAccount,
         //   activeAccount,
         // });
-        let commitHome: (() => void) | undefined;
-        if (
-          platformEnv.isNative &&
-          num === 0 &&
-          get(accountSelectorContextDataAtom())?.sceneName ===
-            EAccountSelectorSceneName.home
-        ) {
-          try {
-            const { prepareHomeTokenListSwitch } =
-              await import('../tokenList/cells/ownerCache');
-            commitHome = await prepareHomeTokenListSwitch(activeAccount);
-          } catch {
-            // A missing or unreadable local snapshot falls back to loading.
-          }
+        return { activeAccount, skipped: false };
+      });
+      if (prepared.skipped) return prepared.activeAccount;
+      const { activeAccount } = prepared;
+      // Local snapshot reads must not hold the shared selector lock.
+      let commitHome: (() => void) | undefined;
+      if (
+        platformEnv.isNative &&
+        num === 0 &&
+        get(accountSelectorContextDataAtom())?.sceneName ===
+          EAccountSelectorSceneName.home
+      ) {
+        try {
+          const { prepareHomeTokenListSwitch } =
+            await import('../tokenList/cells/ownerCache');
+          commitHome = await prepareHomeTokenListSwitch(activeAccount);
+        } catch {
+          // A missing or unreadable local snapshot falls back to loading.
         }
+      }
+      return this.mutex.runExclusive(() => {
         const currentSelectedAccount =
           this.getSelectedAccount.call(set, { num }) ||
           defaultSelectedAccount();
@@ -826,7 +832,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
             omitBy(selectedAccount, isUndefined),
           )
         ) {
-          return currentActiveAccount;
+          return get(activeAccountsAtom())?.[num] || defaultActiveAccountInfo();
         }
         // No await between applying the target snapshot and publishing its owner.
         commitHome?.();
@@ -837,7 +843,8 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
         markActiveAccountInitDone();
         // contextAtom snapshot saving is now automatic via coldStartCache.
         return activeAccount;
-      }),
+      });
+    },
   );
 
   updateSelectedAccountFocusedWallet = contextAtomMethod(

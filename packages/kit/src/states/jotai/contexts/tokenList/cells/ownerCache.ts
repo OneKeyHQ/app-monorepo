@@ -136,14 +136,17 @@ export function createTokenListOwnerCache(
 
 type IHomeSwitchPreparer = (
   target: IAccountSelectorActiveAccountInfo,
+  signal: AbortSignal,
 ) => Promise<(() => void) | undefined>;
 let homeSwitchPreparer: IHomeSwitchPreparer | undefined;
+let pendingHomeSwitch: AbortController | undefined;
 
 export function registerHomeTokenListPreparer(prepare: IHomeSwitchPreparer) {
   homeSwitchPreparer = prepare;
   return () => {
     if (homeSwitchPreparer === prepare) {
       homeSwitchPreparer = undefined;
+      pendingHomeSwitch?.abort();
     }
   };
 }
@@ -151,16 +154,26 @@ export function registerHomeTokenListPreparer(prepare: IHomeSwitchPreparer) {
 export async function prepareHomeTokenListSwitch(
   target: IAccountSelectorActiveAccountInfo,
 ) {
+  pendingHomeSwitch?.abort();
   if (!homeSwitchPreparer) return undefined;
-  let timeout: ReturnType<typeof setTimeout> | undefined;
+  const controller = new AbortController();
+  pendingHomeSwitch = controller;
+  let onAbort: (() => void) | undefined;
+  const timeout = setTimeout(() => controller.abort(), 2000);
   try {
-    return await Promise.race([
-      homeSwitchPreparer(target),
+    const commit = await Promise.race([
+      homeSwitchPreparer(target, controller.signal),
       new Promise<undefined>((resolve) => {
-        timeout = setTimeout(() => resolve(undefined), 2000);
+        onAbort = () => resolve(undefined);
+        controller.signal.addEventListener('abort', onAbort, { once: true });
       }),
     ]);
+    if (controller.signal.aborted || !commit) return undefined;
+    return () => {
+      if (!controller.signal.aborted) commit();
+    };
   } finally {
     clearTimeout(timeout);
+    if (onAbort) controller.signal.removeEventListener('abort', onAbort);
   }
 }

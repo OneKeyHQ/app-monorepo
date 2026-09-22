@@ -647,6 +647,7 @@ function TokenListBlock({
       let skipPortfolioSyncRequestFinish = false;
       let ownsPortfolioSyncCommunication = false;
       let tokenListRefreshEventStarted = false;
+      let tokenFetchSucceeded = false;
       const endTokenListRefreshEvent = () => {
         if (!tokenListRefreshEventStarted) {
           return;
@@ -832,6 +833,8 @@ function TokenListBlock({
           }
         }
 
+        tokenFetchSucceeded = true;
+
         const activePortfolioSyncRequest = getPortfolioSyncRequestForTarget(
           portfolioSyncTargetKey,
         );
@@ -1012,6 +1015,18 @@ function TokenListBlock({
           }
         }
       } finally {
+        if (
+          activeOwnerRef.current.accountId === account?.id &&
+          activeOwnerRef.current.networkId === network?.id &&
+          singleNetworkRefreshGeneration > 0 &&
+          singleNetworkRefreshGeneration ===
+            singleNetworkRefreshGenerationRef.current
+        ) {
+          updateTokenListState({
+            ...(tokenFetchSucceeded ? { initialized: true } : {}),
+            isRefreshing: false,
+          });
+        }
         if (
           portfolioSyncRequest &&
           !skipPortfolioSyncRequestFinish &&
@@ -1723,10 +1738,12 @@ function TokenListBlock({
       });
 
       if (syncTokenFilterToOverview) {
-        setOverviewTokenCacheState({
-          ownerKey: buildOverviewOwnerKey(account?.id, network?.id),
+        const ownerKey = buildOverviewOwnerKey(account?.id, network?.id);
+        setOverviewTokenCacheState((prev) => ({
+          ...(prev.ownerKey === ownerKey ? prev : {}),
+          ownerKey,
           hasCache: undefined,
-        });
+        }));
       }
     },
     [
@@ -2338,24 +2355,25 @@ function TokenListBlock({
         ownerPresent: !!account?.id,
         indexedAccountPresent: !!indexedAccount?.id,
       });
-      await commitAuthoritativeIngest(snapshot);
-      if (isStaleOwnerRequest()) return;
-      const applied = await refreshProjectionRef.current(
-        cellsIngestInputsRef.current.ownerKey,
-      );
-      if (isStaleOwnerRequest()) return;
-      if (shouldSyncTokenFilterToOverview && applied) {
-        setOverviewTokenCacheState({
-          ownerKey: buildOverviewOwnerKey(account?.id, network?.id),
-          hasCache: true,
-          isComplete: assetStatusAggregationComplete,
-        });
+      try {
+        await commitAuthoritativeIngest(snapshot);
+        if (isStaleOwnerRequest()) return;
+        const applied = await refreshProjectionRef.current(
+          cellsIngestInputsRef.current.ownerKey,
+        );
+        if (isStaleOwnerRequest()) return;
+        if (shouldSyncTokenFilterToOverview && applied) {
+          setOverviewTokenCacheState({
+            ownerKey: buildOverviewOwnerKey(account?.id, network?.id),
+            hasCache: true,
+            isComplete: assetStatusAggregationComplete,
+          });
+        }
+      } finally {
+        if (!isStaleOwnerRequest()) {
+          updateTokenListState({ initialized: true, isRefreshing: false });
+        }
       }
-
-      updateTokenListState({
-        initialized: true,
-        isRefreshing: false,
-      });
 
       // Asset status analytics is non-critical for the Home refresh. Keep it
       // after the authoritative snapshot has reached the UI so a slow background

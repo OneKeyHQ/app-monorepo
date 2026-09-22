@@ -1,3 +1,4 @@
+import { PROMISE_CONCURRENCY_LIMIT } from '@onekeyhq/shared/src/utils/promiseUtils';
 import type { IAccountToken, ITokenFiat } from '@onekeyhq/shared/types/token';
 
 import {
@@ -169,6 +170,54 @@ describe('target account cache preparation', () => {
       'native',
     ]);
     expect(Object.values(result?.worth ?? {})).toEqual(['10']);
+  });
+
+  it('bounds cache reads and stops queued reads after cancellation', async () => {
+    const controller = new AbortController();
+    const resolvers: (() => void)[] = [];
+    mockAllNetworkAccounts.mockResolvedValue({
+      accountsInfo: Array.from(
+        { length: PROMISE_CONCURRENCY_LIMIT + 2 },
+        (_, i) => ({
+          accountId: `account-${i}`,
+          networkId: `evm--${i}`,
+        }),
+      ),
+    });
+    mockLocalTokens.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          resolvers.push(() => resolve(emptyCache));
+        }),
+    );
+    const pending = loadHomeTokenListCache(
+      {
+        ...target,
+        network: { ...target.network, isAllNetworks: true } as NonNullable<
+          typeof target.network
+        >,
+      },
+      'target-all',
+      controller.signal,
+    );
+    // Let the local module imports and account lookup complete.
+    for (let i = 0; i < 20 && resolvers.length === 0; i += 1)
+      await Promise.resolve();
+    expect(mockLocalTokens).toHaveBeenCalledTimes(PROMISE_CONCURRENCY_LIMIT);
+    controller.abort();
+    resolvers.forEach((resolve) => resolve());
+    expect(await pending).toBeUndefined();
+    expect(mockLocalTokens).toHaveBeenCalledTimes(PROMISE_CONCURRENCY_LIMIT);
+  });
+
+  it('does not start cache reads for an already cancelled selection', async () => {
+    const controller = new AbortController();
+    controller.abort();
+    expect(
+      await loadHomeTokenListCache(target, 'target', controller.signal),
+    ).toBeUndefined();
+    expect(mockLocalTokens).not.toHaveBeenCalled();
+    expect(mockAllNetworkAccounts).not.toHaveBeenCalled();
   });
 
   it.each(['missing', 'failed', 'complete'] as const)(

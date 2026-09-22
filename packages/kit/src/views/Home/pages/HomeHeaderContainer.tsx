@@ -1,4 +1,4 @@
-import { memo, useEffect, useRef } from 'react';
+import { memo, useEffect, useRef, useSyncExternalStore } from 'react';
 
 import { useWindowDimensions } from 'react-native';
 
@@ -24,6 +24,13 @@ import { HomeTestIDs } from '../testIDs';
 import { HomeOverviewContainer } from './HomeOverviewContainer';
 
 const nativeHeaderHeights = new Map<string, number>();
+const nativeHeaderHeightListeners = new Set<() => void>();
+const subscribeNativeHeaderHeight = (listener: () => void) => {
+  nativeHeaderHeightListeners.add(listener);
+  return () => {
+    nativeHeaderHeightListeners.delete(listener);
+  };
+};
 
 // Both the header and scroll content select the same measured layout before
 // native onLayout reports the new header height on the following frame.
@@ -42,13 +49,18 @@ export function useHomeHeaderLayout() {
     (banners.length > 0 ||
       !!(vaultSettings?.hasResource && account?.id && network?.id));
   const layoutKey = `${homeBalanceState}:${shouldShowBanner}:${isWalletNotBackedUp}:${width}:${fontScale}`;
+  const measuredHeight = useSyncExternalStore(
+    subscribeNativeHeaderHeight,
+    () => nativeHeaderHeights.get(layoutKey),
+    () => undefined,
+  );
   return {
     wallet,
     isWalletNotBackedUp,
     homeBalanceState,
     shouldShowBanner,
     layoutKey,
-    measuredHeight: nativeHeaderHeights.get(layoutKey),
+    measuredHeight,
   };
 }
 
@@ -100,11 +112,15 @@ function BaseHomeHeaderContainer() {
           ? (event) => {
               const height = Math.round(event.nativeEvent.layout.height);
               if (height > 0) {
+                const changed = nativeHeaderHeights.get(layoutKey) !== height;
+                nativeHeaderHeights.delete(layoutKey);
                 nativeHeaderHeights.set(layoutKey, height);
                 if (nativeHeaderHeights.size > 12) {
                   const oldest = nativeHeaderHeights.keys().next().value;
                   if (oldest) nativeHeaderHeights.delete(oldest);
                 }
+                if (changed)
+                  nativeHeaderHeightListeners.forEach((listener) => listener());
               }
             }
           : undefined
