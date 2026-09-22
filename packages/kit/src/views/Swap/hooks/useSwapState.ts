@@ -85,6 +85,7 @@ import {
   shouldShowSwapQuoteRequestLoading,
 } from '../../../states/jotai/contexts/swap/quoteProgress';
 import { buildSwapBatchTransferType } from '../utils/buildSwapReviewState';
+import { resolveVerifiedSwapBalance } from '../utils/swapBalanceOwnerUtils';
 import { shouldOfferSwapDepositAction } from '../utils/swapDepositActionUtils';
 import { shouldAllowSwapNoConnectWalletWarning } from '../utils/swapNoWalletWarningGuard';
 import {
@@ -833,12 +834,20 @@ export function useSwapActionState() {
     // disconnected wallet and unsupported pairs still win via the helper.
     if (
       shouldOfferSwapDepositAction({
-        balance: selectedFromTokenBalance,
-        // The stock balance comes from its own store, so the swap-mode fetch
-        // failure flag must not block the stock verdict.
-        hasBalanceError:
-          swapTypeSwitchValue !== ESwapTabSwitchType.STOCK &&
-          swapSelectedTokenBalanceMeta.from.unverified,
+        // The stock balance comes from its own store with its own owner
+        // checks. The Swap store figure counts only when it is verified and
+        // belongs to the selected token and account: after a token switch it
+        // still holds the previous token's balance until the debounced reload.
+        balance:
+          swapTypeSwitchValue === ESwapTabSwitchType.STOCK
+            ? selectedFromTokenBalance
+            : resolveVerifiedSwapBalance({
+                balance: selectedFromTokenBalance,
+                balanceMeta: swapSelectedTokenBalanceMeta.from,
+                token: fromToken,
+                accountAddress: swapFromAddressInfo.address,
+                isAddressInfoReady: swapFromAddressInfo.isAddressInfoReady,
+              }),
         hasFromToken: !!fromToken,
         hasToToken: !!toToken,
         hasFromAddress: hasSwapFromAddressForVerdict({
@@ -881,7 +890,7 @@ export function useSwapActionState() {
     swapApprovingMatchLoading,
     buildTxFetching,
     selectedFromTokenBalance,
-    swapSelectedTokenBalanceMeta.from.unverified,
+    swapSelectedTokenBalanceMeta.from,
     fromToken,
     toToken,
     swapUseLimitPrice.rate,

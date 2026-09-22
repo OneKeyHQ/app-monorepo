@@ -571,14 +571,17 @@ export const {
 });
 
 // Bookkeeping for the stored From/To balance: which token + account it was
-// fetched for (see buildSwapBalanceOwnerKey in the swap actions), and whether
+// fetched for (see buildSwapBalanceOwner in swapBalanceOwnerUtils), and whether
 // the stored figure is only a fallback (the fetch failed, or the response
 // carried no balance) rather than an authoritative amount; callers must not
 // read such a '0' as a real zero. A reload for the same owner keeps the figure
 // on screen while it refreshes; a different owner clears it so a stale number
-// is never shown for the new selection.
+// is never shown for the new selection, and readers ignore a figure whose
+// owner is not the current selection (resolveVerifiedSwapBalance).
 export interface ISwapSelectedTokenBalanceMeta {
-  ownerKey?: string;
+  tokenKey?: string;
+  // Lower-cased; only ever compared with itself.
+  accountAddress?: string;
   unverified: boolean;
 }
 export const EMPTY_SWAP_SELECTED_TOKEN_BALANCE_META: ISwapSelectedTokenBalanceMeta =

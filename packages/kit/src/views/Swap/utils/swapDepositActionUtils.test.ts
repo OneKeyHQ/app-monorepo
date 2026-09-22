@@ -19,7 +19,6 @@ describe('isSwapBalanceLoadedZero', () => {
 
 const ready = {
   balance: '0',
-  hasBalanceError: false,
   hasFromToken: true,
   hasToToken: true,
   hasFromAddress: true,
@@ -47,13 +46,6 @@ describe('shouldOfferSwapDepositAction', () => {
     expect(shouldOfferSwapDepositAction({ ...ready, balance: undefined })).toBe(
       false,
     );
-    expect(
-      shouldOfferSwapDepositAction({
-        ...ready,
-        balance: '0.0',
-        hasBalanceError: true,
-      }),
-    ).toBe(false);
     expect(shouldOfferSwapDepositAction({ ...ready, balance: 'n/a' })).toBe(
       false,
     );

@@ -53,7 +53,6 @@ import SwapPercentageStageBadge from '../../components/SwapPercentageStageBadge'
 import { SwapRateDifferenceText } from '../../components/SwapRateDifferenceText';
 import { getTokenIdentityKey } from '../../hooks/swapStockChannelUtils';
 import { useSwapAddressInfo } from '../../hooks/useSwapAccount';
-import { hasSwapFromAddressForVerdict } from '../../hooks/useSwapAccount.utils';
 import {
   getSwapBalanceDisplayEntryFromGlobalSnapshot,
   useSwapColdStartDisplayTokens,
@@ -66,6 +65,7 @@ import {
   resolveSwapBalanceDisplayCacheEntry,
   resolveSwapInputDisplayBalance,
 } from '../../utils/swapBalanceDisplayCacheUtils';
+import { resolveVerifiedSwapBalance } from '../../utils/swapBalanceOwnerUtils';
 import { isSwapBalanceLoadedZero } from '../../utils/swapDepositActionUtils';
 import { getSwapTokenDisplayFiatValue } from '../../utils/swapDisplayFiatValue';
 
@@ -400,25 +400,27 @@ const SwapInputContainer = ({
   // refresh action so the user can re-check the balance after depositing.
   // The balance atom holds '' until it loads and keeps its last value through
   // a same-token refresh, so the chip and the refresh control stay put while
-  // it reloads. A fallback figure (failed fetch, or a response without a
-  // balance) is not a real zero, same as for the action button.
+  // it reloads. A fallback figure, or one still belonging to the previous
+  // token or account, is not this row's zero, same as for the action button.
   const isFromBalanceLoadedZero = useMemo(
     () =>
       direction === ESwapDirectionType.FROM &&
-      !!fromToken &&
-      !swapSelectedTokenBalanceMeta.from.unverified &&
-      hasSwapFromAddressForVerdict({
-        address,
-        isAddressInfoReady: swapAddressInfo.isAddressInfoReady,
-      }) &&
-      isSwapBalanceLoadedZero(fromTokenBalance),
+      isSwapBalanceLoadedZero(
+        resolveVerifiedSwapBalance({
+          balance: fromTokenBalance,
+          balanceMeta: swapSelectedTokenBalanceMeta.from,
+          token: fromToken,
+          accountAddress: address,
+          isAddressInfoReady: swapAddressInfo.isAddressInfoReady,
+        }),
+      ),
     [
       address,
       direction,
       fromToken,
       fromTokenBalance,
       swapAddressInfo.isAddressInfoReady,
-      swapSelectedTokenBalanceMeta.from.unverified,
+      swapSelectedTokenBalanceMeta.from,
     ],
   );
   const { loadSwapSelectTokenDetail } = useSwapActions().current;

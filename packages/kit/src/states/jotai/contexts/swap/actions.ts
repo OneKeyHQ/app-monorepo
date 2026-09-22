@@ -4,9 +4,12 @@ import BigNumber from 'bignumber.js';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ESwapDirection } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/components/SwapPanel/hooks/useTradeType';
-import { getTokenIdentityKey } from '@onekeyhq/kit/src/views/Swap/hooks/swapStockChannelUtils';
 import type { useSwapAddressInfo } from '@onekeyhq/kit/src/views/Swap/hooks/useSwapAccount';
 import { updateSwapBalanceDisplayCache } from '@onekeyhq/kit/src/views/Swap/utils/swapBalanceDisplayCacheUtils';
+import {
+  buildSwapBalanceOwner,
+  isSameSwapBalanceOwner,
+} from '@onekeyhq/kit/src/views/Swap/utils/swapBalanceOwnerUtils';
 import { getSwapTokenBalanceContractAddress } from '@onekeyhq/kit/src/views/Swap/utils/swapBalanceUtils';
 import {
   buildSwapDefaultSelectedTokensForNetwork,
@@ -193,22 +196,6 @@ type IIndependentSwapInputAmountType =
   | ESwapTabSwitchType.LIMIT;
 
 const EMPTY_SWAP_TOKEN_KEYS = new Set<string>();
-
-// Identity of the balance stored for one side: the token plus the account it
-// was fetched for. Any reload for the same key is a refresh and must keep the
-// current figure; a different key is a new selection and must clear it. The
-// key is only ever compared with itself, so a lower-cased address is enough.
-function buildSwapBalanceOwnerKey({
-  token,
-  accountAddress,
-}: {
-  token?: ISwapToken;
-  accountAddress?: string;
-}): string | undefined {
-  const tokenKey = getTokenIdentityKey(token);
-  if (!tokenKey || !accountAddress) return undefined;
-  return `${tokenKey}|${accountAddress.toLowerCase()}`;
-}
 
 function isIndependentSwapInputAmountType(
   type: ESwapTabSwitchType,
@@ -2785,13 +2772,10 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
             // fetch): keep the figure while the fetching flag reports
             // progress. Anything else is a new selection and clears it so a
             // stale figure never shows.
-            const storedBalanceOwner = get(swapSelectedTokenBalanceMetaAtom())[
-              type
-            ].ownerKey;
-            const isSameBalanceOwner =
-              !!storedBalanceOwner &&
-              storedBalanceOwner ===
-                buildSwapBalanceOwnerKey({ token, accountAddress });
+            const isSameBalanceOwner = isSameSwapBalanceOwner(
+              get(swapSelectedTokenBalanceMetaAtom())[type],
+              buildSwapBalanceOwner({ token, accountAddress }),
+            );
             if (!isSameBalanceOwner) {
               if (type === ESwapDirectionType.FROM) {
                 set(swapSelectedFromTokenBalanceAtom(), '');
@@ -2907,11 +2891,13 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         } else {
           set(swapSelectedToTokenBalanceAtom(), balanceDisplay ?? '');
         }
+        const balanceOwner =
+          balanceDisplay === undefined
+            ? undefined
+            : buildSwapBalanceOwner({ token, accountAddress });
         const nextBalanceMeta: ISwapSelectedTokenBalanceMeta = {
-          ownerKey:
-            balanceDisplay === undefined
-              ? undefined
-              : buildSwapBalanceOwnerKey({ token, accountAddress }),
+          tokenKey: balanceOwner?.tokenKey,
+          accountAddress: balanceOwner?.accountAddress,
           // A failed fetch and a response without balanceParsed both leave a
           // '0' fallback in the balance atom; neither is an authoritative
           // zero, so the deposit verdict must not act on it.
@@ -2922,7 +2908,8 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         // Same-value refreshes keep the previous object so subscribers of the
         // verdict do not re-render for nothing.
         set(swapSelectedTokenBalanceMetaAtom(), (previous) =>
-          previous[type].ownerKey === nextBalanceMeta.ownerKey &&
+          previous[type].tokenKey === nextBalanceMeta.tokenKey &&
+          previous[type].accountAddress === nextBalanceMeta.accountAddress &&
           previous[type].unverified === nextBalanceMeta.unverified
             ? previous
             : { ...previous, [type]: nextBalanceMeta },

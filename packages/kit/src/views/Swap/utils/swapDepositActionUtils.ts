@@ -12,14 +12,14 @@ export function isSwapBalanceLoadedZero(balance?: string): boolean {
 export interface IShouldOfferSwapDepositActionParams {
   // From-token balance display string; '' (or undefined) until it has loaded.
   // A same-token refresh keeps the last value, so an in-flight fetch never
-  // flips the verdict.
+  // flips the verdict. Swap callers pass it through resolveVerifiedSwapBalance
+  // first so a fallback figure, or one belonging to another token or account,
+  // reads as not loaded.
   balance: string | undefined;
   hasFromToken: boolean;
   hasToToken: boolean;
   hasFromAddress: boolean;
   noProviderSupportsTrade: boolean;
-  // The last balance fetch failed; the stored '0.0' is a fallback, not a zero.
-  hasBalanceError?: boolean;
   noConnectWallet?: boolean;
   isStockBalanceUnavailable?: boolean;
 }
@@ -35,7 +35,6 @@ export function shouldOfferSwapDepositAction({
   hasToToken,
   hasFromAddress,
   noProviderSupportsTrade,
-  hasBalanceError = false,
   noConnectWallet = false,
   isStockBalanceUnavailable = false,
 }: IShouldOfferSwapDepositActionParams): boolean {
@@ -43,6 +42,5 @@ export function shouldOfferSwapDepositAction({
   if (noConnectWallet || noProviderSupportsTrade || isStockBalanceUnavailable) {
     return false;
   }
-  if (hasBalanceError) return false;
   return isSwapBalanceLoadedZero(balance);
 }
