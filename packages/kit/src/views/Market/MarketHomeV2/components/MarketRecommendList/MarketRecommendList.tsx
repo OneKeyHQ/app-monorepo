@@ -14,6 +14,7 @@ import type { IMarketBasicConfigToken } from '@onekeyhq/shared/types/marketV2';
 import { useWatchListV2Action } from '../../../components/watchListHooksV2';
 import { getRecommendTokenNetworkId } from '../../../utils/getRecommendTokenNetworkId';
 import { mapRecommendTokensToWatchlistItems } from '../../../utils/mapRecommendTokensToWatchlistItems';
+import { orderSelectedRecommendTokens } from '../../../utils/orderSelectedRecommendTokens';
 import { getMarketRecommendContainerPaddingTop } from '../../layouts/mobileLayoutUtils';
 
 import { RecommendItem } from './RecommendItem';
@@ -138,7 +139,12 @@ export function MarketRecommendList({
     isAddingRef.current = true;
     setIsAdding(true);
     try {
-      const items = await mapRecommendTokensToWatchlistItems(selectedTokens);
+      const orderedTokens = orderSelectedRecommendTokens(
+        defaultTokens,
+        selectedTokens,
+        getTokenKey,
+      );
+      const items = await mapRecommendTokensToWatchlistItems(orderedTokens);
 
       const added = await actions.addIntoWatchListV2(items, {
         preserveOrder: true,
@@ -148,7 +154,7 @@ export function MarketRecommendList({
       }
 
       // Log analytics for each token added to watchlist from recommend list
-      selectedTokens.forEach((token) => {
+      orderedTokens.forEach((token) => {
         defaultLogger.dex.watchlist.dexAddToWatchlist({
           network: token.chainId,
           tokenSymbol: token.symbol || '',

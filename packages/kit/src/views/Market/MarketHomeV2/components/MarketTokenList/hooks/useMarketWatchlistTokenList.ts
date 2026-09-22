@@ -116,9 +116,30 @@ export function useMarketWatchlistTokenList({
   const [isInitialLoad, setIsInitialLoad] = useState(true);
   // Cold start paints spot, listings, and perps as each request returns, so
   // rows pop in and the order jumps (OK-63895). Hold the first commit until
-  // every source for this watchlist has settled. A page cache or a list that
-  // already rendered keeps its rows and only fills in what is still missing.
+  // every source for this watchlist generation has been seen loading and then
+  // settled. Loading flags from the previous empty request stay false until
+  // the next effect, so the render that receives the hydrated list must not
+  // count them. Cache written by those in-flight effects is also ignored;
+  // only a cache that already existed when this hook mounted can paint early.
   const hasCommittedWatchlistRowsRef = useRef(false);
+  const watchlistGenerationRef = useRef<string | null>(null);
+  // Set on the render that receives a new watchlist, cleared after that
+  // generation's fetch effects start. Loading observed on the transition
+  // render still belongs to the previous request.
+  const pendingGenerationRef = useRef<string | null>(null);
+  const sourceLoadingSeenRef = useRef({
+    spot: false,
+    listing: false,
+    perps: false,
+  });
+  const [, setWatchlistFetchEpoch] = useState(0);
+  const hadCachedRowsOnMountRef = useRef(
+    Boolean(
+      dataCacheRef?.current?.spot?.list?.length ||
+      dataCacheRef?.current?.listing?.length ||
+      dataCacheRef?.current?.perps?.tokenListData,
+    ),
+  );
 
   const pageIndex = useCarouselIndex();
 
@@ -580,23 +601,69 @@ export function useMarketWatchlistTokenList({
     });
   }, [transformedData, sortBy, sortType]);
 
+  const watchlistGeneration = watchlist
+    .map((item) => getMarketWatchlistKey(item))
+    .join('\n');
+  if (watchlistGenerationRef.current !== watchlistGeneration) {
+    watchlistGenerationRef.current = watchlistGeneration;
+    pendingGenerationRef.current = watchlistGeneration;
+    sourceLoadingSeenRef.current = {
+      spot: false,
+      listing: false,
+      perps: false,
+    };
+    if (watchlist.length === 0) {
+      hasCommittedWatchlistRowsRef.current = false;
+    }
+  }
+  const watchlistFetchStarted =
+    pendingGenerationRef.current !== watchlistGeneration;
+  if (watchlistFetchStarted) {
+    if (apiLoading === true) {
+      sourceLoadingSeenRef.current.spot = true;
+    }
+    if (listingLoading === true) {
+      sourceLoadingSeenRef.current.listing = true;
+    }
+    if (perpsLoading === true) {
+      sourceLoadingSeenRef.current.perps = true;
+    }
+  }
+  useEffect(() => {
+    pendingGenerationRef.current = null;
+    setWatchlistFetchEpoch((epoch) => epoch + 1);
+  }, [watchlistGeneration]);
+  const sourceHasSettled = (
+    itemCount: number,
+    loading: boolean | undefined,
+    seenLoading: boolean,
+  ) => itemCount === 0 || (seenLoading && loading === false);
   const watchlistSourcesSettled =
     watchlist.length > 0 &&
-    (spotItems.length === 0 || apiLoading === false) &&
-    (listingItems.length === 0 || listingLoading === false) &&
-    (perpsItems.length === 0 || perpsLoading === false);
+    sourceHasSettled(
+      spotItems.length,
+      apiLoading,
+      sourceLoadingSeenRef.current.spot,
+    ) &&
+    sourceHasSettled(
+      listingItems.length,
+      listingLoading,
+      sourceLoadingSeenRef.current.listing,
+    ) &&
+    sourceHasSettled(
+      perpsItems.length,
+      perpsLoading,
+      sourceLoadingSeenRef.current.perps,
+    );
   if (watchlistSourcesSettled) {
     hasCommittedWatchlistRowsRef.current = true;
   }
-  const hasRenderableCache = Boolean(
-    dataCacheRef?.current?.spot?.list?.length ||
-      dataCacheRef?.current?.listing?.length ||
-      dataCacheRef?.current?.perps?.tokenListData,
+  const showWatchlistRows =
+    hasCommittedWatchlistRowsRef.current || hadCachedRowsOnMountRef.current;
+  const displayData = useMemo(
+    () => (showWatchlistRows ? sortedData : []),
+    [showWatchlistRows, sortedData],
   );
-  const displayData =
-    hasCommittedWatchlistRowsRef.current || hasRenderableCache
-      ? sortedData
-      : [];
 
   const totalCount = displayData.length;
   const totalPages = totalCount > 0 ? Math.ceil(totalCount / pageSize) : 1;

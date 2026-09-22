@@ -59,6 +59,7 @@ import {
   mapRecommendTokensToWatchlistItems,
 } from '../../../Market/utils/mapRecommendTokensToWatchlistItems';
 import { openOrReplaceMarketDetailRoute } from '../../../Market/utils/marketDetailNavigation';
+import { orderSelectedRecommendTokens } from '../../../Market/utils/orderSelectedRecommendTokens';
 import { RichBlock } from '../RichBlock/RichBlock';
 import { RichTable } from '../RichTable';
 
@@ -819,8 +820,13 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
     setIsAdding(true);
 
     try {
+      const orderedTokens = orderSelectedRecommendTokens(
+        favoriteTokens,
+        selectedTokens,
+        getTokenKey,
+      );
       const mappedItems =
-        await mapRecommendTokensToWatchlistItems(selectedTokens);
+        await mapRecommendTokensToWatchlistItems(orderedTokens);
       const sortIndexes = sortUtils.buildOrderedTopSortIndexes({
         oldList: [],
         count: mappedItems.length,
@@ -866,7 +872,7 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
       isAddingRef.current = false;
       setIsAdding(false);
     }
-  }, [selectedTokens, intl, refreshData]);
+  }, [favoriteTokens, selectedTokens, intl, refreshData]);
 
   // Handle remove token from watchlist
   const handleRemoveFromWatchlist = useCallback(
