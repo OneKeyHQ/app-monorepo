@@ -482,8 +482,10 @@ export function SwapStockMarketPanel() {
                   ))
                 : null}
             </XStack>
+            {/* Reflect what is drawn: with no Pro source the simple chart
+                stands in, so the control must not claim Pro. */}
             <StockChartModeControl
-              mode={chartMode}
+              mode={isSimpleChart ? 'simple' : 'pro'}
               onChange={(mode) => setChartDisplayMode({ mode })}
             />
           </XStack>
