@@ -3,9 +3,33 @@ import { createIntl } from 'react-intl';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import enMessages from '@onekeyhq/shared/src/locale/json/en_US.json';
 import zhMessages from '@onekeyhq/shared/src/locale/json/zh_CN.json';
+import { EPrimeAuthSessionSource } from '@onekeyhq/shared/types/prime/primeTypes';
 import type { IRevenueCatPackage } from '@onekeyhq/shared/types/prime/revenueCat';
 
 import { createDesktopStorePurchasesSdk } from './desktopStorePurchasesSdk';
+
+const mockGetActiveAuthToken = jest.fn(async () => 'not-forwarded-to-ipc');
+const mockGetAuthSessionSource = jest.fn<
+  Promise<EPrimeAuthSessionSource | undefined>,
+  []
+>(async () => EPrimeAuthSessionSource.KeylessOAuth);
+const mockGetDevSetting = jest.fn(async () => ({
+  enabled: false,
+  settings: { enableTestEndpoint: false },
+}));
+jest.mock('../../../background/instance/backgroundApiProxy', () => ({
+  __esModule: true,
+  default: {
+    simpleDb: {
+      prime: {
+        getActiveAuthToken: () => mockGetActiveAuthToken(),
+        getAuthSessionSource: () => mockGetAuthSessionSource(),
+      },
+    },
+    serviceDevSetting: { getDevSetting: () => mockGetDevSetting() },
+    serviceSetting: { getInstanceId: async () => 'instance-a' },
+  },
+}));
 
 let desktopStorePurchasesSdk: ReturnType<typeof createDesktopStorePurchasesSdk>;
 const enTranslations: Record<string, string> = enMessages;
@@ -16,7 +40,10 @@ const testLocales = [
 ];
 
 const mockApi = {
-  revenueCatIsAvailable: jest.fn(async () => true),
+  revenueCatLogInWithVerifiedSession: jest.fn(
+    async (_params: unknown) => undefined,
+  ),
+  revenueCatSupportsVerifiedIdentity: jest.fn(async () => true),
   revenueCatConfigure: jest.fn(async (_params: unknown) => undefined),
   revenueCatGetCustomerInfo: jest.fn(async (_params: unknown) => undefined),
   revenueCatPurchasePackage: jest.fn<Promise<unknown>, [unknown]>(),
@@ -44,10 +71,17 @@ const pkg: IRevenueCatPackage = {
 describe('desktop RevenueCat adapter', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockGetAuthSessionSource.mockResolvedValue(
+      EPrimeAuthSessionSource.KeylessOAuth,
+    );
+    mockGetDevSetting.mockResolvedValue({
+      enabled: false,
+      settings: { enableTestEndpoint: false },
+    });
     desktopStorePurchasesSdk = createDesktopStorePurchasesSdk(
       createIntl({ locale: 'zh-CN', messages: zhTranslations }),
     );
-    mockApi.revenueCatIsAvailable.mockResolvedValue(true);
+    mockApi.revenueCatSupportsVerifiedIdentity.mockResolvedValue(true);
     Object.defineProperty(globalThis, 'desktopApiProxy', {
       configurable: true,
       value: { inAppPurchase: mockApi },
@@ -60,7 +94,7 @@ describe('desktop RevenueCat adapter', () => {
       desktopStorePurchasesSdk = createDesktopStorePurchasesSdk(
         createIntl({ locale, messages }),
       );
-      mockApi.revenueCatIsAvailable.mockResolvedValue(false);
+      mockApi.revenueCatSupportsVerifiedIdentity.mockResolvedValue(false);
       await expect(
         desktopStorePurchasesSdk.configure({ apiKey: 'apple-key' }),
       ).rejects.toThrow(
@@ -97,7 +131,7 @@ describe('desktop RevenueCat adapter', () => {
   });
 
   it('reports an unsupported older application shell clearly', async () => {
-    mockApi.revenueCatIsAvailable.mockRejectedValueOnce(
+    mockApi.revenueCatSupportsVerifiedIdentity.mockRejectedValueOnce(
       new Error('Unknown IPC method'),
     );
     await expect(
@@ -175,5 +209,60 @@ describe('desktop RevenueCat adapter', () => {
     await expect(
       desktopStorePurchasesSdk.getIntroEligibleProductIds([pkg]),
     ).resolves.toEqual(new Set());
+  });
+});
+
+describe('desktop identity handoff', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockGetAuthSessionSource.mockResolvedValue(
+      EPrimeAuthSessionSource.KeylessOAuth,
+    );
+    mockGetDevSetting.mockResolvedValue({
+      enabled: false,
+      settings: { enableTestEndpoint: false },
+    });
+    desktopStorePurchasesSdk = createDesktopStorePurchasesSdk(
+      createIntl({ locale: 'zh-CN', messages: zhTranslations }),
+    );
+    Object.defineProperty(globalThis, 'desktopApiProxy', {
+      configurable: true,
+      value: { inAppPurchase: mockApi },
+    });
+  });
+
+  it('refreshes the stored session and passes only context selectors to main', async () => {
+    await desktopStorePurchasesSdk.logIn('user-a');
+    expect(mockGetActiveAuthToken).toHaveBeenCalledTimes(1);
+    expect(mockApi.revenueCatLogInWithVerifiedSession).toHaveBeenCalledWith({
+      expectedAppUserId: 'user-a',
+      authContext: {
+        sessionSource: EPrimeAuthSessionSource.KeylessOAuth,
+        endpointEnv: 'prod',
+        instanceId: 'instance-a',
+      },
+    });
+    expect(
+      JSON.stringify(mockApi.revenueCatLogInWithVerifiedSession.mock.calls),
+    ).not.toContain('not-forwarded-to-ipc');
+  });
+
+  it('does not invoke main login without an active OneKey session source', async () => {
+    mockGetAuthSessionSource.mockResolvedValue(undefined);
+    await expect(desktopStorePurchasesSdk.logIn('user-a')).rejects.toThrow(
+      zhMessages[ETranslations.prime_onekey_id_session_changed__msg],
+    );
+    expect(mockApi.revenueCatLogInWithVerifiedSession).not.toHaveBeenCalled();
+  });
+
+  it('preserves native identity-confirmation cancellation', async () => {
+    mockApi.revenueCatLogInWithVerifiedSession.mockRejectedValueOnce(
+      Object.assign(new Error('Cancel'), {
+        data: { revenueCat: true, userCancelled: true },
+      }),
+    );
+    await expect(
+      desktopStorePurchasesSdk.logIn('user-a'),
+    ).rejects.toMatchObject({ userCancelled: true });
   });
 });

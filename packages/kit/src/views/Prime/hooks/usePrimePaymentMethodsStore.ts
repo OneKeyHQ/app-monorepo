@@ -124,6 +124,9 @@ export function usePrimePaymentMethodsStore<
       try {
         await sdk.logIn(expectedUserId);
       } catch (error) {
+        // A rejected native identity confirmation must not be retried or
+        // bypassed by continuing with a previously logged-in SDK account.
+        if (platformEnv.isMas) throw error;
         console.error(getSanitizedErrorLogText(error));
         await ensureCurrentUser(expectedUserId);
         try {
@@ -209,6 +212,12 @@ export function usePrimePaymentMethodsStore<
         });
       }
     } catch (e) {
+      if (
+        platformEnv.isMas &&
+        (e as { userCancelled?: boolean })?.userCancelled
+      ) {
+        return;
+      }
       console.error(
         '[Prime] Restore purchases failed:',
         getSanitizedErrorLogText(e),

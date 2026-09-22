@@ -2,6 +2,8 @@ import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IRevenueCatPackage } from '@onekeyhq/shared/types/prime/revenueCat';
 
+import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
+
 import type { IPrimeStorePurchasesSdk } from './storePurchasesSdkTypes';
 import type { IntlShape } from 'react-intl';
 
@@ -29,7 +31,9 @@ export function createDesktopStorePurchasesSdk(
       const api = globalThis.desktopApiProxy?.inAppPurchase;
       let isAvailable = false;
       try {
-        isAvailable = Boolean(await api?.revenueCatIsAvailable?.());
+        isAvailable = Boolean(
+          await api?.revenueCatSupportsVerifiedIdentity?.(),
+        );
       } catch {
         // An older Electron shell does not implement this IPC method.
       }
@@ -42,8 +46,37 @@ export function createDesktopStorePurchasesSdk(
       }
       await api.revenueCatConfigure({ apiKey });
     },
-    logIn: (appUserId) =>
-      globalThis.desktopApiProxy.inAppPurchase.revenueCatLogIn({ appUserId }),
+    logIn: (expectedAppUserId) =>
+      withRevenueCatError(async () => {
+        // Refresh the persisted session before main reads it independently.
+        await backgroundApiProxy.simpleDb.prime.getActiveAuthToken();
+        const sessionSource =
+          await backgroundApiProxy.simpleDb.prime.getAuthSessionSource();
+        if (!sessionSource) {
+          throw new OneKeyLocalError(
+            intl.formatMessage({
+              id: ETranslations.prime_onekey_id_session_changed__msg,
+            }),
+          );
+        }
+        const [devSettings, instanceId] = await Promise.all([
+          backgroundApiProxy.serviceDevSetting.getDevSetting(),
+          backgroundApiProxy.serviceSetting.getInstanceId(),
+        ]);
+        await globalThis.desktopApiProxy.inAppPurchase.revenueCatLogInWithVerifiedSession(
+          {
+            expectedAppUserId,
+            authContext: {
+              sessionSource,
+              endpointEnv:
+                devSettings.enabled && devSettings.settings?.enableTestEndpoint
+                  ? 'test'
+                  : 'prod',
+              instanceId,
+            },
+          },
+        );
+      }),
     getAppUserID: () =>
       globalThis.desktopApiProxy.inAppPurchase.revenueCatGetAppUserId(),
     getCustomerInfo: (expectedAppUserId) =>

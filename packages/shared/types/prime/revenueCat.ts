@@ -1,3 +1,12 @@
+import type { EPrimeAuthSessionSource } from './primeTypes';
+import type { IEndpointEnv } from '../endpoint';
+
+export type IRevenueCatAuthContext = {
+  sessionSource: EPrimeAuthSessionSource;
+  endpointEnv: IEndpointEnv;
+  instanceId: string;
+};
+
 export type IRevenueCatCustomerInfo = {
   managementURL: string | null;
   entitlements: {
@@ -41,7 +50,10 @@ export type IRevenueCatPurchaseResult = {
 
 export type IRevenueCatRequestMap = {
   configure: { apiKey: string };
-  logIn: { appUserId: string };
+  logIn: {
+    expectedAppUserId: string;
+    authContext: IRevenueCatAuthContext;
+  };
   logOut: undefined;
   getAppUserId: undefined;
   getCustomerInfo: { expectedAppUserId: string };

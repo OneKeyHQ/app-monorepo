@@ -47,6 +47,7 @@ const mockPurchaseSuccessListener = jest.fn();
 const mockTrackPrimeSubscriptionSuccess = jest.fn<void, [unknown]>();
 const mockEmitToSelf = jest.spyOn(appEventBus, 'emitToSelf');
 const mockIsGooglePlayAvailable = jest.fn(async () => true);
+let mockIsMas = false;
 let mockIsNativeAndroid = false;
 let mockIsNativeIOS = true;
 let mockRecurringPriceUnit: 'major' | 'micros' = 'major';
@@ -146,6 +147,9 @@ jest.mock('@onekeyhq/shared/src/logger/logger', () => ({
 jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
   __esModule: true,
   default: {
+    get isMas() {
+      return mockIsMas;
+    },
     get isNativeAndroid() {
       return mockIsNativeAndroid;
     },
@@ -219,6 +223,7 @@ describe('usePrimePaymentMethods native purchase', () => {
     jest.clearAllMocks();
     mockOneKeyUserId = 'user-a';
     mockPersistedOneKeyUserId = 'user-a';
+    mockIsMas = false;
     mockIsNativeAndroid = false;
     mockIsNativeIOS = true;
     mockRecurringPriceUnit = 'major';
@@ -756,6 +761,35 @@ describe('usePrimePaymentMethods native purchase', () => {
       expect(mockFetchPrimeUserInfo).not.toHaveBeenCalled();
     },
   );
+
+  it('does not retry or toast a cancelled MAS identity confirmation during restore', async () => {
+    mockIsMas = true;
+    mockLogIn.mockRejectedValueOnce(
+      Object.assign(new Error('Cancel'), { userCancelled: true }),
+    );
+    const { result } = renderHook(() => usePrimePaymentMethods());
+    await waitFor(() => expect(result.current.isReady).toBe(true));
+    await act(async () => {
+      await result.current.restorePurchases?.();
+    });
+    expect(mockLogIn).toHaveBeenCalledTimes(1);
+    expect(mockRestorePurchases).not.toHaveBeenCalled();
+    expect(Toast.message).not.toHaveBeenCalled();
+    expect(mockHideDialogLoading).toHaveBeenCalled();
+  });
+
+  it('does not use a previous SDK login when MAS identity verification fails', async () => {
+    mockIsMas = true;
+    mockLogIn.mockRejectedValueOnce(new Error('Identity verification failed'));
+    const { result } = renderHook(() => usePrimePaymentMethods());
+    await waitFor(() => expect(result.current.isReady).toBe(true));
+    await act(async () => {
+      await result.current.restorePurchases?.();
+    });
+    expect(mockLogIn).toHaveBeenCalledTimes(1);
+    expect(mockGetAppUserID).not.toHaveBeenCalled();
+    expect(mockRestorePurchases).not.toHaveBeenCalled();
+  });
 
   it('reports restore success even when user-info refresh fails', async () => {
     mockRestorePurchases.mockResolvedValue({

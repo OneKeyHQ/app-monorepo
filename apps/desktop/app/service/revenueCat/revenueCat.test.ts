@@ -1,5 +1,7 @@
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { unwrapElectronIpcError } from '@onekeyhq/shared/src/errors/utils/electronIpcError';
+import { ETranslations } from '@onekeyhq/shared/src/locale/enum/translations';
+import { EPrimeAuthSessionSource } from '@onekeyhq/shared/types/prime/primeTypes';
 import type {
   IRevenueCatMethod,
   IRevenueCatPurchaseResult,
@@ -8,7 +10,27 @@ import type {
 
 import { RevenueCatDesktopClient } from './revenueCat';
 
+import type { IVerifiedRevenueCatIdentity } from './revenueCatIdentity';
+
 jest.mock('electron', () => ({ app: {} }));
+jest.mock('../../libs/store', () => ({ getSecureItem: jest.fn() }));
+jest.mock('../../i18n', () => ({ i18nText: (key: string) => key }));
+
+const authContext = {
+  sessionSource: EPrimeAuthSessionSource.KeylessOAuth,
+  endpointEnv: 'prod' as const,
+  instanceId: 'instance-a',
+};
+const loginParams = (expectedAppUserId = 'user-a') => ({
+  expectedAppUserId,
+  authContext,
+});
+const verifiedIdentity = (userId = 'user-a'): IVerifiedRevenueCatIdentity => ({
+  userId,
+  email: `${userId}@example.com`,
+  isPrime: false,
+  assertCurrentSession: jest.fn(),
+});
 
 const purchaseParams = {
   packageIdentifier: '$rc_annual',
@@ -61,11 +83,25 @@ function createClient(isMacAppStore = true) {
     [IRevenueCatMethod, Record<string, unknown>]
   >(nativeImplementation);
   const loadNativeModule = jest.fn(() => ({ invoke: nativeInvoke }));
+  const verifyIdentity = jest.fn(async () => verifiedIdentity());
+  const confirmIdentity = jest.fn(
+    async (_identity: IVerifiedRevenueCatIdentity) => true,
+  );
   const client = new RevenueCatDesktopClient({
+    apiKey: 'apple-key',
+    verifyIdentity,
+    confirmIdentity,
     isMacAppStore: () => isMacAppStore,
     loadNativeModule,
   });
-  return { client, nativeInvoke, nativeImplementation, loadNativeModule };
+  return {
+    client,
+    nativeInvoke,
+    nativeImplementation,
+    loadNativeModule,
+    verifyIdentity,
+    confirmIdentity,
+  };
 }
 
 describe('RevenueCatDesktopClient', () => {
@@ -113,7 +149,7 @@ describe('RevenueCatDesktopClient', () => {
 
     await expect(
       client.invoke('configure', { apiKey: 'different-key' }),
-    ).rejects.toThrow('already configured with a different API key');
+    ).rejects.toThrow('Unsupported RevenueCat API key');
     expect(nativeInvoke).toHaveBeenCalledTimes(1);
   });
 
@@ -144,7 +180,7 @@ describe('RevenueCatDesktopClient', () => {
     await client.invoke('logOut', undefined);
     expect(nativeInvoke).not.toHaveBeenCalledWith('logOut', {});
 
-    await client.invoke('logIn', { appUserId: 'user-a' });
+    await client.invoke('logIn', loginParams());
     await Promise.all([
       client.invoke('logOut', undefined),
       client.invoke('logOut', undefined),
@@ -167,9 +203,10 @@ describe('RevenueCatDesktopClient', () => {
   });
 
   it('holds the SDK identity for the entire purchase before allowing another login', async () => {
-    const { client, nativeInvoke, nativeImplementation } = createClient();
+    const { client, nativeInvoke, nativeImplementation, verifyIdentity } =
+      createClient();
     await client.invoke('configure', { apiKey: 'apple-key' });
-    await client.invoke('logIn', { appUserId: 'user-a' });
+    await client.invoke('logIn', loginParams());
     const completed = createDeferred<IRevenueCatPurchaseResult>();
     const started = createDeferred<void>();
     nativeInvoke.mockImplementation((method, params) => {
@@ -182,7 +219,8 @@ describe('RevenueCatDesktopClient', () => {
 
     const purchase = client.invoke('purchasePackage', purchaseParams);
     await started.promise;
-    const nextLogin = client.invoke('logIn', { appUserId: 'user-b' });
+    verifyIdentity.mockResolvedValue(verifiedIdentity('user-b'));
+    const nextLogin = client.invoke('logIn', loginParams('user-b'));
     expect(nativeInvoke).not.toHaveBeenCalledWith('logIn', {
       appUserId: 'user-b',
     });
@@ -200,14 +238,15 @@ describe('RevenueCatDesktopClient', () => {
   });
 
   it('rejects a queued stale purchase after another user logs in', async () => {
-    const { client, nativeInvoke } = createClient();
+    const { client, nativeInvoke, verifyIdentity } = createClient();
     await client.invoke('configure', { apiKey: 'apple-key' });
-    await client.invoke('logIn', { appUserId: 'user-a' });
+    await client.invoke('logIn', loginParams());
 
-    const nextLogin = client.invoke('logIn', { appUserId: 'user-b' });
+    verifyIdentity.mockResolvedValue(verifiedIdentity('user-b'));
+    const nextLogin = client.invoke('logIn', loginParams('user-b'));
     const stalePurchase = client.invoke('purchasePackage', purchaseParams);
     await expect(stalePurchase).rejects.toThrow(
-      'app user ID changed before the request',
+      ETranslations.prime_onekey_id_session_changed__msg,
     );
     await nextLogin;
     expect(
@@ -218,16 +257,17 @@ describe('RevenueCatDesktopClient', () => {
   it.each(['getCustomerInfo', 'restorePurchases', 'setAttributes'] as const)(
     'rejects %s for a different SDK identity',
     async (method) => {
-      const { client, nativeInvoke } = createClient();
+      const { client, nativeInvoke, verifyIdentity } = createClient();
       await client.invoke('configure', { apiKey: 'apple-key' });
-      await client.invoke('logIn', { appUserId: 'user-b' });
+      verifyIdentity.mockResolvedValue(verifiedIdentity('user-b'));
+      await client.invoke('logIn', loginParams('user-b'));
 
       await expect(
         client.invoke(method, {
           expectedAppUserId: 'user-a',
           attributes: { '$posthogUserId': 'instance-a' },
         }),
-      ).rejects.toThrow('app user ID changed before the request');
+      ).rejects.toThrow(ETranslations.prime_onekey_id_session_changed__msg);
       expect(
         nativeInvoke.mock.calls.some(
           ([calledMethod]) => calledMethod === method,
@@ -239,7 +279,7 @@ describe('RevenueCatDesktopClient', () => {
   it('rejects overlapping purchase and restore requests and releases the gate after failure', async () => {
     const { client, nativeInvoke, nativeImplementation } = createClient();
     await client.invoke('configure', { apiKey: 'apple-key' });
-    await client.invoke('logIn', { appUserId: 'user-a' });
+    await client.invoke('logIn', loginParams());
     const completed = createDeferred<IRevenueCatPurchaseResult>();
     const started = createDeferred<void>();
     nativeInvoke.mockImplementation((method, params) => {
@@ -280,7 +320,7 @@ describe('RevenueCatDesktopClient', () => {
   ])('preserves cancellation across Electron IPC for %j', async (details) => {
     const { client, nativeInvoke } = createClient();
     await client.invoke('configure', { apiKey: 'apple-key' });
-    await client.invoke('logIn', { appUserId: 'user-a' });
+    await client.invoke('logIn', loginParams());
     nativeInvoke.mockResolvedValueOnce('user-a');
     nativeInvoke.mockRejectedValueOnce(
       Object.assign(new Error('Store purchase cancelled'), details),
@@ -320,8 +360,8 @@ describe('RevenueCatDesktopClient', () => {
     {
       name: 'non-string user ID',
       method: 'logIn',
-      params: { appUserId: 42 },
-      error: 'Invalid RevenueCat app user ID',
+      params: { ...loginParams(), expectedAppUserId: 42 },
+      error: 'Invalid RevenueCat expected app user ID',
     },
     {
       name: 'missing offering identifier',
@@ -380,4 +420,188 @@ describe('RevenueCatDesktopClient', () => {
       expect(nativeInvoke).not.toHaveBeenCalled();
     },
   );
+});
+
+describe('RevenueCat trusted identity boundary', () => {
+  it('rechecks the persisted session after awaiting the native identity read', async () => {
+    const { client, nativeInvoke, nativeImplementation, verifyIdentity } =
+      createClient();
+    let sessionCurrent = true;
+    verifyIdentity.mockImplementation(async () => ({
+      ...verifiedIdentity(),
+      assertCurrentSession: () => {
+        if (!sessionCurrent) throw new OneKeyLocalError('session changed');
+      },
+    }));
+    await client.invoke('configure', { apiKey: 'apple-key' });
+    await client.invoke('logIn', loginParams());
+    nativeInvoke.mockImplementation((method, params) => {
+      if (method === 'getAppUserId') sessionCurrent = false;
+      return nativeImplementation(method, params);
+    });
+    await expect(
+      client.invoke('purchasePackage', purchaseParams),
+    ).rejects.toThrow('session changed');
+    expect(
+      nativeInvoke.mock.calls.some(([method]) => method === 'purchasePackage'),
+    ).toBe(false);
+  });
+
+  it('rejects an arbitrary renderer account even when both requested IDs agree', async () => {
+    const { client, nativeInvoke, confirmIdentity } = createClient();
+    await client.invoke('configure', { apiKey: 'apple-key' });
+    await expect(
+      client.invoke('logIn', loginParams('attacker')),
+    ).rejects.toThrow(ETranslations.prime_onekey_id_session_changed__msg);
+    await expect(
+      client.invoke('purchasePackage', {
+        ...purchaseParams,
+        expectedAppUserId: 'attacker',
+      }),
+    ).rejects.toThrow(ETranslations.prime_onekey_id_session_changed__msg);
+    await expect(
+      client.invoke('restorePurchases', { expectedAppUserId: 'attacker' }),
+    ).rejects.toThrow(ETranslations.prime_onekey_id_session_changed__msg);
+    expect(confirmIdentity).not.toHaveBeenCalled();
+    expect(nativeInvoke.mock.calls.map(([method]) => method)).toEqual([
+      'configure',
+    ]);
+  });
+
+  it('ignores an injected native appUserId and logs in only as the server-verified user', async () => {
+    const { client, nativeInvoke } = createClient();
+    await client.invoke('configure', { apiKey: 'apple-key' });
+    const params = { ...loginParams(), appUserId: 'attacker' };
+    await client.invoke('logIn', params);
+    expect(nativeInvoke).toHaveBeenCalledWith('logIn', { appUserId: 'user-a' });
+    expect(nativeInvoke).not.toHaveBeenCalledWith(
+      'logIn',
+      expect.objectContaining({ appUserId: 'attacker' }),
+    );
+  });
+
+  it('does not trust a native SDK identity restored from a previous app launch', async () => {
+    const { client, nativeInvoke } = createClient();
+    await client.invoke('configure', { apiKey: 'apple-key' });
+    nativeInvoke.mockResolvedValue('user-a');
+    await expect(
+      client.invoke('purchasePackage', purchaseParams),
+    ).rejects.toThrow(ETranslations.prime_onekey_id_session_changed__msg);
+    expect(
+      nativeInvoke.mock.calls.some(([method]) => method === 'purchasePackage'),
+    ).toBe(false);
+  });
+
+  it('requires confirmation again after switching recipients or logging out', async () => {
+    const { client, verifyIdentity, confirmIdentity } = createClient();
+    await client.invoke('configure', { apiKey: 'apple-key' });
+    await client.invoke('logIn', loginParams());
+    await client.invoke('logIn', loginParams());
+    expect(confirmIdentity).toHaveBeenCalledTimes(1);
+    verifyIdentity.mockResolvedValue(verifiedIdentity('user-b'));
+    await client.invoke('logIn', loginParams('user-b'));
+    expect(confirmIdentity).toHaveBeenCalledTimes(2);
+    await client.invoke('logOut', undefined);
+    await client.invoke('logIn', loginParams('user-b'));
+    expect(confirmIdentity).toHaveBeenCalledTimes(3);
+  });
+
+  it('cannot reuse a previous binding after native consent is cancelled', async () => {
+    const { client, nativeInvoke, confirmIdentity, verifyIdentity } =
+      createClient();
+    await client.invoke('configure', { apiKey: 'apple-key' });
+    await client.invoke('logIn', loginParams());
+    nativeInvoke.mockClear();
+    verifyIdentity.mockResolvedValue(verifiedIdentity('user-b'));
+    confirmIdentity.mockResolvedValue(false);
+    await expect(client.invoke('logIn', loginParams('user-b'))).rejects.toThrow(
+      '"userCancelled":true',
+    );
+    await expect(
+      client.invoke('restorePurchases', { expectedAppUserId: 'user-a' }),
+    ).rejects.toThrow(ETranslations.prime_onekey_id_session_changed__msg);
+    expect(nativeInvoke).not.toHaveBeenCalled();
+  });
+
+  it('does not log in if the persisted session changes while consent is open', async () => {
+    const { client, nativeInvoke, verifyIdentity, confirmIdentity } =
+      createClient();
+    const assertCurrentSession = jest.fn();
+    verifyIdentity.mockResolvedValue({
+      ...verifiedIdentity(),
+      assertCurrentSession,
+    });
+    confirmIdentity.mockImplementation(async () => {
+      assertCurrentSession.mockImplementation(() => {
+        throw new OneKeyLocalError('session replaced');
+      });
+      return true;
+    });
+    await client.invoke('configure', { apiKey: 'apple-key' });
+    await expect(client.invoke('logIn', loginParams())).rejects.toThrow(
+      'session replaced',
+    );
+    expect(nativeInvoke.mock.calls.map(([method]) => method)).toEqual([
+      'configure',
+    ]);
+  });
+
+  it.each(['purchasePackage', 'restorePurchases'] as const)(
+    'rechecks server identity before %s and rejects a changed recipient',
+    async (method) => {
+      const { client, nativeInvoke, verifyIdentity } = createClient();
+      await client.invoke('configure', { apiKey: 'apple-key' });
+      await client.invoke('logIn', loginParams());
+      verifyIdentity.mockResolvedValue(verifiedIdentity('user-b'));
+      await expect(client.invoke(method, purchaseParams)).rejects.toThrow(
+        ETranslations.prime_onekey_id_session_changed__msg,
+      );
+      expect(
+        nativeInvoke.mock.calls.some(
+          ([calledMethod]) => calledMethod === method,
+        ),
+      ).toBe(false);
+    },
+  );
+
+  it.each(['purchasePackage', 'restorePurchases'] as const)(
+    'fails closed if server verification fails before %s',
+    async (method) => {
+      const { client, nativeInvoke, verifyIdentity } = createClient();
+      await client.invoke('configure', { apiKey: 'apple-key' });
+      await client.invoke('logIn', loginParams());
+      verifyIdentity.mockRejectedValue(new Error('server unavailable'));
+      await expect(client.invoke(method, purchaseParams)).rejects.toThrow(
+        'server unavailable',
+      );
+      expect(
+        nativeInvoke.mock.calls.some(
+          ([calledMethod]) => calledMethod === method,
+        ),
+      ).toBe(false);
+    },
+  );
+
+  it('blocks duplicate purchase for an active Prime user but still allows restore', async () => {
+    const { client, nativeInvoke, verifyIdentity } = createClient();
+    await client.invoke('configure', { apiKey: 'apple-key' });
+    await client.invoke('logIn', loginParams());
+    verifyIdentity.mockResolvedValue({ ...verifiedIdentity(), isPrime: true });
+    await expect(
+      client.invoke('purchasePackage', purchaseParams),
+    ).rejects.toThrow(ETranslations.prime_already_active__msg);
+    await client.invoke('restorePurchases', { expectedAppUserId: 'user-a' });
+    expect(
+      nativeInvoke.mock.calls.some(([method]) => method === 'purchasePackage'),
+    ).toBe(false);
+    expect(nativeInvoke).toHaveBeenCalledWith('restorePurchases', {});
+  });
+
+  it('rejects a renderer-selected RevenueCat project before initial configuration', async () => {
+    const { client, nativeInvoke } = createClient();
+    await expect(
+      client.invoke('configure', { apiKey: 'attacker-project' }),
+    ).rejects.toThrow('Unsupported RevenueCat API key');
+    expect(nativeInvoke).not.toHaveBeenCalled();
+  });
 });

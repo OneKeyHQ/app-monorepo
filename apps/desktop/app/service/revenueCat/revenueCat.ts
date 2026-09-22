@@ -2,13 +2,27 @@ import path from 'path';
 
 import { app } from 'electron';
 
+import { REVENUECAT_API_KEY_APPLE } from '@onekeyhq/shared/src/consts/primeConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import { ETranslations } from '@onekeyhq/shared/src/locale/enum/translations';
 import type {
+  IRevenueCatAuthContext,
   IRevenueCatDesktopClient,
   IRevenueCatMethod,
   IRevenueCatRequestMap,
   IRevenueCatResultMap,
 } from '@onekeyhq/shared/types/prime/revenueCat';
+
+import { i18nText } from '../../i18n';
+
+import {
+  confirmRevenueCatIdentity,
+  revenueCatIdentityChangedError,
+  validateRevenueCatAuthContext,
+  verifyRevenueCatIdentity,
+} from './revenueCatIdentity';
+
+import type { IVerifiedRevenueCatIdentity } from './revenueCatIdentity';
 
 interface IRevenueCatNativeModule {
   isAvailable?: () => boolean;
@@ -21,6 +35,9 @@ interface IRevenueCatNativeModule {
 type IRevenueCatDependencies = {
   isMacAppStore: () => boolean;
   loadNativeModule: () => IRevenueCatNativeModule;
+  apiKey: string;
+  verifyIdentity: typeof verifyRevenueCatIdentity;
+  confirmIdentity: typeof confirmRevenueCatIdentity;
 };
 
 function requireString(value: unknown, name: string): asserts value is string {
@@ -38,7 +55,8 @@ function validateRequest(
       requireString(params.apiKey, 'API key');
       break;
     case 'logIn':
-      requireString(params.appUserId, 'app user ID');
+      requireString(params.expectedAppUserId, 'expected app user ID');
+      validateRevenueCatAuthContext(params.authContext);
       break;
     case 'purchasePackage':
       requireString(params.packageIdentifier, 'package identifier');
@@ -133,6 +151,10 @@ export class RevenueCatDesktopClient implements IRevenueCatDesktopClient {
 
   private transactionPending = false;
 
+  private binding:
+    | { context: IRevenueCatAuthContext; identity: IVerifiedRevenueCatIdentity }
+    | undefined;
+
   constructor(private readonly dependencies: IRevenueCatDependencies) {}
 
   private getNativeModule(): IRevenueCatNativeModule {
@@ -174,6 +196,9 @@ export class RevenueCatDesktopClient implements IRevenueCatDesktopClient {
       validateRequest(method, input);
       const nativeModule = this.getNativeModule();
       if (method === 'configure') {
+        if (input.apiKey !== this.dependencies.apiKey) {
+          throw new OneKeyLocalError('Unsupported RevenueCat API key');
+        }
         if (this.configuredApiKey && this.configuredApiKey !== input.apiKey) {
           throw new OneKeyLocalError(
             'RevenueCat is already configured with a different API key',
@@ -189,15 +214,69 @@ export class RevenueCatDesktopClient implements IRevenueCatDesktopClient {
       if (!this.configuredApiKey)
         throw new OneKeyLocalError('RevenueCat is not configured');
 
+      if (method === 'logIn') {
+        const context = { ...(input.authContext as IRevenueCatAuthContext) };
+        const previousBinding = this.binding;
+        this.binding = undefined;
+        const identity = await this.dependencies.verifyIdentity(context);
+        if (identity.userId !== input.expectedAppUserId) {
+          throw revenueCatIdentityChangedError();
+        }
+        if (
+          previousBinding?.identity.userId !== identity.userId ||
+          previousBinding?.identity.email !== identity.email ||
+          previousBinding?.context.endpointEnv !== context.endpointEnv
+        ) {
+          if (!(await this.dependencies.confirmIdentity(identity))) {
+            throw Object.assign(
+              new OneKeyLocalError(i18nText(ETranslations.global_cancel)),
+              { userCancelled: true },
+            );
+          }
+        }
+        identity.assertCurrentSession();
+        // Never forward a renderer-selected appUserId, even as an extra field.
+        await nativeModule.invoke('logIn', { appUserId: identity.userId });
+        identity.assertCurrentSession();
+        this.binding = { context, identity };
+        return undefined;
+      }
+
       if ('expectedAppUserId' in input) {
-        const actualUserId = await nativeModule.invoke('getAppUserId', {});
-        if (actualUserId !== input.expectedAppUserId) {
-          throw new OneKeyLocalError(
-            'RevenueCat app user ID changed before the request',
+        const binding = this.binding;
+        if (!binding || binding.identity.userId !== input.expectedAppUserId) {
+          throw revenueCatIdentityChangedError();
+        }
+        binding.identity.assertCurrentSession();
+        // Revalidate inside the SDK queue, immediately before StoreKit. UI
+        // eligibility checks and a previous successful login are insufficient.
+        if (isTransaction) {
+          const identity = await this.dependencies.verifyIdentity(
+            binding.context,
           );
+          if (
+            identity.userId !== binding.identity.userId ||
+            identity.email !== binding.identity.email
+          ) {
+            this.binding = undefined;
+            throw revenueCatIdentityChangedError();
+          }
+          if (method === 'purchasePackage' && identity.isPrime) {
+            throw new OneKeyLocalError(
+              i18nText(ETranslations.prime_already_active__msg),
+            );
+          }
+          binding.identity = identity;
+        }
+        const actualUserId = await nativeModule.invoke('getAppUserId', {});
+        binding.identity.assertCurrentSession();
+        if (actualUserId !== binding.identity.userId) {
+          this.binding = undefined;
+          throw revenueCatIdentityChangedError();
         }
       }
       if (method === 'logOut') {
+        this.binding = undefined;
         const userId = await nativeModule.invoke('getAppUserId', {});
         if (
           typeof userId === 'string' &&
@@ -208,13 +287,17 @@ export class RevenueCatDesktopClient implements IRevenueCatDesktopClient {
       }
       // Only RevenueCat owns StoreKit transactions. The renderer sends package
       // identifiers; the native SDK resolves the actual offering and product.
-      const { expectedAppUserId: _expectedAppUserId, ...nativeParams } = input;
+      const nativeParams: Record<string, unknown> = {};
+      if (method === 'purchasePackage') {
+        nativeParams.packageIdentifier = input.packageIdentifier;
+        nativeParams.offeringIdentifier = input.offeringIdentifier;
+      } else if (method === 'setAttributes') {
+        nativeParams.attributes = input.attributes;
+      } else if (method === 'checkTrialOrIntroductoryPriceEligibility') {
+        nativeParams.productIdentifiers = input.productIdentifiers;
+      }
       const result = await nativeModule.invoke(method, nativeParams);
-      if (
-        method === 'logIn' ||
-        method === 'logOut' ||
-        method === 'setAttributes'
-      ) {
+      if (method === 'logOut' || method === 'setAttributes') {
         return undefined;
       }
       return result;
@@ -231,6 +314,9 @@ export class RevenueCatDesktopClient implements IRevenueCatDesktopClient {
 }
 
 const revenueCatDesktopClient = new RevenueCatDesktopClient({
+  apiKey: REVENUECAT_API_KEY_APPLE,
+  verifyIdentity: verifyRevenueCatIdentity,
+  confirmIdentity: confirmRevenueCatIdentity,
   isMacAppStore: () => process.platform === 'darwin' && Boolean(process.mas),
   loadNativeModule: () => {
     const modulePath = app.isPackaged

@@ -27,6 +27,10 @@ class DesktopApiInAppPurchase {
     return client?.isAvailable() ?? false;
   }
 
+  async revenueCatSupportsVerifiedIdentity(): Promise<boolean> {
+    return this.revenueCatIsAvailable();
+  }
+
   private async _callRevenueCat<K extends IRevenueCatMethod>(
     method: K,
     params: IRevenueCatRequestMap[K],
@@ -43,7 +47,9 @@ class DesktopApiInAppPurchase {
     return this._callRevenueCat('configure', params);
   }
 
-  async revenueCatLogIn(params: IRevenueCatRequestMap['logIn']) {
+  async revenueCatLogInWithVerifiedSession(
+    params: IRevenueCatRequestMap['logIn'],
+  ) {
     return this._callRevenueCat('logIn', params);
   }
 

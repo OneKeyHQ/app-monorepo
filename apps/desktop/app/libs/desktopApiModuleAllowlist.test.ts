@@ -51,7 +51,8 @@ describe('desktop API module allowlist', () => {
   it.each([
     'revenueCatIsAvailable',
     'revenueCatConfigure',
-    'revenueCatLogIn',
+    'revenueCatSupportsVerifiedIdentity',
+    'revenueCatLogInWithVerifiedSession',
     'revenueCatLogOut',
     'revenueCatGetAppUserId',
     'revenueCatGetCustomerInfo',
@@ -66,6 +67,7 @@ describe('desktop API module allowlist', () => {
 
   it.each([
     'invoke',
+    'revenueCatLogIn',
     'getNativeModule',
     'loadNativeModule',
     'validateRequest',
