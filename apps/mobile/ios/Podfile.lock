@@ -575,6 +575,28 @@ PODS:
     - Yoga
   - OneKeyTextInput (3.0.156):
     - React-Core
+  - OnramperReactNative (1.2.2):
+    - hermes-engine
+    - NitroModules
+    - RCTRequired
+    - RCTTypeSafety
+    - React-Core
+    - React-debug
+    - React-Fabric
+    - React-featureflags
+    - React-graphics
+    - React-ImageManager
+    - React-jsi
+    - React-NativeModulesApple
+    - React-RCTFabric
+    - React-renderercss
+    - React-rendererdebug
+    - React-utils
+    - ReactCodegen
+    - ReactCommon/turbomodule/bridging
+    - ReactCommon/turbomodule/core
+    - ReactNativeDependencies
+    - Yoga
   - OpenSSL-Universal (3.6.2000)
   - Pbkdf2 (3.0.156):
     - hermes-engine
@@ -3866,6 +3888,7 @@ DEPENDENCIES:
   - NitroModules (from `../../../node_modules/react-native-nitro-modules`)
   - "OneKeyImage (from `../../../node_modules/@onekeyfe/react-native-image`)"
   - "OneKeyTextInput (from `../../../node_modules/@onekeyfe/react-native-text-input`)"
+  - "OnramperReactNative (from `../../../node_modules/@onramper/onramper-react-native`)"
   - Pbkdf2 (from `../../../node_modules/react-native-fast-pbkdf2`)
   - "PerpDepthBar (from `../../../node_modules/@onekeyfe/react-native-perp-depth-bar`)"
   - Ping (from `../../../node_modules/react-native-ping`)
@@ -4154,6 +4177,8 @@ EXTERNAL SOURCES:
     :path: "../../../node_modules/@onekeyfe/react-native-image"
   OneKeyTextInput:
     :path: "../../../node_modules/@onekeyfe/react-native-text-input"
+  OnramperReactNative:
+    :path: "../../../node_modules/@onramper/onramper-react-native"
   Pbkdf2:
     :path: "../../../node_modules/react-native-fast-pbkdf2"
   PerpDepthBar:
@@ -4492,6 +4517,7 @@ SPEC CHECKSUMS:
   NitroModules: d5be9f4559fc5178388ccf3ba2e152230b766d67
   OneKeyImage: ab3b3625367be5df9ecfa83f54512678f8dcc480
   OneKeyTextInput: b94caf1d9d7011f9738031fc5a86fa8556bb589f
+  OnramperReactNative: 669aaea1b7c785d11c0ada49462f4bb4aaf2f9b6
   OpenSSL-Universal: ecee7b138fa75a74ecf00d7ffd248fb584739b9e
   Pbkdf2: 5344a767ec2bdc107ddf6bce9f00d694ad5041d9
   PerpDepthBar: f58e61cdc2e81262370db66e67de81e6d38b474a
