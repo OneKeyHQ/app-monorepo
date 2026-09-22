@@ -5,8 +5,21 @@
 The Developer Gallery provides an isolated test against a separately configured
 Supabase project and rejects the production project. The actual combined
 OneKey ID login dialog also has hidden debugging controls for selecting the
-server and enabling/disabling client CAPTCHA. Its default remains production
-with no client CAPTCHA, matching the existing email login behavior.
+server and enabling/disabling client CAPTCHA for development testing.
+
+The normal email login flow always requires CAPTCHA, without opening the debug
+panel. `ONEKEY_ID_AUTH_CONFIG` in `packages/shared/src/consts/authConsts.ts` is the
+shared source for the Supabase URL, public key, and hosted CAPTCHA page:
+
+| OneKey test network node | Supabase project | CAPTCHA page |
+| --- | --- | --- |
+| Enabled (with developer mode) | `zvxscjkvkjepbrjncvzt` | `https://login.onekeytest.com/captcha` |
+| Disabled | `bwgpgzbzdgkisozswlck` (existing production project) | `https://login.onekey.so/captcha` |
+
+The settings switch restarts the app. SDK construction waits for persisted node
+settings; email sending, background verification, and session storage use the
+selected project. Production and test sessions have separate storage keys.
+Keyless OAuth keeps its existing project and session behavior.
 
 Verification was extended from **Web in wallet mode** to the real iOS and
 Android login dialogs. Both mobile targets completed real CAPTCHA and OTP
@@ -49,7 +62,8 @@ The page includes the test site's public sitekey and verifies parent origins
 against its own allowlist. Loopback parents are allowed only on local/test
 deployments. Web retains its origin, iframe window, and request-ID checks.
 The merged page rejects opaque `null` origins. Packaged desktop uses a separate
-Electron guest and the host bridge described below. Production CAPTCHA remains disabled.
+Electron guest and the host bridge described below. CAPTCHA is enabled for both
+business environments.
 
 Chromium extension IDs, origins and store links are defined in
 [`packages/shared/src/config/extensionConfig.ts`](../../packages/shared/src/config/extensionConfig.ts).
@@ -172,14 +186,13 @@ code step, switching requires an explicit Resend and does not automatically
 send to the newly selected destination. Waiting for CAPTCHA permits changing
 configuration or choosing another sign-in method; both cancel the pending send
 without an error toast. Only an actual in-flight auth API request locks controls.
-Closing/reloading the dialog restores production defaults and the built-in test
-preset. These controls are hidden until the title gesture and are absent from
+Closing/reloading the dialog restores the current business environment and enables
+CAPTCHA. These controls are hidden until the title gesture and are absent from
 the separate legacy-email dialog.
 
 CAPTCHA rendering and token acquisition belong to the normal login components,
-outside the development panel. They use `EMAIL_OTP_CAPTCHA_CONFIG` when no
-development override exists. Production currently keeps CAPTCHA disabled until
-its own widget and hosted page are configured. The development panel only
+outside the development panel. They select the enabled CAPTCHA configuration
+from `ONEKEY_ID_AUTH_CONFIG` when no development override exists. The development panel only
 overrides the server and CAPTCHA configuration; it is not required by the
 business flow. The Gallery retains its separate manual integration controls.
 Provider failures, timeouts and closing the dialog cancel the pending request.
@@ -546,3 +559,21 @@ No OTP or token values were captured in this record. The QA and installed 6.6.0
 `app.asar` archives have identical SHA-256 digests; the generated OTA metadata
 also matches the composed preload's SHA-512 digest. Signed OTA installation and
 Windows remain untested.
+
+## Password login test mode
+
+The developer panel's `Password login` switch replaces code entry with a masked
+password field. It accepts arbitrary characters without trimming or a length cap,
+and uses the default mobile keyboard. Entering this step does not send an OTP.
+
+With `Client CAPTCHA` enabled, Next first obtains a fresh CAPTCHA token, then calls
+the selected project's `auth.signInWithPassword` with email, password, and
+`options.captchaToken`. Every retry obtains a new token. Turning Client CAPTCHA
+off intentionally omits the token for server-rejection testing. Project, mode,
+or CAPTCHA configuration changes cancel the pending challenge and clear the
+password.
+
+Password authentication always uses an isolated in-memory client, including the
+Production preset. Success requires both an SDK session and matching `getUser`
+verification; it does not sign in to OneKey ID. Neither credentials nor tokens are
+logged. The switch and isolated client are available only in developer mode.

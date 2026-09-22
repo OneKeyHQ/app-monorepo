@@ -1,6 +1,6 @@
 /** @jest-environment jsdom */
 
-import { StrictMode } from 'react';
+import { type ComponentProps, StrictMode } from 'react';
 
 import { AuthApiError, AuthRetryableFetchError } from '@supabase/supabase-js';
 import {
@@ -19,7 +19,20 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { markOneKeyIdFailureServerLogged } from '../oneKeyIdLoginToastUtils';
 
-import { PrimeLoginEmailCodeDialogV2 } from './PrimeLoginEmailCodeDialogV2';
+import { PrimeLoginEmailCodeDialogV2 as BusinessEmailCodeDialog } from './PrimeLoginEmailCodeDialogV2';
+
+function PrimeLoginEmailCodeDialogV2(
+  props: ComponentProps<typeof BusinessEmailCodeDialog>,
+) {
+  return (
+    <BusinessEmailCodeDialog
+      captchaConfig={{ enabled: false, pageUrl: '' }}
+      {...props}
+    />
+  );
+}
+
+let mockTestEndpointEnabled = false;
 
 let mockCaptchaFrameMode: 'provider' | 'web' | 'native' | 'desktop' =
   'provider';
@@ -48,7 +61,7 @@ jest.mock('@onekeyhq/kit/src/components/Captcha/CaptchaFrame', () => ({
     }
     const { requestId, onResult } = props;
     return (
-      <div>
+      <div data-testid="test-captcha-frame" data-url={props.url}>
         <button
           type="button"
           onClick={() =>
@@ -304,7 +317,12 @@ jest.mock('@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth', () => ({
 }));
 
 jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms', () => ({
-  useDevSettingsPersistAtom: () => [{ enabled: false }],
+  useDevSettingsPersistAtom: () => [
+    {
+      enabled: mockTestEndpointEnabled,
+      settings: { enableTestEndpoint: mockTestEndpointEnabled },
+    },
+  ],
 }));
 
 jest.mock('@onekeyhq/shared/src/logger/logger', () => ({
@@ -333,7 +351,49 @@ describe('PrimeLoginEmailCodeDialogV2', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockCaptchaFrameMode = 'provider';
+    mockTestEndpointEnabled = false;
   });
+
+  test.each([
+    { testEndpoint: false, pageUrl: 'https://login.onekey.so/captcha' },
+    { testEndpoint: true, pageUrl: 'https://login.onekeytest.com/captcha' },
+  ])(
+    'normal login requires CAPTCHA with test endpoint=$testEndpoint',
+    async ({ testEndpoint, pageUrl }) => {
+      mockTestEndpointEnabled = testEndpoint;
+      const sendCode = jest.fn().mockResolvedValue(undefined);
+      const loginWithCode = jest.fn().mockResolvedValue(undefined);
+      render(
+        <BusinessEmailCodeDialog
+          email="test@example.com"
+          sendCode={sendCode}
+          loginWithCode={loginWithCode}
+        />,
+      );
+      await waitFor(() =>
+        expect(
+          screen.getByTestId('test-captcha-frame').getAttribute('data-url'),
+        ).toContain(`${pageUrl}#requestId=`),
+      );
+      const input = screen.getByTestId<HTMLInputElement>('prime-otp-code');
+      expect(input.disabled).toBe(true);
+      expect(sendCode).not.toHaveBeenCalled();
+      fireEvent.click(screen.getByText('Complete provider verification'));
+      await waitFor(() => expect(input.disabled).toBe(false));
+      expect(sendCode).toHaveBeenCalledWith({
+        email: 'test@example.com',
+        captchaToken: 'fresh-captcha-token',
+      });
+      fireEvent.change(input, { target: { value: '1234567890' } });
+      fireEvent.click(screen.getByRole('button', { name: 'confirm' }));
+      await waitFor(() =>
+        expect(loginWithCode).toHaveBeenCalledWith({
+          email: 'test@example.com',
+          code: '1234567890',
+        }),
+      );
+    },
+  );
 
   afterEach(() => {
     jest.useRealTimers();

@@ -112,6 +112,7 @@ jest.mock('@onekeyhq/shared/src/storage/SupabaseStorage/consts', () => ({
 
 jest.mock('@onekeyhq/shared/src/utils/supabaseClientUtils', () => ({
   getSupabaseClient: () => ({
+    sessionKey: 'legacy-session-key',
     client: {
       auth: {
         getSession: () => mockLegacyGetSession(),

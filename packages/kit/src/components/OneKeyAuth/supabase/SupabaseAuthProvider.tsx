@@ -13,10 +13,7 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import {
-  getKeylessSupabaseAuthSessionKey,
-  getSupabaseAuthSessionKey,
-} from '@onekeyhq/shared/src/storage/SupabaseStorage/consts';
+import { getKeylessSupabaseAuthSessionKey } from '@onekeyhq/shared/src/storage/SupabaseStorage/consts';
 import { EPrimeAuthSessionSource } from '@onekeyhq/shared/types/prime/primeTypes';
 
 import { SupabaseAuthContext } from './SupabaseAuthContext';
@@ -127,7 +124,11 @@ export default function SupabaseAuthProvider({ children }: PropsWithChildren) {
       getKeylessSupabaseClient,
       isSupabaseTokenRefreshRuntime,
     } = await import('@onekeyhq/shared/src/utils/supabaseClientUtils');
-    const { client: legacyClient, storage } = getSupabaseClient();
+    const {
+      client: legacyClient,
+      storage,
+      sessionKey: legacySessionKey,
+    } = await getSupabaseClient();
     const keylessClient = getKeylessSupabaseClient().client;
     let nextLegacySession: Session | null = null;
     let nextKeylessSession: Session | null = null;
@@ -174,7 +175,7 @@ export default function SupabaseAuthProvider({ children }: PropsWithChildren) {
           return null;
         }
       };
-      nextLegacySession = await readStoredSession(getSupabaseAuthSessionKey());
+      nextLegacySession = await readStoredSession(legacySessionKey);
       nextKeylessSession = await readStoredSession(
         getKeylessSupabaseAuthSessionKey(),
       );
@@ -248,7 +249,8 @@ export default function SupabaseAuthProvider({ children }: PropsWithChildren) {
         setLegacySession(nextLegacySession);
         setKeylessSession(nextKeylessSession);
         if (isSupabaseTokenRefreshRuntime()) {
-          const legacyClient = getSupabaseClient().client;
+          const legacyClient = (await getSupabaseClient()).client;
+          if (cancelled) return;
           const keylessClient = getKeylessSupabaseClient().client;
           // Only the runtime that owns token refresh has an authoritative
           // auth-js memory session. A Main runtime uses persistSession:false,

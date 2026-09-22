@@ -9,6 +9,13 @@ jest.mock('@supabase/supabase-js', () => ({
     mockCreateClient(url, key, options),
 }));
 
+jest.mock('../request/requestHelper', () => ({
+  __esModule: true,
+  default: {
+    getDevSettingsPersistAtom: jest.fn(async () => ({ enabled: false })),
+  },
+}));
+
 jest.mock(
   '@onekeyhq/shared/src/storage/instance/supabaseStorageInstance',
   () => ({
@@ -48,6 +55,62 @@ function createErrorResponse({
   return response as unknown as Response;
 }
 
+describe('email Supabase environment isolation', () => {
+  beforeEach(() => {
+    jest.resetModules();
+    mockCreateClient.mockClear();
+  });
+
+  test('selects matching URL, public key and session slot and reuses only the same project client', async () => {
+    const { default: requestHelper } = await import('../request/requestHelper');
+    const { ONEKEY_ID_AUTH_CONFIG } = await import('../consts/authConsts');
+    const { getSupabaseClient, isSupabaseTokenRefreshRuntime } =
+      await import('./supabaseClientUtils');
+    const settings = jest.mocked(requestHelper.getDevSettingsPersistAtom);
+    settings.mockResolvedValue({ enabled: false });
+    const prod = await getSupabaseClient();
+    settings.mockResolvedValue({
+      enabled: true,
+      settings: { enableTestEndpoint: true },
+    });
+    const test = await getSupabaseClient();
+    expect(test.client).not.toBe(prod.client);
+    expect(test.sessionKey).not.toBe(prod.sessionKey);
+    for (const [index, environment] of (['prod', 'test'] as const).entries()) {
+      const config = ONEKEY_ID_AUTH_CONFIG[environment];
+      expect(mockCreateClient).toHaveBeenNthCalledWith(
+        index + 1,
+        config.projectUrl,
+        config.publicKey,
+        expect.objectContaining({
+          auth: expect.objectContaining({
+            storageKey: `sb-${new URL(config.projectUrl).hostname.split('.')[0]}-auth-token`,
+            flowType: 'pkce',
+            persistSession: isSupabaseTokenRefreshRuntime(),
+            autoRefreshToken: isSupabaseTokenRefreshRuntime(),
+          }),
+        }),
+      );
+    }
+    settings.mockResolvedValue({
+      enabled: true,
+      settings: { enableTestEndpoint: false },
+    });
+    expect((await getSupabaseClient()).client).toBe(prod.client);
+    expect(mockCreateClient).toHaveBeenCalledTimes(2);
+  });
+
+  test('does not create a client if persisted settings are unavailable', async () => {
+    const { default: requestHelper } = await import('../request/requestHelper');
+    jest
+      .mocked(requestHelper.getDevSettingsPersistAtom)
+      .mockRejectedValueOnce(new Error('settings unavailable'));
+    const { getSupabaseClient } = await import('./supabaseClientUtils');
+    await expect(getSupabaseClient()).rejects.toThrow('settings unavailable');
+    expect(mockCreateClient).not.toHaveBeenCalled();
+  });
+});
+
 describe('sessionPreservingSupabaseFetch', () => {
   const originalFetch = globalThis.fetch;
 
@@ -65,7 +128,7 @@ describe('sessionPreservingSupabaseFetch', () => {
 
   async function getGuardedFetch(): Promise<typeof fetch> {
     const { getSupabaseClient } = await import('./supabaseClientUtils');
-    getSupabaseClient();
+    await getSupabaseClient();
     const options = mockCreateClient.mock.calls[0]?.[2] as
       | {
           global?: {

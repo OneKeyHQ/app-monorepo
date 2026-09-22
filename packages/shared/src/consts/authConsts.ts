@@ -154,10 +154,9 @@ export type IEmailOtpCaptchaConfig = {
   pageUrl: string;
 };
 
-// Enable only with the production widget and its hosted verification page.
 export const EMAIL_OTP_CAPTCHA_CONFIG: IEmailOtpCaptchaConfig = {
-  enabled: false,
-  pageUrl: '',
+  enabled: true,
+  pageUrl: 'https://login.onekey.so/captcha',
 };
 
 // Default OAuth method selection (OneKeyAuth)
@@ -217,6 +216,22 @@ export const SUPABASE_PROJECT_URL = 'https://bwgpgzbzdgkisozswlck.supabase.co';
 // Publishable key at https://supabase.com/dashboard/project/_/settings/api-keys/new
 export const SUPABASE_PUBLIC_API_KEY =
   'sb_publishable_bnNx0b2QZENMm1OLNAyHeQ_FLagwrqN';
+
+export const ONEKEY_ID_AUTH_CONFIG = {
+  prod: {
+    projectUrl: SUPABASE_PROJECT_URL,
+    publicKey: SUPABASE_PUBLIC_API_KEY,
+    captcha: EMAIL_OTP_CAPTCHA_CONFIG,
+  },
+  test: {
+    projectUrl: 'https://zvxscjkvkjepbrjncvzt.supabase.co',
+    publicKey: 'sb_publishable_ryfw0-h47JC2lHFRB2yrjw_iS_1KPgW',
+    captcha: {
+      enabled: true,
+      pageUrl: 'https://login.onekeytest.com/captcha',
+    },
+  },
+};
 
 // ================================================
 // Keyless Supabase

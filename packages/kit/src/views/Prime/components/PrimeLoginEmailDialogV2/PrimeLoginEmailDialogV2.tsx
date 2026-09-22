@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from 'react';
+import { type ReactNode, useCallback, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -28,6 +28,7 @@ import {
   showOneKeyIdLoginSuccessToast,
 } from '../oneKeyIdLoginToastUtils';
 import { DevTestAccountSelector } from '../PrimeDevUtils/DevTestAccountSelector';
+import { PrimeLoginPasswordTestDialog } from '../PrimeDevUtils/PrimeLoginPasswordTestDialog';
 import { useEmailOtpDevTools } from '../PrimeDevUtils/useEmailOtpDevTools';
 import { PrimeLoginEmailCodeDialogV2 } from '../PrimeLoginEmailCodeDialogV2';
 
@@ -242,9 +243,11 @@ function PrimeLoginEmailDialogV2(props: IPrimeLoginEmailDialogV2Props) {
   );
 
   const handleEmbeddedLoginSuccess = useCallback(async () => {
-    if (devAuth.isTestProject) {
+    if (devAuth.isTestProject || devAuth.isPasswordLogin) {
       Toast.success({
-        title: 'Test Supabase OTP verified. OneKey ID session unchanged.',
+        title: devAuth.isPasswordLogin
+          ? 'Test Supabase password login succeeded. OneKey ID session unchanged.'
+          : 'Test Supabase OTP verified. OneKey ID session unchanged.',
       });
       return;
     }
@@ -269,31 +272,57 @@ function PrimeLoginEmailDialogV2(props: IPrimeLoginEmailDialogV2Props) {
     await showOneKeyIdLegacyOAuthBindDialog({
       type: 'post-email-login',
     });
-  }, [devAuth.isTestProject, intl, onComplete, onLoginSuccess]);
+  }, [
+    devAuth.isPasswordLogin,
+    devAuth.isTestProject,
+    intl,
+    onComplete,
+    onLoginSuccess,
+  ]);
 
   const handleChooseAnotherSignInMethod = useCallback(() => {
     resetSubmittingState();
     onEmbeddedVerificationEmailChange?.(undefined);
   }, [onEmbeddedVerificationEmailChange, resetSubmittingState]);
 
-  const embeddedVerificationCodeContent =
-    embedded && embeddedVerificationSessionEmail ? (
-      <PrimeLoginEmailCodeDialogV2
-        key={embeddedVerificationSessionEmail}
-        active={embeddedVerificationEmail === embeddedVerificationSessionEmail}
-        sendCode={sendCode}
-        loginWithCode={loginWithCode}
-        email={embeddedVerificationSessionEmail}
-        onConfirm={onConfirm}
-        onLoginSuccess={handleEmbeddedLoginSuccess}
-        onChooseAnotherSignInMethod={handleChooseAnotherSignInMethod}
-        developmentControls={devAuth.renderControls}
-        captchaConfig={devAuth.captchaOverride}
-        sendCodeDisabled={!devAuth.canSend}
-        developmentConfigRevision={devAuth.revision}
-        isolatedTest={devAuth.isTestProject}
-      />
-    ) : null;
+  let embeddedVerificationCodeContent: ReactNode = null;
+  if (embedded && embeddedVerificationSessionEmail) {
+    embeddedVerificationCodeContent =
+      devAuth.isPasswordLogin && devAuth.captchaOverride ? (
+        <PrimeLoginPasswordTestDialog
+          key={embeddedVerificationSessionEmail}
+          active={
+            embeddedVerificationEmail === embeddedVerificationSessionEmail
+          }
+          email={embeddedVerificationSessionEmail}
+          captchaConfig={devAuth.captchaOverride}
+          revision={devAuth.revision}
+          disabled={!devAuth.canSend}
+          loginWithPassword={devAuth.loginWithPassword}
+          onLoginSuccess={handleEmbeddedLoginSuccess}
+          onChooseAnotherSignInMethod={handleChooseAnotherSignInMethod}
+          developmentControls={devAuth.renderControls}
+        />
+      ) : (
+        <PrimeLoginEmailCodeDialogV2
+          key={embeddedVerificationSessionEmail}
+          active={
+            embeddedVerificationEmail === embeddedVerificationSessionEmail
+          }
+          sendCode={sendCode}
+          loginWithCode={loginWithCode}
+          email={embeddedVerificationSessionEmail}
+          onConfirm={onConfirm}
+          onLoginSuccess={handleEmbeddedLoginSuccess}
+          onChooseAnotherSignInMethod={handleChooseAnotherSignInMethod}
+          developmentControls={devAuth.renderControls}
+          captchaConfig={devAuth.captchaOverride}
+          sendCodeDisabled={!devAuth.canSend}
+          developmentConfigRevision={devAuth.revision}
+          isolatedTest={devAuth.isTestProject}
+        />
+      );
+  }
   const showEmailForm = !embedded || embeddedVerificationEmail === undefined;
 
   const titleContent = (

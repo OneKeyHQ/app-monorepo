@@ -1,9 +1,10 @@
+import { ONEKEY_ID_AUTH_CONFIG } from '@onekeyhq/shared/src/consts/authConsts';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 export const EMAIL_OTP_CAPTCHA_PAGE_URLS = {
   local: 'http://localhost:8800/captcha',
-  test: 'https://login.onekeytest.com/captcha',
-  production: 'https://login.onekey.so/captcha',
+  test: ONEKEY_ID_AUTH_CONFIG.test.captcha.pageUrl,
+  production: ONEKEY_ID_AUTH_CONFIG.prod.captcha.pageUrl,
 };
 
 export const EMAIL_OTP_TEST_PROJECTS = [
@@ -16,8 +17,8 @@ export const EMAIL_OTP_TEST_PROJECTS = [
   {
     id: 'test-2',
     label: 'Test2',
-    projectUrl: 'https://zvxscjkvkjepbrjncvzt.supabase.co',
-    publicKey: 'sb_publishable_ryfw0-h47JC2lHFRB2yrjw_iS_1KPgW',
+    projectUrl: ONEKEY_ID_AUTH_CONFIG.test.projectUrl,
+    publicKey: ONEKEY_ID_AUTH_CONFIG.test.publicKey,
   },
 ] as const;
 

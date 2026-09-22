@@ -3,16 +3,30 @@
 import type { ReactNode } from 'react';
 
 import { createClient } from '@supabase/supabase-js';
-import { act, fireEvent, render, screen } from '@testing-library/react';
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from '@testing-library/react';
 
 import { useEmailOtpDevTools } from './useEmailOtpDevTools';
 
 let mockDevSettingsEnabled = true;
+let mockTestEndpointEnabled = false;
 const mockSendCode = jest.fn();
 const mockLoginWithCode = jest.fn();
+const mockPasswordSuccess = jest.fn();
+const mockPasswordFailure = jest.fn();
 
 jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms', () => ({
-  useDevSettingsPersistAtom: () => [{ enabled: mockDevSettingsEnabled }],
+  useDevSettingsPersistAtom: () => [
+    {
+      enabled: mockDevSettingsEnabled,
+      settings: { enableTestEndpoint: mockTestEndpointEnabled },
+    },
+  ],
 }));
 
 jest.mock('@onekeyhq/components', () => {
@@ -63,7 +77,27 @@ jest.mock('@onekeyhq/components', () => {
     ),
     SizableText: Container,
     Stack: Container,
-    Switch: () => null,
+    Switch: ({
+      testID,
+      value,
+      onChange,
+      disabled,
+    }: {
+      testID?: string;
+      value: boolean;
+      onChange: (value: boolean) => void;
+      disabled?: boolean;
+    }) => (
+      <button
+        type="button"
+        role="switch"
+        aria-label={testID}
+        aria-checked={value}
+        disabled={disabled}
+        data-testid={testID}
+        onClick={() => onChange(!value)}
+      />
+    ),
     XStack: Container,
   };
 });
@@ -87,6 +121,21 @@ jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
 jest.mock('@onekeyhq/shared/src/consts/authConsts', () => ({
   SUPABASE_PROJECT_URL: 'https://production.supabase.co',
   SUPABASE_PUBLIC_API_KEY: 'sb_publishable_fixture_production',
+  ONEKEY_ID_AUTH_CONFIG: {
+    prod: {
+      projectUrl: 'https://production.supabase.co',
+      publicKey: 'sb_publishable_fixture_production',
+      captcha: { enabled: true, pageUrl: 'https://login.onekey.so/captcha' },
+    },
+    test: {
+      projectUrl: 'https://test-2.supabase.co',
+      publicKey: 'sb_publishable_fixture_test_2',
+      captcha: {
+        enabled: true,
+        pageUrl: 'https://login.onekeytest.com/captcha',
+      },
+    },
+  },
 }));
 jest.mock(
   '@onekeyhq/kit/src/components/Captcha/dev/emailOtpTestConfig',
@@ -150,6 +199,23 @@ function Harness({ openCount }: { openCount: number }) {
       <span data-testid="test-project-active">
         {String(devAuth.isTestProject)}
       </span>
+      <span data-testid="password-login-active">
+        {String(devAuth.isPasswordLogin)}
+      </span>
+      <button
+        type="button"
+        onClick={() =>
+          void devAuth
+            .loginWithPassword({
+              email: 'test@example.com',
+              password: ' Abc!中文🔐 01 ',
+              captchaToken: 'password-captcha-token',
+            })
+            .then(mockPasswordSuccess, mockPasswordFailure)
+        }
+      >
+        Sign in with test password
+      </button>
     </>
   );
 }
@@ -158,6 +224,7 @@ describe('email OTP debug panel without a development build', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockDevSettingsEnabled = true;
+    mockTestEndpointEnabled = false;
   });
 
   test.each(['initially disabled', 'disabled after selecting Test2'])(
@@ -170,9 +237,7 @@ describe('email OTP debug panel without a development build', () => {
         expect(screen.getByTestId('test-project-active').textContent).toBe(
           'true',
         );
-        expect(screen.getByTestId('captcha-override').textContent).toBe(
-          'false',
-        );
+        expect(screen.getByTestId('captcha-override').textContent).toBe('true');
         mockDevSettingsEnabled = false;
         rerender(<Harness openCount={1} />);
       }
@@ -217,6 +282,126 @@ describe('email OTP debug panel without a development build', () => {
       screen.getByTestId('prime-otp-supabase-url').getAttribute('value'),
     ).toBe('https://test.supabase.co');
   });
+
+  test.each(['production', 'test', 'test-2'])(
+    'password mode forwards the exact password and CAPTCHA token to %s in an isolated session',
+    async (project) => {
+      const signInWithPassword = jest.fn().mockResolvedValue({
+        data: {
+          session: {
+            access_token: 'fixture-session',
+            user: { id: 'fixture-user' },
+          },
+        },
+        error: null,
+      });
+      const getUser = jest.fn().mockResolvedValue({
+        data: { user: { id: 'fixture-user' } },
+        error: null,
+      });
+      (createClient as jest.Mock).mockReturnValue({
+        auth: { signInWithPassword, getUser },
+      });
+      render(<Harness openCount={1} />);
+      fireEvent.click(screen.getByTestId(`prime-otp-use-${project}`));
+      fireEvent.click(screen.getByTestId('prime-otp-password-login'));
+      expect(screen.getByTestId('password-login-active').textContent).toBe(
+        'true',
+      );
+      await act(async () =>
+        fireEvent.click(screen.getByText('Sign in with test password')),
+      );
+      await waitFor(() => expect(mockPasswordSuccess).toHaveBeenCalledTimes(1));
+      expect(signInWithPassword).toHaveBeenCalledWith({
+        email: 'test@example.com',
+        password: ' Abc!中文🔐 01 ',
+        options: { captchaToken: 'password-captcha-token' },
+      });
+      expect(getUser).toHaveBeenCalledWith('fixture-session');
+      expect(createClient).toHaveBeenCalledWith(
+        `https://${project}.supabase.co`,
+        expect.any(String),
+        expect.objectContaining({
+          auth: expect.objectContaining({
+            persistSession: false,
+            autoRefreshToken: false,
+          }),
+        }),
+      );
+      expect(mockSendCode).not.toHaveBeenCalled();
+      expect(mockLoginWithCode).not.toHaveBeenCalled();
+    },
+  );
+
+  test.each(['SDK rejection', 'missing session', 'mismatched user'])(
+    'password login does not report success for %s',
+    async (scenario) => {
+      const sdkError = new Error('Invalid login credentials');
+      const signInWithPassword = jest.fn().mockResolvedValue({
+        data: {
+          session:
+            scenario === 'missing session'
+              ? null
+              : {
+                  access_token: 'fixture-session',
+                  user: { id: 'fixture-user' },
+                },
+        },
+        error: scenario === 'SDK rejection' ? sdkError : null,
+      });
+      const getUser = jest.fn().mockResolvedValue({
+        data: { user: { id: 'different-user' } },
+        error: null,
+      });
+      (createClient as jest.Mock).mockReturnValue({
+        auth: { signInWithPassword, getUser },
+      });
+      render(<Harness openCount={1} />);
+      fireEvent.click(screen.getByTestId('prime-otp-use-test-2'));
+      fireEvent.click(screen.getByTestId('prime-otp-password-login'));
+      await act(async () =>
+        fireEvent.click(screen.getByText('Sign in with test password')),
+      );
+      expect(mockPasswordSuccess).not.toHaveBeenCalled();
+      expect(mockPasswordFailure).toHaveBeenCalledWith(
+        expect.objectContaining({
+          message:
+            scenario === 'SDK rejection'
+              ? sdkError.message
+              : `Test Supabase ${
+                  scenario === 'missing session'
+                    ? 'returned no session.'
+                    : 'session verification failed.'
+                }`,
+        }),
+      );
+      if (scenario !== 'mismatched user') {
+        expect(getUser).not.toHaveBeenCalled();
+      }
+      expect(
+        screen.getByTestId('prime-otp-password-login').hasAttribute('disabled'),
+      ).toBe(false);
+    },
+  );
+
+  test.each(['mode off', 'developer mode off'])(
+    'password test API is inaccessible with %s',
+    async (scenario) => {
+      const { rerender } = render(<Harness openCount={1} />);
+      if (scenario === 'developer mode off') {
+        fireEvent.click(screen.getByTestId('prime-otp-password-login'));
+        mockDevSettingsEnabled = false;
+        rerender(<Harness openCount={1} />);
+      }
+      await act(async () =>
+        fireEvent.click(screen.getByText('Sign in with test password')),
+      );
+      expect(mockPasswordFailure).toHaveBeenCalledWith(
+        expect.objectContaining({ message: 'Password test mode is disabled.' }),
+      );
+      expect(createClient).not.toHaveBeenCalled();
+    },
+  );
 
   test.each(['preset', 'url'])(
     'selecting each test project by %s uses only its matching key and selected state',
@@ -283,4 +468,30 @@ describe('email OTP debug panel without a development build', () => {
       ).toBe(projects[0].url);
     },
   );
+
+  test('opening debug controls preserves the business environment and enabled CAPTCHA', () => {
+    mockTestEndpointEnabled = true;
+    render(<Harness openCount={1} />);
+    expect(
+      screen.getByTestId('prime-otp-supabase-url').getAttribute('value'),
+    ).toBe('https://test-2.supabase.co');
+    expect(screen.getByTestId('prime-otp-captcha-page-url').textContent).toBe(
+      'https://login.onekeytest.com/captcha',
+    );
+    expect(screen.getByTestId('captcha-override').textContent).toBe('true');
+  });
+
+  test('production debug selection on the test node uses an isolated production client', async () => {
+    mockTestEndpointEnabled = true;
+    render(<Harness openCount={1} />);
+    fireEvent.click(screen.getByTestId('prime-otp-use-production'));
+    await act(async () => fireEvent.click(screen.getByText('Send test code')));
+    expect(createClient).toHaveBeenCalledWith(
+      'https://production.supabase.co',
+      'sb_publishable_fixture_production',
+      expect.anything(),
+    );
+    expect(mockSendCode).not.toHaveBeenCalled();
+    expect(screen.getByTestId('test-project-active').textContent).toBe('true');
+  });
 });

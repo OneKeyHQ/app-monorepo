@@ -36,6 +36,7 @@ import { getEmailOtpRateLimitRetryAfterSeconds } from '@onekeyhq/kit/src/compone
 import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
 import { useIsMounted } from '@onekeyhq/kit/src/hooks/useIsMounted';
 import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { getOneKeyIdAuthConfigByDevSettings } from '@onekeyhq/shared/src/config/oneKeyIdAuth';
 import { EMAIL_OTP_COUNTDOWN_SECONDS } from '@onekeyhq/shared/src/consts/authConsts';
 import type { IEmailOtpCaptchaConfig } from '@onekeyhq/shared/src/consts/authConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -71,7 +72,7 @@ export function PrimeLoginEmailCodeDialogV2(props: {
   const {
     active = true,
     developmentControls,
-    captchaConfig,
+    captchaConfig: captchaOverride,
     developmentConfigRevision = 0,
     sendCodeDisabled = false,
     isolatedTest = false,
@@ -83,6 +84,8 @@ export function PrimeLoginEmailCodeDialogV2(props: {
     onChooseAnotherSignInMethod,
   } = props;
   const [devSettings] = useDevSettingsPersistAtom();
+  const captchaConfig =
+    captchaOverride ?? getOneKeyIdAuthConfigByDevSettings(devSettings).captcha;
   const [isSubmittingVerificationCode, setIsSubmittingVerificationCode] =
     useState(false);
   const [countdown, setCountdown] = useState(EMAIL_OTP_COUNTDOWN_SECONDS);

@@ -14,12 +14,12 @@ import {
 } from '@onekeyhq/components';
 import {
   EMAIL_OTP_CAPTCHA_PAGE_URLS,
-  EMAIL_OTP_TEST_CONFIG,
   EMAIL_OTP_TEST_PROJECTS,
 } from '@onekeyhq/kit/src/components/Captcha/dev/emailOtpTestConfig';
 import { requestEmailOtp } from '@onekeyhq/kit/src/components/OneKeyAuth/supabase/requestEmailOtp';
 import { useIsMounted } from '@onekeyhq/kit/src/hooks/useIsMounted';
 import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { getOneKeyIdAuthConfigByDevSettings } from '@onekeyhq/shared/src/config/oneKeyIdAuth';
 import {
   SUPABASE_PROJECT_URL,
   SUPABASE_PUBLIC_API_KEY,
@@ -27,12 +27,27 @@ import {
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 
+import type { Session, SupabaseClient } from '@supabase/supabase-js';
+
 type IDevConfig = {
   projectUrl: string;
   publicKey: string;
   captchaEnabled: boolean;
   captchaPageUrl: string;
+  passwordLoginEnabled: boolean;
 };
+
+async function verifyIsolatedSession(
+  client: SupabaseClient,
+  session: Session | null,
+) {
+  if (!session)
+    throw new OneKeyLocalError('Test Supabase returned no session.');
+  const user = await client.auth.getUser(session.access_token);
+  if (user.error || user.data.user?.id !== session.user.id) {
+    throw new OneKeyLocalError('Test Supabase session verification failed.');
+  }
+}
 
 const SUPABASE_PROJECT_OPTIONS = [
   {
@@ -121,20 +136,26 @@ export function useEmailOtpDevTools({
 }) {
   const [devSettings] = useDevSettingsPersistAtom();
   const available = devSettings.enabled && openCount > 0;
+  const authConfig = getOneKeyIdAuthConfigByDevSettings(devSettings);
   const intl = useIntl();
   const mounted = useIsMounted();
   const [config, setConfig] = useState<IDevConfig>({
-    projectUrl: SUPABASE_PROJECT_URL,
-    publicKey: SUPABASE_PUBLIC_API_KEY,
-    captchaEnabled: false,
-    captchaPageUrl: EMAIL_OTP_TEST_CONFIG.pageUrl,
+    projectUrl: authConfig.projectUrl,
+    publicKey: authConfig.publicKey,
+    captchaEnabled: authConfig.captcha.enabled,
+    captchaPageUrl: authConfig.captcha.pageUrl,
+    passwordLoginEnabled: false,
   });
   const [revision, setRevision] = useState(0);
   const [closedAtOpenCount, setClosedAtOpenCount] = useState(0);
   const [busy, setBusy] = useState(false);
   const busyRef = useRef(false);
-  const isTestProject = available && !isProductionProject(config.projectUrl);
+  const isTestProject =
+    available &&
+    (!isProductionProject(config.projectUrl) ||
+      authConfig.projectUrl !== SUPABASE_PROJECT_URL);
   const configError = available ? getConfigError(config) : undefined;
+  const isPasswordLogin = available && config.passwordLoginEnabled;
 
   const updateConfig = (patch: Partial<IDevConfig>) => {
     if (busyRef.current) return;
@@ -143,8 +164,12 @@ export function useEmailOtpDevTools({
     setRevision((current) => current + 1);
   };
 
-  const createTestClient = useCallback(() => {
-    if (!available || !isTestProject || getConfigError(config)) {
+  const createIsolatedClient = useCallback(() => {
+    if (
+      !available ||
+      (!isTestProject && !isPasswordLogin) ||
+      getConfigError(config)
+    ) {
       throw new OneKeyLocalError(
         'Invalid isolated Supabase test configuration.',
       );
@@ -158,7 +183,7 @@ export function useEmailOtpDevTools({
         storageKey: `onekey-id-dialog-test-${generateUUID()}`,
       },
     });
-  }, [available, config, isTestProject]);
+  }, [available, config, isPasswordLogin, isTestProject]);
 
   const sendCode = useCallback(
     async (args: { email: string; captchaToken?: string }) => {
@@ -173,7 +198,7 @@ export function useEmailOtpDevTools({
       try {
         if (isTestProject) {
           await requestEmailOtp({
-            client: createTestClient(),
+            client: createIsolatedClient(),
             email: args.email,
             captchaToken: args.captchaToken,
             intl,
@@ -189,7 +214,7 @@ export function useEmailOtpDevTools({
     [
       available,
       configError,
-      createTestClient,
+      createIsolatedClient,
       intl,
       isTestProject,
       mounted,
@@ -205,27 +230,53 @@ export function useEmailOtpDevTools({
       busyRef.current = true;
       setBusy(true);
       try {
-        const client = createTestClient();
+        const client = createIsolatedClient();
         const { data, error } = await client.auth.verifyOtp({
           email: args.email,
           token: args.code,
           type: 'email',
         });
         if (error) throw error;
-        if (!data.session)
-          throw new OneKeyLocalError('Test Supabase returned no session.');
-        const user = await client.auth.getUser(data.session.access_token);
-        if (user.error || user.data.user?.id !== data.session.user.id) {
-          throw new OneKeyLocalError(
-            'Test Supabase session verification failed.',
-          );
-        }
+        await verifyIsolatedSession(client, data.session);
       } finally {
         busyRef.current = false;
         if (mounted.current) setBusy(false);
       }
     },
-    [createTestClient, isTestProject, mounted, originalLoginWithCode],
+    [createIsolatedClient, isTestProject, mounted, originalLoginWithCode],
+  );
+
+  const loginWithPassword = useCallback(
+    async (args: {
+      email: string;
+      password: string;
+      captchaToken?: string;
+    }) => {
+      if (!isPasswordLogin) {
+        throw new OneKeyLocalError('Password test mode is disabled.');
+      }
+      if (busyRef.current) {
+        throw new OneKeyLocalError('An auth request is in progress.');
+      }
+      busyRef.current = true;
+      setBusy(true);
+      try {
+        const client = createIsolatedClient();
+        const { data, error } = await client.auth.signInWithPassword({
+          email: args.email,
+          password: args.password,
+          ...(args.captchaToken
+            ? { options: { captchaToken: args.captchaToken } }
+            : {}),
+        });
+        if (error) throw error;
+        await verifyIsolatedSession(client, data.session);
+      } finally {
+        busyRef.current = false;
+        if (mounted.current) setBusy(false);
+      }
+    },
+    [createIsolatedClient, isPasswordLogin, mounted],
   );
 
   const renderControls = (disabled = false) =>
@@ -311,6 +362,18 @@ export function useEmailOtpDevTools({
             {config.captchaEnabled ? 'on' : 'off (legacy client)'}
           </SizableText>
         </XStack>
+        <XStack gap="$2" alignItems="center">
+          <Switch
+            testID="prime-otp-password-login"
+            accessibilityLabel="Password login"
+            value={config.passwordLoginEnabled}
+            disabled={busy || disabled}
+            onChange={(passwordLoginEnabled) =>
+              updateConfig({ passwordLoginEnabled })
+            }
+          />
+          <SizableText size="$bodySm">Password login</SizableText>
+        </XStack>
         <SizableText size="$bodySm">CAPTCHA page</SizableText>
         <XStack gap="$2" flexWrap="wrap">
           {CAPTCHA_PAGE_OPTIONS.map(({ id, label, url }) => (
@@ -351,6 +414,8 @@ export function useEmailOtpDevTools({
       : undefined,
     sendCode,
     loginWithCode,
+    loginWithPassword,
+    isPasswordLogin,
     isTestProject,
     canSend: !available || (!busy && !configError),
     revision: available ? revision : 0,
