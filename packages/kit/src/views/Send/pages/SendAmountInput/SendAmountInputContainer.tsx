@@ -63,6 +63,7 @@ import {
   useSendConfirmActions,
 } from '@onekeyhq/kit/src/states/jotai/contexts/sendConfirm';
 import { convertTokenFiatToCurrency } from '@onekeyhq/kit/src/utils/fiatConvert';
+import { tryOpenHeadlessBuy } from '@onekeyhq/kit/src/views/FiatCrypto/utils/openFiatCryptoOrHeadless';
 import { SendTestIDs } from '@onekeyhq/kit/src/views/Send/testIDs';
 import { SwapRefreshButtonBase } from '@onekeyhq/kit/src/views/Swap/components/SwapRefreshButton';
 import {
@@ -107,6 +108,7 @@ import tokenRebaseUtils from '@onekeyhq/shared/src/utils/tokenRebaseUtils';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import { UNAVAILABLE_DISPLAY } from '@onekeyhq/shared/src/utils/tokenValueUtils';
 import type { IAddressValidateStatus } from '@onekeyhq/shared/types/address';
+import { EHeadlessBuyEntry } from '@onekeyhq/shared/types/fiatCrypto';
 import { ELightningUnit } from '@onekeyhq/shared/types/lightning';
 import type { IAccountNFT } from '@onekeyhq/shared/types/nft';
 import { ENFTType } from '@onekeyhq/shared/types/nft';
@@ -2311,6 +2313,16 @@ function SendAmountInputContainer() {
   const handleBuyToken = useCallback(async () => {
     setIsBuyLoading(true);
     try {
+      if (
+        await tryOpenHeadlessBuy({
+          networkId,
+          tokenAddress: tokenInfo?.address ?? '',
+          accountId: currentAccountId,
+          entryFrom: EHeadlessBuyEntry.SendInsufficientBalance,
+        })
+      ) {
+        return;
+      }
       const { url } =
         await backgroundApiProxy.serviceFiatCrypto.generateWidgetUrl({
           networkId,
