@@ -14,6 +14,12 @@ import type {
   UiResponseEvent,
   VendorType,
 } from '@onekeyfe/hwk-adapter-core';
+import type { SdkEvent } from '@onekeyfe/hwk-ledger-adapter';
+
+// A stable listener lets the SDK's Set deduplicate connector recreations.
+const forwardLedgerSdkEvent = (event: SdkEvent) => {
+  emitOffscreenEventToBackground('hwkSdkEvent', event);
+};
 
 type ITrezorDebugLogEntry = {
   level?: 'debug' | 'info' | 'warn' | 'error';
@@ -98,9 +104,7 @@ export default class OffscreenApiThirdPartyHardware implements Omit<
         // Forward the whole SdkEvent union to SW; new variants ride this
         // same channel without a new IPC route.
         const { onSdkEvent } = await import('@onekeyfe/hwk-ledger-adapter');
-        onSdkEvent((event) => {
-          emitOffscreenEventToBackground('hwkSdkEvent', event);
-        });
+        onSdkEvent(forwardLedgerSdkEvent);
         const { createLedgerWebHidConnector } =
           await import('@onekeyfe/hwk-ledger-connector-webhid');
         return createLedgerWebHidConnector();
