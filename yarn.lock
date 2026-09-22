@@ -9745,19 +9745,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@onekeyfe/react-native-native-list@npm:3.0.156":
-  version: 3.0.156
-  resolution: "@onekeyfe/react-native-native-list@npm:3.0.156"
-  peerDependencies:
-    "@onekeyfe/react-native-image": 3.0.156
-    "@onekeyfe/react-native-native-logger": 3.0.156
-    react: "*"
-    react-native: "*"
-    react-native-nitro-modules: 0.37.0
-  checksum: 10/3f2fec77020e5c2ee94b3bfe2b2fb2fb0a08808c7afa471927eec8250d8f954624024451222b75a4e3c567ab585f42ace64101ccf97041ab4a31f61abd7dfcf5
-  languageName: node
-  linkType: hard
-
 "@onekeyfe/react-native-native-list@npm:3.0.157-alpha.248":
   version: 3.0.157-alpha.248
   resolution: "@onekeyfe/react-native-native-list@npm:3.0.157-alpha.248"
@@ -9779,16 +9766,6 @@ __metadata:
     react-native: "*"
     react-native-nitro-modules: 0.37.0
   checksum: 10/c658e2b5b2b7722a9b4f3136bd306f44e1f8d223669c90c1e2833b942410e15e67ab814298b753a4b6f52883aa77f611d28117f0dd9e33d4e22dadf599701f0c
-  languageName: node
-  linkType: hard
-
-"@onekeyfe/react-native-native-sheet@npm:3.0.156":
-  version: 3.0.156
-  resolution: "@onekeyfe/react-native-native-sheet@npm:3.0.156"
-  peerDependencies:
-    react: "*"
-    react-native: "*"
-  checksum: 10/f7502338b29e5dfa621db987d0c162dfaab57798989ca58c3067700e1c1d06c8620a6a55a444d42a33f2df96dd702baab7b110ce3634f52dcdcae776df99c6de
   languageName: node
   linkType: hard
 
@@ -9942,16 +9919,6 @@ __metadata:
     react: "*"
     react-native: "*"
   checksum: 10/d445f47dc17d91903293210f867c6f049aef83fd61f159b1adee6b7b8108cd0f6149092d4f43bc768c5091f231879b1011527b782f5e8afe27ed8d1d680726cd
-  languageName: node
-  linkType: hard
-
-"@onekeyfe/react-native-text@npm:3.0.156":
-  version: 3.0.156
-  resolution: "@onekeyfe/react-native-text@npm:3.0.156"
-  peerDependencies:
-    react: "*"
-    react-native: "*"
-  checksum: 10/a25d5c467838028022de99452c662ee48132da3f5c08be8751ecc7173fb67ab6df023e6b3dc5fdaf7abcff7cb317bf327e69908dadd52269ee19378727497c1b
   languageName: node
   linkType: hard
 
@@ -10384,9 +10351,9 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@onekeyhq/kit@workspace:packages/kit"
   dependencies:
-    "@onekeyfe/react-native-native-list": "npm:3.0.156"
-    "@onekeyfe/react-native-native-sheet": "npm:3.0.156"
-    "@onekeyfe/react-native-text": "npm:3.0.156"
+    "@onekeyfe/react-native-native-list": "npm:3.0.157-alpha.248"
+    "@onekeyfe/react-native-native-sheet": "npm:3.0.157-alpha.248"
+    "@onekeyfe/react-native-text": "npm:3.0.157-alpha.248"
     "@onekeyhq/components": "npm:*"
     "@types/d3-scale": "npm:^4.0.3"
     "@types/d3-shape": "npm:^3.1.1"
