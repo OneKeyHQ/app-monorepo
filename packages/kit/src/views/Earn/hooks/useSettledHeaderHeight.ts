@@ -20,10 +20,15 @@ const HEADER_HEIGHT_MAX_HOLD_MS = 250;
 // first page that settles it can hand the value to every later mount. Without
 // this, re-entering a page gated again from scratch and blanked the body a
 // second time even though the answer was already known.
-let deviceSettledHeaderHeight: number | undefined;
+//
+// It is a property of the window shape too: the bar is not the same height in
+// landscape, and on iPad not the same in split view. Keyed by shape, a mount
+// in a shape nobody has measured yet simply starts fresh instead of inheriting
+// another shape's answer.
+const deviceSettledHeaderHeights = new Map<string, number>();
 
 export function resetDeviceSettledHeaderHeightForTest() {
-  deviceSettledHeaderHeight = undefined;
+  deviceSettledHeaderHeights.clear();
 }
 
 /**
@@ -44,10 +49,25 @@ export function useSettledHeaderHeight(
     enabled = platformEnv.isNativeIOS26Plus,
     settleMs = HEADER_HEIGHT_SETTLE_MS,
     maxHoldMs = HEADER_HEIGHT_MAX_HOLD_MS,
-  }: { enabled?: boolean; settleMs?: number; maxHoldMs?: number } = {},
+    estimatedHeaderHeight,
+    cacheKey = 'default',
+  }: {
+    enabled?: boolean;
+    settleMs?: number;
+    maxHoldMs?: number;
+    // The height react-navigation reports before the bar is measured
+    // (getDefaultHeaderHeight), so it is never mistaken for a measurement.
+    // Every caller passes it: without it a late measurement cannot be told
+    // apart from an estimate that never changed, and the wrong one of the two
+    // would be remembered for the rest of the session.
+    estimatedHeaderHeight?: number;
+    // Identifies the window shape the remembered height belongs to. Callers
+    // that can rotate pass their window size.
+    cacheKey?: string;
+  } = {},
 ): { paddingTop: number; isSettled: boolean } {
   const [settledHeight, setSettledHeight] = useState<number | undefined>(() =>
-    enabled ? deviceSettledHeaderHeight : 0,
+    enabled ? deviceSettledHeaderHeights.get(cacheKey) : 0,
   );
   const holdDeadlineRef = useRef<number | undefined>(undefined);
 
@@ -61,8 +81,17 @@ export function useSettledHeaderHeight(
       return undefined;
     }
 
+    // 0 means the header is not shown yet, and the estimate is only a guess.
+    // A heavy first render can hold the real measurement past the settle
+    // window, so neither may be taken as the settled height early.
+    const isPlaceholder =
+      headerHeight <= 0 || headerHeight === estimatedHeaderHeight;
+
     const accept = () => {
-      deviceSettledHeaderHeight = headerHeight;
+      // A placeholder revealed at the hold cap must not seed later mounts.
+      if (!isPlaceholder) {
+        deviceSettledHeaderHeights.set(cacheKey, headerHeight);
+      }
       setSettledHeight(headerHeight);
     };
 
@@ -72,6 +101,9 @@ export function useSettledHeaderHeight(
     // report the estimate again, and taking it immediately would replace a good
     // remembered height with a transient one.
     if (settledHeight !== undefined) {
+      if (isPlaceholder) {
+        return undefined;
+      }
       const timer = setTimeout(accept, settleMs);
       return () => clearTimeout(timer);
     }
@@ -80,9 +112,21 @@ export function useSettledHeaderHeight(
       holdDeadlineRef.current = Date.now() + maxHoldMs;
     }
     const remainingHold = Math.max(0, holdDeadlineRef.current - Date.now());
-    const timer = setTimeout(accept, Math.min(settleMs, remainingHold));
+    // A placeholder is only taken once the hold runs out.
+    const timer = setTimeout(
+      accept,
+      isPlaceholder ? remainingHold : Math.min(settleMs, remainingHold),
+    );
     return () => clearTimeout(timer);
-  }, [enabled, headerHeight, settleMs, maxHoldMs, settledHeight]);
+  }, [
+    cacheKey,
+    enabled,
+    estimatedHeaderHeight,
+    headerHeight,
+    settleMs,
+    maxHoldMs,
+    settledHeight,
+  ]);
 
   return {
     // Before anything is known the live estimate is the best guess, and the

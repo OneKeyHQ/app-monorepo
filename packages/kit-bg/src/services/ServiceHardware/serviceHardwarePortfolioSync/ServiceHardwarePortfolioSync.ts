@@ -2019,16 +2019,8 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
   }
 
   private async getCurrencyMapForBuild() {
-    let { currencyMap } = await currencyPersistAtom.get();
+    const { currencyMap } = await currencyPersistAtom.get();
     const settings = await settingsPersistAtom.get();
-    if (!currencyMap[settings.currencyInfo.id]) {
-      try {
-        await this.backgroundApi.serviceSetting.fetchCurrencyList();
-        currencyMap = (await currencyPersistAtom.get()).currencyMap;
-      } catch {
-        // Strict conversion will emit null values if the rate is still absent.
-      }
-    }
     return {
       currencyMap,
       displayCurrency: settings.currencyInfo,
@@ -3074,36 +3066,15 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
       telemetry.schemaVersion = schemaVersion;
       telemetry.firmwareVersion =
         device?.deviceStateInfo?.versions?.firmware ?? undefined;
-      const categoryResult =
-        schemaVersion === 2
-          ? await this.getPortfolioCategoryFiat(
-              eventPayload,
-              options?.oneKeyOperationLease?.signal,
-              syncMode === 'silent'
-                ? this.getCategoryFiatCacheKey({ eventPayload, targetKey })
-                : undefined,
-            )
-          : undefined;
-      telemetry.deFiSource = categoryResult?.deFiSource;
-      const categoryFiat = categoryResult
-        ? {
-            defiFiat: categoryResult.defiFiat,
-            perpsFiat: categoryResult.perpsFiat,
-          }
-        : undefined;
       if (!this.isCurrentSyncGeneration(targetKey, generation)) {
         return;
       }
       const artifacts = buildPortfolioSyncArtifacts({
-        categoryFiat,
         currencyMap,
         displayCurrency,
         eventPayload,
         schemaVersion,
-        timestamp:
-          schemaVersion === 2
-            ? updatedAt
-            : getPortfolioDisplayTimestamp({ timestamp: updatedAt }),
+        timestamp: getPortfolioDisplayTimestamp({ timestamp: updatedAt }),
       });
       telemetry.portfolioJsonBytes = artifacts.portfolioJsonBytes.byteLength;
       telemetry.tokenCount = artifacts.portfolio.tokens.length;

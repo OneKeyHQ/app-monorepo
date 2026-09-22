@@ -23,6 +23,7 @@ const mockSetTokenAddress = jest.fn();
 const mockSetTokenDetail = jest.fn();
 const mockSetTokenDetailLoading = jest.fn();
 const mockSetTokenDetailWebsocket = jest.fn();
+const mockSeedTokenDetailFromCache = jest.fn();
 let promiseFactory: (() => Promise<unknown>) | undefined;
 let promiseOptions: Record<string, unknown> | undefined;
 let promiseResult: unknown;
@@ -30,6 +31,10 @@ let mockCurrencyId = 'usd';
 
 jest.mock('@onekeyhq/kit/src/components/Currency', () => ({
   useCurrency: () => ({ id: mockCurrencyId }),
+}));
+
+jest.mock('@onekeyhq/kit/src/hooks/useLocaleVariant', () => ({
+  useLocaleVariant: () => 'en-US',
 }));
 
 jest.mock('@onekeyhq/kit/src/hooks/usePromiseResult', () => ({
@@ -55,6 +60,7 @@ jest.mock('@onekeyhq/kit/src/states/jotai/contexts/marketV2', () => ({
       setTokenDetail: mockSetTokenDetail,
       setTokenDetailLoading: mockSetTokenDetailLoading,
       setTokenDetailWebsocket: mockSetTokenDetailWebsocket,
+      seedTokenDetailFromCache: mockSeedTokenDetailFromCache,
     },
   }),
 }));
@@ -156,7 +162,17 @@ describe('useAutoRefreshTokenDetail', () => {
       await promiseFactory?.();
     });
 
-    expect(mockFetchTokenDetail).toHaveBeenCalledWith('0xabc', 'evm--1');
+    // The response is currency-converted and localized, so both scope the
+    // cached copy a revisit starts from.
+    const swrKey = 'marketTokenDetail:v1:evm--1:0xabc:usd:en-us';
+    expect(mockSeedTokenDetailFromCache).toHaveBeenCalledWith({
+      tokenAddress: '0xabc',
+      networkId: 'evm--1',
+      swrKey,
+    });
+    expect(mockFetchTokenDetail).toHaveBeenCalledWith('0xabc', 'evm--1', {
+      swrKey,
+    });
     expect(mockFetchAssetTokenDetail).not.toHaveBeenCalled();
   });
 

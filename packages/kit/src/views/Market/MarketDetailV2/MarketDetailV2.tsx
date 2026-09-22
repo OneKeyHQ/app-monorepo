@@ -22,15 +22,16 @@ import { useSetSplitViewDetailFullscreen } from '@onekeyhq/kit/src/provider/Cont
 import { useTokenDetailActions } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2';
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { MARKET_TOP_COINS_CATEGORY_ID } from '@onekeyhq/shared/src/consts/marketConsts';
-import {
-  EAppEventBusNames,
-  appEventBus,
-} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type {
   ETabMarketRoutes,
   ITabMarketParamList,
 } from '@onekeyhq/shared/src/routes';
+import {
+  createHideTabBarOwnerId,
+  releaseHideTabBar,
+  requestHideTabBar,
+} from '@onekeyhq/shared/src/tabBar/hideTabBarRequests';
 import { parseTokenDetailPreviewParam } from '@onekeyhq/shared/src/utils/marketTokenPreviewRoute';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
@@ -38,9 +39,13 @@ import type { IMarketTokenDetailPreview } from '@onekeyhq/shared/types/marketV2'
 
 import { AccountSelectorProviderMirror } from '../../../components/AccountSelector';
 import { TradingViewEmbedGlobalPreload } from '../../../provider/TradingViewEmbedGlobalPreload';
+import { useHeaderHeightCacheKey } from '../../Earn/hooks/useHeaderHeightCacheKey';
+import { useNativeStackHeaderHeightEstimate } from '../../Earn/hooks/useNativeStackHeaderHeightEstimate';
+import { useSettledHeaderHeight } from '../../Earn/hooks/useSettledHeaderHeight';
 import { useMarketEnterAnalytics } from '../hooks';
 import { MarketWatchListProviderMirrorV2 } from '../MarketWatchListProviderMirrorV2';
 import { MarketTestIDs } from '../testIDs';
+import { finishMarketDetailTabBarTransition } from '../utils/marketDetailNavigation';
 
 import { MarketDetailHeader } from './components/MarketDetailHeader';
 import {
@@ -290,8 +295,19 @@ function MarketDetail({
   // body down twice and leave a blank band at the top.
   const isModalPage = useIsModalPage();
   const headerHeight = useHeaderHeight();
-  const bodyPaddingTop =
-    platformEnv.isNativeIOS26Plus && !isModalPage ? headerHeight : 0;
+  const usesTranslucentHeader = platformEnv.isNativeIOS26Plus && !isModalPage;
+  // useHeaderHeight() starts from react-navigation's pre-iOS 26 estimate and
+  // reports the Liquid Glass bar ~15pt taller a beat later, which dropped the
+  // whole body mid-push. Reuse the height this device already settled on.
+  const estimatedHeaderHeight = useNativeStackHeaderHeightEstimate();
+  const headerHeightCacheKey = useHeaderHeightCacheKey();
+  const { paddingTop: settledHeaderHeight, isSettled: isHeaderHeightSettled } =
+    useSettledHeaderHeight(headerHeight, {
+      enabled: usesTranslucentHeader,
+      estimatedHeaderHeight,
+      cacheKey: headerHeightCacheKey,
+    });
+  const bodyPaddingTop = usesTranslucentHeader ? settledHeaderHeight : 0;
 
   useEffect(() => {
     preloadMarketDetailV2BodyModules({
@@ -320,9 +336,12 @@ function MarketDetail({
 
         <Page.Body
           pt={isChartFullscreen && !platformEnv.isNative ? 0 : bodyPaddingTop}
+          // Hidden only while the session's first header measurement settles.
+          opacity={isHeaderHeightSettled ? 1 : 0}
           testID={MarketTestIDs.detailPage}
         >
           <MarketDetailResponsiveLayout
+            active={shouldOwnSharedMarketDetailState}
             isLayoutPending={shouldSkipMarketDataFetch}
             disablePerpsBanner={skipMarketDataFetch}
             isInitialContentPending={
@@ -467,10 +486,16 @@ function MarketDetailV2(
         return;
       }
 
-      appEventBus.emit(EAppEventBusNames.HideTabBar, true);
+      // Own the request per instance: switching tokens can collapse the stack
+      // while two detail instances are live, and the leaving one must not
+      // release the survivor's request and let the tab bar cover the trade
+      // buttons.
+      const ownerId = createHideTabBarOwnerId('market-detail');
+      requestHideTabBar(ownerId);
+      finishMarketDetailTabBarTransition();
 
       return () => {
-        appEventBus.emit(EAppEventBusNames.HideTabBar, false);
+        releaseHideTabBar(ownerId);
       };
     }, [effectiveIsChartFullscreen, media.md]),
   );

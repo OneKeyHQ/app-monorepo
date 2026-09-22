@@ -55,6 +55,50 @@ describe('Portfolio v2 category amounts', () => {
     });
   });
 
+  test('uses the displayed Home total when no category snapshot is supplied', () => {
+    expect(
+      buildPortfolioPayload({ ...params, categoryFiat: undefined }),
+    ).toMatchObject({
+      v: 2,
+      tokensFiat: '$1.00K',
+      defiFiat: '—',
+      perpsFiat: '—',
+      totalFiat: '$1,000.00',
+    });
+  });
+
+  test('uses the rendered Home total while preserving its known categories', () => {
+    expect(
+      buildPortfolioPayload({
+        ...params,
+        homeTotalFiatUsd: '600',
+        categoryFiat: { defiFiat: '200', perpsFiat: '300' },
+      }),
+    ).toMatchObject({
+      v: 2,
+      tokensFiat: '$1.00K',
+      defiFiat: '$200.00',
+      perpsFiat: '$300.00',
+      totalFiat: '$600.00',
+      tokens: [{ portfolioPercentage: 80 }],
+      otherTokens: { fiat: '$200.00', portfolioPercentage: 20 },
+    });
+  });
+
+  test('keeps the rendered Home total when a category is unavailable', () => {
+    expect(
+      buildPortfolioPayload({
+        ...params,
+        homeTotalFiatUsd: '600',
+        categoryFiat: { perpsFiat: '300' },
+      }),
+    ).toMatchObject({
+      defiFiat: '—',
+      perpsFiat: '$300.00',
+      totalFiat: '$600.00',
+    });
+  });
+
   test('converts all categories into the same display currency', () => {
     expect(
       buildPortfolioPayload({

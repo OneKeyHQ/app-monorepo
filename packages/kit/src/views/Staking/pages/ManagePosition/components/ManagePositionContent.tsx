@@ -6,7 +6,6 @@ import { StyleSheet } from 'react-native';
 
 import {
   Button,
-  Divider,
   Page,
   SizableText,
   Skeleton,
@@ -103,7 +102,6 @@ const ManageSectionShell = ({
   fallbackTokenImageUri,
   isPendleProvider,
   hasProtocolSwitch,
-  shouldReserveCompactSummary,
   isInModalContext,
 }: {
   type: EManagePositionType;
@@ -114,7 +112,6 @@ const ManageSectionShell = ({
   // Trending entry (with a protocol switcher) renders a different card stack
   // than the details entry, so the skeleton mirrors whichever will land.
   hasProtocolSwitch?: boolean;
-  shouldReserveCompactSummary?: boolean;
   // In the modal the action button lives in Page.Footer (bottom-right), so the
   // shell must not render an inline full-width button there.
   isInModalContext?: boolean;
@@ -179,23 +176,36 @@ const ManageSectionShell = ({
       <XStack px="$5">
         {tabLabels.map((label, index) => {
           const isFocused = index === activeIndex;
+          let tabBackground: '$bg' | '$bgActive' | 'transparent' = '$bg';
+          if (isPendleProvider) {
+            tabBackground = 'transparent';
+          } else if (isFocused) {
+            tabBackground = '$bgActive';
+          }
           return (
             <XStack
               key={label}
               px="$2"
               py="$1.5"
               mr="$1"
-              bg={isFocused ? '$bgActive' : '$bg'}
+              bg={tabBackground}
               borderRadius="$2"
               borderCurve="continuous"
             >
-              <SizableText
-                size="$headingMd"
-                color={isFocused ? '$text' : '$textSubdued'}
-                letterSpacing={-0.15}
-              >
-                {label}
-              </SizableText>
+              {isPendleProvider ? (
+                <Skeleton.HeadingMd
+                  w={index === 0 ? '$8' : '$12'}
+                  borderRadius="$2"
+                />
+              ) : (
+                <SizableText
+                  size="$headingMd"
+                  color={isFocused ? '$text' : '$textSubdued'}
+                  letterSpacing={-0.15}
+                >
+                  {label}
+                </SizableText>
+              )}
             </XStack>
           );
         })}
@@ -269,24 +279,14 @@ const ManageSectionShell = ({
               </XStack>
             </XStack>
 
-            {/* Compact summary / trade-buy card. Stakefish adds its delayed
-                "earn starts" row above the divider; other protocols render
-                only the static trade-buy row with symmetric padding. */}
+            {/* Keep only content that is also present with an empty amount;
+                quote-only rows are rendered after manage data is available. */}
             <YStack
               p="$3.5"
-              pt={shouldReserveCompactSummary ? '$5' : '$3.5'}
               borderRadius="$3"
               borderWidth={StyleSheet.hairlineWidth}
               borderColor="$borderSubdued"
             >
-              {shouldReserveCompactSummary ? (
-                <>
-                  <YStack mt="$1.5">
-                    <Skeleton.BodyLg w={160} />
-                  </YStack>
-                  <Divider my="$5" />
-                </>
-              ) : null}
               <XStack jc="space-between" ai="center">
                 <SizableText size="$bodyMd" color="$textSubdued">
                   {intl.formatMessage(
@@ -316,21 +316,15 @@ const ManageSectionShell = ({
         ) : null}
 
         {!hasProtocolSwitch && !borrowAction ? (
-          /* Summary card — single bordered box (details entry): est. rewards +
-             provider + trade/buy. Interior spacing mirrors the real card
-             (Divider my $5, inner gap $5) so nothing shifts on load. */
+          /* Summary card — single bordered box (details entry): provider +
+             trade/buy. Quote-only content is unavailable in this shell and
+             must not create a one-frame height that disappears on load. */
           <YStack
             p="$3.5"
-            pt="$5"
             borderRadius="$3"
             borderWidth={StyleSheet.hairlineWidth}
             borderColor="$borderSubdued"
           >
-            <YStack gap="$1.5">
-              <Skeleton.BodyMd w={100} />
-              <Skeleton.BodyLg w={140} />
-            </YStack>
-            <Divider my="$5" />
             <YStack gap="$5">
               {/* Provider accordion-trigger placeholder. minHeight matches the
                   measured rendered height of the real Accordion.Trigger row
@@ -394,6 +388,77 @@ const ManageSectionShell = ({
         </Page.Footer>
       ) : null}
     </YStack>
+  );
+};
+
+// USDe and ADA eventually render SpecialManageContent rather than the tabbed
+// manage form. Keep their loading shell on that same holdings layout so the
+// first data response does not replace an unrelated tab bar and form.
+const SpecialManageSectionShell = ({
+  fallbackTokenImageUri,
+  isInModalContext,
+}: {
+  fallbackTokenImageUri?: string;
+  isInModalContext?: boolean;
+}) => {
+  const intl = useIntl();
+
+  return (
+    <>
+      <YStack px="$5" gap="$5">
+        <XStack
+          jc="space-between"
+          ai="center"
+          mt={isInModalContext ? '$1' : undefined}
+        >
+          <SizableText size="$headingMd" color="$text">
+            {intl.formatMessage({ id: ETranslations.earn_holdings })}
+          </SizableText>
+          <Skeleton w="$5" h="$5" borderRadius="$1" />
+        </XStack>
+
+        <XStack jc="space-between" ai="center">
+          <YStack flex={1} gap="$1">
+            <Skeleton h="$9" w="$32" borderRadius="$2" />
+            <Skeleton h="$5" w="$24" borderRadius="$2" />
+          </YStack>
+          {fallbackTokenImageUri ? (
+            <Token
+              size="lg"
+              tokenImageUri={fallbackTokenImageUri}
+              w="$10"
+              h="$10"
+            />
+          ) : (
+            <Skeleton w="$10" h="$10" radius="round" />
+          )}
+        </XStack>
+
+        {!isInModalContext ? (
+          <XStack gap="$2.5">
+            <YStack flex={1}>
+              <Skeleton h="$12" w="100%" borderRadius="$3" />
+            </YStack>
+            <YStack flex={1}>
+              <Skeleton h="$12" w="100%" borderRadius="$3" />
+            </YStack>
+          </XStack>
+        ) : null}
+      </YStack>
+
+      {isInModalContext ? (
+        <Page.Footer>
+          <XStack p="$5" gap="$2.5" bg="$bgApp">
+            <YStack flex={1}>
+              <Skeleton h="$12" w="100%" borderRadius="$3" />
+            </YStack>
+            <YStack flex={1}>
+              <Skeleton h="$12" w="100%" borderRadius="$3" />
+            </YStack>
+          </XStack>
+        </Page.Footer>
+      ) : null}
+    </>
   );
 };
 
@@ -713,6 +778,11 @@ export function ManagePositionContent({
       ].includes(type),
     [type],
   );
+  const normalizedSymbol = symbol.toLowerCase();
+  const isSpecialManage =
+    !isBorrowType && ['usde', 'ada'].includes(normalizedSymbol);
+  const isUSDEManage = !isBorrowType && normalizedSymbol === 'usde';
+  const isADAManage = !isBorrowType && normalizedSymbol === 'ada';
 
   const onHistory = useMemo(() => {
     // Return undefined if history is disabled or no account
@@ -828,6 +898,15 @@ export function ManagePositionContent({
   }, [alertsHolding, alerts, shouldShowWarning, warningElement]);
 
   if (isLoading && !managePageData) {
+    if (isSpecialManage) {
+      return (
+        <SpecialManageSectionShell
+          fallbackTokenImageUri={fallbackTokenImageUri}
+          isInModalContext={isInModalContext}
+        />
+      );
+    }
+
     return (
       <ManageSectionShell
         type={type}
@@ -838,10 +917,6 @@ export function ManagePositionContent({
           providerName: provider,
         })}
         hasProtocolSwitch={Boolean(stakeProtocolSwitchConfig)}
-        shouldReserveCompactSummary={
-          Boolean(stakeProtocolSwitchConfig) &&
-          earnUtils.isStakefishProvider({ providerName: provider })
-        }
         isInModalContext={isInModalContext}
       />
     );
@@ -891,7 +966,7 @@ export function ManagePositionContent({
 
   // USDe special rendering is for Earn/Staking manage pages. Borrow manage
   // pages use the regular borrow action contract and do not return holdings.
-  if (!isBorrowType && symbol.toLowerCase() === 'usde') {
+  if (isUSDEManage) {
     // Show warnings that still require explicit remediation, such as BTC-only
     // firmware on unsupported networks or connected wallets missing an address.
     if (shouldShowWarning && warningElement) {
@@ -925,7 +1000,7 @@ export function ManagePositionContent({
   }
 
   // ADA special rendering (Stakefish provider)
-  if (!isBorrowType && symbol.toLowerCase() === 'ada') {
+  if (isADAManage) {
     return (
       <AdaManageContent
         managePageData={managePageData}

@@ -180,6 +180,7 @@ import {
   isSwapQuoteActionable,
   isSwapQuoteEventFetching,
   resolveSwapQuoteRefreshAction,
+  shouldShowSwapQuoteLimitWarning,
 } from './quoteProgress';
 
 type IIndependentSwapInputAmountType =
@@ -1501,7 +1502,6 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
                       q.eventId &&
                       activeQuoteEventTotalCount.eventId === q.eventId,
                   );
-                set(swapQuoteListAtom(), [...newQuoteList]);
                 const currentEventProviderKeys = [
                   ...new Set([
                     ...get(swapQuoteCurrentEventProviderKeysAtom()),
@@ -1514,6 +1514,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
                   swapQuoteCurrentEventProviderKeysAtom(),
                   currentEventProviderKeys,
                 );
+                set(swapQuoteListAtom(), [...newQuoteList]);
                 set(
                   swapQuoteCurrentEventReceivedCountAtom(),
                   Math.min(
@@ -1924,7 +1925,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         ESwapQuoteKind.SELL,
         undefined,
         receivingAddress,
-        undefined,
+        false,
         {
           fromToken,
           toToken,
@@ -2414,8 +2415,19 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       const shouldUseStockLimitAlert =
         swapTypeSwitch === ESwapTabSwitchType.STOCK ||
         quoteResult?.protocol === EProtocolOfExchange.STOCK;
-      // check min max amount
-      if (quoteResult && quoteResult.limit?.min && !shouldUseStockLimitAlert) {
+      const shouldShowLimitWarning = shouldShowSwapQuoteLimitWarning({
+        quoteEventCompleted,
+        quoteEventFetching,
+      });
+      // Limit metadata can arrive before the quote event has settled. Wait for
+      // the authoritative event result so a transient provider cannot flash a
+      // warning before a later actionable quote replaces it.
+      if (
+        shouldShowLimitWarning &&
+        quoteResult &&
+        quoteResult.limit?.min &&
+        !shouldUseStockLimitAlert
+      ) {
         const minAmountBN = new BigNumber(quoteResult.limit.min);
         if (fromTokenAmountBN.lt(minAmountBN)) {
           alertsRes = [
@@ -2437,7 +2449,12 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
           ];
         }
       }
-      if (quoteResult && quoteResult.limit?.max && !shouldUseStockLimitAlert) {
+      if (
+        shouldShowLimitWarning &&
+        quoteResult &&
+        quoteResult.limit?.max &&
+        !shouldUseStockLimitAlert
+      ) {
         const maxAmountBN = new BigNumber(quoteResult.limit.max);
         if (fromTokenAmountBN.gt(maxAmountBN)) {
           alertsRes = [
