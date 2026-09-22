@@ -44,7 +44,11 @@ const formatTrezorDebugLog = (entry: ITrezorDebugLogEntry): string =>
  * `offscreenApiProxy.thirdPartyHardware`; connector events flow back
  * through `offscreenEventBus`. New vendor = one `case` in `createConnector()`.
  */
-export default class OffscreenApiThirdPartyHardware implements IHardwareBridge {
+// Event handlers stay in the background client; the offscreen RPC only accepts data.
+export default class OffscreenApiThirdPartyHardware implements Omit<
+  IHardwareBridge,
+  'onEvent' | 'offEvent'
+> {
   private connectors = new Map<VendorType, IConnector>();
 
   private connectorInitPromises = new Map<VendorType, Promise<IConnector>>();
@@ -248,25 +252,5 @@ export default class OffscreenApiThirdPartyHardware implements IHardwareBridge {
   }): Promise<void> {
     const connector = await this.getConnector(params.vendor);
     await connector.setKnownCredentials?.(params.credentials);
-  }
-
-  /**
-   * `onEvent` / `offEvent` on this side are intentionally no-ops: the SW
-   * subscribes to `offscreenEventBus` directly (see `OffscreenHardwareBridgeClient`),
-   * not by calling into offscreen. Including them satisfies the
-   * `IHardwareBridge` interface and documents the choice.
-   */
-  onEvent(
-    _params: { vendor: VendorType },
-    _handler: (event: { type: ConnectorEventType; data: unknown }) => void,
-  ): void {
-    // no-op — event delivery happens via offscreenEventBus instead.
-  }
-
-  offEvent(
-    _params: { vendor: VendorType },
-    _handler: (event: { type: ConnectorEventType; data: unknown }) => void,
-  ): void {
-    // no-op — matches onEvent.
   }
 }

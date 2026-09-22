@@ -6,11 +6,12 @@ import type { IpcMainLike } from '@onekeyfe/hwk-desktop-noble-ble';
 import type { BrowserWindow } from 'electron';
 
 const mockPair = jest.fn<Promise<string>, unknown[]>();
+const mockPairAvailable = jest.fn(() => true);
 const mockDecide = jest.fn<boolean, unknown[]>(() => true);
 jest.mock('./BlePair', () => ({
   ensureDevicePaired: (...args: unknown[]) => mockPair(...args),
   decideActivePairing: (...args: unknown[]) => mockDecide(...args),
-  isBlePairAvailable: () => true,
+  isBlePairAvailable: () => mockPairAvailable(),
   startRawAdvertisementWatch: jest.fn(),
 }));
 jest.mock('./trezorBleFlags', () => ({
@@ -54,7 +55,10 @@ function setup() {
   return { invoke, connect };
 }
 
-beforeEach(() => jest.clearAllMocks());
+beforeEach(() => {
+  jest.clearAllMocks();
+  mockPairAvailable.mockReturnValue(true);
+});
 
 it('only cancels the matching Windows pairing and never proceeds after late success', async () => {
   let finish!: () => void;
@@ -117,3 +121,20 @@ it('does not open a queued pairing after that connection was cancelled', async (
   expect(mockPair).toHaveBeenCalledTimes(1);
   expect(connect).toHaveBeenCalledTimes(1);
 });
+
+it.each([
+  ['trezor', false],
+  ['ledger', true],
+] as const)(
+  'passes %s through when OS pairing does not apply (available=%s)',
+  async (vendor, available) => {
+    mockPairAvailable.mockReturnValue(available);
+    const { invoke, connect } = setup();
+    await invoke(THIRD_PARTY_BLE_CHANNELS.scan);
+    await expect(
+      invoke(THIRD_PARTY_BLE_CHANNELS.connect, 'first', { vendor }),
+    ).resolves.toEqual({ id: 'connected' });
+    expect(mockPair).not.toHaveBeenCalled();
+    expect(connect).toHaveBeenCalledTimes(1);
+  },
+);

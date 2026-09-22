@@ -81,6 +81,12 @@ function classifyBleAddress(id: string): string {
   return 'reserved';
 }
 
+type IPendingBleConnection = {
+  id: string;
+  vendor?: string;
+  cancelled: boolean;
+};
+
 export function createTrezorBlePairingIpcMain(
   base: IpcMainLike,
   browserWindow: BrowserWindow,
@@ -118,11 +124,7 @@ export function createTrezorBlePairingIpcMain(
   // answers nothing instead of answering the attempt that replaced it.
   let ceremonyToken: IPairCeremonyToken | undefined;
   let pairingConnectId: string | undefined;
-  const pendingConnections = new Set<{
-    id: string;
-    vendor?: string;
-    cancelled: boolean;
-  }>();
+  const pendingConnections = new Set<IPendingBleConnection>();
 
   const showPin = (pin: string) => {
     const dialogToken = ceremonyToken;
@@ -174,14 +176,15 @@ export function createTrezorBlePairingIpcMain(
   let pairingInFlight: Promise<unknown> | null = null;
 
   const ensurePaired = async (
-    connectId: string,
-    assertActive: () => void,
+    connection: IPendingBleConnection,
   ): Promise<IEnsurePairedOutcome> => {
+    const { id: connectId } = connection;
     if (!isBlePairAvailable()) return 'skipped'; // non-Windows / helper not bundled
     // Loop, not a single check: several waiters resume together when the
     // holder settles, and each must re-check before claiming the slot.
     for (;;) {
-      assertActive();
+      if (connection.cancelled)
+        throw new OneKeyLocalError('BLE connect cancelled');
       const holder = pairingInFlight;
       if (!holder) break;
       logger.warn(
@@ -377,18 +380,15 @@ export function createTrezorBlePairingIpcMain(
             cancelled: false,
           };
           pendingConnections.add(claim);
-          const assertActive = () => {
-            if (claim.cancelled)
-              throw new OneKeyLocalError('BLE connect cancelled');
-          };
           try {
             const pairOutcome =
               options?.vendor === EHardwareVendor.trezor
-                ? await ensurePaired(connectId, assertActive)
+                ? await ensurePaired(claim)
                 : 'skipped';
 
             const attemptConnect = async (attempt: number) => {
-              assertActive();
+              if (claim.cancelled)
+                throw new OneKeyLocalError('BLE connect cancelled');
               const startedAt = Date.now();
               const sinceScan = lastScanAt ? startedAt - lastScanAt : -1;
               const targetSeen = seenTrezorAddresses.get(connectId);
