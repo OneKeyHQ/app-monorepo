@@ -116,22 +116,18 @@ export function useMarketWatchlistTokenList({
   const [isInitialLoad, setIsInitialLoad] = useState(true);
   // Cold start paints spot, listings, and perps as each request returns, so
   // rows pop in and the order jumps (OK-63895). Hold the first commit until
-  // every source for this watchlist generation has been seen loading and then
-  // settled. Loading flags from the previous empty request stay false until
-  // the next effect, so the render that receives the hydrated list must not
-  // count them. Cache written by those in-flight effects is also ignored;
-  // only a cache that already existed when this hook mounted can paint early.
+  // every source for this watchlist has settled. The mount's own loading
+  // flags are current: a sync result with isLoading false can paint
+  // immediately. A later watchlist change still carries the previous
+  // request's idle flags until its effect starts, so that render does not
+  // count. Cache written by in-flight effects is also ignored; only a cache
+  // that already existed when this hook mounted can paint early.
   const hasCommittedWatchlistRowsRef = useRef(false);
   const watchlistGenerationRef = useRef<string | null>(null);
-  // Set on the render that receives a new watchlist, cleared after that
-  // generation's fetch effects start. Loading observed on the transition
-  // render still belongs to the previous request.
+  // Set when the watchlist changes, cleared after that generation's fetch
+  // effects start. Loading on the transition render still belongs to the
+  // previous request.
   const pendingGenerationRef = useRef<string | null>(null);
-  const sourceLoadingSeenRef = useRef({
-    spot: false,
-    listing: false,
-    perps: false,
-  });
   const [, setWatchlistFetchEpoch] = useState(0);
   const hadCachedRowsOnMountRef = useRef(
     Boolean(
@@ -605,56 +601,28 @@ export function useMarketWatchlistTokenList({
     .map((item) => getMarketWatchlistKey(item))
     .join('\n');
   if (watchlistGenerationRef.current !== watchlistGeneration) {
+    const isInitialGeneration = watchlistGenerationRef.current === null;
     watchlistGenerationRef.current = watchlistGeneration;
-    pendingGenerationRef.current = watchlistGeneration;
-    sourceLoadingSeenRef.current = {
-      spot: false,
-      listing: false,
-      perps: false,
-    };
+    if (!isInitialGeneration) {
+      pendingGenerationRef.current = watchlistGeneration;
+    }
     if (watchlist.length === 0) {
       hasCommittedWatchlistRowsRef.current = false;
     }
   }
   const watchlistFetchStarted =
     pendingGenerationRef.current !== watchlistGeneration;
-  if (watchlistFetchStarted) {
-    if (apiLoading === true) {
-      sourceLoadingSeenRef.current.spot = true;
-    }
-    if (listingLoading === true) {
-      sourceLoadingSeenRef.current.listing = true;
-    }
-    if (perpsLoading === true) {
-      sourceLoadingSeenRef.current.perps = true;
-    }
-  }
   useEffect(() => {
     pendingGenerationRef.current = null;
     setWatchlistFetchEpoch((epoch) => epoch + 1);
   }, [watchlistGeneration]);
-  const sourceHasSettled = (
-    itemCount: number,
-    loading: boolean | undefined,
-    seenLoading: boolean,
-  ) => itemCount === 0 || (seenLoading && loading === false);
+  const sourceHasSettled = (itemCount: number, loading: boolean | undefined) =>
+    itemCount === 0 || (watchlistFetchStarted && loading === false);
   const watchlistSourcesSettled =
     watchlist.length > 0 &&
-    sourceHasSettled(
-      spotItems.length,
-      apiLoading,
-      sourceLoadingSeenRef.current.spot,
-    ) &&
-    sourceHasSettled(
-      listingItems.length,
-      listingLoading,
-      sourceLoadingSeenRef.current.listing,
-    ) &&
-    sourceHasSettled(
-      perpsItems.length,
-      perpsLoading,
-      sourceLoadingSeenRef.current.perps,
-    );
+    sourceHasSettled(spotItems.length, apiLoading) &&
+    sourceHasSettled(listingItems.length, listingLoading) &&
+    sourceHasSettled(perpsItems.length, perpsLoading);
   if (watchlistSourcesSettled) {
     hasCommittedWatchlistRowsRef.current = true;
   }
