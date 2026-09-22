@@ -11,6 +11,7 @@ export const ReceiveTestIDs = {
   PageHeading: 'receive-page-heading',
   CardHeaderNetworkEta: 'receive-card-network-eta',
   ShareButton: 'receive-share-button',
+  DoneButton: 'receive-done-button',
 
   // ReceiveShare dialog
   ShareDialogPreview: 'receive-share-preview',

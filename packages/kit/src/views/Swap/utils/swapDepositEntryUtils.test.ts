@@ -39,8 +39,18 @@ describe('openSwapDepositEntry', () => {
   it('opens the receive selector and counts the funnel event once', () => {
     const pushModal = jest.fn();
     const navigation = { pushModal } as unknown as INavigation;
-    expect(openSwapDepositEntry({ navigation, token, accountInfo })).toBe(true);
+    const onClose = jest.fn();
+    expect(
+      openSwapDepositEntry({ navigation, token, accountInfo, onClose }),
+    ).toBe(true);
     expect(pushModal).toHaveBeenCalledTimes(1);
+    // The QR page gets a Done shortcut and the caller's close hook rides
+    // along so the balance can be reloaded after the deposit.
+    expect(pushModal.mock.calls[0][1]).toEqual(
+      expect.objectContaining({
+        params: expect.objectContaining({ showDoneButton: true, onClose }),
+      }),
+    );
     expect(mockBuyOnLowBalance).toHaveBeenCalledTimes(1);
     expect(mockBuyOnLowBalance).toHaveBeenCalledWith({
       source: 'swap',
