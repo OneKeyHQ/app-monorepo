@@ -3,6 +3,8 @@ import { EDeviceType } from '@onekeyfe/hd-shared';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { EHardwareVendor } from '@onekeyhq/shared/types/device';
 
+import { thirdPartyConnectionContextFromDevice } from '../../vaults/base/thirdPartyHardwareCommonParams';
+
 import { LocalDbBase } from './LocalDbBase';
 import { ELocalDBStoreNames } from './localDBStoreNames';
 
@@ -10,6 +12,72 @@ import type { IDBDevice } from './types';
 import type { IVerifiedDeviceIdentity } from './verifiedDeviceIdentity';
 
 describe('LocalDbBase verified Ledger binding transaction guard', () => {
+  it.each([EHardwareVendor.ledger, EHardwareVendor.trezor])(
+    'rebinds a legacy-only %s record without replacing its identity or promoting the old locator',
+    async (vendor) => {
+      const db = Object.create(LocalDbBase.prototype) as LocalDbBase;
+      const record: IDBDevice = {
+        id: 'legacy-device',
+        vendor,
+        name: 'Legacy device',
+        deviceType: EDeviceType.Unknown,
+        features: '{}',
+        connectId: 'obsolete-locator',
+        deviceId: 'verified-device',
+        uuid: 'original-uuid',
+        createdAt: 1,
+        updatedAt: 1,
+        settingsRaw: JSON.stringify({
+          vendor,
+          chainFingerprints: { evm: 'verified-fingerprint' },
+        }),
+      };
+      const original = { ...record };
+      db.timeNow = async () => 2;
+      db.getDeviceSafe = jest.fn().mockResolvedValue(record);
+      db.getAllDevices = jest.fn().mockResolvedValue({ devices: [record] });
+      db.clearStoreCachedDataIfMatch = jest.fn();
+      db.withTransaction = async (bucketName, task) => task({ bucketName });
+      db.txUpdateRecords = async ({ ids, updater }) => {
+        expect(ids).toEqual([record.id]);
+        await (
+          updater as (device: IDBDevice) => IDBDevice | Promise<IDBDevice>
+        )(record);
+      };
+
+      if (vendor === EHardwareVendor.trezor) {
+        await db.updateDeviceBleConnectIdAndCleanStaleAliases({
+          dbDeviceId: record.id,
+          bleConnectId: 'verified-new-ble',
+          verifiedDeviceId: record.deviceId,
+        });
+      } else {
+        await db.updateDeviceConnectId({
+          dbDeviceId: record.id,
+          bleConnectId: 'verified-new-ble',
+          verifiedDeviceIdentity: {
+            vendor,
+            identity: {
+              type: 'chainFingerprint',
+              chain: 'evm',
+              value: 'verified-fingerprint',
+            },
+          },
+        });
+      }
+
+      expect(record).toEqual({
+        ...original,
+        bleConnectId: 'verified-new-ble',
+        updatedAt: 2,
+      });
+      expect(thirdPartyConnectionContextFromDevice(record)).toEqual({
+        knownConnections: [{ transport: 'ble', connectId: 'verified-new-ble' }],
+        extra: { dbDeviceId: original.id },
+      });
+    },
+  );
+
   it.each(['ledger', 'trezor'] as const)(
     'rolls back %s binding when cancelled during the transaction',
     async (vendor) => {
