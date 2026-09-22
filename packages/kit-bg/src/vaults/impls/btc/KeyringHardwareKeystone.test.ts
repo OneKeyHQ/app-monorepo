@@ -1,6 +1,9 @@
 import * as BitcoinJS from 'bitcoinjs-lib';
+import { tapleafHash } from 'bitcoinjs-lib/src/payments/bip341';
+import bitcoinMessage from 'bitcoinjs-message';
 
 import {
+  getBitcoinBip32,
   getBitcoinECPair,
   getBtcForkNetwork,
   initBitcoinEcc,
@@ -11,7 +14,10 @@ import {
   AddressNotSupportSignMethodError,
   OneKeyLocalError,
 } from '@onekeyhq/shared/src/errors';
-import { ThirdPartyDeviceMismatch } from '@onekeyhq/shared/src/errors/errors/thirdPartyHardwareErrors';
+import {
+  ThirdPartyDeviceMismatch,
+  ThirdPartyMethodNotSupported,
+} from '@onekeyhq/shared/src/errors/errors/thirdPartyHardwareErrors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { EDBAccountType } from '../../../dbs/local/consts';
@@ -721,6 +727,101 @@ describe('KeyringHardwareKeystone signing', () => {
     },
   );
 
+  it('preserves existing matching Taproot derivation and cosigner metadata', async () => {
+    const params = buildTaprootRequest();
+    const psbt = BitcoinJS.Psbt.fromHex(params.unsignedTx.encodedTx.psbtHex);
+    const derivations = [
+      {
+        masterFingerprint: Buffer.from('aabbccdd', 'hex'),
+        pubkey: Buffer.from(publicKeyHex, 'hex').subarray(1),
+        path: "m/86'/0'/0'/0/0",
+        leafHashes: [],
+      },
+      {
+        masterFingerprint: Buffer.from('11223344', 'hex'),
+        pubkey: Buffer.from('03'.repeat(32), 'hex'),
+        path: "m/86'/0'/1'/0/0",
+        leafHashes: [Buffer.alloc(32, 4)],
+      },
+    ];
+    psbt.updateInput(0, { tapBip32Derivation: derivations });
+    params.unsignedTx.encodedTx.psbtHex = psbt.toHex();
+    const { keyring, btcSignPsbt } = buildTaprootKeyring((value) =>
+      value.data.inputs[0].tapKeySig
+        ? value
+        : value.signInput(0, taprootSigner),
+    );
+    const signed = await keyring.signPsbt({
+      ...params,
+      signOnly: true,
+    } as never);
+    expect(btcSignPsbt.mock.calls[0][2].psbt).toBe(psbt.toHex());
+    await expect(
+      keyring.signPsbt({
+        ...params,
+        unsignedTx: {
+          encodedTx: {
+            ...params.unsignedTx.encodedTx,
+            psbtHex: signed.psbtHex,
+          },
+        },
+        signOnly: true,
+      } as never),
+    ).resolves.toBeDefined();
+  });
+
+  it('accepts an x-only requested key when derivation uses the account fallback', async () => {
+    const params = buildTaprootRequest();
+    params.unsignedTx.encodedTx.inputsToSign[0].publicKey =
+      publicKeyHex.slice(2);
+    const { keyring, btcSignPsbt } = buildTaprootKeyring((value) =>
+      value.signInput(0, taprootSigner),
+    );
+    Object.assign(keyring.vault, {
+      prepareBtcSignExtraInfo: jest
+        .fn()
+        .mockResolvedValue({ btcExtraInfo: { addressToPath: {} } }),
+    });
+    await expect(
+      keyring.signPsbt({ ...params, signOnly: true } as never),
+    ).resolves.toBeDefined();
+    const submitted = BitcoinJS.Psbt.fromHex(btcSignPsbt.mock.calls[0][2].psbt);
+    expect(
+      Buffer.from(
+        submitted.data.inputs[0].tapBip32Derivation![0].pubkey,
+      ).toString('hex'),
+    ).toBe(publicKeyHex.slice(2));
+  });
+
+  it.each(['fingerprint', 'path'] as const)(
+    'rejects conflicting existing Taproot %s before signing',
+    async (conflict) => {
+      const params = buildTaprootRequest();
+      const psbt = BitcoinJS.Psbt.fromHex(params.unsignedTx.encodedTx.psbtHex);
+      psbt.updateInput(0, {
+        tapBip32Derivation: [
+          {
+            masterFingerprint: Buffer.from(
+              conflict === 'fingerprint' ? '11223344' : 'aabbccdd',
+              'hex',
+            ),
+            pubkey: Buffer.from(publicKeyHex, 'hex').subarray(1),
+            path: conflict === 'path' ? "m/86'/0'/0'/0/1" : "m/86'/0'/0'/0/0",
+            leafHashes: [],
+          },
+        ],
+      });
+      params.unsignedTx.encodedTx.psbtHex = psbt.toHex();
+      const { keyring, btcSignPsbt } = buildTaprootKeyring((value) =>
+        value.signInput(0, taprootSigner),
+      );
+      await expect(
+        keyring.signPsbt({ ...params, signOnly: true } as never),
+      ).rejects.toThrow('BTC Taproot derivation mismatch');
+      expect(btcSignPsbt).not.toHaveBeenCalled();
+    },
+  );
+
   it('preserves a verified partial PSBT only for signOnly requests', async () => {
     const { keyring } = buildTaprootKeyring((psbt) =>
       psbt.signInput(0, taprootSigner),
@@ -776,10 +877,24 @@ describe('KeyringHardwareKeystone signing', () => {
           },
         ],
       });
+      const leafHash = tapleafHash({ output: script, version: 0xc0 });
+      psbt.updateInput(0, {
+        tapBip32Derivation: [
+          {
+            masterFingerprint: Buffer.from('aabbccdd', 'hex'),
+            pubkey: signer.publicKey.slice(1),
+            path: "m/86'/0'/0'/0/0",
+            leafHashes: [leafHash],
+          },
+        ],
+      });
       psbt.addOutput({ address: recipientAddress, value: 9000n });
       const params = buildTaprootRequest();
       params.unsignedTx.encodedTx.psbtHex = psbt.toHex();
       const { keyring } = buildTaprootKeyring((submitted) => {
+        expect(
+          submitted.data.inputs[0].tapBip32Derivation?.[0].leafHashes,
+        ).toEqual([leafHash]);
         submitted.signInput(0, signer);
         if (finalized) submitted.finalizeAllInputs();
         return submitted;
@@ -909,84 +1024,134 @@ describe('KeyringHardwareKeystone signing', () => {
 });
 
 describe('KeyringHardwareKeystone.signMessage', () => {
-  const dbAccount = {
-    id: 'account-1',
-    path: "m/84'/0'/0'",
-    relPath: '0/0',
-    template: "m/84'/0'/0'/0/0",
-    address: 'bc1qaddress',
-    pub: '0279be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798',
-    xpub: 'account-xpub',
-  } as IDBUtxoAccount;
-
+  const root = getBitcoinBip32().fromSeed(Buffer.alloc(32, 7));
+  const accountPath = "m/84'/0'/0'";
   const deviceParams = {
-    dbDevice: {
-      connectId: 'keystone-wallet:test',
-      deviceId: 'wallet-id',
-    },
+    dbDevice: { connectId: 'keystone-wallet:test', deviceId: 'wallet-id' },
   };
-
-  function buildKeyring(btcSignMessage: jest.Mock) {
-    const getAdapterForVendor = jest.fn().mockResolvedValue({
-      hw: { btcSignMessage },
-    });
+  const params = {
+    messages: [{ message: 'hello', type: 'ecdsa' }],
+    password: '',
+    deviceParams,
+  };
+  function signatureFor(
+    path: string,
+    message = 'hello',
+    segwitType?: 'p2wpkh' | 'p2sh(p2wpkh)',
+  ) {
+    return bitcoinMessage
+      .sign(message, root.derivePath(path).privateKey!, true, { segwitType })
+      .toString('hex');
+  }
+  function buildKeyring(signature: string, path = accountPath) {
+    const accountNode = root.derivePath(path);
+    const btcSignMessage = jest
+      .fn()
+      .mockResolvedValue({ success: true, payload: { signature } });
     const keyring = Object.assign(
       Object.create(KeyringHardwareKeystone.prototype),
       {
         backgroundApi: {
-          serviceThirdPartyHardware: { getAdapterForVendor },
+          serviceThirdPartyHardware: {
+            getAdapterForVendor: jest
+              .fn()
+              .mockResolvedValue({ hw: { btcSignMessage } }),
+          },
         },
         vault: {
-          getAccount: jest.fn().mockResolvedValue(dbAccount),
+          getAccount: jest.fn().mockResolvedValue({
+            path,
+            relPath: '0/0',
+            xpub: accountNode.neutered().toBase58(),
+          }),
         },
-        getCoreApiNetworkInfo: jest.fn().mockResolvedValue({
-          networkChainCode: 'btc',
-        }),
+        getCoreApiNetworkInfo: jest
+          .fn()
+          .mockResolvedValue({ networkChainCode: 'btc' }),
       },
     ) as KeyringHardwareKeystone;
     return { keyring, btcSignMessage };
   }
 
-  it('signs with the receiveAddressPath from chainExtraParams when provided', async () => {
-    const btcSignMessage = jest.fn().mockResolvedValue({
-      success: true,
-      payload: { signature: 'sig' },
-    });
-    const { keyring } = buildKeyring(btcSignMessage);
+  it.each([undefined, 'p2wpkh', 'p2sh(p2wpkh)'] as const)(
+    'verifies compact message signatures with header type %s',
+    async (segwitType) => {
+      const signature = signatureFor(`${accountPath}/0/0`, 'hello', segwitType);
+      const { keyring } = buildKeyring(signature);
+      await expect(keyring.signMessage(params as never)).resolves.toEqual([
+        signature,
+      ]);
+    },
+  );
 
-    await keyring.signMessage({
-      messages: [{ message: 'hello' }],
-      password: '',
-      deviceParams,
-      chainExtraParams: { receiveAddressPath: "m/84'/0'/0'/1/2" },
-    } as never);
-
+  it('verifies the selected receive path instead of the default address', async () => {
+    const path = `${accountPath}/1/2`;
+    const signature = signatureFor(path);
+    const { keyring, btcSignMessage } = buildKeyring(signature);
+    await expect(
+      keyring.signMessage({
+        ...params,
+        chainExtraParams: { receiveAddressPath: path },
+      } as never),
+    ).resolves.toEqual([signature]);
     expect(btcSignMessage).toHaveBeenCalledWith(
       'keystone-wallet:test',
       'wallet-id',
-      expect.objectContaining({ path: "m/84'/0'/0'/1/2" }),
+      expect.objectContaining({ path }),
+    );
+    await expect(keyring.signMessage(params as never)).rejects.toBeInstanceOf(
+      ThirdPartyDeviceMismatch,
     );
   });
 
-  it('falls back to the account derivation path when receiveAddressPath is absent', async () => {
-    const btcSignMessage = jest.fn().mockResolvedValue({
-      success: true,
-      payload: { signature: 'sig' },
-    });
-    const { keyring } = buildKeyring(btcSignMessage);
+  it('preserves legacy ECDSA message signing from a Taproot account path', async () => {
+    const path = "m/86'/0'/0'";
+    const signature = signatureFor(`${path}/0/0`);
+    const { keyring } = buildKeyring(signature, path);
+    await expect(keyring.signMessage(params as never)).resolves.toEqual([
+      signature,
+    ]);
+  });
 
-    await keyring.signMessage({
-      messages: [{ message: 'hello' }],
-      password: '',
-      deviceParams,
-    } as never);
+  it.each([
+    signatureFor("m/84'/0'/1'/0/0"),
+    signatureFor(`${accountPath}/0/0`, 'other message'),
+    'invalid',
+    `${signatureFor(`${accountPath}/0/0`)}zz`,
+    `00${signatureFor(`${accountPath}/0/0`).slice(2)}`,
+  ])(
+    'rejects a wrong signer, wrong message or malformed signature (%#)',
+    async (signature) => {
+      const { keyring } = buildKeyring(signature);
+      await expect(keyring.signMessage(params as never)).rejects.toBeInstanceOf(
+        ThirdPartyDeviceMismatch,
+      );
+    },
+  );
 
-    expect(btcSignMessage).toHaveBeenCalledWith(
-      'keystone-wallet:test',
-      'wallet-id',
-      expect.objectContaining({
-        path: `${dbAccount.path}/${dbAccount.relPath ?? '0/0'}`,
-      }),
+  it('rejects a receive path outside the account before signing', async () => {
+    const { keyring, btcSignMessage } = buildKeyring(
+      signatureFor(`${accountPath}/0/0`),
     );
+    await expect(
+      keyring.signMessage({
+        ...params,
+        chainExtraParams: { receiveAddressPath: "m/84'/0'/1'/0/0" },
+      } as never),
+    ).rejects.toThrow('BTC message path does not belong to the account');
+    expect(btcSignMessage).not.toHaveBeenCalled();
+  });
+
+  it('keeps BIP-322 unsupported before contacting the device', async () => {
+    const { keyring, btcSignMessage } = buildKeyring(
+      signatureFor(`${accountPath}/0/0`),
+    );
+    await expect(
+      keyring.signMessage({
+        ...params,
+        messages: [{ type: 'bip322-simple', message: 'hello' }],
+      } as never),
+    ).rejects.toBeInstanceOf(ThirdPartyMethodNotSupported);
+    expect(btcSignMessage).not.toHaveBeenCalled();
   });
 });
