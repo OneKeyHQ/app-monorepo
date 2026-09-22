@@ -831,4 +831,31 @@ describe('per-owner persisted slim slot — cold-start switch paint', () => {
       }),
     ).not.toBe(evm);
   });
+
+  it('never maps a literal escape sequence and the character it encodes to the same key', () => {
+    // `-` is outside the safe set, so a raw `-x27-` escapes every dash too
+    // and cannot collide with the escaped apostrophe.
+    const literal = buildTokenListOwnerSlimCacheKey({
+      storeName: STORE_NAME,
+      ownerKey: 'hd-1--m/86-x27-/0',
+    });
+    const apostrophe = buildTokenListOwnerSlimCacheKey({
+      storeName: STORE_NAME,
+      ownerKey: "hd-1--m/86'/0",
+    });
+    expect(literal).not.toBe(apostrophe);
+    expect(apostrophe).toContain('-x27-');
+    expect(literal).toContain('-x2d-x27-x2d-');
+    expect(
+      buildTokenListOwnerSlimCacheKey({
+        storeName: STORE_NAME,
+        ownerKey: 'a-b',
+      }),
+    ).not.toBe(
+      buildTokenListOwnerSlimCacheKey({
+        storeName: STORE_NAME,
+        ownerKey: 'a-x2d-b',
+      }),
+    );
+  });
 });

@@ -784,6 +784,22 @@ export function HomePageView({
     }
   }, [activeTabId, perpTabShowWeb, pagerTabConfigs]);
 
+  // Tabs.Container is not remounted on a wallet / account switch (OK-63873),
+  // so a switch that lands on a network without the focused NFT / DeFi tab
+  // only drops that Tabs.Tab. The effect above moves `activeTabName` to the
+  // first tab, but neither pager follows on its own: the native pager keeps
+  // its index (now another pane), and the web container keeps the removed
+  // name (no highlight, stale page offset). Move the pager explicitly.
+  useEffect(() => {
+    if (pagerTabConfigs.some((tab) => tab.name === activeTabName)) {
+      return;
+    }
+    const fallbackTabName = pagerTabConfigs[0]?.name;
+    if (fallbackTabName) {
+      tabsRef.current?.jumpToTab(fallbackTabName);
+    }
+  }, [activeTabName, pagerTabConfigs]);
+
   useEffect(() => {
     if (!activeTabId) {
       return;
