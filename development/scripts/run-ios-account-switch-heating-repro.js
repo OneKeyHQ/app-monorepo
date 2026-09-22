@@ -319,6 +319,18 @@ function startScreenRecording({ outputDir, udid }) {
   };
 }
 
+function preserveNativeLogBeforeLaunch({ logPath, outputDir }) {
+  if (!fs.existsSync(logPath)) return;
+  // The app must be stopped. Preserve the old file before starting a fresh log
+  // so a full QA run does not cross the native logger's broken 20 MiB rollover.
+  fs.copyFileSync(
+    logPath,
+    path.join(outputDir, 'native-log-before-run.log'),
+    fs.constants.COPYFILE_EXCL,
+  );
+  fs.unlinkSync(logPath);
+}
+
 function startNativeLogCapture({ logPath, outputDir }) {
   const outputPath = path.join(outputDir, 'native-log-segment.log');
   const manifestPath = path.join(outputDir, 'native-log-capture.json');
@@ -390,6 +402,8 @@ function startNativeLogCapture({ logPath, outputDir }) {
       stopped = true;
       clearInterval(timer);
       discover();
+      const activeFilePresent = fs.existsSync(logPath);
+      if (!activeFilePresent) errors.push('native-active-log-missing');
       const endedAt = new Date().toISOString();
       const outputFd = fs.openSync(outputPath, 'w');
       const buffer = Buffer.alloc(1024 * 1024);
@@ -430,6 +444,7 @@ function startNativeLogCapture({ logPath, outputDir }) {
         startedAt,
         endedAt,
         complete: errors.length === 0,
+        activeFilePresent,
         errors,
         sources: ranges,
       };
@@ -1102,6 +1117,23 @@ async function main() {
   );
   fs.mkdirSync(outputDir, { recursive: true });
 
+  if (!sourceAppPath) {
+    await runAsync('xcrun', ['simctl', 'terminate', udid, bundleId]);
+  }
+  if (getAppPid(udid)) {
+    throw new Error('App must be stopped before preserving its native log.');
+  }
+  preserveNativeLogBeforeLaunch({
+    logPath: path.join(
+      appDataPath,
+      'Library',
+      'Caches',
+      'logs',
+      'app-latest.log',
+    ),
+    outputDir,
+  });
+
   const detoxConfigPath = path.join(outputDir, 'detox.config.js');
   const jestConfigPath = path.join(outputDir, 'jest.config.js');
   const runMetaPath = path.join(outputDir, 'run-meta.json');
@@ -1365,6 +1397,7 @@ if (require.main === module) {
 }
 
 module.exports = {
+  preserveNativeLogBeforeLaunch,
   startNativeLogCapture,
   parseNativeLog,
   describeCensusWindow,
