@@ -54,25 +54,32 @@ export function usePrimePaymentMethodsStore<
   const currentUserIdRef = useRef(user?.onekeyUserId);
   currentUserIdRef.current = user?.onekeyUserId;
 
-  const ensureCurrentUser = useCallback(async (expectedUserId: string) => {
-    if (currentUserIdRef.current !== expectedUserId) {
-      throw new OneKeyLocalError(
-        'OneKey ID changed during the purchase operation',
-      );
-    }
-    // A payment dialog can unmount before StoreKit finishes. Its React ref
-    // then stops receiving account changes, so also read the live global state.
-    const currentUser = await primePersistAtom.get();
-    if (
-      currentUser.onekeyUserId !== expectedUserId ||
-      !currentUser.isLoggedIn ||
-      !currentUser.isLoggedInOnServer
-    ) {
-      throw new OneKeyLocalError(
-        'OneKey ID changed during the purchase operation',
-      );
-    }
-  }, []);
+  const ensureCurrentUser = useCallback(
+    async (expectedUserId: string) => {
+      if (currentUserIdRef.current !== expectedUserId) {
+        throw new OneKeyLocalError(
+          intl.formatMessage({
+            id: ETranslations.prime_onekey_id_session_changed__msg,
+          }),
+        );
+      }
+      // A payment dialog can unmount before StoreKit finishes. Its React ref
+      // then stops receiving account changes, so also read the live global state.
+      const currentUser = await primePersistAtom.get();
+      if (
+        currentUser.onekeyUserId !== expectedUserId ||
+        !currentUser.isLoggedIn ||
+        !currentUser.isLoggedInOnServer
+      ) {
+        throw new OneKeyLocalError(
+          intl.formatMessage({
+            id: ETranslations.prime_onekey_id_session_changed__msg,
+          }),
+        );
+      }
+    },
+    [intl],
+  );
 
   const isReady = isPaymentReady && isAuthReady;
   const ensurePaymentReady = useCallback(() => {

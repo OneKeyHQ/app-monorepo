@@ -1,7 +1,9 @@
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IRevenueCatPackage } from '@onekeyhq/shared/types/prime/revenueCat';
 
 import type { IPrimeStorePurchasesSdk } from './storePurchasesSdkTypes';
+import type { IntlShape } from 'react-intl';
 
 async function withRevenueCatError<T>(operation: () => Promise<T>): Promise<T> {
   try {
@@ -19,8 +21,10 @@ async function withRevenueCatError<T>(operation: () => Promise<T>): Promise<T> {
   }
 }
 
-export const desktopStorePurchasesSdk: IPrimeStorePurchasesSdk<IRevenueCatPackage> =
-  {
+export function createDesktopStorePurchasesSdk(
+  intl: Pick<IntlShape, 'formatMessage'>,
+): IPrimeStorePurchasesSdk<IRevenueCatPackage> {
+  return {
     configure: async ({ apiKey }) => {
       const api = globalThis.desktopApiProxy?.inAppPurchase;
       let isAvailable = false;
@@ -31,7 +35,9 @@ export const desktopStorePurchasesSdk: IPrimeStorePurchasesSdk<IRevenueCatPackag
       }
       if (!isAvailable) {
         throw new OneKeyLocalError(
-          'App Store purchases are unavailable in this application build',
+          intl.formatMessage({
+            id: ETranslations.global_update_to_continue_desc_fallback,
+          }),
         );
       }
       await api.revenueCatConfigure({ apiKey });
@@ -50,7 +56,11 @@ export const desktopStorePurchasesSdk: IPrimeStorePurchasesSdk<IRevenueCatPackag
       const offeringIdentifier =
         offering.presentedOfferingContext?.offeringIdentifier;
       if (!offeringIdentifier) {
-        throw new OneKeyLocalError('Offering identifier is missing');
+        throw new OneKeyLocalError(
+          intl.formatMessage({
+            id: ETranslations.prime_payment_start_failed__msg,
+          }),
+        );
       }
       return withRevenueCatError(() =>
         globalThis.desktopApiProxy.inAppPurchase.revenueCatPurchasePackage({
@@ -98,3 +108,4 @@ export const desktopStorePurchasesSdk: IPrimeStorePurchasesSdk<IRevenueCatPackag
     },
     getRecurringPriceUnit: () => 'major',
   };
+}

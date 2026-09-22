@@ -1,6 +1,19 @@
+import { createIntl } from 'react-intl';
+
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+import enMessages from '@onekeyhq/shared/src/locale/json/en_US.json';
+import zhMessages from '@onekeyhq/shared/src/locale/json/zh_CN.json';
 import type { IRevenueCatPackage } from '@onekeyhq/shared/types/prime/revenueCat';
 
-import { desktopStorePurchasesSdk } from './desktopStorePurchasesSdk';
+import { createDesktopStorePurchasesSdk } from './desktopStorePurchasesSdk';
+
+let desktopStorePurchasesSdk: ReturnType<typeof createDesktopStorePurchasesSdk>;
+const enTranslations: Record<string, string> = enMessages;
+const zhTranslations: Record<string, string> = zhMessages;
+const testLocales = [
+  { locale: 'en-US', messages: enTranslations },
+  { locale: 'zh-CN', messages: zhTranslations },
+];
 
 const mockApi = {
   revenueCatIsAvailable: jest.fn(async () => true),
@@ -31,6 +44,9 @@ const pkg: IRevenueCatPackage = {
 describe('desktop RevenueCat adapter', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    desktopStorePurchasesSdk = createDesktopStorePurchasesSdk(
+      createIntl({ locale: 'zh-CN', messages: zhTranslations }),
+    );
     mockApi.revenueCatIsAvailable.mockResolvedValue(true);
     Object.defineProperty(globalThis, 'desktopApiProxy', {
       configurable: true,
@@ -38,13 +54,37 @@ describe('desktop RevenueCat adapter', () => {
     });
   });
 
-  it('rejects initialization when the native bridge is unavailable', async () => {
-    mockApi.revenueCatIsAvailable.mockResolvedValue(false);
-    await expect(
-      desktopStorePurchasesSdk.configure({ apiKey: 'apple-key' }),
-    ).rejects.toThrow('App Store purchases are unavailable');
-    expect(mockApi.revenueCatConfigure).not.toHaveBeenCalled();
-  });
+  it.each(testLocales)(
+    'localizes unavailable bridge feedback in $locale',
+    async ({ locale, messages }) => {
+      desktopStorePurchasesSdk = createDesktopStorePurchasesSdk(
+        createIntl({ locale, messages }),
+      );
+      mockApi.revenueCatIsAvailable.mockResolvedValue(false);
+      await expect(
+        desktopStorePurchasesSdk.configure({ apiKey: 'apple-key' }),
+      ).rejects.toThrow(
+        messages[ETranslations.global_update_to_continue_desc_fallback],
+      );
+      expect(mockApi.revenueCatConfigure).not.toHaveBeenCalled();
+    },
+  );
+
+  it.each(testLocales)(
+    'localizes missing offering feedback in $locale without calling native purchase',
+    ({ locale, messages }) => {
+      desktopStorePurchasesSdk = createDesktopStorePurchasesSdk(
+        createIntl({ locale, messages }),
+      );
+      expect(() =>
+        desktopStorePurchasesSdk.purchasePackage(
+          { ...pkg, presentedOfferingContext: null },
+          'user-a',
+        ),
+      ).toThrow(messages[ETranslations.prime_payment_start_failed__msg]);
+      expect(mockApi.revenueCatPurchasePackage).not.toHaveBeenCalled();
+    },
+  );
 
   it('passes the offering and expected account to native purchase', async () => {
     mockApi.revenueCatPurchasePackage.mockResolvedValue({ customerInfo: {} });
@@ -62,7 +102,9 @@ describe('desktop RevenueCat adapter', () => {
     );
     await expect(
       desktopStorePurchasesSdk.configure({ apiKey: 'apple-key' }),
-    ).rejects.toThrow('App Store purchases are unavailable');
+    ).rejects.toThrow(
+      zhMessages[ETranslations.global_update_to_continue_desc_fallback],
+    );
     expect(mockApi.revenueCatConfigure).not.toHaveBeenCalled();
   });
 

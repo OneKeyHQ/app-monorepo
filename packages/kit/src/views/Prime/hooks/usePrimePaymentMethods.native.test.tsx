@@ -9,6 +9,9 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+import enMessages from '@onekeyhq/shared/src/locale/json/en_US.json';
+import zhMessages from '@onekeyhq/shared/src/locale/json/zh_CN.json';
 
 import primePaymentUtils from './primePaymentUtils';
 import { usePrimePaymentMethods } from './usePrimePaymentMethods.native';
@@ -47,12 +50,15 @@ const mockIsGooglePlayAvailable = jest.fn(async () => true);
 let mockIsNativeAndroid = false;
 let mockIsNativeIOS = true;
 let mockRecurringPriceUnit: 'major' | 'micros' = 'major';
+let mockLocaleMessages: Record<string, string> = {};
 const mockTrackPrimeSubscriptionSuccessSpy = jest
   .spyOn(primePaymentUtils, 'trackPrimeSubscriptionSuccess')
   .mockImplementation((params) => mockTrackPrimeSubscriptionSuccess(params));
 
 jest.mock('react-intl', () => ({
-  useIntl: () => ({ formatMessage: ({ id }: { id: string }) => id }),
+  useIntl: () => ({
+    formatMessage: ({ id }: { id: string }) => mockLocaleMessages[id] ?? id,
+  }),
 }));
 
 jest.mock('react-native-purchases', () => ({
@@ -216,6 +222,7 @@ describe('usePrimePaymentMethods native purchase', () => {
     mockIsNativeAndroid = false;
     mockIsNativeIOS = true;
     mockRecurringPriceUnit = 'major';
+    mockLocaleMessages = {};
     setRequestIdleCallback();
     mockGetAppUserID.mockResolvedValue('user-a');
     mockGetOfferings.mockResolvedValue({
@@ -585,7 +592,9 @@ describe('usePrimePaymentMethods native purchase', () => {
     rerender();
     await act(async () => {
       resolveOfferings?.({ current: { availablePackages: [mockOffering] } });
-      await expect(purchase).rejects.toThrow('OneKey ID changed');
+      await expect(purchase).rejects.toThrow(
+        ETranslations.prime_onekey_id_session_changed__msg,
+      );
     });
     expect(mockPurchasePackage).not.toHaveBeenCalled();
     expect(mockDialogConfirm).not.toHaveBeenCalled();
@@ -617,7 +626,9 @@ describe('usePrimePaymentMethods native purchase', () => {
           entitlements: { active: { Prime: { isActive: true } } },
         },
       });
-      await expect(purchase).rejects.toThrow('OneKey ID changed');
+      await expect(purchase).rejects.toThrow(
+        ETranslations.prime_onekey_id_session_changed__msg,
+      );
     });
     expect(mockSetPrimePersistAtom).not.toHaveBeenCalled();
     expect(mockTryClaimKytIntro).not.toHaveBeenCalled();
@@ -646,7 +657,9 @@ describe('usePrimePaymentMethods native purchase', () => {
         managementURL: 'https://old-user.example.com',
         entitlements: { active: {} },
       });
-      await expect(customerInfo).rejects.toThrow('OneKey ID changed');
+      await expect(customerInfo).rejects.toThrow(
+        ETranslations.prime_onekey_id_session_changed__msg,
+      );
     });
     expect(mockSetPrimePersistAtom).not.toHaveBeenCalled();
   });
@@ -683,7 +696,9 @@ describe('usePrimePaymentMethods native purchase', () => {
       await act(async () => {
         resolvePurchase?.(purchaseResult);
         if (accountChanged) {
-          await expect(purchase).rejects.toThrow('OneKey ID changed');
+          await expect(purchase).rejects.toThrow(
+            ETranslations.prime_onekey_id_session_changed__msg,
+          );
         } else {
           await expect(purchase).resolves.toBe(purchaseResult);
         }
@@ -715,6 +730,32 @@ describe('usePrimePaymentMethods native purchase', () => {
     );
     expect(mockGetOfferings).not.toHaveBeenCalled();
   });
+
+  it.each([
+    { locale: 'en-US', messages: enMessages },
+    { locale: 'zh-CN', messages: zhMessages },
+  ])(
+    'shows localized account-change feedback during restore in $locale',
+    async ({ messages }) => {
+      mockLocaleMessages = messages;
+      mockRestorePurchases.mockImplementationOnce(async () => {
+        mockPersistedOneKeyUserId = 'user-b';
+        return { entitlements: { active: { Prime: { isActive: true } } } };
+      });
+      const { result } = renderHook(() => usePrimePaymentMethods());
+      await waitFor(() => expect(result.current.isReady).toBe(true));
+
+      await act(async () => {
+        await result.current.restorePurchases?.();
+      });
+
+      expect(Toast.message).toHaveBeenCalledWith({
+        title: messages[ETranslations.prime_onekey_id_session_changed__msg],
+      });
+      expect(Toast.success).not.toHaveBeenCalled();
+      expect(mockFetchPrimeUserInfo).not.toHaveBeenCalled();
+    },
+  );
 
   it('reports restore success even when user-info refresh fails', async () => {
     mockRestorePurchases.mockResolvedValue({
