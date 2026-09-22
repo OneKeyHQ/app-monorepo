@@ -969,7 +969,17 @@ async function collectExportedArchives({
   };
   let found = [];
   while (Date.now() < deadline) {
-    found = findArchives();
+    const candidates = findArchives();
+    found = [];
+    for (const candidate of candidates) {
+      // The exporter creates its destination before the zip is complete.
+      if (path.extname(candidate).toLowerCase() === '.zip') {
+        const validation = await runAsync('/usr/bin/unzip', ['-tq', candidate]);
+        if (!validation.error) found.push(candidate);
+      } else {
+        found.push(candidate);
+      }
+    }
     if (found.length > 0) break;
     await sleep(1000);
   }
@@ -1180,6 +1190,28 @@ async function main() {
     });
   }
 
+  // iOS removes the temporary export after the share sheet is dismissed.
+  // Preserve a complete archive during the original diagnostic export step,
+  // before the additional Home cooldown closes that sheet.
+  const exportedArchivesPromise = formalMeta
+    ? waitForJsonFile(formalEndPath, child)
+        .then((formalEnd) =>
+          formalEnd
+            ? collectExportedArchives({
+                appDataPath,
+                formalStartedAt: formalMeta.formalStartedAt,
+                outputDir,
+              })
+            : [],
+        )
+        .catch((error) => {
+          writeJson(path.join(outputDir, 'export-capture-error.json'), {
+            code: error?.code || 'UNKNOWN',
+          });
+          return [];
+        })
+    : Promise.resolve([]);
+
   const exitCode = await childExitPromise;
   stopSampler();
   await nativeLogCapture?.stop();
@@ -1199,13 +1231,7 @@ async function main() {
   const finalRunMeta = fs.existsSync(runMetaPath)
     ? readJson(runMetaPath)
     : formalMeta;
-  const exportedArchives = formalMeta
-    ? await collectExportedArchives({
-        appDataPath,
-        formalStartedAt: formalMeta.formalStartedAt,
-        outputDir,
-      })
-    : [];
+  const exportedArchives = await exportedArchivesPromise;
   const maxPositiveDriftMs =
     actionTimeline.length > 0
       ? Math.max(...actionTimeline.map((action) => action.driftMs))
