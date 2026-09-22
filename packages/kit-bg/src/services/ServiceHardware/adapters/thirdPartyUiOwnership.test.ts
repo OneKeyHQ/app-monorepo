@@ -106,6 +106,38 @@ describe('third-party UI ownership', () => {
     },
   );
 
+  it.each([LedgerAdapter, TrezorAdapter, KeystoneAdapter])(
+    '%p targeted cancellation preserves the prompt until its own completion',
+    (Adapter) => {
+      const { adapter, emit, listeners } = createAdapter(Adapter);
+      emit(EConnectorInteraction.ConfirmOnDevice, 'current-session');
+      const expected = state;
+      adapter.cancel('hwk:runtime:operation:trezor:old');
+      listeners.get('operation-ended')?.({
+        payload: { operationId: 'hwk:runtime:operation:trezor:old' },
+      });
+      expect(state).toBe(expected);
+      adapter.cancel('');
+      expect(state).toBe(expected);
+      adapter.cancel('current-connect-id');
+      expect(state).toBe(expected);
+      emit(EConnectorInteraction.InteractionComplete, 'old-session');
+      expect(state).toBe(expected);
+      emit(EConnectorInteraction.InteractionComplete, 'current-session');
+      expect(state).toBeUndefined();
+    },
+  );
+
+  it.each([LedgerAdapter, TrezorAdapter, KeystoneAdapter])(
+    '%p untargeted cancellation still clears its current prompt',
+    (Adapter) => {
+      const { adapter, emit } = createAdapter(Adapter);
+      emit(EConnectorInteraction.ConfirmOnDevice, 'current-session');
+      adapter.cancel();
+      expect(state).toBeUndefined();
+    },
+  );
+
   it('Keystone QR cancellation clears only its own request', () => {
     const keystone = createAdapter(KeystoneAdapter);
     keystone.emit(EConnectorInteraction.ConfirmOnDevice, 'previous-usb');

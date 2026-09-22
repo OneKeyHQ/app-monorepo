@@ -4417,7 +4417,7 @@ class ServiceHardware extends ServiceBase {
     withUserInteraction: boolean;
     vendor?: EHardwareVendor;
   }): Promise<string | undefined> {
-    if (!connectId) {
+    if (!connectId && !(vendor === EHardwareVendor.trezor && deviceId)) {
       return;
     }
     const xfpProfile = vendor ? getVendorProfile(vendor) : undefined;
@@ -4430,7 +4430,7 @@ class ServiceHardware extends ServiceBase {
       try {
         return await this.backgroundApi.serviceThirdPartyHardware.buildHwWalletXfp(
           {
-            connectId,
+            connectId: connectId || '',
             deviceId: deviceId || '',
             vendor,
             passphraseState,
@@ -4446,6 +4446,7 @@ class ServiceHardware extends ServiceBase {
         return undefined;
       }
     }
+    if (!connectId) return;
     let compatibleConnectId = connectId;
     try {
       compatibleConnectId = await this.getCompatibleConnectId({

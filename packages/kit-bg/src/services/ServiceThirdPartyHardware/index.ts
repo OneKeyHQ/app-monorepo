@@ -515,6 +515,25 @@ class ServiceThirdPartyHardware extends ServiceBase {
     await this.disposeTrezorAdapterCache();
   }
 
+  private async getWalletReadConnectionContext({
+    connectId,
+    deviceId,
+    vendor,
+  }: {
+    connectId: string;
+    deviceId: string;
+    vendor: EHardwareVendor;
+  }): Promise<ICommonCallParams> {
+    if (vendor !== EHardwareVendor.trezor || isHardwareOperationId(connectId)) {
+      return {};
+    }
+    const device = deviceId
+      ? await localDb.getDeviceByQuery({ featuresDeviceId: deviceId, vendor })
+      : undefined;
+    // An empty locator list still opts into identity-verified SDK discovery.
+    return thirdPartyConnectionContextFromDevice(device ?? { vendor });
+  }
+
   /**
    * Standard-wallet first EVM address for a third-party device, via its adapter.
    * ServiceHardware.getEvmAddressByStandardWallet delegates here for third-party
@@ -534,10 +553,13 @@ class ServiceThirdPartyHardware extends ServiceBase {
     try {
       const adapter = await this.getAdapterForVendor(params.vendor);
       if (!adapter) return null;
+      const connectionContext =
+        await this.getWalletReadConnectionContext(params);
       const result = await adapter.hw.evmGetAddress(
         params.connectId,
         params.deviceId,
         {
+          ...connectionContext,
           path: params.path,
           showOnDevice: false,
           passphraseState: params.passphraseState,
@@ -591,7 +613,9 @@ class ServiceThirdPartyHardware extends ServiceBase {
     const { connectId, deviceId, vendor, passphraseState } = params;
     const adapter = await this.getAdapterForVendor(vendor);
     if (!adapter) return undefined;
+    const connectionContext = await this.getWalletReadConnectionContext(params);
     const passphraseParams = {
+      ...connectionContext,
       passphraseState: passphraseState || undefined,
       useEmptyPassphrase: passphraseState ? undefined : true,
     };

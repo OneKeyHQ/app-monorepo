@@ -106,7 +106,10 @@ export abstract class BaseAdapter {
     defaultLogger.hardware.sdkLog.log(
       `[3rdPartyHW][${this.vendor}] cancel connectId=${connectId || '(empty)'}`,
     );
-    void this.clearUiState();
+    // Targeted cancellation may refer to an ended or different operation.
+    // Its SDK completion events own UI cleanup; only a cancel without a target
+    // can dismiss the current prompt before those events arrive.
+    if (connectId === undefined) void this.clearUiState();
     this.hw.cancel(connectId);
   }
 
