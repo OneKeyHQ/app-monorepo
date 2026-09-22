@@ -1,4 +1,11 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
@@ -271,7 +278,13 @@ function HomeOverviewContainer() {
   }, []);
 
   const prevWalletIdRef = useRef<string | undefined>(undefined);
-  useEffect(() => {
+  // Layout effect, not a passive one (OK-63873): TokenListBlock restores the
+  // incoming owner's remembered worth in a layout effect of the pane subtree,
+  // which runs AFTER this header subtree's layout effects. As a passive effect
+  // this reset ran after that restore (and after the paint), wiping the
+  // restored worth back to `initialized: false` one frame later on every
+  // wallet switch and on every All Networks account switch.
+  useLayoutEffect(() => {
     if (account?.id && network?.id && wallet?.id) {
       const walletChanged =
         prevWalletIdRef.current !== undefined &&
