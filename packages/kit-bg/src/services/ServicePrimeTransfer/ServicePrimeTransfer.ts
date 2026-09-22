@@ -36,6 +36,7 @@ import { IMPL_TON } from '@onekeyhq/shared/src/engine/engineConsts';
 import {
   LocalSecretEnvelopeUnavailable,
   OneKeyLocalError,
+  PrimeTransferImportCancelledError,
   TransferInvalidCodeError,
 } from '@onekeyhq/shared/src/errors';
 import {
@@ -525,24 +526,37 @@ class ServicePrimeTransfer extends ServiceBase {
     };
   }
 
+  private assertImportTaskActive(taskUUID: string): void {
+    if (this.currentImportTaskUUID !== taskUUID) {
+      throw new PrimeTransferImportCancelledError();
+    }
+  }
+
   private async withImportTaskLog<T>(
+    taskUUID: string,
     params: Omit<IPrimeTransferImportTraceRecordParams, 'event' | 'elapsedMs'>,
     task: () => Promise<T>,
   ): Promise<T> {
+    this.assertImportTaskActive(taskUUID);
     const startedAt = Date.now();
     await this.recordImportTrace({
       ...params,
       event: 'start',
     });
+    // Trace persistence also yields; check ownership immediately before work.
+    this.assertImportTaskActive(taskUUID);
     try {
       const result = await task();
+      this.assertImportTaskActive(taskUUID);
       await this.recordImportTrace({
         ...params,
         event: 'done',
         elapsedMs: Date.now() - startedAt,
       });
+      this.assertImportTaskActive(taskUUID);
       return result;
     } catch (error) {
+      this.assertImportTaskActive(taskUUID);
       await this.recordImportTrace({
         ...params,
         event: 'error',
@@ -3410,6 +3424,7 @@ class ServicePrimeTransfer extends ServiceBase {
       let decryptedCredentials: IPrimeTransferDecryptedCredentials | undefined;
       if (decryptedCredentialsHex && password) {
         decryptedCredentials = await this.withImportTaskLog(
+          taskUUID,
           {
             stage: 'decryptTransferCredentials',
             targetType: 'credential',
@@ -3526,6 +3541,7 @@ class ServicePrimeTransfer extends ServiceBase {
               throw new OneKeyLocalError('Password is required');
             }
             revealableSeedUsed = await this.withImportTaskLog(
+              taskUUID,
               {
                 stage: 'decryptHDWalletCredential',
                 targetType: 'credential',
@@ -3547,37 +3563,43 @@ class ServicePrimeTransfer extends ServiceBase {
           // serviceAccount.createAddressIfNotExists
           const { wallet: newWalletData, isOverrideWallet } =
             await this.withImportTaskLog(
+              taskUUID,
               {
                 stage: 'createHDWallet',
                 targetType: 'hdWallet',
                 walletId: wallet.id,
               },
-              async () =>
-                localPassword && revealableSeedUsed
-                  ? serviceAccount.createHDWalletWithRevealableSeed({
-                      revealableSeed: revealableSeedUsed,
-                      password: localPassword,
-                      name: wallet.name,
-                      avatarInfo: wallet.avatarInfo,
-                      isWalletBackedUp: wallet.backuped,
-                      skipAddHDNextIndexedAccount: true,
-                      applyRestoreSyncPolicy: true,
-                    })
-                  : serviceAccount.createHDWallet({
-                      mnemonic: await servicePassword.encodeSensitiveText({
-                        text: mnemonicFromRs,
-                      }),
-                      name: wallet.name,
-                      avatarInfo: wallet.avatarInfo,
-                      isWalletBackedUp: wallet.backuped,
-                      skipAddHDNextIndexedAccount: true,
-                      applyRestoreSyncPolicy: true,
-                    }),
+              async () => {
+                if (localPassword && revealableSeedUsed) {
+                  return serviceAccount.createHDWalletWithRevealableSeed({
+                    revealableSeed: revealableSeedUsed,
+                    password: localPassword,
+                    name: wallet.name,
+                    avatarInfo: wallet.avatarInfo,
+                    isWalletBackedUp: wallet.backuped,
+                    skipAddHDNextIndexedAccount: true,
+                    applyRestoreSyncPolicy: true,
+                  });
+                }
+                const mnemonic = await servicePassword.encodeSensitiveText({
+                  text: mnemonicFromRs,
+                });
+                this.assertImportTaskActive(taskUUID);
+                return serviceAccount.createHDWallet({
+                  mnemonic,
+                  name: wallet.name,
+                  avatarInfo: wallet.avatarInfo,
+                  isWalletBackedUp: wallet.backuped,
+                  skipAddHDNextIndexedAccount: true,
+                  applyRestoreSyncPolicy: true,
+                });
+              },
             );
           newWallet = newWalletData;
           if (isOverrideWallet && newWallet?.id) {
             const newWalletId = newWallet.id;
             await this.withImportTaskLog(
+              taskUUID,
               {
                 stage: 'setHDWalletNameAndAvatar',
                 targetType: 'hdWallet',
@@ -3595,6 +3617,7 @@ class ServicePrimeTransfer extends ServiceBase {
             );
           }
         } catch (e) {
+          if (this.currentImportTaskUUID !== taskUUID) return cancelledResult;
           console.error('startImport error', e);
           errorsInfo.push({
             category: 'createHDWallet',
@@ -3619,6 +3642,7 @@ class ServicePrimeTransfer extends ServiceBase {
             indexedAccountNames = {},
             isCancelled,
           } = await this.withImportTaskLog(
+            taskUUID,
             {
               stage: 'buildHDWalletAccountsCreateParams',
               targetType: 'hdWallet',
@@ -3696,6 +3720,7 @@ class ServicePrimeTransfer extends ServiceBase {
                 this.batchCreateHdAccountsParams.push(params);
               }
               await this.withImportTaskLog(
+                taskUUID,
                 {
                   stage: 'batchCreateHDAccountsForIndex',
                   targetType: 'hdAccount',
@@ -3711,6 +3736,7 @@ class ServicePrimeTransfer extends ServiceBase {
               );
             }
           } catch (e) {
+            if (this.currentImportTaskUUID !== taskUUID) return cancelledResult;
             console.error('startImport error', e);
             errorsInfo.push({
               category:
@@ -3733,6 +3759,7 @@ class ServicePrimeTransfer extends ServiceBase {
                 index,
               });
               await this.withImportTaskLog(
+                taskUUID,
                 {
                   stage: 'setIndexedAccountName',
                   targetType: 'hdAccount',
@@ -3750,6 +3777,7 @@ class ServicePrimeTransfer extends ServiceBase {
               );
             }
           } catch (e) {
+            if (this.currentImportTaskUUID !== taskUUID) return cancelledResult;
             console.error(e);
           }
         }
@@ -3769,6 +3797,7 @@ class ServicePrimeTransfer extends ServiceBase {
         }
 
         const networkId = await this.withImportTaskLog(
+          taskUUID,
           {
             stage: 'resolveImportedAccountNetwork',
             targetType: 'importedAccount',
@@ -3798,6 +3827,7 @@ class ServicePrimeTransfer extends ServiceBase {
         const credentialDecryptedUsed =
           credentialDecrypted || decryptedCredentials?.[importedAccount.id];
         const deriveTypeByAccount = await this.withImportTaskLog(
+          taskUUID,
           {
             stage: 'resolveImportedAccountDeriveTypeByAccount',
             targetType: 'importedAccount',
@@ -3817,6 +3847,7 @@ class ServicePrimeTransfer extends ServiceBase {
         try {
           if (deriveTypeByAccount) {
             const privateKeyResult = await this.withImportTaskLog(
+              taskUUID,
               {
                 stage: 'decryptImportedAccountCredential',
                 targetType: 'credential',
@@ -3837,6 +3868,7 @@ class ServicePrimeTransfer extends ServiceBase {
             restoreDeriveTypes = [deriveTypeByAccount];
           } else {
             const exportedPrivateKeyResult = await this.withImportTaskLog(
+              taskUUID,
               {
                 stage: 'decryptImportedAccountCredential',
                 targetType: 'credential',
@@ -3860,6 +3892,7 @@ class ServicePrimeTransfer extends ServiceBase {
           }
 
           const { addedAccounts } = await this.withImportTaskLog(
+            taskUUID,
             {
               stage: 'restoreImportedAccount',
               targetType: 'importedAccount',
@@ -3885,6 +3918,7 @@ class ServicePrimeTransfer extends ServiceBase {
           addedAccountsUsed = addedAccounts;
           if (!addedAccountsUsed?.length && restoreDeriveTypes?.length) {
             const exportedPrivateKeyResult = await this.withImportTaskLog(
+              taskUUID,
               {
                 stage: 'decryptImportedAccountCredentialFallback',
                 targetType: 'credential',
@@ -3907,6 +3941,7 @@ class ServicePrimeTransfer extends ServiceBase {
               exportedPrivateKeyResult.exportedPrivateKey || '';
             privateKey = exportedPrivateKeyResult.privateKey;
             const fallbackResult = await this.withImportTaskLog(
+              taskUUID,
               {
                 stage: 'restoreImportedAccountFallback',
                 targetType: 'importedAccount',
@@ -3952,6 +3987,7 @@ class ServicePrimeTransfer extends ServiceBase {
                   );
                 }
                 tonRs = await this.withImportTaskLog(
+                  taskUUID,
                   {
                     stage: 'decryptTonMnemonicCredential',
                     targetType: 'credential',
@@ -3981,6 +4017,7 @@ class ServicePrimeTransfer extends ServiceBase {
                   ));
               }
               await this.withImportTaskLog(
+                taskUUID,
                 {
                   stage: 'saveTonMnemonicCredential',
                   targetType: 'importedAccount',
@@ -3992,6 +4029,7 @@ class ServicePrimeTransfer extends ServiceBase {
                     rs: tonRsUsed,
                     password: localPasswordForTon,
                   });
+                  this.assertImportTaskActive(taskUUID);
                   await localDb.saveTonImportedAccountMnemonic({
                     accountId: addedAccountsUsed?.[0]?.id,
                     rs: tonRsEncrypted,
@@ -4000,6 +4038,7 @@ class ServicePrimeTransfer extends ServiceBase {
               );
             }
           } catch (e) {
+            if (this.currentImportTaskUUID !== taskUUID) return cancelledResult;
             console.error('tonMnemonicCredential error', e);
           }
 
@@ -4018,6 +4057,7 @@ class ServicePrimeTransfer extends ServiceBase {
         const watchingAccountUtxo = watchingAccount;
         let addedAccounts: IDBAccount[] = [];
         const networkId = await this.withImportTaskLog(
+          taskUUID,
           {
             stage: 'resolveWatchingAccountNetwork',
             targetType: 'watchingAccount',
@@ -4052,6 +4092,7 @@ class ServicePrimeTransfer extends ServiceBase {
             return cancelledResult;
           }
           const result = await this.withImportTaskLog(
+            taskUUID,
             {
               stage: 'restoreWatchingAccountPub',
               targetType: 'watchingAccount',
@@ -4077,6 +4118,7 @@ class ServicePrimeTransfer extends ServiceBase {
             return cancelledResult;
           }
           const result = await this.withImportTaskLog(
+            taskUUID,
             {
               stage: 'restoreWatchingAccountXpub',
               targetType: 'watchingAccount',
@@ -4102,6 +4144,7 @@ class ServicePrimeTransfer extends ServiceBase {
             return cancelledResult;
           }
           const result = await this.withImportTaskLog(
+            taskUUID,
             {
               stage: 'restoreWatchingAccountXpubSegwit',
               targetType: 'watchingAccount',
@@ -4127,6 +4170,7 @@ class ServicePrimeTransfer extends ServiceBase {
             return cancelledResult;
           }
           const result = await this.withImportTaskLog(
+            taskUUID,
             {
               stage: 'restoreWatchingAccountAddress',
               targetType: 'watchingAccount',
@@ -4156,6 +4200,11 @@ class ServicePrimeTransfer extends ServiceBase {
         errorsInfo,
         taskUUID,
       };
+    } catch (error) {
+      if (this.currentImportTaskUUID !== taskUUID) {
+        return { success: false, errorsInfo: [] };
+      }
+      throw error;
     } finally {
       importedAccountDeriveTypeCache.clear();
       this.runningImportTaskUUID = undefined;

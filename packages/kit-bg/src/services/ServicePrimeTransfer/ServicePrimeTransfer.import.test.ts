@@ -11,8 +11,39 @@ const mockWrite = jest.fn(async () => ({
   addedAccounts: [{ id: 'watching-1' }],
 }));
 const mockDefaultNetworks = jest.fn(async () => []);
+// All credential values are inert fixtures; crypto and persistence are mocked.
+const mockSeed = { entropyWithLangPrefixed: 'mock-entropy', seed: 'mock-seed' };
+const mockDecryptSeed = jest.fn(async () => mockSeed);
+const mockEncryptSeed = jest.fn(async () => 'mock-encrypted-seed');
+const mockEncodeMnemonic = jest.fn(async () => 'mock-encoded-mnemonic');
+const mockPromptPassword = jest.fn(async () => ({ password: 'mock-password' }));
+const mockCreateWallet = jest.fn(async () => ({
+  wallet: { id: 'hd-new' },
+  isOverrideWallet: false,
+}));
+const mockRenameWallet = jest.fn(async () => undefined);
+const mockCreateAccounts = jest.fn(async () => undefined);
+const mockPrivateKey = jest.fn(async () => ({
+  privateKey: 'mock-private-key',
+}));
+const mockExportedPrivateKey = jest.fn(async () => ({
+  privateKey: 'mock-private-key',
+  exportedPrivateKey: 'mock-exported-private-key',
+}));
+const mockRestoreImported = jest.fn(async () => ({
+  addedAccounts: [{ id: 'imported-new' }],
+}));
+const mockSaveTonMnemonic = jest.fn(async () => undefined);
+const mockDeriveType = jest.fn(
+  async (): Promise<{ deriveType?: 'default' }> => ({ deriveType: 'default' }),
+);
+const mockGetProgress = jest.fn(async () => ({ importProgress: mockProgress }));
 
-jest.mock('@onekeyhq/core/src/secret', () => ({}));
+jest.mock('@onekeyhq/core/src/secret', () => ({
+  decryptRevealableSeed: () => mockDecryptSeed(),
+  encryptRevealableSeed: () => mockEncryptSeed(),
+  revealEntropyToMnemonic: () => 'mock-mnemonic',
+}));
 jest.mock('@onekeyhq/shared/src/appCrypto', () => ({}));
 jest.mock('@onekeyhq/shared/src/appDeviceInfo/appDeviceInfo', () => ({}));
 jest.mock('@onekeyhq/shared/src/background/backgroundDecorators', () => ({
@@ -26,7 +57,10 @@ jest.mock(
   '@onekeyhq/shared/src/utils/cliBotWalletExport/exportToCli',
   () => ({}),
 );
-jest.mock('../../dbs/local/localDb', () => ({}));
+jest.mock('../../dbs/local/localDb', () => ({
+  __esModule: true,
+  default: { saveTonImportedAccountMnemonic: () => mockSaveTonMnemonic() },
+}));
 jest.mock('../../dbs/local/localSecretEnvelope', () => ({}));
 jest.mock('../../endpoints', () => ({}));
 jest.mock('../../utils/secretEncryptFormat', () => ({}));
@@ -51,7 +85,7 @@ jest.mock('../../states/jotai/atoms', () => ({
 }));
 jest.mock('../../states/jotai/atoms/prime', () => ({
   primeTransferAtom: {
-    get: async () => ({ importProgress: mockProgress }),
+    get: () => mockGetProgress(),
     set: async (
       update: (
         state: Pick<IPrimeTransferAtomData, 'importProgress'>,
@@ -106,6 +140,37 @@ const watchingData: IPrimeTransferSelectedData = {
     },
   ],
 };
+const walletData: IPrimeTransferSelectedData = {
+  ...selectedTransferData,
+  wallets: [
+    {
+      id: 'hd-source',
+      credential: 'mock-encrypted-credential',
+      item: {
+        id: 'hd-source',
+        name: 'Test wallet',
+        type: 'hd',
+        version: 1,
+        backuped: true,
+        nextIds: {},
+        accounts: [],
+        accountIds: [],
+        accountIdsLength: 0,
+        indexedAccountUUIDs: [],
+        indexedAccountUUIDsLength: 0,
+      },
+    },
+  ],
+};
+const importedData: IPrimeTransferSelectedData = {
+  ...selectedTransferData,
+  importedAccounts: [
+    {
+      ...watchingData.watchingAccounts[0],
+      credential: 'mock-encrypted-credential',
+    },
+  ],
+};
 
 function deferred<T>() {
   let resolve!: (value: T) => void;
@@ -122,6 +187,32 @@ describe('Prime Transfer import ownership across preparation and cancellation', 
     mockProgress = undefined;
     mockWrite.mockClear();
     mockDefaultNetworks.mockReset().mockResolvedValue([]);
+    mockDecryptSeed.mockReset().mockResolvedValue(mockSeed);
+    mockEncryptSeed.mockReset().mockResolvedValue('mock-encrypted-seed');
+    mockEncodeMnemonic.mockReset().mockResolvedValue('mock-encoded-mnemonic');
+    mockPromptPassword
+      .mockReset()
+      .mockResolvedValue({ password: 'mock-password' });
+    mockCreateWallet
+      .mockReset()
+      .mockResolvedValue({ wallet: { id: 'hd-new' }, isOverrideWallet: false });
+    mockRenameWallet.mockClear();
+    mockCreateAccounts.mockClear();
+    mockPrivateKey
+      .mockReset()
+      .mockResolvedValue({ privateKey: 'mock-private-key' });
+    mockExportedPrivateKey.mockReset().mockResolvedValue({
+      privateKey: 'mock-private-key',
+      exportedPrivateKey: 'mock-exported-private-key',
+    });
+    mockRestoreImported
+      .mockReset()
+      .mockResolvedValue({ addedAccounts: [{ id: 'imported-new' }] });
+    mockSaveTonMnemonic.mockClear();
+    mockDeriveType.mockReset().mockResolvedValue({ deriveType: 'default' });
+    mockGetProgress
+      .mockReset()
+      .mockImplementation(async () => ({ importProgress: mockProgress }));
     service = new ServicePrimeTransfer({
       backgroundApi: {
         serviceNotification: {
@@ -129,17 +220,272 @@ describe('Prime Transfer import ownership across preparation and cancellation', 
         },
         serviceBatchCreateAccount: {
           buildDefaultNetworksForBatchCreate: mockDefaultNetworks,
+          startBatchCreateAccountsFlowForAllNetwork: mockCreateAccounts,
         },
         serviceAccount: {
           getAccountCreatedNetworkId: async () => 'evm--1',
           restoreWatchingAccountByInput: mockWrite,
+          createHDWallet: mockCreateWallet,
+          createHDWalletWithRevealableSeed: mockCreateWallet,
+          setWalletNameAndAvatar: mockRenameWallet,
+          getPrivateKeyOfImportedAccountCredential: mockPrivateKey,
+          getExportedPrivateKeyOfImportedAccount: mockExportedPrivateKey,
+          restoreImportedAccountByInput: mockRestoreImported,
         },
+        servicePassword: {
+          encodeSensitiveText: mockEncodeMnemonic,
+          promptPasswordVerify: mockPromptPassword,
+        },
+        serviceNetwork: { getDeriveTypeByDBAccount: mockDeriveType },
       },
     });
   });
   afterEach(() => {
     jest.clearAllTimers();
     jest.useRealTimers();
+  });
+
+  async function startPreparedImport(
+    data: IPrimeTransferSelectedData,
+    localPassword?: string,
+  ) {
+    const taskUUID = await service.prepareImportTask();
+    if (!taskUUID) throw new OneKeyLocalError('Task was not reserved');
+    await service.initImportProgress({ taskUUID, selectedTransferData: data });
+    return {
+      taskUUID,
+      importing: service.startImport({
+        taskUUID,
+        selectedTransferData: data,
+        password: 'mock-password',
+        localPassword,
+      }),
+    };
+  }
+
+  test.each([
+    { cancel: true, localPassword: undefined },
+    { cancel: true, localPassword: 'mock-local-password' },
+    { cancel: false, localPassword: undefined },
+    { cancel: false, localPassword: 'mock-local-password' },
+  ])(
+    'HD credential preparation respects cancellation: %p',
+    async ({ cancel, localPassword }) => {
+      const credential = deferred<typeof mockSeed>();
+      const entered = deferred<void>();
+      mockDecryptSeed.mockImplementationOnce(() => {
+        entered.resolve();
+        return credential.promise;
+      });
+      const { taskUUID, importing } = await startPreparedImport(
+        walletData,
+        localPassword,
+      );
+      await entered.promise;
+      if (cancel) await service.resetImportProgress({ taskUUID });
+      credential.resolve(mockSeed);
+      await expect(importing).resolves.toMatchObject({
+        success: !cancel,
+        errorsInfo: [],
+      });
+      expect(mockCreateWallet).toHaveBeenCalledTimes(cancel ? 0 : 1);
+      if (cancel) expect(mockProgress).toBeUndefined();
+    },
+  );
+
+  test.each([true, false])(
+    'HD mnemonic encoding respects cancellation: %s',
+    async (cancel) => {
+      const encoded = deferred<string>();
+      const entered = deferred<void>();
+      mockEncodeMnemonic.mockImplementationOnce(() => {
+        entered.resolve();
+        return encoded.promise;
+      });
+      const { taskUUID, importing } = await startPreparedImport(walletData);
+      await entered.promise;
+      if (cancel) await service.resetImportProgress({ taskUUID });
+      encoded.resolve('mock-encoded-mnemonic');
+      await expect(importing).resolves.toMatchObject({
+        success: !cancel,
+        errorsInfo: [],
+      });
+      expect(mockCreateWallet).toHaveBeenCalledTimes(cancel ? 0 : 1);
+    },
+  );
+
+  test.each([
+    { path: 'derived', cancel: true },
+    { path: 'exported', cancel: true },
+    { path: 'fallback', cancel: true },
+    { path: 'derived', cancel: false },
+    { path: 'exported', cancel: false },
+    { path: 'fallback', cancel: false },
+  ])(
+    'imported credential preparation respects cancellation: %p',
+    async ({ path, cancel }) => {
+      const credential = deferred<{
+        privateKey: string;
+        exportedPrivateKey: string;
+      }>();
+      const entered = deferred<void>();
+      if (path === 'exported') mockDeriveType.mockResolvedValue({});
+      if (path === 'fallback')
+        mockRestoreImported.mockResolvedValueOnce({ addedAccounts: [] });
+      const decrypt =
+        path === 'derived' ? mockPrivateKey : mockExportedPrivateKey;
+      decrypt.mockImplementationOnce(() => {
+        entered.resolve();
+        return credential.promise;
+      });
+      const { taskUUID, importing } = await startPreparedImport(
+        importedData,
+        'mock-local-password',
+      );
+      await entered.promise;
+      if (cancel) await service.resetImportProgress({ taskUUID });
+      credential.resolve({
+        privateKey: 'mock-private-key',
+        exportedPrivateKey: 'mock-exported-private-key',
+      });
+      await expect(importing).resolves.toMatchObject({
+        success: !cancel,
+        errorsInfo: [],
+      });
+      expect(mockRestoreImported).toHaveBeenCalledTimes(
+        (path === 'fallback' ? 1 : 0) + (cancel ? 0 : 1),
+      );
+      if (cancel) expect(mockProgress).toBeUndefined();
+    },
+  );
+
+  test.each(['decryption', 'password', 'encryption', 'complete'])(
+    'TON mnemonic preparation respects cancellation: %s',
+    async (stage) => {
+      const entered = deferred<void>();
+      const resumed = deferred<void>();
+      if (stage === 'decryption')
+        mockDecryptSeed.mockImplementationOnce(async () => {
+          entered.resolve();
+          await resumed.promise;
+          return mockSeed;
+        });
+      if (stage === 'password')
+        mockPromptPassword.mockImplementationOnce(async () => {
+          entered.resolve();
+          await resumed.promise;
+          return { password: 'mock-password' };
+        });
+      if (stage === 'encryption')
+        mockEncryptSeed.mockImplementationOnce(async () => {
+          entered.resolve();
+          await resumed.promise;
+          return 'mock-encrypted-seed';
+        });
+      const data: IPrimeTransferSelectedData = {
+        ...importedData,
+        importedAccounts: [
+          {
+            ...importedData.importedAccounts[0],
+            tonMnemonicCredential: 'mock-ton-credential',
+          },
+        ],
+      };
+      const { taskUUID, importing } = await startPreparedImport(
+        data,
+        stage === 'password' ? undefined : 'mock-local-password',
+      );
+      if (stage !== 'complete') {
+        await entered.promise;
+        await service.resetImportProgress({ taskUUID });
+        resumed.resolve();
+      }
+      await expect(importing).resolves.toMatchObject({
+        success: stage === 'complete',
+        errorsInfo: [],
+      });
+      expect(mockRestoreImported).toHaveBeenCalledTimes(1);
+      expect(mockSaveTonMnemonic).toHaveBeenCalledTimes(
+        stage === 'complete' ? 1 : 0,
+      );
+    },
+  );
+
+  test('cancellation while the pre-write trace awaits prevents wallet creation', async () => {
+    const entered = deferred<void>();
+    const trace = deferred<{
+      importProgress: IPrimeTransferAtomData['importProgress'];
+    }>();
+    mockDecryptSeed.mockImplementationOnce(async () => {
+      // Let the decryption's completion trace finish, then hold the write's start trace.
+      mockGetProgress
+        .mockResolvedValueOnce({ importProgress: mockProgress })
+        .mockImplementationOnce(() => {
+          entered.resolve();
+          return trace.promise;
+        });
+      return mockSeed;
+    });
+    const { taskUUID, importing } = await startPreparedImport(
+      walletData,
+      'mock-local-password',
+    );
+    await entered.promise;
+    await service.resetImportProgress({ taskUUID });
+    trace.resolve({ importProgress: undefined });
+    await expect(importing).resolves.toMatchObject({
+      success: false,
+      errorsInfo: [],
+    });
+    expect(mockCreateWallet).not.toHaveBeenCalled();
+  });
+
+  test('cancellation during wallet creation prevents subsequent rename and account writes', async () => {
+    const entered = deferred<void>();
+    const write = deferred<{
+      wallet: { id: string };
+      isOverrideWallet: boolean;
+    }>();
+    mockCreateWallet.mockImplementationOnce(() => {
+      entered.resolve();
+      return write.promise;
+    });
+    const { taskUUID, importing } = await startPreparedImport(
+      walletData,
+      'mock-local-password',
+    );
+    await entered.promise;
+    await service.resetImportProgress({ taskUUID });
+    await expect(service.prepareImportTask()).resolves.toBeUndefined();
+    write.resolve({ wallet: { id: 'hd-new' }, isOverrideWallet: true });
+    await expect(importing).resolves.toMatchObject({
+      success: false,
+      errorsInfo: [],
+    });
+    expect(mockRenameWallet).not.toHaveBeenCalled();
+    expect(mockCreateAccounts).not.toHaveBeenCalled();
+    await expect(service.prepareImportTask()).resolves.toEqual(
+      expect.any(String),
+    );
+  });
+
+  test('an active HD import still reports credential failures', async () => {
+    mockDecryptSeed.mockRejectedValueOnce(new Error('Credential unavailable'));
+    const { importing } = await startPreparedImport(walletData);
+    await expect(importing).resolves.toMatchObject({
+      errorsInfo: [
+        { category: 'createHDWallet', error: 'Credential unavailable' },
+      ],
+    });
+    expect(mockCreateWallet).not.toHaveBeenCalled();
+  });
+
+  test('an active imported-account failure is not mistaken for cancellation', async () => {
+    const error = new Error('Credential unavailable');
+    mockPrivateKey.mockRejectedValueOnce(error);
+    const { importing } = await startPreparedImport(importedData);
+    await expect(importing).rejects.toBe(error);
+    expect(mockRestoreImported).not.toHaveBeenCalled();
   });
 
   test('cancelling during password preparation prevents all subsequent writes', async () => {
