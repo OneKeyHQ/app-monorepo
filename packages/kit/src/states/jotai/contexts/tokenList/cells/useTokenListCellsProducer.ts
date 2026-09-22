@@ -61,6 +61,7 @@ import {
 } from './apply';
 import {
   cancelPendingSlimColdCache,
+  clearPersistedOwnerSlimCache,
   hydrateCellsFromOwnerSlimCache,
   schedulePersistSlimColdCache,
 } from './coldStart';
@@ -100,19 +101,27 @@ type ITokenFrameKind = 'structure' | 'valuation' | 'risky';
 let replayCacheInvalidationRegistered = false;
 
 /**
- * Drop the main-heap replay frames when a wallet or account is removed so a
- * re-imported owner (same accountId) never replays the snapshot it had before
- * deletion. Whole-cache clear: the persisted per-owner slot still covers the
- * other owners, and the next switch to them re-fills the memory cache.
+ * Drop the replay sources when a wallet or account is removed, or the wallet
+ * is cleared, so a re-created owner (ids are reused after deletion / clear)
+ * never replays the snapshot it had before. Both layers must go: the main-heap
+ * frames AND the persisted per-owner slim slots, which outlive the process
+ * (iOS/Android: native MMKV shared with `bg`, which never reads them, so the
+ * clear from `main` is sufficient; extension: per-runtime storage; desktop/web:
+ * single runtime). Whole-namespace clear: the next switch to any surviving
+ * owner re-fills both layers from the PULL.
  */
 function ensureReplayCacheInvalidationOnce(): void {
   if (replayCacheInvalidationRegistered) {
     return;
   }
   replayCacheInvalidationRegistered = true;
-  const clear = () => clearOwnerReplayCache();
+  const clear = () => {
+    clearOwnerReplayCache();
+    clearPersistedOwnerSlimCache();
+  };
   appEventBus.on(EAppEventBusNames.WalletRemove, clear);
   appEventBus.on(EAppEventBusNames.AccountRemove, clear);
+  appEventBus.on(EAppEventBusNames.WalletClear, clear);
 }
 
 /**

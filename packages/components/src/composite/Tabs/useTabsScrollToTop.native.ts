@@ -44,20 +44,19 @@ export function useTabsScrollToTop(): () => void {
         | IScrollableInstance
         | null
         | undefined;
-      if (!instance) {
-        continue;
-      }
-      if (typeof instance.scrollTo === 'function') {
-        instance.scrollTo({ x: 0, y: top, animated: false });
-      } else if (typeof instance.scrollToOffset === 'function') {
-        instance.scrollToOffset({ offset: top, animated: false });
-      } else if (typeof instance.scrollToLocation === 'function') {
-        instance.scrollToLocation({
-          sectionIndex: 0,
-          itemIndex: 0,
-          viewOffset: -top,
-          animated: false,
-        });
+      if (instance) {
+        if (typeof instance.scrollTo === 'function') {
+          instance.scrollTo({ x: 0, y: top, animated: false });
+        } else if (typeof instance.scrollToOffset === 'function') {
+          instance.scrollToOffset({ offset: top, animated: false });
+        } else if (typeof instance.scrollToLocation === 'function') {
+          instance.scrollToLocation({
+            sectionIndex: 0,
+            itemIndex: 0,
+            viewOffset: -top,
+            animated: false,
+          });
+        }
       }
     }
   }, [context]);

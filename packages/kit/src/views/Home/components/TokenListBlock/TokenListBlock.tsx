@@ -1239,12 +1239,42 @@ function TokenListBlock({
   const worthOwnerAccountId = mergeDeriveAddressData
     ? indexedAccount?.id
     : account?.id;
+  // `accountWorthAtom` only stamps the account, and an HD `account.id` is
+  // shared by every network of the same impl (ETH / BSC / Polygon...), so the
+  // account check alone would treat ETH's worth as BSC's on a network switch
+  // and persist it into BSC's owner slot. The map keys carry the network
+  // (`buildAccountValueKey` = `${accountId}_${networkId}`), so on a single
+  // network require every key to belong to it. An All Networks map spans
+  // networks by design and is checked by `updateAll` below instead.
+  const isWorthForCurrentNetwork = useMemo(() => {
+    const networkId = network?.id;
+    if (!networkId) {
+      return false;
+    }
+    if (network?.isAllNetworks) {
+      return true;
+    }
+    const worthKeys = Object.keys(accountTokensWorth.worth);
+    return (
+      worthKeys.length > 0 &&
+      worthKeys.every((key) => key.endsWith(`_${networkId}`))
+    );
+  }, [accountTokensWorth.worth, network?.id, network?.isAllNetworks]);
   const isWorthForCurrentOwner =
     !!worthOwnerAccountId &&
     accountTokensWorth.initialized &&
-    accountTokensWorth.accountId === worthOwnerAccountId;
+    accountTokensWorth.accountId === worthOwnerAccountId &&
+    isWorthForCurrentNetwork;
+  // Only a committed snapshot is worth remembering. On All Networks that is
+  // the `updateAll` commit (cache hydrate / fan-out end, see
+  // HomeOverviewContainer): the previous single-network map still in the atom
+  // right after the switch, and the per-network progressive merges, must not
+  // be persisted into the All Networks slot.
+  const isWorthCommittedForOwner =
+    isWorthForCurrentOwner &&
+    (!network?.isAllNetworks || accountTokensWorth.updateAll === true);
   useEffect(() => {
-    if (!cellsOwnerKey || !isWorthForCurrentOwner) {
+    if (!cellsOwnerKey || !isWorthCommittedForOwner) {
       return;
     }
     rememberOwnerWorth(cellsOwnerKey, {
@@ -1254,7 +1284,7 @@ function TokenListBlock({
     });
   }, [
     cellsOwnerKey,
-    isWorthForCurrentOwner,
+    isWorthCommittedForOwner,
     accountTokensWorth.worth,
     accountTokensWorth.createAtNetworkWorth,
     accountTokensWorth.currency,

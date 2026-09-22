@@ -1,4 +1,12 @@
-import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  memo,
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
@@ -319,6 +327,29 @@ function DeFiListBlock({
       }),
     [account?.id, network?.id],
   );
+
+  // The DeFi list provider lives inside `Tabs.Container`, which no longer
+  // remounts on an account switch (OK-63873), so `protocols` would keep the
+  // previous owner's positions until the debounced fetch (>= 1 s) replaces
+  // them. Drop them in the same commit the owner changes (layout effect,
+  // before paint): the block then shows its skeleton, and `loadedOwnerKey`
+  // is reset so the empty state cannot claim the new owner early.
+  const prevOwnerKeyRef = useRef(currentOwnerKey);
+  useLayoutEffect(() => {
+    if (refreshCacheOnly || prevOwnerKeyRef.current === currentOwnerKey) {
+      return;
+    }
+    prevOwnerKeyRef.current = currentOwnerKey;
+    updateDeFiListProtocols({ protocols: [] });
+    updateDeFiListProtocolMap({ protocolMap: {} });
+    updateDeFiListState(deFiListLoadingReducer({ type: 'start' }));
+  }, [
+    currentOwnerKey,
+    refreshCacheOnly,
+    updateDeFiListProtocolMap,
+    updateDeFiListProtocols,
+    updateDeFiListState,
+  ]);
 
   const pendingManualForceRefreshIntentRef = useRef<
     | {

@@ -10,40 +10,44 @@ import { useTabsScrollToTop } from './useTabsScrollToTop';
 
 type ITabsContextValue = React.ContextType<typeof TabsContext>;
 
-function makeElement() {
-  return { scrollTo: jest.fn() } as unknown as HTMLElement;
+// The web Container is the single scroller for every pane; the per-tab nodes
+// in `scrollTabElementsRef` are measurement targets and must NOT be what the
+// hook scrolls (scrollTo on a non-scrolling element is a silent no-op).
+const scrollToTop = jest.fn();
+const tabElementScrollTo = jest.fn();
+const contextValue = {
+  scrollToTop,
+  scrollTabElementsRef: {
+    current: {
+      Spot: { element: { scrollTo: tabElementScrollTo }, height: 800 },
+    },
+  },
+} as unknown as ITabsContextValue;
+
+function wrapper({ children }: { children: ReactNode }) {
+  return (
+    <TabsContext.Provider value={contextValue}>{children}</TabsContext.Provider>
+  );
 }
 
+beforeEach(() => {
+  scrollToTop.mockClear();
+  tabElementScrollTo.mockClear();
+});
+
 describe('useTabsScrollToTop (web)', () => {
-  it('scrolls every registered tab element to the top instantly', () => {
-    const spot = makeElement();
-    const history = makeElement();
-    const scrollTabElementsRef = {
-      current: {
-        Spot: { element: spot, height: 800 },
-        History: { element: history },
-      },
-    } as unknown as ITabsContextValue['scrollTabElementsRef'];
-    const wrapper = ({ children }: { children: ReactNode }) => (
-      <TabsContext.Provider
-        value={{ scrollTabElementsRef } as unknown as ITabsContextValue}
-      >
-        {children}
-      </TabsContext.Provider>
-    );
+  it('delegates to the container scroller, not the per-tab measurement nodes', () => {
     const { result } = renderHook(() => useTabsScrollToTop(), { wrapper });
 
     result.current();
 
-    expect(spot.scrollTo).toHaveBeenCalledWith({ top: 0, behavior: 'instant' });
-    expect(history.scrollTo).toHaveBeenCalledWith({
-      top: 0,
-      behavior: 'instant',
-    });
+    expect(scrollToTop).toHaveBeenCalledTimes(1);
+    expect(tabElementScrollTo).not.toHaveBeenCalled();
   });
 
-  it('is a no-op outside a Tabs.Container (no registered elements)', () => {
+  it('is a no-op outside a Tabs.Container (no scrollToTop in context)', () => {
     const { result } = renderHook(() => useTabsScrollToTop());
     expect(() => result.current()).not.toThrow();
+    expect(scrollToTop).not.toHaveBeenCalled();
   });
 });

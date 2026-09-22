@@ -11,6 +11,10 @@
  * that replays its token rows.
  */
 import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
+import {
   buildTokenListOwnerSlimCacheKey,
   tokenListOwnerWorthCache,
 } from '@onekeyhq/shared/src/storage/uiSnapshotCaches';
@@ -35,6 +39,27 @@ function slotKey(ownerKey: string): string {
   });
 }
 
+let invalidationRegistered = false;
+
+/**
+ * Owner ids are reused after a wallet / account is removed (and after a wallet
+ * clear), so a re-created owner must never paint the worth it had before
+ * deletion. Purge memory AND the persisted namespace: the persisted slot is the
+ * one that outlives the process (and, on iOS/Android, lives in native MMKV
+ * shared with the `bg` runtime — clearing it here in `main` is sufficient, the
+ * `bg` runtime never reads it).
+ */
+function ensureInvalidationOnce(): void {
+  if (invalidationRegistered) {
+    return;
+  }
+  invalidationRegistered = true;
+  const purge = () => purgeOwnerWorthCache();
+  appEventBus.on(EAppEventBusNames.WalletRemove, purge);
+  appEventBus.on(EAppEventBusNames.AccountRemove, purge);
+  appEventBus.on(EAppEventBusNames.WalletClear, purge);
+}
+
 export function rememberOwnerWorth(
   ownerKey: string,
   snapshot: IOwnerWorthSnapshot,
@@ -42,6 +67,7 @@ export function rememberOwnerWorth(
   if (!ownerKey) {
     return;
   }
+  ensureInvalidationOnce();
   memory.delete(ownerKey);
   memory.set(ownerKey, snapshot);
   while (memory.size > OWNER_WORTH_CACHE_CAP) {
@@ -71,6 +97,7 @@ export function getOwnerWorth(
   if (!ownerKey) {
     return undefined;
   }
+  ensureInvalidationOnce();
   const hit = memory.get(ownerKey);
   if (hit) {
     memory.delete(ownerKey);
@@ -85,8 +112,13 @@ export function getOwnerWorth(
     }
     const snapshot: IOwnerWorthSnapshot = {
       worth: data.worth,
-      createAtNetworkWorth: data.createAtNetworkWorth ?? '0',
-      currency: data.currency,
+      // Consumers feed this straight into BigNumber; anything but a string is
+      // a corrupt record, not a value.
+      createAtNetworkWorth:
+        typeof data.createAtNetworkWorth === 'string'
+          ? data.createAtNetworkWorth
+          : '0',
+      currency: typeof data.currency === 'string' ? data.currency : undefined,
     };
     memory.set(ownerKey, snapshot);
     return snapshot;
@@ -95,9 +127,19 @@ export function getOwnerWorth(
   }
 }
 
-/** Drop every remembered owner (tests / wallet removal). */
+/** Drop every remembered owner from memory only (tests / process-local). */
 export function clearOwnerWorthCache(): void {
   memory.clear();
+}
+
+/** Drop every remembered owner from memory AND the persisted namespace. */
+export function purgeOwnerWorthCache(): void {
+  memory.clear();
+  try {
+    tokenListOwnerWorthCache.clear();
+  } catch {
+    /* best-effort */
+  }
 }
 
 export function getOwnerWorthCacheSize(): number {
