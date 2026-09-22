@@ -1,3 +1,4 @@
+import { isAxiosError } from 'axios';
 import { isNaN, isNil, isNumber, throttle } from 'lodash';
 
 import { EServiceEndpointEnum } from '../../types/endpoint';
@@ -5,12 +6,19 @@ import { appApiClient } from '../appApiClient/appApiClient';
 import { ONEKEY_HEALTH_CHECK_URL } from '../config/appConfig';
 import { getEndpointByServiceName } from '../config/endpointsMap';
 import { EAppEventBusNames, appEventBus } from '../eventBus/appEventBus';
+import { defaultLogger } from '../logger/logger';
 import platformEnv from '../platformEnv';
 import requestHelper from '../request/requestHelper';
 import appStorage from '../storage/appStorage';
 import { EAppSyncStorageKeys } from '../storage/syncStorageKeys';
 
 import timerUtils from './timerUtils';
+
+import type { IAxiosResponse } from '../appApiClient/appApiClient';
+import type {
+  ISystemTimeCheckSource,
+  ISystemTimeRefreshResult,
+} from '../logger/scopes/app/scenes/systemTime';
 
 export enum ELocalSystemTimeStatus {
   VALID = 'VALID',
@@ -131,6 +139,10 @@ class SystemTimeUtils {
 
   private _lastServerTimePerfBase: number | undefined;
 
+  private _lastServerTimeLocalBase: number | undefined;
+
+  private _lastTimeCheckLogAt: number | undefined;
+
   private _lastServerTimeIsReal = false;
 
   private _lastServerTimeCanBeFallback = false;
@@ -155,6 +167,7 @@ class SystemTimeUtils {
       this._lastServerTime = appBuildTime;
       this._serverTimeEstimateBase = undefined;
       this._lastServerTimePerfBase = undefined;
+      this._lastServerTimeLocalBase = undefined;
       this._lastServerTimeIsReal = false;
       this._lastServerTimeCanBeFallback = false;
       return;
@@ -164,6 +177,7 @@ class SystemTimeUtils {
     if (updateEstimateBaseline) {
       this._serverTimeEstimateBase = timestamp;
       this._lastServerTimePerfBase = getMonotonicTimeNow();
+      this._lastServerTimeLocalBase = Date.now();
       this._lastServerTimeIsReal = true;
     }
     if (timestamp && persist) {
@@ -249,6 +263,75 @@ class SystemTimeUtils {
     });
   }
 
+  private logTimeCheck({
+    source,
+    responseHost,
+    requestId,
+    localTime,
+    serverTime,
+    localTimeValid,
+  }: {
+    source: ISystemTimeCheckSource;
+    responseHost?: string;
+    requestId?: string;
+    localTime: number;
+    serverTime: number | undefined;
+    localTimeValid: boolean;
+  }) {
+    const status = localTimeValid
+      ? ELocalSystemTimeStatus.VALID
+      : ELocalSystemTimeStatus.INVALID;
+    const observedAt = Date.now();
+    const monotonicTime = getMonotonicTimeNow();
+    const logTime = monotonicTime ?? observedAt;
+    if (
+      status === this.systemTimeStatus &&
+      (localTimeValid ||
+        (!isNil(this._lastTimeCheckLogAt) &&
+          logTime >= this._lastTimeCheckLogAt &&
+          logTime - this._lastTimeCheckLogAt < 60_000))
+    ) {
+      return;
+    }
+    this._lastTimeCheckLogAt = logTime;
+
+    const wallElapsedMs = isNil(this._lastServerTimeLocalBase)
+      ? undefined
+      : observedAt - this._lastServerTimeLocalBase;
+    const monotonicElapsedMs =
+      isNil(monotonicTime) || isNil(this._lastServerTimePerfBase)
+        ? undefined
+        : monotonicTime - this._lastServerTimePerfBase;
+    // Capture the previous baseline before a response replaces it, so sleep
+    // and wall-clock jumps can be distinguished from a stale server response.
+    defaultLogger.app.systemTime.check({
+      observedAt,
+      platform: platformEnv.appPlatform,
+      runtime: platformEnv.runtimeRole,
+      source,
+      responseHost,
+      requestId,
+      previousStatus: this.systemTimeStatus,
+      status,
+      localTime,
+      serverTime,
+      differenceMs: isNil(serverTime) ? undefined : localTime - serverTime,
+      thresholdMs: localServerTimeDiff,
+      appBuildTime,
+      lastServerTime: this.lastServerTime,
+      estimateBase: this._serverTimeEstimateBase,
+      localTimeAtBaseline: this._lastServerTimeLocalBase,
+      monotonicTime,
+      monotonicTimeAtBaseline: this._lastServerTimePerfBase,
+      wallElapsedMs,
+      monotonicElapsedMs,
+      clockElapsedDifferenceMs:
+        isNil(wallElapsedMs) || isNil(monotonicElapsedMs)
+          ? undefined
+          : wallElapsedMs - monotonicElapsedMs,
+    });
+  }
+
   hasFreshServerTimeInCurrentProcess(): boolean {
     return (
       this._lastServerTimeIsReal &&
@@ -268,43 +351,108 @@ class SystemTimeUtils {
   }
 
   async refreshServerTime(): Promise<boolean> {
-    const endpoint = await getEndpointByServiceName(
-      EServiceEndpointEnum.Wallet,
-    );
-    const client = await appApiClient.getClient({
-      endpoint,
-      name: EServiceEndpointEnum.Wallet,
-    });
-    const response = await client.get(ONEKEY_HEALTH_CHECK_URL, {
-      params: {
-        _: 'system_time_utils',
-        timestamp: Date.now(),
-      },
-      timeout: refreshServerTimeTimeout,
-    });
-    const headers = response.headers as
-      | {
-          date?: string;
-          Date?: string;
-          get?: (name: string) => unknown;
-        }
-      | undefined;
-    const rawHeaderDate =
-      headers?.date ?? headers?.Date ?? headers?.get?.('date');
-    const headerDate = Array.isArray(rawHeaderDate)
-      ? rawHeaderDate[0]
-      : rawHeaderDate;
-    if (typeof headerDate !== 'string') {
-      return false;
+    const startedAt = Date.now();
+    const monotonicStartedAt = getMonotonicTimeNow();
+    let httpStatus: number | undefined;
+    let serverTime: number | undefined;
+    let requestId: string | undefined;
+    const logResult = (
+      result: ISystemTimeRefreshResult,
+      errorCode?: string,
+    ) => {
+      const completedAt = Date.now();
+      const monotonicCompletedAt = getMonotonicTimeNow();
+      defaultLogger.app.systemTime.refresh({
+        startedAt,
+        completedAt,
+        platform: platformEnv.appPlatform,
+        runtime: platformEnv.runtimeRole,
+        result,
+        wallDurationMs: completedAt - startedAt,
+        monotonicDurationMs:
+          isNil(monotonicStartedAt) || isNil(monotonicCompletedAt)
+            ? undefined
+            : monotonicCompletedAt - monotonicStartedAt,
+        serverTime,
+        httpStatus,
+        requestId,
+        errorCode,
+      });
+    };
+
+    try {
+      const endpoint = await getEndpointByServiceName(
+        EServiceEndpointEnum.Wallet,
+      );
+      const client = await appApiClient.getClient({
+        endpoint,
+        name: EServiceEndpointEnum.Wallet,
+      });
+      const response = await client.get<unknown, IAxiosResponse<unknown>>(
+        ONEKEY_HEALTH_CHECK_URL,
+        {
+          params: {
+            _: 'system_time_utils',
+            timestamp: Date.now(),
+          },
+          timeout: refreshServerTimeTimeout,
+        },
+      );
+      httpStatus = response.status;
+      requestId = response.$requestId;
+      const headers = response.headers as
+        | {
+            date?: string;
+            Date?: string;
+            get?: (name: string) => unknown;
+          }
+        | undefined;
+      const rawHeaderDate =
+        headers?.date ?? headers?.Date ?? headers?.get?.('date');
+      const headerDate = Array.isArray(rawHeaderDate)
+        ? rawHeaderDate[0]
+        : rawHeaderDate;
+      if (typeof headerDate !== 'string') {
+        logResult('missing-date');
+        return false;
+      }
+      const serverTimestamp = new Date(headerDate).getTime();
+      serverTime = Number.isFinite(serverTimestamp)
+        ? serverTimestamp
+        : undefined;
+      if (!this.isTimeValid({ time: serverTimestamp })) {
+        logResult('invalid-date');
+        return false;
+      }
+      logResult('success');
+      const localTimestamp = Date.now();
+      this.updateServerTime({
+        serverTime: serverTimestamp,
+        localTime: localTimestamp,
+        source: 'health-check',
+        requestId,
+      });
+
+      // Only a fresh health response can justify asking users to fix their clock.
+      // Wall time includes system sleep, unlike performance.now() on macOS/Linux.
+      const requestDuration = localTimestamp - startedAt;
+      if (
+        requestDuration >= 0 &&
+        requestDuration <= refreshServerTimeTimeout &&
+        this.systemTimeStatus === ELocalSystemTimeStatus.INVALID
+      ) {
+        appEventBus.emit(EAppEventBusNames.LocalSystemTimeInvalid, undefined);
+      }
+      return true;
+    } catch (error) {
+      let errorCode: string | undefined;
+      if (isAxiosError(error)) {
+        httpStatus = error.response?.status;
+        errorCode = error.code;
+      }
+      logResult('request-error', errorCode);
+      throw error;
     }
-    const serverTimestamp = new Date(headerDate).getTime();
-    if (!this.isTimeValid({ time: serverTimestamp })) {
-      return false;
-    }
-    this.updateServerTime({
-      serverTime: serverTimestamp,
-    });
-    return true;
   }
 
   startServerTimeInterval() {
@@ -454,9 +602,15 @@ class SystemTimeUtils {
   updateServerTime({
     serverTime,
     localTime,
+    source = 'server-update',
+    responseHost,
+    requestId,
   }: {
     serverTime: number | undefined;
     localTime?: number;
+    source?: ISystemTimeCheckSource;
+    responseHost?: string;
+    requestId?: string;
   }) {
     if (!this.isTimeValid({ time: serverTime })) {
       return;
@@ -475,6 +629,14 @@ class SystemTimeUtils {
       localTime: localTimestamp,
       serverTime,
     });
+    this.logTimeCheck({
+      source,
+      responseHost,
+      requestId,
+      localTime: localTimestamp,
+      serverTime,
+      localTimeValid,
+    });
     this.setLastServerTimeValue({
       value: serverTime,
       updateEstimateBaseline: true,
@@ -489,10 +651,6 @@ class SystemTimeUtils {
         ? ELocalSystemTimeStatus.VALID
         : ELocalSystemTimeStatus.INVALID,
     );
-
-    if (!localTimeValid) {
-      appEventBus.emit(EAppEventBusNames.LocalSystemTimeInvalid, undefined);
-    }
   }
 
   private updateSystemTimeStatusByEstimatedServerTime(): boolean {
@@ -514,6 +672,12 @@ class SystemTimeUtils {
       localTime: localTimestamp,
       serverTime: estimatedServerTime,
     });
+    this.logTimeCheck({
+      source: 'estimated',
+      localTime: localTimestamp,
+      serverTime: estimatedServerTime,
+      localTimeValid,
+    });
     if (localTimeValid) {
       this.lastLocalTime = localTimestamp;
     }
@@ -524,9 +688,6 @@ class SystemTimeUtils {
         : ELocalSystemTimeStatus.INVALID,
     );
 
-    if (!localTimeValid) {
-      appEventBus.emit(EAppEventBusNames.LocalSystemTimeInvalid, undefined);
-    }
     return true;
   }
 
@@ -593,14 +754,15 @@ class SystemTimeUtils {
   }
 
   async handleServerResponseDate({
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     source,
     headerDate,
     url,
+    requestId,
   }: {
     source: 'axios' | 'fetch';
     headerDate: string;
     url: string;
+    requestId?: string;
   }) {
     if (!headerDate || !url) {
       return;
@@ -610,6 +772,7 @@ class SystemTimeUtils {
         source,
         headerDate,
         url,
+        requestId,
       });
     } catch (error) {
       console.error(error);
@@ -618,14 +781,15 @@ class SystemTimeUtils {
 
   _handleServerResponseDateThrottle = throttle(
     async ({
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
       source,
       headerDate,
       url,
+      requestId,
     }: {
       source: 'axios' | 'fetch';
       headerDate: string;
       url: string;
+      requestId?: string;
     }) => {
       if (!headerDate || !url) {
         return;
@@ -657,9 +821,18 @@ class SystemTimeUtils {
       if (mockLocalTimeOffset) {
         localTimestamp += mockLocalTimeOffset;
       }
+      let responseHost: string | undefined;
+      try {
+        responseHost = new URL(url).hostname;
+      } catch (_error) {
+        // Relative URLs have no hostname; never log paths or query strings.
+      }
       this.updateServerTime({
         serverTime: serverTimestamp,
         localTime: localTimestamp,
+        source,
+        responseHost,
+        requestId,
       });
     },
     1000,

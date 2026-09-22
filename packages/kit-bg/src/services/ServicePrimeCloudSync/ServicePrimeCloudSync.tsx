@@ -613,6 +613,7 @@ class ServicePrimeCloudSync extends ServiceBase {
     if (responseData.serverTime) {
       systemTimeUtils.updateServerTime({
         serverTime: responseData.serverTime,
+        source: 'cloud-sync',
       });
       try {
         const wrongTimeItems = localItems?.filter(

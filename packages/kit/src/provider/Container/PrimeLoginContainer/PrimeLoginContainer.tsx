@@ -16,6 +16,7 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { EPrimePages } from '@onekeyhq/shared/src/routes/prime';
 
@@ -44,6 +45,9 @@ function showTimeErrorDialogOnce(intl: ReturnType<typeof useIntl>) {
 
   hasShownTimeErrorDialogInAppLifecycle = true;
   Dialog.confirm({
+    onOpen: () => {
+      defaultLogger.app.systemTime.dialogShown({ observedAt: Date.now() });
+    },
     title: intl.formatMessage({
       id: ETranslations.prime_time_error_title,
     }),
