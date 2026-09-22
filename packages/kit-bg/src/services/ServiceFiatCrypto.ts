@@ -195,7 +195,6 @@ class ServiceFiatCrypto extends ServiceBase {
       const session = resp.data.data;
       defaultLogger.fiatCrypto.request.onramperSessionMinted({
         durationMs: Date.now() - startedAt,
-        sessionId: session.sessionId,
         expiresAt: session.expiresAt,
       });
       return session;

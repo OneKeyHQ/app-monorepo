@@ -31,7 +31,7 @@ export type IOnramperButtonStyle = {
 
 export type IOnramperCheckoutRequest = {
   source: string; // fiat currency code, e.g. 'usd'
-  destination: string; // crypto asset code, e.g. 'sol'
+  destination: string; // Onramper asset id, e.g. 'usdt_ethereum'
   amount: number; // denominated in the source fiat
   type: 'buy';
   paymentMethod: 'applepay';

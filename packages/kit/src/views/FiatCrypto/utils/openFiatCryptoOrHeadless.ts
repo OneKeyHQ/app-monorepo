@@ -79,12 +79,19 @@ export async function tryOpenHeadlessBuy(
   // token-less direct-buy entries pay the list lookup.
   let resolvedToken = token;
   if (resolvedToken === undefined) {
-    resolvedToken =
-      await backgroundApiProxy.serviceFiatCrypto.getHeadlessBuyToken({
-        networkId,
-        tokenAddress,
-        accountId,
-      });
+    try {
+      resolvedToken =
+        await backgroundApiProxy.serviceFiatCrypto.getHeadlessBuyToken({
+          networkId,
+          tokenAddress,
+          accountId,
+        });
+    } catch {
+      // The lookup only decides native vs web; a transient list failure must
+      // not reject the buy tap — the caller's web-widget flow still runs.
+      logEntryDecision(params, 'tokenLookupFailed');
+      return false;
+    }
   }
   if (!resolvedToken) {
     logEntryDecision(params, 'tokenNotFound');

@@ -30,7 +30,9 @@ type IParams = {
   amount: number; // parsed fiat amount (0 when empty/invalid)
   isAmountValid: boolean;
   source: string; // fiat code, e.g. 'usd'
-  destination: string; // crypto code, e.g. 'sol'
+  destination: string; // Onramper asset id, e.g. 'usdt_ethereum'
+  // Display symbol for analytics; defaults to the destination when omitted.
+  tokenSymbol?: string;
   network: string; // onramper network code
   address: string | undefined;
   // ISO country code (lowercase); omit to let Onramper geo-detect by IP.
@@ -75,6 +77,7 @@ export function useOnramperCheckout({
   isAmountValid,
   source,
   destination,
+  tokenSymbol,
   network,
   address,
   country,
@@ -99,14 +102,15 @@ export function useOnramperCheckout({
   // the current token without re-subscribing. `elapsedMs` counts from the
   // first render of the page so every event can be placed on one timeline.
   const mountedAtRef = useRef(Date.now());
+  const logTokenSymbol = (tokenSymbol ?? destination).toUpperCase();
   const logCtxRef = useRef({
     networkId: network,
-    tokenSymbol: destination.toUpperCase(),
+    tokenSymbol: logTokenSymbol,
     entryFrom,
   });
   logCtxRef.current = {
     networkId: network,
-    tokenSymbol: destination.toUpperCase(),
+    tokenSymbol: logTokenSymbol,
     entryFrom,
   };
   const getLogContext = useCallback(
@@ -141,7 +145,7 @@ export function useOnramperCheckout({
             defaultLogger.fiatCrypto.onramper.sessionRefreshed({
               ...getLogContext(),
               durationMs: Date.now() - startedAt,
-              sessionId: session.sessionId,
+              expiresAt: session.expiresAt,
             });
             return session;
           } catch (error) {
@@ -164,8 +168,16 @@ export function useOnramperCheckout({
   const isMock = clientRef.current?.isMock ?? false;
 
   const reqSeqRef = useRef(0);
+  // Seq of the quote whose button is currently mounted — a `failed` event
+  // belongs to that checkout, so it is only acted on while no newer request
+  // has superseded it.
+  const quoteSeqRef = useRef(0);
   const hasButtonRef = useRef(false);
   const quoteLoggedRef = useRef(false);
+  // Sticky init failure (session mint / client.initialize): `ready` never
+  // becomes true afterwards, so the quote loop and refreshQuote must keep the
+  // WebFallback state instead of overwriting it with Preparing.
+  const initFailedRef = useRef(false);
 
   // Keep callbacks fresh without re-subscribing the event listeners.
   const onCompletedRef = useRef(onCompleted);
@@ -212,6 +224,11 @@ export function useOnramperCheckout({
 
   const handleCheckoutFailed = useCallback(
     (event: IOnramperEvent) => {
+      // The failure belongs to the checkout mounted by quote #quoteSeq. Once a
+      // newer quote request exists (amount / address edit, review exit) that
+      // checkout is abandoned: log the event, but don't let it replace the
+      // fresh quote's state with an unrelated retry error.
+      const stale = quoteSeqRef.current !== reqSeqRef.current;
       defaultLogger.fiatCrypto.onramper.checkoutFailed({
         ...getLogContext(),
         ...getOnramperErrorFieldsForLog({
@@ -223,7 +240,11 @@ export function useOnramperCheckout({
         ramp: quoteRef.current?.ramp,
         checkoutId: event.checkoutId,
         transactionId: event.transactionId,
+        stale,
       });
+      if (stale) {
+        return;
+      }
       applyFailure(event);
     },
     [applyFailure, getLogContext],
@@ -282,6 +303,7 @@ export function useOnramperCheckout({
     }
     const client = clientRef.current;
     setReady(false);
+    initFailedRef.current = false;
     let cancelled = false;
     const removeListeners = [
       ...ONRAMPER_EVENT_NAMES.map((name) =>
@@ -323,6 +345,7 @@ export function useOnramperCheckout({
             durationMs: Date.now() - mintStartedAt,
             errorMessage: getErrorMessageForLog(error),
           });
+          initFailedRef.current = true;
           goWebFallback({ code: 'sessionMintFailed' });
         }
         return;
@@ -333,8 +356,6 @@ export function useOnramperCheckout({
       defaultLogger.fiatCrypto.onramper.sessionMinted({
         ...getLogContext(),
         durationMs: Date.now() - mintStartedAt,
-        sessionId: session.sessionId,
-        tokenFamilyId: session.tokenFamilyId,
         expiresAt: session.expiresAt,
       });
       const initStartedAt = Date.now();
@@ -351,6 +372,7 @@ export function useOnramperCheckout({
               message: err?.message,
             }),
           });
+          initFailedRef.current = true;
           goWebFallback({ code: err?.code ?? 'clientInitFailed' });
         }
         return;
@@ -392,7 +414,11 @@ export function useOnramperCheckout({
   // mounted under a mask (S3) and swap in a single commit; drop stale responses.
   useEffect(() => {
     if (!ready) {
-      setActionState(EBuyActionState.Preparing);
+      // Init failed for good: keep the web fallback the init effect chose
+      // (this effect re-runs on every amount / address edit).
+      if (!initFailedRef.current) {
+        setActionState(EBuyActionState.Preparing);
+      }
       return undefined;
     }
     if (!isAmountValid || amount <= 0) {
@@ -462,6 +488,7 @@ export function useOnramperCheckout({
             return;
           }
           quoteRef.current = result.quote;
+          quoteSeqRef.current = seq;
           setQuote(result.quote);
           setNativeButton(result.button);
           hasButtonRef.current = true;
@@ -571,7 +598,13 @@ export function useOnramperCheckout({
     // Enter Preparing in the SAME commit: the async reset()→re-quote path
     // updates actionState a few frames later, and in that gap "quote cleared
     // but still Ready" the estimate line would flash 0 before its skeleton.
-    setActionState(EBuyActionState.Preparing);
+    // After a sticky init failure there is nothing to re-quote against —
+    // stay on the web fallback so the review screen keeps its exit.
+    setActionState(
+      initFailedRef.current
+        ? EBuyActionState.WebFallback
+        : EBuyActionState.Preparing,
+    );
     // Defer reset() past the unmount frames. Dispatched synchronously it
     // reaches the SDK BEFORE React commits the review unmount (device-traced:
     // the idle/ready state events land ~1.5ms before the mode flip), and the

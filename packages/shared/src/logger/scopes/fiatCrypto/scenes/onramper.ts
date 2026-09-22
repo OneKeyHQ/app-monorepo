@@ -43,6 +43,9 @@ export class OnramperScene extends BaseScene {
       | 'headlessUnavailable'
       | 'noAccount'
       | 'tokenNotFound'
+      // The buy-list lookup itself rejected (network / backend hiccup); the
+      // caller falls back to the web widget rather than failing the tap.
+      | 'tokenLookupFailed'
       | 'headlessNotSupported'
       | 'noNetworkCode';
   }) {
@@ -65,13 +68,11 @@ export class OnramperScene extends BaseScene {
 
   @LogToServer()
   @LogToLocal()
+  // Timing only — session identifiers are auth metadata and never leave the
+  // client (Onramper support correlates by transactionId instead).
   public sessionMinted(
     params: IOnramperLogContext & {
       durationMs: number;
-      // Onramper session identifiers (never the token): the handle Onramper
-      // support correlates backend logs by.
-      sessionId?: string;
-      tokenFamilyId?: string;
       expiresAt?: string;
     },
   ) {
@@ -112,7 +113,7 @@ export class OnramperScene extends BaseScene {
   @LogToServer()
   @LogToLocal()
   public sessionRefreshed(
-    params: IOnramperLogContext & { durationMs: number; sessionId?: string },
+    params: IOnramperLogContext & { durationMs: number; expiresAt?: string },
   ) {
     return params;
   }
@@ -283,6 +284,9 @@ export class OnramperScene extends BaseScene {
         checkoutId?: string;
         // Present once checkout finalize succeeded (see checkoutCompleted).
         transactionId?: string;
+        // True when a newer quote request had already superseded the checkout
+        // this failure belongs to — logged, but not surfaced to the user.
+        stale?: boolean;
       },
   ) {
     return params;

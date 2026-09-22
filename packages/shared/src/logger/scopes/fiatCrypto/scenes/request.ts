@@ -23,7 +23,6 @@ export class RequestScene extends BaseScene {
   @LogToLocal()
   public onramperSessionMinted(params: {
     durationMs: number;
-    sessionId?: string;
     expiresAt?: string;
   }) {
     return params;

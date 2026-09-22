@@ -214,15 +214,23 @@ function HeadlessBuyPage() {
     }
   }, [activeToken, networkId, entryFrom]);
 
-  const { result: address } = usePromiseResult(async () => {
-    if (!accountId) {
-      return undefined;
-    }
-    return backgroundApiProxy.serviceAccount.getAccountAddressForApi({
-      networkId,
-      accountId,
-    });
-  }, [accountId, networkId]);
+  const { result: address } = usePromiseResult(
+    async () => {
+      if (!accountId) {
+        return undefined;
+      }
+      return backgroundApiProxy.serviceAccount.getAccountAddressForApi({
+        networkId,
+        accountId,
+      });
+    },
+    [accountId, networkId],
+    // A navigate() re-target with a different account/network must not keep
+    // quoting against the previous account's address while the new lookup is
+    // in flight: clear it synchronously so the checkout hook holds Preparing
+    // until the fresh address lands.
+    { undefinedResultIfReRun: true },
+  );
 
   // Network display name for the review card's network row. Keyed on the
   // ROUTE id, not activeToken (the token is resolved by matching this very
@@ -331,7 +339,13 @@ function HeadlessBuyPage() {
     // Quote from the first digit — the ≈crypto estimate is live while typing.
     isAmountValid: amount > 0 && Boolean(activeToken),
     source: 'usd',
-    destination: activeToken?.symbol?.toLowerCase() ?? '',
+    // Onramper's own asset id (e.g. 'usdt_ethereum', server-delivered on the
+    // buy list): a bare symbol is ambiguous across networks and can quote a
+    // different asset. The symbol fallback only serves direct navigations
+    // without the server fields (e.g. Gallery / mock).
+    destination:
+      activeToken?.onramperId ?? activeToken?.symbol?.toLowerCase() ?? '',
+    tokenSymbol: activeToken?.symbol,
     // Onramper speaks its own network slugs (e.g. 'ethereum'), not OneKey ids.
     // The entry gate requires the server-delivered slug (OK-58060), so this
     // only misses for direct navigations (e.g. Gallery) — '' fails the quote
@@ -409,17 +423,18 @@ function HeadlessBuyPage() {
 
   // Amount-level failures are fixed on the input screen, not retried in place.
   // The quote error stays visible under the amount (heroError below) until the
-  // next edit re-quotes.
+  // next edit re-quotes; while it is showing, "Preview order" is disabled —
+  // otherwise the effect below would bounce the tap straight back to input
+  // (a one-frame flash that reads as a dead button).
+  const hasAmountError =
+    actionState === EBuyActionState.RetryableError &&
+    errorCode !== undefined &&
+    AMOUNT_ERROR_CODES.has(errorCode);
   useEffect(() => {
-    if (
-      mode === 'review' &&
-      actionState === EBuyActionState.RetryableError &&
-      errorCode &&
-      AMOUNT_ERROR_CODES.has(errorCode)
-    ) {
+    if (mode === 'review' && hasAmountError) {
       setMode('input');
     }
-  }, [mode, actionState, errorCode]);
+  }, [mode, hasAmountError]);
 
   const heroError =
     actionState === EBuyActionState.RetryableError ? errorMessage : undefined;
@@ -658,6 +673,7 @@ function HeadlessBuyPage() {
                     testID="headless-buy-review"
                     size="large"
                     variant="primary"
+                    disabled={hasAmountError}
                     onPress={enterReview}
                   >
                     Preview order
