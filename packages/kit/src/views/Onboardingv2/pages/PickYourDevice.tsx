@@ -59,9 +59,16 @@ export default function PickYourDevice() {
   >(
     () => [
       {
-        name: 'OneKey Pro',
+        name: intl.formatMessage({
+          id: ETranslations.onekey_pro_series__title,
+        }),
         deviceType: [EDeviceType.Pro, EDeviceType.Pro2],
-        image: require('@onekeyhq/kit/assets/pick-pro.png'),
+        image: require('@onekeyhq/kit/assets/pick-pro-2.png'),
+      },
+      {
+        name: 'OneKey Neo',
+        deviceType: [EDeviceType.Neo],
+        image: require('@onekeyhq/kit/assets/pick-neo.png'),
       },
       {
         name: 'OneKey Classic',

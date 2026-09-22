@@ -4,6 +4,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { ClassicDevice } from '../ClassicDevice';
 import { MiniDevice } from '../MiniDevice';
+import { NeoDevice } from '../NeoDevice';
 import { Pro2Device } from '../Pro2Device';
 import { ProDevice } from '../ProDevice';
 import { TouchDevice } from '../TouchDevice';
@@ -16,9 +17,9 @@ import type { ITouchDeviceScene } from '../TouchDevice';
 
 /**
  * The code-drawn hardware devices. This is the entry point; ../ClassicDevice,
- * ../MiniDevice, ../ProDevice, ../TouchDevice and ../Pro2Device are the
- * per-model drawings behind it, not a second way in. Call sites hold the
- * model at runtime and fix the scenario at build time:
+ * ../MiniDevice, ../ProDevice, ../TouchDevice, ../Pro2Device and ../NeoDevice
+ * are the per-model drawings behind it, not a second way in. Call sites hold
+ * the model at runtime and fix the scenario at build time:
  *
  *   <HardwareDevice deviceType={deviceType} animation="confirm" />
  *
@@ -127,7 +128,7 @@ const styles = StyleSheet.create({
 
 /**
  * The routing table: which models draw which replica. The Classic family
- * collapses onto one; a model missing here (unknown, neo) has no replica
+ * collapses onto one; a model missing here (unknown) has no replica
  * and renders nothing, so "has a replica" is stated exactly once.
  */
 const REPLICAS: Partial<
@@ -138,6 +139,7 @@ const REPLICAS: Partial<
     | typeof ProDevice
     | typeof TouchDevice
     | typeof Pro2Device
+    | typeof NeoDevice
   >
 > = {
   classic: ClassicDevice,
@@ -147,9 +149,7 @@ const REPLICAS: Partial<
   pro: ProDevice,
   touch: TouchDevice,
   pro2: Pro2Device,
-  // Neo has no replica of its own yet; the Pro 2 stands in until the
-  // design lands one (OK-59934, handover doc §07).
-  neo: Pro2Device,
+  neo: NeoDevice,
 };
 
 export function HardwareDevice({

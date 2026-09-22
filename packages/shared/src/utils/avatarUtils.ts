@@ -30,8 +30,16 @@ export const HdWalletAvatarImageNames = Object.keys(
   HdWalletAvatarImages,
 ) as IHdWalletAvatarImageNames[];
 
+/** The device colors that ship with their own avatar art. */
+type IProColor = 'Black' | 'White';
+type IPro2Color = 'Black' | 'Orange' | 'Silver';
+type INeoColor = 'Black' | 'White' | 'Green' | 'Pink';
+
 export const HwWalletAvatarImages: Record<
-  IDeviceType | `${EDeviceType.Pro}Black` | `${EDeviceType.Pro}White`,
+  | IDeviceType
+  | `${EDeviceType.Pro}${IProColor}`
+  | `${EDeviceType.Pro2}${IPro2Color}`
+  | `${typeof NEO_DEVICE_TYPE}${INeoColor}`,
   ImageSourcePropType
 > = {
   [EDeviceType.Unknown]: { uri: undefined },
@@ -41,10 +49,17 @@ export const HwWalletAvatarImages: Record<
   [EDeviceType.Mini]: require('../assets/wallet/avatar/Mini.png'),
   [EDeviceType.Touch]: require('../assets/wallet/avatar/Touch.png'),
   [EDeviceType.Pro]: require('../assets/wallet/avatar/ProBlack.png'),
-  [EDeviceType.Pro2]: require('../assets/wallet/avatar/ProBlack.png'),
-  [NEO_DEVICE_TYPE]: require('../assets/wallet/avatar/ProBlack.png'),
+  [EDeviceType.Pro2]: require('../assets/wallet/avatar/Pro2Black.png'),
+  [NEO_DEVICE_TYPE]: require('../assets/wallet/avatar/NeoBlack.png'),
   [`${EDeviceType.Pro}Black`]: require('../assets/wallet/avatar/ProBlack.png'),
   [`${EDeviceType.Pro}White`]: require('../assets/wallet/avatar/ProWhite.png'),
+  [`${EDeviceType.Pro2}Black`]: require('../assets/wallet/avatar/Pro2Black.png'),
+  [`${EDeviceType.Pro2}Orange`]: require('../assets/wallet/avatar/Pro2Orange.png'),
+  [`${EDeviceType.Pro2}Silver`]: require('../assets/wallet/avatar/Pro2Silver.png'),
+  [`${NEO_DEVICE_TYPE}Black`]: require('../assets/wallet/avatar/NeoBlack.png'),
+  [`${NEO_DEVICE_TYPE}White`]: require('../assets/wallet/avatar/NeoWhite.png'),
+  [`${NEO_DEVICE_TYPE}Green`]: require('../assets/wallet/avatar/NeoGreen.png'),
+  [`${NEO_DEVICE_TYPE}Pink`]: require('../assets/wallet/avatar/NeoPink.png'),
 };
 
 export const OthersWalletAvatarImages = {
@@ -95,15 +110,41 @@ export type IAllWalletAvatarImageNames =
   | 'cardDividers'
   | IAllWalletAvatarImageNamesWithoutDividers;
 
+/**
+ * A Pro 2 / Neo serial number ends in its color letter (hardware team,
+ * 2026-09-01): A black, B white, C transparent (the Bitcoin-only SKU),
+ * D orange, E green, F pink. A letter without avatar art wears black — so
+ * does the transparent SKU. The Pro 2 ships a silver avatar too, but the
+ * table names no letter for it, so silver stays unreachable until the
+ * hardware team confirms which letter it is.
+ */
+const PRO2_SERIAL_COLORS: Partial<Record<string, IPro2Color>> = {
+  A: 'Black',
+  D: 'Orange',
+};
+const NEO_SERIAL_COLORS: Partial<Record<string, INeoColor>> = {
+  A: 'Black',
+  B: 'White',
+  E: 'Green',
+  F: 'Pink',
+};
+
 export function getDeviceAvatarImage(
   deviceType: IDeviceType,
   serialNo?: string,
-): IDeviceType | `${EDeviceType.Pro}Black` | `${EDeviceType.Pro}White` {
+): IHwWalletAvatarImageNames {
   if (deviceType === EDeviceType.Pro) {
     if (serialNo && serialNo?.startsWith('PR') && serialNo?.endsWith('B')) {
       return `${EDeviceType.Pro}White`;
     }
     return `${EDeviceType.Pro}Black`;
+  }
+  const colorCode = serialNo?.slice(-1) ?? '';
+  if (deviceType === EDeviceType.Pro2) {
+    return `${EDeviceType.Pro2}${PRO2_SERIAL_COLORS[colorCode] ?? 'Black'}`;
+  }
+  if (deviceType === NEO_DEVICE_TYPE) {
+    return `${NEO_DEVICE_TYPE}${NEO_SERIAL_COLORS[colorCode] ?? 'Black'}`;
   }
   return deviceType;
 }

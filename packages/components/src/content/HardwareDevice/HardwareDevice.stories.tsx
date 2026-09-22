@@ -21,6 +21,7 @@ const meta = {
         'classicpure',
         'pro',
         'pro2',
+        'neo',
         'mini',
         'touch',
         'unknown',
@@ -50,6 +51,7 @@ const ROUTED: IHardwareDeviceType[] = [
   'pro',
   'touch',
   'pro2',
+  'neo',
   'unknown',
 ];
 
@@ -89,6 +91,11 @@ export const Sizes: Story = {
         <HardwareDevice deviceType="pro2" width={80} />
         <HardwareDevice deviceType="pro2" width={160} />
         <HardwareDevice deviceType="pro2" width={240} />
+      </XStack>
+      <XStack gap="$4" alignItems="flex-start">
+        <HardwareDevice deviceType="neo" width={80} />
+        <HardwareDevice deviceType="neo" width={160} />
+        <HardwareDevice deviceType="neo" width={240} />
       </XStack>
       <XStack gap="$4" alignItems="flex-start">
         <HardwareDevice deviceType="mini" width={80} />
