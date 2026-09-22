@@ -252,7 +252,14 @@ describe('LocalDbBase verified Ledger binding transaction guard', () => {
         dbDeviceId: 'ledger-db',
         connectId: 'new-ble',
         bleConnectId: 'new-ble',
-        verifiedLedgerFingerprint: { chain: 'evm', fingerprint: 'verified' },
+        verifiedDeviceIdentity: {
+          vendor: EHardwareVendor.ledger,
+          identity: {
+            type: 'chainFingerprint',
+            chain: 'evm',
+            value: 'verified',
+          },
+        },
       });
       if (scenario === 'matching') {
         await update;
@@ -260,7 +267,7 @@ describe('LocalDbBase verified Ledger binding transaction guard', () => {
         expect(record.bleConnectId).toBe('new-ble');
       } else {
         await expect(update).rejects.toThrow(
-          'Verified Ledger binding no longer matches',
+          'Verified connection identity no longer matches',
         );
         expect(record.connectId).toBe('old-ble');
         expect(record.bleConnectId).toBeUndefined();
