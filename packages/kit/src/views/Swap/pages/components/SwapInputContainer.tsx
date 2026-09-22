@@ -52,17 +52,20 @@ import SwapPercentageStageBadge from '../../components/SwapPercentageStageBadge'
 import { SwapRateDifferenceText } from '../../components/SwapRateDifferenceText';
 import { getTokenIdentityKey } from '../../hooks/swapStockChannelUtils';
 import { useSwapAddressInfo } from '../../hooks/useSwapAccount';
+import { hasSwapFromAddressForVerdict } from '../../hooks/useSwapAccount.utils';
 import {
   getSwapBalanceDisplayEntryFromGlobalSnapshot,
   useSwapColdStartDisplayTokens,
 } from '../../hooks/useSwapColdStartDisplayTokens';
 import { useSwapSelectedTokenInfo } from '../../hooks/useSwapTokens';
 import { SwapTestIDs } from '../../testIDs';
+import { getSwapBalanceActionProps } from '../../utils/swapBalanceActionUtils';
 import {
   resolveSwapBalanceDisplayAccountKey,
   resolveSwapBalanceDisplayCacheEntry,
   resolveSwapInputDisplayBalance,
 } from '../../utils/swapBalanceDisplayCacheUtils';
+import { isSwapBalanceLoadedZero } from '../../utils/swapDepositActionUtils';
 import { getSwapTokenDisplayFiatValue } from '../../utils/swapDisplayFiatValue';
 
 import SwapAccountAddressContainer from './SwapAccountAddressContainer';
@@ -393,47 +396,41 @@ const SwapInputContainer = ({
   // A loaded zero balance keeps the Top up chip visible (subdued, because the
   // action button already reads "Deposit to Trade") and turns Max into a
   // refresh action so the user can re-check the balance after depositing.
-  // The balance atom holds '' until it loads, so '' never counts as zero; a
-  // same-token refresh keeps the last value, so the chip and the refresh
-  // control stay put while it reloads.
-  const isFromBalanceLoadedZero = useMemo(() => {
-    if (direction !== ESwapDirectionType.FROM || !fromToken) {
-      return false;
-    }
-    // A cross-network account lookup still in flight is not a missing
-    // address: keep the verdict until it resolves so swapping From/To does
-    // not flash Max for a frame.
-    if (!address && swapAddressInfo.isAddressInfoReady) {
-      return false;
-    }
-    if (!fromTokenBalance) {
-      return false;
-    }
-    const balanceBN = new BigNumber(fromTokenBalance);
-    return balanceBN.isFinite() && balanceBN.isZero();
-  }, [
-    address,
-    direction,
-    fromToken,
-    fromTokenBalance,
-    swapAddressInfo.isAddressInfoReady,
-  ]);
+  // The balance atom holds '' until it loads and keeps its last value through
+  // a same-token refresh, so the chip and the refresh control stay put while
+  // it reloads.
+  const isFromBalanceLoadedZero = useMemo(
+    () =>
+      direction === ESwapDirectionType.FROM &&
+      !!fromToken &&
+      hasSwapFromAddressForVerdict({
+        address,
+        isAddressInfoReady: swapAddressInfo.isAddressInfoReady,
+      }) &&
+      isSwapBalanceLoadedZero(fromTokenBalance),
+    [
+      address,
+      direction,
+      fromToken,
+      fromTokenBalance,
+      swapAddressInfo.isAddressInfoReady,
+    ],
+  );
   const { loadSwapSelectTokenDetail } = useSwapActions().current;
-  const onBalanceRefreshPress = useCallback(() => {
-    if (balanceLoading) return;
-    void loadSwapSelectTokenDetail(
-      ESwapDirectionType.FROM,
-      swapAddressInfo,
-      true,
-    );
-  }, [balanceLoading, loadSwapSelectTokenDetail, swapAddressInfo]);
-
-  const fromBalanceActionPress = isFromBalanceLoadedZero
-    ? onBalanceRefreshPress
-    : onBalanceMaxPress;
-  const fromBalanceActionTestID = isFromBalanceLoadedZero
-    ? SwapTestIDs.balanceRefreshButton
-    : SwapTestIDs.maxButton;
+  // Forced reload of this row's balance, used by the refresh control and when
+  // the deposit modal closes.
+  const refreshTokenBalance = useCallback(() => {
+    void loadSwapSelectTokenDetail(direction, swapAddressInfo, true);
+  }, [direction, loadSwapSelectTokenDetail, swapAddressInfo]);
+  const balanceActionProps =
+    direction === ESwapDirectionType.FROM
+      ? getSwapBalanceActionProps({
+          isLoadedZero: isFromBalanceLoadedZero,
+          refreshing: !!balanceLoading,
+          onRefresh: refreshTokenBalance,
+          onMax: onBalanceMaxPress,
+        })
+      : undefined;
 
   const showActionBuy = useMemo(
     () =>
@@ -475,6 +472,7 @@ const SwapInputContainer = ({
           showPercentageInput={showPercentageInputDebounce}
           showActionBuy={showActionBuy}
           actionBuyHighlighted={!isFromBalanceLoadedZero}
+          onDepositClose={refreshTokenBalance}
           onSelectStage={onSelectPercentageStage}
         />
       </XStack>
@@ -489,18 +487,7 @@ const SwapInputContainer = ({
         balanceProps={{
           value: displayBalance,
           loading: showBalanceSkeleton,
-          onPress:
-            direction === ESwapDirectionType.FROM
-              ? fromBalanceActionPress
-              : undefined,
-          actionIconName: isFromBalanceLoadedZero
-            ? 'RefreshCcwOutline'
-            : undefined,
-          actionLoading: isFromBalanceLoadedZero && !!balanceLoading,
-          testID:
-            direction === ESwapDirectionType.FROM
-              ? fromBalanceActionTestID
-              : undefined,
+          ...balanceActionProps,
         }}
         valueProps={{
           value: amountPrice,

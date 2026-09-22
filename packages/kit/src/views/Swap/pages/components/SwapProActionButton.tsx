@@ -39,6 +39,7 @@ import {
 } from '@onekeyhq/shared/types/swap/types';
 
 import { ESwapDirection } from '../../../Market/MarketDetailV2/components/SwapPanel/hooks/useTradeType';
+import { resolveStockBalanceSeed } from '../../hooks/swapStockChannelUtils';
 import {
   useSwapProAccount,
   useSwapProInputToken,
@@ -50,7 +51,6 @@ import {
 } from '../../hooks/useSwapState';
 import { shouldOfferSwapDepositAction } from '../../utils/swapDepositActionUtils';
 import { ESwapProAccountStatus } from '../../utils/swapProAccountUtils';
-import { getSwapProLoadedInputBalance } from '../../utils/swapProDepositUtils';
 
 /**
  * Format value with compact notation (k, M, B, T)
@@ -254,20 +254,25 @@ const SwapProActionButton = ({
   const swapProAccountAddress = swapProAccount?.result?.addressDetail.address;
   // Same verdict as the Swap page (OK-63470): a loaded zero pay-token balance
   // turns the button into the deposit entry, whatever the amount or the
-  // execution route. Missing account and unsupported pairs still win.
-  const shouldDepositToTrade = shouldOfferSwapDepositAction({
-    balance: getSwapProLoadedInputBalance({
-      inputToken: inputToken as ISwapToken | undefined,
-      accountAddress: swapProAccountAddress,
-    }),
-    hasBalanceError: false,
-    hasFromToken: !!inputToken,
-    hasToToken: !!toToken,
-    hasFromAddress: !!swapProAccountAddress,
-    noConnectWallet: false,
-    noProviderSupportsTrade: shouldShowNoProviderSupport,
-    isStockBalanceUnavailable: false,
-  });
+  // execution route. Missing account and unsupported pairs still win. Pro
+  // stamps the balance with the account it was fetched for, so only a stamp
+  // matching the current account counts (a fresh pick or another account's
+  // figure stays unknown until the next sync lands).
+  const shouldDepositToTrade = useMemo(
+    () =>
+      shouldOfferSwapDepositAction({
+        balance: resolveStockBalanceSeed({
+          hasActiveAccount: true,
+          networkAccountAddress: swapProAccountAddress,
+          token: inputToken as ISwapToken | undefined,
+        }),
+        hasFromToken: !!inputToken,
+        hasToToken: !!toToken,
+        hasFromAddress: !!swapProAccountAddress,
+        noProviderSupportsTrade: shouldShowNoProviderSupport,
+      }),
+    [inputToken, shouldShowNoProviderSupport, swapProAccountAddress, toToken],
+  );
 
   const onPressActionButton = useCallback(() => {
     if (shouldDepositToTrade) {

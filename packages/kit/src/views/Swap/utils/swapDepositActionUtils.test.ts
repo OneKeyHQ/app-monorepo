@@ -1,4 +1,21 @@
-import { shouldOfferSwapDepositAction } from './swapDepositActionUtils';
+import {
+  isSwapBalanceLoadedZero,
+  shouldOfferSwapDepositAction,
+} from './swapDepositActionUtils';
+
+describe('isSwapBalanceLoadedZero', () => {
+  it('accepts only a finite zero', () => {
+    expect(isSwapBalanceLoadedZero('0')).toBe(true);
+    expect(isSwapBalanceLoadedZero('0.0')).toBe(true);
+    expect(isSwapBalanceLoadedZero('0.5')).toBe(false);
+  });
+
+  it('treats an unloaded or unparsable balance as not zero', () => {
+    expect(isSwapBalanceLoadedZero('')).toBe(false);
+    expect(isSwapBalanceLoadedZero(undefined)).toBe(false);
+    expect(isSwapBalanceLoadedZero('n/a')).toBe(false);
+  });
+});
 
 const ready = {
   balance: '0',

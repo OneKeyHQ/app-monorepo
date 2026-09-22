@@ -177,8 +177,12 @@ const SwapActionsState = ({
   const [swapTypeSwitch] = useSwapTypeSwitchAtom();
   const swapFromAddressInfo = useSwapAddressInfo(ESwapDirectionType.FROM);
   const swapToAddressInfo = useSwapAddressInfo(ESwapDirectionType.TO);
-  const { cleanQuoteInterval, closeQuoteEvent, quoteAction } =
-    useSwapActions().current;
+  const {
+    cleanQuoteInterval,
+    closeQuoteEvent,
+    loadSwapSelectTokenDetail,
+    quoteAction,
+  } = useSwapActions().current;
   const swapActionState = useSwapActionState();
   const noConnectWallet = Boolean(
     forceNoConnectWallet || swapActionState.noConnectWallet,
@@ -431,9 +435,17 @@ const SwapActionsState = ({
       visible: shouldShowIncognitoRecipientInput,
     });
 
+  const refreshFromTokenBalance = useCallback(() => {
+    void loadSwapSelectTokenDetail(
+      ESwapDirectionType.FROM,
+      swapFromAddressInfo,
+      true,
+    );
+  }, [loadSwapSelectTokenDetail, swapFromAddressInfo]);
   const onDepositToTrade = useSwapDepositEntryPress({
     token: fromToken,
     accountInfo: swapFromAddressInfo?.accountInfo,
+    onClose: refreshFromTokenBalance,
   });
 
   // Depositing needs no quote, so the deposit state never shows the quote

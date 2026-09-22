@@ -1,8 +1,7 @@
 import type { ComponentType, ReactElement } from 'react';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
-import { Animated, Easing } from 'react-native';
 
 import {
   Icon,
@@ -29,6 +28,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { NUMBER_FORMATTER } from '@onekeyhq/shared/src/utils/numberUtils';
 
 import { LetterAvatar } from '../LetterAvatar';
+import { SpinningIcon } from '../SpinningIcon';
 
 export type ITokenSelectorPopoverProps = {
   title: string;
@@ -98,55 +98,6 @@ export type IAmountInputFormItemProps = IFormFieldProps<
     reversible?: boolean;
   } & Omit<IStackProps, 'onChange'>
 >;
-
-const ACTION_ICON_SPIN_DURATION_MS = 800;
-
-// Rotates the balance action icon in place while its request runs. The icon
-// stays the same glyph and always completes the turn it is on, so it comes to
-// rest upright rather than snapping back mid-spin.
-function SpinningActionIcon({
-  name,
-  spinning,
-  color,
-}: {
-  name: IKeyOfIcons;
-  spinning: boolean;
-  color: '$textInteractive' | '$textPlaceholder';
-}) {
-  const rotation = useRef(new Animated.Value(0)).current;
-  useEffect(() => {
-    if (!spinning) return undefined;
-    Animated.loop(
-      Animated.timing(rotation, {
-        toValue: 1,
-        duration: ACTION_ICON_SPIN_DURATION_MS,
-        easing: Easing.linear,
-        useNativeDriver: true,
-      }),
-    ).start();
-    return () => {
-      rotation.stopAnimation((value: number) => {
-        Animated.timing(rotation, {
-          toValue: 1,
-          duration: (1 - value) * ACTION_ICON_SPIN_DURATION_MS,
-          easing: Easing.linear,
-          useNativeDriver: true,
-        }).start(() => rotation.setValue(0));
-      });
-    };
-  }, [rotation, spinning]);
-  const rotate = rotation.interpolate({
-    inputRange: [0, 1],
-    outputRange: ['0deg', '360deg'],
-  });
-  return (
-    <Stack ml="$1">
-      <Animated.View style={{ transform: [{ rotate }] }}>
-        <Icon name={name} size="$4" color={color} />
-      </Animated.View>
-    </Stack>
-  );
-}
 
 export function AmountInput({
   inputProps,
@@ -450,6 +401,14 @@ export function AmountInput({
           <Icon name="WalletOutline" size="$4" color="$iconSubdued" mr="$1" />
         );
       }
+      // Presses are ignored while the action's request is in flight, so a
+      // refresh cannot be queued twice; the tint still reads as actionable.
+      const balanceActionPress = balanceProps.actionLoading
+        ? undefined
+        : balanceProps.onPress;
+      const balanceActionColor = balanceProps.onPress
+        ? '$textInteractive'
+        : '$textPlaceholder';
       const contentComponent = (
         <XStack
           alignItems="center"
@@ -457,9 +416,9 @@ export function AmountInput({
           px="$2.5"
           py="$1"
           borderRadius={6}
-          onPress={balanceProps.onPress}
+          onPress={balanceActionPress}
           testID={balanceProps.testID}
-          {...(enableMaxAmount && balanceProps.onPress
+          {...(enableMaxAmount && balanceActionPress
             ? {
                 userSelect: 'none',
                 hoverStyle: {
@@ -491,21 +450,19 @@ export function AmountInput({
             </SizableText>
           ) : null}
           {enableMaxAmount && balanceProps.actionIconName ? (
-            <SpinningActionIcon
-              name={balanceProps.actionIconName}
-              spinning={!!balanceProps.actionLoading}
-              color={
-                balanceProps.onPress ? '$textInteractive' : '$textPlaceholder'
-              }
-            />
+            <Stack ml="$1">
+              <SpinningIcon
+                name={balanceProps.actionIconName}
+                spinning={!!balanceProps.actionLoading}
+                color={balanceActionColor}
+              />
+            </Stack>
           ) : null}
           {enableMaxAmount && !balanceProps.actionIconName ? (
             <SizableText
               pl="$1"
               size="$bodySmMedium"
-              color={
-                balanceProps.onPress ? '$textInteractive' : '$textPlaceholder'
-              }
+              color={balanceActionColor}
             >
               {maxAmountText ??
                 intl.formatMessage({ id: ETranslations.send_max })}

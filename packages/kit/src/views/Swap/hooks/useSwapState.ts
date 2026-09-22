@@ -59,7 +59,7 @@ import {
   useSwapQuoteListAtom,
   useSwapSelectFromTokenAtom,
   useSwapSelectToTokenAtom,
-  useSwapSelectTokenDetailBalanceErrorAtom,
+  useSwapSelectedTokenBalanceMetaAtom,
   useSwapShouldRefreshQuoteAtom,
   useSwapSilenceQuoteLoading,
   useSwapSlippageOverrideAtom,
@@ -94,7 +94,10 @@ import {
 
 import { hasValidStockBalanceForTrade } from './swapStockChannelUtils';
 import { useSwapAddressInfo } from './useSwapAccount';
-import { getSwapRecipientActionState } from './useSwapAccount.utils';
+import {
+  getSwapRecipientActionState,
+  hasSwapFromAddressForVerdict,
+} from './useSwapAccount.utils';
 
 function useSwapWarningCheck() {
   const swapFromAddressInfo = useSwapAddressInfo(ESwapDirectionType.FROM);
@@ -432,8 +435,7 @@ export function useSwapActionState() {
   const [alerts] = useSwapAlertsAtom();
   const [selectedFromTokenBalance] =
     useSwapActiveSelectedFromTokenBalanceAtom();
-  const [swapSelectTokenDetailBalanceError] =
-    useSwapSelectTokenDetailBalanceErrorAtom();
+  const [swapSelectedTokenBalanceMeta] = useSwapSelectedTokenBalanceMetaAtom();
   const isCrossChain = fromToken?.networkId !== toToken?.networkId;
   const swapFromAddressInfo = useSwapAddressInfo(ESwapDirectionType.FROM);
   const swapToAddressInfo = useSwapAddressInfo(ESwapDirectionType.TO);
@@ -832,15 +834,13 @@ export function useSwapActionState() {
     if (
       shouldOfferSwapDepositAction({
         balance: selectedFromTokenBalance,
-        hasBalanceError: swapSelectTokenDetailBalanceError.from,
+        hasBalanceError: swapSelectedTokenBalanceMeta.from.fetchFailed,
         hasFromToken: !!fromToken,
         hasToToken: !!toToken,
-        // A pending cross-network account lookup is not a missing address;
-        // holding the verdict keeps the button from flashing while From/To
-        // are swapped. A truly absent account is caught by noConnectWallet.
-        hasFromAddress:
-          !!swapFromAddressInfo.address ||
-          !swapFromAddressInfo.isAddressInfoReady,
+        hasFromAddress: hasSwapFromAddressForVerdict({
+          address: swapFromAddressInfo.address,
+          isAddressInfoReady: swapFromAddressInfo.isAddressInfoReady,
+        }),
         noConnectWallet: noConnectWallet || hasNoConnectWalletAlert,
         noProviderSupportsTrade,
         isStockBalanceUnavailable:
@@ -877,7 +877,7 @@ export function useSwapActionState() {
     swapApprovingMatchLoading,
     buildTxFetching,
     selectedFromTokenBalance,
-    swapSelectTokenDetailBalanceError.from,
+    swapSelectedTokenBalanceMeta.from.fetchFailed,
     fromToken,
     toToken,
     swapUseLimitPrice.rate,

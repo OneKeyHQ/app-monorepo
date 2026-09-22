@@ -146,13 +146,10 @@ const SwapProContainer = ({
         : undefined,
     [activeAccount, netAccountRes.result],
   );
-  const refreshInputTokenBalance = useCallback(() => {
-    void syncInputTokenBalance();
-  }, [syncInputTokenBalance]);
   const onDepositToTrade = useSwapDepositEntryPress({
     token: inputToken as ISwapToken | undefined,
     accountInfo: depositAccountInfo,
-    onClose: refreshInputTokenBalance,
+    onClose: syncInputTokenBalance,
   });
   const { swapProLoadSupportNetworksTokenListRun } =
     useSwapPositionsSupportTokenListAction();

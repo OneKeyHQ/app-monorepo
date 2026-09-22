@@ -4,6 +4,7 @@ import BigNumber from 'bignumber.js';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ESwapDirection } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/components/SwapPanel/hooks/useTradeType';
+import { getTokenIdentityKey } from '@onekeyhq/kit/src/views/Swap/hooks/swapStockChannelUtils';
 import type { useSwapAddressInfo } from '@onekeyhq/kit/src/views/Swap/hooks/useSwapAccount';
 import { updateSwapBalanceDisplayCache } from '@onekeyhq/kit/src/views/Swap/utils/swapBalanceDisplayCacheUtils';
 import { getSwapTokenBalanceContractAddress } from '@onekeyhq/kit/src/views/Swap/utils/swapBalanceUtils';
@@ -100,8 +101,10 @@ import {
 import { ContextJotaiActionsBase } from '../../utils/ContextJotaiActionsBase';
 
 import {
+  EMPTY_SWAP_SELECTED_TOKEN_BALANCE_META,
   type ISwapInputAmountDraft,
   type ISwapQuoteEventErrorState,
+  type ISwapSelectedTokenBalanceMeta,
   type ISwapTokenAmountState,
   contextAtomMethod,
   limitOrderMarketPriceAtom,
@@ -151,12 +154,11 @@ import {
   swapQuoteListAtom,
   swapSelectFromTokenAtom,
   swapSelectToTokenAtom,
-  swapSelectTokenDetailBalanceErrorAtom,
   swapSelectTokenDetailFetchingAtom,
   swapSelectTokenDetailRequestIdAtom,
   swapSelectedFromTokenBalanceAtom,
   swapSelectedToTokenBalanceAtom,
-  swapSelectedTokenBalanceOwnerAtom,
+  swapSelectedTokenBalanceMetaAtom,
   swapSelectedTokensColdStartContextAtom,
   swapShouldRefreshQuoteAtom,
   swapSilenceQuoteLoading,
@@ -194,7 +196,8 @@ const EMPTY_SWAP_TOKEN_KEYS = new Set<string>();
 
 // Identity of the balance stored for one side: the token plus the account it
 // was fetched for. Any reload for the same key is a refresh and must keep the
-// current figure; a different key is a new selection and must clear it.
+// current figure; a different key is a new selection and must clear it. The
+// key is only ever compared with itself, so a lower-cased address is enough.
 function buildSwapBalanceOwnerKey({
   token,
   accountAddress,
@@ -202,12 +205,9 @@ function buildSwapBalanceOwnerKey({
   token?: ISwapToken;
   accountAddress?: string;
 }): string | undefined {
-  if (!token?.networkId || !accountAddress) return undefined;
-  return [
-    token.networkId,
-    (token.contractAddress ?? '').toLowerCase(),
-    accountAddress.toLowerCase(),
-  ].join('|');
+  const tokenKey = getTokenIdentityKey(token);
+  if (!tokenKey || !accountAddress) return undefined;
+  return `${tokenKey}|${accountAddress.toLowerCase()}`;
 }
 
 function isIndependentSwapInputAmountType(
@@ -995,9 +995,9 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         set(swapSelectToTokenAtom(), undefined);
         set(swapSelectedToTokenBalanceAtom(), '');
       }
-      set(swapSelectedTokenBalanceOwnerAtom(), (previous) => ({
+      set(swapSelectedTokenBalanceMetaAtom(), (previous) => ({
         ...previous,
-        [type]: undefined,
+        [type]: EMPTY_SWAP_SELECTED_TOKEN_BALANCE_META,
       }));
       set(swapStockExecutionTokensAtom(), undefined);
       set(swapQuoteListAtom(), []);
@@ -1201,7 +1201,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
     }
     set(swapSelectFromTokenAtom(), toToken);
     set(swapSelectToTokenAtom(), fromToken);
-    // Carry the balances (and their error flags) across with the tokens. The
+    // Carry the balances (and their bookkeeping) across with the tokens. The
     // To balance is fetched for the same wallet, so it is exactly the From
     // balance now; without this the From row, Top up chip and action button
     // keep the old token's verdict until the debounced detail reload lands.
@@ -1209,15 +1209,10 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
     const toBalance = get(swapSelectedToTokenBalanceAtom());
     set(swapSelectedFromTokenBalanceAtom(), toBalance);
     set(swapSelectedToTokenBalanceAtom(), fromBalance);
-    const balanceOwner = get(swapSelectedTokenBalanceOwnerAtom());
-    set(swapSelectedTokenBalanceOwnerAtom(), {
-      from: balanceOwner.to,
-      to: balanceOwner.from,
-    });
-    const balanceError = get(swapSelectTokenDetailBalanceErrorAtom());
-    set(swapSelectTokenDetailBalanceErrorAtom(), {
-      from: balanceError.to,
-      to: balanceError.from,
+    const balanceMeta = get(swapSelectedTokenBalanceMetaAtom());
+    set(swapSelectedTokenBalanceMetaAtom(), {
+      from: balanceMeta.to,
+      to: balanceMeta.from,
     });
     this.cleanManualSelectQuoteProviders.call(set);
   });
@@ -2790,9 +2785,9 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
             // fetch): keep the figure while the fetching flag reports
             // progress. Anything else is a new selection and clears it so a
             // stale figure never shows.
-            const storedBalanceOwner = get(swapSelectedTokenBalanceOwnerAtom())[
+            const storedBalanceOwner = get(swapSelectedTokenBalanceMetaAtom())[
               type
-            ];
+            ].ownerKey;
             const isSameBalanceOwner =
               !!storedBalanceOwner &&
               storedBalanceOwner ===
@@ -2912,17 +2907,21 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         } else {
           set(swapSelectedToTokenBalanceAtom(), balanceDisplay ?? '');
         }
-        set(swapSelectedTokenBalanceOwnerAtom(), (previous) => ({
-          ...previous,
-          [type]:
+        const nextBalanceMeta: ISwapSelectedTokenBalanceMeta = {
+          ownerKey:
             balanceDisplay === undefined
               ? undefined
               : buildSwapBalanceOwnerKey({ token, accountAddress }),
-        }));
-        set(swapSelectTokenDetailBalanceErrorAtom(), (previous) => ({
-          ...previous,
-          [type]: balanceFetchFailed,
-        }));
+          fetchFailed: balanceFetchFailed,
+        };
+        // Same-value refreshes keep the previous object so subscribers of the
+        // verdict do not re-render for nothing.
+        set(swapSelectedTokenBalanceMetaAtom(), (previous) =>
+          previous[type].ownerKey === nextBalanceMeta.ownerKey &&
+          previous[type].fetchFailed === nextBalanceMeta.fetchFailed
+            ? previous
+            : { ...previous, [type]: nextBalanceMeta },
+        );
         if (
           token &&
           accountAddress &&
@@ -3456,9 +3455,9 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         normalizedType === ESwapTabSwitchType.LIMIT
       ) {
         set(swapSelectedFromTokenBalanceAtom(), '');
-        set(swapSelectedTokenBalanceOwnerAtom(), (previous) => ({
+        set(swapSelectedTokenBalanceMetaAtom(), (previous) => ({
           ...previous,
-          from: undefined,
+          from: EMPTY_SWAP_SELECTED_TOKEN_BALANCE_META,
         }));
       }
       if (

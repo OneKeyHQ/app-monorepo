@@ -124,6 +124,7 @@ import {
   useSwapStockEstimatedReceiveState,
 } from '../../hooks/useSwapStockTradeInputs';
 import { SwapTestIDs } from '../../testIDs';
+import { getSwapBalanceActionProps } from '../../utils/swapBalanceActionUtils';
 import {
   type ISwapRecentTokenPair,
   buildSwapRecentTokenPairsFromHistory,
@@ -1282,18 +1283,12 @@ function StockAmountInput({
   );
   const showTokenSelectorLoading =
     !inputToken && (fetchLoading || (isBuySide && payTokenOptionsLoading));
-  // A zero balance swaps Max for a refresh action (spinning while it reloads),
-  // matching the Swap page's From row.
-  const balanceMaxPress = balanceActionsReady ? onBalanceMaxPress : undefined;
-  const balanceActionPress = isBalanceLoadedZero
-    ? onBalanceRefreshPress
-    : balanceMaxPress;
-  const balanceMaxTestID = balanceActionsReady
-    ? SwapTestIDs.maxButton
-    : undefined;
-  const balanceActionTestID = isBalanceLoadedZero
-    ? SwapTestIDs.balanceRefreshButton
-    : balanceMaxTestID;
+  const balanceActionProps = getSwapBalanceActionProps({
+    isLoadedZero: isBalanceLoadedZero,
+    refreshing: balanceRefreshing,
+    onRefresh: onBalanceRefreshPress,
+    onMax: balanceActionsReady ? onBalanceMaxPress : undefined,
+  });
 
   if (forceLoading || shouldRenderSkeleton || deferInitialContent) {
     return <StockAmountInputSkeleton isBuySide={isBuySide} />;
@@ -1317,6 +1312,7 @@ function StockAmountInput({
         <SwapInputActions
           fromToken={inputToken}
           accountInfo={swapFromAddressInfo.accountInfo}
+          onDepositClose={onBalanceRefreshPress}
           showPercentageInput={Boolean(
             showPercentageInputDebounce && balanceActionsReady,
           )}
@@ -1339,12 +1335,9 @@ function StockAmountInput({
         balanceProps={{
           value: inputToken ? displayBalance : undefined,
           loading: balanceLoading,
-          onPress: balanceActionPress,
-          actionIconName: isBalanceLoadedZero ? 'RefreshCcwOutline' : undefined,
-          actionLoading: isBalanceLoadedZero && balanceRefreshing,
           hideIcon: true,
           tokenSymbol: inputToken?.symbol,
-          testID: balanceActionTestID,
+          ...balanceActionProps,
         }}
         maxAmountText={intl.formatMessage({ id: ETranslations.global_max })}
         inputProps={{

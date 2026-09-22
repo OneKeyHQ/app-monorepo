@@ -570,26 +570,24 @@ export const {
   to: false,
 });
 
-// True while the last balance fetch for that side failed. The balance atom
-// then holds the '0.0' fallback, which callers must not read as a real zero.
+// Bookkeeping for the stored From/To balance: which token + account it was
+// fetched for (see buildSwapBalanceOwnerKey in the swap actions), and whether
+// that fetch failed (the atom then holds the '0.0' fallback, which callers
+// must not read as a real zero). A reload for the same owner keeps the figure
+// on screen while it refreshes; a different owner clears it so a stale number
+// is never shown for the new selection.
+export interface ISwapSelectedTokenBalanceMeta {
+  ownerKey?: string;
+  fetchFailed: boolean;
+}
+export const EMPTY_SWAP_SELECTED_TOKEN_BALANCE_META: ISwapSelectedTokenBalanceMeta =
+  { fetchFailed: false };
 export const {
-  atom: swapSelectTokenDetailBalanceErrorAtom,
-  use: useSwapSelectTokenDetailBalanceErrorAtom,
-} = contextAtom<Record<ESwapDirectionType, boolean>>({
-  from: false,
-  to: false,
-});
-
-// Which token + account the stored From/To balance was fetched for (see
-// buildSwapBalanceOwnerKey). A reload for the same pair keeps the figure on
-// screen while it refreshes; a different pair clears it so a stale number is
-// never shown for the new selection.
-export const {
-  atom: swapSelectedTokenBalanceOwnerAtom,
-  use: useSwapSelectedTokenBalanceOwnerAtom,
-} = contextAtom<Record<ESwapDirectionType, string | undefined>>({
-  from: undefined,
-  to: undefined,
+  atom: swapSelectedTokenBalanceMetaAtom,
+  use: useSwapSelectedTokenBalanceMetaAtom,
+} = contextAtom<Record<ESwapDirectionType, ISwapSelectedTokenBalanceMeta>>({
+  from: EMPTY_SWAP_SELECTED_TOKEN_BALANCE_META,
+  to: EMPTY_SWAP_SELECTED_TOKEN_BALANCE_META,
 });
 
 export const { atom: swapSelectTokenDetailRequestIdAtom } = contextAtom<

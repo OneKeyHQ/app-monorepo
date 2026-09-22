@@ -228,6 +228,7 @@ const SwapProTradingPanel = ({
         <SwapProTradeInfoGroup
           balanceLoading={balanceLoading}
           onBalanceMax={onBalanceMax}
+          onDepositPress={onDepositToTrade}
           storeName={storeName}
         />
         <SwapProAccountSelect onSelectAccountClick={handleSelectAccountClick} />

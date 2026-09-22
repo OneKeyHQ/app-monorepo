@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
 
+import { noop } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import {
@@ -27,6 +28,7 @@ const SwapInputActions = ({
   showPercentageInput,
   showActionBuy,
   actionBuyHighlighted = true,
+  onDepositClose = noop,
   onSelectStage,
   fromToken,
   accountInfo,
@@ -36,6 +38,9 @@ const SwapInputActions = ({
   // Green when the chip is the recovery action (partial balance); subdued
   // when the main button already reads "Deposit to Trade" (zero balance).
   actionBuyHighlighted?: boolean;
+  // Runs when the deposit modal closes so the surface can reload its own
+  // balance; surfaces that never show the chip may leave it out.
+  onDepositClose?: () => void;
   onSelectStage?: (stage: number) => void;
   fromToken?: ISwapToken;
   accountInfo?: IAccountSelectorActiveAccountInfo;
@@ -51,6 +56,7 @@ const SwapInputActions = ({
   const handleBuyPress = useSwapDepositEntryPress({
     token: fromToken,
     accountInfo,
+    onClose: onDepositClose,
   });
   const actionBuyColor = actionBuyHighlighted
     ? '$textInteractive'
@@ -70,9 +76,6 @@ const SwapInputActions = ({
               opacity: 0,
             }}
           >
-            {/* Rendered while the balance cannot cover the input (interactive
-                tint, same as the Max control) or while the balance is a loaded
-                zero (subdued, the action button already offers the deposit). */}
             <Button
               testID="swap-btn"
               height="$5"
