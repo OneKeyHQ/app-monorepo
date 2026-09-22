@@ -4,7 +4,7 @@ import type { ESubscriptionType, IPerpsFormattedAssetCtx } from './types';
 import type * as HL from '@nktkas/hyperliquid';
 
 // WebSocket event types
-export type IWsWebData2 = HL.WebData2WsEvent;
+export type IWsWebData2 = HL.WebData2Response;
 export type IWsWebData3 = HL.WebData3WsEvent;
 export type IWsAllMids = HL.AllMidsWsEvent;
 export type IWsActiveAssetCtx = HL.ActiveAssetCtxWsEvent;
@@ -21,26 +21,18 @@ export type IWsTwapStates = HL.TwapStatesWsEvent;
 export type IWsUserTwapHistory = HL.UserTwapHistoryWsEvent;
 export type IWsUserTwapSliceFills = HL.UserTwapSliceFillsWsEvent;
 export type ITwapState = IWsTwapStates['states'][number][1];
-// The SDK status union lags the live API: trigger TWAPs report
-// `waitingForTrigger` / `stopped`, and Hyperliquid keeps adding values. Widen it
-// here so exhaustive maps fail to compile instead of throwing at render time.
-type ITwapHistoryRecordRaw = HL.TwapHistoryResponse[number];
-export type ITwapHistoryStatusValue =
-  | ITwapHistoryRecordRaw['status']['status']
-  | 'waitingForTrigger'
-  | 'stopped';
-export type ITwapHistoryRecord = Omit<ITwapHistoryRecordRaw, 'status'> & {
-  status:
-    | { status: Exclude<ITwapHistoryStatusValue, 'error'> }
-    | { status: 'error'; description: string };
-};
+export type ITwapHistoryRecord = HL.TwapHistoryResponse[number];
+export type ITwapHistoryStatusValue = ITwapHistoryRecord['status']['status'];
 export type ITwapSliceFill = HL.UserTwapSliceFillsResponse[number];
 
 // Spot WebSocket event types
 export type IWsSpotState = HL.SpotStateWsEvent;
 export type IWsSpotAssetCtxs = HL.SpotAssetCtxsWsEvent;
 export type IWsActiveSpotAssetCtx = HL.ActiveSpotAssetCtxWsEvent;
-export type ISpotBalance = IWsSpotState['spotState']['balances'][number];
+export type ISpotBalance = Extract<
+  IWsSpotState['spotState']['balances'][number],
+  { token: number }
+>;
 export type IEventSpotStateParameters = HL.SpotStateWsParameters;
 export type IEventSpotAssetCtxsParameters = Record<string, never>;
 export type IEventActiveSpotAssetCtxParameters =
@@ -202,7 +194,7 @@ export type IEventFastL2Parameters = {
 };
 export type IEventBboParameters = HL.BboWsParameters;
 export type IEventTradesParameters = HL.TradesWsParameters;
-export type IEventWebData2Parameters = HL.WebData2WsParameters;
+export type IEventWebData2Parameters = HL.WebData2Parameters;
 export type IEventUserFillsParameters = HL.UserFillsWsParameters;
 export type IEventUserNonFundingLedgerUpdatesParameters =
   HL.UserNonFundingLedgerUpdatesWsParameters;

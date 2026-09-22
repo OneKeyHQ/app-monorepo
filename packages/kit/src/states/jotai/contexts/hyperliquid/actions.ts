@@ -48,13 +48,23 @@ import { EModalPerpRoutes } from '@onekeyhq/shared/src/routes/perp';
 import { getCurrentVisibilityState } from '@onekeyhq/shared/src/utils/appVisibility';
 import { memoFn } from '@onekeyhq/shared/src/utils/cacheUtils';
 import {
-  SCALE_ORDER_MIN_NOTIONAL,
   getReduceOnlyOrderGuardError,
   getReduceOnlyPositionMaxSize,
   getReduceOnlyPositionSnapshotError,
   getScaleOrderReferencePrice,
   getScaleOrderSizeSkew,
 } from '@onekeyhq/shared/src/utils/hyperliquidScaleOrderUtils';
+import {
+  TWAP_MAX_DURATION_MINUTES,
+  TWAP_MIN_DURATION_MINUTES,
+  TWAP_MIN_ORDER_NOTIONAL,
+  formatTwapPriceForOrder,
+  getTwapTriggerAbove,
+  getTwapTriggerReferencePrice,
+  isTwapStopPriceValid,
+  isTwapTotalNotionalValid,
+  isValidTwapDuration,
+} from '@onekeyhq/shared/src/utils/hyperliquidTwapUtils';
 import {
   getPerpsOrderBookTickOptionWithCache,
   getPerpsOrderBookTickOptionsWithCache,
@@ -175,10 +185,6 @@ const MAX_LEDGER_UPDATES = 200;
 const ACCOUNT_MODE_USER_WALLET_TIMEOUT_MS = platformEnv.isNative
   ? 60_000
   : 15_000;
-const TWAP_MIN_DURATION_MINUTES = 5;
-const TWAP_MAX_DURATION_MINUTES = 1440;
-const TWAP_MIN_ORDER_NOTIONAL = Number(SCALE_ORDER_MIN_NOTIONAL);
-const TWAP_ESTIMATED_SLICE_INTERVAL_SECONDS = 30;
 const TWAP_SLICE_FILLS_MAX_COUNT = 2000;
 
 const setAbstractionWithUserWalletTimeout = makeTimeoutPromise<
@@ -1694,6 +1700,8 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
         triggerPrice: '',
         executionPrice: '',
         triggerReduceOnly: true,
+        twapTriggerPrice: '',
+        twapStopPrice: '',
       };
 
       // update limit price once using current atom snapshot.
@@ -1870,6 +1878,8 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
         sizePercent: 0,
         triggerPrice: '',
         executionPrice: '',
+        twapTriggerPrice: '',
+        twapStopPrice: '',
       };
       // Spot doesn't have margin mode -- force to usd if currently set to margin
       const currentPrefs = await perpsTradingPreferencesAtom.get();
@@ -2408,14 +2418,22 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
   updateTradingForm = contextAtomMethod(
     (get, set, updates: Partial<ITradingFormData>) => {
       const current = get(tradingFormAtom());
-      const updateKeys = Object.keys(updates) as Array<keyof ITradingFormData>;
+      const nextUpdates =
+        updates.side !== undefined &&
+        updates.side !== current.side &&
+        updates.twapStopPrice === undefined
+          ? { ...updates, twapStopPrice: '' }
+          : updates;
+      const updateKeys = Object.keys(nextUpdates) as Array<
+        keyof ITradingFormData
+      >;
       if (
         updateKeys.length === 0 ||
-        updateKeys.every((key) => current[key] === updates[key])
+        updateKeys.every((key) => current[key] === nextUpdates[key])
       ) {
         return;
       }
-      set(tradingFormAtom(), { ...current, ...updates });
+      set(tradingFormAtom(), { ...current, ...nextUpdates });
     },
   );
 
@@ -2437,6 +2455,8 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
       slValue: '',
       triggerPrice: '',
       executionPrice: '',
+      twapTriggerPrice: '',
+      twapStopPrice: '',
     });
   });
 
@@ -2906,20 +2926,21 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
             }
 
             const minutes = Number(formData.twapDurationMinutes ?? 0);
-            if (
-              !Number.isInteger(minutes) ||
-              minutes < TWAP_MIN_DURATION_MINUTES ||
-              minutes > TWAP_MAX_DURATION_MINUTES
-            ) {
+            if (!isValidTwapDuration(minutes)) {
               throw new OneKeyLocalError(
                 `TWAP duration must be ${TWAP_MIN_DURATION_MINUTES}-${TWAP_MAX_DURATION_MINUTES} minutes`,
               );
             }
 
-            const markPrice = isSpot
-              ? (params.price ?? env.markPrice ?? '')
-              : (activeAssetCtxValue?.ctx?.markPrice ?? env.markPrice ?? '');
-            const markPriceBN = new BigNumber(markPrice);
+            const markPriceBN = getTwapTriggerReferencePrice({
+              isSpot,
+              midPrice: params.price ?? env.markPrice ?? '',
+              markPrice:
+                activeAssetCtxValue?.ctx?.markPrice ??
+                activeAssetDataValue?.markPx ??
+                env.markPrice ??
+                '',
+            });
             if (!markPriceBN.isFinite() || markPriceBN.lte(0)) {
               throw new OneKeyLocalError(
                 'Market price unavailable, please try again',
@@ -2931,6 +2952,56 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
                 env.szDecimals ??
                 2)
               : (activeAssetValue?.universe?.szDecimals ?? env.szDecimals ?? 2);
+            const rawTriggerPrice = formData.twapTriggerPrice?.trim();
+            const triggerPrice = formatTwapPriceForOrder({
+              price: rawTriggerPrice,
+              szDecimals,
+              assetType: isSpot ? 'spot' : 'perp',
+            });
+            const rawStopPrice = formData.twapStopPrice?.trim();
+            const stopPrice = formatTwapPriceForOrder({
+              price: rawStopPrice,
+              szDecimals,
+              assetType: isSpot ? 'spot' : 'perp',
+            });
+            let triggerAbove: boolean | undefined;
+            if (rawTriggerPrice && !triggerPrice) {
+              throw new OneKeyLocalError(
+                'TWAP trigger price is too small for HL tick size',
+              );
+            }
+            if (triggerPrice) {
+              triggerAbove = getTwapTriggerAbove({
+                triggerPrice,
+                markPrice: markPriceBN,
+              });
+              if (typeof triggerAbove !== 'boolean') {
+                throw new OneKeyLocalError(
+                  'TWAP trigger price must be positive and differ from the market price',
+                );
+              }
+            }
+            if (rawStopPrice && !stopPrice) {
+              throw new OneKeyLocalError(
+                'TWAP stop price is too small for HL tick size',
+              );
+            }
+            if (
+              stopPrice &&
+              !isTwapStopPriceValid({
+                isBuy: formData.side === 'long',
+                stopPrice,
+                referencePrice: markPriceBN,
+                triggerPrice,
+              })
+            ) {
+              throw new OneKeyLocalError(
+                formData.side === 'long'
+                  ? 'TWAP maximum price must be above the market and trigger price'
+                  : 'TWAP minimum price must be below the market and trigger price',
+              );
+            }
+
             const resolvedSize = resolveTradingSize({
               sizeInputMode: formData.sizeInputMode,
               manualSize: formData.size,
@@ -2952,19 +3023,14 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
               throw new OneKeyLocalError('Order size is required');
             }
 
-            const totalNotional = resolvedSizeBN.multipliedBy(markPriceBN);
-            const estimatedSlices = Math.max(
-              1,
-              Math.ceil((minutes * 60) / TWAP_ESTIMATED_SLICE_INTERVAL_SECONDS),
-            );
-            const averageSliceNotional =
-              totalNotional.dividedBy(estimatedSlices);
             if (
-              !averageSliceNotional.isFinite() ||
-              averageSliceNotional.lt(TWAP_MIN_ORDER_NOTIONAL)
+              !isTwapTotalNotionalValid({
+                size: resolvedSizeBN,
+                price: markPriceBN,
+              })
             ) {
               throw new OneKeyLocalError(
-                'TWAP order size is too small for this duration',
+                `TWAP total notional must be at least ${TWAP_MIN_ORDER_NOTIONAL} USDC`,
               );
             }
 
@@ -3007,6 +3073,10 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
                   reduceOnly,
                   minutes,
                   randomize: formData.twapRandomize ?? true,
+                  triggerPrice,
+                  triggerAbove,
+                  stopPrice,
+                  referencePrice: markPriceBN.toFixed(),
                   szDecimals,
                 },
               );

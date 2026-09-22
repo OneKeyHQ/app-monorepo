@@ -8,6 +8,7 @@ import {
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import {
   usePerpsActiveAssetAtom,
+  usePerpsActiveAssetCtxAtom,
   usePerpsActiveAssetDataAtom,
   useSpotBalancesAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
@@ -27,6 +28,7 @@ export function useTradingCalculationsForSide(side: 'long' | 'short') {
   const formData = useTradingFormCalculationParams();
   const [activeTradeInstrument] = useActiveTradeInstrumentAtom();
   const [activeAsset] = usePerpsActiveAssetAtom();
+  const [activeAssetCtx] = usePerpsActiveAssetCtxAtom();
   const [activeAssetData] = usePerpsActiveAssetDataAtom();
   const [{ balances: spotBalances }] = useSpotBalancesAtom();
   const perpsPositions = usePerpsAccountScopedActivePositions();
@@ -168,11 +170,30 @@ export function useTradingCalculationsForSide(side: 'long' | 'short') {
   }, [effectiveMaxTradeSzs, side]);
 
   const markPxBN = useMemo(() => {
-    const markPx = isSpot
-      ? effectiveSpotPriceBN.toFixed()
-      : activeAssetData?.markPx;
+    let markPx = activeAssetData?.markPx;
+    if (isSpot) {
+      markPx = effectiveSpotPriceBN.toFixed();
+    } else if (formData.orderMode === 'twap') {
+      markPx = activeAssetCtx?.ctx?.markPrice ?? activeAssetData?.markPx;
+    }
     return new BigNumber(markPx ?? 0);
-  }, [activeAssetData?.markPx, effectiveSpotPriceBN, isSpot]);
+  }, [
+    activeAssetCtx?.ctx?.markPrice,
+    activeAssetData?.markPx,
+    effectiveSpotPriceBN,
+    formData.orderMode,
+    isSpot,
+  ]);
+
+  const calculationMarkPrice =
+    formData.orderMode === 'twap' && markPxBN.gt(0)
+      ? markPxBN.toFixed()
+      : activeAssetData?.markPx;
+
+  const calculationPriceBN = useMemo(
+    () => (formData.orderMode === 'twap' ? markPxBN : effectivePriceBN),
+    [effectivePriceBN, formData.orderMode, markPxBN],
+  );
 
   const availableMarginBN = useMemo(() => {
     if (isSpot) {
@@ -247,8 +268,8 @@ export function useTradingCalculationsForSide(side: 'long' | 'short') {
     }
     return computeMaxTradeSize({
       side,
-      price: effectivePriceBN.isFinite() ? effectivePriceBN.toFixed() : '',
-      markPrice: activeAssetData?.markPx,
+      price: calculationPriceBN.isFinite() ? calculationPriceBN.toFixed() : '',
+      markPrice: calculationMarkPrice,
       maxSize: scaleReduceOnlyMaxSizeBN,
       maxTradeSzs: effectiveMaxTradeSzs,
       leverageValue: activeAssetData?.leverage?.value,
@@ -257,8 +278,8 @@ export function useTradingCalculationsForSide(side: 'long' | 'short') {
     });
   }, [
     side,
-    effectivePriceBN,
-    activeAssetData?.markPx,
+    calculationPriceBN,
+    calculationMarkPrice,
     scaleReduceOnlyMaxSizeBN,
     effectiveMaxTradeSzs,
     activeAssetData?.leverage?.value,
@@ -298,8 +319,8 @@ export function useTradingCalculationsForSide(side: 'long' | 'short') {
       manualSize: formData.size,
       sizePercent: formData.sizePercent,
       side,
-      price: effectivePriceBN.isFinite() ? effectivePriceBN.toFixed() : '',
-      markPrice: activeAssetData?.markPx,
+      price: calculationPriceBN.isFinite() ? calculationPriceBN.toFixed() : '',
+      markPrice: calculationMarkPrice,
       maxSize: scaleReduceOnlyMaxSizeBN,
       maxTradeSzs: effectiveMaxTradeSzs,
       leverageValue: activeAssetData?.leverage?.value,
@@ -311,8 +332,8 @@ export function useTradingCalculationsForSide(side: 'long' | 'short') {
     formData.size,
     formData.sizePercent,
     side,
-    effectivePriceBN,
-    activeAssetData?.markPx,
+    calculationPriceBN,
+    calculationMarkPrice,
     scaleReduceOnlyMaxSizeBN,
     effectiveMaxTradeSzs,
     activeAssetData?.leverage?.value,
@@ -324,8 +345,8 @@ export function useTradingCalculationsForSide(side: 'long' | 'short') {
   ]);
 
   const orderValue = useMemo(
-    () => computedSizeForSide.multipliedBy(effectivePriceBN),
-    [computedSizeForSide, effectivePriceBN],
+    () => computedSizeForSide.multipliedBy(calculationPriceBN),
+    [calculationPriceBN, computedSizeForSide],
   );
 
   const marginRequired = useMemo(
@@ -371,6 +392,12 @@ export function useTradingCalculationsForSide(side: 'long' | 'short') {
       return false;
     }
 
+    // Margin conclusions need the account feed: in TWAP mode markPxBN can come
+    // from the market-wide ctx feed before activeAssetData has (re)loaded.
+    if (!activeAssetData) {
+      return false;
+    }
+
     // No margin for this side (guard on markPxBN to skip initial loading)
     if (markPxBN.gt(0) && availableMarginBN.lte(0)) {
       return true;
@@ -391,19 +418,21 @@ export function useTradingCalculationsForSide(side: 'long' | 'short') {
     if (
       !computedSizeForSide.isFinite() ||
       computedSizeForSide.lte(0) ||
-      !effectivePriceBN.isFinite() ||
-      effectivePriceBN.lte(0)
+      !calculationPriceBN.isFinite() ||
+      calculationPriceBN.lte(0)
     ) {
       return false;
     }
 
     const requiredMargin = computedSizeForSide
-      .multipliedBy(effectivePriceBN)
+      .multipliedBy(calculationPriceBN)
       .dividedBy(leverage || 1);
 
     return requiredMargin.isFinite() && requiredMargin.gt(availableMarginBN);
   }, [
+    activeAssetData,
     computedSizeForSide,
+    calculationPriceBN,
     effectivePriceBN,
     availableMarginBN,
     leverage,

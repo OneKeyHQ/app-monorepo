@@ -76,6 +76,29 @@ describe('ServiceHyperliquidSubscription Fast L2 lifecycle', () => {
   });
 });
 
+describe('ServiceHyperliquidSubscription ping measurement', () => {
+  it('keeps one ping in flight per client', async () => {
+    const service = createService();
+    const internals = service as unknown as {
+      _client: { ping: () => Promise<void> } | null;
+      _measurePing: () => Promise<void>;
+    };
+    let releasePing: (() => void) | undefined;
+    const pendingPing = new Promise<void>((resolve) => {
+      releasePing = resolve;
+    });
+    const ping = jest.fn(() => pendingPing);
+    internals._client = { ping };
+
+    const first = internals._measurePing();
+    const second = internals._measurePing();
+
+    expect(ping).toHaveBeenCalledTimes(1);
+    releasePing?.();
+    await Promise.all([first, second]);
+  });
+});
+
 describe('ServiceHyperliquidSubscription resume stream liveness', () => {
   type IResumeInternals = {
     _lastMessageAt: number | null;
@@ -337,13 +360,12 @@ describe('ServiceHyperliquidSubscription liveness recovery', () => {
 
 describe('ServiceHyperliquidSubscription public trades', () => {
   const unsubscribe = jest.fn<Promise<void>, []>();
-  const close = jest.fn<Promise<void>, []>();
+  const close = jest.fn<void, []>();
   const trades = jest.fn();
 
   beforeEach(() => {
     jest.clearAllMocks();
     unsubscribe.mockResolvedValue(undefined);
-    close.mockResolvedValue(undefined);
     trades.mockResolvedValue({ unsubscribe });
     jest.mocked(WebSocketTransport).mockImplementation(
       () =>
