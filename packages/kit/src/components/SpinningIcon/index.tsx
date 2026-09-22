@@ -40,7 +40,10 @@ export function SpinningIcon({
           duration: (1 - value) * SPIN_DURATION_MS,
           easing: Easing.linear,
           useNativeDriver: true,
-        }).start(() => rotation.setValue(0));
+        }).start(({ finished }) => {
+          // An interrupted finish means a new spin took over; leave it be.
+          if (finished) rotation.setValue(0);
+        });
       });
     };
   }, [rotation, spinning]);

@@ -1311,7 +1311,11 @@ function StockAmountInput({
         </SizableText>
         <SwapInputActions
           fromToken={inputToken}
-          accountInfo={swapFromAddressInfo.accountInfo}
+          accountInfo={
+            swapFromAddressInfo.isAddressInfoReady
+              ? swapFromAddressInfo.accountInfo
+              : undefined
+          }
           onDepositClose={onBalanceRefreshPress}
           showPercentageInput={Boolean(
             showPercentageInputDebounce && balanceActionsReady,

@@ -834,7 +834,11 @@ export function useSwapActionState() {
     if (
       shouldOfferSwapDepositAction({
         balance: selectedFromTokenBalance,
-        hasBalanceError: swapSelectedTokenBalanceMeta.from.fetchFailed,
+        // The stock balance comes from its own store, so the swap-mode fetch
+        // failure flag must not block the stock verdict.
+        hasBalanceError:
+          swapTypeSwitchValue !== ESwapTabSwitchType.STOCK &&
+          swapSelectedTokenBalanceMeta.from.fetchFailed,
         hasFromToken: !!fromToken,
         hasToToken: !!toToken,
         hasFromAddress: hasSwapFromAddressForVerdict({
