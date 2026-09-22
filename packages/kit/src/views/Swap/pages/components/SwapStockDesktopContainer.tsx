@@ -615,7 +615,8 @@ function StockActionGate({
   const isStockChannelInitializing =
     stockChannel.stockTokenStatus ===
       ESwapStockChannelAsyncStatus.Initializing ||
-    stockChannel.payTokenStatus === ESwapStockChannelAsyncStatus.Initializing;
+    stockChannel.payTokenStatus === ESwapStockChannelAsyncStatus.Initializing ||
+    stockChannel.channelStage === ESwapStockChannelStage.CheckingMarketStatus;
   const hasPositiveInputAmount = new BigNumber(fromTokenAmount.value).gt(0);
   const forceQuoteActionLoading = Boolean(
     hasPositiveInputAmount &&
@@ -633,6 +634,19 @@ function StockActionGate({
           sendToken: stockChannel.fromToken,
         }),
       })),
+  );
+  // Keep the action subtree mounted after the first ready state. A Stock
+  // variant switch temporarily reinitializes its network-scoped pay token;
+  // unmounting here would replay the recipient reveal animation.
+  const hasRenderedStockActionsStateRef = useRef(false);
+  if (stockChannel.readyForQuote) {
+    hasRenderedStockActionsStateRef.current = true;
+  }
+  const shouldPreserveStockActionsState = Boolean(
+    hasRenderedStockActionsStateRef.current &&
+    (stockSelection?.availability === 'pending' ||
+      stockTradeIdentityLoading ||
+      isStockChannelInitializing),
   );
   const disabledLabel = useMemo(() => {
     switch (stockChannel.channelStage) {
@@ -692,9 +706,10 @@ function StockActionGate({
   }
 
   if (
-    stockSelection?.availability === 'pending' ||
-    stockTradeIdentityLoading ||
-    isStockChannelInitializing
+    !shouldPreserveStockActionsState &&
+    (stockSelection?.availability === 'pending' ||
+      stockTradeIdentityLoading ||
+      isStockChannelInitializing)
   ) {
     return renderActionButton(
       <Button
@@ -722,11 +737,14 @@ function StockActionGate({
     );
   }
 
-  if (stockChannel.readyForQuote) {
+  if (stockChannel.readyForQuote || shouldPreserveStockActionsState) {
     return (
       <SwapActionsState
-        disabled={stockTradeIdentityLoading}
-        forceQuoteActionLoading={forceQuoteActionLoading}
+        disabled={stockTradeIdentityLoading || !stockChannel.readyForQuote}
+        forceQuoteActionLoading={
+          forceQuoteActionLoading ||
+          (hasPositiveInputAmount && shouldPreserveStockActionsState)
+        }
         onPreSwap={onPreSwap}
         onOpenRecipientAddress={onToAnotherAddressModal}
         onSelectPercentageStage={
