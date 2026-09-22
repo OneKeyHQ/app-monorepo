@@ -7173,9 +7173,8 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     const { connectId } = device;
     const resolvedVendor = vendor ?? EHardwareVendor.onekey;
     const profile = getVendorProfile(resolvedVendor);
-    const isUsbTransport =
-      transportType === EHardwareTransportType.WEBUSB ||
-      transportType === EHardwareTransportType.Bridge;
+    const usesTransportLocatorConnectId =
+      profile.isThirdParty && profile.identity.role === 'transportLocator';
     const deviceCapabilities = (
       device as typeof device & {
         raw?: {
@@ -7189,10 +7188,12 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       capabilities: deviceCapabilities,
     });
 
-    // Empty connectId is allowed only for non-persistent USB transports.
+    // Third-party transport locators are optional hints, unlike wallet identities.
+    // Keep OneKey's existing capability-based validation.
     if (
       !connectId &&
-      (hasPersistentUsbConnectId || (profile.isThirdParty && !isUsbTransport))
+      !usesTransportLocatorConnectId &&
+      (profile.isThirdParty || hasPersistentUsbConnectId)
     ) {
       throw new OneKeyLocalError('createHwWallet ERROR: connectId is required');
     }
@@ -7270,8 +7271,6 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     // records is what makes "which channel is this?" answerable by looking at
     // the field name instead of guessing from the value. Vendors whose
     // connectId carries wallet identity (Keystone) and OneKey are untouched.
-    const usesTransportLocatorConnectId =
-      profile.isThirdParty && profile.identity.role === 'transportLocator';
 
     if (transportType) {
       switch (transportType) {
@@ -7322,11 +7321,11 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       }
     }
 
-    // Vendors whose USB transport handle is not their identity connectId pass
-    // it explicitly (Keystone: identity is the public-key-derived wallet id,
-    // while the USB handle carries the device serial from enumeration). Mirrors the
-    // existing explicit-BLE path above. Never set by OneKey/Trezor/Ledger, so
-    // the switch above stays authoritative for them.
+    // Saved third-party records carry their locators independently of the
+    // current transport. Keystone also separates its USB handle from wallet id.
+    if (usesTransportLocatorConnectId && !bleConnectId) {
+      bleConnectId = runtimeDevice.bleConnectId;
+    }
     const explicitUsbConnectId = (
       device as typeof device & { usbConnectId?: string }
     ).usbConnectId;

@@ -2650,7 +2650,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
         for (const walletWithDevice of Object.values(allHwWallets)) {
           const wallet = walletWithDevice.wallet;
           const device = walletWithDevice.device;
-          if (wallet?.id && device?.connectId) {
+          if (wallet?.id && device?.vendor === EHardwareVendor.trezor) {
             // A Trezor device is reachable by any of its transport ids — match
             // the same key set the connection-status light uses.
             const walletConnectIds = [

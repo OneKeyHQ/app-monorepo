@@ -99,10 +99,7 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
-import {
-  getVendorProfile,
-  resolvePersistentConnectIdCapability,
-} from '@onekeyhq/shared/src/hardware/config/vendorProfile';
+import { getVendorProfile } from '@onekeyhq/shared/src/hardware/config/vendorProfile';
 import { projectLegacyDeviceFeaturesFromState } from '@onekeyhq/shared/src/hardware/deviceStateUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
@@ -133,7 +130,6 @@ import { EMnemonicType } from '@onekeyhq/shared/src/utils/secret';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 import thirdPartyDeviceUtils from '@onekeyhq/shared/src/utils/thirdPartyDeviceUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
-import { EHardwareTransportType } from '@onekeyhq/shared/types';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 import type {
   IBatchCreateAccount,
@@ -3534,8 +3530,8 @@ class ServiceAccount extends ServiceBase {
     }
     const dbDevice = await this.getWalletDevice({ walletId });
 
-    // Ensure connectId is compatible for the current transport type
-    if (dbDevice.connectId) {
+    // Only OneKey resolves its transport through the legacy compatibility path.
+    if (dbDevice.connectId && !getVendorProfile(dbDevice.vendor).isThirdParty) {
       try {
         dbDevice.connectId =
           await this.backgroundApi.serviceHardware.getCompatibleConnectId({
@@ -3753,13 +3749,15 @@ class ServiceAccount extends ServiceBase {
       storedConnectProtocol === 'V1' || storedConnectProtocol === 'V2'
         ? storedConnectProtocol
         : undefined;
-    const compatibleConnectId =
-      await this.backgroundApi.serviceHardware.getCompatibleConnectId({
-        connectId,
-        featuresDeviceId: dbDevice.deviceId,
-        vendor: dbDevice.vendor,
-        hardwareCallContext: EHardwareCallContext.USER_INTERACTION,
-      });
+    const hiddenWalletVendorProfile = getVendorProfile(dbDevice.vendor);
+    const compatibleConnectId = hiddenWalletVendorProfile.isThirdParty
+      ? connectId
+      : await this.backgroundApi.serviceHardware.getCompatibleConnectId({
+          connectId,
+          featuresDeviceId: dbDevice.deviceId,
+          vendor: dbDevice.vendor,
+          hardwareCallContext: EHardwareCallContext.USER_INTERACTION,
+        });
 
     // createHWHiddenWallet
     return this.backgroundApi.serviceHardwareUI.withHardwareProcessing(
@@ -3778,9 +3776,6 @@ class ServiceAccount extends ServiceBase {
         // since the protocol field was introduced.
         let seededDbDevice = dbDevice;
         let seededConnectProtocol = connectProtocol;
-        const hiddenWalletVendorProfile = getVendorProfile(
-          dbDevice.vendor ?? EHardwareVendor.onekey,
-        );
         if (
           !seededDbDevice.deviceStateInfo &&
           !hiddenWalletVendorProfile.isThirdParty &&
@@ -4056,48 +4051,16 @@ class ServiceAccount extends ServiceBase {
         | EHardwareVendor
         | undefined);
     const vendorProfile = vendor ? getVendorProfile(vendor) : undefined;
-    const isUsbTransport =
-      transportType === EHardwareTransportType.WEBUSB ||
-      transportType === EHardwareTransportType.Bridge;
-    if (
-      vendorProfile?.isThirdParty &&
-      !params.device.connectId &&
-      !isUsbTransport
-    ) {
-      throw new OneKeyLocalError(
-        'createHWWalletBase ERROR: connectId is required for non-USB third-party hardware',
-      );
-    }
-
-    const connectedDeviceRaw = (
-      params.device as typeof params.device & {
-        raw?: {
-          connectionType?: unknown;
-          capabilities?: { persistentDeviceIdentity?: unknown };
-        };
-      }
-    ).raw;
-    const connectedTransport =
-      connectedDeviceRaw?.connectionType === 'ble' ? 'ble' : 'usb';
-    const hasPersistentSelectedConnectId = vendorProfile
-      ? resolvePersistentConnectIdCapability({
-          profile: vendorProfile,
-          transport: connectedTransport,
-          capabilities: connectedDeviceRaw?.capabilities,
-        })
-      : true;
-
-    // Ephemeral locators are valid only inside the current interaction. Never
-    // use one as a cross-session compatibility key.
-    const compatibleConnectId =
-      vendorProfile?.isThirdParty && !hasPersistentSelectedConnectId
-        ? (params.device.connectId ?? '')
-        : await this.backgroundApi.serviceHardware.getCompatibleConnectId({
-            connectId: params.device.connectId ?? '',
-            featuresDeviceId: params.device.deviceId ?? '',
-            vendor,
-            hardwareCallContext: EHardwareCallContext.USER_INTERACTION,
-          });
+    // Third-party adapters resolve transport hints and verify identity themselves.
+    // A saved device may only have per-transport locators, or none at all.
+    const compatibleConnectId = vendorProfile?.isThirdParty
+      ? (params.device.connectId ?? '')
+      : await this.backgroundApi.serviceHardware.getCompatibleConnectId({
+          connectId: params.device.connectId ?? '',
+          featuresDeviceId: params.device.deviceId ?? '',
+          vendor,
+          hardwareCallContext: EHardwareCallContext.USER_INTERACTION,
+        });
     const hardwareCallConnectId =
       params.hardwareOperationContext?.operationId || compatibleConnectId;
 

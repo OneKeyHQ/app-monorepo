@@ -637,6 +637,56 @@ describe('useAccountSelectorActions', () => {
     });
   });
 
+  it.each(['usbConnectId', 'bleConnectId', 'connectId'] as const)(
+    'updates only Trezor wallets matching %s, including rows without a legacy locator',
+    async (locatorField) => {
+      const device = {
+        vendor: EHardwareVendor.trezor,
+        connectId: '',
+        [locatorField]: 'same-transport',
+      };
+      mockGetAllHwQrWalletWithDevice.mockResolvedValue({
+        stale: {
+          wallet: { id: 'hw-stale' },
+          device: { ...device, deviceId: 'old-device' },
+        },
+        current: {
+          wallet: { id: 'hw-current' },
+          device: { ...device, deviceId: 'new-device' },
+        },
+        otherVendor: {
+          wallet: { id: 'hw-onekey' },
+          device: {
+            ...device,
+            vendor: EHardwareVendor.onekey,
+            deviceId: 'other-device',
+          },
+        },
+        otherDevice: {
+          wallet: { id: 'hw-other' },
+          device: {
+            ...device,
+            [locatorField]: 'other-transport',
+            deviceId: 'other-device',
+          },
+        },
+      });
+      const { Wrapper } = createWrapper();
+      const { result } = renderHook(() => useAccountSelectorActions().current, {
+        wrapper: Wrapper,
+      });
+      await act(async () => {
+        await result.current.updateTrezorWalletsDeprecatedStatus({
+          connectId: 'same-transport',
+          deviceId: 'new-device',
+        });
+      });
+      expect(mockUpdateWalletsDeprecatedState).toHaveBeenCalledWith({
+        willUpdateDeprecateMap: { 'hw-stale': true, 'hw-current': false },
+      });
+    },
+  );
+
   it('selects deprecated wallets but rejects unavailable wallets', async () => {
     const { store, Wrapper } = createWrapper();
     const { result } = renderHook(() => useAccountSelectorActions().current, {
