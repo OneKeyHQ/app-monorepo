@@ -75,21 +75,22 @@ export function TimeRangeSelector({
             flex={1}
             borderWidth={0}
             borderRadius="$2"
-            py="$1"
+            px={desktopRedesign ? '$2' : undefined}
+            py={desktopRedesign ? '$1.5' : '$1'}
             onPress={() => onChange(opt.value)}
             {...getSegmentFrameProps(isActive, desktopRedesign)}
             {...(desktopRedesign && isActive && ACTIVE_SEGMENT_SHADOW)}
           >
-            <YStack alignItems="center">
+            <YStack alignItems="center" gap={desktopRedesign ? '$0.5' : 0}>
               <SizableText
-                size="$bodyMd"
+                size={desktopRedesign ? '$bodyMdMedium' : '$bodyMd'}
                 color={isActive || desktopRedesign ? '$text' : '$textSubdued'}
                 fontWeight={desktopRedesign ? undefined : '500'}
               >
                 {desktopRedesign ? opt.label.toLowerCase() : opt.label}
               </SizableText>
               <SizableText
-                size="$bodySm"
+                size={desktopRedesign ? '$bodyMd' : '$bodySm'}
                 color={isLoading ? '$textSubdued' : getPercentageColor(opt)}
               >
                 {isLoading ? '--' : opt.percentageChange}

@@ -1,3 +1,4 @@
+import { numberFormatAsRaw } from '@onekeyhq/shared/src/utils/numberUtils';
 import type { IMarketTokenKLineDataPoint } from '@onekeyhq/shared/types/marketV2';
 
 import {
@@ -37,6 +38,59 @@ const SECONDS_PER_MINUTE = 60;
 const SECONDS_PER_HOUR = 60 * SECONDS_PER_MINUTE;
 const SECONDS_PER_DAY = 24 * 60 * 60;
 
+const SUBSCRIPT_DIGITS = '₀₁₂₃₄₅₆₇₈₉';
+
+// Rewrites `0.0₄9463` as `0.00009463`. The chart and the header are allowed to
+// choose different notations; only the number behind them has to agree.
+function expandSubscriptZeros(label: string) {
+  let result = '';
+  let pendingZeroCount = '';
+  const flush = () => {
+    if (pendingZeroCount) {
+      // The literal "0" before the subscript already counts as the first zero.
+      result += '0'.repeat(Number(pendingZeroCount) - 1);
+      pendingZeroCount = '';
+    }
+  };
+  for (const character of label) {
+    const subscriptIndex = SUBSCRIPT_DIGITS.indexOf(character);
+    if (subscriptIndex >= 0) {
+      pendingZeroCount += String(subscriptIndex);
+    } else {
+      flush();
+      result += character;
+    }
+  }
+  flush();
+  return result;
+}
+
+// Trailing zeros are formatting too: the header prints `1` where the chart
+// prints `1.00`. Compare the value both labels resolve to.
+function canonicalizePriceLabel(label: string) {
+  return String(Number(expandSubscriptZeros(label)));
+}
+
+function getHeaderPriceDigits(price: string) {
+  const parts = numberFormatAsRaw(price, {
+    formatter: 'price',
+    formatterOptions: { currency: '$' },
+  });
+  const label =
+    typeof parts === 'string'
+      ? parts
+      : parts
+          .map((part) =>
+            typeof part === 'string'
+              ? part
+              : String(part.value).replace(/[0-9]/g, (digit) =>
+                  SUBSCRIPT_DIGITS.charAt(Number(digit)),
+                ),
+          )
+          .join('');
+  return canonicalizePriceLabel(label.replace('$', ''));
+}
+
 function getLocalTimestamp(
   year: number,
   month: number,
@@ -73,9 +127,12 @@ describe('TradingViewNative chart layout', () => {
     expect(formatTradingViewNativePriceTick(0)).toBe('0.00');
     expect(formatTradingViewNativePriceTick(0.135_573)).toBe('0.1356');
     expect(formatTradingViewNativePriceTick(0.004_542_83)).toBe('0.004543');
-    expect(formatTradingViewNativePriceTick(0.000_045_428_3)).toBe(
-      '0.00004543',
+    expect(formatTradingViewNativePriceTick(0.000_454_283)).toBe('0.0004543');
+    expect(formatTradingViewNativePriceTick(0.000_045_428_3)).toBe('0.0₄4543');
+    expect(formatTradingViewNativePriceTick(-0.000_045_428_3)).toBe(
+      '-0.0₄4543',
     );
+    expect(formatTradingViewNativePriceTick(0.000_099_999)).toBe('0.0001');
     expect(formatTradingViewNativePriceTick(0.000_002_547)).toBe('0.0₅2547');
     expect(formatTradingViewNativePriceTick(0.000_000_000_149_73)).toBe(
       '0.0₉1497',
@@ -84,6 +141,35 @@ describe('TradingViewNative chart layout', () => {
     expect(formatTradingViewNativePriceTick(0.999_99)).toBe('1.00');
     expect(formatTradingViewNativePriceTick(-0.999_99)).toBe('-1.00');
     expect(formatTradingViewNativePriceTick(Number.NaN)).toBe('--');
+  });
+
+  it('rounds half-up on the decimal value, not on its binary neighbour', () => {
+    // The double behind 0.0012345 is 0.00123449…, so toFixed(6) would round
+    // down and print a different number than the header's BigNumber.
+    expect(formatTradingViewNativePriceTick(0.001_234_5)).toBe('0.001235');
+    expect(formatTradingViewNativePriceTick(0.000_012_345)).toBe('0.0₄1235');
+    expect(formatTradingViewNativePriceTick(-0.001_234_5)).toBe('-0.001235');
+  });
+
+  // OK-63597: the chart may compact leading zeros into a subscript where the
+  // header spells them out, but both must resolve to the same number.
+  it.each([
+    '0.0002137',
+    '0.00002869',
+    '0.00009463',
+    '0.0000653',
+    '0.00000653',
+    '0.0012345',
+    '0.000000123456',
+    '0.123456789',
+    '0.999999',
+    '1',
+    '12.34567',
+    '332.41',
+  ])('shows the same number as the header for %s', (price) => {
+    expect(
+      canonicalizePriceLabel(formatTradingViewNativePriceTick(Number(price))),
+    ).toBe(getHeaderPriceDigits(price));
   });
 
   it('grows the price axis with the longest formatted price', () => {
@@ -125,7 +211,7 @@ describe('TradingViewNative chart layout', () => {
     });
 
     expect(regularAxisWidth).toBe(46);
-    expect(tinyAxisWidth).toBe(76);
+    expect(tinyAxisWidth).toBe(64);
     expect(tinyAxisWidth).toBeGreaterThan(regularAxisWidth);
     expect(getTradingViewNativePriceAxisLabel(regularPoints)).toBe('88.88');
 
@@ -164,13 +250,13 @@ describe('TradingViewNative chart layout', () => {
     const label = formatTradingViewNativePriceTick(0.000_034_89);
     const labelWidth = label.length * 6;
 
-    expect(label).toBe('0.00003489');
+    expect(label).toBe('0.0₄3489');
     expect(
       getTradingViewNativePriceAxisWidth({
         currentPriceLabelWidth: labelWidth,
         widestPriceLabelWidth: labelWidth,
       }),
-    ).toBe(76);
+    ).toBe(64);
     expect(getTradingViewNativeCurrentPriceLabel([])).toBe('');
   });
 
@@ -202,7 +288,7 @@ describe('TradingViewNative chart layout', () => {
         priceRangeScale: 10,
         priceScaleMode: 'linear',
       }),
-    ).toBe('-0.00008888');
+    ).toBe('-0.0008888');
   });
 
   it('covers the plain-decimal label regime only when the price range reaches it', () => {
@@ -219,7 +305,7 @@ describe('TradingViewNative chart layout', () => {
       o: 0.000_056_78,
     };
     expect(getTradingViewNativePriceAxisLabel(crossingPoints)).toBe(
-      '0.00008888',
+      '0.0008888',
     );
 
     const negativeCrossingPoints = crossingPoints.map((point) => ({
@@ -230,7 +316,7 @@ describe('TradingViewNative chart layout', () => {
       o: -0.1,
     }));
     expect(getTradingViewNativePriceAxisLabel(negativeCrossingPoints)).toBe(
-      '-0.00008888',
+      '-0.0008888',
     );
 
     const compactOnlyPoints = crossingPoints.map((point) => ({
@@ -278,8 +364,8 @@ describe('TradingViewNative chart layout', () => {
         formatTradingViewNativePriceTick(price),
       ) ?? [];
 
-    expect(widestPriceLabel).toBe('0.00008888');
-    expect(tickLabels).toContain('0.00008546');
+    expect(widestPriceLabel).toBe('0.0008888');
+    expect(tickLabels).toContain('0.0₄8546');
     expect(
       tickLabels.every((label) => label.length <= widestPriceLabel.length),
     ).toBe(true);
@@ -736,58 +822,60 @@ describe('TradingViewNative chart layout', () => {
     ).toBe(0);
   });
 
-  it('centers the watermark on small screens and uses bottom-left on large screens', () => {
+  it('centers the watermark on all screen sizes', () => {
     const regularLayout = getTradingViewNativeWatermarkLayout({
       canvasWidth: 640,
       mainChartBottom: 300,
     });
-    expect(regularLayout).toMatchObject({ width: 96, x: 272 });
-    expect(regularLayout?.height).toBeCloseTo(29.2683);
-    expect(regularLayout?.y).toBeCloseTo(135.3659);
+    expect(regularLayout?.width).toBeCloseTo(105.6);
+    expect(regularLayout?.x).toBeCloseTo(267.2);
+    expect(regularLayout?.height).toBeCloseTo(32.1951);
+    expect(regularLayout?.y).toBeCloseTo(133.9024);
 
     const smallLayout = getTradingViewNativeWatermarkLayout({
       canvasWidth: 100,
       mainChartBottom: 50,
     });
-    expect(smallLayout).toMatchObject({ width: 15, x: 42.5 });
-    expect(smallLayout?.height).toBeCloseTo(4.5732);
-    expect(smallLayout?.y).toBeCloseTo(22.7134);
+    expect(smallLayout).toMatchObject({ width: 16.5, x: 41.75 });
+    expect(smallLayout?.height).toBeCloseTo(5.0305);
+    expect(smallLayout?.y).toBeCloseTo(22.4848);
 
     const wideLayout = getTradingViewNativeWatermarkLayout({
       canvasWidth: 3840,
       mainChartBottom: 2160,
     });
-    expect(wideLayout).toMatchObject({ width: 320, x: 8 });
+    expect(wideLayout).toMatchObject({ width: 352, x: 1744 });
+    expect(wideLayout?.y).toBeCloseTo(1026.3415);
 
     const mobileLayout = getTradingViewNativeWatermarkLayout({
       canvasWidth: 320,
       isMobileLayout: true,
       mainChartBottom: 284,
     });
-    expect(mobileLayout).toMatchObject({ width: 70.4, x: 124.8 });
-    expect(mobileLayout?.height).toBeCloseTo(21.4634);
-    expect(mobileLayout?.y).toBeCloseTo(131.2683);
+    expect(mobileLayout).toMatchObject({ width: 77.44, x: 121.28 });
+    expect(mobileLayout?.height).toBeCloseTo(23.6098);
+    expect(mobileLayout?.y).toBeCloseTo(130.1951);
 
     const mobileLandscapeLayout = getTradingViewNativeWatermarkLayout({
       canvasWidth: 1000,
       isMobileLayout: true,
       mainChartBottom: 500,
     });
-    expect(mobileLandscapeLayout).toMatchObject({ width: 220, x: 390 });
-    expect(mobileLandscapeLayout?.y).toBeCloseTo(216.4634);
+    expect(mobileLandscapeLayout).toMatchObject({ width: 242, x: 379 });
+    expect(mobileLandscapeLayout?.y).toBeCloseTo(213.1098);
 
     expect(
       getTradingViewNativeWatermarkLayout({
         canvasWidth: 767,
         mainChartBottom: 300,
       })?.x,
-    ).toBeCloseTo((767 - 767 * 0.15) / 2);
+    ).toBeCloseTo((767 - 767 * 0.165) / 2);
     expect(
       getTradingViewNativeWatermarkLayout({
         canvasWidth: 768,
         mainChartBottom: 300,
       })?.x,
-    ).toBe(8);
+    ).toBeCloseTo(320.64);
     expect(
       getTradingViewNativeWatermarkLayout({
         canvasWidth: 100,

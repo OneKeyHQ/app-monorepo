@@ -3,6 +3,7 @@ import { useIntl } from 'react-intl';
 
 import { Page, ScrollView } from '@onekeyhq/components';
 import type { useInTabDialog } from '@onekeyhq/components';
+import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type {
   EModalPerpRoutes,
@@ -47,6 +48,9 @@ export function showPerpPortfolioDialog(
           <PerpPortfolioContent
             isMobile={false}
             initialChartType={initialChartType}
+            onStartTrading={() => {
+              void dialogRef.close();
+            }}
           />
         </PerpsProviderMirror>
       </PerpsAccountSelectorProviderMirror>
@@ -57,6 +61,7 @@ export function showPerpPortfolioDialog(
 
 export function PerpPortfolioPage() {
   const intl = useIntl();
+  const navigation = useAppNavigation();
   const route =
     useRoute<
       RouteProp<IModalPerpParamList, EModalPerpRoutes.MobilePortfolioPage>
@@ -70,6 +75,7 @@ export function PerpPortfolioPage() {
             <PerpPortfolioContent
               isMobile
               initialChartType={route.params?.initialChartType}
+              onStartTrading={() => navigation.popStack()}
             />
           </PerpsProviderMirror>
         </ScrollView>

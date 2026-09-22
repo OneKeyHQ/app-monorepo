@@ -1,6 +1,7 @@
 /** @jest-environment jsdom */
 
 import type { ReactNode } from 'react';
+import { useCallback, useState } from 'react';
 
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 
@@ -16,6 +17,30 @@ jest.mock('../../../primitives', () => ({
 
 jest.mock('../hooks', () => ({
   useSortIcon: () => ({ renderSortIcon: () => null }),
+}));
+
+// Both reach platformEnv through the overlay stack, which this environment
+// does not stand up; the tooltip's wiring is what these cases assert, not its
+// rendering.
+jest.mock('../../../actions/Tooltip', () => ({
+  Tooltip: ({
+    renderTrigger,
+    renderContent,
+    onPress,
+  }: {
+    renderTrigger?: ReactNode;
+    renderContent?: ReactNode;
+    onPress?: () => void;
+  }) => (
+    <span data-testid="title-tooltip" onClick={onPress} role="presentation">
+      {renderTrigger}
+      {renderContent}
+    </span>
+  ),
+}));
+
+jest.mock('../../../content/DashText', () => ({
+  DashText: ({ children }: { children?: ReactNode }) => <span>{children}</span>,
 }));
 
 jest.mock('./Column', () => ({
@@ -128,4 +153,88 @@ describe('HeaderColumn', () => {
       expect(onSortTypeChange).toHaveBeenCalledWith(ETableSortType.ASC);
     });
   });
+  it('sorts from the tooltip trigger, which owns the press', () => {
+    const onSortTypeChange = jest.fn();
+    const onHeaderRow: ITableProps<IRow>['onHeaderRow'] = () => ({
+      onSortTypeChange,
+    });
+    const tooltipColumn: ITableColumn<IRow> = {
+      dataIndex: 'price',
+      title: 'Price',
+      titleTooltip: 'The underlying share price.',
+    };
+    const props = {
+      column: tooltipColumn,
+      index: 0,
+      selectedColumnName: '',
+      onChangeSelectedName: jest.fn(),
+      onHeaderRow,
+    };
+    render(<HeaderColumn {...props} />);
+
+    // A trigger nested in the title would consume this click and the column
+    // would never sort.
+    fireEvent.click(screen.getByTestId('title-tooltip'));
+
+    return waitFor(() =>
+      expect(onSortTypeChange).toHaveBeenCalledWith(ETableSortType.DESC),
+    );
+  });
+});
+
+const stockColumns: ITableColumn<IRow>[] = ['marketCap', 'volume24h'].map(
+  (dataIndex) => ({ dataIndex, title: dataIndex }),
+);
+
+function StockSortHeaders() {
+  const [selectedColumnName, setSelectedColumnName] = useState('volume24h');
+  const [sorting, setSorting] = useState({
+    column: 'volume24h',
+    order: ETableSortType.DESC,
+  });
+  const onHeaderRow = useCallback<
+    NonNullable<ITableProps<IRow>['onHeaderRow']>
+  >(
+    ({ dataIndex }) => ({
+      initialSortOrder:
+        sorting.column === dataIndex ? sorting.order : undefined,
+      onSortTypeChange: (order) =>
+        setSorting(
+          order
+            ? { column: dataIndex, order: order as ETableSortType }
+            : { column: 'volume24h', order: ETableSortType.DESC },
+        ),
+    }),
+    [sorting],
+  );
+  return (
+    <>
+      {stockColumns.map((stockColumn, index) => (
+        <HeaderColumn
+          key={stockColumn.dataIndex}
+          column={stockColumn}
+          index={index}
+          selectedColumnName={selectedColumnName}
+          onChangeSelectedName={setSelectedColumnName}
+          onHeaderRow={onHeaderRow}
+        />
+      ))}
+    </>
+  );
+}
+
+test('restores the volume indicator after clearing another column and advances to ascending on the next click', async () => {
+  render(<StockSortHeaders />);
+  const volume = screen.getByTestId('volume24h');
+  const marketCap = screen.getByTestId('marketCap');
+  expect(volume.getAttribute('data-order')).toBe('desc');
+  for (const order of ['desc', 'asc', '']) {
+    fireEvent.click(marketCap);
+    await waitFor(() =>
+      expect(marketCap.getAttribute('data-order')).toBe(order),
+    );
+  }
+  await waitFor(() => expect(volume.getAttribute('data-order')).toBe('desc'));
+  fireEvent.click(volume);
+  await waitFor(() => expect(volume.getAttribute('data-order')).toBe('asc'));
 });

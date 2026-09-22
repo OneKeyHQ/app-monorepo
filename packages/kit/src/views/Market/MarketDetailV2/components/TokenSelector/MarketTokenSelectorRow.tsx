@@ -21,6 +21,7 @@ import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { getTokenPriceChangeStyle } from '@onekeyhq/shared/src/utils/tokenUtils';
 
 import { CommunityRecognizedBadge } from '../../../components/CommunityRecognizedBadge';
+import { MarketListingStar } from '../../../components/MarketListingStar';
 import {
   usePerpsStarV2Checked,
   useStarV2Checked,
@@ -43,7 +44,7 @@ import type { IMarketToken } from '../../../MarketHomeV2/components/MarketTokenL
 import type { GestureResponderEvent } from 'react-native';
 
 interface IMarketTokenSelectorRowProps {
-  item: IMarketToken & { selectorSubtitle?: string };
+  item: IMarketToken & { selectorSubtitle?: string; marketAssetId?: string };
   networkId?: string;
   onPress: (item: IMarketToken) => void;
   showAddress?: boolean;
@@ -93,6 +94,8 @@ const MarketTokenSelectorRow = memo(
 
     // Use hooks directly + custom IconButton to match perps FavoriteButton exactly
     const spotStar = useStarV2Checked({
+      assetId: item.assetId,
+      stockId: item.stockId,
       chainId: item.chainId ?? networkId ?? '',
       contractAddress: item.address,
       from: EWatchlistFrom.Search,
@@ -146,7 +149,7 @@ const MarketTokenSelectorRow = memo(
     const renderMetric = (metric: IMarketTokenSelectorMetricColumn) => {
       switch (metric) {
         case 'price':
-          return (
+          return Number.isFinite(item.price) ? (
             <NumberSizeableText
               size={METRIC_TEXT_SIZE}
               formatter={priceFormatter}
@@ -154,6 +157,8 @@ const MarketTokenSelectorRow = memo(
             >
               {String(item.price)}
             </NumberSizeableText>
+          ) : (
+            <MissingValue />
           );
         case 'change':
           return item.priceChangeRaw === undefined ||
@@ -162,7 +167,7 @@ const MarketTokenSelectorRow = memo(
           ) : (
             <NumberSizeableText
               size={METRIC_TEXT_SIZE}
-              formatter="priceChange"
+              formatter="priceChangeCapped"
               formatterOptions={{ showPlusMinusSigns }}
               color={changeColor}
             >
@@ -240,7 +245,15 @@ const MarketTokenSelectorRow = memo(
             alignItems="center"
             justifyContent="center"
           >
-            {starElement}
+            {item.marketAssetId ? (
+              <MarketListingStar
+                kind="asset"
+                listingId={item.marketAssetId}
+                from={EWatchlistFrom.Search}
+              />
+            ) : (
+              starElement
+            )}
           </Stack>
           <XStack flex={1} minWidth={0} alignItems="center" gap="$2.5">
             <Token

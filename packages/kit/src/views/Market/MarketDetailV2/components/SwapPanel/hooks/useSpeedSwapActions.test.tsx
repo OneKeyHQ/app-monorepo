@@ -114,6 +114,7 @@ const mockUsePaymentTokenPrice: jest.MockedFunction<IUsePaymentTokenPriceMock> =
 const mockSendMarketDirectUnsignedTxs: jest.MockedFunction<
   (params: IMarketDirectSendValidationParams) => Promise<[]>
 > = jest.fn();
+const mockCloseReviewDialog = jest.fn();
 
 let mockUsePromiseResultCallCount = 0;
 let mockPaymentTokenPriceCache: Record<string, BigNumber> = {};
@@ -428,6 +429,7 @@ function createHookProps({
       value: 0.5,
     },
     antiMEV: false,
+    onCloseReviewDialog: mockCloseReviewDialog,
   };
 }
 
@@ -531,6 +533,8 @@ describe('useSpeedSwapActions', () => {
     mockUsePaymentTokenPrice.mockReset();
     mockSendMarketDirectUnsignedTxs.mockReset();
     mockSendMarketDirectUnsignedTxs.mockResolvedValue([]);
+    mockCloseReviewDialog.mockReset();
+    mockCloseReviewDialog.mockResolvedValue(undefined);
     mockUsePromiseResultCallCount = 0;
     mockPaymentTokenPriceCache = {};
     mockInAppNotificationAtomState = {};
@@ -1348,6 +1352,47 @@ describe('useSpeedSwapActions', () => {
         'insufficient_balance_title',
       );
     });
+  });
+
+  it('closes the review before opening a fallback transaction confirm', async () => {
+    const calls: string[] = [];
+    mockFetchSwapTokenDetails.mockImplementation(({ accountId }) =>
+      Promise.resolve(
+        accountId ? createTokenDetail({ balanceParsed: '2' }) : [],
+      ),
+    );
+    mockCloseReviewDialog.mockImplementation(async () => {
+      calls.push('close-review');
+    });
+    mockNavigationToTxConfirm.mockImplementation(async () => {
+      calls.push('open-tx-confirm');
+    });
+
+    const { result } = renderSwapHook(() =>
+      useSpeedSwapActions({
+        ...createHookProps({
+          marketToken: wethToken,
+          tradeToken: ethToken,
+        }),
+        isCustomRpcUnavailable: true,
+      }),
+    );
+
+    await waitFor(() => {
+      expect(result.current.fetchBalanceLoading).toBe(false);
+    });
+
+    await act(async () => {
+      await result.current.prepareMarketSwapReview({
+        fromAmount: '1',
+        fromToken: ethToken,
+        toToken: wethToken,
+        isWrap: true,
+      });
+      await result.current.sendMarketWrappedTx();
+    });
+
+    expect(calls).toEqual(['close-review', 'open-tx-confirm']);
   });
 
   it('checks rebuilt amount plus gas before signing a wrapped transaction', async () => {

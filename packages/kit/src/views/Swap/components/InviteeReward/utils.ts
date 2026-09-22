@@ -2,7 +2,6 @@ import type {
   ISwapInviteeRewardsParams,
   ISwapInviteeRewardsResponse,
 } from '@onekeyhq/shared/src/referralCode/type';
-import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { getVisibleSwapTabSwitchType } from '@onekeyhq/shared/src/utils/swapTypeUtils';
 import { ESwapTabSwitchType } from '@onekeyhq/shared/types/swap/types';
 
@@ -64,10 +63,6 @@ export function isSwapInviteeRewardWalletSupported(
 }
 
 interface ILoadSwapInviteeRewardDependencies {
-  ethNetworkId: string;
-  getReferralCodeWalletInfo: (params: {
-    walletId: string;
-  }) => Promise<ISwapInviteeWalletInfo | null>;
   getSwapInviteeRewards: (
     params: ISwapInviteeRewardsParams,
   ) => Promise<ISwapInviteeRewardsResponse>;
@@ -86,30 +81,17 @@ export type ILoadSwapInviteeRewardResult =
     };
 
 export async function loadSwapInviteeReward({
-  accountId,
   currentEvmAddress,
   dependencies,
 }: {
-  accountId: string;
   currentEvmAddress?: string;
   dependencies: ILoadSwapInviteeRewardDependencies;
 }): Promise<ILoadSwapInviteeRewardResult> {
+  if (!currentEvmAddress) {
+    return { status: 'unsupported' };
+  }
+
   try {
-    const walletId = accountUtils.getWalletIdFromAccountId({ accountId });
-    const walletInfo = await dependencies.getReferralCodeWalletInfo({
-      walletId,
-    });
-
-    if (
-      !isSwapInviteeRewardWalletSupported(walletInfo, dependencies.ethNetworkId)
-    ) {
-      return { status: 'unsupported' };
-    }
-
-    if (!currentEvmAddress) {
-      return { status: 'unsupported' };
-    }
-
     const data = await dependencies.getSwapInviteeRewards({
       walletAddress: currentEvmAddress,
     });

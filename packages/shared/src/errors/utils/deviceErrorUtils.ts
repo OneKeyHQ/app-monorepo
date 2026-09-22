@@ -2,6 +2,7 @@ import { HardwareErrorCode } from '@onekeyfe/hd-shared';
 import { HardwareErrorCode as HwkHardwareErrorCode } from '@onekeyfe/hwk-adapter-core';
 import { isArray, isNil } from 'lodash';
 
+import { ETranslations } from '../../locale';
 import platformEnv from '../../platformEnv';
 import * as HardwareErrors from '../errors/hardwareErrors';
 import { THIRD_PARTY_HW_BLE_PAIRING_CANCELLED_CODE } from '../errors/thirdPartyHardwareErrors';
@@ -178,8 +179,16 @@ export function convertDeviceError(
     case HardwareErrorCode.BleLocationServicesDisabled:
       return new HardwareErrors.BleLocationServiceError({ payload });
     case HardwareErrorCode.BleDeviceNotBonded:
-      return new HardwareErrors.DeviceNotBonded({ payload });
+      return new HardwareErrors.DeviceNotBonded({
+        payload,
+        key: platformEnv.isDesktop
+          ? ETranslations.feedback_bluetooth_pairing_failed
+          : undefined,
+      });
     case HardwareErrorCode.BleDeviceBondedCanceled:
+      if (platformEnv.isDesktop) {
+        return new HardwareErrors.UserCancel({ payload, autoToast: false });
+      }
       return new HardwareErrors.BleDeviceBondedCanceled({ payload });
     case HardwareErrorCode.BleDeviceBondError:
     case HardwareErrorCode.BlePeerRemovedPairingInformation:
@@ -227,7 +236,10 @@ export function convertDeviceError(
       return new HardwareErrors.DeviceOpenedPassphrase({ payload });
     case HardwareErrorCode.DeviceNotOpenedPassphrase: {
       const deviceNotOpenedPassphraseError =
-        new HardwareErrors.DeviceNotOpenedPassphrase({ payload });
+        new HardwareErrors.DeviceNotOpenedPassphrase({
+          payload,
+          silentMode: options?.silentMode,
+        });
       return deviceNotOpenedPassphraseError;
     }
     case HardwareErrorCode.DeviceLocked:
@@ -330,6 +342,20 @@ export async function convertDeviceResponse<T>(
   } catch (e) {
     const error: Error | undefined = e as Error;
     console.error(error);
+    // A thrown SDK HardwareError (the transport's TypedError, e.g. the
+    // Bluetooth-off check in hd-transport-react-native) still carries its
+    // code on `errorCode`. Route it through the same table as a failed
+    // response, so it keeps its class, code and i18n key instead of
+    // arriving as a generic error wearing the SDK's English sentence
+    // (OK-62113).
+    const sdkErrorCode = (error as { errorCode?: unknown } | undefined)
+      ?.errorCode;
+    if (typeof sdkErrorCode === 'number') {
+      throw convertDeviceError(
+        { code: sdkErrorCode, error: error?.message },
+        options,
+      );
+    }
     const hardwareCommonError = new HardwareErrors.OneKeyHardwareError(error);
     throw hardwareCommonError;
   }
@@ -346,6 +372,17 @@ export function isOneKeyHardwareError(error: unknown): error is IOneKeyError {
     oneKeyError?.className === EOneKeyErrorClassNames.OneKeyHardwareError ||
     oneKeyError?.className === EOneKeyErrorClassNames.UnknownHardwareError ||
     oneKeyError?.$isHardwareError === true,
+  );
+}
+
+export function isDesktopBlePairingCanceledError(
+  error: unknown,
+): error is IOneKeyError {
+  const oneKeyError = error as IOneKeyError | undefined;
+  return Boolean(
+    platformEnv.isDesktop &&
+    isOneKeyHardwareError(error) &&
+    oneKeyError?.payload?.code === HardwareErrorCode.BleDeviceBondedCanceled,
   );
 }
 

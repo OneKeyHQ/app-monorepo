@@ -1,9 +1,26 @@
+import { HttpRequestError } from '@nktkas/hyperliquid';
+
+import { PERP_USER_FUNDING_HISTORY_LIMIT } from '@onekeyhq/shared/src/consts/perp';
+import type { IUserFunding } from '@onekeyhq/shared/types/hyperliquid';
 import type { IFundingHistoryRecord } from '@onekeyhq/shared/types/hyperliquid/sdk';
 
 import {
   PERP_FUNDING_HISTORY_PAGE_SIZE,
+  fetchFundingPageWithRetry,
   fetchPerpFundingHistoryPages,
+  fetchRecentUserFundingHistory,
 } from './fundingHistory';
+
+jest.mock('@nktkas/hyperliquid', () => ({
+  HttpRequestError: class extends Error {
+    response?: Response;
+
+    constructor({ response }: { response?: Response }) {
+      super('HTTP request failed');
+      this.response = response;
+    }
+  },
+}));
 
 function buildRecords(
   startTime: number,
@@ -16,6 +33,59 @@ function buildRecords(
     time: startTime + index,
   }));
 }
+
+describe('fetchRecentUserFundingHistory', () => {
+  const buildUserRecords = (count: number): IUserFunding[] =>
+    Array.from({ length: count }, (_, index) => ({
+      time: index + 1,
+      hash: `0x${index.toString(16)}`,
+      delta: {
+        type: 'funding',
+        coin: 'BTC',
+        szi: '1',
+        usdc: '0.01',
+        fundingRate: '0.00001',
+        nSamples: null,
+      },
+    }));
+
+  it('loads once and retains the newest records without an age cutoff', async () => {
+    const page = buildUserRecords(PERP_USER_FUNDING_HISTORY_LIMIT + 1);
+    const fetchRecent = jest.fn().mockResolvedValue(page);
+    const result = await fetchRecentUserFundingHistory(fetchRecent);
+
+    expect(fetchRecent).toHaveBeenCalledTimes(1);
+    expect(fetchRecent).toHaveBeenCalledWith();
+    expect(result).toHaveLength(PERP_USER_FUNDING_HISTORY_LIMIT);
+    expect(result[0]).toEqual(page.at(-1));
+    expect(result.at(-1)).toEqual(page[1]);
+    expect(page[0].time).toBe(1);
+  });
+
+  it('does not paginate a full recent response', async () => {
+    const fetchRecent = jest
+      .fn()
+      .mockResolvedValue(buildUserRecords(PERP_USER_FUNDING_HISTORY_LIMIT));
+    await fetchRecentUserFundingHistory(fetchRecent);
+    expect(fetchRecent).toHaveBeenCalledTimes(1);
+  });
+
+  it('returns an empty history without additional requests', async () => {
+    const fetchRecent = jest.fn().mockResolvedValue([]);
+    await expect(fetchRecentUserFundingHistory(fetchRecent)).resolves.toEqual(
+      [],
+    );
+    expect(fetchRecent).toHaveBeenCalledTimes(1);
+  });
+
+  it('preserves failures so callers can retain their last successful result', async () => {
+    await expect(
+      fetchRecentUserFundingHistory(
+        jest.fn().mockRejectedValue(new Error('offline')),
+      ),
+    ).rejects.toThrow('offline');
+  });
+});
 
 describe('fetchPerpFundingHistoryPages', () => {
   it('continues after a full page without repeating the inclusive boundary', async () => {
@@ -157,5 +227,72 @@ describe('fetchPerpFundingHistoryPages', () => {
         getRecordKey: (record: { id: string; time: number }) => record.id,
       }),
     ).rejects.toThrow('cannot advance past a full timestamp boundary');
+  });
+});
+
+describe('fetchFundingPageWithRetry', () => {
+  beforeEach(() => jest.useFakeTimers());
+  afterEach(() => jest.useRealTimers());
+
+  function rateLimit(retryAfter?: string) {
+    return new HttpRequestError({
+      response: new Response(null, {
+        status: 429,
+        headers: retryAfter ? { 'Retry-After': retryAfter } : undefined,
+      }),
+    });
+  }
+
+  it('retries the failed page without refetching earlier pages', async () => {
+    const page = jest
+      .fn<
+        Promise<IFundingHistoryRecord[]>,
+        [{ startTime: number; endTime: number }]
+      >()
+      .mockResolvedValueOnce(buildRecords(1, 500))
+      .mockRejectedValueOnce(rateLimit('3'))
+      .mockResolvedValueOnce(buildRecords(501, 1));
+    const result = fetchPerpFundingHistoryPages({
+      startTime: 1,
+      endTime: 1000,
+      fetchPage: (params) => fetchFundingPageWithRetry(() => page(params)),
+    });
+    await jest.advanceTimersByTimeAsync(2999);
+    expect(page).toHaveBeenCalledTimes(2);
+    await jest.advanceTimersByTimeAsync(1);
+    expect(await result).toHaveLength(501);
+    expect(page.mock.calls.map(([params]) => params.startTime)).toEqual([
+      1, 501, 501,
+    ]);
+  });
+
+  it('honors an HTTP-date Retry-After header', async () => {
+    const page = jest
+      .fn()
+      .mockRejectedValueOnce(
+        rateLimit(new Date(Date.now() + 10_000).toUTCString()),
+      )
+      .mockResolvedValueOnce([]);
+    const result = fetchFundingPageWithRetry(page);
+    await jest.advanceTimersByTimeAsync(9000);
+    expect(page).toHaveBeenCalledTimes(1);
+    await jest.advanceTimersByTimeAsync(1000);
+    await expect(result).resolves.toEqual([]);
+  });
+
+  it('stops after three retries', async () => {
+    const error = rateLimit();
+    const page = jest.fn().mockRejectedValue(error);
+    await Promise.all([
+      expect(fetchFundingPageWithRetry(page)).rejects.toBe(error),
+      jest.runAllTimersAsync(),
+    ]);
+    expect(page).toHaveBeenCalledTimes(4);
+  });
+
+  it('does not retry other failures', async () => {
+    const page = jest.fn().mockRejectedValue(new Error('offline'));
+    await expect(fetchFundingPageWithRetry(page)).rejects.toThrow('offline');
+    expect(page).toHaveBeenCalledTimes(1);
   });
 });

@@ -11,6 +11,8 @@ import {
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import type { IMarketCategoryToSelectResult } from '@onekeyhq/shared/src/logger/scopes/market/scenes/navigation';
 import { debugLandingLog } from '@onekeyhq/shared/src/performance/init';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
@@ -31,12 +33,20 @@ import { preloadMarketHomeTokenListSeed } from '../utils/marketHomeTokenListSeed
 import { markMarketPerf } from '../utils/marketPerf';
 import { useMarketRenderCommitProbe } from '../utils/marketReactPerf';
 
+import {
+  MarketBannerProvider,
+  useMarketBannerState,
+} from './components/MarketBanner/MarketBannerList';
 import { MarketHomeLoadingFallback } from './components/MarketHomeLoadingFallback';
 import { useNetworkAnalytics, useTabAnalytics } from './hooks';
 import { DesktopLayout } from './layouts/DesktopLayout';
 import { shouldRestoreSpotCategoryFromAtom } from './layouts/marketTabSelectionGuards';
 import { MobileLayout } from './layouts/MobileLayout';
-import { ensureMarketTopCoinsCategory, isMarketStockCategory } from './utils';
+import {
+  ensureMarketTopCoinsCategory,
+  getMarketHomeFallbackSpotCategories,
+  isMarketStockCategory,
+} from './utils';
 
 import type { ITimeRangeSelectorValue } from './components/TimeRangeSelector';
 import type { ILiquidityFilter, IMarketCategoryItem } from './types';
@@ -64,6 +74,7 @@ const useMarketHomeLayoutProps = () => {
     formattedMinLiquidity,
     spotCategories: apiSpotCategories,
     stockCategories: apiStockCategories,
+    assetCategories: apiAssetCategories,
     isLoading: isMarketBasicConfigLoading,
   } = useMarketBasicConfig();
   const [selectedNetworkId, setSelectedNetworkId] = useSelectedNetworkIdAtom();
@@ -140,14 +151,12 @@ const useMarketHomeLayoutProps = () => {
       );
     }
 
-    // Fallback before API responds
+    // Fallback before API responds: keep Stocks / Robinhood tab identities so
+    // their list components still mount under a weak or offline config fetch.
     return ensureMarketTopCoinsCategory(
-      [
-        {
-          id: 'trending',
-          name: intl.formatMessage({ id: ETranslations.dexmarket_trending }),
-        },
-      ],
+      getMarketHomeFallbackSpotCategories((descriptor) =>
+        intl.formatMessage(descriptor),
+      ),
       intl.formatMessage({ id: ETranslations.market_top_coins }),
     );
   }, [apiSpotCategories, intl]);
@@ -159,6 +168,15 @@ const useMarketHomeLayoutProps = () => {
         name: category.name,
       })),
     [apiStockCategories],
+  );
+
+  const topCoinsCategories: IMarketCategoryItem[] = useMemo(
+    () =>
+      apiAssetCategories.map((category) => ({
+        id: category.category,
+        name: category.name,
+      })),
+    [apiAssetCategories],
   );
 
   const spotCategoryToRestore = spotCategoryToSelect ?? selectedSpotCategory;
@@ -199,6 +217,11 @@ const useMarketHomeLayoutProps = () => {
 
     if (isMarketBasicConfigLoading === false) {
       const nextSelectedCategory = categories[0]?.id ?? 'trending';
+      defaultLogger.market.navigation.marketHomeResetSpotCategory({
+        categoryId: selectedSpotCategory,
+        nextCategoryId: nextSelectedCategory,
+        categoryCount: categories.length,
+      });
       if (selectedCategory !== nextSelectedCategory) {
         applySelectedCategory(nextSelectedCategory);
       }
@@ -227,14 +250,23 @@ const useMarketHomeLayoutProps = () => {
       return;
     }
 
+    const logResult = (result: IMarketCategoryToSelectResult) => {
+      defaultLogger.market.navigation.marketHomeApplySpotCategory({
+        categoryId: spotCategoryToSelect,
+        result,
+        categoryCount: categories.length,
+      });
+    };
     const hasTargetCategory = categories.some(
       (item) => item.id === spotCategoryToSelect,
     );
     if (!hasTargetCategory) {
       if (isMarketBasicConfigLoading !== false) {
+        logResult('waitingForConfig');
         return;
       }
 
+      logResult('unknownCategory');
       setMarketSelectedTab((prev) => ({
         ...prev,
         selectedSpotCategory:
@@ -246,6 +278,7 @@ const useMarketHomeLayoutProps = () => {
       return;
     }
 
+    logResult('applied');
     applySelectedCategory(spotCategoryToSelect);
     setMarketSelectedTab((prev) => ({
       ...prev,
@@ -280,6 +313,7 @@ const useMarketHomeLayoutProps = () => {
         selectedCategory,
         categories,
         stockCategories,
+        topCoinsCategories,
         onCategoryChange: applySelectedCategory,
       },
       selectedNetworkId: effectiveSelectedNetworkId,
@@ -295,6 +329,7 @@ const useMarketHomeLayoutProps = () => {
       selectedCategory,
       categories,
       stockCategories,
+      topCoinsCategories,
       applySelectedCategory,
     ],
   );
@@ -309,7 +344,8 @@ const useMarketHomeLayoutProps = () => {
   );
 };
 
-function BaseMarketHomeLayout() {
+function MarketHomeLayoutContent() {
+  const { isLoading: isBannerPending } = useMarketBannerState();
   markMarketPerf('market-home-base-layout-render');
   useMarketRenderCommitProbe('MarketHome.BaseLayout');
   const { md, layoutProps, shouldWaitForSpotCategoryReady } =
@@ -317,10 +353,13 @@ function BaseMarketHomeLayout() {
   const isFocused = useRouteIsFocused();
   useRefreshWatchListV2OnFocus(isFocused);
 
-  if (shouldWaitForSpotCategoryReady) {
+  if (
+    shouldWaitForSpotCategoryReady ||
+    (platformEnv.isNative && isBannerPending)
+  ) {
     return (
       <LazyPageContainer eager={platformEnv.isWeb}>
-        {md && !platformEnv.isNative ? <MarketHomeLoadingFallback /> : null}
+        {md || platformEnv.isNative ? <MarketHomeLoadingFallback /> : null}
       </LazyPageContainer>
     );
   }
@@ -333,6 +372,14 @@ function BaseMarketHomeLayout() {
         <DesktopLayout {...layoutProps} />
       )}
     </LazyPageContainer>
+  );
+}
+
+function BaseMarketHomeLayout() {
+  return (
+    <MarketBannerProvider>
+      <MarketHomeLayoutContent />
+    </MarketBannerProvider>
   );
 }
 
@@ -386,8 +433,12 @@ function BaseMarketHomeWithProvider({
   const { layoutProps, shouldWaitForSpotCategoryReady } =
     useMarketHomeLayoutProps();
   useRefreshWatchListV2OnFocus(isFocused);
-  if (shouldWaitForSpotCategoryReady) {
-    return null;
+  const { isLoading: isBannerPending } = useMarketBannerState();
+  if (
+    shouldWaitForSpotCategoryReady ||
+    (platformEnv.isNative && isBannerPending)
+  ) {
+    return platformEnv.isNative ? <MarketHomeLoadingFallback /> : null;
   }
   // In nested outer pagers (Discovery: Market/Earn/Browser), keep Market mounted
   // and let Freeze control inactive-page performance. Unmounting here causes
@@ -426,11 +477,13 @@ export function MarketHomeWithProvider({
       <MarketWatchListProviderMirrorV2
         storeName={EJotaiContextStoreNames.marketWatchListV2}
       >
-        <BaseMarketHomeWithProvider
-          isFocused={isFocused}
-          tabsRef={tabsRef}
-          nestedPager={nestedPager}
-        />
+        <MarketBannerProvider>
+          <BaseMarketHomeWithProvider
+            isFocused={isFocused}
+            tabsRef={tabsRef}
+            nestedPager={nestedPager}
+          />
+        </MarketBannerProvider>
       </MarketWatchListProviderMirrorV2>
     </AccountSelectorProviderMirror>
   );

@@ -1,15 +1,8 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
-import { useWindowDimensions } from 'react-native';
 
-import {
-  Button,
-  SizableText,
-  XStack,
-  YStack,
-  useMedia,
-} from '@onekeyhq/components';
+import { Button, XStack, YStack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -19,6 +12,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IMarketBasicConfigToken } from '@onekeyhq/shared/types/marketV2';
 
 import { useWatchListV2Action } from '../../../components/watchListHooksV2';
+import { mapRecommendTokensToWatchlistItems } from '../../../utils/mapRecommendTokensToWatchlistItems';
 import { getMarketRecommendContainerPaddingTop } from '../../layouts/mobileLayoutUtils';
 
 import { RecommendItem } from './RecommendItem';
@@ -44,18 +38,13 @@ export function MarketRecommendList({
 }: IMarketRecommendListProps) {
   const intl = useIntl();
   const actions = useWatchListV2Action();
-  const { height: windowHeight } = useWindowDimensions();
-  const { gtMd } = useMedia();
-  // Show the heading only on spacious layouts; compact screens (mobile web,
-  // extension popup, narrow windows) already get context from the tab bar.
-  // Native is excluded regardless of size: its empty state relies on
-  // translateY offsets calibrated for title-less content (OK-57820).
-  const showTitle = !platformEnv.isNative && gtMd;
+  // No heading on any platform: the Watchlist tab already says where the
+  // user is, and native's translateY offsets are calibrated for title-less
+  // content (OK-57820).
   const containerPaddingTop = platformEnv.isExtensionUiPopup
     ? 0
     : getMarketRecommendContainerPaddingTop({
         isNative: Boolean(platformEnv.isNative),
-        windowHeight,
       });
 
   const uniqueTokens = useMemo(() => {
@@ -112,6 +101,8 @@ export function MarketRecommendList({
   const [selectedTokens, setSelectedTokens] = useState<
     IMarketBasicConfigToken[]
   >(enableSelection ? defaultTokens : []);
+  const [isAdding, setIsAdding] = useState(false);
+  const isAddingRef = useRef(false);
 
   useEffect(() => {
     setSelectedTokens(enableSelection ? defaultTokens : []);
@@ -119,6 +110,9 @@ export function MarketRecommendList({
 
   const handleRecommendItemChange = useCallback(
     (checked: boolean, tokenKey: string) => {
+      if (isAddingRef.current) {
+        return;
+      }
       const token = uniqueTokens.find((t) => getTokenKey(t) === tokenKey);
       if (!token) return;
 
@@ -137,14 +131,18 @@ export function MarketRecommendList({
   );
 
   const handleAddTokens = useCallback(async () => {
-    if (enableSelection) {
-      const items = selectedTokens.map((token) => ({
-        chainId: token.chainId,
-        contractAddress: token.contractAddress,
-        isNative: token.isNative,
-      }));
+    if (!enableSelection || isAddingRef.current) {
+      return;
+    }
+    isAddingRef.current = true;
+    setIsAdding(true);
+    try {
+      const items = await mapRecommendTokensToWatchlistItems(selectedTokens);
 
-      actions.addIntoWatchListV2(items);
+      const added = await actions.addIntoWatchListV2(items);
+      if (!added) {
+        return;
+      }
 
       // Log analytics for each token added to watchlist from recommend list
       selectedTokens.forEach((token) => {
@@ -159,6 +157,9 @@ export function MarketRecommendList({
       setTimeout(() => {
         setSelectedTokens(defaultTokens);
       }, 50);
+    } finally {
+      isAddingRef.current = false;
+      setIsAdding(false);
     }
   }, [actions, selectedTokens, defaultTokens, enableSelection]);
 
@@ -169,7 +170,8 @@ export function MarketRecommendList({
           testID="market-confirm-button-btn"
           width="100%"
           size="large"
-          disabled={!selectedTokens.length}
+          disabled={!selectedTokens.length || isAdding}
+          loading={isAdding}
           variant="primary"
           onPress={handleAddTokens}
         >
@@ -181,7 +183,7 @@ export function MarketRecommendList({
           )}
         </Button>
       ) : null,
-    [selectedTokens.length, handleAddTokens, intl, enableSelection],
+    [selectedTokens.length, handleAddTokens, intl, enableSelection, isAdding],
   );
 
   if (!uniqueTokens.length) {
@@ -197,27 +199,7 @@ export function MarketRecommendList({
       ai="center"
       width="100%"
     >
-      {showTitle ? (
-        <>
-          <SizableText size="$heading3xl" color="$text" textAlign="center">
-            {intl.formatMessage({
-              id: ETranslations.market_favorites_empty,
-            })}
-          </SizableText>
-          <SizableText
-            color="$textSubdued"
-            size="$bodyLg"
-            pt="$2"
-            textAlign="center"
-          >
-            {intl.formatMessage({
-              id: ETranslations.market_favorites_empty_desc,
-            })}
-          </SizableText>
-        </>
-      ) : null}
       <YStack
-        pt={showTitle ? '$6' : '$0'}
         gap="$2.5"
         width="100%"
         $gtMd={{ maxWidth: 480 }}
@@ -245,6 +227,7 @@ export function MarketRecommendList({
                   key={tokenKey}
                   address={tokenKey}
                   checked={isChecked}
+                  disabled={isAdding}
                   icon={item.logo || ''}
                   symbol={item.symbol}
                   tokenName={item.name}

@@ -1,6 +1,3 @@
-import type { IBadgeType } from '@onekeyhq/components';
-import { ADDRESS_RISK_TAG_DISPLAY_TYPES } from '@onekeyhq/shared/src/utils/txActionUtils';
-import { ENFTType } from '@onekeyhq/shared/types/nft';
 import {
   EParseTxComponentType,
   ETransferDirection,
@@ -22,41 +19,43 @@ function findParserAlertSentenceEnd(text: string) {
   return text.search(/[。！？]|[!?](?=\s|$)/);
 }
 
-// Address details stay next to the address row. The card consumes only their
-// severity as a fallback when a targeted request scan has no conclusion.
-export function getAddressRiskStatus(components: IDisplayComponent[]) {
-  let status: Extract<IBadgeType, 'critical' | 'warning'> | undefined;
-
-  components.forEach((component) => {
+// Address details stay next to the address row. The card uses their presence
+// only to suppress a contradictory success verdict, never as whole-card status.
+// Backend warning Address.tags (first interaction, first transfer, contract
+// recipient) are display-only for the card regardless of kind, site trust,
+// Prime, or scan result. Only critical tags are risk input.
+export function getAddressRiskItems(components: IDisplayComponent[]) {
+  return components.flatMap((component) => {
     if (component.type !== EParseTxComponentType.Address) {
-      return;
+      return [];
     }
-    component.tags.forEach((tag) => {
-      if (!ADDRESS_RISK_TAG_DISPLAY_TYPES.has(tag.displayType)) {
-        return;
-      }
-      if (tag.displayType === 'critical') {
-        status = 'critical';
-      } else if (!status) {
-        status = 'warning';
-      }
-    });
+    const tags = (component.tags ?? [])
+      .filter((tag) => tag.displayType === 'critical')
+      .map((tag) => ({
+        displayType: tag.displayType,
+        value: tag.value,
+        ...(tag.key ? { key: tag.key } : {}),
+      }));
+    return tags.length ? [{ address: component.address, tags }] : [];
   });
-
-  return status;
 }
 
 export function shouldShowNoIssueSection({
   hasCardFindings,
+  hasAddressRisk,
   hasResolvedRequiredChecks,
   isSecurityCheckPending,
 }: {
   hasCardFindings: boolean;
+  hasAddressRisk: boolean;
   hasResolvedRequiredChecks: boolean;
   isSecurityCheckPending?: boolean;
 }) {
   return (
-    !hasCardFindings && hasResolvedRequiredChecks && !isSecurityCheckPending
+    !hasCardFindings &&
+    !hasAddressRisk &&
+    hasResolvedRequiredChecks &&
+    !isSecurityCheckPending
   );
 }
 
@@ -67,26 +66,6 @@ export function normalizeAlertText(text?: string) {
 export function normalizeSecurityFindingTitle(title: string) {
   const trimmedTitle = title.trim();
   return trimmedTitle.replace(/[。.！!]+$/u, '') || trimmedTitle;
-}
-
-export function shouldHideGenericPermitAlert({
-  alert,
-  genericPermitAlert,
-  isPermitSignMethod,
-  isSiteVerified,
-}: {
-  alert: string;
-  genericPermitAlert: string;
-  isPermitSignMethod: boolean;
-  isSiteVerified: boolean;
-}) {
-  const normalizedAlert = normalizeAlertText(alert);
-  return (
-    isPermitSignMethod &&
-    isSiteVerified &&
-    Boolean(normalizedAlert) &&
-    normalizedAlert === normalizeAlertText(genericPermitAlert)
-  );
 }
 
 export function getParserAlertDisplay(alert: string) {
@@ -116,7 +95,7 @@ export const SIMULATION_GROUP_FALLBACK_ID = 'asset-changes';
 
 // These asset-display helpers are a compact, read-only variant of the canonical
 // simulation rendering in SignatureConfirmComponents/Assets.tsx. Keep the
-// direction-sign, NFT-amount, and color rules in sync with it to avoid drift
+// direction-sign and color rules in sync with it to avoid drift
 // (covered by utils.test.ts).
 export function getSimulationAssetLabel(asset: ISimulationAsset) {
   if (asset.type === EParseTxComponentType.Token) {
@@ -132,24 +111,14 @@ export function getSimulationAssetLabel(asset: ISimulationAsset) {
 }
 
 export function getSimulationAssetAmount(asset: ISimulationAsset) {
-  if (asset.type === EParseTxComponentType.Token) {
-    // `amount` is the raw base-unit value for fungible assets. Never fall back
-    // to it in a human-readable preview (for example, 1 ETH could otherwise
-    // be rendered as 1000000000000000000).
-    return asset.amountParsed ?? '';
+  if (asset.type === EParseTxComponentType.NFT) {
+    return asset.amount ?? '';
   }
-  if (asset.type === EParseTxComponentType.InternalAssets) {
-    if (asset.isNFT && asset.NFTType !== ENFTType.ERC1155) {
-      return '';
-    }
-    return asset.amountParsed ?? '';
-  }
-  // Match the canonical Assets renderer: a non-ERC1155 NFT shows only its name,
-  // never a numeric quantity (a unique token's "1" is noise).
-  if (asset.nft.collectionType !== ENFTType.ERC1155) {
-    return '';
-  }
-  return asset.amount;
+  // `amount` is the raw base-unit value for fungible assets. Never fall back
+  // to it in a human-readable preview (for example, 1 ETH could otherwise
+  // be rendered as 1000000000000000000). Internal NFTs also use the parsed
+  // quantity so a missing parse does not invent a count.
+  return asset.amountParsed ?? '';
 }
 
 export function getSimulationAssetDirection(asset: ISimulationAsset) {

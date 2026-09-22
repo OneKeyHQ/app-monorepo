@@ -30,8 +30,11 @@ import { MarketTokenSelector } from '../TokenSelector/MarketTokenSelector';
 
 import { useTokenDetailHeaderLeftActions } from './hooks/useTokenDetailHeaderLeftActions';
 import { ShareButton } from './ShareButton';
+import { TokenLaunchpad } from './TokenLaunchpad';
 
 interface ITokenDetailHeaderLeftProps {
+  assetId?: string;
+  stockId?: string;
   tokenDetail?: IMarketTokenDetail;
   networkId?: string;
   networkLogoUri?: string;
@@ -43,6 +46,8 @@ interface ITokenDetailHeaderLeftProps {
 }
 
 export function TokenDetailHeaderLeft({
+  assetId,
+  stockId,
   tokenDetail,
   networkId,
   networkLogoUri,
@@ -76,6 +81,7 @@ export function TokenDetailHeaderLeft({
     logoUrls,
     extraData,
     communityRecognized,
+    launchpad,
     stock,
   } = tokenDetail || {};
 
@@ -142,9 +148,11 @@ export function TokenDetailHeaderLeft({
   );
 
   const marketStar =
-    showFavoriteButton && networkId ? (
+    showFavoriteButton && (networkId || assetId || stockId) ? (
       <MarketStarV2
-        chainId={networkId}
+        assetId={assetId}
+        stockId={stockId}
+        chainId={networkId ?? ''}
         contractAddress={address}
         size="small"
         customIconSize={desktopRedesign ? '$5' : '$4'}
@@ -268,6 +276,11 @@ export function TokenDetailHeaderLeft({
               />
             </XStack>
           ) : null}
+
+          <TokenLaunchpad
+            launchpad={launchpad}
+            showLeadingDivider={!!address}
+          />
 
           {showMediaAndSecurity ? (
             <>

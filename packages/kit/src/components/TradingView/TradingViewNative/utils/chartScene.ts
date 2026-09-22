@@ -17,6 +17,7 @@ import {
   TRADING_VIEW_NATIVE_CURRENT_PRICE_LABEL_TEXT_COLOR as CURRENT_PRICE_LABEL_TEXT_COLOR,
   TRADING_VIEW_NATIVE_CURRENT_PRICE_LINE_DASH_GAP as CURRENT_PRICE_LINE_DASH_GAP,
   TRADING_VIEW_NATIVE_CURRENT_PRICE_LINE_DASH_LENGTH as CURRENT_PRICE_LINE_DASH_LENGTH,
+  TRADING_VIEW_NATIVE_FLOATING_PRICE_LABEL_HORIZONTAL_PADDING as FLOATING_PRICE_LABEL_HORIZONTAL_PADDING,
   TRADING_VIEW_NATIVE_GRID_LINE_DASH_GAP as GRID_LINE_DASH_GAP,
   TRADING_VIEW_NATIVE_GRID_LINE_DASH_LENGTH as GRID_LINE_DASH_LENGTH,
   TRADING_VIEW_NATIVE_INDICATOR_CYAN_COLOR as INDICATOR_CYAN_COLOR,
@@ -95,6 +96,7 @@ import {
   getTradingViewNativeSubIndicatorPaneLayouts,
   getTradingViewNativeSubIndicatorPaneStackLayout,
 } from './subIndicatorRender';
+import { appendTradingViewNativeTradeMarkCommands } from './tradeMarkScene';
 
 import type {
   ITradingViewNativeChartRuntimeCrosshair,
@@ -111,7 +113,11 @@ import type {
   ITradingViewNativePriceScaleMode,
 } from '../types';
 
-export type ITradingViewNativeChartSceneFont = 'axis' | 'legend' | 'priceAxis';
+export type ITradingViewNativeChartSceneFont =
+  | 'axis'
+  | 'legend'
+  | 'priceAxis'
+  | 'referenceLineLabel';
 
 export type ITradingViewNativeChartScenePaint =
   | 'axisText'
@@ -820,7 +826,7 @@ export function buildTradingViewNativeChartScene({
           },
         ];
   const watermarkRect = getTradingViewNativeWatermarkLayout({
-    canvasWidth: width,
+    canvasWidth: chartWidth,
     isMobileLayout,
     mainChartBottom: subIndicatorPaneStackLayout.top,
   });
@@ -1282,10 +1288,23 @@ export function buildTradingViewNativeChartScene({
     }
   }
 
+  const currentPriceLayout = getTradingViewNativeCurrentPriceLayout({
+    labelHeight: CURRENT_PRICE_LABEL_HEIGHT,
+    maxPrice,
+    minPrice,
+    price: latestPoint.c,
+    priceChartHeight,
+    priceScaleMode: resolvedPriceScaleMode,
+  });
+  const showLatestPrice = chartSettings?.options.latestPrice ?? true;
   const chartComponentCommandLayers =
     appendTradingViewNativeChartComponentCommands({
       commands,
       components: chartComponents,
+      currentPriceLabel:
+        showLatestPrice && showYAxis && currentPriceLayout
+          ? { price: latestPoint.c, top: currentPriceLayout.labelTop }
+          : undefined,
       customPaintStyles,
       maxPrice,
       measureTextWidth,
@@ -1297,16 +1316,8 @@ export function buildTradingViewNativeChartScene({
       width,
     });
 
-  const currentPriceLayout = getTradingViewNativeCurrentPriceLayout({
-    labelHeight: CURRENT_PRICE_LABEL_HEIGHT,
-    maxPrice,
-    minPrice,
-    price: latestPoint.c,
-    priceChartHeight,
-    priceScaleMode: resolvedPriceScaleMode,
-  });
   const currentPriceLabelCommands: ITradingViewNativeChartSceneCommand[] = [];
-  if (currentPriceLayout && (chartSettings?.options.latestPrice ?? true)) {
+  if (currentPriceLayout && showLatestPrice) {
     const direction = isTradingViewNativePriceUp(latestPoint) ? 'up' : 'down';
     commands.push({
       ...(chartSettings
@@ -1320,6 +1331,13 @@ export function buildTradingViewNativeChartScene({
       y2: currentPriceLayout.lineY,
     });
     if (showYAxis) {
+      const labelWidth =
+        measureTextWidth(resolvedCurrentPriceLabel, 'priceAxis') +
+        FLOATING_PRICE_LABEL_HORIZONTAL_PADDING * 2;
+      const labelLeft = Math.min(priceAxisX, width - labelWidth);
+      const labelTop =
+        chartComponentCommandLayers.currentPriceLabelTop ??
+        currentPriceLayout.labelTop;
       currentPriceLabelCommands.push(
         {
           ...(chartSettings
@@ -1328,18 +1346,18 @@ export function buildTradingViewNativeChartScene({
           height: CURRENT_PRICE_LABEL_HEIGHT,
           kind: 'rect',
           paint: direction,
-          width: width - priceAxisX,
-          x: priceAxisX,
-          y: currentPriceLayout.labelTop,
+          width: labelWidth,
+          x: labelLeft,
+          y: labelTop,
         },
         {
           font: 'priceAxis',
           kind: 'text',
           paint: 'currentPriceLabelText',
           text: resolvedCurrentPriceLabel,
-          x: priceAxisX + PRICE_AXIS_LABEL_LEFT_PADDING,
+          x: labelLeft + FLOATING_PRICE_LABEL_HORIZONTAL_PADDING,
           y:
-            currentPriceLayout.labelTop +
+            labelTop +
             CURRENT_PRICE_LABEL_HEIGHT / 2 +
             priceAxisFontSize / 2 +
             PRICE_AXIS_TEXT_BASELINE_OFFSET,
@@ -1385,13 +1403,17 @@ export function buildTradingViewNativeChartScene({
         Math.max(crosshairY - CROSSHAIR_LABEL_HEIGHT / 2, 0),
         timeAxisY - CROSSHAIR_LABEL_HEIGHT,
       );
+      const labelWidth =
+        measureTextWidth(crosshairValueText, 'priceAxis') +
+        FLOATING_PRICE_LABEL_HORIZONTAL_PADDING * 2;
+      const labelLeft = Math.min(priceAxisX, width - labelWidth);
       commands.push(
         {
           height: CROSSHAIR_LABEL_HEIGHT,
           kind: 'rect',
           paint: 'crosshairLabelBackground',
-          width: width - priceAxisX,
-          x: priceAxisX,
+          width: labelWidth,
+          x: labelLeft,
           y: labelTop,
         },
         {
@@ -1399,7 +1421,7 @@ export function buildTradingViewNativeChartScene({
           kind: 'text',
           paint: 'crosshairLabelText',
           text: crosshairValueText,
-          x: priceAxisX + PRICE_AXIS_LABEL_LEFT_PADDING,
+          x: labelLeft + FLOATING_PRICE_LABEL_HORIZONTAL_PADDING,
           y:
             labelTop +
             CROSSHAIR_LABEL_HEIGHT / 2 +
@@ -1458,6 +1480,23 @@ export function buildTradingViewNativeChartScene({
       pointIndex: legendPointIndex,
       priceAxisX,
     });
+
+  appendTradingViewNativeTradeMarkCommands({
+    candleIntervalSeconds,
+    commands,
+    components: chartComponents,
+    crosshair,
+    customPaintStyles,
+    getPointX,
+    maxPrice,
+    measureTextWidth,
+    minPrice,
+    points,
+    priceAxisX,
+    priceChartHeight,
+    priceScaleMode: resolvedPriceScaleMode,
+    priceSource: primarySeries.priceSource,
+  });
 
   return {
     autoPriceRange: layout.autoPriceRange,

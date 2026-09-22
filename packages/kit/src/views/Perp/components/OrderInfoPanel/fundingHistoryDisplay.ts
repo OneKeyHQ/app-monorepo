@@ -1,5 +1,6 @@
 import BigNumber from 'bignumber.js';
 
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { parseDexCoin } from '@onekeyhq/shared/src/utils/perpsUtils';
 import type { IUserFunding } from '@onekeyhq/shared/types/hyperliquid';
 
@@ -17,6 +18,7 @@ export type IFundingHistoryExportRecord = {
   size: string;
   side: string;
   payment: string;
+  paymentToken: string;
   rate: string;
 };
 
@@ -148,12 +150,14 @@ export function buildFundingHistoryExportRecords({
   marketFilter,
   longLabel,
   shortLabel,
+  paymentTokens,
 }: {
   records: IUserFunding[];
   sideFilter: IFundingHistorySideFilter;
   marketFilter: string | undefined;
   longLabel: string;
   shortLabel: string;
+  paymentTokens: Partial<Record<string, string>>;
 }): IFundingHistoryExportRecord[] {
   return filterFundingHistoryRecords({ records, sideFilter, marketFilter })
     .toSorted((a, b) => b.time - a.time || b.hash.localeCompare(a.hash))
@@ -163,6 +167,12 @@ export function buildFundingHistoryExportRecords({
       const market = dexLabel ? `${displayName} (${dexLabel})` : displayName;
       const size = new BigNumber(delta.szi).abs();
       const payment = new BigNumber(delta.usdc);
+      const paymentToken = paymentTokens[delta.coin];
+      if (!paymentToken) {
+        throw new OneKeyLocalError(
+          'Funding payment token metadata is unavailable',
+        );
+      }
       const side = getFundingHistorySide(delta.szi);
       let sideLabel = '--';
       if (side === 'long') {
@@ -177,6 +187,7 @@ export function buildFundingHistoryExportRecords({
         size: size.isFinite() ? size.toFixed() : delta.szi,
         side: sanitizeFundingHistoryCsvText(sideLabel),
         payment: payment.isFinite() ? payment.toFixed() : delta.usdc,
+        paymentToken: sanitizeFundingHistoryCsvText(paymentToken),
         rate: formatFundingHistoryRate(delta.fundingRate),
       };
     });

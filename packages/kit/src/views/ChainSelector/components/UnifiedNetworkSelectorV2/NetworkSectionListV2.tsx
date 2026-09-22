@@ -1,4 +1,4 @@
-import type { Dispatch, SetStateAction } from 'react';
+import type { Dispatch, RefObject, SetStateAction } from 'react';
 import { useCallback, useMemo, useRef, useState } from 'react';
 
 import { NativeList } from '@onekeyfe/react-native-native-list';
@@ -36,6 +36,7 @@ import type {
   RowModel,
   TrailingAccessory,
 } from '@onekeyfe/react-native-native-list';
+import type { View } from 'react-native';
 
 type INetworkSectionV2 = {
   key: string;
@@ -45,6 +46,10 @@ type INetworkSectionV2 = {
 };
 
 type INetworkSectionListPropsV2 = {
+  webSectionIndexContainerRef: RefObject<View | null>;
+  // Space kept free under the web index rail, so it matches the height
+  // available in the all-networks tab and the letters stay put across tabs.
+  webSectionIndexBottomInset?: number;
   recentNetworksEnabled?: boolean;
   accountNetworkValues: Record<string, string>;
   mainnetItems: IServerNetwork[];
@@ -69,6 +74,8 @@ type INetworkSectionListPropsV2 = {
 const LIST_STYLE_V2 = { flex: 1 };
 
 export function NetworkSectionListV2({
+  webSectionIndexContainerRef,
+  webSectionIndexBottomInset = 0,
   recentNetworksEnabled,
   walletId,
   accountId,
@@ -321,7 +328,14 @@ export function NetworkSectionListV2({
         itemSpacing: 0,
       },
       rows,
-      capabilities: { sectionIndex: { enabled: !searchText } },
+      capabilities: {
+        sectionIndex: {
+          enabled: !searchText,
+          // Native centers the index in the window. On web targets this
+          // flag only routes the rail into the list-area container below.
+          centeredInWindow: true,
+        },
+      },
       selection: { mode: 'none', selectedKeys: [] },
     }),
     [bottom, nativeTheme, rows, searchText],
@@ -398,6 +412,7 @@ export function NetworkSectionListV2({
             testID="network-selector-single-native-list-v2"
             style={LIST_STYLE_V2}
             snapshot={snapshot}
+            webSectionIndexContainerRef={webSectionIndexContainerRef}
             initialScrollKey={initialScrollKey ?? rows[0].key}
             onRowAction={handleRowAction}
             onActionAnchorInvalidated={onActionAnchorInvalidated}
@@ -407,6 +422,20 @@ export function NetworkSectionListV2({
           <Empty
             illustration="BlockQuestionMark"
             title={intl.formatMessage({ id: ETranslations.global_no_results })}
+          />
+        ) : null}
+        {!platformEnv.isNative ? (
+          // Bounds the web index rail to the list area so it starts at the
+          // list top instead of floating beside the header and search bar.
+          <Stack
+            ref={webSectionIndexContainerRef}
+            testID={ChainSelectorTestIDs.unifiedSectionIndexContainer}
+            position="absolute"
+            top={0}
+            right={0}
+            bottom={webSectionIndexBottomInset}
+            left={0}
+            pointerEvents="box-none"
           />
         ) : null}
         {tooltipElement}

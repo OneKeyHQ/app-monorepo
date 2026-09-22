@@ -1,5 +1,9 @@
 import { preloadImages } from './preload';
 import { preloadImages as preloadNativeImages } from './preload.native';
+import {
+  clearPreloadedImageUrisForTest,
+  isPreloadedImageUri,
+} from './preloadedImageUris';
 
 jest.mock('@onekeyfe/react-native-image', () => ({
   OneKeyImageCache: {
@@ -48,6 +52,25 @@ const mockNativePreload = (
 describe('preloadImages', () => {
   beforeEach(() => {
     mockPrefetch.mockReset();
+    clearPreloadedImageUrisForTest();
+  });
+
+  test('records only the uris that react-native-web actually prefetched', async () => {
+    mockPrefetch
+      .mockResolvedValueOnce(undefined as never)
+      .mockResolvedValueOnce(false)
+      .mockRejectedValueOnce(new Error('not found'));
+
+    await preloadImages([
+      { optimize: false, uri: 'https://example.com/ok.png' },
+      { optimize: false, uri: 'https://example.com/refused.png' },
+      { optimize: false, uri: 'https://example.com/failed.png' },
+    ]);
+
+    expect(isPreloadedImageUri('https://example.com/ok.png')).toBe(true);
+    expect(isPreloadedImageUri('https://example.com/refused.png')).toBe(false);
+    expect(isPreloadedImageUri('https://example.com/failed.png')).toBe(false);
+    expect(isPreloadedImageUri('')).toBe(false);
   });
 
   test('treats a resolved React Native Web prefetch as success', async () => {

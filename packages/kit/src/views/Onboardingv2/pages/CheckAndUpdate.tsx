@@ -7,6 +7,7 @@ import {
   useRef,
   useState,
 } from 'react';
+import type { PropsWithChildren } from 'react';
 
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import pRetry, { AbortError } from 'p-retry';
@@ -101,6 +102,48 @@ const BootloaderDialogHostBridge = forwardRef<IBootloaderModeDialogHost>(
     return null;
   },
 );
+
+/**
+ * A step's status line with its buttons. Wrap layout: the status keeps its
+ * natural width, and when the buttons no longer fit beside it they drop to
+ * their own line, right-aligned. `flex={1}` (basis 0) left long
+ * translations a few characters per line (OK-63522).
+ */
+function StepActionRow({
+  color,
+  message,
+  children,
+}: PropsWithChildren<{
+  color: '$textInfo' | '$textCritical';
+  message: string;
+}>) {
+  return (
+    <XStack
+      gap="$2"
+      rowGap="$3"
+      flexWrap="wrap"
+      mt="$4"
+      pt="$4"
+      borderWidth={0}
+      borderTopWidth={StyleSheet.hairlineWidth}
+      borderTopColor="$borderSubdued"
+      alignItems="center"
+    >
+      <SizableText
+        size="$bodyMdMedium"
+        color={color}
+        flexGrow={1}
+        flexShrink={1}
+        textAlign="left"
+      >
+        {message}
+      </SizableText>
+      <XStack gap="$2" flexGrow={1} justifyContent="flex-end">
+        {children}
+      </XStack>
+    </XStack>
+  );
+}
 
 function CheckAndUpdatePage({
   route: routeParams,
@@ -1190,93 +1233,65 @@ function CheckAndUpdatePage({
               {step.id === ECheckAndUpdateStepId.FirmwareCheck &&
               step.state === ECheckAndUpdateStepState.Warning &&
               !isFirmwareRecheckPending ? (
-                <XStack
-                  gap="$2"
-                  mt="$4"
-                  pt="$4"
-                  borderWidth={0}
-                  borderTopWidth={StyleSheet.hairlineWidth}
-                  borderTopColor="$borderSubdued"
-                  alignItems="center"
+                <StepActionRow
+                  color="$textInfo"
+                  message={intl.formatMessage({
+                    id: ETranslations.hardware_status_update_available,
+                  })}
                 >
-                  <SizableText
-                    size="$bodyMdMedium"
-                    color="$textInfo"
-                    flex={1}
-                    textAlign="left"
+                  <Button
+                    testID={OnboardingTestIDs.checkAndUpdateUpdateBtn}
+                    variant="primary"
+                    onPress={toFirmwareUpgradePage}
                   >
                     {intl.formatMessage({
-                      id: ETranslations.hardware_status_update_available,
+                      id: ETranslations.update_update_now,
                     })}
-                  </SizableText>
-                  <XStack gap="$2">
+                  </Button>
+                  {!hasUpgradeForceRef.current ? (
                     <Button
-                      testID={OnboardingTestIDs.checkAndUpdateUpdateBtn}
-                      variant="primary"
-                      onPress={toFirmwareUpgradePage}
+                      testID={OnboardingTestIDs.checkAndUpdateSkipUpdateBtn}
+                      onPress={handleSkipUpdate}
                     >
                       {intl.formatMessage({
-                        id: ETranslations.update_update_now,
+                        id: ETranslations.global_skip,
                       })}
                     </Button>
-                    {!hasUpgradeForceRef.current ? (
-                      <Button
-                        testID={OnboardingTestIDs.checkAndUpdateSkipUpdateBtn}
-                        onPress={handleSkipUpdate}
-                      >
-                        {intl.formatMessage({
-                          id: ETranslations.global_skip,
-                        })}
-                      </Button>
-                    ) : null}
-                  </XStack>
-                </XStack>
+                  ) : null}
+                </StepActionRow>
               ) : null}
               {/* fallback */}
               {step.state === ECheckAndUpdateStepState.Error ? (
-                <XStack
-                  gap="$2"
-                  mt="$4"
-                  pt="$4"
-                  borderWidth={0}
-                  borderTopWidth={StyleSheet.hairlineWidth}
-                  borderTopColor="$borderSubdued"
-                  alignItems="center"
+                <StepActionRow
+                  color="$textCritical"
+                  message={
+                    step.errorMessage ??
+                    intl.formatMessage({
+                      id: ETranslations.genuine_check_interrupt,
+                    })
+                  }
                 >
-                  <SizableText
-                    size="$bodyMdMedium"
-                    color="$textCritical"
-                    flex={1}
-                    textAlign="left"
+                  <Button
+                    testID={OnboardingTestIDs.checkAndUpdateRetryBtn}
+                    variant="primary"
+                    onPress={handleRetry}
+                    disabled={isAnyStepInProgress}
                   >
-                    {step.errorMessage ??
-                      intl.formatMessage({
-                        id: ETranslations.genuine_check_interrupt,
-                      })}
-                  </SizableText>
-                  <XStack gap="$2">
+                    {intl.formatMessage({
+                      id: ETranslations.global_retry,
+                    })}
+                  </Button>
+                  {step.id !== ECheckAndUpdateStepId.GenuineCheck ? (
                     <Button
-                      testID={OnboardingTestIDs.checkAndUpdateRetryBtn}
-                      variant="primary"
-                      onPress={handleRetry}
-                      disabled={isAnyStepInProgress}
+                      testID={OnboardingTestIDs.checkAndUpdateSkipStepBtn}
+                      onPress={handleSkipCurrentStep}
                     >
                       {intl.formatMessage({
-                        id: ETranslations.global_retry,
+                        id: ETranslations.global_skip,
                       })}
                     </Button>
-                    {step.id !== ECheckAndUpdateStepId.GenuineCheck ? (
-                      <Button
-                        testID={OnboardingTestIDs.checkAndUpdateSkipStepBtn}
-                        onPress={handleSkipCurrentStep}
-                      >
-                        {intl.formatMessage({
-                          id: ETranslations.global_skip,
-                        })}
-                      </Button>
-                    ) : null}
-                  </XStack>
-                </XStack>
+                  ) : null}
+                </StepActionRow>
               ) : null}
             </HeightTransition>
           </YStack>

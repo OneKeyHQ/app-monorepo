@@ -31,7 +31,10 @@ repo_root="${REPO_ROOT:-$(git rev-parse --show-toplevel 2>/dev/null || true)}"
 common_git_dir="$(git -C "$repo_root" rev-parse --path-format=absolute --git-common-dir 2>/dev/null || true)"
 [[ -n "$common_git_dir" ]] || die "Failed to locate git common dir."
 main_repo_root="$(dirname "$common_git_dir")"
-shared_worktree_root="${main_repo_root}/.worktree"
+declare -a shared_worktree_roots=(
+  "${main_repo_root}/.worktrees"
+  "${main_repo_root}/.worktree"
+)
 
 declare -a WT_PATHS=()
 declare -a WT_BRANCHES=()
@@ -46,11 +49,17 @@ declare -a WT_NESTED_PARENT_NAMES=()
 declare -a WT_NESTED_PARENT_PATHS=()
 declare -a WT_PR_LABELS=()
 declare -a WT_PR_URLS=()
+declare -a WT_PR_HEAD_OIDS=()
 declare -a PR_CACHE_BRANCHES=()
 declare -a PR_CACHE_LABELS=()
 declare -a PR_CACHE_URLS=()
+declare -a PR_CACHE_HEAD_OIDS=()
 GH_PR_LOOKUP_STATE="unknown"
 GH_PR_LOOKUP_REASON=""
+PATCH_ID_MODE=""
+if git patch-id --verbatim </dev/null >/dev/null 2>&1; then
+  PATCH_ID_MODE="--verbatim"
+fi
 LAST_SUMMARY_LINE=""
 DETAIL_OUTPUT=""
 LAST_RESULT=""
@@ -69,6 +78,7 @@ LAST_WORKTREE_PR_LABEL=""
 LAST_WORKTREE_PR_URL=""
 LAST_CANDIDATE_COUNT=0
 LAST_UNMATCHED_COUNT=0
+LAST_MERGE_EVIDENCE=""
 
 append_worktree() {
   local path="$1"
@@ -249,17 +259,20 @@ collect_candidate_paths() {
 }
 
 list_stale_dirs() {
+  local root=""
   local dir=""
   local -a stale_dirs=()
 
-  [[ -d "$shared_worktree_root" ]] || return 0
+  for root in "${shared_worktree_roots[@]}"; do
+    [[ -d "$root" ]] || continue
 
-  while IFS= read -r dir; do
-    [[ -n "$dir" ]] || continue
-    if ! contains_value "$dir" "${WT_PATHS[@]}"; then
-      stale_dirs+=("$dir")
-    fi
-  done < <(find "$shared_worktree_root" -mindepth 1 -maxdepth 1 -type d | sort)
+    while IFS= read -r dir; do
+      [[ -n "$dir" ]] || continue
+      if ! contains_value "$dir" "${WT_PATHS[@]}"; then
+        stale_dirs+=("$dir")
+      fi
+    done < <(find "$root" -mindepth 1 -maxdepth 1 -type d | sort)
+  done
 
   if (( ${#stale_dirs[@]} > 0 )); then
     dedupe_and_print "${stale_dirs[@]}"
@@ -370,37 +383,41 @@ resolve_pr_metadata() {
   local is_draft=""
   local merged_at=""
   local url=""
+  local head_oid=""
   local label=""
 
   if [[ "$branch" == "(detached "* ]]; then
-    printf 'DETACHED\x1f\n'
+    printf 'DETACHED\x1f\x1f\n'
     return 0
   fi
 
   if [[ "$branch" == "x" ]]; then
-    printf 'N/A\x1f\n'
+    printf 'N/A\x1f\x1f\n'
     return 0
   fi
 
   cache_idx="$(find_pr_cache_index "$branch")"
   if [[ "$cache_idx" != "-1" ]]; then
-    printf '%s\x1f%s\n' "${PR_CACHE_LABELS[$cache_idx]}" "${PR_CACHE_URLS[$cache_idx]}"
+    printf '%s\x1f%s\x1f%s\n' \
+      "${PR_CACHE_LABELS[$cache_idx]}" \
+      "${PR_CACHE_URLS[$cache_idx]}" \
+      "${PR_CACHE_HEAD_OIDS[$cache_idx]}"
     return 0
   fi
 
   if ! ensure_pr_lookup_ready; then
-    printf 'UNAVAILABLE (%s)\x1f\n' "$GH_PR_LOOKUP_REASON"
+    printf 'UNAVAILABLE (%s)\x1f\x1f\n' "$GH_PR_LOOKUP_REASON"
     return 0
   fi
 
   if ! line="$(
     cd "$main_repo_root" &&
-      gh pr list --head "$branch" --state all --limit 1 \
-        --json number,state,isDraft,mergedAt,url \
-        --jq 'if length == 0 then "NONE" else .[0] | "\(.number)\u001f\(.state)\u001f\(.isDraft)\u001f\(.mergedAt // "")\u001f\(.url)" end'
+      gh pr list --head "$branch" --base x --state all --limit 1 \
+        --json number,state,isDraft,mergedAt,url,headRefOid \
+        --jq 'if length == 0 then "NONE" else .[0] | "\(.number)\u001f\(.state)\u001f\(.isDraft)\u001f\(.mergedAt // "")\u001f\(.url)\u001f\(.headRefOid // "")" end'
   )"; then
     mark_pr_lookup_unavailable "gh-query-failed"
-    printf 'UNAVAILABLE (%s)\x1f\n' "$GH_PR_LOOKUP_REASON"
+    printf 'UNAVAILABLE (%s)\x1f\x1f\n' "$GH_PR_LOOKUP_REASON"
     return 0
   fi
 
@@ -408,7 +425,7 @@ resolve_pr_metadata() {
     label="NONE"
     url=""
   else
-    IFS=$'\x1f' read -r number state is_draft merged_at url <<< "$line"
+    IFS=$'\x1f' read -r number state is_draft merged_at url head_oid <<< "$line"
     if [[ -n "$merged_at" ]]; then
       label="MERGED #${number}"
     elif [[ "$state" == "OPEN" && "$is_draft" == "true" ]]; then
@@ -425,7 +442,49 @@ resolve_pr_metadata() {
   PR_CACHE_BRANCHES+=("$branch")
   PR_CACHE_LABELS+=("$label")
   PR_CACHE_URLS+=("$url")
-  printf '%s\x1f%s\n' "$label" "$url"
+  PR_CACHE_HEAD_OIDS+=("$head_oid")
+  printf '%s\x1f%s\x1f%s\n' "$label" "$url" "$head_oid"
+}
+
+patch_id_for_range() {
+  local wt="$1"
+  local range="$2"
+
+  git -C "$wt" diff --binary --no-ext-diff "$range" -- |
+    git -C "$wt" patch-id "$PATCH_ID_MODE" |
+    awk 'NR == 1 { print $1; exit }'
+}
+
+patch_id_for_commit() {
+  local wt="$1"
+  local commit="$2"
+
+  git -C "$wt" show --format= --binary --no-ext-diff "$commit" -- |
+    git -C "$wt" patch-id "$PATCH_ID_MODE" |
+    awk 'NR == 1 { print $1; exit }'
+}
+
+find_squashed_patch_match() {
+  local wt="$1"
+  local base=""
+  local branch_patch_id=""
+  local commit=""
+  local commit_patch_id=""
+
+  base="$(git -C "$wt" merge-base origin/x HEAD)"
+  branch_patch_id="$(patch_id_for_range "$wt" "$base..HEAD")"
+  [[ -n "$branch_patch_id" ]] || return 1
+
+  while IFS= read -r commit; do
+    [[ -n "$commit" ]] || continue
+    commit_patch_id="$(patch_id_for_commit "$wt" "$commit")"
+    if [[ "$branch_patch_id" == "$commit_patch_id" ]]; then
+      printf '%s\n' "$commit"
+      return 0
+    fi
+  done < <(git -C "$wt" rev-list --first-parent --no-merges "$base..origin/x")
+
+  return 1
 }
 
 hydrate_worktree_metadata() {
@@ -443,6 +502,7 @@ hydrate_worktree_metadata() {
   local pr_meta=""
   local pr_label=""
   local pr_url=""
+  local pr_head_oid=""
 
   for ((i = 0; i < ${#WT_PATHS[@]}; i += 1)); do
     wt="${WT_PATHS[$i]}"
@@ -470,9 +530,10 @@ hydrate_worktree_metadata() {
     fi
 
     pr_meta="$(resolve_pr_metadata "$branch")"
-    IFS=$'\x1f' read -r pr_label pr_url <<< "$pr_meta"
+    IFS=$'\x1f' read -r pr_label pr_url pr_head_oid <<< "$pr_meta"
     WT_PR_LABELS+=("${pr_label:-UNKNOWN}")
     WT_PR_URLS+=("$pr_url")
+    WT_PR_HEAD_OIDS+=("$pr_head_oid")
   done
 }
 
@@ -506,33 +567,69 @@ check_one_worktree() {
   local unmatched_count=0
   local matched_lines=""
   local unmatched_lines=""
+  local merge_evidence=""
+  local squashed_commit=""
+  local head_oid=""
+  local patch_id_allowed="no"
 
   git -C "$wt" rev-parse --verify origin/x^{commit} >/dev/null 2>&1 || \
     die "origin/x is missing for $wt. Fetch origin x before running check."
 
-  candidate_output="$(collect_candidate_paths "$wt")"
   dirty_output="$(collect_dirty_files "$wt" || true)"
+  head_oid="$(git -C "$wt" rev-parse --verify HEAD 2>/dev/null || true)"
+  if [[ "$PATCH_ID_MODE" == "--verbatim" ]]; then
+    case "${WT_PR_LABELS[$idx]}" in
+      MERGED\ #*|NONE|DETACHED|UNAVAILABLE*)
+        patch_id_allowed="yes"
+        ;;
+    esac
+  fi
 
-  while IFS= read -r rel_path; do
-    [[ -n "$rel_path" ]] || continue
-    candidate_count=$((candidate_count + 1))
-    head_blob="$(blob_or_absent "$wt" HEAD "$rel_path")"
-    x_blob="$(blob_or_absent "$wt" origin/x "$rel_path")"
-    if [[ "$head_blob" == "$x_blob" ]]; then
-      matched_count=$((matched_count + 1))
-      matched_lines="${matched_lines}- ${rel_path}"$'\n'
-    else
-      unmatched_count=$((unmatched_count + 1))
-      unmatched_lines="${unmatched_lines}- ${rel_path}"$'\n'
-    fi
-  done <<< "$candidate_output"
-
-  if [[ $candidate_count -eq 0 ]]; then
-    result="NO_BRANCH_CODE_DELTA_FROM_COMMON_BASE"
-  elif [[ $unmatched_count -eq 0 ]]; then
-    result="MERGED_TO_ORIGIN_X_BY_CODE"
+  if [[ -z "$head_oid" ]]; then
+    candidate_output=""
+    result="NEEDS_MANUAL_REVIEW"
+    merge_evidence="worktree has no committed HEAD"
   else
-    result="NOT_FULLY_MERGED_TO_ORIGIN_X_BY_CODE"
+    candidate_output="$(collect_candidate_paths "$wt")"
+
+    while IFS= read -r rel_path; do
+      [[ -n "$rel_path" ]] || continue
+      candidate_count=$((candidate_count + 1))
+      head_blob="$(blob_or_absent "$wt" HEAD "$rel_path")"
+      x_blob="$(blob_or_absent "$wt" origin/x "$rel_path")"
+      if [[ "$head_blob" == "$x_blob" ]]; then
+        matched_count=$((matched_count + 1))
+        matched_lines="${matched_lines}- ${rel_path}"$'\n'
+      else
+        unmatched_count=$((unmatched_count + 1))
+        unmatched_lines="${unmatched_lines}- ${rel_path}"$'\n'
+      fi
+    done <<< "$candidate_output"
+
+    if git -C "$wt" merge-base --is-ancestor HEAD origin/x; then
+      result="MERGED_TO_ORIGIN_X_BY_ANCESTOR"
+      merge_evidence="HEAD is an ancestor of origin/x"
+    elif [[ $candidate_count -eq 0 ]]; then
+      result="NO_BRANCH_CODE_DELTA_FROM_COMMON_BASE"
+      merge_evidence="no branch-side committed code delta"
+    elif [[ "${WT_PR_LABELS[$idx]}" == MERGED\ #* && -n "${WT_PR_HEAD_OIDS[$idx]}" && "${WT_PR_HEAD_OIDS[$idx]}" == "$head_oid" && $unmatched_count -eq 0 ]]; then
+      result="MERGED_TO_ORIGIN_X_BY_PR"
+      merge_evidence="${WT_PR_LABELS[$idx]} head matches current HEAD and all branch-side blobs match origin/x"
+    elif [[ $unmatched_count -eq 0 ]]; then
+      result="MERGED_TO_ORIGIN_X_BY_CODE"
+      merge_evidence="all branch-side candidate blobs match origin/x"
+    elif [[ "$patch_id_allowed" == "yes" ]] && \
+    squashed_commit="$(find_squashed_patch_match "$wt" 2>/dev/null)"; then
+      result="MERGED_TO_ORIGIN_X_BY_PATCH_ID"
+      merge_evidence="matching squash commit ${squashed_commit:0:12} (patch-id mode: ${PATCH_ID_MODE})"
+    else
+      result="NEEDS_MANUAL_REVIEW"
+      if [[ -z "$PATCH_ID_MODE" ]]; then
+        merge_evidence="branch-side files differ; Git does not support whitespace-preserving patch-id --verbatim"
+      else
+        merge_evidence="branch-side files differ from origin/x after later changes"
+      fi
+    fi
   fi
 
   DETAIL_OUTPUT=""
@@ -554,6 +651,7 @@ check_one_worktree() {
   DETAIL_OUTPUT="${DETAIL_OUTPUT}Branch-side candidate files: ${candidate_count}"$'\n'
   DETAIL_OUTPUT="${DETAIL_OUTPUT}Matched files: ${matched_count}"$'\n'
   DETAIL_OUTPUT="${DETAIL_OUTPUT}Unmatched files: ${unmatched_count}"$'\n'
+  DETAIL_OUTPUT="${DETAIL_OUTPUT}Merge evidence: ${merge_evidence}"$'\n'
   DETAIL_OUTPUT="${DETAIL_OUTPUT}Result: ${result}"$'\n'
 
   if [[ -n "$matched_lines" ]]; then
@@ -593,6 +691,7 @@ check_one_worktree() {
   LAST_WORKTREE_PR_URL="${WT_PR_URLS[$idx]}"
   LAST_CANDIDATE_COUNT="$candidate_count"
   LAST_UNMATCHED_COUNT="$unmatched_count"
+  LAST_MERGE_EVIDENCE="$merge_evidence"
 }
 
 run_check() {
@@ -634,13 +733,26 @@ run_cleanup_candidates() {
     [[ -n "$idx" ]] || continue
     check_one_worktree "$idx"
 
-    if [[ "$LAST_RESULT" == "MERGED_TO_ORIGIN_X_BY_CODE" ]]; then
-      reason="merged-by-code"
-    elif [[ "$LAST_RESULT" == "NO_BRANCH_CODE_DELTA_FROM_COMMON_BASE" ]]; then
-      reason="no-branch-delta"
-    else
-      continue
-    fi
+    case "$LAST_RESULT" in
+      MERGED_TO_ORIGIN_X_BY_ANCESTOR)
+        reason="merged-by-ancestor"
+        ;;
+      MERGED_TO_ORIGIN_X_BY_PR)
+        reason="merged-by-pr"
+        ;;
+      MERGED_TO_ORIGIN_X_BY_PATCH_ID)
+        reason="merged-by-patch-id"
+        ;;
+      MERGED_TO_ORIGIN_X_BY_CODE)
+        reason="merged-by-code"
+        ;;
+      NO_BRANCH_CODE_DELTA_FROM_COMMON_BASE)
+        reason="no-branch-delta"
+        ;;
+      *)
+        continue
+        ;;
+    esac
 
     blocker="$(removal_blocker_for_worktree "$LAST_WORKTREE_PATH" "$LAST_WORKTREE_DIRTY")"
     if [[ "$LAST_WORKTREE_NESTED_FLAG" == "yes" ]]; then

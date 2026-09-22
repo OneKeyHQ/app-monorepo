@@ -37,6 +37,7 @@ import {
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { showIntercom } from '@onekeyhq/shared/src/modules3rdParty/intercom';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { isProtocolV2ProductType } from '@onekeyhq/shared/src/utils/hardwareDeviceTypes';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import { EHardwareTransportType } from '@onekeyhq/shared/types';
 import { EHardwareVendor } from '@onekeyhq/shared/types/device';
@@ -108,6 +109,9 @@ function DeviceStageContainerCmp() {
   const [settings, setSettings] = useSettingsPersistAtom();
 
   const step: IDeviceStageStep = (stage?.step as IDeviceStageStep) ?? 'off';
+  const isPro2NeoPassphraseCreation =
+    stage?.passphraseMode === 'create' &&
+    isProtocolV2ProductType(stage?.deviceType);
 
   // Channel badge (design hard rule: BLE waits must declare the channel).
   // Same source and formula as the legacy CommonDeviceLoading dialog: the
@@ -327,7 +331,9 @@ function DeviceStageContainerCmp() {
           })
           .catch(() => undefined);
       }
-      void serviceHardwareUI.deviceStageNoteInputSubmitted();
+      void serviceHardwareUI.deviceStageNoteInputSubmitted({
+        hostPassphraseEntered: passphrase.length > 0,
+      });
     },
     [saveKeepAccessible, sendVendorUiResponse, serviceHardwareUI],
   );
@@ -425,13 +431,31 @@ function DeviceStageContainerCmp() {
 
   // The OneKey-track Device-not-connected card mirrors the legacy dialog
   // verbatim (doc §4.1): the same article, the same Intercom entry.
+  // On native both help exits open inside the app — the in-app browser,
+  // the Support webview page — underneath the stage, whose window overlay
+  // and wall cover the page and take its touches. So there the stage
+  // leaves as the page opens, the way its close button would. Elsewhere
+  // nothing is covered and the card stays: the article leaves the app,
+  // and the Intercom messenger mounts on <body>, above the app root's
+  // stacking context the stage lives in.
+  const leaveStageForHelpPage = useCallback(
+    (via: 'troubleshoot' | 'support') => {
+      if (platformEnv.isNative) {
+        handleExit(via);
+      }
+    },
+    [handleExit],
+  );
+
   const handleDeviceNotFoundTroubleshoot = useCallback(() => {
     openUrlExternal(HARDWARE_TROUBLESHOOTING_URL);
-  }, []);
+    leaveStageForHelpPage('troubleshoot');
+  }, [leaveStageForHelpPage]);
 
   const handleDeviceNotFoundSupport = useCallback(() => {
     void showIntercom();
-  }, []);
+    leaveStageForHelpPage('support');
+  }, [leaveStageForHelpPage]);
 
   // Air-gap pair (doc §4.6): Next and the way back walk the two steps in
   // bg; the completed scan answers through ServiceQrWallet from inside
@@ -475,10 +499,15 @@ function DeviceStageContainerCmp() {
     },
     [],
   );
-  const handleAuthSupport = useCallback(
-    () => emitAuthAction('support'),
-    [emitAuthAction],
-  );
+  // On native Support opens underneath the stage like the
+  // Device-not-connected card's (see leaveStageForHelpPage), so the card
+  // leaves with it. The check's owner opens Support first — the event is
+  // delivered synchronously — and then reads the exit as any other
+  // dismissal: the run ends with no verdict.
+  const handleAuthSupport = useCallback(() => {
+    emitAuthAction('support');
+    leaveStageForHelpPage('support');
+  }, [emitAuthAction, leaveStageForHelpPage]);
   const handleAuthRetry = useCallback(
     () => emitAuthAction('retry'),
     [emitAuthAction],
@@ -514,6 +543,7 @@ function DeviceStageContainerCmp() {
       errorReason={stage?.errorReason}
       errorMessage={stage?.errorMessage}
       errorI18n={stage?.errorI18n}
+      doneI18n={stage?.doneI18n}
       authChecklist={stage?.authChecklist}
       authFailureReason={stage?.authFailureReason}
       authFailureMessage={stage?.authFailureMessage}
@@ -524,11 +554,10 @@ function DeviceStageContainerCmp() {
       allowAuthDevSkip={devSettings.enabled}
       inputError={stage?.inputError}
       passphraseMode={stage?.passphraseMode}
+      passphraseAsciiCreationFeedback={isPro2NeoPassphraseCreation}
       passphraseAllowUtf8={
-        // Same key the legacy dialog used: only the wallet-session
-        // coordinator's requests reach a protocol V2 device, and those
-        // take NFKD UTF-8 instead of printable ASCII.
-        stage?.payload?.source === 'wallet-session-coordinator'
+        stage?.payload?.source === 'wallet-session-coordinator' &&
+        !isPro2NeoPassphraseCreation
       }
       passphraseKeepAccessible={
         // The remembered Keep-accessible choice, read the way the legacy

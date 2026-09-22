@@ -1,3 +1,4 @@
+import type { RefObject } from 'react';
 import { useCallback, useContext, useEffect, useMemo, useRef } from 'react';
 
 import { NativeList } from '@onekeyfe/react-native-native-list';
@@ -32,10 +33,17 @@ import type {
   SelectionDeltaEvent,
   TrailingAccessory,
 } from '@onekeyfe/react-native-native-list';
+import type { View } from 'react-native';
 
 const LIST_STYLE_V2 = { flex: 1 };
 
-export default function NetworksSectionListV2() {
+type INetworksSectionListV2Props = {
+  webSectionIndexContainerRef: RefObject<View | null>;
+};
+
+export default function NetworksSectionListV2({
+  webSectionIndexContainerRef,
+}: INetworksSectionListV2Props) {
   const intl = useIntl();
   const {
     walletId,
@@ -287,7 +295,14 @@ export default function NetworksSectionListV2() {
         itemSpacing: 0,
       },
       rows,
-      capabilities: { sectionIndex: { enabled: !searchKey.trim() } },
+      capabilities: {
+        sectionIndex: {
+          enabled: !searchKey.trim(),
+          // Native centers the index in the window. On web targets this
+          // flag only routes the rail into the list-area container below.
+          centeredInWindow: true,
+        },
+      },
       selection: {
         mode: 'multiple',
         selectedKeys: rows
@@ -377,6 +392,7 @@ export default function NetworksSectionListV2() {
             testID="network-selector-portfolio-native-list-v2"
             style={LIST_STYLE_V2}
             snapshot={snapshot}
+            webSectionIndexContainerRef={webSectionIndexContainerRef}
             onRowAction={handleRowAction}
             onSelectionDelta={handleSelectionDelta}
             onActionAnchorInvalidated={onActionAnchorInvalidated}
@@ -387,6 +403,23 @@ export default function NetworksSectionListV2() {
             title={intl.formatMessage({ id: ETranslations.global_no_results })}
           />
         )}
+        {!platformEnv.isNative ? (
+          // Bounds the web index rail to the list area so it starts at the
+          // list top instead of floating beside the header and search bar.
+          // The single-network tab pads its search bar with `pb="$4"` while
+          // this list starts flush under it, so offset the rail by the same
+          // amount to keep it from jumping when switching tabs.
+          <Stack
+            ref={webSectionIndexContainerRef}
+            testID={ChainSelectorTestIDs.unifiedSectionIndexContainer}
+            position="absolute"
+            top="$4"
+            right={0}
+            bottom={0}
+            left={0}
+            pointerEvents="box-none"
+          />
+        ) : null}
         {tooltipElement}
       </Stack>
     </Stack>

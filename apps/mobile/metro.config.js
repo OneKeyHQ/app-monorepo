@@ -196,6 +196,12 @@ const aptosScriptComposerNativeStub = path.resolve(
   monorepoRoot,
   'node_modules/@aptos-labs/script-composer-pack/dist/react-native.js',
 );
+// The OneKey pager package publishes a `browser` entry, which Metro otherwise
+// prefers even for native bundles. Pin native resolution to its native entry.
+const nativePagerViewEntry = path.resolve(
+  monorepoRoot,
+  'node_modules/react-native-pager-view/lib/module/index.js',
+);
 
 // Ledger DMK packages only declare `exports` (no `main`). With
 // unstable_enablePackageExports=false above, Metro can't find the entry
@@ -219,6 +225,15 @@ const ledgerCjsByPackage = new Map(
 );
 
 config.resolver.resolveRequest = (context, moduleName, platform) => {
+  if (
+    (platform === 'ios' || platform === 'android') &&
+    moduleName === 'react-native-pager-view'
+  ) {
+    return {
+      type: 'sourceFile',
+      filePath: nativePagerViewEntry,
+    };
+  }
   if (
     (platform === 'ios' || platform === 'android') &&
     moduleName === '@aptos-labs/script-composer-pack'
@@ -432,17 +447,19 @@ const getMetroRuntimeTarget = (context) =>
 // Native storage ownership is enforced at bundle resolution as well as at
 // runtime. This redirects application and third-party AsyncStorage imports to
 // the compatible bg proxy without patching dependencies. Deep imports are
-// rejected because they could bypass the adapter. MMKV itself resolves to a
-// throwing guard in main bundles.
+// rejected because they could bypass the adapter.
+//
+// MMKV stays closed to third-party packages — that is what the policy check
+// below enforces, in either runtime. First-party code may use it from main:
+// the UI-layer caches (SWR records, the cold-start snapshot) are main-owned so
+// the first frame can read them instead of waiting for bg to answer. Stores
+// that are a source of truth stay bg-owned by convention, and Travel Mode is
+// applied where those caches are created rather than at resolution.
 {
   const previousResolveRequest = config.resolver.resolveRequest;
   const asyncStorageAdapter = path.resolve(
     monorepoRoot,
     'packages/shared/src/storage/instance/nativeAsyncStorageInstance.ts',
-  );
-  const mmkvMainGuard = path.resolve(
-    projectRoot,
-    'shims/reactNativeMMKVMainGuard.js',
   );
   config.resolver.resolveRequest = (context, moduleName, platform) => {
     const thirdPartyMMKVImportError = getThirdPartyMMKVImportError({
@@ -460,23 +477,6 @@ const getMetroRuntimeTarget = (context) =>
       // eslint-disable-next-line onekey/no-raw-error -- Metro config runs in Node before app error classes are available.
       throw new Error(
         `AsyncStorage deep import bypasses the native bg proxy: ${moduleName}`,
-      );
-    }
-    if (
-      moduleName === 'react-native-mmkv' &&
-      getMetroRuntimeTarget(context) !== 'background' &&
-      process.env.RN_HARNESS !== 'true'
-    ) {
-      return { type: 'sourceFile', filePath: mmkvMainGuard };
-    }
-    if (
-      moduleName.startsWith('react-native-mmkv/') &&
-      getMetroRuntimeTarget(context) !== 'background' &&
-      process.env.RN_HARNESS !== 'true'
-    ) {
-      // eslint-disable-next-line onekey/no-raw-error -- Metro config runs in Node before app error classes are available.
-      throw new Error(
-        `MMKV deep import bypasses the native main-runtime guard: ${moduleName}`,
       );
     }
     return previousResolveRequest(context, moduleName, platform);

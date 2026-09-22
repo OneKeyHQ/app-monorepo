@@ -1,7 +1,6 @@
 import { useContext, useEffect, useMemo, useRef } from 'react';
 
 import { CommonActions, useNavigationState } from '@react-navigation/native';
-import { noop } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import type { ITabNavigatorConfig } from '@onekeyhq/components';
@@ -25,22 +24,12 @@ import { ERootRoutes } from '@onekeyhq/shared/src/routes/root';
 
 import { Footer } from '../../components/Footer';
 import { useGlobalShortcuts } from '../../hooks/useGlobalShortcuts';
-import { useRouteIsFocused } from '../../hooks/useRouteIsFocused';
 import { BottomMenu } from '../../provider/Container/PortalBodyContainer/BottomMenu';
 import { WebPageTabBar } from '../../provider/Container/PortalBodyContainer/WebPageTabBar';
 import { TabFreezeOnBlurContext } from '../../provider/Container/TabFreezeOnBlurContainer';
 
 import { getTabPreloadPolicy } from './preloadPolicy';
 import { tabExtraConfig, useTabRouterConfig } from './router';
-
-// prevent pushModal from using unreleased Navigation instances during iOS modal animation by temporary exclusion,
-const useIsIOSTabNavigatorFocused =
-  platformEnv.isNativeIOS && !platformEnv.isNativeIOSPad
-    ? () => {
-        const isFocused = useRouteIsFocused();
-        return isFocused;
-      }
-    : () => true;
 
 // When using navigation.preload, the web layer will re-render the interface with sidebar,
 // which may cause duplicate Portal rendering. Use isRendered to prevent duplicate Portal rendering.
@@ -134,7 +123,6 @@ export function TabNavigator() {
   const routerConfigParams = useMemo(() => ({ freezeOnBlur }), [freezeOnBlur]);
   const config = useTabRouterConfig(routerConfigParams);
   const isShowWebTabBar = platformEnv.isDesktop;
-  const isFocused = useIsIOSTabNavigatorFocused();
   const { gtMd, md } = useMedia();
   const isTabletDetailView = useSplitSubView();
   const shouldHideExtTabBar = isExtPopupOrSidePanel && md;
@@ -225,16 +213,6 @@ export function TabNavigator() {
       ) : null}
       {platformEnv.isWebDappMode && gtMd ? <Footer /> : null}
       <InPageTabContainer />
-      {!isFocused ? (
-        <Stack
-          position="absolute"
-          top={0}
-          left={0}
-          right={0}
-          bottom={0}
-          onPress={noop}
-        />
-      ) : null}
     </>
   );
 }

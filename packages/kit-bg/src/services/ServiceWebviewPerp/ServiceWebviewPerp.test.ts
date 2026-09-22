@@ -9,6 +9,8 @@ import {
 
 import ServiceWebviewPerp from './ServiceWebviewPerp';
 
+let mockWebTarget: { coin?: string; revision: number } = { revision: 0 };
+
 let mockPerpsDepositTokensState: IPerpsDepositTokensAtom = { tokens: {} };
 
 jest.mock('../../states/jotai/atoms', () => {
@@ -17,6 +19,15 @@ jest.mock('../../states/jotai/atoms', () => {
   );
   return {
     ...actual,
+    webviewPerpTradeTargetAtom: {
+      set: jest.fn(
+        async (
+          update: (prev: typeof mockWebTarget) => typeof mockWebTarget,
+        ) => {
+          mockWebTarget = update(mockWebTarget);
+        },
+      ),
+    },
     perpsDepositTokensAtom: {
       get: jest.fn(async () => mockPerpsDepositTokensState),
       set: jest.fn(
@@ -354,5 +365,24 @@ describe('ServiceWebviewPerp', () => {
         isDefault: true,
       }),
     ]);
+  });
+});
+
+describe('web Perps navigation targets', () => {
+  it('records a new request for repeated coins without persisting native trading state', async () => {
+    mockWebTarget = { revision: 0 };
+    await ServiceWebviewPerp.prototype.setTradeTarget({ coin: ' BTC ' });
+    expect(mockWebTarget).toEqual({ coin: 'BTC', revision: 1 });
+    await ServiceWebviewPerp.prototype.setTradeTarget({ coin: 'BTC' });
+    expect(mockWebTarget).toEqual({ coin: 'BTC', revision: 2 });
+    await ServiceWebviewPerp.prototype.setTradeTarget({ coin: 'xyz:AAPL' });
+    expect(mockWebTarget).toEqual({ coin: 'xyz:AAPL', revision: 3 });
+  });
+  it('rejects an empty target without changing the previous request', async () => {
+    mockWebTarget = { coin: 'BTC', revision: 1 };
+    await expect(
+      ServiceWebviewPerp.prototype.setTradeTarget({ coin: ' ' }),
+    ).rejects.toThrow();
+    expect(mockWebTarget).toEqual({ coin: 'BTC', revision: 1 });
   });
 });

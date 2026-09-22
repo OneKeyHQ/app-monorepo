@@ -8,7 +8,6 @@ import {
 } from '@onekeyhq/kit/src/components/TradingView/TradingViewNative';
 import { getTradingViewNativeSourceKey } from '@onekeyhq/kit/src/components/TradingView/TradingViewNative/data/getTradingViewNativeSource';
 import { getTradingViewNativeIntervalStorageNamespace } from '@onekeyhq/kit/src/components/TradingView/TradingViewNative/data/tradingViewNativeIntervalStorage';
-import { fetchMarketAssetKLineData } from '@onekeyhq/kit/src/components/TradingView/utils/fetchMarketAssetKLineData';
 import type { IMarketKLineDataFallback } from '@onekeyhq/kit/src/components/TradingView/utils/fetchMarketKLineData';
 import { fetchMarketStockKLineData } from '@onekeyhq/kit/src/components/TradingView/utils/fetchMarketStockKLineData';
 import { useMarketPriceSourceAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
@@ -36,6 +35,12 @@ import {
   useTokenDetail,
 } from '../hooks/useTokenDetail';
 import { getMarketDetailTradingViewNativeSource } from '../utils/getMarketDetailTradingViewNativeSource';
+import { getMarketStockChartPreviousClose } from '../utils/marketStockPreviousClose';
+import {
+  hasMarketContractAddress,
+  isMarketTokenDecimalsReady,
+  isMatchingMarketTokenIdentity,
+} from '../utils/marketTokenIdentity';
 
 import { StockDesktopLayout } from './StockDesktopLayout';
 import { TokenDesktopLayout } from './TokenDesktopLayout';
@@ -127,6 +132,7 @@ function useIframeWheelPassthrough({
 }
 
 export interface IDesktopLayoutProps {
+  active?: boolean;
   isChartFullscreen: boolean;
   isTradingViewNative: boolean;
   onChartSwitch: () => void;
@@ -134,6 +140,7 @@ export interface IDesktopLayoutProps {
   isNative: boolean;
   networkId: string;
   tokenAddress: string;
+  isTokenDetailRequestPending?: boolean;
   marketTokenId?: string;
   marketAssetDetail?: IMarketAssetDetailData;
   isMarketAssetDetailLoading?: boolean;
@@ -143,6 +150,7 @@ export interface IDesktopLayoutProps {
 }
 
 export function DesktopLayout({
+  active,
   isChartFullscreen,
   isTradingViewNative,
   onChartSwitch,
@@ -150,6 +158,7 @@ export function DesktopLayout({
   isNative: routeIsNative,
   networkId: routeNetworkId,
   tokenAddress: routeTokenAddress,
+  isTokenDetailRequestPending,
   marketTokenId,
   marketAssetDetail,
   isMarketAssetDetailLoading,
@@ -165,22 +174,44 @@ export function DesktopLayout({
     isNative: storeIsNative,
     websocketConfig,
     perpsInfo,
+    isLoading: isTokenDetailLoading,
   } = useTokenDetail();
   const { tokenDetail: displayTokenDetail } = useMarketDetailDisplayData();
-  const { isStockRoute, selectedTokenVariant, stockId } = useStockDetail();
+  const {
+    isStockRoute,
+    isTokenVariantPending,
+    isTokenVariantsError,
+    selectedTokenVariant,
+    stockDetail,
+    stockId,
+  } = useStockDetail();
   const shouldUseStockDesktopLayout = isStockRoute && Boolean(stockId);
   const shouldUseTopCoinsDesktopLayout =
     !shouldUseStockDesktopLayout &&
     marketTokenCategory === MARKET_TOP_COINS_CATEGORY_ID;
-  const marketAssetId = shouldUseTopCoinsDesktopLayout
-    ? marketTokenId?.trim()
-    : undefined;
   const [{ source: stockPriceSource }] = useMarketPriceSourceAtom();
   const isStockSharePrice =
     shouldUseStockDesktopLayout && stockPriceSource === 'share';
+  // Stock detail charts offer Prev close in both price modes.
+  const stockPreviousClose = shouldUseStockDesktopLayout
+    ? getMarketStockChartPreviousClose({
+        priceSource: isStockSharePrice ? 'share' : 'token',
+        stockDetail,
+        selectedTokenVariant,
+        tokenDetail,
+        tokenDetailNetworkId: storeNetworkId,
+      })
+    : undefined;
   const stockNetworkId = selectedTokenVariant?.networkId || routeNetworkId;
   const stockTokenAddress =
     selectedTokenVariant?.contractAddress || routeTokenAddress;
+  const stockDisplayMatchesVariant =
+    !shouldUseStockDesktopLayout ||
+    (displayTokenDetail?.networkId === stockNetworkId &&
+      displayTokenDetail?.address &&
+      stockTokenAddress &&
+      displayTokenDetail.address.toLowerCase() ===
+        stockTokenAddress.toLowerCase());
   const tokenDetailNetworkId = storeNetworkId || routeNetworkId;
   const tokenDetailAddress = storeNetworkId
     ? storeTokenAddress
@@ -204,6 +235,10 @@ export function DesktopLayout({
   });
 
   const { accountAddress, xpub } = useNetworkAccount(networkId);
+  const accountMarksContext = useMemo(
+    () => ({ accountAddress, networkId, tokenAddress }),
+    [accountAddress, networkId, tokenAddress],
+  );
   const chartFullscreenZIndex = useOverlayZIndex(isChartFullscreen);
 
   const { portfolioData, isRefreshing } = usePortfolioData({
@@ -217,40 +252,110 @@ export function DesktopLayout({
   const isBTCMainnet = networkUtils.isBTCMainnet(networkId);
   const nativeHyperliquidCoin =
     isBTCMainnet && isNative ? (perpsInfo?.hlTicker ?? '') : '';
+  const stockSwapDecimals = stockDisplayMatchesVariant
+    ? (displayTokenDetail?.decimals ?? 0)
+    : 0;
 
+  const genericHasSwapContract = hasMarketContractAddress(
+    displayTokenDetail?.address,
+  );
+  const genericSwapContractAddress = genericHasSwapContract
+    ? displayTokenDetail?.address || ''
+    : '';
   const swapToken = useMemo(
     () => ({
       networkId: selectedTokenVariant?.networkId || networkId,
-      contractAddress:
-        displayTokenDetail?.address ||
-        selectedTokenVariant?.contractAddress ||
-        '',
-      symbol: displayTokenDetail?.symbol || selectedTokenVariant?.symbol || '',
-      decimals: displayTokenDetail?.decimals ?? 0,
-      logoURI: displayTokenDetail?.logoUrl || selectedTokenVariant?.logoUrl,
-      price: displayTokenDetail?.price || selectedTokenVariant?.price,
-      isNative,
+      contractAddress: shouldUseStockDesktopLayout
+        ? stockTokenAddress
+        : genericSwapContractAddress,
+      symbol: shouldUseStockDesktopLayout
+        ? selectedTokenVariant?.symbol ||
+          (stockDisplayMatchesVariant ? displayTokenDetail?.symbol : '') ||
+          ''
+        : displayTokenDetail?.symbol || selectedTokenVariant?.symbol || '',
+      decimals: shouldUseStockDesktopLayout
+        ? stockSwapDecimals
+        : (displayTokenDetail?.decimals ?? 0),
+      logoURI: shouldUseStockDesktopLayout
+        ? selectedTokenVariant?.logoUrl ||
+          (stockDisplayMatchesVariant ? displayTokenDetail?.logoUrl : undefined)
+        : displayTokenDetail?.logoUrl || selectedTokenVariant?.logoUrl,
+      price: shouldUseStockDesktopLayout
+        ? selectedTokenVariant?.price ||
+          (stockDisplayMatchesVariant ? displayTokenDetail?.price : undefined)
+        : displayTokenDetail?.price || selectedTokenVariant?.price,
+      isNative: shouldUseStockDesktopLayout
+        ? isNative
+        : Boolean(displayTokenDetail?.isNative) ||
+          isNative ||
+          !genericHasSwapContract,
+      isStock: shouldUseStockDesktopLayout,
     }),
     [
       networkId,
       selectedTokenVariant,
-      displayTokenDetail?.address,
+      stockTokenAddress,
+      genericHasSwapContract,
+      genericSwapContractAddress,
       displayTokenDetail?.symbol,
       displayTokenDetail?.decimals,
       displayTokenDetail?.logoUrl,
       displayTokenDetail?.price,
+      displayTokenDetail?.isNative,
       isNative,
+      shouldUseStockDesktopLayout,
+      stockDisplayMatchesVariant,
+      stockSwapDecimals,
     ],
   );
-  const swapInputDraftKey = `${routeNetworkId}:${
-    routeIsNative ? 'native' : routeTokenAddress
-  }:${marketTokenId ?? ''}`;
-  const isSwapTokenReady =
-    displayTokenDetail?.decimalsResolved !== false &&
-    typeof displayTokenDetail?.decimals === 'number' &&
-    Number.isInteger(displayTokenDetail.decimals) &&
-    displayTokenDetail.decimals >= 0;
-  const shouldDisableTrade = disableTrade || !isSwapTokenReady;
+  // Keep the embedded Swap mounted while switching token variants of the
+  // same stock. Swap's existing state machine can then refresh its quote and
+  // show the input skeleton in place. The stock id still scopes the draft so
+  // navigating to another listing starts a fresh trade.
+  const swapInputDraftKey = shouldUseStockDesktopLayout
+    ? `stock:${stockId ?? marketTokenId ?? ''}`
+    : `${routeNetworkId}:${routeIsNative ? 'native' : routeTokenAddress}:${
+        marketTokenId ?? ''
+      }:${selectedTokenVariant?.networkId || networkId}:${
+        selectedTokenVariant?.contractAddress ||
+        displayTokenDetail?.address ||
+        ''
+      }`;
+  const isSwapTokenIdentityReady = shouldUseStockDesktopLayout
+    ? stockDisplayMatchesVariant
+    : Boolean(
+        displayTokenDetail &&
+        isMatchingMarketTokenIdentity(displayTokenDetail, {
+          tokenAddress,
+          networkId,
+          isNative,
+        }),
+      );
+  // Generic tokens show the trade panel once identity matches. Stock still
+  // uses decimal readiness so the embedded Swap can show its own skeleton.
+  const isSwapTokenReady = shouldUseStockDesktopLayout
+    ? Boolean(isSwapTokenIdentityReady) &&
+      isMarketTokenDecimalsReady(displayTokenDetail)
+    : Boolean(isSwapTokenIdentityReady);
+  const isTerminalStockTradeUnavailable =
+    shouldUseStockDesktopLayout &&
+    !selectedTokenVariant &&
+    (isTokenVariantsError || !isTokenVariantPending);
+  const isTradeReadinessPending =
+    !isTerminalStockTradeUnavailable &&
+    (isTokenVariantPending ||
+      (Boolean(selectedTokenVariant) &&
+        (isTokenDetailRequestPending || isTokenDetailLoading)));
+  const isTradeLoading =
+    shouldUseStockDesktopLayout && !isSwapTokenReady && isTradeReadinessPending;
+  // Stock's embedded Swap owns transient token/config loading and renders its
+  // own skeletons. Only terminal route/ownership state should remove the
+  // trade panel; generic token layouts still wait for a resolved token before
+  // mounting Swap.
+  const shouldDisableTrade =
+    disableTrade ||
+    (!shouldUseStockDesktopLayout && !isSwapTokenReady) ||
+    isTerminalStockTradeUnavailable;
 
   const scrollContainerRef = useRef<HTMLElement>(null);
   useEffect(() => {
@@ -287,9 +392,6 @@ export function DesktopLayout({
     if (isStockSharePrice && stockId) {
       return { kind: 'stock', stockId };
     }
-    if (marketAssetId) {
-      return { kind: 'asset', assetId: marketAssetId };
-    }
     return getMarketDetailTradingViewNativeSource({
       hyperliquidCoin: nativeHyperliquidCoin,
       isNative,
@@ -300,7 +402,6 @@ export function DesktopLayout({
     });
   }, [
     isStockSharePrice,
-    marketAssetId,
     marketTradingViewParams?.dataSource,
     nativeHyperliquidCoin,
     isNative,
@@ -322,19 +423,6 @@ export function DesktopLayout({
             })
         : undefined,
     [stockId],
-  );
-  const assetKLineDataFallback = useMemo<IMarketKLineDataFallback | undefined>(
-    () =>
-      marketAssetId
-        ? ({ interval, timeFrom, timeTo }) =>
-            fetchMarketAssetKLineData({
-              assetId: marketAssetId,
-              interval,
-              timeFrom,
-              timeTo,
-            })
-        : undefined,
-    [marketAssetId],
   );
   // Redesigned desktop detail pages lay their Simple/Pro switch over the
   // trailing edge of the Pro widget's control row. Drop the row's own trailing
@@ -361,21 +449,34 @@ export function DesktopLayout({
   let marketTradingViewKey = 'token';
   if (isStockSharePrice) {
     marketTradingViewKey = `stock-share:${stockId ?? ''}`;
-  } else if (marketAssetId) {
-    marketTradingViewKey = `asset:${marketAssetId}`;
   }
   const proKLineDataFallback = isStockSharePrice
     ? stockKLineDataFallback
-    : assetKLineDataFallback;
+    : undefined;
   const marketTradingView = useMemo(() => {
     if (isTradingViewNative) {
-      return networkId ||
-        tradingViewNativeSource.kind === 'asset' ||
-        tradingViewNativeSource.kind === 'stock' ? (
+      // Market sources without an address include the symbol in their identity. Wait
+      // for metadata instead of mounting an empty-symbol chart and replacing it.
+      if (
+        tradingViewNativeSource.kind === 'market' &&
+        (!tradingViewNativeSource.networkId ||
+          (!tradingViewNativeSource.tokenAddress.trim() &&
+            !tradingViewNativeSource.symbol.trim()))
+      ) {
+        return (
+          <ModuleLoadingFallback minHeight={MARKET_DETAIL_LAYOUT.chartHeight} />
+        );
+      }
+      return networkId || tradingViewNativeSource.kind === 'stock' ? (
         <TradingViewNative
           key={getTradingViewNativeSourceKey(tradingViewNativeSource)}
           testID={MarketTestIDs.detailChart}
           source={tradingViewNativeSource}
+          accountMarksContext={
+            isStockSharePrice ? undefined : accountMarksContext
+          }
+          enablePreviousClose={shouldUseStockDesktopLayout}
+          previousClose={stockPreviousClose}
           onPriceUpdate={handleNativeChartPriceUpdate}
           forcedChartType={
             shouldUseStockDesktopLayout ? 'candlestick' : undefined
@@ -420,6 +521,11 @@ export function DesktopLayout({
             ? stockId
             : effectiveMarketTradingViewParams?.tokenSymbol
         }
+        loadingIdentity={
+          isStockSharePrice
+            ? `stock-share:${stockId}`
+            : `${effectiveMarketTradingViewParams?.networkId ?? ''}:${effectiveMarketTradingViewParams?.tokenAddress ?? ''}:${effectiveMarketTradingViewParams?.isNative ? 'native' : 'token'}`
+        }
         isNative={
           isStockSharePrice ? false : effectiveMarketTradingViewParams?.isNative
         }
@@ -441,15 +547,14 @@ export function DesktopLayout({
         showNativeIndicatorQuickBar={false}
         forceCandlestickChart={shouldUseStockDesktopLayout}
         kLineDataFallback={proKLineDataFallback}
-        primaryKLineDataUnavailable={
-          isStockSharePrice || Boolean(marketAssetId)
-        }
+        primaryKLineDataUnavailable={isStockSharePrice}
         disableChartPriceUpdate={isStockSharePrice}
         onChartSwitch={stockAwareChartSwitch}
         onNativeChartFullscreenChange={stockAwareFullscreenChange}
       />
     );
   }, [
+    accountMarksContext,
     handleNativeChartPriceUpdate,
     handleTradingViewTouchScroll,
     hideChartTrailingControls,
@@ -457,7 +562,6 @@ export function DesktopLayout({
     isTradingViewNative,
     isStockSharePrice,
     marketTradingViewKey,
-    marketAssetId,
     shouldUseStockDesktopLayout,
     effectiveMarketTradingViewParams,
     marketTradingViewParams?.decimal,
@@ -465,6 +569,7 @@ export function DesktopLayout({
     stockAwareChartSwitch,
     stockAwareFullscreenChange,
     stockId,
+    stockPreviousClose,
     proKLineDataFallback,
     tradingViewNativeSource,
   ]);
@@ -477,13 +582,16 @@ export function DesktopLayout({
         style={SCROLL_CONTAINER_STYLE}
       >
         <StockDesktopLayout
+          active={active}
           marketTradingView={marketTradingView}
           swapToken={swapToken}
+          swapInputDraftKey={swapInputDraftKey}
           chartMode={isTradingViewNative ? 'native' : 'tradingView'}
-          isChartSwitchDisabled={
-            !effectiveMarketTradingViewParams && !isStockSharePrice
-          }
-          disableTrade={disableTrade}
+          isChartSwitchDisabled={Boolean(
+            !effectiveMarketTradingViewParams && !isStockSharePrice,
+          )}
+          disableTrade={shouldDisableTrade}
+          isTradeLoading={isTradeLoading}
           showFavoriteButton={showFavoriteButton}
           isChartFullscreen={isChartFullscreen}
           chartFullscreenZIndex={chartFullscreenZIndex}
@@ -502,6 +610,7 @@ export function DesktopLayout({
         style={SCROLL_CONTAINER_STYLE}
       >
         <TopCoinsDesktopLayout
+          active={active}
           marketTradingView={marketTradingView}
           swapToken={swapToken}
           swapInputDraftKey={swapInputDraftKey}
@@ -532,6 +641,7 @@ export function DesktopLayout({
       style={SCROLL_CONTAINER_STYLE}
     >
       <TokenDesktopLayout
+        active={active}
         marketTradingView={marketTradingView}
         swapToken={swapToken}
         swapInputDraftKey={swapInputDraftKey}

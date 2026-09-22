@@ -20,6 +20,7 @@ import {
   SubtitleText,
 } from '@onekeyhq/kit/src/views/Market/components/PerpsBadges';
 import {
+  MARKET_LIST_METRIC_COLUMN_PROPS,
   MARKET_LIST_NAME_COLUMN_WIDTH,
   MARKET_LIST_STAR_COLUMN_WIDTH,
   MARKET_LIST_STAR_SLOT_WIDTH,
@@ -30,20 +31,12 @@ import {
   MarketCellPrimary,
   MarketIdentityCell,
 } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketListCell';
+import { MARKET_FIXED_24H_RANGE } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/utils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { usePerpsColumnsMobile } from './usePerpsColumnsMobile';
 
 import type { IMarketPerpsToken } from './useMarketPerpsTokenList';
-
-// The metric columns share the row's remaining width evenly, on the same 8px
-// padding the other list pages use.
-const METRIC_COLUMN_PROPS = {
-  flexGrow: 1,
-  flexShrink: 1,
-  flexBasis: 0,
-  px: '$2',
-} as const;
 
 export function usePerpsColumnsDesktop(): ITableColumn<IMarketPerpsToken>[] {
   const intl = useIntl();
@@ -140,7 +133,7 @@ export function usePerpsColumnsDesktop(): ITableColumn<IMarketPerpsToken>[] {
         {
           title: intl.formatMessage({ id: ETranslations.global_price }),
           dataIndex: 'price',
-          columnProps: METRIC_COLUMN_PROPS,
+          columnProps: MARKET_LIST_METRIC_COLUMN_PROPS,
           render: (_: unknown, record: IMarketPerpsToken) => (
             <NumberSizeableText
               size={MARKET_CELL_PRIMARY_SIZE}
@@ -155,11 +148,12 @@ export function usePerpsColumnsDesktop(): ITableColumn<IMarketPerpsToken>[] {
 
         // Column 4: 24h Change (absolute / percent)
         {
-          title: intl.formatMessage({
-            id: ETranslations.perp_token_selector_24h_change,
-          }),
+          title: intl.formatMessage(
+            { id: ETranslations.market_change_in_range },
+            { range: MARKET_FIXED_24H_RANGE },
+          ),
           dataIndex: 'change24h',
-          columnProps: METRIC_COLUMN_PROPS,
+          columnProps: MARKET_LIST_METRIC_COLUMN_PROPS,
           render: (_: unknown, record: IMarketPerpsToken) => {
             if (
               record.change24hPercent === undefined ||
@@ -198,7 +192,7 @@ export function usePerpsColumnsDesktop(): ITableColumn<IMarketPerpsToken>[] {
                 <NumberSizeableText
                   size={MARKET_CELL_PRIMARY_SIZE}
                   color={color}
-                  formatter="priceChange"
+                  formatter="priceChangeCapped"
                   formatterOptions={{ showPlusMinusSigns: true }}
                 >
                   {record.change24hPercent}
@@ -215,7 +209,7 @@ export function usePerpsColumnsDesktop(): ITableColumn<IMarketPerpsToken>[] {
             id: ETranslations.perp_position_funding,
           }),
           dataIndex: 'fundingRate',
-          columnProps: METRIC_COLUMN_PROPS,
+          columnProps: MARKET_LIST_METRIC_COLUMN_PROPS,
           render: (_: unknown, record: IMarketPerpsToken) => {
             if (record.fundingRate === undefined) {
               return (
@@ -242,11 +236,12 @@ export function usePerpsColumnsDesktop(): ITableColumn<IMarketPerpsToken>[] {
 
         // Column 6: 24h Volume
         {
-          title: intl.formatMessage({
-            id: ETranslations.dexmarket_stock_24h_volume,
-          }),
+          title: intl.formatMessage(
+            { id: ETranslations.market_volume_in_range },
+            { range: MARKET_FIXED_24H_RANGE },
+          ),
           dataIndex: 'volume24h',
-          columnProps: METRIC_COLUMN_PROPS,
+          columnProps: MARKET_LIST_METRIC_COLUMN_PROPS,
           render: (_: unknown, record: IMarketPerpsToken) => (
             <NumberSizeableText
               size={MARKET_CELL_PRIMARY_SIZE}
@@ -265,7 +260,7 @@ export function usePerpsColumnsDesktop(): ITableColumn<IMarketPerpsToken>[] {
             id: ETranslations.perp_token_bar_open_Interest,
           }),
           dataIndex: 'openInterest',
-          columnProps: METRIC_COLUMN_PROPS,
+          columnProps: MARKET_LIST_METRIC_COLUMN_PROPS,
           render: (_: unknown, record: IMarketPerpsToken) => (
             <NumberSizeableText
               size={MARKET_CELL_PRIMARY_SIZE}

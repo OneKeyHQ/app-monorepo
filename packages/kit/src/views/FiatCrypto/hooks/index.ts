@@ -35,6 +35,11 @@ export const useSupportNetworkId = (
     {
       initResult: false,
       debounced: 100,
+      // Last known answer paints on the first frame; the live check still
+      // runs and corrects it (OK-61505).
+      swrKey: networkId
+        ? swrKeys.fiatCryptoNetworkSupport({ networkId, type })
+        : undefined,
     },
   );
 

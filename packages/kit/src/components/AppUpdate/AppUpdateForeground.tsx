@@ -46,6 +46,7 @@ import { useDownloadPackage } from './useDownloadPackage';
 // component-local `cancelled` flag which only protects against in-flight
 // awaits after unmount.
 let didRunFirstLaunchDispatch = false;
+const LOG_ARCHIVE_CLEANUP_CUTOFF_MS = Date.now();
 // Auto-ready install handling should fire at most once per app session even if
 // the persist atom hydrates after the first-launch dispatch useEffect has
 // already consumed didRunFirstLaunchDispatch. Tracked separately so the
@@ -402,7 +403,6 @@ export function useAppUpdateForegroundEffects(enabled = true) {
           status: 'success',
         });
         const whatsNewAlreadyShown = isWhatsNewShown();
-        await markWhatsNewShown(Boolean(info.jsBundleVersion));
         // Auto-update strategies (silent + seamless) complete invisibly, so
         // they must NOT pop the changelog / "what's new" page after the update
         // applies — only user-facing (manual / force) updates do. Previously
@@ -413,7 +413,14 @@ export function useAppUpdateForegroundEffects(enabled = true) {
           !isAutoUpdateStrategy(info.updateStrategy) &&
           !whatsNewAlreadyShown
         ) {
+          if (fileType === EUpdateFileType.appShell) {
+            await backgroundApiProxy.serviceAppUpdate.refreshCurrentFeaturedChangelog();
+          }
+          if (cancelled) return;
+          await markWhatsNewShown(Boolean(info.jsBundleVersion));
           onViewReleaseInfo();
+        } else {
+          await markWhatsNewShown(Boolean(info.jsBundleVersion));
         }
         setTimeout(async () => {
           await backgroundApiProxy.serviceAppUpdate.refreshUpdateStatus();
@@ -514,7 +521,7 @@ export function useAppUpdateForegroundEffects(enabled = true) {
       onRun: () => {
         if (cancelled) return;
         void backgroundApiProxy.serviceAppUpdate
-          .pruneStaleArtifacts()
+          .pruneStaleArtifacts(LOG_ARCHIVE_CLEANUP_CUTOFF_MS)
           .catch(() => {
             // pruneStaleArtifacts already swallows internally; this is a
             // belt-and-braces guard so a rejected proxy call can never

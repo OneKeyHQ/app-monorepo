@@ -35,6 +35,7 @@ import {
   ETabMarketRoutes,
   ETabRoutes,
 } from '@onekeyhq/shared/src/routes';
+import { getMarketWatchlistKey } from '@onekeyhq/shared/src/utils/marketWatchlistIdentity';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { getTokenSubtitle } from '@onekeyhq/shared/src/utils/perpsUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
@@ -51,6 +52,11 @@ import { CategorySelector } from '../../../Market/MarketHomeV2/components/Catego
 import { getNativeTokenInfo } from '../../../Market/MarketHomeV2/components/MarketTokenList/utils/tokenListHelpers';
 import { useMarketTopCoinResolver } from '../../../Market/MarketHomeV2/components/MarketTopCoinsList/hooks/useMarketTopCoins';
 import { EMarketHomeTab } from '../../../Market/MarketHomeV2/types';
+import {
+  copyRecommendListingIds,
+  mapRecommendTokensToWatchlistItems,
+} from '../../../Market/utils/mapRecommendTokensToWatchlistItems';
+import { openOrReplaceMarketDetailRoute } from '../../../Market/utils/marketDetailNavigation';
 import { RichBlock } from '../RichBlock/RichBlock';
 import { RichTable } from '../RichTable';
 
@@ -63,6 +69,8 @@ import {
 } from './constants';
 import { MarketCategoryTokenList } from './MarketCategoryTokenList';
 import {
+  HOME_MARKET_TABLE_HEADER_MIN_HEIGHT,
+  HOME_MARKET_TABLE_ROW_MIN_HEIGHT,
   getPopularTradingColumns,
   renderPopularTradingCommunityBadge,
   renderPopularTradingStockBadges,
@@ -84,19 +92,21 @@ import type { IMarketCategoryItem } from '../../../Market/MarketHomeV2/types';
 function RecommendCardItem({
   token,
   checked,
+  disabled = false,
   onChange,
 }: {
   token: IFavoriteTokenDisplay;
   checked: boolean;
+  disabled?: boolean;
   onChange: (checked: boolean, tokenKey: string) => void;
 }) {
   const { sharedFrameStyles } = useMemo(
     () =>
       getSharedButtonStyles({
-        disabled: false,
+        disabled,
         loading: false,
       }),
-    [],
+    [disabled],
   );
 
   return (
@@ -112,7 +122,12 @@ function RecommendCardItem({
       borderRadius="$3"
       borderWidth={1}
       borderColor="$neutral3"
-      onPress={() => onChange(!checked, getTokenKey(token))}
+      onPress={() => {
+        if (disabled) {
+          return;
+        }
+        onChange(!checked, getTokenKey(token));
+      }}
       ai="center"
       $sm={{
         px: '$2.5',
@@ -216,8 +231,10 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
     FAVORITES_CATEGORY_ID,
   );
 
+  const [isAdding, setIsAdding] = useState(false);
   const initializedRef = useRef(false);
   const hasShownCategorySelectorRef = useRef(false);
+  const isAddingRef = useRef(false);
   const refreshDataRef = useRef<() => Promise<void>>(async () => {});
   const handleRemoveFromWatchlistRef = useRef<
     (record: IFavoriteTokenDisplay) => void
@@ -269,7 +286,7 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
     const topCoinsFallbackName =
       marketCategories.find(
         (category) => category.id === MARKET_TOP_COINS_CATEGORY_ID,
-      )?.name ?? 'Top Coins';
+      )?.name ?? intl.formatMessage({ id: ETranslations.market_top_coins });
 
     return buildHomeMarketCategories({
       apiHomeTabs,
@@ -278,7 +295,13 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
       homePerpsHotCategory,
       topCoinsFallbackName,
     });
-  }, [apiHomeTabs, favoritesCategory, homePerpsHotCategory, marketCategories]);
+  }, [
+    apiHomeTabs,
+    favoritesCategory,
+    homePerpsHotCategory,
+    intl,
+    marketCategories,
+  ]);
 
   const resolvedSelectedCategoryId = useMemo(() => {
     if (homeCategories.some((category) => category.id === selectedCategoryId)) {
@@ -296,12 +319,16 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
   const { categoryTokens, isCategoryLoading } = useHomeMarketCategoryTokens({
     minLiquidity,
     selectedMarketCategoryId,
+    marketCategories: homeCategories,
   });
 
   const isTokenInWatchList = useCallback(
     (record: IFavoriteTokenDisplay) => {
-      if (record.marketAsset) {
-        return false;
+      if (record.assetId || record.stockId) {
+        return watchListItems.some(
+          (item) =>
+            getMarketWatchlistKey(item) === getMarketWatchlistKey(record),
+        );
       }
 
       if (record.perpsCoin) {
@@ -328,10 +355,6 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
 
   const handleMarketCategoryStarPress = useCallback(
     async (record: IFavoriteTokenDisplay) => {
-      if (record.marketAsset) {
-        return;
-      }
-
       const checked = isTokenInWatchList(record);
 
       try {
@@ -383,6 +406,8 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
           await backgroundApiProxy.serviceMarketV2.removeMarketWatchListV2({
             items: [
               {
+                assetId: record.assetId,
+                stockId: record.stockId,
                 chainId: record.chainId,
                 contractAddress: record.contractAddress,
               },
@@ -400,6 +425,8 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
           await backgroundApiProxy.serviceMarketV2.addMarketWatchListV2({
             watchList: [
               {
+                assetId: record.assetId,
+                stockId: record.stockId,
                 chainId: record.chainId,
                 contractAddress: record.contractAddress,
                 isNative: record.isNative,
@@ -489,13 +516,14 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
 
         // Split into spot and perps items
         const spotTargets = targetItems.filter(
-          (item) => !item.perpsCoin && item.chainId,
+          (item) =>
+            !item.perpsCoin && !item.assetId && !item.stockId && item.chainId,
         );
         const perpsTargets = targetItems.filter((item) => !!item.perpsCoin);
 
         // Fetch spot and perps data in parallel, isolated so one failure doesn't block the other.
         // Perps localized subtitles (e.g. "美光科技") live in a separate aliases map.
-        const [spotResult, perpsResult, perpsAliasesResult] =
+        const [spotResult, perpsResult, perpsAliasesResult, listingResult] =
           await Promise.allSettled([
             spotTargets.length > 0
               ? backgroundApiProxy.serviceMarketV2.fetchMarketTokenListBatch({
@@ -514,6 +542,26 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
             perpsTargets.length > 0
               ? backgroundApiProxy.serviceHyperliquid.getTokenSearchAliases()
               : null,
+            Promise.all(
+              targetItems
+                .filter((item) => item.assetId || item.stockId)
+                .map(async (item) => {
+                  try {
+                    return {
+                      key: getMarketWatchlistKey(item),
+                      quote:
+                        await backgroundApiProxy.serviceMarketV2.fetchMarketListingWatchlistQuote(
+                          item,
+                        ),
+                    };
+                  } catch {
+                    return {
+                      key: getMarketWatchlistKey(item),
+                      quote: undefined,
+                    };
+                  }
+                }),
+            ),
           ]);
         const spotResponse =
           spotResult.status === 'fulfilled'
@@ -552,6 +600,33 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
         // Merge in original watchlist order
         const displayTokens = targetItems
           .map((targetItem): IFavoriteTokenDisplay | null => {
+            if (targetItem.assetId || targetItem.stockId) {
+              const quote =
+                listingResult.status === 'fulfilled'
+                  ? listingResult.value.find(
+                      (item) => item.key === getMarketWatchlistKey(targetItem),
+                    )?.quote
+                  : undefined;
+              return {
+                assetId: targetItem.assetId,
+                stockId: targetItem.stockId,
+                chainId: '',
+                contractAddress: '',
+                isNative: false,
+                symbol:
+                  quote?.symbol ??
+                  targetItem.assetId ??
+                  targetItem.stockId ??
+                  '',
+                name:
+                  quote?.name ?? targetItem.assetId ?? targetItem.stockId ?? '',
+                logoUrl: quote?.logoUrl ?? '',
+                price: Number(quote?.price ?? NaN),
+                priceChange24h: Number(quote?.priceChange24hPercent ?? NaN),
+                marketCap: Number(quote?.marketCap ?? NaN),
+                volume24h: Number(quote?.volume24h ?? NaN),
+              };
+            }
             if (targetItem.perpsCoin) {
               // Perps item
               const perpsToken = perpsTokenMap.get(targetItem.perpsCoin);
@@ -615,6 +690,7 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
           chainId: token.chainId,
           contractAddress: token.contractAddress,
           isNative: token.isNative ?? false,
+          ...copyRecommendListingIds(token),
         }));
 
         const response =
@@ -661,6 +737,11 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
               volume24h: getMarketTokenDisplayVolume24h(item),
               communityRecognized: item.communityRecognized,
               stock: item.stock,
+              ...copyRecommendListingIds({
+                assetId: targetItem.assetId,
+                stockId: targetItem.stockId,
+                stock: item.stock,
+              }),
             };
           })
           .filter((item): item is IFavoriteTokenDisplay => item !== null);
@@ -711,6 +792,9 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
 
   const handleRecommendItemChange = useCallback(
     (checked: boolean, tokenKey: string) => {
+      if (isAddingRef.current) {
+        return;
+      }
       const token = favoriteTokens.find((t) => getTokenKey(t) === tokenKey);
       if (!token) return;
 
@@ -725,13 +809,17 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
 
   // Handle add tokens button press
   const handleAddTokens = useCallback(async () => {
-    if (selectedTokens.length === 0) return;
+    if (selectedTokens.length === 0 || isAddingRef.current) {
+      return;
+    }
+    isAddingRef.current = true;
+    setIsAdding(true);
 
     try {
-      const nextWatchListItems = selectedTokens.map((token, index) => ({
-        chainId: token.chainId,
-        contractAddress: token.contractAddress,
-        isNative: token.isNative,
+      const mappedItems =
+        await mapRecommendTokensToWatchlistItems(selectedTokens);
+      const nextWatchListItems = mappedItems.map((item, index) => ({
+        ...item,
         sortIndex: 1000 - (index + 1),
       }));
 
@@ -767,6 +855,9 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
           id: ETranslations.global_an_error_occurred,
         }),
       });
+    } finally {
+      isAddingRef.current = false;
+      setIsAdding(false);
     }
   }, [selectedTokens, intl, refreshData]);
 
@@ -783,6 +874,8 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
                   perpsCoin: record.perpsCoin,
                 }
               : {
+                  assetId: record.assetId,
+                  stockId: record.stockId,
                   chainId: record.chainId,
                   contractAddress: record.contractAddress,
                 },
@@ -813,40 +906,80 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
   );
   handleRemoveFromWatchlistRef.current = handleRemoveFromWatchlist;
 
+  const navigationRequestIdRef = useRef(0);
   const navigateToMarketTokenDetail = useCallback(
-    (record: IFavoriteTokenDisplay) => {
-      const shortCode = networkUtils.getNetworkShortCode({
-        networkId: record.chainId,
-      });
+    (record: IFavoriteTokenDisplay, requestId: number) => {
+      if (requestId !== navigationRequestIdRef.current) return;
+      const shortCode = record.chainId
+        ? networkUtils.getNetworkShortCode({ networkId: record.chainId })
+        : '';
+      const marketTokenCategory = record.assetId
+        ? MARKET_TOP_COINS_CATEGORY_ID
+        : selectedMarketCategoryId;
 
       if (
         platformEnv.isExtensionUiPopup ||
         platformEnv.isExtensionUiSidePanel
       ) {
-        void backgroundApiProxy.serviceApp.openExtensionMarketTokenDetail({
+        if (record.stockId) {
+          void backgroundApiProxy.serviceApp.openExtensionMarketStockDetail({
+            stockId: record.stockId,
+            stockPreviewLogoUrl: record.logoUrl,
+            stockPreviewName: record.name,
+            stockPreviewSymbol: record.symbol,
+          });
+          return;
+        }
+        void backgroundApiProxy.serviceApp
+          .openExtensionMarketTokenDetail({
+            tokenAddress: record.contractAddress,
+            network: shortCode || record.chainId,
+            isNative: record.isNative,
+            marketTokenId: record.marketTokenId,
+            marketVariantId: record.marketVariantId,
+            marketTokenCategory,
+          })
+          .catch(() => {
+            if (requestId !== navigationRequestIdRef.current) return;
+            Toast.error({
+              title: intl.formatMessage({
+                id: ETranslations.global_an_error_occurred,
+              }),
+            });
+          });
+        return;
+      }
+
+      const navigateToTokenDetail = () => {
+        if (requestId !== navigationRequestIdRef.current) return;
+        const routeName = record.stockId
+          ? ETabMarketRoutes.MarketStockDetail
+          : ETabMarketRoutes.MarketDetailV2;
+        const params = {
+          stockId: record.stockId,
+          stockPreviewLogoUrl: record.stockId ? record.logoUrl : undefined,
+          stockPreviewName: record.stockId ? record.name : undefined,
+          stockPreviewSymbol: record.stockId ? record.symbol : undefined,
           tokenAddress: record.contractAddress,
           network: shortCode || record.chainId,
           isNative: record.isNative,
           marketTokenId: record.marketTokenId,
           marketVariantId: record.marketVariantId,
-          marketTokenCategory: selectedMarketCategoryId,
-        });
-        return;
-      }
-
-      const navigateToTokenDetail = () => {
+          marketTokenCategory,
+        };
+        if (
+          openOrReplaceMarketDetailRoute({
+            routeName,
+            params,
+          })
+        ) {
+          return;
+        }
         rootNavigationRef.current?.navigate(ERootRoutes.Main, {
           screen: marketTab,
           params: {
-            screen: ETabMarketRoutes.MarketDetailV2,
-            params: {
-              tokenAddress: record.contractAddress,
-              network: shortCode || record.chainId,
-              isNative: record.isNative,
-              marketTokenId: record.marketTokenId,
-              marketVariantId: record.marketVariantId,
-              marketTokenCategory: selectedMarketCategoryId,
-            },
+            screen: routeName,
+            params,
           },
         });
       };
@@ -866,6 +999,7 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
       setTimeout(navigateToTokenDetail, 300);
     },
     [
+      intl,
       marketTab,
       navigateToMarketTab,
       navigation,
@@ -877,25 +1011,60 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
   // Navigate to Market Detail page or Perps trading page
   const handleTokenPress = useCallback(
     (record: IFavoriteTokenDisplay) => {
+      navigationRequestIdRef.current += 1;
+      const requestId = navigationRequestIdRef.current;
+      if (record.assetId) {
+        void backgroundApiProxy.serviceMarket
+          .fetchMarketAssetDetail({
+            assetId: record.assetId,
+            currency: 'usd',
+            autoHandleError: false,
+          })
+          .then(({ selectedVariant }) => {
+            navigateToMarketTokenDetail(
+              {
+                ...record,
+                chainId: selectedVariant.networkId,
+                contractAddress: selectedVariant.tokenAddress,
+                isNative: selectedVariant.isNative,
+                marketTokenId: record.assetId,
+                marketVariantId: selectedVariant.variantId,
+              },
+              requestId,
+            );
+          })
+          .catch(() => {
+            if (requestId !== navigationRequestIdRef.current) return;
+            Toast.error({
+              title: intl.formatMessage({
+                id: ETranslations.global_an_error_occurred,
+              }),
+            });
+          });
+        return;
+      }
       if (record.marketAsset) {
         void resolveMarketTopCoin(record.marketAsset).then((token) => {
           if (!token) {
             return;
           }
-          navigateToMarketTokenDetail({
-            chainId: token.networkId,
-            contractAddress: token.tokenAddress,
-            isNative: Boolean(token.isNative),
-            symbol: token.symbol,
-            name: token.name ?? token.symbol,
-            logoUrl: token.tokenImageUri ?? '',
-            price: token.price ?? 0,
-            priceChange24h: token.change24h ?? 0,
-            marketCap: token.marketCap ?? 0,
-            volume24h: token.turnover ?? 0,
-            marketTokenId: token.marketTokenId,
-            marketVariantId: token.marketVariantId,
-          });
+          navigateToMarketTokenDetail(
+            {
+              chainId: token.networkId,
+              contractAddress: token.tokenAddress,
+              isNative: Boolean(token.isNative),
+              symbol: token.symbol,
+              name: token.name ?? token.symbol,
+              logoUrl: token.tokenImageUri ?? '',
+              price: token.price ?? 0,
+              priceChange24h: token.change24h ?? 0,
+              marketCap: token.marketCap ?? 0,
+              volume24h: token.turnover ?? 0,
+              marketTokenId: token.marketTokenId,
+              marketVariantId: token.marketVariantId,
+            },
+            requestId,
+          );
         });
         return;
       }
@@ -907,9 +1076,9 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
         return;
       }
 
-      navigateToMarketTokenDetail(record);
+      navigateToMarketTokenDetail(record, requestId);
     },
-    [navigateToMarketTokenDetail, navigateToPerps, resolveMarketTopCoin],
+    [intl, navigateToMarketTokenDetail, navigateToPerps, resolveMarketTopCoin],
   );
 
   const renderEmptyStateCards = useCallback(() => {
@@ -918,9 +1087,10 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
 
     const renderCardItem = (token: IFavoriteTokenDisplay) => (
       <RecommendCardItem
-        key={`${token.chainId}-${token.contractAddress}`}
+        key={getTokenKey(token)}
         token={token}
         checked={isTokenSelected(token)}
+        disabled={isAdding}
         onChange={handleRecommendItemChange}
       />
     );
@@ -949,10 +1119,12 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
     selectedTokens,
     handleRecommendItemChange,
     shouldUseTableLayout,
+    isAdding,
   ]);
 
   // Navigate to Market favorites tab
   const handleViewMore = useCallback(() => {
+    defaultLogger.market.navigation.homeViewMore({ selectedMarketCategoryId });
     if (selectedMarketCategoryId === HOME_PERPS_HOT_CATEGORY_ID) {
       navigateToMarketTab({
         tabToSelect: EMarketHomeTab.Perps,
@@ -981,18 +1153,24 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
           dataSource={favoriteTokens}
           columns={columns}
           keyExtractor={(item) =>
-            item.perpsCoin
-              ? `perps-${item.perpsCoin}`
-              : `${item.chainId}-${item.contractAddress}`
+            item.perpsCoin ? `perps-${item.perpsCoin}` : getTokenKey(item)
           }
-          estimatedItemSize={56}
+          estimatedItemSize={
+            shouldUseTableLayout ? HOME_MARKET_TABLE_ROW_MIN_HEIGHT : 56
+          }
           rowProps={{
             mx: '$2',
             px: '$3',
+            ...(shouldUseTableLayout
+              ? { minHeight: HOME_MARKET_TABLE_ROW_MIN_HEIGHT }
+              : undefined),
           }}
           headerRowProps={{
             px: '$3',
             mx: '$2',
+            ...(shouldUseTableLayout
+              ? { minHeight: HOME_MARKET_TABLE_HEADER_MIN_HEIGHT }
+              : undefined),
           }}
           onRow={(record) => ({
             onPress: () => handleTokenPress(record),
@@ -1003,24 +1181,19 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
             <Button
               testID="home-show-view-more-button-btn"
               variant="secondary"
+              iconAfter="ChevronRightSmallOutline"
               onPress={handleViewMore}
               flexGrow={1}
               flexBasis={0}
-              childrenAsText={false}
-              $md={
-                {
-                  borderRadius: '$full',
-                  hoverStyle: { bg: 'transparent' },
-                  pressStyle: { bg: 'transparent' },
-                } as any
-              }
+              {...(md
+                ? {
+                    borderRadius: '$full',
+                    hoverStyle: { bg: 'transparent' },
+                    pressStyle: { bg: 'transparent' },
+                  }
+                : undefined)}
             >
-              <XStack alignItems="center" gap="$2">
-                <SizableText size="$bodyMdMedium">
-                  {intl.formatMessage({ id: ETranslations.global_view_more })}
-                </SizableText>
-                <Icon name="ChevronRightSmallOutline" size="$5.5" />
-              </XStack>
+              {intl.formatMessage({ id: ETranslations.global_view_more })}
             </Button>
           </XStack>
         ) : null}
@@ -1032,6 +1205,7 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
     handleTokenPress,
     handleViewMore,
     intl,
+    md,
     shouldUseTableLayout,
     totalFavoritesCount,
   ]);
@@ -1042,7 +1216,8 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
         testID="home-header-actions-btn"
         size="small"
         variant="secondary"
-        disabled={selectedTokens.length === 0}
+        disabled={selectedTokens.length === 0 || isAdding}
+        loading={isAdding}
         onPress={handleAddTokens}
       >
         {intl.formatMessage(
@@ -1051,7 +1226,7 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
         )}
       </Button>
     ),
-    [selectedTokens.length, handleAddTokens, intl],
+    [selectedTokens.length, handleAddTokens, intl, isAdding],
   );
 
   const renderContent = useCallback(() => {

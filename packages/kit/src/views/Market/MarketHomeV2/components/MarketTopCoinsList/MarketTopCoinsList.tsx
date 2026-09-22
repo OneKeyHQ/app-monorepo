@@ -15,28 +15,40 @@ import {
 } from '@onekeyhq/components';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
-import { MarketListingStar } from '@onekeyhq/kit/src/views/Market/components/MarketListingStar';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { EWatchlistFrom } from '@onekeyhq/shared/src/logger/scopes/dex';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IMarketAssetListItem } from '@onekeyhq/shared/types/market';
 
 import { PriceChangePercentage } from '../../../components/PriceChangePercentage';
-import SparklineChart from '../../../components/SparklineChart';
+import SparklineChart, {
+  MARKET_SPARKLINE_COLORS,
+} from '../../../components/SparklineChart';
 import {
   MARKET_LIST_NAME_COLUMN_WIDTH,
   MARKET_LIST_STAR_COLUMN_WIDTH,
   MARKET_LIST_STAR_SLOT_WIDTH,
 } from '../../../marketDesktopLayoutConstants';
 import { DesktopStickyHeaderContext } from '../../layouts/DesktopStickyHeaderContext';
+import { MARKET_FIXED_24H_RANGE, MARKET_FIXED_7D_RANGE } from '../../utils';
 import { MarketDesktopStickyHeader } from '../MarketDesktopStickyHeader';
-import { MARKET_CELL_LOGO_GAP } from '../MarketListCell';
+import {
+  MARKET_CELL_LOGO_GAP,
+  MARKET_CELL_SUBTITLE_LINE_HEIGHT,
+  MARKET_CELL_SUBTITLE_SIZE,
+} from '../MarketListCell';
+import { MarketStockCategorySelector } from '../MarketTokenList/MarketStockCategorySelector';
 import { StickyHeaderPortal } from '../StickyHeaderPortal';
 import { useMarketDesktopResponsiveColumns } from '../useMarketDesktopResponsiveColumns';
 
 import { useMarketTopCoins } from './hooks/useMarketTopCoins';
+import { MarketTopCoinStar } from './MarketTopCoinStar';
+
+import type { IMarketCategoryItem } from '../../types';
 
 type IMarketTopCoinsListProps = {
+  categories: IMarketCategoryItem[];
+  selectedCategoryId: string;
+  onSelectCategory: (categoryId: string) => void;
   tabIntegrated?: boolean;
   tabName?: string;
   listContainerProps?: {
@@ -47,16 +59,6 @@ type IMarketTopCoinsListProps = {
 const TOP_COINS_DESKTOP_ROW_HEIGHT = 72;
 const TOP_COINS_SPARKLINE_WIDTH = 132;
 const TOP_COINS_SPARKLINE_HEIGHT = 44;
-const TOP_COINS_SPARKLINE_COLORS = {
-  dark: {
-    positive: ['rgba(70, 254, 165, 1)', 'rgba(70, 254, 165, 0.2)'],
-    negative: ['rgba(255, 149, 146, 1)', 'rgba(255, 149, 146, 0.2)'],
-  },
-  light: {
-    positive: ['rgba(0, 113, 63, 1)', 'rgba(0, 113, 63, 0.2)'],
-    negative: ['rgba(196, 0, 6, 1)', 'rgba(196, 0, 6, 0.2)'],
-  },
-} as const;
 
 const TOP_COINS_SORTABLE_COLUMN_KEYS = [
   'price',
@@ -142,11 +144,7 @@ function useTopCoinsColumns(): ITableColumn<IMarketAssetListItem>[] {
             alignItems="center"
             justifyContent="center"
           >
-            <MarketListingStar
-              kind="asset"
-              listingId={record.assetId}
-              from={EWatchlistFrom.Homepage}
-            />
+            <MarketTopCoinStar token={record} />
           </Stack>
         ),
         renderSkeleton: () => (
@@ -174,7 +172,7 @@ function useTopCoinsColumns(): ITableColumn<IMarketAssetListItem>[] {
               tokenImageUri={record.logoUrl}
               fallbackIcon="CryptoCoinOutline"
             />
-            <XStack alignItems="center" gap="$2" minWidth={0}>
+            <YStack flex={1} minWidth={0} justifyContent="center">
               <SizableText
                 size="$bodyLgMedium"
                 numberOfLines={1}
@@ -182,7 +180,20 @@ function useTopCoinsColumns(): ITableColumn<IMarketAssetListItem>[] {
               >
                 {record.symbol.toUpperCase()}
               </SizableText>
-            </XStack>
+              {/* The stock list's resting company line, without its hover
+                  reveal: top coins carry no variant group to swap in. */}
+              {record.name ? (
+                <SizableText
+                  height={MARKET_CELL_SUBTITLE_LINE_HEIGHT}
+                  size={MARKET_CELL_SUBTITLE_SIZE}
+                  color="$textSubdued"
+                  numberOfLines={1}
+                  ellipsizeMode="tail"
+                >
+                  {record.name}
+                </SizableText>
+              ) : null}
+            </YStack>
           </XStack>
         ),
         renderSkeleton: () => (
@@ -205,9 +216,10 @@ function useTopCoinsColumns(): ITableColumn<IMarketAssetListItem>[] {
         renderSkeleton: () => <Skeleton width={72} height={16} />,
       },
       {
-        title: intl.formatMessage({
-          id: ETranslations.perp_token_selector_24h_change,
-        }),
+        title: intl.formatMessage(
+          { id: ETranslations.market_change_in_range },
+          { range: MARKET_FIXED_24H_RANGE },
+        ),
         dataIndex: 'priceChange24hPercent',
         columnProps: metricColumnProps,
         render: (value: string) => (
@@ -218,7 +230,10 @@ function useTopCoinsColumns(): ITableColumn<IMarketAssetListItem>[] {
         renderSkeleton: () => <Skeleton width={64} height={16} />,
       },
       {
-        title: intl.formatMessage({ id: ETranslations.market_change_7d }),
+        title: intl.formatMessage(
+          { id: ETranslations.market_change_in_range },
+          { range: MARKET_FIXED_7D_RANGE },
+        ),
         dataIndex: 'priceChange7dPercent',
         columnProps: metricColumnProps,
         render: (value: string) => (
@@ -238,9 +253,10 @@ function useTopCoinsColumns(): ITableColumn<IMarketAssetListItem>[] {
         renderSkeleton: () => <Skeleton width={72} height={16} />,
       },
       {
-        title: intl.formatMessage({
-          id: ETranslations.dexmarket_stock_24h_volume,
-        }),
+        title: intl.formatMessage(
+          { id: ETranslations.market_volume_in_range },
+          { range: MARKET_FIXED_24H_RANGE },
+        ),
         dataIndex: 'volume24h',
         columnProps: metricColumnProps,
         render: (value: string) => (
@@ -266,9 +282,7 @@ function useTopCoinsColumns(): ITableColumn<IMarketAssetListItem>[] {
           }
           const isNegative = Number(record.priceChange24hPercent) < 0;
           const themeColors =
-            TOP_COINS_SPARKLINE_COLORS[
-              themeVariant === 'dark' ? 'dark' : 'light'
-            ];
+            MARKET_SPARKLINE_COLORS[themeVariant === 'dark' ? 'dark' : 'light'];
           const [lineColor, gradientColor] = isNegative
             ? themeColors.negative
             : themeColors.positive;
@@ -299,11 +313,16 @@ function useTopCoinsColumns(): ITableColumn<IMarketAssetListItem>[] {
 }
 
 export function MarketTopCoinsList({
+  categories,
+  selectedCategoryId,
+  onSelectCategory,
   tabIntegrated,
   tabName,
   listContainerProps,
 }: IMarketTopCoinsListProps) {
-  const { data, handleItemPress, isLoading } = useMarketTopCoins();
+  const { data, handleItemPress, isLoading } = useMarketTopCoins({
+    categoryId: selectedCategoryId,
+  });
   const baseColumns = useTopCoinsColumns();
   const { columns, handleContainerLayout: handleResponsiveContainerLayout } =
     useMarketDesktopResponsiveColumns({
@@ -380,12 +399,25 @@ export function MarketTopCoinsList({
     [handleItemPress],
   );
 
+  // Without configured sub-categories the page keeps its toolbar-less header.
+  const categorySelector = useMemo(
+    () =>
+      categories.length > 0 ? (
+        <MarketStockCategorySelector
+          categories={categories}
+          selectedCategoryId={selectedCategoryId}
+          onSelectCategory={onSelectCategory}
+        />
+      ) : undefined,
+    [categories, onSelectCategory, selectedCategoryId],
+  );
+
   const webTabIntegrated = Boolean(tabIntegrated && !platformEnv.isNative);
+  const hasDesktopPortal = Boolean(
+    webTabIntegrated && tabName && stickyHeaderContext?.portalTarget,
+  );
   const useDesktopPortal = Boolean(
-    webTabIntegrated &&
-    tabName &&
-    stickyHeaderContext?.portalTarget &&
-    stickyHeaderContext.activeTabName === tabName,
+    hasDesktopPortal && stickyHeaderContext?.activeTabName === tabName,
   );
   const portalTarget = stickyHeaderContext?.portalTarget;
   const contentPaddingBottom =
@@ -400,14 +432,16 @@ export function MarketTopCoinsList({
     >
       {useDesktopPortal && portalTarget ? (
         <StickyHeaderPortal target={portalTarget}>
-          {/* No toolbar on this page: the shared header falls back to the
-              design's table inset. */}
+          {/* Without a toolbar the shared header falls back to the design's
+              table inset. */}
           <MarketDesktopStickyHeader<IMarketAssetListItem>
+            toolbar={categorySelector}
             columns={columns}
             onHeaderRow={onHeaderRow}
           />
         </StickyHeaderPortal>
       ) : null}
+      {hasDesktopPortal ? null : categorySelector}
       <Stack flex={1} style={{ overflowX: 'auto', overflowY: 'hidden' }}>
         <Table<IMarketAssetListItem>
           contentContainerStyle={{ paddingBottom: contentPaddingBottom }}

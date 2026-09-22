@@ -4,6 +4,7 @@ import { useIntl } from 'react-intl';
 
 import { Toast } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import sortUtils from '@onekeyhq/shared/src/utils/sortUtils';
 import type { IMarketWatchListItemV2 } from '@onekeyhq/shared/types/market';
 
 import {
@@ -31,44 +32,75 @@ export const useWatchListV2Action = () => {
   });
 
   const removeFromWatchListV2 = useCallback(
-    (chainId: string, contractAddress: string) => {
-      reportWatchListFailure(
-        actions.current.removeFromWatchListV2(chainId, contractAddress),
-        errorMessage,
-      );
+    async (
+      chainId: string,
+      contractAddress: string,
+      listing?: Pick<IMarketWatchListItemV2, 'assetId' | 'stockId'>,
+    ) => {
+      if (!isMounted) {
+        return false;
+      }
+      try {
+        await actions.current.removeFromWatchListV2(
+          chainId,
+          contractAddress,
+          listing,
+        );
+        return true;
+      } catch (_error) {
+        Toast.error({
+          title: intl.formatMessage({
+            id: ETranslations.global_an_error_occurred,
+          }),
+        });
+        return false;
+      }
     },
-    [actions, errorMessage],
+    [actions, intl, isMounted],
   );
 
   const addIntoWatchListV2 = useCallback(
-    (
+    async (
       items: Array<{
         chainId: string;
         contractAddress: string;
         isNative?: boolean;
+        assetId?: string;
+        stockId?: string;
       }>,
     ) => {
-      // Calculate sortIndex to make new items appear at the top
-      const firstSortIndex =
-        isMounted && watchListData.length > 0
-          ? (watchListData[0].sortIndex ?? 1000)
-          : 1000;
+      if (!isMounted) {
+        return false;
+      }
+      // New favorites go on top; perps stars share this rule.
+      const sortIndexes = sortUtils.buildTopSortIndexes({
+        oldList: watchListData,
+        count: items.length,
+      });
 
       const watchListItems: IMarketWatchListItemV2[] = items.map(
         (item, index) => ({
+          ...item,
           chainId: item.chainId,
           contractAddress: item.contractAddress,
-          sortIndex: firstSortIndex - (index + 1),
+          sortIndex: sortIndexes[index],
           isNative: item.isNative ?? false,
         }),
       );
 
-      reportWatchListFailure(
-        actions.current.addIntoWatchListV2(watchListItems),
-        errorMessage,
-      );
+      try {
+        await actions.current.addIntoWatchListV2(watchListItems);
+        return true;
+      } catch (_error) {
+        Toast.error({
+          title: intl.formatMessage({
+            id: ETranslations.global_an_error_occurred,
+          }),
+        });
+        return false;
+      }
     },
-    [actions, errorMessage, isMounted, watchListData],
+    [actions, intl, isMounted, watchListData],
   );
 
   const isInWatchListV2 = useCallback(

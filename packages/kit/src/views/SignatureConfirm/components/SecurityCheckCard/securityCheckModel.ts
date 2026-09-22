@@ -26,11 +26,10 @@ import type { IDecodedTx } from '@onekeyhq/shared/types/tx';
 import { getCustomHexDataAlertTitleIds } from '../CustomHexDataAlert/utils';
 
 import {
-  getAddressRiskStatus,
+  getAddressRiskItems,
   getParserAlertDisplay,
   normalizeAlertText,
   normalizeSecurityFindingTitle,
-  shouldHideGenericPermitAlert,
   shouldShowNoIssueSection,
 } from './utils';
 
@@ -46,11 +45,19 @@ export type ISecurityCheckStatus =
   | ISecurityCheckFindingStatus
   | 'success'
   | 'loading'
-  | 'check_failed';
+  | 'check_failed'
+  | 'limited';
 
 const CHECK_FAILED_FINDING_ID = 'tx-security-check-failed';
+const PARSE_FALLBACK_FINDING_IDS = new Set([
+  'tx-parse-fallback',
+  'message-parse-fallback',
+]);
 
-const SECURITY_CHECK_STATUS_WEIGHT: Record<ISecurityCheckStatus, number> = {
+const SECURITY_CHECK_STATUS_WEIGHT: Record<
+  Exclude<ISecurityCheckStatus, 'limited'>,
+  number
+> = {
   critical: 5,
   warning: 4,
   unknown: 3,
@@ -62,11 +69,7 @@ const SECURITY_CHECK_STATUS_WEIGHT: Record<ISecurityCheckStatus, number> = {
 
 const CATEGORY_ORDER: ISecurityCheckCategory[] = ['site', 'operation'];
 
-export type ISecurityCheckConfirmation =
-  | 'none'
-  | 'pending'
-  | 'request'
-  | 'risk';
+export type ISecurityCheckConfirmation = 'none' | 'pending' | 'risk';
 
 type ISecurityCheckFindingAction =
   | {
@@ -279,6 +282,30 @@ function shouldUseCheckFailedStatus(findings: ISecurityCheckFinding[]) {
 
 function isDecisionSecurityFinding(finding: ISecurityCheckFinding) {
   return finding.status === 'critical' || finding.status === 'warning';
+}
+
+function isParseFallbackFinding(finding: ISecurityCheckFinding) {
+  return PARSE_FALLBACK_FINDING_IDS.has(finding.id);
+}
+
+function shouldUseLimitedStatus({
+  status,
+  confirmation,
+  findings,
+}: {
+  status?: ISecurityCheckStatus;
+  confirmation: ISecurityCheckConfirmation;
+  findings: ISecurityCheckFinding[];
+}) {
+  if (status !== 'unknown' || confirmation !== 'none') {
+    return false;
+  }
+  const unknownFindings = findings.filter(
+    (finding) => finding.status === 'unknown',
+  );
+  return (
+    unknownFindings.length > 0 && unknownFindings.every(isParseFallbackFinding)
+  );
 }
 
 export function sortSecurityFindings(findings: ISecurityCheckFinding[]) {
@@ -616,50 +643,188 @@ function dedupeAlertTexts(alerts: string[]) {
   });
 }
 
-function getOperationFindings({
+function isHostRiskLevel(level?: EHostSecurityLevel) {
+  return (
+    level === EHostSecurityLevel.High || level === EHostSecurityLevel.Medium
+  );
+}
+
+function getPermitContext({
   kind,
-  origin,
-  decodedTxs,
-  messageDisplay,
   unsignedMessage,
-  isRiskSignMethod,
-  isMessageParseFallback,
   urlSecurityInfo,
-  intl,
-}: IBuildSecurityCheckModelParams): ISecurityCheckFinding[] {
-  const findings: ISecurityCheckFinding[] = [];
-  const isPermitSignMethod =
-    kind === 'message' && unsignedMessage
-      ? isPrimaryTypePermitSign({ unsignedMessage })
-      : false;
+}: Pick<
+  IBuildSecurityCheckModelParams,
+  'kind' | 'unsignedMessage' | 'urlSecurityInfo'
+>) {
+  const isPermitSignMethod = Boolean(
+    kind === 'message' &&
+    unsignedMessage &&
+    isPrimaryTypePermitSign({ unsignedMessage }),
+  );
+  const isOrderSignMethod = Boolean(
+    kind === 'message' &&
+    unsignedMessage &&
+    isPrimaryTypeOrderSign({ unsignedMessage }),
+  );
   const isSiteVerified = urlSecurityInfo?.level === EHostSecurityLevel.Security;
+  return {
+    isPermitSignMethod,
+    isOrderSignMethod,
+    isSiteVerified,
+    isTrustedAuthorization:
+      (isPermitSignMethod || isOrderSignMethod) && isSiteVerified,
+  };
+}
+
+function getValidParserAlerts(
+  params: IBuildSecurityCheckModelParams,
+  {
+    isTrustedAuthorization,
+  }: Pick<ReturnType<typeof getPermitContext>, 'isTrustedAuthorization'>,
+) {
+  // Trusted Permit/Order on a Security site drops every parser string[] alert.
+  // Matching is typed-data primaryType + site level, not translated prose.
+  if (isTrustedAuthorization) {
+    return [];
+  }
   const parserAlerts =
-    kind === 'transaction'
-      ? (decodedTxs?.flatMap(
+    params.kind === 'transaction'
+      ? (params.decodedTxs?.flatMap(
           (decodedTx) => decodedTx.txDisplay?.alerts ?? [],
         ) ?? [])
-      : (messageDisplay?.alerts ?? []);
-  const genericPermitAlert = intl.formatMessage({
-    id: ETranslations.dapp_connect_permit_sign_alert,
-  });
-  const validParserAlerts = dedupeAlertTexts(
-    parserAlerts.filter(Boolean),
-  ).filter(
-    (alert) =>
-      !shouldHideGenericPermitAlert({
-        alert,
-        genericPermitAlert,
-        isPermitSignMethod,
-        isSiteVerified,
-      }),
-  );
+      : (params.messageDisplay?.alerts ?? []);
+  return dedupeAlertTexts(parserAlerts.filter(Boolean));
+}
+
+function getConfirmationCauses({
+  params,
+  isTrustedAuthorization,
+  validParserAlerts,
+  addressRisk,
+}: {
+  params: IBuildSecurityCheckModelParams;
+  isTrustedAuthorization: boolean;
+  validParserAlerts: string[];
+  addressRisk: ReturnType<typeof getAddressRiskItems>;
+}) {
+  const {
+    kind,
+    origin,
+    urlSecurityInfo,
+    decodedTxs,
+    isConfirmationRequired,
+    isRiskSignMethod,
+    transactionSecurityInfo,
+  } = params;
+  const causes: {
+    site?: {
+      origin: string;
+      level: EHostSecurityLevel;
+      alert: string;
+      detail?: IHostSecurity['detail'];
+      attackTypes: IHostSecurity['attackTypes'];
+    };
+    prime?: {
+      level: EHostSecurityLevel;
+      detail: ITransactionSecurityCheckResult['detail'];
+    };
+    txConfirmationRequired?: true;
+    messageConfirmationRequired?: true;
+    isRiskSignMethod?: true;
+    parserAlerts?: string[];
+    addressRisk?: {
+      address: string;
+      tags: {
+        displayType: string;
+        value: string;
+        key?: string;
+      }[];
+    }[];
+  } = {};
+
+  if (origin && urlSecurityInfo && isHostRiskLevel(urlSecurityInfo.level)) {
+    causes.site = {
+      origin,
+      level: urlSecurityInfo.level,
+      alert: urlSecurityInfo.alert,
+      detail: urlSecurityInfo.detail,
+      attackTypes: urlSecurityInfo.attackTypes,
+    };
+  }
+
+  if (
+    transactionSecurityInfo &&
+    !isTransactionSecurityCheckUnavailable(transactionSecurityInfo) &&
+    !isTransactionSecurityNetworkNotSupported(transactionSecurityInfo) &&
+    isHostRiskLevel(transactionSecurityInfo.level)
+  ) {
+    causes.prime = {
+      level: transactionSecurityInfo.level,
+      detail: transactionSecurityInfo.detail,
+    };
+  }
+
+  if (
+    kind === 'transaction' &&
+    decodedTxs?.some((decodedTx) => decodedTx.isConfirmationRequired)
+  ) {
+    causes.txConfirmationRequired = true;
+  }
+
+  if (kind === 'message') {
+    if (isTrustedAuthorization) {
+      if (addressRisk.length) {
+        causes.addressRisk = addressRisk;
+      }
+    } else {
+      if (isConfirmationRequired) {
+        causes.messageConfirmationRequired = true;
+      }
+      // Security-site eth_sign still gates through isRiskSignMethod; that is an
+      // intentional strengthening versus the historical Security short-circuit.
+      if (isRiskSignMethod) {
+        causes.isRiskSignMethod = true;
+      }
+      if (
+        urlSecurityInfo?.level !== EHostSecurityLevel.Security &&
+        validParserAlerts.length > 0
+      ) {
+        causes.parserAlerts = validParserAlerts;
+      }
+    }
+  }
+
+  return causes;
+}
+
+function getOperationFindings(
+  params: IBuildSecurityCheckModelParams,
+  {
+    isPermitSignMethod,
+    isOrderSignMethod,
+    isSiteVerified,
+    isTrustedAuthorization,
+  }: ReturnType<typeof getPermitContext>,
+  validParserAlerts: string[],
+): ISecurityCheckFinding[] {
+  const {
+    kind,
+    origin,
+    decodedTxs,
+    unsignedMessage,
+    isRiskSignMethod,
+    isConfirmationRequired,
+    isMessageParseFallback,
+    intl,
+  } = params;
+  const findings: ISecurityCheckFinding[] = [];
   const localMessageFindings: ISecurityCheckFinding[] = [];
 
   if (kind === 'message' && unsignedMessage) {
     const isTypedData =
       unsignedMessage.type === EMessageTypesEth.TYPED_DATA_V3 ||
       unsignedMessage.type === EMessageTypesEth.TYPED_DATA_V4;
-    const isOrderSignMethod = isPrimaryTypeOrderSign({ unsignedMessage });
 
     if (isTypedData && !isSiteVerified) {
       if (isPermitSignMethod) {
@@ -740,6 +905,37 @@ function getOperationFindings({
       });
     });
 
+  if (
+    kind === 'transaction' &&
+    decodedTxs?.some((decodedTx) => decodedTx.isConfirmationRequired)
+  ) {
+    findings.push({
+      id: 'tx-confirmation-required',
+      category: 'operation',
+      status: 'warning',
+      title: intl.formatMessage({
+        id: ETranslations.dapp_connect_security_checks_risk_review_required__title,
+      }),
+      description: intl.formatMessage({
+        id: ETranslations.dapp_connect_security_checks_tx_review_required__desc,
+      }),
+    });
+  }
+
+  if (kind === 'message' && isConfirmationRequired && !isTrustedAuthorization) {
+    findings.push({
+      id: 'message-confirmation-required',
+      category: 'operation',
+      status: 'warning',
+      title: intl.formatMessage({
+        id: ETranslations.dapp_connect_security_checks_risk_review_required__title,
+      }),
+      description: intl.formatMessage({
+        id: ETranslations.dapp_connect_security_checks_signature_review_required__desc,
+      }),
+    });
+  }
+
   findings.push(...localMessageFindings);
 
   if (kind === 'message' && isMessageParseFallback) {
@@ -765,7 +961,12 @@ function getOperationFindings({
       id: 'tx-parse-fallback',
       category: 'operation',
       status: 'unknown',
-      title: intl.formatMessage({ id: ETranslations.global_unverified }),
+      title: intl.formatMessage({
+        id: ETranslations.dapp_connect_transaction_analysis_limited__title,
+      }),
+      description: intl.formatMessage({
+        id: ETranslations.dapp_connect_transaction_analysis_limited__desc,
+      }),
     });
   }
 
@@ -809,16 +1010,7 @@ function getDisplayComponents({
 export function buildSecurityCheckModel(
   params: IBuildSecurityCheckModelParams,
 ): ISecurityCheckViewModel {
-  const {
-    kind,
-    decodedTxs,
-    unsignedMessage,
-    urlSecurityInfo,
-    isConfirmationRequired,
-    isRiskSignMethod,
-    isMessageParseFallback,
-    transactionSecurityInfo,
-  } = params;
+  const { kind, transactionSecurityInfo } = params;
   const coverage = getSecurityCheckCoverage(params);
   const requestScanCoverage =
     coverage.find(({ source }) => source === 'requestScan')?.state ??
@@ -827,6 +1019,16 @@ export function buildSecurityCheckModel(
   const parserCoverage = coverage.find(
     ({ source }) => source === 'parser',
   )?.state;
+  const permitContext = getPermitContext(params);
+  const validParserAlerts = getValidParserAlerts(params, permitContext);
+  const addressRisk = getAddressRiskItems(getDisplayComponents(params));
+  const hasAddressRisk = addressRisk.length > 0;
+  const causes = getConfirmationCauses({
+    params,
+    isTrustedAuthorization: permitContext.isTrustedAuthorization,
+    validParserAlerts,
+    addressRisk,
+  });
   const findings = dedupeFindings(
     [
       getSiteFinding(params),
@@ -836,70 +1038,44 @@ export function buildSecurityCheckModel(
         requestScanCoverage,
         intl: params.intl,
       }),
-      ...getOperationFindings(params),
+      ...getOperationFindings(params, permitContext, validParserAlerts),
     ].filter((finding): finding is ISecurityCheckFinding => Boolean(finding)),
   ).map((finding) => ({
     ...finding,
     title: normalizeSecurityFindingTitle(finding.title),
   }));
   const highestFindingStatus = getHighestFindingStatus(findings);
-  const addressRiskStatus = getAddressRiskStatus(getDisplayComponents(params));
-  const hasConclusiveRequestScan = Boolean(
-    transactionSecurityInfo && requestScanCoverage === 'completed',
-  );
-  // A conclusive request scan owns the verdict for this payload. Address tags
-  // remain visible on their rows and are the fallback when that scan has no
-  // usable conclusion.
-  const effectiveAddressRiskStatus = hasConclusiveRequestScan
-    ? undefined
-    : addressRiskStatus;
-  const highestStatus =
-    effectiveAddressRiskStatus &&
-    (!highestFindingStatus ||
-      SECURITY_CHECK_STATUS_WEIGHT[effectiveAddressRiskStatus] >
-        SECURITY_CHECK_STATUS_WEIGHT[highestFindingStatus])
-      ? effectiveAddressRiskStatus
-      : highestFindingStatus;
   const isSecurityCheckPending = coverage.some(
     ({ state }) => state === 'pending',
   );
   const shouldShowNoIssue = shouldShowNoIssueSection({
     hasCardFindings: findings.some((finding) => finding.status !== 'info'),
+    hasAddressRisk,
     hasResolvedRequiredChecks:
       (siteCoverage === 'completed' || siteCoverage === 'unknown') &&
       parserCoverage === 'completed',
     isSecurityCheckPending,
   });
-  const hasRiskFinding =
-    highestStatus === 'critical' || highestStatus === 'warning';
-  const isTrustedPermit =
-    kind === 'message' &&
-    Boolean(
-      unsignedMessage &&
-      isPrimaryTypePermitSign({ unsignedMessage }) &&
-      urlSecurityInfo?.level === EHostSecurityLevel.Security,
-    );
-  const requestNeedsConfirmation =
-    kind === 'transaction'
-      ? Boolean(
-          params.origin && decodedTxs?.some(isTransactionParseFallback),
-        ) || decodedTxs?.some((decodedTx) => decodedTx.isConfirmationRequired)
-      : Boolean(
-          isMessageParseFallback ||
-          (isConfirmationRequired && !isTrustedPermit),
-        );
+  // Confirmation follows explicit reasons, not card warning severity. Common
+  // High/Medium site or Prime risk is evaluated before the trusted Permit or
+  // Order exemption. Tx parser/Hex findings, parse fallbacks, and warning
+  // address tags are display-only. Critical address tags still suppress success.
+  const hasRiskConfirmation = Boolean(
+    causes.site ||
+    causes.prime ||
+    causes.txConfirmationRequired ||
+    causes.messageConfirmationRequired ||
+    causes.isRiskSignMethod ||
+    causes.parserAlerts?.length ||
+    causes.addressRisk?.length,
+  );
   let confirmation: ISecurityCheckConfirmation = 'none';
   if (isSecurityCheckPending) {
     confirmation = 'pending';
-  } else if (
-    hasRiskFinding ||
-    (kind === 'message' && isRiskSignMethod && !isTrustedPermit)
-  ) {
+  } else if (hasRiskConfirmation) {
     confirmation = 'risk';
-  } else if (requestNeedsConfirmation) {
-    confirmation = 'request';
   }
-  let status: ISecurityCheckStatus | undefined = highestStatus;
+  let status: ISecurityCheckStatus | undefined = highestFindingStatus;
   if (
     isSecurityCheckPending &&
     (!status || shouldUseCheckFailedStatus(findings))
@@ -913,6 +1089,9 @@ export function buildSecurityCheckModel(
   ) {
     status = 'check_failed';
   }
+  if (shouldUseLimitedStatus({ status, confirmation, findings })) {
+    status = 'limited';
+  }
   const showPrimeInvite = Boolean(
     requestScanCoverage === 'locked' &&
     (status === 'success' || status === 'info'),
@@ -921,8 +1100,7 @@ export function buildSecurityCheckModel(
     requestKey: params.requestKey ?? '',
     kind,
     confirmation,
-    effectiveAddressRiskStatus,
-    findings: findings.filter(isDecisionSecurityFinding),
+    ...causes,
   });
 
   return {

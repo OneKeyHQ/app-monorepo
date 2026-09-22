@@ -8,6 +8,7 @@ import {
 } from 'react';
 import type { ReactNode } from 'react';
 
+import { Text as OneKeyText } from '@onekeyfe/react-native-text';
 import { CommonActions } from '@react-navigation/native';
 import { upperFirst } from 'lodash';
 import { useIntl } from 'react-intl';
@@ -61,6 +62,7 @@ import {
   displayAppUpdateVersion,
   displayFullVersion,
 } from '@onekeyhq/shared/src/appUpdate';
+import { ELockDuration } from '@onekeyhq/shared/src/consts/appAutoLockConsts';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -75,6 +77,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IModalSettingParamList } from '@onekeyhq/shared/src/routes';
 import { EModalSettingRoutes, ERootRoutes } from '@onekeyhq/shared/src/routes';
 import { EOnboardingV2OneKeyIDLoginMode } from '@onekeyhq/shared/src/routes/onboardingv2';
+import { travelModeManager } from '@onekeyhq/shared/src/travelMode';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import { EHardwareTransportType } from '@onekeyhq/shared/types';
@@ -105,6 +108,22 @@ export interface ICustomElementProps {
   onPress?: () => void;
   logItemClick?: () => void;
   analyticsSource?: ISettingsEntrySurface;
+}
+
+function SettingsValueText({ children, ...textProps }: ISizableTextProps) {
+  if (!platformEnv.isNativeAndroid) {
+    return (
+      <SizableText textAlign="right" size="$bodyLgMedium" {...textProps}>
+        {children}
+      </SizableText>
+    );
+  }
+
+  return (
+    <SizableText textAlign="right" size="$bodyLgMedium" {...textProps} asChild>
+      <OneKeyText>{children}</OneKeyText>
+    </SizableText>
+  );
 }
 
 function useLogSearchResultOnSelectOpen({
@@ -145,8 +164,11 @@ export function CurrencyListItem({
       testID={SettingTestIDs.currencyItem}
     >
       <ListItem.Text
-        primaryTextProps={props?.valueTextProps ?? props?.titleProps}
-        primary={text.toUpperCase()}
+        primary={
+          <SettingsValueText {...(props?.valueTextProps ?? props?.titleProps)}>
+            {text.toUpperCase()}
+          </SettingsValueText>
+        }
         align="right"
       />
     </TabSettingsListItem>
@@ -185,7 +207,11 @@ export function LanguageListItem({
       onOpenChange={handleOpenChange}
       placement="bottom-end"
       floatingPanelProps={{ maxHeight: 280 }}
-      sheetProps={{ snapPoints: [80], snapPointsMode: 'percent' }}
+      sheetProps={{
+        snapPoints: [80],
+        snapPointsMode: 'percent',
+        disableDrag: true,
+      }}
       renderTrigger={({ label }) => (
         <TabSettingsListItem
           {...props}
@@ -194,8 +220,13 @@ export function LanguageListItem({
         >
           <XStack alignItems="center">
             <ListItem.Text
-              primaryTextProps={props?.valueTextProps ?? props?.titleProps}
-              primary={label}
+              primary={
+                <SettingsValueText
+                  {...(props?.valueTextProps ?? props?.titleProps)}
+                >
+                  {label}
+                </SettingsValueText>
+              }
               align="right"
             />
             <ListItem.DrillIn ml="$1.5" name="ChevronDownSmallSolid" />
@@ -274,8 +305,13 @@ export function ThemeListItem({
         >
           <XStack alignItems="center">
             <ListItem.Text
-              primaryTextProps={props?.valueTextProps ?? props?.titleProps}
-              primary={label}
+              primary={
+                <SettingsValueText
+                  {...(props?.valueTextProps ?? props?.titleProps)}
+                >
+                  {label}
+                </SettingsValueText>
+              }
               align="right"
             />
             <ListItem.DrillIn ml="$1.5" name="ChevronDownSmallSolid" />
@@ -543,24 +579,35 @@ export function AutoLockListItem({
   ...props
 }: ICustomElementProps) {
   const [{ isPasswordSet, appLockDuration }] = usePasswordPersistAtom();
+  const isTravelMode =
+    travelModeManager.getRuntimeEnvironmentSync().profile.kind ===
+    'travel-mode';
   const navigation =
     useAppNavigation<IPageNavigationProp<IModalSettingParamList>>();
   const onPress = useCallback(() => {
+    if (isTravelMode) {
+      return;
+    }
     logItemClick?.();
     navigation.push(EModalSettingRoutes.SettingAppAutoLockModal);
-  }, [logItemClick, navigation]);
+  }, [isTravelMode, logItemClick, navigation]);
   const options = useOptions();
   const text = useMemo(() => {
     const option = options.find(
-      (item) => item.value === String(appLockDuration),
+      (item) =>
+        item.value ===
+        (isTravelMode ? ELockDuration.Never : String(appLockDuration)),
     );
     return option?.title ?? '';
-  }, [options, appLockDuration]);
+  }, [options, appLockDuration, isTravelMode]);
   return isPasswordSet ? (
     <TabSettingsListItem {...props} onPress={onPress} drillIn>
       <ListItem.Text
-        primaryTextProps={props?.valueTextProps ?? props?.titleProps}
-        primary={text}
+        primary={
+          <SettingsValueText {...(props?.valueTextProps ?? props?.titleProps)}>
+            {text}
+          </SettingsValueText>
+        }
         align="right"
       />
     </TabSettingsListItem>
@@ -573,12 +620,21 @@ export function ChangeOrSetPasswordListItem({
 }: ICustomElementProps) {
   const intl = useIntl();
   const [{ isPasswordSet }] = usePasswordPersistAtom();
+  const isTravelMode =
+    travelModeManager.getRuntimeEnvironmentSync().profile.kind ===
+    'travel-mode';
 
   useEffect(() => {
+    if (isTravelMode) {
+      return;
+    }
     void backgroundApiProxy.servicePassword.checkPasswordSet();
-  }, []);
+  }, [isTravelMode]);
 
   const onPress = useCallback(async () => {
+    if (isTravelMode) {
+      return;
+    }
     logItemClick?.();
     if (isPasswordSet) {
       const oldEncodedPassword =
@@ -604,7 +660,7 @@ export function ChangeOrSetPasswordListItem({
     } else {
       void backgroundApiProxy.servicePassword.promptPasswordVerify();
     }
-  }, [intl, isPasswordSet, logItemClick]);
+  }, [intl, isPasswordSet, isTravelMode, logItemClick]);
   return <TabSettingsListItem {...props} onPress={onPress} drillIn />;
 }
 
@@ -821,7 +877,11 @@ export function MobileSettingsVersionFooter() {
   );
 }
 
-export function SocialButtonGroup() {
+export function SocialButtonGroup({
+  hideChannels = false,
+}: {
+  hideChannels?: boolean;
+}) {
   const intl = useIntl();
   const officialChannels = useOfficialChannels();
   const {
@@ -836,26 +896,28 @@ export function SocialButtonGroup() {
   const textColor = isTabNavigator ? '$textDisabled' : '$textSubdued';
   return (
     <YStack pt="$3" pb="$4" gap={isTabNavigator ? '$2' : '$6'}>
-      <XStack
-        flex={platformEnv.isNative ? undefined : 1}
-        jc={isTabNavigator ? 'flex-start' : 'center'}
-        gap={isTabNavigator ? '$1.5' : '$3'}
-      >
-        {officialChannels.map((channel) => (
-          <SocialButton
-            key={channel.id}
-            icon={channel.icon}
-            url={channel.url}
-            text={channel.title}
-            testID={channel.testID}
+      {hideChannels ? null : (
+        <XStack
+          flex={platformEnv.isNative ? undefined : 1}
+          jc={isTabNavigator ? 'flex-start' : 'center'}
+          gap={isTabNavigator ? '$1.5' : '$3'}
+        >
+          {officialChannels.map((channel) => (
+            <SocialButton
+              key={channel.id}
+              icon={channel.icon}
+              url={channel.url}
+              text={channel.title}
+              testID={channel.testID}
+            />
+          ))}
+          <SupportButton
+            text={intl.formatMessage({
+              id: ETranslations.settings_contact_us,
+            })}
           />
-        ))}
-        <SupportButton
-          text={intl.formatMessage({
-            id: ETranslations.settings_contact_us,
-          })}
-        />
-      </XStack>
+        </XStack>
+      )}
       <YStack
         jc="center"
         pl={isTabNavigator ? '$1' : '$4'}

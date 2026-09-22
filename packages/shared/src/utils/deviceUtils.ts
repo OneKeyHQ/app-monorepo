@@ -142,6 +142,10 @@ function getDeviceSerialNoFromFeatures(
   );
 }
 
+function getDeviceSerialNoFromDbDevice(device: IDBDevice | undefined) {
+  return device?.deviceStateInfo?.identity.serialNo || device?.uuid;
+}
+
 function isSamePhysicalDevice(
   device: Partial<IDBDevice> | undefined,
   other: Partial<IDBDevice> | undefined,
@@ -1093,6 +1097,7 @@ export default {
   dbDeviceToSearchDevice,
   getDeviceVersion,
   getDeviceSerialNoFromFeatures,
+  getDeviceSerialNoFromDbDevice,
   getDeviceVersionStr,
   getDeviceTypeFromFeatures,
   getDeviceModeFromFeatures,

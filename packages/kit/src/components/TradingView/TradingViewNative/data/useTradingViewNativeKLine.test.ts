@@ -12,6 +12,7 @@ import {
 
 import { act, renderHook, waitFor } from '@testing-library/react';
 
+import { fetchMarketStockKLineData } from '@onekeyhq/kit/src/components/TradingView/utils/fetchMarketStockKLineData';
 import type {
   IMarketTokenKLineDataPoint,
   IMarketTokenKLineResponse,
@@ -19,6 +20,7 @@ import type {
 
 import { getTradingViewNativeSourceKey } from './getTradingViewNativeSource';
 import { createTradingViewNativeDataProvider } from './providers/createTradingViewNativeDataProvider';
+import { createTradingViewNativeStockDataProvider } from './providers/stock/stockDataProvider';
 import { emitTradingViewNativeDebugEvent } from './tradingViewNativeDebugLogger';
 import {
   readTradingViewNativeActiveInterval,
@@ -42,6 +44,13 @@ const mockFetchHistory = jest.fn<
   Promise<ITradingViewNativeHistoryResponse | null>,
   [ITradingViewNativeHistoryRequest]
 >();
+
+jest.mock(
+  '@onekeyhq/kit/src/components/TradingView/utils/fetchMarketStockKLineData',
+  () => ({
+    fetchMarketStockKLineData: jest.fn(),
+  }),
+);
 const mockHasMoreHistory = jest.fn<
   boolean,
   [ITradingViewNativeHistoryPageInfo]
@@ -53,12 +62,13 @@ const mockSubscribeRealtime = jest.fn<
   [ITradingViewNativeRealtimeSubscriptionRequest]
 >();
 let realtimePointListener:
-  | ((point: IMarketTokenKLineDataPoint) => void)
+  | ITradingViewNativeRealtimeSubscriptionRequest['onPoint']
   | undefined;
 let mockCurrentVisibility = true;
 let mockVisibilityListener: ((isVisible: boolean) => void) | undefined;
 let mockHistoryBatchSize = 1;
 let mockHistoryRequestCandleCount = 1;
+let mockRealtimeInterval: ITradingViewNativeDataProvider['realtimeInterval'];
 
 jest.mock('@onekeyhq/components/src/hooks/useVisibilityChange', () => ({
   getCurrentVisibilityState: () => mockCurrentVisibility,
@@ -238,6 +248,7 @@ describe('TradingViewNative K-line data state machine', () => {
     );
     mockHistoryBatchSize = 1;
     mockHistoryRequestCandleCount = 1;
+    mockRealtimeInterval = undefined;
     mockCurrentVisibility = true;
     mockVisibilityListener = undefined;
     realtimePointListener = undefined;
@@ -256,6 +267,7 @@ describe('TradingViewNative K-line data state machine', () => {
       historyRefreshInterval: source.kind === 'asset' ? 30_000 : undefined,
       isReady: true,
       key: buildProviderKey(source),
+      realtimeInterval: mockRealtimeInterval,
       supportsRealtime:
         source.kind === 'hyperliquid' ||
         (source.kind === 'market' && source.realtime === 'websocket'),
@@ -268,6 +280,91 @@ describe('TradingViewNative K-line data state machine', () => {
     jest.useRealTimers();
     jest.restoreAllMocks();
   });
+
+  it('stops after one empty stock scan and allows a manual retry', async () => {
+    jest.useFakeTimers();
+    const fetchStock = jest.mocked(fetchMarketStockKLineData);
+    fetchStock.mockReset();
+    fetchStock.mockResolvedValue({ pointType: 'ohlc', points: [], total: 0 });
+    mockCreateTradingViewNativeDataProvider.mockReturnValue(
+      createTradingViewNativeStockDataProvider({
+        kind: 'stock',
+        stockId: 'AAPL',
+      }),
+    );
+    const { result } = renderHook(() =>
+      useTradingViewNativeKLine({ source: { kind: 'stock', stockId: 'AAPL' } }),
+    );
+    await act(async () => {
+      await jest.advanceTimersByTimeAsync(0);
+    });
+    expect(result.current.dataState.status).toBe('error');
+    expect(fetchStock).toHaveBeenCalledTimes(8);
+    await act(async () => {
+      await jest.advanceTimersByTimeAsync(4001);
+    });
+    expect(fetchStock).toHaveBeenCalledTimes(8);
+    fetchStock.mockResolvedValue(
+      buildResponse(100, Math.floor(Date.now() / 1000)),
+    );
+    act(() => result.current.handleRetry());
+    await act(async () => {
+      await jest.advanceTimersByTimeAsync(0);
+    });
+    expect(result.current.points).toHaveLength(1);
+    expect(fetchStock).toHaveBeenCalledTimes(9);
+  });
+
+  it('retries stock transport failures before accepting history', async () => {
+    jest.useFakeTimers();
+    const fetchStock = jest.mocked(fetchMarketStockKLineData);
+    fetchStock.mockReset();
+    fetchStock.mockRejectedValueOnce(new Error('Network unavailable'));
+    fetchStock.mockResolvedValue(
+      buildResponse(100, Math.floor(Date.now() / 1000)),
+    );
+    mockCreateTradingViewNativeDataProvider.mockReturnValue(
+      createTradingViewNativeStockDataProvider({
+        kind: 'stock',
+        stockId: 'AAPL',
+      }),
+    );
+    const { result } = renderHook(() =>
+      useTradingViewNativeKLine({ source: { kind: 'stock', stockId: 'AAPL' } }),
+    );
+    await act(async () => {
+      await jest.advanceTimersByTimeAsync(1001);
+    });
+    expect(fetchStock).toHaveBeenCalledTimes(2);
+    expect(result.current.points).toHaveLength(1);
+  });
+
+  it.each(['1W', '1M'] as const)(
+    'replaces unsupported stored stock interval %s before fetching',
+    async (storedInterval) => {
+      mockReadTradingViewNativeActiveInterval.mockReturnValue(storedInterval);
+      mockFetchHistory.mockResolvedValue(buildResponse(100, 1_000_000));
+      const { result } = renderHook(() =>
+        useTradingViewNativeKLine({
+          source: { kind: 'stock', stockId: 'AAPL' },
+        }),
+      );
+      await waitFor(() => expect(mockFetchHistory).toHaveBeenCalled());
+      expect(result.current.intervalConfig.activeInterval).toBe('60');
+      expect(
+        result.current.intervalConfig.intervals.map(
+          (interval) => interval.value,
+        ),
+      ).toEqual(['1', '5', '15', '30', '60', '240', '1D']);
+      expect(
+        mockFetchHistory.mock.calls.every(
+          ([request]) => request.interval.value === '60',
+        ),
+      ).toBe(true);
+      act(() => result.current.handleIntervalChange(storedInterval));
+      expect(result.current.intervalConfig.activeInterval).toBe('60');
+    },
+  );
 
   it('preserves the self-maintained Asset source for history requests', async () => {
     mockFetchHistory.mockResolvedValue(buildResponse(0.08, 1_000_000));
@@ -3952,6 +4049,132 @@ describe('TradingViewNative K-line data state machine', () => {
     });
   });
 
+  it('applies price ticks to 1m candles without replacing history OHLCV', async () => {
+    mockReadTradingViewNativeActiveInterval.mockReturnValue('1');
+    mockFetchHistory.mockResolvedValue(buildResponse(100, 3720));
+    const onRealtimePoint = jest.fn();
+    const { result } = renderHook(() =>
+      useTradingViewNativeKLine({
+        onRealtimePoint,
+        source: buildMarketSource({ realtime: 'websocket' }),
+      }),
+    );
+    await waitFor(() => expect(result.current.points[0]?.c).toBe(100));
+    await waitFor(() => expect(mockSubscribeRealtime).toHaveBeenCalled());
+
+    act(() => {
+      realtimePointListener?.({ price: 105, t: 3730 });
+      realtimePointListener?.({ price: 95, t: 3731 });
+    });
+    expect(result.current.points).toEqual([
+      { o: 100, h: 105, l: 95, c: 95, v: 10, t: 3720 },
+    ]);
+    expect(onRealtimePoint).toHaveBeenLastCalledWith(result.current.points[0]);
+
+    act(() => {
+      realtimePointListener?.({ price: 110, t: 3780 });
+      realtimePointListener?.({ price: 115, t: 3781 });
+      realtimePointListener?.({ price: 90, t: 3779 });
+    });
+    expect(result.current.points).toEqual([
+      { o: 100, h: 105, l: 95, c: 95, v: 10, t: 3720 },
+      { o: 110, h: 115, l: 110, c: 115, v: 0, t: 3780 },
+    ]);
+    expect(onRealtimePoint).toHaveBeenCalledTimes(4);
+    expect(onRealtimePoint).toHaveBeenLastCalledWith(result.current.points[1]);
+  });
+
+  it('keeps one fixed realtime subscription across chart interval changes', async () => {
+    mockRealtimeInterval = '15';
+    mockFetchHistory.mockResolvedValue(buildResponse(100, 3600));
+    const onRealtimePoint = jest.fn();
+    const { result, unmount } = renderHook(() =>
+      useTradingViewNativeKLine({
+        onRealtimePoint,
+        source: buildMarketSource({ realtime: 'websocket' }),
+      }),
+    );
+    await waitFor(() => expect(result.current.points[0]?.c).toBe(100));
+    await waitFor(() => expect(mockSubscribeRealtime).toHaveBeenCalledTimes(1));
+    const request = mockSubscribeRealtime.mock.calls[0][0];
+    expect(request.interval.marketWsValue).toBe('15m');
+
+    for (const interval of ['1', '15', '240', '1D', '1'] as const) {
+      act(() => result.current.handleIntervalChange(interval));
+      await waitFor(() => {
+        expect(result.current.intervalConfig.activeInterval).toBe(interval);
+        expect(result.current.points[0]?.c).toBe(100);
+      });
+      expect(request.getActiveInterval?.().value).toBe(interval);
+      expect(mockSubscribeRealtime).toHaveBeenCalledTimes(1);
+      expect(mockUnsubscribe).not.toHaveBeenCalled();
+      expect(request.signal.aborted).toBe(false);
+      act(() => request.onPoint({ price: 105, t: 3630 }));
+      expect(result.current.points.at(-1)?.c).toBe(105);
+      expect(onRealtimePoint).toHaveBeenLastCalledWith(
+        result.current.points.at(-1),
+      );
+    }
+    unmount();
+    expect(mockUnsubscribe).toHaveBeenCalledTimes(1);
+    expect(request.signal.aborted).toBe(true);
+  });
+
+  it.each([
+    [
+      '60',
+      '2026-09-17T04:00:00Z',
+      '2026-09-17T05:02:00Z',
+      '2026-09-17T05:00:00Z',
+    ],
+    [
+      '1W',
+      '2026-09-14T00:00:00Z',
+      '2026-09-21T01:00:00Z',
+      '2026-09-21T00:00:00Z',
+    ],
+    [
+      '1M',
+      '2026-01-01T00:00:00Z',
+      '2026-03-01T01:00:00Z',
+      '2026-03-01T00:00:00Z',
+    ],
+    [
+      '1M',
+      '2026-01-31T16:00:00Z',
+      '2026-02-28T17:00:00Z',
+      '2026-02-28T16:00:00Z',
+    ],
+  ] as const)(
+    'keeps the %s history boundary when a price tick starts a new candle',
+    async (interval, historyDate, tickDate, expectedDate) => {
+      mockReadTradingViewNativeActiveInterval.mockReturnValue(interval);
+      const historyTimestamp = Date.parse(historyDate) / 1000;
+      mockFetchHistory.mockResolvedValue(buildResponse(100, historyTimestamp));
+      const { result } = renderHook(() =>
+        useTradingViewNativeKLine({
+          source: buildMarketSource({ realtime: 'websocket' }),
+        }),
+      );
+      await waitFor(() => expect(result.current.points[0]?.c).toBe(100));
+      await waitFor(() => expect(mockSubscribeRealtime).toHaveBeenCalled());
+      act(() => {
+        realtimePointListener?.({ price: 105, t: Date.parse(tickDate) / 1000 });
+      });
+      expect(result.current.points.at(-1)).toEqual({
+        o: 105,
+        h: 105,
+        l: 105,
+        c: 105,
+        v: 0,
+        t: Date.parse(expectedDate) / 1000,
+      });
+      expect(result.current.points[0]).toEqual(
+        buildResponse(100, historyTimestamp).points[0],
+      );
+    },
+  );
+
   it.each(['commit', 'cancel'] as const)(
     'keeps the committed subscription live through a suspended source change and %s',
     async (outcome) => {
@@ -4433,6 +4656,38 @@ describe('TradingViewNative K-line data state machine', () => {
     act(() => result.current.handleVisiblePointRangeChange({ startIndex: 0 }));
     await waitFor(() => expect(mockFetchHistory).toHaveBeenCalledTimes(3));
     await waitFor(() => expect(result.current.points).toHaveLength(400));
+  });
+
+  it('keeps loading earlier stock pages and merges candles in time order', async () => {
+    mockFetchHistory
+      .mockResolvedValueOnce(
+        buildMultiPointResponse([
+          { close: 100, timestamp: 1_000_000 },
+          { close: 101, timestamp: 1_003_600 },
+        ]),
+      )
+      .mockResolvedValueOnce(buildResponse(99, 900_000))
+      .mockResolvedValueOnce(buildResponse(98, 800_000));
+    const { result } = renderHook(() =>
+      useTradingViewNativeKLine({
+        source: { kind: 'stock', stockId: 'AAPL' },
+      }),
+    );
+    await waitFor(() => expect(result.current.points).toHaveLength(2));
+    act(() => result.current.handleVisiblePointRangeChange({ startIndex: 0 }));
+    await waitFor(() => expect(result.current.points).toHaveLength(3));
+    act(() => result.current.handleVisiblePointRangeChange({ startIndex: 0 }));
+    await waitFor(() => expect(result.current.points).toHaveLength(4));
+    expect(result.current.points.map((point) => point.c)).toEqual([
+      98, 99, 100, 101,
+    ]);
+    expect(mockFetchHistory.mock.calls[1][0].timeTo).toBe(999_999);
+    expect(mockFetchHistory.mock.calls[2][0].timeTo).toBe(899_999);
+    expect(
+      mockFetchHistory.mock.calls.every(
+        ([request]) => request.allowEarlierHistory,
+      ),
+    ).toBe(true);
   });
 
   it('loads older history through the Hyperliquid provider path', async () => {

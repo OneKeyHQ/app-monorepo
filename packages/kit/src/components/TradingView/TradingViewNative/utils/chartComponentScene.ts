@@ -1,7 +1,9 @@
 import {
   TRADING_VIEW_NATIVE_AXIS_FONT_SIZE as AXIS_FONT_SIZE,
   TRADING_VIEW_NATIVE_CHART_HORIZONTAL_PADDING as CHART_HORIZONTAL_PADDING,
-  TRADING_VIEW_NATIVE_PRICE_AXIS_LABEL_LEFT_PADDING as PRICE_AXIS_LABEL_LEFT_PADDING,
+  TRADING_VIEW_NATIVE_CHART_TOP_PADDING as CHART_TOP_PADDING,
+  TRADING_VIEW_NATIVE_FLOATING_PRICE_LABEL_HORIZONTAL_PADDING as FLOATING_PRICE_LABEL_HORIZONTAL_PADDING,
+  TRADING_VIEW_NATIVE_PREVIOUS_CLOSE_REFERENCE_LINE_ID as PREVIOUS_CLOSE_REFERENCE_LINE_ID,
   TRADING_VIEW_NATIVE_PRICE_AXIS_TEXT_BASELINE_OFFSET as PRICE_AXIS_TEXT_BASELINE_OFFSET,
   TRADING_VIEW_NATIVE_CURRENT_PRICE_LABEL_HEIGHT as PRICE_LABEL_HEIGHT,
   TRADING_VIEW_NATIVE_CURRENT_PRICE_LABEL_TEXT_COLOR as PRICE_LABEL_TEXT_COLOR,
@@ -27,6 +29,7 @@ import type {
 } from '../types';
 
 interface ITradingViewNativeChartComponentCommandLayers {
+  currentPriceLabelTop?: number;
   priceLabelCommands: ITradingViewNativeChartSceneCommand[];
   textLabelCommands: ITradingViewNativeChartSceneCommand[];
 }
@@ -40,6 +43,7 @@ function getReferenceLinePaintId(id: string, part: 'label' | 'line' | 'text') {
 export function appendTradingViewNativeChartComponentCommands({
   commands,
   components,
+  currentPriceLabel,
   customPaintStyles,
   maxPrice,
   measureTextWidth,
@@ -52,6 +56,7 @@ export function appendTradingViewNativeChartComponentCommands({
 }: {
   commands: ITradingViewNativeChartSceneCommand[];
   components: readonly ITradingViewNativeChartLeafComponent[];
+  currentPriceLabel?: { price: number; top: number };
   customPaintStyles: Record<string, ITradingViewNativeChartScenePaintStyle>;
   maxPrice: number;
   measureTextWidth: (
@@ -69,7 +74,11 @@ export function appendTradingViewNativeChartComponentCommands({
 
   const priceLabelCommands: ITradingViewNativeChartSceneCommand[] = [];
   const textLabelCommands: ITradingViewNativeChartSceneCommand[] = [];
-  for (const component of components) {
+  let currentPriceLabelTop = currentPriceLabel?.top;
+  components.forEach((component) => {
+    if (component.type !== 'referenceLine') {
+      return;
+    }
     const { anchor, color, style, title } = component.props;
     const priceLayout = getTradingViewNativeCurrentPriceLayout({
       labelHeight: PRICE_LABEL_HEIGHT,
@@ -80,6 +89,43 @@ export function appendTradingViewNativeChartComponentCommands({
       priceScaleMode,
     });
     if (priceLayout) {
+      let labelTop = priceLayout.labelTop;
+      if (
+        component.id === PREVIOUS_CLOSE_REFERENCE_LINE_ID &&
+        currentPriceLabel !== undefined &&
+        priceLayout.labelTop < currentPriceLabel.top + PRICE_LABEL_HEIGHT &&
+        priceLayout.labelTop + PRICE_LABEL_HEIGHT > currentPriceLabel.top
+      ) {
+        // Keep the pair inside the price pane without reversing the price order.
+        const previousCloseAbove = anchor.price >= currentPriceLabel.price;
+        const labelSpacing = Math.min(
+          PRICE_LABEL_HEIGHT,
+          Math.max(priceChartHeight - PRICE_LABEL_HEIGHT, 0),
+        );
+        const groupTop = Math.min(
+          Math.max(
+            currentPriceLabel.top - (previousCloseAbove ? labelSpacing : 0),
+            CHART_TOP_PADDING,
+          ),
+          Math.max(
+            CHART_TOP_PADDING +
+              priceChartHeight -
+              PRICE_LABEL_HEIGHT -
+              labelSpacing,
+            CHART_TOP_PADDING,
+          ),
+        );
+        labelTop = groupTop + (previousCloseAbove ? 0 : labelSpacing);
+        currentPriceLabelTop =
+          groupTop + (previousCloseAbove ? labelSpacing : 0);
+      }
+      const priceLabel = formatTradingViewNativePriceTick(anchor.price);
+      const priceLabelWidth =
+        measureTextWidth(priceLabel, 'priceAxis') +
+        FLOATING_PRICE_LABEL_HORIZONTAL_PADDING * 2;
+      const priceLabelLeft = showYAxis
+        ? Math.min(priceAxisX, width - priceLabelWidth)
+        : priceAxisX;
       const linePaintId = getReferenceLinePaintId(component.id, 'line');
       const labelPaintId = getReferenceLinePaintId(component.id, 'label');
       const textPaintId = getReferenceLinePaintId(component.id, 'text');
@@ -112,21 +158,21 @@ export function appendTradingViewNativeChartComponentCommands({
           ? REFERENCE_LINE_LABEL_SEPARATOR_WIDTH
           : 0;
         const availableTitleWidth = Math.max(
-          priceAxisX - CHART_HORIZONTAL_PADDING - labelSeparatorWidth,
+          priceLabelLeft - CHART_HORIZONTAL_PADDING - labelSeparatorWidth,
           0,
         );
         const titleWidth = Math.min(
-          measureTextWidth(title, 'priceAxis') +
+          measureTextWidth(title, 'referenceLineLabel') +
             REFERENCE_LINE_LABEL_HORIZONTAL_PADDING * 2,
           availableTitleWidth,
         );
         if (titleWidth > 0) {
-          const titleX = priceAxisX - labelSeparatorWidth - titleWidth;
+          const titleX = priceLabelLeft - labelSeparatorWidth - titleWidth;
           const titleRect = {
             height: PRICE_LABEL_HEIGHT,
             width: titleWidth,
             x: titleX,
-            y: priceLayout.labelTop,
+            y: labelTop,
           };
           textLabelCommands.push(
             { kind: 'clip', rect: titleRect },
@@ -138,13 +184,13 @@ export function appendTradingViewNativeChartComponentCommands({
             },
             {
               customPaintId: textPaintId,
-              font: 'priceAxis',
+              font: 'referenceLineLabel',
               kind: 'text',
               paint: 'currentPriceLabelText',
               text: title,
               x: titleX + REFERENCE_LINE_LABEL_HORIZONTAL_PADDING,
               y:
-                priceLayout.labelTop +
+                labelTop +
                 PRICE_LABEL_HEIGHT / 2 +
                 AXIS_FONT_SIZE / 2 +
                 PRICE_AXIS_TEXT_BASELINE_OFFSET,
@@ -157,8 +203,8 @@ export function appendTradingViewNativeChartComponentCommands({
               kind: 'rect',
               paint: 'background',
               width: REFERENCE_LINE_LABEL_SEPARATOR_WIDTH,
-              x: priceAxisX - REFERENCE_LINE_LABEL_SEPARATOR_WIDTH,
-              y: priceLayout.labelTop,
+              x: priceLabelLeft - REFERENCE_LINE_LABEL_SEPARATOR_WIDTH,
+              y: labelTop,
             });
           }
         }
@@ -171,19 +217,19 @@ export function appendTradingViewNativeChartComponentCommands({
             height: PRICE_LABEL_HEIGHT,
             kind: 'rect',
             paint: 'background',
-            width: width - priceAxisX,
-            x: priceAxisX,
-            y: priceLayout.labelTop,
+            width: priceLabelWidth,
+            x: priceLabelLeft,
+            y: labelTop,
           },
           {
             customPaintId: textPaintId,
             font: 'priceAxis',
             kind: 'text',
             paint: 'currentPriceLabelText',
-            text: formatTradingViewNativePriceTick(anchor.price),
-            x: priceAxisX + PRICE_AXIS_LABEL_LEFT_PADDING,
+            text: priceLabel,
+            x: priceLabelLeft + FLOATING_PRICE_LABEL_HORIZONTAL_PADDING,
             y:
-              priceLayout.labelTop +
+              labelTop +
               PRICE_LABEL_HEIGHT / 2 +
               AXIS_FONT_SIZE / 2 +
               PRICE_AXIS_TEXT_BASELINE_OFFSET,
@@ -191,6 +237,6 @@ export function appendTradingViewNativeChartComponentCommands({
         );
       }
     }
-  }
-  return { priceLabelCommands, textLabelCommands };
+  });
+  return { currentPriceLabelTop, priceLabelCommands, textLabelCommands };
 }

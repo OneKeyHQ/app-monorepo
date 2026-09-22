@@ -33,6 +33,8 @@ export type IScreenPathConfig = Record<
     exact: boolean;
     initialRouteName?: string;
     screens?: IScreenPathConfig;
+    parse?: Record<string, (value: string) => unknown>;
+    stringify?: Record<string, (value: unknown) => string>;
   }
 >;
 
@@ -163,6 +165,11 @@ export const buildAllowList = (
         showParams: true,
       },
     [pagePath`${ERootRoutes.Main}${ETabRoutes.Market}${ETabMarketRoutes.MarketNativeDetail}`]:
+      {
+        showUrl: true,
+        showParams: true,
+      },
+    [pagePath`${ERootRoutes.Main}${ETabRoutes.Market}${ETabMarketRoutes.MarketBannerDetail}`]:
       {
         showUrl: true,
         showParams: true,

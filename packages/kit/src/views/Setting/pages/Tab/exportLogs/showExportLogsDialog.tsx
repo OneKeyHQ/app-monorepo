@@ -1,6 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
-import { collectLogDigest, exportLogs, uploadLogBundle } from '.';
+import {
+  collectLogDigest,
+  disposeLogDigest,
+  exportLogs,
+  uploadLogBundle,
+} from '.';
 
 import pRetry from 'p-retry';
 import { useIntl } from 'react-intl';
@@ -9,7 +14,6 @@ import {
   Button,
   Dialog,
   Icon,
-  Portal,
   Progress,
   SizableText,
   Stack,
@@ -20,7 +24,7 @@ import {
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { HyperlinkText } from '@onekeyhq/kit/src/components/HyperlinkText';
-import { inAppStateLockStyle } from '@onekeyhq/kit/src/views/Setting/hooks';
+import { inAppStateLockDialogProps } from '@onekeyhq/kit/src/views/Setting/hooks';
 import { appEventBus } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { EAppEventBusNames } from '@onekeyhq/shared/src/eventBus/appEventBusNames';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -159,17 +163,20 @@ function UploadLogsDialogContent({
 
       const attemptUpload = async () => {
         const digest = await collectLogDigest(fileBaseName);
-        const token = await backgroundApiProxy.serviceLogger.requestUploadToken(
-          {
-            sizeBytes: digest.sizeBytes,
-            sha256: digest.sha256,
-          },
-        );
-        const { result } = await uploadLogBundle({
-          uploadToken: token.uploadToken,
-          digest,
-        });
-        return result.objectKey;
+        try {
+          const token =
+            await backgroundApiProxy.serviceLogger.requestUploadToken({
+              sizeBytes: digest.sizeBytes,
+              sha256: digest.sha256,
+            });
+          const { result } = await uploadLogBundle({
+            uploadToken: token.uploadToken,
+            digest,
+          });
+          return result.objectKey;
+        } finally {
+          await disposeLogDigest(digest);
+        }
       };
 
       try {
@@ -482,15 +489,10 @@ export function showExportLogsDialog({
 }) {
   return Dialog.show({
     icon: 'UploadOutline',
+    nativeSheet: true,
     title,
     showFooter: false,
     renderContent: <UploadLogsDialogContent inAppStateLock={inAppStateLock} />,
-    ...(inAppStateLock
-      ? {
-          ...inAppStateLockStyle,
-          isOverTopAllViews: true,
-          portalContainer: Portal.Constant.APP_STATE_LOCK_CONTAINER_OVERLAY,
-        }
-      : undefined),
+    ...(inAppStateLock ? inAppStateLockDialogProps : undefined),
   });
 }

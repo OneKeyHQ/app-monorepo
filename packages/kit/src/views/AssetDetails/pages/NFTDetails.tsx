@@ -19,6 +19,7 @@ import { HeaderIconButton } from '@onekeyhq/components/src/layouts/Navigation/He
 import type { IDBDevice } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import type { IPro2NftUploadParams } from '@onekeyhq/kit-bg/src/services/ServiceNFT';
 import { OneKeyAppError } from '@onekeyhq/shared/src/errors';
+import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
@@ -354,7 +355,7 @@ export default function NFTDetails() {
           }),
         });
       } catch (e) {
-        Toast.error({ title: (e as Error).message });
+        errorToastUtils.showToastOfError(e);
       } finally {
         setIsCollecting(false);
       }

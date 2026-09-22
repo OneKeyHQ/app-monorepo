@@ -10,6 +10,7 @@ import {
   DashText,
   Divider,
   Icon,
+  Illustration,
   SegmentControl,
   SizableText,
   Skeleton,
@@ -53,6 +54,7 @@ import { PerpFundingBreakdown } from './PerpFundingBreakdown';
 import {
   buildFundingHistogramChartData,
   buildFundingNetSummary,
+  computeAccountHealthRisk,
   resolveFundingHistogramStyle,
 } from './portfolioStats';
 import {
@@ -67,6 +69,7 @@ import type { BaselineSeriesPartialOptions } from 'lightweight-charts';
 interface IPerpPortfolioContentProps {
   isMobile?: boolean;
   initialChartType?: IPortfolioChartType;
+  onStartTrading?: () => void;
 }
 
 const WIN_RATE_TOOLTIP_MAP: Record<IPortfolioTimePeriod, ETranslations> = {
@@ -151,30 +154,6 @@ function marginUsedGaugeColor(pct: number, palette: IPortfolioPalette): string {
 }
 
 // Composite risk score: MMR×3 + Leverage×2 + MarginUsed×1
-function computeAccountHealthRisk(
-  mmrPct: number,
-  leverageX: number,
-  marginUsedPct: number,
-): { level: 'safe' | 'caution' | 'danger' } {
-  let mmrScore = 2;
-  if (mmrPct <= 30) mmrScore = 0;
-  else if (mmrPct <= 60) mmrScore = 1;
-
-  let levScore = 2;
-  if (leverageX <= 5) levScore = 0;
-  else if (leverageX <= 15) levScore = 1;
-
-  let marginScore = 2;
-  if (marginUsedPct <= 60) marginScore = 0;
-  else if (marginUsedPct <= 85) marginScore = 1;
-
-  const total = mmrScore * 3 + levScore * 2 + marginScore * 1;
-
-  if (total >= 6) return { level: 'danger' };
-  if (total >= 3) return { level: 'caution' };
-  return { level: 'safe' };
-}
-
 function getAccountHealthColor(
   level: 'safe' | 'caution' | 'danger',
   palette: IPortfolioPalette,
@@ -275,6 +254,7 @@ function SemiCircleGauge({
 }
 
 function PerpPortfolioContentComponent({
+  onStartTrading,
   isMobile = false,
   initialChartType = 'accountValue',
 }: IPerpPortfolioContentProps) {
@@ -464,7 +444,12 @@ function PerpPortfolioContentComponent({
     x: number;
     y: number;
   } | null>(null);
-  const [containerWidth, setContainerWidth] = useState(0);
+  const [containerSize, setContainerSize] = useState({ width: 0, height: 0 });
+  const [tooltipHeight, setTooltipHeight] = useState(64);
+  const tooltipWidth = Math.min(
+    HOVER_TOOLTIP_WIDTH,
+    Math.max(0, containerSize.width - 16),
+  );
   const isPnl = chartType === 'pnl';
   const isFunding = chartType === 'funding';
   const activityType: IPortfolioPnlType = chartType === 'pnl' ? pnlType : 'all';
@@ -642,11 +627,11 @@ function PerpPortfolioContentComponent({
   const accountHealthRisk = useMemo(
     () =>
       computeAccountHealthRisk(
-        marginPercentRaw,
+        mmrData?.mmrPercent ? marginPercentRaw : null,
         leverageRaw,
         marginUsedGaugePct,
       ),
-    [marginPercentRaw, leverageRaw, marginUsedGaugePct],
+    [mmrData?.mmrPercent, marginPercentRaw, leverageRaw, marginUsedGaugePct],
   );
   const accountHealthColor = getAccountHealthColor(
     accountHealthRisk.level,
@@ -708,23 +693,29 @@ function PerpPortfolioContentComponent({
   );
 
   const tooltipPosition = useMemo(() => {
-    if (!hoverData || !containerWidth) return null;
-    const W = HOVER_TOOLTIP_WIDTH;
+    if (!hoverData || !tooltipWidth) return null;
+    const W = tooltipWidth;
     const OFFSET = 10;
     const EDGE = 8;
-    const isLeft = hoverData.x < containerWidth / 2;
+    const isLeft = hoverData.x < containerSize.width / 2;
     const tx = isLeft ? 0 : -W;
     const desired = isLeft ? hoverData.x + OFFSET : hoverData.x - OFFSET;
     const clamped = Math.min(
       Math.max(desired + tx, EDGE),
-      containerWidth - W - EDGE,
+      containerSize.width - W - EDGE,
     );
     return {
       left: clamped - tx,
       translateX: tx,
-      top: Math.max(8, hoverData.y - 64),
+      top: Math.max(
+        EDGE,
+        Math.min(
+          hoverData.y - tooltipHeight,
+          containerSize.height - tooltipHeight - EDGE,
+        ),
+      ),
     };
-  }, [hoverData, containerWidth]);
+  }, [hoverData, containerSize, tooltipWidth, tooltipHeight]);
 
   const formatHoverDate = useCallback(
     (ts: number) =>
@@ -937,12 +928,61 @@ function PerpPortfolioContentComponent({
           alignItems="center"
           justifyContent="center"
           px="$6"
+          gap="$4"
         >
-          <SizableText size="$bodyMd" color="$textSubdued" textAlign="center">
-            {intl.formatMessage({
-              id: ETranslations.perp_portfolio_funding_empty__desc,
-            })}
-          </SizableText>
+          <Illustration name="Orders" size={128} mb={-24} />
+          <YStack gap="$2" maxWidth={400} alignItems="center">
+            <SizableText size="$headingMd" color="$text" textAlign="center">
+              {intl.formatMessage({
+                id:
+                  fundingHistory.length === 0
+                    ? ETranslations.perp_portfolio_funding_no_history__title
+                    : ETranslations.perp_portfolio_funding_empty__title,
+              })}
+            </SizableText>
+            {fundingHistory.length > 0 && timePeriod !== 'allTime' ? (
+              <SizableText
+                size="$bodyMd"
+                color="$textSubdued"
+                textAlign="center"
+              >
+                {intl.formatMessage(
+                  { id: ETranslations.perp_portfolio_funding_view_all__desc },
+                  {
+                    all: (
+                      <SizableText
+                        testID="perp-portfolio-funding-view-all"
+                        size="$bodyMd"
+                        color="$green11"
+                        textDecorationLine="underline"
+                        cursor="pointer"
+                        role="button"
+                        tabIndex={0}
+                        onPress={() => handleTimePeriodChange('allTime')}
+                      >
+                        {intl.formatMessage({
+                          id: ETranslations.perp_portfolio_funding_all__action,
+                        })}
+                      </SizableText>
+                    ),
+                  },
+                )}
+              </SizableText>
+            ) : null}
+          </YStack>
+          {fundingHistory.length === 0 && onStartTrading ? (
+            <Button
+              testID="perp-portfolio-funding-start-trading"
+              size="small"
+              variant="secondary"
+              borderRadius="$full"
+              onPress={onStartTrading}
+            >
+              {intl.formatMessage({
+                id: ETranslations.referral_web_landing_step3_perps_cta,
+              })}
+            </Button>
+          ) : null}
         </YStack>
       ) : null}
       {showFundingErrorState ? (
@@ -973,8 +1013,12 @@ function PerpPortfolioContentComponent({
           flex={1}
           mr={isMobile ? -12 : -16}
           onLayout={(e) => {
-            const w = e.nativeEvent.layout.width;
-            if (w !== containerWidth) setContainerWidth(w);
+            const { width, height } = e.nativeEvent.layout;
+            setContainerSize((current) =>
+              current.width === width && current.height === height
+                ? current
+                : { width, height },
+            );
           }}
         >
           {hoverData && tooltipPosition ? (
@@ -991,17 +1035,33 @@ function PerpPortfolioContentComponent({
               py="$2"
               zIndex={100}
               pointerEvents="none"
-              width={HOVER_TOOLTIP_WIDTH}
+              width={tooltipWidth}
+              onLayout={(e) => {
+                setTooltipHeight(e.nativeEvent.layout.height);
+              }}
             >
               <YStack gap="$1">
                 <SizableText size="$bodyXs" color="$textDisabled">
                   {formatHoverDate(hoverData.time)}
                 </SizableText>
-                <XStack justifyContent="space-between" alignItems="center">
-                  <SizableText size="$bodyXs" color="$textSubdued">
+                <XStack
+                  justifyContent="space-between"
+                  alignItems="center"
+                  gap="$2"
+                >
+                  <SizableText
+                    flex={1}
+                    minWidth={0}
+                    size="$bodyXs"
+                    color="$textSubdued"
+                  >
                     {chartTooltipLabel}
                   </SizableText>
-                  <SizableText size="$bodySmMedium" color="$text">
+                  <SizableText
+                    flexShrink={0}
+                    size="$bodySmMedium"
+                    color="$text"
+                  >
                     {formatPerpsUsd(hoverData.price)}
                   </SizableText>
                 </XStack>
@@ -1556,7 +1616,7 @@ function PerpPortfolioContentComponent({
       <YStack flex={6} flexBasis={0} overflow="visible" zIndex={1}>
         {chartPanel}
       </YStack>
-      <YStack flex={4} flexBasis={0} gap="$2">
+      <YStack flex={4} flexBasis={0} gap={isFunding ? '$3' : '$2'}>
         {portfolioValueBlock}
         {contextualStatsPanel}
       </YStack>

@@ -11,7 +11,6 @@ import {
   NumberSizeableText,
   SizableText,
   Skeleton,
-  Stack,
   XStack,
   YStack,
 } from '@onekeyhq/components';
@@ -34,8 +33,12 @@ import {
 } from '../../../Earn/components/AprText.utils';
 import { EarnNavigation } from '../../../Earn/earnUtils';
 import { PriceChangePercentage } from '../../components/PriceChangePercentage';
-import { MARKET_DESKTOP_CONTENT_FRAME_PROPS } from '../../marketDesktopLayoutConstants';
+import {
+  MARKET_DESKTOP_CONTENT_FRAME_PROPS,
+  MARKET_DETAIL_TRADE_COLUMN_PROPS,
+} from '../../marketDesktopLayoutConstants';
 import { Portfolio } from '../components/InformationTabs/components/Portfolio';
+import { MarketAboutDescription } from '../components/MarketAboutDescription';
 import { PerpetualTradingBanner } from '../components/PerpetualTradingBanner/PerpetualTradingBanner';
 import { TokenDetailHeader } from '../components/TokenDetailHeader/TokenDetailHeader';
 import { useTokenDetail } from '../hooks/useTokenDetail';
@@ -46,13 +49,11 @@ import {
   formatStatValueWithFormatter,
 } from '../utils/statValue';
 
-import { MarketDesktopChartContainer } from './components/MarketDesktopChartContainer';
 import { TokenDetailChart } from './components/TokenDetailChart';
 import { MarketEmbeddedSwap } from './MarketEmbeddedSwap';
 import { TokenPriceHeader } from './TokenDesktopLayout';
 
 const TOP_COINS_MAIN_COLUMN_WIDTH = 832;
-const TOP_COINS_TRADE_COLUMN_WIDTH = 384;
 const TOP_COINS_COLUMN_GAP = 24;
 // Figma 25703:19148: label (bodyMd, 20px line) + 6px gap + value (headingXl,
 // 28px line).
@@ -533,9 +534,11 @@ function TopCoinsInformation({
                 { ticker: symbol },
               )}
             </SizableText>
-            <SizableText size="$bodyMd" color="$textSubdued">
-              {about}
-            </SizableText>
+            <MarketAboutDescription
+              description={about}
+              testID="top-coins-about-description"
+              toggleTestID="top-coins-about-description-toggle"
+            />
           </YStack>
         ) : null}
       </>
@@ -583,6 +586,7 @@ function TopCoinsInformation({
 }
 
 export function TopCoinsDesktopLayout({
+  active,
   marketTradingView,
   swapToken,
   swapInputDraftKey,
@@ -602,6 +606,7 @@ export function TopCoinsDesktopLayout({
   onChartSwitch,
   onEnterChartFullscreen,
 }: {
+  active?: boolean;
   marketTradingView: ReactNode;
   swapToken: ISwapToken;
   swapInputDraftKey: string;
@@ -648,27 +653,21 @@ export function TopCoinsDesktopLayout({
 
       <XStack width="100%" alignItems="flex-start" gap={TOP_COINS_COLUMN_GAP}>
         <YStack width={TOP_COINS_MAIN_COLUMN_WIDTH} flex={1} minWidth={0}>
-          <YStack px="$5" pt="$5" pb="$6" gap="$6">
+          <YStack px="$5" pt="$5" pb="$6" gap="$4">
             <TokenPriceHeader />
-            <MarketDesktopChartContainer
-              testID="market-top-coins-detail-chart"
-              isFullscreen={isChartFullscreen}
+            <TokenDetailChart
+              active={active}
+              chartContainerTestID="market-top-coins-detail-chart"
               fullscreenZIndex={chartFullscreenZIndex}
               fullscreenStyle={MARKET_CHART_FULLSCREEN_STYLE}
-            >
-              {isChartFullscreen && platformEnv.isDesktop ? (
-                <Stack height={48} bg="$bgApp" flexShrink={0} />
-              ) : null}
-              <TokenDetailChart
-                marketAssetId={marketTokenId}
-                marketTradingView={marketTradingView}
-                isChartFullscreen={isChartFullscreen}
-                chartMode={chartMode}
-                isChartSwitchDisabled={isChartSwitchDisabled}
-                onChartSwitch={onChartSwitch}
-                onEnterChartFullscreen={onEnterChartFullscreen}
-              />
-            </MarketDesktopChartContainer>
+              marketAssetId={marketTokenId}
+              marketTradingView={marketTradingView}
+              isChartFullscreen={isChartFullscreen}
+              chartMode={chartMode}
+              isChartSwitchDisabled={isChartSwitchDisabled}
+              onChartSwitch={onChartSwitch}
+              onEnterChartFullscreen={onEnterChartFullscreen}
+            />
           </YStack>
 
           <TopCoinsInformation
@@ -682,11 +681,11 @@ export function TopCoinsDesktopLayout({
           />
         </YStack>
 
-        <YStack width={TOP_COINS_TRADE_COLUMN_WIDTH} flexShrink={0}>
-          {/* Renders only when the token has a Hyperliquid counterpart, and
-              stays hidden once dismissed. Sits above the trade panel, where the
-              pre-redesign desktop layout carried it. */}
-          <PerpetualTradingBanner px="$5" py="$5" />
+        <YStack {...MARKET_DETAIL_TRADE_COLUMN_PROPS}>
+          {/* Keeps the trade panel aligned while Hyperliquid availability changes,
+              and stays hidden once dismissed. Sits above the trade panel, where
+              the pre-redesign desktop layout carried it. */}
+          <PerpetualTradingBanner px="$5" py="$5" reserveSpace />
           {disableTrade ? (
             <TopCoinsUnavailableTradePanel symbol={swapToken.symbol} />
           ) : null}

@@ -69,6 +69,21 @@ jest.mock('../../components/StockSimpleChart', () => ({
   TOKEN_SIMPLE_CHART_RANGES: ['1H', '1D', '1W', '1M', '1Y', 'All'],
 }));
 
+jest.mock('./MarketDesktopChartContainer', () => ({
+  MarketDesktopChartContainer: ({
+    children,
+    footer,
+  }: {
+    children?: ReactNode;
+    footer?: ReactNode;
+  }) => (
+    <div>
+      {children}
+      {footer}
+    </div>
+  ),
+}));
+
 jest.mock('./MarketDetailProChartControls', () => ({
   MarketDetailProChartControls: ({ children }: { children?: ReactNode }) => (
     <div>{children}</div>
@@ -83,9 +98,12 @@ function MockProChart() {
 function renderTokenDetailChart(
   marketAssetId?: string,
   marketTradingView: ReactNode = <MockProChart />,
+  active?: boolean,
 ) {
   return render(
     <TokenDetailChart
+      active={active}
+      chartContainerTestID="market-token-chart"
       marketAssetId={marketAssetId}
       marketTradingView={marketTradingView}
       isChartFullscreen={false}
@@ -115,6 +133,29 @@ describe('TokenDetailChart', () => {
     expect(secondVisit.getByTestId('market-token-pro-chart')).toBeTruthy();
   });
 
+  it('offers only the mode switch under the Pro chart', () => {
+    mockChartDisplayMode = 'pro';
+
+    const view = renderTokenDetailChart();
+
+    // TradingView owns interval switching in Pro (it calls the K-line
+    // fallback with its own interval), so an app-side range selector there
+    // would be a second control disagreeing with the widget.
+    expect(view.getByTestId('market-token-chart-toolbar')).toBeTruthy();
+    expect(view.queryByTestId('market-token-chart-range-1D')).toBeNull();
+    expect(view.queryByTestId('market-token-chart-range-All')).toBeNull();
+    expect(view.getByTestId('market-token-chart-mode-simple')).toBeTruthy();
+    expect(view.getByTestId('market-token-chart-mode-pro')).toBeTruthy();
+  });
+
+  it('keeps the range selector beside the mode switch in Simple mode', () => {
+    const view = renderTokenDetailChart();
+
+    expect(view.getByTestId('market-token-chart-toolbar')).toBeTruthy();
+    expect(view.getByTestId('market-token-chart-range-1D')).toBeTruthy();
+    expect(view.getByTestId('market-token-chart-mode-pro')).toBeTruthy();
+  });
+
   it('keeps the complete-history range available in Simple mode', () => {
     const view = renderTokenDetailChart();
 
@@ -126,6 +167,17 @@ describe('TokenDetailChart', () => {
 
     expect(mockStockSimpleChart).toHaveBeenCalledWith(
       expect.objectContaining({ marketAssetId: 'doge' }),
+    );
+  });
+
+  // A retained Desktop/Web route keeps this subtree mounted after another route
+  // takes over the shared detail state, and the chart polls with focus checks
+  // off, so ownership has to reach it.
+  it('forwards route ownership to Simple mode', () => {
+    renderTokenDetailChart(undefined, <MockProChart />, false);
+
+    expect(mockStockSimpleChart).toHaveBeenCalledWith(
+      expect.objectContaining({ active: false }),
     );
   });
 

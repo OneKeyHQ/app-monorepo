@@ -1,3 +1,4 @@
+import formatChartPriceSource from './formatChartPriceSource';
 import { getLightweightChartsRuntimeScriptTag } from './lightweightChartsRuntime';
 
 import type { ILightweightChartConfig } from '../types';
@@ -14,7 +15,13 @@ function getStyles(): string {
 
 function getChartInitScript(): string {
   return `
+      var compactPriceFormatter = ${formatChartPriceSource};
       function getPriceFormatter(nextConfig) {
+        if (nextConfig.compactPriceMaxCharacters) {
+          return function(price) {
+            return compactPriceFormatter(price, nextConfig.compactPriceMaxCharacters);
+          };
+        }
         if (nextConfig.priceFormatterType === 'usd') return usdPriceFormatter;
         if (nextConfig.priceFormatterType === 'number') {
           return function(price) {
@@ -39,6 +46,7 @@ function getChartInitScript(): string {
           {
             visible: Boolean(nextConfig.showPriceScale),
             borderVisible: false,
+            minimumWidth: nextConfig.priceScaleMinimumWidth ?? 0,
             entireTextOnly: Boolean(nextConfig.priceScaleEntireTextOnly),
           },
           nextConfig.priceScaleMargins
@@ -85,15 +93,21 @@ function getChartInitScript(): string {
         return formatter.format(date);
       }
       function getTimeScaleOptions(nextConfig) {
+        // fixRightEdge clamps any right offset back to zero. Scrolling and
+        // scaling are off, so the lock can go when a tail gap is asked for.
+        var rightGap = Number(nextConfig.timeScaleRightOffsetPixels) || 0;
         var options = {
           visible: nextConfig.showTimeScale !== false,
           borderVisible: false,
           timeVisible: true,
           secondsVisible: false,
           fixLeftEdge: true,
-          fixRightEdge: true,
+          fixRightEdge: rightGap <= 0,
           lockVisibleTimeRangeOnResize: true,
         };
+        if (rightGap > 0) {
+          options.rightOffsetPixels = rightGap;
+        }
         if (nextConfig.timeZone) {
           options.tickMarkFormatter = function(time, tickMarkType) {
             return formatTimeScaleTickMark(time, tickMarkType, nextConfig);
@@ -352,6 +366,33 @@ function getChartInitScript(): string {
         if (lineStyle === 'sparse-dotted') return LightweightCharts.LineStyle.SparseDotted;
         return LightweightCharts.LineStyle.Solid;
       }
+      function getLastValueSeriesOptions(nextConfig) {
+        var showLast = Boolean(nextConfig.showLastValue);
+        return {
+          lastValueVisible: showLast,
+          priceLineVisible: showLast && nextConfig.showLastValuePriceLine !== false,
+          priceLineColor: nextConfig.lastValueLabelColor || '',
+        };
+      }
+      function getReferenceLineAutoscaleInfoProvider(nextConfig) {
+        var referenceLine = nextConfig.referenceLine;
+        var price =
+          referenceLine && referenceLine.includeInAutoscale
+            ? referenceLine.price
+            : undefined;
+        return function(baseImplementation) {
+          var autoscaleInfo = baseImplementation();
+          if (!Number.isFinite(price) || !autoscaleInfo || !autoscaleInfo.priceRange) {
+            return autoscaleInfo;
+          }
+          return Object.assign({}, autoscaleInfo, {
+            priceRange: {
+              minValue: Math.min(autoscaleInfo.priceRange.minValue, price),
+              maxValue: Math.max(autoscaleInfo.priceRange.maxValue, price),
+            },
+          });
+        };
+      }
       function getHistogramSeriesOptions(nextConfig) {
         var priceFormatter = getPriceFormatter(nextConfig);
         var showLast = Boolean(nextConfig.showLastValue);
@@ -413,75 +454,32 @@ function getChartInitScript(): string {
           priceFormat: { type: 'custom', formatter: priceFormatter },
         });
       }
-      function applyPrimarySeriesOptions(nextConfig) {
-        if (!window.series) return;
-        var priceFormatter = getPriceFormatter(nextConfig);
-        var showLast = Boolean(nextConfig.showLastValue);
-        var normalizedLineWidth = getNormalizedLineWidth(nextConfig.lineWidth, 3);
-        if (window.seriesType === 'dotted-area') {
-          window.series.applyOptions(getDottedAreaSeriesOptions(nextConfig));
-          return;
-        }
-        if (window.seriesType === 'baseline') {
-          window.series.applyOptions(Object.assign({}, nextConfig.baselineOptions, {
-            priceScaleId: getPriceScalePosition(nextConfig),
-            lineType: getLineType(nextConfig),
-            lineWidth: normalizedLineWidth,
-            lastValueVisible: showLast,
-            priceLineVisible: showLast,
-            crosshairMarkerRadius: 5,
-            priceFormat: { type: 'custom', formatter: priceFormatter },
-          }));
-          return;
-        }
-        if (window.seriesType === 'histogram') {
-          window.series.applyOptions(getHistogramSeriesOptions(nextConfig));
-          return;
-        }
-        window.series.applyOptions({
-          priceScaleId: getPriceScalePosition(nextConfig),
-          topColor: nextConfig.theme.topColor,
-          bottomColor: nextConfig.theme.bottomColor,
-          lineColor: nextConfig.theme.lineColor,
-          lineWidth: normalizedLineWidth,
-          lastValueVisible: showLast,
-          priceLineVisible: showLast,
-          crosshairMarkerRadius: 5,
-          crosshairMarkerBorderColor: nextConfig.theme.lineColor,
-          crosshairMarkerBackgroundColor: '#ffffff',
-          priceFormat: { type: 'custom', formatter: priceFormatter },
-        });
-      }
-      function syncPrimarySeries(nextConfig) {
-        var nextSeriesType = getPrimarySeriesType(nextConfig);
-        if (!window.series || window.seriesType !== nextSeriesType) {
-          if (window.series) {
-            chart.removeSeries(window.series);
-          }
-          window.referencePriceLine = null;
-          window.series = createPrimarySeries(nextConfig);
-          window.seriesType = nextSeriesType;
-        } else {
-          applyPrimarySeriesOptions(nextConfig);
-        }
-        window.series.setData(Array.isArray(nextConfig.data) ? nextConfig.data : []);
-      }
       function syncReferenceLine(nextConfig) {
         if (!window.series) return;
+        window.series.applyOptions({
+          autoscaleInfoProvider: getReferenceLineAutoscaleInfoProvider(nextConfig),
+        });
         if (window.referencePriceLine) {
           window.series.removePriceLine(window.referencePriceLine);
           window.referencePriceLine = null;
         }
         if (!nextConfig.referenceLine) return;
-        window.referencePriceLine = window.series.createPriceLine({
+        var referenceLineOptions = {
           price: nextConfig.referenceLine.price,
           color: nextConfig.referenceLine.color,
           lineWidth: getNormalizedLineWidth(nextConfig.referenceLine.lineWidth, 1),
           lineStyle: getReferenceLineStyle(nextConfig.referenceLine.lineStyle),
           lineVisible: true,
           axisLabelVisible: Boolean(nextConfig.referenceLine.axisLabelVisible),
-          title: '',
-        });
+          title: nextConfig.referenceLine.title || '',
+        };
+        if (nextConfig.referenceLine.axisLabelColor) {
+          referenceLineOptions.axisLabelColor = nextConfig.referenceLine.axisLabelColor;
+        }
+        if (nextConfig.referenceLine.axisLabelTextColor) {
+          referenceLineOptions.axisLabelTextColor = nextConfig.referenceLine.axisLabelTextColor;
+        }
+        window.referencePriceLine = window.series.createPriceLine(referenceLineOptions);
       }
       function getSecondarySeriesOptions(nextConfig) {
         return {
@@ -493,26 +491,45 @@ function getChartInitScript(): string {
           crosshairMarkerVisible: false,
         };
       }
-      function syncSecondarySeries(nextConfig) {
-        var hasSecondaryData =
-          Array.isArray(nextConfig.secondaryLineData) &&
-          nextConfig.secondaryLineData.length > 0;
-        if (!hasSecondaryData) {
-          if (window.secondarySeries) {
-            chart.removeSeries(window.secondarySeries);
-            window.secondarySeries = null;
-          }
-          return;
+      // Rebuilds both series from scratch on every apply.
+      //
+      // lightweight-charts 5.2 keeps a stale copy of its time points after a
+      // single-series setData whose times did not change: the fast path swaps
+      // the point objects, but _replaceTimeScalePoints returns early and keeps
+      // the old list. Once a second series exists, the next setData on the
+      // first one deletes its rows through that stale list, the cleanup pass
+      // then treats those points as empty and drops the shared keys from the
+      // map, the time scale ends up with no points and the chart goes blank,
+      // axes included. Both lines get identical timestamps from the 1D / 1W
+      // buckets, which is exactly the trigger (OK-62390, OK-63666). Removing
+      // every series resets that state, and rebuilding is cheap at these
+      // sizes. The primary goes first so the overlay keeps drawing on top of
+      // it; everything runs before the next frame, so nothing flickers.
+      function rebuildSeries(nextConfig) {
+        if (window.secondarySeries) {
+          window.chart.removeSeries(window.secondarySeries);
+          window.secondarySeries = null;
         }
-        if (!window.secondarySeries) {
-          window.secondarySeries = chart.addSeries(
+        if (window.series) {
+          window.chart.removeSeries(window.series);
+          window.series = null;
+          window.referencePriceLine = null;
+        }
+        window.series = createPrimarySeries(nextConfig);
+        window.seriesType = getPrimarySeriesType(nextConfig);
+        window.series.applyOptions(getLastValueSeriesOptions(nextConfig));
+        window.series.setData(Array.isArray(nextConfig.data) ? nextConfig.data : []);
+        syncReferenceLine(nextConfig);
+        if (
+          Array.isArray(nextConfig.secondaryLineData) &&
+          nextConfig.secondaryLineData.length > 0
+        ) {
+          window.secondarySeries = window.chart.addSeries(
             LightweightCharts.LineSeries,
             getSecondarySeriesOptions(nextConfig)
           );
-        } else {
-          window.secondarySeries.applyOptions(getSecondarySeriesOptions(nextConfig));
+          window.secondarySeries.setData(nextConfig.secondaryLineData);
         }
-        window.secondarySeries.setData(nextConfig.secondaryLineData);
       }
       // Price formatter: use a serializable formatter type in WebView, otherwise default %
       // NOTE: Keep in sync with formatChartUsdPrice in shared/src/utils/perpsUtils.ts
@@ -602,9 +619,7 @@ function getChartInitScript(): string {
       window.applyChartConfig = function(nextConfig) {
         if (!nextConfig || !window.chart) return;
         window.chart.applyOptions(getChartOptions(nextConfig));
-        syncPrimarySeries(nextConfig);
-        syncReferenceLine(nextConfig);
-        syncSecondarySeries(nextConfig);
+        rebuildSeries(nextConfig);
         window.chart.timeScale().fitContent();
       };
       window.applyChartConfig(config);

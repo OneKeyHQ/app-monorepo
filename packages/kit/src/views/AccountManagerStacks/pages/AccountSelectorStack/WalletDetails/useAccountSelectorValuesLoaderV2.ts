@@ -1,22 +1,19 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import { isEqual } from 'lodash';
 
-import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import {
-  accountSelectorDeFiMapAtom,
-  accountSelectorValuesMapAtom,
-} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import type backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { accountSelectorValuesMapAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type {
-  IAccountSelectorDeFiItem,
-  IAccountSelectorDeFiMap,
   IAccountSelectorValueItem,
   IAccountSelectorValuesMap,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 
+import { buildAccountSelectorAccountsValuesDataOnce } from './accountSelectorValuesRequest';
+
 const BATCH_SIZE = 50;
 const WORK_BUDGET_MS = 8;
-const deFiNetworkByNum = new Map<number, string | undefined>();
+const loadedNetworkByNum = new Map<number, string | undefined>();
 type IBuildValues =
   typeof backgroundApiProxy.serviceAccountSelector.buildAccountSelectorAccountsValuesData;
 type ILoadParams = {
@@ -91,18 +88,13 @@ export async function loadAccountSelectorValuesV2(
   {
     isCancelled,
     valuesAtom = accountSelectorValuesMapAtom,
-    deFiAtom = accountSelectorDeFiMapAtom,
-    buildValues = (params) =>
-      backgroundApiProxy.serviceAccountSelector.buildAccountSelectorAccountsValuesData(
-        params,
-      ),
+    buildValues = buildAccountSelectorAccountsValuesDataOnce,
     yieldToUI = yieldAccountSelectorValuesV2,
     now = () => performance.now(),
-    networkByNum = deFiNetworkByNum,
+    networkByNum = loadedNetworkByNum,
   }: {
     isCancelled: () => boolean;
     valuesAtom?: IAtomWriter<IAccountSelectorValuesMap>;
-    deFiAtom?: IAtomWriter<IAccountSelectorDeFiMap>;
     buildValues?: IBuildValues;
     yieldToUI?: () => Promise<void>;
     now?: () => number;
@@ -111,27 +103,24 @@ export async function loadAccountSelectorValuesV2(
 ) {
   const accounts = accountsForValuesQuery ?? [];
   const desiredIds = new Set(accounts.map((account) => account.accountId));
-  await valuesAtom.set((previous) =>
-    isCancelled() ? previous : pruneValues(previous, num, desiredIds),
-  );
-  if (isCancelled()) return;
+  // Perps worth carries no network scope, so values loaded under another
+  // network must not stay combined with this network's rows.
   const networkChanged =
     networkByNum.has(num) && networkByNum.get(num) !== linkedNetworkId;
-  await deFiAtom.set((previous) =>
+  await valuesAtom.set((previous) =>
     isCancelled()
       ? previous
       : pruneValues(previous, num, desiredIds, networkChanged),
   );
-  if (isCancelled()) return;
+  if (isCancelled()) return false;
   if (!accounts.length) {
     networkByNum.delete(num);
-    return;
+    return true;
   }
   networkByNum.set(num, linkedNetworkId);
 
   // Pending results are bounded by this account set and dropped on cancellation.
   let pendingValues: Record<string, IAccountSelectorValueItem> = {};
-  let pendingDeFi: Record<string, IAccountSelectorDeFiItem> = {};
   let hasPending = false;
   let firstResult = true;
   let sliceStarted = now();
@@ -139,30 +128,36 @@ export async function loadAccountSelectorValuesV2(
     await valuesAtom.set((previous) =>
       isCancelled() ? previous : mergeValues(previous, num, pendingValues),
     );
-    if (isCancelled()) return;
-    await deFiAtom.set((previous) =>
-      isCancelled() ? previous : mergeValues(previous, num, pendingDeFi),
-    );
     pendingValues = {};
-    pendingDeFi = {};
     hasPending = false;
   };
 
   for (let start = 0; start < accounts.length; start += BATCH_SIZE) {
-    if (isCancelled()) return;
+    if (isCancelled()) return false;
     const batch = accounts.slice(start, start + BATCH_SIZE);
     try {
       const { accountsValue, accountsDeFiOverview } = await buildValues({
         accounts: batch,
         linkedNetworkId,
       });
-      if (isCancelled()) return;
+      if (isCancelled()) return false;
+      const loadedById = new Map(
+        batch.map((account, index) => [
+          account.accountId,
+          {
+            deFi: accountsDeFiOverview?.[index],
+            networkId: account.networkId,
+          },
+        ]),
+      );
       for (const value of accountsValue ?? []) {
-        if (value && desiredIds.has(value.accountId))
-          pendingValues[value.accountId] = value;
-      }
-      for (let index = 0; index < batch.length; index += 1) {
-        pendingDeFi[batch[index].accountId] = accountsDeFiOverview?.[index];
+        if (value && desiredIds.has(value.accountId)) {
+          // One publication carries both, so a row never mixes two loads.
+          pendingValues[value.accountId] = {
+            ...value,
+            ...loadedById.get(value.accountId),
+          };
+        }
       }
       hasPending = true;
     } catch (_error) {
@@ -177,7 +172,7 @@ export async function loadAccountSelectorValuesV2(
         // Keep pending results for the next publication if the bridge failed.
       }
       firstResult = false;
-      if (isCancelled()) return;
+      if (isCancelled()) return false;
       if (!lastBatch) {
         await yieldToUI();
         sliceStarted = now();
@@ -187,6 +182,16 @@ export async function loadAccountSelectorValuesV2(
       sliceStarted = now();
     }
   }
+  // A failed last publication has no later one to carry its results: retry
+  // once, and do not report the load as complete if that fails too.
+  if (hasPending) {
+    try {
+      await publish();
+    } catch (_error) {
+      return false;
+    }
+  }
+  return !isCancelled();
 }
 
 export function useAccountSelectorValuesLoaderV2({
@@ -195,18 +200,31 @@ export function useAccountSelectorValuesLoaderV2({
   linkedNetworkId,
 }: ILoadParams) {
   const loadingIdRef = useRef(0);
+  const [loaded, setLoaded] = useState<
+    Pick<ILoadParams, 'accountsForValuesQuery' | 'linkedNetworkId'> | undefined
+  >();
   useEffect(() => {
     loadingIdRef.current += 1;
     const loadId = loadingIdRef.current;
+    const isCancelled = () => loadId !== loadingIdRef.current;
     void loadAccountSelectorValuesV2(
       { num, accountsForValuesQuery, linkedNetworkId },
-      {
-        isCancelled: () => loadId !== loadingIdRef.current,
-      },
-    );
+      { isCancelled },
+    ).then((completed) => {
+      if (completed && !isCancelled()) {
+        setLoaded({ accountsForValuesQuery, linkedNetworkId });
+      }
+    });
     // The shared atoms outlive this view; only cancel this view's pending work.
     return () => {
       loadingIdRef.current += 1;
     };
   }, [num, accountsForValuesQuery, linkedNetworkId]);
+  // Every batch of the current account set has been published.
+  return {
+    valuesLoaded:
+      !!accountsForValuesQuery &&
+      loaded?.accountsForValuesQuery === accountsForValuesQuery &&
+      loaded?.linkedNetworkId === linkedNetworkId,
+  };
 }

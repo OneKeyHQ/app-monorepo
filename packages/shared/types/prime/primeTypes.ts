@@ -4,7 +4,7 @@ export type IPrimeSubscriptionInfo = {
   expiresAt: number;
   subscriptions?: {
     id?: string;
-    managementUrl?: string;
+    managementUrl?: string | null;
     // Payment channel owning this subscription as declared by the server,
     // e.g. 'infini' for the crypto channel; used to route the in-app
     // manage-subscription entry without an extra lookup
@@ -203,6 +203,7 @@ export type IPrimeInfiniPaymentCreateParams = {
 export type IPrimeRedemptionParams = {
   code: string;
   expectedOneKeyUserId: string;
+  primeGiftSerialNo?: string;
 };
 
 export type IPrimeRedemptionResult = {
@@ -355,7 +356,7 @@ export type IPrimeServerUserInfo = {
   emails: string[];
   subscriptions?: {
     id?: string;
-    managementUrl?: string;
+    managementUrl?: string | null;
     // Payment channel owning this subscription (e.g. 'infini'), see
     // IPrimeSubscriptionInfo.subscriptions
     channel?: string;

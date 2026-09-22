@@ -32,6 +32,7 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import loggerUtils from '@onekeyhq/shared/src/logger/utils';
 import type { IUpdateDownloadedEvent } from '@onekeyhq/shared/src/modules3rdParty/auto-update';
 import {
   AppUpdate,
@@ -670,7 +671,10 @@ class ServiceAppUpdate extends ServiceBase {
   // Runtime scope: bg-JS. The returned plain object crosses the
   // backgroundApiProxy boundary back to main-JS (JSON-safe).
   @backgroundMethod()
-  public async previewFeaturedChangelog(params: { version: string }): Promise<{
+  public async previewFeaturedChangelog(params: {
+    version: string;
+    clientVersion?: string;
+  }): Promise<{
     version: string | undefined;
     featuredChangelog: IFeaturedChangelog | undefined;
   }> {
@@ -685,7 +689,7 @@ class ServiceAppUpdate extends ServiceBase {
       code: number;
       data: { version?: string; featuredChangelog?: unknown };
     }>('/utility/v1/app-update/featured-changelog-preview', {
-      params: { version },
+      params: { version, clientVersion: params.clientVersion },
     });
 
     const { code, data } = response.data;
@@ -703,6 +707,39 @@ class ServiceAppUpdate extends ServiceBase {
         responseVersion,
       ),
     };
+  }
+
+  @backgroundMethod()
+  public async refreshCurrentFeaturedChangelog() {
+    const installedVersion = String(platformEnv.version);
+    try {
+      const client = await this.getClient(EServiceEndpointEnum.Utility);
+      // Read the full-release cards directly: version-info can select a hot
+      // release for the installed bundle and omit Featured Changelog.
+      const response = await client.get<{
+        code: number;
+        data: { version?: string; featuredChangelog?: unknown };
+      }>('/utility/v1/app-update/featured-changelog-preview', {
+        params: { version: installedVersion },
+        timeout: 5000,
+      });
+      const { code, data } = response.data;
+      if (code !== 0 || data?.version !== installedVersion) return;
+      const featuredChangelog = normalizeFeaturedChangelog(
+        data.featuredChangelog,
+        installedVersion,
+      );
+      // Preserve cached content on malformed responses; an absent payload is a
+      // valid empty result (e.g. platform filtering removed every card).
+      if (data.featuredChangelog && !featuredChangelog) return;
+      await appUpdatePersistAtom.set((prev) =>
+        prev.latestVersion === installedVersion && !prev.jsBundleVersion
+          ? { ...prev, featuredChangelog }
+          : prev,
+      );
+    } catch {
+      // Offline first launch keeps the compatible content cached before install.
+    }
   }
 
   @backgroundMethod()
@@ -2371,6 +2408,7 @@ class ServiceAppUpdate extends ServiceBase {
    * launch from the post-first-render idle hook). Never throws — cleanup
    * must never crash boot.
    *
+   * - Log archives: removes ZIPs left by the previous launch on every launch.
    * - Bundle: always attempts BundleUpdate.pruneStaleAppVersionBundles()
    *   (native / desktop self-contained: keeps every artifact whose
    *   appVersion == running native binary, deletes the rest, hard-refuses
@@ -2383,11 +2421,23 @@ class ServiceAppUpdate extends ServiceBase {
    *   package survives.
    */
   @backgroundMethod()
-  public async pruneStaleArtifacts(): Promise<void> {
+  public async pruneStaleArtifacts(
+    logArchiveCreatedBefore: number,
+  ): Promise<void> {
     if (this.hasPrunedStaleArtifactsThisLaunch) {
       return;
     }
     this.hasPrunedStaleArtifactsThisLaunch = true;
+
+    try {
+      await loggerUtils.cleanupLogArchives(logArchiveCreatedBefore);
+    } catch (error) {
+      defaultLogger.app.appUpdate.log(
+        `pruneStaleArtifacts: log archive cleanup failed: ${
+          (error as Error)?.message ?? 'unknown'
+        }`,
+      );
+    }
 
     const appInfo = await appUpdatePersistAtom.get();
     const { status } = appInfo;

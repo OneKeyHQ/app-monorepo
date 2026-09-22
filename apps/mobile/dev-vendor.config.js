@@ -63,7 +63,11 @@ const fingerprintFiles = [
 ];
 
 const nativeContractDependencies = {
-  android: ['expo-image-loader', 'expo-navigation-bar'],
+  android: [
+    '@onekeyfe/react-native-text',
+    'expo-image-loader',
+    'expo-navigation-bar',
+  ],
   ios: [
     'burnt',
     'expo-apple-authentication',
@@ -85,10 +89,12 @@ const nativeContractDependencies = {
     '@onekeyfe/react-native-cloud-kit-module',
     '@onekeyfe/react-native-device-utils',
     '@onekeyfe/react-native-image',
+    '@onekeyfe/react-native-image-crop-picker',
     '@onekeyfe/react-native-keychain-module',
     '@onekeyfe/react-native-lite-card',
     '@onekeyfe/react-native-native-list',
     '@onekeyfe/react-native-native-logger',
+    '@onekeyfe/react-native-native-sheet',
     '@onekeyfe/react-native-network-throttle',
     '@onekeyfe/react-native-perf-memory',
     '@onekeyfe/react-native-perf-stats',
@@ -157,7 +163,6 @@ const nativeContractDependencies = {
     'react-native-gesture-handler',
     'react-native-get-random-values',
     'react-native-image-colors',
-    'react-native-image-crop-picker',
     'react-native-keyboard-controller',
     'react-native-mmkv',
     'react-native-network-info',

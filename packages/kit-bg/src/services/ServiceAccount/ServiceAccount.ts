@@ -88,7 +88,12 @@ import {
   DeviceNotOpenedPassphrase,
   DeviceNotSame,
 } from '@onekeyhq/shared/src/errors/errors/hardwareErrors';
-import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
+import { ThirdPartyDeviceMismatch } from '@onekeyhq/shared/src/errors/errors/thirdPartyHardwareErrors';
+import {
+  EOneKeyErrorClassNames,
+  type IOneKeyHardwareErrorPayload,
+} from '@onekeyhq/shared/src/errors/types/errorTypes';
+import { convertDeviceError } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
 import errorUtils from '@onekeyhq/shared/src/errors/utils/errorUtils';
 import {
   EAppEventBusNames,
@@ -123,11 +128,6 @@ import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { EMnemonicType } from '@onekeyhq/shared/src/utils/secret';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
-import {
-  prefixOf,
-  swrCacheNamespaces,
-  swrCacheUtils,
-} from '@onekeyhq/shared/src/utils/swrCacheUtils';
 import thirdPartyDeviceUtils from '@onekeyhq/shared/src/utils/thirdPartyDeviceUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EHardwareTransportType } from '@onekeyhq/shared/types';
@@ -337,101 +337,34 @@ class ServiceAccount extends ServiceBase {
   constructor({ backgroundApi }: { backgroundApi: any }) {
     super({ backgroundApi });
 
-    // SWR cache invalidation. Mutation events have no payload, so we drop
-    // every entry in the affected namespace by prefix. Subsequent UI mounts
-    // read an empty MMKV slot and the fetcher repopulates with fresh data —
-    // avoids painting deleted wallets / stale section data when the mutation
-    // happened while the consumer wasn't mounted.
-    //
-    // flushNow forces the cleared snapshot into MMKV synchronously instead
-    // of waiting on scheduleFlush's 2s debounce. Mutations are low-frequency
-    // and the extra write is worth it: a force-kill (task-manager swipe,
-    // watchdog) between the bg drop and AppState's background flush would
-    // otherwise leave deleted wallets in the MMKV blob and resurrect them
-    // on the next cold open.
-    const dropWalletListSwr = () =>
-      swrCacheUtils.removeByPrefix(
-        prefixOf(swrCacheNamespaces.walletListSideBar),
-      );
-    const dropAccountSelectorListSwr = () =>
-      swrCacheUtils.removeByPrefix(
-        prefixOf(swrCacheNamespaces.accountSelectorList),
-      );
-    // Bulk copy / bulk send snapshot wallet objects, account groups and the
-    // seeded sender (names, addresses, xpubs) with no TTL, so they follow the
-    // same contract: a mutation drops the namespaces and the next mount
-    // repopulates, instead of painting (and exporting) a deleted or renamed
-    // wallet / account left over from the previous run.
-    const dropBulkAddressSwr = () => {
-      swrCacheUtils.removeByPrefix(
-        prefixOf(swrCacheNamespaces.bulkCopyAddressesWallets),
-      );
-      swrCacheUtils.removeByPrefix(
-        prefixOf(swrCacheNamespaces.bulkCopyAddressesNetworkIds),
-      );
-      swrCacheUtils.removeByPrefix(
-        prefixOf(swrCacheNamespaces.bulkCopyAddressesAccounts),
-      );
-      swrCacheUtils.removeByPrefix(
-        prefixOf(swrCacheNamespaces.bulkSendAddressesInputSeed),
-      );
-    };
-
+    // SWR cache invalidation is NOT done here. These namespaces hold what a
+    // screen last displayed, they are written by the UI runtime's hooks, and
+    // that runtime receives the same mutation events — so it drops them
+    // itself (`kit/src/utils/swrCacheMutationInvalidation.ts`). Dropping them
+    // from bg made one namespace's file have two writers with no lock between
+    // the runtimes, and the announcement bg had to send so the UI would stop
+    // serving the value could be answered by the runtime that performed the
+    // delete, which with two foregrounds open looped between them.
     appEventBus.on(EAppEventBusNames.WalletUpdate, () => {
       void this.clearAccountCache();
-      dropWalletListSwr();
-      dropAccountSelectorListSwr();
-      dropBulkAddressSwr();
-      swrCacheUtils.flushNow();
     });
     appEventBus.on(EAppEventBusNames.AccountRemove, () => {
       void this.clearAccountCache();
-      // sidebar also depends on accounts via ignoreEmptySingletonWalletAccounts
-      dropWalletListSwr();
-      dropAccountSelectorListSwr();
-      dropBulkAddressSwr();
-      swrCacheUtils.flushNow();
     });
     appEventBus.on(EAppEventBusNames.AccountUpdate, () => {
       void this.clearAccountCache();
-      dropWalletListSwr();
-      dropAccountSelectorListSwr();
-      dropBulkAddressSwr();
-      swrCacheUtils.flushNow();
     });
     appEventBus.on(EAppEventBusNames.RenameDBAccounts, () => {
       void this.clearAccountCache();
-      // sidebar doesn't show account names, only the right-panel sectionData does
-      dropAccountSelectorListSwr();
-      dropBulkAddressSwr();
-      swrCacheUtils.flushNow();
     });
     appEventBus.on(EAppEventBusNames.WalletRename, () => {
       void this.clearAccountCache();
-      dropWalletListSwr();
-      dropAccountSelectorListSwr();
-      dropBulkAddressSwr();
-      swrCacheUtils.flushNow();
     });
     appEventBus.on(EAppEventBusNames.AddDBAccountsToWallet, () => {
       void this.clearAccountCache();
-      dropWalletListSwr();
-      dropAccountSelectorListSwr();
-      dropBulkAddressSwr();
-      swrCacheUtils.flushNow();
     });
-    // Defensive WalletClear handler. ServiceE2E.clearWalletsAndAccounts
-    // currently calls swrCacheUtils.clearAll() before emitting this event,
-    // so the drop here is redundant for the existing emitter — but it makes
-    // the contract explicit, so future emitters (logout flow, alternative
-    // reset paths) inherit the invalidation without having to remember the
-    // call-site dance.
     appEventBus.on(EAppEventBusNames.WalletClear, () => {
       void this.clearAccountCache();
-      dropWalletListSwr();
-      dropAccountSelectorListSwr();
-      dropBulkAddressSwr();
-      swrCacheUtils.flushNow();
     });
     // Drop derived-address / xpub memoizee caches on critical memory
     // pressure. These caches are the cheapest to rebuild (one BIP32
@@ -3634,7 +3567,10 @@ class ServiceAccount extends ServiceBase {
     dbDevice,
     compatibleConnectId,
   }: {
-    dbDevice: IDBDevice;
+    dbDevice: Pick<
+      IDBDevice,
+      'vendor' | 'deviceId' | 'deviceStateInfo' | 'featuresInfo'
+    >;
     compatibleConnectId: string;
   }): Promise<IOneKeyDeviceFeatures> {
     let features: IOneKeyDeviceFeatures | undefined;
@@ -3646,7 +3582,26 @@ class ServiceAccount extends ServiceBase {
         await this.backgroundApi.serviceThirdPartyHardware.connectDevice({
           vendor: dbDevice.vendor,
           connectId: compatibleConnectId,
+          deviceId: dbDevice.deviceId,
         });
+      if (dbDevice.vendor === EHardwareVendor.trezor) {
+        if (!connected.success) {
+          throw convertDeviceError(
+            connected.payload as IOneKeyHardwareErrorPayload,
+            { vendor: dbDevice.vendor },
+          );
+        }
+        // Reject reset devices before creating wallet records.
+        if (
+          !connected.payload.deviceId ||
+          connected.payload.deviceId !== dbDevice.deviceId
+        ) {
+          throw new ThirdPartyDeviceMismatch({
+            vendor: dbDevice.vendor,
+            payload: {},
+          });
+        }
+      }
       if (connected.success) {
         features = connected.payload.features as IOneKeyDeviceFeatures;
       }
@@ -3789,6 +3744,15 @@ class ServiceAccount extends ServiceBase {
           }
         }
 
+        // Check identity before requesting the passphrase.
+        const trezorFeatures =
+          dbDevice.vendor === EHardwareVendor.trezor
+            ? await this.getFeaturesForHwWalletCreate({
+                dbDevice,
+                compatibleConnectId,
+              })
+            : undefined;
+
         const passphraseState = await getHwHiddenWalletPassphraseState({
           vendor: dbDevice.vendor,
           connectId: compatibleConnectId,
@@ -3843,10 +3807,12 @@ class ServiceAccount extends ServiceBase {
         }
 
         // TODO save remember states
-        const resolvedFeatures = await this.getFeaturesForHwWalletCreate({
-          dbDevice: seededDbDevice,
-          compatibleConnectId,
-        });
+        const resolvedFeatures =
+          trezorFeatures ||
+          (await this.getFeaturesForHwWalletCreate({
+            dbDevice: seededDbDevice,
+            compatibleConnectId,
+          }));
         const dbWallet = await this.createHWWalletBase({
           device: deviceUtils.dbDeviceToSearchDevice(seededDbDevice),
           features: resolvedFeatures,
@@ -4035,6 +4001,21 @@ class ServiceAccount extends ServiceBase {
       features,
       isThirdParty: vendorProfile?.isThirdParty,
     });
+
+    if (
+      vendor === EHardwareVendor.trezor &&
+      !passphraseState &&
+      !isMockedStandardHwWallet
+    ) {
+      await this.getFeaturesForHwWalletCreate({
+        dbDevice: {
+          vendor,
+          deviceId: params.device.deviceId || deviceId,
+          featuresInfo: features,
+        },
+        compatibleConnectId,
+      });
+    }
 
     const getDeviceStateForHwWalletCreate = (
       connectId: string,

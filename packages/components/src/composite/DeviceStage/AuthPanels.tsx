@@ -16,7 +16,7 @@ import {
   YStack,
 } from '../../primitives';
 
-import { AUTH_FAILURE_TEXT } from './stepCopy';
+import { AUTH_FAILURE_TEXT, AUTH_NOTE_TEXT } from './stepCopy';
 import { StepText } from './StepText';
 
 import type { IAuthChecklistItem, IAuthFailureReason } from './type';
@@ -137,11 +137,52 @@ export function AuthFailureCard({
       setDevSkipUnlocked(true);
     }
   }, [allowsDevSkip]);
+  // The NOTE beat: Continue anyway's second thought, only where the card's
+  // action grants the bypass (OK-62484). A fresh visit or a new reason
+  // opens on the failure, never on a stale NOTE.
+  const [noteShown, setNoteShown] = useState(false);
+  const showNote = useCallback(() => setNoteShown(true), []);
+  const hideNote = useCallback(() => setNoteShown(false), []);
 
   useEffect(() => {
     clickCountRef.current = 0;
     setDevSkipUnlocked(false);
+    setNoteShown(false);
   }, [reason, resetSignal]);
+
+  if (noteShown && copy.action === 'retryOrContinue') {
+    return (
+      <YStack>
+        {/* No icon; the warning line wears critical on the words' own
+            metrics. The words block's own bottom padding is the gap to
+            the buttons. */}
+        <StepText
+          title={intl.formatMessage({ id: AUTH_NOTE_TEXT.title })}
+          sub={intl.formatMessage({ id: AUTH_NOTE_TEXT.sub })}
+          subColor="$textCritical"
+          animated={false}
+        />
+        <YStack gap="$2">
+          <Button
+            testID="device-stage-auth-continue-anyway"
+            variant="secondary"
+            size="large"
+            onPress={onContinueAnyway}
+          >
+            {intl.formatMessage({ id: AUTH_NOTE_TEXT.confirm })}
+          </Button>
+          <Button
+            testID="device-stage-auth-note-back"
+            variant="secondary"
+            size="large"
+            onPress={hideNote}
+          >
+            {intl.formatMessage({ id: AUTH_NOTE_TEXT.back })}
+          </Button>
+        </YStack>
+      </YStack>
+    );
+  }
 
   return (
     <YStack gap="$6">
@@ -174,27 +215,37 @@ export function AuthFailureCard({
                 {intl.formatMessage({ id: ETranslations.global_support })}
               </Button>
             ) : null}
-            {copy.action === 'retry' ? (
-              <>
-                <Button
-                  testID="device-stage-auth-retry"
-                  variant="primary"
-                  size="large"
-                  onPress={onRetry}
-                >
-                  {intl.formatMessage({ id: ETranslations.global_retry })}
-                </Button>
-                {onSupport ? (
-                  <Button
-                    testID="device-stage-auth-support"
-                    variant="secondary"
-                    size="large"
-                    onPress={onSupport}
-                  >
-                    {intl.formatMessage({ id: ETranslations.global_support })}
-                  </Button>
-                ) : null}
-              </>
+            {copy.action !== 'support' ? (
+              <Button
+                testID="device-stage-auth-retry"
+                variant="primary"
+                size="large"
+                onPress={onRetry}
+              >
+                {intl.formatMessage({ id: ETranslations.global_retry })}
+              </Button>
+            ) : null}
+            {copy.action === 'retry' && onSupport ? (
+              <Button
+                testID="device-stage-auth-support"
+                variant="secondary"
+                size="large"
+                onPress={onSupport}
+              >
+                {intl.formatMessage({ id: ETranslations.global_support })}
+              </Button>
+            ) : null}
+            {copy.action === 'retryOrContinue' && onContinueAnyway ? (
+              <Button
+                testID="device-stage-auth-note-open"
+                variant="secondary"
+                size="large"
+                onPress={showNote}
+              >
+                {intl.formatMessage({
+                  id: ETranslations.global_continue_anyway,
+                })}
+              </Button>
             ) : null}
             {(platformEnv.isDev ||
               allowDevSkip ||

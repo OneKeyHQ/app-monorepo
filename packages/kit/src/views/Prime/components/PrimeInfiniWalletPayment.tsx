@@ -47,7 +47,9 @@ import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useSignatureConfirm } from '@onekeyhq/kit/src/hooks/useSignatureConfirm';
 import { useAccountSelectorActions } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector/actions';
 import type { IAccountSelectorActiveAccountInfo } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector/atoms';
+import { convertTokenFiatToCurrency } from '@onekeyhq/kit/src/utils/fiatConvert';
 import {
+  useCurrencyPersistAtom,
   useDevSettingsPersistAtom,
   usePrimePersistAtom,
   useSettingsPersistAtom,
@@ -919,6 +921,7 @@ function PrimeInfiniWalletPaymentContent({
   const flowContextRef = useRef(useContext(PrimeInfiniPaymentFlowContext));
   const intl = useIntl();
   const [settings] = useSettingsPersistAtom();
+  const [{ currencyMap = {} }] = useCurrencyPersistAtom();
   const navigation = useAppNavigation<IPageNavigationProp<IPrimeParamList>>();
   const { user, isLoggedIn, isReady: isAuthReady } = useOneKeyAuth();
   const actions = useAccountSelectorActions();
@@ -1631,6 +1634,13 @@ function PrimeInfiniWalletPaymentContent({
   const displayAccountName = displaySelectionSnapshot.accountDisplayName;
   const displayAsset = displaySelectionSnapshot.asset;
   const displayBalanceDetail = displaySelectionSnapshot.balanceDetail;
+  const displayFiatBalanceDetail = displayBalanceDetail
+    ? convertTokenFiatToCurrency({
+        tokenFiat: displayBalanceDetail,
+        targetCurrency: settings.currencyInfo.id,
+        currencyMap,
+      })
+    : undefined;
   const displaySelectionIdentity =
     displayAccount?.id &&
     displayAccountAddress &&
@@ -4194,9 +4204,11 @@ function PrimeInfiniWalletPaymentContent({
           }
           balance={displayBalanceDetail?.balanceParsed}
           valueProps={
-            displayBalanceDetail?.fiatValue
+            displayFiatBalanceDetail?.fiatValue &&
+            (!displayFiatBalanceDetail.currency ||
+              displayFiatBalanceDetail.currency === settings.currencyInfo.id)
               ? {
-                  value: displayBalanceDetail.fiatValue,
+                  value: displayFiatBalanceDetail.fiatValue,
                   currency: settings.currencyInfo.symbol,
                 }
               : undefined

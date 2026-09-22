@@ -30,28 +30,16 @@ import { sortMarketTokenListData } from '../MarketTokenList/utils/tokenListHelpe
 import { StickyHeaderPortal } from '../StickyHeaderPortal';
 import { useMarketDesktopResponsiveColumns } from '../useMarketDesktopResponsiveColumns';
 
+import {
+  PERPS_METRIC_COLUMN_MINIMUM_WIDTHS,
+  PERPS_SORTABLE_FIELDS,
+} from './constants';
 import { useMarketPerpsTokenList } from './hooks/useMarketPerpsTokenList';
 import { usePerpsColumns } from './hooks/usePerpsColumns';
 import { useSyncedMarketPerpsCategory } from './hooks/useSyncedMarketPerpsCategory';
 import { MarketPerpsCategorySelector } from './MarketPerpsCategorySelector';
 
 import type { IMarketPerpsToken } from './hooks/useMarketPerpsTokenList';
-
-// The numeric columns the design marks sortable, keyed by their `dataIndex`.
-const PERPS_SORTABLE_FIELDS: Record<string, keyof IMarketPerpsToken> = {
-  price: 'markPrice',
-  change24h: 'change24hPercent',
-  fundingRate: 'fundingRate',
-  volume24h: 'volume24h',
-  openInterest: 'openInterest',
-};
-const PERPS_METRIC_COLUMN_MINIMUM_WIDTHS = {
-  change24h: 168,
-  fundingRate: 112,
-  openInterest: 112,
-  price: 112,
-  volume24h: 112,
-} as const;
 
 type IMarketPerpsTokenListProps = {
   tabIntegrated?: boolean;

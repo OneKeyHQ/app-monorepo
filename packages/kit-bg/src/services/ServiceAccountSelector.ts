@@ -4,6 +4,7 @@ import {
   backgroundClass,
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import {
   WALLET_TYPE_EXTERNAL,
   WALLET_TYPE_IMPORTED,
@@ -16,10 +17,8 @@ import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import accountSelectorUtils from '@onekeyhq/shared/src/utils/accountSelectorUtils';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
-import type {
-  EAccountSelectorSceneName,
-  IServerNetwork,
-} from '@onekeyhq/shared/types';
+import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
+import type { IServerNetwork } from '@onekeyhq/shared/types';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 
 import { getVaultSettings } from '../vaults/settings';
@@ -61,6 +60,40 @@ function hasStoredAccountAddress(account: IDBAccount): boolean {
   return addressMaps.some((addressMap) =>
     Object.values(addressMap ?? {}).some(Boolean),
   );
+}
+
+function hasSelectedAccountIdentity(
+  selectedAccount: IAccountSelectorSelectedAccount,
+): boolean {
+  return Boolean(
+    selectedAccount.walletId &&
+    (selectedAccount.indexedAccountId || selectedAccount.othersWalletAccountId),
+  );
+}
+
+// A selection that names an account but carries no network cannot be
+// rendered: the single-network branch reports "no address" for an account
+// that exists. Fall back to All Networks, the default for a fresh selection,
+// instead of treating the missing network as a missing account (OK-62137).
+// Discover scenes are the exception: a dApp connection only accepts its own
+// availableNetworkIds and never All Networks (see useAutoSelectNetwork), so
+// their repair is left to the scene's available-network auto-select.
+function resolveSelectedAccountNetworkId({
+  selectedAccount,
+  sceneName,
+}: {
+  selectedAccount: IAccountSelectorSelectedAccount;
+  sceneName: EAccountSelectorSceneName | undefined;
+}): string | undefined {
+  if (selectedAccount.networkId) {
+    return selectedAccount.networkId;
+  }
+  if (sceneName === EAccountSelectorSceneName.discover) {
+    return undefined;
+  }
+  return hasSelectedAccountIdentity(selectedAccount)
+    ? getNetworkIdsMap().onekeyall
+    : undefined;
 }
 
 @backgroundClass()
@@ -153,17 +186,23 @@ class ServiceAccountSelector extends ServiceBase {
   @backgroundMethod()
   async buildActiveAccountInfoFromSelectedAccount({
     selectedAccount,
+    sceneName,
     nonce,
   }: {
     selectedAccount: IAccountSelectorSelectedAccount;
+    sceneName?: EAccountSelectorSceneName;
     nonce?: number;
   }): Promise<{
     selectedAccount: IAccountSelectorSelectedAccount;
     activeAccount: IAccountSelectorActiveAccountInfo;
     nonce?: number;
   }> {
-    const { othersWalletAccountId, indexedAccountId, networkId, walletId } =
+    const { othersWalletAccountId, indexedAccountId, walletId } =
       selectedAccount;
+    const networkId = resolveSelectedAccountNetworkId({
+      selectedAccount,
+      sceneName,
+    });
     const deriveType = selectedAccount.deriveType;
 
     defaultLogger.accountSelector.perf.buildActiveAccountInfoFromSelectedAccount(
@@ -580,6 +619,13 @@ class ServiceAccountSelector extends ServiceBase {
         async (item: [string, IAccountSelectorSelectedAccount | undefined]) => {
           // TODO add whitelist
           const [num, v] = item;
+          if (v && !v.networkId) {
+            // Repair a persisted account selection that lost its network.
+            v.networkId = resolveSelectedAccountNetworkId({
+              selectedAccount: v,
+              sceneName,
+            });
+          }
           if (v && v.networkId) {
             const globalDeriveType = await this.getGlobalDeriveType({
               selectedAccount: v,

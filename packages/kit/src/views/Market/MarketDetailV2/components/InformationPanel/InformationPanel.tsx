@@ -12,6 +12,7 @@ import {
   MarketTokenPrice,
 } from '@onekeyhq/kit/src/views/Market/components/MarketTokenPrice';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IMarketTokenDetail } from '@onekeyhq/shared/types/marketV2';
 
 import { StockMarketStatusBadge } from '../../../components/PerpsBadges';
@@ -29,6 +30,9 @@ import { TokenSecurityAlert } from '../TokenSecurityAlert';
 import { useTokenSecurity } from '../TokenSecurityAlert/hooks';
 
 import { InformationPanelSkeleton } from './InformationPanelSkeleton';
+
+// 4pt top padding plus the 16pt stock badges.
+const STOCK_TAG_ROW_MIN_HEIGHT = 20;
 
 function getPriceSizeByValue(price: string) {
   if (price.startsWith('0.0000')) {
@@ -53,11 +57,13 @@ function StatRow({ label, value }: { label: string; value: string }) {
 
 function HeaderStatRows({
   isStockToken,
+  isPreview,
   stock,
   btcMetadata,
   fallback,
 }: {
   isStockToken: boolean;
+  isPreview: boolean;
   stock: IMarketTokenDetail['stock'];
   btcMetadata: ReturnType<typeof useBtcMetadataContext>;
   fallback: {
@@ -67,13 +73,15 @@ function HeaderStatRows({
   };
 }) {
   const intl = useIntl();
-  if (isStockToken && stock) {
+  // A stock preview has no stock stats yet; keep the stock labels in place so
+  // loading does not swap the rows under the user.
+  if (isStockToken && (stock || isPreview)) {
     return (
       <>
         <StatRow
           label={intl.formatMessage({ id: ETranslations.global_market_cap })}
           value={formatStatValueWithFormatter(
-            stock.marketCap,
+            stock?.marketCap,
             USD_CURRENCY_FORMATTER,
           )}
         />
@@ -82,7 +90,7 @@ function HeaderStatRows({
             id: ETranslations.dexmarket_stock_24h_volume,
           })}
           value={formatStatValueWithFormatter(
-            stock.assetAnalysis?.volume24h,
+            stock?.assetAnalysis?.volume24h,
             USD_CURRENCY_FORMATTER,
           )}
         />
@@ -90,7 +98,7 @@ function HeaderStatRows({
           label={intl.formatMessage({
             id: ETranslations.dexmarket_stock_pe_ttm,
           })}
-          value={formatRatioValue(stock.tradingActivity?.peRatio)}
+          value={formatRatioValue(stock?.tradingActivity?.peRatio)}
         />
       </>
     );
@@ -232,7 +240,13 @@ export function InformationPanel() {
             {priceChangeDisplay}
           </SizableText>
         </YStack>
-        <XStack ai="center" gap="$1" pt="$1">
+        <XStack
+          ai="center"
+          gap="$1"
+          pt="$1"
+          // Stock badges land with the detail response; hold their 16pt row.
+          minHeight={isStockToken ? STOCK_TAG_ROW_MIN_HEIGHT : undefined}
+        >
           <TokenTagsPopover
             communityRecognized={communityRecognized}
             stock={stock}
@@ -247,6 +261,7 @@ export function InformationPanel() {
       <YStack gap="$1" width="$40" pt="$1">
         <HeaderStatRows
           isStockToken={Boolean(isStockToken)}
+          isPreview={isPreviewTokenDetail}
           stock={stock}
           btcMetadata={btcMetadata}
           fallback={{
@@ -255,8 +270,17 @@ export function InformationPanel() {
             holders: formattedHolders,
           }}
         />
-        {networkId && address && securityData ? (
-          <XStack gap="$1" ai="center" width="100%" jc="space-between">
+        {/* Reserve the native risk row before its separate request settles.
+            A stock route learns its contract address after the first frame. */}
+        {(networkId && address && (platformEnv.isNative || securityData)) ||
+        (platformEnv.isNative && isStockToken) ? (
+          <XStack
+            testID="market-detail-security-row"
+            gap="$1"
+            ai="center"
+            width="100%"
+            jc="space-between"
+          >
             <SizableText
               pointerEvents="none"
               size="$bodySm"
@@ -264,7 +288,13 @@ export function InformationPanel() {
             >
               {intl.formatMessage({ id: ETranslations.dexmarket_audit })}
             </SizableText>
-            <TokenSecurityAlert />
+            {securityData ? (
+              <TokenSecurityAlert />
+            ) : (
+              <SizableText size="$bodySmMedium" color="$textSubdued">
+                --
+              </SizableText>
+            )}
           </XStack>
         ) : null}
       </YStack>

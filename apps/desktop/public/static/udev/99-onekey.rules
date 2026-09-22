@@ -15,3 +15,7 @@ KERNEL=="hidraw*", ATTRS{idVendor}=="1209", ATTRS{idProduct}=="53c1",  MODE="066
 SUBSYSTEM=="usb", ATTR{idVendor}=="1209", ATTR{idProduct}=="4f4a", MODE="0660", GROUP="plugdev", TAG+="uaccess", TAG+="udev-acl", SYMLINK+="onekey%n"
 SUBSYSTEM=="usb", ATTR{idVendor}=="1209", ATTR{idProduct}=="4f4b", MODE="0660", GROUP="plugdev", TAG+="uaccess", TAG+="udev-acl", SYMLINK+="onekey%n"
 KERNEL=="hidraw*", ATTRS{idVendor}=="1209", ATTRS{idProduct}=="4f4b",  MODE="0660", GROUP="plugdev", TAG+="uaccess", TAG+="udev-acl"
+
+# Pro2 / Neo current firmware, all modes
+SUBSYSTEM=="usb", ATTR{idVendor}=="1209", ATTR{idProduct}=="4f4c", MODE="0660", GROUP="plugdev", TAG+="uaccess", TAG+="udev-acl", SYMLINK+="onekey%n"
+KERNEL=="hidraw*", ATTRS{idVendor}=="1209", ATTRS{idProduct}=="4f4c",  MODE="0660", GROUP="plugdev", TAG+="uaccess", TAG+="udev-acl"

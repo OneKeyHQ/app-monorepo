@@ -95,6 +95,36 @@ export function buildMarketAssetTokenDetail({
   };
 }
 
+// The asset detail response has no perps field, so the Hyperliquid counterpart
+// is resolved separately. Kept off the detail render path: the banner appearing
+// a beat late is better than delaying price and chart data behind it.
+async function applyMarketAssetPerpsInfo({
+  set,
+  symbol,
+  isCurrentIdentity,
+}: {
+  set: IJotaiSetter;
+  symbol: string;
+  isCurrentIdentity: () => boolean;
+}) {
+  try {
+    const perpsInfo =
+      await backgroundApiProxy.serviceHyperliquid.resolveMarketPerpsInfoBySymbol(
+        { symbol },
+      );
+    // Only write a hit. A miss must not clear the atom: changeActiveToken may
+    // have supplied API-derived perps info for this same token, and switching
+    // tokens already clears it.
+    if (perpsInfo && isCurrentIdentity()) {
+      set(perpsInfoAtom(), perpsInfo);
+    }
+  } catch (error) {
+    defaultLogger.app.error.log(
+      `Failed to resolve market perps info: ${String(error)}`,
+    );
+  }
+}
+
 interface IMarketAssetTokenDetailPayload {
   assetId: string;
   variantId?: string;
@@ -230,8 +260,12 @@ async function fetchMarketAssetTokenDetail(
     set(tokenDetailAtom(), finalTokenData);
     set(tokenDetailPreviewAtom(), undefined);
     set(tokenDetailWebsocketAtom(), undefined);
-    set(perpsInfoAtom(), undefined);
     set(isNativeAtom(), selectedVariant.isNative);
+    void applyMarketAssetPerpsInfo({
+      set,
+      symbol: finalTokenData.symbol,
+      isCurrentIdentity,
+    });
 
     return assetDetail;
   } catch (error) {

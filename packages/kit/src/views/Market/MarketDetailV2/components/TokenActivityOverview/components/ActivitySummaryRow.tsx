@@ -64,19 +64,22 @@ export function ActivitySummaryRow({
       gap="$2.5"
       alignItems="center"
     >
-      <YStack minWidth={160} maxWidth={160} gap="$2" alignItems="flex-start">
+      {/* Figma sizes both blocks at 160px, but that clips CJK and the longer
+      European translations onto a second line. 160 becomes the floor and the
+      block grows with its own text; the bar between them takes what is left. */}
+      <YStack minWidth={160} flexShrink={0} gap="$1.5" alignItems="flex-start">
         <XStack gap="$1" alignItems="center">
-          <SizableText size="$bodyLgMedium" color="$textSubdued">
+          <SizableText size="$bodyMdMedium">
             {intl.formatMessage(
               { id: ETranslations.market_total_vol_in_range },
               { range: timeRange },
             )}
           </SizableText>
           {volumeUnavailable ? (
-            <SizableText size="$bodyLgMedium">--</SizableText>
+            <SizableText size="$headingSm">--</SizableText>
           ) : (
             <NumberSizeableText
-              size="$bodyLgMedium"
+              size="$headingSm"
               formatter="marketCap"
               formatterOptions={{ currency: '$' }}
             >
@@ -85,35 +88,35 @@ export function ActivitySummaryRow({
           )}
         </XStack>
         <XStack gap="$1" alignItems="center">
-          <SizableText size="$bodySmMedium" color="$textSuccess">
+          <SizableText size="$bodyMdMedium" color="$textSuccess">
             {intl.formatMessage({
               id: ETranslations.dexmarket_details_transactions_buy,
             })}
           </SizableText>
           <XStack alignItems="center">
             {buyUnavailable ? (
-              <SizableText size="$bodySm" color="$textSubdued">
+              <SizableText size="$bodyMd" color="$textSubdued">
                 --
               </SizableText>
             ) : (
               <NumberSizeableText
-                size="$bodySm"
+                size="$bodyMd"
                 color="$textSubdued"
                 formatter="marketCap"
               >
                 {buyCount}
               </NumberSizeableText>
             )}
-            <SizableText size="$bodySm" color="$textSubdued">
+            <SizableText size="$bodyMd" color="$textSubdued">
               {' / '}
             </SizableText>
             {buyVolumeUnavailable ? (
-              <SizableText size="$bodySm" color="$textSubdued">
+              <SizableText size="$bodyMd" color="$textSubdued">
                 --
               </SizableText>
             ) : (
               <NumberSizeableText
-                size="$bodySm"
+                size="$bodyMd"
                 color="$textSubdued"
                 formatter="marketCap"
                 formatterOptions={{ currency: '$' }}
@@ -134,16 +137,16 @@ export function ActivitySummaryRow({
         />
       </Stack>
 
-      <YStack minWidth={160} maxWidth={160} gap="$2" alignItems="flex-end">
+      <YStack minWidth={160} flexShrink={0} gap="$1.5" alignItems="flex-end">
         <XStack gap="$1" alignItems="center" justifyContent="flex-end">
-          <SizableText size="$bodyLgMedium" color="$textSubdued">
+          <SizableText size="$bodyMdMedium">
             {intl.formatMessage({ id: ETranslations.market_net_vol })}
           </SizableText>
           {netVolumeUnavailable ? (
-            <SizableText size="$bodyLgMedium">--</SizableText>
+            <SizableText size="$headingSm">--</SizableText>
           ) : (
             <NumberSizeableText
-              size="$bodyLgMedium"
+              size="$headingSm"
               color={netVolumeColor}
               formatter="marketCap"
               formatterOptions={{
@@ -158,28 +161,28 @@ export function ActivitySummaryRow({
         <XStack gap="$1" alignItems="center" justifyContent="flex-end">
           <XStack alignItems="center">
             {sellUnavailable ? (
-              <SizableText size="$bodySm" color="$textSubdued">
+              <SizableText size="$bodyMd" color="$textSubdued">
                 --
               </SizableText>
             ) : (
               <NumberSizeableText
-                size="$bodySm"
+                size="$bodyMd"
                 color="$textSubdued"
                 formatter="marketCap"
               >
                 {sellCount}
               </NumberSizeableText>
             )}
-            <SizableText size="$bodySm" color="$textSubdued">
+            <SizableText size="$bodyMd" color="$textSubdued">
               {' / '}
             </SizableText>
             {sellVolumeUnavailable ? (
-              <SizableText size="$bodySm" color="$textSubdued">
+              <SizableText size="$bodyMd" color="$textSubdued">
                 --
               </SizableText>
             ) : (
               <NumberSizeableText
-                size="$bodySm"
+                size="$bodyMd"
                 color="$textSubdued"
                 formatter="marketCap"
                 formatterOptions={{ currency: '$' }}
@@ -188,7 +191,7 @@ export function ActivitySummaryRow({
               </NumberSizeableText>
             )}
           </XStack>
-          <SizableText size="$bodySmMedium" color="$textCritical">
+          <SizableText size="$bodyMdMedium" color="$textCritical">
             {intl.formatMessage({
               id: ETranslations.dexmarket_details_transactions_sell,
             })}

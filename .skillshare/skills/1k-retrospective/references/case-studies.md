@@ -360,3 +360,305 @@ Cases are appended by AI after each bug fix. Do NOT reorder or delete entries �
 **Root Cause**: `buildAllowList` `pagePath()` runs `removeExtraSlash` (`path.replace(/\/+/g, '')`) then prepends `/`. The rewrite `/prime/redeem` became allowlist key `/primeredeem`, which never matched `getPathFromState`'s real URL, so the path was rewritten to `/`.
 **Fix**: Register the public path as literal `PRIME_REDEEM_LANDING_PATH` (`/prime/redeem`) instead of a `pagePath()` key. Regression test calls real `buildAllowList()` and asserts `/primeredeem` is absent.
 **Catchable by**: NEW — web public URLs with an inner slash cannot use `pagePath()`; allowlist tests must call `buildAllowList()`, not a handwritten path
+
+## Case: Browser search submits on Chinese IME Enter when typing English
+**Date**: 2026-09-08 | **Platforms**: desktop, web, extension
+**Symptom**: In Discovery search, using a Chinese IME to type English and pressing Enter once committed the letters and immediately started a Google search (e.g. query `fou r`).
+**Root Cause**: `useSearchPopover` treated every Enter as submit. IME confirmation Enter was not ignored, and Chromium fires that keydown after `compositionend` with `isComposing` already false.
+**Fix**: Shared IME composition lock ignores composing / keyCode 229 events and holds the lock until after the confirming Enter. Input forwards React composition props through the repository's existing RN-web ESM patch. Discovery inputs disable submit auto-blur; non-native SearchBar defaults to retaining focus while honoring an explicit blurOnSubmit setting.
+**Catchable by**: NEW — web/desktop inputs that submit on Enter must ignore IME composition (including the post-compositionend confirming Enter), retain focus, and test the patched production ESM entry rather than the unpatched CJS entry
+
+## Case: Cached banner quotes mask same-identity CMS logo updates
+**Date**: 2026-09-15 | **Platforms**: desktop, web, iOS, Android, extension (Market Home banners)
+**Symptom**: After keeping hydrated quote rows across 30s list polls (anti-flash), a CMS logo change on the same banner `_id` never appeared until remount or identity change.
+**Root Cause**: `mergeBannerQuotes` replaced the fresh list `tokens` with cached quote rows, then that merged list was passed into `hydrateMarketBannerQuotes`, so `previewLogos` was built from stale cached logos.
+**Fix**: Hydrate from the raw banner list; overlay latest preview logos onto cached quote rows for display and hydrate-failure fallback. Quote membership still only changes after a completed hydrate.
+**Catchable by**: Section 4: Data flow end-to-end; NEW — an anti-flash cache must not become the source of truth for poll fields that are allowed to update
+
+## Case: Stock list defaulted to 24h volume instead of market cap
+**Date**: 2026-09-15 | **Platforms**: all Market stock lists
+**Symptom**: Opening the Stocks tab sorted by 24h volume on first load (OK-63392).
+**Root Cause**: `DEFAULT_MARKET_STOCK_SORT_BY` was `'volume24h'`.
+**Fix**: Default sort is `'marketCap'` descending; list hook tests assert the first request and the cleared-column restore.
+**Catchable by**: Section 4: Implementation matches original requirement; Section 6: default sort covered by tests
+
+## Case: Favoriting AAPL listing starred chain aapl in search
+**Date**: 2026-09-15 | **Platforms**: all (universal search)
+**Symptom**: Starring the AAPL collection made other-network aapl tokens appear favorited (OK-63400).
+**Root Cause**: Search rows used nested/inferred `stock.stockId` for `MarketStarV2`, so chain tokens shared the `stock:AAPL` watchlist key with the listing.
+**Fix**: Only listings from `/utility/v1/stocks/search` (top-level `stockId`, no chain identity) pass `stockId` to star/nav; chain tokens keep chain identity even when nested stock metadata is present.
+**Catchable by**: Section 4: Shared hook/utility modified → checked all consumers; NEW — listing identity and chain-token identity must not share watchlist keys
+
+## Case: Tokens without API stock ID opened stock detail
+**Date**: 2026-09-15 | **Platforms**: all Market/search navigation
+**Symptom**: xStock / ticker-named tokens without a server stock ID opened MarketStockDetail (OK-63401).
+**Root Cause**: `resolveMarketStockId` inferred IDs from `underlyingAssetTicker` and xStock naming.
+**Fix**: Resolve stock routes only from explicit `stockId` / `stock.stockId`. Search navigation additionally requires a top-level listing `stockId`.
+**Catchable by**: Section 4: identity heuristics; NEW — do not infer product identity from display names or related tickers
+
+## Case: Global search omitted `/utility/v1/stocks/search`
+**Date**: 2026-09-15 | **Platforms**: all (universal search)
+**Symptom**: Searching a ticker in global search returned tokenized chain tokens only, not the stock listing.
+**Root Cause**: `universalSearchOfV2MarketToken` only called `searchV2Token`.
+**Fix**: Universal search also calls `searchMarketStocks` and prepends mapped listings. Swap Pro keeps token-only search via `includeStockListings`.
+**Catchable by**: Section 4: Data flow end-to-end API → state → UI; NEW — new identity APIs must be wired into every search surface that presents that product
+
+## Case: K-line last-value badge used mid-amount ellipsis
+**Date**: 2026-09-15 | **Platforms**: desktop, mobile, web, extension
+**Symptom**: Chart last-value labels showed `$77,250...K` instead of OKX-style `$77.25K`.
+**Root Cause**: `formatChartPrice` truncated the numeric body at 8 characters and inserted `...` before the K/M/B unit, so compact units still dumped extra decimals.
+**Fix**: Round compact and >=$1 amounts to 2 decimals; drop extra decimals instead of mid-amount ellipsis; keep trailing `...` only when integer+unit still cannot fit.
+**Catchable by**: Section 6: visual/format bugs need a regression test of the exact display string; NEW — compact-unit labels must not insert ellipsis before the unit
+
+## Case: Wallet-home Stocks tab reused tokenized stock list
+**Date**: 2026-09-15 | **Platforms**: desktop, mobile, web, extension
+**Symptom**: Wallet Home PopularTrading Stocks showed tokenized tickers like `AAPLon` instead of public stocks (TCENT, IWM).
+**Root Cause**: Stocks category reused `fetchMarketTokenList` (`/utility/v2/market/tokens?type=stocks`) instead of the public stocks API used by Market Stocks.
+**Fix**: Detect the stocks category and load `fetchMarketStockList`; map `stockId` / `stockListingName` for display and hide network icons.
+**Catchable by**: Section 4: shared hook/utility modified → check all category consumers; NEW — a Market category named like another product surface must use that surface's list API, not the generic token list
+
+## Case: Universal search mixed stock listings into the Market tab
+**Date**: 2026-09-16 | **Platforms**: Desktop, Web, Extension, iOS, Android
+**Symptom**: Searching AAPL put the real stock next to AAPLon / xStock under Market, and the Liquidity column showed `--` because listings have no liquidity.
+**Root Cause**: `V2MarketToken` search prepended stock listings into the same result bucket and reused the token table columns.
+**Fix**: Split stock listings into `MarketStock` with their own tab/section and show Name / Price / Market cap / Volume.
+**Catchable by**: Section 4: shared hook/utility modified → checked all consumers; NEW — mixed asset types in one search tab need their own columns and empty-tab hiding
+
+## Case: Native union build failed on unregistered search helpers
+**Date**: 2026-09-16 | **Platforms**: iOS, Android (native union build)
+**Symptom**: CI Native startup graph budget failed; Codex/Devin flagged `universalSearchTabs.ts` and `marketSearchMetric.ts`.
+**Root Cause**: New files entered the native Metro graph via sync imports but were missing from `module-id-registry.json`.
+**Fix**: Register both paths with `updateRegistryFromModulePaths` and commit IDs `13357` / `23019`.
+**Catchable by**: NEW — new `packages/kit` files on the native startup graph must be registered before push
+
+## Case: Market search preset hid the new Stocks section
+**Date**: 2026-09-16 | **Platforms**: iOS, Android, extension (Discovery market header)
+**Symptom**: Searching AAPL from Discovery Market showed only AAPLon / AAPLx under Market; the real listing appeared only after tapping Stocks.
+**Root Cause**: `initialTab="market"` landed on the Market tab, which filters sections by title. Stocks is a different title, and native Discovery does not focus `ETabRoutes.Market`, so All-tab prioritization never ran.
+**Fix**: Open the All tab for the market preset and treat `initialTab="market"` as market-focused so Stocks / Market / Perp stay first.
+**Catchable by**: Section 3: Cross-platform Impact — a tab-route focus gate must also cover hosts that pass `initialTab`; Section 4: shared filter after splitting a section title
+
+## Case: Market detail back walked leftover token pages
+**Date**: 2026-09-16 | **Platforms**: iOS, Android, Desktop, Web
+**Symptom**: Switching tokens in a Market detail, or opening multiple details from Wallet Home, made the top-left back button pass through previous detail pages instead of returning to the Market list.
+**Root Cause**: Home and the token selector used nested `navigate`, which stacked `MarketDetailV2` / `MarketStockDetail`. The custom back handler only `pop()`ped one screen, and native empty history reset to `TabMarket` which does not exist on Discovery.
+**Fix**: Collapse the Market/Discovery stack to `[list, one detail]` when opening or switching a detail, and `popToTop` when the previous route is still a leftover detail.
+**Catchable by**: Section 4: Logic moved between files carries its surrounding guard/condition; NEW — custom back handlers must collapse stacked same-feature screens, not assume one-to-one push/pop
+
+## Case: Market detail collapse treated banner and SwapPro as leftover token pages
+**Date**: 2026-09-17 | **Platforms**: iOS, Android, Desktop, Web
+**Symptom**: Home banner → banner list → token detail back skipped the banner list; switching tokens from that path reset away the banner page. SwapPro modal token changes rewrote the background Market stack. Native empty-history back could land on Browser instead of Market.
+**Root Cause**: `MarketBannerDetail` was counted as a leftover detail, so back used `popToTop` and switch used `reset` to `[list, detail]`. `openOrReplaceMarketDetailRoute` rewrote any unfocused Main Market stack, including when SwapPro owned the focused detail. Native `CommonActions.reset` to `TabDiscovery` omitted `defaultTab`.
+**Fix**: Treat only token/stock/native pages as leftover details and keep banner hosts when collapsing. Skip rewriting Main only when the focused route is a market detail the found stack does not own. Pass `defaultTab: global_market` on native list reset.
+**Catchable by**: Section 4: shared hook/utility modified → checked all consumers; NEW — a collapse/reset of stacked feature screens must preserve legitimate intermediate hosts and must not rewrite an unfocused background stack
+
+## Case: SwapPro setParams cleared disableTrade and from
+**Date**: 2026-09-17 | **Platforms**: iOS, Android, Desktop, Web
+**Symptom**: Switching tokens inside SwapPro market detail could re-enable Buy/Sell and break Back, resetting a TabDiscovery route onto SwapModal.
+**Root Cause**: `replaceFocusedMarketDetailRoute` wrote every identity key including `undefined` for `from` / `disableTrade` / `showFavoriteButton`. SET_PARAMS merges those undefineds over the SwapPro-owned route params.
+**Fix**: Omit SwapPro-owned keys when updating `SwapProMarketDetail` in place so the modal keeps disableTrade and from.
+**Catchable by**: Section 4: shared hook/utility modified → checked all consumers; NEW — SET_PARAMS that writes explicit undefined must not clobber host-owned route flags the caller does not re-supply
+
+## Case: Market Simple chart last price lagged the title quote
+**Date**: 2026-09-17 | **Platforms**: Desktop, Web (Market detail Simple chart; same component on stock/token desktop layouts)
+**Symptom**: AAPL Simple 1H showed title `$332.41` while the chart's last price label stayed at `$334.76`.
+**Root Cause**: Simple fetched 5m historical buckets once and never merged the live title quote. The last point was a 5m cutoff (often the still-open bucket's stale close). Pro already pushed websocket last-close into the title; Simple did the opposite and froze the line.
+**Fix**: Drop a still-open bucket, keep closed 5m cutoffs, and append a single `[now, titlePrice]` point so the line tail tracks the title without rewriting a closed cutoff.
+**Catchable by**: Section 4: Data flow end-to-end; NEW — a Simple/line chart that uses coarse buckets must overlay the same live quote the header reads, not wait for the next bucket close
+
+## Case: Market Simple chart live merge skipped stale/future bars and compact labels
+**Date**: 2026-09-17 | **Platforms**: Desktop, Web (Market detail Simple chart)
+**Symptom**: 1H title `$0.0000653` while hover and the last-value tag showed `$0.0006459` / `$0.000645`; pre-market share 1H stayed on the last session close.
+**Root Cause**: Merge skipped when the last closed bar was outside `rangeSeconds` or `t > now`, so the line never received the title quote. Hover used `numberFormat` string flattening and the axis used an 8-character `$0.0₄…` compact form, so even a matching value looked like a different price.
+**Fix**: Always append `[now, titlePrice]` after dropping open/future tail bars; render hover with `NumberSizeableText` `price` (same as the title) and give the axis a 10-character budget so `$0.0000653` stays in full.
+**Catchable by**: Section 4: Data flow end-to-end; Section 6: hover vs last-value vs title must share one formatter; NEW — do not skip a live overlay because the last historical bar sits outside the visible window
+
+## Case: Chart axis and header rounded the same quote with two different algorithms
+**Date**: 2026-09-17 | **Platforms**: Desktop, Web, iOS, Android (Market Simple chart, Swap stock chart)
+**Symptom**: Header showed `$0.001235` while the axis last-value tag showed `$0.0012345`; at five leading zeros the header used `$0.0₅653` and the axis used `$0.00000653`. Widening the axis character budget to 10 only moved the mismatch to a different price band.
+**Root Cause**: Two independent formatters. `formatPrice` rounds the decimal string half-up to `4 + leadingZeros` places via BigNumber and switches to subscript above 4 zeros. `formatChartPrice` truncated a double's full decimal expansion to a character budget and switched to subscript above 5 zeros. Matching them by tuning the budget only widens the band where they happen to agree.
+**Fix**: Give `formatChartPrice` the same sub-$1 rule — 4 significant digits, subscript above 4 leading zeros. Round the `toExponential()` digit string rather than calling `toFixed` on the double, because the double behind `0.0012345` is `0.00123449…` and would round down. Locked in with a test that compares both formatters over a price sweep, plus one that pins the deliberate divergences (axis drops trailing zeros and compacts K/M/B).
+**Catchable by**: NEW — when two components must display the same number, assert equality against the other formatter; matching the rendered width or digit budget is not the same as sharing the rounding rule
+
+## Case: Pro K-line chart rounded sub-$1 prices away from the header
+**Date**: 2026-09-17 | **Platforms**: iOS, Android (Market detail Pro chart — mobile has no Simple chart)
+**Symptom**: The header and the chart could print different digits for one quote, e.g. `$0.001235` above `0.001234`. Reported from a mobile screenshot where the axis also mixed `0.0₄9463` with `0.0002756`.
+**Root Cause**: `formatTradingViewNativePriceTick` in `chartLayout.ts` is a third price formatter, independent of `formatPrice` and `formatChartPrice`. It called `toFixed` on the binary double, so `0.0012345` (stored as `0.00123449…`) rounded down while the header's BigNumber `ROUND_HALF_UP` on the decimal string rounded up.
+**Fix**: Round the `toExponential()` digit string half-up inside the worklet. Left `PRICE_LEADING_ZERO_SUBSCRIPT_THRESHOLD = 3` untouched: subscript versus plain is notation, and the chart legitimately compacts harder than the header. Test compares both formatters after expanding subscripts and normalizing trailing zeros, so it asserts the value and ignores the notation.
+**Catchable by**: NEW — when two components show the same number, the parity test must compare the value after normalizing notation; and a repo can hold more than two formatters for one concept, so grep for every implementation before declaring a display bug fixed
+
+## Case: Watchlist stock rows rendered NaN prices while their quote batch was still in flight
+**Date**: 2026-09-17 | **Platforms**: Desktop, Web (Market detail token selector; Market Home watchlist shared the same hook)
+**Symptom**: OK-63638. Switching the detail-page selector from Favorites to another tab and back flashed four stock rows with placeholder logos, a literal `NaN` price and `--` for every other metric, while the crypto rows in the same list vanished entirely for ~1s.
+**Root Cause**: Tab switching swaps `WatchlistTokenSelectorList` for `CategoryTokenSelectorList`, so `useMarketWatchlistTokenList` remounts with every request reset. Its merge step builds listing (stock/asset) rows straight from the local watchlist record — `stockId` alone is enough for a name — and filled the missing quote fields with `NaN`, whereas spot rows require a server match and were dropped. Those synthesized rows made `data.length > 0`, which defeated the list's `isLoading && data.length === 0` spinner guard, and the price cell was the only metric with no empty-value branch.
+**Fix**: Hold listing rows back until the quote batch resolves (distinguish "batch unresolved" from "batch returned no entry", so delisted favorites stay removable); cache the resolved batch on `IMarketWatchlistDataCache.listing` and park the ref on the selector shell that outlives the tabs, invalidating it when the watchlist gains an uncovered entry; give the price cell the same `--` fallback the other metrics already had.
+**Catchable by**: Section 5: "not loaded" vs "empty" properly distinguished — a row synthesized from local state is not loaded data; NEW — when one list builds rows from two sources with different readiness, the loading guard must key on the slowest source, not on row count
+
+## Case: Same-route detail entry still pushed another page
+**Date**: 2026-09-17 | **Platforms**: iOS, Android, Desktop, Web
+**Symptom**: Opening a token from a list while already on a detail page of the same route added another detail page, so Back walked through the previous token.
+**Root Cause**: `useToDetailPage` derived `shouldReplaceCurrentDetail` from `currentRouteName !== detailRouteName`, so the same-route case fell through to `navigation.push`. The stack collapse added for the token selector never ran on this entry.
+**Fix**: Add a `shouldUpdateCurrentDetail` branch that calls `setParams` with `buildReplacedMarketDetailParams`, sharing the identity-clearing list with the selector path.
+**Catchable by**: Section 4: shared hook/utility modified → checked all consumers; NEW — a "replace instead of push" option must also cover the same-route case, not only route changes
+
+## Case: Extension preview handle survived a token switch
+**Date**: 2026-09-17 | **Platforms**: Browser extension (expand tab)
+**Symptom**: Switching assets on an extension market detail could show a retry error instead of the new asset.
+**Root Cause**: `bg` writes the preview into `chrome.storage.session` and the expand-tab `main` runtime reads `marketTokenPreviewId` back from the URL hash. `DETAIL_ROUTE_PARAM_KEYS` omitted that key, and SET_PARAMS merges, so the stale handle stayed attached to the new identity.
+**Fix**: Add `marketTokenPreviewId` to the cleared identity keys so a switch without a new handle writes `undefined`.
+**Catchable by**: Section 4: state atoms modified → verified all readers/writers; NEW — an identity-clearing allowlist must enumerate every route param that carries cross-runtime handles
+
+## Case: Selector keyboard stayed up after picking a searched token
+**Date**: 2026-09-17 | **Platforms**: Android
+**Symptom**: Searching in the market token selector and tapping a result left the IME on top of the detail page unless the list had been dragged first.
+**Root Cause**: The selector list uses persist-taps, so a row tap never blurs the SearchBar. Closing the modal alone does not blur the RN input.
+**Fix**: Blur the focused RN input (`blurFocusedInput`) on select. Do not use `dismissKeyboard` here — its Android `hideSoftInputFromWindow` blocks the next programmatic `autoFocus` from showing the IME.
+**Catchable by**: Section 5: stale IME / focus state after dismiss; NEW — closing an autoFocused overlay must blur its input, and window-level IME hiding must not be used on a path that later autoFocuses
+
+## Case: Empty stock 24h change rendered as zero in watchlist
+**Date**: 2026-09-17 | **Platforms**: iOS, Android, Desktop, Web, Browser extension
+**Symptom**: OK-63645. Some stock favorites such as ICBC showed `0.0%` for the 24-hour change when the quote had no change value.
+**Root Cause**: The stock batch API represented a missing `priceChange24hPercent` as an empty string, and the shared watchlist hook converted it with `Number('')`, producing a valid zero.
+**Fix**: Normalize the raw change before conversion, map missing or invalid values to the existing `-`/`NaN` sentinel, and preserve the valid string `'0'` as zero.
+**Catchable by**: Section 4: edge cases covered; Section 6: bug fix includes a regression test — numeric API tests must distinguish an empty string from a real zero
+
+## Case: Metro stale-lock concurrency test reclaimed fresh locks
+**Date**: 2026-09-18 | **Platforms**: CI, local development tooling
+**Symptom**: PR unit-test shard intermittently failed with `ENOTEMPTY` while two cleaners reclaimed a stale Metro cache lock.
+**Root Cause**: The test used `staleMs: 0` to make its fixture stale, which also made a newly created ownerless lock immediately reclaimable before its owner file was written.
+**Fix**: Backdate only the initial stale fixture and use a nonzero stale threshold so replacement locks remain fresh during acquisition.
+**Catchable by**: Section 6: tests cover race conditions; NEW — concurrency tests must make the intended stale fixture old without making newly created resources instantly stale
+
+## Case: Home Market watchlist View more used a smaller font than other tabs
+**Date**: 2026-09-18 | **Platforms**: Desktop, Mobile, Web, Extension
+**Symptom**: OK-63673. Wallet Home Market watchlist "View more" rendered at 14px while Trending/Stocks/other category tabs used 16px, so switching tabs jumped the Market block height.
+**Root Cause**: Watchlist built a custom Button child (`$bodyMdMedium` + `$5.5` icon) copied from a Perps polish; category tabs kept the standard medium Button (`iconAfter` + `$bodyLgMedium`).
+**Fix**: Restore the watchlist footer to the same standard Button API as `MarketCategoryTokenList`. Leave Perps Home View more unchanged.
+**Catchable by**: Section 4: shared hook/utility modified → checked all consumers; NEW — duplicated UI across sibling tabs must share one control, not a later one-off restyle
+
+## Case: Home Market stock/top-coin rows were 60px while token rows were 68px
+**Date**: 2026-09-18 | **Platforms**: Desktop, Web, Extension
+**Symptom**: OK-63673 follow-up. Wallet Home Market rows measured 716×60 for stocks/top coins and 716×68 for trending tokens with an address, so switching tabs still jumped height after the View more font was unified.
+**Root Cause**: `Table` defaults `minHeight` to 60. One-line stock/native identity cells stay at that floor; address + copy-button cells grow to 68.
+**Fix**: Set home Market table `minHeight` / `estimatedItemSize` to 68 so every tab's rows match the taller token row.
+**Catchable by**: Section 3: UI changes verified on desktop; NEW — when a list mixes one-line and two-line cells, lock the row minHeight to the taller variant before declaring tab-switch height stable
+
+## Case: Market detail search stock list loaded from scratch every open
+**Date**: 2026-09-18 | **Platforms**: Desktop, Mobile, Web, Extension
+**Symptom**: OK-63683. Opening Market detail search showed a 1–2s spinner on Stocks, while Favorites / Trending / Top Coins returned immediately. Re-entering search loaded Stocks again.
+**Root Cause**: `useMarketStockSelectorList` cold-fetched `/utility/v1/stocks` on every mount (`undefinedResultIfReRun` + empty init, no SWR). Rows were published only from `listState` after an effect, so even a cached first page still rendered as empty + spinner. Home stocks already persisted under `swrKeys.marketHomeStocks`.
+**Fix**: Hydrate the default selector list from the selector SWR slot, falling back to the Home stocks cache; keep cached rows on screen while revalidating; only show the full-page spinner when there are no rows.
+**Catchable by**: Section 5: "not loaded" vs "empty"; NEW — a remounted picker that already has a sibling list cache must render that cache instead of treating the next fetch as a first load
+
+## Case: Market selector showed end-of-list while the cached first page was still revalidating
+**Date**: 2026-09-18 | **Platforms**: Desktop, Mobile, Web, Extension
+**Symptom**: After cache-first hydration, Market detail search Stocks showed `ListEndIndicator` during the silent first-page refresh, so a short cached page looked complete even though `nextCursor` still existed.
+**Root Cause**: `canLoadMore` used `!isLoading`. Cached rows made the returned `isLoading` false for the spinner, but `usePromiseResult`'s loading flag still flipped `canLoadMore` off; the footer treated "cannot load more" as end of list. `onEndReached` during that window was dropped.
+**Fix**: Track `isRevalidatingFirstPage` until the remote first page for this query settles; hide `ListEndIndicator` in that window; queue `loadMore` and flush it after the first page lands.
+**Catchable by**: Section 4: edge cases loading vs empty; NEW — a cache-first list must not render an end sentinel while the first remote page is still in flight
+
+## Case: Desktop Home stocks SWR was skipped so Market search could not hydrate
+**Date**: 2026-09-18 | **Platforms**: Desktop, Web, Extension
+**Symptom**: OK-63683 remaining P2. Opening Market detail search on desktop still waited on `/utility/v1/stocks` because Home never wrote `swrKeys.marketHomeStocks`.
+**Root Cause**: `useMarketStockList` only set `swrKey` when `platformEnv.isNative`, so desktop/web Home visits left the selector with no sibling cache.
+**Fix**: Persist Home stocks under `swrKeys.marketHomeStocks` on every platform so the selector can hydrate from the same slot.
+**Catchable by**: Section 3: identified which platforms consume modified code; NEW — a native-only SWR write cannot be the cache source for a cross-platform picker
+
+## Case: Queued stock selector load-more used the cached cursor
+**Date**: 2026-09-18 | **Platforms**: Desktop, Mobile, Web, Extension
+**Symptom**: After cache-first search hydration, scrolling to the bottom during the 1–2s first-page refetch could request page two with the cached `nextCursor` and append it onto a newer first page.
+**Root Cause**: `remoteQueryKeyRef` was written in the fetch callback before `listState` applied the remote first page. The queue effect then called `loadMore()` with the cached cursor still in the closure.
+**Fix**: Publish the remote first page as `currentListState` on the same render (Home’s pattern) so a flushed `loadMore` uses the remote cursor and items.
+**Catchable by**: Section 5: race conditions in async operations; NEW — a queued pagination flush must use the remote first page, not the cache snapshot that is still in React state
+
+## Case: Home Market 68px row minHeight stretched the table header
+**Date**: 2026-09-18 | **Platforms**: Desktop, Web, Extension
+**Symptom**: OK-63673 follow-up. Desktop Home Market data rows were locked to 68px, but `TableHeaderRow` spreads `rowProps` before `headerRowProps`, so the header also became 68px.
+**Root Cause**: `headerRowProps` only set padding/margin and did not override `minHeight`.
+**Fix**: Set desktop `headerRowProps.minHeight` to 0 so the header stays content-sized while data rows keep the 68px floor.
+**Catchable by**: Section 4: UI changes verified on desktop; NEW — when rowProps set minHeight, headerRowProps must override it or the header grows with the rows
+
+## Case: Weak-network Market home hid Stocks and Robinhood tabs
+**Date**: 2026-09-18 | **Platforms**: Desktop, Web, Extension; Native when config cache is cold
+**Symptom**: OK-63704. On a weak or offline network, Market home only showed Favorites / Trending / Top coins / Perps. Stocks and Robinhood tabs disappeared.
+**Root Cause**: Those two tabs come only from `basic-config` `spotCategories`. The pre-config fallback listed `trending` alone. Desktop/web also skipped SWR for that config, and `memoizee({ promise: true })` reused the rejected fetch.
+**Fix**: Persist `basic-config` on every platform, drop failed memoizee entries, keep Stocks / Robinhood tab identities in the cold fallback, and show Retry on token-list empty errors.
+**Catchable by**: Section 4: edge cases loading vs empty; NEW — a remote-driven tab strip must not drop tab identities while its config request is pending or failed
+
+## Case: Pinned TradingView release reused pre-pin CacheStorage
+**Date**: 2026-09-18 | **Platforms**: Web
+**Symptom**: WEB-01 pinned the chart embed trust root in the app build, but a client that had already cached a malicious asset under `onekey-tradingview-embed:${version}` could still execute those bytes after upgrade.
+**Root Cause**: The new worker kept the same CacheStorage namespace. `openTradingViewBootstrapCache()` looked for markers at the versioned `embed-manifest.json` URL, missed the old `/embed/latest.json` marker, and did not reset. `cacheTradingViewAssets()` then skipped integrity checks on cache hits.
+**Fix**: Move pinned/current caches to `onekey-tradingview-embed-pin-v1:`, delete the legacy `onekey-tradingview-embed:` namespace when adopting a release, and regression-test that a poisoned legacy entry is not served.
+**Catchable by**: Section 4: implementation matches original requirement — a trust-root change must also rotate or re-verify the persistent cache that will execute those bytes
+
+## Case: Stale HideTabBar cleanup covered the market trade buttons
+**Date**: 2026-09-20 | **Platforms**: iOS, Android
+**Symptom**: OK-63513. After switching tokens a couple of times on the market detail page, the bottom tab bar reappeared over the trade buttons, so the buttons looked cut off or missing.
+**Root Cause**: `EAppEventBusNames.HideTabBar` carries a bare boolean, so the last writer wins. A leaving market detail instance ran its focus cleanup after the surviving instance had already asked for a hidden tab bar, and its `false` resurrected it. The focus effect does not depend on route params, so an in-place `setParams` switch never re-asserted `true`. The trade footer is a plain flex sibling padded only by `useSafeAreaInsets().bottom`, so a visible tab bar drew straight over it.
+**Fix**: Route every writer through a `hideTabBarRequests` registry that resolves the union of live per-instance requests, and pad the trade footer with `usePageFooterSafeAreaBottom() + usePageFooterTabBarHeight()` so a visible tab bar cannot overlap it.
+**Catchable by**: Section 4: state atoms modified → verified all readers/writers; NEW — a global boolean owned by several screens needs per-instance request ownership, and a footer outside Page.Footer must claim the tab bar inset itself instead of trusting the hide path
+
+## Case: Market detail footer used a stricter identity than the chart
+**Date**: 2026-09-20 | **Platforms**: iOS, Android, Desktop, Web, Extension
+**Symptom**: OK-63513 follow-up. After switching tokens on market detail, some tokens (BTC, Solana, ERC-20) lost the bottom trade buttons even when the chart rendered.
+**Root Cause**: Footer visibility compared raw `address.toLowerCase()` + `networkId` + `decimalsResolved`. Route/store identity can be a short code (`sol`), a CoinGecko id (`bitcoin`), or an empty native address, while `tokenDetail` uses `btc--0` / `sol--101` and may omit or case-fold the address. Switching also clears `tokenDetail` before the next fetch, so the mobile footer waited on full detail while the chart already accepted a matching preview.
+**Fix**: One `isMatchingMarketTokenIdentity` for chart, footer, and preview merge. Footer show/hide is identity-only; decimals stay on quote/stock skeleton. Mobile footer reads the same display token (preview or detail) as the chart.
+**Catchable by**: Section 4: shared hook/utility modified → checked all consumers; NEW — two surfaces that represent the same market token must share one identity compare, and decimal readiness must not unmount the trade footer
+
+## Case: Market display preferred stale detail over the new preview
+**Date**: 2026-09-20 | **Platforms**: iOS, Android, Desktop, Web, Extension
+**Symptom**: OK-63513 follow-up review. Switching tokens could still hide the footer, pass `bitcoin` into Swap, or treat a previous native coin as the current mint.
+**Root Cause**: `displayTokenDetail` kept the old full detail whenever it existed, even if a new preview belonged to another token. Native identity treated any contract vs empty address as the same asset. Placeholder networks matched every chain. Discovery hide-tab-bar had no unmount release.
+**Fix**: Prefer the new preview when identities differ; native shortcut only for empty/zero/ticker; placeholder nets only match a concrete chain or the same placeholder string; Swap execution blanks non-contract ids; Discovery releases its owner on unmount.
+**Catchable by**: Section 4: shared hook/utility modified → checked all consumers; NEW — a display fallback must not keep previous full detail over a newer matching preview
+
+## Case: Swap invitee reward blocked watch-only EVM as unsupported
+**Date**: 2026-09-20 | **Platforms**: Desktop, Mobile, Web, Extension
+**Symptom**: Opening Swap 奖励 from a watch-only account showed “当前账户不支持。请连接一个 EVM 账户后重试” with no action, while Perps/Earn still allowed viewing.
+**Root Cause**: Viewing reused HD/HW invite-code identity (`getReferralCodeWalletInfo`) and `getCurrentEvmAccountAddress` only resolved an ETH sibling via `indexedAccountId`, which Others accounts do not have.
+**Fix**: Resolve Others EVM addresses from the stored account; fetch rebate by that address; map no-wallet / no-EVM empty state to Perps `InviteeRewardNoWallet`. Binding stays HD/HW-only.
+**Catchable by**: Section 4: shared hook/utility modified → checked all consumers; NEW — a viewing surface must not reuse a bind-only wallet-identity gate
+
+## Case: Market detail search omitted stock listings
+**Date**: 2026-09-20 | **Platforms**: Desktop, Mobile, Web, Extension
+**Symptom**: Searching AAPL from Market detail returned tokenized chain assets such as AAPLx, but not the aggregated AAPL stock listing shown by universal search.
+**Root Cause**: Both detail token selectors only called the V2 market-token search path; the stock selector hook already supported `/utility/v1/stocks/search` but was unmounted whenever a search query was present.
+**Fix**: Run stock and market-token search independently, render separate Stocks and Market sections, and preserve `stockId` navigation separately from chain `network + address` navigation.
+**Catchable by**: Section 4: Data flow end-to-end API → state → UI; NEW — every product search entry must wire all product identity APIs that its result UI promises
+
+## Case: Reselecting the current stock cleared its chart
+**Date**: 2026-09-20 | **Platforms**: Desktop, Web
+**Symptom**: OK-63786. Selecting the stock already open in Market detail left the page on the same symbol but removed its K-line.
+**Root Cause**: Stock rows do not carry a resolved token variant, so same-stock navigation called `prepareStockTokenDetail` with an empty identity. That cleared the loaded token state, while the unchanged route identity did not restart the detail request.
+**Fix**: Preserve the loaded token state when a retained desktop/web stock route reselects the same `stockId` without an explicit variant, while still applying the route parameter update.
+**Catchable by**: Section 4: state data flow end-to-end; NEW — idempotent same-identity navigation must not clear state whose refetch key remains unchanged
+
+## Case: Mobile stock selector could not identify the detail behind its modal
+**Date**: 2026-09-20 | **Platforms**: Mobile
+**Symptom**: OK-63786 follow-up. Reselecting the currently displayed stock from the mobile selector still cleared the K-line.
+**Root Cause**: The same-stock guard read `useRoute()` from the selector modal, so it never saw the `MarketStockDetail` route and `stockId` underneath the overlay.
+**Fix**: Resolve the active stock identity from the nested Market/Discovery stack in the root navigation state before deciding whether to preserve loaded token detail.
+**Catchable by**: Section 4: logic moved between scopes carries its surrounding context; NEW — modal actions that mutate background-page state must derive identity from the owning stack, not the modal route
+
+## Case: Grouped Market stock search stopped after its first page
+**Date**: 2026-09-20 | **Platforms**: Desktop, Mobile, Web, Extension
+**Symptom**: Market detail search exposed only the first 20 matching stock listings even when the API returned another cursor.
+**Root Cause**: The grouped search result components consumed the stock hook's first-page items but ignored `canLoadMore`, `loadMore`, and load-more error state.
+**Fix**: Add progressive Show more pagination to expanded Stocks results on desktop and mobile, including loading feedback and retry after a failed page.
+**Catchable by**: Section 4: data flow end-to-end API → state → UI; NEW — every paginated hook consumer must wire the cursor, loading, and retry outputs or explicitly document a result cap
+
+## Case: Whitespace Market search showed the default stock list
+**Date**: 2026-09-20 | **Platforms**: Desktop, Mobile, Web, Extension
+**Symptom**: Typing only spaces in Market detail search hid the category tabs and rendered the unfiltered stock list as search results.
+**Root Cause**: Search mode used a truthy debounce string, so `"   "` entered grouped search. The stock hook then trimmed the query to empty and called the default list endpoint.
+**Fix**: Gate search mode on the trimmed query, and pass `searchOnly` so grouped search never hydrates the default stock list.
+**Catchable by**: Section 4: empty vs loaded data; NEW — a search surface that reuses a list hook must distinguish "no query" from "unfiltered browse"
+
+## Case: Simple mode chart froze because it had no live price source at all
+**Date**: 2026-09-20 | **Platforms**: Desktop, Web, Extension (wide layout only; Simple mode never mounts on native)
+**Symptom**: OK-63597 reopened. On the market detail page the price and the K-line looked stuck and drifted ~0.6-1% from third-party quotes, minutes at a time. Pro mode on the same token stayed live. The earlier fix had aligned chart and header, so they now looked stale together instead of disagreeing.
+**Root Cause**: Simple mode had two dead inputs. `tokenDetail.price`, which the chart pins its last point to, comes from a 6s poll of `/utility/v2/market/token/detail`, and that endpoint answers from a snapshot holding one price for minutes. The `StockSimpleChart` series itself was fetched once with no `pollingInterval`, so the drawn history stopped at mount time. Pro mode looked live for an unrelated reason: TradingView runs its own K-line feed inside the embed and reports the price back through `TRADINGVIEW_PRICE_UPDATE`, a path Simple mode never mounts.
+**Fix**: Added `useMarketKlineLivePrice`, which polls the token K-line endpoint (proven live for the same token whose snapshot was frozen) every 6s and writes the newest bucket close back through `applyChartPriceUpdate`, plus range-aware polling for the drawn series. The 6s cadence stays inside `CHART_PRICE_FRESHNESS_MS` so the snapshot poll cannot overwrite the fresh price, and the write timestamp is forced strictly newer because `MarketTokenPrice` silently drops a non-newer `lastUpdated`.
+**Catchable by**: NEW — a `usePromiseResult` `pollingInterval` must not vary with UI state: the first attempt derived it from the selected range, and because a changed interval is treated as a timer retune that withholds the dependency-triggered run for the full new duration, every range switch sat on the previous range's line for minutes. Pace per-variant work inside the request instead, keeping one constant interval. NEW — an event stream is not a refresh mechanism: the ohlcv websocket only emits on a trade, so a first attempt that subscribed Simple mode to it was inert on exactly the thin markets whose snapshot sits still. Verify a "live" source actually delivers for the failing asset (not just that the subscription registered), and treat `dataCount` as no evidence at all since consumers clear it on every frame. A new `usePromiseResult` poll on this route also needs `checkIsFocused: false`, or a modal still on the stack gates every tick into a no-op; and when checking any poll by hand, confirm the window is visible first, because a hidden document parks the whole chain.
+

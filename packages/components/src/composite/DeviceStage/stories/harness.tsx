@@ -3,17 +3,20 @@ import type { ReactNode } from 'react';
 
 import { Keyboard, useWindowDimensions } from 'react-native';
 
+import { Toast } from '@onekeyhq/components/src/actions/Toast';
 import { DeviceStage } from '@onekeyhq/components/src/composite/DeviceStage';
 import type {
   IAuthChecklistItem,
   IDeviceStageProps,
   IDeviceStageStep,
 } from '@onekeyhq/components/src/composite/DeviceStage';
+import { REPLICA_WIDTH } from '@onekeyhq/components/src/composite/DeviceStage/consts';
 import {
   useDeviceStageEscapeOwner,
   useDeviceStageExitPolicy,
 } from '@onekeyhq/components/src/composite/DeviceStage/useDeviceStageExitPolicy';
 import { Portal } from '@onekeyhq/components/src/hocs/Portal';
+import { useSafeAreaInsets } from '@onekeyhq/components/src/hooks/useLayout';
 import { Button } from '@onekeyhq/components/src/primitives/Button';
 import { Stack, XStack } from '@onekeyhq/components/src/primitives/Stack';
 
@@ -294,13 +297,21 @@ export function StepButton({
   );
 }
 
+// A flow's own news landing while the stage is up (an approval's toast
+// under the next signature's capsule): the toasters rest under the shell
+// instead of covering it — see Toast's topObstruction.
+function showDemoToast() {
+  Toast.success({ title: 'Approved', message: 'Approve 1 USDC' });
+}
+
 /** The demo host: the stage portals to the shell's canvas-wide mount
  * (the hardware-dialog level) on every platform, and its minHeight
  * (window minus a workbench-chrome allowance) keeps the canvas — and so
- * that mount — tall enough for the stage to anchor to the bottom. The
- * stage is modal — its wall takes every touch on the canvas — so the
- * driver's buttons ride the same portal, mounted after the stage and
- * therefore above it: a bar floating along the canvas top. */
+ * that mount — tall enough for a card hung from its top. The stage is
+ * modal — its wall takes every touch on the canvas — so the driver's
+ * buttons ride the same portal, mounted after the stage and therefore
+ * above it: a bar floating along the canvas bottom, clear of the
+ * stage's own edge. */
 export function StageHost({
   driver,
   props,
@@ -311,11 +322,15 @@ export function StageHost({
   children: ReactNode;
 }) {
   const { height } = useWindowDimensions();
+  // The portal is the full window on device (the preview mounts the stage
+  // on the overlay window), so the bar clears the home indicator by the
+  // window's own inset; the web canvas reports none.
+  const { bottom: barBottom } = useSafeAreaInsets();
   const bar = useMemo(
     () => (
       <XStack
         position="absolute"
-        top={0}
+        bottom={barBottom}
         left={0}
         right={0}
         p="$2"
@@ -324,9 +339,12 @@ export function StageHost({
         pointerEvents="box-none"
       >
         {children}
+        <Button testID="device-stage-demo-toast" onPress={showDemoToast}>
+          Toast
+        </Button>
       </XStack>
     ),
-    [children],
+    [barBottom, children],
   );
   return (
     <Stack minHeight={height - 190}>
@@ -349,6 +367,9 @@ export const DEMO = {
     },
   ],
   qrValue: '0x627Ddbef61C811af05288Cd79db324fCac914AeF',
+  /** The range control's seed: the width that ships, so the stories
+   * follow the next retune instead of pinning a stale number. */
+  replicaWidth: REPLICA_WIDTH,
 };
 
 export const ARG_TYPES = {
@@ -384,4 +405,9 @@ export const ARG_TYPES = {
     ],
   },
   qrValue: { control: 'text' },
+  // OK-62091's tuning knob: the full stage's device width; the port and
+  // the card height follow.
+  replicaWidth: {
+    control: { type: 'range', min: 160, max: 320, step: 4 },
+  },
 } as const;

@@ -7,6 +7,7 @@ import { useIntl } from 'react-intl';
 import type { ITabContainerRef } from '@onekeyhq/components';
 import {
   DelayedFreeze,
+  HeaderScrollGestureWrapper,
   Icon,
   KEYBOARD_AWARE_SCROLL_BOTTOM_OFFSET,
   Keyboard,
@@ -20,6 +21,7 @@ import {
   useFocusedTab,
   useMedia,
   useScrollContentTabBarOffset,
+  useTheme,
 } from '@onekeyhq/components';
 import type { ITabBarItemProps } from '@onekeyhq/components/src/composite/Tabs/TabBar';
 import { TabBarItem } from '@onekeyhq/components/src/composite/Tabs/TabBar';
@@ -40,6 +42,7 @@ import {
 } from '@onekeyhq/shared/src/logger/scopes/perp/perpPageSource';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
+import { EShortcutEvents } from '@onekeyhq/shared/src/shortcuts/shortcuts.enum';
 import { travelModeManager } from '@onekeyhq/shared/src/travelMode';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
@@ -59,6 +62,7 @@ import { WebDappEmptyView } from '../../../components/WebDapp/WebDappEmptyView';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { runAfterTokensDone } from '../../../hooks/useRunAfterTokensDone';
+import { useShortcutsOnRouteFocused } from '../../../hooks/useShortcutsOnRouteFocused';
 import {
   useAccountOverviewActions,
   useApprovalsInfoAtom,
@@ -85,6 +89,7 @@ import {
   isWalletListResolvedNoWallet,
   shouldShowNoWalletContent,
 } from './homePageNoWalletContent';
+import { isHomeTabActive, useHomeTabFreeze } from './homeTabFreeze';
 import { NFTListContainerWithProvider } from './NFTListContainer';
 import { PerpsContainer } from './PerpsContainer';
 import { PortfolioContainerWithProvider } from './PortfolioContainer';
@@ -130,6 +135,22 @@ const AndroidScrollContainer = platformEnv.isNativeAndroid
   : ({ children }: IAndroidScrollContainerProps) => {
       return children;
     };
+
+// Placement differs by platform — see the renderHeader comment in HomePageView.
+function HomeAlerts() {
+  return (
+    <>
+      <RiskApprovalAlert />
+      <WatchOnlyAlert />
+      <NetworkAlert />
+      <NotificationPermissionRecoveryAlert
+        scene="home"
+        initialDelayMs={6000}
+        showAlert={false}
+      />
+    </>
+  );
+}
 
 function HistoryTabNotificationAlertSlot() {
   const intl = useIntl();
@@ -181,19 +202,27 @@ function HomeTabContentMaxWidth({ children }: { children: React.ReactNode }) {
 // Freezing the inactive panes drops that work back to the focused tab
 // only, which is what visibly happens already and matches the
 // freeze-on-blur strategy used at the outer tab-navigator level.
+//
+// Timing matters on native: a frozen pane renders nothing, and the pager
+// flips `focusedTab` half-way through its slide. Freezing the outgoing pane
+// at that instant blanks it mid-animation, and a target pane that is still
+// frozen cannot take the tab view's scroll-offset sync (the header then
+// snaps to the wrong collapse state once it thaws). So the pressed target
+// thaws on the tab press itself, and blur only freezes after a delay.
 function FreezeInactiveHomeTab({
   tabName,
+  pressedTabName,
   children,
 }: {
   tabName: string;
+  pressedTabName: string;
   children: React.ReactNode;
 }) {
   const focusedTab = useFocusedTab();
-  return (
-    <DelayedFreeze freeze={focusedTab ? focusedTab !== tabName : undefined}>
-      {children}
-    </DelayedFreeze>
+  const frozen = useHomeTabFreeze(
+    isHomeTabActive({ tabName, focusedTab, pressedTabName }),
   );
+  return <DelayedFreeze freeze={frozen}>{children}</DelayedFreeze>;
 }
 
 export function HomePageView({
@@ -227,6 +256,26 @@ export function HomePageView({
   const { showUnifiedNetworkSelector } = useUnifiedNetworkSelectorTrigger({
     num: 0,
   });
+  const handleNetworkSelectorShortcut = useCallback(() => {
+    if (
+      platformEnv.isWebDappMode ||
+      accountUtils.hasNoUsableWallet({ wallet, account })
+    ) {
+      return;
+    }
+    showUnifiedNetworkSelector({
+      recordNetworkHistoryEnabled: true,
+      defaultTab:
+        network?.isAllNetworks &&
+        !accountUtils.isOthersWallet({ walletId: wallet?.id ?? '' })
+          ? 'portfolio'
+          : undefined,
+    });
+  }, [account, network?.isAllNetworks, showUnifiedNetworkSelector, wallet]);
+  useShortcutsOnRouteFocused(
+    EShortcutEvents.NetworkSelector,
+    handleNetworkSelectorShortcut,
+  );
   const [accountSelectorStorageInitDone] =
     useAccountSelectorStorageInitDoneAtom();
   const accountSelectorActiveAccountInitDone =
@@ -246,6 +295,23 @@ export function HomePageView({
   const [{ hasRiskApprovals }] = useApprovalsInfoAtom();
   const { updateApprovalsInfo } = useAccountOverviewActions().current;
   const tabsRef = useRef<ITabContainerRef | null>(null);
+  // Keep the measured native tab bar height outside the account-keyed container
+  // so remounts do not briefly reserve the library's default 48pt height.
+  const nativeTabBarHeightRef = useRef<number | undefined>(undefined);
+  const nativeTabBarContainerStyle = useMemo(
+    () => ({
+      ...NATIVE_TAB_BAR_CONTAINER_STYLE,
+      onLayout: platformEnv.isNative
+        ? (event: LayoutChangeEvent) => {
+            const height = Math.round(event.nativeEvent.layout.height);
+            if (height > 0) {
+              nativeTabBarHeightRef.current = height;
+            }
+          }
+        : undefined,
+    }),
+    [],
+  );
 
   // Force PagerView to re-sync after bottom tab switch (freeze/unfreeze)
   const wasBlurredRef = useRef(false);
@@ -465,17 +531,41 @@ export function HomePageView({
     ],
   );
 
-  // Alerts sit outside Tabs.Container (rendered next to TabPageHeader below).
-  // Keeping them inside renderHeader made them scroll through the sticky
-  // TabBar area — a partially-scrolled alert would leave a visible band
+  // Web: alerts sit outside Tabs.Container (rendered next to TabPageHeader
+  // below). Keeping them inside renderHeader made them scroll through the
+  // sticky TabBar area — a partially-scrolled alert would leave a visible band
   // between TabPageHeader and the tabs.
+  //
+  // Native: alerts live inside the collapsible header instead. Tabs.Container
+  // never moves; its header only translates up by its own height, so anything
+  // left in normal flow above the container keeps its slot when collapsed, and
+  // the header's opaque top container paints over that slot with its own
+  // bottom edge (the banner card). That read as "the banner keeps occupying
+  // the top" whenever an alert was showing (OK-62183). Inside the header the
+  // alerts collapse away with everything else.
   const renderHeader = useCallback(() => {
     return (
       <Stack {...homePageContentMaxWidthSx}>
+        {platformEnv.isNative ? (
+          <HeaderScrollGestureWrapper onRefresh={onHomePageRefresh}>
+            <HomeAlerts />
+          </HeaderScrollGestureWrapper>
+        ) : null}
         <HomeHeaderContainer />
       </Stack>
     );
   }, []);
+
+  // react-native-collapsible-tab-view paints its header container white. In
+  // dark mode that white showed through wherever the header content has no
+  // opaque background: around and inside the offline banner (NetworkAlert
+  // uses margins and translucent critical colors) and at 1px layout seams
+  // above the tab bar (OK-63706). Paint the container with the page color.
+  const theme = useTheme();
+  const headerContainerStyle = useMemo(
+    () => ({ backgroundColor: theme.bgApp.val }),
+    [theme.bgApp.val],
+  );
 
   // Rendered on web only. On native the equivalent lives inside the history
   // list's ListHeaderComponent so its height stays inside the list's measurer.
@@ -693,7 +783,7 @@ export function HomePageView({
         return (
           <Tabs.TabBar
             {...tabBarProps}
-            containerStyle={NATIVE_TAB_BAR_CONTAINER_STYLE}
+            containerStyle={nativeTabBarContainerStyle}
             tabNames={tabBarTabNames}
             indexDecimal={perpTabShowWeb ? undefined : tabBarProps.indexDecimal}
             onTabPress={handleTabPress}
@@ -751,6 +841,7 @@ export function HomePageView({
       switchToPerpsWebTab,
       perpTabShowWeb,
       isSmallScreen,
+      nativeTabBarContainerStyle,
       tabConfigs,
       tabBarTabNames,
     ],
@@ -884,16 +975,34 @@ export function HomePageView({
         allowHeaderOverscroll
         disableWebTabContentVisibility
         headerHeight={platformEnv.isNative ? 292 : undefined}
+        tabBarHeight={
+          platformEnv.isNative ? nativeTabBarHeightRef.current : undefined
+        }
         useNativeHeaderAnimation={platformEnv.isNativeAndroid}
         width={platformEnv.isNative ? (tabContainerWidth as number) : undefined}
+        headerContainerStyle={headerContainerStyle}
         renderHeader={renderHeader}
         renderTabBar={renderTabBar}
         onTabChange={handleTabChange}
         renderSubHeader={renderSubHeader}
       >
         {pagerTabConfigs.map((tab) => (
-          <Tabs.Tab key={tab.name} name={tab.name}>
-            <FreezeInactiveHomeTab tabName={tab.name}>
+          <Tabs.Tab
+            key={tab.name}
+            name={tab.name}
+            // The native pager mounts a pane only on its first focus, so after
+            // an account switch remounts this container with another tab
+            // active, nothing would fetch the new owner's tokens and the
+            // header (worth, WalletActions, banner) would stay on `unknown`
+            // until the user opens the wallet tab (OK-63721). The wallet
+            // pane owns that data, so it mounts eagerly (and frozen, see
+            // FreezeInactiveHomeTab); other panes keep mounting lazily.
+            startMounted={tab.id === EHomeWalletTab.Portfolio}
+          >
+            <FreezeInactiveHomeTab
+              tabName={tab.name}
+              pressedTabName={activeTabName}
+            >
               {platformEnv.isNative ||
               tab.id === EHomeWalletTab.Perps ||
               activeTabId === tab.id ||
@@ -914,6 +1023,7 @@ export function HomePageView({
     account?.id,
     account?.indexedAccountId,
     isWalletNotBackedUp,
+    headerContainerStyle,
     renderHeader,
     renderTabBar,
     handleTabChange,
@@ -930,9 +1040,15 @@ export function HomePageView({
         switchToPerpsWebTab();
         return;
       }
-      const name = tabConfigs.find((i) => i.id === payload.id)?.name;
-      if (name) {
-        tabsRef.current?.jumpToTab(name);
+      const nextTab = tabConfigs.find((i) => i.id === payload.id);
+      if (nextTab) {
+        // Same press-ahead update as the tab bar: the target pane must thaw
+        // before the pager starts sliding towards it (see
+        // FreezeInactiveHomeTab).
+        setActiveTabName(nextTab.name);
+        setActiveTabId(nextTab.id);
+        lastDisplayableTabNameRef.current = nextTab.name;
+        tabsRef.current?.jumpToTab(nextTab.name);
       }
     },
     [perpTabShowWeb, switchToPerpsWebTab, tabConfigs],
@@ -1167,15 +1283,15 @@ export function HomePageView({
             ) : (
               <TabPageHeader sceneName={sceneName} tabRoute={ETabRoutes.Home} />
             )}
-            <Stack {...homePageContentMaxWidthSx}>
-              <RiskApprovalAlert />
-              <WatchOnlyAlert />
-              <NetworkAlert />
-              <NotificationPermissionRecoveryAlert
-                scene="home"
-                initialDelayMs={6000}
-              />
-            </Stack>
+            {/* Native keeps the alerts inside the collapsible header (see
+                renderHeader), but that header only mounts with the wallet
+                content. Without a usable wallet fall back to the outer slot
+                so the offline and notification-permission alerts still run. */}
+            {platformEnv.isNative && !hasNoUsableWallet ? null : (
+              <Stack {...homePageContentMaxWidthSx}>
+                <HomeAlerts />
+              </Stack>
+            )}
             {content}
             {platformEnv.isNative ? (
               <YStack

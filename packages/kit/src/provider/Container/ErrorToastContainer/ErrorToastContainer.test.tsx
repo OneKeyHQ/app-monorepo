@@ -4,9 +4,14 @@ import { act, render } from '@testing-library/react';
 
 import { Toast, globalNetInfo } from '@onekeyhq/components';
 import {
+  InvalidPIN,
   NeedFirmwareUpgradeFromWeb,
   UnknownHardwareError,
 } from '@onekeyhq/shared/src/errors';
+import {
+  ThirdPartyAppNotInstalled,
+  ThirdPartyPassphraseAlwaysOnDevice,
+} from '@onekeyhq/shared/src/errors/errors/thirdPartyHardwareErrors';
 import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import {
@@ -322,6 +327,67 @@ describe('ErrorToastContainer', () => {
       expect.objectContaining({
         title: 'The request is too large for the current connection.',
       }),
+    );
+    unmount();
+  });
+
+  it.each([
+    InvalidPIN,
+    ThirdPartyPassphraseAlwaysOnDevice,
+    ThirdPartyAppNotInstalled,
+  ])(
+    'localizes %s through the hardware error toast event',
+    async (ErrorClass) => {
+      const { unmount } = render(<ErrorToastContainer />);
+      const error = new ErrorClass({
+        payload: { error: 'Raw firmware English error' },
+        info: { appName: 'Ethereum' },
+        appName: 'Ethereum',
+      });
+      error.autoToast = true;
+      const onShowToast = jest.fn();
+      appEventBus.on(EAppEventBusNames.ShowToast, onShowToast);
+      try {
+        await act(async () => {
+          errorToastUtils.showToastOfError(error);
+        });
+        expect(onShowToast).toHaveBeenCalledWith(
+          expect.objectContaining({
+            isHardwareError: true,
+            i18nKey: error.key,
+            i18nInfo: error.info,
+          }),
+        );
+        const messages: Record<string, string> = jest.requireActual(
+          '@onekeyhq/shared/src/locale/json/zh_CN.json',
+        );
+        expect(mockedToast.error).toHaveBeenCalledWith(
+          expect.objectContaining({
+            title: messages[error.key as string].replace(
+              '{appName}',
+              'Ethereum',
+            ),
+          }),
+        );
+      } finally {
+        appEventBus.off(EAppEventBusNames.ShowToast, onShowToast);
+        unmount();
+      }
+    },
+  );
+
+  it('preserves raw hardware messages without a known translation key', () => {
+    const { unmount } = render(<ErrorToastContainer />);
+    act(() => {
+      appEventBus.emit(EAppEventBusNames.ShowToast, {
+        method: 'error',
+        title: 'Unknown firmware failure',
+        isHardwareError: true,
+        i18nKey: 'onekey_error' as ETranslations,
+      });
+    });
+    expect(mockedToast.error).toHaveBeenCalledWith(
+      expect.objectContaining({ title: 'Unknown firmware failure' }),
     );
     unmount();
   });

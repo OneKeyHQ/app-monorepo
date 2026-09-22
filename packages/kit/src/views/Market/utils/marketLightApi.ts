@@ -1,15 +1,23 @@
 import { appApiClient } from '@onekeyhq/shared/src/appApiClient/appApiClient';
 import { getEndpointByServiceName } from '@onekeyhq/shared/src/config/endpointsMap';
+import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
+import { getDefaultLocale } from '@onekeyhq/shared/src/locale/getDefaultLocale';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import {
   EServiceEndpointEnum,
   type IApiClientResponse,
 } from '@onekeyhq/shared/types/endpoint';
+import type { IMarketAssetListData } from '@onekeyhq/shared/types/market';
 import type {
   IMarketBannerItem,
   IMarketBannerListResponse,
+  IMarketBannerTokenListItem,
   IMarketBasicConfigResponse,
+  IMarketStockPublicItem,
+  IMarketTokenBatchListResponse,
+  IMarketTokenBatchRequestParams,
+  IMarketTokenListItem,
   IMarketTokenListResponse,
 } from '@onekeyhq/shared/types/marketV2';
 
@@ -152,10 +160,11 @@ const fetchMarketTokenListLight = async (
   options?: IFetchMarketTokenListLightOptions,
 ): Promise<IMarketTokenListResponseWithSource> => {
   const normalizedParams = normalizeMarketTokenListParams(params);
-  if (
-    options?.forceRemote ||
-    !shouldUseMarketHomeTokenListSeed(normalizedParams)
-  ) {
+  if (options?.forceRemote) {
+    void fetchMarketTokenListRemoteLight.delete(normalizedParams);
+    return fetchMarketTokenListFromApi(normalizedParams);
+  }
+  if (!shouldUseMarketHomeTokenListSeed(normalizedParams)) {
     return fetchMarketTokenListRemoteLight(normalizedParams);
   }
 
@@ -166,7 +175,317 @@ const fetchMarketTokenListLight = async (
   return seedPromise.catch(() => remotePromise);
 };
 
-const fetchMarketBasicConfigLight = memoizee(
+type IMarketAssetListLightParams = {
+  currency?: string;
+  type?: string;
+  page?: number;
+  limit?: number;
+};
+
+const normalizeMarketAssetListLightParams = ({
+  currency = 'usd',
+  type = 'top_coins',
+  page = 1,
+  limit = 100,
+}: IMarketAssetListLightParams = {}) => ({ currency, type, page, limit });
+
+const fetchMarketAssetListLight = memoizee(
+  async (params: IMarketAssetListLightParams = {}) => {
+    const client = await getUtilityClient();
+    const response = await client.get<IApiClientResponse<IMarketAssetListData>>(
+      '/utility/v1/market/asset/list',
+      {
+        params: normalizeMarketAssetListLightParams(params),
+      },
+    );
+    return response.data.data;
+  },
+  {
+    maxAge: timerUtils.getTimeDurationMs({ seconds: 20 }),
+    promise: true,
+    // The optional parameter gives the function a length of 0, so without a
+    // normalizer memoizee would share one entry across every `type`.
+    normalizer: ([params]) => {
+      const { currency, type, page, limit } =
+        normalizeMarketAssetListLightParams(params);
+      return `${currency}:${type}:${page}:${limit}`;
+    },
+  },
+);
+
+const resolveMarketTokenBatchLocale = (requestLocale?: string) => {
+  const locale = requestLocale?.trim() || appLocale.intl.locale;
+  return (locale === 'system' ? getDefaultLocale() : locale).toLowerCase();
+};
+
+const fetchMarketTokenListBatchFromApi = async ({
+  tokenAddressList,
+  requestLocale,
+}: IMarketTokenBatchRequestParams) => {
+  const client = await getUtilityClient();
+  const locale = resolveMarketTokenBatchLocale(requestLocale);
+  const response = await client.post<
+    IApiClientResponse<IMarketTokenBatchListResponse>
+  >(
+    '/utility/v2/market/token/list/batch',
+    {
+      tokenAddressList,
+      currency: 'usd',
+    },
+    {
+      headers: {
+        'x-onekey-request-currency': 'usd',
+        'x-onekey-request-locale': locale,
+      },
+    },
+  );
+  return response.data.data;
+};
+
+const marketTokenBatchCache = new Map<
+  string,
+  { data: IMarketTokenListItem; requestSequence: number; timestamp: number }
+>();
+const marketTokenBatchCacheTTL = timerUtils.getTimeDurationMs({ seconds: 30 });
+let marketTokenBatchRequestSequence = 0;
+
+const normalizeMarketTokenBatchAddress = ({
+  contractAddress,
+  isNative,
+}: {
+  contractAddress: string;
+  isNative: boolean | undefined;
+}) => {
+  const normalizedIsNative =
+    isNative !== undefined ? isNative : contractAddress.length < 30;
+  return normalizedIsNative ? '' : contractAddress.toLowerCase();
+};
+
+const getMarketTokenBatchCacheKey = ({
+  chainId,
+  contractAddress,
+  isNative,
+  requestLocale,
+}: {
+  chainId: string;
+  contractAddress: string;
+  isNative: boolean | undefined;
+  requestLocale: string;
+}) =>
+  `${requestLocale}:${chainId}:${normalizeMarketTokenBatchAddress({
+    contractAddress,
+    isNative,
+  })}`;
+
+const fetchMarketTokenListBatchLight = async (
+  params: IMarketTokenBatchRequestParams,
+) => {
+  const requestLocale = resolveMarketTokenBatchLocale(params.requestLocale);
+  const now = Date.now();
+
+  for (const [key, value] of marketTokenBatchCache) {
+    if (now - value.timestamp > marketTokenBatchCacheTTL) {
+      marketTokenBatchCache.delete(key);
+    }
+  }
+
+  const cachedResults: IMarketTokenListItem[] = [];
+  const missingTokens: IMarketTokenBatchRequestParams['tokenAddressList'] = [];
+  const tokenIndexMap = new Map<string, number>();
+
+  params.tokenAddressList.forEach((token, index) => {
+    const cacheKey = getMarketTokenBatchCacheKey({
+      chainId: token.chainId,
+      contractAddress: token.contractAddress,
+      isNative: token.isNative,
+      requestLocale,
+    });
+    tokenIndexMap.set(cacheKey, index);
+    const cached = marketTokenBatchCache.get(cacheKey);
+    if (
+      !params.skipCache &&
+      cached &&
+      now - cached.timestamp < marketTokenBatchCacheTTL
+    ) {
+      cachedResults[index] = cached.data;
+    } else {
+      missingTokens.push(token);
+    }
+  });
+
+  if (missingTokens.length === 0) {
+    return { list: cachedResults };
+  }
+
+  marketTokenBatchRequestSequence += 1;
+  const requestSequence = marketTokenBatchRequestSequence;
+  const data = await fetchMarketTokenListBatchFromApi({
+    tokenAddressList: missingTokens,
+    requestLocale,
+  });
+  const missingTokenEntries = missingTokens.map((token) => ({
+    token,
+    cacheKey: getMarketTokenBatchCacheKey({
+      chainId: token.chainId,
+      contractAddress: token.contractAddress,
+      isNative: token.isNative,
+      requestLocale,
+    }),
+  }));
+  const unmatchedTokenKeys = new Set(
+    missingTokenEntries.map(({ cacheKey }) => cacheKey),
+  );
+  const missingTokenEntryByKey = new Map(
+    missingTokenEntries.map((entry) => [entry.cacheKey, entry]),
+  );
+  const responseTimestamp = Date.now();
+  const cacheMatchedItem = ({
+    cacheKey,
+    item,
+    itemNetworkId,
+    itemIsNative,
+  }: {
+    cacheKey: string;
+    item: IMarketTokenListItem;
+    itemNetworkId: string;
+    itemIsNative: boolean | undefined;
+  }) => {
+    unmatchedTokenKeys.delete(cacheKey);
+    const matchedToken = missingTokenEntryByKey.get(cacheKey)?.token;
+    if (!matchedToken) return;
+    const normalizedItem: IMarketTokenListItem = {
+      ...item,
+      networkId: itemNetworkId || matchedToken.chainId,
+      isNative: itemIsNative ?? matchedToken.isNative,
+    };
+    const originalIndex = tokenIndexMap.get(cacheKey);
+    const cached = marketTokenBatchCache.get(cacheKey);
+    if (cached && cached.requestSequence > requestSequence) {
+      if (originalIndex !== undefined) {
+        cachedResults[originalIndex] = cached.data;
+      }
+      return;
+    }
+
+    marketTokenBatchCache.set(cacheKey, {
+      data: normalizedItem,
+      requestSequence,
+      timestamp: responseTimestamp,
+    });
+    if (originalIndex !== undefined) {
+      cachedResults[originalIndex] = normalizedItem;
+    }
+  };
+  const anonymousNativeItems: IMarketTokenListItem[] = [];
+  data?.list?.forEach((item) => {
+    const itemAddress = item?.address ?? '';
+    const itemNetworkId = String(item?.networkId || item?.chainId || '');
+    const itemIsNative =
+      typeof item?.isNative === 'boolean' ? item.isNative : undefined;
+    const responseCacheKey = getMarketTokenBatchCacheKey({
+      chainId: itemNetworkId,
+      contractAddress: itemAddress,
+      isNative: itemIsNative,
+      requestLocale,
+    });
+    let cacheKey = unmatchedTokenKeys.has(responseCacheKey)
+      ? responseCacheKey
+      : undefined;
+
+    if (!cacheKey) {
+      const addressCandidates = missingTokenEntries.filter(
+        ({ token, cacheKey: key }) =>
+          unmatchedTokenKeys.has(key) &&
+          (!itemNetworkId || token.chainId === itemNetworkId) &&
+          token.contractAddress.toLowerCase() === itemAddress.toLowerCase(),
+      );
+      if (addressCandidates.length === 1) {
+        cacheKey = addressCandidates[0].cacheKey;
+      }
+    }
+
+    if (!cacheKey) {
+      const normalizedItemAddress = normalizeMarketTokenBatchAddress({
+        contractAddress: itemAddress,
+        isNative: itemIsNative,
+      });
+      const candidates = missingTokenEntries.filter(
+        ({ token, cacheKey: key }) =>
+          unmatchedTokenKeys.has(key) &&
+          (!itemNetworkId || token.chainId === itemNetworkId) &&
+          normalizeMarketTokenBatchAddress({
+            contractAddress: token.contractAddress,
+            isNative: token.isNative,
+          }) === normalizedItemAddress,
+      );
+      if (candidates.length === 1) {
+        cacheKey = candidates[0].cacheKey;
+      }
+    }
+
+    if (!cacheKey) {
+      const normalizedItemAddress = normalizeMarketTokenBatchAddress({
+        contractAddress: itemAddress,
+        isNative: itemIsNative,
+      });
+      if (
+        !itemNetworkId &&
+        itemIsNative !== false &&
+        normalizedItemAddress === ''
+      ) {
+        anonymousNativeItems.push(item);
+        return;
+      }
+    }
+
+    if (!cacheKey) {
+      if (process.env.NODE_ENV !== 'production') {
+        console.error(
+          '[marketLightApi] fetchMarketTokenListBatchLight: unmatched response row',
+          {
+            responseId: `${itemNetworkId}:${itemAddress}`,
+          },
+        );
+      }
+      return;
+    }
+
+    cacheMatchedItem({ cacheKey, item, itemNetworkId, itemIsNative });
+  });
+
+  const unmatchedNativeEntries = missingTokenEntries.filter(
+    ({ token, cacheKey }) => token.isNative && unmatchedTokenKeys.has(cacheKey),
+  );
+  if (anonymousNativeItems.length === unmatchedNativeEntries.length) {
+    anonymousNativeItems.forEach((item, index) => {
+      const entry = unmatchedNativeEntries[index];
+      if (!entry) return;
+      const itemIsNative =
+        typeof item?.isNative === 'boolean' ? item.isNative : undefined;
+      cacheMatchedItem({
+        cacheKey: entry.cacheKey,
+        item,
+        itemNetworkId: '',
+        itemIsNative,
+      });
+    });
+  } else if (
+    anonymousNativeItems.length > 0 &&
+    process.env.NODE_ENV !== 'production'
+  ) {
+    console.error(
+      '[marketLightApi] fetchMarketTokenListBatchLight: ambiguous anonymous native response rows',
+      {
+        requestCount: unmatchedNativeEntries.length,
+        responseCount: anonymousNativeItems.length,
+      },
+    );
+  }
+
+  return { list: cachedResults };
+};
+
+const memoizedFetchMarketBasicConfigLight = memoizee(
   async () => {
     markMarketPerf('market-light-api-basic-config-start');
     const client = await getUtilityClient();
@@ -189,13 +508,24 @@ const fetchMarketBasicConfigLight = memoizee(
   },
 );
 
-const fetchMarketBannerListLight = memoizee(
-  async (): Promise<IMarketBannerItem[]> => {
+const fetchMarketBasicConfigLight = async () => {
+  try {
+    return await memoizedFetchMarketBasicConfigLight();
+  } catch (error) {
+    void memoizedFetchMarketBasicConfigLight.clear();
+    throw error;
+  }
+};
+
+const fetchMarketBannerListCached = memoizee(
+  async (locale: string): Promise<IMarketBannerItem[]> => {
     markMarketPerf('market-light-api-banner-list-start');
     const client = await getUtilityClient();
     const response = await client.get<
       IApiClientResponse<IMarketBannerListResponse>
-    >('/utility/v2/market/banner/list');
+    >('/utility/v2/market/banner/list', {
+      headers: { 'x-onekey-request-locale': locale },
+    });
     const data = response.data.data.data;
     markMarketPerf('market-light-api-banner-list-end', {
       count: data.length,
@@ -203,14 +533,62 @@ const fetchMarketBannerListLight = memoizee(
     return data;
   },
   {
-    maxAge: timerUtils.getTimeDurationMs({ hour: 1 }),
+    maxAge: timerUtils.getTimeDurationMs({ seconds: 5 }),
     promise: true,
   },
 );
 
+const fetchMarketBannerTokenListCached = memoizee(
+  async (
+    tokenListId: string,
+    locale: string,
+  ): Promise<IMarketBannerTokenListItem[]> => {
+    const client = await getUtilityClient();
+    const response = await client.get<
+      IApiClientResponse<{ list: IMarketBannerTokenListItem[] }>
+    >(
+      `/utility/v2/market/banner/token-list/${encodeURIComponent(tokenListId)}`,
+      {
+        params: { currency: 'usd' },
+        headers: { 'x-onekey-request-locale': locale },
+      },
+    );
+    return response.data.data.list;
+  },
+  { maxAge: timerUtils.getTimeDurationMs({ seconds: 5 }), promise: true },
+);
+
+const fetchMarketBannerStockTokenListCached = memoizee(
+  async (id: string, locale: string): Promise<IMarketStockPublicItem[]> => {
+    const client = await getUtilityClient();
+    const response = await client.get<
+      IApiClientResponse<{
+        list?: IMarketStockPublicItem[];
+        items?: IMarketStockPublicItem[];
+      }>
+    >(`/utility/v2/market/banner/stock-token-list/${encodeURIComponent(id)}`, {
+      headers: { 'x-onekey-request-locale': locale },
+    });
+    const data = response.data.data;
+    return Array.isArray(data) ? data : (data.list ?? data.items ?? []);
+  },
+  { maxAge: timerUtils.getTimeDurationMs({ seconds: 5 }), promise: true },
+);
+
+const fetchMarketBannerListLight = () =>
+  fetchMarketBannerListCached(resolveMarketTokenBatchLocale());
+const fetchMarketBannerTokenListLight = (id: string) =>
+  fetchMarketBannerTokenListCached(id, resolveMarketTokenBatchLocale());
+const fetchMarketBannerStockTokenListLight = (id: string) =>
+  fetchMarketBannerStockTokenListCached(id, resolveMarketTokenBatchLocale());
+
 export {
+  fetchMarketAssetListLight,
   fetchMarketBannerListLight,
+  fetchMarketBannerTokenListLight,
+  fetchMarketBannerStockTokenListLight,
   fetchMarketBasicConfigLight,
+  fetchMarketTokenListBatchLight,
   fetchMarketTokenListLight,
   preloadMarketHomeTokenListSeed,
 };

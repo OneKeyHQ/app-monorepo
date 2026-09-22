@@ -221,7 +221,11 @@ class ServiceMarket extends ServiceBase {
   }
 
   @backgroundMethod()
-  async fetchMarketTokenDetail(coingeckoId: string, explorerPlatforms = true) {
+  async fetchMarketTokenDetail(
+    coingeckoId: string,
+    explorerPlatforms = true,
+    requestCurrency?: string,
+  ) {
     const client = await this.getClient(EServiceEndpointEnum.Utility);
     const response = await client.get<{
       data: IMarketTokenDetail;
@@ -230,6 +234,9 @@ class ServiceMarket extends ServiceBase {
         id: coingeckoId,
         explorer_platforms: explorerPlatforms,
       },
+      ...(requestCurrency
+        ? { headers: { 'x-onekey-request-currency': requestCurrency } }
+        : {}),
     });
     const { data } = response.data;
     if (data.tickers) {

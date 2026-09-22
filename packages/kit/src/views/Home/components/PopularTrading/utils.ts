@@ -3,9 +3,11 @@ import type { IMarketAssetListItem } from '@onekeyhq/shared/types/market';
 import type {
   IMarketBasicConfigHomeTab,
   IMarketPerpsTokenFromServer,
+  IMarketStockPublicItem,
   IMarketTokenListItem,
 } from '@onekeyhq/shared/types/marketV2';
 
+import { resolveMarketStockId } from '../../../Market/MarketDetailV2/utils/resolveIsStockToken';
 import {
   getNativeTokenInfo,
   normalizeStockMetadataValue,
@@ -18,11 +20,15 @@ import type { IFavoriteTokenDisplay } from './types';
 import type { IMarketCategoryItem } from '../../../Market/MarketHomeV2/types';
 
 function getTokenKey(token: {
+  assetId?: string;
+  stockId?: string;
   chainId: string;
   contractAddress: string;
   perpsCoin?: string;
   marketAsset?: Pick<IMarketAssetListItem, 'assetId'>;
 }) {
+  if (token.assetId) return `asset:${token.assetId}`;
+  if (token.stockId) return `stock:${token.stockId}`;
   if (token.marketAsset) {
     return `market:${token.marketAsset.assetId}`;
   }
@@ -84,6 +90,7 @@ function mapMarketTokenToDisplay(
   const { isNative } = getNativeTokenInfo(item.isNative, item.address);
 
   return {
+    stockId: resolveMarketStockId(item),
     chainId,
     contractAddress: isNative ? '' : (item.address ?? ''),
     isNative,
@@ -127,10 +134,30 @@ function mapMarketPerpsTokenToDisplay({
   };
 }
 
+function mapMarketStockToDisplay(
+  item: IMarketStockPublicItem,
+): IFavoriteTokenDisplay {
+  return {
+    stockId: item.stockId,
+    chainId: '',
+    contractAddress: '',
+    isNative: false,
+    symbol: item.symbol,
+    name: item.name,
+    logoUrl: item.logoUrl,
+    stockListingName: item.name,
+    price: parseMarketValue(item.price) ?? 0,
+    priceChange24h: parseMarketValue(item.priceChange24hPercent) ?? 0,
+    marketCap: parseMarketValue(item.marketCap) ?? 0,
+    volume24h: parseMarketValue(item.volume24h) ?? 0,
+  };
+}
+
 function mapMarketAssetToDisplay(
   item: IMarketAssetListItem,
 ): IFavoriteTokenDisplay {
   return {
+    assetId: item.assetId,
     chainId: '',
     contractAddress: '',
     isNative: false,
@@ -195,5 +222,6 @@ export {
   getTokenKey,
   mapMarketAssetToDisplay,
   mapMarketPerpsTokenToDisplay,
+  mapMarketStockToDisplay,
   mapMarketTokenToDisplay,
 };

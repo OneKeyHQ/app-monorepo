@@ -78,9 +78,26 @@ function buildMergedSelectedAccount({
   data: IAccountSelectorSelectedAccount | undefined;
   mergedByData: IAccountSelectorSelectedAccount;
 }): IAccountSelectorSelectedAccount {
+  // The network context travels as a (networkId, deriveType) pair. A target
+  // that already has a network keeps its own derivation, even a cleared one
+  // (an All Networks selection reads back with `deriveType: undefined`), so
+  // the source's derivation is never applied to a different network. A
+  // target without a network (e.g. a freshly created default selection with
+  // explicit `undefined` keys) inherits both from the source instead of
+  // erasing them.
+  const networkContext: Pick<
+    IAccountSelectorSelectedAccount,
+    'networkId' | 'deriveType'
+  > = data?.networkId
+    ? { networkId: data.networkId, deriveType: data.deriveType }
+    : {
+        networkId: mergedByData.networkId,
+        deriveType: mergedByData.deriveType,
+      };
   const result: IAccountSelectorSelectedAccount = {
     ...mergedByData,
     ...data,
+    ...networkContext,
     walletId: mergedByData.walletId,
     indexedAccountId: mergedByData.indexedAccountId,
     othersWalletAccountId: mergedByData.othersWalletAccountId,
@@ -186,8 +203,29 @@ function isSceneAutoSaveToGlobalDeriveType({
   return true;
 }
 
+// An others-wallet account (imported, watching, external) belongs to specific
+// networks, so its selection can name a network the account does not support;
+// HD, hardware and QR selections resolve their account per network and cannot.
+// Only a selection that passes this check has a pair to verify or repair.
+function hasOthersWalletAccountNetworkPair({
+  selectedAccount,
+}: {
+  selectedAccount: IAccountSelectorSelectedAccount | undefined;
+}): boolean {
+  const walletId = selectedAccount?.walletId;
+  const networkId = selectedAccount?.networkId;
+  return Boolean(
+    walletId &&
+    networkId &&
+    selectedAccount?.othersWalletAccountId &&
+    accountUtils.isOthersWallet({ walletId }) &&
+    !networkUtils.isAllNetwork({ networkId }),
+  );
+}
+
 export default {
   isEqualAccountSelectorScene,
+  hasOthersWalletAccountNetworkPair,
   buildAccountSelectorSaveKey,
   buildAccountSelectorSceneId,
   buildMergedSelectedAccount,

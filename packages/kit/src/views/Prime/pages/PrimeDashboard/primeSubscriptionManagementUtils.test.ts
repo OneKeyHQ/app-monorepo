@@ -1,136 +1,11 @@
-/* cspell:ignore Infini infini */
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
-
+/* cspell:ignore Infini infini rcbilling customerportal */
 import {
   getPrimeSubscriptionManagementSourceKey,
   getPrimeSubscriptionManagementTarget,
-  hasRevenueCatSubscriptionChannel,
 } from './primeSubscriptionManagementUtils';
 
-jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
-  __esModule: true,
-  default: { isMas: false, isDesktopMac: false },
-}));
-
 describe('primeSubscriptionManagementUtils', () => {
-  beforeEach(() => {
-    platformEnv.isMas = true;
-    platformEnv.isDesktopMac = true;
-  });
-
-  it.each([
-    ['a direct macOS download', true],
-    ['another platform', false],
-  ] as const)(
-    'does not infer a channel-less Apple subscription on %s',
-    (_platform, isDesktopMac) => {
-      platformEnv.isMas = false;
-      platformEnv.isDesktopMac = isDesktopMac;
-      expect(
-        getPrimeSubscriptionManagementTarget({
-          userInfo: {
-            primeSubscription: {
-              isActive: true,
-              expiresAt: Date.now() + 60_000,
-              subscriptions: [
-                {
-                  managementUrl: 'https://apps.apple.com/account/subscriptions',
-                },
-              ],
-            },
-          },
-        }),
-      ).toEqual({
-        type: 'unavailable',
-        reason: 'missing-channel-and-management-url',
-      });
-    },
-  );
-
-  it.each([undefined, '', ' '])(
-    'recognizes the canonical Apple management URL on MAS with channel %s',
-    (channel) => {
-      expect(
-        getPrimeSubscriptionManagementTarget({
-          userInfo: {
-            primeSubscription: {
-              isActive: true,
-              expiresAt: Date.now() + 60_000,
-              subscriptions: [
-                {
-                  channel,
-                  managementUrl:
-                    ' https://apps.apple.com/account/subscriptions ',
-                },
-              ],
-            },
-          },
-        }),
-      ).toEqual({
-        type: 'external',
-        url: 'https://apps.apple.com/account/subscriptions',
-      });
-    },
-  );
-
-  it.each([
-    'https://apps.apple.com.example.com/account/subscriptions',
-    'https://apps.apple.com@other.example.com/account/subscriptions',
-    'https://apps.apple.com/account/subscriptions?redirect=example.com',
-    'http://apps.apple.com/account/subscriptions',
-  ])('does not infer an Apple subscription from %s', (managementUrl) => {
-    expect(
-      getPrimeSubscriptionManagementTarget({
-        userInfo: {
-          primeSubscription: {
-            isActive: true,
-            expiresAt: Date.now() + 60_000,
-            subscriptions: [{ managementUrl }],
-          },
-        },
-      }),
-    ).toEqual({
-      type: 'unavailable',
-      reason: 'missing-channel-and-management-url',
-    });
-  });
-
-  it('does not infer an Apple subscription from a stale aggregate URL', () => {
-    expect(
-      getPrimeSubscriptionManagementTarget({
-        userInfo: {
-          primeSubscription: {
-            isActive: true,
-            expiresAt: Date.now() + 60_000,
-            subscriptions: [{ channel: 'redemption' }],
-          },
-          subscriptionManageUrl: 'https://apps.apple.com/account/subscriptions',
-        },
-      }),
-    ).toEqual({
-      type: 'unavailable',
-      reason: 'channel-without-management-url',
-    });
-  });
-
-  it('prefers a later Infini record over a channel-less Apple record', () => {
-    expect(
-      getPrimeSubscriptionManagementTarget({
-        userInfo: {
-          primeSubscription: {
-            isActive: true,
-            expiresAt: Date.now() + 60_000,
-            subscriptions: [
-              { managementUrl: 'https://apps.apple.com/account/subscriptions' },
-              { channel: 'infini', managementUrl: 'https://onekey.so/invite' },
-            ],
-          },
-        },
-      }),
-    ).toEqual({ type: 'infini' });
-  });
-
-  it('routes Infini to the in-app management page and ignores its marketing URL', () => {
+  it('routes Infini to the in-app management page regardless of its management URL', () => {
     expect(
       getPrimeSubscriptionManagementTarget({
         userInfo: {
@@ -140,98 +15,6 @@ describe('primeSubscriptionManagementUtils', () => {
             subscriptions: [
               {
                 channel: ' Infini ',
-                managementUrl: 'https://onekey.so/invite',
-              },
-            ],
-          },
-          subscriptionManageUrl: 'https://onekey.so/invite',
-        },
-      }),
-    ).toEqual({ type: 'infini' });
-  });
-
-  it('routes a non-Infini subscription with a management URL externally', () => {
-    platformEnv.isMas = false;
-    platformEnv.isDesktopMac = false;
-    expect(
-      getPrimeSubscriptionManagementTarget({
-        userInfo: {
-          primeSubscription: {
-            isActive: true,
-            expiresAt: Date.now() + 60_000,
-            subscriptions: [
-              {
-                channel: 'app-store',
-                managementUrl: ' https://example.com/manage ',
-              },
-            ],
-          },
-        },
-      }),
-    ).toEqual({
-      type: 'external',
-      url: 'https://example.com/manage',
-    });
-  });
-
-  it('does not open a marketing URL when the subscription has no channel', () => {
-    expect(
-      getPrimeSubscriptionManagementTarget({
-        userInfo: {
-          primeSubscription: {
-            isActive: true,
-            expiresAt: Date.now() + 60_000,
-            subscriptions: [
-              {
-                managementUrl: 'https://onekey.so/invite',
-              },
-            ],
-          },
-        },
-      }),
-    ).toEqual({
-      type: 'unavailable',
-      reason: 'missing-channel-and-management-url',
-    });
-  });
-
-  it('does not use an aggregate management URL for a redemption subscription', () => {
-    expect(
-      getPrimeSubscriptionManagementTarget({
-        userInfo: {
-          primeSubscription: {
-            isActive: true,
-            expiresAt: Date.now() + 60_000,
-            subscriptions: [
-              {
-                channel: 'redemption',
-                managementUrl: 'https://onekey.so/invite',
-              },
-            ],
-          },
-          subscriptionManageUrl: 'https://example.com/stale-manage',
-        },
-      }),
-    ).toEqual({
-      type: 'unavailable',
-      reason: 'channel-without-management-url',
-    });
-  });
-
-  it('prefers Infini in-app management when a store URL is also present', () => {
-    expect(
-      getPrimeSubscriptionManagementTarget({
-        userInfo: {
-          primeSubscription: {
-            isActive: true,
-            expiresAt: Date.now() + 60_000,
-            subscriptions: [
-              {
-                channel: 'infini',
-                managementUrl: 'https://onekey.so/invite',
-              },
-              {
-                channel: 'app-store',
                 managementUrl: 'https://apps.apple.com/account/subscriptions',
               },
             ],
@@ -241,35 +24,154 @@ describe('primeSubscriptionManagementUtils', () => {
     ).toEqual({ type: 'infini' });
   });
 
-  it('detects a RevenueCat channel for SDK URL hydration', () => {
-    expect(
-      hasRevenueCatSubscriptionChannel({
-        subscriptions: [{ channel: ' RevenueCat ' }],
-      }),
-    ).toBe(true);
-    expect(
-      hasRevenueCatSubscriptionChannel({
-        subscriptions: [{ channel: 'redemption' }],
-      }),
-    ).toBe(false);
-  });
+  it.each([
+    {
+      name: 'Apple subscription management',
+      managementUrl: 'https://apps.apple.com/account/subscriptions',
+      expectedUrl: 'https://apps.apple.com/account/subscriptions',
+    },
+    {
+      name: 'Google Play subscription with sku and package',
+      managementUrl:
+        'https://play.google.com/store/account/subscriptions?sku=prime_monthly&package=so.onekey.app.wallet',
+      expectedUrl:
+        'https://play.google.com/store/account/subscriptions?sku=prime_monthly&package=so.onekey.app.wallet',
+    },
+    {
+      name: 'RevenueCat web billing portal',
+      managementUrl:
+        'https://api.revenuecat.com/rcbilling/v1/customerportal/test-app/test-subscription/portal',
+      expectedUrl:
+        'https://api.revenuecat.com/rcbilling/v1/customerportal/test-app/test-subscription/portal',
+    },
+    {
+      name: 'HTTPS management URL',
+      managementUrl: ' https://example.com/manage ',
+      expectedUrl: 'https://example.com/manage',
+    },
+  ])(
+    'routes a channel-less $name externally',
+    ({ managementUrl, expectedUrl }) => {
+      expect(
+        getPrimeSubscriptionManagementTarget({
+          userInfo: {
+            primeSubscription: {
+              isActive: true,
+              expiresAt: 0,
+              subscriptions: [{ managementUrl }],
+            },
+          },
+        }),
+      ).toEqual({
+        type: 'external',
+        url: expectedUrl,
+      });
+    },
+  );
 
-  it('uses the RevenueCat URL only for a current RevenueCat subscription', () => {
+  it.each([
+    {
+      name: 'empty subscriptions',
+      subscriptions: [],
+    },
+    {
+      name: 'a null management URL',
+      subscriptions: [{ managementUrl: null }],
+    },
+    {
+      name: 'an empty management URL',
+      subscriptions: [{ managementUrl: '' }],
+    },
+  ])('is unavailable for $name', ({ subscriptions }) => {
     expect(
       getPrimeSubscriptionManagementTarget({
         userInfo: {
           primeSubscription: {
             isActive: true,
             expiresAt: Date.now() + 60_000,
-            subscriptions: [{ channel: ' RevenueCat ' }],
+            subscriptions,
           },
-          subscriptionManageUrl: ' https://example.com/revenuecat-manage ',
         },
       }),
-    ).toEqual({
-      type: 'external',
-      url: 'https://example.com/revenuecat-manage',
-    });
+    ).toEqual({ type: 'unavailable' });
+  });
+
+  it.each([
+    {
+      name: 'non-HTTPS URL',
+      managementUrl: 'http://apps.apple.com/account/subscriptions',
+    },
+    {
+      name: 'malformed URL',
+      managementUrl: 'not-a-url',
+    },
+  ])('rejects a $name', ({ managementUrl }) => {
+    expect(
+      getPrimeSubscriptionManagementTarget({
+        userInfo: {
+          primeSubscription: {
+            isActive: true,
+            expiresAt: 0,
+            subscriptions: [{ managementUrl }],
+          },
+        },
+      }),
+    ).toEqual({ type: 'unavailable' });
+  });
+
+  it.each([
+    {
+      name: 'Google HTTPS management entry',
+      laterSubscription: {
+        managementUrl:
+          'https://play.google.com/store/account/subscriptions?sku=prime_monthly&package=so.onekey.app.wallet',
+      },
+      expected: {
+        type: 'external' as const,
+        url: 'https://play.google.com/store/account/subscriptions?sku=prime_monthly&package=so.onekey.app.wallet',
+      },
+    },
+    {
+      name: 'Infini entry with a null URL',
+      laterSubscription: {
+        channel: 'infini',
+        managementUrl: null,
+      },
+      expected: { type: 'infini' as const },
+    },
+  ])(
+    'skips a null-URL promotional entry before a $name',
+    ({ laterSubscription, expected }) => {
+      expect(
+        getPrimeSubscriptionManagementTarget({
+          userInfo: {
+            primeSubscription: {
+              isActive: true,
+              expiresAt: Date.now() + 60_000,
+              subscriptions: [{ managementUrl: null }, laterSubscription],
+            },
+          },
+        }),
+      ).toEqual(expected);
+    },
+  );
+
+  it('is unavailable when Prime is inactive', () => {
+    expect(
+      getPrimeSubscriptionManagementTarget({
+        userInfo: {
+          primeSubscription: {
+            isActive: false,
+            expiresAt: Date.now() + 60_000,
+            subscriptions: [
+              {
+                managementUrl: 'https://apps.apple.com/account/subscriptions',
+              },
+            ],
+          },
+        },
+      }),
+    ).toEqual({ type: 'unavailable' });
   });
 
   it('keeps the refresh key stable when the server only adds subscription ids', () => {
@@ -279,16 +181,14 @@ describe('primeSubscriptionManagementUtils', () => {
       subscriptions: [
         {
           channel: 'infini',
-          managementUrl: 'https://onekey.so/invite',
+          managementUrl: null,
         },
       ],
     };
-    const subscriptionManageUrl = 'https://onekey.so/invite';
 
     expect(
       getPrimeSubscriptionManagementSourceKey({
         primeSubscription,
-        subscriptionManageUrl,
       }),
     ).toBe(
       getPrimeSubscriptionManagementSourceKey({
@@ -298,11 +198,10 @@ describe('primeSubscriptionManagementUtils', () => {
             {
               id: 'ok_prime_monthly_1',
               channel: ' Infini ',
-              managementUrl: ' https://onekey.so/invite ',
+              managementUrl: null,
             },
           ],
         },
-        subscriptionManageUrl: ' https://onekey.so/invite ',
       }),
     );
   });

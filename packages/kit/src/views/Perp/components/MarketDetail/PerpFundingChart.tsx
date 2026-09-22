@@ -642,7 +642,8 @@ export function PerpFundingChart({
       flex={1}
       minHeight={0}
       nestedScrollEnabled
-      showsVerticalScrollIndicator
+      showsVerticalScrollIndicator={false}
+      showsHorizontalScrollIndicator={false}
       contentContainerStyle={{ flexGrow: 1 }}
     >
       {content}

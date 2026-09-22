@@ -1,17 +1,41 @@
-const MARKET_HOME_DESKTOP_CONTENT_MAX_WIDTH = 1480;
+const MARKET_HOME_DESKTOP_CONTENT_MAX_WIDTH = 1440;
+const MARKET_HOME_DESKTOP_CONTENT_GUTTER = 20;
 
 export const MARKET_DESKTOP_CHART_MIN_HEIGHT = 456;
 
-// The Market desktop design has 62px gutters inside its 1364px content area.
-// Keep those gutters stable through ordinary desktop widths, then cap the
-// content at 1480px so wide windows retain balanced breathing room. The same
-// frame is shared by home lists, detail pages, and portalled sticky headers so
-// their outer edges stay aligned.
+// The content runs to the window minus a 20px gutter on each side, capped at
+// 1440px so wide windows keep balanced breathing room. The same frame is
+// shared by home lists, detail pages, and portalled sticky headers so their
+// outer edges stay aligned.
 export const MARKET_DESKTOP_CONTENT_FRAME_PROPS = {
-  width: 'calc(100% - 124px)',
+  width: `calc(100% - ${MARKET_HOME_DESKTOP_CONTENT_GUTTER * 2}px)`,
   maxWidth: MARKET_HOME_DESKTOP_CONTENT_MAX_WIDTH,
   alignSelf: 'center',
   mx: 'auto',
+} as const;
+
+// Detail pages' trade column: the design's 384px is its floor, reached by a
+// 1280px window (a 1240px content row). Wider rows scale it in proportion, as a
+// share of the row, so no breakpoint is needed; the frame's 1440px cap bounds it
+// at about 446px. The desktop detail layouts are web-only and scroll inside an
+// `overflow-y: auto` container, so the column sticks 16px below its top once
+// the page header scrolls away; the row's `alignItems="flex-start"` keeps it
+// from stretching, which sticky needs. Space above the column must be margin,
+// not padding, or it adds to that 16px once pinned.
+export const MARKET_DETAIL_TRADE_COLUMN_MIN_WIDTH = 384;
+export const MARKET_DETAIL_TRADE_COLUMN_SCALE_START_CONTENT_WIDTH =
+  1280 - MARKET_HOME_DESKTOP_CONTENT_GUTTER * 2;
+
+export const MARKET_DETAIL_TRADE_COLUMN_PROPS = {
+  width: `${
+    (MARKET_DETAIL_TRADE_COLUMN_MIN_WIDTH /
+      MARKET_DETAIL_TRADE_COLUMN_SCALE_START_CONTENT_WIDTH) *
+    100
+  }%`,
+  minWidth: MARKET_DETAIL_TRADE_COLUMN_MIN_WIDTH,
+  flexShrink: 0,
+  position: 'sticky',
+  top: 16,
 } as const;
 
 // The desktop list-page tab region is 60px tall in the design: a 44px tab
@@ -62,6 +86,16 @@ export const MARKET_LIST_FIRST_COLUMN_MAX_WIDTH = 320;
 export const MARKET_LIST_FIRST_COLUMN_MIN_WIDTH = 256;
 export const MARKET_LIST_METRIC_COLUMN_MIN_WIDTH = 104;
 
+// Metric columns share the row's remaining width evenly, on the same 8px
+// padding every list page uses. `flexBasis: 0` keeps the split independent of
+// each column's own content width.
+export const MARKET_LIST_METRIC_COLUMN_PROPS = {
+  flexGrow: 1,
+  flexShrink: 1,
+  flexBasis: 0,
+  px: '$2',
+} as const;
+
 // Keep the maximum-width alias for compact surfaces that do not participate in
 // the responsive list layout.
 export const MARKET_LIST_FIRST_COLUMN_WIDTH =
@@ -71,16 +105,10 @@ export const MARKET_LIST_FIRST_COLUMN_WIDTH =
 export const MARKET_LIST_NAME_COLUMN_WIDTH =
   MARKET_LIST_FIRST_COLUMN_WIDTH - MARKET_LIST_STAR_COLUMN_WIDTH;
 
-// The desktop list-page toolbar band. Stocks is the calibrated reference: a
-// 32px category button sitting on 16px above and 20px below. Fixing the height
-// rather than restating that padding keeps the band identical on pages whose
-// toolbar content is taller (Trending's 40px filter row), so switching tabs
-// never shifts the table underneath.
+// Keep a fixed band height on desktop pages with a toolbar so switching tabs
+// does not shift the table. Stocks is the calibrated reference: a 32px category
+// button with 16px above and 20px below.
 export const MARKET_DESKTOP_TOOLBAR_BAND_HEIGHT = 68;
-
-// The calibrated category button: `px="$2.5" py="$1.5"` around a `$bodyMdMedium`
-// label. Every toolbar row matches it so the band reads 16 / 32 / 20.
-export const MARKET_LIST_TOOLBAR_ITEM_HEIGHT = 32;
 
 export const MARKET_DESKTOP_TOOLBAR_BAND_STYLE = {
   height: MARKET_DESKTOP_TOOLBAR_BAND_HEIGHT,

@@ -27,7 +27,21 @@ For iOS, the launcher reuses the sole booted simulator, or selects the sole
 available simulator when none are booted. Otherwise, an interactive terminal
 shows a numbered list with device names, runtime versions, states, and UDIDs.
 The selected simulator is booted if needed and awaited before app installation.
-An explicit `--device <UDID>` can also select a shutdown simulator.
+An explicit `--device <UDID>` can also select a shutdown simulator. When the
+explicit UDID belongs to a connected physical device, the command prepares the
+iOS DevVendor artifacts and delegates to a local signed Xcode Debug build. The
+physical-device path checks for installed CocoaPods configuration before restoring
+vendor artifacts or starting Metro; if missing, run `yarn app:ios:pod-install`
+and retry. It never downloads a Simulator shell for a physical device. The
+physical-device path embeds the common HBC and manifest in the app instead of
+using a private Simulator DevSession. It owns an available Metro port, builds the
+signed app without letting Expo start another packager, installs it, and launches
+the device process with that exact port. This keeps physical-device development
+isolated when another worktree already owns port 8081. Use `--metro-port <port>`
+to request a specific free port; `--metro-url` remains limited to private
+DevSession launches. The physical-device path emits the same
+`[ONEKEY_RUN_SUMMARY] status=running` and `[ONEKEY_RUN_REPORT]` readiness signals
+as Simulator and Android launches.
 
 In non-interactive sessions with multiple candidates, do not guess. Resolve the
 requested UDID or serial and rerun with `--device <serial-or-UDID>`. The error

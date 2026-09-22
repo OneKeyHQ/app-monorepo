@@ -2,6 +2,8 @@ import type { IMarketAssetListItem } from '@onekeyhq/shared/types/market';
 import type { IMarketStockInfo } from '@onekeyhq/shared/types/marketV2';
 
 interface IFavoriteTokenDisplay {
+  assetId?: string;
+  stockId?: string;
   chainId: string;
   contractAddress: string;
   isNative: boolean;
@@ -20,6 +22,7 @@ interface IFavoriteTokenDisplay {
   communityRecognized?: boolean;
   marketTokenId?: string;
   marketVariantId?: string;
+  stockListingName?: string;
   stock?: IMarketStockInfo;
   marketAsset?: IMarketAssetListItem;
 }

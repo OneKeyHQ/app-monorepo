@@ -161,6 +161,44 @@ describe('mobile-dev-shell-resource', () => {
     expect(() => assertDeviceId('bad\ndevice')).toThrow('explicit device ID');
   });
 
+  it('cleans extracted simulator shells when installation fails', async () => {
+    const directory = fs.mkdtempSync(
+      path.join(os.tmpdir(), 'onekey-install-test-'),
+    );
+    const artifactPath = path.join(directory, 'shell.zip');
+    fs.writeFileSync(artifactPath, 'archive');
+    let appDirectory;
+    const spawnCommand = jest.fn((command, args) => {
+      if (command === 'ditto') {
+        appDirectory = path.join(args[3], 'OneKeyWallet.app');
+        fs.mkdirSync(appDirectory);
+      }
+      if (command === 'xcrun' && args[0] === 'otool') {
+        return {
+          status: 0,
+          stdout: 'sectname __entitlements\n  segname __TEXT\n',
+        };
+      }
+      if (command === 'xcrun' && args[0] === 'simctl') return { status: 1 };
+      return { status: 0 };
+    });
+    try {
+      await expect(
+        installMobileDevShell({
+          artifactPath,
+          deviceId: 'SIMULATOR-A',
+          platform: 'ios',
+          signingCacheRoot: path.join(directory, 'cache'),
+          spawnCommand,
+        }),
+      ).rejects.toThrow('Command failed: xcrun');
+      expect(fs.existsSync(appDirectory)).toBe(false);
+      expect(fs.readFileSync(artifactPath, 'utf8')).toBe('archive');
+    } finally {
+      fs.rmSync(directory, { force: true, recursive: true });
+    }
+  });
+
   it('allows an Android shell downgrade during replacement', async () => {
     const spawnCommand = jest.fn(() => ({ status: 0 }));
 
@@ -770,6 +808,42 @@ describe('mobile-dev-shell-resource', () => {
       expect(fs.readFileSync(filePath)).toEqual(bytes);
     } finally {
       consoleError.mockRestore();
+      fs.rmSync(filePath, { force: true });
+    }
+  });
+
+  it('downloads a large shell layer with verified concurrent ranges', async () => {
+    const bytes = Buffer.alloc(2 * 1024 * 1024 + 1, 0x5a);
+    const descriptor = {
+      digest: `sha256:${crypto.createHash('sha256').update(bytes).digest('hex')}`,
+      size: bytes.length,
+    };
+    const filePath = path.join(
+      os.tmpdir(),
+      `onekey-shell-range-${String(process.pid)}-${Date.now()}.apk`,
+    );
+    const client = {
+      fetchBlob: jest.fn(async (_digest, _timeoutMs, options) => {
+        const [start, end] = options.range
+          .match(/bytes=(\d+)-(\d+)/)
+          .slice(1)
+          .map(Number);
+        return new Response(bytes.subarray(start, end + 1), {
+          headers: { 'content-range': `bytes ${start}-${end}/${bytes.length}` },
+          status: 206,
+        });
+      }),
+    };
+    try {
+      await downloadLayerToFile({
+        client,
+        descriptor,
+        filePath,
+        maxBytes: bytes.length,
+      });
+      expect(client.fetchBlob).toHaveBeenCalledTimes(9);
+      expect(fs.readFileSync(filePath)).toEqual(bytes);
+    } finally {
       fs.rmSync(filePath, { force: true });
     }
   });

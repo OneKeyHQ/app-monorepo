@@ -6,6 +6,7 @@ import type {
 
 import {
   buildFinancialWaterfall,
+  getFinancialEarningsRows,
   getFinancialPeriodLabel,
   getFinancialRows,
   getNetMargin,
@@ -41,15 +42,16 @@ export type IStockFinancialLabels = Record<IFinancialWaterfallKey, string> & {
   partial: string;
   simplified: string;
   next: string;
+  expensesAndAdjustments: string;
 };
 
 const COLORS = {
-  blue: '#5879EA',
-  cyan: '#69B8C4',
-  orange: '#D28A46',
-  green: '#56A58F',
-  red: '#D35B82',
-};
+  blue: 'blue9',
+  cyan: 'teal9',
+  orange: 'orange9',
+  green: 'teal9',
+  red: 'red9',
+} as const;
 
 function getWaterfallColor(
   key: IFinancialWaterfallKey,
@@ -64,6 +66,7 @@ export function buildFinancialChart(
   data: IStockFinancials | null | undefined,
   kind: IFinancialChartKind,
   labels: IStockFinancialLabels,
+  compactConversion = false,
 ): {
   rows: IFinancialChartRow[];
   series: IFinancialChartSeries[];
@@ -80,11 +83,12 @@ export function buildFinancialChart(
     sourceRows = [data.revenueToProfitConversion];
   const currency =
     data.currency ??
-    sourceRows.find((row) => row.reportedCurrency)?.reportedCurrency;
+    sourceRows.find((row) => row.reportedCurrency)?.reportedCurrency ??
+    'USD';
   const bar = (
     key: string,
     label: string,
-    color: string,
+    color: IFinancialChartSeries['color'],
   ): IFinancialChartSeries => ({ key, label, color, kind: 'bar' });
   if (kind === 'conversion') {
     const conversion = data.revenueToProfitConversion;
@@ -94,21 +98,59 @@ export function buildFinancialChart(
     )
       return empty;
     const waterfall = buildFinancialWaterfall(conversion);
+    let bars = waterfall.bars;
+    const grossProfit = bars.find((item) => item.key === 'grossProfit');
+    const netIncome = bars.find((item) => item.key === 'netIncome');
+    const collapsed =
+      compactConversion &&
+      !waterfall.simplified &&
+      grossProfit !== undefined &&
+      netIncome !== undefined;
+    if (collapsed) {
+      bars = bars.filter((item) =>
+        ['revenue', 'costOfRevenue', 'grossProfit', 'netIncome'].includes(
+          item.key,
+        ),
+      );
+    }
+    const rows: IFinancialChartRow[] = bars.map((item) => ({
+      key: item.key,
+      label: labels[item.key],
+      values: [item.value],
+      range: {
+        start: item.start,
+        end: item.end,
+        connect: !waterfall.simplified,
+        color: getWaterfallColor(item.key, item.total, item.value),
+      },
+    }));
+    if (collapsed) {
+      // Collapse only a reconciled waterfall; never invent a residual for missing accounts.
+      const value = netIncome.value - grossProfit.value;
+      rows.splice(3, 0, {
+        key: 'expensesAndAdjustments',
+        label: labels.expensesAndAdjustments,
+        values: [value],
+        range: {
+          start: grossProfit.value,
+          end: netIncome.value,
+          connect: true,
+          color: value < 0 ? COLORS.red : COLORS.green,
+        },
+        details: waterfall.bars
+          .filter((item) => !item.total && item.key !== 'costOfRevenue')
+          .map((item) => ({
+            label: labels[item.key],
+            value: item.value,
+            color: getWaterfallColor(item.key, item.total, item.value),
+          })),
+      });
+    }
     return {
       currency,
       simplified: waterfall.simplified,
       series: [],
-      rows: waterfall.bars.map((item) => ({
-        key: item.key,
-        label: labels[item.key],
-        values: [item.value],
-        range: {
-          start: item.start,
-          end: item.end,
-          connect: !waterfall.simplified,
-          color: getWaterfallColor(item.key, item.total, item.value),
-        },
-      })),
+      rows,
     };
   }
   if (kind === 'performance') {
@@ -177,18 +219,17 @@ export function buildFinancialChart(
         kind: 'estimate',
       },
     ],
-    rows: getFinancialRows(data.earnings.items, data.period, currency).map(
-      (row) => ({
-        key: row.date,
-        label: getFinancialPeriodLabel(row),
-        values: [
-          row.actual,
-          data.period === 'annual' &&
-          (!isFinancialNumber(row.numAnalysts) || row.numAnalysts < 3)
-            ? null
-            : row.estimate,
-        ],
-      }),
-    ),
+    rows: getFinancialEarningsRows(
+      data.earnings.items,
+      data.period,
+      currency,
+    ).map((row) => ({
+      key: row.date,
+      label:
+        data.period === 'quarter' && !row.fiscalPeriod
+          ? row.date
+          : getFinancialPeriodLabel(row),
+      values: [row.actual, row.estimate],
+    })),
   };
 }

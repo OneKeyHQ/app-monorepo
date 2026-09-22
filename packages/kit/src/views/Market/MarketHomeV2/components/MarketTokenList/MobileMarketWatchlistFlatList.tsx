@@ -42,6 +42,7 @@ import { TokenListSkeleton } from './components/TokenListSkeleton';
 import { useMarketWatchlistTokenList } from './hooks/useMarketWatchlistTokenList';
 import { useToDetailPage } from './hooks/useToMarketDetailPage';
 import { useWatchlistFilteredGroups } from './hooks/useWatchlistFilteredGroups';
+import { DEFAULT_WATCHLIST_FILTER } from './MarketWatchlistCategorySelector';
 
 import type { IMarketToken } from './MarketTokenData';
 import type { IWatchlistFilterType } from './MarketWatchlistCategorySelector';
@@ -63,12 +64,12 @@ const SECOND_LEVEL_MENU_ANCHOR_X_RATIO = 0.48;
 const SECOND_LEVEL_MENU_ANCHOR_Y_OFFSET = 4;
 
 function MobileMarketWatchlistFlatListImpl({
-  selectedFilter = 'all',
+  selectedFilter = DEFAULT_WATCHLIST_FILTER,
   listContainerProps,
   shouldSuppressItemPress,
 }: IMobileMarketWatchlistFlatListProps) {
   const intl = useIntl();
-  const toMarketDetailPage = useToDetailPage();
+  const toMarketDetailPage = useToDetailPage({ resolveMarketAsset: true });
   const { navigateToPerps } = usePerpsNavigation();
 
   // Watchlist data
@@ -132,13 +133,13 @@ function MobileMarketWatchlistFlatListImpl({
     consumeNextPress: false,
   });
 
-  const getStableItemKey = useCallback(
-    (item: IMarketToken) =>
-      item.perpsCoin
-        ? `perps:${item.perpsCoin}`
-        : `${item.networkId}:${(item.address || '').toLowerCase()}:${item.isNative ? 1 : 0}`,
-    [],
-  );
+  const getStableItemKey = useCallback((item: IMarketToken) => {
+    if (item.assetId) return `asset:${item.assetId}`;
+    if (item.stockId) return `stock:${item.stockId}`;
+    return item.perpsCoin
+      ? `perps:${item.perpsCoin}`
+      : `${item.networkId}:${(item.address || '').toLowerCase()}:${item.isNative ? 1 : 0}`;
+  }, []);
 
   const clearMenuTimer = useCallback(() => {
     if (gestureRef.current.menuTimer) {
@@ -163,6 +164,8 @@ function MobileMarketWatchlistFlatListImpl({
       sortIndex: token.sortIndex,
       isNative: token.isNative,
       perpsCoin: token.perpsCoin,
+      assetId: token.assetId,
+      stockId: token.stockId,
     }),
     [],
   );
@@ -215,6 +218,7 @@ function MobileMarketWatchlistFlatListImpl({
                 await actions.current.removeFromWatchListV2(
                   item.networkId,
                   item.address,
+                  { assetId: item.assetId, stockId: item.stockId },
                 );
               }
               Toast.success({

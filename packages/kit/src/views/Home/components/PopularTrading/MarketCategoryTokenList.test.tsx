@@ -35,52 +35,37 @@ jest.mock('@onekeyhq/components', () => {
 jest.mock('@onekeyhq/kit/src/components/Loading', () => ({
   ListLoading: () => null,
 }));
-jest.mock(
-  '@onekeyhq/kit/src/views/Market/components/MarketListingStar',
-  () => ({
-    MarketListingStar: ({
-      renderButton,
-    }: {
-      renderButton: (identity: {
-        chainId: string;
-        contractAddress: string;
-        isNative: boolean;
-        tokenSymbol: string;
-      }) => ReactNode;
-    }) =>
-      renderButton({
-        chainId: 'btc--0',
-        contractAddress: '',
-        isNative: true,
-        tokenSymbol: 'BTC',
-      }),
-  }),
-);
 jest.mock('./metricColumns', () => ({
+  HOME_MARKET_TABLE_HEADER_MIN_HEIGHT: 0,
+  HOME_MARKET_TABLE_ROW_MIN_HEIGHT: 68,
   getPopularTradingColumns: ({
     renderStarButton,
   }: {
     renderStarButton: (record: IFavoriteTokenDisplay) => ReactNode;
   }) => [{ render: renderStarButton }],
 }));
+const mockRichTableProps = jest.fn();
 jest.mock('../RichTable', () => ({
-  RichTable: ({
-    dataSource,
-    columns,
-  }: {
+  RichTable: (props: {
     dataSource: IFavoriteTokenDisplay[];
     columns: { render: (record: IFavoriteTokenDisplay) => ReactNode }[];
-  }) => (
-    <div>
-      {dataSource.map((record) => (
-        <div key={record.symbol}>{columns[0].render(record)}</div>
-      ))}
-    </div>
-  ),
+    rowProps?: { minHeight?: number };
+    headerRowProps?: { minHeight?: number };
+  }) => {
+    mockRichTableProps(props);
+    return (
+      <div>
+        {props.dataSource.map((record) => (
+          <div key={record.symbol}>{props.columns[0].render(record)}</div>
+        ))}
+      </div>
+    );
+  },
 }));
 
-it('checks and toggles Home Top Coins with the resolved native token identity', () => {
+it('renders and toggles Home Top Coins without a Market provider', () => {
   const record: IFavoriteTokenDisplay = {
+    assetId: 'bitcoin',
     chainId: '',
     contractAddress: '',
     isNative: false,
@@ -116,15 +101,16 @@ it('checks and toggles Home Top Coins with the resolved native token identity', 
       onViewMore={jest.fn()}
     />,
   );
-  const resolvedRecord = {
-    ...record,
-    marketAsset: undefined,
-    chainId: 'btc--0',
-    isNative: true,
-  };
-  expect(isTokenInWatchList).toHaveBeenCalledWith(resolvedRecord);
-  fireEvent.click(
-    screen.getByRole('button', { name: 'market.remove_from_favorites' }),
+  const star = screen.getByRole('button', {
+    name: 'market.remove_from_favorites',
+  });
+  expect(isTokenInWatchList).toHaveBeenCalledWith(record);
+  fireEvent.click(star);
+  expect(onStarPress).toHaveBeenCalledWith(record);
+  expect(mockRichTableProps).toHaveBeenCalledWith(
+    expect.objectContaining({
+      rowProps: expect.objectContaining({ minHeight: 68 }),
+      headerRowProps: expect.objectContaining({ minHeight: 0 }),
+    }),
   );
-  expect(onStarPress).toHaveBeenCalledWith(resolvedRecord);
 });

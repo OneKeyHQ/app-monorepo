@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useLayoutEffect, useRef } from 'react';
 
 import * as ScreenOrientation from 'expo-screen-orientation';
 import { noop } from 'lodash';
@@ -47,6 +47,10 @@ function lockScreenOrientation(
 export function TradingViewNative(props: ITradingViewNativeProps) {
   const isFullscreen = Boolean(props.isNativeChartFullscreen);
   const { onNativeChartFullscreenChange } = props;
+  const onFullscreenChangeRef = useRef(onNativeChartFullscreenChange);
+  useLayoutEffect(() => {
+    onFullscreenChangeRef.current = onNativeChartFullscreenChange;
+  }, [onNativeChartFullscreenChange]);
   const { height, width } = useWindowDimensions();
   const isAndroid = platformEnv.isNativeAndroid === true;
   const shouldHideStatusBar = shouldHideTradingViewNativeStatusBar({
@@ -57,7 +61,7 @@ export function TradingViewNative(props: ITradingViewNativeProps) {
     width,
   });
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!isFullscreen) {
       return;
     }
@@ -70,7 +74,7 @@ export function TradingViewNative(props: ITradingViewNativeProps) {
         ScreenOrientation.OrientationLock.LANDSCAPE,
       ).catch(() => {
         if (isActive) {
-          onNativeChartFullscreenChange?.(false);
+          onFullscreenChangeRef.current?.(false);
         }
       });
     }
@@ -79,7 +83,7 @@ export function TradingViewNative(props: ITradingViewNativeProps) {
       'change',
       (nextState) => {
         if (nextState === 'background') {
-          onNativeChartFullscreenChange?.(false);
+          onFullscreenChangeRef.current?.(false);
         }
       },
     );
@@ -91,7 +95,7 @@ export function TradingViewNative(props: ITradingViewNativeProps) {
         getDefaultOrientationLock(shouldUseCurrentAndroidWindow),
       );
     };
-  }, [isFullscreen, onNativeChartFullscreenChange]);
+  }, [isFullscreen]);
 
   return (
     <>

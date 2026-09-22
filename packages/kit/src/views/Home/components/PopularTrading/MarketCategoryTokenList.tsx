@@ -14,14 +14,16 @@ import {
 import type { ITableProps } from '@onekeyhq/components';
 import { ListLoading } from '@onekeyhq/kit/src/components/Loading';
 import { HomeTestIDs } from '@onekeyhq/kit/src/views/Home/testIDs';
-import { MarketListingStar } from '@onekeyhq/kit/src/views/Market/components/MarketListingStar';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { EWatchlistFrom } from '@onekeyhq/shared/src/logger/scopes/dex';
 
 import { RichTable } from '../RichTable';
 
 import { HOME_MARKET_CATEGORY_REQUEST_LIMIT } from './constants';
-import { getPopularTradingColumns } from './metricColumns';
+import {
+  HOME_MARKET_TABLE_HEADER_MIN_HEIGHT,
+  HOME_MARKET_TABLE_ROW_MIN_HEIGHT,
+  getPopularTradingColumns,
+} from './metricColumns';
 
 import type { IFavoriteTokenDisplay } from './types';
 
@@ -41,6 +43,9 @@ function getMarketCategoryTokenKey(item: IFavoriteTokenDisplay) {
   }
   if (item.perpsCoin) {
     return `perps-${item.perpsCoin}`;
+  }
+  if (item.stockId && !item.chainId) {
+    return `stock-${item.stockId}`;
   }
   return `${item.chainId}-${item.contractAddress}`;
 }
@@ -94,25 +99,7 @@ function MarketCategoryTokenList({
     return getPopularTradingColumns({
       intl,
       shouldUseTableLayout,
-      renderStarButton: (record) =>
-        record.marketAsset ? (
-          <MarketListingStar
-            kind="asset"
-            listingId={record.marketAsset.assetId}
-            from={EWatchlistFrom.Homepage}
-            renderButton={(identity) =>
-              renderStarButton({
-                ...record,
-                marketAsset: undefined,
-                chainId: identity.chainId,
-                contractAddress: identity.contractAddress,
-                isNative: identity.isNative,
-              })
-            }
-          />
-        ) : (
-          renderStarButton(record)
-        ),
+      renderStarButton,
     });
   }, [intl, isTokenInWatchList, onStarPress, shouldUseTableLayout]);
 
@@ -145,14 +132,22 @@ function MarketCategoryTokenList({
         dataSource={tokens}
         columns={columns}
         keyExtractor={getMarketCategoryTokenKey}
-        estimatedItemSize={56}
+        estimatedItemSize={
+          shouldUseTableLayout ? HOME_MARKET_TABLE_ROW_MIN_HEIGHT : 56
+        }
         rowProps={{
           mx: '$2',
           px: '$3',
+          ...(shouldUseTableLayout
+            ? { minHeight: HOME_MARKET_TABLE_ROW_MIN_HEIGHT }
+            : undefined),
         }}
         headerRowProps={{
           px: '$3',
           mx: '$2',
+          ...(shouldUseTableLayout
+            ? { minHeight: HOME_MARKET_TABLE_HEADER_MIN_HEIGHT }
+            : undefined),
         }}
         onRow={(record) => ({
           onPress: () => onTokenPress(record),

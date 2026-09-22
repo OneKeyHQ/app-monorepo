@@ -289,9 +289,10 @@ describe('TradingView chart controls', () => {
       onChartSwitch: handleChartSwitch,
     });
 
+    // The label is translated now, and this file's intl mock echoes the key.
     expect(
       screen.getByTestId('trading-view-chart-switch-trigger').textContent,
-    ).toBe('Original');
+    ).toBe('market.chart_original');
 
     fireEvent.click(screen.getByTestId('trading-view-chart-switch-trigger'));
     expect(mockSelectTriggerPress).toHaveBeenCalledTimes(1);

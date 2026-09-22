@@ -61,8 +61,15 @@ export function MarketDetailProChartControls({
         onPress={onEnterChartFullscreen}
         {...HEADER_ICON_BUTTON_STYLE_PROPS}
       />
-      <Stack width="$px" height="$5" bg="$borderSubdued" flexShrink={0} />
-      {children}
+      {/* The mode switch moved to the toolbar under the chart, so this
+          trailing divider only earns its place when a caller still slots
+          something in here. */}
+      {children ? (
+        <>
+          <Stack width="$px" height="$5" bg="$borderSubdued" flexShrink={0} />
+          {children}
+        </>
+      ) : null}
     </XStack>
   );
 }

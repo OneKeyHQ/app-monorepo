@@ -2,7 +2,7 @@ import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 
 import { useIntl } from 'react-intl';
-import { StyleSheet } from 'react-native';
+import { Platform, StyleSheet } from 'react-native';
 import Animated, {
   FadeIn,
   LinearTransition,
@@ -17,6 +17,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { MARK_IN_MS, easeOutFn } from '../../content/deviceScene';
 import { Input, passwordManagerIgnoreProps } from '../../forms/Input';
+import { useKeyboardState } from '../../hooks/useKeyboardController';
 import {
   Anchor,
   Button,
@@ -46,6 +47,12 @@ import { PreferenceCapsule } from './PreferenceCapsule';
 
 /** Classic-family PINs cap at nine digits (the production keypad's cap). */
 const MAX_PIN_LENGTH = 9;
+/** ...and run at least four (OK-62090): the pad refuses a shorter confirm
+ * in the same refusal grammar as the empty one. */
+const MIN_PIN_LENGTH = 4;
+
+/** Why a confirm was refused — each speaks its own line in the strip. */
+type IPinRefusal = 'empty' | 'short';
 
 /**
  * Key values double as the wire encoding: the grid position pressed, laid
@@ -150,6 +157,10 @@ export interface IPinPadProps {
   /** The Trezor matrix shape: nine positions, no 0 key — the slot
    * between delete and confirm renders empty. */
   noZeroKey?: boolean;
+  /** The shortest PIN Confirm accepts. OneKey's own floor is four digits
+   * (OK-62090); a vendor pad passes its own — a Trezor PIN may be a
+   * single position. */
+  minLength?: number;
 }
 
 export function PinPad({
@@ -158,6 +169,7 @@ export function PinPad({
   error,
   resetSignal,
   noZeroKey,
+  minLength = MIN_PIN_LENGTH,
 }: IPinPadProps) {
   const intl = useIntl();
   const [value, setValue] = useState('');
@@ -166,19 +178,19 @@ export function PinPad({
   // The failure line lives until the person starts correcting: the first
   // new digit retires it, so "wrong" and "new entry" never coexist.
   const [errorRetired, setErrorRetired] = useState(false);
-  // The local refusal: confirm pressed on an empty entry.
-  const [emptyPrompt, setEmptyPrompt] = useState(false);
+  // The local refusal: confirm pressed on an empty or too-short entry.
+  const [refusal, setRefusal] = useState<IPinRefusal | undefined>();
   useEffect(() => {
     if (error) {
       setValue('');
       setErrorRetired(false);
-      setEmptyPrompt(false);
+      setRefusal(undefined);
     }
   }, [error]);
   useEffect(() => {
     setValue('');
     setErrorRetired(false);
-    setEmptyPrompt(false);
+    setRefusal(undefined);
   }, [resetSignal]);
 
   const shakeX = useSharedValue(0);
@@ -208,10 +220,12 @@ export function PinPad({
         return;
       }
       if (key === 'confirm') {
-        // An empty confirm is refused like any refusal — prompt plus
-        // shake. The ratified call: better usability than a disabled key.
-        if (!valueRef.current.length) {
-          setEmptyPrompt(true);
+        // An empty or too-short confirm is refused like any refusal —
+        // prompt plus shake. The ratified call: better usability than a
+        // disabled key.
+        const entered = valueRef.current.length;
+        if (entered < minLength) {
+          setRefusal(entered ? 'short' : 'empty');
           shake();
           return;
         }
@@ -219,7 +233,7 @@ export function PinPad({
         return;
       }
       setErrorRetired(true);
-      setEmptyPrompt(false);
+      setRefusal(undefined);
       // Full is full: refuse the tenth digit with the same shake the
       // refusal beat uses, instead of silently swallowing the press.
       if (valueRef.current.length >= MAX_PIN_LENGTH) {
@@ -228,7 +242,7 @@ export function PinPad({
       }
       setValue((v) => (v.length >= MAX_PIN_LENGTH ? v : v + key));
     },
-    [onSubmit, shake],
+    [minLength, onSubmit, shake],
   );
 
   const dots = useMemo(
@@ -236,12 +250,15 @@ export function PinPad({
     [value.length],
   );
   const externalError = error && !errorRetired ? error : undefined;
-  // Refusing an empty confirm: a prompt in place of a disabled key.
+  // Refusing a confirm: a prompt in place of a disabled key.
   const shownError =
     externalError ??
-    (emptyPrompt
+    (refusal
       ? intl.formatMessage({
-          id: ETranslations.device_stage_enter_pin_first__msg,
+          id:
+            refusal === 'short'
+              ? ETranslations.device_stage_pin_too_short__msg
+              : ETranslations.device_stage_enter_pin_first__msg,
         })
       : undefined);
   return (
@@ -365,10 +382,12 @@ export interface IPassphraseFormProps {
    * ON — the first-run default.
    */
   initialKeepAccessible?: boolean;
+  /** Only adds early ASCII feedback for new Pro2/Neo wallets. */
+  asciiCreationFeedback?: boolean;
   /**
    * Protocol V2 entry: UTF-8 measured in bytes, NFKD-normalized before it
-   * is handed out, no character rule to show. Off, the printable-ASCII
-   * rule and its bullets apply. The driver decides it from the request.
+   * is handed out. Off, the printable-ASCII validation applies. The
+   * driver decides it from the request.
    */
   allowProtocolV2Utf8?: boolean;
   /** One-line inline failure under the rules, mirroring the PIN pad's. */
@@ -401,6 +420,7 @@ export function PassphraseForm({
   onAttachPin,
   error,
   initialKeepAccessible,
+  asciiCreationFeedback,
   allowProtocolV2Utf8,
   resetSignal,
   activationSignal,
@@ -420,6 +440,8 @@ export function PassphraseForm({
   const [validationError, setValidationError] = useState<string | undefined>(
     undefined,
   );
+  const showAsciiCreationFeedback =
+    mode === 'create' && asciiCreationFeedback && !allowProtocolV2Utf8;
   useEffect(() => {
     setValue('');
     setSecure(true);
@@ -435,10 +457,21 @@ export function PassphraseForm({
     () => (mode === 'create' ? { keepAccessible } : undefined),
     [keepAccessible, mode],
   );
-  const handleChange = useCallback((text: string) => {
-    setValue(text);
-    setValidationError(undefined);
-  }, []);
+  const handleChange = useCallback(
+    (text: string) => {
+      setValue(text);
+      const failure =
+        text && showAsciiCreationFeedback
+          ? resolvePassphraseEntryFailure(text)
+          : undefined;
+      setValidationError(
+        failure
+          ? intl.formatMessage({ id: failure.id }, failure.values)
+          : undefined,
+      );
+    },
+    [intl, showAsciiCreationFeedback],
+  );
   const handleConfirm = useCallback(() => {
     // A refused entry speaks its prompt in place of a disabled button —
     // the same ratified grammar as the PIN pad's empty confirm. The
@@ -471,6 +504,15 @@ export function PassphraseForm({
     [secure, toggleSecure],
   );
   const shownError = validationError ?? error;
+  // While the system keyboard is up, the card gives back the attach-PIN
+  // alternative under Confirm: it is the way in for someone who is NOT
+  // typing, and its height is what pushed the card's top under the status
+  // bar on a phone with a tall keyboard (OK-63775). The flag turns with the
+  // keyboard's will-show on both native platforms, so the card is already
+  // shrinking as the keyboard rises, and the block returns once the keyboard
+  // is gone. A hardware keyboard raises no system keyboard and changes
+  // nothing; web and desktop always read false.
+  const { isVisible: isKeyboardVisible } = useKeyboardState();
   return (
     <YStack gap="$5">
       <YStack gap="$3">
@@ -499,6 +541,12 @@ export function PassphraseForm({
             value={value}
             onChangeText={handleChange}
             secureTextEntry={secure}
+            keyboardType={
+              showAsciiCreationFeedback && Platform.OS === 'ios'
+                ? 'ascii-capable'
+                : undefined
+            }
+            error={showAsciiCreationFeedback ? Boolean(shownError) : undefined}
             {...passwordManagerIgnoreProps}
             autoCapitalize="none"
             autoCorrect={false}
@@ -508,45 +556,44 @@ export function PassphraseForm({
         {/* The character rules as bullets; each dot box matches one text
             line, so the dot centers on the first line and the text owns
             any wrap. */}
-        {/* The two bullets state the ASCII rule; a protocol V2 device has
-            no character rule to state, so they stay off there — the
-            shipped dialog dropped its own description the same way. */}
-        {allowProtocolV2Utf8 ? null : (
-          <YStack gap="$1">
-            <XStack gap="$1" alignItems="flex-start">
-              <Stack p="$2">
-                <Stack w="$1" h="$1" borderRadius="$full" bg="$textSubdued" />
-              </Stack>
-              <SizableText flex={1} size="$bodyMd" color="$textSubdued">
-                {intl.formatMessage(
-                  { id: ETranslations.device_stage_allowed_characters__desc },
-                  {
-                    link: (chunks: ReactNode[]) => (
-                      <Anchor
-                        key="link"
-                        href="https://www.ascii-code.com/"
-                        size="$bodyMd"
-                        color="$textSubdued"
-                      >
-                        {chunks}
-                      </Anchor>
-                    ),
-                  },
-                )}
-              </SizableText>
-            </XStack>
-            <XStack gap="$1" alignItems="flex-start">
-              <Stack p="$2">
-                <Stack w="$1" h="$1" borderRadius="$full" bg="$textSubdued" />
-              </Stack>
-              <SizableText flex={1} size="$bodyMd" color="$textSubdued">
-                {intl.formatMessage({
-                  id: ETranslations.passphrase_character_limit,
-                })}
-              </SizableText>
-            </XStack>
-          </YStack>
-        )}
+        <YStack gap="$1">
+          <XStack gap="$1" alignItems="flex-start">
+            <Stack p="$2">
+              <Stack w="$1" h="$1" borderRadius="$full" bg="$textSubdued" />
+            </Stack>
+            <SizableText flex={1} size="$bodyMd" color="$textSubdued">
+              {showAsciiCreationFeedback
+                ? intl.formatMessage({
+                    id: ETranslations.passphrase_allowed_characters_desc,
+                  })
+                : intl.formatMessage(
+                    { id: ETranslations.device_stage_allowed_characters__desc },
+                    {
+                      link: (chunks: ReactNode[]) => (
+                        <Anchor
+                          key="link"
+                          href="https://www.ascii-code.com/"
+                          size="$bodyMd"
+                          color="$textSubdued"
+                        >
+                          {chunks}
+                        </Anchor>
+                      ),
+                    },
+                  )}
+            </SizableText>
+          </XStack>
+          <XStack gap="$1" alignItems="flex-start">
+            <Stack p="$2">
+              <Stack w="$1" h="$1" borderRadius="$full" bg="$textSubdued" />
+            </Stack>
+            <SizableText flex={1} size="$bodyMd" color="$textSubdued">
+              {intl.formatMessage({
+                id: ETranslations.passphrase_character_limit,
+              })}
+            </SizableText>
+          </XStack>
+        </YStack>
         {shownError ? (
           <SizableText size="$bodyMd" color="$textCritical">
             {shownError}
@@ -575,7 +622,7 @@ export function PassphraseForm({
       >
         {intl.formatMessage({ id: ETranslations.global_confirm })}
       </Button>
-      {onAttachPin ? (
+      {onAttachPin && !isKeyboardVisible ? (
         <YStack gap="$5">
           {/* Each rule is a sized transparent box carrying a hairline
               bottom border: a box of hairline height alone rounds to

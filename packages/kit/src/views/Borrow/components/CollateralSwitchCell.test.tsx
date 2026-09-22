@@ -26,6 +26,11 @@ jest.mock('@onekeyhq/components', () => {
   return {
     __esModule: true,
     Dialog: { show: dialogShow, Footer: DialogFooter },
+    ESwitchSize: {
+      extraSmall: 'extraSmall',
+      small: 'small',
+      large: 'large',
+    },
     SizableText: Text,
     Spinner: (props: Record<string, unknown>) =>
       React.createElement(View, props),
@@ -127,6 +132,7 @@ import type { ReactElement } from 'react';
 import { act, render } from '@testing-library/react-native';
 
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EOnChainHistoryTxStatus } from '@onekeyhq/shared/types/history';
 import type {
   IBorrowReserveItem,
@@ -166,6 +172,14 @@ const switchTestId = 'borrow-supplied-collateral-switch';
 const pendingSetCollateralTx = {
   stakingInfo: { tags: ['borrow:aave:setCollateral'] },
 };
+const scopedPendingSetCollateralTx = {
+  stakingInfo: {
+    tags: [
+      'borrow:aave:setCollateral',
+      'borrow:aave:setCollateral:v1:evm--1:0xmarket:0xusde',
+    ],
+  },
+};
 const successData = [
   {
     signedTx: { txid: '0xset-collateral' },
@@ -188,6 +202,19 @@ function createSuppliedAsset(
     reserveAddress,
     usageAsCollateral,
     canBeCollateral: true,
+    token: { symbol: 'USDC' },
+  } as unknown as ISuppliedAsset;
+}
+
+// Renders the switch, but disabled: Aave lets an inactive position turn on
+// only while the backend reports it eligible.
+function createIneligibleSuppliedAsset(
+  reserveAddress = '0xreserve',
+): ISuppliedAsset {
+  return {
+    reserveAddress,
+    usageAsCollateral: false,
+    canBeCollateral: false,
     token: { symbol: 'USDC' },
   } as unknown as ISuppliedAsset;
 }
@@ -273,6 +300,7 @@ describe('CollateralSwitchCell settlement guard', () => {
   afterEach(() => {
     jest.clearAllTimers();
     jest.useRealTimers();
+    jest.restoreAllMocks();
   });
 
   const getSwitch = (view: ReturnType<typeof render>) =>
@@ -296,6 +324,131 @@ describe('CollateralSwitchCell settlement guard', () => {
     };
   }
 
+  it('uses the shared native switch without a competing row handler on iOS', () => {
+    jest.replaceProperty(platformEnv, 'isNative', true);
+    jest.replaceProperty(platformEnv, 'isNativeIOS', true);
+
+    const view = render(
+      <CollateralSwitchCell item={createSuppliedAsset(true)} eModeId={1} />,
+    );
+
+    expect(getSwitch(view).props.native).toBeUndefined();
+    expect(getSwitch(view).props.size).toBe('extraSmall');
+    expect(
+      view.UNSAFE_root.findAll(
+        (node) => typeof node.props.onPress === 'function',
+      ),
+    ).toHaveLength(0);
+  });
+
+  // A disabled Tamagui switch attaches no press events and no responder claim,
+  // so without a handler here the touch reaches the position card behind the
+  // cell and toggles it. Only when disabled: an enabled switch must keep
+  // winning the responder as the deeper claimant.
+  it('claims the touch on native only while the switch is disabled', () => {
+    jest.replaceProperty(platformEnv, 'isNative', true);
+    jest.replaceProperty(platformEnv, 'isNativeIOS', true);
+
+    const view = render(
+      <CollateralSwitchCell
+        item={createIneligibleSuppliedAsset()}
+        eModeId={1}
+      />,
+    );
+
+    expect(getSwitch(view).props.disabled).toBe(true);
+    const handlers = view.UNSAFE_root.findAll(
+      (node) => typeof node.props.onPress === 'function',
+    );
+    expect(handlers).toHaveLength(1);
+    expect(handlers[0].props.position).toBe('relative');
+  });
+
+  it('claims it on Android too, where the platform control may not', () => {
+    jest.replaceProperty(platformEnv, 'isNative', true);
+    jest.replaceProperty(platformEnv, 'isNativeIOS', false);
+
+    const view = render(
+      <CollateralSwitchCell
+        item={createIneligibleSuppliedAsset()}
+        eModeId={1}
+      />,
+    );
+
+    expect(
+      view.UNSAFE_root.findAll(
+        (node) => typeof node.props.onPress === 'function',
+      ),
+    ).toHaveLength(1);
+  });
+
+  it('stops desktop row propagation without cancelling the switch event', () => {
+    jest.replaceProperty(platformEnv, 'isNative', false);
+    jest.replaceProperty(platformEnv, 'isNativeIOS', false);
+
+    const view = render(
+      <CollateralSwitchCell item={createSuppliedAsset(true)} eModeId={1} />,
+    );
+    const [rowHandler] = view.UNSAFE_root.findAll(
+      (node) => typeof node.props.onPress === 'function',
+    );
+    const stopPropagation = jest.fn();
+    const preventDefault = jest.fn();
+
+    const onPress = rowHandler?.props.onPress as
+      | ((event: {
+          stopPropagation: () => void;
+          preventDefault: () => void;
+        }) => void)
+      | undefined;
+    onPress?.({ stopPropagation, preventDefault });
+
+    expect(getSwitch(view).props.native).toBeUndefined();
+    expect(stopPropagation).toHaveBeenCalledTimes(1);
+    expect(preventDefault).not.toHaveBeenCalled();
+  });
+
+  // A padded halo pulled back with a negative margin lands outside this view's
+  // parent, where Android never hit-tests and hitSlop is ignored, while on web
+  // it swallowed the desktop row press and overhung the next column.
+  it('keeps the press target on the track instead of a padded halo', () => {
+    const view = render(
+      <CollateralSwitchCell item={createSuppliedAsset(false)} eModeId={0} />,
+    );
+    const wrapper = view.UNSAFE_getByProps({ position: 'relative' });
+
+    // Every spelling, not just the shorthand the halo happened to use: a
+    // longhand px/py/margin would reintroduce the same overhang.
+    const spacing = [
+      'm',
+      'margin',
+      'mx',
+      'my',
+      'ml',
+      'mr',
+      'mt',
+      'mb',
+      'marginHorizontal',
+      'marginVertical',
+      'p',
+      'padding',
+      'px',
+      'py',
+      'pl',
+      'pr',
+      'pt',
+      'pb',
+      'paddingHorizontal',
+      'paddingVertical',
+      'hitSlop',
+    ] as const;
+    const set = spacing.filter(
+      (key) => (wrapper.props as Record<string, unknown>)[key] !== undefined,
+    );
+
+    expect(set).toEqual([]);
+  });
+
   it('uses the top-level account id and preserves eModeId=0 when enabling', async () => {
     borrowContext.earnAccount.data.accountId = 'top-level-account';
     const view = render(
@@ -317,6 +470,12 @@ describe('CollateralSwitchCell settlement guard', () => {
         reserveAddress: '0xreserve',
         useAsCollateral: true,
         eModeId: 0,
+        stakingInfo: expect.objectContaining({
+          tags: expect.arrayContaining([
+            'borrow:aave:setCollateral',
+            'borrow:aave:setCollateral:v1:evm--1:0xmarket:0xreserve',
+          ]),
+        }),
       }),
     );
   });
@@ -360,7 +519,7 @@ describe('CollateralSwitchCell settlement guard', () => {
   it('keeps an unsupported Aave native position visible but disables collateral changes', () => {
     borrowContext.market = {
       ...borrowContext.market,
-      networkId: 'evm--42161',
+      networkId: 'evm--10',
     };
 
     const view = render(
@@ -368,6 +527,26 @@ describe('CollateralSwitchCell settlement guard', () => {
     );
 
     expect(getSwitch(view).props.disabled).toBe(true);
+  });
+
+  it('disables only the reserve matched by a scoped pending transaction', () => {
+    borrowContext.pendingTxs = [scopedPendingSetCollateralTx];
+
+    const matchingView = render(
+      <CollateralSwitchCell
+        item={createSuppliedAsset(true, '0xUsDe')}
+        eModeId={1}
+      />,
+    );
+    const siblingView = render(
+      <CollateralSwitchCell
+        item={createSuppliedAsset(true, '0xUsDt')}
+        eModeId={1}
+      />,
+    );
+
+    expect(getSwitch(matchingView).props.disabled).toBe(true);
+    expect(getSwitch(siblingView).props.disabled).toBe(false);
   });
 
   it('allows a successful preview that omits optional collateral eligibility', async () => {

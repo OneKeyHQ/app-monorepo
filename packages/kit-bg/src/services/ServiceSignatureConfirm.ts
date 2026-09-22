@@ -64,6 +64,7 @@ import { primePersistAtom } from '../states/jotai/atoms/prime';
 import { vaultFactory } from '../vaults/factory';
 
 import ServiceBase from './ServiceBase';
+import { checksumDisplayComponentAddresses } from './utils/displayComponentAddressUtils';
 import {
   getPermit2ServerDisplayExtras,
   shouldUseLocalPermit2Display,
@@ -586,6 +587,16 @@ class ServiceSignatureConfirm extends ServiceBase {
       decodedTx.isCustomHexData = true;
     }
 
+    // Display-only: align EVM addresses with the checksum form hardware
+    // devices render. Runs last so server, local-fallback and private-send
+    // rewrites are all covered.
+    if (decodedTx.txDisplay?.components) {
+      decodedTx.txDisplay.components = await checksumDisplayComponentAddresses({
+        networkId,
+        components: decodedTx.txDisplay.components,
+      });
+    }
+
     return decodedTx;
   }
 
@@ -871,6 +882,14 @@ class ServiceSignatureConfirm extends ServiceBase {
             component.tags = [];
           }
         });
+      }
+
+      if (parsedMessage?.display?.components) {
+        parsedMessage.display.components =
+          await checksumDisplayComponentAddresses({
+            networkId,
+            components: parsedMessage.display.components,
+          });
       }
 
       return parsedMessage;

@@ -1,13 +1,17 @@
 import type { ComponentType, ReactNode } from 'react';
-import { memo } from 'react';
+import { memo, useRef } from 'react';
 
 import type { IPageScreenProps } from '@onekeyhq/components';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type {
   ETabMarketRoutes,
   ITabMarketParamList,
 } from '@onekeyhq/shared/src/routes';
 
-import { LazyLoadPage } from '../../../components/LazyLoadPage';
+import {
+  LazyLoadPage,
+  LazyLoadPageBackdrop,
+} from '../../../components/LazyLoadPage';
 
 import {
   getPreloadedMarketDetailV2Shell,
@@ -30,10 +34,31 @@ export function createMarketDetailV2Route(
   );
 
   function MarketDetailV2Route(props: IMarketDetailV2RouteProps) {
-    const PreloadedMarketDetailV2 = getPreloadedMarketDetailV2Shell()?.default;
+    const shouldKeepComponentTypeStable = Boolean(
+      platformEnv.isDesktop || platformEnv.isWeb,
+    );
+    // Keep the rendered component type stable for this route instance. A cold
+    // lazy load may finish before the next param update; switching to the
+    // direct component at that point would remount the entire detail screen.
+    const preloadedMarketDetailV2Ref = useRef(
+      shouldKeepComponentTypeStable
+        ? getPreloadedMarketDetailV2Shell()?.default
+        : undefined,
+    );
+    const PreloadedMarketDetailV2 = shouldKeepComponentTypeStable
+      ? preloadedMarketDetailV2Ref.current
+      : getPreloadedMarketDetailV2Shell()?.default;
 
     if (PreloadedMarketDetailV2) {
-      return <PreloadedMarketDetailV2 {...props} />;
+      const content = <PreloadedMarketDetailV2 {...props} />;
+      // Rendering the preloaded shell directly also skips LazyLoadPage's
+      // backdrop. Without it, the square stack card background shows around
+      // the rounded corners of the desktop-mode BasicPage card.
+      return platformEnv.isNative ? (
+        content
+      ) : (
+        <LazyLoadPageBackdrop>{content}</LazyLoadPageBackdrop>
+      );
     }
 
     return <LazyMarketDetailV2Route {...props} />;

@@ -122,4 +122,43 @@ describe('useTradingViewNativePriceScale', () => {
     expect(chartRuntime.value.pinnedPriceRange).toBeNull();
     expect(chartRuntime.value.priceRangeScale).toBe(1);
   });
+  it('restores manual and logarithmic price controls when the canvas is remounted', () => {
+    const runtime = createTradingViewNativeChartRuntime({
+      candleIntervalSeconds: 60,
+      chartComponents: [],
+      chartSettings: createTradingViewNativeChartSettings(),
+      chartType: 'candlestick',
+      currentPriceLabel: '',
+      hasVolume: false,
+      indicatorSeries: [],
+      points: [],
+      subIndicatorPanes: [],
+    });
+    runtime.pinnedPriceRange = { minPrice: 10, maxPrice: 20 };
+    runtime.priceRangeScale = 2;
+    runtime.priceScaleMode = 'logarithmic';
+    const chartRuntime = createMockSharedValue(runtime);
+    const { result } = renderHook(() =>
+      useTradingViewNativePriceScale({
+        chartRuntime,
+        chartSize: { height: 300, width: 760 },
+        chartWidth: 700,
+        decayOffset: createMockSharedValue(0),
+        isEnabled: true,
+        isLogScaleAvailable: true,
+        priceAxisWidth: createMockSharedValue(52),
+        subIndicatorPanes: [],
+        timeAxisHeight: 20,
+      }),
+    );
+    expect(result.current.isAutoScale).toBe(false);
+    expect(result.current.mode).toBe('logarithmic');
+    act(() => {
+      result.current.handleAutoScalePress();
+      result.current.handleLogScalePress();
+    });
+    expect(chartRuntime.value.pinnedPriceRange).toBeNull();
+    expect(chartRuntime.value.priceRangeScale).toBe(1);
+    expect(chartRuntime.value.priceScaleMode).toBe('linear');
+  });
 });

@@ -622,10 +622,12 @@ class ServiceHardwareUI extends ServiceBase {
    * bootloader hand-off during onboarding, OK-62105): the stage leaves
    * first, whether or not a flow holds a burst — a stage standing behind
    * its own touch wall would otherwise cover the dialog until that hold
-   * ended. Burst bookkeeping is untouched (see DeviceStageBurst.silence). */
+   * ended. Burst bookkeeping is untouched (see DeviceStageBurst.silence).
+   * Returns whether a stage actually left, so the caller can let the exit
+   * play before its dialog rises. */
   @backgroundMethod()
   async deviceStageYieldToDialog() {
-    await this.deviceStageBurst.silence();
+    return this.deviceStageBurst.silence();
   }
 
   /**
@@ -678,8 +680,10 @@ class ServiceHardwareUI extends ServiceBase {
   }
 
   @backgroundMethod()
-  async deviceStageNoteInputSubmitted() {
-    await this.deviceStageBurst.noteInputSubmitted();
+  async deviceStageNoteInputSubmitted(
+    params: { hostPassphraseEntered?: boolean } = {},
+  ) {
+    await this.deviceStageBurst.noteInputSubmitted(params);
   }
 
   /**
@@ -796,7 +800,11 @@ class ServiceHardwareUI extends ServiceBase {
   }
 
   @backgroundMethod()
-  async deviceStageEndBurst(params: { token: number; error?: unknown }) {
+  async deviceStageEndBurst(params: {
+    token: number;
+    error?: unknown;
+    doneI18n?: IDeviceStageState['doneI18n'];
+  }) {
     await this.deviceStageBurst.endExplicit(params);
   }
 
@@ -1318,6 +1326,7 @@ class ServiceHardwareUI extends ServiceBase {
         message: appLocale.intl.formatMessage({
           id: ETranslations.feedback_hardware_is_busy,
         }),
+        key: ETranslations.feedback_hardware_is_busy,
         autoToast: false,
       });
     }
@@ -1482,6 +1491,7 @@ class ServiceHardwareUI extends ServiceBase {
     const device = deviceParams?.dbDevice;
     const connectId = device?.connectId;
     let isOuterCall = false;
+    let stageBurstOpened = false;
     let skipDeviceCancelAfterError = false;
     let stageBurstError: unknown;
 
@@ -1523,24 +1533,31 @@ class ServiceHardwareUI extends ServiceBase {
 
         await this.cleanHardwareUiState();
         assertActive();
-        await this.deviceStageBurst.begin({
+      }
+
+      // Non-hardware callers share this wrapper; QR flows own their stage.
+      if (device) {
+        stageBurstOpened = await this.deviceStageBurst.begin({
           connectId,
-          deviceType: device?.deviceType,
+          deviceType: device.deviceType,
           deviceName: deviceUtils.buildDeviceStageName({
-            features: device?.featuresInfo,
-            fallbackName: device?.name,
+            features: device.featuresInfo,
+            fallbackName: device.name,
           }),
           vendor: isThirdPartyVendor
-            ? (device?.vendor ?? device?.settings?.vendor)
+            ? (device.vendor ?? device.settings?.vendor)
             : undefined,
           vendorModel: isThirdPartyVendor
-            ? device?.settings?.vendorModel
+            ? device.settings?.vendorModel
             : undefined,
           vendorModelName: isThirdPartyVendor
-            ? device?.settings?.vendorModelName
+            ? device.settings?.vendorModelName
             : undefined,
           confirmContent: params.stageConfirmContent,
         });
+      }
+
+      if (this.isOuterProcessing()) {
         if (connectId && !hideCheckingDeviceLoading && !isThirdPartyVendor) {
           assertActive();
           // 先在统一连接管理器中确定本次实际传输，再显示动画，避免 BLE
@@ -1757,7 +1774,7 @@ class ServiceHardwareUI extends ServiceBase {
           );
         }
       }
-      if (isOuterCall) {
+      if (stageBurstOpened) {
         await this.deviceStageBurst.end({ error: stageBurstError });
       }
       this.processingNestedNum -= 1;

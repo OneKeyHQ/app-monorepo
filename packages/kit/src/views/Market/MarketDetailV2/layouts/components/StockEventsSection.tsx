@@ -232,6 +232,18 @@ function StockEventRow({
                 </SizableText>
               </Stack>
             ) : null}
+            {/* Per Figma, the chevron follows the title inline rather than
+            sitting at the row's far right. */}
+            <Icon
+              name={
+                isExpanded
+                  ? 'ChevronTopSmallOutline'
+                  : 'ChevronDownSmallOutline'
+              }
+              size="$5"
+              color="$iconSubdued"
+              flexShrink={0}
+            />
           </XStack>
           {isExpanded && detailLines.length > 0 ? (
             detailLines.map((line) => (
@@ -245,17 +257,6 @@ function StockEventRow({
             </SizableText>
           )}
         </YStack>
-        {/* The chevron keeps its own 16px vertical padding so it stays near the
-        title row instead of centering against the expanded detail lines. */}
-        <XStack alignItems="center" py="$4" flexShrink={0}>
-          <Icon
-            name={
-              isExpanded ? 'ChevronTopSmallOutline' : 'ChevronDownSmallOutline'
-            }
-            size="$5"
-            color="$iconSubdued"
-          />
-        </XStack>
       </XStack>
     </YStack>
   );
@@ -303,6 +304,12 @@ export function StockEventsSection() {
   const upcomingEvents = events.filter((event) => event.status === 'scheduled');
   const pastEvents = events.filter((event) => event.status !== 'scheduled');
 
+  // A stock with no scheduled or past events hides the section; a failed
+  // request keeps it so the reader can retry.
+  if (!isLoading && result.status === 'success' && events.length === 0) {
+    return null;
+  }
+
   return (
     <YStack
       testID="stock-detail-events"
@@ -341,13 +348,6 @@ export function StockEventsSection() {
           >
             {intl.formatMessage({ id: ETranslations.global_retry })}
           </Button>
-        </YStack>
-      ) : null}
-      {!isLoading && result.status === 'success' && events.length === 0 ? (
-        <YStack height={96} alignItems="center" justifyContent="center">
-          <SizableText color="$textSubdued">
-            {intl.formatMessage({ id: ETranslations.global_no_data })}
-          </SizableText>
         </YStack>
       ) : null}
       {events.length > 0 ? (

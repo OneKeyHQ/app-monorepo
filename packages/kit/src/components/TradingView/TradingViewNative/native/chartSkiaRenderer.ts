@@ -11,6 +11,7 @@ import {
   type SkPaint,
   type SkPicture,
   type SkSVG,
+  type SkTypeface,
   Skia,
   StrokeCap,
   StrokeJoin,
@@ -29,10 +30,13 @@ import {
   getTradingViewNativeChartScenePaintStyles,
 } from '../utils/chartScene';
 
+import { getTradingViewNativeSkiaTextFont } from './chartSkiaText';
+
 export interface ITradingViewNativeSkiaResources {
   customPaintSignatures: Record<string, string>;
   customPaints: Record<string, SkPaint>;
   fonts: Record<ITradingViewNativeChartSceneFont, SkFont>;
+  legendSubscriptFont: SkFont | null;
   paints: Record<ITradingViewNativeChartScenePaint, SkPaint>;
   watermarkPaint: SkPaint;
   watermarkSvg: SkSVG | null;
@@ -43,6 +47,30 @@ const REGULAR_FONT_STYLE = {
   weight: FontWeight.Normal,
   width: FontWidth.Normal,
 } as const;
+
+export function getTradingViewNativeSkiaLegendText({
+  candleLabels,
+  chartComponents = [],
+}: Pick<
+  IBuildTradingViewNativeChartSceneOptions,
+  'candleLabels' | 'chartComponents'
+>): string {
+  const text = [
+    candleLabels.open,
+    candleLabels.high,
+    candleLabels.low,
+    candleLabels.close,
+    ...chartComponents.flatMap((component) =>
+      component.type === 'tradeMarks'
+        ? component.props.marks.map((mark) => `${mark.label}${mark.text}…`)
+        : [],
+    ),
+  ].join('');
+  // Keep font selection stable when trades reorder or repeat the same glyphs.
+  return Array.from(new Set(text.replaceAll(/\s/g, '')))
+    .toSorted()
+    .join('');
+}
 
 function doesTradingViewNativeSkiaFontSupportText(
   font: SkFont,
@@ -219,7 +247,7 @@ export function createTradingViewNativeSkiaResources({
   colors,
   fontFamily,
   legendFont,
-  priceAxisFont,
+  priceAxisTypeface,
   priceAxisFontSize,
   timeAxisFontSize,
   timeAxisBorderWidth,
@@ -228,7 +256,7 @@ export function createTradingViewNativeSkiaResources({
   colors: ITradingViewNativeChartSceneColors;
   fontFamily: string;
   legendFont: SkFont;
-  priceAxisFont: SkFont | null;
+  priceAxisTypeface: SkTypeface | null;
   priceAxisFontSize: number;
   timeAxisFontSize: number;
   timeAxisBorderWidth?: number;
@@ -246,11 +274,16 @@ export function createTradingViewNativeSkiaResources({
     fontManager,
     fontSize: timeAxisFontSize,
   });
-  const priceAxisFallbackFont = createTradingViewNativeSkiaFont({
-    fontFamily,
-    fontManager,
-    fontSize: priceAxisFontSize,
-  });
+  const priceAxisFont = priceAxisTypeface
+    ? Skia.Font(priceAxisTypeface, priceAxisFontSize)
+    : createTradingViewNativeSkiaFont({
+        fontFamily,
+        fontManager,
+        fontSize: priceAxisFontSize,
+      });
+  const legendSubscriptFont = priceAxisTypeface
+    ? Skia.Font(priceAxisTypeface, legendFont.getSize())
+    : null;
 
   for (const paintName of Object.keys(
     paintStyles,
@@ -265,8 +298,13 @@ export function createTradingViewNativeSkiaResources({
     fonts: {
       axis: axisFont,
       legend: legendFont,
-      priceAxis: priceAxisFont ?? priceAxisFallbackFont,
+      priceAxis: priceAxisFont,
+      referenceLineLabel: Skia.Font(
+        legendFont.getTypeface() ?? undefined,
+        priceAxisFontSize,
+      ),
     },
+    legendSubscriptFont,
     paints,
     watermarkPaint: Skia.Paint(),
     watermarkSvg,
@@ -457,7 +495,11 @@ function drawTradingViewNativeSkiaCommands({
             fallbackPaint: command.paint,
             resources,
           }),
-          resources.fonts[command.font],
+          getTradingViewNativeSkiaTextFont(
+            command.text,
+            resources.fonts[command.font],
+            command.font === 'legend' ? resources.legendSubscriptFont : null,
+          ),
         );
         break;
       case 'watermark':
@@ -492,7 +534,11 @@ export function createTradingViewNativeSkiaPicture({
   const scene = buildTradingViewNativeChartScene({
     ...sceneOptions,
     measureTextWidth: (text, font) =>
-      resources.fonts[font].measureText(text).width,
+      getTradingViewNativeSkiaTextFont(
+        text,
+        resources.fonts[font],
+        font === 'legend' ? resources.legendSubscriptFont : null,
+      ).measureText(text).width,
   });
 
   const pictureSize =

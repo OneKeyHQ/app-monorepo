@@ -43,13 +43,15 @@ export function buildYieldSegments(
 }
 
 export type IHeadlineApyParts = {
-  /** the vault's own yield, rendered green */
+  /** the vault's own yield net of the performance fee, rendered green */
   base: string;
   /** campaign boost + protocol rewards, summed */
   bonus?: string;
   /** color of the bonus half — taken from the breakdown row itself, so the
    * headline always matches the Yield sheet's bar */
   bonusColor?: string;
+  /** "APY" / "APR", taken from the server's total so the two never disagree */
+  unit?: string;
 };
 
 const BONUS_KINDS = new Set(['reward', 'campaign']);
@@ -59,11 +61,17 @@ const BONUS_KINDS = new Set(['reward', 'campaign']);
  * figure followed by an orange bonus figure, e.g. `5.10%` `+2.12%`.
  *
  * Built from the same kind/rate fields the Yield sheet's bar uses, so the two
- * can never disagree. Returns undefined when the breakdown is unavailable and
+ * can never disagree. The performance fee is folded into the base half: it is
+ * charged on the vault's own yield, and the two halves must add up to the
+ * server's total (`23.09% APY` = 3.25 − 0.16 + 20.00). Leaving the fee out
+ * showed a gross figure the sheet then contradicted (OK-62389). The unit
+ * comes from that same total text so the headline reads "APY"/"APR" exactly
+ * as the server says. Returns undefined when the breakdown is unavailable and
  * the caller should fall back to the single string the server rendered.
  */
 export function buildHeadlineApyParts(
   items: IPopupItem[] | undefined,
+  totalApyText?: string,
 ): IHeadlineApyParts | undefined {
   if (!items?.length) {
     return undefined;
@@ -80,6 +88,12 @@ export function buildHeadlineApyParts(
       base = (base ?? 0) + parsed;
       return;
     }
+    if (item.kind === 'fee') {
+      // Fee rows are negative rates; a base row must exist for the fee to
+      // apply to, so a fee arriving first is held until it does.
+      base = (base ?? 0) + parsed;
+      return;
+    }
     if (BONUS_KINDS.has(item.kind) && parsed > 0) {
       bonus += parsed;
       // A campaign wins the color; a page carrying only protocol rewards keeps
@@ -92,6 +106,9 @@ export function buildHeadlineApyParts(
   if (base === undefined) {
     return undefined;
   }
+  // "23.09% APY" -> "APY". Anything other than a trailing word is ignored
+  // rather than guessed, so a bare number simply renders without a unit.
+  const unit = totalApyText?.trim().match(/\b(APY|APR)\s*$/i)?.[1];
   return {
     base: `${base.toFixed(2)}%`,
     ...(bonus > 0
@@ -100,6 +117,7 @@ export function buildHeadlineApyParts(
           bonusColor: bonusColor || '$textCaution',
         }
       : {}),
+    ...(unit ? { unit: unit.toUpperCase() } : {}),
   };
 }
 

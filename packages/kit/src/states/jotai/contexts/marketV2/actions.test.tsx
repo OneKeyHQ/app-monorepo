@@ -10,17 +10,25 @@ import type {
   IMarketAssetDetailData,
   IMarketWatchListItemV2,
 } from '@onekeyhq/shared/types/market';
+import type { IMarketTokenDetailPreview } from '@onekeyhq/shared/types/marketV2';
 
 import { useTokenDetailActions, useWatchListV2Actions } from './actions';
 import {
   ProviderJotaiContextMarketV2,
+  isNativeAtom,
   marketV2StorageReadyAtom,
   marketWatchListV2Atom,
+  networkIdAtom,
+  perpsInfoAtom,
+  tokenAddressAtom,
   tokenDetailAtom,
   tokenDetailLoadingAtom,
   tokenDetailPreviewAtom,
+  tokenDetailRequestIdAtom,
+  tokenDetailWebsocketAtom,
 } from './atoms';
 import { useMarketAssetTokenDetailAction } from './marketAssetDetail';
+import { marketTokenDetailSnapshotCache } from './marketSnapshotCaches';
 
 const mockFetchMarketAssetDetail: jest.MockedFunction<
   (params: {
@@ -53,6 +61,9 @@ const mockSyncToPerpsAtom: jest.MockedFunction<
 const mockRecordTaskCompleted: jest.MockedFunction<
   (taskType: unknown) => Promise<unknown>
 > = jest.fn();
+const mockResolveMarketPerpsInfoBySymbol: jest.MockedFunction<
+  (params: { symbol: string }) => Promise<{ hlTicker: string } | undefined>
+> = jest.fn();
 const mockLogError = jest.fn();
 
 function createDeferred<T>() {
@@ -80,6 +91,11 @@ jest.mock('@onekeyhq/shared/src/logger/logger', () => ({
 jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
   __esModule: true,
   default: {
+    serviceHyperliquid: {
+      resolveMarketPerpsInfoBySymbol: (
+        ...args: Parameters<typeof mockResolveMarketPerpsInfoBySymbol>
+      ) => mockResolveMarketPerpsInfoBySymbol(...args),
+    },
     serviceMarket: {
       fetchMarketAssetDetail: (
         ...args: Parameters<typeof mockFetchMarketAssetDetail>
@@ -166,6 +182,407 @@ function createWrapper() {
 
   return { store, Wrapper };
 }
+
+describe('token detail refresh failures', () => {
+  const detail = {
+    address: '0xabc',
+    networkId: 'evm--1',
+    name: 'Test token',
+    symbol: 'TEST',
+    decimals: 18,
+    logoUrl: '',
+    price: '1',
+  };
+  const websocket = { txs: true, kline: true };
+  const perpsInfo = { hlTicker: 'TEST' };
+
+  beforeEach(() => {
+    mockFetchMarketTokenDetailByTokenAddress.mockReset();
+    jest.spyOn(console, 'error').mockImplementation(() => undefined);
+  });
+
+  afterEach(() => jest.restoreAllMocks());
+
+  it('keeps loaded content and chart configuration through failure and recovery', async () => {
+    const { store, Wrapper } = createWrapper();
+    const { result } = renderHook(() => useTokenDetailActions().current, {
+      wrapper: Wrapper,
+    });
+    act(() => {
+      result.current.setTokenAddress(detail.address);
+      result.current.setNetworkId(detail.networkId);
+    });
+    mockFetchMarketTokenDetailByTokenAddress.mockResolvedValueOnce({
+      data: { token: detail, websocket, perpsInfo },
+    });
+    await act(async () => {
+      await result.current.fetchTokenDetail(detail.address, detail.networkId);
+    });
+    const loadedDetail = store.get(tokenDetailAtom());
+    const refresh = createDeferred<unknown>();
+    mockFetchMarketTokenDetailByTokenAddress.mockReturnValueOnce(
+      refresh.promise,
+    );
+    let request: Promise<unknown> | undefined;
+    act(() => {
+      request = result.current.fetchTokenDetail(
+        detail.address,
+        detail.networkId,
+      );
+    });
+    expect(store.get(tokenDetailAtom())).toBe(loadedDetail);
+    await act(async () => {
+      refresh.reject(new Error('offline'));
+      await expect(request).rejects.toThrow('offline');
+    });
+    expect(store.get(tokenDetailAtom())).toBe(loadedDetail);
+    expect(store.get(tokenDetailWebsocketAtom())).toEqual(websocket);
+    expect(store.get(perpsInfoAtom())).toEqual(perpsInfo);
+    expect(store.get(tokenDetailLoadingAtom())).toBe(false);
+
+    mockFetchMarketTokenDetailByTokenAddress.mockResolvedValueOnce({
+      data: { token: { ...detail, price: '2' }, websocket, perpsInfo },
+    });
+    await act(async () => {
+      await result.current.fetchTokenDetail(detail.address, detail.networkId);
+    });
+    expect(store.get(tokenDetailAtom())?.price).toBe('2');
+  });
+
+  it('does not keep another token when the new token request fails', async () => {
+    const { store, Wrapper } = createWrapper();
+    store.set(tokenDetailAtom(), detail);
+    store.set(tokenDetailWebsocketAtom(), websocket);
+    store.set(perpsInfoAtom(), perpsInfo);
+    const { result } = renderHook(() => useTokenDetailActions().current, {
+      wrapper: Wrapper,
+    });
+    act(() => {
+      result.current.setTokenAddress('0xdef');
+      result.current.setNetworkId(detail.networkId);
+    });
+    mockFetchMarketTokenDetailByTokenAddress.mockRejectedValueOnce(
+      new Error('offline'),
+    );
+    await act(async () => {
+      await expect(
+        result.current.fetchTokenDetail('0xdef', detail.networkId),
+      ).rejects.toThrow('offline');
+    });
+    expect(store.get(tokenDetailAtom())).toBeUndefined();
+    expect(store.get(tokenDetailWebsocketAtom())).toBeUndefined();
+    expect(store.get(perpsInfoAtom())).toBeUndefined();
+    expect(store.get(tokenDetailLoadingAtom())).toBe(false);
+  });
+});
+
+describe('retained token navigation identity', () => {
+  const target = {
+    tokenAddress: '0xabc',
+    networkId: 'evm--1',
+    isNative: false,
+  };
+  const detail = {
+    address: target.tokenAddress,
+    networkId: target.networkId,
+    name: 'Token',
+    symbol: 'TOKEN',
+    decimals: 18,
+    logoUrl: '',
+    price: '2',
+  };
+  const preview: IMarketTokenDetailPreview = {
+    ...detail,
+    price: 1,
+    selectedAt: 1,
+  };
+
+  it.each([preview, undefined])(
+    'preserves loaded state and pending requests on refocus',
+    (routePreview) => {
+      const { store, Wrapper } = createWrapper();
+      const { result } = renderHook(() => useTokenDetailActions().current, {
+        wrapper: Wrapper,
+      });
+      act(() => {
+        result.current.prepareTokenDetailPreview(routePreview, target);
+        result.current.setTokenDetail(detail);
+        result.current.setTokenDetailWebsocket({ txs: true, kline: true });
+        result.current.setPerpsInfo({ hlTicker: 'TOKEN' });
+        result.current.setTokenDetailLoading(true);
+      });
+      const requestId = store.get(tokenDetailRequestIdAtom());
+      act(() => result.current.prepareTokenDetailPreview(routePreview, target));
+      expect(store.get(tokenDetailAtom())).toEqual(detail);
+      expect(store.get(tokenDetailRequestIdAtom())).toBe(requestId);
+      expect(store.get(tokenDetailLoadingAtom())).toBe(true);
+      expect(store.get(tokenDetailWebsocketAtom())).toEqual({
+        txs: true,
+        kline: true,
+      });
+      expect(store.get(perpsInfoAtom())).toEqual({ hlTicker: 'TOKEN' });
+      expect(store.get(tokenAddressAtom())).toBe(target.tokenAddress);
+      expect(store.get(networkIdAtom())).toBe(target.networkId);
+    },
+  );
+
+  it('reclaims the shared store from another route even without a preview', () => {
+    const { store, Wrapper } = createWrapper();
+    const { result } = renderHook(() => useTokenDetailActions().current, {
+      wrapper: Wrapper,
+    });
+    const other = { tokenAddress: '', networkId: 'sol--101', isNative: true };
+    act(() => {
+      result.current.prepareTokenDetailPreview(preview, target);
+      result.current.setTokenDetail(detail);
+      result.current.prepareTokenDetailPreview(undefined, other);
+    });
+    expect(store.get(tokenDetailAtom())).toBeUndefined();
+    expect(store.get(networkIdAtom())).toBe(other.networkId);
+    expect(store.get(isNativeAtom())).toBe(true);
+    act(() => result.current.prepareTokenDetailPreview(undefined, target));
+    expect(store.get(tokenAddressAtom())).toBe(target.tokenAddress);
+    expect(store.get(networkIdAtom())).toBe(target.networkId);
+    expect(store.get(isNativeAtom())).toBe(false);
+    expect(store.get(tokenDetailPreviewAtom())).toBeUndefined();
+  });
+
+  it('keeps the default destructive initialization for non-retained callers', () => {
+    const { store, Wrapper } = createWrapper();
+    const { result } = renderHook(() => useTokenDetailActions().current, {
+      wrapper: Wrapper,
+    });
+    act(() => {
+      result.current.prepareTokenDetailPreview(preview);
+      result.current.setTokenDetail(detail);
+    });
+    const requestId = store.get(tokenDetailRequestIdAtom());
+    act(() => result.current.prepareTokenDetailPreview(preview));
+    expect(store.get(tokenDetailAtom())).toBeUndefined();
+    expect(store.get(tokenDetailRequestIdAtom())).toBe(requestId + 1);
+    act(() => result.current.prepareTokenDetailPreview(undefined));
+    expect(store.get(networkIdAtom())).toBe('');
+  });
+});
+
+describe('stock navigation identity', () => {
+  beforeEach(() => jest.clearAllMocks());
+
+  it('preserves loaded state when re-entering the same stock variant', () => {
+    const { store, Wrapper } = createWrapper();
+    const { result } = renderHook(() => useTokenDetailActions().current, {
+      wrapper: Wrapper,
+    });
+    const target = { networkId: 'sol--101', tokenAddress: 'AAPLx' };
+    const tokenDetail = {
+      address: target.tokenAddress,
+      networkId: target.networkId,
+      name: 'Apple xStock',
+      symbol: 'AAPLx',
+      decimals: 8,
+      logoUrl: '',
+      price: '318',
+    };
+
+    act(() => {
+      result.current.prepareStockTokenDetail(target);
+      result.current.setTokenDetail(tokenDetail);
+      result.current.setTokenDetailLoading(true);
+    });
+    const requestId = store.get(tokenDetailRequestIdAtom());
+
+    act(() => result.current.prepareStockTokenDetail(target));
+
+    expect(store.get(tokenDetailAtom())).toEqual(tokenDetail);
+    expect(store.get(tokenAddressAtom())).toBe(target.tokenAddress);
+    expect(store.get(networkIdAtom())).toBe(target.networkId);
+    expect(store.get(tokenDetailRequestIdAtom())).toBe(requestId);
+    expect(store.get(tokenDetailLoadingAtom())).toBe(true);
+  });
+
+  it('switches to a different stock variant atomically', () => {
+    const { store, Wrapper } = createWrapper();
+    const { result } = renderHook(() => useTokenDetailActions().current, {
+      wrapper: Wrapper,
+    });
+    const previous = { networkId: 'sol--101', tokenAddress: 'AAPLx' };
+    const next = { networkId: 'evm--56', tokenAddress: 'AAPLon' };
+
+    act(() => {
+      result.current.prepareStockTokenDetail(previous);
+      result.current.setTokenDetail({
+        address: previous.tokenAddress,
+        networkId: previous.networkId,
+        name: 'Apple xStock',
+        symbol: 'AAPLx',
+        decimals: 8,
+        logoUrl: '',
+        price: '318',
+      });
+      result.current.setTokenDetailLoading(true);
+    });
+    const requestId = store.get(tokenDetailRequestIdAtom());
+
+    act(() => result.current.prepareStockTokenDetail(next));
+
+    expect(store.get(tokenDetailAtom())).toBeUndefined();
+    expect(store.get(tokenAddressAtom())).toBe(next.tokenAddress);
+    expect(store.get(networkIdAtom())).toBe(next.networkId);
+    expect(store.get(tokenDetailRequestIdAtom())).toBe(requestId + 1);
+    expect(store.get(tokenDetailLoadingAtom())).toBe(false);
+  });
+});
+
+describe('cached token detail seed', () => {
+  const target = { networkId: 'evm--56', tokenAddress: '0xaaplon' };
+  const swrKey = 'marketTokenDetail:v1:evm--56:0xaaplon:usd:en-us';
+  const token = {
+    address: target.tokenAddress,
+    networkId: target.networkId,
+    name: 'Apple (Ondo)',
+    symbol: 'AAPLon',
+    decimals: 18,
+    logoUrl: '',
+    price: '336',
+  };
+  const websocket = { txs: true, kline: true };
+  const perpsInfo = { hlTicker: 'AAPL' };
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    marketTokenDetailSnapshotCache.clear();
+  });
+
+  afterEach(() => jest.restoreAllMocks());
+
+  // PR 13609 review: the scope carries currency and locale, so the same token
+  // in another language is a different key. Guarding on token identity alone
+  // made the seed bail and leave the previous language's fields on screen.
+  it('seeds the other-locale copy for a token already on screen', async () => {
+    const { store, Wrapper } = createWrapper();
+    const { result } = renderHook(() => useTokenDetailActions().current, {
+      wrapper: Wrapper,
+    });
+    const zhSwrKey = `${swrKey}:zh-cn`;
+    mockFetchMarketTokenDetailByTokenAddress.mockResolvedValueOnce({
+      data: { token, websocket, perpsInfo },
+    });
+
+    act(() => result.current.prepareStockTokenDetail(target));
+    await act(async () => {
+      await result.current.fetchTokenDetail(
+        target.tokenAddress,
+        target.networkId,
+        { swrKey },
+      );
+    });
+    expect(store.get(tokenDetailAtom())).toMatchObject({ symbol: 'AAPLon' });
+
+    // What a previous visit in the other language left behind.
+    marketTokenDetailSnapshotCache.set(zhSwrKey, {
+      token: { ...token, symbol: '苹果on' },
+      websocket,
+      perpsInfo,
+    });
+
+    act(() =>
+      result.current.seedTokenDetailFromCache({
+        tokenAddress: target.tokenAddress,
+        networkId: target.networkId,
+        swrKey: zhSwrKey,
+      }),
+    );
+
+    expect(store.get(tokenDetailAtom())).toMatchObject({ symbol: '苹果on' });
+  });
+
+  it('writes a successful detail and seeds it back for the same token', async () => {
+    const { store, Wrapper } = createWrapper();
+    const { result } = renderHook(() => useTokenDetailActions().current, {
+      wrapper: Wrapper,
+    });
+    mockFetchMarketTokenDetailByTokenAddress.mockResolvedValueOnce({
+      data: { token, websocket, perpsInfo },
+    });
+
+    act(() => result.current.prepareStockTokenDetail(target));
+    await act(async () => {
+      await result.current.fetchTokenDetail(
+        target.tokenAddress,
+        target.networkId,
+        { swrKey },
+      );
+    });
+
+    // Leave for another stock and come back: the detail starts empty again.
+    act(() => {
+      result.current.prepareStockTokenDetail({
+        networkId: 'sol--101',
+        tokenAddress: 'AAPLx',
+      });
+      result.current.prepareStockTokenDetail(target);
+    });
+    expect(store.get(tokenDetailAtom())).toBeUndefined();
+
+    act(() =>
+      result.current.seedTokenDetailFromCache({
+        tokenAddress: target.tokenAddress,
+        networkId: target.networkId,
+        swrKey,
+      }),
+    );
+
+    expect(store.get(tokenDetailAtom())).toMatchObject({
+      address: target.tokenAddress,
+      symbol: 'AAPLon',
+    });
+    expect(store.get(tokenDetailWebsocketAtom())).toEqual(websocket);
+    expect(store.get(perpsInfoAtom())).toEqual(perpsInfo);
+  });
+
+  it('does not seed a token the store no longer points at', () => {
+    const { store, Wrapper } = createWrapper();
+    const { result } = renderHook(() => useTokenDetailActions().current, {
+      wrapper: Wrapper,
+    });
+    marketTokenDetailSnapshotCache.set(swrKey, { token, websocket, perpsInfo });
+
+    act(() => {
+      result.current.prepareStockTokenDetail({
+        networkId: 'sol--101',
+        tokenAddress: 'AAPLx',
+      });
+      result.current.seedTokenDetailFromCache({
+        tokenAddress: target.tokenAddress,
+        networkId: target.networkId,
+        swrKey,
+      });
+    });
+
+    expect(store.get(tokenDetailAtom())).toBeUndefined();
+  });
+
+  it('does not seed a detail older than a day', () => {
+    const { store, Wrapper } = createWrapper();
+    const { result } = renderHook(() => useTokenDetailActions().current, {
+      wrapper: Wrapper,
+    });
+    marketTokenDetailSnapshotCache.set(swrKey, { token, websocket, perpsInfo });
+    const now = Date.now();
+    jest.spyOn(Date, 'now').mockReturnValue(now + 25 * 60 * 60 * 1000);
+
+    act(() => {
+      result.current.prepareStockTokenDetail(target);
+      result.current.seedTokenDetailFromCache({
+        tokenAddress: target.tokenAddress,
+        networkId: target.networkId,
+        swrKey,
+      });
+    });
+
+    expect(store.get(tokenDetailAtom())).toBeUndefined();
+  });
+});
 
 describe('market native chart price updates', () => {
   const tokenDetail = {
@@ -313,6 +730,7 @@ describe('marketV2 asset token detail actions', () => {
     jest.clearAllMocks();
     jest.spyOn(Date, 'now').mockReturnValue(1_788_332_400_000);
     mockFetchMarketAssetDetail.mockResolvedValue(dogeAssetDetail);
+    mockResolveMarketPerpsInfoBySymbol.mockResolvedValue(undefined);
   });
 
   afterEach(() => {
@@ -375,6 +793,98 @@ describe('marketV2 asset token detail actions', () => {
       price: '0.25',
       lastUpdated: 1_788_332_400_000,
     });
+  });
+
+  it('resolves perps info for the asset detail path', async () => {
+    mockResolveMarketPerpsInfoBySymbol.mockResolvedValue({ hlTicker: 'DOGE' });
+    const { store, Wrapper } = createWrapper();
+    const { result } = renderHook(
+      () => {
+        const actions = useTokenDetailActions().current;
+        const fetchAssetTokenDetail = useMarketAssetTokenDetailAction();
+        return { ...actions, fetchAssetTokenDetail };
+      },
+      {
+        wrapper: Wrapper,
+      },
+    );
+
+    act(() => {
+      result.current.prepareTokenDetailPreview({
+        address: '',
+        networkId: 'doge--0',
+        isNative: true,
+        name: 'Dogecoin',
+        symbol: 'DOGE',
+        decimals: 8,
+        selectedAt: 1_788_332_399_000,
+      });
+    });
+
+    await act(async () => {
+      await result.current.fetchAssetTokenDetail({
+        assetId: 'doge',
+        variantId: 'doge-doge--0-1',
+        tokenAddress: '',
+        networkId: 'doge--0',
+      });
+    });
+    // The resolver is intentionally not awaited by the fetch, so let its
+    // microtasks settle before asserting.
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(mockResolveMarketPerpsInfoBySymbol).toHaveBeenCalledWith({
+      symbol: 'DOGE',
+    });
+    expect(store.get(perpsInfoAtom())).toEqual({ hlTicker: 'DOGE' });
+  });
+
+  it('keeps existing perps info when the asset symbol has no perps market', async () => {
+    const { store, Wrapper } = createWrapper();
+    const { result } = renderHook(
+      () => {
+        const actions = useTokenDetailActions().current;
+        const fetchAssetTokenDetail = useMarketAssetTokenDetailAction();
+        return { ...actions, fetchAssetTokenDetail };
+      },
+      {
+        wrapper: Wrapper,
+      },
+    );
+
+    act(() => {
+      result.current.prepareTokenDetailPreview({
+        address: '',
+        networkId: 'doge--0',
+        isNative: true,
+        name: 'Dogecoin',
+        symbol: 'DOGE',
+        decimals: 8,
+        selectedAt: 1_788_332_399_000,
+      });
+    });
+
+    act(() => {
+      store.set(perpsInfoAtom(), { hlTicker: 'DOGE' });
+    });
+
+    await act(async () => {
+      await result.current.fetchAssetTokenDetail({
+        assetId: 'doge',
+        variantId: 'doge-doge--0-1',
+        tokenAddress: '',
+        networkId: 'doge--0',
+      });
+    });
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(store.get(perpsInfoAtom())).toEqual({ hlTicker: 'DOGE' });
   });
 
   it('uses local network decimals for a preview-less native asset', async () => {
@@ -687,6 +1197,86 @@ describe('marketV2 watchlist optimistic actions', () => {
     mockRecordTaskCompleted.mockResolvedValue(undefined);
   });
 
+  test('optimistically adds an asset without overwriting an identically named stock', async () => {
+    const stock = {
+      stockId: 'BTC',
+      chainId: '',
+      contractAddress: '',
+      sortIndex: 1,
+    };
+    const asset = {
+      assetId: 'BTC',
+      chainId: '',
+      contractAddress: '',
+      sortIndex: 2,
+    };
+    const { result, store } = setupWatchList([stock]);
+    const pending = createDeferred<unknown>();
+    mockAddMarketWatchListV2.mockReturnValueOnce(pending.promise);
+    mockGetMarketWatchListV2.mockResolvedValue({ data: [stock, asset] });
+    let action: Promise<unknown> | undefined;
+    act(() => {
+      action = result.current.addIntoWatchListV2(asset);
+    });
+    expect(store.get(marketWatchListV2Atom()).data).toEqual([stock, asset]);
+    await act(async () => {
+      pending.resolve(undefined);
+      await action;
+    });
+    expect(store.get(marketWatchListV2Atom()).data).toEqual([stock, asset]);
+  });
+
+  test('removes only the selected listing and restores it on write failure', async () => {
+    const stock = { stockId: 'BTC', chainId: '', contractAddress: '' };
+    const asset = { assetId: 'BTC', chainId: '', contractAddress: '' };
+    const { result, store } = setupWatchList([asset, stock]);
+    const pending = createDeferred<unknown>();
+    mockRemoveMarketWatchListV2.mockReturnValueOnce(pending.promise);
+    let action: Promise<unknown> | undefined;
+    act(() => {
+      action = result.current.removeFromWatchListV2('', '', { stockId: 'BTC' });
+    });
+    expect(store.get(marketWatchListV2Atom()).data).toEqual([asset]);
+    await act(async () => {
+      pending.reject(new Error('offline'));
+      await expect(action).rejects.toThrow('offline');
+    });
+    expect(store.get(marketWatchListV2Atom()).data).toEqual([asset, stock]);
+  });
+
+  test('removes same-named asset and stock independently while writes are queued', async () => {
+    const asset = { assetId: 'BTC', chainId: '', contractAddress: '' };
+    const stock = { stockId: 'BTC', chainId: '', contractAddress: '' };
+    const { result, store } = setupWatchList([asset, stock]);
+    const pending = createDeferred<unknown>();
+    mockRemoveMarketWatchListV2.mockReturnValueOnce(pending.promise);
+    mockGetMarketWatchListV2.mockResolvedValue({ data: [] });
+    let removeAsset: Promise<unknown> | undefined;
+    let removeStock: Promise<unknown> | undefined;
+    act(() => {
+      removeAsset = result.current.removeFromWatchListV2('', '', {
+        assetId: 'BTC',
+      });
+      removeStock = result.current.removeFromWatchListV2('', '', {
+        stockId: 'BTC',
+      });
+    });
+    expect(store.get(marketWatchListV2Atom()).data).toEqual([]);
+    await act(async () => {
+      pending.resolve(undefined);
+      await Promise.all([removeAsset, removeStock]);
+    });
+    expect(mockRemoveMarketWatchListV2).toHaveBeenCalledTimes(2);
+    expect(mockRemoveMarketWatchListV2).toHaveBeenNthCalledWith(1, {
+      items: [asset],
+      callerName: 'jotaiContextActions_removeFromWatchListV2',
+    });
+    expect(mockRemoveMarketWatchListV2).toHaveBeenNthCalledWith(2, {
+      items: [stock],
+      callerName: 'jotaiContextActions_removeFromWatchListV2',
+    });
+  });
+
   test('restores the previous list when adding a spot token fails', async () => {
     const initialData = [spotItem];
     const { result, store } = setupWatchList(initialData);
@@ -783,11 +1373,9 @@ describe('marketV2 watchlist optimistic actions', () => {
 
     await act(async () => {
       newerRequest.resolve(undefined);
-      await newerAction;
-    });
-    await act(async () => {
       olderRequest.reject(new Error('older add failed'));
       await expect(olderAction).rejects.toThrow('older add failed');
+      await newerAction;
     });
 
     expect(store.get(marketWatchListV2Atom()).data).toEqual([

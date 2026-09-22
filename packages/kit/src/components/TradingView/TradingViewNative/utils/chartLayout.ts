@@ -5,7 +5,6 @@ import {
   TRADING_VIEW_NATIVE_CHART_HORIZONTAL_PADDING,
   TRADING_VIEW_NATIVE_CHART_TOP_PADDING,
   TRADING_VIEW_NATIVE_CURRENT_PRICE_LABEL_HORIZONTAL_PADDING,
-  TRADING_VIEW_NATIVE_LARGE_SCREEN_MIN_WIDTH,
   TRADING_VIEW_NATIVE_MOBILE_WATERMARK_WIDTH_RATIO,
   TRADING_VIEW_NATIVE_PRICE_AXIS_LABEL_LEFT_PADDING,
   TRADING_VIEW_NATIVE_PRICE_AXIS_LABEL_RIGHT_PADDING,
@@ -20,8 +19,6 @@ import {
   TRADING_VIEW_NATIVE_VOLUME_AXIS_MAX_TICK_COUNT,
   TRADING_VIEW_NATIVE_VOLUME_AXIS_MIN_TICK_SPACING,
   TRADING_VIEW_NATIVE_WATERMARK_ASPECT_RATIO,
-  TRADING_VIEW_NATIVE_WATERMARK_BOTTOM_INSET,
-  TRADING_VIEW_NATIVE_WATERMARK_LEFT_INSET,
   TRADING_VIEW_NATIVE_WATERMARK_MAX_WIDTH,
   TRADING_VIEW_NATIVE_WATERMARK_WIDTH_RATIO,
 } from '../chartConstants';
@@ -120,7 +117,7 @@ const SECONDS_PER_DAY = 24 * SECONDS_PER_HOUR;
 const VOLUME_HEIGHT_RATIO = 0.2;
 const PRICE_INTEGER_FRACTION_DIGITS = 2;
 const PRICE_SIGNIFICANT_FRACTION_DIGITS = 4;
-const PRICE_LEADING_ZERO_SUBSCRIPT_THRESHOLD = 4;
+const PRICE_LEADING_ZERO_SUBSCRIPT_THRESHOLD = 3;
 const PRICE_PLAIN_DECIMAL_MIN_ABSOLUTE_VALUE =
   10 ** -(PRICE_LEADING_ZERO_SUBSCRIPT_THRESHOLD + 1);
 const PRICE_SUBSCRIPT_DIGITS = '₀₁₂₃₄₅₆₇₈₉';
@@ -232,7 +229,60 @@ function compactTradingViewNativePriceLeadingZeros(value: string) {
   )}${value.slice(firstSignificantDigitIndex)}`;
 }
 
-export function formatTradingViewNativePriceTick(price: number) {
+function roundTradingViewNativeSubOnePrice(
+  price: number,
+  significantDigits: number,
+) {
+  'worklet';
+
+  // `toFixed` rounds the binary double, so 0.0012345 — stored as 0.00123449… —
+  // rounds down, while the page header rounds the decimal string half-up
+  // through BigNumber and reaches 0.001235. `toExponential()` returns the
+  // shortest round-trip decimal, so rounding its digit string keeps the chart
+  // and the header on the same number.
+  const exponentialParts = Math.abs(price).toExponential().split('e');
+  let digits = exponentialParts[0].replace('.', '');
+  let exponent = Number(exponentialParts[1]);
+  if (digits.length > significantDigits) {
+    const kept = digits.slice(0, significantDigits);
+    if (digits.charAt(significantDigits) >= '5') {
+      const bumped = String(Number(kept) + 1);
+      if (bumped.length > kept.length) {
+        // 9999 -> 10000: one more integer digit, so the decimal point moves.
+        digits = bumped.slice(0, significantDigits);
+        exponent += 1;
+      } else {
+        digits = bumped;
+      }
+    } else {
+      digits = kept;
+    }
+  }
+  let digitsEndIndex = digits.length;
+  while (digitsEndIndex > 1 && digits[digitsEndIndex - 1] === '0') {
+    digitsEndIndex -= 1;
+  }
+  digits = digits.slice(0, digitsEndIndex);
+
+  const sign = price < 0 ? '-' : '';
+  if (exponent >= 0) {
+    // Rounding carried the value up to at least 1.
+    const integerLength = exponent + 1;
+    return digits.length > integerLength
+      ? `${sign}${digits.slice(0, integerLength)}.${digits.slice(
+          integerLength,
+        )}`
+      : `${sign}${digits}${'0'.repeat(integerLength - digits.length)}`;
+  }
+  return `${sign}0.${'0'.repeat(-exponent - 1)}${digits}`;
+}
+
+export function formatTradingViewNativePriceTick(
+  price: number,
+  // Worklet default parameters cannot read captured constants before __closure is initialized.
+  // Keep this literal in sync manually with PRICE_SIGNIFICANT_FRACTION_DIGITS.
+  significantFractionDigits: 4 | 6 = 4,
+) {
   'worklet';
 
   if (!Number.isFinite(price)) {
@@ -251,14 +301,15 @@ export function formatTradingViewNativePriceTick(price: number) {
     -Math.floor(Math.log10(absolutePrice)) - 1,
     0,
   );
-  const fractionDigits = leadingZeroCount + PRICE_SIGNIFICANT_FRACTION_DIGITS;
+  const fractionDigits = leadingZeroCount + significantFractionDigits;
   if (fractionDigits > MAX_TO_FIXED_FRACTION_DIGITS) {
-    return Number(
-      price.toPrecision(PRICE_SIGNIFICANT_FRACTION_DIGITS),
-    ).toString();
+    return Number(price.toPrecision(significantFractionDigits)).toString();
   }
 
-  const fixedPrice = price.toFixed(fractionDigits);
+  const fixedPrice = roundTradingViewNativeSubOnePrice(
+    price,
+    significantFractionDigits,
+  );
   const roundedPrice = Number(fixedPrice);
   if (Math.abs(roundedPrice) >= 1) {
     return roundedPrice.toFixed(PRICE_INTEGER_FRACTION_DIGITS);
@@ -603,29 +654,11 @@ export function getTradingViewNativeWatermarkLayout({
   );
   const watermarkHeight =
     watermarkWidth / TRADING_VIEW_NATIVE_WATERMARK_ASPECT_RATIO;
-  const shouldCenterWatermark =
-    isMobileLayout || canvasWidth < TRADING_VIEW_NATIVE_LARGE_SCREEN_MIN_WIDTH;
-
   return {
     height: watermarkHeight,
     width: watermarkWidth,
-    x: shouldCenterWatermark
-      ? (canvasWidth - watermarkWidth) / 2
-      : Math.max(
-          Math.min(
-            TRADING_VIEW_NATIVE_WATERMARK_LEFT_INSET,
-            canvasWidth - watermarkWidth,
-          ),
-          0,
-        ),
-    y: shouldCenterWatermark
-      ? (mainChartBottom - watermarkHeight) / 2
-      : Math.max(
-          mainChartBottom -
-            watermarkHeight -
-            TRADING_VIEW_NATIVE_WATERMARK_BOTTOM_INSET,
-          0,
-        ),
+    x: (canvasWidth - watermarkWidth) / 2,
+    y: (mainChartBottom - watermarkHeight) / 2,
   };
 }
 

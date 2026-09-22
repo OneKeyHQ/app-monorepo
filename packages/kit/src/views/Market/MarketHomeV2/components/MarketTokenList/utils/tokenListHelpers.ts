@@ -1,3 +1,4 @@
+import { resolveMarketStockId } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/utils/resolveIsStockToken';
 import { getPresetNetworks } from '@onekeyhq/shared/src/config/presetNetworks';
 import type {
   IMarketBasicConfigNetwork,
@@ -6,6 +7,14 @@ import type {
 
 import type { IMarketTimeRangeValue } from '../../../types';
 import type { IMarketToken } from '../MarketTokenData';
+
+export function marketTokenKey(item: IMarketToken) {
+  if (item.assetId) return `asset:${item.assetId}`;
+  if (item.stockId) return `stock:${item.stockId}`;
+  return item.perpsCoin
+    ? `perps:${item.perpsCoin}`
+    : `${item.networkId}:${(item.address || '').toLowerCase()}:${item.isNative ? 1 : 0}`;
+}
 
 // Helper function to check if token is native and get normalized address for matching
 // Only uses fallback address length check when isNative field is not present (undefined)
@@ -374,6 +383,7 @@ export function transformApiItemToToken(
     isNative: item.isNative,
     communityRecognized: item.communityRecognized,
     stock: item.stock,
+    stockId: resolveMarketStockId(item),
     walletInfo: {
       buy: buyCount,
       sell: sellCount,

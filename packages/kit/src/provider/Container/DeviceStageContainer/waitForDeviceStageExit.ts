@@ -28,3 +28,29 @@ export async function waitForDeviceStageExit() {
     await timerUtils.wait(DEVICE_STAGE_EXIT_BEAT_MS);
   }
 }
+
+/**
+ * A dialog is about to take the screen over a live stage (the Ledger
+ * install sheet, OK-62656): the stage yields first — its burst's
+ * bookkeeping untouched, so the hold's own end still releases it and the
+ * device's next word repaints — and when a stage really left, its exit
+ * beat plays before the dialog rises. One background hop: the yield
+ * already knows whether it wrote the off.
+ */
+export async function yieldDeviceStageToDialog() {
+  let left = false;
+  try {
+    left =
+      await backgroundApiProxy.serviceHardwareUI.deviceStageYieldToDialog();
+  } catch (error) {
+    // Best effort: the yield is the stage's courtesy to the dialog, never
+    // the dialog's precondition. A failed background hop must not strand
+    // the surface waiting on it — the BLE binding list's SDK promise, its
+    // scan resume — so the dialog rises over whatever is there.
+    console.error('[DeviceStage] yield to dialog failed:', error);
+    return;
+  }
+  if (left) {
+    await timerUtils.wait(DEVICE_STAGE_EXIT_BEAT_MS);
+  }
+}

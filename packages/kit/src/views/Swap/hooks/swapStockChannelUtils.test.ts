@@ -29,6 +29,7 @@ import {
   shouldLoadDefaultStockToken,
   shouldRenderStockTradeInputSkeleton,
   shouldResetStockTradeReceiveAmount,
+  shouldSyncControlledStockTokenMetadata,
   upsertSwapStockPayTokenScopeCache,
 } from './swapStockChannelUtils';
 
@@ -93,6 +94,27 @@ describe('swapStockChannelUtils', () => {
     expect(
       shouldLoadDefaultStockToken({
         selectedStockTokenKey: appleStockToken.contractAddress ?? '',
+      }),
+    ).toBe(false);
+  });
+
+  it('syncs only resolved decimals for the same controlled Stock token', () => {
+    expect(
+      shouldSyncControlledStockTokenMetadata({
+        currentStockToken: { ...appleStockToken, decimals: 0 },
+        controlledStockToken: appleStockToken,
+      }),
+    ).toBe(true);
+    expect(
+      shouldSyncControlledStockTokenMetadata({
+        currentStockToken: appleStockToken,
+        controlledStockToken: { ...appleStockToken, decimals: 0 },
+      }),
+    ).toBe(false);
+    expect(
+      shouldSyncControlledStockTokenMetadata({
+        currentStockToken: { ...appleStockToken, decimals: 0 },
+        controlledStockToken: micronStockToken,
       }),
     ).toBe(false);
   });

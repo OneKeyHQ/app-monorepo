@@ -1,4 +1,11 @@
-import { memo, useCallback } from 'react';
+import {
+  memo,
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+} from 'react';
 
 import type { ITradingViewNativeIntervalStorageNamespace } from '@onekeyhq/kit/src/components/TradingView/TradingViewNative/data/tradingViewNativeIntervalStorage';
 import {
@@ -11,7 +18,11 @@ import type {
   ITradingViewPriceUpdateData,
   ITradingViewV2KLineDataFallback,
 } from '@onekeyhq/kit/src/components/TradingView/TradingViewV2';
-import { useTokenDetailActions } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2';
+import {
+  tokenDetailAtom,
+  useMarketV2ContextData,
+  useTokenDetailActions,
+} from '@onekeyhq/kit/src/states/jotai/contexts/marketV2';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { MarketTestIDs } from '../../../testIDs';
@@ -35,29 +46,13 @@ const STOCK_MARKET_NATIVE_CHART_CONTROL_DISABLED_FEATURES: readonly ITradingView
     TRADING_VIEW_DISABLED_FEATURES.CHART_TYPE,
   ];
 
-function normalizeChartRealtimePrice(
-  price: ITradingViewPriceUpdateData['price'],
-) {
+function normalizeChartPrice(price: ITradingViewPriceUpdateData['price']) {
   const priceString =
     typeof price === 'number' ? price.toString() : price?.trim();
   const numericPrice = Number(priceString);
   return Number.isFinite(numericPrice) && numericPrice > 0
     ? priceString
     : undefined;
-}
-
-function normalizeChartUpdateTimestamp(
-  timestamp: ITradingViewPriceUpdateData['timestamp'],
-) {
-  if (
-    typeof timestamp !== 'number' ||
-    !Number.isFinite(timestamp) ||
-    timestamp <= 0
-  ) {
-    return Date.now();
-  }
-
-  return timestamp < 10_000_000_000 ? timestamp * 1000 : timestamp;
 }
 
 function normalizeTokenAddress(address: string | undefined) {
@@ -86,6 +81,7 @@ function isChartPriceUpdateForCurrentToken({
 }
 
 export interface IMarketTradingViewProps {
+  loadingIdentity?: string;
   tokenAddress: string;
   networkId: string;
   tokenSymbol?: string;
@@ -160,16 +156,117 @@ export const MarketTradingView = memo(
   }: IMarketTradingViewProps) => {
     const { accountAddress } = useNetworkAccountAddress(networkId);
     const tokenDetailActions = useTokenDetailActions();
+    const { store } = useMarketV2ContextData();
+    const lastPriceUpdatedAtRef = useRef(0);
+    const priceUpdateState = useMemo<{
+      networkId: string;
+      tokenAddress: string;
+      disabled?: boolean;
+      hasAcceptedPrice: boolean;
+      pendingPrice?: string;
+    }>(
+      () => ({
+        networkId,
+        tokenAddress,
+        disabled: disableChartPriceUpdate,
+        hasAcceptedPrice: false,
+      }),
+      [disableChartPriceUpdate, networkId, tokenAddress],
+    );
+    const activePriceUpdateStateRef = useRef<typeof priceUpdateState | null>(
+      null,
+    );
+
+    useLayoutEffect(() => {
+      // An interrupted render must not invalidate the committed chart's callbacks.
+      activePriceUpdateStateRef.current = priceUpdateState;
+      return () => {
+        activePriceUpdateStateRef.current = null;
+      };
+    }, [priceUpdateState]);
+
+    const applyChartPrice = useCallback(
+      (price: string) => {
+        if (
+          disableChartPriceUpdate ||
+          priceUpdateState !== activePriceUpdateStateRef.current
+        ) {
+          return;
+        }
+
+        const detail = store?.get(tokenDetailAtom());
+        if (
+          !detail ||
+          !isChartPriceUpdateForCurrentToken({
+            data: {
+              networkId: detail.networkId ?? networkId,
+              tokenAddress: detail.address,
+            },
+            networkId,
+            tokenAddress,
+          })
+        ) {
+          // Preview data can mount the chart before token details are ready.
+          priceUpdateState.pendingPrice = price;
+          return;
+        }
+
+        // The header cache requires strictly newer timestamps, including ticks
+        // received in the same millisecond or carrying the same candle time.
+        const detailUpdatedAt =
+          typeof detail.lastUpdated === 'number' &&
+          Number.isFinite(detail.lastUpdated)
+            ? detail.lastUpdated
+            : 0;
+        lastPriceUpdatedAtRef.current = Math.max(
+          Date.now(),
+          lastPriceUpdatedAtRef.current + 1,
+          detailUpdatedAt + 1,
+        );
+        priceUpdateState.pendingPrice = undefined;
+        tokenDetailActions.current.applyChartPriceUpdate({
+          tokenAddress,
+          networkId,
+          price,
+          lastUpdated: lastPriceUpdatedAtRef.current,
+        });
+      },
+      [
+        disableChartPriceUpdate,
+        networkId,
+        priceUpdateState,
+        store,
+        tokenAddress,
+        tokenDetailActions,
+      ],
+    );
+
+    useEffect(() => {
+      if (!store || disableChartPriceUpdate) {
+        return;
+      }
+
+      const flushPendingPrice = () => {
+        if (priceUpdateState.pendingPrice !== undefined) {
+          applyChartPrice(priceUpdateState.pendingPrice);
+        }
+      };
+      // Replay pending prices without subscribing the chart's render tree.
+      const unsubscribe = store.sub(tokenDetailAtom(), flushPendingPrice);
+      flushPendingPrice();
+      return unsubscribe;
+    }, [applyChartPrice, disableChartPriceUpdate, priceUpdateState, store]);
 
     const handlePriceUpdate = useCallback(
       (data: ITradingViewPriceUpdateData) => {
         if (disableChartPriceUpdate) {
           return;
         }
-        if (data.source === 'history') {
+        // Bootstrap once from history; late responses must not overwrite an
+        // accepted snapshot or realtime price, even while buffering.
+        if (data.source === 'history' && priceUpdateState.hasAcceptedPrice) {
           return;
         }
-
         if (
           !isChartPriceUpdateForCurrentToken({
             data,
@@ -180,19 +277,21 @@ export const MarketTradingView = memo(
           return;
         }
 
-        const realtimePrice = normalizeChartRealtimePrice(data.price);
-        if (!realtimePrice) {
+        const chartPrice = normalizeChartPrice(data.price);
+        if (!chartPrice) {
           return;
         }
 
-        tokenDetailActions.current.applyChartPriceUpdate({
-          tokenAddress: data.tokenAddress,
-          networkId: data.networkId,
-          price: realtimePrice,
-          lastUpdated: normalizeChartUpdateTimestamp(data.timestamp),
-        });
+        priceUpdateState.hasAcceptedPrice = true;
+        applyChartPrice(chartPrice);
       },
-      [disableChartPriceUpdate, networkId, tokenAddress, tokenDetailActions],
+      [
+        applyChartPrice,
+        disableChartPriceUpdate,
+        networkId,
+        priceUpdateState,
+        tokenAddress,
+      ],
     );
 
     return (

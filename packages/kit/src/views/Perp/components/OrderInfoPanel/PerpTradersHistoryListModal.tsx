@@ -25,6 +25,7 @@ import {
 } from '@onekeyhq/shared/src/routes/perp';
 
 import {
+  usePerpFundingHistoryViewAllUrl,
   usePerpTradesHistoryViewAllUrl,
   usePerpTwapHistoryViewAllUrl,
 } from '../../hooks/usePerpOrderInfoPanel';
@@ -134,6 +135,8 @@ export function PerpTradersHistoryListModal() {
   const initialTab = route.params?.initialTab ?? 'Trades';
   const { onViewAllUrl } = usePerpTradesHistoryViewAllUrl();
   const { onViewAllUrl: onViewAllTwapUrl } = usePerpTwapHistoryViewAllUrl();
+  const { onViewAllUrl: onViewAllFundingUrl } =
+    usePerpFundingHistoryViewAllUrl();
   const [activeTab, setActiveTab] = useState<ITabName>(initialTab);
   const [fundingHistorySideFilter, setFundingHistorySideFilter] =
     useState<IFundingHistorySideFilter>('all');
@@ -142,6 +145,8 @@ export function PerpTradersHistoryListModal() {
   >();
   const [fundingHistoryMarketOptions, setFundingHistoryMarketOptions] =
     useState<IFundingHistoryMarketOption[]>([]);
+  const [hasFundingHistoryRecords, setHasFundingHistoryRecords] =
+    useState(false);
   const { isUnifoldDepositTrackerAvailable, safeRecipient } =
     useUnifoldDepositTrackerAvailability();
 
@@ -184,6 +189,18 @@ export function PerpTradersHistoryListModal() {
   }, [activeTab]);
 
   const headerRight = useCallback(() => {
+    if (activeTab === 'Funding') {
+      return (
+        <Button
+          onPress={onViewAllFundingUrl}
+          variant="tertiary"
+          size="small"
+          testID="perps-mobile-funding-history-view-more"
+        >
+          {intl.formatMessage({ id: ETranslations.global_view_more })}
+        </Button>
+      );
+    }
     if (activeTab === 'Account' && isUnifoldDepositTrackerAvailable) {
       return (
         <Button
@@ -218,6 +235,7 @@ export function PerpTradersHistoryListModal() {
     handleViewCryptoDeposits,
     intl,
     isUnifoldDepositTrackerAvailable,
+    onViewAllFundingUrl,
     onViewAllTwapUrl,
     onViewAllUrl,
   ]);
@@ -264,11 +282,13 @@ export function PerpTradersHistoryListModal() {
                   onSideFilterChange={setFundingHistorySideFilter}
                   onMarketFilterChange={setFundingHistoryMarketFilter}
                 />
-                <FundingHistoryExportAction
-                  isMobile
-                  sideFilter={fundingHistorySideFilter}
-                  marketFilter={fundingHistoryMarketFilter}
-                />
+                {hasFundingHistoryRecords ? (
+                  <FundingHistoryExportAction
+                    isMobile
+                    sideFilter={fundingHistorySideFilter}
+                    marketFilter={fundingHistoryMarketFilter}
+                  />
+                ) : null}
               </XStack>
               <PerpFundingHistoryList
                 isMobile
@@ -277,6 +297,7 @@ export function PerpTradersHistoryListModal() {
                 sideFilter={fundingHistorySideFilter}
                 marketFilter={fundingHistoryMarketFilter}
                 onMarketOptionsChange={handleFundingHistoryMarketOptionsChange}
+                onHasFilteredRecordsChange={setHasFundingHistoryRecords}
               />
             </YStack>
             {activeTab === 'Account' ? (

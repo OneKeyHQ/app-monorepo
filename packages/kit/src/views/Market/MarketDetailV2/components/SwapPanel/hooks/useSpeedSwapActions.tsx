@@ -429,7 +429,7 @@ export function useSpeedSwapActions(props: {
   isCustomRpcUnavailable?: boolean;
   isReviewDialogOpen?: boolean;
   executionReady?: boolean;
-  onCloseDialog?: () => void;
+  onCloseReviewDialog?: () => void | Promise<void>;
   /**
    * Live per-stock open state from the token detail. Flips refresh the current
    * provider quote so a stale server-reported closed error clears on reopen.
@@ -448,7 +448,7 @@ export function useSpeedSwapActions(props: {
     isCustomRpcUnavailable,
     isReviewDialogOpen,
     executionReady = true,
-    // onCloseDialog,
+    onCloseReviewDialog,
     stockIsOpen,
   } = props;
   const { key: slippageMode, value: slippage } = slippageItem;
@@ -1559,6 +1559,8 @@ export function useSpeedSwapActions(props: {
         toAddress: receivingAddress,
         toTokenAmount: buildRes.result?.toAmount ?? '',
         status,
+        walletType: account?.wallet?.type ?? 'unknown',
+        deviceType: account?.device?.deviceType,
         swapProvider: buildRes.result?.info.provider ?? '',
         swapProviderName: buildRes.result?.info.providerName ?? '',
         swapType: getSwapExecutionTypeFromQuoteResult(buildRes.result),
@@ -1580,6 +1582,8 @@ export function useSpeedSwapActions(props: {
       });
     },
     [
+      account?.device?.deviceType,
+      account?.wallet?.type,
       fromToken.networkId,
       fromToken.symbol,
       settingsAtom.isFirstTimeSwap,
@@ -2357,6 +2361,7 @@ export function useSpeedSwapActions(props: {
 
       const lockFeeEditor = Boolean(feeInfo || feeInfos?.length);
 
+      await onCloseReviewDialog?.();
       await navigationToTxConfirm({
         wrappedInfo: txConfirmBuildUnsignedParams.wrappedInfo,
         transfersInfo: txConfirmBuildUnsignedParams.transfersInfo,
@@ -2373,7 +2378,11 @@ export function useSpeedSwapActions(props: {
         onCancel,
       });
     },
-    [buildMarketApproveUnsignedTxArr, navigationToTxConfirm],
+    [
+      buildMarketApproveUnsignedTxArr,
+      navigationToTxConfirm,
+      onCloseReviewDialog,
+    ],
   );
 
   const signMarketReviewQuoteResult = useCallback(
