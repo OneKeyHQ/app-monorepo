@@ -2,7 +2,6 @@ import type { IMarketBasicConfigNetwork } from '@onekeyhq/shared/types/marketV2'
 import type { ISwapNetwork } from '@onekeyhq/shared/types/swap/types';
 
 import {
-  SWAP_POSITION_HIDDEN_PREFETCH_DELAY_MS,
   buildSwapPositionPrefetchScopes,
   createSwapPositionPrefetchScheduler,
 } from './swapPositionPrefetchUtils';
@@ -112,28 +111,49 @@ describe('createSwapPositionPrefetchScheduler', () => {
     scheduler.request(run, true);
 
     expect(run).toHaveBeenCalledTimes(1);
-    jest.advanceTimersByTime(SWAP_POSITION_HIDDEN_PREFETCH_DELAY_MS);
+    jest.advanceTimersByTime(60_000);
     expect(run).toHaveBeenCalledTimes(1);
   });
 
-  it('loads only the last account of a run of switches behind a hidden tab', () => {
+  it('keeps only the latest hidden account pending until focus', () => {
     const scheduler = createSwapPositionPrefetchScheduler();
     const firstAccount = jest.fn();
     const secondAccount = jest.fn();
     const lastAccount = jest.fn();
 
     scheduler.request(firstAccount, false);
-    jest.advanceTimersByTime(SWAP_POSITION_HIDDEN_PREFETCH_DELAY_MS - 1);
+    jest.advanceTimersByTime(60_000);
     scheduler.request(secondAccount, false);
-    jest.advanceTimersByTime(SWAP_POSITION_HIDDEN_PREFETCH_DELAY_MS - 1);
+    jest.advanceTimersByTime(60_000);
     scheduler.request(lastAccount, false);
     expect(lastAccount).not.toHaveBeenCalled();
 
-    jest.advanceTimersByTime(SWAP_POSITION_HIDDEN_PREFETCH_DELAY_MS);
+    jest.advanceTimersByTime(60_000);
+
+    expect(firstAccount).not.toHaveBeenCalled();
+    expect(secondAccount).not.toHaveBeenCalled();
+    expect(lastAccount).not.toHaveBeenCalled();
+
+    scheduler.flush();
+    scheduler.flush();
 
     expect(firstAccount).not.toHaveBeenCalled();
     expect(secondAccount).not.toHaveBeenCalled();
     expect(lastAccount).toHaveBeenCalledTimes(1);
+  });
+
+  it('replaces a pending hidden account with the current focused account', () => {
+    const scheduler = createSwapPositionPrefetchScheduler();
+    const hiddenAccount = jest.fn();
+    const focusedAccount = jest.fn();
+
+    scheduler.request(hiddenAccount, false);
+    scheduler.request(focusedAccount, true);
+    scheduler.flush();
+    jest.advanceTimersByTime(60_000);
+
+    expect(hiddenAccount).not.toHaveBeenCalled();
+    expect(focusedAccount).toHaveBeenCalledTimes(1);
   });
 
   it('flushes a waiting load as soon as the surface regains focus', () => {
@@ -144,7 +164,7 @@ describe('createSwapPositionPrefetchScheduler', () => {
     scheduler.flush();
 
     expect(run).toHaveBeenCalledTimes(1);
-    jest.advanceTimersByTime(SWAP_POSITION_HIDDEN_PREFETCH_DELAY_MS);
+    jest.advanceTimersByTime(60_000);
     expect(run).toHaveBeenCalledTimes(1);
   });
 
@@ -164,7 +184,7 @@ describe('createSwapPositionPrefetchScheduler', () => {
 
     scheduler.request(run, false);
     scheduler.cancel();
-    jest.advanceTimersByTime(SWAP_POSITION_HIDDEN_PREFETCH_DELAY_MS);
+    jest.advanceTimersByTime(60_000);
     scheduler.flush();
 
     expect(run).not.toHaveBeenCalled();
