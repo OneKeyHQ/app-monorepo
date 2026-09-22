@@ -19,6 +19,12 @@ import { useSwapProPositionAccountIdentity } from './useSwapPro';
 // holding so the token selector can report a real balance for each variant.
 const SWAP_STOCK_POSITION_LIST_MIN_VALUE_USD = 0.01;
 
+type IStockPortfolioNetworkAccount = {
+  id: string;
+  address: string;
+  xpub?: string;
+};
+
 function getNetworkAccountXpub(account: INetworkAccount) {
   if ('xpubSegwit' in account && account.xpubSegwit) {
     return account.xpubSegwit;
@@ -42,6 +48,12 @@ export function useSwapStockPortfolioData() {
   const successfulPortfolioCacheRef = useRef(
     new Map<string, IMarketAccountPortfolioDisplayItem[]>(),
   );
+  // Account lookups are identity-bound and never change while the same
+  // account stays selected, so every poll and stock switch reuses them
+  // instead of paying two background round trips per network again.
+  const networkAccountCacheRef = useRef(
+    new Map<string, Promise<IStockPortfolioNetworkAccount | undefined>>(),
+  );
   const hasAccount = Boolean(accountId || indexedAccountId);
   // Only the variant identities restart the query; the 6s variant metadata
   // refresh hands back a new array every tick and must not.
@@ -62,22 +74,32 @@ export function useSwapStockPortfolioData() {
 
   const resolveNetworkAccount = useCallback(
     async (networkId: string) => {
-      const deriveType =
-        await backgroundApiProxy.serviceNetwork.getGlobalDeriveTypeOfNetwork({
-          networkId,
-        });
-      const networkAccount =
-        await backgroundApiProxy.serviceAccount.getNetworkAccount({
-          accountId: indexedAccountId ? undefined : accountId,
-          indexedAccountId,
-          networkId,
-          deriveType,
-        });
-      return {
-        id: networkAccount.id,
-        address: networkAccount.address,
-        xpub: getNetworkAccountXpub(networkAccount),
-      };
+      const cacheKey = `${indexedAccountId ?? ''}:${accountId ?? ''}:${networkId}`;
+      const cached = networkAccountCacheRef.current.get(cacheKey);
+      if (cached) return cached;
+      const lookup = (async () => {
+        const deriveType =
+          await backgroundApiProxy.serviceNetwork.getGlobalDeriveTypeOfNetwork({
+            networkId,
+          });
+        const networkAccount =
+          await backgroundApiProxy.serviceAccount.getNetworkAccount({
+            accountId: indexedAccountId ? undefined : accountId,
+            indexedAccountId,
+            networkId,
+            deriveType,
+          });
+        return {
+          id: networkAccount.id,
+          address: networkAccount.address,
+          xpub: getNetworkAccountXpub(networkAccount),
+        };
+      })();
+      networkAccountCacheRef.current.set(cacheKey, lookup);
+      // A failed lookup (no address on that network yet, for example) must not
+      // be pinned: the next poll retries it.
+      lookup.catch(() => networkAccountCacheRef.current.delete(cacheKey));
+      return lookup;
     },
     [accountId, indexedAccountId],
   );
@@ -90,7 +112,7 @@ export function useSwapStockPortfolioData() {
     async () => {
       // Undefined rather than empty: with no account nothing was checked.
       if (!stockId || !hasAccount) return undefined;
-      return fetchStockPortfolioData({
+      const data = await fetchStockPortfolioData({
         stockId,
         tokenVariants: tokenVariantsRef.current,
         successfulPortfolioCache: successfulPortfolioCacheRef.current,
@@ -101,6 +123,7 @@ export function useSwapStockPortfolioData() {
             throwOnError: true,
           }),
       });
+      return { ...data, stockId };
     },
     // The request reads the latest variants from a ref; see tokenVariantsKey.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -115,9 +138,14 @@ export function useSwapStockPortfolioData() {
     },
   );
 
+  // usePromiseResult hands back the previous stock's rows until the new
+  // request lands; those rows belong to another company, so they are not
+  // shown under this one.
+  const currentPortfolioResult =
+    portfolioResult?.stockId === stockId ? portfolioResult : undefined;
   const portfolioData = useMemo(
-    () => portfolioResult?.items ?? [],
-    [portfolioResult],
+    () => currentPortfolioResult?.items ?? [],
+    [currentPortfolioResult],
   );
   // What the table shows: dust dropped, largest holding first.
   const positionListData = useMemo(
@@ -136,8 +164,8 @@ export function useSwapStockPortfolioData() {
     [portfolioData],
   );
   const resolvedVariantKeys = useMemo(
-    () => portfolioResult?.resolvedVariantKeys ?? [],
-    [portfolioResult],
+    () => currentPortfolioResult?.resolvedVariantKeys ?? [],
+    [currentPortfolioResult],
   );
 
   return {

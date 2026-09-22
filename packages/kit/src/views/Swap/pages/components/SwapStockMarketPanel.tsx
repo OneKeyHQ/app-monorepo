@@ -502,7 +502,6 @@ export function SwapStockMarketPanel() {
             />
           </XStack>
         </YStack>
-        <Stack h="$4" />
       </YStack>
       <SwapStockMyPosition />
       <SwapStockMarketDataGrid tokenDetail={marketData} />
