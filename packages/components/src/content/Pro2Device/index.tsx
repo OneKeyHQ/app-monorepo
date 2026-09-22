@@ -31,6 +31,8 @@ export type { IPro2DeviceAnimation } from './animation';
  * renders in — one continuous move, no waiting built in. `animation`
  * also accepts a custom IPro2DeviceAnimation contract (see ./animation.ts)
  * paired with your own `screenContent` on the 288x484 canvas.
+ * `shellSource` swaps the baked chrome for a model that shares this
+ * geometry (the Neo, ../NeoDevice).
  */
 export interface IPro2DeviceProps extends Omit<
   IPro2DeviceShellProps,
@@ -69,6 +71,7 @@ export function Pro2Device({
   instantEntry,
   paused,
   warmScenes,
+  shellSource,
 }: IPro2DeviceProps) {
   const target = typeof animation === 'string' ? animation : undefined;
   const {
@@ -94,6 +97,7 @@ export function Pro2Device({
         width={width}
         animation={troupe.animation}
         screenContent={troupe.slot}
+        shellSource={shellSource}
       />
     );
   }
@@ -103,6 +107,7 @@ export function Pro2Device({
         width={width}
         animation={sceneAnimation}
         screenContent={slot}
+        shellSource={shellSource}
       />
     );
   }
@@ -113,6 +118,7 @@ export function Pro2Device({
       width={width}
       animation={typeof animation === 'string' ? undefined : animation}
       screenContent={typeof animation === 'string' ? undefined : screenContent}
+      shellSource={shellSource}
     />
   );
 }

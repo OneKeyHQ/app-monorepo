@@ -46,10 +46,7 @@ import {
   getDeviceAvatarImage,
 } from '@onekeyhq/shared/src/utils/avatarUtils';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
-import {
-  isProtocolV2ProductType,
-  supportsHardwareQrWallet,
-} from '@onekeyhq/shared/src/utils/hardwareDeviceTypes';
+import { supportsHardwareQrWallet } from '@onekeyhq/shared/src/utils/hardwareDeviceTypes';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import {
@@ -462,8 +459,13 @@ function BluetoothCard({
 }
 
 function DeviceVideo({ deviceTypeItems }: { deviceTypeItems: EDeviceType[] }) {
-  const isProtocolV2Product = useMemo(
-    () => deviceTypeItems.some(isProtocolV2ProductType),
+  const isPro2 = useMemo(
+    () => deviceTypeItems.includes(EDeviceType.Pro2),
+    [deviceTypeItems],
+  );
+
+  const isNeo = useMemo(
+    () => deviceTypeItems.includes(EDeviceType.Neo),
     [deviceTypeItems],
   );
 
@@ -491,8 +493,11 @@ function DeviceVideo({ deviceTypeItems }: { deviceTypeItems: EDeviceType[] }) {
   // The onboarding flow is force-dark, so every device uses its dark (-D) asset
   // and no theme branching is needed.
   const videoSource = useMemo<IVideoSource>(() => {
-    if (isProtocolV2Product) {
-      return require('@onekeyhq/kit/assets/onboarding/ProW-D.mp4') as IVideoSource;
+    if (isPro2) {
+      return require('@onekeyhq/kit/assets/onboarding/Pro2-D.mp4') as IVideoSource;
+    }
+    if (isNeo) {
+      return require('@onekeyhq/kit/assets/onboarding/Neo-D.mp4') as IVideoSource;
     }
     if (isMini) {
       return require('@onekeyhq/kit/assets/onboarding/Mini-D.mp4') as IVideoSource;
@@ -504,7 +509,7 @@ function DeviceVideo({ deviceTypeItems }: { deviceTypeItems: EDeviceType[] }) {
       return require('@onekeyhq/kit/assets/onboarding/Touch-D.mp4') as IVideoSource;
     }
     return require('@onekeyhq/kit/assets/onboarding/ProW-D.mp4') as IVideoSource;
-  }, [isClassic, isMini, isProtocolV2Product, isTouch]);
+  }, [isClassic, isMini, isNeo, isPro2, isTouch]);
 
   return (
     <Video

@@ -141,8 +141,9 @@ function screenTitle(text: string) {
 }
 
 /* ------------------------- connecting ------------------------- *
- * The wallpaper the physical device idles on while the app reaches for it
- * (an exact 288x484 render, laid flat with no cropping). */
+ * The home screen the physical device idles on while the app reaches for
+ * it (an exact 288x484 render, laid flat with no cropping) — one file for
+ * the Pro 2 and the Neo, by design call (2026-09-03). */
 
 /**
  * Decoded-size budget for this asset: iOS only keeps decoded bitmaps of
@@ -151,7 +152,7 @@ function screenTitle(text: string) {
  * re-decodes the file and the pixels land mid-ramp. Current export is
  * 540x908 (~1.87 MiB) - keep any replacement under the line.
  */
-const WALLPAPER_SOURCE = require('./screen-connecting.png');
+const WALLPAPER_SOURCE = require('./screen-connecting-pro2.png');
 
 /* ------------------------- enter PIN ------------------------- *
  * Title and four entered marks up top, a 4x3 numeric pad flush to the

@@ -9,6 +9,7 @@ import { BakedChrome } from '../deviceSceneHost';
 import { PRO2_DEVICE_SCREEN_OFF, PRO2_DEVICE_SCREEN_ON } from './animation';
 
 import type { IPro2DeviceAnimation } from './animation';
+import type { ImageSourcePropType } from 'react-native';
 
 /**
  * Pro 2 device, 1:1 against Figma node 20496:27747. The chrome — the
@@ -17,7 +18,8 @@ import type { IPro2DeviceAnimation } from './animation';
  * pre-baked bitmap (shell-pro2@2x/@3x, exported straight from the Figma
  * frame at 280pt, the stage's largest rendering). Only the screen stays
  * code: its content is dynamic (scenes on the 288x484 canvas) and its
- * cutout provides the clip.
+ * cutout provides the clip. The Neo shares this geometry and rides the
+ * same component under its own bitmap (../NeoDevice).
  *
  * The chrome was first transcribed as code-drawn SVG — blurred strokes
  * and painted fills, see git history for the full transcription. The
@@ -111,9 +113,11 @@ const styles = StyleSheet.create({
 const DeviceBody = memo(function DeviceBody({
   animation,
   screenContent,
+  shellSource,
 }: {
   animation: IPro2DeviceAnimation;
   screenContent?: ReactNode;
+  shellSource: ImageSourcePropType;
 }) {
   const slotStyle = useAnimatedStyle(
     () => ({ opacity: animation.screenContent.value }),
@@ -125,7 +129,7 @@ const DeviceBody = memo(function DeviceBody({
   );
   return (
     <>
-      <BakedChrome source={SHELL_SOURCE} width={DEVICE_W} height={DEVICE_H} />
+      <BakedChrome source={shellSource} width={DEVICE_W} height={DEVICE_H} />
       <View style={styles.screen}>
         {screenContent ? (
           <Animated.View pointerEvents="none" style={slotLayerStyle}>
@@ -153,12 +157,18 @@ export interface IPro2DeviceShellProps {
    * screen dark; with screenContent it shows steady-on.
    */
   animation?: IPro2DeviceAnimation;
+  /**
+   * The baked chrome bitmap. Defaults to the Pro 2's own; a model that
+   * shares this geometry and screen (the Neo) passes its shell here.
+   */
+  shellSource?: ImageSourcePropType;
 }
 
 export function Pro2DeviceShell({
   width = DEVICE_W,
   screenContent,
   animation,
+  shellSource = SHELL_SOURCE,
 }: IPro2DeviceShellProps) {
   const scale = width / DEVICE_W;
   const resolvedAnimation =
@@ -181,6 +191,7 @@ export function Pro2DeviceShell({
         <DeviceBody
           animation={resolvedAnimation}
           screenContent={screenContent}
+          shellSource={shellSource}
         />
       </View>
     </View>
