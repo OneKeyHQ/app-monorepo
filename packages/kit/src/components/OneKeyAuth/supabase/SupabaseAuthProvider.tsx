@@ -6,7 +6,9 @@ import {
   getSanitizedAuthErrorText,
   logOneKeyIdLoginFailureReason,
 } from '@onekeyhq/kit/src/views/Prime/components/oneKeyIdLoginToastUtils';
+import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
 import { usePrimePersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/prime';
+import { getOneKeyIdAuthConfigByDevSettings } from '@onekeyhq/shared/src/config/oneKeyIdAuth';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -72,6 +74,18 @@ function logSupabaseAuthProvider(message: string) {
 }
 
 export default function SupabaseAuthProvider({ children }: PropsWithChildren) {
+  const [devSettings] = useDevSettingsPersistAtom();
+  const { projectUrl } = getOneKeyIdAuthConfigByDevSettings(devSettings);
+  // A new realm must not inherit session state or pending callbacks from the
+  // previous provider, including when developer mode implicitly selects prod.
+  return (
+    <SupabaseAuthProviderForEnvironment key={projectUrl}>
+      {children}
+    </SupabaseAuthProviderForEnvironment>
+  );
+}
+
+function SupabaseAuthProviderForEnvironment({ children }: PropsWithChildren) {
   // Per-realm session slots. A OneKey ID login is backed by ONE of two
   // Supabase realms persisted under DIFFERENT storage keys: the legacy email
   // realm or the Keyless OAuth realm (see supabaseClientUtils /
@@ -258,13 +272,13 @@ export default function SupabaseAuthProvider({ children }: PropsWithChildren) {
           // from BG-owned shared storage.
           const legacySubscription = legacyClient.auth.onAuthStateChange(
             (_event, nextSession) => {
-              setLegacySession(nextSession);
+              if (!cancelled) setLegacySession(nextSession);
             },
           ).data.subscription;
           unsubscribes.push(() => legacySubscription.unsubscribe());
           const keylessSubscription = keylessClient.auth.onAuthStateChange(
             (_event, nextSession) => {
-              setKeylessSession(nextSession);
+              if (!cancelled) setKeylessSession(nextSession);
             },
           ).data.subscription;
           unsubscribes.push(() => keylessSubscription.unsubscribe());

@@ -1,3 +1,5 @@
+import { Semaphore } from 'async-mutex';
+
 import { analytics } from '@onekeyhq/shared/src/analytics';
 import appCrypto from '@onekeyhq/shared/src/appCrypto';
 import {
@@ -5,6 +7,7 @@ import {
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { buildServiceEndpoint } from '@onekeyhq/shared/src/config/appConfig';
+import { getOneKeyIdAuthConfigByDevSettings } from '@onekeyhq/shared/src/config/oneKeyIdAuth';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import nativeNetworkThrottle, {
   NATIVE_SLOW_4G_LATENCY_MS,
@@ -30,6 +33,7 @@ import {
 } from '../states/jotai/atoms/devSettings';
 
 import ServiceBase from './ServiceBase';
+import { identityLifecycleMutex } from './ServiceIdentityExit/identityLifecycleMutex';
 
 import type { IPro2FirmwareForceTargetMode } from '../states/jotai/atoms/applyPro2FirmwareForceTargetChange';
 import type {
@@ -44,6 +48,93 @@ import type {
 class ServiceDevSetting extends ServiceBase {
   constructor({ backgroundApi }: { backgroundApi: any }) {
     super({ backgroundApi });
+  }
+
+  private readonly devSettingsWriteMutex = new Semaphore(1);
+  private environmentRestartTimer: ReturnType<typeof setTimeout> | undefined;
+
+  private async withOneKeyIdEnvironmentChange<T>(
+    previous: IDevSettingsPersistAtom,
+    next: IDevSettingsPersistAtom,
+    update: () => Promise<T>,
+  ) {
+    if (
+      getOneKeyIdAuthConfigByDevSettings(previous).projectUrl ===
+      getOneKeyIdAuthConfigByDevSettings(next).projectUrl
+    ) {
+      return update();
+    }
+    // Resolve and execute logout while every service still uses the old node.
+    const plan =
+      await this.backgroundApi.serviceIdentityExit.prepareIdentityExit({
+        type: 'logoutOneKeyId',
+        scene: 'devSettings',
+      });
+    if (plan.status === 'blocked') {
+      throw new OneKeyLocalError(plan.message);
+    }
+    if (plan.status === 'ready') {
+      if (plan.confirmation.type !== 'normal') {
+        throw new OneKeyLocalError(
+          'Cannot switch nodes while OneKey ID is linked to a Keyless wallet. Manage the linked account before switching nodes.',
+        );
+      }
+      const receipt =
+        await this.backgroundApi.serviceIdentityExit.executeIdentityExit({
+          planId: plan.planId,
+          acknowledgement: 'oneKeyIdLogout',
+        });
+      if (receipt.status !== 'completed' || !receipt.oneKeyIdLoggedOut) {
+        throw new OneKeyLocalError(
+          'OneKey ID logout did not complete. Please try again.',
+        );
+      }
+    }
+    await this.backgroundApi.serviceNotification
+      .unregisterClient()
+      .catch(() => undefined);
+    const result = await identityLifecycleMutex.runExclusive(async () => {
+      const [state, source] = await Promise.all([
+        this.backgroundApi.simpleDb.prime.getOneKeyIdAuthState(),
+        this.backgroundApi.simpleDb.prime.getAuthSessionSource(),
+      ]);
+      if (state !== 'loggedOut' || source) {
+        throw new OneKeyLocalError(
+          'OneKey ID changed during logout. Please try switching nodes again.',
+        );
+      }
+      const { clearEmailAuthSessionsForEnvironmentChange } =
+        await import('./ServicePrime/primeAuthSessionAccess');
+      await clearEmailAuthSessionsForEnvironmentChange();
+      const updated = await update();
+      // Invalidate login work that began after logout but before the node
+      // switch. Identity commits serialize on this same lifecycle mutex.
+      await this.backgroundApi.simpleDb.prime.bumpIdentityLifecycleRevision();
+      return updated;
+    });
+    await this.restartAfterOneKeyIdEnvironmentChange();
+    return result;
+  }
+
+  private async restartAfterOneKeyIdEnvironmentChange() {
+    const next = await devSettingsPersistAtom.get();
+    if (platformEnv.isDesktop) {
+      await globalThis.desktopApiProxy?.appUpdate
+        ?.useTestUpdateFeedUrl?.(
+          Boolean(next.enabled && next.settings?.enableTestEndpoint),
+        )
+        .catch(() => undefined);
+    }
+    // Let the settings RPC finish before restarting the owning bg runtime.
+    clearTimeout(this.environmentRestartTimer);
+    const restartTimer = setTimeout(() => {
+      void this.devSettingsWriteMutex.runExclusive(async () => {
+        if (this.environmentRestartTimer !== restartTimer) return;
+        this.environmentRestartTimer = undefined;
+        await this.backgroundApi.serviceApp.restartApp();
+      });
+    }, 300);
+    this.environmentRestartTimer = restartTimer;
   }
 
   private getExpectedNetworkThrottleEnabled(
@@ -196,6 +287,20 @@ class ServiceDevSetting extends ServiceBase {
 
   @backgroundMethod()
   public async switchDevMode(isOpen: boolean) {
+    return this.devSettingsWriteMutex.runExclusive(async () => {
+      const previous = await devSettingsPersistAtom.get();
+      return this.withOneKeyIdEnvironmentChange(
+        previous,
+        {
+          enabled: isOpen,
+          settings: isOpen ? previous.settings : {},
+        },
+        () => this.switchDevModeInternal(isOpen),
+      );
+    });
+  }
+
+  private async switchDevModeInternal(isOpen: boolean) {
     const previousDevSettings = await devSettingsPersistAtom.get();
     if (isOpen) {
       await devSettingsPersistAtom.set((prev) => ({
@@ -243,6 +348,30 @@ class ServiceDevSetting extends ServiceBase {
 
   @backgroundMethod()
   public async updateDevSetting(
+    name: IDevSettingsKeys,
+    value: IDevSettings[IDevSettingsKeys],
+  ): Promise<IDevSettings[IDevSettingsKeys] | boolean> {
+    return this.devSettingsWriteMutex.runExclusive(async () => {
+      const previous = await devSettingsPersistAtom.get();
+      if (
+        (platformEnv.isDesktop || platformEnv.isNative) &&
+        name === 'networkThrottleEnabled' &&
+        !previous.enabled
+      ) {
+        return false;
+      }
+      return this.withOneKeyIdEnvironmentChange(
+        previous,
+        {
+          enabled: true,
+          settings: { ...previous.settings, [name]: value },
+        },
+        () => this.updateDevSettingInternal(name, value),
+      );
+    });
+  }
+
+  private async updateDevSettingInternal(
     name: IDevSettingsKeys,
     value: IDevSettings[IDevSettingsKeys],
   ): Promise<IDevSettings[IDevSettingsKeys] | boolean> {

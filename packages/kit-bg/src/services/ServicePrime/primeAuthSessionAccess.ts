@@ -383,6 +383,36 @@ export async function clearAuthSessionBySessionSource(
   });
 }
 
+export async function clearEmailAuthSessionsForEnvironmentChange(): Promise<void> {
+  await runExclusiveOnAuthSessionSlot(
+    EPrimeAuthSessionSource.LegacyEmailSupabase,
+    async () => {
+      // Clear both endpoints before switching so a previous target login
+      // cannot be restored. Keep the independent Keyless wallet realm intact.
+      const sessionKeys = [
+        ONEKEY_ID_AUTH_CONFIG.prod,
+        ONEKEY_ID_AUTH_CONFIG.test,
+      ].map(({ projectUrl }) => getSupabaseAuthSessionKey(projectUrl));
+      await Promise.all(
+        sessionKeys.map((key) =>
+          supabaseStorageInstance.blockWritesForKey(key),
+        ),
+      );
+      try {
+        await Promise.all(
+          sessionKeys.flatMap((key) => [
+            supabaseStorageInstance.removeItem(key),
+            supabaseStorageInstance.removeItem(`${key}-user`),
+            supabaseStorageInstance.removeItem(`${key}-code-verifier`),
+          ]),
+        );
+      } finally {
+        supabaseStorageInstance.clearCache();
+      }
+    },
+  );
+}
+
 /**
  * Destroy every local Supabase auth session: sign out both sources, sweep
  * all known session storage keys (including PKCE helper keys), and clear

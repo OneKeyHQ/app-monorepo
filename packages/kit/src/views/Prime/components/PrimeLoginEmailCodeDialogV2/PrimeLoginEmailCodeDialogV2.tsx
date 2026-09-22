@@ -41,6 +41,7 @@ import { EMAIL_OTP_COUNTDOWN_SECONDS } from '@onekeyhq/shared/src/consts/authCon
 import type { IEmailOtpCaptchaConfig } from '@onekeyhq/shared/src/consts/authConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { isTransientNetworkLikeError } from '@onekeyhq/shared/src/utils/transientNetworkErrorUtils';
 
 import {
@@ -467,6 +468,9 @@ export function PrimeLoginEmailCodeDialogV2(props: {
   const developmentPanel = developmentControls?.(
     (isResending && !isWaiting) || isSubmittingVerificationCode,
   );
+  const otpAutoComplete = platformEnv.isNativeAndroid
+    ? 'sms-otp'
+    : 'one-time-code';
 
   return (
     <Stack>
@@ -552,6 +556,8 @@ export function PrimeLoginEmailCodeDialogV2(props: {
           })}
           error={state.status === 'error'}
           keyboardType="number-pad"
+          textContentType={platformEnv.isDesktop ? undefined : 'oneTimeCode'}
+          autoComplete={platformEnv.isDesktop ? 'off' : otpAutoComplete}
           disabled={!isCodeInputEnabled || state.status === 'done'}
           value={verificationCode}
           onChangeText={(value) => {

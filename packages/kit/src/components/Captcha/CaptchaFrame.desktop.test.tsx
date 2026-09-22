@@ -92,7 +92,8 @@ test('loads the HTTPS page directly, using the existing verified guest preload',
   const { frame, send, onResult } = await mount();
   expect(frame.getAttribute('preload')).toBe(preloadPath);
   expect((frame as HTMLElement & { src: string }).src).toBe(url);
-  expect(frame.getAttribute('partition')).toBe('onekey-captcha');
+  expect(frame.getAttribute('partition')).toBe('persist:onekey');
+  expect(frame.getAttribute('disableblinkfeatures')).toBe('Notifications');
   expect(frame.style.visibility).toBe('hidden');
   expect(frame.hasAttribute('disablewebsecurity')).toBe(false);
   expect(frame.hasAttribute('allowpopups')).toBe(false);

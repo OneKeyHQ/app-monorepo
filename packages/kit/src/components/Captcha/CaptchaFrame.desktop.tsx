@@ -169,7 +169,10 @@ function DesktopCaptchaFrame({ url, requestId, onResult }: ICaptchaFrameProps) {
           data-testid="email-otp-captcha-frame"
           title="Security verification"
           preload={preload}
-          partition="onekey-captcha"
+          // Reuse the shell-managed WebView session so OTA renderers inherit
+          // its existing permission handlers without requiring a shell update.
+          partition="persist:onekey"
+          disableblinkfeatures="Notifications"
           webpreferences="contextIsolation=1,sandbox=1,nodeIntegration=0"
           style={{
             display: 'flex',

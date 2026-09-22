@@ -1,10 +1,14 @@
 import { ONEKEY_ID_AUTH_CONFIG } from '@onekeyhq/shared/src/consts/authConsts';
 import requestHelper from '@onekeyhq/shared/src/request/requestHelper';
-import { getSupabaseAuthSessionKey } from '@onekeyhq/shared/src/storage/SupabaseStorage/consts';
+import {
+  getKeylessSupabaseAuthSessionKey,
+  getSupabaseAuthSessionKey,
+} from '@onekeyhq/shared/src/storage/SupabaseStorage/consts';
 import { EPrimeAuthSessionSource } from '@onekeyhq/shared/types/prime/primeTypes';
 
 import {
   allowAuthSessionStorageWritesBySessionSource,
+  clearEmailAuthSessionsForEnvironmentChange,
   readPersistedAccessTokenBySessionSourceStrict,
   removeAuthSessionStorageBySessionSource,
 } from './primeAuthSessionAccess';
@@ -34,6 +38,7 @@ const storage = jest.requireMock<{
     blockWritesForKey: jest.Mock<Promise<void>, [string]>;
     getItem: jest.Mock<Promise<string | null>, [string]>;
     removeItem: jest.Mock<Promise<void>, [string]>;
+    clearCache: jest.Mock;
   };
 }>('@onekeyhq/shared/src/storage/instance/supabaseStorageInstance').default;
 
@@ -66,4 +71,32 @@ describe('email session storage follows the OneKey node environment', () => {
       expect(storage.removeItem).toHaveBeenCalledWith(key);
     },
   );
+
+  test('clears both email realms and PKCE data without touching the Keyless wallet session', async () => {
+    await clearEmailAuthSessionsForEnvironmentChange();
+    for (const config of [
+      ONEKEY_ID_AUTH_CONFIG.prod,
+      ONEKEY_ID_AUTH_CONFIG.test,
+    ]) {
+      const key = getSupabaseAuthSessionKey(config.projectUrl);
+      expect(storage.blockWritesForKey).toHaveBeenCalledWith(key);
+      expect(storage.removeItem).toHaveBeenCalledWith(key);
+      expect(storage.removeItem).toHaveBeenCalledWith(`${key}-user`);
+      expect(storage.removeItem).toHaveBeenCalledWith(`${key}-code-verifier`);
+    }
+    expect(storage.blockWritesForKey).toHaveBeenCalledTimes(2);
+    expect(storage.removeItem).toHaveBeenCalledTimes(6);
+    expect(storage.removeItem).not.toHaveBeenCalledWith(
+      getKeylessSupabaseAuthSessionKey(),
+    );
+    expect(storage.clearCache).toHaveBeenCalled();
+  });
+
+  test('propagates a storage failure to prevent switching with a stale target session', async () => {
+    storage.removeItem.mockRejectedValueOnce(new Error('storage unavailable'));
+    await expect(clearEmailAuthSessionsForEnvironmentChange()).rejects.toThrow(
+      'storage unavailable',
+    );
+    expect(storage.clearCache).toHaveBeenCalled();
+  });
 });
