@@ -3,14 +3,7 @@ import { useCallback } from 'react';
 import { useIntl } from 'react-intl';
 
 import type { IPageNavigationProp, IXStackProps } from '@onekeyhq/components';
-import {
-  Button,
-  Dialog,
-  SizableText,
-  Skeleton,
-  XStack,
-  YStack,
-} from '@onekeyhq/components';
+import { Button, Dialog, SizableText, YStack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import {
   OptionCard,
@@ -430,17 +423,6 @@ function WalletActions({ ...rest }: IXStackProps) {
   const { config, getActionCustomization } = useWalletActionConfig();
   const balanceState = useHomeBalanceState();
 
-  // Keep the action band measurable until this owner's asset state is known.
-  if (balanceState === 'unknown') {
-    return (
-      <XStack {...rest} height={64} gap="$2.5" pointerEvents="none">
-        {[0, 1, 2, 3].map((key) => (
-          <Skeleton key={key} flex={1} height={64} radius={12} />
-        ))}
-      </XStack>
-    );
-  }
-
   const renderActionComponent = (actionType: IWalletActionType) => {
     const customization = getActionCustomization(actionType);
 
@@ -485,7 +467,8 @@ function WalletActions({ ...rest }: IXStackProps) {
     },
   } as const;
 
-  if (balanceState === 'positive') {
+  // Asset requests must not block access to the wallet actions.
+  if (balanceState !== 'zero') {
     return (
       <RawActions {...rest} {...rawActionsLayout}>
         {config.mainActions.map(renderActionComponent).filter(Boolean)}
