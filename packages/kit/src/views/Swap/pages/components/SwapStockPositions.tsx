@@ -26,6 +26,7 @@ import { useStockDetail } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/ho
 import { resolveMarketStockId } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/utils/resolveIsStockToken';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import cacheUtils from '@onekeyhq/shared/src/utils/cacheUtils';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type {
   IMarketAccountPortfolioItem,
@@ -52,6 +53,7 @@ type ICurrentPositionResult = {
   scope: string;
   position?: IMarketAccountPortfolioItem;
 };
+const STOCK_POSITION_RESULT_CACHE_MAX_SIZE = 20;
 const PositionsContext = createContext<IPositions | undefined>(undefined);
 
 // The stock detail page's portfolio polls every 15s. This list is checked at
@@ -253,8 +255,10 @@ export function SwapStockCurrentPosition() {
   const scope = token
     ? `${token.networkId}:${token.contractAddress}:${token.accountAddress}`
     : '';
-  const lastSuccessfulResultRef = useRef<ICurrentPositionResult | undefined>(
-    undefined,
+  const lastSuccessfulResultsRef = useRef(
+    new cacheUtils.LRUCache<string, ICurrentPositionResult>({
+      max: STOCK_POSITION_RESULT_CACHE_MAX_SIZE,
+    }),
   );
   const { result } = usePromiseResult(
     async () => {
@@ -269,9 +273,7 @@ export function SwapStockCurrentPosition() {
             throwOnError: true,
           });
       } catch {
-        return lastSuccessfulResultRef.current?.scope === scope
-          ? lastSuccessfulResultRef.current
-          : undefined;
+        return lastSuccessfulResultsRef.current.get(scope);
       }
       const nextResult = {
         scope,
@@ -285,7 +287,7 @@ export function SwapStockCurrentPosition() {
           }),
         ),
       };
-      lastSuccessfulResultRef.current = nextResult;
+      lastSuccessfulResultsRef.current.set(scope, nextResult);
       return nextResult;
     },
     // Portfolio requests depend on identity, not the frequently refreshed balance.

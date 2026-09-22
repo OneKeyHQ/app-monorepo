@@ -1436,7 +1436,7 @@ export const swrKeys = {
   swapStockSpeedConfig: ({ networkId }: { networkId: string }) =>
     [NS.swapStockSpeedConfig, 'v1', networkId].join(':'),
   swapStockPayTokenDetails: ({ scope }: { scope: string }) =>
-    [NS.swapStockPayTokenDetails, 'v1', scope].join(':'),
+    [NS.swapStockPayTokenDetails, 'v2', scope].join(':'),
   borrowMarkets: () => [NS.borrowMarkets, 'v1'].join(':'),
   borrowReserves: (params: IBorrowScopedSWRKeyParams) =>
     buildBorrowScopedSWRKey(NS.borrowReserves, params),
