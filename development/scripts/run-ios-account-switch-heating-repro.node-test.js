@@ -6,6 +6,8 @@ const { test } = require('node:test');
 
 const {
   parseNativeLog,
+  describeCensusWindow,
+  summarizeObservedCensusWindows,
   readBuildProvenance,
   redactNetworkRequest,
   summarizeAcceptance,
@@ -208,3 +210,171 @@ test(
     assert.equal(processSummary.last30.cpuMax, 299.3);
   },
 );
+
+test('census payload clock determines the measured window and overlap, not delayed logger output', () => {
+  const report = describeCensusWindow(
+    {
+      windowEndedAt: Date.parse('2026-09-22T12:03:09.500Z'),
+      loggedAt: '2026-09-22T12:03:12.000Z',
+      windowMs: 30_100,
+      gcCount: 777,
+    },
+    context.formalStartedAt,
+    context.formalEndedAt,
+  );
+  assert.equal(report.windowStart, '2026-09-22T12:02:39.400Z');
+  assert.equal(report.windowEnd, '2026-09-22T12:03:09.500Z');
+  assert.equal(report.windowEndSource, 'payload windowEndedAt');
+  assert.equal(report.boundaryPrecisionMs, 1);
+  assert.equal(report.formalLast30OverlapMs, 29_500);
+  assert.equal(report.formalLast30UncoveredMs, 500);
+  assert.equal(report.matchesFormalLast30, false);
+  assert.equal(report.gcCount, 777);
+});
+
+test('legacy census timing remains coarse and a suspended window does not invent a wall-clock start', () => {
+  const legacy = describeCensusWindow(
+    { loggedAt: '2026-09-22T12:03:00.000Z', windowMs: 30_000 },
+    context.formalStartedAt,
+    context.formalEndedAt,
+  );
+  assert.equal(legacy.windowStart, '2026-09-22T12:02:30.000Z');
+  assert.equal(legacy.formalLast30OverlapMs, 20_000);
+  assert.equal(legacy.boundaryPrecisionMs, 1000);
+  assert.equal(legacy.matchesFormalLast30, false);
+  const suspended = describeCensusWindow(
+    { ...legacy, suspendedCount: 1 },
+    context.formalStartedAt,
+    context.formalEndedAt,
+  );
+  assert.equal(suspended.windowStart, null);
+  assert.equal(suspended.formalLast30OverlapMs, null);
+  assert.equal(suspended.matchesFormalLast30, false);
+});
+
+test('a nearest census never becomes an exact last30 acceptance sample', () => {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'heating-census-'));
+  const logPath = path.join(directory, 'native.log');
+  try {
+    fs.writeFileSync(
+      logPath,
+      `20:03:12 | DEBUG : app => perf => runtimeHealthCensus : ${JSON.stringify([{ windowEndedAt: Date.parse('2026-09-22T12:03:09.500Z'), windowMs: 30_100, gcCount: 777 }])}\n`,
+    );
+    const nativeLog = summarizeNativeLog(logPath, context);
+    assert.equal(nativeLog.lastFormalCensus.gcCount, 777);
+    assert.equal(nativeLog.lastFormalCensusEndGapMs, 500);
+    assert.equal(nativeLog.formalLast30Census.status, 'UNMEASURED');
+    assert.equal(nativeLog.formalLast30Census.exactCensus, null);
+    const acceptance = summarizeAcceptance({
+      functionalPassed: true,
+      evidenceCollected: true,
+      maxPositiveDriftMs: 0,
+      processSummary: summarizeSamples([], context),
+      nativeLog,
+      buildProvenance: { status: 'UNMEASURED' },
+    });
+    assert.equal(
+      acceptance.checks.find((check) => check.name === 'gcCount').status,
+      'UNMEASURED',
+    );
+    const exact = describeCensusWindow(
+      { windowEndedAt: Date.parse(context.formalEndedAt), windowMs: 30_000 },
+      context.formalStartedAt,
+      context.formalEndedAt,
+    );
+    assert.equal(exact.matchesFormalLast30, true);
+    assert.equal(exact.formalLast30OverlapMs, 30_000);
+  } finally {
+    fs.rmSync(directory, { recursive: true, force: true });
+  }
+});
+
+test('complete census windows retain unscaled values and worst failures even when the latest window is lower', () => {
+  const reports = [
+    {
+      windowEndedAt: Date.parse('2026-09-22T12:00:40.100Z'),
+      windowMs: 30_100,
+      gcCount: 700,
+      jsFpsMin: 19,
+    },
+    {
+      windowEndedAt: Date.parse('2026-09-22T12:01:10.100Z'),
+      windowMs: 30_000,
+      gcCount: 300,
+      jsFpsMin: 60,
+    },
+    {
+      windowEndedAt: Date.parse('2026-09-22T12:03:40.000Z'),
+      windowMs: 30_000,
+      gcCount: 9999,
+    },
+    {
+      windowEndedAt: Date.parse('2026-09-22T12:02:30.000Z'),
+      windowMs: 15_000,
+      gcCount: 9999,
+    },
+    {
+      windowEndedAt: Date.parse('2026-09-22T12:02:30.000Z'),
+      windowMs: 30_000,
+      gcCount: 9999,
+      suspendedCount: 1,
+    },
+  ].map((report) =>
+    describeCensusWindow(
+      report,
+      context.formalStartedAt,
+      context.formalEndedAt,
+    ),
+  );
+  const observed = summarizeObservedCensusWindows(
+    reports,
+    Date.parse(context.formalStartedAt),
+    Date.parse(context.formalEndedAt),
+  );
+  assert.equal(observed.observedCompleteCensusWindows.length, 2);
+  assert.equal(observed.observedWindowThresholdFailure, true);
+  assert.equal(observed.observedCompleteCensusWorst.gcCount.value, 700);
+  assert.equal(
+    observed.observedCompleteCensusWorst.gcCount.actualDurationMs,
+    30_100,
+  );
+  assert.equal(observed.observedCompleteCensusWorst.jsFpsMin.value, 19);
+  const nativeLog = {
+    ...observed,
+    windows: { last60: {}, allNetworks: null },
+    formalLast30Census: { exactCensus: null },
+  };
+  const acceptance = summarizeAcceptance({
+    functionalPassed: true,
+    evidenceCollected: true,
+    maxPositiveDriftMs: 0,
+    processSummary: summarizeSamples([], context),
+    nativeLog,
+    buildProvenance: { status: 'UNMEASURED' },
+  });
+  assert.equal(acceptance.status, 'FAIL');
+  assert.equal(
+    acceptance.checks.find((check) => check.name === 'gcCount').status,
+    'UNMEASURED',
+  );
+  assert.equal(
+    acceptance.checks.find(
+      (check) => check.name === 'observedWindowThresholdFailure',
+    ).status,
+    'FAIL',
+  );
+  const lowOnly = summarizeObservedCensusWindows(
+    [reports[1]],
+    Date.parse(context.formalStartedAt),
+    Date.parse(context.formalEndedAt),
+  );
+  assert.equal(lowOnly.observedWindowThresholdFailure, false);
+  assert.equal(
+    lowOnly.observedCompleteCensusWorst.gcCount.status,
+    'WITHIN_OBSERVED_WINDOW_THRESHOLD',
+  );
+  assert.equal(
+    lowOnly.observedCompleteCensusWindows[0].matchesFormalLast30,
+    false,
+  );
+});

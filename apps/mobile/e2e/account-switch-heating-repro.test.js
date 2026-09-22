@@ -1,5 +1,6 @@
 /* global by, device, element, expect, waitFor */
 
+const { execFileSync } = require('child_process');
 const fs = require('fs');
 const path = require('path');
 const { performance } = require('perf_hooks');
@@ -155,7 +156,22 @@ async function tapSemanticDescendantThroughAncestor(target, ancestor) {
     !(ancestorFrame?.width > 0) ||
     !(ancestorFrame?.height > 0)
   ) {
-    throw new Error('Semantic target or ancestor does not expose a frame');
+    throw new Error(
+      `Semantic target or ancestor does not expose a visible frame: ${JSON.stringify(
+        {
+          target: {
+            visible: targetAttributes?.visible,
+            hittable: targetAttributes?.hittable,
+            frame: targetFrame,
+          },
+          ancestor: {
+            visible: ancestorAttributes?.visible,
+            hittable: ancestorAttributes?.hittable,
+            frame: ancestorFrame,
+          },
+        },
+      )}`,
+    );
   }
   const screenRelativeX =
     targetFrame.x - ancestorFrame.x + targetFrame.width / 2;
@@ -185,7 +201,10 @@ async function tapSemanticDescendantThroughAncestor(target, ancestor) {
   });
 }
 
-async function tapSemanticTargetAtRuntimeFrame(target) {
+async function tapSemanticTargetAtRuntimeFrame(
+  target,
+  semanticTarget = 'visible semantic frame',
+) {
   const attributes = await target.getAttributes();
   const candidates = getAttributeCandidates(attributes);
   const targetAttributes =
@@ -197,7 +216,7 @@ async function tapSemanticTargetAtRuntimeFrame(target) {
     throw new Error('Semantic target does not expose a frame');
   }
   recordInteraction('tap-dispatched', {
-    semanticTarget: 'visible semantic frame',
+    semanticTarget,
     source: 'host Detox runtime-frame fallback',
   });
   await device.tap({
@@ -205,7 +224,7 @@ async function tapSemanticTargetAtRuntimeFrame(target) {
     y: Math.floor(frame.y + frame.height / 2),
   });
   recordInteraction('tap-completed', {
-    semanticTarget: 'visible semantic frame',
+    semanticTarget,
     source: 'Detox acknowledgement; not visual feedback',
   });
 }
@@ -261,6 +280,68 @@ async function waitForReportedVisibleById(testID, timeoutMs) {
 async function tapUnifiedNetworkTab(testID) {
   const tab = element(by.id(testID)).atIndex(0);
   await waitFor(tab).toExist().withTimeout(5000);
+  try {
+    await measuredTap(tab, testID);
+    return;
+  } catch {
+    // UIKit-backed controls may require their current visible ancestor frame.
+  }
+  const nativeSession = process.env.HEATING_REPRO_NATIVE_UI_SESSION;
+  if (nativeSession) {
+    if (!process.env.HEATING_REPRO_UDID) {
+      throw new Error(
+        'Native frame verification requires the runner device id',
+      );
+    }
+    // EarlGrey can report clipped UIKit segment children as invisible while
+    // XCTest sees the same accessibility identifier as hittable. Resolve its
+    // current frame through XCTest instead of trusting a hidden Detox node.
+    const response = JSON.parse(
+      execFileSync(
+        'agent-device',
+        [
+          'get',
+          'attrs',
+          `id="${testID}"`,
+          '--session',
+          nativeSession,
+          '--platform',
+          'ios',
+          '--udid',
+          process.env.HEATING_REPRO_UDID,
+          '--session-lock',
+          'reject',
+          '--json',
+        ],
+        { encoding: 'utf8', timeout: 15_000 },
+      ),
+    );
+    const node = response?.data?.node;
+    const frame = node?.rect;
+    if (
+      response?.success !== true ||
+      node?.identifier !== testID ||
+      node?.hittable !== true ||
+      node?.enabled !== true ||
+      !(frame?.width > 0) ||
+      !(frame?.height > 0)
+    ) {
+      throw new Error('Native semantic tab is not currently hittable');
+    }
+    recordInteraction('tap-dispatched', {
+      semanticTarget: testID,
+      source: 'current XCTest hittable testID frame',
+    });
+    await device.tap({
+      x: Math.floor(frame.x + frame.width / 2),
+      y: Math.floor(frame.y + frame.height / 2),
+    });
+    recordInteraction('tap-completed', {
+      semanticTarget: testID,
+      source: 'Detox acknowledgement; not visual feedback',
+    });
+    return;
+  }
   const header = element(
     by.type('UINavigationBar').withDescendant(by.id(testID)),
   ).atIndex(0);
@@ -465,9 +546,33 @@ async function selectInitialWallet() {
   }
 }
 
+async function waitForAccountSelectorClosed(timeoutMs) {
+  const header = element(by.id('account-selector-header'));
+  const deadline = Date.now() + timeoutMs;
+  let closed = false;
+  while (Date.now() < deadline) {
+    try {
+      const attributes = await header.getAttributes();
+      closed = getAttributeCandidates(attributes).every(
+        (candidate) => candidate?.visible === false,
+      );
+    } catch {
+      // A dismissed native sheet can unmount rather than stay hidden.
+      await expect(header).not.toExist();
+      closed = true;
+    }
+    if (closed) break;
+    await sleep(50);
+  }
+  if (!closed) throw new Error('Account selector did not close');
+  recordInteraction('modal-hidden', {
+    semanticTarget: 'account-selector-header',
+  });
+}
+
 async function selectAccountByIndex(index, closeTimeoutMs = 30_000) {
   const itemMatcher = by.id(`account-item-index-${index}`);
-  let list = await findVisibleByMatcher(
+  const list = await findVisibleByMatcher(
     by.id('account-selector-accountList'),
     4,
     200,
@@ -480,30 +585,10 @@ async function selectAccountByIndex(index, closeTimeoutMs = 30_000) {
     item = await findVisibleByMatcher(itemMatcher, 4, 200, 50);
   }
   if (!item) throw new Error(`Visible account item not found: ${index}`);
-  await measuredTap(item, `account-item-index-${index}`);
-  try {
-    await waitFor(list).toBeNotVisible().withTimeout(1200);
-    recordInteraction('modal-hidden', {
-      semanticTarget: 'account-selector-accountList',
-    });
-    return;
-  } catch {
-    // NativeList cells may report a successful tap without invoking the row.
-  }
-  recordInteraction('tap-dispatched', {
-    semanticTarget: `account-item-index-${index}`,
-    source: 'host Detox runtime-frame fallback',
-  });
-  await tapSemanticTargetAtRuntimeFrame(item);
-  recordInteraction('tap-completed', {
-    semanticTarget: `account-item-index-${index}`,
-    source: 'Detox acknowledgement; not visual feedback',
-  });
-  list = element(by.id('account-selector-accountList')).atIndex(0);
-  await waitFor(list).toBeNotVisible().withTimeout(closeTimeoutMs);
-  recordInteraction('modal-hidden', {
-    semanticTarget: 'account-selector-accountList',
-  });
+  // NativeList's semantic tap can acknowledge without invoking the row.
+  // Use the frame of this currently visible testID for one effective tap.
+  await tapSemanticTargetAtRuntimeFrame(item, `account-item-index-${index}`);
+  await waitForAccountSelectorClosed(closeTimeoutMs);
 }
 
 async function readHomeHasVisibleBalance() {
@@ -1043,24 +1128,58 @@ describe('iOS account-switch heating regression timeline', () => {
       }
       await sleep(45_000);
     });
+    const completedFormalEndedAt = JSON.parse(
+      fs.readFileSync(formalEndPath, 'utf8'),
+    ).formalEndedAt;
+    writeRunMeta({
+      ...runMeta,
+      formalEndedAt: completedFormalEndedAt,
+      durationMs: new Date(completedFormalEndedAt).getTime() - originWall,
+      exportRequested: true,
+      qaTimelineCompletedAt: new Date().toISOString(),
+    });
 
     // Keep the original export action/timing intact. Observe only after its
     // diagnostic work and the extra navigation have been identified separately.
     activeAction = 'post-diagnostic return Home';
     recordInteraction('diagnostic-ended');
     for (let attempt = 0; attempt < 8; attempt += 1) {
+      if (
+        await findVisibleByMatcher(by.id('AccountSelectorTriggerBase'), 1, 100)
+      ) {
+        break;
+      }
       let dismissed = false;
-      for (const testID of [
-        'dialog-bounded-close',
-        'dialog-cancel-btn',
-        'nav-header-back',
-        'nav-header-close',
-      ]) {
-        const close = await findReportedVisibleById(testID);
-        if (close) {
-          await measuredTap(close, testID);
+      const nativeClose = await findVisibleByMatcher(by.label('Close'), 4, 120);
+      if (nativeClose) {
+        try {
+          await measuredTap(nativeClose, 'native Close label');
           dismissed = true;
-          break;
+        } catch {
+          // A retained Close node may belong to a covered native page.
+        }
+      }
+      if (!dismissed) {
+        for (const testID of [
+          'dialog-bounded-close',
+          'dialog-cancel-btn',
+          'nav-header-back',
+          'nav-header-close',
+        ]) {
+          const close = await findReportedVisibleById(testID);
+          if (close) {
+            try {
+              await measuredTap(close, testID);
+              dismissed = true;
+              break;
+            } catch {
+              // iOS share sheets can dismiss on their backdrop. The visible
+              // navigation control supplies a current testID frame above it.
+              await tapSemanticTargetAtRuntimeFrame(close, testID);
+              dismissed = true;
+              break;
+            }
+          }
         }
       }
       if (!dismissed) {
@@ -1069,16 +1188,9 @@ describe('iOS account-switch heating regression timeline', () => {
           await tapBottomTab('Wallet');
           break;
         }
-        const nativeClose = await findVisibleByMatcher(
-          by.label('Close'),
-          4,
-          120,
+        throw new Error(
+          'No semantic dismissal or Home target after diagnostic export',
         );
-        if (!nativeClose)
-          throw new Error(
-            'No semantic dismissal or Home target after diagnostic export',
-          );
-        await measuredTap(nativeClose, 'native Close label');
       }
     }
     await waitForHomeReady(5000);
