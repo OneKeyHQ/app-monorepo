@@ -30,6 +30,7 @@ export const FEATURE_SNAPSHOT_CACHE_NAMESPACES = [
   'account-selector',
   'tokenlist-maintenance',
   'tokenlist-owner-slim',
+  'tokenlist-owner-worth',
 ] as const;
 
 export type ISnapshotCacheNamespace =

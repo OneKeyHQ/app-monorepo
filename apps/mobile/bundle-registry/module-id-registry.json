@@ -21530,6 +21530,7 @@
     "packages/kit/src/views/Home/components/TokenListBlock/buildMergedAllNetworkSnapshot.ts": 7735,
     "packages/kit/src/views/Home/components/TokenListBlock/index.ts": 1645,
     "packages/kit/src/views/Home/components/TokenListBlock/offTabRefresh.ts": 2687,
+    "packages/kit/src/views/Home/components/TokenListBlock/ownerWorthCache.ts": 22488,
     "packages/kit/src/views/Home/components/TokenListBlock/portfolioSyncRequestState.ts": 16094,
     "packages/kit/src/views/Home/components/TokenListBlock/selectHardwarePortfolioTokens.ts": 23848,
     "packages/kit/src/views/Home/components/TokenListBlock/useTokenListReactivePipeline.ts": 9900,

@@ -154,6 +154,7 @@ import {
 } from './assetStatusAnalytics';
 import { buildHomeTokenListCacheIngestRound } from './buildHomeTokenListCacheIngestRound';
 import { resolveOffTabTokenListRefreshOnMount } from './offTabRefresh';
+import { getOwnerWorth, rememberOwnerWorth } from './ownerWorthCache';
 import {
   buildPortfolioSyncTargetKey,
   resolvePortfolioSyncRequestTransition,
@@ -1229,6 +1230,52 @@ function TokenListBlock({
     [homeDefaultTokenMap, cellsCustomTokens],
   );
   useTokenListCellsProducer(cellsOwnerKey, cellsCurrencyId);
+
+  // Per-owner token worth (OK-63873). `accountWorthAtom` is replaced on every
+  // switch, so until the new owner's local cache is read the subtitle resolved
+  // against the PREVIOUS owner's map. Remember each owner's last worth and put
+  // it back in the same layout effect that replays the rows; an owner we have
+  // never seen shows the subtitle skeleton (see renderSubTitle) instead.
+  const worthOwnerAccountId = mergeDeriveAddressData
+    ? indexedAccount?.id
+    : account?.id;
+  const isWorthForCurrentOwner =
+    !!worthOwnerAccountId &&
+    accountTokensWorth.initialized &&
+    accountTokensWorth.accountId === worthOwnerAccountId;
+  useEffect(() => {
+    if (!cellsOwnerKey || !isWorthForCurrentOwner) {
+      return;
+    }
+    rememberOwnerWorth(cellsOwnerKey, {
+      worth: accountTokensWorth.worth,
+      createAtNetworkWorth: accountTokensWorth.createAtNetworkWorth,
+      currency: accountTokensWorth.currency,
+    });
+  }, [
+    cellsOwnerKey,
+    isWorthForCurrentOwner,
+    accountTokensWorth.worth,
+    accountTokensWorth.createAtNetworkWorth,
+    accountTokensWorth.currency,
+  ]);
+  useLayoutEffect(() => {
+    if (!cellsOwnerKey || !worthOwnerAccountId || isWorthForCurrentOwner) {
+      return;
+    }
+    const cached = getOwnerWorth(cellsOwnerKey);
+    if (!cached) {
+      return;
+    }
+    updateAccountWorth({
+      worth: cached.worth,
+      createAtNetworkWorth: cached.createAtNetworkWorth,
+      currency: cached.currency,
+      initialized: true,
+      accountId: worthOwnerAccountId,
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cellsOwnerKey, worthOwnerAccountId]);
 
   // Keep the BG `ingestRound` inputs ref current so the refresh callbacks can
   // hand the right owner + hideZero inputs to `serviceTokenViewModel.ingestRound`
@@ -3570,7 +3617,12 @@ function TokenListBlock({
 
   const renderSubTitle = useCallback(() => {
     if (tableLayout) {
-      if (!tokenListState.initialized && tokenListState.isRefreshing) {
+      if (
+        (!tokenListState.initialized && tokenListState.isRefreshing) ||
+        // The atom still holds another owner's worth (first visit of this
+        // owner, nothing remembered yet): a skeleton, never the wrong number.
+        !isWorthForCurrentOwner
+      ) {
         return <Skeleton.HeadingLg />;
       }
 
@@ -3592,6 +3644,7 @@ function TokenListBlock({
     tableLayout,
     accountTokensWorth.currency,
     accountTokensValue,
+    isWorthForCurrentOwner,
     tokenListState.initialized,
     tokenListState.isRefreshing,
   ]);

@@ -75,6 +75,21 @@ export const tokenListOwnerSlimCache = createNamespacedSnapshotCache<
 });
 
 /**
+ * Per-owner token-worth snapshot (OK-63873). `accountWorthAtom` is a singleton
+ * replaced on every owner switch, so the "Tokens · $x" subtitle kept showing
+ * the previous owner's value until the new owner's local cache was read. This
+ * namespace keeps the last worth per owner so a switch can restore it in the
+ * same frame as the token rows.
+ */
+export const tokenListOwnerWorthCache = createNamespacedSnapshotCache<
+  Record<string, unknown>
+>({
+  namespace: 'tokenlist-owner-worth',
+  maxAgeMs: SEVEN_DAYS_MS,
+  maxEntries: TOKEN_LIST_OWNER_SLIM_CACHE_MAX_ENTRIES,
+});
+
+/**
  * Cache keys may only carry `[A-Za-z0-9._:/-]`; an owner key embeds derive
  * paths (`hd-1--m/86'/0'/0'__btc--0`), so escape every other character as
  * `-xHH-` (reversible, collision-free) and scope by store name.
