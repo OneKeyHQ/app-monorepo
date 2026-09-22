@@ -70,7 +70,7 @@ import {
   getOwnerReplayFrames,
   rememberOwnerReplayFrame,
 } from './ownerFrameReplayCache';
-import { replayOwnerFrames } from './ownerReplay';
+import { replayOwnerFrames, resolveReplayedRiskyOwner } from './ownerReplay';
 import {
   aggCell,
   cell,
@@ -208,6 +208,13 @@ export function useTokenListCellsProducer(
     return !activeOwnerKey || activeOwnerKey === ownerKey;
   };
 
+  // Owner whose risky frame was replayed and is on screen; the owner reset
+  // effect below must not blank it. Kept by `replayForOwner` itself so BOTH
+  // entry points (selector fast path + layout-effect fallback) agree: for one
+  // switch they run back to back, and the second hits the idempotence
+  // short-circuit, which means "already painted", not "nothing replayed".
+  const replayedRiskyOwnerRef = useRef<string | undefined>(undefined);
+
   // Owner-switch replay (OK-63873): re-stamp the projection for the incoming
   // owner from the remembered frames (same-session revisit) or, failing that,
   // from the per-owner persisted slim bundle (first visit after a cold start).
@@ -230,14 +237,19 @@ export function useTokenListCellsProducer(
       ownerKey: nextOwnerKey,
       currentCurrency,
     });
-    if (replayed.structure) {
-      return replayed.risky;
-    }
-    // Already stamped for this owner (the boot-blob cold-start hydrate or a
-    // live frame landed first): nothing to paint, and no MMKV read on the
-    // startup path.
-    if (projection.curOwnerKey === nextOwnerKey) {
-      return false;
+    // Already stamped for this owner (this switch's earlier replay entry, the
+    // boot-blob cold-start hydrate or a live frame landed first): nothing to
+    // paint, and no MMKV read on the startup path.
+    const alreadyStamped = projection.curOwnerKey === nextOwnerKey;
+    const { next, risky } = resolveReplayedRiskyOwner({
+      replayed,
+      alreadyStamped,
+      previous: replayedRiskyOwnerRef.current,
+      ownerKey: nextOwnerKey,
+    });
+    replayedRiskyOwnerRef.current = next;
+    if (replayed.structure || alreadyStamped) {
+      return risky;
     }
     hydrateCellsFromOwnerSlimCache({
       store,
@@ -283,14 +295,15 @@ export function useTokenListCellsProducer(
   // effect below) for owner changes that did not come through the selector
   // publish above (mount, currency/store identity changes). `ownerMismatch` is
   // false on the first painted frame either way; the PULL then reconciles.
-  const replayedRiskyOwnerRef = useRef<string | undefined>(undefined);
+  // The risky bookkeeping lives in `replayForOwner` (see
+  // `replayedRiskyOwnerRef`), so a replay the fast path already did for this
+  // owner is not reported as "nothing replayed" here.
   useLayoutEffect(() => {
     ensureReplayCacheInvalidationOnce();
     if (!enabled || !store || !deps || !identity) {
       return;
     }
-    const replayedRisky = replayForOwnerRef.current(ownerKey);
-    replayedRiskyOwnerRef.current = replayedRisky ? ownerKey : undefined;
+    replayForOwnerRef.current(ownerKey);
   }, [deps, enabled, identity, ownerKey, store]);
 
   useEffect(() => {

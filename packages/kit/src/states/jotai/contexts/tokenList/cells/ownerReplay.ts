@@ -30,6 +30,44 @@ export interface IReplayOwnerFramesResult {
 }
 
 /**
+ * Bookkeeping for "which owner had its risky frame replayed", shared by BOTH
+ * replay entry points (the account-selector fast path and the layout-effect
+ * fallback) so the owner reset never blanks a risky list that was replayed a
+ * moment earlier. The two entries run back to back for one switch: the first
+ * does the real replay, the second hits the idempotence short-circuit
+ * (`{ structure: false, risky: false }`) because the projection is already
+ * stamped for the owner. That second result means "already painted", not
+ * "nothing replayed", so it must KEEP the record the first entry made.
+ *
+ * Returns the owner to remember (or undefined) and whether a risky frame is
+ * on screen for `ownerKey`.
+ */
+export function resolveReplayedRiskyOwner({
+  replayed,
+  alreadyStamped,
+  previous,
+  ownerKey,
+}: {
+  replayed: IReplayOwnerFramesResult;
+  /** projection.curOwnerKey === ownerKey after the replay call. */
+  alreadyStamped: boolean;
+  previous: string | undefined;
+  ownerKey: string;
+}): { next: string | undefined; risky: boolean } {
+  if (replayed.structure) {
+    return {
+      next: replayed.risky ? ownerKey : undefined,
+      risky: replayed.risky,
+    };
+  }
+  if (alreadyStamped) {
+    const risky = previous === ownerKey;
+    return { next: risky ? ownerKey : undefined, risky };
+  }
+  return { next: undefined, risky: false };
+}
+
+/**
  * Replay `frames` for `ownerKey` into `store`. Returns what was replayed.
  * Guards:
  *   - currency mismatch -> nothing (stale fiat would paint a wrong number);

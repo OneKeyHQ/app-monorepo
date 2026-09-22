@@ -51,7 +51,10 @@ import {
   getOwnerReplayFrames,
   rememberOwnerReplayFrame,
 } from '../cells/ownerFrameReplayCache';
-import { replayOwnerFrames } from '../cells/ownerReplay';
+import {
+  replayOwnerFrames,
+  resolveReplayedRiskyOwner,
+} from '../cells/ownerReplay';
 import {
   aggCell,
   cell,
@@ -552,6 +555,76 @@ describe('replayOwnerFrames — synchronous owner-switch paint', () => {
     expect(result).toEqual({ structure: false, risky: false });
     expect(setSpy).not.toHaveBeenCalled();
     setSpy.mockRestore();
+  });
+
+  it('a replay the selector fast path already did is not reported as "nothing replayed" by the layout entry, so the owner reset keeps the risky list', () => {
+    const { store, ctx, projection, deps } = setup();
+    applyAndRememberRound({
+      ctx,
+      projection,
+      deps,
+      ownerKey: OWNER_A,
+      tokenKey: 'a',
+      fiatValue: '7',
+      generation: 3,
+      risky: true,
+    });
+    applyAndRememberRound({
+      ctx,
+      projection,
+      deps,
+      ownerKey: OWNER_B,
+      tokenKey: 'b',
+      fiatValue: '9',
+      generation: 1,
+    });
+    const replay = () =>
+      replayOwnerFrames({
+        store: ctx,
+        projection,
+        deps,
+        frames: getOwnerReplayFrames({
+          storeName: STORE_NAME,
+          ownerKey: OWNER_A,
+        }),
+        storeData: STORE_DATA,
+        ownerKey: OWNER_A,
+        currentCurrency: CURRENCY,
+      });
+
+    // 1. Selector publish (before React renders): the real replay.
+    let bookkeeping = resolveReplayedRiskyOwner({
+      replayed: replay(),
+      alreadyStamped: projection.curOwnerKey === OWNER_A,
+      previous: undefined,
+      ownerKey: OWNER_A,
+    });
+    expect(bookkeeping).toEqual({ next: OWNER_A, risky: true });
+    expect(store.get(riskyListFrameAtom()).riskyTokens).toHaveLength(1);
+
+    // 2. Layout effect for the same switch: idempotence short-circuit.
+    const second = replay();
+    expect(second).toEqual({ structure: false, risky: false });
+    bookkeeping = resolveReplayedRiskyOwner({
+      replayed: second,
+      alreadyStamped: projection.curOwnerKey === OWNER_A,
+      previous: bookkeeping.next,
+      ownerKey: OWNER_A,
+    });
+    // "Already painted", not "nothing replayed": the record survives...
+    expect(bookkeeping).toEqual({ next: OWNER_A, risky: true });
+    // ...so the owner reset (`replayedRiskyOwnerRef.current === ownerKey`)
+    // skips the blank and the replayed risky rows stay on screen.
+    expect(store.get(riskyListFrameAtom()).riskyTokens).toHaveLength(1);
+
+    // A third owner replayed with no risky frame drops the record.
+    bookkeeping = resolveReplayedRiskyOwner({
+      replayed: { structure: true, risky: false },
+      alreadyStamped: false,
+      previous: bookkeeping.next,
+      ownerKey: OWNER_B,
+    });
+    expect(bookkeeping).toEqual({ next: undefined, risky: false });
   });
 
   it('MISSES on a currency mismatch, an unknown owner, or frames stamped for another owner', () => {
