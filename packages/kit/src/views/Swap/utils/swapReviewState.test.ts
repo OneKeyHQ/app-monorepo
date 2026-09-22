@@ -10,6 +10,7 @@ import type {
 } from '@onekeyhq/shared/types/swap/types';
 
 import {
+  type ISwapReviewState,
   NATIVE_BTC_MIN_SLIPPAGE_PERCENTAGE,
   buildCustomSlippageQuoteResultCtx,
   buildRebuiltSwapReviewQuoteResult,
@@ -22,6 +23,7 @@ import {
   shouldFallbackSwapStep,
   shouldShowNativeBtcLowSlippageWarning,
   shouldShowSwapReviewToAmountSkeleton,
+  updateSwapReviewStep,
 } from './swapReviewState';
 
 describe('shouldFallbackSwapStep', () => {
@@ -513,6 +515,93 @@ describe('shouldCloseSwapReviewOnFocusLoss', () => {
   });
 });
 
+describe('updateSwapReviewStep', () => {
+  const buildReviewState = (steps: ISwapStep[]) => ({
+    steps,
+    preSwapData: {},
+  });
+
+  it('updates only the addressed step', () => {
+    const reviewState = buildReviewState([
+      { type: ESwapStepType.APPROVE_TX, status: ESwapStepStatus.SUCCESS },
+      { type: ESwapStepType.SEND_TX, status: ESwapStepStatus.READY },
+    ]);
+
+    const nextState = updateSwapReviewStep({
+      reviewState,
+      stepIndex: 1,
+      partialStep: { status: ESwapStepStatus.LOADING },
+    });
+
+    expect(nextState).not.toBe(reviewState);
+    expect(nextState.steps[1].status).toBe(ESwapStepStatus.LOADING);
+    expect(nextState.steps[0]).toBe(reviewState.steps[0]);
+    expect(nextState.preSwapData).toBe(reviewState.preSwapData);
+  });
+
+  it('drops a write to a step that was already cleared away', () => {
+    const clearedReviewState = buildReviewState([]);
+
+    const nextState = updateSwapReviewStep({
+      reviewState: clearedReviewState,
+      stepIndex: 1,
+      partialStep: { status: ESwapStepStatus.PENDING },
+    });
+
+    expect(nextState).toBe(clearedReviewState);
+    expect(nextState.steps).toHaveLength(0);
+  });
+
+  it('never grows the steps array with a hole', () => {
+    // A sparse step array materializes its holes as `undefined` entries on the
+    // next spread or deep clone, which crashes every `step.status` reader.
+    const reviewState = buildReviewState([
+      { type: ESwapStepType.APPROVE_TX, status: ESwapStepStatus.SUCCESS },
+    ]);
+
+    const nextState = updateSwapReviewStep({
+      reviewState,
+      stepIndex: 1,
+      partialStep: { status: ESwapStepStatus.PENDING },
+    });
+
+    expect(nextState).toBe(reviewState);
+    expect(nextState.steps).toHaveLength(1);
+    expect(Object.keys(nextState.steps)).toEqual(['0']);
+    expect([...nextState.steps].some((step) => !step)).toBe(false);
+  });
+
+  it('survives the close-during-swap sequence that used to white-screen the page', () => {
+    // Closing the review while the swap step was still building cleared the
+    // steps, and the late step writes used to rebuild a sparse array that the
+    // broadcast success write turned into an `undefined` step.
+    const clearedReviewState: ISwapReviewState = {
+      steps: [],
+      preSwapData: {},
+    };
+
+    const afterLateStepWrite = updateSwapReviewStep({
+      reviewState: clearedReviewState,
+      stepIndex: 1,
+      partialStep: { stepSubTitle: 'building' },
+    });
+    const afterBroadcastWrite = updateSwapReviewStep({
+      reviewState: afterLateStepWrite,
+      stepIndex: afterLateStepWrite.steps.length - 1,
+      partialStep: { status: ESwapStepStatus.PENDING },
+    });
+
+    expect(afterBroadcastWrite).toBe(clearedReviewState);
+    expect([...afterBroadcastWrite.steps]).toEqual([]);
+    expect(
+      hasInFlightSwapReviewWork({
+        steps: [...afterBroadcastWrite.steps],
+        preSwapData: afterBroadcastWrite.preSwapData,
+      }),
+    ).toBe(false);
+  });
+});
+
 describe('hasInFlightSwapReviewWork', () => {
   const step = (status: ESwapStepStatus) => ({ status }) as ISwapStep;
 
@@ -520,6 +609,29 @@ describe('hasInFlightSwapReviewWork', () => {
     expect(
       hasInFlightSwapReviewWork({
         steps: [step(ESwapStepStatus.READY)],
+        preSwapData: {},
+      }),
+    ).toBe(false);
+  });
+
+  it('tolerates a missing step entry instead of crashing the render', () => {
+    const stepsWithMissingEntry = [
+      undefined,
+      step(ESwapStepStatus.PENDING),
+    ] as unknown as ISwapStep[];
+
+    expect(
+      hasInFlightSwapReviewWork({
+        steps: stepsWithMissingEntry,
+        preSwapData: {},
+      }),
+    ).toBe(true);
+    expect(
+      hasInFlightSwapReviewWork({
+        steps: [
+          undefined,
+          step(ESwapStepStatus.READY),
+        ] as unknown as ISwapStep[],
         preSwapData: {},
       }),
     ).toBe(false);
