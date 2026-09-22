@@ -45,6 +45,7 @@ import {
 import {
   formatTwapPriceForOrder,
   isTwapStopPriceValid,
+  isTwapTotalNotionalValid,
 } from '@onekeyhq/shared/src/utils/hyperliquidTwapUtils';
 import { normalizeDexCoin } from '@onekeyhq/shared/src/utils/perpsDexUtils';
 import {
@@ -1533,7 +1534,13 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
     const precision = precisionMap.get(params.assetId);
     const szDecimals = params.szDecimals ?? precision?.szDecimals ?? 2;
     const size = formatHlSize(params.size, szDecimals);
-    if (!size) {
+    if (
+      !isTwapTotalNotionalValid({
+        size,
+        price: params.referencePrice,
+        szDecimals,
+      })
+    ) {
       throw new OneKeyLocalError(
         appLocale.intl.formatMessage({
           id: ETranslations.perp_scale_order_size_too_small__msg,

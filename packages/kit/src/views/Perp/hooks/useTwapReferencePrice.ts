@@ -1,10 +1,7 @@
 import { useMemo } from 'react';
 
 import { useActiveTradeInstrumentAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
-import {
-  usePerpsActiveAssetCtxMarkPriceAtom,
-  usePerpsActiveAssetDataAtom,
-} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { usePerpsTwapMarkPrice } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { getTwapTriggerReferencePrice } from '@onekeyhq/shared/src/utils/hyperliquidTwapUtils';
 
 import type { BigNumber } from 'bignumber.js';
@@ -14,14 +11,14 @@ import type { BigNumber } from 'bignumber.js';
 // midPriceBN is caller-supplied to avoid adding a live mid subscription.
 export function useTwapReferencePrice({
   midPriceBN,
+  enabled,
 }: {
   midPriceBN: BigNumber;
+  enabled: boolean;
 }): BigNumber {
   const [activeTradeInstrument] = useActiveTradeInstrumentAtom();
-  const [ctxMarkPrice] = usePerpsActiveAssetCtxMarkPriceAtom();
-  const [activeAssetData] = usePerpsActiveAssetDataAtom();
   const isSpot = activeTradeInstrument.mode === 'spot';
-  const markPrice = ctxMarkPrice ?? activeAssetData?.markPx;
+  const markPrice = usePerpsTwapMarkPrice(enabled && !isSpot);
   return useMemo(
     () =>
       getTwapTriggerReferencePrice({

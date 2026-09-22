@@ -1,7 +1,7 @@
 import BigNumber from 'bignumber.js';
 
 import { formatLocalizedNumberString } from './numberUtils';
-import { formatHlPrice } from './perpsUtils';
+import { formatHlPrice, formatHlSize } from './perpsUtils';
 
 export const TWAP_MIN_DURATION_MINUTES = 5;
 export const TWAP_MAX_DURATION_MINUTES = 7 * 24 * 60;
@@ -136,11 +136,13 @@ export function isValidTwapDuration(minutes: number): boolean {
 export function isTwapTotalNotionalValid({
   size,
   price,
+  szDecimals,
 }: {
   size: BigNumber.Value;
   price: BigNumber.Value;
+  szDecimals: number;
 }): boolean {
-  const sizeBN = new BigNumber(size);
+  const sizeBN = new BigNumber(formatHlSize(size, szDecimals));
   const priceBN = new BigNumber(price);
   if (
     !sizeBN.isFinite() ||

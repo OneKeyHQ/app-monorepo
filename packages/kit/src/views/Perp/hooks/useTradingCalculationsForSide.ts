@@ -8,8 +8,8 @@ import {
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import {
   usePerpsActiveAssetAtom,
-  usePerpsActiveAssetCtxAtom,
   usePerpsActiveAssetDataAtom,
+  usePerpsTwapMarkPrice,
   useSpotBalancesAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { getReduceOnlyPositionMaxSize } from '@onekeyhq/shared/src/utils/hyperliquidScaleOrderUtils';
@@ -28,7 +28,9 @@ export function useTradingCalculationsForSide(side: 'long' | 'short') {
   const formData = useTradingFormCalculationParams();
   const [activeTradeInstrument] = useActiveTradeInstrumentAtom();
   const [activeAsset] = usePerpsActiveAssetAtom();
-  const [activeAssetCtx] = usePerpsActiveAssetCtxAtom();
+  const twapMarkPrice = usePerpsTwapMarkPrice(
+    formData.orderMode === 'twap' && activeTradeInstrument.mode === 'perp',
+  );
   const [activeAssetData] = usePerpsActiveAssetDataAtom();
   const [{ balances: spotBalances }] = useSpotBalancesAtom();
   const perpsPositions = usePerpsAccountScopedActivePositions();
@@ -174,11 +176,11 @@ export function useTradingCalculationsForSide(side: 'long' | 'short') {
     if (isSpot) {
       markPx = effectiveSpotPriceBN.toFixed();
     } else if (formData.orderMode === 'twap') {
-      markPx = activeAssetCtx?.ctx?.markPrice ?? activeAssetData?.markPx;
+      markPx = twapMarkPrice;
     }
     return new BigNumber(markPx ?? 0);
   }, [
-    activeAssetCtx?.ctx?.markPrice,
+    twapMarkPrice,
     activeAssetData?.markPx,
     effectiveSpotPriceBN,
     formData.orderMode,

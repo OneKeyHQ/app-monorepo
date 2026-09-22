@@ -510,7 +510,10 @@ function PerpTradingForm({
   const { midPrice, midPriceBN } = useTradingPrice({
     source: tradingPriceSource,
   });
-  const twapReferencePriceBN = useTwapReferencePrice({ midPriceBN });
+  const twapReferencePriceBN = useTwapReferencePrice({
+    midPriceBN,
+    enabled: formData.orderMode === 'twap',
+  });
   const { price: orderPriceBN } = useOrderPrice(formData.side, {
     priceSource: tradingPriceSource,
   });

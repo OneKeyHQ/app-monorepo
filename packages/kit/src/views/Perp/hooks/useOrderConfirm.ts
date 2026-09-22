@@ -76,7 +76,10 @@ function useOrderConfirmWithMarketDataFreshness({
   const hyperliquidActions = useHyperliquidActions();
   const [isSubmitting] = useTradingLoadingAtom();
   const { midPrice, midPriceBN } = useTradingPrice();
-  const twapReferencePriceBN = useTwapReferencePrice({ midPriceBN });
+  const twapReferencePriceBN = useTwapReferencePrice({
+    midPriceBN,
+    enabled: formData.orderMode === 'twap',
+  });
   const shouldBlockForMarketData =
     shouldBlockPerpsTradingForMarketData(marketDataFreshness);
 
@@ -441,6 +444,7 @@ function useOrderConfirmWithMarketDataFreshness({
           !isTwapTotalNotionalValid({
             size: twapSize,
             price: twapReferencePriceBN,
+            szDecimals,
           })
         ) {
           Toast.error({

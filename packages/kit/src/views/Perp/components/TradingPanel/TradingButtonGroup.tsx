@@ -482,7 +482,10 @@ function SideButtonInternal({
   const [isSubmitting] = useTradingLoadingAtom();
   const { midPriceBN } = useTradingPrice();
   const getAggressiveLimitPriceWarning = useGetAggressiveLimitPriceWarning();
-  const twapTriggerReferencePriceBN = useTwapReferencePrice({ midPriceBN });
+  const twapTriggerReferencePriceBN = useTwapReferencePrice({
+    midPriceBN,
+    enabled: formData.orderMode === 'twap',
+  });
   const shouldBlockForMarketData =
     shouldBlockPerpsTradingForMarketData(marketDataFreshness);
   const confirmHyperliquidTerms = useConfirmHyperliquidTerms();
@@ -1144,6 +1147,7 @@ function SideButtonInternal({
           !isTwapTotalNotionalValid({
             size: latestComputedSizeForSide,
             price: latestTwapTriggerReferencePriceBN,
+            szDecimals: latestSzDecimals,
           })
         ) {
           Toast.message({

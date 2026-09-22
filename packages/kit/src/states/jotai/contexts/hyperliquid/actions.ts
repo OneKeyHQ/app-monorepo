@@ -3027,6 +3027,7 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
               !isTwapTotalNotionalValid({
                 size: resolvedSizeBN,
                 price: markPriceBN,
+                szDecimals,
               })
             ) {
               throw new OneKeyLocalError(

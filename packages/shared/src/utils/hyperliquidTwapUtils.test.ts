@@ -27,16 +27,39 @@ describe('hyperliquidTwapUtils', () => {
 
   it('validates the total order notional instead of estimated slices', () => {
     expect(TWAP_MIN_ORDER_NOTIONAL).toBe(100);
-    expect(isTwapTotalNotionalValid({ size: '0.01', price: '10000' })).toBe(
-      true,
-    );
-    expect(isTwapTotalNotionalValid({ size: '0.009999', price: '10000' })).toBe(
-      false,
-    );
-    expect(isTwapTotalNotionalValid({ size: 'invalid', price: '10000' })).toBe(
-      false,
-    );
+    expect(
+      isTwapTotalNotionalValid({ size: '0.01', price: '10000', szDecimals: 6 }),
+    ).toBe(true);
+    expect(
+      isTwapTotalNotionalValid({
+        size: '0.009999',
+        price: '10000',
+        szDecimals: 6,
+      }),
+    ).toBe(false);
+    expect(
+      isTwapTotalNotionalValid({
+        size: 'invalid',
+        price: '10000',
+        szDecimals: 6,
+      }),
+    ).toBe(false);
   });
+
+  it.each([
+    ['0.054246', '1843.5', 4, false],
+    ['0.0543', '1843.5', 4, true],
+    ['0.010009', '10000', 4, true],
+    ['0.00009', '2000000', 4, false],
+    ['-1', '100', 4, false],
+    ['1', 'NaN', 4, false],
+    ['1', '-100', 4, false],
+  ])(
+    'validates size %s at price %s after truncating to %i decimals',
+    (size, price, szDecimals, valid) => {
+      expect(isTwapTotalNotionalValid({ size, price, szDecimals })).toBe(valid);
+    },
+  );
 
   it('derives whether the trigger is above the current mark price', () => {
     expect(getTwapTriggerAbove({ triggerPrice: '101', markPrice: '100' })).toBe(
