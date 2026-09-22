@@ -823,6 +823,21 @@ export const {
   initialValue: undefined,
 });
 
+const twapMarkPriceAtom = globalAtomComputedR<string | undefined>({
+  read: (get) =>
+    get(perpsActiveAssetCtxAtom.atom())?.ctx?.markPrice ??
+    get(perpsActiveAssetDataAtom.atom())?.markPx,
+});
+const disabledTwapMarkPriceAtom = globalAtomComputedR<string | undefined>({
+  read: () => undefined,
+});
+
+export function usePerpsTwapMarkPrice(enabled: boolean): string | undefined {
+  const { use } = enabled ? twapMarkPriceAtom : disabledTwapMarkPriceAtom;
+  const [markPrice] = use();
+  return markPrice;
+}
+
 // #region Trading Mode
 export type ITradingMode = 'perp' | 'spot';
 export const { target: tradingModeAtom, use: useTradingModeAtom } =
