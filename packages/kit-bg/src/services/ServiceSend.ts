@@ -45,6 +45,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 import { getValidUnsignedMessage } from '@onekeyhq/shared/src/utils/messageUtils';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
@@ -59,6 +60,8 @@ import {
 } from '@onekeyhq/shared/src/utils/primeInfiniPaymentValidation';
 import { hasUnconfirmedPrimeInfiniPaymentWarnings } from '@onekeyhq/shared/src/utils/primeInfiniPaymentWarnings';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+import { EHardwareVendor } from '@onekeyhq/shared/types/device';
+import type { IOneKeyDeviceType } from '@onekeyhq/shared/types/device';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import type {
   ISendSelectedFeeInfo,
@@ -85,6 +88,7 @@ import {
   buildStageConfirmContentForSignTx,
 } from './ServiceHardwareUI/deviceStageConfirmUtils';
 
+import type { IDBWalletType } from '../dbs/local/types';
 import type {
   IBatchSignTransactionParamsBase,
   IBroadcastTransactionParams,
@@ -120,6 +124,48 @@ class ServiceSend extends ServiceBase {
   // cleared in its `finally`. UI calls `abortGasAccountSubmit` to break the
   // loop when the user cancels the confirm screen.
   private gasAccountSubmitAborters: Map<string, AbortController> = new Map();
+
+  @backgroundMethod()
+  async getSendConfirmWalletInfo({
+    accountId,
+  }: {
+    accountId: string;
+  }): Promise<{
+    walletType: IDBWalletType | undefined;
+    hwDeviceType: IOneKeyDeviceType | undefined;
+  }> {
+    let walletType: IDBWalletType | undefined;
+    let hwDeviceType: IOneKeyDeviceType | undefined;
+    try {
+      const walletId = accountUtils.getWalletIdFromAccountId({ accountId });
+      const wallet = await this.backgroundApi.serviceAccount.getWallet({
+        walletId,
+      });
+      walletType = wallet.type;
+      if (
+        accountUtils.isHwWallet({ walletId }) ||
+        accountUtils.isQrWallet({ walletId })
+      ) {
+        const device =
+          await this.backgroundApi.serviceAccount.getWalletDeviceSafe({
+            walletId,
+            dbWallet: wallet,
+          });
+        // Third-party features are not OneKey firmware model identifiers.
+        if (
+          device?.featuresInfo &&
+          (device.vendor ?? EHardwareVendor.onekey) === EHardwareVendor.onekey
+        ) {
+          hwDeviceType = await deviceUtils.getDeviceTypeFromFeatures({
+            features: device.featuresInfo,
+          });
+        }
+      }
+    } catch {
+      // Analytics lookup failures must not fail a successfully submitted transaction.
+    }
+    return { walletType, hwDeviceType };
+  }
 
   @backgroundMethod()
   public async abortGasAccountSubmit(submitId: string): Promise<void> {

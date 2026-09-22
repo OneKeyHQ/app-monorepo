@@ -1,4 +1,5 @@
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
+import type { IOneKeyDeviceType } from '@onekeyhq/shared/types/device';
 import type { EUtxoSelectionStrategy } from '@onekeyhq/shared/types/send';
 
 import { BaseScene } from '../../../base/baseScene';
@@ -188,6 +189,8 @@ export class SendScene extends BaseScene {
   @LogToServer()
   public sendConfirm({
     network,
+    walletType,
+    hwDeviceType,
     txnType,
     interactContract,
     tokenType,
@@ -207,6 +210,8 @@ export class SendScene extends BaseScene {
     tronIsCreditAutoClaimed,
   }: {
     network: string | undefined;
+    walletType: string | undefined;
+    hwDeviceType: IOneKeyDeviceType | undefined;
     txnType: string | undefined;
     txnParseType: string | undefined;
     txnOrigin: string | undefined;
@@ -228,6 +233,8 @@ export class SendScene extends BaseScene {
     const result = {
       sendFlowId: this._sendFlowId,
       network,
+      walletType,
+      hwDeviceType,
       txnType,
       txnParseType,
       txnOrigin,
