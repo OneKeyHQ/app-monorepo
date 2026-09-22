@@ -54,6 +54,7 @@ import {
 } from '../../../components/Hardware/HardwareDialog';
 import { showTrezorBleBindingDialog } from '../../../components/Hardware/TrezorBleBindingDialog';
 import { useThemeVariant } from '../../../hooks/useThemeVariant';
+import { yieldDeviceStageToDialog } from '../DeviceStageContainer/waitForDeviceStageExit';
 
 import { useInstallCancelVisibility } from './installCancelVisibility';
 import { TrezorPinMatrix } from './TrezorPinMatrix';
@@ -814,24 +815,41 @@ function ThirdPartyHardwareUiStateContainerCmp() {
       return;
     }
 
-    bleBindingSettledRef.current = false;
-    const callbacks = createTrezorBleBindingDialogCallbacks({
-      promiseId,
-      dialogInstanceRef: bleBindingDialogInstanceRef,
-      settledRef: bleBindingSettledRef,
-      resolveCallback: (requestParams) =>
-        backgroundApiProxy.servicePromise.resolveCallback(requestParams),
-      clearState: clearCurrentUiState,
-    });
-    const instance = showTrezorBleBindingDialog({
-      usbConnectId,
-      featuresDeviceId,
-      mode: trezorBleBindingMode ?? 'auto-fallback',
-      onBound: callbacks.onBound,
-      onClose: callbacks.onClose,
-      intl,
-    });
-    bleBindingDialogInstanceRef.current = instance;
+    // Only the latest run may raise the dialog: a re-run (or the request
+    // clearing) while the stage is still leaving cancels this one.
+    let cancelled = false;
+    void (async () => {
+      // OK-63224: the flow's processing beat stands on stage behind its
+      // touch wall, above every dialog — the list opened under it,
+      // unreachable. The stage yields first (the Ledger install sheet's
+      // discipline, OK-62656); the device's next ask — the pairing code
+      // during the probe — raises it again over the list.
+      await yieldDeviceStageToDialog();
+      if (cancelled || bleBindingDialogInstanceRef.current) {
+        return;
+      }
+      bleBindingSettledRef.current = false;
+      const callbacks = createTrezorBleBindingDialogCallbacks({
+        promiseId,
+        dialogInstanceRef: bleBindingDialogInstanceRef,
+        settledRef: bleBindingSettledRef,
+        resolveCallback: (requestParams) =>
+          backgroundApiProxy.servicePromise.resolveCallback(requestParams),
+        clearState: clearCurrentUiState,
+      });
+      const instance = showTrezorBleBindingDialog({
+        usbConnectId,
+        featuresDeviceId,
+        mode: trezorBleBindingMode ?? 'auto-fallback',
+        onBound: callbacks.onBound,
+        onClose: callbacks.onClose,
+        intl,
+      });
+      bleBindingDialogInstanceRef.current = instance;
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, [clearCurrentUiState, isTrezorBleBinding, uiState?.payload, intl]);
 
   useEffect(() => {

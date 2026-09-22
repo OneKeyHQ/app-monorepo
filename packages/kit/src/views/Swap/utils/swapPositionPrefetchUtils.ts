@@ -43,3 +43,45 @@ export function buildSwapPositionPrefetchScopes({
       scope.networkList.length > 0,
   );
 }
+
+export const SWAP_POSITION_HIDDEN_PREFETCH_DELAY_MS = 5000;
+
+// The Swap tab stays mounted behind other tabs, so an account switch made
+// elsewhere would load positions for every network on top of the refresh that
+// switch already causes. While the surface is hidden the latest request waits
+// for the account to settle, so a run of switches loads only the last account;
+// regaining focus flushes it at once.
+export function createSwapPositionPrefetchScheduler(
+  delayMs = SWAP_POSITION_HIDDEN_PREFETCH_DELAY_MS,
+) {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  let pendingRun: (() => void) | undefined;
+  const clearTimer = () => {
+    if (timer) {
+      clearTimeout(timer);
+      timer = undefined;
+    }
+  };
+  const flush = () => {
+    clearTimer();
+    const run = pendingRun;
+    pendingRun = undefined;
+    run?.();
+  };
+  return {
+    request(run: () => void, isFocused: boolean) {
+      clearTimer();
+      pendingRun = run;
+      if (isFocused) {
+        flush();
+        return;
+      }
+      timer = setTimeout(flush, delayMs);
+    },
+    flush,
+    cancel() {
+      clearTimer();
+      pendingRun = undefined;
+    },
+  };
+}

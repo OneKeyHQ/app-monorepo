@@ -79,6 +79,7 @@ import {
 // eslint-disable-next-line import-js/order
 import './libs/react-native-mmkv-desktop-main';
 import { registerInfoHandlers } from './libs/registerInfoHandlers';
+import { shouldReloadAppShellAfterFailedLoad } from './libs/rendererLoadRecovery';
 import { registerShortcuts, unregisterShortcuts } from './libs/shortcuts';
 import * as store from './libs/store';
 import { getBackgroundColor } from './libs/utils';
@@ -723,6 +724,12 @@ let nobleBleInitialization = Promise.resolve();
 let trezorBleWindowCleanup = Promise.resolve();
 // Retain retired handlers so recovery-created native instances survive until app quit.
 const trezorBleSupports = new Set<ReturnType<typeof initTrezorBleSupport>>();
+// When the main renderer dies, the window keeps its last frame but ignores all
+// input. Reload it, capped so a renderer that crashes while booting cannot
+// reload forever.
+const MAIN_RENDERER_RELOAD_WINDOW_MS = 5 * 60 * 1000;
+const MAIN_RENDERER_MAX_RELOADS_IN_WINDOW = 3;
+let mainRendererReloadTimestamps: number[] = [];
 
 async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
   await trezorBleWindowCleanup;
@@ -970,6 +977,42 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
   });
   browserWindow.webContents.on('responsive', () => {
     logger.info('[CPU Watchdog] renderer webContents responsive again');
+  });
+
+  browserWindow.webContents.on('render-process-gone', (_event, details) => {
+    if (details.reason === 'clean-exit' || bleQuitStarted || softRestarting) {
+      return;
+    }
+    const now = Date.now();
+    mainRendererReloadTimestamps = mainRendererReloadTimestamps.filter(
+      (timestamp) => now - timestamp < MAIN_RENDERER_RELOAD_WINDOW_MS,
+    );
+    const logData = {
+      reason: details.reason,
+      exitCode: details.exitCode,
+      recentReloads: mainRendererReloadTimestamps.length,
+    };
+    if (
+      mainRendererReloadTimestamps.length >= MAIN_RENDERER_MAX_RELOADS_IN_WINDOW
+    ) {
+      logger.error(
+        '[RendererRecovery] main renderer keeps crashing, not reloading',
+        logData,
+      );
+      return;
+    }
+    mainRendererReloadTimestamps.push(now);
+    logger.warn('[RendererRecovery] main renderer gone, reloading', logData);
+    // Start the reload after Electron finishes dispatching this event.
+    setImmediate(() => {
+      const safelyBrowserWindow = getSafelyBrowserWindow();
+      if (!safelyBrowserWindow || bleQuitStarted || softRestarting) {
+        return;
+      }
+      // Deep links received while the page reboots wait for dom-ready.
+      isAppReady = false;
+      void safelyBrowserWindow.loadURL(src);
+    });
   });
 
   browserWindow.webContents.on('did-finish-load', () => {
@@ -1640,12 +1683,22 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
     const safelyBrowserWindow = getSafelyBrowserWindow();
     safelyBrowserWindow?.webContents.on(
       'did-fail-load',
-      (_, __, ___, validatedURL) => {
-        const redirectPath = validatedURL.replace(`${PROTOCOL}://`, '');
-        if (validatedURL.startsWith(PROTOCOL) && !redirectPath.includes('.')) {
-          const w = getSafelyBrowserWindow();
-          void w?.loadURL(src);
+      (_, errorCode, __, validatedURL, isMainFrame) => {
+        if (
+          !shouldReloadAppShellAfterFailedLoad({
+            validatedURL,
+            isMainFrame,
+            errorCode,
+            appShellUrl: src,
+          })
+        ) {
+          return;
         }
+        logger.info('browserWindow >>>> reload app shell after failed load', {
+          errorCode,
+        });
+        const w = getSafelyBrowserWindow();
+        void w?.loadURL(src);
       },
     );
   }
@@ -2061,6 +2114,8 @@ app.on('render-process-gone', (event, webContents, details) => {
   logger.error('Render process gone:', {
     reason: details.reason,
     exitCode: details.exitCode,
+    webContentsType: webContents.getType(),
+    isMainWindow: webContents === getSafelyMainWindow()?.webContents,
   });
 
   if (details.reason === 'crashed' || details.reason === 'oom') {

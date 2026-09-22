@@ -33,6 +33,7 @@ import { BorrowAlerts } from '../components/BorrowAlerts';
 import { BorrowCard } from '../components/BorrowCard';
 import { BorrowDataGate } from '../components/BorrowDataGate';
 import { BorrowedCard } from '../components/BorrowedCard';
+import { BorrowEModeMetric } from '../components/BorrowEModeMetric';
 import {
   BORROW_MOBILE_ACTION_BAR_SCROLL_INSET,
   BorrowMobileActionBar,
@@ -139,6 +140,11 @@ const BorrowHomeContent = memo(
       (reserves.loading && !reserves.data);
     const isReservesError =
       !isReservesPending && borrowDataStatus === EBorrowDataStatus.Error;
+    // renderCards short-circuits to its error block before it ever reaches the
+    // empty state, so a failed load is not evidence of an empty market — it is
+    // no evidence at all. Both states leave the market's contents undecided,
+    // and the headline metrics stay up for either.
+    const isPositionStateUnsettled = isReservesPending || isReservesError;
     const { activeAccount } = useActiveAccount({ num: 0 });
     const earnAccountId = getBorrowEarnAccountId(earnAccount.data);
     const inferredEModeProvider = market?.provider ?? markets[0]?.provider;
@@ -237,6 +243,15 @@ const BorrowHomeContent = memo(
     const handleRetryReserves = useCallback(() => {
       void refreshReserves();
     }, [refreshReserves]);
+
+    // Overview drops its metric row along with the metrics, and refresh rides
+    // that row. The empty state takes it over on its own heading so the market
+    // can still be refreshed by hand — the two rows never coexist, so the
+    // button shows up exactly once either way.
+    const requestRefresh = overviewData.requestRefresh;
+    const handleEmptyStateRefresh = useCallback(() => {
+      void requestRefresh();
+    }, [requestRefresh]);
 
     const isMidWidth = gtMd && !gtXl;
     const isPhone = !gtMd;
@@ -378,9 +393,20 @@ const BorrowHomeContent = memo(
       [openManagePosition],
     );
 
+    // E-Mode reads its own request and its screen never touches reserves, so it
+    // stays reachable while the cards above it are in their error state.
+    const eModeBar = (
+      <BorrowEModeMetric
+        eModeStatus={eModeStatus}
+        isError={isEModeError}
+        isLoading={isEModeInitialLoading}
+        variant="bar"
+      />
+    );
+
     const renderCards = () => {
       if (isReservesError) {
-        return (
+        const reservesError = (
           <Empty
             testID={BorrowTestIDs.reservesErrorState}
             py="$16"
@@ -399,6 +425,14 @@ const BorrowHomeContent = memo(
               }),
             }}
           />
+        );
+        return isPhone ? (
+          <YStack flex={1} gap="$5">
+            {reservesError}
+            {eModeBar}
+          </YStack>
+        ) : (
+          reservesError
         );
       }
 
@@ -437,6 +471,10 @@ const BorrowHomeContent = memo(
                 assets={supplyAssets}
                 isLoading={reserves.loading}
                 onPressAsset={handleSupplyAsset}
+                onRefresh={handleEmptyStateRefresh}
+                isRefreshing={
+                  reserves.loading || overviewData.isManualRefreshing
+                }
               />
             )}
             <BorrowMobileSummary
@@ -444,6 +482,10 @@ const BorrowHomeContent = memo(
               overviewData={overviewData}
               showPositionTotals={hasPositions}
             />
+            {/* E-Mode is a market-wide setting rather than a headline number,
+                so on phones it closes the page under the positions and the
+                summary instead of interrupting the metrics at the top. */}
+            {eModeBar}
           </YStack>
         );
       }
@@ -489,6 +531,8 @@ const BorrowHomeContent = memo(
               isEModeLoading={isEModeInitialLoading}
               overviewData={overviewData}
               showBottomSpacing={!hasAlerts}
+              showPositionMetrics={hasPositions}
+              isPositionStateUnsettled={isPositionStateUnsettled}
               onBorrowHistoryActionChange={onBorrowHistoryActionChange}
             />
             {hasAlerts ? (

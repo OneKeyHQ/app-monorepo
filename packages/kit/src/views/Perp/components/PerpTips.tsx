@@ -1,10 +1,12 @@
 import { useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
+import { Platform, StyleSheet } from 'react-native';
 
 import { Alert, YStack } from '@onekeyhq/components';
 import { usePerpsCommonConfigPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { travelModeManager } from '@onekeyhq/shared/src/travelMode';
 import {
   openUrlExternal,
@@ -74,6 +76,12 @@ export function PerpTips() {
         type="info"
         fullBleed
         borderWidth={0}
+        {...Platform.select({
+          web: {
+            borderBottomWidth: platformEnv.isWeb ? StyleSheet.hairlineWidth : 0,
+            borderBottomColor: '$borderSubdued',
+          },
+        })}
         icon="InfoCircleSolid"
         title={perpConfigCommon?.perpBannerConfig?.title}
         description={perpConfigCommon?.perpBannerConfig?.description}

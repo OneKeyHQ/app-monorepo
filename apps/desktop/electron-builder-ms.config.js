@@ -35,7 +35,13 @@ module.exports = {
         'to': 'bin/ble-pair',
       },
     ],
-    'extraFiles': DLLs,
+    'extraFiles': [
+      ...DLLs,
+      {
+        'from': 'resources/windows/notificationIcon.png',
+        'to': 'resources/windows/notificationIcon.png',
+      },
+    ],
     'icon': 'app/build/static/images/icons/installerIcon.ico',
     'artifactName': 'OneKey-Wallet-${version}-win-store-${arch}.${ext}',
     'verifyUpdateCodeSignature': false,

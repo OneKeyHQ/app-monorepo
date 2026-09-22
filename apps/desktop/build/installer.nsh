@@ -6,6 +6,9 @@
 !include "nsDialogs.nsh"
 !addplugindir /x86-unicode "${BUILD_RESOURCES_DIR}\nsis-duilib-ui\plugin\x86-unicode"
 
+!define ONEKEY_APP_USER_MODEL_ID "OneKey Wallet"
+!define ONEKEY_NOTIFICATION_IDENTITY_REGISTRY_KEY "Software\Classes\AppUserModelId\${ONEKEY_APP_USER_MODEL_ID}"
+
 Var OneKeyModernUiActive
 Var OneKeyModernLocale
 Var OneKeyModernResult
@@ -415,6 +418,8 @@ FunctionEnd
   !macroend
 
   !macro customUnInstall
+    DeleteRegKey SHELL_CONTEXT "${ONEKEY_NOTIFICATION_IDENTITY_REGISTRY_KEY}"
+
     ${If} $OneKeyModernUiActive == "1"
       nsis-duilib-ui::SetPage "uninstalling"
       Pop $OneKeyModernResult
@@ -837,6 +842,16 @@ FunctionEnd
   FunctionEnd
 
   !macro customInstall
+    !ifndef DO_NOT_CREATE_START_MENU_SHORTCUT
+      ${if} ${FileExists} "$newStartMenuLink"
+        ClearErrors
+        WinShell::SetLnkAUMI "$newStartMenuLink" "${ONEKEY_APP_USER_MODEL_ID}"
+      ${endIf}
+    !endif
+
+    WriteRegExpandStr SHELL_CONTEXT "${ONEKEY_NOTIFICATION_IDENTITY_REGISTRY_KEY}" "DisplayName" "${PRODUCT_NAME}"
+    WriteRegExpandStr SHELL_CONTEXT "${ONEKEY_NOTIFICATION_IDENTITY_REGISTRY_KEY}" "IconUri" "$INSTDIR\resources\windows\notificationIcon.png"
+
     ${If} $OneKeyModernUiActive == "1"
       # Native mirroring has already reported intermediate progress.
       nsis-duilib-ui::SetProgress "100"

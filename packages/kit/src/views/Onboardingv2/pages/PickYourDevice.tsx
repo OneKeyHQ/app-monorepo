@@ -1,6 +1,7 @@
 import { useCallback, useMemo } from 'react';
 
 import { EDeviceType } from '@onekeyfe/hd-shared';
+import { useNavigationState } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 
 import {
@@ -32,6 +33,7 @@ import {
   LayoutHeaderBack,
   LayoutHeaderLanguageSelector,
   LayoutHeaderTitle,
+  OnboardingNativeHeaderBack,
 } from '../components/Layout';
 import { showLegacyDevicesDialog } from '../components/LegacyDevicesDialog';
 import { showOtherDevicesDialog } from '../components/OtherDevicesDialog';
@@ -57,17 +59,8 @@ export default function PickYourDevice() {
   >(
     () => [
       {
-        name: 'OneKey Pro series',
-        // Pro 2 launch art must stay out of the repo until release; the
-        // release ticket (OK-59937) swaps in the real series key visual.
+        name: 'OneKey Pro',
         deviceType: [EDeviceType.Pro, EDeviceType.Pro2],
-        image: require('@onekeyhq/kit/assets/pick-pro.png'),
-      },
-      {
-        name: 'OneKey Neo',
-        // Same launch embargo: reuse Pro art until the Neo assets land
-        // (OK-59935).
-        deviceType: [EDeviceType.Neo],
         image: require('@onekeyhq/kit/assets/pick-pro.png'),
       },
       {
@@ -85,12 +78,12 @@ export default function PickYourDevice() {
             image: require('@onekeyhq/kit/assets/pick-touch.png'),
           }
         : {
-            name: 'Legacy',
+            name: intl.formatMessage({
+              id: ETranslations.legacy_devices__title,
+            }),
             tags: ['Mini', 'Touch'],
             deviceType: [],
-            // Touch art stands in until a dedicated Legacy visual is
-            // designed.
-            image: require('@onekeyhq/kit/assets/pick-touch.png'),
+            image: require('@onekeyhq/kit/assets/pick-legacy.png'),
             colors: SHIMMER_NEUTRAL,
             dialog: 'legacy',
           },
@@ -118,6 +111,11 @@ export default function PickYourDevice() {
   const bodyTopInset = useNativeHeader ? glassTopInset : undefined;
   const renderHeaderLanguage = useCallback(
     () => <LayoutHeaderLanguageSelector />,
+    [],
+  );
+  const isFirstScreen = useNavigationState((state) => state.index) === 0;
+  const renderHeaderBack = useCallback(
+    () => <OnboardingNativeHeaderBack exit />,
     [],
   );
   const pickTitle = intl.formatMessage({ id: ETranslations.pick_your_device });
@@ -324,10 +322,14 @@ export default function PickYourDevice() {
       {useNativeHeader ? (
         // Deeper onboarding screen: the navigator supplies the native system
         // back (chevron); we only host the centered title + glass language
-        // switcher in the native bar.
+        // switcher in the native bar. Opened on its own (Device Management's
+        // "add device" resets straight to this screen), the stack has no
+        // history and so no system back — the shell supplies the exit cross,
+        // as on the first onboarding screen: leaving here leaves onboarding.
         <Page.Header
           headerTitleAlign="center"
           headerTitle={pickTitle}
+          headerLeft={isFirstScreen ? renderHeaderBack : undefined}
           headerRight={renderHeaderLanguage}
         />
       ) : (

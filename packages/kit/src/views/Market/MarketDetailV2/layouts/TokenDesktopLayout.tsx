@@ -136,6 +136,7 @@ export function TokenPriceHeader() {
 }
 
 export function TokenDesktopLayout({
+  active,
   marketTradingView,
   swapToken,
   swapInputDraftKey,
@@ -154,6 +155,7 @@ export function TokenDesktopLayout({
   onEnterChartFullscreen,
   InformationTabsComponent,
 }: {
+  active?: boolean;
   marketTradingView: ReactNode;
   swapToken: ISwapToken;
   swapInputDraftKey: string;
@@ -215,6 +217,7 @@ export function TokenDesktopLayout({
           >
             <TokenPriceHeader />
             <TokenDetailChart
+              active={active}
               chartContainerTestID="market-token-detail-standard-chart"
               fullscreenZIndex={chartFullscreenZIndex}
               fullscreenStyle={MARKET_CHART_FULLSCREEN_STYLE}
@@ -252,7 +255,7 @@ export function TokenDesktopLayout({
           testID="market-token-detail-standard-trade"
           {...MARKET_DETAIL_TRADE_COLUMN_PROPS}
         >
-          <PerpetualTradingBanner px="$5" py="$5" />
+          <PerpetualTradingBanner px="$5" py="$5" reserveSpace />
           <MarketEmbeddedSwap
             swapToken={swapToken}
             inputDraftKey={swapInputDraftKey}

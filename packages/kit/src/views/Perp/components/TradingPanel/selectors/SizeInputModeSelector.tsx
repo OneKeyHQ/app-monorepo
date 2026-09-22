@@ -193,11 +193,9 @@ export function SizeInputModeSelector(props: ISizeInputModeSelectorProps) {
   });
 
   const handlePress = () => {
-    // An iOS page portal sits below the full-window parent dialog.
+    // Nested dialogs must share the full-window portal with their parent.
     const dialogInstance =
-      platformEnv.isNativeAndroid || (platformEnv.isNativeIOS && ifOnDialog)
-        ? Dialog
-        : dialog;
+      platformEnv.isNativeAndroid || ifOnDialog ? Dialog : dialog;
     dialogInstance.show({
       title: intl.formatMessage({ id: ETranslations.perp_size_input_title }),
       floatingPanelProps: platformEnv.isNativeAndroid

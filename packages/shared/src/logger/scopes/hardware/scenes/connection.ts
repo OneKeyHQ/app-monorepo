@@ -9,7 +9,7 @@ import type {
 import { BaseScene } from '../../../base/baseScene';
 import { LogToServer } from '../../../base/decorators';
 
-import type { IDeviceType } from '@onekeyfe/hd-core';
+import type { IDeviceType, KnownDevice } from '@onekeyfe/hd-core';
 
 export class HardwareConnectionScene extends BaseScene {
   @LogToServer()
@@ -17,6 +17,9 @@ export class HardwareConnectionScene extends BaseScene {
     deviceType: IDeviceType;
     firmwareType: 'btconly' | 'universal';
     deviceId: string;
+    serialNo?: string;
+    firmwareVersion?: string;
+    transportType?: NonNullable<KnownDevice['commType']>;
   }) {
     return params;
   }
@@ -38,6 +41,9 @@ export class HardwareConnectionScene extends BaseScene {
     status: 'success' | 'failed';
     failureStage?: 'unlock' | 'prepare' | 'pack' | 'device-sync';
     errorCode?: string;
+    schemaVersion?: 1 | 2;
+    firmwareVersion?: string;
+    deFiSource?: 'live' | 'cache' | 'empty' | 'unknown';
     syncDurationMs: number;
     packDurationMs?: number;
     hardwareDurationMs?: number;

@@ -8,7 +8,12 @@ import {
   useState,
 } from 'react';
 
-import { Canvas, Picture, useFont, useSVG } from '@shopify/react-native-skia';
+import {
+  Canvas,
+  Picture,
+  useSVG,
+  useTypeface,
+} from '@shopify/react-native-skia';
 import { Image } from 'react-native';
 import { GestureDetector } from 'react-native-gesture-handler';
 import {
@@ -28,6 +33,7 @@ import {
   TRADING_VIEW_NATIVE_AXIS_FONT_SIZE,
   TRADING_VIEW_NATIVE_LEGEND_FONT_SIZE,
   TRADING_VIEW_NATIVE_PAN_DRAG_RATIO,
+  TRADING_VIEW_NATIVE_SUB_INDICATOR_PANE_HEIGHT,
   TRADING_VIEW_NATIVE_TIME_AXIS_HEIGHT,
   TRADING_VIEW_NATIVE_WATERMARK_DARK_OPACITY as WATERMARK_DARK_OPACITY,
   TRADING_VIEW_NATIVE_WATERMARK_LIGHT_OPACITY as WATERMARK_LIGHT_OPACITY,
@@ -61,6 +67,7 @@ import {
 import {
   type ITradingViewNativeSubIndicatorRenderPane,
   getTradingViewNativeSubIndicatorAxisLabel,
+  getTradingViewNativeVisibleSubIndicatorPaneCount,
 } from '../utils/subIndicatorRender';
 
 import {
@@ -117,6 +124,7 @@ export const TradingViewNativeChart = memo(
     indicatorSeriesSettingsKey,
     initialRightOffset,
     isMobileLayout = false,
+    resizesWithSubIndicatorPanes = false,
     isSwitchingInterval,
     locale,
     priceAxisFontSize = TRADING_VIEW_NATIVE_AXIS_FONT_SIZE,
@@ -190,10 +198,7 @@ export const TradingViewNativeChart = memo(
     });
     const theme = useTheme();
     const themeName = useThemeName();
-    const priceAxisFont = useFont(
-      PRICE_AXIS_FONT_URI ?? null,
-      priceAxisFontSize,
-    );
+    const priceAxisTypeface = useTypeface(PRICE_AXIS_FONT_URI ?? null);
     const watermarkSvg = useSVG(ONEKEY_WATERMARK_URI ?? null);
     const background = chartSettings.background.colors[0];
     const grid = chartSettings.grid.horizontalColor;
@@ -267,7 +272,7 @@ export const TradingViewNativeChart = memo(
           },
           fontFamily: SYSTEM_FONT_FAMILY,
           legendFont,
-          priceAxisFont,
+          priceAxisTypeface,
           priceAxisFontSize,
           timeAxisFontSize,
           timeAxisBorderWidth,
@@ -281,7 +286,7 @@ export const TradingViewNativeChart = memo(
         grid,
         legendFont,
         line,
-        priceAxisFont,
+        priceAxisTypeface,
         priceAxisFontSize,
         timeAxisFontSize,
         timeAxisBorder,
@@ -616,8 +621,7 @@ export const TradingViewNativeChart = memo(
         });
         const nextOffset = nextRuntimeState.viewport.offset;
         const offsetDelta = nextOffset - runtime.viewport.offset;
-        decayOffset.value = nextOffset;
-        chartRuntime.value = {
+        const nextRuntime = {
           ...runtime,
           ...nextRuntimeState,
           candleIntervalSeconds,
@@ -654,15 +658,44 @@ export const TradingViewNativeChart = memo(
             }),
           },
         };
+        const previousPaneCount =
+          getTradingViewNativeVisibleSubIndicatorPaneCount(
+            runtime.subIndicatorPanes,
+          );
+        const nextPaneCount = getTradingViewNativeVisibleSubIndicatorPaneCount(
+          nextSubIndicatorPanes,
+        );
+        // The mobile container changes height with the pane count. Resize the
+        // picture in the same UI update, before Skia reports its new canvas size.
+        const nextChartHeight =
+          resizesWithSubIndicatorPanes &&
+          chartSize.height > 0 &&
+          previousPaneCount !== nextPaneCount
+            ? chartSize.height +
+              (nextPaneCount - previousPaneCount) *
+                TRADING_VIEW_NATIVE_SUB_INDICATOR_PANE_HEIGHT
+            : 0;
+        const sizedRuntime =
+          nextChartHeight > 0
+            ? resizeTradingViewNativeChartRuntime(
+                nextRuntime,
+                { height: nextChartHeight, width: runtime.size.width },
+                priceAxisWidth.value,
+              )
+            : nextRuntime;
+        decayOffset.value = sizedRuntime.viewport.offset;
+        chartRuntime.value = sizedRuntime;
       });
     }, [
       candleIntervalSeconds,
+      chartSize.height,
       chartType,
       chartRuntime,
       decayOffset,
       hasVolume,
       indicatorSeries,
       indicatorSeriesSettingsKey,
+      resizesWithSubIndicatorPanes,
       points,
       priceAxisWidth,
       renderDataRevision,

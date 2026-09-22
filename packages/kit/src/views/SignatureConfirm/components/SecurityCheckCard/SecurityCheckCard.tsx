@@ -52,6 +52,7 @@ const STATUS_LABEL_ID: Record<ISecurityCheckStatus, ETranslations> = {
   warning: ETranslations.global_warning,
   unknown: ETranslations.global_unverified,
   check_failed: ETranslations.global_unverified,
+  limited: ETranslations.dapp_connect_security_checks_limited__title,
   info: ETranslations.global_info,
   success: ETranslations.kyt_no_significant_risk_detected__title,
   loading: ETranslations.global_checking,
@@ -213,6 +214,14 @@ function getStatusTone(status: ISecurityCheckStatus): {
     return {
       titleIcon: 'QuestionmarkSolid',
       rowIcon: 'QuestionmarkOutline',
+      iconColor: '$iconSubdued',
+      badgeType: 'default',
+    };
+  }
+  if (status === 'limited') {
+    return {
+      titleIcon: 'MinusCircleOutline',
+      rowIcon: 'MinusCircleOutline',
       iconColor: '$iconSubdued',
       badgeType: 'default',
     };
@@ -637,9 +646,10 @@ function SecurityCheckHeader({
   const intl = useIntl();
   const showChecking = model.isPending;
   const style = getStatusTone(status);
-  const showBadge = status !== 'loading' && status !== 'success';
+  const showBadge =
+    status !== 'loading' && status !== 'success' && status !== 'limited';
   const showLoadingLabel = status === 'loading';
-  const showSuccessLabel = status === 'success';
+  const showPlainStatusLabel = status === 'success' || status === 'limited';
 
   return (
     <XStack
@@ -671,14 +681,14 @@ function SecurityCheckHeader({
           coverage={model.coverage}
         />
       </XStack>
-      {showLoadingLabel || showSuccessLabel || showBadge ? (
+      {showLoadingLabel || showPlainStatusLabel || showBadge ? (
         <XStack alignItems="center" gap="$2" ml="auto" maxWidth="100%">
           {showLoadingLabel ? (
             <SizableText size="$bodySm" color="$textSubdued">
               {`${statusLabel}...`}
             </SizableText>
           ) : null}
-          {showSuccessLabel ? (
+          {showPlainStatusLabel ? (
             <SizableText
               size="$bodySmMedium"
               color="$textSubdued"
@@ -784,14 +794,27 @@ function SecurityCheckCard({ model, onRetry }: IProps) {
         {cardFindings.visibleFindings.length ? (
           <YStack gap="$4">
             <YStack gap="$3">
-              {cardFindings.visibleFindings.map((finding) => (
-                <SecurityCheckFindingRow
-                  key={finding.id}
-                  finding={finding}
-                  onRetry={model.isPending ? undefined : onRetry}
-                  standalone={isStandaloneFinding}
-                />
-              ))}
+              {cardFindings.visibleFindings.map((finding) =>
+                model.status === 'limited' &&
+                (finding.id === 'tx-parse-fallback' ||
+                  finding.id === 'message-parse-fallback') ? (
+                  <SizableText
+                    key={finding.id}
+                    size="$bodySm"
+                    color="$textSubdued"
+                    textAlign="left"
+                  >
+                    {finding.description}
+                  </SizableText>
+                ) : (
+                  <SecurityCheckFindingRow
+                    key={finding.id}
+                    finding={finding}
+                    onRetry={model.isPending ? undefined : onRetry}
+                    standalone={isStandaloneFinding}
+                  />
+                ),
+              )}
             </YStack>
             {showViewAll ? (
               <SecurityCheckViewAllButton
