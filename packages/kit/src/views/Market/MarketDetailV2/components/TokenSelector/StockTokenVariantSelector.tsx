@@ -17,7 +17,6 @@ import {
   YStack,
   useMedia,
 } from '@onekeyhq/components';
-import { NetworkAvatarBase } from '@onekeyhq/kit/src/components/NetworkAvatar';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
@@ -53,10 +52,9 @@ const PRICE_COLUMN_FLEX = 0.9;
 // name column still fits a symbol plus the 24/7 tag.
 const POPOVER_WIDTH = 376;
 const ROW_MIN_HEIGHT = 62;
-// Figma 25672:54928: the trigger avatar is 28 with a 12 chain badge. The shared
-// Token size scale steps 24 -> 32, so the badge is composed here instead.
 // Figma 26230:23591 — the trigger avatar is 32 with a 16 chain badge, which
-// is exactly what `Token` renders at size "md".
+// is exactly what `Token` renders at size "md". The compact (Trade) trigger
+// shares it so the two surfaces read the same.
 const TRIGGER_TOKEN_SIZE = 32;
 const VALUE_FALLBACK = '--';
 
@@ -476,7 +474,11 @@ export function StockTokenVariantSelector({
             alignItems="center"
             gap="$2.5"
           >
-            <Skeleton width={28} height={28} radius="round" />
+            <Skeleton
+              width={TRIGGER_TOKEN_SIZE}
+              height={TRIGGER_TOKEN_SIZE}
+              radius="round"
+            />
             <XStack alignItems="center" gap="$2">
               <Skeleton width={56} height={24} />
               <Stack width={18} height={18} />
@@ -512,9 +514,7 @@ export function StockTokenVariantSelector({
           gap="$2.5"
         >
           <Token
-            size="sm"
-            w={28}
-            h={28}
+            size="md"
             tokenImageUri={fallbackToken.logoURI}
             placeholder={<Stack width="100%" height="100%" />}
           />
@@ -564,40 +564,13 @@ export function StockTokenVariantSelector({
           hoverStyle={{ bg: '$bgHover' }}
           pressStyle={{ bg: '$bgActive' }}
         >
-          {compact ? (
-            <Stack width={28} height={28}>
-              <Token
-                size="sm"
-                w={28}
-                h={28}
-                tokenImageUri={selectedTokenVariant.logoUrl}
-                placeholder={<Stack width="100%" height="100%" />}
-              />
-              {selectedTokenVariant.networkLogoUrl ? (
-                <Stack
-                  position="absolute"
-                  right="$-1"
-                  bottom="$-1"
-                  p="$0.5"
-                  bg="$bgApp"
-                  borderRadius="$full"
-                >
-                  <NetworkAvatarBase
-                    size={12}
-                    logoURI={selectedTokenVariant.networkLogoUrl}
-                  />
-                </Stack>
-              ) : null}
-            </Stack>
-          ) : (
-            <Token
-              size="md"
-              tokenImageUri={selectedTokenVariant.logoUrl}
-              networkImageUri={selectedTokenVariant.networkLogoUrl}
-              showNetworkIcon
-              placeholder={<Stack width="100%" height="100%" />}
-            />
-          )}
+          <Token
+            size="md"
+            tokenImageUri={selectedTokenVariant.logoUrl}
+            networkImageUri={selectedTokenVariant.networkLogoUrl}
+            showNetworkIcon
+            placeholder={<Stack width="100%" height="100%" />}
+          />
           <XStack alignItems="center" gap="$2">
             <YStack justifyContent="center" minWidth={0}>
               <SizableText size="$headingMd" numberOfLines={1}>
@@ -606,19 +579,19 @@ export function StockTokenVariantSelector({
                   VALUE_FALLBACK}
               </SizableText>
               {/* Figma 26230:23833 — the issuer sits under the symbol so the
-                  trigger names who backs the token, not just which one it is. */}
-              {compact ? null : (
-                <SizableText
-                  size="$bodySm"
-                  color="$textSubdued"
-                  numberOfLines={1}
-                >
-                  {intl.formatMessage(
-                    { id: ETranslations.market_issued_by },
-                    { issuer: getIssuerLabel(selectedTokenVariant.issuer) },
-                  )}
-                </SizableText>
-              )}
+                  trigger names who backs the token, not just which one it is.
+                  The compact (Trade) trigger shows it too so both surfaces
+                  name the issuer the same way. */}
+              <SizableText
+                size="$bodySm"
+                color="$textSubdued"
+                numberOfLines={1}
+              >
+                {intl.formatMessage(
+                  { id: ETranslations.market_issued_by },
+                  { issuer: getIssuerLabel(selectedTokenVariant.issuer) },
+                )}
+              </SizableText>
             </YStack>
             <Icon
               name="ChevronDownSmallOutline"
