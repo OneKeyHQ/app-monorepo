@@ -290,6 +290,26 @@ function isBtcOnlyFirmware({
   return getFirmwareType({ features }) === EFirmwareType.BitcoinOnly;
 }
 
+function isLedgerBleSupportedDevice(device?: IThirdPartyDeviceLike): boolean {
+  const settings = getDeviceSettings(device);
+  const model = normalizeThirdPartyModelName(
+    settings?.vendorModel || settings?.vendorModelName,
+  );
+  // Mirror Ledger model identifiers without loading the vendor SDK in the UI.
+  return [
+    'nanox',
+    'nano x',
+    'ledger nano x',
+    'stax',
+    'ledger stax',
+    'europa',
+    'flex',
+    'ledger flex',
+    'apex',
+    'ledger apex',
+  ].includes(model);
+}
+
 function isTrezorBleSupportedDevice(device?: IThirdPartyDeviceLike): boolean {
   return isTrezorBleSupportedModel(getDeviceSettings(device)?.vendorModel);
 }
@@ -355,6 +375,7 @@ export default {
   getFirmwareType,
   getSerialNo,
   isBtcOnlyFirmware,
+  isLedgerBleSupportedDevice,
   isTrezorBleSupportedDevice,
   isTrezorBrightnessSupportedDevice,
   isTrezorBleSupportedModel,
