@@ -31,6 +31,11 @@ const meta = {
       control: 'radio',
       options: ['connecting', 'enterPin', 'enterPassphrase', 'confirm'],
     },
+    // Only the Pro 2 and the Neo listen; the rest ignore it.
+    color: {
+      control: 'select',
+      options: ['Black', 'Silver', 'Orange', 'White', 'Green', 'Pink'],
+    },
     width: { control: { type: 'range', min: 80, max: 500, step: 1 } },
   },
 } satisfies Meta<typeof HardwareDevice>;
@@ -67,6 +72,38 @@ export const ByDeviceType: Story = {
         />
       ))}
     </XStack>
+  ),
+};
+
+// The two models that come in more than one finish; in the app the serial
+// number's last letter picks it (shared/utils/hardwareDeviceColors). The
+// first shell of each row is what an unknown serial gets.
+export const Colors: Story = {
+  render: () => (
+    <YStack gap="$4">
+      <XStack gap="$4" alignItems="flex-start">
+        {(['Black', 'Silver', 'Orange'] as const).map((color) => (
+          <HardwareDevice
+            key={color}
+            deviceType="pro2"
+            color={color}
+            animation="connecting"
+            width={120}
+          />
+        ))}
+      </XStack>
+      <XStack gap="$4" alignItems="flex-start">
+        {(['White', 'Black', 'Green', 'Pink'] as const).map((color) => (
+          <HardwareDevice
+            key={color}
+            deviceType="neo"
+            color={color}
+            animation="connecting"
+            width={120}
+          />
+        ))}
+      </XStack>
+    </YStack>
   ),
 };
 

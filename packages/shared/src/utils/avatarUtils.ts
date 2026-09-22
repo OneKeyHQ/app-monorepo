@@ -2,9 +2,11 @@ import { EDeviceType } from '@onekeyfe/hd-shared';
 
 import { EHardwareVendor } from '../../types/device';
 
+import { getNeoDeviceColor, getPro2DeviceColor } from './hardwareDeviceColors';
 import { NEO_DEVICE_TYPE } from './hardwareDeviceTypes';
 import thirdPartyDeviceUtils from './thirdPartyDeviceUtils';
 
+import type { INeoDeviceColor, IPro2DeviceColor } from './hardwareDeviceColors';
 import type { IDeviceType } from '@onekeyfe/hd-core';
 import type { ImageSourcePropType } from 'react-native';
 
@@ -30,10 +32,14 @@ export const HdWalletAvatarImageNames = Object.keys(
   HdWalletAvatarImages,
 ) as IHdWalletAvatarImageNames[];
 
-/** The device colors that ship with their own avatar art. */
+/**
+ * The device colors that ship with their own avatar art. The Pro's two
+ * are told apart by serial here; the Pro 2's and the Neo's vocabulary
+ * lives in ./hardwareDeviceColors, shared with the stage replicas.
+ */
 type IProColor = 'Black' | 'White';
-type IPro2Color = 'Black' | 'Orange' | 'Silver';
-type INeoColor = 'Black' | 'White' | 'Green' | 'Pink';
+type IPro2Color = IPro2DeviceColor;
+type INeoColor = INeoDeviceColor;
 
 export const HwWalletAvatarImages: Record<
   | IDeviceType
@@ -110,25 +116,6 @@ export type IAllWalletAvatarImageNames =
   | 'cardDividers'
   | IAllWalletAvatarImageNamesWithoutDividers;
 
-/**
- * A Pro 2 / Neo serial number ends in its color letter (hardware team,
- * 2026-09-01): A black, B white, C transparent (the Bitcoin-only SKU),
- * D orange, E green, F pink. A letter without avatar art wears black — so
- * does the transparent SKU. The Pro 2 ships a silver avatar too, but the
- * table names no letter for it, so silver stays unreachable until the
- * hardware team confirms which letter it is.
- */
-const PRO2_SERIAL_COLORS: Partial<Record<string, IPro2Color>> = {
-  A: 'Black',
-  D: 'Orange',
-};
-const NEO_SERIAL_COLORS: Partial<Record<string, INeoColor>> = {
-  A: 'Black',
-  B: 'White',
-  E: 'Green',
-  F: 'Pink',
-};
-
 export function getDeviceAvatarImage(
   deviceType: IDeviceType,
   serialNo?: string,
@@ -139,12 +126,12 @@ export function getDeviceAvatarImage(
     }
     return `${EDeviceType.Pro}Black`;
   }
-  const colorCode = serialNo?.slice(-1) ?? '';
+  // A letter the model does not come in, and no serial at all, wear black.
   if (deviceType === EDeviceType.Pro2) {
-    return `${EDeviceType.Pro2}${PRO2_SERIAL_COLORS[colorCode] ?? 'Black'}`;
+    return `${EDeviceType.Pro2}${getPro2DeviceColor(serialNo) ?? 'Black'}`;
   }
   if (deviceType === NEO_DEVICE_TYPE) {
-    return `${NEO_DEVICE_TYPE}${NEO_SERIAL_COLORS[colorCode] ?? 'Black'}`;
+    return `${NEO_DEVICE_TYPE}${getNeoDeviceColor(serialNo) ?? 'Black'}`;
   }
   return deviceType;
 }

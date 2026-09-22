@@ -36,10 +36,11 @@ describe('getDeviceAvatarImage', () => {
 
   it.each([
     ['P20001A', 'pro2Black'],
+    ['P20001B', 'pro2Silver'],
     ['P20001D', 'pro2Orange'],
-    // White, the transparent SKU and unknown letters wear black.
-    ['P20001B', 'pro2Black'],
+    // Letters the Pro 2 does not come in, and no serial, wear black.
     ['P20001C', 'pro2Black'],
+    ['P20001E', 'pro2Black'],
     ['P20001Z', 'pro2Black'],
     [undefined, 'pro2Black'],
   ])('resolves a Pro 2 serial %s to %s', (serialNo, expected) => {
@@ -51,7 +52,7 @@ describe('getDeviceAvatarImage', () => {
     ['NE0001B', 'neoWhite'],
     ['NE0001E', 'neoGreen'],
     ['NE0001F', 'neoPink'],
-    // The transparent SKU, orange and unknown letters wear black.
+    // Letters the Neo does not come in, and no serial, wear black.
     ['NE0001C', 'neoBlack'],
     ['NE0001D', 'neoBlack'],
     [undefined, 'neoBlack'],

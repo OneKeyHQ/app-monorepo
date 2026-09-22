@@ -516,6 +516,7 @@ export function DeviceStage({
   step,
   deviceType,
   replicaWidth = REPLICA_WIDTH,
+  deviceColor,
   deviceName,
   connectionType,
   waitStalled,
@@ -2133,6 +2134,7 @@ export function DeviceStage({
       <View onLayout={handleDeviceLayout}>
         <HardwareDevice
           deviceType={deviceType ?? 'unknown'}
+          color={deviceColor}
           animation={activeScene}
           warmScenes={builtScenes}
           width={replicaWidth}
@@ -2149,6 +2151,7 @@ export function DeviceStage({
     [
       activeScene,
       builtScenes,
+      deviceColor,
       deviceType,
       handleDeviceLayout,
       hidden,

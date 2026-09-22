@@ -397,6 +397,7 @@ export function pickIdentityText(
 export type IDeviceStageBurstBeginParams = {
   connectId?: string;
   deviceType?: IDeviceStageState['deviceType'];
+  deviceColor?: IDeviceStageState['deviceColor'];
   deviceName?: string;
   /** Third-party track: vendor + real model for the capsule product shot. */
   vendor?: EHardwareVendor;
@@ -664,6 +665,7 @@ export class DeviceStageBurstScope {
           await this.setStep('connecting', {
             connectId: params.connectId,
             deviceType: params.deviceType,
+            deviceColor: params.deviceColor,
             deviceName: params.deviceName,
             vendor: params.vendor,
             vendorModel: params.vendorModel,
@@ -686,6 +688,7 @@ export class DeviceStageBurstScope {
           void this.setStep('connecting', {
             connectId: opening.connectId,
             deviceType: opening.deviceType,
+            deviceColor: opening.deviceColor,
             deviceName: opening.deviceName,
             vendor: opening.vendor,
             vendorModel: opening.vendorModel,
@@ -1506,6 +1509,7 @@ export class DeviceStageBurstScope {
     extras: {
       connectId?: string;
       deviceType?: IDeviceStageState['deviceType'];
+      deviceColor?: IDeviceStageState['deviceColor'];
       deviceName?: string;
       payload?: IHardwareUiPayload;
       confirmDetails?: IDeviceStageState['confirmDetails'];
@@ -1775,6 +1779,7 @@ export class DeviceStageBurstScope {
           this.pendingOpen.connectId,
         ),
         deviceType: params.deviceType ?? this.pendingOpen.deviceType,
+        deviceColor: params.deviceColor ?? this.pendingOpen.deviceColor,
         deviceName: pickIdentityText(
           params.deviceName,
           this.pendingOpen.deviceName,
@@ -1794,6 +1799,7 @@ export class DeviceStageBurstScope {
     const hasIdentity =
       params.connectId ||
       params.deviceType ||
+      params.deviceColor ||
       params.deviceName ||
       params.vendor ||
       params.vendorModel ||
@@ -1816,6 +1822,7 @@ export class DeviceStageBurstScope {
             : prev.activitySeq,
         connectId: pickIdentityText(params.connectId, prev.connectId),
         deviceType: pickDeviceType(params.deviceType, prev.deviceType),
+        deviceColor: params.deviceColor ?? prev.deviceColor,
         deviceName: pickIdentityText(params.deviceName, prev.deviceName),
         vendor: params.vendor ?? prev.vendor,
         vendorModel: pickIdentityText(params.vendorModel, prev.vendorModel),
@@ -1870,6 +1877,7 @@ export class DeviceStageBurstScope {
       step: 'off',
       connectId: prev.connectId,
       deviceType: prev.deviceType,
+      deviceColor: prev.deviceColor,
       deviceName: prev.deviceName,
       vendor: prev.vendor,
       vendorModel: prev.vendorModel,
@@ -1887,6 +1895,7 @@ export class DeviceStageBurstScope {
     extras: {
       connectId?: string;
       deviceType?: IDeviceStageState['deviceType'];
+      deviceColor?: IDeviceStageState['deviceColor'];
       deviceName?: string;
       payload?: IHardwareUiPayload;
       errorReason?: IDeviceStageErrorReasonValue;
@@ -1928,6 +1937,7 @@ export class DeviceStageBurstScope {
         ...extras,
         connectId: pickIdentityText(extras.connectId, opening.connectId),
         deviceType: extras.deviceType ?? opening.deviceType,
+        deviceColor: extras.deviceColor ?? opening.deviceColor,
         deviceName: pickIdentityText(extras.deviceName, opening.deviceName),
         vendor: extras.vendor ?? opening.vendor,
         vendorModel: pickIdentityText(extras.vendorModel, opening.vendorModel),
@@ -1974,6 +1984,9 @@ export class DeviceStageBurstScope {
         step,
         connectId: pickIdentityText(mergedExtras.connectId, base?.connectId),
         deviceType: pickDeviceType(mergedExtras.deviceType, base?.deviceType),
+        // Sticky like the model: a step that names no color keeps the one
+        // the device row gave, never blanks it.
+        deviceColor: mergedExtras.deviceColor ?? base?.deviceColor,
         deviceName: pickIdentityText(mergedExtras.deviceName, base?.deviceName),
         // Device/vendor identity is sticky within the burst (base), never
         // across bursts; the per-step extras (install / btc / action)

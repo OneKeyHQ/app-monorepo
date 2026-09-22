@@ -1,6 +1,9 @@
+import type { ComponentType } from 'react';
+
 import { StyleSheet, View } from 'react-native';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import type { IHardwareDeviceColor } from '@onekeyhq/shared/src/utils/hardwareDeviceColors';
 
 import { ClassicDevice } from '../ClassicDevice';
 import { MiniDevice } from '../MiniDevice';
@@ -14,6 +17,8 @@ import type { IMiniDeviceScene } from '../MiniDevice';
 import type { IPro2DeviceScene } from '../Pro2Device';
 import type { IProDeviceScene } from '../ProDevice';
 import type { ITouchDeviceScene } from '../TouchDevice';
+
+export type { IHardwareDeviceColor } from '@onekeyhq/shared/src/utils/hardwareDeviceColors';
 
 /**
  * The code-drawn hardware devices. This is the entry point; ../ClassicDevice,
@@ -107,7 +112,17 @@ export interface IHardwareDeviceProps {
    * shadow would spill past the shell.
    */
   shadow?: boolean;
+  /**
+   * The device's finish, as its serial number names it (see
+   * shared/utils/hardwareDeviceColors). Only the Pro 2 and the Neo come
+   * in more than one; the other models take it and ignore it. Omitted or
+   * unknown: the model's default — the Pro 2 in black, the Neo in white.
+   */
+  color?: IHardwareDeviceColor;
 }
+
+/** What the router hands every replica: its own props minus the model. */
+type IReplicaProps = Omit<IHardwareDeviceProps, 'deviceType'>;
 
 const SHADOW_OPACITY = 0.35;
 const SHADOW_BLUR = 10;
@@ -132,15 +147,7 @@ const styles = StyleSheet.create({
  * and renders nothing, so "has a replica" is stated exactly once.
  */
 const REPLICAS: Partial<
-  Record<
-    IHardwareDeviceType,
-    | typeof ClassicDevice
-    | typeof MiniDevice
-    | typeof ProDevice
-    | typeof TouchDevice
-    | typeof Pro2Device
-    | typeof NeoDevice
-  >
+  Record<IHardwareDeviceType, ComponentType<IReplicaProps>>
 > = {
   classic: ClassicDevice,
   classic1s: ClassicDevice,
@@ -160,6 +167,7 @@ export function HardwareDevice({
   paused,
   warmScenes,
   shadow,
+  color,
 }: IHardwareDeviceProps) {
   const Replica = deviceType ? REPLICAS[deviceType] : undefined;
   if (!Replica) return null;
@@ -170,6 +178,7 @@ export function HardwareDevice({
       instantEntry={instantEntry}
       paused={paused}
       warmScenes={warmScenes}
+      color={color}
     />
   );
   return shadow ? <View style={styles.shadow}>{replica}</View> : replica;
