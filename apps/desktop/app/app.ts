@@ -227,6 +227,9 @@ const APP_NAME = 'OneKey Wallet';
 const APP_TITLE_NAME = 'OneKey';
 app.name = APP_NAME;
 let mainWindow: BrowserWindow | null;
+let saveMainWindowStateImmediately: (() => void) | undefined;
+let cancelMainWindowStateSave: (() => void) | undefined;
+let skipDesktopStatePersistenceOnQuit = false;
 let isAppReady = false;
 // Custom scheme used to serve the renderer bundle via interceptFileProtocol.
 // Module-scoped so softRestartRenderer and createMainWindow reference the SAME
@@ -340,6 +343,7 @@ async function softRestartRenderer() {
     // destroy() force-terminates the old renderer process (same as today's hard
     // restart), giving the recreated window a clean customElements registry and
     // killing any in-flight JS in the old renderer so it cannot re-trigger.
+    saveMainWindowStateImmediately?.();
     getSafelyMainWindow()?.destroy();
     mainWindow = null;
     isAppReady = false;
@@ -778,19 +782,18 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
   // eslint-disable-next-line @typescript-eslint/no-unsafe-call
   const display = screen.getPrimaryDisplay();
   const dimensions = display.workAreaSize;
-  let savedWinBounds: {
-    x?: number;
-    y?: number;
-    width?: number;
-    height?: number;
-  } = store.getWinBounds();
+  const savedWindowState = store.getWinBounds();
+  const { isMaximized: savedWindowIsMaximized = false, ...savedWinBounds } =
+    savedWindowState;
 
   if (
-    savedWinBounds &&
-    ((savedWinBounds?.width || 0) < minWidth ||
-      (savedWinBounds?.height || 0) < minHeight / ratio)
+    (savedWinBounds?.width || 0) < minWidth ||
+    (savedWinBounds?.height || 0) < minHeight / ratio
   ) {
-    savedWinBounds = {};
+    delete savedWinBounds.x;
+    delete savedWinBounds.y;
+    delete savedWinBounds.width;
+    delete savedWinBounds.height;
   }
   const browserWindow = new BrowserWindow({
     show: false,
@@ -800,7 +803,7 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
       isWin || isLinux
         ? {
             height: 52,
-            color: '#00000000',
+            color: isWin ? getBackgroundColor(theme) : '#00000000',
             symbolColor: isDarkTheme ? '#ffffff' : '#000000',
           }
         : false,
@@ -834,12 +837,21 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
     ...savedWinBounds,
   });
   applyDesktopNetworkThrottleToWebContents(browserWindow.webContents);
+  const initialNormalWindowBounds = browserWindow.getBounds();
 
   const getSafelyBrowserWindow = () => {
     if (browserWindow && !browserWindow.isDestroyed()) {
       return browserWindow;
     }
     return undefined;
+  };
+  let shouldRestoreMaximizedState = savedWindowIsMaximized;
+  const showMainWindowWithRestoredState = () => {
+    showMainWindow();
+    if (shouldRestoreMaximizedState) {
+      shouldRestoreMaximizedState = false;
+      browserWindow.maximize();
+    }
   };
 
   store.processPreLaunchPendingTask();
@@ -859,11 +871,15 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
     getBundleIndexHtmlPath: () => bundleIndexHtmlPath,
     useJsBundle: () => !!bundleIndexHtmlPath,
     softRestartRenderer,
+    prepareForAppReset: () => {
+      skipDesktopStatePersistenceOnQuit = true;
+      cancelMainWindowStateSave?.();
+    },
   };
 
   if (isMac) {
     browserWindow.once('ready-to-show', () => {
-      showMainWindow();
+      showMainWindowWithRestoredState();
     });
   }
 
@@ -1019,7 +1035,7 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
     logger.info('browserWindow >>>> did-finish-load');
     // fix white flicker on Windows & Linux
     if (!isMac) {
-      showMainWindow();
+      showMainWindowWithRestoredState();
     }
     const safelyBrowserWindow = getSafelyBrowserWindow();
     safelyBrowserWindow?.webContents.send(
@@ -1033,13 +1049,69 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
     );
   });
 
-  browserWindow.on('resize', () => {
+  let normalWindowBounds = initialNormalWindowBounds;
+  let windowIsMaximized = savedWindowIsMaximized;
+  let saveWindowStateTimer: ReturnType<typeof setTimeout> | undefined;
+  const captureWindowState = () => {
     const safelyWindow = getSafelyBrowserWindow();
-    if (safelyWindow) {
-      store.setWinBounds(safelyWindow.getBounds());
+    if (!safelyWindow) {
+      return;
     }
-  });
+    if (safelyWindow.isNormal()) {
+      normalWindowBounds = safelyWindow.getBounds();
+      windowIsMaximized = false;
+    } else if (safelyWindow.isMaximized()) {
+      windowIsMaximized = true;
+    }
+  };
+  const persistWindowState = () => {
+    saveWindowStateTimer = undefined;
+    captureWindowState();
+    store.setWinBounds({
+      ...normalWindowBounds,
+      isMaximized: windowIsMaximized,
+    });
+  };
+  const scheduleWindowStateSave = () => {
+    if (skipDesktopStatePersistenceOnQuit) {
+      return;
+    }
+    captureWindowState();
+    if (saveWindowStateTimer) {
+      clearTimeout(saveWindowStateTimer);
+    }
+    saveWindowStateTimer = setTimeout(persistWindowState, 250);
+  };
+  const flushWindowState = () => {
+    if (saveWindowStateTimer) {
+      clearTimeout(saveWindowStateTimer);
+      saveWindowStateTimer = undefined;
+    }
+    persistWindowState();
+  };
+  const cancelWindowStateSave = () => {
+    if (saveWindowStateTimer) {
+      clearTimeout(saveWindowStateTimer);
+      saveWindowStateTimer = undefined;
+    }
+    if (saveMainWindowStateImmediately === flushWindowState) {
+      saveMainWindowStateImmediately = undefined;
+    }
+  };
+  saveMainWindowStateImmediately = flushWindowState;
+  cancelMainWindowStateSave = cancelWindowStateSave;
+  browserWindow.on('resize', scheduleWindowStateSave);
+  browserWindow.on('move', scheduleWindowStateSave);
+  browserWindow.on('maximize', scheduleWindowStateSave);
+  browserWindow.on('unmaximize', scheduleWindowStateSave);
+  browserWindow.on('close', flushWindowState);
   browserWindow.on('closed', () => {
+    if (saveMainWindowStateImmediately === flushWindowState) {
+      saveMainWindowStateImmediately = undefined;
+    }
+    if (cancelMainWindowStateSave === cancelWindowStateSave) {
+      cancelMainWindowStateSave = undefined;
+    }
     unregisterShortcuts();
     mainWindow = null;
     isAppReady = false;
@@ -2007,7 +2079,10 @@ app.on('before-quit', (event) => {
   // is not mistaken for a crash on next boot.
   // Skip reset when in recovery mode (count >= 3) so recovery is still
   // offered if the user closes the recovery window without resolving.
-  if (store.getConsecutiveBootFailCount() < 3) {
+  if (
+    !skipDesktopStatePersistenceOnQuit &&
+    store.getConsecutiveBootFailCount() < 3
+  ) {
     store.resetConsecutiveBootFailCount();
   }
 
@@ -2016,6 +2091,9 @@ app.on('before-quit', (event) => {
   }
   const safelyMainWindow = getSafelyMainWindow();
   if (safelyMainWindow) {
+    if (!skipDesktopStatePersistenceOnQuit) {
+      saveMainWindowStateImmediately?.();
+    }
     safelyMainWindow.removeAllListeners();
     safelyMainWindow.removeAllListeners('close');
     safelyMainWindow.close();

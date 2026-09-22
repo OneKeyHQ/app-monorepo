@@ -47,6 +47,7 @@ declare global {
     getBundleIndexHtmlPath: () => string | undefined;
     useJsBundle: () => boolean;
     softRestartRenderer: () => Promise<void>;
+    prepareForAppReset?: () => void;
   };
 
   var $$appGlobals: IAppGlobals;

@@ -106,15 +106,53 @@ const mockRemoveSecureItem = (
 
 describe('ServiceApp.resetApp', () => {
   const originalIsNative = platformEnv.isNative;
+  const originalIsDesktop = platformEnv.isDesktop;
+  const desktopApiProxyDescriptor = Object.getOwnPropertyDescriptor(
+    globalThis,
+    'desktopApiProxy',
+  );
 
   beforeEach(() => {
     platformEnv.isNative = originalIsNative;
+    platformEnv.isDesktop = originalIsDesktop;
     jest.clearAllMocks();
   });
 
   afterEach(() => {
     platformEnv.isNative = originalIsNative;
+    platformEnv.isDesktop = originalIsDesktop;
+    if (desktopApiProxyDescriptor) {
+      Object.defineProperty(
+        globalThis,
+        'desktopApiProxy',
+        desktopApiProxyDescriptor,
+      );
+    } else {
+      Reflect.deleteProperty(globalThis, 'desktopApiProxy');
+    }
     jest.restoreAllMocks();
+  });
+
+  test('clears the complete Electron store during App Reset', async () => {
+    platformEnv.isDesktop = true;
+    const storeClear = jest.fn().mockResolvedValue(undefined);
+    Object.defineProperty(globalThis, 'desktopApiProxy', {
+      configurable: true,
+      value: {
+        storage: {
+          storeClear,
+        },
+      },
+    });
+    const service = new ServiceApp({ backgroundApi: {} as never });
+
+    await (
+      service as unknown as {
+        resetDesktopStore: () => Promise<void>;
+      }
+    ).resetDesktopStore();
+
+    expect(storeClear).toHaveBeenCalledTimes(1);
   });
 
   test('destroys both native LSE keys during App Reset', async () => {
@@ -200,6 +238,51 @@ describe('ServiceApp.resetApp', () => {
       mode: EAppRestartMode.All,
       reason: 'auth.resetData',
     });
+  });
+
+  test('restarts the Electron process after a desktop App Reset', async () => {
+    platformEnv.isDesktop = true;
+    platformEnv.isNative = false;
+    const restartAppInMainProcess = jest.fn().mockResolvedValue(undefined);
+    Object.defineProperty(globalThis, 'desktopApiProxy', {
+      configurable: true,
+      value: {
+        system: {
+          restartApp: restartAppInMainProcess,
+        },
+      },
+    });
+    const service = new ServiceApp({
+      backgroundApi: {
+        serviceIdentityExit: {
+          prepareIdentityAuthForAppReset: jest
+            .fn()
+            .mockResolvedValue(undefined),
+        },
+        serviceNotification: {
+          unregisterClient: jest.fn().mockResolvedValue(undefined),
+        },
+      },
+    });
+    jest
+      .spyOn(
+        service as unknown as {
+          resetData: () => Promise<void>;
+        },
+        'resetData',
+      )
+      .mockResolvedValue(undefined);
+    const restartRenderer = jest
+      .spyOn(service, 'restartApp')
+      .mockResolvedValue(undefined);
+    jest.spyOn(timerUtils, 'wait').mockResolvedValue(undefined);
+
+    await service.resetApp();
+
+    expect(restartAppInMainProcess).toHaveBeenCalledWith({
+      resetDesktopStore: true,
+    });
+    expect(restartRenderer).not.toHaveBeenCalled();
   });
 
   test('does not restart after a storage reset failure', async () => {

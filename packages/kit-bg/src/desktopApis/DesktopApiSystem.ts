@@ -307,6 +307,27 @@ class DesktopApiSystem {
     safelyBrowserWindow?.reload();
   }
 
+  async restartApp(options?: { resetDesktopStore?: boolean }): Promise<void> {
+    if (options?.resetDesktopStore) {
+      globalThis.$desktopMainAppFunctions?.prepareForAppReset?.();
+      store.clear();
+    }
+
+    // Mac App Store/TestFlight builds cannot relaunch inside the sandbox.
+    // Exit so process-start settings take effect when the user reopens the app.
+    if (process.mas) {
+      app.quit();
+      return;
+    }
+
+    app.relaunch();
+    if (process.platform === 'darwin') {
+      app.quit();
+    } else {
+      app.exit(0);
+    }
+  }
+
   async quitApp(): Promise<void> {
     globalThis.$desktopMainAppFunctions?.quitOrMinimizeApp?.();
   }
@@ -683,7 +704,7 @@ fi
       try {
         safelyBrowserWindow?.setTitleBarOverlay({
           symbolColor: theme === 'dark' ? '#ffffff' : '#000000',
-          color: '#00000000',
+          color: getBackgroundColor(theme),
         });
       } catch {
         // noop

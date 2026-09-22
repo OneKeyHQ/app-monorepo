@@ -12,6 +12,7 @@ import type {
   IDesktopStoreNetworkThrottle,
   IDesktopStoreUpdateBundleData,
   IDesktopStoreUpdateSettings,
+  IDesktopWindowState,
 } from '@onekeyhq/shared/types/desktop';
 
 const store = new Store<IDesktopStoreMap>({ name: 'OneKey' });
@@ -84,11 +85,11 @@ export const getLanguage = () =>
 export const setLanguage = (lang: string) =>
   store.set(EDesktopStoreKeys.Language, lang);
 
-export const getWinBounds = (): Electron.Rectangle =>
-  store.get(EDesktopStoreKeys.WinBounds, {} as any);
+export const getWinBounds = (): IDesktopWindowState =>
+  store.get(EDesktopStoreKeys.WinBounds, {});
 
-export const setWinBounds = (bounds: Electron.Rectangle) =>
-  store.set(EDesktopStoreKeys.WinBounds, bounds);
+export const setWinBounds = (windowState: IDesktopWindowState) =>
+  store.set(EDesktopStoreKeys.WinBounds, windowState);
 
 export const clearUpdateSettings = () => {
   store.delete(EDesktopStoreKeys.UpdateSettings);
