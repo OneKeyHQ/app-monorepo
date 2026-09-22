@@ -52,6 +52,7 @@ import {
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import { EShortcutEvents } from '@onekeyhq/shared/src/shortcuts/shortcuts.enum';
+import { homeHeaderLayoutCache } from '@onekeyhq/shared/src/storage/uiSnapshotCaches';
 import { travelModeManager } from '@onekeyhq/shared/src/travelMode';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
@@ -115,6 +116,11 @@ import type { LayoutChangeEvent } from 'react-native';
 const networksSupportBulkRevokeApproval =
   getNetworksSupportBulkRevokeApproval();
 const NATIVE_TAB_BAR_CONTAINER_STYLE = { position: 'relative' } as const;
+// Seed for the collapsible header height before the first layout (the funded
+// layout with the banner band). Measured heights per header variant are kept
+// for the session so a later switch back paints with the exact height.
+const NATIVE_HEADER_HEIGHT_SEED = 292;
+const learnedNativeHeaderHeights = new Map<string, number>();
 
 interface IAndroidScrollContainerProps {
   children: React.ReactNode;
@@ -588,18 +594,71 @@ export function HomePageView({
   // bottom edge (the banner card). That read as "the banner keeps occupying
   // the top" whenever an alert was showing (OK-62183). Inside the header the
   // alerts collapse away with everything else.
+  // Native header height hint (OK-63873). The collapsible tab container only
+  // learns the header height from onLayout, one or two frames after a layout
+  // change, and the tab content padding follows it, so a switch between a
+  // funded account (actions + banner band) and an empty one (add-money block)
+  // showed the list shifted for those frames. Remember the measured height per
+  // header variant and hand the container the expected height in the same
+  // commit the variant changes; onLayout only corrects a wrong hint.
+  const [nativeHeaderHeightHint, setNativeHeaderHeightHint] = useState(
+    NATIVE_HEADER_HEIGHT_SEED,
+  );
+  const headerVariantRef = useRef<string | undefined>(undefined);
+  const handleHeaderVariantChange = useCallback((variant: string) => {
+    headerVariantRef.current = variant;
+    let learned = learnedNativeHeaderHeights.get(variant);
+    if (!learned) {
+      // First time this launch: the height measured on an earlier launch.
+      try {
+        learned = homeHeaderLayoutCache.get(variant)?.data;
+      } catch {
+        learned = undefined;
+      }
+      if (learned) {
+        learnedNativeHeaderHeights.set(variant, learned);
+      }
+    }
+    if (learned) {
+      setNativeHeaderHeightHint(learned);
+    }
+  }, []);
+  const handleHeaderLayout = useCallback((event: LayoutChangeEvent) => {
+    const height = Math.round(event.nativeEvent.layout.height);
+    const variant = headerVariantRef.current;
+    if (!variant || height <= 0) {
+      return;
+    }
+    if (learnedNativeHeaderHeights.get(variant) !== height) {
+      learnedNativeHeaderHeights.set(variant, height);
+      try {
+        homeHeaderLayoutCache.set(variant, height);
+      } catch {
+        // The hint is a paint optimization; failing to remember it is fine.
+      }
+    }
+    setNativeHeaderHeightHint(height);
+  }, []);
+
   const renderHeader = useCallback(() => {
     return (
-      <Stack {...homePageContentMaxWidthSx}>
+      <Stack
+        {...homePageContentMaxWidthSx}
+        onLayout={platformEnv.isNative ? handleHeaderLayout : undefined}
+      >
         {platformEnv.isNative ? (
           <HeaderScrollGestureWrapper onRefresh={onHomePageRefresh}>
             <HomeAlerts />
           </HeaderScrollGestureWrapper>
         ) : null}
-        <HomeHeaderContainer />
+        <HomeHeaderContainer
+          onHeaderVariantChange={
+            platformEnv.isNative ? handleHeaderVariantChange : undefined
+          }
+        />
       </Stack>
     );
-  }, []);
+  }, [handleHeaderLayout, handleHeaderVariantChange]);
 
   // react-native-collapsible-tab-view paints its header container white. In
   // dark mode that white showed through wherever the header content has no
@@ -1039,7 +1098,9 @@ export function HomePageView({
         initialTabName={seedTabName || undefined}
         allowHeaderOverscroll
         disableWebTabContentVisibility
-        headerHeight={platformEnv.isNative ? 292 : undefined}
+        // The native container applies a changed value before paint (patched
+        // react-native-collapsible-tab-view); see nativeHeaderHeightHint.
+        headerHeight={platformEnv.isNative ? nativeHeaderHeightHint : undefined}
         tabBarHeight={
           platformEnv.isNative ? nativeTabBarHeightRef.current : undefined
         }
@@ -1108,6 +1169,7 @@ export function HomePageView({
     activeTabId,
     mountedHomeTabIds,
     homeScrollOwnerKey,
+    nativeHeaderHeightHint,
   ]);
 
   const handleSwitchWalletHomeTab = useCallback(

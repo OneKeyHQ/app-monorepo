@@ -1,4 +1,4 @@
-import { memo, useEffect, useMemo, useRef } from 'react';
+import { memo, useEffect, useLayoutEffect, useMemo, useRef } from 'react';
 
 import {
   HeaderScrollGestureWrapper,
@@ -21,7 +21,21 @@ import { HomeTestIDs } from '../testIDs';
 
 import { HomeOverviewContainer } from './HomeOverviewContainer';
 
-function BaseHomeHeaderContainer() {
+/**
+ * Identifies the header layout (OK-63873). The header is measured by the
+ * collapsible tab container after layout, so a switch between layouts of
+ * different height (funded: actions + banner band; empty: the add-money
+ * block) left the tab content one or two frames behind. HomePageView keeps
+ * the measured height per variant and hands the container the expected
+ * height before paint whenever the variant changes.
+ */
+export interface IHomeHeaderContainerProps {
+  onHeaderVariantChange?: (variant: string) => void;
+}
+
+function BaseHomeHeaderContainer({
+  onHeaderVariantChange,
+}: IHomeHeaderContainerProps) {
   const {
     activeAccount: { wallet, account, network, vaultSettings },
   } = useActiveAccount({
@@ -62,6 +76,15 @@ function BaseHomeHeaderContainer() {
   if (platformEnv.isNative && !isWalletNotBackedUp) {
     nativeMinHeight = shouldShowBanner ? 292 : 182;
   }
+
+  // Layout effect: the parent applies the remembered height for this variant
+  // in the same commit, before the frame with the new layout is painted.
+  const headerVariant = `${isWalletNotBackedUp ? 'backup' : 'home'}:${
+    shouldShowBanner ? 'banner' : 'plain'
+  }`;
+  useLayoutEffect(() => {
+    onHeaderVariantChange?.(headerVariant);
+  }, [headerVariant, onHeaderVariantChange]);
 
   // Funnel denominator for backup / receive completion rates: log once per
   // (walletId, state) tuple seen this session. Skip `unknown` so we don't
@@ -138,9 +161,9 @@ function BaseHomeHeaderContainer() {
 // written to the separate urlAccountHomeTokenList store, not this mirror's
 // homeTokenList store — the hook's owner-stamp guard absorbs the mismatch and
 // the holdings override simply stays inactive there (worth-only behavior).
-export const HomeHeaderContainer = memo(() => (
+export const HomeHeaderContainer = memo((props: IHomeHeaderContainerProps) => (
   <HomeTokenListProviderMirror>
-    <BaseHomeHeaderContainer />
+    <BaseHomeHeaderContainer {...props} />
   </HomeTokenListProviderMirror>
 ));
 HomeHeaderContainer.displayName = 'HomeHeaderContainer';

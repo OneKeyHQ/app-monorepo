@@ -80,7 +80,7 @@ index 7a739fc..9e15110 100644
  //# sourceMappingURL=types.d.ts.map
 \ No newline at end of file
 diff --git a/node_modules/react-native-collapsible-tab-view/src/Container.tsx b/node_modules/react-native-collapsible-tab-view/src/Container.tsx
-index e782b90..91b10c8 100644
+index e782b90..0267bc3 100644
 --- a/node_modules/react-native-collapsible-tab-view/src/Container.tsx
 +++ b/node_modules/react-native-collapsible-tab-view/src/Container.tsx
 @@ -1,9 +1,15 @@
@@ -109,16 +109,32 @@ index e782b90..91b10c8 100644
        },
        ref
      ) => {
-@@ -95,7 +103,7 @@ export const Container = React.memo(
+@@ -95,9 +103,21 @@ export const Container = React.memo(
        const [tabBarHeight, getTabBarHeight] =
          useLayoutHeight(initialTabBarHeight)
  
 -      const [headerHeight, getHeaderHeight] = useLayoutHeight(
-+      const [headerHeight, getHeaderHeight, headerHeightSV] = useLayoutHeight(
-         !renderHeader ? 0 : initialHeaderHeight
-       )
+-        !renderHeader ? 0 : initialHeaderHeight
+-      )
++      const [
++        headerHeight,
++        getHeaderHeight,
++        headerHeightSV,
++        setHeaderHeightHint,
++      ] = useLayoutHeight(!renderHeader ? 0 : initialHeaderHeight)
++      // OneKey patch: `headerHeight` used to be read at mount only. A changed
++      // prop is now applied before paint, so a header that changes height
++      // together with its content keeps the tab content aligned in the same
++      // frame (the later onLayout only corrects a wrong hint).
++      React.useLayoutEffect(() => {
++        if (renderHeader && initialHeaderHeight && initialHeaderHeight > 0) {
++          setHeaderHeightHint(initialHeaderHeight)
++        }
++      }, [initialHeaderHeight, renderHeader, setHeaderHeightHint])
        const initialIndex = React.useMemo(
-@@ -107,11 +115,13 @@ export const Container = React.memo(
+         () =>
+           initialTabName
+@@ -107,11 +127,13 @@ export const Container = React.memo(
        )
  
        const contentInset = React.useMemo(() => {
@@ -137,7 +153,7 @@ index e782b90..91b10c8 100644
        }, [headerHeight, tabBarHeight, allowHeaderOverscroll])
  
        const snappingTo: ContextType['snappingTo'] = useSharedValue(0)
-@@ -120,6 +130,9 @@ export const Container = React.memo(
+@@ -120,6 +142,9 @@ export const Container = React.memo(
        const oldAccScrollY: ContextType['oldAccScrollY'] = useSharedValue(0)
        const accDiffClamp: ContextType['accDiffClamp'] = useSharedValue(0)
        const scrollYCurrent: ContextType['scrollYCurrent'] = useSharedValue(0)
@@ -147,7 +163,7 @@ index e782b90..91b10c8 100644
        const scrollY: ContextType['scrollY'] = useSharedValue(
          Object.fromEntries(tabNamesArray.map((n) => [n, 0]))
        )
-@@ -139,10 +152,13 @@ export const Container = React.memo(
+@@ -139,10 +164,13 @@ export const Container = React.memo(
            return tabNames.value[index.value]
          }, [tabNames])
        const calculateNextOffset = useSharedValue(initialIndex)
@@ -163,7 +179,7 @@ index e782b90..91b10c8 100644
  
        const indexDecimal: ContextType['indexDecimal'] = useSharedValue(
          index.value
-@@ -174,12 +190,15 @@ export const Container = React.memo(
+@@ -174,12 +202,15 @@ export const Container = React.memo(
            return afterRender.value === 1
          },
          (trigger) => {
@@ -181,7 +197,7 @@ index e782b90..91b10c8 100644
        )
  
        // derived from scrollX
-@@ -193,7 +212,18 @@ export const Container = React.memo(
+@@ -193,7 +224,18 @@ export const Container = React.memo(
            return nextIndex
          },
          (nextIndex) => {
@@ -201,7 +217,7 @@ index e782b90..91b10c8 100644
              calculateNextOffset.value = nextIndex
            }
          },
-@@ -212,25 +242,46 @@ export const Container = React.memo(
+@@ -212,25 +254,46 @@ export const Container = React.memo(
          'worklet'
  
          const name = tabNamesArray[index.value]
@@ -254,7 +270,7 @@ index e782b90..91b10c8 100644
            runOnJS(toggleSyncScrollFrame)(false)
          }
        }, false)
-@@ -241,60 +292,368 @@ export const Container = React.memo(
+@@ -241,60 +304,368 @@ export const Container = React.memo(
          },
          (i) => {
            if (i !== index.value) {
@@ -650,7 +666,7 @@ index e782b90..91b10c8 100644
              const ref = refMap[name]
              runOnUI(scrollToImpl)(
                ref,
-@@ -303,11 +662,11 @@ export const Container = React.memo(
+@@ -303,11 +674,11 @@ export const Container = React.memo(
                true
              )
            } else {
@@ -664,7 +680,7 @@ index e782b90..91b10c8 100644
        )
  
        useAnimatedReaction(
-@@ -344,57 +703,98 @@ export const Container = React.memo(
+@@ -344,57 +715,98 @@ export const Container = React.memo(
            getCurrentIndex: () => {
              return index.value
            },
@@ -802,7 +818,7 @@ index e782b90..91b10c8 100644
                  pointerEvents="box-none"
                >
                  {renderHeader &&
-@@ -407,10 +807,11 @@ export const Container = React.memo(
+@@ -407,10 +819,11 @@ export const Container = React.memo(
                      onTabPress,
                      tabProps,
                    })}
@@ -816,7 +832,7 @@ index e782b90..91b10c8 100644
                  pointerEvents="box-none"
                >
                  {renderTabBar &&
-@@ -425,13 +826,15 @@ export const Container = React.memo(
+@@ -425,13 +838,15 @@ export const Container = React.memo(
                      tabProps,
                    })}
                </View>
@@ -834,7 +850,7 @@ index e782b90..91b10c8 100644
                style={[pagerProps?.style, StyleSheet.absoluteFill]}
              >
                {tabNamesArray.map((tabName, i) => {
-@@ -440,6 +843,8 @@ export const Container = React.memo(
+@@ -440,6 +855,8 @@ export const Container = React.memo(
                      <TabNameContext.Provider value={tabName}>
                        <Lazy
                          startMounted={lazy ? undefined : true}
@@ -1224,7 +1240,7 @@ index 2bd6b9c..80c7377 100644
        contentOffset={memoContentOffset}
        automaticallyAdjustContentInsets={false}
 diff --git a/node_modules/react-native-collapsible-tab-view/src/hooks.tsx b/node_modules/react-native-collapsible-tab-view/src/hooks.tsx
-index ba7dffa..bd7c2e4 100644
+index ba7dffa..fbee403 100644
 --- a/node_modules/react-native-collapsible-tab-view/src/hooks.tsx
 +++ b/node_modules/react-native-collapsible-tab-view/src/hooks.tsx
 @@ -8,11 +8,12 @@ import {
@@ -1300,7 +1316,7 @@ index ba7dffa..bd7c2e4 100644
    return c
  }
  
-@@ -114,23 +158,39 @@ export function useTabsContext(): ContextType<TabName> {
+@@ -114,23 +158,50 @@ export function useTabsContext(): ContextType<TabName> {
   */
  export function useTabNameContext(): TabName {
    const c = useContext(TabNameContext)
@@ -1341,11 +1357,22 @@ index ba7dffa..bd7c2e4 100644
 +    []
    )
 -  return [height, getHeight] as const
-+  return [height, getHeight, animatedHeight] as const
++  // OneKey patch: let the owner apply a known height before layout reports it.
++  // A header whose content changes height (e.g. the home header switching
++  // between its funded and empty layouts) otherwise leaves the tab content
++  // padding one or two frames behind: onLayout -> shared value -> state.
++  const setHeightHint = useCallback((hint: number) => {
++    const next = Math.round(hint)
++    if (next <= 0 || next === heightRef.current) return
++    heightRef.current = next
++    animatedHeight.value = next
++    setHeight(next)
++  }, [])
++  return [height, getHeight, animatedHeight, setHeightHint] as const
  }
  /**
   * Hook to access some key styles that make the whole thing work.
-@@ -156,13 +216,17 @@ export function useCollapsibleStyle(): CollapsibleStyle {
+@@ -156,13 +227,17 @@ export function useCollapsibleStyle(): CollapsibleStyle {
        style: { width },
        contentContainerStyle: {
          minHeight:
@@ -1369,7 +1396,7 @@ index ba7dffa..bd7c2e4 100644
        },
        progressViewOffset:
          // on iOS we need the refresh control to be at the top if overscrolling
-@@ -260,15 +324,19 @@ export const useScrollHandlerY = (name: TabName) => {
+@@ -260,15 +335,19 @@ export const useScrollHandlerY = (name: TabName) => {
      contentInset,
      containerHeight,
      scrollYCurrent,
@@ -1389,7 +1416,7 @@ index ba7dffa..bd7c2e4 100644
    } = useTabsContext()
  
    const enabled = useSharedValue(false)
-@@ -296,10 +364,13 @@ export const useScrollHandlerY = (name: TabName) => {
+@@ -296,10 +375,13 @@ export const useScrollHandlerY = (name: TabName) => {
    useAnimatedReaction(
      () => scrollAnimation.value,
      (val) => {
@@ -1404,7 +1431,7 @@ index ba7dffa..bd7c2e4 100644
    )
  
    const onMomentumEnd = () => {
-@@ -403,11 +474,24 @@ export const useScrollHandlerY = (name: TabName) => {
+@@ -403,11 +485,24 @@ export const useScrollHandlerY = (name: TabName) => {
                accDiffClamp.value = Math.max(0, nextValue)
              }
            }
@@ -1429,7 +1456,7 @@ index ba7dffa..bd7c2e4 100644
          // ensure the header stops snapping
          cancelAnimation(accDiffClamp)
  
-@@ -416,6 +500,11 @@ export const useScrollHandlerY = (name: TabName) => {
+@@ -416,6 +511,11 @@ export const useScrollHandlerY = (name: TabName) => {
        onEndDrag: () => {
          if (!enabled.value) return
  
@@ -1441,7 +1468,7 @@ index ba7dffa..bd7c2e4 100644
          if (IS_IOS) {
            // we delay this by one frame so that onMomentumBegin may fire on iOS
            afterDrag.value = withDelay(
-@@ -465,6 +554,9 @@ export const useScrollHandlerY = (name: TabName) => {
+@@ -465,6 +565,9 @@ export const useScrollHandlerY = (name: TabName) => {
        return isChangingPane
      },
      (isSyncNeeded, wasSyncNeeded) => {
@@ -1451,14 +1478,15 @@ index ba7dffa..bd7c2e4 100644
        if (
          isSyncNeeded &&
          isSyncNeeded !== wasSyncNeeded &&
-@@ -505,10 +597,68 @@ export const useScrollHandlerY = (name: TabName) => {
+@@ -505,10 +608,68 @@ export const useScrollHandlerY = (name: TabName) => {
          }
        }
      },
 -    [revealHeaderOnScroll, refMap, snapThreshold, enabled, scrollTo]
 +    [revealHeaderOnScroll, refMap, snapThreshold, enabled, scrollTo, useNativeHeaderAnimation]
-+  )
-+
+   )
+ 
+-  return { scrollHandler, enable }
 +  // Native animated scroll handler: uses RN Animated.event with useNativeDriver
 +  // for same-frame header animation on Android
 +  const enabledRef = useRef(false)
@@ -1512,9 +1540,8 @@ index ba7dffa..bd7c2e4 100644
 +      runOnJS(setEnabledRefFn)(toggle)
 +    },
 +    [origEnable, setEnabledRefFn]
-   )
- 
--  return { scrollHandler, enable }
++  )
++
 +  return {
 +    scrollHandler: nativeScrollHandler || scrollHandler,
 +    enable: nativeScrollHandler ? enableWithRef : enable,
@@ -1522,7 +1549,7 @@ index ba7dffa..bd7c2e4 100644
  }
  
  type ForwardRefType<T> =
-@@ -579,11 +729,11 @@ export function useAfterMountEffect(
+@@ -579,11 +740,11 @@ export function useAfterMountEffect(
  export function useConvertAnimatedToValue<T>(
    animatedValue: Animated.SharedValue<T>
  ) {
