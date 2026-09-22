@@ -201,56 +201,6 @@ async function tapSemanticDescendantThroughAncestor(target, ancestor) {
   });
 }
 
-async function tapCurrentSemanticFrame(frame, semanticTarget) {
-  const nativeSession = process.env.HEATING_REPRO_NATIVE_UI_SESSION;
-  const point = {
-    x: Math.floor(frame.x + frame.width / 2),
-    y: Math.floor(frame.y + frame.height / 2),
-  };
-  recordInteraction('tap-dispatched', {
-    semanticTarget,
-    source: nativeSession
-      ? 'persistent XCTest session; current semantic frame'
-      : 'host Detox runtime-frame fallback',
-  });
-  if (nativeSession) {
-    if (!process.env.HEATING_REPRO_UDID) {
-      throw new Error('Native frame tap requires the runner device id');
-    }
-    // Detox device.tap launches xcodebuild for each press. Reuse the bound
-    // runner so that native automation startup does not pace account switches.
-    const response = JSON.parse(
-      execFileSync(
-        'agent-device',
-        [
-          'press',
-          String(point.x),
-          String(point.y),
-          '--session',
-          nativeSession,
-          '--platform',
-          'ios',
-          '--udid',
-          process.env.HEATING_REPRO_UDID,
-          '--session-lock',
-          'reject',
-          '--json',
-        ],
-        { encoding: 'utf8', timeout: 15_000 },
-      ),
-    );
-    if (response?.success !== true) {
-      throw new Error('Native frame tap was not acknowledged');
-    }
-  } else {
-    await device.tap(point);
-  }
-  recordInteraction('tap-completed', {
-    semanticTarget,
-    source: 'automation acknowledgement; not visual feedback',
-  });
-}
-
 async function tapSemanticTargetAtRuntimeFrame(
   target,
   semanticTarget = 'visible semantic frame',
@@ -265,7 +215,18 @@ async function tapSemanticTargetAtRuntimeFrame(
   if (!(frame?.width > 0) || !(frame?.height > 0)) {
     throw new Error('Semantic target does not expose a frame');
   }
-  await tapCurrentSemanticFrame(frame, semanticTarget);
+  recordInteraction('tap-dispatched', {
+    semanticTarget,
+    source: 'host Detox runtime-frame fallback',
+  });
+  await device.tap({
+    x: Math.floor(frame.x + frame.width / 2),
+    y: Math.floor(frame.y + frame.height / 2),
+  });
+  recordInteraction('tap-completed', {
+    semanticTarget,
+    source: 'Detox acknowledgement; not visual feedback',
+  });
 }
 
 function getAttributeCandidates(attributes) {
@@ -367,7 +328,18 @@ async function tapUnifiedNetworkTab(testID) {
     ) {
       throw new Error('Native semantic tab is not currently hittable');
     }
-    await tapCurrentSemanticFrame(frame, testID);
+    recordInteraction('tap-dispatched', {
+      semanticTarget: testID,
+      source: 'current XCTest hittable testID frame',
+    });
+    await device.tap({
+      x: Math.floor(frame.x + frame.width / 2),
+      y: Math.floor(frame.y + frame.height / 2),
+    });
+    recordInteraction('tap-completed', {
+      semanticTarget: testID,
+      source: 'Detox acknowledgement; not visual feedback',
+    });
     return;
   }
   const header = element(
