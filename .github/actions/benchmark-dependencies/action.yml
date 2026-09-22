@@ -1,0 +1,95 @@
+name: Benchmark dependency preparation
+description: Measure direct and gated dependency setup with isolated cache fixtures.
+inputs:
+  batch:
+    required: true
+    description: Cache fixture namespace.
+  lane:
+    required: true
+    description: direct or gated.
+  phase:
+    required: true
+    description: cold or warm.
+  role:
+    default: consumer
+    description: prepare, direct, or consumer.
+  publish:
+    default: "false"
+    description: Publish a missing image.
+runs:
+  using: composite
+  steps:
+    - name: Compute isolated fixture
+      id: fixture
+      shell: bash
+      env:
+        BENCHMARK_BATCH: ${{ inputs.batch }}
+        BENCHMARK_LANE: ${{ inputs.lane }}
+      run: python3 .github/scripts/ci-dependency-gate-benchmark.py prepare
+    - name: Query or restore image
+      id: image
+      uses: actions/cache/restore@v4
+      with:
+        path: ${{ steps.fixture.outputs.path }}
+        key: ${{ steps.fixture.outputs.key }}
+        lookup-only: ${{ inputs.role == 'prepare' }}
+      env:
+        SEGMENT_DOWNLOAD_TIMEOUT_MINS: "2"
+    - name: Assert image cache condition
+      shell: bash
+      env:
+        PHASE: ${{ inputs.phase }}
+        ROLE: ${{ inputs.role }}
+        HIT: ${{ steps.image.outputs.cache-hit }}
+      run: |-
+        if [[ "$PHASE" == warm || "$ROLE" == consumer ]]; then
+          [[ "$HIT" == true ]] || { echo '::error::Expected an image hit; fixture was evicted or not published.'; exit 1; }
+        else
+          [[ "$HIT" != true ]] || { echo '::error::Cold fixture is already populated; use a new batch.'; exit 1; }
+        fi
+    - name: Restore Yarn archives
+      id: yarn
+      if: ${{ (inputs.role != 'prepare' || steps.image.outputs.cache-hit != 'true') && (inputs.phase == 'warm' || inputs.role == 'consumer') }}
+      uses: actions/cache/restore@v4
+      with:
+        path: ${{ steps.fixture.outputs.yarn-path }}
+        key: ${{ steps.fixture.outputs.yarn-key }}
+        fail-on-cache-miss: true
+      env:
+        SEGMENT_DOWNLOAD_TIMEOUT_MINS: "2"
+    - name: Install or mount dependencies
+      id: install
+      if: ${{ inputs.role != 'prepare' || steps.image.outputs.cache-hit != 'true' }}
+      shell: bash
+      env:
+        DEPENDENCY_SNAPSHOT_HIT: ${{ inputs.role != 'prepare' && steps.image.outputs.cache-hit == 'true' }}
+      run: python3 .github/scripts/ci-dependency-gate-benchmark.py install
+    - name: Assert snapshot installation did not fall back
+      if: ${{ (inputs.role != 'prepare' || steps.image.outputs.cache-hit != 'true') && (inputs.phase == 'warm' || inputs.role == 'consumer') }}
+      shell: bash
+      env:
+        HIT: ${{ steps.install.outputs.snapshot-hit }}
+      run: '[[ "$HIT" == true ]]'
+    - name: Build image
+      id: build
+      if: ${{ inputs.publish == 'true' && steps.image.outputs.cache-hit != 'true' }}
+      shell: bash
+      run: python3 .github/scripts/ci-dependency-gate-benchmark.py build
+    - name: Assert image build
+      if: ${{ inputs.publish == 'true' && steps.image.outputs.cache-hit != 'true' }}
+      shell: bash
+      env:
+        BUILT: ${{ steps.build.outputs.built }}
+      run: '[[ "$BUILT" == true ]]'
+    - name: Save image
+      if: ${{ inputs.publish == 'true' && steps.image.outputs.cache-hit != 'true' }}
+      uses: actions/cache/save@v4
+      with:
+        path: ${{ steps.fixture.outputs.path }}
+        key: ${{ steps.fixture.outputs.key }}
+    - name: Save shared Yarn archive fixture
+      if: ${{ inputs.publish == 'true' && steps.image.outputs.cache-hit != 'true' }}
+      uses: actions/cache/save@v4
+      with:
+        path: ${{ steps.fixture.outputs.yarn-path }}
+        key: ${{ steps.fixture.outputs.yarn-key }}

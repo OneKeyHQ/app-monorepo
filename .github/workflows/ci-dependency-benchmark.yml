@@ -1,0 +1,261 @@
+name: Dependency Gate Benchmark
+run-name: ${{ format('Dependency gate / {0} / {1}', inputs.phase || 'cold', inputs.batch || github.run_id) }}
+on:
+  push:
+    branches:
+      - codex/ci-dependency-gate-benchmark
+  workflow_dispatch:
+    inputs:
+      phase:
+        type: choice
+        options:
+          - cold
+          - warm
+        default: cold
+        description: Cache condition
+      batch:
+        type: string
+        required: true
+        description: Unique cold fixture ID; reuse it for warm runs.
+permissions:
+  contents: read
+  packages: read
+env:
+  YARN_ENABLE_GLOBAL_CACHE: "true"
+  YARN_ENABLE_HARDENED_MODE: "1"
+jobs:
+  prepare:
+    name: gated / prepare
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - &a1
+        uses: actions/checkout@v4
+        with:
+          lfs: true
+      - &a2
+        name: Use pinned Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24.21.0
+          package-manager-cache: false
+          registry-url: https://npm.pkg.github.com
+          scope: "@onekeyhq"
+      - name: Prepare dependencies
+        id: dependencies
+        uses: ./.github/actions/benchmark-dependencies
+        with:
+          batch: ${{ inputs.batch || github.run_id }}
+          lane: gated
+          phase: ${{ inputs.phase || 'cold' }}
+          role: prepare
+          publish: "true"
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NODE_OPTIONS: --max_old_space_size=4096
+      - &a3
+        name: Unmount dependencies
+        if: always()
+        run: python3 .github/scripts/ci-dependency-gate-benchmark.py cleanup
+  direct:
+    name: direct / ${{ matrix.workload }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        workload:
+          - unit1
+          - lint
+          - native
+    steps:
+      - *a1
+      - *a2
+      - name: Prepare dependencies
+        id: dependencies
+        uses: ./.github/actions/benchmark-dependencies
+        with:
+          batch: ${{ inputs.batch || github.run_id }}
+          lane: direct
+          phase: ${{ inputs.phase || 'cold' }}
+          role: direct
+          publish: ${{ matrix.workload == 'unit1' }}
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NODE_OPTIONS: --max_old_space_size=4096
+      - name: Run Tests
+        env: &a4
+          NODE_OPTIONS: --max_old_space_size=8192
+        run: |-
+          mkdir -p ci-ai
+          set +e
+          yarn test --maxWorkers=2 --cacheDirectory="$RUNNER_TEMP/jest-gate-benchmark" --coverage --shard=1/5 --coverageDirectory=coverage/shard-1 --coverageReporters=text --coverageReporters=lcov --coverageReporters=json-summary --coverageReporters=json --coverageThreshold='{}' --json --outputFile=ci-ai/test-results.json 2>&1 | tee ci-ai/unit.log
+          status=${PIPESTATUS[0]}
+          set -e
+          exit "$status"
+        if: ${{ matrix.workload == 'unit1' }}
+      - name: Check third-party native storage compatibility
+        run: yarn check:third-party-native-storage
+        if: ${{ matrix.workload == 'lint' }}
+      - name: Run lint
+        env: &a5
+          NODE_OPTIONS: --max_old_space_size=4096
+        run: |
+          mkdir -p ci-ai
+          set +e
+          yarn lint 2>&1 | tee ci-ai/lint-output.log
+          status=${PIPESTATUS[0]}
+          set -e
+          exit "$status"
+        if: ${{ matrix.workload == 'lint' }}
+      - name: Test developer scripts
+        run: node --test development/scripts/command-batches.node-test.js development/lint/background-api-contract.node-test.js development/lint/test-integrity.node-test.js development/lint/onekeyfe-patches.node-test.js apps/cli/esbuild.config.node-test.js apps/mobile/scripts/check-third-party-async-storage.node-test.js apps/mobile/scripts/native-storage-metro-policy.node-test.js
+        if: ${{ matrix.workload == 'lint' }}
+      - name: Build CLI
+        run: yarn workspace @onekeyfe/cli build
+        if: ${{ matrix.workload == 'lint' }}
+      - name: Union Build (three-bundle split)
+        env: &a6
+          NODE_OPTIONS: --max_old_space_size=8192
+          ENABLE_NATIVE_BACKGROUND_THREAD: "true"
+          UNION_BUILD: "true"
+        run: |
+          cd apps/mobile
+          node scripts/unionBuild.js \
+            --platform ios \
+            --common-bundle-output /tmp/common.jsbundle \
+            --common-sourcemap-output /tmp/common.jsbundle.map \
+            --main-bundle-output /tmp/main.jsbundle \
+            --main-sourcemap-output /tmp/main.jsbundle.map \
+            --background-bundle-output /tmp/background.bundle.js \
+            --background-sourcemap-output /tmp/background.bundle.map \
+            --assets-dest /tmp/assets
+        if: ${{ matrix.workload == 'native' }}
+      - name: Budget Check (main entry)
+        env: &a7
+          NODE_OPTIONS: --max_old_space_size=8192
+          ENABLE_NATIVE_BACKGROUND_THREAD: "true"
+          ENTRY: main
+          STARTUP_MODULE_BUDGET: "3000"
+          STARTUP_SIZE_BUDGET_MB: "13.8"
+        run: node apps/mobile/scripts/check-startup-graph-budget.js
+        if: ${{ matrix.workload == 'native' }}
+      - name: Budget Check (background entry)
+        env: &a8
+          NODE_OPTIONS: --max_old_space_size=8192
+          ENABLE_NATIVE_BACKGROUND_THREAD: "true"
+          ENTRY: background
+          STARTUP_MODULE_BUDGET: "2600"
+          STARTUP_SIZE_BUDGET_MB: "19.5"
+        run: node apps/mobile/scripts/check-startup-graph-budget.js
+        if: ${{ matrix.workload == 'native' }}
+      - name: Architecture Check (three-bundle rules)
+        run: node apps/mobile/scripts/check-bundle-architecture.js
+        if: ${{ matrix.workload == 'native' }}
+      - name: Upload measured outputs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: direct-${{ matrix.workload }}
+          path: |-
+            ci-ai/test-results.json
+            coverage/shard-1/coverage-summary.json
+            apps/mobile/dist/allocation-report-*.json
+            apps/mobile/out-dir-analysis/budget-check-report-*.json
+          if-no-files-found: ignore
+          retention-days: 3
+      - *a3
+  gated:
+    name: gated / ${{ matrix.workload }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    needs: prepare
+    strategy:
+      fail-fast: false
+      matrix:
+        workload:
+          - unit1
+          - lint
+          - native
+    steps:
+      - *a1
+      - *a2
+      - name: Prepare dependencies
+        id: dependencies
+        uses: ./.github/actions/benchmark-dependencies
+        with:
+          batch: ${{ inputs.batch || github.run_id }}
+          lane: gated
+          phase: ${{ inputs.phase || 'cold' }}
+          role: consumer
+          publish: "false"
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NODE_OPTIONS: --max_old_space_size=4096
+      - name: Run Tests
+        env: *a4
+        run: |-
+          mkdir -p ci-ai
+          set +e
+          yarn test --maxWorkers=2 --cacheDirectory="$RUNNER_TEMP/jest-gate-benchmark" --coverage --shard=1/5 --coverageDirectory=coverage/shard-1 --coverageReporters=text --coverageReporters=lcov --coverageReporters=json-summary --coverageReporters=json --coverageThreshold='{}' --json --outputFile=ci-ai/test-results.json 2>&1 | tee ci-ai/unit.log
+          status=${PIPESTATUS[0]}
+          set -e
+          exit "$status"
+        if: ${{ matrix.workload == 'unit1' }}
+      - name: Check third-party native storage compatibility
+        run: yarn check:third-party-native-storage
+        if: ${{ matrix.workload == 'lint' }}
+      - name: Run lint
+        env: *a5
+        run: |
+          mkdir -p ci-ai
+          set +e
+          yarn lint 2>&1 | tee ci-ai/lint-output.log
+          status=${PIPESTATUS[0]}
+          set -e
+          exit "$status"
+        if: ${{ matrix.workload == 'lint' }}
+      - name: Test developer scripts
+        run: node --test development/scripts/command-batches.node-test.js development/lint/background-api-contract.node-test.js development/lint/test-integrity.node-test.js development/lint/onekeyfe-patches.node-test.js apps/cli/esbuild.config.node-test.js apps/mobile/scripts/check-third-party-async-storage.node-test.js apps/mobile/scripts/native-storage-metro-policy.node-test.js
+        if: ${{ matrix.workload == 'lint' }}
+      - name: Build CLI
+        run: yarn workspace @onekeyfe/cli build
+        if: ${{ matrix.workload == 'lint' }}
+      - name: Union Build (three-bundle split)
+        env: *a6
+        run: |
+          cd apps/mobile
+          node scripts/unionBuild.js \
+            --platform ios \
+            --common-bundle-output /tmp/common.jsbundle \
+            --common-sourcemap-output /tmp/common.jsbundle.map \
+            --main-bundle-output /tmp/main.jsbundle \
+            --main-sourcemap-output /tmp/main.jsbundle.map \
+            --background-bundle-output /tmp/background.bundle.js \
+            --background-sourcemap-output /tmp/background.bundle.map \
+            --assets-dest /tmp/assets
+        if: ${{ matrix.workload == 'native' }}
+      - name: Budget Check (main entry)
+        env: *a7
+        run: node apps/mobile/scripts/check-startup-graph-budget.js
+        if: ${{ matrix.workload == 'native' }}
+      - name: Budget Check (background entry)
+        env: *a8
+        run: node apps/mobile/scripts/check-startup-graph-budget.js
+        if: ${{ matrix.workload == 'native' }}
+      - name: Architecture Check (three-bundle rules)
+        run: node apps/mobile/scripts/check-bundle-architecture.js
+        if: ${{ matrix.workload == 'native' }}
+      - name: Upload measured outputs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: gated-${{ matrix.workload }}
+          path: |-
+            ci-ai/test-results.json
+            coverage/shard-1/coverage-summary.json
+            apps/mobile/dist/allocation-report-*.json
+            apps/mobile/out-dir-analysis/budget-check-report-*.json
+          if-no-files-found: ignore
+          retention-days: 3
+      - *a3
