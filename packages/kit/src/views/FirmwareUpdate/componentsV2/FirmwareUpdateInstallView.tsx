@@ -27,6 +27,7 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import { ShimmerTitle } from '@onekeyhq/components/src/composite/DeviceStage/ShimmerTitle';
+import type { IHardwareDeviceColor } from '@onekeyhq/components/src/content/HardwareDevice';
 import { ANIMATE_ONLY_OPACITY_TRANSFORM } from '@onekeyhq/components/src/utils/animationConstants';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
@@ -55,6 +56,8 @@ export type IFirmwareUpdateInstallViewMode =
 export type IFirmwareUpdateInstallViewProps = {
   mode: IFirmwareUpdateInstallViewMode;
   deviceType: IDeviceType | undefined;
+  /** The device's finish, for the replica; omitted, the model's default. */
+  deviceColor?: IHardwareDeviceColor;
   items: IFirmwareUpdateItem[];
   stage: IFirmwareUpdateStage;
   progress: number;
@@ -317,6 +320,7 @@ const VersionLine = memo(function VersionLine({
 export function FirmwareUpdateInstallView({
   mode,
   deviceType,
+  deviceColor,
   items,
   stage,
   progress,
@@ -390,6 +394,7 @@ export function FirmwareUpdateInstallView({
       >
         <FirmwareUpdateDeviceImage
           deviceType={deviceType}
+          deviceColor={deviceColor}
           done={isDone && revealDoneBadge}
         />
         <YStack alignItems="center" gap="$1.5" w="100%" pt="$6">

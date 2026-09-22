@@ -20,6 +20,7 @@ import { toPlainErrorObject } from '@onekeyhq/shared/src/errors/utils/errorUtils
 import { toUserFacingFirmwareUpdateError } from '@onekeyhq/shared/src/errors/utils/firmwareUpdateErrorUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import {
   EHardwareCallContext,
@@ -492,6 +493,10 @@ export function FirmwareUpdateInstallPageContent({
       <FirmwareUpdateInstallView
         mode={mode}
         deviceType={result?.deviceType}
+        deviceColor={deviceUtils.getDeviceColorFromFeatures({
+          deviceType: result?.deviceType,
+          features: result?.features,
+        })}
         items={items}
         stage={stage}
         progress={progress}

@@ -10,6 +10,7 @@ import Animated, {
 
 import { Icon, Stack } from '@onekeyhq/components';
 import { HardwareDevice } from '@onekeyhq/components/src/content/HardwareDevice';
+import type { IHardwareDeviceColor } from '@onekeyhq/components/src/content/HardwareDevice';
 
 import type { IDeviceType } from '@onekeyfe/hd-core';
 
@@ -68,9 +69,13 @@ function DoneBadge() {
 export const FirmwareUpdateDeviceImage = memo(
   function FirmwareUpdateDeviceImage({
     deviceType,
+    deviceColor,
     done,
   }: {
     deviceType: IDeviceType | undefined;
+    /** The finish the device's serial names (Pro 2 / Neo); omitted, the
+     * model's default shell. */
+    deviceColor?: IHardwareDeviceColor;
     /** Shows the success badge; it pops in when this turns true. */
     done?: boolean;
   }) {
@@ -78,6 +83,7 @@ export const FirmwareUpdateDeviceImage = memo(
       <Stack testID="firmware-update-device-image">
         <HardwareDevice
           deviceType={deviceType}
+          color={deviceColor}
           width={DEVICE_WIDTH}
           animation="connecting"
           shadow
