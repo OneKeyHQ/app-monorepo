@@ -149,6 +149,7 @@ const SwapProContainer = ({
   const onDepositToTrade = useSwapDepositEntryPress({
     token: inputToken as ISwapToken | undefined,
     accountInfo: depositAccountInfo,
+    activeAccount,
     onClose: syncInputTokenBalance,
   });
   const { swapProLoadSupportNetworksTokenListRun } =

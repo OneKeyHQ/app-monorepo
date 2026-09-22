@@ -32,6 +32,7 @@ const SwapInputActions = ({
   onSelectStage,
   fromToken,
   accountInfo,
+  activeAccount,
 }: {
   showPercentageInput: boolean;
   showActionBuy: boolean;
@@ -43,7 +44,10 @@ const SwapInputActions = ({
   onDepositClose?: () => void;
   onSelectStage?: (stage: number) => void;
   fromToken?: ISwapToken;
+  // The account resolved for the token network; withheld by callers while the
+  // lookup is pending, in which case the chip resolves it from activeAccount.
   accountInfo?: IAccountSelectorActiveAccountInfo;
+  activeAccount?: IAccountSelectorActiveAccountInfo;
 }) => {
   const intl = useIntl();
   const { gtSm } = useMedia();
@@ -56,6 +60,7 @@ const SwapInputActions = ({
   const handleBuyPress = useSwapDepositEntryPress({
     token: fromToken,
     accountInfo,
+    activeAccount,
     onClose: onDepositClose,
   });
   const actionBuyColor = actionBuyHighlighted

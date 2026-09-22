@@ -850,6 +850,9 @@ export function useSwapActionState() {
               }),
         hasFromToken: !!fromToken,
         hasToToken: !!toToken,
+        // A pending cross-network lookup keeps the label steady; the press
+        // handler resolves the account on demand in that window
+        // (useSwapDepositEntryPress), so the button is never inert.
         hasFromAddress: hasSwapFromAddressForVerdict({
           address: swapFromAddressInfo.address,
           isAddressInfoReady: swapFromAddressInfo.isAddressInfoReady,

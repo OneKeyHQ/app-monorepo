@@ -1316,6 +1316,7 @@ function StockAmountInput({
               ? swapFromAddressInfo.accountInfo
               : undefined
           }
+          activeAccount={swapFromAddressInfo.activeAccount}
           onDepositClose={onBalanceRefreshPress}
           showPercentageInput={Boolean(
             showPercentageInputDebounce && balanceActionsReady,

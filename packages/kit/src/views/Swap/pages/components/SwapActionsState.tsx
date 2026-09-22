@@ -444,12 +444,14 @@ const SwapActionsState = ({
   }, [loadSwapSelectTokenDetail, swapFromAddressInfo]);
   // While the cross-network account lookup is pending, accountInfo still
   // carries the previous network's account; withhold it so a tap in that
-  // window is a no-op instead of opening Receive for the wrong account.
+  // window resolves the right account from activeAccount instead of opening
+  // Receive for the wrong one.
   const onDepositToTrade = useSwapDepositEntryPress({
     token: fromToken,
     accountInfo: swapFromAddressInfo.isAddressInfoReady
       ? swapFromAddressInfo.accountInfo
       : undefined,
+    activeAccount: swapFromAddressInfo.activeAccount,
     onClose: refreshFromTokenBalance,
   });
 

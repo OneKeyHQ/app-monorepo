@@ -476,10 +476,12 @@ const SwapInputContainer = ({
         <SwapInputActions
           fromToken={fromToken}
           // Withheld while the cross-network account lookup is pending so the
-          // chip cannot open Receive for the previous network's account.
+          // chip cannot open Receive for the previous network's account; a tap
+          // in that window resolves the account from activeAccount instead.
           accountInfo={
             swapAddressInfo.isAddressInfoReady ? accountInfo : undefined
           }
+          activeAccount={activeAccount}
           showPercentageInput={showPercentageInputDebounce}
           showActionBuy={showActionBuy}
           actionBuyHighlighted={!isFromBalanceLoadedZero}
