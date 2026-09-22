@@ -835,7 +835,12 @@ export function useSwapActionState() {
         hasBalanceError: swapSelectTokenDetailBalanceError.from,
         hasFromToken: !!fromToken,
         hasToToken: !!toToken,
-        hasFromAddress: !!swapFromAddressInfo.address,
+        // A pending cross-network account lookup is not a missing address;
+        // holding the verdict keeps the button from flashing while From/To
+        // are swapped. A truly absent account is caught by noConnectWallet.
+        hasFromAddress:
+          !!swapFromAddressInfo.address ||
+          !swapFromAddressInfo.isAddressInfoReady,
         noConnectWallet: noConnectWallet || hasNoConnectWalletAlert,
         noProviderSupportsTrade,
         isStockBalanceUnavailable:
@@ -858,6 +863,7 @@ export function useSwapActionState() {
     noConnectWallet,
     intl,
     swapFromAddressInfo.address,
+    swapFromAddressInfo.isAddressInfoReady,
     swapToAddressInfo.address,
     swapToAddressInfo.isAddressInfoReady,
     swapProviderSupportReceiveAddress,

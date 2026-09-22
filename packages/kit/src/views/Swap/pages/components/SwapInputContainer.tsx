@@ -397,7 +397,13 @@ const SwapInputContainer = ({
   // same-token refresh keeps the last value, so the chip and the refresh
   // control stay put while it reloads.
   const isFromBalanceLoadedZero = useMemo(() => {
-    if (direction !== ESwapDirectionType.FROM || !fromToken || !address) {
+    if (direction !== ESwapDirectionType.FROM || !fromToken) {
+      return false;
+    }
+    // A cross-network account lookup still in flight is not a missing
+    // address: keep the verdict until it resolves so swapping From/To does
+    // not flash Max for a frame.
+    if (!address && swapAddressInfo.isAddressInfoReady) {
       return false;
     }
     if (!fromTokenBalance) {
@@ -405,7 +411,13 @@ const SwapInputContainer = ({
     }
     const balanceBN = new BigNumber(fromTokenBalance);
     return balanceBN.isFinite() && balanceBN.isZero();
-  }, [address, direction, fromToken, fromTokenBalance]);
+  }, [
+    address,
+    direction,
+    fromToken,
+    fromTokenBalance,
+    swapAddressInfo.isAddressInfoReady,
+  ]);
   const { loadSwapSelectTokenDetail } = useSwapActions().current;
   const onBalanceRefreshPress = useCallback(() => {
     if (balanceLoading) return;

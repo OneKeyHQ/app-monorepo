@@ -1176,6 +1176,19 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
     }
     set(swapSelectFromTokenAtom(), toToken);
     set(swapSelectToTokenAtom(), fromToken);
+    // Carry the balances (and their error flags) across with the tokens. The
+    // To balance is fetched for the same wallet, so it is exactly the From
+    // balance now; without this the From row, Top up chip and action button
+    // keep the old token's verdict until the debounced detail reload lands.
+    const fromBalance = get(swapSelectedFromTokenBalanceAtom());
+    const toBalance = get(swapSelectedToTokenBalanceAtom());
+    set(swapSelectedFromTokenBalanceAtom(), toBalance);
+    set(swapSelectedToTokenBalanceAtom(), fromBalance);
+    const balanceError = get(swapSelectTokenDetailBalanceErrorAtom());
+    set(swapSelectTokenDetailBalanceErrorAtom(), {
+      from: balanceError.to,
+      to: balanceError.from,
+    });
     this.cleanManualSelectQuoteProviders.call(set);
   });
 
