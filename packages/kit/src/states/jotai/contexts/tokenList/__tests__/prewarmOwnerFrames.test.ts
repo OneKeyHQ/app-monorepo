@@ -169,4 +169,26 @@ describe('prewarmHomeTokenListOwner', () => {
     mockPrewarmFrames.mockRejectedValue(new Error('bridge down'));
     await expect(prewarmHomeTokenListOwner(PARAMS)).resolves.toBe(false);
   });
+
+  // PR #13695 review: the replay rejects frames remembered in another
+  // currency, so a short-circuit on "frames exist" after a currency change
+  // claimed readiness for frames the switch could not paint (skeleton flash).
+  it('re-requests an owner whose remembered frames are in another currency', async () => {
+    mockPrewarmFrames.mockResolvedValue(makeBgResult());
+    await prewarmHomeTokenListOwner({ ...PARAMS, currencyId: 'usd' });
+    await expect(
+      prewarmHomeTokenListOwner({ ...PARAMS, currencyId: 'usd' }),
+    ).resolves.toBe(true);
+    expect(mockPrewarmFrames).toHaveBeenCalledTimes(1);
+
+    mockPrewarmFrames.mockResolvedValue({ ...makeBgResult(), currency: 'cny' });
+    await expect(
+      prewarmHomeTokenListOwner({ ...PARAMS, currencyId: 'cny' }),
+    ).resolves.toBe(true);
+    expect(mockPrewarmFrames).toHaveBeenCalledTimes(2);
+    expect(
+      getOwnerReplayFrames({ storeName: STORE_NAME, ownerKey: OWNER_KEY })
+        ?.currencyId,
+    ).toBe('cny');
+  });
 });

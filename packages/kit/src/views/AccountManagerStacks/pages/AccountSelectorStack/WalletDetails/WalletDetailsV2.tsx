@@ -45,7 +45,10 @@ import type {
   IAccountSelectorAccountsListSectionData,
   IAccountSelectorSelectedAccount,
 } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityAccountSelector';
-import { accountSelectorAccountsListIsLoadingAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  accountSelectorAccountsListIsLoadingAtom,
+  useSettingsPersistAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
 import {
   EAppEventBusNames,
@@ -142,6 +145,7 @@ const HOME_TOKEN_LIST_PREWARM_MAX_ROWS = 12;
 
 function WalletDetailsViewV2({ num }: IWalletDetailsProps) {
   const intl = useIntl();
+  const [{ currencyInfo }] = useSettingsPersistAtom();
   const { serviceAccountSelector } = backgroundApiProxy;
   const { selectedAccount } = useSelectedAccount({ num });
   const actions = useAccountSelectorActions();
@@ -309,13 +313,20 @@ function WalletDetailsViewV2({ num }: IWalletDetailsProps) {
           networkId: prewarmNetworkId,
           deriveType: usedDeriveType,
           indexedAccountId,
+          currencyId: currencyInfo.id,
         });
       }
     })();
     return () => {
       cancelled = true;
     };
-  }, [indexedAccountIds, linkedNetworkId, selectedNetworkId, usedDeriveType]);
+  }, [
+    currencyInfo.id,
+    indexedAccountIds,
+    linkedNetworkId,
+    selectedNetworkId,
+    usedDeriveType,
+  ]);
 
   // Lazy-load address map only when searching (avoids DB read on every wallet/network switch)
   const isSearching = !!searchText;
@@ -804,6 +815,7 @@ function WalletDetailsViewV2({ num }: IWalletDetailsProps) {
               autoChangeToAccountMatchedNetworkId ?? selectedAccount.networkId,
             deriveType: selectedAccount.deriveType,
             othersWalletAccountId: record.account?.id,
+            currencyId: currencyInfo.id,
           },
           HOME_TOKEN_LIST_PREWARM_TAP_TIMEOUT_MS,
         );
@@ -820,6 +832,7 @@ function WalletDetailsViewV2({ num }: IWalletDetailsProps) {
             networkId: selectedAccount.networkId,
             deriveType: selectedAccount.deriveType,
             indexedAccountId: record.indexedAccount?.id,
+            currencyId: currencyInfo.id,
           },
           HOME_TOKEN_LIST_PREWARM_TAP_TIMEOUT_MS,
         );
@@ -836,6 +849,7 @@ function WalletDetailsViewV2({ num }: IWalletDetailsProps) {
     [
       actions,
       allowSelectEmptyAccount,
+      currencyInfo.id,
       focusedWalletInfo,
       isOthersUniversal,
       num,

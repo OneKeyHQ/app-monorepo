@@ -31,6 +31,7 @@ import {
   useAccountSelectorDeFiMapAtom,
   useAccountSelectorValuesMapAtom,
   useIndexedAccountAddressCreationStateAtom,
+  useSettingsPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { INetworkDeriveInfo } from '@onekeyhq/kit-bg/src/vaults/types';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -109,6 +110,7 @@ export function AccountSelectorAccountListItem({
 
   const [addressCreationState] = useIndexedAccountAddressCreationStateAtom();
   const [valuesMapAll] = useAccountSelectorValuesMapAtom();
+  const [{ currencyInfo }] = useSettingsPersistAtom();
   const [deFiMapAll] = useAccountSelectorDeFiMapAtom();
   const valuesMap = useMemo(() => valuesMapAll[num], [valuesMapAll, num]);
   const deFiMap = useMemo(() => deFiMapAll[num], [deFiMapAll, num]);
@@ -438,6 +440,7 @@ export function AccountSelectorAccountListItem({
                     selectedAccount?.networkId,
                   deriveType: selectedAccount?.deriveType,
                   othersWalletAccountId: account?.id,
+                  currencyId: currencyInfo.id,
                 },
                 HOME_TOKEN_LIST_PREWARM_TAP_TIMEOUT_MS,
               );
@@ -456,6 +459,7 @@ export function AccountSelectorAccountListItem({
                   networkId: selectedAccount?.networkId,
                   deriveType: selectedAccount?.deriveType,
                   indexedAccountId: indexedAccount?.id,
+                  currencyId: currencyInfo.id,
                 },
                 HOME_TOKEN_LIST_PREWARM_TAP_TIMEOUT_MS,
               );

@@ -327,6 +327,11 @@ function DeFiListBlock({
       }),
     [account?.id, network?.id],
   );
+  // Read by the single-network `run` after each await: a fetch issued for the
+  // previous owner must not write its positions (or stamp its owner as
+  // loaded) once the owner has changed underneath it.
+  const liveOwnerKeyRef = useRef(currentOwnerKey);
+  liveOwnerKeyRef.current = currentOwnerKey;
 
   // The DeFi list provider lives inside `Tabs.Container`, which no longer
   // remounts on an account switch (OK-63873), so `protocols` would keep the
@@ -472,8 +477,14 @@ function DeFiListBlock({
         return;
       }
 
+      const runOwnerKey = currentOwnerKey;
+      const isStaleRun = () => liveOwnerKeyRef.current !== runOwnerKey;
+
       const enabledNetworks =
         await backgroundApiProxy.serviceDeFi.getDeFiEnabledNetworksMap();
+      if (isStaleRun()) {
+        return;
+      }
 
       if (!enabledNetworks[network.id]) {
         const emptyData = defiUtils.getEmptyDeFiData();
@@ -500,6 +511,9 @@ function DeFiListBlock({
       }
 
       await backgroundApiProxy.serviceDeFi.abortFetchAccountDeFiPositions();
+      if (isStaleRun()) {
+        return;
+      }
       updateDeFiListState({
         isRefreshing: true,
         loadedOwnerKey: undefined,
@@ -539,6 +553,9 @@ function DeFiListBlock({
         if (singleNetworkLocalCacheRef.current.cacheKey === cacheKey) {
           singleNetworkLocalCacheRef.current.hasCache = true;
         }
+        if (isStaleRun()) {
+          return;
+        }
         updateAccountDeFiOverview({
           currency: settings.currencyInfo.id,
           accountId: account.id,
@@ -566,12 +583,17 @@ function DeFiListBlock({
         console.error(e);
       } finally {
         setIsHeaderRefreshing(false);
-        updateDeFiListState(
-          deFiListLoadingReducer({
-            type: 'settled',
-            loadedOwnerKey: currentOwnerKey,
-          }),
-        );
+        // A stale run's "settled" would end the NEW owner's loading state
+        // (and stamp the previous owner as loaded) while its fetch is still
+        // in flight; the live run settles its own owner.
+        if (!isStaleRun()) {
+          updateDeFiListState(
+            deFiListLoadingReducer({
+              type: 'settled',
+              loadedOwnerKey: currentOwnerKey,
+            }),
+          );
+        }
         appEventBus.emit(EAppEventBusNames.TabListStateUpdate, {
           isRefreshing: false,
           type: EHomeTab.DEFI,

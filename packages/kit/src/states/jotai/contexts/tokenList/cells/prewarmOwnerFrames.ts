@@ -18,6 +18,12 @@ export interface IPrewarmHomeTokenListOwnerParams {
   deriveType: IAccountDeriveTypes | undefined;
   indexedAccountId?: string;
   othersWalletAccountId?: string;
+  /**
+   * The settings currency the caller will replay in. Remembered frames in
+   * another currency are useless to the replay (it rejects them), so they do
+   * not count as "already warm" and the owner is rebuilt from the background.
+   */
+  currencyId?: string;
 }
 
 const HOME_STORE_NAME = EJotaiContextStoreNames.homeTokenList;
@@ -42,6 +48,25 @@ function rememberResolvedOwnerKey(key: string, ownerKey: string): void {
     }
     resolvedOwnerKeys.delete(oldest);
   }
+}
+
+// Frames the replay would accept: a structure frame, remembered in the
+// currency the caller replays in (when it names one).
+function hasFramesForReplay({
+  ownerKey,
+  currencyId,
+}: {
+  ownerKey: string;
+  currencyId: string | undefined;
+}): boolean {
+  const frames = getOwnerReplayFrames({
+    storeName: HOME_STORE_NAME,
+    ownerKey,
+  });
+  if (!frames?.structure) {
+    return false;
+  }
+  return !currencyId || frames.currencyId === currencyId;
 }
 
 function paramsKey(params: IPrewarmHomeTokenListOwnerParams): string {
@@ -76,10 +101,10 @@ export async function prewarmHomeTokenListOwner(
   const knownOwnerKey = resolvedOwnerKeys.get(key);
   if (
     knownOwnerKey &&
-    getOwnerReplayFrames({
-      storeName: HOME_STORE_NAME,
+    hasFramesForReplay({
       ownerKey: knownOwnerKey,
-    })?.structure
+      currencyId: params.currencyId,
+    })
   ) {
     return true;
   }
@@ -117,7 +142,7 @@ export async function prewarmHomeTokenListOwner(
         });
       }
       const storeName = HOME_STORE_NAME;
-      if (getOwnerReplayFrames({ storeName, ownerKey })?.structure) {
+      if (hasFramesForReplay({ ownerKey, currencyId: currency })) {
         return true;
       }
       rememberOwnerReplayFrame({

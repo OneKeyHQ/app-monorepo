@@ -41,17 +41,22 @@ function useManageToken({
 }) {
   const navigation = useAppNavigation();
 
-  const { result: fetchedVaultSettings } = usePromiseResult<
-    IVaultSettings | undefined
+  // Tagged with the network it was fetched for: usePromiseResult keeps the
+  // previous result until its effect re-runs, so for the first render after a
+  // network switch the untagged value would still be the previous network's
+  // settings and could render the wrong menu actions for a frame.
+  const { result: fetched } = usePromiseResult<
+    { networkId: string; settings: IVaultSettings | undefined } | undefined
   >(
     async () => {
       if (!networkId) {
         return undefined;
       }
 
-      return backgroundApiProxy.serviceNetwork.getVaultSettings({
-        networkId,
-      });
+      const settings = await backgroundApiProxy.serviceNetwork.getVaultSettings(
+        { networkId },
+      );
+      return { networkId, settings };
     },
     [networkId],
     {
@@ -59,11 +64,10 @@ function useManageToken({
       undefinedResultIfReRun: true,
     },
   );
+  const fetchedVaultSettings =
+    fetched?.networkId === networkId ? fetched.settings : undefined;
 
-  // The sync value wins: it always belongs to the CURRENT account/network,
-  // whereas the async result still holds the previous network's settings for
-  // the first render after a switch (usePromiseResult only clears it in an
-  // effect), which would flip the icon the wrong way for a frame.
+  // The sync value wins: it always belongs to the CURRENT account/network.
   const vaultSettings = syncVaultSettings ?? fetchedVaultSettings;
 
   const handleOnManageToken = useCallback(() => {
