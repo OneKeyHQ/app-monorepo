@@ -35,6 +35,15 @@ export const mergeEarnPortfolioInvestments = (
     existing.totalFiatValueUsd,
     incoming.totalFiatValueUsd,
   ),
+  ...(existing.airdropFiatValue !== undefined ||
+  incoming.airdropFiatValue !== undefined
+    ? {
+        airdropFiatValue: addValue(
+          existing.airdropFiatValue,
+          incoming.airdropFiatValue,
+        ),
+      }
+    : {}),
 });
 
 const clearNormalInvestment = (
@@ -52,10 +61,10 @@ const clearNormalInvestment = (
 
 const clearAirdropInvestment = (
   investment: IEarnPortfolioInvestment,
-): IEarnPortfolioInvestment => ({
-  ...investment,
-  airdropAssets: [],
-});
+): IEarnPortfolioInvestment => {
+  const { airdropFiatValue, ...rest } = investment;
+  return { ...rest, airdropAssets: [] };
+};
 
 const hasEarnPortfolioNormalAssets = (
   investment: IEarnPortfolioInvestment | undefined,
