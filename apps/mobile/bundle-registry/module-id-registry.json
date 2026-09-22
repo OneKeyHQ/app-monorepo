@@ -24399,6 +24399,7 @@
     "packages/shared/types/earn/earnProvider.constants.ts": 8807,
     "packages/shared/types/endpoint.ts": 1106,
     "packages/shared/types/fee.ts": 2171,
+    "packages/shared/types/fiatCrypto.ts": 13483,
     "packages/shared/types/hardwareUi.ts": 2870,
     "packages/shared/types/history.ts": 22460,
     "packages/shared/types/hyperliquid/index.ts": 1322,
