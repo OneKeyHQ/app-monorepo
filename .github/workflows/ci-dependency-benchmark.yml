@@ -1,0 +1,200 @@
+name: X Snapshot Benchmark
+run-name: ${{ format('X snapshot / {0} / {1}', inputs.phase || 'seed',
+  inputs.seed_run || github.run_id) }}
+on:
+  push:
+    branches:
+      - codex/ci-x-cache-benchmark
+  workflow_dispatch:
+    inputs:
+      phase:
+        type: choice
+        options:
+          - seed
+          - compare
+        default: seed
+        description: Create the pinned x fixture, then compare parallel consumers.
+      seed_run:
+        type: string
+        description: Completed seed run ID (required for compare).
+permissions:
+  contents: read
+  packages: read
+  actions: read
+env:
+  YARN_ENABLE_GLOBAL_CACHE: "true"
+  YARN_ENABLE_HARDENED_MODE: "1"
+  BENCHMARK_SEED: ${{ inputs.seed_run || github.run_id }}
+  NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  NODE_OPTIONS: --max_old_space_size=4096
+jobs:
+  seed:
+    name: Seed x snapshot
+    if: ${{ github.event_name == 'push' || inputs.phase == 'seed' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - &a1
+        name: Checkout experiment tools
+        uses: actions/checkout@v4
+      - &a2
+        name: Preserve experiment tools
+        run: >-
+          mkdir -p "$RUNNER_TEMP/x-cache-tools"
+
+          cp .github/scripts/ci-dependencies.py
+          .github/scripts/ci-x-cache-benchmark.py development/patch-fix.js
+          "$RUNNER_TEMP/x-cache-tools/"
+      - &a3
+        name: Checkout pinned x source
+        uses: actions/checkout@v4
+        with:
+          ref: 592f67d5c5cf2b221a546f7180773d5b77303008
+          lfs: true
+      - &a4
+        name: Use pinned Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24.21.0
+          package-manager-cache: false
+          registry-url: https://npm.pkg.github.com
+          scope: "@onekeyhq"
+      - &a5
+        name: Prepare x cache fixture
+        id: fixture
+        run: python3 "$RUNNER_TEMP/x-cache-tools/ci-x-cache-benchmark.py" prepare
+      - name: Install pinned x and build image
+        run: python3 "$RUNNER_TEMP/x-cache-tools/ci-x-cache-benchmark.py" seed
+      - name: Save x image
+        uses: actions/cache/save@v4
+        with:
+          path: ${{ steps.fixture.outputs.path }}
+          key: ${{ steps.fixture.outputs.key }}
+      - name: Save x Yarn archives
+        uses: actions/cache/save@v4
+        with:
+          path: ${{ steps.fixture.outputs.yarn-path }}
+          key: ${{ steps.fixture.outputs.yarn-key }}
+      - name: Generate immutable target fixtures
+        run: python3 "$RUNNER_TEMP/x-cache-tools/ci-x-cache-benchmark.py"
+          fixtures_create
+      - name: Upload target fixtures
+        uses: actions/upload-artifact@v4
+        with:
+          name: x-cache-fixtures
+          path: ${{ runner.temp }}/x-cache-fixtures
+          retention-days: 3
+          if-no-files-found: error
+  benchmark:
+    name: ${{ matrix.scenario }} / ${{ matrix.method }}
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.phase == 'compare' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        scenario:
+          - same
+          - deps
+          - patches
+        method:
+          - yarn-only
+          - x-reset-all
+          - x-delta
+    env:
+      BENCHMARK_SCENARIO: ${{ matrix.scenario }}
+      BENCHMARK_METHOD: ${{ matrix.method }}
+    steps:
+      - *a1
+      - *a2
+      - *a3
+      - *a4
+      - *a5
+      - name: Download target fixtures
+        uses: actions/download-artifact@v4
+        with:
+          name: x-cache-fixtures
+          path: ${{ runner.temp }}/x-cache-fixtures
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          run-id: ${{ inputs.seed_run }}
+      - name: Apply target fixture
+        run: python3 "$RUNNER_TEMP/x-cache-tools/ci-x-cache-benchmark.py" fixture_apply
+      - name: Start dependency timer
+        run: python3 "$RUNNER_TEMP/x-cache-tools/ci-x-cache-benchmark.py" begin
+      - name: Restore x Yarn archives
+        uses: actions/cache/restore@v4
+        with:
+          path: ${{ steps.fixture.outputs.yarn-path }}
+          key: ${{ steps.fixture.outputs.yarn-key }}
+          fail-on-cache-miss: true
+        env:
+          SEGMENT_DOWNLOAD_TIMEOUT_MINS: "2"
+      - name: Restore x image
+        if: ${{ matrix.method != 'yarn-only' }}
+        uses: actions/cache/restore@v4
+        with:
+          path: ${{ steps.fixture.outputs.path }}
+          key: ${{ steps.fixture.outputs.key }}
+          fail-on-cache-miss: true
+        env:
+          SEGMENT_DOWNLOAD_TIMEOUT_MINS: "2"
+      - name: Install target dependencies
+        run: python3 "$RUNNER_TEMP/x-cache-tools/ci-x-cache-benchmark.py" install
+      - name: Verify dependency content
+        run: python3 "$RUNNER_TEMP/x-cache-tools/ci-x-cache-benchmark.py" inventory
+      - name: Run unit shard 1
+        if: ${{ matrix.scenario == 'same' }}
+        env:
+          NODE_OPTIONS: --max_old_space_size=8192
+        run: >-
+          set +e
+
+          yarn test --maxWorkers=2
+          --cacheDirectory="$RUNNER_TEMP/jest-x-cache-benchmark" --coverage
+          --shard=1/5 --coverageDirectory=coverage/shard-1
+          --coverageReporters=json-summary --coverageReporters=json
+          --coverageThreshold='{}' --json
+          --outputFile="$RUNNER_TEMP/x-cache-results/test-results.json" 2>&1 |
+          tee "$RUNNER_TEMP/x-cache-results/unit.log"
+
+          status=${PIPESTATUS[0]}
+
+          set -e
+
+          exit "$status"
+      - name: Upload measurements
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: x-cache-${{ matrix.scenario }}-${{ matrix.method }}
+          path: ${{ runner.temp }}/x-cache-results
+          retention-days: 3
+          if-no-files-found: error
+      - name: Unmount dependency image
+        if: always()
+        run: python3 "$RUNNER_TEMP/x-cache-tools/ci-x-cache-benchmark.py" cleanup
+  compare:
+    name: Compare installed trees
+    needs: benchmark
+    if: ${{ always() && inputs.phase == 'compare' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download measurements
+        uses: actions/download-artifact@v4
+        with:
+          pattern: x-cache-*
+          path: ${{ runner.temp }}/x-cache-results-all
+      - name: Compare full installed dependency trees
+        env:
+          BENCHMARK_RESULTS: ${{ runner.temp }}/x-cache-results-all
+        run: python3 .github/scripts/ci-x-cache-benchmark.py compare
+      - name: Upload comparison
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: x-cache-comparison
+          path: ${{ runner.temp }}/x-cache-results-all/comparison.json
+          retention-days: 3
+          if-no-files-found: error
