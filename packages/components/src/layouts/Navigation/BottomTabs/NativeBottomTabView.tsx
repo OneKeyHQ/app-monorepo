@@ -9,7 +9,7 @@ import {
   type Route,
   type TabNavigationState,
 } from '@react-navigation/native';
-import { StyleSheet, View } from 'react-native';
+import { Platform, StyleSheet, View } from 'react-native';
 
 import { Spinner, Stack } from '../../../primitives';
 
@@ -28,6 +28,10 @@ type Props = NativeBottomTabNavigationConfig & {
 const styles = StyleSheet.create({
   scene: {
     flex: 1,
+  },
+  androidHiddenTabBarScene: {
+    width: '100%',
+    height: '100%',
   },
   activationSignal: {
     position: 'absolute',
@@ -94,6 +98,7 @@ export function NativeBottomTabView({
   navigation,
   descriptors,
   tabBar,
+  tabBarHidden,
   ...rest
 }: Props) {
   const [activatedRouteKeys, setActivatedRouteKeys] = useState<string[]>(() => {
@@ -214,9 +219,16 @@ export function NativeBottomTabView({
     [descriptors, state.preloadedRouteKeys],
   );
   const getSceneStyle = useCallback(
-    ({ route }: { route: Route<string> }) =>
+    ({ route }: { route: Route<string> }) => [
       descriptors[route.key]?.options.sceneStyle,
-    [descriptors],
+      // Android can report the old scene height once after its native tab bar
+      // becomes GONE. Fill the expanded holder immediately so a screen pushed
+      // during that frame does not inherit the stale tab-bar viewport.
+      Platform.OS === 'android' && tabBarHidden
+        ? styles.androidHiddenTabBarScene
+        : undefined,
+    ],
+    [descriptors, tabBarHidden],
   );
   const onTabLongPress = useCallback(
     (index: number) => {
@@ -275,6 +287,7 @@ export function NativeBottomTabView({
   return (
     <TabView
       {...rest}
+      tabBarHidden={tabBarHidden}
       navigationState={state}
       renderScene={renderScene}
       renderLazyPlaceholder={renderLazyPlaceholder}

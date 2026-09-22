@@ -1,14 +1,18 @@
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EEnterWay } from '@onekeyhq/shared/src/logger/scopes/dex';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { ERootRoutes, ETabMarketRoutes } from '@onekeyhq/shared/src/routes';
+import { isTabBarHiddenByRequest } from '@onekeyhq/shared/src/tabBar/hideTabBarRequests';
 
 import {
   buildReplacedMarketDetailParams,
   findMarketTabStack,
+  finishMarketDetailTabBarTransition,
   getCurrentMarketStockDetailId,
   getCurrentMarketStockDetailRoute,
   getNativeMarketListResetParams,
   openOrReplaceMarketDetailRoute,
+  prepareMarketDetailTabBarTransition,
   replaceFocusedMarketDetailRoute,
   resolveMarketDetailBackAction,
 } from './marketDetailNavigation';
@@ -16,15 +20,38 @@ import {
 const dispatchMock = jest.fn();
 const getRootStateMock = jest.fn();
 const getCurrentRouteMock = jest.fn();
+const navigationStateListeners = new Set<() => void>();
+const rootNavigationMock = {
+  dispatch: (...args: unknown[]) => {
+    dispatchMock(...args);
+  },
+  getRootState: (): unknown => getRootStateMock() as unknown,
+  getCurrentRoute: (): unknown => getCurrentRouteMock() as unknown,
+  addListener: (type: string, callback: () => void) => {
+    if (type !== 'state') {
+      return () => {};
+    }
+    navigationStateListeners.add(callback);
+    return () => {
+      navigationStateListeners.delete(callback);
+    };
+  },
+};
+let mockRootNavigationCurrent: typeof rootNavigationMock | undefined =
+  rootNavigationMock;
+
+const emitNavigationState = () => {
+  // A listener may unsubscribe itself here; removing the current entry mid
+  // iteration is safe for a Set.
+  for (const listener of navigationStateListeners) {
+    listener();
+  }
+};
 
 jest.mock('@onekeyhq/components', () => ({
   rootNavigationRef: {
-    current: {
-      dispatch: (...args: unknown[]) => {
-        dispatchMock(...args);
-      },
-      getRootState: (): unknown => getRootStateMock() as unknown,
-      getCurrentRoute: (): unknown => getCurrentRouteMock() as unknown,
+    get current() {
+      return mockRootNavigationCurrent;
     },
   },
 }));
@@ -126,12 +153,115 @@ describe('marketDetailNavigation', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     platformEnv.isNative = true;
+    mockRootNavigationCurrent = rootNavigationMock;
     getRootStateMock.mockReturnValue(undefined);
     getCurrentRouteMock.mockReturnValue(undefined);
   });
 
   afterEach(() => {
+    finishMarketDetailTabBarTransition();
+    navigationStateListeners.clear();
     platformEnv.isNative = false;
+  });
+
+  describe('market detail tab bar transition', () => {
+    const focusRoute = (name: string, rootRouteName = ERootRoutes.Main) => {
+      getRootStateMock.mockReturnValue({
+        index: 0,
+        routes: [{ name: rootRouteName }],
+      });
+      getCurrentRouteMock.mockReturnValue({ name });
+    };
+
+    beforeEach(() => {
+      jest.useFakeTimers();
+      platformEnv.isNativeAndroid = true;
+      focusRoute(ETabMarketRoutes.MarketDetailV2);
+    });
+
+    afterEach(() => {
+      finishMarketDetailTabBarTransition();
+      platformEnv.isNativeAndroid = false;
+      jest.useRealTimers();
+    });
+
+    it('hides the tab bar while the pushed detail screen is still mounting', () => {
+      prepareMarketDetailTabBarTransition();
+      expect(isTabBarHiddenByRequest()).toBe(true);
+    });
+
+    it('releases the request when the detail screen takes ownership', () => {
+      prepareMarketDetailTabBarTransition();
+      finishMarketDetailTabBarTransition();
+      expect(isTabBarHiddenByRequest()).toBe(false);
+    });
+
+    it('never hides the tab bar off Android', () => {
+      platformEnv.isNativeAndroid = false;
+      prepareMarketDetailTabBarTransition();
+      expect(isTabBarHiddenByRequest()).toBe(false);
+    });
+
+    it('does not hide the tab bar before navigation is ready', () => {
+      mockRootNavigationCurrent = undefined;
+      prepareMarketDetailTabBarTransition();
+      expect(isTabBarHiddenByRequest()).toBe(false);
+    });
+
+    it('waits for committed navigation state instead of evaluating immediately', () => {
+      focusRoute(ETabMarketRoutes.TabMarket);
+      prepareMarketDetailTabBarTransition();
+      expect(isTabBarHiddenByRequest()).toBe(true);
+
+      focusRoute(ETabMarketRoutes.MarketDetailV2);
+      emitNavigationState();
+      expect(isTabBarHiddenByRequest()).toBe(true);
+    });
+
+    it('releases the request once the transition deadline passes', () => {
+      prepareMarketDetailTabBarTransition();
+      jest.advanceTimersByTime(1500);
+      expect(isTabBarHiddenByRequest()).toBe(false);
+    });
+
+    it('keeps one deadline across back to back navigations', () => {
+      prepareMarketDetailTabBarTransition();
+      jest.advanceTimersByTime(1000);
+      prepareMarketDetailTabBarTransition();
+      expect(isTabBarHiddenByRequest()).toBe(true);
+      // A re-armed timer would still hold the request 500ms after the second
+      // call; the deadline belongs to the first one.
+      jest.advanceTimersByTime(500);
+      expect(isTabBarHiddenByRequest()).toBe(false);
+    });
+
+    it('releases early when the navigation settles outside a detail route', () => {
+      prepareMarketDetailTabBarTransition();
+      focusRoute(ETabMarketRoutes.TabMarket);
+      emitNavigationState();
+      expect(isTabBarHiddenByRequest()).toBe(false);
+    });
+
+    it('keeps the request while the navigation settles on a detail route', () => {
+      prepareMarketDetailTabBarTransition();
+      focusRoute(ETabMarketRoutes.MarketStockDetail);
+      emitNavigationState();
+      expect(isTabBarHiddenByRequest()).toBe(true);
+    });
+
+    it('keeps the request while a root overlay covers the tab bar', () => {
+      prepareMarketDetailTabBarTransition();
+      focusRoute('SwapMainLand', ERootRoutes.Modal);
+      emitNavigationState();
+      expect(isTabBarHiddenByRequest()).toBe(true);
+    });
+
+    it('stops listening to navigation state once the transition ends', () => {
+      prepareMarketDetailTabBarTransition();
+      expect(navigationStateListeners.size).toBe(1);
+      finishMarketDetailTabBarTransition();
+      expect(navigationStateListeners.size).toBe(0);
+    });
   });
 
   it('finds the deepest market stack under a selector overlay', () => {
@@ -443,6 +573,7 @@ describe('marketDetailNavigation', () => {
   });
 
   it('replaces the focused detail when switching to a stock page', () => {
+    platformEnv.isNativeAndroid = true;
     getCurrentRouteMock.mockReturnValue({ name: 'MarketDetailV2' });
 
     expect(
@@ -459,6 +590,7 @@ describe('marketDetailNavigation', () => {
         params: buildReplacedMarketDetailParams({ stockId: 'AAPL' }),
       },
     });
+    expect(isTabBarHiddenByRequest()).toBe(true);
   });
 
   it('does not touch a non-detail focused route', () => {

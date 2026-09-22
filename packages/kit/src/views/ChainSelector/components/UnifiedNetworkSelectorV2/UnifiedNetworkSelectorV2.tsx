@@ -12,9 +12,9 @@ import {
   Stack,
   YStack,
   resetChainSelectorModal,
+  useMedia,
 } from '@onekeyhq/components';
 import { PagerView } from '@onekeyhq/components/src/composite/Carousel/pager';
-import { DESKTOP_MODE_UI_HEADER_HEIGHT } from '@onekeyhq/components/src/utils';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import { useAccountSelectorCreateAddress } from '@onekeyhq/kit/src/components/AccountSelector/hooks/useAccountSelectorCreateAddress';
@@ -57,10 +57,15 @@ import { preloadNetworkImagesV2 } from './useNetworkListPresentationV2';
 import type { IServerNetworkMatch } from '../../types';
 import type { ITabType } from '../UnifiedNetworkSelector/TabSwitcher';
 import type { RouteProp } from '@react-navigation/core';
-import type { View } from 'react-native';
+import type { LayoutChangeEvent, View } from 'react-native';
 import type NativePagerView from 'react-native-pager-view';
 
 const TAB_TO_INDEX: Record<ITabType, number> = { portfolio: 0, network: 1 };
+// The single-network tab has no footer, so its web index rail reserves the
+// all-networks footer height to keep the letters in place when switching tabs.
+// These are the heights of the footer below (`p="$5"` around a medium / large
+// Button), used until the footer has been laid out once.
+const PORTFOLIO_FOOTER_FALLBACK_HEIGHT = { gtMd: 78, md: 90 };
 const INDEX_TO_TAB: ITabType[] = ['portfolio', 'network'];
 
 function UnifiedNetworkSelectorV2() {
@@ -162,6 +167,15 @@ function UnifiedNetworkSelectorV2() {
   >([]);
 
   const [missingAddressCount, setMissingAddressCount] = useState(0);
+  const { gtMd } = useMedia();
+  const [portfolioFooterHeight, setPortfolioFooterHeight] = useState<number>();
+  const handlePortfolioFooterLayout = useCallback(
+    (event: LayoutChangeEvent) =>
+      // Web measures through the modal's opening scale animation; rounding
+      // skips the sub-pixel intermediate values.
+      setPortfolioFooterHeight(Math.round(event.nativeEvent.layout.height)),
+    [],
+  );
 
   const [isCreatingMissingAddresses, setIsCreatingMissingAddresses] =
     useState(false);
@@ -698,7 +712,7 @@ function UnifiedNetworkSelectorV2() {
     return false;
   }, [enabledNetworks, isCreatingEnabledAddresses, isCreatingMissingAddresses]);
 
-  const page = (
+  return (
     <Page
       // Page safeAreaEnabled + SectionList contentContainerStyle.paddingBottom
       // double-counted the home indicator inset (~34px each). Defer
@@ -809,6 +823,12 @@ function UnifiedNetworkSelectorV2() {
                   webSectionIndexContainerRef={
                     networkWebSectionIndexContainerRef
                   }
+                  webSectionIndexBottomInset={
+                    portfolioFooterHeight ??
+                    (gtMd
+                      ? PORTFOLIO_FOOTER_FALLBACK_HEIGHT.gtMd
+                      : PORTFOLIO_FOOTER_FALLBACK_HEIGHT.md)
+                  }
                   walletId={walletId}
                   accountId={accountId}
                   indexedAccountId={indexedAccountId}
@@ -847,6 +867,9 @@ function UnifiedNetworkSelectorV2() {
             gap="$2.5"
             bg="$bgApp"
             flexDirection="column-reverse"
+            onLayout={
+              platformEnv.isNative ? undefined : handlePortfolioFooterLayout
+            }
             $gtMd={{
               flexDirection: 'row',
               alignItems: 'center',
@@ -888,46 +911,6 @@ function UnifiedNetworkSelectorV2() {
         </Page.Footer>
       ) : null}
     </Page>
-  );
-
-  if (!platformEnv.isDesktop) {
-    return page;
-  }
-
-  return (
-    <Stack flex={1} position="relative">
-      {page}
-      <Stack
-        testID={ChainSelectorTestIDs.unifiedSectionIndexContainer}
-        position="absolute"
-        top={-DESKTOP_MODE_UI_HEADER_HEIGHT}
-        right={0}
-        bottom={0}
-        left={0}
-        pointerEvents="box-none"
-      >
-        <Stack
-          ref={portfolioWebSectionIndexContainerRef}
-          position="absolute"
-          top={0}
-          right={0}
-          bottom={0}
-          left={0}
-          display={activeTab === 'portfolio' ? 'flex' : 'none'}
-          pointerEvents="box-none"
-        />
-        <Stack
-          ref={networkWebSectionIndexContainerRef}
-          position="absolute"
-          top={0}
-          right={0}
-          bottom={0}
-          left={0}
-          display={activeTab === 'network' ? 'flex' : 'none'}
-          pointerEvents="box-none"
-        />
-      </Stack>
-    </Stack>
   );
 }
 

@@ -130,6 +130,7 @@ export function ImageV2({ style: defaultStyle, ...props }: IImageV2Props) {
     blurRadius: _blurRadius,
     defaultSource: _defaultSource,
     tintColor: _tintColor,
+    round: _round,
     cachePolicy: _cachePolicy,
     autoplay: _autoplay,
     loadingStrategy = 'none',

@@ -312,6 +312,16 @@ textarea {
   cursor: default;
 }
 
+/* The package centers the index rail inside its host container through an
+   inline `top`. The network selector pins it to the top of the list area so a
+   short index does not float mid-list. Hit-testing reads the rail's live rect,
+   so overriding `top` is safe. Remove once the package exposes an alignment
+   option. */
+[data-testid='chain-selector-unified-section-index-container']
+  > .ok-native-list-index-rail {
+  top: 0 !important;
+}
+
 .onekey-img-cropper {
   height: 100%;
 }
