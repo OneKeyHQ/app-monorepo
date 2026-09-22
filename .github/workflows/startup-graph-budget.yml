@@ -24,6 +24,7 @@ jobs:
   native-startup-graph-budget:
     name: Native
     runs-on: ubuntu-24.04
+    timeout-minutes: 14
 
     steps:
       - uses: actions/checkout@v4
@@ -35,14 +36,16 @@ jobs:
         with:
           node-version: 24.x
           cache: 'yarn'
+          check-latest: true
           registry-url: 'https://npm.pkg.github.com'
           scope: '@onekeyhq'
 
       - name: Install Dependencies
+        id: dependencies
         env:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NODE_OPTIONS: '--max_old_space_size=8192'
-        run: yarn install --immutable
+        uses: ./.github/actions/install-dependencies
 
       - name: Union Build (three-bundle split)
         env:
@@ -99,9 +102,14 @@ jobs:
             apps/mobile/out-dir-analysis/budget-check-ai-hints-*.md
           retention-days: 30
 
+      - name: Unmount dependency image
+        if: always() && steps.dependencies.outcome != 'skipped'
+        run: python3 .github/scripts/ci-dependencies.py cleanup
+
   web-startup-graph-budget:
     name: Web
     runs-on: ubuntu-24.04
+    timeout-minutes: 14
 
     steps:
       - uses: actions/checkout@v4
@@ -113,14 +121,16 @@ jobs:
         with:
           node-version: 24.x
           cache: 'yarn'
+          check-latest: true
           registry-url: 'https://npm.pkg.github.com'
           scope: '@onekeyhq'
 
       - name: Install Dependencies
+        id: dependencies
         env:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NODE_OPTIONS: '--max_old_space_size=8192'
-        run: yarn install --immutable
+        uses: ./.github/actions/install-dependencies
 
       # Current GitHub Actions cold-entry median baseline, measured on
       # ubuntu-24.04 with 3 fresh-browser runs in PR #12286 run 28733529052.
@@ -190,9 +200,14 @@ jobs:
             apps/web/out-dir-analysis/web-cold-budget-report-ai-hints.md
           retention-days: 30
 
+      - name: Unmount dependency image
+        if: always() && steps.dependencies.outcome != 'skipped'
+        run: python3 .github/scripts/ci-dependencies.py cleanup
+
   desktop-startup-budget:
     name: Desktop
     runs-on: ubuntu-24.04
+    timeout-minutes: 10
 
     steps:
       - uses: actions/checkout@v4
@@ -204,14 +219,16 @@ jobs:
         with:
           node-version: 24.x
           cache: 'yarn'
+          check-latest: true
           registry-url: 'https://npm.pkg.github.com'
           scope: '@onekeyhq'
 
       - name: Install Dependencies
+        id: dependencies
         env:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NODE_OPTIONS: '--max_old_space_size=8192'
-        run: yarn install --immutable
+        uses: ./.github/actions/install-dependencies
 
       - name: Build desktop renderer budget artifact with release Rspack config
         env:
@@ -243,9 +260,14 @@ jobs:
             apps/desktop/app/dist/meta.json
           retention-days: 30
 
+      - name: Unmount dependency image
+        if: always() && steps.dependencies.outcome != 'skipped'
+        run: python3 .github/scripts/ci-dependencies.py cleanup
+
   ext-build-budget:
     name: Extension
     runs-on: ubuntu-24.04
+    timeout-minutes: 10
 
     steps:
       - uses: actions/checkout@v4
@@ -257,16 +279,22 @@ jobs:
         with:
           node-version: 24.x
           cache: 'yarn'
+          check-latest: true
           registry-url: 'https://npm.pkg.github.com'
           scope: '@onekeyhq'
 
       - name: Install Dependencies
+        id: dependencies
         env:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NODE_OPTIONS: '--max_old_space_size=8192'
-        run: yarn install --immutable
+        uses: ./.github/actions/install-dependencies
 
       - name: Check extension production build budgets
         env:
           NODE_OPTIONS: '--max_old_space_size=8192'
         run: yarn app:ext:build
+
+      - name: Unmount dependency image
+        if: always() && steps.dependencies.outcome != 'skipped'
+        run: python3 .github/scripts/ci-dependencies.py cleanup

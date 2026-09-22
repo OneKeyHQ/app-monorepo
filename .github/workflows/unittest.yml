@@ -46,7 +46,7 @@ jobs:
     name: Unit Tests (${{ matrix.shard }}/5)
     runs-on: ubuntu-24.04
     # Manual benchmarks keep the slow baseline observable.
-    timeout-minutes: ${{ github.event_name == 'workflow_dispatch' && 30 || 10 }}
+    timeout-minutes: ${{ github.event_name == 'workflow_dispatch' && 30 || 12 }}
 
     strategy:
       fail-fast: false
@@ -79,11 +79,13 @@ jobs:
         run: echo "dir=${{ github.workspace }}/.yarn" >> "$GITHUB_OUTPUT"
 
       - name: Install Dependency
+        id: dependencies
         env:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NODE_OPTIONS: '--max_old_space_size=4096'
-        run: |
-          yarn install --immutable
+        uses: ./.github/actions/install-dependencies
+        with:
+          save-snapshot: ${{ matrix.shard == 1 }}
 
       - name: Run Tests
         env:
@@ -174,6 +176,10 @@ jobs:
             echo "- Open: \`jest-shard-${{ matrix.shard }}.log\`, \`test-report.html\`, and \`unittest-ai-prompt.md\`"
           } >> "$GITHUB_STEP_SUMMARY"
           echo "::notice title=CI diagnostics::Download ci-ai-unittest-diagnostics-shard-${{ matrix.shard }}-of-${{ env.JEST_SHARD_TOTAL }} and inspect jest-shard-${{ matrix.shard }}.log"
+
+      - name: Unmount dependency image
+        if: always() && steps.dependencies.outcome != 'skipped'
+        run: python3 .github/scripts/ci-dependencies.py cleanup
 
   coverage:
     name: unittest (24.x)

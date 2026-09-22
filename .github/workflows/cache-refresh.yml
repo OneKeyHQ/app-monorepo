@@ -9,7 +9,8 @@ name: Cache Refresh
 # 3. Runs in parallel on ubuntu-24.04, macos-26, and windows-2025 (same versions as other workflows)
 # 4. Uses actions/setup-node's cache: 'yarn' feature to create/update cache for each OS
 # 5. Runs yarn install to install all dependencies, which updates the cache content
-# 6. GitHub Actions automatically saves the updated cache for other workflows to use
+# 6. Linux also publishes the installed dependency SquashFS image for PR checks
+# 7. GitHub Actions automatically saves the updated cache for other workflows to use
 #
 # Why this is needed:
 # - Prevents cache expiration from causing dependency installation failures in other workflows
@@ -35,7 +36,19 @@ on:
     branches:
       - x
     paths:
-      - 'package.json'
+      - '**/package.json'
+      - 'yarn.lock'
+      - '.yarnrc.yml'
+      - '.yarn/releases/**'
+      - '.yarn/plugins/**'
+      - '.yarn/patches/**'
+      - 'patches/**'
+      - '.env.example'
+      - 'development/scripts/postinstall.js'
+      - 'development/scripts/copy-injected.js'
+      - 'development/scripts/web-embed.js'
+      - '.github/scripts/ci-dependencies.py'
+      - '.github/actions/install-dependencies/**'
 
 # Cancel currently running workflows from the same group
 concurrency:
@@ -67,7 +80,6 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
         with:
-          ref: x  # Explicitly checkout x branch
           lfs: true  # Enable Git LFS support
 
       # Step 2: Setup Node.js environment and enable Yarn cache
@@ -81,6 +93,7 @@ jobs:
         with:
           node-version: ${{ matrix.node-version }}
           cache: 'yarn'  # Enable Yarn caching
+          check-latest: true
           registry-url: 'https://npm.pkg.github.com'
           scope: '@onekeyhq'
 
@@ -96,7 +109,19 @@ jobs:
       # - Download and install all dependencies from package.json
       # - Update cache files in .yarn/cache directory
       # - GitHub Actions will auto-save updated cache at job end
+      - name: Install dependencies and refresh Linux snapshot
+        if: runner.os == 'Linux'
+        id: dependencies
+        uses: ./.github/actions/install-dependencies
+        with:
+          save-snapshot: 'true'
+          verify-cache: 'true'
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NODE_OPTIONS: '--max_old_space_size=4096'
+
       - name: Install dependencies (refresh cache)
+        if: runner.os != 'Linux'
         shell: bash
         env:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -123,11 +148,16 @@ jobs:
 
       # Step 6: Verify dependency integrity
       - name: Verify dependency integrity
+        if: runner.os != 'Linux'
         shell: bash
         run: |
           echo "Verifying installed dependencies..."
           yarn install --immutable --immutable-cache --check-cache
           echo "✅ All dependencies verified successfully"
+
+      - name: Unmount dependency image
+        if: always() && runner.os == 'Linux' && steps.dependencies.outcome != 'skipped'
+        run: python3 .github/scripts/ci-dependencies.py cleanup
 
 # Important Notes:
 # 1. Separate caches are created for each operating system (Linux, macOS, Windows)

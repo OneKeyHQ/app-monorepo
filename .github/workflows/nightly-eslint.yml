@@ -46,10 +46,11 @@ jobs:
             echo "AI prompt generation failed; inspect the failed step log and eslint-output.log." > ci-ai/eslint-ai-prompt.md
 
       - name: Install Dependencies
+        id: dependencies
         env:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NODE_OPTIONS: '--max_old_space_size=8192'
-        run: yarn install --immutable
+        uses: ./.github/actions/install-dependencies
 
       - name: Run ESLint
         env:
@@ -82,6 +83,10 @@ jobs:
             echo "- Open: \`eslint-output.log\` and \`eslint-ai-prompt.md\`"
           } >> "$GITHUB_STEP_SUMMARY"
           echo "::notice title=CI diagnostics::Download ci-ai-eslint-diagnostics and inspect eslint-output.log"
+
+      - name: Unmount dependency image
+        if: always() && steps.dependencies.outcome != 'skipped'
+        run: python3 .github/scripts/ci-dependencies.py cleanup
 
   notify-failure:
     name: Notify on Failure
