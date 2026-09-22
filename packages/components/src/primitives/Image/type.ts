@@ -137,6 +137,8 @@ export type IImageV2Props = Omit<
     src?: string;
     /** Display width hint in layout units. DPR is applied internally. */
     resizeWidth?: number;
+    /** Clips the native image to an oval using its current bounds. */
+    round?: boolean;
     onError?: (event: IImageErrorEventData) => void;
     onLoad?: (event: IImageLoadEventData) => void;
     onLoadEnd?: () => void;

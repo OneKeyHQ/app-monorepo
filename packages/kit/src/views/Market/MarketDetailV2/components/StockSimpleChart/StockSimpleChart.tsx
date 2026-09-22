@@ -27,8 +27,9 @@ import {
   STOCK_SIMPLE_CHART_POLLING_MS,
   buildStockSimpleChartScopeKey,
   fetchStockSimpleChartPoints,
-  mergeStockSimpleChartLivePrice,
   resolveStockSimpleChartBucketSeconds,
+  resolveStockSimpleChartClipKey,
+  resolveStockSimpleChartDisplayPoints,
   resolveStockSimpleChartLivePrice,
   resolveStockSimpleChartMinRefreshMs,
   resolveStockSimpleChartPreviousClose,
@@ -250,18 +251,36 @@ export function StockSimpleChart({
     },
   );
 
-  // `Date.now()` is read during the memo rather than tracked as a dependency:
-  // the tail point only needs a fresh timestamp when the quote it carries
-  // changes. Ticking it on a timer would redraw the line without moving it.
+  const isMarketOpen = stockDetail?.marketStatus?.isOpen;
+  // `keep` vs `clip` flips at session/weekend/open boundaries. The live tail
+  // still uses Date.now() inside the memo so a timer does not redraw the line.
+  const chartClipKey = resolveStockSimpleChartClipKey({
+    isOpen: isMarketOpen,
+    nowSeconds: Math.floor(Date.now() / 1000),
+    priceMode: requestPriceMode,
+    range: requestRange,
+  });
   const chartData = useMemo(
     () =>
-      mergeStockSimpleChartLivePrice({
+      resolveStockSimpleChartDisplayPoints({
+        clipKey: chartClipKey,
         intervalSeconds,
+        isOpen: isMarketOpen,
         livePrice,
         nowSeconds: Math.floor(Date.now() / 1000),
         points: chartState.data,
+        priceMode: requestPriceMode,
+        range: requestRange,
       }),
-    [chartState.data, intervalSeconds, livePrice],
+    [
+      chartClipKey,
+      chartState.data,
+      intervalSeconds,
+      isMarketOpen,
+      livePrice,
+      requestPriceMode,
+      requestRange,
+    ],
   );
 
   let chartContent;

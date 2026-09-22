@@ -295,6 +295,23 @@ export function HomePageView({
   const [{ hasRiskApprovals }] = useApprovalsInfoAtom();
   const { updateApprovalsInfo } = useAccountOverviewActions().current;
   const tabsRef = useRef<ITabContainerRef | null>(null);
+  // Keep the measured native tab bar height outside the account-keyed container
+  // so remounts do not briefly reserve the library's default 48pt height.
+  const nativeTabBarHeightRef = useRef<number | undefined>(undefined);
+  const nativeTabBarContainerStyle = useMemo(
+    () => ({
+      ...NATIVE_TAB_BAR_CONTAINER_STYLE,
+      onLayout: platformEnv.isNative
+        ? (event: LayoutChangeEvent) => {
+            const height = Math.round(event.nativeEvent.layout.height);
+            if (height > 0) {
+              nativeTabBarHeightRef.current = height;
+            }
+          }
+        : undefined,
+    }),
+    [],
+  );
 
   // Force PagerView to re-sync after bottom tab switch (freeze/unfreeze)
   const wasBlurredRef = useRef(false);
@@ -766,7 +783,7 @@ export function HomePageView({
         return (
           <Tabs.TabBar
             {...tabBarProps}
-            containerStyle={NATIVE_TAB_BAR_CONTAINER_STYLE}
+            containerStyle={nativeTabBarContainerStyle}
             tabNames={tabBarTabNames}
             indexDecimal={perpTabShowWeb ? undefined : tabBarProps.indexDecimal}
             onTabPress={handleTabPress}
@@ -824,6 +841,7 @@ export function HomePageView({
       switchToPerpsWebTab,
       perpTabShowWeb,
       isSmallScreen,
+      nativeTabBarContainerStyle,
       tabConfigs,
       tabBarTabNames,
     ],
@@ -957,6 +975,9 @@ export function HomePageView({
         allowHeaderOverscroll
         disableWebTabContentVisibility
         headerHeight={platformEnv.isNative ? 292 : undefined}
+        tabBarHeight={
+          platformEnv.isNative ? nativeTabBarHeightRef.current : undefined
+        }
         useNativeHeaderAnimation={platformEnv.isNativeAndroid}
         width={platformEnv.isNative ? (tabContainerWidth as number) : undefined}
         headerContainerStyle={headerContainerStyle}

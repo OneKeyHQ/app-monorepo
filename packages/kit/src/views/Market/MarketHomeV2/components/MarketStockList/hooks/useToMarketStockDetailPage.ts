@@ -14,7 +14,10 @@ import {
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useTokenDetailActions } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2';
 import { preloadMarketDetailV2Page } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/utils/marketDetailPagePreload';
-import { getCurrentMarketStockDetailRoute } from '@onekeyhq/kit/src/views/Market/utils/marketDetailNavigation';
+import {
+  getCurrentMarketStockDetailRoute,
+  prepareMarketDetailTabBarTransition,
+} from '@onekeyhq/kit/src/views/Market/utils/marketDetailNavigation';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -230,6 +233,7 @@ export function useToMarketStockDetailPage(
               params: stockDetailParams,
             },
           });
+          prepareMarketDetailTabBarTransition();
         } else {
           if (
             (platformEnv.isDesktop || platformEnv.isWeb) &&
@@ -255,6 +259,7 @@ export function useToMarketStockDetailPage(
               ETabMarketRoutes.MarketStockDetail,
               stockDetailParams,
             );
+            prepareMarketDetailTabBarTransition();
           }
         }
         return;
@@ -277,6 +282,7 @@ export function useToMarketStockDetailPage(
           },
         },
       });
+      prepareMarketDetailTabBarTransition();
     },
     [
       navigation,
