@@ -1,4 +1,3 @@
-import { createBridgedConnector } from '@onekeyfe/hwk-adapter-core';
 import { createKeystoneWebUsbConnector } from '@onekeyfe/hwk-keystone-connector-usb/webusb';
 import { createTrezorWebUsbConnector } from '@onekeyfe/hwk-trezor-connector-webusb';
 
@@ -24,21 +23,29 @@ jest.mock('@onekeyfe/hwk-keystone-connector-usb/webusb', () => ({
 describe('OffscreenApiThirdPartyHardware Keystone bridge', () => {
   it('lazily creates one USB connector and forwards discovery, connection and calls', async () => {
     const api = new OffscreenApiThirdPartyHardware();
-    const bridge = createBridgedConnector('keystone', 'usb', api);
     const options = {
       purpose: 'availability' as const,
       transportType: 'usb' as const,
     };
-    await bridge.searchDevices(options);
+    await api.searchDevices({ vendor: 'keystone', options });
     const connector = jest.mocked(createKeystoneWebUsbConnector).mock.results[0]
       .value;
     expect(connector.searchDevices).toHaveBeenCalledWith(options);
-    await bridge.connect('selected-target', { transportType: 'usb' });
+    await api.connect({
+      vendor: 'keystone',
+      deviceId: 'selected-target',
+      options: { transportType: 'usb' },
+    });
     expect(connector.connect).toHaveBeenCalledWith('selected-target', {
       transportType: 'usb',
     });
     await expect(
-      bridge.call('keystone-session', 'exchange', { ur: 'ur:request' }),
+      api.call({
+        vendor: 'keystone',
+        sessionId: 'keystone-session',
+        method: 'exchange',
+        callParams: { ur: 'ur:request' },
+      }),
     ).resolves.toEqual({ success: true, payload: 'ur:response' });
     expect(connector.call).toHaveBeenCalledWith(
       'keystone-session',
@@ -51,8 +58,7 @@ describe('OffscreenApiThirdPartyHardware Keystone bridge', () => {
   it('rebuilds and resubscribes the connector after a reset', async () => {
     jest.mocked(createKeystoneWebUsbConnector).mockClear();
     const api = new OffscreenApiThirdPartyHardware();
-    const bridge = createBridgedConnector('keystone', 'usb', api);
-    await bridge.searchDevices();
+    await api.searchDevices({ vendor: 'keystone' });
     const first = jest.mocked(createKeystoneWebUsbConnector).mock.results[0]
       .value;
     expect(first.on).toHaveBeenCalled();
@@ -64,7 +70,7 @@ describe('OffscreenApiThirdPartyHardware Keystone bridge', () => {
     api.reset({ vendor: 'keystone' });
     expect(first.reset).toHaveBeenCalled();
 
-    await bridge.searchDevices();
+    await api.searchDevices({ vendor: 'keystone' });
     expect(createKeystoneWebUsbConnector).toHaveBeenCalledTimes(2);
     const second = jest.mocked(createKeystoneWebUsbConnector).mock.results[1]
       .value;
