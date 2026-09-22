@@ -1,7 +1,12 @@
+import type {
+  IHardwareDeviceColor,
+  IPro2DeviceColor,
+} from '@onekeyhq/shared/src/utils/hardwareDeviceColors';
+
 import { useSceneScreen, useSceneTroupe } from '../deviceSceneHost';
 
 import { SCENES } from './scenes';
-import { Pro2DeviceShell } from './shell';
+import { PRO2_SHELLS, Pro2DeviceShell } from './shell';
 
 import type { IPro2DeviceAnimation } from './animation';
 import type { IPro2DeviceScene } from './scenes';
@@ -9,6 +14,13 @@ import type { IPro2DeviceShellProps } from './shell';
 
 export type { IPro2DeviceScene } from './scenes';
 export type { IPro2DeviceAnimation } from './animation';
+
+/** The finish's chrome; a color the Pro 2 does not come in wears black. */
+function pickShell(color: IHardwareDeviceColor | undefined) {
+  return color && color in PRO2_SHELLS
+    ? PRO2_SHELLS[color as IPro2DeviceColor]
+    : PRO2_SHELLS.Black;
+}
 
 /**
  * Code-drawn Pro 2 device. Reached through ../HardwareDevice, which is what
@@ -31,13 +43,20 @@ export type { IPro2DeviceAnimation } from './animation';
  * renders in — one continuous move, no waiting built in. `animation`
  * also accepts a custom IPro2DeviceAnimation contract (see ./animation.ts)
  * paired with your own `screenContent` on the 288x484 canvas.
- * `shellSource` swaps the baked chrome for a model that shares this
- * geometry (the Neo, ../NeoDevice).
+ * `color` picks the finish's chrome (black when omitted); `shellSource`
+ * swaps it outright for a model that shares this geometry (the Neo,
+ * ../NeoDevice).
  */
 export interface IPro2DeviceProps extends Omit<
   IPro2DeviceShellProps,
   'animation'
 > {
+  /**
+   * The device's finish, as its serial number names it (see
+   * shared/utils/hardwareDeviceColors). A color the Pro 2 does not come
+   * in, or none, wears black.
+   */
+  color?: IHardwareDeviceColor;
   /**
    * A built-in scene name, or a custom animation contract. With a scene name
    * the scene supplies the screen, so `screenContent` is ignored.
@@ -71,8 +90,10 @@ export function Pro2Device({
   instantEntry,
   paused,
   warmScenes,
+  color,
   shellSource,
 }: IPro2DeviceProps) {
+  const shell = shellSource ?? pickShell(color);
   const target = typeof animation === 'string' ? animation : undefined;
   const {
     displayed,
@@ -97,7 +118,7 @@ export function Pro2Device({
         width={width}
         animation={troupe.animation}
         screenContent={troupe.slot}
-        shellSource={shellSource}
+        shellSource={shell}
       />
     );
   }
@@ -107,7 +128,7 @@ export function Pro2Device({
         width={width}
         animation={sceneAnimation}
         screenContent={slot}
-        shellSource={shellSource}
+        shellSource={shell}
       />
     );
   }
@@ -118,7 +139,7 @@ export function Pro2Device({
       width={width}
       animation={typeof animation === 'string' ? undefined : animation}
       screenContent={typeof animation === 'string' ? undefined : screenContent}
-      shellSource={shellSource}
+      shellSource={shell}
     />
   );
 }

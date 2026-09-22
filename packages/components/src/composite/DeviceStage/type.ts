@@ -6,7 +6,10 @@ import type {
   IDeviceStageErrorI18n,
 } from '@onekeyhq/shared/types/deviceStage';
 
-import type { IHardwareDeviceType } from '../../content/HardwareDevice';
+import type {
+  IHardwareDeviceColor,
+  IHardwareDeviceType,
+} from '../../content/HardwareDevice';
 
 /**
  * Exploration-only hardware-interaction stage. Deliberately minimal:
@@ -178,6 +181,10 @@ export interface IDeviceStageProps {
    * widths. Defaults to REPLICA_WIDTH (see ./consts).
    */
   replicaWidth?: number;
+  /** The model's finish, read by the driver off the device row's serial
+   * number (shared/utils/hardwareDeviceColors) — only the Pro 2 and the
+   * Neo have one. Omitted: the model's default shell. */
+  deviceColor?: IHardwareDeviceColor;
   step: IDeviceStageStep;
   /**
    * Dresses the stage for a third-party device: the capsule's left seat

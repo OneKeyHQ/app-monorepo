@@ -308,6 +308,10 @@ class ServiceHardwareUI extends ServiceBase {
       void this.deviceStageBurst.mergeDeviceIdentity({
         connectId,
         deviceType: device.deviceType,
+        deviceColor: deviceUtils.getDeviceColorFromFeatures({
+          deviceType: device.deviceType,
+          features: device.featuresInfo,
+        }),
         deviceName: deviceUtils.buildDeviceStageName({
           features: device.featuresInfo,
           fallbackName: device.name,
@@ -723,11 +727,13 @@ class ServiceHardwareUI extends ServiceBase {
   async deviceStageShowPassphraseIntro(params: {
     connectId?: string;
     deviceType?: IDeviceStageState['deviceType'];
+    deviceColor?: IDeviceStageState['deviceColor'];
     deviceName?: string;
   }) {
     return this.deviceStageBurst.noteStep('passphraseIntro', {
       connectId: params.connectId,
       deviceType: params.deviceType,
+      deviceColor: params.deviceColor,
       deviceName: params.deviceName,
       passphraseMode: 'create',
     });
@@ -1540,6 +1546,10 @@ class ServiceHardwareUI extends ServiceBase {
         stageBurstOpened = await this.deviceStageBurst.begin({
           connectId,
           deviceType: device.deviceType,
+          deviceColor: deviceUtils.getDeviceColorFromFeatures({
+            deviceType: device.deviceType,
+            features: device.featuresInfo,
+          }),
           deviceName: deviceUtils.buildDeviceStageName({
             features: device.featuresInfo,
             fallbackName: device.name,

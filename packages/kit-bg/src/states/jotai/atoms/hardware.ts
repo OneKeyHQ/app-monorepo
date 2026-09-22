@@ -2,6 +2,7 @@
 
 import type { IAirGapUrJson } from '@onekeyhq/qr-wallet-sdk';
 import type { IOneKeyError } from '@onekeyhq/shared/src/errors/types/errorTypes';
+import type { IHardwareDeviceColor } from '@onekeyhq/shared/src/utils/hardwareDeviceColors';
 import type {
   EFirmwareUpdateTipMessages,
   EHardwareVendor,
@@ -203,6 +204,9 @@ export type IDeviceStageState = {
   step: IDeviceStageStepValue;
   connectId?: string;
   deviceType?: IDeviceType;
+  /** The finish the serial number names (Pro 2 / Neo only) — which of
+   * the model's shells the replica wears. */
+  deviceColor?: IHardwareDeviceColor;
   deviceName?: string;
   /** Third-party track: dresses the stage for Trezor / Ledger. */
   vendor?: EHardwareVendor;

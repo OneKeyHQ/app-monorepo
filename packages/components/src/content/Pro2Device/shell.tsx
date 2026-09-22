@@ -4,6 +4,8 @@ import type { ReactNode } from 'react';
 import { StyleSheet, View } from 'react-native';
 import Animated, { useAnimatedStyle } from 'react-native-reanimated';
 
+import type { IPro2DeviceColor } from '@onekeyhq/shared/src/utils/hardwareDeviceColors';
+
 import { BakedChrome } from '../deviceSceneHost';
 
 import { PRO2_DEVICE_SCREEN_OFF, PRO2_DEVICE_SCREEN_ON } from './animation';
@@ -13,10 +15,10 @@ import type { ImageSourcePropType } from 'react-native';
 
 /**
  * Pro 2 device, 1:1 against Figma node 20496:27747. The chrome — the
- * black body, the metal highlight rings, the top bloom, the corner
- * glints, the decoration bar and the side power button — ships as a
- * pre-baked bitmap (shell-pro2@2x/@3x, exported straight from the Figma
- * frame at 280pt, the stage's largest rendering). Only the screen stays
+ * body, the metal highlight rings, the top bloom, the corner glints,
+ * the decoration bar and the side power button — ships as a pre-baked
+ * bitmap per finish (shell-pro2-<color>@2x/@3x, exported straight from
+ * the Figma frame at 280pt, the stage's largest rendering). Only the screen stays
  * code: its content is dynamic (scenes on the 288x484 canvas) and its
  * cutout provides the clip. The Neo shares this geometry and rides the
  * same component under its own bitmap (../NeoDevice).
@@ -74,9 +76,17 @@ function px(v: number): number {
 
 const DEVICE_H = px(FIGMA_H);
 
-// The model suffix keeps the filename unique: webpack/rspack dev emits
-// assets as bare [name].[ext], where same-named files overwrite each other.
-const SHELL_SOURCE = require('./shell-pro2.png');
+/**
+ * The baked chrome, one bitmap per finish (shared/utils/hardwareDeviceColors
+ * says which a serial number names). The model-and-color suffix keeps every
+ * filename unique: webpack/rspack dev emits assets as bare [name].[ext],
+ * where same-named files overwrite each other.
+ */
+export const PRO2_SHELLS: Record<IPro2DeviceColor, ImageSourcePropType> = {
+  Black: require('./shell-pro2-black.png'),
+  Silver: require('./shell-pro2-silver.png'),
+  Orange: require('./shell-pro2-orange.png'),
+};
 
 const styles = StyleSheet.create({
   frame: {
@@ -158,8 +168,9 @@ export interface IPro2DeviceShellProps {
    */
   animation?: IPro2DeviceAnimation;
   /**
-   * The baked chrome bitmap. Defaults to the Pro 2's own; a model that
-   * shares this geometry and screen (the Neo) passes its shell here.
+   * The baked chrome bitmap. Defaults to the Pro 2 in black; ../Pro2Device
+   * picks the finish, and a model that shares this geometry and screen
+   * (the Neo) passes its own shell here.
    */
   shellSource?: ImageSourcePropType;
 }
@@ -168,7 +179,7 @@ export function Pro2DeviceShell({
   width = DEVICE_W,
   screenContent,
   animation,
-  shellSource = SHELL_SOURCE,
+  shellSource = PRO2_SHELLS.Black,
 }: IPro2DeviceShellProps) {
   const scale = width / DEVICE_W;
   const resolvedAnimation =

@@ -123,15 +123,20 @@ export function useDeviceStageFirmwareVerify() {
       // be gone when this run ended, leaving the stage to exit on the
       // next network gap. The join is unconditional and the leave single,
       // so the release below always addresses the layer opened here.
+      // The device-settings entry hands a stored device carrying its own
+      // features; the onboarding entry only has the ones passed in.
+      const stageFeatures =
+        features ??
+        ('featuresInfo' in device ? device.featuresInfo : undefined);
       await serviceHardwareUI.deviceStageJoinBurst({
         connectId,
         deviceType: device.deviceType,
+        deviceColor: deviceUtils.getDeviceColorFromFeatures({
+          deviceType: device.deviceType,
+          features: stageFeatures,
+        }),
         deviceName: deviceUtils.buildDeviceStageName({
-          // The device-settings entry hands a stored device carrying its
-          // own features; the onboarding entry only has the ones passed in.
-          features:
-            features ??
-            ('featuresInfo' in device ? device.featuresInfo : undefined),
+          features: stageFeatures,
           fallbackName: device.name,
         }),
       });
