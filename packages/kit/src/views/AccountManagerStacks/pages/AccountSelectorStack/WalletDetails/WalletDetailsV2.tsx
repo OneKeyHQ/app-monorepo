@@ -29,6 +29,11 @@ import {
   useSelectedAccount,
 } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { useAccountSelectorActions } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector/actions';
+import {
+  HOME_TOKEN_LIST_PREWARM_TAP_TIMEOUT_MS,
+  prewarmHomeTokenListOwner,
+  prewarmHomeTokenListOwnerWithin,
+} from '@onekeyhq/kit/src/states/jotai/contexts/tokenList/cells/prewarmOwnerFrames';
 import qrHiddenCreateGuideDialog from '@onekeyhq/kit/src/views/Onboarding/pages/ConnectHardwareWallet/qrHiddenCreateGuideDialog';
 import type {
   IDBAccount,
@@ -130,6 +135,10 @@ function BotWalletDeactivatedBanner({ walletId }: { walletId: string }) {
     />
   );
 }
+
+// Accounts listed first are the likeliest targets; a wallet with more rows
+// than this still prewarms the tapped row itself.
+const HOME_TOKEN_LIST_PREWARM_MAX_ROWS = 12;
 
 function WalletDetailsViewV2({ num }: IWalletDetailsProps) {
   const intl = useIntl();
@@ -276,6 +285,37 @@ function WalletDetailsViewV2({ num }: IWalletDetailsProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [indexedAccountIdsKey.join(',')],
   );
+
+  // Prewarm the home token list for the listed accounts while the selector is
+  // open (OK-63873): the tap then finds the owner's frames in the replay
+  // cache and the switch paints without a skeleton. Sequential and bounded so
+  // it stays a background courtesy; the tap itself re-requests its target.
+  useEffect(() => {
+    const prewarmNetworkId = linkedNetworkId ?? selectedNetworkId;
+    if (!prewarmNetworkId || !usedDeriveType) {
+      return undefined;
+    }
+    const ids = indexedAccountIds.slice(0, HOME_TOKEN_LIST_PREWARM_MAX_ROWS);
+    if (!ids.length) {
+      return undefined;
+    }
+    let cancelled = false;
+    void (async () => {
+      for (const indexedAccountId of ids) {
+        if (cancelled) {
+          return;
+        }
+        await prewarmHomeTokenListOwner({
+          networkId: prewarmNetworkId,
+          deriveType: usedDeriveType,
+          indexedAccountId,
+        });
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [indexedAccountIds, linkedNetworkId, selectedNetworkId, usedDeriveType]);
 
   // Lazy-load address map only when searching (avoids DB read on every wallet/network switch)
   const isSearching = !!searchText;
@@ -755,6 +795,18 @@ function WalletDetailsViewV2({ num }: IWalletDetailsProps) {
           networkUtils.isAllNetwork({ networkId: selectedAccount.networkId })
         )
           autoChangeToAccountMatchedNetworkId = selectedAccount.networkId;
+        // Give the home token list the owner's local-cache frames before the
+        // publish so the switch paints without a skeleton (OK-63873); bounded
+        // so the selection never waits on it.
+        await prewarmHomeTokenListOwnerWithin(
+          {
+            networkId:
+              autoChangeToAccountMatchedNetworkId ?? selectedAccount.networkId,
+            deriveType: selectedAccount.deriveType,
+            othersWalletAccountId: record.account?.id,
+          },
+          HOME_TOKEN_LIST_PREWARM_TAP_TIMEOUT_MS,
+        );
         const confirmed = await actions.current.confirmAccountSelect({
           num,
           indexedAccount: undefined,
@@ -763,6 +815,14 @@ function WalletDetailsViewV2({ num }: IWalletDetailsProps) {
         });
         if (!confirmed) return;
       } else if (focusedWalletInfo) {
+        await prewarmHomeTokenListOwnerWithin(
+          {
+            networkId: selectedAccount.networkId,
+            deriveType: selectedAccount.deriveType,
+            indexedAccountId: record.indexedAccount?.id,
+          },
+          HOME_TOKEN_LIST_PREWARM_TAP_TIMEOUT_MS,
+        );
         const confirmed = await actions.current.confirmAccountSelect({
           num,
           indexedAccount: record.indexedAccount,
@@ -780,6 +840,7 @@ function WalletDetailsViewV2({ num }: IWalletDetailsProps) {
       isOthersUniversal,
       num,
       selectedAccount.networkId,
+      selectedAccount.deriveType,
     ],
   );
 

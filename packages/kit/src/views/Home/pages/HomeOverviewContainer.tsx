@@ -890,10 +890,55 @@ function HomeOverviewContainer() {
           currencyMap,
         })
       : undefined;
+  // Single network, owner never confirmed this session (a cleared cache or a
+  // fresh account): the token worth is on screen from the switch frame (the
+  // owner replay / prewarm restored it) while the DeFi hook has not reported
+  // for the owner yet. Show the token worth as a provisional total instead of
+  // the zero placeholder; a DeFi position, when there is one, joins as an
+  // update. Never confirmed as the owner's balance (that still needs DeFi).
+  const provisionalTokenOnlyBalanceUsd = useMemo(() => {
+    if (
+      network?.isAllNetworks ||
+      !isCurrentAccountWorthReady ||
+      isCurrentAccountDeFiReady
+    ) {
+      return undefined;
+    }
+    const tokenWorth = calculateAccountTokensValue({
+      accountId: account?.id ?? '',
+      networkId: network?.id ?? '',
+      tokensWorth: accountWorth,
+      mergeDeriveAssetsEnabled: !!vaultSettings?.mergeDeriveAssetsEnabled,
+    });
+    const tokenWorthUsd = convertFiat({
+      value: tokenWorth,
+      sourceCurrency: accountWorth.currency ?? settings.currencyInfo.id,
+      targetCurrency: USD_CURRENCY_ID,
+      currencyMap,
+    });
+    const perpsWorthUsd = isPerpsEnabled ? (perpsNetWorthUsd ?? '0') : '0';
+    return calculateAccountTotalValue({
+      tokensValue: tokenWorthUsd,
+      deFiNetWorth: perpsWorthUsd,
+    });
+  }, [
+    account?.id,
+    accountWorth,
+    currencyMap,
+    isCurrentAccountDeFiReady,
+    isCurrentAccountWorthReady,
+    isPerpsEnabled,
+    network?.id,
+    network?.isAllNetworks,
+    perpsNetWorthUsd,
+    settings.currencyInfo.id,
+    vaultSettings?.mergeDeriveAssetsEnabled,
+  ]);
   const displayBalanceString = shouldHoldCurrentConfirmedBalance
     ? currentConfirmedBalance
     : (resolvedBalanceString ??
       currentConfirmedBalance ??
+      provisionalTokenOnlyBalanceUsd ??
       lastConfirmedLatestUsd);
 
   const balancePayload = useMemo(
@@ -921,6 +966,7 @@ function HomeOverviewContainer() {
     shouldHoldCurrentConfirmedBalance ||
     resolvedBalanceString !== undefined ||
     !!currentConfirmedBalance ||
+    provisionalTokenOnlyBalanceUsd !== undefined ||
     canReuseLatestDisplayedBalance;
 
   const shouldDisplayZeroBalancePlaceholder = useMemo(() => {
