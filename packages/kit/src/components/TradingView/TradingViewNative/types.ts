@@ -138,6 +138,14 @@ export interface ITradingViewNativeProps {
   testID?: string;
   source: ITradingViewNativeSource;
   storageNamespace?: ITradingViewNativeStorageNamespace;
+  enableMultiChart?: boolean;
+  /** Stable workspace panel identity; omitted for the original chart. */
+  panelId?: string;
+  onNativeMultiChartCountChange?: (count: number) => void;
+  onNativeMultiChartResizingChange?: (isResizing: boolean) => void;
+  /** The workspace owns fullscreen presentation for all its panels. */
+  isPresentationManaged?: boolean;
+  onPresentationContentChange?: (content: ReactNode) => void;
   forcedChartType?: ITradingViewNativeChartType;
   chartComponents?: readonly ITradingViewNativeChartComponentNode[];
   accountMarksContext?: ITradingViewNativeAccountMarksContext;

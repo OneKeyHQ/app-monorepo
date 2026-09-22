@@ -35,4 +35,5 @@ export {
   CollapsibleTabNameContext,
 } from './CollapsibleTabContext';
 export { HeaderScrollGestureWrapper } from './HeaderScrollGestureWrapper';
+export { HeaderScrollGestureContext } from './HeaderScrollGestureContext';
 export { useFocusedTab } from './useFocusedTab';

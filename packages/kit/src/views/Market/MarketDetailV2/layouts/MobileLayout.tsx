@@ -650,11 +650,16 @@ export function MobileLayout({
         MARKET_DETAIL_INITIAL_SUB_INDICATOR_STABILIZATION_MS,
       onCountSettled: persistWebViewSubIndicatorCount,
     });
+  const [activeNativeSubIndicatorCount, setActiveNativeSubIndicatorCount] =
+    useState<number | null>(null);
   const chartSubIndicatorCount = isTradingViewNative
-    ? nativeSubIndicatorCount
+    ? (activeNativeSubIndicatorCount ?? nativeSubIndicatorCount)
     : tradingViewSubIndicatorCount;
+  const [isNativeChartResizing, setIsNativeChartResizing] = useState(false);
   const isTradingViewScrollLocked =
-    isTradingViewIndicatorsDialogOpen || isTradingViewInteractionOverlayOpen;
+    isTradingViewIndicatorsDialogOpen ||
+    isTradingViewInteractionOverlayOpen ||
+    isNativeChartResizing;
   const secondTabTouchStartRef = useRef<{
     pageX: number;
     pageY: number;
@@ -789,7 +794,12 @@ export function MobileLayout({
       nativeIndicatorQuickBarState,
     );
 
+  const [nativePanelCount, setNativePanelCount] = useState(1);
   const tradingViewChartHeight = useMemo(() => {
+    if (isTradingViewNative && nativePanelCount > 1) {
+      const columns = layoutPageWidth >= 600 ? 2 : 1;
+      return Math.ceil(nativePanelCount / columns) * 340 + 32;
+    }
     if (
       typeof tradingViewHeight === 'number' &&
       shouldReserveNativeIndicatorQuickBar
@@ -801,7 +811,13 @@ export function MobileLayout({
     }
 
     return tradingViewHeight;
-  }, [shouldReserveNativeIndicatorQuickBar, tradingViewHeight]);
+  }, [
+    isTradingViewNative,
+    layoutPageWidth,
+    nativePanelCount,
+    shouldReserveNativeIndicatorQuickBar,
+    tradingViewHeight,
+  ]);
 
   const handleSecondTabTouchStart = useCallback(
     (event: GestureResponderEvent) => {
@@ -921,6 +937,14 @@ export function MobileLayout({
                       enablePreviousClose={isStockDetailChart}
                       previousClose={stockPreviousClose}
                       enableNativeChartSettings
+                      enableMultiChart
+                      onNativeMultiChartCountChange={setNativePanelCount}
+                      onNativeSubIndicatorCountChange={
+                        setActiveNativeSubIndicatorCount
+                      }
+                      onNativeMultiChartResizingChange={
+                        setIsNativeChartResizing
+                      }
                       nativeChartSettingsInToolbar={platformEnv.isNative}
                       showNativeIndicatorQuickBar={platformEnv.isNative}
                       onNativeIndicatorQuickBarChange={
@@ -1001,7 +1025,9 @@ export function MobileLayout({
           </HeaderScrollGestureWrapper>
           {/* Reserve the async quick bar until its availability is known. */}
           {nativeIndicatorQuickBarContent}
-          {platformEnv.isNativeIOS && !isChartFullscreen ? (
+          {platformEnv.isNativeIOS &&
+          !isTradingViewNative &&
+          !isChartFullscreen ? (
             <View
               style={{
                 position: 'absolute',

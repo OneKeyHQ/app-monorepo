@@ -31,6 +31,7 @@ import {
 import type { ITradingViewNativeChartType } from './types';
 
 interface ITradingViewNativeChartControlsContainerProps {
+  panelId?: string;
   activeChartType: ITradingViewNativeChartType;
   activeIndicatorValues: Set<string>;
   calendarAvailableTimeRange?: ITradingViewChartControlsProps['calendarAvailableTimeRange'];
@@ -65,6 +66,7 @@ interface ITradingViewNativeChartControlsContainerProps {
 
 export const TradingViewNativeChartControlsContainer = memo(
   ({
+    panelId,
     activeChartType,
     activeIndicatorValues,
     calendarAvailableTimeRange,
@@ -102,8 +104,11 @@ export const TradingViewNativeChartControlsContainer = memo(
     const mobileSettingsButton =
       layoutMode === 'mobile' && !onChartClose ? mobileSettingsControl : null;
     const handleSettingsPress = useCallback(() => {
-      showMarketChartSettingsDialog({ showPreviousClose: enablePreviousClose });
-    }, [enablePreviousClose]);
+      showMarketChartSettingsDialog({
+        showPreviousClose: enablePreviousClose,
+        panelId,
+      });
+    }, [enablePreviousClose, panelId]);
     const indicators = useMemo<ITradingViewIndicatorOption[]>(
       () =>
         TRADING_VIEW_NATIVE_INDICATOR_CATALOG.map(({ id, label }) => ({

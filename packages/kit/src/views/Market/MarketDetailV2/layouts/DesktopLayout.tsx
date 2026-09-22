@@ -482,6 +482,7 @@ export function DesktopLayout({
             shouldUseStockDesktopLayout ? 'candlestick' : undefined
           }
           enableNativeChartSettings
+          enableMultiChart
           nativeControlsLayoutMode="desktop"
           isNativeChartFullscreen={isChartFullscreen}
           nativeChartFullscreenHeader={<MarketChartFullscreenHeader />}
