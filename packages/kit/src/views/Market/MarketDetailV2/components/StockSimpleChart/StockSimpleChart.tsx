@@ -62,8 +62,10 @@ type IStockSimpleChartProps = {
   active?: boolean;
   coinGeckoId?: string;
   marketAssetId?: string;
+  onRequestRetry?: () => void;
   range: IStockSimpleChartRange;
   priceMode: IMarketPriceSource;
+  requestError?: boolean;
 };
 
 export function StockSimpleChart(props: IStockSimpleChartProps) {
@@ -87,8 +89,10 @@ export function StockSimpleChartContent({
   active = true,
   coinGeckoId,
   marketAssetId,
+  onRequestRetry,
   range,
   priceMode,
+  requestError = false,
   isNative,
   networkId,
   tokenAddress,
@@ -360,7 +364,34 @@ export function StockSimpleChartContent({
   // tick re-enters the loading state. A result belonging to a scope the user has
   // left is not shown at all: it would sit under the new range's axis and quote.
   const isCurrentScopeLoaded = chartState.scopeKey === scopeKey;
-  if (
+  const renderChartError = (onRetry: () => void) => (
+    <YStack
+      testID="stock-simple-chart-error"
+      width="100%"
+      height="100%"
+      alignItems="center"
+      justifyContent="center"
+      gap="$2"
+    >
+      <Icon name="InfoCircleOutline" size="$6" color="$iconSubdued" />
+      <SizableText size="$bodySm" color="$textSubdued">
+        {intl.formatMessage({
+          id: ETranslations.global_unknown_error_retry_message,
+        })}
+      </SizableText>
+      <Button
+        testID="stock-simple-chart-retry"
+        size="small"
+        variant="tertiary"
+        onPress={onRetry}
+      >
+        {intl.formatMessage({ id: ETranslations.global_retry })}
+      </Button>
+    </YStack>
+  );
+  if (requestError) {
+    chartContent = renderChartError(() => onRequestRetry?.());
+  } else if (
     !requestReady ||
     chartState.requestKey !== requestKey ||
     chartState.status === 'pending' ||
@@ -373,31 +404,7 @@ export function StockSimpleChartContent({
       </Stack>
     );
   } else if (chartState.status === 'error') {
-    chartContent = (
-      <YStack
-        testID="stock-simple-chart-error"
-        width="100%"
-        height="100%"
-        alignItems="center"
-        justifyContent="center"
-        gap="$2"
-      >
-        <Icon name="InfoCircleOutline" size="$6" color="$iconSubdued" />
-        <SizableText size="$bodySm" color="$textSubdued">
-          {intl.formatMessage({
-            id: ETranslations.global_unknown_error_retry_message,
-          })}
-        </SizableText>
-        <Button
-          testID="stock-simple-chart-retry"
-          size="small"
-          variant="tertiary"
-          onPress={() => void retry()}
-        >
-          {intl.formatMessage({ id: ETranslations.global_retry })}
-        </Button>
-      </YStack>
-    );
+    chartContent = renderChartError(() => void retry());
   } else if (!chartState.data.length) {
     chartContent = (
       <YStack

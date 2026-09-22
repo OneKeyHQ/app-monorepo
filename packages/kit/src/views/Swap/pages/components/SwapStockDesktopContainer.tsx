@@ -1530,10 +1530,11 @@ function SwapStockPageProviders({
   embedded,
   supportNetworksList,
   fetchLoading,
+  storeName,
 }: ISwapStockDesktopContainerProps & { children: ReactNode }) {
   if (embedded) return children;
   return (
-    <SwapStockMarketProvider>
+    <SwapStockMarketProvider storeName={storeName}>
       <SwapStockPositionsProvider
         networks={supportNetworksList}
         ready={!fetchLoading}

@@ -9,13 +9,20 @@ import {
   useState,
 } from 'react';
 
+import type { IPageNavigationProp } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import {
   StockDetailProvider,
   useStockDetail,
 } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/hooks/StockDetailContext';
 import { resolveMarketStockId } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/utils/resolveIsStockToken';
+import type { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  EModalSwapRoutes,
+  type IModalSwapParamList,
+} from '@onekeyhq/shared/src/routes/swap';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type {
   IMarketStockPublicItem,
@@ -24,6 +31,8 @@ import type {
 import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
 
 import { getTokenIdentityKey } from '../../hooks/swapStockChannelUtils';
+import { ESwapStockChannelAsyncStatus } from '../../hooks/useSwapStockChannel';
+import { useSwapTokenRiskCheck } from '../../hooks/useSwapTokenRiskCheck';
 import {
   type ISwapStockAvailability,
   fetchSwapStockSelection,
@@ -55,11 +64,12 @@ function SwapStockSelectionProvider({
   children,
   identityResolutionError,
   retryIdentityResolution,
+  storeName,
 }: PropsWithChildren<
   Pick<
     ISwapStockSelection,
     'identityResolutionError' | 'retryIdentityResolution'
-  >
+  > & { storeName: EJotaiContextStoreNames }
 >) {
   const {
     stockId,
@@ -67,8 +77,11 @@ function SwapStockSelectionProvider({
     isTokenVariantPending,
     isTokenVariantsError,
   } = useStockDetail();
-  const { currentStockToken, selectStockSwapToken } =
+  const { currentStockToken, selectStockSwapToken, stockTokenStatus } =
     useSwapStockTradeContext();
+  const navigation =
+    useAppNavigation<IPageNavigationProp<IModalSwapParamList>>();
+  const checkRiskToken = useSwapTokenRiskCheck();
   const [selecting, setSelecting] = useState(false);
   const [selectionError, setSelectionError] = useState(false);
   const requestRef = useRef(0);
@@ -82,6 +95,7 @@ function SwapStockSelectionProvider({
     pending:
       selecting ||
       isTokenVariantPending ||
+      stockTokenStatus === ESwapStockChannelAsyncStatus.Initializing ||
       Boolean(currentStockToken && !stockId && !identityResolutionError),
     failed: isTokenVariantsError || identityResolutionError,
     selectedVariant,
@@ -117,7 +131,20 @@ function SwapStockSelectionProvider({
           initialIdentity !== identityRef.current
         )
           return false;
-        selectStockSwapToken(token, { resetReceiveAmount: true });
+        const commitSelection = () => {
+          if (initialIdentity === identityRef.current) {
+            selectStockSwapToken(token, { resetReceiveAmount: true });
+          }
+        };
+        if (await checkRiskToken(token)) {
+          navigation.push(EModalSwapRoutes.TokenRiskReminder, {
+            storeName,
+            token,
+            onConfirm: commitSelection,
+          });
+        } else {
+          commitSelection();
+        }
         return true;
       } catch (_error) {
         if (request === requestRef.current) setSelectionError(true);
@@ -126,7 +153,7 @@ function SwapStockSelectionProvider({
         if (request === requestRef.current) setSelecting(false);
       }
     },
-    [selectStockSwapToken],
+    [checkRiskToken, navigation, selectStockSwapToken, storeName],
   );
   const selectStock = useCallback(
     (stock: IMarketStockPublicItem, query?: string) =>
@@ -170,7 +197,10 @@ function SwapStockSelectionProvider({
   );
 }
 
-export function SwapStockMarketProvider({ children }: PropsWithChildren) {
+export function SwapStockMarketProvider({
+  children,
+  storeName,
+}: PropsWithChildren<{ storeName: EJotaiContextStoreNames }>) {
   const { currentStockToken, displayStockTokenDetail } =
     useSwapStockTradeContext();
   const explicitStockId =
@@ -240,6 +270,7 @@ export function SwapStockMarketProvider({ children }: PropsWithChildren) {
       <SwapStockSelectionProvider
         identityResolutionError={identityResolutionError}
         retryIdentityResolution={retryIdentityResolution}
+        storeName={storeName}
       >
         {children}
       </SwapStockSelectionProvider>

@@ -263,9 +263,11 @@ export function SwapStockMarketPanel() {
   const intl = useIntl();
   const [priceMode, setPriceMode] = useState<'share' | 'token'>('share');
   const [range, setRange] = useState<IStockSimpleChartRange>('1D');
-  const { stockDetail, stockId } = useStockDetail();
+  const { stockDetail, stockId, isStockDetailError, retryStockDetail } =
+    useStockDetail();
   const { displayStockTokenDetail: tokenDetail, currentStockToken } =
     useSwapStockTradeContext();
+  const selection = useSwapStockSelection();
   const { status } = useSwapStockPrice(priceMode);
   const toMarket = useToMarketStockDetailPage();
   const marketData = useMemo(
@@ -360,6 +362,17 @@ export function SwapStockMarketPanel() {
             networkId={currentStockToken?.networkId ?? ''}
             tokenAddress={currentStockToken?.contractAddress ?? ''}
             isNative={!!currentStockToken?.isNative}
+            requestError={Boolean(
+              selection?.identityResolutionError ||
+              (isStockDetailError && !stockId),
+            )}
+            onRequestRetry={() => {
+              if (selection?.identityResolutionError) {
+                selection.retryIdentityResolution();
+              } else {
+                void retryStockDetail();
+              }
+            }}
             coinGeckoId={
               typeof tokenDetail?.coingeckoId === 'string'
                 ? tokenDetail.coingeckoId

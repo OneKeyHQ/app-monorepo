@@ -22,12 +22,15 @@ import { PriceChangePercentage } from '@onekeyhq/kit/src/views/Market/components
 import { StockSelectorPopover } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/components/TokenSelector/StockSelectorPopover';
 import { useMarketStockSelectorList } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/components/TokenSelector/useMarketStockSelectorList';
 import { useStockDetail } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/hooks/StockDetailContext';
+import { resolveMarketStockId } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/utils/resolveIsStockToken';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { SwapTestIDs } from '../../testIDs';
+import { getSwapStockTokenDisplayName } from '../modal/SwapTokenSelectModal.utils';
 
 import { useSwapStockSelection } from './SwapStockMarketProvider';
+import { useSwapStockTradeContext } from './SwapStockTradeProvider';
 
 function StockTickerList({ closePopover }: { closePopover: () => void }) {
   const intl = useIntl();
@@ -203,7 +206,29 @@ export function SwapStockTickerSelector() {
   const { md } = useMedia();
   const selection = useSwapStockSelection();
   const { stockDetail, stockPreview, stockId } = useStockDetail();
+  const { currentStockToken } = useSwapStockTradeContext();
   const stock = stockDetail ?? stockPreview;
+  const stockTokenMatches = Boolean(
+    currentStockToken &&
+    (!stockId || resolveMarketStockId(currentStockToken) === stockId),
+  );
+  const fallbackStock = stockTokenMatches
+    ? currentStockToken?.stock
+    : undefined;
+  const tokenImageUri = stock?.logoUrl ?? currentStockToken?.logoURI;
+  const tokenSymbol =
+    stock?.symbol ??
+    fallbackStock?.underlyingAssetTicker ??
+    stockId ??
+    currentStockToken?.symbol;
+  const tokenName =
+    stock?.name ??
+    (fallbackStock || currentStockToken?.name
+      ? getSwapStockTokenDisplayName({
+          stock: fallbackStock,
+          tokenName: currentStockToken?.name,
+        })
+      : undefined);
   return (
     <StockSelectorPopover
       onOpenChange={(open) => {
@@ -234,20 +259,20 @@ export function SwapStockTickerSelector() {
           cursor="pointer"
           hoverStyle={{ bg: '$bgHover' }}
         >
-          <Token size="xl" tokenImageUri={stock?.logoUrl} />
+          <Token size="xl" tokenImageUri={tokenImageUri} />
           <YStack minWidth={0} flexShrink={1}>
             <SizableText
               size={md ? '$headingLg' : '$headingXl'}
               numberOfLines={1}
             >
-              {stock?.symbol ?? stockId ?? '--'}
+              {tokenSymbol ?? '--'}
             </SizableText>
             <SizableText
               size={md ? '$bodyMd' : '$bodyMdMedium'}
               color="$textSubdued"
               numberOfLines={1}
             >
-              {stock?.name ?? '--'}
+              {tokenName ?? '--'}
             </SizableText>
           </YStack>
           <Icon name="ChevronDownSmallOutline" size="$5" color="$iconSubdued" />

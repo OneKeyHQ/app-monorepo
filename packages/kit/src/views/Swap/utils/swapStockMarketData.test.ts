@@ -330,6 +330,19 @@ describe('Swap stock selection response mapping', () => {
     ).rejects.toThrow('Stock token detail does not match the selected variant');
   });
 
+  it('rejects token details that belong to a different stock', async () => {
+    const detail = buildDetail();
+    fetchDetailMock.mockResolvedValueOnce(
+      buildDetailResponse({
+        ...detail,
+        stock: { ...detail.stock!, stockId: 'tesla' },
+      }),
+    );
+    await expect(
+      fetchSwapStockVariantToken(buildVariant(), stock.stockId),
+    ).rejects.toThrow('Stock token detail does not match the selected variant');
+  });
+
   it('rejects Solana details with a different address case', async () => {
     fetchDetailMock.mockResolvedValueOnce(
       buildDetailResponse(

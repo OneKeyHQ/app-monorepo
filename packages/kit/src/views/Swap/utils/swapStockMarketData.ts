@@ -84,6 +84,7 @@ export async function fetchSwapStockVariantToken(
     !detail.stock ||
     (detail.networkId !== undefined &&
       detail.networkId !== variant.networkId) ||
+    (detail.stock.stockId !== undefined && detail.stock.stockId !== stockId) ||
     !equalTokenNoCaseSensitive({
       token1: {
         networkId: detail.networkId ?? variant.networkId,
@@ -99,7 +100,7 @@ export async function fetchSwapStockVariantToken(
   const token = buildStockSwapTokenFromMarketListToken({
     ...detail,
     networkId: detail.networkId ?? variant.networkId,
-    stock: { ...detail.stock, stockId },
+    stock: { ...detail.stock, stockId: detail.stock.stockId ?? stockId },
   });
   if (!token) throw new OneKeyLocalError('Stock token is unavailable');
   return { ...token, networkLogoURI: variant.networkLogoUrl };

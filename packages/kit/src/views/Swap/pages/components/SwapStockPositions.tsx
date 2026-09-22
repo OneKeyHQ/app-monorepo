@@ -217,7 +217,6 @@ export function SwapStockCurrentPosition() {
           networkId: token.networkId,
           tokenAddress: token.contractAddress,
           accountAddress: token.accountAddress,
-          throwOnError: true,
         });
       return {
         scope,
@@ -235,7 +234,9 @@ export function SwapStockCurrentPosition() {
     // Portfolio requests depend on identity, not the frequently refreshed balance.
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [scope],
-    { pollingInterval: token ? 30_000 : undefined },
+    // Keep the polling interval stable so a token change runs immediately;
+    // usePromiseResult otherwise waits for the newly changed interval.
+    { pollingInterval: 30_000 },
   );
   const position = result?.scope === scope ? result.position : undefined;
   const hasPosition = Boolean(
