@@ -873,6 +873,9 @@ describe('ServiceFirmwareUpdate Protocol V2 target-only checks', () => {
       transportType,
     });
     const getFeaturesWithoutCache = jest.fn().mockResolvedValue(features);
+    const getDeviceState = jest.fn().mockResolvedValue({
+      identity: { label: 'My Pro 2' },
+    });
 
     const service = new ServiceFirmwareUpdate({
       backgroundApi: {
@@ -884,6 +887,7 @@ describe('ServiceFirmwareUpdate Protocol V2 target-only checks', () => {
         },
         serviceHardware: {
           resolveHardwareTransport,
+          getDeviceState,
           getFeaturesWithoutCache,
           getSDKInstance: jest.fn().mockResolvedValue({
             cancel: jest.fn(),
@@ -989,9 +993,25 @@ describe('ServiceFirmwareUpdate Protocol V2 target-only checks', () => {
     }
 
     expect(result).toMatchObject({
+      deviceName: 'My Pro 2',
       hasUpgrade: true,
       pro2TargetsToUpdate: ['resource'],
     });
+    expect(getDeviceState).toHaveBeenCalledWith({
+      connectId,
+      params: {
+        scope: 'settings',
+        retryCount: 0,
+        skipWebDevicePrompt: true,
+        ...(transportType === EHardwareTransportType.DesktopWebBle
+          ? { timeout: 30_000 }
+          : {}),
+      },
+      silentMode: true,
+      hardwareCallContext: EHardwareCallContext.BACKGROUND_TASK,
+      hardwareTransportType: transportType,
+    });
+    expect(deviceUtils.buildDeviceName).not.toHaveBeenCalled();
     expect(
       service.detectMap.getDetectStatus({ connectId: 'PRO2_USB_ID' }),
     ).toEqual(

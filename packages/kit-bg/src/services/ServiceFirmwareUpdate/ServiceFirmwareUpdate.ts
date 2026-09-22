@@ -931,6 +931,25 @@ class ServiceFirmwareUpdate extends ServiceBase {
     const deviceType = await deviceUtils.getDeviceTypeFromFeatures({
       features,
     });
+    let protocolV2DeviceLabel: string | undefined;
+    if (isProtocolV2ProductType(deviceType) && !isBootloaderMode) {
+      const deviceState =
+        await this.backgroundApi.serviceHardware.getDeviceState({
+          connectId: originalConnectId,
+          params: {
+            scope: 'settings',
+            retryCount: 0,
+            skipWebDevicePrompt: true,
+            ...(currentTransportType === EHardwareTransportType.DesktopWebBle
+              ? { timeout: DESKTOP_BLE_FIRMWARE_CONNECTION_TIMEOUT_MS }
+              : {}),
+          },
+          silentMode: true,
+          hardwareCallContext: EHardwareCallContext.BACKGROUND_TASK,
+          hardwareTransportType: currentTransportType,
+        });
+      protocolV2DeviceLabel = deviceState.identity.label ?? undefined;
+    }
     const protocolV2DevSettings = isProtocolV2ProductType(deviceType)
       ? await Promise.all([
           this.backgroundApi.serviceDevSetting.getFirmwareUpdateDevSettings(
@@ -1070,7 +1089,9 @@ class ServiceFirmwareUpdate extends ServiceBase {
 
     // TODO boot mode device serial number is empty
     const deviceSerialNo = getDeviceSerialNo(features);
-    const deviceName = await deviceUtils.buildDeviceName({ features });
+    const deviceName = isProtocolV2ProductType(deviceType)
+      ? protocolV2DeviceLabel
+      : await deviceUtils.buildDeviceName({ features });
     const deviceBleName = deviceUtils.buildDeviceBleName({ features });
 
     const totalPhase: Array<IDeviceFirmwareType | undefined> = [
