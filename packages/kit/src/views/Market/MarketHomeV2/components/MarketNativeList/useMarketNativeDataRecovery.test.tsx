@@ -43,6 +43,8 @@ jest.mock('react-intl', () => ({
 }));
 jest.mock('@onekeyhq/kit/src/hooks/useRouteIsFocused', () => ({
   useRouteIsFocused: () => mockFocused,
+  useRouteIsFocusedWhenEnabled: ({ enabled }: { enabled: boolean }) =>
+    !enabled || mockFocused,
 }));
 jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
   __esModule: true,

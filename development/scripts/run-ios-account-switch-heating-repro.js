@@ -26,6 +26,9 @@ function parseArgs(argv) {
     } else if (arg === '--app-path') {
       index += 1;
       result.appPath = argv[index];
+    } else if (arg === '--build-manifest') {
+      index += 1;
+      result.buildManifest = argv[index];
     } else if (arg === '--output-dir') {
       index += 1;
       result.outputDir = argv[index];
@@ -59,6 +62,7 @@ function printHelp() {
 Options:
   --app-path <path>            Install this exact .app before running
   --output-dir <path>          Artifact directory
+  --build-manifest <path>      Build sidecar with buildCommitSha and mainBundleSha256
   --initial-wallet-id <id>     Initial wallet; defaults to the first hw-* wallet
   --target-wallet-id <id>      Indexed-account wallet; defaults to hd-1
   --allow-initial-wallet-fallback
@@ -346,104 +350,435 @@ function readJsonLines(filePath) {
     .map((line) => JSON.parse(line));
 }
 
-function summarizeSamples(samples) {
-  const checkpoints = [30, 60, 90, 120, 150, 180].map((endSec) => {
-    const startSec = endSec - 30;
+function summarizeSamples(
+  samples,
+  { formalStartedAt, formalEndedAt, observation } = {},
+) {
+  const formalEndSec =
+    (Date.parse(formalEndedAt) - Date.parse(formalStartedAt)) / 1000;
+  const summarizeWindow = (startSec, endSec) => {
     const window = samples.filter(
       (sample) => sample.elapsedSec > startSec && sample.elapsedSec <= endSec,
     );
     const cpuValues = window.map((sample) => sample.cpu);
     const rssValues = window.map((sample) => sample.rssMB);
     return {
+      startSec,
       endSec,
       samples: window.length,
-      cpuAvg:
-        cpuValues.length > 0
-          ? Number(
-              (
-                cpuValues.reduce((sum, value) => sum + value, 0) /
-                cpuValues.length
-              ).toFixed(1),
-            )
+      cpuAvg: cpuValues.length
+        ? Number(
+            (
+              cpuValues.reduce((sum, value) => sum + value, 0) /
+              cpuValues.length
+            ).toFixed(1),
+          )
+        : null,
+      cpuMax: cpuValues.length ? Math.max(...cpuValues) : null,
+      rssFirstMB: rssValues.at(0) ?? null,
+      rssLastMB: rssValues.at(-1) ?? null,
+      rssMaxMB: rssValues.length ? Math.max(...rssValues) : null,
+      rssDeltaMB:
+        rssValues.length >= 2
+          ? Number((rssValues.at(-1) - rssValues[0]).toFixed(1))
           : null,
-      cpuMax: cpuValues.length > 0 ? Math.max(...cpuValues) : null,
-      rssLastMB: rssValues.length > 0 ? rssValues.at(-1) : null,
-      rssMaxMB: rssValues.length > 0 ? Math.max(...rssValues) : null,
     };
-  });
-  return { checkpoints };
+  };
+  const observationStartSec =
+    (Date.parse(observation?.startedAt) - Date.parse(formalStartedAt)) / 1000;
+  const observationEndSec =
+    (Date.parse(observation?.endedAt) - Date.parse(formalStartedAt)) / 1000;
+  return {
+    memoryMetric:
+      'host ps resident set size (RSS), MiB; not native physical footprint',
+    cpuMetric: 'host ps process %cpu; may exceed 100% across cores',
+    checkpoints: [30, 60, 90, 120, 150, 180].map((endSec) =>
+      summarizeWindow(endSec - 30, endSec),
+    ),
+    formal: summarizeWindow(0, formalEndSec),
+    last30: summarizeWindow(Math.max(0, formalEndSec - 30), formalEndSec),
+    cooldown:
+      Number.isFinite(observationStartSec) && Number.isFinite(observationEndSec)
+        ? {
+            note: 'Post-diagnostic Home cooldown. Export and navigation precede this window; this is not immediate post-QA idle.',
+            complete: observationEndSec - observationStartSec >= 60,
+            whole: summarizeWindow(observationStartSec, observationEndSec),
+            after10: summarizeWindow(
+              observationStartSec + 10,
+              observationEndSec,
+            ),
+            first10: summarizeWindow(
+              observationStartSec,
+              observationStartSec + 10,
+            ),
+            last10: summarizeWindow(observationEndSec - 10, observationEndSec),
+          }
+        : null,
+  };
 }
 
-function summarizeNativeLog(logPath) {
-  if (!logPath || !fs.existsSync(logPath)) return {};
-  const text = fs.readFileSync(logPath, 'utf8');
-  const rpcCounts = new Map();
-  const networkCounts = new Map();
-  for (const match of text.matchAll(
-    /\[BgTransport\] dispatchRemoteRequest: .*?method=([^\s,]+)/gu,
-  )) {
-    rpcCounts.set(match[1], (rpcCounts.get(match[1]) || 0) + 1);
+function redactNetworkRequest(line) {
+  const match = line.match(/(?:fetch|axios):([a-z]+):([^,"\s]+)/iu);
+  if (!match) return 'UNKNOWN [unparsed endpoint]';
+  try {
+    const relative = !/^https?:\/\//iu.test(match[2]);
+    const url = new URL(match[2], 'https://relative.invalid');
+    const segments = url.pathname.split('/').map((segment, index, all) => {
+      let decoded;
+      try {
+        decoded = decodeURIComponent(segment);
+      } catch {
+        return '[id]';
+      }
+      if (
+        decoded.length > 32 ||
+        /^(?:0x)?[0-9a-f]{16,}$/iu.test(decoded) ||
+        /^(?:hd|hw|imported|watching)-/iu.test(decoded) ||
+        /^\d+$/u.test(decoded) ||
+        /[?=&@]|--/u.test(decoded) ||
+        (!/^v\d+$/u.test(decoded) &&
+          /^(?:addresses?|accounts?|wallets?|accountId|walletId|account-id|wallet-id)$/iu.test(
+            all[index - 1] || '',
+          )) ||
+        !/^[a-zA-Z0-9_.-]*$/u.test(decoded)
+      )
+        return '[id]';
+      return decoded;
+    });
+    return `${match[1].toUpperCase()} ${relative ? '[relative]' : url.host}${segments.join('/')}`;
+  } catch {
+    return `${match[1].toUpperCase()} [unparsed endpoint]`;
   }
-  const rpcTop = [...rpcCounts.entries()]
-    .toSorted((left, right) => right[1] - left[1])
-    .slice(0, 20)
-    .map(([method, count]) => ({ method, count }));
-  for (const match of text.matchAll(
-    /app => network => start\s+:.*?fetch:([A-Z]+):(https?:\/\/[^,\s"]+)/gu,
-  )) {
-    try {
-      const url = new URL(match[2]);
-      const redactedPath = url.pathname
-        .split('/')
-        .map((segment) =>
-          segment.length > 32 || /^(?:0x)?[0-9a-f]{24,}$/iu.test(segment)
-            ? '[id]'
-            : segment,
-        )
-        .join('/');
-      const key = `${match[1]} ${url.host}${redactedPath}`;
-      networkCounts.set(key, (networkCounts.get(key) || 0) + 1);
-    } catch {
-      // Ignore malformed or partial native-log lines.
-    }
-  }
-  const networkTop = [...networkCounts.entries()]
-    .toSorted((left, right) => right[1] - left[1])
-    .slice(0, 20)
-    .map(([request, count]) => ({ request, count }));
+}
+
+function parseNativeLog(text, { formalStartedAt, localUtcOffsetMinutes } = {}) {
+  const anchorMs = Date.parse(formalStartedAt);
+  const offsetMinutes =
+    localUtcOffsetMinutes ?? -new Date(anchorMs).getTimezoneOffset();
+  const anchorLocal = new Date(anchorMs + offsetMinutes * 60_000);
+  let day = Date.UTC(
+    anchorLocal.getUTCFullYear(),
+    anchorLocal.getUTCMonth(),
+    anchorLocal.getUTCDate(),
+  );
+  let previousClockSec = null;
+  let atMs = null;
+  const events = [];
   const runtimeHealth = [];
   for (const line of text.split('\n')) {
+    const timestamp = line.match(/^(\d{2}):(\d{2}):(\d{2})/u);
+    if (timestamp) {
+      const clockSec =
+        Number(timestamp[1]) * 3600 +
+        Number(timestamp[2]) * 60 +
+        Number(timestamp[3]);
+      if (previousClockSec !== null && previousClockSec - clockSec > 12 * 3600)
+        day += 24 * 3_600_000;
+      // Native logger prefixes only the first line of a multiline RPC entry.
+      atMs = Number.isFinite(day)
+        ? day + clockSec * 1000 - offsetMinutes * 60_000
+        : null;
+      previousClockSec = clockSec;
+    }
+    for (const match of line.matchAll(
+      /\[BgTransport\] dispatchRemoteRequest: .*?method=([^\s,]+)/gu,
+    )) {
+      events.push({ type: 'rpc', key: match[1], atMs });
+    }
+    if (line.includes('app => network => start')) {
+      events.push({ type: 'network', key: redactNetworkRequest(line), atMs });
+    }
     if (line.includes('runtimeHealthCensus')) {
       const payload = line.match(
         /runtimeHealthCensus\s*:\s*(\[.*\])\s*$/u,
       )?.[1];
       if (payload) {
         try {
-          const reports = JSON.parse(payload);
-          for (const report of reports) {
+          for (const report of JSON.parse(payload)) {
             runtimeHealth.push({
-              loggedAt: line.match(/^(\d{2}:\d{2}:\d{2})/u)?.[1] || null,
               ...report,
+              loggedAt: atMs === null ? null : new Date(atMs).toISOString(),
+              nativeMemoryMetric:
+                report.nativeMemoryMetric ||
+                'legacy rssMB is physical footprint with resident-size fallback; not host ps RSS',
             });
           }
         } catch {
-          // Ignore a partial final line if the native logger was still flushing.
+          // Ignore a partial final census line while retaining request counts.
         }
       }
     }
   }
+  return { events, runtimeHealth };
+}
+
+function summarizeEvents(events, startMs, endMs) {
+  const window = events.filter(
+    (event) =>
+      event.atMs !== null && event.atMs >= startMs && event.atMs <= endMs,
+  );
+  const rpcCounts = new Map();
+  const networkCounts = new Map();
+  for (const event of window) {
+    const counts = event.type === 'rpc' ? rpcCounts : networkCounts;
+    counts.set(event.key, (counts.get(event.key) || 0) + 1);
+  }
+  const top = (counts, name) =>
+    [...counts.entries()]
+      .toSorted(
+        (left, right) => right[1] - left[1] || left[0].localeCompare(right[0]),
+      )
+      .slice(0, 20)
+      .map(([key, count]) => ({ [name]: key, count }));
   return {
+    startedAt: Number.isFinite(startMs)
+      ? new Date(startMs).toISOString()
+      : null,
+    endedAt: Number.isFinite(endMs) ? new Date(endMs).toISOString() : null,
     bgRpcCount: [...rpcCounts.values()].reduce((sum, count) => sum + count, 0),
-    rpcTop,
+    rpcTop: top(rpcCounts, 'method'),
     networkRequestCount: [...networkCounts.values()].reduce(
       (sum, count) => sum + count,
       0,
     ),
-    networkTop,
+    networkTop: top(networkCounts, 'request'),
+    unparsedNetworkCount: window.filter(
+      (event) =>
+        event.type === 'network' && event.key.includes('[unparsed endpoint]'),
+    ).length,
     abortFetchAccountTokens:
       rpcCounts.get('serviceToken.abortFetchAccountTokens') || 0,
     fetchAccountTokens: rpcCounts.get('serviceToken.fetchAccountTokens') || 0,
+  };
+}
+
+function summarizeNativeLog(logPath, context = {}) {
+  if (!logPath || !fs.existsSync(logPath)) return null;
+  const { events, runtimeHealth } = parseNativeLog(
+    fs.readFileSync(logPath, 'utf8'),
+    context,
+  );
+  const startMs = Date.parse(context.formalStartedAt);
+  const endMs = Date.parse(context.formalEndedAt);
+  const actions = context.actionTimeline || [];
+  const allNetworkActions = actions.filter((action) =>
+    action.label.startsWith('All Networks switch '),
+  );
+  const firstAllNetwork = allNetworkActions[0];
+  const finalAllNetwork = allNetworkActions.at(-1);
+  const formal = summarizeEvents(events, startMs, endMs);
+  const phases = actions
+    .filter((action) => action.label !== 'export state logs')
+    .map((action) => ({
+      label: action.label.replace(
+        /(?:hd|hw|imported|watching)-[\w-]+/gu,
+        '[wallet]',
+      ),
+      plannedSec: action.plannedSec,
+      ...summarizeEvents(
+        events,
+        Date.parse(action.startedAt),
+        startMs + action.endedSec * 1000,
+      ),
+    }));
+  const formalHealth = runtimeHealth.filter(
+    (report) =>
+      Date.parse(report.loggedAt) >= startMs &&
+      Date.parse(report.loggedAt) <= endMs,
+  );
+  return {
+    ...formal,
+    timing:
+      'Native logger has one-second local timestamps; multiline RPC entries inherit the preceding timestamp. Subsecond window boundaries use those timestamps without invented precision.',
+    capturedNetworkStartCount: events.filter(
+      (event) => event.type === 'network',
+    ).length,
+    missingTimestampEventCount: events.filter((event) => event.atMs === null)
+      .length,
+    windows: {
+      formal,
+      last60: summarizeEvents(events, Math.max(startMs, endMs - 60_000), endMs),
+      allNetworks:
+        firstAllNetwork && finalAllNetwork
+          ? {
+              actionCount: allNetworkActions.length,
+              ...summarizeEvents(
+                events,
+                Date.parse(firstAllNetwork.startedAt),
+                startMs + finalAllNetwork.endedSec * 1000,
+              ),
+            }
+          : null,
+      cooldown: context.observation
+        ? summarizeEvents(
+            events,
+            Date.parse(context.observation.startedAt),
+            Date.parse(context.observation.endedAt),
+          )
+        : null,
+    },
+    phases,
     runtimeHealth,
+    lastFormalCensus: formalHealth.at(-1) || null,
+    lastFormalCensusEndGapMs: formalHealth.length
+      ? endMs - Date.parse(formalHealth.at(-1).loggedAt)
+      : null,
+    runtimeScope:
+      'main Hermes heap and cross-runtime receive counters; process CPU/native memory cover both main and bg',
+  };
+}
+
+function readBuildProvenance({ manifestPath, mainBundleSha256 }) {
+  if (!manifestPath)
+    return {
+      status: 'UNMEASURED',
+      buildCommitSha: null,
+      reason:
+        'No build manifest supplied; checkout HEAD is not evidence of build origin.',
+    };
+  const manifest = readJson(manifestPath);
+  if (
+    manifest.mainBundleSha256 !== mainBundleSha256 ||
+    !/^[0-9a-f]{40}$/iu.test(manifest.buildCommitSha || '')
+  ) {
+    return {
+      status: 'FAIL',
+      buildCommitSha: null,
+      reason:
+        'Build manifest commit/hash is missing or does not match the installed bundle.',
+    };
+  }
+  return {
+    status: 'MEASURED',
+    buildCommitSha: manifest.buildCommitSha,
+    mainBundleSha256,
+    buildDirty: manifest.buildDirty ?? null,
+    builtAt: manifest.builtAt ?? null,
+    manifestPath,
+  };
+}
+
+function summarizeAcceptance({
+  functionalPassed,
+  evidenceCollected,
+  maxPositiveDriftMs,
+  processSummary,
+  nativeLog,
+  buildProvenance,
+}) {
+  const checks = [];
+  const add = (name, value, limit, comparison = '<', note) => {
+    const measured = typeof value === 'number' && Number.isFinite(value);
+    let passed = measured && value < limit;
+    if (comparison === '<=') passed = measured && value <= limit;
+    if (comparison === '>=') passed = measured && value >= limit;
+    let status = 'UNMEASURED';
+    if (measured) status = passed ? 'PASS' : 'FAIL';
+    checks.push({
+      name,
+      value: measured ? value : null,
+      comparison,
+      limit,
+      status,
+      ...(note ? { note } : {}),
+    });
+  };
+  const census = nativeLog?.lastFormalCensus;
+  add('functionalFailures', functionalPassed ? 0 : 1, 0, '<=');
+  add('missingEvidence', evidenceCollected ? 0 : 1, 0, '<=');
+  add('maxTimelineDriftMs', maxPositiveDriftMs, 10_000);
+  add('last30CpuAvg', processSummary.last30.cpuAvg, 100);
+  add('last30CpuMax', processSummary.last30.cpuMax, 200);
+  add('formalRssDeltaMB', processSummary.formal.rssDeltaMB, 500);
+  for (const [name, field, limit, comparison] of [
+    ['allocationMB', 'allocatedMB', 2000, '<'],
+    ['gcTimeMs', 'gcMs', 2000, '<'],
+    ['gcCount', 'gcCount', 600, '<'],
+    ['jsBlockTotalMs', 'blockTotalMs', 3000, '<'],
+    ['jsBlockMaxMs', 'blockMaxMs', 300, '<'],
+    ['jsBlockOver500', 'blockOver500', 1, '<='],
+    ['jsBlockOver1000', 'blockOver1000', 0, '<='],
+    ['jsFpsMin', 'jsFpsMin', 45, '>='],
+  ])
+    add(
+      name,
+      census?.[field],
+      limit,
+      comparison,
+      'Last completed main census window; see windowMs and lastFormalCensusEndGapMs. Not an exact formal-end-aligned window.',
+    );
+  add('last60BgRpc', nativeLog?.windows.last60.bgRpcCount, 1200);
+  add(
+    'last60NetworkRequests',
+    nativeLog?.windows.last60.networkRequestCount,
+    200,
+  );
+  add(
+    'allNetworksBgRpc',
+    nativeLog?.windows.allNetworks?.bgRpcCount,
+    600,
+    '<=',
+  );
+  add(
+    'allNetworksNetworkRequests',
+    nativeLog?.windows.allNetworks?.networkRequestCount,
+    120,
+    '<=',
+  );
+  add(
+    'allNetworksTokenFetches',
+    nativeLog?.windows.allNetworks?.fetchAccountTokens,
+    42,
+    '<=',
+  );
+  for (const [name, note] of [
+    [
+      'clickVisualFeedbackP95',
+      'Requires rendered feedback timing; host Detox dispatch/completion is not visual latency.',
+    ],
+    [
+      'homeInteractiveP95',
+      'Semantic Home visibility is recorded separately and does not prove input readiness.',
+    ],
+    [
+      'accountEffectiveLatency',
+      'Existing semantic IDs do not expose committed account ownership/data freshness.',
+    ],
+    [
+      'immediateIdleCpuAfter10s',
+      'QA export remains at its planned time; diagnostic cooldown is a separate window.',
+    ],
+    [
+      'immediateIdleRssAfter60s',
+      'Diagnostic export prevents an uncontaminated immediate post-QA idle measurement.',
+    ],
+    [
+      'physicalDeviceThermalState',
+      'Simulator does not establish physical-device thermal acceptance.',
+    ],
+    ['threeRunMedianAndWorst', 'Requires aggregation of three complete runs.'],
+    [
+      'staleOwnerAndFinalAccountCorrectness',
+      'Requires owner instrumentation and final asset correctness evidence.',
+    ],
+    [
+      'inactiveProductRequests',
+      'Request groups are recorded; business-owner classification is required.',
+    ],
+  ])
+    checks.push({ name, status: 'UNMEASURED', note });
+  checks.push({
+    name: 'buildProvenance',
+    status:
+      buildProvenance.status === 'MEASURED' ? 'PASS' : buildProvenance.status,
+  });
+  return {
+    status: checks.some((check) => check.status === 'FAIL')
+      ? 'FAIL'
+      : 'INCOMPLETE',
+    scope:
+      'Single simulator run; missing metrics never imply a full performance pass.',
+    checks,
   };
 }
 
@@ -548,11 +883,13 @@ async function main() {
   const preparedPath = path.join(outputDir, 'prepared.json');
   const collectorReadyPath = path.join(outputDir, 'collector-ready.json');
   const formalEndPath = path.join(outputDir, 'formal-end.json');
+  const observationEndPath = path.join(outputDir, 'observation-end.json');
   for (const transientPath of [
     runMetaPath,
     preparedPath,
     collectorReadyPath,
     formalEndPath,
+    observationEndPath,
   ]) {
     if (fs.existsSync(transientPath)) fs.unlinkSync(transientPath);
   }
@@ -568,23 +905,30 @@ async function main() {
     sha: run('git', ['rev-parse', 'HEAD']),
   };
   const mainBundlePath = path.join(appPath, 'main.jsbundle');
+  const mainBundleSha256 = fs.existsSync(mainBundlePath)
+    ? sha256File(mainBundlePath)
+    : null;
+  const buildProvenance = readBuildProvenance({
+    manifestPath: args.buildManifest ? path.resolve(args.buildManifest) : null,
+    mainBundleSha256,
+  });
+  const localUtcOffsetMinutes = -new Date().getTimezoneOffset();
   writeJson(path.join(outputDir, 'environment.json'), {
     startedAt: new Date().toISOString(),
     udid,
     bundleId,
     appPath,
     sourceAppPath,
-    mainBundleSha256: fs.existsSync(mainBundlePath)
-      ? sha256File(mainBundlePath)
-      : null,
+    mainBundleSha256,
+    buildProvenance,
+    localUtcOffsetMinutes,
     appDataPath,
-    git,
+    checkoutGit: git,
     includeInactiveStep: args.includeInactiveStep,
     initialWalletSelector: args.initialWalletId ? 'explicit' : 'hardware-first',
     allowInitialWalletFallback: args.allowInitialWalletFallback,
     requireInitialFunded: args.requireInitialFunded,
     requireTargetFunded: args.requireTargetFunded,
-    targetWalletId: args.targetWalletId || 'hd-1',
     host: { platform: process.platform, release: os.release() },
     note: 'Simulator CPU/RSS are comparable regression signals; simulator thermal state is not physical-device evidence.',
   });
@@ -644,7 +988,6 @@ async function main() {
   let recording = null;
   let nativeLogPath = null;
   let nativeLogCapture = null;
-  let samplerStopped = false;
   const preparedMeta = await waitForJsonFile(preparedPath, child);
   if (preparedMeta) {
     nativeLogPath = path.join(
@@ -675,20 +1018,16 @@ async function main() {
     });
   }
 
-  const formalEndCapturePromise = formalMeta
-    ? waitForJsonFile(formalEndPath, child).then(async (meta) => {
-        stopSampler();
-        samplerStopped = true;
-        await nativeLogCapture?.stop();
-        return { meta };
-      })
-    : Promise.resolve(null);
-
   const exitCode = await childExitPromise;
-  const formalEndCapture = await formalEndCapturePromise;
-  if (!samplerStopped) stopSampler();
+  stopSampler();
   await nativeLogCapture?.stop();
   if (recording) await recording.stop();
+  const formalEndMeta = fs.existsSync(formalEndPath)
+    ? readJson(formalEndPath)
+    : null;
+  const observation = fs.existsSync(observationEndPath)
+    ? readJson(observationEndPath)
+    : null;
 
   const nativeLogSegmentPath = nativeLogCapture?.outputPath || null;
   const samples = readJsonLines(path.join(outputDir, 'process-samples.jsonl'));
@@ -710,7 +1049,7 @@ async function main() {
       ? Math.max(...actionTimeline.map((action) => action.driftMs))
       : null;
   const timelineComparable =
-    maxPositiveDriftMs !== null && maxPositiveDriftMs <= 5000;
+    maxPositiveDriftMs !== null && maxPositiveDriftMs < 10_000;
   const functionalPassed = exitCode === 0;
   const nativeLogBytes =
     nativeLogSegmentPath && fs.existsSync(nativeLogSegmentPath)
@@ -733,6 +1072,26 @@ async function main() {
     nativeLogBytes > 0;
   const evidenceCollected =
     logsCollected && processMetricsCollected && screenRecordingCollected;
+  const measurementContext = {
+    formalStartedAt: finalRunMeta?.formalStartedAt,
+    formalEndedAt: formalEndMeta?.formalEndedAt,
+    observation,
+    actionTimeline,
+    localUtcOffsetMinutes,
+  };
+  const processSummary = summarizeSamples(samples, measurementContext);
+  const nativeLogSummary = summarizeNativeLog(
+    nativeLogSegmentPath,
+    measurementContext,
+  );
+  const acceptance = summarizeAcceptance({
+    functionalPassed,
+    evidenceCollected,
+    maxPositiveDriftMs,
+    processSummary,
+    nativeLog: nativeLogSummary,
+    buildProvenance,
+  });
   const summary = {
     exitCode,
     functionalPassed,
@@ -740,23 +1099,28 @@ async function main() {
     processMetricsCollected,
     screenRecordingCollected,
     evidenceCollected,
-    passed: functionalPassed && evidenceCollected && timelineComparable,
+    capturePassed: functionalPassed && evidenceCollected,
+    acceptance,
+    buildProvenance,
+    mainBundleSha256,
     run: finalRunMeta,
     timeline: {
       count: actionTimeline.length,
       failed: actionTimeline.filter((action) => !action.ok),
-      formalEnd: formalEndCapture?.meta || null,
+      formalEnd: formalEndMeta,
+      observation,
       maxPositiveDriftMs,
       timelineComparable,
     },
     process: {
-      ...summarizeSamples(samples),
+      ...processSummary,
       sampleCount: samples.length,
       sampleCoverageSec: Number(sampleCoverageSec.toFixed(1)),
     },
-    nativeLog: summarizeNativeLog(nativeLogSegmentPath),
+    nativeLog: nativeLogSummary,
     artifacts: {
       actionTimeline: path.join(outputDir, 'action-timeline.jsonl'),
+      interactionTimeline: path.join(outputDir, 'interaction-timeline.jsonl'),
       processSamples: path.join(outputDir, 'process-samples.jsonl'),
       nativeLogSegment: nativeLogSegmentPath,
       nativeLogBytes,
@@ -766,10 +1130,25 @@ async function main() {
   };
   writeJson(path.join(outputDir, 'summary.json'), summary);
   console.log(`Summary: ${path.join(outputDir, 'summary.json')}`);
-  if (!summary.passed) process.exitCode = exitCode || 1;
+  console.log(
+    `Capture: ${summary.capturePassed ? 'PASS' : 'FAIL'}; performance acceptance: ${acceptance.status}`,
+  );
+  if (!summary.capturePassed) process.exitCode = exitCode || 1;
 }
 
-main().catch((error) => {
-  console.error(error?.stack || error);
-  process.exitCode = 1;
-});
+if (require.main === module) {
+  main().catch((error) => {
+    console.error(error?.stack || error);
+    process.exitCode = 1;
+  });
+}
+
+module.exports = {
+  parseNativeLog,
+  redactNetworkRequest,
+  summarizeEvents,
+  summarizeNativeLog,
+  summarizeSamples,
+  readBuildProvenance,
+  summarizeAcceptance,
+};

@@ -9,6 +9,8 @@ jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
 }));
 jest.mock('@onekeyhq/kit/src/hooks/useRouteIsFocused', () => ({
   useRouteIsFocused: () => mockRouteFocus.current,
+  useRouteIsFocusedWhenEnabled: ({ enabled }: { enabled: boolean }) =>
+    !enabled || mockRouteFocus.current,
 }));
 jest.mock('@onekeyhq/shared/src/utils/swrCacheUtils', () => ({
   ...jest.requireActual<

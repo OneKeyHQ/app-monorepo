@@ -72,6 +72,7 @@ export class AppPerfScene extends BaseScene {
     windowMs: number;
     total: number;
     totalKB: number;
+    totalChars: number;
     byKind: { kind: string; count: number; kb: number }[];
     bySender: { sender: string; count: number; kb: number }[];
   }) {
