@@ -32,7 +32,9 @@ function DeviceSectionDeviceConnect() {
   const canRebindBle =
     (platformEnv.isNative || platformEnv.isSupportDesktopBle) &&
     ((device?.vendor === EHardwareVendor.ledger &&
-      !!(device.bleConnectId || (platformEnv.isNative && device.connectId))) ||
+      (thirdPartyDeviceUtils.isLedgerBleSupportedDevice(device) ||
+        !!device.bleConnectId ||
+        (platformEnv.isNative && !!device.connectId))) ||
       (device?.vendor === EHardwareVendor.trezor &&
         thirdPartyDeviceUtils.isTrezorBleSupportedDevice(device)));
   const onPressRebindBle = useCallback(async () => {

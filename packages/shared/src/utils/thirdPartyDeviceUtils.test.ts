@@ -1,6 +1,7 @@
 import { readFileSync } from 'fs';
 import { join } from 'path';
 
+import { DeviceModelId, getDeviceModel } from '@ledgerhq/devices';
 import { EFirmwareType } from '@onekeyfe/hd-shared';
 // Test-only import (node env, never bundled): the SDK original is the source
 // of truth the local copy must stay in parity with.
@@ -13,6 +14,33 @@ import thirdPartyDeviceUtils from './thirdPartyDeviceUtils';
 describe('thirdPartyDeviceUtils', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+  });
+
+  it.each(Object.values(DeviceModelId))(
+    'matches Ledger Bluetooth model metadata for %s',
+    (vendorModel) => {
+      expect(
+        thirdPartyDeviceUtils.isLedgerBleSupportedDevice({
+          settings: { vendorModel },
+        }),
+      ).toBe(Boolean(getDeviceModel(vendorModel).bluetoothSpec?.length));
+    },
+  );
+
+  it('reads legacy Ledger model settings without using the editable device name', () => {
+    expect(
+      thirdPartyDeviceUtils.isLedgerBleSupportedDevice({
+        settingsRaw: JSON.stringify({ vendorModel: 'nanoX' }),
+      }),
+    ).toBe(true);
+    expect(
+      thirdPartyDeviceUtils.isLedgerBleSupportedDevice({ name: 'Nano X' }),
+    ).toBe(false);
+    expect(
+      thirdPartyDeviceUtils.isLedgerBleSupportedDevice({
+        settings: { vendorModel: 'unknown', vendorModelName: 'Nano X' },
+      }),
+    ).toBe(false);
   });
 
   it('keeps only persisted third-party feature fields', () => {

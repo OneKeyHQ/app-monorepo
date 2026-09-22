@@ -5,6 +5,7 @@ import type { ReactNode } from 'react';
 import { act, fireEvent, render } from '@testing-library/react';
 
 import { Toast } from '@onekeyhq/components';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EHardwareVendor } from '@onekeyhq/shared/types/device';
 
 import { DeviceManagementTestIDs } from '../../testIDs';
@@ -24,6 +25,7 @@ interface IMockDevice {
   vendor?: EHardwareVendor;
   bleConnectId?: string;
   connectId?: string;
+  settings?: { vendorModel: string };
 }
 const defaultDevice: IMockDevice = {
   id: 'db-current',
@@ -147,6 +149,56 @@ describe('rebinding bluetooth from the device connection section', () => {
     mockRebindBleDevice.mockResolvedValue(undefined);
     mockRefresh.mockResolvedValue(undefined);
   });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  it.each([
+    [true, false, EHardwareVendor.ledger, 'nanoX', true],
+    [false, true, EHardwareVendor.ledger, 'nanoX', true],
+    [false, true, EHardwareVendor.ledger, 'nanoS', false],
+    [false, false, EHardwareVendor.ledger, 'nanoX', false],
+    [true, false, EHardwareVendor.trezor, 'T3W1', true],
+    [false, true, EHardwareVendor.trezor, 'T3W1', true],
+    [false, true, EHardwareVendor.trezor, 'T2T1', false],
+    [false, true, EHardwareVendor.keystone, 'nanoX', false],
+  ] as const)(
+    'shows binding by platform and model, before and after binding (%s, %s, %s, %s)',
+    async (isNative, isSupportDesktopBle, vendor, vendorModel, visible) => {
+      jest.replaceProperty(platformEnv, 'isNative', isNative);
+      jest.replaceProperty(
+        platformEnv,
+        'isSupportDesktopBle',
+        isSupportDesktopBle,
+      );
+      currentDevice = {
+        ...defaultDevice,
+        vendor,
+        settings: { vendorModel },
+      };
+      const view = render(<DeviceSectionDeviceConnect />);
+      const entry = view.queryByTestId(DeviceManagementTestIDs.rebindBleItem);
+      expect(Boolean(entry)).toBe(visible);
+      if (entry) {
+        await act(async () => {
+          fireEvent.click(entry);
+        });
+        expect(mockRebindBleDevice).toHaveBeenCalledWith({
+          dbDeviceId: 'db-current',
+        });
+      }
+      currentDevice = { ...currentDevice, bleConnectId: 'bound-ble' };
+      view.rerender(<DeviceSectionDeviceConnect />);
+      // Existing Ledger BLE records retain access even if model metadata is stale.
+      expect(
+        Boolean(view.queryByTestId(DeviceManagementTestIDs.rebindBleItem)),
+      ).toBe(
+        (isNative || isSupportDesktopBle) &&
+          (vendor === EHardwareVendor.ledger || visible),
+      );
+    },
+  );
 
   it('hides the bluetooth entry for a device with no bluetooth endpoint', () => {
     const { queryByTestId } = render(<DeviceSectionDeviceConnect />);
