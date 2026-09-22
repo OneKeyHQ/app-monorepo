@@ -751,10 +751,12 @@ function summarizeObservedCensusWindows(reports, formalStartMs, formalEndMs) {
     observedCompleteCensusWorst,
     observedWindowThresholdFailure: observedCompleteCensusWindows.some(
       (report) =>
-        report.thresholdChecks.some((check) => check.status === 'FAIL'),
+        report.thresholdChecks.some(
+          (check) => check.name !== 'jsFpsMin' && check.status === 'FAIL',
+        ),
     ),
     observedWindowThresholdNote:
-      'Complete observed windows inside the formal run use the unchanged nominal-30s thresholds and report their actual duration without normalization. Exceedances are failures of these observed windows. Low values cannot establish an exact formal-last30 pass.',
+      'Complete observed windows inside the formal run use the unchanged resource/block nominal-30s thresholds and report actual duration without normalization. jsFpsMin is legacy diagnostic only and cannot fail new acceptance. Low values cannot establish an exact formal-last30 pass.',
   };
 }
 
@@ -808,6 +810,214 @@ function describeCensusWindow(report, formalStartedAt, formalEndedAt) {
       hasFormalWindow &&
       startMs === formalStartMs &&
       endMs === formalEndMs,
+  };
+}
+
+function summarizeFpsPhase(reports, startMs, endMs) {
+  const boundsAvailable =
+    Number.isFinite(startMs) && Number.isFinite(endMs) && endMs > startMs;
+  const samples = reports
+    .flatMap((report) =>
+      report.fpsSamplingAvailable === 1 && Array.isArray(report.fpsSamples)
+        ? report.fpsSamples
+        : [],
+    )
+    .filter(
+      (sample) =>
+        Array.isArray(sample) &&
+        sample.length === 5 &&
+        sample.every(Number.isFinite) &&
+        sample[1] > sample[0] &&
+        sample[2] > 0 &&
+        Number.isInteger(sample[3]) &&
+        sample[3] >= 0 &&
+        [0, 1].includes(sample[4]),
+    )
+    .toSorted((left, right) => left[0] - right[0]);
+  const overlapping = boundsAvailable
+    ? samples.filter((sample) => sample[0] < endMs && sample[1] > startMs)
+    : [];
+  const contained = overlapping.filter(
+    (sample) => sample[0] >= startMs && sample[1] <= endMs,
+  );
+  let previousEnd = null;
+  let overlapCount = 0;
+  let clockMismatchCount = 0;
+  const valid = [];
+  for (const sample of contained) {
+    if (previousEnd !== null && sample[0] < previousEnd) overlapCount += 1;
+    previousEnd = Math.max(previousEnd ?? sample[1], sample[1]);
+    if (Math.abs(sample[1] - sample[0] - sample[2]) > 50) {
+      clockMismatchCount += 1;
+    } else if (sample[4] === 0) valid.push(sample);
+  }
+  const durationMs = boundsAvailable ? endMs - startMs : null;
+  const validDurationMs = valid.reduce((sum, sample) => sum + sample[2], 0);
+  const coveragePct = durationMs ? (validDurationMs / durationMs) * 100 : null;
+  const fpsOf = (sample) => (sample[3] * 1000) / sample[2];
+  const weightedShare = (predicate) =>
+    validDurationMs
+      ? (valid
+          .filter((sample) => predicate(fpsOf(sample)))
+          .reduce((sum, sample) => sum + sample[2], 0) /
+          validDurationMs) *
+        100
+      : null;
+  let timeWeightedP10 = null;
+  let weight = 0;
+  for (const sample of valid.toSorted(
+    (left, right) => fpsOf(left) - fpsOf(right),
+  )) {
+    weight += sample[2];
+    if (weight >= validDurationMs * 0.1) {
+      timeWeightedP10 = fpsOf(sample);
+      break;
+    }
+  }
+  let lowEnd = null;
+  let lowDurationMs = 0;
+  let lowWindows = 0;
+  let maxConsecutiveLowDurationMs = 0;
+  let maxConsecutiveLowWindows = 0;
+  for (const sample of valid) {
+    if (fpsOf(sample) >= 30 || lowEnd === null || sample[0] - lowEnd > 2) {
+      lowDurationMs = 0;
+      lowWindows = 0;
+    }
+    if (fpsOf(sample) < 30) {
+      lowDurationMs += sample[2];
+      if (sample[2] >= 1000) lowWindows += 1;
+      maxConsecutiveLowDurationMs = Math.max(
+        maxConsecutiveLowDurationMs,
+        lowDurationMs,
+      );
+      maxConsecutiveLowWindows = Math.max(maxConsecutiveLowWindows, lowWindows);
+      lowEnd = sample[1];
+    } else lowEnd = null;
+  }
+  const coverageComplete =
+    coveragePct !== null &&
+    coveragePct >= 95 &&
+    coveragePct <= 100.1 &&
+    overlapCount === 0 &&
+    clockMismatchCount === 0;
+  const atLeast45TimePct = weightedShare((fps) => fps >= 45);
+  const below30TimePct = weightedShare((fps) => fps < 30);
+  const check = (name, value, limit, comparison, passed) => {
+    let status = 'UNMEASURED';
+    if (coverageComplete) status = passed ? 'PASS' : 'FAIL';
+    return { name, value, limit, comparison, status };
+  };
+  const checks = [
+    {
+      name: 'validCoveragePct',
+      value: coveragePct,
+      limit: 95,
+      comparison: '>=',
+      status: coverageComplete ? 'PASS' : 'UNMEASURED',
+    },
+    check(
+      'atLeast45TimePct',
+      atLeast45TimePct,
+      90,
+      '>=',
+      atLeast45TimePct >= 90,
+    ),
+    check('below30TimePct', below30TimePct, 5, '<=', below30TimePct <= 5),
+    check(
+      'maxConsecutiveLowWindows',
+      maxConsecutiveLowWindows,
+      1,
+      '<=',
+      maxConsecutiveLowWindows <= 1,
+    ),
+    check(
+      'maxConsecutiveLowDurationMs',
+      maxConsecutiveLowDurationMs,
+      2000,
+      '<',
+      maxConsecutiveLowDurationMs < 2000,
+    ),
+  ];
+  let status = 'UNMEASURED';
+  if (coverageComplete)
+    status = checks.some((item) => item.status === 'FAIL') ? 'FAIL' : 'PASS';
+  return {
+    startedAt: boundsAvailable ? new Date(startMs).toISOString() : null,
+    endedAt: boundsAvailable ? new Date(endMs).toISOString() : null,
+    durationMs,
+    sampleCount: contained.length,
+    validSampleCount: valid.length,
+    shortSampleCount: valid.filter((sample) => sample[2] < 1000).length,
+    boundarySampleCount: overlapping.length - contained.length,
+    invalidLifecycleSampleCount: contained.filter((sample) => sample[4] === 1)
+      .length,
+    invalidLifecycleDurationMs: contained
+      .filter((sample) => sample[4] === 1)
+      .reduce((sum, sample) => sum + sample[2], 0),
+    boundaryOverlapDurationMs: overlapping
+      .filter((sample) => sample[0] < startMs || sample[1] > endMs)
+      .reduce(
+        (sum, sample) =>
+          sum + Math.min(sample[1], endMs) - Math.max(sample[0], startMs),
+        0,
+      ),
+    overlapCount,
+    clockMismatchCount,
+    validDurationMs,
+    uncoveredDurationMs:
+      durationMs === null ? null : Math.max(0, durationMs - validDurationMs),
+    coveragePct,
+    atLeast45TimePct,
+    below30TimePct,
+    timeWeightedP10,
+    min: valid.length ? Math.min(...valid.map(fpsOf)) : null,
+    maxConsecutiveLowDurationMs,
+    maxConsecutiveLowWindows,
+    checks,
+    status,
+  };
+}
+
+function summarizeFps(reports, context) {
+  const startMs = Date.parse(context.formalStartedAt);
+  const endMs = Date.parse(context.formalEndedAt);
+  const actions = context.actionTimeline || [];
+  const actionStart = (label) =>
+    Date.parse(actions.find((action) => action.label === label)?.startedAt);
+  const allNetworks = actions.filter((action) =>
+    action.label.startsWith('All Networks switch '),
+  );
+  const rapidBsc = actions.find(
+    (action) =>
+      action.label.startsWith('BSC switch ') && action.plannedSec === 95,
+  );
+  const endOf = (action) => (action ? startMs + action.endedSec * 1000 : NaN);
+  const phase = (from, to) => summarizeFpsPhase(reports, from, to);
+  return {
+    schemaVersion: 1,
+    methodology:
+      'Main-runtime rAF tuples [wallStartMs, wallEndMs, monotonicDurationMs, frames, validityCode]. FPS uses actual monotonic duration. Only complete foreground windows contained in a phase are used; boundary windows are not prorated. Short census-closing windows retain their actual time weight. P10 is the first FPS at cumulative duration >=10%. Acceptance uses >=90% of valid time at >=45 FPS, <=5% below30, and >=95% phase coverage. Two adjacent full nominal1s low windows or a low segment >=2s fail sustained-low acceptance; gaps >2ms break adjacency. A single minimum is diagnostic. Long JS Block is independently assessed.',
+    phases: {
+      formal: phase(startMs, endMs),
+      coldStart: phase(startMs, actionStart('open Trade / Swap')),
+      firstNavigation: phase(
+        actionStart('open Trade / Swap'),
+        actionStart('open Wallet / Home'),
+      ),
+      continuousSwitching: phase(
+        Date.parse(rapidBsc?.startedAt),
+        endOf(allNetworks.at(-1)),
+      ),
+      allNetworks: phase(
+        Date.parse(allNetworks[0]?.startedAt),
+        endOf(allNetworks.at(-1)),
+      ),
+      idleRecovery: phase(
+        Date.parse(context.observation?.startedAt),
+        Date.parse(context.observation?.endedAt),
+      ),
+    },
   };
 }
 
@@ -884,6 +1094,7 @@ function summarizeNativeLog(logPath, context = {}) {
         : null,
     },
     phases,
+    fps: summarizeFps(runtimeHealth, context),
     runtimeHealth,
     ...summarizeObservedCensusWindows(runtimeHealth, startMs, endMs),
     formalLast30Census: {
@@ -977,7 +1188,9 @@ function summarizeAcceptance({
       note: nativeLog.observedWindowThresholdNote,
     });
   }
-  for (const [name, field, limit, comparison] of censusWindowThresholds)
+  for (const [name, field, limit, comparison] of censusWindowThresholds.filter(
+    ([metricName]) => metricName !== 'jsFpsMin',
+  ))
     add(
       name,
       census?.[field],
@@ -1053,13 +1266,81 @@ function summarizeAcceptance({
     status:
       buildProvenance.status === 'MEASURED' ? 'PASS' : buildProvenance.status,
   });
+  const experienceNames = new Set([
+    'clickVisualFeedbackP95',
+    'homeInteractiveP95',
+    'accountEffectiveLatency',
+    'staleOwnerAndFinalAccountCorrectness',
+  ]);
+  const measurementNames = new Set([
+    'functionalFailures',
+    'missingEvidence',
+    'maxTimelineDriftMs',
+    'buildProvenance',
+    'threeRunMedianAndWorst',
+  ]);
+  const experienceChecks = checks.filter((check) =>
+    experienceNames.has(check.name),
+  );
+  for (const phase of ['continuousSwitching', 'allNetworks']) {
+    const fpsChecks = nativeLog?.fps?.phases[phase]?.checks;
+    if (fpsChecks)
+      experienceChecks.push(
+        ...fpsChecks.map((check) => ({
+          ...check,
+          name: `${phase}.${check.name}`,
+        })),
+      );
+    else
+      experienceChecks.push({
+        name: `${phase}.fpsDistribution`,
+        status: 'UNMEASURED',
+        note: 'Requires raw foreground rAF windows; legacy minima cannot reconstruct the distribution.',
+      });
+  }
+  const worstLongBlock =
+    nativeLog?.observedCompleteCensusWorst?.jsBlockOver1000;
+  experienceChecks.push({
+    name: 'observedJsBlockOver1000',
+    value: worstLongBlock?.value ?? null,
+    limit: 0,
+    comparison: '<=',
+    status: worstLongBlock?.value > 0 ? 'FAIL' : 'UNMEASURED',
+    note: 'Any observed >1s JS Block fails this condition; partial census coverage cannot establish a whole-phase pass.',
+  });
+  const group = (items) => {
+    let status = 'PASS';
+    if (items.some((check) => check.status === 'UNMEASURED'))
+      status = 'INCOMPLETE';
+    if (items.some((check) => check.status === 'FAIL')) status = 'FAIL';
+    return { status, checks: items };
+  };
+  const experience = group(experienceChecks);
+  const resources = group(
+    checks.filter(
+      (check) =>
+        !experienceNames.has(check.name) && !measurementNames.has(check.name),
+    ),
+  );
+  const measurement = group(
+    checks.filter((check) => measurementNames.has(check.name)),
+  );
   return {
-    status: checks.some((check) => check.status === 'FAIL')
+    status: [experience, resources, measurement].some(
+      (item) => item.status === 'FAIL',
+    )
       ? 'FAIL'
       : 'INCOMPLETE',
     scope:
       'Single simulator run; missing metrics never imply a full performance pass.',
     checks,
+    experience,
+    resources,
+    measurement,
+    legacyFpsMinimum: {
+      diagnosticOnly: true,
+      observedWorst: nativeLog?.observedCompleteCensusWorst?.jsFpsMin ?? null,
+    },
   };
 }
 
@@ -1405,6 +1686,8 @@ module.exports = {
   redactNetworkRequest,
   summarizeEvents,
   summarizeNativeLog,
+  summarizeFpsPhase,
+  summarizeFps,
   summarizeSamples,
   readBuildProvenance,
   summarizeAcceptance,

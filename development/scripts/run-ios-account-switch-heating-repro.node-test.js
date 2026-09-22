@@ -15,8 +15,145 @@ const {
   summarizeAcceptance,
   summarizeEvents,
   summarizeNativeLog,
+  summarizeFpsPhase,
   summarizeSamples,
 } = require('./run-ios-account-switch-heating-repro');
+
+test('FPS acceptance weights actual time and tolerates an isolated low minimum', () => {
+  const samples = Array.from({ length: 30 }, (_, index) => [
+    index * 1000,
+    (index + 1) * 1000,
+    1000,
+    index === 10 ? 12 : 60,
+    0,
+  ]);
+  const result = summarizeFpsPhase(
+    [{ fpsSamplingAvailable: 1, fpsSamples: samples }],
+    0,
+    30_000,
+  );
+  assert.equal(result.min, 12);
+  assert.equal(result.timeWeightedP10, 60);
+  assert.equal(result.coveragePct, 100);
+  assert.equal(result.maxConsecutiveLowWindows, 1);
+  assert.equal(result.status, 'PASS');
+  const long = summarizeFpsPhase(
+    [
+      {
+        fpsSamplingAvailable: 1,
+        fpsSamples: [
+          [0, 3000, 3000, 36, 0],
+          [3000, 30_000, 27_000, 1620, 0],
+        ],
+      },
+    ],
+    0,
+    30_000,
+  );
+  assert.equal(long.timeWeightedP10, 12);
+  assert.equal(long.below30TimePct, 10);
+  assert.equal(long.maxConsecutiveLowWindows, 1);
+  assert.equal(long.maxConsecutiveLowDurationMs, 3000);
+  assert.equal(long.status, 'FAIL');
+});
+
+test('short census closing FPS segments retain time weight and bridge continuous low windows', () => {
+  const result = summarizeFpsPhase(
+    [
+      {
+        fpsSamplingAvailable: 1,
+        fpsSamples: [
+          [0, 1000, 1000, 20, 0],
+          [1000, 1500, 500, 10, 0],
+          [1500, 2500, 1000, 20, 0],
+          [2500, 30_000, 27_500, 1650, 0],
+        ],
+      },
+    ],
+    0,
+    30_000,
+  );
+  assert.equal(result.shortSampleCount, 1);
+  assert.equal(result.maxConsecutiveLowWindows, 2);
+  assert.equal(result.maxConsecutiveLowDurationMs, 2500);
+  assert.equal(result.validDurationMs, 30_000);
+  assert.equal(result.status, 'FAIL');
+});
+
+test('FPS phase gaps, lifecycle boundaries, clock jumps and overlaps never manufacture a pass', () => {
+  const run = (samples, start = 0, end = 10_000) =>
+    summarizeFpsPhase(
+      [{ fpsSamplingAvailable: 1, fpsSamples: samples }],
+      start,
+      end,
+    );
+  const boundary = run(
+    [
+      [0, 1000, 1000, 60, 0],
+      [1000, 2000, 1000, 60, 0],
+      [2000, 10_000, 8000, 480, 0],
+    ],
+    500,
+  );
+  assert.equal(boundary.boundarySampleCount, 1);
+  assert.equal(boundary.validDurationMs, 9000);
+  assert.equal(boundary.status, 'UNMEASURED');
+  const lifecycle = run([
+    [0, 8000, 8000, 480, 0],
+    [8000, 10_000, 2000, 0, 1],
+  ]);
+  assert.equal(lifecycle.invalidLifecycleDurationMs, 2000);
+  assert.equal(lifecycle.status, 'UNMEASURED');
+  assert.equal(run([[0, 10_000, 5000, 300, 0]]).status, 'UNMEASURED');
+  assert.equal(
+    run([
+      [0, 10_000, 10_000, 600, 0],
+      [0, 10_000, 10_000, 600, 0],
+    ]).status,
+    'UNMEASURED',
+  );
+  const gap = run([
+    [0, 1000, 1000, 20, 0],
+    [1100, 2100, 1000, 20, 0],
+    [2100, 10_000, 7900, 474, 0],
+  ]);
+  assert.equal(gap.maxConsecutiveLowWindows, 1);
+  assert.equal(
+    summarizeFpsPhase([{ jsFpsMin: 12 }], 0, 10_000).status,
+    'UNMEASURED',
+  );
+});
+
+test('legacy FPS minima cannot fail the new experience or resource acceptance', () => {
+  const observed = summarizeObservedCensusWindows(
+    [
+      describeCensusWindow(
+        {
+          windowEndedAt: Date.parse(context.formalStartedAt) + 30_000,
+          windowMs: 30_000,
+          jsFpsMin: 12,
+        },
+        context.formalStartedAt,
+        context.formalEndedAt,
+      ),
+    ],
+    Date.parse(context.formalStartedAt),
+    Date.parse(context.formalEndedAt),
+  );
+  assert.equal(observed.observedWindowThresholdFailure, false);
+  const acceptance = summarizeAcceptance({
+    functionalPassed: true,
+    evidenceCollected: true,
+    maxPositiveDriftMs: 0,
+    processSummary: summarizeSamples([], context),
+    nativeLog: { ...observed, windows: { last60: {} } },
+    buildProvenance: { status: 'MEASURED' },
+  });
+  assert.equal(acceptance.experience.status, 'INCOMPLETE');
+  assert.equal(acceptance.resources.status, 'INCOMPLETE');
+  assert.equal(acceptance.status, 'INCOMPLETE');
+  assert.equal(acceptance.legacyFpsMinimum.observedWorst.value, 12);
+});
 
 test('preserves the previous native log before a fresh app launch', () => {
   const directory = fs.mkdtempSync(
