@@ -613,6 +613,7 @@ class ServicePrimeCloudSync extends ServiceBase {
     if (responseData.serverTime) {
       systemTimeUtils.updateServerTime({
         serverTime: responseData.serverTime,
+        source: 'cloud-sync',
       });
       try {
         const wrongTimeItems = localItems?.filter(
@@ -2605,6 +2606,7 @@ class ServicePrimeCloudSync extends ServiceBase {
   async getLocalSystemTimeStatus() {
     return {
       status: systemTimeUtils.systemTimeStatus,
+      isTimeErrorConfirmed: systemTimeUtils.isTimeErrorConfirmed,
 
       lastServerTime: systemTimeUtils.lastServerTime,
       lastServerTimeDate: new Date(
