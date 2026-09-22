@@ -1,4 +1,8 @@
 import { defaultLogger } from '../../logger/logger';
+import {
+  getCurrentVisibilityState,
+  onVisibilityStateChange,
+} from '../../utils/appVisibility';
 import { perfMark } from '../mark';
 
 let timer: ReturnType<typeof setInterval> | null = null;
@@ -51,8 +55,6 @@ export function stopJsBlockCollection() {
 const HEALTH_TICK_MS = 100;
 const HEALTH_WINDOW_MS = 30_000;
 const HEALTH_BLOCK_MS = 200;
-// A gap this long means the OS suspended the app, not that JS was busy.
-const HEALTH_SUSPENDED_MS = 5000;
 const HEALTH_PROCESS_SAMPLE_EVERY_TICKS = 50;
 
 export type IRuntimeHealthProcessSample = {
@@ -89,9 +91,16 @@ type IHermesCounters = {
   // Optional: not every Hermes build reports these.
   liveBytes?: number;
   mallocBytes?: number;
+  youngGCCount?: number;
+  oldGCCount?: number;
+  compactionCount?: number;
+  gcAvgSeconds?: number;
+  gcMaxSeconds?: number;
+  externalBytes?: number;
 };
 
-// Hermes only; every counter is cumulative since the VM was created.
+// GC counts, allocated totals and timing summaries are VM-lifetime values;
+// live bytes, external bytes and heap capacity are current gauges.
 function readHermesCounters(): IHermesCounters | undefined {
   const hermes = (
     globalThis as {
@@ -120,6 +129,13 @@ function readHermesCounters(): IHermesCounters | undefined {
   }
   const liveBytes = stats?.js_allocatedBytes;
   const mallocBytes = stats?.js_mallocSizeEstimate;
+  const specific = stats?.js_gcSpecific;
+  const gcSpecific =
+    specific && typeof specific === 'object'
+      ? (specific as Record<string, unknown>)
+      : undefined;
+  const optionalNumber = (value: unknown) =>
+    typeof value === 'number' && Number.isFinite(value) ? value : undefined;
   return {
     gcCount,
     gcTimeSeconds,
@@ -127,6 +143,12 @@ function readHermesCounters(): IHermesCounters | undefined {
     totalAllocatedBytes,
     ...(typeof liveBytes === 'number' ? { liveBytes } : {}),
     ...(typeof mallocBytes === 'number' ? { mallocBytes } : {}),
+    youngGCCount: optionalNumber(gcSpecific?.js_numYGCollections),
+    oldGCCount: optionalNumber(gcSpecific?.js_numOGCollections),
+    compactionCount: optionalNumber(gcSpecific?.js_numCompactions),
+    gcAvgSeconds: optionalNumber(stats?.js_avgGCTime),
+    gcMaxSeconds: optionalNumber(stats?.js_maxGCTime),
+    externalBytes: optionalNumber(stats?.js_externalBytes),
   };
 }
 
@@ -198,7 +220,11 @@ export function recordInboundFromBackground({
 }) {
   addInbound(inboundByKind, kind, chars);
   const named =
-    name && inboundByName.size < INBOUND_MAX_NAMES ? name : 'others';
+    name &&
+    (inboundByName.has(`${kind}:${name}`) ||
+      inboundByName.size < INBOUND_MAX_NAMES)
+      ? name
+      : 'others';
   addInbound(inboundByName, `${kind}:${named}`, chars);
 }
 
@@ -214,6 +240,8 @@ function flushInboundCensus(windowMs: number) {
   defaultLogger.app.perf.mainInboundCensus({
     windowMs: Math.round(windowMs),
     total: totalCount,
+    // Legacy KB fields count UTF-16 code units, not encoded transport bytes.
+    totalChars,
     totalKB: Math.round(totalChars / 1024),
     byKind: [...inboundByKind].map(([kind, totals]) => ({
       kind,
@@ -231,6 +259,7 @@ function flushInboundCensus(windowMs: number) {
 }
 
 let healthTimer: ReturnType<typeof setInterval> | null = null;
+let stopHealthVisibility: (() => void) | undefined;
 
 export function startRuntimeHealthCensus({
   sampleProcess,
@@ -244,6 +273,9 @@ export function startRuntimeHealthCensus({
   let windowStartedAt = last;
   let ticks = 0;
   let countersAtWindowStart = readHermesCounters();
+  let inactiveStartedAt = getCurrentVisibilityState() ? undefined : last;
+  let inactiveTotalMs = 0;
+  let previousInactiveMs = 0;
   let blockCount = 0;
   let blockTotalMs = 0;
   let blockMaxMs = 0;
@@ -257,6 +289,16 @@ export function startRuntimeHealthCensus({
   let uiFpsMin: number | undefined;
   let jsFpsMin: number | undefined;
 
+  stopHealthVisibility = onVisibilityStateChange((visible) => {
+    if (visible && inactiveStartedAt !== undefined) {
+      inactiveTotalMs += perfNow() - inactiveStartedAt;
+      inactiveStartedAt = undefined;
+    } else if (!visible && inactiveStartedAt === undefined) {
+      inactiveStartedAt = perfNow();
+      suspendedCount += 1;
+    }
+  });
+
   const lowest = (currentMin: number | undefined, value: number | undefined) =>
     // The native sampler reports 0 until its first full window.
     value && (currentMin === undefined || value < currentMin)
@@ -268,6 +310,7 @@ export function startRuntimeHealthCensus({
     const before = countersAtWindowStart;
     const report: IRuntimeHealthReport = {
       windowMs: Math.round(now - windowStartedAt),
+      windowEndedAt: Date.now(),
       blockCount,
       blockTotalMs: Math.round(blockTotalMs),
       blockMaxMs: Math.round(blockMaxMs),
@@ -277,6 +320,30 @@ export function startRuntimeHealthCensus({
       ...(counters
         ? {
             heapMB: toMB(counters.heapBytes),
+            js_numGCs: counters.gcCount,
+            js_gcTime: counters.gcTimeSeconds,
+            js_totalAllocatedBytes: counters.totalAllocatedBytes,
+            js_allocatedBytes: counters.liveBytes,
+            js_heapSize: counters.heapBytes,
+            js_externalBytes: counters.externalBytes,
+            js_numYGCollections: counters.youngGCCount,
+            js_numOGCollections: counters.oldGCCount,
+            js_numCompactions: counters.compactionCount,
+            js_avgGCTime: counters.gcAvgSeconds,
+            js_maxGCTime: counters.gcMaxSeconds,
+            // Lifetime maxima cannot be subtracted to get a window maximum.
+            gcMaxLifetimeMs:
+              counters.gcMaxSeconds === undefined
+                ? undefined
+                : counters.gcMaxSeconds * 1000,
+            gcAvgLifetimeMs:
+              counters.gcAvgSeconds === undefined
+                ? undefined
+                : counters.gcAvgSeconds * 1000,
+            externalMB:
+              counters.externalBytes === undefined
+                ? undefined
+                : toMB(counters.externalBytes),
             // Live bytes separates real retention from a heap that only
             // ratchets its capacity upward.
             ...(counters.liveBytes === undefined
@@ -291,6 +358,32 @@ export function startRuntimeHealthCensus({
                     counters.totalAllocatedBytes - before.totalAllocatedBytes,
                   ),
                   gcCount: counters.gcCount - before.gcCount,
+                  youngGCCount:
+                    counters.youngGCCount === undefined ||
+                    before.youngGCCount === undefined
+                      ? undefined
+                      : counters.youngGCCount - before.youngGCCount,
+                  oldGCCount:
+                    counters.oldGCCount === undefined ||
+                    before.oldGCCount === undefined
+                      ? undefined
+                      : counters.oldGCCount - before.oldGCCount,
+                  compactionCount:
+                    counters.compactionCount === undefined ||
+                    before.compactionCount === undefined
+                      ? undefined
+                      : counters.compactionCount - before.compactionCount,
+                  allocationMBPerSec:
+                    (counters.totalAllocatedBytes -
+                      before.totalAllocatedBytes) /
+                    (1024 * 1024) /
+                    ((now - windowStartedAt) / 1000),
+                  gcAvgMs:
+                    counters.gcCount > before.gcCount
+                      ? ((counters.gcTimeSeconds - before.gcTimeSeconds) *
+                          1000) /
+                        (counters.gcCount - before.gcCount)
+                      : 0,
                   // Hermes reports cumulative GC wall time in seconds.
                   gcMs: Math.round(
                     (counters.gcTimeSeconds - before.gcTimeSeconds) * 1000,
@@ -330,13 +423,17 @@ export function startRuntimeHealthCensus({
 
   healthTimer = setInterval(() => {
     const now = perfNow();
-    const drift = now - last - HEALTH_TICK_MS;
+    const inactiveMs =
+      inactiveTotalMs +
+      (inactiveStartedAt === undefined ? 0 : now - inactiveStartedAt);
+    const inactiveDelta = inactiveMs - previousInactiveMs;
+    previousInactiveMs = inactiveMs;
+    const drift = now - last - inactiveDelta - HEALTH_TICK_MS;
     last = now;
-    if (drift >= HEALTH_SUSPENDED_MS) {
-      // Time the app spent suspended belongs to no window.
-      suspendedCount += 1;
-      windowStartedAt += drift;
-    } else if (drift >= HEALTH_BLOCK_MS) {
+    // Only observed lifecycle inactivity is excluded. A long foreground
+    // stall must not disappear merely because it exceeded five seconds.
+    windowStartedAt += inactiveDelta;
+    if (drift >= HEALTH_BLOCK_MS) {
       blockCount += 1;
       blockTotalMs += drift;
       blockMaxMs = Math.max(blockMaxMs, drift);
@@ -367,6 +464,8 @@ export function startRuntimeHealthCensus({
 
 export function stopRuntimeHealthCensus() {
   if (!healthTimer) return;
+  stopHealthVisibility?.();
+  stopHealthVisibility = undefined;
   clearInterval(healthTimer);
   healthTimer = null;
 }

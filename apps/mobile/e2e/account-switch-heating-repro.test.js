@@ -33,6 +33,44 @@ const preparedPath = outputDir ? path.join(outputDir, 'prepared.json') : null;
 const formalEndPath = outputDir
   ? path.join(outputDir, 'formal-end.json')
   : null;
+const interactionLogPath = outputDir
+  ? path.join(outputDir, 'interaction-timeline.jsonl')
+  : null;
+const observationEndPath = outputDir
+  ? path.join(outputDir, 'observation-end.json')
+  : null;
+let activeAction = null;
+let interactionOrigin = null;
+
+function recordInteraction(marker, detail = {}) {
+  if (!interactionLogPath || !interactionOrigin) return;
+  fs.appendFileSync(
+    interactionLogPath,
+    `${JSON.stringify({
+      marker,
+      at: new Date().toISOString(),
+      elapsedSec: Number(
+        ((performance.now() - interactionOrigin) / 1000).toFixed(3),
+      ),
+      action: activeAction,
+      ...detail,
+    })}\n`,
+    'utf8',
+  );
+}
+
+async function measuredTap(target, semanticTarget) {
+  recordInteraction('tap-dispatched', {
+    semanticTarget,
+    source: 'host Detox dispatch',
+  });
+  await target.tap();
+  recordInteraction('tap-completed', {
+    semanticTarget,
+    source: 'Detox acknowledgement; not visual feedback',
+  });
+}
+
 const collectorReadyPath = outputDir
   ? path.join(outputDir, 'collector-ready.json')
   : null;
@@ -101,7 +139,7 @@ async function writeActionDiagnostics(label) {
 
 async function tapWhenVisible(target, timeoutMs = 4000) {
   await waitFor(target).toBeVisible().withTimeout(timeoutMs);
-  await target.tap();
+  await measuredTap(target, 'visible semantic target');
 }
 
 async function tapSemanticDescendantThroughAncestor(target, ancestor) {
@@ -110,6 +148,8 @@ async function tapSemanticDescendantThroughAncestor(target, ancestor) {
   const targetFrame = targetAttributes?.frame;
   const ancestorFrame = ancestorAttributes?.frame;
   if (
+    targetAttributes?.visible !== true ||
+    ancestorAttributes?.visible !== true ||
     !(targetFrame?.width > 0) ||
     !(targetFrame?.height > 0) ||
     !(ancestorFrame?.width > 0) ||
@@ -131,9 +171,17 @@ async function tapSemanticDescendantThroughAncestor(target, ancestor) {
     screenRelativeY >= 0 && screenRelativeY <= ancestorFrame.height
       ? screenRelativeY
       : localRelativeY;
+  recordInteraction('tap-dispatched', {
+    semanticTarget: 'visible semantic descendant',
+    source: 'host Detox ancestor-frame fallback',
+  });
   await ancestor.tap({
     x: Math.max(1, Math.min(ancestorFrame.width - 1, Math.floor(x))),
     y: Math.max(1, Math.min(ancestorFrame.height - 1, Math.floor(y))),
+  });
+  recordInteraction('tap-completed', {
+    semanticTarget: 'visible semantic descendant',
+    source: 'Detox acknowledgement; not visual feedback',
   });
 }
 
@@ -148,9 +196,17 @@ async function tapSemanticTargetAtRuntimeFrame(target) {
   if (!(frame?.width > 0) || !(frame?.height > 0)) {
     throw new Error('Semantic target does not expose a frame');
   }
+  recordInteraction('tap-dispatched', {
+    semanticTarget: 'visible semantic frame',
+    source: 'host Detox runtime-frame fallback',
+  });
   await device.tap({
     x: Math.floor(frame.x + frame.width / 2),
     y: Math.floor(frame.y + frame.height / 2),
+  });
+  recordInteraction('tap-completed', {
+    semanticTarget: 'visible semantic frame',
+    source: 'Detox acknowledgement; not visual feedback',
   });
 }
 
@@ -218,7 +274,7 @@ async function tapHomeNetworkTrigger(timeoutMs = 5000) {
   ).atIndex(0);
   try {
     await waitFor(allNetworksTrigger).toBeVisible().withTimeout(300);
-    await allNetworksTrigger.tap();
+    await measuredTap(allNetworksTrigger, 'all-networks-manager-trigger');
     return;
   } catch {
     // Single-network Home and builds predating the dedicated testID use this.
@@ -250,12 +306,12 @@ async function tapTabLike(label, testID) {
 async function tapNavigationBack() {
   const backById = await findReportedVisibleById('nav-header-back');
   if (backById) {
-    await backById.tap();
+    await measuredTap(backById, 'nav-header-back');
     return;
   }
   const backButton = await findVisibleByMatcher(by.label('Back'), 8, 120, 75);
   if (!backButton) throw new Error('Visible navigation back button not found');
-  await backButton.tap();
+  await measuredTap(backButton, 'Back label');
 }
 
 async function revealInNativeList(target, list) {
@@ -318,13 +374,19 @@ async function isStockDetailOpen(timeoutMs) {
 }
 
 async function openAccountSelector() {
-  await tapWhenVisible(element(by.id('AccountSelectorTriggerBase')));
+  const trigger = element(by.id('AccountSelectorTriggerBase'));
+  await waitFor(trigger).toBeVisible().withTimeout(4000);
+  await measuredTap(trigger, 'AccountSelectorTriggerBase');
   await waitFor(element(by.id('account-selector-accountList')))
     .toExist()
     .withTimeout(5000);
   await waitFor(element(by.id('account-selector-header')))
     .toBeVisible()
     .withTimeout(5000);
+  recordInteraction('modal-visible', {
+    semanticTarget: 'account-selector-header',
+    source: 'first successful semantic visibility observation',
+  });
 }
 
 async function waitForHomeReady(timeoutMs) {
@@ -334,6 +396,11 @@ async function waitForHomeReady(timeoutMs) {
   await waitFor(element(by.id('AccountSelectorTriggerBase')))
     .toBeVisible()
     .withTimeout(timeoutMs);
+  recordInteraction('home-visible', {
+    semanticTarget: 'AccountSelectorTriggerBase',
+    source:
+      'Home exists and trigger visible; input readiness and account-effective state are unmeasured',
+  });
 }
 
 async function selectWalletByMatcher(matcher) {
@@ -368,7 +435,7 @@ async function selectWalletByMatcher(matcher) {
     walletList = await findWalletList();
     await revealInNativeList(wallet, walletList);
   }
-  await wallet.tap();
+  await measuredTap(wallet, 'visible-wallet-row');
   await waitFor(element(by.id('account-selector-accountList')))
     .toExist()
     .withTimeout(5000);
@@ -413,16 +480,30 @@ async function selectAccountByIndex(index, closeTimeoutMs = 30_000) {
     item = await findVisibleByMatcher(itemMatcher, 4, 200, 50);
   }
   if (!item) throw new Error(`Visible account item not found: ${index}`);
-  await item.tap();
+  await measuredTap(item, `account-item-index-${index}`);
   try {
     await waitFor(list).toBeNotVisible().withTimeout(1200);
+    recordInteraction('modal-hidden', {
+      semanticTarget: 'account-selector-accountList',
+    });
     return;
   } catch {
     // NativeList cells may report a successful tap without invoking the row.
   }
+  recordInteraction('tap-dispatched', {
+    semanticTarget: `account-item-index-${index}`,
+    source: 'host Detox runtime-frame fallback',
+  });
   await tapSemanticTargetAtRuntimeFrame(item);
+  recordInteraction('tap-completed', {
+    semanticTarget: `account-item-index-${index}`,
+    source: 'Detox acknowledgement; not visual feedback',
+  });
   list = element(by.id('account-selector-accountList')).atIndex(0);
   await waitFor(list).toBeNotVisible().withTimeout(closeTimeoutMs);
+  recordInteraction('modal-hidden', {
+    semanticTarget: 'account-selector-accountList',
+  });
 }
 
 async function readHomeHasVisibleBalance() {
@@ -469,7 +550,7 @@ async function ensureBscSelected() {
     'page-footer-confirm',
     800,
   );
-  if (confirmButton) await confirmButton.tap();
+  if (confirmButton) await measuredTap(confirmButton, 'page-footer-confirm');
   await waitForHomeReady(10_000);
   if (!(await isBscHome())) {
     throw new Error('Home did not switch to BNB Chain');
@@ -493,7 +574,7 @@ async function tapBottomTab(label) {
   const nativeTab = element(by.id(testID)).atIndex(0);
   await waitFor(nativeTab).toExist().withTimeout(3000);
   try {
-    await nativeTab.tap();
+    await measuredTap(nativeTab, `bottom-tab-${label}`);
   } catch {
     // iOS 26 Liquid Glass can cover the semantic tab node for EarlGrey's
     // 100%-visible assertion even though the underlying button is hittable.
@@ -512,7 +593,7 @@ async function enterMarketStocks() {
     const visibleMarketText = await findVisibleByMatcher(by.text('Market'));
     if (!visibleMarketText)
       throw new Error('Visible Market header tab not found');
-    await visibleMarketText.tap();
+    await measuredTap(visibleMarketText, 'Market header');
   }
   await waitFor(element(by.id('market-native-collapsible-pager')).atIndex(0))
     .toExist()
@@ -523,7 +604,7 @@ async function enterMarketStocks() {
 async function selectMarketStocksTab() {
   const stocksTab = element(by.id('market-native-tab-2')).atIndex(0);
   try {
-    await stocksTab.tap();
+    await measuredTap(stocksTab, 'market-native-tab-2');
   } catch {
     await tapSemanticTargetAtRuntimeFrame(stocksTab);
   }
@@ -542,7 +623,7 @@ async function openStock(symbol) {
       const row = await findVisibleByMatcher(rowMatcher, 4, 80, 50);
       if (row) {
         try {
-          await row.tap();
+          await measuredTap(row, 'visible-market-row');
           if (await isStockDetailOpen(2500)) return;
         } catch {
           // NativeList cells can reject EarlGrey's visibility precondition.
@@ -599,7 +680,7 @@ async function openFirstFavoriteToken() {
     by.id(/^market-token-item-.+/u).withAncestor(by.id('market-watch-list')),
   ).atIndex(0);
   await waitFor(row).toBeVisible(100).withTimeout(15_000);
-  await row.tap();
+  await measuredTap(row, 'visible-market-row');
   await waitFor(element(by.label('Back')).atIndex(0))
     .toExist()
     .withTimeout(5000);
@@ -662,6 +743,7 @@ describe('iOS account-switch heating regression timeline', () => {
     }
     fs.mkdirSync(outputDir, { recursive: true });
     fs.writeFileSync(actionLogPath, '', 'utf8');
+    fs.writeFileSync(interactionLogPath, '', 'utf8');
   });
 
   it('replays the QA timeline using semantic selectors', async () => {
@@ -681,6 +763,7 @@ describe('iOS account-switch heating regression timeline', () => {
 
     const originMono = performance.now();
     const originWall = Date.now();
+    interactionOrigin = originMono;
     const runMeta = {
       formalStartedAt: new Date(originWall).toISOString(),
       includeInactiveStep,
@@ -697,14 +780,22 @@ describe('iOS account-switch heating regression timeline', () => {
       const startedMono = performance.now();
       const startedWall = Date.now();
       let error;
+      activeAction = label.replace(
+        /(?:hd|hw|imported|watching)-[\w-]+/gu,
+        '[wallet]',
+      );
       try {
         await action();
       } catch (actionError) {
         error = actionError;
       }
       const endedMono = performance.now();
+      activeAction = null;
       appendAction({
-        label,
+        label: label.replace(
+          /(?:hd|hw|imported|watching)-[\w-]+/gu,
+          '[wallet]',
+        ),
         plannedSec,
         startedSec: Number(((startedMono - originMono) / 1000).toFixed(3)),
         endedSec: Number(((endedMono - originMono) / 1000).toFixed(3)),
@@ -953,6 +1044,60 @@ describe('iOS account-switch heating regression timeline', () => {
       await sleep(45_000);
     });
 
+    // Keep the original export action/timing intact. Observe only after its
+    // diagnostic work and the extra navigation have been identified separately.
+    activeAction = 'post-diagnostic return Home';
+    recordInteraction('diagnostic-ended');
+    for (let attempt = 0; attempt < 8; attempt += 1) {
+      let dismissed = false;
+      for (const testID of [
+        'dialog-bounded-close',
+        'dialog-cancel-btn',
+        'nav-header-back',
+        'nav-header-close',
+      ]) {
+        const close = await findReportedVisibleById(testID);
+        if (close) {
+          await measuredTap(close, testID);
+          dismissed = true;
+          break;
+        }
+      }
+      if (!dismissed) {
+        const homeTab = await findReportedVisibleById('bottom-tab-Home');
+        if (homeTab) {
+          await tapBottomTab('Wallet');
+          break;
+        }
+        const nativeClose = await findVisibleByMatcher(
+          by.label('Close'),
+          4,
+          120,
+        );
+        if (!nativeClose)
+          throw new Error(
+            'No semantic dismissal or Home target after diagnostic export',
+          );
+        await measuredTap(nativeClose, 'native Close label');
+      }
+    }
+    await waitForHomeReady(5000);
+    const observation = {
+      kind: 'post-diagnostic Home cooldown',
+      startedAt: new Date().toISOString(),
+      note: 'Export remains on the QA schedule. This is not immediate post-QA idle.',
+    };
+    activeAction = null;
+    recordInteraction('cooldown-started');
+    await sleep(60_000);
+    observation.endedAt = new Date().toISOString();
+    recordInteraction('cooldown-ended');
+    fs.writeFileSync(
+      observationEndPath,
+      `${JSON.stringify(observation)}\n`,
+      'utf8',
+    );
+
     const formalEndedAt = fs.existsSync(formalEndPath)
       ? JSON.parse(fs.readFileSync(formalEndPath, 'utf8')).formalEndedAt
       : new Date().toISOString();
@@ -962,6 +1107,7 @@ describe('iOS account-switch heating regression timeline', () => {
       formalEndedAt,
       durationMs: new Date(formalEndedAt).getTime() - originWall,
       exportRequested: true,
+      observation,
       status: 'completed',
     });
   });

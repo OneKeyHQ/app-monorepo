@@ -2,6 +2,16 @@
 
 const mockRuntimeHealthCensus = jest.fn<void, [Record<string, unknown>]>();
 const mockMainInboundCensus = jest.fn<void, [Record<string, unknown>]>();
+let mockVisibilityListener: ((visible: boolean) => void) | undefined;
+jest.mock('../../utils/appVisibility', () => ({
+  getCurrentVisibilityState: () => true,
+  onVisibilityStateChange: (listener: (visible: boolean) => void) => {
+    mockVisibilityListener = listener;
+    return () => {
+      mockVisibilityListener = undefined;
+    };
+  },
+}));
 jest.mock('../../logger/logger', () => ({
   defaultLogger: {
     app: {
@@ -135,7 +145,9 @@ describe('startRuntimeHealthCensus', () => {
     startRuntimeHealthCensus();
 
     runIdle(10_000);
+    mockVisibilityListener?.(false);
     block(60_000);
+    mockVisibilityListener?.(true);
     runIdle(20_000);
 
     expect(mockRuntimeHealthCensus).toHaveBeenCalledTimes(1);
@@ -143,6 +155,19 @@ describe('startRuntimeHealthCensus', () => {
       windowMs: 30_000,
       blockCount: 0,
       suspendedCount: 1,
+    });
+  });
+
+  it('counts long foreground stalls instead of guessing suspension', () => {
+    startRuntimeHealthCensus();
+    runIdle(1000);
+    block(6000);
+    runIdle(30_000);
+    expect(mockRuntimeHealthCensus.mock.calls[0][0]).toMatchObject({
+      blockMaxMs: 6000,
+      blockTotalMs: 6000,
+      blockOver1000: 1,
+      suspendedCount: 0,
     });
   });
 
@@ -179,6 +204,73 @@ describe('startRuntimeHealthCensus', () => {
     const report = mockRuntimeHealthCensus.mock.calls[0][0];
     expect(report).not.toHaveProperty('heapMB');
     expect(report).not.toHaveProperty('gcMs');
+  });
+
+  it('separates Hades generations, lifetime timing and current heap gauges', () => {
+    const stats = {
+      js_numGCs: 20,
+      js_gcTime: 1,
+      js_avgGCTime: 0.05,
+      js_maxGCTime: 0.2,
+      js_heapSize: 200 * MB,
+      js_allocatedBytes: 80 * MB,
+      js_externalBytes: 12 * MB,
+      js_totalAllocatedBytes: 1000 * MB,
+      js_gcSpecific: {
+        js_numYGCollections: 18,
+        js_numOGCollections: 2,
+        js_numCompactions: 1,
+      },
+    };
+    (globalThis as IHermesGlobal).HermesInternal = {
+      getInstrumentedStats: () => stats,
+    };
+    startRuntimeHealthCensus();
+    stats.js_numGCs = 24;
+    stats.js_gcTime = 1.12;
+    stats.js_totalAllocatedBytes = 1090 * MB;
+    stats.js_gcSpecific.js_numYGCollections = 21;
+    stats.js_gcSpecific.js_numOGCollections = 3;
+    runIdle(30_000);
+
+    expect(mockRuntimeHealthCensus.mock.calls[0][0]).toMatchObject({
+      youngGCCount: 3,
+      oldGCCount: 1,
+      compactionCount: 0,
+      allocationMBPerSec: 3,
+      gcMaxLifetimeMs: 200,
+      gcAvgLifetimeMs: 50,
+      liveMB: 80,
+      heapMB: 200,
+      externalMB: 12,
+      js_numYGCollections: 21,
+      js_numOGCollections: 3,
+      js_numCompactions: 1,
+    });
+    expect(mockRuntimeHealthCensus.mock.calls[0][0].gcAvgMs).toBeCloseTo(30);
+    expect(mockRuntimeHealthCensus.mock.calls[0][0]).not.toHaveProperty(
+      'gcMaxMs',
+    );
+  });
+
+  it('keeps unavailable generation counters unknown instead of zero', () => {
+    (globalThis as IHermesGlobal).HermesInternal = {
+      getInstrumentedStats: () => ({
+        js_numGCs: 1,
+        js_gcTime: 0.01,
+        js_heapSize: MB,
+        js_totalAllocatedBytes: MB,
+        js_maxGCTime: Number.NaN,
+      }),
+    };
+    startRuntimeHealthCensus();
+    runIdle(30_000);
+    const report = mockRuntimeHealthCensus.mock.calls[0][0];
+    expect(report.youngGCCount).toBeUndefined();
+    expect(report.oldGCCount).toBeUndefined();
+    expect(report.compactionCount).toBeUndefined();
+    expect(report.gcMaxLifetimeMs).toBeUndefined();
+    expect(report.gcAvgMs).toBe(0);
   });
 
   it('folds the process samples and the caller fields into the line', async () => {
@@ -365,5 +457,20 @@ describe('recordInboundFromBackground', () => {
       (mockMainInboundCensus.mock.calls[0][0] as { bySender: unknown[] })
         .bySender,
     ).toEqual([{ sender: 'rpc:others', count: 1, kb: 3 }]);
+  });
+
+  it('keeps known senders attributed after the distinct-name limit', () => {
+    for (let i = 0; i < 100; i += 1) {
+      recordInboundFromBackground({ kind: 'rpc', name: `rpc-${i}`, chars: 1 });
+    }
+    recordInboundFromBackground({ kind: 'rpc', name: 'rpc-0', chars: 4096 });
+    runIdle(30_000);
+    expect(mockMainInboundCensus.mock.calls[0][0]).toMatchObject({
+      total: 101,
+      totalChars: 4196,
+      bySender: expect.arrayContaining([
+        { sender: 'rpc:rpc-0', count: 2, kb: 4 },
+      ]),
+    });
   });
 });

@@ -13,6 +13,7 @@ import { useRiskDetection } from './useRiskDetection';
 
 jest.mock('@onekeyhq/kit/src/hooks/useRouteIsFocused', () => ({
   useRouteIsFocused: () => true,
+  useRouteIsFocusedWhenEnabled: () => true,
 }));
 jest.mock('@onekeyhq/components', () => ({
   getCurrentVisibilityState: () => true,
