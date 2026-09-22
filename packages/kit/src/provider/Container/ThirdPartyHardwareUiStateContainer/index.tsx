@@ -946,21 +946,26 @@ function ThirdPartyHardwareUiStateContainerCmp() {
         ),
       clearState: clearExpectedState,
     });
-    const instance = showThirdPartyDeviceSelectionDialog({
-      targets: deviceSearchTargets,
-      context: selection?.context,
-      onSelected: callbacks.onSelected,
-      onClose: callbacks.onClose,
-      intl,
-    });
-    thirdPartyDeviceSelectionDialogInstanceRef.current = instance;
-    localDialogRef.current = instance;
+    void (async () => {
+      await yieldDeviceStageToDialog();
+      if (settledRef.current) return;
+      const instance = showThirdPartyDeviceSelectionDialog({
+        targets: deviceSearchTargets,
+        context: selection?.context,
+        onSelected: callbacks.onSelected,
+        onClose: callbacks.onClose,
+        intl,
+      });
+      thirdPartyDeviceSelectionDialogInstanceRef.current = instance;
+      localDialogRef.current = instance;
+    })();
     return () => {
       settledRef.current = true;
+      const instance = localDialogRef.current;
       if (thirdPartyDeviceSelectionDialogInstanceRef.current === instance) {
         thirdPartyDeviceSelectionDialogInstanceRef.current = null;
       }
-      void instance.close();
+      void instance?.close();
     };
   }, [intl, isThirdPartyDeviceSelection, uiState]);
 
@@ -1025,7 +1030,10 @@ function ThirdPartyHardwareUiStateContainerCmp() {
     };
 
     const runScan = async () => {
+      if (isSettled) return;
       try {
+        await yieldDeviceStageToDialog();
+        if (isSettled) return;
         const result = await startKeystoneQrScan({
           handlers: [EQRCodeHandlerNames.animation],
           qrWalletScene: true,
@@ -1096,6 +1104,7 @@ function ThirdPartyHardwareUiStateContainerCmp() {
       // render it for any third-party vendor that emits it (Trezor and Ledger
       // both run over BLE on native) — not just Ledger.
       await permissionDialogInstanceRef.current?.close();
+      await yieldDeviceStageToDialog();
       permissionDialogInstanceRef.current = Dialog.show({
         dialogContainer:
           reason === EThirdPartyDevicePermissionDeniedReason.bluetoothTurnedOff
