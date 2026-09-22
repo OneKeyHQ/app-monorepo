@@ -176,4 +176,30 @@ describe('MarketTokenSelectorRow', () => {
     expect(screen.queryByText('--')).toBeNull();
     expect(screen.getByTestId('number-value').textContent).toBe('0');
   });
+
+  it('renders an unresolved price as unavailable instead of NaN', () => {
+    render(
+      <MarketTokenSelectorRow
+        item={{ ...baseItem, price: Number.NaN }}
+        columns={{ ...columns, metrics: ['price'] }}
+        onPress={jest.fn()}
+      />,
+    );
+
+    expect(screen.getByText('--')).toBeTruthy();
+    expect(screen.queryByTestId('number-value')).toBeNull();
+  });
+
+  it('keeps a real price as numeric data', () => {
+    render(
+      <MarketTokenSelectorRow
+        item={baseItem}
+        columns={{ ...columns, metrics: ['price'] }}
+        onPress={jest.fn()}
+      />,
+    );
+
+    expect(screen.queryByText('--')).toBeNull();
+    expect(screen.getByTestId('number-value').textContent).toBe('100');
+  });
 });

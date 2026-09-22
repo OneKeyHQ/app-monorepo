@@ -519,6 +519,13 @@ describe('useSwapActions', () => {
   });
 
   it('quotes Swap Pro market orders through the standard Swap event endpoint', async () => {
+    jest.mocked(settingsAtom.get).mockResolvedValueOnce({
+      swapEnableRecipientAddress: false,
+      swapIncognitoMode: true,
+      swapSlippagePercentageCustomValue: 0,
+      swapSlippagePercentageMode: ESwapSlippageSegmentKey.AUTO,
+      swapToAnotherAccountSwitchOn: false,
+    });
     const { store, Wrapper } = createWrapperWithStore((currentStore) => {
       currentStore.set(swapProSelectTokenAtom(), usdcToken);
       currentStore.set(swapProUseSelectBuyTokenAtom(), bnbProToken);
@@ -544,6 +551,8 @@ describe('useSwapActions', () => {
           protocol: ESwapTabSwitchType.SWAP,
           fromTokenAmount: '1',
           fromToken: bnbProToken,
+          source: ESwapQuoteSource.MARKET,
+          incognito: false,
           toToken: usdcToken,
         }),
       );

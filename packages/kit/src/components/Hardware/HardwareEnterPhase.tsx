@@ -25,6 +25,7 @@ import {
 } from '@onekeyhq/components/src/hooks/useForm';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   isPassphraseValid,
   normalizeProtocolV2Passphrase,
@@ -42,6 +43,8 @@ export type IEnterPhaseProps = {
   isVerifyMode?: boolean;
   allowUseAttachPin?: boolean;
   deviceOnly?: boolean;
+  /** Only adds early ASCII feedback for new Pro2/Neo wallets. */
+  asciiCreationFeedback?: boolean;
   allowProtocolV2Utf8?: boolean;
   onConfirm: (p: {
     passphrase: string;
@@ -60,6 +63,7 @@ export function EnterPhase({
   isVerifyMode,
   allowUseAttachPin,
   deviceOnly,
+  asciiCreationFeedback,
   allowProtocolV2Utf8,
   onConfirm,
   switchOnDevice,
@@ -67,8 +71,11 @@ export function EnterPhase({
 }: IEnterPhaseProps) {
   const intl = useIntl();
   const [settings] = useSettingsPersistAtom();
+  const showAsciiCreationFeedback =
+    !isVerifyMode && asciiCreationFeedback && !allowProtocolV2Utf8;
   const formOption = useMemo(
     () => ({
+      mode: showAsciiCreationFeedback ? ('onChange' as const) : undefined,
       defaultValues: {
         passphrase: '',
         confirmPassphrase: '',
@@ -89,7 +96,12 @@ export function EnterPhase({
         });
       },
     }),
-    [allowProtocolV2Utf8, onConfirm, settings.hiddenWalletImmediately],
+    [
+      allowProtocolV2Utf8,
+      onConfirm,
+      settings.hiddenWalletImmediately,
+      showAsciiCreationFeedback,
+    ],
   );
   const form = useForm<IEnterPhaseFormValues>(formOption);
 
@@ -133,11 +145,26 @@ export function EnterPhase({
             description={
               allowProtocolV2Utf8 ? undefined : (
                 <XStack gap="$1" pt="$2">
-                  <SizableText size="$bodyMd" color="$textSubdued">
-                    {intl.formatMessage({
-                      id: ETranslations.passphrase_character_limit,
-                    })}
-                  </SizableText>
+                  {showAsciiCreationFeedback ? (
+                    <Stack>
+                      <SizableText size="$bodyMd" color="$textSubdued">
+                        {intl.formatMessage({
+                          id: ETranslations.passphrase_allowed_characters_desc,
+                        })}
+                      </SizableText>
+                      <SizableText size="$bodyMd" color="$textSubdued">
+                        {intl.formatMessage({
+                          id: ETranslations.passphrase_character_limit,
+                        })}
+                      </SizableText>
+                    </Stack>
+                  ) : (
+                    <SizableText size="$bodyMd" color="$textSubdued">
+                      {intl.formatMessage({
+                        id: ETranslations.passphrase_character_limit,
+                      })}
+                    </SizableText>
+                  )}
                   <Popover
                     placement="bottom"
                     floatingPanelProps={{
@@ -221,13 +248,22 @@ export function EnterPhase({
                 });
               },
               onChange: () => {
-                form.clearErrors();
+                if (!showAsciiCreationFeedback) {
+                  form.clearErrors();
+                }
               },
             }}
           >
             <Input
               testID="hardware-ui-passphrase-input"
               secureTextEntry={secureEntry1}
+              keyboardType={
+                showAsciiCreationFeedback && platformEnv.isNativeIOS
+                  ? 'ascii-capable'
+                  : undefined
+              }
+              autoCapitalize={showAsciiCreationFeedback ? 'none' : undefined}
+              autoCorrect={showAsciiCreationFeedback ? false : undefined}
               {...passwordManagerIgnoreProps}
               placeholder={intl.formatMessage({
                 id: ETranslations.global_enter_passphrase,

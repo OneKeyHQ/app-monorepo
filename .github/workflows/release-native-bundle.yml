@@ -85,6 +85,15 @@ on:
         required: false
       ACTION_SIGN_SECERT_KEY:
         required: false
+      # Onramper Headless SDK production pair (publishable key + client id).
+      # Babel inlines them into the JS bundle (development/envExposedToClient.js),
+      # so the iOS OTA bundle must carry them like the EAS build does
+      # (release-ios.yml) — otherwise hasOnramperCredentials() is false after
+      # a hot update and native buy silently falls back to the web widget.
+      ONRAMPER_CLIENT_ID:
+        required: false
+      ONRAMPER_API_KEY:
+        required: false
 
 env:
   NODE_ENV: production
@@ -379,6 +388,10 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           UNION_BUILD: 'true'
           ENABLE_NATIVE_BACKGROUND_THREAD: 'true'
+          # iOS-only: the native Onramper SDK never runs on Android, so the
+          # Android arm must not embed the pair.
+          ONRAMPER_CLIENT_ID: ${{ matrix.platform == 'ios' && secrets.ONRAMPER_CLIENT_ID || '' }}
+          ONRAMPER_API_KEY: ${{ matrix.platform == 'ios' && secrets.ONRAMPER_API_KEY || '' }}
         run: |
           if [ -z "$JPUSH_KEY" ]; then
             echo "::error::JPUSH_KEY is required to build native bundles"

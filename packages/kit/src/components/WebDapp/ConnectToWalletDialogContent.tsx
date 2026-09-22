@@ -11,6 +11,7 @@ import { useOnboardingConnectWalletLoadingAtom } from '@onekeyhq/kit-bg/src/stat
 import { ETranslations } from '@onekeyhq/shared/src/locale/enum/translations';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import { OnboardingTestIDs } from '../../views/Onboardingv2/testIDs';
 import { WalletConnectDappConnectionProgress } from '../WalletConnect/WalletConnectDappConnectionProgress';
 
 export function ConnectToWalletDialogContent({
@@ -41,7 +42,7 @@ export function ConnectToWalletDialogContent({
   }
 
   return (
-    <Stack>
+    <Stack testID={OnboardingTestIDs.connectExternalWalletLoadingDialog}>
       <Stack
         justifyContent="center"
         alignItems="center"
@@ -51,12 +52,19 @@ export function ConnectToWalletDialogContent({
         borderCurve="continuous"
       >
         {loading ? (
-          <Spinner size="large" />
+          <Spinner
+            size="large"
+            testID={OnboardingTestIDs.connectExternalWalletLoadingSpinner}
+          />
         ) : (
           <Icon size="$9" name="BrokenLink2Outline" />
         )}
 
-        <SizableText textAlign="center" pt="$4">
+        <SizableText
+          testID={OnboardingTestIDs.connectExternalWalletLoadingMessage}
+          textAlign="center"
+          pt="$4"
+        >
           {intl.formatMessage({
             id: loading ? loadingMessageId : errorMessageId,
           })}

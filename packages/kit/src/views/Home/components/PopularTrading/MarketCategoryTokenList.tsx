@@ -19,7 +19,11 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { RichTable } from '../RichTable';
 
 import { HOME_MARKET_CATEGORY_REQUEST_LIMIT } from './constants';
-import { getPopularTradingColumns } from './metricColumns';
+import {
+  HOME_MARKET_TABLE_HEADER_MIN_HEIGHT,
+  HOME_MARKET_TABLE_ROW_MIN_HEIGHT,
+  getPopularTradingColumns,
+} from './metricColumns';
 
 import type { IFavoriteTokenDisplay } from './types';
 
@@ -39,6 +43,9 @@ function getMarketCategoryTokenKey(item: IFavoriteTokenDisplay) {
   }
   if (item.perpsCoin) {
     return `perps-${item.perpsCoin}`;
+  }
+  if (item.stockId && !item.chainId) {
+    return `stock-${item.stockId}`;
   }
   return `${item.chainId}-${item.contractAddress}`;
 }
@@ -125,14 +132,22 @@ function MarketCategoryTokenList({
         dataSource={tokens}
         columns={columns}
         keyExtractor={getMarketCategoryTokenKey}
-        estimatedItemSize={56}
+        estimatedItemSize={
+          shouldUseTableLayout ? HOME_MARKET_TABLE_ROW_MIN_HEIGHT : 56
+        }
         rowProps={{
           mx: '$2',
           px: '$3',
+          ...(shouldUseTableLayout
+            ? { minHeight: HOME_MARKET_TABLE_ROW_MIN_HEIGHT }
+            : undefined),
         }}
         headerRowProps={{
           px: '$3',
           mx: '$2',
+          ...(shouldUseTableLayout
+            ? { minHeight: HOME_MARKET_TABLE_HEADER_MIN_HEIGHT }
+            : undefined),
         }}
         onRow={(record) => ({
           onPress: () => onTokenPress(record),

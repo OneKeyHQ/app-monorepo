@@ -1913,21 +1913,9 @@ class ServiceHardware extends ServiceBase {
 
         void (async () => {
           try {
-            // Short-circuit for devices already fully processed
-            if (this.connectedDeviceTracked.has(deviceId)) return;
-
             const deviceType = await deviceUtils.getDeviceTypeFromFeatures({
               features,
             });
-            if (
-              deviceType !== EDeviceType.Pro &&
-              deviceType !== EDeviceType.Classic1s &&
-              deviceType !== EDeviceType.ClassicPure
-            ) {
-              // Mark ineligible devices to avoid repeated async checks on reconnect
-              this.connectedDeviceTracked.add(deviceId);
-              return;
-            }
             const firmwareType = await deviceUtils.getFirmwareType({
               features,
             });
@@ -3567,24 +3555,25 @@ class ServiceHardware extends ServiceBase {
   @toastIfError()
   async setDeviceLabel(p: ISetDeviceLabelParams) {
     const result = await this.deviceSettingsManager.setDeviceLabel(p);
-    if (result.message) {
-      const wallet = await this.backgroundApi.serviceAccount.getWalletSafe({
-        walletId: p.walletId,
+    // Protocol V2 Success.message is optional and defaults to "". A successful
+    // SDK call already passed convertDeviceResponse, so always write the
+    // confirmed label back; gating on a truthy message left Pro2/Neo names stale.
+    const wallet = await this.backgroundApi.serviceAccount.getWalletSafe({
+      walletId: p.walletId,
+    });
+    const walletName = wallet?.name;
+    const dbDeviceId = wallet?.associatedDevice;
+    if (dbDeviceId) {
+      await this.writeBackProtocolV2DeviceLabel({
+        dbDeviceId,
+        label: result.label,
       });
-      const walletName = wallet?.name;
-      const dbDeviceId = wallet?.associatedDevice;
-      if (dbDeviceId) {
-        await this.writeBackProtocolV2DeviceLabel({
-          dbDeviceId,
-          label: p.label,
-        });
-        await this.handleHardwareLabelChanged({
-          walletId: p.walletId,
-          dbDeviceId,
-          label: p.label,
-          walletName,
-        });
-      }
+      await this.handleHardwareLabelChanged({
+        walletId: p.walletId,
+        dbDeviceId,
+        label: result.label,
+        walletName,
+      });
     }
     return result;
   }

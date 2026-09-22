@@ -5,6 +5,7 @@ import WsConnection from '@walletconnect/jsonrpc-ws-connection';
 import SignClient from '@walletconnect/sign-client';
 
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import { WALLET_CONNECT_RELAY_URLS } from '@onekeyhq/shared/src/walletConnect/constant';
 
 import walletConnectClient from './walletConnectClient';
 import {
@@ -13,13 +14,10 @@ import {
 } from './WalletConnectDiagnostics';
 import { WalletConnectRelayController } from './WalletConnectRelayController';
 
-const RELAYS = [
-  'wss://relay.walletconnect.com',
-  'wss://relay.walletconnect.org',
-];
+const RELAYS = WALLET_CONNECT_RELAY_URLS;
 let coreNumber = 0;
 
-function createCore(initialRelayUrl = RELAYS[0]) {
+function createCore(initialRelayUrl: string = RELAYS[0]) {
   coreNumber += 1;
   return new Core({
     customStoragePrefix: `relay-fallback-test-${coreNumber}`,

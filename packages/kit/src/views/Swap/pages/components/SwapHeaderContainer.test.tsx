@@ -4,6 +4,7 @@ import type { ReactNode } from 'react';
 
 import { act, fireEvent, render, waitFor } from '@testing-library/react';
 
+import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
@@ -128,11 +129,31 @@ jest.mock('../../hooks/useSwapProTokenCarry', () => ({
 }));
 jest.mock('./SwapHeaderRightActionContainer', () => {
   const { createElement } = jest.requireActual<typeof import('react')>('react');
-  return () =>
-    createElement('div', { 'data-testid': 'swap-header-right-actions' });
+  return ({ storeName }: { storeName?: EJotaiContextStoreNames }) =>
+    createElement('div', {
+      'data-testid': 'swap-header-right-actions',
+      'data-store': storeName,
+    });
 });
 
 describe('SwapHeaderContainer', () => {
+  it.each([true, false])(
+    'forwards the Market store through the header (single: %s)',
+    (singleSwapBridgeTab) => {
+      const view = render(
+        <SwapHeaderContainer
+          storeName={EJotaiContextStoreNames.marketSwap}
+          singleSwapBridgeTab={singleSwapBridgeTab}
+        />,
+      );
+      expect(
+        view
+          .getByTestId('swap-header-right-actions')
+          .getAttribute('data-store'),
+      ).toBe(EJotaiContextStoreNames.marketSwap);
+    },
+  );
+
   beforeEach(() => {
     platformEnv.isNative = true;
     jest.clearAllMocks();

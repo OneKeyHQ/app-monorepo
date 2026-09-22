@@ -4,6 +4,9 @@ export const SWR_CACHE_MAX_SERIALIZED_CHARS = 100 * 1024 * 1024;
 export const SWR_CACHE_MAX_KEY_CHARS = 20_000;
 export const SWR_CACHE_MAX_KEY_UTF8_BYTES = 59_000;
 
+// One long-task budget: a synchronous pass past this is worth a log line.
+export const SWR_CACHE_SLOW_OP_LOG_THRESHOLD_MS = 50;
+
 // Account lists can contain thousands of records per wallet/network scope.
 // Keep recent scopes warm without consuming the budget for unrelated caches.
 export const SWR_ACCOUNT_SELECTOR_MAX_ENTRIES = 3;

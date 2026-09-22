@@ -9,6 +9,7 @@ import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { isPrimeStorePayment } from '@onekeyhq/shared/src/prime/primePaymentCapabilities';
 
 import { usePrimePayment } from './usePrimePayment';
 import { usePrimePaymentMethodsWeb } from './usePrimePaymentMethodsWeb';
@@ -53,7 +54,7 @@ export function usePrimeSubscriptionPackages({
         // TODO There was a problem with the store.
         return errorToastUtils.withErrorAutoToast(async () => {
           try {
-            const pkgList = await (platformEnv.isNative
+            const pkgList = await (isPrimeStorePayment()
               ? getPackagesNative?.()
               : getPackagesWeb?.());
             return pkgList ?? [];

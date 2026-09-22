@@ -20,6 +20,7 @@ import { useIntl } from 'react-intl';
 import { InputAccessoryView } from 'react-native';
 
 import {
+  Accordion,
   Alert,
   Button,
   DashText,
@@ -62,6 +63,7 @@ import {
   useSendConfirmActions,
 } from '@onekeyhq/kit/src/states/jotai/contexts/sendConfirm';
 import { convertTokenFiatToCurrency } from '@onekeyhq/kit/src/utils/fiatConvert';
+import { tryOpenHeadlessBuy } from '@onekeyhq/kit/src/views/FiatCrypto/utils/openFiatCryptoOrHeadless';
 import { SendTestIDs } from '@onekeyhq/kit/src/views/Send/testIDs';
 import { SwapRefreshButtonBase } from '@onekeyhq/kit/src/views/Swap/components/SwapRefreshButton';
 import {
@@ -106,6 +108,7 @@ import tokenRebaseUtils from '@onekeyhq/shared/src/utils/tokenRebaseUtils';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import { UNAVAILABLE_DISPLAY } from '@onekeyhq/shared/src/utils/tokenValueUtils';
 import type { IAddressValidateStatus } from '@onekeyhq/shared/types/address';
+import { EHeadlessBuyEntry } from '@onekeyhq/shared/types/fiatCrypto';
 import { ELightningUnit } from '@onekeyhq/shared/types/lightning';
 import type { IAccountNFT } from '@onekeyhq/shared/types/nft';
 import { ENFTType } from '@onekeyhq/shared/types/nft';
@@ -219,6 +222,8 @@ enum ESendMode {
   PUBLIC = 'public',
   PRIVATE = 'private',
 }
+
+const PRIVATE_SEND_QUOTE_ACCORDION_VALUE = 'private-send-quote-details';
 
 type IPrivateSendQuoteResult = {
   selectedQuote?: IFetchQuoteResult;
@@ -2308,6 +2313,16 @@ function SendAmountInputContainer() {
   const handleBuyToken = useCallback(async () => {
     setIsBuyLoading(true);
     try {
+      if (
+        await tryOpenHeadlessBuy({
+          networkId,
+          tokenAddress: tokenInfo?.address ?? '',
+          accountId: currentAccountId,
+          entryFrom: EHeadlessBuyEntry.SendInsufficientBalance,
+        })
+      ) {
+        return;
+      }
       const { url } =
         await backgroundApiProxy.serviceFiatCrypto.generateWidgetUrl({
           networkId,
@@ -4593,9 +4608,23 @@ function SendAmountInputContainer() {
             </Stack>
           </XStack>
         </XStack>
-        <HeightTransition hide={!isPrivateSendQuoteDetailsExpanded}>
-          {renderPrivateSendQuoteDetails}
-        </HeightTransition>
+        <Accordion
+          type="single"
+          collapsible
+          value={
+            isPrivateSendQuoteDetailsExpanded
+              ? PRIVATE_SEND_QUOTE_ACCORDION_VALUE
+              : ''
+          }
+        >
+          <Accordion.Item value={PRIVATE_SEND_QUOTE_ACCORDION_VALUE}>
+            <Accordion.HeightAnimator transition="quick">
+              <Accordion.Content unstyled>
+                {renderPrivateSendQuoteDetails}
+              </Accordion.Content>
+            </Accordion.HeightAnimator>
+          </Accordion.Item>
+        </Accordion>
         {showPrivateSendBalanceRow ? (
           <>
             <Stack h="$px" bg="$borderSubdued" my="$2" />

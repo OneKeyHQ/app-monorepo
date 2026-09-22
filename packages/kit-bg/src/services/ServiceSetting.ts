@@ -58,6 +58,11 @@ import type {
   IKytSupportedAsset,
   IReceiveKytIntroEntryPoint,
 } from '@onekeyhq/shared/types/kyt';
+import {
+  type ILinkConfigItem,
+  type ILinkConfigSlot,
+  asLinkConfigItems,
+} from '@onekeyhq/shared/types/linkConfig';
 import type {
   IClearCacheOnAppState,
   IFetchWalletConfigResp,
@@ -319,6 +324,7 @@ class ServiceSetting extends ServiceBase {
       // clear transaction history
       await this.backgroundApi.simpleDb.localHistory.clearRawData();
       await this.backgroundApi.simpleDb.addressInfo.clearRawData();
+      await this.backgroundApi.simpleDb.transferRecipientsCache.clear();
     }
     if (values.swapHistory) {
       // clear swap history
@@ -638,27 +644,16 @@ class ServiceSetting extends ServiceBase {
   }
 
   @backgroundMethod()
-  public async fetchGetStartedLinks({
-    slots,
-  }: {
-    slots: ('hardware_faqs' | 'hardware_getstarteds')[];
-  }) {
+  public async fetchGetStartedLinks({ slots }: { slots: ILinkConfigSlot[] }) {
     const client = await this.getClient(EServiceEndpointEnum.Utility);
     const response = await client.get<{
-      data: {
-        linkId: string;
-        title: string;
-        mode: number;
-        payload: string;
-        image: string;
-        description: string;
-      }[];
+      data: ILinkConfigItem[];
     }>('/utility/v1/link-config', {
       params: {
         slots: slots.join(','),
       },
     });
-    return response.data.data;
+    return asLinkConfigItems(response.data.data);
   }
 
   @backgroundMethod()

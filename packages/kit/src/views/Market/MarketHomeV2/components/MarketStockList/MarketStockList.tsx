@@ -40,14 +40,12 @@ import { useMarketDesktopResponsiveColumns } from '../useMarketDesktopResponsive
 import { useMarketStockList } from './hooks/useMarketStockList';
 import { useToMarketStockDetailPage } from './hooks/useToMarketStockDetailPage';
 import { useMarketStockColumns } from './useMarketStockColumns';
-import { getMarketStockSortByColumn } from './utils';
+import {
+  STOCK_METRIC_COLUMN_MINIMUM_WIDTHS,
+  getMarketStockSortByColumn,
+} from './utils';
 
 import type { IMarketCategoryItem } from '../../types';
-
-const STOCK_METRIC_COLUMN_MINIMUM_WIDTHS = {
-  priceChange24hPercent: 128,
-  sparkline: 148,
-} as const;
 
 type IMarketStockListProps = {
   categories: IMarketCategoryItem[];
@@ -71,7 +69,10 @@ function MarketStockListImpl({
   const intl = useIntl();
   const { md } = useMedia();
   const toMarketStockDetailPage = useToMarketStockDetailPage();
-  const baseColumns = useMarketStockColumns({ showWatchlist: true });
+  const baseColumns = useMarketStockColumns({
+    showWatchlist: true,
+    showMarketTags: true,
+  });
   const { columns, handleContainerLayout: handleResponsiveContainerLayout } =
     useMarketDesktopResponsiveColumns({
       columns: baseColumns,

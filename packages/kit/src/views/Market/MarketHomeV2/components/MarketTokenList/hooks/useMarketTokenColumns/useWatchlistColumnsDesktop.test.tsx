@@ -188,12 +188,11 @@ describe('useWatchlistColumnsDesktop', () => {
       'name',
       'price',
       'change24h',
-      'marketCap',
       'turnover',
     ]);
   });
 
-  test('titles the metric columns Price / 24h change / MCap / 24h volume', () => {
+  test('titles the metric columns Price / 24h change / 24h volume', () => {
     expect(
       renderColumns()
         .slice(2)
@@ -201,7 +200,6 @@ describe('useWatchlistColumnsDesktop', () => {
     ).toEqual([
       ETranslations.global_price,
       `${ETranslations.market_change_in_range}:${MARKET_FIXED_24H_RANGE}`,
-      ETranslations.market_mcap,
       `${ETranslations.market_volume_in_range}:${MARKET_FIXED_24H_RANGE}`,
     ]);
   });
@@ -326,11 +324,11 @@ describe('useWatchlistColumnsDesktop', () => {
   });
 
   test('formats present metrics and colors the change', () => {
-    const marketCap = expand<{ children: number; formatter: string }>(
-      renderCell('marketCap', spotToken),
+    const volume = expand<{ children: number; formatter: string }>(
+      renderCell('turnover', spotToken),
     );
-    expect(marketCap.props.children).toBe(125_160_000);
-    expect(marketCap.props.formatter).toBe('marketCap');
+    expect(volume.props.children).toBe(18_760_000);
+    expect(volume.props.formatter).toBe('marketCap');
 
     const change = expand<{ color: string; formatter: string }>(
       renderCell('change24h', spotToken),
@@ -344,8 +342,9 @@ describe('useWatchlistColumnsDesktop', () => {
       expand<{ children: string }>(renderCell(dataIndex, record)).props
         .children;
 
-    expect(missing('marketCap', stockListing)).toBe('--');
-    expect(missing('marketCap', perpsRow)).toBe('--');
+    expect(missing('turnover', { ...stockListing, turnover: Number.NaN })).toBe(
+      '--',
+    );
     expect(missing('turnover', { ...spotToken, turnover: 0 })).toBe('--');
     expect(missing('price', { ...spotToken, price: Number.NaN })).toBe('--');
     expect(missing('change24h', { ...spotToken, priceChangeRaw: '-' })).toBe(

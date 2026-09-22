@@ -97,9 +97,14 @@ jest.mock('react-native-reanimated', () => {
     makeMutable: <T,>(value: T) => ({ value }),
     runOnJS: jest.fn(identity),
     useAnimatedKeyboard: () => ({ height: { value: 0 } }),
-    useAnimatedStyle: () => ({}),
+    // The keyboard rise's settle gate; no worklet runs under this mock.
+    useAnimatedReaction: jest.fn(),
+    // A detectable stand-in for every animated style, so a test can tell
+    // which element wears one without running any worklet.
+    useAnimatedStyle: () => ({ opacity: 0.42 }),
     useReducedMotion: () => false,
     useSharedValue: <T,>(value: T) => useRef({ value }).current,
+    withDelay: <T,>(_delay: number, value: T): T => value,
     withSpring: identity,
     withTiming: identity,
   };
@@ -117,7 +122,7 @@ const dragEvent = {
   absoluteX: 0,
   absoluteY: 0,
   translationX: 0,
-  translationY: 24,
+  translationY: -24,
   velocityX: 0,
   velocityY: 0,
 };
@@ -141,7 +146,7 @@ beforeEach(() => {
   jest.mocked(useIsSpanningInDualScreen).mockReturnValue(false);
 });
 
-function setup() {
+function setup(extra?: Pick<IMorphOverlayProps<string>, 'modal' | 'scrim'>) {
   const onDismiss = jest.fn();
   const state = renderHook(
     ({ pose }: { pose: IMorphOverlayPose }) =>
@@ -157,6 +162,7 @@ function setup() {
       capsuleKey="capsule"
       capsule={null}
       seats={seats}
+      {...extra}
     />
   );
   const view = render(overlay());
@@ -215,7 +221,7 @@ describe('MorphOverlay dismiss gesture', () => {
     setPose('card');
     act(() => {
       latestGesture().handlers.onEnd?.(
-        { ...dragEvent, translationY: 300 },
+        { ...dragEvent, translationY: -300 },
         true,
       );
     });
@@ -231,7 +237,10 @@ describe('MorphOverlay dismiss gesture', () => {
       setPose('hidden');
       setPose('card');
       act(() => {
-        latestGesture().handlers.onUpdate?.({ ...dragEvent, translationY: 48 });
+        latestGesture().handlers.onUpdate?.({
+          ...dragEvent,
+          translationY: -48,
+        });
       });
       const reopenedPresence = state.result.current.presence.value;
       expect(reopenedPresence).toBeLessThan(1);
@@ -243,7 +252,7 @@ describe('MorphOverlay dismiss gesture', () => {
           gesture.handlers.onFinalize?.(dragEvent, false);
         }
         if (event === 'dismiss') {
-          gesture.handlers.onEnd?.({ ...dragEvent, translationY: 300 }, true);
+          gesture.handlers.onEnd?.({ ...dragEvent, translationY: -300 }, true);
         }
       });
       expect(state.result.current.presence.value).toBe(reopenedPresence);
@@ -255,7 +264,7 @@ describe('MorphOverlay dismiss gesture', () => {
     const { state, gesture, setPose, onDismiss } = setup();
     jest.mocked(runOnJS).mockImplementationOnce(() => jest.fn());
     act(() => {
-      gesture.handlers.onEnd?.({ ...dragEvent, translationY: 300 }, true);
+      gesture.handlers.onEnd?.({ ...dragEvent, translationY: -300 }, true);
     });
     const queuedDismiss = jest.mocked(runOnJS).mock.calls.at(-1)?.[0];
     expect(queuedDismiss).toBeInstanceOf(Function);
@@ -270,10 +279,55 @@ describe('MorphOverlay dismiss gesture', () => {
     expect(onDismiss).not.toHaveBeenCalled();
   });
 
+  it('never dismisses on a downward drag — the shell hangs from the top', () => {
+    const { state, gesture, onDismiss } = setup();
+    act(() => {
+      gesture.handlers.onUpdate?.({ ...dragEvent, translationY: 300 });
+      gesture.handlers.onEnd?.({ ...dragEvent, translationY: 300 }, true);
+    });
+    expect(state.result.current.presence.value).toBe(1);
+    expect(onDismiss).not.toHaveBeenCalled();
+  });
+
   it('keeps the close button wired to dismissal', () => {
     const { view, onDismiss } = setup();
     fireEvent.click(view.getByTestId('morph-overlay-close'));
     expect(onDismiss).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('MorphOverlay wall', () => {
+  // OK-63431: RN's iOS hit test skips views whose alpha is under 0.01, so
+  // the wall must never wear the scrim's fading paint — it stays a static
+  // view of its own, and only the tint beside it carries color and opacity.
+  it.each([true, false])(
+    'keeps the blocking wall free of the scrim paint (scrim=%s)',
+    (scrim) => {
+      const { view } = setup({ modal: true, scrim });
+      const wall = view.getByTestId('morph-overlay-wall');
+      expect(wall.style.opacity).toBe('');
+      expect(wall.style.backgroundColor).toBe('');
+      const tint = wall.nextElementSibling as HTMLElement | null;
+      expect(tint).not.toBeNull();
+      if (!tint) throw new OneKeyLocalError('Missing scrim tint');
+      expect(tint.style.backgroundColor).not.toBe('');
+      expect(tint.style.opacity).toBe('0.42');
+      expect(globalThis.getComputedStyle(tint).pointerEvents).toBe('none');
+    },
+  );
+
+  it('mounts the wall only while blocking and shown', () => {
+    const { view, setPose } = setup({ modal: true });
+    expect(view.queryByTestId('morph-overlay-wall')).not.toBeNull();
+    setPose('hidden');
+    expect(view.queryByTestId('morph-overlay-wall')).toBeNull();
+    setPose('card');
+    expect(view.queryByTestId('morph-overlay-wall')).not.toBeNull();
+    // Queries are bound to document.body, so the modal render must leave
+    // before the non-modal one is judged.
+    view.unmount();
+    const open = setup();
+    expect(open.view.queryByTestId('morph-overlay-wall')).toBeNull();
   });
 });
 
@@ -287,7 +341,6 @@ describe('MorphOverlay viewport posture', () => {
       md: true,
       width: 850,
       cardWidth: 400,
-      bottom: true,
     },
     {
       name: 'Android spanning with wide media',
@@ -297,7 +350,6 @@ describe('MorphOverlay viewport posture', () => {
       md: false,
       width: 850,
       cardWidth: 400,
-      bottom: true,
     },
     {
       name: 'Android folded',
@@ -307,7 +359,6 @@ describe('MorphOverlay viewport posture', () => {
       md: true,
       width: 440,
       cardWidth: 424,
-      bottom: true,
     },
     {
       name: 'ordinary Android phone',
@@ -317,7 +368,6 @@ describe('MorphOverlay viewport posture', () => {
       md: true,
       width: 440,
       cardWidth: 424,
-      bottom: true,
     },
     {
       name: 'desktop',
@@ -327,7 +377,6 @@ describe('MorphOverlay viewport posture', () => {
       md: false,
       width: 1200,
       cardWidth: 400,
-      bottom: false,
     },
     {
       name: 'iOS phone',
@@ -337,7 +386,6 @@ describe('MorphOverlay viewport posture', () => {
       md: true,
       width: 440,
       cardWidth: 424,
-      bottom: true,
     },
     {
       name: 'iOS wide window',
@@ -347,11 +395,10 @@ describe('MorphOverlay viewport posture', () => {
       md: false,
       width: 1024,
       cardWidth: 400,
-      bottom: false,
     },
   ])(
-    '$name preserves its width and anchor',
-    ({ platform, dual, spanning, md, width, cardWidth, bottom }) => {
+    '$name keeps its width cap and hangs from the top',
+    ({ platform, dual, spanning, md, width, cardWidth }) => {
       Object.assign(platformEnv, {
         isNative: platform !== 'desktop',
         isNativeAndroid: platform === 'android',
@@ -372,13 +419,10 @@ describe('MorphOverlay viewport posture', () => {
       expect(layer).not.toBeNull();
       if (!layer) throw new OneKeyLocalError('Missing overlay layer');
       expect(globalThis.getComputedStyle(layer).justifyContent).toBe(
-        bottom ? 'flex-end' : 'flex-start',
+        'flex-start',
       );
       act(() => {
-        gesture.handlers.onEnd?.(
-          { ...dragEvent, translationY: bottom ? 300 : -300 },
-          true,
-        );
+        gesture.handlers.onEnd?.({ ...dragEvent, translationY: -300 }, true);
       });
       expect(onDismiss).toHaveBeenCalledTimes(1);
     },

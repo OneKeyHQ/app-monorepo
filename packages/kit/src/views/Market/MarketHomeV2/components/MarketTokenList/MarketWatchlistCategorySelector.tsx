@@ -16,6 +16,7 @@ import { useNetworkFilterScroll } from '../../hooks/useNetworkFilterScroll';
 import {
   CategoryFilterItem,
   CategoryFilterItemWithLayout,
+  MARKET_MOBILE_CATEGORY_CHIP_PROPS,
 } from '../CategoryFilterItem';
 
 export type IWatchlistFilterType = 'all' | 'spot' | 'stocks' | 'perps';
@@ -38,7 +39,11 @@ function useWatchlistFilterCategories() {
       },
       {
         id: 'spot' as const,
-        name: intl.formatMessage({ id: ETranslations.dexmarket_spot }),
+        // Borrowed Prime key: it is the only "Crypto" string translated as
+        // "cryptocurrency" in every locale (`global_crypto` reads "coin type").
+        name: intl.formatMessage({
+          id: ETranslations.prime_crypto_payment__label,
+        }),
       },
       {
         id: 'stocks' as const,
@@ -82,6 +87,7 @@ function MarketWatchlistCategorySelectorMobile({
           name={c.name}
           isSelected={c.id === selectedFilter}
           onPress={() => handleSelect(c.id)}
+          {...MARKET_MOBILE_CATEGORY_CHIP_PROPS}
         />
       ))}
     </ScrollableFilterBar>

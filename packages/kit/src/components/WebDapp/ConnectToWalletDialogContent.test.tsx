@@ -7,6 +7,8 @@ import { render, screen } from '@testing-library/react';
 import { ETranslations } from '@onekeyhq/shared/src/locale/enum/translations';
 import type { IWalletConnectDappConnectionProgress } from '@onekeyhq/shared/src/walletConnect/diagnostics';
 
+import { OnboardingTestIDs } from '../../views/Onboardingv2/testIDs';
+
 import { ConnectToWalletDialogContent } from './ConnectToWalletDialogContent';
 
 let mockLoading = true;
@@ -173,7 +175,13 @@ it('preserves confirmation copy for a selected injected wallet without polling s
 it('limits socket progress to native WalletConnect flows', () => {
   mockIsNative = false;
   render(content());
-  expect(screen.getByText(ETranslations.global_preparing)).toBeTruthy();
+  expect(
+    screen.getByTestId(OnboardingTestIDs.connectExternalWalletLoadingDialog),
+  ).toBeTruthy();
+  expect(
+    screen.getByTestId(OnboardingTestIDs.connectExternalWalletLoadingMessage)
+      .textContent,
+  ).toBe(ETranslations.global_preparing);
   expect(mockPoll).toBeUndefined();
 });
 

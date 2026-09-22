@@ -24,6 +24,8 @@ env:
 jobs:
   lint:
     runs-on: ubuntu-24.04
+    # About eight minutes of checks plus six minutes for a cold install and margin.
+    timeout-minutes: 15
 
     strategy:
       matrix:
@@ -39,8 +41,12 @@ jobs:
         with:
           node-version: ${{ matrix.node-version }}
           cache: 'yarn'
+          check-latest: true
           registry-url: 'https://npm.pkg.github.com'
           scope: '@onekeyhq'
+
+      - name: Test dependency snapshot lifecycle
+        run: python3 .github/scripts/ci-dependencies-test.py
 
       - name: Write lint AI prompt
         run: |
@@ -53,11 +59,11 @@ jobs:
         run: echo "dir=${{ github.workspace }}/.yarn" >> "$GITHUB_OUTPUT"
 
       - name: Install Dependency
+        id: dependencies
         env:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NODE_OPTIONS: '--max_old_space_size=4096'
-        run: |
-          yarn install --immutable
+        uses: ./.github/actions/install-dependencies
 
       - name: Check third-party native storage compatibility
         run: yarn check:third-party-native-storage
@@ -78,6 +84,8 @@ jobs:
           node --test
           development/scripts/command-batches.node-test.js
           development/lint/background-api-contract.node-test.js
+          development/lint/test-integrity.node-test.js
+          development/lint/onekeyfe-patches.node-test.js
           apps/cli/esbuild.config.node-test.js
           apps/mobile/scripts/check-third-party-async-storage.node-test.js
           apps/mobile/scripts/native-storage-metro-policy.node-test.js
@@ -105,3 +113,7 @@ jobs:
             echo "- Open: \`lint-output.log\` and \`lint-ai-prompt.md\`"
           } >> "$GITHUB_STEP_SUMMARY"
           echo "::notice title=CI diagnostics::Download ci-ai-lint-diagnostics and inspect lint-output.log"
+
+      - name: Unmount dependency image
+        if: always() && steps.dependencies.outcome != 'skipped'
+        run: python3 .github/scripts/ci-dependencies.py cleanup

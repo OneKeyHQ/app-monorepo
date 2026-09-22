@@ -78,6 +78,7 @@ const mockSkiaFont = jest.fn<SkFont, [{ fontFamily: string }, number]>(
       fontFamily: typeface.fontFamily,
       fontSize,
       getSize: () => fontSize,
+      getTypeface: () => typeface,
       getGlyphIDs: (text: string) =>
         Array.from(text).map((character) =>
           character.charCodeAt(0) <= 127 ||
@@ -466,6 +467,70 @@ describe('TradingViewNative Skia scene renderer', () => {
     expect(mockCountFontFamilies).not.toHaveBeenCalled();
     expect(mockGetFontFamilyName).not.toHaveBeenCalled();
   });
+
+  it.each([
+    { family: 'System', text: 'Prev close' },
+    { family: 'PingFang SC', text: '昨收' },
+    { family: 'Noto Sans CJK SC', text: '昨收' },
+  ])(
+    'measures and draws reference labels with the existing $family system font at the price-axis size',
+    ({ family, text }) => {
+      mockFontGlyphsByFamily[family] = text;
+      const resources = createResources({
+        legendFont: mockSkiaFont({ fontFamily: family }, 11),
+        priceAxisTypeface: {
+          fontFamily: 'Geist Mono',
+        } as unknown as SkTypeface,
+      });
+      mockBuildTradingViewNativeChartScene.mockImplementation((options) => {
+        const { measureTextWidth } =
+          options as IBuildTradingViewNativeChartSceneOptions;
+        expect(measureTextWidth(text, 'referenceLineLabel')).toBe(text.length);
+        expect(measureTextWidth('104.00', 'priceAxis')).toBe(12);
+        return createScene({
+          commands: [
+            {
+              font: 'referenceLineLabel',
+              kind: 'text',
+              paint: 'background',
+              text,
+              x: 10,
+              y: 20,
+            },
+            {
+              font: 'priceAxis',
+              kind: 'text',
+              paint: 'background',
+              text: '104.00',
+              x: 30,
+              y: 20,
+            },
+          ],
+        });
+      });
+
+      createPicture(resources);
+
+      expect(resources.fonts.referenceLineLabel).toEqual(
+        expect.objectContaining({ fontFamily: family, fontSize: 12 }),
+      );
+      expect(mockCanvas.drawText).toHaveBeenCalledWith(
+        text,
+        10,
+        20,
+        resources.paints.background,
+        resources.fonts.referenceLineLabel,
+      );
+      expect(mockCanvas.drawText).toHaveBeenCalledWith(
+        '104.00',
+        30,
+        20,
+        resources.paints.background,
+        resources.fonts.priceAxis,
+      );
+      expect(mockMatchFamilyStyleCharacter).not.toHaveBeenCalled();
+    },
+  );
 
   it.each([false, true])(
     'measures and draws compact indicator values with the bundled font when system coverage is %s',

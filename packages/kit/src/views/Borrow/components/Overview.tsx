@@ -4,7 +4,6 @@ import { useIntl } from 'react-intl';
 
 import {
   Icon,
-  IconButton,
   SizableText,
   Skeleton,
   XStack,
@@ -30,6 +29,7 @@ import { BorrowBonusMetric } from './BorrowBonusMetric';
 import { BorrowEModeMetric } from './BorrowEModeMetric';
 import { BorrowHealthFactorSummary } from './BorrowHealthFactorSummary';
 import { withNetApySignColor } from './borrowOverview.utils';
+import { BorrowRefreshButton } from './BorrowRefreshButton';
 import { BorrowRewardsMetric } from './BorrowRewardsMetric';
 import { Markets } from './Markets';
 import { OverviewMetric } from './OverviewMetric';
@@ -39,8 +39,9 @@ import type { IBorrowOverviewData } from '../hooks/useBorrowOverviewData';
 /**
  * Top of the Borrow home. Desktop keeps the net worth hero with the whole
  * metric strip under it; phones drop the hero and show net worth, health factor
- * and net APY as three equal metrics followed by the E-Mode row, with the rest
- * of the strip moved to the summary below the positions.
+ * and net APY as three equal metrics — see showPositionMetrics for when the
+ * three stand down — followed by the E-Mode row, with the rest of the strip
+ * moved to the summary below the positions.
  */
 export const Overview = ({
   eModeStatus,
@@ -48,6 +49,8 @@ export const Overview = ({
   isEModeLoading = false,
   overviewData,
   showBottomSpacing = true,
+  showPositionMetrics = true,
+  isPositionStateUnsettled = false,
   onBorrowHistoryActionChange,
 }: {
   eModeStatus: IBorrowEModeStatus | null;
@@ -55,6 +58,14 @@ export const Overview = ({
   isEModeLoading?: boolean;
   overviewData: IBorrowOverviewData;
   showBottomSpacing?: boolean;
+  /** Phones only: net worth, health factor and net APY all describe positions,
+   * so a market the user holds nothing in has no value to put under any of the
+   * three. The wide layout keeps them regardless — the net worth hero is what
+   * the whole page is built around there. */
+  showPositionMetrics?: boolean;
+  /** A load still in flight, or one that failed: either way the market's
+   * contents are undecided, and the three stay up rather than assert a zero. */
+  isPositionStateUnsettled?: boolean;
   onBorrowHistoryActionChange?: (
     handler: (() => void) | null,
     visible: boolean,
@@ -164,10 +175,7 @@ export const Overview = ({
   ]);
 
   const refreshButton = (
-    <IconButton
-      testID={BorrowTestIDs.overviewRefreshBtn}
-      icon="RefreshCcwOutline"
-      variant="tertiary"
+    <BorrowRefreshButton
       loading={reserves.loading || isManualRefreshing}
       onPress={handleRefreshPress}
     />
@@ -208,6 +216,42 @@ export const Overview = ({
       ) : null}
     </XStack>
   );
+
+  // Phones keep the three headline numbers in equal-width columns so staggered
+  // loading results cannot move the later metrics, with the refresh button
+  // pinned to the right and top-aligned with that row.
+  //
+  // The whole row stands down together: refresh rides it only while the metrics
+  // are here, and the empty state puts it on its list heading instead. Keeping
+  // the row for the button alone left it stranded in the gap under the market
+  // picker with nothing to pair with.
+  const phoneMetricsRow =
+    showPositionMetrics || isPositionStateUnsettled ? (
+      <XStack ai="flex-start" gap="$2">
+        <XStack flex={1} flexWrap="wrap" ml="$-3" pl="$4">
+          <OverviewMetric
+            testID={BorrowTestIDs.overviewNetWorth}
+            title={{ text: labels.netWorth }}
+            text={netWorthText}
+            isLoading={isNetWorthLoading}
+            widthMode="equal"
+          />
+          <BorrowHealthFactorSummary
+            {...healthSummaryProps}
+            widthMode="equal"
+          />
+          <OverviewMetric
+            testID={BorrowTestIDs.overviewNetApy}
+            title={{ text: labels.netApy }}
+            text={netApyText}
+            isLoading={isNetApyLoading}
+            widthMode="equal"
+          />
+        </XStack>
+        {/* Clears the metric cells' own $3 of top padding */}
+        <XStack pt="$3">{refreshButton}</XStack>
+      </XStack>
+    ) : null;
 
   return (
     <YStack
@@ -287,45 +331,7 @@ export const Overview = ({
           </XStack>
         </YStack>
       ) : (
-        /* Phones keep the three headline numbers in equal-width columns so
-           staggered loading results cannot move the later metrics. The tools
-           stay pinned to the right and top-aligned with that row. */
-        <>
-          <XStack ai="flex-start" gap="$2">
-            <XStack flex={1} flexWrap="wrap" ml="$-3" pl="$4">
-              <OverviewMetric
-                title={{ text: labels.netWorth }}
-                text={netWorthText}
-                isLoading={isNetWorthLoading}
-                widthMode="equal"
-              />
-              <BorrowHealthFactorSummary
-                {...healthSummaryProps}
-                widthMode="equal"
-              />
-              <OverviewMetric
-                testID={BorrowTestIDs.overviewNetApy}
-                title={{ text: labels.netApy }}
-                text={netApyText}
-                isLoading={isNetApyLoading}
-                widthMode="equal"
-              />
-            </XStack>
-            {/* Clears the metric cells' own $3 of top padding */}
-            <XStack pt="$3">{refreshButton}</XStack>
-          </XStack>
-          {/* E-Mode scopes the very numbers above it, so on phones it follows
-              them as a full-width row rather than trailing the summary below
-              the positions. Its $4 inset lands its label on the same left edge
-              as the metric labels, which carry $3 of cell padding on top of the
-              grid's $4. */}
-          <BorrowEModeMetric
-            eModeStatus={eModeStatus}
-            isError={isEModeError}
-            isLoading={isEModeLoading}
-            variant="bar"
-          />
-        </>
+        phoneMetricsRow
       )}
     </YStack>
   );
