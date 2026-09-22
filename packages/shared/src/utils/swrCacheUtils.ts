@@ -1403,6 +1403,11 @@ export const swrKeys = {
     ].join(':'),
   swapStockTokenDetail: ({ tokenScope }: { tokenScope: string }) =>
     [NS.swapStockTokenDetail, 'v1', tokenScope].join(':'),
+  // The stock identity behind a swap stock token (contract -> stockId). Only
+  // tokens persisted before `stockId` existed need the lookup, and persisting
+  // what it resolves keeps that round trip off the next mount's critical path.
+  swapStockTokenIdentity: ({ tokenScope }: { tokenScope: string }) =>
+    [NS.swapStockTokenIdentity, 'v1', tokenScope].join(':'),
   // Keep the existing unversioned key stable so users retain the history
   // snapshot that already powers the ordinary Swap first frame.
   swapHistoryPreviewList: () => NS.swapHistoryPreviewList,

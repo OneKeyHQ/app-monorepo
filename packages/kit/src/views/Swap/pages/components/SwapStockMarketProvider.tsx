@@ -23,6 +23,7 @@ import {
   EModalSwapRoutes,
   type IModalSwapParamList,
 } from '@onekeyhq/shared/src/routes/swap';
+import { swrKeys } from '@onekeyhq/shared/src/utils/swrCacheUtils';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type {
   IMarketStockPublicItem,
@@ -216,6 +217,9 @@ export function SwapStockMarketProvider({
   const tokenIdentity = getTokenIdentityKey(currentStockToken);
   const networkId = currentStockToken?.networkId;
   const contractAddress = currentStockToken?.contractAddress;
+  const identityResolutionSwrKey = tokenIdentity
+    ? swrKeys.swapStockTokenIdentity({ tokenScope: tokenIdentity })
+    : undefined;
   const { result: resolvedStock, run: retryResolution } = usePromiseResult(
     async () => {
       if (explicitStockId || !contractAddress || !networkId) return undefined;
@@ -252,7 +256,16 @@ export function SwapStockMarketProvider({
       }
     },
     [contractAddress, networkId, explicitStockId, tokenIdentity],
-    { checkIsFocused: false },
+    {
+      checkIsFocused: false,
+      // Persisted selections can predate `stockId`, which leaves this contract
+      // lookup as the only way to learn the identity. Caching what it resolves
+      // lets the next mount — including a cold start — key the stock detail
+      // cache from the first render instead of waiting for the network again.
+      swrKey: identityResolutionSwrKey,
+      swrShouldPersist: (result) =>
+        Boolean(result && !result.failed && result.stock),
+    },
   );
   const stock =
     resolvedStock?.tokenIdentity === tokenIdentity
