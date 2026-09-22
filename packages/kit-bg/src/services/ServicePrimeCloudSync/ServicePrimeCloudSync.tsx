@@ -2606,6 +2606,7 @@ class ServicePrimeCloudSync extends ServiceBase {
   async getLocalSystemTimeStatus() {
     return {
       status: systemTimeUtils.systemTimeStatus,
+      isTimeErrorConfirmed: systemTimeUtils.isTimeErrorConfirmed,
 
       lastServerTime: systemTimeUtils.lastServerTime,
       lastServerTimeDate: new Date(

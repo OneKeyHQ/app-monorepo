@@ -12,6 +12,7 @@ export type ISystemTimeCheckSource =
 export type ISystemTimeRefreshResult =
   | 'missing-date'
   | 'invalid-date'
+  | 'stale-response'
   | 'request-error';
 
 export class SystemTimeScene extends BaseScene {
@@ -52,6 +53,7 @@ export class SystemTimeScene extends BaseScene {
     result: ISystemTimeRefreshResult;
     suppressedCount: number;
     wallDurationMs: number;
+    requestDurationMs?: number;
     monotonicDurationMs?: number;
     serverTime?: number;
     httpStatus?: number;

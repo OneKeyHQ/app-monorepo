@@ -323,8 +323,22 @@ export function PrimeLoginContainer() {
         showTimeErrorDialogOnce(intl);
       }
     };
+    let isActive = true;
     appEventBus.on(EAppEventBusNames.LocalSystemTimeInvalid, fn);
+    if (isCloudSyncEnabled && passwordAtom.unLock) {
+      void backgroundApiProxy.servicePrimeCloudSync
+        .getLocalSystemTimeStatus()
+        .then(({ isTimeErrorConfirmed }) => {
+          if (isActive && isTimeErrorConfirmed) {
+            fn();
+          }
+        })
+        .catch((error) => {
+          errorUtils.autoPrintErrorIgnore(error);
+        });
+    }
     return () => {
+      isActive = false;
       appEventBus.off(EAppEventBusNames.LocalSystemTimeInvalid, fn);
     };
   }, [isCloudSyncEnabled, intl, passwordAtom.unLock]);

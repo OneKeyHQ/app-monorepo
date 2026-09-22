@@ -5,10 +5,11 @@ const mockGet = jest.fn<
 const mockEmit = jest.fn<void, [string, unknown]>();
 const mockTimeCheckLog = jest.fn();
 const mockTimeRefreshLog = jest.fn();
+const mockGetClient = jest.fn(async () => ({ get: mockGet }));
 
 jest.mock('../appApiClient/appApiClient', () => ({
   appApiClient: {
-    getClient: async () => ({ get: mockGet }),
+    getClient: () => mockGetClient(),
   },
 }));
 
@@ -74,6 +75,8 @@ describe('system time error notifications', () => {
     jest.resetModules();
     jest.clearAllMocks();
     mockGet.mockReset();
+    mockGetClient.mockReset();
+    mockGetClient.mockImplementation(async () => ({ get: mockGet }));
     jest.useFakeTimers({ doNotFake: ['performance'] });
     jest.setSystemTime(BASE_TIME);
     monotonicTime = 1000;
@@ -100,7 +103,7 @@ describe('system time error notifications', () => {
       await jest.advanceTimersByTimeAsync(5 * MINUTE);
     }
 
-    expect(mockGet).toHaveBeenCalledTimes(3);
+    expect(mockGet).toHaveBeenCalledTimes(4);
     expect(systemTimeUtils.systemTimeStatus).toBe('VALID');
     expect(mockTimeCheckLog).not.toHaveBeenCalled();
     expect(mockTimeRefreshLog).not.toHaveBeenCalled();
@@ -109,6 +112,7 @@ describe('system time error notifications', () => {
   it('logs the first anomaly and recovery while bounding rapid state changes', () => {
     for (let i = 0; i < 20; i += 1) {
       monotonicTime += 1000;
+      jest.setSystemTime(Date.now() + 1000);
       systemTimeUtils.updateServerTime({
         serverTime: BASE_TIME,
         localTime: BASE_TIME + 20 * MINUTE,
@@ -130,6 +134,7 @@ describe('system time error notifications', () => {
     );
 
     monotonicTime += MINUTE;
+    jest.setSystemTime(Date.now() + MINUTE);
     systemTimeUtils.updateServerTime({
       serverTime: BASE_TIME,
       localTime: BASE_TIME + 20 * MINUTE,
@@ -146,6 +151,7 @@ describe('system time error notifications', () => {
       localTime: BASE_TIME + 20 * MINUTE,
     });
     monotonicTime += MINUTE;
+    jest.setSystemTime(Date.now() + MINUTE);
     systemTimeUtils.updateServerTime({ serverTime: BASE_TIME });
     systemTimeUtils.updateServerTime({
       serverTime: BASE_TIME,
@@ -155,6 +161,7 @@ describe('system time error notifications', () => {
     expect(mockTimeCheckLog).toHaveBeenCalledTimes(3);
 
     monotonicTime += MINUTE;
+    jest.setSystemTime(Date.now() + MINUTE);
     systemTimeUtils.updateServerTime({ serverTime: BASE_TIME });
     expect(mockTimeCheckLog).toHaveBeenCalledTimes(4);
     expect(mockTimeCheckLog).toHaveBeenLastCalledWith(
@@ -174,6 +181,7 @@ describe('system time error notifications', () => {
     expect(mockTimeRefreshLog).toHaveBeenCalledTimes(1);
 
     monotonicTime += MINUTE;
+    jest.setSystemTime(Date.now() + MINUTE);
     await expect(systemTimeUtils.refreshServerTime()).rejects.toThrow(
       'Offline',
     );
@@ -198,8 +206,10 @@ describe('system time error notifications', () => {
 
       expectNoTimeError();
       expect(systemTimeUtils.systemTimeStatus).toBe('INVALID');
+      expect(systemTimeUtils.isTimeErrorConfirmed).toBe(false);
       expect(mockEmit).toHaveBeenCalledWith('LocalSystemTimeStatusChanged', {
         status: 'INVALID',
+        isTimeErrorConfirmed: false,
       });
       expect(systemTimeUtils.getEstimatedServerTime()).toBe(
         BASE_TIME + 5 * MINUTE,
@@ -239,7 +249,8 @@ describe('system time error notifications', () => {
       await expect(systemTimeUtils.refreshServerTime()).resolves.toBe(true);
 
       expect(systemTimeUtils.systemTimeStatus).toBe('INVALID');
-      expect(mockEmit).toHaveBeenCalledWith(
+      expect(systemTimeUtils.isTimeErrorConfirmed).toBe(true);
+      expect(mockEmit).toHaveBeenLastCalledWith(
         'LocalSystemTimeInvalid',
         undefined,
       );
@@ -262,6 +273,7 @@ describe('system time error notifications', () => {
 
     expectNoTimeError();
     expect(systemTimeUtils.systemTimeStatus).toBe('VALID');
+    expect(systemTimeUtils.isTimeErrorConfirmed).toBe(false);
     expect(systemTimeUtils.lastServerTime).toBe(now);
     expect(systemTimeUtils.getCorrectedCloudSyncNow()).toEqual({
       time: now,
@@ -282,7 +294,14 @@ describe('system time error notifications', () => {
 
       expectNoTimeError();
       expect(systemTimeUtils.systemTimeStatus).toBe('INVALID');
+      expect(systemTimeUtils.isTimeErrorConfirmed).toBe(false);
       expect(systemTimeUtils.lastServerTime).toBe(BASE_TIME);
+      expect(mockTimeRefreshLog).toHaveBeenCalledWith(
+        expect.objectContaining({
+          result: 'stale-response',
+          requestDurationMs: elapsed,
+        }),
+      );
     },
   );
 
@@ -317,5 +336,134 @@ describe('system time error notifications', () => {
     expect(
       mockEmit.mock.calls.filter(([name]) => name === 'LocalSystemTimeInvalid'),
     ).toHaveLength(1);
+  });
+
+  it('confirms a real clock error despite slow client setup and a network retry', async () => {
+    jest.setSystemTime(BASE_TIME + 20 * MINUTE);
+    mockGetClient.mockImplementation(async () => {
+      jest.setSystemTime(Date.now() + 20_000);
+      monotonicTime += 20_000;
+      return { get: mockGet };
+    });
+    mockGet.mockImplementation(async () => {
+      jest.setSystemTime(Date.now() + 11_000);
+      monotonicTime += 11_000;
+      return {
+        headers: { date: new Date(BASE_TIME + 31_000).toUTCString() },
+      };
+    });
+
+    await systemTimeUtils.refreshServerTime();
+
+    expect(systemTimeUtils.isTimeErrorConfirmed).toBe(true);
+    expect(mockEmit).toHaveBeenCalledWith('LocalSystemTimeStatusChanged', {
+      status: 'INVALID',
+      isTimeErrorConfirmed: true,
+    });
+    expect(mockEmit).toHaveBeenCalledWith('LocalSystemTimeInvalid', undefined);
+    expect(mockTimeRefreshLog).not.toHaveBeenCalled();
+  });
+
+  it('checks the clock on startup even when a business response already seeded it', async () => {
+    jest.setSystemTime(BASE_TIME + 20 * MINUTE);
+    systemTimeUtils.updateServerTime({ serverTime: BASE_TIME });
+    expect(systemTimeUtils.hasFreshServerTimeInCurrentProcess()).toBe(true);
+    expect(systemTimeUtils.isTimeErrorConfirmed).toBe(false);
+    mockGet.mockResolvedValue({
+      headers: { date: new Date(BASE_TIME).toUTCString() },
+    });
+
+    systemTimeUtils.startServerTimeInterval();
+    await jest.advanceTimersByTimeAsync(0);
+
+    expect(mockGet).toHaveBeenCalledTimes(1);
+    expect(systemTimeUtils.isTimeErrorConfirmed).toBe(true);
+    expect(mockEmit).toHaveBeenCalledWith('LocalSystemTimeInvalid', undefined);
+  });
+
+  it('does not confirm a delayed response when both clocks include sleep', async () => {
+    mockGet.mockImplementation(async () => {
+      jest.setSystemTime(Date.now() + SLEEP_TIME);
+      monotonicTime += SLEEP_TIME;
+      return { headers: { date: new Date(BASE_TIME).toUTCString() } };
+    });
+
+    await systemTimeUtils.refreshServerTime();
+
+    expectNoTimeError();
+    expect(systemTimeUtils.isTimeErrorConfirmed).toBe(false);
+    expect(mockTimeRefreshLog).toHaveBeenCalledWith(
+      expect.objectContaining({ result: 'stale-response' }),
+    );
+  });
+
+  it.each([SLEEP_TIME, -MINUTE])(
+    'records another anomaly after a wall-clock change of %i ms with no monotonic advance',
+    async (elapsed) => {
+      mockGet.mockRejectedValue(new Error('Offline'));
+      await expect(systemTimeUtils.refreshServerTime()).rejects.toThrow(
+        'Offline',
+      );
+      systemTimeUtils.updateServerTime({
+        serverTime: BASE_TIME,
+        localTime: BASE_TIME + 20 * MINUTE,
+      });
+      jest.setSystemTime(Date.now() + elapsed);
+
+      await expect(systemTimeUtils.refreshServerTime()).rejects.toThrow(
+        'Offline',
+      );
+      systemTimeUtils.updateServerTime({
+        serverTime: BASE_TIME,
+        localTime: BASE_TIME + 20 * MINUTE,
+      });
+
+      expect(mockTimeRefreshLog).toHaveBeenCalledTimes(2);
+      expect(mockTimeCheckLog).toHaveBeenCalledTimes(2);
+    },
+  );
+
+  it('clears display confirmation on recovery without changing the sync status rules', async () => {
+    jest.setSystemTime(BASE_TIME + 20 * MINUTE);
+    mockGet.mockResolvedValue({
+      headers: { date: new Date(BASE_TIME).toUTCString() },
+    });
+    await systemTimeUtils.refreshServerTime();
+    expect(systemTimeUtils.isTimeErrorConfirmed).toBe(true);
+
+    systemTimeUtils.updateServerTime({ serverTime: BASE_TIME });
+    expect(systemTimeUtils.isTimeErrorConfirmed).toBe(true);
+
+    systemTimeUtils.updateServerTime({ serverTime: Date.now() });
+
+    expect(systemTimeUtils.systemTimeStatus).toBe('VALID');
+    expect(systemTimeUtils.isTimeErrorConfirmed).toBe(false);
+    expect(mockEmit).toHaveBeenLastCalledWith('LocalSystemTimeStatusChanged', {
+      status: 'VALID',
+      isTimeErrorConfirmed: false,
+    });
+  });
+
+  it('revokes previous confirmation when sleep leaves only an estimated comparison', async () => {
+    jest.setSystemTime(BASE_TIME + 20 * MINUTE);
+    mockGet.mockResolvedValueOnce({
+      headers: { date: new Date(BASE_TIME).toUTCString() },
+    });
+    systemTimeUtils.startServerTimeInterval();
+    await jest.advanceTimersByTimeAsync(0);
+    expect(systemTimeUtils.isTimeErrorConfirmed).toBe(true);
+    mockEmit.mockClear();
+    mockGet.mockRejectedValue(new Error('Offline after resume'));
+    jest.setSystemTime(Date.now() + SLEEP_TIME);
+
+    await jest.advanceTimersByTimeAsync(5 * MINUTE);
+
+    expectNoTimeError();
+    expect(systemTimeUtils.systemTimeStatus).toBe('INVALID');
+    expect(systemTimeUtils.isTimeErrorConfirmed).toBe(false);
+    expect(mockEmit).toHaveBeenCalledWith('LocalSystemTimeStatusChanged', {
+      status: 'INVALID',
+      isTimeErrorConfirmed: false,
+    });
   });
 });

@@ -57,6 +57,8 @@ const intervalTimeout = timerUtils.getTimeDurationMs({
 const refreshServerTimeTimeout = timerUtils.getTimeDurationMs({
   seconds: 5,
 });
+// Allow an IP-table attempt, its domain fallback, and interceptor overhead.
+const freshResponseMaxDuration = refreshServerTimeTimeout * 3;
 const localServerTimeDiff = timerUtils.getTimeDurationMs({
   // OK-55438: tightened 30m -> 10m. Cross-device LWW ordering for cloud sync
   // needs a tighter local-clock trust window than display/expiry logic: within
@@ -132,6 +134,12 @@ class SystemTimeUtils {
   }
 
   systemTimeStatus: ELocalSystemTimeStatus = ELocalSystemTimeStatus.UNKNOWN;
+
+  private _isTimeErrorConfirmed = false;
+
+  get isTimeErrorConfirmed(): boolean {
+    return this._isTimeErrorConfirmed;
+  }
 
   private _lastServerTime: number | undefined;
 
@@ -262,13 +270,22 @@ class SystemTimeUtils {
     }
   }
 
-  private setSystemTimeStatus(status: ELocalSystemTimeStatus) {
-    if (this.systemTimeStatus === status) {
+  private setSystemTimeStatus(
+    status: ELocalSystemTimeStatus,
+    isTimeErrorConfirmed = status === ELocalSystemTimeStatus.INVALID &&
+      this._isTimeErrorConfirmed,
+  ) {
+    if (
+      this.systemTimeStatus === status &&
+      this._isTimeErrorConfirmed === isTimeErrorConfirmed
+    ) {
       return;
     }
     this.systemTimeStatus = status;
+    this._isTimeErrorConfirmed = isTimeErrorConfirmed;
     appEventBus.emit(EAppEventBusNames.LocalSystemTimeStatusChanged, {
       status,
+      isTimeErrorConfirmed,
     });
   }
 
@@ -299,7 +316,7 @@ class SystemTimeUtils {
       : ELocalSystemTimeStatus.INVALID;
     const observedAt = Date.now();
     const monotonicTime = getMonotonicTimeNow();
-    const logTime = monotonicTime ?? observedAt;
+    const logTime = observedAt;
     const lastLogAt = this._lastTimeCheckLogAt[status];
     if (
       !isNil(lastLogAt) &&
@@ -377,13 +394,14 @@ class SystemTimeUtils {
     let httpStatus: number | undefined;
     let serverTime: number | undefined;
     let requestId: string | undefined;
+    let requestStartedAt: number | undefined;
     const logResult = (
       result: ISystemTimeRefreshResult,
       errorCode?: string,
     ) => {
       const completedAt = Date.now();
       const monotonicCompletedAt = getMonotonicTimeNow();
-      const logTime = monotonicCompletedAt ?? completedAt;
+      const logTime = completedAt;
       if (
         !isNil(this._lastRefreshFailureLogAt) &&
         logTime >= this._lastRefreshFailureLogAt &&
@@ -401,6 +419,9 @@ class SystemTimeUtils {
         result,
         suppressedCount: this._suppressedRefreshFailureLogs,
         wallDurationMs: completedAt - startedAt,
+        requestDurationMs: isNil(requestStartedAt)
+          ? undefined
+          : completedAt - requestStartedAt,
         monotonicDurationMs:
           isNil(monotonicStartedAt) || isNil(monotonicCompletedAt)
             ? undefined
@@ -421,6 +442,7 @@ class SystemTimeUtils {
         endpoint,
         name: EServiceEndpointEnum.Wallet,
       });
+      requestStartedAt = Date.now();
       const response = await client.get<unknown, IAxiosResponse<unknown>>(
         ONEKEY_HEALTH_CHECK_URL,
         {
@@ -467,13 +489,18 @@ class SystemTimeUtils {
 
       // Only a fresh health response can justify asking users to fix their clock.
       // Wall time includes system sleep, unlike performance.now() on macOS/Linux.
-      const requestDuration = localTimestamp - startedAt;
-      if (
-        requestDuration >= 0 &&
-        requestDuration <= refreshServerTimeTimeout &&
-        this.systemTimeStatus === ELocalSystemTimeStatus.INVALID
-      ) {
-        appEventBus.emit(EAppEventBusNames.LocalSystemTimeInvalid, undefined);
+      const requestDuration = localTimestamp - requestStartedAt;
+      if (this.systemTimeStatus === ELocalSystemTimeStatus.INVALID) {
+        if (
+          requestDuration >= 0 &&
+          requestDuration <= freshResponseMaxDuration
+        ) {
+          this.setSystemTimeStatus(ELocalSystemTimeStatus.INVALID, true);
+          appEventBus.emit(EAppEventBusNames.LocalSystemTimeInvalid, undefined);
+        } else {
+          this.setSystemTimeStatus(ELocalSystemTimeStatus.INVALID, false);
+          logResult('stale-response');
+        }
       }
       return true;
     } catch (error) {
@@ -491,7 +518,8 @@ class SystemTimeUtils {
     if (this._serverTimeInterval) {
       return;
     }
-    void this.ensureFreshServerTime()
+    // A business response can seed the estimator without confirming an alert.
+    void this.refreshServerTime()
       .then((success) => {
         if (!success) {
           this.updateSystemTimeStatusByEstimatedServerTime();
@@ -718,6 +746,7 @@ class SystemTimeUtils {
       localTimeValid
         ? ELocalSystemTimeStatus.VALID
         : ELocalSystemTimeStatus.INVALID,
+      false,
     );
 
     return true;
