@@ -673,7 +673,7 @@ async function enterMarketStocks() {
     0,
   );
   try {
-    await tapWhenVisible(marketHeaderTab, 500);
+    await tapWhenVisible(marketHeaderTab, 5000);
   } catch {
     const visibleMarketText = await findVisibleByMatcher(by.text('Market'));
     if (!visibleMarketText)
