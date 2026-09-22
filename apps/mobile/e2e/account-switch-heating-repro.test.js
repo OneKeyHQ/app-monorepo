@@ -1089,119 +1089,27 @@ describe('iOS account-switch heating regression timeline', () => {
       },
     );
 
-    await runAt(176, 'open More Actions', async () => {
-      await tapWhenVisible(element(by.id('moreActions')), 5000);
-    });
-    await runAt(178, 'open Action Center', async () => {
-      await waitFor(element(by.id('action-center-page-body')))
-        .toExist()
-        .withTimeout(5000);
-    });
-    await runAt(180, 'open About', async () => {
-      try {
-        await tapWhenVisible(
-          element(by.id('action-center-about')).atIndex(0),
-          1000,
-        );
-      } catch {
-        // Compatibility for an already-installed build without the testID.
-        await tapWhenVisible(element(by.text('About OneKey')).atIndex(0), 5000);
-      }
-    });
-    await runAt(181, 'export state logs', async () => {
-      const formalEndedAt = new Date().toISOString();
-      if (formalEndPath) {
-        fs.writeFileSync(
-          formalEndPath,
-          `${JSON.stringify({ formalEndedAt })}\n`,
-          'utf8',
-        );
-      }
-      await tapWhenVisible(
-        element(by.id('setting-export-diagnostic-logs')).atIndex(0),
-        5000,
-      );
-      try {
-        await tapWhenVisible(element(by.id('dialog-confirm-btn')), 1500);
-      } catch {
-        // Some builds start local log export without a confirmation dialog.
-      }
-      await sleep(45_000);
-    });
-    const completedFormalEndedAt = JSON.parse(
-      fs.readFileSync(formalEndPath, 'utf8'),
-    ).formalEndedAt;
+    const formalEndedAt = new Date().toISOString();
+    fs.writeFileSync(
+      formalEndPath,
+      `${JSON.stringify({ formalEndedAt })}\n`,
+      'utf8',
+    );
+    const observation = {
+      kind: 'post-QA Home idle',
+      startedAt: formalEndedAt,
+      note: 'No diagnostic export or navigation between the last account switch and idle sampling.',
+    };
     writeRunMeta({
       ...runMeta,
-      formalEndedAt: completedFormalEndedAt,
-      durationMs: new Date(completedFormalEndedAt).getTime() - originWall,
-      exportRequested: true,
-      qaTimelineCompletedAt: new Date().toISOString(),
+      formalEndedAt,
+      durationMs: new Date(formalEndedAt).getTime() - originWall,
+      logCollectionMode: 'native-file',
+      qaTimelineCompletedAt: formalEndedAt,
     });
-
-    // Keep the original export action/timing intact. Observe only after its
-    // diagnostic work and the extra navigation have been identified separately.
-    activeAction = 'post-diagnostic return Home';
-    recordInteraction('diagnostic-ended');
-    for (let attempt = 0; attempt < 8; attempt += 1) {
-      if (
-        await findVisibleByMatcher(by.id('AccountSelectorTriggerBase'), 1, 100)
-      ) {
-        break;
-      }
-      let dismissed = false;
-      const nativeClose = await findVisibleByMatcher(by.label('Close'), 4, 120);
-      if (nativeClose) {
-        try {
-          await measuredTap(nativeClose, 'native Close label');
-          dismissed = true;
-        } catch {
-          // A retained Close node may belong to a covered native page.
-        }
-      }
-      if (!dismissed) {
-        for (const testID of [
-          'dialog-bounded-close',
-          'dialog-cancel-btn',
-          'nav-header-back',
-          'nav-header-close',
-        ]) {
-          const close = await findReportedVisibleById(testID);
-          if (close) {
-            try {
-              await measuredTap(close, testID);
-              dismissed = true;
-              break;
-            } catch {
-              // iOS share sheets can dismiss on their backdrop. The visible
-              // navigation control supplies a current testID frame above it.
-              await tapSemanticTargetAtRuntimeFrame(close, testID);
-              dismissed = true;
-              break;
-            }
-          }
-        }
-      }
-      if (!dismissed) {
-        const homeTab = await findReportedVisibleById('bottom-tab-Home');
-        if (homeTab) {
-          await tapBottomTab('Wallet');
-          break;
-        }
-        throw new Error(
-          'No semantic dismissal or Home target after diagnostic export',
-        );
-      }
-    }
-    await waitForHomeReady(5000);
-    const observation = {
-      kind: 'post-diagnostic Home cooldown',
-      startedAt: new Date().toISOString(),
-      note: 'Export remains on the QA schedule. This is not immediate post-QA idle.',
-    };
     activeAction = null;
     recordInteraction('cooldown-started');
-    await sleep(60_000);
+    await sleep(70_000);
     observation.endedAt = new Date().toISOString();
     recordInteraction('cooldown-ended');
     fs.writeFileSync(
@@ -1210,15 +1118,12 @@ describe('iOS account-switch heating regression timeline', () => {
       'utf8',
     );
 
-    const formalEndedAt = fs.existsSync(formalEndPath)
-      ? JSON.parse(fs.readFileSync(formalEndPath, 'utf8')).formalEndedAt
-      : new Date().toISOString();
     writeRunMeta({
       ...runMeta,
       collectionEndedAt: new Date().toISOString(),
       formalEndedAt,
       durationMs: new Date(formalEndedAt).getTime() - originWall,
-      exportRequested: true,
+      logCollectionMode: 'native-file',
       observation,
       status: 'completed',
     });

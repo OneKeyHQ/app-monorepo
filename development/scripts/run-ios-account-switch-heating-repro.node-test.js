@@ -22,6 +22,48 @@ const context = {
   localUtcOffsetMinutes: 480,
 };
 
+test('only uninterrupted Home idle can satisfy post-operation CPU and RSS checks', () => {
+  const samples = Array.from({ length: 70 }, (_, index) => ({
+    elapsedSec: 191 + index,
+    cpu: index < 10 ? 100 : 20,
+    rssMB: index < 60 ? 900 : 950,
+  }));
+  const evaluate = (kind) => {
+    const processSummary = summarizeSamples(samples, {
+      ...context,
+      observation: {
+        kind,
+        startedAt: context.formalEndedAt,
+        endedAt: '2026-09-22T12:04:20.000Z',
+      },
+    });
+    return summarizeAcceptance({
+      functionalPassed: true,
+      evidenceCollected: true,
+      maxPositiveDriftMs: 0,
+      processSummary,
+      nativeLog: { windows: { last60: {}, allNetworks: null } },
+      buildProvenance: { status: 'MEASURED' },
+    }).checks.filter((check) => check.name.startsWith('immediateIdle'));
+  };
+  assert.deepEqual(
+    evaluate('post-QA Home idle').map(({ name, value, status }) => ({
+      name,
+      value,
+      status,
+    })),
+    [
+      { name: 'immediateIdleCpuAfter10s', value: 20, status: 'PASS' },
+      { name: 'immediateIdleRssAfter60s', value: 0, status: 'PASS' },
+    ],
+  );
+  assert.ok(
+    evaluate('post-diagnostic Home cooldown').every(
+      (check) => check.status === 'UNMEASURED',
+    ),
+  );
+});
+
 test('counts relative axios, absolute fetch and malformed start entries, inheriting multiline RPC timestamps', () => {
   const { events } = parseNativeLog(
     [

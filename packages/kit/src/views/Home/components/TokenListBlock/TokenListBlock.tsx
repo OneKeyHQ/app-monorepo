@@ -2334,12 +2334,17 @@ function TokenListBlock({
         phase: 'all-network-authoritative-commit',
         networkId: network?.id,
         isAllNetworks: true,
+        accountsCount: allNetworksResult.length,
         tokenCount: snapshot.orderedTokens.length,
         smallBalanceCount: snapshot.smallBalanceTokens.length,
         riskyCount: snapshot.riskyTokens.length,
         aggregateCount: Object.keys(snapshot.aggregateTokenListMap).length,
         ownerPresent: !!account?.id,
         indexedAccountPresent: !!indexedAccount?.id,
+        source:
+          allNetworksPublishedResultRef.current.result === allNetworksResult
+            ? `generation:${allNetworksPublishedResultRef.current.generation}`
+            : undefined,
       });
       commitAuthoritativeIngest(snapshot);
 
