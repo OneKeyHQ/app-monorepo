@@ -50,6 +50,7 @@ interface ISwapProTradingPanelProps {
   configReady: boolean;
   supportSpeedSwap: boolean;
   onSwapProActionClick: () => void;
+  onDepositToTrade: () => void;
   hasEnoughBalance: boolean;
   handleSelectAccountClick: () => void;
   cleanInputAmount: () => void;
@@ -71,6 +72,7 @@ const SwapProTradingPanel = ({
   configReady,
   onBalanceMax,
   onSwapProActionClick,
+  onDepositToTrade,
   handleSelectAccountClick,
   onSelectPercentageStage,
   limitPriceUseMarketPrice,
@@ -311,6 +313,7 @@ const SwapProTradingPanel = ({
       <YStack flex={1} />
       <SwapProActionButton
         onSwapProActionClick={onSwapProActionClick}
+        onDepositToTrade={onDepositToTrade}
         hasEnoughBalance={hasEnoughBalance}
         balanceLoading={balanceLoading}
         supportSpeedSwap={supportSpeedSwap}

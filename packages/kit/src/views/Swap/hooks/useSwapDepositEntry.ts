@@ -17,12 +17,15 @@ import { useSwapAddressInfo } from './useSwapAccount';
 // When the receive modal closes the from-token balance is reloaded from the
 // network: the user may have deposited meanwhile and the cached balance would
 // otherwise keep the button on "Deposit to Trade" / "Insufficient balance".
+// Surfaces that keep their balance elsewhere (Pro) pass their own `onClose`.
 export function useSwapDepositEntryPress({
   token,
   accountInfo,
+  onClose,
 }: {
   token?: ISwapToken;
   accountInfo?: IAccountSelectorActiveAccountInfo;
+  onClose?: () => void;
 }) {
   const navigation = useAppNavigation();
   const { loadSwapSelectTokenDetail } = useSwapActions().current;
@@ -46,8 +49,8 @@ export function useSwapDepositEntryPress({
         navigation,
         token: tokenRef.current,
         accountInfo: accountInfoRef.current,
-        onClose: refreshFromTokenBalance,
+        onClose: onClose ?? refreshFromTokenBalance,
       }),
-    [navigation, refreshFromTokenBalance],
+    [navigation, onClose, refreshFromTokenBalance],
   );
 }
