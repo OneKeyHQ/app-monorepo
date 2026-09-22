@@ -2,6 +2,7 @@
 
 import { type ReactNode, StrictMode } from 'react';
 
+import { AuthApiError } from '@supabase/supabase-js';
 import {
   act,
   fireEvent,
@@ -281,6 +282,34 @@ describe('password test login with CAPTCHA', () => {
       password: ' spaces stay ! ',
     });
     expect(screen.queryByTestId('password-captcha')).toBeNull();
+  });
+
+  test('CAPTCHA rejection displays the friendly message and keeps password entry retryable', async () => {
+    const props = makeProps();
+    props.captchaConfig.enabled = false;
+    props.loginWithPassword.mockRejectedValue(
+      new AuthApiError(
+        'captcha protection: request disallowed (no captcha_token found)',
+        400,
+        'captcha_failed',
+      ),
+    );
+    render(<PrimeLoginPasswordTestDialog {...props} />);
+    const input = enterPassword();
+    fireEvent.click(screen.getByText('Submit'));
+    await waitFor(() =>
+      expect(Toast.error).toHaveBeenCalledWith({
+        title: ETranslations.auth_captcha_incomplete__msg,
+      }),
+    );
+    expect(Toast.error).toHaveBeenCalledTimes(1);
+    expect(props.onLoginSuccess).not.toHaveBeenCalled();
+    expect(input.disabled).toBe(false);
+    expect(input.value).toBe(' Abc!中文🔐 01 ');
+    expect(
+      screen.getByRole<HTMLButtonElement>('button', { name: 'Submit' })
+        .disabled,
+    ).toBe(false);
   });
 
   test('changing test configuration cancels pending CAPTCHA and clears the password', async () => {

@@ -1,6 +1,10 @@
 import { AuthApiError, AuthRetryableFetchError } from '@supabase/supabase-js';
 import { createIntl } from 'react-intl';
 
+import {
+  getSanitizedAuthErrorText,
+  logOneKeyIdLoginFailureReason,
+} from '@onekeyhq/kit/src/views/Prime/components/oneKeyIdLoginToastUtils';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
@@ -14,7 +18,7 @@ import { requestEmailOtp } from './requestEmailOtp';
 jest.mock(
   '@onekeyhq/kit/src/views/Prime/components/oneKeyIdLoginToastUtils',
   () => ({
-    getSanitizedAuthErrorText: () => 'sanitized error',
+    getSanitizedAuthErrorText: jest.fn(() => 'sanitized error'),
     logOneKeyIdLoginFailureReason: jest.fn(),
   }),
 );
@@ -22,16 +26,19 @@ jest.mock(
 const messages: Record<string, string> = {
   [ETranslations.global_unknown_error_retry_message]: 'Please try again.',
   [ETranslations.email_verification_rate_limit]: 'Retry after {rest} seconds.',
+  [ETranslations.auth_captcha_incomplete__msg]:
+    'Security verification was not completed. Please try again.',
 };
 const intl = createIntl({ locale: 'en', messages });
 
 describe('Email OTP request security boundary', () => {
-  test('preserves the v6.5.0 CAPTCHA error message from Supabase through the toast boundary', async () => {
+  test('localizes the CAPTCHA toast while retaining the original SDK error for diagnostics', async () => {
     const message =
       'captcha protection: request disallowed (no captcha_token found)';
+    const sdkError = new AuthApiError(message, 400, 'captcha_failed');
     const signInWithOtp = jest.fn().mockResolvedValue({
       data: { user: null, session: null },
-      error: new AuthApiError(message, 400, 'captcha_failed'),
+      error: sdkError,
     });
     const request = requestEmailOtp({
       client: { auth: { signInWithOtp } },
@@ -39,11 +46,21 @@ describe('Email OTP request security boundary', () => {
       intl,
     });
     await expect(request).rejects.toBeInstanceOf(OneKeyLocalError);
-    await expect(request).rejects.toThrow(message);
+    await expect(request).rejects.toThrow(
+      messages[ETranslations.auth_captcha_incomplete__msg],
+    );
     const toastMessage = await request.catch((error: unknown) =>
       getEmailOtpRequestErrorMessage({ error, intl }),
     );
-    expect(toastMessage).toBe(message);
+    expect(toastMessage).toBe(
+      messages[ETranslations.auth_captcha_incomplete__msg],
+    );
+    expect(getSanitizedAuthErrorText).toHaveBeenCalledWith(sdkError);
+    expect(sdkError.message).toBe(message);
+    expect(logOneKeyIdLoginFailureReason).toHaveBeenCalledWith(
+      'OneKey ID email verification code request failed: sanitized error',
+      expect.any(OneKeyLocalError),
+    );
     await expect(request).rejects.toMatchObject({
       data: { isEmailOtpSendFailure: true },
     });

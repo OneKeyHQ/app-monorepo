@@ -6,6 +6,28 @@ import { getEmailOtpRateLimitRetryAfterSeconds } from './emailOtpRateLimitError'
 
 import type { IntlShape } from 'react-intl';
 
+export function getEmailAuthCaptchaErrorMessage({
+  error,
+  intl,
+}: {
+  error: unknown;
+  intl: IntlShape;
+}): string | undefined {
+  const candidate = error as
+    | { name?: unknown; code?: unknown; status?: unknown }
+    | undefined;
+  if (
+    candidate?.name === 'AuthApiError' &&
+    candidate.status === 400 &&
+    candidate.code === 'captcha_failed'
+  ) {
+    return intl.formatMessage({
+      id: ETranslations.auth_captcha_incomplete__msg,
+    });
+  }
+  return undefined;
+}
+
 export function isEmailOtpSendKnownFailure(error: unknown): boolean {
   const candidate = error as
     | {
@@ -36,7 +58,7 @@ export function isEmailOtpSendKnownFailure(error: unknown): boolean {
 
 // Returns undefined when the dialog must NOT toast: bridged server errors
 // flagged autoToast are already surfaced by the global error toast with the
-// server's own message, and a second generic toast here would contradict it.
+// prepared message, and a second toast here would duplicate it.
 export function getEmailOtpRequestErrorMessage({
   error,
   intl,
@@ -62,6 +84,8 @@ export function getEmailOtpRequestErrorMessage({
   if (oneKeyError?.autoToast) {
     return undefined;
   }
+  const captchaMessage = getEmailAuthCaptchaErrorMessage({ error, intl });
+  if (captchaMessage) return captchaMessage;
   // Transient infrastructure failures (offline, 5xx, timeout) have a precise
   // name; rendering them as "unknown error" tells the user to retry blindly.
   if (

@@ -168,14 +168,16 @@ function OnboardingOnMountCmp() {
         !platformEnv.isWebDappMode &&
         !platformEnv.isExtensionUiSidePanel
       ) {
-        // The browser may restore onboarding while the startup check awaits.
-        if (
-          platformEnv.isWeb &&
-          rootNavigationRef.current
-            ?.getRootState()
-            ?.routes.some((route) => route.name === ERootRoutes.Onboarding)
-        ) {
-          return;
+        if (platformEnv.isWeb) {
+          // Read the active route after the check: the browser may restore
+          // onboarding, while wallet clear may leave an inactive entry.
+          const rootState = rootNavigationRef.current?.getRootState();
+          if (
+            rootState?.routes[rootState.index ?? 0]?.name ===
+            ERootRoutes.Onboarding
+          ) {
+            return;
+          }
         }
         void toOnBoardingPage();
       }

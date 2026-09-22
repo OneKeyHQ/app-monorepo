@@ -150,6 +150,39 @@ describe('OnboardingOnMount Web startup', () => {
     expect(mockToOnBoardingPage).toHaveBeenCalledTimes(1);
   });
 
+  it('reopens onboarding after wallet clear when an inactive route remains', async () => {
+    mockIsOnboardingDone.mockResolvedValueOnce({ isOnboardingDone: true });
+    mockRootState = {
+      index: 1,
+      routes: [{ name: ERootRoutes.Onboarding }, { name: ERootRoutes.Main }],
+    };
+    await act(async () => {
+      render(<OnboardingOnMount />);
+    });
+    expect(mockToOnBoardingPage).not.toHaveBeenCalled();
+
+    await act(async () => {
+      mockWalletClear?.();
+    });
+
+    expect(mockIsOnboardingDone).toHaveBeenCalledTimes(2);
+    expect(mockToOnBoardingPage).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not reopen active onboarding after wallet clear', async () => {
+    restoreOnboardingRoute();
+    await act(async () => {
+      render(<OnboardingOnMount />);
+    });
+
+    await act(async () => {
+      mockWalletClear?.();
+    });
+
+    expect(mockIsOnboardingDone).toHaveBeenCalledTimes(2);
+    expect(mockToOnBoardingPage).not.toHaveBeenCalled();
+  });
+
   it('keeps completed onboarding closed', async () => {
     mockIsOnboardingDone.mockResolvedValue({ isOnboardingDone: true });
 

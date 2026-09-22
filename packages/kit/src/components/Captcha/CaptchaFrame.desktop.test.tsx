@@ -129,6 +129,24 @@ test('rejects wrong origins, documents, attempts, channels and stale navigation 
   expect(onResult).not.toHaveBeenCalled();
 });
 
+test.each(['http://localhost:8800/captcha', 'http://127.0.0.1:8800/captcha'])(
+  'rejects the retired local page %s before acquiring the guest preload',
+  async (localUrl) => {
+    const onResult = jest.fn();
+    await act(async () => {
+      render(
+        <CaptchaFrame url={localUrl} requestId="current" onResult={onResult} />,
+      );
+    });
+    expect(getPreload).not.toHaveBeenCalled();
+    expect(screen.queryByTestId('email-otp-captcha-frame')).toBeNull();
+    expect(onResult).toHaveBeenCalledTimes(1);
+    expect(onResult).toHaveBeenCalledWith(
+      expect.objectContaining({ status: 'load-error' }),
+    );
+  },
+);
+
 test.each(['did-finish-load', 'dom-ready'])(
   'does not treat %s as CAPTCHA readiness',
   async (event) => {

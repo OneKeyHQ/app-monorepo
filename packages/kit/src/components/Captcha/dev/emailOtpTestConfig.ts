@@ -1,8 +1,6 @@
 import { ONEKEY_ID_AUTH_CONFIG } from '@onekeyhq/shared/src/consts/authConsts';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 export const EMAIL_OTP_CAPTCHA_PAGE_URLS = {
-  local: 'http://localhost:8800/captcha',
   test: ONEKEY_ID_AUTH_CONFIG.test.captcha.pageUrl,
   production: ONEKEY_ID_AUTH_CONFIG.prod.captcha.pageUrl,
 };
@@ -27,9 +25,7 @@ export const EMAIL_OTP_TEST_CONFIG: {
   publicKey: string;
   pageUrl: string;
 } = {
-  projectUrl: EMAIL_OTP_TEST_PROJECTS[0].projectUrl,
-  publicKey: EMAIL_OTP_TEST_PROJECTS[0].publicKey,
-  pageUrl: platformEnv.isWeb
-    ? EMAIL_OTP_CAPTCHA_PAGE_URLS.local
-    : 'http://127.0.0.1:8799/captcha.html',
+  projectUrl: ONEKEY_ID_AUTH_CONFIG.test.projectUrl,
+  publicKey: ONEKEY_ID_AUTH_CONFIG.test.publicKey,
+  pageUrl: EMAIL_OTP_CAPTCHA_PAGE_URLS.test,
 };

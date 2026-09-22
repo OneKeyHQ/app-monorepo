@@ -52,7 +52,7 @@ the Turnstile SDK, child frames, and network requests. Do not add
 `X-Frame-Options: DENY` or `SAMEORIGIN`, which would block the application iframe.
 
 Register the deployment hostname with the corresponding Turnstile widget,
-then set the client CAPTCHA `pageUrl` to the deployed `/captcha/index.html` URL only
+then set the client CAPTCHA `pageUrl` to the deployed `/captcha` URL only
 after confirming it is reachable. The page contains no secret key; Supabase
 performs token validation with its configured CAPTCHA secret. Turnstile's SDK
 must still load from Cloudflare's official URL and must not be vendored into
@@ -72,39 +72,18 @@ development and local unpacked origins. Deployment CSP and the separate
 `app-webview-pages` CAPTCHA bridge maintain their own environment-specific
 allowlists; changes to this registry must be applied there explicitly when needed.
 
-### Local preview
+### Run against the remote page
 
-Web uses the merged PR's original build artifacts at
-`http://localhost:8800/captcha`. The temporary checkout is
-`/private/tmp/onekey-turnstile-pr68.FCk1YI`. From that checkout:
+All targets load the hosted CAPTCHA HTML. This repository no longer includes
+a local CAPTCHA HTML/JS fixture or server, and the debug panel offers only
+Test and Production pages. Desktop's CAPTCHA bridge accepts only the two
+hosted login origins.
 
-```sh
-yarn workspaces focus oauth-login-success
-yarn workspace oauth-login-success test
-python3 /private/tmp/onekey-pr68-server.py
-```
-
-The temporary server maps `/captcha` directly to the built HTML, returning
-HTTP 200 without a redirect or trailing slash. The three page choices were
-visually verified in the real Web login dialog. On 2026-09-21 the test and
-production hosted URLs returned HTTP 403 and 404 respectively, so those
-deployments were not verified end to end. The client and legacy preview no
-longer read a sitekey URL parameter; 46 related tests and the commit check
-passed (`node_modules/.cache/agent-checks/2026-09-21T10-02-01-543Z/summary.json`).
-
-Run the app from this repository with `WEB_PORT=3039 yarn app:web`. The Web test
-configuration selects the new URL; other targets retain the prior local fixture:
-
-```sh
-node development/email-otp-captcha/server.mjs
-```
-
-The new page's `timeout` event releases a pending send and makes explicit
-Resend available. A retry creates a fresh challenge; ordinary retryable
-`error` and `expired` events continue waiting for the provider's recovery UI.
-The upstream build and 71 tests passed. Client message, iframe and lifecycle
-coverage passed 31 tests, and `yarn agent:check --profile commit` passed:
-`node_modules/.cache/agent-checks/2026-09-21T09-46-38-091Z/summary.json`.
+Run the app from this repository with `WEB_PORT=3039 yarn app:web`. The Gallery
+defaults to Test2 and `https://login.onekeytest.com/captcha`, using the paired
+project and page from `ONEKEY_ID_AUTH_CONFIG.test` on every platform. No local
+CAPTCHA server or emulator port forwarding is needed. Page changes belong in
+`OneKeyHQ/app-webview-pages` and must be deployed to the selected login domain.
 
 In the Web app, switch to wallet mode in Settings > Dev mode > Switch web mode.
 Close the first-run onboarding if necessary. Open Dev mode > Gallery > Auth,
@@ -131,11 +110,6 @@ This verifies enforcement at **OTP issuance**. A previously issued, still-valid
 OTP can be submitted through `verifyOtp`, and existing sessions remain valid.
 CAPTCHA therefore does not by itself reject every request from an old client
 or enforce a minimum client version.
-
-The CAPTCHA server serves only two static test files on port 8799. It accepts
-no credentials and records no requests. For a real sitekey, serve the same files
-over HTTPS on a hostname registered in the Turnstile widget. The native test
-view loads that hosted page without a wallet bridge.
 
 ## Supabase setup
 
@@ -167,9 +141,8 @@ it again. Reopening the login dialog restores defaults and hides the panel.
   challenge before sending. There is no separate CAPTCHA start/reset button in
   the real dialog. The HTML owns its sitekey; the client does not configure it
   or include it in the URL.
-- **CAPTCHA page** switches independently between Local
-  (`http://localhost:8800/captcha`), Test
-  (`https://login.onekeytest.com/captcha`), and Production
+- **CAPTCHA page** switches independently between Test
+  (`https://login.onekeytest.com/captcha`) and Production
   (`https://login.onekey.so/captcha`). Switching cancels any pending challenge
   through the configuration revision and requires explicit Resend on the code
   step. Each frame adds a fresh `requestId` to the fragment. Web also supplies
@@ -199,12 +172,12 @@ Provider failures, timeouts and closing the dialog cancel the pending request.
 Tokens are consumed once, and delayed results from old challenges are ignored.
 
 The real dialog and normal login share `requestEmailOtp`, including the existing
-rate-limit handling and the original Supabase business-error message. A real request with CAPTCHA disabled
+rate-limit handling. Before the localized CAPTCHA copy described below, a real request with CAPTCHA disabled
 was observed going to the test project without `captcha_token`, returning
 HTTP 400 / `captcha_failed`. The dialog displayed one error toast:
 **captcha protection: request disallowed (no captcha_token found)**. It remained on the code step
 with Resend available. The header says "Sent to" only after issuance succeeds.
-Request failures use the original error toast without an
+Request failures use a single error toast without an
 additional inline request summary.
 This round verified the rejection/toast path; the real CAPTCHA positive flow
 recorded below was verified in Gallery, not repeated in this dialog.
@@ -219,13 +192,22 @@ an old client that omits CAPTCHA does display the server's rejection message.
 
 The starting branch had subsequently replaced that message with a generic
 localized error; the initial extraction of `requestEmailOtp` retained that
-behavior. Following the requested v6.5.0 comparison, server business errors now
-retain their original message through the request and toast layers. Existing
+behavior. Following the requested v6.5.0 comparison, server business errors
+retained their original message through the request and toast layers. Existing
 cooldown, transient-network and duplicate-toast handling remain in place.
 The real Web dialog was re-tested against the CAPTCHA-enabled test project:
 HTTP 400 and the original CAPTCHA message were both observed. This is a source
 comparison with the tag and a runtime check of the updated local dialog, not
 a claim that the historical v6.5.0 binary was launched.
+
+The current dialog intentionally localizes only structured Supabase
+`AuthApiError` responses with HTTP 400 and code `captcha_failed`:
+`Security verification was not completed. Please try again.`
+(`安全验证未完成，请重试。`). This applies to both password and OTP login and
+uses the `auth_captcha_incomplete__msg` translation in all 19 app locales.
+OTP diagnostics still receive the sanitized original SDK error; the password
+toast formatter leaves the SDK error unchanged. Password, network, cooldown,
+unknown-error handling and OTP input gating retain their existing behavior.
 
 The free organization **OneKey OTP CAPTCHA Test** has been created:
 <https://supabase.com/dashboard/org/zgyyhtreohkenumackjt>
@@ -239,7 +221,7 @@ Turnstile CAPTCHA is enabled with the real **OneKey Email OTP Test** widget,
 in Managed mode, allowing only `localhost` and `127.0.0.1`. Pre-clearance is off.
 Its secret is stored only in Supabase. The test project's publishable key is
 included in `emailOtpTestConfig.ts`; the public Turnstile sitekey is owned by
-the hosted HTML (and by `captcha.js` for the legacy local preview). Both the
+the hosted HTML. Both the
 Gallery and the real dialog send only the request identity and parent origin
 to the page. Neither key is shown in the UI. No server-side secrets are stored
 in this directory.
@@ -249,17 +231,18 @@ testing sender is restricted to the email address of the Resend account owner.
 
 For subsequent runs:
 
-1. Use the prefilled Gallery configuration, or select **Test1** in the
-   real dialog. The test project URL and `sb_publishable_` key are built in.
+1. Use the prefilled Gallery configuration, or select **Test2** and the **Test**
+   CAPTCHA page in the real dialog. The test project URL and publishable key
+   are built in and paired with the remote page's sitekey.
 2. Keep custom SMTP configured before editing templates. With the free hosted
    project's default mailer, templates are read-only and contain a magic link.
    The dashboard offers custom SMTP or Pro to enable editing. Configure the
    email templates to contain `{{ .Token }}` so the message
    includes an OTP rather than only a magic link. Check both signup confirmation
    and magic-link templates for new and returning users.
-3. Start the local CAPTCHA page server before starting a challenge; the real
-   widget sitekey is selected automatically. Supabase CAPTCHA settings are under
-   Authentication > Attack Protection.
+3. Ensure the selected remote CAPTCHA page is reachable and its sitekey matches
+   the secret configured in Supabase under Authentication > Attack Protection.
+   The hosted page owns the sitekey; the app sends no sitekey URL parameter.
 4. Supply an authorized test recipient. Supabase's default SMTP only sends to
    organization members and currently allows two messages per hour. Use a
    dedicated SMTP configuration for repeated end-to-end tests.
@@ -277,6 +260,9 @@ always-fail test secret (`2x0000000000000000000000000000000AA`). Final testing
 uses the real widget; missing and fabricated tokens both return `captcha_failed`.
 
 ## Verification record — 2026-09-20
+
+This is a historical record. Local page checks below predate migration to the
+remote pages; the local fixture and server have since been removed.
 
 | Check | Result |
 | --- | --- |
@@ -353,7 +339,8 @@ Provider error/expiry callbacks keep the current send pending. The official
 client keeps its default retry and refresh policies; a later success from
 manual Retry or automatic recovery completes that same send exactly once.
 Subsequent refresh/success callbacks do not send additional emails. Supabase
-request failures keep the existing raw-error toast and explicit Resend behavior.
+request failures keep the existing error toast and explicit Resend behavior,
+with the localized CAPTCHA exception described above.
 
 Web hides the iframe behind a loading placeholder until an origin/window/request-validated
 provider message arrives. A browser `load` event is not sufficient because it also
@@ -406,10 +393,10 @@ The affected navigation callback runs in Android's UI (`main`) runtime. The
 native WebView is owned by that UI; the separate `bg` JS heap does not consume
 these navigation events. This fix does not require cross-runtime shared state.
 
-The Pixel 4 API 36 simulator currently uses Metro port 8081. The local CAPTCHA
-fixture requires `adb -s emulator-5554 reverse tcp:8799 tcp:8799` after each
-emulator restart. The native shell used `remote-cache`; Vendor and WebEmbed used
-`local-cache`, with `userNoticeRequired: false`.
+The Pixel 4 API 36 verification used Metro port 8081 and the former local CAPTCHA
+fixture. Current runs use the remote page without CAPTCHA port forwarding.
+The native shell used `remote-cache`; Vendor and WebEmbed used `local-cache`,
+with `userNoticeRequired: false`.
 
 After the navigation fix, the emulator still crashed in Chromium's native
 `Chrome_InProcGp` thread. Logcat captured `eglCreateContext` failing with

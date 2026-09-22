@@ -5,7 +5,10 @@ import {
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
-import { isEmailOtpSendKnownFailure } from '../emailOtpErrorUtils';
+import {
+  getEmailAuthCaptchaErrorMessage,
+  isEmailOtpSendKnownFailure,
+} from '../emailOtpErrorUtils';
 import {
   createEmailOtpRateLimitError,
   parseEmailOtpRateLimitRetryAfterSeconds,
@@ -48,7 +51,9 @@ export async function requestEmailOtp({
       });
     }
     const error = new OneKeyLocalError({
-      message: res.error.message,
+      message:
+        getEmailAuthCaptchaErrorMessage({ error: res.error, intl }) ??
+        res.error.message,
       data: { isEmailOtpSendFailure },
     });
     logOneKeyIdLoginFailureReason(

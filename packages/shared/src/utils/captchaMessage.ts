@@ -57,8 +57,6 @@ export const DESKTOP_CAPTCHA_MESSAGE_CHANNEL = 'onekey:captcha-result';
 const CAPTCHA_PAGE_ORIGINS = new Set([
   'https://login.onekey.so',
   'https://login.onekeytest.com',
-  'http://localhost:8800',
-  'http://127.0.0.1:8800',
 ]);
 
 export function isDesktopCaptchaPage(url: string): boolean {

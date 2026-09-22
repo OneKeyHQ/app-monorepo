@@ -60,7 +60,6 @@ const SUPABASE_PROJECT_OPTIONS = [
 ];
 
 const CAPTCHA_PAGE_OPTIONS = [
-  { id: 'local', label: 'Local', url: EMAIL_OTP_CAPTCHA_PAGE_URLS.local },
   { id: 'test', label: 'Test', url: EMAIL_OTP_CAPTCHA_PAGE_URLS.test },
   {
     id: 'production',

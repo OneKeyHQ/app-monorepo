@@ -41,7 +41,7 @@ function renderFrame() {
   const onResult = jest.fn();
   render(
     <CaptchaFrame
-      url={`${origin}/captcha.html#requestId=${requestId}`}
+      url={`${origin}/captcha#requestId=${requestId}`}
       requestId={requestId}
       onResult={onResult}
     />,

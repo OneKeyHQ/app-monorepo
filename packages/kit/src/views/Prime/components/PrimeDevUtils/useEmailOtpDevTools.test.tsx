@@ -141,14 +141,8 @@ jest.mock(
   '@onekeyhq/kit/src/components/Captcha/dev/emailOtpTestConfig',
   () => ({
     EMAIL_OTP_CAPTCHA_PAGE_URLS: {
-      local: 'http://localhost:8800/captcha',
       test: 'https://login.onekeytest.com/captcha',
       production: 'https://login.onekey.so/captcha',
-    },
-    EMAIL_OTP_TEST_CONFIG: {
-      projectUrl: 'https://test.supabase.co',
-      publicKey: 'sb_publishable_fixture_test',
-      pageUrl: 'https://captcha.example.com',
     },
     EMAIL_OTP_TEST_PROJECTS: [
       {
