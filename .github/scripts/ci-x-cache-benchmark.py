@@ -285,7 +285,7 @@ class Benchmark:
                         tree[relative] = {'sha256': dependencies.checksum(path),
                                           'executable': bool(path.stat().st_mode & 0o111)}
                         diagnostic = ('/__pycache__/' in relative and path.suffix == '.pyc') or (
-                            '/build/' in relative and (path.name in {'Makefile', 'config.gypi', 'binding.Makefile'}
+                            '/build/' in relative and (path.name in {'Makefile', 'Makefile.d', 'config.gypi', 'binding.Makefile'}
                             or path.name.endswith(('.target.mk', '.o.d', '.o.d.raw'))))
                         if diagnostic and path.stat().st_size < 1024 * 1024:
                             destination = self.results / 'diagnostic' / relative
