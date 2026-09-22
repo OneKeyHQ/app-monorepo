@@ -580,6 +580,18 @@ export const {
   to: false,
 });
 
+// Which token + account the stored From/To balance was fetched for (see
+// buildSwapBalanceOwnerKey). A reload for the same pair keeps the figure on
+// screen while it refreshes; a different pair clears it so a stale number is
+// never shown for the new selection.
+export const {
+  atom: swapSelectedTokenBalanceOwnerAtom,
+  use: useSwapSelectedTokenBalanceOwnerAtom,
+} = contextAtom<Record<ESwapDirectionType, string | undefined>>({
+  from: undefined,
+  to: undefined,
+});
+
 export const { atom: swapSelectTokenDetailRequestIdAtom } = contextAtom<
   Record<ESwapDirectionType, number>
 >({ from: 0, to: 0 });

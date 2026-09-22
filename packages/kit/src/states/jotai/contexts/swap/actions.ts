@@ -156,6 +156,7 @@ import {
   swapSelectTokenDetailRequestIdAtom,
   swapSelectedFromTokenBalanceAtom,
   swapSelectedToTokenBalanceAtom,
+  swapSelectedTokenBalanceOwnerAtom,
   swapSelectedTokensColdStartContextAtom,
   swapShouldRefreshQuoteAtom,
   swapSilenceQuoteLoading,
@@ -190,6 +191,24 @@ type IIndependentSwapInputAmountType =
   | ESwapTabSwitchType.LIMIT;
 
 const EMPTY_SWAP_TOKEN_KEYS = new Set<string>();
+
+// Identity of the balance stored for one side: the token plus the account it
+// was fetched for. Any reload for the same key is a refresh and must keep the
+// current figure; a different key is a new selection and must clear it.
+function buildSwapBalanceOwnerKey({
+  token,
+  accountAddress,
+}: {
+  token?: ISwapToken;
+  accountAddress?: string;
+}): string | undefined {
+  if (!token?.networkId || !accountAddress) return undefined;
+  return [
+    token.networkId,
+    (token.contractAddress ?? '').toLowerCase(),
+    accountAddress.toLowerCase(),
+  ].join('|');
+}
 
 function isIndependentSwapInputAmountType(
   type: ESwapTabSwitchType,
@@ -967,18 +986,24 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
     return null;
   };
 
-  resetSwapTokenData = contextAtomMethod(async (get, set, type) => {
-    if (type === ESwapDirectionType.FROM) {
-      set(swapSelectFromTokenAtom(), undefined);
-      set(swapSelectedFromTokenBalanceAtom(), '');
-    } else {
-      set(swapSelectToTokenAtom(), undefined);
-      set(swapSelectedToTokenBalanceAtom(), '');
-    }
-    set(swapStockExecutionTokensAtom(), undefined);
-    set(swapQuoteListAtom(), []);
-    set(rateDifferenceAtom(), undefined);
-  });
+  resetSwapTokenData = contextAtomMethod(
+    async (get, set, type: ESwapDirectionType) => {
+      if (type === ESwapDirectionType.FROM) {
+        set(swapSelectFromTokenAtom(), undefined);
+        set(swapSelectedFromTokenBalanceAtom(), '');
+      } else {
+        set(swapSelectToTokenAtom(), undefined);
+        set(swapSelectedToTokenBalanceAtom(), '');
+      }
+      set(swapSelectedTokenBalanceOwnerAtom(), (previous) => ({
+        ...previous,
+        [type]: undefined,
+      }));
+      set(swapStockExecutionTokensAtom(), undefined);
+      set(swapQuoteListAtom(), []);
+      set(rateDifferenceAtom(), undefined);
+    },
+  );
 
   selectFromToken = contextAtomMethod(
     async (
@@ -1184,6 +1209,11 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
     const toBalance = get(swapSelectedToTokenBalanceAtom());
     set(swapSelectedFromTokenBalanceAtom(), toBalance);
     set(swapSelectedToTokenBalanceAtom(), fromBalance);
+    const balanceOwner = get(swapSelectedTokenBalanceOwnerAtom());
+    set(swapSelectedTokenBalanceOwnerAtom(), {
+      from: balanceOwner.to,
+      to: balanceOwner.from,
+    });
     const balanceError = get(swapSelectTokenDetailBalanceErrorAtom());
     set(swapSelectTokenDetailBalanceErrorAtom(), {
       from: balanceError.to,
@@ -2755,11 +2785,19 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
               ...pre,
               [type]: true,
             }));
-            // A forced refresh re-checks the same token, so its last balance
-            // stays on screen while the fetching flag reports progress; a
-            // token or account switch still clears it so a stale figure never
-            // shows for the new selection.
-            if (!fetchBalance) {
+            // A reload for the token + account the stored balance belongs to
+            // is a refresh (forced, focus, or one replacing an in-flight
+            // fetch): keep the figure while the fetching flag reports
+            // progress. Anything else is a new selection and clears it so a
+            // stale figure never shows.
+            const storedBalanceOwner = get(swapSelectedTokenBalanceOwnerAtom())[
+              type
+            ];
+            const isSameBalanceOwner =
+              !!storedBalanceOwner &&
+              storedBalanceOwner ===
+                buildSwapBalanceOwnerKey({ token, accountAddress });
+            if (!isSameBalanceOwner) {
               if (type === ESwapDirectionType.FROM) {
                 set(swapSelectedFromTokenBalanceAtom(), '');
               } else {
@@ -2874,6 +2912,13 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         } else {
           set(swapSelectedToTokenBalanceAtom(), balanceDisplay ?? '');
         }
+        set(swapSelectedTokenBalanceOwnerAtom(), (previous) => ({
+          ...previous,
+          [type]:
+            balanceDisplay === undefined
+              ? undefined
+              : buildSwapBalanceOwnerKey({ token, accountAddress }),
+        }));
         set(swapSelectTokenDetailBalanceErrorAtom(), (previous) => ({
           ...previous,
           [type]: balanceFetchFailed,
@@ -3411,6 +3456,10 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         normalizedType === ESwapTabSwitchType.LIMIT
       ) {
         set(swapSelectedFromTokenBalanceAtom(), '');
+        set(swapSelectedTokenBalanceOwnerAtom(), (previous) => ({
+          ...previous,
+          from: undefined,
+        }));
       }
       if (
         oldType !== ESwapTabSwitchType.STOCK &&
