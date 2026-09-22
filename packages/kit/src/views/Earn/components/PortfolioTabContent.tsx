@@ -131,7 +131,9 @@ const PortfolioPendingTxsContext = createContext<IPortfolioPendingTxsContext>({
   onRefresh: async () => {},
 });
 
-const PortfolioPendingTxsProvider = ({
+// Exported for the phone positions page (EarnPositions/mobile), which reuses
+// the claim button and the PnL line. Desktop keeps rendering this file as-is.
+export const PortfolioPendingTxsProvider = ({
   value,
   children,
 }: {
@@ -326,7 +328,7 @@ const WrappedActionButtonCmp = ({
   );
 };
 
-const WrappedActionButton = memo(WrappedActionButtonCmp);
+export const WrappedActionButton = memo(WrappedActionButtonCmp);
 
 const useFieldWrapperNeedPadding = (
   asset: IEarnPortfolioInvestment['assets'][number],
@@ -439,7 +441,7 @@ const EarningsField = ({
   );
 };
 
-const MobilePnlSection = memo(
+export const MobilePnlSection = memo(
   ({ asset }: { asset: IEarnPortfolioInvestment['assets'][number] }) => {
     const intl = useIntl();
     const netPnl = asset.metadata?.netPnl;
