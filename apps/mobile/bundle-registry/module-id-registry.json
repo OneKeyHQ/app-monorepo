@@ -20087,6 +20087,7 @@
     "packages/kit/src/components/TradingView/TradingViewNative/native/chartRuntimeData.ts": 64,
     "packages/kit/src/components/TradingView/TradingViewNative/native/chartSkiaRenderer.ts": 2827,
     "packages/kit/src/components/TradingView/TradingViewNative/native/chartSkiaText.ts": 2858,
+    "packages/kit/src/components/TradingView/TradingViewNative/native/tradeMarkLabelPaths.ts": 6543,
     "packages/kit/src/components/TradingView/TradingViewNative/native/useTradingViewNativeChartGestures.ts": 3379,
     "packages/kit/src/components/TradingView/TradingViewNative/native/useTradingViewNativePriceScale.ts": 377,
     "packages/kit/src/components/TradingView/TradingViewNative/showTradingViewNativeIndicatorSettingsDialog.tsx": 13506,
