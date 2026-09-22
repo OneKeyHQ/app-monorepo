@@ -5,6 +5,7 @@ const path = require('node:path');
 const { test } = require('node:test');
 
 const {
+  preserveNativeLogBeforeLaunch,
   startNativeLogCapture,
   parseNativeLog,
   describeCensusWindow,
@@ -16,6 +17,52 @@ const {
   summarizeNativeLog,
   summarizeSamples,
 } = require('./run-ios-account-switch-heating-repro');
+
+test('preserves the previous native log before a fresh app launch', () => {
+  const directory = fs.mkdtempSync(
+    path.join(os.tmpdir(), 'native-log-prepare-'),
+  );
+  const logPath = path.join(directory, 'app-latest.log');
+  try {
+    fs.writeFileSync(logPath, 'previous run\n');
+    preserveNativeLogBeforeLaunch({ logPath, outputDir: directory });
+    assert.equal(fs.existsSync(logPath), false);
+    assert.equal(
+      fs.readFileSync(
+        path.join(directory, 'native-log-before-run.log'),
+        'utf8',
+      ),
+      'previous run\n',
+    );
+    fs.writeFileSync(logPath, 'another run\n');
+    assert.throws(() =>
+      preserveNativeLogBeforeLaunch({ logPath, outputDir: directory }),
+    );
+    assert.equal(fs.readFileSync(logPath, 'utf8'), 'another run\n');
+  } finally {
+    fs.rmSync(directory, { recursive: true, force: true });
+  }
+});
+
+test('rejects native logger rotation that leaves no active log', async () => {
+  const directory = fs.mkdtempSync(
+    path.join(os.tmpdir(), 'native-log-stopped-'),
+  );
+  const logPath = path.join(directory, 'app-latest.log');
+  fs.writeFileSync(logPath, 'before run\n');
+  const capture = startNativeLogCapture({ logPath, outputDir: directory });
+  try {
+    fs.appendFileSync(logPath, 'captured\n');
+    fs.renameSync(logPath, path.join(directory, 'app-rolled.log'));
+    const result = await capture.stop();
+    assert.equal(result.complete, false);
+    assert.deepEqual(result.errors, ['native-active-log-missing']);
+    assert.equal(fs.readFileSync(capture.outputPath, 'utf8'), 'captured\n');
+  } finally {
+    await capture.stop();
+    fs.rmSync(directory, { recursive: true, force: true });
+  }
+});
 
 test('captures native file rotation once without including pre-run bytes', async () => {
   const directory = fs.mkdtempSync(
