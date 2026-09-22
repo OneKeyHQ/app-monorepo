@@ -13,6 +13,7 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import { BaseMarketTokenPrice } from '@onekeyhq/kit/src/views/Market/components/MarketTokenPrice';
+import { MarketTooltipLabel } from '@onekeyhq/kit/src/views/Market/components/MarketTooltipLabel';
 import { StockMarketStatusBadge } from '@onekeyhq/kit/src/views/Market/components/PerpsBadges';
 import { PriceChangePercentage } from '@onekeyhq/kit/src/views/Market/components/PriceChangePercentage';
 import type { IStockSimpleChartRange } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/components/StockSimpleChart/StockSimpleChart';
@@ -136,15 +137,36 @@ function StockPrice({
       </>
     );
   } else {
+    const quote = (
+      <BaseMarketTokenPrice
+        price={price ?? '--'}
+        tokenName=""
+        tokenSymbol=""
+        currency="$"
+        size={mobile ? '$headingXl' : '$heading4xl'}
+      />
+    );
     content = (
       <>
-        <BaseMarketTokenPrice
-          price={price ?? '--'}
-          tokenName=""
-          tokenSymbol=""
-          currency="$"
-          size={mobile ? '$headingXl' : '$heading4xl'}
-        />
+        {mobile ? (
+          quote
+        ) : (
+          // Same dashed hover explanation as the Market stock header: the
+          // share quote tracks the listed security, the token quote is on-chain.
+          <MarketTooltipLabel
+            testID="swap-stock-price-tooltip-trigger"
+            hovering
+            alignSelf="baseline"
+            tooltip={intl.formatMessage({
+              id:
+                priceMode === 'share'
+                  ? ETranslations.market_stock_price_underlying_tooltip
+                  : ETranslations.market_token_price_onchain_tooltip,
+            })}
+          >
+            {quote}
+          </MarketTooltipLabel>
+        )}
         <XStack gap="$1.5" alignItems="baseline">
           {change ? (
             <NumberSizeableText
