@@ -33,7 +33,7 @@ export type ISwapProPositionsCache = {
 };
 
 export type ISwapProPositionsRuntimeEntry = {
-  status: 'loading' | 'success' | 'error';
+  status: 'loading' | 'refreshing' | 'success' | 'error';
   tokens: ISwapToken[];
   updatedAt: number;
 };
