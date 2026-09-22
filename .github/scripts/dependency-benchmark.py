@@ -58,6 +58,8 @@ def metadata():
         'node': node_version(),
         'kernel': platform.release(),
         'cpus': os.cpu_count(),
+        'cpuinfo': Path('/proc/cpuinfo').read_text(),
+        'sample': os.environ.get('BENCHMARK_SAMPLE', '1'),
         'mode': os.environ.get('BENCHMARK_MODE', 'producer'),
         'workload': os.environ.get('BENCHMARK_WORKLOAD'),
         'memory': Path('/proc/meminfo').read_text(),

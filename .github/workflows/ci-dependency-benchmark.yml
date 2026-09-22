@@ -73,16 +73,18 @@ jobs:
           retention-days: 7
 
   compare:
-    name: ${{ matrix.mode }} / ${{ matrix.workload }}
+    name: ${{ matrix.mode }} / ${{ matrix.workload }} / ${{ matrix.sample }}
     needs: prepare
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
+        sample: [2, 3]
         mode: [packages, tar, squashfs]
         workload: [unit, lint, native]
     env:
+      BENCHMARK_SAMPLE: ${{ matrix.sample }}
       BENCHMARK_MODE: ${{ matrix.mode }}
       BENCHMARK_WORKLOAD: ${{ matrix.workload }}
     steps:
@@ -116,6 +118,6 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: measurements-${{ matrix.mode }}-${{ matrix.workload }}
+          name: measurements-${{ matrix.mode }}-${{ matrix.workload }}-${{ matrix.sample }}
           path: ci-dependency-results
           retention-days: 7
