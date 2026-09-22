@@ -1,3 +1,5 @@
+import { isEqual } from 'lodash';
+
 import type { IJotaiContextStoreData } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type {
   IStructureSnapshot,
@@ -139,14 +141,24 @@ type IHomeSwitchPreparer = (
   signal: AbortSignal,
 ) => Promise<(() => void) | undefined>;
 let homeSwitchPreparer: IHomeSwitchPreparer | undefined;
-let pendingHomeSwitch: AbortController | undefined;
+let activeHomeSwitch: AbortController | undefined;
+let pendingHomeSwitch:
+  | {
+      target: IAccountSelectorActiveAccountInfo;
+      controller: AbortController;
+      result: Promise<(() => void) | undefined>;
+    }
+  | undefined;
 
 export function registerHomeTokenListPreparer(prepare: IHomeSwitchPreparer) {
+  activeHomeSwitch?.abort();
+  pendingHomeSwitch = undefined;
   homeSwitchPreparer = prepare;
   return () => {
     if (homeSwitchPreparer === prepare) {
       homeSwitchPreparer = undefined;
-      pendingHomeSwitch?.abort();
+      activeHomeSwitch?.abort();
+      pendingHomeSwitch = undefined;
     }
   };
 }
@@ -154,26 +166,44 @@ export function registerHomeTokenListPreparer(prepare: IHomeSwitchPreparer) {
 export async function prepareHomeTokenListSwitch(
   target: IAccountSelectorActiveAccountInfo,
 ) {
-  pendingHomeSwitch?.abort();
-  if (!homeSwitchPreparer) return undefined;
+  if (pendingHomeSwitch && isEqual(pendingHomeSwitch.target, target)) {
+    return pendingHomeSwitch.result;
+  }
+  activeHomeSwitch?.abort();
+  const prepare = homeSwitchPreparer;
+  if (!prepare) return undefined;
   const controller = new AbortController();
-  pendingHomeSwitch = controller;
-  let onAbort: (() => void) | undefined;
-  const timeout = setTimeout(() => controller.abort(), 2000);
+  activeHomeSwitch = controller;
+  const result = (async () => {
+    let onAbort: (() => void) | undefined;
+    const timeout = setTimeout(() => controller.abort(), 2000);
+    try {
+      const commit = await Promise.race([
+        prepare(target, controller.signal),
+        new Promise<undefined>((resolve) => {
+          onAbort = () => resolve(undefined);
+          controller.signal.addEventListener('abort', onAbort, { once: true });
+        }),
+      ]);
+      if (controller.signal.aborted || !commit) return undefined;
+      let committed = false;
+      return () => {
+        if (!controller.signal.aborted && !committed) {
+          committed = true;
+          commit();
+        }
+      };
+    } finally {
+      clearTimeout(timeout);
+      if (onAbort) controller.signal.removeEventListener('abort', onAbort);
+    }
+  })();
+  pendingHomeSwitch = { target, controller, result };
   try {
-    const commit = await Promise.race([
-      homeSwitchPreparer(target, controller.signal),
-      new Promise<undefined>((resolve) => {
-        onAbort = () => resolve(undefined);
-        controller.signal.addEventListener('abort', onAbort, { once: true });
-      }),
-    ]);
-    if (controller.signal.aborted || !commit) return undefined;
-    return () => {
-      if (!controller.signal.aborted) commit();
-    };
+    return await result;
   } finally {
-    clearTimeout(timeout);
-    if (onAbort) controller.signal.removeEventListener('abort', onAbort);
+    if (pendingHomeSwitch?.controller === controller) {
+      pendingHomeSwitch = undefined;
+    }
   }
 }

@@ -106,8 +106,6 @@ export const {
 } = contextAtom<{
   ownerKey: string;
   hasCache?: boolean;
-  // Complete coverage, not merely one cached or successful network.
-  isComplete?: boolean;
 }>(
   {
     ownerKey: '',

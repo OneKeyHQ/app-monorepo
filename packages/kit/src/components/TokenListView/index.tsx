@@ -953,6 +953,7 @@ function TokenListViewCmp(props: IProps) {
       tokenSelectorSearchTokenStateIsSearching:
         tokenSelectorSearchTokenState.isSearching,
       searchTokenStateIsSearching: searchTokenState.isSearching,
+      isHomeProjectionPath,
       tokenListInitialized: isHomeProjectionPath
         ? !ownerMismatch && listStructure.generation >= 0
         : tokenListState.initialized,

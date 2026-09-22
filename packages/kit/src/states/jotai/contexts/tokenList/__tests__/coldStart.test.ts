@@ -644,6 +644,58 @@ describe('Home switch preparation', () => {
     }
   });
 
+  it('shares pending preparation for duplicate reloads and commits only once', async () => {
+    const commit = jest.fn();
+    let resolve: ((value: () => void) => void) | undefined;
+    const prepare = jest.fn(
+      (_target: typeof target, _signal: AbortSignal) =>
+        new Promise<() => void>((done) => {
+          resolve = done;
+        }),
+    );
+    const unregister = registerHomeTokenListPreparer(prepare);
+    try {
+      const first = prepareHomeTokenListSwitch(target);
+      const duplicate = prepareHomeTokenListSwitch({ ...target });
+      expect(prepare).toHaveBeenCalledTimes(1);
+      expect(prepare.mock.calls[0][1].aborted).toBe(false);
+      resolve?.(commit);
+      const commits = await Promise.all([first, duplicate]);
+      commits.forEach((apply) => apply?.());
+      expect(commit).toHaveBeenCalledTimes(1);
+    } finally {
+      unregister();
+    }
+  });
+
+  it('cancels a different target without clearing its replacement preparation', async () => {
+    const commit = jest.fn();
+    const resolvers: ((value: () => void) => void)[] = [];
+    const prepare = jest.fn(
+      (_target: typeof target, _signal: AbortSignal) =>
+        new Promise<() => void>((done) => {
+          resolvers.push(done);
+        }),
+    );
+    const unregister = registerHomeTokenListPreparer(prepare);
+    try {
+      const first = prepareHomeTokenListSwitch(target);
+      const nextTarget = { ...target, accountName: 'Next account' };
+      const next = prepareHomeTokenListSwitch(nextTarget);
+      expect(await first).toBeUndefined();
+      expect(prepare.mock.calls[0][1].aborted).toBe(true);
+      const duplicate = prepareHomeTokenListSwitch({ ...nextTarget });
+      expect(prepare).toHaveBeenCalledTimes(2);
+      resolvers[0](jest.fn());
+      resolvers[1](commit);
+      const commits = await Promise.all([next, duplicate]);
+      commits.forEach((apply) => apply?.());
+      expect(commit).toHaveBeenCalledTimes(1);
+    } finally {
+      unregister();
+    }
+  });
+
   it('an unavailable local cache cannot block selection or commit after timeout', async () => {
     jest.useFakeTimers();
     const commit = jest.fn();

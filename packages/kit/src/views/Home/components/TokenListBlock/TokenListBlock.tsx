@@ -969,7 +969,6 @@ function TokenListBlock({
             setOverviewTokenCacheState({
               ownerKey: buildOverviewOwnerKey(account?.id, network?.id),
               hasCache: true,
-              isComplete: true,
             });
           }
         }
@@ -1619,7 +1618,7 @@ function TokenListBlock({
           }),
         );
         if (!isCurrent()) return;
-        const applied = await refreshProjectionRef.current(cellsOwner);
+        await refreshProjectionRef.current(cellsOwner);
         if (!isCurrent()) return;
         updateAccountWorth({
           accountId: accountId ?? '',
@@ -1639,15 +1638,10 @@ function TokenListBlock({
         setOverviewTokenCacheState({
           ownerKey,
           hasCache: false,
-          isComplete: applied,
         });
         return;
       }
-      setOverviewTokenCacheState((prev) => ({
-        ...(prev.ownerKey === ownerKey ? prev : {}),
-        ownerKey,
-        hasCache,
-      }));
+      setOverviewTokenCacheState({ ownerKey, hasCache });
     },
     [
       setOverviewTokenCacheState,
@@ -1993,10 +1987,6 @@ function TokenListBlock({
           setOverviewTokenCacheState({
             ownerKey: buildOverviewOwnerKey(accountId, networkId),
             hasCache: true,
-            isComplete: isWalletAssetStatusAggregationComplete({
-              expectedAccounts: expectedCacheAccountsRef.current,
-              result: data.filter((item) => item.hasCache),
-            }),
           });
         }
         perfTokenListView.markEnd('tokenListRefreshing_allNetworkCacheData');
@@ -2366,7 +2356,6 @@ function TokenListBlock({
           setOverviewTokenCacheState({
             ownerKey: buildOverviewOwnerKey(account?.id, network?.id),
             hasCache: true,
-            isComplete: assetStatusAggregationComplete,
           });
         }
       } finally {
@@ -2626,7 +2615,6 @@ function TokenListBlock({
       let tokenListValue = '0';
       let tokenListWorth: Record<string, string> = {};
       let hasLocalTokenCache = false;
-      let isLocalTokenCacheComplete = false;
       let cachedWorthCurrency: string | undefined;
 
       if (mergeDeriveAddressData) {
@@ -2654,8 +2642,6 @@ function TokenListBlock({
           ),
         );
         hasLocalTokenCache = resp.some((item) => item.hasCache);
-        isLocalTokenCacheComplete =
-          resp.length > 0 && resp.every((item) => item.hasCache);
         // All `resp` entries come from the same multi-network request and
         // share the storage currency; pick the first non-empty tag.
         cachedWorthCurrency = resp.find((r) => r.currency)?.currency;
@@ -2722,7 +2708,6 @@ function TokenListBlock({
             xpub,
           });
         hasLocalTokenCache = localTokens.hasCache;
-        isLocalTokenCacheComplete = localTokens.hasCache;
         cachedWorthCurrency = localTokens.currency;
 
         tokenList = localTokens.tokenList;
@@ -2800,7 +2785,6 @@ function TokenListBlock({
           setOverviewTokenCacheState({
             ownerKey: buildOverviewOwnerKey(accountId, networkId),
             hasCache: true,
-            isComplete: isLocalTokenCacheComplete,
           });
         }
         defaultLogger.account.allNetworkAccountPerf.homeTokenListRefreshTrace({

@@ -30,6 +30,7 @@ export interface IComputeShowTokenListSkeletonParams {
   tokenSelectorSearchTokenStateIsSearching: boolean;
   searchTokenStateIsSearching: boolean;
   tokenListInitialized: boolean;
+  isHomeProjectionPath?: boolean;
   tokenListIsRefreshing: boolean;
   /**
    * Post-filter count of rows the list will render (home: projection ids;
@@ -84,9 +85,11 @@ export function computeShowTokenListSkeleton(
   return (
     (p.isTokenSelector && p.tokenSelectorSearchTokenStateIsSearching) ||
     (!p.isTokenSelector && p.searchTokenStateIsSearching) ||
-    // Cold-start fix: only skeleton the first load when there is NOTHING to
-    // display. A cold paint (or any landed frame) makes displayCount > 0 and
-    // the rows render immediately instead of being hidden by the skeleton.
-    (!p.tokenListInitialized && p.tokenListIsRefreshing && p.displayCount === 0)
+    // Home readiness comes from an applied frame, not request completion. A
+    // failed fetch must not turn an unknown balance into an empty portfolio.
+    // Cached rows remain visible even while the first live frame is pending.
+    (!p.tokenListInitialized &&
+      (p.isHomeProjectionPath || p.tokenListIsRefreshing) &&
+      p.displayCount === 0)
   );
 }

@@ -354,7 +354,6 @@ export function useTokenListCellsProducer(
                 overview?.set(overviewTokenCacheStateAtom(), {
                   ownerKey: `${target.account.id}__${target.network.id}`,
                   hasCache: true,
-                  isComplete: local.complete,
                 });
               }
             };
