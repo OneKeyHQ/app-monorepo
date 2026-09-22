@@ -95,8 +95,18 @@ jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
   },
 }));
 
-jest.mock('@onekeyhq/shared/src/storage/instance/webColdStartStorage', () => ({
-  flushColdStartCacheNow: jest.fn(async () => undefined),
+jest.mock(
+  '@onekeyhq/shared/src/storage/DisplaySnapshotStorage/webUiSnapshotStore',
+  () => ({ flushUiSnapshotStoreNow: jest.fn(async () => undefined) }),
+);
+
+jest.mock('@onekeyhq/shared/src/storage/uiSnapshotCaches', () => ({
+  ACCOUNT_SELECTOR_RECENT_SELECTION_KEY: 'recent-selection',
+  accountSelectorSnapshotCache: {
+    get: jest.fn(),
+    set: jest.fn(),
+    remove: jest.fn(),
+  },
 }));
 
 jest.mock('@onekeyhq/shared/src/storage/instance/syncStorageInstance', () => ({
