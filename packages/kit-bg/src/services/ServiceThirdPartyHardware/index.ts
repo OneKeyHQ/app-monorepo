@@ -786,12 +786,7 @@ class ServiceThirdPartyHardware extends ServiceBase {
         mapThirdPartyDeviceToSearchDevice({
           device: d,
           defaultDeviceName: vendorProfile.presentation.defaultName,
-          canMatchDeviceByConnectId: (connectId) =>
-            vendorProfile.identity.matchDeviceByConnectId(connectId),
-          hasPersistentConnectId: (transport) =>
-            vendorProfile.identity.persistentConnectId(transport),
-          hasPersistentDeviceId: (transport) =>
-            vendorProfile.identity.persistentDeviceId(transport),
+          profile: vendorProfile,
         }),
       );
       defaultLogger.hardware.sdkLog.log(
