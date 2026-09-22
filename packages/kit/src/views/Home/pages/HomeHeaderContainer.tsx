@@ -1,4 +1,6 @@
-import { memo, useEffect, useMemo, useRef } from 'react';
+import { memo, useEffect, useRef } from 'react';
+
+import { useWindowDimensions } from 'react-native';
 
 import {
   HeaderScrollGestureWrapper,
@@ -21,39 +23,43 @@ import { HomeTestIDs } from '../testIDs';
 
 import { HomeOverviewContainer } from './HomeOverviewContainer';
 
-function BaseHomeHeaderContainer() {
+const nativeHeaderHeights = new Map<string, number>();
+
+// Both the header and scroll content select the same measured layout before
+// native onLayout reports the new header height on the following frame.
+export function useHomeHeaderLayout() {
   const {
     activeAccount: { wallet, account, network, vaultSettings },
-  } = useActiveAccount({
-    num: 0,
-  });
-
-  // Mirror WalletBanner's own render condition so the placeholder height
-  // matches what the banner will actually display. WalletBanner returns null
-  // when there's no banner content (no banners and no Tron-resource card);
-  // otherwise the banner band is ~110pt and the header settles at 292pt.
+  } = useActiveAccount({ num: 0 });
   const [{ banners }] = useWalletTopBannersAtom();
-  const hasTronCard = Boolean(
-    vaultSettings?.hasResource && account?.id && network?.id,
-  );
-  const hasWalletBannerContent = banners.length > 0 || hasTronCard;
-
-  const isWalletNotBackedUp = useMemo(() => {
-    if (wallet && wallet.type === WALLET_TYPE_HD && !wallet.backuped) {
-      return true;
-    }
-    return false;
-  }, [wallet]);
-
-  // Banner only renders once we have actual banner content AND the balance is
-  // confirmed positive. Treating 'unknown' as hidden avoids the show→hide
-  // flicker that previously occurred when the page mounted with the banner
-  // visible and then collapsed once the first balance fetch came back zero.
   const homeBalanceState = useHomeBalanceState();
+  const { width, fontScale } = useWindowDimensions();
+  const isWalletNotBackedUp =
+    !!wallet && wallet.type === WALLET_TYPE_HD && !wallet.backuped;
   const shouldShowBanner =
     !isWalletNotBackedUp &&
-    hasWalletBannerContent &&
-    homeBalanceState === 'positive';
+    homeBalanceState === 'positive' &&
+    (banners.length > 0 ||
+      !!(vaultSettings?.hasResource && account?.id && network?.id));
+  const layoutKey = `${homeBalanceState}:${shouldShowBanner}:${isWalletNotBackedUp}:${width}:${fontScale}`;
+  return {
+    wallet,
+    isWalletNotBackedUp,
+    homeBalanceState,
+    shouldShowBanner,
+    layoutKey,
+    measuredHeight: nativeHeaderHeights.get(layoutKey),
+  };
+}
+
+function BaseHomeHeaderContainer() {
+  const {
+    wallet,
+    isWalletNotBackedUp,
+    homeBalanceState,
+    shouldShowBanner,
+    layoutKey,
+  } = useHomeHeaderLayout();
 
   // Reserve the taller native header (292pt) only when the banner band will
   // actually render; otherwise collapse to the shorter layout so we don't
@@ -89,6 +95,20 @@ function BaseHomeHeaderContainer() {
 
   return (
     <YStack
+      onLayout={
+        platformEnv.isNative
+          ? (event) => {
+              const height = Math.round(event.nativeEvent.layout.height);
+              if (height > 0) {
+                nativeHeaderHeights.set(layoutKey, height);
+                if (nativeHeaderHeights.size > 12) {
+                  const oldest = nativeHeaderHeights.keys().next().value;
+                  if (oldest) nativeHeaderHeights.delete(oldest);
+                }
+              }
+            }
+          : undefined
+      }
       pb="$8"
       gap="$5"
       minHeight={nativeMinHeight}

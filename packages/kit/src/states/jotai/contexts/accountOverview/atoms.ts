@@ -71,6 +71,7 @@ export const {
 } = contextAtom<{
   latest: string;
   byOwner: Record<string, string>;
+  assetStateByOwner?: Record<string, 'zero' | 'positive'>;
   // See accountWorthAtom.currency.
   currency?: string;
 }>(
@@ -106,6 +107,8 @@ export const {
 } = contextAtom<{
   ownerKey: string;
   hasCache?: boolean;
+  // Complete coverage, not merely one cached or successful network.
+  isComplete?: boolean;
 }>(
   {
     ownerKey: '',

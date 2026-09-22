@@ -66,9 +66,6 @@ import {
   shouldIncludeKnownDeFiWorth,
 } from './homeOverviewBalanceHold';
 
-// Grace period (ms) after an account switch during which the previous
-// balance is shown as a placeholder to avoid a skeleton flash.
-const BALANCE_REUSE_GRACE_MS = 180;
 // After the token side commits a complete All Networks snapshot, wait this
 // long for DeFi readiness before showing the live total without it.
 const ALL_NETWORKS_DEFI_GRACE_MS = 5000;
@@ -197,29 +194,6 @@ function HomeOverviewContainer() {
     }
     return false;
   }, [wallet]);
-
-  // Bypass token-cache/DeFi-ready gating during the first ~500ms after cold-start
-  // mount: if we have a locally-cached `lastConfirmedOverviewBalance.latest`,
-  // show it immediately. Empirically, waiting for BG to flip hasCache/isReady
-  // costs ~300ms on real device and contributes most of the Window-2 gap from
-  // canDismissSplash=true to Balance displayed. After the window expires, the
-  // original gate logic (BALANCE_REUSE_GRACE_MS + hasPositiveCurrentOwnerSignal)
-  // takes over for account-switch scenarios.
-  //
-  // Gated on the session-level `__onekeyBalanceDisplayed` flag (set on the
-  // first balance render) so the fast path only fires on the actual cold-start
-  // mount, not on every fresh mount triggered by Tabs.Container remount during
-  // network/account switches — otherwise the previous owner's `.latest` value
-  // briefly leaks into the new owner's overview.
-  const isFirstColdStartMountRef = useRef(
-    !(globalThis as any).__onekeyBalanceDisplayed,
-  );
-  useEffect(() => {
-    const t = setTimeout(() => {
-      isFirstColdStartMountRef.current = false;
-    }, 500);
-    return () => clearTimeout(t);
-  }, []);
 
   // Synchronously read the MMKV-hydrated atom snapshot to compute the effective
   // owner key on first render. accountSelector atoms are ColdStartCache-backed,
@@ -745,9 +719,14 @@ function HomeOverviewContainer() {
     vaultSettings?.mergeDeriveAssetsEnabled,
   ]);
 
+  const isCurrentTokenCoverageComplete =
+    overviewTokenCacheState.ownerKey === currentOverviewOwnerKey &&
+    overviewTokenCacheState.isComplete === true;
   const isCurrentAllNetworksBalanceFullyReady =
     !network?.isAllNetworks ||
-    (isCurrentAccountWorthReady && isCurrentAccountDeFiReady);
+    (isCurrentAccountWorthReady &&
+      isCurrentAccountDeFiReady &&
+      isCurrentTokenCoverageComplete);
   const isCurrentAccountWorthOwner =
     !!accountWorth.accountId &&
     (accountWorth.accountId === (account?.id ?? '') ||
@@ -757,20 +736,8 @@ function HomeOverviewContainer() {
   const isCurrentTokenSnapshotCommitted =
     isCurrentAccountWorthOwner &&
     accountWorth.initialized &&
-    accountWorth.updateAll === true;
-
-  const [reuseLatestBalanceGraceExpired, setReuseLatestBalanceGraceExpired] =
-    useState(false);
-  useEffect(() => {
-    setReuseLatestBalanceGraceExpired(false);
-    const timer = setTimeout(() => {
-      setReuseLatestBalanceGraceExpired(true);
-    }, BALANCE_REUSE_GRACE_MS);
-
-    return () => {
-      clearTimeout(timer);
-    };
-  }, [currentOverviewOwnerKey]);
+    accountWorth.updateAll === true &&
+    isCurrentTokenCoverageComplete;
 
   useEffect(() => {
     if (
@@ -779,6 +746,7 @@ function HomeOverviewContainer() {
       isCurrentAllNetworksBalanceFullyReady
     ) {
       setLastConfirmedOverviewBalance((prev) => ({
+        ...prev,
         latest: resolvedBalanceString,
         byOwner: {
           ...prev.byOwner,
@@ -813,40 +781,6 @@ function HomeOverviewContainer() {
     overviewTokenCacheState.ownerKey === currentOverviewOwnerKey;
   const isCurrentDeFiDataStateMatched =
     overviewDeFiDataState.ownerKey === currentOverviewOwnerKey;
-  // Determines whether we can show the most-recently-displayed balance as a
-  // placeholder while the new account's data is still loading.
-  // This avoids a jarring skeleton flash during quick account switches.
-  const canReuseLatestDisplayedBalance = useMemo(() => {
-    // Already have a confirmed balance for this account — no need to reuse.
-    if (currentConfirmedBalance || !lastConfirmedOverviewBalance.latest) {
-      return false;
-    }
-    if (isWalletNotBackedUp) {
-      return false;
-    }
-    // First-mount fast path: see comment on isFirstColdStartMountRef.
-    if (isFirstColdStartMountRef.current) {
-      return true;
-    }
-    const hasPositiveCurrentOwnerSignal =
-      (isCurrentTokenCacheStateMatched &&
-        overviewTokenCacheState.hasCache === true) ||
-      (isCurrentDeFiDataStateMatched && overviewDeFiDataState.isReady === true);
-    if (!hasPositiveCurrentOwnerSignal) {
-      return false;
-    }
-    return !reuseLatestBalanceGraceExpired;
-  }, [
-    currentConfirmedBalance,
-    isWalletNotBackedUp,
-    isCurrentDeFiDataStateMatched,
-    isCurrentTokenCacheStateMatched,
-    lastConfirmedOverviewBalance.latest,
-    overviewDeFiDataState.isReady,
-    overviewTokenCacheState.hasCache,
-    reuseLatestBalanceGraceExpired,
-  ]);
-
   // During All Networks progressive loading, hold the previous confirmed
   // balance until token and DeFi data finish loading. The hold is bounded:
   // DeFi readiness only arrives through the cache-only DeFi hook, and when
@@ -856,7 +790,8 @@ function HomeOverviewContainer() {
     resolveHomeOverviewBalanceHold({
       isAllNetworks: !!network?.isAllNetworks,
       hasConfirmedBalance: !!currentConfirmedBalance,
-      isTokenWorthReady: isCurrentAccountWorthReady,
+      isTokenWorthReady:
+        isCurrentAccountWorthReady && isCurrentTokenCoverageComplete,
       isTokenSnapshotCommitted: isCurrentTokenSnapshotCommitted,
       isDeFiReady: isCurrentAccountDeFiReady,
       isDeFiRefreshing: isRefreshingDeFiList,
@@ -881,20 +816,9 @@ function HomeOverviewContainer() {
     };
   }, [currentOverviewOwnerKey, shouldArmDeFiGrace]);
 
-  const lastConfirmedLatestUsd =
-    canReuseLatestDisplayedBalance && lastConfirmedOverviewBalance.latest
-      ? convertFiat({
-          value: lastConfirmedOverviewBalance.latest,
-          sourceCurrency: lastConfirmedCurrency,
-          targetCurrency: USD_CURRENCY_ID,
-          currencyMap,
-        })
-      : undefined;
   const displayBalanceString = shouldHoldCurrentConfirmedBalance
     ? currentConfirmedBalance
-    : (resolvedBalanceString ??
-      currentConfirmedBalance ??
-      lastConfirmedLatestUsd);
+    : (resolvedBalanceString ?? currentConfirmedBalance);
 
   const balancePayload = useMemo(
     () => ({
@@ -920,8 +844,7 @@ function HomeOverviewContainer() {
   const hasDisplayableOverviewBalance =
     shouldHoldCurrentConfirmedBalance ||
     resolvedBalanceString !== undefined ||
-    !!currentConfirmedBalance ||
-    canReuseLatestDisplayedBalance;
+    !!currentConfirmedBalance;
 
   const shouldDisplayZeroBalancePlaceholder = useMemo(() => {
     if (
@@ -1016,9 +939,7 @@ function HomeOverviewContainer() {
     renderedBalanceString !== null &&
     renderedBalanceString !== undefined;
   useEffect(() => {
-    const isCurrentOwnerBalance =
-      !!currentOverviewOwnerKey &&
-      !(canReuseLatestDisplayedBalance && !currentConfirmedBalance);
+    const isCurrentOwnerBalance = !!currentOverviewOwnerKey;
     const isLive =
       isCurrentOwnerBalance &&
       !shouldHoldCurrentConfirmedBalance &&
@@ -1068,9 +989,7 @@ function HomeOverviewContainer() {
   }, [
     accountDeFiOverview.currency,
     accountDeFiOverview.netWorth,
-    canReuseLatestDisplayedBalance,
     currencyMap,
-    currentConfirmedBalance,
     currentOverviewOwnerKey,
     currentTokenWorthUsd,
     deFiGraceExpired,
@@ -1104,6 +1023,7 @@ function HomeOverviewContainer() {
           currentOverviewOwnerKey
         ) {
           setLastConfirmedOverviewBalance((prev) => ({
+            ...prev,
             latest: balanceToPersist,
             byOwner: {
               ...prev.byOwner,

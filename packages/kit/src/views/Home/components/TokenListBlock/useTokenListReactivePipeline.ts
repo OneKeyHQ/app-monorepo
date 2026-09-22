@@ -134,7 +134,9 @@ export interface ITokenListReactivePipeline {
     IMergedAllNetworkSnapshot | undefined
   >;
   /** Ingest the authoritative snapshot + clear timer + bump epoch. */
-  commitAuthoritativeIngest: (snapshot: IMergedAllNetworkSnapshot) => void;
+  commitAuthoritativeIngest: (
+    snapshot: IMergedAllNetworkSnapshot,
+  ) => Promise<void>;
 }
 
 type IIngestOwnerToken = {
@@ -242,12 +244,12 @@ export function useTokenListReactivePipeline(
   );
 
   const ingestMergedSnapshot = useCallback(
-    (
+    async (
       snapshot: IMergedAllNetworkSnapshot,
       source: string,
       ownerToken?: IIngestOwnerToken,
     ) => {
-      void backgroundApiProxy.serviceTokenViewModel.ingestRound({
+      await backgroundApiProxy.serviceTokenViewModel.ingestRound({
         ownerKey: ownerToken?.ownerKey ?? cellsIngestInputsRef.current.ownerKey,
         orderedTokens: snapshot.orderedTokens,
         smallBalanceTokens: snapshot.smallBalanceTokens,
@@ -319,7 +321,7 @@ export function useTokenListReactivePipeline(
         accountId: ownerAccountId,
         createAtNetwork: ownerCreateAtNetwork,
       });
-      ingestMergedSnapshot(snapshot, source, ownerTokenAtFlushStart);
+      await ingestMergedSnapshot(snapshot, source, ownerTokenAtFlushStart);
     },
     [
       ownerAccountId,
@@ -464,15 +466,15 @@ export function useTokenListReactivePipeline(
   }, [ownerAccountId, ownerCreateAtNetwork, resolveRoundsWithMergeFlag]);
 
   const commitAuthoritativeIngest = useCallback(
-    (snapshot: IMergedAllNetworkSnapshot) => {
-      if (enabled) {
-        ingestMergedSnapshot(snapshot, 'authoritative');
-      }
+    async (snapshot: IMergedAllNetworkSnapshot) => {
       if (progressiveFlushTimerRef.current !== null) {
         clearTimeout(progressiveFlushTimerRef.current);
         progressiveFlushTimerRef.current = null;
       }
       progressivePaintEpochRef.current += 1;
+      if (enabled) {
+        await ingestMergedSnapshot(snapshot, 'authoritative');
+      }
     },
     [enabled, ingestMergedSnapshot],
   );

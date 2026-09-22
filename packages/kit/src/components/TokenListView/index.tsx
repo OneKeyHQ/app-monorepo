@@ -953,12 +953,16 @@ function TokenListViewCmp(props: IProps) {
       tokenSelectorSearchTokenStateIsSearching:
         tokenSelectorSearchTokenState.isSearching,
       searchTokenStateIsSearching: searchTokenState.isSearching,
-      tokenListInitialized: tokenListState.initialized,
+      tokenListInitialized: isHomeProjectionPath
+        ? !ownerMismatch && listStructure.generation >= 0
+        : tokenListState.initialized,
       tokenListIsRefreshing: tokenListState.isRefreshing,
       displayCount,
     });
     return decision;
   }, [
+    isHomeProjectionPath,
+    listStructure.generation,
     ownerMismatch,
     isTokenSelector,
     tokenSelectorInitialized,

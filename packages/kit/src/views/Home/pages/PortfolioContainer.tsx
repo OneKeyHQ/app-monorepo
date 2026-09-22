@@ -46,6 +46,7 @@ import {
   findScrollableAncestorFromLocalNode,
   getStickySidebarMaxHeight,
 } from './defiDesktopStickyDom';
+import { useHomeHeaderLayout } from './HomeHeaderContainer';
 
 import type { ScrollView } from 'react-native';
 
@@ -274,37 +275,51 @@ function PortfolioContainer() {
   );
 }
 
-function PortfolioContainerWithProvider() {
+function PortfolioScrollContainer() {
   const {
     activeAccount: { account, wallet },
   } = useActiveAccount({ num: 0 });
-  const tabBarHeight = useScrollContentTabBarOffset();
+  const bottomInset = useScrollContentTabBarOffset();
   const scrollRef = useRef<ScrollView>(null);
-  const { contentInset } = useContext(CollapsibleTabContext);
+  const { contentInset, tabBarHeight } = useContext(CollapsibleTabContext);
+  const { measuredHeight } = useHomeHeaderLayout();
   const accountKey = `${wallet?.id ?? ''}-${account?.indexedAccountId ?? account?.id ?? ''}`;
   useLayoutEffect(() => {
-    if (platformEnv.isNative) {
+    if (platformEnv.isNative)
       scrollRef.current?.scrollTo({ y: -contentInset, animated: false });
-    }
   }, [accountKey, contentInset]);
+  return (
+    <Tabs.ScrollView
+      ref={scrollRef}
+      showsVerticalScrollIndicator={false}
+      contentContainerStyle={{
+        paddingBottom: bottomInset,
+        ...(platformEnv.isNative && measuredHeight !== undefined
+          ? { paddingTop: measuredHeight + (tabBarHeight ?? 0) }
+          : {}),
+      }}
+      nestedScrollEnabled={platformEnv.isNativeAndroid}
+      refreshControl={
+        !platformEnv.isNativeAndroid ? (
+          <PullToRefresh onRefresh={onHomePageRefresh} />
+        ) : undefined
+      }
+    >
+      <PortfolioContainer />
+    </Tabs.ScrollView>
+  );
+}
+
+function PortfolioContainerWithProvider() {
+  const {
+    activeAccount: { account },
+  } = useActiveAccount({ num: 0 });
   return (
     <HomeTokenListProviderMirrorWrapper accountId={account?.id ?? ''}>
       <ProviderJotaiContextHistoryList>
         <EarnProviderMirror storeName={EJotaiContextStoreNames.earn}>
           <ProviderJotaiContextDeFiList>
-            <Tabs.ScrollView
-              ref={scrollRef}
-              showsVerticalScrollIndicator={false}
-              contentContainerStyle={{ paddingBottom: tabBarHeight }}
-              nestedScrollEnabled={platformEnv.isNativeAndroid}
-              refreshControl={
-                !platformEnv.isNativeAndroid ? (
-                  <PullToRefresh onRefresh={onHomePageRefresh} />
-                ) : undefined
-              }
-            >
-              <PortfolioContainer />
-            </Tabs.ScrollView>
+            <PortfolioScrollContainer />
           </ProviderJotaiContextDeFiList>
         </EarnProviderMirror>
       </ProviderJotaiContextHistoryList>

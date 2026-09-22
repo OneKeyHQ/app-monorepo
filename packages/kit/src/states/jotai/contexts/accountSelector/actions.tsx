@@ -802,6 +802,21 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
         //   selectedAccount,
         //   activeAccount,
         // });
+        let commitHome: (() => void) | undefined;
+        if (
+          platformEnv.isNative &&
+          num === 0 &&
+          get(accountSelectorContextDataAtom())?.sceneName ===
+            EAccountSelectorSceneName.home
+        ) {
+          try {
+            const { prepareHomeTokenListSwitch } =
+              await import('../tokenList/cells/ownerCache');
+            commitHome = await prepareHomeTokenListSwitch(activeAccount);
+          } catch {
+            // A missing or unreadable local snapshot falls back to loading.
+          }
+        }
         const currentSelectedAccount =
           this.getSelectedAccount.call(set, { num }) ||
           defaultSelectedAccount();
@@ -813,6 +828,8 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
         ) {
           return currentActiveAccount;
         }
+        // No await between applying the target snapshot and publishing its owner.
+        commitHome?.();
         set(activeAccountsAtom(), {
           ...get(activeAccountsAtom()),
           [num]: activeAccount,

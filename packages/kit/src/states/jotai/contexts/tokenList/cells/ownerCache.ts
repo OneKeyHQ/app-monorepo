@@ -15,6 +15,7 @@ import { ensureStoreProjection } from './projection';
 
 import type { IApplyDeps, IRiskyListFrameValue } from './apply';
 import type { IJotaiContextStore } from '../../../utils/createJotaiContext';
+import type { IAccountSelectorActiveAccountInfo } from '../../accountSelector';
 
 // Main-runtime display snapshots only. The BG ViewModel still owns live data.
 const MAX_CACHED_OWNERS = 4;
@@ -33,7 +34,7 @@ export function createTokenListOwnerCache(
     }
   >();
 
-  return (ownerKey: string, currency: string): boolean => {
+  const restore = (ownerKey: string, currency: string): boolean => {
     const projection = ensureStoreProjection(store);
     if (!ownerKey || !currency || ownerKey === projection.curOwnerKey) {
       return false;
@@ -112,4 +113,54 @@ export function createTokenListOwnerCache(
     projection.curGeneration = -1;
     return true;
   };
+  return Object.assign(restore, {
+    has: (ownerKey: string, currency: string) =>
+      snapshots.has(`${currency}:${ownerKey}`),
+    seed: (
+      ownerKey: string,
+      currency: string,
+      snapshot: {
+        structure: IStructureSnapshot;
+        valuation: IValuationFrame;
+        risky: IRiskyListFrameValue;
+      },
+    ) => {
+      snapshots.set(`${currency}:${ownerKey}`, snapshot);
+      if (snapshots.size > MAX_CACHED_OWNERS) {
+        const oldest = snapshots.keys().next().value;
+        if (oldest) snapshots.delete(oldest);
+      }
+    },
+  });
+}
+
+type IHomeSwitchPreparer = (
+  target: IAccountSelectorActiveAccountInfo,
+) => Promise<(() => void) | undefined>;
+let homeSwitchPreparer: IHomeSwitchPreparer | undefined;
+
+export function registerHomeTokenListPreparer(prepare: IHomeSwitchPreparer) {
+  homeSwitchPreparer = prepare;
+  return () => {
+    if (homeSwitchPreparer === prepare) {
+      homeSwitchPreparer = undefined;
+    }
+  };
+}
+
+export async function prepareHomeTokenListSwitch(
+  target: IAccountSelectorActiveAccountInfo,
+) {
+  if (!homeSwitchPreparer) return undefined;
+  let timeout: ReturnType<typeof setTimeout> | undefined;
+  try {
+    return await Promise.race([
+      homeSwitchPreparer(target),
+      new Promise<undefined>((resolve) => {
+        timeout = setTimeout(() => resolve(undefined), 2000);
+      }),
+    ]);
+  } finally {
+    clearTimeout(timeout);
+  }
 }

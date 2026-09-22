@@ -3,7 +3,14 @@ import { useCallback } from 'react';
 import { useIntl } from 'react-intl';
 
 import type { IPageNavigationProp, IXStackProps } from '@onekeyhq/components';
-import { Button, Dialog, SizableText, YStack } from '@onekeyhq/components';
+import {
+  Button,
+  Dialog,
+  SizableText,
+  Skeleton,
+  XStack,
+  YStack,
+} from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import {
   OptionCard,
@@ -423,10 +430,16 @@ function WalletActions({ ...rest }: IXStackProps) {
   const { config, getActionCustomization } = useWalletActionConfig();
   const balanceState = useHomeBalanceState();
 
-  // True cold-start with no cached balance: render nothing rather than guess
-  // a state. Sticky fallback in `useHomeBalanceState` keeps subsequent account
-  // switches from re-entering this branch.
-  if (balanceState === 'unknown') return null;
+  // Keep the action band measurable until this owner's asset state is known.
+  if (balanceState === 'unknown') {
+    return (
+      <XStack {...rest} height={64} gap="$2.5" pointerEvents="none">
+        {[0, 1, 2, 3].map((key) => (
+          <Skeleton key={key} flex={1} height={64} radius={12} />
+        ))}
+      </XStack>
+    );
+  }
 
   const renderActionComponent = (actionType: IWalletActionType) => {
     const customization = getActionCustomization(actionType);

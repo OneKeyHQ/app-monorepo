@@ -34,7 +34,11 @@ import {
   fanOutSlimToApply,
   hydrateCellsFromColdStart,
 } from '../cells/coldStart';
-import { createTokenListOwnerCache } from '../cells/ownerCache';
+import {
+  createTokenListOwnerCache,
+  prepareHomeTokenListSwitch,
+  registerHomeTokenListPreparer,
+} from '../cells/ownerCache';
 import {
   aggCell,
   cell,
@@ -585,5 +589,59 @@ describe('account switch display cache', () => {
     );
     expect(store.get(listStructureAtom()).orderedIds).toEqual(['a']);
     expect(projection.curGeneration).toBe(0);
+  });
+});
+
+describe('Home switch preparation', () => {
+  const target: import('../../accountSelector').IAccountSelectorActiveAccountInfo =
+    {
+      ready: true,
+      account: undefined,
+      indexedAccount: undefined,
+      dbAccount: undefined,
+      accountName: '',
+      wallet: undefined,
+      device: undefined,
+      network: undefined,
+      vaultSettings: undefined,
+      deriveType: undefined,
+      deriveInfoItems: [],
+    };
+
+  it('prepares without changing the displayed account until the caller commits', async () => {
+    const commit = jest.fn();
+    const unregister = registerHomeTokenListPreparer(async () => commit);
+    try {
+      const prepared = await prepareHomeTokenListSwitch(target);
+      expect(commit).not.toHaveBeenCalled();
+      prepared?.();
+      expect(commit).toHaveBeenCalledTimes(1);
+    } finally {
+      unregister();
+    }
+    expect(await prepareHomeTokenListSwitch(target)).toBeUndefined();
+  });
+
+  it('an unavailable local cache cannot block selection or commit after timeout', async () => {
+    jest.useFakeTimers();
+    const commit = jest.fn();
+    let resolve: ((value: () => void) => void) | undefined;
+    const unregister = registerHomeTokenListPreparer(
+      () =>
+        new Promise((done) => {
+          resolve = done;
+        }),
+    );
+    try {
+      const pending = prepareHomeTokenListSwitch(target);
+      jest.advanceTimersByTime(2000);
+      expect(await pending).toBeUndefined();
+      resolve?.(commit);
+      await Promise.resolve();
+      expect(commit).not.toHaveBeenCalled();
+    } finally {
+      unregister();
+      jest.useRealTimers();
+    }
   });
 });
