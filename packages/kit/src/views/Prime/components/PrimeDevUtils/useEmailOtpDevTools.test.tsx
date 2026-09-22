@@ -7,6 +7,14 @@ import { act, fireEvent, render, screen } from '@testing-library/react';
 
 import { useEmailOtpDevTools } from './useEmailOtpDevTools';
 
+let mockDevSettingsEnabled = true;
+const mockSendCode = jest.fn();
+const mockLoginWithCode = jest.fn();
+
+jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms', () => ({
+  useDevSettingsPersistAtom: () => [{ enabled: mockDevSettingsEnabled }],
+}));
+
 jest.mock('@onekeyhq/components', () => {
   const Container = ({
     children,
@@ -113,8 +121,8 @@ jest.mock(
 function Harness({ openCount }: { openCount: number }) {
   const devAuth = useEmailOtpDevTools({
     openCount,
-    sendCode: jest.fn(),
-    loginWithCode: jest.fn(),
+    sendCode: mockSendCode,
+    loginWithCode: mockLoginWithCode,
   });
   return (
     <>
@@ -125,6 +133,20 @@ function Harness({ openCount }: { openCount: number }) {
       >
         Send test code
       </button>
+      <button
+        type="button"
+        onClick={() =>
+          void devAuth.loginWithCode({
+            email: 'test@example.com',
+            code: '123456',
+          })
+        }
+      >
+        Verify test code
+      </button>
+      <span data-testid="captcha-override">
+        {String(devAuth.captchaOverride?.enabled)}
+      </span>
       <span data-testid="test-project-active">
         {String(devAuth.isTestProject)}
       </span>
@@ -133,7 +155,48 @@ function Harness({ openCount }: { openCount: number }) {
 }
 
 describe('email OTP debug panel without a development build', () => {
-  beforeEach(() => jest.clearAllMocks());
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockDevSettingsEnabled = true;
+  });
+
+  test.each(['initially disabled', 'disabled after selecting Test2'])(
+    'developer mode %s prevents test clients and CAPTCHA overrides',
+    async (scenario) => {
+      mockDevSettingsEnabled = scenario !== 'initially disabled';
+      const { rerender } = render(<Harness openCount={1} />);
+      if (mockDevSettingsEnabled) {
+        fireEvent.click(screen.getByTestId('prime-otp-use-test-2'));
+        expect(screen.getByTestId('test-project-active').textContent).toBe(
+          'true',
+        );
+        expect(screen.getByTestId('captcha-override').textContent).toBe(
+          'false',
+        );
+        mockDevSettingsEnabled = false;
+        rerender(<Harness openCount={1} />);
+      }
+      expect(screen.queryByTestId('prime-email-otp-dev-controls')).toBeNull();
+      expect(screen.getByTestId('test-project-active').textContent).toBe(
+        'false',
+      );
+      expect(screen.getByTestId('captcha-override').textContent).toBe(
+        'undefined',
+      );
+      await act(async () =>
+        fireEvent.click(screen.getByText('Send test code')),
+      );
+      await act(async () =>
+        fireEvent.click(screen.getByText('Verify test code')),
+      );
+      expect(mockSendCode).toHaveBeenCalledWith({ email: 'test@example.com' });
+      expect(mockLoginWithCode).toHaveBeenCalledWith({
+        email: 'test@example.com',
+        code: '123456',
+      });
+      expect(createClient).not.toHaveBeenCalled();
+    },
+  );
 
   test('stays hidden until requested and can reopen with its configuration', () => {
     const { rerender } = render(<Harness openCount={0} />);

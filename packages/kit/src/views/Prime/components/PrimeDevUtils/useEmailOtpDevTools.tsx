@@ -19,6 +19,7 @@ import {
 } from '@onekeyhq/kit/src/components/Captcha/dev/emailOtpTestConfig';
 import { requestEmailOtp } from '@onekeyhq/kit/src/components/OneKeyAuth/supabase/requestEmailOtp';
 import { useIsMounted } from '@onekeyhq/kit/src/hooks/useIsMounted';
+import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   SUPABASE_PROJECT_URL,
   SUPABASE_PUBLIC_API_KEY,
@@ -118,7 +119,8 @@ export function useEmailOtpDevTools({
   sendCode: (args: { email: string; captchaToken?: string }) => Promise<void>;
   loginWithCode: (args: { email: string; code: string }) => Promise<void>;
 }) {
-  const available = openCount > 0;
+  const [devSettings] = useDevSettingsPersistAtom();
+  const available = devSettings.enabled && openCount > 0;
   const intl = useIntl();
   const mounted = useIsMounted();
   const [config, setConfig] = useState<IDevConfig>({

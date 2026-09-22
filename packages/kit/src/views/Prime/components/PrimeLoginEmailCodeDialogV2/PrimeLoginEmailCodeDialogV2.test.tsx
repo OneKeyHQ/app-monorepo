@@ -842,6 +842,19 @@ describe('PrimeLoginEmailCodeDialogV2', () => {
   test.each([
     new AuthApiError('CAPTCHA rejected', 400, 'captcha_failed'),
     new AuthApiError('Rate limited', 429, 'over_email_send_rate_limit'),
+    new AuthApiError(
+      'For security purposes, you can only request this after 17 seconds.',
+      400,
+      undefined,
+    ),
+    {
+      message:
+        'For security purposes, you can only request this after 0 seconds.',
+    },
+    createEmailOtpRateLimitError({
+      message: 'Rate limited',
+      retryAfterSeconds: 33,
+    }),
     new AuthRetryableFetchError('Failed to fetch', 0),
     new AuthRetryableFetchError('Network request failed', 0),
     new AuthApiError('Server error', 500, 'unexpected_failure'),

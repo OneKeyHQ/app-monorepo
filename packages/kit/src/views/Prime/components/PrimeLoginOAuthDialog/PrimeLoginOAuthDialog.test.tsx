@@ -14,6 +14,7 @@ import PrimeLoginOAuthDialog from './PrimeLoginOAuthDialog';
 
 const mockEmailDialogMount = jest.fn();
 const mockEmailDialogUnmount = jest.fn();
+let mockDevSettingsEnabled = true;
 
 jest.mock('react-intl', () => ({
   useIntl: () => ({
@@ -288,7 +289,7 @@ jest.mock('@onekeyhq/shared/src/platformEnv', () => {
 });
 
 jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms', () => ({
-  useDevSettingsPersistAtom: () => [{ enabled: false }],
+  useDevSettingsPersistAtom: () => [{ enabled: mockDevSettingsEnabled }],
 }));
 
 jest.mock('../oneKeyIdLoginToastUtils', () => ({
@@ -376,6 +377,7 @@ function getBackgroundApiMocks() {
 describe('PrimeLoginOAuthDialog', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockDevSettingsEnabled = true;
     const platformEnv = getPlatformEnvMock();
     platformEnv.isDev = false;
     platformEnv.isNative = false;
@@ -418,6 +420,28 @@ describe('PrimeLoginOAuthDialog', () => {
       clickTitle(1);
       expect(openCount()).toBe('2');
       expect(getOAuthMocks().getOAuthAccessToken).not.toHaveBeenCalled();
+    },
+  );
+
+  test.each([true, false])(
+    'does not open OTP debug controls with developer mode disabled (isDev=%s)',
+    (isDev) => {
+      getPlatformEnvMock().isDev = isDev;
+      mockDevSettingsEnabled = false;
+      render(
+        <PrimeLoginOAuthDialog
+          onComplete={jest.fn().mockResolvedValue(undefined)}
+        />,
+      );
+      fireEvent.click(screen.getByTestId('prime-login-more-methods-trigger'));
+      for (let index = 0; index < 20; index += 1) {
+        fireEvent.click(screen.getByTestId('prime-login-title'));
+      }
+      expect(
+        screen
+          .getByTestId('mock-prime-login-email-dialog')
+          .getAttribute('data-debug-panel-open-count'),
+      ).toBe('0');
     },
   );
 

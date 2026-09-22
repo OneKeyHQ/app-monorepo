@@ -88,7 +88,7 @@ describe('Email OTP request security boundary', () => {
         400,
         undefined,
       ),
-      rejected: false,
+      rejected: true,
     },
   ])(
     'preserves known SDK failures: $error.name/$error.status/$error.code => $rejected',
@@ -103,6 +103,31 @@ describe('Email OTP request security boundary', () => {
       }).catch((requestError: unknown) => requestError);
       expect(result).toBeInstanceOf(OneKeyLocalError);
       expect(isEmailOtpSendKnownFailure(result)).toBe(rejected);
+    },
+  );
+
+  test.each([0, 30])(
+    'preserves message-only cooldown failures and their %s-second retry/toast metadata',
+    async (retryAfterSeconds) => {
+      const signInWithOtp = jest.fn().mockResolvedValue({
+        data: { user: null, session: null },
+        error: new AuthApiError(
+          `For security purposes, you can only request this after ${retryAfterSeconds} seconds.`,
+          400,
+          undefined,
+        ),
+      });
+      const error = await requestEmailOtp({
+        client: { auth: { signInWithOtp } },
+        email: 'test@example.com',
+        intl,
+      }).catch((requestError: unknown) => requestError);
+      expect(error).toMatchObject({
+        data: { retryAfterSeconds, isEmailOtpSendFailure: true },
+      });
+      expect(getEmailOtpRequestErrorMessage({ error, intl })).toBe(
+        `Retry after ${retryAfterSeconds} seconds.`,
+      );
     },
   );
 

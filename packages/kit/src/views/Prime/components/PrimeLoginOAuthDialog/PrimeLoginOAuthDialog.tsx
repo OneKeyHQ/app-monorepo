@@ -636,6 +636,7 @@ function PrimeLoginOAuthDialog(props: {
           {isSignInMethodsExpanded && !isLoginBusy ? (
             <MultipleClickStack
               key={debugPanelOpenCount}
+              devSettingsOnly
               testID="prime-login-debug-trigger"
               onPress={() => setDebugPanelOpenCount((count) => count + 1)}
             >

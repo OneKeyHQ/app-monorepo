@@ -16,6 +16,8 @@ export function isEmailOtpSendKnownFailure(error: unknown): boolean {
       }
     | undefined;
   if (candidate?.data?.isEmailOtpSendFailure === true) return true;
+  // Older SDK responses may only identify a rejected send by its cooldown text.
+  if (getEmailOtpRateLimitRetryAfterSeconds(error) !== undefined) return true;
   if (
     isTransientNetworkLikeError(error) ||
     candidate?.name === 'TimeoutError' ||

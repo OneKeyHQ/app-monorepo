@@ -127,9 +127,11 @@ view loads that hosted page without a wallet bridge.
 
 ### Actual OneKey ID dialog
 
-Open Menu > OneKey ID > Sign In > More sign-in methods. Repeatedly click the
+Enable developer mode, then open Menu > OneKey ID > Sign In > More sign-in methods. Repeatedly click the
 dialog title to reveal the debug panel: three clicks in development builds,
-ten otherwise, using the shared `MultipleClickStack` defaults. The email and
+ten otherwise, using the shared `MultipleClickStack` defaults. Without developer
+mode, the gesture cannot activate the panel, test clients, or CAPTCHA overrides.
+Disabling developer mode also stops applying existing debug overrides. The email and
 verification-code steps both contain server and CAPTCHA controls. The panel
 sits below Sign In / Sign Up on the email
 step and below the normal actions on the verification-code step, keeping the
@@ -487,7 +489,9 @@ explicit SDK rejection (`AuthApiError` 400 / `captcha_failed`, or 429 /
 `over_email_send_rate_limit`), keeps first-time code entry disabled. Structured
 failure metadata survives the existing toast wrapper. Recognized network errors,
 timeouts and 5xx also keep first-time entry disabled. Classification uses error
-types/codes, never message text; unknown errors allow code entry and submission.
+types/codes and the existing exact Supabase cooldown-message fallback; unknown
+errors allow code entry and submission. A recognized cooldown is a failed send,
+including older SDK responses without an error code and a zero-second cooldown.
 A failed resend restores entry for a previously requested code. Only the
 verification API decides whether a submitted code is valid. Changing the
 development server clears this state.
