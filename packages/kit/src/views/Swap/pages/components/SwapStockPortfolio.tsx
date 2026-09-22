@@ -35,7 +35,7 @@ export function useSwapStockPortfolio() {
 export function SwapStockMyPosition() {
   const intl = useIntl();
   const portfolio = useSwapStockPortfolio();
-  const portfolioData = portfolio?.portfolioData ?? [];
+  const portfolioData = portfolio?.positionListData ?? [];
   return (
     <SwapSmoothReveal
       visible={portfolioData.length > 0}

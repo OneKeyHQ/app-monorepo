@@ -1,5 +1,7 @@
 import { useCallback, useMemo, useRef } from 'react';
 
+import BigNumber from 'bignumber.js';
+
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useStockDetail } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/hooks/StockDetailContext';
@@ -12,6 +14,10 @@ import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 import type { IMarketAccountPortfolioDisplayItem } from '@onekeyhq/shared/types/marketV2';
 
 import { useSwapProPositionAccountIdentity } from './useSwapPro';
+
+// Dust floor for the My position table. The raw list still carries every
+// holding so the token selector can report a real balance for each variant.
+const SWAP_STOCK_POSITION_LIST_MIN_VALUE_USD = 0.01;
 
 function getNetworkAccountXpub(account: INetworkAccount) {
   if ('xpubSegwit' in account && account.xpubSegwit) {
@@ -113,6 +119,22 @@ export function useSwapStockPortfolioData() {
     () => portfolioResult?.items ?? [],
     [portfolioResult],
   );
+  // What the table shows: dust dropped, largest holding first.
+  const positionListData = useMemo(
+    () =>
+      portfolioData
+        .filter((item) =>
+          new BigNumber(item.totalPrice ?? '0').gte(
+            SWAP_STOCK_POSITION_LIST_MIN_VALUE_USD,
+          ),
+        )
+        .toSorted((left, right) =>
+          new BigNumber(right.totalPrice ?? '0').comparedTo(
+            new BigNumber(left.totalPrice ?? '0'),
+          ),
+        ),
+    [portfolioData],
+  );
   const resolvedVariantKeys = useMemo(
     () => portfolioResult?.resolvedVariantKeys ?? [],
     [portfolioResult],
@@ -120,6 +142,7 @@ export function useSwapStockPortfolioData() {
 
   return {
     portfolioData,
+    positionListData,
     resolvedVariantKeys,
     isRefreshing: Boolean(isRefreshing),
     hasAccount,
