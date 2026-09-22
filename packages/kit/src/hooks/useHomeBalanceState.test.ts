@@ -43,9 +43,6 @@ jest.mock('../states/jotai/contexts/accountOverview', () => ({
     { byOwner: mockBalances },
     jest.fn(),
   ],
-  // A failed chain and unavailable optional categories must not gate actions.
-  useOverviewTokenCacheStateAtom: () => [{ isComplete: false }],
-  useHomePortfolioDisplayAtom: () => [{ isLive: false }],
 }));
 
 jest.mock('../states/jotai/contexts/accountSelector', () => ({
@@ -88,7 +85,7 @@ describe('Home action balance state', () => {
     },
   );
 
-  it('classifies 53 returned zero balances even when another chain is unavailable', () => {
+  it('classifies an owner-matched live worth map containing only zero values', () => {
     mockWorth = {
       initialized: true,
       accountId: 'account-1',
@@ -100,7 +97,7 @@ describe('Home action balance state', () => {
     expect(result.current).toBe('zero');
   });
 
-  it('uses a positive partial result without DeFi or Perps readiness', () => {
+  it('classifies a single positive live worth value for the indexed account', () => {
     mockWorth = {
       initialized: true,
       accountId: 'indexed-1',
@@ -138,6 +135,29 @@ describe('Home action balance state', () => {
     const { result } = renderHook(() => useHomeBalanceState());
     expect(result.current).toBe('unknown');
   });
+
+  it.each(['account', 'network'] as const)(
+    'does not borrow a zero balance while the next %s has no data',
+    (switchType) => {
+      mockBalances = { 'account-1__onekeyall--0': '0' };
+      const { result, rerender } = renderHook(() => useHomeBalanceState());
+      expect(result.current).toBe('zero');
+      mockActiveAccount = {
+        ...mockActiveAccount,
+        ...(switchType === 'account'
+          ? { account: { id: 'account-2' } }
+          : { network: { id: 'evm--56' } }),
+      };
+      rerender();
+      expect(result.current).toBe('unknown');
+      mockBalances = {
+        [`${mockActiveAccount.account.id}__${mockActiveAccount.network.id}`]:
+          '0',
+      };
+      rerender();
+      expect(result.current).toBe('zero');
+    },
+  );
 
   it('keeps the previous layout within a wallet but resets it across wallets', () => {
     mockBalances = { 'account-1__onekeyall--0': '1' };

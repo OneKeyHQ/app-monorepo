@@ -740,7 +740,6 @@ function HomeOverviewContainer() {
       isCurrentAllNetworksBalanceFullyReady
     ) {
       setLastConfirmedOverviewBalance((prev) => ({
-        ...prev,
         latest: resolvedBalanceString,
         byOwner: {
           ...prev.byOwner,
@@ -1016,7 +1015,6 @@ function HomeOverviewContainer() {
           currentOverviewOwnerKey
         ) {
           setLastConfirmedOverviewBalance((prev) => ({
-            ...prev,
             latest: balanceToPersist,
             byOwner: {
               ...prev.byOwner,

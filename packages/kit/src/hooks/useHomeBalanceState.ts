@@ -50,7 +50,7 @@ appEventBus.on(EAppEventBusNames.AccountRemove, () => fundedOwners.clear());
 //      only written after the "fully ready" signal. Without this fallback, the
 //      header can show a real balance number while we still report `unknown`,
 //      hiding the action row and banner until the slow confirmation completes.
-// A `sticky` ref keeps the last non-`unknown` state for the brief moment
+// A `sticky` ref keeps a funded state for the brief moment
 // during account switches when neither source has data for the new owner yet.
 //
 // Requires the tokenList jotai context (HomeTokenListProviderMirror) in scope.
@@ -178,7 +178,8 @@ export function useHomeBalanceState(): IHomeBalanceState {
   if (stickyRef.current.key !== walletKey) {
     stickyRef.current = { key: walletKey, state: 'unknown' };
   }
-  if (computed !== 'unknown' && stickyRef.current.state !== computed) {
+  // Only preserve available actions; never borrow another owner's empty state.
+  if (computed === 'positive' && stickyRef.current.state !== computed) {
     stickyRef.current = { key: walletKey, state: computed };
   }
 

@@ -71,7 +71,6 @@ export const {
 } = contextAtom<{
   latest: string;
   byOwner: Record<string, string>;
-  assetStateByOwner?: Record<string, 'zero' | 'positive'>;
   // See accountWorthAtom.currency.
   currency?: string;
 }>(
