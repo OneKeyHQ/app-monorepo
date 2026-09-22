@@ -12,6 +12,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IMarketBasicConfigToken } from '@onekeyhq/shared/types/marketV2';
 
 import { useWatchListV2Action } from '../../../components/watchListHooksV2';
+import { getRecommendTokenNetworkId } from '../../../utils/getRecommendTokenNetworkId';
 import { mapRecommendTokensToWatchlistItems } from '../../../utils/mapRecommendTokensToWatchlistItems';
 import { getMarketRecommendContainerPaddingTop } from '../../layouts/mobileLayoutUtils';
 
@@ -139,7 +140,9 @@ export function MarketRecommendList({
     try {
       const items = await mapRecommendTokensToWatchlistItems(selectedTokens);
 
-      const added = await actions.addIntoWatchListV2(items);
+      const added = await actions.addIntoWatchListV2(items, {
+        preserveOrder: true,
+      });
       if (!added) {
         return;
       }
@@ -231,7 +234,7 @@ export function MarketRecommendList({
                   icon={item.logo || ''}
                   symbol={item.symbol}
                   tokenName={item.name}
-                  networkId={item.chainId}
+                  networkId={getRecommendTokenNetworkId(item)}
                   communityRecognized={Boolean(
                     item.communityRecognized ||
                     communityRecognizedMap[tokenKey],

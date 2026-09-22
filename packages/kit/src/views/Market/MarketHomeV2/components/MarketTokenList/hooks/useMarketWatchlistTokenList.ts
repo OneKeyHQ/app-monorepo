@@ -114,6 +114,11 @@ export function useMarketWatchlistTokenList({
   const isLoadingMore = false;
   const hasMore = false;
   const [isInitialLoad, setIsInitialLoad] = useState(true);
+  // Cold start paints spot, listings, and perps as each request returns, so
+  // rows pop in and the order jumps (OK-63895). Hold the first commit until
+  // every source for this watchlist has settled. A page cache or a list that
+  // already rendered keeps its rows and only fills in what is still missing.
+  const hasCommittedWatchlistRowsRef = useRef(false);
 
   const pageIndex = useCarouselIndex();
 
@@ -575,7 +580,25 @@ export function useMarketWatchlistTokenList({
     });
   }, [transformedData, sortBy, sortType]);
 
-  const totalCount = sortedData.length;
+  const watchlistSourcesSettled =
+    watchlist.length > 0 &&
+    (spotItems.length === 0 || apiLoading === false) &&
+    (listingItems.length === 0 || listingLoading === false) &&
+    (perpsItems.length === 0 || perpsLoading === false);
+  if (watchlistSourcesSettled) {
+    hasCommittedWatchlistRowsRef.current = true;
+  }
+  const hasRenderableCache = Boolean(
+    dataCacheRef?.current?.spot?.list?.length ||
+      dataCacheRef?.current?.listing?.length ||
+      dataCacheRef?.current?.perps?.tokenListData,
+  );
+  const displayData =
+    hasCommittedWatchlistRowsRef.current || hasRenderableCache
+      ? sortedData
+      : [];
+
+  const totalCount = displayData.length;
   const totalPages = totalCount > 0 ? Math.ceil(totalCount / pageSize) : 1;
 
   useEffect(() => {
@@ -586,8 +609,8 @@ export function useMarketWatchlistTokenList({
 
   const paginatedData = useMemo(() => {
     const start = (currentPage - 1) * pageSize;
-    return sortedData.slice(start, start + pageSize);
-  }, [sortedData, currentPage, pageSize]);
+    return displayData.slice(start, start + pageSize);
+  }, [displayData, currentPage, pageSize]);
 
   const loadMore = useCallback(() => {
     // Watchlist doesn't support load more - all data is loaded at once

@@ -38,6 +38,7 @@ import {
 import { getMarketWatchlistKey } from '@onekeyhq/shared/src/utils/marketWatchlistIdentity';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { getTokenSubtitle } from '@onekeyhq/shared/src/utils/perpsUtils';
+import sortUtils from '@onekeyhq/shared/src/utils/sortUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type { IMarketWatchListItemV2 } from '@onekeyhq/shared/types/market';
@@ -52,6 +53,7 @@ import { CategorySelector } from '../../../Market/MarketHomeV2/components/Catego
 import { getNativeTokenInfo } from '../../../Market/MarketHomeV2/components/MarketTokenList/utils/tokenListHelpers';
 import { useMarketTopCoinResolver } from '../../../Market/MarketHomeV2/components/MarketTopCoinsList/hooks/useMarketTopCoins';
 import { EMarketHomeTab } from '../../../Market/MarketHomeV2/types';
+import { getRecommendTokenNetworkId } from '../../../Market/utils/getRecommendTokenNetworkId';
 import {
   copyRecommendListingIds,
   mapRecommendTokensToWatchlistItems,
@@ -108,6 +110,7 @@ function RecommendCardItem({
       }),
     [disabled],
   );
+  const networkId = getRecommendTokenNetworkId(token);
 
   return (
     <XStack
@@ -139,8 +142,8 @@ function RecommendCardItem({
           size="md"
           tokenImageUri={token.logoUrl}
           tokenImageUris={token.logoUrls}
-          networkId={token.chainId}
-          showNetworkIcon
+          networkId={networkId}
+          showNetworkIcon={Boolean(networkId)}
         />
         <YStack
           flexShrink={1}
@@ -818,9 +821,13 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
     try {
       const mappedItems =
         await mapRecommendTokensToWatchlistItems(selectedTokens);
+      const sortIndexes = sortUtils.buildOrderedTopSortIndexes({
+        oldList: [],
+        count: mappedItems.length,
+      });
       const nextWatchListItems = mappedItems.map((item, index) => ({
         ...item,
-        sortIndex: 1000 - (index + 1),
+        sortIndex: sortIndexes[index],
       }));
 
       await backgroundApiProxy.serviceMarketV2.addMarketWatchListV2({

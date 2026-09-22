@@ -1,7 +1,7 @@
 /** @jest-environment jsdom */
 import type { RefObject } from 'react';
 
-import { renderHook, waitFor } from '@testing-library/react';
+import { act, renderHook, waitFor } from '@testing-library/react';
 
 import type {
   IMarketListingWatchlistQuote,
@@ -83,6 +83,60 @@ const stockItem = (
 beforeEach(() => {
   jest.clearAllMocks();
   mockStockBatch.mockResolvedValue([]);
+});
+it('holds the first paint until spot and listing quotes have both settled', async () => {
+  let resolveSpot: (value: { list: unknown[] }) => void = () => {};
+  let resolveQuote: (value: IMarketListingWatchlistQuote) => void = () => {};
+  mockBatch.mockReturnValue(
+    new Promise((resolve) => {
+      resolveSpot = resolve;
+    }),
+  );
+  mockQuote.mockReturnValue(
+    new Promise((resolve) => {
+      resolveQuote = resolve;
+    }),
+  );
+  const watchlist = [
+    { assetId: 'bitcoin', chainId: '', contractAddress: '', sortIndex: 0 },
+    { chainId: 'evm--1', contractAddress: '0xaave', sortIndex: 1 },
+  ];
+  const { result } = renderHook(() =>
+    useMarketWatchlistTokenList({ watchlist, pollingInterval: 0 }),
+  );
+  await waitFor(() => expect(mockBatch).toHaveBeenCalled());
+  await waitFor(() => expect(mockQuote).toHaveBeenCalled());
+
+  resolveSpot({
+    list: [
+      {
+        address: '0xaave',
+        name: 'Aave',
+        symbol: 'AAVE',
+        decimals: 18,
+        networkId: 'evm--1',
+      },
+    ],
+  });
+  await act(async () => {
+    await Promise.resolve();
+  });
+  expect(result.current.data).toEqual([]);
+  expect(result.current.isLoading).toBe(true);
+
+  resolveQuote({
+    name: 'Bitcoin',
+    symbol: 'BTC',
+    logoUrl: '',
+    price: '1',
+    priceChange24hPercent: '1',
+  });
+  await waitFor(() =>
+    expect(result.current.data.map((item) => item.symbol)).toEqual([
+      'BTC',
+      'AAVE',
+    ]),
+  );
 });
 it('loads assets by ID and stocks through the batch API without touching the chain token batch', async () => {
   mockQuote.mockResolvedValue({
