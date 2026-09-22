@@ -1,7 +1,10 @@
 import ServiceThirdPartyHardware from '.';
 
 import { EDeviceType } from '@onekeyfe/hd-shared';
-import { HardwareErrorCode } from '@onekeyfe/hwk-adapter-core';
+import {
+  HardwareErrorCode,
+  createHardwareOperationId,
+} from '@onekeyfe/hwk-adapter-core';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EHardwareVendor } from '@onekeyhq/shared/types/device';
@@ -494,6 +497,7 @@ describe('ServiceThirdPartyHardware Trezor BLE binding', () => {
   });
 
   it('forwards passphraseState when deriving a third-party EVM address', async () => {
+    db.getDeviceByQuery.mockResolvedValueOnce(undefined);
     const evmGetAddress = jest.fn().mockResolvedValue({
       success: true,
       payload: { address: '0xHiddenWalletAddress' },
@@ -526,6 +530,7 @@ describe('ServiceThirdPartyHardware Trezor BLE binding', () => {
       'TREZOR-USB',
       'TREZOR-DEVICE-ID',
       {
+        knownConnections: [],
         path: "m/44'/60'/0'/0/0",
         showOnDevice: false,
         passphraseState: 'PASSPHRASE_STATE',
@@ -653,5 +658,118 @@ describe('ServiceThirdPartyHardware Keystone lifecycle', () => {
     await expect(
       service.getConnectedHardwareDeviceIdentityKeys(),
     ).resolves.toEqual([]);
+  });
+});
+
+describe('Trezor wallet reads connection context', () => {
+  afterEach(() => jest.restoreAllMocks());
+
+  it.each(['usb-old', ''])(
+    'passes both saved channels to address and XFP reads (target=%s)',
+    async (connectId) => {
+      const device = {
+        id: 'db-device',
+        vendor: EHardwareVendor.trezor,
+        deviceId: 'identity',
+        usbConnectId: 'usb-old',
+        bleConnectId: 'ble-live',
+      } as IDBDevice;
+      const lookup = jest
+        .spyOn(localDb, 'getDeviceByQuery')
+        .mockResolvedValue(device);
+      const evmGetAddress = jest
+        .fn()
+        .mockResolvedValue({ success: true, payload: { address: '0x1' } });
+      const btcGetMasterFingerprint = jest.fn().mockResolvedValue({
+        success: true,
+        payload: { masterFingerprint: '12345678' },
+      });
+      const btcGetPublicKey = jest
+        .fn()
+        .mockResolvedValue({ success: true, payload: { xpub: 'xpub-test' } });
+      const service = new ServiceThirdPartyHardware({
+        backgroundApi: {} as IBackgroundApi,
+      });
+      jest.spyOn(service, 'getAdapterForVendor').mockResolvedValue({
+        hw: { evmGetAddress, btcGetMasterFingerprint, btcGetPublicKey },
+      } as unknown as IThirdPartyHardwareAdapter);
+      const params = {
+        connectId,
+        deviceId: 'identity',
+        vendor: EHardwareVendor.trezor,
+        passphraseState: 'hidden-wallet',
+      };
+      await service.getEvmAddressByWalletState({
+        ...params,
+        path: "m/44'/60'/0'/0/0",
+      });
+      await service.buildHwWalletXfp(params);
+      expect(lookup).toHaveBeenCalledWith({
+        featuresDeviceId: 'identity',
+        vendor: EHardwareVendor.trezor,
+      });
+      for (const method of [
+        evmGetAddress,
+        btcGetMasterFingerprint,
+        btcGetPublicKey,
+      ]) {
+        expect(method).toHaveBeenCalledWith(
+          connectId,
+          'identity',
+          expect.objectContaining({
+            knownConnections: [
+              { transport: 'usb', connectId: 'usb-old' },
+              { transport: 'ble', connectId: 'ble-live' },
+            ],
+            extra: { dbDeviceId: 'db-device' },
+            passphraseState: 'hidden-wallet',
+          }),
+        );
+      }
+    },
+  );
+
+  it('preserves the selected operation without reading saved locators', async () => {
+    const lookup = jest.spyOn(localDb, 'getDeviceByQuery');
+    lookup.mockClear();
+    const operationId = createHardwareOperationId('trezor');
+    const evmGetAddress = jest
+      .fn()
+      .mockResolvedValue({ success: true, payload: { address: '0x1' } });
+    const btcGetMasterFingerprint = jest.fn().mockResolvedValue({
+      success: true,
+      payload: { masterFingerprint: '12345678' },
+    });
+    const btcGetPublicKey = jest
+      .fn()
+      .mockResolvedValue({ success: true, payload: { xpub: 'xpub-test' } });
+    const service = new ServiceThirdPartyHardware({
+      backgroundApi: {} as IBackgroundApi,
+    });
+    jest.spyOn(service, 'getAdapterForVendor').mockResolvedValue({
+      hw: { evmGetAddress, btcGetMasterFingerprint, btcGetPublicKey },
+    } as unknown as IThirdPartyHardwareAdapter);
+    const params = {
+      connectId: operationId,
+      deviceId: 'identity',
+      vendor: EHardwareVendor.trezor,
+    };
+    await service.getEvmAddressByWalletState({
+      ...params,
+      path: "m/44'/60'/0'/0/0",
+    });
+    await service.buildHwWalletXfp(params);
+    expect(lookup).not.toHaveBeenCalled();
+    for (const method of [
+      evmGetAddress,
+      btcGetMasterFingerprint,
+      btcGetPublicKey,
+    ]) {
+      expect(method).toHaveBeenCalledWith(
+        operationId,
+        'identity',
+        expect.not.objectContaining({ knownConnections: expect.anything() }),
+      );
+    }
   });
 });

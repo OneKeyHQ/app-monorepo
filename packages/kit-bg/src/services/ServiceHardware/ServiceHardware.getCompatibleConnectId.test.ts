@@ -3471,3 +3471,33 @@ describe('ServiceHardware cancellation ownership', () => {
     expect(order).toEqual(['next']);
   });
 });
+
+describe('Trezor XFP identity-based discovery', () => {
+  it.each([undefined, ''])(
+    'allows an absent legacy connectId (%s) when identity is known',
+    async (connectId) => {
+      const buildHwWalletXfp = jest.fn().mockResolvedValue('xfp');
+      const service = new ServiceHardware({
+        backgroundApi: {
+          serviceThirdPartyHardware: { buildHwWalletXfp },
+        } as unknown as IBackgroundApi,
+      });
+      await expect(
+        service.buildHwWalletXfp({
+          connectId,
+          deviceId: 'trezor-identity',
+          vendor: EHardwareVendor.trezor,
+          passphraseState: undefined,
+          throwError: true,
+          withUserInteraction: true,
+        }),
+      ).resolves.toBe('xfp');
+      expect(buildHwWalletXfp).toHaveBeenCalledWith({
+        connectId: '',
+        deviceId: 'trezor-identity',
+        vendor: EHardwareVendor.trezor,
+        passphraseState: undefined,
+      });
+    },
+  );
+});
