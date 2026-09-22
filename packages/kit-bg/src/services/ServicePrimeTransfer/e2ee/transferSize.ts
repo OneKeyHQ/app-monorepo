@@ -9,12 +9,10 @@ import type {
   IJsonRpcRequest,
 } from '@onekeyfe/cross-inpage-provider-types';
 
-export const DEFAULT_TRANSFER_MESSAGE_SIZE = 10 * 1024 * 1024;
-
-export function getTransferMessageLimit(value?: number): number {
+export function getTransferMessageLimit(value?: unknown): number | undefined {
   return typeof value === 'number' && Number.isSafeInteger(value) && value > 0
     ? value
-    : DEFAULT_TRANSFER_MESSAGE_SIZE;
+    : undefined;
 }
 
 export function assertTransferSize(size: number, limit: number): void {
@@ -36,8 +34,11 @@ export function assertLegacyTransferPacketSize({
 }: {
   roomId: string;
   payload: IJsBridgeMessagePayload;
-  maxMessageSize: number;
+  maxMessageSize?: number;
 }): void {
+  // Legacy relays can have custom limits without advertising them. Preserve
+  // their existing send behavior instead of guessing a client-side limit.
+  if (maxMessageSize === undefined) return;
   const request = payload.data as IJsonRpcRequest | undefined;
   if (request?.method !== 'sendTransferData') return;
   const params = request.params;

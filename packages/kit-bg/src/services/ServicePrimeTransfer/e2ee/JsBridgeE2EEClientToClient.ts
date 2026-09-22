@@ -54,7 +54,7 @@ export class JsBridgeE2EEClientToClient extends JsBridgeBase {
 
   socket: Socket;
 
-  private readonly maxMessageSize: number;
+  private readonly maxMessageSize: number | undefined;
 
   roomId: string;
 

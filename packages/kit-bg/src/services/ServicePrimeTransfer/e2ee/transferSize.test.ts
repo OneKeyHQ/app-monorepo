@@ -7,7 +7,6 @@ import { PRIME_TRANSFER_MAX_PAYLOAD_SIZE } from '@onekeyhq/shared/types/prime/pr
 
 import { JsBridgeE2EEClientToClient } from './JsBridgeE2EEClientToClient';
 import {
-  DEFAULT_TRANSFER_MESSAGE_SIZE,
   assertLegacyTransferPacketSize,
   assertTransferSize,
   getTransferMessageLimit,
@@ -47,10 +46,19 @@ const packet = (rawData: string): IJsBridgeMessagePayload => ({
   data: { module: 'api', method: 'sendTransferData', params: [{ rawData }] },
 });
 
-test.each([undefined, 0, -1, NaN, Infinity, 1.5])(
-  'old or invalid relay limits use the existing default: %s',
-  (value) =>
-    expect(getTransferMessageLimit(value)).toBe(DEFAULT_TRANSFER_MESSAGE_SIZE),
+test.each([
+  undefined,
+  null,
+  0,
+  -1,
+  NaN,
+  Infinity,
+  1.5,
+  Number.MAX_SAFE_INTEGER + 1,
+  '20971520',
+  {},
+])('missing or invalid relay limits remain unknown: %p', (value) =>
+  expect(getTransferMessageLimit(value)).toBeUndefined(),
 );
 
 test('an advertised deployment limit is used without capping it at the old default', () => {
@@ -124,17 +132,41 @@ test('the real sender bridge emits no wallet packet when preflight fails', async
   expect(emit).toHaveBeenCalledWith('e2ee-c2c-request', expect.any(Object));
 });
 
-test('legacy bridges without limit metadata preserve a valid large transfer', () => {
+test.each([undefined, 0, 20 * 1024 * 1024])(
+  'legacy bridges preserve a 12 MiB transfer with an unknown or sufficient limit: %s',
+  (maxMessageSize) => {
+    const socket = new EventEmitter();
+    const bridge = new JsBridgeE2EEClientToClient(
+      {},
+      {
+        socket: socket as unknown as Socket,
+        roomId,
+        isProxySide: true,
+        maxMessageSize,
+      },
+    );
+    const emit = jest.spyOn(socket, 'emit');
+    const payload = packet('A'.repeat(12 * 1024 * 1024));
+    bridge.sendPayload(payload);
+    expect(emit).toHaveBeenCalledTimes(1);
+    expect(emit).toHaveBeenCalledWith('e2ee-c2c-request', { roomId, payload });
+  },
+);
+
+test('an advertised 10 MiB limit rejects a 12 MiB transfer before emitting', () => {
   const socket = new EventEmitter();
+  const emit = jest.spyOn(socket, 'emit');
   const bridge = new JsBridgeE2EEClientToClient(
     {},
-    { socket: socket as unknown as Socket, roomId, isProxySide: true },
+    {
+      socket: socket as unknown as Socket,
+      roomId,
+      isProxySide: true,
+      maxMessageSize: 10 * 1024 * 1024,
+    },
   );
-  const emit = jest.spyOn(socket, 'emit');
-  bridge.sendPayload(packet('A'.repeat(9 * 1024 * 1024)));
-  expect(emit).toHaveBeenCalledTimes(1);
   expect(() =>
-    bridge.sendPayload(packet('A'.repeat(DEFAULT_TRANSFER_MESSAGE_SIZE))),
-  ).toThrow('Transfer too large');
-  expect(emit).toHaveBeenCalledTimes(1);
+    bridge.sendPayload(packet('A'.repeat(12 * 1024 * 1024))),
+  ).toThrow('Transfer too large: 12 MiB; limit 10 MiB');
+  expect(emit).not.toHaveBeenCalled();
 });

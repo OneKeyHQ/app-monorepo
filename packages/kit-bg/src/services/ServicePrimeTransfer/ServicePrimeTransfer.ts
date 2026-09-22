@@ -129,7 +129,6 @@ import e2eeClientToClientApi, {
 import { createE2EEClientToClientApiProxy } from './e2ee/e2eeClientToClientApiProxy';
 import { createE2EEServerApiProxy } from './e2ee/e2eeServerApiProxy';
 import {
-  DEFAULT_TRANSFER_MESSAGE_SIZE,
   assertTransferSize,
   getTransferMessageLimit,
 } from './e2ee/transferSize';
@@ -304,7 +303,7 @@ class ServicePrimeTransfer extends ServiceBase {
 
   private serverSupportsChunkedTransfer = false;
 
-  private serverMaxMessageSize = DEFAULT_TRANSFER_MESSAGE_SIZE;
+  private serverMaxMessageSize: number | undefined;
 
   private networkTask: IPrimeTransferNetworkTask | undefined;
 
@@ -2518,7 +2517,7 @@ class ServicePrimeTransfer extends ServiceBase {
 
   async handleDisconnect() {
     this.serverSupportsChunkedTransfer = false;
-    this.serverMaxMessageSize = DEFAULT_TRANSFER_MESSAGE_SIZE;
+    this.serverMaxMessageSize = undefined;
     await this.cancelNetworkTransfer();
     connectedPairingCode = null;
     connectedEncryptedKey = null;
