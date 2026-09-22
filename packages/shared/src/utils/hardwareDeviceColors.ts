@@ -19,8 +19,9 @@ export type IHardwareDeviceColor = IPro2DeviceColor | INeoDeviceColor;
  * 2026-09-01; B settled 2026-09-22): A black, B white on the Neo and
  * silver on the Pro 2, D orange, E green, F pink. Neither model ships a
  * transparent SKU. A letter the model does not come in, or no serial at
- * all, resolves to nothing — each surface then wears its own default
- * (avatars: black; replicas: the Pro 2 in black, the Neo in white).
+ * all, resolves to nothing — every surface then wears the model's default
+ * finish, the Pro 2 in black and the Neo in white (avatar and replica
+ * alike).
  */
 const PRO2_SERIAL_COLORS: Partial<Record<string, IPro2DeviceColor>> = {
   A: 'Black',

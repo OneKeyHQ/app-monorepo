@@ -55,8 +55,12 @@ export const HwWalletAvatarImages: Record<
   [EDeviceType.Mini]: require('../assets/wallet/avatar/Mini.png'),
   [EDeviceType.Touch]: require('../assets/wallet/avatar/Touch.png'),
   [EDeviceType.Pro]: require('../assets/wallet/avatar/ProBlack.png'),
+  // The bare model keys are each model's default finish — the Pro 2 in
+  // black, the Neo in white — worn wherever no serial is in hand (the
+  // onboarding device list, the setup stepper), the same defaults the
+  // stage replicas wear.
   [EDeviceType.Pro2]: require('../assets/wallet/avatar/Pro2Black.png'),
-  [NEO_DEVICE_TYPE]: require('../assets/wallet/avatar/NeoBlack.png'),
+  [NEO_DEVICE_TYPE]: require('../assets/wallet/avatar/NeoWhite.png'),
   [`${EDeviceType.Pro}Black`]: require('../assets/wallet/avatar/ProBlack.png'),
   [`${EDeviceType.Pro}White`]: require('../assets/wallet/avatar/ProWhite.png'),
   [`${EDeviceType.Pro2}Black`]: require('../assets/wallet/avatar/Pro2Black.png'),
@@ -126,12 +130,13 @@ export function getDeviceAvatarImage(
     }
     return `${EDeviceType.Pro}Black`;
   }
-  // A letter the model does not come in, and no serial at all, wear black.
+  // A letter the model does not come in, and no serial at all, wear the
+  // model's default finish (see the table above).
   if (deviceType === EDeviceType.Pro2) {
     return `${EDeviceType.Pro2}${getPro2DeviceColor(serialNo) ?? 'Black'}`;
   }
   if (deviceType === NEO_DEVICE_TYPE) {
-    return `${NEO_DEVICE_TYPE}${getNeoDeviceColor(serialNo) ?? 'Black'}`;
+    return `${NEO_DEVICE_TYPE}${getNeoDeviceColor(serialNo) ?? 'White'}`;
   }
   return deviceType;
 }
