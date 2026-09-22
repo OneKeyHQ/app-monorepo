@@ -572,16 +572,17 @@ export const {
 
 // Bookkeeping for the stored From/To balance: which token + account it was
 // fetched for (see buildSwapBalanceOwnerKey in the swap actions), and whether
-// that fetch failed (the atom then holds the '0.0' fallback, which callers
-// must not read as a real zero). A reload for the same owner keeps the figure
+// the stored figure is only a fallback (the fetch failed, or the response
+// carried no balance) rather than an authoritative amount; callers must not
+// read such a '0' as a real zero. A reload for the same owner keeps the figure
 // on screen while it refreshes; a different owner clears it so a stale number
 // is never shown for the new selection.
 export interface ISwapSelectedTokenBalanceMeta {
   ownerKey?: string;
-  fetchFailed: boolean;
+  unverified: boolean;
 }
 export const EMPTY_SWAP_SELECTED_TOKEN_BALANCE_META: ISwapSelectedTokenBalanceMeta =
-  { fetchFailed: false };
+  { unverified: false };
 export const {
   atom: swapSelectedTokenBalanceMetaAtom,
   use: useSwapSelectedTokenBalanceMetaAtom,

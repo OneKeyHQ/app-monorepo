@@ -838,7 +838,7 @@ export function useSwapActionState() {
         // failure flag must not block the stock verdict.
         hasBalanceError:
           swapTypeSwitchValue !== ESwapTabSwitchType.STOCK &&
-          swapSelectedTokenBalanceMeta.from.fetchFailed,
+          swapSelectedTokenBalanceMeta.from.unverified,
         hasFromToken: !!fromToken,
         hasToToken: !!toToken,
         hasFromAddress: hasSwapFromAddressForVerdict({
@@ -881,7 +881,7 @@ export function useSwapActionState() {
     swapApprovingMatchLoading,
     buildTxFetching,
     selectedFromTokenBalance,
-    swapSelectedTokenBalanceMeta.from.fetchFailed,
+    swapSelectedTokenBalanceMeta.from.unverified,
     fromToken,
     toToken,
     swapUseLimitPrice.rate,

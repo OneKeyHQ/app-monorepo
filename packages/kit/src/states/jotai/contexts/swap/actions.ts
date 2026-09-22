@@ -2912,13 +2912,18 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
             balanceDisplay === undefined
               ? undefined
               : buildSwapBalanceOwnerKey({ token, accountAddress }),
-          fetchFailed: balanceFetchFailed,
+          // A failed fetch and a response without balanceParsed both leave a
+          // '0' fallback in the balance atom; neither is an authoritative
+          // zero, so the deposit verdict must not act on it.
+          unverified:
+            balanceFetchFailed ||
+            (balanceDisplay !== undefined && !hasAuthoritativeBalance),
         };
         // Same-value refreshes keep the previous object so subscribers of the
         // verdict do not re-render for nothing.
         set(swapSelectedTokenBalanceMetaAtom(), (previous) =>
           previous[type].ownerKey === nextBalanceMeta.ownerKey &&
-          previous[type].fetchFailed === nextBalanceMeta.fetchFailed
+          previous[type].unverified === nextBalanceMeta.unverified
             ? previous
             : { ...previous, [type]: nextBalanceMeta },
         );

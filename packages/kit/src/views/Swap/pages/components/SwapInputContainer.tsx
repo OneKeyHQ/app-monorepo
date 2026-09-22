@@ -27,6 +27,7 @@ import {
   useSwapSelectFromTokenAtom,
   useSwapSelectToTokenAtom,
   useSwapSelectedFromTokenBalanceAtom,
+  useSwapSelectedTokenBalanceMetaAtom,
   useSwapSelectedTokensColdStartContextAtom,
   useSwapTypeSwitchAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
@@ -185,6 +186,7 @@ const SwapInputContainer = ({
   const [toToken] = useSwapSelectToTokenAtom();
   const [fromTokenAmount] = useSwapFromTokenAmountAtom();
   const [fromTokenBalance] = useSwapSelectedFromTokenBalanceAtom();
+  const [swapSelectedTokenBalanceMeta] = useSwapSelectedTokenBalanceMetaAtom();
   const [swapTypeSwitch] = useSwapTypeSwitchAtom();
   const [swapQuoteActionLock] = useSwapQuoteActionLockAtom();
   const [initialSelectedTokensSynced] =
@@ -398,11 +400,13 @@ const SwapInputContainer = ({
   // refresh action so the user can re-check the balance after depositing.
   // The balance atom holds '' until it loads and keeps its last value through
   // a same-token refresh, so the chip and the refresh control stay put while
-  // it reloads.
+  // it reloads. A fallback figure (failed fetch, or a response without a
+  // balance) is not a real zero, same as for the action button.
   const isFromBalanceLoadedZero = useMemo(
     () =>
       direction === ESwapDirectionType.FROM &&
       !!fromToken &&
+      !swapSelectedTokenBalanceMeta.from.unverified &&
       hasSwapFromAddressForVerdict({
         address,
         isAddressInfoReady: swapAddressInfo.isAddressInfoReady,
@@ -414,6 +418,7 @@ const SwapInputContainer = ({
       fromToken,
       fromTokenBalance,
       swapAddressInfo.isAddressInfoReady,
+      swapSelectedTokenBalanceMeta.from.unverified,
     ],
   );
   const { loadSwapSelectTokenDetail } = useSwapActions().current;
