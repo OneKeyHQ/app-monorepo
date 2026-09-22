@@ -1363,10 +1363,36 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
       payload: {
         num: number;
         sceneName: EAccountSelectorSceneName | undefined;
+        previousSelectedAccount: IAccountSelectorSelectedAccount;
+        selectedAccount: IAccountSelectorSelectedAccount;
       },
     ) => {
-      const { num, sceneName } = payload;
+      const { num, sceneName, previousSelectedAccount, selectedAccount } =
+        payload;
       const epochs = get(activeAccountEpochAtom());
+      // Match AccountSelectorEffects' active-account reload dependencies.
+      // Moving the wallet-list focus does not reload the active account, so
+      // invalidating its requests could leave them without a replacement run.
+      if (
+        isEqual(
+          [
+            previousSelectedAccount.walletId,
+            previousSelectedAccount.indexedAccountId,
+            previousSelectedAccount.othersWalletAccountId,
+            previousSelectedAccount.networkId,
+            previousSelectedAccount.deriveType,
+          ],
+          [
+            selectedAccount.walletId,
+            selectedAccount.indexedAccountId,
+            selectedAccount.othersWalletAccountId,
+            selectedAccount.networkId,
+            selectedAccount.deriveType,
+          ],
+        )
+      ) {
+        return epochs[num] ?? 0;
+      }
       const nextEpoch = (epochs[num] ?? 0) + 1;
       set(activeAccountEpochAtom(), {
         ...epochs,
@@ -1534,6 +1560,8 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
         this.advanceActiveAccountEpoch.call(set, {
           num,
           sceneName: sceneInfo?.sceneName,
+          previousSelectedAccount: oldSelectedAccount,
+          selectedAccount: newSelectedAccount,
         });
         this.setSelectedAccountsAtom(
           set,
@@ -1757,6 +1785,8 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
           this.advanceActiveAccountEpoch.call(set, {
             num,
             sceneName: requestContextData?.sceneName,
+            previousSelectedAccount: oldSelectedAccount,
+            selectedAccount: newSelectedAccount,
           });
           this.setSelectedAccountsAtom(
             set,

@@ -74,7 +74,9 @@ Options:
   --skip-recording             Do not record simulator video
   -h, --help                   Show this help
 
-The simulator must already contain the imported QA wallet data and the current app build.`);
+The simulator must already contain the imported QA wallet data and the current app build.
+If EarlGrey cannot inspect a UIKit tab, HEATING_REPRO_NATIVE_UI_SESSION may name an
+existing agent-device session bound to the same simulator for current-frame verification.`);
 }
 
 function nowId() {
@@ -552,14 +554,160 @@ function summarizeEvents(events, startMs, endMs) {
   };
 }
 
+const censusWindowThresholds = [
+  ['allocationMB', 'allocatedMB', 2000, '<'],
+  ['gcTimeMs', 'gcMs', 2000, '<'],
+  ['gcCount', 'gcCount', 600, '<'],
+  ['jsBlockTotalMs', 'blockTotalMs', 3000, '<'],
+  ['jsBlockMaxMs', 'blockMaxMs', 300, '<'],
+  ['jsBlockOver500', 'blockOver500', 1, '<='],
+  ['jsBlockOver1000', 'blockOver1000', 0, '<='],
+  ['jsFpsMin', 'jsFpsMin', 45, '>='],
+];
+
+function summarizeObservedCensusWindows(reports, formalStartMs, formalEndMs) {
+  const observedCompleteCensusWindows = reports
+    .filter(
+      (report) =>
+        !report.suspendedCount &&
+        report.windowMs >= 30_000 &&
+        Date.parse(report.windowStart) >= formalStartMs &&
+        Date.parse(report.windowEnd) <= formalEndMs,
+    )
+    .map((report) => ({
+      ...report,
+      nominalWindowMs: 30_000,
+      thresholdChecks: censusWindowThresholds.map(
+        ([name, field, limit, comparison]) => {
+          const value = report[field];
+          const measured = typeof value === 'number' && Number.isFinite(value);
+          let passed = measured && value < limit;
+          if (comparison === '<=') passed = measured && value <= limit;
+          if (comparison === '>=') passed = measured && value >= limit;
+          let status = 'UNMEASURED';
+          if (measured)
+            status = passed ? 'WITHIN_OBSERVED_WINDOW_THRESHOLD' : 'FAIL';
+          return {
+            name,
+            value: measured ? value : null,
+            limit,
+            comparison,
+            status,
+          };
+        },
+      ),
+    }));
+  const observedCompleteCensusWorst = Object.fromEntries(
+    censusWindowThresholds.map(([name, field, limit, comparison]) => {
+      const measured = observedCompleteCensusWindows.filter(
+        (report) =>
+          typeof report[field] === 'number' && Number.isFinite(report[field]),
+      );
+      const ordered = measured.toSorted((left, right) =>
+        comparison === '>='
+          ? left[field] - right[field]
+          : right[field] - left[field],
+      );
+      const worst = ordered[0];
+      return [
+        name,
+        worst
+          ? {
+              value: worst[field],
+              limit,
+              comparison,
+              status: worst.thresholdChecks.find((check) => check.name === name)
+                .status,
+              windowStart: worst.windowStart,
+              windowEnd: worst.windowEnd,
+              actualDurationMs: worst.windowMs,
+              nominalWindowMs: 30_000,
+              boundaryPrecisionMs: worst.boundaryPrecisionMs,
+            }
+          : { value: null, limit, comparison, status: 'UNMEASURED' },
+      ];
+    }),
+  );
+  return {
+    observedCompleteCensusWindows,
+    observedCompleteCensusWorst,
+    observedWindowThresholdFailure: observedCompleteCensusWindows.some(
+      (report) =>
+        report.thresholdChecks.some((check) => check.status === 'FAIL'),
+    ),
+    observedWindowThresholdNote:
+      'Complete observed windows inside the formal run use the unchanged nominal-30s thresholds and report their actual duration without normalization. Exceedances are failures of these observed windows. Low values cannot establish an exact formal-last30 pass.',
+  };
+}
+
+function describeCensusWindow(report, formalStartedAt, formalEndedAt) {
+  const hasPayloadEnd =
+    typeof report.windowEndedAt === 'number' &&
+    Number.isFinite(report.windowEndedAt);
+  const endMs = hasPayloadEnd
+    ? report.windowEndedAt
+    : Date.parse(report.loggedAt);
+  const hasDuration =
+    typeof report.windowMs === 'number' &&
+    Number.isFinite(report.windowMs) &&
+    report.windowMs >= 0;
+  // The collector excludes lifecycle inactivity from windowMs, so subtracting
+  // it cannot recover the wall-clock start of a suspended window.
+  const canRecoverStart =
+    hasDuration && !report.suspendedCount && Number.isFinite(endMs);
+  const startMs = canRecoverStart ? endMs - report.windowMs : null;
+  const formalEndMs = Date.parse(formalEndedAt);
+  const formalStartMs = Math.max(
+    Date.parse(formalStartedAt),
+    formalEndMs - 30_000,
+  );
+  const hasFormalWindow =
+    Number.isFinite(formalStartMs) && Number.isFinite(formalEndMs);
+  const overlapMs =
+    startMs !== null && hasFormalWindow
+      ? Math.max(
+          0,
+          Math.min(endMs, formalEndMs) - Math.max(startMs, formalStartMs),
+        )
+      : null;
+  return {
+    ...report,
+    windowStart: startMs === null ? null : new Date(startMs).toISOString(),
+    windowEnd: Number.isFinite(endMs) ? new Date(endMs).toISOString() : null,
+    windowEndSource: hasPayloadEnd
+      ? 'payload windowEndedAt'
+      : 'native logger timestamp',
+    boundaryPrecisionMs: hasPayloadEnd ? 1 : 1000,
+    windowStartSource: canRecoverStart
+      ? 'window end minus reported active duration'
+      : 'UNMEASURED: duration excludes lifecycle inactivity or is missing',
+    formalLast30OverlapMs: overlapMs,
+    formalLast30UncoveredMs:
+      overlapMs === null ? null : formalEndMs - formalStartMs - overlapMs,
+    matchesFormalLast30:
+      hasPayloadEnd &&
+      startMs !== null &&
+      hasFormalWindow &&
+      startMs === formalStartMs &&
+      endMs === formalEndMs,
+  };
+}
+
 function summarizeNativeLog(logPath, context = {}) {
   if (!logPath || !fs.existsSync(logPath)) return null;
-  const { events, runtimeHealth } = parseNativeLog(
+  const { events, runtimeHealth: parsedRuntimeHealth } = parseNativeLog(
     fs.readFileSync(logPath, 'utf8'),
     context,
   );
   const startMs = Date.parse(context.formalStartedAt);
   const endMs = Date.parse(context.formalEndedAt);
+  const runtimeHealth = parsedRuntimeHealth.map((report) =>
+    describeCensusWindow(
+      report,
+      context.formalStartedAt,
+      context.formalEndedAt,
+    ),
+  );
   const actions = context.actionTimeline || [];
   const allNetworkActions = actions.filter((action) =>
     action.label.startsWith('All Networks switch '),
@@ -583,8 +731,8 @@ function summarizeNativeLog(logPath, context = {}) {
     }));
   const formalHealth = runtimeHealth.filter(
     (report) =>
-      Date.parse(report.loggedAt) >= startMs &&
-      Date.parse(report.loggedAt) <= endMs,
+      Date.parse(report.windowEnd) >= startMs &&
+      Date.parse(report.windowEnd) <= endMs,
   );
   return {
     ...formal,
@@ -619,9 +767,23 @@ function summarizeNativeLog(logPath, context = {}) {
     },
     phases,
     runtimeHealth,
+    ...summarizeObservedCensusWindows(runtimeHealth, startMs, endMs),
+    formalLast30Census: {
+      startedAt:
+        Number.isFinite(endMs) && Number.isFinite(startMs)
+          ? new Date(Math.max(startMs, endMs - 30_000)).toISOString()
+          : null,
+      endedAt: Number.isFinite(endMs) ? new Date(endMs).toISOString() : null,
+      status: runtimeHealth.some((report) => report.matchesFormalLast30)
+        ? 'MEASURED'
+        : 'UNMEASURED',
+      exactCensus:
+        runtimeHealth.find((report) => report.matchesFormalLast30) || null,
+      note: 'Only a census with identical boundaries measures the formal last30. Partial overlaps are not prorated: GC, allocation and block events are not uniformly distributed.',
+    },
     lastFormalCensus: formalHealth.at(-1) || null,
     lastFormalCensusEndGapMs: formalHealth.length
-      ? endMs - Date.parse(formalHealth.at(-1).loggedAt)
+      ? endMs - Date.parse(formalHealth.at(-1).windowEnd)
       : null,
     runtimeScope:
       'main Hermes heap and cross-runtime receive counters; process CPU/native memory cover both main and bg',
@@ -683,29 +845,27 @@ function summarizeAcceptance({
       ...(note ? { note } : {}),
     });
   };
-  const census = nativeLog?.lastFormalCensus;
+  const census = nativeLog?.formalLast30Census?.exactCensus;
   add('functionalFailures', functionalPassed ? 0 : 1, 0, '<=');
   add('missingEvidence', evidenceCollected ? 0 : 1, 0, '<=');
   add('maxTimelineDriftMs', maxPositiveDriftMs, 10_000);
   add('last30CpuAvg', processSummary.last30.cpuAvg, 100);
   add('last30CpuMax', processSummary.last30.cpuMax, 200);
   add('formalRssDeltaMB', processSummary.formal.rssDeltaMB, 500);
-  for (const [name, field, limit, comparison] of [
-    ['allocationMB', 'allocatedMB', 2000, '<'],
-    ['gcTimeMs', 'gcMs', 2000, '<'],
-    ['gcCount', 'gcCount', 600, '<'],
-    ['jsBlockTotalMs', 'blockTotalMs', 3000, '<'],
-    ['jsBlockMaxMs', 'blockMaxMs', 300, '<'],
-    ['jsBlockOver500', 'blockOver500', 1, '<='],
-    ['jsBlockOver1000', 'blockOver1000', 0, '<='],
-    ['jsFpsMin', 'jsFpsMin', 45, '>='],
-  ])
+  if (nativeLog?.observedWindowThresholdFailure) {
+    checks.push({
+      name: 'observedWindowThresholdFailure',
+      status: 'FAIL',
+      note: nativeLog.observedWindowThresholdNote,
+    });
+  }
+  for (const [name, field, limit, comparison] of censusWindowThresholds)
     add(
       name,
       census?.[field],
       limit,
       comparison,
-      'Last completed main census window; see windowMs and lastFormalCensusEndGapMs. Not an exact formal-end-aligned window.',
+      'Requires a main census with identical formal last30 boundaries. Other observed census windows remain diagnostic evidence in nativeLog.runtimeHealth.',
     );
   add('last60BgRpc', nativeLog?.windows.last60.bgRpcCount, 1200);
   add(
@@ -924,6 +1084,7 @@ async function main() {
     localUtcOffsetMinutes,
     appDataPath,
     checkoutGit: git,
+    nativeUiSession: process.env.HEATING_REPRO_NATIVE_UI_SESSION || null,
     includeInactiveStep: args.includeInactiveStep,
     initialWalletSelector: args.initialWalletId ? 'explicit' : 'hardware-first',
     allowInitialWalletFallback: args.allowInitialWalletFallback,
@@ -960,6 +1121,7 @@ async function main() {
         ...process.env,
         DETOX_CONFIGURATION: 'current',
         PERF_USE_METRO: '0',
+        HEATING_REPRO_UDID: udid,
         HEATING_REPRO_OUTPUT_DIR: outputDir,
         HEATING_REPRO_INCLUDE_INACTIVE_STEP: args.includeInactiveStep
           ? '1'
@@ -1145,6 +1307,8 @@ if (require.main === module) {
 
 module.exports = {
   parseNativeLog,
+  describeCensusWindow,
+  summarizeObservedCensusWindows,
   redactNetworkRequest,
   summarizeEvents,
   summarizeNativeLog,
