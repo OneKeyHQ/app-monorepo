@@ -43,7 +43,9 @@ const mockMakeFromSVGString = jest.fn((svg: string) => ({
   svg,
   computeTightBounds: jest.fn(() => ({ x: 2, y: 3, width: 6, height: 10 })),
   offset: jest.fn(),
+  transform: jest.fn(),
 }));
+const mockScaleMatrix = jest.fn((x: number, y: number) => ({ x, y }));
 const mockGradientShader = { dispose: jest.fn() };
 let mockFontGlyphsByFamily: Record<string, string> = {};
 let mockFontDisposeByFamily: Record<string, jest.Mock> = {};
@@ -130,6 +132,7 @@ jest.mock('@shopify/react-native-skia', () => ({
   PaintStyle: { Stroke: 1 },
   Skia: {
     Color: (color: string) => color,
+    Matrix: () => ({ scale: mockScaleMatrix }),
     Font: (typeface: { fontFamily: string }, fontSize: number) =>
       mockSkiaFont(typeface, fontSize),
     FontMgr: {
@@ -291,6 +294,7 @@ describe('TradingViewNative Skia scene renderer', () => {
       );
       for (const path of paths) {
         expect(path.offset).toHaveBeenCalledWith(-5, -8);
+        expect(path.transform).not.toHaveBeenCalled();
       }
       mockMakeFromSVGString.mockClear();
 
@@ -306,6 +310,30 @@ describe('TradingViewNative Skia scene renderer', () => {
       expect(mockMakeFromSVGString).not.toHaveBeenCalled();
       expect(mockCanvas.save).toHaveBeenCalledTimes(2);
       expect(mockCanvas.restore).toHaveBeenCalledTimes(2);
+    },
+  );
+
+  it.each([
+    { fontSize: 5.5, scale: 0.5 },
+    { fontSize: 22, scale: 2 },
+  ])(
+    'scales both labels to the $fontSize px legend font around their visible centers',
+    ({ fontSize, scale }) => {
+      createResources({
+        legendFont: mockSkiaFont({ fontFamily: 'System' }, fontSize),
+      });
+
+      expect(mockMakeFromSVGString).toHaveBeenCalledTimes(2);
+      expect(mockScaleMatrix).toHaveBeenCalledTimes(2);
+      expect(mockScaleMatrix).toHaveBeenCalledWith(scale, scale);
+      for (const result of mockMakeFromSVGString.mock.results) {
+        const path = result.value as ReturnType<typeof mockMakeFromSVGString>;
+        expect(path.offset).toHaveBeenCalledWith(-5, -8);
+        expect(path.transform).toHaveBeenCalledWith({ x: scale, y: scale });
+        expect(path.offset.mock.invocationCallOrder[0]).toBeLessThan(
+          path.transform.mock.invocationCallOrder[0],
+        );
+      }
     },
   );
 

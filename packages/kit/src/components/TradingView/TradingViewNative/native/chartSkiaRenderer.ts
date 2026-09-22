@@ -32,7 +32,10 @@ import {
 } from '../utils/chartScene';
 
 import { getTradingViewNativeSkiaTextFont } from './chartSkiaText';
-import { TRADE_MARK_LABEL_PATHS } from './tradeMarkLabelPaths';
+import {
+  TRADE_MARK_LABEL_PATHS,
+  TRADE_MARK_LABEL_PATH_FONT_SIZE,
+} from './tradeMarkLabelPaths';
 
 export interface ITradingViewNativeSkiaResources {
   customPaintSignatures: Record<string, string>;
@@ -246,13 +249,20 @@ function createTradingViewNativeSkiaPaint(
   return paint;
 }
 
-function createTradingViewNativeTradeMarkLabelPath(label: 'B' | 'S') {
+function createTradingViewNativeTradeMarkLabelPath(
+  label: 'B' | 'S',
+  fontSize: number,
+) {
   'worklet';
 
   const path = Skia.Path.MakeFromSVGString(TRADE_MARK_LABEL_PATHS[label]);
   if (path) {
     const bounds = path.computeTightBounds();
     path.offset(-bounds.x - bounds.width / 2, -bounds.y - bounds.height / 2);
+    const scale = fontSize / TRADE_MARK_LABEL_PATH_FONT_SIZE;
+    if (scale !== 1) {
+      path.transform(Skia.Matrix().scale(scale, scale));
+    }
   }
   return path;
 }
@@ -321,8 +331,8 @@ export function createTradingViewNativeSkiaResources({
     legendSubscriptFont,
     paints,
     tradeMarkLabelPaths: {
-      B: createTradingViewNativeTradeMarkLabelPath('B'),
-      S: createTradingViewNativeTradeMarkLabelPath('S'),
+      B: createTradingViewNativeTradeMarkLabelPath('B', legendFont.getSize()),
+      S: createTradingViewNativeTradeMarkLabelPath('S', legendFont.getSize()),
     },
     watermarkPaint: Skia.Paint(),
     watermarkSvg,
