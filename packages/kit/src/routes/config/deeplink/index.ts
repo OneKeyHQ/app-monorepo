@@ -54,7 +54,6 @@ import { openWebView } from '../../../views/WebView/utils/webViewNavigation';
 import { captureAndReportLoggerUtmParamsFromUrl } from '../loggerUtmParams';
 
 import { registerHandler } from './handler';
-import { parseWebViewDeepLink } from './parseWebViewDeepLink';
 import {
   handleReferralLandingUrl,
   isValidReferralCode,
@@ -555,15 +554,6 @@ async function processDeepLinkUrlAccount(
         case EOneKeyDeepLinkPath.cross_device_transfer:
           console.log('TODO implement cross_device_transfer deeplink');
           break;
-        case EOneKeyDeepLinkPath.webview: {
-          const query =
-            queryParams as IEOneKeyDeepLinkParams[EOneKeyDeepLinkPath.webview];
-          const webViewParams = parseWebViewDeepLink(query);
-          if (webViewParams) {
-            openWebView(webViewParams);
-          }
-          break;
-        }
         case EOneKeyDeepLinkPath.preview_featured_changelog: {
           // Ops-only entry: opens the Featured Changelog preview page so
           // dashboard-configured changelog content can be verified in a

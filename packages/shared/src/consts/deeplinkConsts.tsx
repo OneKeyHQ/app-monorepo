@@ -12,7 +12,6 @@ export enum EOneKeyDeepLinkPath {
   invited_by_friend = 'invited_by_friend',
   redeem_bitcoin_voucher = 'redeem_bitcoin_voucher',
   cross_device_transfer = 'cross_device_transfer',
-  webview = 'webview',
   // Value MUST equal the on-wire URL segment (compared as a raw string in the
   // deeplink switch); hence the hyphenated literal, not an underscore alias.
   preview_featured_changelog = 'preview-featured-changelog',
@@ -42,13 +41,6 @@ export type IEOneKeyDeepLinkParams = {
     transferType?: EPrimeTransferDataType;
     botWalletId?: string;
     defaultTab?: 'qr-code' | 'enter-link';
-  };
-  [EOneKeyDeepLinkPath.webview]: {
-    url: string;
-    title?: string;
-    hideHeader?: '0' | '1';
-    /** Address bar is hidden by default; pass '1' to show it. */
-    showAddressBar?: '0' | '1';
   };
   [EOneKeyDeepLinkPath.preview_featured_changelog]: {
     version?: string;

@@ -1,4 +1,5 @@
 import { reportInstallAttribution } from '@onekeyhq/kit/src/components/LastActivityTracker/installAttribution';
+import { openWebView as openWebViewOverlay } from '@onekeyhq/kit/src/views/WebView/utils/webViewNavigation';
 import { perpsCommonConfigPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import appGlobals from '@onekeyhq/shared/src/appGlobals';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -149,6 +150,36 @@ describe('handleDeepLinkUrl', () => {
     await flushAsyncTasks();
 
     expect(mockedNavigateToReferralLanding).not.toHaveBeenCalled();
+  });
+});
+
+describe('disabled webview deep links', () => {
+  const navigate = jest.fn();
+  const originalRootAppNavigation = appGlobals.$rootAppNavigation;
+  const url = 'onekey-wallet://webview?url=https%3A%2F%2Fonekey.so';
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    appGlobals.$rootAppNavigation = {
+      navigate,
+    } as unknown as typeof appGlobals.$rootAppNavigation;
+  });
+
+  afterEach(() => {
+    appGlobals.$rootAppNavigation = originalRootAppNavigation;
+  });
+
+  it.each([
+    { url },
+    { url, isColdStartup: true },
+    { url: '', argv: [url] },
+    { url: `${url}&title=OneKey&hideHeader=1&showAddressBar=0` },
+  ])('does not open a webpage for %j', async (data) => {
+    handleDeepLinkUrl(data);
+    await flushAsyncTasks();
+
+    expect(openWebViewOverlay).not.toHaveBeenCalled();
+    expect(navigate).not.toHaveBeenCalled();
   });
 });
 
