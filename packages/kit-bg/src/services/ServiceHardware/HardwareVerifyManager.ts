@@ -1,4 +1,5 @@
 import { EDeviceType, EFirmwareType } from '@onekeyfe/hd-shared';
+import { DeviceSessionPinType } from '@onekeyfe/hd-transport';
 
 import {
   backgroundMethod,
@@ -7,6 +8,7 @@ import {
 import {
   OneKeyLocalError,
   OneKeyServerApiError,
+  UserCancelFromOutside,
 } from '@onekeyhq/shared/src/errors';
 import { convertDeviceResponse } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
 import {
@@ -38,14 +40,13 @@ import type {
 import localDb from '../../dbs/local/localDb';
 import { settingsPersistAtom } from '../../states/jotai/atoms';
 
-import type { IOneKeyHardwareOperationLease } from '../ServiceHardwareUI/HardwareProcessingManager';
-
 import { ServiceHardwareManagerBase } from './ServiceHardwareManagerBase';
 
 import type {
   IDBDevice,
   IDBUpdateFirmwareVerifiedParams,
 } from '../../dbs/local/types';
+import type { IOneKeyHardwareOperationLease } from '../ServiceHardwareUI/HardwareProcessingManager';
 import type {
   DeviceVerifySignature,
   IDeviceType,
@@ -230,9 +231,13 @@ export class HardwareVerifyManager extends ServiceHardwareManagerBase {
           connectId,
           params: { scope: 'runtime' },
           oneKeyOperationLease,
+          pinType: DeviceSessionPinType.Any,
         });
         await timerUtils.wait(PRO2_VERIFY_AFTER_UNLOCK_DELAY_MS);
       }
+    }
+    if (oneKeyOperationLease?.signal?.aborted) {
+      throw new UserCancelFromOutside();
     }
     const { cert, signature } = await this.getDeviceCertWithSig({
       connectId,

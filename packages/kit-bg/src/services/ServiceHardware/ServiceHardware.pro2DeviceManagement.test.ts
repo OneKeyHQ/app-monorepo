@@ -1,8 +1,12 @@
 /* eslint-disable @typescript-eslint/unbound-method -- Jest mock functions do not use this binding. */
 import { DEVICE, LOG_EVENT, UI_EVENT, UI_REQUEST } from '@onekeyfe/hd-core';
 import { EDeviceType, EFirmwareType } from '@onekeyfe/hd-shared';
+import { DeviceSessionPinType } from '@onekeyfe/hd-transport';
 
-import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import {
+  OneKeyLocalError,
+  UserCancelFromOutside,
+} from '@onekeyhq/shared/src/errors';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -29,6 +33,7 @@ import ServiceHardware from './ServiceHardware';
 import serviceHardwareUtils from './serviceHardwareUtils';
 
 import type { IBackgroundApi } from '../../apis/IBackgroundApi';
+import type { IOneKeyHardwareOperationLease } from '../ServiceHardwareUI/HardwareProcessingManager';
 
 jest.mock('@onekeyhq/shared/src/background/backgroundDecorators', () => ({
   backgroundClass: () => (target: unknown) => target,
@@ -327,6 +332,15 @@ describe('ServiceHardware wallet session compatibility', () => {
       verificationData: {
         sno: 'PRO2_SERIAL',
       },
+      cancelDuringDelay: true,
+      verified: false,
+    },
+    {
+      deviceType: EDeviceType.Pro2,
+      connectId: 'PRO2_USB',
+      verificationData: {
+        sno: 'PRO2_SERIAL',
+      },
       initiallyUnlocked: true,
       verified: true,
     },
@@ -400,16 +414,27 @@ describe('ServiceHardware wallet session compatibility', () => {
       verificationData,
       responseCode = 0,
       initiallyUnlocked = false,
+      cancelDuringDelay = false,
       verified,
     }) => {
       const instanceId = '94537ae5-32e9-4417-860a-1d37c8decb3e';
       jest.mocked(settingsPersistAtom.get).mockResolvedValue({
         instanceId,
       } as never);
+      const operationController = new AbortController();
+      const oneKeyOperationLease: IOneKeyHardwareOperationLease = {
+        deviceKey: connectId,
+        owner: Symbol('test-hardware-operation'),
+        signal: operationController.signal,
+      };
       const withHardwareProcessing = jest
         .fn()
-        .mockImplementation(async (callback: () => Promise<unknown>) =>
-          callback(),
+        .mockImplementation(
+          async (
+            callback: (
+              lease: IOneKeyHardwareOperationLease,
+            ) => Promise<unknown>,
+          ) => callback(oneKeyOperationLease),
         );
       const closeHardwareUiStateDialog = jest.fn(async () => undefined);
       const backgroundApi = {
@@ -432,7 +457,11 @@ describe('ServiceHardware wallet session compatibility', () => {
       });
       const waitSpy = jest
         .spyOn(timerUtils, 'wait')
-        .mockResolvedValue(undefined);
+        .mockImplementation(async () => {
+          if (cancelDuringDelay) {
+            operationController.abort();
+          }
+        });
       const isPro2OrNeo =
         deviceType === EDeviceType.Pro2 || deviceType === EDeviceType.Neo;
       const needsUnlock = isPro2OrNeo && !initiallyUnlocked;
@@ -456,7 +485,7 @@ describe('ServiceHardware wallet session compatibility', () => {
           status: { initialized: true, unlocked: true },
         } as never);
       service.getCompatibleConnectId = jest.fn().mockResolvedValue(connectId);
-      const result = await service.firmwareAuthenticate({
+      const authenticatePromise = service.firmwareAuthenticate({
         device: {
           connectId,
           deviceType,
@@ -466,6 +495,22 @@ describe('ServiceHardware wallet session compatibility', () => {
           commType: 'webusb',
         },
       });
+      if (cancelDuringDelay) {
+        await expect(authenticatePromise).rejects.toBeInstanceOf(
+          UserCancelFromOutside,
+        );
+        expect(getDeviceStateWithUnlockSpy).toHaveBeenCalledWith({
+          connectId,
+          params: { scope: 'runtime' },
+          oneKeyOperationLease,
+          pinType: DeviceSessionPinType.Any,
+        });
+        expect(deviceVerifySpy).not.toHaveBeenCalled();
+        expect(postMock).not.toHaveBeenCalled();
+        waitSpy.mockRestore();
+        return;
+      }
+      const result = await authenticatePromise;
       expect(result.verified).toBe(verified);
       expect(result.result).toEqual({
         code: responseCode,
@@ -481,7 +526,12 @@ describe('ServiceHardware wallet session compatibility', () => {
       });
       expect(deviceVerifySpy).toHaveBeenCalledTimes(1);
       if (needsUnlock) {
-        expect(getDeviceStateWithUnlockSpy).toHaveBeenCalledTimes(1);
+        expect(getDeviceStateWithUnlockSpy).toHaveBeenCalledWith({
+          connectId,
+          params: { scope: 'runtime' },
+          oneKeyOperationLease,
+          pinType: DeviceSessionPinType.Any,
+        });
         expect(waitSpy).toHaveBeenCalledWith(500);
         expect(waitSpy.mock.invocationCallOrder[0]).toBeLessThan(
           deviceVerifySpy.mock.invocationCallOrder[0] ?? 0,
