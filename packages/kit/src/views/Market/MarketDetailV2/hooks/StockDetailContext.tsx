@@ -374,8 +374,7 @@ export function StockDetailProvider({
     !tokenVariantResult?.failed &&
     tokenVariants.some(isStockTokenVariantTradable) &&
     !selectedTokenVariant &&
-    (isTokenVariantsLoading ||
-      fetchedTokenVariantsStockIdRef.current !== normalizedStockId),
+    fetchedTokenVariantsStockIdRef.current !== normalizedStockId,
   );
   const handleSetSelectedTokenId = useCallback(
     (tokenId: string) => {
