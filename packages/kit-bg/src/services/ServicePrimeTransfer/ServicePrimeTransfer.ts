@@ -1367,8 +1367,14 @@ class ServicePrimeTransfer extends ServiceBase {
           }
         : state,
     );
-    this.checkWebSocketConnected();
-    await this.e2eeClientToClientApiProxy?.api.cancelTransfer();
+    // Local cancellation is complete. Peer notification must not reject a
+    // dialog close if the connection disappears during cleanup.
+    try {
+      this.checkWebSocketConnected();
+      await this.e2eeClientToClientApiProxy?.api.cancelTransfer();
+    } catch (error) {
+      console.error('Failed to notify peer of transfer cancellation', error);
+    }
   }
 
   private async buildScopedTransferCredentials({

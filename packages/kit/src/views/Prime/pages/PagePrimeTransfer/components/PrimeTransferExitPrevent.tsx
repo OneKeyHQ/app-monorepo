@@ -30,8 +30,11 @@ export function PrimeTransferExitPrevent({
   });
 
   const onConfirmCallback = useCallback(async () => {
-    if (importProgress?.isImporting) {
-      await backgroundApiProxy.servicePrimeTransfer.resetImportProgress();
+    const taskUUID = importProgress?.taskUUID;
+    if (importProgress?.isImporting && taskUUID) {
+      await backgroundApiProxy.servicePrimeTransfer.resetImportProgress({
+        taskUUID,
+      });
     }
     try {
       await backgroundApiProxy.servicePrimeTransfer.clearSensitiveData();
@@ -49,7 +52,7 @@ export function PrimeTransferExitPrevent({
     } catch (error) {
       console.error('onConfirmCallback refreshQrcodeHook error', error);
     }
-  }, [importProgress?.isImporting]);
+  }, [importProgress?.isImporting, importProgress?.taskUUID]);
 
   // Prevents screen locking during transfer
   useKeepAwake();

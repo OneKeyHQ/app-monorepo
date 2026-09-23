@@ -556,6 +556,61 @@ test('cancel during decryption stops remaining credentials and cannot overwrite 
   await service.cancelNetworkTransfer();
 });
 
+test.each(['disconnected', 'notification-rejected', 'connected'] as const)(
+  'local cancellation completes when the peer is %s and cannot cancel a replacement',
+  async (connection) => {
+    const service = new ServicePrimeTransfer({
+      backgroundApi: {
+        serviceAccount: accountApi(),
+        servicePassword: {
+          checkPasswordSet: mockCheckPasswordSet,
+          promptPasswordVerify: async () => ({ password: 'fixture-password' }),
+        },
+      },
+    });
+    const checkSocket = jest
+      .spyOn(service, 'checkWebSocketConnected')
+      .mockImplementation(() => undefined);
+    const notify = jest.fn(async () => {
+      if (connection === 'notification-rejected')
+        throw new OneKeyLocalError('Peer disconnected');
+    });
+    Object.defineProperty(service, 'e2eeClientToClientApiProxy', {
+      value: { api: { cancelTransfer: notify } },
+    });
+    const log = jest
+      .spyOn(console, 'error')
+      .mockImplementation(() => undefined);
+    try {
+      const taskId = await service.beginTransferPreparation();
+      await service.authorizeTransferPreparation({ taskId });
+      expect(mockState.preparationProgress).toBeDefined();
+      if (connection === 'disconnected') {
+        checkSocket.mockImplementationOnce(() => {
+          throw new OneKeyLocalError('WebSocket not connected');
+        });
+      }
+      await expect(service.cancelTransfer({ taskId })).resolves.toBeUndefined();
+      expect(mockState.preparationProgress).toBeUndefined();
+      expect(notify).toHaveBeenCalledTimes(
+        connection === 'disconnected' ? 0 : 1,
+      );
+      expect(log).toHaveBeenCalledTimes(connection === 'connected' ? 0 : 1);
+
+      const nextTask = await service.beginTransferPreparation();
+      await service.authorizeTransferPreparation({ taskId: nextTask });
+      await service.cancelTransfer({ taskId });
+      expect(mockState.preparationProgress).toMatchObject({ taskId: nextTask });
+      expect(notify).toHaveBeenCalledTimes(
+        connection === 'disconnected' ? 0 : 1,
+      );
+      await service.cancelNetworkTransfer();
+    } finally {
+      log.mockRestore();
+    }
+  },
+);
+
 test.each<[boolean, IPbkdf2KdfParams]>([
   [true, { kdfBackend: 'webcrypto', enablePbkdf2Cache: true }],
   [false, { kdfBackend: 'webcrypto', enablePbkdf2Cache: true }],
