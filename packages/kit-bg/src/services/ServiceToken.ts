@@ -947,7 +947,11 @@ class ServiceToken extends ServiceBase {
         // Lodash invokes trailing callbacks from a timer; there is no caller
         // awaiting this promise to observe a persistence failure.
         if (!isCancel(error)) {
-          defaultLogger.app.error.log('Home token cache persistence failed');
+          defaultLogger.app.error.log(
+            `Home token cache persistence failed: ${
+              error instanceof Error ? error.message : String(error)
+            }`,
+          );
         }
       }
     },

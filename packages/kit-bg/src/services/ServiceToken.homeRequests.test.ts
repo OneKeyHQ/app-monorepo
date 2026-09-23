@@ -447,7 +447,7 @@ describe('ServiceToken native Home request lifetime', () => {
       });
       await jest.advanceTimersByTimeAsync(3000);
       expect(errorLog).toHaveBeenCalledWith(
-        'Home token cache persistence failed',
+        'Home token cache persistence failed: storage unavailable',
       );
       await service.fetchAccountTokens({
         ...fetchParams(),
