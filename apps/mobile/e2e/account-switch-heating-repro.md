@@ -6,6 +6,7 @@ This document describes how to reproduce account switching, collect measurements
 - [Host runner, log capture, and acceptance calculations](../../../development/scripts/run-ios-account-switch-heating-repro.js)
 - [Regression tests for sampling and acceptance calculations](../../../development/scripts/run-ios-account-switch-heating-repro.node-test.js)
 - [Main runtime census and FPS collection](../../../packages/shared/src/performance/collectors/jsBlockCollector.ts)
+- [Account-switch diagnostic switch](../../../packages/shared/src/performance/enabled.ts)
 - [Detox native memory patch](../../../patches/detox+20.46.3.patch)
 
 ## 1. Scope and Required Test State
@@ -44,7 +45,23 @@ Obtain a Release simulator `.app` for the revision under test, or build one usin
 
 Save the actual build commit, dirty state, and artifact hashes in `build-manifest.json` when freezing the build, as described under Build and Tool Identity. If an existing artifact has no trustworthy provenance, obtain a traceable build instead of assigning it the current checkout SHA. The manifest is an input to this runner; the runner does not generate build provenance.
 
-Formal runs do not depend on Metro; the runner sets `PERF_USE_METRO=0`. Build with `PERF_MONITOR_ENABLED=1` to enable raw FPS sampling; this existing build flag is set by the Release Detox configuration. Setting it only in the host runner after the app was built cannot enable it in an installed bundle. Normal production builds leave the extra per-frame sampler disabled. Use a Release simulator app with embedded bundles, the census, raw FPS samples, and RPC/network logging. A Debug DevSession or a device-only IPA does not meet these prerequisites.
+Formal runs do not depend on Metro; the runner sets `PERF_USE_METRO=0`. Use a Release simulator app with embedded bundles, the census, raw FPS samples, and RPC/network logging. A Debug DevSession or a device-only IPA does not meet these prerequisites.
+
+#### Enable Account-Switch Diagnostics Before Building
+
+Account-switch diagnostics are **off by default**, including in Detox Release builds. Before producing the regression artifact, temporarily change this one constant in [performance/enabled.ts](../../../packages/shared/src/performance/enabled.ts):
+
+```ts
+const ACCOUNT_SWITCH_DIAGNOSTICS_ENABLED = true;
+```
+
+This enables the runtime health census (JS blocking, available Hermes allocation/GC counters, and additional process samples), raw main-runtime FPS windows, incoming background-message counts/sizes, and Home token refresh/dispatch traces. When disabled, the census does not install timers or visibility/account-switch listeners, bridge statistics do not accumulate, and Home diagnostic payloads are not built or logged. Business request generations, cancellation, and dispatch remain active regardless of the switch.
+
+Rebuild and package **both main and background JS bundles** with that source change. iOS runtimes have separate module instances; editing the checkout or setting a host environment variable after the build cannot enable an installed bundle. Record the enabled source diff/dirty state together with the artifact hashes in the build manifest or linked build receipt. For a Debug-only investigation, restart Metro and reload both runtimes after changing the constant; formal acceptance still requires the frozen Release artifact.
+
+`PERF_MONITOR_ENABLED=1` remains the independent switch for the existing performance-server tooling, and the Release Detox build configuration already sets it. It does **not** enable these account-switch diagnostics by itself. The existing `react-native-perf-stats` CPU/RSS/UI FPS/JS FPS sampler and its overlay controls are unchanged; this source switch neither starts nor stops that sampler.
+
+Before the formal run, confirm that the installed build produces `runtimeHealthCensus` with `fpsSamplingAvailable: 1` and populated `fpsSamples`, `mainInboundCensus` when bridge traffic exists, and `homeTokenListRefreshTrace` during a Home refresh. Missing diagnostics mean preparation is incomplete; the presence of the native FPS overlay alone is insufficient. Keep the switch enabled for all three runs in the same cohort, then restore it to `false` before committing or producing a normal release. A measured artifact keeps its embedded setting even after the source is restored.
 
 Set the paths, then build the Detox framework before preparing the test data:
 

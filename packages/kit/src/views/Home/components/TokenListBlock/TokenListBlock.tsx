@@ -105,6 +105,7 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import { isAccountSwitchDiagnosticsEnabled } from '@onekeyhq/shared/src/performance/enabled';
 import {
   EModalAssetDetailRoutes,
   EModalReceiveRoutes,
@@ -1635,19 +1636,21 @@ function TokenListBlock({
         r.allTokens = allTokens;
       }
 
-      defaultLogger.account.allNetworkAccountPerf.homeTokenListRefreshTrace({
-        runtime: 'main',
-        phase: 'all-network-fetch-settled',
-        networkId,
-        isAllNetworks: true,
-        allNetworkDataInit,
-        tokenCount: r.tokens.data.length,
-        smallBalanceCount: r.smallBalanceTokens.data.length,
-        riskyCount: r.riskTokens.data.length,
-        aggregateCount: Object.keys(r.aggregateTokenListMap ?? {}).length,
-        ownerPresent: !!account?.id,
-        indexedAccountPresent: !!indexedAccount?.id,
-      });
+      if (isAccountSwitchDiagnosticsEnabled()) {
+        defaultLogger.account.allNetworkAccountPerf.homeTokenListRefreshTrace({
+          runtime: 'main',
+          phase: 'all-network-fetch-settled',
+          networkId,
+          isAllNetworks: true,
+          allNetworkDataInit,
+          tokenCount: r.tokens.data.length,
+          smallBalanceCount: r.smallBalanceTokens.data.length,
+          riskyCount: r.riskTokens.data.length,
+          aggregateCount: Object.keys(r.aggregateTokenListMap ?? {}).length,
+          ownerPresent: !!account?.id,
+          indexedAccountPresent: !!indexedAccount?.id,
+        });
+      }
 
       // The active owner may have changed during the awaits above (detached
       // history-loop refresh, un-aborted fetch from a previous owner). Writing
@@ -1919,15 +1922,17 @@ function TokenListBlock({
         networkId: networkId ?? '',
       });
 
-      defaultLogger.account.allNetworkAccountPerf.homeTokenListRefreshTrace({
-        runtime: 'main',
-        phase: 'all-network-run-started',
-        networkId,
-        isAllNetworks: true,
-        allNetworkDataInit,
-        ownerPresent: !!account?.id,
-        indexedAccountPresent: !!indexedAccount?.id,
-      });
+      if (isAccountSwitchDiagnosticsEnabled()) {
+        defaultLogger.account.allNetworkAccountPerf.homeTokenListRefreshTrace({
+          runtime: 'main',
+          phase: 'all-network-run-started',
+          networkId,
+          isAllNetworks: true,
+          allNetworkDataInit,
+          ownerPresent: !!account?.id,
+          indexedAccountPresent: !!indexedAccount?.id,
+        });
+      }
 
       if (syncTokenFilterToOverview) {
         setOverviewTokenCacheState({
@@ -2125,28 +2130,32 @@ function TokenListBlock({
       }
 
       if (hasAnyCache) {
-        defaultLogger.account.allNetworkAccountPerf.homeTokenListRefreshTrace({
-          runtime: 'main',
-          phase: 'all-network-cache-hydrate',
-          networkId,
-          isAllNetworks: true,
-          hasCache: true,
-          cacheCount: data.length,
-          tokenCount: data.reduce(
-            (total, item) => total + item.tokenList.length,
-            0,
-          ),
-          smallBalanceCount: data.reduce(
-            (total, item) => total + item.smallBalanceTokenList.length,
-            0,
-          ),
-          riskyCount: data.reduce(
-            (total, item) => total + item.riskyTokenList.length,
-            0,
-          ),
-          ownerPresent: !!account?.id,
-          indexedAccountPresent: !!indexedAccount?.id,
-        });
+        if (isAccountSwitchDiagnosticsEnabled()) {
+          defaultLogger.account.allNetworkAccountPerf.homeTokenListRefreshTrace(
+            {
+              runtime: 'main',
+              phase: 'all-network-cache-hydrate',
+              networkId,
+              isAllNetworks: true,
+              hasCache: true,
+              cacheCount: data.length,
+              tokenCount: data.reduce(
+                (total, item) => total + item.tokenList.length,
+                0,
+              ),
+              smallBalanceCount: data.reduce(
+                (total, item) => total + item.smallBalanceTokenList.length,
+                0,
+              ),
+              riskyCount: data.reduce(
+                (total, item) => total + item.riskyTokenList.length,
+                0,
+              ),
+              ownerPresent: !!account?.id,
+              indexedAccountPresent: !!indexedAccount?.id,
+            },
+          );
+        }
 
         if (syncTokenFilterToOverview) {
           // All items share the storage currency (same multi-network fetch);
@@ -2241,17 +2250,20 @@ function TokenListBlock({
   // guard + ingest + throttle all live in the facade now (design §2).
   const handleAllNetworkRequestSettled = useCallback(
     (result: IAllNetworkTokenListResp, generation: number) => {
-      defaultLogger.account.allNetworkAccountPerf.homeTokenListRefreshTrace({
-        runtime: 'main',
-        phase: 'all-network-progressive-settled',
-        networkId: result.networkId,
-        isAllNetworks: true,
-        tokenCount: result.tokens.data.length,
-        smallBalanceCount: result.smallBalanceTokens.data.length,
-        riskyCount: result.riskTokens.data.length,
-        aggregateCount: Object.keys(result.aggregateTokenListMap ?? {}).length,
-        source: `generation:${generation}`,
-      });
+      if (isAccountSwitchDiagnosticsEnabled()) {
+        defaultLogger.account.allNetworkAccountPerf.homeTokenListRefreshTrace({
+          runtime: 'main',
+          phase: 'all-network-progressive-settled',
+          networkId: result.networkId,
+          isAllNetworks: true,
+          tokenCount: result.tokens.data.length,
+          smallBalanceCount: result.smallBalanceTokens.data.length,
+          riskyCount: result.riskTokens.data.length,
+          aggregateCount: Object.keys(result.aggregateTokenListMap ?? {})
+            .length,
+          source: `generation:${generation}`,
+        });
+      }
       ingestLiveRound(result, generation);
     },
     [ingestLiveRound],
@@ -2546,23 +2558,25 @@ function TokenListBlock({
       // flush already past its timer aborts after its await instead of overwriting
       // this authoritative full list. The LWW rounds stay resident as the next
       // warm refresh's SWR floor so the list never shrinks to settled rows only.
-      defaultLogger.account.allNetworkAccountPerf.homeTokenListRefreshTrace({
-        runtime: 'main',
-        phase: 'all-network-authoritative-commit',
-        networkId: network?.id,
-        isAllNetworks: true,
-        accountsCount: allNetworksResult.length,
-        tokenCount: snapshot.orderedTokens.length,
-        smallBalanceCount: snapshot.smallBalanceTokens.length,
-        riskyCount: snapshot.riskyTokens.length,
-        aggregateCount: Object.keys(snapshot.aggregateTokenListMap).length,
-        ownerPresent: !!account?.id,
-        indexedAccountPresent: !!indexedAccount?.id,
-        source:
-          allNetworksPublishedResultRef.current.result === allNetworksResult
-            ? `generation:${allNetworksPublishedResultRef.current.generation}`
-            : undefined,
-      });
+      if (isAccountSwitchDiagnosticsEnabled()) {
+        defaultLogger.account.allNetworkAccountPerf.homeTokenListRefreshTrace({
+          runtime: 'main',
+          phase: 'all-network-authoritative-commit',
+          networkId: network?.id,
+          isAllNetworks: true,
+          accountsCount: allNetworksResult.length,
+          tokenCount: snapshot.orderedTokens.length,
+          smallBalanceCount: snapshot.smallBalanceTokens.length,
+          riskyCount: snapshot.riskyTokens.length,
+          aggregateCount: Object.keys(snapshot.aggregateTokenListMap).length,
+          ownerPresent: !!account?.id,
+          indexedAccountPresent: !!indexedAccount?.id,
+          source:
+            allNetworksPublishedResultRef.current.result === allNetworksResult
+              ? `generation:${allNetworksPublishedResultRef.current.generation}`
+              : undefined,
+        });
+      }
       commitAuthoritativeIngest(snapshot, homeRequest);
 
       updateTokenListState({
@@ -2958,18 +2972,20 @@ function TokenListBlock({
       )
         return;
 
-      defaultLogger.account.allNetworkAccountPerf.homeTokenListRefreshTrace({
-        runtime: 'main',
-        phase: 'single-network-local-cache-read',
-        networkId,
-        isAllNetworks: false,
-        hasCache: hasLocalTokenCache,
-        tokenCount: tokenList.length,
-        smallBalanceCount: smallBalanceTokenList.length,
-        riskyCount: riskyTokenList.length,
-        ownerPresent: !!account?.id,
-        indexedAccountPresent: !!indexedAccount?.id,
-      });
+      if (isAccountSwitchDiagnosticsEnabled()) {
+        defaultLogger.account.allNetworkAccountPerf.homeTokenListRefreshTrace({
+          runtime: 'main',
+          phase: 'single-network-local-cache-read',
+          networkId,
+          isAllNetworks: false,
+          hasCache: hasLocalTokenCache,
+          tokenCount: tokenList.length,
+          smallBalanceCount: smallBalanceTokenList.length,
+          riskyCount: riskyTokenList.length,
+          ownerPresent: !!account?.id,
+          indexedAccountPresent: !!indexedAccount?.id,
+        });
+      }
 
       const ingestSingleNetworkCache = ({
         source,
@@ -3001,19 +3017,23 @@ function TokenListBlock({
           .catch((error) => {
             if (!isRequestCanceledError(error)) console.error(error);
           });
-        defaultLogger.account.allNetworkAccountPerf.homeTokenListRefreshTrace({
-          runtime: 'main',
-          phase: 'single-network-cache-ingest',
-          networkId,
-          isAllNetworks: false,
-          hasCache: true,
-          tokenCount: tokenList.length,
-          smallBalanceCount: smallBalanceTokenList.length,
-          riskyCount: riskyTokenList.length,
-          ownerPresent: !!account?.id,
-          indexedAccountPresent: !!indexedAccount?.id,
-          source,
-        });
+        if (isAccountSwitchDiagnosticsEnabled()) {
+          defaultLogger.account.allNetworkAccountPerf.homeTokenListRefreshTrace(
+            {
+              runtime: 'main',
+              phase: 'single-network-cache-ingest',
+              networkId,
+              isAllNetworks: false,
+              hasCache: true,
+              tokenCount: tokenList.length,
+              smallBalanceCount: smallBalanceTokenList.length,
+              riskyCount: riskyTokenList.length,
+              ownerPresent: !!account?.id,
+              indexedAccountPresent: !!indexedAccount?.id,
+              source,
+            },
+          );
+        }
       };
 
       if (
@@ -3237,14 +3257,16 @@ function TokenListBlock({
 
   const handleRefreshAllNetworkData = useCallback(() => {
     isAllNetworkManualRefresh.current = true;
-    defaultLogger.account.allNetworkAccountPerf.homeTokenListRefreshTrace({
-      runtime: 'main',
-      phase: 'all-network-manual-refresh',
-      networkId: network?.id,
-      isAllNetworks: true,
-      ownerPresent: !!account?.id,
-      indexedAccountPresent: !!indexedAccount?.id,
-    });
+    if (isAccountSwitchDiagnosticsEnabled()) {
+      defaultLogger.account.allNetworkAccountPerf.homeTokenListRefreshTrace({
+        runtime: 'main',
+        phase: 'all-network-manual-refresh',
+        networkId: network?.id,
+        isAllNetworks: true,
+        ownerPresent: !!account?.id,
+        indexedAccountPresent: !!indexedAccount?.id,
+      });
+    }
     void runAllNetworksRequests({
       alwaysSetState: true,
       skipAccountsCache: true,

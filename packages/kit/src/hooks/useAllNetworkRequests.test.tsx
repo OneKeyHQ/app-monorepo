@@ -8,11 +8,24 @@ import type {
   IAllNetworkAccountInfo,
   IAllNetworkAccountsInfoResult,
 } from '@onekeyhq/kit-bg/src/services/ServiceAllNetwork/ServiceAllNetwork';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import * as diagnostics from '@onekeyhq/shared/src/performance/enabled';
 
 import backgroundApiProxy from '../background/instance/backgroundApiProxy';
 
 import { useAllNetworkRequests } from './useAllNetwork';
 
+jest.mock('@onekeyhq/shared/src/performance/enabled', () => {
+  const actual = jest.requireActual<
+    typeof import('@onekeyhq/shared/src/performance/enabled')
+  >('@onekeyhq/shared/src/performance/enabled');
+  return {
+    ...actual,
+    isAccountSwitchDiagnosticsEnabled: jest.fn(
+      actual.isAccountSwitchDiagnosticsEnabled,
+    ),
+  };
+});
 jest.mock('../background/instance/backgroundApiProxy', () => ({
   __esModule: true,
   default: { serviceAllNetwork: { getAllNetworkAccountsForHome: jest.fn() } },
@@ -194,6 +207,40 @@ beforeEach(() => {
 });
 
 describe('Home All Networks dispatch ownership', () => {
+  it.each([false, true])(
+    'preserves dispatch and publication with diagnostics enabled=%s',
+    async (enabled) => {
+      const enabledSpy = jest
+        .mocked(diagnostics.isAccountSwitchDiagnosticsEnabled)
+        .mockReturnValue(enabled);
+      const trace = jest.spyOn(
+        defaultLogger.account.allNetworkAccountPerf,
+        'homeTokenListRefreshTrace',
+      );
+      try {
+        const hook = setup({ warm: true });
+        await act(() => hook.result.current.run());
+        expect(hook.cache).toHaveBeenCalledTimes(21);
+        expect(hook.fetch).toHaveBeenCalledTimes(21);
+        expect(hook.published.mock.calls[0][0]).toHaveLength(21);
+        expect(hook.finished).toHaveBeenCalledTimes(1);
+        if (enabled) {
+          expect(trace).toHaveBeenCalledWith(
+            expect.objectContaining({
+              phase: 'all-network-live-dispatch-started',
+              accountsCount: 21,
+            }),
+          );
+        } else {
+          expect(trace).not.toHaveBeenCalled();
+        }
+      } finally {
+        enabledSpy.mockReturnValue(false);
+        trace.mockRestore();
+      }
+    },
+  );
+
   it('silently retires a canceled cache batch without publishing a cache miss or finishing its successor', async () => {
     const batch = jest
       .fn<Promise<IRound[]>, [IAllNetworkAccountInfo[]]>()
