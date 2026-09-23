@@ -12,6 +12,9 @@ const mockWrite = jest.fn(async () => ({
 }));
 const mockDefaultNetworks = jest.fn(async () => []);
 // All credential values are inert fixtures; crypto and persistence are mocked.
+const mockDecryptTransferCredentials = jest.fn(
+  async (_params: unknown) => '{}',
+);
 const mockSeed = { entropyWithLangPrefixed: 'mock-entropy', seed: 'mock-seed' };
 const mockDecryptSeed = jest.fn(async () => mockSeed);
 const mockEncryptSeed = jest.fn(async () => 'mock-encrypted-seed');
@@ -40,11 +43,20 @@ const mockDeriveType = jest.fn(
 const mockGetProgress = jest.fn(async () => ({ importProgress: mockProgress }));
 
 jest.mock('@onekeyhq/core/src/secret', () => ({
+  decryptStringAsync: (params: unknown) =>
+    mockDecryptTransferCredentials(params),
   decryptRevealableSeed: () => mockDecryptSeed(),
   encryptRevealableSeed: () => mockEncryptSeed(),
   revealEntropyToMnemonic: () => 'mock-mnemonic',
 }));
-jest.mock('@onekeyhq/shared/src/appCrypto', () => ({}));
+jest.mock('@onekeyhq/shared/src/appCrypto', () => ({
+  pbkdf2: {
+    getPbkdf2KdfParamsForNonDbTx: () => ({
+      kdfBackend: 'webcrypto',
+      enablePbkdf2Cache: true,
+    }),
+  },
+}));
 jest.mock('@onekeyhq/shared/src/appDeviceInfo/appDeviceInfo', () => ({}));
 jest.mock('@onekeyhq/shared/src/background/backgroundDecorators', () => ({
   backgroundMethod: () => () => undefined,
@@ -185,6 +197,7 @@ describe('Prime Transfer import ownership across preparation and cancellation', 
   beforeEach(() => {
     jest.useFakeTimers();
     mockProgress = undefined;
+    mockDecryptTransferCredentials.mockReset().mockResolvedValue('{}');
     mockWrite.mockClear();
     mockDefaultNetworks.mockReset().mockResolvedValue([]);
     mockDecryptSeed.mockReset().mockResolvedValue(mockSeed);
@@ -604,6 +617,43 @@ describe('Prime Transfer import ownership across preparation and cancellation', 
     expect(mockProgress).toBeUndefined();
     expect(mockWrite).toHaveBeenCalledTimes(1);
   });
+
+  test.each([false, true])(
+    'wrapped credentials use non-blocking crypto and respect cancellation: %s',
+    async (cancel) => {
+      const decrypted = deferred<string>();
+      const entered = deferred<void>();
+      mockDecryptTransferCredentials.mockImplementationOnce(() => {
+        entered.resolve();
+        return decrypted.promise;
+      });
+      const taskUUID = await service.prepareImportTask();
+      if (!taskUUID) throw new OneKeyLocalError('Task was not reserved');
+      await service.initImportProgress({
+        taskUUID,
+        selectedTransferData: watchingData,
+      });
+      const importing = service.startImport({
+        taskUUID,
+        selectedTransferData: watchingData,
+        decryptedCredentialsHex: 'mock-encrypted-credentials',
+        password: 'mock-password',
+      });
+      await entered.promise;
+      if (cancel) await service.resetImportProgress({ taskUUID });
+      decrypted.resolve('{}');
+      await expect(importing).resolves.toMatchObject({ success: !cancel });
+      expect(mockDecryptTransferCredentials).toHaveBeenCalledWith({
+        data: 'mock-encrypted-credentials',
+        password: 'mock-password',
+        allowRawPassword: true,
+        resultEncoding: 'utf8',
+        kdfBackend: 'webcrypto',
+        enablePbkdf2Cache: true,
+      });
+      expect(mockWrite).toHaveBeenCalledTimes(cancel ? 0 : 1);
+    },
+  );
 
   test('duplicate start and its finalization cannot cancel the original import', async () => {
     const write = deferred<{ addedAccounts: { id: string }[] }>();

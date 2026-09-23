@@ -133,3 +133,30 @@ test.each<[boolean, IPbkdf2KdfParams]>([
     );
   },
 );
+
+test.each(['hd', 'imported'] as const)(
+  'remote password validation uses the platform KDF without accepting a wrong password: %s',
+  async (kind) => {
+    const kdfParams: IPbkdf2KdfParams = {
+      kdfBackend: 'webcrypto',
+      enablePbkdf2Cache: true,
+    };
+    mockKdfParams.mockReturnValue(kdfParams);
+    const service = new ServicePrimeTransfer({ backgroundApi: {} });
+    const params = {
+      password: 'fixture-password',
+      walletCredential: kind === 'hd' ? 'fixture-ciphertext' : undefined,
+      importedAccountCredential:
+        kind === 'imported' ? 'fixture-ciphertext' : undefined,
+    };
+    await expect(service.verifyCredentialCanBeDecrypted(params)).resolves.toBe(
+      true,
+    );
+    const decrypt = kind === 'hd' ? mockDecryptSeed : mockDecryptImported;
+    expect(decrypt).toHaveBeenCalledWith(expect.objectContaining(kdfParams));
+    decrypt.mockRejectedValueOnce(new Error('Incorrect password'));
+    await expect(service.verifyCredentialCanBeDecrypted(params)).resolves.toBe(
+      false,
+    );
+  },
+);

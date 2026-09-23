@@ -2502,6 +2502,7 @@ class ServicePrimeTransfer extends ServiceBase {
       data: encryptedData,
       password: decryptionKey,
       allowRawPassword: true,
+      ...appCrypto.pbkdf2.getPbkdf2KdfParamsForNonDbTx(),
     });
     const d: string = bufferUtils.bytesToUtf8(data);
     const transferData: IPrimeTransferData | undefined = JSON.parse(d) as
@@ -2865,6 +2866,7 @@ class ServicePrimeTransfer extends ServiceBase {
     password: string;
   }) {
     try {
+      const kdfParams = appCrypto.pbkdf2.getPbkdf2KdfParamsForNonDbTx();
       if (walletCredential) {
         if (!password) {
           throw new OneKeyLocalError('Password is required');
@@ -2873,6 +2875,7 @@ class ServicePrimeTransfer extends ServiceBase {
           rs: walletCredential,
           password,
           allowRawPassword: true,
+          ...kdfParams,
         });
       } else if (importedAccountCredential) {
         if (!password) {
@@ -2882,6 +2885,7 @@ class ServicePrimeTransfer extends ServiceBase {
           credential: importedAccountCredential,
           password,
           allowRawPassword: true,
+          ...kdfParams,
         });
       }
       return true;
@@ -3421,6 +3425,8 @@ class ServicePrimeTransfer extends ServiceBase {
       IAccountDeriveTypes | undefined
     >();
     try {
+      // Only use these parameters for credential preparation outside DB writes.
+      const kdfParams = appCrypto.pbkdf2.getPbkdf2KdfParamsForNonDbTx();
       this.batchCreateHdAccountsParams = [];
       this.currentImportFlow = isFromCloudBackupRestore
         ? 'cloudBackupRestore'
@@ -3462,6 +3468,7 @@ class ServicePrimeTransfer extends ServiceBase {
                 resultEncoding: 'utf8',
                 password,
                 allowRawPassword: true,
+                ...kdfParams,
               }),
             ) as IPrimeTransferDecryptedCredentials,
         );
@@ -3574,6 +3581,7 @@ class ServicePrimeTransfer extends ServiceBase {
                 decryptRevealableSeed({
                   rs: credential,
                   password,
+                  ...kdfParams,
                 }),
             );
             mnemonicFromRs = revealEntropyToMnemonic(
@@ -4021,6 +4029,7 @@ class ServicePrimeTransfer extends ServiceBase {
                     decryptRevealableSeed({
                       rs: tonMnemonicCredential,
                       password,
+                      ...kdfParams,
                     }),
                 );
               }
@@ -4051,6 +4060,7 @@ class ServicePrimeTransfer extends ServiceBase {
                   const tonRsEncrypted = await encryptRevealableSeed({
                     rs: tonRsUsed,
                     password: localPasswordForTon,
+                    ...kdfParams,
                   });
                   this.assertImportTaskActive(taskUUID);
                   await localDb.saveTonImportedAccountMnemonic({
