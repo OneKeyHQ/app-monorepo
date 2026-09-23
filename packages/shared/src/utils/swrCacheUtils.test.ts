@@ -191,7 +191,7 @@ describe('SWR cache keys', () => {
       swrKeys.swapStockPayTokenDetails({
         scope: '1:usdc|usdt:idx:acc',
       }),
-    ).toBe('swapStockPayTokenDetails:v1:1:usdc|usdt:idx:acc');
+    ).toBe('swapStockPayTokenDetails:v2:1:usdc|usdt:idx:acc');
   });
 
   it('scopes Borrow and Earn bootstrap data by its authoritative identity', () => {

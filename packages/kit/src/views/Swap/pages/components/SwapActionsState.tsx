@@ -276,8 +276,21 @@ const SwapActionsState = ({
     !quoteActionLock.actionLock &&
     quoteEventCompleted &&
     quoteRequestMatchesCurrentInput;
+  const quoteProvenForCurrentInput = isSwapQuoteProvenForCurrentRequest({
+    quote: currentQuoteRes,
+    quoteEventTotalCount,
+    quoteLoading,
+    quoteEventFetching,
+    quoteActionLocked: Boolean(quoteActionLock.actionLock),
+    requestMatchesCurrentInput: quoteRequestMatchesCurrentInput,
+  });
+  const quoteSettledWithResult =
+    quoteProvenForCurrentInput &&
+    quoteEventCompleted &&
+    !quoteLoading &&
+    !quoteEventFetching;
   const settledProviderSupportRef = useRef(swapProviderSupportReceiveAddress);
-  if (currentQuoteRes || isQuoteSettledWithoutResult) {
+  if (quoteSettledWithResult || isQuoteSettledWithoutResult) {
     settledProviderSupportRef.current = swapProviderSupportReceiveAddress;
   }
   const providerSupportReceiveAddressSettled =
@@ -301,21 +314,14 @@ const SwapActionsState = ({
     // Active-request proof: see isSwapQuoteProvenForCurrentRequest for why
     // event membership, the lock match, and the request-starting interval all
     // have to be checked together.
-    quoteProvenForCurrentInput: isSwapQuoteProvenForCurrentRequest({
-      quote: currentQuoteRes,
-      quoteEventTotalCount,
-      quoteLoading,
-      quoteEventFetching,
-      quoteActionLocked: Boolean(quoteActionLock.actionLock),
-      requestMatchesCurrentInput: quoteRequestMatchesCurrentInput,
-    }),
+    quoteProvenForCurrentInput,
     quoteSettledWithoutResult: isQuoteSettledWithoutResult,
     isAddressInfoReady: swapToAddressInfo.isAddressInfoReady,
     hasTargetAddress: Boolean(swapToAddressInfo.address),
     noConnectWallet,
   });
 
-  const shouldShowRecipient = useMemo(
+  const shouldShowRecipientForCurrentState = useMemo(
     () =>
       shouldShowSwapRecipientEntry({
         swapType: swapTypeSwitch,
@@ -338,6 +344,36 @@ const SwapActionsState = ({
       toToken,
     ],
   );
+
+  // Stock token switches intentionally clear the pay token while the new
+  // network-scoped token is resolved. Keep an already visible recipient row
+  // mounted through that transition; otherwise the temporary missing token
+  // makes the row collapse and re-expand even though the setting is enabled.
+  const recipientVisibilityScopeRef = useRef({
+    swapType: swapTypeSwitch,
+    visible: false,
+  });
+  if (recipientVisibilityScopeRef.current.swapType !== swapTypeSwitch) {
+    recipientVisibilityScopeRef.current = {
+      swapType: swapTypeSwitch,
+      visible: false,
+    };
+  }
+  if (shouldShowRecipientForCurrentState) {
+    recipientVisibilityScopeRef.current.visible = true;
+  }
+  if (!swapEnableRecipientAddress) {
+    recipientVisibilityScopeRef.current.visible = false;
+  }
+  const shouldKeepRecipientVisibleDuringStockTokenTransition = Boolean(
+    swapTypeSwitch === ESwapTabSwitchType.STOCK &&
+    recipientVisibilityScopeRef.current.visible &&
+    swapEnableRecipientAddress &&
+    (!fromToken || !toToken),
+  );
+  const shouldShowRecipient =
+    shouldShowRecipientForCurrentState ||
+    shouldKeepRecipientVisibleDuringStockTokenTransition;
 
   const shouldShowIncognitoRecipientInput = useMemo(
     () =>
