@@ -427,7 +427,7 @@ export function StockTokenVariantSelector({
 }: {
   portfolioData?: IMarketAccountPortfolioDisplayItem[];
   resolvedVariantKeys?: string[];
-  fallbackToken?: Pick<ISwapToken, 'logoURI' | 'symbol'>;
+  fallbackToken?: Pick<ISwapToken, 'logoURI' | 'symbol' | 'stock'>;
   onSelect?: (variant: IMarketStockTokenVariant) => Promise<boolean>;
   compact?: boolean;
   onOpenChange?: (open: boolean) => void;
@@ -518,9 +518,23 @@ export function StockTokenVariantSelector({
             tokenImageUri={fallbackToken.logoURI}
             placeholder={<Stack width="100%" height="100%" />}
           />
-          <SizableText size="$headingMd" numberOfLines={1}>
-            {fallbackToken.symbol || VALUE_FALLBACK}
-          </SizableText>
+          <YStack justifyContent="center" minWidth={0}>
+            <SizableText size="$headingMd" numberOfLines={1}>
+              {fallbackToken.symbol || VALUE_FALLBACK}
+            </SizableText>
+            {/* The resolved trigger always carries the issuer line, so this
+                branch has to reserve it too: with only the symbol the row is
+                one line shorter and grows when the variant lands. The token's
+                embedded stock metadata already knows the issuer. */}
+            <SizableText size="$bodySm" color="$textSubdued" numberOfLines={1}>
+              {intl.formatMessage(
+                { id: ETranslations.market_issued_by },
+                {
+                  issuer: getIssuerLabel(fallbackToken.stock?.source ?? ''),
+                },
+              )}
+            </SizableText>
+          </YStack>
         </XStack>
       );
     }

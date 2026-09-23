@@ -205,6 +205,11 @@ export function SwapStockTickerSelector() {
   const intl = useIntl();
   const { md } = useMedia();
   const selection = useSwapStockSelection();
+  // Warm the selector list as soon as the Stocks page mounts: the sheet reads
+  // its first page from the SWR cache and shows a centered spinner on a miss,
+  // and the Market Home list may be older than the cache window. Opening the
+  // sheet then renders rows immediately instead of flashing a loading state.
+  useMarketStockSelectorList({ query: '' });
   const { stockDetail, stockPreview, stockId } = useStockDetail();
   const { currentStockToken } = useSwapStockTradeContext();
   const stock = stockDetail ?? stockPreview;
@@ -215,7 +220,12 @@ export function SwapStockTickerSelector() {
   const fallbackStock = stockTokenMatches
     ? currentStockToken?.stock
     : undefined;
-  const tokenImageUri = stock?.logoUrl ?? currentStockToken?.logoURI;
+  // The header carries the underlying stock's brand icon. Until the stock
+  // identity actually carries that icon (fresh selection, cache miss), keep
+  // the loading skeleton: the token's own artwork and the issuer/provider logo
+  // both differ from the brand icon, and falling back to either one reads as a
+  // wrong icon flashing before the real one arrives.
+  const tokenImageUri = stock?.logoUrl;
   const tokenSymbol =
     stock?.symbol ??
     fallbackStock?.underlyingAssetTicker ??
