@@ -1009,6 +1009,42 @@ describe('DeviceStageBurstScope', () => {
     expect(stage?.step).toBe('off');
   });
 
+  it('yields to the enable-passphrase dialog when the inner call ends, before the holder releases', async () => {
+    // The hidden-wallet flow holds an outer layer around the wrapper call
+    // that finds passphrase disabled. The dialog rises from that call's
+    // rejection — a UI round trip before the holder's own release — so the
+    // stage must already be off by then, or the dialog lands under it.
+    const scope = new DeviceStageBurstScope();
+    const token = await scope.beginExplicit({ connectId: CONNECT_ID });
+    await scope.begin({ connectId: CONNECT_ID });
+    await paintOpeningBeat();
+    expect(stage?.step).toBe('connecting');
+    const error = convertDeviceError({
+      code: HardwareErrorCode.DeviceNotOpenedPassphrase,
+    });
+    await scope.end({ error });
+    expect(stage?.step).toBe('off');
+    // The interrupted call's stragglers stay off the dialog.
+    await scope.onHardwareUiEvent({
+      action: EHardwareUiStateAction.CLOSE_UI_WINDOW,
+      connectId: CONNECT_ID,
+    });
+    await scope.onHardwareUiEvent({
+      action: EHardwareUiStateAction.ProcessLoading,
+      connectId: CONNECT_ID,
+    });
+    expect(stage?.step).toBe('off');
+    // The hold is still the holder's to release.
+    expect(burstActiveFlag).toHaveBeenLastCalledWith(true);
+    await scope.endExplicit({
+      token,
+      error: JSON.parse(JSON.stringify(toPlainErrorObject(error))) as unknown,
+    });
+    await letTheExitRun();
+    expect(stage?.step).toBe('off');
+    expect(burstActiveFlag).toHaveBeenLastCalledWith(false);
+  });
+
   it.each([
     ECustomOneKeyHardwareError.NeedFirmwareUpgradeFromWeb,
     ECustomOneKeyHardwareError.UnknownHardwareError,

@@ -803,10 +803,28 @@ export class DeviceStageBurstScope {
       await this.userClose();
       return;
     }
+    // A failure another surface owns — the enable-passphrase dialog, the
+    // BLE repair guidance, the forced-update prompt — takes the screen the
+    // moment the call that raised it ends, not when the outermost hold
+    // releases. The hidden-wallet flow (and onboarding) hold an outer layer
+    // around the wrapper call, so the depth-0 stand-down below used to come
+    // a whole UI round trip after the dialog had risen: the dialog mounted
+    // under the stage's touch wall and window (re-fronted above the dialog
+    // portal on iOS, OK-62422), and with both surfaces re-stacking in the
+    // same frame the dialog's own backdrop landed over its sheet. The stage
+    // yields now; the bookkeeping below is untouched, the outer release
+    // still finds its layer, and only the device asking again may repaint
+    // over the dialog (see silence).
+    const ownedByDialog = this.isDialogOwnedFailure(params.error);
+    if (ownedByDialog && this.depth > 1) {
+      await this.silence();
+    }
     this.depth = Math.max(this.depth - 1, 0);
     if (this.depth > 0) {
-      // A call ending inside the hold: the device answered.
-      await this.touchActivity();
+      if (!ownedByDialog) {
+        // A call ending inside the hold: the device answered.
+        await this.touchActivity();
+      }
       return;
     }
     this.yieldedToDialog = false;
@@ -853,14 +871,7 @@ export class DeviceStageBurstScope {
     const error = params.error as
       | IOneKeyError<IOneKeyErrorI18nInfo>
       | undefined;
-    if (
-      isHardwareErrorByCode({ error, code: DEDICATED_DIALOG_ERROR_CODES }) ||
-      (error?.payload?.connectId &&
-        isHardwareErrorByCode({
-          error,
-          code: HardwareErrorCode.NotAllowInBootloaderMode,
-        }))
-    ) {
+    if (ownedByDialog) {
       await this.forceOff({ force: true });
       return;
     }
@@ -2033,6 +2044,24 @@ export class DeviceStageBurstScope {
         payload: mergedExtras.payload ?? base?.payload,
       };
     });
+  }
+
+  /** Whether a dedicated dialog (DEDICATED_DIALOG_ERROR_CODES, or the
+   * bootloader hand-off for a device the flow could name) speaks for this
+   * failure — the stage stands down instead of landing a notice under it. */
+  private isDialogOwnedFailure(error: unknown): boolean {
+    const typed = error as IOneKeyError<IOneKeyErrorI18nInfo> | undefined;
+    return Boolean(
+      isHardwareErrorByCode({
+        error: typed,
+        code: DEDICATED_DIALOG_ERROR_CODES,
+      }) ||
+      (typed?.payload?.connectId &&
+        isHardwareErrorByCode({
+          error: typed,
+          code: HardwareErrorCode.NotAllowInBootloaderMode,
+        })),
+    );
   }
 
   private mapErrorToReason(
