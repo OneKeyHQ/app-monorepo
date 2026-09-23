@@ -278,6 +278,42 @@ describe('prewarmHomeTokenListOwner', () => {
     ).toBe('usd');
   });
 
+  // PR #13695 review: a caller served from the replay cache took no seq, so
+  // an older request a switch-back caller had joined landed with the newest
+  // seq and replaced the cached currency's frames.
+  it('a replay-cache hit after a joined older request keeps the cached currency frames', async () => {
+    let resolveUsd: (value: unknown) => void = () => undefined;
+    mockPrewarmFrames.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          resolveUsd = resolve;
+        }),
+    );
+    mockPrewarmFrames.mockResolvedValueOnce({
+      ...makeBgResult(),
+      currency: 'cny',
+    });
+    const usd = prewarmHomeTokenListOwner({ ...PARAMS, currencyId: 'usd' });
+    await expect(
+      prewarmHomeTokenListOwner({ ...PARAMS, currencyId: 'cny' }),
+    ).resolves.toBe(true);
+    const usdAgain = prewarmHomeTokenListOwner({
+      ...PARAMS,
+      currencyId: 'usd',
+    });
+    await expect(
+      prewarmHomeTokenListOwner({ ...PARAMS, currencyId: 'cny' }),
+    ).resolves.toBe(true);
+    expect(mockPrewarmFrames).toHaveBeenCalledTimes(2);
+    resolveUsd(makeBgResult());
+    await expect(usdAgain).resolves.toBe(false);
+    await expect(usd).resolves.toBe(false);
+    expect(
+      getOwnerReplayFrames({ storeName: STORE_NAME, ownerKey: OWNER_KEY })
+        ?.currencyId,
+    ).toBe('cny');
+  });
+
   it('a newer request still replaces frames an older request wrote in another currency', async () => {
     mockPrewarmFrames.mockResolvedValueOnce(makeBgResult());
     await prewarmHomeTokenListOwner({ ...PARAMS, currencyId: 'usd' });

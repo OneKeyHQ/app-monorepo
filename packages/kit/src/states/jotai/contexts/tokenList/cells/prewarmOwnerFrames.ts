@@ -59,7 +59,9 @@ function rememberResolvedOwnerKey(key: string, ownerKey: string): void {
 // after a later one; it must not replace the later request's frames with the
 // old currency's (the replay would then reject them or paint stale fiat).
 // A caller joining an in-flight request is a newer intent than its dispatch
-// (e.g. switching the currency away and back), so it takes a new seq too.
+// (e.g. switching the currency away and back), so it takes a new seq too; so
+// does a caller served from the replay cache, whose frames an older request
+// still in flight must then not replace.
 let prewarmDispatchSeq = 0;
 const ownerWriteSeqMap = new Map<string, number>();
 
@@ -136,6 +138,8 @@ export async function prewarmHomeTokenListOwner(
       currencyId: params.currencyId,
     })
   ) {
+    prewarmDispatchSeq += 1;
+    claimOwnerWrite(knownOwnerKey, prewarmDispatchSeq);
     return true;
   }
   // A currency switch mid-prewarm must not join the old currency's request:
