@@ -743,6 +743,7 @@ function FinalizeWalletSetupPage({
             connectProtocol,
             device: deviceData.device as SearchDevice,
             isFirmwareVerified,
+            skipFinalizeNavigation: true,
           });
         }
         // The device conversation is over: release the hold and let the
