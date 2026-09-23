@@ -245,6 +245,39 @@ describe('prewarmHomeTokenListOwner', () => {
     ).toBe('cny');
   });
 
+  // PR #13695 review: a caller joining an in-flight request inherited its
+  // dispatch-time seq, so after switching the currency away and back the
+  // request the current currency waits on was rejected by its own guard.
+  it('a caller that switched away and back and joined the in-flight request still writes its frames', async () => {
+    let resolveUsd: (value: unknown) => void = () => undefined;
+    mockPrewarmFrames.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          resolveUsd = resolve;
+        }),
+    );
+    mockPrewarmFrames.mockResolvedValueOnce({
+      ...makeBgResult(),
+      currency: 'cny',
+    });
+    const usd = prewarmHomeTokenListOwner({ ...PARAMS, currencyId: 'usd' });
+    await expect(
+      prewarmHomeTokenListOwner({ ...PARAMS, currencyId: 'cny' }),
+    ).resolves.toBe(true);
+    const usdAgain = prewarmHomeTokenListOwner({
+      ...PARAMS,
+      currencyId: 'usd',
+    });
+    expect(mockPrewarmFrames).toHaveBeenCalledTimes(2);
+    resolveUsd(makeBgResult());
+    await expect(usdAgain).resolves.toBe(true);
+    await expect(usd).resolves.toBe(true);
+    expect(
+      getOwnerReplayFrames({ storeName: STORE_NAME, ownerKey: OWNER_KEY })
+        ?.currencyId,
+    ).toBe('usd');
+  });
+
   it('a newer request still replaces frames an older request wrote in another currency', async () => {
     mockPrewarmFrames.mockResolvedValueOnce(makeBgResult());
     await prewarmHomeTokenListOwner({ ...PARAMS, currencyId: 'usd' });

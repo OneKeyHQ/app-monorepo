@@ -28,7 +28,10 @@ export interface IPrewarmHomeTokenListOwnerParams {
 
 const HOME_STORE_NAME = EJotaiContextStoreNames.homeTokenList;
 
-const inFlight = new Map<string, Promise<boolean>>();
+const inFlight = new Map<
+  string,
+  { run: Promise<boolean>; seqRef: { current: number } }
+>();
 
 // Owner keys resolved by earlier prewarms (the selector prewarms its listed
 // rows while open). A tap on one of those rows then confirms from the replay
@@ -50,27 +53,29 @@ function rememberResolvedOwnerKey(key: string, ownerKey: string): void {
   }
 }
 
-// Dispatch order of prewarm requests, and the latest request that wrote each
+// Intent order of prewarm requests, and the latest request that wrote each
 // owner's frames. The background answers in its settings currency at the time
 // it runs, so across a currency switch a request dispatched earlier can land
 // after a later one; it must not replace the later request's frames with the
 // old currency's (the replay would then reject them or paint stale fiat).
+// A caller joining an in-flight request is a newer intent than its dispatch
+// (e.g. switching the currency away and back), so it takes a new seq too.
 let prewarmDispatchSeq = 0;
-const ownerWriteSeqs = new Map<string, number>();
+const ownerWriteSeqMap = new Map<string, number>();
 
 function claimOwnerWrite(ownerKey: string, seq: number): boolean {
-  const written = ownerWriteSeqs.get(ownerKey);
+  const written = ownerWriteSeqMap.get(ownerKey);
   if (written !== undefined && written > seq) {
     return false;
   }
-  ownerWriteSeqs.delete(ownerKey);
-  ownerWriteSeqs.set(ownerKey, seq);
-  while (ownerWriteSeqs.size > RESOLVED_OWNER_KEYS_CAP) {
-    const oldest = ownerWriteSeqs.keys().next().value;
+  ownerWriteSeqMap.delete(ownerKey);
+  ownerWriteSeqMap.set(ownerKey, seq);
+  while (ownerWriteSeqMap.size > RESOLVED_OWNER_KEYS_CAP) {
+    const oldest = ownerWriteSeqMap.keys().next().value;
     if (oldest === undefined) {
       break;
     }
-    ownerWriteSeqs.delete(oldest);
+    ownerWriteSeqMap.delete(oldest);
   }
   return true;
 }
@@ -136,12 +141,13 @@ export async function prewarmHomeTokenListOwner(
   // A currency switch mid-prewarm must not join the old currency's request:
   // its frames would be rejected by the replay in the new currency.
   const inFlightKey = `${key}\u0000${params.currencyId ?? ''}`;
+  prewarmDispatchSeq += 1;
   const pending = inFlight.get(inFlightKey);
   if (pending) {
-    return pending;
+    pending.seqRef.current = prewarmDispatchSeq;
+    return pending.run;
   }
-  prewarmDispatchSeq += 1;
-  const seq = prewarmDispatchSeq;
+  const seqRef = { current: prewarmDispatchSeq };
   const run = (async () => {
     try {
       const result =
@@ -179,7 +185,7 @@ export async function prewarmHomeTokenListOwner(
       if (hasFramesForReplay({ ownerKey, currencyId: currency })) {
         return inReplayCurrency;
       }
-      if (!claimOwnerWrite(ownerKey, seq)) {
+      if (!claimOwnerWrite(ownerKey, seqRef.current)) {
         // A later prewarm already wrote this owner (in another currency).
         return false;
       }
@@ -228,7 +234,7 @@ export async function prewarmHomeTokenListOwner(
       inFlight.delete(inFlightKey);
     }
   })();
-  inFlight.set(inFlightKey, run);
+  inFlight.set(inFlightKey, { run, seqRef });
   return run;
 }
 
