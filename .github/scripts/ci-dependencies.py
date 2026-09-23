@@ -23,7 +23,7 @@ def checksum(path):
         return hashlib.file_digest(stream, 'sha256').hexdigest()
 
 
-def dependency_inputs(root, ref=None):
+def dependency_inputs(root, ref=None, legacy=False):
     patterns = [
         'package.json', ':(glob)**/package.json', 'yarn.lock', '.yarnrc.yml',
         '.yarn/releases', '.yarn/plugins', '.yarn/patches', 'patches',
@@ -31,6 +31,8 @@ def dependency_inputs(root, ref=None):
         'development/scripts/web-embed.js', '.env.example',
         '.github/scripts/ci-dependencies.py', '.github/actions/install-dependencies',
     ]
+    if not legacy:
+        patterns.append(':(glob)**/patches/**')
     if ref is None:
         names = subprocess.check_output(
             ['git', 'ls-files', '-z', '--', *patterns], cwd=root,
@@ -40,6 +42,7 @@ def dependency_inputs(root, ref=None):
             ['git', 'ls-tree', '-r', '--name-only', '-z', ref], cwd=root,
         ).decode().split('\0')
         names = [name for name in names if name in patterns or name.endswith('/package.json')
+                 or (not legacy and '/patches/' in name)
                  or any(name.startswith(prefix + '/') for prefix in patterns)]
     for name in sorted(set(filter(None, names))):
         data = ((root / name).read_bytes() if ref is None else subprocess.check_output(
@@ -48,10 +51,15 @@ def dependency_inputs(root, ref=None):
         yield name, data
 
 
-def fingerprint(root, runtime, compatible=False, ref=None):
+def fingerprint(root, runtime, compatible=False, ref=None, legacy=False):
     # Source-dependent postinstall outputs are regenerated on every checkout.
     digest = hashlib.sha256(json.dumps(runtime, sort_keys=True).encode())
-    for name, data in dependency_inputs(root, ref):
+    if compatible:
+        # Older v2 prefixes omitted workspace patches, including deleted ones.
+        digest.update(b'workspace-patches-v1\0')
+    for name, data in dependency_inputs(root, ref, legacy=legacy):
+        # Only root patches support incremental resets; workspace patches must
+        # invalidate compatibility so their dependencies are installed cleanly.
         if compatible and (name == 'yarn.lock' or name.startswith('patches/')
                            or name == '.github/scripts/ci-dependencies.py'
                            or name.startswith('.github/actions/install-dependencies/')):
@@ -77,7 +85,8 @@ def legacy_snapshot(root, runtime, compatibility, ref):
                for name, data in dependency_inputs(root, ref)
                if name.startswith('patches/') and name.endswith('.patch')}
     validate_patches(patches)
-    return {'key': 'ci-deps-squashfs-v1-' + fingerprint(root, runtime, ref=ref),
+    # Preserve the original v1 input selection to find already-published images.
+    return {'key': 'ci-deps-squashfs-v1-' + fingerprint(root, runtime, ref=ref, legacy=True),
             'patches': patches, 'source_commit': ref}
 
 
@@ -223,6 +232,10 @@ class Snapshot:
         validate_patches(patches)
         roots = manifest['roots']
         validate_roots(self.root, roots)
+        if 'version' not in manifest:
+            # v1 keys did not bind workspace patches. Reinstall workspace roots
+            # even if the fixed x tree has matching patches or no longer has any.
+            roots = ['node_modules']
         image = self.cache / 'dependencies.squashfs'
         if image.stat().st_size != manifest['bytes'] or checksum(image) != manifest['sha256']:
             raise ValueError('Snapshot checksum mismatch')

@@ -66,6 +66,38 @@ class SnapshotTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             dependencies.validate_roots(self.root, ['apps/web/node_modules', 'node_modules'])
 
+    def test_workspace_patch_changes_invalidate_exact_and_compatible_snapshots(self):
+        runtime = {'node': 'v24.21.0'}
+        (self.root / 'patches/example.patch').rename(self.root / 'patches/root+1.0.0.patch')
+        subprocess.run(['git', 'add', '-A'], cwd=self.root, check=True)
+        original = dependencies.fingerprint(self.root, runtime)
+        previous = {mode: dependencies.fingerprint(self.root, runtime, compatible=mode)
+                    for mode in [False, True]}
+        target = self.root / 'apps/web/patches/local+1.0.0.patch'
+        target.parent.mkdir()
+        refs = []
+        for action, content in [('added', 'first patch'), ('changed', 'second patch'), ('deleted', None)]:
+            with self.subTest(action=action):
+                if content is None:
+                    target.unlink()
+                else:
+                    target.write_text(content)
+                subprocess.run(['git', 'add', '-A'], cwd=self.root, check=True)
+                subprocess.run(['git', '-c', 'user.name=Fixture', '-c', 'user.email=fixture@example.invalid',
+                                'commit', '-qm', action], cwd=self.root, check=True)
+                ref = subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=self.root, text=True).strip()
+                refs.append(ref)
+                for mode in [False, True]:
+                    current = dependencies.fingerprint(self.root, runtime, compatible=mode)
+                    self.assertNotEqual(previous[mode], current)
+                    self.assertEqual(current, dependencies.fingerprint(self.root, runtime, compatible=mode, ref=ref))
+                    previous[mode] = current
+                legacy = dependencies.legacy_snapshot(self.root, runtime, previous[True], ref)
+                self.assertEqual(legacy['key'], 'ci-deps-squashfs-v1-' + original)
+                for old_ref in refs[:-1]:
+                    with self.assertRaisesRegex(ValueError, 'incompatible'):
+                        dependencies.legacy_snapshot(self.root, runtime, previous[True], old_ref)
+
     def test_corrupted_snapshot_is_rejected_before_mount(self):
         snapshot = dependencies.Snapshot()
         snapshot.cache.mkdir(parents=True)
@@ -243,6 +275,33 @@ class SnapshotTests(unittest.TestCase):
         self.assertFalse((self.root / 'apps/web/node_modules').exists())
         self.assertFalse((self.root / '.yarn/install-state.gz').exists())
 
+    def test_legacy_snapshot_does_not_restore_unbound_workspace_dependencies(self):
+        (self.root / 'patches/example.patch').unlink()
+        snapshot = dependencies.Snapshot()
+        snapshot.cache.mkdir(parents=True)
+        snapshot.state = {'key': 'v2-key', 'legacy': {'key': 'v1-x-key', 'patches': {}},
+                          'mounts': [], 'owned_roots': []}
+        image = snapshot.cache / 'dependencies.squashfs'
+        image.write_bytes(b'fixture image')
+        (snapshot.cache / 'manifest.json').write_text(json.dumps({
+            'key': 'v1-x-key', 'roots': ['apps/web/node_modules', 'node_modules'],
+            'bytes': image.stat().st_size, 'sha256': dependencies.checksum(image),
+        }))
+        real_run = subprocess.run
+
+        def run(command, **kwargs):
+            if command[0] == 'sudo':
+                return subprocess.CompletedProcess(command, 0)
+            return real_run(command, **kwargs)
+
+        with patch.dict(os.environ, {'DEPENDENCY_SNAPSHOT_KEY': 'v1-x-key'}), \
+                patch.object(dependencies.subprocess, 'run', side_effect=run), \
+                patch.object(dependencies.shutil, 'copy2'), \
+                contextlib.redirect_stdout(io.StringIO()):
+            snapshot.mount()
+        self.assertEqual(snapshot.state['owned_roots'], ['node_modules'])
+        self.assertFalse((self.root / 'apps/web/node_modules').exists())
+
     def test_only_x_refresh_can_build_snapshots(self):
         for ref, workflow in [('refs/pull/1/merge', 'Cache Refresh'), ('refs/heads/x', 'Unit Tests')]:
             with patch.dict(os.environ, {'GITHUB_REF': ref, 'GITHUB_WORKFLOW': workflow}):
@@ -264,9 +323,16 @@ class SnapshotIntegrationTests(unittest.TestCase):
             # The same real Yarn afterInstall hook and patch-package CLI as the repo.
             shutil.copy2(repository / '.yarn/plugins/@yarnpkg/plugin-after-install.cjs', tools / 'after-install.cjs')
             package = {'name': 'snapshot-fixture', 'private': True, 'packageManager': 'yarn@4.12.0',
+                       'workspaces': ['apps/*'],
                        'dependencies': {'isarray': '2.0.5', 'is-number': '7.0.0', 'is-odd': '3.0.1'},
                        'scripts': {'postinstall': f'node {repository}/node_modules/patch-package/index.js --error-on-fail'}}
             (root / 'package.json').write_text(json.dumps(package))
+            workspace = root / 'apps/web'
+            workspace.mkdir(parents=True)
+            (workspace / 'package.json').write_text(json.dumps({
+                'name': 'workspace-fixture', 'version': '1.0.0',
+                'dependencies': {'isarray': '1.0.0'},
+            }))
             (root / '.yarnrc.yml').write_text(
                 f'yarnPath: {repository}/.yarn/releases/yarn-4.12.0.cjs\n'
                 f'nodeLinker: node-modules\nafterInstall: yarn postinstall\nplugins:\n  - path: {tools}/after-install.cjs\n')
@@ -294,7 +360,14 @@ class SnapshotIntegrationTests(unittest.TestCase):
             make_patch('isarray', 'OLD_REMOVED')
             make_patch('is-number', 'OLD_CHANGED')
             subprocess.run(['yarn', 'install', '--immutable'], cwd=root, check=True)
-            subprocess.run(['git', 'add', 'package.json', '.yarnrc.yml', 'yarn.lock', 'patches'], cwd=root, check=True)
+            workspace_dependency = workspace / 'node_modules/isarray/index.js'
+            workspace_original = workspace_dependency.read_bytes()
+            workspace_dependency.write_bytes(workspace_original + b'\n// OLD_WORKSPACE_PATCH\n')
+            workspace_patch = workspace / 'patches/isarray+1.0.0.patch'
+            workspace_patch.parent.mkdir()
+            workspace_patch.write_text('workspace patch input')
+            subprocess.run(['git', 'add', 'package.json', '.yarnrc.yml', 'yarn.lock', 'patches',
+                            'apps/web/package.json', 'apps/web/patches'], cwd=root, check=True)
             subprocess.run(['git', '-c', 'user.name=Fixture', '-c', 'user.email=fixture@example.invalid',
                             'commit', '-qm', 'fixture'], cwd=root, check=True)
             (root / 'node_modules/.cache').mkdir(exist_ok=True)
@@ -324,6 +397,7 @@ class SnapshotIntegrationTests(unittest.TestCase):
                     self.assertTrue((root / 'node_modules/.cache/keep-in-checkout').exists())
                     print(f'Integration seed build: {time.monotonic() - started:.2f}s', flush=True)
                     shutil.rmtree(root / 'node_modules')
+                    shutil.rmtree(workspace / 'node_modules')
                     (root / '.yarn/install-state.gz').unlink()
                     (root / 'patches/isarray+2.0.5.patch').unlink()
                     make_patch('is-number', 'NEW_CHANGED')
@@ -344,9 +418,10 @@ class SnapshotIntegrationTests(unittest.TestCase):
                         self.assertEqual(data.count(marker), 1)
                         self.assertNotIn(b'OLD_CHANGED', data)
                     self.assertFalse((root / 'node_modules/.cache/keep-in-checkout').exists())
+                    self.assertIn(b'OLD_WORKSPACE_PATCH', workspace_dependency.read_bytes())
                     started = time.monotonic()
                     updated.build()
-                    self.assertEqual(len(updated.state['mounts']), 2)
+                    self.assertEqual(len(updated.state['mounts']), 3)
                     self.assertEqual(list((updated.temp / 'stage/node_modules').iterdir()), [])
                     print(f'Integration OverlayFS republish: {time.monotonic() - started:.2f}s', flush=True)
                     updated.cleanup(remove=True)
@@ -358,6 +433,15 @@ class SnapshotIntegrationTests(unittest.TestCase):
                     self.assertEqual((root / 'node_modules/isarray/index.js').read_bytes(), originals['isarray'])
                     self.assertEqual((root / 'node_modules/is-number/index.js').read_bytes().count(b'NEW_CHANGED'), 1)
                     exact.cleanup(remove=True)
+                    # A later x tree can remove workspace patches without changing
+                    # the legacy key, leaving an older patched workspace in the image.
+                    legacy_key = dependencies.fingerprint(root, seed.state['runtime'], ref='HEAD', legacy=True)
+                    workspace_patch.unlink()
+                    subprocess.run(['git', '-c', 'user.name=Fixture', '-c', 'user.email=fixture@example.invalid',
+                                    'commit', '-qm', 'remove workspace patch', '--only',
+                                    'apps/web/patches/isarray+1.0.0.patch'], cwd=root, check=True)
+                    self.assertEqual(legacy_key, dependencies.fingerprint(
+                        root, seed.state['runtime'], ref='HEAD', legacy=True))
                     legacy = prepare('legacy')
                     legacy.state['legacy'] = dependencies.legacy_snapshot(
                         root, legacy.state['runtime'], legacy.state['compatibility'], 'HEAD')
@@ -374,6 +458,7 @@ class SnapshotIntegrationTests(unittest.TestCase):
                     self.assertEqual((root / 'node_modules/isarray/index.js').read_bytes(), originals['isarray'])
                     self.assertEqual((root / 'node_modules/is-number/index.js').read_bytes().count(b'NEW_CHANGED'), 1)
                     self.assertEqual((root / 'node_modules/is-odd/index.js').read_bytes().count(b'NEW_ADDED'), 1)
+                    self.assertEqual(workspace_dependency.read_bytes(), workspace_original)
                     legacy.cleanup(remove=True)
                     self.assertTrue(all(not snapshot.state['mounts'] for snapshot in snapshots))
                 finally:
