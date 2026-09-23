@@ -25,6 +25,7 @@ import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import type { IPrimeTransferAtomData } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   EPrimeTransferStatus,
+  useDevSettingsPersistAtom,
   usePrimeTransferAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { getAppDeviceIcon } from '@onekeyhq/shared/src/appDeviceInfo/utils/getAppDeviceIcon';
@@ -40,6 +41,7 @@ import type { IPrimeParamList } from '@onekeyhq/shared/src/routes/prime';
 import { EPrimePages } from '@onekeyhq/shared/src/routes/prime';
 import { buildPrimeTransferVerificationCode } from '@onekeyhq/shared/src/utils/primeTransferVerificationCode';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+import type { IPrimeTransferTransportMode } from '@onekeyhq/shared/types/prime/primeTransferNetworkTypes';
 import type { IE2EESocketUserInfo } from '@onekeyhq/shared/types/prime/primeTransferTypes';
 
 import { usePrimeTransferExit } from './hooks/usePrimeTransferExit';
@@ -163,6 +165,11 @@ export function PrimeTransferDirection({
   const { exitTransferFlow } = usePrimeTransferExit();
   const [waitingAlertVisible, setWaitingAlertVisible] = useState(false);
   const [isSendingData, setIsSendingData] = useState(false);
+  const [devSettings] = useDevSettingsPersistAtom();
+  const showTransportMode = platformEnv.isDev || devSettings.enabled;
+  const [transportMode, setTransportMode] =
+    useState<IPrimeTransferTransportMode>('auto');
+  const effectiveTransportMode = showTransportMode ? transportMode : 'auto';
 
   // Self transfer type lifecycle is owned by the parent PagePrimeTransfer
   // (set on mount, reset on page unmount). Intentionally NOT reset here: this
@@ -473,6 +480,7 @@ export function PrimeTransferDirection({
         await backgroundApiProxy.servicePrimeTransfer.sendTransferData({
           transferData,
           allowCliImportableCredentials,
+          transportMode: effectiveTransportMode,
         });
 
         setWaitingAlertVisible(true);
@@ -513,6 +521,7 @@ export function PrimeTransferDirection({
       exitTransferFlow,
       botWalletId,
       allowCliImportableCredentials,
+      effectiveTransportMode,
     ],
   );
 
@@ -727,6 +736,42 @@ export function PrimeTransferDirection({
           <DeviceItem userInfo={directionUserInfo?.toUser} />
         </Stack>
 
+        {showTransportMode && isTransferFromMe ? (
+          <YStack gap="$2" testID="prime-transfer-transport-mode">
+            <SizableText size="$bodyMdMedium">
+              Transfer mode (debug)
+            </SizableText>
+            <XStack gap="$2">
+              <Button
+                flex={1}
+                testID="prime-transfer-mode-regular"
+                variant={transportMode === 'legacy' ? 'primary' : 'secondary'}
+                disabled={
+                  primeTransferAtom.status !== EPrimeTransferStatus.paired
+                }
+                onPress={() => setTransportMode('legacy')}
+              >
+                Regular
+              </Button>
+              <Button
+                flex={1}
+                testID="prime-transfer-mode-chunked"
+                variant={transportMode === 'auto' ? 'primary' : 'secondary'}
+                disabled={
+                  primeTransferAtom.status !== EPrimeTransferStatus.paired
+                }
+                onPress={() => setTransportMode('auto')}
+              >
+                Chunked
+              </Button>
+            </XStack>
+            <SizableText size="$bodySm" color="$textSubdued">
+              {transportMode === 'legacy'
+                ? 'Send in one message, without transfer progress. Preparation and encryption are unchanged.'
+                : 'Use chunks when both devices and the server support them; otherwise fall back to one message.'}
+            </SizableText>
+          </YStack>
+        ) : null}
         {networkProgress ? (
           <YStack gap="$3" testID="prime-transfer-network-progress">
             <XStack justifyContent="space-between" gap="$3">

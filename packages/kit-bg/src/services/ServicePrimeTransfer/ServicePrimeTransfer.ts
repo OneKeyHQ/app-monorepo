@@ -74,6 +74,7 @@ import type {
   IPrimeTransferChunk,
   IPrimeTransferChunkManifest,
   IPrimeTransferNetworkProgress,
+  IPrimeTransferTransportMode,
 } from '@onekeyhq/shared/types/prime/primeTransferNetworkTypes';
 import type {
   EPrimeTransferDataType,
@@ -1967,8 +1968,10 @@ class ServicePrimeTransfer extends ServiceBase {
 
   private async sendPreparedTransferData({
     transferData,
+    transportMode,
   }: {
     transferData: IPrimeTransferData;
+    transportMode?: IPrimeTransferTransportMode;
   }) {
     const currentState = await primeTransferAtom.get();
     const pairedRoomId = currentState.pairedRoomId;
@@ -2029,6 +2032,7 @@ class ServicePrimeTransfer extends ServiceBase {
     try {
       // Old relays and peers retain the existing single-message transport.
       const supportsChunks = await supportsPrimeTransferChunks({
+        transportMode,
         serverSupportsChunkedTransfer: this.serverSupportsChunkedTransfer,
         serverMaxMessageSize: this.serverMaxMessageSize,
         getTransferType: () => proxy.api.getTransferType(),
@@ -2211,10 +2215,12 @@ class ServicePrimeTransfer extends ServiceBase {
     transferData,
     walletId,
     password,
+    transportMode,
   }: {
     transferData: IPrimeTransferData;
     walletId: string;
     password: string;
+    transportMode?: IPrimeTransferTransportMode;
   }) {
     const credential = normalizePrimeTransferCredential(
       transferData.privateData.credentials?.[walletId],
@@ -2246,7 +2252,10 @@ class ServicePrimeTransfer extends ServiceBase {
           transferData.privateData.decryptedCredentials = undefined;
           transferData.privateData.decryptedCredentialsHex = undefined;
           try {
-            sendResult = await this.sendPreparedTransferData({ transferData });
+            sendResult = await this.sendPreparedTransferData({
+              transferData,
+              transportMode,
+            });
           } finally {
             transferData.privateData.cliBotWalletEncryptedCredential =
               undefined;
@@ -2266,9 +2275,11 @@ class ServicePrimeTransfer extends ServiceBase {
   async sendTransferData({
     transferData,
     allowCliImportableCredentials,
+    transportMode,
   }: {
     transferData: IPrimeTransferData;
     allowCliImportableCredentials?: boolean;
+    transportMode?: IPrimeTransferTransportMode;
   }) {
     // eslint-disable-next-line no-param-reassign
     transferData = cloneDeep(transferData);
@@ -2312,6 +2323,7 @@ class ServicePrimeTransfer extends ServiceBase {
           transferData,
           walletId,
           password,
+          transportMode,
         });
       }
 
@@ -2354,7 +2366,7 @@ class ServicePrimeTransfer extends ServiceBase {
       transferData.privateData.decryptedCredentials = undefined;
     }
 
-    return this.sendPreparedTransferData({ transferData });
+    return this.sendPreparedTransferData({ transferData, transportMode });
   }
 
   // Minimum peer appVersion that ships the v2 AES-GCM payload envelope.

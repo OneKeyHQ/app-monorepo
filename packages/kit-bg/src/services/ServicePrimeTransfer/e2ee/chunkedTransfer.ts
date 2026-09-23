@@ -9,6 +9,7 @@ import type {
   IPrimeTransferChunk,
   IPrimeTransferChunkAck,
   IPrimeTransferChunkManifest,
+  IPrimeTransferTransportMode,
 } from '@onekeyhq/shared/types/prime/primeTransferNetworkTypes';
 
 export function isValidPrimeTransferChunkData(data: unknown): data is string {
@@ -66,17 +67,20 @@ export function waitForTransferRequest<T>(
 }
 
 export async function supportsPrimeTransferChunks({
+  transportMode = 'auto',
   serverSupportsChunkedTransfer,
   serverMaxMessageSize = Number.POSITIVE_INFINITY,
   getTransferType,
   signal,
 }: {
+  transportMode?: IPrimeTransferTransportMode;
   serverSupportsChunkedTransfer: boolean;
   serverMaxMessageSize?: number;
   getTransferType: () => Promise<{ chunkedTransferVersion?: number }>;
   signal: AbortSignal;
 }): Promise<boolean> {
   if (
+    transportMode === 'legacy' ||
     !serverSupportsChunkedTransfer ||
     serverMaxMessageSize < PRIME_TRANSFER_CHUNK_PACKET_SIZE
   ) {

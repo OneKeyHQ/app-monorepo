@@ -32,6 +32,25 @@ describe('Prime Transfer chunk capability negotiation', () => {
   beforeEach(() => jest.useFakeTimers());
   afterEach(() => jest.useRealTimers());
 
+  test.each([true, false])(
+    'regular mode never negotiates chunks, even when relay support is %s',
+    async (serverSupportsChunkedTransfer) => {
+      const getTransferType = jest.fn(async () => ({
+        chunkedTransferVersion: 1,
+      }));
+      await expect(
+        supportsPrimeTransferChunks({
+          transportMode: 'legacy',
+          serverSupportsChunkedTransfer,
+          getTransferType,
+          signal: new AbortController().signal,
+        }),
+      ).resolves.toBe(false);
+      expect(getTransferType).not.toHaveBeenCalled();
+      expect(jest.getTimerCount()).toBe(0);
+    },
+  );
+
   test.each([undefined, 20 * 1024 * 1024])(
     'skips peer capability queries when the relay lacks chunk support, regardless of its limit: %s',
     async (serverMaxMessageSize) => {

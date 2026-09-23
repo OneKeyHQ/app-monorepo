@@ -9,6 +9,8 @@ export const PRIME_TRANSFER_MAX_CHUNKS = Math.ceil(
 );
 export const PRIME_TRANSFER_CHUNK_TIMEOUT = 120_000;
 
+export type IPrimeTransferTransportMode = 'auto' | 'legacy';
+
 export type IPrimeTransferNetworkProgress = {
   transferId: string;
   direction: 'sending' | 'receiving';
