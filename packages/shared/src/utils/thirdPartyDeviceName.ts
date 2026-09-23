@@ -13,10 +13,8 @@ export function getThirdPartyDeviceDisplayName({
   model?: string;
   name?: string;
 }): string {
-  // A transport address is not a name: neither a UUID nor a long hex handle
-  // (a Trezor BLE connectId is 32 hex chars) may reach a device list. And
-  // 'unknown' is a connector placeholder for "not knowable at enumeration
-  // time", not something to show.
+  // A transport address is not a name (e.g. a 32-char Trezor BLE connectId
+  // must not reach the device list), and 'unknown' is a placeholder for "not knowable yet", not something to show.
   const isUsableName = (value?: string) =>
     Boolean(value) &&
     !/^[0-9a-f]{8}-[0-9a-f]{4}-/i.test(value ?? '') &&

@@ -8,8 +8,5 @@ export const createKeystoneUsbConnector = async (): Promise<IConnector> => {
   return createKeystoneWebUsbConnector();
 };
 
-// NOTE: the SDK also ships `requestKeystoneUsbPermission()`, but it is
-// deliberately NOT re-exported here. `navigator.usb.requestDevice()` must run
-// on the UI thread inside the user gesture, so the app requests permission
-// via `usePromptWebDeviceAccess` in packages/kit (same as OneKey/Trezor),
-// never through a kit-bg service.
+// requestKeystoneUsbPermission() is deliberately not re-exported: WebUSB's
+// requestDevice() must run on the UI thread inside the user gesture, so permission goes through usePromptWebDeviceAccess in kit, never a kit-bg service.

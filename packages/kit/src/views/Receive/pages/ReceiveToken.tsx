@@ -509,6 +509,10 @@ function ReceiveToken() {
 
   const handleVerifyOnDevicePress = useCallback(async () => {
     if (isVerifyingRef.current || isSwitchResolvingRef.current) return;
+    if (!displayAddress) {
+      setAddressState(EAddressState.Unverified);
+      return;
+    }
     if (addressVerification.mode === 'manual') {
       // Manual mode has no device round-trip to gate on, so the address is
       // only revealed once the user acknowledges they must compare it on the
@@ -540,10 +544,6 @@ function ReceiveToken() {
       return;
     }
     if (!currentDeriveType) return;
-    if (!displayAddress) {
-      setAddressState(EAddressState.Unverified);
-      return;
-    }
     setShowManualVerificationPath(false);
     const attempt = verifyAttemptRef.current + 1;
     verifyAttemptRef.current = attempt;

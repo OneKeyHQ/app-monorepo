@@ -178,8 +178,10 @@ export async function showLedgerInstallCoreAppsDialog(params: {
     const device = await backgroundApiProxy.serviceAccount.getWalletDevice({
       walletId: params.walletId,
     });
+    // Legacy connectId last: a BLE rebind only writes bleConnectId, so the
+    // legacy column can hold a stale locator on pre-existing rows.
     connectId =
-      device?.connectId || device?.usbConnectId || device?.bleConnectId || '';
+      device?.usbConnectId || device?.bleConnectId || device?.connectId || '';
   }
 
   // A flow's hold (onboarding's, the accounts phase's) spans this dialog,
@@ -229,8 +231,10 @@ export async function ensureLedgerCoreAppsReady(params: {
     const device = await backgroundApiProxy.serviceAccount.getWalletDevice({
       walletId: params.walletId,
     });
+    // Legacy connectId last: a BLE rebind only writes bleConnectId, so the
+    // legacy column can hold a stale locator on pre-existing rows.
     connectId =
-      device?.connectId || device?.usbConnectId || device?.bleConnectId || '';
+      device?.usbConnectId || device?.bleConnectId || device?.connectId || '';
   }
 
   const probeRes =

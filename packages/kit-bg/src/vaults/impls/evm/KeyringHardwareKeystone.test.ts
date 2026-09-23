@@ -60,8 +60,8 @@ describe('KeyringHardwareKeystone.signTransaction', () => {
     data: '0x',
   };
 
-  // Sign the packed tx for real: the keyring now recovers the signer from the
-  // rebuilt raw tx, so a placeholder v/r/s no longer reaches the return value.
+  // Signs the packed tx for real: the keyring recovers the signer from the
+  // rebuilt raw tx, so no placeholder v/r/s reaches the return value.
   function signWith(privateKey: string) {
     const { digest } = packUnsignedTxForSignEvm({ encodedTx } as never);
     const { v, r, s } = new ethers.utils.SigningKey(privateKey).signDigest(

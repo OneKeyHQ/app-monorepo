@@ -1,11 +1,11 @@
 import { EFirmwareType } from '@onekeyfe/hd-shared';
 
+import { EHardwareVendor } from '../../types/device';
 import {
   TREZOR_BLE_SUPPORTED_MODEL_NAMES,
   TREZOR_BRIGHTNESS_SUPPORTED_MODEL_NAMES,
+  TREZOR_USB_ONLY_MODEL_NAMES,
 } from '../hardware/config/trezor';
-
-import type { EHardwareVendor } from '../../types/device';
 
 type IThirdPartyDeviceSettingsLike = {
   vendor?: EHardwareVendor;
@@ -307,11 +307,66 @@ function isLedgerBleSupportedDevice(device?: IThirdPartyDeviceLike): boolean {
     'ledger flex',
     'apex',
     'ledger apex',
+    // Nano Gen5: DMK and @ledgerhq/devices use different ids for it.
+    'apexp',
+    'ledger nano gen5',
   ].includes(model);
 }
 
+// Ledger models known to have no Bluetooth (DMK ids and product names).
+const LEDGER_USB_ONLY_MODEL_NAMES = new Set([
+  'nanos',
+  'nano s',
+  'ledger nano s',
+  'nanosp',
+  'nano s plus',
+  'ledger nano s plus',
+  'blue',
+]);
+
 function isTrezorBleSupportedDevice(device?: IThirdPartyDeviceLike): boolean {
   return isTrezorBleSupportedModel(getDeviceSettings(device)?.vendorModel);
+}
+
+type IThirdPartyTransport = 'usb' | 'ble';
+
+// One entry per vendor. A resolver answers only for models known to lack
+// Bluetooth; anything else, including a model newer than these tables,
+// returns undefined and never constrains discovery.
+const SUPPORTED_TRANSPORTS_BY_VENDOR: Partial<
+  Record<
+    EHardwareVendor,
+    (
+      device?: IThirdPartyDeviceLike,
+    ) => readonly IThirdPartyTransport[] | undefined
+  >
+> = {
+  [EHardwareVendor.trezor]: (device) => {
+    const model = normalizeThirdPartyModelName(
+      getDeviceSettings(device)?.vendorModel,
+    );
+    return (TREZOR_USB_ONLY_MODEL_NAMES as readonly string[]).includes(model)
+      ? ['usb']
+      : undefined;
+  },
+  [EHardwareVendor.ledger]: (device) => {
+    const settings = getDeviceSettings(device);
+    const model = normalizeThirdPartyModelName(
+      settings?.vendorModel || settings?.vendorModelName,
+    );
+    return LEDGER_USB_ONLY_MODEL_NAMES.has(model) ? ['usb'] : undefined;
+  },
+};
+
+/** Transports the wallet's hardware can use, or undefined when unknown. */
+function getSupportedTransports(
+  vendor?: string,
+  device?: IThirdPartyDeviceLike,
+): readonly IThirdPartyTransport[] | undefined {
+  const resolve = vendor
+    ? SUPPORTED_TRANSPORTS_BY_VENDOR[vendor as EHardwareVendor]
+    : undefined;
+  return resolve?.(device);
 }
 
 function isTrezorBrightnessSupportedDevice(
@@ -374,6 +429,7 @@ export default {
   getDeviceVersion,
   getFirmwareType,
   getSerialNo,
+  getSupportedTransports,
   isBtcOnlyFirmware,
   isLedgerBleSupportedDevice,
   isTrezorBleSupportedDevice,

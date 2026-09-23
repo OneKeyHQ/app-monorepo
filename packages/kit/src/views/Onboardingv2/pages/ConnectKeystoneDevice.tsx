@@ -133,15 +133,8 @@ function DevicePlaceholder({ isUsb }: { isUsb: boolean }) {
 }
 
 /**
- * Keystone onboarding, same three beats as ConnectionFlowLedger/Trezor:
- * scan → pick from the device list → FinalizeWalletSetup does the connect
- * (that page owns the "connecting / creating wallet" progress UI, so the
- * device-side unlock+confirm happens under it, not behind a spinning button
- * here).
- *
- * QR has no physical device to enumerate, so discovery returns one virtual
- * target. FinalizeWalletSetup connects that target and owns the SDK's QR
- * display/scan interaction under its normal connection progress UI.
+ * Keystone onboarding: scan, pick a device, then FinalizeWalletSetup owns
+ * the connect and its progress UI. QR discovery returns one virtual target that Finalize connects.
  */
 function ConnectKeystoneDevicePage() {
   const intl = useIntl();
@@ -153,6 +146,7 @@ function ConnectKeystoneDevicePage() {
   const [searchedDevices, setSearchedDevices] = useState<SearchDevice[]>([]);
   const [isStarting, setIsStarting] = useState(false);
   const isSearchingRef = useRef(false);
+  const scanGenerationRef = useRef(0);
 
   const canUseUsb =
     !platformEnv.isNative &&
@@ -205,9 +199,7 @@ function ConnectKeystoneDevicePage() {
   );
 
   // --- USB: scan ---
-  // Note: no setForceTransportType() call, unlike the Ledger flow. Keystone has
-  // no BLE channel, and that setting is global — writing it here would perturb
-  // other vendors' transport selection for nothing.
+  // No setForceTransportType(): Keystone has no BLE channel, and that setting is global.
   const scanDevice = useCallback(() => {
     if (isSearchingRef.current) {
       return;
@@ -223,8 +215,7 @@ function ConnectKeystoneDevicePage() {
             vendor: EHardwareVendor.keystone,
           });
           // A permission denial already gets its own dialog from the
-          // third-party UI container — toasting it too would double up.
-          // Same suppression as the Ledger and Trezor flows.
+          // third-party UI container, so toasting it too would double up (same as Ledger/Trezor).
           if (!(error instanceof ThirdPartyDevicePermissionDenied)) {
             Toast.error({
               title:
@@ -255,7 +246,7 @@ function ConnectKeystoneDevicePage() {
         }
 
         // The scanner stops itself past maxTryCount but doesn't tell the
-        // caller — clear the flag so a later scan can re-enter.
+        // caller, so clear the flag here to let a later scan re-enter.
         if (pollsCompleted >= KEYSTONE_SCAN_MAX_TRY_COUNT) {
           isSearchingRef.current = false;
           setConnectStatus(EConnectionStatus.init);
@@ -267,7 +258,7 @@ function ConnectKeystoneDevicePage() {
         }
       },
       () => undefined,
-      1, // pollIntervalRate — fixed interval, no backoff
+      1, // pollIntervalRate: fixed interval, no backoff
       KEYSTONE_SCAN_POLL_INTERVAL_MS,
       KEYSTONE_SCAN_MAX_TRY_COUNT,
       EHardwareVendor.keystone,
@@ -280,6 +271,7 @@ function ConnectKeystoneDevicePage() {
   }, [deviceScanner, intl]);
 
   const stopScan = useCallback(() => {
+    scanGenerationRef.current += 1;
     isSearchingRef.current = false;
     deviceScanner.stopScan();
   }, [deviceScanner]);
@@ -298,6 +290,7 @@ function ConnectKeystoneDevicePage() {
 
   // --- QR: discover the virtual target; Finalize performs the round trip ---
   const startQrConnection = useCallback(async () => {
+    const generation = scanGenerationRef.current;
     setIsStarting(true);
     try {
       const found =
@@ -305,6 +298,8 @@ function ConnectKeystoneDevicePage() {
           vendor: EHardwareVendor.keystone,
           transportType: 'qr',
         });
+      // The user switched tab (or the page blurred) while this was in flight.
+      if (generation !== scanGenerationRef.current) return;
       if (!found.success) {
         const convertedError = convertThirdPartyDeviceError(found.payload, {
           vendor: 'Keystone',
@@ -351,10 +346,8 @@ function ConnectKeystoneDevicePage() {
       await startQrConnection();
       return;
     }
-    // Browser WebUSB enumeration only returns already-granted devices, so its
-    // picker must run in this user gesture. On desktop (Electron),
-    // requestDevice() always cancels because the main process grants USB via
-    // setDevicePermissionHandler instead of a select-usb-device handler.
+    // WebUSB only returns already-granted devices, so the picker must run in
+    // this gesture. On Electron, requestDevice() always cancels since main grants USB via setDevicePermissionHandler, not select-usb-device.
     if (platformEnv.isWeb || platformEnv.isExtension) {
       setIsStarting(true);
       try {

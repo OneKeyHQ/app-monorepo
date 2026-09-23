@@ -52,16 +52,8 @@ function toConnectedDevicePayload(
 }
 
 /**
- * Keystone third-party hardware adapter.
- *
- * Much thinner than Trezor/Ledger: no THP pairing, no BLE binding probes, no
- * host passphrase UI. The one thing genuinely unique to Keystone is the QR
- * round trip — `REQUEST_QR_DISPLAY`/`REQUEST_QR_SCAN` bridge into
- * `ThirdPartyHardwareUiStateContainer` the same way Trezor's THP pairing
- * (typed-code) round trip does: fire-and-forget the request via
- * `emitUiEvent`, and the SDK's own internal state machine blocks inside its
- * `hw.on(...)` handler until this adapter's `uiResponse()` is called back —
- * no separate promise/callback plumbing needed.
+ * Keystone adapter: no THP pairing, BLE binding probes, or host passphrase
+ * UI. Its QR round trip bridges via emitUiEvent; the SDK blocks in hw.on() until this adapter's uiResponse() is called back.
  */
 export class KeystoneAdapter
   extends BaseAdapter
@@ -112,10 +104,8 @@ export class KeystoneAdapter
       });
     });
 
-    // USB interaction status, relayed from the connector. Public-data export
-    // shows confirmation once per connector lifetime; internal USB
-    // re-enumeration must not reopen the toast. Signing still confirms every
-    // request. Rendered by the shared confirm-on-device toast, same as Ledger.
+    // USB interaction status relayed from the connector: public-data export
+    // confirms once per connector lifetime (re-enumeration must not reopen the toast), but signing still confirms every request. Same toast as Ledger.
     this.hw.on('ui-event', (event) => {
       const typed = event as {
         type?: string;
@@ -259,10 +249,8 @@ export class KeystoneAdapter
       this.emitConnectionStateChange({ type: 'disconnected', operationId });
     }
     this.pendingConnect = undefined;
-    // Clear the UI state first, same as Ledger/Trezor. A reset mid-QR-round-
-    // trip would otherwise leave requestKeystoneQrDisplay/Scan in the atom,
-    // so the container keeps the QR toast or camera on screen with a disposed
-    // adapter behind it, and the eventual response is posted into nothing.
+    // Clear UI state first, same as Ledger/Trezor: a reset mid-QR-round-trip
+    // would otherwise leave the QR display/scan flag set, keeping the toast or camera on screen behind a disposed adapter.
     void this.clearUiState();
     await this.hw.dispose();
   }

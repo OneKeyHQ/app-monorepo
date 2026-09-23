@@ -149,7 +149,7 @@ describe('convertThirdPartyDeviceError', () => {
 
     expect(alreadyInstalled).toBeInstanceOf(ThirdPartyAppAlreadyInstalled);
     expect(userCancelled).toBeInstanceOf(ThirdPartyInstallAppUserCancelled);
-    // The app-minted cancel marker had to move off 10504 once the SDK claimed it.
+    // The app-minted cancel marker must not collide with the SDK's code space.
     expect(THIRD_PARTY_HW_INSTALL_APP_USER_CANCEL_CODE).not.toBe(
       THIRD_PARTY_HW_APP_ALREADY_INSTALLED_CODE,
     );

@@ -44,17 +44,8 @@ import type { EvmSignTypedDataFull } from '@onekeyfe/hwk-adapter-core';
 const VENDOR_ERROR_CONTEXT = { vendor: 'Keystone', chain: 'EVM' } as const;
 
 /**
- * Keystone EVM keyring.
- *
- * Much thinner than the Ledger one: Keystone has no per-chain app to open and
- * no ephemeral public connectId, so there is no
- * `callLedgerWithFingerprint` dance — `deviceId` is a stable, public-key-
- * derived wallet id across QR and USB. The short master fingerprint remains
- * internal BC-UR metadata, so calls go straight to the adapter.
- *
- * The adapter tolerates null connectId/deviceId (it cold-starts its own QR
- * sync when a wallet isn't known yet), but we always pass what the DB has so
- * a wallet already synced over either channel is reused instead of re-synced.
+ * Keystone EVM keyring: no per-chain app or ephemeral connectId, since
+ * deviceId is a stable public-key-derived wallet id across QR and USB. Pass DB connectId/deviceId when known so a synced wallet is reused, not re-synced.
  */
 export class KeyringHardwareKeystone extends KeyringHardwareBase {
   override coreApi = coreChainApi.evm.hd;
@@ -264,11 +255,8 @@ export class KeyringHardwareKeystone extends KeyringHardwareBase {
     }
 
     if (message.type === EMessageTypesEth.PERSONAL_SIGN) {
-      // personal_sign payloads are NOT reliably hex — a dApp may pass a plain
-      // string. Encode it ourselves and always send `hex: true`, same as
-      // OneKey's own KeyringHardware and KeyringHardwareLedger; passing a
-      // non-hex string with `hex: true` makes the SDK stripHex() it and sign
-      // over garbage.
+      // personal_sign payloads are not reliably hex, so encode ourselves and
+      // always send `hex: true` (same as KeyringHardware/KeyringHardwareLedger); otherwise the SDK's stripHex() signs over garbage.
       const messageHex = hexUtils.isHexString(message.message)
         ? message.message
         : Buffer.from(message.message, 'utf-8').toString('hex');

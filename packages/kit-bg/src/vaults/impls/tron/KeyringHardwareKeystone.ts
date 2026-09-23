@@ -37,7 +37,7 @@ import type { AllNetworkAddressParams } from '@onekeyfe/hd-core';
 
 const VENDOR_ERROR_CONTEXT = { vendor: 'Keystone', chain: 'Tron' } as const;
 
-/** See KeyringHardwareKeystone (evm) for why this needs no fingerprint dance. */
+/** No per-chain app or ephemeral connectId, so no Ledger-style fingerprint check is needed; deviceId is a stable wallet id. */
 export class KeyringHardwareKeystone extends KeyringHardwareBase {
   override coreApi = coreChainApi.tron.hd;
 

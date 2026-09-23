@@ -154,15 +154,8 @@ config.resolver.unstable_enablePackageExports = false;
 // Manual alias for a subpath export when package exports are disabled.
 const hyperliquidSigningPath = require.resolve('@nktkas/hyperliquid/signing');
 
-// Hardware SDK and BTC signing sub-path aliases. With
-// `unstable_enablePackageExports=false` above, Metro can't read the `exports`
-// map in these packages, so each sub-path consumer apps import (e.g.
-// `@onekeyfe/hwk-adapter-core/errors`) needs an explicit redirect. We
-// `require.resolve` here in Node-land where the `exports` map IS honored, so
-// the target file path is correct.
-//
-// When these packages add new sub-paths (or `unstable_enablePackageExports` becomes
-// safe to enable globally), append/remove entries from this array.
+// Sub-path aliases for packages whose `exports` map Metro can't read with
+// `unstable_enablePackageExports=false`; resolved via Node's `require.resolve()`, which does honor it. Update this array when packages add new sub-paths.
 const SUBPATH_EXPORT_ALIASES = [
   '@onekeyfe/hwk-adapter-core/errors',
   '@onekeyfe/hwk-adapter-core/ui-events',
