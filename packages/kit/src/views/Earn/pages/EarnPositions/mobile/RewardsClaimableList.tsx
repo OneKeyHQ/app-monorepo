@@ -22,7 +22,8 @@ import { RewardsLedgerList } from './RewardsLedgerList';
 import type { IPositionManageHandler } from './myPortfolio.utils';
 
 /**
- * Claimable (product: "只区分行为,不区分来源"): everything the user has to
+ * Claimable (product: split by what the user has to do, not by where the
+ * reward comes from): everything the user has to
  * claim by hand that the header also counts. Two shapes in one list —
  *   - on-chain airdrop rows of non-ledger providers (Morpho / Lista /
  *     Pendle), rendered as the position card in its rewards-only variant

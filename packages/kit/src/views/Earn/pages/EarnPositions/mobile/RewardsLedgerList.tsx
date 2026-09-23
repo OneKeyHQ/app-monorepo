@@ -38,8 +38,8 @@ function LedgerGroupTotal({ group }: { group: IEarnRewardsPortfolioGroup }) {
 /**
  * Ledger groups, one collapsible row per protocol on one network. Pending and
  * distributed rows render as the design's fact cards; claimable rows keep the
- * detail page's row layout with the inline Claim action (product: "先按详情
- * 页的布局").
+ * detail page's row layout with the inline Claim action (product asked for
+ * the detail page's layout here).
  */
 export function RewardsLedgerList({
   groups,

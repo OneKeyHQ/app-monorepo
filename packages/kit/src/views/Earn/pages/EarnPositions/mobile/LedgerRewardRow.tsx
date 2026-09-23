@@ -27,8 +27,9 @@ function toBadgeType(badgeType: string): IBadgeType {
 }
 
 /**
- * One ledger reward, in the detail page's row layout (product: "先按详情页
- * 的布局"): token, amount, then the fiat value with whichever of the stage's
+ * One ledger reward, in the detail page's row layout (product asked for the
+ * detail page's layout here): token, amount, then the fiat value with
+ * whichever of the stage's
  * facts the row carries — the expected payout date for pending, the arrival
  * date and transaction for distributed. The right side is the claim action
  * for claimable rows and the stage badge otherwise.
