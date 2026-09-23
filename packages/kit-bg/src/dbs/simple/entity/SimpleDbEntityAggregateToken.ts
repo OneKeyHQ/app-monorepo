@@ -66,6 +66,17 @@ export class SimpleDbEntityAggregateToken extends SimpleDbEntityBase<ISimpleDBAg
   }
 
   @backgroundMethod()
+  async getAggregateTokenConfigSnapshot(): Promise<
+    Pick<ISimpleDBAggregateToken, 'aggregateTokenConfigMap'>
+  > {
+    // Keep missing config distinct from a valid empty map for first-use sync.
+    return {
+      aggregateTokenConfigMap: (await this.getRawData())
+        ?.aggregateTokenConfigMap,
+    };
+  }
+
+  @backgroundMethod()
   async getHomeDefaultTokenMap() {
     return (await this.getRawData())?.homeDefaultTokenMap ?? {};
   }

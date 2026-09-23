@@ -76,7 +76,6 @@ import { useTokenManagement } from '@onekeyhq/kit/src/views/AssetList/hooks/useT
 import type { IDBAccount } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import type { ISimpleDBAggregateToken } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityAggregateToken';
 import type { ICustomTokenDBStruct } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityCustomTokens';
-import type { ISimpleDBLocalTokens } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityLocalTokens';
 import type { IRiskTokenManagementDBStruct } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityRiskTokenManagement';
 import type { IAllNetworkAccountInfo } from '@onekeyhq/kit-bg/src/services/ServiceAllNetwork/ServiceAllNetwork';
 import {
@@ -114,10 +113,12 @@ import {
   ERootRoutes,
 } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
-import perfUtils, {
-  EPerformanceTimerLogNames,
-} from '@onekeyhq/shared/src/utils/debug/perfUtils';
 import { isProtocolV2ProductType } from '@onekeyhq/shared/src/utils/hardwareDeviceTypes';
+import {
+  createHomeTokenRequest,
+  isHomeTokenRequestCurrent,
+  retireHomeTokenRequest,
+} from '@onekeyhq/shared/src/utils/homeTokenRequest';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import {
   buildTokenSelectorDappTokenFilterParams,
@@ -138,6 +139,7 @@ import type {
   ICustomTokenItem,
   IFetchAccountTokensResp,
   IHomeDefaultToken,
+  IHomeTokenRequest,
   ITokenFiat,
 } from '@onekeyhq/shared/types/token';
 
@@ -165,7 +167,6 @@ import {
   buildPortfolioSyncTargetKey,
   resolvePortfolioSyncRequestTransition,
 } from './portfolioSyncRequestState';
-import { projectHomeAccountLocalTokens } from './projectHomeAccountLocalTokens';
 import {
   countFundedHardwarePortfolioTokens,
   selectHardwarePortfolioTokens,
@@ -193,6 +194,7 @@ const ENABLE_BG_TOKEN_VIEW_MODEL = true;
 type ITokenSelectorFilterMode = 'wallet-token' | 'lp-dapp-token';
 
 type IAllNetworkTokenListResp = IFetchAccountTokensResp & {
+  homeRequest?: IHomeTokenRequest;
   tokenSelectorFilterMode: ITokenSelectorFilterMode;
   syncTokenFilterToOverview: boolean;
   // Active owner at request time. `updateAllNetworksTokenList` reprocesses
@@ -336,6 +338,49 @@ function TokenListBlock({
       customTokens?: ICustomTokenItem[];
     };
   }>({ ownerKey: '', nonZeroInputs: {} });
+  const homeRequestRef = useRef<IHomeTokenRequest | undefined>(undefined);
+  const lastSingleLiveRequestRef = useRef<IHomeTokenRequest | undefined>(
+    undefined,
+  );
+  const explicitHomeRequestRef = useRef<IHomeTokenRequest | undefined>(
+    undefined,
+  );
+  const homeRequestEpochRef = useRef(-1);
+  const getHomeRequest = useCallback(
+    (newRound = false) => {
+      if (!isHomeRequestCurrent()) return undefined;
+      const ownerKey = cellsIngestInputsRef.current.ownerKey;
+      if (
+        newRound ||
+        homeRequestEpochRef.current !== activeAccountEpoch ||
+        homeRequestRef.current?.ownerKey !== ownerKey
+      ) {
+        homeRequestRef.current = createHomeTokenRequest(ownerKey);
+        homeRequestEpochRef.current = activeAccountEpoch;
+      }
+      return homeRequestRef.current;
+    },
+    [activeAccountEpoch, isHomeRequestCurrent],
+  );
+  useEffect(
+    () => () => {
+      const homeRequest = homeRequestRef.current;
+      if (homeRequest) {
+        retireHomeTokenRequest(homeRequest);
+        void backgroundApiProxy.serviceToken
+          .cancelHomeTokenRequest(homeRequest)
+          .catch(() => undefined);
+      }
+      const explicitRequest = explicitHomeRequestRef.current;
+      if (explicitRequest) {
+        retireHomeTokenRequest(explicitRequest);
+        void backgroundApiProxy.serviceToken
+          .cancelHomeTokenRequest(explicitRequest)
+          .catch(() => undefined);
+      }
+    },
+    [],
+  );
   // The all-network LWW orchestration pipeline (design §2 facade): owns the
   // FloorView (LwwMaterializedView, SWR floor + IVM full-overwrite +
   // intersection-evict + generation guard) + the merge + the `ingestRound` feed.
@@ -346,6 +391,8 @@ function TokenListBlock({
     ownerNetworkId: network?.id,
     ownerCreateAtNetwork: account?.createAtNetwork,
     cellsIngestInputsRef,
+    homeRequestRef,
+    isHomeRequestCurrent,
     enabled: ENABLE_BG_TOKEN_VIEW_MODEL,
   });
   // Destructure the stable facade callbacks (each a useCallback in the facade) so
@@ -603,13 +650,9 @@ function TokenListBlock({
     undefined,
   );
 
-  const localTokensRawData = useRef<ISimpleDBLocalTokens | undefined>(
-    undefined,
-  );
-
-  const aggregateTokenRawData = useRef<ISimpleDBAggregateToken | undefined>(
-    undefined,
-  );
+  const aggregateTokenRawData = useRef<
+    Pick<ISimpleDBAggregateToken, 'aggregateTokenConfigMap'> | undefined
+  >(undefined);
 
   const { handleOnManageToken, manageTokenEnabled } = useManageToken({
     accountId: account?.id ?? '',
@@ -674,6 +717,8 @@ function TokenListBlock({
   const { run } = usePromiseResult(
     async () => {
       const requestAccountEpoch = activeAccountEpoch;
+      if (!isHomeRequestCurrent()) return;
+      let homeRequest: IHomeTokenRequest | undefined;
       let accountId = account?.id ?? '';
       let portfolioTotalFiat = '0';
       let portfolioTotalFiatCurrency: string | undefined;
@@ -684,6 +729,10 @@ function TokenListBlock({
       let tokenListRefreshEventStarted = false;
       const endTokenListRefreshEvent = () => {
         if (!tokenListRefreshEventStarted) {
+          return;
+        }
+        if (!isHomeTokenRequestCurrent(homeRequest)) {
+          tokenListRefreshEventStarted = false;
           return;
         }
         appEventBus.emit(EAppEventBusNames.TabListStateUpdate, {
@@ -699,6 +748,13 @@ function TokenListBlock({
 
         if (network.isAllNetworks) return;
 
+        // The first live fetch shares the owner's cold-cache round. Only a
+        // subsequent live refresh supersedes it.
+        homeRequest = getHomeRequest(
+          !isHomeTokenRequestCurrent(homeRequestRef.current) ||
+            lastSingleLiveRequestRef.current === homeRequestRef.current,
+        );
+        lastSingleLiveRequestRef.current = homeRequest;
         singleNetworkRefreshGenerationRef.current += 1;
         singleNetworkRefreshGeneration =
           singleNetworkRefreshGenerationRef.current;
@@ -724,10 +780,16 @@ function TokenListBlock({
         });
         tokenListRefreshEventStarted = true;
 
-        await backgroundApiProxy.serviceToken.abortFetchAccountTokens({
-          includedFlags: ['home-token-list'],
-        });
-        if (!isAccountEpochCurrent(requestAccountEpoch)) return;
+        if (!homeRequest) {
+          await backgroundApiProxy.serviceToken.abortFetchAccountTokens({
+            includedFlags: ['home-token-list'],
+          });
+        }
+        if (
+          !isAccountEpochCurrent(requestAccountEpoch) ||
+          !isHomeTokenRequestCurrent(homeRequest)
+        )
+          return;
 
         let r: IFetchAccountTokensResp = getEmptyTokenData();
 
@@ -740,7 +802,11 @@ function TokenListBlock({
                 excludeEmptyAccount: true,
               },
             );
-          if (!isAccountEpochCurrent(requestAccountEpoch)) return;
+          if (
+            !isAccountEpochCurrent(requestAccountEpoch) ||
+            !isHomeTokenRequestCurrent(homeRequest)
+          )
+            return;
 
           const resp = await Promise.all(
             networkAccounts.map((networkAccount) =>
@@ -749,13 +815,18 @@ function TokenListBlock({
                 mergeTokens: true,
                 networkId: network.id,
                 flag: 'home-token-list',
+                homeRequest,
                 saveToLocal: true,
                 indexedAccountId: indexedAccount?.id,
                 ...walletTokenFilterParams,
               }),
             ),
           );
-          if (!isAccountEpochCurrent(requestAccountEpoch)) return;
+          if (
+            !isAccountEpochCurrent(requestAccountEpoch) ||
+            !isHomeTokenRequestCurrent(homeRequest)
+          )
+            return;
           portfolioTotalFiatCurrency = getWalletAssetStatusCurrency(resp);
           portfolioTotalFiat = resp
             .reduce(
@@ -840,11 +911,16 @@ function TokenListBlock({
             mergeTokens: true,
             networkId: network.id,
             flag: 'home-token-list',
+            homeRequest,
             saveToLocal: true,
             indexedAccountId: indexedAccount?.id,
             ...walletTokenFilterParams,
           });
-          if (!isAccountEpochCurrent(requestAccountEpoch)) return;
+          if (
+            !isAccountEpochCurrent(requestAccountEpoch) ||
+            !isHomeTokenRequestCurrent(homeRequest)
+          )
+            return;
 
           portfolioTotalFiatCurrency = getWalletAssetStatusCurrency([r]);
           const accountWorth = sumTokenGroupsFiatValueIgnoringUnavailable(r);
@@ -876,6 +952,7 @@ function TokenListBlock({
         );
         if (
           isAccountEpochCurrent(requestAccountEpoch) &&
+          isHomeTokenRequestCurrent(homeRequest) &&
           portfolioSyncRequest &&
           activePortfolioSyncRequest?.id === portfolioSyncRequest.id &&
           currencyInfo?.id &&
@@ -950,7 +1027,11 @@ function TokenListBlock({
           }
         }
 
-        if (!isAccountEpochCurrent(requestAccountEpoch)) return;
+        if (
+          !isAccountEpochCurrent(requestAccountEpoch) ||
+          !isHomeTokenRequestCurrent(homeRequest)
+        )
+          return;
 
         // TokenList cells Phase-2 BG `ingestRound` (design §5 step 2). Hand the
         // SAME settled slices this single-network round just wrote to the atoms
@@ -961,36 +1042,42 @@ function TokenListBlock({
         // a ref (assigned next to the cells consts) so this call needs no extra
         // render deps.
         if (ENABLE_BG_TOKEN_VIEW_MODEL) {
-          void backgroundApiProxy.serviceTokenViewModel.ingestRound({
-            ownerKey: cellsIngestInputsRef.current.ownerKey,
-            orderedTokens: r.tokens.data,
-            smallBalanceTokens: r.smallBalanceTokens.data,
-            tokenListMap: {
-              ...r.tokens.map,
-              ...r.smallBalanceTokens.map,
-            },
-            aggregateTokensMap: {},
-            // Single-network rounds have no aggregate tokens — empty list-map.
-            ownedAggregateTokenListMap: {},
-            smallBalanceFiatValue: r.smallBalanceTokens.fiatValue ?? '0',
-            storeData: { storeName: EJotaiContextStoreNames.homeTokenList },
-            keepDefault: cellsIngestInputsRef.current.nonZeroInputs.keepDefault,
-            homeDefaultTokenMap:
-              cellsIngestInputsRef.current.nonZeroInputs.homeDefaultTokenMap,
-            customTokens:
-              cellsIngestInputsRef.current.nonZeroInputs.customTokens,
-            // Risky slice (design §R0 #5) — already settled in scope on `r`.
-            // Carried so the BG VM can build the dedicated risky frame + merged
-            // raw list. Risk tokens are NOT in the home structure/valuation
-            // frames (those are risk-blind).
-            riskyTokens: r.riskTokens.data,
-            riskyMap: r.riskTokens.map,
-            // SETTLED owner identity for the `getRawTokenList` switch skeleton.
-            accountId: account?.id,
-            networkId: network?.id,
-            rawKeys: r.allTokens?.keys ?? '',
-            source: 'single',
-          });
+          void backgroundApiProxy.serviceTokenViewModel
+            .ingestRound({
+              homeRequest,
+              ownerKey: cellsIngestInputsRef.current.ownerKey,
+              orderedTokens: r.tokens.data,
+              smallBalanceTokens: r.smallBalanceTokens.data,
+              tokenListMap: {
+                ...r.tokens.map,
+                ...r.smallBalanceTokens.map,
+              },
+              aggregateTokensMap: {},
+              // Single-network rounds have no aggregate tokens — empty list-map.
+              ownedAggregateTokenListMap: {},
+              smallBalanceFiatValue: r.smallBalanceTokens.fiatValue ?? '0',
+              storeData: { storeName: EJotaiContextStoreNames.homeTokenList },
+              keepDefault:
+                cellsIngestInputsRef.current.nonZeroInputs.keepDefault,
+              homeDefaultTokenMap:
+                cellsIngestInputsRef.current.nonZeroInputs.homeDefaultTokenMap,
+              customTokens:
+                cellsIngestInputsRef.current.nonZeroInputs.customTokens,
+              // Risky slice (design §R0 #5) — already settled in scope on `r`.
+              // Carried so the BG VM can build the dedicated risky frame + merged
+              // raw list. Risk tokens are NOT in the home structure/valuation
+              // frames (those are risk-blind).
+              riskyTokens: r.riskTokens.data,
+              riskyMap: r.riskTokens.map,
+              // SETTLED owner identity for the `getRawTokenList` switch skeleton.
+              accountId: account?.id,
+              networkId: network?.id,
+              rawKeys: r.allTokens?.keys ?? '',
+              source: 'single',
+            })
+            .catch((error) => {
+              if (!isRequestCanceledError(error)) console.error(error);
+            });
         }
 
         if (r.allTokens) {
@@ -1014,8 +1101,12 @@ function TokenListBlock({
         endTokenListRefreshEvent();
       } catch (e) {
         endTokenListRefreshEvent();
-        if (!isAccountEpochCurrent(requestAccountEpoch)) return;
-        if (e instanceof CanceledError) {
+        if (
+          !isAccountEpochCurrent(requestAccountEpoch) ||
+          !isHomeTokenRequestCurrent(homeRequest)
+        )
+          return;
+        if (isRequestCanceledError(e)) {
           // A successor refresh aborts this fetch after capturing the same
           // request. Finishing here would clear it before that run transfers.
           skipPortfolioSyncRequestFinish =
@@ -1037,6 +1128,7 @@ function TokenListBlock({
       } finally {
         if (
           isAccountEpochCurrent(requestAccountEpoch) &&
+          isHomeTokenRequestCurrent(homeRequest) &&
           portfolioSyncRequest &&
           !skipPortfolioSyncRequestFinish &&
           (ownsPortfolioSyncCommunication ||
@@ -1045,7 +1137,10 @@ function TokenListBlock({
           finishPortfolioSyncRequest(portfolioSyncRequest.id);
         }
         endTokenListRefreshEvent();
-        if (isAccountEpochCurrent(requestAccountEpoch)) {
+        if (
+          isAccountEpochCurrent(requestAccountEpoch) &&
+          isHomeTokenRequestCurrent(homeRequest)
+        ) {
           setIsHeaderRefreshing(false);
         }
       }
@@ -1070,6 +1165,8 @@ function TokenListBlock({
       indexedAccount?.index,
       indexedAccount?.name,
       isAccountEpochCurrent,
+      isHomeRequestCurrent,
+      getHomeRequest,
       updateTokenListState,
       setIsHeaderRefreshing,
       syncTokenFilterToOverview,
@@ -1306,7 +1403,8 @@ function TokenListBlock({
       isSingleRequest?: boolean;
     }) => {
       const requestAccountEpoch = activeAccountEpoch;
-      if (!isHomeRequestCurrent()) {
+      const homeRequest = homeRequestRef.current;
+      if (!isHomeRequestCurrent() || !isHomeTokenRequestCurrent(homeRequest)) {
         throw new CanceledError('stale Home account request');
       }
       const response = await backgroundApiProxy.serviceToken.fetchAccountTokens(
@@ -1316,6 +1414,7 @@ function TokenListBlock({
           accountId,
           indexedAccountId: indexedAccount?.id,
           flag: 'home-token-list',
+          homeRequest,
           isAllNetworks: true,
           isManualRefresh: isAllNetworkManualRefresh.current,
           allNetworksAccountId: account?.id,
@@ -1329,11 +1428,12 @@ function TokenListBlock({
             riskTokenManagementRawData.current.unblockedTokens,
         },
       );
-      if (!isHomeRequestCurrent()) {
+      if (!isHomeRequestCurrent() || !isHomeTokenRequestCurrent(homeRequest)) {
         throw new CanceledError('stale Home account request');
       }
       const r: IAllNetworkTokenListResp = {
         ...response,
+        homeRequest,
         tokenSelectorFilterMode: 'wallet-token',
         syncTokenFilterToOverview,
         // Closure values — this callback is recreated per owner, so these are
@@ -1363,7 +1463,7 @@ function TokenListBlock({
         }),
       ]);
 
-      if (!isHomeRequestCurrent()) {
+      if (!isHomeRequestCurrent() || !isHomeTokenRequestCurrent(homeRequest)) {
         throw new CanceledError('stale Home account request');
       }
       if (aggregateTokenConfigMapRawData) {
@@ -1462,6 +1562,7 @@ function TokenListBlock({
       // vouch for it.
       const isStaleOwnerRequest = () =>
         !isAccountEpochCurrent(requestAccountEpoch) ||
+        !isHomeTokenRequestCurrent(homeRequest) ||
         !isHomeRequestCurrent() ||
         activeOwnerRef.current.accountId !== account?.id ||
         activeOwnerRef.current.networkId !== network?.id;
@@ -1647,6 +1748,7 @@ function TokenListBlock({
     }) => {
       const requestAccountEpoch = activeAccountEpoch;
       if (!isHomeRequestCurrent()) return;
+      const homeRequest = getHomeRequest(true);
       const portfolioSyncRequest = getPortfolioSyncRequestForTarget(
         portfolioSyncTargetKey,
       );
@@ -1664,16 +1766,16 @@ function TokenListBlock({
       perfTokenListView.markStart('allNetworkRequestsStarted_getRawData');
 
       // eslint-disable-next-line prefer-const
-      let [c, r, l, a] = await Promise.all([
+      let [c, r, a] = await Promise.all([
         backgroundApiProxy.simpleDb.customTokens.getRawData(),
         backgroundApiProxy.simpleDb.riskTokenManagement.getRawData(),
-        backgroundApiProxy.simpleDb.localTokens.getRawData(),
-        backgroundApiProxy.simpleDb.aggregateToken.getRawData(),
+        backgroundApiProxy.simpleDb.aggregateToken.getAggregateTokenConfigSnapshot(),
         updateCurrentAccountTask,
       ]);
       if (
         !isAccountEpochCurrent(requestAccountEpoch) ||
-        !isHomeRequestCurrent()
+        !isHomeRequestCurrent() ||
+        !isHomeTokenRequestCurrent(homeRequest)
       )
         return;
 
@@ -1681,7 +1783,8 @@ function TokenListBlock({
 
       if (!a?.aggregateTokenConfigMap) {
         await backgroundApiProxy.serviceSetting.syncWalletConfig();
-        a = await backgroundApiProxy.simpleDb.aggregateToken.getRawData();
+        a =
+          await backgroundApiProxy.simpleDb.aggregateToken.getAggregateTokenConfigSnapshot();
       } else {
         // Refresh the cached wallet config in the background when it is stale
         // (app/bundle version changed or TTL expired) so delisted networks get
@@ -1696,13 +1799,13 @@ function TokenListBlock({
           });
       }
 
-      if (!isHomeRequestCurrent()) return;
+      if (!isHomeRequestCurrent() || !isHomeTokenRequestCurrent(homeRequest))
+        return;
       customTokensRawData.current = c ?? undefined;
       riskTokenManagementRawData.current = {
         unblockedTokens: r?.unblockedTokens ?? {},
         blockedTokens: r?.blockedTokens ?? {},
       };
-      localTokensRawData.current = l ?? undefined;
       aggregateTokenRawData.current = a ?? undefined;
 
       appEventBus.emit(EAppEventBusNames.TabListStateUpdate, {
@@ -1736,6 +1839,7 @@ function TokenListBlock({
       indexedAccount?.id,
       isAccountEpochCurrent,
       isHomeRequestCurrent,
+      getHomeRequest,
       network?.id,
       portfolioSyncTargetKey,
       setOverviewTokenCacheState,
@@ -1744,111 +1848,100 @@ function TokenListBlock({
     ],
   );
 
-  const handleAllNetworkCacheRequests = useCallback(
-    async ({
-      accountId,
-      networkId,
-      xpub,
-      accountAddress,
-    }: {
-      accountId: string;
-      networkId: string;
-      xpub?: string;
-      accountAddress: string;
-    }) => {
-      if (!isHomeRequestCurrent()) return undefined;
-      const perf = perfUtils.createPerf({
-        name: EPerformanceTimerLogNames.allNetwork__handleAllNetworkCacheRequests,
-      });
-
-      perf.markStart('getAccountLocalTokens', {
-        networkId,
-        accountAddress,
-        rawDataExist: !!localTokensRawData.current,
-      });
-      const localTokens =
-        await backgroundApiProxy.serviceToken.getAccountLocalTokens({
-          accountId,
-          networkId,
-          accountAddress,
-          xpub,
-          simpleDbLocalTokensRawData: projectHomeAccountLocalTokens({
-            rawData: localTokensRawData.current,
-            networkId,
-            accountAddress,
-            xpub,
-          }),
+  const handleAllNetworkCacheRequestsBatch = useCallback(
+    async (accounts: IAllNetworkAccountInfo[]) => {
+      const homeRequest = homeRequestRef.current;
+      if (!isHomeRequestCurrent() || !isHomeTokenRequestCurrent(homeRequest))
+        return [];
+      const results =
+        await backgroundApiProxy.serviceToken.getAccountsLocalTokens({
+          homeRequest,
+          accounts: accounts.map(
+            ({ accountId, networkId, apiAddress, accountXpub }) => ({
+              accountId,
+              networkId,
+              accountAddress: apiAddress,
+              xpub: accountXpub,
+            }),
+          ),
         });
-      perf.markEnd('getAccountLocalTokens');
-      if (!isHomeRequestCurrent()) return undefined;
+      if (!isHomeRequestCurrent() || !isHomeTokenRequestCurrent(homeRequest))
+        return [];
+      return results.map((localTokens) => {
+        if (!localTokens) return null;
+        try {
+          const { accountId, networkId } = localTokens;
+          let { tokenList, smallBalanceTokenList } = localTokens;
+          const { riskyTokenList } = localTokens;
+          let aggregateTokenListMap: IAggregateTokenListMapWithCommonToken = {};
+          let aggregateTokenMap: Record<string, ITokenFiat> = {};
+          const aggregateTokenConfigMapRawData =
+            aggregateTokenRawData.current?.aggregateTokenConfigMap;
 
-      let { tokenList, smallBalanceTokenList } = localTokens;
-      const { riskyTokenList } = localTokens;
-      let aggregateTokenListMap: IAggregateTokenListMapWithCommonToken = {};
-      let aggregateTokenMap: Record<string, ITokenFiat> = {};
-      const aggregateTokenConfigMapRawData =
-        aggregateTokenRawData.current?.aggregateTokenConfigMap;
+          if (aggregateTokenConfigMapRawData) {
+            const networkName =
+              tokenList[0]?.networkName ??
+              smallBalanceTokenList[0]?.networkName ??
+              riskyTokenList[0]?.networkName ??
+              '';
+            const pickAggregateToken = (token: IAccountToken) => {
+              const data = buildAggregateTokenListData({
+                networkId,
+                accountId,
+                token,
+                tokenMap: localTokens.tokenListMap,
+                aggregateTokenListMap,
+                aggregateTokenMap,
+                aggregateTokenConfigMapRawData,
+                networkName,
+              });
 
-      if (aggregateTokenConfigMapRawData) {
-        const networkName =
-          tokenList[0]?.networkName ??
-          smallBalanceTokenList[0]?.networkName ??
-          riskyTokenList[0]?.networkName ??
-          '';
-        const pickAggregateToken = (token: IAccountToken) => {
-          const data = buildAggregateTokenListData({
-            networkId,
-            accountId,
-            token,
-            tokenMap: localTokens.tokenListMap,
-            aggregateTokenListMap,
-            aggregateTokenMap,
-            aggregateTokenConfigMapRawData,
-            networkName,
-          });
+              if (data.isAggregateToken) {
+                aggregateTokenListMap = data.aggregateTokenListMap;
+                aggregateTokenMap = data.aggregateTokenMap;
+                return null;
+              }
 
-          if (data.isAggregateToken) {
-            aggregateTokenListMap = data.aggregateTokenListMap;
-            aggregateTokenMap = data.aggregateTokenMap;
+              return token;
+            };
+
+            tokenList = tokenList
+              .map(pickAggregateToken)
+              .filter((token): token is IAccountToken => Boolean(token));
+            smallBalanceTokenList = smallBalanceTokenList
+              .map(pickAggregateToken)
+              .filter((token): token is IAccountToken => Boolean(token));
+
+            const aggregateTokenList = Object.values(aggregateTokenListMap).map(
+              (item) => item.commonToken,
+            );
+            tokenList = [...tokenList, ...aggregateTokenList];
+          }
+
+          if (
+            isEmpty(tokenList) &&
+            isEmpty(riskyTokenList) &&
+            isEmpty(smallBalanceTokenList) &&
+            !localTokens.hasCache
+          ) {
             return null;
           }
 
-          return token;
-        };
-
-        tokenList = tokenList
-          .map(pickAggregateToken)
-          .filter((token): token is IAccountToken => Boolean(token));
-        smallBalanceTokenList = smallBalanceTokenList
-          .map(pickAggregateToken)
-          .filter((token): token is IAccountToken => Boolean(token));
-
-        const aggregateTokenList = Object.values(aggregateTokenListMap).map(
-          (item) => item.commonToken,
-        );
-        tokenList = [...tokenList, ...aggregateTokenList];
-      }
-
-      perf.done();
-      if (
-        isEmpty(tokenList) &&
-        isEmpty(riskyTokenList) &&
-        isEmpty(smallBalanceTokenList) &&
-        !localTokens.hasCache
-      ) {
-        return null;
-      }
-
-      return {
-        ...localTokens,
-        tokenList,
-        smallBalanceTokenList,
-        riskyTokenList,
-        aggregateTokenListMap,
-        aggregateTokenMap,
-        accountId,
-        networkId,
-      };
+          return {
+            ...localTokens,
+            homeRequest,
+            tokenList,
+            smallBalanceTokenList,
+            riskyTokenList,
+            aggregateTokenListMap,
+            aggregateTokenMap,
+            accountId,
+            networkId,
+          };
+        } catch {
+          return null;
+        }
+      });
     },
     [isHomeRequestCurrent],
   );
@@ -1861,6 +1954,7 @@ function TokenListBlock({
       generation,
     }: {
       data: {
+        homeRequest?: IHomeTokenRequest;
         tokenList: IAccountToken[];
         smallBalanceTokenList: IAccountToken[];
         riskyTokenList: IAccountToken[];
@@ -1880,22 +1974,17 @@ function TokenListBlock({
       generation: number;
     }) => {
       const requestAccountEpoch = activeAccountEpoch;
+      const homeRequest = data[0]?.homeRequest;
       perfTokenListView.markStart('handleAllNetworkCacheData');
 
-      // Refresh the shared cached aggregate raw data (consumed by the
-      // single-network aggregate-build path). The
-      // legacy `allTokenList*` cache-hydrate that also lived here was deleted in
-      // the tokenList cells §R2+R3 cutover — the cells slim cold cache + ingestRound
-      // are now the single cache/paint authority — so the per-network token list
-      // assembly that fed those writers is gone too.
-      const nextAggregateTokenRawData =
-        await backgroundApiProxy.simpleDb.aggregateToken.getRawData();
+      // onStarted already captured this round's config. Reuse it while the
+      // cache and live branches consume the same snapshot.
       if (
         !isAccountEpochCurrent(requestAccountEpoch) ||
+        !isHomeTokenRequestCurrent(homeRequest) ||
         !isHomeRequestCurrent()
       )
         return;
-      aggregateTokenRawData.current = nextAggregateTokenRawData ?? undefined;
 
       // Per-account worth map for the overview update below.
       let tokenListValue: Record<string, string> = {};
@@ -1980,6 +2069,8 @@ function TokenListBlock({
           networkId,
           generation,
         });
+        if (!isHomeRequestCurrent() || !isHomeTokenRequestCurrent(homeRequest))
+          return;
 
         perfTokenListView.markEnd('tokenListRefreshing_allNetworkCacheData');
         updateTokenListState({
@@ -2069,7 +2160,7 @@ function TokenListBlock({
     isAllNetworks: network?.isAllNetworks,
     isRunCurrent: isHomeRequestCurrent,
     allNetworkRequests: handleAllNetworkRequests,
-    allNetworkCacheRequests: handleAllNetworkCacheRequests,
+    allNetworkCacheRequestsBatch: handleAllNetworkCacheRequestsBatch,
     allNetworkCacheData: handleAllNetworkCacheData,
     allNetworkAccountsData: handleAllNetworkAccountsData,
     clearAllNetworkData: handleClearAllNetworkData,
@@ -2101,6 +2192,7 @@ function TokenListBlock({
 
   const updateAllNetworksTokenList = useCallback(async () => {
     const requestAccountEpoch = activeAccountEpoch;
+    const homeRequest = allNetworksResult?.[0]?.homeRequest;
     if (allNetworksTokenListUpdateInFlightRef.current) {
       allNetworksTokenListUpdatePendingRef.current = true;
       return;
@@ -2152,6 +2244,7 @@ function TokenListBlock({
         allNetworksResult[0].syncTokenFilterToOverview;
       const isStaleOwnerRequest = () =>
         !isAccountEpochCurrent(requestAccountEpoch) ||
+        !isHomeTokenRequestCurrent(homeRequest) ||
         activeOwnerRef.current.accountId !== account?.id ||
         activeOwnerRef.current.networkId !== network?.id;
 
@@ -2352,7 +2445,7 @@ function TokenListBlock({
             ? `generation:${allNetworksPublishedResultRef.current.generation}`
             : undefined,
       });
-      commitAuthoritativeIngest(snapshot);
+      commitAuthoritativeIngest(snapshot, homeRequest);
 
       updateTokenListState({
         initialized: true,
@@ -2575,6 +2668,7 @@ function TokenListBlock({
       accountAddress: string;
       xpub: string;
     }) => {
+      if (!isHomeRequestCurrent()) return;
       updateSearchKey('');
       void backgroundApiProxy.serviceToken.updateCurrentAccount({
         networkId,
@@ -2603,6 +2697,8 @@ function TokenListBlock({
         return;
       }
 
+      const homeRequest = getHomeRequest();
+      if (!isHomeTokenRequestCurrent(homeRequest)) return;
       let tokenList: IAccountToken[] = [];
       let smallBalanceTokenList: IAccountToken[] = [];
       let riskyTokenList: IAccountToken[] = [];
@@ -2624,9 +2720,11 @@ function TokenListBlock({
             },
           );
 
+        if (cancelled || !isHomeTokenRequestCurrent(homeRequest)) return;
         const resp = await Promise.all(
           networkAccounts.map((networkAccount) =>
             backgroundApiProxy.serviceToken.getAccountLocalTokens({
+              homeRequest,
               accountId: networkAccount.account?.id ?? '',
               networkId,
               accountAddress: networkAccount.account?.address ?? '',
@@ -2699,6 +2797,7 @@ function TokenListBlock({
       } else {
         const localTokens =
           await backgroundApiProxy.serviceToken.getAccountLocalTokens({
+            homeRequest,
             accountId,
             networkId,
             accountAddress,
@@ -2734,7 +2833,12 @@ function TokenListBlock({
       // Owner-change or unmount happened while we were awaiting the local
       // token cache — drop the result so we don't overwrite the new owner's
       // freshly hydrated atoms with this stale response.
-      if (cancelled || !isAccountEpochCurrent(requestAccountEpoch)) return;
+      if (
+        cancelled ||
+        !isAccountEpochCurrent(requestAccountEpoch) ||
+        !isHomeTokenRequestCurrent(homeRequest)
+      )
+        return;
 
       defaultLogger.account.allNetworkAccountPerf.homeTokenListRefreshTrace({
         runtime: 'main',
@@ -2754,25 +2858,31 @@ function TokenListBlock({
       }: {
         source: 'singleCacheSeed' | 'singleEmptyCacheSeed';
       }) => {
-        void backgroundApiProxy.serviceTokenViewModel.ingestRound(
-          buildHomeTokenListCacheIngestRound({
-            ownerKey: cellsIngestInputsRef.current.ownerKey,
-            accountId: account?.id,
-            networkId,
-            tokenList,
-            smallBalanceTokenList,
-            riskyTokenList,
-            tokenListMap,
-            smallBalanceTokenListMap,
-            riskyTokenListMap,
-            keepDefault: cellsIngestInputsRef.current.nonZeroInputs.keepDefault,
-            homeDefaultTokenMap:
-              cellsIngestInputsRef.current.nonZeroInputs.homeDefaultTokenMap,
-            customTokens:
-              cellsIngestInputsRef.current.nonZeroInputs.customTokens,
-            source,
-          }),
-        );
+        void backgroundApiProxy.serviceTokenViewModel
+          .ingestRound({
+            homeRequest,
+            ...buildHomeTokenListCacheIngestRound({
+              ownerKey: cellsIngestInputsRef.current.ownerKey,
+              accountId: account?.id,
+              networkId,
+              tokenList,
+              smallBalanceTokenList,
+              riskyTokenList,
+              tokenListMap,
+              smallBalanceTokenListMap,
+              riskyTokenListMap,
+              keepDefault:
+                cellsIngestInputsRef.current.nonZeroInputs.keepDefault,
+              homeDefaultTokenMap:
+                cellsIngestInputsRef.current.nonZeroInputs.homeDefaultTokenMap,
+              customTokens:
+                cellsIngestInputsRef.current.nonZeroInputs.customTokens,
+              source,
+            }),
+          })
+          .catch((error) => {
+            if (!isRequestCanceledError(error)) console.error(error);
+          });
         defaultLogger.account.allNetworkAccountPerf.homeTokenListRefreshTrace({
           runtime: 'main',
           phase: 'single-network-cache-ingest',
@@ -2876,6 +2986,8 @@ function TokenListBlock({
         accountAddress: account?.address ?? '',
         // @ts-expect-error
         xpub: account?.xpubSegwit || account?.xpub,
+      }).catch((error) => {
+        if (!isRequestCanceledError(error)) console.error(error);
       });
     }
     return () => {
@@ -2892,6 +3004,8 @@ function TokenListBlock({
     handleClearAllNetworkData,
     indexedAccount?.id,
     isAccountEpochCurrent,
+    isHomeRequestCurrent,
+    getHomeRequest,
     mergeDeriveAddressData,
     network?.id,
     setOverviewTokenCacheState,
@@ -3386,10 +3500,31 @@ function TokenListBlock({
 
       explicitRefreshSeqRef.current += 1;
       const seq = explicitRefreshSeqRef.current;
-      const requestAccountEpoch = activeAccountEpoch;
+      const requestAccountEpoch =
+        accountSelectorStore?.get(activeAccountEpochAtom())[0] ?? 0;
+      const liveActiveAccount =
+        accountSelectorStore?.get(activeAccountsAtom())[0];
+      const isTargetCurrent = () =>
+        isHomeTokenListRequestOwnerCurrent({
+          owner: {
+            epoch: requestAccountEpoch,
+            accountId,
+            indexedAccountId,
+            networkId,
+            walletId: liveActiveAccount?.wallet?.id,
+          },
+          currentEpoch:
+            accountSelectorStore?.get(activeAccountEpochAtom())[0] ?? 0,
+          activeAccount: accountSelectorStore?.get(activeAccountsAtom())[0],
+          selectedAccount: accountSelectorStore?.get(selectedAccountsAtom())[0],
+        });
+      if (!isTargetCurrent()) return;
+      const homeRequest = createHomeTokenRequest(`${accountId}__${networkId}`);
+      explicitHomeRequestRef.current = homeRequest;
       const isLatest = () =>
         explicitRefreshSeqRef.current === seq &&
-        isAccountEpochCurrent(requestAccountEpoch);
+        isTargetCurrent() &&
+        isHomeTokenRequestCurrent(homeRequest);
 
       let emittedRefreshing = false;
       try {
@@ -3419,9 +3554,11 @@ function TokenListBlock({
         // for the previous network) so its late response can't clobber this
         // network's data. Mirrors the abort in the closure-bound `run` path;
         // the seq guard alone only coordinates between explicit refreshes.
-        await backgroundApiProxy.serviceToken.abortFetchAccountTokens({
-          includedFlags: ['home-token-list'],
-        });
+        if (!homeRequest) {
+          await backgroundApiProxy.serviceToken.abortFetchAccountTokens({
+            includedFlags: ['home-token-list'],
+          });
+        }
         if (!isLatest()) return;
 
         const fetchTargetAccountTokens = (targetAccountId: string) =>
@@ -3430,6 +3567,7 @@ function TokenListBlock({
             mergeTokens: true,
             networkId,
             flag: 'home-token-list',
+            homeRequest,
             saveToLocal: true,
             indexedAccountId,
             ...walletTokenFilterParams,
@@ -3514,7 +3652,7 @@ function TokenListBlock({
           console.error(e);
         }
       } finally {
-        if (emittedRefreshing) {
+        if (emittedRefreshing && isLatest()) {
           appEventBus.emit(EAppEventBusNames.TabListStateUpdate, {
             isRefreshing: false,
             type: EHomeTab.TOKENS,
@@ -3525,8 +3663,7 @@ function TokenListBlock({
       }
     },
     [
-      activeAccountEpoch,
-      isAccountEpochCurrent,
+      accountSelectorStore,
       walletTokenFilterParams,
       updateAccountOverviewState,
       updateAccountWorth,

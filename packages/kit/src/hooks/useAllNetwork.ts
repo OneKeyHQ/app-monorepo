@@ -21,9 +21,7 @@ import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import perfUtils, {
   EPerformanceTimerLogNames,
 } from '@onekeyhq/shared/src/utils/debug/perfUtils';
-import networkUtils, {
-  isEnabledNetworksInAllNetworks,
-} from '@onekeyhq/shared/src/utils/networkUtils';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { promiseAllSettledSlidingWindow } from '@onekeyhq/shared/src/utils/promiseAllSettledSlidingWindow';
 import {
   PROMISE_CONCURRENCY_LIMIT,
@@ -309,6 +307,9 @@ function useAllNetworkRequests<T>(params: {
     accountAddress: string;
     xpub?: string;
   }) => Promise<any>;
+  allNetworkCacheRequestsBatch?: (
+    accounts: IAllNetworkAccountInfo[],
+  ) => Promise<unknown[]>;
   allNetworkCacheData?: ({
     data,
     accountId,
@@ -387,6 +388,7 @@ function useAllNetworkRequests<T>(params: {
     isRunCurrent,
     allNetworkRequests,
     allNetworkCacheRequests,
+    allNetworkCacheRequestsBatch,
     allNetworkCacheData,
     allNetworkAccountsData,
     abortAllNetworkRequests,
@@ -946,40 +948,52 @@ function useAllNetworkRequests<T>(params: {
           let cacheHasData = false;
           try {
             perf.markStart('allNetworkCacheRequests');
-            const cachedData = (
-              await promiseAllSettledEnhanced(
-                Array.from(accountsInfo).map(
-                  (networkDataString: IAllNetworkAccountInfo) => async () => {
-                    if (!isCurrentRun()) {
-                      cacheDispatchDropped += 1;
-                      return undefined;
-                    }
-                    cacheDispatchStarted += 1;
-                    const {
-                      accountId,
-                      networkId,
-                      accountXpub,
-                      apiAddress,
-                      dbAccount,
-                    } = networkDataString;
-                    const cachedDataResult = await allNetworkCacheRequests?.({
-                      dbAccount,
-                      accountId,
-                      networkId,
-                      xpub: accountXpub,
-                      accountAddress: apiAddress,
-                    });
-                    return cachedDataResult as unknown;
-                  },
-                ),
-                {
-                  continueOnError: true,
-                  concurrency: getAllNetworkTaskConcurrencyLimit(
-                    accountsInfo.length,
+            let cachedData: unknown[];
+            if (allNetworkCacheRequestsBatch) {
+              if (!isCurrentRun()) {
+                cacheDispatchDropped += accountsInfo.length;
+                return;
+              }
+              cacheDispatchStarted += accountsInfo.length;
+              cachedData = (
+                await allNetworkCacheRequestsBatch(accountsInfo)
+              ).filter(Boolean);
+            } else {
+              cachedData = (
+                await promiseAllSettledEnhanced(
+                  Array.from(accountsInfo).map(
+                    (networkDataString: IAllNetworkAccountInfo) => async () => {
+                      if (!isCurrentRun()) {
+                        cacheDispatchDropped += 1;
+                        return undefined;
+                      }
+                      cacheDispatchStarted += 1;
+                      const {
+                        accountId,
+                        networkId,
+                        accountXpub,
+                        apiAddress,
+                        dbAccount,
+                      } = networkDataString;
+                      const cachedDataResult = await allNetworkCacheRequests?.({
+                        dbAccount,
+                        accountId,
+                        networkId,
+                        xpub: accountXpub,
+                        accountAddress: apiAddress,
+                      });
+                      return cachedDataResult as unknown;
+                    },
                   ),
-                },
-              )
-            ).filter(Boolean);
+                  {
+                    continueOnError: true,
+                    concurrency: getAllNetworkTaskConcurrencyLimit(
+                      accountsInfo.length,
+                    ),
+                  },
+                )
+              ).filter(Boolean);
+            }
             perf.markEnd('allNetworkCacheRequests');
             if (!isCurrentRun()) {
               traceRunSkipped('stale-owner-after-cache', runGeneration);
@@ -1324,6 +1338,7 @@ function useAllNetworkRequests<T>(params: {
       onCacheChecked,
       clearAllNetworkData,
       allNetworkCacheRequests,
+      allNetworkCacheRequestsBatch,
       allNetworkCacheData,
       allNetworkRequests,
       onRequestSettled,
@@ -1433,7 +1448,6 @@ function useEnabledNetworksCompatibleWithWalletIdInAllNetworks({
       if (!walletId) {
         return getEmptyEnabledNetworksResult();
       }
-      const networkInfoMap: Record<string, INetworkDeriveInfo> = {};
       if (networkId && !networkUtils.isAllNetwork({ networkId })) {
         return getEmptyEnabledNetworksResult();
       }
@@ -1442,145 +1456,19 @@ function useEnabledNetworksCompatibleWithWalletIdInAllNetworks({
         return getEmptyEnabledNetworksResult();
       }
 
-      const [{ enabledNetworks, disabledNetworks }, networksResp] =
-        await Promise.all([
-          backgroundApiProxy.serviceAllNetwork.getAllNetworksState(),
-          backgroundApiProxy.serviceNetwork.getAllNetworks({
-            excludeTestNetwork: true,
-            excludeAllNetworkItem: true,
-          }),
-        ]);
-      const { networks } = networksResp;
-
       if (deferMs > 0) {
         await timerUtils.wait(deferMs);
       }
 
-      let enabledNetworkIds: string[];
-
-      if (enabledNetworksParam) {
-        const enabledNetworkIdSet = new Set(
-          enabledNetworksParam.map((n) => n.id),
-        );
-        enabledNetworkIds = networks
-          .filter((n) => enabledNetworkIdSet.has(n.id))
-          .map((n) => n.id);
-      } else {
-        enabledNetworkIds = networks
-          .filter((n) =>
-            isEnabledNetworksInAllNetworks({
-              networkId: n.id,
-              disabledNetworks,
-              enabledNetworks,
-              isTestnet: n.isTestnet,
-            }),
-          )
-          .map((n) => n.id);
-      }
-
-      const compatibleNetworks =
-        await backgroundApiProxy.serviceNetwork.getChainSelectorNetworksCompatibleWithAccountId(
-          {
-            walletId,
-            networkIds: enabledNetworkIds,
-          },
-        );
-
-      const compatibleNetworksWithoutAccount: IServerNetwork[] = [];
-
-      const mainnetItems = compatibleNetworks.mainnetItems;
-
-      if (withNetworksInfo) {
-        for (const network of mainnetItems) {
-          const [globalDeriveType, vaultSettings] = await Promise.all([
-            backgroundApiProxy.serviceNetwork.getGlobalDeriveTypeOfNetwork({
-              networkId: network.id,
-            }),
-            backgroundApiProxy.serviceNetwork.getVaultSettings({
-              networkId: network.id,
-            }),
-          ]);
-          const suffixToDeriveType: Record<string, string> = {};
-          for (const [dt, info] of Object.entries(
-            vaultSettings.accountDeriveInfo ?? {},
-          )) {
-            if (info.idSuffix) {
-              suffixToDeriveType[info.idSuffix.toLowerCase()] = dt;
-            }
-          }
-          networkInfoMap[network.id] = {
-            deriveType: globalDeriveType,
-            mergeDeriveAssetsEnabled: !!vaultSettings.mergeDeriveAssetsEnabled,
-            suffixToDeriveType,
-          };
-        }
-      }
-
-      if (filterNetworksWithoutAccount && indexedAccountId) {
-        const networksByImpl = compatibleNetworks.mainnetItems.reduce(
-          (acc, network) => {
-            if (!acc[network.impl]) {
-              acc[network.impl] = [];
-            }
-            acc[network.impl].push(network);
-            return acc;
-          },
-          {} as Record<string, IServerNetwork[]>,
-        );
-
-        const { accounts: allDbAccounts } =
-          await backgroundApiProxy.serviceAccount.getAllAccounts();
-
-        // Process networks by implementation group
-        for (const [_, networksInGroup] of Object.entries(networksByImpl)) {
-          const firstNetwork = networksInGroup[0];
-
-          const [{ networkAccounts }, vaultSettings] = await Promise.all([
-            backgroundApiProxy.serviceAccount.getNetworkAccountsInSameIndexedAccountIdWithDeriveTypes(
-              {
-                allDbAccounts,
-                skipDbQueryIfNotFoundFromAllDbAccounts: true,
-                indexedAccountId,
-                networkId: firstNetwork.id,
-                excludeEmptyAccount: true,
-              },
-            ),
-            backgroundApiProxy.serviceNetwork.getVaultSettings({
-              networkId: firstNetwork.id,
-            }),
-          ]);
-
-          if (vaultSettings.mergeDeriveAssetsEnabled) {
-            if (!networkAccounts || networkAccounts.length === 0) {
-              compatibleNetworksWithoutAccount.push(...networksInGroup);
-            }
-          } else {
-            const currentDeriveType =
-              await backgroundApiProxy.serviceNetwork.getGlobalDeriveTypeOfNetwork(
-                {
-                  networkId: firstNetwork.id,
-                },
-              );
-
-            if (!networkAccounts || networkAccounts.length === 0) {
-              compatibleNetworksWithoutAccount.push(...networksInGroup);
-            } else if (
-              !networkAccounts.some(
-                (account) => account.deriveType === currentDeriveType,
-              )
-            ) {
-              compatibleNetworksWithoutAccount.push(...networksInGroup);
-            }
-          }
-        }
-      }
-
-      const resultValue = {
-        networkInfoMap,
-        compatibleNetworks: mainnetItems,
-        compatibleNetworksWithoutAccount,
-      };
-      return resultValue;
+      return backgroundApiProxy.serviceAllNetwork.getEnabledNetworksAccountCompatibility(
+        {
+          walletId,
+          enabledNetworkIds: enabledNetworksParam?.map((network) => network.id),
+          indexedAccountId,
+          filterNetworksWithoutAccount,
+          withNetworksInfo,
+        },
+      );
     },
     [
       walletId,

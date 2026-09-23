@@ -102,6 +102,15 @@ export type ICloudSyncCustomToken = ICloudSyncCustomTokenInfo & {
 };
 export type ICustomTokenItem = IAccountToken;
 
+export type IHomeTokenRequestInvalidation = {
+  mainRuntimeId: string;
+  generation: number;
+};
+
+export type IHomeTokenRequest = IHomeTokenRequestInvalidation & {
+  ownerKey: string;
+};
+
 export type IFetchAccountTokensParams = {
   accountId: string;
   networkId: string;
@@ -115,6 +124,7 @@ export type IFetchAccountTokensParams = {
   unblockedTokens?: string[];
   blockedTokens?: string[];
   flag?: string;
+  homeRequest?: IHomeTokenRequest;
   isAllNetworks?: boolean;
   isManualRefresh?: boolean;
 
