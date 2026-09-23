@@ -395,7 +395,7 @@ function DeviceManagementV2ListWeb() {
     },
     [detectStatus],
     {
-      checkIsFocused: false,
+      revalidateOnFocus: true,
       initResult: [],
       watchLoading: true,
     },
