@@ -16,6 +16,7 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import { isAccountSwitchDiagnosticsEnabled } from '@onekeyhq/shared/src/performance/enabled';
 import { perfMark } from '@onekeyhq/shared/src/performance/mark';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
@@ -443,18 +444,20 @@ function useAllNetworkRequests<T>(params: {
     if (!isAllNetworks) {
       return;
     }
-    defaultLogger.account.allNetworkAccountPerf.homeTokenListRefreshTrace({
-      runtime: 'main',
-      phase: 'all-network-hook-gate',
-      networkId: currentNetworkId,
-      isAllNetworks: true,
-      reason: traceRequestKind,
-      disabled,
-      isRouteFocused,
-      isLocked,
-      shouldAlwaysFetch: !!shouldAlwaysFetch,
-      ownerPresent: !!currentAccountId,
-    });
+    if (isAccountSwitchDiagnosticsEnabled()) {
+      defaultLogger.account.allNetworkAccountPerf.homeTokenListRefreshTrace({
+        runtime: 'main',
+        phase: 'all-network-hook-gate',
+        networkId: currentNetworkId,
+        isAllNetworks: true,
+        reason: traceRequestKind,
+        disabled,
+        isRouteFocused,
+        isLocked,
+        shouldAlwaysFetch: !!shouldAlwaysFetch,
+        ownerPresent: !!currentAccountId,
+      });
+    }
   }, [
     currentAccountId,
     currentNetworkId,
@@ -690,17 +693,23 @@ function useAllNetworkRequests<T>(params: {
         if (!isAllNetworks) {
           return;
         }
-        defaultLogger.account.allNetworkAccountPerf.homeTokenListRefreshTrace({
-          runtime: 'main',
-          phase: 'all-network-hook-run-skipped',
-          networkId: currentNetworkId,
-          isAllNetworks: true,
-          reason: requestKind,
-          skipReason,
-          source:
-            generation === undefined ? undefined : `generation:${generation}`,
-          ownerPresent: !!currentAccountId,
-        });
+        if (isAccountSwitchDiagnosticsEnabled()) {
+          defaultLogger.account.allNetworkAccountPerf.homeTokenListRefreshTrace(
+            {
+              runtime: 'main',
+              phase: 'all-network-hook-run-skipped',
+              networkId: currentNetworkId,
+              isAllNetworks: true,
+              reason: requestKind,
+              skipReason,
+              source:
+                generation === undefined
+                  ? undefined
+                  : `generation:${generation}`,
+              ownerPresent: !!currentAccountId,
+            },
+          );
+        }
       };
       if (liveRunOwnerKeyRef.current !== runnerOwnerKey || !isCurrentRun()) {
         traceRunSkipped('stale-owner');
@@ -780,17 +789,19 @@ function useAllNetworkRequests<T>(params: {
       const runGeneration = runGenerationRef.current;
       isFetching.current = true;
 
-      defaultLogger.account.allNetworkAccountPerf.homeTokenListRefreshTrace({
-        runtime: 'main',
-        phase: 'all-network-hook-run-start',
-        networkId: currentNetworkId,
-        isAllNetworks: true,
-        allNetworkDataInit: allNetworkDataInit.current,
-        isMustRun,
-        ownerPresent: !!currentAccountId,
-        reason: requestKind,
-        source: `generation:${runGeneration}`,
-      });
+      if (isAccountSwitchDiagnosticsEnabled()) {
+        defaultLogger.account.allNetworkAccountPerf.homeTokenListRefreshTrace({
+          runtime: 'main',
+          phase: 'all-network-hook-run-start',
+          networkId: currentNetworkId,
+          isAllNetworks: true,
+          allNetworkDataInit: allNetworkDataInit.current,
+          isMustRun,
+          ownerPresent: !!currentAccountId,
+          reason: requestKind,
+          source: `generation:${runGeneration}`,
+        });
+      }
 
       let onStartedError: unknown;
       let onStartedTask: Promise<void> | undefined;
@@ -805,10 +816,10 @@ function useAllNetworkRequests<T>(params: {
       let liveDispatchDropped = 0;
       const requestIfCurrent: typeof allNetworkRequests = (request) => {
         if (!isCurrentRun()) {
-          liveDispatchDropped += 1;
+          if (isAccountSwitchDiagnosticsEnabled()) liveDispatchDropped += 1;
           return Promise.resolve(undefined);
         }
-        liveDispatchStarted += 1;
+        if (isAccountSwitchDiagnosticsEnabled()) liveDispatchStarted += 1;
         return allNetworkRequests(request);
       };
       const publishRequestResult = (value: T, generation: number) => {
@@ -896,18 +907,23 @@ function useAllNetworkRequests<T>(params: {
           allAccountsInfo,
         } = accountsInfoResult;
         perf.markEnd('getAllNetworkAccountsWithEnabledNetworks');
-        defaultLogger.account.allNetworkAccountPerf.homeTokenListRefreshTrace({
-          runtime: 'main',
-          phase: 'all-network-accounts-resolved',
-          networkId: currentNetworkId,
-          isAllNetworks: true,
-          accountsCount: accountsInfo?.length ?? 0,
-          backendIndexedCount: accountsInfoBackendIndexed?.length ?? 0,
-          backendNotIndexedCount: accountsInfoBackendNotIndexed?.length ?? 0,
-          allAccountsCount: allAccountsInfo?.length ?? 0,
-          ownerPresent: !!currentAccountId,
-          reason: requestKind,
-        });
+        if (isAccountSwitchDiagnosticsEnabled()) {
+          defaultLogger.account.allNetworkAccountPerf.homeTokenListRefreshTrace(
+            {
+              runtime: 'main',
+              phase: 'all-network-accounts-resolved',
+              networkId: currentNetworkId,
+              isAllNetworks: true,
+              accountsCount: accountsInfo?.length ?? 0,
+              backendIndexedCount: accountsInfoBackendIndexed?.length ?? 0,
+              backendNotIndexedCount:
+                accountsInfoBackendNotIndexed?.length ?? 0,
+              allAccountsCount: allAccountsInfo?.length ?? 0,
+              ownerPresent: !!currentAccountId,
+              reason: requestKind,
+            },
+          );
+        }
         perfMark('AllNet:getAllNetworkAccounts:done', {
           duration: Date.now() - allNetAccountsStart,
           counts: {
@@ -963,11 +979,15 @@ function useAllNetworkRequests<T>(params: {
             let cachedData: unknown[];
             if (allNetworkCacheRequestsBatch) {
               if (!isCurrentRun()) {
-                cacheDispatchDropped += accountsInfo.length;
+                if (isAccountSwitchDiagnosticsEnabled()) {
+                  cacheDispatchDropped += accountsInfo.length;
+                }
                 traceRunSkipped('stale-owner-before-cache', runGeneration);
                 return;
               }
-              cacheDispatchStarted += accountsInfo.length;
+              if (isAccountSwitchDiagnosticsEnabled()) {
+                cacheDispatchStarted += accountsInfo.length;
+              }
               cachedData = (
                 await allNetworkCacheRequestsBatch(accountsInfo)
               ).filter(Boolean);
@@ -977,10 +997,14 @@ function useAllNetworkRequests<T>(params: {
                   Array.from(accountsInfo).map(
                     (networkDataString: IAllNetworkAccountInfo) => async () => {
                       if (!isCurrentRun()) {
-                        cacheDispatchDropped += 1;
+                        if (isAccountSwitchDiagnosticsEnabled()) {
+                          cacheDispatchDropped += 1;
+                        }
                         return undefined;
                       }
-                      cacheDispatchStarted += 1;
+                      if (isAccountSwitchDiagnosticsEnabled()) {
+                        cacheDispatchStarted += 1;
+                      }
                       const {
                         accountId,
                         networkId,
@@ -1027,18 +1051,20 @@ function useAllNetworkRequests<T>(params: {
             if (cachedData && !isEmpty(cachedData)) {
               cacheHasData = true;
               allNetworkDataInit.current = true;
-              defaultLogger.account.allNetworkAccountPerf.homeTokenListRefreshTrace(
-                {
-                  runtime: 'main',
-                  phase: 'all-network-cache-probe',
-                  networkId: currentNetworkId,
-                  isAllNetworks: true,
-                  hasCache: true,
-                  cacheCount: cachedData.length,
-                  ownerPresent: !!currentAccountId,
-                  reason: requestKind,
-                },
-              );
+              if (isAccountSwitchDiagnosticsEnabled()) {
+                defaultLogger.account.allNetworkAccountPerf.homeTokenListRefreshTrace(
+                  {
+                    runtime: 'main',
+                    phase: 'all-network-cache-probe',
+                    networkId: currentNetworkId,
+                    isAllNetworks: true,
+                    hasCache: true,
+                    cacheCount: cachedData.length,
+                    ownerPresent: !!currentAccountId,
+                    reason: requestKind,
+                  },
+                );
+              }
               perf.done();
               perfTokenListView.markEnd(
                 'useAllNetworkRequestsRun',
@@ -1061,18 +1087,20 @@ function useAllNetworkRequests<T>(params: {
           } finally {
             if (isCurrentRun()) {
               if (!cacheHasData) {
-                defaultLogger.account.allNetworkAccountPerf.homeTokenListRefreshTrace(
-                  {
-                    runtime: 'main',
-                    phase: 'all-network-cache-probe',
-                    networkId: currentNetworkId,
-                    isAllNetworks: true,
-                    hasCache: false,
-                    cacheCount: 0,
-                    ownerPresent: !!currentAccountId,
-                    reason: requestKind,
-                  },
-                );
+                if (isAccountSwitchDiagnosticsEnabled()) {
+                  defaultLogger.account.allNetworkAccountPerf.homeTokenListRefreshTrace(
+                    {
+                      runtime: 'main',
+                      phase: 'all-network-cache-probe',
+                      networkId: currentNetworkId,
+                      isAllNetworks: true,
+                      hasCache: false,
+                      cacheCount: 0,
+                      ownerPresent: !!currentAccountId,
+                      reason: requestKind,
+                    },
+                  );
+                }
               }
               try {
                 await onCacheChecked?.({
@@ -1197,18 +1225,22 @@ function useAllNetworkRequests<T>(params: {
           allNetworkDataInit.current = true;
         }
 
-        defaultLogger.account.allNetworkAccountPerf.homeTokenListRefreshTrace({
-          runtime: 'main',
-          phase: 'all-network-hook-run-finished',
-          networkId: currentNetworkId,
-          isAllNetworks: true,
-          allNetworkDataInit: allNetworkDataInit.current,
-          resultCount: completedResult?.length ?? 0,
-          accountsCount: accountsInfo.length,
-          ownerPresent: !!currentAccountId,
-          reason: requestKind,
-          source: `generation:${runGeneration}`,
-        });
+        if (isAccountSwitchDiagnosticsEnabled()) {
+          defaultLogger.account.allNetworkAccountPerf.homeTokenListRefreshTrace(
+            {
+              runtime: 'main',
+              phase: 'all-network-hook-run-finished',
+              networkId: currentNetworkId,
+              isAllNetworks: true,
+              allNetworkDataInit: allNetworkDataInit.current,
+              resultCount: completedResult?.length ?? 0,
+              accountsCount: accountsInfo.length,
+              ownerPresent: !!currentAccountId,
+              reason: requestKind,
+              source: `generation:${runGeneration}`,
+            },
+          );
+        }
       } catch (error) {
         if (!isCurrentRun()) {
           return;
@@ -1259,7 +1291,7 @@ function useAllNetworkRequests<T>(params: {
           // run must not make the replacement look like a completed duplicate.
           lastRunSignatureRef.current = null;
         }
-        if (isRunCurrent) {
+        if (isRunCurrent && isAccountSwitchDiagnosticsEnabled()) {
           for (const [phase, count] of [
             ['all-network-cache-dispatch-started', cacheDispatchStarted],
             ['all-network-cache-dispatch-dropped', cacheDispatchDropped],
@@ -1302,16 +1334,20 @@ function useAllNetworkRequests<T>(params: {
         // the snapshot complete. Treat it exactly like a failed fan-out:
         // keep the retained snapshot and serve it again under the same
         // owner/signature guard as the throw path.
-        defaultLogger.account.allNetworkAccountPerf.homeTokenListRefreshTrace({
-          runtime: 'main',
-          phase: 'all-network-fan-out-exhausted',
-          networkId: currentNetworkId,
-          isAllNetworks: true,
-          accountsCount: fanOutRequestCount,
-          resultCount: 0,
-          ownerPresent: !!currentAccountId,
-          reason: requestKind,
-        });
+        if (isAccountSwitchDiagnosticsEnabled()) {
+          defaultLogger.account.allNetworkAccountPerf.homeTokenListRefreshTrace(
+            {
+              runtime: 'main',
+              phase: 'all-network-fan-out-exhausted',
+              networkId: currentNetworkId,
+              isAllNetworks: true,
+              accountsCount: fanOutRequestCount,
+              resultCount: 0,
+              ownerPresent: !!currentAccountId,
+              reason: requestKind,
+            },
+          );
+        }
         const { nextLastPublished, shouldRestoreResult } =
           resolveAllNetworkFailedRunRestore({
             previousPublished: previousPublishedResult,

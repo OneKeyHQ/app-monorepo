@@ -4,7 +4,7 @@ import {
   getCurrentVisibilityState,
   onVisibilityStateChange,
 } from '../../utils/appVisibility';
-import { isPerfMonitorEnabled } from '../enabled';
+import { isAccountSwitchDiagnosticsEnabled } from '../enabled';
 import { perfMark } from '../mark';
 
 let timer: ReturnType<typeof setInterval> | null = null;
@@ -51,8 +51,8 @@ export function stopJsBlockCollection() {
 // process as a whole fared. The request log records what was asked of a
 // runtime, never what it cost, so a slowdown that builds up over a session (a
 // growing heap, longer collections) leaves no trace there. Unlike the
-// collector above this one reports to the local log and is meant for
-// production builds.
+// collector above this one reports to the local log in explicitly enabled
+// account-switch regression builds, including Release builds.
 
 const HEALTH_TICK_MS = 100;
 const HEALTH_WINDOW_MS = 30_000;
@@ -234,6 +234,7 @@ export function recordInboundFromBackground({
   name: string | undefined;
   chars: number;
 }) {
+  if (!isAccountSwitchDiagnosticsEnabled()) return;
   addInbound(inboundByKind, kind, chars);
   const named =
     name &&
@@ -285,7 +286,7 @@ export function startRuntimeHealthCensus({
   sampleProcess?: () => Promise<IRuntimeHealthProcessSample>;
   getExtra?: () => Record<string, number | undefined>;
 } = {}) {
-  if (healthTimer) return;
+  if (!isAccountSwitchDiagnosticsEnabled() || healthTimer) return;
   let last = perfNow();
   let windowStartedAt = last;
   let ticks = 0;
@@ -307,7 +308,6 @@ export function startRuntimeHealthCensus({
   let jsFpsMin: number | undefined;
   let stopped = false;
   const fpsSamplingAvailable =
-    isPerfMonitorEnabled() &&
     platformEnv.runtimeRole !== ERuntimeRole.Background &&
     typeof globalThis.requestAnimationFrame === 'function' &&
     typeof globalThis.cancelAnimationFrame === 'function' &&

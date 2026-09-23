@@ -4,6 +4,15 @@ const mockRuntimeHealthCensus = jest.fn<void, [Record<string, unknown>]>();
 const mockMainInboundCensus = jest.fn<void, [Record<string, unknown>]>();
 let mockVisibilityListener: ((visible: boolean) => void) | undefined;
 let mockCurrentVisibility = true;
+jest.mock('../enabled', () => {
+  const actual = jest.requireActual<typeof import('../enabled')>('../enabled');
+  return {
+    ...actual,
+    isAccountSwitchDiagnosticsEnabled: jest.fn(
+      actual.isAccountSwitchDiagnosticsEnabled,
+    ),
+  };
+});
 jest.mock('../../utils/appVisibility', () => ({
   getCurrentVisibilityState: () => mockCurrentVisibility,
   onVisibilityStateChange: (listener: (visible: boolean) => void) => {
@@ -30,6 +39,7 @@ jest.mock('../../logger/logger', () => ({
 
 import { OneKeyLocalError } from '../../errors';
 import platformEnv, { ERuntimeRole } from '../../platformEnv';
+import * as diagnostics from '../enabled';
 
 import {
   createDistinctChangeCounter,
@@ -45,6 +55,16 @@ type IHermesGlobal = {
 };
 
 const MB = 1024 * 1024;
+
+const diagnosticsEnabled = jest.mocked(
+  diagnostics.isAccountSwitchDiagnosticsEnabled,
+);
+beforeEach(() => {
+  diagnosticsEnabled.mockReturnValue(true);
+});
+afterEach(() => {
+  diagnosticsEnabled.mockReset();
+});
 
 describe('createDistinctChangeCounter', () => {
   it('counts a change once however often the new key is repeated', () => {
@@ -367,7 +387,7 @@ describe('startRuntimeHealthCensus', () => {
       mockRuntimeHealthCensus.mock.calls[0][0] as IRuntimeHealthReport;
 
     beforeEach(() => {
-      process.env.PERF_MONITOR_ENABLED = '1';
+      delete process.env.PERF_MONITOR_ENABLED;
       frameCallbacks = new Map();
       nextFrameId = 0;
       platformEnv.runtimeRole = ERuntimeRole.Main;
@@ -397,17 +417,37 @@ describe('startRuntimeHealthCensus', () => {
       wallSpy.mockRestore();
     });
 
-    it('keeps production health census without scheduling diagnostic frames', () => {
-      delete process.env.PERF_MONITOR_ENABLED;
-      startRuntimeHealthCensus();
-      runIdle(30_000);
-      expect(globalThis.requestAnimationFrame).not.toHaveBeenCalled();
-      expect(firstReport()).toMatchObject({
-        fpsSamplingAvailable: 0,
-        fpsSamples: [],
-        windowMs: 30_000,
-      });
-    });
+    it.each([undefined, '1'])(
+      'defaults to no diagnostic timers, listeners, heap reads or logs (PERF_MONITOR_ENABLED=%s)',
+      (perfMonitorEnabled) => {
+        diagnosticsEnabled.mockImplementation(
+          jest.requireActual<typeof import('../enabled')>('../enabled')
+            .isAccountSwitchDiagnosticsEnabled,
+        );
+        if (perfMonitorEnabled === undefined) {
+          delete process.env.PERF_MONITOR_ENABLED;
+        } else {
+          process.env.PERF_MONITOR_ENABLED = perfMonitorEnabled;
+        }
+        const getStats = jest.fn();
+        (globalThis as IHermesGlobal).HermesInternal = {
+          getInstrumentedStats: getStats,
+        };
+        const sampleProcess = jest.fn();
+        const getExtra = jest.fn();
+        const timerCount = jest.getTimerCount();
+        startRuntimeHealthCensus({ sampleProcess, getExtra });
+        expect(jest.getTimerCount()).toBe(timerCount);
+        expect(mockVisibilityListener).toBeUndefined();
+        runIdle(30_000);
+        expect(globalThis.requestAnimationFrame).not.toHaveBeenCalled();
+        expect(getStats).not.toHaveBeenCalled();
+        expect(sampleProcess).not.toHaveBeenCalled();
+        expect(getExtra).not.toHaveBeenCalled();
+        expect(mockRuntimeHealthCensus).not.toHaveBeenCalled();
+        expect(mockMainInboundCensus).not.toHaveBeenCalled();
+      },
+    );
 
     it('retains actual elapsed time and complete coverage without extra logs', () => {
       startRuntimeHealthCensus();
@@ -653,6 +693,23 @@ describe('recordInboundFromBackground', () => {
     stopRuntimeHealthCensus();
     nowSpy.mockRestore();
     jest.useRealTimers();
+  });
+
+  it('does not retain disabled inbound counters for a later enabled window', () => {
+    stopRuntimeHealthCensus();
+    diagnosticsEnabled.mockReturnValue(false);
+    recordInboundFromBackground({ kind: 'rpc', name: 'disabled', chars: 4096 });
+    diagnosticsEnabled.mockReturnValue(true);
+    startRuntimeHealthCensus();
+    runIdle(30_000);
+    expect(mockMainInboundCensus).not.toHaveBeenCalled();
+    recordInboundFromBackground({ kind: 'rpc', name: 'enabled', chars: 1024 });
+    runIdle(30_000);
+    expect(mockMainInboundCensus.mock.calls[0][0]).toMatchObject({
+      total: 1,
+      totalChars: 1024,
+      bySender: [{ sender: 'rpc:enabled', count: 1, kb: 1 }],
+    });
   });
 
   it('totals what each sender pushed, biggest first', () => {
