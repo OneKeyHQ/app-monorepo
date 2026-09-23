@@ -6,6 +6,10 @@ import type {
 } from '@onekeyhq/shared/types/prime/identityExitTypes';
 
 import ServiceDevSetting from './ServiceDevSetting';
+import {
+  identityLifecycleMutex,
+  resetIdentityRecoveryStateForTest,
+} from './ServiceIdentityExit/identityLifecycleMutex';
 
 import type { IDevSettingsPersistAtom } from '../states/jotai/atoms/devSettings';
 
@@ -125,6 +129,7 @@ describe('OneKey ID environment switching', () => {
   beforeEach(() => {
     jest.useFakeTimers();
     jest.clearAllMocks();
+    resetIdentityRecoveryStateForTest('ready');
     mockSettings = { enabled: true, settings: { enableTestEndpoint: true } };
     mockPrepareExit.mockResolvedValue(readyPlan);
     mockExecuteExit.mockResolvedValue(completedReceipt);
@@ -134,6 +139,7 @@ describe('OneKey ID environment switching', () => {
     mockBumpRevision.mockResolvedValue(2);
   });
   afterEach(() => {
+    resetIdentityRecoveryStateForTest('ready');
     jest.clearAllTimers();
     jest.useRealTimers();
   });
@@ -179,6 +185,55 @@ describe('OneKey ID environment switching', () => {
     expect(mockClearEmailSessions).not.toHaveBeenCalled();
     await jest.runOnlyPendingTimersAsync();
     expect(mockRestart).not.toHaveBeenCalled();
+  });
+
+  test.each(['prod-to-test', 'test-to-prod', 'disable-dev'] as const)(
+    '%s still restarts after a committed switch fails to invalidate old login work',
+    async (transition) => {
+      const service = createService();
+      const wasTest = transition !== 'prod-to-test';
+      mockSettings.settings = { enableTestEndpoint: wasTest };
+      const switchNode = () =>
+        transition === 'disable-dev'
+          ? service.switchDevMode(false)
+          : service.updateDevSetting('enableTestEndpoint', !wasTest);
+      mockBumpRevision.mockRejectedValueOnce(
+        new Error('revision storage unavailable'),
+      );
+
+      await expect(switchNode()).rejects.toThrow(
+        'revision storage unavailable',
+      );
+      expect(
+        Boolean(
+          mockSettings.enabled && mockSettings.settings?.enableTestEndpoint,
+        ),
+      ).toBe(!wasTest);
+      expect(mockRestart).not.toHaveBeenCalled();
+
+      // Retrying the committed node takes the unchanged-endpoint path, but
+      // must not lose the pending restart.
+      await switchNode();
+      expect(mockBumpRevision).toHaveBeenCalledTimes(1);
+      await jest.advanceTimersByTimeAsync(300);
+      expect(mockRestart).toHaveBeenCalledTimes(1);
+    },
+  );
+
+  test('blocks stale login commits until restart when revision invalidation fails', async () => {
+    mockBumpRevision.mockRejectedValueOnce(
+      new Error('revision storage unavailable'),
+    );
+    await expect(createService().switchDevMode(false)).rejects.toThrow(
+      'revision storage unavailable',
+    );
+    const staleLoginCommit = jest.fn();
+    await expect(
+      identityLifecycleMutex.runExclusive(staleLoginCommit),
+    ).rejects.toThrow('Identity recovery did not complete');
+    expect(staleLoginCommit).not.toHaveBeenCalled();
+    await jest.advanceTimersByTimeAsync(300);
+    expect(mockRestart).toHaveBeenCalledTimes(1);
   });
 
   test('clears stale endpoint sessions even when OneKey ID is already logged out', async () => {

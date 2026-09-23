@@ -33,7 +33,10 @@ import {
 } from '../states/jotai/atoms/devSettings';
 
 import ServiceBase from './ServiceBase';
-import { identityLifecycleMutex } from './ServiceIdentityExit/identityLifecycleMutex';
+import {
+  identityLifecycleMutex,
+  markIdentityRecoveryFailed,
+} from './ServiceIdentityExit/identityLifecycleMutex';
 
 import type { IPro2FirmwareForceTargetMode } from '../states/jotai/atoms/applyPro2FirmwareForceTargetChange';
 import type {
@@ -93,7 +96,7 @@ class ServiceDevSetting extends ServiceBase {
     await this.backgroundApi.serviceNotification
       .unregisterClient()
       .catch(() => undefined);
-    const result = await identityLifecycleMutex.runExclusive(async () => {
+    return identityLifecycleMutex.runExclusive(async () => {
       const [state, source] = await Promise.all([
         this.backgroundApi.simpleDb.prime.getOneKeyIdAuthState(),
         this.backgroundApi.simpleDb.prime.getAuthSessionSource(),
@@ -107,17 +110,27 @@ class ServiceDevSetting extends ServiceBase {
         await import('./ServicePrime/primeAuthSessionAccess');
       await clearEmailAuthSessionsForEnvironmentChange();
       const updated = await update();
-      // Invalidate login work that began after logout but before the node
-      // switch. Identity commits serialize on this same lifecycle mutex.
-      await this.backgroundApi.simpleDb.prime.bumpIdentityLifecycleRevision();
+      try {
+        // Invalidate login work that began after logout but before the node
+        // switch. Identity commits serialize on this same lifecycle mutex.
+        await this.backgroundApi.simpleDb.prime.bumpIdentityLifecycleRevision();
+      } catch (error) {
+        // Old login work still has a valid revision. Block its commits until
+        // the scheduled restart recreates the services for the new node.
+        markIdentityRecoveryFailed('devSettingsEnvironmentChange');
+        throw error;
+      } finally {
+        // The node is already committed; even a same-node retry cannot
+        // recreate providers that still point at the previous environment.
+        await this.restartAfterOneKeyIdEnvironmentChange(next);
+      }
       return updated;
     });
-    await this.restartAfterOneKeyIdEnvironmentChange();
-    return result;
   }
 
-  private async restartAfterOneKeyIdEnvironmentChange() {
-    const next = await devSettingsPersistAtom.get();
+  private async restartAfterOneKeyIdEnvironmentChange(
+    next: IDevSettingsPersistAtom,
+  ) {
     if (platformEnv.isDesktop) {
       await globalThis.desktopApiProxy?.appUpdate
         ?.useTestUpdateFeedUrl?.(
