@@ -7,7 +7,7 @@ import {
   flattenAggregateTokensMap,
   mergeAggregateTokenListMap,
   mergeDeriveTokenList,
-  mergeDeriveTokenListMap,
+  mergeDeriveTokenListMapInto,
   mergeNestedAggregateTokenMap,
   nestAggregateTokensMap,
   sortTokensByFiatValue,
@@ -88,6 +88,21 @@ export interface IMergedAllNetworkSnapshot {
   riskyKeys: string;
 }
 
+function appendTokenList({
+  sourceTokens,
+  targetTokens,
+  mergeDeriveAssets,
+}: Parameters<typeof mergeDeriveTokenList>[0]): void {
+  if (mergeDeriveAssets) {
+    mergeDeriveTokenList({ sourceTokens, targetTokens, mergeDeriveAssets });
+  } else {
+    // The accumulator belongs to this snapshot; do not copy its growing prefix.
+    for (const token of sourceTokens) {
+      targetTokens.push(token);
+    }
+  }
+}
+
 /**
  * Pure merge of all-network fetch rounds into a coherent full snapshot.
  *
@@ -127,9 +142,9 @@ export function buildMergedAllNetworkSnapshot({
     keys: '',
   };
 
-  let tokenListMap: Record<string, ITokenFiat> = {};
-  let smallBalanceTokenListMap: Record<string, ITokenFiat> = {};
-  let riskyTokenListMap: Record<string, ITokenFiat> = {};
+  const tokenListMap: Record<string, ITokenFiat> = {};
+  const smallBalanceTokenListMap: Record<string, ITokenFiat> = {};
+  const riskyTokenListMap: Record<string, ITokenFiat> = {};
   const accountsWorth: Record<string, string> = {};
   let createAtNetworkWorth = new BigNumber(0);
   let smallBalanceTokensFiatValue = new BigNumber(0);
@@ -163,20 +178,20 @@ export function buildMergedAllNetworkSnapshot({
       });
     }
 
-    tokenList.tokens = mergeDeriveTokenList({
+    appendTokenList({
       sourceTokens: r.tokens.data,
       targetTokens: tokenList.tokens,
       mergeDeriveAssets: mergeDeriveAssetsEnabled,
     });
 
     tokenList.keys = `${tokenList.keys}_${r.tokens.keys}`;
-    tokenListMap = mergeDeriveTokenListMap({
+    mergeDeriveTokenListMapInto({
       sourceMap: r.tokens.map,
       targetMap: tokenListMap,
       mergeDeriveAssets: mergeDeriveAssetsEnabled,
     });
 
-    smallBalanceTokenList.smallBalanceTokens = mergeDeriveTokenList({
+    appendTokenList({
       sourceTokens: r.smallBalanceTokens.data,
       targetTokens: smallBalanceTokenList.smallBalanceTokens,
       mergeDeriveAssets: mergeDeriveAssetsEnabled,
@@ -184,7 +199,7 @@ export function buildMergedAllNetworkSnapshot({
 
     smallBalanceTokenList.keys = `${smallBalanceTokenList.keys}_${r.smallBalanceTokens.keys}`;
 
-    smallBalanceTokenListMap = mergeDeriveTokenListMap({
+    mergeDeriveTokenListMapInto({
       sourceMap: r.smallBalanceTokens.map,
       targetMap: smallBalanceTokenListMap,
       mergeDeriveAssets: mergeDeriveAssetsEnabled,
@@ -194,14 +209,14 @@ export function buildMergedAllNetworkSnapshot({
     // `r.riskTokens.data` after the merge, which under `mergeDeriveAssets:true`
     // kept BOTH the merged ($key `chain_suffix`) AND the raw per-derive rows
     // (deduped to one only when merge was off) — a value-level non-idempotency.
-    riskyTokenList.riskyTokens = mergeDeriveTokenList({
+    appendTokenList({
       sourceTokens: r.riskTokens.data,
       targetTokens: riskyTokenList.riskyTokens,
       mergeDeriveAssets: mergeDeriveAssetsEnabled,
     });
     riskyTokenList.keys = `${riskyTokenList.keys}_${r.riskTokens.keys}`;
 
-    riskyTokenListMap = mergeDeriveTokenListMap({
+    mergeDeriveTokenListMapInto({
       sourceMap: r.riskTokens.map,
       targetMap: riskyTokenListMap,
       mergeDeriveAssets: mergeDeriveAssetsEnabled,

@@ -58,6 +58,120 @@ function makeRound(
 }
 
 describe('buildMergedAllNetworkSnapshot', () => {
+  it('merges derived balances without mutating a cached raw entry shared by the token groups', () => {
+    const cachedFiat = Object.freeze(
+      makeFiat('10', {
+        balance: '1',
+        balanceParsed: '2',
+        frozenBalance: '3',
+        totalBalance: '4',
+        balanceMultiplier: '2',
+      }),
+    );
+    const cachedMap = Object.freeze({ 'btc--0_native': cachedFiat });
+    const incomingMap = Object.freeze({
+      'btc--0_other_native': Object.freeze(
+        makeFiat('20', {
+          balance: '2',
+          balanceParsed: '4',
+          frozenBalance: '5',
+          totalBalance: '6',
+          balanceMultiplier: '2',
+        }),
+      ),
+    });
+    const cachedTokens = Object.freeze([makeToken('btc--0_native')]);
+    const rounds = [
+      makeRound({
+        networkId: 'btc--0',
+        mergeDeriveAssets: false,
+        accountWorth: '10',
+        tokens: { data: [...cachedTokens], keys: 'cache', map: cachedMap },
+        smallBalanceTokens: { data: [], keys: '', map: cachedMap },
+        riskTokens: { data: [], keys: '', map: cachedMap },
+      }),
+      makeRound({
+        networkId: 'btc--0',
+        mergeDeriveAssets: true,
+        tokens: {
+          data: [makeToken('btc--0_other_native', { mergeAssets: true })],
+          keys: 'live',
+          map: incomingMap,
+        },
+      }),
+    ];
+    const snapshot = buildMergedAllNetworkSnapshot({
+      rounds,
+      mergeDeriveAssetsByNetworkId: {},
+    });
+
+    // Small-balance keys retain their existing final override precedence.
+    expect(snapshot.mergeTokenListMap['btc--0_native']).toEqual(cachedFiat);
+    expect(snapshot.riskyTokenListMap['btc--0_native']).toEqual(cachedFiat);
+    expect(cachedFiat.balance).toBe('1');
+    expect(cachedFiat.fiatValue).toBe('10');
+    expect(rounds[0].tokens.data).toEqual(cachedTokens);
+
+    const withoutSmallOverride = buildMergedAllNetworkSnapshot({
+      rounds: [
+        { ...rounds[0], smallBalanceTokens: { data: [], keys: '', map: {} } },
+        rounds[1],
+      ],
+      mergeDeriveAssetsByNetworkId: {},
+    });
+    expect(
+      withoutSmallOverride.mergeTokenListMap['btc--0_native'],
+    ).toMatchObject({
+      balance: '3',
+      balanceParsed: '6',
+      fiatValue: '30',
+      frozenBalance: '8',
+      totalBalance: '10',
+      balanceMultiplier: '2',
+    });
+  });
+
+  it('preserves last raw-key overwrite and first token metadata across 22 appended rounds', () => {
+    const rounds = Array.from({ length: 22 }, (_, index) =>
+      makeRound({
+        networkId: `network-${index}`,
+        tokens: {
+          data: [
+            makeToken('shared', { name: `metadata-${index}` }),
+            makeToken(`unique-${index}`),
+          ],
+          keys: String(index),
+          map: {
+            shared: makeFiat(String(index + 1)),
+            [`unique-${index}`]: makeFiat('1'),
+          },
+        },
+      }),
+    );
+    const before = JSON.stringify(rounds);
+    const snapshot = buildMergedAllNetworkSnapshot({
+      rounds,
+      mergeDeriveAssetsByNetworkId: {},
+    });
+
+    expect(snapshot.orderedTokens).toHaveLength(23);
+    expect(snapshot.orderedTokens[0]).toMatchObject({
+      $key: 'shared',
+      name: 'metadata-0',
+    });
+    expect(snapshot.mergeTokenListMap.shared.fiatValue).toBe('22');
+    expect(snapshot.orderedTokens.slice(1).map((token) => token.$key)).toEqual(
+      Array.from({ length: 22 }, (_, index) => `unique-${index}`),
+    );
+    expect(JSON.stringify(rounds)).toBe(before);
+    expect(
+      buildMergedAllNetworkSnapshot({
+        rounds,
+        mergeDeriveAssetsByNetworkId: {},
+      }),
+    ).toEqual(snapshot);
+  });
+
   it('sorts by fiat desc, pushes zero-balance last, and sums per-network worth', () => {
     const rounds: IAllNetworkSnapshotRound[] = [
       makeRound({
