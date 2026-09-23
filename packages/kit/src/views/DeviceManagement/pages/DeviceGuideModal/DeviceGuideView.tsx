@@ -36,6 +36,14 @@ const LightPosterImage =
 const DarkPosterImage =
   require('./assets/mydevice_hero_poster_dark.jpg') as ImageSourcePropType;
 
+/** How far the hero frame is lifted on phones (points). */
+const MOBILE_HERO_LIFT = -64;
+/** The video's own scale on wide layouts, where its square frame would
+ * otherwise fill the height of the right three quarters of the page. The
+ * frame is shown whole (contain) at page color, so no edge needs hiding —
+ * provided the encode's background decodes to exactly the page color. */
+const DESKTOP_HERO_SCALE = 0.85;
+
 const LightVideoSource: IVideoSource = {
   uri: 'https://asset.onekey-asset.com/app-monorepo/bb7a4e71aba56b405faf9278776d57d73b829708/static/media/onekey-pro2-showcase-light.mp4',
 };
@@ -57,11 +65,13 @@ function VideoContainer() {
     return themeVariant === 'dark' ? DarkPosterImage : LightPosterImage;
   }, [themeVariant]);
 
+  // Phones only: the web fade into the words below. Wide layouts show the
+  // whole frame at page color, so nothing is left to fade.
   const maskStyle = useMemo(() => {
-    const gradient = gtMd
-      ? 'linear-gradient(90deg, transparent 0%, black 80%)'
-      : 'linear-gradient(180deg, transparent 15%, black 70%)';
-
+    if (gtMd) {
+      return undefined;
+    }
+    const gradient = 'linear-gradient(180deg, transparent 15%, black 70%)';
     return {
       maskImage: gradient,
       WebkitMaskImage: gradient,
@@ -100,11 +110,19 @@ function VideoContainer() {
         right: 0,
       }}
     >
-      {/* Container with gradient mask */}
+      {/* Container with gradient mask. The showcase render centers the
+          device in a square frame whose background is the page's own: on
+          phones the frame is lifted so the device clears the words below,
+          on wide layouts the video itself is shown whole and scaled down
+          (scaling this container instead exposed the cover crop). */}
       <Stack
         position="absolute"
         width="100%"
         height="100%"
+        y={MOBILE_HERO_LIFT}
+        $gtMd={{
+          y: 0,
+        }}
         $platform-web={{
           ...maskStyle,
         }}
@@ -119,7 +137,8 @@ function VideoContainer() {
           height="100%"
           controls={false}
           playInBackground={false}
-          resizeMode={EVideoResizeMode.COVER}
+          resizeMode={gtMd ? EVideoResizeMode.CONTAIN : EVideoResizeMode.COVER}
+          scale={gtMd ? DESKTOP_HERO_SCALE : 1}
           source={videoSource}
           onProgress={handleVideoLoad}
         />
@@ -128,7 +147,8 @@ function VideoContainer() {
             position="absolute"
             width="100%"
             height="100%"
-            resizeMode="cover"
+            resizeMode={gtMd ? 'contain' : 'cover'}
+            scale={gtMd ? DESKTOP_HERO_SCALE : 1}
             resizeWidth={480}
             source={posterSource}
           />
