@@ -2,6 +2,8 @@
  * @jest-environment jsdom
  */
 
+import * as React from 'react';
+
 import { render } from '@testing-library/react';
 
 import { AllNetworksManagerTrigger } from './AllNetworksManagerTrigger';
@@ -215,9 +217,23 @@ describe('AllNetworksManagerTrigger', () => {
   });
 
   // Slack 09-23 QA report (blank account selector right after a cold start):
-  // the dot is a hint covered by its cached value, so it must not compete
-  // with the frames and background requests of what is on screen.
-  it('asks for missing addresses only once the UI is idle', async () => {
+  // the dot is a hint covered by its cached value, so the first query after
+  // launch waits for the UI. PR #13695 review: later runs (explicit refreshes
+  // after the user created an address, remounts) must not wait, and a run
+  // deferred past its unmount would drop its cache write.
+  it('defers only the first missing-address query after launch', async () => {
+    let FreshTrigger: typeof AllNetworksManagerTrigger =
+      AllNetworksManagerTrigger;
+    // A fresh module copy resets the once-per-launch flag; React itself must
+    // stay the instance the renderer uses.
+    jest.isolateModules(() => {
+      jest.doMock('react', () => React);
+      FreshTrigger = (
+        jest.requireActual('./AllNetworksManagerTrigger') as {
+          AllNetworksManagerTrigger: typeof AllNetworksManagerTrigger;
+        }
+      ).AllNetworksManagerTrigger;
+    });
     mockCompatQueries({ walletReady: true, accountReady: true });
     mockGetNetworkIdsWithoutAccount.mockResolvedValue(['evm--56']);
     let markIdle: () => void = () => {};
@@ -225,15 +241,20 @@ describe('AllNetworksManagerTrigger', () => {
       markIdle = resolve;
     });
 
-    render(<AllNetworksManagerTrigger num={0} unifiedMode />);
+    render(<FreshTrigger num={0} unifiedMode />);
+    const query = mockMissingAddressQueries.at(-1);
 
-    const pending = mockMissingAddressQueries.at(-1)?.method();
+    const first = query?.method();
     await Promise.resolve();
     expect(mockGetNetworkIdsWithoutAccount).not.toHaveBeenCalled();
-
     markIdle();
-    await expect(pending).resolves.toEqual(['evm--56']);
+    await expect(first).resolves.toEqual(['evm--56']);
     expect(mockGetNetworkIdsWithoutAccount).toHaveBeenCalledTimes(1);
+
+    // The UI never settles again, yet a refresh still goes straight through.
+    mockUIIdle = new Promise<void>(() => {});
+    await expect(query?.method()).resolves.toEqual(['evm--56']);
+    expect(mockGetNetworkIdsWithoutAccount).toHaveBeenCalledTimes(2);
   });
 
   it('does not ask for missing addresses before the wallet-scoped list resolves', async () => {

@@ -24,6 +24,11 @@ import { useUnifiedNetworkSelectorTrigger } from './hooks/useUnifiedNetworkSelec
 
 const MAX_DISPLAY_NETWORKS = 2;
 
+// Set once the first missing-address query after launch has waited for the UI
+// to settle. Later runs (remounts, focus, explicit refreshes) go straight to
+// the background.
+let missingAddressQueryDeferredSinceLaunch = false;
+
 function AllNetworksManagerTrigger({
   num,
   showSkeleton,
@@ -48,8 +53,9 @@ function AllNetworksManagerTrigger({
     networkUtils.isAllNetwork({ networkId: network?.id }) &&
     !accountUtils.isOthersWallet({ walletId: wallet?.id ?? '' });
 
-  // SWR cache in usePromiseResult provides instant cold-start data,
-  // so deferHeavyWorkUntilUIIdle is no longer needed here.
+  // The wallet-scoped query paints from the SWR cache on a cold start, so it
+  // does not wait for the UI; only the first missing-address query after
+  // launch does (see below).
   const compatQueryWalletId = shouldEnableCompatQuery ? (wallet?.id ?? '') : '';
 
   // The avatars and the "+N" count depend only on the wallet and the global
@@ -83,10 +89,15 @@ function AllNetworksManagerTrigger({
           // Not persisted: the per-account cache keeps the last known dot.
           return undefined;
         }
-        // The dot is a hint that the cached value covers until this settles;
-        // let the frames and requests of a cold start or account switch (e.g.
-        // the account selector opened right away) go first.
-        await deferHeavyWorkUntilUIIdle();
+        if (!missingAddressQueryDeferredSinceLaunch) {
+          // The first query after launch starts during the cold start, while
+          // the dot's cached value is on screen and e.g. the account selector
+          // may be opening; let those frames and requests go first. Only this
+          // run waits: a deferred run that outlives its mount drops its result
+          // (and cache write), and explicit refreshes must not be delayed.
+          await deferHeavyWorkUntilUIIdle();
+          missingAddressQueryDeferredSinceLaunch = true;
+        }
         return backgroundApiProxy.serviceAllNetwork.getNetworkIdsWithoutAccountInIndexedAccount(
           {
             indexedAccountId,
