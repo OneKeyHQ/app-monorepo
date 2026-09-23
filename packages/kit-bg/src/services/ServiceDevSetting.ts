@@ -55,12 +55,18 @@ class ServiceDevSetting extends ServiceBase {
 
   private readonly devSettingsWriteMutex = new Semaphore(1);
   private environmentRestartTimer: ReturnType<typeof setTimeout> | undefined;
+  private environmentRestartRequired = false;
 
   private async withOneKeyIdEnvironmentChange<T>(
     previous: IDevSettingsPersistAtom,
     next: IDevSettingsPersistAtom,
     update: () => Promise<T>,
   ) {
+    if (this.environmentRestartRequired) {
+      // A failed restart must remain retryable even when the requested node
+      // is already committed and no further environment change is needed.
+      this.restartAfterOneKeyIdEnvironmentChange();
+    }
     if (
       getOneKeyIdAuthConfigByDevSettings(previous).projectUrl ===
       getOneKeyIdAuthConfigByDevSettings(next).projectUrl
@@ -109,43 +115,74 @@ class ServiceDevSetting extends ServiceBase {
       const { clearEmailAuthSessionsForEnvironmentChange } =
         await import('./ServicePrime/primeAuthSessionAccess');
       await clearEmailAuthSessionsForEnvironmentChange();
-      const updated = await update();
+      this.environmentRestartRequired = true;
       try {
+        const updated = await update();
         // Invalidate login work that began after logout but before the node
         // switch. Identity commits serialize on this same lifecycle mutex.
         await this.backgroundApi.simpleDb.prime.bumpIdentityLifecycleRevision();
+        return updated;
       } catch (error) {
         // Old login work still has a valid revision. Block its commits until
         // the scheduled restart recreates the services for the new node.
         markIdentityRecoveryFailed('devSettingsEnvironmentChange');
         throw error;
       } finally {
-        // The node is already committed; even a same-node retry cannot
-        // recreate providers that still point at the previous environment.
-        await this.restartAfterOneKeyIdEnvironmentChange(next);
+        // update() can commit settings before a later sync rejects, or roll
+        // back after clearing sessions. Either way the runtime needs recovery.
+        this.restartAfterOneKeyIdEnvironmentChange();
       }
-      return updated;
     });
   }
 
-  private async restartAfterOneKeyIdEnvironmentChange(
-    next: IDevSettingsPersistAtom,
-  ) {
-    if (platformEnv.isDesktop) {
-      await globalThis.desktopApiProxy?.appUpdate
-        ?.useTestUpdateFeedUrl?.(
-          Boolean(next.enabled && next.settings?.enableTestEndpoint),
-        )
-        .catch(() => undefined);
-    }
+  private restartAfterOneKeyIdEnvironmentChange() {
     // Let the settings RPC finish before restarting the owning bg runtime.
     clearTimeout(this.environmentRestartTimer);
     const restartTimer = setTimeout(() => {
-      void this.devSettingsWriteMutex.runExclusive(async () => {
-        if (this.environmentRestartTimer !== restartTimer) return;
-        this.environmentRestartTimer = undefined;
-        await this.backgroundApi.serviceApp.restartApp();
-      });
+      void this.devSettingsWriteMutex
+        .runExclusive(async () => {
+          if (this.environmentRestartTimer !== restartTimer) return;
+          this.environmentRestartTimer = undefined;
+          try {
+            if (platformEnv.isDesktop) {
+              try {
+                const current = await devSettingsPersistAtom.get();
+                await globalThis.desktopApiProxy?.appUpdate?.useTestUpdateFeedUrl?.(
+                  Boolean(
+                    current.enabled && current.settings?.enableTestEndpoint,
+                  ),
+                );
+              } catch (error) {
+                console.error(
+                  'Failed to sync the desktop update feed before node restart',
+                  error,
+                );
+              }
+            }
+            await this.backgroundApi.serviceApp.restartApp();
+            this.environmentRestartRequired = false;
+          } catch (error) {
+            // Keep stale providers from committing identity changes until a
+            // manual restart or a subsequent settings action retries recovery.
+            markIdentityRecoveryFailed('devSettingsEnvironmentChange');
+            console.error(
+              'Failed to restart after OneKey ID environment change',
+              error,
+            );
+            await this.backgroundApi.serviceApp.showToast({
+              method: 'error',
+              title: 'Restart required',
+              message:
+                'The authentication settings changed, but the app could not restart. Restart the app before using OneKey ID.',
+            });
+          }
+        })
+        .catch((error) => {
+          console.error(
+            'Failed to report the OneKey ID node restart error',
+            error,
+          );
+        });
     }, 300);
     this.environmentRestartTimer = restartTimer;
   }

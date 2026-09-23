@@ -1,4 +1,6 @@
 /* eslint-disable import/first */
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type {
   IIdentityExitPlan,
   IIdentityExitPlanId,
@@ -25,6 +27,7 @@ const mockClearEmailSessions = jest.fn<Promise<void>, []>();
 const mockPrepareExit = jest.fn<Promise<IIdentityExitPlan>, [unknown]>();
 const mockExecuteExit = jest.fn<Promise<IIdentityExitReceipt>, [unknown]>();
 const mockRestart = jest.fn();
+const mockShowToast = jest.fn<Promise<void>, [unknown]>();
 const mockUnregister = jest.fn<Promise<void>, []>();
 const mockAuthState = jest.fn<Promise<'loggedIn' | 'loggedOut'>, []>();
 const mockBumpRevision = jest.fn<Promise<number>, []>();
@@ -113,7 +116,7 @@ function createService() {
         executeIdentityExit: mockExecuteExit,
       },
       serviceNotification: { unregisterClient: mockUnregister },
-      serviceApp: { restartApp: mockRestart },
+      serviceApp: { restartApp: mockRestart, showToast: mockShowToast },
       simpleDb: {
         prime: {
           getOneKeyIdAuthState: mockAuthState,
@@ -137,8 +140,11 @@ describe('OneKey ID environment switching', () => {
     mockUnregister.mockResolvedValue();
     mockAuthState.mockResolvedValue('loggedOut');
     mockBumpRevision.mockResolvedValue(2);
+    mockRestart.mockReset().mockResolvedValue(undefined);
+    mockShowToast.mockReset().mockResolvedValue();
   });
   afterEach(() => {
+    jest.restoreAllMocks();
     resetIdentityRecoveryStateForTest('ready');
     jest.clearAllTimers();
     jest.useRealTimers();
@@ -234,6 +240,184 @@ describe('OneKey ID environment switching', () => {
     expect(staleLoginCommit).not.toHaveBeenCalled();
     await jest.advanceTimersByTimeAsync(300);
     expect(mockRestart).toHaveBeenCalledTimes(1);
+  });
+
+  test.each(['prod-to-test', 'test-to-prod', 'disable-dev'] as const)(
+    '%s still restarts after the settings commit succeeds but sync fails',
+    async (transition) => {
+      const service = createService();
+      const wasTest = transition !== 'prod-to-test';
+      mockSettings.settings = { enableTestEndpoint: wasTest };
+      jest
+        .spyOn(service, 'saveDevModeToSyncStorage')
+        .mockRejectedValueOnce(new Error('settings sync failed'));
+
+      await expect(
+        transition === 'disable-dev'
+          ? service.switchDevMode(false)
+          : service.updateDevSetting('enableTestEndpoint', !wasTest),
+      ).rejects.toThrow('settings sync failed');
+      expect(
+        Boolean(
+          mockSettings.enabled && mockSettings.settings?.enableTestEndpoint,
+        ),
+      ).toBe(!wasTest);
+      const staleLoginCommit = jest.fn();
+      await expect(
+        identityLifecycleMutex.runExclusive(staleLoginCommit),
+      ).rejects.toThrow('Identity recovery did not complete');
+      expect(staleLoginCommit).not.toHaveBeenCalled();
+      await jest.advanceTimersByTimeAsync(300);
+      expect(mockRestart).toHaveBeenCalledTimes(1);
+    },
+  );
+
+  test('still restarts when the settings setter commits then rejects', async () => {
+    mockSetSettings.mockImplementationOnce(async (update) => {
+      mockSettings = update(mockSettings);
+      throw new OneKeyLocalError('settings broadcast failed');
+    });
+    await expect(
+      createService().updateDevSetting('enableTestEndpoint', false),
+    ).rejects.toThrow('settings broadcast failed');
+    expect(mockSettings.settings?.enableTestEndpoint).toBe(false);
+    await jest.advanceTimersByTimeAsync(300);
+    expect(mockRestart).toHaveBeenCalledTimes(1);
+  });
+
+  test('handles a rejected restart and retries when the committed node is selected again', async () => {
+    const service = createService();
+    const logError = jest.spyOn(console, 'error').mockImplementation();
+    mockRestart.mockRejectedValueOnce(new Error('restart bridge unavailable'));
+    await service.updateDevSetting('enableTestEndpoint', false);
+    await jest.advanceTimersByTimeAsync(300);
+
+    expect(mockShowToast).toHaveBeenCalledWith(
+      expect.objectContaining({
+        method: 'error',
+        title: expect.stringContaining('Restart'),
+      }),
+    );
+    const staleLoginCommit = jest.fn();
+    await expect(
+      identityLifecycleMutex.runExclusive(staleLoginCommit),
+    ).rejects.toThrow('Identity recovery did not complete');
+    expect(staleLoginCommit).not.toHaveBeenCalled();
+
+    await service.updateDevSetting('enableTestEndpoint', false);
+    await jest.advanceTimersByTimeAsync(300);
+    expect(mockRestart).toHaveBeenCalledTimes(2);
+    expect(mockExecuteExit).toHaveBeenCalledTimes(1);
+    expect(mockClearEmailSessions).toHaveBeenCalledTimes(1);
+    expect(logError).toHaveBeenCalledWith(
+      'Failed to restart after OneKey ID environment change',
+      expect.any(Error),
+    );
+  });
+
+  test('keeps restart retryable after developer mode is already disabled', async () => {
+    jest.spyOn(console, 'error').mockImplementation();
+    const service = createService();
+    mockRestart.mockRejectedValueOnce(new Error('restart bridge unavailable'));
+    await service.switchDevMode(false);
+    await jest.advanceTimersByTimeAsync(300);
+
+    await service.switchDevMode(false);
+    await jest.advanceTimersByTimeAsync(300);
+    expect(mockRestart).toHaveBeenCalledTimes(2);
+    expect(mockExecuteExit).toHaveBeenCalledTimes(1);
+  });
+
+  test('reports toast delivery failure without losing restart recovery', async () => {
+    const logError = jest.spyOn(console, 'error').mockImplementation();
+    const service = createService();
+    mockRestart.mockRejectedValueOnce(new Error('restart bridge unavailable'));
+    mockShowToast.mockRejectedValueOnce(new Error('main runtime unavailable'));
+    await service.updateDevSetting('enableTestEndpoint', false);
+    await jest.advanceTimersByTimeAsync(300);
+    expect(logError).toHaveBeenCalledWith(
+      'Failed to report the OneKey ID node restart error',
+      expect.any(Error),
+    );
+
+    await service.updateDevSetting('enableTestEndpoint', false);
+    await jest.advanceTimersByTimeAsync(300);
+    expect(mockRestart).toHaveBeenCalledTimes(2);
+  });
+
+  describe('desktop update feed during recovery', () => {
+    const mockUpdateFeed = jest.fn<Promise<void>, [boolean]>();
+    const mockNetworkThrottle = jest.fn();
+    let originalDesktopApiProxy: PropertyDescriptor | undefined;
+
+    beforeEach(() => {
+      jest.replaceProperty(platformEnv, 'isDesktop', true);
+      originalDesktopApiProxy = Object.getOwnPropertyDescriptor(
+        globalThis,
+        'desktopApiProxy',
+      );
+      Object.defineProperty(globalThis, 'desktopApiProxy', {
+        configurable: true,
+        value: {
+          appUpdate: { useTestUpdateFeedUrl: mockUpdateFeed },
+          dev: { setNetworkThrottle: mockNetworkThrottle },
+        },
+      });
+      mockUpdateFeed.mockReset().mockResolvedValue();
+      mockNetworkThrottle.mockReset();
+    });
+    afterEach(() => {
+      if (originalDesktopApiProxy) {
+        Object.defineProperty(
+          globalThis,
+          'desktopApiProxy',
+          originalDesktopApiProxy,
+        );
+      } else {
+        Reflect.deleteProperty(globalThis, 'desktopApiProxy');
+      }
+    });
+
+    test('uses the committed node after a post-commit sync failure', async () => {
+      const service = createService();
+      jest
+        .spyOn(service, 'syncCryptoSettings')
+        .mockRejectedValueOnce(new Error('crypto sync failed'));
+      await expect(
+        service.updateDevSetting('enableTestEndpoint', false),
+      ).rejects.toThrow('crypto sync failed');
+      await jest.advanceTimersByTimeAsync(300);
+      expect(mockUpdateFeed).toHaveBeenCalledWith(false);
+      expect(mockRestart).toHaveBeenCalledTimes(1);
+    });
+
+    test('uses the actual node after developer-mode settings roll back', async () => {
+      mockNetworkThrottle.mockRejectedValueOnce(
+        new Error('native sync failed'),
+      );
+      await expect(createService().switchDevMode(false)).rejects.toThrow(
+        'native sync failed',
+      );
+      expect(mockSettings.enabled).toBe(true);
+      expect(mockSettings.settings?.enableTestEndpoint).toBe(true);
+      await jest.advanceTimersByTimeAsync(300);
+      expect(mockUpdateFeed).toHaveBeenCalledWith(true);
+      expect(mockRestart).toHaveBeenCalledTimes(1);
+    });
+
+    test('does not lose the restart when synchronizing the update feed fails', async () => {
+      const logError = jest.spyOn(console, 'error').mockImplementation();
+      mockUpdateFeed.mockRejectedValueOnce(
+        new Error('update feed unavailable'),
+      );
+      await createService().updateDevSetting('enableTestEndpoint', false);
+      await jest.advanceTimersByTimeAsync(300);
+      expect(mockRestart).toHaveBeenCalledTimes(1);
+      expect(logError).toHaveBeenCalledWith(
+        'Failed to sync the desktop update feed before node restart',
+        expect.any(Error),
+      );
+    });
   });
 
   test('clears stale endpoint sessions even when OneKey ID is already logged out', async () => {
