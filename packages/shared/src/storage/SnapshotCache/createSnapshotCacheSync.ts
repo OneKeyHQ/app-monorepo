@@ -132,8 +132,9 @@ export function createSnapshotCacheSync<T>({
       if (!isValidSnapshotCacheKey(key)) {
         return;
       }
+      const timestamp = now();
+      let entries: Array<{ key: string; value: string }> | undefined;
       const write = (attempt: number) => {
-        const timestamp = now();
         const { raw, manifest } = readManifest();
         const plan = planSnapshotCacheWrite({
           manifest,
@@ -143,15 +144,17 @@ export function createSnapshotCacheSync<T>({
           now: timestamp,
         });
         try {
+          // A retry only needs a fresh manifest; keep this write's snapshot.
+          entries ??= [
+            {
+              key: dataKey(key),
+              value: JSON.stringify({ d: data, t: timestamp }),
+            },
+          ];
           commitManifest({
             raw,
             manifest: plan.manifest,
-            entries: [
-              {
-                key: dataKey(key),
-                value: JSON.stringify({ d: data, t: timestamp }),
-              },
-            ],
+            entries,
             removeKeys: plan.removeKeys,
           });
         } catch {
@@ -181,8 +184,9 @@ export function createSnapshotCacheSync<T>({
       if (valid.length === 0) {
         return;
       }
+      const timestamp = now();
+      let serializedEntries: Array<{ key: string; value: string }> | undefined;
       const write = (attempt: number) => {
-        const timestamp = now();
         const { raw, manifest } = readManifest();
         const plan = planSnapshotCacheWriteMany({
           manifest,
@@ -191,13 +195,14 @@ export function createSnapshotCacheSync<T>({
           now: timestamp,
         });
         try {
+          serializedEntries ??= valid.map(([key, data]) => ({
+            key: dataKey(key),
+            value: JSON.stringify({ d: data, t: timestamp }),
+          }));
           commitManifest({
             raw,
             manifest: plan.manifest,
-            entries: valid.map(([key, data]) => ({
-              key: dataKey(key),
-              value: JSON.stringify({ d: data, t: timestamp }),
-            })),
+            entries: serializedEntries,
             removeKeys: plan.removeKeys,
           });
         } catch {

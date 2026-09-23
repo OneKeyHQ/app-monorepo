@@ -149,6 +149,8 @@ export type ITokenData = {
 };
 
 export type IFetchAccountTokensResp = {
+  homeTokenRoundRef?: string;
+  mergeDeriveAssets?: boolean;
   allTokens?: ITokenData;
   tokens: ITokenData;
   riskTokens: ITokenData;

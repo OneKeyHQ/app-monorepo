@@ -19,9 +19,11 @@ import type { MutableRefObject } from 'react';
 import { act, renderHook } from '@testing-library/react';
 
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import * as snapshotUtils from '@onekeyhq/shared/src/utils/buildMergedAllNetworkSnapshot';
 import type { IHomeTokenRequest } from '@onekeyhq/shared/types/token';
 
 const mockIngestRound = jest.fn(async (..._args: unknown[]) => undefined);
+const mockIngestHomeTokenRounds = jest.fn(async (..._args: unknown[]) => true);
 const mockIsHomeTokenRequestCurrent = jest.fn(() => true);
 const mockGetVaultSettings = jest.fn(async () => ({
   mergeDeriveAssetsEnabled: false,
@@ -32,6 +34,8 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
   default: {
     serviceTokenViewModel: {
       ingestRound: (...args: unknown[]) => mockIngestRound(...args),
+      ingestHomeTokenRounds: (...args: unknown[]) =>
+        mockIngestHomeTokenRounds(...args),
     },
     serviceNetwork: {
       getVaultSettings: () => mockGetVaultSettings(),
@@ -42,6 +46,17 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
 jest.mock('@onekeyhq/shared/src/utils/homeTokenRequest', () => ({
   isHomeTokenRequestCurrent: () => mockIsHomeTokenRequestCurrent(),
 }));
+jest.mock('@onekeyhq/shared/src/utils/buildMergedAllNetworkSnapshot', () => {
+  const actual = jest.requireActual<typeof snapshotUtils>(
+    '@onekeyhq/shared/src/utils/buildMergedAllNetworkSnapshot',
+  );
+  return {
+    ...actual,
+    buildMergedAllNetworkSnapshot: jest.fn(
+      actual.buildMergedAllNetworkSnapshot,
+    ),
+  };
+});
 
 // The unit-under-test import must come AFTER jest.mock (hoisting); the type
 // import is colocated so import/order's value-before-type rule is satisfied.
@@ -172,6 +187,7 @@ function makeLiveRound(over: Partial<ILiveRound> = {}): ILiveRound {
 describe('useTokenListReactivePipeline', () => {
   beforeEach(() => {
     mockIngestRound.mockReset().mockResolvedValue(undefined);
+    mockIngestHomeTokenRounds.mockReset().mockResolvedValue(true);
     mockGetVaultSettings.mockReset().mockResolvedValue({
       mergeDeriveAssetsEnabled: false,
     });
@@ -910,4 +926,153 @@ describe('useTokenListReactivePipeline', () => {
       consoleError.mockRestore();
     }
   });
+
+  it('sends only exact cache/live references and preserves the other network floor', async () => {
+    jest.useFakeTimers();
+    const merge = jest.mocked(snapshotUtils.buildMergedAllNetworkSnapshot);
+    merge.mockClear();
+    try {
+      const homeRequest = makeHomeRequest(1);
+      const { result } = render(true, homeRequest);
+      act(() =>
+        result.current.setEnabledKeys([
+          OWNER,
+          { accountId: OWNER.accountId, networkId: 'evm--56' },
+        ]),
+      );
+      await act(async () => {
+        await result.current.seedAndFlushCache({
+          data: [
+            makeCacheItem({ homeRequest, homeTokenRoundRef: 'cache-a' }),
+            makeCacheItem({
+              homeRequest,
+              networkId: 'evm--56',
+              homeTokenRoundRef: 'cache-b',
+            }),
+          ],
+          ...OWNER,
+          generation: 1,
+        });
+      });
+      act(() =>
+        result.current.ingestLiveRound(
+          makeLiveRound({
+            homeRequest,
+            homeTokenRoundRef: 'live-a',
+            mergeDeriveAssets: false,
+          }),
+          1,
+        ),
+      );
+      await act(async () => {
+        await jest.advanceTimersByTimeAsync(PROGRESSIVE_PAINT_THROTTLE_MS + 1);
+      });
+      expect(mockIngestRound).not.toHaveBeenCalled();
+      expect(merge).not.toHaveBeenCalled();
+      expect(mockIngestHomeTokenRounds).toHaveBeenCalledTimes(2);
+      expect(mockIngestHomeTokenRounds.mock.calls[1][0]).toMatchObject({
+        roundRefs: ['live-a', 'cache-b'],
+        source: 'progPaint',
+        homeRequest,
+      });
+      expect(mockIngestHomeTokenRounds.mock.calls[1][0]).not.toHaveProperty(
+        'orderedTokens',
+      );
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  it('falls back to the exact full snapshot only when references are explicitly missing', async () => {
+    mockIngestHomeTokenRounds.mockResolvedValueOnce(false);
+    const homeRequest = makeHomeRequest(1);
+    const { result } = render(true, homeRequest);
+    act(() => result.current.setEnabledKeys([OWNER]));
+    await act(async () => {
+      await result.current.seedAndFlushCache({
+        data: [makeCacheItem({ homeRequest, homeTokenRoundRef: 'evicted' })],
+        ...OWNER,
+        generation: 1,
+      });
+    });
+    expect(mockIngestRound).toHaveBeenCalledTimes(1);
+    expect(mockIngestRound.mock.calls[0][0]).toMatchObject({
+      source: 'cacheSeed',
+      homeRequest,
+      homePublication: 1,
+      orderedTokens: [expect.objectContaining({ $key: 'a1' })],
+    });
+  });
+
+  it('commits the authoritative snapshot references captured before a newer live result', async () => {
+    const homeRequest = makeHomeRequest(1);
+    const { result } = render(true, homeRequest);
+    act(() => result.current.setEnabledKeys([OWNER]));
+    await act(async () => {
+      await result.current.seedAndFlushCache({
+        data: [makeCacheItem({ homeRequest, homeTokenRoundRef: 'snapshot-a' })],
+        ...OWNER,
+        generation: 1,
+      });
+      const snapshot = await result.current.buildAuthoritativeSnapshot();
+      result.current.ingestLiveRound(
+        makeLiveRound({
+          homeRequest,
+          homeTokenRoundRef: 'live-b',
+          mergeDeriveAssets: false,
+        }),
+        1,
+      );
+      if (snapshot)
+        result.current.commitAuthoritativeIngest(snapshot, homeRequest);
+    });
+    expect(mockIngestHomeTokenRounds.mock.calls[1][0]).toMatchObject({
+      source: 'authoritative',
+      roundRefs: ['snapshot-a'],
+    });
+    expect(mockIngestRound).not.toHaveBeenCalled();
+  });
+
+  it.each(['authoritative', 'new-owner'] as const)(
+    'drops a delayed missing-reference fallback after %s supersedes it',
+    async (superseding) => {
+      let resolveMissing: ((value: boolean) => void) | undefined;
+      mockIngestHomeTokenRounds.mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            resolveMissing = resolve;
+          }),
+      );
+      const homeRequest = makeHomeRequest(1);
+      const { result, homeRequestRef } = render(true, homeRequest);
+      act(() => result.current.setEnabledKeys([OWNER]));
+      await act(async () => {
+        await result.current.seedAndFlushCache({
+          data: [makeCacheItem({ homeRequest, homeTokenRoundRef: 'cache' })],
+          ...OWNER,
+          generation: 1,
+        });
+      });
+      if (superseding === 'authoritative') {
+        await act(async () => {
+          const snapshot = await result.current.buildAuthoritativeSnapshot();
+          if (snapshot)
+            result.current.commitAuthoritativeIngest(snapshot, homeRequest);
+        });
+        expect(mockIngestHomeTokenRounds).toHaveBeenCalledTimes(2);
+        expect(mockIngestHomeTokenRounds.mock.calls[1][0]).toMatchObject({
+          source: 'authoritative',
+          homePublication: 2,
+          roundRefs: ['cache'],
+        });
+      } else {
+        homeRequestRef.current = makeHomeRequest(2);
+      }
+      await act(async () => {
+        resolveMissing?.(false);
+        await Promise.resolve();
+      });
+      expect(mockIngestRound).not.toHaveBeenCalled();
+    },
+  );
 });
