@@ -46,24 +46,27 @@ export function useFrozenTopHistoryData(
   enabled: boolean,
   identityKey: string,
 ): IUseFrozenTopHistoryDataResult {
-  // The away-from-top state is scoped to the identity it was reported for. An
-  // identity switch (account / network / all-networks scope / filter toggle)
-  // replaces the history stream instead of refreshing it, so the previous
-  // freeze must stop applying in the very render that carries the new
+  // An identity switch (account / network / all-networks scope / filter
+  // toggle) replaces the history stream instead of refreshing it, so the
+  // previous freeze must stop applying in the very render that carries the new
   // identity: tx ids the new context happens to reuse would otherwise count as
   // "already displayed" and its legitimate top rows would be withheld until
   // the user scrolls back up (`selectVisibleHistoryRows`' wholesale-replacement
-  // bail-out only covers streams with zero id overlap). The observer's worklet
-  // mirror is intentionally NOT re-synced: while it stays stale no away=true
-  // crossing can fire, so freezing stays off for the new stream until the
-  // user returns near the top once — by which point the baseline belongs to
-  // the new stream.
-  const [awayIdentityKey, setAwayIdentityKey] = useState<string | undefined>();
-  const isAwayFromTop = enabled && awayIdentityKey === identityKey;
-  const identityKeyRef = useRef(identityKey);
-  useLayoutEffect(() => {
-    identityKeyRef.current = identityKey;
-  }, [identityKey]);
+  // bail-out only covers streams with zero id overlap). The switch voids the
+  // away state outright rather than scoping it to a key: a key comparison
+  // would revive the freeze on a K0 -> K1 -> K0 round trip (e.g. toggling a
+  // history filter off again) with the intermediate identity's rows as the
+  // baseline. The observer's worklet mirror is intentionally NOT re-synced:
+  // while it stays stale no away=true crossing can fire, so freezing stays off
+  // for the new stream until the user returns near the top once — by which
+  // point the baseline belongs to the new stream.
+  const [isAway, setIsAway] = useState(false);
+  const [awayIdentityKey, setAwayIdentityKey] = useState(identityKey);
+  if (awayIdentityKey !== identityKey) {
+    setAwayIdentityKey(identityKey);
+    setIsAway(false);
+  }
+  const isAwayFromTop = enabled && isAway && awayIdentityKey === identityKey;
 
   // The rows are derived during render, never synced from an effect: an
   // effect-synced copy lags the upstream list by a commit, so an identity
@@ -102,12 +105,12 @@ export function useFrozenTopHistoryData(
   // `enabled` flag.
   useEffect(() => {
     if (!enabled) {
-      setAwayIdentityKey(undefined);
+      setIsAway(false);
     }
   }, [enabled]);
 
   const onAwayFromTopChange = useCallback((away: boolean) => {
-    setAwayIdentityKey(away ? identityKeyRef.current : undefined);
+    setIsAway(away);
   }, []);
 
   return { displayedHistoryData: displayed, onAwayFromTopChange };

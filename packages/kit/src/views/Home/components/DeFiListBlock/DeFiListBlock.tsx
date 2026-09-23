@@ -613,11 +613,11 @@ function DeFiListBlock({
       } catch (e) {
         console.error(e);
       } finally {
-        setIsHeaderRefreshing(false);
-        // A stale run's "settled" would end the NEW owner's loading state
-        // (and stamp the previous owner as loaded) while its fetch is still
-        // in flight; the live run settles its own owner.
+        // A stale run's "settled" would end the NEW owner's loading and
+        // header-refresh state (and stamp the previous owner as loaded) while
+        // its fetch is still in flight; the live run settles its own owner.
         if (!isStaleRun()) {
+          setIsHeaderRefreshing(false);
           updateDeFiListState(
             deFiListLoadingReducer({
               type: 'settled',

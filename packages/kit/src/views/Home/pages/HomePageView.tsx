@@ -610,9 +610,16 @@ export function HomePageView({
   );
   const nativeHeaderAlertsHeightRef = useRef(0);
   const handleHeaderAlertsLayout = useCallback((event: LayoutChangeEvent) => {
-    nativeHeaderAlertsHeightRef.current = Math.round(
-      event.nativeEvent.layout.height,
-    );
+    const height = Math.round(event.nativeEvent.layout.height);
+    const delta = height - nativeHeaderAlertsHeightRef.current;
+    if (delta === 0) {
+      return;
+    }
+    nativeHeaderAlertsHeightRef.current = height;
+    // Alerts can change within one header variant, where no variant or
+    // container height change re-applies the hint; shift it by the alert
+    // delta so it tracks the band regardless of which onLayout lands first.
+    setNativeHeaderHeightHint((prev) => prev + delta);
   }, []);
   const handleHeaderVariantChange = useCallback((variant: string) => {
     let learned = learnedNativeHeaderHeights.get(variant);

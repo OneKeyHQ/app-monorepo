@@ -1,6 +1,8 @@
 /**
  * @jest-environment jsdom
  */
+import { useLayoutEffect } from 'react';
+
 import { act, renderHook } from '@testing-library/react';
 
 import type { IAccountHistoryTx } from '@onekeyhq/shared/types/history';
@@ -31,12 +33,16 @@ type IProps = {
 };
 
 function renderFrozen(initial: IProps) {
-  // Record every rendered result so a one-commit lag would be visible.
+  // Record every committed result so a one-commit lag would be visible.
+  // Render passes React restarts before committing never reach the screen.
   const rendered: string[][] = [];
   const hook = renderHook(
     ({ combined, enabled, identityKey }: IProps) => {
       const result = useFrozenTopHistoryData(combined, enabled, identityKey);
-      rendered.push(ids(result.displayedHistoryData));
+      const displayedIds = ids(result.displayedHistoryData);
+      useLayoutEffect(() => {
+        rendered.push(displayedIds);
+      });
       return result;
     },
     { initialProps: initial },
@@ -114,6 +120,36 @@ describe('useFrozenTopHistoryData (native)', () => {
       'b-top',
       'shared',
       'b1',
+    ]);
+  });
+
+  it('does not revive the freeze when switching back to an earlier identity', () => {
+    const { result, rerender } = renderFrozen({
+      combined: rows('a1', 'a2', 'a3'),
+      enabled: true,
+      identityKey: 'unfiltered',
+    });
+    act(() => result.current.onAwayFromTopChange(true));
+
+    // A history filter toggle narrows the stream to a subset of the same ids.
+    rerender({
+      combined: rows('a2', 'a3'),
+      enabled: true,
+      identityKey: 'filtered',
+    });
+    expect(ids(result.current.displayedHistoryData)).toEqual(['a2', 'a3']);
+
+    // Toggling it back must restore the full list, not re-freeze on the
+    // filtered subset.
+    rerender({
+      combined: rows('a1', 'a2', 'a3'),
+      enabled: true,
+      identityKey: 'unfiltered',
+    });
+    expect(ids(result.current.displayedHistoryData)).toEqual([
+      'a1',
+      'a2',
+      'a3',
     ]);
   });
 
