@@ -48,17 +48,38 @@ function AllNetworksManagerTrigger({
   // so deferHeavyWorkUntilUIIdle is no longer needed here.
   const compatQueryWalletId = shouldEnableCompatQuery ? (wallet?.id ?? '') : '';
 
+  // The avatars and the "+N" count depend only on the wallet and the global
+  // enabled-network set, so they come from a wallet-scoped query whose cache
+  // key survives account switches inside the wallet. Only the missing-address
+  // dot is per account. Keyed per account, every switch to an account without
+  // a cached entry (first visit, or evicted by an enabled-set change) painted
+  // an empty chip until the query returned.
   const {
     enabledNetworksCompatibleWithWalletId,
-    enabledNetworksWithoutAccount,
     isReady: isCompatQueryReady,
-    run,
+    run: runWalletCompatQuery,
   } = useEnabledNetworksCompatibleWithWalletIdInAllNetworks({
     walletId: compatQueryWalletId,
     networkId: network?.id,
-    indexedAccountId: indexedAccount?.id,
-    filterNetworksWithoutAccount: true,
   });
+
+  const { enabledNetworksWithoutAccount, run: runAccountCompatQuery } =
+    useEnabledNetworksCompatibleWithWalletIdInAllNetworks({
+      walletId: compatQueryWalletId,
+      networkId: network?.id,
+      indexedAccountId: indexedAccount?.id,
+      filterNetworksWithoutAccount: true,
+    });
+
+  const run = useCallback(
+    async (config?: { alwaysSetState?: boolean }) => {
+      await Promise.all([
+        runWalletCompatQuery(config),
+        runAccountCompatQuery(config),
+      ]);
+    },
+    [runWalletCompatQuery, runAccountCompatQuery],
+  );
 
   useEffect(() => {
     const refresh = async () => {

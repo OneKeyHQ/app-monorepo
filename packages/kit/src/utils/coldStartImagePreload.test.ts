@@ -124,11 +124,10 @@ describe('coldStartImagePreload header network logos (OK-61505)', () => {
   });
 
   it('collects the first two All Networks compat logos from the trigger swr snapshot', () => {
+    // The trigger's avatars come from its wallet-scoped query (no account).
     const compatKey = swrKeys.allNetworksCompatible({
       walletId: HD_WALLET_ID,
       networkId: 'onekeyall--0',
-      filterNetworksWithoutAccount: true,
-      indexedAccountId: INDEXED_ACCOUNT_ID,
       withNetworksInfo: false,
       enabledNetworkIdsKey: '',
     });

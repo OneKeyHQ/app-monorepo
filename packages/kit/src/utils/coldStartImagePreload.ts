@@ -275,7 +275,7 @@ function collectHeaderNetworkImageItemsFromActiveAccount({
   if (!isRecord(activeAccount) || !isRecord(activeAccount.network)) {
     return;
   }
-  const { network, wallet, indexedAccount } = activeAccount;
+  const { network, wallet } = activeAccount;
   const networkId = getSnapshotString(network.id);
   if (!networkId) {
     return;
@@ -289,6 +289,7 @@ function collectHeaderNetworkImageItemsFromActiveAccount({
   }
   // Mirrors AllNetworksManagerTrigger: others wallets skip the compat query
   // and render the static All Networks icon instead.
+  // The avatars come from the trigger's wallet-scoped query (no account).
   const walletId = isRecord(wallet) ? getSnapshotString(wallet.id) : undefined;
   if (!walletId || accountUtils.isOthersWallet({ walletId })) {
     return;
@@ -299,10 +300,6 @@ function collectHeaderNetworkImageItemsFromActiveAccount({
     swrKeys.allNetworksCompatible({
       walletId,
       networkId,
-      filterNetworksWithoutAccount: true,
-      indexedAccountId: isRecord(indexedAccount)
-        ? getSnapshotString(indexedAccount.id)
-        : undefined,
       withNetworksInfo: false,
       enabledNetworkIdsKey: '',
     }),
