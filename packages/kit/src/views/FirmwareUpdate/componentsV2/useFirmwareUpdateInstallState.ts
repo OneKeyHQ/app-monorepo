@@ -182,7 +182,6 @@ export function useFirmwareUpdateInstallState({ isDone }: { isDone: boolean }) {
     progressRef.current = 1;
     setProgress(1);
     setStage('preparing');
-    setLastFirmwareTipMessage(undefined);
   }, [retryInfo]);
 
   // The active state may be cleared when the confirmation dialog closes.
@@ -267,10 +266,10 @@ export function useFirmwareUpdateInstallState({ isDone }: { isDone: boolean }) {
   updateProgressRef.current = updateProgress;
 
   useEffect(() => {
-    if (lastFirmwareTipMessage) {
+    if (!retryInfo && lastFirmwareTipMessage) {
       updateProgressRef.current(lastFirmwareTipMessage);
     }
-  }, [lastFirmwareTipMessage]);
+  }, [lastFirmwareTipMessage, retryInfo]);
 
   useEffect(() => {
     if (isDone) {
@@ -299,6 +298,9 @@ export function useFirmwareUpdateInstallState({ isDone }: { isDone: boolean }) {
   }, [stepInfo]);
 
   useEffect(() => {
+    if (retryInfo) {
+      return;
+    }
     if (
       isNumber(firmwareProgress) ||
       (firmwareProgressType === 'installingFirmware' &&
@@ -323,6 +325,7 @@ export function useFirmwareUpdateInstallState({ isDone }: { isDone: boolean }) {
     firmwareProgress,
     firmwareProgressType,
     lastFirmwareTipMessage,
+    retryInfo,
   ]);
 
   // Device-side confirmation or PIN entry pauses everything visible here.
