@@ -405,9 +405,19 @@ const toggleMainWindowDevTools = () => {
 
 const toggleFocusedWebViewDevTools = () => {
   const focused = electronWebContents.getFocusedWebContents();
-  if (focused?.getType() === 'webview') {
-    focused.toggleDevTools();
+  if (!focused || focused.isDestroyed()) {
+    return;
   }
+  // Webview DevTools always open detached and take focus, so resolve the
+  // inspected webview from its DevTools frontend to allow closing it again.
+  const inspected = electronWebContents
+    .getAllWebContents()
+    .find((contents) => contents.devToolsWebContents === focused);
+  const target = inspected ?? focused;
+  if (target.isDestroyed() || target.getType() !== 'webview') {
+    return;
+  }
+  target.toggleDevTools();
 };
 
 const initMenu = () => {
