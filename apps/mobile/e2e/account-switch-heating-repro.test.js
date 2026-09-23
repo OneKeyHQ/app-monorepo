@@ -384,7 +384,100 @@ async function tapUnifiedNetworkTab(testID, activatedTestID) {
       // The fallback still requires visible frames from Detox below.
     }
   }
-  await tapSemanticDescendantThroughAncestor(tab, header);
+  const targetAttributes = await tab.getAttributes();
+  if (
+    targetAttributes?.visible === true ||
+    testID !== 'chain-selector-unified-all-networks-tab'
+  ) {
+    await tapSemanticDescendantThroughAncestor(tab, header);
+    return;
+  }
+
+  // XML visibility only means !hidden. Require the visible native header and
+  // a contained current frame as well; never use XML as an occlusion check.
+  const hierarchy = await device.generateViewHierarchyXml();
+  const ancestors = [];
+  const matchingPaths = [];
+  for (const line of hierarchy.split('\n')) {
+    const tag = line.trim().match(/^<(\/?)([\w.]+)(.*)>$/u);
+    if (tag) {
+      const [, closing, name, attributes] = tag;
+      if (closing) {
+        if (ancestors.pop()?.name !== name) {
+          throw new Error('Native hierarchy nesting is not valid');
+        }
+      } else {
+        const node = { name };
+        for (const attribute of attributes.matchAll(
+          /(?:^|\s)(\w+)="([^"]*)"/gu,
+        )) {
+          if (['id', 'visibility', 'alpha'].includes(attribute[1])) {
+            node[attribute[1]] = attribute[2];
+          }
+        }
+        if (node.id === testID) matchingPaths.push([...ancestors, node]);
+        if (!line.trim().endsWith('/>')) ancestors.push(node);
+      }
+    }
+  }
+  const matchingPath = matchingPaths[0];
+  if (
+    ancestors.length !== 0 ||
+    matchingPaths.length !== 1 ||
+    !matchingPath.some((node) => node.name === 'UINavigationBar') ||
+    !matchingPath
+      .filter((node) => node.name !== 'ViewHierarchy')
+      .every(
+        (node) =>
+          node.visibility === 'visible' &&
+          Number(node.alpha) > 0 &&
+          Number(node.alpha) <= 1,
+      )
+  ) {
+    throw new Error('Native hierarchy does not verify a unique unhidden tab');
+  }
+  const currentTargetAttributes = await tab.getAttributes();
+  const headerAttributes = await header.getAttributes();
+  const targetFrame = currentTargetAttributes?.frame;
+  const headerFrame = headerAttributes?.frame;
+  if (
+    headerAttributes?.visible !== true ||
+    ![targetFrame, headerFrame].every(
+      (frame) =>
+        frame &&
+        ['x', 'y', 'width', 'height'].every((key) =>
+          Number.isFinite(frame[key]),
+        ) &&
+        frame.width > 0 &&
+        frame.height > 0,
+    ) ||
+    targetFrame.x < headerFrame.x ||
+    targetFrame.y < headerFrame.y ||
+    targetFrame.x + targetFrame.width > headerFrame.x + headerFrame.width ||
+    targetFrame.y + targetFrame.height > headerFrame.y + headerFrame.height
+  ) {
+    throw new Error('Current tab frame is not contained in a visible header');
+  }
+  if (activatedTestID) {
+    try {
+      await expect(element(by.id(activatedTestID))).toExist();
+      return;
+    } catch {
+      // A pending activation must not turn hierarchy verification into a second tap.
+    }
+  }
+  recordInteraction('tap-dispatched', {
+    semanticTarget: testID,
+    source: 'current unique unhidden testID hierarchy and visible header frame',
+  });
+  await header.tap({
+    x: targetFrame.x - headerFrame.x + targetFrame.width / 2,
+    y: targetFrame.y - headerFrame.y + targetFrame.height / 2,
+  });
+  recordInteraction('tap-completed', {
+    semanticTarget: testID,
+    source: 'Detox acknowledgement; not visual feedback',
+  });
 }
 
 async function tapHomeNetworkTrigger(timeoutMs = 5000) {
