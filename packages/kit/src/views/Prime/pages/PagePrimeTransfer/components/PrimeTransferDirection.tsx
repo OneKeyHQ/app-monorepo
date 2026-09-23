@@ -24,7 +24,6 @@ import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import type { IPrimeTransferAtomData } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   EPrimeTransferStatus,
-  useDevSettingsPersistAtom,
   usePrimeTransferAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { getAppDeviceIcon } from '@onekeyhq/shared/src/appDeviceInfo/utils/getAppDeviceIcon';
@@ -165,8 +164,7 @@ export function PrimeTransferDirection({
   const { exitTransferFlow } = usePrimeTransferExit();
   const [waitingAlertVisible, setWaitingAlertVisible] = useState(false);
   const [isSendingData, setIsSendingData] = useState(false);
-  const [devSettings] = useDevSettingsPersistAtom();
-  const showTransportMode = platformEnv.isDev || devSettings.enabled;
+  const showTransportMode = platformEnv.isDev;
   const [transportMode, setTransportMode] =
     useState<IPrimeTransferTransportMode>('auto');
   const effectiveTransportMode = showTransportMode ? transportMode : 'auto';
