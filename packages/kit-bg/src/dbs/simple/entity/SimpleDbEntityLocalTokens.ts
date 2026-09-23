@@ -9,10 +9,12 @@ import perfUtils, {
 } from '@onekeyhq/shared/src/utils/debug/perfUtils';
 import type {
   IAccountToken,
+  IHomeTokenRequest,
   IToken,
   ITokenFiat,
 } from '@onekeyhq/shared/types/token';
 
+import { homeTokenRequestRegistry } from '../../../utils/homeTokenRequestRegistry';
 import { SimpleDbEntityBase } from '../base/SimpleDbEntityBase';
 
 // Cap for the global token-metadata map (`data`, keyed by networkId_tokenAddress).
@@ -158,7 +160,9 @@ export class SimpleDbEntityLocalTokens extends SimpleDbEntityBase<ISimpleDBLocal
     tokenListMap,
     tokenListValue,
     currency,
+    homeRequest,
   }: {
+    homeRequest?: IHomeTokenRequest;
     networkId: string;
     accountAddress?: string;
     xpub?: string;
@@ -191,73 +195,86 @@ export class SimpleDbEntityLocalTokens extends SimpleDbEntityBase<ISimpleDBLocal
     perf.markEnd('buildAccountLocalAssetsKey');
 
     perf.markStart('setRawData');
-    await this.setRawData((rawData) => ({
-      data: rawData?.data ?? {},
-      tokenList: {
-        ...rawData?.tokenList,
-        [key]: tokenList,
-      },
-      smallBalanceTokenList: {
-        ...rawData?.smallBalanceTokenList,
-        [key]: smallBalanceTokenList,
-      },
-      riskyTokenList: {
-        ...rawData?.riskyTokenList,
-        [key]: riskyTokenList,
-      },
-      tokenListMap: {
-        ...rawData?.tokenListMap,
-        [key]: tokenListMap,
-      },
-      tokenListValue: {
-        ...rawData?.tokenListValue,
-        [key]: tokenListValue,
-      },
-      tokenListCurrency: {
-        ...rawData?.tokenListCurrency,
-        [key]: currency,
-      },
-    }));
+    await this.setRawDataWithCommitGuard(
+      (rawData) => ({
+        data: rawData?.data ?? {},
+        tokenList: {
+          ...rawData?.tokenList,
+          [key]: tokenList,
+        },
+        smallBalanceTokenList: {
+          ...rawData?.smallBalanceTokenList,
+          [key]: smallBalanceTokenList,
+        },
+        riskyTokenList: {
+          ...rawData?.riskyTokenList,
+          [key]: riskyTokenList,
+        },
+        tokenListMap: {
+          ...rawData?.tokenListMap,
+          [key]: tokenListMap,
+        },
+        tokenListValue: {
+          ...rawData?.tokenListValue,
+          [key]: tokenListValue,
+        },
+        tokenListCurrency: {
+          ...rawData?.tokenListCurrency,
+          [key]: currency,
+        },
+      }),
+      homeRequest
+        ? () => homeTokenRequestRegistry.assertCurrent(homeRequest)
+        : undefined,
+    );
     perf.markEnd('setRawData');
     perf.done();
   }
 
   @backgroundMethod()
-  async updateAccountTokenListByCache(tokenListCache: {
-    tokenList: Record<string, IAccountToken[]>;
-    smallBalanceTokenList: Record<string, IAccountToken[]>;
-    riskyTokenList: Record<string, IAccountToken[]>;
-    tokenListValue: Record<string, string>;
-    tokenListMap: Record<string, Record<string, ITokenFiat>>;
-    tokenListCurrency: Record<string, string>;
-  }) {
-    await this.setRawData((rawData) => ({
-      data: rawData?.data ?? {},
-      tokenList: {
-        ...rawData?.tokenList,
-        ...tokenListCache.tokenList,
-      },
-      smallBalanceTokenList: {
-        ...rawData?.smallBalanceTokenList,
-        ...tokenListCache.smallBalanceTokenList,
-      },
-      riskyTokenList: {
-        ...rawData?.riskyTokenList,
-        ...tokenListCache.riskyTokenList,
-      },
-      tokenListMap: {
-        ...rawData?.tokenListMap,
-        ...tokenListCache.tokenListMap,
-      },
-      tokenListValue: {
-        ...rawData?.tokenListValue,
-        ...tokenListCache.tokenListValue,
-      },
-      tokenListCurrency: {
-        ...rawData?.tokenListCurrency,
-        ...tokenListCache.tokenListCurrency,
-      },
-    }));
+  async updateAccountTokenListByCache(
+    tokenListCache: {
+      tokenList: Record<string, IAccountToken[]>;
+      smallBalanceTokenList: Record<string, IAccountToken[]>;
+      riskyTokenList: Record<string, IAccountToken[]>;
+      tokenListValue: Record<string, string>;
+      tokenListMap: Record<string, Record<string, ITokenFiat>>;
+      tokenListCurrency: Record<string, string>;
+    },
+    homeRequest?: IHomeTokenRequest,
+  ) {
+    await this.setRawDataWithCommitGuard(
+      (rawData) => ({
+        data: rawData?.data ?? {},
+        tokenList: {
+          ...rawData?.tokenList,
+          ...tokenListCache.tokenList,
+        },
+        smallBalanceTokenList: {
+          ...rawData?.smallBalanceTokenList,
+          ...tokenListCache.smallBalanceTokenList,
+        },
+        riskyTokenList: {
+          ...rawData?.riskyTokenList,
+          ...tokenListCache.riskyTokenList,
+        },
+        tokenListMap: {
+          ...rawData?.tokenListMap,
+          ...tokenListCache.tokenListMap,
+        },
+        tokenListValue: {
+          ...rawData?.tokenListValue,
+          ...tokenListCache.tokenListValue,
+        },
+        tokenListCurrency: {
+          ...rawData?.tokenListCurrency,
+          ...tokenListCache.tokenListCurrency,
+        },
+      }),
+      homeRequest
+        ? () => homeTokenRequestRegistry.assertCurrent(homeRequest)
+        : undefined,
+    );
   }
 
   @backgroundMethod()

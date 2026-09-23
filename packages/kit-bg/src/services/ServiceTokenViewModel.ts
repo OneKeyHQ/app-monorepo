@@ -39,6 +39,7 @@ import type {
   IAccountToken,
   ICustomTokenItem,
   IHomeDefaultToken,
+  IHomeTokenRequest,
   IToken,
   ITokenFiat,
 } from '@onekeyhq/shared/types/token';
@@ -49,6 +50,7 @@ import {
   metaByKeyFromTokens,
 } from '../states/jotai/contexts/tokenList/cellsPure/buildFrames';
 import { buildHomeTokenListCacheIngestRound } from '../states/jotai/contexts/tokenList/cellsPure/buildHomeTokenListCacheIngestRound';
+import { homeTokenRequestRegistry } from '../utils/homeTokenRequestRegistry';
 import { getVaultSettings } from '../vaults/settings';
 
 import ServiceBase from './ServiceBase';
@@ -134,6 +136,7 @@ interface IRawTokenListData {
  * hideZero authority inputs threaded through to `nonZeroIds`.
  */
 export interface IIngestRoundParams {
+  homeRequest?: IHomeTokenRequest;
   ownerKey: string;
   orderedTokens: IAccountToken[];
   smallBalanceTokens: IAccountToken[];
@@ -289,6 +292,7 @@ class ServiceTokenViewModel extends ServiceBase {
    */
   @backgroundMethod()
   async ingestRound(params: IIngestRoundParams): Promise<void> {
+    homeTokenRequestRegistry.assertCurrent(params.homeRequest, params.ownerKey);
     const {
       ownerKey,
       orderedTokens,
@@ -355,6 +359,7 @@ class ServiceTokenViewModel extends ServiceBase {
     };
 
     const { structure, valuation } = buildFrames(input, prev);
+    homeTokenRequestRegistry.assertCurrent(params.homeRequest, params.ownerKey);
     if (structure) {
       structure.provisional = provisional;
     }

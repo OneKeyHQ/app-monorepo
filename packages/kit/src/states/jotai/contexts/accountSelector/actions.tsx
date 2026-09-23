@@ -87,6 +87,7 @@ import {
 import accountSelectorUtils from '@onekeyhq/shared/src/utils/accountSelectorUtils';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { memoFn } from '@onekeyhq/shared/src/utils/cacheUtils';
+import { createHomeTokenRequestInvalidation } from '@onekeyhq/shared/src/utils/homeTokenRequest';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import {
@@ -1400,11 +1401,16 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
       });
 
       if (sceneName === EAccountSelectorSceneName.home && num === 0) {
-        void backgroundApiProxy.serviceToken
-          .abortFetchAccountTokens({
-            includedFlags: ['home-token-list'],
-          })
-          .catch(() => undefined);
+        const invalidation = createHomeTokenRequestInvalidation();
+        void (
+          invalidation
+            ? backgroundApiProxy.serviceToken.invalidateHomeTokenRequests(
+                invalidation,
+              )
+            : backgroundApiProxy.serviceToken.abortFetchAccountTokens({
+                includedFlags: ['home-token-list'],
+              })
+        ).catch(() => undefined);
       }
       return nextEpoch;
     },

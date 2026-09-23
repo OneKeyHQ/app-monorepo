@@ -19,8 +19,10 @@ import type { MutableRefObject } from 'react';
 import { act, renderHook } from '@testing-library/react';
 
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import type { IHomeTokenRequest } from '@onekeyhq/shared/types/token';
 
-const mockIngestRound = jest.fn();
+const mockIngestRound = jest.fn(async (..._args: unknown[]) => undefined);
+const mockIsHomeTokenRequestCurrent = jest.fn(() => true);
 const mockGetVaultSettings = jest.fn(async () => ({
   mergeDeriveAssetsEnabled: false,
 }));
@@ -29,14 +31,16 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
   __esModule: true,
   default: {
     serviceTokenViewModel: {
-      ingestRound: (...args: unknown[]) => {
-        mockIngestRound(...args);
-      },
+      ingestRound: (...args: unknown[]) => mockIngestRound(...args),
     },
     serviceNetwork: {
       getVaultSettings: () => mockGetVaultSettings(),
     },
   },
+}));
+
+jest.mock('@onekeyhq/shared/src/utils/homeTokenRequest', () => ({
+  isHomeTokenRequestCurrent: () => mockIsHomeTokenRequestCurrent(),
 }));
 
 // The unit-under-test import must come AFTER jest.mock (hoisting); the type
@@ -85,10 +89,23 @@ function makeCacheItem(over: Partial<ICacheSeedItem> = {}): ICacheSeedItem {
   };
 }
 
-function render(enabled = true) {
+function makeHomeRequest(generation: number): IHomeTokenRequest {
+  return {
+    mainRuntimeId: 'main-runtime',
+    generation,
+    ownerKey: 'acc1__evm--1',
+  };
+}
+
+function render(enabled = true, homeRequest?: IHomeTokenRequest) {
   const cellsIngestInputsRef = makeInputsRef();
+  const homeRequestRef = { current: homeRequest };
+  const ownerCurrentRef = { current: true };
+  const isHomeRequestCurrent = () => ownerCurrentRef.current;
   return {
     cellsIngestInputsRef,
+    homeRequestRef,
+    ownerCurrentRef,
     ...renderHook(
       ({
         ownerAccountId,
@@ -104,6 +121,8 @@ function render(enabled = true) {
           ownerNetworkId,
           ownerCreateAtNetwork: undefined,
           cellsIngestInputsRef,
+          homeRequestRef,
+          isHomeRequestCurrent,
           enabled: isEnabled,
         }),
       {
@@ -152,8 +171,11 @@ function makeLiveRound(over: Partial<ILiveRound> = {}): ILiveRound {
 
 describe('useTokenListReactivePipeline', () => {
   beforeEach(() => {
-    mockIngestRound.mockClear();
-    mockGetVaultSettings.mockClear();
+    mockIngestRound.mockReset().mockResolvedValue(undefined);
+    mockGetVaultSettings.mockReset().mockResolvedValue({
+      mergeDeriveAssetsEnabled: false,
+    });
+    mockIsHomeTokenRequestCurrent.mockReset().mockReturnValue(true);
   });
 
   it('does not build an authoritative empty snapshot before any round materializes', async () => {
@@ -619,6 +641,273 @@ describe('useTokenListReactivePipeline', () => {
       expect(mockIngestRound).not.toHaveBeenCalled();
     } finally {
       jest.useRealTimers();
+    }
+  });
+
+  it('rejects stale cache and live results for the same owner before seeding', async () => {
+    const staleRequest = makeHomeRequest(1);
+    const currentRequest = makeHomeRequest(3);
+    const { result } = render(true, currentRequest);
+    act(() => {
+      result.current.setEnabledKeys([OWNER]);
+      result.current.ingestLiveRound(
+        makeLiveRound({ homeRequest: staleRequest }),
+        1,
+      );
+    });
+    await act(async () => {
+      await result.current.seedAndFlushCache({
+        data: [makeCacheItem({ homeRequest: staleRequest })],
+        ...OWNER,
+        generation: 1,
+      });
+    });
+    expect(mockIngestRound).not.toHaveBeenCalled();
+    await expect(
+      result.current.buildAuthoritativeSnapshot(),
+    ).resolves.toBeUndefined();
+  });
+
+  it('never adopts an old pending timer or a pure old floor into a new request', async () => {
+    jest.useFakeTimers();
+    try {
+      const homeRequest = makeHomeRequest(1);
+      const { result, homeRequestRef } = render(true, homeRequest);
+      act(() => {
+        result.current.setEnabledKeys([OWNER]);
+        result.current.ingestLiveRound(makeLiveRound({ homeRequest }), 1);
+        homeRequestRef.current = makeHomeRequest(2);
+      });
+      await act(async () => {
+        await jest.advanceTimersByTimeAsync(PROGRESSIVE_PAINT_THROTTLE_MS + 1);
+      });
+      expect(mockIngestRound).not.toHaveBeenCalled();
+      expect(mockGetVaultSettings).not.toHaveBeenCalled();
+      await expect(
+        result.current.buildAuthoritativeSnapshot(),
+      ).resolves.toBeUndefined();
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  it('does not ingest a current request whose owner key no longer matches the cells owner', async () => {
+    const homeRequest = makeHomeRequest(1);
+    const { result, cellsIngestInputsRef } = render(true, homeRequest);
+    act(() => {
+      result.current.setEnabledKeys([OWNER]);
+      cellsIngestInputsRef.current.ownerKey = 'acc2__evm--1';
+      result.current.ingestLiveRound(makeLiveRound({ homeRequest }), 1);
+    });
+    await act(async () => {
+      await result.current.seedAndFlushCache({
+        data: [makeCacheItem({ homeRequest })],
+        ...OWNER,
+        generation: 1,
+      });
+    });
+    expect(mockIngestRound).not.toHaveBeenCalled();
+    await expect(
+      result.current.buildAuthoritativeSnapshot(),
+    ).resolves.toBeUndefined();
+  });
+
+  it('replaces an old pending timer and retains the other network floor for the new round', async () => {
+    jest.useFakeTimers();
+    try {
+      const oldRequest = makeHomeRequest(1);
+      const newRequest = makeHomeRequest(2);
+      const { result, homeRequestRef } = render(true, oldRequest);
+      act(() => {
+        result.current.setEnabledKeys([
+          OWNER,
+          { accountId: OWNER.accountId, networkId: 'evm--56' },
+        ]);
+      });
+      await act(async () => {
+        await result.current.seedAndFlushCache({
+          data: [
+            makeCacheItem({ networkId: 'evm--56', homeRequest: oldRequest }),
+          ],
+          ...OWNER,
+          generation: 1,
+        });
+      });
+      mockIngestRound.mockClear();
+      act(() => {
+        result.current.ingestLiveRound(
+          makeLiveRound({ homeRequest: oldRequest }),
+          1,
+        );
+        homeRequestRef.current = newRequest;
+        result.current.ingestLiveRound(
+          makeLiveRound({ homeRequest: newRequest }),
+          2,
+        );
+      });
+      await act(async () => {
+        await jest.advanceTimersByTimeAsync(PROGRESSIVE_PAINT_THROTTLE_MS + 1);
+      });
+      expect(mockIngestRound).toHaveBeenCalledTimes(1);
+      expect(mockIngestRound.mock.calls[0][0]).toEqual(
+        expect.objectContaining({
+          source: 'progPaint',
+          homeRequest: newRequest,
+          orderedTokens: expect.arrayContaining([
+            expect.objectContaining({ $key: 'a1' }),
+            expect.objectContaining({ $key: 'live-a1' }),
+          ]),
+        }),
+      );
+      expect(
+        (mockIngestRound.mock.calls[0][0] as { homeRequest: IHomeTokenRequest })
+          .homeRequest,
+      ).toBe(newRequest);
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  it.each(['progressive', 'authoritative'] as const)(
+    'drops an awaiting %s build when the same-owner request changes',
+    async (source) => {
+      jest.useFakeTimers();
+      try {
+        let resolveVaultSettings:
+          | ((value: { mergeDeriveAssetsEnabled: boolean }) => void)
+          | undefined;
+        mockGetVaultSettings.mockImplementationOnce(
+          () =>
+            new Promise((resolve) => {
+              resolveVaultSettings = resolve;
+            }),
+        );
+        const homeRequest = makeHomeRequest(1);
+        const { result, homeRequestRef } = render(true, homeRequest);
+        act(() => {
+          result.current.setEnabledKeys([OWNER]);
+          result.current.ingestLiveRound(makeLiveRound({ homeRequest }), 1);
+        });
+        let authoritative:
+          | ReturnType<typeof result.current.buildAuthoritativeSnapshot>
+          | undefined;
+        await act(async () => {
+          if (source === 'progressive') {
+            jest.advanceTimersByTime(PROGRESSIVE_PAINT_THROTTLE_MS);
+          } else {
+            authoritative = result.current.buildAuthoritativeSnapshot();
+          }
+          await Promise.resolve();
+        });
+        expect(mockGetVaultSettings).toHaveBeenCalledTimes(1);
+        homeRequestRef.current = makeHomeRequest(3);
+        await act(async () => {
+          resolveVaultSettings?.({ mergeDeriveAssetsEnabled: false });
+          await Promise.resolve();
+        });
+        if (authoritative) await expect(authoritative).resolves.toBeUndefined();
+        expect(mockIngestRound).not.toHaveBeenCalled();
+      } finally {
+        jest.useRealTimers();
+      }
+    },
+  );
+
+  it('checks owner validity after the cache flush awaits even when the token stays unchanged', async () => {
+    const homeRequest = makeHomeRequest(1);
+    const { result, ownerCurrentRef } = render(true, homeRequest);
+    act(() => result.current.setEnabledKeys([OWNER]));
+    await act(async () => {
+      const pending = result.current.seedAndFlushCache({
+        data: [makeCacheItem({ homeRequest })],
+        ...OWNER,
+        generation: 1,
+      });
+      ownerCurrentRef.current = false;
+      await pending;
+    });
+    expect(mockIngestRound).not.toHaveBeenCalled();
+  });
+
+  it('rejects a stale authoritative commit without clearing the current request timer', async () => {
+    jest.useFakeTimers();
+    try {
+      const homeRequest = makeHomeRequest(1);
+      const { result, homeRequestRef } = render(true, homeRequest);
+      act(() => result.current.setEnabledKeys([OWNER]));
+      await act(async () => {
+        await result.current.seedAndFlushCache({
+          data: [makeCacheItem({ homeRequest })],
+          ...OWNER,
+          generation: 1,
+        });
+      });
+      const snapshot = await result.current.buildAuthoritativeSnapshot();
+      expect(snapshot).toBeDefined();
+      mockIngestRound.mockClear();
+      const newRequest = makeHomeRequest(2);
+      act(() => {
+        homeRequestRef.current = newRequest;
+        result.current.ingestLiveRound(
+          makeLiveRound({ homeRequest: newRequest }),
+          2,
+        );
+        if (snapshot)
+          result.current.commitAuthoritativeIngest(snapshot, homeRequest);
+      });
+      await act(async () => {
+        await jest.advanceTimersByTimeAsync(PROGRESSIVE_PAINT_THROTTLE_MS + 1);
+      });
+      expect(mockIngestRound).toHaveBeenCalledTimes(1);
+      expect(mockIngestRound.mock.calls[0][0]).toEqual(
+        expect.objectContaining({
+          source: 'progPaint',
+          homeRequest: newRequest,
+        }),
+      );
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  it('checks the global main generation again before ingest even if the component ref is unchanged', async () => {
+    const homeRequest = makeHomeRequest(1);
+    const { result } = render(true, homeRequest);
+    act(() => result.current.setEnabledKeys([OWNER]));
+    await act(async () => {
+      const pending = result.current.seedAndFlushCache({
+        data: [makeCacheItem({ homeRequest })],
+        ...OWNER,
+        generation: 1,
+      });
+      mockIsHomeTokenRequestCurrent.mockReturnValue(false);
+      await pending;
+    });
+    expect(mockIngestRound).not.toHaveBeenCalled();
+  });
+
+  it('consumes cancellation errors returned by the background VM', async () => {
+    const canceled = new Error('canceled');
+    canceled.name = 'CanceledError';
+    mockIngestRound.mockRejectedValueOnce(canceled);
+    const consoleError = jest
+      .spyOn(console, 'error')
+      .mockImplementation(() => undefined);
+    try {
+      const homeRequest = makeHomeRequest(1);
+      const { result } = render(true, homeRequest);
+      act(() => result.current.setEnabledKeys([OWNER]));
+      await act(async () => {
+        await result.current.seedAndFlushCache({
+          data: [makeCacheItem({ homeRequest })],
+          ...OWNER,
+          generation: 1,
+        });
+      });
+      expect(mockIngestRound).toHaveBeenCalledTimes(1);
+      expect(consoleError).not.toHaveBeenCalled();
+    } finally {
+      consoleError.mockRestore();
     }
   });
 });

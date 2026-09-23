@@ -35,6 +35,7 @@ import type { IDBAccount } from '../../dbs/local/types';
 import type {
   IAccountDeriveInfo,
   IAccountDeriveTypes,
+  INetworkDeriveInfo,
 } from '../../vaults/types';
 
 export type IAllNetworkAccountInfo = {
@@ -803,13 +804,18 @@ class ServiceAllNetwork extends ServiceBase {
   @backgroundMethod()
   async getEnabledNetworksCompatibleWithWalletId({
     walletId,
+    enabledNetworkIds: enabledNetworkIdsParam,
   }: {
     walletId: string;
+    enabledNetworkIds?: string[];
   }): Promise<IServerNetwork[]> {
     // Mirrors useEnabledNetworksCompatibleWithWalletIdInAllNetworks (kit):
     // the mainnet networks the All Networks view actually aggregates for
     // this wallet. An empty result means All Networks is a dead end for
     // the wallet (e.g. QR wallet with only QR-unsupported networks enabled).
+    if (enabledNetworkIdsParam?.length === 0) {
+      return [];
+    }
     const [{ enabledNetworks, disabledNetworks }, { networks }] =
       await Promise.all([
         this.getAllNetworksState(),
@@ -818,14 +824,19 @@ class ServiceAllNetwork extends ServiceBase {
           excludeAllNetworkItem: true,
         }),
       ]);
+    const enabledNetworkIdSet = enabledNetworkIdsParam
+      ? new Set(enabledNetworkIdsParam)
+      : undefined;
     const enabledNetworkIds = networks
       .filter((n) =>
-        isEnabledNetworksInAllNetworks({
-          networkId: n.id,
-          disabledNetworks,
-          enabledNetworks,
-          isTestnet: n.isTestnet,
-        }),
+        enabledNetworkIdSet
+          ? enabledNetworkIdSet.has(n.id)
+          : isEnabledNetworksInAllNetworks({
+              networkId: n.id,
+              disabledNetworks,
+              enabledNetworks,
+              isTestnet: n.isTestnet,
+            }),
       )
       .map((n) => n.id);
     if (enabledNetworkIds.length === 0) {
@@ -902,6 +913,82 @@ class ServiceAllNetwork extends ServiceBase {
         await timerUtils.wait(0);
       },
     });
+  }
+
+  @backgroundMethod()
+  async getEnabledNetworksAccountCompatibility({
+    walletId,
+    enabledNetworkIds,
+    indexedAccountId,
+    filterNetworksWithoutAccount,
+    withNetworksInfo = false,
+  }: {
+    walletId: string;
+    enabledNetworkIds?: string[];
+    indexedAccountId?: string;
+    filterNetworksWithoutAccount?: boolean;
+    withNetworksInfo?: boolean;
+  }): Promise<{
+    compatibleNetworks: IServerNetwork[];
+    compatibleNetworksWithoutAccount: IServerNetwork[];
+    networkInfoMap: Record<string, INetworkDeriveInfo>;
+  }> {
+    const compatibleNetworks =
+      await this.getEnabledNetworksCompatibleWithWalletId({
+        walletId,
+        enabledNetworkIds,
+      });
+    const compatibleNetworksWithoutAccount: IServerNetwork[] = [];
+    const networkInfoMap: Record<string, INetworkDeriveInfo> = {};
+    const { serviceAccount, serviceNetwork } = this.backgroundApi;
+
+    if (withNetworksInfo) {
+      for (const network of compatibleNetworks) {
+        const [deriveType, vaultSettings] = await Promise.all([
+          serviceNetwork.getGlobalDeriveTypeOfNetwork({
+            networkId: network.id,
+          }),
+          serviceNetwork.getVaultSettings({ networkId: network.id }),
+        ]);
+        const suffixToDeriveType: Record<string, string> = {};
+        for (const [dt, info] of Object.entries(
+          vaultSettings.accountDeriveInfo ?? {},
+        )) {
+          if (info.idSuffix) {
+            suffixToDeriveType[info.idSuffix.toLowerCase()] = dt;
+          }
+        }
+        networkInfoMap[network.id] = {
+          deriveType,
+          mergeDeriveAssetsEnabled: !!vaultSettings.mergeDeriveAssetsEnabled,
+          suffixToDeriveType,
+        };
+      }
+    }
+
+    if (
+      filterNetworksWithoutAccount &&
+      indexedAccountId &&
+      compatibleNetworks.length > 0
+    ) {
+      const networkIdsWithoutAccount = new Set(
+        await this.getNetworkIdsWithoutAccountInIndexedAccount({
+          indexedAccountId,
+          networkIds: compatibleNetworks.map((network) => network.id),
+        }),
+      );
+      for (const network of compatibleNetworks) {
+        if (networkIdsWithoutAccount.has(network.id)) {
+          compatibleNetworksWithoutAccount.push(network);
+        }
+      }
+    }
+
+    return {
+      compatibleNetworks,
+      compatibleNetworksWithoutAccount,
+      networkInfoMap,
+    };
   }
 
   @backgroundMethod()

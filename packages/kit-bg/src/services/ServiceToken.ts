@@ -1,4 +1,4 @@
-import { CanceledError } from 'axios';
+import { CanceledError, isCancel } from 'axios';
 import BigNumber from 'bignumber.js';
 import { debounce, isNil, uniq, uniqBy } from 'lodash';
 
@@ -14,12 +14,17 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import perfUtils, {
   EPerformanceTimerLogNames,
 } from '@onekeyhq/shared/src/utils/debug/perfUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
+import {
+  PROMISE_CONCURRENCY_LIMIT,
+  promiseAllSettledEnhanced,
+} from '@onekeyhq/shared/src/utils/promiseUtils';
 import { applySharedBalanceExclusionToTokenGroups } from '@onekeyhq/shared/src/utils/sharedBalanceUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import tokenRebaseUtils from '@onekeyhq/shared/src/utils/tokenRebaseUtils';
@@ -45,6 +50,8 @@ import type {
   IFetchTokenDetailBatchResp,
   IFetchTokenDetailItem,
   IFetchTokenDetailParams,
+  IHomeTokenRequest,
+  IHomeTokenRequestInvalidation,
   ISearchTokensParams,
   IToken,
   ITokenData,
@@ -55,6 +62,7 @@ import {
   currencyPersistAtom,
   settingsPersistAtom,
 } from '../states/jotai/atoms';
+import { homeTokenRequestRegistry } from '../utils/homeTokenRequestRegistry';
 import { vaultFactory } from '../vaults/factory';
 import { getVaultSettings } from '../vaults/settings';
 
@@ -67,6 +75,7 @@ import type { IRiskTokenManagementDBStruct } from '../dbs/simple/entity/SimpleDb
 type IFetchAccountTokensController = {
   controller: AbortController;
   flag?: string;
+  homeRequest?: IHomeTokenRequest;
 };
 
 @backgroundClass()
@@ -88,6 +97,48 @@ class ServiceToken extends ServiceBase {
   _fetchAccountTokensControllers: IFetchAccountTokensController[] = [];
 
   _searchTokensControllers: AbortController[] = [];
+
+  private discardStaleHomeRequests() {
+    this._fetchAccountTokensControllers =
+      this._fetchAccountTokensControllers.filter((item) => {
+        if (
+          item.homeRequest &&
+          !homeTokenRequestRegistry.isCurrent(item.homeRequest)
+        ) {
+          item.controller.abort();
+          return false;
+        }
+        return true;
+      });
+    if (
+      this.homeLocalAccountTokensCache &&
+      !homeTokenRequestRegistry.isCurrent(
+        this.homeLocalAccountTokensCache.homeRequest,
+      )
+    ) {
+      this.homeLocalAccountTokensCache = undefined;
+      this._updateHomeAccountLocalTokensDebounced.cancel();
+    }
+  }
+
+  @backgroundMethod()
+  public async invalidateHomeTokenRequests(
+    request: IHomeTokenRequestInvalidation,
+  ) {
+    homeTokenRequestRegistry.invalidate(request);
+    this.discardStaleHomeRequests();
+  }
+
+  @backgroundMethod()
+  public async cancelHomeTokenRequest(request: IHomeTokenRequest) {
+    homeTokenRequestRegistry.cancel(request);
+    this.discardStaleHomeRequests();
+  }
+
+  private claimHomeTokenRequest(request: IHomeTokenRequest | undefined) {
+    homeTokenRequestRegistry.claim(request);
+    this.discardStaleHomeRequests();
+  }
 
   @backgroundMethod()
   public async abortSearchTokens() {
@@ -143,6 +194,13 @@ class ServiceToken extends ServiceBase {
     tokenListMap: {},
     tokenListCurrency: {},
   };
+
+  private homeLocalAccountTokensCache:
+    | {
+        homeRequest: IHomeTokenRequest;
+        data: ServiceToken['localAccountTokensCache'];
+      }
+    | undefined;
 
   // Returns `null` when the rate is missing or unusable so callers can skip
   // conversion and tag entries with the source currency instead — the cache
@@ -234,10 +292,12 @@ class ServiceToken extends ServiceBase {
       dbAccount?: IDBAccount;
     },
   ): Promise<IFetchAccountTokensResp> {
+    this.claimHomeTokenRequest(params.homeRequest);
     const controller = new AbortController();
     this._fetchAccountTokensControllers.push({
       controller,
       flag: params.flag,
+      homeRequest: params.homeRequest,
     });
     try {
       return await this.fetchAccountTokensInternal(params, controller);
@@ -268,14 +328,18 @@ class ServiceToken extends ServiceBase {
       customTokensRawData,
       blockedTokensRawData,
       unblockedTokensRawData,
+      homeRequest,
       ...rest
     } = params;
     const { networkId } = rest;
     const throwIfRequestAborted = () => {
+      homeTokenRequestRegistry.assertCurrent(homeRequest);
       if (controller.signal.aborted) {
         throw new CanceledError('fetchAccountTokens canceled');
       }
     };
+
+    throwIfRequestAborted();
 
     // All-network flows must fan out per real network before reaching this
     // method; the wallet API always rejects the all-network mock id, so a
@@ -612,17 +676,33 @@ class ServiceToken extends ServiceBase {
           xpub,
         });
 
-        this.localAccountTokensCache.tokenList[key] = filteredTokenList;
-        this.localAccountTokensCache.smallBalanceTokenList[key] =
-          filteredSmallBalanceTokenList;
-        this.localAccountTokensCache.riskyTokenList[key] =
-          filteredRiskyTokenList;
-        this.localAccountTokensCache.tokenListValue[key] =
-          tokenListValue.toFixed();
-        this.localAccountTokensCache.tokenListMap[key] = filteredTokenListMap;
-        this.localAccountTokensCache.tokenListCurrency[key] = resolvedCurrency;
+        let cache = this.localAccountTokensCache;
+        if (homeRequest) {
+          this.homeLocalAccountTokensCache ??= {
+            homeRequest,
+            data: {
+              tokenList: {},
+              smallBalanceTokenList: {},
+              riskyTokenList: {},
+              tokenListValue: {},
+              tokenListMap: {},
+              tokenListCurrency: {},
+            },
+          };
+          cache = this.homeLocalAccountTokensCache.data;
+        }
+        cache.tokenList[key] = filteredTokenList;
+        cache.smallBalanceTokenList[key] = filteredSmallBalanceTokenList;
+        cache.riskyTokenList[key] = filteredRiskyTokenList;
+        cache.tokenListValue[key] = tokenListValue.toFixed();
+        cache.tokenListMap[key] = filteredTokenListMap;
+        cache.tokenListCurrency[key] = resolvedCurrency;
 
-        await this._updateAccountLocalTokensDebounced();
+        if (homeRequest) {
+          void this._updateHomeAccountLocalTokensDebounced();
+        } else {
+          await this._updateAccountLocalTokensDebounced();
+        }
       } else {
         await this.updateAccountLocalTokens({
           dbAccount,
@@ -634,9 +714,11 @@ class ServiceToken extends ServiceBase {
           tokenListValue: tokenListValue.toFixed(),
           tokenListMap: filteredTokenListMap,
           currency: resolvedCurrency,
+          homeRequest,
         });
       }
     }
+    throwIfRequestAborted();
     resp.data.data.isSameAllNetworksAccountData = !!(
       allNetworksAccountId &&
       allNetworksNetworkId &&
@@ -731,6 +813,26 @@ class ServiceToken extends ServiceBase {
       leading: false,
       trailing: true,
     },
+  );
+
+  private _updateHomeAccountLocalTokensDebounced = debounce(
+    async () => {
+      const pending = this.homeLocalAccountTokensCache;
+      // Detach before awaiting storage so completion cannot clear a newer batch.
+      this.homeLocalAccountTokensCache = undefined;
+      if (!pending) return;
+      try {
+        homeTokenRequestRegistry.assertCurrent(pending.homeRequest);
+        await this.backgroundApi.simpleDb.localTokens.updateAccountTokenListByCache(
+          pending.data,
+          pending.homeRequest,
+        );
+      } catch (error) {
+        if (!isCancel(error)) throw error;
+      }
+    },
+    3000,
+    { leading: false, trailing: true },
   );
 
   @backgroundMethod()
@@ -1089,6 +1191,7 @@ class ServiceToken extends ServiceBase {
 
   @backgroundMethod()
   public async updateAccountLocalTokens(params: {
+    homeRequest?: IHomeTokenRequest;
     dbAccount?: IDBAccount;
     accountId: string;
     networkId: string;
@@ -1109,7 +1212,9 @@ class ServiceToken extends ServiceBase {
       tokenListMap,
       tokenListValue,
       currency,
+      homeRequest,
     } = params;
+    homeTokenRequestRegistry.assertCurrent(homeRequest);
     const [xpub, accountAddress] = await Promise.all([
       this.backgroundApi.serviceAccount.getAccountXpub({
         dbAccount,
@@ -1123,6 +1228,7 @@ class ServiceToken extends ServiceBase {
       }),
     ]);
 
+    homeTokenRequestRegistry.assertCurrent(homeRequest);
     await this.backgroundApi.simpleDb.localTokens.updateAccountTokenList({
       networkId,
       accountAddress,
@@ -1133,22 +1239,77 @@ class ServiceToken extends ServiceBase {
       tokenListMap,
       tokenListValue,
       currency,
+      homeRequest,
     });
   }
 
   @backgroundMethod()
+  public async getAccountsLocalTokens({
+    accounts,
+    homeRequest,
+  }: {
+    homeRequest?: IHomeTokenRequest;
+    accounts: {
+      accountId: string;
+      networkId: string;
+      accountAddress?: string;
+      xpub?: string;
+    }[];
+  }) {
+    this.claimHomeTokenRequest(homeRequest);
+    if (!accounts.length) return [];
+    // Keep one immutable read for the entire cache round inside bg. An absent
+    // database is an empty snapshot, not a reason to re-read for each network.
+    const rawData =
+      (await this.backgroundApi.simpleDb.localTokens.getRawData()) ?? {
+        data: {},
+        tokenList: {},
+        smallBalanceTokenList: {},
+        riskyTokenList: {},
+        tokenListMap: {},
+        tokenListValue: {},
+      };
+    homeTokenRequestRegistry.assertCurrent(homeRequest);
+    const result = await promiseAllSettledEnhanced(
+      accounts.map((account) => async () => {
+        homeTokenRequestRegistry.assertCurrent(homeRequest);
+        const tokens = await this.getAccountLocalTokens({
+          ...account,
+          homeRequest,
+          simpleDbLocalTokensRawData: rawData,
+        });
+        homeTokenRequestRegistry.assertCurrent(homeRequest);
+        return tokens;
+      }),
+      {
+        continueOnError: true,
+        concurrency: platformEnv.isNative
+          ? PROMISE_CONCURRENCY_LIMIT
+          : Math.max(accounts.length, PROMISE_CONCURRENCY_LIMIT),
+      },
+    );
+    // continueOnError preserves partial account failures, but cancellation of
+    // the owner must reject the batch instead of becoming successful nulls.
+    homeTokenRequestRegistry.assertCurrent(homeRequest);
+    return result;
+  }
+
+  @backgroundMethod()
   public async getAccountLocalTokens(params: {
+    homeRequest?: IHomeTokenRequest;
     accountId: string;
     networkId: string;
     accountAddress?: string;
     xpub?: string;
     simpleDbLocalTokensRawData?: ISimpleDBLocalTokens;
   }) {
+    this.claimHomeTokenRequest(params.homeRequest);
     const perf = perfUtils.createPerf({
       name: EPerformanceTimerLogNames.allNetwork__getAccountLocalTokens,
     });
 
-    const { accountId, networkId, simpleDbLocalTokensRawData } = params;
+    const { accountId, networkId, simpleDbLocalTokensRawData, homeRequest } =
+      params;
 
     let accountAddress: string | undefined;
     let xpub: string | undefined;
@@ -1168,6 +1329,7 @@ class ServiceToken extends ServiceBase {
           networkId,
         }),
       ]);
+      homeTokenRequestRegistry.assertCurrent(homeRequest);
       perf.markEnd('getAccountXpubAndAddress');
     }
 
@@ -1183,6 +1345,7 @@ class ServiceToken extends ServiceBase {
         xpub,
         simpleDbLocalTokensRawData,
       });
+    homeTokenRequestRegistry.assertCurrent(homeRequest);
     perf.markEnd('getAccountTokenList');
 
     let tokenList = localTokens.tokenList;
@@ -1224,6 +1387,7 @@ class ServiceToken extends ServiceBase {
     if (!resolvedCurrency && localTokens.hasCache) {
       resolvedCurrency =
         (await settingsPersistAtom.get())?.currencyInfo?.id ?? USD_CURRENCY_ID;
+      homeTokenRequestRegistry.assertCurrent(homeRequest);
     }
 
     // Decorate ITokenFiat entries with the resolved currency tag so UI
@@ -1255,6 +1419,7 @@ class ServiceToken extends ServiceBase {
     let tokenListValue = localTokens.tokenListValue;
     if (resolvedCurrency && resolvedCurrency !== USD_CURRENCY_ID) {
       const rate = await this.resolveCurrencyRate(resolvedCurrency);
+      homeTokenRequestRegistry.assertCurrent(homeRequest);
       if (rate && !rate.eq(1)) {
         tokenListMap = Object.fromEntries(
           Object.entries(tokenListMap).map(([k, fiat]) => {
@@ -1270,6 +1435,7 @@ class ServiceToken extends ServiceBase {
       }
     }
 
+    homeTokenRequestRegistry.assertCurrent(homeRequest);
     perf.done();
     return {
       ...localTokens,

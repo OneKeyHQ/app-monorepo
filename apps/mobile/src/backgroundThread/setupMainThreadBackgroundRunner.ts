@@ -35,6 +35,7 @@ import {
   parseNativeStorageContractViolation,
   parseNativeSyncStorageMutation,
 } from '@onekeyhq/shared/src/storage/nativeStorageTypes';
+import { getHomeTokenMainRuntimeId } from '@onekeyhq/shared/src/utils/homeTokenRequest';
 import { registerImageEmbedBridge } from '@onekeyhq/shared/src/utils/imageUtils.embedBridge';
 
 import { routeBackgroundMessage } from './backgroundMessageRouter';
@@ -1435,6 +1436,7 @@ function installBackgroundRuntimeObserver(sharedRPC: ISharedRPC) {
         BACKGROUND_THREAD_MAIN_CAPABILITIES_KEY,
         serializeBackgroundThreadMainCapabilitiesPayload({
           jotaiStateBatch: true,
+          mainRuntimeId: getHomeTokenMainRuntimeId(),
         }),
       );
       sharedRPC.write(BACKGROUND_THREAD_MAIN_CAPABILITIES_WAKE_KEY, '1');
