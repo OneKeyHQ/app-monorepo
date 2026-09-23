@@ -575,7 +575,10 @@ export default function PagePrimeTransferPreview() {
         let importDialog: IDialogInstance | undefined;
         let importTaskUUID: string | undefined;
         try {
-          void remotePasswordDialog?.close();
+          importTaskUUID =
+            await backgroundApiProxy.servicePrimeTransfer.prepareImportTask();
+          if (!importTaskUUID) return;
+          await remotePasswordDialog?.close();
 
           // exitTransferFlow();
           // await timerUtils.wait(1000);
@@ -585,9 +588,6 @@ export default function PagePrimeTransferPreview() {
             await timerUtils.wait(350);
           }
 
-          importTaskUUID =
-            await backgroundApiProxy.servicePrimeTransfer.prepareImportTask();
-          if (!importTaskUUID) return;
           await backgroundApiProxy.servicePrimeTransfer.initImportProgress({
             taskUUID: importTaskUUID,
             selectedTransferData,

@@ -465,14 +465,15 @@ export function useCloudBackup() {
                 payload,
               },
             );
+            importTaskUUID = await errorToastUtils.withErrorAutoToast(() =>
+              backgroundApiProxy.servicePrimeTransfer.prepareImportTask(),
+            );
+            if (!importTaskUUID) return;
             await verifyPasswordDialog?.close?.();
             // Delay to ensure the dialog is closed before proceeding
             if (platformEnv.isNative) {
               await timerUtils.wait(350);
             }
-            importTaskUUID =
-              await backgroundApiProxy.servicePrimeTransfer.prepareImportTask();
-            if (!importTaskUUID) return;
             importProcessingDialog = showPrimeTransferImportProcessingDialog({
               taskUUID: importTaskUUID,
               intl,

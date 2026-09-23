@@ -312,6 +312,8 @@ class ServicePrimeTransfer extends ServiceBase {
 
   private preparationTask: PrimeTransferPreparation | undefined;
 
+  private preparationAuthorized = false;
+
   // Keep the verified, sensitive-text-encoded password only in the owning
   // service task, never in progress atoms or an RPC result sent to the UI.
   private preparationPassword: string | undefined;
@@ -1491,17 +1493,39 @@ class ServicePrimeTransfer extends ServiceBase {
   }
 
   @backgroundMethod()
-  async authorizeTransferPreparation({ taskId }: { taskId: string }) {
+  async authorizeTransferPreparation({
+    taskId,
+    walletIds,
+  }: {
+    taskId: string;
+    walletIds?: string[];
+  }) {
     const task = this.getPreparationTask(taskId, false);
     if (!task) throw new OneKeyLocalError('Transfer cancelled');
-    if (this.preparationPassword) return;
-    const { password } =
-      await this.backgroundApi.servicePassword.promptPasswordVerify({
-        reason: EReasonForNeedPassword.Security,
-      });
+    if (this.preparationAuthorized) return;
+    // Inspect wallet metadata only; account preparation and credential reads
+    // still wait for authorization. Watch-only/empty exports need no password.
+    const { wallets } = await this.backgroundApi.serviceAccount.getWallets();
     task.assertActive();
-    if (!password) throw new OneKeyLocalError('Password is required');
-    this.preparationPassword = password;
+    const requiresPassword = filterTransferWallets({ wallets, walletIds }).some(
+      (wallet) =>
+        wallet.type === WALLET_TYPE_HD ||
+        (wallet.type === WALLET_TYPE_IMPORTED && wallet.accounts.length > 0),
+    );
+    if (requiresPassword) {
+      const isPasswordSet =
+        await this.backgroundApi.servicePassword.checkPasswordSet();
+      task.assertActive();
+      if (!isPasswordSet) throw new OneKeyLocalError('Password is required');
+      const { password } =
+        await this.backgroundApi.servicePassword.promptPasswordVerify({
+          reason: EReasonForNeedPassword.Security,
+        });
+      task.assertActive();
+      if (!password) throw new OneKeyLocalError('Password is required');
+      this.preparationPassword = password;
+    }
+    this.preparationAuthorized = true;
     await task.update('accounts', 0);
   }
 
@@ -1510,7 +1534,7 @@ class ServicePrimeTransfer extends ServiceBase {
     if (this.preparationTask?.taskId !== taskId)
       throw new OneKeyLocalError('Transfer cancelled');
     this.preparationTask.assertActive();
-    if (requireAuthorization && !this.preparationPassword)
+    if (requireAuthorization && !this.preparationAuthorized)
       throw new OneKeyLocalError('Transfer password verification is required');
     return this.preparationTask;
   }
@@ -1805,6 +1829,16 @@ class ServicePrimeTransfer extends ServiceBase {
     }
 
     await preparation?.update('accounts');
+    // Wallets may change after metadata authorization. Never read newly added
+    // private credentials under a watch-only authorization.
+    if (
+      preparation &&
+      !this.preparationPassword &&
+      (Object.keys(privateBackupData.wallets).length > 0 ||
+        Object.keys(privateBackupData.importedAccounts).length > 0)
+    ) {
+      throw new OneKeyLocalError('Transfer password verification is required');
+    }
     // Always collect credentials scoped to the payload we actually built
     // (privateBackupData), for BOTH full and scoped transfers. dumpCredentials()
     // reads every credential in the DB, including wallets that
@@ -2270,6 +2304,7 @@ class ServicePrimeTransfer extends ServiceBase {
 
   @backgroundMethod()
   async cancelNetworkTransfer() {
+    this.preparationAuthorized = false;
     this.preparationPassword = undefined;
     const preparation = this.preparationTask;
     this.preparationTask = undefined;
@@ -3126,8 +3161,14 @@ class ServicePrimeTransfer extends ServiceBase {
   @backgroundMethod()
   async prepareImportTask(): Promise<string | undefined> {
     // Keep a cancelled import's outstanding writes isolated from the next task.
-    if (this.currentImportTaskUUID || this.runningImportTaskUUID)
-      return undefined;
+    if (this.currentImportTaskUUID || this.runningImportTaskUUID) {
+      throw new OneKeyLocalError({
+        key: ETranslations.global_request_limit,
+        message: appLocale.intl.formatMessage({
+          id: ETranslations.global_request_limit,
+        }),
+      });
+    }
     const taskUUID = stringUtils.generateUUID();
     this.currentImportTaskUUID = taskUUID;
     await primeTransferAtom.set((prev) =>

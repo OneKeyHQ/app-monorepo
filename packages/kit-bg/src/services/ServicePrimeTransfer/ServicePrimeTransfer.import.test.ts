@@ -1,4 +1,5 @@
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IPrimeTransferSelectedData } from '@onekeyhq/shared/types/prime/primeTransferTypes';
 
 import ServicePrimeTransfer from './ServicePrimeTransfer';
@@ -63,6 +64,12 @@ jest.mock('@onekeyhq/shared/src/background/backgroundDecorators', () => ({
   toastIfError: () => () => undefined,
 }));
 jest.mock('@onekeyhq/shared/src/logger/logger', () => ({ defaultLogger: {} }));
+jest.mock('@onekeyhq/shared/src/locale/appLocale', () => ({
+  appLocale: {
+    intl: { formatMessage: ({ id }: { id: string }) => id },
+    onLocaleChange: () => () => undefined,
+  },
+}));
 jest.mock('@onekeyhq/shared/src/request/customUA', () => ({}));
 jest.mock('@onekeyhq/shared/src/request/Interceptor', () => ({}));
 jest.mock(
@@ -469,7 +476,9 @@ describe('Prime Transfer import ownership across preparation and cancellation', 
     );
     await entered.promise;
     await service.resetImportProgress({ taskUUID });
-    await expect(service.prepareImportTask()).resolves.toBeUndefined();
+    await expect(service.prepareImportTask()).rejects.toMatchObject({
+      key: ETranslations.global_request_limit,
+    });
     write.resolve({ wallet: { id: 'hd-new' }, isOverrideWallet: true });
     await expect(importing).resolves.toMatchObject({
       success: false,
@@ -565,6 +574,27 @@ describe('Prime Transfer import ownership across preparation and cancellation', 
     expect(mockWrite).toHaveBeenCalledTimes(1);
   });
 
+  test('a duplicate reservation reports busy without cancelling its owner', async () => {
+    const taskUUID = await service.prepareImportTask();
+    if (!taskUUID) throw new OneKeyLocalError('Task was not reserved');
+    await expect(service.prepareImportTask()).rejects.toMatchObject({
+      key: ETranslations.global_request_limit,
+      message: ETranslations.global_request_limit,
+    });
+    await service.initImportProgress({
+      taskUUID,
+      selectedTransferData: watchingData,
+    });
+    await expect(
+      service.startImport({
+        taskUUID,
+        selectedTransferData: watchingData,
+        password: '',
+      }),
+    ).resolves.toMatchObject({ success: true, taskUUID });
+    expect(mockWrite).toHaveBeenCalledTimes(1);
+  });
+
   test('a cancelled outstanding write blocks a second import until it settles', async () => {
     const write = deferred<{ addedAccounts: { id: string }[] }>();
     const entered = deferred<void>();
@@ -585,7 +615,9 @@ describe('Prime Transfer import ownership across preparation and cancellation', 
     });
     await entered.promise;
     await service.resetImportProgress({ taskUUID });
-    await expect(service.prepareImportTask()).resolves.toBeUndefined();
+    await expect(service.prepareImportTask()).rejects.toMatchObject({
+      key: ETranslations.global_request_limit,
+    });
     write.resolve({ addedAccounts: [{ id: 'watching-1' }] });
     await expect(importing).resolves.toMatchObject({ success: false });
     expect(mockProgress).toBeUndefined();

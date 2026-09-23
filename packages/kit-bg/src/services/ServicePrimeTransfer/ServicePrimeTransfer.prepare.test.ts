@@ -6,6 +6,7 @@ import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
 import ServicePrimeTransfer from './ServicePrimeTransfer';
 
 import type { IBackgroundApi } from '../../apis/IBackgroundApi';
+import type { IDBAccount, IDBWallet } from '../../dbs/local/types';
 import type { IPrimeTransferAtomData } from '../../states/jotai/atoms/prime';
 
 let mockState: Pick<IPrimeTransferAtomData, 'preparationProgress'>;
@@ -20,6 +21,32 @@ const mockImported = { privateKey: 'fixture-key' };
 const mockDecryptSeed = jest.fn(async (_params: unknown) => mockSeed);
 const mockDecryptImported = jest.fn(async (_params: unknown) => mockImported);
 const mockKdfParams = jest.fn<IPbkdf2KdfParams, []>();
+const mockGetWallets = jest.fn<Promise<{ wallets: IDBWallet[] }>, []>();
+const mockGetAllAccounts = jest.fn<Promise<{ accounts: IDBAccount[] }>, []>();
+const mockCheckPasswordSet = jest.fn(async () => true);
+const mockGetCredentialRaw = jest.fn<Promise<string | undefined>, []>();
+
+function walletFixture(overrides: Partial<IDBWallet> = {}): IDBWallet {
+  return {
+    id: 'hd-fixture',
+    name: 'Fixture wallet',
+    type: 'hd',
+    backuped: true,
+    accounts: [],
+    nextIds: {},
+    walletNo: 1,
+    ...overrides,
+  };
+}
+
+function accountApi() {
+  return {
+    getWallets: mockGetWallets,
+    getAllAccounts: mockGetAllAccounts,
+    getWalletSafe: async () => undefined,
+    getAccountCreatedNetworkId: async () => undefined,
+  };
+}
 
 jest.mock('@onekeyhq/core/src/secret', () => ({
   decryptRevealableSeed: (...args: [unknown]) => mockDecryptSeed(...args),
@@ -42,7 +69,13 @@ jest.mock(
   '@onekeyhq/shared/src/utils/cliBotWalletExport/exportToCli',
   () => ({}),
 );
-jest.mock('../../dbs/local/localDb', () => ({}));
+jest.mock('../../dbs/local/localDb', () => ({
+  __esModule: true,
+  default: {
+    getCredentialRaw: () => mockGetCredentialRaw(),
+    refillAccountOrderInfo: () => undefined,
+  },
+}));
 jest.mock('../../dbs/local/localSecretEnvelope', () => ({}));
 jest.mock('../../endpoints', () => ({}));
 jest.mock('../../utils/secretEncryptFormat', () => ({
@@ -56,6 +89,9 @@ jest.mock('./e2ee/e2eeClientToClientApi', () => ({}));
 jest.mock('./e2ee/e2eeClientToClientApiProxy', () => ({}));
 jest.mock('./e2ee/e2eeServerApiProxy', () => ({}));
 jest.mock('./servicePrimeTransferUtils', () => ({
+  ...jest.requireActual<typeof import('./servicePrimeTransferUtils')>(
+    './servicePrimeTransferUtils',
+  ),
   normalizePrimeTransferCredential: (value: string) => value,
   shouldUseCliBotWalletEncryptedCredential: () => false,
 }));
@@ -116,24 +152,34 @@ beforeEach(() => {
   mockDecryptSeed.mockClear();
   mockDecryptImported.mockClear();
   mockKdfParams.mockReset();
+  mockGetWallets.mockReset().mockResolvedValue({ wallets: [walletFixture()] });
+  mockGetAllAccounts.mockReset().mockResolvedValue({ accounts: [] });
+  mockCheckPasswordSet.mockReset().mockResolvedValue(true);
+  mockGetCredentialRaw.mockReset();
 });
 
-function deferredPassword() {
-  let resolvePassword: (result: { password: string }) => void = () => undefined;
-  const promise = new Promise<{ password: string }>((resolve) => {
-    resolvePassword = resolve;
+function deferred<T>() {
+  let resolveValue!: (result: T) => void;
+  const promise = new Promise<T>((resolve) => {
+    resolveValue = resolve;
   });
-  return { promise, resolve: resolvePassword };
+  return { promise, resolve: resolveValue };
 }
 
 test('password confirmation gates progress and preparation, and the verified password is reused through sending', async () => {
-  const password = deferredPassword();
-  const prompt = jest.fn(() => password.promise);
-  const getWallets = jest.fn();
+  const password = deferred<{ password: string }>();
+  const promptStarted = deferred<void>();
+  const prompt = jest.fn(() => {
+    promptStarted.resolve();
+    return password.promise;
+  });
   const service = new ServicePrimeTransfer({
     backgroundApi: {
-      servicePassword: { promptPasswordVerify: prompt },
-      serviceAccount: { getWallets },
+      serviceAccount: accountApi(),
+      servicePassword: {
+        checkPasswordSet: mockCheckPasswordSet,
+        promptPasswordVerify: prompt,
+      },
     },
   });
   jest
@@ -147,6 +193,7 @@ test('password confirmation gates progress and preparation, and the verified pas
   Object.defineProperty(service, 'sendPreparedTransferData', { value: send });
   const taskId = await service.beginTransferPreparation();
   const authorization = service.authorizeTransferPreparation({ taskId });
+  await promptStarted.promise;
   expect(prompt).toHaveBeenCalledWith({
     reason: EReasonForNeedPassword.Security,
   });
@@ -160,7 +207,8 @@ test('password confirmation gates progress and preparation, and the verified pas
       preparationTaskId: taskId,
     }),
   ).rejects.toThrow('password verification is required');
-  expect(getWallets).not.toHaveBeenCalled();
+  expect(mockGetWallets).toHaveBeenCalledTimes(1);
+  expect(mockGetAllAccounts).not.toHaveBeenCalled();
   expect(mockDecryptSeed).not.toHaveBeenCalled();
   expect(send).not.toHaveBeenCalled();
   password.resolve({ password: 'fixture-verified-password' });
@@ -191,7 +239,9 @@ test.each(['rejected', 'empty'] as const)(
   async (result) => {
     const service = new ServicePrimeTransfer({
       backgroundApi: {
+        serviceAccount: accountApi(),
         servicePassword: {
+          checkPasswordSet: mockCheckPasswordSet,
           promptPasswordVerify: async () => {
             if (result === 'rejected')
               throw new OneKeyLocalError('Password verification cancelled');
@@ -216,13 +266,23 @@ test.each(['rejected', 'empty'] as const)(
 );
 
 test('a password result arriving after cancellation cannot authorize a replacement task', async () => {
-  const oldPassword = deferredPassword();
+  const oldPassword = deferred<{ password: string }>();
+  const promptStarted = deferred<void>();
   const prompt = jest
     .fn()
-    .mockReturnValueOnce(oldPassword.promise)
+    .mockImplementationOnce(() => {
+      promptStarted.resolve();
+      return oldPassword.promise;
+    })
     .mockResolvedValue({ password: 'fixture-new-password' });
   const service = new ServicePrimeTransfer({
-    backgroundApi: { servicePassword: { promptPasswordVerify: prompt } },
+    backgroundApi: {
+      serviceAccount: accountApi(),
+      servicePassword: {
+        checkPasswordSet: mockCheckPasswordSet,
+        promptPasswordVerify: prompt,
+      },
+    },
   });
   jest
     .spyOn(service, 'checkWebSocketConnected')
@@ -231,6 +291,7 @@ test('a password result arriving after cancellation cannot authorize a replaceme
   const authorization = service
     .authorizeTransferPreparation({ taskId: oldTaskId })
     .catch((error: unknown) => error);
+  await promptStarted.promise;
   await service.cancelNetworkTransfer();
   const taskId = await service.beginTransferPreparation();
   await service.authorizeTransferPreparation({ taskId });
@@ -249,10 +310,174 @@ test('a password result arriving after cancellation cannot authorize a replaceme
   await service.cancelNetworkTransfer();
 });
 
+test.each([
+  { hasPassword: false, hasAccounts: false },
+  { hasPassword: false, hasAccounts: true },
+  { hasPassword: true, hasAccounts: false },
+  { hasPassword: true, hasAccounts: true },
+])(
+  'watch-only and empty exports never prompt for a password: %p',
+  async ({ hasPassword, hasAccounts }) => {
+    mockCheckPasswordSet.mockResolvedValue(hasPassword);
+    mockGetWallets.mockResolvedValue({
+      wallets: [
+        walletFixture({ id: 'watching', type: 'watching' }),
+        walletFixture({ id: 'imported', type: 'imported' }),
+        walletFixture({ id: 'hd-keyless', isKeyless: true }),
+        walletFixture({ id: 'hd-bot--parent-1--0' }),
+      ],
+    });
+    mockGetAllAccounts.mockResolvedValue({
+      accounts: hasAccounts
+        ? [
+            {
+              id: 'watching--60--fixture',
+              name: 'Fixture account',
+              type: undefined,
+              path: '',
+              coinType: '60',
+              impl: 'evm',
+              pub: '',
+              address: 'fixture-address',
+            },
+          ]
+        : [],
+    });
+    const prompt = jest.fn();
+    const service = new ServicePrimeTransfer({
+      backgroundApi: {
+        serviceAccount: accountApi(),
+        servicePassword: {
+          checkPasswordSet: mockCheckPasswordSet,
+          promptPasswordVerify: prompt,
+        },
+      },
+    });
+    jest
+      .spyOn(service, 'checkWebSocketConnected')
+      .mockImplementation(() => undefined);
+    const send = jest.fn(async () => undefined);
+    Object.defineProperty(service, 'sendPreparedTransferData', { value: send });
+    const taskId = await service.beginTransferPreparation();
+    await service.authorizeTransferPreparation({ taskId });
+    await service.authorizeTransferPreparation({ taskId });
+    const data = await service.buildTransferData({ preparationTaskId: taskId });
+    expect(data.isEmptyData).toBe(!hasAccounts);
+    expect(data.isWatchingOnly).toBe(hasAccounts);
+    if (hasAccounts) {
+      await service.sendTransferData({
+        transferData: data,
+        preparationTaskId: taskId,
+      });
+      expect(send).toHaveBeenCalledTimes(1);
+    }
+    expect(prompt).not.toHaveBeenCalled();
+    expect(mockGetCredentialRaw).not.toHaveBeenCalled();
+    expect(mockDecryptSeed).not.toHaveBeenCalled();
+    await service.cancelNetworkTransfer();
+  },
+);
+
+test('private wallets created after watch-only authorization cannot expose credentials', async () => {
+  mockGetWallets.mockResolvedValue({ wallets: [] });
+  const prompt = jest.fn();
+  const service = new ServicePrimeTransfer({
+    backgroundApi: {
+      serviceAccount: accountApi(),
+      servicePassword: {
+        checkPasswordSet: mockCheckPasswordSet,
+        promptPasswordVerify: prompt,
+      },
+    },
+  });
+  jest
+    .spyOn(service, 'checkWebSocketConnected')
+    .mockImplementation(() => undefined);
+  const taskId = await service.beginTransferPreparation();
+  await service.authorizeTransferPreparation({ taskId });
+  mockGetWallets.mockResolvedValue({ wallets: [walletFixture()] });
+  await expect(
+    service.buildTransferData({ preparationTaskId: taskId }),
+  ).rejects.toThrow('password verification is required');
+  await expect(
+    service.sendTransferData({
+      transferData: fixture(),
+      preparationTaskId: taskId,
+    }),
+  ).rejects.toThrow('Password is required');
+  expect(prompt).not.toHaveBeenCalled();
+  expect(mockGetCredentialRaw).not.toHaveBeenCalled();
+  expect(mockDecryptSeed).not.toHaveBeenCalled();
+  await service.cancelNetworkTransfer();
+});
+
+test.each([
+  walletFixture({
+    id: 'imported',
+    type: 'imported',
+    accounts: ['imported--60--fixture'],
+  }),
+  walletFixture({ id: 'hd-bot--parent-1--0' }),
+])(
+  'explicit private wallet exports still require verification: $id',
+  async (wallet) => {
+    mockGetWallets.mockResolvedValue({ wallets: [wallet] });
+    const prompt = jest.fn(async () => ({ password: 'fixture-password' }));
+    const service = new ServicePrimeTransfer({
+      backgroundApi: {
+        serviceAccount: accountApi(),
+        servicePassword: {
+          checkPasswordSet: mockCheckPasswordSet,
+          promptPasswordVerify: prompt,
+        },
+      },
+    });
+    jest
+      .spyOn(service, 'checkWebSocketConnected')
+      .mockImplementation(() => undefined);
+    const taskId = await service.beginTransferPreparation();
+    await service.authorizeTransferPreparation({
+      taskId,
+      walletIds: [wallet.id],
+    });
+    expect(prompt).toHaveBeenCalledTimes(1);
+    expect(mockGetAllAccounts).not.toHaveBeenCalled();
+    expect(mockState.preparationProgress).toEqual({ taskId, percentage: 0 });
+    await service.cancelNetworkTransfer();
+  },
+);
+
+test('private wallet metadata without a configured password fails without opening password setup', async () => {
+  mockCheckPasswordSet.mockResolvedValue(false);
+  const prompt = jest.fn();
+  const service = new ServicePrimeTransfer({
+    backgroundApi: {
+      serviceAccount: accountApi(),
+      servicePassword: {
+        checkPasswordSet: mockCheckPasswordSet,
+        promptPasswordVerify: prompt,
+      },
+    },
+  });
+  jest
+    .spyOn(service, 'checkWebSocketConnected')
+    .mockImplementation(() => undefined);
+  const taskId = await service.beginTransferPreparation();
+  await expect(
+    service.authorizeTransferPreparation({ taskId }),
+  ).rejects.toThrow('Password is required');
+  expect(prompt).not.toHaveBeenCalled();
+  expect(mockGetAllAccounts).not.toHaveBeenCalled();
+  expect(mockState.preparationProgress).toBeUndefined();
+  await service.cancelNetworkTransfer();
+});
+
 test('reports credential work, then clears preparation on cancellation', async () => {
   const service = new ServicePrimeTransfer({
     backgroundApi: {
+      serviceAccount: accountApi(),
       servicePassword: {
+        checkPasswordSet: mockCheckPasswordSet,
         promptPasswordVerify: async () => ({ password: 'fixture-password' }),
       },
     },
@@ -281,7 +506,9 @@ test('reports credential work, then clears preparation on cancellation', async (
 test('cancel during decryption stops remaining credentials and cannot overwrite a new preparation', async () => {
   const service = new ServicePrimeTransfer({
     backgroundApi: {
+      serviceAccount: accountApi(),
       servicePassword: {
+        checkPasswordSet: mockCheckPasswordSet,
         promptPasswordVerify: async () => ({ password: 'fixture-password' }),
       },
     },
@@ -341,7 +568,9 @@ test.each<[boolean, IPbkdf2KdfParams]>([
     const originalCredentials = data.privateData.credentials;
     const service = new ServicePrimeTransfer({
       backgroundApi: {
+        serviceAccount: accountApi(),
         servicePassword: {
+          checkPasswordSet: mockCheckPasswordSet,
           promptPasswordVerify: async () => ({ password: 'fixture-password' }),
         },
       },

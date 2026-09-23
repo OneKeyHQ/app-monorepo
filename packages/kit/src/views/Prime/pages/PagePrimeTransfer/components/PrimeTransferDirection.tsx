@@ -453,6 +453,7 @@ export function PrimeTransferDirection({
         await backgroundApiProxy.servicePrimeTransfer.authorizeTransferPreparation(
           {
             taskId: preparationTaskId,
+            walletIds: botWalletId ? [botWalletId] : undefined,
           },
         );
         const transferData =
