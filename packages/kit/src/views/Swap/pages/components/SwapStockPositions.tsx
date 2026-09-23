@@ -30,6 +30,7 @@ import {
 } from '../../utils/swapDesktopCardShadow';
 
 import SwapProPositionsList from './SwapProPositionsList';
+import { useSwapStockSelection } from './SwapStockMarketProvider';
 import { useSwapStockTradeContext } from './SwapStockTradeProvider';
 
 type IPositions = ReturnType<typeof useSwapProSupportNetworksTokenList>;
@@ -87,8 +88,8 @@ export function SwapStockPositions({
   const intl = useIntl();
   const positions = useSwapStockPositions();
   const { stockId, tokenVariants } = useStockDetail();
-  const { currentStockToken, selectStockSwapToken } =
-    useSwapStockTradeContext();
+  const { currentStockToken } = useSwapStockTradeContext();
+  const selection = useSwapStockSelection();
   const [onlyCurrent, setOnlyCurrent] = useSwapProEnableCurrentSymbolAtom();
   const selectPositionToken = useCallback(
     (token: ISwapToken) => {
@@ -113,11 +114,9 @@ export function SwapStockPositions({
               },
             }
           : token;
-      selectStockSwapToken(tokenWithStockIdentity, {
-        resetReceiveAmount: true,
-      });
+      void selection?.selectToken(tokenWithStockIdentity);
     },
-    [selectStockSwapToken, stockId, tokenVariants],
+    [selection, stockId, tokenVariants],
   );
   const filterToken = useMemo(
     () =>

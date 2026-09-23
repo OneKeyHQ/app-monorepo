@@ -265,6 +265,45 @@ describe('useSwapStockPortfolioData', () => {
     );
   });
 
+  it('does not show the previous account while the same stock loads', async () => {
+    const { result, rerender } = renderHook(() => useSwapStockPortfolioData());
+    await waitFor(() => expect(result.current.portfolioData).toHaveLength(3));
+
+    let releasePortfolio: (() => void) | undefined;
+    fetchMarketAccountPortfolio.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          releasePortfolio = () =>
+            resolve({
+              list: [
+                {
+                  accountAddress: 'address-new-account-evm--1',
+                  tokenAddress: '0xAAPL',
+                  symbol: 'AAPL',
+                  tokenPrice: '340',
+                  amount: '0.2',
+                  totalPrice: '68',
+                },
+              ],
+            });
+        }),
+    );
+    mockUseAccountIdentity.mockReturnValue({
+      indexedAccountId: 'indexed-2',
+      accountId: undefined,
+    });
+    rerender({});
+
+    expect(result.current.portfolioData).toEqual([]);
+    await waitFor(() => expect(releasePortfolio).toBeDefined());
+    releasePortfolio?.();
+    await waitFor(() =>
+      expect(result.current.portfolioData[0]?.accountAddress).toBe(
+        'address-new-account-evm--1',
+      ),
+    );
+  });
+
   it('retries an account lookup that failed instead of pinning the failure', async () => {
     getNetworkAccount.mockImplementation(async ({ networkId }) => {
       if (networkId === 'sol--101' && getNetworkAccount.mock.calls.length < 4) {

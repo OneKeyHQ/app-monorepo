@@ -55,6 +55,7 @@ type ISwapStockSelection = {
     query?: string,
   ) => Promise<boolean>;
   selectVariant: (variant: IMarketStockTokenVariant) => Promise<boolean>;
+  selectToken: (token: ISwapToken) => Promise<boolean>;
 };
 
 const SwapStockSelectionContext = createContext<
@@ -175,6 +176,10 @@ function SwapStockSelectionProvider({
         : Promise.resolve(false),
     [select, stockId],
   );
+  const selectToken = useCallback(
+    (token: ISwapToken) => select(() => Promise.resolve(token)),
+    [select],
+  );
 
   const value = useMemo(
     () => ({
@@ -186,6 +191,7 @@ function SwapStockSelectionProvider({
       retryIdentityResolution,
       selectStock,
       selectVariant,
+      selectToken,
     }),
     [
       cancelSelection,
@@ -196,6 +202,7 @@ function SwapStockSelectionProvider({
       retryIdentityResolution,
       selectStock,
       selectVariant,
+      selectToken,
     ],
   );
   return (

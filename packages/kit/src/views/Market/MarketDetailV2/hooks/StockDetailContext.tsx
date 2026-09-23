@@ -367,6 +367,16 @@ export function StockDetailProvider({
       tokenVariants,
     ],
   );
+  const isPreservedTokenResolutionPending = Boolean(
+    preserveInitialToken &&
+    initialNetworkId &&
+    initialTokenAddress &&
+    !tokenVariantResult?.failed &&
+    tokenVariants.some(isStockTokenVariantTradable) &&
+    !selectedTokenVariant &&
+    (isTokenVariantsLoading ||
+      fetchedTokenVariantsStockIdRef.current !== normalizedStockId),
+  );
   const handleSetSelectedTokenId = useCallback(
     (tokenId: string) => {
       const token = tokenVariants.find((item) => item.tokenId === tokenId);
@@ -397,7 +407,8 @@ export function StockDetailProvider({
           (!preserveInitialToken &&
             !tokenVariantResult?.failed &&
             tokenVariants.some(isStockTokenVariantTradable) &&
-            !selectedTokenVariant)),
+            !selectedTokenVariant) ||
+          isPreservedTokenResolutionPending),
       ),
       isTokenVariantsLoading: Boolean(
         normalizedStockId && isTokenVariantsLoading,
@@ -420,6 +431,7 @@ export function StockDetailProvider({
       initialNetworkId,
       isStockDetailLoading,
       isTokenVariantsLoading,
+      isPreservedTokenResolutionPending,
       handleSetSelectedTokenId,
       normalizedStockId,
       preserveInitialToken,

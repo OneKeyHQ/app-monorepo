@@ -296,6 +296,68 @@ describe('StockDetailProvider', () => {
     expect(result.current.selectedTokenVariant?.tokenId).toBe('aapl-ondo');
   });
 
+  it('keeps a stale cached list pending until the preserved route variant resolves', async () => {
+    const request = createDeferred<IMarketStockTokenVariantsResponse>();
+    const routeVariant: IMarketStockTokenVariant = {
+      tokenId: 'aapl-backed',
+      issuer: 'backed',
+      networkId: 'evm--1',
+      contractAddress: '0xbacked',
+      currency: 'USD',
+      status: 'active',
+      tradingEnabled: true,
+    };
+    serviceMarketV2.fetchMarketStockTokenVariants.mockReturnValue(
+      request.promise,
+    );
+    swrCacheUtils.set(
+      swrKeys.marketStockTokenVariants({ stockId: 'AAPL', locale: 'en-us' }),
+      {
+        stockId: 'AAPL',
+        defaultTokenId: 'aapl-ondo',
+        items: [
+          {
+            tokenId: 'aapl-ondo',
+            issuer: 'ondo',
+            networkId: 'evm--56',
+            contractAddress: '0xondo',
+            currency: 'USD',
+            status: 'active',
+            tradingEnabled: true,
+          },
+        ],
+      },
+    );
+    const wrapper = ({ children }: PropsWithChildren) => (
+      <StockDetailProvider
+        stockId="AAPL"
+        preserveInitialToken
+        initialNetworkId={routeVariant.networkId}
+        initialTokenAddress={routeVariant.contractAddress}
+      >
+        {children}
+      </StockDetailProvider>
+    );
+    const { result } = renderHook(() => useStockDetail(), { wrapper });
+
+    expect(result.current.isTokenVariantPending).toBe(true);
+    expect(result.current.selectedTokenVariant).toBeUndefined();
+
+    await act(async () =>
+      request.resolve({
+        stockId: 'AAPL',
+        defaultTokenId: routeVariant.tokenId,
+        items: [routeVariant],
+      }),
+    );
+    await waitFor(() =>
+      expect(result.current.selectedTokenVariant?.tokenId).toBe(
+        routeVariant.tokenId,
+      ),
+    );
+    expect(result.current.isTokenVariantPending).toBe(false);
+  });
+
   // PR 13609 review: a cached list can predate the route's variant. Resolving
   // against it must not retire the route, or the fetched list that finally
   // carries that variant is skipped and the page trades the wrong token.

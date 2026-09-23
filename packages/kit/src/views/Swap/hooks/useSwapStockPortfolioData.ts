@@ -25,6 +25,18 @@ type IStockPortfolioNetworkAccount = {
   xpub?: string;
 };
 
+function buildPortfolioOwnerKey({
+  accountId,
+  indexedAccountId,
+}: {
+  accountId?: string;
+  indexedAccountId?: string;
+}) {
+  if (indexedAccountId) return `indexed:${indexedAccountId}`;
+  if (accountId) return `account:${accountId}`;
+  return '';
+}
+
 function getNetworkAccountXpub(account: INetworkAccount) {
   if ('xpubSegwit' in account && account.xpubSegwit) {
     return account.xpubSegwit;
@@ -45,6 +57,10 @@ function getNetworkAccountXpub(account: INetworkAccount) {
 export function useSwapStockPortfolioData() {
   const { accountId, indexedAccountId } = useSwapProPositionAccountIdentity();
   const { stockId, tokenVariants } = useStockDetail();
+  const portfolioOwnerKey = buildPortfolioOwnerKey({
+    accountId,
+    indexedAccountId,
+  });
   const successfulPortfolioCacheRef = useRef(
     new Map<string, IMarketAccountPortfolioDisplayItem[]>(),
   );
@@ -123,17 +139,24 @@ export function useSwapStockPortfolioData() {
             throwOnError: true,
           }),
       });
-      return { ...data, stockId };
+      return { ...data, stockId, portfolioOwnerKey };
     },
     // The request reads the latest variants from a ref; see tokenVariantsKey.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [hasAccount, resolveNetworkAccount, stockId, tokenVariantsKey],
+    [
+      hasAccount,
+      portfolioOwnerKey,
+      resolveNetworkAccount,
+      stockId,
+      tokenVariantsKey,
+    ],
     {
       watchLoading: true,
       pollingInterval:
         stockId && hasAccount
           ? timerUtils.getTimeDurationMs({ seconds: 15 })
           : undefined,
+      runImmediatelyOnPollingIntervalChange: true,
       revalidateOnReconnect: true,
     },
   );
@@ -142,7 +165,10 @@ export function useSwapStockPortfolioData() {
   // request lands; those rows belong to another company, so they are not
   // shown under this one.
   const currentPortfolioResult =
-    portfolioResult?.stockId === stockId ? portfolioResult : undefined;
+    portfolioResult?.stockId === stockId &&
+    portfolioResult?.portfolioOwnerKey === portfolioOwnerKey
+      ? portfolioResult
+      : undefined;
   const portfolioData = useMemo(
     () => currentPortfolioResult?.items ?? [],
     [currentPortfolioResult],

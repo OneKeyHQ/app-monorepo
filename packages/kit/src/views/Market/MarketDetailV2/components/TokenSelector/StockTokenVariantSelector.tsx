@@ -73,6 +73,7 @@ const StockTokenVariantResolvedContext = createContext<Set<string>>(
 const ISSUER_LABELS: Record<string, string> = {
   // cspell:disable-next-line
   bstocks: 'bStocks',
+  coingecko: 'Ondo',
   ondo: 'Ondo',
   // cspell:disable-next-line
   xstock: 'xStocks',
@@ -507,6 +508,7 @@ export function StockTokenVariantSelector({
       );
     }
     if (compact && fallbackToken) {
+      const fallbackIssuer = fallbackToken.stock?.source?.trim();
       return (
         <XStack
           testID="stock-token-variant-selector-fallback"
@@ -526,14 +528,20 @@ export function StockTokenVariantSelector({
                 branch has to reserve it too: with only the symbol the row is
                 one line shorter and grows when the variant lands. The token's
                 embedded stock metadata already knows the issuer. */}
-            <SizableText size="$bodySm" color="$textSubdued" numberOfLines={1}>
-              {intl.formatMessage(
-                { id: ETranslations.market_issued_by },
-                {
-                  issuer: getIssuerLabel(fallbackToken.stock?.source ?? ''),
-                },
-              )}
-            </SizableText>
+            {fallbackIssuer ? (
+              <SizableText
+                size="$bodySm"
+                color="$textSubdued"
+                numberOfLines={1}
+              >
+                {intl.formatMessage(
+                  { id: ETranslations.market_issued_by },
+                  { issuer: getIssuerLabel(fallbackIssuer) },
+                )}
+              </SizableText>
+            ) : (
+              <Stack height="$4" />
+            )}
           </YStack>
         </XStack>
       );

@@ -916,12 +916,11 @@ function StockAmountInput({
       Boolean(
         swapFromAddressInfo.accountInfo?.account?.id &&
         inputToken &&
-        (hasBalanceError || isBalanceLoadedZero),
+        hasBalanceError,
       ),
     [
       hasBalanceError,
       inputToken,
-      isBalanceLoadedZero,
       isBuySide,
       swapFromAddressInfo.accountInfo?.account?.id,
     ],

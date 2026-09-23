@@ -9,6 +9,7 @@ import {
   ScrollView,
   SearchBar,
   SizableText,
+  Skeleton,
   Spinner,
   Stack,
   XStack,
@@ -148,7 +149,13 @@ function StockTickerList({ closePopover }: { closePopover: () => void }) {
                   });
                 }}
               >
-                <Token size="md" tokenImageUri={stock.logoUrl} />
+                <Token
+                  size="md"
+                  tokenImageUri={stock.logoUrl}
+                  placeholder={
+                    <Skeleton width="100%" height="100%" radius="round" />
+                  }
+                />
                 <YStack flex={1} minWidth={0}>
                   <SizableText size="$bodyLgMedium" numberOfLines={1}>
                     {stock.name}
@@ -269,7 +276,11 @@ export function SwapStockTickerSelector() {
           cursor="pointer"
           hoverStyle={{ bg: '$bgHover' }}
         >
-          <Token size="xl" tokenImageUri={tokenImageUri} />
+          <Token
+            size="xl"
+            tokenImageUri={tokenImageUri}
+            placeholder={<Skeleton width="100%" height="100%" radius="round" />}
+          />
           <YStack minWidth={0} flexShrink={1}>
             <SizableText
               size={md ? '$headingLg' : '$headingXl'}

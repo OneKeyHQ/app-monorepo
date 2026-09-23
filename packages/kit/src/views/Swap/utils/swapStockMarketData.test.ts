@@ -317,6 +317,17 @@ describe('Swap stock selection response mapping', () => {
     });
   });
 
+  it('matches stock identities without depending on backend casing', async () => {
+    fetchDetailMock.mockResolvedValueOnce(
+      buildDetailResponse(
+        buildDetail({ stock: { ...buildDetail().stock!, stockId: 'APPLE' } }),
+      ),
+    );
+    await expect(
+      fetchSwapStockVariantToken(buildVariant(), 'apple'),
+    ).resolves.toMatchObject({ stock: { stockId: 'APPLE' } });
+  });
+
   it.each<Partial<IMarketTokenDetail>>([
     { networkId: 'evm--56' },
     { address: '0x1111111111111111111111111111111111111111' },

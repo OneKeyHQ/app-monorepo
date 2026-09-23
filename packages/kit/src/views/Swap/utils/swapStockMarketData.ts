@@ -78,13 +78,15 @@ export async function fetchSwapStockVariantToken(
       { autoHandleError: false, skipConvertCurrency: true },
     );
   const detail = response?.data?.token;
+  const detailStockId = detail?.stock?.stockId?.trim().toLowerCase();
+  const requestedStockId = stockId.trim().toLowerCase();
   if (
     response.code !== 0 ||
     !detail ||
     !detail.stock ||
     (detail.networkId !== undefined &&
       detail.networkId !== variant.networkId) ||
-    (detail.stock.stockId !== undefined && detail.stock.stockId !== stockId) ||
+    (detailStockId !== undefined && detailStockId !== requestedStockId) ||
     !equalTokenNoCaseSensitive({
       token1: {
         networkId: detail.networkId ?? variant.networkId,
