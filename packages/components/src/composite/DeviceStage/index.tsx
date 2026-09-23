@@ -285,19 +285,26 @@ const PIXEL_GRID = PixelRatio.get();
 const FOG_COLORS = [stageBgAlpha(0), stageBgAlpha(0.5), STAGE_BG];
 const FOG_LOCATIONS = [0, 0.58, 0.87] as const;
 /**
- * How far the fog runs on under the port's floor, where the window
- * clips it away. Android paints the gradient as an anti-aliased path
- * of exactly its own bounds (expo's LinearGradientView) while the
- * window's clip rounds to whole pixels, so a subtree resting on a
- * fractional pixel leaves the fog's last row half-covered and the
- * keypad underneath showing through as a hairline (OK-63384). Ending
- * the fog below the clip hands that edge to the clip instead; the
- * fade's stops are rescaled so they stay put over the port. Android
- * only: iOS's gradient layer has no edge anti-aliasing and the web
- * draws a CSS gradient, so elsewhere the fog keeps the port's own
- * height and the stops as authored.
+ * Whether the fog stands beside the port rather than inside it. Inside,
+ * the port's clip cuts the fog along with the device, and on Android
+ * that leaves the port's floor row bare of fog: the keypad under it
+ * shows through as a full-strength line one pixel tall (OK-63384, and
+ * OK-64010 once the bleed below alone proved not to cure it). Seated
+ * after the port as its sibling, the fog escapes the clip: its solid
+ * foot covers the floor row from outside, and the height it keeps past
+ * the floor lands on the face, which wears the same STAGE_BG. Android
+ * only — iOS and the web keep the fog inside the port, as verified.
  */
-const FOG_BLEED = platformEnv.isNativeAndroid ? 2 : 0;
+const FOG_OUTSIDE_PORT = platformEnv.isNativeAndroid;
+/**
+ * How far the fog runs on past the port's floor. Beside the port, the
+ * run-on keeps the fog's own anti-aliased edge (expo's Android
+ * LinearGradientView paints a path of exactly its bounds) off the
+ * floor row, down on the face where STAGE_BG meets STAGE_BG; the
+ * fade's stops are rescaled so they stay put over the port. Elsewhere
+ * the fog keeps the port's own height and the stops as authored.
+ */
+const FOG_BLEED = FOG_OUTSIDE_PORT ? 2 : 0;
 
 /**
  * Which arrangement a card step gives the standing replica: the full
@@ -386,7 +393,7 @@ const styles = StyleSheet.create({
     transformOrigin: 'top',
   },
   // Full-port geometry (sized per instance), so the fade stays put while
-  // the window above animates.
+  // the window animates — inside it, or on Android beside it.
   fog: {
     position: 'absolute',
     left: 0,
@@ -2167,24 +2174,37 @@ export function DeviceStage({
   // on its one glass (the troupe grant): a crossing flips which is lit
   // and nothing ever builds; only the visible scene's clock runs, from
   // 0. The fog paints the port fade over the opaque face, and rests
-  // while the capsule wears the whole device.
-  const stageLayer = useMemo(
-    () => (
+  // while the capsule wears the whole device — inside the port, or on
+  // Android after it as its sibling, out of the port's clip (see
+  // FOG_OUTSIDE_PORT); the port sits at the layer's origin, so the
+  // fog's own geometry serves both seats.
+  const stageLayer = useMemo(() => {
+    const fog = (
+      <Animated.View style={fogStyle}>
+        <LinearGradient
+          colors={FOG_COLORS}
+          locations={fogLocations}
+          style={styles.fogFill}
+        />
+      </Animated.View>
+    );
+    return (
       <Animated.View style={replicaStyle} pointerEvents="none">
         <Animated.View style={portStyle}>
           <Animated.View style={deviceStyle}>{deviceLayer}</Animated.View>
-          <Animated.View style={fogStyle}>
-            <LinearGradient
-              colors={FOG_COLORS}
-              locations={fogLocations}
-              style={styles.fogFill}
-            />
-          </Animated.View>
+          {FOG_OUTSIDE_PORT ? null : fog}
         </Animated.View>
+        {FOG_OUTSIDE_PORT ? fog : null}
       </Animated.View>
-    ),
-    [deviceLayer, deviceStyle, fogLocations, fogStyle, portStyle, replicaStyle],
-  );
+    );
+  }, [
+    deviceLayer,
+    deviceStyle,
+    fogLocations,
+    fogStyle,
+    portStyle,
+    replicaStyle,
+  ]);
 
   // The ripple rests through pose flights too: the capsule pose stands
   // from a return flight's first frame, and an infinite loop has no
