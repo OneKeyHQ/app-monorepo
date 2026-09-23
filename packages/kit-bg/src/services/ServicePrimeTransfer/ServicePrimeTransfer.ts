@@ -1895,6 +1895,9 @@ class ServicePrimeTransfer extends ServiceBase {
         await this.backgroundApi.servicePassword.promptPasswordVerify();
       data.privateData.decryptedCredentials = {};
       const entries = Object.entries(data.privateData.credentials || {});
+      // Credentials have already been read from storage. Select the non-blocking
+      // KDF here; the transaction-safe Web default runs PBKDF2 on the UI thread.
+      const kdfParams = appCrypto.pbkdf2.getPbkdf2KdfParamsForNonDbTx();
       console.log('serviceCloudBackupV2__decryptCredentials');
       for (const [key, value] of entries) {
         const credentialValue = normalizePrimeTransferCredential(
@@ -1914,12 +1917,14 @@ class ServicePrimeTransfer extends ServiceBase {
               await decryptRevealableSeed({
                 rs: credentialValue,
                 password: localPassword,
+                ...kdfParams,
               });
           } else if (accountUtils.isImportedAccount({ accountId: key })) {
             data.privateData.decryptedCredentials[key] =
               await decryptImportedCredential({
                 credential: credentialValue,
                 password: localPassword,
+                ...kdfParams,
               });
           }
         } catch (error) {
@@ -2004,6 +2009,7 @@ class ServicePrimeTransfer extends ServiceBase {
       password: encryptionKey,
       allowRawPassword: true,
       sharedScene: EAppCryptoSharedEncryptScene.primeTransferPayload,
+      ...appCrypto.pbkdf2.getPbkdf2KdfParamsForNonDbTx(),
     });
     if (!this.e2eeClientToClientApiProxy) {
       throw new OneKeyLocalError('Client to Client API not initialized');
@@ -2232,6 +2238,7 @@ class ServicePrimeTransfer extends ServiceBase {
     const revealableSeed = (await decryptRevealableSeed({
       rs: credential,
       password,
+      ...appCrypto.pbkdf2.getPbkdf2KdfParamsForNonDbTx(),
     })) as ICliBotWalletRevealableSeed;
 
     const input = await this.buildCliBotWalletExportInput({
@@ -2352,6 +2359,7 @@ class ServicePrimeTransfer extends ServiceBase {
           allowRawPassword: true,
           sharedScene: EAppCryptoSharedEncryptScene.primeTransferCredentials,
           format: peerSupportsV2 ? 'v2' : 'legacy',
+          ...appCrypto.pbkdf2.getPbkdf2KdfParamsForNonDbTx(),
         });
       if (!peerSupportsV2) {
         // Overwrite the raw credential field with legacy-format ciphertext so
@@ -2426,39 +2434,42 @@ class ServicePrimeTransfer extends ServiceBase {
     if (!decryptedCredentials) {
       return {};
     }
-    const entries = await Promise.all(
-      Object.entries(decryptedCredentials).map(async ([id, decrypted]) => {
-        if (
-          accountUtils.isHdWallet({ walletId: id }) ||
-          accountUtils.isTonMnemonicCredentialId(id)
-        ) {
-          return [
-            id,
-            await encryptRevealableSeedWithFormat({
-              rs: decrypted as IBip39RevealableSeed,
-              password,
-              sharedScene:
-                EAppCryptoSharedEncryptScene.primeTransferCredentialBackwardCompat,
-            }),
-          ] as const;
-        }
-        if (accountUtils.isImportedAccount({ accountId: id })) {
-          return [
-            id,
-            await encryptImportedCredentialWithFormat({
-              credential: decrypted as ICoreImportedCredential,
-              password,
-              allowRawPassword: true,
-              sharedScene:
-                EAppCryptoSharedEncryptScene.primeTransferCredentialBackwardCompat,
-            }),
-          ] as const;
-        }
+    const kdfParams = appCrypto.pbkdf2.getPbkdf2KdfParamsForNonDbTx();
+    const entries: [string, string][] = [];
+    // Bound in-flight crypto work now that WebCrypto can run asynchronously.
+    for (const [id, decrypted] of Object.entries(decryptedCredentials)) {
+      if (
+        accountUtils.isHdWallet({ walletId: id }) ||
+        accountUtils.isTonMnemonicCredentialId(id)
+      ) {
+        entries.push([
+          id,
+          await encryptRevealableSeedWithFormat({
+            rs: decrypted as IBip39RevealableSeed,
+            password,
+            sharedScene:
+              EAppCryptoSharedEncryptScene.primeTransferCredentialBackwardCompat,
+            ...kdfParams,
+          }),
+        ]);
+      } else if (accountUtils.isImportedAccount({ accountId: id })) {
+        entries.push([
+          id,
+          await encryptImportedCredentialWithFormat({
+            credential: decrypted as ICoreImportedCredential,
+            password,
+            allowRawPassword: true,
+            sharedScene:
+              EAppCryptoSharedEncryptScene.primeTransferCredentialBackwardCompat,
+            ...kdfParams,
+          }),
+        ]);
+      } else {
         throw new OneKeyLocalError(
           `Unknown credential type for backward-compat re-encrypt: ${id}`,
         );
-      }),
-    );
+      }
+    }
     return Object.fromEntries(entries);
   }
 
