@@ -65,7 +65,10 @@ import {
   resolveSwapBalanceDisplayCacheEntry,
   resolveSwapInputDisplayBalance,
 } from '../../utils/swapBalanceDisplayCacheUtils';
-import { resolveVerifiedSwapBalance } from '../../utils/swapBalanceOwnerUtils';
+import {
+  buildSwapBalanceAccountIdentity,
+  resolveVerifiedSwapBalance,
+} from '../../utils/swapBalanceOwnerUtils';
 import { isSwapBalanceLoadedZero } from '../../utils/swapDepositActionUtils';
 import { getSwapTokenDisplayFiatValue } from '../../utils/swapDisplayFiatValue';
 
@@ -411,11 +414,13 @@ const SwapInputContainer = ({
           balanceMeta: swapSelectedTokenBalanceMeta.from,
           token: fromToken,
           accountAddress: address,
+          accountIdentity: buildSwapBalanceAccountIdentity(activeAccount),
           isAddressInfoReady: swapAddressInfo.isAddressInfoReady,
         }),
       ),
     [
       address,
+      activeAccount,
       direction,
       fromToken,
       fromTokenBalance,

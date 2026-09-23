@@ -1,6 +1,7 @@
 import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
 
 import {
+  buildSwapBalanceAccountIdentity,
   buildSwapBalanceOwner,
   isSameSwapBalanceOwner,
   resolveVerifiedSwapBalance,
@@ -21,11 +22,54 @@ const uniToken: ISwapToken = {
   isNative: false,
 };
 
+describe('buildSwapBalanceAccountIdentity', () => {
+  it('prefers the indexed account and ignores the network context', () => {
+    expect(
+      buildSwapBalanceAccountIdentity({
+        wallet: { id: 'wallet-1' },
+        indexedAccount: { id: 'indexed-1' },
+        account: { id: 'hd-1--evm--1' },
+      }),
+    ).toBe('wallet-1|indexed-1');
+  });
+
+  it('falls back to the db account and then the network account', () => {
+    expect(
+      buildSwapBalanceAccountIdentity({
+        wallet: { id: 'wallet-1' },
+        dbAccount: { id: 'db-1' },
+      }),
+    ).toBe('wallet-1|db-1');
+    expect(buildSwapBalanceAccountIdentity({ account: { id: 'a-1' } })).toBe(
+      'a-1',
+    );
+  });
+
+  it('has no identity without an account', () => {
+    expect(buildSwapBalanceAccountIdentity(undefined)).toBeUndefined();
+    expect(buildSwapBalanceAccountIdentity({})).toBeUndefined();
+  });
+});
+
 describe('buildSwapBalanceOwner', () => {
   it('pairs the token identity with a lower-cased address', () => {
     expect(
       buildSwapBalanceOwner({ token: ethToken, accountAddress: '0xABC' }),
     ).toEqual({ tokenKey: 'evm--1::native', accountAddress: '0xabc' });
+  });
+
+  it('carries the account identity when there is one', () => {
+    expect(
+      buildSwapBalanceOwner({
+        token: ethToken,
+        accountAddress: '0xABC',
+        accountIdentity: 'wallet-1|indexed-1',
+      }),
+    ).toEqual({
+      tokenKey: 'evm--1::native',
+      accountAddress: '0xabc',
+      accountIdentity: 'wallet-1|indexed-1',
+    });
   });
 
   it('has no owner without a token or an address', () => {
@@ -66,12 +110,36 @@ describe('isSameSwapBalanceOwner', () => {
     expect(isSameSwapBalanceOwner(stored, undefined)).toBe(false);
     expect(isSameSwapBalanceOwner({}, undefined)).toBe(false);
   });
+
+  it('never matches another account identity', () => {
+    expect(
+      isSameSwapBalanceOwner(
+        { ...stored, accountIdentity: 'wallet-1|indexed-1' },
+        {
+          tokenKey: 'evm--1::native',
+          accountAddress: '0xabc',
+          accountIdentity: 'wallet-1|indexed-2',
+        },
+      ),
+    ).toBe(false);
+    expect(
+      isSameSwapBalanceOwner(
+        { ...stored, accountIdentity: 'wallet-1|indexed-1' },
+        {
+          tokenKey: 'evm--1::native',
+          accountAddress: '0xabc',
+          accountIdentity: 'wallet-1|indexed-1',
+        },
+      ),
+    ).toBe(true);
+  });
 });
 
 describe('resolveVerifiedSwapBalance', () => {
   const ethOwner = {
     tokenKey: 'evm--1::native',
     accountAddress: '0xabc',
+    accountIdentity: 'wallet-1|indexed-1',
     unverified: false,
   };
   const current = {
@@ -79,6 +147,7 @@ describe('resolveVerifiedSwapBalance', () => {
     balanceMeta: ethOwner,
     token: ethToken,
     accountAddress: '0xABC',
+    accountIdentity: 'wallet-1|indexed-1',
     isAddressInfoReady: true,
   };
 
@@ -127,6 +196,28 @@ describe('resolveVerifiedSwapBalance', () => {
         token: uniToken,
         accountAddress: undefined,
         isAddressInfoReady: false,
+      }),
+    ).toBeUndefined();
+  });
+
+  it('drops another account figure while the address lookup is pending', () => {
+    // Switching account only clears the address once its cross-network lookup
+    // resolves; the stored identity decides in the meantime so the previous
+    // account's zero can never light up the new account's deposit entry.
+    expect(
+      resolveVerifiedSwapBalance({
+        ...current,
+        accountAddress: undefined,
+        accountIdentity: 'wallet-1|indexed-2',
+        isAddressInfoReady: false,
+      }),
+    ).toBeUndefined();
+    expect(
+      resolveVerifiedSwapBalance({
+        ...current,
+        accountAddress: '0xabc',
+        accountIdentity: 'wallet-1|indexed-2',
+        isAddressInfoReady: true,
       }),
     ).toBeUndefined();
   });

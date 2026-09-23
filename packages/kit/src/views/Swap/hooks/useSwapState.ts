@@ -85,7 +85,10 @@ import {
   shouldShowSwapQuoteRequestLoading,
 } from '../../../states/jotai/contexts/swap/quoteProgress';
 import { buildSwapBatchTransferType } from '../utils/buildSwapReviewState';
-import { resolveVerifiedSwapBalance } from '../utils/swapBalanceOwnerUtils';
+import {
+  buildSwapBalanceAccountIdentity,
+  resolveVerifiedSwapBalance,
+} from '../utils/swapBalanceOwnerUtils';
 import { shouldOfferSwapDepositAction } from '../utils/swapDepositActionUtils';
 import { shouldAllowSwapNoConnectWalletWarning } from '../utils/swapNoWalletWarningGuard';
 import {
@@ -846,6 +849,9 @@ export function useSwapActionState() {
                 balanceMeta: swapSelectedTokenBalanceMeta.from,
                 token: fromToken,
                 accountAddress: swapFromAddressInfo.address,
+                accountIdentity: buildSwapBalanceAccountIdentity(
+                  swapFromAddressInfo.activeAccount,
+                ),
                 isAddressInfoReady: swapFromAddressInfo.isAddressInfoReady,
               }),
         hasFromToken: !!fromToken,
@@ -894,6 +900,7 @@ export function useSwapActionState() {
     buildTxFetching,
     selectedFromTokenBalance,
     swapSelectedTokenBalanceMeta.from,
+    swapFromAddressInfo.activeAccount,
     fromToken,
     toToken,
     swapUseLimitPrice.rate,

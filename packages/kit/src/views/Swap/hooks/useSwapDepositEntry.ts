@@ -1,7 +1,11 @@
 import { useCallback, useRef } from 'react';
 
+import { useIntl } from 'react-intl';
+
+import { Toast } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import type { IAccountSelectorActiveAccountInfo } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
 
 import { openSwapDepositEntry } from '../utils/swapDepositEntryUtils';
@@ -50,6 +54,7 @@ export function useSwapDepositEntryPress({
   onClose: () => void;
 }) {
   const navigation = useAppNavigation();
+  const intl = useIntl();
   const latest = useRef({ token, accountInfo, activeAccount, onClose });
   latest.current = { token, accountInfo, activeAccount, onClose };
   const resolvingRef = useRef(false);
@@ -86,12 +91,22 @@ export function useSwapDepositEntryPress({
           return;
         }
       }
-      openSwapDepositEntry({
+      const opened = openSwapDepositEntry({
         navigation,
         token: pressed.token,
         accountInfo: depositAccountInfo,
         onClose: latest.current.onClose,
       });
+      // A pressable entry only ends up here without an account when the
+      // on-demand lookup above failed (or the token is gone); say so instead of
+      // leaving a dead tap.
+      if (!opened) {
+        Toast.message({
+          title: intl.formatMessage({
+            id: ETranslations.swap_page_toast_address_generated_fail,
+          }),
+        });
+      }
     })();
-  }, [navigation]);
+  }, [intl, navigation]);
 }

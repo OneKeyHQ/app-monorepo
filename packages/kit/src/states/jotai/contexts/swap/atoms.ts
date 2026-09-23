@@ -582,6 +582,11 @@ export interface ISwapSelectedTokenBalanceMeta {
   tokenKey?: string;
   // Lower-cased; only ever compared with itself.
   accountAddress?: string;
+  // Network-agnostic account identity (wallet + indexed/db account) the figure
+  // was fetched for; see buildSwapBalanceAccountIdentity. It decides before the
+  // address resolves, so another account never inherits this figure while its
+  // own cross-network lookup is still pending.
+  accountIdentity?: string;
   unverified: boolean;
 }
 export const EMPTY_SWAP_SELECTED_TOKEN_BALANCE_META: ISwapSelectedTokenBalanceMeta =

@@ -1,6 +1,7 @@
 import { act, renderHook } from '@testing-library/react-native';
 
 import type { IAccountSelectorActiveAccountInfo } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
 
@@ -27,6 +28,21 @@ jest.mock('./useSwapAccount', () => ({
   resolveSwapNetworkAccount: (
     ...args: Parameters<typeof mockResolveSwapNetworkAccount>
   ) => mockResolveSwapNetworkAccount(...args),
+}));
+
+const mockToastMessage = jest.fn();
+jest.mock('@onekeyhq/components', () => ({
+  Toast: {
+    message: (...args: unknown[]) => {
+      mockToastMessage(...args);
+    },
+  },
+}));
+
+jest.mock('react-intl', () => ({
+  useIntl: () => ({
+    formatMessage: ({ id }: { id: string }) => id,
+  }),
 }));
 
 jest.mock('@onekeyhq/shared/src/logger/logger', () => ({
@@ -198,5 +214,40 @@ describe('useSwapDepositEntryPress', () => {
       result.current();
     });
     expect(mockPushModal).not.toHaveBeenCalled();
+  });
+
+  it('reports the failure instead of leaving a dead tap when the lookup fails', async () => {
+    mockResolveSwapNetworkAccount.mockRejectedValue(new Error('lookup failed'));
+    const { result } = renderHook(() =>
+      useSwapDepositEntryPress({
+        token: bnbUsdc,
+        accountInfo: undefined,
+        activeAccount,
+        onClose: jest.fn(),
+      }),
+    );
+    await act(async () => {
+      result.current();
+    });
+    expect(mockPushModal).not.toHaveBeenCalled();
+    expect(mockToastMessage).toHaveBeenCalledWith({
+      title: ETranslations.swap_page_toast_address_generated_fail,
+    });
+  });
+
+  it('does not toast when the deposit entry opens', async () => {
+    const { result } = renderHook(() =>
+      useSwapDepositEntryPress({
+        token: bnbUsdc,
+        accountInfo: { ...activeAccount, account: bnbAccount },
+        activeAccount,
+        onClose: jest.fn(),
+      }),
+    );
+    await act(async () => {
+      result.current();
+    });
+    expect(mockPushModal).toHaveBeenCalledTimes(1);
+    expect(mockToastMessage).not.toHaveBeenCalled();
   });
 });

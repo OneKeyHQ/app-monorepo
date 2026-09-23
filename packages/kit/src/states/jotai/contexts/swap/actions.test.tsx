@@ -1068,6 +1068,78 @@ describe('useSwapActions', () => {
     ).toBeUndefined();
   });
 
+  it('keeps the last verified zero when a same-owner refresh fails', async () => {
+    mockFetchSwapTokenDetails.mockResolvedValueOnce([{ balanceParsed: '0' }]);
+    const { store, Wrapper } = createWrapperWithStore();
+    const { result } = renderHook(() => useSwapActions().current, {
+      wrapper: Wrapper,
+    });
+    await act(async () => {
+      await result.current.loadSwapSelectTokenDetail(
+        ESwapDirectionType.FROM,
+        fromAddressInfo,
+        true,
+      );
+    });
+    const readVerifiedBalance = () =>
+      resolveVerifiedSwapBalance({
+        balance: store.get(swapSelectedFromTokenBalanceAtom()),
+        balanceMeta: store.get(swapSelectedTokenBalanceMetaAtom()).from,
+        token: ethToken,
+        accountAddress: fromAddressInfo.address,
+        isAddressInfoReady: true,
+      });
+    expect(readVerifiedBalance()).toBe('0');
+
+    mockFetchSwapTokenDetails.mockRejectedValueOnce(new Error('network down'));
+    await act(async () => {
+      await result.current.loadSwapSelectTokenDetail(
+        ESwapDirectionType.FROM,
+        fromAddressInfo,
+        true,
+      );
+    });
+
+    // The failed refresh must not replace the verified zero with a '0.0'
+    // fallback: the deposit entry, the Top up chip and the balance refresh
+    // control all read this figure, and dropping it leaves the user on a
+    // disabled "Enter amount" with no way to retry.
+    expect(store.get(swapSelectedFromTokenBalanceAtom())).toBe('0');
+    expect(store.get(swapSelectedTokenBalanceMetaAtom()).from.unverified).toBe(
+      false,
+    );
+    expect(readVerifiedBalance()).toBe('0');
+  });
+
+  it('still records a fallback as unverified when the first load fails', async () => {
+    mockFetchSwapTokenDetails.mockRejectedValueOnce(new Error('network down'));
+    const { store, Wrapper } = createWrapperWithStore();
+    const { result } = renderHook(() => useSwapActions().current, {
+      wrapper: Wrapper,
+    });
+    await act(async () => {
+      await result.current.loadSwapSelectTokenDetail(
+        ESwapDirectionType.FROM,
+        fromAddressInfo,
+        true,
+      );
+    });
+
+    expect(store.get(swapSelectedFromTokenBalanceAtom())).toBe('0.0');
+    expect(store.get(swapSelectedTokenBalanceMetaAtom()).from.unverified).toBe(
+      true,
+    );
+    expect(
+      resolveVerifiedSwapBalance({
+        balance: store.get(swapSelectedFromTokenBalanceAtom()),
+        balanceMeta: store.get(swapSelectedTokenBalanceMetaAtom()).from,
+        token: ethToken,
+        accountAddress: fromAddressInfo.address,
+        isAddressInfoReady: true,
+      }),
+    ).toBeUndefined();
+  });
+
   it.each(['detail', 'recipient account'] as const)(
     'does not replace a refresh with cached balance while %s is resolving',
     async (stage) => {

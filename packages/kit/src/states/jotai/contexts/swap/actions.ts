@@ -7,6 +7,7 @@ import { ESwapDirection } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/co
 import type { useSwapAddressInfo } from '@onekeyhq/kit/src/views/Swap/hooks/useSwapAccount';
 import { updateSwapBalanceDisplayCache } from '@onekeyhq/kit/src/views/Swap/utils/swapBalanceDisplayCacheUtils';
 import {
+  buildSwapBalanceAccountIdentity,
   buildSwapBalanceOwner,
   isSameSwapBalanceOwner,
 } from '@onekeyhq/kit/src/views/Swap/utils/swapBalanceOwnerUtils';
@@ -2730,6 +2731,12 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       }
       let balanceDisplay: string | undefined;
       let hasAuthoritativeBalance = false;
+      // Network-agnostic identity of the account this request belongs to. The
+      // stored figure is tagged with it so another account can never read it
+      // while its own cross-network lookup is still pending.
+      const accountIdentity = buildSwapBalanceAccountIdentity(
+        swapAddressInfo.activeAccount,
+      );
       if (!isCurrentRequest()) {
         if (get(swapSelectTokenDetailRequestIdAtom())[type] === requestId) {
           set(swapSelectTokenDetailFetchingAtom(), (previous) => ({
@@ -2774,7 +2781,11 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
             // stale figure never shows.
             const isSameBalanceOwner = isSameSwapBalanceOwner(
               get(swapSelectedTokenBalanceMetaAtom())[type],
-              buildSwapBalanceOwner({ token, accountAddress }),
+              buildSwapBalanceOwner({
+                token,
+                accountAddress,
+                accountIdentity,
+              }),
             );
             if (!isSameBalanceOwner) {
               if (type === ESwapDirectionType.FROM) {
@@ -2886,34 +2897,62 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         }
       }
       if (isCurrentRequest()) {
-        if (type === ESwapDirectionType.FROM) {
-          set(swapSelectedFromTokenBalanceAtom(), balanceDisplay ?? '');
-        } else {
-          set(swapSelectedToTokenBalanceAtom(), balanceDisplay ?? '');
+        // A failed refresh (or a response without an authoritative balance) for
+        // the token + account the stored figure already belongs to must not
+        // replace a verified balance with the '0.0' fallback: that would drop
+        // the deposit entry, the Top up chip and the balance refresh control
+        // together and leave a zero-balance user on a disabled "Enter amount"
+        // with no way to retry (OK-63470). Keep the last verified figure and
+        // its verdict; the refresh control stays available for another attempt.
+        const storedBalanceMeta = get(swapSelectedTokenBalanceMetaAtom())[type];
+        const keepsPreviousVerifiedBalance =
+          isSameSwapBalanceOwner(
+            storedBalanceMeta,
+            buildSwapBalanceOwner({
+              token,
+              accountAddress,
+              accountIdentity,
+            }),
+          ) &&
+          !storedBalanceMeta.unverified &&
+          !hasAuthoritativeBalance;
+        if (!keepsPreviousVerifiedBalance) {
+          if (type === ESwapDirectionType.FROM) {
+            set(swapSelectedFromTokenBalanceAtom(), balanceDisplay ?? '');
+          } else {
+            set(swapSelectedToTokenBalanceAtom(), balanceDisplay ?? '');
+          }
+          const balanceOwner =
+            balanceDisplay === undefined
+              ? undefined
+              : buildSwapBalanceOwner({
+                  token,
+                  accountAddress,
+                  accountIdentity,
+                });
+          const nextBalanceMeta: ISwapSelectedTokenBalanceMeta = {
+            tokenKey: balanceOwner?.tokenKey,
+            accountAddress: balanceOwner?.accountAddress,
+            accountIdentity: balanceOwner?.accountIdentity,
+            // A failed fetch and a response without balanceParsed both leave a
+            // '0' fallback in the balance atom; neither is an authoritative
+            // zero, so the deposit verdict must not act on it.
+            unverified:
+              balanceFetchFailed ||
+              (balanceDisplay !== undefined && !hasAuthoritativeBalance),
+          };
+          // Same-value refreshes keep the previous object so subscribers of the
+          // verdict do not re-render for nothing.
+          set(swapSelectedTokenBalanceMetaAtom(), (previous) =>
+            previous[type].tokenKey === nextBalanceMeta.tokenKey &&
+            previous[type].accountAddress === nextBalanceMeta.accountAddress &&
+            previous[type].accountIdentity ===
+              nextBalanceMeta.accountIdentity &&
+            previous[type].unverified === nextBalanceMeta.unverified
+              ? previous
+              : { ...previous, [type]: nextBalanceMeta },
+          );
         }
-        const balanceOwner =
-          balanceDisplay === undefined
-            ? undefined
-            : buildSwapBalanceOwner({ token, accountAddress });
-        const nextBalanceMeta: ISwapSelectedTokenBalanceMeta = {
-          tokenKey: balanceOwner?.tokenKey,
-          accountAddress: balanceOwner?.accountAddress,
-          // A failed fetch and a response without balanceParsed both leave a
-          // '0' fallback in the balance atom; neither is an authoritative
-          // zero, so the deposit verdict must not act on it.
-          unverified:
-            balanceFetchFailed ||
-            (balanceDisplay !== undefined && !hasAuthoritativeBalance),
-        };
-        // Same-value refreshes keep the previous object so subscribers of the
-        // verdict do not re-render for nothing.
-        set(swapSelectedTokenBalanceMetaAtom(), (previous) =>
-          previous[type].tokenKey === nextBalanceMeta.tokenKey &&
-          previous[type].accountAddress === nextBalanceMeta.accountAddress &&
-          previous[type].unverified === nextBalanceMeta.unverified
-            ? previous
-            : { ...previous, [type]: nextBalanceMeta },
-        );
         if (
           token &&
           accountAddress &&
