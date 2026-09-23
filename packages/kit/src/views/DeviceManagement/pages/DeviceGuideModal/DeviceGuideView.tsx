@@ -37,10 +37,10 @@ const DarkPosterImage =
   require('./assets/mydevice_hero_poster_dark.jpg') as ImageSourcePropType;
 
 const LightVideoSource: IVideoSource = {
-  uri: 'https://asset.onekey-asset.com/app-monorepo/bb7a4e71aba56b405faf9278776d57d73b829708/static/media/mydevice_hero_light.mp4',
+  uri: 'https://asset.onekey-asset.com/app-monorepo/bb7a4e71aba56b405faf9278776d57d73b829708/static/media/onekey-pro2-showcase-light.mp4',
 };
 const DarkVideoSource: IVideoSource = {
-  uri: 'https://asset.onekey-asset.com/app-monorepo/bb7a4e71aba56b405faf9278776d57d73b829708/static/media/mydevice_hero_dark.mp4',
+  uri: 'https://asset.onekey-asset.com/app-monorepo/bb7a4e71aba56b405faf9278776d57d73b829708/static/media/onekey-pro2-showcase-dark.mp4',
 };
 
 function VideoContainer() {
