@@ -11,9 +11,13 @@ import androidx.annotation.RequiresApi;
 import com.margelo.nitro.nativelogger.OneKeyLog;
 
 import java.text.SimpleDateFormat;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Date;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Set;
 
 /**
  * Logs why previous app processes died, using the system's
@@ -30,9 +34,14 @@ final class ProcessExitInfoLogger {
 
     private static final String TAG = "ProcessExit";
     private static final String PREFS_NAME = "onekey_process_exit_info";
-    private static final String KEY_LAST_LOGGED_TIMESTAMP = "last_logged_timestamp";
-    private static final int MAX_RECORDS = 16;
+    private static final String KEY_LOGGED_RECORDS = "logged_records";
     private static final int MAX_DESCRIPTION_LENGTH = 300;
+    private static final String[] WEBVIEW_PACKAGE_PREFIXES = {
+        "com.google.android.webview",
+        "com.android.webview",
+        // Trichrome library packages are versioned, e.g. trichromelibrary_787112633.
+        "com.google.android.trichromelibrary",
+    };
 
     private ProcessExitInfoLogger() {}
 
@@ -60,36 +69,48 @@ final class ProcessExitInfoLogger {
             return;
         }
         String packageName = context.getPackageName();
+        // maxNum 0 returns the whole history the system keeps for this app.
         List<ApplicationExitInfo> records =
-            am.getHistoricalProcessExitReasons(packageName, 0, MAX_RECORDS);
+            am.getHistoricalProcessExitReasons(packageName, 0, 0);
         if (records == null || records.isEmpty()) {
             return;
         }
 
+        // Dedupe by record identity rather than a timestamp watermark: record
+        // timestamps are wall-clock time, so a clock moved backwards would
+        // otherwise hide new records. The system history is bounded, so the
+        // stored set stays small.
         SharedPreferences prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
-        long lastLogged = prefs.getLong(KEY_LAST_LOGGED_TIMESTAMP, 0L);
-        long newest = lastLogged;
-
-        // Records are newest first; log oldest first so the log reads in order.
-        for (int i = records.size() - 1; i >= 0; i--) {
-            ApplicationExitInfo info = records.get(i);
-            long timestamp = info.getTimestamp();
-            if (timestamp <= lastLogged) {
+        Set<String> logged = prefs.getStringSet(KEY_LOGGED_RECORDS, Collections.emptySet());
+        Set<String> current = new HashSet<>();
+        List<ApplicationExitInfo> newRecords = new ArrayList<>();
+        for (ApplicationExitInfo info : records) {
+            String key = recordKey(info);
+            current.add(key);
+            if (logged.contains(key)) {
                 continue;
             }
-            newest = Math.max(newest, timestamp);
             // WebView sandboxed renderers are attributed to our package but
             // are named after the WebView package; their deaths are noise.
             String processName = info.getProcessName();
-            if (processName == null || !processName.startsWith(packageName)) {
-                continue;
+            if (processName != null && processName.startsWith(packageName)) {
+                newRecords.add(info);
             }
+        }
+
+        newRecords.sort((a, b) -> Long.compare(a.getTimestamp(), b.getTimestamp()));
+        for (ApplicationExitInfo info : newRecords) {
             logRecord(info);
         }
 
-        if (newest > lastLogged) {
-            prefs.edit().putLong(KEY_LAST_LOGGED_TIMESTAMP, newest).apply();
+        if (!current.equals(logged)) {
+            prefs.edit().putStringSet(KEY_LOGGED_RECORDS, current).apply();
         }
+    }
+
+    @RequiresApi(Build.VERSION_CODES.R)
+    private static String recordKey(ApplicationExitInfo info) {
+        return info.getTimestamp() + ":" + info.getPid() + ":" + info.getProcessName();
     }
 
     @RequiresApi(Build.VERSION_CODES.R)
@@ -117,17 +138,27 @@ final class ProcessExitInfoLogger {
         }
     }
 
-    // Example description: "stop com.google.android.webview due to installPackageLI".
+    // The system kills dependents of an updated package with the description
+    // "stop <package> due to <reason>", e.g.
+    // "stop com.google.android.webview due to installPackageLI". The reason
+    // code differs by version: Android 14+ uses REASON_PACKAGE_UPDATED, while
+    // Android 11-13 record the same kill as REASON_USER_REQUESTED.
     private static boolean isWebViewUpdate(int reason, String description) {
         if (description == null) {
             return false;
         }
         boolean packageKill = reason == ApplicationExitInfo.REASON_PACKAGE_UPDATED
+            || reason == ApplicationExitInfo.REASON_USER_REQUESTED
             || reason == ApplicationExitInfo.REASON_DEPENDENCY_DIED;
-        return packageKill
-            && (description.contains("com.google.android.webview")
-                || description.contains("com.android.webview")
-                || description.contains("com.google.android.trichromelibrary"));
+        if (!packageKill) {
+            return false;
+        }
+        for (String prefix : WEBVIEW_PACKAGE_PREFIXES) {
+            if (description.contains("stop " + prefix)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private static boolean isAbnormal(int reason) {
