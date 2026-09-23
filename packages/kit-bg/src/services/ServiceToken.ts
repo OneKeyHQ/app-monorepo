@@ -179,15 +179,8 @@ class ServiceToken extends ServiceBase {
         }
         return true;
       });
-    if (
-      this.homeLocalAccountTokensCache &&
-      !homeTokenRequestRegistry.isCurrent(
-        this.homeLocalAccountTokensCache.homeRequest,
-      )
-    ) {
-      this.homeLocalAccountTokensCache = undefined;
-      this._updateHomeAccountLocalTokensDebounced.cancel();
-    }
+    // Completed responses are already keyed by account/network. Keep their
+    // pending persistence batch when retiring in-flight work for the UI.
   }
 
   @backgroundMethod()
@@ -271,10 +264,7 @@ class ServiceToken extends ServiceBase {
   };
 
   private homeLocalAccountTokensCache:
-    | {
-        homeRequest: IHomeTokenRequest;
-        data: ServiceToken['localAccountTokensCache'];
-      }
+    | ServiceToken['localAccountTokensCache']
     | undefined;
 
   // Returns `null` when the rate is missing or unusable so callers can skip
@@ -764,17 +754,14 @@ class ServiceToken extends ServiceBase {
         let cache = this.localAccountTokensCache;
         if (homeRequest) {
           this.homeLocalAccountTokensCache ??= {
-            homeRequest,
-            data: {
-              tokenList: {},
-              smallBalanceTokenList: {},
-              riskyTokenList: {},
-              tokenListValue: {},
-              tokenListMap: {},
-              tokenListCurrency: {},
-            },
+            tokenList: {},
+            smallBalanceTokenList: {},
+            riskyTokenList: {},
+            tokenListValue: {},
+            tokenListMap: {},
+            tokenListCurrency: {},
           };
-          cache = this.homeLocalAccountTokensCache.data;
+          cache = this.homeLocalAccountTokensCache;
         }
         cache.tokenList[key] = filteredTokenList;
         cache.smallBalanceTokenList[key] = filteredSmallBalanceTokenList;
@@ -789,9 +776,12 @@ class ServiceToken extends ServiceBase {
           await this._updateAccountLocalTokensDebounced();
         }
       } else {
-        await this.updateAccountLocalTokens({
-          dbAccount,
-          accountId,
+        // Address preflight and response validation have already completed.
+        // Persist this accepted snapshot without another asynchronous owner
+        // lookup; UI publication remains guarded below the storage await.
+        await this.backgroundApi.simpleDb.localTokens.updateAccountTokenList({
+          accountAddress,
+          xpub,
           networkId,
           tokenList: filteredTokenList,
           smallBalanceTokenList: filteredSmallBalanceTokenList,
@@ -799,7 +789,6 @@ class ServiceToken extends ServiceBase {
           tokenListValue: tokenListValue.toFixed(),
           tokenListMap: filteredTokenListMap,
           currency: resolvedCurrency,
-          homeRequest,
         });
       }
     }
@@ -951,13 +940,15 @@ class ServiceToken extends ServiceBase {
       this.homeLocalAccountTokensCache = undefined;
       if (!pending) return;
       try {
-        homeTokenRequestRegistry.assertCurrent(pending.homeRequest);
         await this.backgroundApi.simpleDb.localTokens.updateAccountTokenListByCache(
-          pending.data,
-          pending.homeRequest,
+          pending,
         );
       } catch (error) {
-        if (!isCancel(error)) throw error;
+        // Lodash invokes trailing callbacks from a timer; there is no caller
+        // awaiting this promise to observe a persistence failure.
+        if (!isCancel(error)) {
+          defaultLogger.app.error.log('Home token cache persistence failed');
+        }
       }
     },
     3000,

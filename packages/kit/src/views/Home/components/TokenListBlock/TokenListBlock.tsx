@@ -342,9 +342,6 @@ function TokenListBlock({
   const lastSingleLiveRequestRef = useRef<IHomeTokenRequest | undefined>(
     undefined,
   );
-  const explicitHomeRequestRef = useRef<IHomeTokenRequest | undefined>(
-    undefined,
-  );
   const homeRequestEpochRef = useRef(-1);
   const getHomeRequest = useCallback(
     (newRound = false) => {
@@ -352,6 +349,7 @@ function TokenListBlock({
       const ownerKey = cellsIngestInputsRef.current.ownerKey;
       if (
         newRound ||
+        !isHomeTokenRequestCurrent(homeRequestRef.current) ||
         homeRequestEpochRef.current !== activeAccountEpoch ||
         homeRequestRef.current?.ownerKey !== ownerKey
       ) {
@@ -369,13 +367,6 @@ function TokenListBlock({
         retireHomeTokenRequest(homeRequest);
         void backgroundApiProxy.serviceToken
           .cancelHomeTokenRequest(homeRequest)
-          .catch(() => undefined);
-      }
-      const explicitRequest = explicitHomeRequestRef.current;
-      if (explicitRequest) {
-        retireHomeTokenRequest(explicitRequest);
-        void backgroundApiProxy.serviceToken
-          .cancelHomeTokenRequest(explicitRequest)
           .catch(() => undefined);
       }
     },
@@ -731,7 +722,12 @@ function TokenListBlock({
         if (!tokenListRefreshEventStarted) {
           return;
         }
-        if (!isHomeTokenRequestCurrent(homeRequest)) {
+        if (
+          !isAccountEpochCurrent(requestAccountEpoch) ||
+          singleNetworkRefreshGeneration !==
+            singleNetworkRefreshGenerationRef.current ||
+          !isHomeTokenRequestCurrent(homeRequest)
+        ) {
           tokenListRefreshEventStarted = false;
           return;
         }
@@ -3462,16 +3458,23 @@ function TokenListBlock({
 
   const handleRefreshAllNetworkDataByAccounts = useCallback(
     async (accounts: { accountId: string; networkId: string }[]) => {
-      for (const { accountId, networkId } of accounts) {
-        await handleAllNetworkRequests({
-          accountId,
-          networkId,
-          allNetworkDataInit: false,
-          isSingleRequest: true,
-        });
-      }
-      if (showLpTokensOnly) {
-        await runLpTokenList({ alwaysSetState: true });
+      try {
+        for (const { accountId, networkId } of accounts) {
+          await handleAllNetworkRequests({
+            accountId,
+            networkId,
+            allNetworkDataInit: false,
+            isSingleRequest: true,
+          });
+        }
+        if (showLpTokensOnly) {
+          await runLpTokenList({ alwaysSetState: true });
+        }
+      } catch (error) {
+        // Event listeners launch this task without awaiting its result.
+        if (!isRequestCanceledError(error)) {
+          defaultLogger.app.error.log('Home account token refresh failed');
+        }
       }
     },
     [handleAllNetworkRequests, runLpTokenList, showLpTokensOnly],
@@ -3511,13 +3514,8 @@ function TokenListBlock({
     },
   );
 
-  // Imperatively refresh the single-network wallet token list for an
-  // explicitly provided account/network. Used when a refresh is emitted from
-  // another home tab right after a network switch: this list may be frozen
-  // (inactive tab), so its own `run` closures still point at the previous
-  // network. Driving the fetch from explicit params lets the always-visible
-  // header worth (and the shared token-list atoms) update to the new network
-  // without waiting for the user to return to this tab.
+  // Refresh the shared header for an explicit single-network owner while
+  // Portfolio's regular live fetch is gated on tab focus.
   const explicitRefreshSeqRef = useRef(0);
   const refreshSingleNetworkTokenListByTarget = useCallback(
     async (target: {
@@ -3527,8 +3525,8 @@ function TokenListBlock({
     }) => {
       const { accountId, networkId, indexedAccountId } = target;
       if (!accountId || !networkId) return;
-      // All-networks aggregation is driven by a separate, closure-bound hook
-      // that cannot be refreshed imperatively here; let it refresh on return.
+      // All Networks is refreshed by its own hook, including owner changes
+      // while Portfolio is off-tab.
       if (networkUtils.isAllNetwork({ networkId })) return;
 
       explicitRefreshSeqRef.current += 1;
@@ -3552,8 +3550,10 @@ function TokenListBlock({
           selectedAccount: accountSelectorStore?.get(selectedAccountsAtom())[0],
         });
       if (!isTargetCurrent()) return;
-      const homeRequest = createHomeTokenRequest(`${accountId}__${networkId}`);
-      explicitHomeRequestRef.current = homeRequest;
+      // The off-tab live fetch and cache hydration belong to the same owner
+      // round. Creating a second generation here would cancel hydration.
+      if (!isHomeRequestCurrent()) return;
+      const homeRequest = getHomeRequest();
       const isLatest = () =>
         explicitRefreshSeqRef.current === seq &&
         isTargetCurrent() &&
@@ -3697,6 +3697,8 @@ function TokenListBlock({
     },
     [
       accountSelectorStore,
+      getHomeRequest,
+      isHomeRequestCurrent,
       walletTokenFilterParams,
       updateAccountOverviewState,
       updateAccountWorth,
@@ -3707,11 +3709,8 @@ function TokenListBlock({
     const refresh = (
       params: IAppEventBusPayload[EAppEventBusNames.RefreshTokenList],
     ) => {
-      // A flagged payload (emitted from another home tab right after a network
-      // switch) asks this list to refresh against the provided account/network.
-      // This list may be frozen with a stale network in its closures, so honor
-      // the explicit target instead of falling through to the closure-bound
-      // `run` / all-networks paths.
+      // A flagged payload requests the provided single-network owner through
+      // the same path used for off-tab header refreshes.
       if (params?.refreshByProvidedAccounts) {
         const target = params.accounts?.[0];
         if (target) {
@@ -3761,12 +3760,8 @@ function TokenListBlock({
     showLpTokensOnly,
   ]);
 
-  // The fetch above is gated on this tab being focused. When the active owner
-  // changes while another home tab is active, nothing fetches the new owner,
-  // leaving the always-visible header worth on a skeleton. The off-tab
-  // network-switch path (RefreshTokenList with refreshByProvidedAccounts,
-  // emitted by HomePageView) does not guarantee that the blurred wallet pane
-  // runs its focused fetch. Refresh the mounted owner explicitly instead.
+  // Single-network live fetches are focus-gated. Portfolio stays mounted and
+  // observes owner changes off-tab so this path can refresh the shared header.
   const activeHomeTabId = useContext(HomeStickyHeaderContext)?.activeTabId;
   useEffect(() => {
     const target = resolveOffTabTokenListRefreshOnMount({
@@ -3788,7 +3783,13 @@ function TokenListBlock({
     // Owner-keyed on purpose: re-running on tab changes would refetch on
     // every tab switch.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [account?.id, network?.id]);
+  }, [
+    account?.id,
+    network?.id,
+    indexedAccount?.id,
+    wallet?.id,
+    activeAccountEpoch,
+  ]);
 
   useEffect(() => {
     if (isEmptyAccount) {

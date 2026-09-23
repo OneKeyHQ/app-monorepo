@@ -1,6 +1,7 @@
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { appEventBus } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { getAdvertisedHomeTokenMainRuntimeId } from '@onekeyhq/shared/src/utils/homeTokenRequest';
 import { getEmptyTokenData } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type { IHomeTokenRequest } from '@onekeyhq/shared/types/token';
@@ -57,6 +58,7 @@ jest.mock('../vaults/factory', () => ({
 jest.mock('../vaults/settings', () => ({ getVaultSettings: jest.fn() }));
 jest.mock('@onekeyhq/shared/src/logger/logger', () => ({
   defaultLogger: {
+    app: { error: { log: jest.fn() } },
     token: {
       request: {
         fetchAccountTokenAccountAddressAndXpubBothEmpty: jest.fn(),
@@ -316,7 +318,7 @@ describe('ServiceToken native Home request lifetime', () => {
     await rejected;
   });
 
-  it('drops retired debounced Home writes and retains the final owner cache', async () => {
+  it('persists completed Home snapshots even when their request is retired', async () => {
     jest.useFakeTimers();
     try {
       service._currentNetworkId = getNetworkIdsMap().onekeyall;
@@ -329,7 +331,14 @@ describe('ServiceToken native Home request lifetime', () => {
       await jest.advanceTimersByTimeAsync(3000);
       expect(
         api.simpleDb.localTokens.updateAccountTokenListByCache,
-      ).not.toHaveBeenCalled();
+      ).toHaveBeenCalledTimes(1);
+      expect(
+        api.simpleDb.localTokens.updateAccountTokenListByCache.mock.calls[0],
+      ).toEqual([
+        expect.objectContaining({
+          tokenListValue: { 'evm--1_fixture-address': '0' },
+        }),
+      ]);
       await service.fetchAccountTokens({
         ...fetchParams(),
         homeRequest: token(3),
@@ -339,10 +348,48 @@ describe('ServiceToken native Home request lifetime', () => {
       await jest.advanceTimersByTimeAsync(3000);
       expect(
         api.simpleDb.localTokens.updateAccountTokenListByCache,
+      ).toHaveBeenCalledTimes(2);
+      expect(
+        api.simpleDb.localTokens.updateAccountTokenListByCache.mock.calls[1],
+      ).toHaveLength(1);
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  it('persists completed snapshots from both owners in one trailing batch', async () => {
+    jest.useFakeTimers();
+    try {
+      service._currentNetworkId = getNetworkIdsMap().onekeyall;
+      await service.fetchAccountTokens({
+        ...fetchParams(),
+        isAllNetworks: true,
+        saveToLocal: true,
+      });
+      api.serviceAccount.getAccountAddressForApi.mockResolvedValue(
+        'next-address',
+      );
+      await service.fetchAccountTokens({
+        ...fetchParams(),
+        accountId: 'next-account',
+        homeRequest: { ...token(2), ownerKey: 'next-owner' },
+        isAllNetworks: true,
+        saveToLocal: true,
+      });
+      await jest.advanceTimersByTimeAsync(3000);
+      expect(
+        api.simpleDb.localTokens.updateAccountTokenListByCache,
       ).toHaveBeenCalledTimes(1);
       expect(
-        api.simpleDb.localTokens.updateAccountTokenListByCache.mock.calls[0][1],
-      ).toEqual(token(3));
+        api.simpleDb.localTokens.updateAccountTokenListByCache.mock.calls[0],
+      ).toEqual([
+        expect.objectContaining({
+          tokenListValue: {
+            'evm--1_fixture-address': '0',
+            'evm--1_next-address': '0',
+          },
+        }),
+      ]);
     } finally {
       jest.useRealTimers();
     }
@@ -378,9 +425,42 @@ describe('ServiceToken native Home request lifetime', () => {
         api.simpleDb.localTokens.updateAccountTokenListByCache,
       ).toHaveBeenCalledTimes(2);
       expect(
-        api.simpleDb.localTokens.updateAccountTokenListByCache.mock.calls[1][1],
-      ).toEqual(token(3));
+        api.simpleDb.localTokens.updateAccountTokenListByCache.mock.calls[1],
+      ).toHaveLength(1);
     } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  it('observes trailing persistence failures and allows the next batch to flush', async () => {
+    jest.useFakeTimers();
+    const errorLog = jest.spyOn(defaultLogger.app.error, 'log');
+    try {
+      service._currentNetworkId = getNetworkIdsMap().onekeyall;
+      api.simpleDb.localTokens.updateAccountTokenListByCache.mockRejectedValueOnce(
+        new OneKeyLocalError('storage unavailable'),
+      );
+      await service.fetchAccountTokens({
+        ...fetchParams(),
+        isAllNetworks: true,
+        saveToLocal: true,
+      });
+      await jest.advanceTimersByTimeAsync(3000);
+      expect(errorLog).toHaveBeenCalledWith(
+        'Home token cache persistence failed',
+      );
+      await service.fetchAccountTokens({
+        ...fetchParams(),
+        homeRequest: token(2),
+        isAllNetworks: true,
+        saveToLocal: true,
+      });
+      await jest.advanceTimersByTimeAsync(3000);
+      expect(
+        api.simpleDb.localTokens.updateAccountTokenListByCache,
+      ).toHaveBeenCalledTimes(2);
+    } finally {
+      errorLog.mockRestore();
       jest.useRealTimers();
     }
   });

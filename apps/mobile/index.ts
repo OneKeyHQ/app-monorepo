@@ -23,10 +23,6 @@ const { markRuntimePolyfillsReady } =
   require('@onekeyhq/shared/src/polyfills/runtimeCapabilities') as typeof import('@onekeyhq/shared/src/polyfills/runtimeCapabilities');
 markRuntimePolyfillsReady();
 
-// Keep warnings and errors in console/native logs without covering the app UI.
-const { LogBox } = require('react-native') as typeof import('react-native');
-LogBox.ignoreAllLogs();
-
 // ── On-device Storybook workbench: independent top-level entry ──
 //
 // Registered before the wallet bootstrap in the else branch so a wallet-init

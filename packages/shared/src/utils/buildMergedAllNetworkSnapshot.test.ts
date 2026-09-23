@@ -58,6 +58,45 @@ function makeRound(
 }
 
 describe('buildMergedAllNetworkSnapshot', () => {
+  it('keeps retained aggregate rounds unchanged when a network is evicted', () => {
+    const firstToken = makeToken('first', { networkId: 'evm--1' });
+    const secondToken = makeToken('second', { networkId: 'evm--56' });
+    const first = makeRound({
+      aggregateTokenListMap: { aggregate_ETH_: { tokens: [firstToken] } },
+    });
+    const second = makeRound({
+      networkId: 'evm--56',
+      aggregateTokenListMap: { aggregate_ETH_: { tokens: [secondToken] } },
+    });
+    for (const round of [first, second]) {
+      for (const group of Object.values(round.aggregateTokenListMap ?? {})) {
+        Object.freeze(group.tokens);
+        Object.freeze(group);
+      }
+      Object.freeze(round.aggregateTokenListMap);
+      Object.freeze(round);
+    }
+    const merged = buildMergedAllNetworkSnapshot({
+      rounds: [first, second],
+      mergeDeriveAssetsByNetworkId: {},
+    });
+    expect(merged.aggregateTokenListMap.aggregate_ETH_.tokens).toEqual([
+      firstToken,
+      secondToken,
+    ]);
+    const evicted = buildMergedAllNetworkSnapshot({
+      rounds: [first],
+      mergeDeriveAssetsByNetworkId: {},
+    });
+    expect(evicted.aggregateTokenListMap.aggregate_ETH_.tokens).toEqual([
+      firstToken,
+    ]);
+    expect(first.aggregateTokenListMap?.aggregate_ETH_.tokens).toEqual([
+      firstToken,
+    ]);
+    expect(merged.aggregateTokenListMap.aggregate_ETH_.tokens).toHaveLength(2);
+  });
+
   it('merges derived balances without mutating a cached raw entry shared by the token groups', () => {
     const cachedFiat = Object.freeze(
       makeFiat('10', {

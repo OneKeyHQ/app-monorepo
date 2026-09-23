@@ -348,6 +348,7 @@ describe('startRuntimeHealthCensus', () => {
     const originalRequestFrame = globalThis.requestAnimationFrame;
     const originalCancelFrame = globalThis.cancelAnimationFrame;
     const originalRuntimeRole = platformEnv.runtimeRole;
+    const originalPerfMonitorEnabled = process.env.PERF_MONITOR_ENABLED;
     let frameCallbacks: Map<number, (timestamp: number) => void>;
     let nextFrameId = 0;
     let wallSpy: jest.SpyInstance;
@@ -366,6 +367,7 @@ describe('startRuntimeHealthCensus', () => {
       mockRuntimeHealthCensus.mock.calls[0][0] as IRuntimeHealthReport;
 
     beforeEach(() => {
+      process.env.PERF_MONITOR_ENABLED = '1';
       frameCallbacks = new Map();
       nextFrameId = 0;
       platformEnv.runtimeRole = ERuntimeRole.Main;
@@ -383,11 +385,28 @@ describe('startRuntimeHealthCensus', () => {
     });
 
     afterEach(() => {
+      if (originalPerfMonitorEnabled === undefined) {
+        delete process.env.PERF_MONITOR_ENABLED;
+      } else {
+        process.env.PERF_MONITOR_ENABLED = originalPerfMonitorEnabled;
+      }
       stopRuntimeHealthCensus();
       globalThis.requestAnimationFrame = originalRequestFrame;
       globalThis.cancelAnimationFrame = originalCancelFrame;
       platformEnv.runtimeRole = originalRuntimeRole;
       wallSpy.mockRestore();
+    });
+
+    it('keeps production health census without scheduling diagnostic frames', () => {
+      delete process.env.PERF_MONITOR_ENABLED;
+      startRuntimeHealthCensus();
+      runIdle(30_000);
+      expect(globalThis.requestAnimationFrame).not.toHaveBeenCalled();
+      expect(firstReport()).toMatchObject({
+        fpsSamplingAvailable: 0,
+        fpsSamples: [],
+        windowMs: 30_000,
+      });
     });
 
     it('retains actual elapsed time and complete coverage without extra logs', () => {

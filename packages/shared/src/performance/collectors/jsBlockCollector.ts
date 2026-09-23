@@ -4,6 +4,7 @@ import {
   getCurrentVisibilityState,
   onVisibilityStateChange,
 } from '../../utils/appVisibility';
+import { isPerfMonitorEnabled } from '../enabled';
 import { perfMark } from '../mark';
 
 let timer: ReturnType<typeof setInterval> | null = null;
@@ -306,6 +307,7 @@ export function startRuntimeHealthCensus({
   let jsFpsMin: number | undefined;
   let stopped = false;
   const fpsSamplingAvailable =
+    isPerfMonitorEnabled() &&
     platformEnv.runtimeRole !== ERuntimeRole.Background &&
     typeof globalThis.requestAnimationFrame === 'function' &&
     typeof globalThis.cancelAnimationFrame === 'function' &&

@@ -212,15 +212,17 @@ function HomeTabContentMaxWidth({ children }: { children: React.ReactNode }) {
 function FreezeInactiveHomeTab({
   tabName,
   pressedTabName,
+  keepActive,
   children,
 }: {
   tabName: string;
   pressedTabName: string;
+  keepActive: boolean;
   children: React.ReactNode;
 }) {
   const focusedTab = useFocusedTab();
   const frozen = useHomeTabFreeze(
-    isHomeTabActive({ tabName, focusedTab, pressedTabName }),
+    keepActive || isHomeTabActive({ tabName, focusedTab, pressedTabName }),
   );
   return <DelayedFreeze freeze={frozen}>{children}</DelayedFreeze>;
 }
@@ -577,6 +579,13 @@ export function HomePageView({
     [],
   );
 
+  const accountPaneKey = [
+    wallet?.id,
+    indexedAccount?.id,
+    account?.id,
+    network?.id,
+    activeAccount.deriveType,
+  ].join('|');
   const tabConfigs = useMemo(() => {
     return [
       {
@@ -608,7 +617,7 @@ export function HomePageView({
               id: ETranslations.global_earn,
             }),
             testID: HomeTestIDs.tabDefi,
-            component: <DeFiContainerWithProvider />,
+            component: <DeFiContainerWithProvider key={accountPaneKey} />,
           }
         : undefined,
       isNFTEnabled
@@ -620,7 +629,7 @@ export function HomePageView({
             testID: HomeTestIDs.tabNFT,
             component: (
               <HomeTabContentMaxWidth>
-                <NFTListContainerWithProvider />
+                <NFTListContainerWithProvider key={accountPaneKey} />
               </HomeTabContentMaxWidth>
             ),
           }
@@ -633,12 +642,12 @@ export function HomePageView({
         testID: HomeTestIDs.tabHistory,
         component: (
           <HomeTabContentMaxWidth>
-            <TxHistoryListContainerWithProvider />
+            <TxHistoryListContainerWithProvider key={accountPaneKey} />
           </HomeTabContentMaxWidth>
         ),
       },
     ].filter(Boolean);
-  }, [intl, isDeFiEnabled, isNFTEnabled, isPerpsEnabled]);
+  }, [accountPaneKey, intl, isDeFiEnabled, isNFTEnabled, isPerpsEnabled]);
 
   const pagerTabConfigs = useMemo(
     () =>
@@ -865,43 +874,6 @@ export function HomePageView({
     [perpTabShowWeb, switchToPerpsWebTab, tabConfigs, pagerTabConfigs],
   );
 
-  // When the user switches network while NOT on the wallet (token list) tab,
-  // that tab is frozen (see FreezeInactiveHomeTab) so its own token-list
-  // refresh won't run until the user returns — leaving the always-visible
-  // header worth stuck on the previous network. Proactively refresh the wallet
-  // token list for the new network. The list resolves the request from the
-  // explicit account/network in the payload because its own closures are
-  // frozen on the previous network.
-  const prevNetworkIdRef = useRef(network?.id);
-  useEffect(() => {
-    const nextNetworkId = network?.id;
-    const prevNetworkId = prevNetworkIdRef.current;
-    prevNetworkIdRef.current = nextNetworkId;
-    if (!prevNetworkId || !nextNetworkId || prevNetworkId === nextNetworkId) {
-      return;
-    }
-    if (!activeTabId || activeTabId === EHomeWalletTab.Portfolio) {
-      return;
-    }
-    const accountId = account?.id;
-    if (!accountId) {
-      return;
-    }
-    appEventBus.emit(EAppEventBusNames.RefreshTokenList, {
-      accounts: [
-        {
-          accountId,
-          networkId: nextNetworkId,
-          // Provide the fresh indexedAccountId so the frozen token list can
-          // resolve aggregate hidden/custom tokens correctly instead of
-          // falling back to its own (stale) closure.
-          indexedAccountId: indexedAccount?.id,
-        },
-      ],
-      refreshByProvidedAccounts: true,
-    });
-  }, [network?.id, activeTabId, account?.id, indexedAccount?.id]);
-
   const stickyHeaderCtx = useMemo(
     () => ({
       portalTarget,
@@ -926,9 +898,8 @@ export function HomePageView({
         </Keyboard.AwareScrollView>
       );
     }
-    // Keep the pager mounted across account and network switches. Account-bound
-    // panes react to their owner-scoped atoms; remounting this container also
-    // restarts account-independent Market/Recommended requests.
+    // Keep the pager and Portfolio mounted so account-independent requests are
+    // preserved. Other account-bound panes reset their local state by owner.
     const seedTabName = pagerTabConfigs.some(
       (tab) => tab.name === activeTabName,
     )
@@ -954,12 +925,20 @@ export function HomePageView({
         renderSubHeader={renderSubHeader}
       >
         {pagerTabConfigs.map((tab) => (
-          <Tabs.Tab key={tab.name} name={tab.name}>
+          <Tabs.Tab
+            key={tab.name}
+            name={tab.name}
+            startMounted={tab.id === EHomeWalletTab.Portfolio}
+          >
             <FreezeInactiveHomeTab
               tabName={tab.name}
               pressedTabName={activeTabName}
+              // Portfolio owns the shared header's token requests, including
+              // All Networks; it must observe owner changes while off-tab.
+              keepActive={tab.id === EHomeWalletTab.Portfolio}
             >
               {platformEnv.isNative ||
+              tab.id === EHomeWalletTab.Portfolio ||
               tab.id === EHomeWalletTab.Perps ||
               activeTabId === tab.id ||
               mountedHomeTabIds.has(tab.id) ? (

@@ -7,13 +7,10 @@ export interface IOffTabTokenListRefreshTarget {
   indexedAccountId?: string;
 }
 
-// The wallet (spot) token list fetches only while its tab is focused, and it
-// is remounted for every account switch. When that happens while another
-// home tab is active, nothing fetches the new owner until the user returns,
-// so the always-visible header worth stays on a skeleton. Resolve the
-// explicit single-network refresh the freshly mounted list should run for
-// its owner instead. All Networks is left to the fan-out hook, which is not
-// gated on the inner tab.
+// Regular single-network fetching is gated on the Portfolio tab. Resolve an
+// explicit refresh on mount or owner changes while another tab is active so
+// the shared header follows the current account. All Networks uses the fan-out
+// hook, which is not gated on the inner tab.
 export function resolveOffTabTokenListRefreshOnMount({
   accountId,
   networkId,

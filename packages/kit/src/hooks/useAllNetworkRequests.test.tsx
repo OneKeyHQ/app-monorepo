@@ -2,6 +2,7 @@
  * @jest-environment jsdom
  */
 import { act, renderHook, waitFor } from '@testing-library/react-native';
+import { CanceledError } from 'axios';
 
 import type {
   IAllNetworkAccountInfo,
@@ -107,7 +108,17 @@ function accountsFor(owner: string, count = 21): IAllNetworkAccountsInfoResult {
 
 type IRound = { networkId: string };
 let setupCount = 0;
-function setup({ warm = true, guarded = true, isNFTRequests = false } = {}) {
+function setup({
+  warm = true,
+  guarded = true,
+  isNFTRequests = false,
+  cacheBatch,
+}: {
+  warm?: boolean;
+  guarded?: boolean;
+  isNFTRequests?: boolean;
+  cacheBatch?: (accounts: IAllNetworkAccountInfo[]) => Promise<IRound[]>;
+} = {}) {
   setupCount += 1;
   let currentEpoch = 1;
   const fetch = jest.fn(
@@ -123,6 +134,8 @@ function setup({ warm = true, guarded = true, isNFTRequests = false } = {}) {
   const settled = jest.fn();
   const published = jest.fn();
   const accountsData = jest.fn();
+  const cacheChecked = jest.fn();
+  const finished = jest.fn();
   const hook = renderHook(
     ({ accountId, epoch }: { accountId: string; epoch: number }) =>
       useAllNetworkRequests<IRound>({
@@ -134,11 +147,14 @@ function setup({ warm = true, guarded = true, isNFTRequests = false } = {}) {
         isRunCurrent: guarded ? () => epoch === currentEpoch : undefined,
         allNetworkRequests: fetch,
         allNetworkCacheRequests: cache,
+        allNetworkCacheRequestsBatch: cacheBatch,
         allNetworkCacheData: seed,
         allNetworkAccountsData: accountsData,
         clearAllNetworkData: jest.fn(),
         clearRetainedResultOnAcceptedRun: true,
         onStarted: started,
+        onCacheChecked: cacheChecked,
+        onFinished: finished,
         onRequestSettled: settled,
         onResultPublished: published,
       }),
@@ -153,6 +169,8 @@ function setup({ warm = true, guarded = true, isNFTRequests = false } = {}) {
     settled,
     published,
     accountsData,
+    cacheChecked,
+    finished,
     invalidate: () => {
       currentEpoch += 1;
     },
@@ -176,6 +194,35 @@ beforeEach(() => {
 });
 
 describe('Home All Networks dispatch ownership', () => {
+  it('silently retires a canceled cache batch without publishing a cache miss or finishing its successor', async () => {
+    const batch = jest
+      .fn<Promise<IRound[]>, [IAllNetworkAccountInfo[]]>()
+      .mockRejectedValueOnce(new CanceledError('superseded'))
+      .mockResolvedValueOnce([{ networkId: 'evm--1' }]);
+    const hook = setup({ cacheBatch: batch });
+    const errorLog = jest
+      .spyOn(console, 'error')
+      .mockImplementation(() => undefined);
+    try {
+      await act(() => hook.result.current.run());
+      expect(errorLog).not.toHaveBeenCalled();
+      expect(hook.cacheChecked).not.toHaveBeenCalled();
+      expect(hook.finished).not.toHaveBeenCalled();
+      expect(hook.fetch).not.toHaveBeenCalled();
+      expect(hook.published).not.toHaveBeenCalled();
+
+      await act(() => hook.result.current.run());
+      expect(batch).toHaveBeenCalledTimes(2);
+      expect(hook.cacheChecked).toHaveBeenCalledWith(
+        expect.objectContaining({ hasCache: true }),
+      );
+      expect(hook.fetch).toHaveBeenCalledTimes(21);
+      expect(hook.published).toHaveBeenCalledTimes(1);
+    } finally {
+      errorLog.mockRestore();
+    }
+  });
+
   it.each([true, false])(
     'rebuilds all 22 tasks from one account array without changing entries (warm=%s)',
     async (warm) => {
