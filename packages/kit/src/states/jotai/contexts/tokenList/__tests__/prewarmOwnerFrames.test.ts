@@ -13,7 +13,10 @@ import {
   clearOwnerReplayCache,
   getOwnerReplayFrames,
 } from '../cells/ownerFrameReplayCache';
-import { prewarmHomeTokenListOwner } from '../cells/prewarmOwnerFrames';
+import {
+  buildAccountSelectorRowPrewarmParams,
+  prewarmHomeTokenListOwner,
+} from '../cells/prewarmOwnerFrames';
 
 import type { IPrewarmHomeTokenListOwnerParams } from '../cells/prewarmOwnerFrames';
 
@@ -220,5 +223,62 @@ describe('prewarmHomeTokenListOwner', () => {
     await expect(
       prewarmHomeTokenListOwner({ ...PARAMS, currencyId: 'cny' }),
     ).resolves.toBe(false);
+  });
+});
+
+// The open-selector prewarm and the tap build their params from the same row,
+// so both warm the owner the tap publishes (PR #13695 review).
+describe('buildAccountSelectorRowPrewarmParams', () => {
+  it('warms an HD row by its indexed account on the selected network', () => {
+    expect(
+      buildAccountSelectorRowPrewarmParams({
+        row: { indexedAccount: { id: 'hd-1--3' } },
+        isOthersUniversal: false,
+        selectedNetworkId: NETWORK_ID,
+        selectedDeriveType: 'default',
+        currencyId: 'usd',
+      }),
+    ).toEqual({
+      networkId: NETWORK_ID,
+      deriveType: 'default',
+      indexedAccountId: 'hd-1--3',
+      currencyId: 'usd',
+    });
+  });
+
+  it('warms an others-wallet row by its DB account on the matched network', () => {
+    // Others rows are DB accounts; their id is not an indexed account id.
+    expect(
+      buildAccountSelectorRowPrewarmParams({
+        row: {
+          account: { id: 'watching--60--0xabc' },
+          avatarNetworkId: 'evm--1',
+        },
+        isOthersUniversal: true,
+        selectedNetworkId: NETWORK_ID,
+        selectedDeriveType: 'default',
+        currencyId: 'usd',
+      }),
+    ).toEqual({
+      networkId: 'evm--1',
+      deriveType: 'default',
+      othersWalletAccountId: 'watching--60--0xabc',
+      currencyId: 'usd',
+    });
+  });
+
+  it('keeps All Networks for an others-wallet row, as the selection does', () => {
+    expect(
+      buildAccountSelectorRowPrewarmParams({
+        row: {
+          account: { id: 'watching--60--0xabc' },
+          avatarNetworkId: 'evm--1',
+        },
+        isOthersUniversal: true,
+        selectedNetworkId: 'onekeyall--0',
+        selectedDeriveType: 'default',
+        currencyId: 'usd',
+      }).networkId,
+    ).toBe('onekeyall--0');
   });
 });

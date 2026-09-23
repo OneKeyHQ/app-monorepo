@@ -220,3 +220,48 @@ export function prewarmHomeTokenListOwnerWithin(
 
 /** How long a selector tap waits for the target owner's prewarm. */
 export const HOME_TOKEN_LIST_PREWARM_TAP_TIMEOUT_MS = 250;
+
+/**
+ * The owner a home account-selector row switches to, as prewarm params. The
+ * open-time prewarm and the tap share it so both warm the owner the tap
+ * publishes. Others-wallet rows are DB accounts, not indexed accounts, and
+ * land on the row's matched network unless All Networks is selected (the
+ * same choice `confirmAccountSelect` gets).
+ */
+export function buildAccountSelectorRowPrewarmParams({
+  row,
+  isOthersUniversal,
+  selectedNetworkId,
+  selectedDeriveType,
+  currencyId,
+}: {
+  row: {
+    account?: { id: string };
+    indexedAccount?: { id: string };
+    avatarNetworkId?: string;
+  };
+  isOthersUniversal: boolean;
+  selectedNetworkId: string | undefined;
+  selectedDeriveType: IAccountDeriveTypes | undefined;
+  currencyId: string | undefined;
+}): IPrewarmHomeTokenListOwnerParams {
+  if (isOthersUniversal) {
+    const networkId =
+      selectedNetworkId &&
+      networkUtils.isAllNetwork({ networkId: selectedNetworkId })
+        ? selectedNetworkId
+        : (row.avatarNetworkId ?? selectedNetworkId);
+    return {
+      networkId,
+      deriveType: selectedDeriveType,
+      othersWalletAccountId: row.account?.id,
+      currencyId,
+    };
+  }
+  return {
+    networkId: selectedNetworkId,
+    deriveType: selectedDeriveType,
+    indexedAccountId: row.indexedAccount?.id,
+    currencyId,
+  };
+}
