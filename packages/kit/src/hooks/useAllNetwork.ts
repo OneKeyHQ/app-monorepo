@@ -10,6 +10,7 @@ import type {
 import { useAppIsLockedAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/passwordLock';
 import type { INetworkDeriveInfo } from '@onekeyhq/kit-bg/src/vaults/types';
 import { POLLING_DEBOUNCE_INTERVAL } from '@onekeyhq/shared/src/consts/walletConsts';
+import { isRequestCanceledError } from '@onekeyhq/shared/src/errors/utils/errorUtils';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -609,7 +610,8 @@ function useAllNetworkRequests<T>(params: {
 
   const { run, result, setResult } = usePromiseResult(
     async () => {
-      const isCurrentRun = () => isRunCurrent?.() ?? true;
+      let runCanceled = false;
+      const isCurrentRun = () => !runCanceled && (isRunCurrent?.() ?? true);
       const runnerOwnerKey = buildAllNetworkRunOwnerKey({
         accountId: currentAccountId,
         networkId: currentNetworkId,
@@ -967,6 +969,7 @@ function useAllNetworkRequests<T>(params: {
             if (allNetworkCacheRequestsBatch) {
               if (!isCurrentRun()) {
                 cacheDispatchDropped += accountsInfo.length;
+                traceRunSkipped('stale-owner-before-cache', runGeneration);
                 return;
               }
               cacheDispatchStarted += accountsInfo.length;
@@ -1054,6 +1057,11 @@ function useAllNetworkRequests<T>(params: {
               });
             }
           } catch (e) {
+            if (isRequestCanceledError(e)) {
+              runCanceled = true;
+              traceRunSkipped('canceled-cache-probe', runGeneration);
+              return;
+            }
             console.error(e);
           } finally {
             if (isCurrentRun()) {
