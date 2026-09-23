@@ -566,11 +566,14 @@ function WalletBanner({ hidden = false }: { hidden?: boolean } = {}) {
     }));
   }, []);
 
-  const { result: referralEligibility } = usePromiseResult(
+  const referralAccountScope = `${account?.id ?? ''}:${indexedAccount?.id ?? ''}`;
+
+  const { result: scopedReferralEligibility } = usePromiseResult(
     async () => {
       if (!account?.id) {
         return null;
       }
+      const scope = `${account.id}:${indexedAccount?.id ?? ''}`;
       // Use the global EVM deriveType for PERPS_NETWORK_ID, not the scene-local
       // deriveType. Home may currently be on a non-EVM network (e.g. BTC with
       // 'native_segwit'), in which case the scene deriveType cannot resolve the
@@ -579,23 +582,31 @@ function WalletBanner({ hidden = false }: { hidden?: boolean } = {}) {
         await backgroundApiProxy.serviceNetwork.getGlobalDeriveTypeOfNetwork({
           networkId: PERPS_NETWORK_ID,
         });
-      return backgroundApiProxy.serviceHyperliquidReferral.checkBannerReferralEligibility(
-        {
-          accountId: account.id,
-          indexedAccountId: indexedAccount?.id || undefined,
-          deriveType: globalEvmDeriveType,
-        },
-      );
+      const eligibility =
+        await backgroundApiProxy.serviceHyperliquidReferral.checkBannerReferralEligibility(
+          {
+            accountId: account.id,
+            indexedAccountId: indexedAccount?.id || undefined,
+            deriveType: globalEvmDeriveType,
+          },
+        );
+      return { scope, eligibility };
     },
     [account?.id, indexedAccount?.id],
     {
       revalidateOnFocus: true,
       revalidateOnReconnect: true,
-      undefinedResultIfReRun: true,
     },
   );
+  // Keep the last result while a focus/reconnect revalidation is in flight:
+  // the eligible path always hits the network (~1s), and clearing the result
+  // meanwhile drops the banner and re-inserts it at index 0 on every tab
+  // switch. A result from a previously selected account is never shown.
+  const referralEligibility =
+    scopedReferralEligibility?.scope === referralAccountScope
+      ? scopedReferralEligibility.eligibility
+      : undefined;
 
-  const referralAccountScope = `${account?.id ?? ''}:${indexedAccount?.id ?? ''}`;
   const referralAccountScopeRef = useRef(referralAccountScope);
   referralAccountScopeRef.current = referralAccountScope;
 
