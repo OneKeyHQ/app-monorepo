@@ -566,14 +566,33 @@ function WalletBanner({ hidden = false }: { hidden?: boolean } = {}) {
     }));
   }, []);
 
-  const referralAccountScope = `${account?.id ?? ''}:${indexedAccount?.id ?? ''}`;
+  // A global EVM deriveType change resolves a different Arbitrum address under
+  // the same account/indexedAccount ids, so it must invalidate the scope too.
+  const [perpsDeriveTypeRevision, setPerpsDeriveTypeRevision] = useState(0);
+  useEffect(() => {
+    const onGlobalDeriveTypeUpdate = () => {
+      setPerpsDeriveTypeRevision((value) => value + 1);
+    };
+    appEventBus.on(
+      EAppEventBusNames.GlobalDeriveTypeUpdate,
+      onGlobalDeriveTypeUpdate,
+    );
+    return () => {
+      appEventBus.off(
+        EAppEventBusNames.GlobalDeriveTypeUpdate,
+        onGlobalDeriveTypeUpdate,
+      );
+    };
+  }, []);
+
+  const referralAccountScope = `${account?.id ?? ''}:${indexedAccount?.id ?? ''}:${perpsDeriveTypeRevision}`;
 
   const { result: scopedReferralEligibility } = usePromiseResult(
     async () => {
       if (!account?.id) {
         return null;
       }
-      const scope = `${account.id}:${indexedAccount?.id ?? ''}`;
+      const scope = `${account.id}:${indexedAccount?.id ?? ''}:${perpsDeriveTypeRevision}`;
       // Use the global EVM deriveType for PERPS_NETWORK_ID, not the scene-local
       // deriveType. Home may currently be on a non-EVM network (e.g. BTC with
       // 'native_segwit'), in which case the scene deriveType cannot resolve the
@@ -592,7 +611,7 @@ function WalletBanner({ hidden = false }: { hidden?: boolean } = {}) {
         );
       return { scope, eligibility };
     },
-    [account?.id, indexedAccount?.id],
+    [account?.id, indexedAccount?.id, perpsDeriveTypeRevision],
     {
       revalidateOnFocus: true,
       revalidateOnReconnect: true,
@@ -601,7 +620,7 @@ function WalletBanner({ hidden = false }: { hidden?: boolean } = {}) {
   // Keep the last result while a focus/reconnect revalidation is in flight:
   // the eligible path always hits the network (~1s), and clearing the result
   // meanwhile drops the banner and re-inserts it at index 0 on every tab
-  // switch. A result from a previously selected account is never shown.
+  // switch. A result from a previous account or deriveType is never shown.
   const referralEligibility =
     scopedReferralEligibility?.scope === referralAccountScope
       ? scopedReferralEligibility.eligibility
