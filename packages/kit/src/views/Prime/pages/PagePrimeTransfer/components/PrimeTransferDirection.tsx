@@ -437,15 +437,6 @@ export function PrimeTransferDirection({
     }) => {
       let preparationTaskId: string | undefined;
       try {
-        // const { password } =
-        //   await backgroundApiProxy.servicePassword.promptPasswordVerify({
-        //     reason: EReasonForNeedPassword.Security,
-        //   });
-
-        // if (!password) {
-        //   throw new OneKeyLocalError('Password is required');
-        // }
-
         setIsSendingData(true);
         if (!verifyCode) {
           throw new OneKeyLocalError('Verification code does not exist');
@@ -457,10 +448,15 @@ export function PrimeTransferDirection({
         await timerUtils.wait(120);
         // await onConfirm({ code, uuid });
         isClosedBySendData.current = true;
-        void dialogRef.current?.close();
+        await dialogRef.current?.close();
 
         preparationTaskId =
           await backgroundApiProxy.servicePrimeTransfer.beginTransferPreparation();
+        await backgroundApiProxy.servicePrimeTransfer.authorizeTransferPreparation(
+          {
+            taskId: preparationTaskId,
+          },
+        );
         const transferData =
           await backgroundApiProxy.servicePrimeTransfer.buildTransferData({
             preparationTaskId,

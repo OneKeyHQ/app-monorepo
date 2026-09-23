@@ -1,5 +1,7 @@
 import type { IPbkdf2KdfParams } from '@onekeyhq/shared/src/appCrypto/modules/pbkdf2';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import type { IPrimeTransferData } from '@onekeyhq/shared/types/prime/primeTransferTypes';
+import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
 
 import ServicePrimeTransfer from './ServicePrimeTransfer';
 
@@ -43,13 +45,19 @@ jest.mock(
 jest.mock('../../dbs/local/localDb', () => ({}));
 jest.mock('../../dbs/local/localSecretEnvelope', () => ({}));
 jest.mock('../../endpoints', () => ({}));
-jest.mock('../../utils/secretEncryptFormat', () => ({}));
+jest.mock('../../utils/secretEncryptFormat', () => ({
+  EAppCryptoSharedEncryptScene: {
+    primeTransferCredentials: 'primeTransferCredentials',
+  },
+  encryptStringAsyncWithFormat: async () => 'fixture-wrapped-credentials',
+}));
 jest.mock('../ServiceCloudBackup', () => ({}));
 jest.mock('./e2ee/e2eeClientToClientApi', () => ({}));
 jest.mock('./e2ee/e2eeClientToClientApiProxy', () => ({}));
 jest.mock('./e2ee/e2eeServerApiProxy', () => ({}));
 jest.mock('./servicePrimeTransferUtils', () => ({
   normalizePrimeTransferCredential: (value: string) => value,
+  shouldUseCliBotWalletEncryptedCredential: () => false,
 }));
 jest.mock('../ServiceBase', () => ({
   __esModule: true,
@@ -110,6 +118,137 @@ beforeEach(() => {
   mockKdfParams.mockReset();
 });
 
+function deferredPassword() {
+  let resolvePassword: (result: { password: string }) => void = () => undefined;
+  const promise = new Promise<{ password: string }>((resolve) => {
+    resolvePassword = resolve;
+  });
+  return { promise, resolve: resolvePassword };
+}
+
+test('password confirmation gates progress and preparation, and the verified password is reused through sending', async () => {
+  const password = deferredPassword();
+  const prompt = jest.fn(() => password.promise);
+  const getWallets = jest.fn();
+  const service = new ServicePrimeTransfer({
+    backgroundApi: {
+      servicePassword: { promptPasswordVerify: prompt },
+      serviceAccount: { getWallets },
+    },
+  });
+  jest
+    .spyOn(service, 'checkWebSocketConnected')
+    .mockImplementation(() => undefined);
+  // Stub the peer/network boundaries; exercise the real credential preparation.
+  Object.defineProperty(service, 'resolvePeerSupportsV2Envelope', {
+    value: async () => true,
+  });
+  const send = jest.fn(async () => undefined);
+  Object.defineProperty(service, 'sendPreparedTransferData', { value: send });
+  const taskId = await service.beginTransferPreparation();
+  const authorization = service.authorizeTransferPreparation({ taskId });
+  expect(prompt).toHaveBeenCalledWith({
+    reason: EReasonForNeedPassword.Security,
+  });
+  expect(mockState.preparationProgress).toBeUndefined();
+  await expect(
+    service.buildTransferData({ preparationTaskId: taskId }),
+  ).rejects.toThrow('password verification is required');
+  await expect(
+    service.sendTransferData({
+      transferData: fixture(),
+      preparationTaskId: taskId,
+    }),
+  ).rejects.toThrow('password verification is required');
+  expect(getWallets).not.toHaveBeenCalled();
+  expect(mockDecryptSeed).not.toHaveBeenCalled();
+  expect(send).not.toHaveBeenCalled();
+  password.resolve({ password: 'fixture-verified-password' });
+  await authorization;
+  expect(mockState.preparationProgress).toEqual({ taskId, percentage: 0 });
+  await service.sendTransferData({
+    transferData: fixture(),
+    preparationTaskId: taskId,
+  });
+  expect(prompt).toHaveBeenCalledTimes(1);
+  expect(mockDecryptSeed).toHaveBeenCalledWith(
+    expect.objectContaining({ password: 'fixture-verified-password' }),
+  );
+  expect(send).toHaveBeenCalledTimes(1);
+  await service.cancelNetworkTransfer();
+  const nextTaskId = await service.beginTransferPreparation();
+  await expect(
+    service.sendTransferData({
+      transferData: fixture(),
+      preparationTaskId: nextTaskId,
+    }),
+  ).rejects.toThrow('password verification is required');
+  await service.cancelNetworkTransfer();
+});
+
+test.each(['rejected', 'empty'] as const)(
+  'unsuccessful authentication never publishes preparation progress: %s',
+  async (result) => {
+    const service = new ServicePrimeTransfer({
+      backgroundApi: {
+        servicePassword: {
+          promptPasswordVerify: async () => {
+            if (result === 'rejected')
+              throw new OneKeyLocalError('Password verification cancelled');
+            return { password: '' };
+          },
+        },
+      },
+    });
+    jest
+      .spyOn(service, 'checkWebSocketConnected')
+      .mockImplementation(() => undefined);
+    const taskId = await service.beginTransferPreparation();
+    await expect(
+      service.authorizeTransferPreparation({ taskId }),
+    ).rejects.toThrow();
+    expect(mockPublishedPercentages).toEqual([]);
+    await expect(
+      service.buildTransferData({ preparationTaskId: taskId }),
+    ).rejects.toThrow('password verification is required');
+    await service.cancelNetworkTransfer();
+  },
+);
+
+test('a password result arriving after cancellation cannot authorize a replacement task', async () => {
+  const oldPassword = deferredPassword();
+  const prompt = jest
+    .fn()
+    .mockReturnValueOnce(oldPassword.promise)
+    .mockResolvedValue({ password: 'fixture-new-password' });
+  const service = new ServicePrimeTransfer({
+    backgroundApi: { servicePassword: { promptPasswordVerify: prompt } },
+  });
+  jest
+    .spyOn(service, 'checkWebSocketConnected')
+    .mockImplementation(() => undefined);
+  const oldTaskId = await service.beginTransferPreparation();
+  const authorization = service
+    .authorizeTransferPreparation({ taskId: oldTaskId })
+    .catch((error: unknown) => error);
+  await service.cancelNetworkTransfer();
+  const taskId = await service.beginTransferPreparation();
+  await service.authorizeTransferPreparation({ taskId });
+  oldPassword.resolve({ password: 'fixture-old-password' });
+  expect(await authorization).toEqual(
+    expect.objectContaining({ message: 'Transfer cancelled' }),
+  );
+  await service.decryptTransferDataCredentials({
+    data: fixture(),
+    preparationTaskId: taskId,
+  });
+  expect(mockDecryptSeed).toHaveBeenCalledWith(
+    expect.objectContaining({ password: 'fixture-new-password' }),
+  );
+  expect(mockState.preparationProgress?.taskId).toBe(taskId);
+  await service.cancelNetworkTransfer();
+});
+
 test('reports credential work, then clears preparation on cancellation', async () => {
   const service = new ServicePrimeTransfer({
     backgroundApi: {
@@ -122,6 +261,7 @@ test('reports credential work, then clears preparation on cancellation', async (
     .spyOn(service, 'checkWebSocketConnected')
     .mockImplementation(() => undefined);
   const preparationTaskId = await service.beginTransferPreparation();
+  await service.authorizeTransferPreparation({ taskId: preparationTaskId });
   expect(mockState.preparationProgress).toEqual({
     taskId: preparationTaskId,
     percentage: 0,
@@ -150,6 +290,7 @@ test('cancel during decryption stops remaining credentials and cannot overwrite 
     .spyOn(service, 'checkWebSocketConnected')
     .mockImplementation(() => undefined);
   const preparationTaskId = await service.beginTransferPreparation();
+  await service.authorizeTransferPreparation({ taskId: preparationTaskId });
   let release: (() => void) | undefined;
   let markStarted: (() => void) | undefined;
   const started = new Promise<void>((resolve) => {
@@ -170,6 +311,7 @@ test('cancel during decryption stops remaining credentials and cannot overwrite 
   await started;
   await service.cancelNetworkTransfer();
   const replacementTaskId = await service.beginTransferPreparation();
+  await service.authorizeTransferPreparation({ taskId: replacementTaskId });
   release?.();
   expect(await rejection).toEqual(
     expect.objectContaining({ message: 'Transfer cancelled' }),

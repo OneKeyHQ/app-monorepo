@@ -312,6 +312,10 @@ class ServicePrimeTransfer extends ServiceBase {
 
   private preparationTask: PrimeTransferPreparation | undefined;
 
+  // Keep the verified, sensitive-text-encoded password only in the owning
+  // service task, never in progress atoms or an RPC result sent to the UI.
+  private preparationPassword: string | undefined;
+
   private e2eeServerApiProxy: E2EEServerApiProxy | null = null;
 
   private e2eeClientToClientApiProxy: E2EEClientToClientApiProxy | null = null;
@@ -1483,15 +1487,31 @@ class ServicePrimeTransfer extends ServiceBase {
       },
     );
     this.preparationTask = task;
-    await task.update('accounts', 0);
     return task.taskId;
   }
 
-  private getPreparationTask(taskId?: string) {
+  @backgroundMethod()
+  async authorizeTransferPreparation({ taskId }: { taskId: string }) {
+    const task = this.getPreparationTask(taskId, false);
+    if (!task) throw new OneKeyLocalError('Transfer cancelled');
+    if (this.preparationPassword) return;
+    const { password } =
+      await this.backgroundApi.servicePassword.promptPasswordVerify({
+        reason: EReasonForNeedPassword.Security,
+      });
+    task.assertActive();
+    if (!password) throw new OneKeyLocalError('Password is required');
+    this.preparationPassword = password;
+    await task.update('accounts', 0);
+  }
+
+  private getPreparationTask(taskId?: string, requireAuthorization = true) {
     if (!taskId) return undefined;
     if (this.preparationTask?.taskId !== taskId)
       throw new OneKeyLocalError('Transfer cancelled');
     this.preparationTask.assertActive();
+    if (requireAuthorization && !this.preparationPassword)
+      throw new OneKeyLocalError('Transfer password verification is required');
     return this.preparationTask;
   }
 
@@ -1976,8 +1996,11 @@ class ServicePrimeTransfer extends ServiceBase {
   }) {
     const preparation = this.getPreparationTask(preparationTaskId);
     if (!data?.privateData?.decryptedCredentials) {
-      const { password: localPassword } =
-        await this.backgroundApi.servicePassword.promptPasswordVerify();
+      const localPassword = preparation
+        ? this.preparationPassword
+        : (await this.backgroundApi.servicePassword.promptPasswordVerify())
+            .password;
+      if (!localPassword) throw new OneKeyLocalError('Password is required');
       data.privateData.decryptedCredentials = {};
       const entries = Object.entries(data.privateData.credentials || {});
       // Credentials have already been read from storage. Select the non-blocking
@@ -2247,6 +2270,7 @@ class ServicePrimeTransfer extends ServiceBase {
 
   @backgroundMethod()
   async cancelNetworkTransfer() {
+    this.preparationPassword = undefined;
     const preparation = this.preparationTask;
     this.preparationTask = undefined;
     preparation?.cancel();
@@ -2453,10 +2477,13 @@ class ServicePrimeTransfer extends ServiceBase {
     }
 
     if (!transferData.isWatchingOnly) {
-      const { password } =
-        await this.backgroundApi.servicePassword.promptPasswordVerify({
-          reason: EReasonForNeedPassword.Security,
-        });
+      const password = preparation
+        ? this.preparationPassword
+        : (
+            await this.backgroundApi.servicePassword.promptPasswordVerify({
+              reason: EReasonForNeedPassword.Security,
+            })
+          ).password;
 
       preparation?.assertActive();
 
