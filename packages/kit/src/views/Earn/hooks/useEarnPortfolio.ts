@@ -305,6 +305,9 @@ function normalizeInvestmentResult(
       totalFiatValue: result.totalFiatValue,
       totalFiatValueUsd: result.totalFiatValueUsd,
       earnings24hFiatValue: result.earnings24hFiatValue,
+      ...(result.rewardsFiatValue !== undefined
+        ? { rewardsFiatValue: result.rewardsFiatValue }
+        : {}),
       netPnl: result.netPnl,
       netPnlFiatValue: result.netPnlFiatValue,
       protocol: normalizedProtocol,

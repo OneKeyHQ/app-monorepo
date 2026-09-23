@@ -12,11 +12,14 @@ import {
   buildClaimSourceCandidates,
   categoryLabelId,
   countInvestmentsByNetwork,
+  depositedFiatValue,
   filterInvestmentsByNetworks,
   groupInvestmentsByProvider,
   isLedgerAirdropProvider,
   resolveDefiAssetsFiatValue,
   selectProtocolClaimableInvestments,
+  sizedRewardRows,
+  splitPositionRows,
   sumRewardsHeaderFiat,
   toLedgerClaimAsset,
 } from './myPortfolio.utils';
@@ -168,10 +171,112 @@ describe('network filter helpers', () => {
   });
 });
 
+describe('splitPositionRows / depositedFiatValue', () => {
+  const classified = investment({
+    totalFiatValue: '100',
+    assets: [
+      asset({
+        rewardAssets: [
+          {
+            title: { text: '1' },
+            kind: 'claimablePrincipal',
+            amount: '1',
+            fiatValue: '30',
+          },
+          { title: { text: '2' }, kind: 'reward', amount: '2', fiatValue: '5' },
+          { title: { text: '3' } },
+        ],
+        assetsStatus: [
+          {
+            title: { text: 'a' },
+            description: { text: '' },
+            kind: 'active',
+            amount: '9',
+            fiatValue: '50',
+          },
+          {
+            title: { text: 'u' },
+            description: { text: '' },
+            kind: 'unstaking',
+            amount: '4',
+            fiatValue: '20',
+            unlockAt: 1,
+          },
+        ],
+      }),
+    ],
+  });
+
+  it('sorts rows by kind and keeps unclassified rows under rewards', () => {
+    const { principal, unstaking, rewards } = splitPositionRows(classified);
+    expect(principal.map((r) => r.row.fiatValue)).toEqual(['30']);
+    expect(unstaking.map((r) => r.row.fiatValue)).toEqual(['20']);
+    expect(rewards.map((r) => r.row.title.text)).toEqual(['2', '3']);
+    expect(sizedRewardRows(classified).map((r) => r.row.fiatValue)).toEqual([
+      '5',
+    ]);
+  });
+
+  it('the Deposited card is the total minus what the other two cards show, never below 0', () => {
+    expect(depositedFiatValue(classified)).toBe('50');
+    expect(
+      depositedFiatValue(
+        investment({ totalFiatValue: '10', assets: [asset()] }),
+      ),
+    ).toBe('10');
+    expect(
+      depositedFiatValue(
+        investment({
+          totalFiatValue: '1',
+          assets: [
+            asset({
+              rewardAssets: [
+                {
+                  title: { text: '' },
+                  kind: 'claimablePrincipal',
+                  fiatValue: '5',
+                },
+              ],
+            }),
+          ],
+        }),
+      ),
+    ).toBe('0');
+  });
+});
+
 describe('selectProtocolClaimableInvestments', () => {
-  it('keeps on-chain airdrops of non-ledger providers only; reward rows stay on the DeFi Assets card', () => {
+  it('keeps sized yield rows and on-chain airdrops of non-ledger providers; unsized and principal rows stay on the DeFi Assets card', () => {
+    const withSizedRewards = investment({
+      assets: [
+        asset({
+          rewardAssets: [
+            {
+              title: { text: '0.1 USDC' },
+              kind: 'reward',
+              amount: '0.1',
+              fiatValue: '0.1',
+            },
+          ],
+        }),
+      ],
+    });
     const withRewards = investment({
       assets: [asset({ rewardAssets: [{ title: { text: '0.1 USDC' } }] })],
+    });
+    const withPrincipal = investment({
+      assets: [
+        asset({
+          rewardAssets: [
+            {
+              title: { text: '1 ETH' },
+              kind: 'claimablePrincipal',
+              amount: '1',
+              fiatValue: '2',
+            },
+          ],
+        }),
+      ],
     });
     const morphoAirdrop = investment({
       provider: 'morpho',
@@ -184,12 +289,14 @@ describe('selectProtocolClaimableInvestments', () => {
     const plain = investment({ assets: [asset()] });
     expect(
       selectProtocolClaimableInvestments([
+        withSizedRewards,
         withRewards,
+        withPrincipal,
         morphoAirdrop,
         sparkAirdrop,
         plain,
       ]),
-    ).toEqual([morphoAirdrop]);
+    ).toEqual([withSizedRewards, morphoAirdrop]);
   });
 });
 
@@ -222,6 +329,21 @@ describe('resolveDefiAssetsFiatValue', () => {
 });
 
 describe('sumRewardsHeaderFiat', () => {
+  it("adds each position's sized yield on top of the ledger and airdrop figures", () => {
+    expect(
+      sumRewardsHeaderFiat({
+        ledgerRewardsFiatValue: '1',
+        investments: [
+          investment({ provider: 'stakefish', rewardsFiatValue: '0.5' }),
+          investment({
+            provider: 'native',
+            rewardsFiatValue: '0.25',
+            airdropFiatValue: '9',
+          }),
+        ],
+      }),
+    ).toBe('1.75');
+  });
   it('adds the ledger total and the non-ledger airdrop fiat the page holds', () => {
     expect(
       sumRewardsHeaderFiat({

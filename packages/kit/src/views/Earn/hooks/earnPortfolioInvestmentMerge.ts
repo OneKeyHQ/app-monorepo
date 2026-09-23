@@ -44,12 +44,21 @@ export const mergeEarnPortfolioInvestments = (
         ),
       }
     : {}),
+  ...(existing.rewardsFiatValue !== undefined ||
+  incoming.rewardsFiatValue !== undefined
+    ? {
+        rewardsFiatValue: addValue(
+          existing.rewardsFiatValue,
+          incoming.rewardsFiatValue,
+        ),
+      }
+    : {}),
 });
 
 const clearNormalInvestment = (
   investment: IEarnPortfolioInvestment,
 ): IEarnPortfolioInvestment => {
-  const { netPnl, netPnlFiatValue, ...rest } = investment;
+  const { netPnl, netPnlFiatValue, rewardsFiatValue, ...rest } = investment;
   return {
     ...rest,
     assets: [],

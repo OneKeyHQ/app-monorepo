@@ -2138,6 +2138,28 @@ export interface IEarnInvestmentItem {
   investment: IInvestment[];
 }
 
+/**
+ * Server-classified meaning of a status / reward row on the investment
+ * detail (6.6.x+ earn service, OK-61377). Absent on older servers and on the
+ * rows the server does not classify (Pendle PT, Babylon overflow, ...).
+ */
+export type IEarnInvestmentRowKind =
+  | 'active'
+  | 'pendingActivation'
+  | 'unstaking'
+  | 'claimablePrincipal'
+  | 'reward';
+
+export type IEarnInvestmentRowFacts = {
+  kind?: IEarnInvestmentRowKind;
+  /** token units */
+  amount?: string;
+  /** request currency */
+  fiatValue?: string;
+  /** ms; unstaking rows whose provider knows when the funds free up */
+  unlockAt?: number;
+};
+
 /** Dashboard-set protocol classification; both optional on legacy docs. */
 export type IEarnProtocolCategory =
   | 'simpleEarn'
@@ -2150,6 +2172,12 @@ export interface IEarnInvestmentItemV2 {
   totalFiatValue: string;
   earnings24hFiatValue: string;
   totalFiatValueUsd?: string;
+  /**
+   * Fiat of the reward rows that are yield and claimable now (6.6.x+ earn
+   * service). Only present when such a row exists; principal-only protocols
+   * never send it.
+   */
+  rewardsFiatValue?: string;
   netPnl?: IEarnText;
   netPnlFiatValue?: IEarnText;
   protocol: {
@@ -2190,7 +2218,7 @@ export interface IEarnInvestmentItemV2 {
       title: IEarnText;
       description: IEarnText;
     };
-    rewardAssets: {
+    rewardAssets: ({
       title: IEarnText;
       tooltip?: IEarnTooltip;
       button:
@@ -2201,8 +2229,8 @@ export interface IEarnInvestmentItemV2 {
       badge?: IEarnBadge;
       key?: string;
       description: IEarnText;
-    }[];
-    assetsStatus: {
+    } & IEarnInvestmentRowFacts)[];
+    assetsStatus: ({
       title: IEarnText;
       description: IEarnText;
       tooltip?: IEarnTooltip;
@@ -2210,7 +2238,7 @@ export interface IEarnInvestmentItemV2 {
       swapButton?: IEarnManagePageSwapActions;
       badge?: IEarnBadge;
       key?: string;
-    }[];
+    } & IEarnInvestmentRowFacts)[];
     buttons: {
       type: string;
       text: IEarnText;

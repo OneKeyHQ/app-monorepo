@@ -157,33 +157,108 @@ export function filterInvestmentsByNetworks(
   );
 }
 
+export type IPositionRewardRow = {
+  key: string;
+  asset: IEarnPortfolioAsset;
+  row: IEarnPortfolioAsset['rewardAssets'][number];
+};
+export type IPositionStatusRow = {
+  key: string;
+  asset: IEarnPortfolioAsset;
+  row: IEarnPortfolioAsset['assetsStatus'][number];
+};
+
 /**
- * Claimable rows the page already holds through the investment detail: the
- * on-chain airdrop rows of providers whose airdrop-detail is NOT the ledger.
+ * The rows of one position, sorted by what they are (figma 30292-17104):
+ *   - principal: withdrawn principal waiting to be claimed — its own card
+ *     with a Claim button, never counted as a reward;
+ *   - unstaking: withdrawals in progress — its own card, dated when the
+ *     server knows the unlock time;
+ *   - rewards: the position's yield rows plus the rows the server does not
+ *     classify, which stay under the card's Rewards section as before.
+ * Servers before 6.6.x send no kind, so everything lands in rewards and the
+ * card looks exactly as it did.
+ */
+export function splitPositionRows(investment: IEarnPortfolioInvestment): {
+  principal: IPositionRewardRow[];
+  unstaking: IPositionStatusRow[];
+  rewards: IPositionRewardRow[];
+} {
+  const principal: IPositionRewardRow[] = [];
+  const unstaking: IPositionStatusRow[] = [];
+  const rewards: IPositionRewardRow[] = [];
+  investment.assets.forEach((asset, assetIndex) => {
+    asset.rewardAssets?.forEach((row, index) => {
+      const entry = { key: `reward-${assetIndex}-${index}`, asset, row };
+      if (row.kind === 'claimablePrincipal') {
+        principal.push(entry);
+      } else {
+        rewards.push(entry);
+      }
+    });
+    asset.assetsStatus?.forEach((row, index) => {
+      if (row.kind === 'unstaking') {
+        unstaking.push({ key: `status-${assetIndex}-${index}`, asset, row });
+      }
+    });
+  });
+  return { principal, unstaking, rewards };
+}
+
+/** The yield rows the server has sized: what the Claimable tab lists and the header counts. */
+export function sizedRewardRows(
+  investment: IEarnPortfolioInvestment,
+): IPositionRewardRow[] {
+  return splitPositionRows(investment).rewards.filter(
+    ({ row }) => row.kind === 'reward' && row.fiatValue !== undefined,
+  );
+}
+
+/**
+ * What the Deposited card is worth on its own: the position total minus
+ * the principal the Claimable and Unstaking cards show, so the three cards
+ * of one position add up to its group row (figma 30292-17104).
+ */
+export function depositedFiatValue(
+  investment: IEarnPortfolioInvestment,
+): string {
+  const { principal, unstaking } = splitPositionRows(investment);
+  const carvedOut = [...principal, ...unstaking].reduce(
+    (sum, { row }) => sum.plus(row.fiatValue || '0'),
+    new BigNumber(0),
+  );
+  const rest = new BigNumber(investment.totalFiatValue || '0').minus(carvedOut);
+  return BigNumber.max(rest, 0).toFixed();
+}
+
+/**
+ * Claimable rows the page already holds through the investment detail:
+ * the position's yield rows the server has sized, and the on-chain airdrop
+ * rows of providers whose airdrop-detail is NOT the ledger.
  *
- * A position's own reward rows (rewardAssets) are deliberately not here.
  * Product rule: the header Rewards figure must equal what the Claimable and
- * Pending lists add up to, and those rows carry no numeric fiat (some are
- * even claimable principal, not yield), so until the server sizes and
- * classifies them they stay on the DeFi Assets card only.
+ * Pending lists add up to. Unsized rows (older servers, unclassified rows)
+ * and claimable principal are therefore not listed here; they stay on the
+ * DeFi Assets card.
  */
 export function selectProtocolClaimableInvestments(
   investments: IEarnPortfolioInvestment[],
 ): IEarnPortfolioInvestment[] {
   return investments.filter(
     (investment) =>
-      !isLedgerAirdropProvider(investment.protocol.providerDetail.code) &&
-      investment.airdropAssets.some(
-        (asset) => (asset.airdropAssets?.length ?? 0) > 0,
-      ),
+      sizedRewardRows(investment).length > 0 ||
+      (!isLedgerAirdropProvider(investment.protocol.providerDetail.code) &&
+        investment.airdropAssets.some(
+          (asset) => (asset.airdropAssets?.length ?? 0) > 0,
+        )),
   );
 }
 
 /**
- * Header "Rewards" figure: the ledger's claimable + pending (server total)
- * plus the on-chain airdrop fiat the page holds for non-ledger providers —
- * exactly the rows the Claimable and Pending lists show, nothing more.
- * Protocol reward rows join once the server sizes them (rewardsFiatValue).
+ * Header "Rewards" figure: the ledger's claimable + pending (server total),
+ * the on-chain airdrop fiat the page holds for non-ledger providers, and
+ * each position's sized yield (rewardsFiatValue) — exactly the rows the
+ * Claimable and Pending lists show, nothing more.
  */
 /**
  * The DeFi Assets figure. useEarnPortfolio updates its total only when a
@@ -218,12 +293,15 @@ export function sumRewardsHeaderFiat({
   investments: IEarnPortfolioInvestment[];
 }): string {
   return investments
-    .filter(
-      (investment) =>
-        !isLedgerAirdropProvider(investment.protocol.providerDetail.code),
-    )
     .reduce(
-      (total, investment) => total.plus(investment.airdropFiatValue || '0'),
+      (total, investment) => {
+        const airdrop = isLedgerAirdropProvider(
+          investment.protocol.providerDetail.code,
+        )
+          ? '0'
+          : investment.airdropFiatValue || '0';
+        return total.plus(airdrop).plus(investment.rewardsFiatValue || '0');
+      },
       new BigNumber(ledgerRewardsFiatValue || '0'),
     )
     .toFixed();
