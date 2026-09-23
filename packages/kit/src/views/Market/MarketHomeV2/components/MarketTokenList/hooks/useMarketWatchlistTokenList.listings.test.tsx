@@ -173,6 +173,7 @@ it('keeps holding after an empty watchlist hydrates', async () => {
     ],
   });
   expect(result.current.data).toEqual([]);
+  expect(result.current.isLoading).toBe(true);
 
   await waitFor(() => expect(mockBatch).toHaveBeenCalled());
   resolveSpot({
@@ -452,6 +453,57 @@ it('withholds listing rows until the first quote batch resolves', async () => {
       expect.objectContaining({ id: 'stock:AAPL', name: 'Apple', price: 321 }),
     ]),
   );
+});
+it('holds the first paint when only one watchlist source is cached', async () => {
+  let resolveQuote: (value: IMarketListingWatchlistQuote) => void = () => {};
+  mockQuote.mockReturnValue(
+    new Promise((resolve) => {
+      resolveQuote = resolve;
+    }),
+  );
+  mockBatch.mockReturnValue(new Promise(() => {}));
+  const dataCacheRef: RefObject<IMarketWatchlistDataCache | undefined> = {
+    current: {
+      spot: {
+        list: [
+          {
+            address: '0xaave',
+            name: 'Aave',
+            symbol: 'AAVE',
+            decimals: 18,
+            networkId: 'evm--1',
+          },
+        ],
+      },
+    },
+  };
+  const watchlist = [
+    { assetId: 'bitcoin', chainId: '', contractAddress: '', sortIndex: 0 },
+    { chainId: 'evm--1', contractAddress: '0xaave', sortIndex: 1 },
+  ];
+  const { result } = renderHook(() =>
+    useMarketWatchlistTokenList({
+      watchlist,
+      pollingInterval: 0,
+      dataCacheRef,
+    }),
+  );
+  await waitFor(() => expect(mockQuote).toHaveBeenCalled());
+  expect(result.current.data).toEqual([]);
+  expect(result.current.isLoading).toBe(true);
+
+  resolveQuote({
+    name: 'Bitcoin',
+    symbol: 'BTC',
+    logoUrl: '',
+    price: '1',
+    priceChange24hPercent: '1',
+  });
+  await act(async () => {
+    await Promise.resolve();
+  });
+  expect(result.current.data).toEqual([]);
+  expect(result.current.isLoading).toBe(true);
 });
 it('reuses the cached quote batch so a remount renders rows immediately', async () => {
   mockStockBatch.mockResolvedValue([

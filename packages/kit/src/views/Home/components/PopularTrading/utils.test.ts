@@ -9,6 +9,7 @@ import type {
 
 import {
   buildHomeMarketCategories,
+  buildHomeRecommendAddSortIndexes,
   getMarketTokenDisplayPrice,
   getMarketTokenDisplayPriceChange24h,
   getMarketTokenDisplayVolume24h,
@@ -224,6 +225,21 @@ describe('PopularTrading market token display utils', () => {
       perpsSubtitle: 'Unitree Robotics',
       perpsDexLabel: dexLabel,
     });
+  });
+
+  test('places home recommend adds above stored favorites in card order', () => {
+    expect(
+      buildHomeRecommendAddSortIndexes({
+        existingWatchlist: [],
+        count: 4,
+      }),
+    ).toEqual([996, 997, 998, 999]);
+    expect(
+      buildHomeRecommendAddSortIndexes({
+        existingWatchlist: [{ sortIndex: 0 }, { sortIndex: 1 }],
+        count: 4,
+      }),
+    ).toEqual([-4, -3, -2, -1]);
   });
 
   test('shows recommend cards when stored favorites have no visible rows', () => {

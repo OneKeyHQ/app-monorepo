@@ -38,7 +38,6 @@ import {
 import { getMarketWatchlistKey } from '@onekeyhq/shared/src/utils/marketWatchlistIdentity';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { getTokenSubtitle } from '@onekeyhq/shared/src/utils/perpsUtils';
-import sortUtils from '@onekeyhq/shared/src/utils/sortUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type { IMarketWatchListItemV2 } from '@onekeyhq/shared/types/market';
@@ -80,6 +79,7 @@ import {
 import { useHomeMarketCategoryTokens } from './useHomeMarketCategoryTokens';
 import {
   buildHomeMarketCategories,
+  buildHomeRecommendAddSortIndexes,
   getMarketTokenDisplayMarketCap,
   getMarketTokenDisplayPrice,
   getMarketTokenDisplayPriceChange24h,
@@ -933,8 +933,8 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
         getTokenKey,
       );
       const mappedItems = mapRecommendTokensToWatchlistItems(orderedTokens);
-      const sortIndexes = sortUtils.buildOrderedTopSortIndexes({
-        oldList: [],
+      const sortIndexes = buildHomeRecommendAddSortIndexes({
+        existingWatchlist: watchListItems,
         count: mappedItems.length,
       });
       const nextWatchListItems = mappedItems.map((item, index) => ({
@@ -978,7 +978,7 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
       isAddingRef.current = false;
       setIsAdding(false);
     }
-  }, [favoriteTokens, selectedTokens, intl, refreshData]);
+  }, [favoriteTokens, refreshData, selectedTokens, intl, watchListItems]);
 
   // Handle remove token from watchlist
   const handleRemoveFromWatchlist = useCallback(
