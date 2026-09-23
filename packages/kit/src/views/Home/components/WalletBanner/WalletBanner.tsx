@@ -569,10 +569,12 @@ function WalletBanner({ hidden = false }: { hidden?: boolean } = {}) {
 
   // A global EVM deriveType change resolves a different Arbitrum address under
   // the same account/indexedAccount ids, so it must invalidate the scope too.
-  // GlobalDeriveTypeUpdate carries no networkId, so only bump when the Perps
-  // deriveType differs from the one the last eligibility check used.
+  // GlobalDeriveTypeUpdate carries no networkId, so skip the bump only when the
+  // landed result for the current scope already used the Perps deriveType.
+  // An in-flight read may predate the event (the store mutates ~100ms before
+  // emitting), so it must never suppress the bump.
   const [perpsDeriveTypeRevision, setPerpsDeriveTypeRevision] = useState(0);
-  const checkedPerpsDeriveTypeRef = useRef<IAccountDeriveTypes | undefined>(
+  const landedPerpsDeriveTypeRef = useRef<IAccountDeriveTypes | undefined>(
     undefined,
   );
   useEffect(() => {
@@ -581,10 +583,9 @@ function WalletBanner({ hidden = false }: { hidden?: boolean } = {}) {
       const deriveType = await backgroundApiProxy.serviceNetwork
         .getGlobalDeriveTypeOfNetwork({ networkId: PERPS_NETWORK_ID })
         .catch(() => undefined);
-      if (deriveType === checkedPerpsDeriveTypeRef.current) {
+      if (deriveType && deriveType === landedPerpsDeriveTypeRef.current) {
         return;
       }
-      checkedPerpsDeriveTypeRef.current = deriveType;
       setPerpsDeriveTypeRevision((value) => value + 1);
     };
     const onGlobalDeriveTypeUpdate = () => {
@@ -618,7 +619,6 @@ function WalletBanner({ hidden = false }: { hidden?: boolean } = {}) {
         await backgroundApiProxy.serviceNetwork.getGlobalDeriveTypeOfNetwork({
           networkId: PERPS_NETWORK_ID,
         });
-      checkedPerpsDeriveTypeRef.current = globalEvmDeriveType;
       const eligibility =
         await backgroundApiProxy.serviceHyperliquidReferral.checkBannerReferralEligibility(
           {
@@ -627,7 +627,7 @@ function WalletBanner({ hidden = false }: { hidden?: boolean } = {}) {
             deriveType: globalEvmDeriveType,
           },
         );
-      return { scope, eligibility };
+      return { scope, deriveType: globalEvmDeriveType, eligibility };
     },
     [account?.id, indexedAccount?.id, perpsDeriveTypeRevision],
     {
@@ -639,10 +639,12 @@ function WalletBanner({ hidden = false }: { hidden?: boolean } = {}) {
   // the eligible path always hits the network (~1s), and clearing the result
   // meanwhile drops the banner and re-inserts it at index 0 on every tab
   // switch. A result from a previous account or deriveType is never shown.
-  const referralEligibility =
+  const landedReferralResult =
     scopedReferralEligibility?.scope === referralAccountScope
-      ? scopedReferralEligibility.eligibility
+      ? scopedReferralEligibility
       : undefined;
+  const referralEligibility = landedReferralResult?.eligibility;
+  landedPerpsDeriveTypeRef.current = landedReferralResult?.deriveType;
 
   const referralAccountScopeRef = useRef(referralAccountScope);
   referralAccountScopeRef.current = referralAccountScope;
