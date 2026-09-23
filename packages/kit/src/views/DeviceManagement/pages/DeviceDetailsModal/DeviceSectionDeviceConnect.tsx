@@ -39,10 +39,14 @@ function DeviceSectionDeviceConnect() {
         thirdPartyDeviceUtils.isTrezorBleSupportedDevice(device)));
   const onPressRebindBle = useCallback(async () => {
     if (!device?.id) return;
-    await backgroundApiProxy.serviceThirdPartyHardware.rebindBleDevice({
-      dbDeviceId: device.id,
-    });
-    await actions.refresh(undefined, { skipDeviceStateSnapshot: true });
+    try {
+      await backgroundApiProxy.serviceThirdPartyHardware.rebindBleDevice({
+        dbDeviceId: device.id,
+      });
+      await actions.refresh(undefined, { skipDeviceStateSnapshot: true });
+    } catch (error) {
+      console.error('rebindBleDevice failed:', error);
+    }
   }, [actions, device?.id]);
 
   const onPressForgetDevice = useCallback(async () => {

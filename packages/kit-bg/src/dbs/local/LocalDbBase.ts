@@ -7240,15 +7240,8 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     let addedHdAccountIndex = -1;
     const now = await this.timeNow();
 
-    // Resolved BEFORE the transaction on purpose: getDeviceVersionStr awaits
-    // CoreSDKLoader(), i.e. a dynamic `import('@onekeyfe/hd-core')`. On the
-    // first such call in a session that chunk load spans a macrotask, which
-    // lets IndexedDB auto-commit the surrounding transaction — every later
-    // write in it then dies with "TransactionInactiveError: The transaction
-    // has finished". Vendors whose onboarding already warmed hd-core (OneKey /
-    // Ledger / Trezor scan flows) happened to survive it; ones that never
-    // touch hd-core before this point (Keystone) did not. Keep this out of
-    // the transaction — nothing here needs `tx`.
+    // Resolved before the transaction: getDeviceVersionStr's dynamic
+    // CoreSDKLoader() import can span a macrotask and auto-commit an open IndexedDB transaction, breaking later writes (hits Keystone, which never warms hd-core earlier).
     const verifiedAtVersion = isFirmwareVerified
       ? await deviceUtils.getDeviceVersionStr({ device, features })
       : undefined;
@@ -7266,11 +7259,8 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       transportType,
     });
 
-    // A vendor whose connectId is a transport locator keeps its locators in the
-    // per-transport columns only. Leaving the legacy `connectId` out of new
-    // records is what makes "which channel is this?" answerable by looking at
-    // the field name instead of guessing from the value. Vendors whose
-    // connectId carries wallet identity (Keystone) and OneKey are untouched.
+    // Transport-locator vendors keep locators in per-transport columns only,
+    // omitting legacy `connectId`, so the field name identifies the channel. Wallet-identity vendors (Keystone, OneKey) are untouched.
 
     if (transportType) {
       switch (transportType) {
@@ -7333,15 +7323,8 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       usbConnectId = explicitUsbConnectId;
     }
 
-    // An air-gapped (QR) device has no wire handle at all. The switch above
-    // keys off the *global* transport setting — resolveHwWalletTransportType
-    // only understands 'usb'/'ble' and passes 'qr' through untouched — so
-    // without this it would record the device's own identity as a USB or BLE
-    // connectId. That is a false claim about the device's channels, and
-    // usbConnectId is written once and never corrected (see the
-    // `!item.usbConnectId` guard in the updater below), so a QR-first
-    // onboarding would permanently block the real handle from a later USB
-    // connection.
+    // QR devices have no wire handle, but the switch above keys off the
+    // global transport setting and would otherwise record a false USB/BLE connectId; since usbConnectId is write-once, that would permanently block a later real USB connection.
     const deviceConnectionType = (
       device as typeof device & { raw?: { connectionType?: string } }
     ).raw?.connectionType;
@@ -9769,9 +9752,8 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     ) => Promise<'match' | 'mismatch' | 'unknown'>;
     vendor?: EHardwareVendor;
   }): Promise<IDBDevice | undefined> {
-    // Third-party devices may not have rawDeviceId.
-    // Use vendorProfile.identity.matchDeviceByConnectId to determine if connectId
-    // is reliable enough to identify an existing device.
+    // Third-party devices may not have rawDeviceId; fall back to
+    // vendorProfile-gated connectId matching when it's reliable enough.
     if (!rawDeviceId) {
       const profile = getVendorProfile(vendor ?? EHardwareVendor.onekey);
 

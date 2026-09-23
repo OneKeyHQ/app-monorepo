@@ -43,10 +43,8 @@ function getSearchTargetReusePolicy(
 }
 
 /**
- * Chooses whether an onboarding retry may reuse its selected search target.
- * Device-action failures keep the current search target, while failures that
- * invalidate transport ownership return to discovery. The selected transport
- * remains owned by the connection page and is not changed by this decision.
+ * Chooses whether an onboarding retry may reuse its search target: device-
+ * action failures keep it, failures invalidating transport ownership return to discovery. The connection page still owns the selected transport.
  */
 export function getThirdPartyHardwareRetryAction(params: {
   errorCode: number | undefined;

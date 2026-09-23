@@ -8,6 +8,7 @@ import {
 import { BTC_FIRST_TAPROOT_PATH } from '@onekeyhq/shared/src/consts/chainConsts';
 import { IMPL_BTC } from '@onekeyhq/shared/src/engine/engineConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import { ThirdPartyDeviceMismatch } from '@onekeyhq/shared/src/errors/errors/thirdPartyHardwareErrors';
 import { convertThirdPartyDeviceError } from '@onekeyhq/shared/src/errors/utils/thirdPartyDeviceErrorUtils';
 import {
   EAppEventBusNames,
@@ -174,12 +175,8 @@ function summarizeThirdPartySearchDevice(
 }
 
 /**
- * ServiceThirdPartyHardware — owns the third-party (Trezor / Ledger / Keystone) hardware
- * adapter lifecycle and the third-party-only methods, extracted from
- * ServiceHardware to keep that service focused on OneKey-own hardware. OneKey's
- * own SDK paths, BLE transport binding (getCompatibleConnectId) and device
- * settings all stay in ServiceHardware. Behavior is unchanged — this is a
- * verbatim move plus delegation.
+ * Owns the third-party (Trezor/Ledger/Keystone) adapter lifecycle and
+ * third-party-only methods; OneKey's own SDK paths, BLE binding, and device settings stay in ServiceHardware.
  *
  * "Third-party" = vendors registered in `thirdPartyHardwareAdapterRegistry`.
  */
@@ -448,11 +445,19 @@ class ServiceThirdPartyHardware extends ServiceBase {
       }
       identity = { vendor, type: 'chainFingerprint', chain, value };
     } else {
-      throw new OneKeyLocalError('Device does not support Bluetooth binding');
+      throw new OneKeyLocalError({
+        message: appLocale.intl.formatMessage({
+          id: ETranslations.hardware_third_party_feature_not_supported,
+        }),
+      });
     }
     const adapter = await this.getAdapterForVendor(vendor);
     if (!adapter?.hw.bindBleDevice) {
-      throw new OneKeyLocalError('Bluetooth binding is not available');
+      throw new OneKeyLocalError({
+        message: appLocale.intl.formatMessage({
+          id: ETranslations.hardware_third_party_method_not_supported,
+        }),
+      });
     }
     const result = await adapter.hw.bindBleDevice({
       identity,
@@ -983,10 +988,8 @@ class ServiceThirdPartyHardware extends ServiceBase {
   }
 
   /**
-   * Keystone onboarding for QR and USB: one all-network call returns the
-   * wallet identity and the default accounts, and both wallet and accounts
-   * are created from that single response. USB passes the interaction
-   * opened by connectDevice; the returned identity must match it.
+   * Keystone onboarding (QR and USB): one all-network call returns wallet
+   * identity and default accounts, both created from that response. USB passes connectDevice's interaction; the returned identity must match it.
    */
   @backgroundMethod()
   @toastIfError()
@@ -1048,13 +1051,17 @@ class ServiceThirdPartyHardware extends ServiceBase {
     );
     const [walletId] = walletIds;
     if (walletIds.size !== 1 || !walletId) {
-      throw new OneKeyLocalError({
-        message: 'Keystone did not return a single stable wallet identity',
+      throw new ThirdPartyDeviceMismatch({
+        vendor: vendorName,
+        autoToast: true,
+        payload: {},
       });
     }
     if (usb && usb.device.deviceId !== walletId) {
-      throw new OneKeyLocalError({
-        message: 'Keystone wallet identity changed between connect and export',
+      throw new ThirdPartyDeviceMismatch({
+        vendor: vendorName,
+        autoToast: true,
+        payload: {},
       });
     }
 

@@ -51,10 +51,8 @@ describe('thirdPartyConnectionContextFromDevice', () => {
   });
 
   it('does not promote a stale legacy locator once a channel column exists', () => {
-    // An old BLE-onboarded wallet had the same address in both columns. After
-    // a rebind the channel column holds the new address while the legacy one
-    // still holds the previous — promoting that leftover would hand a BLE
-    // address to the USB slot on desktop.
+    // An old BLE-onboarded wallet had the same address in both columns.
+    // After a rebind, the legacy column still holds the previous address, so promoting it would hand a BLE address to the USB slot on desktop.
     expect(
       thirdPartyConnectionContextFromDevice({
         vendor: EHardwareVendor.ledger,
@@ -99,6 +97,27 @@ describe('thirdPartyConnectionContextFromDevice', () => {
       }
     },
   );
+
+  it('declares the transports a known model can use and stays silent otherwise', () => {
+    expect(
+      thirdPartyConnectionContextFromDevice({
+        vendor: EHardwareVendor.ledger,
+        settings: { vendorModel: 'nanoSP' },
+      }),
+    ).toEqual({ knownConnections: [], supportedTransports: ['usb'] });
+    expect(
+      thirdPartyConnectionContextFromDevice({
+        vendor: EHardwareVendor.trezor,
+        bleConnectId: 'ble-1',
+        settings: { vendorModel: 'T3W1' },
+      }),
+    ).toEqual({
+      knownConnections: [{ transport: 'ble', connectId: 'ble-1' }],
+    });
+    expect(
+      thirdPartyConnectionContextFromDevice({ vendor: EHardwareVendor.ledger }),
+    ).toEqual({ knownConnections: [] });
+  });
 
   it('does not invent a DB id for legacy calls', () => {
     expect(

@@ -25,10 +25,8 @@ export interface IHardwareVendorProfile {
     label: { mode: 'local' } | { mode: 'device'; asciiOnly: boolean };
   };
   /**
-   * What this vendor's ids mean. These five answer one question together —
-   * "given an id, what have I actually got?" — so they are read as a set
-   * rather than one at a time. `role` is the load-bearing one: DB writes,
-   * locator normalization and device dedup all branch on it.
+   * What this vendor's ids mean; `role` is load-bearing since DB writes,
+   * locator normalization, and device dedup all branch on it.
    */
   identity: {
     /** Meaning of the legacy primary connectId, independent of its persistence. */
@@ -115,8 +113,8 @@ const ledgerProfile: IHardwareVendorProfile = {
     persistentDeviceId: () => false,
     // BLE: DMK transport path (MAC/UUID), persistent. USB: ephemeral UUID, never matches.
     matchDeviceByConnectId: (connectId) => Boolean(connectId),
-    // USB connectId is ephemeral and BLE's, while persistent, isn't a proof of
-    // identity by itself — require a seed check before reusing the record.
+    // USB connectId is ephemeral, and BLE's, while persistent, isn't proof of
+    // identity by itself, so a seed check is required before reuse.
     connectIdMatchVerification: 'ledgerChainFingerprint',
   },
   deviceManager: { details: true, about: false, settings: false },
@@ -159,19 +157,10 @@ const trezorProfile: IHardwareVendorProfile = {
   addAccountDefaultNetworkMode: 'onekeyDefault',
 };
 
-// Keystone identifies a *wallet* (seed), not a physical unit: `deviceId` is
-// a SHA-256 wallet id derived from one fixed account-level public key. It is
-// identical across QR and USB, while the 32-bit BIP32 master fingerprint is
-// kept only as protocol metadata. A different mnemonic or passphrase becomes
-// a different logical device. No PIN matrix, no Ledger-style "app",
-// no host-side passphrase toggle — the device handles all of that on its own
-// screen. `deviceManager.settings` stays `false`: there is no vendor-routed
-// settings surface for Keystone. `firmware.showVersion` is also `false`, and
-// not for want of plumbing: both channels report the version only optionally —
-// the QR export carries `deviceVersion` when the device feels like sending it,
-// and the USB `getAppConfig` reply falls back to '0.0.0' when it does not. A
-// fabricated 0.0.0, or a blank row on a QR-only wallet, is worse than not
-// offering the row. Flip it once the firmware reports reliably on both channels.
+// deviceId is a SHA-256 wallet id from a fixed account xpub, the same over QR
+// and USB; another seed or passphrase is another device. showVersion stays
+// false until both channels report firmware reliably (QR may omit it, USB
+// getAppConfig falls back to '0.0.0').
 const keystoneProfile: IHardwareVendorProfile = {
   vendor: EHardwareVendor.keystone,
   isThirdParty: true,
@@ -230,11 +219,8 @@ export function isHardwareVendorSupported(vendor: unknown): boolean {
 }
 
 /**
- * A read-only profile for a vendor this build has never heard of. Reached when
- * a newer build wrote a device row and the user then downgraded: the row names
- * a vendor whose profile does not exist here. Throwing would crash every
- * surface that merely lists wallets, so the unknown device degrades to
- * "present but inert" instead — nothing is offered that could act on it.
+ * Fallback profile for a vendor unknown to this build, e.g. after a
+ * downgrade following a newer build's write. Inert rather than throwing, so wallet-listing surfaces don't crash.
  */
 function buildUnknownVendorProfile(vendor: string): IHardwareVendorProfile {
   return {

@@ -26,16 +26,8 @@ export function shouldContinueLedgerAutoCreateForCoreAppsCheckResult(
 }
 
 /**
- * What the install loop does with a failed app install.
- * - `alreadyInstalled`: the device refused because the app is there. Nothing
- *   to probe for and nothing to retry.
- * - `terminal`: the answer is final — the user said no, or the link is gone.
- *   Skip the probe too; it would only add a round trip on a dead session.
- * - `retryOnce`: a broken secure channel. The SDK already cancelled its device
- *   action and opens a fresh websocket per install, so re-issuing the same
- *   call on the same operation is enough. Never more than once.
- * - `probeThenFail`: network and metadata failures. The install may still have
- *   landed, so ask the device before surfacing the error for a manual retry.
+ * `alreadyInstalled`: no retry or probe needed. `terminal`: final refusal or
+ * dead link, no probe. `retryOnce`: broken secure channel, one retry (SDK opens a fresh websocket per install). `probeThenFail`: network/metadata failure, probe the device before surfacing the error.
  */
 export type ILedgerInstallFailureAction =
   | 'alreadyInstalled'

@@ -62,17 +62,9 @@ import type { AllNetworkAddressParams } from '@onekeyfe/hd-core';
 const VENDOR_ERROR_CONTEXT = { vendor: 'Keystone', chain: 'Bitcoin' } as const;
 
 /**
- * Keystone BTC keyring.
- *
- * Account creation is xpub-driven, not address-driven: `btcGetPublicKey`
- * returns the account-level extended key Keystone synced, and every address
- * is derived from it locally (`getAddressFromXpub`). That is why BTC works
- * here at all — `btcGetAddress` alone could not build an account, and taproot
- * is fine at this level because an xpub is script-type agnostic.
- *
- * Signing is PSBT-only: the Keystone SDK implements `btcSignPsbt` but has no
- * `btcSignTransaction`, so structured App transactions are converted to PSBT
- * before they cross the hardware boundary.
+ * Keystone BTC keyring: accounts come from the account xpub (btcGetPublicKey),
+ * so taproot works here even though SDK btcGetAddress rejects P2TR. Signing is
+ * PSBT-only; structured txs are converted to PSBT before crossing to hardware.
  */
 export class KeyringHardwareKeystone extends KeyringHardwareBtcBase {
   override coreApi = coreChainApi.btc.hd;
@@ -239,13 +231,8 @@ export class KeyringHardwareKeystone extends KeyringHardwareBtcBase {
   }
 
   /**
-   * Address enumeration for the account picker. Overridden because the
-   * inherited `KeyringHardwareBtcBase.batchGetAddresses` reaches for the
-   * OneKey SDK (`getHardwareSDKInstance`), which hard-throws for any
-   * non-OneKey vendor — Ledger and Trezor override it for the same reason.
-   * Derived from the account xpub rather than a per-index device call, so a
-   * whole page of candidates costs at most one round trip (and none at all
-   * once the account is in the adapter's cache).
+   * Overridden because the inherited batchGetAddresses uses the OneKey SDK,
+   * which hard-throws for non-OneKey vendors; derives addresses from the account xpub instead of a per-index device call.
    */
   override async batchGetAddresses(params: IPrepareHardwareAccountsParams) {
     const { indexes, deviceParams, chainExtraParams } = params;

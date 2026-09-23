@@ -5,12 +5,8 @@ import { EHardwareVendor } from '@onekeyhq/shared/types/device';
 
 export const ONEKEY_WEBUSB_FILTERS = ONEKEY_WEBUSB_FILTER as USBDeviceFilter[];
 export const TREZOR_WEBUSB_FILTERS = HARDWARE_TREZOR_WEBUSB_FILTERS;
-// Mirrors `keystoneUSBVendorId`/`keystoneUSBProductId` in
-// `@keystonehq/hw-transport-usb`'s constants (4617/12289). Inlined rather
-// than imported because `@onekeyfe/hwk-keystone-connector-usb` does not
-// re-export them, and pulling the vendor SDK into this UI-layer module just
-// for two numbers isn't worth the dependency. 0x1209 is the shared pid.codes
-// open-hardware VID, so both fields must match — VID alone is not Keystone.
+// Mirrors keystoneUSBVendorId/ProductId (4617/12289), inlined since the
+// connector package doesn't re-export them. 0x1209 is a shared pid.codes VID, so both fields must match; VID alone isn't Keystone.
 export const KEYSTONE_WEBUSB_FILTERS: USBDeviceFilter[] = [
   { vendorId: 0x12_09, productId: 0x30_01 },
 ];

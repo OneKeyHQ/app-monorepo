@@ -753,7 +753,9 @@ let bleQuitReady = false;
 let nobleBleInitialization = Promise.resolve();
 let trezorBleWindowCleanup = Promise.resolve();
 // Retain retired handlers so recovery-created native instances survive until app quit.
-const trezorBleSupports = new Set<ReturnType<typeof initThirdPartyBleSupport>>();
+const trezorBleSupports = new Set<
+  ReturnType<typeof initThirdPartyBleSupport>
+>();
 // When the main renderer dies, the window keeps its last frame but ignores all
 // input. Reload it, capped so a renderer that crashes while booting cannot
 // reload forever.
@@ -1763,11 +1765,8 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
   );
 
   // Third-party BLE wiring — exposed to the renderer as the vendor-neutral
-  // `window.desktopApi.thirdPartyBle`. One handler serves every third-party
-  // vendor: Ledger's connector reaches it through this same surface rather
-  // than registering anything of its own. Its channels are namespaced
-  // ($onekey-3p-ble-*) so they coexist with OneKey's `nobleBle`. A new vendor
-  // plugs in here; it must not add a parallel object.
+  // `window.desktopApi.thirdPartyBle` serves every third-party vendor through
+  // one handler, namespaced ($onekey-3p-ble-*) to coexist with OneKey's `nobleBle`. A new vendor plugs in here, not a parallel object.
   Object.values(THIRD_PARTY_BLE_CHANNELS).forEach((channel) =>
     ipcMain.removeHandler(channel),
   );

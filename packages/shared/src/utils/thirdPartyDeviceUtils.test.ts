@@ -27,6 +27,62 @@ describe('thirdPartyDeviceUtils', () => {
     },
   );
 
+  it('classifies every DMK Ledger model id as Bluetooth or USB-only', () => {
+    // eslint-disable-next-line @typescript-eslint/no-var-requires, global-require
+    const { DeviceModelId: DmkModelId } =
+      require('@ledgerhq/device-management-kit') as {
+        DeviceModelId: Record<string, string>;
+      };
+    for (const vendorModel of Object.values(DmkModelId)) {
+      const device = { settings: { vendorModel } };
+      const ble = thirdPartyDeviceUtils.isLedgerBleSupportedDevice(device);
+      const usbOnly = thirdPartyDeviceUtils.getSupportedTransports(
+        EHardwareVendor.ledger,
+        device,
+      );
+      expect({ vendorModel, known: ble || usbOnly?.length === 1 }).toEqual({
+        vendorModel,
+        known: true,
+      });
+    }
+  });
+
+  it('constrains only models known to lack Bluetooth', () => {
+    expect(
+      thirdPartyDeviceUtils.getSupportedTransports(EHardwareVendor.trezor, {
+        settings: { vendorModel: 'T3W1' },
+      }),
+    ).toBeUndefined();
+    expect(
+      thirdPartyDeviceUtils.getSupportedTransports(EHardwareVendor.trezor, {
+        settings: { vendorModel: 'T2B1' },
+      }),
+    ).toEqual(['usb']);
+    expect(
+      thirdPartyDeviceUtils.getSupportedTransports(EHardwareVendor.trezor, {
+        settings: { vendorModel: 'T9Z9' },
+      }),
+    ).toBeUndefined();
+    expect(
+      thirdPartyDeviceUtils.getSupportedTransports(EHardwareVendor.ledger, {
+        settings: { vendorModel: 'apexp' },
+      }),
+    ).toBeUndefined();
+    expect(
+      thirdPartyDeviceUtils.getSupportedTransports(EHardwareVendor.ledger, {
+        settings: { vendorModel: 'nanoSP' },
+      }),
+    ).toEqual(['usb']);
+    expect(
+      thirdPartyDeviceUtils.getSupportedTransports(EHardwareVendor.ledger, {}),
+    ).toBeUndefined();
+    expect(
+      thirdPartyDeviceUtils.getSupportedTransports(EHardwareVendor.keystone, {
+        settings: { vendorModel: 'Keystone 3 Pro' },
+      }),
+    ).toBeUndefined();
+  });
+
   it('reads legacy Ledger model settings without using the editable device name', () => {
     expect(
       thirdPartyDeviceUtils.isLedgerBleSupportedDevice({

@@ -95,7 +95,9 @@ function ThirdPartyDeviceSelectionContent({
   if ((vendor ?? targets[0]?.vendor) === EHardwareVendor.trezor) {
     bindingDescription = ETranslations.trezor_ble_binding__desc;
   }
-  if (context?.reason === 'known-connection-unavailable') {
+  // Mirror `targets`: the live atom wins over the props captured at show time.
+  const bindingReason = binding?.reason ?? context?.reason;
+  if (bindingReason === 'known-connection-unavailable') {
     bindingDescription = ETranslations.global_connection_failed_help_text;
   }
 

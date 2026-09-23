@@ -23,12 +23,8 @@ import type {
 } from '@onekeyfe/hwk-adapter-core';
 
 /**
- * Why the write was refused. By the time the SDK asks us to store a binding it
- * has already verified the wallet on the wire, so neither reason means the user
- * is holding the wrong device: `skipped` is a record we could not find and
- * `mismatch` is a record that does not carry that identity. Both leave the
- * operation running and are reported to the user as a binding that was not
- * saved.
+ * `skipped`: no matching record found. `mismatch`: the record found doesn't
+ * carry that identity. Neither means the wrong device, since the SDK already verified it on the wire; both leave the operation running.
  */
 type IBindingPersistResult =
   | { saved: true }
@@ -202,9 +198,8 @@ export function registerBleBindingUi({
         vendor,
         identity: request.identity,
       };
-      // The dialog can be closed, cancelled or superseded while the read is in
-      // flight. That is us dropping the request, not the user holding the wrong
-      // device — only a failed identity check is a real mismatch.
+      // The dialog can be closed, cancelled or superseded while the read is
+      // in flight; that's us dropping the request, not the user holding the wrong device. Only a failed identity check is a real mismatch.
       if (
         !isActive() ||
         !device ||

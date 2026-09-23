@@ -129,7 +129,7 @@ export function buildThirdPartyHardwareUiResponse(
       };
     case EThirdPartyHardwareUiAction.requestKeystoneQrDisplay:
     case EThirdPartyHardwareUiAction.requestKeystoneQrScan:
-      // No confirm/deny — the response IS the UR the app scanned off the
+      // No confirm/deny: the response is the UR the app scanned off the
       // device's screen. `confirmed=false` (camera/user cancel) drops it.
       if (!confirmed || !extras?.qrResponse) return null;
       return {

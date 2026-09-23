@@ -15,9 +15,7 @@ import { OneKeyHardwareError } from './hardwareErrors';
 import type { IOneKeyErrorHardwareProps } from './hardwareErrors';
 
 // App-internal marker, never on the wire: an all-network install cancelled
-// mid-batch, so the remaining chains soft-skip instead of failing the flow.
-// Deliberately above the SDK's 10000-99999 code space — it used to sit on
-// 10_504, which the SDK now mints as AppAlreadyInstalled.
+// mid-batch, so the remaining chains soft-skip instead of failing. Deliberately above the SDK's 10000-99999 code space.
 export const THIRD_PARTY_HW_INSTALL_APP_USER_CANCEL_CODE = 100_504;
 export const THIRD_PARTY_HW_NETWORK_ERROR_CODE =
   ThirdPartyHwErrorCode.NetworkError;
@@ -232,9 +230,8 @@ export class ThirdPartyInstallAppUserCancelled extends ThirdPartyHardwareError {
 }
 
 /**
- * The device refused the install because the app is already there. The outcome
- * the caller wanted, so install flows treat it as done rather than a failure;
- * it carries copy only for the paths that surface it verbatim.
+ * The app is already installed, the outcome the caller wanted; install
+ * flows treat it as done rather than a failure.
  */
 export class ThirdPartyAppAlreadyInstalled extends ThirdPartyHardwareError {
   constructor(props?: IOneKeyErrorHardwareProps & { vendor?: string }) {
@@ -386,10 +383,9 @@ export class ThirdPartyDeviceMismatch extends ThirdPartyHardwareError {
 }
 
 /**
- * Discovery found devices but none is the wallet being looked for. Milder than
- * ThirdPartyDeviceMismatch: the known wallet is unchanged, the wrong unit is
- * simply connected, and the remedy is a cable swap rather than re-selecting
- * from a scan list.
+ * Discovery found devices but none is the wallet being looked for. Milder
+ * than ThirdPartyDeviceMismatch: the known wallet is unchanged, the remedy is
+ * a cable swap, not re-selecting from a scan list.
  */
 export class ThirdPartyDeviceSearchMismatch extends ThirdPartyHardwareError {
   constructor(props?: IOneKeyErrorHardwareProps & { vendor?: string }) {
@@ -405,11 +401,8 @@ export class ThirdPartyDeviceSearchMismatch extends ThirdPartyHardwareError {
 }
 
 /**
- * The Ledger secure channel (the websocket session used by app install and
- * the genuine check) broke mid-operation. The device link itself may be
- * fine; the session has to be rebuilt before another install is attempted.
- * Distinct from ThirdPartyNetworkError, which is a plain failure to reach
- * Ledger's servers.
+ * The Ledger secure channel (websocket for app install / genuine check)
+ * broke mid-operation and must be rebuilt; distinct from ThirdPartyNetworkError, a plain failure to reach Ledger's servers.
  */
 export class ThirdPartySecureChannelError extends ThirdPartyHardwareError {
   constructor(props?: IOneKeyErrorHardwareProps & { vendor?: string }) {

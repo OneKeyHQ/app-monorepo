@@ -306,10 +306,8 @@ describe('callLedgerWithFingerprint', () => {
   });
 
   it('keeps bootstrap success when the binding confirmation cannot complete', async () => {
-    // The user already approved this on the device and the anchor is persisted
-    // before the confirmation runs. A confirmation round trip that fails to
-    // complete says nothing about which device answered, so discarding the
-    // result here would throw away a signature over a bookkeeping call.
+    // The user already approved this and the anchor is persisted before
+    // confirmation runs; a failed confirmation round trip says nothing about which device answered, so discarding the result would waste a real signature.
     const getChainFingerprint = jest
       .fn()
       .mockResolvedValueOnce(success('new-evm-fingerprint'))

@@ -14,10 +14,8 @@ export interface IFinalizeWalletSetupOperationRelease {
   shouldClearActiveOperation: boolean;
 }
 
-// A retry can start a new setup run while the previous one is still settling.
-// The shared ref then belongs to the newer attempt, so a finishing older
-// attempt must neither clear it nor release the operation it points at — it
-// only releases the operation it opened itself.
+// A retry can start a new setup run while the previous one is still
+// settling, so the shared ref belongs to the newer attempt: an older attempt only releases the operation it opened itself.
 export function resolveOperationReleaseForAttempt({
   attempt,
   activeOperation,

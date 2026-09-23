@@ -771,10 +771,7 @@ function FinalizeWalletSetupPage({
                 connectId: connectedDevice.connectId,
                 deviceId: connectedDevice.deviceId,
                 // Keystone's connectId is the wallet identity, so the USB
-                // handle has to be carried separately. The enumeration serial
-                // is the only thing that identifies the unit before it is
-                // opened, and it is what lets the wallet list show this wallet
-                // as present while its unit is plugged in.
+                // handle is carried separately: the enumeration serial identifies the unit before it's opened, letting the wallet list show it as present while plugged in.
                 usbConnectId: keystoneSearchTarget.serialNumber,
                 name: connectedDeviceName,
                 vendorModel: connectedDevice.model,
@@ -857,9 +854,8 @@ function FinalizeWalletSetupPage({
                   isSoftwareWalletOnlyUser,
                   vendor: deviceData.vendor,
                 });
-                // Terminal outcome, not abandonment — release the in-flight
-                // guard before the pop unmounts this instance. A superseded
-                // attempt must not release the guard the live one holds.
+                // Terminal outcome, not abandonment: release the in-flight
+                // guard before the pop unmounts this instance. A superseded attempt must not release the guard the live one holds.
                 if (isCurrentAttempt()) {
                   hardwareCreateInFlightRef.current = false;
                 }
@@ -1088,11 +1084,8 @@ function FinalizeWalletSetupPage({
     const setupAttempts = setupAttemptsRef.current;
     void createWallet();
     return () => {
-      // Leaving mid-first-contact must not strand the SDK job: Keystone
-      // cold-start jobs serialize, so an abandoned connectDevice blocks the next
-      // attempt forever. Keystone-only, and only during the connectDevice window
-      // — a vendor-wide cancel on Ledger/Trezor would tear down unrelated
-      // jobs (e.g. an app install) and pending UI requests.
+      // Keystone cold-start jobs serialize, so an abandoned connectDevice
+      // blocks the next attempt forever; scoped to Keystone's connectDevice window only, since a vendor-wide cancel would tear down unrelated Ledger/Trezor jobs (e.g. app install).
       const shouldCancelFirstContact = deviceData?.vendor
         ? setupAttempts.invalidate()
         : false;

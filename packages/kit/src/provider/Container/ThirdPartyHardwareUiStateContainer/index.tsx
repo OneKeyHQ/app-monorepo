@@ -30,7 +30,6 @@ import {
   isThirdPartyToastAction,
   thirdPartyAppInstallAtom,
   thirdPartyBatchInstallAtom,
-  thirdPartyBleBindingAtom,
   thirdPartyHardwareUiStateAtom,
   useThirdPartyAppInstallAtom,
   useThirdPartyBatchInstallAtom,
@@ -672,10 +671,8 @@ function ThirdPartyHardwareUiStateContainerCmp() {
       (initial.status !== 'scanning' && initial.status !== 'verifying')
     )
       return;
-    // OK-63224: the flow's processing beat stands on stage behind its touch
-    // wall, above every dialog, so the list would open under it unreachable.
-    // The stage yields first; the device's next ask raises it again. Only the
-    // latest run may raise the dialog, so a re-run mid-yield cancels this one.
+    // OK-63224: the processing beat sits above every dialog, so the list
+    // would open unreachable underneath it; the stage yields first, then re-raises on the next device ask. Only the latest run may raise it.
     let cancelled = false;
     let instance:
       | ReturnType<typeof showThirdPartyDeviceSelectionDialog>
@@ -696,14 +693,10 @@ function ThirdPartyHardwareUiStateContainerCmp() {
         },
         intl,
         onSelected: async (searchTargetId, requestId) => {
-          const current = await thirdPartyBleBindingAtom.get();
-          if (
-            !requestId ||
-            current?.bindingSessionId !== sdkBindingSessionId ||
-            current.requestId !== requestId ||
-            current.status !== 'scanning'
-          )
-            return;
+          // The SDK registry drops a response whose requestId no longer
+          // matches its pending entry; a main-runtime atom mirror can only be
+          // staler than that check.
+          if (!requestId) return;
           await backgroundApiProxy.serviceThirdPartyHardware.thirdPartyHardwareUiResponse(
             {
               vendor: sdkBindingVendor,
@@ -754,6 +747,7 @@ function ThirdPartyHardwareUiStateContainerCmp() {
   const thirdPartyDeviceSelectionDialogInstanceRef =
     useRef<IDialogInstance | null>(null);
   const permissionDialogInstanceRef = useRef<IDialogInstance | null>(null);
+  const permissionShowSeqRef = useRef(0);
   const installDialogInstanceRef = useRef<IDialogInstance | null>(null);
   // Deferred-close timer so a rapid next-chain request reuses the same dialog.
   const installCloseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
@@ -876,10 +870,6 @@ function ThirdPartyHardwareUiStateContainerCmp() {
     [clearCurrentUiState],
   );
 
-  const handlePermissionDialogClose = useCallback(async () => {
-    await clearCurrentUiState();
-  }, [clearCurrentUiState]);
-
   useEffect(() => {
     if (!isThirdPartyDeviceSelection) {
       return;
@@ -969,13 +959,8 @@ function ThirdPartyHardwareUiStateContainerCmp() {
     };
   }, [intl, isThirdPartyDeviceSelection, uiState]);
 
-  // Keystone QR round trip. Not a generic Dialog action (see isDialogAction)
-  // because it needs the animated-QR display + camera-scan primitives, not a
-  // title/message/footer. Modeled on the Trezor THP pairing round trip: the
-  // SDK's own state machine blocks inside its `hw.on(REQUEST_QR_DISPLAY)`
-  // handler until this adapter's `uiResponse()` is called — no promise/
-  // callback plumbing needed, just call thirdPartyHardwareUiResponse once
-  // the scan settles.
+  // Keystone QR round trip: not a generic Dialog action, since it needs
+  // animated-QR display and camera-scan, not title/message/footer. Like Trezor's THP pairing, the SDK blocks in hw.on() until uiResponse() is called.
   const { start: startKeystoneQrScan } = useScanQrCodeLazy();
 
   useEffect(() => {
@@ -990,6 +975,33 @@ function ThirdPartyHardwareUiStateContainerCmp() {
     }
     const expectedState = uiState;
     let isSettled = false;
+
+    const clearExpectedState = async () => {
+      const cleared = await clearThirdPartyHardwareUiStateIfCurrent({
+        expectedState,
+        clearInBackground: (params) =>
+          backgroundApiProxy.serviceThirdPartyHardware.clearThirdPartyHardwareUiStateIfCurrent(
+            params,
+          ),
+      });
+      uiStateRef.current = cleared
+        ? undefined
+        : await thirdPartyHardwareUiStateAtom.get();
+      return cleared;
+    };
+
+    // Effect cleanup: cancel only while this request is still the current
+    // one, so a superseded cleanup cannot fire the vendor-wide cancel at a
+    // newer request.
+    const cancelIfStillCurrent = async () => {
+      if (isSettled) return;
+      isSettled = true;
+      const cleared = await clearExpectedState();
+      if (!cleared) return;
+      await backgroundApiProxy.serviceThirdPartyHardware.thirdPartyHardwareCancel(
+        { vendor },
+      );
+    };
 
     const sendResponse = async (
       qrResponse: { urType: string; urData: string } | null,
@@ -1016,16 +1028,7 @@ function ThirdPartyHardwareUiStateContainerCmp() {
           { vendor },
         );
       } finally {
-        const cleared = await clearThirdPartyHardwareUiStateIfCurrent({
-          expectedState,
-          clearInBackground: (params) =>
-            backgroundApiProxy.serviceThirdPartyHardware.clearThirdPartyHardwareUiStateIfCurrent(
-              params,
-            ),
-        });
-        uiStateRef.current = cleared
-          ? undefined
-          : await thirdPartyHardwareUiStateAtom.get();
+        await clearExpectedState();
       }
     };
 
@@ -1050,14 +1053,14 @@ function ThirdPartyHardwareUiStateContainerCmp() {
     };
 
     // REQUEST_QR_SCAN (device already showing its own export/response QR) or
-    // a malformed display request — go straight to the camera.
+    // a malformed display request: go straight to the camera.
     if (
       action === EThirdPartyHardwareUiAction.requestKeystoneQrScan ||
       !urData
     ) {
       void runScan();
       return () => {
-        void sendResponse(null);
+        void cancelIfStillCurrent();
       };
     }
 
@@ -1081,7 +1084,7 @@ function ThirdPartyHardwareUiStateContainerCmp() {
       },
     });
     return () => {
-      void sendResponse(null);
+      void cancelIfStillCurrent();
       void toast.close({ flag: 'skipReject' });
     };
   }, [
@@ -1102,15 +1105,32 @@ function ThirdPartyHardwareUiStateContainerCmp() {
     }) => {
       // The BLE permission / power dialog is app-layer and vendor-agnostic, so
       // render it for any third-party vendor that emits it (Trezor and Ledger
-      // both run over BLE on native) — not just Ledger.
+      // both run over BLE on native), not just Ledger.
+      // This dialog has no uiRequestId of its own; bind it to the state that
+      // was current when the permission failed, not to whatever arrives later.
+      const expectedState = uiStateRef.current;
+      const seq = permissionShowSeqRef.current + 1;
+      permissionShowSeqRef.current = seq;
       await permissionDialogInstanceRef.current?.close();
       await yieldDeviceStageToDialog();
+      if (seq !== permissionShowSeqRef.current) return;
       permissionDialogInstanceRef.current = Dialog.show({
         dialogContainer:
           reason === EThirdPartyDevicePermissionDeniedReason.bluetoothTurnedOff
             ? OpenBleSettingsDialogRender
             : RequireBlePermissionDialogRender,
-        onClose: handlePermissionDialogClose,
+        onClose: async () => {
+          const cleared = await clearThirdPartyHardwareUiStateIfCurrent({
+            expectedState,
+            clearInBackground: (params) =>
+              backgroundApiProxy.serviceThirdPartyHardware.clearThirdPartyHardwareUiStateIfCurrent(
+                params,
+              ),
+          });
+          uiStateRef.current = cleared
+            ? undefined
+            : await thirdPartyHardwareUiStateAtom.get();
+        },
       });
     };
     appEventBus.on(
@@ -1123,7 +1143,7 @@ function ThirdPartyHardwareUiStateContainerCmp() {
         callback,
       );
     };
-  }, [handlePermissionDialogClose]);
+  }, []);
 
   const handleUserCancel = useCallback(
     async (close: () => Promise<void>) => {

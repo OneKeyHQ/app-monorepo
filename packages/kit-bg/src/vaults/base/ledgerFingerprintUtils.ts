@@ -150,16 +150,16 @@ export async function persistLedgerChainFingerprint({
   chain: ChainForFingerprint;
   fingerprint: string;
 }): Promise<void> {
-  if (localDb.updateDeviceChainFingerprint) {
-    await serializeWrite(dbDeviceId, async () => {
-      await localDb.updateDeviceChainFingerprint({
-        dbDeviceId,
-        chain,
-        fingerprint,
-      });
+  // Cache and DB move inside the same per-device queue so their relative
+  // order matches clearLedgerChainFingerprint.
+  await serializeWrite(dbDeviceId, async () => {
+    await localDb.updateDeviceChainFingerprint?.({
+      dbDeviceId,
+      chain,
+      fingerprint,
     });
-  }
-  setCache(dbDeviceId, chain, fingerprint);
+    setCache(dbDeviceId, chain, fingerprint);
+  });
 }
 
 /**
@@ -173,16 +173,14 @@ export async function clearLedgerChainFingerprint({
   dbDeviceId: string;
   chain: ChainForFingerprint;
 }): Promise<void> {
-  clearCache(dbDeviceId, chain);
-  if (localDb.updateDeviceChainFingerprint) {
-    await serializeWrite(dbDeviceId, async () => {
-      await localDb.updateDeviceChainFingerprint({
-        dbDeviceId,
-        chain,
-        fingerprint: '',
-      });
+  await serializeWrite(dbDeviceId, async () => {
+    clearCache(dbDeviceId, chain);
+    await localDb.updateDeviceChainFingerprint?.({
+      dbDeviceId,
+      chain,
+      fingerprint: '',
     });
-  }
+  });
 }
 
 /**
@@ -260,10 +258,8 @@ async function generateAndStoreFingerprint(
         fingerprint,
         chain,
       );
-      // Only a confirmed different device invalidates the anchor. A round trip
-      // that merely fails to complete does not: the anchor is already
-      // persisted, and returning '' here makes the caller discard an operation
-      // the user already approved on the device.
+      // Only a confirmed different device invalidates the anchor. A round
+      // trip that merely fails to complete does not, since the anchor is already persisted and the user already approved the operation.
       const mismatched =
         (!verified.success &&
           verified.payload.code === HardwareErrorCode.DeviceMismatch) ||

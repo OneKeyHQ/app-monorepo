@@ -85,10 +85,8 @@ describe('OffscreenApiThirdPartyHardware Keystone bridge', () => {
       .value;
     expect(first.on).toHaveBeenCalled();
 
-    // `reset()` clears the connector's own event handlers. This runtime is the
-    // only one that keeps a connector alive across adapter lifetimes, so
-    // without dropping it here the next call reuses a connector nobody is
-    // subscribed to and device events stop reaching the service worker.
+    // This runtime is the only one that keeps a connector alive across
+    // adapter lifetimes, so without dropping it, the next call reuses a connector nobody listens to and device events stop arriving.
     api.reset({ vendor: 'keystone' });
     expect(first.reset).toHaveBeenCalled();
 

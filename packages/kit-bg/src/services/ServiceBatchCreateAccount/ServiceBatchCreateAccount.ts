@@ -991,7 +991,9 @@ class ServiceBatchCreateAccount extends ServiceBase {
         ) {
           return withNewLedgerOperation(
             this.backgroundApi,
-            connectId,
+            // Same reason as callLedgerWithFingerprint: locators travel in
+            // knownConnections tagged with their channel.
+            '',
             (operationId) =>
               this.callThirdPartyAllNetworkGetAddress({
                 allNetworkGetAddress,

@@ -36,12 +36,10 @@ export interface IInstallLedgerCoreAppsParams {
 }
 
 /**
- * Install Ledger apps one by one. A failed install can still have landed the
- * app, so the device is asked before the error is treated as final; a broken
- * secure channel is worth one more attempt on the same session. Everything
- * else throws so the existing error paths handle it. `connectId` is the
- * caller's operation handle and is never swapped — the SDK resolves it, and
- * replacing it here would strand the operation the caller still holds.
+ * A failed install can still have landed the app, so the device is asked
+ * before treating the error as final (worth one retry for a broken secure
+ * channel). `connectId` is the caller's operation handle, resolved by the SDK;
+ * swapping it for a DB locator would strand the operation the caller holds.
  */
 export async function installLedgerCoreApps({
   apps,
@@ -96,8 +94,8 @@ export async function installLedgerCoreApps({
       autoRetryUsed,
     });
     if (retryAction === 'alreadyInstalled') return;
-    // The retry gets the same benefit of the doubt as the first attempt: it
-    // may have landed the app and still failed on the catalog fetch.
+    // The retry may have landed the app despite failing on the catalog
+    // fetch, so it's probed the same as the first attempt.
     if (retryAction !== 'terminal' && (await isAppOnDevice(appName))) return;
     throw retryFailure;
   };

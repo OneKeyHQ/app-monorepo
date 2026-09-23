@@ -342,6 +342,8 @@ export class LedgerAdapter
     operationContext?: IHardwareConnectionContext,
   ): Promise<Response<IThirdPartyConnectedDevicePayload>> {
     this.activeOperationId = undefined;
+    let connected = false;
+    let operationId: string | undefined;
     defaultLogger.hardware.sdkLog.log(
       `[3rdPartyHW][Ledger] connectDevice searchTargetId=${searchTargetId}`,
     );
@@ -364,7 +366,7 @@ export class LedgerAdapter
         )}`,
       );
       if (result.success) {
-        const operationId = result.payload;
+        operationId = result.payload;
         this.activeOperationId = operationId;
         const info = await this.hw.getDeviceInfo(operationId, '');
         defaultLogger.hardware.sdkLog.log(
@@ -384,6 +386,7 @@ export class LedgerAdapter
             capabilities: info.payload.capabilities,
             raw: info.payload.raw,
           };
+          connected = true;
           this.emitConnectionStateChange({
             type: 'connected',
             device: payload,
@@ -393,9 +396,6 @@ export class LedgerAdapter
             payload,
           };
         }
-        await (this.hw as IOperationHardwareWallet)
-          .releaseOperation(operationId)
-          .catch(() => undefined);
         return { success: false, payload: info.payload };
       }
       void this.clearUiState();
@@ -408,6 +408,14 @@ export class LedgerAdapter
       );
       void this.clearUiState();
       throw error;
+    } finally {
+      // SDK builds up to 1.2.3-alpha.8 rethrow a denied or preempted permission
+      // request from getDeviceInfo instead of returning a failure.
+      if (!connected && operationId) {
+        await (this.hw as IOperationHardwareWallet)
+          .releaseOperation(operationId)
+          .catch(() => undefined);
+      }
     }
   }
 

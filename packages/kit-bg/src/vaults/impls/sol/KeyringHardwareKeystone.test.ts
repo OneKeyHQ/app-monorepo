@@ -44,11 +44,8 @@ describe('KeyringHardwareKeystone.buildHwAllNetworkPrepareAccountsParams', () =>
 
 describe('KeyringHardwareKeystone.prepareAccounts multi-network bundle', () => {
   it('dispatches each index to the sol bucket of a shared all-network bundle', async () => {
-    // Simulate one batch-create response that carries entries for several
-    // chains at once (as the real all-network flow does), keyed by
-    // hwSdkNetwork + path. Only the sol bucket should ever be consulted by
-    // this keyring, and each index must resolve to the account of the same
-    // index — not to another chain's entry that happens to share an index.
+    // Simulates one all-network batch response keyed by hwSdkNetwork + path;
+    // only the sol bucket should be consulted, and each index must resolve to its own entry, not another chain's entry sharing that index.
     const bundle: Record<string, Record<string, { address: string }>> = {
       evm: {
         "m/44'/60'/0'/0/0": { address: 'evm-address-0' },
@@ -87,11 +84,8 @@ describe('KeyringHardwareKeystone.prepareAccounts multi-network bundle', () => {
       normalizedAddress: `normalized-${address}`,
     }));
 
-    // Note: prepareAccounts, basePrepareHdNormalAccounts and
-    // getAllNetworkPrepareAccounts are all the real, un-mocked
-    // implementations here — only the adapter-facing boundary
-    // (hwAllNetworkPrepareAccountsResponse.getItem) and vault.validateAddress
-    // are mocked.
+    // prepareAccounts, basePrepareHdNormalAccounts, and
+    // getAllNetworkPrepareAccounts are real here; only the adapter boundary (getItem) and vault.validateAddress are mocked.
     const keyring = Object.assign(
       Object.create(KeyringHardwareKeystone.prototype),
       {

@@ -297,8 +297,8 @@ export enum EThirdPartyHardwareUiAction {
   // Keystone QR: the adapter needs the app to show an animated UR QR code for
   // the device to scan (import / signing round trip).
   requestKeystoneQrDisplay = 'request-keystone-qr-display',
-  // Keystone QR: the device is already showing its own export/response QR —
-  // no display step, the app just scans.
+  // Keystone QR: the device is already showing its own export/response QR,
+  // so there's no display step, the app just scans.
   requestKeystoneQrScan = 'request-keystone-qr-scan',
   // Non-blocking notifications — UI shows status.
   openApp = 'ui-event-ledger-open-app',

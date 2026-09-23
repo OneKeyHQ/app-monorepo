@@ -1,5 +1,6 @@
 import { getVendorProfile } from '@onekeyhq/shared/src/hardware/config/vendorProfile';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import thirdPartyDeviceUtils from '@onekeyhq/shared/src/utils/thirdPartyDeviceUtils';
 import type {
   EHardwareVendor,
   IDeviceCommonParams,
@@ -20,21 +21,14 @@ export function thirdPartyConnectionContextFromDevice(device?: {
   connectId?: string;
   usbConnectId?: string;
   bleConnectId?: string;
+  settings?: { vendorModel?: string; vendorModelName?: string };
+  settingsRaw?: string;
 }): IHardwareConnectionContext {
   if (!device) return {};
   const knownConnections: KnownDeviceConnection[] = [];
   let { usbConnectId, bleConnectId } = device;
-  // Legacy records only stored the endpoint for their original platform, and
-  // which platform that was is not recoverable from the value — so the guess
-  // is "whatever channel this platform uses".
-  //
-  // Only guess when there is nothing better. A record that already carries any
-  // per-channel locator has been written by the current code, which means its
-  // legacy column is a leftover: after a BLE rebind it still holds the
-  // PREVIOUS address, and promoting that into the empty USB slot would hand
-  // the SDK a BLE address as a USB locator.
-  //
-  // Logical wallet identities must never be promoted to physical locators.
+  // Legacy connectId's original platform isn't recoverable, so we guess by
+  // current platform only when no per-channel locator exists yet (a stale legacy value could hand the SDK the wrong channel). Wallet-identity connectIds are never promoted this way.
   if (
     !usbConnectId &&
     !bleConnectId &&
@@ -49,17 +43,20 @@ export function thirdPartyConnectionContextFromDevice(device?: {
     knownConnections.push({ transport: 'usb', connectId: usbConnectId });
   if (bleConnectId)
     knownConnections.push({ transport: 'ble', connectId: bleConnectId });
+  const supportedTransports = thirdPartyDeviceUtils.getSupportedTransports(
+    device.vendor,
+    device,
+  );
   return {
     knownConnections,
     ...(device.id ? { extra: { dbDeviceId: device.id } } : {}),
+    ...(supportedTransports ? { supportedTransports } : {}),
   };
 }
 
 /**
- * The transport locators for one device, with a legacy `connectId` folded into
- * whichever channel it belongs to. Read locators through this rather than off
- * the record: new records leave the legacy column empty, and old ones put
- * either channel in it depending on how the wallet was first onboarded.
+ * Transport locators for one device, with legacy `connectId` folded into the
+ * right channel. Read through this rather than raw fields, since old records vary and new ones leave the legacy column empty.
  */
 export function thirdPartyTransportLocators(device?: {
   vendor?: string;

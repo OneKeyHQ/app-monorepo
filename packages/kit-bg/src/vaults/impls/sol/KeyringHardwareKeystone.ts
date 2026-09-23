@@ -36,7 +36,7 @@ import type { AllNetworkAddressParams } from '@onekeyfe/hd-core';
 
 const VENDOR_ERROR_CONTEXT = { vendor: 'Keystone', chain: 'Solana' } as const;
 
-/** See KeyringHardwareKeystone (evm) for why this needs no fingerprint dance. */
+/** No per-chain app or ephemeral connectId, so no Ledger-style fingerprint check is needed; deviceId is a stable wallet id. */
 export class KeyringHardwareKeystone extends KeyringHardwareBase {
   override coreApi = coreChainApi.sol.hd;
 
@@ -216,9 +216,8 @@ export class KeyringHardwareKeystone extends KeyringHardwareBase {
   override async signMessage(
     _params: ISignMessageParams,
   ): Promise<ISignedMessagePro> {
-    // The SDK exposes solSignMessage, but what Keystone returns for it has not
-    // been verified against real hardware here — leaving it blocked rather
-    // than shipping a signature shape dapps may fail to verify.
+    // The SDK exposes solSignMessage, but Keystone's return for it hasn't
+    // been verified against real hardware, so it stays blocked rather than shipping a signature shape dApps may fail to verify.
     throw new ThirdPartyMethodNotSupported();
   }
 }

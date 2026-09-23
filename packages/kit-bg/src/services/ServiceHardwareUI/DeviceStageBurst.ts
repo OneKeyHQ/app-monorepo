@@ -1368,8 +1368,8 @@ export class DeviceStageBurstScope {
    * subscription in ServiceHardwareUI — the adapters' many write sites
    * stay untouched. Install state outranks the ui-state action (the
    * install dialog coexisted with prompt toasts in the legacy UI);
-   * BLE binding no longer arrives here (it drives its own atom); the
-   * stage still yields to its dialog so the list is reachable (OK-63224).
+   * BLE binding drives its own atom, but the stage still yields to its
+   * dialog so the list is reachable (OK-63224).
    */
   async onThirdPartyState({
     ui,
