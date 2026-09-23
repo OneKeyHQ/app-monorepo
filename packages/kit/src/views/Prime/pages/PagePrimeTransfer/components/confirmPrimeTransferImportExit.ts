@@ -16,8 +16,14 @@ export async function confirmPrimeTransferImportExit(
     return true;
   let pendingConfirmation = pendingConfirmations.get(owner);
   if (!pendingConfirmation) {
-    pendingConfirmation = new Promise<boolean>((resolve) => {
-      Dialog.show({
+    let unsubscribe: (() => void) | undefined;
+    pendingConfirmation = new Promise<boolean>((resolve, reject) => {
+      let settled = false;
+      const settle = (confirmed: boolean) => {
+        settled = true;
+        resolve(confirmed);
+      };
+      const dialog = Dialog.show({
         title: intl.formatMessage({
           id: ETranslations.confirm_exit_dialog_title,
         }),
@@ -32,10 +38,28 @@ export async function confirmPrimeTransferImportExit(
         }),
         disableDrag: true,
         dismissOnOverlayPress: false,
-        onConfirm: () => resolve(true),
-        onClose: () => resolve(false),
+        onConfirm: () => settle(true),
+        onClose: () => settle(false),
       });
+      const closeIfImportEnded = async () => {
+        const { importProgress: latestProgress } =
+          await primeTransferAtom.get();
+        if (
+          !settled &&
+          (!latestProgress?.isImporting || latestProgress.taskUUID !== owner)
+        ) {
+          settle(true);
+          await dialog.close();
+        }
+      };
+      const checkProgress = () => {
+        void closeIfImportEnded().catch(reject);
+      };
+      unsubscribe = primeTransferAtom.sub(checkProgress);
+      // Cover completion between the initial read and subscribing.
+      checkProgress();
     }).finally(() => {
+      unsubscribe?.();
       pendingConfirmations.delete(owner);
     });
     pendingConfirmations.set(owner, pendingConfirmation);
