@@ -569,21 +569,32 @@ function WalletBanner({ hidden = false }: { hidden?: boolean } = {}) {
 
   // A global EVM deriveType change resolves a different Arbitrum address under
   // the same account/indexedAccount ids, so it must invalidate the scope too.
-  // GlobalDeriveTypeUpdate carries no networkId, so skip the bump only when the
-  // landed result for the current scope already used the Perps deriveType.
-  // An in-flight read may predate the event (the store mutates ~100ms before
-  // emitting), so it must never suppress the bump.
+  // GlobalDeriveTypeUpdate carries no networkId, so skip the bump only when
+  // both the landed result and the latest check's read already use the current
+  // Perps deriveType. The store mutates ~100ms before emitting, so a check can
+  // read a value no event has reported yet (A→B while A is landed), or a value
+  // the store has already reverted (A→B→A, landing B after both events saw A).
+  // Either mismatch, or a read still pending, must bump.
   const [perpsDeriveTypeRevision, setPerpsDeriveTypeRevision] = useState(0);
   const landedPerpsDeriveTypeRef = useRef<IAccountDeriveTypes | undefined>(
     undefined,
   );
+  // undefined while the latest check's read is pending.
+  const latestReadPerpsDeriveTypeRef = useRef<IAccountDeriveTypes | undefined>(
+    undefined,
+  );
+  const referralCheckIdRef = useRef(0);
   useEffect(() => {
     const syncPerpsDeriveType = async () => {
       // A failed read yields undefined, which invalidates conservatively.
       const deriveType = await backgroundApiProxy.serviceNetwork
         .getGlobalDeriveTypeOfNetwork({ networkId: PERPS_NETWORK_ID })
         .catch(() => undefined);
-      if (deriveType && deriveType === landedPerpsDeriveTypeRef.current) {
+      if (
+        deriveType &&
+        deriveType === landedPerpsDeriveTypeRef.current &&
+        deriveType === latestReadPerpsDeriveTypeRef.current
+      ) {
         return;
       }
       setPerpsDeriveTypeRevision((value) => value + 1);
@@ -611,6 +622,9 @@ function WalletBanner({ hidden = false }: { hidden?: boolean } = {}) {
         return null;
       }
       const scope = `${account.id}:${indexedAccount?.id ?? ''}:${perpsDeriveTypeRevision}`;
+      referralCheckIdRef.current += 1;
+      const checkId = referralCheckIdRef.current;
+      latestReadPerpsDeriveTypeRef.current = undefined;
       // Use the global EVM deriveType for PERPS_NETWORK_ID, not the scene-local
       // deriveType. Home may currently be on a non-EVM network (e.g. BTC with
       // 'native_segwit'), in which case the scene deriveType cannot resolve the
@@ -619,6 +633,11 @@ function WalletBanner({ hidden = false }: { hidden?: boolean } = {}) {
         await backgroundApiProxy.serviceNetwork.getGlobalDeriveTypeOfNetwork({
           networkId: PERPS_NETWORK_ID,
         });
+      // usePromiseResult only lands the latest run, so an older read resolving
+      // late must not overwrite the newer one.
+      if (checkId === referralCheckIdRef.current) {
+        latestReadPerpsDeriveTypeRef.current = globalEvmDeriveType;
+      }
       const eligibility =
         await backgroundApiProxy.serviceHyperliquidReferral.checkBannerReferralEligibility(
           {
