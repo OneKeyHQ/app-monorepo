@@ -42,6 +42,7 @@ const mockGetNetworkIdsWithoutAccount = jest.fn<
   Promise<string[]>,
   [{ indexedAccountId: string; networkIds: string[] }]
 >();
+let mockUIIdle: Promise<void> = Promise.resolve();
 
 jest.mock('@onekeyhq/components', () => {
   const Box = ({
@@ -93,6 +94,10 @@ jest.mock('../../background/instance/backgroundApiProxy', () => ({
       }) => mockGetNetworkIdsWithoutAccount(params),
     },
   },
+}));
+
+jest.mock('../../utils/deferHeavyWork', () => ({
+  deferHeavyWorkUntilUIIdle: () => mockUIIdle,
 }));
 
 jest.mock('../../states/jotai/contexts/accountSelector', () => ({
@@ -151,6 +156,7 @@ describe('AllNetworksManagerTrigger', () => {
     mockGetNetworkIdsWithoutAccount.mockReset();
     mockMissingAddressQueries.length = 0;
     mockMissingAddressResult = undefined;
+    mockUIIdle = Promise.resolve();
   });
 
   // Slack 09-22 QA report: after changing the enabled networks, switching to
@@ -206,6 +212,28 @@ describe('AllNetworksManagerTrigger', () => {
       indexedAccountId: 'hd-1--3',
       networkIds: ['btc--0', 'evm--1', 'evm--56'],
     });
+  });
+
+  // Slack 09-23 QA report (blank account selector right after a cold start):
+  // the dot is a hint covered by its cached value, so it must not compete
+  // with the frames and background requests of what is on screen.
+  it('asks for missing addresses only once the UI is idle', async () => {
+    mockCompatQueries({ walletReady: true, accountReady: true });
+    mockGetNetworkIdsWithoutAccount.mockResolvedValue(['evm--56']);
+    let markIdle: () => void = () => {};
+    mockUIIdle = new Promise<void>((resolve) => {
+      markIdle = resolve;
+    });
+
+    render(<AllNetworksManagerTrigger num={0} unifiedMode />);
+
+    const pending = mockMissingAddressQueries.at(-1)?.method();
+    await Promise.resolve();
+    expect(mockGetNetworkIdsWithoutAccount).not.toHaveBeenCalled();
+
+    markIdle();
+    await expect(pending).resolves.toEqual(['evm--56']);
+    expect(mockGetNetworkIdsWithoutAccount).toHaveBeenCalledTimes(1);
   });
 
   it('does not ask for missing addresses before the wallet-scoped list resolves', async () => {

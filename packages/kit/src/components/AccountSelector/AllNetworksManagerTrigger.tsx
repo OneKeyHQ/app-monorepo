@@ -17,6 +17,7 @@ import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useEnabledNetworksCompatibleWithWalletIdInAllNetworks } from '../../hooks/useAllNetwork';
 import { usePromiseResult } from '../../hooks/usePromiseResult';
 import { useActiveAccount } from '../../states/jotai/contexts/accountSelector';
+import { deferHeavyWorkUntilUIIdle } from '../../utils/deferHeavyWork';
 import { NetworkAvatarBase } from '../NetworkAvatar';
 
 import { useUnifiedNetworkSelectorTrigger } from './hooks/useUnifiedNetworkSelectorTrigger';
@@ -82,6 +83,10 @@ function AllNetworksManagerTrigger({
           // Not persisted: the per-account cache keeps the last known dot.
           return undefined;
         }
+        // The dot is a hint that the cached value covers until this settles;
+        // let the frames and requests of a cold start or account switch (e.g.
+        // the account selector opened right away) go first.
+        await deferHeavyWorkUntilUIIdle();
         return backgroundApiProxy.serviceAllNetwork.getNetworkIdsWithoutAccountInIndexedAccount(
           {
             indexedAccountId,
