@@ -50,6 +50,31 @@ function rememberResolvedOwnerKey(key: string, ownerKey: string): void {
   }
 }
 
+// Dispatch order of prewarm requests, and the latest request that wrote each
+// owner's frames. The background answers in its settings currency at the time
+// it runs, so across a currency switch a request dispatched earlier can land
+// after a later one; it must not replace the later request's frames with the
+// old currency's (the replay would then reject them or paint stale fiat).
+let prewarmDispatchSeq = 0;
+const ownerWriteSeqs = new Map<string, number>();
+
+function claimOwnerWrite(ownerKey: string, seq: number): boolean {
+  const written = ownerWriteSeqs.get(ownerKey);
+  if (written !== undefined && written > seq) {
+    return false;
+  }
+  ownerWriteSeqs.delete(ownerKey);
+  ownerWriteSeqs.set(ownerKey, seq);
+  while (ownerWriteSeqs.size > RESOLVED_OWNER_KEYS_CAP) {
+    const oldest = ownerWriteSeqs.keys().next().value;
+    if (oldest === undefined) {
+      break;
+    }
+    ownerWriteSeqs.delete(oldest);
+  }
+  return true;
+}
+
 // Frames the replay would accept: a structure frame, remembered in the
 // currency the caller replays in (when it names one).
 function hasFramesForReplay({
@@ -115,6 +140,8 @@ export async function prewarmHomeTokenListOwner(
   if (pending) {
     return pending;
   }
+  prewarmDispatchSeq += 1;
+  const seq = prewarmDispatchSeq;
   const run = (async () => {
     try {
       const result =
@@ -151,6 +178,10 @@ export async function prewarmHomeTokenListOwner(
       const storeName = HOME_STORE_NAME;
       if (hasFramesForReplay({ ownerKey, currencyId: currency })) {
         return inReplayCurrency;
+      }
+      if (!claimOwnerWrite(ownerKey, seq)) {
+        // A later prewarm already wrote this owner (in another currency).
+        return false;
       }
       rememberOwnerReplayFrame({
         storeName,

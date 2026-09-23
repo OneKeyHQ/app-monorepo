@@ -215,7 +215,50 @@ describe('prewarmHomeTokenListOwner', () => {
     expect(mockPrewarmFrames).toHaveBeenCalledTimes(2);
     await expect(cny).resolves.toBe(true);
     resolveUsd(makeBgResult());
-    await expect(usd).resolves.toBe(true);
+    await usd;
+  });
+
+  // PR #13695 review: across a currency switch the older request can land
+  // last; it replaced the newer currency's frames, so the next replay missed
+  // its currency gate.
+  it('an older request landing last does not overwrite a newer request for the same owner', async () => {
+    let resolveUsd: (value: unknown) => void = () => undefined;
+    mockPrewarmFrames.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          resolveUsd = resolve;
+        }),
+    );
+    mockPrewarmFrames.mockResolvedValueOnce({
+      ...makeBgResult(),
+      currency: 'cny',
+    });
+    const usd = prewarmHomeTokenListOwner({ ...PARAMS, currencyId: 'usd' });
+    await expect(
+      prewarmHomeTokenListOwner({ ...PARAMS, currencyId: 'cny' }),
+    ).resolves.toBe(true);
+    resolveUsd(makeBgResult());
+    await expect(usd).resolves.toBe(false);
+    expect(
+      getOwnerReplayFrames({ storeName: STORE_NAME, ownerKey: OWNER_KEY })
+        ?.currencyId,
+    ).toBe('cny');
+  });
+
+  it('a newer request still replaces frames an older request wrote in another currency', async () => {
+    mockPrewarmFrames.mockResolvedValueOnce(makeBgResult());
+    await prewarmHomeTokenListOwner({ ...PARAMS, currencyId: 'usd' });
+    mockPrewarmFrames.mockResolvedValueOnce({
+      ...makeBgResult(),
+      currency: 'cny',
+    });
+    await expect(
+      prewarmHomeTokenListOwner({ ...PARAMS, currencyId: 'cny' }),
+    ).resolves.toBe(true);
+    expect(
+      getOwnerReplayFrames({ storeName: STORE_NAME, ownerKey: OWNER_KEY })
+        ?.currencyId,
+    ).toBe('cny');
   });
 
   it('reports false when the background answers in another currency than the caller replays in', async () => {

@@ -1,5 +1,5 @@
 import type { ComponentProps } from 'react';
-import { useCallback, useEffect } from 'react';
+import { useCallback, useEffect, useMemo } from 'react';
 
 import { Icon, SizableText, Stack, XStack } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
@@ -11,8 +11,11 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EChainSelectorPages, EModalRoutes } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
+import { swrKeys } from '@onekeyhq/shared/src/utils/swrCacheUtils';
 
+import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useEnabledNetworksCompatibleWithWalletIdInAllNetworks } from '../../hooks/useAllNetwork';
+import { usePromiseResult } from '../../hooks/usePromiseResult';
 import { useActiveAccount } from '../../states/jotai/contexts/accountSelector';
 import { NetworkAvatarBase } from '../NetworkAvatar';
 
@@ -63,22 +66,58 @@ function AllNetworksManagerTrigger({
     networkId: network?.id,
   });
 
-  const { enabledNetworksWithoutAccount, run: runAccountCompatQuery } =
-    useEnabledNetworksCompatibleWithWalletIdInAllNetworks({
-      walletId: compatQueryWalletId,
-      networkId: network?.id,
-      indexedAccountId: indexedAccount?.id,
-      filterNetworksWithoutAccount: true,
-    });
+  // The dot reuses the wallet-scoped network list and asks the background only
+  // for the per-account part; a second full compat query would repeat the
+  // network list and compatibility walk on every switch, focus and refresh.
+  const indexedAccountId = indexedAccount?.id ?? '';
+  const walletCompatNetworkIds = useMemo(
+    () => enabledNetworksCompatibleWithWalletId.map((item) => item.id),
+    [enabledNetworksCompatibleWithWalletId],
+  );
+  const walletCompatNetworkIdsKey = walletCompatNetworkIds.join(',');
+  const { result: networkIdsWithoutAccount, run: runMissingAddressQuery } =
+    usePromiseResult(
+      async () => {
+        if (!compatQueryWalletId || !indexedAccountId || !isCompatQueryReady) {
+          // Not persisted: the per-account cache keeps the last known dot.
+          return undefined;
+        }
+        return backgroundApiProxy.serviceAllNetwork.getNetworkIdsWithoutAccountInIndexedAccount(
+          {
+            indexedAccountId,
+            networkIds: walletCompatNetworkIds,
+          },
+        );
+      },
+      // walletCompatNetworkIds is tracked through its key.
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+      [
+        compatQueryWalletId,
+        indexedAccountId,
+        isCompatQueryReady,
+        walletCompatNetworkIdsKey,
+      ],
+      {
+        revalidateOnFocus: true,
+        swrKey:
+          compatQueryWalletId && indexedAccountId
+            ? swrKeys.allNetworksWithoutAccount({
+                walletId: compatQueryWalletId,
+                indexedAccountId,
+              })
+            : undefined,
+      },
+    );
+  const hasNetworksWithoutAccount = (networkIdsWithoutAccount?.length ?? 0) > 0;
 
   const run = useCallback(
     async (config?: { alwaysSetState?: boolean }) => {
       await Promise.all([
         runWalletCompatQuery(config),
-        runAccountCompatQuery(config),
+        runMissingAddressQuery(config),
       ]);
     },
-    [runWalletCompatQuery, runAccountCompatQuery],
+    [runWalletCompatQuery, runMissingAddressQuery],
   );
 
   useEffect(() => {
@@ -248,7 +287,7 @@ function AllNetworksManagerTrigger({
         ) : null}
       </XStack>
       <Icon name="ChevronDownSmallOutline" color="$iconSubdued" size="$5" />
-      {enabledNetworksWithoutAccount.length > 0 ? (
+      {hasNetworksWithoutAccount ? (
         <Stack
           position="absolute"
           right="$0"

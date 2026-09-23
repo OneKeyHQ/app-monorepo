@@ -91,9 +91,13 @@ function BaseHomeHeaderContainer({
 
   // Layout effect: the parent applies the remembered height for this variant
   // in the same commit, before the frame with the new layout is painted.
-  const headerVariant = `${isWalletNotBackedUp ? 'backup' : 'home'}:${
-    shouldShowBanner ? 'banner' : 'plain'
-  }`;
+  // Without a banner the action row still differs by balance state (actions
+  // row, add-money block, loading placeholder), so each keeps its own height.
+  // Not backed up: no actions or banner, one layout.
+  let headerVariant = 'backup:plain';
+  if (!isWalletNotBackedUp) {
+    headerVariant = `home:${shouldShowBanner ? 'banner' : homeBalanceState}`;
+  }
   useLayoutEffect(() => {
     onHeaderVariantChange?.(headerVariant);
   }, [headerVariant, onHeaderVariantChange]);

@@ -490,9 +490,12 @@ function WalletDetailsViewV2({ num }: IWalletDetailsProps) {
   // open (OK-63873): the tap then finds the owner's frames in the replay
   // cache and the switch paints without a skeleton. Sequential and bounded so
   // it stays a background courtesy; the tap itself re-requests its target.
+  // Search results are a transient subset (not persisted either, see
+  // `persistDisplayedValues`): targeting them restarted the batch on every
+  // debounced keystroke and re-asked for owners that have no frames.
   const homeTokenListPrewarmTargets = useMemo(
     () =>
-      canPrewarmHomeTokenList
+      canPrewarmHomeTokenList && !searchText
         ? records.slice(0, HOME_TOKEN_LIST_PREWARM_MAX_ROWS).map((record) =>
             buildAccountSelectorRowPrewarmParams({
               row: record,
@@ -508,6 +511,7 @@ function WalletDetailsViewV2({ num }: IWalletDetailsProps) {
       currencyInfo.id,
       isOthersUniversal,
       records,
+      searchText,
       selectedAccount.deriveType,
       selectedAccount.networkId,
     ],
