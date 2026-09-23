@@ -40,6 +40,7 @@ import {
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { shouldBlockBotWalletReceive } from '@onekeyhq/kit/src/utils/botWalletStatusUtils';
 import { WALLET_BANNER_IMAGE_SIZE } from '@onekeyhq/kit/src/utils/coldStartImagePreload';
+import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
 import {
   HYPERLIQUID_REFERRAL_CODE,
   PERPS_NETWORK_ID,
@@ -568,10 +569,26 @@ function WalletBanner({ hidden = false }: { hidden?: boolean } = {}) {
 
   // A global EVM deriveType change resolves a different Arbitrum address under
   // the same account/indexedAccount ids, so it must invalidate the scope too.
+  // GlobalDeriveTypeUpdate carries no networkId, so only bump when the Perps
+  // deriveType differs from the one the last eligibility check used.
   const [perpsDeriveTypeRevision, setPerpsDeriveTypeRevision] = useState(0);
+  const checkedPerpsDeriveTypeRef = useRef<IAccountDeriveTypes | undefined>(
+    undefined,
+  );
   useEffect(() => {
-    const onGlobalDeriveTypeUpdate = () => {
+    const syncPerpsDeriveType = async () => {
+      // A failed read yields undefined, which invalidates conservatively.
+      const deriveType = await backgroundApiProxy.serviceNetwork
+        .getGlobalDeriveTypeOfNetwork({ networkId: PERPS_NETWORK_ID })
+        .catch(() => undefined);
+      if (deriveType === checkedPerpsDeriveTypeRef.current) {
+        return;
+      }
+      checkedPerpsDeriveTypeRef.current = deriveType;
       setPerpsDeriveTypeRevision((value) => value + 1);
+    };
+    const onGlobalDeriveTypeUpdate = () => {
+      void syncPerpsDeriveType();
     };
     appEventBus.on(
       EAppEventBusNames.GlobalDeriveTypeUpdate,
@@ -601,6 +618,7 @@ function WalletBanner({ hidden = false }: { hidden?: boolean } = {}) {
         await backgroundApiProxy.serviceNetwork.getGlobalDeriveTypeOfNetwork({
           networkId: PERPS_NETWORK_ID,
         });
+      checkedPerpsDeriveTypeRef.current = globalEvmDeriveType;
       const eligibility =
         await backgroundApiProxy.serviceHyperliquidReferral.checkBannerReferralEligibility(
           {
