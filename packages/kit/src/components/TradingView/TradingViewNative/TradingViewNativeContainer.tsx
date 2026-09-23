@@ -60,6 +60,7 @@ import {
   getTradingViewNativeKLineInterval,
   getTradingViewNativeKLineIntervalForTimeRange,
 } from './data/tradingViewNativeIntervals';
+import { useTradingViewNativeAccountMarks } from './data/useTradingViewNativeAccountMarks';
 import { useTradingViewNativeKLine } from './data/useTradingViewNativeKLine';
 import {
   getTradingViewNativeActiveMainIndicators,
@@ -212,6 +213,7 @@ const TradingViewNativeContent = memo(
     indicatorSettingsState,
     forcedChartType,
     chartComponents,
+    accountMarksContext,
     previousClose,
     enablePreviousClose = false,
     enableNativeChartSettings,
@@ -362,15 +364,6 @@ const TradingViewNativeContent = memo(
         }),
       [activeIndicatorValues, maxSelectableSubIndicatorCount],
     );
-    const visibleSubIndicatorCount = useMemo(
-      () =>
-        subIndicatorInstances.reduce(
-          (count, instance) =>
-            instance.isVisible !== false ? count + 1 : count,
-          0,
-        ),
-      [subIndicatorInstances],
-    );
     useLayoutEffect(() => {
       onPriceUpdateRef.current = onPriceUpdate;
     }, [onPriceUpdate]);
@@ -427,20 +420,30 @@ const TradingViewNativeContent = memo(
       : TRADING_VIEW_NATIVE_TIME_AXIS_HEIGHT;
     const indicatorSeries = useMemo(
       () =>
-        buildTradingViewNativeIndicatorSeries({
-          activeIndicatorValues: activeMainIndicatorValues,
-          indicatorSettings: mainIndicatorSettings,
-          points: primarySeriesPoints,
-        }),
-      [activeMainIndicatorValues, mainIndicatorSettings, primarySeriesPoints],
+        isCompactDisplayMode
+          ? []
+          : buildTradingViewNativeIndicatorSeries({
+              activeIndicatorValues: activeMainIndicatorValues,
+              indicatorSettings: mainIndicatorSettings,
+              points: primarySeriesPoints,
+            }),
+      [
+        activeMainIndicatorValues,
+        isCompactDisplayMode,
+        mainIndicatorSettings,
+        primarySeriesPoints,
+      ],
     );
     const visibleSubIndicatorInstances = useMemo(
       () =>
-        subIndicatorInstances
-          .filter((instance) => instance.isVisible !== false)
-          .map(resolveTradingViewNativeSubIndicatorInstance),
-      [subIndicatorInstances],
+        isCompactDisplayMode
+          ? []
+          : subIndicatorInstances
+              .filter((instance) => instance.isVisible !== false)
+              .map(resolveTradingViewNativeSubIndicatorInstance),
+      [isCompactDisplayMode, subIndicatorInstances],
     );
+    const visibleSubIndicatorCount = visibleSubIndicatorInstances.length;
     const subIndicatorCalculationEntries = useMemo(
       () =>
         calculateTradingViewNativeSubIndicatorsWithCache({
@@ -495,8 +498,17 @@ const TradingViewNativeContent = memo(
       () => getTradingViewNativeCurrentPriceLabel(primarySeriesPoints),
       [primarySeriesPoints],
     );
+    const accountMarks = useTradingViewNativeAccountMarks({
+      context: accountMarksContext,
+      from: points[0]?.t,
+      to: latestPoint ? latestPoint.t + candleIntervalSeconds : undefined,
+    });
+    const chartComponentsWithAccountMarks = useMemo(
+      () => [...(chartComponents ?? []), ...accountMarks],
+      [accountMarks, chartComponents],
+    );
     const chartComponentRenderNodes = useTradingViewNativeChartComponents({
-      chartComponents,
+      chartComponents: chartComponentsWithAccountMarks,
       previousClose,
       referenceLineColor:
         themeColors[TRADING_VIEW_NATIVE_THEME_COLORS.referenceLine],
@@ -815,7 +827,9 @@ const TradingViewNativeContent = memo(
     const isMobileControlsLayout = nativeControlsLayoutMode !== 'desktop';
     const nativeIndicatorQuickBar = useMemo(
       () =>
-        showNativeIndicatorQuickBar && isMobileControlsLayout ? (
+        showNativeIndicatorQuickBar &&
+        isMobileControlsLayout &&
+        !isCompactDisplayMode ? (
           <TradingViewIndicatorQuickBar
             activeIndicatorValues={activeIndicatorValues}
             mainIndicators={mainIndicators}
@@ -845,6 +859,7 @@ const TradingViewNativeContent = memo(
         handleIndicatorSettingsPress,
         handleQuickBarIndicatorPress,
         intl,
+        isCompactDisplayMode,
         isMobileControlsLayout,
         mainIndicators,
         showNativeIndicatorQuickBar,
@@ -982,6 +997,9 @@ const TradingViewNativeContent = memo(
               indicatorSeriesSettingsKey={mainIndicatorSettingsKey}
               initialRightOffset={initialRightOffset}
               isMobileLayout={isMobileControlsLayout}
+              resizesWithSubIndicatorPanes={Boolean(
+                onNativeIndicatorQuickBarChange && !isNativeChartFullscreen,
+              )}
               isSwitchingInterval={isSwitchingInterval}
               locale={intl.locale}
               priceAxisTickCount={

@@ -9,10 +9,10 @@
   "dependencies": {
     "@base-ui/react": "1.6.0",
     "@expo/ui": "57.0.12",
-    "@onekeyfe/react-native-native-sheet": "3.0.146",
-    "@onekeyfe/react-native-scroll-guard": "3.0.146",
-    "@onekeyfe/react-native-segment-slider": "3.0.146",
-    "@onekeyfe/react-native-tab-view": "3.0.146",
+    "@onekeyfe/react-native-native-sheet": "3.0.156",
+    "@onekeyfe/react-native-scroll-guard": "3.0.156",
+    "@onekeyfe/react-native-segment-slider": "3.0.156",
+    "@onekeyfe/react-native-tab-view": "3.0.156",
     "@react-native-masked-view/masked-view": "0.3.2",
     "@react-navigation/bottom-tabs": "7.10.1",
     "@react-navigation/elements": "2.9.5",
@@ -27,7 +27,6 @@
     "qrcode": "^1.5.0",
     "react-hook-form": "^7.22.1",
     "react-native-keyboard-aware-scroll-view": "^0.9.5",
-    "react-native-markdown-display": "7.0.2",
     "react-native-root-siblings": "^5.0.1",
     "react-native-svg": "15.15.4"
   },

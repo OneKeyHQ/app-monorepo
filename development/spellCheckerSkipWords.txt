@@ -262,6 +262,7 @@ Cmp
 Codec
 codespace
 coinbase
+coinbasepay
 coingecko
 coinselect
 cointype
@@ -635,6 +636,7 @@ onekeyhq
 onekeyid
 onopen
 onramper
+onramps
 Ons
 onsuccess
 onupgradeneeded
@@ -656,6 +658,7 @@ passcode
 passpharse
 passphrase
 pathname
+paybis
 payin
 payout
 Pbkdf2

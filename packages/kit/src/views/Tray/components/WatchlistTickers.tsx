@@ -182,7 +182,9 @@ function TickerRow({
   stockClosedText: string;
   onPress: () => void;
 }) {
-  const isPositive = ticker.change24h >= 0;
+  const change24h = ticker.change24h;
+  const hasChange = typeof change24h === 'number';
+  const isPositive = hasChange && change24h >= 0;
   const changeColor = isPositive ? '$textSuccess' : '$textCritical';
   const changePrefix = isPositive ? '+' : '';
   const secondaryName =
@@ -239,10 +241,12 @@ function TickerRow({
         <SizableText fontSize="$bodyMd" color="$text">
           {ticker.price}
         </SizableText>
-        <SizableText fontSize="$bodySm" color={changeColor}>
-          {changePrefix}
-          {ticker.change24h.toFixed(2)}%
-        </SizableText>
+        {hasChange ? (
+          <SizableText fontSize="$bodySm" color={changeColor}>
+            {changePrefix}
+            {change24h.toFixed(2)}%
+          </SizableText>
+        ) : null}
       </Stack>
     </Stack>
   );

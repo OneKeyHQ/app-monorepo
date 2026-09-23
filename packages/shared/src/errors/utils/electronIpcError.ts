@@ -63,7 +63,7 @@ type IUnwrappedPayload = {
 };
 
 const parseInnerPayload = (tail: string): IUnwrappedPayload => {
-  const trimmed = tail.trim();
+  const trimmed = tail.trim().replace(/^Error:\s*/, '');
   try {
     const parsed = JSON.parse(trimmed) as unknown;
     if (parsed && typeof parsed === 'object') {

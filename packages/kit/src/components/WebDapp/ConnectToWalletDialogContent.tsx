@@ -10,6 +10,8 @@ import {
 import { useOnboardingConnectWalletLoadingAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale/enum/translations';
 
+import { OnboardingTestIDs } from '../../views/Onboardingv2/testIDs';
+
 export function ConnectToWalletDialogContent({
   onRetryPress,
 }: {
@@ -19,7 +21,7 @@ export function ConnectToWalletDialogContent({
   const intl = useIntl();
 
   return (
-    <Stack>
+    <Stack testID={OnboardingTestIDs.connectExternalWalletLoadingDialog}>
       <Stack
         justifyContent="center"
         alignItems="center"
@@ -29,12 +31,19 @@ export function ConnectToWalletDialogContent({
         borderCurve="continuous"
       >
         {loading ? (
-          <Spinner size="large" />
+          <Spinner
+            size="large"
+            testID={OnboardingTestIDs.connectExternalWalletLoadingSpinner}
+          />
         ) : (
           <Icon size="$9" name="BrokenLink2Outline" />
         )}
 
-        <SizableText textAlign="center" pt="$4">
+        <SizableText
+          testID={OnboardingTestIDs.connectExternalWalletLoadingMessage}
+          textAlign="center"
+          pt="$4"
+        >
           {loading
             ? intl.formatMessage({
                 id: ETranslations.global_connect_to_wallet_confirm_to_proceed,

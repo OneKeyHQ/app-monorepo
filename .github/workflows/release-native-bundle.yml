@@ -85,6 +85,15 @@ on:
         required: false
       ACTION_SIGN_SECERT_KEY:
         required: false
+      # Onramper Headless SDK production pair (publishable key + client id).
+      # Babel inlines them into the JS bundle (development/envExposedToClient.js),
+      # so the iOS OTA bundle must carry them like the EAS build does
+      # (release-ios.yml) — otherwise hasOnramperCredentials() is false after
+      # a hot update and native buy silently falls back to the web widget.
+      ONRAMPER_CLIENT_ID:
+        required: false
+      ONRAMPER_API_KEY:
+        required: false
 
 env:
   NODE_ENV: production
@@ -342,9 +351,36 @@ jobs:
         uses: actions/setup-node@v6
         with:
           node-version: ${{ matrix.node-version }}
-          cache: 'yarn'
+          package-manager-cache: false
           registry-url: 'https://npm.pkg.github.com'
           scope: '@onekeyhq'
+
+      - name: Locate Yarn cache
+        id: yarn-cache
+        shell: bash
+        run: |
+          node <<'NODE'
+          // Match the repository's Yarn 4 cache path without executing checkout plugins.
+          const fs = require('node:fs');
+          const os = require('node:os');
+          const path = require('node:path');
+          const base = process.platform === 'win32'
+            ? path.join(process.env.LOCALAPPDATA || path.join(os.homedir(), 'AppData', 'Local'), 'Yarn', 'Berry')
+            : process.env.XDG_DATA_HOME
+              ? path.join(process.env.XDG_DATA_HOME, 'yarn', 'berry')
+              : path.join(os.homedir(), '.yarn', 'berry');
+          const cache = process.env.YARN_ENABLE_GLOBAL_CACHE === 'true'
+            ? path.join(base, 'cache') : path.join(process.env.GITHUB_WORKSPACE, '.yarn', 'cache');
+          fs.appendFileSync(process.env.GITHUB_OUTPUT, `path=${cache}\narch=${process.arch}\n`);
+          NODE
+
+      - name: Restore Yarn cache from x
+        uses: actions/cache/restore@v4
+        with:
+          path: ${{ steps.yarn-cache.outputs.path }}
+          key: node-cache-${{ runner.os }}-${{ steps.yarn-cache.outputs.arch }}-yarn-${{ hashFiles('yarn.lock') }}
+          restore-keys: |
+            node-cache-${{ runner.os }}-${{ steps.yarn-cache.outputs.arch }}-yarn-
 
       - name: Get yarn cache directory path
         id: yarn-cache-dir-path
@@ -379,6 +415,10 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           UNION_BUILD: 'true'
           ENABLE_NATIVE_BACKGROUND_THREAD: 'true'
+          # iOS-only: the native Onramper SDK never runs on Android, so the
+          # Android arm must not embed the pair.
+          ONRAMPER_CLIENT_ID: ${{ matrix.platform == 'ios' && secrets.ONRAMPER_CLIENT_ID || '' }}
+          ONRAMPER_API_KEY: ${{ matrix.platform == 'ios' && secrets.ONRAMPER_API_KEY || '' }}
         run: |
           if [ -z "$JPUSH_KEY" ]; then
             echo "::error::JPUSH_KEY is required to build native bundles"

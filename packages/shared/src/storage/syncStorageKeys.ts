@@ -16,20 +16,11 @@ export enum EAppSyncStorageKeys {
   onekey_whats_new_shown = 'onekey_whats_new_shown',
   last_valid_server_time = 'last_valid_server_time',
   last_valid_local_time = 'last_valid_local_time',
-  onekey_jotai_context_atoms_snapshot = 'onekey_jotai_context_atoms_snapshot',
-  onekey_account_selector_recent_selection = 'onekey_account_selector_recent_selection',
-  onekey_swr_cache = 'onekey_swr_cache',
   onekey_device_performance_tier = 'onekey_device_performance_tier',
   onekey_device_cpu_tier_override_v2 = 'onekey_device_cpu_tier_override_v2',
   onekey_trading_view_native_active_intervals_v1 = 'onekey_trading_view_native_active_intervals_v1',
   onekey_swap_trading_view_native_active_intervals_v1 = 'onekey_swap_trading_view_native_active_intervals_v1',
   onekey_travel_mode_control_v1 = 'onekey_travel_mode_control_v1',
-  // TokenList cells one-time cold-start cleanup version flag (spec §7). A
-  // monotonically-increasing integer compared against
-  // TOKEN_COLD_START_CLEANUP_VERSION so the OLD `::ctx:renderedTokenListCacheAtom`
-  // disk fields are purged once per version (and re-purged after a
-  // downgrade→upgrade). Stored in the cold-start cache MMKV instance.
-  onekey_tokenlist_cold_start_cleanup_version = 'onekey_tokenlist_cold_start_cleanup_version',
 }
 
 // Dev setting keys stored in the separate 'onekey-app-dev-setting' MMKV instance,
@@ -41,9 +32,9 @@ export enum EDevSettingSyncStorageKeys {
 }
 
 // Logical "scope" identifiers used when caching lists that are surfaced by
-// more than one UI variant. Each scope is an independent slot inside
-// `onekey_swr_cache`. Keep the value strings stable: changing one
-// invalidates every cached entry for that scope.
+// more than one UI variant. Each scope is an independent slot inside the SWR
+// cache. Keep the value strings stable: changing one invalidates every cached
+// entry for that scope.
 export enum EAppSWRCacheScopes {
   editableChainSelector = 'editable-chain-selector',
   pureChainSelector = 'pure-chain-selector',

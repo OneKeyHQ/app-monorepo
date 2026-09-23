@@ -1,6 +1,7 @@
 /** @jest-environment jsdom */
 import { render } from '@testing-library/react';
 
+import type { ITradingViewNativeProps } from '@onekeyhq/kit/src/components/TradingView/TradingViewNative';
 import { fetchMarketAssetKLineData } from '@onekeyhq/kit/src/components/TradingView/utils/fetchMarketAssetKLineData';
 import { fetchMarketStockKLineData } from '@onekeyhq/kit/src/components/TradingView/utils/fetchMarketStockKLineData';
 
@@ -13,6 +14,9 @@ const mockTopCoinsDesktopLayout = jest.fn(
   (_props: Record<string, unknown>) => null,
 );
 const mockNativeChartMount = jest.fn();
+const mockNativeChartRender = jest.fn(
+  (_props: ITradingViewNativeProps) => null,
+);
 const mockNativeChartUnmount = jest.fn();
 let mockMarketPriceSource: 'share' | 'token' = 'share';
 let mockTokenAddress = '0xaapl';
@@ -71,7 +75,8 @@ jest.mock('@onekeyhq/components', () => {
 jest.mock('@onekeyhq/kit/src/components/TradingView/TradingViewNative', () => {
   const React = jest.requireActual<typeof import('react')>('react');
   return {
-    TradingViewNative: () => {
+    TradingViewNative: (props: ITradingViewNativeProps) => {
+      mockNativeChartRender(props);
       React.useEffect(() => {
         mockNativeChartMount();
         return mockNativeChartUnmount;
@@ -139,7 +144,7 @@ jest.mock(
 );
 
 jest.mock('../components/InformationTabs/hooks/useNetworkAccount', () => ({
-  useNetworkAccount: jest.fn(() => ({})),
+  useNetworkAccount: jest.fn(() => ({ accountAddress: 'test-account' })),
 }));
 
 jest.mock('../components/MarketTradingView/LazyMarketTradingView', () => ({
@@ -265,7 +270,34 @@ describe('DesktopLayout', () => {
     mockStockDesktopLayout.mockClear();
     mockTopCoinsDesktopLayout.mockClear();
     mockNativeChartMount.mockClear();
+    mockNativeChartRender.mockClear();
     mockNativeChartUnmount.mockClear();
+  });
+
+  it('connects account marks for token charts and excludes stock share prices', () => {
+    mockMarketPriceSource = 'token';
+    const props = {
+      isChartFullscreen: false,
+      isTradingViewNative: true,
+      onChartSwitch: jest.fn(),
+      onChartFullscreenChange: jest.fn(),
+      isNative: false,
+      networkId: 'evm--1',
+      tokenAddress: '0xaapl',
+    } as const;
+    const { rerender } = render(<DesktopLayout {...props} />);
+    expect(
+      mockNativeChartRender.mock.calls.at(-1)?.[0].accountMarksContext,
+    ).toEqual({
+      accountAddress: 'test-account',
+      networkId: 'evm--1',
+      tokenAddress: '0xaapl',
+    });
+    mockMarketPriceSource = 'share';
+    rerender(<DesktopLayout {...props} />);
+    expect(
+      mockNativeChartRender.mock.calls.at(-1)?.[0].accountMarksContext,
+    ).toBeUndefined();
   });
 
   it('forwards disableTrade to the stock desktop layout', () => {

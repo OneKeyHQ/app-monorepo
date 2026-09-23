@@ -16,6 +16,11 @@ on:
         required: false
         type: string
         default: ''
+      mas_build_number:
+        description: 'Complete positive integer CFBundleVersion for MAS only, with no appended zero. Defaults to build_number followed by 0.'
+        required: false
+        type: string
+        default: ''
       build_bundle_version:
         description: 'Bundle version from upstream CI. Auto-generated if not provided.'
         required: false
@@ -95,6 +100,7 @@ jobs:
     env:
       NODE_ENV: production
       YARN_ENABLE_GLOBAL_CACHE: true
+      MAS_BUILD_NUMBER: ${{ github.event.inputs.mas_build_number || '' }}
     steps:
       - name: Checkout Source Code
         uses: actions/checkout@v4
@@ -141,9 +147,36 @@ jobs:
         uses: actions/setup-node@v6
         with:
           node-version: ${{ matrix.node-version }}
-          cache: 'yarn'
+          package-manager-cache: false
           registry-url: 'https://npm.pkg.github.com'
           scope: '@onekeyhq'
+
+      - name: Locate Yarn cache
+        id: yarn-cache
+        shell: bash
+        run: |
+          node <<'NODE'
+          // Match the repository's Yarn 4 cache path without executing checkout plugins.
+          const fs = require('node:fs');
+          const os = require('node:os');
+          const path = require('node:path');
+          const base = process.platform === 'win32'
+            ? path.join(process.env.LOCALAPPDATA || path.join(os.homedir(), 'AppData', 'Local'), 'Yarn', 'Berry')
+            : process.env.XDG_DATA_HOME
+              ? path.join(process.env.XDG_DATA_HOME, 'yarn', 'berry')
+              : path.join(os.homedir(), '.yarn', 'berry');
+          const cache = process.env.YARN_ENABLE_GLOBAL_CACHE === 'true'
+            ? path.join(base, 'cache') : path.join(process.env.GITHUB_WORKSPACE, '.yarn', 'cache');
+          fs.appendFileSync(process.env.GITHUB_OUTPUT, `path=${cache}\narch=${process.arch}\n`);
+          NODE
+
+      - name: Restore Yarn cache from x
+        uses: actions/cache/restore@v4
+        with:
+          path: ${{ steps.yarn-cache.outputs.path }}
+          key: node-cache-${{ runner.os }}-${{ steps.yarn-cache.outputs.arch }}-yarn-${{ hashFiles('yarn.lock') }}
+          restore-keys: |
+            node-cache-${{ runner.os }}-${{ steps.yarn-cache.outputs.arch }}-yarn-
 
       - name: Get yarn cache directory path
         id: yarn-cache-dir-path
@@ -323,7 +356,7 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           cd apps/desktop
-          npx electron-builder build -m --config electron-builder-mas.config.js --publish never
+          yarn build:electron:mas --publish never
 
       - name: Clean up MAS keychain and provisioning profile
         if: ${{ always() }}
@@ -340,6 +373,7 @@ jobs:
             ./apps/desktop/build-electron/mas-universal/*.pkg
 
       - name: Validate MAS for Testflight
+        id: validate_mas
         if: always() && steps.build_main.outcome == 'success' && steps.phase2_mas.outcome == 'success' && steps.mac_runtime_integrity.outcome == 'success' && env.UPLOAD_MAS_TO_TESTFLIGHT == 'true'
         env:
           APPLEID: ${{ secrets.APPLEID }}
@@ -350,8 +384,8 @@ jobs:
           xcrun altool --validate-app --file "$PKG_FILE" -t macOS -u "$APPLEID" -p "$APPLEIDPASS" --show-progress
 
       - name: Upload MAS to Testflight
-        if: always() && steps.build_main.outcome == 'success' && steps.phase2_mas.outcome == 'success' && steps.mac_runtime_integrity.outcome == 'success' && env.UPLOAD_MAS_TO_TESTFLIGHT == 'true'
-        continue-on-error: true
+        id: upload_mas
+        if: always() && steps.build_main.outcome == 'success' && steps.phase2_mas.outcome == 'success' && steps.mac_runtime_integrity.outcome == 'success' && env.UPLOAD_MAS_TO_TESTFLIGHT == 'true' && steps.validate_mas.outcome == 'success'
         env:
           APPLEID: ${{ secrets.APPLEID }}
           APPLEIDPASS: ${{ secrets.APPLEIDPASS }}
@@ -361,7 +395,7 @@ jobs:
           xcrun altool --upload-app --file "$PKG_FILE" -t macOS -u "$APPLEID" -p "$APPLEIDPASS" --show-progress
 
       - name: 'Notify to Slack - MAS'
-        if: always() && env.NOTIFY_RELEASE == 'true' && steps.phase2_mas.outcome == 'success' && steps.mac_runtime_integrity.outcome == 'success'
+        if: always() && env.NOTIFY_RELEASE == 'true' && steps.phase2_mas.outcome == 'success' && steps.mac_runtime_integrity.outcome == 'success' && (env.UPLOAD_MAS_TO_TESTFLIGHT != 'true' || steps.upload_mas.outcome == 'success')
         uses: onekeyhq/actions/slack-notify-webhook@86ad045e18da7958f659995ee2f9df375dd03ef4
         with:
           web-hook-url: ${{ secrets.SLACK_NOTIFICATION_WEBHOOK }}
@@ -454,9 +488,36 @@ jobs:
         uses: actions/setup-node@v6
         with:
           node-version: ${{ matrix.node-version }}
-          cache: 'yarn'
+          package-manager-cache: false
           registry-url: 'https://npm.pkg.github.com'
           scope: '@onekeyhq'
+
+      - name: Locate Yarn cache
+        id: yarn-cache
+        shell: bash
+        run: |
+          node <<'NODE'
+          // Match the repository's Yarn 4 cache path without executing checkout plugins.
+          const fs = require('node:fs');
+          const os = require('node:os');
+          const path = require('node:path');
+          const base = process.platform === 'win32'
+            ? path.join(process.env.LOCALAPPDATA || path.join(os.homedir(), 'AppData', 'Local'), 'Yarn', 'Berry')
+            : process.env.XDG_DATA_HOME
+              ? path.join(process.env.XDG_DATA_HOME, 'yarn', 'berry')
+              : path.join(os.homedir(), '.yarn', 'berry');
+          const cache = process.env.YARN_ENABLE_GLOBAL_CACHE === 'true'
+            ? path.join(base, 'cache') : path.join(process.env.GITHUB_WORKSPACE, '.yarn', 'cache');
+          fs.appendFileSync(process.env.GITHUB_OUTPUT, `path=${cache}\narch=${process.arch}\n`);
+          NODE
+
+      - name: Restore Yarn cache from x
+        uses: actions/cache/restore@v4
+        with:
+          path: ${{ steps.yarn-cache.outputs.path }}
+          key: node-cache-${{ runner.os }}-${{ steps.yarn-cache.outputs.arch }}-yarn-${{ hashFiles('yarn.lock') }}
+          restore-keys: |
+            node-cache-${{ runner.os }}-${{ steps.yarn-cache.outputs.arch }}-yarn-
 
       - name: Get yarn cache directory path
         id: yarn-cache-dir-path
@@ -725,9 +786,36 @@ jobs:
         uses: actions/setup-node@v6
         with:
           node-version: ${{ matrix.node-version }}
-          cache: 'yarn'
+          package-manager-cache: false
           registry-url: 'https://npm.pkg.github.com'
           scope: '@onekeyhq'
+
+      - name: Locate Yarn cache
+        id: yarn-cache
+        shell: bash
+        run: |
+          node <<'NODE'
+          // Match the repository's Yarn 4 cache path without executing checkout plugins.
+          const fs = require('node:fs');
+          const os = require('node:os');
+          const path = require('node:path');
+          const base = process.platform === 'win32'
+            ? path.join(process.env.LOCALAPPDATA || path.join(os.homedir(), 'AppData', 'Local'), 'Yarn', 'Berry')
+            : process.env.XDG_DATA_HOME
+              ? path.join(process.env.XDG_DATA_HOME, 'yarn', 'berry')
+              : path.join(os.homedir(), '.yarn', 'berry');
+          const cache = process.env.YARN_ENABLE_GLOBAL_CACHE === 'true'
+            ? path.join(base, 'cache') : path.join(process.env.GITHUB_WORKSPACE, '.yarn', 'cache');
+          fs.appendFileSync(process.env.GITHUB_OUTPUT, `path=${cache}\narch=${process.arch}\n`);
+          NODE
+
+      - name: Restore Yarn cache from x
+        uses: actions/cache/restore@v4
+        with:
+          path: ${{ steps.yarn-cache.outputs.path }}
+          key: node-cache-${{ runner.os }}-${{ steps.yarn-cache.outputs.arch }}-yarn-${{ hashFiles('yarn.lock') }}
+          restore-keys: |
+            node-cache-${{ runner.os }}-${{ steps.yarn-cache.outputs.arch }}-yarn-
 
       - name: Get yarn cache directory path
         id: yarn-cache-dir-path

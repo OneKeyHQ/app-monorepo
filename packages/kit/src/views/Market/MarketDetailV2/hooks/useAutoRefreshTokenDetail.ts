@@ -1,6 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 
 import { useCurrency } from '@onekeyhq/kit/src/components/Currency';
+import { useLocaleVariant } from '@onekeyhq/kit/src/hooks/useLocaleVariant';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useTokenDetailActions } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2';
 import { useMarketAssetTokenDetailAction } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2/marketAssetDetail';
@@ -11,6 +12,8 @@ import {
 } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/utils/resolveMarketAssetRouteIdentity';
 import { useMarketCurrentTokenLiveDataAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { MARKET_TOP_COINS_CATEGORY_ID } from '@onekeyhq/shared/src/consts/marketConsts';
+import { swrKeys } from '@onekeyhq/shared/src/utils/swrCacheUtils';
+import { normalizeTokenContractAddress } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type { IMarketAssetDetailData } from '@onekeyhq/shared/types/market';
 
 interface IUseMarketDetailDataProps {
@@ -119,6 +122,26 @@ export function useAutoRefreshTokenDetail(data: IUseMarketDetailDataProps) {
     data.marketTokenCategory === MARKET_TOP_COINS_CATEGORY_ID &&
     data.marketTokenId,
   );
+  const locale = useLocaleVariant().toLowerCase();
+  // The response carries currency-converted and localized fields.
+  const tokenDetailSwrKey =
+    active &&
+    !data.skipMarketDataFetch &&
+    !isMarketAssetRequest &&
+    currencyInfo.id &&
+    data.networkId &&
+    (data.tokenAddress || data.isNative)
+      ? swrKeys.marketTokenDetail({
+          networkId: data.networkId,
+          tokenAddress:
+            normalizeTokenContractAddress({
+              networkId: data.networkId,
+              contractAddress: data.tokenAddress,
+            }) ?? '',
+          currencyId: currencyInfo.id,
+          locale,
+        })
+      : undefined;
   const tokenDetailRequestKey = [
     isMarketAssetRequest ? 'asset' : 'token',
     data.marketTokenId ?? '',
@@ -252,6 +275,21 @@ export function useAutoRefreshTokenDetail(data: IUseMarketDetailDataProps) {
     tokenDetailActions,
   ]);
 
+  // Runs after the identity writes above so the seed matches the new token.
+  useLayoutEffect(() => {
+    if (!tokenDetailSwrKey) return;
+    tokenDetailActions.seedTokenDetailFromCache({
+      tokenAddress: data.tokenAddress,
+      networkId: data.networkId,
+      swrKey: tokenDetailSwrKey,
+    });
+  }, [
+    data.networkId,
+    data.tokenAddress,
+    tokenDetailActions,
+    tokenDetailSwrKey,
+  ]);
+
   useEffect(() => {
     if (!active) {
       return;
@@ -324,6 +362,7 @@ export function useAutoRefreshTokenDetail(data: IUseMarketDetailDataProps) {
         await tokenDetailActions.fetchTokenDetail(
           data.tokenAddress,
           data.networkId,
+          { swrKey: tokenDetailSwrKey },
         );
       } finally {
         if (
@@ -347,6 +386,7 @@ export function useAutoRefreshTokenDetail(data: IUseMarketDetailDataProps) {
       isMarketAssetRequest,
       tokenDetailActions,
       tokenDetailRequestKey,
+      tokenDetailSwrKey,
       requestGeneration,
     ],
     {
