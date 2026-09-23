@@ -19,11 +19,17 @@ export function openSwapDepositEntry({
   token,
   accountInfo,
   onClose,
+  logLowBalance = true,
 }: {
   navigation: ReturnType<typeof useAppNavigation>;
   token?: ISwapToken;
   accountInfo?: IAccountSelectorActiveAccountInfo;
   onClose?: () => void;
+  // Only entries that exist because the balance is low should count the
+  // low-balance funnel event. Always-visible deposit entries, such as the
+  // Pro panel's Top up chip, pass false so a sufficient balance does not land
+  // in the low-balance funnel.
+  logLowBalance?: boolean;
 }): boolean {
   if (!token || !accountInfo) return false;
   if (!accountInfo.account?.id && !accountInfo.indexedAccount?.id) {
@@ -49,12 +55,14 @@ export function openSwapDepositEntry({
       showDoneButton: true,
     },
   });
-  defaultLogger.wallet.walletActions.buyOnLowBalance({
-    source: 'swap',
-    networkId: token.networkId ?? '',
-    tokenSymbol: token.symbol ?? '',
-    tokenAddress: token.contractAddress ?? '',
-    walletType: accountInfo.wallet?.type ?? '',
-  });
+  if (logLowBalance) {
+    defaultLogger.wallet.walletActions.buyOnLowBalance({
+      source: 'swap',
+      networkId: token.networkId ?? '',
+      tokenSymbol: token.symbol ?? '',
+      tokenAddress: token.contractAddress ?? '',
+      walletType: accountInfo.wallet?.type ?? '',
+    });
+  }
   return true;
 }

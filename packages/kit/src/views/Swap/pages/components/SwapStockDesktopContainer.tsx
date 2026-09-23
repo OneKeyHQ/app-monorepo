@@ -1272,11 +1272,12 @@ function StockAmountInput({
       Boolean(
         swapFromAddressInfo.accountInfo?.account?.id &&
         inputToken &&
-        hasBalanceError,
+        (hasBalanceError || isBalanceLoadedZero),
       ),
     [
       hasBalanceError,
       inputToken,
+      isBalanceLoadedZero,
       isBuySide,
       swapFromAddressInfo.accountInfo?.account?.id,
     ],
@@ -1322,6 +1323,7 @@ function StockAmountInput({
             showPercentageInputDebounce && balanceActionsReady,
           )}
           showActionBuy={showActionBuy}
+          actionBuyHighlighted={!isBalanceLoadedZero}
           onSelectStage={onSelectPercentageStage}
         />
       </XStack>

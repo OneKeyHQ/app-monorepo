@@ -51,6 +51,9 @@ interface ISwapProTradingPanelProps {
   supportSpeedSwap: boolean;
   onSwapProActionClick: () => void;
   onDepositToTrade: () => void;
+  // Top up chip entry: always visible, so it does not count the low-balance
+  // funnel event the zero-balance action button counts.
+  onTopUpPress: () => void;
   hasEnoughBalance: boolean;
   handleSelectAccountClick: () => void;
   cleanInputAmount: () => void;
@@ -73,6 +76,7 @@ const SwapProTradingPanel = ({
   onBalanceMax,
   onSwapProActionClick,
   onDepositToTrade,
+  onTopUpPress,
   handleSelectAccountClick,
   onSelectPercentageStage,
   limitPriceUseMarketPrice,
@@ -228,7 +232,7 @@ const SwapProTradingPanel = ({
         <SwapProTradeInfoGroup
           balanceLoading={balanceLoading}
           onBalanceMax={onBalanceMax}
-          onDepositPress={onDepositToTrade}
+          onDepositPress={onTopUpPress}
           storeName={storeName}
         />
         <SwapProAccountSelect onSelectAccountClick={handleSelectAccountClick} />

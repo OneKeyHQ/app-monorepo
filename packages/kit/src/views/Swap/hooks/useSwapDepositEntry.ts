@@ -1,4 +1,4 @@
-import { useCallback, useRef } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -47,28 +47,58 @@ export function useSwapDepositEntryPress({
   accountInfo,
   activeAccount,
   onClose,
+  logLowBalance = true,
 }: {
   token?: ISwapToken;
   accountInfo?: IAccountSelectorActiveAccountInfo;
   activeAccount?: IAccountSelectorActiveAccountInfo;
   onClose: () => void;
+  // Passed through to openSwapDepositEntry; always-visible deposit entries
+  // (the Pro panel's Top up chip) set false so they do not count the
+  // low-balance funnel event.
+  logLowBalance?: boolean;
 }) {
   const navigation = useAppNavigation();
   const intl = useIntl();
-  const latest = useRef({ token, accountInfo, activeAccount, onClose });
-  latest.current = { token, accountInfo, activeAccount, onClose };
-  const resolvingRef = useRef(false);
+  const latest = useRef({
+    token,
+    accountInfo,
+    activeAccount,
+    onClose,
+    logLowBalance,
+  });
+  latest.current = {
+    token,
+    accountInfo,
+    activeAccount,
+    onClose,
+    logLowBalance,
+  };
+  // Selection key of the in-flight on-demand lookup. One lookup per selection:
+  // repeated taps for the same selection dedupe, while a press for a new
+  // selection starts its own lookup and the older result is dropped below.
+  const resolvingKeyRef = useRef('');
+  // A pending lookup must not open anything after this entry unmounted (the
+  // user left the page while the account was resolving).
+  const mountedRef = useRef(true);
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
   return useCallback(() => {
     void (async () => {
-      if (resolvingRef.current) return;
       const pressed = latest.current;
+      const pressedKey = buildSwapDepositSelectionKey(pressed);
+      if (resolvingKeyRef.current === pressedKey) return;
       let depositAccountInfo = pressed.accountInfo;
       if (
         !depositAccountInfo &&
         pressed.token?.networkId &&
         pressed.activeAccount
       ) {
-        resolvingRef.current = true;
+        resolvingKeyRef.current = pressedKey;
         try {
           const { account } = await resolveSwapNetworkAccount({
             accountId: pressed.activeAccount.account?.id,
@@ -82,20 +112,22 @@ export function useSwapDepositEntryPress({
         } catch {
           depositAccountInfo = undefined;
         } finally {
-          resolvingRef.current = false;
+          if (resolvingKeyRef.current === pressedKey) {
+            resolvingKeyRef.current = '';
+          }
         }
-        if (
-          buildSwapDepositSelectionKey(latest.current) !==
-          buildSwapDepositSelectionKey(pressed)
-        ) {
+        if (!mountedRef.current) return;
+        if (buildSwapDepositSelectionKey(latest.current) !== pressedKey) {
           return;
         }
       }
+      if (!mountedRef.current) return;
       const opened = openSwapDepositEntry({
         navigation,
         token: pressed.token,
         accountInfo: depositAccountInfo,
         onClose: latest.current.onClose,
+        logLowBalance: latest.current.logLowBalance,
       });
       // A pressable entry only ends up here without an account when the
       // on-demand lookup above failed (or the token is gone); say so instead of

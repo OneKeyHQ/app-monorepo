@@ -61,6 +61,21 @@ describe('openSwapDepositEntry', () => {
     });
   });
 
+  it('skips the funnel event for always-visible entries', () => {
+    const pushModal = jest.fn();
+    const navigation = { pushModal } as unknown as INavigation;
+    expect(
+      openSwapDepositEntry({
+        navigation,
+        token,
+        accountInfo,
+        logLowBalance: false,
+      }),
+    ).toBe(true);
+    expect(pushModal).toHaveBeenCalledTimes(1);
+    expect(mockBuyOnLowBalance).not.toHaveBeenCalled();
+  });
+
   it('does nothing without a token or account', () => {
     const pushModal = jest.fn();
     const navigation = { pushModal } as unknown as INavigation;

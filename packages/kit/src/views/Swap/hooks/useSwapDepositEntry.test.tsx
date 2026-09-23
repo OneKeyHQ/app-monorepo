@@ -45,9 +45,16 @@ jest.mock('react-intl', () => ({
   }),
 }));
 
+const mockBuyOnLowBalance = jest.fn();
 jest.mock('@onekeyhq/shared/src/logger/logger', () => ({
   defaultLogger: {
-    wallet: { walletActions: { buyOnLowBalance: jest.fn() } },
+    wallet: {
+      walletActions: {
+        buyOnLowBalance: (...args: unknown[]) => {
+          mockBuyOnLowBalance(...args);
+        },
+      },
+    },
   },
 }));
 
@@ -249,5 +256,113 @@ describe('useSwapDepositEntryPress', () => {
     });
     expect(mockPushModal).toHaveBeenCalledTimes(1);
     expect(mockToastMessage).not.toHaveBeenCalled();
+  });
+
+  it('drops a pending lookup when the entry unmounts', async () => {
+    const lookup = createDeferred<{ account: INetworkAccount | undefined }>();
+    mockResolveSwapNetworkAccount.mockReturnValue(lookup.promise);
+    const { result, unmount } = renderHook(() =>
+      useSwapDepositEntryPress({
+        token: bnbUsdc,
+        accountInfo: undefined,
+        activeAccount,
+        onClose: jest.fn(),
+      }),
+    );
+    act(() => {
+      result.current();
+    });
+    expect(mockResolveSwapNetworkAccount).toHaveBeenCalledTimes(1);
+
+    unmount();
+    await act(async () => {
+      lookup.resolve({ account: bnbAccount });
+      await lookup.promise;
+    });
+
+    // The user left the page; Receive must not open (nor toast) afterwards.
+    expect(mockPushModal).not.toHaveBeenCalled();
+    expect(mockToastMessage).not.toHaveBeenCalled();
+  });
+
+  it('lets a new selection run its own lookup while the previous one is in flight', async () => {
+    const first = createDeferred<{ account: INetworkAccount | undefined }>();
+    const second = createDeferred<{ account: INetworkAccount | undefined }>();
+    mockResolveSwapNetworkAccount
+      .mockReturnValueOnce(first.promise)
+      .mockReturnValueOnce(second.promise);
+    const { result, rerender } = renderHook(
+      ({ token }: { token: ISwapToken }) =>
+        useSwapDepositEntryPress({
+          token,
+          accountInfo: undefined,
+          activeAccount,
+          onClose: jest.fn(),
+        }),
+      { initialProps: { token: bnbUsdc } },
+    );
+    act(() => {
+      result.current();
+    });
+    expect(mockResolveSwapNetworkAccount).toHaveBeenCalledTimes(1);
+
+    rerender({ token: ethUsdc });
+    act(() => {
+      result.current();
+    });
+    // The new selection is not swallowed by the in-flight lookup.
+    expect(mockResolveSwapNetworkAccount).toHaveBeenCalledTimes(2);
+    expect(mockResolveSwapNetworkAccount).toHaveBeenLastCalledWith(
+      expect.objectContaining({ networkId: 'evm--1' }),
+    );
+
+    await act(async () => {
+      second.resolve({ account: { id: 'hd-1--evm--1' } as INetworkAccount });
+      await second.promise;
+    });
+    expect(mockPushModal).toHaveBeenCalledTimes(1);
+    expect(receiveParams()).toEqual(
+      expect.objectContaining({ networkId: 'evm--1' }),
+    );
+
+    // The superseded lookup result is dropped instead of opening a second time.
+    await act(async () => {
+      first.resolve({ account: bnbAccount });
+      await first.promise;
+    });
+    expect(mockPushModal).toHaveBeenCalledTimes(1);
+  });
+
+  it('skips the funnel event for always-visible entries', async () => {
+    const { result } = renderHook(() =>
+      useSwapDepositEntryPress({
+        token: bnbUsdc,
+        accountInfo: { ...activeAccount, account: bnbAccount },
+        activeAccount,
+        onClose: jest.fn(),
+        logLowBalance: false,
+      }),
+    );
+    await act(async () => {
+      result.current();
+    });
+    expect(mockPushModal).toHaveBeenCalledTimes(1);
+    expect(mockBuyOnLowBalance).not.toHaveBeenCalled();
+  });
+
+  it('counts the funnel event for low-balance entries', async () => {
+    const { result } = renderHook(() =>
+      useSwapDepositEntryPress({
+        token: bnbUsdc,
+        accountInfo: { ...activeAccount, account: bnbAccount },
+        activeAccount,
+        onClose: jest.fn(),
+      }),
+    );
+    await act(async () => {
+      result.current();
+    });
+    expect(mockPushModal).toHaveBeenCalledTimes(1);
+    expect(mockBuyOnLowBalance).toHaveBeenCalledTimes(1);
   });
 });

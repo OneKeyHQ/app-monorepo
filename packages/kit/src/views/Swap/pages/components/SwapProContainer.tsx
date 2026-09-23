@@ -152,6 +152,15 @@ const SwapProContainer = ({
     activeAccount,
     onClose: syncInputTokenBalance,
   });
+  // The Pro panel's Top up chip is always visible, so it must not count the
+  // low-balance funnel event the way the zero-balance action button does.
+  const onProTopUpPress = useSwapDepositEntryPress({
+    token: inputToken as ISwapToken | undefined,
+    accountInfo: depositAccountInfo,
+    activeAccount,
+    onClose: syncInputTokenBalance,
+    logLowBalance: false,
+  });
   const { swapProLoadSupportNetworksTokenListRun } =
     useSwapPositionsSupportTokenListAction();
   const handleRefresh = useCallback(async () => {
@@ -352,6 +361,7 @@ const SwapProContainer = ({
             onSelectPercentageStage={onSelectPercentageStage}
             onSwapProActionClick={onSwapProActionClick}
             onDepositToTrade={onDepositToTrade}
+            onTopUpPress={onProTopUpPress}
             hasEnoughBalance={hasEnoughBalance}
             handleSelectAccountClick={handleSelectAccountClick}
             cleanInputAmount={cleanInputAmount}
