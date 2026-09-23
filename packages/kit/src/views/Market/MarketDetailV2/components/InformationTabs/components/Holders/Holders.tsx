@@ -9,6 +9,7 @@ import {
   Tabs,
   useMedia,
 } from '@onekeyhq/components';
+import { useIsFocusedTab } from '@onekeyhq/components/src/composite/Tabs/hooks';
 import { useMarketHolders } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/hooks/useMarketHolders';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -33,9 +34,11 @@ function HoldersBase({
 }: IHoldersProps) {
   const intl = useIntl();
   const { gtLg } = useMedia();
+  const isTabFocused = useIsFocusedTab();
   const { holders, isRefreshing } = useMarketHolders({
     tokenAddress,
     networkId,
+    isTabFocused,
   });
 
   const renderItem: FlatListProps<IMarketTokenHolder>['renderItem'] =

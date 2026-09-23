@@ -1,5 +1,12 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import {
+  startTransition,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from 'react';
 
+import { isEqual } from 'lodash';
 import { useThrottledCallback } from 'use-debounce';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
@@ -18,6 +25,7 @@ interface IUseMarketTransactionsProps {
   tokenAddress: string;
   networkId: string;
   normalMode: boolean;
+  isTabFocused?: boolean;
   enableRealtimePause?: boolean;
 }
 
@@ -39,6 +47,7 @@ export function useMarketTransactions({
   tokenAddress,
   networkId,
   normalMode,
+  isTabFocused = true,
   enableRealtimePause = false,
 }: IUseMarketTransactionsProps) {
   const [accumulatedTransactions, setAccumulatedTransactions] = useState<
@@ -85,7 +94,23 @@ export function useMarketTransactions({
   const setAccumulatedTransactionsImmediately = useCallback(
     (transactions: IMarketTokenTransaction[]) => {
       const current = getVisibleTransactions(transactions);
-      setAccumulatedTransactions(current);
+      setAccumulatedTransactions((previous) => {
+        const previousByHash = new Map(
+          previous.map((transaction) => [transaction.hash, transaction]),
+        );
+        // REST snapshots recreate unchanged rows; retain their identity so
+        // polling does not rerender every transaction beside the chart.
+        const next = current.map((transaction) => {
+          const existing = previousByHash.get(transaction.hash);
+          return existing && isEqual(existing, transaction)
+            ? existing
+            : transaction;
+        });
+        return next.length === previous.length &&
+          next.every((transaction, index) => transaction === previous[index])
+          ? previous
+          : next;
+      });
       accumulatedTransactionsRef.current = current;
       updatePaginationState({
         cursor: cursorRef.current,
@@ -95,7 +120,13 @@ export function useMarketTransactions({
     [getVisibleTransactions, updatePaginationState],
   );
   const throttleSetAccumulatedTransactions = useThrottledCallback(
-    setAccumulatedTransactionsImmediately,
+    (transactions: IMarketTokenTransaction[]) => {
+      // Background rows must yield to chart pointer events. Explicit token
+      // resets and user-triggered buffer flushes still commit immediately.
+      startTransition(() =>
+        setAccumulatedTransactionsImmediately(transactions),
+      );
+    },
     platformEnv.isNative ? 1500 : 50,
   );
 
@@ -182,6 +213,8 @@ export function useMarketTransactions({
     {
       watchLoading: true,
       pollingInterval: timerUtils.getTimeDurationMs({ seconds: 5 }),
+      overrideIsFocused: (isFocused) => isFocused && isTabFocused,
+      revalidateOnFocus: true,
     },
   );
 

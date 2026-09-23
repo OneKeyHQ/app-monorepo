@@ -79,13 +79,8 @@ jest.mock('@onekeyhq/kit/src/states/jotai/contexts/marketV2', () => ({
     hasBufferOverflow: false,
   },
   useMarketTransactionsRealtimePauseAtom: () => [{}, mockSetRealtimePauseState],
-}));
-
-jest.mock('@onekeyhq/kit/src/views/Market/MarketDetailV2/hooks', () => ({
-  useTokenDetail: () => ({
-    websocketConfig: { txs: true },
-    isNative: false,
-  }),
+  useTokenDetailWebsocketAtom: () => [{ txs: true }],
+  useIsNativeAtom: () => [false],
 }));
 
 jest.mock('react-intl', () => ({
@@ -245,6 +240,31 @@ describe('TransactionsHistory', () => {
       expect.objectContaining({
         isTickingEnabled: false,
       }),
+    );
+  });
+
+  it('stops the realtime subscription on inactive tabs and restores it on return', () => {
+    const { rerender } = render(
+      <TransactionsHistory tokenAddress="0xabc" networkId="evm--1" />,
+    );
+    expect(mockUseTransactionsWebSocket).toHaveBeenLastCalledWith(
+      expect.objectContaining({ enabled: true }),
+    );
+
+    rerender(
+      <TransactionsHistory
+        tokenAddress="0xabc"
+        networkId="evm--1"
+        isTabFocused={false}
+      />,
+    );
+    expect(mockUseTransactionsWebSocket).toHaveBeenLastCalledWith(
+      expect.objectContaining({ enabled: false }),
+    );
+
+    rerender(<TransactionsHistory tokenAddress="0xabc" networkId="evm--1" />);
+    expect(mockUseTransactionsWebSocket).toHaveBeenLastCalledWith(
+      expect.objectContaining({ enabled: true }),
     );
   });
 

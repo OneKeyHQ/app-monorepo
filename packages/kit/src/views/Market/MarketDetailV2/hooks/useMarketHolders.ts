@@ -11,11 +11,13 @@ import { useTokenDetail } from './useTokenDetail';
 interface IUseMarketHoldersProps {
   tokenAddress: string;
   networkId: string;
+  isTabFocused?: boolean;
 }
 
 export function useMarketHolders({
   tokenAddress,
   networkId,
+  isTabFocused = true,
 }: IUseMarketHoldersProps) {
   const { tokenDetail } = useTokenDetail();
   const tokenKey = `${networkId}:${tokenAddress}`;
@@ -28,6 +30,9 @@ export function useMarketHolders({
   >();
 
   useEffect(() => {
+    if (!isTabFocused) {
+      return;
+    }
     if (
       tokenDetail?.fdv &&
       tokenDetail.price &&
@@ -44,7 +49,7 @@ export function useMarketHolders({
     setCachedTokenDetail((previous) =>
       previous?.tokenKey === tokenKey ? previous : undefined,
     );
-  }, [networkId, tokenAddress, tokenDetail, tokenKey]);
+  }, [isTabFocused, networkId, tokenAddress, tokenDetail, tokenKey]);
 
   const {
     result: holdersData,
@@ -61,6 +66,8 @@ export function useMarketHolders({
     {
       watchLoading: true,
       pollingInterval: timerUtils.getTimeDurationMs({ seconds: 5 }),
+      overrideIsFocused: (isFocused) => isFocused && isTabFocused,
+      revalidateOnFocus: true,
     },
   );
 

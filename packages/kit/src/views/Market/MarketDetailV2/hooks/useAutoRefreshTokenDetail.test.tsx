@@ -7,10 +7,12 @@ import {
   resolveMarketAssetRouteIdentity,
 } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/utils/resolveMarketAssetRouteIdentity';
 import { MARKET_TOP_COINS_CATEGORY_ID } from '@onekeyhq/shared/src/consts/marketConsts';
+import type { IMarketTokenDetail } from '@onekeyhq/shared/types/marketV2';
 
 import {
   useAutoRefreshTokenDetail,
   useResolvedMarketAssetRouteIdentity,
+  useSyncMarketCurrentTokenLiveData,
 } from './useAutoRefreshTokenDetail';
 
 const mockFetchAssetTokenDetail = jest.fn();
@@ -28,6 +30,8 @@ let promiseFactory: (() => Promise<unknown>) | undefined;
 let promiseOptions: Record<string, unknown> | undefined;
 let promiseResult: unknown;
 let mockCurrencyId = 'usd';
+let mockTokenDetail: IMarketTokenDetail | undefined;
+let mockNetworkId = '';
 
 jest.mock('@onekeyhq/kit/src/components/Currency', () => ({
   useCurrency: () => ({ id: mockCurrencyId }),
@@ -50,6 +54,7 @@ jest.mock('@onekeyhq/kit/src/hooks/usePromiseResult', () => ({
 }));
 
 jest.mock('@onekeyhq/kit/src/states/jotai/contexts/marketV2', () => ({
+  useTokenDetailLoadingAtom: () => [false],
   useTokenDetailActions: () => ({
     current: {
       fetchTokenDetail: mockFetchTokenDetail,
@@ -76,8 +81,8 @@ jest.mock(
   '@onekeyhq/kit/src/views/Market/MarketDetailV2/hooks/useTokenDetail',
   () => ({
     useTokenDetail: () => ({
-      tokenDetail: undefined,
-      networkId: '',
+      tokenDetail: mockTokenDetail,
+      networkId: mockNetworkId,
       isLoading: false,
     }),
   }),
@@ -115,7 +120,48 @@ describe('useAutoRefreshTokenDetail', () => {
     promiseOptions = undefined;
     promiseResult = undefined;
     mockCurrencyId = 'usd';
+    mockTokenDetail = undefined;
+    mockNetworkId = '';
     mockResolveMarketAssetRouteIdentity.mockResolvedValue(undefined);
+  });
+
+  it('mirrors live prices in a leaf and clears the mirror when its token disappears', () => {
+    mockNetworkId = 'evm--1';
+    mockTokenDetail = {
+      address: '0xabc',
+      networkId: mockNetworkId,
+      name: 'Token',
+      symbol: 'TEST',
+      decimals: 18,
+      logoUrl: '',
+      price: '1',
+      buy24hCount: '2',
+      sell24hCount: '3',
+    };
+    const { rerender, unmount } = renderHook(() =>
+      useSyncMarketCurrentTokenLiveData(),
+    );
+    expect(mockSetCurrentTokenLiveData).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        networkId: 'evm--1',
+        address: '0xabc',
+        price: 1,
+        walletInfo: { buy: 2, sell: 3 },
+      }),
+    );
+    mockSetCurrentTokenLiveData.mockClear();
+    mockTokenDetail = { ...mockTokenDetail, price: '2' };
+    rerender();
+    expect(mockSetCurrentTokenLiveData).toHaveBeenCalledTimes(1);
+    expect(mockSetCurrentTokenLiveData).toHaveBeenLastCalledWith(
+      expect.objectContaining({ price: 2 }),
+    );
+    mockTokenDetail = undefined;
+    rerender();
+    expect(mockSetCurrentTokenLiveData).toHaveBeenLastCalledWith(undefined);
+    mockSetCurrentTokenLiveData.mockClear();
+    unmount();
+    expect(mockSetCurrentTokenLiveData).toHaveBeenCalledWith(undefined);
   });
 
   it('uses the asset detail owner for Top Coins routes', async () => {

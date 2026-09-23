@@ -70,6 +70,7 @@ import {
 } from './chartWheel';
 import { drawTradingViewNativeCanvasChart } from './drawTradingViewNativeCanvasChart';
 import { TradingViewNativePriceScaleControls } from './TradingViewNativePriceScaleControls';
+import { useTradingViewNativeCanvasRender } from './useTradingViewNativeCanvasRender';
 import {
   createTradingViewNativeWebPriceScaleModel,
   useTradingViewNativePriceScale,
@@ -277,7 +278,7 @@ export const TradingViewNativeChart = memo(
       };
     }, []);
 
-    const renderChart = useCallback(
+    const drawChart = useCallback(
       (nextRuntimeState: ITradingViewNativeChartRuntimeState) => {
         const canvas = canvasRef.current;
         if (!canvas) {
@@ -370,6 +371,15 @@ export const TradingViewNativeChart = memo(
         watermarkOpacity,
       ],
     );
+
+    const drawCurrentChart = useCallback(() => {
+      drawChart(runtimeStateRef.current);
+    }, [drawChart]);
+    const renderChart = useTradingViewNativeCanvasRender(drawCurrentChart);
+
+    useLayoutEffect(() => {
+      renderChart();
+    }, [panOffset, renderChart, zoomScale]);
 
     useLayoutEffect(() => {
       const dataUpdateMetadata = getTradingViewNativeDataUpdateMetadata({
@@ -522,73 +532,77 @@ export const TradingViewNativeChart = memo(
       );
     }, [chartSettings.options.crossLine]);
 
-    useLayoutEffect(() => {
+    const measureAndRenderChart = useCallback(() => {
       const canvas = canvasRef.current;
       if (!canvas) {
-        return undefined;
+        return;
       }
-      const renderCurrentChart = () => {
-        const currentRuntimeState = runtimeStateRef.current;
-        const measuredRuntimeState = reduceTradingViewNativeChartRuntime(
-          currentRuntimeState,
-          {
-            type: 'initialWidthMeasured',
-            width: canvas.clientWidth,
-          },
-        );
-        if (measuredRuntimeState !== currentRuntimeState) {
-          runtimeStateRef.current = measuredRuntimeState;
-          setViewportState(measuredRuntimeState.viewport);
-        }
-        renderChart(measuredRuntimeState);
-        const nextPriceAxisWidth = getTradingViewNativeCanvasPriceAxisWidth(
-          canvas,
-          priceAxisLabels,
-          priceScaleModelRef.current,
-          priceAxisFontSize,
-        );
-        const nextChartWidth = getTradingViewNativeCanvasChartWidth(
-          canvas,
-          priceAxisLabels,
-          priceScaleModelRef.current,
-          priceAxisFontSize,
-        );
-        setMeasuredChartWidth((currentWidth) =>
-          currentWidth === nextChartWidth ? currentWidth : nextChartWidth,
-        );
-        setMeasuredPriceAxisWidth((currentWidth) =>
-          currentWidth === nextPriceAxisWidth
-            ? currentWidth
-            : nextPriceAxisWidth,
-        );
-        const nextMainChartBottomInset =
-          getTradingViewNativeMainPriceAxisLayout({
-            height: canvas.clientHeight,
-            paneCount: visibleSubIndicatorPaneCount,
-            timeAxisHeight,
-          }).bottomInset;
-        setMeasuredMainChartBottomInset((currentInset) =>
-          currentInset === nextMainChartBottomInset
-            ? currentInset
-            : nextMainChartBottomInset,
-        );
-      };
-      renderCurrentChart();
-      const resizeObserver = new ResizeObserver(renderCurrentChart);
-      resizeObserver.observe(canvas);
-      return () => {
-        resizeObserver.disconnect();
-      };
+      const currentRuntimeState = runtimeStateRef.current;
+      const measuredRuntimeState = reduceTradingViewNativeChartRuntime(
+        currentRuntimeState,
+        {
+          type: 'initialWidthMeasured',
+          width: canvas.clientWidth,
+        },
+      );
+      if (measuredRuntimeState !== currentRuntimeState) {
+        runtimeStateRef.current = measuredRuntimeState;
+        setViewportState(measuredRuntimeState.viewport);
+      }
+      renderChart();
+      const nextPriceAxisWidth = getTradingViewNativeCanvasPriceAxisWidth(
+        canvas,
+        priceAxisLabels,
+        priceScaleModelRef.current,
+        priceAxisFontSize,
+      );
+      const nextChartWidth = getTradingViewNativeCanvasChartWidth(
+        canvas,
+        priceAxisLabels,
+        priceScaleModelRef.current,
+        priceAxisFontSize,
+      );
+      setMeasuredChartWidth((currentWidth) =>
+        currentWidth === nextChartWidth ? currentWidth : nextChartWidth,
+      );
+      setMeasuredPriceAxisWidth((currentWidth) =>
+        currentWidth === nextPriceAxisWidth ? currentWidth : nextPriceAxisWidth,
+      );
+      const nextMainChartBottomInset = getTradingViewNativeMainPriceAxisLayout({
+        height: canvas.clientHeight,
+        paneCount: visibleSubIndicatorPaneCount,
+        timeAxisHeight,
+      }).bottomInset;
+      setMeasuredMainChartBottomInset((currentInset) =>
+        currentInset === nextMainChartBottomInset
+          ? currentInset
+          : nextMainChartBottomInset,
+      );
     }, [
-      panOffset,
       priceAxisFontSize,
       priceAxisLabels,
       renderChart,
       timeAxisHeight,
       visibleSubIndicatorPaneCount,
-      webFontMeasureVersion,
-      zoomScale,
     ]);
+
+    const measureAndRenderChartRef = useRef(measureAndRenderChart);
+    useLayoutEffect(() => {
+      measureAndRenderChartRef.current = measureAndRenderChart;
+      measureAndRenderChart();
+    }, [measureAndRenderChart, webFontMeasureVersion]);
+
+    useLayoutEffect(() => {
+      const canvas = canvasRef.current;
+      if (!canvas) {
+        return undefined;
+      }
+      const resizeObserver = new ResizeObserver(() => {
+        measureAndRenderChartRef.current();
+      });
+      resizeObserver.observe(canvas);
+      return () => resizeObserver.disconnect();
+    }, []);
 
     useEffect(() => {
       if (measuredChartWidth <= 0 || pointCount <= 0) {
@@ -615,12 +629,12 @@ export const TradingViewNativeChart = memo(
         { type: 'crosshairHidden' },
       );
       runtimeStateRef.current = nextRuntimeState;
-      renderChart(nextRuntimeState);
+      renderChart();
       return nextRuntimeState;
     }, [renderChart]);
 
     const renderCurrentChart = useCallback(() => {
-      renderChart(runtimeStateRef.current);
+      renderChart();
     }, [renderChart]);
 
     const {
@@ -688,7 +702,7 @@ export const TradingViewNativeChart = memo(
             },
           );
           runtimeStateRef.current = nextRuntimeState;
-          renderChart(nextRuntimeState);
+          renderChart();
         }
         pointerPanDragStateRef.current = {
           currentClientX: event.clientX,
@@ -747,7 +761,7 @@ export const TradingViewNativeChart = memo(
             },
           );
           runtimeStateRef.current = nextRuntimeState;
-          renderChart(nextRuntimeState);
+          renderChart();
           setViewportState((currentState) =>
             currentState.offset === nextRuntimeState.viewport.offset &&
             currentState.zoomScale === nextRuntimeState.viewport.zoomScale
@@ -789,7 +803,7 @@ export const TradingViewNativeChart = memo(
           },
         );
         runtimeStateRef.current = nextRuntimeState;
-        renderChart(nextRuntimeState);
+        renderChart();
       },
       [
         chartSettings.options.crossLine,
@@ -934,7 +948,7 @@ export const TradingViewNativeChart = memo(
           },
         );
         runtimeStateRef.current = nextRuntimeState;
-        renderChart(nextRuntimeState);
+        renderChart();
         setViewportState((currentState) =>
           currentState.offset === nextRuntimeState.viewport.offset &&
           currentState.zoomScale === nextRuntimeState.viewport.zoomScale

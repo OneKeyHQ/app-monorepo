@@ -137,6 +137,47 @@ describe('useMarketTransactions', () => {
     });
   });
 
+  it('preserves unchanged REST rows while accepting corrected transaction data', () => {
+    const transaction = createMockTransaction('base-1');
+    const setSnapshot = (list: IMarketTokenTransaction[]) => {
+      mockUsePromiseResult.mockReturnValue({
+        result: { list, cursor: 'cursor-1' },
+        isLoading: false,
+        run: mockFetchTransactions,
+        setStopPolling: mockSetStopPolling,
+      });
+    };
+    setSnapshot([transaction]);
+    const { result, rerender } = renderHook(() =>
+      useMarketTransactions({
+        tokenAddress: '0xabc',
+        networkId: 'evm--1',
+        normalMode: true,
+      }),
+    );
+    const flush = () => act(() => mockThrottledTransactionsUpdates[0].flush());
+    flush();
+    const initialRows = result.current.transactions;
+
+    setSnapshot([{ ...transaction, from: { ...transaction.from } }]);
+    rerender();
+    flush();
+    expect(result.current.transactions).toBe(initialRows);
+
+    const newTransaction = createMockTransaction('new', 2);
+    setSnapshot([newTransaction, { ...transaction }]);
+    rerender();
+    flush();
+    expect(result.current.transactions[0]).toBe(newTransaction);
+    expect(result.current.transactions[1]).toBe(initialRows[0]);
+
+    setSnapshot([{ ...transaction, volumeUSD: 2 }]);
+    rerender();
+    flush();
+    expect(result.current.transactions[1]).not.toBe(initialRows[0]);
+    expect(result.current.transactions[1].volumeUSD).toBe(2);
+  });
+
   it('keeps one REST snapshot and only enables polling in normal mode', () => {
     const { rerender } = renderHook(
       ({ normalMode }) =>
