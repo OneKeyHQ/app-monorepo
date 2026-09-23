@@ -166,6 +166,7 @@ import {
   buildPortfolioSyncTargetKey,
   resolvePortfolioSyncRequestTransition,
 } from './portfolioSyncRequestState';
+import { projectHomeAccountLocalTokens } from './projectHomeAccountLocalTokens';
 import {
   countFundedHardwarePortfolioTokens,
   selectHardwarePortfolioTokens,
@@ -1860,7 +1861,12 @@ function TokenListBlock({
           networkId,
           accountAddress,
           xpub,
-          simpleDbLocalTokensRawData: localTokensRawData.current,
+          simpleDbLocalTokensRawData: projectHomeAccountLocalTokens({
+            rawData: localTokensRawData.current,
+            networkId,
+            accountAddress,
+            xpub,
+          }),
         });
       perf.markEnd('getAccountLocalTokens');
       if (!isHomeRequestCurrent()) return undefined;

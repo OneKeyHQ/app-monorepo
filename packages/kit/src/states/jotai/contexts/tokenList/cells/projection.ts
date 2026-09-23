@@ -43,6 +43,8 @@ export interface IStoreProjection {
   >;
   /** aggregate DERIVED read-only cells (sum of sub-cells, spec §3.1). */
   aggCells: Map<IAggKey, Atom<ITokenFiat | undefined>>;
+  /** Synchronous valuation boundaries for each aggregate group. */
+  aggUpdating: Map<IAggKey, PrimitiveAtom<boolean>>;
   curOwnerKey: string | undefined;
   /** generation of the most recent applyStructure. */
   curGeneration: number;
@@ -77,6 +79,7 @@ export function ensureStoreProjection(
       metas: new Map(),
       aggSubCells: new Map(),
       aggCells: new Map(),
+      aggUpdating: new Map(),
       curOwnerKey: undefined,
       curGeneration: -1,
       lastRoundProvisional: false,
@@ -203,11 +206,20 @@ export function aggCell(
   const p = ensureStoreProjection(store);
   let a = p.aggCells.get(aggKey);
   if (!a) {
+    const updating = atom(false);
+    p.aggUpdating.set(aggKey, updating);
+    let lastValue: ITokenFiat | undefined;
     a = atom<ITokenFiat | undefined>((get) => {
+      // Detach sub-cell dependencies during a synchronous frame so Jotai does
+      // not sum the entire group after every individual network write.
+      if (get(updating)) {
+        return lastValue;
+      }
       const members = get(listStructureAtom()).aggMembership[aggKey] ?? [];
-      return sumAggregateEntry(
+      lastValue = sumAggregateEntry(
         members.map((net) => get(subcell(store, aggKey, net))),
       );
+      return lastValue;
     });
     p.aggCells.set(aggKey, a);
   }
@@ -224,6 +236,7 @@ export function clearAll(p: IStoreProjection): void {
   p.metas.clear();
   p.aggSubCells.clear();
   p.aggCells.clear();
+  p.aggUpdating.clear();
   p.curOwnerKey = undefined;
   p.curGeneration = -1;
 }
