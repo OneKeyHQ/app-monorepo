@@ -1,9 +1,6 @@
 import { useMemo } from 'react';
 
-import { useIntl } from 'react-intl';
-
 import { Empty, YStack } from '@onekeyhq/components';
-import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type {
   IEarnPortfolioInvestment,
   IEarnRewardsPortfolioGroup,
@@ -12,34 +9,41 @@ import type {
 import { WrappedActionButton } from '../../../components/PortfolioTabContent';
 import { resolveUniquePortfolioClaimSourceIdentity } from '../../../utils/portfolioClaimUtils';
 
+import { useGroupExpansion } from './GroupRow';
 import {
   buildClaimSourceCandidates,
   groupInvestmentsByProvider,
   selectProtocolClaimableInvestments,
   toLedgerClaimAsset,
 } from './myPortfolio.utils';
-import { PositionCard } from './PositionCard';
+import { ProtocolGroupRow } from './ProtocolGroupRow';
 import { RewardsLedgerList } from './RewardsLedgerList';
+
+import type { IPositionManageHandler } from './myPortfolio.utils';
 
 /**
  * Claimable (product: "只区分行为,不区分来源"): everything the user has to
- * claim by hand. Two shapes in one list —
- *   - protocol rewards a position accrued, rendered as the position card
+ * claim by hand that the header also counts. Two shapes in one list —
+ *   - on-chain airdrop rows of non-ledger providers (Morpho / Lista /
+ *     Pendle), rendered as the position card in its rewards-only variant
  *     (claim happens on the detail page behind Manage);
  *   - Campaign / airdrop rows from the ledger, rendered as the detail page's
  *     reward row with an inline Claim button, because some of those rows
  *     cannot resolve to a detail page at all.
+ * A position's own reward rows are not listed until the server sizes them.
  */
 export function RewardsClaimableList({
   investments,
   ledgerGroups,
+  emptyTitle,
   onManage,
 }: {
   investments: IEarnPortfolioInvestment[];
   ledgerGroups: IEarnRewardsPortfolioGroup[];
-  onManage: (investment: IEarnPortfolioInvestment) => void;
+  emptyTitle: string;
+  onManage: IPositionManageHandler;
 }) {
-  const intl = useIntl();
+  const expansion = useGroupExpansion();
   const protocolGroups = useMemo(
     () =>
       groupInvestmentsByProvider(
@@ -63,32 +67,25 @@ export function RewardsClaimableList({
   }, [investments]);
 
   if (protocolGroups.length === 0 && ledgerGroups.length === 0) {
-    return (
-      <Empty
-        icon="GiftOutline"
-        title={intl.formatMessage({
-          id: ETranslations.earn_no_assets_deposited,
-        })}
-      />
-    );
+    return <Empty icon="GiftOutline" title={emptyTitle} />;
   }
 
   return (
-    <YStack gap="$4" py="$2">
-      {protocolGroups.map((group) => (
-        <YStack key={group.key} px="$5" gap="$3">
-          {group.investments.map((investment) => (
-            <PositionCard
-              key={`${investment.protocol.providerDetail.code}-${investment.protocol.symbol ?? ''}-${investment.protocol.vault ?? ''}-${investment.network.networkId}`}
-              investment={investment}
-              rewardsOnly
-              onManage={onManage}
-            />
-          ))}
-        </YStack>
+    <YStack gap="$4">
+      {protocolGroups.map((group, index) => (
+        <ProtocolGroupRow
+          key={group.key}
+          group={group}
+          expanded={expansion.isExpanded(group.key, index)}
+          onToggle={() => expansion.toggle(group.key, index)}
+          rewardsOnly
+          onManage={onManage}
+        />
       ))}
       <RewardsLedgerList
         groups={ledgerGroups}
+        expansion={expansion}
+        indexOffset={protocolGroups.length}
         renderAction={(group, item) => {
           const network = networkInfoById.get(group.networkId);
           const asset = toLedgerClaimAsset({

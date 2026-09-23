@@ -3,6 +3,7 @@ import BigNumber from 'bignumber.js';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type {
   IEarnPortfolioAirdropAsset,
+  IEarnPortfolioAsset,
   IEarnPortfolioInvestment,
   IEarnProtocolCategory,
   IEarnRewardsPortfolioGroup,
@@ -47,9 +48,7 @@ export function categoryLabelId(
     case 'fixedRate':
       return ETranslations.earn_yield;
     case 'staking':
-      // i18n: pending "Staked" key (OK-61377); this reads "Staking" until
-      // it lands.
-      return ETranslations.wallet_defi_position_module_staked;
+      return ETranslations.earn_category_staked__title;
     case 'lending':
       return ETranslations.earn_loans;
     default:
@@ -101,18 +100,48 @@ export function groupInvestmentsByProvider(
   );
 }
 
-/** Network filter options: which networks the user holds on, and how many vaults each. */
+/** Opens the detail page of one position; `asset` picks the row, else the first. */
+export type IPositionManageHandler = (
+  investment: IEarnPortfolioInvestment,
+  asset?: IEarnPortfolioAsset,
+) => void;
+
+/**
+ * The networks one investment touches. Multi-chain staking providers
+ * (Stakefish: SOL, ATOM, POL) come back as one investment keyed by its
+ * first network whose assets each carry their own network, so the rows,
+ * the filter and its counts all go by the asset, never by the investment.
+ */
+export function investmentNetworkIds(
+  investment: IEarnPortfolioInvestment,
+): string[] {
+  const ids = new Set<string>();
+  investment.assets.forEach((asset) =>
+    ids.add(asset.metadata.network.networkId),
+  );
+  investment.airdropAssets.forEach((asset) =>
+    ids.add(asset.metadata.network.networkId),
+  );
+  if (ids.size === 0) {
+    ids.add(investment.network.networkId);
+  }
+  return Array.from(ids);
+}
+
+/** Network filter options: which networks the user holds on, and how many positions each. */
 export function countInvestmentsByNetwork(
   investments: IEarnPortfolioInvestment[],
 ): Record<string, number> {
   const counts: Record<string, number> = {};
   for (const investment of investments) {
-    const { networkId } = investment.network;
-    counts[networkId] = (counts[networkId] ?? 0) + 1;
+    for (const networkId of investmentNetworkIds(investment)) {
+      counts[networkId] = (counts[networkId] ?? 0) + 1;
+    }
   }
   return counts;
 }
 
+/** Keeps every investment with a position on one of the selected networks. */
 export function filterInvestmentsByNetworks(
   investments: IEarnPortfolioInvestment[],
   selectedNetworkIds: string[],
@@ -122,40 +151,65 @@ export function filterInvestmentsByNetworks(
   }
   const selected = new Set(selectedNetworkIds);
   return investments.filter((investment) =>
-    selected.has(investment.network.networkId),
+    investmentNetworkIds(investment).some((networkId) =>
+      selected.has(networkId),
+    ),
   );
 }
 
 /**
  * Claimable rows the page already holds through the investment detail: the
- * protocol rewards a position accrues (rewardAssets) and the on-chain airdrop
- * rows of providers whose airdrop-detail is NOT the ledger.
+ * on-chain airdrop rows of providers whose airdrop-detail is NOT the ledger.
+ *
+ * A position's own reward rows (rewardAssets) are deliberately not here.
+ * Product rule: the header Rewards figure must equal what the Claimable and
+ * Pending lists add up to, and those rows carry no numeric fiat (some are
+ * even claimable principal, not yield), so until the server sizes and
+ * classifies them they stay on the DeFi Assets card only.
  */
 export function selectProtocolClaimableInvestments(
   investments: IEarnPortfolioInvestment[],
 ): IEarnPortfolioInvestment[] {
-  return investments.filter((investment) => {
-    const hasRewardRows = investment.assets.some(
-      (asset) => (asset.rewardAssets?.length ?? 0) > 0,
-    );
-    const hasAirdropRows =
+  return investments.filter(
+    (investment) =>
       !isLedgerAirdropProvider(investment.protocol.providerDetail.code) &&
       investment.airdropAssets.some(
         (asset) => (asset.airdropAssets?.length ?? 0) > 0,
-      );
-    return hasRewardRows || hasAirdropRows;
-  });
+      ),
+  );
 }
 
 /**
  * Header "Rewards" figure: the ledger's claimable + pending (server total)
- * plus the on-chain airdrop fiat the page holds for non-ledger providers.
- *
- * Known gap: protocol reward rows (rewardAssets, e.g. Everstake staking
- * rewards) arrive as rendered text with no numeric fiat, so they are listed
- * under Claimable but cannot be summed here until the server carries a
- * numeric rewardsFiatValue on the investment detail.
+ * plus the on-chain airdrop fiat the page holds for non-ledger providers —
+ * exactly the rows the Claimable and Pending lists show, nothing more.
+ * Protocol reward rows join once the server sizes them (rewardsFiatValue).
  */
+/**
+ * The DeFi Assets figure. useEarnPortfolio updates its total only when a
+ * fetch round completes, so while accounts stream in the rows are already
+ * on screen but the total still reads 0; in that window the figure is the
+ * sum of what is listed, which is exactly what the hook will settle on.
+ */
+export function resolveDefiAssetsFiatValue({
+  hookTotal,
+  investments,
+}: {
+  hookTotal: BigNumber;
+  investments: IEarnPortfolioInvestment[];
+}): string {
+  if (!hookTotal.isZero() || investments.length === 0) {
+    return hookTotal.toFixed();
+  }
+  return investments
+    .reduce(
+      (sum, investment) =>
+        sum.plus(new BigNumber(investment.totalFiatValue || '0')),
+      new BigNumber(0),
+    )
+    .toFixed();
+}
+
 export function sumRewardsHeaderFiat({
   ledgerRewardsFiatValue,
   investments,

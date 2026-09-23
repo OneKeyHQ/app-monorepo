@@ -52,11 +52,9 @@ export function LedgerRewardRow({
   }
   const timeLabel = intl.formatMessage({
     id:
-      // i18n: pending "Est. Distribute Time" / "Distributed Time" keys
-      // (OK-61377); both read "Pending" / "Distributed" until they land.
       item.stage === 'pending'
-        ? ETranslations.global_pending
-        : ETranslations.referral_distributed,
+        ? ETranslations.earn_est_distribute_time__title
+        : ETranslations.earn_distributed_time__title,
   });
 
   return (

@@ -44,9 +44,9 @@ export function PortfolioTotalsHeader({
     <YStack px="$5" pt="$2" pb="$4" gap="$3">
       <XStack gap="$4">
         <TotalCell
-          // i18n: pending "DeFi Assets" key (OK-61377); earn_portfolio_title
-          // reads "DeFi Portfolio" until it lands.
-          label={intl.formatMessage({ id: ETranslations.earn_portfolio_title })}
+          label={intl.formatMessage({
+            id: ETranslations.earn_defi_assets__title,
+          })}
           value={defiAssetsFiatValue}
         />
         <TotalCell
@@ -54,10 +54,8 @@ export function PortfolioTotalsHeader({
           value={rewardsFiatValue}
         />
       </XStack>
-      {/* i18n: pending footnote key "*Only protocols and pools supported by
-          OneKey DeFi are included." (OK-61377). */}
       <SizableText size="$bodySm" color="$textSubdued">
-        {intl.formatMessage({ id: ETranslations.earn_portfolio_title })}
+        {intl.formatMessage({ id: ETranslations.earn_defi_scope_note__desc })}
       </SizableText>
     </YStack>
   );
