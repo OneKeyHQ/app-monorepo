@@ -3480,22 +3480,36 @@ function TokenListBlock({
 
   const handleRefreshAllNetworkDataByAccounts = useCallback(
     async (accounts: { accountId: string; networkId: string }[]) => {
-      try {
-        for (const { accountId, networkId } of accounts) {
+      for (const { accountId, networkId } of accounts) {
+        try {
           await handleAllNetworkRequests({
             accountId,
             networkId,
             allNetworkDataInit: false,
             isSingleRequest: true,
           });
+        } catch (error) {
+          // A retired owner cancels the batch; one failed network does not.
+          if (isRequestCanceledError(error)) return;
+          defaultLogger.app.error.log(
+            `Home account token refresh failed (${networkId}): ${
+              error instanceof Error ? error.message : String(error)
+            }`,
+          );
         }
-        if (showLpTokensOnly) {
+      }
+      if (showLpTokensOnly) {
+        try {
           await runLpTokenList({ alwaysSetState: true });
-        }
-      } catch (error) {
-        // Event listeners launch this task without awaiting its result.
-        if (!isRequestCanceledError(error)) {
-          defaultLogger.app.error.log('Home account token refresh failed');
+        } catch (error) {
+          // Event listeners launch this task without awaiting its result.
+          if (!isRequestCanceledError(error)) {
+            defaultLogger.app.error.log(
+              `Home LP token refresh failed: ${
+                error instanceof Error ? error.message : String(error)
+              }`,
+            );
+          }
         }
       }
     },
@@ -3731,15 +3745,6 @@ function TokenListBlock({
     const refresh = (
       params: IAppEventBusPayload[EAppEventBusNames.RefreshTokenList],
     ) => {
-      // A flagged payload requests the provided single-network owner through
-      // the same path used for off-tab header refreshes.
-      if (params?.refreshByProvidedAccounts) {
-        const target = params.accounts?.[0];
-        if (target) {
-          void refreshSingleNetworkTokenListByTarget(target);
-        }
-        return;
-      }
       if (network?.isAllNetworks) {
         if (params?.accounts) {
           void handleRefreshAllNetworkDataByAccounts(params.accounts);
@@ -3778,7 +3783,6 @@ function TokenListBlock({
     run,
     runAllNetworksRequests,
     runLpTokenList,
-    refreshSingleNetworkTokenListByTarget,
     showLpTokensOnly,
   ]);
 
