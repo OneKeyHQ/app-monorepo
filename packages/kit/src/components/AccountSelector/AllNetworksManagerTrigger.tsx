@@ -90,13 +90,15 @@ function AllNetworksManagerTrigger({
           return undefined;
         }
         if (!missingAddressQueryDeferredSinceLaunch) {
+          // Claimed before waiting so runs started meanwhile (remounts,
+          // explicit refreshes) do not wait too.
+          missingAddressQueryDeferredSinceLaunch = true;
           // The first query after launch starts during the cold start, while
           // the dot's cached value is on screen and e.g. the account selector
           // may be opening; let those frames and requests go first. Only this
           // run waits: a deferred run that outlives its mount drops its result
           // (and cache write), and explicit refreshes must not be delayed.
           await deferHeavyWorkUntilUIIdle();
-          missingAddressQueryDeferredSinceLaunch = true;
         }
         return backgroundApiProxy.serviceAllNetwork.getNetworkIdsWithoutAccountInIndexedAccount(
           {

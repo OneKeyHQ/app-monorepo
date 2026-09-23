@@ -247,14 +247,20 @@ describe('AllNetworksManagerTrigger', () => {
     const first = query?.method();
     await Promise.resolve();
     expect(mockGetNetworkIdsWithoutAccount).not.toHaveBeenCalled();
-    markIdle();
-    await expect(first).resolves.toEqual(['evm--56']);
+
+    // PR #13695 review: a refresh started while the first run still waits
+    // goes straight through instead of inheriting the startup delay.
+    await expect(query?.method()).resolves.toEqual(['evm--56']);
     expect(mockGetNetworkIdsWithoutAccount).toHaveBeenCalledTimes(1);
 
-    // The UI never settles again, yet a refresh still goes straight through.
+    markIdle();
+    await expect(first).resolves.toEqual(['evm--56']);
+    expect(mockGetNetworkIdsWithoutAccount).toHaveBeenCalledTimes(2);
+
+    // The UI never settles again, yet a later refresh does not wait either.
     mockUIIdle = new Promise<void>(() => {});
     await expect(query?.method()).resolves.toEqual(['evm--56']);
-    expect(mockGetNetworkIdsWithoutAccount).toHaveBeenCalledTimes(2);
+    expect(mockGetNetworkIdsWithoutAccount).toHaveBeenCalledTimes(3);
   });
 
   it('does not ask for missing addresses before the wallet-scoped list resolves', async () => {
