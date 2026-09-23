@@ -4,6 +4,7 @@ import { uniqBy } from 'lodash';
 import { TOKEN_LIST_HIGH_VALUE_MAX } from '@onekeyhq/shared/src/consts/walletConsts';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import {
+  buildAggregateTokenListData,
   flattenAggregateTokensMap,
   mergeAggregateTokenListMap,
   mergeDeriveTokenList,
@@ -27,6 +28,7 @@ import type { IAccountToken, ITokenFiat } from '@onekeyhq/shared/types/token';
  * shape iterated by the original `updateAllNetworksTokenList`.
  */
 export interface IAllNetworkSnapshotRound {
+  homeTokenRoundRef?: string;
   networkId?: string;
   accountId?: string;
   tokens: {
@@ -64,6 +66,67 @@ export interface IAllNetworkSnapshotRound {
    * leak risk-only keys into the account worth even after per-$key dedup.
    */
   accountWorth?: string;
+}
+
+/** Normalize the same aggregate groups for live responses and cache floors. */
+export function aggregateHomeTokenGroups({
+  tokenList,
+  smallBalanceTokenList,
+  tokenListMap,
+  smallBalanceTokenListMap = tokenListMap,
+  aggregateTokenConfigMapRawData,
+  accountId,
+  networkId,
+  networkName,
+}: {
+  tokenList: IAccountToken[];
+  smallBalanceTokenList: IAccountToken[];
+  tokenListMap: Record<string, ITokenFiat>;
+  smallBalanceTokenListMap?: Record<string, ITokenFiat>;
+  aggregateTokenConfigMapRawData?: Parameters<
+    typeof buildAggregateTokenListData
+  >[0]['aggregateTokenConfigMapRawData'];
+  accountId: string;
+  networkId: string;
+  networkName: string;
+}) {
+  let aggregateTokenListMap: Parameters<
+    typeof buildAggregateTokenListData
+  >[0]['aggregateTokenListMap'] = {};
+  let aggregateTokenMap: Record<string, ITokenFiat> = {};
+  const filterGroup = (
+    tokens: IAccountToken[],
+    map: Record<string, ITokenFiat>,
+  ) => {
+    if (!aggregateTokenConfigMapRawData) return tokens;
+    return tokens.filter((token) => {
+      const data = buildAggregateTokenListData({
+        accountId,
+        networkId,
+        networkName,
+        token,
+        tokenMap: map,
+        aggregateTokenListMap,
+        aggregateTokenMap,
+        aggregateTokenConfigMapRawData,
+      });
+      if (!data.isAggregateToken) return true;
+      aggregateTokenListMap = data.aggregateTokenListMap;
+      aggregateTokenMap = data.aggregateTokenMap;
+      return false;
+    });
+  };
+  const tokens = filterGroup(tokenList, tokenListMap);
+  const small = filterGroup(smallBalanceTokenList, smallBalanceTokenListMap);
+  return {
+    tokenList: [
+      ...tokens,
+      ...Object.values(aggregateTokenListMap).map((item) => item.commonToken),
+    ],
+    smallBalanceTokenList: small,
+    aggregateTokenListMap,
+    aggregateTokenMap,
+  };
 }
 
 /**

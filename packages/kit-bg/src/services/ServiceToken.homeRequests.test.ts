@@ -96,7 +96,31 @@ function makeApi() {
       getVaultSettings: jest.fn().mockResolvedValue({}),
       getNetworkSafe: jest.fn().mockResolvedValue(undefined),
     },
+    serviceSetting: {
+      syncWalletConfig: jest.fn().mockResolvedValue(undefined),
+      syncWalletConfigIfNeeded: jest.fn().mockResolvedValue(undefined),
+    },
+    serviceTokenViewModel: {
+      alignHomeTokenRequest: jest.fn(),
+      retireHomeTokenRounds: jest.fn(),
+      retainHomeTokenRound: jest.fn().mockReturnValue('fixture-ref'),
+    },
     simpleDb: {
+      customTokens: {
+        getRawData: jest
+          .fn()
+          .mockResolvedValue({ customTokens: {}, hiddenTokens: {} }),
+      },
+      riskTokenManagement: {
+        getRawData: jest
+          .fn()
+          .mockResolvedValue({ blockedTokens: {}, unblockedTokens: {} }),
+      },
+      aggregateToken: {
+        getAggregateTokenConfigSnapshot: jest
+          .fn()
+          .mockResolvedValue({ aggregateTokenConfigMap: {} }),
+      },
       localTokens: {
         getRawData: jest.fn().mockResolvedValue(null),
         updateAccountTokenList: jest.fn().mockResolvedValue(undefined),
@@ -162,6 +186,88 @@ describe('ServiceToken native Home request lifetime', () => {
         flag: 'token-selector',
       }),
     ).resolves.toBeDefined();
+  });
+
+  it('shares one background config and aggregate derivation across 22 Home branches', async () => {
+    service._currentNetworkId = getNetworkIdsMap().onekeyall;
+    await service.prepareHomeTokenRequest(token(1));
+    const results = await Promise.all(
+      Array.from({ length: 22 }, (_, index) =>
+        service.fetchAccountTokens({
+          ...fetchParams(),
+          accountId: `fixture-${index}`,
+          networkId: `evm--${index + 1}`,
+          isAllNetworks: true,
+        }),
+      ),
+    );
+    expect(results).toHaveLength(22);
+    expect(api.simpleDb.customTokens.getRawData).toHaveBeenCalledTimes(1);
+    expect(api.simpleDb.riskTokenManagement.getRawData).toHaveBeenCalledTimes(
+      1,
+    );
+    expect(api.serviceToken.getAllAggregateTokenInfo).toHaveBeenCalledTimes(1);
+    expect(
+      api.serviceTokenViewModel.retainHomeTokenRound,
+    ).toHaveBeenCalledTimes(22);
+    expect(
+      api.serviceTokenViewModel.alignHomeTokenRequest,
+    ).toHaveBeenCalledWith(token(1));
+    const first =
+      api.serviceCustomToken.getCustomTokens.mock.calls[0][0]
+        .customTokensRawData;
+    for (const [params] of api.serviceCustomToken.getCustomTokens.mock.calls) {
+      expect(params.customTokensRawData).toBe(first);
+    }
+    await service.prepareHomeTokenRequest(token(2));
+    expect(api.simpleDb.customTokens.getRawData).toHaveBeenCalledTimes(2);
+    expect(api.serviceToken.getAllAggregateTokenInfo).toHaveBeenCalledTimes(2);
+  });
+
+  it('retires a pending context and lets a successor generation retry a rejected read', async () => {
+    const read = deferred<unknown>();
+    api.simpleDb.customTokens.getRawData.mockReturnValueOnce(read.promise);
+    const pending = service.prepareHomeTokenRequest(token(1));
+    const rejected = (async () => {
+      await expect(pending).rejects.toMatchObject({ name: 'CanceledError' });
+    })();
+    await service.invalidateHomeTokenRequests(token(2));
+    read.resolve({});
+    await rejected;
+    await expect(
+      service.prepareHomeTokenRequest(token(3)),
+    ).resolves.toBeUndefined();
+    expect(api.simpleDb.customTokens.getRawData).toHaveBeenCalledTimes(2);
+    expect(api.serviceToken.getAllAggregateTokenInfo).toHaveBeenCalledTimes(1);
+    expect(
+      api.serviceTokenViewModel.retireHomeTokenRounds,
+    ).toHaveBeenCalledWith(token(2));
+  });
+
+  it('does not reuse a Home context for non-Home consumers', async () => {
+    await service.prepareHomeTokenRequest(token(1));
+    await service.fetchAccountTokens({
+      accountId: 'selector',
+      networkId: 'evm--1',
+      flag: 'token-selector',
+    });
+    expect(api.serviceToken.getAllAggregateTokenInfo).toHaveBeenCalledTimes(2);
+    expect(api.simpleDb.customTokens.getRawData).toHaveBeenCalledTimes(1);
+  });
+
+  it('retries a failed config read on the next generation without retaining a poisoned owner', async () => {
+    api.simpleDb.customTokens.getRawData.mockRejectedValueOnce(
+      new OneKeyLocalError('fixture config failed'),
+    );
+    await expect(service.prepareHomeTokenRequest(token(1))).rejects.toThrow(
+      'fixture config failed',
+    );
+    await expect(
+      service.prepareHomeTokenRequest(token(2)),
+    ).resolves.toBeUndefined();
+    await service.prepareHomeTokenRequest(token(2));
+    expect(api.simpleDb.customTokens.getRawData).toHaveBeenCalledTimes(2);
+    expect(api.serviceToken.getAllAggregateTokenInfo).toHaveBeenCalledTimes(1);
   });
 
   it('stops after pending address preflight and aborts only owned Home controllers', async () => {

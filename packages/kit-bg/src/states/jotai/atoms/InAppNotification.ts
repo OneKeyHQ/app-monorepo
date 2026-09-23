@@ -13,7 +13,6 @@ export type IInAppNotificationAtom = {
   // May contain null/undefined entries due to data corruption or deserialization issues
   swapHistoryPendingList: (ISwapTxHistory | null | undefined)[];
   swapLimitOrders: IFetchLimitOrderRes[];
-  swapLimitOrdersLoading: boolean;
   swapLimitOrdersAccountIdKey?: string;
   swapApprovingTransaction: ISwapApproveTransaction | undefined;
   speedSwapApprovingTransaction: ISwapApproveTransaction | undefined;
@@ -39,7 +38,6 @@ export const { target: inAppNotificationAtom, use: useInAppNotificationAtom } =
     initialValue: {
       swapHistoryPendingList: [],
       swapLimitOrders: [],
-      swapLimitOrdersLoading: false,
       swapLimitOrdersAccountIdKey: undefined,
       swapApprovingTransaction: undefined,
       speedSwapApprovingTransaction: undefined,
@@ -51,3 +49,12 @@ export const { target: inAppNotificationAtom, use: useInAppNotificationAtom } =
       speedSwapApprovingLoading: false,
     },
   });
+
+export const {
+  target: swapLimitOrdersLoadingAtom,
+  use: useSwapLimitOrdersLoadingAtom,
+} = globalAtom<boolean>({
+  persist: false,
+  name: EAtomNames.swapLimitOrdersLoadingAtom,
+  initialValue: false,
+});

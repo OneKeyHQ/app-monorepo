@@ -1510,11 +1510,15 @@ function TokenListBlock({
           allNetworksNetworkId: network?.id,
           saveToLocal: true,
           ...walletTokenFilterParams,
-          customTokensRawData: customTokensRawData.current,
-          blockedTokensRawData:
-            riskTokenManagementRawData.current.blockedTokens,
-          unblockedTokensRawData:
-            riskTokenManagementRawData.current.unblockedTokens,
+          ...(homeRequest
+            ? {}
+            : {
+                customTokensRawData: customTokensRawData.current,
+                blockedTokensRawData:
+                  riskTokenManagementRawData.current.blockedTokens,
+                unblockedTokensRawData:
+                  riskTokenManagementRawData.current.unblockedTokens,
+              }),
         },
       );
       if (!isHomeRequestCurrent() || !isHomeTokenRequestCurrent(homeRequest)) {
@@ -1543,92 +1547,97 @@ function TokenListBlock({
       > = {};
       let aggregateTokenMap: Record<string, ITokenFiat> = {};
 
-      const [tokenNetwork, tokenVaultSettings] = await Promise.all([
-        backgroundApiProxy.serviceNetwork.getNetwork({
-          networkId,
-        }),
-        backgroundApiProxy.serviceNetwork.getVaultSettings({
-          networkId,
-        }),
-      ]);
+      if (!r.homeTokenRoundRef) {
+        const [tokenNetwork, tokenVaultSettings] = await Promise.all([
+          backgroundApiProxy.serviceNetwork.getNetwork({
+            networkId,
+          }),
+          backgroundApiProxy.serviceNetwork.getVaultSettings({
+            networkId,
+          }),
+        ]);
 
-      if (!isHomeRequestCurrent() || !isHomeTokenRequestCurrent(homeRequest)) {
-        throw new CanceledError('stale Home account request');
+        if (
+          !isHomeRequestCurrent() ||
+          !isHomeTokenRequestCurrent(homeRequest)
+        ) {
+          throw new CanceledError('stale Home account request');
+        }
+        if (aggregateTokenConfigMapRawData) {
+          r.tokens.data = r.tokens.data
+            .map((token) => {
+              const data = buildAggregateTokenListData({
+                networkId,
+                accountId,
+                token,
+                tokenMap: r.tokens.map,
+                aggregateTokenListMap,
+                aggregateTokenMap,
+                aggregateTokenConfigMapRawData,
+                networkName: tokenNetwork?.name ?? '',
+              });
+
+              if (data.isAggregateToken) {
+                aggregateTokenListMap = data.aggregateTokenListMap;
+                aggregateTokenMap = data.aggregateTokenMap;
+                return null;
+              }
+
+              return token;
+            })
+            .filter(Boolean);
+
+          r.smallBalanceTokens.data = r.smallBalanceTokens.data
+            .map((token) => {
+              const data = buildAggregateTokenListData({
+                networkId,
+                accountId,
+                token,
+                tokenMap: r.smallBalanceTokens.map,
+                aggregateTokenListMap,
+                aggregateTokenMap,
+                aggregateTokenConfigMapRawData,
+                networkName: tokenNetwork?.name ?? '',
+              });
+
+              if (data.isAggregateToken) {
+                aggregateTokenListMap = data.aggregateTokenListMap;
+                aggregateTokenMap = data.aggregateTokenMap;
+                return null;
+              }
+
+              return token;
+            })
+            .filter(Boolean);
+
+          const aggregateTokenList = Object.values(aggregateTokenListMap).map(
+            (item) => item.commonToken,
+          );
+
+          r.tokens.data = [...r.tokens.data, ...aggregateTokenList];
+          r.aggregateTokenListMap = aggregateTokenListMap;
+          r.aggregateTokenMap = aggregateTokenMap;
+        }
+
+        const { tokens, riskTokens, smallBalanceTokens } = r;
+
+        const { allTokens } = getMergedTokenData({
+          tokens,
+          riskTokens,
+          smallBalanceTokens,
+        });
+
+        if (allTokens) {
+          allTokens.data = allTokens.data.map((token) => ({
+            ...token,
+            accountId,
+            networkId,
+            networkName: tokenNetwork?.name,
+            mergeAssets: tokenVaultSettings.mergeDeriveAssetsEnabled,
+          }));
+        }
+        r.allTokens = allTokens;
       }
-      if (aggregateTokenConfigMapRawData) {
-        r.tokens.data = r.tokens.data
-          .map((token) => {
-            const data = buildAggregateTokenListData({
-              networkId,
-              accountId,
-              token,
-              tokenMap: r.tokens.map,
-              aggregateTokenListMap,
-              aggregateTokenMap,
-              aggregateTokenConfigMapRawData,
-              networkName: tokenNetwork?.name ?? '',
-            });
-
-            if (data.isAggregateToken) {
-              aggregateTokenListMap = data.aggregateTokenListMap;
-              aggregateTokenMap = data.aggregateTokenMap;
-              return null;
-            }
-
-            return token;
-          })
-          .filter(Boolean);
-
-        r.smallBalanceTokens.data = r.smallBalanceTokens.data
-          .map((token) => {
-            const data = buildAggregateTokenListData({
-              networkId,
-              accountId,
-              token,
-              tokenMap: r.smallBalanceTokens.map,
-              aggregateTokenListMap,
-              aggregateTokenMap,
-              aggregateTokenConfigMapRawData,
-              networkName: tokenNetwork?.name ?? '',
-            });
-
-            if (data.isAggregateToken) {
-              aggregateTokenListMap = data.aggregateTokenListMap;
-              aggregateTokenMap = data.aggregateTokenMap;
-              return null;
-            }
-
-            return token;
-          })
-          .filter(Boolean);
-
-        const aggregateTokenList = Object.values(aggregateTokenListMap).map(
-          (item) => item.commonToken,
-        );
-
-        r.tokens.data = [...r.tokens.data, ...aggregateTokenList];
-        r.aggregateTokenListMap = aggregateTokenListMap;
-        r.aggregateTokenMap = aggregateTokenMap;
-      }
-
-      const { tokens, riskTokens, smallBalanceTokens } = r;
-
-      const { allTokens } = getMergedTokenData({
-        tokens,
-        riskTokens,
-        smallBalanceTokens,
-      });
-
-      if (allTokens) {
-        allTokens.data = allTokens.data.map((token) => ({
-          ...token,
-          accountId,
-          networkId,
-          networkName: tokenNetwork?.name,
-          mergeAssets: tokenVaultSettings.mergeDeriveAssetsEnabled,
-        }));
-      }
-      r.allTokens = allTokens;
 
       defaultLogger.account.allNetworkAccountPerf.homeTokenListRefreshTrace({
         runtime: 'main',
@@ -1854,11 +1863,26 @@ function TokenListBlock({
 
       perfTokenListView.markStart('allNetworkRequestsStarted_getRawData');
 
-      // eslint-disable-next-line prefer-const
-      let [c, r, a] = await Promise.all([
-        backgroundApiProxy.simpleDb.customTokens.getRawData(),
-        backgroundApiProxy.simpleDb.riskTokenManagement.getRawData(),
-        backgroundApiProxy.simpleDb.aggregateToken.getAggregateTokenConfigSnapshot(),
+      let [a] = await Promise.all([
+        homeRequest
+          ? backgroundApiProxy.serviceToken
+              .prepareHomeTokenRequest(homeRequest)
+              .then(() => undefined)
+          : (async () => {
+              const [custom, risk, config] = await Promise.all([
+                backgroundApiProxy.simpleDb.customTokens.getRawData(),
+                backgroundApiProxy.simpleDb.riskTokenManagement.getRawData(),
+                backgroundApiProxy.simpleDb.aggregateToken.getAggregateTokenConfigSnapshot(),
+              ]);
+              if (isHomeRequestCurrent()) {
+                customTokensRawData.current = custom ?? undefined;
+                riskTokenManagementRawData.current = {
+                  unblockedTokens: risk?.unblockedTokens ?? {},
+                  blockedTokens: risk?.blockedTokens ?? {},
+                };
+              }
+              return config;
+            })(),
         updateCurrentAccountTask,
       ]);
       if (
@@ -1870,11 +1894,11 @@ function TokenListBlock({
 
       perfTokenListView.markEnd('allNetworkRequestsStarted_getRawData');
 
-      if (!a?.aggregateTokenConfigMap) {
+      if (!homeRequest && !a?.aggregateTokenConfigMap) {
         await backgroundApiProxy.serviceSetting.syncWalletConfig();
         a =
           await backgroundApiProxy.simpleDb.aggregateToken.getAggregateTokenConfigSnapshot();
-      } else {
+      } else if (!homeRequest) {
         // Refresh the cached wallet config in the background when it is stale
         // (app/bundle version changed or TTL expired) so delisted networks get
         // purged from the persisted aggregate-token maps. Not awaited: the
@@ -1890,11 +1914,6 @@ function TokenListBlock({
 
       if (!isHomeRequestCurrent() || !isHomeTokenRequestCurrent(homeRequest))
         return;
-      customTokensRawData.current = c ?? undefined;
-      riskTokenManagementRawData.current = {
-        unblockedTokens: r?.unblockedTokens ?? {},
-        blockedTokens: r?.blockedTokens ?? {},
-      };
       aggregateTokenRawData.current = a ?? undefined;
 
       appEventBus.emit(EAppEventBusNames.TabListStateUpdate, {
@@ -1958,6 +1977,19 @@ function TokenListBlock({
         return [];
       return results.map((localTokens) => {
         if (!localTokens) return null;
+        if (
+          'homeTokenRoundRef' in localTokens &&
+          localTokens.homeTokenRoundRef
+        ) {
+          if (
+            !localTokens.hasCache &&
+            !localTokens.tokenList.length &&
+            !localTokens.smallBalanceTokenList.length &&
+            !localTokens.riskyTokenList.length
+          )
+            return null;
+          return { ...localTokens, homeRequest };
+        }
         try {
           const { accountId, networkId } = localTokens;
           let { tokenList, smallBalanceTokenList } = localTokens;
@@ -2044,6 +2076,7 @@ function TokenListBlock({
     }: {
       data: {
         homeRequest?: IHomeTokenRequest;
+        homeTokenRoundRef?: string;
         tokenList: IAccountToken[];
         smallBalanceTokenList: IAccountToken[];
         riskyTokenList: IAccountToken[];

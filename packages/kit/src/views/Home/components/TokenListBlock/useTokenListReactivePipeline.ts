@@ -34,6 +34,11 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms/jotaiContextStoreMap';
 import { isRequestCanceledError } from '@onekeyhq/shared/src/errors/utils/errorUtils';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import {
+  type IAllNetworkSnapshotRound,
+  type IMergedAllNetworkSnapshot,
+  buildMergedAllNetworkSnapshot,
+} from '@onekeyhq/shared/src/utils/buildMergedAllNetworkSnapshot';
 import { isHomeTokenRequestCurrent } from '@onekeyhq/shared/src/utils/homeTokenRequest';
 import { LwwMaterializedView } from '@onekeyhq/shared/src/utils/lwwMaterializedView';
 import type {
@@ -43,12 +48,6 @@ import type {
   IHomeTokenRequest,
   ITokenFiat,
 } from '@onekeyhq/shared/types/token';
-
-import {
-  type IAllNetworkSnapshotRound,
-  type IMergedAllNetworkSnapshot,
-  buildMergedAllNetworkSnapshot,
-} from './buildMergedAllNetworkSnapshot';
 
 // L2: coalesce progressive all-network ingests into at most one paint per this
 // window, so a 20+ network fan-out yields a few frames (not one per network).
@@ -81,6 +80,7 @@ export interface ICellsIngestInputs {
 /** One per-network LOCAL-cache slice fed to the cache-seed (L1 SWR floor). */
 export interface ICacheSeedItem {
   homeRequest?: IHomeTokenRequest;
+  homeTokenRoundRef?: string;
   tokenList: IAccountToken[];
   smallBalanceTokenList: IAccountToken[];
   riskyTokenList: IAccountToken[];
@@ -193,6 +193,10 @@ export function useTokenListReactivePipeline(
   >(undefined);
   // H1 epoch guard (P1-g): bumped only by the authoritative commit.
   const progressivePaintEpochRef = useRef(0);
+  const publicationRef = useRef(0);
+  const snapshotRoundRefs = useRef(
+    new WeakMap<IMergedAllNetworkSnapshot, string[]>(),
+  );
   const ownerIdentityRef = useRef<{
     ownerAccountId: string | undefined;
     ownerNetworkId: string | undefined;
@@ -269,10 +273,11 @@ export function useTokenListReactivePipeline(
 
   const ingestMergedSnapshot = useCallback(
     (
-      snapshot: IMergedAllNetworkSnapshot,
+      snapshot: IMergedAllNetworkSnapshot | (() => IMergedAllNetworkSnapshot),
       source: string,
       homeRequest: IHomeTokenRequest | undefined,
       ownerToken?: IIngestOwnerToken,
+      roundRefs?: string[],
     ) => {
       const ownerKey =
         ownerToken?.ownerKey ?? cellsIngestInputsRef.current.ownerKey;
@@ -282,33 +287,70 @@ export function useTokenListReactivePipeline(
       ) {
         return;
       }
-      void backgroundApiProxy.serviceTokenViewModel
-        .ingestRound({
-          homeRequest,
-          ownerKey,
-          orderedTokens: snapshot.orderedTokens,
-          smallBalanceTokens: snapshot.smallBalanceTokens,
-          tokenListMap: snapshot.mergeTokenListMap,
-          aggregateTokensMap: snapshot.aggregateTokenMap,
-          ownedAggregateTokenListMap: snapshot.aggregateTokenListMap,
-          smallBalanceFiatValue: snapshot.smallBalanceFiatValue,
-          storeData: { storeName: EJotaiContextStoreNames.homeTokenList },
-          keepDefault: cellsIngestInputsRef.current.nonZeroInputs.keepDefault,
-          homeDefaultTokenMap:
-            cellsIngestInputsRef.current.nonZeroInputs.homeDefaultTokenMap,
-          customTokens: cellsIngestInputsRef.current.nonZeroInputs.customTokens,
-          riskyTokens: snapshot.riskyTokens,
-          riskyMap: snapshot.riskyTokenListMap,
-          accountId: ownerToken?.ownerAccountId ?? ownerAccountId,
-          networkId: ownerToken?.ownerNetworkId ?? ownerNetworkId,
-          rawKeys: `${snapshot.tokenKeys}_${snapshot.smallBalanceKeys}_${snapshot.riskyKeys}`,
-          source,
-        })
-        .catch((error: unknown) => {
-          if (!isRequestCanceledError(error)) console.error(error);
-        });
+      publicationRef.current += 1;
+      const homePublication = publicationRef.current;
+      const inputs = {
+        homeRequest,
+        homePublication,
+        ownerKey,
+        storeData: { storeName: EJotaiContextStoreNames.homeTokenList },
+        keepDefault: cellsIngestInputsRef.current.nonZeroInputs.keepDefault,
+        homeDefaultTokenMap:
+          cellsIngestInputsRef.current.nonZeroInputs.homeDefaultTokenMap,
+        customTokens: cellsIngestInputsRef.current.nonZeroInputs.customTokens,
+        accountId: ownerToken?.ownerAccountId ?? ownerAccountId,
+        networkId: ownerToken?.ownerNetworkId ?? ownerNetworkId,
+        source,
+      };
+      const reportError = (error: unknown) => {
+        if (!isRequestCanceledError(error)) console.error(error);
+      };
+      const ingestFullSnapshot = () => {
+        if (
+          !isRequestCurrent(homeRequest) ||
+          publicationRef.current !== homePublication
+        )
+          return;
+        const resolvedSnapshot =
+          typeof snapshot === 'function' ? snapshot() : snapshot;
+        void backgroundApiProxy.serviceTokenViewModel
+          .ingestRound({
+            ...inputs,
+            orderedTokens: resolvedSnapshot.orderedTokens,
+            smallBalanceTokens: resolvedSnapshot.smallBalanceTokens,
+            tokenListMap: resolvedSnapshot.mergeTokenListMap,
+            aggregateTokensMap: resolvedSnapshot.aggregateTokenMap,
+            ownedAggregateTokenListMap: resolvedSnapshot.aggregateTokenListMap,
+            smallBalanceFiatValue: resolvedSnapshot.smallBalanceFiatValue,
+            riskyTokens: resolvedSnapshot.riskyTokens,
+            riskyMap: resolvedSnapshot.riskyTokenListMap,
+            rawKeys: `${resolvedSnapshot.tokenKeys}_${resolvedSnapshot.smallBalanceKeys}_${resolvedSnapshot.riskyKeys}`,
+          })
+          .catch(reportError);
+      };
+      if (homeRequest && roundRefs?.length) {
+        void backgroundApiProxy.serviceTokenViewModel
+          .ingestHomeTokenRounds({
+            ...inputs,
+            homeRequest,
+            roundRefs,
+            createAtNetwork: ownerCreateAtNetwork,
+          })
+          .then((applied) => {
+            if (!applied) ingestFullSnapshot();
+          })
+          .catch(reportError);
+      } else {
+        ingestFullSnapshot();
+      }
     },
-    [cellsIngestInputsRef, isRequestCurrent, ownerAccountId, ownerNetworkId],
+    [
+      cellsIngestInputsRef,
+      isRequestCurrent,
+      ownerAccountId,
+      ownerCreateAtNetwork,
+      ownerNetworkId,
+    ],
   );
 
   const flushProgressiveView = useCallback(
@@ -355,17 +397,20 @@ export function useTokenListReactivePipeline(
       if (progressivePaintEpochRef.current !== epochAtFlushStart) {
         return;
       }
-      const snapshot = buildMergedAllNetworkSnapshot({
-        rounds: roundsWithFlag,
-        mergeDeriveAssetsByNetworkId: {},
-        accountId: ownerAccountId,
-        createAtNetwork: ownerCreateAtNetwork,
-      });
       ingestMergedSnapshot(
-        snapshot,
+        () =>
+          buildMergedAllNetworkSnapshot({
+            rounds: roundsWithFlag,
+            mergeDeriveAssetsByNetworkId: {},
+            accountId: ownerAccountId,
+            createAtNetwork: ownerCreateAtNetwork,
+          }),
         source,
         homeRequest,
         ownerTokenAtFlushStart,
+        roundsWithFlag.every((round) => !!round.homeTokenRoundRef)
+          ? roundsWithFlag.map((round) => round.homeTokenRoundRef as string)
+          : undefined,
       );
     },
     [
@@ -415,6 +460,7 @@ export function useTokenListReactivePipeline(
             }),
             {
               homeRequest: item.homeRequest,
+              homeTokenRoundRef: item.homeTokenRoundRef,
               networkId: item.networkId,
               accountId: item.accountId,
               tokens: {
@@ -539,12 +585,19 @@ export function useTokenListReactivePipeline(
     ) {
       return undefined;
     }
-    return buildMergedAllNetworkSnapshot({
+    const snapshot = buildMergedAllNetworkSnapshot({
       rounds: roundsWithFlag,
       mergeDeriveAssetsByNetworkId: {},
       accountId: ownerAccountId,
       createAtNetwork: ownerCreateAtNetwork,
     });
+    if (viewRounds.every((round) => !!round.homeTokenRoundRef)) {
+      snapshotRoundRefs.current.set(
+        snapshot,
+        viewRounds.map((round) => round.homeTokenRoundRef as string),
+      );
+    }
+    return snapshot;
   }, [
     cellsIngestInputsRef,
     homeRequestRef,
@@ -558,7 +611,13 @@ export function useTokenListReactivePipeline(
     (snapshot: IMergedAllNetworkSnapshot, homeRequest?: IHomeTokenRequest) => {
       if (!isRequestCurrent(homeRequest)) return;
       if (enabled) {
-        ingestMergedSnapshot(snapshot, 'authoritative', homeRequest);
+        ingestMergedSnapshot(
+          snapshot,
+          'authoritative',
+          homeRequest,
+          undefined,
+          snapshotRoundRefs.current.get(snapshot),
+        );
       }
       if (progressiveFlushTimerRef.current !== null) {
         clearTimeout(progressiveFlushTimerRef.current);

@@ -16,6 +16,7 @@ import {
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import { aggregateHomeTokenGroups } from '@onekeyhq/shared/src/utils/buildMergedAllNetworkSnapshot';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import perfUtils, {
   EPerformanceTimerLogNames,
@@ -98,7 +99,75 @@ class ServiceToken extends ServiceBase {
 
   _searchTokensControllers: AbortController[] = [];
 
+  private homeTokenContext:
+    | {
+        homeRequest: IHomeTokenRequest;
+        data: ReturnType<ServiceToken['loadHomeTokenContext']>;
+      }
+    | undefined;
+
+  private async loadHomeTokenContext(homeRequest: IHomeTokenRequest) {
+    const [customTokensRawData, riskTokenManagementRawData, config] =
+      await Promise.all([
+        this.backgroundApi.simpleDb.customTokens.getRawData(),
+        this.backgroundApi.simpleDb.riskTokenManagement.getRawData(),
+        this.backgroundApi.simpleDb.aggregateToken.getAggregateTokenConfigSnapshot(),
+      ]);
+    homeTokenRequestRegistry.assertCurrent(homeRequest);
+    let aggregateTokenConfigMap = config.aggregateTokenConfigMap;
+    if (!aggregateTokenConfigMap) {
+      await this.backgroundApi.serviceSetting.syncWalletConfig();
+      homeTokenRequestRegistry.assertCurrent(homeRequest);
+      aggregateTokenConfigMap = (
+        await this.backgroundApi.simpleDb.aggregateToken.getAggregateTokenConfigSnapshot()
+      ).aggregateTokenConfigMap;
+    } else {
+      void this.backgroundApi.serviceSetting
+        .syncWalletConfigIfNeeded()
+        .catch(() => undefined);
+    }
+    homeTokenRequestRegistry.assertCurrent(homeRequest);
+    const aggregateTokenInfo =
+      await this.backgroundApi.serviceToken.getAllAggregateTokenInfo();
+    homeTokenRequestRegistry.assertCurrent(homeRequest);
+    return {
+      customTokensRawData: customTokensRawData ?? undefined,
+      blockedTokensRawData: riskTokenManagementRawData?.blockedTokens ?? {},
+      unblockedTokensRawData: riskTokenManagementRawData?.unblockedTokens ?? {},
+      aggregateTokenConfigMap,
+      aggregateTokenInfo,
+    };
+  }
+
+  private getHomeTokenContext(homeRequest: IHomeTokenRequest) {
+    homeTokenRequestRegistry.assertCurrent(homeRequest);
+    const current = this.homeTokenContext;
+    if (
+      current?.homeRequest.mainRuntimeId === homeRequest.mainRuntimeId &&
+      current.homeRequest.generation === homeRequest.generation &&
+      current.homeRequest.ownerKey === homeRequest.ownerKey
+    ) {
+      return current.data;
+    }
+    const data = this.loadHomeTokenContext(homeRequest);
+    this.homeTokenContext = { homeRequest, data };
+    return data;
+  }
+
+  @backgroundMethod()
+  public async prepareHomeTokenRequest(homeRequest: IHomeTokenRequest) {
+    this.claimHomeTokenRequest(homeRequest);
+    await this.getHomeTokenContext(homeRequest);
+    homeTokenRequestRegistry.assertCurrent(homeRequest);
+  }
+
   private discardStaleHomeRequests() {
+    if (
+      this.homeTokenContext &&
+      !homeTokenRequestRegistry.isCurrent(this.homeTokenContext.homeRequest)
+    ) {
+      this.homeTokenContext = undefined;
+    }
     this._fetchAccountTokensControllers =
       this._fetchAccountTokensControllers.filter((item) => {
         if (
@@ -126,17 +195,23 @@ class ServiceToken extends ServiceBase {
     request: IHomeTokenRequestInvalidation,
   ) {
     homeTokenRequestRegistry.invalidate(request);
+    this.backgroundApi.serviceTokenViewModel.retireHomeTokenRounds(request);
     this.discardStaleHomeRequests();
   }
 
   @backgroundMethod()
   public async cancelHomeTokenRequest(request: IHomeTokenRequest) {
+    const wasCurrent = homeTokenRequestRegistry.isCurrent(request);
     homeTokenRequestRegistry.cancel(request);
+    if (wasCurrent)
+      this.backgroundApi.serviceTokenViewModel.retireHomeTokenRounds(request);
     this.discardStaleHomeRequests();
   }
 
   private claimHomeTokenRequest(request: IHomeTokenRequest | undefined) {
     homeTokenRequestRegistry.claim(request);
+    if (request)
+      this.backgroundApi.serviceTokenViewModel.alignHomeTokenRequest(request);
     this.discardStaleHomeRequests();
   }
 
@@ -370,11 +445,17 @@ class ServiceToken extends ServiceBase {
         networkId: currentNetworkId,
       };
 
+    const homeContext = homeRequest
+      ? await this.getHomeTokenContext(homeRequest)
+      : undefined;
+    throwIfRequestAborted();
+    const customTokensSnapshot =
+      homeContext?.customTokensRawData ?? customTokensRawData;
     const accountParams = {
       accountId,
       networkId,
       dbAccount,
-      customTokensRawData,
+      customTokensRawData: customTokensSnapshot,
     };
     const [xpub, accountAddress] = await Promise.all([
       this.backgroundApi.serviceAccount.getAccountXpub(accountParams),
@@ -420,11 +501,13 @@ class ServiceToken extends ServiceBase {
       }),
       this.backgroundApi.serviceToken.getUnblockedTokens({
         networkId,
-        unblockedTokensRawData,
+        unblockedTokensRawData:
+          homeContext?.unblockedTokensRawData ?? unblockedTokensRawData,
       }),
       this.backgroundApi.serviceToken.getBlockedTokens({
         networkId,
-        blockedTokensRawData,
+        blockedTokensRawData:
+          homeContext?.blockedTokensRawData ?? blockedTokensRawData,
       }),
       this.backgroundApi.serviceNetwork.getVaultSettings({ networkId }),
       this.backgroundApi.serviceNetwork.getNetworkSafe({ networkId }),
@@ -433,16 +516,18 @@ class ServiceToken extends ServiceBase {
         accountId: indexedAccountId ?? accountId ?? '',
         accountXpubOrAddress: indexedAccountId ?? accountId,
         networkId: AGGREGATE_TOKEN_MOCK_NETWORK_ID,
-        customTokensRawData,
+        customTokensRawData: customTokensSnapshot,
       }),
       // get aggregate custom tokens
       this.backgroundApi.serviceCustomToken.getCustomTokens({
         accountId: indexedAccountId ?? accountId ?? '',
         accountXpubOrAddress: indexedAccountId ?? accountId,
         networkId: AGGREGATE_TOKEN_MOCK_NETWORK_ID,
-        customTokensRawData,
+        customTokensRawData: customTokensSnapshot,
       }),
-      this.backgroundApi.serviceToken.getAllAggregateTokenInfo(),
+      homeContext
+        ? Promise.resolve(homeContext.aggregateTokenInfo)
+        : this.backgroundApi.serviceToken.getAllAggregateTokenInfo(),
     ]);
     throwIfRequestAborted();
     /* eslint-enable prefer-const */
@@ -728,6 +813,50 @@ class ServiceToken extends ServiceBase {
 
     resp.data.data.accountId = accountId;
     resp.data.data.networkId = networkId;
+
+    if (homeRequest && isAllNetworks && homeContext) {
+      const groups = aggregateHomeTokenGroups({
+        tokenList: resp.data.data.tokens.data,
+        smallBalanceTokenList: resp.data.data.smallBalanceTokens.data,
+        tokenListMap: resp.data.data.tokens.map,
+        smallBalanceTokenListMap: resp.data.data.smallBalanceTokens.map,
+        aggregateTokenConfigMapRawData: homeContext.aggregateTokenConfigMap,
+        accountId,
+        networkId,
+        networkName: network?.name ?? '',
+      });
+      const round = {
+        ...resp.data.data,
+        tokens: { ...resp.data.data.tokens, data: groups.tokenList },
+        smallBalanceTokens: {
+          ...resp.data.data.smallBalanceTokens,
+          data: groups.smallBalanceTokenList,
+        },
+        aggregateTokenListMap: groups.aggregateTokenListMap,
+        aggregateTokenMap: groups.aggregateTokenMap,
+        mergeDeriveAssets: !!vaultSettings.mergeDeriveAssetsEnabled,
+      };
+      const merged = getMergedTokenData(round);
+      if (merged.allTokens) {
+        merged.allTokens.data = merged.allTokens.data.map((token) => ({
+          ...token,
+          accountId,
+          networkId,
+          networkName: network?.name,
+          mergeAssets: vaultSettings.mergeDeriveAssetsEnabled,
+        }));
+      }
+      return {
+        ...round,
+        allTokens: merged.allTokens,
+        homeTokenRoundRef:
+          this.backgroundApi.serviceTokenViewModel.retainHomeTokenRound({
+            homeRequest,
+            round,
+            origin: 'live',
+          }),
+      };
+    }
 
     return resp.data.data;
   }
@@ -1279,6 +1408,59 @@ class ServiceToken extends ServiceBase {
           simpleDbLocalTokensRawData: rawData,
         });
         homeTokenRequestRegistry.assertCurrent(homeRequest);
+        if (homeRequest) {
+          const context = await this.getHomeTokenContext(homeRequest);
+          homeTokenRequestRegistry.assertCurrent(homeRequest);
+          const groups = aggregateHomeTokenGroups({
+            tokenList: tokens.tokenList,
+            smallBalanceTokenList: tokens.smallBalanceTokenList,
+            tokenListMap: tokens.tokenListMap,
+            aggregateTokenConfigMapRawData: context.aggregateTokenConfigMap,
+            accountId: tokens.accountId,
+            networkId: tokens.networkId,
+            networkName:
+              tokens.tokenList[0]?.networkName ??
+              tokens.smallBalanceTokenList[0]?.networkName ??
+              tokens.riskyTokenList[0]?.networkName ??
+              '',
+          });
+          const cacheResult = { ...tokens, ...groups };
+          const homeTokenRoundRef =
+            this.backgroundApi.serviceTokenViewModel.retainHomeTokenRound({
+              homeRequest,
+              origin: 'cache',
+              round: {
+                accountId: cacheResult.accountId,
+                networkId: cacheResult.networkId,
+                tokens: {
+                  data: cacheResult.tokenList,
+                  keys: cacheResult.tokenList.map((t) => t.$key).join(','),
+                  map: cacheResult.tokenListMap,
+                },
+                smallBalanceTokens: {
+                  data: cacheResult.smallBalanceTokenList,
+                  keys: cacheResult.smallBalanceTokenList
+                    .map((t) => t.$key)
+                    .join(','),
+                  map: cacheResult.tokenListMap,
+                },
+                riskTokens: {
+                  data: cacheResult.riskyTokenList,
+                  keys: cacheResult.riskyTokenList.map((t) => t.$key).join(','),
+                  map: cacheResult.tokenListMap,
+                },
+                aggregateTokenListMap: cacheResult.aggregateTokenListMap,
+                aggregateTokenMap: cacheResult.aggregateTokenMap,
+                accountWorth: cacheResult.tokenListValue,
+                mergeDeriveAssets: [
+                  cacheResult.tokenList,
+                  cacheResult.smallBalanceTokenList,
+                  cacheResult.riskyTokenList,
+                ].some((list) => list.some((token) => !!token.mergeAssets)),
+              },
+            });
+          return { ...cacheResult, homeTokenRoundRef };
+        }
         return tokens;
       }),
       {

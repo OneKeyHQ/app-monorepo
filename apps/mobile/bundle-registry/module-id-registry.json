@@ -21535,7 +21535,6 @@
     "packages/kit/src/views/Home/components/TokenListBlock/TokenListBlock.tsx": 1848,
     "packages/kit/src/views/Home/components/TokenListBlock/assetStatusAnalytics.ts": 21578,
     "packages/kit/src/views/Home/components/TokenListBlock/buildHomeTokenListCacheIngestRound.ts": 2900,
-    "packages/kit/src/views/Home/components/TokenListBlock/buildMergedAllNetworkSnapshot.ts": 7735,
     "packages/kit/src/views/Home/components/TokenListBlock/homeTokenListRequestOwner.ts": 23318,
     "packages/kit/src/views/Home/components/TokenListBlock/index.ts": 1645,
     "packages/kit/src/views/Home/components/TokenListBlock/offTabRefresh.ts": 2687,
@@ -24224,6 +24223,7 @@
     "packages/shared/src/utils/avatarUtils.ts": 5350,
     "packages/shared/src/utils/btcUtils.ts": 4542,
     "packages/shared/src/utils/bufferUtils.ts": 18996,
+    "packages/shared/src/utils/buildMergedAllNetworkSnapshot.ts": 13706,
     "packages/shared/src/utils/bulkSendUtils.ts": 14353,
     "packages/shared/src/utils/cacheUtils.ts": 4538,
     "packages/shared/src/utils/cexDepositSupportUtils.ts": 1634,
@@ -24430,6 +24430,7 @@
     "packages/shared/types/wallet.ts": 1105
   },
   "tombstones": {
-    "packages/kit/src/views/Market/hooks/useRecommendListingResolution.ts": 2969
+    "packages/kit/src/views/Market/hooks/useRecommendListingResolution.ts": 2969,
+    "packages/kit/src/views/Home/components/TokenListBlock/buildMergedAllNetworkSnapshot.ts": 7735
   }
 }
