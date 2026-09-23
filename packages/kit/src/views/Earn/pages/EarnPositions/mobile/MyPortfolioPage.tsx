@@ -8,7 +8,6 @@ import {
   Page,
   RefreshControl,
   ScrollView,
-  Stack,
   YStack,
   useScrollContentTabBarOffset,
 } from '@onekeyhq/components';
@@ -17,10 +16,7 @@ import { buildLocalTxStatusSyncId } from '@onekeyhq/kit/src/views/Staking/utils/
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 import { EEarnLabels } from '@onekeyhq/shared/types/staking';
-import type {
-  IEarnPortfolioInvestment,
-  IEarnRewardsPortfolioStage,
-} from '@onekeyhq/shared/types/staking';
+import type { IEarnRewardsPortfolioStage } from '@onekeyhq/shared/types/staking';
 
 import { NetworkFilterControl } from '../../../components/NetworkFilterControl';
 import { PortfolioPendingTxsProvider } from '../../../components/PortfolioTabContent';
@@ -38,6 +34,7 @@ import { DeFiAssetsTab } from './DeFiAssetsTab';
 import {
   countInvestmentsByNetwork,
   filterInvestmentsByNetworks,
+  resolveDefiAssetsFiatValue,
   sumRewardsHeaderFiat,
 } from './myPortfolio.utils';
 import { PortfolioTotalsHeader } from './PortfolioTotalsHeader';
@@ -45,6 +42,7 @@ import { RewardsTab } from './RewardsTab';
 import { UnderlineTabs } from './UnderlineTabs';
 import { useRewardsPortfolio } from './useRewardsPortfolio';
 
+import type { IPositionManageHandler } from './myPortfolio.utils';
 import type { IStakePendingTx } from '../../../hooks/useStakingPendingTxs';
 import type { NativeScrollEvent, NativeSyntheticEvent } from 'react-native';
 
@@ -158,6 +156,14 @@ export function MyPortfolioPage() {
       filterInvestmentsByNetworks(portfolio.investments, selectedNetworkIds),
     [portfolio.investments, selectedNetworkIds],
   );
+  const defiAssetsFiatValue = useMemo(
+    () =>
+      resolveDefiAssetsFiatValue({
+        hookTotal: portfolio.earnTotalFiatValue,
+        investments: portfolio.investments,
+      }),
+    [portfolio.earnTotalFiatValue, portfolio.investments],
+  );
   const rewardsHeaderFiat = useMemo(
     () =>
       sumRewardsHeaderFiat({
@@ -167,24 +173,27 @@ export function MyPortfolioPage() {
     [rewards?.totals.rewards, portfolio.investments],
   );
 
-  // Manage opens the detail page, where every action lives. Same guard as the
-  // existing page: the Pendle USDe unstake row has no page to go to.
-  const handleManage = useCallback(
-    (investment: IEarnPortfolioInvestment) => {
-      const asset = investment.assets[0];
-      const providerName = investment.protocol.providerDetail.code;
+  // Manage opens the detail page, where every action lives; a tapped token
+  // row opens its own, since one investment can span chains. Same guard as
+  // the existing page: the Pendle USDe unstake row has no page to go to.
+  const handleManage = useCallback<IPositionManageHandler>(
+    (investment, asset = investment.assets[0]) => {
+      if (!asset) {
+        return;
+      }
+      const providerName = asset.metadata.protocol.providerDetail.code;
       if (
         earnUtils.isPendleProvider({ providerName }) &&
-        investment.protocol.symbol === 'USDe' &&
-        (!asset?.buttons || asset.buttons.length === 0)
+        asset.metadata.protocol.symbol === 'USDe' &&
+        (!asset.buttons || asset.buttons.length === 0)
       ) {
         return;
       }
       void EarnNavigation.pushToEarnProtocolDetails(navigation, {
-        networkId: investment.network.networkId,
-        symbol: investment.protocol.symbol ?? asset?.token.info.symbol ?? '',
+        networkId: asset.metadata.network.networkId,
+        symbol: asset.token.info.symbol,
         provider: providerName,
-        vault: investment.protocol.vault,
+        vault: asset.metadata.protocol.vault,
       });
     },
     [navigation],
@@ -209,6 +218,18 @@ export function MyPortfolioPage() {
     [primaryTab, hasMoreRewards, isRewardsLoadingMore, loadMoreRewards],
   );
 
+  // One chip, placed by each tab: under the tabs on DeFi Assets, under the
+  // stage pills on Rewards (figma 29180-108096 / 29180-109152).
+  const networkFilter = (
+    <NetworkFilterControl
+      availableNetworkIds={availableNetworkIds}
+      selectedNetworkIds={selectedNetworkIds}
+      networkAssetCounts={networkAssetCounts}
+      onSelectionChange={setSelectedNetworkIds}
+      variant="compact"
+    />
+  );
+
   const [isManualRefreshing, setIsManualRefreshing] = useState(false);
   const handleRefresh = useCallback(async () => {
     setIsManualRefreshing(true);
@@ -221,11 +242,13 @@ export function MyPortfolioPage() {
 
   return (
     <Page>
-      {/* i18n: pending "My portfolio" key (OK-61377); earn_portfolio reads
-          "Portfolio" until it lands. The design's history icon on the right
-          has no account-level target yet (HistoryList is vault-scoped). */}
+      {/* No history icon (product): history stays on each protocol's detail
+          page and payouts live under Rewards > Distributed; an account-wide
+          DeFi history is a separate requirement. */}
       <Page.Header
-        title={intl.formatMessage({ id: ETranslations.earn_portfolio })}
+        title={intl.formatMessage({
+          id: ETranslations.earn_my_portfolio__title,
+        })}
       />
       <Page.Body pt={bodyPaddingTop} opacity={isHeaderHeightSettled ? 1 : 0}>
         <ScrollView
@@ -244,16 +267,15 @@ export function MyPortfolioPage() {
           <PortfolioPendingTxsProvider value={{ onRefresh: refreshAll }}>
             <YStack py="$2">
               <PortfolioTotalsHeader
-                defiAssetsFiatValue={portfolio.earnTotalFiatValue.toFixed()}
+                defiAssetsFiatValue={defiAssetsFiatValue}
                 rewardsFiatValue={rewardsHeaderFiat}
               />
               <UnderlineTabs<IPrimaryTab>
                 tabs={[
                   {
                     key: 'assets',
-                    // i18n: pending "DeFi Assets" key (OK-61377)
                     label: intl.formatMessage({
-                      id: ETranslations.earn_portfolio_title,
+                      id: ETranslations.earn_defi_assets__title,
                     }),
                   },
                   {
@@ -267,19 +289,12 @@ export function MyPortfolioPage() {
                 onChange={setPrimaryTab}
                 testID="earn-my-portfolio-tabs"
               />
-              <Stack px="$5" py="$3" ai="flex-start">
-                <NetworkFilterControl
-                  availableNetworkIds={availableNetworkIds}
-                  selectedNetworkIds={selectedNetworkIds}
-                  networkAssetCounts={networkAssetCounts}
-                  onSelectionChange={setSelectedNetworkIds}
-                  variant="compact"
-                />
-              </Stack>
               {primaryTab === 'assets' ? (
                 <DeFiAssetsTab
                   investments={visibleInvestments}
+                  isLoading={portfolio.isLoading}
                   pendingCountByProvider={pendingCountByProvider}
+                  networkFilter={networkFilter}
                   onManage={handleManage}
                 />
               ) : (
@@ -290,6 +305,7 @@ export function MyPortfolioPage() {
                   isLoading={isRewardsLoading}
                   isLoadingMore={isRewardsLoadingMore}
                   investments={visibleInvestments}
+                  networkFilter={networkFilter}
                   onManage={handleManage}
                 />
               )}

@@ -1,3 +1,5 @@
+import BigNumber from 'bignumber.js';
+
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type {
   IEarnPortfolioInvestment,
@@ -13,6 +15,7 @@ import {
   filterInvestmentsByNetworks,
   groupInvestmentsByProvider,
   isLedgerAirdropProvider,
+  resolveDefiAssetsFiatValue,
   selectProtocolClaimableInvestments,
   sumRewardsHeaderFiat,
   toLedgerClaimAsset,
@@ -89,7 +92,7 @@ describe('categoryLabelId', () => {
     expect(categoryLabelId('simpleEarn')).toBe(ETranslations.earn_yield);
     expect(categoryLabelId('fixedRate')).toBe(ETranslations.earn_yield);
     expect(categoryLabelId('staking')).toBe(
-      ETranslations.wallet_defi_position_module_staked,
+      ETranslations.earn_category_staked__title,
     );
     expect(categoryLabelId('lending')).toBe(ETranslations.earn_loans);
     expect(categoryLabelId(undefined)).toBeUndefined();
@@ -145,10 +148,28 @@ describe('network filter helpers', () => {
     expect(filterInvestmentsByNetworks(list, [])).toHaveLength(3);
     expect(filterInvestmentsByNetworks(list, ['evm--8453'])).toHaveLength(1);
   });
+  it('goes by the assets: a multi-chain investment counts and matches on every network it holds', () => {
+    const stakefish = investment({
+      provider: 'stakefish',
+      networkId: 'sol--101',
+      assets: [
+        asset({ metadata: { network: { networkId: 'sol--101' } } }),
+        asset({ metadata: { network: { networkId: 'cosmos--cosmoshub-4' } } }),
+      ],
+    });
+    expect(countInvestmentsByNetwork([stakefish])).toEqual({
+      'sol--101': 1,
+      'cosmos--cosmoshub-4': 1,
+    });
+    expect(
+      filterInvestmentsByNetworks([stakefish], ['cosmos--cosmoshub-4']),
+    ).toEqual([stakefish]);
+    expect(filterInvestmentsByNetworks([stakefish], ['evm--1'])).toEqual([]);
+  });
 });
 
 describe('selectProtocolClaimableInvestments', () => {
-  it('keeps positions with reward rows, and on-chain airdrops of non-ledger providers only', () => {
+  it('keeps on-chain airdrops of non-ledger providers only; reward rows stay on the DeFi Assets card', () => {
     const withRewards = investment({
       assets: [asset({ rewardAssets: [{ title: { text: '0.1 USDC' } }] })],
     });
@@ -168,7 +189,35 @@ describe('selectProtocolClaimableInvestments', () => {
         sparkAirdrop,
         plain,
       ]),
-    ).toEqual([withRewards, morphoAirdrop]);
+    ).toEqual([morphoAirdrop]);
+  });
+});
+
+describe('resolveDefiAssetsFiatValue', () => {
+  it('sums the listed rows while the hook total is still 0', () => {
+    expect(
+      resolveDefiAssetsFiatValue({
+        hookTotal: new BigNumber(0),
+        investments: [
+          investment({ totalFiatValue: '2.25' }),
+          investment({ totalFiatValue: '0.41', vault: 'b' }),
+        ],
+      }),
+    ).toBe('2.66');
+  });
+  it('trusts the hook total once it has one, and shows 0 with nothing listed', () => {
+    expect(
+      resolveDefiAssetsFiatValue({
+        hookTotal: new BigNumber('19.95'),
+        investments: [investment({ totalFiatValue: '2.25' })],
+      }),
+    ).toBe('19.95');
+    expect(
+      resolveDefiAssetsFiatValue({
+        hookTotal: new BigNumber(0),
+        investments: [],
+      }),
+    ).toBe('0');
   });
 });
 

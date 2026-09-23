@@ -24,18 +24,13 @@ import { EarnTestIDs } from '../../../testIDs';
 
 import { categoryLabelId, isLedgerAirdropProvider } from './myPortfolio.utils';
 
-/** "Deposited | Balance" style two-column section header. */
+import type { IPositionManageHandler } from './myPortfolio.utils';
+
+/** "Deposited | Balance" style two-column section header, plain text. */
 function SectionHeader({ title }: { title: string }) {
   const intl = useIntl();
   return (
-    <XStack
-      ai="center"
-      jc="space-between"
-      px="$3"
-      py="$1.5"
-      bg="$bgSubdued"
-      borderRadius="$2"
-    >
+    <XStack ai="center" jc="space-between" px="$1" pt="$2" pb="$1">
       <SizableText size="$bodySmMedium" color="$textSubdued">
         {title}
       </SizableText>
@@ -47,9 +42,21 @@ function SectionHeader({ title }: { title: string }) {
 }
 
 /**
+ * The detail page shows the fiat inline after the amount, so the server wraps
+ * it in parentheses: "($2.11)". Here it sits on its own line above the
+ * amount, where the parentheses read as a negative figure; unwrap them.
+ */
+function unwrapParentheses(text: IEarnText | undefined) {
+  if (!text) {
+    return text;
+  }
+  const match = /^\((.*)\)$/.exec(text.text.trim());
+  return match ? { ...text, text: match[1] } : text;
+}
+
+/**
  * One token row: icon + symbol on the left; on the right the fiat text over
- * the amount text, exactly as the investment detail rendered them (the
- * server sends both as text, so nothing is re-derived here).
+ * the amount text, both as the server sent them (nothing is re-derived).
  */
 function TokenRow({
   symbol,
@@ -57,15 +64,26 @@ function TokenRow({
   networkId,
   primary,
   secondary,
+  onPress,
 }: {
   symbol: string;
   logoURI?: string;
   networkId: string;
   primary?: IEarnText;
   secondary?: IEarnText;
+  /** opens that row's own detail page; matters when a card spans chains */
+  onPress?: () => void;
 }) {
   return (
-    <XStack ai="center" jc="space-between" gap="$3" minHeight={44} px="$1">
+    <XStack
+      ai="center"
+      jc="space-between"
+      gap="$3"
+      minHeight={44}
+      px="$1"
+      cursor={onPress ? 'pointer' : undefined}
+      onPress={onPress}
+    >
       <XStack ai="center" gap="$2" flex={1} minWidth={0}>
         <Token
           size="md"
@@ -79,7 +97,11 @@ function TokenRow({
       </XStack>
       <YStack ai="flex-end" flexShrink={0}>
         {primary ? (
-          <EarnText size="$bodyMdMedium" text={primary} textAlign="right" />
+          <EarnText
+            size="$bodyMdMedium"
+            text={unwrapParentheses(primary)}
+            textAlign="right"
+          />
         ) : null}
         {secondary ? (
           <EarnText
@@ -107,29 +129,40 @@ export function PositionCard({
 }: {
   investment: IEarnPortfolioInvestment;
   rewardsOnly?: boolean;
-  onManage?: (investment: IEarnPortfolioInvestment) => void;
+  onManage?: IPositionManageHandler;
 }) {
   const intl = useIntl();
   const currencyInfo = useCurrency();
-  const { protocol, network } = investment;
+  const { protocol } = investment;
   const badgeId = categoryLabelId(protocol.category);
   const providerCode = protocol.providerDetail.code;
 
+  // Every row carries its own network: a multi-chain provider's investment
+  // holds assets on several chains (Stakefish: SOL / ATOM / POL) under one
+  // investment-level network, which would badge and route them all wrong.
   const rewardRows: {
     key: string;
     symbol: string;
     logoURI?: string;
+    networkId: string;
     primary?: IEarnText;
     secondary?: IEarnText;
+    asset?: IEarnPortfolioAsset;
   }[] = [];
-  investment.assets.forEach((asset: IEarnPortfolioAsset, assetIndex) => {
+  // The Claimable-tab variant lists only what the header counts: airdrop
+  // rows. A position's own reward rows have no fiat yet and stay on the
+  // DeFi Assets card (product: header Rewards = Claimable + Pending lists).
+  const positionRewardAssets = rewardsOnly ? [] : investment.assets;
+  positionRewardAssets.forEach((asset: IEarnPortfolioAsset, assetIndex) => {
     asset.rewardAssets?.forEach((reward, index) => {
       rewardRows.push({
         key: `reward-${assetIndex}-${index}`,
         symbol: asset.token.info.symbol,
         logoURI: asset.token.info.logoURI,
+        networkId: asset.metadata.network.networkId,
         primary: reward.description ?? reward.title,
         secondary: reward.description ? reward.title : undefined,
+        asset,
       });
     });
   });
@@ -143,6 +176,7 @@ export function PositionCard({
             key: `airdrop-${assetIndex}-${index}`,
             symbol: asset.token.info.symbol,
             logoURI: asset.token.info.logoURI,
+            networkId: asset.metadata.network.networkId,
             primary: airdrop.description ?? airdrop.title,
             secondary: airdrop.description ? airdrop.title : undefined,
           });
@@ -201,11 +235,12 @@ export function PositionCard({
               key={`deposit-${index}`}
               symbol={asset.token.info.symbol}
               logoURI={asset.token.info.logoURI}
-              networkId={network.networkId}
+              networkId={asset.metadata.network.networkId}
               primary={asset.deposit?.description ?? asset.deposit?.title}
               secondary={
                 asset.deposit?.description ? asset.deposit?.title : undefined
               }
+              onPress={onManage ? () => onManage(investment, asset) : undefined}
             />
           ))}
         </YStack>
@@ -221,9 +256,14 @@ export function PositionCard({
               key={row.key}
               symbol={row.symbol}
               logoURI={row.logoURI}
-              networkId={network.networkId}
+              networkId={row.networkId}
               primary={row.primary}
               secondary={row.secondary}
+              onPress={
+                onManage && row.asset
+                  ? () => onManage(investment, row.asset)
+                  : undefined
+              }
             />
           ))}
         </YStack>

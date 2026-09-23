@@ -21367,6 +21367,8 @@
     "packages/kit/src/views/Earn/pages/EarnFixedRateTokens/index.tsx": 16958,
     "packages/kit/src/views/Earn/pages/EarnPositions/index.tsx": 23387,
     "packages/kit/src/views/Earn/pages/EarnPositions/mobile/DeFiAssetsTab.tsx": 11053,
+    "packages/kit/src/views/Earn/pages/EarnPositions/mobile/GroupRow.tsx": 14620,
+    "packages/kit/src/views/Earn/pages/EarnPositions/mobile/LedgerRewardCard.tsx": 20287,
     "packages/kit/src/views/Earn/pages/EarnPositions/mobile/LedgerRewardRow.tsx": 19550,
     "packages/kit/src/views/Earn/pages/EarnPositions/mobile/MyPortfolioPage.tsx": 20468,
     "packages/kit/src/views/Earn/pages/EarnPositions/mobile/PortfolioTotalsHeader.tsx": 15152,
