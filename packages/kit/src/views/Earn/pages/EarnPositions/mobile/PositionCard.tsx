@@ -12,6 +12,7 @@ import { useCurrency } from '@onekeyhq/kit/src/components/Currency';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import { EarnText } from '@onekeyhq/kit/src/views/Staking/components/ProtocolDetails/EarnText';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { formatDate } from '@onekeyhq/shared/src/utils/dateUtils';
 import type {
   IEarnPortfolioAirdropAsset,
   IEarnPortfolioAsset,
@@ -19,12 +20,25 @@ import type {
   IEarnText,
 } from '@onekeyhq/shared/types/staking';
 
-import { MobilePnlSection } from '../../../components/PortfolioTabContent';
+import {
+  MobilePnlSection,
+  WrappedActionButton,
+} from '../../../components/PortfolioTabContent';
 import { EarnTestIDs } from '../../../testIDs';
 
-import { categoryLabelId, isLedgerAirdropProvider } from './myPortfolio.utils';
+import {
+  categoryLabelId,
+  depositedFiatValue,
+  isLedgerAirdropProvider,
+  sizedRewardRows,
+  splitPositionRows,
+} from './myPortfolio.utils';
 
-import type { IPositionManageHandler } from './myPortfolio.utils';
+import type {
+  IPositionManageHandler,
+  IPositionRewardRow,
+  IPositionStatusRow,
+} from './myPortfolio.utils';
 
 /** "Deposited | Balance" style two-column section header, plain text. */
 function SectionHeader({ title }: { title: string }) {
@@ -55,8 +69,9 @@ function unwrapParentheses(text: IEarnText | undefined) {
 }
 
 /**
- * One token row: icon + symbol on the left; on the right the fiat text over
- * the amount text, both as the server sent them (nothing is re-derived).
+ * One token row: icon + symbol on the left; on the right the fiat over the
+ * amount. Classified rows carry numbers and are formatted here; the rest
+ * show the server's text as the detail page does.
  */
 function TokenRow({
   symbol,
@@ -64,6 +79,8 @@ function TokenRow({
   networkId,
   primary,
   secondary,
+  fiatValue,
+  amount,
   onPress,
 }: {
   symbol: string;
@@ -71,9 +88,12 @@ function TokenRow({
   networkId: string;
   primary?: IEarnText;
   secondary?: IEarnText;
+  fiatValue?: string;
+  amount?: string;
   /** opens that row's own detail page; matters when a card spans chains */
   onPress?: () => void;
 }) {
+  const currencyInfo = useCurrency();
   return (
     <XStack
       ai="center"
@@ -96,14 +116,34 @@ function TokenRow({
         </SizableText>
       </XStack>
       <YStack ai="flex-end" flexShrink={0}>
-        {primary ? (
+        {fiatValue !== undefined ? (
+          <NumberSizeableText
+            size="$bodyMdMedium"
+            formatter="value"
+            formatterOptions={{ currency: currencyInfo.symbol }}
+            numberOfLines={1}
+          >
+            {fiatValue}
+          </NumberSizeableText>
+        ) : null}
+        {fiatValue === undefined && primary ? (
           <EarnText
             size="$bodyMdMedium"
             text={unwrapParentheses(primary)}
             textAlign="right"
           />
         ) : null}
-        {secondary ? (
+        {amount !== undefined ? (
+          <NumberSizeableText
+            size="$bodySm"
+            color="$textSubdued"
+            formatter="balance"
+            numberOfLines={1}
+          >
+            {amount}
+          </NumberSizeableText>
+        ) : null}
+        {amount === undefined && secondary ? (
           <EarnText
             size="$bodySm"
             color="$textSubdued"
@@ -116,77 +156,20 @@ function TokenRow({
   );
 }
 
-/**
- * One position of a protocol (figma 29180-108096): category badge + pool,
- * the Deposited and Rewards sections, the PnL line product asked to keep,
- * and the Manage button that leads into the detail page where every action
- * lives. `rewardsOnly` renders the Claimable-tab variant of the same card.
- */
-export function PositionCard({
+/** Card chrome shared by the three cards of a position. */
+function CardFrame({
   investment,
-  rewardsOnly = false,
-  onManage,
+  fiatValue,
+  children,
 }: {
   investment: IEarnPortfolioInvestment;
-  rewardsOnly?: boolean;
-  onManage?: IPositionManageHandler;
+  fiatValue: string;
+  children: React.ReactNode;
 }) {
   const intl = useIntl();
   const currencyInfo = useCurrency();
   const { protocol } = investment;
   const badgeId = categoryLabelId(protocol.category);
-  const providerCode = protocol.providerDetail.code;
-
-  // Every row carries its own network: a multi-chain provider's investment
-  // holds assets on several chains (Stakefish: SOL / ATOM / POL) under one
-  // investment-level network, which would badge and route them all wrong.
-  const rewardRows: {
-    key: string;
-    symbol: string;
-    logoURI?: string;
-    networkId: string;
-    primary?: IEarnText;
-    secondary?: IEarnText;
-    asset?: IEarnPortfolioAsset;
-  }[] = [];
-  // The Claimable-tab variant lists only what the header counts: airdrop
-  // rows. A position's own reward rows have no fiat yet and stay on the
-  // DeFi Assets card (product: header Rewards = Claimable + Pending lists).
-  const positionRewardAssets = rewardsOnly ? [] : investment.assets;
-  positionRewardAssets.forEach((asset: IEarnPortfolioAsset, assetIndex) => {
-    asset.rewardAssets?.forEach((reward, index) => {
-      rewardRows.push({
-        key: `reward-${assetIndex}-${index}`,
-        symbol: asset.token.info.symbol,
-        logoURI: asset.token.info.logoURI,
-        networkId: asset.metadata.network.networkId,
-        primary: reward.description ?? reward.title,
-        secondary: reward.description ? reward.title : undefined,
-        asset,
-      });
-    });
-  });
-  // On-chain airdrop rows (Morpho / Lista / Pendle) are position rewards too;
-  // ledger-backed ones (Native / Spark) live on the Rewards tab instead.
-  if (!isLedgerAirdropProvider(providerCode)) {
-    investment.airdropAssets.forEach(
-      (asset: IEarnPortfolioAirdropAsset, assetIndex) => {
-        asset.airdropAssets?.forEach((airdrop, index) => {
-          rewardRows.push({
-            key: `airdrop-${assetIndex}-${index}`,
-            symbol: asset.token.info.symbol,
-            logoURI: asset.token.info.logoURI,
-            networkId: asset.metadata.network.networkId,
-            primary: airdrop.description ?? airdrop.title,
-            secondary: airdrop.description ? airdrop.title : undefined,
-          });
-        });
-      },
-    );
-  }
-
-  const firstAsset = investment.assets[0];
-
   return (
     <YStack
       gap="$2"
@@ -221,70 +204,316 @@ export function PositionCard({
           formatterOptions={{ currency: currencyInfo.symbol }}
           numberOfLines={1}
         >
-          {investment.totalFiatValue}
+          {fiatValue}
         </NumberSizeableText>
       </XStack>
+      {children}
+    </YStack>
+  );
+}
 
-      {!rewardsOnly && investment.assets.length > 0 ? (
-        <YStack gap="$1">
-          <SectionHeader
-            title={intl.formatMessage({ id: ETranslations.earn_deposited })}
-          />
-          {investment.assets.map((asset, index) => (
-            <TokenRow
-              key={`deposit-${index}`}
-              symbol={asset.token.info.symbol}
-              logoURI={asset.token.info.logoURI}
-              networkId={asset.metadata.network.networkId}
-              primary={asset.deposit?.description ?? asset.deposit?.title}
-              secondary={
-                asset.deposit?.description ? asset.deposit?.title : undefined
-              }
-              onPress={onManage ? () => onManage(investment, asset) : undefined}
-            />
-          ))}
-        </YStack>
-      ) : null}
+type IRewardRowView = {
+  key: string;
+  symbol: string;
+  logoURI?: string;
+  networkId: string;
+  primary?: IEarnText;
+  secondary?: IEarnText;
+  fiatValue?: string;
+  amount?: string;
+  asset?: IEarnPortfolioAsset;
+};
 
-      {rewardRows.length > 0 ? (
-        <YStack gap="$1">
-          <SectionHeader
-            title={intl.formatMessage({ id: ETranslations.earn_rewards })}
-          />
-          {rewardRows.map((row) => (
-            <TokenRow
-              key={row.key}
-              symbol={row.symbol}
-              logoURI={row.logoURI}
-              networkId={row.networkId}
-              primary={row.primary}
-              secondary={row.secondary}
-              onPress={
-                onManage && row.asset
-                  ? () => onManage(investment, row.asset)
-                  : undefined
-              }
-            />
-          ))}
-        </YStack>
-      ) : null}
+function toRewardRowView({
+  key,
+  asset,
+  row,
+}: IPositionRewardRow): IRewardRowView {
+  return {
+    key,
+    symbol: asset.token.info.symbol,
+    logoURI: asset.token.info.logoURI,
+    networkId: asset.metadata.network.networkId,
+    primary: row.description ?? row.title,
+    secondary: row.description ? row.title : undefined,
+    fiatValue: row.fiatValue,
+    amount: row.amount,
+    asset,
+  };
+}
 
-      {!rewardsOnly && firstAsset ? (
-        <XStack px="$1">
-          <MobilePnlSection asset={firstAsset} />
+/** On-chain airdrop rows (Morpho / Lista / Pendle); ledger-backed ones live on the Rewards tab. */
+function airdropRowViews(
+  investment: IEarnPortfolioInvestment,
+): IRewardRowView[] {
+  if (isLedgerAirdropProvider(investment.protocol.providerDetail.code)) {
+    return [];
+  }
+  const rows: IRewardRowView[] = [];
+  investment.airdropAssets.forEach(
+    (asset: IEarnPortfolioAirdropAsset, assetIndex) => {
+      asset.airdropAssets?.forEach((airdrop, index) => {
+        rows.push({
+          key: `airdrop-${assetIndex}-${index}`,
+          symbol: asset.token.info.symbol,
+          logoURI: asset.token.info.logoURI,
+          networkId: asset.metadata.network.networkId,
+          primary: airdrop.description ?? airdrop.title,
+          secondary: airdrop.description ? airdrop.title : undefined,
+        });
+      });
+    },
+  );
+  return rows;
+}
+
+function RewardRows({
+  investment,
+  rows,
+  onManage,
+}: {
+  investment: IEarnPortfolioInvestment;
+  rows: IRewardRowView[];
+  onManage?: IPositionManageHandler;
+}) {
+  const intl = useIntl();
+  if (rows.length === 0) {
+    return null;
+  }
+  return (
+    <YStack gap="$1">
+      <SectionHeader
+        title={intl.formatMessage({ id: ETranslations.earn_rewards })}
+      />
+      {rows.map((row) => (
+        <TokenRow
+          key={row.key}
+          symbol={row.symbol}
+          logoURI={row.logoURI}
+          networkId={row.networkId}
+          primary={row.primary}
+          secondary={row.secondary}
+          fiatValue={row.fiatValue}
+          amount={row.amount}
+          onPress={
+            onManage && row.asset
+              ? () => onManage(investment, row.asset)
+              : undefined
+          }
+        />
+      ))}
+    </YStack>
+  );
+}
+
+/**
+ * Withdrawn principal waiting to be claimed (figma 30292-17104): one card per
+ * row, claimed right here with the button the server attached to the row —
+ * the same claim the detail page runs. It is principal, so it is never part
+ * of the Rewards figure or the Rewards tab.
+ */
+function PrincipalClaimCard({
+  investment,
+  entry,
+  onManage,
+}: {
+  investment: IEarnPortfolioInvestment;
+  entry: IPositionRewardRow;
+  onManage?: IPositionManageHandler;
+}) {
+  const intl = useIntl();
+  const view = toRewardRowView(entry);
+  return (
+    <CardFrame investment={investment} fiatValue={entry.row.fiatValue ?? '0'}>
+      <YStack gap="$1">
+        <SectionHeader
+          title={intl.formatMessage({ id: ETranslations.earn_claimable })}
+        />
+        <TokenRow
+          symbol={view.symbol}
+          logoURI={view.logoURI}
+          networkId={view.networkId}
+          primary={view.primary}
+          secondary={view.secondary}
+          fiatValue={view.fiatValue}
+          amount={view.amount}
+          onPress={
+            onManage ? () => onManage(investment, entry.asset) : undefined
+          }
+        />
+      </YStack>
+      <WrappedActionButton
+        asset={entry.asset}
+        reward={entry.row}
+        rewardSymbol={entry.asset.token.info.symbol}
+        buttonProps={{ size: 'medium', variant: 'primary' }}
+      />
+    </CardFrame>
+  );
+}
+
+/** A withdrawal in progress (figma 30292-17104): dated when the server knows when it frees up. */
+function UnstakingCard({
+  investment,
+  entry,
+  onManage,
+}: {
+  investment: IEarnPortfolioInvestment;
+  entry: IPositionStatusRow;
+  onManage?: IPositionManageHandler;
+}) {
+  const intl = useIntl();
+  const { asset, row } = entry;
+  // i18n: pending "Unstaking" / "Est. unlock time" keys (OK-61377);
+  // earn_unstaking_period reads "Unstaking period" until they land.
+  const unstakingLabel = intl.formatMessage({
+    id: ETranslations.earn_unstaking_period,
+  });
+  return (
+    <CardFrame investment={investment} fiatValue={row.fiatValue ?? '0'}>
+      {row.unlockAt ? (
+        <XStack px="$1" pt="$1" gap="$1">
+          <SizableText size="$bodySm" color="$textSubdued">
+            {`${unstakingLabel}: `}
+          </SizableText>
+          <SizableText size="$bodySm">
+            {formatDate(new Date(row.unlockAt), { hideTimeForever: true })}
+          </SizableText>
         </XStack>
       ) : null}
+      <YStack gap="$1">
+        <SectionHeader title={unstakingLabel} />
+        <TokenRow
+          symbol={asset.token.info.symbol}
+          logoURI={asset.token.info.logoURI}
+          networkId={asset.metadata.network.networkId}
+          primary={row.description}
+          secondary={row.title}
+          fiatValue={row.fiatValue}
+          amount={row.amount}
+          onPress={onManage ? () => onManage(investment, asset) : undefined}
+        />
+      </YStack>
+    </CardFrame>
+  );
+}
 
-      {onManage ? (
-        <Button
-          testID="earn-btn"
-          size="medium"
-          variant="secondary"
-          onPress={() => onManage(investment)}
+/**
+ * One position of a protocol, as up to three cards (figma 29180-108096 and
+ * 30292-17104): the Deposited card with the position's yield rows, the PnL
+ * line product asked to keep and the Manage button into the detail page;
+ * then one Claimable card per withdrawn-principal row and one Unstaking card
+ * per withdrawal in progress. `rewardsOnly` is the Claimable-tab variant:
+ * only the rows the header counts (sized yield and on-chain airdrops).
+ */
+export function PositionCard({
+  investment,
+  rewardsOnly = false,
+  onManage,
+}: {
+  investment: IEarnPortfolioInvestment;
+  rewardsOnly?: boolean;
+  onManage?: IPositionManageHandler;
+}) {
+  const intl = useIntl();
+  const { principal, unstaking, rewards } = splitPositionRows(investment);
+  const firstAsset = investment.assets[0];
+
+  if (rewardsOnly) {
+    const rows = [
+      ...sizedRewardRows(investment).map(toRewardRowView),
+      ...airdropRowViews(investment),
+    ];
+    if (rows.length === 0) {
+      return null;
+    }
+    return (
+      <CardFrame investment={investment} fiatValue={investment.totalFiatValue}>
+        <RewardRows investment={investment} rows={rows} onManage={onManage} />
+        {onManage ? (
+          <Button
+            testID="earn-btn"
+            size="medium"
+            variant="secondary"
+            onPress={() => onManage(investment)}
+          >
+            {intl.formatMessage({ id: ETranslations.global_manage })}
+          </Button>
+        ) : null}
+      </CardFrame>
+    );
+  }
+
+  const rewardRows = [
+    ...rewards.map(toRewardRowView),
+    ...airdropRowViews(investment),
+  ];
+
+  return (
+    <YStack gap="$3">
+      {investment.assets.length > 0 ? (
+        <CardFrame
+          investment={investment}
+          fiatValue={depositedFiatValue(investment)}
         >
-          {intl.formatMessage({ id: ETranslations.global_manage })}
-        </Button>
+          <YStack gap="$1">
+            <SectionHeader
+              title={intl.formatMessage({ id: ETranslations.earn_deposited })}
+            />
+            {investment.assets.map((asset, index) => (
+              <TokenRow
+                key={`deposit-${index}`}
+                symbol={asset.token.info.symbol}
+                logoURI={asset.token.info.logoURI}
+                networkId={asset.metadata.network.networkId}
+                primary={asset.deposit?.description ?? asset.deposit?.title}
+                secondary={
+                  asset.deposit?.description ? asset.deposit?.title : undefined
+                }
+                onPress={
+                  onManage ? () => onManage(investment, asset) : undefined
+                }
+              />
+            ))}
+          </YStack>
+          <RewardRows
+            investment={investment}
+            rows={rewardRows}
+            onManage={onManage}
+          />
+          {firstAsset ? (
+            <XStack px="$1">
+              <MobilePnlSection asset={firstAsset} />
+            </XStack>
+          ) : null}
+          {onManage ? (
+            <Button
+              testID="earn-btn"
+              size="medium"
+              variant="secondary"
+              onPress={() => onManage(investment)}
+            >
+              {intl.formatMessage({ id: ETranslations.global_manage })}
+            </Button>
+          ) : null}
+        </CardFrame>
       ) : null}
+      {principal.map((entry) => (
+        <PrincipalClaimCard
+          key={entry.key}
+          investment={investment}
+          entry={entry}
+          onManage={onManage}
+        />
+      ))}
+      {unstaking.map((entry) => (
+        <UnstakingCard
+          key={entry.key}
+          investment={investment}
+          entry={entry}
+          onManage={onManage}
+        />
+      ))}
     </YStack>
   );
 }

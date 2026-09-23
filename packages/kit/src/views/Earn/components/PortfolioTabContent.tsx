@@ -152,6 +152,7 @@ const WrappedActionButtonCmp = ({
   reward,
   claimSourceIdentity,
   rewardSymbol,
+  buttonProps,
 }: {
   asset:
     | IEarnPortfolioInvestment['assets'][number]
@@ -159,6 +160,8 @@ const WrappedActionButtonCmp = ({
   reward: IWrappedActionReward;
   claimSourceIdentity?: IPortfolioClaimProtocolIdentity | null;
   rewardSymbol?: string;
+  /** phone positions page: its claimable-principal card wants a primary, full-width button */
+  buttonProps?: Partial<React.ComponentProps<typeof Button>>;
 }) => {
   const { activeAccount } = useActiveAccount({ num: 0 });
   const { account, indexedAccount } = activeAccount;
@@ -301,6 +304,7 @@ const WrappedActionButtonCmp = ({
         ai="center"
         variant="secondary"
         size="small"
+        {...buttonProps}
         loading={loading || isPending}
         disabled={loading || buttonDisabled}
         cursor={buttonDisabled ? 'not-allowed' : 'pointer'}
