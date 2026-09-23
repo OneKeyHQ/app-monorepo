@@ -239,18 +239,59 @@ function hasUsableFrame(attributes) {
   return attributes?.frame?.width > 0 && attributes?.frame?.height > 0;
 }
 
-async function findReportedVisibleById(testID, maxIndexes = 3) {
-  for (let index = 0; index < maxIndexes; index += 1) {
-    const candidate = element(by.id(testID)).atIndex(index);
-    try {
-      const attributes = await candidate.getAttributes();
-      if (attributes?.visible && hasUsableFrame(attributes)) return candidate;
-    } catch {
-      // Continue past retained or unmounted native accessibility elements.
+function getHierarchyMatches(hierarchy, selector) {
+  const ancestors = [];
+  const matchingPaths = [];
+  let rootSeen = false;
+  for (const line of hierarchy.split('\n')) {
+    const tag = line.trim().match(/^<(\/?)([\w.]+)(.*)>$/u);
+    if (tag) {
+      const [, closing, name, attributes] = tag;
+      if (closing) {
+        if (ancestors.pop()?.name !== name) {
+          throw new Error('Native hierarchy nesting is not valid');
+        }
+      } else {
+        if (ancestors.length === 0) {
+          if (name !== 'ViewHierarchy' || rootSeen) {
+            throw new Error('Native hierarchy root is not valid');
+          }
+          rootSeen = true;
+        }
+        const node = { name };
+        for (const attribute of attributes.matchAll(
+          /(?:^|\s)(\w+)="([^"]*)"/gu,
+        )) {
+          if (
+            ['id', 'label', 'text', 'visibility', 'alpha'].includes(
+              attribute[1],
+            )
+          ) {
+            node[attribute[1]] = attribute[2];
+          }
+        }
+        if (
+          Object.entries(selector).every(([key, value]) => node[key] === value)
+        ) {
+          matchingPaths.push([...ancestors, node]);
+        }
+        if (!line.trim().endsWith('/>')) ancestors.push(node);
+      }
     }
   }
+  if (!rootSeen || ancestors.length !== 0) {
+    throw new Error('Native hierarchy nesting is not valid');
+  }
+  return matchingPaths;
+}
+
+async function findReportedVisibleById(testID) {
+  const hierarchy = await device.generateViewHierarchyXml();
+  if (getHierarchyMatches(hierarchy, { id: testID }).length === 0) return null;
   const direct = element(by.id(testID));
   try {
+    // Detox attributes include all matches even when atIndex is specified.
+    // Query only mounted IDs, once, then keep the actual visibility/frame check.
     const attributes = await direct.getAttributes();
     const candidates = getAttributeCandidates(attributes);
     const visibleIndex = candidates.findIndex(
@@ -262,7 +303,7 @@ async function findReportedVisibleById(testID, maxIndexes = 3) {
         : element(by.id(testID)).atIndex(visibleIndex);
     }
   } catch {
-    // The semantic node is not currently mounted.
+    // A node can unmount between the hierarchy snapshot and attribute lookup.
   }
   return null;
 }
@@ -278,13 +319,26 @@ async function waitForReportedVisibleById(testID, timeoutMs) {
 }
 
 async function tapUnifiedNetworkTab(testID, activatedTestID) {
+  const isSingleNetworkTab =
+    testID === 'chain-selector-unified-single-network-tab';
+  const hasActivationCheck = Boolean(activatedTestID) || isSingleNetworkTab;
+  const assertActivation = async () => {
+    if (activatedTestID) {
+      await expect(element(by.id(activatedTestID))).toExist();
+    } else if (isSingleNetworkTab) {
+      const hierarchy = await device.generateViewHierarchyXml();
+      if (
+        getHierarchyMatches(hierarchy, { id: 'page-footer-confirm' }).length > 0
+      ) {
+        throw new Error('Single Network tab is not active');
+      }
+    }
+  };
   const tab = element(by.id(testID)).atIndex(0);
   await waitFor(tab).toExist().withTimeout(5000);
   try {
     await measuredTap(tab, testID);
-    if (activatedTestID) {
-      await expect(element(by.id(activatedTestID))).toExist();
-    }
+    await assertActivation();
     return;
   } catch {
     // A tap acknowledgement does not guarantee the tab became active.
@@ -346,10 +400,10 @@ async function tapUnifiedNetworkTab(testID, activatedTestID) {
           'XCTest query or enabled/hittable semantic frame validation failed',
       });
     }
-    if (activatedTestID) {
+    if (hasActivationCheck) {
       try {
         // A pending React update may have completed during frame lookup.
-        await expect(element(by.id(activatedTestID))).toExist();
+        await assertActivation();
         return;
       } catch {
         // Use the current semantic frame once when activation is still absent.
@@ -375,20 +429,17 @@ async function tapUnifiedNetworkTab(testID, activatedTestID) {
     by.type('UINavigationBar').withDescendant(by.id(testID)),
   ).atIndex(0);
   await waitFor(header).toBeVisible().withTimeout(5000);
-  if (activatedTestID) {
+  if (hasActivationCheck) {
     try {
       // Do not repeat the click if activation completed during ancestor lookup.
-      await expect(element(by.id(activatedTestID))).toExist();
+      await assertActivation();
       return;
     } catch {
       // The fallback still requires visible frames from Detox below.
     }
   }
   const targetAttributes = await tab.getAttributes();
-  if (
-    targetAttributes?.visible === true ||
-    testID !== 'chain-selector-unified-all-networks-tab'
-  ) {
+  if (targetAttributes?.visible === true) {
     await tapSemanticDescendantThroughAncestor(tab, header);
     return;
   }
@@ -396,33 +447,9 @@ async function tapUnifiedNetworkTab(testID, activatedTestID) {
   // XML visibility only means !hidden. Require the visible native header and
   // a contained current frame as well; never use XML as an occlusion check.
   const hierarchy = await device.generateViewHierarchyXml();
-  const ancestors = [];
-  const matchingPaths = [];
-  for (const line of hierarchy.split('\n')) {
-    const tag = line.trim().match(/^<(\/?)([\w.]+)(.*)>$/u);
-    if (tag) {
-      const [, closing, name, attributes] = tag;
-      if (closing) {
-        if (ancestors.pop()?.name !== name) {
-          throw new Error('Native hierarchy nesting is not valid');
-        }
-      } else {
-        const node = { name };
-        for (const attribute of attributes.matchAll(
-          /(?:^|\s)(\w+)="([^"]*)"/gu,
-        )) {
-          if (['id', 'visibility', 'alpha'].includes(attribute[1])) {
-            node[attribute[1]] = attribute[2];
-          }
-        }
-        if (node.id === testID) matchingPaths.push([...ancestors, node]);
-        if (!line.trim().endsWith('/>')) ancestors.push(node);
-      }
-    }
-  }
+  const matchingPaths = getHierarchyMatches(hierarchy, { id: testID });
   const matchingPath = matchingPaths[0];
   if (
-    ancestors.length !== 0 ||
     matchingPaths.length !== 1 ||
     !matchingPath.some((node) => node.name === 'UINavigationBar') ||
     !matchingPath
@@ -458,9 +485,9 @@ async function tapUnifiedNetworkTab(testID, activatedTestID) {
   ) {
     throw new Error('Current tab frame is not contained in a visible header');
   }
-  if (activatedTestID) {
+  if (hasActivationCheck) {
     try {
-      await expect(element(by.id(activatedTestID))).toExist();
+      await assertActivation();
       return;
     } catch {
       // A pending activation must not turn hierarchy verification into a second tap.
@@ -484,12 +511,18 @@ async function tapHomeNetworkTrigger(timeoutMs = 5000) {
   const allNetworksTrigger = element(
     by.id('all-networks-manager-trigger'),
   ).atIndex(0);
-  try {
-    await waitFor(allNetworksTrigger).toBeVisible().withTimeout(300);
-    await measuredTap(allNetworksTrigger, 'all-networks-manager-trigger');
-    return;
-  } catch {
-    // Single-network Home and builds predating the dedicated testID use this.
+  const hierarchy = await device.generateViewHierarchyXml();
+  if (
+    getHierarchyMatches(hierarchy, { id: 'all-networks-manager-trigger' })
+      .length
+  ) {
+    try {
+      await waitFor(allNetworksTrigger).toBeVisible().withTimeout(300);
+      await measuredTap(allNetworksTrigger, 'all-networks-manager-trigger');
+      return;
+    } catch {
+      // A retained All Networks trigger may not be visible on Single-network Home.
+    }
   }
   await tapWhenVisible(
     element(by.id('account-network-trigger-button')).atIndex(0),
@@ -521,7 +554,13 @@ async function tapNavigationBack() {
     await measuredTap(backById, 'nav-header-back');
     return;
   }
-  const backButton = await findVisibleByMatcher(by.label('Back'), 8, 120, 75);
+  const backButton = await findVisibleByMatcher(
+    by.label('Back'),
+    { label: 'Back' },
+    8,
+    120,
+    75,
+  );
   if (!backButton) throw new Error('Visible navigation back button not found');
   await measuredTap(backButton, 'Back label');
 }
@@ -549,18 +588,34 @@ async function revealInNativeList(target, list) {
 
 async function findVisibleByMatcher(
   matcher,
+  hierarchySelector,
   maxIndexes = 4,
   timeoutMs = 120,
   visibilityPercent = 75,
 ) {
+  const deadline = Date.now() + timeoutMs;
+  let candidateCount;
+  do {
+    const hierarchy = await device.generateViewHierarchyXml();
+    candidateCount = getHierarchyMatches(hierarchy, hierarchySelector).length;
+  } while (candidateCount === 0 && Date.now() < deadline);
+  if (candidateCount === 0) return null;
   const direct = element(matcher);
-  try {
-    await waitFor(direct).toBeVisible(visibilityPercent).withTimeout(timeoutMs);
-    return direct;
-  } catch {
-    // Fall through when the first native match is a retained hidden cell.
+  if (candidateCount === 1) {
+    try {
+      await waitFor(direct)
+        .toBeVisible(visibilityPercent)
+        .withTimeout(Math.max(1, deadline - Date.now()));
+      return direct;
+    } catch {
+      // Fall through when the native match is a retained hidden cell.
+    }
   }
-  for (let index = 0; index < maxIndexes; index += 1) {
+  for (
+    let index = 0;
+    index < Math.min(maxIndexes, candidateCount);
+    index += 1
+  ) {
     const candidate = element(matcher).atIndex(index);
     try {
       await waitFor(candidate)
@@ -581,7 +636,7 @@ async function isStockDetailOpen(timeoutMs) {
       .withTimeout(timeoutMs);
     return true;
   } catch {
-    return Boolean(await findReportedVisibleById('nav-header-back', 8));
+    return Boolean(await findReportedVisibleById('nav-header-back'));
   }
 }
 
@@ -617,16 +672,27 @@ async function waitForHomeReady(timeoutMs) {
 
 async function selectWalletByMatcher(matcher) {
   const findWalletList = async () => {
-    for (const testID of [
+    const testIDs = [
       'account-selector-wallet-list-v2',
       'account-selector-wallet-list',
-    ]) {
+    ];
+    const deadline = Date.now() + 500;
+    let mountedIDs;
+    do {
+      const hierarchy = await device.generateViewHierarchyXml();
+      mountedIDs = testIDs.filter(
+        (id) => getHierarchyMatches(hierarchy, { id }).length > 0,
+      );
+    } while (mountedIDs.length === 0 && Date.now() < deadline);
+    for (const testID of mountedIDs) {
       const candidate = element(by.id(testID)).atIndex(0);
       try {
-        await waitFor(candidate).toExist().withTimeout(500);
+        await waitFor(candidate)
+          .toExist()
+          .withTimeout(Math.max(1, deadline - Date.now()));
         return candidate;
       } catch {
-        // Try the account-selector implementation used by the other layout.
+        // The mounted layout can change before its existence is confirmed.
       }
     }
     throw new Error('Account selector wallet list is not mounted');
@@ -682,14 +748,28 @@ async function waitForAccountSelectorClosed(timeoutMs) {
   const deadline = Date.now() + timeoutMs;
   let closed = false;
   while (Date.now() < deadline) {
+    const hierarchy = await device.generateViewHierarchyXml();
+    if (
+      getHierarchyMatches(hierarchy, { id: 'account-selector-header' })
+        .length === 0
+    ) {
+      closed = true;
+      break;
+    }
     try {
       const attributes = await header.getAttributes();
       closed = getAttributeCandidates(attributes).every(
         (candidate) => candidate?.visible === false,
       );
-    } catch {
-      // A dismissed native sheet can unmount rather than stay hidden.
-      await expect(header).not.toExist();
+    } catch (error) {
+      // Recheck a dismissal race without a second failing native element query.
+      const currentHierarchy = await device.generateViewHierarchyXml();
+      if (
+        getHierarchyMatches(currentHierarchy, { id: 'account-selector-header' })
+          .length > 0
+      ) {
+        throw error;
+      }
       closed = true;
     }
     if (closed) break;
@@ -705,15 +785,28 @@ async function selectAccountByIndex(index, closeTimeoutMs = 30_000) {
   const itemMatcher = by.id(`account-item-index-${index}`);
   const list = await findVisibleByMatcher(
     by.id('account-selector-accountList'),
+    { id: 'account-selector-accountList' },
     4,
     200,
     25,
   );
   if (!list) throw new Error('Visible account list not found');
-  let item = await findVisibleByMatcher(itemMatcher, 4, 200, 50);
+  let item = await findVisibleByMatcher(
+    itemMatcher,
+    { id: `account-item-index-${index}` },
+    4,
+    200,
+    50,
+  );
   if (!item) {
     await revealInNativeList(element(itemMatcher), list);
-    item = await findVisibleByMatcher(itemMatcher, 4, 200, 50);
+    item = await findVisibleByMatcher(
+      itemMatcher,
+      { id: `account-item-index-${index}` },
+      4,
+      200,
+      50,
+    );
   }
   if (!item) throw new Error(`Visible account item not found: ${index}`);
   // NativeList's semantic tap can acknowledge without invoking the row.
@@ -739,6 +832,11 @@ async function readHomeHasVisibleBalance() {
 }
 
 async function isBscHome() {
+  // All Networks can also contain BSC token rows; require single-network Home.
+  if (await findReportedVisibleById('all-networks-manager-trigger'))
+    return false;
+  if (!(await findReportedVisibleById('account-network-trigger-button')))
+    return false;
   try {
     await waitFor(element(by.id(/^home-token-item-evm--56-.+/u)).atIndex(0))
       .toExist()
@@ -754,6 +852,13 @@ async function ensureBscSelected() {
   await tapHomeNetworkTrigger(15_000);
   await sleep(500);
 
+  // Portfolio rows can expose the same network ID; activate Single Network first.
+  const hierarchy = await device.generateViewHierarchyXml();
+  if (
+    getHierarchyMatches(hierarchy, { id: 'page-footer-confirm' }).length > 0
+  ) {
+    await tapUnifiedNetworkTab('chain-selector-unified-single-network-tab');
+  }
   let bscItem = await waitForReportedVisibleById('evm--56', 1200);
   if (!bscItem) {
     await tapUnifiedNetworkTab('chain-selector-unified-single-network-tab');
@@ -806,7 +911,9 @@ async function enterMarketStocks() {
   try {
     await tapWhenVisible(marketHeaderTab, 5000);
   } catch {
-    const visibleMarketText = await findVisibleByMatcher(by.text('Market'));
+    const visibleMarketText = await findVisibleByMatcher(by.text('Market'), {
+      text: 'Market',
+    });
     if (!visibleMarketText)
       throw new Error('Visible Market header tab not found');
     await measuredTap(visibleMarketText, 'Market header');
@@ -831,12 +938,24 @@ async function selectMarketStocksTab() {
 
 async function openStock(symbol) {
   const rowMatcher = by.id(`market-stock-row-${symbol}`);
-  let list = await findVisibleByMatcher(by.id('market-stock-list'), 4, 300, 25);
+  let list = await findVisibleByMatcher(
+    by.id('market-stock-list'),
+    { id: 'market-stock-list' },
+    4,
+    300,
+    25,
+  );
   if (!list) throw new Error('Visible stock list not found');
 
   for (const direction of ['up', 'down']) {
     for (let attempt = 0; attempt < 10; attempt += 1) {
-      const row = await findVisibleByMatcher(rowMatcher, 4, 80, 50);
+      const row = await findVisibleByMatcher(
+        rowMatcher,
+        { id: `market-stock-row-${symbol}` },
+        4,
+        80,
+        50,
+      );
       if (row) {
         try {
           await measuredTap(row, 'visible-market-row');
@@ -852,8 +971,13 @@ async function openStock(symbol) {
         }
       }
       list =
-        (await findVisibleByMatcher(by.id('market-stock-list'), 4, 120, 25)) ||
-        list;
+        (await findVisibleByMatcher(
+          by.id('market-stock-list'),
+          { id: 'market-stock-list' },
+          4,
+          120,
+          25,
+        )) || list;
       await list.swipe(direction, 'slow', 0.25);
       await sleep(150);
     }
@@ -869,6 +993,7 @@ async function returnFromMarketDetail(
   while (Date.now() < deadline) {
     const list = await findVisibleByMatcher(
       by.id(expectedListTestID),
+      { id: expectedListTestID },
       4,
       120,
       25,
