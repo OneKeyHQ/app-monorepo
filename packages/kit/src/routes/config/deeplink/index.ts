@@ -609,21 +609,27 @@ function openWalletConnectPayModal({ paymentLink }: { paymentLink: string }) {
   // the link waits for unlock. The payment's absolute deadline keeps ticking
   // meanwhile; an expired link lands on the expired terminal, which is the
   // correct outcome.
-  void whenAppUnlocked().then(() => {
-    const { opened } = openWcPayDialog({ paymentLink });
-    if (!opened) {
-      // an in-flight payment is non-dismissible; a second link must not
-      // silently replace it (see wcPayDialogStore.openWcPayDialog)
-      Toast.error({
-        // deep links are handled outside any React tree; the toast fires at
-        // event time, long after the locale is initialized
-        // eslint-disable-next-line onekey/no-app-locale-main-thread
-        title: appLocale.intl.formatMessage({
-          id: ETranslations.wc_pay_payment_in_progress__msg,
-        }),
-      });
-    }
-  });
+  void whenAppUnlocked()
+    .then(() => {
+      const { opened } = openWcPayDialog({ paymentLink });
+      if (!opened) {
+        // an in-flight payment is non-dismissible; a second link must not
+        // silently replace it (see wcPayDialogStore.openWcPayDialog)
+        Toast.error({
+          // deep links are handled outside any React tree; the toast fires at
+          // event time, long after the locale is initialized
+          // eslint-disable-next-line onekey/no-app-locale-main-thread
+          title: appLocale.intl.formatMessage({
+            id: ETranslations.wc_pay_payment_in_progress__msg,
+          }),
+        });
+      }
+    })
+    .catch((error) => {
+      // whenAppUnlocked itself never rejects; this surfaces a throw from the
+      // store listeners or the toast instead of leaving it unhandled
+      console.error('openWalletConnectPayModal ERROR: ', error);
+    });
 }
 
 async function processDeepLinkWalletConnect({
