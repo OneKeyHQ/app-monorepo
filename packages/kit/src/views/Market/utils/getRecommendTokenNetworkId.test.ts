@@ -1,7 +1,4 @@
-import {
-  getRecommendTokenNetworkId,
-  getVisibleRecommendTokenNetworkId,
-} from './getRecommendTokenNetworkId';
+import { getRecommendTokenNetworkId } from './getRecommendTokenNetworkId';
 
 describe('getRecommendTokenNetworkId', () => {
   test('hides the badge for an asset listing', () => {
@@ -22,13 +19,13 @@ describe('getRecommendTokenNetworkId', () => {
     ).toBeUndefined();
   });
 
-  test('hides the badge for a mainstream coin that only has a chain', () => {
+  test('keeps the badge for a chain coin without assetId', () => {
     expect(
       getRecommendTokenNetworkId({
         chainId: 'btc--0',
         contractAddress: '',
       }),
-    ).toBeUndefined();
+    ).toBe('btc--0');
   });
 
   test('hides the badge for a top coin that also has a contract', () => {
@@ -46,44 +43,6 @@ describe('getRecommendTokenNetworkId', () => {
       getRecommendTokenNetworkId({
         chainId: 'evm--1',
         contractAddress: '0x7Fc66500c84A76Ad7e9c93437bFc5Ac33E2DDaE9',
-      }),
-    ).toBe('evm--1');
-  });
-
-  test('hides the badge until the top-coin match finishes', () => {
-    expect(
-      getVisibleRecommendTokenNetworkId({
-        token: {
-          chainId: 'evm--1',
-          contractAddress: '0x7Fc66500c84A76Ad7e9c93437bFc5Ac33E2DDaE9',
-        },
-        listingResolved: false,
-      }),
-    ).toBeUndefined();
-  });
-
-  test('hides the badge when the resolved listing is a top coin', () => {
-    expect(
-      getVisibleRecommendTokenNetworkId({
-        token: {
-          chainId: 'evm--56',
-          contractAddress: '0x000Ae314E2A2172a039B26378814C252734f556A',
-        },
-        listing: { assetId: 'aster' },
-        listingResolved: true,
-      }),
-    ).toBeUndefined();
-  });
-
-  test('shows the chain after a contract token fails to match a top coin', () => {
-    expect(
-      getVisibleRecommendTokenNetworkId({
-        token: {
-          chainId: 'evm--1',
-          contractAddress: '0x7Fc66500c84A76Ad7e9c93437bFc5Ac33E2DDaE9',
-        },
-        listing: {},
-        listingResolved: true,
       }),
     ).toBe('evm--1');
   });

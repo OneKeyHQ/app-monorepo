@@ -3,8 +3,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useIntl } from 'react-intl';
 
 import { Button, XStack, YStack } from '@onekeyhq/components';
-import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EWatchlistFrom } from '@onekeyhq/shared/src/logger/scopes/dex';
@@ -12,12 +10,8 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IMarketBasicConfigToken } from '@onekeyhq/shared/types/marketV2';
 
 import { useWatchListV2Action } from '../../../components/watchListHooksV2';
-import { useRecommendListingResolution } from '../../../hooks/useRecommendListingResolution';
-import { getVisibleRecommendTokenNetworkId } from '../../../utils/getRecommendTokenNetworkId';
-import {
-  mapRecommendTokensToWatchlistItems,
-  pickResolvedRecommendItems,
-} from '../../../utils/mapRecommendTokensToWatchlistItems';
+import { getRecommendTokenNetworkId } from '../../../utils/getRecommendTokenNetworkId';
+import { mapRecommendTokensToWatchlistItems } from '../../../utils/mapRecommendTokensToWatchlistItems';
 import { orderSelectedRecommendTokens } from '../../../utils/orderSelectedRecommendTokens';
 import { getMarketRecommendContainerPaddingTop } from '../../layouts/mobileLayoutUtils';
 
@@ -26,8 +20,6 @@ import { RecommendItem } from './RecommendItem';
 function getTokenKey(token: { chainId: string; contractAddress: string }) {
   return `${token.chainId}:${token.contractAddress}`;
 }
-
-const EMPTY_COMMUNITY_RECOGNIZED_MAP: Record<string, boolean> = {};
 
 interface IMarketRecommendListProps {
   recommendedTokens: IMarketBasicConfigToken[];
@@ -67,45 +59,6 @@ export function MarketRecommendList({
   const defaultTokens = useMemo(
     () => uniqueTokens.slice(0, maxSize),
     [uniqueTokens, maxSize],
-  );
-  const resolvedListings = useRecommendListingResolution(defaultTokens);
-  const listingResolved =
-    resolvedListings !== undefined &&
-    resolvedListings.length === defaultTokens.length;
-
-  const { result: communityRecognizedMap } = usePromiseResult(
-    async () => {
-      if (!defaultTokens.length) {
-        return EMPTY_COMMUNITY_RECOGNIZED_MAP;
-      }
-
-      const response =
-        await backgroundApiProxy.serviceMarketV2.fetchMarketTokenListBatch({
-          tokenAddressList: defaultTokens.map((token) => ({
-            chainId: token.chainId,
-            contractAddress: token.contractAddress,
-            isNative: token.isNative,
-          })),
-        });
-
-      return defaultTokens.reduce<Record<string, boolean>>(
-        (acc, token, index) => {
-          const tokenKey = getTokenKey(token);
-          if (
-            token.communityRecognized ||
-            response.list?.[index]?.communityRecognized
-          ) {
-            acc[tokenKey] = true;
-          }
-          return acc;
-        },
-        {},
-      );
-    },
-    [defaultTokens],
-    {
-      initResult: EMPTY_COMMUNITY_RECOGNIZED_MAP,
-    },
   );
 
   const [selectedTokens, setSelectedTokens] = useState<
@@ -152,12 +105,7 @@ export function MarketRecommendList({
         selectedTokens,
         getTokenKey,
       );
-      const items =
-        pickResolvedRecommendItems({
-          tokens: orderedTokens,
-          sourceTokens: defaultTokens,
-          resolvedItems: resolvedListings,
-        }) ?? (await mapRecommendTokensToWatchlistItems(orderedTokens));
+      const items = mapRecommendTokensToWatchlistItems(orderedTokens);
 
       const added = await actions.addIntoWatchListV2(items, {
         preserveOrder: true,
@@ -183,13 +131,7 @@ export function MarketRecommendList({
       isAddingRef.current = false;
       setIsAdding(false);
     }
-  }, [
-    actions,
-    selectedTokens,
-    defaultTokens,
-    enableSelection,
-    resolvedListings,
-  ]);
+  }, [actions, selectedTokens, defaultTokens, enableSelection]);
 
   const confirmButton = useMemo(
     () =>
@@ -244,8 +186,7 @@ export function MarketRecommendList({
             }}
           >
             {new Array(2).fill(0).map((__, j) => {
-              const itemIndex = i * 2 + j;
-              const item = defaultTokens[itemIndex];
+              const item = defaultTokens[i * 2 + j];
               if (!item) return null;
               const tokenKey = getTokenKey(item);
               const isChecked =
@@ -260,17 +201,7 @@ export function MarketRecommendList({
                   icon={item.logo || ''}
                   symbol={item.symbol}
                   tokenName={item.name}
-                  networkId={getVisibleRecommendTokenNetworkId({
-                    token: item,
-                    listing: listingResolved
-                      ? resolvedListings[itemIndex]
-                      : undefined,
-                    listingResolved,
-                  })}
-                  communityRecognized={Boolean(
-                    item.communityRecognized ||
-                    communityRecognizedMap[tokenKey],
-                  )}
+                  networkId={getRecommendTokenNetworkId(item)}
                   onChange={handleRecommendItemChange}
                 />
               );

@@ -172,6 +172,16 @@ function mapMarketAssetToDisplay(
   };
 }
 
+function shouldShowHomeRecommendCards({
+  hasStoredFavorites,
+  visibleFavoriteCount,
+}: {
+  hasStoredFavorites: boolean;
+  visibleFavoriteCount: number;
+}) {
+  return !hasStoredFavorites || visibleFavoriteCount === 0;
+}
+
 function buildHomeMarketCategories({
   apiHomeTabs,
   favoritesCategory,
@@ -215,6 +225,7 @@ function buildHomeMarketCategories({
 export {
   EMPTY_DISPLAY_TOKENS,
   buildHomeMarketCategories,
+  shouldShowHomeRecommendCards,
   getMarketTokenDisplayMarketCap,
   getMarketTokenDisplayPrice,
   getMarketTokenDisplayPriceChange24h,

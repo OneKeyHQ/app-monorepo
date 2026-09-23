@@ -22051,7 +22051,6 @@
     "packages/kit/src/views/Market/hooks/useMarketNetworks.ts": 9271,
     "packages/kit/src/views/Market/hooks/useNavigateToMarketTab.ts": 19856,
     "packages/kit/src/views/Market/hooks/usePerpsNavigation.ts": 8190,
-    "packages/kit/src/views/Market/hooks/useRecommendListingResolution.ts": 2969,
     "packages/kit/src/views/Market/marketDesktopLayoutConstants.ts": 22646,
     "packages/kit/src/views/Market/marketUtils.ts": 7489,
     "packages/kit/src/views/Market/router/index.tsx": 15682,
@@ -24414,5 +24413,7 @@
     "packages/shared/types/unifoldDeposit.ts": 11163,
     "packages/shared/types/wallet.ts": 1105
   },
-  "tombstones": {}
+  "tombstones": {
+    "packages/kit/src/views/Market/hooks/useRecommendListingResolution.ts": 2969
+  }
 }
