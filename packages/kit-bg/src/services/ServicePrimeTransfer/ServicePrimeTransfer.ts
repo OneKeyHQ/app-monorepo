@@ -134,6 +134,7 @@ import {
   assertTransferSize,
   getTransferMessageLimit,
 } from './e2ee/transferSize';
+import { PrimeTransferPreparation } from './PrimeTransferPreparation';
 import {
   collectAndPruneUnavailableTransferCredentials,
   filterTransferWallets,
@@ -308,6 +309,8 @@ class ServicePrimeTransfer extends ServiceBase {
   private serverMaxMessageSize: number | undefined;
 
   private networkTask: IPrimeTransferNetworkTask | undefined;
+
+  private preparationTask: PrimeTransferPreparation | undefined;
 
   private e2eeServerApiProxy: E2EEServerApiProxy | null = null;
 
@@ -1340,7 +1343,13 @@ class ServicePrimeTransfer extends ServiceBase {
 
   @backgroundMethod()
   @toastIfError()
-  async cancelTransfer() {
+  async cancelTransfer({ taskId }: { taskId?: string } = {}) {
+    if (
+      taskId &&
+      this.preparationTask?.taskId !== taskId &&
+      this.networkTask?.transferId !== taskId
+    )
+      return;
     await this.cancelNetworkTransfer();
     await primeTransferAtom.set((state) =>
       state.status === EPrimeTransferStatus.transferring
@@ -1358,8 +1367,10 @@ class ServicePrimeTransfer extends ServiceBase {
 
   private async buildScopedTransferCredentials({
     privateBackupData,
+    preparation,
   }: {
     privateBackupData: IPrimeTransferPrivateData;
+    preparation?: PrimeTransferPreparation;
   }): Promise<{
     credentials: Record<string, string>;
     unavailableCredentialIds: string[];
@@ -1389,8 +1400,10 @@ class ServicePrimeTransfer extends ServiceBase {
     );
 
     const unavailableCredentialIds: string[] = [];
+    let completedCredentials = 0;
     const entries = await Promise.all(
       Array.from(credentialIds).map(async (credentialId) => {
+        preparation?.assertActive();
         try {
           const rawCredential = await localDb.getCredentialRaw(credentialId);
           const rawPortableCredential =
@@ -1424,6 +1437,13 @@ class ServicePrimeTransfer extends ServiceBase {
             return undefined;
           }
           throw error;
+        } finally {
+          completedCredentials += 1;
+          await preparation?.update(
+            'credentials',
+            completedCredentials,
+            credentialIds.size,
+          );
         }
       }),
     );
@@ -1439,13 +1459,53 @@ class ServicePrimeTransfer extends ServiceBase {
   }
 
   @backgroundMethod()
+  async beginTransferPreparation() {
+    const state = await primeTransferAtom.get();
+    this.checkWebSocketConnected();
+    if (
+      state.status !== EPrimeTransferStatus.transferring ||
+      !state.pairedRoomId ||
+      state.transferDirection?.fromUserId !== state.myUserId
+    ) {
+      throw new OneKeyLocalError('Transfer direction is not established');
+    }
+    if (this.preparationTask || this.networkTask)
+      throw new OneKeyLocalError('Transfer already in progress');
+    const task = new PrimeTransferPreparation(
+      stringUtils.generateUUID(),
+      async (progress) => {
+        await primeTransferAtom.set((prev) =>
+          this.preparationTask === task &&
+          (prev.preparationProgress?.percentage ?? 0) <= progress.percentage
+            ? { ...prev, preparationProgress: progress }
+            : prev,
+        );
+      },
+    );
+    this.preparationTask = task;
+    await task.update('accounts', 0);
+    return task.taskId;
+  }
+
+  private getPreparationTask(taskId?: string) {
+    if (!taskId) return undefined;
+    if (this.preparationTask?.taskId !== taskId)
+      throw new OneKeyLocalError('Transfer cancelled');
+    this.preparationTask.assertActive();
+    return this.preparationTask;
+  }
+
+  @backgroundMethod()
   async buildTransferData({
     isForCloudBackup,
     walletIds,
+    preparationTaskId,
   }: {
     isForCloudBackup?: boolean;
     walletIds?: string[];
+    preparationTaskId?: string;
   } = {}): Promise<IPrimeTransferData> {
+    const preparation = this.getPreparationTask(preparationTaskId);
     const { serviceAccount, serviceNetwork: _serviceNetwork } =
       this.backgroundApi;
 
@@ -1624,7 +1684,14 @@ class ServicePrimeTransfer extends ServiceBase {
       };
     };
 
+    let completedAccounts = 0;
     for (const account of allAccounts) {
+      await preparation?.update(
+        'accounts',
+        completedAccounts,
+        allAccounts.length,
+      );
+      completedAccounts += 1;
       const walletId = accountUtils.parseAccountId({
         accountId: account.id,
       }).walletId;
@@ -1717,6 +1784,7 @@ class ServicePrimeTransfer extends ServiceBase {
       }
     }
 
+    await preparation?.update('accounts');
     // Always collect credentials scoped to the payload we actually built
     // (privateBackupData), for BOTH full and scoped transfers. dumpCredentials()
     // reads every credential in the DB, including wallets that
@@ -1728,8 +1796,12 @@ class ServicePrimeTransfer extends ServiceBase {
     // Scoping keeps unavailableCredentialIds limited to credentials that
     // actually enter the payload.
     const { credentials: builtCredentials, unavailableCredentialIds } =
-      await this.buildScopedTransferCredentials({ privateBackupData });
+      await this.buildScopedTransferCredentials({
+        privateBackupData,
+        preparation,
+      });
     privateBackupData.credentials = builtCredentials;
+    await preparation?.update('credentials');
 
     // Resolve labels for skipped credentials and prune the orphaned
     // wallet/account entries so the payload stays self-consistent (no
@@ -1838,7 +1910,14 @@ class ServicePrimeTransfer extends ServiceBase {
 
     const privateData = privateBackupData;
 
-    for (const wallet of Object.values(privateData.wallets)) {
+    const transferWallets = Object.values(privateData.wallets);
+    let completedWallets = 0;
+    for (const wallet of transferWallets) {
+      await preparation?.update(
+        'wallets',
+        completedWallets,
+        transferWallets.length,
+      );
       const { createNetworkParams = [], indexedAccountNames = {} } =
         await this.buildHdWalletAccountsCreateParams({
           walletId: wallet.id,
@@ -1861,7 +1940,10 @@ class ServicePrimeTransfer extends ServiceBase {
       if (isForCloudBackup) {
         wallet.indexedAccountUUIDs = undefined;
       }
+      completedWallets += 1;
     }
+
+    await preparation?.update('wallets');
 
     return {
       privateData,
@@ -1886,10 +1968,13 @@ class ServicePrimeTransfer extends ServiceBase {
   async decryptTransferDataCredentials({
     data,
     clearWrappedCredentialsAfterDecrypt = true,
+    preparationTaskId,
   }: {
     data: IPrimeTransferData;
     clearWrappedCredentialsAfterDecrypt?: boolean;
+    preparationTaskId?: string;
   }) {
+    const preparation = this.getPreparationTask(preparationTaskId);
     if (!data?.privateData?.decryptedCredentials) {
       const { password: localPassword } =
         await this.backgroundApi.servicePassword.promptPasswordVerify();
@@ -1899,7 +1984,13 @@ class ServicePrimeTransfer extends ServiceBase {
       // KDF here; the transaction-safe Web default runs PBKDF2 on the UI thread.
       const kdfParams = appCrypto.pbkdf2.getPbkdf2KdfParamsForNonDbTx();
       console.log('serviceCloudBackupV2__decryptCredentials');
+      let completedCredentials = 0;
       for (const [key, value] of entries) {
+        await preparation?.update(
+          'decrypting',
+          completedCredentials,
+          entries.length,
+        );
         const credentialValue = normalizePrimeTransferCredential(
           value as { credential?: string } | string,
         );
@@ -1937,7 +2028,9 @@ class ServicePrimeTransfer extends ServiceBase {
             `Failed to decrypt current credentials: ${key}`,
           );
         }
+        completedCredentials += 1;
       }
+      await preparation?.update('decrypting');
       console.log('serviceCloudBackupV2__decryptCredentials__done');
     }
     if (
@@ -1974,10 +2067,13 @@ class ServicePrimeTransfer extends ServiceBase {
   private async sendPreparedTransferData({
     transferData,
     transportMode,
+    preparationTaskId,
   }: {
     transferData: IPrimeTransferData;
     transportMode?: IPrimeTransferTransportMode;
+    preparationTaskId?: string;
   }) {
+    const preparation = this.getPreparationTask(preparationTaskId);
     const currentState = await primeTransferAtom.get();
     const pairedRoomId = currentState.pairedRoomId;
     if (!pairedRoomId) {
@@ -1994,7 +2090,9 @@ class ServicePrimeTransfer extends ServiceBase {
       e2eeClientToClientApi.checkIsVerifiedRoomId(pairedRoomId);
     }
 
+    await preparation?.update('serializing', 0);
     const data = stringUtils.stableStringify(transferData);
+    await preparation?.update('serializing');
 
     const encryptionKey = connectedEncryptedKey;
     if (!encryptionKey) {
@@ -2015,6 +2113,7 @@ class ServicePrimeTransfer extends ServiceBase {
       throw new OneKeyLocalError('Client to Client API not initialized');
     }
     const rawData = encryptedData.toString('base64');
+    await preparation?.update('encrypting');
     const proxy = this.e2eeClientToClientApiProxy;
     const state = await primeTransferAtom.get();
     if (
@@ -2027,7 +2126,7 @@ class ServicePrimeTransfer extends ServiceBase {
       throw new OneKeyLocalError('Transfer already in progress');
     }
     const task: IPrimeTransferNetworkTask = {
-      transferId: stringUtils.generateUUID(),
+      transferId: preparationTaskId ?? stringUtils.generateUUID(),
       roomId: pairedRoomId,
       controller: new AbortController(),
       lastProgressAt: 0,
@@ -2046,6 +2145,13 @@ class ServicePrimeTransfer extends ServiceBase {
       });
       this.assertNetworkTask(task);
       if (!supportsChunks) {
+        this.publishNetworkProgress(task, {
+          transferId: task.transferId,
+          direction: 'sending',
+          transferredBytes: 0,
+          totalBytes: rawData.length,
+          indeterminate: true,
+        });
         const result = await waitForTransferRequest(
           proxy.api.sendTransferData({ rawData }),
           task.controller.signal,
@@ -2083,6 +2189,25 @@ class ServicePrimeTransfer extends ServiceBase {
         proxy.api.finishChunkedTransfer({ transferId: task.transferId }),
       );
       this.assertNetworkTask(task);
+    } catch (error) {
+      // Reset the flow while its preparation owner still exists. The network
+      // finally block clears that owner, so a later task-scoped UI cancel is
+      // intentionally a no-op and cannot reset a replacement transfer.
+      if (
+        preparation &&
+        this.preparationTask === preparation &&
+        this.networkTask === task
+      ) {
+        try {
+          await this.cancelTransfer({ taskId: preparation.taskId });
+        } catch (cancelError) {
+          console.error(
+            'Failed to notify peer of transfer cancellation',
+            cancelError,
+          );
+        }
+      }
+      throw error;
     } finally {
       if (this.networkTask === task) {
         await this.cancelNetworkTransfer();
@@ -2122,16 +2247,25 @@ class ServicePrimeTransfer extends ServiceBase {
 
   @backgroundMethod()
   async cancelNetworkTransfer() {
+    const preparation = this.preparationTask;
+    this.preparationTask = undefined;
+    preparation?.cancel();
     const task = this.networkTask;
     this.networkTask = undefined;
     if (task) task.receiver = undefined;
     task?.controller.abort();
     clearTimeout(task?.timeout);
-    await primeTransferAtom.set((prev) =>
-      prev.networkProgress?.transferId === task?.transferId
-        ? { ...prev, networkProgress: undefined }
-        : prev,
-    );
+    await primeTransferAtom.set((prev) => ({
+      ...prev,
+      networkProgress:
+        prev.networkProgress?.transferId === task?.transferId
+          ? undefined
+          : prev.networkProgress,
+      preparationProgress:
+        prev.preparationProgress?.taskId === preparation?.taskId
+          ? undefined
+          : prev.preparationProgress,
+    }));
   }
 
   private refreshReceiveTimeout(task: IPrimeTransferNetworkTask) {
@@ -2222,11 +2356,13 @@ class ServicePrimeTransfer extends ServiceBase {
     walletId,
     password,
     transportMode,
+    preparationTaskId,
   }: {
     transferData: IPrimeTransferData;
     walletId: string;
     password: string;
     transportMode?: IPrimeTransferTransportMode;
+    preparationTaskId?: string;
   }) {
     const credential = normalizePrimeTransferCredential(
       transferData.privateData.credentials?.[walletId],
@@ -2248,6 +2384,7 @@ class ServicePrimeTransfer extends ServiceBase {
 
     let sendResult: unknown;
     try {
+      this.getPreparationTask(preparationTaskId);
       // BotWallet -> CLI export is intentionally Transfer-only. The encrypted
       // credential payload must be embedded in Prime Transfer data and sent
       // through the paired E2EE channel, not shown as Base64/QR/manual input.
@@ -2262,6 +2399,7 @@ class ServicePrimeTransfer extends ServiceBase {
             sendResult = await this.sendPreparedTransferData({
               transferData,
               transportMode,
+              preparationTaskId,
             });
           } finally {
             transferData.privateData.cliBotWalletEncryptedCredential =
@@ -2283,11 +2421,14 @@ class ServicePrimeTransfer extends ServiceBase {
     transferData,
     allowCliImportableCredentials,
     transportMode,
+    preparationTaskId,
   }: {
     transferData: IPrimeTransferData;
     allowCliImportableCredentials?: boolean;
     transportMode?: IPrimeTransferTransportMode;
+    preparationTaskId?: string;
   }) {
+    const preparation = this.getPreparationTask(preparationTaskId);
     // eslint-disable-next-line no-param-reassign
     transferData = cloneDeep(transferData);
     this.checkWebSocketConnected();
@@ -2317,6 +2458,8 @@ class ServicePrimeTransfer extends ServiceBase {
           reason: EReasonForNeedPassword.Security,
         });
 
+      preparation?.assertActive();
+
       if (!password) {
         throw new OneKeyLocalError('Password is required');
       }
@@ -2331,6 +2474,7 @@ class ServicePrimeTransfer extends ServiceBase {
           walletId,
           password,
           transportMode,
+          preparationTaskId,
         });
       }
 
@@ -2345,6 +2489,7 @@ class ServicePrimeTransfer extends ServiceBase {
       await this.decryptTransferDataCredentials({
         data: transferData,
         clearWrappedCredentialsAfterDecrypt: false,
+        preparationTaskId,
       });
       transferData.privateData.decryptedCredentialsHex =
         // This wrapped transfer credential payload follows the same Prime
@@ -2369,12 +2514,17 @@ class ServicePrimeTransfer extends ServiceBase {
           await this.reencryptCredentialsForLegacyPeer({
             decryptedCredentials: transferData.privateData.decryptedCredentials,
             password,
+            preparation,
           });
       }
       transferData.privateData.decryptedCredentials = undefined;
     }
 
-    return this.sendPreparedTransferData({ transferData, transportMode });
+    return this.sendPreparedTransferData({
+      transferData,
+      transportMode,
+      preparationTaskId,
+    });
   }
 
   // Minimum peer appVersion that ships the v2 AES-GCM payload envelope.
@@ -2427,17 +2577,21 @@ class ServicePrimeTransfer extends ServiceBase {
   private async reencryptCredentialsForLegacyPeer({
     decryptedCredentials,
     password,
+    preparation,
   }: {
     decryptedCredentials: IPrimeTransferDecryptedCredentials | undefined;
     password: string;
+    preparation?: PrimeTransferPreparation;
   }): Promise<Record<string, string>> {
     if (!decryptedCredentials) {
       return {};
     }
     const kdfParams = appCrypto.pbkdf2.getPbkdf2KdfParamsForNonDbTx();
     const entries: [string, string][] = [];
+    const total = Object.keys(decryptedCredentials).length;
     // Bound in-flight crypto work now that WebCrypto can run asynchronously.
     for (const [id, decrypted] of Object.entries(decryptedCredentials)) {
+      await preparation?.update('legacyCredentials', entries.length, total);
       if (
         accountUtils.isHdWallet({ walletId: id }) ||
         accountUtils.isTonMnemonicCredentialId(id)
@@ -2470,6 +2624,7 @@ class ServicePrimeTransfer extends ServiceBase {
         );
       }
     }
+    await preparation?.update('legacyCredentials');
     return Object.fromEntries(entries);
   }
 

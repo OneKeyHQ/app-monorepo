@@ -4,11 +4,8 @@ import { useIntl } from 'react-intl';
 
 import {
   Dialog,
-  Icon,
-  Progress,
   SizableText,
   Stack,
-  XStack,
   YStack,
   useClipboard,
   useDialogInstance,
@@ -31,6 +28,10 @@ import { stableStringify } from '@onekeyhq/shared/src/utils/stringUtils';
 
 import { confirmPrimeTransferImportExit } from './confirmPrimeTransferImportExit';
 import { usePrimeTransferExit } from './hooks/usePrimeTransferExit';
+import {
+  PrimeTransferProgress,
+  primeTransferProgressDialogProps,
+} from './PrimeTransferProgress';
 
 import type { IntlShape } from 'react-intl';
 
@@ -269,121 +270,112 @@ function PrimeTransferImportProcessingDialogContent({
           });
           */
 
+  let progressStatus: 'active' | 'success' | 'error' = 'active';
+  if (isDone) progressStatus = 'success';
+  else if (isCancelled || hasError) progressStatus = 'error';
+
   return (
     <Stack>
-      <YStack alignItems="center">
-        {isDone ? (
-          <Icon name="CheckRadioSolid" size="$12" color="$iconSuccess" />
-        ) : null}
-
-        {(isCancelled || hasError) && !isDone ? (
-          <Icon name="XCircleSolid" size="$12" color="$iconCritical" />
-        ) : null}
-
-        {!isFlowEnded && importProgress ? (
-          <Progress mt="$4" w="100%" size="medium" value={progressPercentage} />
-        ) : null}
-
-        <MultipleClickStack
-          showDevBgColor
-          debugComponent={
-            <YStack gap="$2" alignItems="center">
-              <SizableText
-                textAlign="center"
-                onPress={() => {
-                  Dialog.debugMessage({
-                    debugMessage: importProgress?.totalDetailInfo,
-                  });
-                }}
-              >
-                {importProgress?.current ?? 0}/{importProgress?.total ?? 0}
-                {'  '}
-                {importTargetProcessingDuration}
-              </SizableText>
-              <SizableText
-                textAlign="center"
-                onPress={() => {
-                  Dialog.debugMessage({
-                    debugMessage: importTargetProcessingHistoryRef,
-                  });
-                }}
-              >
-                {primeTransferAtom.importCurrentCreatingTarget}
-              </SizableText>
-              <SizableText
-                onPress={async () => {
-                  const d =
-                    await backgroundApiProxy.servicePrimeTransfer.getBatchCreateHdAccountsParams();
-                  Dialog.debugMessage({
-                    debugMessage: d,
-                  });
-                }}
-              >
-                ShowBatchCreateHdAccountsParams
-              </SizableText>
-              {/*
+      <PrimeTransferProgress
+        testID="prime-transfer-import"
+        value={!isFlowEnded && importProgress ? progressPercentage : undefined}
+        status={progressStatus}
+        label={
+          <MultipleClickStack
+            showDevBgColor
+            debugComponent={
+              <YStack gap="$2" alignItems="center">
+                <SizableText
+                  textAlign="center"
+                  onPress={() => {
+                    Dialog.debugMessage({
+                      debugMessage: importProgress?.totalDetailInfo,
+                    });
+                  }}
+                >
+                  {importProgress?.current ?? 0}/{importProgress?.total ?? 0}
+                  {'  '}
+                  {importTargetProcessingDuration}
+                </SizableText>
+                <SizableText
+                  textAlign="center"
+                  onPress={() => {
+                    Dialog.debugMessage({
+                      debugMessage: importTargetProcessingHistoryRef,
+                    });
+                  }}
+                >
+                  {primeTransferAtom.importCurrentCreatingTarget}
+                </SizableText>
+                <SizableText
+                  onPress={async () => {
+                    const d =
+                      await backgroundApiProxy.servicePrimeTransfer.getBatchCreateHdAccountsParams();
+                    Dialog.debugMessage({
+                      debugMessage: d,
+                    });
+                  }}
+                >
+                  ShowBatchCreateHdAccountsParams
+                </SizableText>
+                {/*
                 Chrome/AI debug commands for this hidden export entry:
                 await window.$$oneKeyPrimeTransferDebug.getImportTraceSnapshot()
                 await window.$$oneKeyPrimeTransferDebug.getLatestImportTraceEntries(100)
                 await window.$$oneKeyDebugApis.primeTransferImportTrace.api.getImportTraceText()
               */}
-              <SizableText onPress={exportPrimeTransferImportTrace}>
-                ExportPrimeTransferImportTrace
-              </SizableText>
-              <SizableText textAlign="center">
-                {JSON.stringify(importProgress?.stats)}
-              </SizableText>
-            </YStack>
-          }
-        >
-          <XStack mt="$5" alignItems="center" gap="$2">
-            <SizableText size="$bodyLg" textAlign="center">
-              {(() => {
-                if (isDone || importProgress) {
-                  return `${intl.formatMessage(
-                    {
-                      id: ETranslations.global_import_progress,
-                    },
-                    {
-                      amount: platformEnv.isDev
-                        ? `${importProgress?.current || 0}/${
-                            importProgress?.total || 0
-                          } ${progressPercentage}%`
-                        : (importProgress?.current ?? 0),
-                    },
-                  )} ${progressPercentage}%`;
-                }
-                if (isCancelled) {
-                  return intl.formatMessage({
-                    id: ETranslations.global_cancel,
-                  });
-                }
-                if (hasError) {
-                  return intl.formatMessage({
-                    id: ETranslations.global_an_error_occurred,
-                  });
-                }
-                return intl.formatMessage({
-                  id: ETranslations.transfer_transfer_loading,
-                });
-              })()}
-            </SizableText>
-          </XStack>
-        </MultipleClickStack>
-        {!isFlowEnded ? (
-          <SizableText
-            mt="$4"
-            size="$bodyMd"
-            color="$textSubdued"
-            textAlign="center"
-            testID="prime-transfer-import-keep-unlocked"
+                <SizableText onPress={exportPrimeTransferImportTrace}>
+                  ExportPrimeTransferImportTrace
+                </SizableText>
+                <SizableText textAlign="center">
+                  {JSON.stringify(importProgress?.stats)}
+                </SizableText>
+              </YStack>
+            }
           >
-            {intl.formatMessage({
-              id: ETranslations.transfer_keep_unlocked__desc,
-            })}
-          </SizableText>
-        ) : null}
-      </YStack>
+            <>
+              <SizableText size="$bodyLg" textAlign="center">
+                {(() => {
+                  if (isDone || importProgress) {
+                    return `${intl.formatMessage(
+                      {
+                        id: ETranslations.global_import_progress,
+                      },
+                      {
+                        amount: platformEnv.isDev
+                          ? `${importProgress?.current || 0}/${
+                              importProgress?.total || 0
+                            } ${progressPercentage}%`
+                          : (importProgress?.current ?? 0),
+                      },
+                    )} ${progressPercentage}%`;
+                  }
+                  if (isCancelled) {
+                    return intl.formatMessage({
+                      id: ETranslations.global_cancel,
+                    });
+                  }
+                  if (hasError) {
+                    return intl.formatMessage({
+                      id: ETranslations.global_an_error_occurred,
+                    });
+                  }
+                  return intl.formatMessage({
+                    id: ETranslations.transfer_transfer_loading,
+                  });
+                })()}
+              </SizableText>
+            </>
+          </MultipleClickStack>
+        }
+        description={
+          !isFlowEnded
+            ? intl.formatMessage({
+                id: ETranslations.transfer_keep_unlocked__desc,
+              })
+            : undefined
+        }
+      />
 
       <Dialog.Footer
         showCancelButton={false}
@@ -434,8 +426,7 @@ export function showPrimeTransferImportProcessingDialog({
   closeAfterError?: boolean;
 }) {
   return Dialog.show({
-    showExitButton: true,
-    title: '',
+    ...primeTransferProgressDialogProps,
     renderContent: (
       <PrimeTransferImportProcessingDialogContent
         navigation={navigation}

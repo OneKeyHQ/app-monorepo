@@ -4,6 +4,10 @@ import type { IPrimeTransferData } from '@onekeyhq/shared/types/prime/primeTrans
 import ServicePrimeTransfer from './ServicePrimeTransfer';
 
 import type { IBackgroundApi } from '../../apis/IBackgroundApi';
+import type { IPrimeTransferAtomData } from '../../states/jotai/atoms/prime';
+
+let mockState: Pick<IPrimeTransferAtomData, 'preparationProgress'>;
+const mockPublishedPercentages: number[] = [];
 
 // All credentials are inert fixtures. Browser timing is measured separately.
 const mockSeed = {
@@ -57,7 +61,23 @@ jest.mock('../ServiceBase', () => ({
   },
 }));
 jest.mock('../../states/jotai/atoms', () => ({}));
-jest.mock('../../states/jotai/atoms/prime', () => ({}));
+jest.mock('../../states/jotai/atoms/prime', () => ({
+  EPrimeTransferStatus: { transferring: 'transferring' },
+  primeTransferAtom: {
+    get: async () => ({
+      ...mockState,
+      status: 'transferring',
+      pairedRoomId: 'room',
+      myUserId: 'sender',
+      transferDirection: { fromUserId: 'sender' },
+    }),
+    set: async (update: (state: typeof mockState) => typeof mockState) => {
+      mockState = update(mockState);
+      if (mockState.preparationProgress)
+        mockPublishedPercentages.push(mockState.preparationProgress.percentage);
+    },
+  },
+}));
 jest.mock('@onekeyhq/shared/src/eventBus/appEventBus', () => ({
   EAppEventBusNames: {},
   appEventBus: { emit: jest.fn() },
@@ -83,9 +103,88 @@ function fixture(): IPrimeTransferData {
 }
 
 beforeEach(() => {
+  mockState = {};
+  mockPublishedPercentages.length = 0;
   mockDecryptSeed.mockClear();
   mockDecryptImported.mockClear();
   mockKdfParams.mockReset();
+});
+
+test('reports credential work, then clears preparation on cancellation', async () => {
+  const service = new ServicePrimeTransfer({
+    backgroundApi: {
+      servicePassword: {
+        promptPasswordVerify: async () => ({ password: 'fixture-password' }),
+      },
+    },
+  });
+  jest
+    .spyOn(service, 'checkWebSocketConnected')
+    .mockImplementation(() => undefined);
+  const preparationTaskId = await service.beginTransferPreparation();
+  expect(mockState.preparationProgress).toEqual({
+    taskId: preparationTaskId,
+    percentage: 0,
+  });
+  await service.decryptTransferDataCredentials({
+    data: fixture(),
+    preparationTaskId,
+  });
+  expect(mockPublishedPercentages.at(-1)).toBe(75);
+  expect(mockPublishedPercentages).toEqual(
+    [...mockPublishedPercentages].toSorted((a, b) => a - b),
+  );
+  await service.cancelNetworkTransfer();
+  expect(mockState.preparationProgress).toBeUndefined();
+});
+
+test('cancel during decryption stops remaining credentials and cannot overwrite a new preparation', async () => {
+  const service = new ServicePrimeTransfer({
+    backgroundApi: {
+      servicePassword: {
+        promptPasswordVerify: async () => ({ password: 'fixture-password' }),
+      },
+    },
+  });
+  jest
+    .spyOn(service, 'checkWebSocketConnected')
+    .mockImplementation(() => undefined);
+  const preparationTaskId = await service.beginTransferPreparation();
+  let release: (() => void) | undefined;
+  let markStarted: (() => void) | undefined;
+  const started = new Promise<void>((resolve) => {
+    markStarted = resolve;
+  });
+  mockDecryptSeed.mockImplementationOnce(async () => {
+    markStarted?.();
+    await new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    return mockSeed;
+  });
+  const pending = service.decryptTransferDataCredentials({
+    data: fixture(),
+    preparationTaskId,
+  });
+  const rejection = pending.catch((error: unknown) => error);
+  await started;
+  await service.cancelNetworkTransfer();
+  const replacementTaskId = await service.beginTransferPreparation();
+  release?.();
+  expect(await rejection).toEqual(
+    expect.objectContaining({ message: 'Transfer cancelled' }),
+  );
+  expect(mockDecryptImported).not.toHaveBeenCalled();
+  expect(mockState.preparationProgress).toEqual({
+    taskId: replacementTaskId,
+    percentage: 0,
+  });
+  await service.cancelTransfer({ taskId: preparationTaskId });
+  expect(mockState.preparationProgress?.taskId).toBe(replacementTaskId);
+  await expect(
+    service.sendTransferData({ transferData: fixture(), preparationTaskId }),
+  ).rejects.toThrow('Transfer cancelled');
+  await service.cancelNetworkTransfer();
 });
 
 test.each<[boolean, IPbkdf2KdfParams]>([

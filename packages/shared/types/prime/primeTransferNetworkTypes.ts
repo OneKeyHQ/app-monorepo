@@ -12,10 +12,16 @@ export const PRIME_TRANSFER_CHUNK_TIMEOUT = 120_000;
 export type IPrimeTransferTransportMode = 'auto' | 'legacy';
 
 export type IPrimeTransferNetworkProgress = {
+  indeterminate?: boolean;
   transferId: string;
   direction: 'sending' | 'receiving';
   transferredBytes: number;
   totalBytes: number;
+};
+
+export type IPrimeTransferPreparationProgress = {
+  taskId: string;
+  percentage: number;
 };
 
 export type IPrimeTransferChunkManifest = {

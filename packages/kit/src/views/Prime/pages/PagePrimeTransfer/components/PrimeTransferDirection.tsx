@@ -11,7 +11,6 @@ import {
   Icon,
   IconButton,
   Page,
-  Progress,
   SizableText,
   Stack,
   Toast,
@@ -45,6 +44,7 @@ import type { IPrimeTransferTransportMode } from '@onekeyhq/shared/types/prime/p
 import type { IE2EESocketUserInfo } from '@onekeyhq/shared/types/prime/primeTransferTypes';
 
 import { usePrimeTransferExit } from './hooks/usePrimeTransferExit';
+import { showPrimeTransferProcessingDialog } from './PrimeTransferProcessingDialog';
 
 interface IDeviceItemProps {
   userInfo: IE2EESocketUserInfo | undefined;
@@ -377,6 +377,35 @@ export function PrimeTransferDirection({
 
   const isClosedBySendData = useRef(false);
 
+  const processingDialogRef = useRef<
+    ReturnType<typeof showPrimeTransferProcessingDialog> | undefined
+  >(undefined);
+  const closeProcessingDialog = useCallback(async (taskId?: string) => {
+    const dialog = processingDialogRef.current;
+    if (taskId && dialog?.taskId !== taskId) return;
+    processingDialogRef.current = undefined;
+    await dialog?.close();
+  }, []);
+  const processingTaskId =
+    primeTransferAtom.networkProgress?.transferId ??
+    primeTransferAtom.preparationProgress?.taskId;
+  useEffect(() => {
+    if (processingDialogRef.current?.taskId === processingTaskId) return;
+    void closeProcessingDialog();
+    if (processingTaskId) {
+      processingDialogRef.current = showPrimeTransferProcessingDialog(
+        intl,
+        processingTaskId,
+      );
+    }
+  }, [closeProcessingDialog, intl, processingTaskId]);
+  useEffect(
+    () => () => {
+      void closeProcessingDialog();
+    },
+    [closeProcessingDialog],
+  );
+
   const networkProgress = primeTransferAtom.networkProgress;
   useEffect(() => {
     if (networkProgress?.direction === 'receiving') {
@@ -406,6 +435,7 @@ export function PrimeTransferDirection({
       inputCode: string;
       verifyCode: string;
     }) => {
+      let preparationTaskId: string | undefined;
       try {
         // const { password } =
         //   await backgroundApiProxy.servicePassword.promptPasswordVerify({
@@ -429,8 +459,11 @@ export function PrimeTransferDirection({
         isClosedBySendData.current = true;
         void dialogRef.current?.close();
 
+        preparationTaskId =
+          await backgroundApiProxy.servicePrimeTransfer.beginTransferPreparation();
         const transferData =
           await backgroundApiProxy.servicePrimeTransfer.buildTransferData({
+            preparationTaskId,
             walletIds: botWalletId ? [botWalletId] : undefined,
           });
         // Some credentials could not be read because the local secure storage
@@ -481,7 +514,9 @@ export function PrimeTransferDirection({
           transferData,
           allowCliImportableCredentials,
           transportMode: effectiveTransportMode,
+          preparationTaskId,
         });
+        if (preparationTaskId) await closeProcessingDialog(preparationTaskId);
 
         setWaitingAlertVisible(true);
         // resolve();
@@ -509,9 +544,12 @@ export function PrimeTransferDirection({
         });
       } catch (error) {
         console.error(error);
-        void backgroundApiProxy.servicePrimeTransfer.cancelTransfer();
+        await backgroundApiProxy.servicePrimeTransfer.cancelTransfer({
+          taskId: preparationTaskId,
+        });
         throw error;
       } finally {
+        if (preparationTaskId) await closeProcessingDialog(preparationTaskId);
         setIsSendingData(false);
       }
     },
@@ -522,6 +560,7 @@ export function PrimeTransferDirection({
       botWalletId,
       allowCliImportableCredentials,
       effectiveTransportMode,
+      closeProcessingDialog,
     ],
   );
 
@@ -629,6 +668,7 @@ export function PrimeTransferDirection({
       isClosedBySendData.current = true;
       void dialogRef.current?.close();
 
+      void closeProcessingDialog();
       const param: IPrimeParamList[EPrimePages.PrimeTransferPreview] = {
         directionUserInfo,
         transferData: data.data,
@@ -639,7 +679,7 @@ export function PrimeTransferDirection({
     return () => {
       appEventBus.off(EAppEventBusNames.PrimeTransferDataReceived, fn);
     };
-  }, [directionUserInfo, navigation]);
+  }, [directionUserInfo, navigation, closeProcessingDialog]);
 
   const debugButtons = useMemo(() => {
     if (process.env.NODE_ENV !== 'production') {
@@ -772,36 +812,6 @@ export function PrimeTransferDirection({
             </SizableText>
           </YStack>
         ) : null}
-        {networkProgress ? (
-          <YStack gap="$3" testID="prime-transfer-network-progress">
-            <XStack justifyContent="space-between" gap="$3">
-              <SizableText size="$bodyMd" color="$textSubdued">
-                {intl.formatMessage({
-                  id: ETranslations.hardware_transferring_data,
-                })}
-              </SizableText>
-              <SizableText
-                size="$bodyMdMedium"
-                testID="prime-transfer-network-progress-percent"
-              >
-                {Math.floor(
-                  (networkProgress.transferredBytes /
-                    networkProgress.totalBytes) *
-                    100,
-                )}
-                %
-              </SizableText>
-            </XStack>
-            <Progress
-              size="medium"
-              value={
-                (networkProgress.transferredBytes /
-                  networkProgress.totalBytes) *
-                100
-              }
-            />
-          </YStack>
-        ) : null}
         {primeTransferAtom.status === EPrimeTransferStatus.transferring ? (
           <SizableText
             size="$bodyMd"
@@ -819,7 +829,9 @@ export function PrimeTransferDirection({
       </Stack>
       <Page.Footer
         confirmButtonProps={{
-          disabled: primeTransferAtom.status !== EPrimeTransferStatus.paired,
+          disabled:
+            isSendingData ||
+            primeTransferAtom.status !== EPrimeTransferStatus.paired,
           loading:
             isSendingData ||
             primeTransferAtom.status === EPrimeTransferStatus.transferring,
