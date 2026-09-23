@@ -1,20 +1,20 @@
 import { useMedia } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-// TODO: remove before release — local testing only.
-// Forces the phone layout in the browser so the revamped page can be reviewed
-// with `yarn app:web` instead of a device build. Typed as boolean on purpose,
-// so flipping it to false does not turn the line below into unreachable code.
-// Narrow the window under 768px for realistic proportions.
-const DEBUG_PHONE_LAYOUT_ON_WEB: boolean = false;
+// Web review switch (OK-61377): product walks the phone layout through in a
+// browser narrowed under 768px, so web at phone width renders it too. Only
+// web and only at phone width: desktop, the extension and wide web keep the
+// existing page. Flip to false if product wants phone-width web back on the
+// old page after the review.
+const PHONE_LAYOUT_ON_WEB = true;
 
-// The revamped positions page ("My portfolio", OK-61377) ships to phones only.
-// Desktop, web, mobile web and wide native (iPad, landscape) keep the existing
+// The revamped positions page ("My portfolio", OK-61377) ships to phones.
+// Wide layouts (desktop, iPad, landscape, wide web) keep the existing
 // PortfolioTabContent page untouched — the same gate the detail page uses.
 export function useMyPortfolioLayout() {
   const { gtMd } = useMedia();
-  if (DEBUG_PHONE_LAYOUT_ON_WEB) {
-    return true;
+  if (gtMd) {
+    return false;
   }
-  return platformEnv.isNative && !gtMd;
+  return platformEnv.isNative || (platformEnv.isWeb && PHONE_LAYOUT_ON_WEB);
 }
