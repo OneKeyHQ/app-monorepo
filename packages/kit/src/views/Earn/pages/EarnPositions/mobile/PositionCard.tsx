@@ -364,17 +364,17 @@ function UnstakingCard({
 }) {
   const intl = useIntl();
   const { asset, row } = entry;
-  // i18n: pending "Unstaking" / "Est. unlock time" keys (OK-61377);
-  // earn_unstaking_period reads "Unstaking period" until they land.
+  // Existing copy: the section reuses the status the detail page prints on
+  // these very rows ("Withdrawal requested"), the date line "Unlock time".
   const unstakingLabel = intl.formatMessage({
-    id: ETranslations.earn_unstaking_period,
+    id: ETranslations.earn_withdrawal_requested,
   });
   return (
     <CardFrame investment={investment} fiatValue={row.fiatValue ?? '0'}>
       {row.unlockAt ? (
         <XStack px="$1" pt="$1" gap="$1">
           <SizableText size="$bodySm" color="$textSubdued">
-            {`${unstakingLabel}: `}
+            {`${intl.formatMessage({ id: ETranslations.earn_unlock_time })}: `}
           </SizableText>
           <SizableText size="$bodySm">
             {formatDate(new Date(row.unlockAt), { hideTimeForever: true })}
