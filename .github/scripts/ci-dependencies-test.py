@@ -4,11 +4,13 @@ import importlib.util
 import contextlib
 import io
 import json
+import shutil
 import os
 from pathlib import Path
 import subprocess
 import sys
 import tempfile
+import time
 import unittest
 from unittest.mock import patch
 
@@ -64,22 +66,58 @@ class SnapshotTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             dependencies.validate_roots(self.root, ['apps/web/node_modules', 'node_modules'])
 
+    def test_workspace_patch_changes_invalidate_exact_and_compatible_snapshots(self):
+        runtime = {'node': 'v24.21.0'}
+        (self.root / 'patches/example.patch').rename(self.root / 'patches/root+1.0.0.patch')
+        subprocess.run(['git', 'add', '-A'], cwd=self.root, check=True)
+        original = dependencies.fingerprint(self.root, runtime)
+        previous = {mode: dependencies.fingerprint(self.root, runtime, compatible=mode)
+                    for mode in [False, True]}
+        target = self.root / 'apps/web/patches/local+1.0.0.patch'
+        target.parent.mkdir()
+        refs = []
+        for action, content in [('added', 'first patch'), ('changed', 'second patch'), ('deleted', None)]:
+            with self.subTest(action=action):
+                if content is None:
+                    target.unlink()
+                else:
+                    target.write_text(content)
+                subprocess.run(['git', 'add', '-A'], cwd=self.root, check=True)
+                subprocess.run(['git', '-c', 'user.name=Fixture', '-c', 'user.email=fixture@example.invalid',
+                                'commit', '-qm', action], cwd=self.root, check=True)
+                ref = subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=self.root, text=True).strip()
+                refs.append(ref)
+                for mode in [False, True]:
+                    current = dependencies.fingerprint(self.root, runtime, compatible=mode)
+                    self.assertNotEqual(previous[mode], current)
+                    self.assertEqual(current, dependencies.fingerprint(self.root, runtime, compatible=mode, ref=ref))
+                    previous[mode] = current
+                legacy = dependencies.legacy_snapshot(self.root, runtime, previous[True], ref)
+                self.assertEqual(legacy['key'], 'ci-deps-squashfs-v1-' + original)
+                for old_ref in refs[:-1]:
+                    with self.assertRaisesRegex(ValueError, 'incompatible'):
+                        dependencies.legacy_snapshot(self.root, runtime, previous[True], old_ref)
+
     def test_corrupted_snapshot_is_rejected_before_mount(self):
         snapshot = dependencies.Snapshot()
         snapshot.cache.mkdir(parents=True)
-        snapshot.state = {'key': 'expected'}
+        snapshot.state = {'key': 'prefix-expected', 'prefix': 'prefix-',
+                          'compatibility': 'compatible', 'runtime': {}}
         (snapshot.cache / 'dependencies.squashfs').write_bytes(b'corrupt')
         (snapshot.cache / 'manifest.json').write_text(json.dumps({
-            'key': 'expected', 'roots': ['node_modules'], 'bytes': 7, 'sha256': 'wrong',
+            'version': 2, 'key': 'prefix-expected', 'source_ref': 'refs/heads/x',
+            'compatibility': 'compatible', 'runtime': {}, 'patches': {},
+            'roots': ['node_modules'], 'bytes': 7, 'sha256': 'wrong',
         }))
-        with patch.object(dependencies.subprocess, 'run', wraps=subprocess.run) as run:
+        with patch.dict(os.environ, {'DEPENDENCY_SNAPSHOT_KEY': 'prefix-expected'}), \
+                patch.object(dependencies.subprocess, 'run', wraps=subprocess.run) as run:
             with self.assertRaisesRegex(ValueError, 'checksum'):
                 snapshot.mount()
             self.assertFalse(any(call.args[0][0] == 'sudo' for call in run.call_args_list))
 
     def test_mount_failure_falls_back_to_immutable_install(self):
         snapshot = dependencies.Snapshot()
-        with patch.dict(os.environ, {'DEPENDENCY_SNAPSHOT_HIT': 'true'}), \
+        with patch.dict(os.environ, {'DEPENDENCY_SNAPSHOT_KEY': 'restored-key'}), \
                 patch.object(snapshot, 'mount', side_effect=ValueError('invalid snapshot')), \
                 patch.object(snapshot, 'cleanup') as cleanup, \
                 patch.object(dependencies.subprocess, 'call', return_value=0) as install, \
@@ -91,7 +129,7 @@ class SnapshotTests(unittest.TestCase):
 
     def test_failed_snapshot_install_retries_clean_and_preserves_failure(self):
         snapshot = dependencies.Snapshot()
-        with patch.dict(os.environ, {'DEPENDENCY_SNAPSHOT_HIT': 'true'}), \
+        with patch.dict(os.environ, {'DEPENDENCY_SNAPSHOT_KEY': 'restored-key'}), \
                 patch.object(snapshot, 'mount'), patch.object(snapshot, 'cleanup') as cleanup, \
                 patch.object(dependencies.subprocess, 'call', side_effect=[1, 1]) as install, \
                 contextlib.redirect_stdout(io.StringIO()):
@@ -107,11 +145,330 @@ class SnapshotTests(unittest.TestCase):
         marker = target / 'keep'
         marker.write_text('dependency')
         snapshot.state = {'mounts': [str(target)], 'owned_roots': ['node_modules']}
-        with patch.object(dependencies.os.path, 'ismount', return_value=True), \
+        with patch.object(dependencies, 'mounted', return_value=True), \
                 patch.object(dependencies.subprocess, 'run', side_effect=subprocess.CalledProcessError(1, 'umount')):
             with self.assertRaises(subprocess.CalledProcessError):
                 snapshot.cleanup(remove=True)
         self.assertTrue(marker.exists())
+
+    def test_compatible_key_allows_dependencies_but_rejects_scripts_and_workspace_changes(self):
+        runtime = {'node': 'v24.21.0'}
+        package = self.root / 'package.json'
+        package.write_text(json.dumps({'name': 'fixture', 'dependencies': {'foo': '1.0.0'},
+                                       'scripts': {'postinstall': 'node setup.js'}}))
+        key = dependencies.fingerprint(self.root, runtime, compatible=True)
+        exact = dependencies.fingerprint(self.root, runtime)
+        package.write_text(json.dumps({'name': 'fixture', 'dependencies': {'foo': '2.0.0'},
+                                       'scripts': {'postinstall': 'node setup.js'}}))
+        (self.root / 'yarn.lock').write_text('updated lock')
+        (self.root / 'patches/example.patch').write_text('updated patch')
+        self.assertEqual(key, dependencies.fingerprint(self.root, runtime, compatible=True))
+        self.assertNotEqual(exact, dependencies.fingerprint(self.root, runtime))
+        package.write_text(json.dumps({'name': 'fixture', 'scripts': {'postinstall': 'node other.js'}}))
+        self.assertNotEqual(key, dependencies.fingerprint(self.root, runtime, compatible=True))
+        self.assertNotEqual(key, dependencies.fingerprint(self.root, {'node': 'v24.22.0'}, compatible=True))
+        package.write_text(json.dumps({'name': 'fixture', 'scripts': {'postinstall': 'node setup.js'}}))
+        (self.root / 'apps/web/package.json').write_text('{"name":"changed-workspace"}')
+        self.assertNotEqual(key, dependencies.fingerprint(self.root, runtime, compatible=True))
+
+    def test_patch_delta_cleans_added_changed_deleted_and_sequenced_packages_only(self):
+        (self.root / 'patches/example.patch').unlink()
+        before = {}
+        for name in ['removed+1.0.0.patch', 'changed+1.0.0.patch', 'unchanged+1.0.0.patch',
+                     'react-native+0.86.2+001+first.patch', 'react-native+0.86.2+006+last.patch',
+                     '@scope+pkg+1.0.0+001+label.patch']:
+            p = self.root / 'patches' / name
+            p.write_text('old')
+            before[name] = dependencies.checksum(p)
+            target = self.root / 'node_modules' / dependencies.patch_target(name)
+            target.mkdir(parents=True, exist_ok=True)
+            (target / 'index.js').write_text('old installed content')
+        (self.root / 'patches/removed+1.0.0.patch').unlink()
+        for name in ['changed+1.0.0.patch', 'react-native+0.86.2+001+first.patch',
+                     'react-native+0.86.2+006+last.patch', '@scope+pkg+1.0.0+001+label.patch',
+                     'added+1.0.0.patch']:
+            (self.root / 'patches' / name).write_text('new')
+        (self.root / 'node_modules/added').mkdir()
+        (self.root / 'node_modules/unrelated').mkdir()
+        snapshot = dependencies.Snapshot()
+        with contextlib.redirect_stdout(io.StringIO()):
+            snapshot.reset_changed_patches(before)
+        self.assertEqual(snapshot.state['reset_packages'], ['@scope/pkg', 'added', 'changed', 'react-native', 'removed'])
+        self.assertEqual(sorted(p.name for p in (self.root / 'node_modules').iterdir()), ['@scope', 'unchanged', 'unrelated'])
+        self.assertTrue((self.root / 'node_modules/unchanged/index.js').exists())
+
+    def test_unsafe_patch_metadata_and_symlink_packages_are_rejected(self):
+        for name in ['../foo+1.0.0.patch', '@scope+..+1.0.0.patch', 'foo++bar+1.0.0.patch',
+                     'foo+../version.patch', 'foo+1.0.0.patch/escape']:
+            with self.assertRaises(ValueError):
+                dependencies.patch_target(name)
+        with self.assertRaises(ValueError):
+            dependencies.validate_patches({'foo+1.0.0.patch': '../invalid'})
+        (self.root / 'patches/example.patch').unlink()
+        outside = self.root / 'workspace'
+        outside.mkdir()
+        (outside / 'keep').write_text('keep')
+        (self.root / 'node_modules').mkdir()
+        (self.root / 'node_modules/foo').symlink_to(outside, target_is_directory=True)
+        with self.assertRaises(ValueError):
+            dependencies.Snapshot().reset_changed_patches({'foo+1.0.0.patch': '0' * 64})
+        self.assertTrue((outside / 'keep').exists())
+
+    def test_legacy_fallback_uses_committed_x_inputs_and_survives_cache_code_changes(self):
+        runtime = {'node': 'v24.21.0', 'arch': 'x86_64'}
+        (self.root / 'patches/example.patch').rename(self.root / 'patches/removed+1.0.0.patch')
+        for name in ['.github/scripts/ci-dependencies.py', '.github/actions/install-dependencies/action.yml']:
+            target = self.root / name
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_text('old cache implementation')
+        subprocess.run(['git', 'add', '-A'], cwd=self.root, check=True)
+        subprocess.run(['git', '-c', 'user.name=Fixture', '-c', 'user.email=fixture@example.invalid',
+                        'commit', '-qm', 'x inputs'], cwd=self.root, check=True)
+        ref = subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=self.root, text=True).strip()
+        expected = 'ci-deps-squashfs-v1-' + dependencies.fingerprint(self.root, runtime)
+        compatibility = dependencies.fingerprint(self.root, runtime, compatible=True)
+        removed_hash = dependencies.checksum(self.root / 'patches/removed+1.0.0.patch')
+        (self.root / 'patches/removed+1.0.0.patch').unlink()
+        (self.root / 'patches/added+2.0.0.patch').write_text('new patch')
+        (self.root / 'package.json').write_text('{"dependencies":{"added":"2.0.0"}}')
+        (self.root / 'yarn.lock').write_text('changed lock')
+        (self.root / '.github/scripts/ci-dependencies.py').write_text('new snapshot reader')
+        (self.root / '.github/actions/install-dependencies/action.yml').write_text('new restore steps')
+        subprocess.run(['git', 'add', '-A'], cwd=self.root, check=True)
+        self.assertEqual(compatibility, dependencies.fingerprint(self.root, runtime, compatible=True))
+        legacy = dependencies.legacy_snapshot(self.root, runtime, compatibility, ref)
+        self.assertEqual(legacy['key'], expected)
+        self.assertEqual(legacy['patches'], {'removed+1.0.0.patch': removed_hash})
+        self.assertEqual(legacy['source_commit'], ref)
+        (self.root / 'package.json').write_text('{"scripts":{"postinstall":"changed.js"}}')
+        changed = dependencies.fingerprint(self.root, runtime, compatible=True)
+        with self.assertRaisesRegex(ValueError, 'incompatible'):
+            dependencies.legacy_snapshot(self.root, runtime, changed, ref)
+
+    def test_legacy_manifest_rejects_unbound_key_and_corruption_before_mount(self):
+        snapshot = dependencies.Snapshot()
+        snapshot.cache.mkdir(parents=True)
+        snapshot.state = {'key': 'v2-key', 'legacy': {'key': 'v1-x-key', 'patches': {}}}
+        (snapshot.cache / 'dependencies.squashfs').write_bytes(b'corrupt')
+        manifest = {'key': 'v1-x-key', 'roots': ['node_modules'], 'bytes': 7, 'sha256': 'wrong'}
+        (snapshot.cache / 'manifest.json').write_text(json.dumps(manifest))
+        with patch.object(dependencies.subprocess, 'run', wraps=subprocess.run) as run:
+            with patch.dict(os.environ, {'DEPENDENCY_SNAPSHOT_KEY': 'arbitrary-v1-key'}):
+                with self.assertRaisesRegex(ValueError, 'compatibility'):
+                    snapshot.mount()
+            with patch.dict(os.environ, {'DEPENDENCY_SNAPSHOT_KEY': 'v1-x-key'}):
+                with self.assertRaisesRegex(ValueError, 'checksum'):
+                    snapshot.mount()
+            self.assertFalse(any(call.args[0][0] == 'sudo' for call in run.call_args_list))
+
+    def test_clean_retry_removes_new_workspace_roots(self):
+        snapshot = dependencies.Snapshot()
+        for name in ['node_modules', 'apps/web/node_modules']:
+            (self.root / name).mkdir()
+            (self.root / name / 'partial').write_text('partial installation')
+        (self.root / '.yarn').mkdir()
+        (self.root / '.yarn/install-state.gz').write_bytes(b'partial state')
+        snapshot.state = {'mounts': [], 'owned_roots': ['node_modules']}
+        with patch.object(dependencies, 'mounted', return_value=False):
+            snapshot.cleanup(remove=True)
+        self.assertFalse((self.root / 'node_modules').exists())
+        self.assertFalse((self.root / 'apps/web/node_modules').exists())
+        self.assertFalse((self.root / '.yarn/install-state.gz').exists())
+
+    def test_legacy_snapshot_does_not_restore_unbound_workspace_dependencies(self):
+        (self.root / 'patches/example.patch').unlink()
+        snapshot = dependencies.Snapshot()
+        snapshot.cache.mkdir(parents=True)
+        snapshot.state = {'key': 'v2-key', 'legacy': {'key': 'v1-x-key', 'patches': {}},
+                          'mounts': [], 'owned_roots': []}
+        image = snapshot.cache / 'dependencies.squashfs'
+        image.write_bytes(b'fixture image')
+        (snapshot.cache / 'manifest.json').write_text(json.dumps({
+            'key': 'v1-x-key', 'roots': ['apps/web/node_modules', 'node_modules'],
+            'bytes': image.stat().st_size, 'sha256': dependencies.checksum(image),
+        }))
+        real_run = subprocess.run
+
+        def run(command, **kwargs):
+            if command[0] == 'sudo':
+                return subprocess.CompletedProcess(command, 0)
+            return real_run(command, **kwargs)
+
+        with patch.dict(os.environ, {'DEPENDENCY_SNAPSHOT_KEY': 'v1-x-key'}), \
+                patch.object(dependencies.subprocess, 'run', side_effect=run), \
+                patch.object(dependencies.shutil, 'copy2'), \
+                contextlib.redirect_stdout(io.StringIO()):
+            snapshot.mount()
+        self.assertEqual(snapshot.state['owned_roots'], ['node_modules'])
+        self.assertFalse((self.root / 'apps/web/node_modules').exists())
+
+    def test_only_x_refresh_can_build_snapshots(self):
+        for ref, workflow in [('refs/pull/1/merge', 'Cache Refresh'), ('refs/heads/x', 'Unit Tests')]:
+            with patch.dict(os.environ, {'GITHUB_REF': ref, 'GITHUB_WORKFLOW': workflow}):
+                with self.assertRaisesRegex(RuntimeError, 'Only Cache Refresh'):
+                    dependencies.Snapshot().build()
+
+
+@unittest.skipUnless(os.environ.get('CI_DEPENDENCY_INTEGRATION') == 'true',
+                     'Requires a disposable Linux runner with mount permissions')
+class SnapshotIntegrationTests(unittest.TestCase):
+    def test_real_overlay_incremental_patches_and_copy_free_republication(self):
+        repository = Path(__file__).resolve().parents[2]
+        with tempfile.TemporaryDirectory(prefix='dependency-integration-') as temporary:
+            directory = Path(temporary)
+            root = directory / 'checkout'
+            root.mkdir()
+            tools = directory / 'tools'
+            tools.mkdir()
+            # The same real Yarn afterInstall hook and patch-package CLI as the repo.
+            shutil.copy2(repository / '.yarn/plugins/@yarnpkg/plugin-after-install.cjs', tools / 'after-install.cjs')
+            package = {'name': 'snapshot-fixture', 'private': True, 'packageManager': 'yarn@4.12.0',
+                       'workspaces': ['apps/*'],
+                       'dependencies': {'isarray': '2.0.5', 'is-number': '7.0.0', 'is-odd': '3.0.1'},
+                       'scripts': {'postinstall': f'node {repository}/node_modules/patch-package/index.js --error-on-fail'}}
+            (root / 'package.json').write_text(json.dumps(package))
+            workspace = root / 'apps/web'
+            workspace.mkdir(parents=True)
+            (workspace / 'package.json').write_text(json.dumps({
+                'name': 'workspace-fixture', 'version': '1.0.0',
+                'dependencies': {'isarray': '1.0.0'},
+            }))
+            (root / '.yarnrc.yml').write_text(
+                f'yarnPath: {repository}/.yarn/releases/yarn-4.12.0.cjs\n'
+                f'nodeLinker: node-modules\nafterInstall: yarn postinstall\nplugins:\n  - path: {tools}/after-install.cjs\n')
+            (root / 'patches').mkdir()
+            subprocess.run(['git', 'init', '-q', str(root)], check=True)
+            subprocess.run(['yarn', 'install'], cwd=root, check=True,
+                           env={**os.environ, 'YARN_ENABLE_IMMUTABLE_INSTALLS': 'false'})
+            originals = {name: (root / 'node_modules' / name / 'index.js').read_bytes()
+                         for name in package['dependencies']}
+
+            def make_patch(name, marker):
+                work = directory / ('patch-' + marker)
+                target = work / 'node_modules' / name / 'index.js'
+                target.parent.mkdir(parents=True)
+                source = originals[name]
+                target.write_bytes(source)
+                subprocess.run(['git', 'init', '-q', str(work)], check=True)
+                subprocess.run(['git', 'add', '.'], cwd=work, check=True)
+                # Replace a code line so repeated postinstall applications are idempotent.
+                anchor = next(line for line in source.splitlines(True) if b'module.exports =' in line)
+                target.write_bytes(source.replace(anchor, anchor.rstrip(b'\n') + f' // {marker}\n'.encode(), 1))
+                data = subprocess.check_output(['git', 'diff', '--', 'node_modules'], cwd=work)
+                (root / 'patches' / f'{name}+{package["dependencies"][name]}.patch').write_bytes(data)
+
+            make_patch('isarray', 'OLD_REMOVED')
+            make_patch('is-number', 'OLD_CHANGED')
+            subprocess.run(['yarn', 'install', '--immutable'], cwd=root, check=True)
+            workspace_dependency = workspace / 'node_modules/isarray/index.js'
+            workspace_original = workspace_dependency.read_bytes()
+            workspace_dependency.write_bytes(workspace_original + b'\n// OLD_WORKSPACE_PATCH\n')
+            workspace_patch = workspace / 'patches/isarray+1.0.0.patch'
+            workspace_patch.parent.mkdir()
+            workspace_patch.write_text('workspace patch input')
+            subprocess.run(['git', 'add', 'package.json', '.yarnrc.yml', 'yarn.lock', 'patches',
+                            'apps/web/package.json', 'apps/web/patches'], cwd=root, check=True)
+            subprocess.run(['git', '-c', 'user.name=Fixture', '-c', 'user.email=fixture@example.invalid',
+                            'commit', '-qm', 'fixture'], cwd=root, check=True)
+            (root / 'node_modules/.cache').mkdir(exist_ok=True)
+            (root / 'node_modules/.cache/keep-in-checkout').write_text('job-specific')
+            environment = {'GITHUB_WORKSPACE': str(root), 'GITHUB_REF': 'refs/heads/x',
+                           'GITHUB_WORKFLOW': 'Cache Refresh', 'DEPENDENCY_SNAPSHOT_KEY': '',
+                           'GITHUB_OUTPUT': str(directory / 'output'),
+                           'GITHUB_STEP_SUMMARY': str(directory / 'summary')}
+            snapshots = []
+            with patch.dict(os.environ, environment):
+                try:
+                    def prepare(name):
+                        runner = directory / name
+                        runner.mkdir()
+                        os.environ['RUNNER_TEMP'] = str(runner)
+                        snapshot = dependencies.Snapshot()
+                        snapshot.prepare()
+                        snapshots.append(snapshot)
+                        return snapshot
+
+                    seed = prepare('seed')
+                    started = time.monotonic()
+                    seed.build()
+                    self.assertTrue((seed.cache / 'manifest.json').exists())
+                    self.assertEqual(seed.state['mounts'], [])
+                    self.assertEqual(list((seed.temp / 'stage/node_modules').iterdir()), [])
+                    self.assertTrue((root / 'node_modules/.cache/keep-in-checkout').exists())
+                    print(f'Integration seed build: {time.monotonic() - started:.2f}s', flush=True)
+                    shutil.rmtree(root / 'node_modules')
+                    shutil.rmtree(workspace / 'node_modules')
+                    (root / '.yarn/install-state.gz').unlink()
+                    (root / 'patches/isarray+2.0.5.patch').unlink()
+                    make_patch('is-number', 'NEW_CHANGED')
+                    make_patch('is-odd', 'NEW_ADDED')
+                    # Emulate a checkout of the target commit, including deleted tracked patches.
+                    subprocess.run(['git', 'add', '-A', 'patches'], cwd=root, check=True)
+                    updated = prepare('updated')
+                    self.assertEqual(seed.state['compatibility'], updated.state['compatibility'])
+                    self.assertNotEqual(seed.state['key'], updated.state['key'])
+                    shutil.copytree(seed.cache, updated.cache, dirs_exist_ok=True)
+                    os.environ['DEPENDENCY_SNAPSHOT_KEY'] = seed.state['key']
+                    updated.install()
+                    self.assertEqual(updated.state['snapshot_kind'], 'incremental')
+                    self.assertEqual(updated.state['reset_packages'], ['is-number', 'is-odd', 'isarray'])
+                    self.assertEqual((root / 'node_modules/isarray/index.js').read_bytes(), originals['isarray'])
+                    for name, marker in [('is-number', b'NEW_CHANGED'), ('is-odd', b'NEW_ADDED')]:
+                        data = (root / 'node_modules' / name / 'index.js').read_bytes()
+                        self.assertEqual(data.count(marker), 1)
+                        self.assertNotIn(b'OLD_CHANGED', data)
+                    self.assertFalse((root / 'node_modules/.cache/keep-in-checkout').exists())
+                    self.assertIn(b'OLD_WORKSPACE_PATCH', workspace_dependency.read_bytes())
+                    started = time.monotonic()
+                    updated.build()
+                    self.assertEqual(len(updated.state['mounts']), 3)
+                    self.assertEqual(list((updated.temp / 'stage/node_modules').iterdir()), [])
+                    print(f'Integration OverlayFS republish: {time.monotonic() - started:.2f}s', flush=True)
+                    updated.cleanup(remove=True)
+                    exact = prepare('exact')
+                    shutil.copytree(updated.cache, exact.cache, dirs_exist_ok=True)
+                    os.environ['DEPENDENCY_SNAPSHOT_KEY'] = updated.state['key']
+                    exact.install()
+                    self.assertEqual(exact.state['snapshot_kind'], 'exact')
+                    self.assertEqual((root / 'node_modules/isarray/index.js').read_bytes(), originals['isarray'])
+                    self.assertEqual((root / 'node_modules/is-number/index.js').read_bytes().count(b'NEW_CHANGED'), 1)
+                    exact.cleanup(remove=True)
+                    # A later x tree can remove workspace patches without changing
+                    # the legacy key, leaving an older patched workspace in the image.
+                    legacy_key = dependencies.fingerprint(root, seed.state['runtime'], ref='HEAD', legacy=True)
+                    workspace_patch.unlink()
+                    subprocess.run(['git', '-c', 'user.name=Fixture', '-c', 'user.email=fixture@example.invalid',
+                                    'commit', '-qm', 'remove workspace patch', '--only',
+                                    'apps/web/patches/isarray+1.0.0.patch'], cwd=root, check=True)
+                    self.assertEqual(legacy_key, dependencies.fingerprint(
+                        root, seed.state['runtime'], ref='HEAD', legacy=True))
+                    legacy = prepare('legacy')
+                    legacy.state['legacy'] = dependencies.legacy_snapshot(
+                        root, legacy.state['runtime'], legacy.state['compatibility'], 'HEAD')
+                    shutil.copytree(seed.cache, legacy.cache, dirs_exist_ok=True)
+                    # v1 used the same image layout, but its manifest had no runtime/patch metadata.
+                    manifest = json.loads((legacy.cache / 'manifest.json').read_text())
+                    manifest = {name: manifest[name] for name in ['roots', 'bytes', 'sha256']}
+                    manifest['key'] = legacy.state['legacy']['key']
+                    (legacy.cache / 'manifest.json').write_text(json.dumps(manifest))
+                    os.environ['DEPENDENCY_SNAPSHOT_KEY'] = manifest['key']
+                    legacy.install()
+                    self.assertEqual(legacy.state['snapshot_kind'], 'incremental')
+                    self.assertEqual(legacy.state['reset_packages'], ['is-number', 'is-odd', 'isarray'])
+                    self.assertEqual((root / 'node_modules/isarray/index.js').read_bytes(), originals['isarray'])
+                    self.assertEqual((root / 'node_modules/is-number/index.js').read_bytes().count(b'NEW_CHANGED'), 1)
+                    self.assertEqual((root / 'node_modules/is-odd/index.js').read_bytes().count(b'NEW_ADDED'), 1)
+                    self.assertEqual(workspace_dependency.read_bytes(), workspace_original)
+                    legacy.cleanup(remove=True)
+                    self.assertTrue(all(not snapshot.state['mounts'] for snapshot in snapshots))
+                finally:
+                    # Unmount before TemporaryDirectory can remove any fixture paths.
+                    for snapshot in reversed(snapshots):
+                        snapshot.cleanup()
+                        # OverlayFS creates root-owned work subdirectories even after unmount.
+                        for work in snapshot.temp.glob('work-*'):
+                            subprocess.run(['sudo', 'chown', '-R', f'{os.getuid()}:{os.getgid()}',
+                                            str(work)], check=True)
 
 
 if __name__ == '__main__':
