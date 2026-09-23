@@ -2,17 +2,14 @@ import { useCallback, useContext } from 'react';
 
 import { CollapsibleTabContext } from './CollapsibleTabContext';
 
+type IScrollTo = (params: { x: number; y: number; animated: boolean }) => void;
+
 // The pane refs are Reanimated `AnimatedRef`s; `.current` is the mounted
-// scrollable (Animated.ScrollView / FlatList / SectionList).
+// scrollable (Animated.ScrollView / FlatList / FlashList / SectionList).
 type IScrollableInstance = {
-  scrollTo?: (params: { x: number; y: number; animated: boolean }) => void;
+  scrollTo?: IScrollTo;
   scrollToOffset?: (params: { offset: number; animated: boolean }) => void;
-  scrollToLocation?: (params: {
-    sectionIndex: number;
-    itemIndex: number;
-    viewOffset?: number;
-    animated: boolean;
-  }) => void;
+  getScrollResponder?: () => { scrollTo?: IScrollTo } | null | undefined;
 };
 
 /**
@@ -37,9 +34,10 @@ export function useTabsScrollToTop(): () => void {
       return;
     }
     const { refMap, contentInset, scrollY } = context;
-    // On iOS the collapsible header lives in `contentInset`, so the pane's
-    // "top" is a negative offset; Android pads instead (inset 0).
-    const top = -(contentInset ?? 0);
+    // The patched container reserves the header space with content padding
+    // (`contentInset` is 0 on both platforms), so offset 0 is the expanded
+    // header; an inset, if one were set, would push the top below 0.
+    const top = contentInset ? -contentInset : 0;
     const names = Object.keys(refMap);
     // Inactive panes' scroll handlers are disabled, so the imperative scroll
     // below never reaches their saved offsets; a later tab switch would then
@@ -58,13 +56,14 @@ export function useTabsScrollToTop(): () => void {
           instance.scrollTo({ x: 0, y: top, animated: false });
         } else if (typeof instance.scrollToOffset === 'function') {
           instance.scrollToOffset({ offset: top, animated: false });
-        } else if (typeof instance.scrollToLocation === 'function') {
-          instance.scrollToLocation({
-            sectionIndex: 0,
-            itemIndex: 0,
-            viewOffset: -top,
-            animated: false,
-          });
+        } else {
+          // SectionList has neither method. Its `scrollToLocation` is no
+          // substitute: section 0's header sits below the header padding, so
+          // targeting it scrolls the pane to the fully collapsed position.
+          // Scroll the underlying ScrollView to the offset instead.
+          instance
+            .getScrollResponder?.()
+            ?.scrollTo?.({ x: 0, y: top, animated: false });
         }
       }
     }
