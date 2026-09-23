@@ -396,6 +396,20 @@ async function softRestartRenderer() {
   }
 }
 
+// The built-in `toggleDevTools` role targets the focused webContents, which
+// can be an embedded <webview> (even one in a hidden tab), so the main window
+// shortcut must target the main window explicitly.
+const toggleMainWindowDevTools = () => {
+  getSafelyMainWindow()?.webContents.toggleDevTools();
+};
+
+const toggleFocusedWebViewDevTools = () => {
+  const focused = electronWebContents.getFocusedWebContents();
+  if (focused?.getType() === 'webview') {
+    focused.toggleDevTools();
+  }
+};
+
 const initMenu = () => {
   const template = [
     {
@@ -498,13 +512,18 @@ const initMenu = () => {
           ? [
               { role: 'reload' },
               { role: 'forceReload' },
-              { role: 'toggleDevTools' },
-              isDevServer
-                ? {
-                    role: 'toggleDevTools',
-                    label: `Toggle DevTools: ${store.getDevTools().toString()}`,
-                  }
-                : null,
+              {
+                label: isDevServer
+                  ? `Toggle Developer Tools: ${store.getDevTools().toString()}`
+                  : 'Toggle Developer Tools',
+                accelerator: isMac ? 'Alt+Command+I' : 'Ctrl+Shift+I',
+                click: toggleMainWindowDevTools,
+              },
+              {
+                label: 'Toggle WebView Developer Tools',
+                accelerator: isMac ? 'Alt+Shift+Command+I' : 'Ctrl+Alt+Shift+I',
+                click: toggleFocusedWebViewDevTools,
+              },
               { type: 'separator' },
             ].filter(Boolean)
           : []),
