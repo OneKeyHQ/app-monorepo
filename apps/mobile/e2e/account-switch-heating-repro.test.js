@@ -304,37 +304,47 @@ async function tapUnifiedNetworkTab(testID, activatedTestID) {
     // EarlGrey can report clipped UIKit segment children as invisible while
     // XCTest sees the same accessibility identifier as hittable. Resolve its
     // current frame through XCTest instead of trusting a hidden Detox node.
-    const response = JSON.parse(
-      execFileSync(
-        'agent-device',
-        [
-          'get',
-          'attrs',
-          `id="${testID}"`,
-          '--session',
-          nativeSession,
-          '--platform',
-          'ios',
-          '--udid',
-          process.env.HEATING_REPRO_UDID,
-          '--session-lock',
-          'reject',
-          '--json',
-        ],
-        { encoding: 'utf8', timeout: 15_000 },
-      ),
-    );
-    const node = response?.data?.node;
-    const frame = node?.rect;
-    if (
-      response?.success !== true ||
-      node?.identifier !== testID ||
-      node?.hittable !== true ||
-      node?.enabled !== true ||
-      !(frame?.width > 0) ||
-      !(frame?.height > 0)
-    ) {
-      throw new Error('Native semantic tab is not currently hittable');
+    let nativeFrame;
+    try {
+      const response = JSON.parse(
+        execFileSync(
+          'agent-device',
+          [
+            'get',
+            'attrs',
+            `id="${testID}"`,
+            '--session',
+            nativeSession,
+            '--platform',
+            'ios',
+            '--udid',
+            process.env.HEATING_REPRO_UDID,
+            '--session-lock',
+            'reject',
+            '--json',
+          ],
+          { encoding: 'utf8', timeout: 15_000, stdio: 'pipe' },
+        ),
+      );
+      const node = response?.data?.node;
+      const frame = node?.rect;
+      if (
+        response?.success !== true ||
+        node?.identifier !== testID ||
+        node?.hittable !== true ||
+        node?.enabled !== true ||
+        !(frame?.width > 0) ||
+        !(frame?.height > 0)
+      ) {
+        throw new Error('Native semantic tab is not currently hittable');
+      }
+      nativeFrame = frame;
+    } catch {
+      recordInteraction('native-tab-frame-unavailable', {
+        semanticTarget: testID,
+        source:
+          'XCTest query or enabled/hittable semantic frame validation failed',
+      });
     }
     if (activatedTestID) {
       try {
@@ -345,24 +355,35 @@ async function tapUnifiedNetworkTab(testID, activatedTestID) {
         // Use the current semantic frame once when activation is still absent.
       }
     }
-    recordInteraction('tap-dispatched', {
-      semanticTarget: testID,
-      source: 'current XCTest hittable testID frame',
-    });
-    await device.tap({
-      x: Math.floor(frame.x + frame.width / 2),
-      y: Math.floor(frame.y + frame.height / 2),
-    });
-    recordInteraction('tap-completed', {
-      semanticTarget: testID,
-      source: 'Detox acknowledgement; not visual feedback',
-    });
-    return;
+    if (nativeFrame) {
+      recordInteraction('tap-dispatched', {
+        semanticTarget: testID,
+        source: 'current XCTest hittable testID frame',
+      });
+      await device.tap({
+        x: Math.floor(nativeFrame.x + nativeFrame.width / 2),
+        y: Math.floor(nativeFrame.y + nativeFrame.height / 2),
+      });
+      recordInteraction('tap-completed', {
+        semanticTarget: testID,
+        source: 'Detox acknowledgement; not visual feedback',
+      });
+      return;
+    }
   }
   const header = element(
     by.type('UINavigationBar').withDescendant(by.id(testID)),
   ).atIndex(0);
   await waitFor(header).toBeVisible().withTimeout(5000);
+  if (activatedTestID) {
+    try {
+      // Do not repeat the click if activation completed during ancestor lookup.
+      await expect(element(by.id(activatedTestID))).toExist();
+      return;
+    } catch {
+      // The fallback still requires visible frames from Detox below.
+    }
+  }
   await tapSemanticDescendantThroughAncestor(tab, header);
 }
 
