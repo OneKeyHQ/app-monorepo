@@ -48,6 +48,7 @@ import {
 } from './PerpLayoutSettings';
 import { PerpMenu } from './PerpMenu';
 import { PerpsActivityCenterContent } from './PerpsActivityCenterAction';
+import { showPerpSigningManagementDialog } from './PerpSigningManagement';
 
 const SETTINGS_PANEL_WIDTH = 360;
 
@@ -337,11 +338,13 @@ function PerpSettingsMainContent({
   showGuideEntry = false,
   onOpenActivityCenter,
   onOpenLayoutSettings,
+  onOpenSigningManagement,
   referralContent,
   showDevSettings = true,
   onOpenGuide,
 }: Omit<IPerpSettingsPopoverContentProps, 'closePopover'> & {
   onOpenLayoutSettings?: () => void;
+  onOpenSigningManagement: () => void;
   referralContent?: ReactNode;
   showDevSettings?: boolean;
 }) {
@@ -389,6 +392,19 @@ function PerpSettingsMainContent({
           }}
         />
       </ListItem>
+
+      {platformEnv.isDev ? (
+        <ListItem
+          mx="$0"
+          px="$3"
+          title="交易签名管理"
+          titleProps={{ size: '$bodyMdMedium' }}
+          onPress={onOpenSigningManagement}
+          testID="perp-signing-management"
+        >
+          <Icon name="ChevronRightOutline" size="$4" color="$iconSubdued" />
+        </ListItem>
+      ) : null}
 
       <SpotDustingOptOutSetting />
 
@@ -531,6 +547,9 @@ function PerpSettingsMenuContent({
       showGuideEntry={isPopover && showGuideEntry}
       showChartPositionSetting={isPopover && showChartPositionSetting}
       onOpenGuide={() => closeThenOpen(onOpenGuide ?? showGuide)}
+      onOpenSigningManagement={() =>
+        closeThenOpen(showPerpSigningManagementDialog)
+      }
       onOpenLayoutSettings={() =>
         closeThenOpen(() => {
           showPerpLayoutSettingsDialog({
