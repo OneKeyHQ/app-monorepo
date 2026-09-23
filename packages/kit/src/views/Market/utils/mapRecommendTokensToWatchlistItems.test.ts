@@ -4,6 +4,7 @@ import {
   copyRecommendListingIds,
   mapRecommendTokensToWatchlistItems,
   matchRecommendTokenAssetId,
+  pickResolvedRecommendItems,
 } from './mapRecommendTokensToWatchlistItems';
 
 const mockAssetList = jest.fn();
@@ -263,6 +264,62 @@ it('skips the top-coin scan when selected tokens have no symbols', async () => {
   ]);
   expect(mockAssetList).not.toHaveBeenCalled();
   expect(mockAssetDetail).not.toHaveBeenCalled();
+});
+
+it('reuses one in-flight top-coin resolution for the same tokens', async () => {
+  let resolveList: (value: {
+    list: Array<{ assetId: string; symbol: string }>;
+  }) => void = () => undefined;
+  mockAssetList.mockImplementation(
+    () =>
+      new Promise((resolve) => {
+        resolveList = resolve;
+      }),
+  );
+  mockAssetDetail.mockResolvedValue({
+    selectedVariant: {
+      networkId: 'btc--0',
+      tokenAddress: '',
+      isNative: true,
+    },
+    variants: [],
+  });
+
+  const first = mapRecommendTokensToWatchlistItems([btc]);
+  const second = mapRecommendTokensToWatchlistItems([btc]);
+  resolveList({ list: [{ assetId: 'btc', symbol: 'BTC' }] });
+
+  await expect(Promise.all([first, second])).resolves.toEqual([
+    [{ chainId: '', contractAddress: '', assetId: 'btc' }],
+    [{ chainId: '', contractAddress: '', assetId: 'btc' }],
+  ]);
+  expect(mockAssetList).toHaveBeenCalledTimes(1);
+});
+
+it('picks already resolved listings for the selected subset', () => {
+  const resolvedItems = [
+    { chainId: '', contractAddress: '', assetId: 'btc' },
+    {
+      chainId: aster.chainId,
+      contractAddress: aster.contractAddress,
+      isNative: false,
+    },
+  ];
+
+  expect(
+    pickResolvedRecommendItems({
+      tokens: [aster],
+      sourceTokens: [btc, aster],
+      resolvedItems,
+    }),
+  ).toEqual([resolvedItems[1]]);
+  expect(
+    pickResolvedRecommendItems({
+      tokens: [btc],
+      sourceTokens: [btc],
+      resolvedItems: undefined,
+    }),
+  ).toBeUndefined();
 });
 
 it('only resolves top coins whose symbol matches the selection', async () => {

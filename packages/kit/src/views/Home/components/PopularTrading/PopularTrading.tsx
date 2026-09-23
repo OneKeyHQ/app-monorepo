@@ -49,14 +49,19 @@ import {
   useNavigateToMarketTab,
   usePerpsNavigation,
 } from '../../../Market/hooks';
+import {
+  EMPTY_RECOMMEND_LISTING_TOKENS,
+  useRecommendListingResolution,
+} from '../../../Market/hooks/useRecommendListingResolution';
 import { CategorySelector } from '../../../Market/MarketHomeV2/components/CategorySelector';
 import { getNativeTokenInfo } from '../../../Market/MarketHomeV2/components/MarketTokenList/utils/tokenListHelpers';
 import { useMarketTopCoinResolver } from '../../../Market/MarketHomeV2/components/MarketTopCoinsList/hooks/useMarketTopCoins';
 import { EMarketHomeTab } from '../../../Market/MarketHomeV2/types';
-import { getRecommendTokenNetworkId } from '../../../Market/utils/getRecommendTokenNetworkId';
+import { getVisibleRecommendTokenNetworkId } from '../../../Market/utils/getRecommendTokenNetworkId';
 import {
   copyRecommendListingIds,
   mapRecommendTokensToWatchlistItems,
+  pickResolvedRecommendItems,
 } from '../../../Market/utils/mapRecommendTokensToWatchlistItems';
 import { openOrReplaceMarketDetailRoute } from '../../../Market/utils/marketDetailNavigation';
 import { orderSelectedRecommendTokens } from '../../../Market/utils/orderSelectedRecommendTokens';
@@ -96,11 +101,18 @@ function RecommendCardItem({
   token,
   checked,
   disabled = false,
+  listing,
+  listingResolved,
   onChange,
 }: {
   token: IFavoriteTokenDisplay;
   checked: boolean;
   disabled?: boolean;
+  listing?: {
+    assetId?: string;
+    stockId?: string;
+  };
+  listingResolved: boolean;
   onChange: (checked: boolean, tokenKey: string) => void;
 }) {
   const { sharedFrameStyles } = useMemo(
@@ -111,7 +123,11 @@ function RecommendCardItem({
       }),
     [disabled],
   );
-  const networkId = getRecommendTokenNetworkId(token);
+  const networkId = getVisibleRecommendTokenNetworkId({
+    token,
+    listing,
+    listingResolved,
+  });
 
   return (
     <XStack
@@ -224,6 +240,12 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
     [],
   );
   const [hasUserFavorites, setHasUserFavorites] = useState(false);
+  const resolvedRecommendListings = useRecommendListingResolution(
+    hasUserFavorites ? EMPTY_RECOMMEND_LISTING_TOKENS : favoriteTokens,
+  );
+  const recommendListingResolved =
+    resolvedRecommendListings !== undefined &&
+    resolvedRecommendListings.length === favoriteTokens.length;
   const [totalFavoritesCount, setTotalFavoritesCount] = useState(0);
   const [selectedTokens, setSelectedTokens] = useState<IFavoriteTokenDisplay[]>(
     [],
@@ -826,7 +848,11 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
         getTokenKey,
       );
       const mappedItems =
-        await mapRecommendTokensToWatchlistItems(orderedTokens);
+        pickResolvedRecommendItems({
+          tokens: orderedTokens,
+          sourceTokens: favoriteTokens,
+          resolvedItems: resolvedRecommendListings,
+        }) ?? (await mapRecommendTokensToWatchlistItems(orderedTokens));
       const sortIndexes = sortUtils.buildOrderedTopSortIndexes({
         oldList: [],
         count: mappedItems.length,
@@ -872,7 +898,13 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
       isAddingRef.current = false;
       setIsAdding(false);
     }
-  }, [favoriteTokens, selectedTokens, intl, refreshData]);
+  }, [
+    favoriteTokens,
+    selectedTokens,
+    intl,
+    refreshData,
+    resolvedRecommendListings,
+  ]);
 
   // Handle remove token from watchlist
   const handleRemoveFromWatchlist = useCallback(
@@ -1098,12 +1130,18 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
     const isTokenSelected = (token: IFavoriteTokenDisplay) =>
       selectedTokens.some((t) => getTokenKey(t) === getTokenKey(token));
 
-    const renderCardItem = (token: IFavoriteTokenDisplay) => (
+    const renderCardItem = (token: IFavoriteTokenDisplay, index: number) => (
       <RecommendCardItem
         key={getTokenKey(token)}
         token={token}
         checked={isTokenSelected(token)}
         disabled={isAdding}
+        listing={
+          recommendListingResolved
+            ? resolvedRecommendListings[index]
+            : undefined
+        }
+        listingResolved={recommendListingResolved}
         onChange={handleRecommendItemChange}
       />
     );
@@ -1115,7 +1153,9 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
             <XStack gap="$2.5" key={rowIndex}>
               {favoriteTokens
                 .slice(rowIndex * 2, rowIndex * 2 + 2)
-                .map(renderCardItem)}
+                .map((token, columnIndex) =>
+                  renderCardItem(token, rowIndex * 2 + columnIndex),
+                )}
             </XStack>
           ))}
         </YStack>
@@ -1124,7 +1164,7 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
 
     return (
       <XStack gap="$3" width="100%">
-        {favoriteTokens.map(renderCardItem)}
+        {favoriteTokens.map((token, index) => renderCardItem(token, index))}
       </XStack>
     );
   }, [
@@ -1133,6 +1173,8 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
     handleRecommendItemChange,
     shouldUseTableLayout,
     isAdding,
+    recommendListingResolved,
+    resolvedRecommendListings,
   ]);
 
   // Navigate to Market favorites tab

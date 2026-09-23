@@ -200,7 +200,21 @@ async function loadRecommendListingIdentities(
   return resolved.flat();
 }
 
-export async function mapRecommendTokensToWatchlistItems(
+function recommendListingRequestKey(tokens: IRecommendWatchlistInput[]) {
+  return tokens
+    .map(
+      (token) =>
+        `${token.chainId}\0${token.contractAddress}\0${token.symbol ?? ''}\0${token.assetId ?? ''}\0${token.stockId ?? ''}`,
+    )
+    .join('\n');
+}
+
+const recommendListingRequests = new Map<
+  string,
+  Promise<IRecommendWatchlistItem[]>
+>();
+
+async function resolveRecommendWatchlistItems(
   tokens: IRecommendWatchlistInput[],
 ): Promise<IRecommendWatchlistItem[]> {
   if (!tokens.length) {
@@ -222,4 +236,48 @@ export async function mapRecommendTokensToWatchlistItems(
   }
 
   return tokens.map((token) => toRecommendWatchlistItem({ token, listings }));
+}
+
+export async function mapRecommendTokensToWatchlistItems(
+  tokens: IRecommendWatchlistInput[],
+): Promise<IRecommendWatchlistItem[]> {
+  const requestKey = recommendListingRequestKey(tokens);
+  const currentRequest = recommendListingRequests.get(requestKey);
+  if (currentRequest) {
+    return currentRequest;
+  }
+  const request = resolveRecommendWatchlistItems(tokens).finally(() => {
+    recommendListingRequests.delete(requestKey);
+  });
+  recommendListingRequests.set(requestKey, request);
+  return request;
+}
+
+export function pickResolvedRecommendItems({
+  tokens,
+  sourceTokens,
+  resolvedItems,
+}: {
+  tokens: IRecommendWatchlistInput[];
+  sourceTokens: IRecommendWatchlistInput[];
+  resolvedItems: IRecommendWatchlistItem[] | undefined;
+}): IRecommendWatchlistItem[] | undefined {
+  if (!resolvedItems || resolvedItems.length !== sourceTokens.length) {
+    return undefined;
+  }
+  const byKey = new Map(
+    sourceTokens.map((token, index) => [
+      recommendListingRequestKey([token]),
+      resolvedItems[index],
+    ]),
+  );
+  const picked: IRecommendWatchlistItem[] = [];
+  for (const token of tokens) {
+    const item = byKey.get(recommendListingRequestKey([token]));
+    if (!item) {
+      return undefined;
+    }
+    picked.push(item);
+  }
+  return picked;
 }
