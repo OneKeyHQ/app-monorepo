@@ -58,7 +58,10 @@ type IEmailOtpSendAttempt = {
 
 export function PrimeLoginEmailCodeDialogV2(props: {
   active?: boolean;
-  developmentControls?: (disabled: boolean) => ReactNode;
+  developmentControls?: (
+    disabled: boolean,
+    authActionPending?: boolean,
+  ) => ReactNode;
   captchaConfig?: IEmailOtpCaptchaConfig;
   developmentConfigRevision?: number;
   sendCodeDisabled?: boolean;
@@ -327,6 +330,7 @@ export function PrimeLoginEmailCodeDialogV2(props: {
     if (
       isAuthActionInProgressRef.current ||
       isSubmittingVerificationCode ||
+      sendCodeDisabled ||
       !isCodeInputEnabled ||
       !isVerificationCodeValid ||
       state.status === 'done'
@@ -424,6 +428,7 @@ export function PrimeLoginEmailCodeDialogV2(props: {
   }, [
     onConfirm,
     isSubmittingVerificationCode,
+    sendCodeDisabled,
     isCodeInputEnabled,
     isMountedRef,
     isolatedTest,
@@ -467,6 +472,7 @@ export function PrimeLoginEmailCodeDialogV2(props: {
 
   const developmentPanel = developmentControls?.(
     (isResending && !isWaiting) || isSubmittingVerificationCode,
+    isResending || isSubmittingVerificationCode,
   );
   const otpAutoComplete = platformEnv.isNativeAndroid
     ? 'sms-otp'
@@ -588,6 +594,7 @@ export function PrimeLoginEmailCodeDialogV2(props: {
             !isVerificationCodeValid ||
             !isReady ||
             !isApiReady ||
+            sendCodeDisabled ||
             isResending ||
             state.status === 'done',
         }}

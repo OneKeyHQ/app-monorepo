@@ -99,6 +99,7 @@ function PrimeLoginEmailDialogV2(props: IPrimeLoginEmailDialogV2Props) {
 
   const devAuth = useEmailOtpDevTools({
     openCount: embedded ? debugPanelOpenCount : 0,
+    email: embeddedVerificationEmail ?? form.watch('email'),
     sendCode: originalSendCode,
     loginWithCode: originalLoginWithCode,
   });

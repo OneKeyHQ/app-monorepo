@@ -11,6 +11,8 @@ import {
   waitFor,
 } from '@testing-library/react';
 
+import { Toast } from '@onekeyhq/components';
+
 import { useEmailOtpDevTools } from './useEmailOtpDevTools';
 
 let mockDevSettingsEnabled = true;
@@ -42,17 +44,20 @@ jest.mock('@onekeyhq/components', () => {
     onPress,
     testID,
     variant,
+    disabled,
   }: {
     children?: ReactNode;
     onPress?: () => void;
     testID?: string;
     variant?: string;
+    disabled?: boolean;
   }) => (
     <button
       data-testid={testID}
       data-variant={variant}
       onClick={onPress}
       type="button"
+      disabled={disabled}
     >
       {children}
     </button>
@@ -99,6 +104,30 @@ jest.mock('@onekeyhq/components', () => {
       />
     ),
     XStack: Container,
+    Toast: { success: jest.fn(), error: jest.fn() },
+    Alert: ({
+      description,
+      action,
+    }: {
+      description: string;
+      action: {
+        primaryTestID: string;
+        isPrimaryDisabled: boolean;
+        onPrimaryPress: () => void;
+      };
+    }) => (
+      <div>
+        {description}
+        <button
+          type="button"
+          data-testid={action.primaryTestID}
+          disabled={action.isPrimaryDisabled}
+          onClick={action.onPrimaryPress}
+        >
+          Retry
+        </button>
+      </div>
+    ),
   };
 });
 
@@ -111,8 +140,40 @@ jest.mock(
   '@onekeyhq/kit/src/components/OneKeyAuth/supabase/requestEmailOtp',
   () => ({ requestEmailOtp: jest.fn() }),
 );
-jest.mock('@onekeyhq/kit/src/hooks/useIsMounted', () => ({
-  useIsMounted: () => ({ current: true }),
+jest.mock('@onekeyhq/kit/src/components/Captcha/CaptchaFrame', () => ({
+  __esModule: true,
+  default: ({
+    requestId,
+    onResult,
+  }: import('@onekeyhq/kit/src/components/Captcha/captchaMessage').ICaptchaFrameProps) => (
+    <div data-testid="reset-password-captcha" data-request-id={requestId}>
+      <button
+        type="button"
+        onClick={() =>
+          onResult({
+            type: 'onekey-test-captcha',
+            requestId,
+            status: 'success',
+            token: `token-${requestId}`,
+          })
+        }
+      >
+        Complete reset CAPTCHA
+      </button>
+      <button
+        type="button"
+        onClick={() =>
+          onResult({
+            type: 'onekey-test-captcha',
+            requestId,
+            status: 'load-error',
+          })
+        }
+      >
+        Fail reset CAPTCHA
+      </button>
+    </div>
+  ),
 }));
 jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
   __esModule: true,
@@ -157,19 +218,34 @@ jest.mock(
         projectUrl: 'https://prime.onekeytest.com/prime/v1/supabase-relay',
         publicKey: 'onekey-123-321-000-999-888',
       },
+      {
+        id: 'test-3',
+        label: 'Test3',
+        projectUrl: 'https://test-3.supabase.co',
+        publicKey: 'sb_publishable_fixture_test_3',
+      },
     ],
   }),
 );
 
-function Harness({ openCount }: { openCount: number }) {
+function Harness({
+  openCount,
+  email = 'test@example.com',
+  authActionPending = false,
+}: {
+  openCount: number;
+  email?: string;
+  authActionPending?: boolean;
+}) {
   const devAuth = useEmailOtpDevTools({
     openCount,
+    email,
     sendCode: mockSendCode,
     loginWithCode: mockLoginWithCode,
   });
   return (
     <>
-      {devAuth.renderControls()}
+      {devAuth.renderControls(false, authActionPending)}
       <button
         type="button"
         onClick={() => void devAuth.sendCode({ email: 'test@example.com' })}
@@ -277,7 +353,7 @@ describe('email OTP debug panel without a development build', () => {
     ).toBe('https://test.supabase.co');
   });
 
-  test.each(['production', 'test', 'test-2'])(
+  test.each(['production', 'test', 'test-2', 'test-3'])(
     'password mode forwards the exact password and CAPTCHA token to %s in an isolated session',
     async (project) => {
       const signInWithPassword = jest.fn().mockResolvedValue({
@@ -416,6 +492,11 @@ describe('email OTP debug panel without a development build', () => {
           url: 'https://prime.onekeytest.com/prime/v1/supabase-relay',
           key: 'onekey-123-321-000-999-888',
         },
+        {
+          id: 'test-3',
+          url: 'https://test-3.supabase.co',
+          key: 'sb_publishable_fixture_test_3',
+        },
       ];
       for (const project of projects) {
         if (selection === 'preset') {
@@ -510,4 +591,147 @@ describe('email OTP debug panel without a development build', () => {
     expect(mockSendCode).not.toHaveBeenCalled();
     expect(screen.getByTestId('test-project-active').textContent).toBe('true');
   });
+
+  test.each(['production', 'test', 'test-2', 'test-3'])(
+    'reset password uses %s, waits for CAPTCHA and never logs in',
+    async (project) => {
+      const resetPasswordForEmail = jest
+        .fn()
+        .mockResolvedValue({ error: null });
+      jest.mocked(createClient).mockReturnValue({
+        auth: { resetPasswordForEmail },
+      } as unknown as ReturnType<typeof createClient>);
+      render(<Harness openCount={1} />);
+      fireEvent.click(screen.getByTestId(`prime-otp-use-${project}`));
+      const button = screen.getByTestId<HTMLButtonElement>(
+        'prime-otp-reset-password',
+      );
+      fireEvent.click(button);
+      fireEvent.click(button);
+      expect(createClient).not.toHaveBeenCalled();
+      expect(button.disabled).toBe(true);
+      const requestId = screen
+        .getByTestId('reset-password-captcha')
+        .getAttribute('data-request-id');
+      await act(async () =>
+        fireEvent.click(screen.getByText('Complete reset CAPTCHA')),
+      );
+      expect(resetPasswordForEmail).toHaveBeenCalledTimes(1);
+      expect(resetPasswordForEmail).toHaveBeenCalledWith('test@example.com', {
+        captchaToken: `token-${requestId}`,
+      });
+      expect(createClient).toHaveBeenCalledWith(
+        project === 'test-2'
+          ? 'https://prime.onekeytest.com/prime/v1/supabase-relay'
+          : `https://${project}.supabase.co`,
+        expect.any(String),
+        expect.objectContaining({
+          auth: expect.objectContaining({
+            persistSession: false,
+            autoRefreshToken: false,
+            flowType: 'pkce',
+          }),
+        }),
+      );
+      expect(Toast.success).toHaveBeenCalledWith({
+        title: 'Password reset request accepted.',
+      });
+      expect(mockSendCode).not.toHaveBeenCalled();
+      expect(mockLoginWithCode).not.toHaveBeenCalled();
+      expect(button.disabled).toBe(false);
+    },
+  );
+
+  test('reset password without CAPTCHA exposes relay rejection and allows retry', async () => {
+    const resetPasswordForEmail = jest
+      .fn()
+      .mockResolvedValue({ error: new Error('Relay route is not allowed') });
+    jest.mocked(createClient).mockReturnValue({
+      auth: { resetPasswordForEmail },
+    } as unknown as ReturnType<typeof createClient>);
+    render(<Harness openCount={1} />);
+    fireEvent.click(screen.getByTestId('prime-otp-use-test-2'));
+    fireEvent.click(screen.getByTestId('prime-otp-client-captcha'));
+    await act(async () =>
+      fireEvent.click(screen.getByTestId('prime-otp-reset-password')),
+    );
+    expect(screen.queryByTestId('reset-password-captcha')).toBeNull();
+    expect(resetPasswordForEmail).toHaveBeenCalledWith('test@example.com', {});
+    expect(Toast.error).toHaveBeenCalledWith({
+      title: 'Relay route is not allowed',
+    });
+    expect(Toast.success).not.toHaveBeenCalled();
+    expect(
+      screen.getByTestId<HTMLButtonElement>('prime-otp-reset-password')
+        .disabled,
+    ).toBe(false);
+  });
+
+  test('reset CAPTCHA load failure retries with a new token before calling the API', async () => {
+    const resetPasswordForEmail = jest.fn().mockResolvedValue({ error: null });
+    jest.mocked(createClient).mockReturnValue({
+      auth: { resetPasswordForEmail },
+    } as unknown as ReturnType<typeof createClient>);
+    render(<Harness openCount={1} />);
+    fireEvent.click(screen.getByTestId('prime-otp-reset-password'));
+    const first = screen
+      .getByTestId('reset-password-captcha')
+      .getAttribute('data-request-id');
+    await act(async () =>
+      fireEvent.click(screen.getByText('Fail reset CAPTCHA')),
+    );
+    expect(resetPasswordForEmail).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByTestId('prime-otp-reset-password-retry'));
+    const second = screen
+      .getByTestId('reset-password-captcha')
+      .getAttribute('data-request-id');
+    expect(second).not.toBe(first);
+    await act(async () =>
+      fireEvent.click(screen.getByText('Complete reset CAPTCHA')),
+    );
+    expect(resetPasswordForEmail).toHaveBeenCalledWith('test@example.com', {
+      captchaToken: `token-${second}`,
+    });
+  });
+
+  test.each(['close panel', 'disable developer mode', 'change email'])(
+    '%s cancels a pending reset CAPTCHA without making an API request',
+    async (scenario) => {
+      const { rerender } = render(<Harness openCount={1} />);
+      fireEvent.click(screen.getByTestId('prime-otp-reset-password'));
+      expect(screen.getByTestId('reset-password-captcha')).toBeTruthy();
+      await act(async () => {
+        if (scenario === 'close panel')
+          fireEvent.click(screen.getByTestId('prime-otp-close-dev-controls'));
+        else if (scenario === 'disable developer mode') {
+          mockDevSettingsEnabled = false;
+          rerender(<Harness openCount={1} />);
+        } else rerender(<Harness openCount={1} email="changed@example.com" />);
+      });
+      expect(screen.queryByTestId('reset-password-captcha')).toBeNull();
+      expect(createClient).not.toHaveBeenCalled();
+      expect(Toast.error).not.toHaveBeenCalled();
+      expect(Toast.success).not.toHaveBeenCalled();
+    },
+  );
+
+  test.each(['invalid email', 'another auth action'])(
+    '%s prevents reset password requests',
+    (scenario) => {
+      render(
+        <Harness
+          openCount={1}
+          email={scenario === 'invalid email' ? '' : 'test@example.com'}
+          authActionPending={scenario === 'another auth action'}
+        />,
+      );
+      expect(
+        screen.getByTestId<HTMLButtonElement>('prime-otp-reset-password')
+          .disabled,
+      ).toBe(true);
+      fireEvent.click(screen.getByTestId('prime-otp-reset-password'));
+      expect(screen.queryByTestId('reset-password-captcha')).toBeNull();
+      expect(createClient).not.toHaveBeenCalled();
+    },
+  );
 });

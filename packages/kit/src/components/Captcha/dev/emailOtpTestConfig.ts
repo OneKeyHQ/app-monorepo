@@ -18,6 +18,12 @@ export const EMAIL_OTP_TEST_PROJECTS = [
     projectUrl: ONEKEY_ID_AUTH_CONFIG.test.projectUrl,
     publicKey: ONEKEY_ID_AUTH_CONFIG.test.publicKey,
   },
+  {
+    id: 'test-3',
+    label: 'Test3',
+    projectUrl: 'https://zvxscjkvkjepbrjncvzt.supabase.co',
+    publicKey: 'sb_publishable_ryfw0-h47JC2lHFRB2yrjw_iS_1KPgW',
+  },
 ] as const;
 
 export const EMAIL_OTP_TEST_CONFIG: {

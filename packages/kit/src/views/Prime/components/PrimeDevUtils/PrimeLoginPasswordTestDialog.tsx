@@ -50,7 +50,10 @@ export function PrimeLoginPasswordTestDialog({
   }) => Promise<void>;
   onLoginSuccess: () => void | Promise<void>;
   onChooseAnotherSignInMethod: () => void | Promise<void>;
-  developmentControls: (disabled: boolean) => ReactNode;
+  developmentControls: (
+    disabled: boolean,
+    authActionPending?: boolean,
+  ) => ReactNode;
 }) {
   const intl = useIntl();
   const mounted = useIsMounted();
@@ -213,7 +216,7 @@ export function PrimeLoginPasswordTestDialog({
               </Button>
             </XStack>
             <Stack px="$5" pb="$5">
-              {developmentControls(requestInFlight)}
+              {developmentControls(requestInFlight, submitting)}
             </Stack>
           </>
         }

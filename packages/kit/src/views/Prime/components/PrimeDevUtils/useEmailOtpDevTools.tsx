@@ -27,6 +27,8 @@ import {
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 
+import { PrimeResetPasswordTest } from './PrimeResetPasswordTest';
+
 import type { Session, SupabaseClient } from '@supabase/supabase-js';
 
 type IDevConfig = {
@@ -128,10 +130,12 @@ function getConfigError(config: IDevConfig): string | undefined {
 
 export function useEmailOtpDevTools({
   openCount,
+  email,
   sendCode: originalSendCode,
   loginWithCode: originalLoginWithCode,
 }: {
   openCount: number;
+  email: string;
   sendCode: (args: { email: string; captchaToken?: string }) => Promise<void>;
   loginWithCode: (args: { email: string; code: string }) => Promise<void>;
 }) {
@@ -151,6 +155,10 @@ export function useEmailOtpDevTools({
   const [closedAtOpenCount, setClosedAtOpenCount] = useState(0);
   const [busy, setBusy] = useState(false);
   const busyRef = useRef(false);
+  const onResetBusyChange = useCallback((value: boolean) => {
+    busyRef.current = value;
+    setBusy(value);
+  }, []);
   const isTestProject =
     available &&
     (!isProductionProject(config.projectUrl) ||
@@ -166,11 +174,7 @@ export function useEmailOtpDevTools({
   };
 
   const createIsolatedClient = useCallback(() => {
-    if (
-      !available ||
-      (!isTestProject && !isPasswordLogin) ||
-      getConfigError(config)
-    ) {
+    if (!available || getConfigError(config)) {
       throw new OneKeyLocalError(
         'Invalid isolated Supabase test configuration.',
       );
@@ -184,7 +188,7 @@ export function useEmailOtpDevTools({
         storageKey: `onekey-id-dialog-test-${generateUUID()}`,
       },
     });
-  }, [available, config, isPasswordLogin, isTestProject]);
+  }, [available, config]);
 
   const sendCode = useCallback(
     async (args: { email: string; captchaToken?: string }) => {
@@ -280,7 +284,7 @@ export function useEmailOtpDevTools({
     [createIsolatedClient, isPasswordLogin, mounted],
   );
 
-  const renderControls = (disabled = false) =>
+  const renderControls = (disabled = false, authActionPending = disabled) =>
     available && closedAtOpenCount !== openCount ? (
       <Stack
         gap="$2"
@@ -402,6 +406,17 @@ export function useEmailOtpDevTools({
             {configError}
           </SizableText>
         ) : null}
+        <PrimeResetPasswordTest
+          email={email.trim()}
+          captchaConfig={{
+            enabled: config.captchaEnabled,
+            pageUrl: config.captchaPageUrl,
+          }}
+          revision={revision}
+          disabled={busy || authActionPending || !!configError}
+          createClient={createIsolatedClient}
+          onBusyChange={onResetBusyChange}
+        />
       </Stack>
     ) : null;
 

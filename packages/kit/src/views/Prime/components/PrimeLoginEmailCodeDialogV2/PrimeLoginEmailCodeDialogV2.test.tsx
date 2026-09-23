@@ -581,7 +581,7 @@ describe('PrimeLoginEmailCodeDialogV2', () => {
     const challenge = await screen.findByText('Complete provider verification');
     expect(screen.queryByText(ETranslations.prime_sent_to)).toBeNull();
     expect(screen.getByText(props.email)).toBeTruthy();
-    expect(controls).toHaveBeenLastCalledWith(false);
+    expect(controls).toHaveBeenLastCalledWith(false, true);
     const back = screen.getByRole('button', {
       name: ETranslations.choose_another_sign_in_method__action,
     });
