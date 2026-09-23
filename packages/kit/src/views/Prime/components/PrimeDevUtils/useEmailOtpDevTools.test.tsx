@@ -128,8 +128,8 @@ jest.mock('@onekeyhq/shared/src/consts/authConsts', () => ({
       captcha: { enabled: true, pageUrl: 'https://login.onekey.so/captcha' },
     },
     test: {
-      projectUrl: 'https://test-2.supabase.co',
-      publicKey: 'sb_publishable_fixture_test_2',
+      projectUrl: 'https://prime.onekeytest.com/prime/v1/supabase-relay',
+      publicKey: 'onekey-123-321-000-999-888',
       captcha: {
         enabled: true,
         pageUrl: 'https://login.onekeytest.com/captcha',
@@ -154,8 +154,8 @@ jest.mock(
       {
         id: 'test-2',
         label: 'Test2',
-        projectUrl: 'https://test-2.supabase.co',
-        publicKey: 'sb_publishable_fixture_test_2',
+        projectUrl: 'https://prime.onekeytest.com/prime/v1/supabase-relay',
+        publicKey: 'onekey-123-321-000-999-888',
       },
     ],
   }),
@@ -313,8 +313,12 @@ describe('email OTP debug panel without a development build', () => {
       });
       expect(getUser).toHaveBeenCalledWith('fixture-session');
       expect(createClient).toHaveBeenCalledWith(
-        `https://${project}.supabase.co`,
-        expect.any(String),
+        project === 'test-2'
+          ? 'https://prime.onekeytest.com/prime/v1/supabase-relay'
+          : `https://${project}.supabase.co`,
+        project === 'test-2'
+          ? 'onekey-123-321-000-999-888'
+          : expect.any(String),
         expect.objectContaining({
           auth: expect.objectContaining({
             persistSession: false,
@@ -409,8 +413,8 @@ describe('email OTP debug panel without a development build', () => {
         },
         {
           id: 'test-2',
-          url: 'https://test-2.supabase.co',
-          key: 'sb_publishable_fixture_test_2',
+          url: 'https://prime.onekeytest.com/prime/v1/supabase-relay',
+          key: 'onekey-123-321-000-999-888',
         },
       ];
       for (const project of projects) {
@@ -468,11 +472,29 @@ describe('email OTP debug panel without a development build', () => {
     render(<Harness openCount={1} />);
     expect(
       screen.getByTestId('prime-otp-supabase-url').getAttribute('value'),
-    ).toBe('https://test-2.supabase.co');
+    ).toBe('https://prime.onekeytest.com/prime/v1/supabase-relay');
     expect(screen.getByTestId('prime-otp-captcha-page-url').textContent).toBe(
       'https://login.onekeytest.com/captcha',
     );
     expect(screen.getByTestId('captcha-override').textContent).toBe('true');
+  });
+
+  test.each([
+    'https://prime.onekeytest.com',
+    'https://prime.onekeytest.com/prime/v1/other',
+    'https://prime.onekeytest.com/prime/v1/supabase-relay?redirect=1',
+  ])('rejects unconfigured relay URL %s', async (url) => {
+    render(<Harness openCount={1} />);
+    fireEvent.click(screen.getByTestId('prime-otp-use-test-2'));
+    fireEvent.click(screen.getByTestId('prime-otp-password-login'));
+    fireEvent.change(screen.getByTestId('prime-otp-supabase-url'), {
+      target: { value: url },
+    });
+    await act(async () =>
+      fireEvent.click(screen.getByText('Sign in with test password')),
+    );
+    expect(mockPasswordFailure).toHaveBeenCalledTimes(1);
+    expect(createClient).not.toHaveBeenCalled();
   });
 
   test('production debug selection on the test node uses an isolated production client', async () => {

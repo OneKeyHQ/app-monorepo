@@ -71,21 +71,19 @@ export default function EmailOtpCaptchaTest() {
     const url = new URL(projectUrl.trim());
     if (
       url.protocol !== 'https:' ||
-      !url.hostname.endsWith('.supabase.co') ||
       url.origin === new URL(SUPABASE_PROJECT_URL).origin ||
-      url.origin !== EMAIL_OTP_TEST_CONFIG.projectUrl ||
-      url.pathname !== '/' ||
+      url.href.replace(/\/$/, '') !== EMAIL_OTP_TEST_CONFIG.projectUrl ||
       url.search ||
       url.hash ||
       url.username ||
       url.password ||
       url.port ||
-      !publicKey.trim().startsWith('sb_publishable_')
+      !publicKey.trim()
     ) {
       throw new OneKeyLocalError('Invalid test configuration');
     }
     // This sandbox never reads or writes the app's main/bg auth storage.
-    return createClient(url.origin, publicKey.trim(), {
+    return createClient(url.href, publicKey.trim(), {
       auth: {
         flowType: 'pkce',
         persistSession: false,

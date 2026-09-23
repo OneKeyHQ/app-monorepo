@@ -33,9 +33,15 @@ describe('OneKey ID environment selection', () => {
       );
       expect(new URL(config.projectUrl).hostname).toBe(
         environment === 'test'
-          ? 'zvxscjkvkjepbrjncvzt.supabase.co'
+          ? 'prime.onekeytest.com'
           : 'bwgpgzbzdgkisozswlck.supabase.co',
       );
+      if (environment === 'test') {
+        expect(new URL(config.projectUrl).pathname).toBe(
+          '/prime/v1/supabase-relay',
+        );
+        expect(config.publicKey).toBe('onekey-123-321-000-999-888');
+      }
     },
   );
 

@@ -1,3 +1,6 @@
+import { EServiceEndpointEnum } from '../../types/endpoint';
+import { buildServiceEndpoint } from '../config/appConfig';
+
 const _IS_DEV = process.env.NODE_ENV !== 'production';
 
 /**
@@ -224,8 +227,8 @@ export const ONEKEY_ID_AUTH_CONFIG = {
     captcha: EMAIL_OTP_CAPTCHA_CONFIG,
   },
   test: {
-    projectUrl: 'https://zvxscjkvkjepbrjncvzt.supabase.co',
-    publicKey: 'sb_publishable_ryfw0-h47JC2lHFRB2yrjw_iS_1KPgW',
+    projectUrl: `${buildServiceEndpoint({ serviceName: EServiceEndpointEnum.Prime, env: 'test' })}/prime/v1/supabase-relay`,
+    publicKey: 'onekey-123-321-000-999-888',
     captcha: {
       enabled: true,
       pageUrl: 'https://login.onekeytest.com/captcha',

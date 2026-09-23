@@ -90,10 +90,11 @@ function isDirectSupabaseUrl(projectUrl: string): boolean {
 
 function getProjectPublicKey(projectUrl: string): string {
   try {
-    const { origin } = new URL(projectUrl);
+    const normalizedUrl = new URL(projectUrl).href.replace(/\/$/, '');
     return (
-      SUPABASE_PROJECT_OPTIONS.find((project) => project.projectUrl === origin)
-        ?.publicKey ?? ''
+      SUPABASE_PROJECT_OPTIONS.find(
+        (project) => project.projectUrl === normalizedUrl,
+      )?.publicKey ?? ''
     );
   } catch {
     return '';
@@ -105,17 +106,18 @@ function getConfigError(config: IDevConfig): string | undefined {
     const url = new URL(config.projectUrl);
     if (
       url.protocol !== 'https:' ||
-      !url.hostname.endsWith('.supabase.co') ||
-      url.pathname !== '/' ||
       url.search ||
       url.hash ||
       url.username ||
       url.password ||
       url.port
     ) {
-      return 'Enter a hosted Supabase HTTPS project URL.';
+      return 'Enter a configured HTTPS authentication URL.';
     }
-    if (!config.publicKey.startsWith('sb_publishable_')) {
+    if (
+      !config.publicKey ||
+      config.publicKey !== getProjectPublicKey(config.projectUrl)
+    ) {
       return 'Select a configured Supabase project.';
     }
   } catch {
