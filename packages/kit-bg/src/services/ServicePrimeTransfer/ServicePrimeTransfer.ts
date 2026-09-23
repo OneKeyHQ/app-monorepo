@@ -1498,31 +1498,15 @@ class ServicePrimeTransfer extends ServiceBase {
     return task.taskId;
   }
 
-  @backgroundMethod()
-  async authorizeTransferPreparation({
-    taskId,
-    walletIds,
+  private async authorizeTransferPreparation({
+    task,
+    requiresPassword,
   }: {
-    taskId: string;
-    walletIds?: string[];
+    task: PrimeTransferPreparation;
+    requiresPassword: boolean;
   }) {
-    const task = this.getPreparationTask(taskId, false);
-    if (!task) throw new OneKeyLocalError('Transfer cancelled');
-    if (this.preparationAuthorized) return;
-    // Inspect wallet metadata only; account preparation and credential reads
-    // still wait for authorization. Watch-only/empty exports need no password.
-    const { wallets } = await this.backgroundApi.serviceAccount.getWallets();
     task.assertActive();
-    const requiresPassword = filterTransferWallets({ wallets, walletIds }).some(
-      (wallet) =>
-        wallet.type === WALLET_TYPE_HD ||
-        (wallet.type === WALLET_TYPE_IMPORTED && wallet.accounts.length > 0),
-    );
-    if (requiresPassword) {
-      const isPasswordSet =
-        await this.backgroundApi.servicePassword.checkPasswordSet();
-      task.assertActive();
-      if (!isPasswordSet) throw new OneKeyLocalError('Password is required');
+    if (requiresPassword && !this.preparationPassword) {
       const { password } =
         await this.backgroundApi.servicePassword.promptPasswordVerify({
           reason: EReasonForNeedPassword.Security,
@@ -1555,7 +1539,7 @@ class ServicePrimeTransfer extends ServiceBase {
     walletIds?: string[];
     preparationTaskId?: string;
   } = {}): Promise<IPrimeTransferData> {
-    const preparation = this.getPreparationTask(preparationTaskId);
+    const preparation = this.getPreparationTask(preparationTaskId, false);
     const { serviceAccount, serviceNetwork: _serviceNetwork } =
       this.backgroundApi;
 
@@ -1734,6 +1718,53 @@ class ServicePrimeTransfer extends ServiceBase {
       };
     };
 
+    let preparedCredentials:
+      | Awaited<ReturnType<typeof this.buildScopedTransferCredentials>>
+      | undefined;
+    if (preparation) {
+      // Determine password requirements from the same export scope and pruning
+      // as the payload, rather than potentially stale wallet.accounts metadata.
+      // Only encrypted credentials are read here; expensive account preparation
+      // and decryption wait for the existing password service to authorize them.
+      const credentialScope: IPrimeTransferPrivateData = {
+        ...privateBackupData,
+        wallets: { ...privateBackupData.wallets },
+        importedAccounts: {},
+      };
+      for (const account of allAccounts) {
+        const { walletId } = accountUtils.parseAccountId({
+          accountId: account.id,
+        });
+        if (
+          walletId &&
+          walletAccountMap[walletId]?.type === WALLET_TYPE_IMPORTED
+        ) {
+          credentialScope.importedAccounts[account.id] =
+            watchingOrImportedAccountToTransferAccount({
+              account,
+              networkAccount: {
+                networkAccount: undefined,
+                address: account.address,
+              },
+            });
+        }
+      }
+      preparedCredentials = await this.buildScopedTransferCredentials({
+        privateBackupData: credentialScope,
+      });
+      preparation.assertActive();
+      collectAndPruneUnavailableTransferCredentials({
+        privateData: credentialScope,
+        unavailableCredentialIds: preparedCredentials.unavailableCredentialIds,
+      });
+      await this.authorizeTransferPreparation({
+        task: preparation,
+        requiresPassword:
+          Object.keys(credentialScope.wallets).length > 0 ||
+          Object.keys(credentialScope.importedAccounts).length > 0,
+      });
+    }
+
     let completedAccounts = 0;
     for (const account of allAccounts) {
       await preparation?.update(
@@ -1835,16 +1866,6 @@ class ServicePrimeTransfer extends ServiceBase {
     }
 
     await preparation?.update('accounts');
-    // Wallets may change after metadata authorization. Never read newly added
-    // private credentials under a watch-only authorization.
-    if (
-      preparation &&
-      !this.preparationPassword &&
-      (Object.keys(privateBackupData.wallets).length > 0 ||
-        Object.keys(privateBackupData.importedAccounts).length > 0)
-    ) {
-      throw new OneKeyLocalError('Transfer password verification is required');
-    }
     // Always collect credentials scoped to the payload we actually built
     // (privateBackupData), for BOTH full and scoped transfers. dumpCredentials()
     // reads every credential in the DB, including wallets that
@@ -1856,10 +1877,11 @@ class ServicePrimeTransfer extends ServiceBase {
     // Scoping keeps unavailableCredentialIds limited to credentials that
     // actually enter the payload.
     const { credentials: builtCredentials, unavailableCredentialIds } =
-      await this.buildScopedTransferCredentials({
+      preparedCredentials ??
+      (await this.buildScopedTransferCredentials({
         privateBackupData,
         preparation,
-      });
+      }));
     privateBackupData.credentials = builtCredentials;
     await preparation?.update('credentials');
 

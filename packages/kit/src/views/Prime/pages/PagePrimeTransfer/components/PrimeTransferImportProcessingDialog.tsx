@@ -427,6 +427,7 @@ export function showPrimeTransferImportProcessingDialog({
 }) {
   return Dialog.show({
     ...primeTransferProgressDialogProps,
+    showExitButton: !!platformEnv.isDev,
     renderContent: (
       <PrimeTransferImportProcessingDialogContent
         navigation={navigation}
