@@ -108,7 +108,10 @@ export async function prewarmHomeTokenListOwner(
   ) {
     return true;
   }
-  const pending = inFlight.get(key);
+  // A currency switch mid-prewarm must not join the old currency's request:
+  // its frames would be rejected by the replay in the new currency.
+  const inFlightKey = `${key}\u0000${params.currencyId ?? ''}`;
+  const pending = inFlight.get(inFlightKey);
   if (pending) {
     return pending;
   }
@@ -141,9 +144,13 @@ export async function prewarmHomeTokenListOwner(
           currency: worth.currency,
         });
       }
+      // The background answers in its own settings currency; frames in any
+      // other currency than the caller replays in are not a warm owner.
+      const inReplayCurrency =
+        !params.currencyId || currency === params.currencyId;
       const storeName = HOME_STORE_NAME;
       if (hasFramesForReplay({ ownerKey, currencyId: currency })) {
-        return true;
+        return inReplayCurrency;
       }
       rememberOwnerReplayFrame({
         storeName,
@@ -183,14 +190,14 @@ export async function prewarmHomeTokenListOwner(
           currencyId: currency,
         });
       }
-      return true;
+      return inReplayCurrency;
     } catch {
       return false;
     } finally {
-      inFlight.delete(key);
+      inFlight.delete(inFlightKey);
     }
   })();
-  inFlight.set(key, run);
+  inFlight.set(inFlightKey, run);
   return run;
 }
 

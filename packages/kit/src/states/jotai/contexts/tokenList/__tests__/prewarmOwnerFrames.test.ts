@@ -191,4 +191,34 @@ describe('prewarmHomeTokenListOwner', () => {
         ?.currencyId,
     ).toBe('cny');
   });
+
+  // PR #13695 review: a currency switch while a prewarm is in flight joined
+  // the old currency's request and reported success for frames the replay
+  // rejects in the new currency.
+  it('does not share an in-flight request across currencies', async () => {
+    let resolveUsd: (value: unknown) => void = () => undefined;
+    mockPrewarmFrames.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          resolveUsd = resolve;
+        }),
+    );
+    mockPrewarmFrames.mockResolvedValueOnce({
+      ...makeBgResult(),
+      currency: 'cny',
+    });
+    const usd = prewarmHomeTokenListOwner({ ...PARAMS, currencyId: 'usd' });
+    const cny = prewarmHomeTokenListOwner({ ...PARAMS, currencyId: 'cny' });
+    expect(mockPrewarmFrames).toHaveBeenCalledTimes(2);
+    await expect(cny).resolves.toBe(true);
+    resolveUsd(makeBgResult());
+    await expect(usd).resolves.toBe(true);
+  });
+
+  it('reports false when the background answers in another currency than the caller replays in', async () => {
+    mockPrewarmFrames.mockResolvedValue(makeBgResult());
+    await expect(
+      prewarmHomeTokenListOwner({ ...PARAMS, currencyId: 'cny' }),
+    ).resolves.toBe(false);
+  });
 });

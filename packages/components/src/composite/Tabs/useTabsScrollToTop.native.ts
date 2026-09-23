@@ -17,7 +17,8 @@ type IScrollableInstance = {
 
 /**
  * Scroll every pane of the enclosing `Tabs.Container` back to the top without
- * animation, which also re-expands the collapsible header. Must be called from
+ * animation, which also re-expands the collapsible header, and drop the saved
+ * per-pane offsets the container restores on a tab switch. Must be called from
  * inside the container (a `Tabs.Tab` subtree) so the pane refs are in scope.
  *
  * Used when the content under the tabs is replaced wholesale (home account
@@ -35,11 +36,19 @@ export function useTabsScrollToTop(): () => void {
     if (!context) {
       return;
     }
-    const { refMap, contentInset } = context;
+    const { refMap, contentInset, scrollY } = context;
     // On iOS the collapsible header lives in `contentInset`, so the pane's
     // "top" is a negative offset; Android pads instead (inset 0).
     const top = -(contentInset ?? 0);
-    for (const name of Object.keys(refMap)) {
+    const names = Object.keys(refMap);
+    // Inactive panes' scroll handlers are disabled, so the imperative scroll
+    // below never reaches their saved offsets; a later tab switch would then
+    // restore the previous content's position. The saved offsets are
+    // inset-adjusted, so the top is 0 on both platforms.
+    if (scrollY) {
+      scrollY.value = Object.fromEntries(names.map((name) => [name, 0]));
+    }
+    for (const name of names) {
       const instance = refMap[name]?.current as
         | IScrollableInstance
         | null

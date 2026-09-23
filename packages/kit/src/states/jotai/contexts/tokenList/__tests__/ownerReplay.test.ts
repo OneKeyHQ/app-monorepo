@@ -376,16 +376,21 @@ describe('ownerFrameReplayCache — bounded per-owner LRU', () => {
     ).toBeUndefined();
   });
 
-  it('a currency change drops the owner previously remembered frames instead of merging', () => {
+  // PR #13695 review: the background pushes no structure frame when a
+  // currency switch leaves the order and the small-balance scalar unchanged,
+  // so dropping the structure on the valuation-only round left the owner with
+  // nothing to replay until an unrelated structure change.
+  it('a currency change drops the previous valuation and risky frames but keeps the structure', () => {
+    const structurePush: IStructurePush = {
+      ownerKey: OWNER_A,
+      structureVersion: 0,
+      structure: makeStructure(),
+    };
     rememberOwnerReplayFrame({
       storeName: STORE_NAME,
       ownerKey: OWNER_A,
       kind: 'structure',
-      payload: {
-        ownerKey: OWNER_A,
-        structureVersion: 0,
-        structure: makeStructure(),
-      },
+      payload: structurePush,
       currencyId: 'usd',
     });
     rememberOwnerReplayFrame({
@@ -397,6 +402,30 @@ describe('ownerFrameReplayCache — bounded per-owner LRU', () => {
         valuationVersion: 0,
         valuation: makeValuation(),
       },
+      currencyId: 'usd',
+    });
+    rememberOwnerReplayFrame({
+      storeName: STORE_NAME,
+      ownerKey: OWNER_A,
+      kind: 'risky',
+      payload: {
+        ownerKey: OWNER_A,
+        riskyVersion: 0,
+        riskyTokens: [],
+        riskyMap: {},
+      },
+      currencyId: 'usd',
+    });
+    const cnyValuation: IValuationPush = {
+      ownerKey: OWNER_A,
+      valuationVersion: 1,
+      valuation: makeValuation(),
+    };
+    rememberOwnerReplayFrame({
+      storeName: STORE_NAME,
+      ownerKey: OWNER_A,
+      kind: 'valuation',
+      payload: cnyValuation,
       currencyId: 'cny',
     });
     const frames = getOwnerReplayFrames({
@@ -404,8 +433,42 @@ describe('ownerFrameReplayCache — bounded per-owner LRU', () => {
       ownerKey: OWNER_A,
     });
     expect(frames?.currencyId).toBe('cny');
-    expect(frames?.structure).toBeUndefined();
-    expect(frames?.valuation).toBeDefined();
+    expect(frames?.structure).toBe(structurePush);
+    expect(frames?.valuation).toBe(cnyValuation);
+    expect(frames?.risky).toBeUndefined();
+  });
+
+  it('a new-currency structure frame replaces the structure and drops the old valuation', () => {
+    rememberOwnerReplayFrame({
+      storeName: STORE_NAME,
+      ownerKey: OWNER_A,
+      kind: 'valuation',
+      payload: {
+        ownerKey: OWNER_A,
+        valuationVersion: 0,
+        valuation: makeValuation(),
+      },
+      currencyId: 'usd',
+    });
+    const cnyStructure: IStructurePush = {
+      ownerKey: OWNER_A,
+      structureVersion: 1,
+      structure: makeStructure(),
+    };
+    rememberOwnerReplayFrame({
+      storeName: STORE_NAME,
+      ownerKey: OWNER_A,
+      kind: 'structure',
+      payload: cnyStructure,
+      currencyId: 'cny',
+    });
+    const frames = getOwnerReplayFrames({
+      storeName: STORE_NAME,
+      ownerKey: OWNER_A,
+    });
+    expect(frames?.currencyId).toBe('cny');
+    expect(frames?.structure).toBe(cnyStructure);
+    expect(frames?.valuation).toBeUndefined();
   });
 
   it('is scoped by storeName (home vs urlAccount never share an entry)', () => {

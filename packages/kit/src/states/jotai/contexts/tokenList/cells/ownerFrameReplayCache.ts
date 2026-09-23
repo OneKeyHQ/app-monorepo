@@ -77,9 +77,11 @@ function buildReplayKey(storeName: string, ownerKey: string): string {
 
 /**
  * Record the payload the shell just applied for `(storeName, ownerKey, kind)`.
- * A currency change invalidates the owner's previously remembered frames (the
- * fiat values would be in a stale currency), so the entry is rebuilt from
- * scratch instead of merged.
+ * A currency change drops the owner's remembered valuation and risky frames
+ * (their fiat values are in the old currency) but keeps the structure: the
+ * background re-emits a structure frame whenever the order or the small-balance
+ * fiat scalar changes, so a new-currency round that pushes only a valuation
+ * means the remembered structure still holds.
  */
 export function rememberOwnerReplayFrame<K extends IOwnerReplayFrameKind>({
   storeName,
@@ -101,8 +103,12 @@ export function rememberOwnerReplayFrame<K extends IOwnerReplayFrameKind>({
   const existing = replayCache.get(key);
   // Re-insert on every touch so the Map order stays LRU.
   replayCache.delete(key);
-  const base: IOwnerReplayFrames =
-    existing && existing.currencyId === currencyId ? existing : { currencyId };
+  let base: IOwnerReplayFrames = { currencyId };
+  if (existing?.currencyId === currencyId) {
+    base = existing;
+  } else if (existing?.structure) {
+    base = { currencyId, structure: existing.structure };
+  }
   const next: IOwnerReplayFrames = { ...base, [kind]: payload };
   replayCache.set(key, next);
   while (replayCache.size > OWNER_REPLAY_CACHE_CAP) {
