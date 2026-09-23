@@ -2467,6 +2467,9 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
     });
     const hardwareConnectId =
       desktopBleExecution?.bleConnectId ?? deviceConnectId;
+    const postUpload = {
+      persistMetadata: undefined as (() => Promise<void>) | undefined,
+    };
     const activeUpload = this.activeUploadByTargetKey.get(targetKey);
     if (activeUpload) {
       if (desktopBleExecution) {
@@ -2795,31 +2798,34 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
         });
         return result;
       }
-      if (!eventPayload.walletId) {
+      const walletId = eventPayload.walletId;
+      if (!walletId) {
         throw new OneKeyLocalError(
           'Authorized portfolio payload is missing walletId',
         );
       }
-      try {
-        await this.commitProcessedArtifacts({
-          artifacts,
-          attemptAt: lastAttemptAt,
-          generation,
-          targetKey,
-          transferAt: Date.now(),
-          walletId: eventPayload.walletId,
-        });
-      } catch (error) {
-        this.releaseInFlightReservation({
-          contentHash: artifacts.contentHash,
-          generation,
-          targetKey,
-        });
-        debugPortfolioSyncLog('persist-upload-metadata-failed', {
-          message: error instanceof Error ? error.message : String(error),
-          targetKey,
-        });
-      }
+      postUpload.persistMetadata = async () => {
+        try {
+          await this.commitProcessedArtifacts({
+            artifacts,
+            attemptAt: lastAttemptAt,
+            generation,
+            targetKey,
+            transferAt: Date.now(),
+            walletId,
+          });
+        } catch (error) {
+          this.releaseInFlightReservation({
+            contentHash: artifacts.contentHash,
+            generation,
+            targetKey,
+          });
+          debugPortfolioSyncLog('persist-upload-metadata-failed', {
+            message: error instanceof Error ? error.message : String(error),
+            targetKey,
+          });
+        }
+      };
       if (syncMode === 'interactive') {
         this.pendingDesktopBlePayloadByTargetKey.delete(targetKey);
         this.pendingMobileBlePayloadByTargetKey.delete(targetKey);
@@ -2870,7 +2876,9 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
         );
     this.activeUploadByTargetKey.set(targetKey, uploadPromise);
     try {
-      return await uploadPromise;
+      const result = await uploadPromise;
+      await postUpload.persistMetadata?.();
+      return result;
     } finally {
       if (this.activeUploadByTargetKey.get(targetKey) === uploadPromise) {
         this.activeUploadByTargetKey.delete(targetKey);

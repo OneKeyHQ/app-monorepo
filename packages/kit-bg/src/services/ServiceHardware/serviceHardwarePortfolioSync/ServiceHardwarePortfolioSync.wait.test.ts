@@ -1316,6 +1316,7 @@ describe('ServiceHardwarePortfolioSync.syncSettledPortfolio', () => {
       getDeviceState,
       getDeviceStateWithUnlock,
       getCurrentTransportType,
+      isOperationLeaseHeld: () => operationLeaseHeld,
       isHardwareDeviceConnected,
       isHardwareChannelBusy,
       prepareHardwareTransport,
@@ -2777,6 +2778,44 @@ describe('ServiceHardwarePortfolioSync.syncSettledPortfolio', () => {
         }
       ).inFlightReservationByTargetKey.size,
     ).toBe(0);
+  });
+
+  test('releases the hardware lock before persisting upload metadata', async () => {
+    let markPersistenceStarted: (() => void) | undefined;
+    let resolvePersistence: (() => void) | undefined;
+    const persistenceStarted = new Promise<void>((resolve) => {
+      markPersistenceStarted = resolve;
+    });
+    const persistencePending = new Promise<void>((resolve) => {
+      resolvePersistence = resolve;
+    });
+    const {
+      isOperationLeaseHeld,
+      service,
+      updateTargetState,
+      uploadPortfolioPackage,
+    } = prepareHardwareSync({
+      busyResults: [false],
+      hardwareTransportType: EHardwareTransportType.BLE,
+    });
+    updateTargetState
+      .mockResolvedValueOnce(undefined)
+      .mockImplementationOnce(() => {
+        markPersistenceStarted?.();
+        return persistencePending;
+      });
+
+    const syncPromise = service.syncPortfolio({
+      eventPayload: buildHardwarePayload(),
+      syncMode: 'interactive',
+    });
+    await persistenceStarted;
+
+    expect(uploadPortfolioPackage).toHaveBeenCalledTimes(1);
+    expect(isOperationLeaseHeld()).toBe(false);
+
+    resolvePersistence?.();
+    await expect(syncPromise).resolves.toBe(true);
   });
 
   test('uploads an unchanged snapshot again for an explicit sync', async () => {
