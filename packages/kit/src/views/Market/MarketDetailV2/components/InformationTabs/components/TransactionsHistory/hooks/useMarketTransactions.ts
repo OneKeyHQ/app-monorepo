@@ -457,7 +457,7 @@ export function useMarketTransactions({
     isRefreshing,
     isInitialPending:
       isInitialPending ||
-      (Boolean(transactionsData?.list.length) &&
+      (Boolean(transactionsData?.list?.length) &&
         accumulatedTransactions.length === 0),
     isLoadingMore,
     hasMore,

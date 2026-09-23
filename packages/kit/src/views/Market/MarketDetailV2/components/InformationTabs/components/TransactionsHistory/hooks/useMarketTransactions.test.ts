@@ -20,7 +20,7 @@ type IThrottledTransactionsUpdate = ((
 
 type IMockTokenListRequestReturn = {
   result?: {
-    list: IMarketTokenTransaction[];
+    list?: IMarketTokenTransaction[] | null;
     cursor?: string;
   };
   isLoading: boolean | undefined;
@@ -187,6 +187,28 @@ describe('useMarketTransactions', () => {
     rerender({ isTabFocused: true });
     expect(result.current.isInitialPending).toBe(false);
   });
+
+  it.each([{}, { list: null }])(
+    'keeps the empty state when the response has no transaction list: %j',
+    (response) => {
+      mockTokenListRequest.mockReturnValue({
+        result: response,
+        isLoading: false,
+        run: mockFetchTransactions,
+        setStopPolling: mockSetStopPolling,
+      });
+      const { result } = renderHook(() =>
+        useMarketTransactions({
+          tokenAddress: '0xabc',
+          networkId: 'evm--1',
+          normalMode: true,
+        }),
+      );
+      expect(result.current.transactions).toEqual([]);
+      expect(result.current.isInitialPending).toBe(false);
+      expect(result.current.hasMore).toBe(false);
+    },
+  );
 
   it('preserves unchanged REST rows while accepting corrected transaction data', () => {
     const transaction = createMockTransaction('base-1');
