@@ -1,4 +1,4 @@
-import { EFirmwareType } from '@onekeyfe/hd-shared';
+import { EDeviceType, EFirmwareType } from '@onekeyfe/hd-shared';
 
 import {
   backgroundMethod,
@@ -38,6 +38,8 @@ import type {
 import localDb from '../../dbs/local/localDb';
 import { settingsPersistAtom } from '../../states/jotai/atoms';
 
+import type { IOneKeyHardwareOperationLease } from '../ServiceHardwareUI/HardwareProcessingManager';
+
 import { ServiceHardwareManagerBase } from './ServiceHardwareManagerBase';
 
 import type {
@@ -58,6 +60,7 @@ export type IFirmwareAuthenticateParams = {
 };
 
 const deviceCheckingCodes = new Set([10_104, 10_105, 10_106, 10_107]);
+const PRO2_VERIFY_AFTER_UNLOCK_DELAY_MS = 500;
 
 type FirmwareVerifyPayload = {
   data: string;
@@ -203,12 +206,34 @@ export class HardwareVerifyManager extends ServiceHardwareManagerBase {
   private async getFirmwareVerificationPayload({
     connectId,
     deviceType,
+    oneKeyOperationLease,
+    unlockBeforeVerify,
   }: {
     connectId: string;
     deviceType: IDeviceType;
+    oneKeyOperationLease?: IOneKeyHardwareOperationLease;
+    unlockBeforeVerify?: boolean;
   }): Promise<IFirmwareVerifyResult['payload']> {
     const { instanceId } = await settingsPersistAtom.get();
     const { data, dataHex } = getFirmwareVerifyPayload({ instanceId });
+    if (
+      unlockBeforeVerify &&
+      (deviceType === EDeviceType.Pro2 || deviceType === EDeviceType.Neo)
+    ) {
+      const state = await this.serviceHardware.getDeviceState({
+        connectId,
+        params: { scope: 'runtime' },
+        hardwareCallContext: EHardwareCallContext.USER_INTERACTION,
+      });
+      if (state.status.unlocked === false) {
+        await this.serviceHardware.getDeviceStateWithUnlock({
+          connectId,
+          params: { scope: 'runtime' },
+          oneKeyOperationLease,
+        });
+        await timerUtils.wait(PRO2_VERIFY_AFTER_UNLOCK_DELAY_MS);
+      }
+    }
     const { cert, signature } = await this.getDeviceCertWithSig({
       connectId,
       dataHex,
@@ -292,10 +317,12 @@ export class HardwareVerifyManager extends ServiceHardwareManagerBase {
       );
     }
     return this.backgroundApi.serviceHardwareUI.withHardwareProcessing(
-      async () => {
+      async (oneKeyOperationLease) => {
         const payload = await this.getFirmwareVerificationPayload({
           connectId,
           deviceType,
+          oneKeyOperationLease,
+          unlockBeforeVerify: true,
         });
         let result: NonNullable<IFirmwareVerifyResult['result']> = {};
         try {
