@@ -277,13 +277,21 @@ async function waitForReportedVisibleById(testID, timeoutMs) {
   return null;
 }
 
-async function tapUnifiedNetworkTab(testID) {
+async function tapUnifiedNetworkTab(testID, activatedTestID) {
   const tab = element(by.id(testID)).atIndex(0);
   await waitFor(tab).toExist().withTimeout(5000);
   try {
     await measuredTap(tab, testID);
+    if (activatedTestID) {
+      await expect(element(by.id(activatedTestID))).toExist();
+    }
     return;
   } catch {
+    // A tap acknowledgement does not guarantee the tab became active.
+    recordInteraction('tab-activation-not-observed', {
+      semanticTarget: testID,
+      source: 'Detox tap or immediate activation assertion failed',
+    });
     // UIKit-backed controls may require their current visible ancestor frame.
   }
   const nativeSession = process.env.HEATING_REPRO_NATIVE_UI_SESSION;
@@ -327,6 +335,15 @@ async function tapUnifiedNetworkTab(testID) {
       !(frame?.height > 0)
     ) {
       throw new Error('Native semantic tab is not currently hittable');
+    }
+    if (activatedTestID) {
+      try {
+        // A pending React update may have completed during frame lookup.
+        await expect(element(by.id(activatedTestID))).toExist();
+        return;
+      } catch {
+        // Use the current semantic frame once when activation is still absent.
+      }
     }
     recordInteraction('tap-dispatched', {
       semanticTarget: testID,
@@ -1019,7 +1036,10 @@ describe('iOS account-switch heating regression timeline', () => {
       await tapHomeNetworkTrigger();
     });
     await runAt(114, 'select and confirm All Networks', async () => {
-      await tapUnifiedNetworkTab('chain-selector-unified-all-networks-tab');
+      await tapUnifiedNetworkTab(
+        'chain-selector-unified-all-networks-tab',
+        'page-footer-confirm',
+      );
       await waitFor(element(by.id('page-footer-confirm')))
         .toExist()
         .withTimeout(5000);
