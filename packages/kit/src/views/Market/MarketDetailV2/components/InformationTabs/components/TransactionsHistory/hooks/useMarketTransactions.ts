@@ -10,9 +10,8 @@ import { isEqual } from 'lodash';
 import { useThrottledCallback } from 'use-debounce';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { useMarketTokenListRequest } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/hooks/useMarketTokenListRequest';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IMarketTokenTransaction } from '@onekeyhq/shared/types/marketV2';
 
 import {
@@ -197,9 +196,10 @@ export function useMarketTransactions({
   const {
     result: transactionsData,
     isLoading: isRefreshing,
+    isInitialPending,
     run: fetchTransactions,
     setStopPolling,
-  } = usePromiseResult(
+  } = useMarketTokenListRequest(
     async () => {
       const response =
         await backgroundApiProxy.serviceMarketV2.fetchMarketTokenTransactions({
@@ -209,12 +209,10 @@ export function useMarketTransactions({
         });
       return response;
     },
-    [tokenAddress, networkId],
     {
-      watchLoading: true,
-      pollingInterval: timerUtils.getTimeDurationMs({ seconds: 5 }),
-      overrideIsFocused: (isFocused) => isFocused && isTabFocused,
-      revalidateOnFocus: true,
+      tokenAddress,
+      networkId,
+      isTabFocused,
     },
   );
 
@@ -457,6 +455,10 @@ export function useMarketTransactions({
     transactionsData,
     fetchTransactions,
     isRefreshing,
+    isInitialPending:
+      isInitialPending ||
+      (Boolean(transactionsData?.list.length) &&
+        accumulatedTransactions.length === 0),
     isLoadingMore,
     hasMore,
     loadMore,

@@ -18,21 +18,22 @@ type IThrottledTransactionsUpdate = ((
   getPendingTransactions: () => IMarketTokenTransaction[] | undefined;
 };
 
-type IMockUsePromiseResultReturn = {
+type IMockTokenListRequestReturn = {
   result?: {
     list: IMarketTokenTransaction[];
     cursor?: string;
   };
-  isLoading: boolean;
+  isLoading: boolean | undefined;
+  isInitialPending?: boolean;
   run: jest.Mock;
   setStopPolling: jest.Mock;
 };
 
-type IMockUsePromiseResult = (
+type IMockTokenListRequest = (
   ...args: unknown[]
-) => IMockUsePromiseResultReturn;
+) => IMockTokenListRequestReturn;
 
-const mockUsePromiseResult: jest.MockedFunction<IMockUsePromiseResult> =
+const mockTokenListRequest: jest.MockedFunction<IMockTokenListRequest> =
   jest.fn();
 const mockFetchTransactions = jest.fn();
 const mockSetStopPolling = jest.fn();
@@ -86,11 +87,15 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
   },
 }));
 
-jest.mock('@onekeyhq/kit/src/hooks/usePromiseResult', () => ({
-  usePromiseResult: (...args: unknown[]) => {
-    return mockUsePromiseResult(...args);
-  },
-}));
+jest.mock(
+  '@onekeyhq/kit/src/views/Market/MarketDetailV2/hooks/useMarketTokenListRequest',
+  () => ({
+    useMarketTokenListRequest: (...args: unknown[]) => ({
+      isInitialPending: false,
+      ...mockTokenListRequest(...args),
+    }),
+  }),
+);
 
 jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
   __esModule: true,
@@ -122,11 +127,11 @@ describe('useMarketTransactions', () => {
     platformEnv.isNativeAndroid = false;
     mockFetchTransactions.mockReset();
     mockSetStopPolling.mockReset();
-    mockUsePromiseResult.mockReset();
+    mockTokenListRequest.mockReset();
     mockThrottledTransactionsUpdates.length = 0;
     getMockMarketService().fetchMarketTokenTransactions.mockReset();
 
-    mockUsePromiseResult.mockReturnValue({
+    mockTokenListRequest.mockReturnValue({
       result: {
         list: [createMockTransaction('base-1')],
         cursor: 'cursor-1',
@@ -137,10 +142,56 @@ describe('useMarketTransactions', () => {
     });
   });
 
+  it('keeps the initial skeleton until deferred transaction rows have committed', () => {
+    const { result } = renderHook(() =>
+      useMarketTransactions({
+        tokenAddress: '0xabc',
+        networkId: 'evm--1',
+        normalMode: true,
+      }),
+    );
+    expect(result.current.transactions).toEqual([]);
+    expect(result.current.isInitialPending).toBe(true);
+    act(() => mockThrottledTransactionsUpdates[0].flush());
+    expect(result.current.transactions).toHaveLength(1);
+    expect(result.current.isInitialPending).toBe(false);
+  });
+
+  it('keeps focus-gated empty transactions pending until the first request settles', () => {
+    const pendingRequest = {
+      isInitialPending: true,
+      isLoading: undefined,
+      run: mockFetchTransactions,
+      setStopPolling: mockSetStopPolling,
+    };
+    mockTokenListRequest.mockReturnValue(pendingRequest);
+    const { result, rerender } = renderHook(
+      ({ isTabFocused }) =>
+        useMarketTransactions({
+          tokenAddress: '0xabc',
+          networkId: 'evm--1',
+          normalMode: true,
+          isTabFocused,
+        }),
+      { initialProps: { isTabFocused: false } },
+    );
+    expect(result.current.isInitialPending).toBe(true);
+    rerender({ isTabFocused: true });
+    expect(result.current.isInitialPending).toBe(true);
+    mockTokenListRequest.mockReturnValue({
+      ...pendingRequest,
+      result: { list: [] },
+      isInitialPending: false,
+      isLoading: false,
+    });
+    rerender({ isTabFocused: true });
+    expect(result.current.isInitialPending).toBe(false);
+  });
+
   it('preserves unchanged REST rows while accepting corrected transaction data', () => {
     const transaction = createMockTransaction('base-1');
     const setSnapshot = (list: IMarketTokenTransaction[]) => {
-      mockUsePromiseResult.mockReturnValue({
+      mockTokenListRequest.mockReturnValue({
         result: { list, cursor: 'cursor-1' },
         isLoading: false,
         run: mockFetchTransactions,
@@ -190,8 +241,10 @@ describe('useMarketTransactions', () => {
     );
 
     expect(mockSetStopPolling).toHaveBeenLastCalledWith(true);
-    expect(mockUsePromiseResult.mock.calls[0]?.[2]).toMatchObject({
-      pollingInterval: 5000,
+    expect(mockTokenListRequest.mock.calls[0]?.[1]).toMatchObject({
+      networkId: 'evm--1',
+      tokenAddress: '0xabc',
+      isTabFocused: true,
     });
 
     rerender({ normalMode: true });
@@ -430,7 +483,7 @@ describe('useMarketTransactions', () => {
   });
 
   it('caps web transaction cache at 50 entries', async () => {
-    mockUsePromiseResult.mockReturnValue({
+    mockTokenListRequest.mockReturnValue({
       result: {
         list: Array.from({ length: 55 }, (_, index) =>
           createMockTransaction(`base-${index + 1}`, index + 1),
@@ -481,7 +534,7 @@ describe('useMarketTransactions', () => {
   });
 
   it('fills the market transaction cache to 50 and then stops pagination', async () => {
-    mockUsePromiseResult.mockReturnValue({
+    mockTokenListRequest.mockReturnValue({
       result: {
         list: Array.from({ length: 45 }, (_, index) =>
           createMockTransaction(`base-${index + 1}`, 100 - index),
@@ -546,7 +599,7 @@ describe('useMarketTransactions', () => {
 
   it('queues the native render slice for live transaction inserts', () => {
     getMockPlatformEnv().isNative = true;
-    mockUsePromiseResult.mockReturnValue({
+    mockTokenListRequest.mockReturnValue({
       result: {
         list: Array.from({ length: 55 }, (_, index) =>
           createMockTransaction(`base-${index + 1}`, index + 1),

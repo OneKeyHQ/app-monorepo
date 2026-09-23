@@ -1,11 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
-import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IMarketTokenDetail } from '@onekeyhq/shared/types/marketV2';
 
 import { buildMarketHolderPercentages } from './useMarketHolders.utils';
+import { useMarketTokenListRequest } from './useMarketTokenListRequest';
 import { useTokenDetail } from './useTokenDetail';
 
 interface IUseMarketHoldersProps {
@@ -31,6 +30,9 @@ export function useMarketHolders({
 
   useEffect(() => {
     if (!isTabFocused) {
+      setCachedTokenDetail((previous) =>
+        previous?.tokenKey === tokenKey ? previous : undefined,
+      );
       return;
     }
     if (
@@ -54,20 +56,19 @@ export function useMarketHolders({
   const {
     result: holdersData,
     isLoading: isRefreshing,
+    isInitialPending,
     run: fetchHolders,
-  } = usePromiseResult(
+  } = useMarketTokenListRequest(
     async () => {
       return backgroundApiProxy.serviceMarketV2.fetchMarketTokenHolders({
         tokenAddress,
         networkId,
       });
     },
-    [tokenAddress, networkId],
     {
-      watchLoading: true,
-      pollingInterval: timerUtils.getTimeDurationMs({ seconds: 5 }),
-      overrideIsFocused: (isFocused) => isFocused && isTabFocused,
-      revalidateOnFocus: true,
+      tokenAddress,
+      networkId,
+      isTabFocused,
     },
   );
 
@@ -90,6 +91,7 @@ export function useMarketHolders({
     holders,
     fetchHolders,
     isRefreshing,
+    isInitialPending,
     onRefresh,
   };
 }

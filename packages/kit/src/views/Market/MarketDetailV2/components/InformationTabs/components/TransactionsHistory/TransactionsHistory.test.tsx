@@ -32,6 +32,7 @@ let mockFlatListProps: Record<
 const mockMarketTransactionsResult = {
   transactions: [] as IMarketTokenTransaction[],
   isRefreshing: false,
+  isInitialPending: false,
   isLoadingMore: false,
   hasMore: false,
   loadMore: mockLoadMore,
@@ -169,10 +170,20 @@ describe('TransactionsHistory', () => {
     mockHandleRealtimePauseTouchEnd.mockReset();
     mockTransactionsRelativeTimeProvider.mockReset();
     mockMarketTransactionsResult.transactions = [];
+    mockMarketTransactionsResult.isInitialPending = false;
     mockMarketTransactionsResult.isRealtimePaused = false;
     mockMedia.gtXl = true;
     platformEnv.isNative = false;
     platformEnv.isNativeAndroid = false;
+  });
+
+  it('shows a skeleton while the first request is waiting for focus', () => {
+    mockMarketTransactionsResult.isInitialPending = true;
+    render(<TransactionsHistory tokenAddress="0xabc" networkId="evm--1" />);
+    const { getByText } = render(
+      <>{mockFlatListProps.ListEmptyComponent as ReactNode}</>,
+    );
+    expect(getByText('skeleton')).toBeTruthy();
   });
 
   it('keeps realtime pause state outside websocket self-heal callbacks', () => {

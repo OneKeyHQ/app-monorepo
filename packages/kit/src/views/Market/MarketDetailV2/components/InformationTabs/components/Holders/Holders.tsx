@@ -35,7 +35,7 @@ function HoldersBase({
   const intl = useIntl();
   const { gtLg } = useMedia();
   const isTabFocused = useIsFocusedTab();
-  const { holders, isRefreshing } = useMarketHolders({
+  const { holders, isRefreshing, isInitialPending } = useMarketHolders({
     tokenAddress,
     networkId,
     isTabFocused,
@@ -75,7 +75,7 @@ function HoldersBase({
       windowSize={platformEnv.isNativeAndroid ? 3 : undefined}
       ListFooterComponent={ListFooterComponent}
       ListEmptyComponent={
-        isRefreshing ? (
+        isRefreshing || isInitialPending ? (
           <HoldersSkeleton />
         ) : (
           <Stack flex={1} alignItems="center" justifyContent="center" p="$8">

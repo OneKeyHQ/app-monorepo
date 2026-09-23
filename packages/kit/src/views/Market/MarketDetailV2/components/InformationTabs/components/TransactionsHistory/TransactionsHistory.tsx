@@ -120,6 +120,7 @@ export function TransactionsHistoryBase({
   const {
     transactions,
     isRefreshing,
+    isInitialPending,
     isLoadingMore,
     hasMore,
     loadMore,
@@ -408,7 +409,7 @@ export function TransactionsHistoryBase({
               }
             : undefined)}
           ListEmptyComponent={
-            isRefreshing ? (
+            isRefreshing || isInitialPending ? (
               <TransactionsSkeleton />
             ) : (
               <Stack
