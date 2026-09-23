@@ -168,18 +168,28 @@ function getAllNetworkAccountsBaseCached({
     allNetworkAccountsBaseCache.delete(cacheKey);
   }
 
-  const baseTask = backgroundApiProxy.serviceAllNetwork.getAllNetworkAccounts({
-    accountId,
-    networkId,
-    deriveType: undefined,
-    nftEnabledOnly: false,
-    DeFiEnabledOnly: false,
-    excludeTestNetwork,
-    networksEnabledOnly,
-  });
+  const baseTask =
+    backgroundApiProxy.serviceAllNetwork.getAllNetworkAccountsForHome({
+      accountId,
+      networkId,
+      excludeTestNetwork,
+      networksEnabledOnly,
+    });
 
   const promise: Promise<IAllNetworkAccountsInfoResult> = baseTask
-    .then((res) => {
+    .then((accountsInfo) => {
+      // Avoid deserializing each account three times across the bridge.
+      // The base query has no category filters, so these lists share entries.
+      const res: IAllNetworkAccountsInfoResult = {
+        accountsInfo,
+        allAccountsInfo: accountsInfo,
+        accountsInfoBackendIndexed: accountsInfo.filter(
+          (account) => account.isBackendIndexed,
+        ),
+        accountsInfoBackendNotIndexed: accountsInfo.filter(
+          (account) => !account.isBackendIndexed,
+        ),
+      };
       // Don't cache empty results - new accounts may not have network accounts yet
       if (!res.accountsInfo.length) {
         const current = allNetworkAccountsBaseCache.get(cacheKey);

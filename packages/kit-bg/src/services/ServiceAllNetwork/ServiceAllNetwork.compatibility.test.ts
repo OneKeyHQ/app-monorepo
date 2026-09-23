@@ -2,6 +2,8 @@ import type { IServerNetwork } from '@onekeyhq/shared/types';
 
 import ServiceAllNetwork from './ServiceAllNetwork';
 
+import type { IAllNetworkAccountInfo } from './ServiceAllNetwork';
+
 jest.mock('@onekeyhq/shared/src/background/backgroundDecorators', () => ({
   backgroundClass: () => (target: unknown) => target,
   backgroundMethod:
@@ -116,6 +118,77 @@ function setup() {
     incompatibleIds,
   };
 }
+
+describe('Home All Networks narrow account response', () => {
+  it.each([true, false])(
+    'returns only the original entries with fixed category filters (enabledOnly=%s)',
+    async (networksEnabledOnly) => {
+      const { service } = setup();
+      const account: IAllNetworkAccountInfo = {
+        accountId: 'fixture-account',
+        networkId: 'evm--1',
+        apiAddress: 'fixture-address',
+        accountXpub: undefined,
+        pub: undefined,
+        dbAccount: undefined,
+        isNftEnabled: false,
+        isBackendIndexed: true,
+        deriveType: 'default',
+        deriveInfo: undefined,
+        isTestnet: false,
+      };
+      const accountsInfo = [
+        account,
+        {
+          ...account,
+          networkId: 'btc--0',
+          deriveType: 'BIP86' as const,
+          isBackendIndexed: false,
+        },
+        {
+          ...account,
+          networkId: 'sol--101',
+          accountId: '',
+          apiAddress: '',
+          isBackendIndexed: undefined,
+        },
+      ];
+      accountsInfo.forEach(Object.freeze);
+      Object.freeze(accountsInfo);
+      const getAccounts = jest
+        .spyOn(service, 'getAllNetworkAccounts')
+        .mockResolvedValue({
+          accountsInfo,
+          allAccountsInfo: accountsInfo,
+          accountsInfoBackendIndexed: [accountsInfo[0]],
+          accountsInfoBackendNotIndexed: accountsInfo.slice(1),
+        });
+
+      const result = await service.getAllNetworkAccountsForHome({
+        accountId: 'fixture-owner',
+        networkId: 'onekeyall--0',
+        networksEnabledOnly,
+        excludeTestNetwork: true,
+      });
+
+      expect(getAccounts).toHaveBeenCalledWith({
+        accountId: 'fixture-owner',
+        networkId: 'onekeyall--0',
+        networksEnabledOnly,
+        excludeTestNetwork: true,
+        deriveType: undefined,
+        nftEnabledOnly: false,
+        DeFiEnabledOnly: false,
+      });
+      expect(result).toBe(accountsInfo);
+      expect(result.map((item) => item.networkId)).toEqual([
+        'evm--1',
+        'btc--0',
+        'sol--101',
+      ]);
+    },
+  );
+});
 
 describe('All Networks account compatibility inside bg', () => {
   it.each([

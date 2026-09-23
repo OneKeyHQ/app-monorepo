@@ -43,7 +43,7 @@ import {
   useDeFiListStateAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/deFiList';
 import { buildProtocolDisplayInfo } from '@onekeyhq/kit/src/utils/defiPositionUtils';
-import type { IDeFiDBStruct } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityDeFi';
+import type { IAllNetworkAccountInfo } from '@onekeyhq/kit-bg/src/services/ServiceAllNetwork/ServiceAllNetwork';
 import {
   useCurrencyPersistAtom,
   useSettingsPersistAtom,
@@ -283,7 +283,6 @@ function DeFiListBlock({
   const [settingsValue] = useSettingsValuePersistAtom();
   const media = useMedia();
 
-  const deFiRawDataRef = useRef<IDeFiDBStruct | undefined>(undefined);
   const initializedRef = useRef(initialized);
   const isRefreshingRef = useRef(isRefreshing);
   initializedRef.current = initialized;
@@ -872,9 +871,6 @@ function DeFiListBlock({
         });
       }
 
-      deFiRawDataRef.current =
-        (await backgroundApiProxy.simpleDb.deFi.getRawData()) ?? undefined;
-
       if (refreshCacheOnly) {
         return;
       }
@@ -916,56 +912,53 @@ function DeFiListBlock({
     ],
   );
 
-  const handleAllNetworkCacheRequests = useCallback(
-    async ({
-      accountId,
-      networkId,
-      accountAddress,
-      xpub,
-    }: {
-      accountId: string;
-      networkId: string;
-      accountAddress: string;
-      xpub?: string;
-    }) => {
-      const localDeFiOverview =
+  const handleAllNetworkCacheRequestsBatch = useCallback(
+    async (accounts: IAllNetworkAccountInfo[]) => {
+      // Read the shared snapshot once in bg instead of returning the entire
+      // database to main and sending it back for each network.
+      const localDeFiOverviews =
         await backgroundApiProxy.serviceDeFi.getAccountsLocalDeFiOverview({
-          accounts: [
-            {
+          accounts: accounts.map(
+            ({ accountId, networkId, apiAddress, accountXpub }) => ({
               accountId,
               networkId,
-              accountAddress,
-              xpub,
-            },
-          ],
-          deFiRawData: deFiRawDataRef.current,
+              accountAddress: apiAddress,
+              xpub: accountXpub,
+            }),
+          ),
         });
 
-      const rawOverview = localDeFiOverview?.[0]?.overview?.[networkId];
+      return accounts.map(({ networkId }, index) => {
+        const rawOverview = localDeFiOverviews[index]?.overview?.[networkId];
 
-      let convertedOverview = rawOverview;
-      if (rawOverview) {
-        if (rawOverview.currency !== settings.currencyInfo.id) {
-          const _sourceCurrencyInfo = currencyMap[rawOverview.currency];
-          const _targetCurrencyInfo = currencyMap[settings.currencyInfo.id];
-          convertedOverview = {
-            ...rawOverview,
-            ...convertDeFiOverviewValues(
-              rawOverview,
-              _sourceCurrencyInfo.value,
-              _targetCurrencyInfo.value,
-            ),
-          };
+        let convertedOverview = rawOverview;
+        if (rawOverview) {
+          if (rawOverview.currency !== settings.currencyInfo.id) {
+            const _sourceCurrencyInfo = currencyMap[rawOverview.currency];
+            const _targetCurrencyInfo = currencyMap[settings.currencyInfo.id];
+            // One missing rate must not discard the other cached networks.
+            if (!_sourceCurrencyInfo || !_targetCurrencyInfo) {
+              return undefined;
+            }
+            convertedOverview = {
+              ...rawOverview,
+              ...convertDeFiOverviewValues(
+                rawOverview,
+                _sourceCurrencyInfo.value,
+                _targetCurrencyInfo.value,
+              ),
+            };
+          }
         }
-      }
 
-      if (!convertedOverview) {
-        return undefined;
-      }
+        if (!convertedOverview) {
+          return undefined;
+        }
 
-      return {
-        overview: convertedOverview,
-      };
+        return {
+          overview: convertedOverview,
+        };
+      });
     },
     [currencyMap, settings.currencyInfo.id],
   );
@@ -1101,7 +1094,7 @@ function DeFiListBlock({
     onStarted: handleAllNetworkRequestsStarted,
     onFinished: handleAllNetworkRequestsFinished,
     onCacheChecked: handleAllNetworkCacheChecked,
-    allNetworkCacheRequests: handleAllNetworkCacheRequests,
+    allNetworkCacheRequestsBatch: handleAllNetworkCacheRequestsBatch,
     allNetworkCacheData: handleAllNetworkCacheData,
     allNetworkRequests: handleAllNetworkRequests,
     clearAllNetworkData: handleClearAllNetworkData,

@@ -419,6 +419,30 @@ class ServiceAllNetwork extends ServiceBase {
   }
 
   @backgroundMethod()
+  async getAllNetworkAccountsForHome({
+    accountId,
+    networkId,
+    networksEnabledOnly,
+    excludeTestNetwork,
+  }: Pick<
+    IAllNetworkAccountsParams,
+    'accountId' | 'networkId' | 'networksEnabledOnly' | 'excludeTestNetwork'
+  >): Promise<IAllNetworkAccountInfo[]> {
+    const { accountsInfo } = await this.getAllNetworkAccounts({
+      accountId,
+      networkId,
+      networksEnabledOnly,
+      excludeTestNetwork,
+      deriveType: undefined,
+      nftEnabledOnly: false,
+      DeFiEnabledOnly: false,
+    });
+    // With both category filters disabled, allAccountsInfo has the same
+    // entries; main can also partition these entries by isBackendIndexed.
+    return accountsInfo;
+  }
+
+  @backgroundMethod()
   async getAllNetworkAccounts(
     params: IAllNetworkAccountsParams,
   ): Promise<IAllNetworkAccountsInfoResult> {
