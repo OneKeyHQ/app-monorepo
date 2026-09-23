@@ -1044,7 +1044,7 @@ function HomeOverviewContainer() {
       : undefined;
     let perpsFiatUsd: string | undefined;
     if (isLive) {
-      perpsFiatUsd = isPerpsEnabled ? perpsNetWorthUsd : '0';
+      perpsFiatUsd = isPerpsEnabled ? (perpsNetWorthUsd ?? '0') : '0';
     }
     const next = {
       ownerKey: isCurrentOwnerBalance ? currentOverviewOwnerKey : '',
