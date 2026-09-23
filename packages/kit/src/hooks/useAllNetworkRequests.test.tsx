@@ -3,7 +3,10 @@
  */
 import { act, renderHook, waitFor } from '@testing-library/react-native';
 
-import type { IAllNetworkAccountsInfoResult } from '@onekeyhq/kit-bg/src/services/ServiceAllNetwork/ServiceAllNetwork';
+import type {
+  IAllNetworkAccountInfo,
+  IAllNetworkAccountsInfoResult,
+} from '@onekeyhq/kit-bg/src/services/ServiceAllNetwork/ServiceAllNetwork';
 
 import backgroundApiProxy from '../background/instance/backgroundApiProxy';
 
@@ -11,7 +14,7 @@ import { useAllNetworkRequests } from './useAllNetwork';
 
 jest.mock('../background/instance/backgroundApiProxy', () => ({
   __esModule: true,
-  default: { serviceAllNetwork: { getAllNetworkAccounts: jest.fn() } },
+  default: { serviceAllNetwork: { getAllNetworkAccountsForHome: jest.fn() } },
 }));
 jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms/passwordLock', () => ({
   useAppIsLockedAtom: () => [false],
@@ -104,7 +107,7 @@ function accountsFor(owner: string, count = 21): IAllNetworkAccountsInfoResult {
 
 type IRound = { networkId: string };
 let setupCount = 0;
-function setup({ warm = true, guarded = true } = {}) {
+function setup({ warm = true, guarded = true, isNFTRequests = false } = {}) {
   setupCount += 1;
   let currentEpoch = 1;
   const fetch = jest.fn(
@@ -127,6 +130,7 @@ function setup({ warm = true, guarded = true } = {}) {
         networkId: 'onekeyall--0',
         walletId: `test-wallet-${setupCount}`,
         isAllNetworks: true,
+        isNFTRequests,
         isRunCurrent: guarded ? () => epoch === currentEpoch : undefined,
         allNetworkRequests: fetch,
         allNetworkCacheRequests: cache,
@@ -161,17 +165,87 @@ function setup({ warm = true, guarded = true } = {}) {
 
 const getAccounts = jest.spyOn(
   backgroundApiProxy.serviceAllNetwork,
-  'getAllNetworkAccounts',
+  'getAllNetworkAccountsForHome',
 );
 
 beforeEach(() => {
   jest.clearAllMocks();
-  getAccounts.mockImplementation(async ({ accountId }) =>
-    accountsFor(accountId),
+  getAccounts.mockImplementation(
+    async ({ accountId }) => accountsFor(accountId).accountsInfo,
   );
 });
 
 describe('Home All Networks dispatch ownership', () => {
+  it.each([true, false])(
+    'rebuilds all 22 tasks from one account array without changing entries (warm=%s)',
+    async (warm) => {
+      const accounts = accountsFor('a', 22).accountsInfo;
+      accounts[0] = {
+        ...accounts[0],
+        accountId: '',
+        apiAddress: '',
+        isBackendIndexed: undefined,
+      };
+      accounts[1] = { ...accounts[1], deriveType: 'BIP86' };
+      accounts.forEach(Object.freeze);
+      Object.freeze(accounts);
+      getAccounts.mockResolvedValueOnce(accounts);
+      const hook = setup({ warm });
+
+      await act(() => hook.result.current.run());
+
+      expect(getAccounts).toHaveBeenCalledWith({
+        accountId: 'a',
+        networkId: 'onekeyall--0',
+        networksEnabledOnly: true,
+        excludeTestNetwork: true,
+      });
+      expect(hook.accountsData).toHaveBeenCalledWith({
+        accounts,
+        allAccounts: accounts,
+      });
+      expect(hook.accountsData.mock.calls[0][0].accounts).toBe(accounts);
+      expect(hook.accountsData.mock.calls[0][0].allAccounts).toBe(accounts);
+      expect(hook.cache.mock.calls.map(([item]) => item.networkId)).toEqual(
+        accounts.map((item) => item.networkId),
+      );
+      const dispatchOrder = warm
+        ? accounts
+        : [
+            ...accounts.filter((item) => item.isBackendIndexed),
+            ...accounts.filter((item) => !item.isBackendIndexed),
+          ];
+      expect(hook.fetch.mock.calls.map(([item]) => item.networkId)).toEqual(
+        dispatchOrder.map((item) => item.networkId),
+      );
+      // The cold path keeps placeholders out of progressive publication.
+      expect(hook.settled).toHaveBeenCalledTimes(warm ? 22 : 21);
+      expect(hook.published.mock.calls[0][0]).toHaveLength(22);
+      expect(accounts[0].accountId).toBe('');
+      expect(accounts[1].deriveType).toBe('BIP86');
+    },
+  );
+
+  it('keeps NFT filtering after rebuilding the shared base partitions', async () => {
+    const accounts = accountsFor('a', 22).accountsInfo;
+    accounts[1] = { ...accounts[1], isNftEnabled: false };
+    accounts[20] = { ...accounts[20], isNftEnabled: false };
+    getAccounts.mockResolvedValueOnce(accounts);
+    const hook = setup({ warm: false, isNFTRequests: true });
+
+    await act(() => hook.result.current.run());
+
+    const nftAccounts = accounts.filter((item) => item.isNftEnabled);
+    expect(hook.accountsData).toHaveBeenCalledWith({
+      accounts: nftAccounts,
+      allAccounts: nftAccounts,
+    });
+    expect(hook.fetch.mock.calls.map(([item]) => item.networkId)).toEqual(
+      nftAccounts.map((item) => item.networkId),
+    );
+    expect(accounts).toHaveLength(22);
+  });
+
   it('does not start an obsolete runner or its preflight RPC', async () => {
     const hook = setup();
     hook.invalidate();
@@ -182,13 +256,13 @@ describe('Home All Networks dispatch ownership', () => {
   });
 
   it('drops an obsolete account preflight before cache or live dispatch', async () => {
-    const accounts = deferred<IAllNetworkAccountsInfoResult>();
+    const accounts = deferred<IAllNetworkAccountInfo[]>();
     getAccounts.mockReturnValueOnce(accounts.promise);
     const hook = setup();
     const run = hook.result.current.run();
     hook.invalidate();
     await act(async () => {
-      accounts.resolve(accountsFor('a'));
+      accounts.resolve(accountsFor('a').accountsInfo);
       await run;
     });
     expect(hook.accountsData).not.toHaveBeenCalled();
