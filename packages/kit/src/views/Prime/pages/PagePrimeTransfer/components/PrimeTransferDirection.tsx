@@ -164,6 +164,7 @@ export function PrimeTransferDirection({
   const { exitTransferFlow } = usePrimeTransferExit();
   const [waitingAlertVisible, setWaitingAlertVisible] = useState(false);
   const [isSendingData, setIsSendingData] = useState(false);
+  const sendingDataInFlightRef = useRef(false);
   const showTransportMode = platformEnv.isDev;
   const [transportMode, setTransportMode] =
     useState<IPrimeTransferTransportMode>('auto');
@@ -433,6 +434,9 @@ export function PrimeTransferDirection({
       inputCode: string;
       verifyCode: string;
     }) => {
+      // State updates do not synchronously block duplicate OTP callbacks.
+      if (sendingDataInFlightRef.current) return;
+      sendingDataInFlightRef.current = true;
       let preparationTaskId: string | undefined;
       try {
         setIsSendingData(true);
@@ -487,7 +491,6 @@ export function PrimeTransferDirection({
             });
           });
           if (!confirmedToSkip) {
-            await backgroundApiProxy.servicePrimeTransfer.cancelTransfer();
             throw new OneKeyLocalError('Transfer cancelled by user');
           }
         }
@@ -533,13 +536,19 @@ export function PrimeTransferDirection({
         });
       } catch (error) {
         console.error(error);
-        await backgroundApiProxy.servicePrimeTransfer.cancelTransfer({
-          taskId: preparationTaskId,
-        });
+        if (preparationTaskId) {
+          await backgroundApiProxy.servicePrimeTransfer.cancelTransfer({
+            taskId: preparationTaskId,
+          });
+        }
         throw error;
       } finally {
-        if (preparationTaskId) await closeProcessingDialog(preparationTaskId);
-        setIsSendingData(false);
+        try {
+          if (preparationTaskId) await closeProcessingDialog(preparationTaskId);
+        } finally {
+          sendingDataInFlightRef.current = false;
+          setIsSendingData(false);
+        }
       }
     },
     [
