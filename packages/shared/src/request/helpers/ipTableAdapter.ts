@@ -36,7 +36,10 @@ import {
 import { getSniRequestErrorCode } from './sniRequestQaUtils';
 
 import type { IIpTableRequestOutcomeState } from './ipTableRequestOutcome';
-import type { IAvailabilityIpTableState } from '../availabilityMetrics';
+import type {
+  IAvailabilityIpTableState,
+  IAvailabilityRoute,
+} from '../availabilityMetrics';
 import type {
   AxiosAdapter,
   AxiosRequestConfig,
@@ -218,11 +221,15 @@ function canFallbackAfterFailClosedError(
   );
 }
 
-// Fail-closed codes that still describe the health of the selected IP. The
-// rest are local (config, resource limit), policy or cancellation outcomes.
+// Fail-closed codes that still describe the health of the selected IP.
+// Android and desktop report a response cut off mid-body as
+// SNI_RESPONSE_FAILED; the same code also covers the 10 MB body cap, which no
+// API response comes near. The rest are local (config, resource limit),
+// policy or cancellation outcomes.
 const SNI_FAIL_CLOSED_IP_HEALTH_CODES = new Set([
   'SNI_TLS_FAILED',
   'SNI_CERT_FAILED',
+  'SNI_RESPONSE_FAILED',
 ]);
 
 function countsAgainstSelectedIp(error: unknown): boolean {
@@ -665,6 +672,12 @@ async function recordSniRequestOutcome(options: {
   requestSequence: number;
 }): Promise<void> {
   const { rootDomain, ip, ok, requestSequence } = options;
+  // Like the fail-open circuit, failures are not recorded while the kill
+  // switch is on. Reading it first also leaves no await between recording a
+  // failure and opening the window, so a newer success cannot be overwritten.
+  if (!ok && (await isFailoverDisabledByDevSettings())) {
+    return;
+  }
   const key = getSniBypassKey(rootDomain, ip);
   let state = sniBypassStates.get(key);
   if (!state) {
@@ -692,9 +705,6 @@ async function recordSniRequestOutcome(options: {
     state.outcomes.consecutiveFailures >= IP_TABLE_SNI_BYPASS_THRESHOLD;
   // A failed probe reopens the window without waiting for the threshold.
   if (!state.halfOpen && !thresholdReached) {
-    return;
-  }
-  if (await isFailoverDisabledByDevSettings()) {
     return;
   }
   const now = Date.now();
@@ -1073,20 +1083,31 @@ export function createIpTableAdapter(
    *
    * @param options.config - Axios request config
    * @param options.isFallback - If true, this is a fallback request after SNI failure (won't count as domain failure)
+   * @param options.isSniBypass - If true, the selected IP is stepping aside and the domain is this request's only route
    * @param options.hostname - Hostname for failure reporting (optional)
    * @param options.rootDomain - Root domain for failure reporting (optional)
    */
   const callOriginalAdapter = async (options: {
     config: InternalAxiosRequestConfig;
     isFallback?: boolean;
+    isSniBypass?: boolean;
     hostname?: string;
     rootDomain?: string;
   }): Promise<AxiosResponse> => {
-    const { config, isFallback = false, hostname, rootDomain } = options;
-    markApiAvailabilityRoute(
-      config.$oneKeyAvailabilityTiming,
-      isFallback ? 'fallback' : 'domain',
-    );
+    const {
+      config,
+      isFallback = false,
+      isSniBypass = false,
+      hostname,
+      rootDomain,
+    } = options;
+    let route: IAvailabilityRoute = 'domain';
+    if (isFallback) {
+      route = 'fallback';
+    } else if (isSniBypass) {
+      route = 'bypass';
+    }
+    markApiAvailabilityRoute(config.$oneKeyAvailabilityTiming, route);
     const requestSequence = nextIpTableRequestSequence();
     debugLog('[IpTableAdapter] About to call original adapter...');
     debugLog(
@@ -1441,7 +1462,7 @@ export function createIpTableAdapter(
       try {
         return await callOriginalAdapter({
           config,
-          isFallback: true,
+          isSniBypass: true,
           hostname,
           rootDomain,
         });
@@ -1663,18 +1684,20 @@ export function createIpTableAdapter(
       const canFallback = failClosed
         ? canFallbackAfterFailClosedError(method, error)
         : canFallbackAfterSniStarted(method, error);
+      if (failClosed) {
+        debugError('[IpTableAdapter] SNI fail-closed error:', error);
+        logIpTableEvent(canFallback ? 'warn' : 'error', 'sni_fail_closed', {
+          hostname,
+          rootDomain,
+          selectedIpHash: hashForLog(selectedIp),
+          code: getErrorCode(error),
+          messageClass: error instanceof Error ? error.name : typeof error,
+          method,
+          decision: canFallback ? 'fallback_domain' : 'throw_no_fallback',
+        });
+      }
       if (!canFallback) {
-        if (failClosed) {
-          debugError('[IpTableAdapter] SNI fail-closed error:', error);
-          logIpTableEvent('error', 'sni_fail_closed', {
-            hostname,
-            rootDomain,
-            selectedIpHash: hashForLog(selectedIp),
-            code: getErrorCode(error),
-            messageClass: error instanceof Error ? error.name : typeof error,
-            decision: 'throw_no_fallback',
-          });
-        } else {
+        if (!failClosed) {
           logIpTableEvent('warn', 'sni_fallback_blocked', {
             hostname,
             rootDomain,
