@@ -108,6 +108,7 @@ type IPortfolioCategoryFiatResult = IPortfolioCategoryFiat & {
 export type IPortfolioSyncMode = 'interactive' | 'silent';
 
 type IPortfolioSyncExecutionOptions = {
+  deferPostHardwareTask?: (task: Promise<unknown>) => void;
   desktopBleExecution?: IDesktopBleSyncExecution;
   oneKeyOperationLease?: IOneKeyHardwareOperationLease;
   syncStartedAt?: number;
@@ -1500,55 +1501,69 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
           device.connectId,
         ),
       });
+      const deferredPostHardwareTask = {
+        task: undefined as Promise<unknown> | undefined,
+      };
       try {
-        return await this.backgroundApi.serviceHardwareUI.withHardwareProcessing(
-          async (oneKeyOperationLease?: IOneKeyHardwareOperationLease) => {
-            if (telemetry.cancelled) {
-              throw new UserCancelFromOutside();
-            }
-            telemetry.queueDurationMs = Date.now() - syncStartedAt;
-            const unlockStartedAt = Date.now();
-            this.logSyncLifecycle('unlock-started', telemetry);
-            try {
-              await this.backgroundApi.serviceHardware.getDeviceStateWithUnlock(
+        const activeUpload = this.activeUploadByTargetKey.get(targetKey);
+        await activeUpload?.catch(() => undefined);
+        if (!this.isCurrentSyncGeneration(targetKey, generation)) {
+          return false;
+        }
+        const result =
+          await this.backgroundApi.serviceHardwareUI.withHardwareProcessing(
+            async (oneKeyOperationLease?: IOneKeyHardwareOperationLease) => {
+              if (telemetry.cancelled) {
+                throw new UserCancelFromOutside();
+              }
+              telemetry.queueDurationMs = Date.now() - syncStartedAt;
+              const unlockStartedAt = Date.now();
+              this.logSyncLifecycle('unlock-started', telemetry);
+              try {
+                await this.backgroundApi.serviceHardware.getDeviceStateWithUnlock(
+                  {
+                    connectId: device.connectId,
+                    oneKeyOperationLease,
+                    params: { scope: 'runtime' },
+                    pinType: DeviceSessionPinType.Any,
+                  },
+                );
+              } finally {
+                telemetry.unlockDurationMs = Date.now() - unlockStartedAt;
+              }
+              if (telemetry.cancelled) {
+                throw new UserCancelFromOutside();
+              }
+              this.logSyncLifecycle('unlock-completed', telemetry);
+              const syncResult = await this.syncSettledPortfolio(
+                authorizedPayload,
+                generation,
                 {
-                  connectId: device.connectId,
+                  deferPostHardwareTask: (task) => {
+                    deferredPostHardwareTask.task = task;
+                  },
                   oneKeyOperationLease,
-                  params: { scope: 'runtime' },
-                  pinType: DeviceSessionPinType.Any,
+                  syncStartedAt,
+                  syncMode,
+                  telemetry,
                 },
               );
-            } finally {
-              telemetry.unlockDurationMs = Date.now() - unlockStartedAt;
-            }
-            if (telemetry.cancelled) {
-              throw new UserCancelFromOutside();
-            }
-            this.logSyncLifecycle('unlock-completed', telemetry);
-            const result = await this.syncSettledPortfolio(
-              authorizedPayload,
-              generation,
-              {
-                oneKeyOperationLease,
-                syncStartedAt,
-                syncMode,
-                telemetry,
-              },
-            );
-            if (telemetry.cancelled) {
-              throw new UserCancelFromOutside();
-            }
-            return this.resolveInteractivePortfolioSyncResult(result);
-          },
-          {
-            debugMethodName: 'portfolio.syncPortfolio',
-            // SDK calls release their sessions. A follow-up cancel would
-            // disconnect the idle BLE link and force the next sync to reconnect.
-            skipDeviceCancel: true,
-            onCancel: onUserClose,
-            deviceParams: { dbDevice: device },
-          },
-        );
+              if (telemetry.cancelled) {
+                throw new UserCancelFromOutside();
+              }
+              return this.resolveInteractivePortfolioSyncResult(syncResult);
+            },
+            {
+              debugMethodName: 'portfolio.syncPortfolio',
+              // SDK calls release their sessions. A follow-up cancel would
+              // disconnect the idle BLE link and force the next sync to reconnect.
+              skipDeviceCancel: true,
+              onCancel: onUserClose,
+              deviceParams: { dbDevice: device },
+            },
+          );
+        await deferredPostHardwareTask.task;
+        return result;
       } catch (error) {
         await this.reportPortfolioSyncResult({
           error,
@@ -2426,6 +2441,7 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
 
   private async uploadPreparedHardwarePortfolio({
     artifacts,
+    deferPostHardwareTask,
     desktopBleExecution,
     deviceConnectId,
     eventPayload,
@@ -2440,6 +2456,7 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
     updatedAt,
   }: {
     artifacts: IPortfolioSyncArtifacts;
+    deferPostHardwareTask?: (task: Promise<unknown>) => void;
     desktopBleExecution?: IDesktopBleSyncExecution;
     deviceConnectId: string;
     eventPayload: IPortfolioSyncSettledPayload;
@@ -2874,16 +2891,23 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
           runUpload,
           { deviceKey: targetKey, lease: oneKeyOperationLease },
         );
-    this.activeUploadByTargetKey.set(targetKey, uploadPromise);
-    try {
+    const fullUploadPromise = (async () => {
       const result = await uploadPromise;
       await postUpload.persistMetadata?.();
       return result;
-    } finally {
-      if (this.activeUploadByTargetKey.get(targetKey) === uploadPromise) {
+    })();
+    this.activeUploadByTargetKey.set(targetKey, fullUploadPromise);
+    const clearActiveUpload = () => {
+      if (this.activeUploadByTargetKey.get(targetKey) === fullUploadPromise) {
         this.activeUploadByTargetKey.delete(targetKey);
       }
+    };
+    void fullUploadPromise.then(clearActiveUpload, clearActiveUpload);
+    if (deferPostHardwareTask) {
+      deferPostHardwareTask(fullUploadPromise);
+      return uploadPromise;
     }
+    return fullUploadPromise;
   }
 
   private async syncSettledPortfolio(
@@ -2908,6 +2932,11 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
     const targetKey = this.getSyncTargetKey(eventPayload);
     const generation =
       requestedGeneration ?? this.advanceSyncGeneration(targetKey);
+    if (!this.isCurrentSyncGeneration(targetKey, generation)) {
+      return;
+    }
+    const activeUpload = this.activeUploadByTargetKey.get(targetKey);
+    await activeUpload?.catch(() => undefined);
     if (!this.isCurrentSyncGeneration(targetKey, generation)) {
       return;
     }
@@ -3230,6 +3259,7 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
       telemetry.failureStage = failureStage;
       return await this.uploadPreparedHardwarePortfolio({
         artifacts,
+        deferPostHardwareTask: options?.deferPostHardwareTask,
         desktopBleExecution,
         deviceConnectId,
         eventPayload,

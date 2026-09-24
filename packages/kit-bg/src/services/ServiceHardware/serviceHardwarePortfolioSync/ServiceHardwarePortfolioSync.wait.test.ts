@@ -25,7 +25,10 @@ import {
 
 import localDb from '../../../dbs/local/localDb';
 import { perpsCommonConfigPersistAtom } from '../../../states/jotai/atoms';
-import { HardwareProcessingManager } from '../../ServiceHardwareUI/HardwareProcessingManager';
+import {
+  HardwareProcessingManager,
+  type IOneKeyHardwareOperationLease,
+} from '../../ServiceHardwareUI/HardwareProcessingManager';
 
 import ServiceHardwarePortfolioSync, {
   validatePortfolioPackageBase64,
@@ -1206,6 +1209,7 @@ describe('ServiceHardwarePortfolioSync.syncSettledPortfolio', () => {
         return { portfolioUpdated: true };
       },
     );
+    const getTargetState = jest.fn().mockResolvedValue(targetState);
     const updateTargetState = jest.fn().mockResolvedValue(undefined);
     const isHardwareChannelBusy = jest.fn();
     for (const busy of busyResults) {
@@ -1278,7 +1282,7 @@ describe('ServiceHardwarePortfolioSync.syncSettledPortfolio', () => {
             }),
           },
           hardwarePortfolioSync: {
-            getTargetState: jest.fn().mockResolvedValue(targetState),
+            getTargetState,
             updateTargetState,
           },
         },
@@ -1316,7 +1320,7 @@ describe('ServiceHardwarePortfolioSync.syncSettledPortfolio', () => {
       getDeviceState,
       getDeviceStateWithUnlock,
       getCurrentTransportType,
-      isOperationLeaseHeld: () => operationLeaseHeld,
+      getTargetState,
       isHardwareDeviceConnected,
       isHardwareChannelBusy,
       prepareHardwareTransport,
@@ -2790,14 +2794,34 @@ describe('ServiceHardwarePortfolioSync.syncSettledPortfolio', () => {
       resolvePersistence = resolve;
     });
     const {
-      isOperationLeaseHeld,
+      runExclusiveOneKeyOperation,
       service,
       updateTargetState,
       uploadPortfolioPackage,
+      withHardwareProcessing,
     } = prepareHardwareSync({
       busyResults: [false],
       hardwareTransportType: EHardwareTransportType.BLE,
     });
+    const manager = new HardwareProcessingManager();
+    (runExclusiveOneKeyOperation as jest.Mock).mockImplementation(
+      (
+        operation: (lease: IOneKeyHardwareOperationLease) => Promise<unknown>,
+        options?: {
+          deviceKey?: string;
+          lease?: IOneKeyHardwareOperationLease;
+        },
+      ) =>
+        manager.runExclusiveOneKeyOperation({
+          deviceKey: options?.deviceKey,
+          lease: options?.lease,
+          operation,
+        }),
+    );
+    withHardwareProcessing.mockImplementation((operation) =>
+      manager.runExclusiveOneKeyOperation({ operation }),
+    );
+    uploadPortfolioPackage.mockResolvedValue({ portfolioUpdated: true });
     updateTargetState
       .mockResolvedValueOnce(undefined)
       .mockImplementationOnce(() => {
@@ -2812,10 +2836,72 @@ describe('ServiceHardwarePortfolioSync.syncSettledPortfolio', () => {
     await persistenceStarted;
 
     expect(uploadPortfolioPackage).toHaveBeenCalledTimes(1);
-    expect(isOperationLeaseHeld()).toBe(false);
+    const competingOperation = jest.fn();
+    const competingPromise = manager.runExclusiveOneKeyOperation({
+      operation: async () => {
+        competingOperation();
+      },
+    });
+    await new Promise<void>((resolve) => {
+      setImmediate(resolve);
+    });
+    expect(competingOperation).toHaveBeenCalledTimes(1);
 
     resolvePersistence?.();
-    await expect(syncPromise).resolves.toBe(true);
+    await expect(Promise.all([syncPromise, competingPromise])).resolves.toEqual([
+      true,
+      undefined,
+    ]);
+  });
+
+  test('keeps an upload active until its metadata persistence settles', async () => {
+    type ITargetState = {
+      lastAttemptAt?: number;
+      lastContentHash?: string;
+      lastTransferAt?: number;
+      lastWalletId?: string;
+    };
+    let targetState: ITargetState | undefined;
+    let updateCount = 0;
+    let markPersistenceStarted: (() => void) | undefined;
+    let resolvePersistence: (() => void) | undefined;
+    const persistenceStarted = new Promise<void>((resolve) => {
+      markPersistenceStarted = resolve;
+    });
+    const persistencePending = new Promise<void>((resolve) => {
+      resolvePersistence = resolve;
+    });
+    const {
+      getTargetState,
+      serviceInternals,
+      updateTargetState,
+      uploadPortfolioPackage,
+    } = prepareHardwareSync({ busyResults: [false, false] });
+    getTargetState.mockImplementation(async () => targetState);
+    updateTargetState.mockImplementation(
+      async (_targetKey: string, patch: ITargetState) => {
+        updateCount += 1;
+        if (updateCount === 2) {
+          markPersistenceStarted?.();
+          await persistencePending;
+        }
+        targetState = { ...targetState, ...patch };
+      },
+    );
+
+    const payload = buildHardwarePayload();
+    const firstSync = serviceInternals.syncSettledPortfolio(payload);
+    await persistenceStarted;
+    const secondSync = serviceInternals.syncSettledPortfolio(payload);
+    await new Promise<void>((resolve) => {
+      setImmediate(resolve);
+    });
+
+    expect(uploadPortfolioPackage).toHaveBeenCalledTimes(1);
+
+    resolvePersistence?.();
+    await Promise.all([firstSync, secondSync]);
+    expect(uploadPortfolioPackage).toHaveBeenCalledTimes(1);
   });
 
   test('uploads an unchanged snapshot again for an explicit sync', async () => {
