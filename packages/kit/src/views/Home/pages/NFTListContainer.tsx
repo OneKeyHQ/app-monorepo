@@ -79,6 +79,18 @@ function NFTListContainer() {
       isRefreshing: true,
     });
   }, [ownerKey]);
+  // The All Networks callbacks below only know the account and network of the
+  // run they belong to. After a switch the previous owner's fan-out keeps
+  // running (the new owner's run queues behind it), so they check the live
+  // owner before writing.
+  const activeOwnerRef = useRef<{ accountId?: string; networkId?: string }>({});
+  activeOwnerRef.current = { accountId: account?.id, networkId: network?.id };
+  const isActiveOwner = useCallback(
+    (accountId?: string, networkId?: string) =>
+      activeOwnerRef.current.accountId === accountId &&
+      activeOwnerRef.current.networkId === networkId,
+    [],
+  );
 
   const { run } = usePromiseResult(
     async () => {
@@ -138,11 +150,13 @@ function NFTListContainer() {
       networkId,
       allNetworkDataInit,
       dbAccount,
+      isRunCurrent,
     }: {
       accountId: string;
       networkId: string;
       allNetworkDataInit?: boolean;
       dbAccount?: IDBAccount;
+      isRunCurrent?: () => boolean;
     }) => {
       const r = await backgroundApiProxy.serviceNFT.fetchAccountNFTs({
         dbAccount,
@@ -154,6 +168,16 @@ function NFTListContainer() {
         allNetworksNetworkId: network?.id,
         saveToLocal: true,
       });
+      // A fan-out superseded by an enabled-network change writes nothing,
+      // and neither does the previous owner's fan-out after a switch: its
+      // `isSameAllNetworksAccountData` compares against the owner the request
+      // started for, so it still passes.
+      if (
+        isRunCurrent?.() === false ||
+        !isActiveOwner(account?.id, network?.id)
+      ) {
+        return r;
+      }
       if (
         !allNetworkDataInit &&
         r.networkId === networkIdsMap.onekeyall &&
@@ -174,7 +198,7 @@ function NFTListContainer() {
       isAllNetworkManualRefresh.current = false;
       return r;
     },
-    [account?.id, network?.id],
+    [account?.id, isActiveOwner, network?.id],
   );
 
   const handleAllNetworkRequestsFinished = useCallback(
@@ -241,7 +265,18 @@ function NFTListContainer() {
   );
 
   const handleAllNetworkCacheData = useCallback(
-    async ({ data }: { data: IAccountNFT[] }) => {
+    async ({
+      data,
+      accountId,
+      networkId,
+    }: {
+      data: IAccountNFT[];
+      accountId: string;
+      networkId: string;
+    }) => {
+      if (!isActiveOwner(accountId, networkId)) {
+        return;
+      }
       const allNFTs = data.flat();
       if (!isEmpty(allNFTs)) {
         setNftList(allNFTs);
@@ -251,7 +286,7 @@ function NFTListContainer() {
         });
       }
     },
-    [],
+    [isActiveOwner],
   );
 
   const handleAllNetworkAccountsData = useCallback(
