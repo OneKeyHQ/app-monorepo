@@ -132,6 +132,10 @@ describe.each(['iOS', 'Android'])('%s local restore UI flow', (platform) => {
       await result.current.doRestoreBackup(params);
     });
     expect(showCloudBackupPasswordDialog).not.toHaveBeenCalled();
+    expect(service.prepareLocalRestore).toHaveBeenCalledWith({
+      recordId: params.recordId,
+      password: undefined,
+    });
     expect(service.restorePreparedLocalBackup).toHaveBeenCalledWith({
       restoreId: 'one-use-handle',
       taskUUID: 'import-task',
@@ -160,7 +164,7 @@ describe.each(['iOS', 'Android'])('%s local restore UI flow', (platform) => {
       await onSubmit('synthetic-password');
     });
     expect(service.prepareLocalRestore).toHaveBeenLastCalledWith({
-      ...params,
+      recordId: params.recordId,
       password: 'synthetic-password',
     });
     expect(mockPasswordDialog.close).toHaveBeenCalledTimes(1);

@@ -254,18 +254,17 @@ class ServiceCloudBackupV2 extends ServiceBase {
     return `${cloudAccountInfo.userId}:${params?.password}:4A561E9E-E747-4AFF-B835-FE2EF2D61B41`;
   }
 
-  private async assertICloudBackupAccountUnchanged(
+  private async assertBackupAccountUnchanged(
     accountInfo: IBackupProviderAccountInfo,
   ): Promise<void> {
-    if (accountInfo.providerType !== ECloudBackupProviderType.iCloud) return;
     const currentAccountInfo = await this.getCloudAccountInfo();
     if (
       !accountInfo.userId ||
-      currentAccountInfo.providerType !== ECloudBackupProviderType.iCloud ||
+      currentAccountInfo.providerType !== accountInfo.providerType ||
       currentAccountInfo.userId !== accountInfo.userId
     ) {
       throw new OneKeyLocalError(
-        'iCloud account changed or is unavailable. Please restart the backup.',
+        'Cloud account changed or is unavailable. Please try again.',
       );
     }
   }
@@ -299,7 +298,7 @@ class ServiceCloudBackupV2 extends ServiceBase {
         ? { expectedAccountId: accountInfo.userId }
         : {}),
     });
-    await this.assertICloudBackupAccountUnchanged(accountInfo);
+    await this.assertBackupAccountUnchanged(accountInfo);
     await this.cacheBackupPassword({ accountInfo, password: params.password });
     return result;
   }
@@ -377,7 +376,7 @@ class ServiceCloudBackupV2 extends ServiceBase {
     const accountInfo =
       iCloudAccountBeforeAuthorization ?? (await this.getCloudAccountInfo());
     // Local authorization may remain pending while the system account changes.
-    await this.assertICloudBackupAccountUnchanged(accountInfo);
+    await this.assertBackupAccountUnchanged(accountInfo);
 
     console.log('serviceCloudBackupV2__stringify_privateData');
     const privateData = stringUtils.stableStringify(data.privateData);
@@ -403,14 +402,18 @@ class ServiceCloudBackupV2 extends ServiceBase {
     const privateDataEncrypted = privateDataEncryptedBuffer.toString('base64');
 
     console.log('serviceCloudBackupV2__backupData');
-    await this.assertICloudBackupAccountUnchanged(accountInfo);
-    const result = await provider.backupData({
-      privateDataEncrypted,
-      publicData: data.publicData,
-      isEmptyData: data.isEmptyData,
-      isWatchingOnly: data.isWatchingOnly,
-      appVersion: data.appVersion,
-    });
+    await this.assertBackupAccountUnchanged(accountInfo);
+    const result = await provider.backupData(
+      {
+        privateDataEncrypted,
+        publicData: data.publicData,
+        isEmptyData: data.isEmptyData,
+        isWatchingOnly: data.isWatchingOnly,
+        appVersion: data.appVersion,
+      },
+      { expectedAccountId: accountInfo.userId },
+    );
+    await this.assertBackupAccountUnchanged(accountInfo);
 
     const { recordID, content } = result;
 
@@ -420,6 +423,7 @@ class ServiceCloudBackupV2 extends ServiceBase {
     const downloadData = await this.download({
       recordId: recordID,
     });
+    await this.assertBackupAccountUnchanged(accountInfo);
     if (!downloadData?.payload?.publicData?.walletDetails) {
       throw new OneKeyLocalError('Failed to backup data: no wallet details');
     }
@@ -430,7 +434,7 @@ class ServiceCloudBackupV2 extends ServiceBase {
       throw new OneKeyLocalError('Failed to backup data: no data downloaded');
     }
     if (downloadData?.content !== content) {
-      await this.assertICloudBackupAccountUnchanged(accountInfo);
+      await this.assertBackupAccountUnchanged(accountInfo);
       void this.deleteSilently({
         recordId: recordID,
         skipManifestUpdate: true,
@@ -439,8 +443,8 @@ class ServiceCloudBackupV2 extends ServiceBase {
     }
 
     const allBackups = await this.getAllBackups();
-    // CloudKit writes and reads are separate operations, not an account-bound transaction.
-    await this.assertICloudBackupAccountUnchanged(accountInfo);
+    // Cloud writes and reads are separate operations, not an account-bound transaction.
+    await this.assertBackupAccountUnchanged(accountInfo);
     const matchedBackup = allBackups?.items?.find(
       (item) => item.recordID === recordID,
     );
@@ -588,39 +592,41 @@ class ServiceCloudBackupV2 extends ServiceBase {
   @toastIfError()
   async prepareLocalRestore(params: {
     recordId: string;
-    payload: IBackupDataEncryptedPayload | undefined;
     password?: string;
   }): Promise<{ restoreId: string } | null> {
     if (
       (!platformEnv.isNativeIOS && !platformEnv.isNativeAndroid) ||
-      !params.recordId ||
-      !params.payload
+      !params.recordId
     )
       return null;
     this.clearPreparedLocalRestore();
-    let accountInfo: IBackupProviderAccountInfo;
-    let privateData: IPrimeTransferPrivateData | undefined;
-    if (params.password !== undefined) {
-      accountInfo = await this.getCloudAccountInfo();
-      if (!this.supportsLocalPasswordCache(accountInfo)) return null;
-      privateData = await this.decryptBackupPrivateData(
-        { ...params, password: params.password },
-        accountInfo,
-      );
-      await this.cacheBackupPassword({
-        accountInfo,
-        password: params.password,
-        recordId: params.recordId,
-      });
-    } else {
-      try {
+    try {
+      const provider = this.getProvider();
+      const accountInfo = await provider.getCloudAccountInfo();
+      if (!this.supportsLocalPasswordCache(accountInfo) || !accountInfo.userId)
+        return null;
+      // Resolve the selected record in bg before accessing its cached password.
+      // UI-supplied payloads must not select the data behind a restore handle.
+      const backup = await provider.downloadData({ recordId: params.recordId });
+      if (!backup?.payload?.privateDataEncrypted) {
+        throw new OneKeyLocalError('Backup data is empty');
+      }
+      await this.assertBackupAccountUnchanged(accountInfo);
+      const { payload } = backup;
+      let privateData: IPrimeTransferPrivateData | undefined;
+      if (params.password !== undefined) {
+        privateData = await this.decryptBackupPrivateData(
+          { payload, password: params.password },
+          accountInfo,
+        );
+        await this.assertBackupAccountUnchanged(accountInfo);
+        await this.cacheBackupPassword({
+          accountInfo,
+          password: params.password,
+          recordId: params.recordId,
+        });
+      } else {
         // This optional path must not emit a password-error toast on cache misses.
-        accountInfo = await this.getProvider().getCloudAccountInfo();
-        if (
-          !this.supportsLocalPasswordCache(accountInfo) ||
-          !accountInfo.userId
-        )
-          return null;
         const { default: cache } = await import('./localBackupPasswordCache');
         for (const recordId of [params.recordId, undefined]) {
           const password = await cache.get({
@@ -631,7 +637,7 @@ class ServiceCloudBackupV2 extends ServiceBase {
           if (password) {
             try {
               privateData = await this.decryptBackupPrivateData(
-                { ...params, password },
+                { payload, password },
                 accountInfo,
               );
             } catch {
@@ -644,6 +650,7 @@ class ServiceCloudBackupV2 extends ServiceBase {
                 });
             }
             if (privateData) {
+              await this.assertBackupAccountUnchanged(accountInfo);
               if (!recordId) {
                 await this.cacheBackupPassword({
                   accountInfo,
@@ -655,26 +662,26 @@ class ServiceCloudBackupV2 extends ServiceBase {
             }
           }
         }
-      } catch {
-        console.warn(
-          'Local cloud backup restore unavailable; use manual entry.',
-        );
-        return null;
       }
+      if (!privateData) return null;
+      await this.assertBackupAccountUnchanged(accountInfo);
+      // Keep decrypted data in bg. The UI receives a short-lived, one-use handle.
+      const restoreId = stringUtils.generateUUID();
+      this.clearPreparedLocalRestore();
+      this.preparedLocalRestore = {
+        restoreId,
+        accountId: accountInfo.userId,
+        providerType: accountInfo.providerType,
+        transferData: { ...payload, privateData },
+        expiresAt: Date.now() + 60_000,
+        timer: setTimeout(() => this.clearPreparedLocalRestore(), 60_000),
+      };
+      return { restoreId };
+    } catch (error) {
+      if (params.password !== undefined) throw error;
+      console.warn('Local cloud backup restore unavailable; use manual entry.');
+      return null;
     }
-    if (!privateData) return null;
-    // Keep decrypted data in bg. The UI receives a short-lived, one-use handle.
-    const restoreId = stringUtils.generateUUID();
-    this.clearPreparedLocalRestore();
-    this.preparedLocalRestore = {
-      restoreId,
-      accountId: accountInfo.userId,
-      providerType: accountInfo.providerType,
-      transferData: { ...params.payload, privateData },
-      expiresAt: Date.now() + 60_000,
-      timer: setTimeout(() => this.clearPreparedLocalRestore(), 60_000),
-    };
-    return { restoreId };
   }
 
   @backgroundMethod()

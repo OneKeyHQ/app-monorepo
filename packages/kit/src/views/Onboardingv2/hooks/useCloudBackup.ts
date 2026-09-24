@@ -467,7 +467,7 @@ export function useCloudBackup() {
           ) {
             const prepared =
               await backgroundApiProxy.serviceCloudBackupV2.prepareLocalRestore(
-                { payload, recordId, password },
+                { recordId, password },
               );
             if (!prepared) return false;
             restoreId = prepared.restoreId;

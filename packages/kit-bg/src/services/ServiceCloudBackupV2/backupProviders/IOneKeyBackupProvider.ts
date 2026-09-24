@@ -64,6 +64,7 @@ export interface IOneKeyBackupProvider {
    */
   backupData(
     payload: IBackupDataEncryptedPayload,
+    options?: { expectedAccountId?: string },
   ): Promise<{ recordID: string; content: string }>;
 
   downloadData(params: {
