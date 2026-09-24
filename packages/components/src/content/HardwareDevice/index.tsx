@@ -7,7 +7,6 @@ import type { IHardwareDeviceColor } from '@onekeyhq/shared/src/utils/hardwareDe
 
 import { ClassicDevice } from '../ClassicDevice';
 import { MiniDevice } from '../MiniDevice';
-import { NeoDevice } from '../NeoDevice';
 import { Pro2Device } from '../Pro2Device';
 import { ProDevice } from '../ProDevice';
 import { TouchDevice } from '../TouchDevice';
@@ -22,9 +21,9 @@ export type { IHardwareDeviceColor } from '@onekeyhq/shared/src/utils/hardwareDe
 
 /**
  * The code-drawn hardware devices. This is the entry point; ../ClassicDevice,
- * ../MiniDevice, ../ProDevice, ../TouchDevice, ../Pro2Device and ../NeoDevice
- * are the per-model drawings behind it, not a second way in. Call sites hold
- * the model at runtime and fix the scenario at build time:
+ * ../MiniDevice, ../ProDevice, ../TouchDevice and ../Pro2Device are the
+ * per-model drawings behind it, not a second way in. Call sites hold the
+ * model at runtime and fix the scenario at build time:
  *
  *   <HardwareDevice deviceType={deviceType} animation="confirm" />
  *
@@ -114,9 +113,9 @@ export interface IHardwareDeviceProps {
   shadow?: boolean;
   /**
    * The device's finish, as its serial number names it (see
-   * shared/utils/hardwareDeviceColors). Only the Pro 2 and the Neo come
-   * in more than one; the other models take it and ignore it. Omitted or
-   * unknown: the model's default — the Pro 2 in black, the Neo in white.
+   * shared/utils/hardwareDeviceColors). Only the Pro 2 comes in more
+   * than one; the other models take it and ignore it. Omitted or unknown:
+   * the model's default, black.
    */
   color?: IHardwareDeviceColor;
 }
@@ -156,7 +155,8 @@ const REPLICAS: Partial<
   pro: ProDevice,
   touch: TouchDevice,
   pro2: Pro2Device,
-  neo: NeoDevice,
+  // A model without a drawing of its own yet stands on the Pro replica.
+  neo: ProDevice,
 };
 
 export function HardwareDevice({

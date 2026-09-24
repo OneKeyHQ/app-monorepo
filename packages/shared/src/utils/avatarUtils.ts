@@ -2,11 +2,11 @@ import { EDeviceType } from '@onekeyfe/hd-shared';
 
 import { EHardwareVendor } from '../../types/device';
 
-import { getNeoDeviceColor, getPro2DeviceColor } from './hardwareDeviceColors';
+import { getPro2DeviceColor } from './hardwareDeviceColors';
 import { NEO_DEVICE_TYPE } from './hardwareDeviceTypes';
 import thirdPartyDeviceUtils from './thirdPartyDeviceUtils';
 
-import type { INeoDeviceColor, IPro2DeviceColor } from './hardwareDeviceColors';
+import type { IPro2DeviceColor } from './hardwareDeviceColors';
 import type { IDeviceType } from '@onekeyfe/hd-core';
 import type { ImageSourcePropType } from 'react-native';
 
@@ -34,18 +34,16 @@ export const HdWalletAvatarImageNames = Object.keys(
 
 /**
  * The device colors that ship with their own avatar art. The Pro's two
- * are told apart by serial here; the Pro 2's and the Neo's vocabulary
- * lives in ./hardwareDeviceColors, shared with the stage replicas.
+ * are told apart by serial here; the Pro 2's vocabulary lives in
+ * ./hardwareDeviceColors, shared with the stage replicas.
  */
 type IProColor = 'Black' | 'White';
 type IPro2Color = IPro2DeviceColor;
-type INeoColor = INeoDeviceColor;
 
 export const HwWalletAvatarImages: Record<
   | IDeviceType
   | `${EDeviceType.Pro}${IProColor}`
-  | `${EDeviceType.Pro2}${IPro2Color}`
-  | `${typeof NEO_DEVICE_TYPE}${INeoColor}`,
+  | `${EDeviceType.Pro2}${IPro2Color}`,
   ImageSourcePropType
 > = {
   [EDeviceType.Unknown]: { uri: undefined },
@@ -55,21 +53,17 @@ export const HwWalletAvatarImages: Record<
   [EDeviceType.Mini]: require('../assets/wallet/avatar/Mini.png'),
   [EDeviceType.Touch]: require('../assets/wallet/avatar/Touch.png'),
   [EDeviceType.Pro]: require('../assets/wallet/avatar/ProBlack.png'),
-  // The bare model keys are each model's default finish — the Pro 2 in
-  // black, the Neo in white — worn wherever no serial is in hand (the
-  // onboarding device list, the setup stepper), the same defaults the
-  // stage replicas wear.
+  // The bare model key is the model's default finish — the Pro 2 in
+  // black — worn wherever no serial is in hand (the onboarding device
+  // list, the setup stepper), the same default the stage replica wears.
   [EDeviceType.Pro2]: require('../assets/wallet/avatar/Pro2Black.png'),
-  [NEO_DEVICE_TYPE]: require('../assets/wallet/avatar/NeoWhite.png'),
+  // No art of its own yet: wears the Pro's.
+  [NEO_DEVICE_TYPE]: require('../assets/wallet/avatar/ProBlack.png'),
   [`${EDeviceType.Pro}Black`]: require('../assets/wallet/avatar/ProBlack.png'),
   [`${EDeviceType.Pro}White`]: require('../assets/wallet/avatar/ProWhite.png'),
   [`${EDeviceType.Pro2}Black`]: require('../assets/wallet/avatar/Pro2Black.png'),
   [`${EDeviceType.Pro2}Orange`]: require('../assets/wallet/avatar/Pro2Orange.png'),
   [`${EDeviceType.Pro2}Silver`]: require('../assets/wallet/avatar/Pro2Silver.png'),
-  [`${NEO_DEVICE_TYPE}Black`]: require('../assets/wallet/avatar/NeoBlack.png'),
-  [`${NEO_DEVICE_TYPE}White`]: require('../assets/wallet/avatar/NeoWhite.png'),
-  [`${NEO_DEVICE_TYPE}Green`]: require('../assets/wallet/avatar/NeoGreen.png'),
-  [`${NEO_DEVICE_TYPE}Pink`]: require('../assets/wallet/avatar/NeoPink.png'),
 };
 
 export const OthersWalletAvatarImages = {
@@ -134,9 +128,6 @@ export function getDeviceAvatarImage(
   // model's default finish (see the table above).
   if (deviceType === EDeviceType.Pro2) {
     return `${EDeviceType.Pro2}${getPro2DeviceColor(serialNo) ?? 'Black'}`;
-  }
-  if (deviceType === NEO_DEVICE_TYPE) {
-    return `${NEO_DEVICE_TYPE}${getNeoDeviceColor(serialNo) ?? 'White'}`;
   }
   return deviceType;
 }

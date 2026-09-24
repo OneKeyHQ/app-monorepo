@@ -183,7 +183,7 @@ function isSamePhysicalDevice(
   );
 }
 
-/** The finish the serial number names — the Pro 2 and the Neo only. */
+/** The finish the serial number names — the Pro 2 only. */
 function getDeviceColorFromFeatures({
   deviceType,
   features,

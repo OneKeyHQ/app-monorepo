@@ -182,8 +182,8 @@ export interface IDeviceStageProps {
    */
   replicaWidth?: number;
   /** The model's finish, read by the driver off the device row's serial
-   * number (shared/utils/hardwareDeviceColors) — only the Pro 2 and the
-   * Neo have one. Omitted: the model's default shell. */
+   * number (shared/utils/hardwareDeviceColors) — only the Pro 2 has one.
+   * Omitted: the model's default shell. */
   deviceColor?: IHardwareDeviceColor;
   step: IDeviceStageStep;
   /**

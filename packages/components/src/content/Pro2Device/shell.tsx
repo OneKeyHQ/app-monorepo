@@ -20,8 +20,8 @@ import type { ImageSourcePropType } from 'react-native';
  * bitmap per finish (shell-pro2-<color>@2x/@3x, exported straight from
  * the Figma frame at 280pt, the stage's largest rendering). Only the screen stays
  * code: its content is dynamic (scenes on the 288x484 canvas) and its
- * cutout provides the clip. The Neo shares this geometry and rides the
- * same component under its own bitmap (../NeoDevice).
+ * cutout provides the clip. A model that shares this geometry can ride
+ * the same component under its own bitmap.
  *
  * The chrome was first transcribed as code-drawn SVG — blurred strokes
  * and painted fills, see git history for the full transcription. The
@@ -170,7 +170,7 @@ export interface IPro2DeviceShellProps {
   /**
    * The baked chrome bitmap. Defaults to the Pro 2 in black; ../Pro2Device
    * picks the finish, and a model that shares this geometry and screen
-   * (the Neo) passes its own shell here.
+   * passes its own shell here.
    */
   shellSource?: ImageSourcePropType;
 }

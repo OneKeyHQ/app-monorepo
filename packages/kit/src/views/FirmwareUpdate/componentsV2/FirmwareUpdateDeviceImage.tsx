@@ -73,8 +73,8 @@ export const FirmwareUpdateDeviceImage = memo(
     done,
   }: {
     deviceType: IDeviceType | undefined;
-    /** The finish the device's serial names (Pro 2 / Neo); omitted, the
-     * model's default shell. */
+    /** The finish the device's serial names (Pro 2); omitted, the model's
+     * default shell. */
     deviceColor?: IHardwareDeviceColor;
     /** Shows the success badge; it pops in when this turns true. */
     done?: boolean;

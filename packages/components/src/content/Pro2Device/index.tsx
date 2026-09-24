@@ -44,8 +44,7 @@ function pickShell(color: IHardwareDeviceColor | undefined) {
  * also accepts a custom IPro2DeviceAnimation contract (see ./animation.ts)
  * paired with your own `screenContent` on the 288x484 canvas.
  * `color` picks the finish's chrome (black when omitted); `shellSource`
- * swaps it outright for a model that shares this geometry (the Neo,
- * ../NeoDevice).
+ * swaps it outright for a model that shares this geometry.
  */
 export interface IPro2DeviceProps extends Omit<
   IPro2DeviceShellProps,
