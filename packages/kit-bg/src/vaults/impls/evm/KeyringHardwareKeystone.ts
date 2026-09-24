@@ -45,7 +45,8 @@ const VENDOR_ERROR_CONTEXT = { vendor: 'Keystone', chain: 'EVM' } as const;
 
 /**
  * Keystone EVM keyring: no per-chain app or ephemeral connectId, since
- * deviceId is a stable public-key-derived wallet id across QR and USB. Pass DB connectId/deviceId when known so a synced wallet is reused, not re-synced.
+ * deviceId is the wallet's master fingerprint across QR and USB, and doubles as
+ * the xfp every sign request carries. Pass DB connectId/deviceId when known.
  */
 export class KeyringHardwareKeystone extends KeyringHardwareBase {
   override coreApi = coreChainApi.evm.hd;

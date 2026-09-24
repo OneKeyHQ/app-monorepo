@@ -157,8 +157,8 @@ const trezorProfile: IHardwareVendorProfile = {
   addAccountDefaultNetworkMode: 'onekeyDefault',
 };
 
-// deviceId is a SHA-256 wallet id from a fixed account xpub, the same over QR
-// and USB; another seed or passphrase is another device. showVersion stays
+// deviceId is the wallet's BIP32 master fingerprint, the same over QR and USB;
+// another seed or passphrase is another device. showVersion stays
 // false until both channels report firmware reliably (QR may omit it, USB
 // getAppConfig falls back to '0.0.0').
 const keystoneProfile: IHardwareVendorProfile = {
@@ -173,7 +173,7 @@ const keystoneProfile: IHardwareVendorProfile = {
     role: 'walletIdentity',
     persistentConnectId: () => true,
     persistentDeviceId: () => true,
-    // The wallet-id-derived connectId is stable across QR and USB, unlike
+    // The fingerprint-derived connectId is stable across QR and USB, unlike
     // Ledger's ephemeral session handles.
     matchDeviceByConnectId: (connectId) => Boolean(connectId),
     connectIdMatchVerification: 'none',
