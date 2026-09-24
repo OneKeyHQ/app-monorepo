@@ -27,14 +27,17 @@ export function thirdPartyConnectionContextFromDevice(device?: {
   if (!device) return {};
   const knownConnections: KnownDeviceConnection[] = [];
   let { usbConnectId, bleConnectId } = device;
+  const { identity } = getVendorProfile(
+    device.vendor as EHardwareVendor | undefined,
+  );
   // Legacy connectId's original platform isn't recoverable, so we guess by
-  // current platform only when no per-channel locator exists yet (a stale legacy value could hand the SDK the wrong channel). Wallet-identity connectIds are never promoted this way.
+  // current platform only when no per-channel locator exists yet (a stale legacy value could hand the SDK the wrong channel). Only a connectId the vendor treats as a locator is promoted.
   if (
     !usbConnectId &&
     !bleConnectId &&
-    getVendorProfile(device.vendor as EHardwareVendor | undefined).identity
-      .role === 'transportLocator' &&
-    device.connectId
+    identity.role === 'transportLocator' &&
+    device.connectId &&
+    identity.matchDeviceByConnectId(device.connectId)
   ) {
     if (platformEnv.isNative) bleConnectId = device.connectId;
     else usbConnectId = device.connectId;

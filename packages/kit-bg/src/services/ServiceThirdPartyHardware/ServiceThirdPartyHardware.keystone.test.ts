@@ -146,6 +146,19 @@ describe('Keystone default account creation', () => {
     },
   );
 
+  it('keys a QR wallet by deviceId and leaves connectId empty', async () => {
+    const fixture = buildService();
+    await fixture.service.createKeystoneWalletWithDefaultAccounts({});
+    expect(fixture.createHWWallet).toHaveBeenCalledWith(
+      expect.objectContaining({
+        device: expect.objectContaining({
+          connectId: null,
+          deviceId: fixture.walletIdentity,
+        }),
+      }),
+    );
+  });
+
   it.each([0, 1])(
     'propagates a local failure at network index %s',
     async (index) => {

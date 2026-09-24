@@ -124,6 +124,11 @@ export function mapThirdPartyDeviceToSearchDevice({
         ? stableConnectId
         : null;
       break;
+    case 'qr':
+      // A QR target's connectId only routes this search; wallet creation
+      // builds its own record, so it is never persisted as an identity.
+      connectId = device.connectId || null;
+      break;
     default:
       // Transport unknown — fall back to connectId shape heuristic.
       connectId = stableConnectId;

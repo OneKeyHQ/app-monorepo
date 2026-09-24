@@ -6293,15 +6293,6 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
               'Verified connection identity no longer matches the device record',
             );
           }
-          if (
-            verifiedDeviceIdentity?.identity.type === 'walletId' &&
-            connectId !== undefined &&
-            connectId !== verifiedDeviceIdentity.identity.value
-          ) {
-            throw new OneKeyLocalError(
-              'A wallet identity cannot be replaced with a transport locator',
-            );
-          }
           if (connectId !== undefined) {
             item.connectId = connectId;
           }
@@ -7259,8 +7250,9 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       transportType,
     });
 
-    // Transport-locator vendors keep locators in per-transport columns only,
-    // omitting legacy `connectId`, so the field name identifies the channel. Wallet-identity vendors (Keystone, OneKey) are untouched.
+    // Transport-locator vendors (Trezor, Ledger, Keystone) keep locators in
+    // per-transport columns only and write an empty legacy `connectId`; it is
+    // still read for older records. OneKey keeps its connectId.
 
     if (transportType) {
       switch (transportType) {
@@ -7312,7 +7304,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     }
 
     // Saved third-party records carry their locators independently of the
-    // current transport. Keystone also separates its USB handle from wallet id.
+    // current transport.
     if (usesTransportLocatorConnectId && !bleConnectId) {
       bleConnectId = runtimeDevice.bleConnectId;
     }

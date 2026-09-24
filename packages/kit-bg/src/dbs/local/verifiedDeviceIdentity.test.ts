@@ -32,19 +32,33 @@ describe('verified device identity strategies', () => {
     },
   );
 
-  it('checks wallet identities without requiring a chain', () => {
+  it('checks wallet identities against deviceId, not connectId', () => {
     expect(
       matchesVerifiedDeviceIdentity(
         {
           vendor: EHardwareVendor.keystone,
-          connectId: 'wallet-identity',
+          deviceId: 'a1b2c3d4',
+          connectId: '',
         },
         {
           vendor: EHardwareVendor.keystone,
-          identity: { type: 'walletId', value: 'wallet-identity' },
+          identity: { type: 'walletId', value: 'a1b2c3d4' },
         },
       ),
     ).toBe(true);
+    expect(
+      matchesVerifiedDeviceIdentity(
+        {
+          vendor: EHardwareVendor.keystone,
+          deviceId: 'ffffffff',
+          connectId: 'a1b2c3d4',
+        },
+        {
+          vendor: EHardwareVendor.keystone,
+          identity: { type: 'walletId', value: 'a1b2c3d4' },
+        },
+      ),
+    ).toBe(false);
   });
 
   it.each([

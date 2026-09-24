@@ -36,7 +36,7 @@ export function matchesVerifiedDeviceIdentity(
     case 'deviceId':
       return record.deviceId === identity.value;
     case 'walletId':
-      return record.connectId === identity.value;
+      return record.deviceId === identity.value;
     default:
       // A newer SDK must not silently bypass verification in an older host.
       return false;

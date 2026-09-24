@@ -1072,7 +1072,7 @@ class ServiceThirdPartyHardware extends ServiceBase {
       const infoResult = await adapter.hw.getDeviceInfo(walletId, '');
       const info = infoResult.success ? infoResult.payload : undefined;
       device = {
-        connectId: walletId,
+        connectId: null,
         deviceId: walletId,
         name: info?.modelName || info?.model || 'Keystone',
         deviceType: 'unknown',
@@ -1081,7 +1081,6 @@ class ServiceThirdPartyHardware extends ServiceBase {
         vendorModelName: info?.modelName,
         raw: {
           vendor,
-          connectId: walletId,
           deviceId: walletId,
           model: info?.model,
           modelName: info?.modelName,

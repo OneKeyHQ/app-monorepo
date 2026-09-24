@@ -170,12 +170,12 @@ const keystoneProfile: IHardwareVendorProfile = {
     label: { mode: 'local' },
   },
   identity: {
-    role: 'walletIdentity',
-    persistentConnectId: () => true,
+    // Identity is deviceId (the mfp). QR has no transport locator and the USB
+    // serial lives in usbConnectId, so connectId stays empty.
+    role: 'transportLocator',
+    persistentConnectId: () => false,
     persistentDeviceId: () => true,
-    // The fingerprint-derived connectId is stable across QR and USB, unlike
-    // Ledger's ephemeral session handles.
-    matchDeviceByConnectId: (connectId) => Boolean(connectId),
+    matchDeviceByConnectId: () => false,
     connectIdMatchVerification: 'none',
   },
   deviceManager: { details: true, about: false, settings: false },

@@ -95,6 +95,28 @@ describe('hardware wallet connect status utils', () => {
     ).toBe(true);
   });
 
+  it('lights a Keystone wallet by its USB serial with an empty connectId', () => {
+    const wallet = {
+      associatedDeviceInfo: {
+        vendor: EHardwareVendor.keystone,
+        deviceId: 'a1b2c3d4',
+        connectId: '',
+        usbConnectId: 'keystone-usb-serial',
+      },
+    };
+
+    expect(getWalletHardwareConnectionKeys(wallet)).toEqual([
+      'a1b2c3d4',
+      'keystone-usb-serial',
+    ]);
+    expect(
+      isWalletConnectedByHardwareStatus({
+        wallet,
+        connectedDeviceKeys: new Set(['keystone-usb-serial']),
+      }),
+    ).toBe(true);
+  });
+
   it('keeps OneKey wallets matched by features device id', () => {
     const wallet = {
       associatedDeviceInfo: {
