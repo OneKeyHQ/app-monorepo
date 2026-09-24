@@ -382,6 +382,10 @@ class SystemTimeUtils {
       return true;
     }
 
+    return this.refreshServerTimeOnce();
+  }
+
+  private refreshServerTimeOnce(): Promise<boolean> {
     this._refreshServerTimePromise ??= this.refreshServerTime().finally(() => {
       this._refreshServerTimePromise = undefined;
     });
@@ -519,7 +523,7 @@ class SystemTimeUtils {
       return;
     }
     // A business response can seed the estimator without confirming an alert.
-    void this.refreshServerTime()
+    void this.refreshServerTimeOnce()
       .then((success) => {
         if (!success) {
           this.updateSystemTimeStatusByEstimatedServerTime();
