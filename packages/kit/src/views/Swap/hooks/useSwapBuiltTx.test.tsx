@@ -5,11 +5,14 @@ import type { ReactNode } from 'react';
 import { act, renderHook } from '@testing-library/react';
 import { createStore } from 'jotai';
 
+import type { ISignedTxPro, IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import { globalJotaiStorageReadyHandler } from '@onekeyhq/kit-bg/src/states/jotai/jotaiStorage';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { EMessageTypesEth } from '@onekeyhq/shared/types/message';
 import type {
   IFetchBuildTxResponse,
   IFetchQuoteResult,
+  ISwapStep,
   ISwapToken,
 } from '@onekeyhq/shared/types/swap/types';
 import {
@@ -60,6 +63,16 @@ const mockGetVaultSettings = jest.fn<
 >(async () => ({}));
 const mockNavigateTxConfirm = jest.fn();
 const mockNavigateMessageConfirm = jest.fn();
+const mockUpdateUnsignedTx = jest.fn(
+  async ({ unsignedTx }: { unsignedTx: IUnsignedTxPro }) => unsignedTx,
+);
+const mockPrecheckUnsignedTxs = jest.fn<Promise<void>, unknown[]>(
+  async () => undefined,
+);
+const mockSignAndSendTransaction = jest.fn<Promise<ISignedTxPro>, unknown[]>();
+const mockSignMessage = jest.fn<Promise<string>, unknown[]>();
+const mockSaveSendHistory = jest.fn(async () => undefined);
+const mockGenerateSwapHistory = jest.fn(async () => undefined);
 
 const fromToken: ISwapToken = {
   networkId: 'evm--1',
@@ -140,7 +153,9 @@ jest.mock('./useSwapState', () => ({
   useSwapActionState: () => ({ approveUnLimit: false }),
 }));
 jest.mock('./useSwapTxHistory', () => ({
-  useSwapTxHistoryActions: () => ({ generateSwapHistoryItem: jest.fn() }),
+  useSwapTxHistoryActions: () => ({
+    generateSwapHistoryItem: mockGenerateSwapHistory,
+  }),
 }));
 jest.mock('./useSwapAccount', () => ({
   useSwapAddressInfo: (direction: string) => ({
@@ -166,7 +181,17 @@ jest.mock('../../../background/instance/backgroundApiProxy', () => ({
       fetchBuildTx: (...args: unknown[]) => mockFetchBuildTx(...args),
       swapRecentTokenPairsUpdate: async () => undefined,
     },
+    serviceTransaction: { verifyTransaction: async () => undefined },
+    serviceHistory: { saveSendConfirmHistoryTxs: () => mockSaveSendHistory() },
     serviceSend: {
+      updateUnsignedTx: (params: Parameters<typeof mockUpdateUnsignedTx>[0]) =>
+        mockUpdateUnsignedTx(params),
+      precheckUnsignedTxs: (...args: unknown[]) =>
+        mockPrecheckUnsignedTxs(...args),
+      signAndSendTransaction: (...args: unknown[]) =>
+        mockSignAndSendTransaction(...args),
+      signMessage: (...args: unknown[]) => mockSignMessage(...args),
+      buildDecodedTx: async () => ({}),
       prepareSendConfirmUnsignedTx: (
         params: Parameters<typeof mockPrepareUnsignedTx>[0],
       ) => mockPrepareUnsignedTx(params),
@@ -203,6 +228,475 @@ function buildResponse(amount: string): IFetchBuildTxResponse {
     },
   } as IFetchBuildTxResponse;
 }
+
+function deferred<T>() {
+  let resolve!: (value: T) => void;
+  let reject!: (reason: Error) => void;
+  const promise = new Promise<T>((resolvePromise, rejectPromise) => {
+    resolve = resolvePromise;
+    reject = rejectPromise;
+  });
+  return { promise, resolve, reject };
+}
+
+function renderExecutionReview({
+  reviewQuote = quote,
+  steps = [{ type: ESwapStepType.SEND_TX, status: ESwapStepStatus.READY }],
+}: { reviewQuote?: IFetchQuoteResult; steps?: ISwapStep[] } = {}) {
+  const store = createStore();
+  store.set(swapTypeSwitchAtom(), ESwapTabSwitchType.SWAP);
+  store.set(swapStepsAtom(), {
+    steps,
+    quoteResult: reviewQuote,
+    preSwapData: { fromToken, toToken },
+  });
+  const onSwapBroadcast = jest.fn();
+  const Wrapper = ({ children }: { children?: ReactNode }) => (
+    <ProviderJotaiContextSwap store={store}>
+      {children}
+    </ProviderJotaiContextSwap>
+  );
+  const hook = renderHook(() => useSwapBuildTx({ onSwapBroadcast }), {
+    wrapper: Wrapper,
+  });
+  hook.result.current.beginSwapReview();
+  return { ...hook, store, onSwapBroadcast };
+}
+
+describe('useSwapBuildTx execution cancellation', () => {
+  beforeEach(() => {
+    platformEnv.isNative = false;
+    globalJotaiStorageReadyHandler.resolveReady(true);
+    mockFetchBuildTx.mockReset().mockResolvedValue(buildResponse('120'));
+    mockFetchSwapTokenDetails
+      .mockReset()
+      .mockResolvedValue([{ balanceParsed: '100' }]);
+    mockPrepareUnsignedTx.mockReset().mockImplementation(async (params) => ({
+      ...params,
+      encodedTx: { to: params.approveInfo ? '0x4' : '0x5', value: '0' },
+    }));
+    mockGetVaultSettings.mockReset().mockResolvedValue({});
+    mockEstimateFee.mockReset().mockResolvedValue({
+      common: {
+        feeDecimals: 9,
+        feeSymbol: 'Gwei',
+        nativeDecimals: 18,
+        nativeSymbol: 'ETH',
+        nativeTokenPrice: 1000,
+      },
+      gas: [{ gasPrice: '1', gasLimit: '21000' }],
+    });
+    mockUpdateUnsignedTx
+      .mockReset()
+      .mockImplementation(async ({ unsignedTx }) => unsignedTx);
+    mockPrecheckUnsignedTxs.mockReset().mockResolvedValue(undefined);
+    mockSignAndSendTransaction
+      .mockReset()
+      .mockResolvedValue({ txid: 'submitted-tx', rawTx: '', encodedTx: {} });
+    mockSignMessage.mockReset().mockResolvedValue('signature');
+    mockSaveSendHistory.mockClear();
+    mockGenerateSwapHistory.mockClear();
+    mockNavigateTxConfirm.mockReset();
+  });
+
+  it.each(['update', 'precheck'])(
+    'does not enter signing after closing during %s',
+    async (stage) => {
+      const pending = deferred<void>();
+      const started = deferred<void>();
+      if (stage === 'update') {
+        mockUpdateUnsignedTx.mockImplementationOnce(async ({ unsignedTx }) => {
+          started.resolve();
+          await pending.promise;
+          return unsignedTx;
+        });
+      } else {
+        mockPrecheckUnsignedTxs.mockImplementationOnce(() => {
+          started.resolve();
+          return pending.promise;
+        });
+      }
+      const { result, store } = renderExecutionReview();
+      let execution!: Promise<void>;
+      await act(async () => {
+        execution = result.current.preSwapStepsStart();
+        await started.promise;
+      });
+      await act(async () => {
+        result.current.invalidateSwapReview();
+        store.set(swapStepsAtom(), { steps: [], preSwapData: {} });
+      });
+      await act(async () => {
+        pending.resolve();
+        await execution;
+      });
+      expect(mockSignAndSendTransaction).not.toHaveBeenCalled();
+      expect(mockNavigateTxConfirm).not.toHaveBeenCalled();
+      expect(store.get(swapStepsAtom()).steps).toEqual([]);
+    },
+  );
+
+  it.each(['batch', 'separate'])(
+    'keeps a submitted approval in history and stops the next %s transaction',
+    async (mode) => {
+      const sent = deferred<ISignedTxPro>();
+      const started = deferred<void>();
+      mockSignAndSendTransaction.mockImplementationOnce(() => {
+        started.resolve();
+        return sent.promise;
+      });
+      const { result, store } = renderExecutionReview({
+        reviewQuote: {
+          ...quote,
+          allowanceResult: { allowanceTarget: '0x4', amount: '0' },
+        },
+        steps:
+          mode === 'batch'
+            ? [
+                {
+                  type: ESwapStepType.BATCH_APPROVE_SWAP,
+                  status: ESwapStepStatus.READY,
+                },
+              ]
+            : [
+                {
+                  type: ESwapStepType.APPROVE_TX,
+                  status: ESwapStepStatus.READY,
+                },
+                { type: ESwapStepType.SEND_TX, status: ESwapStepStatus.READY },
+              ],
+      });
+      let execution!: Promise<void>;
+      await act(async () => {
+        execution = result.current.preSwapStepsStart();
+        await started.promise;
+      });
+      await act(async () => {
+        result.current.invalidateSwapReview();
+        store.set(swapStepsAtom(), { steps: [], preSwapData: {} });
+      });
+      await act(async () => {
+        sent.resolve({ txid: 'approve-tx', rawTx: '', encodedTx: {} });
+        await execution;
+      });
+      expect(mockSignAndSendTransaction).toHaveBeenCalledTimes(1);
+      expect(mockSaveSendHistory).toHaveBeenCalledTimes(1);
+      expect(mockNavigateTxConfirm).not.toHaveBeenCalled();
+      expect(store.get(swapStepsAtom()).steps).toEqual([]);
+    },
+  );
+
+  it('keeps a late swap broadcast in history without changing a reopened Review', async () => {
+    const sent = deferred<ISignedTxPro>();
+    const started = deferred<void>();
+    mockSignAndSendTransaction.mockImplementationOnce(() => {
+      started.resolve();
+      return sent.promise;
+    });
+    const { result, store, onSwapBroadcast } = renderExecutionReview();
+    let execution!: Promise<void>;
+    await act(async () => {
+      execution = result.current.preSwapStepsStart();
+      await started.promise;
+    });
+    await act(async () => {
+      result.current.invalidateSwapReview();
+      result.current.beginSwapReview();
+      store.set(swapStepsAtom(), {
+        steps: [{ type: ESwapStepType.SEND_TX, status: ESwapStepStatus.READY }],
+        preSwapData: {},
+        quoteResult: { ...quote, quoteId: 'new-review' },
+      });
+    });
+    const newReview = store.get(swapStepsAtom());
+    await act(async () => {
+      sent.resolve({ txid: 'swap-tx', rawTx: '', encodedTx: {} });
+      await execution;
+    });
+    expect(mockSaveSendHistory).toHaveBeenCalledTimes(1);
+    expect(mockGenerateSwapHistory).toHaveBeenCalledTimes(1);
+    expect(onSwapBroadcast).not.toHaveBeenCalled();
+    expect(store.get(swapStepsAtom())).toBe(newReview);
+  });
+
+  it('does not reconstruct fallback after an approval was sent and the next preparation fails after close', async () => {
+    const pending = deferred<IUnsignedTxPro>();
+    const started = deferred<void>();
+    mockUpdateUnsignedTx
+      .mockImplementationOnce(async ({ unsignedTx }) => unsignedTx)
+      .mockImplementationOnce(() => {
+        started.resolve();
+        return pending.promise;
+      });
+    const { result, store } = renderExecutionReview({
+      reviewQuote: {
+        ...quote,
+        allowanceResult: { allowanceTarget: '0x4', amount: '0' },
+      },
+      steps: [
+        {
+          type: ESwapStepType.BATCH_APPROVE_SWAP,
+          status: ESwapStepStatus.READY,
+        },
+      ],
+    });
+    let execution!: Promise<void>;
+    await act(async () => {
+      execution = result.current.preSwapStepsStart();
+      await started.promise;
+    });
+    expect(mockSignAndSendTransaction).toHaveBeenCalledTimes(1);
+    await act(async () => {
+      result.current.invalidateSwapReview();
+      store.set(swapStepsAtom(), { steps: [], preSwapData: {} });
+    });
+    await act(async () => {
+      pending.reject(new Error('second transaction preparation failed'));
+      await execution;
+    });
+    expect(mockNavigateTxConfirm).not.toHaveBeenCalled();
+    expect(mockSaveSendHistory).toHaveBeenCalledTimes(1);
+    expect(store.get(swapStepsAtom()).steps).toEqual([]);
+  });
+
+  it('preserves a signed order submitted before close without updating a new Review', async () => {
+    const built = deferred<IFetchBuildTxResponse>();
+    const started = deferred<void>();
+    mockFetchBuildTx.mockImplementationOnce(() => {
+      started.resolve();
+      return built.promise;
+    });
+    const signedQuote: IFetchQuoteResult = {
+      ...quote,
+      swapShouldSignedData: {
+        unSignedInfo: {
+          origin: 'test',
+          scope: 'test',
+          signedType: EMessageTypesEth.TYPED_DATA_V4,
+        },
+        unSignedMessage: 'typed-data',
+      },
+      quoteResultCtx: { cowSwapUnSignedOrder: {} },
+    };
+    const { result, store, onSwapBroadcast } = renderExecutionReview({
+      reviewQuote: signedQuote,
+      steps: [
+        { type: ESwapStepType.SIGN_MESSAGE, status: ESwapStepStatus.READY },
+      ],
+    });
+    let execution!: Promise<void>;
+    await act(async () => {
+      execution = result.current.preSwapStepsStart();
+      await started.promise;
+    });
+    await act(async () => {
+      result.current.invalidateSwapReview();
+      result.current.beginSwapReview();
+      store.set(swapStepsAtom(), {
+        steps: [],
+        preSwapData: {},
+        quoteResult: { ...quote, quoteId: 'new-review' },
+      });
+    });
+    const newReview = store.get(swapStepsAtom());
+    await act(async () => {
+      built.resolve({
+        result: signedQuote,
+        ctx: { cowSwapOrderId: 'submitted-order' },
+      });
+      await execution;
+    });
+    expect(mockGenerateSwapHistory).toHaveBeenCalledTimes(1);
+    expect(onSwapBroadcast).not.toHaveBeenCalled();
+    expect(store.get(swapStepsAtom())).toBe(newReview);
+  });
+
+  it('does not start a delayed confirm after close', async () => {
+    const { result, store } = renderExecutionReview();
+    const oldReview = store.get(swapStepsAtom());
+    await act(async () => {
+      result.current.invalidateSwapReview();
+      store.set(swapStepsAtom(), { steps: [], preSwapData: {} });
+    });
+    await act(async () => {
+      await result.current.preSwapStepsStart(oldReview);
+    });
+    expect(mockFetchBuildTx).not.toHaveBeenCalled();
+    expect(mockSignAndSendTransaction).not.toHaveBeenCalled();
+  });
+
+  it('does not fall back after the owning hook unmounts', async () => {
+    const pending = deferred<unknown>();
+    const started = deferred<void>();
+    mockPrepareUnsignedTx.mockImplementationOnce(() => {
+      started.resolve();
+      return pending.promise;
+    });
+    const { result, unmount } = renderExecutionReview({
+      reviewQuote: {
+        ...quote,
+        allowanceResult: { allowanceTarget: '0x4', amount: '0' },
+      },
+      steps: [
+        {
+          type: ESwapStepType.BATCH_APPROVE_SWAP,
+          status: ESwapStepStatus.READY,
+        },
+      ],
+    });
+    let execution!: Promise<void>;
+    await act(async () => {
+      execution = result.current.preSwapStepsStart();
+      await started.promise;
+    });
+    unmount();
+    await act(async () => {
+      pending.reject(new Error('prepare failed'));
+      await execution;
+    });
+    expect(mockNavigateTxConfirm).not.toHaveBeenCalled();
+  });
+
+  it('still signs and records a transaction while its Review remains active', async () => {
+    const { result, onSwapBroadcast } = renderExecutionReview();
+    await act(async () => {
+      await result.current.preSwapStepsStart();
+    });
+    expect(mockSignAndSendTransaction).toHaveBeenCalledTimes(1);
+    expect(mockSaveSendHistory).toHaveBeenCalledTimes(1);
+    expect(mockGenerateSwapHistory).toHaveBeenCalledTimes(1);
+    expect(onSwapBroadcast).toHaveBeenCalledTimes(1);
+  });
+
+  it('still opens the fallback confirmation when the Review remains active', async () => {
+    mockPrepareUnsignedTx.mockRejectedValueOnce(new Error('prepare failed'));
+    const { result, store } = renderExecutionReview({
+      reviewQuote: {
+        ...quote,
+        allowanceResult: { allowanceTarget: '0x4', amount: '0' },
+      },
+      steps: [
+        {
+          type: ESwapStepType.BATCH_APPROVE_SWAP,
+          status: ESwapStepStatus.READY,
+        },
+      ],
+    });
+    await act(async () => {
+      await result.current.preSwapStepsStart();
+    });
+    expect(mockNavigateTxConfirm).toHaveBeenCalledTimes(1);
+    expect(store.get(swapStepsAtom()).preSwapData.shouldFallback).toBe(true);
+  });
+
+  it('does not submit a signed order after closing during message signing', async () => {
+    const signed = deferred<string>();
+    const started = deferred<void>();
+    mockSignMessage.mockImplementationOnce(() => {
+      started.resolve();
+      return signed.promise;
+    });
+    const { result, store } = renderExecutionReview({
+      reviewQuote: {
+        ...quote,
+        swapShouldSignedData: {
+          unSignedInfo: {
+            origin: 'test',
+            scope: 'test',
+            signedType: EMessageTypesEth.TYPED_DATA_V4,
+          },
+          unSignedMessage: 'typed-data',
+        },
+        quoteResultCtx: { cowSwapUnSignedOrder: {} },
+      },
+      steps: [
+        { type: ESwapStepType.SIGN_MESSAGE, status: ESwapStepStatus.READY },
+      ],
+    });
+    let execution!: Promise<void>;
+    await act(async () => {
+      execution = result.current.preSwapStepsStart();
+      await started.promise;
+    });
+    await act(async () => {
+      result.current.invalidateSwapReview();
+      store.set(swapStepsAtom(), { steps: [], preSwapData: {} });
+    });
+    await act(async () => {
+      signed.resolve('signature');
+      await execution;
+    });
+    expect(mockFetchBuildTx).not.toHaveBeenCalled();
+    expect(mockGenerateSwapHistory).not.toHaveBeenCalled();
+    expect(store.get(swapStepsAtom()).steps).toEqual([]);
+  });
+
+  it.each(['close', 'reopen'])(
+    'does not restore fallback steps after %s during approval preparation',
+    async (action) => {
+      platformEnv.isNative = false;
+      globalJotaiStorageReadyHandler.resolveReady(true);
+      mockPrepareUnsignedTx.mockReset();
+      mockNavigateTxConfirm.mockClear();
+      const preparation = deferred<unknown>();
+      const started = deferred<void>();
+      mockPrepareUnsignedTx.mockImplementationOnce(() => {
+        started.resolve();
+        return preparation.promise;
+      });
+      const approvalQuote: IFetchQuoteResult = {
+        ...quote,
+        allowanceResult: { allowanceTarget: '0x4', amount: '0' },
+      };
+      const store = createStore();
+      store.set(swapStepsAtom(), {
+        steps: [
+          {
+            type: ESwapStepType.BATCH_APPROVE_SWAP,
+            status: ESwapStepStatus.READY,
+          },
+        ],
+        quoteResult: approvalQuote,
+        preSwapData: { fromToken, toToken },
+      });
+      const Wrapper = ({ children }: { children?: ReactNode }) => (
+        <ProviderJotaiContextSwap store={store}>
+          {children}
+        </ProviderJotaiContextSwap>
+      );
+      const { result } = renderHook(() => useSwapBuildTx(), {
+        wrapper: Wrapper,
+      });
+      let execution!: Promise<void>;
+      await act(async () => {
+        result.current.beginSwapReview();
+        execution = result.current.preSwapStepsStart();
+        await started.promise;
+      });
+      await act(async () => {
+        result.current.invalidateSwapReview();
+        store.set(swapStepsAtom(), { steps: [], preSwapData: {} });
+        if (action === 'reopen') {
+          result.current.beginSwapReview();
+          store.set(swapStepsAtom(), {
+            steps: [
+              { type: ESwapStepType.SEND_TX, status: ESwapStepStatus.READY },
+            ],
+            quoteResult: { ...quote, quoteId: 'new-review' },
+            preSwapData: { fromToken, toToken },
+          });
+        }
+      });
+      const stateAfterClose = store.get(swapStepsAtom());
+      await act(async () => {
+        preparation.reject(new Error('approval preparation failed'));
+        await execution;
+      });
+      expect(store.get(swapStepsAtom())).toBe(stateAfterClose);
+      expect(mockNavigateTxConfirm).not.toHaveBeenCalled();
+    },
+  );
+});
 
 describe('useSwapBuildTx review rebuild', () => {
   it('keeps the rebuilt Review amount and price difference consistent after slippage save', async () => {
@@ -624,7 +1118,7 @@ describe('useSwapBuildTx review rebuild', () => {
         );
         await Promise.all([approvalAStarted, buildAStarted]);
         if (reopensSameQuote) {
-          result.current.invalidateReviewPreparation();
+          result.current.invalidateSwapReview();
           store.set(swapStepsAtom(), { steps: [], preSwapData: {} });
         }
         rejectApprovalA(new Error('approval failed'));
@@ -686,6 +1180,7 @@ describe('useSwapBuildTx review rebuild', () => {
 
       mockNavigateTxConfirm.mockClear();
       await act(async () => {
+        result.current.beginSwapReview();
         await result.current.preSwapStepsStart({
           steps: [
             { type: ESwapStepType.SEND_TX, status: ESwapStepStatus.READY },
