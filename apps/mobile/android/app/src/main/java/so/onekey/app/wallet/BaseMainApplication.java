@@ -500,6 +500,8 @@ public class BaseMainApplication extends Application implements ReactApplication
       );
     } catch (Throwable ignored) {}
 
+    ProcessExitInfoLogger.logAsync(this);
+
     // Recovery check
     SharedPreferences prefs = getSharedPreferences(BootRecoveryKeys.PREFS_NAME, MODE_PRIVATE);
 

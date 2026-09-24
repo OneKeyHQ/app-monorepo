@@ -1,6 +1,10 @@
+/* cspell:ignore INFINI */
 import { EOneKeyDeepLinkPath, ONEKEY_APP_DEEP_LINK } from './deeplinkConsts';
 
 export const PRIME_INFINI_MIN_PAYMENT_VALIDITY_MS = 30_000;
+
+export const APPLE_SUBSCRIPTION_MANAGEMENT_URL =
+  'https://apps.apple.com/account/subscriptions';
 
 // Don't report bugs, these are public keys that are allowed to be exposed in frontend code and will not cause security issues
 // Privy
