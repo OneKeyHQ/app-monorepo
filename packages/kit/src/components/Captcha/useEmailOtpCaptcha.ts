@@ -1,8 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
+import { useIntl } from 'react-intl';
+
 import { useIsMounted } from '@onekeyhq/kit/src/hooks/useIsMounted';
 import type { IEmailOtpCaptchaConfig } from '@onekeyhq/shared/src/consts/authConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 
 import type { ICaptchaMessage } from './captchaMessage';
@@ -35,12 +38,15 @@ export function useEmailOtpCaptcha({
   revision?: number;
   initialToken?: ICaptchaToken;
 }) {
+  const intl = useIntl();
+  const intlRef = useRef(intl);
+  intlRef.current = intl;
   const { enabled, pageUrl } = config;
   const mounted = useIsMounted();
   const pending = useRef<IPendingCaptcha | undefined>(undefined);
   const generation = useRef(0);
   const [isWaiting, setIsWaiting] = useState(false);
-  const [errorMessage, setErrorMessage] = useState<string>();
+  const [errorKey, setErrorKey] = useState<ETranslations>();
   const cachedToken = useRef<ICaptchaToken>(initialToken);
   const [challenge, setChallenge] = useState<{
     url: string;
@@ -67,21 +73,31 @@ export function useEmailOtpCaptcha({
     settle(new EmailOtpCaptchaCancelledError());
     if (mounted.current) {
       setChallenge(undefined);
-      setErrorMessage(undefined);
+      setErrorKey(undefined);
     }
   }, [mounted, settle]);
 
+  // Locale updates must not cancel an active challenge or reset its deadline.
+  const createCaptchaError = useCallback(
+    (key: ETranslations) =>
+      new OneKeyLocalError({
+        key,
+        message: intlRef.current.formatMessage({ id: key }),
+      }),
+    [],
+  );
+
   const failToLoad = useCallback(
-    (message: string) => {
-      settle(new OneKeyLocalError(message));
+    (key: ETranslations) => {
+      settle(createCaptchaError(key));
       // No provider result exists yet. Remove the stalled frame so a late load
       // cannot show success for an OTP request that has already been released.
       if (mounted.current) {
         setChallenge(undefined);
-        setErrorMessage(message);
+        setErrorKey(key);
       }
     },
-    [mounted, settle],
+    [createCaptchaError, mounted, settle],
   );
 
   useEffect(() => {
@@ -97,9 +113,7 @@ export function useEmailOtpCaptcha({
     if (!active) throw new EmailOtpCaptchaCancelledError();
     if (!enabled) return undefined;
     if (!pageUrl)
-      throw new OneKeyLocalError(
-        'CAPTCHA is unavailable. Please try again later.',
-      );
+      throw createCaptchaError(ETranslations.auth_captcha_unavailable__msg);
     if (cachedToken.current && cachedToken.current.expiresAt > Date.now()) {
       const { value } = cachedToken.current;
       cachedToken.current = undefined;
@@ -107,7 +121,7 @@ export function useEmailOtpCaptcha({
     }
     cachedToken.current = undefined;
     if (pending.current)
-      throw new OneKeyLocalError('CAPTCHA verification is in progress.');
+      throw createCaptchaError(ETranslations.auth_captcha_in_progress__msg);
 
     const requestId = generateUUID();
     const url = new URL(pageUrl);
@@ -125,15 +139,15 @@ export function useEmailOtpCaptcha({
       resolve,
       reject,
       timer: setTimeout(
-        () => failToLoad('CAPTCHA timed out. Please retry.'),
+        () => failToLoad(ETranslations.auth_captcha_timeout__msg),
         120_000,
       ),
     };
     setIsWaiting(true);
-    setErrorMessage(undefined);
+    setErrorKey(undefined);
     setChallenge({ url: url.toString(), requestId });
     return promise;
-  }, [active, enabled, pageUrl, failToLoad]);
+  }, [active, enabled, pageUrl, failToLoad, createCaptchaError]);
 
   const onResult = useCallback(
     (message: ICaptchaMessage) => {
@@ -141,12 +155,10 @@ export function useEmailOtpCaptcha({
       if (message.status === 'success' && message.token) {
         settle(message.token);
       } else if (message.status === 'load-error') {
-        failToLoad(
-          'CAPTCHA could not load. Check your network connection and retry.',
-        );
+        failToLoad(ETranslations.auth_captcha_load_failed__msg);
       } else if (message.status === 'timeout') {
         // The hosted page requires a fresh challenge after interaction timeout.
-        failToLoad('CAPTCHA timed out. Please retry.');
+        failToLoad(ETranslations.auth_captcha_timeout__msg);
       } else {
         // Once the provider is running, its retry/expiry UI owns recovery.
         // Keep the original send waiting for success, including manual Retry.
@@ -170,6 +182,6 @@ export function useEmailOtpCaptcha({
     takeCaptchaToken,
     cancelCaptcha,
     isWaiting,
-    errorMessage,
+    errorMessage: errorKey ? intl.formatMessage({ id: errorKey }) : undefined,
   };
 }

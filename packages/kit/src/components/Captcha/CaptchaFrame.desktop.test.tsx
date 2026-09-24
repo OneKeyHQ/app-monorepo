@@ -1,10 +1,33 @@
 /** @jest-environment jsdom */
 
 import { act, render, screen } from '@testing-library/react';
+import { IntlProvider } from 'react-intl';
 
-import CaptchaFrame from './CaptchaFrame.desktop';
+import enCatalog from '@onekeyhq/shared/src/locale/json/en_US.json';
+import zhCatalog from '@onekeyhq/shared/src/locale/json/zh_CN.json';
 
-import type { ICaptchaMessage } from './captchaMessage';
+import CaptchaFrameComponent from './CaptchaFrame.desktop';
+
+import type { ICaptchaFrameProps, ICaptchaMessage } from './captchaMessage';
+
+const enMessages: Record<string, string> = enCatalog;
+const zhMessages: Record<string, string> = zhCatalog;
+let locale = 'en-US';
+
+function CaptchaFrame(props: ICaptchaFrameProps) {
+  return (
+    <IntlProvider
+      locale={locale}
+      messages={locale === 'zh-CN' ? zhMessages : enMessages}
+    >
+      <CaptchaFrameComponent {...props} />
+    </IntlProvider>
+  );
+}
+
+beforeEach(() => {
+  locale = 'en-US';
+});
 
 jest.mock('@onekeyhq/components', () => {
   const React = jest.requireActual('react') as typeof import('react');
@@ -222,6 +245,21 @@ test('preload errors and stalls are covered by the startup deadline', async () =
   await act(async () => {
     await Promise.resolve();
   });
+  expect(onResult).toHaveBeenCalledWith(
+    expect.objectContaining({ status: 'load-error' }),
+  );
+});
+
+test('localizes desktop loading and title without replacing the guest or extending startup', async () => {
+  const { frame, rerender, onResult } = await mount();
+  act(() => jest.advanceTimersByTime(20_000));
+  locale = 'zh-CN';
+  rerender(<CaptchaFrame url={url} requestId="current" onResult={onResult} />);
+  expect(screen.getByTitle('安全验证')).toBe(frame);
+  expect(screen.getByText('正在加载安全验证…')).toBeTruthy();
+  expect(getPreload).toHaveBeenCalledTimes(1);
+  act(() => jest.advanceTimersByTime(10_000));
+  expect(onResult).toHaveBeenCalledTimes(1);
   expect(onResult).toHaveBeenCalledWith(
     expect.objectContaining({ status: 'load-error' }),
   );

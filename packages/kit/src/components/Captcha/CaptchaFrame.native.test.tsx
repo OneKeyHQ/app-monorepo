@@ -1,18 +1,41 @@
 /** @jest-environment jsdom */
 
 import { act, render, screen } from '@testing-library/react';
+import { IntlProvider } from 'react-intl';
 import { WebView } from 'react-native-webview';
 
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import enCatalog from '@onekeyhq/shared/src/locale/json/en_US.json';
+import zhCatalog from '@onekeyhq/shared/src/locale/json/zh_CN.json';
 
-import CaptchaFrame from './CaptchaFrame.native';
+import CaptchaFrameComponent from './CaptchaFrame.native';
 
+import type { ICaptchaFrameProps } from './captchaMessage';
 import type { NativeSyntheticEvent } from 'react-native';
 import type { WebViewProps } from 'react-native-webview';
 
 type ILoadRequest = Parameters<
   NonNullable<WebViewProps['onShouldStartLoadWithRequest']>
 >[0];
+
+const enMessages: Record<string, string> = enCatalog;
+const zhMessages: Record<string, string> = zhCatalog;
+let locale = 'en-US';
+
+function CaptchaFrame(props: ICaptchaFrameProps) {
+  return (
+    <IntlProvider
+      locale={locale}
+      messages={locale === 'zh-CN' ? zhMessages : enMessages}
+    >
+      <CaptchaFrameComponent {...props} />
+    </IntlProvider>
+  );
+}
+
+beforeEach(() => {
+  locale = 'en-US';
+});
 
 jest.mock('react-native-webview', () => ({
   WebView: jest.fn(() => null),
@@ -350,4 +373,24 @@ describe('native CAPTCHA WebView navigation', () => {
     act(() => sendMessage(origin, requestId));
     expect(onResult).toHaveBeenCalledTimes(1);
   });
+});
+
+test('localizes native loading without extending startup on a locale change', () => {
+  jest.useFakeTimers();
+  const onResult = jest.fn();
+  const url = `${origin}/captcha#requestId=${requestId}`;
+  const { rerender } = render(
+    <CaptchaFrame url={url} requestId={requestId} onResult={onResult} />,
+  );
+  act(() => jest.advanceTimersByTime(20_000));
+  locale = 'zh-CN';
+  rerender(
+    <CaptchaFrame url={url} requestId={requestId} onResult={onResult} />,
+  );
+  expect(screen.getByText('正在加载安全验证…')).toBeTruthy();
+  act(() => jest.advanceTimersByTime(10_000));
+  expect(onResult).toHaveBeenCalledTimes(1);
+  expect(onResult).toHaveBeenCalledWith(
+    expect.objectContaining({ status: 'load-error' }),
+  );
 });

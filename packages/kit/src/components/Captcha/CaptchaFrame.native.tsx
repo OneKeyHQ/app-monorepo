@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
+import { useIntl } from 'react-intl';
 import { WebView } from 'react-native-webview';
 
 import { SizableText, Spinner, Stack, XStack } from '@onekeyhq/components';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { isCaptchaOrigin, parseCaptchaMessage } from './captchaMessage';
 
@@ -14,6 +16,7 @@ type ICaptchaNavigationRequest = {
 };
 
 function NativeCaptchaFrame({ url, requestId, onResult }: ICaptchaFrameProps) {
+  const intl = useIntl();
   const origin = new URL(url).origin;
   const [ready, setReady] = useState(false);
   const lifecycle = useRef({ active: false, failed: false, started: false });
@@ -55,7 +58,9 @@ function NativeCaptchaFrame({ url, requestId, onResult }: ICaptchaFrameProps) {
         >
           <Spinner size="small" />
           <SizableText size="$bodyMd" color="$textSubdued">
-            Loading CAPTCHA…
+            {intl.formatMessage({
+              id: ETranslations.auth_captcha_loading__msg,
+            })}
           </SizableText>
         </XStack>
       ) : null}

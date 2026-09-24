@@ -1,8 +1,46 @@
 /** @jest-environment jsdom */
 
-import { act, renderHook } from '@testing-library/react';
+import type { PropsWithChildren } from 'react';
+
+import {
+  act,
+  renderHook as renderHookWithContext,
+} from '@testing-library/react';
+import { IntlProvider } from 'react-intl';
+
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+import enCatalog from '@onekeyhq/shared/src/locale/json/en_US.json';
+import zhCatalog from '@onekeyhq/shared/src/locale/json/zh_CN.json';
 
 import { useEmailOtpCaptcha } from './useEmailOtpCaptcha';
+
+import type { RenderHookOptions } from '@testing-library/react';
+
+const enMessages: Record<string, string> = enCatalog;
+const zhMessages: Record<string, string> = zhCatalog;
+let locale = 'en-US';
+
+function IntlWrapper({ children }: PropsWithChildren) {
+  return (
+    <IntlProvider
+      locale={locale}
+      messages={locale === 'zh-CN' ? zhMessages : enMessages}
+    >
+      <>{children}</>
+    </IntlProvider>
+  );
+}
+
+function renderHook<Result, Props>(
+  callback: (props: Props) => Result,
+  options?: RenderHookOptions<Props>,
+) {
+  return renderHookWithContext(callback, { wrapper: IntlWrapper, ...options });
+}
+
+beforeEach(() => {
+  locale = 'en-US';
+});
 
 const config = {
   enabled: true,
@@ -358,3 +396,96 @@ describe('Email OTP CAPTCHA lifecycle', () => {
     expect(result.current.challenge).toBeUndefined();
   });
 });
+
+test('locale changes preserve the pending challenge and localize its failure', async () => {
+  const { result, rerender } = renderHook(() =>
+    useEmailOtpCaptcha({ config, email: 'a@example.com' }),
+  );
+  let request!: Promise<string | undefined>;
+  act(() => {
+    request = result.current.takeCaptchaToken();
+  });
+  const rejection = request.catch((error: unknown) => error);
+  const challenge = result.current.challenge;
+  const onResult = result.current.onResult;
+  const takeCaptchaToken = result.current.takeCaptchaToken;
+  locale = 'zh-CN';
+  rerender(undefined);
+  expect(result.current.challenge).toBe(challenge);
+  expect(result.current.isWaiting).toBe(true);
+  expect(result.current.onResult).toBe(onResult);
+  expect(result.current.takeCaptchaToken).toBe(takeCaptchaToken);
+  await expect(result.current.takeCaptchaToken()).rejects.toMatchObject({
+    key: ETranslations.auth_captcha_in_progress__msg,
+    message: '正在进行安全验证。',
+  });
+  await act(async () => {
+    result.current.onResult({
+      type: 'onekey-test-captcha',
+      requestId: challenge?.requestId || '',
+      status: 'load-error',
+    });
+    await rejection;
+  });
+  expect(await rejection).toMatchObject({
+    key: ETranslations.auth_captcha_load_failed__msg,
+    message: '无法加载安全验证，请检查网络连接后重试。',
+  });
+  expect(result.current.errorMessage).toBe(
+    '无法加载安全验证，请检查网络连接后重试。',
+  );
+  locale = 'en-US';
+  rerender(undefined);
+  expect(result.current.errorMessage).toBe(
+    enCatalog.auth_captcha_load_failed__msg,
+  );
+});
+
+test('unavailable CAPTCHA reports a localized keyed error', async () => {
+  locale = 'zh-CN';
+  const { result } = renderHook(() =>
+    useEmailOtpCaptcha({
+      config: { ...config, pageUrl: '' },
+      email: 'a@example.com',
+    }),
+  );
+  await expect(result.current.takeCaptchaToken()).rejects.toMatchObject({
+    key: ETranslations.auth_captcha_unavailable__msg,
+    message: '安全验证暂不可用，请稍后重试。',
+  });
+});
+
+test.each(['deadline', 'provider'] as const)(
+  '%s timeout uses the current locale',
+  async (reason) => {
+    jest.useFakeTimers();
+    const { result, rerender } = renderHook(() =>
+      useEmailOtpCaptcha({ config, email: 'a@example.com' }),
+    );
+    let request!: Promise<string | undefined>;
+    act(() => {
+      request = result.current.takeCaptchaToken();
+    });
+    const rejection = request.catch((error: unknown) => error);
+    locale = 'zh-CN';
+    rerender(undefined);
+    await act(async () => {
+      if (reason === 'deadline') {
+        jest.advanceTimersByTime(120_000);
+      } else {
+        result.current.onResult({
+          type: 'onekey-test-captcha',
+          requestId: result.current.challenge?.requestId || '',
+          status: 'timeout',
+        });
+      }
+      await rejection;
+    });
+    expect(await rejection).toMatchObject({
+      key: ETranslations.auth_captcha_timeout__msg,
+      message: '安全验证已超时，请重试。',
+    });
+    expect(result.current.errorMessage).toBe('安全验证已超时，请重试。');
+    jest.useRealTimers();
+  },
+);

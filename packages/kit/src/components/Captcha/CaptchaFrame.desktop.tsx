@@ -1,7 +1,10 @@
 /* eslint-disable react/no-unknown-property -- Electron webview attributes. */
 import { useEffect, useRef, useState } from 'react';
 
+import { useIntl } from 'react-intl';
+
 import { SizableText, Spinner, Stack, XStack } from '@onekeyhq/components';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
   DESKTOP_CAPTCHA_MESSAGE_CHANNEL,
   isCaptchaOrigin,
@@ -19,6 +22,7 @@ import type {
 } from 'electron';
 
 function DesktopCaptchaFrame({ url, requestId, onResult }: ICaptchaFrameProps) {
+  const intl = useIntl();
   const ref = useRef<WebviewTag | null>(null);
   const resultCallback = useRef(onResult);
   resultCallback.current = onResult;
@@ -159,7 +163,9 @@ function DesktopCaptchaFrame({ url, requestId, onResult }: ICaptchaFrameProps) {
         >
           <Spinner size="small" />
           <SizableText size="$bodyMd" color="$textSubdued">
-            Loading CAPTCHA…
+            {intl.formatMessage({
+              id: ETranslations.auth_captcha_loading__msg,
+            })}
           </SizableText>
         </XStack>
       ) : null}
@@ -167,7 +173,9 @@ function DesktopCaptchaFrame({ url, requestId, onResult }: ICaptchaFrameProps) {
         <webview
           ref={ref}
           data-testid="email-otp-captcha-frame"
-          title="Security verification"
+          title={intl.formatMessage({
+            id: ETranslations.auth_captcha_security_verification__title,
+          })}
           preload={preload}
           // Reuse the shell-managed WebView session so OTA renderers inherit
           // its existing permission handlers without requiring a shell update.

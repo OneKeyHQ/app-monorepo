@@ -1,6 +1,9 @@
 import { AuthApiError } from '@supabase/supabase-js';
 import { createIntl } from 'react-intl';
 
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import { toPlainErrorObject } from '@onekeyhq/shared/src/errors/utils/errorUtils';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import enCatalog from '@onekeyhq/shared/src/locale/json/en_US.json';
 import zhCatalog from '@onekeyhq/shared/src/locale/json/zh_CN.json';
 
@@ -68,4 +71,23 @@ describe('email authentication CAPTCHA messages', () => {
     );
     expect(getEmailOtpRequestErrorMessage({ error, intl })).toBeUndefined();
   });
+});
+
+test.each([
+  ETranslations.auth_captcha_unavailable__msg,
+  ETranslations.auth_captcha_in_progress__msg,
+  ETranslations.auth_captcha_timeout__msg,
+  ETranslations.auth_captcha_load_failed__msg,
+])('localizes CAPTCHA error %s after bridge serialization', (key) => {
+  const error = toPlainErrorObject(
+    new OneKeyLocalError({ key, message: enCatalog[key] }),
+  );
+  const intl = createIntl({ locale: 'zh-CN', messages: zhMessages });
+  expect(getEmailOtpRequestErrorMessage({ error, intl })).toBe(zhCatalog[key]);
+  expect(
+    getEmailOtpRequestErrorMessage({
+      error: { ...error, autoToast: true },
+      intl,
+    }),
+  ).toBeUndefined();
 });

@@ -142,6 +142,12 @@ jest.mock('react-intl', () => ({
         ) => import('react').ReactNode;
       },
     ) => {
+      if (id.startsWith('auth_captcha_')) {
+        const messages = jest.requireActual(
+          '@onekeyhq/shared/src/locale/json/en_US.json',
+        ) as Record<string, string>;
+        return messages[id] ?? id;
+      }
       if (id === 'resend_code_countdown__action') {
         return `${id} (${String(values?.seconds)}s)`;
       }

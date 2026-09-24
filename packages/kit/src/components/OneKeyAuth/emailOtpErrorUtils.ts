@@ -84,6 +84,15 @@ export function getEmailOtpRequestErrorMessage({
   if (oneKeyError?.autoToast) {
     return undefined;
   }
+  switch (oneKeyError?.key) {
+    case ETranslations.auth_captcha_unavailable__msg:
+    case ETranslations.auth_captcha_in_progress__msg:
+    case ETranslations.auth_captcha_timeout__msg:
+    case ETranslations.auth_captcha_load_failed__msg:
+      return intl.formatMessage({ id: oneKeyError.key });
+    default:
+      break;
+  }
   const captchaMessage = getEmailAuthCaptchaErrorMessage({ error, intl });
   if (captchaMessage) return captchaMessage;
   // Transient infrastructure failures (offline, 5xx, timeout) have a precise

@@ -3,8 +3,33 @@
 import { useLayoutEffect } from 'react';
 
 import { act, fireEvent, render, screen } from '@testing-library/react';
+import { IntlProvider } from 'react-intl';
 
-import CaptchaFrame from './CaptchaFrame';
+import enCatalog from '@onekeyhq/shared/src/locale/json/en_US.json';
+import zhCatalog from '@onekeyhq/shared/src/locale/json/zh_CN.json';
+
+import CaptchaFrameComponent from './CaptchaFrame';
+
+import type { ICaptchaFrameProps } from './captchaMessage';
+
+const enMessages: Record<string, string> = enCatalog;
+const zhMessages: Record<string, string> = zhCatalog;
+let locale = 'en-US';
+
+function CaptchaFrame(props: ICaptchaFrameProps) {
+  return (
+    <IntlProvider
+      locale={locale}
+      messages={locale === 'zh-CN' ? zhMessages : enMessages}
+    >
+      <CaptchaFrameComponent {...props} />
+    </IntlProvider>
+  );
+}
+
+beforeEach(() => {
+  locale = 'en-US';
+});
 
 jest.mock('@onekeyhq/components', () => {
   const React = jest.requireActual('react') as typeof import('react');
@@ -331,4 +356,25 @@ test('old pagehide cannot fail a new attempt in the commit before passive cleanu
   );
   expect(port.close).toHaveBeenCalled();
   expect(onResult).toHaveBeenCalledTimes(1);
+});
+
+test('localizes loading and title without replacing the frame or extending startup', () => {
+  jest.useFakeTimers();
+  const onResult = jest.fn();
+  const { rerender } = render(
+    <CaptchaFrame url={url} requestId={requestId} onResult={onResult} />,
+  );
+  const frame = screen.getByTitle('Security verification');
+  act(() => jest.advanceTimersByTime(20_000));
+  locale = 'zh-CN';
+  rerender(
+    <CaptchaFrame url={url} requestId={requestId} onResult={onResult} />,
+  );
+  expect(screen.getByTitle('安全验证')).toBe(frame);
+  expect(screen.getByText('正在加载安全验证…')).toBeTruthy();
+  act(() => jest.advanceTimersByTime(10_000));
+  expect(onResult).toHaveBeenCalledTimes(1);
+  expect(onResult).toHaveBeenCalledWith(
+    expect.objectContaining({ status: 'load-error' }),
+  );
 });

@@ -1,12 +1,16 @@
 import { useLayoutEffect, useRef, useState } from 'react';
 
+import { useIntl } from 'react-intl';
+
 import { SizableText, Spinner, Stack, XStack } from '@onekeyhq/components';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { parseCaptchaMessage } from './captchaMessage';
 
 import type { ICaptchaFrameProps } from './captchaMessage';
 
 function WebCaptchaFrame({ url, requestId, onResult }: ICaptchaFrameProps) {
+  const intl = useIntl();
   const ref = useRef<HTMLIFrameElement>(null);
   const resultCallback = useRef(onResult);
   resultCallback.current = onResult;
@@ -127,7 +131,9 @@ function WebCaptchaFrame({ url, requestId, onResult }: ICaptchaFrameProps) {
         >
           <Spinner size="small" />
           <SizableText size="$bodyMd" color="$textSubdued">
-            Loading CAPTCHA…
+            {intl.formatMessage({
+              id: ETranslations.auth_captcha_loading__msg,
+            })}
           </SizableText>
         </XStack>
       ) : null}
@@ -135,7 +141,9 @@ function WebCaptchaFrame({ url, requestId, onResult }: ICaptchaFrameProps) {
         <iframe
           ref={ref}
           data-testid="email-otp-captcha-frame"
-          title="Security verification"
+          title={intl.formatMessage({
+            id: ETranslations.auth_captcha_security_verification__title,
+          })}
           src={frameUrl}
           sandbox="allow-scripts allow-same-origin"
           style={{
