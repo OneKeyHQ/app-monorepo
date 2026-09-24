@@ -1076,6 +1076,19 @@ export const swrKeys = {
       withNetworksInfo ? '1' : '0',
       enabledNetworkIdsKey ?? '',
     ].join(':'),
+  // Home All Networks chip's missing-address dot: the enabled compatible
+  // networks the indexed account has no address on. Shares the namespace so
+  // an enabled-network change drops it with the compat entries.
+  allNetworksWithoutAccount: ({
+    walletId,
+    indexedAccountId,
+  }: {
+    walletId: string;
+    indexedAccountId: string;
+  }) =>
+    [NS.allNetworksCompatible, 'noAddr', 'v1', walletId, indexedAccountId].join(
+      ':',
+    ),
   // UnifiedNetworkSelector modal's list/meta bundle:
   // allNetworks + allNetworksState + compatibleNetworks grouped together so
   // the modal can render its skeleton synchronously on mount. Balances/DeFi

@@ -154,6 +154,7 @@ import {
 } from './assetStatusAnalytics';
 import { buildHomeTokenListCacheIngestRound } from './buildHomeTokenListCacheIngestRound';
 import { resolveOffTabTokenListRefreshOnMount } from './offTabRefresh';
+import { getOwnerWorth, rememberOwnerWorth } from './ownerWorthCache';
 import {
   buildPortfolioSyncTargetKey,
   resolvePortfolioSyncRequestTransition,
@@ -1229,6 +1230,94 @@ function TokenListBlock({
     [homeDefaultTokenMap, cellsCustomTokens],
   );
   useTokenListCellsProducer(cellsOwnerKey, cellsCurrencyId);
+
+  // Per-owner token worth (OK-63873). `accountWorthAtom` is replaced on every
+  // switch, so until the new owner's local cache is read the subtitle resolved
+  // against the PREVIOUS owner's map. Remember each owner's last worth and put
+  // it back in the same layout effect that replays the rows; an owner we have
+  // never seen shows the subtitle skeleton (see renderSubTitle) instead.
+  const worthOwnerAccountId = mergeDeriveAddressData
+    ? indexedAccount?.id
+    : account?.id;
+  // `accountWorthAtom` only stamps the account, and an HD `account.id` is
+  // shared by every network of the same impl (ETH / BSC / Polygon...), so the
+  // account check alone would treat ETH's worth as BSC's on a network switch
+  // and persist it into BSC's owner slot. The map keys carry the network
+  // (`buildAccountValueKey` = `${accountId}_${networkId}`), so on a single
+  // network require every key to belong to it. An All Networks map spans
+  // networks by design and is checked by `updateAll` below instead.
+  const isWorthForCurrentNetwork = useMemo(() => {
+    const networkId = network?.id;
+    if (!networkId) {
+      return false;
+    }
+    if (network?.isAllNetworks) {
+      return true;
+    }
+    const worthKeys = Object.keys(accountTokensWorth.worth);
+    return (
+      worthKeys.length > 0 &&
+      worthKeys.every((key) => key.endsWith(`_${networkId}`))
+    );
+  }, [accountTokensWorth.worth, network?.id, network?.isAllNetworks]);
+  const isWorthForCurrentOwner =
+    !!worthOwnerAccountId &&
+    accountTokensWorth.initialized &&
+    accountTokensWorth.accountId === worthOwnerAccountId &&
+    isWorthForCurrentNetwork;
+  // Only a committed snapshot is worth remembering. On All Networks that is
+  // the `updateAll` commit (cache hydrate / fan-out end, see
+  // HomeOverviewContainer): the previous single-network map still in the atom
+  // right after the switch, and the per-network progressive merges, must not
+  // be persisted into the All Networks slot.
+  const isWorthCommittedForOwner =
+    isWorthForCurrentOwner &&
+    (!network?.isAllNetworks || accountTokensWorth.updateAll === true);
+  useEffect(() => {
+    if (!cellsOwnerKey || !isWorthCommittedForOwner) {
+      return;
+    }
+    // Live rounds leave `currency` unset (their values are in the display
+    // currency of that moment). Stamp it: a restore after the user changed the
+    // display currency is then converted by `Currency` / `convertFiat` like
+    // the cached-worth paths, instead of being shown under the new symbol
+    // as-is.
+    const currency = accountTokensWorth.currency ?? cellsCurrencyId;
+    if (!currency) {
+      return;
+    }
+    rememberOwnerWorth(cellsOwnerKey, {
+      worth: accountTokensWorth.worth,
+      createAtNetworkWorth: accountTokensWorth.createAtNetworkWorth,
+      currency,
+    });
+  }, [
+    cellsCurrencyId,
+    cellsOwnerKey,
+    isWorthCommittedForOwner,
+    accountTokensWorth.worth,
+    accountTokensWorth.createAtNetworkWorth,
+    accountTokensWorth.currency,
+  ]);
+  useLayoutEffect(() => {
+    if (!cellsOwnerKey || !worthOwnerAccountId || isWorthForCurrentOwner) {
+      return;
+    }
+    const cached = getOwnerWorth(cellsOwnerKey);
+    // Without a currency tag the snapshot cannot be converted and could paint
+    // under the wrong symbol; the skeleton until the fetch is the honest paint.
+    if (!cached?.currency) {
+      return;
+    }
+    updateAccountWorth({
+      worth: cached.worth,
+      createAtNetworkWorth: cached.createAtNetworkWorth,
+      currency: cached.currency,
+      initialized: true,
+      accountId: worthOwnerAccountId,
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cellsOwnerKey, worthOwnerAccountId]);
 
   // Keep the BG `ingestRound` inputs ref current so the refresh callbacks can
   // hand the right owner + hideZero inputs to `serviceTokenViewModel.ingestRound`
@@ -3570,7 +3659,12 @@ function TokenListBlock({
 
   const renderSubTitle = useCallback(() => {
     if (tableLayout) {
-      if (!tokenListState.initialized && tokenListState.isRefreshing) {
+      if (
+        (!tokenListState.initialized && tokenListState.isRefreshing) ||
+        // The atom still holds another owner's worth (first visit of this
+        // owner, nothing remembered yet): a skeleton, never the wrong number.
+        !isWorthForCurrentOwner
+      ) {
         return <Skeleton.HeadingLg />;
       }
 
@@ -3592,6 +3686,7 @@ function TokenListBlock({
     tableLayout,
     accountTokensWorth.currency,
     accountTokensValue,
+    isWorthForCurrentOwner,
     tokenListState.initialized,
     tokenListState.isRefreshing,
   ]);
