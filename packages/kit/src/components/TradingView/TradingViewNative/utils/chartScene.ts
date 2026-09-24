@@ -291,6 +291,7 @@ function getMainIndicatorPaintId(series: ITradingViewNativeIndicatorSeries) {
 }
 
 export interface ITradingViewNativeChartScene {
+  layout?: ITradingViewNativeChartLayout | null;
   autoPriceRange: ITradingViewNativePriceRange | null;
   commands: ITradingViewNativeChartSceneCommand[];
   crosshairPointIndex: number | null;
@@ -757,6 +758,7 @@ export function buildTradingViewNativeChartScene({
     getTradingViewNativeSubIndicatorPaneStackLayout({
       height,
       paneCount: visibleSubIndicatorPanes.length,
+      panes: visibleSubIndicatorPanes,
       timeAxisHeight,
     });
   const subIndicatorPaneStackHeight = subIndicatorPaneStackLayout.height;
@@ -849,6 +851,7 @@ export function buildTradingViewNativeChartScene({
     zoomScale,
   };
   const emptyScene = {
+    layout: null,
     autoPriceRange: null,
     commands,
     crosshairPointIndex: null,
@@ -1500,6 +1503,7 @@ export function buildTradingViewNativeChartScene({
 
   return {
     autoPriceRange: layout.autoPriceRange,
+    layout,
     commands,
     crosshairPointIndex,
     customPaintStyles,

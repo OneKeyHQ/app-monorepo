@@ -84,6 +84,8 @@ interface IBasicDialogProps extends TMDialogProps {
   onOpenAutoFocus?: TMDialogContentProps['onOpenAutoFocus'];
   onHeaderCloseButtonPress?: () => void;
   onClose: (extra?: { flag?: string }) => Promise<void>;
+  /** Return false to keep the dialog open before any dismissal or cleanup. */
+  onBeforeClose?: (extra?: { flag?: string }) => boolean | Promise<boolean>;
   isExist?: () => boolean;
   icon?: IKeyOfIcons;
   renderIcon?: ReactElement;

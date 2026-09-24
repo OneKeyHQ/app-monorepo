@@ -7,6 +7,7 @@ import { Suspense, startTransition, use, useState } from 'react';
 
 import { act, fireEvent, render, screen } from '@testing-library/react';
 
+import { getMarketDetailTradingViewNativeSource } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/utils/getMarketDetailTradingViewNativeSource';
 import type { IMarketTokenKLineDataPoint } from '@onekeyhq/shared/types/marketV2';
 import {
   type ITradingViewNativeChartSettings,
@@ -430,6 +431,66 @@ describe('TradingViewNativeContainer', () => {
 
   afterEach(() => {
     jest.restoreAllMocks();
+  });
+
+  describe.each(['mobile', 'desktop'] as const)(
+    '%s Market drawing tools',
+    (nativeControlsLayoutMode) => {
+      it.each([
+        ['BTC', 'btc--0'],
+        ['ETH', 'evm--1'],
+        ['BNB', 'evm--56'],
+      ])(
+        'enables drawings for the %s Hyperliquid-backed main chart',
+        (symbol, networkId) => {
+          const source = getMarketDetailTradingViewNativeSource({
+            hyperliquidCoin: '',
+            isNative: true,
+            marketDataSource: 'websocket',
+            networkId,
+            symbol,
+            tokenAddress: '',
+          });
+          expect(source.kind).toBe('hyperliquid');
+          render(
+            <TradingViewNativeContainer
+              source={source}
+              enableDrawings
+              nativeControlsLayoutMode={nativeControlsLayoutMode}
+            />,
+          );
+          expect(mockTradingViewNativeChart).toHaveBeenLastCalledWith(
+            expect.objectContaining({ enableDrawings: true }),
+          );
+        },
+      );
+    },
+  );
+
+  it.each([
+    { name: 'charts without opt-in', props: {} },
+    {
+      name: 'Perps compact charts',
+      props: { nativeChartDisplayMode: 'compact' },
+    },
+    {
+      name: 'compact charts even with opt-in',
+      props: { enableDrawings: true, nativeChartDisplayMode: 'compact' },
+    },
+    {
+      name: 'Swap charts even with opt-in',
+      props: { enableDrawings: true, storageNamespace: 'swap' },
+    },
+  ] as const)('keeps drawings disabled for $name', ({ props }) => {
+    render(
+      <TradingViewNativeContainer
+        source={{ kind: 'hyperliquid', coin: 'BTC', environment: 'mainnet' }}
+        {...props}
+      />,
+    );
+    expect(mockTradingViewNativeChart).toHaveBeenLastCalledWith(
+      expect.objectContaining({ enableDrawings: false }),
+    );
   });
 
   it('passes account trade marks to the renderer alongside custom chart components', async () => {
