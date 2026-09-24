@@ -35,6 +35,7 @@ import {
   ETabMarketRoutes,
   ETabRoutes,
 } from '@onekeyhq/shared/src/routes';
+import { toMarketTokenBatchRequestItems } from '@onekeyhq/shared/src/utils/marketTokenBatchUtils';
 import { getMarketWatchlistKey } from '@onekeyhq/shared/src/utils/marketWatchlistIdentity';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { getTokenSubtitle } from '@onekeyhq/shared/src/utils/perpsUtils';
@@ -693,9 +694,11 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
           ...copyRecommendListingIds(token),
         }));
 
+        // `targetList` keeps the listing ids for the display mapping below;
+        // the batch endpoint itself only accepts the address fields.
         const response =
           await backgroundApiProxy.serviceMarketV2.fetchMarketTokenListBatch({
-            tokenAddressList: targetList,
+            tokenAddressList: toMarketTokenBatchRequestItems(targetList),
           });
 
         if (response.list.length === 0) {
