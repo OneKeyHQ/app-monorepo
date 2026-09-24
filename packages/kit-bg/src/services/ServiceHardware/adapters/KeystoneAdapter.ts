@@ -25,6 +25,19 @@ import type {
   Response,
 } from './types';
 
+// Device calls that keep the stage on `processing`, so a long USB export
+// is not mistaken for a stalled connection.
+const KEYSTONE_CHAIN_CALL = /^(evm|btc|sol|tron)[A-Z]/;
+const KEYSTONE_DEVICE_CALLS = new Set([
+  'allNetworkGetAddress',
+  'getChainFingerprint',
+  'importFromQr',
+]);
+
+function isKeystoneDeviceCall(method: string): boolean {
+  return KEYSTONE_DEVICE_CALLS.has(method) || KEYSTONE_CHAIN_CALL.test(method);
+}
+
 type IQrDisplayEvent = {
   payload?: {
     device?: unknown;
@@ -67,13 +80,15 @@ export class KeystoneAdapter
 
   private activeOperationId: string | undefined;
 
+  private processingDepth = 0;
+
   // Keystone cold-start jobs serialize; a replacement cancels and waits so
   // two first-contact flows never share the adapter's QR/USB state.
   private pendingConnect?: Promise<void>;
 
   constructor(hw: IHardwareWallet) {
     super();
-    this.hw = hw;
+    this.hw = this.createProcessingAwareHw(hw);
     defaultLogger.hardware.sdkLog.log('[3rdPartyHW][Keystone] adapter created');
 
     this.hw.on(UI_REQUEST.REQUEST_QR_DISPLAY, (event) => {
@@ -122,7 +137,7 @@ export class KeystoneAdapter
           );
           break;
         case EConnectorInteraction.InteractionComplete:
-          void this.clearUiState(typed.payload?.sessionId);
+          this.clearOrRestoreProcessing(typed.payload?.sessionId);
           break;
         default:
           break;
@@ -152,6 +167,57 @@ export class KeystoneAdapter
         });
       }
     });
+  }
+
+  private createProcessingAwareHw(hw: IHardwareWallet): IHardwareWallet {
+    return new Proxy(hw, {
+      get: (target, property, receiver) => {
+        const value: unknown = Reflect.get(target, property, receiver);
+        if (
+          typeof property !== 'string' ||
+          typeof value !== 'function' ||
+          !isKeystoneDeviceCall(property)
+        ) {
+          return value;
+        }
+        const boundMethod = (value as (...args: unknown[]) => unknown).bind(
+          target,
+        );
+        return (...args: unknown[]) =>
+          this.runWithProcessing(() => Promise.resolve(boundMethod(...args)));
+      },
+    });
+  }
+
+  private async runWithProcessing<T>(operation: () => Promise<T>): Promise<T> {
+    // Only the outermost call touches the UI state: a nested call must not
+    // replace a QR prompt that is still on screen.
+    this.processingDepth += 1;
+    if (this.processingDepth === 1) {
+      void this.publishUiState({
+        action: EThirdPartyHardwareUiAction.processing,
+        vendor: EHardwareVendor.keystone,
+      });
+    }
+    try {
+      return await operation();
+    } finally {
+      this.processingDepth = Math.max(0, this.processingDepth - 1);
+      if (this.processingDepth === 0) {
+        void this.clearUiState();
+      }
+    }
+  }
+
+  private clearOrRestoreProcessing(sessionId?: string): void {
+    if (this.processingDepth > 0) {
+      void this.restoreProcessingUiState(
+        EThirdPartyHardwareUiAction.processing,
+        sessionId,
+      );
+      return;
+    }
+    void this.clearUiState(sessionId);
   }
 
   async searchDevices(
@@ -249,6 +315,7 @@ export class KeystoneAdapter
       this.emitConnectionStateChange({ type: 'disconnected', operationId });
     }
     this.pendingConnect = undefined;
+    this.processingDepth = 0;
     // Clear UI state first, same as Ledger/Trezor: a reset mid-QR-round-trip
     // would otherwise leave the QR display/scan flag set, keeping the toast or camera on screen behind a disposed adapter.
     void this.clearUiState();

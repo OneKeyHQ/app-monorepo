@@ -100,6 +100,45 @@ describe('KeystoneAdapter', () => {
     });
   });
 
+  it('keeps the stage on processing for device calls, not sync methods', async () => {
+    let finishExport: () => void = () => undefined;
+    const hw = {
+      on: jest.fn(),
+      getAvailableTransports: jest.fn(() => ['usb']),
+      allNetworkGetAddress: jest.fn(
+        () =>
+          new Promise((resolve) => {
+            finishExport = () => resolve({ success: true, payload: [] });
+          }),
+      ),
+      btcGetAddress: jest.fn().mockResolvedValue({ success: true }),
+    };
+    const adapter = new KeystoneAdapter(hw as never);
+
+    expect(adapter.hw.getAvailableTransports()).toEqual(['usb']);
+    expect(mockedThirdPartyHardwareUiStateAtom.set).not.toHaveBeenCalled();
+
+    const exported = adapter.hw.allNetworkGetAddress('c', 'd', {} as never);
+    expect(mockedThirdPartyHardwareUiStateAtom.set).toHaveBeenCalledTimes(1);
+    expect(mockedThirdPartyHardwareUiStateAtom.set).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        action: 'ui-event-ledger-processing',
+        vendor: 'keystone',
+      }),
+    );
+
+    // A nested call neither republishes nor clears the outer state.
+    await adapter.hw.btcGetAddress('c', 'd', {} as never);
+    expect(mockedThirdPartyHardwareUiStateAtom.set).toHaveBeenCalledTimes(1);
+
+    finishExport();
+    await exported;
+    expect(mockedThirdPartyHardwareUiStateAtom.set).toHaveBeenCalledTimes(2);
+    expect(mockedThirdPartyHardwareUiStateAtom.set).toHaveBeenLastCalledWith(
+      expect.any(Function),
+    );
+  });
+
   it('uses the connect id resolved by USB connection to load device info', async () => {
     const hw = {
       on: jest.fn(),
