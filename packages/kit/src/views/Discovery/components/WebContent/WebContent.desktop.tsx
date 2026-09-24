@@ -15,6 +15,7 @@ import {
   useBrowserTabActions,
 } from '@onekeyhq/kit/src/states/jotai/contexts/discovery';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
+import { openOneKeyStoreLinkExternally } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import uriUtils from '@onekeyhq/shared/src/utils/uriUtils';
 import { EValidateUrlEnum } from '@onekeyhq/shared/types/dappConnection';
 
@@ -177,6 +178,9 @@ function WebContent({ id, url, customReceiveHandler }: IWebContentProps) {
       }
       if (validateState === EValidateUrlEnum.ValidDeeplink) {
         handleDeepLinkUrl({ url: navUrl });
+        return false;
+      }
+      if (openOneKeyStoreLinkExternally(navUrl)) {
         return false;
       }
       setNavigationBlockAccessView(true);

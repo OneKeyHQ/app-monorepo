@@ -16,6 +16,7 @@ import {
 } from '@onekeyhq/kit/src/states/jotai/contexts/discovery';
 import { useSettingsFiatPaySiteWhitelistPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/settings';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { openOneKeyStoreLinkExternally } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import { EValidateUrlEnum } from '@onekeyhq/shared/types/dappConnection';
 
 import {
@@ -152,6 +153,9 @@ function WebContent({
         handleDeepLinkUrl({ url: navUrl });
         return false;
       }
+      if (openOneKeyStoreLinkExternally(navUrl)) {
+        return false;
+      }
       setShowBlockAccessView(true);
       setUrlValidateState(validateState);
       setBlockedUrl(navUrl);
@@ -222,7 +226,7 @@ function WebContent({
           });
           if (validateState === EValidateUrlEnum.ValidDeeplink) {
             handleDeepLinkUrl({ url: targetUrl });
-          } else {
+          } else if (!openOneKeyStoreLinkExternally(targetUrl)) {
             void gotoSite({
               url: targetUrl,
               siteMode,

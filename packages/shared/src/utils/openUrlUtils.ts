@@ -13,6 +13,14 @@ import {
 } from '@onekeyhq/shared/src/routes';
 
 import appGlobals from '../appGlobals';
+import {
+  ANDROID_PACKAGE_NAME,
+  APP_STORE_APP_ID,
+  APP_STORE_DOWNLOAD_LINK,
+  APP_STORE_DOWNLOAD_WEB_LINK,
+  MAC_APP_STORE_DOWNLOAD_LINK,
+  PLAY_STORE_LINK,
+} from '../config/appConfig';
 import { EAppEventBusNames, appEventBus } from '../eventBus/appEventBus';
 import { ETranslations } from '../locale';
 
@@ -258,6 +266,51 @@ export const openUrlExternal = (
       // supports Custom Tabs — fall back to the system browser.
       openViaSystemBrowser();
     });
+};
+
+// Store deep links can't load in the DApp browser, which shows its "not
+// private" block page for them. OneKey's own listing is handed to the OS
+// instead (OK-64036). Matched with regexes because Hermes and V8 split
+// custom-scheme URLs differently; a miss keeps the block page.
+const APPLE_STORE_DEEP_LINK_REGEXP =
+  /^(?:macappstores?|itms-appss?):\/\/(?:apps|itunes)\.apple\.com\/(?:[^?#]*\/)?id(\d+)(?:[/?#]|$)/i;
+const PLAY_STORE_DEEP_LINK_REGEXP =
+  /^market:\/\/details\?(?:[^#]*&)?id=([^&#]+)/i;
+
+/**
+ * Returns the canonical link to hand to the OS when `url` is a store deep
+ * link for OneKey's own listing. The page-supplied URL is never forwarded.
+ */
+export const getOneKeyStoreHandoffUrl = (url: string): string | undefined => {
+  const trimmedUrl = url.trim();
+  const appleAppId = trimmedUrl.match(APPLE_STORE_DEEP_LINK_REGEXP)?.[1];
+  if (appleAppId === APP_STORE_APP_ID) {
+    if (platformEnv.isDesktopMac) {
+      return MAC_APP_STORE_DOWNLOAD_LINK;
+    }
+    if (platformEnv.isNativeIOS) {
+      return APP_STORE_DOWNLOAD_LINK;
+    }
+    return APP_STORE_DOWNLOAD_WEB_LINK;
+  }
+  const playPackageName = trimmedUrl.match(PLAY_STORE_DEEP_LINK_REGEXP)?.[1];
+  if (playPackageName === ANDROID_PACKAGE_NAME) {
+    return PLAY_STORE_LINK;
+  }
+  return undefined;
+};
+
+/**
+ * Opens OneKey's store listing with the OS when `url` is a store deep link
+ * for it. Returns whether the link was handled.
+ */
+export const openOneKeyStoreLinkExternally = (url: string): boolean => {
+  const handoffUrl = getOneKeyStoreHandoffUrl(url);
+  if (!handoffUrl) {
+    return false;
+  }
+  openUrlExternal(handoffUrl, { useSystemBrowser: true });
+  return true;
 };
 
 export const dismissNativeInAppBrowser = () => {
