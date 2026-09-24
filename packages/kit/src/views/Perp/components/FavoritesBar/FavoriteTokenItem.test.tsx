@@ -14,6 +14,13 @@ const mockMarketContext = createContext<{
     ctx: { markPrice: string; change24hPercent: number };
   };
 }>({ coin: '@1' });
+const mockPerpContext = createContext<{
+  activeCoin?: string;
+  activeCtx?: {
+    coin: string;
+    ctx: { markPrice: string; change24hPercent: number };
+  };
+}>({});
 const mockSpotPrices = {
   '@1': { markPx: '128.97', prevDayPx: '100' },
   '@2': { markPx: '120.02', prevDayPx: '100' },
@@ -38,11 +45,18 @@ jest.mock('@onekeyhq/kit/src/states/jotai/contexts/hyperliquid', () => ({
   },
 }));
 jest.mock('@onekeyhq/kit/src/states/jotai/contexts/hyperliquid/atoms', () => ({
-  usePerpsCtxByCoin: () => undefined,
+  usePerpsCtxByCoin: () => ({ markPx: '3120', prevDayPx: '3000' }),
 }));
 jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms', () => ({
-  usePerpsActiveAssetAtom: () => [undefined],
-  usePerpsActiveAssetCtxAtom: () => [undefined],
+  usePerpsActiveAssetAtom: () => {
+    const { useContext } = jest.requireActual<typeof import('react')>('react');
+    const { activeCoin } = useContext(mockPerpContext);
+    return [activeCoin ? { coin: activeCoin } : undefined];
+  },
+  usePerpsActiveAssetCtxAtom: () => {
+    const { useContext } = jest.requireActual<typeof import('react')>('react');
+    return [useContext(mockPerpContext).activeCtx];
+  },
   useSpotAssetCtxsMapAtom: () => [mockSpotPrices],
   useSpotActiveAssetCtxAtom: () => {
     const { useContext } = jest.requireActual<typeof import('react')>('react');
@@ -97,5 +111,52 @@ describe('spot favorite percentage during instrument changes', () => {
       );
       expect(percentage()).toBeCloseTo(expected);
     }
+  });
+});
+
+const stalePerpState = {
+  activeCoin: 'ETH',
+  activeCtx: {
+    coin: 'BTC',
+    ctx: { markPrice: '65000', change24hPercent: -3.5 },
+  },
+};
+const currentPerpState = {
+  activeCoin: 'ETH',
+  activeCtx: {
+    coin: 'ETH',
+    ctx: { markPrice: '3150', change24hPercent: 5 },
+  },
+};
+const perpItem = (
+  <FavoriteTokenItem
+    displayName="ETH"
+    coinName="ETH"
+    imageTokenName="ETH"
+    assetId={1}
+    dexIndex={0}
+    mode="perp"
+    displayMode="percent"
+    onPress={jest.fn()}
+  />
+);
+
+describe('perp favorite price during asset changes', () => {
+  it('ignores the previous coin context after the active asset is seeded', () => {
+    // Background seeds the new active asset before clearing the old context.
+    const { getByTestId, rerender } = render(
+      <mockPerpContext.Provider value={stalePerpState}>
+        {perpItem}
+      </mockPerpContext.Provider>,
+    );
+    const percentage = () => Number(getByTestId('change').textContent);
+    expect(percentage()).toBeCloseTo(4);
+
+    rerender(
+      <mockPerpContext.Provider value={currentPerpState}>
+        {perpItem}
+      </mockPerpContext.Provider>,
+    );
+    expect(percentage()).toBeCloseTo(5);
   });
 });

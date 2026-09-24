@@ -171,15 +171,15 @@ const ActiveAssetPriceDisplay = memo(
       [coinName, spotPriceMap],
     );
 
-    const activeCtx = assetCtx?.ctx;
-    const spotCtx = spotActiveAssetCtx?.ctx;
+    const activeCtx = assetCtx?.coin === coinName ? assetCtx.ctx : undefined;
+    const spotCtx =
+      spotActiveAssetCtx?.coin === coinName
+        ? spotActiveAssetCtx.ctx
+        : undefined;
     let ctx: { markPrice?: string; change24hPercent?: number } =
       activeCtx?.markPrice ? activeCtx : formattedFallback;
     if (mode === 'spot') {
-      ctx =
-        spotActiveAssetCtx?.coin === coinName && spotCtx?.markPrice
-          ? spotCtx
-          : formattedSpotFallback;
+      ctx = spotCtx?.markPrice ? spotCtx : formattedSpotFallback;
     }
 
     const priceDisplay = ctx?.markPrice
