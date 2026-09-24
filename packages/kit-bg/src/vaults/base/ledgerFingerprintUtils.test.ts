@@ -92,18 +92,9 @@ describe('callLedgerWithFingerprint', () => {
       expect(result.success).toBe(true);
       expect(connectDevice).toHaveBeenCalledTimes(1);
       expect(fn).toHaveBeenCalledWith('', operationId, expect.any(Object));
-      expect(getChainFingerprint).toHaveBeenCalledTimes(2);
+      // One read records the anchor; re-reading the same device proves nothing.
+      expect(getChainFingerprint).toHaveBeenCalledTimes(1);
       expect(getChainFingerprint).toHaveBeenCalledWith(operationId, '', 'btc');
-      expect(getChainFingerprint).toHaveBeenLastCalledWith(
-        operationId,
-        'first-btc',
-        'btc',
-      );
-      expect(
-        jest
-          .mocked(localDb)
-          .updateDeviceChainFingerprint.mock.invocationCallOrder.at(-1),
-      ).toBeLessThan(getChainFingerprint.mock.invocationCallOrder[1]);
       expect(fn.mock.invocationCallOrder[0]).toBeLessThan(
         getChainFingerprint.mock.invocationCallOrder[0],
       );
@@ -305,131 +296,117 @@ describe('callLedgerWithFingerprint', () => {
     ).not.toHaveBeenCalled();
   });
 
-  it('keeps bootstrap success when the binding confirmation cannot complete', async () => {
-    // The user already approved this and the anchor is persisted before
-    // confirmation runs; a failed confirmation round trip says nothing about which device answered, so discarding the result would waste a real signature.
-    const getChainFingerprint = jest
-      .fn()
-      .mockResolvedValueOnce(success('new-evm-fingerprint'))
-      .mockResolvedValueOnce(
-        failure(HardwareErrorCode.DeviceDisconnected, 'Disconnected'),
+  describe('adding a new chain', () => {
+    function setup({
+      connectionType,
+      storedEvm,
+      evmCheck,
+    }: {
+      connectionType: 'usb' | 'ble';
+      storedEvm?: string;
+      evmCheck?: 'match' | 'mismatch' | 'unavailable';
+    }) {
+      const operationId = `hwk-ledger-${connectionType}-${evmCheck ?? 'none'}`;
+      const getChainFingerprint = jest.fn(
+        async (_connectId: string, expected: string, chain: string) => {
+          if (chain === 'evm') {
+            if (evmCheck === 'mismatch') {
+              return failure(HardwareErrorCode.DeviceMismatch, 'other seed');
+            }
+            if (evmCheck === 'unavailable') {
+              return failure(HardwareErrorCode.AppNotInstalled, 'no app');
+            }
+            return success(expected);
+          }
+          return success('first-btc');
+        },
       );
-    const backgroundApi = {
-      serviceThirdPartyHardware: {
-        getAdapterForVendor: jest
-          .fn()
-          .mockResolvedValue({ hw: { getChainFingerprint } }),
-      },
-    };
-    const result = await callLedgerWithFingerprint(
-      backgroundApi as unknown as IBackgroundApi,
-      buildDevice('ledger-confirmation-failure'),
-      'evm',
-      jest.fn().mockResolvedValue(success({ address: 'synthetic-address' })),
-      {
-        operationId: 'hwk-ledger-confirmation-failure',
-        allowFingerprintBootstrap: true,
-      },
-    );
-    expect(result).toMatchObject({
-      success: true,
-      payload: { address: 'synthetic-address' },
-    });
-    expect(getChainFingerprint).toHaveBeenLastCalledWith(
-      'hwk-ledger-confirmation-failure',
-      'new-evm-fingerprint',
-      'evm',
-    );
-  });
+      const backgroundApi = {
+        serviceThirdPartyHardware: {
+          getAdapterForVendor: jest.fn().mockResolvedValue({
+            connectDevice: jest
+              .fn()
+              .mockResolvedValue(success({ operationId, connectionType })),
+            releaseOperation: jest.fn().mockResolvedValue(undefined),
+            hw: { getChainFingerprint },
+          }),
+        },
+      };
+      const device = {
+        ...buildDevice(`new-chain-${operationId}`),
+        settingsRaw: JSON.stringify({
+          chainFingerprints: storedEvm ? { evm: storedEvm } : {},
+        }),
+      };
+      const fn = jest.fn().mockResolvedValue(success({ address: 'btc' }));
+      const run = () =>
+        callLedgerWithFingerprint(
+          backgroundApi as unknown as IBackgroundApi,
+          device,
+          'btc',
+          fn,
+        );
+      return { run, fn, getChainFingerprint, operationId };
+    }
 
-  it('rejects bootstrap success when the binding confirmation names another device', async () => {
-    const getChainFingerprint = jest
-      .fn()
-      .mockResolvedValueOnce(success('new-evm-fingerprint'))
-      .mockResolvedValueOnce(
-        failure(HardwareErrorCode.DeviceMismatch, 'Different device'),
+    it('over BLE, checks a recorded chain before anchoring the new one', async () => {
+      const t = setup({
+        connectionType: 'ble',
+        storedEvm: 'stored-evm',
+        evmCheck: 'match',
+      });
+      const result = await t.run();
+      expect(result.success).toBe(true);
+      expect(t.getChainFingerprint).toHaveBeenNthCalledWith(
+        1,
+        t.operationId,
+        'stored-evm',
+        'evm',
       );
-    const backgroundApi = {
-      serviceThirdPartyHardware: {
-        getAdapterForVendor: jest
-          .fn()
-          .mockResolvedValue({ hw: { getChainFingerprint } }),
-      },
-    };
-    const result = await callLedgerWithFingerprint(
-      backgroundApi as unknown as IBackgroundApi,
-      buildDevice('ledger-confirmation-mismatch'),
-      'evm',
-      jest.fn().mockResolvedValue(success({ address: 'synthetic-address' })),
-      {
-        operationId: 'hwk-ledger-confirmation-mismatch',
-        allowFingerprintBootstrap: true,
-      },
-    );
-    expect(result).toMatchObject({
-      success: false,
-      payload: { code: HardwareErrorCode.DeviceMismatch },
+      expect(t.fn).toHaveBeenCalledTimes(1);
     });
-  });
 
-  it('drops the anchor a confirmation mismatch invalidated and re-bootstraps next call', async () => {
-    const getChainFingerprint = jest
-      .fn()
-      .mockResolvedValueOnce(success('wrong-evm'))
-      .mockResolvedValueOnce(
-        failure(HardwareErrorCode.DeviceMismatch, 'Different device'),
-      )
-      .mockResolvedValueOnce(success('right-evm'))
-      .mockResolvedValueOnce(success('right-evm'));
-    const backgroundApi = {
-      serviceThirdPartyHardware: {
-        getAdapterForVendor: jest
-          .fn()
-          .mockResolvedValue({ hw: { getChainFingerprint } }),
-      },
-    };
-    const device = buildDevice('ledger-mismatch-rollback');
-    const callOptions = {
-      operationId: 'hwk-ledger-mismatch-rollback',
-      allowFingerprintBootstrap: true,
-    };
-    const fn = jest.fn().mockResolvedValue(success({ address: 'addr' }));
-
-    const first = await callLedgerWithFingerprint(
-      backgroundApi as unknown as IBackgroundApi,
-      device,
-      'evm',
-      fn,
-      callOptions,
-    );
-
-    expect(first).toMatchObject({
-      success: false,
-      payload: { code: HardwareErrorCode.DeviceMismatch },
+    it('over BLE, refuses a device whose recorded chain does not match', async () => {
+      const t = setup({
+        connectionType: 'ble',
+        storedEvm: 'stored-evm',
+        evmCheck: 'mismatch',
+      });
+      const result = await t.run();
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(result.payload.code).toBe(HardwareErrorCode.DeviceMismatch);
+      }
+      expect(t.fn).not.toHaveBeenCalled();
     });
-    // The rejected anchor is cleared in DB, not left as the expected value.
-    expect(
-      jest.mocked(localDb).updateDeviceChainFingerprint?.mock.calls,
-    ).toContainEqual([
-      { dbDeviceId: device.id, chain: 'evm', fingerprint: '' },
-    ]);
 
-    fn.mockClear();
-    const second = await callLedgerWithFingerprint(
-      backgroundApi as unknown as IBackgroundApi,
-      device,
-      'evm',
-      fn,
-      callOptions,
-    );
+    it('over BLE, proceeds when no recorded chain can be checked', async () => {
+      const t = setup({
+        connectionType: 'ble',
+        storedEvm: 'stored-evm',
+        evmCheck: 'unavailable',
+      });
+      const result = await t.run();
+      expect(result.success).toBe(true);
+      expect(t.fn).toHaveBeenCalledTimes(1);
+    });
 
-    // Empty deviceId proves the memory cache no longer serves 'wrong-evm'.
-    expect(fn).toHaveBeenCalledWith(
-      '',
-      callOptions.operationId,
-      expect.any(Object),
+    it.each([
+      ['BLE with an empty wallet', 'ble', undefined],
+      ['USB', 'usb', 'stored-evm'],
+    ] as const)(
+      'skips the cross-chain check for %s',
+      async (_name, connectionType, storedEvm) => {
+        const t = setup({ connectionType, storedEvm, evmCheck: 'match' });
+        const result = await t.run();
+        expect(result.success).toBe(true);
+        expect(
+          t.getChainFingerprint.mock.calls.some(
+            ([, , chain]) => chain === 'evm',
+          ),
+        ).toBe(false);
+      },
     );
-    expect(second.success).toBe(true);
   });
 
   it('preserves an SDK fingerprint mismatch during cross-chain verification', async () => {
