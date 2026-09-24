@@ -148,7 +148,10 @@ import {
   getSwapRequiredNativeBalanceAmount,
   validateSwapBtcOutputs,
 } from '../utils/swapBalanceUtils';
-import { isSwapGasSponsored } from '../utils/swapGasUtils';
+import {
+  isSwapGasSponsored,
+  shouldRequestSwapGasAccount,
+} from '../utils/swapGasUtils';
 import { buildSwapRateDifference } from '../utils/swapRateDifferenceUtils';
 import {
   type ISwapStepSignAndSendProgress,
@@ -212,6 +215,9 @@ type IBuildSwapActionOptions = {
 
 type IEstimateNetworkFeeOptions = {
   updateReviewState?: boolean;
+  // The quote this review was built from; its `allowanceResult` tells whether
+  // the swap still needs an approval and therefore opts out of Gas Account.
+  quoteResult?: IFetchQuoteResult;
 };
 
 type IUseSwapBuildTxOptions = {
@@ -1540,12 +1546,17 @@ export function useSwapBuildTx({
       const stepGasInfos =
         swapStepsRef.current.preSwapData.netWorkFee?.gasInfos;
       const swapInfo = buildUnsignedParams?.swapInfo;
-      // Backend Gas Account pre-check from the build-tx response. When the
-      // sponsorship candidate flag is on we must re-run estimate-fee right
-      // before sending to obtain a fresh, non-expired gasAccountQuote.quoteId,
-      // so we skip the cached-gas fast path below for sponsored swaps.
-      const isGasAccountEnabled =
-        !!swapInfo?.swapBuildResData?.result?.gasAccountEnabled;
+      // Gas Account sponsorship request for this send (OK-62562): backend
+      // provider pre-check, a single swap tx without approval, and no custom
+      // RPC. When it is on we must re-run estimate-fee right before sending to
+      // obtain a fresh, non-expired gasAccountQuote.quoteId, so the cached-gas
+      // fast path below is skipped for sponsored swaps.
+      const isGasAccountEnabled = await shouldRequestSwapGasAccount({
+        networkId,
+        swapInfo,
+        quoteResult,
+        hasApproveTx: !!approveUnsignedTxArr?.length,
+      });
       const buildUnsignedParamsCheckNonce = { ...buildUnsignedParams };
       if (approveUnsignedTxArr?.length && approveUnsignedTxArr.length > 0) {
         buildUnsignedParamsCheckNonce.prevNonce =
@@ -3240,17 +3251,21 @@ export function useSwapBuildTx({
       approveUnsignedTxArr?: IUnsignedTxPro[],
       options?: IEstimateNetworkFeeOptions,
     ): Promise<IEstimateNetworkFeeResult> => {
-      const { updateReviewState = true } = options ?? {};
+      const { updateReviewState = true, quoteResult } = options ?? {};
       if (!fromToken || !fromAccountId || !fromUserAddress) {
         throw new OneKeyError('account error');
       }
       const gasAccountReviewSession = gasAccountReviewSessionRef.current;
       const swapInfo = buildUnsignedParams?.swapInfo;
-      // Gas Account sponsorship pre-check from the build-tx response; forwarded
-      // to estimate-fee so the preview can decide whether to show the sponsored
-      // badge based on the real `gasAccountEligible` response.
-      const isGasAccountEnabled =
-        !!swapInfo?.swapBuildResData?.result?.gasAccountEnabled;
+      // Gas Account sponsorship request for the preview (OK-62562), using the
+      // same rule as the send path so the sponsored badge and the broadcast
+      // agree; the real `gasAccountEligible` still comes from estimate-fee.
+      const isGasAccountEnabled = await shouldRequestSwapGasAccount({
+        networkId,
+        swapInfo,
+        quoteResult,
+        hasApproveTx: !!approveUnsignedTxArr?.length,
+      });
       const buildUnsignedParamsCheckNonce = { ...buildUnsignedParams };
       if (approveUnsignedTxArr?.length && approveUnsignedTxArr.length > 0) {
         buildUnsignedParamsCheckNonce.prevNonce =
@@ -3670,7 +3685,7 @@ export function useSwapBuildTx({
             swapInfo,
           },
           unsignedTxArr,
-          { updateReviewState: false },
+          { updateReviewState: false, quoteResult: rebuiltQuoteResult },
         );
 
         if (
@@ -3814,6 +3829,7 @@ export function useSwapBuildTx({
               swapInfo,
             },
             unsignedTxArr,
+            { quoteResult: data },
           );
           if (estimateNetworkFeeResult.fallbackToSeparateTxConfirm) {
             const separateSteps = buildSeparateApproveAndSwapSteps(data);
