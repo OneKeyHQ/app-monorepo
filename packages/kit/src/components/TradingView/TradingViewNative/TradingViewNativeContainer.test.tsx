@@ -7,12 +7,15 @@ import { Suspense, startTransition, use, useState } from 'react';
 
 import { act, fireEvent, render, screen } from '@testing-library/react';
 
+import { getMarketDetailTradingViewNativeSource } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/utils/getMarketDetailTradingViewNativeSource';
 import type { IMarketTokenKLineDataPoint } from '@onekeyhq/shared/types/marketV2';
 import {
   type ITradingViewNativeChartSettings,
   type ITradingViewNativeIndicatorSettings,
   createTradingViewNativeChartSettings,
 } from '@onekeyhq/shared/types/tradingViewNative';
+
+import { fetchAccountTransactionMarks } from '../utils/accountTransactionMarks';
 
 import { TRADING_VIEW_NATIVE_KLINE_INTERVALS } from './data/tradingViewNativeIntervals';
 import {
@@ -33,7 +36,26 @@ import type {
 import type { ITradingViewNativeSubIndicatorInstanceConfig } from './utils/subIndicatorRender/types';
 import type { ITradingViewNativeIndicatorQuickBarState } from '../TradingViewChartControls/indicatorSelector/nativeIndicatorQuickBarState';
 
+jest.mock('./data/localAccountTransactionMarks', () => ({
+  ...jest.requireActual<typeof import('./data/localAccountTransactionMarks')>(
+    './data/localAccountTransactionMarks',
+  ),
+  fetchLocalAccountTransactionMarks: jest.fn(async () => []),
+}));
+
+jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
+  __esModule: true,
+  default: {},
+}));
+
 const mockHandleRetry = jest.fn();
+const mockFetchAccountTransactionMarks = jest.mocked(
+  fetchAccountTransactionMarks,
+);
+
+jest.mock('../utils/accountTransactionMarks', () => ({
+  fetchAccountTransactionMarks: jest.fn(async () => []),
+}));
 const mockPushModal = jest.fn();
 const mockNavigation = { pushModal: mockPushModal };
 
@@ -385,6 +407,7 @@ jest.mock('./TradingViewNativeFullscreenButton', () => ({
 describe('TradingViewNativeContainer', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockFetchAccountTransactionMarks.mockResolvedValue([]);
     mockDataProviderKey = 'market:evm--1:0xabc:TOKEN';
     mockActiveInterval = '60';
     mockChartType = 'candlestick';
@@ -408,6 +431,127 @@ describe('TradingViewNativeContainer', () => {
 
   afterEach(() => {
     jest.restoreAllMocks();
+  });
+
+  describe.each(['mobile', 'desktop'] as const)(
+    '%s Market drawing tools',
+    (nativeControlsLayoutMode) => {
+      it.each([
+        ['BTC', 'btc--0'],
+        ['ETH', 'evm--1'],
+        ['BNB', 'evm--56'],
+      ])(
+        'enables drawings for the %s Hyperliquid-backed main chart',
+        (symbol, networkId) => {
+          const source = getMarketDetailTradingViewNativeSource({
+            hyperliquidCoin: '',
+            isNative: true,
+            marketDataSource: 'websocket',
+            networkId,
+            symbol,
+            tokenAddress: '',
+          });
+          expect(source.kind).toBe('hyperliquid');
+          render(
+            <TradingViewNativeContainer
+              source={source}
+              enableDrawings
+              nativeControlsLayoutMode={nativeControlsLayoutMode}
+            />,
+          );
+          expect(mockTradingViewNativeChart).toHaveBeenLastCalledWith(
+            expect.objectContaining({ enableDrawings: true }),
+          );
+        },
+      );
+    },
+  );
+
+  it.each([
+    { name: 'charts without opt-in', props: {} },
+    {
+      name: 'Perps compact charts',
+      props: { nativeChartDisplayMode: 'compact' },
+    },
+    {
+      name: 'compact charts even with opt-in',
+      props: { enableDrawings: true, nativeChartDisplayMode: 'compact' },
+    },
+    {
+      name: 'Swap charts even with opt-in',
+      props: { enableDrawings: true, storageNamespace: 'swap' },
+    },
+  ] as const)('keeps drawings disabled for $name', ({ props }) => {
+    render(
+      <TradingViewNativeContainer
+        source={{ kind: 'hyperliquid', coin: 'BTC', environment: 'mainnet' }}
+        {...props}
+      />,
+    );
+    expect(mockTradingViewNativeChart).toHaveBeenLastCalledWith(
+      expect.objectContaining({ enableDrawings: false }),
+    );
+  });
+
+  it('passes account trade marks to the renderer alongside custom chart components', async () => {
+    const mark = {
+      id: 'test-buy',
+      transactionHash: 'test-transaction',
+      label: 'B',
+      time: 1500,
+      text: 'Buy TOKEN',
+      color: '#0A7AFF',
+    } as const;
+    mockFetchAccountTransactionMarks.mockResolvedValue([mark]);
+    mockPoints = [{ t: 1000, o: 1, h: 2, l: 1, c: 2, v: 10 }];
+    mockDataState = { status: 'live' };
+    const context = {
+      accountAddress: 'test-account',
+      networkId: 'evm--1',
+      tokenAddress: '0xabc',
+    };
+    const referenceLine = {
+      id: 'test-reference',
+      type: 'referenceLine',
+      props: {
+        anchor: { type: 'price', price: 1 },
+        color: '#ffffff',
+        interactive: false,
+        style: 'solid',
+        title: 'Reference',
+      },
+    } as const;
+    render(
+      <TradingViewNativeContainer
+        source={{
+          kind: 'market',
+          networkId: 'evm--1',
+          tokenAddress: '0xabc',
+          symbol: 'TOKEN',
+          realtime: 'disabled',
+        }}
+        accountMarksContext={context}
+        chartComponents={[referenceLine]}
+      />,
+    );
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(mockFetchAccountTransactionMarks).toHaveBeenCalledWith(
+      expect.objectContaining({ ...context, from: 1000 }),
+    );
+    expect(mockTradingViewNativeChart.mock.calls.at(-1)?.[0]).toEqual(
+      expect.objectContaining({
+        chartComponents: [
+          referenceLine,
+          {
+            id: 'system.accountTradeMarks',
+            type: 'tradeMarks',
+            props: { marks: [mark] },
+          },
+        ],
+      }),
+    );
   });
 
   it('only shows the quick bar when opted into a mobile layout, including fullscreen', () => {
@@ -493,11 +637,17 @@ describe('TradingViewNativeContainer', () => {
         .getByTestId('page-quick-bar')
         .contains(screen.getByTestId(quickBarTestId)),
     ).toBe(true);
+    expect(mockTradingViewNativeChart.mock.calls.at(-1)?.[0]).toEqual(
+      expect.objectContaining({ resizesWithSubIndicatorPanes: true }),
+    );
     fireEvent.click(screen.getByRole('button', { name: 'RSI' }));
 
     rerender(<ChartWithFooter fullscreen />);
     expect(screen.getByTestId('page-quick-bar').childElementCount).toBe(0);
     expect(screen.getAllByTestId(quickBarTestId)).toHaveLength(1);
+    expect(mockTradingViewNativeChart.mock.calls.at(-1)?.[0]).toEqual(
+      expect.objectContaining({ resizesWithSubIndicatorPanes: false }),
+    );
     expect(
       screen.getByRole('button', { name: 'RSI' }).getAttribute('aria-pressed'),
     ).toBe('true');
@@ -2205,25 +2355,37 @@ describe('TradingViewNativeContainer', () => {
     );
   });
 
-  it('uses the compact chart presentation without legends or volume', () => {
+  it('hides saved indicators in compact mode and restores them in default mode', () => {
     mockDataState = { status: 'live' };
-    mockPoints = [
-      { c: 100, h: 101, l: 99, o: 100, t: 1000, v: 10 },
-      { c: 101, h: 102, l: 100, o: 100, t: 2000, v: 20 },
-    ];
+    mockPoints = Array.from({ length: 25 }, (_, index) => ({
+      c: 100 + index,
+      h: 101 + index,
+      l: 99 + index,
+      o: 100 + index,
+      t: 1000 + index,
+      v: 10,
+    }));
+    const settings = createTradingViewNativeIndicatorSettingsValue();
+    settings.indicators.forEach((indicator) => {
+      indicator.active = ['EMA', 'RSI', 'VOL'].includes(indicator.id);
+    });
+    mockInitialIndicatorSettings =
+      getTradingViewNativeIndicatorSettings(settings);
+    const onNativeSubIndicatorCountChange = jest.fn();
+    const source = {
+      kind: 'hyperliquid',
+      coin: 'ETH',
+      environment: 'mainnet',
+    } as const;
 
-    render(
+    const { rerender } = render(
       <TradingViewNativeContainer
         nativeChartDisplayMode="compact"
         nativeControlsLayoutMode="mobile"
-        source={{
-          kind: 'market',
-          networkId: 'evm--1',
-          tokenAddress: '0xabc',
-          symbol: 'TOKEN',
-          realtime: 'disabled',
-        }}
+        source={source}
+        showNativeIndicatorQuickBar
         onNativeChartFullscreenChange={jest.fn()}
+        onNativeSubIndicatorCountChange={onNativeSubIndicatorCountChange}
       />,
     );
 
@@ -2231,6 +2393,8 @@ describe('TradingViewNativeContainer', () => {
       expect.objectContaining({
         extendTimeAxisBorderToCanvasEdge: true,
         hasVolume: false,
+        indicatorSeries: [],
+        subIndicatorPanes: [],
         priceAxisFontSize: 11,
         priceAxisTickCount: 4,
         showLegend: false,
@@ -2243,8 +2407,44 @@ describe('TradingViewNativeContainer', () => {
       expect.objectContaining({ compactMobileLayout: true }),
     );
     expect(mockTradingViewNativeFullscreenButton).toHaveBeenCalledWith(
-      expect.objectContaining({ timeAxisHeight: 20 }),
+      expect.objectContaining({
+        timeAxisHeight: 20,
+        visibleSubIndicatorCount: 0,
+      }),
     );
+    expect(onNativeSubIndicatorCountChange).toHaveBeenLastCalledWith(0);
+    expect(
+      screen.queryByTestId('trading-view-native-indicator-quick-bar'),
+    ).toBeNull();
+    expect(
+      screen.queryByTestId('trading-view-native-indicator-settings-trigger'),
+    ).toBeNull();
+    expect(mockPersistedIndicatorSettings).toBeUndefined();
+
+    rerender(
+      <TradingViewNativeContainer
+        nativeControlsLayoutMode="mobile"
+        source={source}
+        showNativeIndicatorQuickBar
+        onNativeSubIndicatorCountChange={onNativeSubIndicatorCountChange}
+      />,
+    );
+    const chartProps = mockTradingViewNativeChart.mock.calls.at(
+      -1,
+    )?.[0] as ITradingViewNativeChartProps;
+    expect(chartProps.indicatorSeries?.map(({ key }) => key)).toEqual([
+      'ema-1',
+      'ema-2',
+      'ema-3',
+    ]);
+    expect(
+      chartProps.subIndicatorPanes?.map(({ indicator }) => indicator),
+    ).toEqual(['VOL', 'RSI']);
+    expect(onNativeSubIndicatorCountChange).toHaveBeenLastCalledWith(2);
+    expect(
+      screen.queryByTestId('trading-view-native-indicator-quick-bar'),
+    ).not.toBeNull();
+    expect(mockPersistedIndicatorSettings).toBeUndefined();
   });
   it('keeps shared chart defaults outside compact mode', () => {
     render(

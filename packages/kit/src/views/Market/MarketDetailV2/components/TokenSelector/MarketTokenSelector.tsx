@@ -22,6 +22,7 @@ import { useTokenDetailActions } from '@onekeyhq/kit/src/states/jotai/contexts/m
 import { useMarketBasicConfig } from '@onekeyhq/kit/src/views/Market/hooks';
 import { usePerpsNavigation } from '@onekeyhq/kit/src/views/Market/hooks/usePerpsNavigation';
 import { useToMarketStockDetailPage } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketStockList/hooks/useToMarketStockDetailPage';
+import type { IMarketWatchlistDataCache } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketTokenList/hooks/useMarketWatchlistTokenList';
 import type { IMarketToken } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketTokenList/MarketTokenData';
 import { useMarketTopCoins } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketTopCoinsList/hooks/useMarketTopCoins';
 import type {
@@ -30,6 +31,7 @@ import type {
 } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/types';
 import {
   ensureMarketTopCoinsCategory,
+  getMarketHomeFallbackSpotCategories,
   isMarketStockCategory,
 } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/utils';
 import { useSwapProTokenSearch } from '@onekeyhq/kit/src/views/Swap/hooks/useSwapPro';
@@ -50,6 +52,7 @@ import { resolveMarketStockId } from '../../utils/resolveIsStockToken';
 import { ALL_NETWORK_ID, TOKEN_SELECTOR_POLLING_INTERVAL } from './constants';
 import { MarketStockSelectorList } from './MarketStockSelectorList';
 import { MarketTokenSelectorList } from './MarketTokenSelectorList';
+import { MarketTokenSelectorSearchResults } from './MarketTokenSelectorSearchResults';
 import { navigateToMarketTokenDetail } from './navigateToMarketTokenDetail';
 
 type IMarketTokenSelectorItem = IMarketToken & {
@@ -190,18 +193,9 @@ function BaseMarketTokenSelectorContent({
     }
     // Keep the complete selector available while the remote config loads.
     return ensureMarketTopCoinsCategory(
-      [
-        {
-          id: 'trending',
-          name: intl.formatMessage({ id: ETranslations.dexmarket_trending }),
-        },
-        {
-          id: 'stocks',
-          name: intl.formatMessage({
-            id: ETranslations.perps_token_selector_stocks,
-          }),
-        },
-      ],
+      getMarketHomeFallbackSpotCategories((descriptor) =>
+        intl.formatMessage(descriptor),
+      ),
       intl.formatMessage({ id: ETranslations.market_top_coins }),
     );
   }, [apiSpotCategories, intl]);
@@ -257,8 +251,15 @@ function BaseMarketTokenSelectorContent({
 
   const [searchValue, setSearchValue] = useState('');
   const searchValueDebounce = useDebounce(searchValue, 500);
-  const { searchLoading, searchTokenList } =
-    useSwapProTokenSearch(searchValueDebounce);
+  const searchQuery = searchValueDebounce.trim();
+  const { searchLoading, searchTokenList } = useSwapProTokenSearch(searchQuery);
+
+  // The favorites list is unmounted on every tab switch, so its fetched data
+  // is parked on this shell — which outlives the tabs — and handed back on
+  // remount instead of the list restarting from an empty state.
+  const watchlistDataCacheRef = useRef<IMarketWatchlistDataCache | undefined>(
+    undefined,
+  );
 
   const handleCategoryChange = useCallback(
     (categoryId: string) => {
@@ -336,10 +337,10 @@ function BaseMarketTokenSelectorContent({
         tokenDetailActions,
         beforeNavigate: () => void closePopover?.(),
         showFavoriteButton,
-        resolveMarketAsset: startListSelect || Boolean(searchValueDebounce),
+        resolveMarketAsset: startListSelect || Boolean(searchQuery),
         tokenDetailPreview: token.tokenDetailPreview,
         marketTokenCategory:
-          startListSelect || searchValueDebounce ? undefined : selectedCategory,
+          startListSelect || searchQuery ? undefined : selectedCategory,
       });
     },
     [
@@ -348,7 +349,7 @@ function BaseMarketTokenSelectorContent({
       closePopover,
       navigateToPerps,
       toMarketStockDetailPage,
-      searchValueDebounce,
+      searchQuery,
       selectedCategory,
       showFavoriteButton,
       startListSelect,
@@ -357,7 +358,7 @@ function BaseMarketTokenSelectorContent({
 
   const handleSelectToken = useCallback(
     (item: IMarketTokenSelectorItem) => {
-      if (isTopCoinsSelection && !searchValueDebounce) {
+      if (isTopCoinsSelection && !searchQuery) {
         const topCoin = item.marketAssetId
           ? topCoinsById.get(item.marketAssetId)
           : undefined;
@@ -379,7 +380,7 @@ function BaseMarketTokenSelectorContent({
       handleTopCoinPress,
       isTopCoinsSelection,
       navigateToTokenDetail,
-      searchValueDebounce,
+      searchQuery,
       topCoinsById,
     ],
   );
@@ -392,6 +393,37 @@ function BaseMarketTokenSelectorContent({
     },
     [closePopover, toMarketStockDetailPage],
   );
+
+  let selectorListContent: ReactElement;
+  if (searchQuery) {
+    selectorListContent = (
+      <MarketTokenSelectorSearchResults
+        query={searchQuery}
+        marketItems={searchTokenList}
+        isMarketLoading={searchLoading}
+        onStockPress={handleSelectStock}
+        onMarketPress={handleSelectToken}
+      />
+    );
+  } else if (isStockSelection) {
+    selectorListContent = (
+      <MarketStockSelectorList query="" onItemPress={handleSelectStock} />
+    );
+  } else {
+    selectorListContent = (
+      <MarketTokenSelectorList
+        networkId={allNetworkId}
+        selectedCategory={selectedCategory}
+        timeRange={selectorTimeRange}
+        onItemPress={handleSelectToken}
+        pollingInterval={TOKEN_SELECTOR_POLLING_INTERVAL}
+        isWatchlistMode={startListSelect}
+        watchlistDataCacheRef={watchlistDataCacheRef}
+        dataOverride={isTopCoinsSelection ? topCoinsSelectorData : undefined}
+        dataOverrideLoading={isTopCoinsLoading}
+      />
+    );
+  }
 
   return (
     <YStack testID="market-token-selector-content">
@@ -415,7 +447,7 @@ function BaseMarketTokenSelectorContent({
         </XStack>
 
         {/* Tabs - hidden during search */}
-        {searchValueDebounce ? null : (
+        {searchQuery ? null : (
           <XStack
             borderBottomWidth="$px"
             borderBottomColor="$borderSubdued"
@@ -444,31 +476,7 @@ function BaseMarketTokenSelectorContent({
           </XStack>
         )}
 
-        {/* List content */}
-        {isStockSelection && !searchValueDebounce ? (
-          <MarketStockSelectorList
-            query={searchValueDebounce}
-            onItemPress={handleSelectStock}
-          />
-        ) : (
-          <MarketTokenSelectorList
-            networkId={allNetworkId}
-            selectedCategory={selectedCategory}
-            timeRange={selectorTimeRange}
-            onItemPress={handleSelectToken}
-            pollingInterval={TOKEN_SELECTOR_POLLING_INTERVAL}
-            isWatchlistMode={Boolean(!searchValueDebounce && startListSelect)}
-            searchQuery={searchValueDebounce}
-            searchLoading={searchLoading}
-            searchResults={searchTokenList}
-            dataOverride={
-              isTopCoinsSelection && !searchValueDebounce
-                ? topCoinsSelectorData
-                : undefined
-            }
-            dataOverrideLoading={isTopCoinsLoading}
-          />
-        )}
+        {selectorListContent}
       </YStack>
     </YStack>
   );

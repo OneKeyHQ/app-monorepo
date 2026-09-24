@@ -17,6 +17,7 @@ import { FocusScope } from '@tamagui/focus-scope';
 import { setStringAsync } from 'expo-clipboard';
 import { isNil } from 'lodash';
 import { useIntl } from 'react-intl';
+import { Platform } from 'react-native';
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
@@ -59,6 +60,7 @@ import {
   useOverlayZIndex,
   useSafeAreaInsets,
 } from '../../hooks';
+import { useKeyboardAnimation } from '../../hooks/useKeyboardAnimation';
 import { usePageContext } from '../../layouts/Page/PageContext';
 import { ScrollView } from '../../layouts/ScrollView';
 import { SizableText, Spinner, Stack } from '../../primitives';
@@ -198,7 +200,7 @@ const useSafeKeyboardAnimationStyle = ({
       ? INITIAL_BOTTOM_INSET
       : bottom;
   const isNativeAndroid = Boolean(platformEnv.isNativeAndroid);
-  const keyboardHeightValue = useSharedValue(0);
+  const { height: keyboardHeight } = useKeyboardAnimation();
   const [trackedKeyboardHeight, setTrackedKeyboardHeight] = useState(0);
   // Keep the dialog clear of both the home indicator and the keyboard.
   // These are two independent concerns collapsed into one paddingBottom:
@@ -206,9 +208,12 @@ const useSafeKeyboardAnimationStyle = ({
   //   - keyboard height: only while the keyboard is shown (dynamic)
   // Android keyboard events exclude the bottom system-bar inset, while iOS
   // keyboard events already include it. Only restore the inset on Android.
+  // Read the keyboard-controller animation on every native frame. A portal-
+  // mounted fit Sheet can miss or defer a one-shot keyboardWillShow layout
+  // update, leaving its input behind the iOS keyboard until a later render.
   const animatedStyles = useAnimatedStyle(() => ({
     paddingBottom: getDialogKeyboardPaddingBottom({
-      keyboardHeight: keyboardHeightValue.value,
+      keyboardHeight: Math.abs(keyboardHeight.value),
       safeAreaBottom,
       isNativeAndroid,
     }),
@@ -220,13 +225,11 @@ const useSafeKeyboardAnimationStyle = ({
         e.endCoordinates.height < 0
           ? DEFAULT_KEYBOARD_HEIGHT
           : e.endCoordinates.height;
-      keyboardHeightValue.value = height;
       if (trackKeyboardPadding) {
         setTrackedKeyboardHeight(height);
       }
     },
     keyboardWillHide: () => {
-      keyboardHeightValue.value = 0;
       if (trackKeyboardPadding) {
         setTrackedKeyboardHeight(0);
       }
@@ -651,6 +654,9 @@ function DialogFrame({
       <AnimatePresence>
         {open ? (
           <Stack
+            // The positioning layer outlives closed content during its exit animation.
+            // Let the overlay and content own hit testing on the web.
+            pointerEvents={Platform.select({ web: 'box-none' })}
             position={
               platformEnv.isNative ? 'absolute' : ('fixed' as unknown as any)
             }
@@ -736,6 +742,7 @@ function BaseDialogContainer(
   {
     onOpen,
     onClose,
+    onBeforeClose,
     renderContent,
     title,
     tone,
@@ -763,23 +770,33 @@ function BaseDialogContainer(
     [isControlled, onOpenChange],
   );
   const formRef = useRef<UseFormReturn<any, any, any> | undefined>(undefined);
+  const pendingCloseRef = useRef<Promise<void> | undefined>(undefined);
   const handleClose = useCallback(
     (extra?: { flag?: string }) => {
-      if (
-        props.trackID &&
-        extra?.flag !== 'confirm' &&
-        extra?.flag !== 'cancel'
-      ) {
-        defaultLogger.ui.dialog.dialogClose({
-          trackId: props.trackID,
-        });
+      if (pendingCloseRef.current) {
+        return pendingCloseRef.current;
       }
-      changeIsOpen(false);
-      void Keyboard.dismissWithDelay(50);
-      return onClose(extra);
-      // eslint-disable-next-line react-hooks/exhaustive-deps
+      const close = async () => {
+        if (onBeforeClose && !(await onBeforeClose(extra))) {
+          return;
+        }
+        if (
+          props.trackID &&
+          extra?.flag !== 'confirm' &&
+          extra?.flag !== 'cancel'
+        ) {
+          defaultLogger.ui.dialog.dialogClose({ trackId: props.trackID });
+        }
+        changeIsOpen(false);
+        void Keyboard.dismissWithDelay(50);
+        await onClose(extra);
+      };
+      pendingCloseRef.current = close().finally(() => {
+        pendingCloseRef.current = undefined;
+      });
+      return pendingCloseRef.current;
     },
-    [changeIsOpen, onClose, props.trackID],
+    [changeIsOpen, onClose, props.trackID, onBeforeClose],
   );
 
   const handleIsExist = useCallback(

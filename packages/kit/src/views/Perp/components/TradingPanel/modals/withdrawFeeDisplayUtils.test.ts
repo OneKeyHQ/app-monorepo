@@ -23,7 +23,40 @@ describe('formatUsdcWithdrawFeeText', () => {
         reserve: '1',
         includeReserve: true,
       }),
-    ).toBe('$1.00 + $0.20');
+    ).toBe('$1.20');
+  });
+
+  it('marks a fallback reserve as estimated alongside the CCTP fee', () => {
+    expect(
+      formatUsdcWithdrawFeeText({
+        feeQuote: cctpQuote,
+        reserve: '1.01',
+        includeReserve: true,
+        isReserveEstimate: true,
+      }),
+    ).toBe('≈ $1.21');
+  });
+
+  it('does not apply a fallback estimate to a legacy bridge fee', () => {
+    expect(
+      formatUsdcWithdrawFeeText({
+        feeQuote: {
+          components: [
+            {
+              kind: 'legacyBridge',
+              amount: '1',
+              token: 'USDC',
+              debitedFrom: 'withdrawAmount',
+              isEstimate: false,
+            },
+          ],
+          quotedAt: 1,
+        },
+        reserve: '1.01',
+        includeReserve: false,
+        isReserveEstimate: true,
+      }),
+    ).toBe('$1.00');
   });
 
   it('keeps the sub-cent indicator for the minimum reserve', () => {
@@ -33,7 +66,33 @@ describe('formatUsdcWithdrawFeeText', () => {
         reserve: '0.01',
         includeReserve: true,
       }),
-    ).toBe('< $0.01 + $0.20');
+    ).toBe('< $0.21');
+  });
+
+  it('keeps the estimate indicator when summing an estimated forwarding fee', () => {
+    expect(
+      formatUsdcWithdrawFeeText({
+        feeQuote: {
+          ...cctpQuote,
+          components: cctpQuote.components.map((component) => ({
+            ...component,
+            isEstimate: true,
+          })),
+        },
+        reserve: '0.01',
+        includeReserve: true,
+      }),
+    ).toBe('≈ $0.21');
+  });
+
+  it('keeps a standalone fee unchanged without a reserve', () => {
+    expect(
+      formatUsdcWithdrawFeeText({
+        feeQuote: cctpQuote,
+        reserve: undefined,
+        includeReserve: false,
+      }),
+    ).toBe('$0.20');
   });
 
   it('replaces the HyperEVM preview instead of showing it twice', () => {
@@ -58,6 +117,14 @@ describe('formatUsdcWithdrawFeeText', () => {
         includeReserve: true,
       }),
     ).toBe('$1.23');
+    expect(
+      formatUsdcWithdrawFeeText({
+        feeQuote: hyperEvmQuote,
+        reserve: '1.01',
+        includeReserve: true,
+        isReserveEstimate: true,
+      }),
+    ).toBe('≈ $1.01');
   });
 
   it('does not show the preview while the account reserve is unknown', () => {

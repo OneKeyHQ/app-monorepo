@@ -1,17 +1,14 @@
 import { OneKeyLocalError } from '../../errors';
 import { defaultLogger } from '../../logger/logger';
+import { SWR_CACHE_SLOW_OP_LOG_THRESHOLD_MS } from '../../utils/swrCacheLimits';
 import { callNativeStorage } from '../nativeStorageBridge';
 import { parseNativeSyncStorageMutation } from '../nativeStorageTypes';
-import {
-  applyNativeSWRCacheCanonicalEntries,
-  applyNativeSWRCachePatchToSerializedStore,
-} from '../nativeSWRCachePersistence';
 
 import type {
-  INativeSWRCachePatchIntent,
   INativeStorageBootstrapSnapshot,
   INativeStorageGlobal,
   INativeStorageScalar,
+  INativeSyncStorageEntry,
   INativeSyncStorageLocalMutation,
   INativeSyncStorageMutation,
   INativeSyncStorageName,
@@ -23,10 +20,14 @@ type IMirrorState = {
   mutationsBeforeBootstrap: INativeSyncStorageLocalMutation[];
 };
 
+type ICompactedRemoteMutation = {
+  mutation: INativeSyncStorageLocalMutation;
+  request: INativeSyncStorageRequest;
+  supersededMutationIds?: number[];
+};
+
 type IPendingRemoteMutation = {
-  baselineValue?: string;
   enqueuedAt: number;
-  isSWRCompactionSnapshot?: boolean;
   mutation: INativeSyncStorageLocalMutation;
   request: INativeSyncStorageRequest;
 };
@@ -60,7 +61,6 @@ type IRemoteMutationQueue = {
 
 const NATIVE_SYNC_STORAGE_NAMES: INativeSyncStorageName[] = [
   'settings',
-  'coldStart',
   'devSettings',
 ];
 
@@ -69,9 +69,13 @@ const MUTATION_RETRY_MAX_DELAY_MS = 30_000;
 const MUTATION_RETRY_JITTER_RATIO = 0.2;
 const QUEUE_DIAGNOSTIC_EPISODE_COOLDOWN_MS = 10 * 60_000;
 const QUEUE_STALL_THRESHOLDS_MS = [30_000, 5 * 60_000, 30 * 60_000];
-const SWR_PATCH_COMPACTION_MAX_PENDING = 100;
-const SWR_PATCH_COMPACTION_MAX_CHARS = 10 * 1024 * 1024;
-const SWR_CACHE_KEY = 'onekey_swr_cache';
+
+function createMirrorState(): IMirrorState {
+  return {
+    values: new Map(),
+    mutationsBeforeBootstrap: [],
+  };
+}
 
 function createRemoteMutationQueue(): IRemoteMutationQueue {
   return {
@@ -98,9 +102,8 @@ function createRemoteMutationQueue(): IRemoteMutationQueue {
 }
 
 const mirrors: Record<INativeSyncStorageName, IMirrorState> = {
-  settings: { values: new Map(), mutationsBeforeBootstrap: [] },
-  coldStart: { values: new Map(), mutationsBeforeBootstrap: [] },
-  devSettings: { values: new Map(), mutationsBeforeBootstrap: [] },
+  settings: createMirrorState(),
+  devSettings: createMirrorState(),
 };
 
 const remoteMutationQueues: Record<
@@ -108,7 +111,6 @@ const remoteMutationQueues: Record<
   IRemoteMutationQueue
 > = {
   settings: createRemoteMutationQueue(),
-  coldStart: createRemoteMutationQueue(),
   devSettings: createRemoteMutationQueue(),
 };
 
@@ -128,17 +130,6 @@ function applyLocalMutation(
     case 'set':
       state.values.set(mutation.key, mutation.value);
       break;
-    case 'patchSWR': {
-      const current = state.values.get(SWR_CACHE_KEY);
-      state.values.set(
-        SWR_CACHE_KEY,
-        applyNativeSWRCacheCanonicalEntries(
-          typeof current === 'string' ? current : undefined,
-          mutation.entries,
-        ),
-      );
-      break;
-    }
     case 'remove':
       state.values.delete(mutation.key);
       break;
@@ -163,10 +154,6 @@ function appendCompactedLocalMutation(
     mutations.push(mutation);
     return;
   }
-  if (mutation.operation === 'patchSWR') {
-    mutations.push(mutation);
-    return;
-  }
   for (let index = mutations.length - 1; index >= 0; index -= 1) {
     const pending = mutations[index];
     if (pending.operation === 'clear') {
@@ -180,16 +167,14 @@ function appendCompactedLocalMutation(
 }
 
 function compactPendingRemoteMutations({
-  baselineValue,
   mutation,
   queue,
   request,
 }: {
-  baselineValue?: string;
   mutation: INativeSyncStorageLocalMutation;
   queue: IRemoteMutationQueue;
   request: INativeSyncStorageRequest;
-}) {
+}): ICompactedRemoteMutation {
   if (mutation.operation === 'clear') {
     const supersededMutationIds: number[] = [];
     queue.pending.forEach((_pending, mutationId) => {
@@ -200,88 +185,6 @@ function compactPendingRemoteMutations({
     });
     return { mutation, request, supersededMutationIds };
   }
-  if (mutation.operation === 'patchSWR') {
-    const eligiblePending = [...queue.pending.entries()].filter(
-      ([mutationId, pending]) =>
-        mutationId !== queue.inFlightMutationId &&
-        (pending.request.operation === 'patchSWR' ||
-          (pending.request.store === 'coldStart' &&
-            (pending.request.operation === 'set' ||
-              pending.request.operation === 'remove') &&
-            pending.request.key === SWR_CACHE_KEY)),
-    );
-    const patchRequests = eligiblePending
-      .map(([, pending]) => pending.request)
-      .filter(
-        (
-          pendingRequest,
-        ): pendingRequest is Extract<
-          INativeSyncStorageRequest,
-          { operation: 'patchSWR' }
-        > => pendingRequest.operation === 'patchSWR',
-      );
-    const patchChars = [...patchRequests, request].reduce(
-      (total, patchRequest) =>
-        total +
-        (patchRequest.operation === 'patchSWR'
-          ? (patchRequest.patch.clearBefore === undefined ? 0 : 16) +
-            patchRequest.patch.removePrefixes.reduce(
-              (subtotal, item) => subtotal + item.prefix.length + 16,
-              0,
-            ) +
-            patchRequest.patch.removals.reduce(
-              (subtotal, item) => subtotal + item[0].length + 16,
-              0,
-            ) +
-            patchRequest.patch.updates.reduce(
-              (subtotal, item) =>
-                subtotal + item[0].length + item[1].length + 8,
-              0,
-            )
-          : 0),
-      0,
-    );
-    const shouldCompact =
-      eligiblePending.some(([, pending]) => pending.isSWRCompactionSnapshot) ||
-      patchRequests.length + 1 > SWR_PATCH_COMPACTION_MAX_PENDING ||
-      patchChars > SWR_PATCH_COMPACTION_MAX_CHARS;
-    if (!shouldCompact) {
-      return { baselineValue, mutation, request };
-    }
-
-    const oldestBaseline =
-      eligiblePending.find(
-        ([, pending]) => pending.baselineValue !== undefined,
-      )?.[1].baselineValue ?? baselineValue;
-    const supersededMutationIds = eligiblePending.map(
-      ([mutationId]) => mutationId,
-    );
-    eligiblePending.forEach(([mutationId]) => queue.pending.delete(mutationId));
-    const currentValue = mirrors.coldStart.values.get(SWR_CACHE_KEY);
-    const serializedValue =
-      typeof currentValue === 'string' ? currentValue : '{}';
-    return {
-      baselineValue: oldestBaseline,
-      isSWRCompactionSnapshot: true,
-      mutation: {
-        operation: 'set' as const,
-        key: SWR_CACHE_KEY,
-        value: serializedValue,
-      },
-      request: {
-        scope: 'syncStorage' as const,
-        operation: 'set' as const,
-        store: 'coldStart' as const,
-        key: SWR_CACHE_KEY,
-        value: serializedValue,
-        ...(oldestBaseline === undefined
-          ? {}
-          : { previousValue: oldestBaseline }),
-      },
-      supersededMutationIds,
-    };
-  }
-
   let superseded: Array<[number, IPendingRemoteMutation]> = [];
   queue.pending.forEach((pending, mutationId) => {
     if (pending.mutation.operation === 'clear') {
@@ -297,7 +200,7 @@ function compactPendingRemoteMutations({
     }
   });
   if (superseded.length === 0) {
-    return { baselineValue, mutation, request };
+    return { mutation, request };
   }
 
   let compactedRequest = request;
@@ -316,7 +219,6 @@ function compactPendingRemoteMutations({
   }
   superseded.forEach(([mutationId]) => queue.pending.delete(mutationId));
   return {
-    baselineValue: superseded[0][1].baselineValue ?? baselineValue,
     mutation,
     request: compactedRequest,
     supersededMutationIds: superseded.map(([mutationId]) => mutationId),
@@ -629,11 +531,9 @@ function enqueueRemoteMutation(
   store: INativeSyncStorageName,
   mutation: INativeSyncStorageLocalMutation,
   request: INativeSyncStorageRequest,
-  baselineValue?: string,
 ) {
   const queue = remoteMutationQueues[store];
   const compacted = compactPendingRemoteMutations({
-    baselineValue,
     mutation,
     queue,
     request,
@@ -646,9 +546,7 @@ function enqueueRemoteMutation(
     sourceRuntimeId: mutationRuntimeId,
   };
   queue.pending.set(mutationId, {
-    baselineValue: compacted.baselineValue,
     enqueuedAt: Date.now(),
-    isSWRCompactionSnapshot: compacted.isSWRCompactionSnapshot,
     mutation: compacted.mutation,
     request: requestWithMutationId,
   });
@@ -684,7 +582,15 @@ function replayPendingLocalMutations(store: INativeSyncStorageName) {
   });
 }
 
-function applyCanonicalMutation(mutation: INativeSyncStorageMutation) {
+function perfNow(): number {
+  return globalThis.performance?.now?.() ?? Date.now();
+}
+
+function applyCanonicalMutation(
+  mutation: INativeSyncStorageMutation,
+  source: 'ack' | 'broadcast',
+) {
+  const startedAt = perfNow();
   const state = mirrors[mutation.store];
   let localMutation: INativeSyncStorageLocalMutation;
   if (mutation.operation === 'set') {
@@ -692,11 +598,6 @@ function applyCanonicalMutation(mutation: INativeSyncStorageMutation) {
       operation: 'set',
       key: mutation.key,
       value: mutation.value,
-    };
-  } else if (mutation.operation === 'patchSWR') {
-    localMutation = {
-      operation: 'patchSWR',
-      entries: mutation.entries,
     };
   } else if (mutation.operation === 'remove') {
     localMutation = { operation: 'remove', key: mutation.key };
@@ -708,6 +609,17 @@ function applyCanonicalMutation(mutation: INativeSyncStorageMutation) {
   }
   applyLocalMutation(state, localMutation);
   replayPendingLocalMutations(mutation.store);
+  const durationMs = Math.round(perfNow() - startedAt);
+  if (durationMs >= SWR_CACHE_SLOW_OP_LOG_THRESHOLD_MS) {
+    defaultLogger.app.perf.swrCacheSlowOp({
+      op: 'mirrorApply',
+      durationMs,
+      storeChars: 0,
+      source,
+      mutationOp: mutation.operation,
+      replayedCount: remoteMutationQueues[mutation.store].pending.size,
+    });
+  }
 }
 
 function acknowledgeRemoteMutation(
@@ -730,25 +642,24 @@ function acknowledgeRemoteMutation(
   }
   queue.pending.delete(mutationId);
   resolveMutationAcknowledgements(queue, mutationId);
-  applyCanonicalMutation(canonical);
+  applyCanonicalMutation(canonical, 'ack');
 }
 
 function mutate(
   store: INativeSyncStorageName,
   mutation: INativeSyncStorageLocalMutation,
   request: INativeSyncStorageRequest,
-  baselineValue?: string,
 ) {
   const state = mirrors[store];
   if (!bootstrapComplete) {
     appendCompactedLocalMutation(state.mutationsBeforeBootstrap, mutation);
   }
   applyLocalMutation(state, mutation);
-  return enqueueRemoteMutation(store, mutation, request, baselineValue);
+  return enqueueRemoteMutation(store, mutation, request);
 }
 
 function applyBroadcastMutation(mutation: INativeSyncStorageMutation) {
-  applyCanonicalMutation(mutation);
+  applyCanonicalMutation(mutation, 'broadcast');
 }
 
 (globalThis as INativeStorageGlobal).__onekeyNativeSyncStorageApplyMutation =
@@ -791,24 +702,13 @@ export function createNativeSyncStorageMirror(store: INativeSyncStorageName) {
           value,
           ...(previousValue === undefined ? {} : { previousValue }),
         },
-        store === 'coldStart' &&
-          key === SWR_CACHE_KEY &&
-          typeof previousValue === 'string'
-          ? previousValue
-          : undefined,
       );
     },
     remove(key: string) {
-      const previousValue = state.values.get(key);
       return mutate(
         store,
         { operation: 'remove', key },
         { scope: 'syncStorage', operation: 'remove', store, key },
-        store === 'coldStart' &&
-          key === SWR_CACHE_KEY &&
-          typeof previousValue === 'string'
-          ? previousValue
-          : undefined,
       );
     },
     clearAll() {
@@ -822,31 +722,7 @@ export function createNativeSyncStorageMirror(store: INativeSyncStorageName) {
       return [...state.values.keys()];
     },
   };
-  return {
-    ...mirror,
-    ...(store === 'coldStart'
-      ? {
-          applySWRCachePatch(patch: INativeSWRCachePatchIntent) {
-            const current = state.values.get(SWR_CACHE_KEY);
-            const optimistic = applyNativeSWRCachePatchToSerializedStore(
-              typeof current === 'string' ? current : undefined,
-              patch,
-            );
-            return mutate(
-              'coldStart',
-              { operation: 'patchSWR', entries: optimistic.entries },
-              {
-                scope: 'syncStorage',
-                operation: 'patchSWR',
-                store: 'coldStart',
-                patch,
-              },
-              typeof current === 'string' ? current : '{}',
-            );
-          },
-        }
-      : {}),
-  };
+  return mirror;
 }
 
 function primeMirror(
@@ -862,6 +738,41 @@ function primeMirror(
     applyLocalMutation(state, mutation);
   }
   state.mutationsBeforeBootstrap = [];
+}
+
+/** What the blocking half of cold start actually spent, split into the wait
+ *  on bg and this runtime's own work, with the payload that crossed. */
+function logBootstrapTiming({
+  requestedAt,
+  receivedAt,
+  snapshot,
+}: {
+  requestedAt: number;
+  receivedAt: number;
+  snapshot: INativeStorageBootstrapSnapshot;
+}) {
+  try {
+    const entryChars = (entries: INativeSyncStorageEntry[] = []) =>
+      entries.reduce(
+        (total, [key, value]) => total + key.length + String(value).length,
+        0,
+      );
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const { NativeLogger, LogLevel } =
+      require('../../modules3rdParty/react-native-file-logger') as typeof import('../../modules3rdParty/react-native-file-logger');
+    NativeLogger.write(
+      LogLevel.Info,
+      [
+        '[StartupTiming] storage bootstrap snapshot:',
+        `bg round trip ${receivedAt - requestedAt}ms,`,
+        `apply ${Date.now() - receivedAt}ms,`,
+        `settings ${snapshot.settings?.length ?? 0} entries/${entryChars(snapshot.settings)} chars,`,
+        `devSettings ${snapshot.devSettings?.length ?? 0} entries/${entryChars(snapshot.devSettings)} chars`,
+      ].join(' '),
+    );
+  } catch {
+    // Logging is best-effort during bootstrap.
+  }
 }
 
 function startBootstrap(force: boolean) {
@@ -880,18 +791,25 @@ function startBootstrap(force: boolean) {
     });
   }
   const generation = (bootstrapGeneration += 1);
+  const requestedAt = Date.now();
   const nextPromise = callNativeStorage<INativeStorageBootstrapSnapshot>({
     scope: 'bootstrap',
+    stores: NATIVE_SYNC_STORAGE_NAMES,
   })
     .then((snapshot) => {
       if (generation !== bootstrapGeneration) {
         return bootstrapPromise;
       }
+      const receivedAt = Date.now();
       primeMirror('settings', snapshot.settings);
-      primeMirror('coldStart', snapshot.coldStart);
       primeMirror('devSettings', snapshot.devSettings);
       bootstrapComplete = true;
       replayPendingRemoteMutations();
+      logBootstrapTiming({
+        requestedAt,
+        receivedAt,
+        snapshot,
+      });
     })
     .catch((error: unknown) => {
       if (generation !== bootstrapGeneration && bootstrapPromise) {
@@ -908,6 +826,18 @@ function startBootstrap(force: boolean) {
 
 export function bootstrapNativeSyncStorageMirrors() {
   return startBootstrap(false);
+}
+
+/**
+ * Whether the mirrors hold bg's snapshot yet.
+ *
+ * Until they do they answer nothing, which is what a reader consults before
+ * falling back to the file. Once they do they are authoritative and must be
+ * preferred: they carry this runtime's own pending writes and deletions,
+ * which the file has not seen.
+ */
+export function isNativeSyncStorageMirrorBootstrapped() {
+  return bootstrapComplete;
 }
 
 export function refreshNativeSyncStorageMirrors() {

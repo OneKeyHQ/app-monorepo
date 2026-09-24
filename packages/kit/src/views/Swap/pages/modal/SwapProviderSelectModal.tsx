@@ -25,17 +25,12 @@ import {
   useSwapManualSelectQuoteProvidersAtom,
   useSwapProviderSortAtom,
   useSwapQuoteActionLockAtom,
-  useSwapQuoteCurrentEventProviderKeysAtom,
   useSwapQuoteCurrentSelectAtom,
-  useSwapQuoteEventTotalCountAtom,
   useSwapSelectFromTokenAtom,
   useSwapSelectToTokenAtom,
   useSwapSortedQuoteListAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
-import {
-  buildSwapManualProviderSelectionIntent,
-  buildSwapQuoteProviderKey,
-} from '@onekeyhq/kit/src/states/jotai/contexts/swap/quoteProgress';
+import { buildSwapManualProviderSelectionIntent } from '@onekeyhq/kit/src/states/jotai/contexts/swap/quoteProgress';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
@@ -102,21 +97,7 @@ const SwapProviderSelectModal = () => {
   const selectedProviderKey = selectedProviderInfo
     ? `${selectedProviderInfo.provider}-${selectedProviderInfo.providerName}`
     : undefined;
-  const [quoteEventTotalCount] = useSwapQuoteEventTotalCountAtom();
-  const [currentEventProviderKeys] = useSwapQuoteCurrentEventProviderKeysAtom();
-  const currentEventProviderKeySet = useMemo(
-    () => new Set(currentEventProviderKeys),
-    [currentEventProviderKeys],
-  );
-  const quoteListForDisplay = useMemo(
-    () =>
-      quoteEventTotalCount.count > 0
-        ? swapSortedList.filter((item) =>
-            currentEventProviderKeySet.has(buildSwapQuoteProviderKey(item)),
-          )
-        : swapSortedList,
-    [currentEventProviderKeySet, quoteEventTotalCount.count, swapSortedList],
-  );
+  const quoteListForDisplay = swapSortedList;
 
   const onSelectSortChange = useCallback(
     (value: ESwapProviderSort) => {
@@ -180,6 +161,7 @@ const SwapProviderSelectModal = () => {
         : []),
     ];
   }, [intl, quoteListForDisplay]);
+
   const onSelectQuote = useCallback(
     (item: IFetchQuoteResult) => {
       setSwapManualSelect(buildSwapManualProviderSelectionIntent(item));

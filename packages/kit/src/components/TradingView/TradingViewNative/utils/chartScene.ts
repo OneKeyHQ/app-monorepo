@@ -291,6 +291,7 @@ function getMainIndicatorPaintId(series: ITradingViewNativeIndicatorSeries) {
 }
 
 export interface ITradingViewNativeChartScene {
+  layout?: ITradingViewNativeChartLayout | null;
   autoPriceRange: ITradingViewNativePriceRange | null;
   commands: ITradingViewNativeChartSceneCommand[];
   crosshairPointIndex: number | null;
@@ -757,6 +758,7 @@ export function buildTradingViewNativeChartScene({
     getTradingViewNativeSubIndicatorPaneStackLayout({
       height,
       paneCount: visibleSubIndicatorPanes.length,
+      panes: visibleSubIndicatorPanes,
       timeAxisHeight,
     });
   const subIndicatorPaneStackHeight = subIndicatorPaneStackLayout.height;
@@ -849,6 +851,7 @@ export function buildTradingViewNativeChartScene({
     zoomScale,
   };
   const emptyScene = {
+    layout: null,
     autoPriceRange: null,
     commands,
     crosshairPointIndex: null,
@@ -1288,10 +1291,23 @@ export function buildTradingViewNativeChartScene({
     }
   }
 
+  const currentPriceLayout = getTradingViewNativeCurrentPriceLayout({
+    labelHeight: CURRENT_PRICE_LABEL_HEIGHT,
+    maxPrice,
+    minPrice,
+    price: latestPoint.c,
+    priceChartHeight,
+    priceScaleMode: resolvedPriceScaleMode,
+  });
+  const showLatestPrice = chartSettings?.options.latestPrice ?? true;
   const chartComponentCommandLayers =
     appendTradingViewNativeChartComponentCommands({
       commands,
       components: chartComponents,
+      currentPriceLabel:
+        showLatestPrice && showYAxis && currentPriceLayout
+          ? { price: latestPoint.c, top: currentPriceLayout.labelTop }
+          : undefined,
       customPaintStyles,
       maxPrice,
       measureTextWidth,
@@ -1303,16 +1319,8 @@ export function buildTradingViewNativeChartScene({
       width,
     });
 
-  const currentPriceLayout = getTradingViewNativeCurrentPriceLayout({
-    labelHeight: CURRENT_PRICE_LABEL_HEIGHT,
-    maxPrice,
-    minPrice,
-    price: latestPoint.c,
-    priceChartHeight,
-    priceScaleMode: resolvedPriceScaleMode,
-  });
   const currentPriceLabelCommands: ITradingViewNativeChartSceneCommand[] = [];
-  if (currentPriceLayout && (chartSettings?.options.latestPrice ?? true)) {
+  if (currentPriceLayout && showLatestPrice) {
     const direction = isTradingViewNativePriceUp(latestPoint) ? 'up' : 'down';
     commands.push({
       ...(chartSettings
@@ -1330,6 +1338,9 @@ export function buildTradingViewNativeChartScene({
         measureTextWidth(resolvedCurrentPriceLabel, 'priceAxis') +
         FLOATING_PRICE_LABEL_HORIZONTAL_PADDING * 2;
       const labelLeft = Math.min(priceAxisX, width - labelWidth);
+      const labelTop =
+        chartComponentCommandLayers.currentPriceLabelTop ??
+        currentPriceLayout.labelTop;
       currentPriceLabelCommands.push(
         {
           ...(chartSettings
@@ -1340,7 +1351,7 @@ export function buildTradingViewNativeChartScene({
           paint: direction,
           width: labelWidth,
           x: labelLeft,
-          y: currentPriceLayout.labelTop,
+          y: labelTop,
         },
         {
           font: 'priceAxis',
@@ -1349,7 +1360,7 @@ export function buildTradingViewNativeChartScene({
           text: resolvedCurrentPriceLabel,
           x: labelLeft + FLOATING_PRICE_LABEL_HORIZONTAL_PADDING,
           y:
-            currentPriceLayout.labelTop +
+            labelTop +
             CURRENT_PRICE_LABEL_HEIGHT / 2 +
             priceAxisFontSize / 2 +
             PRICE_AXIS_TEXT_BASELINE_OFFSET,
@@ -1492,6 +1503,7 @@ export function buildTradingViewNativeChartScene({
 
   return {
     autoPriceRange: layout.autoPriceRange,
+    layout,
     commands,
     crosshairPointIndex,
     customPaintStyles,

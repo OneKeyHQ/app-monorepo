@@ -52,14 +52,24 @@ const MarketStockSelectorList = memo(
       isLoadingMore,
       isLoadMoreError,
       canLoadMore,
+      isRevalidatingFirstPage,
       loadMore,
       refresh: retry,
     } = useMarketStockSelectorList({ query: normalizedQuery });
     const handleEndReached = useCallback(() => {
-      if (canLoadMore && !isLoadingMore && !isLoadMoreError) {
+      if (isLoadMoreError || isLoadingMore) {
+        return;
+      }
+      if (isRevalidatingFirstPage || canLoadMore) {
         void loadMore();
       }
-    }, [canLoadMore, isLoadMoreError, isLoadingMore, loadMore]);
+    }, [
+      canLoadMore,
+      isLoadMoreError,
+      isLoadingMore,
+      isRevalidatingFirstPage,
+      loadMore,
+    ]);
     const tableFooterComponent = useMemo(() => {
       if (isLoadingMore) {
         return (
@@ -82,7 +92,7 @@ const MarketStockSelectorList = memo(
           </Stack>
         );
       }
-      if (items.length > 0 && !canLoadMore) {
+      if (items.length > 0 && !canLoadMore && !isRevalidatingFirstPage) {
         return <ListEndIndicator />;
       }
       return null;
@@ -91,6 +101,7 @@ const MarketStockSelectorList = memo(
       intl,
       isLoadMoreError,
       isLoadingMore,
+      isRevalidatingFirstPage,
       items.length,
       loadMore,
     ]);
@@ -157,6 +168,7 @@ const MarketStockSelectorList = memo(
           estimatedItemSize={TOKEN_SELECTOR_ROW_HEIGHT}
           estimatedListSize={{ width: 800, height: STOCK_SELECTOR_LIST_HEIGHT }}
           rowProps={{
+            bg: '$bg',
             width: '100%',
             height: TOKEN_SELECTOR_ROW_HEIGHT,
             minHeight: TOKEN_SELECTOR_ROW_HEIGHT,

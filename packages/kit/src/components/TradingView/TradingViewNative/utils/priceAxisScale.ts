@@ -3,6 +3,8 @@ import { TRADING_VIEW_NATIVE_CHART_HORIZONTAL_PADDING } from '../chartConstants'
 import { getTradingViewNativeChartWidth } from './chartLayout';
 import { getTradingViewNativeSubIndicatorPaneStackLayout } from './subIndicatorRender/layout';
 
+import type { ITradingViewNativeSubIndicatorRenderPane } from './subIndicatorRender';
+
 // Keep scaling stable near the bottom edge where the inverted Y coordinate approaches zero.
 const PRICE_AXIS_SCALE_MARGIN_RATIO = 0.2;
 const MIN_PRICE_RANGE_SCALE = 0.1;
@@ -11,10 +13,12 @@ const MAX_PRICE_RANGE_SCALE = 10;
 export function getTradingViewNativeMainPriceAxisLayout({
   height,
   paneCount,
+  panes,
   timeAxisHeight,
 }: {
   height: number;
   paneCount: number;
+  panes?: readonly ITradingViewNativeSubIndicatorRenderPane[];
   timeAxisHeight?: number;
 }) {
   'worklet';
@@ -23,6 +27,7 @@ export function getTradingViewNativeMainPriceAxisLayout({
   const paneStackLayout = getTradingViewNativeSubIndicatorPaneStackLayout({
     height: normalizedHeight,
     paneCount,
+    panes,
     timeAxisHeight,
   });
   return {
@@ -116,6 +121,7 @@ export function isTradingViewNativePriceAxisTouch({
 export function isTradingViewNativeMainPriceAxisTouch({
   height,
   paneCount,
+  panes,
   priceAxisWidth,
   timeAxisHeight,
   width,
@@ -124,6 +130,7 @@ export function isTradingViewNativeMainPriceAxisTouch({
 }: {
   height: number;
   paneCount: number;
+  panes?: readonly ITradingViewNativeSubIndicatorRenderPane[];
   priceAxisWidth: number;
   timeAxisHeight?: number;
   width: number;
@@ -136,6 +143,7 @@ export function isTradingViewNativeMainPriceAxisTouch({
     priceAxisHeight: getTradingViewNativeMainPriceAxisLayout({
       height,
       paneCount,
+      panes,
       timeAxisHeight,
     }).height,
     priceAxisWidth,

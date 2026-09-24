@@ -91,13 +91,19 @@ const SwapProviderInfoItem = ({
 }: ISwapProviderInfoItemProps) => {
   const intl = useIntl();
   const logoSize = compact ? '$4' : '$5';
+  const rowMinHeight = compact ? '$5' : undefined;
   // providerLogo is optional on quotes (and providerName can be absent on
   // malformed ones), so the row counts as empty only when BOTH are missing —
   // a partially-described provider still has a live quote and stays pressable
   const isEmpty = (!providerName && !providerIcon) || !fromToken || !toToken;
   const pressHandler = isEmpty ? undefined : onPress;
   return (
-    <XStack testID={testID} justifyContent="space-between" alignItems="center">
+    <XStack
+      testID={testID}
+      justifyContent="space-between"
+      alignItems="center"
+      minHeight={rowMinHeight}
+    >
       <SwapProviderInfoItemTitleContentMemo
         percentageFee={percentageFee}
         percentOriginFee={percentOriginFee}

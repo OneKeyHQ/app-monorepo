@@ -92,6 +92,7 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import {
+  getDeviceStateSettingsRecoveryKeys,
   hasAuthoritativeDeviceInfoVersionChange,
   hasDeviceStateIdentityMismatch,
   mergeDeviceStateEvent,
@@ -5974,6 +5975,12 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
               changedKeys,
               source,
             });
+          const hasEqualMetadataSettingsRecovery =
+            getDeviceStateSettingsRecoveryKeys({
+              currentState,
+              incomingState: state,
+              source,
+            }).length > 0;
           const isStaleSdkEvent = Boolean(
             hasSdkEventOrder &&
             currentEventOrder &&
@@ -5988,7 +5995,8 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
               (state.updatedAt === currentState.updatedAt &&
                 (state.revision < currentState.revision ||
                   (state.revision === currentState.revision &&
-                    !hasEqualMetadataVersionChange)))),
+                    !hasEqualMetadataVersionChange &&
+                    !hasEqualMetadataSettingsRecovery)))),
           );
           if (isStaleSdkEvent || isStaleLegacyEvent) {
             return item;

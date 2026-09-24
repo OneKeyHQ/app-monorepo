@@ -153,11 +153,12 @@ function TokenDetailsView() {
   } = usePromiseResult(
     async () => {
       if (tokenInfo.isAggregateToken) {
-        // getAllAggregateTokenInfo() filters members by getListedNetworkMap()
-        // (bundled preset networks only): a stale aggregate-token cache
-        // persisted by an older app version may still reference delisted
-        // networks, and getNetworkSafe() cannot detect them because the
-        // server/custom network caches may still mark them as LISTED.
+        // getAllAggregateTokenInfo() filters members by the merged network
+        // registry (presets + server-delivered chains, delisted dropped): a
+        // stale aggregate-token cache persisted by an older app version may
+        // still reference delisted networks, and getNetworkSafe() cannot
+        // detect them because the custom network cache may still mark them
+        // as LISTED.
         const { allAggregateTokenMap } =
           await backgroundApiProxy.serviceToken.getAllAggregateTokenInfo();
         const aggregateTokens: IAccountToken[] = [];

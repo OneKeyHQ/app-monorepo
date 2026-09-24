@@ -270,9 +270,8 @@ export function useFirmwareUpdateInstallState({ isDone }: { isDone: boolean }) {
 
   useEffect(() => {
     if (stepInfo.step === EFirmwareUpdateSteps.installing) {
-      if (!lastFirmwareTipMessage && !isNumber(firmwareProgress)) {
-        updateProgressRef.current(EFirmwareUpdateTipMessages.StartTransferData);
-      }
+      // Wait for a real tip or numeric progress. A synthetic 'installing'
+      // type maps to 50–90 and cannot decrease.
       return;
     }
     if (stepInfo.step !== EFirmwareUpdateSteps.updateStart) {
@@ -285,7 +284,7 @@ export function useFirmwareUpdateInstallState({ isDone }: { isDone: boolean }) {
       return;
     }
     updateProgressRef.current('checking');
-  }, [firmwareProgress, lastFirmwareTipMessage, stepInfo]);
+  }, [stepInfo]);
 
   useEffect(() => {
     if (
@@ -324,7 +323,11 @@ export function useFirmwareUpdateInstallState({ isDone }: { isDone: boolean }) {
     if (firmwareProgressType !== 'transferData') {
       return undefined;
     }
-    if (displayStage !== 'downloading' && displayStage !== 'installing') {
+    if (
+      displayStage !== 'downloading' &&
+      displayStage !== 'transferring' &&
+      displayStage !== 'installing'
+    ) {
       return undefined;
     }
     const etaMs = getFirmwareTransferEtaMs(firmwareTransferMetrics);

@@ -97,11 +97,14 @@ jest.mock('react-native-reanimated', () => {
     makeMutable: <T,>(value: T) => ({ value }),
     runOnJS: jest.fn(identity),
     useAnimatedKeyboard: () => ({ height: { value: 0 } }),
+    // The keyboard rise's settle gate; no worklet runs under this mock.
+    useAnimatedReaction: jest.fn(),
     // A detectable stand-in for every animated style, so a test can tell
     // which element wears one without running any worklet.
     useAnimatedStyle: () => ({ opacity: 0.42 }),
     useReducedMotion: () => false,
     useSharedValue: <T,>(value: T) => useRef({ value }).current,
+    withDelay: <T,>(_delay: number, value: T): T => value,
     withSpring: identity,
     withTiming: identity,
   };
@@ -119,7 +122,7 @@ const dragEvent = {
   absoluteX: 0,
   absoluteY: 0,
   translationX: 0,
-  translationY: 24,
+  translationY: -24,
   velocityX: 0,
   velocityY: 0,
 };
@@ -218,7 +221,7 @@ describe('MorphOverlay dismiss gesture', () => {
     setPose('card');
     act(() => {
       latestGesture().handlers.onEnd?.(
-        { ...dragEvent, translationY: 300 },
+        { ...dragEvent, translationY: -300 },
         true,
       );
     });
@@ -234,7 +237,10 @@ describe('MorphOverlay dismiss gesture', () => {
       setPose('hidden');
       setPose('card');
       act(() => {
-        latestGesture().handlers.onUpdate?.({ ...dragEvent, translationY: 48 });
+        latestGesture().handlers.onUpdate?.({
+          ...dragEvent,
+          translationY: -48,
+        });
       });
       const reopenedPresence = state.result.current.presence.value;
       expect(reopenedPresence).toBeLessThan(1);
@@ -246,7 +252,7 @@ describe('MorphOverlay dismiss gesture', () => {
           gesture.handlers.onFinalize?.(dragEvent, false);
         }
         if (event === 'dismiss') {
-          gesture.handlers.onEnd?.({ ...dragEvent, translationY: 300 }, true);
+          gesture.handlers.onEnd?.({ ...dragEvent, translationY: -300 }, true);
         }
       });
       expect(state.result.current.presence.value).toBe(reopenedPresence);
@@ -258,7 +264,7 @@ describe('MorphOverlay dismiss gesture', () => {
     const { state, gesture, setPose, onDismiss } = setup();
     jest.mocked(runOnJS).mockImplementationOnce(() => jest.fn());
     act(() => {
-      gesture.handlers.onEnd?.({ ...dragEvent, translationY: 300 }, true);
+      gesture.handlers.onEnd?.({ ...dragEvent, translationY: -300 }, true);
     });
     const queuedDismiss = jest.mocked(runOnJS).mock.calls.at(-1)?.[0];
     expect(queuedDismiss).toBeInstanceOf(Function);
@@ -268,6 +274,16 @@ describe('MorphOverlay dismiss gesture', () => {
     setPose('card');
     act(() => {
       if (typeof queuedDismiss === 'function') queuedDismiss();
+    });
+    expect(state.result.current.presence.value).toBe(1);
+    expect(onDismiss).not.toHaveBeenCalled();
+  });
+
+  it('never dismisses on a downward drag — the shell hangs from the top', () => {
+    const { state, gesture, onDismiss } = setup();
+    act(() => {
+      gesture.handlers.onUpdate?.({ ...dragEvent, translationY: 300 });
+      gesture.handlers.onEnd?.({ ...dragEvent, translationY: 300 }, true);
     });
     expect(state.result.current.presence.value).toBe(1);
     expect(onDismiss).not.toHaveBeenCalled();
@@ -325,7 +341,6 @@ describe('MorphOverlay viewport posture', () => {
       md: true,
       width: 850,
       cardWidth: 400,
-      bottom: true,
     },
     {
       name: 'Android spanning with wide media',
@@ -335,7 +350,6 @@ describe('MorphOverlay viewport posture', () => {
       md: false,
       width: 850,
       cardWidth: 400,
-      bottom: true,
     },
     {
       name: 'Android folded',
@@ -345,7 +359,6 @@ describe('MorphOverlay viewport posture', () => {
       md: true,
       width: 440,
       cardWidth: 424,
-      bottom: true,
     },
     {
       name: 'ordinary Android phone',
@@ -355,7 +368,6 @@ describe('MorphOverlay viewport posture', () => {
       md: true,
       width: 440,
       cardWidth: 424,
-      bottom: true,
     },
     {
       name: 'desktop',
@@ -365,7 +377,6 @@ describe('MorphOverlay viewport posture', () => {
       md: false,
       width: 1200,
       cardWidth: 400,
-      bottom: false,
     },
     {
       name: 'iOS phone',
@@ -375,7 +386,6 @@ describe('MorphOverlay viewport posture', () => {
       md: true,
       width: 440,
       cardWidth: 424,
-      bottom: true,
     },
     {
       name: 'iOS wide window',
@@ -385,11 +395,10 @@ describe('MorphOverlay viewport posture', () => {
       md: false,
       width: 1024,
       cardWidth: 400,
-      bottom: false,
     },
   ])(
-    '$name preserves its width and anchor',
-    ({ platform, dual, spanning, md, width, cardWidth, bottom }) => {
+    '$name keeps its width cap and hangs from the top',
+    ({ platform, dual, spanning, md, width, cardWidth }) => {
       Object.assign(platformEnv, {
         isNative: platform !== 'desktop',
         isNativeAndroid: platform === 'android',
@@ -410,13 +419,10 @@ describe('MorphOverlay viewport posture', () => {
       expect(layer).not.toBeNull();
       if (!layer) throw new OneKeyLocalError('Missing overlay layer');
       expect(globalThis.getComputedStyle(layer).justifyContent).toBe(
-        bottom ? 'flex-end' : 'flex-start',
+        'flex-start',
       );
       act(() => {
-        gesture.handlers.onEnd?.(
-          { ...dragEvent, translationY: bottom ? 300 : -300 },
-          true,
-        );
+        gesture.handlers.onEnd?.({ ...dragEvent, translationY: -300 }, true);
       });
       expect(onDismiss).toHaveBeenCalledTimes(1);
     },

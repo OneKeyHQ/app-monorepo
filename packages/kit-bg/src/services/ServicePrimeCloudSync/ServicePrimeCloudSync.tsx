@@ -613,6 +613,7 @@ class ServicePrimeCloudSync extends ServiceBase {
     if (responseData.serverTime) {
       systemTimeUtils.updateServerTime({
         serverTime: responseData.serverTime,
+        source: 'cloud-sync',
       });
       try {
         const wrongTimeItems = localItems?.filter(
@@ -2350,7 +2351,12 @@ class ServicePrimeCloudSync extends ServiceBase {
   }
 
   async ensureOneKeyIdCloudSyncPreparePrerequisites() {
-    if (systemTimeUtils.systemTimeStatus === ELocalSystemTimeStatus.INVALID) {
+    // A transient or offline check may leave INVALID unconfirmed. Keep the
+    // timestamp safety guards, but only block sync for a confirmed clock error.
+    if (
+      systemTimeUtils.systemTimeStatus === ELocalSystemTimeStatus.INVALID &&
+      systemTimeUtils.isTimeErrorConfirmed
+    ) {
       throw new OneKeyError(
         appLocale.intl.formatMessage({
           id: ETranslations.prime_time_error_description,
@@ -2605,6 +2611,7 @@ class ServicePrimeCloudSync extends ServiceBase {
   async getLocalSystemTimeStatus() {
     return {
       status: systemTimeUtils.systemTimeStatus,
+      isTimeErrorConfirmed: systemTimeUtils.isTimeErrorConfirmed,
 
       lastServerTime: systemTimeUtils.lastServerTime,
       lastServerTimeDate: new Date(

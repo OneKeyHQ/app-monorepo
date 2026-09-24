@@ -25,6 +25,7 @@ import { getTradingViewNativeIndicatorSettingsValue } from './indicatorSettingsA
 import { localizeTradingViewNativeIndicatorSettingsValue } from './indicatorSettingsLocalization';
 import { mergeMobileIndicatorSettings } from './mobileIndicatorSettingsUtils';
 import { showTradingViewNativeIndicatorSettingsDialog } from './showTradingViewNativeIndicatorSettingsDialog';
+import { useTradingViewPanelSettings } from './useTradingViewPanelSettings';
 import { isTradingViewNativeAnyIndicator } from './utils/chartIndicators';
 
 import type { RouteProp } from '@react-navigation/native';
@@ -124,6 +125,13 @@ function IndicatorSettingsPageContent({
   );
 }
 
+function PanelIndicatorSettingsPage({ panelId }: { panelId: string }) {
+  const { indicatorSettingsState } = useTradingViewPanelSettings(panelId);
+  return (
+    <IndicatorSettingsPageContent settingsState={indicatorSettingsState} />
+  );
+}
+
 function MarketIndicatorSettingsPage() {
   const settingsState = useMarketTradingViewIndicatorSettingsPersistAtom();
   return <IndicatorSettingsPageContent settingsState={settingsState} />;
@@ -142,6 +150,9 @@ export default function TradingViewMobileIndicatorSettingsPage() {
         EModalMarketRoutes.MarketIndicatorSettings
       >
     >();
+  if (params?.panelId && params.storageNamespace !== 'swap') {
+    return <PanelIndicatorSettingsPage panelId={params.panelId} />;
+  }
   return params?.storageNamespace === 'swap' ? (
     <SwapIndicatorSettingsPage />
   ) : (

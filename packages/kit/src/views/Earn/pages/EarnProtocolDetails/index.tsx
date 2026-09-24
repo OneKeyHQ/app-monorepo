@@ -4,6 +4,7 @@ import {
   useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from 'react';
 
@@ -116,6 +117,11 @@ import {
   pickProtocolInfoDisplayName,
   resolveProviderSubtitle,
 } from './mobile/providerSubtitle.utils';
+import {
+  DETAIL_BALANCE_SETTLE_REFRESH_OFFSETS_MS,
+  DETAIL_PORTFOLIO_SETTLE_REFRESH_OFFSETS_MS,
+  scheduleSettleRefreshes,
+} from './mobile/settleRefresh.utils';
 import { useMobileDetailLayout } from './mobile/useMobileDetailLayout';
 import {
   buildHeadlineApyParts,
@@ -1284,13 +1290,46 @@ const EarnProtocolDetailsPage = ({ route }: { route: IRouteProps }) => {
   // stayed stale (OK-63229). Track the position's pending transactions the
   // way the positions page does and reload once they clear. The wide layout
   // has its own activity indicator, so this stays phone-only.
+  // One read after the clear is not always enough: a provider that answers
+  // from its own index can still report the pre-transaction state. An
+  // existing position gets one more read as a fallback. A vault with no
+  // position keeps re-reading, since the Portfolio tab appearing is the only
+  // sign the deposit has landed, and the timers go the moment it does.
+  const hasPortfolioRef = useRef(hasPortfolio);
+  hasPortfolioRef.current = hasPortfolio;
+  const cancelSettleRefreshesRef = useRef<(() => void) | undefined>(undefined);
+  const awaitingPortfolioRef = useRef(false);
+  const cancelSettleRefreshes = useCallback(() => {
+    cancelSettleRefreshesRef.current?.();
+    cancelSettleRefreshesRef.current = undefined;
+    awaitingPortfolioRef.current = false;
+  }, []);
+  const refreshUntilSettled = useCallback(() => {
+    cancelSettleRefreshes();
+    const hadPortfolio = hasPortfolioRef.current;
+    awaitingPortfolioRef.current = !hadPortfolio;
+    cancelSettleRefreshesRef.current = scheduleSettleRefreshes({
+      refresh: () => {
+        void refreshData();
+      },
+      offsetsMs: hadPortfolio
+        ? DETAIL_BALANCE_SETTLE_REFRESH_OFFSETS_MS
+        : DETAIL_PORTFOLIO_SETTLE_REFRESH_OFFSETS_MS,
+    });
+  }, [cancelSettleRefreshes, refreshData]);
+  useEffect(() => {
+    if (hasPortfolio && awaitingPortfolioRef.current) {
+      cancelSettleRefreshes();
+    }
+  }, [hasPortfolio, cancelSettleRefreshes]);
+  useEffect(() => cancelSettleRefreshes, [cancelSettleRefreshes]);
   const { refreshPending } = useStakingPendingTxs({
     accountId: isMobileLayout
       ? protocolInfo?.earnAccount?.accountId
       : undefined,
     networkId,
     stakeTag: protocolInfo?.stakeTag,
-    onRefresh: refreshData,
+    onRefresh: refreshUntilSettled,
   });
   // Every broadcast reloads the page at once and re-reads the local pending
   // list, so the poller picks the transaction up without waiting for focus.
@@ -1514,9 +1553,20 @@ const EarnProtocolDetailsPage = ({ route }: { route: IRouteProps }) => {
     }
 
     const isManageOnly = isCustomProtocol;
+    // Pendle sells PT rather than redeeming it, so the footer reads Buy and
+    // Sell early (Redeem once the market has matured), and the second button
+    // stays put while there is nothing to sell, disabled, the way the other
+    // providers' Redeem does (OK-63802). The server sends no actions for
+    // Pendle (its wide layout has its own swap pair), so the rules mirror the
+    // manage page's pair: no buying after maturity, no selling without a
+    // position.
+    const isPendle = earnUtils.isPendleProvider({ providerName: provider });
+    const isMatured = Boolean(detailInfo?.maturity?.isMatured);
     const buttonText = isManageOnly
       ? intl.formatMessage({ id: ETranslations.global_manage })
-      : intl.formatMessage({ id: ETranslations.earn_deposit });
+      : intl.formatMessage({
+          id: isPendle ? ETranslations.global_buy : ETranslations.earn_deposit,
+        });
     const onPress = isManageOnly
       ? () => handleOpenManageModal()
       : () => handleOpenManageModal('deposit');
@@ -1531,9 +1581,18 @@ const EarnProtocolDetailsPage = ({ route }: { route: IRouteProps }) => {
     const depositAction = detailInfo?.actions?.find(
       (action) => action.type === 'deposit',
     );
-    const showRedeem = isMobileLayout && Boolean(redeemAction);
-    const depositDisabled = Boolean(depositAction?.disabled);
-    const withdrawDisabled = Boolean(redeemAction?.disabled);
+    const showRedeem = isMobileLayout && (Boolean(redeemAction) || isPendle);
+    const depositDisabled =
+      Boolean(depositAction?.disabled) || (isPendle && isMatured);
+    const withdrawDisabled = isPendle
+      ? !hasPortfolio
+      : Boolean(redeemAction?.disabled);
+    const redeemText = intl.formatMessage({
+      id:
+        isPendle && !isMatured
+          ? ETranslations.defi_sell_early
+          : ETranslations.earn_redeem,
+    });
 
     return (
       <Page.Footer
@@ -1546,9 +1605,7 @@ const EarnProtocolDetailsPage = ({ route }: { route: IRouteProps }) => {
         }}
         {...(showRedeem
           ? {
-              onCancelText: intl.formatMessage({
-                id: ETranslations.earn_redeem,
-              }),
+              onCancelText: redeemText,
               cancelButtonProps: {
                 variant: 'secondary',
                 disabled: withdrawDisabled,
@@ -1569,6 +1626,8 @@ const EarnProtocolDetailsPage = ({ route }: { route: IRouteProps }) => {
     isCustomProtocol,
     isMobileLayout,
     detailInfo,
+    provider,
+    hasPortfolio,
   ]);
 
   return (

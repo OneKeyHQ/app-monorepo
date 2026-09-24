@@ -11,6 +11,7 @@ import type { CSSProperties, ReactNode } from 'react';
 import { useIntl } from 'react-intl';
 
 import {
+  Button,
   ListEndIndicator,
   SizableText,
   Spinner,
@@ -241,10 +242,12 @@ export type IMarketTokenListResult = {
   data: IMarketToken[];
   isLoading: boolean | undefined;
   isLoadingMore?: boolean;
+  isError?: boolean;
   isNetworkSwitching?: boolean;
   isProvisionalFirstPageResult?: boolean;
   canLoadMore?: boolean;
   loadMore?: () => void | Promise<void>;
+  refetch?: () => void | Promise<void>;
   setSortBy: (sortBy: string | undefined) => void;
   setSortType: (sortType: 'asc' | 'desc' | undefined) => void;
   initialSortBy?: string;
@@ -350,10 +353,12 @@ function MarketTokenListBase({
     data: rawData,
     isLoading,
     isLoadingMore,
+    isError,
     isNetworkSwitching,
     isProvisionalFirstPageResult,
     canLoadMore,
     loadMore,
+    refetch,
     setSortBy,
     setSortType,
     initialSortBy,
@@ -844,13 +849,29 @@ function MarketTokenListBase({
   const TableEmptyComponent = useMemo(() => {
     if (isLoading) return null;
     return (
-      <Stack flex={1} alignItems="center" justifyContent="center" p="$8">
+      <Stack
+        flex={1}
+        alignItems="center"
+        justifyContent="center"
+        p="$8"
+        gap="$3"
+      >
         <SizableText size="$bodyLg" color="$textSubdued">
           {intl.formatMessage({ id: ETranslations.global_no_data })}
         </SizableText>
+        {isError ? (
+          <Button
+            testID="market-token-list-retry"
+            size="small"
+            variant="tertiary"
+            onPress={() => void refetch?.()}
+          >
+            {intl.formatMessage({ id: ETranslations.global_retry })}
+          </Button>
+        ) : null}
       </Stack>
     );
-  }, [isLoading, intl]);
+  }, [isError, isLoading, intl, refetch]);
 
   const tabBarHeight = useScrollContentTabBarOffset();
 

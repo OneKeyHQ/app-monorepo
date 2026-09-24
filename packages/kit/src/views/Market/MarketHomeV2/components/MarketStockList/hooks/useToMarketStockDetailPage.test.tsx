@@ -1,6 +1,7 @@
 /** @jest-environment jsdom */
 import { act, renderHook } from '@testing-library/react';
 
+import { finishMarketDetailTabBarTransition } from '@onekeyhq/kit/src/views/Market/utils/marketDetailNavigation';
 import { EEnterWay } from '@onekeyhq/shared/src/logger/scopes/dex';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IMarketStockDetailRouteParams } from '@onekeyhq/shared/src/routes';
@@ -11,7 +12,11 @@ import {
 } from '@onekeyhq/shared/src/routes';
 import { closeExtensionPopupAfterExpandTabOpen } from '@onekeyhq/shared/src/utils/extUtils';
 
-import { useToMarketStockDetailPage } from './useToMarketStockDetailPage';
+import {
+  hasExplicitMarketStockTokenIdentity,
+  shouldRetainCurrentStockTokenDetail,
+  useToMarketStockDetailPage,
+} from './useToMarketStockDetailPage';
 
 const mockReplace = jest.fn();
 const mockSetParams = jest.fn();
@@ -22,8 +27,12 @@ const mockSwitchTabAsync = jest.fn<Promise<void>, [unknown]>(() =>
 );
 let mockIsModalPage = false;
 let mockCurrentRouteName: string = ETabMarketRoutes.MarketDetailV2;
+let mockCurrentRouteParams: Partial<IMarketStockDetailRouteParams> | undefined;
 jest.mock('@react-navigation/native', () => ({
-  useRoute: () => ({ name: mockCurrentRouteName }),
+  useRoute: () => ({
+    name: mockCurrentRouteName,
+    params: mockCurrentRouteParams,
+  }),
 }));
 jest.mock('@onekeyhq/kit/src/hooks/useAppNavigation', () => ({
   __esModule: true,
@@ -38,6 +47,7 @@ jest.mock('@onekeyhq/kit/src/hooks/useAppNavigation', () => ({
 const mockPrepareStockTokenDetail = jest.fn();
 const mockOpenExtensionMarketStockDetail = jest.fn(() => Promise.resolve());
 const mockPreloadMarketDetailV2Page = jest.fn(() => Promise.resolve());
+const mockGetRootState = jest.fn();
 
 jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
   __esModule: true,
@@ -50,7 +60,12 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
 
 jest.mock('@onekeyhq/components', () => ({
   ESplitViewType: { UNKNOWN: 'UNKNOWN' },
-  rootNavigationRef: { current: { navigate: jest.fn() } },
+  rootNavigationRef: {
+    current: {
+      getRootState: (): unknown => mockGetRootState() as unknown,
+      navigate: jest.fn(),
+    },
+  },
   switchTabAsync: (route: unknown) => mockSwitchTabAsync(route),
   useIsModalPage: () => mockIsModalPage,
   useMedia: () => ({ gtLg: true }),
@@ -73,6 +88,7 @@ jest.mock(
 jest.mock('@onekeyhq/shared/src/eventBus/appEventBus', () => ({
   EAppEventBusNames: {
     CleanTokenDetailInTabletDetailView: 'CleanTokenDetailInTabletDetailView',
+    HideTabBar: 'HideTabBar',
   },
   appEventBus: { emit: jest.fn() },
 }));
@@ -105,6 +121,59 @@ const mockCloseExtensionPopupAfterExpandTabOpen = jest.mocked(
   closeExtensionPopupAfterExpandTabOpen,
 );
 
+describe('shouldRetainCurrentStockTokenDetail', () => {
+  const sameStock = {
+    currentHasExplicitToken: false,
+    currentStockId: 'AAPL',
+    nextHasTokenParams: false,
+    nextStockId: 'aapl',
+    replaceCurrentDetail: true,
+  };
+
+  it('keeps an unresolved same-stock reselection', () => {
+    expect(shouldRetainCurrentStockTokenDetail(sameStock)).toBe(true);
+  });
+
+  it('does not keep an explicit variant when the base stock is reselected', () => {
+    expect(
+      shouldRetainCurrentStockTokenDetail({
+        ...sameStock,
+        currentHasExplicitToken: true,
+      }),
+    ).toBe(false);
+  });
+
+  it('does not keep a different stock', () => {
+    expect(
+      shouldRetainCurrentStockTokenDetail({
+        ...sameStock,
+        nextStockId: 'GOOG',
+      }),
+    ).toBe(false);
+  });
+});
+
+describe('hasExplicitMarketStockTokenIdentity', () => {
+  it('treats a contract address as an explicit variant', () => {
+    expect(hasExplicitMarketStockTokenIdentity({ tokenAddress: '0xabc' })).toBe(
+      true,
+    );
+  });
+
+  it('treats a native coin as an explicit variant', () => {
+    expect(hasExplicitMarketStockTokenIdentity({ isNative: true })).toBe(true);
+  });
+
+  it('ignores an unresolved stock route', () => {
+    expect(
+      hasExplicitMarketStockTokenIdentity({
+        isNative: false,
+        tokenAddress: '',
+      }),
+    ).toBe(false);
+  });
+});
+
 describe('useToMarketStockDetailPage', () => {
   beforeEach(() => {
     jest.clearAllMocks();
@@ -115,6 +184,12 @@ describe('useToMarketStockDetailPage', () => {
     mockedPlatformEnv.isWeb = false;
     mockIsModalPage = false;
     mockCurrentRouteName = ETabMarketRoutes.MarketDetailV2;
+    mockCurrentRouteParams = undefined;
+    mockGetRootState.mockReturnValue(undefined);
+  });
+
+  afterEach(() => {
+    finishMarketDetailTabBarTransition();
   });
 
   it('resets the tab stack before opening the selected stock', async () => {
@@ -168,6 +243,62 @@ describe('useToMarketStockDetailPage', () => {
     });
     expect(mockPopToTop).not.toHaveBeenCalled();
     expect(mockPush).not.toHaveBeenCalled();
+    expect(mockPrepareStockTokenDetail).toHaveBeenCalledTimes(1);
+  });
+
+  it('preserves loaded detail when reselecting the current unresolved stock', async () => {
+    mockCurrentRouteName = ETabMarketRoutes.MarketStockDetail;
+    mockCurrentRouteParams = { stockId: 'AAPL' };
+    const { result } = renderHook(() =>
+      useToMarketStockDetailPage({ replaceCurrentDetail: true }),
+    );
+
+    await act(async () => {
+      await result.current({
+        stockId: 'aapl',
+        symbol: 'AAPL',
+        name: 'Apple Inc.',
+        logoUrl: 'aapl.png',
+      });
+    });
+
+    expect(mockPrepareStockTokenDetail).not.toHaveBeenCalled();
+    expect(mockSetParams).toHaveBeenCalledWith(
+      expect.objectContaining({ stockId: 'aapl' }),
+    );
+  });
+
+  it('clears the previous variant when the current stock is reselected without one', async () => {
+    mockCurrentRouteName = ETabMarketRoutes.MarketStockDetail;
+    mockCurrentRouteParams = {
+      stockId: 'AAPL',
+      tokenAddress: '0xold',
+      network: 'evm--1',
+      isNative: false,
+    };
+    const { result } = renderHook(() =>
+      useToMarketStockDetailPage({ replaceCurrentDetail: true }),
+    );
+
+    await act(async () => {
+      await result.current({
+        stockId: 'aapl',
+        symbol: 'AAPL',
+        name: 'Apple Inc.',
+        logoUrl: 'aapl.png',
+      });
+    });
+
+    expect(mockPrepareStockTokenDetail).toHaveBeenCalledWith({
+      tokenAddress: '',
+      networkId: '',
+    });
+    expect(mockSetParams).toHaveBeenCalledWith(
+      expect.objectContaining({
+        stockId: 'aapl',
+        tokenAddress: undefined,
+      }),
+    );
   });
 
   it.each(['desktop', 'web'])(
@@ -279,6 +410,51 @@ describe('useToMarketStockDetailPage', () => {
         params: { stockId: 'AAPL' },
       },
     });
+  });
+
+  it('preserves native detail when the modal reselects its current stock', async () => {
+    mockIsModalPage = true;
+    mockedPlatformEnv.isDesktop = false;
+    mockedPlatformEnv.isNative = true;
+    mockCurrentRouteName = 'MobileTokenSelector';
+    mockGetRootState.mockReturnValue({
+      key: 'root',
+      index: 1,
+      routes: [
+        {
+          name: 'main',
+          state: {
+            key: 'discovery-stack',
+            index: 1,
+            routes: [
+              { key: 'list', name: ETabRoutes.Discovery },
+              {
+                key: 'stock-detail',
+                name: ETabMarketRoutes.MarketStockDetail,
+                params: { stockId: 'AAPL' },
+              },
+            ],
+          },
+        },
+        { key: 'selector', name: 'MobileTokenSelector' },
+      ],
+    });
+    const { result } = renderHook(() =>
+      useToMarketStockDetailPage({ replaceCurrentDetail: true }),
+    );
+
+    await act(async () => {
+      await result.current({
+        stockId: 'aapl',
+        symbol: 'AAPL',
+        name: 'Apple',
+        logoUrl: 'aapl.png',
+      });
+    });
+
+    expect(mockPrepareStockTokenDetail).not.toHaveBeenCalled();
+    expect(mockSwitchTabAsync).toHaveBeenCalledWith(ETabRoutes.Discovery);
+    expect(mockNavigate).toHaveBeenCalled();
   });
 
   it('preserves the selected stock preview in the detail route seed', async () => {
