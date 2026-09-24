@@ -1006,8 +1006,7 @@ const TradingViewNativeContent = memo(
               enableDrawings={
                 enableDrawings &&
                 !isCompactDisplayMode &&
-                storageNamespace !== 'swap' &&
-                source.kind !== 'hyperliquid'
+                storageNamespace !== 'swap'
               }
               drawingStorageKey={
                 panelId
