@@ -292,11 +292,15 @@ function useAllNetworkRequests<T>(params: {
     networkId,
     dbAccount,
     allNetworkDataInit,
+    isRunCurrent,
   }: {
     accountId: string;
     networkId: string;
     dbAccount?: IDBAccount;
     allNetworkDataInit?: boolean;
+    // False once the run that issued this request has been superseded (see
+    // `activeRunGenerationRef`); consumers must skip their own writes then.
+    isRunCurrent?: () => boolean;
   }) => Promise<T | undefined>;
   allNetworkCacheRequests?: ({
     dbAccount,
@@ -334,6 +338,9 @@ function useAllNetworkRequests<T>(params: {
   }) => void;
   clearAllNetworkData: () => void;
   abortAllNetworkRequests?: () => void;
+  // Cancels the per-network requests of a run that an enabled-network change
+  // superseded, so they stop competing with the new run for the network.
+  abortSupersededRequests?: () => void;
   isNFTRequests?: boolean;
   isDeFiRequests?: boolean;
   disabled?: boolean;
@@ -391,6 +398,7 @@ function useAllNetworkRequests<T>(params: {
     allNetworkCacheData,
     allNetworkAccountsData,
     abortAllNetworkRequests,
+    abortSupersededRequests,
     clearAllNetworkData,
     isNFTRequests,
     isDeFiRequests,
@@ -405,13 +413,15 @@ function useAllNetworkRequests<T>(params: {
     clearRetainedResultOnAcceptedRun = false,
   } = params;
   const allNetworkDataInit = useRef(false);
-  // Bumped whenever the enabled network set changes. A run that was already
-  // in flight must not mark the data initialized afterwards: the change reset
-  // `allNetworkDataInit` so the rerun it queued clears the view and fetches
-  // the new set again, and re-arming it from the superseded run made that rerun
-  // skip the clear (or skip itself as redundant) and keep the unchecked
-  // network in the list and the total.
-  const enabledSetGenerationRef = useRef(0);
+  // Generation of the run that owns the fan-out (0: none). An enabled-network
+  // change supersedes a running fan-out instead of queuing behind it: waiting
+  // kept the unchecked network in the list and the total for as long as the
+  // old fan-out ran, and letting it finish re-armed `allNetworkDataInit` so the
+  // rerun skipped the clear (Slack 09-23 QA report). The superseded run's
+  // remaining requests are aborted or not started, and every write it would
+  // still make (consumer callbacks, per-request merges via `isRunCurrent`,
+  // publish, the `isFetching` release) is dropped.
+  const activeRunGenerationRef = useRef(0);
   const isFetching = useRef(false);
   // Reserve active debounce windows so a second manual refresh is queued by
   // runWithQueue instead of starting another usePromiseResult runner and
@@ -495,6 +505,21 @@ function useAllNetworkRequests<T>(params: {
   // `lastRunSignatureRef` is the owner identity of the last run that proceeded.
   const alwaysSetStateRef = useRef(false);
   const lastRunSignatureRef = useRef<string | null>(null);
+  const abortSupersededRequestsRef = useRef(abortSupersededRequests);
+  abortSupersededRequestsRef.current = abortSupersededRequests;
+  // Hands the fan-out over to the run started right after this; see
+  // `activeRunGenerationRef`.
+  const supersedeActiveRun = useCallback(() => {
+    if (!isFetching.current) {
+      return;
+    }
+    activeRunGenerationRef.current = 0;
+    isFetching.current = false;
+    // The fresh run covers anything queued behind the superseded one.
+    rerunAfterCurrentRef.current = false;
+    rerunConfigRef.current = undefined;
+    abortSupersededRequestsRef.current?.();
+  }, []);
 
   useEffect(() => {
     const onEnabledNetworksChanged = () => {
@@ -503,14 +528,12 @@ function useAllNetworkRequests<T>(params: {
       }
       allNetworkAccountsBaseCache.clear();
       allNetworkDataInit.current = false;
-      enabledSetGenerationRef.current += 1;
+      supersedeActiveRun();
       runCountRef.current = 0;
       setEnabledNetworksChangedNonce((v) => v + 1);
       // owner intentionally omitted (this appEventBus-listener effect must not
       // depend on the owner); it appears on the following `allnet.run` line.
-      // Must-run: a fan-out still running for the old set is superseded (its
-      // result is not published) and the rerun passes the redundant-run and
-      // focus gates.
+      // Must-run so the fresh fan-out passes the redundant-run and focus gates.
       void runWithQueueRef.current?.({ alwaysSetState: true });
     };
     appEventBus.on(
@@ -523,7 +546,7 @@ function useAllNetworkRequests<T>(params: {
         onEnabledNetworksChanged,
       );
     };
-  }, [isAllNetworks]);
+  }, [isAllNetworks, supersedeActiveRun]);
 
   useEffect(() => {
     if (!isAllNetworks || !isDeFiRequests) {
@@ -534,7 +557,7 @@ function useAllNetworkRequests<T>(params: {
       // config refresh. Rebuild the main-runtime fan-out so it deserializes
       // the current map and removes data for networks that were disabled.
       allNetworkDataInit.current = false;
-      enabledSetGenerationRef.current += 1;
+      supersedeActiveRun();
       runCountRef.current = 0;
       setEnabledNetworksChangedNonce((value) => value + 1);
       void runWithQueueRef.current?.({ alwaysSetState: true });
@@ -549,7 +572,7 @@ function useAllNetworkRequests<T>(params: {
         onDeFiEnabledNetworksChanged,
       );
     };
-  }, [isAllNetworks, isDeFiRequests]);
+  }, [isAllNetworks, isDeFiRequests, supersedeActiveRun]);
 
   // Hardware wallets create default network accounts in series after connect
   // (BTC -> EVM -> TRON -> SOL). The 15s account-list cache can otherwise
@@ -774,12 +797,32 @@ function useAllNetworkRequests<T>(params: {
       // (`allNetworkCacheData`) and the per-network settle (`onRequestSettled`)
       // so the consumer's LWW materialized view rejects a stale earlier run.
       const runGeneration = runGenerationRef.current;
-      const runEnabledSetGeneration = enabledSetGenerationRef.current;
+      activeRunGenerationRef.current = runGeneration;
+      const isRunCurrent = () =>
+        activeRunGenerationRef.current === runGeneration;
       const markDataInitialized = () => {
-        if (runEnabledSetGeneration === enabledSetGenerationRef.current) {
+        if (isRunCurrent()) {
           allNetworkDataInit.current = true;
         }
       };
+      // Per-network fetch/settle bound to this run: nothing starts or lands
+      // once the run is superseded.
+      const requestForThisRun = (args: {
+        accountId: string;
+        networkId: string;
+        dbAccount?: IDBAccount;
+        allNetworkDataInit?: boolean;
+      }): Promise<T | undefined> =>
+        isRunCurrent()
+          ? allNetworkRequests({ ...args, isRunCurrent })
+          : Promise.resolve(undefined);
+      const settleForThisRun = onRequestSettled
+        ? (settledResult: T, generation: number) => {
+            if (isRunCurrent()) {
+              onRequestSettled(settledResult, generation);
+            }
+          }
+        : undefined;
       isFetching.current = true;
 
       defaultLogger.account.allNetworkAccountPerf.homeTokenListRefreshTrace({
@@ -855,6 +898,9 @@ function useAllNetworkRequests<T>(params: {
         const deFiEnabledNetworksMap = deFiEnabledNetworksMapTask
           ? await deFiEnabledNetworksMapTask
           : undefined;
+        if (!isRunCurrent()) {
+          return undefined;
+        }
 
         let accountsInfoResult = baseResult;
         if (isNFTRequests) {
@@ -917,6 +963,9 @@ function useAllNetworkRequests<T>(params: {
 
         if (onStartedTask) {
           await onStartedTask;
+          if (!isRunCurrent()) {
+            return undefined;
+          }
           if (onStartedError) {
             if (onStartedError instanceof Error) {
               // oxlint-disable-next-line no-throw-literal
@@ -965,6 +1014,9 @@ function useAllNetworkRequests<T>(params: {
               )
             ).filter(Boolean);
             perf.markEnd('allNetworkCacheRequests');
+            if (!isRunCurrent()) {
+              return undefined;
+            }
 
             // `cachedData` is already filtered to non-null results — i.e. only
             // networks that returned cached (non-empty) tokens. Remember them
@@ -1022,14 +1074,19 @@ function useAllNetworkRequests<T>(params: {
               );
             }
             try {
-              await onCacheChecked?.({
-                accountId: currentAccountId,
-                networkId: currentNetworkId,
-                hasCache: cacheHasData,
-              });
+              if (isRunCurrent()) {
+                await onCacheChecked?.({
+                  accountId: currentAccountId,
+                  networkId: currentNetworkId,
+                  hasCache: cacheHasData,
+                });
+              }
             } catch (e) {
               console.error(e);
             }
+          }
+          if (!isRunCurrent()) {
+            return undefined;
           }
         }
 
@@ -1041,7 +1098,7 @@ function useAllNetworkRequests<T>(params: {
           const requestFactories = allNetworks.map((networkDataString) => {
             const { accountId, networkId, dbAccount } = networkDataString;
             return () =>
-              allNetworkRequests({
+              requestForThisRun({
                 accountId,
                 networkId,
                 dbAccount,
@@ -1067,7 +1124,7 @@ function useAllNetworkRequests<T>(params: {
                 // the whole fan-out.
                 onSettled: (settledResult) => {
                   if (settledResult) {
-                    onRequestSettled?.(settledResult, runGeneration);
+                    settleForThisRun?.(settledResult, runGeneration);
                   }
                 },
               })
@@ -1087,8 +1144,8 @@ function useAllNetworkRequests<T>(params: {
           const makeColdFactory = (networkDataString: IAllNetworkAccountInfo) =>
             makeColdRequestFactory<T>({
               networkInfo: networkDataString,
-              allNetworkRequests,
-              onRequestSettled,
+              allNetworkRequests: requestForThisRun,
+              onRequestSettled: settleForThisRun,
               runGeneration,
               getAllNetworkDataInit: () => allNetworkDataInit.current,
             });
@@ -1131,6 +1188,9 @@ function useAllNetworkRequests<T>(params: {
           }
           completedResult = respTemp.length ? respTemp : null;
         }
+        if (!isRunCurrent()) {
+          return undefined;
+        }
         if (accountsInfo.length && accountsInfo.length > 0) {
           markDataInitialized();
         }
@@ -1147,6 +1207,10 @@ function useAllNetworkRequests<T>(params: {
           reason: requestKind,
         });
       } catch (error) {
+        if (!isRunCurrent()) {
+          // Superseded: the run that replaced it owns the published result.
+          return undefined;
+        }
         if (clearRetainedResultOnAcceptedRun) {
           // The accepted run cleared the retained result before fetching.
           // Restore the last-good snapshot so a failed fan-out does not pin
@@ -1178,17 +1242,24 @@ function useAllNetworkRequests<T>(params: {
             console.error(e);
           }
         }
-        try {
-          await onFinished?.({
-            accountId: currentAccountId,
-            networkId: currentNetworkId,
-          });
-        } catch (e) {
-          console.error(e);
+        // A superseded run leaves finishing, the `isFetching` release and the
+        // queue to the run that replaced it.
+        if (isRunCurrent()) {
+          try {
+            await onFinished?.({
+              accountId: currentAccountId,
+              networkId: currentNetworkId,
+            });
+          } catch (e) {
+            console.error(e);
+          }
+          // Queue refreshes through cleanup to prevent stale publication.
+          isFetching.current = false;
+          hasQueuedRerun = scheduleQueuedRerun();
         }
-        // Queue refreshes through cleanup to prevent stale publication.
-        isFetching.current = false;
-        hasQueuedRerun = scheduleQueuedRerun();
+      }
+      if (!isRunCurrent()) {
+        return undefined;
       }
 
       if (

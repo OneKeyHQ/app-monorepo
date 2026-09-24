@@ -99,7 +99,11 @@ function setup() {
   const sui = { accountId: `${walletId}--sui`, networkId: 'sui--mainnet' };
   let enabled = [eth, sui];
   getAllNetworkAccounts.mockImplementation(async () => {
-    const accountsInfo = enabled.map((a) => ({ ...a, dbAccount: {} }));
+    const accountsInfo = enabled.map((a) => ({
+      ...a,
+      apiAddress: `${a.accountId}-address`,
+      dbAccount: {},
+    }));
     return {
       accountsInfo,
       accountsInfoBackendIndexed: accountsInfo,
@@ -109,7 +113,11 @@ function setup() {
   });
   const pending: Array<() => void> = [];
   const fanOuts: string[][] = [];
+  // isRunCurrent handed to each request, per fan-out.
+  const requestRunChecks: Array<Array<() => boolean>> = [];
+  const settled: string[] = [];
   const clearAllNetworkData = jest.fn();
+  const abortSupersededRequests = jest.fn();
   const published: Array<IResp[] | null | undefined> = [];
   const hook = renderHook(() =>
     useAllNetworkRequests<IResp>({
@@ -117,8 +125,17 @@ function setup() {
       networkId: 'onekeyall--0',
       walletId,
       isAllNetworks: true,
-      allNetworkRequests: ({ networkId }: { networkId: string }) => {
+      allNetworkRequests: ({
+        networkId,
+        isRunCurrent,
+      }: {
+        networkId: string;
+        isRunCurrent?: () => boolean;
+      }) => {
         fanOuts[fanOuts.length - 1].push(networkId);
+        requestRunChecks[requestRunChecks.length - 1].push(
+          isRunCurrent ?? (() => true),
+        );
         return new Promise<IResp>((resolve) => {
           pending.push(() => resolve({ networkId }));
         });
@@ -127,8 +144,13 @@ function setup() {
       allNetworkCacheData: async () => {},
       allNetworkAccountsData: () => {
         fanOuts.push([]);
+        requestRunChecks.push([]);
       },
       clearAllNetworkData,
+      abortSupersededRequests,
+      onRequestSettled: (result) => {
+        settled.push(result.networkId);
+      },
       onResultPublished: (result) => {
         published.push(result);
       },
@@ -144,8 +166,13 @@ function setup() {
   return {
     hook,
     fanOuts,
+    requestRunChecks,
+    settled,
     published,
     clearAllNetworkData,
+    abortSupersededRequests,
+    waitForFanOuts: (count: number) =>
+      waitFor(() => expect(fanOuts.length).toBe(count)),
     waitForFirstFanOut: () => waitFor(() => expect(pending.length).toBe(2)),
     uncheckSui: () => {
       enabled = [eth];
@@ -170,38 +197,66 @@ describe('useAllNetworkRequests: enabled networks change during a fan-out', () =
     getAllNetworkAccounts.mockReset();
   });
 
-  it('fetches the new set from scratch once the running fan-out ends', async () => {
+  it('supersedes the running fan-out and fetches the new set right away', async () => {
     const ctx = setup();
     await ctx.waitForFirstFanOut();
     expect(ctx.clearAllNetworkData).toHaveBeenCalledTimes(1);
 
     ctx.uncheckSui();
-    await ctx.settleRequests();
+    // No waiting for the old fan-out: the new set is requested immediately,
+    // from an empty view, and the old requests are cancelled.
+    await ctx.waitForFanOuts(2);
+    expect(ctx.fanOuts).toEqual([['evm--1', 'sui--mainnet'], ['evm--1']]);
+    expect(ctx.clearAllNetworkData).toHaveBeenCalledTimes(2);
+    expect(ctx.abortSupersededRequests).toHaveBeenCalledTimes(1);
+    expect(ctx.requestRunChecks[0].map((check) => check())).toEqual([
+      false,
+      false,
+    ]);
+    expect(ctx.requestRunChecks[1].map((check) => check())).toEqual([true]);
+
     await ctx.settleRequests();
 
-    expect(ctx.fanOuts).toEqual([['evm--1', 'sui--mainnet'], ['evm--1']]);
-    // The rerun starts from an empty view instead of merging into the one
-    // that still holds the unchecked network.
-    expect(ctx.clearAllNetworkData).toHaveBeenCalledTimes(2);
-    // The fan-out for the old set is superseded, never published.
+    // Late responses of the superseded fan-out land nowhere.
+    expect(ctx.settled).toEqual(['evm--1']);
     expect(ctx.published).toEqual([[{ networkId: 'evm--1' }]]);
   });
 
-  it('still starts from scratch when a pull-to-refresh is also queued', async () => {
+  it('folds a queued pull-to-refresh into the new fan-out', async () => {
     const ctx = setup();
     await ctx.waitForFirstFanOut();
 
-    ctx.uncheckSui();
     await ctx.manualRefresh();
+    ctx.uncheckSui();
+    await ctx.waitForFanOuts(2);
     await ctx.settleRequests();
     await ctx.settleRequests();
 
     expect(ctx.fanOuts).toEqual([['evm--1', 'sui--mainnet'], ['evm--1']]);
-    expect(ctx.clearAllNetworkData).toHaveBeenCalledTimes(2);
     expect(ctx.published).toEqual([[{ networkId: 'evm--1' }]]);
   });
 
-  it('keeps a plain pull-to-refresh warm', async () => {
+  it('keeps refreshing normally after a superseded fan-out ends', async () => {
+    const ctx = setup();
+    await ctx.waitForFirstFanOut();
+    ctx.uncheckSui();
+    await ctx.waitForFanOuts(2);
+    await ctx.settleRequests();
+
+    await ctx.manualRefresh();
+    await ctx.waitForFanOuts(3);
+    await ctx.settleRequests();
+
+    expect(ctx.fanOuts[2]).toEqual(['evm--1']);
+    expect(ctx.published).toEqual([
+      [{ networkId: 'evm--1' }],
+      [{ networkId: 'evm--1' }],
+    ]);
+    // The refresh after the change stays warm.
+    expect(ctx.clearAllNetworkData).toHaveBeenCalledTimes(2);
+  });
+
+  it('keeps a plain pull-to-refresh queued and warm', async () => {
     const ctx = setup();
     await ctx.waitForFirstFanOut();
 
@@ -213,6 +268,7 @@ describe('useAllNetworkRequests: enabled networks change during a fan-out', () =
       ['evm--1', 'sui--mainnet'],
       ['evm--1', 'sui--mainnet'],
     ]);
+    expect(ctx.abortSupersededRequests).not.toHaveBeenCalled();
     // Only the first run cleared; the refresh updates the view in place.
     expect(ctx.clearAllNetworkData).toHaveBeenCalledTimes(1);
   });

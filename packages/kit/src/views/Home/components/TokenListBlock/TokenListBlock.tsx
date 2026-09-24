@@ -1333,12 +1333,14 @@ function TokenListBlock({
       networkId,
       dbAccount,
       allNetworkDataInit,
+      isRunCurrent,
     }: {
       accountId: string;
       networkId: string;
       dbAccount?: IDBAccount;
       allNetworkDataInit?: boolean;
       isSingleRequest?: boolean;
+      isRunCurrent?: () => boolean;
     }) => {
       const response = await backgroundApiProxy.serviceToken.fetchAccountTokens(
         {
@@ -1485,9 +1487,12 @@ function TokenListBlock({
       // would land this owner's data on atoms already cleared and re-stamped
       // for the new owner — and the next same-owner stamp write would then
       // vouch for it.
+      // A run superseded by an enabled-network change must not merge its
+      // (possibly unchecked) network back into the worth map either.
       const isStaleOwnerRequest = () =>
         activeOwnerRef.current.accountId !== account?.id ||
-        activeOwnerRef.current.networkId !== network?.id;
+        activeOwnerRef.current.networkId !== network?.id ||
+        isRunCurrent?.() === false;
 
       if (
         !allNetworkDataInit &&
@@ -1537,7 +1542,9 @@ function TokenListBlock({
 
         // Re-check the owner — it can switch mid-flight.
         if (isStaleOwnerRequest()) {
-          isAllNetworkManualRefresh.current = false;
+          if (isRunCurrent?.() !== false) {
+            isAllNetworkManualRefresh.current = false;
+          }
           return r;
         }
 
@@ -1552,7 +1559,10 @@ function TokenListBlock({
         // effect.
       }
 
-      isAllNetworkManualRefresh.current = false;
+      // The run that superseded this one reads the flag for its own requests.
+      if (isRunCurrent?.() !== false) {
+        isAllNetworkManualRefresh.current = false;
+      }
       return r;
     },
     [
@@ -1568,6 +1578,14 @@ function TokenListBlock({
       walletTokenFilterParams,
     ],
   );
+
+  // Same cancellation as the single-network refresh path: the superseded
+  // fan-out's token requests must not compete with the new one's.
+  const handleAbortSupersededRequests = useCallback(() => {
+    void backgroundApiProxy.serviceToken.abortFetchAccountTokens({
+      excludedFlags: ['token-selector'],
+    });
+  }, []);
 
   const handleClearAllNetworkData = useCallback(() => {
     // Reset the LWW view + drop a pending flush (design §2 facade). Does NOT bump
@@ -2065,6 +2083,7 @@ function TokenListBlock({
     allNetworkCacheData: handleAllNetworkCacheData,
     allNetworkAccountsData: handleAllNetworkAccountsData,
     clearAllNetworkData: handleClearAllNetworkData,
+    abortSupersededRequests: handleAbortSupersededRequests,
     onStarted: handleAllNetworkRequestsStarted,
     onFinished: handleAllNetworkRequestsFinished,
     onCacheChecked: handleAllNetworkCacheChecked,

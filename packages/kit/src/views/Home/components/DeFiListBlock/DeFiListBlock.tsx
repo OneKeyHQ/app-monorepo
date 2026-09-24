@@ -723,10 +723,12 @@ function DeFiListBlock({
       accountId,
       networkId,
       allNetworkDataInit,
+      isRunCurrent,
     }: {
       accountId: string;
       networkId: string;
       allNetworkDataInit?: boolean;
+      isRunCurrent?: () => boolean;
     }) => {
       if (refreshCacheOnly) {
         return;
@@ -756,7 +758,10 @@ function DeFiListBlock({
         r.isSameAllNetworksAccountData &&
         // The fan-out outlives an owner switch; a response issued for the
         // previous owner must not be merged into the next owner's list.
-        liveOwnerKeyRef.current === currentOwnerKey
+        liveOwnerKeyRef.current === currentOwnerKey &&
+        // Nor may a fan-out superseded by an enabled-network change add its
+        // (possibly disabled) network to the new run's totals.
+        isRunCurrent?.() !== false
       ) {
         deFiDataRef.current = {
           overview: {

@@ -138,11 +138,13 @@ function NFTListContainer() {
       networkId,
       allNetworkDataInit,
       dbAccount,
+      isRunCurrent,
     }: {
       accountId: string;
       networkId: string;
       allNetworkDataInit?: boolean;
       dbAccount?: IDBAccount;
+      isRunCurrent?: () => boolean;
     }) => {
       const r = await backgroundApiProxy.serviceNFT.fetchAccountNFTs({
         dbAccount,
@@ -154,6 +156,10 @@ function NFTListContainer() {
         allNetworksNetworkId: network?.id,
         saveToLocal: true,
       });
+      // A fan-out superseded by an enabled-network change writes nothing.
+      if (isRunCurrent?.() === false) {
+        return r;
+      }
       if (
         !allNetworkDataInit &&
         r.networkId === networkIdsMap.onekeyall &&
