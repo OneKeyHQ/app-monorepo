@@ -228,6 +228,7 @@ export const ONEKEY_ID_AUTH_CONFIG = {
   },
   test: {
     projectUrl: `${buildServiceEndpoint({ serviceName: EServiceEndpointEnum.Prime, env: 'test' })}/prime/v1/supabase-relay`,
+    // Public relay placeholder required by the client SDK, not a server secret.
     publicKey: 'onekey-123-321-000-999-888',
     captcha: {
       enabled: true,

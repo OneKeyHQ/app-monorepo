@@ -99,9 +99,6 @@ class ServiceDevSetting extends ServiceBase {
         );
       }
     }
-    await this.backgroundApi.serviceNotification
-      .unregisterClient()
-      .catch(() => undefined);
     return identityLifecycleMutex.runExclusive(async () => {
       const [state, source] = await Promise.all([
         this.backgroundApi.simpleDb.prime.getOneKeyIdAuthState(),
@@ -117,6 +114,11 @@ class ServiceDevSetting extends ServiceBase {
       await clearEmailAuthSessionsForEnvironmentChange();
       this.environmentRestartRequired = true;
       try {
+        // Keep notifications registered if validation or session cleanup
+        // aborts. Unregister on the old node only once restart is guaranteed.
+        await this.backgroundApi.serviceNotification
+          .unregisterClient()
+          .catch(() => undefined);
         const updated = await update();
         // Invalidate login work that began after logout but before the node
         // switch. Identity commits serialize on this same lifecycle mutex.

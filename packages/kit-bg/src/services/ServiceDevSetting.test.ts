@@ -30,6 +30,7 @@ const mockRestart = jest.fn();
 const mockShowToast = jest.fn<Promise<void>, [unknown]>();
 const mockUnregister = jest.fn<Promise<void>, []>();
 const mockAuthState = jest.fn<Promise<'loggedIn' | 'loggedOut'>, []>();
+const mockAuthSessionSource = jest.fn<Promise<string | undefined>, []>();
 const mockBumpRevision = jest.fn<Promise<number>, []>();
 
 jest.mock('./ServiceBase', () => ({
@@ -120,7 +121,7 @@ function createService() {
       simpleDb: {
         prime: {
           getOneKeyIdAuthState: mockAuthState,
-          getAuthSessionSource: async () => undefined,
+          getAuthSessionSource: mockAuthSessionSource,
           bumpIdentityLifecycleRevision: mockBumpRevision,
         },
       },
@@ -139,6 +140,7 @@ describe('OneKey ID environment switching', () => {
     mockClearEmailSessions.mockResolvedValue();
     mockUnregister.mockResolvedValue();
     mockAuthState.mockResolvedValue('loggedOut');
+    mockAuthSessionSource.mockResolvedValue(undefined);
     mockBumpRevision.mockResolvedValue(2);
     mockRestart.mockReset().mockResolvedValue(undefined);
     mockShowToast.mockReset().mockResolvedValue();
@@ -161,6 +163,14 @@ describe('OneKey ID environment switching', () => {
         expect(mockSetSettings).not.toHaveBeenCalled();
         return completedReceipt;
       });
+      const unregisteredNodes: boolean[] = [];
+      mockUnregister.mockImplementationOnce(async () => {
+        unregisteredNodes.push(
+          Boolean(
+            mockSettings.enabled && mockSettings.settings?.enableTestEndpoint,
+          ),
+        );
+      });
       if (transition === 'disable-dev') await service.switchDevMode(false);
       else await service.updateDevSetting('enableTestEndpoint', !wasTest);
       expect(mockPrepareExit).toHaveBeenCalledWith({
@@ -169,6 +179,14 @@ describe('OneKey ID environment switching', () => {
       });
       expect(mockClearEmailSessions).toHaveBeenCalledTimes(1);
       expect(mockBumpRevision).toHaveBeenCalledTimes(1);
+      expect(mockUnregister).toHaveBeenCalledTimes(1);
+      expect(unregisteredNodes).toEqual([wasTest]);
+      expect(mockClearEmailSessions.mock.invocationCallOrder[0]).toBeLessThan(
+        mockUnregister.mock.invocationCallOrder[0],
+      );
+      expect(mockUnregister.mock.invocationCallOrder[0]).toBeLessThan(
+        mockSetSettings.mock.invocationCallOrder[0],
+      );
       expect(mockClearEmailSessions.mock.invocationCallOrder[0]).toBeLessThan(
         mockSetSettings.mock.invocationCallOrder[0],
       );
@@ -189,8 +207,20 @@ describe('OneKey ID environment switching', () => {
     await service.updateDevSetting('enableAnalyticsRequest', true);
     expect(mockPrepareExit).not.toHaveBeenCalled();
     expect(mockClearEmailSessions).not.toHaveBeenCalled();
+    expect(mockUnregister).not.toHaveBeenCalled();
     await jest.runOnlyPendingTimersAsync();
     expect(mockRestart).not.toHaveBeenCalled();
+  });
+
+  test('still switches and restarts when unregistering notifications rejects', async () => {
+    mockUnregister.mockRejectedValueOnce(
+      new Error('notification server unavailable'),
+    );
+    await createService().updateDevSetting('enableTestEndpoint', false);
+    expect(mockSettings.settings?.enableTestEndpoint).toBe(false);
+    expect(mockUnregister).toHaveBeenCalledTimes(1);
+    await jest.advanceTimersByTimeAsync(300);
+    expect(mockRestart).toHaveBeenCalledTimes(1);
   });
 
   test.each(['prod-to-test', 'test-to-prod', 'disable-dev'] as const)(
@@ -474,6 +504,39 @@ describe('OneKey ID environment switching', () => {
     expect(mockClearEmailSessions).not.toHaveBeenCalled();
     expect(mockSetSettings).not.toHaveBeenCalled();
   });
+
+  test.each([
+    'state-changed',
+    'session-source-changed',
+    'state-read-failed',
+    'session-cleanup-failed',
+    'identity-recovery-blocked',
+  ] as const)(
+    'preserves notification registration when switching aborts: %s',
+    async (failure) => {
+      if (failure === 'state-changed')
+        mockAuthState.mockResolvedValueOnce('loggedIn');
+      if (failure === 'session-source-changed')
+        mockAuthSessionSource.mockResolvedValueOnce('legacy-email');
+      if (failure === 'state-read-failed')
+        mockAuthState.mockRejectedValueOnce(new Error('state unavailable'));
+      if (failure === 'session-cleanup-failed')
+        mockClearEmailSessions.mockRejectedValueOnce(
+          new Error('cleanup failed'),
+        );
+      if (failure === 'identity-recovery-blocked')
+        resetIdentityRecoveryStateForTest('failed');
+
+      await expect(
+        createService().updateDevSetting('enableTestEndpoint', false),
+      ).rejects.toThrow();
+      expect(mockSettings.settings?.enableTestEndpoint).toBe(true);
+      expect(mockSetSettings).not.toHaveBeenCalled();
+      expect(mockUnregister).not.toHaveBeenCalled();
+      await jest.runOnlyPendingTimersAsync();
+      expect(mockRestart).not.toHaveBeenCalled();
+    },
+  );
 
   test('serializes rapid node toggles and schedules only one restart', async () => {
     const service = createService();
