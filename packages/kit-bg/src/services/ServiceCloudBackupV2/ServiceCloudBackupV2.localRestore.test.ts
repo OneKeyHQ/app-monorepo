@@ -93,6 +93,7 @@ const data: IPrimeTransferData = {
 
 describe('local iCloud restore integration', () => {
   const originalIOS = platformEnv.isNativeIOS;
+  const originalDesktopMac = platformEnv.isDesktopMac;
   const cryptoDescriptor = Object.getOwnPropertyDescriptor(
     globalThis,
     'crypto',
@@ -144,6 +145,7 @@ describe('local iCloud restore integration', () => {
     promptPasswordVerify.mockReset();
     jest.useFakeTimers({ doNotFake: ['nextTick', 'setImmediate'] });
     platformEnv.isNativeIOS = true;
+    platformEnv.isDesktopMac = false;
     jest.spyOn(console, 'warn').mockImplementation(() => undefined);
     jest.spyOn(console, 'log').mockImplementation(() => undefined);
     jest.spyOn(ServiceCloudBackupV2.prototype, 'init').mockResolvedValue();
@@ -182,6 +184,7 @@ describe('local iCloud restore integration', () => {
     jest.clearAllTimers();
     jest.useRealTimers();
     platformEnv.isNativeIOS = originalIOS;
+    platformEnv.isDesktopMac = originalDesktopMac;
     jest.restoreAllMocks();
   });
   afterAll(() => {
@@ -442,6 +445,7 @@ describe('local iCloud restore integration', () => {
 
   it.each([
     'authorization',
+    'macOS authorization',
     'encryption',
     'upload',
     'readback',
@@ -451,6 +455,10 @@ describe('local iCloud restore integration', () => {
   ] as const)(
     'refuses backup success after an account change during %s',
     async (stage) => {
+      if (stage === 'macOS authorization') {
+        platformEnv.isNativeIOS = false;
+        platformEnv.isDesktopMac = true;
+      }
       mockSuccessfulBackup();
       let currentAccountId = accountInfo.userId;
       const changeAccount = () => {
@@ -464,7 +472,11 @@ describe('local iCloud restore integration', () => {
       transfer.decryptTransferDataCredentials.mockImplementation(
         async ({ data: backupData }: { data: IPrimeTransferData }) => {
           await promptPasswordVerify();
-          if (stage === 'authorization' || stage === 'sign-out')
+          if (
+            stage === 'authorization' ||
+            stage === 'macOS authorization' ||
+            stage === 'sign-out'
+          )
             changeAccount();
           backupData.privateData.decryptedCredentials =
             data.privateData.decryptedCredentials;
@@ -516,6 +528,7 @@ describe('local iCloud restore integration', () => {
       expect(promptPasswordVerify).toHaveBeenCalledTimes(1);
       expect(mockProvider.backupData).toHaveBeenCalledTimes(
         stage === 'authorization' ||
+          stage === 'macOS authorization' ||
           stage === 'encryption' ||
           stage === 'sign-out'
           ? 0
@@ -554,6 +567,64 @@ describe('local iCloud restore integration', () => {
     });
     expect(mockProvider.getCloudAccountInfo).toHaveBeenCalledTimes(1);
     expect(updateBackupStatus).toHaveBeenCalledTimes(1);
+    expect(cached.set).not.toHaveBeenCalled();
+  });
+
+  it('encrypts Google backups for the account selected during local authorization', async () => {
+    platformEnv.isNativeIOS = false;
+    let currentAccountId = 'synthetic-google-account-a';
+    mockProvider.getCloudAccountInfo.mockImplementation(async () => ({
+      userId: currentAccountId,
+      userEmail: '',
+      providerType: ECloudBackupProviderType.GoogleDrive,
+    }));
+    mockSuccessfulBackup();
+    promptPasswordVerify.mockImplementationOnce(async () => {
+      currentAccountId = 'synthetic-google-account-b';
+      return { password: 'synthetic-local-password' };
+    });
+    transfer.decryptTransferDataCredentials.mockImplementationOnce(
+      async ({ data: backupData }: { data: IPrimeTransferData }) => {
+        await promptPasswordVerify();
+        backupData.privateData.decryptedCredentials =
+          data.privateData.decryptedCredentials;
+        backupData.privateData.credentials = {};
+      },
+    );
+    const wrappedData: IPrimeTransferData = {
+      ...data,
+      privateData: {
+        ...data.privateData,
+        decryptedCredentials: undefined,
+        credentials: { fixture: 'synthetic-wrapped-credential' },
+      },
+    };
+    await expect(
+      service.backup({ data: wrappedData, password }),
+    ).resolves.toMatchObject({
+      recordID: recordId,
+    });
+    expect(currentAccountId).toBe('synthetic-google-account-b');
+    expect(promptPasswordVerify).toHaveBeenCalledTimes(1);
+    expect(mockProvider.getCloudAccountInfo).toHaveBeenCalledTimes(1);
+    expect(updateBackupStatus).toHaveBeenCalledTimes(1);
+    const uploaded = readUploadedBackup().payload;
+    await expect(
+      service.restorePreparePrivateData({
+        payload: uploaded,
+        password,
+        recordId,
+      }),
+    ).resolves.toEqual(data.privateData);
+    currentAccountId = 'synthetic-google-account-a';
+    await expect(
+      service.restorePreparePrivateData({
+        payload: uploaded,
+        password,
+        recordId,
+      }),
+    ).rejects.toThrow();
+    expect(cached.get).not.toHaveBeenCalled();
     expect(cached.set).not.toHaveBeenCalled();
   });
 

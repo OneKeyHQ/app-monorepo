@@ -326,12 +326,18 @@ class ServiceCloudBackupV2 extends ServiceBase {
     const provider = this.getProvider();
     await provider.checkAvailability();
 
-    const accountInfo = await this.getCloudAccountInfo();
+    const iCloudAccountBeforeAuthorization =
+      platformEnv.isNativeIOS || platformEnv.isDesktopMac
+        ? await this.getCloudAccountInfo()
+        : undefined;
     await this.backgroundApi.servicePrimeTransfer.decryptTransferDataCredentials(
       {
         data,
       },
     );
+    // Google Drive must use the account selected after local authorization.
+    const accountInfo =
+      iCloudAccountBeforeAuthorization ?? (await this.getCloudAccountInfo());
     // Local authorization may remain pending while the system account changes.
     await this.assertICloudBackupAccountUnchanged(accountInfo);
 
