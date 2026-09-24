@@ -2,6 +2,7 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -14,6 +15,7 @@ import {
   useMedia,
   useScrollContentTabBarOffset,
 } from '@onekeyhq/components';
+import { CollapsibleTabContext } from '@onekeyhq/components/src/composite/Tabs/CollapsibleTabContext';
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
@@ -44,6 +46,9 @@ import {
   findScrollableAncestorFromLocalNode,
   getStickySidebarMaxHeight,
 } from './defiDesktopStickyDom';
+import { useHomeHeaderLayout } from './HomeHeaderContainer';
+
+import type { ScrollView } from 'react-native';
 
 const SIDEBAR_STICKY_UNPIN_GAP = 8;
 
@@ -270,28 +275,51 @@ function PortfolioContainer() {
   );
 }
 
+function PortfolioScrollContainer() {
+  const {
+    activeAccount: { account, wallet },
+  } = useActiveAccount({ num: 0 });
+  const bottomInset = useScrollContentTabBarOffset();
+  const scrollRef = useRef<ScrollView>(null);
+  const { contentInset, tabBarHeight } = useContext(CollapsibleTabContext);
+  const { measuredHeight } = useHomeHeaderLayout();
+  const accountKey = `${wallet?.id ?? ''}-${account?.indexedAccountId ?? account?.id ?? ''}`;
+  useLayoutEffect(() => {
+    if (platformEnv.isNative)
+      scrollRef.current?.scrollTo({ y: -contentInset, animated: false });
+  }, [accountKey, contentInset]);
+  return (
+    <Tabs.ScrollView
+      ref={scrollRef}
+      showsVerticalScrollIndicator={false}
+      contentContainerStyle={{
+        paddingBottom: bottomInset,
+        ...(platformEnv.isNative && measuredHeight !== undefined
+          ? { paddingTop: measuredHeight + (tabBarHeight ?? 0) }
+          : {}),
+      }}
+      nestedScrollEnabled={platformEnv.isNativeAndroid}
+      refreshControl={
+        !platformEnv.isNativeAndroid ? (
+          <PullToRefresh onRefresh={onHomePageRefresh} />
+        ) : undefined
+      }
+    >
+      <PortfolioContainer />
+    </Tabs.ScrollView>
+  );
+}
+
 function PortfolioContainerWithProvider() {
   const {
     activeAccount: { account },
   } = useActiveAccount({ num: 0 });
-  const tabBarHeight = useScrollContentTabBarOffset();
   return (
     <HomeTokenListProviderMirrorWrapper accountId={account?.id ?? ''}>
       <ProviderJotaiContextHistoryList>
         <EarnProviderMirror storeName={EJotaiContextStoreNames.earn}>
           <ProviderJotaiContextDeFiList>
-            <Tabs.ScrollView
-              showsVerticalScrollIndicator={false}
-              contentContainerStyle={{ paddingBottom: tabBarHeight }}
-              nestedScrollEnabled={platformEnv.isNativeAndroid}
-              refreshControl={
-                !platformEnv.isNativeAndroid ? (
-                  <PullToRefresh onRefresh={onHomePageRefresh} />
-                ) : undefined
-              }
-            >
-              <PortfolioContainer />
-            </Tabs.ScrollView>
+            <PortfolioScrollContainer />
           </ProviderJotaiContextDeFiList>
         </EarnProviderMirror>
       </ProviderJotaiContextHistoryList>

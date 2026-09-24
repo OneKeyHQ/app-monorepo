@@ -25,12 +25,15 @@ import {
   HARDWARE_ERROR_DIALOG_TYPES,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 import {
   EAccountSelectorAutoSelectTriggerBy,
   EAccountSelectorSceneName,
 } from '@onekeyhq/shared/types';
+
+import { registerHomeTokenListPreparer } from '../tokenList/cells/ownerCache';
 
 import {
   getAccountSelectorActions,
@@ -247,6 +250,7 @@ const mockGetAllNetworksFallbackNetworkId = jest.fn<
   Promise<string | undefined>,
   [{ walletId: string }]
 >();
+const mockFlushUiSnapshotStoreNow = jest.fn<Promise<boolean>, []>();
 
 jest.mock('@onekeyhq/components', () => ({
   ...jest.requireActual<typeof import('@onekeyhq/components')>(
@@ -303,6 +307,13 @@ jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
     isWebDappMode: false,
   },
 }));
+
+jest.mock(
+  '@onekeyhq/shared/src/storage/DisplaySnapshotStorage/webUiSnapshotStore',
+  () => ({
+    flushUiSnapshotStoreNow: () => mockFlushUiSnapshotStoreNow(),
+  }),
+);
 
 jest.mock('@onekeyhq/shared/src/storage/uiSnapshotCaches', () => ({
   ACCOUNT_SELECTOR_RECENT_SELECTION_KEY: 'recent-selection',
@@ -525,10 +536,62 @@ describe('useAccountSelectorActions', () => {
     mockGetSingletonAccountsOfWallet.mockResolvedValue({ accounts: [] });
     mockGetWalletSafe.mockResolvedValue({ id: 'hd-1' } as IWallet);
     mockIsTempWalletRemoved.mockResolvedValue(false);
+    mockFlushUiSnapshotStoreNow.mockResolvedValue(true);
   });
 
   afterEach(() => {
     jest.restoreAllMocks();
+  });
+
+  it('does not hold the shared selector lock while Home prepares its snapshot', async () => {
+    const previousNative = platformEnv.isNative;
+    platformEnv.isNative = true;
+    const entered = createDeferred<void>();
+    const preparation = createDeferred<() => void>();
+    const commit = jest.fn();
+    const unregister = registerHomeTokenListPreparer(async () => {
+      entered.resolve();
+      return preparation.promise;
+    });
+    const home = createWrapper(EAccountSelectorSceneName.home);
+    const swap = createWrapper(EAccountSelectorSceneName.swap);
+    home.store.set(accountSelectorContextDataAtom(), {
+      sceneName: EAccountSelectorSceneName.home,
+    });
+    swap.store.set(accountSelectorContextDataAtom(), {
+      sceneName: EAccountSelectorSceneName.swap,
+    });
+    const { result: homeActions } = renderHook(
+      () => useAccountSelectorActions().current,
+      { wrapper: home.Wrapper },
+    );
+    const { result: swapActions } = renderHook(
+      () => useAccountSelectorActions().current,
+      { wrapper: swap.Wrapper },
+    );
+    try {
+      await act(async () => {
+        const pending = homeActions.current.reloadActiveAccountInfo({
+          num: 0,
+          selectedAccount: defaultSelectedAccount(),
+          forceReload: true,
+        });
+        await entered.promise;
+        await swapActions.current.reloadActiveAccountInfo({
+          num: 0,
+          selectedAccount: defaultSelectedAccount(),
+          forceReload: true,
+        });
+        expect(swap.store.get(activeAccountsAtom())[0]?.ready).toBe(true);
+        expect(commit).not.toHaveBeenCalled();
+        preparation.resolve(commit);
+        await pending;
+        expect(commit).toHaveBeenCalledTimes(1);
+      });
+    } finally {
+      unregister();
+      platformEnv.isNative = previousNative;
+    }
   });
 
   it('selects deprecated wallets but rejects unavailable wallets', async () => {
@@ -2339,6 +2402,7 @@ describe('useAccountSelectorActions', () => {
         selectedAccountsMap: { 0: homePick },
         updateMeta: recentUpdateMeta(),
       });
+      await getAccountSelectorActions().waitForRecentAccountSelectorSelectionCacheMirrors();
 
       const swap = createWrapper(EAccountSelectorSceneName.swap);
       swap.store.set(accountSelectorContextDataAtom(), {
@@ -2404,6 +2468,7 @@ describe('useAccountSelectorActions', () => {
         selectedAccountsMap: { 0: swapPick },
         updateMeta: recentUpdateMeta(),
       });
+      await getAccountSelectorActions().waitForRecentAccountSelectorSelectionCacheMirrors();
       expect(getRecentSelection(EAccountSelectorSceneName.swap)).toMatchObject({
         indexedAccountId: 'hd-1--1',
         networkId: 'evm--1',
@@ -2457,6 +2522,7 @@ describe('useAccountSelectorActions', () => {
         selectedAccountsMap: { 0: importedBtcPick },
         updateMeta: recentUpdateMeta(),
       });
+      await getAccountSelectorActions().waitForRecentAccountSelectorSelectionCacheMirrors();
 
       expect(mockFixOthersWalletAccountNetworkPair).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -2470,6 +2536,136 @@ describe('useAccountSelectorActions', () => {
         othersWalletAccountId: 'imported--btc-p2tr',
         networkId: 'btc--0',
       });
+    });
+
+    it('returns from confirmAccountSelect on native before the other scene answers', async () => {
+      const env = platformEnv as { isDesktop: boolean; isNative: boolean };
+      env.isDesktop = false;
+      env.isNative = true;
+      const swapRecord = createDeferred<ISelectedAccount | undefined>();
+      mockGetSelectedAccount.mockImplementation(({ sceneName }) =>
+        sceneName === EAccountSelectorSceneName.swap
+          ? swapRecord.promise
+          : Promise.resolve(undefined),
+      );
+      try {
+        const { store, Wrapper } = createWrapper(
+          EAccountSelectorSceneName.home,
+        );
+        store.set(accountSelectorContextDataAtom(), {
+          sceneName: EAccountSelectorSceneName.home,
+        });
+        store.set(selectedAccountsAtom(), {
+          0: createHdSelectedAccount('hd-1--0'),
+        });
+        const { result } = renderHook(
+          () => useAccountSelectorActions().current,
+          { wrapper: Wrapper },
+        );
+
+        // Swap holds no recent entry, so its saved record has to be read: the
+        // pick must not wait for that round trip.
+        await act(async () => {
+          const confirmed = await result.current.confirmAccountSelect({
+            indexedAccount: {
+              id: 'hd-1--1',
+              walletId: 'hd-1',
+            } as IIndexedAccount,
+            othersWalletAccount: undefined,
+            num: 0,
+          });
+          expect(confirmed).toBe(true);
+        });
+        expect(store.get(selectedAccountsAtom())[0]?.indexedAccountId).toBe(
+          'hd-1--1',
+        );
+        expect(
+          getRecentSelection(EAccountSelectorSceneName.home),
+        ).toMatchObject({ indexedAccountId: 'hd-1--1' });
+        expect(
+          getRecentSelection(EAccountSelectorSceneName.swap),
+        ).toBeUndefined();
+
+        swapRecord.resolve({
+          ...createHdSelectedAccount('hd-1--0'),
+          networkId: 'evm--1',
+        });
+        await getAccountSelectorActions().waitForRecentAccountSelectorSelectionCacheMirrors();
+        expect(
+          getRecentSelection(EAccountSelectorSceneName.swap),
+        ).toMatchObject({ indexedAccountId: 'hd-1--1', networkId: 'evm--1' });
+      } finally {
+        env.isDesktop = true;
+        env.isNative = false;
+      }
+    });
+
+    it('flushes the web store only after the mirror has landed', async () => {
+      const homeRecord = createDeferred<ISelectedAccount | undefined>();
+      mockGetSelectedAccount.mockImplementation(({ sceneName }) =>
+        sceneName === EAccountSelectorSceneName.home
+          ? homeRecord.promise
+          : Promise.resolve(undefined),
+      );
+      let homeEntryAtFlush: ISelectedAccount | undefined;
+      mockFlushUiSnapshotStoreNow.mockImplementation(async () => {
+        homeEntryAtFlush = getRecentSelection(EAccountSelectorSceneName.home);
+        return true;
+      });
+      const swapPick = {
+        ...createHdSelectedAccount('hd-1--1'),
+        networkId: 'evm--1',
+      };
+
+      await getAccountSelectorActions().setRecentAccountSelectorSelectionCache({
+        sceneName: EAccountSelectorSceneName.swap,
+        num: 0,
+        selectedAccountsMap: { 0: swapPick },
+        updateMeta: recentUpdateMeta(),
+      });
+      const flushed =
+        getAccountSelectorActions().flushRecentAccountSelectorSelectionCacheNowIfNeeded();
+      await Promise.resolve();
+      expect(mockFlushUiSnapshotStoreNow).not.toHaveBeenCalled();
+
+      homeRecord.resolve({
+        ...createHdSelectedAccount('hd-1--0'),
+        networkId: 'onekeyall--0',
+      });
+      await flushed;
+
+      expect(mockFlushUiSnapshotStoreNow).toHaveBeenCalledTimes(1);
+      expect(homeEntryAtFlush).toMatchObject({
+        indexedAccountId: 'hd-1--1',
+        networkId: 'onekeyall--0',
+      });
+    });
+
+    it('keeps the picked entry when the other scene cannot be read', async () => {
+      mockGetSelectedAccount.mockRejectedValue(new Error('bg unavailable'));
+      const swapPick = {
+        ...createHdSelectedAccount('hd-1--1'),
+        networkId: 'evm--1',
+      };
+
+      await getAccountSelectorActions().setRecentAccountSelectorSelectionCache({
+        sceneName: EAccountSelectorSceneName.swap,
+        num: 0,
+        selectedAccountsMap: { 0: swapPick },
+        updateMeta: recentUpdateMeta(),
+      });
+      await expect(
+        getAccountSelectorActions().flushRecentAccountSelectorSelectionCacheNowIfNeeded(),
+      ).resolves.toBeUndefined();
+
+      expect(getRecentSelection(EAccountSelectorSceneName.swap)).toMatchObject({
+        indexedAccountId: 'hd-1--1',
+        networkId: 'evm--1',
+      });
+      expect(
+        getRecentSelection(EAccountSelectorSceneName.home),
+      ).toBeUndefined();
+      expect(mockFlushUiSnapshotStoreNow).toHaveBeenCalledTimes(1);
     });
   });
 

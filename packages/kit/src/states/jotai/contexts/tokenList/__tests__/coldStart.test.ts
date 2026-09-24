@@ -23,9 +23,10 @@ import { buildSlimSnapshot } from '@onekeyhq/shared/src/utils/tokenListSlimColdC
 import type { ISlimSnapshotStructure } from '@onekeyhq/shared/src/utils/tokenListSlimColdCacheUtils';
 import type { IToken, ITokenFiat } from '@onekeyhq/shared/types/token';
 
-import { listStructureAtom } from '../atoms';
+import { listStructureAtom, riskyListFrameAtom } from '../atoms';
 import {
   applyStructureSnapshot,
+  applyValuationFrame,
   buildApplyDeps,
   shallowEqualArray,
 } from '../cells/apply';
@@ -33,6 +34,11 @@ import {
   fanOutSlimToApply,
   hydrateCellsFromColdStart,
 } from '../cells/coldStart';
+import {
+  createTokenListOwnerCache,
+  prepareHomeTokenListSwitch,
+  registerHomeTokenListPreparer,
+} from '../cells/ownerCache';
 import {
   aggCell,
   cell,
@@ -84,6 +90,7 @@ function makeDeps(
   return buildApplyDeps({
     store: asCtx,
     listStructureAtom: listStructureAtom(),
+    riskyListFrameAtom: riskyListFrameAtom(),
     resolveCurrentStore: (data) =>
       resolve(data) as unknown as ReturnType<IApplyDeps['resolveCurrentStore']>,
     fiatEqual,
@@ -395,6 +402,27 @@ describe('hydrateCellsFromColdStart — currency gate (merge gate, spec §11.4)'
     expect(projection.cells.size).toBe(0);
   });
 
+  it('rejects a boot snapshot belonging to a different account', () => {
+    const { ctx, projection, deps, store } = setup();
+    (
+      globalThis as typeof globalThis & {
+        __ONEKEY_CTX_ATOM_SNAPSHOT__?: Record<string, unknown>;
+      }
+    ).__ONEKEY_CTX_ATOM_SNAPSHOT__ = {
+      [SLIM_SCOPED_KEY]: buildSlimFixture('usd'),
+    };
+    expect(
+      hydrateCellsFromColdStart({
+        store: ctx,
+        projection,
+        deps,
+        currentCurrency: 'usd',
+        ownerKey: 'another__net1',
+      }),
+    ).toBe(false);
+    expect(store.get(listStructureAtom()).orderedIds).toEqual([]);
+  });
+
   it('MISSES when no slim bundle is present', () => {
     const { ctx, projection, deps } = setup();
     const painted = hydrateCellsFromColdStart({
@@ -404,5 +432,292 @@ describe('hydrateCellsFromColdStart — currency gate (merge gate, spec §11.4)'
       currentCurrency: 'usd',
     });
     expect(painted).toBe(false);
+  });
+});
+
+describe('account switch display cache', () => {
+  function seed(
+    target: ReturnType<typeof setup>,
+    ownerKey: string,
+    value: string,
+  ) {
+    const { ctx, store, projection, deps } = target;
+    fanOutSlimToApply({
+      store: ctx,
+      projection,
+      deps,
+      bundle: {
+        ...buildSlimFixture('usd'),
+        ownerKey,
+        ownedAggregateTokenListMap: {
+          aggregate_agg1: {
+            tokens: [{ ...makeToken(), networkId: 'net1', $key: 'member1' }],
+          },
+        },
+      },
+      storeData: STORE_DATA,
+    });
+    applyStructureSnapshot(
+      ctx,
+      projection,
+      {
+        ...store.get(listStructureAtom()),
+        metaPatch: {},
+        storeData: STORE_DATA,
+        generation: 8,
+      },
+      deps,
+    );
+    applyValuationFrame(
+      ctx,
+      projection,
+      {
+        ownerKey,
+        storeData: STORE_DATA,
+        changedFiatById: {
+          a: makeFiat({
+            balance: value,
+            balanceParsed: value,
+            fiatValue: value,
+            currency: 'usd',
+          }),
+        },
+        changedAggFiat: {},
+      },
+      deps,
+      (fn) => fn(),
+    );
+    store.set(riskyListFrameAtom(), {
+      ownerKey,
+      riskyTokens: [],
+      riskyMap: {},
+    });
+  }
+
+  it('restores full balances and aggregate membership synchronously on A-B-A', () => {
+    const target = setup();
+    const { ctx, store, deps } = target;
+    const restore = createTokenListOwnerCache(ctx, deps, STORE_DATA);
+    seed(target, 'A__all', '1000000000000000000');
+    expect(restore('B__all', 'usd')).toBe(false);
+    seed(target, 'B__all', '2000000000000000000');
+    expect(restore('A__all', 'usd')).toBe(true);
+    expect(store.get(cell(ctx, 'a'))?.balance).toBe('1000000000000000000');
+    expect(store.get(listStructureAtom()).ownerKey).toBe('A__all');
+    expect(store.get(listStructureAtom()).aggMembership).toEqual({
+      aggregate_agg1: ['net1', 'net2'],
+    });
+    expect(
+      store.get(listStructureAtom()).ownedAggregateTokenListMap.aggregate_agg1
+        .tokens[0].$key,
+    ).toBe('member1');
+    expect(store.get(aggCell(ctx, 'aggregate_agg1'))?.fiatValue).toBe('90');
+    expect(store.get(riskyListFrameAtom()).ownerKey).toBe('A__all');
+    expect(restore('B__all', 'usd')).toBe(true);
+    expect(store.get(cell(ctx, 'a'))?.balance).toBe('2000000000000000000');
+  });
+
+  it('retains canonical USD cells when the selected display currency is not USD', () => {
+    const target = setup();
+    const { ctx, store, deps } = target;
+    const restore = createTokenListOwnerCache(ctx, deps, STORE_DATA);
+    seed(target, 'A__all', '11');
+    restore('B__all', 'eur');
+    seed(target, 'B__all', '22');
+    expect(restore('A__all', 'eur')).toBe(true);
+    expect(store.get(cell(ctx, 'a'))?.balance).toBe('11');
+    expect(store.get(cell(ctx, 'a'))?.currency).toBe('usd');
+    expect(store.get(aggCell(ctx, 'aggregate_agg1'))?.fiatValue).toBe('90');
+  });
+
+  it('does not reuse another network, currency, or an incomplete projection', () => {
+    const target = setup();
+    const { ctx, store, deps, projection } = target;
+    const restore = createTokenListOwnerCache(ctx, deps, STORE_DATA);
+    seed(target, 'A__bnb', '1');
+    restore('B__bnb', 'usd');
+    seed(target, 'B__bnb', '2');
+    expect(restore('A__eth', 'usd')).toBe(false);
+    expect(restore('A__bnb', 'eur')).toBe(false);
+    expect(store.get(listStructureAtom()).ownerKey).toBe('B__bnb');
+    store.set(cell(ctx, 'a'), undefined);
+    restore('C__bnb', 'usd');
+    // A fresh cache must not capture partially applied cells.
+    const freshRestore = createTokenListOwnerCache(ctx, deps, STORE_DATA);
+    freshRestore('C__bnb', 'usd');
+    seed(target, 'C__bnb', '3');
+    expect(freshRestore('B__bnb', 'usd')).toBe(false);
+    expect(projection.curOwnerKey).toBe('C__bnb');
+  });
+
+  it('bounds retained owners and lets subsequent BG frames replace the restored data', () => {
+    const target = setup();
+    const { ctx, store, deps, projection } = target;
+    const restore = createTokenListOwnerCache(ctx, deps, STORE_DATA);
+    for (let i = 0; i < 6; i += 1) {
+      seed(target, `${i}__bnb`, String(i));
+      restore(`${i + 1}__bnb`, 'usd');
+    }
+    expect(restore('0__bnb', 'usd')).toBe(false);
+    expect(restore('4__bnb', 'usd')).toBe(true);
+    applyValuationFrame(
+      ctx,
+      projection,
+      {
+        ownerKey: '4__bnb',
+        storeData: STORE_DATA,
+        changedFiatById: { a: makeFiat({ balance: '42', currency: 'usd' }) },
+        changedAggFiat: {},
+      },
+      deps,
+      (fn) => fn(),
+    );
+    expect(store.get(cell(ctx, 'a'))?.balance).toBe('42');
+    applyStructureSnapshot(
+      ctx,
+      projection,
+      {
+        ...store.get(listStructureAtom()),
+        orderedIds: ['a'],
+        smallBalanceIds: [],
+        metaPatch: {},
+        aggMembership: {},
+        storeData: STORE_DATA,
+        generation: 0,
+      },
+      deps,
+    );
+    expect(store.get(listStructureAtom()).orderedIds).toEqual(['a']);
+    expect(projection.curGeneration).toBe(0);
+  });
+});
+
+describe('Home switch preparation', () => {
+  const target: import('../../accountSelector').IAccountSelectorActiveAccountInfo =
+    {
+      ready: true,
+      account: undefined,
+      indexedAccount: undefined,
+      dbAccount: undefined,
+      accountName: '',
+      wallet: undefined,
+      device: undefined,
+      network: undefined,
+      vaultSettings: undefined,
+      deriveType: undefined,
+      deriveInfoItems: [],
+    };
+
+  it('prepares without changing the displayed account until the caller commits', async () => {
+    const commit = jest.fn();
+    const unregister = registerHomeTokenListPreparer(async () => commit);
+    try {
+      const prepared = await prepareHomeTokenListSwitch(target);
+      expect(commit).not.toHaveBeenCalled();
+      prepared?.();
+      expect(commit).toHaveBeenCalledTimes(1);
+    } finally {
+      unregister();
+    }
+    expect(await prepareHomeTokenListSwitch(target)).toBeUndefined();
+  });
+
+  it('aborts superseded preparation and rejects an already prepared stale commit', async () => {
+    const commit = jest.fn();
+    const signals: AbortSignal[] = [];
+    const unregister = registerHomeTokenListPreparer(
+      async (_target, signal) => {
+        signals.push(signal);
+        return commit;
+      },
+    );
+    try {
+      const first = await prepareHomeTokenListSwitch(target);
+      const second = await prepareHomeTokenListSwitch(target);
+      expect(signals[0].aborted).toBe(true);
+      first?.();
+      expect(commit).not.toHaveBeenCalled();
+      second?.();
+      expect(commit).toHaveBeenCalledTimes(1);
+    } finally {
+      unregister();
+    }
+  });
+
+  it('shares pending preparation for duplicate reloads and commits only once', async () => {
+    const commit = jest.fn();
+    let resolve: ((value: () => void) => void) | undefined;
+    const prepare = jest.fn(
+      (_target: typeof target, _signal: AbortSignal) =>
+        new Promise<() => void>((done) => {
+          resolve = done;
+        }),
+    );
+    const unregister = registerHomeTokenListPreparer(prepare);
+    try {
+      const first = prepareHomeTokenListSwitch(target);
+      const duplicate = prepareHomeTokenListSwitch({ ...target });
+      expect(prepare).toHaveBeenCalledTimes(1);
+      expect(prepare.mock.calls[0][1].aborted).toBe(false);
+      resolve?.(commit);
+      const commits = await Promise.all([first, duplicate]);
+      commits.forEach((apply) => apply?.());
+      expect(commit).toHaveBeenCalledTimes(1);
+    } finally {
+      unregister();
+    }
+  });
+
+  it('cancels a different target without clearing its replacement preparation', async () => {
+    const commit = jest.fn();
+    const resolvers: ((value: () => void) => void)[] = [];
+    const prepare = jest.fn(
+      (_target: typeof target, _signal: AbortSignal) =>
+        new Promise<() => void>((done) => {
+          resolvers.push(done);
+        }),
+    );
+    const unregister = registerHomeTokenListPreparer(prepare);
+    try {
+      const first = prepareHomeTokenListSwitch(target);
+      const nextTarget = { ...target, accountName: 'Next account' };
+      const next = prepareHomeTokenListSwitch(nextTarget);
+      expect(await first).toBeUndefined();
+      expect(prepare.mock.calls[0][1].aborted).toBe(true);
+      const duplicate = prepareHomeTokenListSwitch({ ...nextTarget });
+      expect(prepare).toHaveBeenCalledTimes(2);
+      resolvers[0](jest.fn());
+      resolvers[1](commit);
+      const commits = await Promise.all([next, duplicate]);
+      commits.forEach((apply) => apply?.());
+      expect(commit).toHaveBeenCalledTimes(1);
+    } finally {
+      unregister();
+    }
+  });
+
+  it('an unavailable local cache cannot block selection or commit after timeout', async () => {
+    jest.useFakeTimers();
+    const commit = jest.fn();
+    let resolve: ((value: () => void) => void) | undefined;
+    let preparationSignal: AbortSignal | undefined;
+    const unregister = registerHomeTokenListPreparer((_target, signal) => {
+      preparationSignal = signal;
+      return new Promise((done) => {
+        resolve = done;
+      });
+    });
+    try {
+      const pending = prepareHomeTokenListSwitch(target);
+      jest.advanceTimersByTime(2000);
+      expect(await pending).toBeUndefined();
+      expect(preparationSignal?.aborted).toBe(true);
+      resolve?.(commit);
+      await Promise.resolve();
+      expect(commit).not.toHaveBeenCalled();
+    } finally {
+      unregister();
+      jest.useRealTimers();
+    }
   });
 });

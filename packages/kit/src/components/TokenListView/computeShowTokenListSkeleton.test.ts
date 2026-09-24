@@ -19,6 +19,7 @@ function baseHomeFirstLoad(): IComputeShowTokenListSkeletonParams {
     tokenSelectorInitialized: false,
     tokenSelectorSearchTokenStateIsSearching: false,
     searchTokenStateIsSearching: false,
+    isHomeProjectionPath: true,
     tokenListInitialized: false,
     tokenListIsRefreshing: true,
     displayCount: 0,
@@ -28,6 +29,45 @@ function baseHomeFirstLoad(): IComputeShowTokenListSkeletonParams {
 describe('computeShowTokenListSkeleton — cold-start regression', () => {
   it('home first load with NO data shows the skeleton', () => {
     expect(computeShowTokenListSkeleton(baseHomeFirstLoad())).toBe(true);
+  });
+
+  it('keeps an unknown Home list pending after its first request fails', () => {
+    expect(
+      computeShowTokenListSkeleton({
+        ...baseHomeFirstLoad(),
+        tokenListIsRefreshing: false,
+      }),
+    ).toBe(true);
+  });
+
+  it('keeps cached rows visible after a refresh fails', () => {
+    expect(
+      computeShowTokenListSkeleton({
+        ...baseHomeFirstLoad(),
+        tokenListIsRefreshing: false,
+        displayCount: 3,
+      }),
+    ).toBe(false);
+  });
+
+  it('allows a confirmed empty Home frame to render its empty state', () => {
+    expect(
+      computeShowTokenListSkeleton({
+        ...baseHomeFirstLoad(),
+        tokenListInitialized: true,
+        tokenListIsRefreshing: false,
+      }),
+    ).toBe(false);
+  });
+
+  it('preserves the request-based gate outside the Home projection', () => {
+    expect(
+      computeShowTokenListSkeleton({
+        ...baseHomeFirstLoad(),
+        isHomeProjectionPath: false,
+        tokenListIsRefreshing: false,
+      }),
+    ).toBe(false);
   });
 
   it('home first load WITH cold-painted rows (displayCount>0) does NOT skeleton — rows show immediately', () => {

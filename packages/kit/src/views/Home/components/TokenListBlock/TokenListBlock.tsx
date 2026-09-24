@@ -288,6 +288,9 @@ function TokenListBlock({
   // `cellsNonZeroInputs`); the refresh callbacks above read them off this ref so
   // the `ingestRound` call adds no render deps and never reaches uninitialized
   // consts.
+  const refreshProjectionRef = useRef<(ownerKey: string) => Promise<boolean>>(
+    async () => false,
+  );
   const cellsIngestInputsRef = useRef<{
     ownerKey: string;
     nonZeroInputs: {
@@ -357,7 +360,10 @@ function TokenListBlock({
   const [accountTokensWorth] = useAccountWorthAtom();
   const [homePortfolioDisplay] = useHomePortfolioDisplayAtom();
   const [{ currencyMap }] = useCurrencyPersistAtom();
+  const activeOwnerRef = useRef<{ accountId?: string; networkId?: string }>({});
+  activeOwnerRef.current = { accountId: account?.id, networkId: network?.id };
   const [, setOverviewTokenCacheState] = useOverviewTokenCacheStateAtom();
+  const expectedCacheAccountsRef = useRef<IAllNetworkAccountInfo[]>([]);
 
   const walletTokenFilterParams = useMemo(
     () =>
@@ -641,6 +647,7 @@ function TokenListBlock({
       let skipPortfolioSyncRequestFinish = false;
       let ownsPortfolioSyncCommunication = false;
       let tokenListRefreshEventStarted = false;
+      let tokenFetchSucceeded = false;
       const endTokenListRefreshEvent = () => {
         if (!tokenListRefreshEventStarted) {
           return;
@@ -826,6 +833,8 @@ function TokenListBlock({
           }
         }
 
+        tokenFetchSucceeded = true;
+
         const activePortfolioSyncRequest = getPortfolioSyncRequestForTarget(
           portfolioSyncTargetKey,
         );
@@ -913,7 +922,7 @@ function TokenListBlock({
         // a ref (assigned next to the cells consts) so this call needs no extra
         // render deps.
         if (ENABLE_BG_TOKEN_VIEW_MODEL) {
-          void backgroundApiProxy.serviceTokenViewModel.ingestRound({
+          await backgroundApiProxy.serviceTokenViewModel.ingestRound({
             ownerKey: cellsIngestInputsRef.current.ownerKey,
             orderedTokens: r.tokens.data,
             smallBalanceTokens: r.smallBalanceTokens.data,
@@ -943,6 +952,25 @@ function TokenListBlock({
             rawKeys: r.allTokens?.keys ?? '',
             source: 'single',
           });
+          if (
+            activeOwnerRef.current.accountId !== account?.id ||
+            activeOwnerRef.current.networkId !== network?.id
+          )
+            return;
+          const applied = await refreshProjectionRef.current(
+            cellsIngestInputsRef.current.ownerKey,
+          );
+          if (
+            applied &&
+            syncTokenFilterToOverview &&
+            activeOwnerRef.current.accountId === account?.id &&
+            activeOwnerRef.current.networkId === network?.id
+          ) {
+            setOverviewTokenCacheState({
+              ownerKey: buildOverviewOwnerKey(account?.id, network?.id),
+              hasCache: true,
+            });
+          }
         }
 
         if (r.allTokens) {
@@ -987,6 +1015,18 @@ function TokenListBlock({
         }
       } finally {
         if (
+          activeOwnerRef.current.accountId === account?.id &&
+          activeOwnerRef.current.networkId === network?.id &&
+          singleNetworkRefreshGeneration > 0 &&
+          singleNetworkRefreshGeneration ===
+            singleNetworkRefreshGenerationRef.current
+        ) {
+          updateTokenListState({
+            ...(tokenFetchSucceeded ? { initialized: true } : {}),
+            isRefreshing: false,
+          });
+        }
+        if (
           portfolioSyncRequest &&
           !skipPortfolioSyncRequestFinish &&
           (ownsPortfolioSyncCommunication ||
@@ -1022,6 +1062,7 @@ function TokenListBlock({
       transitionPortfolioSyncRequest,
       walletTokenFilterParams,
       wallet,
+      setOverviewTokenCacheState,
     ],
     {
       overrideIsFocused: (isPageFocused) =>
@@ -1181,8 +1222,6 @@ function TokenListBlock({
   // responses (detached history-loop refreshes, un-aborted fetches from a
   // previous owner) instead of writing over atoms already cleared and
   // re-stamped for the new owner.
-  const activeOwnerRef = useRef<{ accountId?: string; networkId?: string }>({});
-  activeOwnerRef.current = { accountId: account?.id, networkId: network?.id };
 
   // TokenList cells producer (spec §4.1, §6). Observes the settled atoms the
   // refresh* writers above land into and projects each fetch round into the
@@ -1228,7 +1267,10 @@ function TokenListBlock({
     }),
     [homeDefaultTokenMap, cellsCustomTokens],
   );
-  useTokenListCellsProducer(cellsOwnerKey, cellsCurrencyId);
+  refreshProjectionRef.current = useTokenListCellsProducer(
+    cellsOwnerKey,
+    cellsCurrencyId,
+  );
 
   // Keep the BG `ingestRound` inputs ref current so the refresh callbacks can
   // hand the right owner + hideZero inputs to `serviceTokenViewModel.ingestRound`
@@ -1546,7 +1588,7 @@ function TokenListBlock({
   );
 
   const handleAllNetworkCacheChecked = useCallback(
-    ({
+    async ({
       accountId,
       networkId,
       hasCache,
@@ -1555,15 +1597,59 @@ function TokenListBlock({
       networkId?: string;
       hasCache: boolean;
     }) => {
-      if (!syncTokenFilterToOverview) {
+      const isCurrent = () =>
+        activeOwnerRef.current.accountId === accountId &&
+        activeOwnerRef.current.networkId === networkId;
+      if (!syncTokenFilterToOverview || !isCurrent()) return;
+      const ownerKey = buildOverviewOwnerKey(accountId, networkId);
+      // An empty account set is authoritative; failed token requests are not.
+      if (!hasCache && expectedCacheAccountsRef.current.length === 0) {
+        const cellsOwner = cellsIngestInputsRef.current.ownerKey;
+        await backgroundApiProxy.serviceTokenViewModel.ingestRound(
+          buildHomeTokenListCacheIngestRound({
+            ownerKey: cellsOwner,
+            accountId,
+            networkId,
+            tokenList: [],
+            smallBalanceTokenList: [],
+            riskyTokenList: [],
+            tokenListMap: {},
+            source: 'cacheSeed',
+          }),
+        );
+        if (!isCurrent()) return;
+        await refreshProjectionRef.current(cellsOwner);
+        if (!isCurrent()) return;
+        updateAccountWorth({
+          accountId: accountId ?? '',
+          initialized: true,
+          updateAll: true,
+          worth: {
+            [accountUtils.buildAccountValueKey({
+              accountId: accountId ?? '',
+              networkId: networkId ?? '',
+            })]: '0',
+          },
+          createAtNetworkWorth: '0',
+          currency: USD_CURRENCY_ID,
+        });
+        updateTokenListState({ initialized: true, isRefreshing: false });
+        updateAccountOverviewState({ initialized: true, isRefreshing: false });
+        setOverviewTokenCacheState({
+          ownerKey,
+          hasCache: false,
+        });
         return;
       }
-      setOverviewTokenCacheState({
-        ownerKey: buildOverviewOwnerKey(accountId, networkId),
-        hasCache,
-      });
+      setOverviewTokenCacheState({ ownerKey, hasCache });
     },
-    [setOverviewTokenCacheState, syncTokenFilterToOverview],
+    [
+      setOverviewTokenCacheState,
+      syncTokenFilterToOverview,
+      updateAccountWorth,
+      updateTokenListState,
+      updateAccountOverviewState,
+    ],
   );
 
   const handleAllNetworkRequestsStarted = useCallback(
@@ -1646,10 +1732,12 @@ function TokenListBlock({
       });
 
       if (syncTokenFilterToOverview) {
-        setOverviewTokenCacheState({
-          ownerKey: buildOverviewOwnerKey(account?.id, network?.id),
+        const ownerKey = buildOverviewOwnerKey(account?.id, network?.id);
+        setOverviewTokenCacheState((prev) => ({
+          ...(prev.ownerKey === ownerKey ? prev : {}),
+          ownerKey,
           hasCache: undefined,
-        });
+        }));
       }
     },
     [
@@ -1888,6 +1976,19 @@ function TokenListBlock({
           generation,
         });
 
+        const cacheOwnerKey = cellsIngestInputsRef.current.ownerKey;
+        const applied = await refreshProjectionRef.current(cacheOwnerKey);
+        if (
+          activeOwnerRef.current.accountId !== accountId ||
+          activeOwnerRef.current.networkId !== networkId
+        )
+          return;
+        if (syncTokenFilterToOverview && applied) {
+          setOverviewTokenCacheState({
+            ownerKey: buildOverviewOwnerKey(accountId, networkId),
+            hasCache: true,
+          });
+        }
         perfTokenListView.markEnd('tokenListRefreshing_allNetworkCacheData');
         updateTokenListState({
           initialized: true,
@@ -1927,6 +2028,7 @@ function TokenListBlock({
       // an account); a network dropped from it evicts, a still-present-unsettled
       // network keeps its cache floor (I2).
       setPipelineEnabledKeys(accounts);
+      expectedCacheAccountsRef.current = accounts;
       setAllNetworkAccounts(accounts);
     },
     [setPipelineEnabledKeys, updateAllNetworksState],
@@ -1962,28 +2064,25 @@ function TokenListBlock({
     [],
   );
 
-  const {
-    run: runAllNetworksRequests,
-    result: allNetworksResult,
-    isEmptyAccount,
-  } = useAllNetworkRequests<IAllNetworkTokenListResp>({
-    accountId: account?.id,
-    networkId: network?.id,
-    walletId: wallet?.id,
-    isAllNetworks: network?.isAllNetworks,
-    allNetworkRequests: handleAllNetworkRequests,
-    allNetworkCacheRequests: handleAllNetworkCacheRequests,
-    allNetworkCacheData: handleAllNetworkCacheData,
-    allNetworkAccountsData: handleAllNetworkAccountsData,
-    clearAllNetworkData: handleClearAllNetworkData,
-    onStarted: handleAllNetworkRequestsStarted,
-    onFinished: handleAllNetworkRequestsFinished,
-    onCacheChecked: handleAllNetworkCacheChecked,
-    onRequestSettled: handleAllNetworkRequestSettled,
-    onResultPublished: handleAllNetworkResultPublished,
-    shouldAlwaysFetch,
-    clearRetainedResultOnAcceptedRun: true,
-  });
+  const { run: runAllNetworksRequests, result: allNetworksResult } =
+    useAllNetworkRequests<IAllNetworkTokenListResp>({
+      accountId: account?.id,
+      networkId: network?.id,
+      walletId: wallet?.id,
+      isAllNetworks: network?.isAllNetworks,
+      allNetworkRequests: handleAllNetworkRequests,
+      allNetworkCacheRequests: handleAllNetworkCacheRequests,
+      allNetworkCacheData: handleAllNetworkCacheData,
+      allNetworkAccountsData: handleAllNetworkAccountsData,
+      clearAllNetworkData: handleClearAllNetworkData,
+      onStarted: handleAllNetworkRequestsStarted,
+      onFinished: handleAllNetworkRequestsFinished,
+      onCacheChecked: handleAllNetworkCacheChecked,
+      onRequestSettled: handleAllNetworkRequestSettled,
+      onResultPublished: handleAllNetworkResultPublished,
+      shouldAlwaysFetch,
+      clearRetainedResultOnAcceptedRun: true,
+    });
 
   const getPortfolioSyncRequestForAllNetworksResult = useCallback(() => {
     const request = getPortfolioSyncRequestForTarget(portfolioSyncTargetKey);
@@ -2246,12 +2345,24 @@ function TokenListBlock({
         ownerPresent: !!account?.id,
         indexedAccountPresent: !!indexedAccount?.id,
       });
-      commitAuthoritativeIngest(snapshot);
-
-      updateTokenListState({
-        initialized: true,
-        isRefreshing: false,
-      });
+      try {
+        await commitAuthoritativeIngest(snapshot);
+        if (isStaleOwnerRequest()) return;
+        const applied = await refreshProjectionRef.current(
+          cellsIngestInputsRef.current.ownerKey,
+        );
+        if (isStaleOwnerRequest()) return;
+        if (shouldSyncTokenFilterToOverview && applied) {
+          setOverviewTokenCacheState({
+            ownerKey: buildOverviewOwnerKey(account?.id, network?.id),
+            hasCache: true,
+          });
+        }
+      } finally {
+        if (!isStaleOwnerRequest()) {
+          updateTokenListState({ initialized: true, isRefreshing: false });
+        }
+      }
 
       // Asset status analytics is non-critical for the Home refresh. Keep it
       // after the authoritative snapshot has reached the UI so a slow background
@@ -2410,6 +2521,7 @@ function TokenListBlock({
     updateTokenListState,
     transitionPortfolioSyncRequest,
     wallet,
+    setOverviewTokenCacheState,
   ]);
   const runUpdateAllNetworksTokenList = useCallback(async () => {
     const portfolioSyncRequest = getPortfolioSyncRequestForAllNetworksResult();
@@ -2640,12 +2752,12 @@ function TokenListBlock({
         indexedAccountPresent: !!indexedAccount?.id,
       });
 
-      const ingestSingleNetworkCache = ({
+      const ingestSingleNetworkCache = async ({
         source,
       }: {
         source: 'singleCacheSeed' | 'singleEmptyCacheSeed';
       }) => {
-        void backgroundApiProxy.serviceTokenViewModel.ingestRound(
+        await backgroundApiProxy.serviceTokenViewModel.ingestRound(
           buildHomeTokenListCacheIngestRound({
             ownerKey: cellsIngestInputsRef.current.ownerKey,
             accountId: account?.id,
@@ -2664,6 +2776,17 @@ function TokenListBlock({
             source,
           }),
         );
+        if (cancelled) return;
+        const applied = await refreshProjectionRef.current(
+          cellsIngestInputsRef.current.ownerKey,
+        );
+        if (cancelled) return;
+        if (syncTokenFilterToOverview && applied) {
+          setOverviewTokenCacheState({
+            ownerKey: buildOverviewOwnerKey(accountId, networkId),
+            hasCache: true,
+          });
+        }
         defaultLogger.account.allNetworkAccountPerf.homeTokenListRefreshTrace({
           runtime: 'main',
           phase: 'single-network-cache-ingest',
@@ -2702,7 +2825,8 @@ function TokenListBlock({
           handleClearAllNetworkData();
           // Stamp the empty cached owner into the cell VM so an empty cached
           // target renders the empty state instead of a previous-owner skeleton.
-          ingestSingleNetworkCache({ source: 'singleEmptyCacheSeed' });
+          await ingestSingleNetworkCache({ source: 'singleEmptyCacheSeed' });
+          if (cancelled) return;
           updateAccountOverviewState({
             isRefreshing: false,
             initialized: true,
@@ -2751,7 +2875,8 @@ function TokenListBlock({
           initialized: true,
         });
 
-        ingestSingleNetworkCache({ source: 'singleCacheSeed' });
+        await ingestSingleNetworkCache({ source: 'singleCacheSeed' });
+        if (cancelled) return;
         perfTokenListView.markEnd('tokenListRefreshing_initTokenListData');
         updateTokenListState({
           initialized: true,
@@ -3500,20 +3625,6 @@ function TokenListBlock({
     // every tab switch.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [account?.id, network?.id]);
-
-  useEffect(() => {
-    if (isEmptyAccount) {
-      perfTokenListView.markEnd('tokenListRefreshing_emptyAccount');
-      updateTokenListState({
-        initialized: true,
-        isRefreshing: false,
-      });
-      updateAccountOverviewState({
-        initialized: true,
-        isRefreshing: false,
-      });
-    }
-  }, [isEmptyAccount, updateAccountOverviewState, updateTokenListState]);
 
   const [allNetworksState] = useAllNetworksStateStateAtom();
   const isAllNetworkEmptyAccount = useMemo(() => {

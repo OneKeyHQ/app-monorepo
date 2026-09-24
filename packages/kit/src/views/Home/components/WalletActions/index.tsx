@@ -423,11 +423,6 @@ function WalletActions({ ...rest }: IXStackProps) {
   const { config, getActionCustomization } = useWalletActionConfig();
   const balanceState = useHomeBalanceState();
 
-  // True cold-start with no cached balance: render nothing rather than guess
-  // a state. Sticky fallback in `useHomeBalanceState` keeps subsequent account
-  // switches from re-entering this branch.
-  if (balanceState === 'unknown') return null;
-
   const renderActionComponent = (actionType: IWalletActionType) => {
     const customization = getActionCustomization(actionType);
 
@@ -472,7 +467,8 @@ function WalletActions({ ...rest }: IXStackProps) {
     },
   } as const;
 
-  if (balanceState === 'positive') {
+  // Asset requests must not block access to the wallet actions.
+  if (balanceState !== 'zero') {
     return (
       <RawActions {...rest} {...rawActionsLayout}>
         {config.mainActions.map(renderActionComponent).filter(Boolean)}

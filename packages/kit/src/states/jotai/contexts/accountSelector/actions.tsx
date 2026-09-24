@@ -458,8 +458,8 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
       );
 
       if (pendingHomeSync) {
-        await this.setRecentAccountSelectorSelectionCacheHomeSync(
-          pendingHomeSync,
+        this.trackRecentAccountSelectorSelectionCacheMirror(
+          this.setRecentAccountSelectorSelectionCacheHomeSync(pendingHomeSync),
         );
       }
     } catch {
@@ -467,10 +467,38 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
     }
   }
 
+  // Mirror writes into the other scene's entry that had to ask the background
+  // first. The caller's own entry is already stored, so confirmAccountSelect
+  // and updateSelectedAccount do not wait for them: on native that wait is a
+  // cross-runtime round trip taken while home is already reloading for the
+  // new account, and updateSelectedAccount holds a mutex shared by every
+  // scene. The web/desktop flush does wait, because a popup closed before the
+  // mirror lands would restore the other scene's older selection on the next
+  // cold open.
+  recentSelectionMirrorTasks = new Set<Promise<void>>();
+
+  trackRecentAccountSelectorSelectionCacheMirror(mirror: Promise<void>) {
+    const task: Promise<void> = mirror
+      .catch(() => {
+        // The recent selection cache only protects the quick-kill window.
+      })
+      .finally(() => {
+        this.recentSelectionMirrorTasks.delete(task);
+      });
+    this.recentSelectionMirrorTasks.add(task);
+  }
+
+  // Only the mirrors in flight now: a selection made while waiting brings its
+  // own flush.
+  async waitForRecentAccountSelectorSelectionCacheMirrors() {
+    await Promise.all(this.recentSelectionMirrorTasks);
+  }
+
   // Runs after the source entry is already stored, because it has to ask the
   // background: a scene without a cached network takes it from its saved
   // record, and an others-wallet account keeps its identity by moving to a
-  // network it supports, as the live sync does.
+  // network it supports, as the live sync does. Not awaited by the selection
+  // path; see recentSelectionMirrorTasks.
   async setRecentAccountSelectorSelectionCacheHomeSync({
     sceneId,
     homeSyncSceneName,
@@ -543,6 +571,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
       return;
     }
     try {
+      await this.waitForRecentAccountSelectorSelectionCacheMirrors();
       // eslint-disable-next-line @typescript-eslint/no-require-imports
       const { flushUiSnapshotStoreNow } =
         require('@onekeyhq/shared/src/storage/DisplaySnapshotStorage/webUiSnapshotStore') as typeof import('@onekeyhq/shared/src/storage/DisplaySnapshotStorage/webUiSnapshotStore');
@@ -756,21 +785,21 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
         selectedAccount: IAccountSelectorSelectedAccount;
         forceReload?: boolean;
       },
-    ): Promise<IAccountSelectorActiveAccountInfo> =>
-      this.mutex.runExclusive(async () => {
+    ): Promise<IAccountSelectorActiveAccountInfo> => {
+      const { num, selectedAccount, forceReload } = payload;
+      const markActiveAccountInitDone = () => {
+        set(accountSelectorActiveAccountInitDoneAtom(), {
+          ...get(accountSelectorActiveAccountInitDoneAtom()),
+          [num]: true,
+        });
+      };
+      const prepared = await this.mutex.runExclusive(async () => {
         const { serviceAccountSelector } = backgroundApiProxy;
-        const { num, selectedAccount, forceReload } = payload;
         // console.log('buildActiveAccountInfoFromSelectedAccount', {
         // selectedAccount,
         // });
         const currentActiveAccount =
           get(activeAccountsAtom())?.[num] || defaultActiveAccountInfo();
-        const markActiveAccountInitDone = () => {
-          set(accountSelectorActiveAccountInitDoneAtom(), {
-            ...get(accountSelectorActiveAccountInitDoneAtom()),
-            [num]: true,
-          });
-        };
         if (
           !forceReload &&
           shouldKeepCurrentActiveAccountForIncompleteSelection({
@@ -780,7 +809,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
           })
         ) {
           markActiveAccountInitDone();
-          return currentActiveAccount;
+          return { activeAccount: currentActiveAccount, skipped: true };
         }
         let activeAccount: IAccountSelectorActiveAccountInfo | undefined;
         try {
@@ -802,6 +831,27 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
         //   selectedAccount,
         //   activeAccount,
         // });
+        return { activeAccount, skipped: false };
+      });
+      if (prepared.skipped) return prepared.activeAccount;
+      const { activeAccount } = prepared;
+      // Local snapshot reads must not hold the shared selector lock.
+      let commitHome: (() => void) | undefined;
+      if (
+        platformEnv.isNative &&
+        num === 0 &&
+        get(accountSelectorContextDataAtom())?.sceneName ===
+          EAccountSelectorSceneName.home
+      ) {
+        try {
+          const { prepareHomeTokenListSwitch } =
+            await import('../tokenList/cells/ownerCache');
+          commitHome = await prepareHomeTokenListSwitch(activeAccount);
+        } catch {
+          // A missing or unreadable local snapshot falls back to loading.
+        }
+      }
+      return this.mutex.runExclusive(() => {
         const currentSelectedAccount =
           this.getSelectedAccount.call(set, { num }) ||
           defaultSelectedAccount();
@@ -811,8 +861,10 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
             omitBy(selectedAccount, isUndefined),
           )
         ) {
-          return currentActiveAccount;
+          return get(activeAccountsAtom())?.[num] || defaultActiveAccountInfo();
         }
+        // No await between applying the target snapshot and publishing its owner.
+        commitHome?.();
         set(activeAccountsAtom(), {
           ...get(activeAccountsAtom()),
           [num]: activeAccount,
@@ -820,7 +872,8 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
         markActiveAccountInitDone();
         // contextAtom snapshot saving is now automatic via coldStartCache.
         return activeAccount;
-      }),
+      });
+    },
   );
 
   updateSelectedAccountFocusedWallet = contextAtomMethod(

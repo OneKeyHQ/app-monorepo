@@ -377,7 +377,7 @@ describe('useTokenListReactivePipeline', () => {
       const snap = await result.current.buildAuthoritativeSnapshot();
       expect(snap).toBeDefined();
       if (snap) {
-        result.current.commitAuthoritativeIngest(snap);
+        await result.current.commitAuthoritativeIngest(snap);
       }
     });
     expect(mockIngestRound).toHaveBeenCalledTimes(1);
@@ -472,7 +472,7 @@ describe('useTokenListReactivePipeline', () => {
         const snap = await result.current.buildAuthoritativeSnapshot();
         expect(snap).toBeDefined();
         if (snap) {
-          result.current.commitAuthoritativeIngest(snap);
+          await result.current.commitAuthoritativeIngest(snap);
         }
       });
       mockIngestRound.mockClear();
@@ -548,7 +548,7 @@ describe('useTokenListReactivePipeline', () => {
         const snap = await result.current.buildAuthoritativeSnapshot();
         expect(snap).toBeDefined();
         if (snap) {
-          result.current.commitAuthoritativeIngest(snap);
+          await result.current.commitAuthoritativeIngest(snap);
         }
       });
       mockIngestRound.mockClear();

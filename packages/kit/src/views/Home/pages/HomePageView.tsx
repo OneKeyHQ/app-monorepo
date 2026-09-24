@@ -1,4 +1,11 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  Fragment,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 
 import { useFocusEffect } from '@react-navigation/core';
 import { CanceledError } from 'axios';
@@ -212,15 +219,24 @@ function HomeTabContentMaxWidth({ children }: { children: React.ReactNode }) {
 function FreezeInactiveHomeTab({
   tabName,
   pressedTabName,
+  accountKey,
   children,
 }: {
+  accountKey?: string;
   tabName: string;
   pressedTabName: string;
   children: React.ReactNode;
 }) {
   const focusedTab = useFocusedTab();
+  const [renderedAccountKey, setRenderedAccountKey] = useState(accountKey);
+  useEffect(() => {
+    setRenderedAccountKey(accountKey);
+  }, [accountKey]);
+  // The token pane also feeds header balances while another tab is active.
+  // Give its new owner one render/effect cycle before freezing again.
   const frozen = useHomeTabFreeze(
-    isHomeTabActive({ tabName, focusedTab, pressedTabName }),
+    renderedAccountKey !== accountKey ||
+      isHomeTabActive({ tabName, focusedTab, pressedTabName }),
   );
   return <DelayedFreeze freeze={frozen}>{children}</DelayedFreeze>;
 }
@@ -927,29 +943,8 @@ export function HomePageView({
         </Keyboard.AwareScrollView>
       );
     }
-    // Exclude isDeFiEnabled/isNFTEnabled from key to prevent Tabs.Container
-    // from being destroyed and recreated when these values change async.
-    // Tabs render conditionally inside the container instead.
-    //
-    // Also exclude `account?.id` and `network?.id`: for HD wallets the
-    // per-network account.id differs across networks even when the user is
-    // on the same indexedAccount, and including network.id forces a full
-    // remount of Tabs.Container (and the FlashList inside TokenListView) on
-    // every network switch. The remount produces a brief blank frame while
-    // FlashList re-measures, even when the target has cache. Keying on
-    // wallet + indexedAccountId (with account.id as the Others-wallet
-    // fallback, since those have no indexedAccountId) keeps the subtree
-    // mounted across pure network switches — the singleton token-list atoms
-    // are then driven by account/network changes via the per-owner cache
-    // hydration in TokenListBlock.
-    //
-    // Caveat: Others wallets (imported / watching / external) have no
-    // `indexedAccountId`, so they fall back to `account.id`, which IS
-    // network-scoped for those wallet types. Switching networks on an
-    // Others wallet therefore still remounts Tabs.Container — the
-    // optimization here is intentionally HD-only because Others wallets
-    // typically stay pinned to a single network and the cost of the
-    // occasional remount is not worth special-casing.
+    // Native keeps the header, toolbar and token rows mounted across owners.
+    // Other panes still reset their local state with the account key below.
     const key = `${wallet?.id ?? ''}-${
       account?.indexedAccountId ?? account?.id ?? ''
     }`;
@@ -969,7 +964,7 @@ export function HomePageView({
     return (
       <Tabs.Container
         ref={tabsRef as any}
-        key={key}
+        key={platformEnv.isNative ? undefined : key}
         // Both implementations only read this prop at mount.
         initialTabName={seedTabName || undefined}
         allowHeaderOverscroll
@@ -1002,12 +997,17 @@ export function HomePageView({
             <FreezeInactiveHomeTab
               tabName={tab.name}
               pressedTabName={activeTabName}
+              accountKey={tab.id === EHomeWalletTab.Portfolio ? key : undefined}
             >
               {platformEnv.isNative ||
               tab.id === EHomeWalletTab.Perps ||
               activeTabId === tab.id ||
               mountedHomeTabIds.has(tab.id) ? (
-                tab.component
+                <Fragment
+                  key={tab.id === EHomeWalletTab.Portfolio ? undefined : key}
+                >
+                  {tab.component}
+                </Fragment>
               ) : (
                 <Stack flex={1} />
               )}

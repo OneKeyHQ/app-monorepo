@@ -22,7 +22,9 @@ function useManageToken({
   isOthersWallet,
   indexedAccountId,
   deriveType,
+  vaultSettings: preparedVaultSettings,
 }: {
+  vaultSettings?: IVaultSettings;
   accountId: string;
   networkId: string;
   walletId: string;
@@ -78,7 +80,9 @@ function useManageToken({
 
   return {
     manageTokenEnabled:
-      !!networkId && !!vaultSettings && !vaultSettings.isSingleToken,
+      !!networkId &&
+      !!(preparedVaultSettings ?? vaultSettings) &&
+      !(preparedVaultSettings ?? vaultSettings)?.isSingleToken,
     handleOnManageToken,
   };
 }

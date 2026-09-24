@@ -20558,6 +20558,7 @@
     "packages/kit/src/states/jotai/contexts/tokenList/cells/coldStart.ts": 10136,
     "packages/kit/src/states/jotai/contexts/tokenList/cells/homeProjection.ts": 3615,
     "packages/kit/src/states/jotai/contexts/tokenList/cells/index.ts": 22898,
+    "packages/kit/src/states/jotai/contexts/tokenList/cells/ownerCache.ts": 909,
     "packages/kit/src/states/jotai/contexts/tokenList/cells/projection.ts": 7086,
     "packages/kit/src/states/jotai/contexts/tokenList/cells/registry.ts": 23215,
     "packages/kit/src/states/jotai/contexts/tokenList/cells/seamGate.ts": 2128,

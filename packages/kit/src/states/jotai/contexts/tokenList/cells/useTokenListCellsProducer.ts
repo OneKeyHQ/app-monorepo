@@ -22,10 +22,19 @@
  * already painted the projection cells before this effect runs and they hold
  * until the first PULL/push supersedes them at a higher generation.
  */
-import { useEffect, useMemo, useRef } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+} from 'react';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { loadHomeTokenListCache } from '@onekeyhq/kit/src/views/Home/components/TokenListBlock/buildHomeTokenListCacheIngestRound';
+import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { IJotaiContextStoreData } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { buildFrames } from '@onekeyhq/kit-bg/src/states/jotai/contexts/tokenList/cellsPure/buildFrames';
 import {
   fiatEqual,
   isAgg,
@@ -36,8 +45,17 @@ import type {
   IValuationFrame,
 } from '@onekeyhq/kit-bg/src/states/jotai/contexts/tokenList/cellsPure/types';
 import { EAppEventBusNames } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { FrameSubscriberGate } from '@onekeyhq/shared/src/frameChannel';
 import type { IAccountToken, ITokenFiat } from '@onekeyhq/shared/types/token';
 
+import {
+  accountWorthAtom,
+  overviewTokenCacheStateAtom,
+} from '../../accountOverview';
+import {
+  activeAccountsAtom,
+  useAccountSelectorContextData,
+} from '../../accountSelector';
 import {
   listStructureAtom,
   riskyListFrameAtom,
@@ -57,6 +75,10 @@ import {
   schedulePersistSlimColdCache,
 } from './coldStart';
 import {
+  createTokenListOwnerCache,
+  registerHomeTokenListPreparer,
+} from './ownerCache';
+import {
   aggCell,
   cell,
   clearAll,
@@ -71,6 +93,7 @@ import {
   isPrimaryColdStartWriter,
   registerMountedStore,
 } from './registry';
+import { getHomeTokenListOwnerKey } from './useHomeTokenListOwnerKey';
 
 import type { IApplyDeps } from './apply';
 
@@ -117,8 +140,9 @@ export function useTokenListCellsProducer(
   ownerKey: string,
   currencyId: string,
   storeName?: string,
-): void {
+): (currentOwner: string) => Promise<boolean> {
   const { store } = useTokenListContextData();
+  const { store: accountSelectorStore } = useAccountSelectorContextData();
 
   // Stable deps bag bound to this store. `meta/cell/subcell/aggCell` resolve the
   // SAME per-store projection the leaves read (via the WeakMap), so the shell
@@ -167,10 +191,204 @@ export function useTokenListCellsProducer(
     return { storeData, resolvedStoreName };
   }, [store, storeName]);
 
+  // Explicit post-ingest pulls and subscribed pushes share one version gate.
+  // A delayed pull must not roll back a newer valuation already on screen.
+  const projectionGate = useMemo(
+    () => ({
+      ownerKey,
+      store,
+      gate: new FrameSubscriberGate<ITokenFrameKind>({
+        structure: {},
+        valuation: {},
+        risky: { floorVersion: 0 },
+      }),
+    }),
+    [ownerKey, store],
+  );
+  const projectionGateRef = useRef(projectionGate);
+  projectionGateRef.current = projectionGate;
+
+  const refreshProjection = useCallback(
+    async (currentOwner: string) => {
+      if (!store || !deps || !identity || !accountSelectorStore) return false;
+      const frames =
+        await backgroundApiProxy.serviceTokenViewModel.getTokenListFrames({
+          ownerKey: currentOwner,
+        });
+      if (
+        getHomeTokenListOwnerKey(
+          accountSelectorStore.get(activeAccountsAtom())[0],
+        ) !== currentOwner ||
+        !frames.structure ||
+        !frames.valuation ||
+        projectionGateRef.current !== projectionGate
+      )
+        return false;
+      const projection = ensureStoreProjection(store);
+      if (projectionGate.gate.accept('structure', frames.structureVersion))
+        applyStructureSnapshot(
+          store,
+          projection,
+          { ...frames.structure, storeData: identity.storeData },
+          deps,
+        );
+      if (projectionGate.gate.accept('valuation', frames.valuationVersion))
+        applyValuationFrame(
+          store,
+          projection,
+          { ...frames.valuation, storeData: identity.storeData },
+          deps,
+          (fn) => fn(),
+        );
+      if (projectionGate.gate.accept('risky', frames.riskyVersion))
+        applyRiskyFrame(
+          store,
+          {
+            ownerKey: currentOwner,
+            riskyTokens: frames.riskyTokens,
+            riskyMap: frames.riskyMap,
+            storeData: identity.storeData,
+          },
+          deps,
+        );
+      return true;
+    },
+    [store, deps, identity, accountSelectorStore, projectionGate],
+  );
+
+  useLayoutEffect(() => {
+    if (!store || !deps || !identity || !accountSelectorStore) return;
+    const restoreOwner = createTokenListOwnerCache(
+      store,
+      deps,
+      identity.storeData,
+    );
+    const unregister =
+      identity.resolvedStoreName === EJotaiContextStoreNames.homeTokenList
+        ? registerHomeTokenListPreparer(async (target, signal) => {
+            const targetOwner = getHomeTokenListOwnerKey(target);
+            const currency = currencyIdRef.current;
+            if (
+              !targetOwner ||
+              targetOwner === ensureStoreProjection(store).curOwnerKey
+            )
+              return undefined;
+            if (restoreOwner.has(targetOwner, currency)) {
+              return () => {
+                if (currencyIdRef.current === currency) {
+                  restoreOwner(targetOwner, currency);
+                }
+              };
+            }
+            const pulled =
+              await backgroundApiProxy.serviceTokenViewModel.getTokenListFrames(
+                { ownerKey: targetOwner },
+              );
+            if (signal.aborted) return undefined;
+            let structure = pulled.structure;
+            let valuation = pulled.valuation;
+            let risky = {
+              ownerKey: targetOwner,
+              riskyTokens: pulled.riskyTokens,
+              riskyMap: pulled.riskyMap,
+            };
+            let local: Awaited<ReturnType<typeof loadHomeTokenListCache>>;
+            if (!structure || !valuation) {
+              local = await loadHomeTokenListCache(target, targetOwner, signal);
+              if (signal.aborted || !local) return undefined;
+              const [defaults, customTokens] = await Promise.all([
+                backgroundApiProxy.serviceToken.getHomeDefaultTokenMap(),
+                backgroundApiProxy.serviceCustomToken.getCustomTokens({
+                  accountId: target.account?.id ?? '',
+                  networkId: target.network?.id ?? '',
+                }),
+              ]);
+              if (signal.aborted) return undefined;
+              const frames = buildFrames(
+                {
+                  ...local.ingest,
+                  keepDefault: true,
+                  homeDefaultTokenMap: defaults,
+                  customTokens,
+                },
+                {
+                  structure: {
+                    ...store.get(listStructureAtom()),
+                    ownerKey: '',
+                    generation: -1,
+                  },
+                  smallBalanceFiatValue: '',
+                  metaByKey: {},
+                },
+              );
+              structure = frames.structure;
+              valuation = frames.valuation;
+              risky = {
+                ownerKey: targetOwner,
+                riskyTokens: local.ingest.riskyTokens ?? [],
+                riskyMap: local.ingest.riskyMap ?? {},
+              };
+            }
+            if (!structure || !valuation) return undefined;
+            const snapshot = {
+              structure: { ...structure, storeData: identity.storeData },
+              valuation: { ...valuation, storeData: identity.storeData },
+              risky,
+            };
+            return () => {
+              if (signal.aborted || currencyIdRef.current !== currency) return;
+              restoreOwner.seed(targetOwner, currency, snapshot);
+              restoreOwner(targetOwner, currency);
+              if (local && target.account && target.network) {
+                const overview = resolveCurrentStore({
+                  storeName: EJotaiContextStoreNames.homeAccountOverview,
+                });
+                overview?.set(accountWorthAtom(), {
+                  accountId: target.account.id,
+                  worth: local.worth,
+                  initialized: true,
+                  updateAll: !!target.network.isAllNetworks && local.complete,
+                  createAtNetworkWorth: '0',
+                  currency: local.currency,
+                });
+                overview?.set(overviewTokenCacheStateAtom(), {
+                  ownerKey: `${target.account.id}__${target.network.id}`,
+                  hasCache: true,
+                });
+              }
+            };
+          })
+        : undefined;
+    // Retain the synchronous fast path for selections outside the Home action.
+    const unsubscribe = accountSelectorStore.sub(activeAccountsAtom(), () => {
+      restoreOwner(
+        getHomeTokenListOwnerKey(
+          accountSelectorStore.get(activeAccountsAtom())[0],
+        ),
+        currencyIdRef.current,
+      );
+    });
+    return () => {
+      unregister?.();
+      unsubscribe();
+    };
+  }, [accountSelectorStore, store, deps, identity]);
+
+  const isCurrentOwner = () =>
+    getHomeTokenListOwnerKey(
+      accountSelectorStore?.get(activeAccountsAtom())[0],
+    ) === ownerKey;
+
   const enabled = !!(store && deps && ownerKey && identity);
 
   useEffect(() => {
-    if (!enabled || !store || !deps || !identity) {
+    if (
+      !enabled ||
+      !store ||
+      !deps ||
+      !identity ||
+      store.get(riskyListFrameAtom()).ownerKey === ownerKey
+    ) {
       return;
     }
     applyRiskyFrame(
@@ -227,10 +445,12 @@ export function useTokenListCellsProducer(
         getOwnerKey: (p) => (p as IStructurePush).ownerKey,
         getVersion: (p) => (p as IStructurePush).structureVersion,
         apply: (p) => {
-          const { structure } = p as IStructurePush;
-          if (!structure || !store || !deps || !identity) {
+          const { structure, structureVersion } = p as IStructurePush;
+          if (!structure || !store || !deps || !identity || !isCurrentOwner()) {
             return;
           }
+          if (!projectionGate.gate.accept('structure', structureVersion))
+            return;
           // Re-stamp storeData to THIS store so apply's identity guard passes.
           applyStructureSnapshot(
             store,
@@ -254,10 +474,12 @@ export function useTokenListCellsProducer(
         getOwnerKey: (p) => (p as IValuationPush).ownerKey,
         getVersion: (p) => (p as IValuationPush).valuationVersion,
         apply: (p) => {
-          const { valuation } = p as IValuationPush;
-          if (!valuation || !store || !deps || !identity) {
+          const { valuation, valuationVersion } = p as IValuationPush;
+          if (!valuation || !store || !deps || !identity || !isCurrentOwner()) {
             return;
           }
+          if (!projectionGate.gate.accept('valuation', valuationVersion))
+            return;
           applyValuationFrame(
             store,
             ensureStoreProjection(store),
@@ -284,10 +506,11 @@ export function useTokenListCellsProducer(
         getOwnerKey: (p) => (p as IRiskyPush).ownerKey,
         getVersion: (p) => (p as IRiskyPush).riskyVersion,
         apply: (p) => {
-          const { riskyTokens, riskyMap } = p as IRiskyPush;
-          if (!store || !deps || !identity) {
+          const { riskyTokens, riskyMap, riskyVersion } = p as IRiskyPush;
+          if (!store || !deps || !identity || !isCurrentOwner()) {
             return;
           }
+          if (!projectionGate.gate.accept('risky', riskyVersion)) return;
           applyRiskyFrame(
             store,
             {
@@ -308,6 +531,7 @@ export function useTokenListCellsProducer(
           }) satisfies IRiskyPush,
       },
     ],
-    extraDeps: [store, deps, storeName],
+    extraDeps: [store, deps, storeName, accountSelectorStore, projectionGate],
   });
+  return refreshProjection;
 }

@@ -88,6 +88,7 @@ import {
   TokenListViewContext,
   useTokenListViewContext,
 } from './TokenListViewContext';
+import { getHomeTokenListRowKeys } from './utils';
 
 import type {
   IScopedActiveTokenList,
@@ -846,6 +847,14 @@ function TokenListViewCmp(props: IProps) {
     listStructure.generation,
   ]);
 
+  const homeRowKeys = useMemo(
+    () =>
+      platformEnv.isNative && isHomeProjectionPath && plainMode
+        ? getHomeTokenListRowKeys(listData)
+        : undefined,
+    [isHomeProjectionPath, plainMode, listData],
+  );
+
   // Selector search state (any scope): drives the unified "No result" /
   // search-error empty states. The jotai `searchKey` atom is NOT written by
   // TokenSelector, so this must key off the prop.
@@ -944,12 +953,17 @@ function TokenListViewCmp(props: IProps) {
       tokenSelectorSearchTokenStateIsSearching:
         tokenSelectorSearchTokenState.isSearching,
       searchTokenStateIsSearching: searchTokenState.isSearching,
-      tokenListInitialized: tokenListState.initialized,
+      isHomeProjectionPath,
+      tokenListInitialized: isHomeProjectionPath
+        ? !ownerMismatch && listStructure.generation >= 0
+        : tokenListState.initialized,
       tokenListIsRefreshing: tokenListState.isRefreshing,
       displayCount,
     });
     return decision;
   }, [
+    isHomeProjectionPath,
+    listStructure.generation,
     ownerMismatch,
     isTokenSelector,
     tokenSelectorInitialized,
@@ -1205,7 +1219,7 @@ function TokenListViewCmp(props: IProps) {
             hideValue={hideValue}
             hideBalanceAndValue={hideBalanceAndValue}
             token={item}
-            key={item.$key}
+            key={homeRowKeys?.get(item.$key) ?? item.$key}
             onPress={onPressToken}
             tableLayout={tableLayout}
             withPrice={withPrice}
