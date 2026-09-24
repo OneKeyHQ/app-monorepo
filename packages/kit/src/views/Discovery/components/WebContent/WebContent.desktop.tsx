@@ -180,7 +180,7 @@ function WebContent({ id, url, customReceiveHandler }: IWebContentProps) {
         handleDeepLinkUrl({ url: navUrl });
         return false;
       }
-      if (openOneKeyStoreLinkExternally(navUrl)) {
+      if (isTopFrame && openOneKeyStoreLinkExternally(navUrl)) {
         return false;
       }
       setNavigationBlockAccessView(true);

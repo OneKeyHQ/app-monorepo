@@ -153,7 +153,9 @@ function WebContent({
         handleDeepLinkUrl({ url: navUrl });
         return false;
       }
-      if (openOneKeyStoreLinkExternally(navUrl)) {
+      // Embedded frames must not launch the store. iOS reports frames;
+      // react-native-webview on Android always reports the top frame.
+      if (isTopFrame && openOneKeyStoreLinkExternally(navUrl)) {
         return false;
       }
       setShowBlockAccessView(true);
