@@ -230,6 +230,13 @@ export const uploadLogBundle = async ({
   }
 
   if (uploadTaskError) {
+    const form = new FormData();
+    form.append('file', {
+      uri: digest.bundle.filePath,
+      name: digest.bundle.fileName,
+      type: digest.bundle.mimeType ?? 'application/octet-stream',
+    } as any);
+
     const fallbackHeaders = {
       ...headers,
     };
@@ -242,27 +249,13 @@ export const uploadLogBundle = async ({
     );
 
     try {
-      const RNFS = (
-        await import('@onekeyhq/shared/src/modules3rdParty/react-native-fs')
-      ).default;
-      if (!RNFS) {
-        throw new OneKeyLocalError('RNFS is not available');
-      }
-      const response = await RNFS.uploadFiles({
-        toUrl: uploadUrl,
-        files: [
-          {
-            name: 'file',
-            filename: digest.bundle.fileName,
-            filepath: digest.bundle.filePath.replace(/^file:\/\//, ''),
-            filetype: digest.bundle.mimeType ?? 'application/octet-stream',
-          },
-        ],
+      const response = await fetch(uploadUrl, {
         method: 'POST',
-        headers: finalFallbackHeaders,
-      }).promise;
-      httpStatus = response.statusCode;
-      text = response.body;
+        headers: finalFallbackHeaders as any,
+        body: form,
+      });
+      httpStatus = response.status;
+      text = await response.text();
     } catch (error) {
       const message =
         error instanceof Error
