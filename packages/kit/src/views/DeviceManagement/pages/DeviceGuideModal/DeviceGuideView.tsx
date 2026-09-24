@@ -1,13 +1,13 @@
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { type ReactNode, useCallback, useMemo } from 'react';
 
 import { useIsFocused } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
+import { Animated } from 'react-native';
 
 import {
   Anchor,
   Button,
   EVideoResizeMode,
-  type IVideoProgressData,
   type IVideoSource,
   Image,
   LinearGradient,
@@ -25,9 +25,12 @@ import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
 import { useNavigateToPickYourDevicePage } from '@onekeyhq/kit/src/views/Onboarding/hooks/useToOnBoardingPage';
 import { ONEKEY_BUY_HARDWARE_URL } from '@onekeyhq/shared/src/config/appConfig';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 
 import { DeviceManagementTestIDs } from '../../testIDs';
+
+import { useDeviceGuidePosterHandoff } from './useDeviceGuidePosterHandoff';
 
 import type { ImageSourcePropType } from 'react-native';
 
@@ -55,7 +58,24 @@ function VideoContainer() {
   const themeVariant = useThemeVariant();
   const { gtMd } = useMedia();
   const { top: safeAreaTop } = useSafeAreaInsets();
-  const [isVideoLoaded, setIsVideoLoaded] = useState(false);
+  const {
+    handlePlaybackStateChange,
+    handleReadyForDisplay,
+    handleVideoProgress,
+    isWebPosterHidden,
+    paused,
+    posterOpacity,
+  } = useDeviceGuidePosterHandoff();
+  const nativePosterStyle = useMemo(
+    () => ({
+      position: 'absolute' as const,
+      width: '100%' as const,
+      height: '100%' as const,
+      opacity: posterOpacity,
+      transform: [{ scale: gtMd ? DESKTOP_HERO_SCALE : 1 }],
+    }),
+    [gtMd, posterOpacity],
+  );
 
   const videoSource = useMemo(() => {
     return themeVariant === 'dark' ? DarkVideoSource : LightVideoSource;
@@ -78,16 +98,29 @@ function VideoContainer() {
     };
   }, [gtMd]);
 
-  const isVideoLoadedRef = useRef(isVideoLoaded);
-  isVideoLoadedRef.current = isVideoLoaded;
-  const handleVideoLoad = useCallback((e: IVideoProgressData) => {
-    if (isVideoLoadedRef.current) {
-      return;
-    }
-    if (e.currentTime > 0) {
-      setIsVideoLoaded(true);
-    }
-  }, []);
+  let poster: ReactNode = null;
+  if (platformEnv.isNative) {
+    poster = (
+      <Animated.Image
+        fadeDuration={0}
+        source={posterSource}
+        resizeMode={gtMd ? 'contain' : 'cover'}
+        style={nativePosterStyle}
+      />
+    );
+  } else if (!isWebPosterHidden) {
+    poster = (
+      <Image
+        position="absolute"
+        width="100%"
+        height="100%"
+        resizeMode={gtMd ? 'contain' : 'cover'}
+        scale={gtMd ? DESKTOP_HERO_SCALE : 1}
+        resizeWidth={480}
+        source={posterSource}
+      />
+    );
+  }
 
   return (
     <Stack
@@ -130,6 +163,7 @@ function VideoContainer() {
         <Video
           muted
           autoPlay
+          paused={paused}
           repeat
           rate={0.8}
           position="absolute"
@@ -140,22 +174,21 @@ function VideoContainer() {
           resizeMode={gtMd ? EVideoResizeMode.CONTAIN : EVideoResizeMode.COVER}
           scale={gtMd ? DESKTOP_HERO_SCALE : 1}
           source={videoSource}
-          onProgress={handleVideoLoad}
+          onProgress={platformEnv.isNative ? undefined : handleVideoProgress}
+          onPlaybackStateChange={
+            platformEnv.isNativeIOS ? handlePlaybackStateChange : undefined
+          }
+          onReadyForDisplay={
+            platformEnv.isNative ? handleReadyForDisplay : undefined
+          }
         />
-        {!isVideoLoaded ? (
-          <Image
-            position="absolute"
-            width="100%"
-            height="100%"
-            resizeMode={gtMd ? 'contain' : 'cover'}
-            scale={gtMd ? DESKTOP_HERO_SCALE : 1}
-            resizeWidth={480}
-            source={posterSource}
-          />
-        ) : null}
+        {poster}
         <LinearGradient
           colors={[
-            'transparent',
+            // Match RGB at both stops to avoid a dark band from transparent black.
+            themeVariant === 'dark'
+              ? 'rgba(15, 15, 15, 0)'
+              : 'rgba(255, 255, 255, 0)',
             themeVariant === 'dark'
               ? 'rgba(15, 15, 15, 1)'
               : 'rgba(255, 255, 255, 1)',
@@ -166,7 +199,7 @@ function VideoContainer() {
           bottom={0}
           left={0}
           right={0}
-          height="70%"
+          height="50%"
           $platform-web={{
             display: 'none',
           }}
@@ -306,6 +339,7 @@ function ButtonContainer() {
 
 function DeviceGuideViewContent() {
   const { bottom } = useSafeAreaInsets();
+  const themeVariant = useThemeVariant();
   return (
     <YStack
       w="100%"
@@ -316,7 +350,8 @@ function DeviceGuideViewContent() {
       pb={bottom}
       zIndex={0}
     >
-      <VideoContainer />
+      {/* Native remount drops a stale fade. Desktop keeps the same instance. */}
+      <VideoContainer key={platformEnv.isNative ? themeVariant : undefined} />
 
       <Page.Container flex={1} position="relative" zIndex={1}>
         <XStack

@@ -21232,6 +21232,7 @@
     "packages/kit/src/views/DeviceManagement/pages/DeviceGuideModal/assets/mydevice_hero_poster_dark.jpg": 22412,
     "packages/kit/src/views/DeviceManagement/pages/DeviceGuideModal/assets/mydevice_hero_poster_light.jpg": 5556,
     "packages/kit/src/views/DeviceManagement/pages/DeviceGuideModal/index.tsx": 22564,
+    "packages/kit/src/views/DeviceManagement/pages/DeviceGuideModal/useDeviceGuidePosterHandoff.ts": 20760,
     "packages/kit/src/views/DeviceManagement/pages/DeviceManagementListModal/SectionHeader.tsx": 2412,
     "packages/kit/src/views/DeviceManagement/pages/DeviceManagementListModal/VerifiedBadge.tsx": 11260,
     "packages/kit/src/views/DeviceManagement/pages/DeviceManagementListModal/index.tsx": 6167,
