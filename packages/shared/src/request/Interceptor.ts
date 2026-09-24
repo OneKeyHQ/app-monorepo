@@ -97,19 +97,28 @@ export async function checkRequestIsOneKeyDomain({
 
 export const HEADER_REQUEST_ID_KEY = normalizeHeaderKey('X-Onekey-Request-ID');
 
-function getPlatformNameHeaderValue(
-  displayName: string | undefined,
-  model: string | undefined,
-): string {
-  const name = displayName || 'Unknown';
-  if (!platformEnv.isNativeAndroid || /^[\x20-\x7E]+$/.test(name)) {
-    return name;
-  }
-  return model && /^[\x20-\x7E]+$/.test(model) ? model : 'Unknown';
+let platformNameHeaderValuePromise: Promise<string> | undefined;
+
+function getPlatformNameHeaderValue(): Promise<string> {
+  platformNameHeaderValuePromise ??= appDeviceInfo
+    .getDeviceInfo()
+    .then((deviceInfo) => {
+      const name = deviceInfo.displayName || 'Unknown';
+      if (!platformEnv.isNativeAndroid || !/[^A-Za-z0-9]/.test(name)) {
+        return name;
+      }
+      const model = deviceInfo.device.model || 'Unknown';
+      return /[^A-Za-z0-9]/.test(model) ? encodeURIComponent(model) : model;
+    })
+    .catch((error: unknown) => {
+      platformNameHeaderValuePromise = undefined;
+      throw error;
+    });
+  return platformNameHeaderValuePromise;
 }
 
 export async function getRequestHeaders() {
-  const appDeviceInfoData = await appDeviceInfo.getDeviceInfo();
+  const platformNameHeaderValue = await getPlatformNameHeaderValue();
   const settings: ISettingsPersistAtom =
     await requestHelper.getSettingsPersistAtom();
   const valueSettings: ISettingsValuePersistAtom =
@@ -133,10 +142,7 @@ export async function getRequestHeaders() {
     [normalizeHeaderKey('X-Onekey-Request-Theme')]: theme,
     [normalizeHeaderKey('X-Onekey-Request-Platform')]: headerPlatform,
     [normalizeHeaderKey('X-Onekey-Request-Platform-Name')]:
-      getPlatformNameHeaderValue(
-        appDeviceInfoData.displayName,
-        appDeviceInfoData.device.model,
-      ),
+      platformNameHeaderValue,
     [normalizeHeaderKey('X-Onekey-Request-Device-Name')]:
       platformEnv.appFullName,
     [normalizeHeaderKey('X-Onekey-Request-Version')]:
