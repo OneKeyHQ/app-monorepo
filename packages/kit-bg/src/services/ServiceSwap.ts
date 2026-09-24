@@ -638,6 +638,9 @@ export default class ServiceSwap extends ServiceBase {
 
   private approvingIntervalCount = 0;
 
+  // Invalidates receipts from an older polling loop, even for the same tx.
+  private approvingPollingRequestId = 0;
+
   private speedSwapApprovingInterval: ReturnType<typeof setTimeout> | undefined;
 
   private speedSwapApprovingIntervalCount = 0;
@@ -1928,6 +1931,7 @@ export default class ServiceSwap extends ServiceBase {
 
   @backgroundMethod()
   async cleanApprovingInterval() {
+    this.approvingPollingRequestId += 1;
     if (this.approvingInterval) {
       clearTimeout(this.approvingInterval);
       this.approvingInterval = undefined;
@@ -1942,57 +1946,69 @@ export default class ServiceSwap extends ServiceBase {
     }
   }
 
-  async approvingStateRunSync(networkId: string, txId: string) {
+  async approvingStateRunSync(
+    networkId: string,
+    txId: string,
+    approvalRequestId?: string,
+    pollingRequestId = this.approvingPollingRequestId,
+  ) {
     let enableInterval = true;
+    let trackedTxId: string | undefined = txId;
+    const ownsPolling = () =>
+      pollingRequestId === this.approvingPollingRequestId;
+    const matchesApproval = (approval?: ISwapApproveTransaction) =>
+      approval?.txId === trackedTxId &&
+      approval?.fromToken.networkId === networkId &&
+      approval?.approvalRequestId === approvalRequestId;
     try {
       const txState = await this.fetchTxState({
         txId,
         networkId,
       });
-      const preApproveTx = await this.getApprovingTransaction();
-      if (
-        txState.state === ESwapTxHistoryStatus.SUCCESS ||
-        txState.state === ESwapTxHistoryStatus.FAILED
-      ) {
-        enableInterval = false;
-        if (preApproveTx) {
-          if (
-            txState.state === ESwapTxHistoryStatus.SUCCESS ||
-            txState.state === ESwapTxHistoryStatus.FAILED
-          ) {
-            let newApproveTx: ISwapApproveTransaction = {
-              ...preApproveTx,
-              blockNumber: txState.blockNumber,
-              status: ESwapApproveTransactionStatus.SUCCESS,
-            };
-            if (txState.state === ESwapTxHistoryStatus.FAILED) {
-              newApproveTx = {
-                ...preApproveTx,
-                txId: undefined,
-                status: ESwapApproveTransactionStatus.FAILED,
-              };
-            }
-            await this.setApprovingTransaction(newApproveTx);
-          }
+      await inAppNotificationAtom.set((pre) => {
+        const approval = pre.swapApprovingTransaction;
+        if (!ownsPolling() || !approval || !matchesApproval(approval)) {
+          return pre;
         }
-      } else if (
-        preApproveTx &&
-        preApproveTx.status !== ESwapApproveTransactionStatus.PENDING
-      ) {
-        await this.setApprovingTransaction({
-          ...preApproveTx,
-          status: ESwapApproveTransactionStatus.PENDING,
-        });
-      }
+        const failed = txState.state === ESwapTxHistoryStatus.FAILED;
+        if (failed || txState.state === ESwapTxHistoryStatus.SUCCESS) {
+          enableInterval = false;
+          trackedTxId = failed ? undefined : txId;
+          return {
+            ...pre,
+            swapApprovingLoading: false,
+            swapApprovingTransaction: {
+              ...approval,
+              txId: trackedTxId,
+              ...(failed ? {} : { blockNumber: txState.blockNumber }),
+              status: failed
+                ? ESwapApproveTransactionStatus.FAILED
+                : ESwapApproveTransactionStatus.SUCCESS,
+            },
+          };
+        }
+        return approval.status === ESwapApproveTransactionStatus.PENDING
+          ? pre
+          : {
+              ...pre,
+              swapApprovingTransaction: {
+                ...approval,
+                status: ESwapApproveTransactionStatus.PENDING,
+              },
+            };
+      });
     } catch (e) {
       console.error(e);
     } finally {
-      if (enableInterval) {
-        this.approvingIntervalCount += 1;
-        void this.approvingStateAction();
-      } else {
-        void this.cleanApprovingInterval();
-        this.approvingIntervalCount = 0;
+      const approval = await this.getApprovingTransaction();
+      if (ownsPolling() && matchesApproval(approval)) {
+        if (enableInterval) {
+          this.approvingIntervalCount += 1;
+          void this.approvingStateAction();
+        } else {
+          void this.cleanApprovingInterval();
+          this.approvingIntervalCount = 0;
+        }
       }
     }
   }
@@ -2055,14 +2071,20 @@ export default class ServiceSwap extends ServiceBase {
   @backgroundMethod()
   async approvingStateAction() {
     void this.cleanApprovingInterval();
+    const pollingRequestId = this.approvingPollingRequestId;
     const approvingTransaction = await this.getApprovingTransaction();
-    if (approvingTransaction && approvingTransaction.txId) {
+    if (
+      pollingRequestId === this.approvingPollingRequestId &&
+      approvingTransaction?.txId
+    ) {
       this.approvingInterval = setTimeout(
         () => {
           if (approvingTransaction.txId) {
             void this.approvingStateRunSync(
               approvingTransaction.fromToken.networkId,
               approvingTransaction.txId,
+              approvingTransaction.approvalRequestId,
+              pollingRequestId,
             );
           }
         },

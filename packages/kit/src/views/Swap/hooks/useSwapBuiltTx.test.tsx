@@ -12,6 +12,8 @@ import { EMessageTypesEth } from '@onekeyhq/shared/types/message';
 import type {
   IFetchBuildTxResponse,
   IFetchQuoteResult,
+  ISwapApproveTransaction,
+  ISwapPreSwapData,
   ISwapStep,
   ISwapToken,
 } from '@onekeyhq/shared/types/swap/types';
@@ -26,6 +28,8 @@ import {
 
 import {
   ProviderJotaiContextSwap,
+  swapFromTokenAmountAtom,
+  swapQuoteListAtom,
   swapStepsAtom,
   swapTypeSwitchAtom,
 } from '../../../states/jotai/contexts/swap';
@@ -61,7 +65,13 @@ const mockGetVaultSettings = jest.fn<
   Promise<{ supportBatchEstimateFee?: Record<string, boolean> }>,
   []
 >(async () => ({}));
-const mockNavigateTxConfirm = jest.fn();
+type INavigateTxConfirm = ReturnType<
+  typeof import('../../../hooks/useSignatureConfirm').useSignatureConfirm
+>['navigationToTxConfirm'];
+const mockNavigateTxConfirm = jest.fn<
+  ReturnType<INavigateTxConfirm>,
+  Parameters<INavigateTxConfirm>
+>();
 const mockNavigateMessageConfirm = jest.fn();
 const mockUpdateUnsignedTx = jest.fn(
   async ({ unsignedTx }: { unsignedTx: IUnsignedTxPro }) => unsignedTx,
@@ -73,6 +83,17 @@ const mockSignAndSendTransaction = jest.fn<Promise<ISignedTxPro>, unknown[]>();
 const mockSignMessage = jest.fn<Promise<string>, unknown[]>();
 const mockSaveSendHistory = jest.fn(async () => undefined);
 const mockGenerateSwapHistory = jest.fn(async () => undefined);
+type IApprovalNotificationState = {
+  swapApprovingTransaction?: ISwapApproveTransaction;
+};
+let mockNotificationState: IApprovalNotificationState = {};
+const mockSetNotification = jest.fn(
+  (
+    updater: (prev: IApprovalNotificationState) => IApprovalNotificationState,
+  ) => {
+    mockNotificationState = updater(mockNotificationState);
+  },
+);
 
 const fromToken: ISwapToken = {
   networkId: 'evm--1',
@@ -130,7 +151,7 @@ jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms', () => ({
   ],
   useCurrencyPersistAtom: () => [{ currencyMap: {} }],
   useSettingsAtom: () => [{}, jest.fn()],
-  useInAppNotificationAtom: () => [{}, jest.fn()],
+  useInAppNotificationAtom: () => [mockNotificationState, mockSetNotification],
 }));
 jest.mock('../../../hooks/useSignatureConfirm', () => ({
   useSignatureConfirm: () => ({
@@ -241,16 +262,21 @@ function deferred<T>() {
 
 function renderExecutionReview({
   reviewQuote = quote,
+  preSwapData = {},
   steps = [{ type: ESwapStepType.SEND_TX, status: ESwapStepStatus.READY }],
-}: { reviewQuote?: IFetchQuoteResult; steps?: ISwapStep[] } = {}) {
+}: {
+  reviewQuote?: IFetchQuoteResult;
+  steps?: ISwapStep[];
+  preSwapData?: ISwapPreSwapData;
+} = {}) {
   const store = createStore();
   store.set(swapTypeSwitchAtom(), ESwapTabSwitchType.SWAP);
   store.set(swapStepsAtom(), {
     steps,
     quoteResult: reviewQuote,
-    preSwapData: { fromToken, toToken },
+    preSwapData: { fromToken, toToken, ...preSwapData },
   });
-  const onSwapBroadcast = jest.fn();
+  const onSwapBroadcast = jest.fn<void, [isReviewCurrent?: () => boolean]>();
   const Wrapper = ({ children }: { children?: ReactNode }) => (
     <ProviderJotaiContextSwap store={store}>
       {children}
@@ -263,8 +289,10 @@ function renderExecutionReview({
   return { ...hook, store, onSwapBroadcast };
 }
 
-describe('useSwapBuildTx execution cancellation', () => {
+describe('useSwapBuildTx confirmed execution ownership', () => {
   beforeEach(() => {
+    mockNotificationState = {};
+    mockSetNotification.mockClear();
     platformEnv.isNative = false;
     globalJotaiStorageReadyHandler.resolveReady(true);
     mockFetchBuildTx.mockReset().mockResolvedValue(buildResponse('120'));
@@ -299,8 +327,203 @@ describe('useSwapBuildTx execution cancellation', () => {
     mockNavigateTxConfirm.mockReset();
   });
 
+  it.each(['unchanged', 'edited', 'reopened'])(
+    'consumes only the submitted input after closing with %s input',
+    async (mode) => {
+      const sent = deferred<ISignedTxPro>();
+      const started = deferred<void>();
+      mockSignAndSendTransaction.mockImplementationOnce(() => {
+        started.resolve();
+        return sent.promise;
+      });
+      const { result, store, onSwapBroadcast } = renderExecutionReview();
+      await act(async () => {
+        store.set(swapFromTokenAmountAtom(), { value: '0.1', isInput: true });
+        store.set(swapQuoteListAtom(), [quote]);
+      });
+      let execution!: Promise<void>;
+      await act(async () => {
+        execution = result.current.preSwapStepsStart();
+        await started.promise;
+      });
+      await act(async () => {
+        result.current.invalidateSwapReview();
+        store.set(swapStepsAtom(), { steps: [], preSwapData: {} });
+        if (mode === 'edited') {
+          store.set(swapFromTokenAmountAtom(), { value: '0.2', isInput: true });
+        } else if (mode === 'reopened') {
+          result.current.beginSwapReview();
+          store.set(swapStepsAtom(), {
+            steps: [
+              { type: ESwapStepType.SEND_TX, status: ESwapStepStatus.READY },
+            ],
+            preSwapData: {},
+            quoteResult: { ...quote },
+          });
+        }
+      });
+      const visibleReview = store.get(swapStepsAtom());
+      await act(async () => {
+        sent.resolve({ txid: 'swap-tx', rawTx: '', encodedTx: {} });
+        await execution;
+      });
+      expect(mockGenerateSwapHistory).toHaveBeenCalledTimes(1);
+      expect(onSwapBroadcast).toHaveBeenCalledTimes(1);
+      expect(onSwapBroadcast.mock.calls[0][0]?.()).toBe(false);
+      expect(store.get(swapStepsAtom())).toBe(visibleReview);
+      expect(store.get(swapFromTokenAmountAtom()).value).toBe(
+        { unchanged: '', edited: '0.2', reopened: '0.1' }[mode],
+      );
+      expect(store.get(swapQuoteListAtom())).toHaveLength(
+        mode === 'unchanged' ? 0 : 1,
+      );
+    },
+  );
+
+  it.each(['closed', 'replaced', 'cleared'])(
+    'records a broadcast approval only in its own tracking slot: %s',
+    async (mode) => {
+      const sent = deferred<ISignedTxPro>();
+      const started = deferred<void>();
+      mockSignAndSendTransaction.mockImplementationOnce(() => {
+        started.resolve();
+        return sent.promise;
+      });
+      const { result, store } = renderExecutionReview({
+        reviewQuote: {
+          ...quote,
+          allowanceResult: { allowanceTarget: '0x4', amount: '0' },
+        },
+        steps: [
+          {
+            type: ESwapStepType.APPROVE_TX,
+            status: ESwapStepStatus.READY,
+            shouldWaitApproved: true,
+          },
+        ],
+      });
+      let execution!: Promise<void>;
+      await act(async () => {
+        execution = result.current.preSwapStepsStart();
+        await started.promise;
+      });
+      const original = mockNotificationState.swapApprovingTransaction;
+      expect(original?.approvalRequestId).toBeDefined();
+      await act(async () => {
+        result.current.invalidateSwapReview();
+        store.set(swapStepsAtom(), { steps: [], preSwapData: {} });
+        if (mode === 'replaced' && original) {
+          mockNotificationState = {
+            swapApprovingTransaction: {
+              ...original,
+              approvalRequestId: 'new-approval',
+              txId: 'new-tx',
+            },
+          };
+        } else if (mode === 'cleared') {
+          mockNotificationState = {};
+        }
+      });
+      await act(async () => {
+        sent.resolve({ txid: 'approve-tx', rawTx: '', encodedTx: {} });
+        await execution;
+      });
+      expect(mockSaveSendHistory).toHaveBeenCalledTimes(1);
+      expect(mockNotificationState.swapApprovingTransaction?.txId).toBe(
+        { closed: 'approve-tx', replaced: 'new-tx', cleared: undefined }[mode],
+      );
+      expect(store.get(swapStepsAtom()).steps).toEqual([]);
+    },
+  );
+
+  it('fills fallback approval tracking after close without restoring its steps', async () => {
+    const { result, store } = renderExecutionReview({
+      reviewQuote: {
+        ...quote,
+        allowanceResult: { allowanceTarget: '0x4', amount: '0' },
+      },
+      preSwapData: { shouldFallback: true },
+      steps: [
+        {
+          type: ESwapStepType.APPROVE_TX,
+          status: ESwapStepStatus.READY,
+          shouldWaitApproved: true,
+        },
+      ],
+    });
+    await act(async () => {
+      await result.current.preSwapStepsStart();
+    });
+    const confirmation = mockNavigateTxConfirm.mock.calls[0][0] as {
+      onSuccess: (
+        data: {
+          signedTx: ISignedTxPro;
+          approveInfo: { isMax: boolean; amount: string };
+        }[],
+      ) => void;
+    };
+    await act(async () => {
+      result.current.invalidateSwapReview();
+      store.set(swapStepsAtom(), { steps: [], preSwapData: {} });
+      confirmation.onSuccess([
+        {
+          signedTx: { txid: 'fallback-approve', rawTx: '', encodedTx: {} },
+          approveInfo: { isMax: false, amount: '0.1' },
+        },
+      ]);
+    });
+    expect(mockNotificationState.swapApprovingTransaction?.txId).toBe(
+      'fallback-approve',
+    );
+    expect(store.get(swapStepsAtom()).steps).toEqual([]);
+  });
+
+  it('keeps the confirmed slippage when another Review opens during approval', async () => {
+    const sent = deferred<ISignedTxPro>();
+    const started = deferred<void>();
+    mockSignAndSendTransaction.mockImplementationOnce(() => {
+      started.resolve();
+      return sent.promise;
+    });
+    const { result, store } = renderExecutionReview({
+      reviewQuote: {
+        ...quote,
+        allowanceResult: { allowanceTarget: '0x4', amount: '0' },
+      },
+      preSwapData: { slippage: 0.5 },
+      steps: [
+        { type: ESwapStepType.APPROVE_TX, status: ESwapStepStatus.READY },
+        { type: ESwapStepType.SEND_TX, status: ESwapStepStatus.READY },
+      ],
+    });
+    let execution!: Promise<void>;
+    await act(async () => {
+      execution = result.current.preSwapStepsStart();
+      await started.promise;
+    });
+    await act(async () => {
+      result.current.invalidateSwapReview();
+      result.current.beginSwapReview();
+      store.set(swapStepsAtom(), {
+        steps: [{ type: ESwapStepType.SEND_TX, status: ESwapStepStatus.READY }],
+        quoteResult: { ...quote, quoteId: 'another-quote' },
+        preSwapData: { slippage: 5 },
+      });
+    });
+    const currentReview = store.get(swapStepsAtom());
+    await act(async () => {
+      sent.resolve({ txid: 'approve-tx', rawTx: '', encodedTx: {} });
+      await execution;
+    });
+    expect(mockFetchBuildTx).toHaveBeenCalledWith(
+      expect.objectContaining({ slippagePercentage: 0.5 }),
+    );
+    expect(mockSignAndSendTransaction).toHaveBeenCalledTimes(2);
+    expect(store.get(swapStepsAtom())).toBe(currentReview);
+  });
+
   it.each(['update', 'precheck'])(
-    'does not enter signing after closing during %s',
+    'continues the confirmed transaction after closing during %s',
     async (stage) => {
       const pending = deferred<void>();
       const started = deferred<void>();
@@ -330,14 +553,15 @@ describe('useSwapBuildTx execution cancellation', () => {
         pending.resolve();
         await execution;
       });
-      expect(mockSignAndSendTransaction).not.toHaveBeenCalled();
+      expect(mockSignAndSendTransaction).toHaveBeenCalledTimes(1);
+      expect(mockSaveSendHistory).toHaveBeenCalledTimes(1);
       expect(mockNavigateTxConfirm).not.toHaveBeenCalled();
       expect(store.get(swapStepsAtom()).steps).toEqual([]);
     },
   );
 
   it.each(['batch', 'separate'])(
-    'keeps a submitted approval in history and stops the next %s transaction',
+    'continues the confirmed %s approval and swap after close',
     async (mode) => {
       const sent = deferred<ISignedTxPro>();
       const started = deferred<void>();
@@ -379,8 +603,8 @@ describe('useSwapBuildTx execution cancellation', () => {
         sent.resolve({ txid: 'approve-tx', rawTx: '', encodedTx: {} });
         await execution;
       });
-      expect(mockSignAndSendTransaction).toHaveBeenCalledTimes(1);
-      expect(mockSaveSendHistory).toHaveBeenCalledTimes(1);
+      expect(mockSignAndSendTransaction).toHaveBeenCalledTimes(2);
+      expect(mockSaveSendHistory).toHaveBeenCalledTimes(2);
       expect(mockNavigateTxConfirm).not.toHaveBeenCalled();
       expect(store.get(swapStepsAtom()).steps).toEqual([]);
     },
@@ -415,11 +639,12 @@ describe('useSwapBuildTx execution cancellation', () => {
     });
     expect(mockSaveSendHistory).toHaveBeenCalledTimes(1);
     expect(mockGenerateSwapHistory).toHaveBeenCalledTimes(1);
-    expect(onSwapBroadcast).not.toHaveBeenCalled();
+    expect(onSwapBroadcast).toHaveBeenCalledTimes(1);
+    expect(onSwapBroadcast.mock.calls[0][0]?.()).toBe(false);
     expect(store.get(swapStepsAtom())).toBe(newReview);
   });
 
-  it('does not reconstruct fallback after an approval was sent and the next preparation fails after close', async () => {
+  it('continues fallback without restoring closed Review steps after an approval was sent', async () => {
     const pending = deferred<IUnsignedTxPro>();
     const started = deferred<void>();
     mockUpdateUnsignedTx
@@ -454,7 +679,8 @@ describe('useSwapBuildTx execution cancellation', () => {
       pending.reject(new Error('second transaction preparation failed'));
       await execution;
     });
-    expect(mockNavigateTxConfirm).not.toHaveBeenCalled();
+    expect(mockNavigateTxConfirm).toHaveBeenCalledTimes(1);
+    expect(mockNavigateTxConfirm.mock.calls[0][0].approvesInfo).toBeUndefined();
     expect(mockSaveSendHistory).toHaveBeenCalledTimes(1);
     expect(store.get(swapStepsAtom()).steps).toEqual([]);
   });
@@ -507,7 +733,8 @@ describe('useSwapBuildTx execution cancellation', () => {
       await execution;
     });
     expect(mockGenerateSwapHistory).toHaveBeenCalledTimes(1);
-    expect(onSwapBroadcast).not.toHaveBeenCalled();
+    expect(onSwapBroadcast).toHaveBeenCalledTimes(1);
+    expect(onSwapBroadcast.mock.calls[0][0]?.()).toBe(false);
     expect(store.get(swapStepsAtom())).toBe(newReview);
   });
 
@@ -525,7 +752,7 @@ describe('useSwapBuildTx execution cancellation', () => {
     expect(mockSignAndSendTransaction).not.toHaveBeenCalled();
   });
 
-  it('does not fall back after the owning hook unmounts', async () => {
+  it('retains the confirmed fallback after the owning hook unmounts', async () => {
     const pending = deferred<unknown>();
     const started = deferred<void>();
     mockPrepareUnsignedTx.mockImplementationOnce(() => {
@@ -554,7 +781,7 @@ describe('useSwapBuildTx execution cancellation', () => {
       pending.reject(new Error('prepare failed'));
       await execution;
     });
-    expect(mockNavigateTxConfirm).not.toHaveBeenCalled();
+    expect(mockNavigateTxConfirm).toHaveBeenCalledTimes(1);
   });
 
   it('still signs and records a transaction while its Review remains active', async () => {
@@ -589,7 +816,7 @@ describe('useSwapBuildTx execution cancellation', () => {
     expect(store.get(swapStepsAtom()).preSwapData.shouldFallback).toBe(true);
   });
 
-  it('does not submit a signed order after closing during message signing', async () => {
+  it('submits the confirmed signed order after closing during message signing', async () => {
     const signed = deferred<string>();
     const started = deferred<void>();
     mockSignMessage.mockImplementationOnce(() => {
@@ -626,8 +853,8 @@ describe('useSwapBuildTx execution cancellation', () => {
       signed.resolve('signature');
       await execution;
     });
-    expect(mockFetchBuildTx).not.toHaveBeenCalled();
-    expect(mockGenerateSwapHistory).not.toHaveBeenCalled();
+    expect(mockFetchBuildTx).toHaveBeenCalledTimes(1);
+    expect(mockGenerateSwapHistory).toHaveBeenCalledTimes(1);
     expect(store.get(swapStepsAtom()).steps).toEqual([]);
   });
 
@@ -693,12 +920,21 @@ describe('useSwapBuildTx execution cancellation', () => {
         await execution;
       });
       expect(store.get(swapStepsAtom())).toBe(stateAfterClose);
-      expect(mockNavigateTxConfirm).not.toHaveBeenCalled();
+      expect(mockNavigateTxConfirm).toHaveBeenCalledTimes(1);
+      expect(
+        mockNavigateTxConfirm.mock.calls[0][0].isNavigationCurrent?.(),
+      ).toBe(true);
+      expect(() =>
+        mockNavigateTxConfirm.mock.calls[0][0].onBeforeSend?.(),
+      ).not.toThrow();
     },
   );
 });
 
 describe('useSwapBuildTx review rebuild', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
   it('keeps the rebuilt Review amount and price difference consistent after slippage save', async () => {
     platformEnv.isNative = false;
     globalJotaiStorageReadyHandler.resolveReady(true);

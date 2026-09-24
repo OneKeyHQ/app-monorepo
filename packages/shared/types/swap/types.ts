@@ -385,6 +385,7 @@ export interface ISwapOrderHash {
 }
 
 export interface ISwapApproveTransaction {
+  approvalRequestId?: string;
   fromToken: ISwapToken;
   toToken: ISwapToken;
   marketSwapApprovalFlowId?: string;
