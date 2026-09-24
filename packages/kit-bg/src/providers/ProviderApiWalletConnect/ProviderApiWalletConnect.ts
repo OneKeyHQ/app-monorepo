@@ -544,7 +544,6 @@ class ProviderApiWalletConnect {
     request: WalletKitTypes.SessionRequest;
     requestProxy: WalletConnectRequestProxy;
   }) {
-    const { topic, id } = request;
     const origin = this.getDAppOrigin({ sessionRequest: request });
     // Find connected account
     const accountsInfo =
@@ -557,16 +556,9 @@ class ProviderApiWalletConnect {
       await this.backgroundApi.serviceWalletConnect.getWcChainInfo(
         request.params.chainId,
       );
-    if (!accountsInfo?.[0].accountInfo.networkId || !chainInfo?.networkId) {
-      await this.respondSessionRequest({
-        topic,
-        response: {
-          id,
-          jsonrpc: '2.0',
-          error: getSdkError('USER_REJECTED', 'No connected account'),
-        },
-      });
-      return;
+    if (!accountsInfo?.[0]?.accountInfo.networkId || !chainInfo?.networkId) {
+      // The request handler owns the response and must not dispatch the method.
+      throw new OneKeyLocalError('No connected account');
     }
     if (accountsInfo[0].accountInfo.networkId === chainInfo.networkId) {
       return;

@@ -1,4 +1,5 @@
 import { RELAYER_EVENTS, Relayer } from '@walletconnect/core';
+import { createExpiringPromise } from '@walletconnect/utils';
 
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import {
@@ -12,6 +13,7 @@ import type { ICore } from '@walletconnect/types';
 // Core 2.21.9 makes up to five attempts per round. Limit only this invocation's
 // added fallback work; later SDK reconnect triggers receive a fresh budget.
 const MAX_RELAY_ROUNDS = 2;
+const RELAY_DRAIN_TIMEOUT_MS = 15_000;
 
 type IConnectionCycle = { remainingRounds: number };
 
@@ -212,25 +214,37 @@ export class WalletConnectRelayController {
     return tracked;
   }
 
-  private async drainConnections() {
-    if (this.draining) {
-      return this.draining;
+  private async drainConnections(
+    deadline = Date.now() + RELAY_DRAIN_TIMEOUT_MS,
+  ): Promise<void> {
+    if (!this.draining) {
+      const draining = this.drain();
+      this.draining = draining;
+      const release = () => {
+        if (this.draining === draining) this.draining = undefined;
+      };
+      // Keep cleaning up late sockets after the caller's bounded wait expires.
+      void draining.then(release, release);
     }
-    const draining = this.drain();
-    this.draining = draining;
-    try {
-      await draining;
-    } finally {
-      this.draining = undefined;
-    }
+    await createExpiringPromise(
+      this.draining,
+      Math.max(0, deadline - Date.now()),
+      'WalletConnect relay switch timed out waiting for old sockets to close',
+    );
+    // A caller can join cleanup left running by an earlier timed-out switch.
+    // Drain any provider recovered since that cleanup took its snapshot too.
+    if (this.connections.size) await this.drainConnections(deadline);
   }
 
   private async drain() {
     this.trackConnection();
+    // Later SDK recovery can create a new provider on the same endpoint. This
+    // cleanup owns only the connections retired when it started.
+    const connections = Array.from(this.connections.values());
     // Relay switching must not disable SDK recovery if the next online check
     // fails before connect() clears transportExplicitlyClosed.
     await this.disconnectTransport();
-    for (const tracked of this.connections.values()) {
+    for (const tracked of connections) {
       // A timed-out registration can still open later. Keep the next relay
       // blocked until it settles and any resulting socket confirms closure.
       await tracked.settled;
@@ -325,7 +339,7 @@ export class WalletConnectRelayController {
       let nextUrl: string | undefined = this.currentRelayUrl;
       if (round === 0 && requestedUrl) {
         nextUrl = WALLET_CONNECT_RELAY_URLS.find((url) => url === requestedUrl);
-      } else if (this.failed) {
+      } else if (this.failed && !this.draining) {
         nextUrl = WALLET_CONNECT_RELAY_URLS.find(
           (url) => url !== this.currentRelayUrl,
         );
@@ -336,7 +350,17 @@ export class WalletConnectRelayController {
       if (nextUrl !== this.currentRelayUrl) {
         this.switching = true;
         this.core.relayer.events.emit('onekey_relay_switch_waiting');
-        await this.drainConnections();
+        try {
+          await this.drainConnections();
+        } catch (error) {
+          // The SDK cannot cancel an unopened WebSocket through its public
+          // connection API. End this fallback, retaining same-relay recovery
+          // until the old registration settles; never open a competing relay.
+          this.switching = false;
+          this.failed = false;
+          this.core.relayer.events.emit('onekey_relay_switch_cancelled');
+          throw error;
+        }
         if (generation !== this.generation) {
           throw new OneKeyLocalError('WalletConnect connection cancelled');
         }

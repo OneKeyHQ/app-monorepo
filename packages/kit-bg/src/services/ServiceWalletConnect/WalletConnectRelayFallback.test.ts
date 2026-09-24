@@ -316,6 +316,110 @@ describe('WalletConnect application relay controller with the unmodified SDK', (
     expect(liveConnections.size).toBe(1);
   });
 
+  it.each([0, 1])(
+    'bounds a stalled handshake drain and permits later SDK recovery on relay %s',
+    async (initial) => {
+      jest.useFakeTimers();
+      const core = createCore(RELAYS[initial]);
+      prepareCore(core);
+      const hasTopics = jest
+        .spyOn(core.relayer.subscriber, 'hasAnyTopics', 'get')
+        .mockReturnValue(false);
+      jest.spyOn(core.relayer.messages, 'init').mockResolvedValue();
+      jest.spyOn(core.relayer.subscriber, 'init').mockResolvedValue();
+      WalletConnectRelayController.attach(core, RELAYS[initial]);
+      await core.relayer.init();
+      await jest.advanceTimersByTimeAsync(0);
+      hasTopics.mockReturnValue(true);
+      const attempts: string[] = [];
+      let finishLateHandshake = () => {};
+      let lateClosed = false;
+      let acknowledgeRecoveryClose = () => {};
+      jest
+        .spyOn(JsonRpcProvider.prototype, 'connect')
+        .mockImplementation(async function connect(this: JsonRpcProvider) {
+          if (!(this.connection instanceof WsConnection))
+            throw new OneKeyLocalError('Expected the SDK WebSocket transport');
+          const connection = this.connection;
+          attempts.push(new URL(connection.url).origin);
+          mockClose(connection);
+          if (attempts.length === 1) {
+            Object.assign(connection, { registering: true });
+            connection.on('close', () => {
+              lateClosed = true;
+            });
+            return new Promise<void>((resolve) => {
+              finishLateHandshake = () => {
+                Object.assign(connection, {
+                  registering: false,
+                  socket: { readyState: 1 },
+                });
+                connection.events.emit('open');
+                this.events.emit('connect');
+                resolve();
+              };
+            });
+          }
+          if (attempts.length <= 5)
+            throw new OneKeyLocalError(
+              'Synthetic WebSocket connection failure',
+            );
+          if (attempts.length === 6) {
+            jest.spyOn(connection, 'close').mockImplementation(
+              () =>
+                new Promise<void>((resolve) => {
+                  acknowledgeRecoveryClose = () => {
+                    Object.assign(connection, {
+                      socket: undefined,
+                      registering: false,
+                    });
+                    connection.events.emit('close');
+                    resolve();
+                  };
+                }),
+            );
+          }
+          Object.assign(connection, { socket: { readyState: 1 } });
+          this.events.emit('connect');
+        });
+      let completed = false;
+      const opening = core.relayer
+        .transportOpen()
+        .catch((error: unknown) => error)
+        .finally(() => {
+          completed = true;
+        });
+      await jest.advanceTimersByTimeAsync(120_000);
+      expect(completed).toBe(true);
+      expect(await opening).toBeInstanceOf(Error);
+      expect(attempts).toEqual(
+        Array.from({ length: 5 }, () => RELAYS[initial]),
+      );
+      expect(core.relayer.transportExplicitlyClosed).toBe(false);
+
+      // The unsafe relay switch is abandoned, but subsequent SDK triggers can
+      // retry the same endpoint while the retired registration is still pending.
+      core.heartbeat.events.emit(HEARTBEAT_EVENTS.pulse);
+      await jest.advanceTimersByTimeAsync(1000);
+      expect(attempts).toHaveLength(6);
+      expect(attempts[5]).toBe(RELAYS[initial]);
+      expect(core.relayer.connected).toBe(true);
+      const switching = core.relayer.transportOpen(RELAYS[1 - initial]);
+      await jest.advanceTimersByTimeAsync(1000);
+      expect(attempts).toHaveLength(6);
+      finishLateHandshake();
+      await jest.advanceTimersByTimeAsync(3000);
+      expect(lateClosed).toBe(true);
+      expect(core.relayer.connected).toBe(true);
+      expect(attempts).not.toContain(RELAYS[1 - initial]);
+      acknowledgeRecoveryClose();
+      await jest.advanceTimersByTimeAsync(1000);
+      await switching;
+      expect(attempts[6]).toBe(RELAYS[1 - initial]);
+      expect(core.relayer.connected).toBe(true);
+    },
+  );
+
   it.each([false, true])(
     'preserves SDK heartbeat recovery after an offline check fails; enabled=%s',
     async (enabled) => {

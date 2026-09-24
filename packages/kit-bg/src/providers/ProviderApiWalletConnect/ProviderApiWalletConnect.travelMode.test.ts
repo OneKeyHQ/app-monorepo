@@ -113,9 +113,17 @@ describe('WalletConnect request diagnostics', () => {
     const { default: ProviderApiWalletConnect } =
       await import('./ProviderApiWalletConnect');
     const checkMethodSupport = jest.fn(async () => false);
-    const getWcChainInfo = jest.fn(async () => ({ wcNamespace: 'eip155' }));
+    const getWcChainInfo = jest.fn(async () => ({
+      wcNamespace: 'eip155',
+      networkId: 'evm--1',
+    }));
+    const getConnectedAccounts = jest.fn<
+      Promise<{ accountInfo: { networkId?: string } }[] | undefined>,
+      []
+    >(async () => undefined);
     const provider = new ProviderApiWalletConnect({
       backgroundApi: {
+        serviceDApp: { getConnectedAccounts },
         serviceWalletConnect: {
           getWcChainInfo,
           checkMethodSupport,
@@ -138,6 +146,7 @@ describe('WalletConnect request diagnostics', () => {
     const request = {
       id: 17,
       topic: 'session-topic',
+      verifyContext: { verified: { origin: 'https://dapp.example' } },
       params: {
         chainId: 'eip155:1',
         request: { method: 'eth_unsupported', params: [] },
@@ -150,8 +159,58 @@ describe('WalletConnect request diagnostics', () => {
       respondSessionRequest,
       getWcChainInfo,
       checkMethodSupport,
+      getConnectedAccounts,
     };
   }
+
+  it.each([
+    { accounts: undefined, responseFails: false },
+    { accounts: undefined, responseFails: true },
+    { accounts: [], responseFails: false },
+    { accounts: [{ accountInfo: {} }], responseFails: false },
+  ])(
+    'rejects missing account data $accounts once without dispatch (response fails: $responseFails)',
+    async ({ accounts, responseFails }) => {
+      const {
+        provider,
+        listener,
+        request,
+        respondSessionRequest,
+        checkMethodSupport,
+        getConnectedAccounts,
+      } = await createProvider();
+      checkMethodSupport.mockResolvedValue(true);
+      request.params.request.method = 'eth_sendTransaction';
+      getConnectedAccounts.mockResolvedValue(accounts);
+      const dispatch = jest.fn(async () => '0xunexpected-transaction');
+      jest.spyOn(provider, 'getRequestProxy').mockReturnValue({
+        providerName: 'ethereum',
+        request: dispatch,
+      } as unknown as WalletConnectRequestProxy);
+      const transportError = new Error('response transport failed');
+      if (responseFails)
+        respondSessionRequest.mockRejectedValueOnce(transportError);
+
+      if (responseFails)
+        await expect(listener(request)).rejects.toBe(transportError);
+      else await listener(request);
+
+      expect(getConnectedAccounts).toHaveBeenCalledTimes(1);
+      expect(dispatch).not.toHaveBeenCalled();
+      expect(respondSessionRequest).toHaveBeenCalledTimes(1);
+      expect(respondSessionRequest).toHaveBeenCalledWith({
+        topic: request.topic,
+        response: {
+          id: request.id,
+          jsonrpc: '2.0',
+          error: expect.objectContaining({
+            code: 5000,
+            message: expect.stringContaining('No connected account'),
+          }),
+        },
+      });
+    },
+  );
 
   it.each([false, true])(
     'never resubmits a response when transport fails after execution (method rejected: %s)',
