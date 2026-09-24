@@ -1212,7 +1212,15 @@ class ServiceSend extends ServiceBase {
     } = params;
 
     const isMultiTxs = unsignedTxs.length > 1;
-    if ((beforeBroadcastAction || replaceTxInfo) && isMultiTxs) {
+    if (
+      isMultiTxs &&
+      (beforeBroadcastAction ||
+        (await this.getPrimeInfiniReplacementContext({
+          accountId,
+          networkId,
+          replaceTxInfo,
+        })))
+    ) {
       throw new OneKeyLocalError({
         message: 'Infini payment supports exactly one transaction',
         autoToast: false,

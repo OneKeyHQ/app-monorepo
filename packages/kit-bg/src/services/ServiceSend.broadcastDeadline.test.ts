@@ -1864,4 +1864,82 @@ describe('Infini Speed Up broadcast validation', () => {
       backgroundApi.servicePrime.apiGetInfiniPaymentPreBroadcastSnapshot,
     ).not.toHaveBeenCalled();
   });
+
+  test.each([
+    { replaceType: EReplaceTxType.SpeedUp, signOnly: false },
+    { replaceType: EReplaceTxType.Cancel, signOnly: false },
+    { replaceType: EReplaceTxType.SpeedUp, signOnly: true },
+    { replaceType: EReplaceTxType.Cancel, signOnly: true },
+  ])(
+    'allows an ordinary $replaceType batch with signOnly=$signOnly',
+    async ({ replaceType, signOnly }) => {
+      const { service, vault, backgroundApi } = makeService();
+      backgroundApi.serviceHistory.getLocalHistoryTxById.mockResolvedValue({
+        id: 'history-1',
+        decodedTx,
+      });
+
+      await service.batchSignAndSendTransaction({
+        accountId,
+        networkId,
+        unsignedTxs: [unsignedTx, unsignedTx],
+        signOnly,
+        transferPayload: undefined,
+        replaceTxInfo: { replaceHistoryId: 'history-1', replaceType },
+      });
+
+      expect(vault.signTransaction).toHaveBeenCalledTimes(2);
+      expect(vault.broadcastTransaction).toHaveBeenCalledTimes(
+        signOnly ? 0 : 2,
+      );
+      expect(
+        backgroundApi.serviceHistory.saveSendConfirmHistoryTxs,
+      ).toHaveBeenCalledTimes(signOnly ? 0 : 2);
+      expect(
+        backgroundApi.servicePrime.apiGetInfiniPaymentPreBroadcastSnapshot,
+      ).not.toHaveBeenCalled();
+      expect(
+        backgroundApi.simpleDb.prime.markInfiniPendingPaymentSessionSendStarted,
+      ).not.toHaveBeenCalled();
+    },
+  );
+
+  test.each(['history', 'session'])(
+    'rejects an Infini replacement batch bound through %s before signing',
+    async (bindingSource) => {
+      const { service, vault, backgroundApi } = makeReplacement();
+      if (bindingSource === 'session') {
+        backgroundApi.serviceHistory.getLocalHistoryTxById.mockResolvedValue({
+          id: 'history-1',
+          decodedTx: {
+            ...decodedTx,
+            nonce: 0,
+            encodedTx,
+            status: EDecodedTxStatus.Pending,
+          },
+        });
+        backgroundApi.simpleDb.prime.findInfiniPaymentForTransfer.mockResolvedValue(
+          { paymentCacheKey },
+        );
+      }
+
+      await expect(
+        service.batchSignAndSendTransaction({
+          accountId,
+          networkId,
+          unsignedTxs: [
+            { ...unsignedTx, encodedTx, nonce: 0 },
+            { ...unsignedTx, encodedTx, nonce: 0 },
+          ],
+          transferPayload: undefined,
+          replaceTxInfo: {
+            replaceHistoryId: 'history-1',
+            replaceType: EReplaceTxType.SpeedUp,
+          },
+        }),
+      ).rejects.toThrow('exactly one transaction');
+      expect(vault.signTransaction).not.toHaveBeenCalled();
+      expect(vault.broadcastTransaction).not.toHaveBeenCalled();
+    },
+  );
 });
