@@ -372,6 +372,18 @@ describe('convertThirdPartyDeviceError', () => {
     expect(error.key).toBe('hardware_third_party_path_not_supported__msg');
   });
 
+  it('reports a request the device could not parse as unsupported', () => {
+    const error = convertThirdPartyDeviceError(
+      { code: ThirdPartyHwErrorCode.InvalidParams, error: 'PRS_PARSING_ERROR' },
+      { vendor: 'Keystone' },
+    );
+
+    expect(error.key).toBe(
+      ETranslations.hardware_third_party_method_not_supported,
+    );
+    expect(error.autoToast).toBe(true);
+  });
+
   it('maps a rejected THP pairing to a reconnect prompt instead of an unknown error', () => {
     const error = convertThirdPartyDeviceError(
       {
