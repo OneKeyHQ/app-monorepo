@@ -1465,6 +1465,39 @@ describe('ipTableAdapter idempotency-gated fallback after SNI started', () => {
       }
     }
 
+    // Holds the next domain request until the test settles it.
+    function holdNextDomainRequest() {
+      const held: { succeed?: () => void; fail?: () => void } = {};
+      fallbackAdapter.mockImplementationOnce(
+        (config) =>
+          new Promise((resolve, reject) => {
+            held.succeed = () =>
+              resolve({
+                data: { fallback: true },
+                status: 200,
+                statusText: 'OK',
+                headers: {},
+                config,
+                request: {},
+              });
+            held.fail = () =>
+              reject(
+                Object.assign(new Error('Network Error'), {
+                  code: 'ERR_NETWORK',
+                }),
+              );
+          }),
+      );
+      return held;
+    }
+
+    async function waitForDomainRequests(n: number) {
+      for (let i = 0; i < 50 && fallbackAdapter.mock.calls.length < n; i += 1) {
+        await new Promise((resolve) => setTimeout(resolve, 0));
+      }
+      expect(fallbackAdapter).toHaveBeenCalledTimes(n);
+    }
+
     test('GET falls back to the domain after a TLS failure on the selected IP', async () => {
       mockedSniRequest.mockRejectedValue(tlsError());
       await expect(request('get')).resolves.toMatchObject({
@@ -1613,5 +1646,91 @@ describe('ipTableAdapter idempotency-gated fallback after SNI started', () => {
         setReportRequestFailureCallback(() => undefined);
       }
     });
+
+    test.each<[string, boolean]>([
+      ['the newer success lands first', true],
+      ['the older failure lands first', false],
+    ])(
+      'a newer domain success outweighs an older domain failure (%s)',
+      async (_order, successFirst) => {
+        await failPostsOverSni(3);
+        const older = holdNextDomainRequest();
+        const olderRequest = request('post');
+        await waitForDomainRequests(1);
+        const newer = holdNextDomainRequest();
+        const newerRequest = request('post');
+        await waitForDomainRequests(2);
+
+        const settleNewer = async () => {
+          newer.succeed?.();
+          await expect(newerRequest).resolves.toMatchObject({
+            data: { fallback: true },
+          });
+        };
+        const settleOlder = async () => {
+          older.fail?.();
+          await expect(olderRequest).rejects.toMatchObject({
+            code: 'ERR_NETWORK',
+          });
+        };
+        if (successFirst) {
+          await settleNewer();
+          await settleOlder();
+        } else {
+          await settleOlder();
+          await settleNewer();
+        }
+
+        await expect(request('post')).resolves.toMatchObject({
+          data: { fallback: true },
+        });
+        expect(mockedSniRequest).toHaveBeenCalledTimes(3);
+      },
+    );
+
+    test.each<[string, boolean]>([
+      ['the probe fails first', true],
+      ['the domain request fails first', false],
+    ])(
+      'a failed probe outweighs an older domain failure (%s)',
+      async (_order, probeFirst) => {
+        await failPostsOverSni(3);
+        const inFlight = holdNextDomainRequest();
+        const domainRequest = request('post');
+        await waitForDomainRequests(1);
+        const nowSpy = jest
+          .spyOn(Date, 'now')
+          .mockReturnValue(Date.now() + SNI_BYPASS_TTL_MS + 1);
+        try {
+          // The probe fails on the IP and falls back to the domain.
+          const failProbe = async () => {
+            await expect(request('get')).resolves.toMatchObject({
+              data: { fallback: true },
+            });
+          };
+          const failDomainRequest = async () => {
+            inFlight.fail?.();
+            await expect(domainRequest).rejects.toMatchObject({
+              code: 'ERR_NETWORK',
+            });
+          };
+          if (probeFirst) {
+            await failProbe();
+            await failDomainRequest();
+          } else {
+            await failDomainRequest();
+            await failProbe();
+          }
+          expect(mockedSniRequest).toHaveBeenCalledTimes(4);
+
+          await expect(request('post')).resolves.toMatchObject({
+            data: { fallback: true },
+          });
+          expect(mockedSniRequest).toHaveBeenCalledTimes(4);
+        } finally {
+          nowSpy.mockRestore();
+        }
+      },
+    );
   });
 });

@@ -613,9 +613,11 @@ async function getActiveFailoverIp(
 // non-idempotent ones — which cannot be replayed — stop failing outright.
 // After the window only idempotent requests may probe the IP again, so a
 // non-idempotent request never meets an IP that has not proven itself.
-// The window ends early when the domain fails too: with both routes down it
-// buys nothing, and users whose domain route is the broken one must get the
-// IP back the moment it works.
+// A domain failure hands requests back to the IP: with both routes down the
+// window buys nothing, and users whose domain route is the broken one must
+// get the IP back the moment it works. Which route wins follows the newest
+// outcome by request sequence — an IP failure behind the window or a request
+// routed around the IP — so arrival order never decides it.
 
 interface ISniBypassState {
   /**
@@ -626,6 +628,10 @@ interface ISniBypassState {
   bypassUntil: number;
   /** Set on activation; cleared by the first SNI success */
   halfOpen: boolean;
+  /** Request sequence of the newest IP failure that opened or extended the window */
+  openedBySequence: number;
+  /** Newest outcome of a request routed around the IP, by request sequence */
+  domainOutcome: { requestSequence: number; ok: boolean };
 }
 
 // Keyed by root domain and IP: a new selection is a new route with a clean
@@ -636,13 +642,21 @@ function getSniBypassKey(rootDomain: string, ip: string): string {
   return `${rootDomain}|${ip}`;
 }
 
+// A domain failure newer than every IP failure behind the window.
+function isDomainFailingInSniBypass(state: ISniBypassState): boolean {
+  return (
+    !state.domainOutcome.ok &&
+    state.domainOutcome.requestSequence > state.openedBySequence
+  );
+}
+
 function shouldBypassSni(
   rootDomain: string,
   ip: string,
   method: string,
 ): boolean {
   const state = sniBypassStates.get(getSniBypassKey(rootDomain, ip));
-  if (!state) {
+  if (!state || isDomainFailingInSniBypass(state)) {
     return false;
   }
   if (state.bypassUntil > Date.now()) {
@@ -685,6 +699,8 @@ async function recordSniRequestOutcome(options: {
       outcomes: createRequestOutcomeState(),
       bypassUntil: 0,
       halfOpen: false,
+      openedBySequence: 0,
+      domainOutcome: { requestSequence: 0, ok: true },
     };
     sniBypassStates.set(key, state);
   }
@@ -708,7 +724,12 @@ async function recordSniRequestOutcome(options: {
     return;
   }
   const now = Date.now();
-  if (state.bypassUntil <= now) {
+  const wasActive =
+    state.bypassUntil > now && !isDomainFailingInSniBypass(state);
+  state.bypassUntil = now + IP_TABLE_SNI_BYPASS_TTL_MS;
+  state.halfOpen = true;
+  state.openedBySequence = Math.max(state.openedBySequence, requestSequence);
+  if (!wasActive && !isDomainFailingInSniBypass(state)) {
     logIpTableEvent('warn', 'sni_bypass_activated', {
       rootDomain,
       ipHash: hashForLog(ip),
@@ -716,8 +737,33 @@ async function recordSniRequestOutcome(options: {
       ttlMs: IP_TABLE_SNI_BYPASS_TTL_MS,
     });
   }
-  state.bypassUntil = now + IP_TABLE_SNI_BYPASS_TTL_MS;
-  state.halfOpen = true;
+}
+
+function recordSniBypassDomainOutcome(options: {
+  rootDomain: string;
+  ip: string;
+  ok: boolean;
+  requestSequence: number;
+}): void {
+  const { rootDomain, ip, ok, requestSequence } = options;
+  const state = sniBypassStates.get(getSniBypassKey(rootDomain, ip));
+  if (!state || requestSequence <= state.domainOutcome.requestSequence) {
+    return;
+  }
+  const wasFailing = isDomainFailingInSniBypass(state);
+  state.domainOutcome = { requestSequence, ok };
+  const failing = isDomainFailingInSniBypass(state);
+  if (state.halfOpen && failing !== wasFailing) {
+    logIpTableEvent(
+      'info',
+      failing ? 'sni_bypass_deactivated' : 'sni_bypass_activated',
+      {
+        rootDomain,
+        ipHash: hashForLog(ip),
+        cause: failing ? 'domain_failed' : 'domain_recovered',
+      },
+    );
+  }
 }
 
 /** Test-only helper: clears both circuits and the selection memo cache. */
@@ -1083,28 +1129,28 @@ export function createIpTableAdapter(
    *
    * @param options.config - Axios request config
    * @param options.isFallback - If true, this is a fallback request after SNI failure (won't count as domain failure)
-   * @param options.isSniBypass - If true, the selected IP is stepping aside and the domain is this request's only route
+   * @param options.sniBypassIp - The selected IP this request is routed around; the domain is its only route
    * @param options.hostname - Hostname for failure reporting (optional)
    * @param options.rootDomain - Root domain for failure reporting (optional)
    */
   const callOriginalAdapter = async (options: {
     config: InternalAxiosRequestConfig;
     isFallback?: boolean;
-    isSniBypass?: boolean;
+    sniBypassIp?: string;
     hostname?: string;
     rootDomain?: string;
   }): Promise<AxiosResponse> => {
     const {
       config,
       isFallback = false,
-      isSniBypass = false,
+      sniBypassIp,
       hostname,
       rootDomain,
     } = options;
     let route: IAvailabilityRoute = 'domain';
     if (isFallback) {
       route = 'fallback';
-    } else if (isSniBypass) {
+    } else if (sniBypassIp) {
       route = 'bypass';
     }
     markApiAvailabilityRoute(config.$oneKeyAvailabilityTiming, route);
@@ -1175,6 +1221,14 @@ export function createIpTableAdapter(
           ok: true,
           requestSequence,
         });
+        if (sniBypassIp) {
+          recordSniBypassDomainOutcome({
+            rootDomain,
+            ip: sniBypassIp,
+            ok: true,
+            requestSequence,
+          });
+        }
         if (reportRequestSuccessCallback) {
           reportRequestSuccessCallback({
             domain: rootDomain,
@@ -1225,6 +1279,18 @@ export function createIpTableAdapter(
             ok: false,
             requestSequence,
             error,
+          });
+        }
+        // Cancellations say nothing about the domain route.
+        if (
+          sniBypassIp &&
+          (httpResponseReceived || isIpTableTransportError(error))
+        ) {
+          recordSniBypassDomainOutcome({
+            rootDomain,
+            ip: sniBypassIp,
+            ok: httpResponseReceived,
+            requestSequence,
           });
         }
       }
@@ -1459,19 +1525,12 @@ export function createIpTableAdapter(
       ) &&
       !(await isFailoverDisabledByDevSettings())
     ) {
-      try {
-        return await callOriginalAdapter({
-          config,
-          isSniBypass: true,
-          hostname,
-          rootDomain,
-        });
-      } catch (error) {
-        if (isIpTableTransportError(error)) {
-          clearSniBypass(rootDomain, selectedIp, 'domain_failed');
-        }
-        throw error;
-      }
+      return callOriginalAdapter({
+        config,
+        sniBypassIp: selectedIp,
+        hostname,
+        rootDomain,
+      });
     }
 
     debugLog(
