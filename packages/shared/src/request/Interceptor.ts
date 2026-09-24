@@ -97,6 +97,17 @@ export async function checkRequestIsOneKeyDomain({
 
 export const HEADER_REQUEST_ID_KEY = normalizeHeaderKey('X-Onekey-Request-ID');
 
+function getPlatformNameHeaderValue(
+  displayName: string | undefined,
+  model: string | undefined,
+): string {
+  const name = displayName || 'Unknown';
+  if (!platformEnv.isNativeAndroid || /^[\x20-\x7E]+$/.test(name)) {
+    return name;
+  }
+  return model && /^[\x20-\x7E]+$/.test(model) ? model : 'Unknown';
+}
+
 export async function getRequestHeaders() {
   const appDeviceInfoData = await appDeviceInfo.getDeviceInfo();
   const settings: ISettingsPersistAtom =
@@ -122,7 +133,10 @@ export async function getRequestHeaders() {
     [normalizeHeaderKey('X-Onekey-Request-Theme')]: theme,
     [normalizeHeaderKey('X-Onekey-Request-Platform')]: headerPlatform,
     [normalizeHeaderKey('X-Onekey-Request-Platform-Name')]:
-      appDeviceInfoData.displayName || 'Unknown',
+      getPlatformNameHeaderValue(
+        appDeviceInfoData.displayName,
+        appDeviceInfoData.device.model,
+      ),
     [normalizeHeaderKey('X-Onekey-Request-Device-Name')]:
       platformEnv.appFullName,
     [normalizeHeaderKey('X-Onekey-Request-Version')]:
