@@ -41,6 +41,21 @@ export class SimpleDbEntityLocalTokens extends SimpleDbEntityBase<ISimpleDBLocal
 
   override enableCache = false;
 
+  // Responses for the same account/network can resolve out of request order
+  // (e.g. A -> B -> A where the first A request is slow). Writes carry the
+  // order in which their request started; one older than the newest committed
+  // write for its key is skipped, so a late response cannot overwrite fresher
+  // balances. Owner retirement alone does not drop a completed snapshot.
+  private accountTokenListWriteOrder = 0;
+
+  private committedAccountTokenListWriteOrder = new Map<string, number>();
+
+  // The order is taken synchronously when called, before the caller awaits.
+  async reserveAccountTokenListWriteOrder(): Promise<number> {
+    this.accountTokenListWriteOrder += 1;
+    return this.accountTokenListWriteOrder;
+  }
+
   // Bound the global token-metadata map. Applied on every write (here, on read it
   // re-fetches on miss) so growth is capped regardless of whether the periodic
   // orphan sweep runs. Object key order is insertion order, so the oldest entries
@@ -161,8 +176,10 @@ export class SimpleDbEntityLocalTokens extends SimpleDbEntityBase<ISimpleDBLocal
     tokenListValue,
     currency,
     homeRequest,
+    writeOrder,
   }: {
     homeRequest?: IHomeTokenRequest;
+    writeOrder?: number;
     networkId: string;
     accountAddress?: string;
     xpub?: string;
@@ -194,39 +211,63 @@ export class SimpleDbEntityLocalTokens extends SimpleDbEntityBase<ISimpleDBLocal
     });
     perf.markEnd('buildAccountLocalAssetsKey');
 
+    const staleWriteError = new Error('Stale account token list write');
+    const assertCanCommit =
+      homeRequest || writeOrder !== undefined
+        ? () => {
+            if (homeRequest) {
+              homeTokenRequestRegistry.assertCurrent(homeRequest);
+            }
+            if (writeOrder === undefined) {
+              return;
+            }
+            const committedOrder =
+              this.committedAccountTokenListWriteOrder.get(key) ?? 0;
+            if (writeOrder < committedOrder) {
+              throw staleWriteError;
+            }
+            // Runs under the entity mutex right before the commit.
+            this.committedAccountTokenListWriteOrder.set(key, writeOrder);
+          }
+        : undefined;
+
     perf.markStart('setRawData');
-    await this.setRawDataWithCommitGuard(
-      (rawData) => ({
-        data: rawData?.data ?? {},
-        tokenList: {
-          ...rawData?.tokenList,
-          [key]: tokenList,
-        },
-        smallBalanceTokenList: {
-          ...rawData?.smallBalanceTokenList,
-          [key]: smallBalanceTokenList,
-        },
-        riskyTokenList: {
-          ...rawData?.riskyTokenList,
-          [key]: riskyTokenList,
-        },
-        tokenListMap: {
-          ...rawData?.tokenListMap,
-          [key]: tokenListMap,
-        },
-        tokenListValue: {
-          ...rawData?.tokenListValue,
-          [key]: tokenListValue,
-        },
-        tokenListCurrency: {
-          ...rawData?.tokenListCurrency,
-          [key]: currency,
-        },
-      }),
-      homeRequest
-        ? () => homeTokenRequestRegistry.assertCurrent(homeRequest)
-        : undefined,
-    );
+    try {
+      await this.setRawDataWithCommitGuard(
+        (rawData) => ({
+          data: rawData?.data ?? {},
+          tokenList: {
+            ...rawData?.tokenList,
+            [key]: tokenList,
+          },
+          smallBalanceTokenList: {
+            ...rawData?.smallBalanceTokenList,
+            [key]: smallBalanceTokenList,
+          },
+          riskyTokenList: {
+            ...rawData?.riskyTokenList,
+            [key]: riskyTokenList,
+          },
+          tokenListMap: {
+            ...rawData?.tokenListMap,
+            [key]: tokenListMap,
+          },
+          tokenListValue: {
+            ...rawData?.tokenListValue,
+            [key]: tokenListValue,
+          },
+          tokenListCurrency: {
+            ...rawData?.tokenListCurrency,
+            [key]: currency,
+          },
+        }),
+        assertCanCommit,
+      );
+    } catch (error) {
+      if (error !== staleWriteError) {
+        throw error;
+      }
+    }
     perf.markEnd('setRawData');
     perf.done();
   }

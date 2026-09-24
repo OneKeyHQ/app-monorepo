@@ -125,6 +125,15 @@ function makeApi() {
       },
       localTokens: {
         getRawData: jest.fn().mockResolvedValue(null),
+        reserveAccountTokenListWriteOrder: jest.fn(
+          (() => {
+            let order = 0;
+            return () => {
+              order += 1;
+              return order;
+            };
+          })(),
+        ),
         updateAccountTokenList: jest.fn().mockResolvedValue(undefined),
         updateAccountTokenListByCache: jest.fn().mockResolvedValue(undefined),
         getAccountTokenList: jest.fn().mockResolvedValue({
@@ -316,6 +325,37 @@ describe('ServiceToken native Home request lifetime', () => {
     await service.invalidateHomeTokenRequests(token(2));
     write.resolve();
     await rejected;
+  });
+
+  it('tags single-network writes with their request start order', async () => {
+    const olderResponse = deferred<{
+      data: { data: ReturnType<typeof getEmptyTokenData> };
+    }>();
+    fetchTokenListMock.mockImplementationOnce(() => olderResponse.promise);
+    // A non-Home refresh is never retired, so its late response still reaches
+    // storage after the Home request that started later.
+    const older = service.fetchAccountTokens({
+      ...fetchParams(),
+      homeRequest: undefined,
+      saveToLocal: true,
+    });
+    await new Promise((resolve) => {
+      setTimeout(resolve, 0);
+    });
+    expect(fetchTokenListMock).toHaveBeenCalledTimes(1);
+
+    await service.fetchAccountTokens({
+      ...fetchParams(),
+      saveToLocal: true,
+    });
+    olderResponse.resolve({ data: { data: getEmptyTokenData() } });
+    await older;
+
+    const writes = api.simpleDb.localTokens.updateAccountTokenList.mock.calls;
+    // Storage drops the second write because its order precedes the first.
+    expect(
+      writes.map(([params]) => (params as { writeOrder?: number }).writeOrder),
+    ).toEqual([2, 1]);
   });
 
   it('persists completed Home snapshots even when their request is retired', async () => {

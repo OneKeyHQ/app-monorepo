@@ -405,6 +405,11 @@ class ServiceToken extends ServiceBase {
     };
 
     throwIfRequestAborted();
+    // Taken before any other await so persistence follows request start order.
+    const localTokensWriteOrder =
+      saveToLocal && !isAllNetworks
+        ? await this.backgroundApi.simpleDb.localTokens.reserveAccountTokenListWriteOrder()
+        : undefined;
 
     // All-network flows must fan out per real network before reaching this
     // method; the wallet API always rejects the all-network mock id, so a
@@ -777,9 +782,11 @@ class ServiceToken extends ServiceBase {
         }
       } else {
         // Address preflight and response validation have already completed.
-        // Persist this accepted snapshot without another asynchronous owner
-        // lookup; UI publication remains guarded below the storage await.
+        // Persist this accepted snapshot even if its Home owner has retired;
+        // only a newer committed response for the same key supersedes it. UI
+        // publication remains guarded below the storage await.
         await this.backgroundApi.simpleDb.localTokens.updateAccountTokenList({
+          writeOrder: localTokensWriteOrder,
           accountAddress,
           xpub,
           networkId,
