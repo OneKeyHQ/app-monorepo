@@ -240,10 +240,11 @@ function ConnectKeystoneDevicePage() {
           return;
         }
 
-        // The scanner stops itself past maxTryCount but doesn't tell the
-        // caller, so clear the flag here to let a later scan re-enter.
+        // Stop here rather than wait for the scanner's own limit one poll later:
+        // a retry in between resets its counter and leaves this loop running.
         if (pollsCompleted >= KEYSTONE_SCAN_MAX_TRY_COUNT) {
           isSearchingRef.current = false;
+          deviceScanner.stopScan();
           setConnectStatus(EConnectionStatus.init);
           Toast.error({
             title: intl.formatMessage({

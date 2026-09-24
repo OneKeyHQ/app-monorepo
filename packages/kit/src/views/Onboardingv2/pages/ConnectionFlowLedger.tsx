@@ -215,17 +215,13 @@ export default function LedgerConnectionFlow() {
 
         setSearchedDevices(sortedDevices);
 
-        // Scanner internally calls stopScan() once tryCount exceeds maxTryCount
-        // on the next poll iteration, but doesn't notify the caller. Reset the
-        // searching flag here so a subsequent scanDevice() call can re-enter.
+        // Stop here rather than wait for the scanner's own limit one poll later:
+        // a retry in between resets its counter and leaves this loop running.
+        // Found devices stay listed; Start Connection comes back for a rescan.
         if (pollsCompleted >= MAX_TRY_COUNT) {
           isSearchingRef.current = false;
-          // If no device was found after the full window, return to init so
-          // the Start Connection button reappears. If devices were found, keep
-          // the listing state so the user can still pick from what's on screen.
-          if (sortedDevices.length === 0) {
-            setConnectStatus(EConnectionStatus.init);
-          }
+          deviceScanner.stopScan();
+          setConnectStatus(EConnectionStatus.init);
         }
       },
       (state) => {

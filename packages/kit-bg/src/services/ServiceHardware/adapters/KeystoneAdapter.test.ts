@@ -413,6 +413,26 @@ describe('KeystoneAdapter', () => {
     );
   });
 
+  it('releases the interaction when loading device info throws', async () => {
+    const hw = {
+      on: jest.fn(),
+      connectDevice: jest.fn().mockResolvedValue({
+        success: true,
+        payload: 'hwk-keystone-interaction',
+      }),
+      getDeviceInfo: jest.fn().mockRejectedValue(new Error('bridge down')),
+      releaseOperation: jest.fn().mockResolvedValue(undefined),
+    };
+    const adapter = new KeystoneAdapter(hw as never);
+
+    await expect(adapter.connectDevice('keystone-usb:serial')).rejects.toThrow(
+      'bridge down',
+    );
+    expect(hw.releaseOperation).toHaveBeenCalledWith(
+      'hwk-keystone-interaction',
+    );
+  });
+
   it('rejects missing connection identity instead of using the discovery target', async () => {
     const hw = {
       on: jest.fn(),
