@@ -47,6 +47,7 @@ function getTradingViewNativeMainPriceAxisLayoutForPanes({
   return getTradingViewNativeMainPriceAxisLayout({
     height,
     paneCount,
+    panes: subIndicatorPanes,
     timeAxisHeight,
   });
 }
@@ -269,6 +270,7 @@ export function useTradingViewNativePriceScale({
       return isTradingViewNativeMainPriceAxisTouch({
         height: runtime.size.height,
         paneCount,
+        panes: runtime.subIndicatorPanes,
         priceAxisWidth: priceAxisWidth.value,
         timeAxisHeight,
         width: runtime.size.width,
@@ -396,6 +398,7 @@ export function useTradingViewNativePriceScale({
         height: chartSize.height,
         paneCount:
           getTradingViewNativeVisibleSubIndicatorPaneCount(subIndicatorPanes),
+        panes: subIndicatorPanes,
         priceAxisWidth: priceAxisControlWidth,
         timeAxisHeight,
         width: chartSize.width,

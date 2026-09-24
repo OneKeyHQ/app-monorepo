@@ -17,6 +17,7 @@ import { FocusScope } from '@tamagui/focus-scope';
 import { setStringAsync } from 'expo-clipboard';
 import { isNil } from 'lodash';
 import { useIntl } from 'react-intl';
+import { Platform } from 'react-native';
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
@@ -653,6 +654,9 @@ function DialogFrame({
       <AnimatePresence>
         {open ? (
           <Stack
+            // The positioning layer outlives closed content during its exit animation.
+            // Let the overlay and content own hit testing on the web.
+            pointerEvents={Platform.select({ web: 'box-none' })}
             position={
               platformEnv.isNative ? 'absolute' : ('fixed' as unknown as any)
             }
