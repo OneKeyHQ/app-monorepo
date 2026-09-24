@@ -72,6 +72,8 @@ import type {
   IEarnManagePageResponse,
   IEarnPermit2ApproveSignData,
   IEarnRegisterSignMessageResponse,
+  IEarnRewardsPortfolioResponse,
+  IEarnRewardsPortfolioStage,
   IEarnStakeType,
   IEarnSummary,
   IEarnSummaryV2,
@@ -1301,6 +1303,60 @@ class ServiceStaking extends ServiceBase {
       ).values(),
     );
     return uniqueAccountParams;
+  }
+
+  /**
+   * Phone positions page, Rewards tab: one stage of the wallet's ledger
+   * rewards across every earn account and protocol (OK-61377). Ledger only —
+   * the protocol rewards a position accrues on chain come from the
+   * investment detail the page already holds, and on this page the response
+   * replaces the ledger rows /v1/investment/airdrop-detail used to carry.
+   */
+  @backgroundMethod()
+  async getRewardsPortfolio(params: {
+    accountId: string;
+    networkId: string;
+    indexedAccountId?: string;
+    stage: IEarnRewardsPortfolioStage;
+    cursor?: string;
+    limit?: number;
+    /** the page's network filter; the server pages the filtered groups */
+    networkIds?: string[];
+  }): Promise<IEarnRewardsPortfolioResponse> {
+    const {
+      accountId,
+      networkId,
+      indexedAccountId,
+      stage,
+      cursor,
+      limit,
+      networkIds,
+    } = params;
+    const accounts = await this.getEarnAvailableAccountsParams({
+      accountId,
+      networkId,
+      indexedAccountId,
+    });
+    if (accounts.length === 0) {
+      return {
+        asOf: Date.now(),
+        stage,
+        totals: { claimable: '0', pending: '0', rewards: '0' },
+        groups: [],
+      };
+    }
+    const client = await this.getClient(EServiceEndpointEnum.Earn);
+    const resp = await client.post<{ data: IEarnRewardsPortfolioResponse }>(
+      '/earn/v1/rewards/portfolio',
+      {
+        accounts,
+        stage,
+        ...(cursor ? { cursor } : {}),
+        ...(limit ? { limit } : {}),
+        ...(networkIds?.length ? { networkIds } : {}),
+      },
+    );
+    return resp.data.data;
   }
 
   @backgroundMethod()

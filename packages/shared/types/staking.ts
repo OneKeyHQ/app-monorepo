@@ -2138,10 +2138,46 @@ export interface IEarnInvestmentItem {
   investment: IInvestment[];
 }
 
+/**
+ * Server-classified meaning of a status / reward row on the investment
+ * detail (6.6.x+ earn service, OK-61377). Absent on older servers and on the
+ * rows the server does not classify (Pendle PT, Babylon overflow, ...).
+ */
+export type IEarnInvestmentRowKind =
+  | 'active'
+  | 'pendingActivation'
+  | 'unstaking'
+  | 'claimablePrincipal'
+  | 'reward';
+
+export type IEarnInvestmentRowFacts = {
+  kind?: IEarnInvestmentRowKind;
+  /** token units */
+  amount?: string;
+  /** request currency */
+  fiatValue?: string;
+  /** ms; unstaking rows whose provider knows when the funds free up */
+  unlockAt?: number;
+};
+
+/** Dashboard-set protocol classification; both optional on legacy docs. */
+export type IEarnProtocolCategory =
+  | 'simpleEarn'
+  | 'fixedRate'
+  | 'staking'
+  | 'lending';
+export type IEarnProtocolType = 'native' | 'liquid' | 'lending';
+
 export interface IEarnInvestmentItemV2 {
   totalFiatValue: string;
   earnings24hFiatValue: string;
   totalFiatValueUsd?: string;
+  /**
+   * Fiat of the reward rows that are yield and claimable now (6.6.x+ earn
+   * service). Only present when such a row exists; principal-only protocols
+   * never send it.
+   */
+  rewardsFiatValue?: string;
   netPnl?: IEarnText;
   netPnlFiatValue?: IEarnText;
   protocol: {
@@ -2150,6 +2186,13 @@ export interface IEarnInvestmentItemV2 {
     symbol?: string;
     vault?: string;
     vaultName?: string;
+    /**
+     * Server passes these through as stored (6.6.x+ earn service). The phone
+     * positions page groups rows by category; absent on older servers and on
+     * legacy protocol docs, in which case the row renders without a badge.
+     */
+    category?: IEarnProtocolCategory;
+    type?: IEarnProtocolType;
     providerDetail: {
       code: string;
       name: string;
@@ -2175,7 +2218,7 @@ export interface IEarnInvestmentItemV2 {
       title: IEarnText;
       description: IEarnText;
     };
-    rewardAssets: {
+    rewardAssets: ({
       title: IEarnText;
       tooltip?: IEarnTooltip;
       button:
@@ -2186,8 +2229,8 @@ export interface IEarnInvestmentItemV2 {
       badge?: IEarnBadge;
       key?: string;
       description: IEarnText;
-    }[];
-    assetsStatus: {
+    } & IEarnInvestmentRowFacts)[];
+    assetsStatus: ({
       title: IEarnText;
       description: IEarnText;
       tooltip?: IEarnTooltip;
@@ -2195,7 +2238,7 @@ export interface IEarnInvestmentItemV2 {
       swapButton?: IEarnManagePageSwapActions;
       badge?: IEarnBadge;
       key?: string;
-    }[];
+    } & IEarnInvestmentRowFacts)[];
     buttons: {
       type: string;
       text: IEarnText;
@@ -2279,6 +2322,61 @@ export type IEarnPortfolioAirdropAsset =
 export type IEarnPortfolioInvestment = Omit<IEarnInvestmentItemV2, 'assets'> & {
   assets: IEarnPortfolioAsset[]; // Only normal type assets
   airdropAssets: IEarnPortfolioAirdropAsset[]; // Only airdrop type assets
+  /**
+   * Fiat value of the airdrop rows, kept apart from totalFiatValue (which
+   * stays principal-only for the DeFi Assets figure). Summed on merge.
+   */
+  airdropFiatValue?: string;
+};
+
+/**
+ * POST /earn/v1/rewards/portfolio — the phone positions page's Rewards tab.
+ * Ledger rewards of the wallet's earn accounts across every protocol, one
+ * stage per call. Mirrors server-service-earn rewards-portfolio.ts.
+ */
+export type IEarnRewardsPortfolioStage =
+  | 'claimable'
+  | 'pending'
+  | 'distributed';
+
+export type IEarnRewardsPortfolioItem = Omit<
+  NonNullable<
+    IStakeEarnDetail['mobilePortfolio']
+  >['groups'][number]['items'][number],
+  'status'
+> & {
+  status?: IEarnRewardsPortfolioStage | 'claiming';
+  stage: IEarnRewardsPortfolioStage;
+  /** the vault that earned it, when the provider funds pools separately */
+  vault?: string;
+};
+
+export type IEarnRewardsPortfolioGroup = {
+  provider: string;
+  providerName: string;
+  providerLogoURI?: string;
+  networkId: string;
+  total: {
+    fiatValue: string;
+    /** present only when every row of the group is the same token */
+    amount?: string;
+    symbol?: string;
+  };
+  items: IEarnRewardsPortfolioItem[];
+};
+
+export type IEarnRewardsPortfolioResponse = {
+  asOf: number;
+  stage: IEarnRewardsPortfolioStage;
+  /**
+   * Ledger-only fiat totals over the full account set, regardless of stage
+   * or paging. `rewards` = claimable + pending; the page adds the protocol
+   * rewards it already holds from the investment detail.
+   */
+  totals: { claimable: string; pending: string; rewards: string };
+  groups: IEarnRewardsPortfolioGroup[];
+  /** present when more groups follow; pass back as-is */
+  cursor?: string;
 };
 
 export interface IEarnFAQListItem {
