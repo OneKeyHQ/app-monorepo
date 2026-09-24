@@ -1064,28 +1064,36 @@ function ThirdPartyHardwareUiStateContainerCmp() {
       };
     }
 
-    const toast = SecureQRToast.show({
-      valueUr: { type: urType ?? '', cbor: urData },
-      drawType: 'line',
-      dismissOnOverlayPress: false,
-      showConfirmButton: true,
-      onConfirm: async () => {
-        await toast.close({ flag: 'skipReject' });
-        await runScan();
-      },
-      onCancel: async () => {
-        await toast.close();
-        await sendResponse(null);
-      },
-      onClose: async (params) => {
-        if (params?.flag !== 'skipReject') {
+    // The stage must step aside first, or its capsule covers the QR code.
+    let toast: ReturnType<typeof SecureQRToast.show> | undefined;
+    let isDisposed = false;
+    void (async () => {
+      await yieldDeviceStageToDialog();
+      if (isSettled || isDisposed) return;
+      toast = SecureQRToast.show({
+        valueUr: { type: urType ?? '', cbor: urData },
+        drawType: 'line',
+        dismissOnOverlayPress: false,
+        showConfirmButton: true,
+        onConfirm: async () => {
+          await toast?.close({ flag: 'skipReject' });
+          await runScan();
+        },
+        onCancel: async () => {
+          await toast?.close();
           await sendResponse(null);
-        }
-      },
-    });
+        },
+        onClose: async (params) => {
+          if (params?.flag !== 'skipReject') {
+            await sendResponse(null);
+          }
+        },
+      });
+    })();
     return () => {
+      isDisposed = true;
       void cancelIfStillCurrent();
-      void toast.close({ flag: 'skipReject' });
+      void toast?.close({ flag: 'skipReject' });
     };
   }, [
     isKeystoneQr,

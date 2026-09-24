@@ -89,10 +89,14 @@ function toStageDeviceType(
 function toStageVendor(
   vendor: IDeviceStageState['vendor'],
 ): IDeviceStageVendor | undefined {
-  if (vendor === EHardwareVendor.trezor || vendor === EHardwareVendor.ledger) {
-    return vendor;
+  switch (vendor) {
+    case EHardwareVendor.trezor:
+    case EHardwareVendor.ledger:
+    case EHardwareVendor.keystone:
+      return vendor;
+    default:
+      return undefined;
   }
-  return undefined;
 }
 
 function DeviceStageContainerCmp() {

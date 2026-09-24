@@ -192,24 +192,34 @@ it('does not open a selection that ended while the stage was leaving', async () 
   expect(showThirdPartyDeviceSelectionDialog).not.toHaveBeenCalled();
 });
 
-it.each([false, true])(
-  'waits before opening the Keystone scanner (display first: %s)',
-  async (display) => {
-    mockUiState = qrState(display);
-    const release = holdExit();
-    render(<ThirdPartyHardwareUiStateContainer />);
-    if (display) {
-      expect(yieldDeviceStageToDialog).not.toHaveBeenCalled();
-      await act(async () => {
-        jest.mocked(SecureQRToast.show).mock.calls[0][0].onConfirm?.();
-      });
-    }
-    expect(yieldDeviceStageToDialog).toHaveBeenCalledTimes(1);
-    expect(mockStartScan).not.toHaveBeenCalled();
-    await release();
-    expect(mockStartScan).toHaveBeenCalledTimes(1);
-  },
-);
+it('waits before opening the Keystone scanner', async () => {
+  mockUiState = qrState(false);
+  const release = holdExit();
+  render(<ThirdPartyHardwareUiStateContainer />);
+  expect(yieldDeviceStageToDialog).toHaveBeenCalledTimes(1);
+  expect(mockStartScan).not.toHaveBeenCalled();
+  await release();
+  expect(mockStartScan).toHaveBeenCalledTimes(1);
+});
+
+it('waits before showing the Keystone QR so the stage cannot cover it', async () => {
+  mockUiState = qrState(true);
+  const releaseDisplay = holdExit();
+  render(<ThirdPartyHardwareUiStateContainer />);
+  expect(yieldDeviceStageToDialog).toHaveBeenCalledTimes(1);
+  expect(SecureQRToast.show).not.toHaveBeenCalled();
+  await releaseDisplay();
+  expect(SecureQRToast.show).toHaveBeenCalledTimes(1);
+
+  const releaseScan = holdExit();
+  await act(async () => {
+    jest.mocked(SecureQRToast.show).mock.calls[0][0].onConfirm?.();
+  });
+  expect(yieldDeviceStageToDialog).toHaveBeenCalledTimes(2);
+  expect(mockStartScan).not.toHaveBeenCalled();
+  await releaseScan();
+  expect(mockStartScan).toHaveBeenCalledTimes(1);
+});
 
 it('does not open the scanner after its QR request was cancelled during the exit', async () => {
   mockUiState = qrState(false);
