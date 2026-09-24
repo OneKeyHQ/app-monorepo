@@ -59,14 +59,18 @@ describe('getRequestHeaders platform name', () => {
 
   it.each([
     ['Pixel8', 'Pixel 8', 'Pixel8'],
-    ['Pixel 8', 'Pixel 8', 'Pixel%208'],
-    ['中文设备', 'Galaxy A55', 'Galaxy%20A55'],
+    ['Pixel 8', 'Pixel 8', 'Pixel 8'],
+    ['Galaxy A55 5G', 'SM-A556E', 'Galaxy A55 5G'],
+    ["Alex's Pixel-8 (work)", 'Pixel 8', "Alex's Pixel-8 (work)"],
+    ['中文设备', 'Galaxy A55', 'Galaxy A55'],
     ['Phone 😀', 'GalaxyA55', 'GalaxyA55'],
+    ['测试 的 A55', 'SM-A5560', 'SM-A5560'],
+    ['测试 的 Pixel 9a 😀', 'Pixel 9a', 'Pixel 9a'],
     ['中文设备', '型号 2', '%E5%9E%8B%E5%8F%B7%202'],
-    ['Phone\r\nInjected', undefined, 'unknown'],
-    ['', undefined, 'unknown'],
+    ['Phone\r\nInjected', undefined, 'Unknown'],
+    ['', undefined, 'Unknown'],
   ])(
-    'uses an encoded Android header for %s',
+    'derives the Android platform-name header for %s',
     async (displayName, model, expected) => {
       mockGetDeviceInfo.mockResolvedValue({
         displayName,
@@ -76,6 +80,9 @@ describe('getRequestHeaders platform name', () => {
       const headers = await getRequestHeaders();
 
       expect(headers['x-onekey-request-platform-name']).toBe(expected);
+      Object.values(headers).forEach((value) => {
+        expect(value).toMatch(/^[\t\x20-\x7E]*$/);
+      });
     },
   );
 
@@ -92,12 +99,12 @@ describe('getRequestHeaders platform name', () => {
     const later = await getRequestHeaders();
 
     expect(mockGetDeviceInfo).toHaveBeenCalledTimes(1);
-    expect(first['x-onekey-request-platform-name']).toBe('Pixel%208');
-    expect(concurrent['x-onekey-request-platform-name']).toBe('Pixel%208');
-    expect(later['x-onekey-request-platform-name']).toBe('Pixel%208');
+    expect(first['x-onekey-request-platform-name']).toBe('Pixel 8');
+    expect(concurrent['x-onekey-request-platform-name']).toBe('Pixel 8');
+    expect(later['x-onekey-request-platform-name']).toBe('Pixel 8');
   });
 
-  it('caches the unknown fallback when device lookup fails', async () => {
+  it('caches the Unknown fallback when device lookup fails', async () => {
     mockGetDeviceInfo.mockRejectedValueOnce(
       new OneKeyLocalError('Device lookup failed'),
     );
@@ -105,22 +112,22 @@ describe('getRequestHeaders platform name', () => {
     const first = await getRequestHeaders();
     const later = await getRequestHeaders();
 
-    expect(first['x-onekey-request-platform-name']).toBe('unknown');
-    expect(later['x-onekey-request-platform-name']).toBe('unknown');
+    expect(first['x-onekey-request-platform-name']).toBe('Unknown');
+    expect(later['x-onekey-request-platform-name']).toBe('Unknown');
     expect(mockGetDeviceInfo).toHaveBeenCalledTimes(1);
   });
 
-  it('uses unknown when device lookup throws synchronously', async () => {
+  it('uses Unknown when device lookup throws synchronously', async () => {
     mockGetDeviceInfo.mockImplementationOnce(() => {
       throw new OneKeyLocalError('Device lookup failed');
     });
 
     const headers = await getRequestHeaders();
 
-    expect(headers['x-onekey-request-platform-name']).toBe('unknown');
+    expect(headers['x-onekey-request-platform-name']).toBe('Unknown');
   });
 
-  it('uses unknown when model encoding fails', async () => {
+  it('uses Unknown when model encoding fails', async () => {
     mockGetDeviceInfo.mockResolvedValue({
       displayName: '中文设备',
       device: { model: '\uD800' },
@@ -128,7 +135,7 @@ describe('getRequestHeaders platform name', () => {
 
     const headers = await getRequestHeaders();
 
-    expect(headers['x-onekey-request-platform-name']).toBe('unknown');
+    expect(headers['x-onekey-request-platform-name']).toBe('Unknown');
   });
 
   it('preserves the existing value outside Android', async () => {

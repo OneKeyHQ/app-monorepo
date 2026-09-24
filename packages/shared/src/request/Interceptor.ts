@@ -97,7 +97,11 @@ export async function checkRequestIsOneKeyDomain({
 
 export const HEADER_REQUEST_ID_KEY = normalizeHeaderKey('X-Onekey-Request-ID');
 
-const DEFAULT_PLATFORM_NAME = 'unknown';
+const DEFAULT_PLATFORM_NAME = 'Unknown';
+// Android displayName is the user-editable device name. OkHttp (expo/fetch,
+// SNI, expo-file-system uploads) throws on header values outside tab and
+// printable ASCII.
+const UNSAFE_HEADER_VALUE_RE = /[^\t\x20-\x7E]/;
 let platformNameHeaderValuePromise: Promise<string> | undefined;
 
 function getPlatformNameHeaderValue(): Promise<string> {
@@ -105,11 +109,13 @@ function getPlatformNameHeaderValue(): Promise<string> {
     .then(() => appDeviceInfo.getDeviceInfo())
     .then((deviceInfo) => {
       const name = deviceInfo.displayName || DEFAULT_PLATFORM_NAME;
-      if (!platformEnv.isNativeAndroid || !/[^A-Za-z0-9]/.test(name)) {
+      if (!platformEnv.isNativeAndroid || !UNSAFE_HEADER_VALUE_RE.test(name)) {
         return name;
       }
       const model = deviceInfo.device.model || DEFAULT_PLATFORM_NAME;
-      return /[^A-Za-z0-9]/.test(model) ? encodeURIComponent(model) : model;
+      return UNSAFE_HEADER_VALUE_RE.test(model)
+        ? encodeURIComponent(model)
+        : model;
     })
     .catch(() => DEFAULT_PLATFORM_NAME);
   return platformNameHeaderValuePromise;
