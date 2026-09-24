@@ -19,6 +19,7 @@ import {
 
 import type { IBackgroundApi } from '../../apis/IBackgroundApi';
 import type { IDBDeviceSettings } from '../../dbs/local/types';
+import type { IThirdPartyConnectedDevicePayload } from '../../services/ServiceHardware/adapters/types';
 import type {
   ChainForFingerprint,
   ICommonCallParams,
@@ -72,7 +73,10 @@ export function hasStoredLedgerChainFingerprint(settingsRaw: string): boolean {
 export async function withNewLedgerOperation<T>(
   backgroundApi: IBackgroundApi,
   connectId: string,
-  run: (operationId: string) => Promise<T>,
+  run: (
+    operationId: string,
+    connectionType?: IThirdPartyConnectedDevicePayload['connectionType'],
+  ) => Promise<T>,
   context: ICommonCallParams,
 ): Promise<T> {
   const adapter =
@@ -84,9 +88,9 @@ export async function withNewLedgerOperation<T>(
   if (!connected.success) {
     throw convertThirdPartyDeviceError(connected.payload, { vendor: 'Ledger' });
   }
-  const { operationId } = connected.payload;
+  const { operationId, connectionType } = connected.payload;
   try {
-    return await run(operationId);
+    return await run(operationId, connectionType);
   } finally {
     await adapter.releaseOperation(operationId);
   }
@@ -115,15 +119,6 @@ function setCache(
   deviceMap.set(chain, fp);
 }
 
-function clearCache(deviceDbId: string, chain: ChainForFingerprint): void {
-  const deviceMap = fingerprintCache.get(deviceDbId);
-  if (!deviceMap) return;
-  deviceMap.delete(chain);
-  if (deviceMap.size === 0) {
-    fingerprintCache.delete(deviceDbId);
-  }
-}
-
 // Serialize DB writes per device
 const pendingWrites = new Map<string, Promise<void>>();
 
@@ -150,8 +145,7 @@ export async function persistLedgerChainFingerprint({
   chain: ChainForFingerprint;
   fingerprint: string;
 }): Promise<void> {
-  // Cache and DB move inside the same per-device queue so their relative
-  // order matches clearLedgerChainFingerprint.
+  // Cache and DB move inside the same per-device queue.
   await serializeWrite(dbDeviceId, async () => {
     await localDb.updateDeviceChainFingerprint?.({
       dbDeviceId,
@@ -159,27 +153,6 @@ export async function persistLedgerChainFingerprint({
       fingerprint,
     });
     setCache(dbDeviceId, chain, fingerprint);
-  });
-}
-
-/**
- * Drop a chain anchor from memory and DB. Every reader treats an empty
- * fingerprint as "not recorded", so the next call re-runs bootstrap.
- */
-export async function clearLedgerChainFingerprint({
-  dbDeviceId,
-  chain,
-}: {
-  dbDeviceId: string;
-  chain: ChainForFingerprint;
-}): Promise<void> {
-  await serializeWrite(dbDeviceId, async () => {
-    clearCache(dbDeviceId, chain);
-    await localDb.updateDeviceChainFingerprint?.({
-      dbDeviceId,
-      chain,
-      fingerprint: '',
-    });
   });
 }
 
@@ -251,32 +224,6 @@ async function generateAndStoreFingerprint(
         chain,
         fingerprint,
       });
-      // Confirm the newly persisted anchor on the same interaction so the SDK
-      // can finish a pending BLE binding without trusting discovery alone.
-      const verified = await adapter.hw.getChainFingerprint(
-        connectId,
-        fingerprint,
-        chain,
-      );
-      // Only a confirmed different device invalidates the anchor. A round
-      // trip that merely fails to complete does not, since the anchor is already persisted and the user already approved the operation.
-      const mismatched =
-        (!verified.success &&
-          verified.payload.code === HardwareErrorCode.DeviceMismatch) ||
-        (verified.success && verified.payload !== fingerprint);
-      if (mismatched) {
-        // The anchor was already written before this confirmation. Leaving it
-        // in place would make the wrong device's fingerprint the expected
-        // value, so every later call rejects the right device.
-        await clearLedgerChainFingerprint({ dbDeviceId: dbDevice.id, chain });
-        return '';
-      }
-      if (!verified.success) {
-        defaultLogger.hardware.sdkLog.log(
-          'ledgerFingerprint.confirmIncomplete',
-          `${chain} ${verified.payload.error ?? ''}`,
-        );
-      }
       return fingerprint;
     }
     defaultLogger.hardware.sdkLog.log(
@@ -319,6 +266,8 @@ export async function callLedgerWithFingerprint<T>(
   options?: {
     operationId?: string;
     allowFingerprintBootstrap?: boolean;
+    /** Transport of the operation this call opened itself; unknown otherwise. */
+    connectionType?: IThirdPartyConnectedDevicePayload['connectionType'];
   },
 ): Promise<Response<T>> {
   const ledgerConfig = LEDGER_CONFIG;
@@ -340,25 +289,38 @@ export async function callLedgerWithFingerprint<T>(
       // channel; acquireOperation picks the one matching the live transport.
       // Passing one positionally would be guessing the channel again.
       '',
-      (operationId) =>
+      (operationId, connectionType) =>
         callLedgerWithFingerprint(backgroundApi, dbDevice, chain, fn, {
           ...options,
           operationId,
+          connectionType,
         }),
       thirdPartyConnectionContextFromDevice(dbDevice),
     );
   }
   const connectId = options?.operationId || '';
-  if (
-    ledgerConfig.enableCrossChainFingerprintVerification &&
-    !deviceId &&
-    options?.allowFingerprintBootstrap !== true
-  ) {
+  const isNewChain = !deviceId && options?.allowFingerprintBootstrap !== true;
+  if (isNewChain && ledgerConfig.enableCrossChainFingerprintVerification) {
     const seedMatch = await verifySeedMatch(backgroundApi, dbDevice, connectId);
     if (seedMatch !== 'match') {
       return failure(
         HardwareErrorCode.DeviceMismatch,
         `No trusted ${chain} fingerprint is available and this Ledger could not be verified from another chain. Reconnect the original device and retry.`,
+      );
+    }
+  } else if (
+    isNewChain &&
+    options?.connectionType === 'ble' &&
+    hasStoredLedgerChainFingerprint(dbDevice.settingsRaw)
+  ) {
+    // BLE discovery picks a device, not a seed: before anchoring a new chain
+    // on it, check a chain this wallet already recorded. Nothing checkable
+    // (no stored chain answered) means nothing to verify against.
+    const seedMatch = await verifySeedMatch(backgroundApi, dbDevice, connectId);
+    if (seedMatch === 'mismatch') {
+      return failure(
+        HardwareErrorCode.DeviceMismatch,
+        `This Ledger does not match a chain this wallet already recorded, so ${chain} was not anchored to it. Connect the original device and retry.`,
       );
     }
   }
