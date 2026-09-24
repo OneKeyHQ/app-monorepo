@@ -101,7 +101,7 @@ const SwapProPositionItem = ({
         <Token
           size="md"
           tokenImageUri={token.logoURI}
-          networkImageUri={stockLayout ? undefined : tokenNetworkImageUri}
+          networkImageUri={tokenNetworkImageUri}
         />
         <YStack
           pt={stockLayout ? '$2' : undefined}
