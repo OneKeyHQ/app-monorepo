@@ -579,7 +579,9 @@ class ServiceTokenViewModel extends ServiceBase {
     let worth:
       | { accountId: string; value: string; currency: string }
       | undefined;
-    if (this.frames.getFrames(ownerKey).structure.version < 0) {
+    const isOwnerResident = () =>
+      this.frames.getFrames(ownerKey).structure.version >= 0;
+    if (!isOwnerResident()) {
       const localTokens = await serviceToken.getAccountLocalTokens({
         accountId,
         networkId,
@@ -612,6 +614,14 @@ class ServiceTokenViewModel extends ServiceBase {
           ],
         }),
       ]);
+      // The owner's own rounds can land while the cache is read (the home page
+      // fetching the owner it was just switched to, or still seeding it after
+      // a cold start). This provisional seed must not replace them: return
+      // the frames that are there, as for a resident owner.
+      if (isOwnerResident()) {
+        const frames = await this.getTokenListFrames({ ownerKey });
+        return frames.structure ? { ownerKey, frames, currency } : undefined;
+      }
       const pick = (tokens: IAccountToken[]) => {
         const map: Record<string, ITokenFiat> = {};
         tokens.forEach((token) => {
