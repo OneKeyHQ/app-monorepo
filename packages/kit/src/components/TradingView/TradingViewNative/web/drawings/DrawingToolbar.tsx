@@ -41,8 +41,8 @@ export function DrawingIcon({
       className="chart-drawing-icon"
       style={{
         display: 'inline-block',
-        width: name === 'chevron' ? 6 : 28,
-        height: name === 'chevron' ? 12 : 28,
+        width: name === 'chevron' ? 6 : 24,
+        height: name === 'chevron' ? 12 : 24,
         backgroundColor: 'currentColor',
         maskImage: url,
         WebkitMaskImage: url,

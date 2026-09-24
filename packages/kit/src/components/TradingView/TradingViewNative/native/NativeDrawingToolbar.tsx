@@ -62,8 +62,8 @@ function DrawingIcon({ name, active }: { name: IIconName; active?: boolean }) {
   return (
     <SvgXml
       xml={TRADING_VIEW_DRAWING_ICONS[name]}
-      width={name === 'chevron' ? 8 : 26}
-      height={name === 'chevron' ? 14 : 26}
+      width={name === 'chevron' ? 8 : 24}
+      height={name === 'chevron' ? 14 : 24}
       color={active ? '#2962ff' : theme.text.val}
     />
   );
