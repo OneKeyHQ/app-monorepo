@@ -4,6 +4,7 @@ import {
 } from '@onekeyhq/kit/src/views/Prime/components/oneKeyIdLoginToastUtils';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { isTransientNetworkLikeError } from '@onekeyhq/shared/src/utils/transientNetworkErrorUtils';
 
 import {
   getEmailAuthCaptchaErrorMessage,
@@ -51,6 +52,10 @@ export async function requestEmailOtp({
       });
     }
     const error = new OneKeyLocalError({
+      key: isTransientNetworkLikeError(res.error)
+        ? ETranslations.global_network_error
+        : undefined,
+      httpStatusCode: res.error.status,
       message:
         getEmailAuthCaptchaErrorMessage({ error: res.error, intl }) ??
         res.error.message,

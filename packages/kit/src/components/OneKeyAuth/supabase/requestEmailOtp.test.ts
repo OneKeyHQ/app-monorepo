@@ -6,6 +6,7 @@ import {
   logOneKeyIdLoginFailureReason,
 } from '@onekeyhq/kit/src/views/Prime/components/oneKeyIdLoginToastUtils';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import errorUtils from '@onekeyhq/shared/src/errors/utils/errorUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import {
@@ -25,6 +26,7 @@ jest.mock(
 
 const messages: Record<string, string> = {
   [ETranslations.global_unknown_error_retry_message]: 'Please try again.',
+  [ETranslations.global_network_error]: 'Network error. Please try again.',
   [ETranslations.email_verification_rate_limit]: 'Retry after {rest} seconds.',
   [ETranslations.auth_captcha_incomplete__msg]:
     'Security verification was not completed. Please try again.',
@@ -32,6 +34,65 @@ const messages: Record<string, string> = {
 const intl = createIntl({ locale: 'en', messages });
 
 describe('Email OTP request security boundary', () => {
+  test.each([
+    new AuthApiError(
+      'Internal auth service failure',
+      500,
+      'unexpected_failure',
+    ),
+    new AuthApiError('Gateway unavailable', 502, undefined),
+    new AuthRetryableFetchError('Gateway unavailable', 503),
+    new AuthRetryableFetchError('Failed to fetch', 0),
+    new AuthApiError('Request timed out', 408, undefined),
+  ])(
+    'retains localized network guidance after wrapping $name/$status',
+    async (sdkError) => {
+      const signInWithOtp = jest.fn().mockResolvedValue({
+        data: { user: null, session: null },
+        error: sdkError,
+      });
+      const error = await requestEmailOtp({
+        client: { auth: { signInWithOtp } },
+        email: 'test@example.com',
+        intl,
+      }).catch((requestError: unknown) => requestError);
+      expect(error).toBeInstanceOf(OneKeyLocalError);
+      expect(error).toMatchObject({
+        message: sdkError.message,
+        httpStatusCode: sdkError.status,
+        data: { isEmailOtpSendFailure: true },
+      });
+      for (const candidate of [error, errorUtils.toPlainErrorObject(error)]) {
+        expect(getEmailOtpRequestErrorMessage({ error: candidate, intl })).toBe(
+          messages[ETranslations.global_network_error],
+        );
+        expect(isEmailOtpSendKnownFailure(candidate)).toBe(true);
+      }
+      expect(getSanitizedAuthErrorText).toHaveBeenCalledWith(sdkError);
+    },
+  );
+
+  test('retains the original message for non-network business failures', async () => {
+    const sdkError = new AuthApiError(
+      'Email address is invalid',
+      422,
+      'email_address_invalid',
+    );
+    const signInWithOtp = jest.fn().mockResolvedValue({
+      data: { user: null, session: null },
+      error: sdkError,
+    });
+    const error = await requestEmailOtp({
+      client: { auth: { signInWithOtp } },
+      email: 'test@example.com',
+      intl,
+    }).catch((requestError: unknown) => requestError);
+    expect(getEmailOtpRequestErrorMessage({ error, intl })).toBe(
+      sdkError.message,
+    );
+    expect(isEmailOtpSendKnownFailure(error)).toBe(false);
+  });
+
   test('localizes the CAPTCHA toast while retaining the original SDK error for diagnostics', async () => {
     const message =
       'captcha protection: request disallowed (no captcha_token found)';
