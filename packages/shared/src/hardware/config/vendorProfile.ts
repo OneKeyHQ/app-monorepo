@@ -270,3 +270,13 @@ export function getVendorProfile(
   }
   return vendorProfiles[vendor];
 }
+
+/**
+ * Whether a hardware wallet of this vendor can derive the OneKey wallet xfp.
+ * Trezor supplies it through its adapter; other third-party vendors stay
+ * xfp-less, so asking their device for it is a no-op.
+ */
+export function canBuildHwWalletXfp(vendor?: EHardwareVendor): boolean {
+  if (!vendor || !getVendorProfile(vendor).isThirdParty) return true;
+  return vendor === EHardwareVendor.trezor;
+}
