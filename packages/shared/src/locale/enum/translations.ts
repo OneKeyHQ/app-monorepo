@@ -773,6 +773,7 @@ export enum ETranslations {
   device_auth_verifying_title = 'device_auth.verifying_title',
   device_firmware_type_btc_only__label = 'device_firmware_type_btc_only__label',
   device_firmware_type_multichain__label = 'device_firmware_type_multichain__label',
+  device_management_no_device__desc = 'device_management_no_device__desc',
   device_setup_check_desc = 'device_setup_check_desc',
   device_setup_check_title = 'device_setup_check_title',
   device_setup_create_phrase_desc = 'device_setup_create_phrase_desc',

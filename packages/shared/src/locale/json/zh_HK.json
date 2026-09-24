@@ -768,6 +768,7 @@
   "device_auth.verifying_title": "正在驗證裝置",
   "device_firmware_type_btc_only__label": "Bitcoin 專用韌體",
   "device_firmware_type_multichain__label": "多鏈韌體",
+  "device_management_no_device__desc": "查看 OneKey 狀態、更新韌體、管理設定",
   "device_setup_check_desc": "正在檢查裝置上的錢包初始化",
   "device_setup_check_title": "裝置設定檢查",
   "device_setup_create_phrase_desc": "請按順序抄下每個字詞，並離線妥善保存。任何人只要擁有這組助記詞，便可存取你的資產。OneKey 無法為你找回它。",

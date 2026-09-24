@@ -768,6 +768,7 @@
   "device_auth.verifying_title": "Verifying device",
   "device_firmware_type_btc_only__label": "Bitcoin-only Firmware",
   "device_firmware_type_multichain__label": "Multi-chain Firmware",
+  "device_management_no_device__desc": "Check your OneKey's status, keep its firmware up to date and manage its settings",
   "device_setup_check_desc": "Checking wallet initialization on device",
   "device_setup_check_title": "Device setup check",
   "device_setup_create_phrase_desc": "Write down each word in order and keep it offline. Anyone with this phrase can access your assets. OneKey cannot recover it for you.",

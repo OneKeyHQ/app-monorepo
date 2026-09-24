@@ -768,6 +768,7 @@
   "device_auth.verifying_title": "ডিভাইস যাচাই করা হচ্ছে",
   "device_firmware_type_btc_only__label": "Bitcoin-only ফার্মওয়্যার",
   "device_firmware_type_multichain__label": "মাল্টিচেইন ফার্মওয়্যার",
+  "device_management_no_device__desc": "আপনার OneKey-এর অবস্থা দেখুন, ফার্মওয়্যার আপ টু ডেট রাখুন এবং সেটিংস পরিচালনা করুন",
   "device_setup_check_desc": "ডিভাইসে ওয়ালেট ইনিশিয়ালাইজেশন পরীক্ষা করা হচ্ছে",
   "device_setup_check_title": "ডিভাইস সেটআপ যাচাই",
   "device_setup_create_phrase_desc": "প্রতিটি শব্দ ক্রমানুসারে লিখে নিন এবং অফলাইনে রাখুন। এই বাক্যাংশটি যার কাছে থাকবে, সে আপনার সম্পদে প্রবেশ করতে পারবে। OneKey এটি আপনার জন্য পুনরুদ্ধার করতে পারে না।",

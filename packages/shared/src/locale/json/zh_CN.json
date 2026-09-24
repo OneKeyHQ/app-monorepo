@@ -768,6 +768,7 @@
   "device_auth.verifying_title": "正在验证设备",
   "device_firmware_type_btc_only__label": "比特币专用固件",
   "device_firmware_type_multichain__label": "多链固件",
+  "device_management_no_device__desc": "查看 OneKey 状态、更新固件、管理设置",
   "device_setup_check_desc": "正在检查设备上的钱包初始化",
   "device_setup_check_title": "设备设置检查",
   "device_setup_create_phrase_desc": "请按顺序抄下每个单词，并离线妥善保存。任何人获取这组助记词，都可能访问您的资产。OneKey 无法为您找回助记词。",

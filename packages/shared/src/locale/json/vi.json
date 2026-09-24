@@ -768,6 +768,7 @@
   "device_auth.verifying_title": "Xác minh thiết bị",
   "device_firmware_type_btc_only__label": "Firmware Bitcoin-only",
   "device_firmware_type_multichain__label": "Firmware đa chuỗi",
+  "device_management_no_device__desc": "Kiểm tra trạng thái OneKey, giữ firmware luôn mới nhất và quản lý cài đặt",
   "device_setup_check_desc": "Đang kiểm tra khởi tạo ví trên thiết bị",
   "device_setup_check_title": "Kiểm tra thiết lập thiết bị",
   "device_setup_create_phrase_desc": "Hãy ghi lại từng từ theo đúng thứ tự và lưu ngoại tuyến. Bất kỳ ai có cụm từ này đều có thể truy cập tài sản của bạn. OneKey không thể khôi phục cho bạn.",

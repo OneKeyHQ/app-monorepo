@@ -768,6 +768,7 @@
   "device_auth.verifying_title": "Gerät überprüfen",
   "device_firmware_type_btc_only__label": "Bitcoin-only-Firmware",
   "device_firmware_type_multichain__label": "Multichain-Firmware",
+  "device_management_no_device__desc": "Prüfe den Status deines OneKey, halte die Firmware aktuell und verwalte die Einstellungen",
   "device_setup_check_desc": "Überprüfe die Wallet-Initialisierung auf dem Gerät",
   "device_setup_check_title": "Überprüfung der Geräteeinrichtung",
   "device_setup_create_phrase_desc": "Schreibe jedes Wort der Reihe nach auf und bewahre die Wiederherstellungsphrase offline auf. Wer sie besitzt, kann auf deine Vermögenswerte zugreifen. OneKey kann sie nicht für dich wiederherstellen.",

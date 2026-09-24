@@ -768,6 +768,7 @@
   "device_auth.verifying_title": "Verificando dispositivo",
   "device_firmware_type_btc_only__label": "Firmware Bitcoin-only",
   "device_firmware_type_multichain__label": "Firmware multicadeia",
+  "device_management_no_device__desc": "Consulte o estado do seu OneKey, mantenha o firmware atualizado e faça a gestão das definições",
   "device_setup_check_desc": "Verificando inicialização da carteira no dispositivo",
   "device_setup_check_title": "Verificação de definição do dispositivo",
   "device_setup_create_phrase_desc": "Anota cada palavra por ordem e mantém-na offline. Qualquer pessoa com esta frase pode aceder aos teus ativos. A OneKey não a pode recuperar por ti.",

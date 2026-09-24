@@ -768,6 +768,7 @@
   "device_auth.verifying_title": "Vérification de l'appareil",
   "device_firmware_type_btc_only__label": "Micrologiciel Bitcoin-only",
   "device_firmware_type_multichain__label": "Micrologiciel multichaîne",
+  "device_management_no_device__desc": "Consultez l'état de votre OneKey, gardez son micrologiciel à jour et gérez ses paramètres",
   "device_setup_check_desc": "Vérification de l'initialisation du portefeuille sur l'appareil",
   "device_setup_check_title": "Vérification de la configuration de l'appareil",
   "device_setup_create_phrase_desc": "Notez chaque mot dans l'ordre et conservez-le hors ligne. Toute personne disposant de cette phrase peut accéder à vos actifs. OneKey ne peut pas la récupérer pour vous.",

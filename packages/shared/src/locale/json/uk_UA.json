@@ -768,6 +768,7 @@
   "device_auth.verifying_title": "Перевірка пристрою",
   "device_firmware_type_btc_only__label": "Прошивка Bitcoin-only",
   "device_firmware_type_multichain__label": "Мультичейн-прошивка",
+  "device_management_no_device__desc": "Перевіряйте статус OneKey, оновлюйте прошивку та керуйте налаштуваннями",
   "device_setup_check_desc": "Перевірка ініціалізації гаманця на пристрої",
   "device_setup_check_title": "Перевірка налаштувань пристрою",
   "device_setup_create_phrase_desc": "Запишіть кожне слово по порядку й зберігайте його офлайн. Будь-хто, хто має цю фразу, зможе отримати доступ до ваших активів. OneKey не може відновити її для вас.",

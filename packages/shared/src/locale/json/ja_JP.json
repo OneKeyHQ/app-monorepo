@@ -768,6 +768,7 @@
   "device_auth.verifying_title": "デバイスの確認",
   "device_firmware_type_btc_only__label": "ビットコイン専用ファームウェア",
   "device_firmware_type_multichain__label": "マルチチェーンファームウェア",
+  "device_management_no_device__desc": "OneKey のステータスを確認し、ファームウェアを最新の状態に保ち、設定を管理できます",
   "device_setup_check_desc": "デバイス上のウォレット初期化を確認しています",
   "device_setup_check_title": "デバイス設定の確認",
   "device_setup_create_phrase_desc": "各単語を順番どおりに書き留め、オフラインで保管してください。このフレーズを持っている人なら誰でもあなたの資産にアクセスできます。OneKey では復元できません。",

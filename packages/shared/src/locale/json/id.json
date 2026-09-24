@@ -768,6 +768,7 @@
   "device_auth.verifying_title": "Memverifikasi perangkat",
   "device_firmware_type_btc_only__label": "Firmware Bitcoin-only",
   "device_firmware_type_multichain__label": "Firmware multi-rantai",
+  "device_management_no_device__desc": "Periksa status OneKey Anda, jaga firmware tetap terbaru, dan kelola pengaturannya",
   "device_setup_check_desc": "Memeriksa inisialisasi dompet pada perangkat",
   "device_setup_check_title": "Pemeriksaan penyiapan perangkat",
   "device_setup_create_phrase_desc": "Tuliskan setiap kata secara berurutan dan simpan secara offline. Siapa pun yang memiliki frasa ini dapat mengakses aset Anda. OneKey tidak dapat memulihkannya untuk Anda.",

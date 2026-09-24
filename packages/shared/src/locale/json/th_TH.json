@@ -768,6 +768,7 @@
   "device_auth.verifying_title": "กำลังตรวจสอบอุปกรณ์",
   "device_firmware_type_btc_only__label": "เฟิร์มแวร์ Bitcoin-only",
   "device_firmware_type_multichain__label": "เฟิร์มแวร์มัลติเชน",
+  "device_management_no_device__desc": "ตรวจสอบสถานะ OneKey ของคุณ อัปเดตฟิร์มแวร์ให้เป็นเวอร์ชันล่าสุด และจัดการการตั้งค่า",
   "device_setup_check_desc": "กำลังตรวจสอบการเริ่มต้นกระเป๋าเงินบนอุปกรณ์",
   "device_setup_check_title": "ตรวจสอบการตั้งค่าอุปกรณ์",
   "device_setup_create_phrase_desc": "จดคำแต่ละคำตามลำดับและเก็บไว้แบบออฟไลน์ ใครก็ตามที่มีวลีนี้สามารถเข้าถึงสินทรัพย์ของคุณได้ OneKey ไม่สามารถกู้คืนให้คุณได้",
