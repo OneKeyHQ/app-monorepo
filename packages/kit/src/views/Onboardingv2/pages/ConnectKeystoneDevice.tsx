@@ -16,7 +16,6 @@ import {
 } from '@onekeyhq/components';
 import { usePromptWebDeviceAccess } from '@onekeyhq/kit/src/hooks/usePromptWebDeviceAccess';
 import { isWebUsbNoDeviceSelectedError } from '@onekeyhq/kit/src/hooks/usePromptWebDeviceAccessUtils';
-import { ThirdPartyDevicePermissionDenied } from '@onekeyhq/shared/src/errors/errors/thirdPartyHardwareErrors';
 import { convertDeviceError } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
 import { convertThirdPartyDeviceError } from '@onekeyhq/shared/src/errors/utils/thirdPartyDeviceErrorUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -158,9 +157,8 @@ function ConnectKeystoneDevicePage() {
       canUseUsb
         ? [
             {
-              label: intl.formatMessage({
-                id: ETranslations.troubleshooting_usb,
-              }),
+              // Same untranslated label as the Ledger/Trezor connect page.
+              label: 'USB',
               value: EConnectDeviceChannel.usbOrBle,
             },
             {
@@ -214,17 +212,14 @@ function ConnectKeystoneDevicePage() {
             silentMode: true,
             vendor: EHardwareVendor.keystone,
           });
-          // A permission denial already gets its own dialog from the
-          // third-party UI container, so toasting it too would double up (same as Ledger/Trezor).
-          if (!(error instanceof ThirdPartyDevicePermissionDenied)) {
-            Toast.error({
-              title:
-                error.message ||
-                intl.formatMessage({
-                  id: ETranslations.hardware_third_party_device_scan_error,
-                }),
-            });
-          }
+          // The permission dialog only covers BLE, so a USB denial needs its toast.
+          Toast.error({
+            title:
+              error.message ||
+              intl.formatMessage({
+                id: ETranslations.hardware_third_party_device_scan_error,
+              }),
+          });
           isSearchingRef.current = false;
           deviceScanner.stopScan();
           setConnectStatus(EConnectionStatus.init);
@@ -313,7 +308,7 @@ function ConnectKeystoneDevicePage() {
       if (!searchTarget) {
         Toast.error({
           title: intl.formatMessage({
-            id: ETranslations.hardware_third_party_device_not_found,
+            id: ETranslations.hardware_hardware_device_not_find_error,
           }),
         });
         return;
@@ -460,34 +455,14 @@ function ConnectKeystoneDevicePage() {
                     id: ETranslations.connect_with_qr_code,
                   })}
             </ConnectionIndicator.Title>
+            {/* The QR round trip is guided by the QR toast itself: the app shows
+                its request first and scans Keystone's reply afterwards. */}
             <YStack gap="$1">
-              {isUsbTab ? (
-                <>
-                  <SizableText color="$textSubdued">
-                    {`1. ${intl.formatMessage({
-                      id: ETranslations.hardware_third_party_connect_step_usb,
-                    })}`}
-                  </SizableText>
-                  <SizableText color="$textSubdued">
-                    {`2. ${intl.formatMessage({
-                      id: ETranslations.hardware_third_party_connect_step_power_on_and_unlock,
-                    })}`}
-                  </SizableText>
-                </>
-              ) : (
-                <>
-                  <SizableText color="$textSubdued">
-                    {`1. ${intl.formatMessage({
-                      id: ETranslations.scan_show_qr_code_steps,
-                    })}`}
-                  </SizableText>
-                  <SizableText color="$textSubdued">
-                    {`2. ${intl.formatMessage({
-                      id: ETranslations.onboarding_create_qr_wallet_scan_qr_code_desc,
-                    })}`}
-                  </SizableText>
-                </>
-              )}
+              <SizableText color="$textSubdued">
+                {intl.formatMessage({
+                  id: ETranslations.device_stage_enter_pin_on_device__desc,
+                })}
+              </SizableText>
             </YStack>
             {isListing ? null : (
               <Button
@@ -502,11 +477,9 @@ function ConnectKeystoneDevicePage() {
                 disabled={isStarting}
                 onPress={onStartConnection}
               >
-                {isUsbTab
-                  ? intl.formatMessage({
-                      id: ETranslations.global_start_connection,
-                    })
-                  : intl.formatMessage({ id: ETranslations.scan_scan_qr_code })}
+                {intl.formatMessage({
+                  id: ETranslations.global_start_connection,
+                })}
               </Button>
             )}
           </ConnectionIndicator.Content>
