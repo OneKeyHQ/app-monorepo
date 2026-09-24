@@ -405,6 +405,13 @@ function useAllNetworkRequests<T>(params: {
     clearRetainedResultOnAcceptedRun = false,
   } = params;
   const allNetworkDataInit = useRef(false);
+  // Bumped whenever the enabled network set changes. A run that was already
+  // in flight must not mark the data initialized afterwards: the change reset
+  // `allNetworkDataInit` so the rerun it queued clears the view and fetches
+  // the new set again, and re-arming it from the superseded run made that rerun
+  // skip the clear (or skip itself as redundant) and keep the unchecked
+  // network in the list and the total.
+  const enabledSetGenerationRef = useRef(0);
   const isFetching = useRef(false);
   // Reserve active debounce windows so a second manual refresh is queued by
   // runWithQueue instead of starting another usePromiseResult runner and
@@ -496,11 +503,15 @@ function useAllNetworkRequests<T>(params: {
       }
       allNetworkAccountsBaseCache.clear();
       allNetworkDataInit.current = false;
+      enabledSetGenerationRef.current += 1;
       runCountRef.current = 0;
       setEnabledNetworksChangedNonce((v) => v + 1);
       // owner intentionally omitted (this appEventBus-listener effect must not
       // depend on the owner); it appears on the following `allnet.run` line.
-      void runWithQueueRef.current?.();
+      // Must-run: a fan-out still running for the old set is superseded (its
+      // result is not published) and the rerun passes the redundant-run and
+      // focus gates.
+      void runWithQueueRef.current?.({ alwaysSetState: true });
     };
     appEventBus.on(
       EAppEventBusNames.EnabledNetworksChanged,
@@ -523,6 +534,7 @@ function useAllNetworkRequests<T>(params: {
       // config refresh. Rebuild the main-runtime fan-out so it deserializes
       // the current map and removes data for networks that were disabled.
       allNetworkDataInit.current = false;
+      enabledSetGenerationRef.current += 1;
       runCountRef.current = 0;
       setEnabledNetworksChangedNonce((value) => value + 1);
       void runWithQueueRef.current?.({ alwaysSetState: true });
@@ -762,6 +774,12 @@ function useAllNetworkRequests<T>(params: {
       // (`allNetworkCacheData`) and the per-network settle (`onRequestSettled`)
       // so the consumer's LWW materialized view rejects a stale earlier run.
       const runGeneration = runGenerationRef.current;
+      const runEnabledSetGeneration = enabledSetGenerationRef.current;
+      const markDataInitialized = () => {
+        if (runEnabledSetGeneration === enabledSetGenerationRef.current) {
+          allNetworkDataInit.current = true;
+        }
+      };
       isFetching.current = true;
 
       defaultLogger.account.allNetworkAccountPerf.homeTokenListRefreshTrace({
@@ -961,7 +979,7 @@ function useAllNetworkRequests<T>(params: {
 
             if (cachedData && !isEmpty(cachedData)) {
               cacheHasData = true;
-              allNetworkDataInit.current = true;
+              markDataInitialized();
               defaultLogger.account.allNetworkAccountPerf.homeTokenListRefreshTrace(
                 {
                   runtime: 'main',
@@ -1114,7 +1132,7 @@ function useAllNetworkRequests<T>(params: {
           completedResult = respTemp.length ? respTemp : null;
         }
         if (accountsInfo.length && accountsInfo.length > 0) {
-          allNetworkDataInit.current = true;
+          markDataInitialized();
         }
 
         defaultLogger.account.allNetworkAccountPerf.homeTokenListRefreshTrace({
