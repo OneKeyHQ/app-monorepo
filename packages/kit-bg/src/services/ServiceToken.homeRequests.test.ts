@@ -281,6 +281,34 @@ describe('ServiceToken native Home request lifetime', () => {
     expect(api.serviceToken.getAllAggregateTokenInfo).toHaveBeenCalledTimes(1);
   });
 
+  it('retries a failed context load within the same generation', async () => {
+    api.simpleDb.customTokens.getRawData.mockRejectedValueOnce(
+      new OneKeyLocalError('fixture transient failure'),
+    );
+    await expect(service.prepareHomeTokenRequest(token(1))).rejects.toThrow(
+      'fixture transient failure',
+    );
+    await expect(
+      service.prepareHomeTokenRequest(token(1)),
+    ).resolves.toBeUndefined();
+    await service.prepareHomeTokenRequest(token(1));
+    expect(api.simpleDb.customTokens.getRawData).toHaveBeenCalledTimes(2);
+    expect(api.serviceToken.getAllAggregateTokenInfo).toHaveBeenCalledTimes(1);
+  });
+
+  it('shares one in-flight context load between concurrent callers', async () => {
+    const rawData = deferred<{
+      customTokens: Record<string, never>;
+      hiddenTokens: Record<string, never>;
+    }>();
+    api.simpleDb.customTokens.getRawData.mockReturnValueOnce(rawData.promise);
+    const first = service.prepareHomeTokenRequest(token(1));
+    const second = service.prepareHomeTokenRequest(token(1));
+    rawData.resolve({ customTokens: {}, hiddenTokens: {} });
+    await Promise.all([first, second]);
+    expect(api.simpleDb.customTokens.getRawData).toHaveBeenCalledTimes(1);
+  });
+
   it('stops after pending address preflight and aborts only owned Home controllers', async () => {
     const address = deferred<string>();
     api.serviceAccount.getAccountAddressForApi.mockReturnValue(address.promise);

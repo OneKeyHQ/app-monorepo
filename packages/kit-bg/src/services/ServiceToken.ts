@@ -150,7 +150,15 @@ class ServiceToken extends ServiceBase {
       return current.data;
     }
     const data = this.loadHomeTokenContext(homeRequest);
-    this.homeTokenContext = { homeRequest, data };
+    const entry = { homeRequest, data };
+    this.homeTokenContext = entry;
+    // Concurrent callers share one load, but a transient failure must not
+    // poison the rest of this generation: evict it so the next caller retries.
+    void data.catch(() => {
+      if (this.homeTokenContext === entry) {
+        this.homeTokenContext = undefined;
+      }
+    });
     return data;
   }
 
