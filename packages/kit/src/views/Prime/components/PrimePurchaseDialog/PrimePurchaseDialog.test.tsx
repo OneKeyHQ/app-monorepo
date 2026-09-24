@@ -446,15 +446,17 @@ describe('usePrimePurchaseCallback pending payment entry guard', () => {
     },
   );
 
-  it.each([
-    { changedDuring: 'prompt', refreshFailed: false },
-    { changedDuring: 'prompt', refreshFailed: true },
-    { changedDuring: 'handoff', refreshFailed: false },
-    { changedDuring: 'handoff', refreshFailed: true },
-  ])(
-    'monitors the current Google Play invoice after replacement during $changedDuring (refresh failed: $refreshFailed)',
-    async ({ changedDuring, refreshFailed }) => {
-      mockPlatformEnv.isNativeAndroidGooglePlay = true;
+  it.each(
+    [false, true].flatMap((isGooglePlay) => [
+      { changedDuring: 'prompt', refreshFailed: false, isGooglePlay },
+      { changedDuring: 'prompt', refreshFailed: true, isGooglePlay },
+      { changedDuring: 'handoff', refreshFailed: false, isGooglePlay },
+      { changedDuring: 'handoff', refreshFailed: true, isGooglePlay },
+    ]),
+  )(
+    'resumes the current invoice and period after replacement during $changedDuring (refresh failed: $refreshFailed, Google Play: $isGooglePlay)',
+    async ({ changedDuring, refreshFailed, isGooglePlay }) => {
+      mockPlatformEnv.isNativeAndroidGooglePlay = isGooglePlay;
       if (refreshFailed) {
         mockGetPrimeInfiniPaymentEntryGuard.mockRejectedValueOnce(
           new Error('invoice unavailable'),
@@ -509,23 +511,42 @@ describe('usePrimePurchaseCallback pending payment entry guard', () => {
       await act(async () => {
         await result.current.purchase({ selectedSubscriptionPeriod: 'P1M' });
       });
-      expect(mockShowPrimeInfiniWaitingDialog).toHaveBeenCalledTimes(1);
-      expect(mockShowPrimeInfiniWaitingDialog).toHaveBeenCalledWith({
-        context: {
-          checkoutType: 'internalWallet',
-          session: { ...replacement, featureName: undefined },
-        },
-      });
-      expect(mockPurchaseByCrypto).not.toHaveBeenCalled();
+      if (isGooglePlay) {
+        expect(mockShowPrimeInfiniWaitingDialog).toHaveBeenCalledTimes(1);
+        expect(mockShowPrimeInfiniWaitingDialog).toHaveBeenCalledWith({
+          context: {
+            checkoutType: 'internalWallet',
+            session: { ...replacement, featureName: undefined },
+          },
+        });
+        expect(mockPurchaseByCrypto).not.toHaveBeenCalled();
+      } else {
+        expect(mockPurchaseByCrypto).toHaveBeenCalledTimes(1);
+        expect(mockPurchaseByCrypto).toHaveBeenCalledWith({
+          selectedSubscriptionPeriod: replacement.selectedSubscriptionPeriod,
+          featureName: undefined,
+          createNewPayment: false,
+        });
+        expect(mockShowPrimeInfiniWaitingDialog).not.toHaveBeenCalled();
+      }
       expect(mockPurchasePackageNative).not.toHaveBeenCalled();
       expect(mockSupersedePaymentSession).not.toHaveBeenCalled();
     },
   );
 
-  it.each(['cleared', 'switched user', 'logged out', 'read failed'] as const)(
-    'does not open a stale Google Play monitor or start a purchase when the session is %s during handoff',
-    async (change) => {
-      mockPlatformEnv.isNativeAndroidGooglePlay = true;
+  it.each(
+    [false, true].flatMap((isGooglePlay) =>
+      ['cleared', 'switched user', 'logged out', 'read failed'].map(
+        (change) => ({
+          change,
+          isGooglePlay,
+        }),
+      ),
+    ),
+  )(
+    'does not open stale recovery or start a purchase when the session is $change during handoff (Google Play: $isGooglePlay)',
+    async ({ change, isGooglePlay }) => {
+      mockPlatformEnv.isNativeAndroidGooglePlay = isGooglePlay;
       mockGetPrimeInfiniPaymentEntryGuard.mockResolvedValue({
         isLoggedIn: true,
         hasPendingPayment: true,
@@ -927,7 +948,7 @@ describe('usePrimePurchaseCallback pending payment entry guard', () => {
 
     expect(mockPaymentMethodDialogClose).toHaveBeenCalledTimes(1);
     expect(mockPurchaseByCrypto).toHaveBeenCalledWith({
-      selectedSubscriptionPeriod: 'P1Y',
+      selectedSubscriptionPeriod: mockPendingSession.selectedSubscriptionPeriod,
       featureName: undefined,
       createNewPayment: false,
     });

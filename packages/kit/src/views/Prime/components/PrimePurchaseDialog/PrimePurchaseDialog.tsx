@@ -467,19 +467,19 @@ export function usePrimePurchaseCallback({
           return 'continuePurchase';
         }
         await beforeContinue();
+        // Another window can replace or clear the invoice while the prompt
+        // or the closing callback is pending. Resume the current session.
+        const latestContext = await getPrimeInfiniPendingPaymentContext();
+        if (
+          !latestContext.isLoggedIn ||
+          latestContext.onekeyUserId !== onekeyUserId
+        ) {
+          throw new OneKeyLocalError('Infini purchase user changed');
+        }
+        if (!latestContext.pendingPaymentSession) {
+          return 'cancelled';
+        }
         if (platformEnv.isNativeAndroidGooglePlay) {
-          // Another window can replace or clear the invoice while the prompt
-          // or the closing callback is pending. Resume the current session.
-          const latestContext = await getPrimeInfiniPendingPaymentContext();
-          if (
-            !latestContext.isLoggedIn ||
-            latestContext.onekeyUserId !== onekeyUserId
-          ) {
-            throw new OneKeyLocalError('Infini purchase user changed');
-          }
-          if (!latestContext.pendingPaymentSession) {
-            return 'cancelled';
-          }
           // Restore only the existing invoice monitor. The full crypto page
           // also exposes new-payment actions that store builds must not offer.
           showPrimeInfiniWaitingDialog({
@@ -494,12 +494,8 @@ export function usePrimePurchaseCallback({
           return 'resumed';
         }
         await startCryptoPayment({
-          // Resume the in-flight invoice on its own period. Passing the period
-          // the user just picked would restore a monthly invoice under a
-          // yearly request, which the restore path tracks without complaint
-          // once the payment is no longer replaceable.
           subscriptionPeriod:
-            entryGuard.pendingSubscriptionPeriod ?? selectedSubscriptionPeriod,
+            latestContext.pendingPaymentSession.selectedSubscriptionPeriod,
           createNewPayment: false,
         });
         return 'resumed';
