@@ -877,11 +877,13 @@ class ServiceReferralCode extends ServiceBase {
   }
 
   /**
-   * Persists the invite code recovered from this install's store referrer.
+   * Persists the invite code recovered from this install's store referrer
+   * (Android Play install referrer) or App Clip handoff (iOS App Group).
    *
-   * The referrer is read on the `main` runtime (expo-application talks to the
-   * Play Store from there), so the already-extracted code arrives here over
-   * the background proxy.
+   * Both are read on the `main` runtime (expo-application talks to the Play
+   * Store from there; the App Clip record goes through a main-thread native
+   * module), so the already-extracted code arrives here over the background
+   * proxy.
    *
    * Marking the capture resolved is what stops later cold starts from asking
    * the store again, so it must only happen on a *definitive* answer:
@@ -898,10 +900,12 @@ class ServiceReferralCode extends ServiceBase {
     code,
     attributedAt,
     hasReferrer,
+    source,
   }: {
     code: string | undefined;
     attributedAt: number;
     hasReferrer: boolean;
+    source: EInviteCodeAttributionSource;
   }): Promise<{ isResolved: boolean; hasCode: boolean }> {
     if (!isValidInviteCode(code)) {
       const isResolved = isInstallReferrerCaptureFinal({
@@ -917,7 +921,7 @@ class ServiceReferralCode extends ServiceBase {
     }
     await this.backgroundApi.simpleDb.referralCode.setInstallReferral({
       code: code as string,
-      source: EInviteCodeAttributionSource.androidInstallReferrer,
+      source,
       attributedAt,
       createdAt: Date.now(),
       ttlDays: INSTALL_REFERRER_TTL_DAYS,

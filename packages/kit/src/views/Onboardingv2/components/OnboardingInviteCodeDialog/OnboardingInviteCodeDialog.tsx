@@ -172,13 +172,13 @@ function OnboardingInviteCodeDialogContent({
   const { result: autoFillCode } = usePromiseResult(async () => {
     let state =
       await backgroundApiProxy.serviceReferralCode.getInstallReferralAutoFill();
-    // Only the Android Google Play build runs a startup capture, so only there
-    // can "not read yet" still turn into a code; everywhere else the first
-    // answer is final. Decided on this runtime deliberately — the same one
-    // `installAttribution.android.ts` uses to decide whether to capture at
-    // all. `platformEnv` is evaluated again in `bg`, where the native channel
-    // probe can fall back and disagree.
-    if (!platformEnv.isNativeAndroidGooglePlay) {
+    // Only the Android Google Play build (Play referrer) and iOS (App Clip
+    // handoff) run a startup capture, so only there can "not read yet" still
+    // turn into a code; everywhere else the first answer is final. Decided on
+    // this runtime deliberately — the same one `installAttribution.*.ts` uses
+    // to decide whether to capture at all. `platformEnv` is evaluated again in
+    // `bg`, where the native channel probe can fall back and disagree.
+    if (!platformEnv.isNativeAndroidGooglePlay && !platformEnv.isNativeIOS) {
       return state.code;
     }
     const deadline = Date.now() + AUTO_FILL_CAPTURE_WAIT_MS;

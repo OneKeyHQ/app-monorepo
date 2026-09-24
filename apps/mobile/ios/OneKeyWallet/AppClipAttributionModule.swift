@@ -20,6 +20,14 @@ final class AppClipAttributionModule: NSObject {
     )
   }
 
+  @objc(readInviteCode:rejecter:)
+  func readInviteCode(
+    _ resolve: RCTPromiseResolveBlock,
+    rejecter reject: RCTPromiseRejectBlock
+  ) {
+    resolve(AppClipInviteCodeStore.load()?.bridgeDictionary)
+  }
+
   @objc(savePending:resolver:rejecter:)
   func savePending(
     _ record: NSDictionary,

@@ -195,3 +195,87 @@ private enum AppClipAttributionStoreError: LocalizedError {
     "App Group container is unavailable."
   }
 }
+
+/// Invite code carried by an App Clip invocation (`ref_code`), handed to the
+/// full app through the App Group container.
+///
+/// Kept apart from the pending attribution record on purpose: that record is
+/// keyed by `click_id` and deleted once the full app reports it, while the
+/// invite code must outlive the report until the full app has captured it, and
+/// must survive invocations that carry no code at all.
+struct AppClipInviteCodeRecord: Codable {
+  static let currentSchemaVersion = 1
+
+  var schemaVersion = currentSchemaVersion
+  var code: String
+  var capturedAt: Date
+
+  var bridgeDictionary: [String: Any] {
+    [
+      "schemaVersion": schemaVersion,
+      "code": code,
+      // Milliseconds, matching the JS side's `attributedAt`.
+      "capturedAt": capturedAt.timeIntervalSince1970 * 1_000,
+    ]
+  }
+}
+
+enum AppClipInviteCodeStore {
+  static let recordFilename = "app_clip_invite_code_v1.json"
+
+  /// Mirrors `INVITE_CODE_PATTERN` in `installReferrerUtils.ts`.
+  static func sanitize(_ value: String?) -> String? {
+    guard
+      let value = value?.trimmingCharacters(in: .whitespacesAndNewlines),
+      value.range(of: "^[A-Za-z0-9]{1,30}$", options: .regularExpression) != nil
+    else {
+      return nil
+    }
+    return value
+  }
+
+  static func load() -> AppClipInviteCodeRecord? {
+    guard
+      let recordURL,
+      let data = try? Data(contentsOf: recordURL),
+      let record = try? decoder.decode(AppClipInviteCodeRecord.self, from: data),
+      record.schemaVersion == AppClipInviteCodeRecord.currentSchemaVersion,
+      sanitize(record.code) != nil
+    else {
+      return nil
+    }
+    return record
+  }
+
+  /// The most recent invocation that carried a code wins; an invocation
+  /// without one leaves the stored code untouched.
+  @discardableResult
+  static func save(code: String) -> Bool {
+    guard
+      let code = sanitize(code),
+      let recordURL,
+      let data = try? encoder.encode(
+        AppClipInviteCodeRecord(code: code, capturedAt: Date())
+      )
+    else {
+      return false
+    }
+    do {
+      try data.write(to: recordURL, options: .atomic)
+      return true
+    } catch {
+      return false
+    }
+  }
+
+  private static var recordURL: URL? {
+    FileManager.default
+      .containerURL(
+        forSecurityApplicationGroupIdentifier: AppClipAttributionStore.appGroupIdentifier
+      )?
+      .appendingPathComponent(recordFilename, isDirectory: false)
+  }
+
+  private static let encoder = JSONEncoder()
+  private static let decoder = JSONDecoder()
+}

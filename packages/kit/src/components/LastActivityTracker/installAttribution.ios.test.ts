@@ -5,12 +5,20 @@ const mockPost = jest.fn();
 const mockGetClient = jest.fn(async () => ({ post: mockPost }));
 const mockReportAttribution = jest.fn();
 const mockWhenInitialized = jest.fn(async () => {});
+const mockReadInviteCode = jest.fn(async (): Promise<unknown> => null);
+const mockCaptureInstallInviteCode = jest.fn(
+  async (_params: {
+    source: string;
+    read: () => Promise<unknown>;
+  }): Promise<void> => {},
+);
 
 jest.mock('react-native', () => ({
   NativeModules: {
     AppClipAttribution: {
       clearPending: mockClearPending,
       clearPendingHandoff: mockClearPending,
+      readInviteCode: mockReadInviteCode,
       readPending: mockReadPending,
       savePending: mockSavePending,
     },
@@ -50,9 +58,14 @@ jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
   },
 }));
 
-const { reportInstallAttribution } = jest.requireActual<
-  typeof import('./installAttribution.ios')
->('./installAttribution.ios');
+jest.mock('./installInviteCodeCapture', () => ({
+  captureInstallInviteCode: mockCaptureInstallInviteCode,
+}));
+
+const { parseAppClipInviteCodeRecord, reportInstallAttribution } =
+  jest.requireActual<typeof import('./installAttribution.ios')>(
+    './installAttribution.ios',
+  );
 
 const pendingRecord = {
   clickId: '0123456789ABCDEFGHIJKL',
@@ -520,5 +533,54 @@ describe('reportInstallAttribution', () => {
 
     await Promise.all([first, second]);
     expect(mockReadPending).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe('App Clip invite code capture', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockReadPending.mockResolvedValue(null);
+  });
+
+  it('captures the App Clip invite code with the iOS source', async () => {
+    mockReadInviteCode.mockResolvedValue({
+      capturedAt: 1_757_318_400_000,
+      code: 'ABC123',
+      schemaVersion: 1,
+    });
+
+    await reportInstallAttribution();
+
+    expect(mockCaptureInstallInviteCode).toHaveBeenCalledTimes(1);
+    const [{ source, read }] = mockCaptureInstallInviteCode.mock.calls[0];
+    expect(source).toBe('iosAppClip');
+    await expect(read()).resolves.toEqual({
+      attributedAt: 1_757_318_400_000,
+      code: 'ABC123',
+      hasReferrer: true,
+    });
+  });
+
+  it('treats a missing handoff as a final answer without a code', () => {
+    expect(parseAppClipInviteCodeRecord(null)).toEqual(
+      expect.objectContaining({ code: undefined, hasReferrer: true }),
+    );
+  });
+
+  it('drops codes the bind form would reject', () => {
+    expect(
+      parseAppClipInviteCodeRecord({
+        capturedAt: 1,
+        code: 'not-valid!',
+        schemaVersion: 1,
+      }).code,
+    ).toBeUndefined();
+    expect(
+      parseAppClipInviteCodeRecord({
+        capturedAt: 1,
+        code: 'ABC123',
+        schemaVersion: 2,
+      }).code,
+    ).toBeUndefined();
   });
 });

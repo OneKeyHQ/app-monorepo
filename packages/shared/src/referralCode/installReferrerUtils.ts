@@ -54,6 +54,7 @@ const INVITE_CODE_PATTERN = /^[a-zA-Z0-9]{1,30}$/;
 
 export enum EInviteCodeAttributionSource {
   androidInstallReferrer = 'androidInstallReferrer',
+  iosAppClip = 'iosAppClip',
 }
 
 export function isValidInviteCode(value: string | undefined): boolean {

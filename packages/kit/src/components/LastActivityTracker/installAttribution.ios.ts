@@ -8,9 +8,17 @@ import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type { IAppClipInstallAttributionParams } from '@onekeyhq/shared/src/logger/scopes/app/scenes/install';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
+  EInviteCodeAttributionSource,
+  pickInviteCodeFromReferrerValue,
+} from '@onekeyhq/shared/src/referralCode/installReferrerUtils';
+import {
   EServiceEndpointEnum,
   type IApiClientResponse,
 } from '@onekeyhq/shared/types/endpoint';
+
+import { captureInstallInviteCode } from './installInviteCodeCapture';
+
+import type { IInstallInviteCodeReadResult } from './installInviteCodeCapture';
 
 type IAppClipAttributionRecord = IAppClipInstallAttributionParams & {
   openedAt?: number;
@@ -22,6 +30,8 @@ type IAppClipAttributionNativeModule = {
   clearPending: (clickId: string) => Promise<void>;
   clearPendingHandoff?: (clickId: string, openedAt: number) => Promise<void>;
   readPending: () => Promise<unknown>;
+  // Absent on native builds that predate the App Clip invite code handoff.
+  readInviteCode?: () => Promise<unknown>;
   savePending: (record: IAppClipAttributionRecord) => Promise<boolean>;
 };
 
@@ -233,6 +243,50 @@ async function reportPendingInstallAttribution(): Promise<void> {
   await clearPendingHandoff(pending.clickId, pending.openedAt);
 }
 
+export function parseAppClipInviteCodeRecord(
+  value: unknown,
+): IInstallInviteCodeReadResult {
+  if (!value || typeof value !== 'object') {
+    // Nothing handed off. The App Group container is migrated from the App
+    // Clip on install, so its contents at first launch are final.
+    return { code: undefined, attributedAt: Date.now(), hasReferrer: true };
+  }
+  const record = value as Record<string, unknown>;
+  const capturedAt =
+    typeof record.capturedAt === 'number' &&
+    Number.isFinite(record.capturedAt) &&
+    record.capturedAt > 0
+      ? record.capturedAt
+      : Date.now();
+  return {
+    code:
+      record.schemaVersion === 1 && typeof record.code === 'string'
+        ? pickInviteCodeFromReferrerValue(record.code)
+        : undefined,
+    attributedAt: capturedAt,
+    hasReferrer: true,
+  };
+}
+
+/**
+ * Captures the invite code the App Clip stored from its invocation URL
+ * (`ref_code`) into the same slot the Android Play referrer fills, so the bind
+ * dialogs treat both identically.
+ */
+function captureAppClipInviteCode(): Promise<void> {
+  const readInviteCode = nativeModule?.readInviteCode;
+  return captureInstallInviteCode({
+    source: EInviteCodeAttributionSource.iosAppClip,
+    read: async () => {
+      if (!readInviteCode) {
+        // Stay pending so a later native build can still read the handoff.
+        return undefined;
+      }
+      return parseAppClipInviteCodeRecord(await readInviteCode());
+    },
+  });
+}
+
 async function drainPendingInstallAttribution(): Promise<void> {
   do {
     reportInstallAttributionRequested = false;
@@ -241,6 +295,11 @@ async function drainPendingInstallAttribution(): Promise<void> {
 }
 
 export function reportInstallAttribution(): Promise<void> {
+  if (platformEnv.isNativeMainThread) {
+    // Independent of the click-id report below, which needs the network and
+    // clears its record once done; the invite code has no such dependency.
+    void captureAppClipInviteCode();
+  }
   reportInstallAttributionRequested = true;
   reportInstallAttributionTask ??= drainPendingInstallAttribution().finally(
     () => {
