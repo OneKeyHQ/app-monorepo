@@ -435,7 +435,7 @@ jobs:
           path: ./bundle-zip
 
       - name: Upload QA Bundles
-        uses: onekeyhq/actions/qa-bundle-upload@6fdecec4fe7a9cdacaf894ad567ab5097d2042cc # pin to SHA (OneKeyHQ/actions#110, unmerged; re-pin after merge)
+        uses: onekeyhq/actions/qa-bundle-upload@6fdecec4fe7a9cdacaf894ad567ab5097d2042cc # pin to SHA (OneKeyHQ/actions#110)
         with:
           server-url: ${{ secrets.QA_JS_BUNDLE_SERVER_URL }}
           upload-secret: ${{ secrets.QA_JS_BUNDLE_UPLOAD_SECRET }}
