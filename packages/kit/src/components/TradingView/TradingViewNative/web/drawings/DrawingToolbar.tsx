@@ -1,10 +1,17 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import type { CSSProperties, ReactNode } from 'react';
 
 import { useTheme } from '@onekeyhq/components';
 
 import { TRADING_VIEW_DRAWING_ICONS } from './icons';
-import { DRAWING_TOOLS, MAX_DRAWINGS, isFreehandTool } from './model';
+import {
+  DEFAULT_DRAWING_FONT_SIZE,
+  DRAWING_FONT_SIZES,
+  DRAWING_TOOLS,
+  MAX_DRAWINGS,
+  isFreehandTool,
+  isTextDrawingTool,
+} from './model';
 
 import type { IDrawingStyle, IDrawingTool } from './model';
 import type { IChartDrawingsController } from './useChartDrawings';
@@ -77,6 +84,77 @@ function ToolButton({
   );
 }
 
+function FontSizeSelect({
+  id,
+  value = DEFAULT_DRAWING_FONT_SIZE,
+  disabled,
+  onChange,
+}: {
+  id?: string;
+  value?: number;
+  disabled: boolean;
+  onChange: (fontSize: number) => void;
+}) {
+  return (
+    <select
+      id={id}
+      aria-label="Font size"
+      data-testid="chart-drawing-font-size"
+      title="Font size"
+      value={value}
+      disabled={disabled}
+      onChange={(event) => onChange(Number(event.target.value))}
+    >
+      {DRAWING_FONT_SIZES.map((fontSize) => (
+        <option key={fontSize} value={fontSize}>
+          {fontSize}
+        </option>
+      ))}
+    </select>
+  );
+}
+
+function LineStyleControls({
+  style,
+  disabled,
+  onChange,
+}: {
+  style: IDrawingStyle;
+  disabled: boolean;
+  onChange: (style: Partial<IDrawingStyle>) => void;
+}) {
+  return (
+    <>
+      <select
+        aria-label="Line width"
+        value={style.width}
+        disabled={disabled}
+        onChange={(event) => onChange({ width: Number(event.target.value) })}
+      >
+        {[1, 2, 3, 4].map((width) => (
+          <option key={width} value={width}>
+            {width} px
+          </option>
+        ))}
+      </select>
+      <select
+        aria-label="Line style"
+        value={style.dash}
+        disabled={disabled}
+        onChange={(event) =>
+          onChange({
+            dash: event.target.value as IDrawingStyle['dash'],
+          })
+        }
+      >
+        <option value="solid">Solid</option>
+        <option value="dashed">Dashed</option>
+        <option value="dotted">Dotted</option>
+      </select>
+    </>
+  );
+}
+
 const toolbarCss = `
 .chart-drawing-toolbar { width:48px; flex-shrink:0; display:flex; flex-direction:column; border-right:1px solid var(--drawing-border); padding:2px 0; box-sizing:border-box; background:var(--drawing-bg); color:var(--drawing-text); z-index:4; }
 .chart-drawing-toolbar[data-collapsed=true] { width:18px; }
@@ -104,6 +182,19 @@ const toolbarCss = `
 .chart-drawing-coordinates { position:absolute; top:52px; left:62px; max-height:calc(100% - 90px); overflow:auto; background:var(--drawing-bg); border:1px solid var(--drawing-border); border-radius:7px; padding:12px; box-shadow:0 3px 12px #0001; z-index:4; font-size:12px; }
 .chart-drawing-coordinates label { display:flex; align-items:center; gap:8px; margin:6px 0; }
 .chart-drawing-coordinates input { width:180px; background:var(--drawing-bg); color:var(--drawing-text); border:1px solid var(--drawing-border); padding:5px; border-radius:4px; }
+.chart-drawing-text-settings { overflow:hidden; display:flex; flex-direction:column; width:300px; max-width:calc(100% - 100px); box-sizing:border-box; }
+.chart-drawing-settings-body { display:contents; }
+.chart-drawing-text-settings .chart-drawing-settings-body { display:block; min-height:0; overflow-y:auto; }
+.chart-drawing-text-settings .chart-drawing-settings-done { align-self:flex-end; flex-shrink:0; }
+.chart-drawing-text-settings .chart-drawing-text-content { display:flex; flex-direction:column; align-items:stretch; gap:6px; margin:10px 0; }
+.chart-drawing-text-settings textarea { box-sizing:border-box; width:100%; min-height:72px; resize:vertical; padding:10px; background:var(--drawing-bg); color:var(--drawing-text); border:1px solid var(--drawing-border); border-radius:5px; font:inherit; line-height:1.5; }
+.chart-drawing-text-appearance { display:flex; align-items:center; gap:20px; margin-bottom:12px; }
+.chart-drawing-text-appearance label { flex-direction:column; align-items:flex-start; }
+.chart-drawing-text-settings select { min-width:72px; height:30px; padding:0 8px; background:var(--drawing-bg); color:var(--drawing-text); border:1px solid var(--drawing-border); border-radius:4px; font:inherit; }
+.chart-drawing-text-appearance input[type=color] { width:48px; height:30px; padding:2px; cursor:pointer; }
+.chart-drawing-text-position { border-top:1px solid var(--drawing-border); padding-top:10px; margin-bottom:8px; }
+.chart-drawing-text-position summary { cursor:pointer; font-weight:600; }
+.chart-drawing-text-settings input:not([type=color]) { min-width:0; width:0; flex:1; }
 .chart-drawing-shortcut { margin-left:auto; color:var(--drawing-muted); font-size:10px; }
 .chart-drawing-hint { position:absolute; left:62px; bottom:32px; padding:5px 9px; border-radius:4px; background:var(--drawing-bg); color:var(--drawing-muted); font-size:11px; pointer-events:none; z-index:2; }
 `;
@@ -114,6 +205,7 @@ export function DrawingToolbar({
   controller: IChartDrawingsController;
 }) {
   const theme = useTheme();
+  const fontSizeControlId = useId();
   const rootRef = useRef<HTMLDivElement>(null);
   const [collapsed, setCollapsed] = useState(false);
   const [menu, setMenu] = useState<string | null>(null);
@@ -125,11 +217,68 @@ export function DrawingToolbar({
     (drawing) => drawing.id === state.selectedId,
   );
   const style = selected ?? state.style;
+  const activeTool = selected?.tool ?? state.tool;
+  const hasText = isTextDrawingTool(activeTool);
+  const hasLine = activeTool !== 'text' && activeTool !== 'priceLabel';
   const groups = [
     ...new Set(Object.values(DRAWING_TOOLS).map((tool) => tool.group)),
   ];
   const disabled = !state.ready;
   const styleDisabled = Boolean(selected && (selected.locked || state.locked));
+  const pointFields =
+    selected && state.editingCoordinates ? (
+      <>
+        {selected.points
+          .map((point, index) => ({ point, index }))
+          .filter(
+            ({ index }) =>
+              !isFreehandTool(selected.tool) ||
+              index === 0 ||
+              index === selected.points.length - 1,
+          )
+          .map(({ point, index }) => (
+            <div key={`${selected.id}-${index}`}>
+              <label>
+                Point {index + 1}
+                <input
+                  aria-label={`Point ${index + 1} price`}
+                  key={point.price}
+                  type="number"
+                  step="any"
+                  defaultValue={point.price}
+                  disabled={styleDisabled}
+                  onBlur={(event) => {
+                    if (event.target.value !== '')
+                      controller.editPoint(index, {
+                        price: event.target.valueAsNumber,
+                      });
+                  }}
+                />
+              </label>
+              <label>
+                Time (UTC)
+                <input
+                  aria-label={`Point ${index + 1} time`}
+                  key={point.time}
+                  type="datetime-local"
+                  step="1"
+                  defaultValue={new Date(point.time * 1000)
+                    .toISOString()
+                    .slice(0, 19)}
+                  disabled={styleDisabled}
+                  onBlur={(event) => {
+                    if (event.target.value)
+                      controller.editPoint(index, {
+                        time:
+                          new Date(`${event.target.value}Z`).getTime() / 1000,
+                      });
+                  }}
+                />
+              </label>
+            </div>
+          ))}
+      </>
+    ) : null;
   let hint = state.draft
     ? 'Click to finish · Esc to cancel'
     : 'Click to place a point · Esc to cancel';
@@ -379,34 +528,20 @@ export function DrawingToolbar({
               controller.changeStyle({ color: event.target.value })
             }
           />
-          <select
-            aria-label="Line width"
-            value={style.width}
-            disabled={styleDisabled}
-            onChange={(event) =>
-              controller.changeStyle({ width: Number(event.target.value) })
-            }
-          >
-            {[1, 2, 3, 4].map((width) => (
-              <option key={width} value={width}>
-                {width} px
-              </option>
-            ))}
-          </select>
-          <select
-            aria-label="Line style"
-            value={style.dash}
-            disabled={styleDisabled}
-            onChange={(event) =>
-              controller.changeStyle({
-                dash: event.target.value as IDrawingStyle['dash'],
-              })
-            }
-          >
-            <option value="solid">Solid</option>
-            <option value="dashed">Dashed</option>
-            <option value="dotted">Dotted</option>
-          </select>
+          {hasText ? (
+            <FontSizeSelect
+              value={style.fontSize}
+              disabled={styleDisabled}
+              onChange={(fontSize) => controller.changeStyle({ fontSize })}
+            />
+          ) : null}
+          {hasLine ? (
+            <LineStyleControls
+              style={style}
+              disabled={styleDisabled}
+              onChange={controller.changeStyle}
+            />
+          ) : null}
           {selected ? (
             <>
               <button
@@ -436,80 +571,80 @@ export function DrawingToolbar({
       ) : null}
       {selected && state.editingCoordinates && !state.hidden && !menu ? (
         <div
-          className="chart-drawing-coordinates"
+          className={`chart-drawing-coordinates${hasText ? ' chart-drawing-text-settings' : ''}`}
           role="dialog"
           aria-label="Drawing settings"
         >
           <strong>{DRAWING_TOOLS[selected.tool].label}</strong>
-          {selected.tool === 'text' || selected.tool === 'callout' ? (
-            <label>
-              Text
-              <input
-                aria-label="Drawing text"
-                key={`${selected.id}-text`}
-                type="text"
-                maxLength={500}
-                defaultValue={selected.text ?? 'Text'}
-                disabled={styleDisabled}
-                onBlur={(event) =>
-                  controller.changeStyle({ text: event.target.value })
-                }
-                onKeyDown={(event) => {
-                  if (event.key === 'Enter') event.currentTarget.blur();
-                }}
-              />
-            </label>
-          ) : null}
-          {selected.points
-            .map((point, index) => ({ point, index }))
-            .filter(
-              ({ index }) =>
-                !isFreehandTool(selected.tool) ||
-                index === 0 ||
-                index === selected.points.length - 1,
-            )
-            .map(({ point, index }) => (
-              <div key={`${selected.id}-${index}`}>
-                <label>
-                  Point {index + 1}
-                  <input
-                    aria-label={`Point ${index + 1} price`}
-                    key={point.price}
-                    type="number"
-                    step="any"
-                    defaultValue={point.price}
-                    disabled={styleDisabled}
-                    onBlur={(event) => {
-                      if (event.target.value !== '')
-                        controller.editPoint(index, {
-                          price: event.target.valueAsNumber,
-                        });
-                    }}
-                  />
-                </label>
-                <label>
-                  Time (UTC)
-                  <input
-                    aria-label={`Point ${index + 1} time`}
-                    key={point.time}
-                    type="datetime-local"
-                    step="1"
-                    defaultValue={new Date(point.time * 1000)
-                      .toISOString()
-                      .slice(0, 19)}
-                    disabled={styleDisabled}
-                    onBlur={(event) => {
-                      if (event.target.value)
-                        controller.editPoint(index, {
-                          time:
-                            new Date(`${event.target.value}Z`).getTime() / 1000,
-                        });
-                    }}
-                  />
-                </label>
+          <div className="chart-drawing-settings-body">
+            {selected.tool === 'text' || selected.tool === 'callout' ? (
+              <label className="chart-drawing-text-content">
+                Content
+                <textarea
+                  aria-label="Drawing text"
+                  data-testid="chart-drawing-text"
+                  key={`${selected.id}-text-${selected.text ?? ''}`}
+                  maxLength={500}
+                  defaultValue={selected.text ?? 'Text'}
+                  disabled={styleDisabled}
+                  onBlur={(event) =>
+                    controller.changeStyle({ text: event.target.value })
+                  }
+                />
+              </label>
+            ) : null}
+            {hasText ? (
+              <>
+                <div className="chart-drawing-text-appearance">
+                  <label>
+                    Text color
+                    <input
+                      type="color"
+                      aria-label="Text color"
+                      value={style.color}
+                      disabled={styleDisabled}
+                      onChange={(event) =>
+                        controller.changeStyle({ color: event.target.value })
+                      }
+                    />
+                  </label>
+                  <label htmlFor={fontSizeControlId}>
+                    Font size
+                    <FontSizeSelect
+                      id={fontSizeControlId}
+                      value={style.fontSize}
+                      disabled={styleDisabled}
+                      onChange={(fontSize) =>
+                        controller.changeStyle({ fontSize })
+                      }
+                    />
+                  </label>
+                </div>
+              </>
+            ) : null}
+            {activeTool === 'callout' ? (
+              <div className="chart-drawing-text-position">
+                <div style={{ marginBottom: 8, fontWeight: 600 }}>
+                  Connection line
+                </div>
+                <LineStyleControls
+                  style={style}
+                  disabled={styleDisabled}
+                  onChange={controller.changeStyle}
+                />
               </div>
-            ))}
+            ) : null}
+            {hasText ? (
+              <details className="chart-drawing-text-position">
+                <summary>Position</summary>
+                {pointFields}
+              </details>
+            ) : (
+              pointFields
+            )}
+          </div>
           <button
+            className="chart-drawing-settings-done"
             type="button"
             onClick={controller.toggleCoordinates}
             style={{

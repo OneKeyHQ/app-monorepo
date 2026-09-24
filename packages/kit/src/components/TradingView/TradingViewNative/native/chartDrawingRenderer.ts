@@ -8,7 +8,7 @@ import {
 } from '@shopify/react-native-skia';
 
 import { getDrawingGeometry } from '../drawings/geometry';
-import { isFreehandTool } from '../drawings/model';
+import { DEFAULT_DRAWING_FONT_SIZE, isFreehandTool } from '../drawings/model';
 
 import type { IDrawingProjection } from '../drawings/model';
 import type { IDrawingRenderState } from '../drawings/useChartDrawings';
@@ -71,14 +71,24 @@ export function drawNativeChartDrawings(
     paint.setStyle(PaintStyle.Fill);
     paint.setAlphaf(1);
     for (const label of geometry.labels) {
+      const fontSize = label.fontSize ?? DEFAULT_DRAWING_FONT_SIZE;
+      const originalSize = font.getSize();
+      font.setSize(fontSize);
       paint.setColor(Skia.Color(background));
       const width = font.measureText(label.text).width;
       canvas.drawRect(
-        Skia.XYWHRect(label.x - 3, label.y - 13, width + 6, 18),
+        Skia.XYWHRect(
+          label.x - 3,
+          label.y - fontSize - 1,
+          width + 6,
+          fontSize + 6,
+        ),
         paint,
       );
       paint.setColor(Skia.Color(drawing.color));
       canvas.drawText(label.text, label.x, label.y, paint, font);
+      // The chart axes share this font instance with drawing labels.
+      font.setSize(originalSize);
     }
     if (
       !drawing.locked &&

@@ -149,6 +149,50 @@ it('restores locally saved drawings on remount and permits editing restored anch
   );
 });
 
+it('persists text size and content and allows undo and editing after reload', async () => {
+  const first = setup();
+  await waitFor(() => expect(first.result.current.state.ready).toBe(true));
+  void act(() => first.result.current.selectTool('text'));
+  void act(() => first.result.current.changeStyle({ fontSize: 32 }));
+  void act(() => {
+    first.result.current.onPointerDown(first.event('pointerdown', 250, 220));
+    first.result.current.onPointerUp(first.event('pointerup', 250, 220));
+  });
+  const original = first.result.current.state.history.present[0];
+  expect(original.fontSize).toBe(32);
+  void act(() =>
+    first.result.current.changeStyle({ fontSize: 40, text: 'ASTER\nsupport' }),
+  );
+  void act(() => first.result.current.historyAction('undo'));
+  expect(first.result.current.state.history.present[0].fontSize).toBe(32);
+  void act(() => first.result.current.historyAction('redo'));
+  await waitFor(() =>
+    expect(JSON.parse(stored.values().next().value ?? '[]')[0]).toMatchObject({
+      fontSize: 40,
+      text: 'ASTER\nsupport',
+    }),
+  );
+  first.unmount();
+  const second = setup();
+  await waitFor(() =>
+    expect(second.result.current.state.history.present[0]).toMatchObject({
+      fontSize: 40,
+      text: 'ASTER\nsupport',
+    }),
+  );
+  void act(() => {
+    second.result.current.onPointerDown(second.event('pointerdown', 315, 185));
+    second.result.current.onPointerUp(second.event('pointerup', 315, 185));
+  });
+  expect(second.result.current.state.selectedId).toBe(original.id);
+  void act(() => second.result.current.changeStyle({ fontSize: 8 }));
+  await waitFor(() =>
+    expect(JSON.parse(stored.values().next().value ?? '[]')[0].fontSize).toBe(
+      8,
+    ),
+  );
+});
+
 it('redraws live brush previews without rerendering the chart React tree per touch sample', async () => {
   const hook = setup();
   await waitFor(() => expect(hook.result.current.state.ready).toBe(true));

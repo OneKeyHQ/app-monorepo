@@ -1,5 +1,8 @@
 import { getDrawingGeometry } from '../../drawings/geometry';
-import { isFreehandTool } from '../../drawings/model';
+import {
+  DEFAULT_DRAWING_FONT_SIZE,
+  isFreehandTool,
+} from '../../drawings/model';
 
 import type { IDrawing, IDrawingProjection } from '../../drawings/model';
 export * from '../../drawings/geometry';
@@ -23,7 +26,6 @@ export function drawChartDrawings(
   context.clip();
   context.lineCap = 'round';
   context.lineJoin = 'round';
-  context.font = '12px sans-serif';
   context.textBaseline = 'alphabetic';
   context.textAlign = 'left';
   for (const drawing of drawings.filter((item) => !item.hidden)) {
@@ -53,13 +55,15 @@ export function drawChartDrawings(
       context.stroke();
     }
     for (const label of geometry.labels) {
+      const fontSize = label.fontSize ?? DEFAULT_DRAWING_FONT_SIZE;
+      context.font = `${fontSize}px sans-serif`;
       context.fillStyle = background;
       context.globalAlpha = 0.9;
       context.fillRect(
         label.x - 3,
-        label.y - 13,
+        label.y - fontSize - 1,
         context.measureText(label.text).width + 6,
-        18,
+        fontSize + 6,
       );
       context.globalAlpha = 1;
       context.fillStyle = drawing.color;

@@ -120,3 +120,61 @@ it('renders a live native brush as a path and exposes only four bounds handles a
   expect(canvas.save).toHaveBeenCalledTimes(3);
   expect(canvas.restore).toHaveBeenCalledTimes(3);
 });
+
+it('renders text at its saved size without changing the font used by chart axes', () => {
+  if (!layout) throw Error('Expected chart layout');
+  const projection: IDrawingProjection = {
+    layout,
+    points,
+    interval: 60,
+    viewport: createTradingViewNativeChartRuntimeState({}).viewport,
+  };
+  let size = 11;
+  const font = {
+    getSize: () => size,
+    setSize: (value: number) => {
+      size = value;
+    },
+    measureText: (text: string) => ({ width: (text.length * size) / 2 }),
+  };
+  const canvas = {
+    save: jest.fn(),
+    restore: jest.fn(),
+    clipRect: jest.fn(),
+    drawRect: jest.fn(),
+    drawText: jest.fn(() => size),
+  };
+  const drawing = {
+    ...DEFAULT_DRAWING_STYLE,
+    id: 'text',
+    tool: 'text' as const,
+    locked: false,
+    text: 'ASTER\nsupport',
+    fontSize: 40,
+    points: [screenToDrawingPoint({ x: 250, y: 220 }, projection)],
+  };
+  drawNativeChartDrawings(
+    canvas as unknown as SkCanvas,
+    {
+      drawings: [drawing, { ...drawing, id: 'legacy', fontSize: undefined }],
+      selectedId: null,
+      selectedIds: [],
+    },
+    projection,
+    font as unknown as SkFont,
+    '#fff',
+  );
+  expect(canvas.drawText).toHaveNthReturnedWith(1, 40);
+  expect(canvas.drawText).toHaveNthReturnedWith(2, 40);
+  expect(canvas.drawText).toHaveNthReturnedWith(3, 12);
+  expect(canvas.drawText).toHaveNthReturnedWith(4, 12);
+  expect(canvas.drawRect.mock.calls[0][0]).toMatchObject({
+    width: 106,
+    height: 46,
+  });
+  expect(canvas.drawRect.mock.calls[2][0]).toMatchObject({
+    width: 36,
+    height: 18,
+  });
+  expect(size).toBe(11);
+});

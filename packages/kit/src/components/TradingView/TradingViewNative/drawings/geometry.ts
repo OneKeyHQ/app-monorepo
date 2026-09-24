@@ -1,6 +1,7 @@
 import { formatTradingViewNativePriceTick } from '../utils/chartLayout';
 
 import {
+  DEFAULT_DRAWING_FONT_SIZE,
   DEFAULT_DRAWING_STYLE,
   drawingPointToScreen,
   getFreehandBounds,
@@ -17,7 +18,7 @@ export type IDrawingPath = {
   width?: number;
   opacity?: number;
 };
-export type IDrawingLabel = IScreenPoint & { text: string };
+export type IDrawingLabel = IScreenPoint & { text: string; fontSize?: number };
 export type IDrawingGeometry = {
   handles: IScreenPoint[];
   paths: IDrawingPath[];
@@ -135,6 +136,7 @@ export function getDrawingGeometry(
     case 'priceLabel':
     case 'callout': {
       const position = drawing.tool === 'callout' ? b : a;
+      const fontSize = drawing.fontSize ?? DEFAULT_DRAWING_FONT_SIZE;
       const text =
         drawing.tool === 'priceLabel'
           ? formatTradingViewNativePriceTick(drawing.points[0].price)
@@ -142,8 +144,9 @@ export function getDrawingGeometry(
       text.split('\n').forEach((line, index) =>
         labels.push({
           x: position.x + 6,
-          y: position.y - 6 + index * 16,
+          y: position.y - 6 + index * (fontSize + 4),
           text: line,
+          fontSize,
         }),
       );
       if (drawing.tool === 'callout') paths.push({ points: [a, b] });
@@ -413,13 +416,15 @@ export function hitTestDrawings(
               Math.max(tolerance - 2, drawing.width / 2 + 3),
         ),
       ) ||
-      geometry.labels.some(
-        (label) =>
+      geometry.labels.some((label) => {
+        const fontSize = label.fontSize ?? DEFAULT_DRAWING_FONT_SIZE;
+        return (
           point.x >= label.x &&
-          point.x <= label.x + label.text.length * 7 &&
-          point.y >= label.y - 14 &&
-          point.y <= label.y + 4,
-      );
+          point.x <= label.x + (label.text.length * 7 * fontSize) / 12 &&
+          point.y >= label.y - fontSize - 2 &&
+          point.y <= label.y + 4
+        );
+      });
     if (hit) return { drawing, handle: null };
   }
   return null;

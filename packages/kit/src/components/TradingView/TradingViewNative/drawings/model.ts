@@ -56,6 +56,7 @@ export type IDrawingStyle = {
   color: string;
   width: number;
   dash: 'solid' | 'dashed' | 'dotted';
+  fontSize?: number;
 };
 export type IDrawing = IDrawingStyle & {
   id: string;
@@ -73,13 +74,25 @@ export type IDrawingProjection = {
   viewport: ITradingViewNativeChartRuntimeViewport;
 };
 
+export const DEFAULT_DRAWING_FONT_SIZE = 12;
+export const DRAWING_FONT_SIZES: readonly number[] = [
+  8, 10, 11, 12, 14, 16, 18, 20, 22, 24, 28, 32, 40,
+];
+
 export const DEFAULT_DRAWING_STYLE: IDrawingStyle = {
   color: '#2962FF',
   width: 2,
   dash: 'solid',
+  fontSize: DEFAULT_DRAWING_FONT_SIZE,
 };
 export const MAX_DRAWINGS = 200;
 export const MAX_DRAWING_POINTS = 2000;
+
+export function isTextDrawingTool(tool: IDrawingTool | 'cursor') {
+  'worklet';
+
+  return tool === 'text' || tool === 'callout' || tool === 'priceLabel';
+}
 
 export function isFreehandTool(tool: IDrawingTool) {
   'worklet';
@@ -323,6 +336,8 @@ export function parseDrawings(value: string | null): IDrawing[] {
           !/^#[\da-f]{6}$/i.test(drawing.color) ||
           typeof drawing.width !== 'number' ||
           ![1, 2, 3, 4].includes(drawing.width) ||
+          (drawing.fontSize !== undefined &&
+            !DRAWING_FONT_SIZES.includes(drawing.fontSize)) ||
           !['solid', 'dashed', 'dotted'].includes(drawing.dash ?? '') ||
           typeof drawing.locked !== 'boolean' ||
           (drawing.hidden !== undefined &&

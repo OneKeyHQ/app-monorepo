@@ -6,6 +6,7 @@ import { createTradingViewNativeChartRuntimeState } from '../../utils/chartRunti
 import { getDrawingGeometry, hitTestDrawings } from './geometry';
 import {
   DEFAULT_DRAWING_STYLE,
+  DRAWING_FONT_SIZES,
   DRAWING_TOOLS,
   changeDrawingHistory,
   constrainDrawingPoint,
@@ -63,6 +64,45 @@ function drawing(tool: IDrawingTool = 'trend', chart = projection()): IDrawing {
 }
 
 describe('web chart drawings', () => {
+  it('restores every supported font size and keeps legacy text drawings readable', () => {
+    const text = { ...drawing('text'), text: 'ASTER' };
+    for (const fontSize of DRAWING_FONT_SIZES) {
+      const item = { ...text, fontSize };
+      expect(parseDrawings(JSON.stringify([item]))).toEqual([item]);
+    }
+    const legacy = { ...text, fontSize: undefined };
+    const [restored] = parseDrawings(JSON.stringify([legacy]));
+    expect(getDrawingGeometry(restored, projection()).labels[0].fontSize).toBe(
+      12,
+    );
+    for (const fontSize of [0, -1, 1000, 12.5, '40', null]) {
+      expect(parseDrawings(JSON.stringify([{ ...text, fontSize }]))).toEqual(
+        [],
+      );
+    }
+  });
+  it.each(['text', 'callout', 'priceLabel'] as const)(
+    'expands %s selection bounds and line spacing with the font size',
+    (tool) => {
+      const chart = projection();
+      const item = {
+        ...drawing(tool, chart),
+        text: 'ASTER\nsupport',
+        fontSize: 40,
+      };
+      const { labels } = getDrawingGeometry(item, chart);
+      expect(labels[0].fontSize).toBe(40);
+      if (tool !== 'priceLabel')
+        expect(labels[1].y - labels[0].y).toBeCloseTo(44);
+      const point = { x: labels[0].x + 60, y: labels[0].y - 30 };
+      expect(hitTestDrawings([item], point, chart, null)?.drawing.id).toBe(
+        item.id,
+      );
+      expect(
+        hitTestDrawings([{ ...item, fontSize: 12 }], point, chart, null),
+      ).toBeNull();
+    },
+  );
   it.each(Object.keys(DRAWING_TOOLS) as IDrawingTool[])(
     'keeps %s geometry finite and its stored anchors editable',
     (tool) => {

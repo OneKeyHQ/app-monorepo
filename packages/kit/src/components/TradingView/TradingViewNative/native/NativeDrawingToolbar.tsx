@@ -20,7 +20,13 @@ import type { IScrollViewProps } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { TRADING_VIEW_DRAWING_ICONS } from '../drawings/icons';
-import { DRAWING_TOOLS, isFreehandTool } from '../drawings/model';
+import {
+  DEFAULT_DRAWING_FONT_SIZE,
+  DRAWING_FONT_SIZES,
+  DRAWING_TOOLS,
+  isFreehandTool,
+  isTextDrawingTool,
+} from '../drawings/model';
 
 import type { IDrawingTool } from '../drawings/model';
 import type { IChartDrawingsController } from '../drawings/useChartDrawings';
@@ -103,12 +109,14 @@ function EditField({
   onSave,
   disabled,
   testID,
+  multiline = false,
 }: {
   label: string;
   value: string;
   onSave: (value: string) => void;
   disabled: boolean;
   testID: string;
+  multiline?: boolean;
 }) {
   const [text, setText] = useState(value);
   return (
@@ -122,6 +130,10 @@ function EditField({
         value={text}
         onChangeText={setText}
         disabled={disabled}
+        multiline={multiline}
+        maxLength={multiline ? 500 : undefined}
+        minHeight={multiline ? 96 : undefined}
+        textAlignVertical={multiline ? 'top' : undefined}
         autoCorrect={false}
         autoCapitalize="none"
         onEndEditing={() => {
@@ -148,6 +160,9 @@ export function NativeDrawingToolbar({
     (drawing) => drawing.id === state.selectedId,
   );
   const style = selected ?? state.style;
+  const activeTool = selected?.tool ?? state.tool;
+  const hasText = isTextDrawingTool(activeTool);
+  const hasLine = activeTool !== 'text' && activeTool !== 'priceLabel';
   const disabled =
     !state.ready || Boolean(selected && (selected.locked || state.locked));
   const groups = [
@@ -594,7 +609,23 @@ export function NativeDrawingToolbar({
             ) : null}
             {settings ? (
               <YStack p="$3" gap="$3">
-                <SizableText size="$bodySmMedium">Color</SizableText>
+                {selected &&
+                (selected.tool === 'text' || selected.tool === 'callout') ? (
+                  <EditField
+                    key={`${selected.id}-text-${selected.text ?? ''}`}
+                    label="Content"
+                    value={selected.text ?? 'Text'}
+                    testID="native-drawing-text"
+                    disabled={disabled}
+                    multiline
+                    onSave={(text) =>
+                      controller.changeStyle({ text: text.slice(0, 500) })
+                    }
+                  />
+                ) : null}
+                <SizableText size="$bodySmMedium">
+                  {hasText ? 'Text color' : 'Color'}
+                </SizableText>
                 <XStack flexWrap="wrap" gap="$2">
                   {[
                     '#2962FF',
@@ -626,49 +657,87 @@ export function NativeDrawingToolbar({
                     />
                   ))}
                 </XStack>
-                <SizableText size="$bodySmMedium">Line width</SizableText>
-                <XStack gap="$2">
-                  {[1, 2, 3, 4].map((width) => (
-                    <Button
-                      key={width}
-                      testID={`native-drawing-width-${width}`}
-                      flex={1}
-                      size="small"
-                      variant={style.width === width ? 'primary' : 'secondary'}
-                      disabled={disabled}
-                      onPress={() => controller.changeStyle({ width })}
-                    >
-                      {width}
-                    </Button>
-                  ))}
-                </XStack>
-                <XStack gap="$2">
-                  {(['solid', 'dashed', 'dotted'] as const).map((dash) => (
-                    <Button
-                      key={dash}
-                      testID={`native-drawing-style-${dash}`}
-                      flex={1}
-                      size="small"
-                      variant={style.dash === dash ? 'primary' : 'secondary'}
-                      disabled={disabled}
-                      onPress={() => controller.changeStyle({ dash })}
-                    >
-                      {dash}
-                    </Button>
-                  ))}
-                </XStack>
-                {selected &&
-                (selected.tool === 'text' || selected.tool === 'callout') ? (
-                  <EditField
-                    key={`${selected.id}-text`}
-                    label="Text"
-                    value={selected.text ?? 'Text'}
-                    testID="native-drawing-text"
-                    disabled={disabled}
-                    onSave={(text) =>
-                      controller.changeStyle({ text: text.slice(0, 500) })
-                    }
-                  />
+                {hasText ? (
+                  <>
+                    <SizableText size="$bodySmMedium">Font size</SizableText>
+                    <XStack gap="$2" flexWrap="wrap">
+                      {DRAWING_FONT_SIZES.map((fontSize) => (
+                        <Button
+                          key={fontSize}
+                          testID={`native-drawing-font-size-${fontSize}`}
+                          accessibilityLabel={`Font size ${fontSize}`}
+                          accessibilityState={{
+                            selected:
+                              (style.fontSize ?? DEFAULT_DRAWING_FONT_SIZE) ===
+                              fontSize,
+                            disabled,
+                          }}
+                          size="small"
+                          variant={
+                            (style.fontSize ?? DEFAULT_DRAWING_FONT_SIZE) ===
+                            fontSize
+                              ? 'primary'
+                              : 'secondary'
+                          }
+                          disabled={disabled}
+                          onPress={() => controller.changeStyle({ fontSize })}
+                        >
+                          {fontSize}
+                        </Button>
+                      ))}
+                    </XStack>
+                  </>
+                ) : null}
+                {hasLine ? (
+                  <>
+                    <SizableText size="$bodySmMedium">
+                      {hasText ? 'Connection line' : 'Line width'}
+                    </SizableText>
+                    <XStack gap="$2">
+                      {[1, 2, 3, 4].map((width) => (
+                        <Button
+                          key={width}
+                          testID={`native-drawing-width-${width}`}
+                          flex={1}
+                          size="small"
+                          variant={
+                            style.width === width ? 'primary' : 'secondary'
+                          }
+                          disabled={disabled}
+                          onPress={() => controller.changeStyle({ width })}
+                        >
+                          {width}
+                        </Button>
+                      ))}
+                    </XStack>
+                    <XStack gap="$2">
+                      {(['solid', 'dashed', 'dotted'] as const).map((dash) => (
+                        <Button
+                          key={dash}
+                          testID={`native-drawing-style-${dash}`}
+                          flex={1}
+                          size="small"
+                          variant={
+                            style.dash === dash ? 'primary' : 'secondary'
+                          }
+                          disabled={disabled}
+                          onPress={() => controller.changeStyle({ dash })}
+                        >
+                          {dash}
+                        </Button>
+                      ))}
+                    </XStack>
+                  </>
+                ) : null}
+                {hasText && selected ? (
+                  <SizableText
+                    size="$bodySmMedium"
+                    borderTopWidth={1}
+                    borderColor="$borderSubdued"
+                    pt="$3"
+                  >
+                    Position
+                  </SizableText>
                 ) : null}
                 {selected?.points
                   .map((point, index) => ({ point, index }))
