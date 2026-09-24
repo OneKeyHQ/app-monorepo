@@ -251,16 +251,6 @@ describe('LocalDbBase verified Ledger binding transaction guard', () => {
       });
       expect(record.bleConnectId).toBe('new-ble');
       expect(record.connectId).toBe('expected');
-      if (type === 'walletId') {
-        await expect(
-          db.updateDeviceConnectId({
-            dbDeviceId: record.id,
-            connectId: 'transport-locator',
-            verifiedDeviceIdentity,
-          }),
-        ).rejects.toThrow('A wallet identity cannot be replaced');
-        expect(record.connectId).toBe('expected');
-      }
 
       record.deviceId = 'changed';
       record.connectId = 'changed';

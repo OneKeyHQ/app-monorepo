@@ -755,25 +755,64 @@ describe('LocalDbBase.createHwWallet', () => {
     },
   );
 
-  it.each([EHardwareVendor.onekey, EHardwareVendor.keystone])(
-    'still rejects %s without its primary id',
-    async (vendor) => {
+  it('still rejects onekey without its primary id', async () => {
+    const db = new TestLocalDb();
+    const transaction = jest.spyOn(db, 'withTransaction');
+    await expect(
+      db.createHwWallet({
+        vendor: EHardwareVendor.onekey,
+        features: {} as IDBCreateHwWalletParams['features'],
+        device: {
+          connectId: '',
+          uuid: '',
+          deviceId: 'identity',
+          name: EHardwareVendor.onekey,
+          deviceType: EDeviceType.Unknown,
+        },
+      }),
+    ).rejects.toThrow('connectId is required');
+    expect(transaction).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ['usb', 'keystone-usb-serial', 'keystone-usb-serial'],
+    ['qr', undefined, undefined],
+  ] as const)(
+    'persists a %s Keystone keyed by deviceId with an empty connectId',
+    async (connectionType, usbConnectId, expectedUsbConnectId) => {
       const db = new TestLocalDb();
-      const transaction = jest.spyOn(db, 'withTransaction');
-      await expect(
-        db.createHwWallet({
-          vendor,
-          features: {} as IDBCreateHwWalletParams['features'],
-          device: {
+      jest.spyOn(db, 'buildHwWalletId').mockResolvedValue({
+        dbDeviceId: 'keystone-device',
+        dbWalletId: 'hw-keystone',
+        deviceUUID: '',
+        rawDeviceId: 'a1b2c3d4',
+      });
+      jest.spyOn(db, 'timeNow').mockResolvedValue(1);
+      const addDevice = jest.spyOn(db, 'txAddDbDevice');
+      await db.createHwWallet({
+        vendor: EHardwareVendor.keystone,
+        features: {} as IDBCreateHwWalletParams['features'],
+        transportType: EHardwareTransportType.WEBUSB,
+        device: {
+          connectId: null,
+          uuid: '',
+          deviceId: 'a1b2c3d4',
+          usbConnectId,
+          name: 'Keystone',
+          deviceType: EDeviceType.Unknown,
+          raw: { connectionType },
+        } as unknown as IDBCreateHwWalletParams['device'],
+      });
+      expect(addDevice).toHaveBeenCalledWith(
+        expect.objectContaining({
+          device: expect.objectContaining({
             connectId: '',
-            uuid: '',
-            deviceId: 'identity',
-            name: vendor,
-            deviceType: EDeviceType.Unknown,
-          },
+            deviceId: 'a1b2c3d4',
+            usbConnectId: expectedUsbConnectId,
+            bleConnectId: undefined,
+          }),
         }),
-      ).rejects.toThrow('connectId is required');
-      expect(transaction).not.toHaveBeenCalled();
+      );
     },
   );
 

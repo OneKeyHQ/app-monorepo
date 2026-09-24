@@ -768,10 +768,10 @@ function FinalizeWalletSetupPage({
                     'Keystone';
               thirdPartyDevice = {
                 ...thirdPartyDevice,
-                connectId: connectedDevice.connectId,
+                // Identity is deviceId (the mfp); only the USB serial is a
+                // transport locator worth keeping.
+                connectId: null,
                 deviceId: connectedDevice.deviceId,
-                // Keystone's connectId is the wallet identity, so the USB
-                // handle is carried separately: the enumeration serial identifies the unit before it's opened, letting the wallet list show it as present while plugged in.
                 usbConnectId: keystoneSearchTarget.serialNumber,
                 name: connectedDeviceName,
                 vendorModel: connectedDevice.model,

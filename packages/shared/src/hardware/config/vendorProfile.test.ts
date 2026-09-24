@@ -19,7 +19,7 @@ describe('hardware vendor profile', () => {
       'transportLocator',
     ],
     [EHardwareVendor.ledger, { mode: 'local' }, 'transportLocator'],
-    [EHardwareVendor.keystone, { mode: 'local' }, 'walletIdentity'],
+    [EHardwareVendor.keystone, { mode: 'local' }, 'transportLocator'],
   ] as const)(
     'describes label writes and connection identity independently for %s',
     (vendor, label, role) => {
