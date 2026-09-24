@@ -168,9 +168,9 @@ export function PrimeGiftOffer({
           })}
         </SizableText>
       </YStack>
+      {/* Match ListItem.DrillIn's default 24dp; $6 shrinks on narrow Android screens. */}
       <Icon
         name="ChevronRightSmallOutline"
-        size="$6"
         color="$iconSubdued"
         mr="$-1.5"
         flexShrink={0}
@@ -189,7 +189,11 @@ export function PrimeGiftOffer({
   if (shouldAnimateEnter) {
     return (
       <YStack {...frameProps}>
-        <HeightTransition style={fullWidthStyle}>
+        <HeightTransition
+          duration={300}
+          roundHeightToNearestPixel={platformEnv.isNativeIOS}
+          style={fullWidthStyle}
+        >
           <YStack pt="$8" w="100%">
             {card}
           </YStack>
