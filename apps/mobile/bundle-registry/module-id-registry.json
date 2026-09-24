@@ -24430,7 +24430,7 @@
     "packages/shared/types/wallet.ts": 1105
   },
   "tombstones": {
-    "packages/kit/src/views/Market/hooks/useRecommendListingResolution.ts": 2969,
-    "packages/kit/src/views/Home/components/TokenListBlock/buildMergedAllNetworkSnapshot.ts": 7735
+    "packages/kit/src/views/Home/components/TokenListBlock/buildMergedAllNetworkSnapshot.ts": 7735,
+    "packages/kit/src/views/Market/hooks/useRecommendListingResolution.ts": 2969
   }
 }

@@ -56,7 +56,6 @@ function setup() {
     enabledNetworks: {} as Record<string, boolean>,
     disabledNetworks: {} as Record<string, boolean>,
   };
-  const allDbAccounts = [{ id: 'fixture-account' }];
   const mergeById: Record<string, boolean> = {};
   const deriveById: Record<string, string> = {};
   const accountsById: Record<string, { deriveType: string }[]> = {};
@@ -86,17 +85,26 @@ function setup() {
     })),
   };
   const serviceAccount = {
-    getAllAccounts: jest.fn(async () => ({ accounts: allDbAccounts })),
-    getNetworkAccountsInSameIndexedAccountIdWithDeriveTypes: jest.fn(
+    getDbAccountIdFromIndexedAccountId: jest.fn(
       async ({
         networkId,
+        deriveType,
       }: {
+        indexedAccountId: string;
         networkId: string;
-        allDbAccounts?: unknown[];
-      }) => ({
-        networkAccounts: accountsById[networkId] ?? [],
-      }),
+        deriveType: string;
+      }) => `${networkId}|${deriveType}`,
     ),
+    getAllAccounts: jest.fn(async ({ ids }: { ids?: string[] } = {}) => ({
+      accounts: (ids ?? [])
+        .filter((id) => {
+          const [networkId, deriveType] = id.split('|');
+          return (accountsById[networkId] ?? []).some(
+            (account) => account.deriveType === deriveType,
+          );
+        })
+        .map((id) => ({ id })),
+    })),
   };
   const service = new ServiceAllNetwork({
     backgroundApi: {
@@ -111,7 +119,6 @@ function setup() {
     serviceNetwork,
     networks,
     state,
-    allDbAccounts,
     mergeById,
     deriveById,
     accountsById,
@@ -270,8 +277,8 @@ describe('All Networks account compatibility inside bg', () => {
     ]);
   });
 
-  it('reads the account snapshot once in bg and shares it across implementation groups', async () => {
-    const { service, serviceAccount, allDbAccounts, accountsById } = setup();
+  it('resolves accounts per implementation group with one batched id lookup', async () => {
+    const { service, serviceAccount, accountsById } = setup();
     accountsById['evm--1'] = [{ deriveType: 'default' }];
     const result = await service.getEnabledNetworksAccountCompatibility({
       walletId: 'fixture-wallet',
@@ -279,22 +286,16 @@ describe('All Networks account compatibility inside bg', () => {
       filterNetworksWithoutAccount: true,
     });
     expect(serviceAccount.getAllAccounts).toHaveBeenCalledTimes(1);
-    expect(
-      serviceAccount.getNetworkAccountsInSameIndexedAccountIdWithDeriveTypes,
-    ).toHaveBeenCalledTimes(3);
-    for (const [params] of serviceAccount
-      .getNetworkAccountsInSameIndexedAccountIdWithDeriveTypes.mock.calls) {
-      expect(params.allDbAccounts).toBe(allDbAccounts);
-    }
+    expect(serviceAccount.getAllAccounts).toHaveBeenCalledWith({
+      ids: ['evm--1|default', 'btc--0|default', 'sol--101|default'],
+    });
     for (const networkId of ['evm--1', 'btc--0', 'sol--101']) {
       expect(
-        serviceAccount.getNetworkAccountsInSameIndexedAccountIdWithDeriveTypes,
+        serviceAccount.getDbAccountIdFromIndexedAccountId,
       ).toHaveBeenCalledWith({
-        allDbAccounts,
-        skipDbQueryIfNotFoundFromAllDbAccounts: true,
         indexedAccountId: 'fixture-index',
         networkId,
-        excludeEmptyAccount: true,
+        deriveType: 'default',
       });
     }
     expect(
@@ -305,7 +306,7 @@ describe('All Networks account compatibility inside bg', () => {
       'compatibleNetworksWithoutAccount',
       'networkInfoMap',
     ]);
-    expect(JSON.stringify(result)).not.toContain('fixture-account');
+    expect(JSON.stringify(result)).not.toContain('|default');
   });
 
   it.each([true, false])(
@@ -326,7 +327,7 @@ describe('All Networks account compatibility inside bg', () => {
     },
   );
 
-  it('returns per-network derive info and reuses it for account filtering', async () => {
+  it('returns per-network derive info alongside account filtering', async () => {
     const { service, serviceNetwork, accountsById, deriveById } = setup();
     deriveById['evm--1'] = 'alternate';
     accountsById['evm--1'] = [{ deriveType: 'alternate' }];
@@ -350,9 +351,10 @@ describe('All Networks account compatibility inside bg', () => {
         suffixToDeriveType: { alternate: 'alternate' },
       },
     });
-    expect(serviceNetwork.getVaultSettings).toHaveBeenCalledTimes(2);
+    // Two derive-info reads plus one per implementation group for filtering.
+    expect(serviceNetwork.getVaultSettings).toHaveBeenCalledTimes(3);
     expect(serviceNetwork.getGlobalDeriveTypeOfNetwork).toHaveBeenCalledTimes(
-      2,
+      3,
     );
   });
 

@@ -964,7 +964,7 @@ class ServiceAllNetwork extends ServiceBase {
       });
     const compatibleNetworksWithoutAccount: IServerNetwork[] = [];
     const networkInfoMap: Record<string, INetworkDeriveInfo> = {};
-    const { serviceAccount, serviceNetwork } = this.backgroundApi;
+    const { serviceNetwork } = this.backgroundApi;
 
     if (withNetworksInfo) {
       for (const network of compatibleNetworks) {
