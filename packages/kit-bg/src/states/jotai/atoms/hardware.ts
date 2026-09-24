@@ -204,8 +204,8 @@ export type IDeviceStageState = {
   step: IDeviceStageStepValue;
   connectId?: string;
   deviceType?: IDeviceType;
-  /** The finish the serial number names (Pro 2 / Neo only) — which of
-   * the model's shells the replica wears. */
+  /** The finish the serial number names (Pro 2 only) — which of the
+   * model's shells the replica wears. */
   deviceColor?: IHardwareDeviceColor;
   deviceName?: string;
   /** Third-party track: dresses the stage for Trezor / Ledger. */

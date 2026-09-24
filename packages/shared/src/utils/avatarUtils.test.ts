@@ -9,7 +9,6 @@ import {
   getDeviceAvatarImage,
   getThirdPartyDeviceAvatarImage,
 } from './avatarUtils';
-import { NEO_DEVICE_TYPE } from './hardwareDeviceTypes';
 
 // require() resolves to a single mocked value under Jest, so tests that must
 // tell artworks apart compare the actual asset bytes on disk.
@@ -17,7 +16,7 @@ const avatarDir = join(__dirname, '../assets/wallet/avatar');
 const readAvatar = (name: string) => readFileSync(join(avatarDir, name));
 
 describe('HwWalletAvatarImages', () => {
-  it.each(['Pro2Black.png', 'NeoBlack.png'])(
+  it.each(['Pro2Black.png'])(
     'gives %s its own artwork rather than the OneKey Pro art',
     (name) => {
       expect(readAvatar(name).equals(readAvatar('ProBlack.png'))).toBe(false);
@@ -45,20 +44,6 @@ describe('getDeviceAvatarImage', () => {
     [undefined, 'pro2Black'],
   ])('resolves a Pro 2 serial %s to %s', (serialNo, expected) => {
     expect(getDeviceAvatarImage(EDeviceType.Pro2, serialNo)).toBe(expected);
-  });
-
-  it.each([
-    ['NE0001A', 'neoBlack'],
-    ['NE0001B', 'neoWhite'],
-    ['NE0001E', 'neoGreen'],
-    ['NE0001F', 'neoPink'],
-    // Letters the Neo does not come in, and no serial, wear white — the
-    // Neo's default finish, unlike the Pro 2's black.
-    ['NE0001C', 'neoWhite'],
-    ['NE0001D', 'neoWhite'],
-    [undefined, 'neoWhite'],
-  ])('resolves a Neo serial %s to %s', (serialNo, expected) => {
-    expect(getDeviceAvatarImage(NEO_DEVICE_TYPE, serialNo)).toBe(expected);
   });
 
   it('returns the model itself for models without color variants', () => {

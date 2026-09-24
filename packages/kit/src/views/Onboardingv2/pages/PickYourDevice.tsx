@@ -66,11 +66,6 @@ export default function PickYourDevice() {
         image: require('@onekeyhq/kit/assets/pick-pro-2.png'),
       },
       {
-        name: 'OneKey Neo',
-        deviceType: [EDeviceType.Neo],
-        image: require('@onekeyhq/kit/assets/pick-neo.png'),
-      },
-      {
         name: 'OneKey Classic',
         tags: ['1S', '1S Pure'],
         deviceType: [EDeviceType.Classic1s, EDeviceType.ClassicPure],
