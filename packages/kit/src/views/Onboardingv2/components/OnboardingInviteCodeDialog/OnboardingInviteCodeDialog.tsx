@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
+import { NativeModules } from 'react-native';
 
 import {
   AnimatePresence,
@@ -178,7 +179,11 @@ function OnboardingInviteCodeDialogContent({
     // this runtime deliberately — the same one `installAttribution.*.ts` uses
     // to decide whether to capture at all. `platformEnv` is evaluated again in
     // `bg`, where the native channel probe can fall back and disagree.
-    if (!platformEnv.isNativeAndroidGooglePlay && !platformEnv.isNativeIOS) {
+    if (
+      (!platformEnv.isNativeAndroidGooglePlay && !platformEnv.isNativeIOS) ||
+      (platformEnv.isNativeIOS &&
+        typeof NativeModules.AppClipAttribution?.readInviteCode !== 'function')
+    ) {
       return state.code;
     }
     const deadline = Date.now() + AUTO_FILL_CAPTURE_WAIT_MS;

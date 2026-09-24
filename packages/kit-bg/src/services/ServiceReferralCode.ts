@@ -21,8 +21,8 @@ import {
 import { getVendorProfile } from '@onekeyhq/shared/src/hardware/vendorProfile';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { resolveWalletCreatedAtForCreationRecord } from '@onekeyhq/shared/src/referralCode/creationRecordUtils';
+import type { EInviteCodeAttributionSource } from '@onekeyhq/shared/src/referralCode/installReferrerUtils';
 import {
-  EInviteCodeAttributionSource,
   INSTALL_REFERRER_TTL_DAYS,
   isInstallReferrerCaptureFinal,
   isInstallReferrerExpired,

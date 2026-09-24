@@ -561,6 +561,25 @@ describe('App Clip invite code capture', () => {
     });
   });
 
+  it('shares an in-flight capture across concurrent startup and deeplink calls', async () => {
+    let finishCapture: (() => void) | undefined;
+    mockCaptureInstallInviteCode.mockImplementationOnce(
+      () =>
+        new Promise<void>((resolve) => {
+          finishCapture = resolve;
+        }),
+    );
+
+    const first = reportInstallAttribution();
+    const second = reportInstallAttribution();
+    await Promise.all([first, second]);
+
+    expect(mockCaptureInstallInviteCode).toHaveBeenCalledTimes(1);
+    finishCapture?.();
+    await Promise.resolve();
+    await Promise.resolve();
+  });
+
   it('treats a missing handoff as a final answer without a code', () => {
     expect(parseAppClipInviteCodeRecord(null)).toEqual(
       expect.objectContaining({ code: undefined, hasReferrer: true }),

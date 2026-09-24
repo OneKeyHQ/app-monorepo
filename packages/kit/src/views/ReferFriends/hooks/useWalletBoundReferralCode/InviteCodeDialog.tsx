@@ -306,7 +306,8 @@ export function InviteCodeDialog({
         // An empty field while the hint is showing means "accept the
         // invite" — Apply is the only affordance the hint offers.
         const typedCode = form.getValues().referralCode?.trim();
-        const referralCode = typedCode || suggestedCode;
+        const referralCode =
+          typedCode || (isSuggestionVisible ? suggestedCode : undefined);
         if (!referralCode) {
           preventClose?.();
           return;
@@ -361,6 +362,7 @@ export function InviteCodeDialog({
     [
       form,
       suggestedCode,
+      isSuggestionVisible,
       walletInfo,
       confirmBindReferralCode,
       navigationToMessageConfirmAsync,

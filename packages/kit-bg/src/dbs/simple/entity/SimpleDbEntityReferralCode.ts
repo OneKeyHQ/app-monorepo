@@ -53,6 +53,8 @@ export interface IReferralCodeData {
   cachedInviteCode?: string;
   creationRecordsMigrationDone?: boolean;
   installReferral?: IInstallReferralRecord;
+  /** Successful binds made before the native attribution read completes. */
+  pendingBoundReferralCodes?: Record<string, number>;
   /**
    * Set once the native capture reached a terminal state and we processed it,
    * so later launches skip the native round-trip. Cleared by `reset()`, which
@@ -216,14 +218,20 @@ export class SimpleDbEntityReferralCode extends SimpleDbEntityBase<IReferralCode
   }
 
   async setInstallReferral(record: IInstallReferralRecord) {
-    return this.setRawData(
-      (rawData) =>
-        ({
-          ...rawData,
-          installReferral: record,
-          installReferralCaptureResolved: true,
-        }) as IReferralCodeData,
-    );
+    return this.setRawData((rawData) => {
+      const consumedAt =
+        rawData?.pendingBoundReferralCodes?.[record.code.toLowerCase()] ??
+        (rawData?.installReferral?.code.toLowerCase() ===
+        record.code.toLowerCase()
+          ? rawData.installReferral.consumedAt
+          : undefined);
+      return {
+        ...rawData,
+        installReferral: consumedAt ? { ...record, consumedAt } : record,
+        installReferralCaptureResolved: true,
+        pendingBoundReferralCodes: undefined,
+      } as IReferralCodeData;
+    });
   }
 
   /**
@@ -259,16 +267,15 @@ export class SimpleDbEntityReferralCode extends SimpleDbEntityBase<IReferralCode
         ({
           ...rawData,
           installReferralCaptureResolved: true,
+          pendingBoundReferralCodes: undefined,
         }) as IReferralCodeData,
     );
   }
 
   /**
-   * Marks the stored code consumed when `code` is that code, and reports
-   * whether it was. The comparison runs inside the write's mutex, against the
-   * record as persisted, so it holds however the code reached the field —
-   * accepted from the suggestion, pre-filled, or typed by hand before the
-   * suggestion had even loaded. The record itself is kept for reporting.
+   * Marks the stored code consumed when it matches a successful bind. If
+   * capture has not finished, remember the bound code so a later native read
+   * cannot offer it again. The decision runs inside the write's mutex.
    */
   async markInstallReferralConsumedIfMatches({
     code,
@@ -280,8 +287,18 @@ export class SimpleDbEntityReferralCode extends SimpleDbEntityBase<IReferralCode
     let isConsumed = false;
     await this.setRawData((rawData) => {
       const record = rawData?.installReferral;
+      if (!record) {
+        return rawData?.installReferralCaptureResolved
+          ? (rawData as IReferralCodeData)
+          : ({
+              ...rawData,
+              pendingBoundReferralCodes: {
+                ...rawData?.pendingBoundReferralCodes,
+                [code.toLowerCase()]: now,
+              },
+            } as IReferralCodeData);
+      }
       if (
-        !record ||
         record.consumedAt ||
         record.code.toLowerCase() !== code.toLowerCase()
       ) {

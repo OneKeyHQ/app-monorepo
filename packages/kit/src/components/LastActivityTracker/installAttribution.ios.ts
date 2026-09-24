@@ -62,6 +62,7 @@ const nativeModule = NativeModules.AppClipAttribution as
   | undefined;
 let reportInstallAttributionTask: Promise<void> | undefined;
 let reportInstallAttributionRequested = false;
+let captureAppClipInviteCodeTask: Promise<void> | undefined;
 
 function getPendingRecord(value: unknown): IAppClipAttributionRecord | null {
   if (!value || typeof value !== 'object') {
@@ -298,7 +299,9 @@ export function reportInstallAttribution(): Promise<void> {
   if (platformEnv.isNativeMainThread) {
     // Independent of the click-id report below, which needs the network and
     // clears its record once done; the invite code has no such dependency.
-    void captureAppClipInviteCode();
+    captureAppClipInviteCodeTask ??= captureAppClipInviteCode().finally(() => {
+      captureAppClipInviteCodeTask = undefined;
+    });
   }
   reportInstallAttributionRequested = true;
   reportInstallAttributionTask ??= drainPendingInstallAttribution().finally(

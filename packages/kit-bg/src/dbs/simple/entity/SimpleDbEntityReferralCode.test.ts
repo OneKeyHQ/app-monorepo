@@ -39,13 +39,31 @@ function createEntity(initial: IReferralCodeData) {
 }
 
 describe('SimpleDbEntityReferralCode.markInstallReferralConsumedIfMatches', () => {
-  it('returns false and creates nothing when no code is stored', async () => {
+  it('remembers a bind made before the native code is captured', async () => {
     const { entity, getStored } = createEntity({ myReferralCode: '' });
 
     await expect(
       entity.markInstallReferralConsumedIfMatches({ code: 'ABC123', now: NOW }),
     ).resolves.toBe(false);
     expect(getStored()?.installReferral).toBeUndefined();
+    expect(getStored()?.pendingBoundReferralCodes).toEqual({
+      abc123: NOW,
+    });
+
+    await entity.setInstallReferral(buildRecord());
+    expect(getStored()?.installReferral?.consumedAt).toBe(NOW);
+    expect(getStored()?.pendingBoundReferralCodes).toBeUndefined();
+  });
+
+  it('keeps a consumed code retired if capture repeats', async () => {
+    const { entity, getStored } = createEntity({
+      myReferralCode: '',
+      installReferral: buildRecord({ consumedAt: NOW }),
+      installReferralCaptureResolved: true,
+    });
+
+    await entity.setInstallReferral(buildRecord());
+    expect(getStored()?.installReferral?.consumedAt).toBe(NOW);
   });
 
   it('returns false and keeps the original consumedAt when already consumed', async () => {
