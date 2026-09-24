@@ -21,6 +21,7 @@ export interface ISizeInputModeSelectorProps {
   onChange: (value: 'token' | 'usd' | 'margin') => void;
   tokenSymbol: string;
   allowMarginInput?: boolean;
+  ifOnDialog?: boolean;
 }
 
 function SizeInputModeContent({
@@ -167,7 +168,13 @@ function SizeInputModeContent({
 }
 
 export function SizeInputModeSelector(props: ISizeInputModeSelectorProps) {
-  const { value, tokenSymbol, allowMarginInput = true, onChange } = props;
+  const {
+    value,
+    tokenSymbol,
+    allowMarginInput = true,
+    ifOnDialog = false,
+    onChange,
+  } = props;
   const onChangeRef = useRef(onChange);
   useEffect(() => {
     onChangeRef.current = onChange;
@@ -186,7 +193,9 @@ export function SizeInputModeSelector(props: ISizeInputModeSelectorProps) {
   });
 
   const handlePress = () => {
-    const dialogInstance = platformEnv.isNativeAndroid ? Dialog : dialog;
+    // Nested dialogs must share the full-window portal with their parent.
+    const dialogInstance =
+      platformEnv.isNativeAndroid || ifOnDialog ? Dialog : dialog;
     dialogInstance.show({
       title: intl.formatMessage({ id: ETranslations.perp_size_input_title }),
       floatingPanelProps: platformEnv.isNativeAndroid

@@ -74,8 +74,9 @@ export function useResetApp(
         resetUtils.startResetting();
       }
       await backgroundApiProxy.serviceApp.resetApp();
-    } catch (e) {
-      console.error('failed to reset app with error', e);
+    } catch (error) {
+      console.error('failed to reset app with error', error);
+      throw error;
     } finally {
       // able setInterval on ext popup
       if (platformEnv.isExtensionUiPopup) {
@@ -88,8 +89,14 @@ export function useResetApp(
     await timerUtils.wait(50);
 
     if (silentReset) {
-      await doReset();
-      return;
+      try {
+        await doReset();
+        return true;
+      } catch {
+        // The background proxy displays the error. Let password verification
+        // leave VERIFYING and retry instead of aborting its error handler.
+        return false;
+      }
     }
 
     if (inAppStateLock) {

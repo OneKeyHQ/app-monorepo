@@ -5,7 +5,10 @@ import type { ReactNode } from 'react';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 
 import type { IMarketToken } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketTokenList/MarketTokenData';
-import type { IMarketSpotCategory } from '@onekeyhq/shared/types/marketV2';
+import type {
+  IMarketSpotCategory,
+  IMarketStockPublicItem,
+} from '@onekeyhq/shared/types/marketV2';
 
 import { MarketTokenSelector } from './MarketTokenSelector';
 
@@ -252,6 +255,46 @@ jest.mock('./MarketTokenSelectorList', () => ({
   ),
 }));
 
+jest.mock('./MarketTokenSelectorSearchResults', () => ({
+  MarketTokenSelectorSearchResults: ({
+    marketItems,
+    onMarketPress,
+    onStockPress,
+  }: {
+    marketItems: IMarketToken[];
+    onMarketPress: (item: IMarketToken) => void;
+    onStockPress: (item: IMarketStockPublicItem) => void;
+  }) => (
+    <>
+      {marketItems[0] ? (
+        <button
+          data-testid="market-token-selector-search-result"
+          type="button"
+          onClick={() => onMarketPress(marketItems[0])}
+        >
+          Select market result
+        </button>
+      ) : null}
+      <button
+        data-testid="market-token-selector-stock-search-result"
+        type="button"
+        onClick={() =>
+          onStockPress({
+            stockId: 'AAPL',
+            symbol: 'AAPL',
+            name: 'Apple',
+            logoUrl: 'apple.png',
+            assetType: 'stock',
+            currency: 'USD',
+          })
+        }
+      >
+        Select stock result
+      </button>
+    </>
+  ),
+}));
+
 jest.mock('./navigateToMarketTokenDetail', () => ({
   navigateToMarketTokenDetail: (...args: unknown[]) => {
     mockNavigateToMarketTokenDetail(...args);
@@ -471,7 +514,29 @@ describe('MarketTokenSelector stock default category', () => {
       }),
     );
   });
-  it('replaces the current detail for a stock in search results', () => {
+
+  it('replaces the current detail for a grouped stock search result', () => {
+    render(<MarketTokenSelector defaultCategory="top_coins" />);
+    fireEvent.click(screen.getByTestId('market-token-selector-trigger'));
+    fireEvent.change(screen.getByTestId('market-token-selector-search'), {
+      target: { value: 'AAPL' },
+    });
+    fireEvent.click(
+      screen.getByTestId('market-token-selector-stock-search-result'),
+    );
+
+    expect(mockToStock).toHaveBeenCalledWith({
+      stockId: 'AAPL',
+      symbol: 'AAPL',
+      name: 'Apple',
+      logoUrl: 'apple.png',
+      assetType: 'stock',
+      currency: 'USD',
+    });
+    expect(mockNavigateToMarketTokenDetail).not.toHaveBeenCalled();
+  });
+
+  it('keeps chain search results on the token detail route', () => {
     mockSearchTokenList = [
       {
         id: 'dex-token',
@@ -501,13 +566,55 @@ describe('MarketTokenSelector stock default category', () => {
     });
     fireEvent.click(screen.getByTestId('market-token-selector-search-result'));
 
+    expect(mockNavigateToMarketTokenDetail).toHaveBeenCalledWith(
+      expect.objectContaining({
+        address: '0xdex',
+        networkId: 'evm--1',
+      }),
+      expect.objectContaining({
+        resolveMarketAsset: true,
+      }),
+    );
+    expect(mockToStock).not.toHaveBeenCalled();
+  });
+
+  it('replaces the current detail for a stock listing in search results', () => {
+    mockSearchTokenList = [
+      {
+        id: 'stock-aapl',
+        stockId: 'AAPL',
+        name: 'Apple',
+        symbol: 'AAPL',
+        address: '',
+        decimals: 18,
+        price: 1,
+        change24h: 0,
+        marketCap: 0,
+        liquidity: 0,
+        transactions: 0,
+        uniqueTraders: 0,
+        holders: 0,
+        turnover: 0,
+        tokenImageUri: '',
+        networkLogoUri: '',
+        networkId: '',
+      },
+    ];
+
+    render(<MarketTokenSelector defaultCategory="top_coins" />);
+    fireEvent.click(screen.getByTestId('market-token-selector-trigger'));
+    fireEvent.change(screen.getByTestId('market-token-selector-search'), {
+      target: { value: 'AAPL' },
+    });
+    fireEvent.click(screen.getByTestId('market-token-selector-search-result'));
+
     expect(mockToStock).toHaveBeenCalledWith({
       stockId: 'AAPL',
-      symbol: 'DEX',
-      name: 'DEX Token',
+      symbol: 'AAPL',
+      name: 'Apple',
       logoUrl: '',
-      tokenAddress: '0xdex',
-      networkId: 'evm--1',
+      tokenAddress: '',
+      networkId: '',
       isNative: undefined,
     });
     expect(mockNavigateToMarketTokenDetail).not.toHaveBeenCalled();

@@ -37,13 +37,17 @@ import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
 import { MarketStarV2 } from '../../components/MarketStarV2';
 import { MarketTooltipLabel } from '../../components/MarketTooltipLabel';
 import { StockMarketStatusBadge } from '../../components/PerpsBadges';
-import { MARKET_DESKTOP_CONTENT_FRAME_PROPS } from '../../marketDesktopLayoutConstants';
+import {
+  MARKET_DESKTOP_CONTENT_FRAME_PROPS,
+  MARKET_DETAIL_TRADE_COLUMN_PROPS,
+} from '../../marketDesktopLayoutConstants';
 import { Portfolio } from '../components/InformationTabs/components/Portfolio';
 import { MarketAboutDescription } from '../components/MarketAboutDescription';
 import {
   STOCK_ANALYST_GAUGE_HEIGHT,
   STOCK_ANALYST_GAUGE_WIDTH,
   StockAnalystGauge,
+  hasStockAnalystRatingsData,
   parseStockAnalystRatingCounts,
 } from '../components/StockAnalystGauge';
 import { StockFinancials } from '../components/StockFinancials/StockFinancials';
@@ -87,7 +91,6 @@ import { MarketEmbeddedSwap } from './MarketEmbeddedSwap';
 import {
   STOCK_DETAIL_COLUMN_GAP,
   STOCK_DETAIL_HORIZONTAL_GUTTER,
-  STOCK_DETAIL_TRADE_PANEL_WIDTH,
 } from './stockDesktopLayoutConstants';
 
 type IStockDetailTab = 'overview' | 'position';
@@ -393,7 +396,13 @@ function StockPriceHeader({
             </XStack>
           </XStack>
         </XStack>
-        <StockMarketStatusBadge stock={stockStatus} variant="inline" />
+        {/* The token price updates around the clock, so its quote is never
+            stale — only the share price reports when it last moved. */}
+        <StockMarketStatusBadge
+          stock={stockStatus}
+          variant="inline"
+          showLastUpdate={isSharePrice}
+        />
       </YStack>
 
       {/* Both options hug their label, per Figma 25476:89067: the widths this
@@ -516,6 +525,7 @@ function StockChartModeControl({
 }
 
 export function StockChart({
+  active,
   chartContainerTestID,
   fullscreenStyle,
   fullscreenZIndex,
@@ -527,6 +537,7 @@ export function StockChart({
   isChartFullscreen,
   onEnterChartFullscreen,
 }: {
+  active?: boolean;
   chartContainerTestID: string;
   fullscreenStyle?: CSSProperties;
   fullscreenZIndex?: number;
@@ -628,7 +639,11 @@ export function StockChart({
       ) : null}
       <YStack width="100%" flex={1} minHeight={0} position="relative">
         {isSimpleMode ? (
-          <StockSimpleChart range={range} priceMode={priceMode} />
+          <StockSimpleChart
+            active={active}
+            range={range}
+            priceMode={priceMode}
+          />
         ) : (
           <>
             <Stack flex={1} minWidth={0} overflow="hidden">
@@ -895,6 +910,10 @@ function StockAnalystRatings() {
   const lastUpdatedLabel = intl.formatMessage({
     id: ETranslations.market_last_updated,
   });
+  const hasRatings = hasStockAnalystRatingsData({
+    ratings,
+    counts: ratingCounts,
+  });
   const footerText =
     ratingCounts.total > 0
       ? intl.formatMessage(
@@ -906,6 +925,10 @@ function StockAnalystRatings() {
           },
         )
       : `${lastUpdatedLabel}: ${lastUpdatedText}`;
+
+  if (!isLoading && !hasRatings) {
+    return null;
+  }
 
   return (
     <YStack
@@ -1213,6 +1236,7 @@ function StockOverview({
 }
 
 export function StockDesktopLayout({
+  active,
   marketTradingView,
   swapToken,
   swapInputDraftKey,
@@ -1226,6 +1250,7 @@ export function StockDesktopLayout({
   onChartSwitch,
   onEnterChartFullscreen,
 }: {
+  active?: boolean;
   marketTradingView: ReactNode;
   swapToken: ISwapToken;
   swapInputDraftKey: string;
@@ -1278,6 +1303,7 @@ export function StockDesktopLayout({
               onPriceModeChange={handlePriceModeChange}
             />
             <StockChart
+              active={active}
               chartContainerTestID="stock-token-detail-tradingview"
               fullscreenZIndex={chartFullscreenZIndex}
               fullscreenStyle={{
@@ -1308,9 +1334,8 @@ export function StockDesktopLayout({
 
         <Stack
           testID="stock-token-detail-trade"
-          width={STOCK_DETAIL_TRADE_PANEL_WIDTH}
-          pt="$6"
-          flexShrink={0}
+          {...MARKET_DETAIL_TRADE_COLUMN_PROPS}
+          mt="$6"
         >
           <MarketEmbeddedSwap
             swapToken={swapToken}

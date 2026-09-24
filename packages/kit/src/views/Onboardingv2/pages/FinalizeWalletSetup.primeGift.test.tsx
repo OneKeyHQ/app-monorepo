@@ -50,6 +50,7 @@ const mockNavigation = {
   pop: jest.fn(),
   pushModal: jest.fn(),
 };
+let mockGtMd = true;
 
 jest.mock('@onekeyhq/components', () => {
   const React = jest.requireActual('react') as typeof import('react');
@@ -57,16 +58,25 @@ jest.mock('@onekeyhq/components', () => {
     children,
     testID,
     onPress,
+    w,
+    h,
+    minWidth,
   }: {
     children?: ReactNode;
     testID?: string;
     onPress?: () => void;
+    w?: string | number;
+    h?: string | number;
+    minWidth?: string | number;
   }) =>
     React.createElement(
       onPress ? 'button' : 'div',
       {
         'data-testid': testID,
         onClick: onPress,
+        'data-w': w === undefined ? undefined : String(w),
+        'data-h': h === undefined ? undefined : String(h),
+        'data-min-width': minWidth === undefined ? undefined : String(minWidth),
       },
       children,
     );
@@ -81,7 +91,7 @@ jest.mock('@onekeyhq/components', () => {
     YStack: Container,
     Dialog: { show: jest.fn() },
     resetOnboardingModal: jest.fn(),
-    useMedia: () => ({ gtMd: true }),
+    useMedia: () => ({ gtMd: mockGtMd }),
     useTheme: () => ({}),
     useThemeName: () => 'light',
   };
@@ -303,12 +313,36 @@ function renderCompletion(withDiscoveryDevice = true) {
   return render(completionPage(withDiscoveryDevice));
 }
 
+const ENTER_WALLET_TEST_ID = 'onboarding-finalize-setup-enter-wallet-btn';
+const ONBOARDING_OFFER_TEST_ID = 'prime-gift-offer-onboarding';
+
+function expectGiftLayout(hasOffer: boolean) {
+  const button = screen.getByTestId(ENTER_WALLET_TEST_ID);
+  if (!mockGtMd) {
+    expect(button.getAttribute('data-w')).toBe('100%');
+    expect(button.getAttribute('data-min-width')).toBeNull();
+  } else if (hasOffer) {
+    expect(button.getAttribute('data-w')).toBe('400');
+    expect(button.getAttribute('data-min-width')).toBeNull();
+  } else {
+    expect(button.getAttribute('data-min-width')).toBe('240');
+    expect(button.getAttribute('data-w')).toBeNull();
+  }
+  if (hasOffer) {
+    expect(screen.getByTestId(ONBOARDING_OFFER_TEST_ID)).toBeTruthy();
+    return;
+  }
+  expect(screen.queryByTestId(ONBOARDING_OFFER_TEST_ID)).toBeNull();
+  expect(document.querySelector('[data-h="88"]')).toBeNull();
+}
+
 describe('onboarding Prime gift with a Pro discovery record without a serial', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockListeners.clear();
     mockCacheListeners.clear();
     mockCache = {};
+    mockGtMd = true;
     mockActiveWallet = { id: 'hw--pro', associatedDevice: dbDevice.id };
     serviceAccount.getWallets.mockResolvedValue({ wallets: [] });
     serviceAccount.getWalletDevice.mockResolvedValue(dbDevice);
@@ -352,7 +386,7 @@ describe('onboarding Prime gift with a Pro discovery record without a serial', (
       await screen.findByTestId('prime-gift-offer-onboarding'),
     ).toBeTruthy();
     expect(
-      screen.getByText(ETranslations.prime_gift_offer__title),
+      screen.getByText(ETranslations.prime_gift_claim_duration__action),
     ).toBeTruthy();
     fireEvent.click(screen.getByTestId('prime-gift-offer-onboarding'));
     expect(mockNavigation.pushModal).toHaveBeenCalledWith(
@@ -546,4 +580,110 @@ describe('onboarding Prime gift with a Pro discovery record without a serial', (
       await waitFor(() => expect(mockOpenKeylessDapp).toHaveBeenCalledTimes(1));
     },
   );
+
+  it('stays compact when the saved hardware device is ineligible', async () => {
+    servicePrime.apiGetPrimeGiftEligibility.mockImplementation(
+      async ({ serialNo }) => {
+        const ineligible = {
+          ...offer,
+          eligible: false,
+          hasUnclaimedGift: false,
+        };
+        mockCache = { ...mockCache, [serialNo]: ineligible };
+        mockCacheListeners.forEach((listener) => listener());
+        return ineligible;
+      },
+    );
+    renderCompletion();
+    await waitFor(() =>
+      expect(servicePrime.apiGetPrimeGiftEligibility.mock.calls).toHaveLength(
+        1,
+      ),
+    );
+    await screen.findByTestId(ENTER_WALLET_TEST_ID);
+    expectGiftLayout(false);
+  });
+
+  it.each([true, false] as const)(
+    'updates gift layout through delayed eligibility and redemption when gtMd is %s',
+    async (gtMd) => {
+      mockGtMd = gtMd;
+      let resolveEligibility!: (result: IPrimeGiftEligibility) => void;
+      servicePrime.apiGetPrimeGiftEligibility.mockImplementation(
+        () =>
+          new Promise<IPrimeGiftEligibility>((done) => {
+            resolveEligibility = (result) => {
+              mockCache = { ...mockCache, [dbDevice.uuid]: result };
+              mockCacheListeners.forEach((listener) => listener());
+              done(result);
+            };
+          }),
+      );
+      renderCompletion();
+      await waitFor(() =>
+        expect(servicePrime.apiGetPrimeGiftEligibility.mock.calls).toHaveLength(
+          1,
+        ),
+      );
+      await screen.findByTestId(ENTER_WALLET_TEST_ID);
+      expectGiftLayout(false);
+      await act(async () => {
+        resolveEligibility(offer);
+      });
+      expectGiftLayout(true);
+      servicePrime.apiGetPrimeGiftEligibility.mockImplementation(
+        async ({ serialNo }) => {
+          const claimed = { ...offer, hasUnclaimedGift: false };
+          mockCache = { ...mockCache, [serialNo]: claimed };
+          mockCacheListeners.forEach((listener) => listener());
+          return claimed;
+        },
+      );
+      await act(async () => {
+        appEventBus.emit(EAppEventBusNames.PrimeGiftRedeemed, {
+          serialNo: dbDevice.uuid,
+        });
+      });
+      await waitFor(() => {
+        expect(screen.queryByTestId(ONBOARDING_OFFER_TEST_ID)).toBeNull();
+      });
+      expectGiftLayout(false);
+    },
+  );
+
+  it('does not query or show a gift on a QR wallet that shares an eligible hardware device', async () => {
+    const qrWalletId = 'qr-shared-hw';
+    mockCache = { [dbDevice.uuid]: offer };
+    mockActiveWallet = {
+      id: 'previous-wallet',
+      associatedDevice: 'previous-device',
+    };
+    renderCompletion(false);
+    await act(async () => {
+      appEventBus.emit(EAppEventBusNames.FinalizeWalletSetupStep, {
+        step: EFinalizeWalletSetupSteps.GeneratingAccounts,
+        walletId: qrWalletId,
+        dbDeviceId: dbDevice.id,
+      });
+    });
+    expect(serviceAccount.getWalletDevice.mock.calls).toHaveLength(0);
+    expect(servicePrime.apiGetPrimeGiftEligibility.mock.calls).toHaveLength(0);
+
+    mockActiveWallet = {
+      id: qrWalletId,
+      associatedDevice: dbDevice.id,
+    };
+    await act(async () => {
+      appEventBus.emit(EAppEventBusNames.FinalizeWalletSetupStep, {
+        step: EFinalizeWalletSetupSteps.Ready,
+      });
+    });
+    await screen.findByText(ETranslations.your_wallet_is_ready);
+    await screen.findByTestId(ENTER_WALLET_TEST_ID);
+    expectGiftLayout(false);
+    expect(serviceAccount.getWalletDevice.mock.calls).toHaveLength(0);
+    expect(servicePrime.apiGetPrimeGiftEligibility.mock.calls).toHaveLength(0);
+    fireEvent.click(screen.getByTestId(ENTER_WALLET_TEST_ID));
+    await waitFor(() => expect(resetOnboardingModal).toHaveBeenCalledTimes(1));
+  });
 });

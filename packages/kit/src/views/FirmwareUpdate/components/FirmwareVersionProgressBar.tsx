@@ -1,11 +1,18 @@
-import { useIntl } from 'react-intl';
-
 import { Anchor, Badge, Icon, SizableText, XStack } from '@onekeyhq/components';
 
 import { useFirmwareVersionValid } from '../hooks/useFirmwareVersionValid';
-import { getTargetFirmwareTypeLabel } from '../utils';
+import { getFirmwareVersionTypePrefix } from '../utils';
 
 import type { EFirmwareType } from '@onekeyfe/hd-shared';
+
+function formatVersionText(
+  firmwareType: EFirmwareType | undefined,
+  version: string,
+) {
+  return [getFirmwareVersionTypePrefix(firmwareType), version]
+    .filter(Boolean)
+    .join(' ');
+}
 
 export function FirmwareVersionProgressBar({
   fromVersion = '',
@@ -44,14 +51,6 @@ export function FirmwareVersionProgressText({
   active: boolean;
 }) {
   const { versionValid, unknownMessage } = useFirmwareVersionValid();
-  const intl = useIntl();
-
-  const formatLabel = (firmwareType?: EFirmwareType) =>
-    getTargetFirmwareTypeLabel({ firmwareType, intl });
-  const formatVersionText = (
-    firmwareType: EFirmwareType | undefined,
-    version: string,
-  ) => [formatLabel(firmwareType), version].filter(Boolean).join(' ');
 
   const textColor = active ? '$text' : '$textSubdued';
   const versionTextProps = {

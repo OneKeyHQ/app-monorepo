@@ -20,8 +20,26 @@ jest.mock('./useToMarketBannerDetail', () => ({
   useToMarketBannerDetail: () => jest.fn(),
 }));
 jest.mock('./MarketBannerItem', () => ({
-  MarketBannerItem: ({ item }: { item: { _id: string } }) => (
-    <div data-testid="banner">{item._id}</div>
+  MarketBannerItem: ({
+    item,
+    divided,
+  }: {
+    item: { _id: string };
+    divided?: boolean;
+  }) => (
+    <div data-testid="banner" data-divided={String(divided)}>
+      {item._id}
+    </div>
+  ),
+}));
+jest.mock('./MarketBannerDesktopScroller', () => ({
+  MarketBannerDesktopScroller: ({
+    children,
+    divided,
+  }: PropsWithChildren<{ divided: boolean }>) => (
+    <div data-testid="desktop-web-scroller" data-divided={String(divided)}>
+      {children}
+    </div>
   ),
 }));
 jest.mock('./MarketBannerItemSkeleton', () => ({
@@ -32,6 +50,7 @@ jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
   default: { isNative: true },
 }));
 jest.mock('@onekeyhq/components', () => ({
+  s: (value: number) => value,
   ScrollGuard: ({ children }: PropsWithChildren) => <div>{children}</div>,
   ScrollView: ({
     children,
@@ -79,7 +98,32 @@ it('keeps native tablet banner padding aligned with the fixed header height', ()
   mockIsSmallScreen = false;
   mockState = populated();
   render(<Page />);
-  expect(screen.getByTestId('reserved-space').dataset.paddingTop).toBe('$2');
+  expect(screen.getByTestId('reserved-space').dataset.paddingTop).toBe('$4');
+});
+
+it('divides desktop web banners only when every card has token previews', () => {
+  platformEnv.isNative = false;
+  mockIsSmallScreen = false;
+  mockState = populated('legacy');
+  const { rerender } = render(<Page />);
+  const scroller = () => screen.getByTestId('desktop-web-scroller');
+  expect(scroller().dataset.divided).toBe('false');
+  mockState = {
+    ...populated(),
+    bannerList: [{ ...populated('modern').bannerList[0], tokens: [] }],
+  };
+  rerender(<Page />);
+  expect(scroller().dataset.divided).toBe('true');
+  mockState = {
+    ...mockState,
+    bannerList: [...mockState.bannerList, ...populated('legacy').bannerList],
+  };
+  rerender(<Page />);
+  expect(scroller().dataset.divided).toBe('false');
+  // The cards follow the same decision, so a mixed row never mixes layouts.
+  expect(
+    screen.getAllByTestId('banner').map((node) => node.dataset.divided),
+  ).toEqual(['false', 'false']);
 });
 
 it('does not insert a banner after the native page has started without one', () => {
@@ -170,28 +214,28 @@ it.each([true, false])(
         String(height),
       );
     };
-    expectHeight(134);
+    expectHeight(150);
     mockState = {
       ...populated(),
       bannerList: [{ ...populated('modern').bannerList[0], tokens: [] }],
     };
     rerender(<Page />);
-    expectHeight(204);
+    expectHeight(212);
     mockState = {
       ...mockState,
       bannerList: [...mockState.bannerList, ...populated('legacy').bannerList],
     };
     rerender(<Page />);
-    expectHeight(204);
+    expectHeight(212);
     if (native) {
       mockState = { ...mockState, bannerList: [] };
       rerender(<Page />);
       expect(screen.getByTestId('mobile-banner-container').dataset.height).toBe(
-        '204',
+        '212',
       );
     }
     mockState = populated('legacy');
     rerender(<Page />);
-    expectHeight(134);
+    expectHeight(150);
   },
 );

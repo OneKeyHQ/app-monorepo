@@ -26,6 +26,11 @@ jest.mock('@onekeyhq/components', () => {
   return {
     __esModule: true,
     Dialog: { show: dialogShow, Footer: DialogFooter },
+    ESwitchSize: {
+      extraSmall: 'extraSmall',
+      small: 'small',
+      large: 'large',
+    },
     SizableText: Text,
     Spinner: (props: Record<string, unknown>) =>
       React.createElement(View, props),
@@ -201,6 +206,19 @@ function createSuppliedAsset(
   } as unknown as ISuppliedAsset;
 }
 
+// Renders the switch, but disabled: Aave lets an inactive position turn on
+// only while the backend reports it eligible.
+function createIneligibleSuppliedAsset(
+  reserveAddress = '0xreserve',
+): ISuppliedAsset {
+  return {
+    reserveAddress,
+    usageAsCollateral: false,
+    canBeCollateral: false,
+    token: { symbol: 'USDC' },
+  } as unknown as ISuppliedAsset;
+}
+
 async function flushMicrotasks() {
   await Promise.resolve();
   await Promise.resolve();
@@ -306,7 +324,7 @@ describe('CollateralSwitchCell settlement guard', () => {
     };
   }
 
-  it('uses a press-based switch without a competing row handler on iOS', () => {
+  it('uses the shared native switch without a competing row handler on iOS', () => {
     jest.replaceProperty(platformEnv, 'isNative', true);
     jest.replaceProperty(platformEnv, 'isNativeIOS', true);
 
@@ -314,17 +332,54 @@ describe('CollateralSwitchCell settlement guard', () => {
       <CollateralSwitchCell item={createSuppliedAsset(true)} eModeId={1} />,
     );
 
-    expect(getSwitch(view).props.native).toBe(false);
-    expect(getSwitch(view).props.accessibilityRole).toBe('switch');
-    expect(getSwitch(view).props.accessibilityState).toEqual({
-      checked: true,
-      disabled: false,
-    });
+    expect(getSwitch(view).props.native).toBeUndefined();
+    expect(getSwitch(view).props.size).toBe('extraSmall');
     expect(
       view.UNSAFE_root.findAll(
         (node) => typeof node.props.onPress === 'function',
       ),
     ).toHaveLength(0);
+  });
+
+  // A disabled Tamagui switch attaches no press events and no responder claim,
+  // so without a handler here the touch reaches the position card behind the
+  // cell and toggles it. Only when disabled: an enabled switch must keep
+  // winning the responder as the deeper claimant.
+  it('claims the touch on native only while the switch is disabled', () => {
+    jest.replaceProperty(platformEnv, 'isNative', true);
+    jest.replaceProperty(platformEnv, 'isNativeIOS', true);
+
+    const view = render(
+      <CollateralSwitchCell
+        item={createIneligibleSuppliedAsset()}
+        eModeId={1}
+      />,
+    );
+
+    expect(getSwitch(view).props.disabled).toBe(true);
+    const handlers = view.UNSAFE_root.findAll(
+      (node) => typeof node.props.onPress === 'function',
+    );
+    expect(handlers).toHaveLength(1);
+    expect(handlers[0].props.position).toBe('relative');
+  });
+
+  it('claims it on Android too, where the platform control may not', () => {
+    jest.replaceProperty(platformEnv, 'isNative', true);
+    jest.replaceProperty(platformEnv, 'isNativeIOS', false);
+
+    const view = render(
+      <CollateralSwitchCell
+        item={createIneligibleSuppliedAsset()}
+        eModeId={1}
+      />,
+    );
+
+    expect(
+      view.UNSAFE_root.findAll(
+        (node) => typeof node.props.onPress === 'function',
+      ),
+    ).toHaveLength(1);
   });
 
   it('stops desktop row propagation without cancelling the switch event', () => {
@@ -348,9 +403,50 @@ describe('CollateralSwitchCell settlement guard', () => {
       | undefined;
     onPress?.({ stopPropagation, preventDefault });
 
-    expect(getSwitch(view).props.native).toBe(true);
+    expect(getSwitch(view).props.native).toBeUndefined();
     expect(stopPropagation).toHaveBeenCalledTimes(1);
     expect(preventDefault).not.toHaveBeenCalled();
+  });
+
+  // A padded halo pulled back with a negative margin lands outside this view's
+  // parent, where Android never hit-tests and hitSlop is ignored, while on web
+  // it swallowed the desktop row press and overhung the next column.
+  it('keeps the press target on the track instead of a padded halo', () => {
+    const view = render(
+      <CollateralSwitchCell item={createSuppliedAsset(false)} eModeId={0} />,
+    );
+    const wrapper = view.UNSAFE_getByProps({ position: 'relative' });
+
+    // Every spelling, not just the shorthand the halo happened to use: a
+    // longhand px/py/margin would reintroduce the same overhang.
+    const spacing = [
+      'm',
+      'margin',
+      'mx',
+      'my',
+      'ml',
+      'mr',
+      'mt',
+      'mb',
+      'marginHorizontal',
+      'marginVertical',
+      'p',
+      'padding',
+      'px',
+      'py',
+      'pl',
+      'pr',
+      'pt',
+      'pb',
+      'paddingHorizontal',
+      'paddingVertical',
+      'hitSlop',
+    ] as const;
+    const set = spacing.filter(
+      (key) => (wrapper.props as Record<string, unknown>)[key] !== undefined,
+    );
+
+    expect(set).toEqual([]);
   });
 
   it('uses the top-level account id and preserves eModeId=0 when enabling', async () => {

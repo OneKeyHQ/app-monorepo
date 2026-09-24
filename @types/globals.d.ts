@@ -12,6 +12,7 @@ import type {
 } from '@onekeyhq/shared/types/desktop';
 import type { IWebEmbedOnekeyAppSettings } from '@onekeyhq/web-embed/utils/webEmbedAppSettings';
 import type { DesktopApiProxy } from '@onekeyhq/kit-bg/src/desktopApis/instance/desktopApiProxy';
+import type { IRevenueCatDesktopClient } from '@onekeyhq/shared/types/prime/revenueCat';
 
 import type { ProviderPrivate } from '@onekeyfe/onekey-private-provider';
 import type { BrowserWindow } from 'electron';
@@ -47,6 +48,7 @@ declare global {
     getBundleIndexHtmlPath: () => string | undefined;
     useJsBundle: () => boolean;
     softRestartRenderer: () => Promise<void>;
+    getRevenueCat?: () => Promise<IRevenueCatDesktopClient>;
   };
 
   var $$appGlobals: IAppGlobals;
@@ -70,6 +72,13 @@ declare global {
 
   var $$onekeyDisabledSetTimeout: boolean | undefined;
   var $$onekeyDisabledSetInterval: boolean | undefined;
+
+  // Native-only bridge to the patched Tamagui media driver
+  // (patches/@tamagui+web+*.patch). See
+  // packages/components/src/hooks/nativeTabletRealWidthMedia.native.ts
+  var $$onekeyNativeMedia:
+    | { useRealWidth: boolean; refresh?: () => void }
+    | undefined;
 
   // defined in preload-html-head.js, check ext html bootstrap timeline:
   //      window.$$onekeyPerfTrace.timeline

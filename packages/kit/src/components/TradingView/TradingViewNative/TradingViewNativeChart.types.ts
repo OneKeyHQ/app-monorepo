@@ -22,6 +22,8 @@ import type { ITradingViewNativeSubIndicatorRenderPane } from './utils/subIndica
 import type { SharedValue } from 'react-native-reanimated';
 
 export interface ITradingViewNativeChartProps {
+  drawingStorageKey?: string;
+  enableDrawings?: boolean;
   /** Owned by the data controller so native presentation changes retain the viewport. */
   runtimeRef?: RefObject<{
     runtime: SharedValue<ITradingViewNativeChartRuntime>;
@@ -40,6 +42,7 @@ export interface ITradingViewNativeChartProps {
   initialRightOffset?: ITradingViewNativeInitialRightOffset;
   isSwitchingInterval: boolean;
   isMobileLayout?: boolean;
+  resizesWithSubIndicatorPanes?: boolean;
   locale: string;
   priceAxisFontSize?: number;
   priceAxisTickCount?: number;

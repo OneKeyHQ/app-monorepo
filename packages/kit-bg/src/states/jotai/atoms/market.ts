@@ -159,3 +159,33 @@ export const {
   persist: true,
   initialValue: {},
 });
+
+export interface IMarketTradingViewPanelSettings {
+  chartSettings: ITradingViewNativeChartSettings;
+  indicatorSettings: ITradingViewNativeIndicatorSettings;
+}
+
+export interface IMarketTradingViewPanelSizes {
+  columns: number[];
+  rows: number[];
+}
+
+export interface IMarketTradingViewLayout {
+  panelCount: 1 | 2 | 3 | 4;
+  panelOrder: string[];
+  panelSettings: Record<string, IMarketTradingViewPanelSettings>;
+  panelSizes?: Record<string, IMarketTradingViewPanelSizes>;
+}
+
+export const {
+  target: marketTradingViewLayoutPersistAtom,
+  use: useMarketTradingViewLayoutPersistAtom,
+} = globalAtom<IMarketTradingViewLayout>({
+  persist: true,
+  name: EAtomNames.marketTradingViewLayoutPersistAtom,
+  initialValue: {
+    panelCount: 1,
+    panelOrder: ['main', 'panel-2', 'panel-3', 'panel-4'],
+    panelSettings: {},
+  },
+});

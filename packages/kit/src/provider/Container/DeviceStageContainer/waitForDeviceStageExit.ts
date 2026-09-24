@@ -38,8 +38,18 @@ export async function waitForDeviceStageExit() {
  * already knows whether it wrote the off.
  */
 export async function yieldDeviceStageToDialog() {
-  const left =
-    await backgroundApiProxy.serviceHardwareUI.deviceStageYieldToDialog();
+  let left = false;
+  try {
+    left =
+      await backgroundApiProxy.serviceHardwareUI.deviceStageYieldToDialog();
+  } catch (error) {
+    // Best effort: the yield is the stage's courtesy to the dialog, never
+    // the dialog's precondition. A failed background hop must not strand
+    // the surface waiting on it — the BLE binding list's SDK promise, its
+    // scan resume — so the dialog rises over whatever is there.
+    console.error('[DeviceStage] yield to dialog failed:', error);
+    return;
+  }
   if (left) {
     await timerUtils.wait(DEVICE_STAGE_EXIT_BEAT_MS);
   }

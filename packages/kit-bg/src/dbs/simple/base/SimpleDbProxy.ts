@@ -272,6 +272,10 @@ export class SimpleDbProxy
     'recentRecipients',
   ) as SimpleDb['recentRecipients'];
 
+  transferRecipientsCache = this._createProxyService(
+    'transferRecipientsCache',
+  ) as SimpleDb['transferRecipientsCache'];
+
   riskTokenManagement = this._createProxyService(
     'riskTokenManagement',
   ) as SimpleDbEntityRiskTokenManagement;

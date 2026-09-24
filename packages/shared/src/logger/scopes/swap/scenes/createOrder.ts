@@ -4,6 +4,7 @@ import { BaseScene } from '../../../base/baseScene';
 import { LogToLocal, LogToServer } from '../../../base/decorators';
 
 import type { ESwapEventAPIStatus } from './swapEstimateFee';
+import type { IDeviceType } from '@onekeyfe/hd-core';
 
 export class CreateOrderScene extends BaseScene {
   @LogToServer({ level: 'info' })
@@ -33,6 +34,8 @@ export class CreateOrderScene extends BaseScene {
     tradeSide,
     stockTokenSymbol,
     stockTokenAddress,
+    walletType,
+    deviceType,
   }: {
     status: ESwapEventAPIStatus;
     message?: string;
@@ -58,6 +61,11 @@ export class CreateOrderScene extends BaseScene {
     fromAddress: string;
     toAddress: string;
     orderId?: string;
+    walletType: string;
+    // Hardware model as the raw SDK device type (pro, pro2, neo, ...);
+    // undefined for software wallets. Required so every call site passes it
+    // explicitly (OK-62642).
+    deviceType: IDeviceType | undefined;
   }) {
     void fromAddress;
     void toAddress;
@@ -84,6 +92,8 @@ export class CreateOrderScene extends BaseScene {
       router,
       slippage,
       createFrom,
+      walletType,
+      deviceType,
     };
   }
 }

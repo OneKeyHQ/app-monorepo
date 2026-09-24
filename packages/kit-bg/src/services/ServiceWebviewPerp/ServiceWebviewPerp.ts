@@ -45,6 +45,7 @@ import {
   type IPerpsDepositToken,
   perpsDepositTokensAtom,
   settingsPersistAtom,
+  webviewPerpTradeTargetAtom,
 } from '../../states/jotai/atoms';
 import ServiceBase from '../ServiceBase';
 import { logHyperLiquidApiFailure } from '../ServiceHyperLiquid/utils/logHyperLiquidApiFailure';
@@ -1418,6 +1419,16 @@ class ServiceWebviewPerp extends ServiceBase {
       accountValue,
       shouldModifyPlaceOrderPayload,
     };
+  }
+
+  @backgroundMethod()
+  async setTradeTarget({ coin }: { coin: string }) {
+    const targetCoin = coin.trim();
+    if (!targetCoin) throw new OneKeyError('Missing web Perps target');
+    await webviewPerpTradeTargetAtom.set((previous) => ({
+      coin: targetCoin,
+      revision: previous.revision + 1,
+    }));
   }
 
   lastExtPerpTab: chrome.tabs.Tab | undefined;

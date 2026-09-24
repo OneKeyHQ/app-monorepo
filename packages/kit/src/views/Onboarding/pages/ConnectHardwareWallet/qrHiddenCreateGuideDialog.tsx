@@ -64,10 +64,13 @@ function showDialogIfErrorMatched(error: IOneKeyError | unknown) {
 
 function showDialogForCreatingStandardWallet({
   onConfirm,
+  nativeSheet = false,
 }: {
   onConfirm: () => void;
+  nativeSheet?: boolean;
 }) {
   Dialog.show({
+    nativeSheet,
     // eslint-disable-next-line onekey/no-app-locale-main-thread
     title: appLocale.intl.formatMessage({
       id: ETranslations.create_qr_based_hidden_wallet_create_standard_wallet_title,

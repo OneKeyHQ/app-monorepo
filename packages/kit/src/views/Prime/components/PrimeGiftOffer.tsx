@@ -20,8 +20,12 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
-import { EPrimeGiftPages } from '@onekeyhq/shared/src/routes/prime';
+import {
+  EPrimeGiftPages,
+  type IPrimeGiftParamList,
+} from '@onekeyhq/shared/src/routes/prime';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 
 import { getPrimeGiftDurationText } from '../hooks/primeGiftDuration';
@@ -93,6 +97,12 @@ export function PrimeGiftOffer({
       alignItems="center"
       gap="$3"
       minHeight={88}
+      {...(source === 'onboarding'
+        ? {
+            w: '100%' as const,
+            $gtMd: { w: 400 },
+          }
+        : undefined)}
       px="$4"
       py="$4"
       bg="$bgSubdued"
@@ -101,14 +111,21 @@ export function PrimeGiftOffer({
       pressStyle={{ bg: '$bgActive' }}
       onPress={() => {
         defaultLogger.prime.subscription.primeGiftOfferClick({ source });
+        const params: IPrimeGiftParamList[EPrimeGiftPages.PrimeGift] = {
+          device: deviceUtils.dbDeviceToSearchDevice(device),
+          serialNo,
+          source,
+          onboardingRouteKey,
+        };
+        // Android onboarding stays on the dark stack so the first native
+        // frame and close/pop never expose the light root-modal surface.
+        if (platformEnv.isNativeAndroid && source === 'onboarding') {
+          navigation.push(EPrimeGiftPages.PrimeGift, params);
+          return;
+        }
         navigation.pushModal(EModalRoutes.PrimeGiftModal, {
           screen: EPrimeGiftPages.PrimeGift,
-          params: {
-            device: deviceUtils.dbDeviceToSearchDevice(device),
-            serialNo,
-            source,
-            onboardingRouteKey,
-          },
+          params,
         });
       }}
     >
@@ -123,7 +140,7 @@ export function PrimeGiftOffer({
       <YStack flex={1} minWidth={0} gap="$0.5">
         <SizableText size="$bodyLgMedium">
           {intl.formatMessage(
-            { id: ETranslations.prime_gift_offer__title },
+            { id: ETranslations.prime_gift_claim_duration__action },
             { duration: getPrimeGiftDurationText(eligibility, intl) },
           )}
         </SizableText>
@@ -136,12 +153,12 @@ export function PrimeGiftOffer({
           })}
         </SizableText>
       </YStack>
-      <XStack alignItems="center" gap="$0.5" flexShrink={0}>
-        <SizableText size="$bodyMdMedium">
-          {intl.formatMessage({ id: ETranslations.earn_claim })}
-        </SizableText>
-        <Icon name="ChevronRightSmallOutline" size="$4" color="$iconSubdued" />
-      </XStack>
+      <Icon
+        name="ChevronRightSmallOutline"
+        size="$4"
+        color="$iconSubdued"
+        flexShrink={0}
+      />
     </XStack>
   );
 }

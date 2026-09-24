@@ -16,6 +16,7 @@ import {
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import {
+  ROBINHOOD_NETWORK_ID,
   dangerAggregateTokenNetworkRepresent,
   getPresetNetworks,
   presetNetworksMap,
@@ -46,10 +47,6 @@ import type {
 import networkDetectUtils from '@onekeyhq/shared/src/utils/networkDetectUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
-import {
-  swrCacheUtils,
-  swrKeys,
-} from '@onekeyhq/shared/src/utils/swrCacheUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { ENetworkStatus, type IServerNetwork } from '@onekeyhq/shared/types';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
@@ -72,6 +69,8 @@ import type {
 } from '../../vaults/types';
 
 const defaultPinnedNetworkIds = [
+  // Robinhood sits above Bitcoin in the single-network selector (OK-62300).
+  ROBINHOOD_NETWORK_ID,
   getNetworkIdsMap().btc,
   getNetworkIdsMap().lightning,
   getNetworkIdsMap().eth,
@@ -1628,55 +1627,13 @@ class ServiceNetwork extends ServiceBase {
     });
   }
 
-  // Prime the SWR cache used by UnifiedNetworkSelector's Portfolio tab so
-  // that after the user mutates enabled/disabled networks (via the "完成"
-  // button), the next cold open paints the new state directly from MMKV
-  // instead of flashing the previously cached allNetworksState for a
-  // frame before revalidation lands. Same assumption as recent-networks:
-  // bg shares the UI's MMKV instance.
-  //
-  // We aggregate the same shape that UnifiedNetworkSelector's
-  // `usePromiseResult(... swrKey: swrKeys.unifiedNetworkSelectorMeta)`
-  // returns — allNetworksState + allNetworks + compatibleNetworks.
-  @backgroundMethod()
-  async primeUnifiedNetworkSelectorMetaCache({
-    walletId,
-    accountId,
-  }: {
-    walletId: string;
-    accountId?: string;
-  }) {
-    if (!walletId) return;
-    try {
-      const [allNetworksStateResp, { networks: allNetworks }] =
-        await Promise.all([
-          this.backgroundApi.serviceAllNetwork.getAllNetworksState(),
-          this.getAllNetworks(),
-        ]);
-
-      const compatibleNetworks =
-        await this.getChainSelectorNetworksCompatibleWithAccountId({
-          accountId,
-          walletId,
-          networkIds: allNetworks.map((network) => network.id),
-          excludeTestNetwork: true,
-        });
-
-      swrCacheUtils.set(
-        swrKeys.unifiedNetworkSelectorMeta({ walletId, accountId }),
-        {
-          allNetworksState: {
-            enabledNetworks: allNetworksStateResp.enabledNetworks,
-            disabledNetworks: allNetworksStateResp.disabledNetworks,
-          },
-          allNetworks,
-          compatibleNetworks,
-        },
-      );
-    } catch {
-      // Best-effort — fall back to UI-side revalidation on miss.
-    }
-  }
+  // `primeUnifiedNetworkSelectorMetaCache` used to live here: it re-ran the
+  // selector's own three calls, assembled the same shape and wrote the
+  // `unifiedNetworkSelectorMeta` SWR entry from bg. That made the namespace
+  // two-writer — the UI writes the same key through `usePromiseResult` — over
+  // one shared MMKV file with no lock between the runtimes. The selector now
+  // refreshes its own entry after it saves, so the cache has one writer and
+  // bg stays out of it.
 
   @backgroundMethod()
   async sortChainSelectorNetworksByValue({

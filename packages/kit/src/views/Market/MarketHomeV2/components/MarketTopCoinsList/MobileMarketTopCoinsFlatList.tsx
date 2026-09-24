@@ -17,12 +17,12 @@ import { TokenListItem } from '../MarketTokenList/components/TokenListItem';
 import { TokenListSkeleton } from '../MarketTokenList/components/TokenListSkeleton';
 
 import { useMarketTopCoins } from './hooks/useMarketTopCoins';
-import { MarketTopCoinStar } from './MarketTopCoinStar';
 
 import type { IMarketToken } from '../MarketTokenList/MarketTokenData';
 import type { FlatListProps } from 'react-native';
 
 type IMobileMarketTopCoinsFlatListProps = {
+  selectedCategoryId: string;
   listContainerProps: {
     paddingBottom: number;
   };
@@ -59,11 +59,14 @@ function toMobileMarketToken(item: IMarketAssetListItem): IMarketToken {
 }
 
 function MobileMarketTopCoinsFlatListBase({
+  selectedCategoryId,
   listContainerProps,
   shouldSuppressItemPress,
 }: IMobileMarketTopCoinsFlatListProps) {
   const intl = useIntl();
-  const { data, handleItemPress, isLoading } = useMarketTopCoins();
+  const { data, handleItemPress, isLoading } = useMarketTopCoins({
+    categoryId: selectedCategoryId,
+  });
   const tabBarHeight = useScrollContentTabBarOffset();
   const showSkeleton = isLoading && data.length === 0;
 
@@ -72,7 +75,6 @@ function MobileMarketTopCoinsFlatListBase({
       ({ item }) => (
         <TokenListItem
           item={toMobileMarketToken(item)}
-          leading={<MarketTopCoinStar token={item} />}
           onPress={() => {
             if (shouldSuppressItemPress?.()) {
               return;

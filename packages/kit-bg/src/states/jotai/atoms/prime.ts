@@ -3,6 +3,10 @@ import { cloneDeep } from 'lodash';
 
 import type { IPrimeGiftEligibility } from '@onekeyhq/shared/types/prime/primeGiftTypes';
 import type {
+  IPrimeTransferNetworkProgress,
+  IPrimeTransferPreparationProgress,
+} from '@onekeyhq/shared/types/prime/primeTransferNetworkTypes';
+import type {
   IPrimeServerUserInfo,
   IPrimeUserInfo,
 } from '@onekeyhq/shared/types/prime/primeTypes';
@@ -188,6 +192,7 @@ export type IPrimeTransferAtomData = {
   myCreatedRoomId: string | undefined;
   myUserId: string | undefined;
   refreshQrcodeHook?: number | undefined;
+  exitGeneration?: number;
   transferDirection:
     | {
         fromUserId: string | undefined;
@@ -196,7 +201,10 @@ export type IPrimeTransferAtomData = {
       }
     | undefined;
   importCurrentCreatingTarget?: string;
+  networkProgress?: IPrimeTransferNetworkProgress;
+  preparationProgress?: IPrimeTransferPreparationProgress;
   importProgress?: {
+    taskUUID?: string;
     totalDetailInfo?: IPrimeTransferImportProgressTotalDetailInfo;
     total: number;
     current: number;

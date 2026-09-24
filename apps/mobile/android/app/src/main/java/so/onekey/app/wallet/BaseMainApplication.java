@@ -51,7 +51,7 @@ import so.onekey.app.wallet.sentry.OneKeyNativeCrashDiagnostics;
 import so.onekey.app.wallet.travelmode.OneKeyTravelModeLaunchEpochPackage;
 
 public class BaseMainApplication extends Application implements ReactApplication {
-  private boolean isTravelModeMaskingData() {
+  public boolean isTravelModeMaskingData() {
     MMKV mmkv = MMKV.mmkvWithID("onekey-app-setting");
     if (mmkv == null) {
       return true;
@@ -499,6 +499,8 @@ public class BaseMainApplication extends Application implements ReactApplication
         "android.zygote_to_app_on_create: " + (nowUptime - processStartUptime) + "ms"
       );
     } catch (Throwable ignored) {}
+
+    ProcessExitInfoLogger.logAsync(this);
 
     // Recovery check
     SharedPreferences prefs = getSharedPreferences(BootRecoveryKeys.PREFS_NAME, MODE_PRIVATE);
