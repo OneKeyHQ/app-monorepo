@@ -197,8 +197,20 @@ export class ICloudBackupProvider implements IOneKeyBackupProvider {
     });
   }
 
+  private async assertPasswordAccountUnchanged(
+    expectedAccountId: string | undefined,
+  ): Promise<void> {
+    const account = await appleCloudKitStorage.getAccountInfo();
+    if (!expectedAccountId || account.containerUserId !== expectedAccountId) {
+      throw new OneKeyLocalError(
+        'iCloud account changed or is unavailable. Please set the backup password again.',
+      );
+    }
+  }
+
   async setBackupPassword(params?: {
     password?: string;
+    expectedAccountId?: string;
   }): Promise<{ recordID: string }> {
     if (!params?.password) {
       throw new OneKeyLocalError('Password is required for backup setPassword');
@@ -218,12 +230,16 @@ export class ICloudBackupProvider implements IOneKeyBackupProvider {
       }),
     };
     try {
+      // Encryption may yield while the system account changes. Check at the write boundary.
+      await this.assertPasswordAccountUnchanged(params.expectedAccountId);
       const result = await appleCloudKitStorage.saveRecord({
         recordType: CLOUDKIT_RECORD_TYPE,
         recordID: CLOUDKIT_BACKUP_PASSWORD_VERIFY_RECORD_ID,
         data: stringUtils.stableStringify(content),
         meta: '',
       });
+      // CloudKit account checks and writes are separate native operations.
+      await this.assertPasswordAccountUnchanged(params.expectedAccountId);
       return {
         recordID: result.recordID,
       };

@@ -48,6 +48,7 @@ export interface IOneKeyBackupProvider {
 
   setBackupPassword(params?: {
     password?: string;
+    expectedAccountId?: string;
   }): Promise<{ recordID: string }>;
 
   verifyBackupPassword(params?: { password?: string }): Promise<boolean>;

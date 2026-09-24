@@ -443,6 +443,66 @@ describe('local iCloud restore integration', () => {
     ).toEqual(data.privateData);
   });
 
+  it('binds password setup to its initial account and rejects a switch before caching success', async () => {
+    mockProvider.setBackupPassword.mockImplementationOnce(async () => {
+      mockProvider.getCloudAccountInfo.mockResolvedValue({
+        ...accountInfo,
+        userId: 'another-cloudkit-account',
+      });
+      return { recordID: 'password-verify-record' };
+    });
+    await expect(service.setBackupPassword({ password })).rejects.toThrow(
+      'iCloud account changed',
+    );
+    expect(mockProvider.setBackupPassword).toHaveBeenCalledWith({
+      password: `${accountInfo.userId}:${password}:4A561E9E-E747-4AFF-B835-FE2EF2D61B41`,
+      expectedAccountId: accountInfo.userId,
+    });
+    expect(cached.set).not.toHaveBeenCalled();
+  });
+
+  it.each(['password reset', 'record deletion'])(
+    'clears only the original account cache when the account switches during %s',
+    async (operation) => {
+      const remoteOperation =
+        operation === 'password reset'
+          ? mockProvider.clearBackupPassword
+          : mockProvider.deleteBackup;
+      remoteOperation.mockImplementationOnce(async () => {
+        mockProvider.getCloudAccountInfo.mockResolvedValue({
+          ...accountInfo,
+          userId: 'another-cloudkit-account',
+        });
+      });
+      if (operation === 'password reset') await service.clearBackupPassword();
+      else await service.deleteSilently({ recordId });
+      expect(cached.remove).toHaveBeenCalledTimes(1);
+      expect(cached.remove).toHaveBeenCalledWith({
+        accountId: accountInfo.userId,
+        recordId: operation === 'password reset' ? undefined : recordId,
+      });
+    },
+  );
+
+  it('does not block remote password reset if the optional cache account cannot be read', async () => {
+    mockProvider.getCloudAccountInfo.mockRejectedValueOnce(
+      new Error('Account lookup unavailable'),
+    );
+    await expect(service.clearBackupPassword()).resolves.toBeUndefined();
+    expect(mockProvider.clearBackupPassword).toHaveBeenCalledTimes(1);
+    expect(cached.remove).not.toHaveBeenCalled();
+  });
+
+  it('keeps the current password cache if remote password reset fails', async () => {
+    mockProvider.clearBackupPassword.mockRejectedValueOnce(
+      new Error('Remote reset failed'),
+    );
+    await expect(service.clearBackupPassword()).rejects.toThrow(
+      'Remote reset failed',
+    );
+    expect(cached.remove).not.toHaveBeenCalled();
+  });
+
   it.each([
     'authorization',
     'macOS authorization',
@@ -568,6 +628,25 @@ describe('local iCloud restore integration', () => {
     expect(mockProvider.getCloudAccountInfo).toHaveBeenCalledTimes(1);
     expect(updateBackupStatus).toHaveBeenCalledTimes(1);
     expect(cached.set).not.toHaveBeenCalled();
+  });
+
+  it('keeps Google password setup and reset independent of iCloud account guards and caching', async () => {
+    platformEnv.isNativeIOS = false;
+    mockProvider.getCloudAccountInfo.mockResolvedValue({
+      ...accountInfo,
+      providerType: ECloudBackupProviderType.GoogleDrive,
+    });
+    await expect(service.setBackupPassword({ password })).resolves.toEqual({
+      recordID: 'password-verify-record',
+    });
+    expect(mockProvider.setBackupPassword).toHaveBeenCalledWith({
+      password: `${accountInfo.userId}:${password}:4A561E9E-E747-4AFF-B835-FE2EF2D61B41`,
+    });
+    await service.clearBackupPassword();
+    expect(mockProvider.getCloudAccountInfo).toHaveBeenCalledTimes(1);
+    expect(mockProvider.clearBackupPassword).toHaveBeenCalledTimes(1);
+    expect(cached.set).not.toHaveBeenCalled();
+    expect(cached.remove).not.toHaveBeenCalled();
   });
 
   it('encrypts Google backups for the account selected during local authorization', async () => {

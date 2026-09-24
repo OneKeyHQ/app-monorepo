@@ -127,14 +127,33 @@ class ServiceCloudBackupV2 extends ServiceBase {
     }
   }
 
-  private async removeCachedBackupPassword(recordId?: string): Promise<void> {
+  private async getBackupPasswordCacheAccount(): Promise<
+    IBackupProviderAccountInfo | undefined
+  > {
     if (!platformEnv.isNativeIOS) return;
-    this.clearPreparedLocalRestore();
     try {
       const accountInfo = await this.getProvider().getCloudAccountInfo();
-      if (accountInfo.providerType !== ECloudBackupProviderType.iCloud) return;
+      if (accountInfo.providerType === ECloudBackupProviderType.iCloud) {
+        return accountInfo;
+      }
+    } catch {
+      console.warn('Local iCloud backup cache account was not available.');
+    }
+  }
+
+  private async removeCachedBackupPassword(params: {
+    accountInfo: IBackupProviderAccountInfo | undefined;
+    recordId?: string;
+  }): Promise<void> {
+    if (!platformEnv.isNativeIOS) return;
+    this.clearPreparedLocalRestore();
+    if (!params.accountInfo?.userId) return;
+    try {
       const { default: cache } = await import('./localBackupPasswordCache');
-      await cache.remove({ accountId: accountInfo.userId, recordId });
+      await cache.remove({
+        accountId: params.accountInfo.userId,
+        recordId: params.recordId,
+      });
     } catch {
       console.warn('Local iCloud backup password cache was not removed.');
     }
@@ -242,8 +261,9 @@ class ServiceCloudBackupV2 extends ServiceBase {
   async clearBackupPassword(): Promise<void> {
     const provider = this.getProvider();
     await provider.checkAvailability();
+    const accountInfo = await this.getBackupPasswordCacheAccount();
     await provider.clearBackupPassword();
-    await this.removeCachedBackupPassword();
+    await this.removeCachedBackupPassword({ accountInfo });
   }
 
   @backgroundMethod()
@@ -261,7 +281,11 @@ class ServiceCloudBackupV2 extends ServiceBase {
         },
         accountInfo,
       ),
+      ...(accountInfo.providerType === ECloudBackupProviderType.iCloud
+        ? { expectedAccountId: accountInfo.userId }
+        : {}),
     });
+    await this.assertICloudBackupAccountUnchanged(accountInfo);
     await this.cacheBackupPassword({ accountInfo, password: params.password });
     return result;
   }
@@ -780,11 +804,15 @@ class ServiceCloudBackupV2 extends ServiceBase {
     skipManifestUpdate?: boolean;
   }): Promise<void> {
     const provider = this.getProvider();
+    const accountInfo = await this.getBackupPasswordCacheAccount();
     await provider.deleteBackup({
       recordId: params.recordId,
       skipManifestUpdate: params?.skipManifestUpdate,
     });
-    await this.removeCachedBackupPassword(params.recordId);
+    await this.removeCachedBackupPassword({
+      accountInfo,
+      recordId: params.recordId,
+    });
   }
 
   @backgroundMethod()
