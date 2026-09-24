@@ -1385,4 +1385,191 @@ describe('PrimeLoginEmailCodeDialogV2', () => {
       false,
     );
   });
+
+  test.each(['success', 'unknown-error', 'cooldown'] as const)(
+    'ignores an old send %s after switching configuration and permits a new send',
+    async (result) => {
+      let finishOld!: () => void;
+      let rejectOld!: (error: Error) => void;
+      const oldSend = jest.fn(
+        () =>
+          new Promise<void>((resolve, reject) => {
+            finishOld = resolve;
+            rejectOld = reject;
+          }),
+      );
+      let finishNew!: () => void;
+      const newSend = jest.fn(
+        () =>
+          new Promise<void>((resolve) => {
+            finishNew = resolve;
+          }),
+      );
+      const common = { email: 'test@example.com', loginWithCode: jest.fn() };
+      const { rerender } = render(
+        <PrimeLoginEmailCodeDialogV2
+          {...common}
+          sendCode={oldSend}
+          developmentConfigRevision={0}
+        />,
+      );
+      await waitFor(() => expect(oldSend).toHaveBeenCalledTimes(1));
+      rerender(
+        <PrimeLoginEmailCodeDialogV2
+          {...common}
+          sendCode={newSend}
+          developmentConfigRevision={1}
+        />,
+      );
+      const input = screen.getByTestId<HTMLInputElement>('prime-otp-code');
+      await act(async () => {
+        if (result === 'success') finishOld();
+        else if (result === 'cooldown')
+          rejectOld(
+            createEmailOtpRateLimitError({
+              message: 'retry later',
+              retryAfterSeconds: 33,
+            }),
+          );
+        else rejectOld(new Error('unknown old failure'));
+      });
+      expect(input.disabled).toBe(true);
+      expect(screen.queryByText(ETranslations.prime_sent_to)).toBeNull();
+      expect(Toast.error).not.toHaveBeenCalled();
+      expect(mockOneKeyIdLoginFailedReason).not.toHaveBeenCalled();
+      const resend = screen.getByRole('button', {
+        name: ETranslations.prime_code_resend,
+      });
+      expect(resend.getAttribute('aria-disabled')).toBe('false');
+      fireEvent.click(resend);
+      await waitFor(() => expect(newSend).toHaveBeenCalledTimes(1));
+      expect(input.disabled).toBe(true);
+      await act(async () => finishNew());
+      expect(input.disabled).toBe(false);
+    },
+  );
+
+  test.each(['success', 'failure'] as const)(
+    'an old send %s cannot release a newer send or overwrite its UI',
+    async (result) => {
+      let finishOld!: () => void;
+      let rejectOld!: (error: Error) => void;
+      let finishNew!: () => void;
+      const oldSend = jest.fn(
+        () =>
+          new Promise<void>((resolve, reject) => {
+            finishOld = resolve;
+            rejectOld = reject;
+          }),
+      );
+      const newSend = jest.fn(
+        () =>
+          new Promise<void>((resolve) => {
+            finishNew = resolve;
+          }),
+      );
+      const common = { email: 'test@example.com', loginWithCode: jest.fn() };
+      const { rerender } = render(
+        <PrimeLoginEmailCodeDialogV2 {...common} sendCode={oldSend} />,
+      );
+      await waitFor(() => expect(oldSend).toHaveBeenCalledTimes(1));
+      rerender(
+        <PrimeLoginEmailCodeDialogV2
+          {...common}
+          sendCode={newSend}
+          developmentConfigRevision={1}
+        />,
+      );
+      fireEvent.click(
+        screen.getByRole('button', { name: ETranslations.prime_code_resend }),
+      );
+      await waitFor(() => expect(newSend).toHaveBeenCalledTimes(1));
+      await act(async () => {
+        if (result === 'success') finishOld();
+        else rejectOld(new Error('old failure'));
+      });
+      expect(
+        screen.getByTestId<HTMLInputElement>('prime-otp-code').disabled,
+      ).toBe(true);
+      const processing = screen.getByRole('button', {
+        name: ETranslations.global_processing,
+      });
+      expect(processing.getAttribute('aria-disabled')).toBe('true');
+      fireEvent.click(processing);
+      expect(newSend).toHaveBeenCalledTimes(1);
+      expect(Toast.error).not.toHaveBeenCalled();
+      await act(async () => finishNew());
+      expect(
+        screen.getByTestId<HTMLInputElement>('prime-otp-code').disabled,
+      ).toBe(false);
+    },
+  );
+
+  test.each(['email', 'captcha-page', 'global-node'] as const)(
+    'a changed %s invalidates a sending attempt even without a debug revision',
+    async (change) => {
+      let finishOld!: () => void;
+      const sendCode = jest.fn(
+        () =>
+          new Promise<void>((resolve) => {
+            finishOld = resolve;
+          }),
+      );
+      const props = {
+        email: 'test@example.com',
+        sendCode,
+        loginWithCode: jest.fn(),
+      };
+      const { rerender } = render(<PrimeLoginEmailCodeDialogV2 {...props} />);
+      await waitFor(() => expect(sendCode).toHaveBeenCalledTimes(1));
+      if (change === 'global-node') mockTestEndpointEnabled = true;
+      rerender(
+        <PrimeLoginEmailCodeDialogV2
+          {...props}
+          email={change === 'email' ? 'new@example.com' : props.email}
+          captchaConfig={{
+            enabled: false,
+            pageUrl:
+              change === 'captcha-page'
+                ? 'https://captcha.example.com/next'
+                : '',
+          }}
+        />,
+      );
+      await act(async () => finishOld());
+      expect(
+        screen.getByTestId<HTMLInputElement>('prime-otp-code').disabled,
+      ).toBe(true);
+      expect(screen.queryByText(ETranslations.prime_sent_to)).toBeNull();
+      expect(
+        screen
+          .getByRole('button', { name: ETranslations.prime_code_resend })
+          .getAttribute('aria-disabled'),
+      ).toBe('false');
+    },
+  );
+
+  test('leaving the step during a send retains its result for the same configuration', async () => {
+    let finishSend!: () => void;
+    const sendCode = jest.fn(
+      () =>
+        new Promise<void>((resolve) => {
+          finishSend = resolve;
+        }),
+    );
+    const props = {
+      email: 'test@example.com',
+      sendCode,
+      loginWithCode: jest.fn(),
+    };
+    const { rerender } = render(<PrimeLoginEmailCodeDialogV2 {...props} />);
+    await waitFor(() => expect(sendCode).toHaveBeenCalledTimes(1));
+    rerender(<PrimeLoginEmailCodeDialogV2 {...props} active={false} />);
+    await act(async () => finishSend());
+    rerender(<PrimeLoginEmailCodeDialogV2 {...props} active />);
+    expect(sendCode).toHaveBeenCalledTimes(1);
+    expect(
+      screen.getByTestId<HTMLInputElement>('prime-otp-code').disabled,
+    ).toBe(false);
+  });
 });

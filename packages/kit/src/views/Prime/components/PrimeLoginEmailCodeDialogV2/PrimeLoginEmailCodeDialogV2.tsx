@@ -2,6 +2,7 @@ import {
   type ReactNode,
   useCallback,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -88,8 +89,26 @@ export function PrimeLoginEmailCodeDialogV2(props: {
     onChooseAnotherSignInMethod,
   } = props;
   const [devSettings] = useDevSettingsPersistAtom();
-  const captchaConfig =
-    captchaOverride ?? getOneKeyIdAuthConfigByDevSettings(devSettings).captcha;
+  const authConfig = getOneKeyIdAuthConfigByDevSettings(devSettings);
+  const captchaConfig = captchaOverride ?? authConfig.captcha;
+  const requestConfiguration = useMemo(
+    () => ({
+      email,
+      projectUrl: authConfig.projectUrl,
+      captchaEnabled: captchaConfig.enabled,
+      captchaPageUrl: captchaConfig.pageUrl,
+      developmentConfigRevision,
+      isolatedTest,
+    }),
+    [
+      email,
+      authConfig.projectUrl,
+      captchaConfig.enabled,
+      captchaConfig.pageUrl,
+      developmentConfigRevision,
+      isolatedTest,
+    ],
+  );
   const [isSubmittingVerificationCode, setIsSubmittingVerificationCode] =
     useState(false);
   const [countdown, setCountdown] = useState(EMAIL_OTP_COUNTDOWN_SECONDS);
@@ -99,7 +118,7 @@ export function PrimeLoginEmailCodeDialogV2(props: {
   const isAuthActionInProgressRef = useRef(false);
   const sendAttemptRef = useRef<IEmailOtpSendAttempt | undefined>(undefined);
   const didRequestInitialCodeRef = useRef(false);
-  const previousDevelopmentRevision = useRef(developmentConfigRevision);
+  const previousRequestConfiguration = useRef(requestConfiguration);
   const didSendCodeSucceedRef = useRef(false);
   const isMountedRef = useIsMounted();
   const [verificationCode, setVerificationCode] = useState('');
@@ -189,6 +208,7 @@ export function PrimeLoginEmailCodeDialogV2(props: {
       if (sendAttemptRef.current !== attempt || !isMountedRef.current) return;
       attempt.stage = 'sending';
       await sendCode({ email, ...(captchaToken ? { captchaToken } : {}) });
+      if (sendAttemptRef.current !== attempt || !isMountedRef.current) return;
       didSendCodeSucceedRef.current = true;
       // Re-assert the one-shot guard: if the user left the step while this
       // send was in flight, the re-arm effect below has already reset it,
@@ -249,18 +269,25 @@ export function PrimeLoginEmailCodeDialogV2(props: {
     takeCaptchaToken,
   ]);
 
-  useEffect(() => {
-    if (previousDevelopmentRevision.current === developmentConfigRevision)
-      return;
-    previousDevelopmentRevision.current = developmentConfigRevision;
+  useLayoutEffect(() => {
+    if (previousRequestConfiguration.current === requestConfiguration) return;
+    previousRequestConfiguration.current = requestConfiguration;
+    // Requests already sent cannot be cancelled, but their success, error
+    // and finally callbacks must not change the new configuration's UI.
+    if (sendAttemptRef.current) {
+      sendAttemptRef.current = undefined;
+      isAuthActionInProgressRef.current = false;
+    }
+    cancelCaptcha();
     didRequestInitialCodeRef.current = true;
     didSendCodeSucceedRef.current = false;
+    setIsResending(false);
     setIsCodeInputEnabled(false);
     setVerificationCode('');
     setState({ status: 'initial' });
     setIsApiReady(true);
     setCountdown(0);
-  }, [developmentConfigRevision]);
+  }, [requestConfiguration, cancelCaptcha]);
 
   useEffect(() => {
     if (

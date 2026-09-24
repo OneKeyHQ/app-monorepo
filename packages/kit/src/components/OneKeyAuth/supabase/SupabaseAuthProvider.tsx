@@ -1,5 +1,11 @@
 import type { PropsWithChildren } from 'react';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useState,
+} from 'react';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import {
@@ -20,9 +26,15 @@ import { EPrimeAuthSessionSource } from '@onekeyhq/shared/types/prime/primeTypes
 
 import { SupabaseAuthContext } from './SupabaseAuthContext';
 
+import type { ISupabaseAuthData } from './SupabaseAuthContext';
 import type { Session } from '@supabase/supabase-js';
 
 const WEB_SUPABASE_AUTH_START_DELAY_MS = 6000;
+const INITIAL_AUTH_DATA: ISupabaseAuthData = {
+  session: undefined,
+  isLoading: true,
+  isLoggedIn: false,
+};
 
 const waitForSupabaseAuthStart = () => {
   if (!platformEnv.isWeb || typeof globalThis.addEventListener !== 'function') {
@@ -76,16 +88,35 @@ function logSupabaseAuthProvider(message: string) {
 export default function SupabaseAuthProvider({ children }: PropsWithChildren) {
   const [devSettings] = useDevSettingsPersistAtom();
   const { projectUrl } = getOneKeyIdAuthConfigByDevSettings(devSettings);
-  // A new realm must not inherit session state or pending callbacks from the
-  // previous provider, including when developer mode implicitly selects prod.
+  const [projection, setProjection] = useState<{
+    projectUrl: string;
+    data: ISupabaseAuthData;
+  }>();
+  const onChange = useCallback(
+    (data: ISupabaseAuthData) => setProjection({ projectUrl, data }),
+    [projectUrl],
+  );
+  // Remount only auth state/subscriptions. Navigation and every screen live
+  // under this context and must retain their identity until the actual restart.
   return (
-    <SupabaseAuthProviderForEnvironment key={projectUrl}>
+    <SupabaseAuthContext.Provider
+      value={
+        projection?.projectUrl === projectUrl
+          ? projection.data
+          : INITIAL_AUTH_DATA
+      }
+    >
+      <SupabaseAuthStateForEnvironment key={projectUrl} onChange={onChange} />
       {children}
-    </SupabaseAuthProviderForEnvironment>
+    </SupabaseAuthContext.Provider>
   );
 }
 
-function SupabaseAuthProviderForEnvironment({ children }: PropsWithChildren) {
+function SupabaseAuthStateForEnvironment({
+  onChange,
+}: {
+  onChange: (data: ISupabaseAuthData) => void;
+}) {
   // Per-realm session slots. A OneKey ID login is backed by ONE of two
   // Supabase realms persisted under DIFFERENT storage keys: the legacy email
   // realm or the Keyless OAuth realm (see supabaseClientUtils /
@@ -409,19 +440,10 @@ function SupabaseAuthProviderForEnvironment({ children }: PropsWithChildren) {
       "message": "Could not find the table 'public.profiles' in the schema cache"
     }
   */
-  return (
-    <SupabaseAuthContext.Provider
-      value={useMemo(
-        () => ({
-          session: authSession,
-          isLoading,
-          // profile,
-          isLoggedIn: !!authSession,
-        }),
-        [authSession, isLoading],
-      )}
-    >
-      {children}
-    </SupabaseAuthContext.Provider>
+  const data = useMemo(
+    () => ({ session: authSession, isLoading, isLoggedIn: !!authSession }),
+    [authSession, isLoading],
   );
+  useLayoutEffect(() => onChange(data), [data, onChange]);
+  return null;
 }

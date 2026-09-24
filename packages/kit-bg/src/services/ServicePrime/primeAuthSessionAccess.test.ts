@@ -11,6 +11,7 @@ import {
   clearEmailAuthSessionsForEnvironmentChange,
   readPersistedAccessTokenBySessionSourceStrict,
   removeAuthSessionStorageBySessionSource,
+  runExclusiveOnAuthSessionSlot,
 } from './primeAuthSessionAccess';
 
 jest.mock('@onekeyhq/shared/src/request/requestHelper', () => ({
@@ -43,7 +44,11 @@ const storage = jest.requireMock<{
 }>('@onekeyhq/shared/src/storage/instance/supabaseStorageInstance').default;
 
 describe('email session storage follows the OneKey node environment', () => {
-  beforeEach(() => jest.clearAllMocks());
+  beforeEach(() => {
+    jest.clearAllMocks();
+    storage.blockWritesForKey.mockReset().mockResolvedValue();
+    storage.removeItem.mockReset().mockResolvedValue();
+  });
 
   test.each(['prod', 'test'] as const)(
     '%s reads and mutates only its project session',
@@ -98,5 +103,43 @@ describe('email session storage follows the OneKey node environment', () => {
       'storage unavailable',
     );
     expect(storage.clearCache).toHaveBeenCalled();
+  });
+
+  test('holds the slot lock until every removal settles after an early failure', async () => {
+    let finishRemoval!: () => void;
+    let noteRemovalStarted!: () => void;
+    const removalStarted = new Promise<void>((resolve) => {
+      noteRemovalStarted = resolve;
+    });
+    const failure = new Error('one slot unavailable');
+    storage.removeItem
+      .mockRejectedValueOnce(failure)
+      .mockImplementationOnce(() => {
+        noteRemovalStarted();
+        return new Promise<void>((resolve) => {
+          finishRemoval = resolve;
+        });
+      });
+    const cleanup = clearEmailAuthSessionsForEnvironmentChange().catch(
+      (error: unknown) => error,
+    );
+    await removalStarted;
+    const nextLogin = jest.fn();
+    const next = runExclusiveOnAuthSessionSlot(
+      EPrimeAuthSessionSource.LegacyEmailSupabase,
+      async () => {
+        nextLogin();
+      },
+    );
+    await new Promise<void>((resolve) => {
+      setTimeout(resolve, 0);
+    });
+    const enteredBeforeRemoval = nextLogin.mock.calls.length;
+    finishRemoval();
+    expect(await cleanup).toBe(failure);
+    await next;
+    expect(enteredBeforeRemoval).toBe(0);
+    expect(nextLogin).toHaveBeenCalledTimes(1);
+    expect(storage.allowWritesForKey).not.toHaveBeenCalled();
   });
 });

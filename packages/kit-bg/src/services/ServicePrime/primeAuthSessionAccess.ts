@@ -393,19 +393,23 @@ export async function clearEmailAuthSessionsForEnvironmentChange(): Promise<void
         ONEKEY_ID_AUTH_CONFIG.prod,
         ONEKEY_ID_AUTH_CONFIG.test,
       ].map(({ projectUrl }) => getSupabaseAuthSessionKey(projectUrl));
+      // Keep stale SDK refreshes blocked even if cleanup fails. A new
+      // interactive email login reopens its current slot before verifyOtp.
       await Promise.all(
         sessionKeys.map((key) =>
           supabaseStorageInstance.blockWritesForKey(key),
         ),
       );
       try {
-        await Promise.all(
-          sessionKeys.flatMap((key) => [
-            supabaseStorageInstance.removeItem(key),
-            supabaseStorageInstance.removeItem(`${key}-user`),
-            supabaseStorageInstance.removeItem(`${key}-code-verifier`),
-          ]),
-        );
+        const removals = sessionKeys.flatMap((key) => [
+          supabaseStorageInstance.removeItem(key),
+          supabaseStorageInstance.removeItem(`${key}-user`),
+          supabaseStorageInstance.removeItem(`${key}-code-verifier`),
+        ]);
+        // Do not release the slot queue while another deletion can still
+        // remove a later login. Re-throw only after all removals have settled.
+        await Promise.allSettled(removals);
+        await Promise.all(removals);
       } finally {
         supabaseStorageInstance.clearCache();
       }
