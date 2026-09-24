@@ -403,13 +403,11 @@ function StockTokenVariantSelectorContent({
             portfolioData={portfolioData}
             onSelect={(item) => {
               if (onSelect) {
-                void onSelect(item).then((selected) => {
-                  if (selected) closePopover();
-                });
+                void onSelect(item);
               } else {
                 setSelectedTokenId(item.tokenId);
-                closePopover();
               }
+              closePopover();
             }}
           />
         ))}
@@ -422,6 +420,7 @@ export function StockTokenVariantSelector({
   portfolioData,
   resolvedVariantKeys,
   fallbackToken,
+  forceLoading = false,
   onSelect,
   compact = false,
   onOpenChange,
@@ -429,6 +428,7 @@ export function StockTokenVariantSelector({
   portfolioData?: IMarketAccountPortfolioDisplayItem[];
   resolvedVariantKeys?: string[];
   fallbackToken?: Pick<ISwapToken, 'logoURI' | 'symbol' | 'stock'>;
+  forceLoading?: boolean;
   onSelect?: (variant: IMarketStockTokenVariant) => Promise<boolean>;
   compact?: boolean;
   onOpenChange?: (open: boolean) => void;
@@ -466,8 +466,8 @@ export function StockTokenVariantSelector({
     [compact, onSelect],
   );
 
-  if (!selectedTokenVariant) {
-    if (isTokenVariantPending || isTokenVariantsLoading) {
+  if (forceLoading || !selectedTokenVariant) {
+    if (forceLoading || isTokenVariantPending || isTokenVariantsLoading) {
       if (compact) {
         return (
           <XStack

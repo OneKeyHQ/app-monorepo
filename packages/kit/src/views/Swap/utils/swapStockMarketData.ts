@@ -1,4 +1,5 @@
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { resolveMarketStockId } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/utils/resolveIsStockToken';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import {
   getDefaultStockTokenVariant,
@@ -6,9 +7,11 @@ import {
 } from '@onekeyhq/shared/src/utils/stockTokenVariant';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type {
+  IMarketStockDetailPreview,
   IMarketStockPublicItem,
   IMarketStockTokenVariant,
 } from '@onekeyhq/shared/types/marketV2';
+import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
 
 import { buildStockSwapTokenFromMarketListToken } from '../hooks/swapStockChannelUtils';
 
@@ -17,6 +20,61 @@ export type ISwapStockAvailability =
   | 'ready'
   | 'unavailable'
   | 'error';
+
+export type ISwapStockSelectionKind = 'ticker' | 'variant' | 'token';
+
+export function resolveSwapStockTokenSelectionKind(
+  token: ISwapToken,
+  currentStockId?: string,
+): ISwapStockSelectionKind {
+  const targetStockId =
+    resolveMarketStockId(token) ??
+    token.stock?.underlyingAssetTicker?.trim().toUpperCase();
+  return targetStockId &&
+    currentStockId &&
+    targetStockId !== currentStockId.trim().toUpperCase()
+    ? 'ticker'
+    : 'token';
+}
+
+export type ISwapStockSelectionOperation =
+  | { phase: 'idle' }
+  | {
+      phase: 'resolving';
+      kind: ISwapStockSelectionKind;
+      stockPreview?: IMarketStockDetailPreview;
+    }
+  | {
+      phase: 'applying';
+      kind: ISwapStockSelectionKind;
+      tokenKey: string;
+    }
+  | { phase: 'failed'; kind: ISwapStockSelectionKind };
+
+export function resolveSwapStockLoadingScopes({
+  operation,
+  currentTokenKey,
+  isTokenVariantPending,
+}: {
+  operation: ISwapStockSelectionOperation;
+  currentTokenKey: string;
+  isTokenVariantPending: boolean;
+}) {
+  // A selection owns these skeletons only until its exact token identity and
+  // variant settle. Polling and quote requests keep their own loading state.
+  const pending =
+    operation.phase === 'resolving' ||
+    (operation.phase === 'applying' &&
+      (operation.tokenKey !== currentTokenKey || isTokenVariantPending));
+  return {
+    stock:
+      pending &&
+      (operation.phase === 'resolving' || operation.phase === 'applying') &&
+      operation.kind === 'ticker',
+    tradeTarget: pending,
+    amountInput: pending,
+  };
+}
 
 export function resolveSwapStockAvailability({
   pending,

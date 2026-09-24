@@ -5,11 +5,14 @@ import type {
   IMarketTokenDetail,
   IMarketTokenDetailResponse,
 } from '@onekeyhq/shared/types/marketV2';
+import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
 
 import {
   fetchSwapStockSelection,
   fetchSwapStockVariantToken,
   resolveSwapStockAvailability,
+  resolveSwapStockLoadingScopes,
+  resolveSwapStockTokenSelectionKind,
   selectSwapStockVariant,
 } from './swapStockMarketData';
 
@@ -55,6 +58,115 @@ function buildVariant(
     ...overrides,
   };
 }
+
+describe('resolveSwapStockLoadingScopes', () => {
+  const allLoading = { stock: true, tradeTarget: true, amountInput: true };
+  const tradeLoading = { stock: false, tradeTarget: true, amountInput: true };
+  const noLoading = { stock: false, tradeTarget: false, amountInput: false };
+
+  it('loads stock and trade surfaces while a ticker resolves', () => {
+    expect(
+      resolveSwapStockLoadingScopes({
+        operation: { phase: 'resolving', kind: 'ticker' },
+        currentTokenKey: 'old-token',
+        isTokenVariantPending: false,
+      }),
+    ).toEqual(allLoading);
+    expect(
+      resolveSwapStockLoadingScopes({
+        operation: {
+          phase: 'applying',
+          kind: 'ticker',
+          tokenKey: 'new-token',
+        },
+        currentTokenKey: 'new-token',
+        isTokenVariantPending: true,
+      }),
+    ).toEqual(allLoading);
+  });
+
+  it('loads only the trade target and input while a variant changes', () => {
+    expect(
+      resolveSwapStockLoadingScopes({
+        operation: { phase: 'resolving', kind: 'variant' },
+        currentTokenKey: 'old-token',
+        isTokenVariantPending: false,
+      }),
+    ).toEqual(tradeLoading);
+    expect(
+      resolveSwapStockLoadingScopes({
+        operation: {
+          phase: 'applying',
+          kind: 'variant',
+          tokenKey: 'new-token',
+        },
+        currentTokenKey: 'new-token',
+        isTokenVariantPending: true,
+      }),
+    ).toEqual(tradeLoading);
+    expect(
+      resolveSwapStockLoadingScopes({
+        operation: { phase: 'resolving', kind: 'token' },
+        currentTokenKey: 'old-token',
+        isTokenVariantPending: false,
+      }),
+    ).toEqual(tradeLoading);
+  });
+
+  it('stops selection loading when the matching variant settles or fails', () => {
+    expect(
+      resolveSwapStockLoadingScopes({
+        operation: {
+          phase: 'applying',
+          kind: 'ticker',
+          tokenKey: 'new-token',
+        },
+        currentTokenKey: 'new-token',
+        isTokenVariantPending: false,
+      }),
+    ).toEqual(noLoading);
+    expect(
+      resolveSwapStockLoadingScopes({
+        operation: { phase: 'failed', kind: 'variant' },
+        currentTokenKey: 'old-token',
+        isTokenVariantPending: false,
+      }),
+    ).toEqual(noLoading);
+    expect(
+      resolveSwapStockAvailability({ pending: false, failed: false }),
+    ).toBe('unavailable');
+  });
+
+  it('does not let a background variant refresh reload stock surfaces', () => {
+    expect(
+      resolveSwapStockLoadingScopes({
+        operation: { phase: 'idle' },
+        currentTokenKey: 'current-token',
+        isTokenVariantPending: true,
+      }),
+    ).toEqual(noLoading);
+  });
+});
+
+describe('resolveSwapStockTokenSelectionKind', () => {
+  it('treats another stock selected from positions as a ticker transition', () => {
+    expect(
+      resolveSwapStockTokenSelectionKind(
+        { stock: { stockId: 'MSFT' } } as ISwapToken,
+        'AAPL',
+      ),
+    ).toBe('ticker');
+  });
+
+  it('keeps a position on the current stock scoped to the trade ticket', () => {
+    expect(
+      resolveSwapStockTokenSelectionKind(
+        { stock: { underlyingAssetTicker: 'aapl' } } as ISwapToken,
+        'AAPL',
+      ),
+    ).toBe('token');
+  });
+});
 
 describe('resolveSwapStockAvailability', () => {
   it('keeps unresolved selections pending instead of declaring them unsupported', () => {

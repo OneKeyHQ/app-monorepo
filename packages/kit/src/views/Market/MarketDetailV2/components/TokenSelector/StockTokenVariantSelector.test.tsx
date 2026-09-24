@@ -260,6 +260,27 @@ describe('StockTokenVariantSelector', () => {
     expect(closePopoverMock).not.toHaveBeenCalled();
   });
 
+  it('closes before an asynchronous variant selection finishes', () => {
+    const onSelect = jest.fn(() => new Promise<boolean>(() => undefined));
+    render(<StockTokenVariantSelector onSelect={onSelect} />);
+
+    fireEvent.click(screen.getByTestId('stock-token-variant-row-1'));
+
+    expect(onSelect).toHaveBeenCalledWith(mockVariants[1]);
+    expect(closePopoverMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('shows a compact loading row while a new variant is being selected', () => {
+    render(<StockTokenVariantSelector compact forceLoading />);
+
+    expect(
+      screen.getByTestId('stock-token-variant-selector-loading'),
+    ).toBeTruthy();
+    expect(
+      screen.queryByTestId('stock-token-variant-selector-trigger-0'),
+    ).toBeNull();
+  });
+
   describe('balance attribution', () => {
     const position = (tokenAddress: string, amount: string) => [
       {

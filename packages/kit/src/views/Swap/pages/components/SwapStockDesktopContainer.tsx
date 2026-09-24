@@ -1128,11 +1128,15 @@ function StockTradeTicket({
   });
   if (!deferInitialAmountContent) startedWithoutAmountInputRef.current = false;
   const showStockTradeIdentitySkeleton = Boolean(
-    standaloneSelection?.stockSelectionPending ||
-    (stockTradeIdentityLoading !== undefined &&
-      (stockTradeIdentityLoading ||
-        amountInputState.shouldRenderSkeleton ||
-        deferInitialAmountContent)),
+    standaloneSelection?.loadingScopes.amountInput ||
+    stockTradeIdentityLoading ||
+    amountInputState.shouldRenderSkeleton ||
+    deferInitialAmountContent,
+  );
+  const showEstimatedReceiveSkeleton = Boolean(
+    standaloneSelection?.loadingScopes.stock ||
+    stockTradeIdentityLoading ||
+    deferInitialAmountContent,
   );
   let resolvedStockTradeHeader = stockTradeHeader;
   if (
@@ -1214,7 +1218,7 @@ function StockTradeTicket({
           storeName={storeName}
         />
         <StockEstimatedReceive
-          forceLoading={showStockTradeIdentitySkeleton}
+          forceLoading={showEstimatedReceiveSkeleton}
           quoteResult={quoteResult}
           quoteLoading={quoteLoading}
           quoteEventFetching={quoteEventFetching}
@@ -1320,7 +1324,6 @@ function SwapStockDesktopContent({
   stockTradeHeader,
   stockTradeIdentityLoading,
 }: ISwapStockDesktopContainerProps) {
-  const selection = useSwapStockSelection();
   const [, setFromTokenAmount] = useSwapFromTokenAmountAtom();
   const [, setToTokenAmount] = useSwapToTokenAmountAtom();
   const { resetQuoteAction } = useSwapActions().current;
@@ -1412,9 +1415,7 @@ function SwapStockDesktopContent({
         stockTradeHeader={
           embedded ? stockTradeHeader : <SwapStockVariantSelector />
         }
-        stockTradeIdentityLoading={
-          stockTradeIdentityLoading ?? selection?.selecting
-        }
+        stockTradeIdentityLoading={stockTradeIdentityLoading}
       />
       {embedded ? null : (
         <SwapPendingHistoryListComponent
@@ -1494,7 +1495,6 @@ function SwapStockMobileContent(props: ISwapStockDesktopContainerProps) {
     stockTradeConfig,
     stockTradeHeader,
   } = props;
-  const selection = useSwapStockSelection();
   const tabBarHeight = useScrollContentTabBarOffset();
   const scrollViewRef = useRef<KeyboardAwareScrollViewRef>(null);
   const bottomOffset = KEYBOARD_AWARE_SCROLL_BOTTOM_OFFSET + 60;
@@ -1571,7 +1571,6 @@ function SwapStockMobileContent(props: ISwapStockDesktopContainerProps) {
           stockTradeHeader={
             embedded ? stockTradeHeader : <SwapStockVariantSelector />
           }
-          stockTradeIdentityLoading={selection?.selecting}
         />
         {embedded || isDesktopModalPage ? null : (
           <YStack mt="$2">

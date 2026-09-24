@@ -258,6 +258,10 @@ export function SwapStockMobileHeader() {
 
 export function SwapStockVariantSelector() {
   const selection = useSwapStockSelection();
+  const { isTokenVariantPending } = useStockDetail();
+  const variantLoading = Boolean(
+    selection?.loadingScopes.tradeTarget || isTokenVariantPending,
+  );
   // The same per-variant lookup the Market page feeds its selector, so the
   // balances in the list match the My position table below the chart.
   const portfolio = useSwapStockPortfolio();
@@ -278,29 +282,34 @@ export function SwapStockVariantSelector() {
           <StockTokenVariantSelector
             compact
             fallbackToken={currentStockToken}
+            forceLoading={variantLoading}
             onOpenChange={(open) => {
-              if (!open) selection?.cancelSelection();
+              if (open) selection?.cancelSelection();
             }}
             onSelect={selection?.selectVariant}
             portfolioData={portfolio?.portfolioData}
             resolvedVariantKeys={portfolio?.resolvedVariantKeys}
           />
         </Stack>
-        <StockTokenInfoPopover
-          label={
-            <BaseMarketTokenPrice
-              price={
-                displayStockTokenDetail?.price ??
-                currentStockToken?.price ??
-                '--'
-              }
-              tokenName={currentStockToken?.name ?? ''}
-              tokenSymbol={currentStockToken?.symbol ?? ''}
-              currency="$"
-              size="$bodyLgMedium"
-            />
-          }
-        />
+        {variantLoading ? (
+          <Skeleton width={88} height={24} />
+        ) : (
+          <StockTokenInfoPopover
+            label={
+              <BaseMarketTokenPrice
+                price={
+                  displayStockTokenDetail?.price ??
+                  currentStockToken?.price ??
+                  '--'
+                }
+                tokenName={currentStockToken?.name ?? ''}
+                tokenSymbol={currentStockToken?.symbol ?? ''}
+                currency="$"
+                size="$bodyLgMedium"
+              />
+            }
+          />
+        )}
       </XStack>
       {selection?.selectionError ? (
         <SizableText size="$bodySm" color="$textCritical">
