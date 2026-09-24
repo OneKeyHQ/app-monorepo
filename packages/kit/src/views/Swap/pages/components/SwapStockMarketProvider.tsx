@@ -26,6 +26,7 @@ import {
 import { swrKeys } from '@onekeyhq/shared/src/utils/swrCacheUtils';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type {
+  IMarketStockDetailPreview,
   IMarketStockPublicItem,
   IMarketStockTokenVariant,
 } from '@onekeyhq/shared/types/marketV2';
@@ -46,6 +47,9 @@ import { useSwapStockTradeContext } from './SwapStockTradeProvider';
 type ISwapStockSelection = {
   cancelSelection: () => void;
   selecting: boolean;
+  stockSelectionPending: boolean;
+  pendingStock?: IMarketStockDetailPreview;
+  selectedStockPreview?: IMarketStockDetailPreview;
   availability: ISwapStockAvailability;
   selectionError: boolean;
   identityResolutionError: boolean;
@@ -85,17 +89,34 @@ function SwapStockSelectionProvider({
     useAppNavigation<IPageNavigationProp<IModalSwapParamList>>();
   const checkRiskToken = useSwapTokenRiskCheck();
   const [selecting, setSelecting] = useState(false);
+  const [pendingStock, setPendingStock] = useState<IMarketStockDetailPreview>();
+  const [selectedStockPreview, setSelectedStockPreview] =
+    useState<IMarketStockDetailPreview>();
   const [selectionError, setSelectionError] = useState(false);
   const requestRef = useRef(0);
+  const currentStockIdRef = useRef<string | undefined>(undefined);
+  currentStockIdRef.current =
+    resolveMarketStockId(currentStockToken ?? {}) ?? stockId;
   const identity = getTokenIdentityKey(currentStockToken);
   const selectedVariant = tokenVariants.find(
     (variant) =>
       currentStockToken &&
       equalTokenNoCaseSensitive({ token1: variant, token2: currentStockToken }),
   );
+  const selectedStockId = selectedStockPreview?.stockId.toUpperCase();
+  const currentStockId = resolveMarketStockId(
+    currentStockToken ?? {},
+  )?.toUpperCase();
+  const stockSelectionPending = Boolean(
+    pendingStock ||
+    (selectedStockId &&
+      (selectedStockId !== currentStockId ||
+        (!selectedVariant && !isTokenVariantsError))),
+  );
   const availability = resolveSwapStockAvailability({
     pending:
       selecting ||
+      stockSelectionPending ||
       isTokenVariantPending ||
       stockTokenStatus === ESwapStockChannelAsyncStatus.Initializing ||
       Boolean(currentStockToken && !stockId && !identityResolutionError),
@@ -107,6 +128,13 @@ function SwapStockSelectionProvider({
   const cancelSelection = useCallback(() => {
     requestRef.current += 1;
     setSelecting(false);
+    setPendingStock(undefined);
+    setSelectedStockPreview((preview) =>
+      preview?.stockId.toUpperCase() ===
+      currentStockIdRef.current?.toUpperCase()
+        ? preview
+        : undefined,
+    );
     setSelectionError(false);
   }, []);
   useEffect(() => {
@@ -120,11 +148,15 @@ function SwapStockSelectionProvider({
   );
 
   const select = useCallback(
-    async (fetchToken: () => Promise<ISwapToken>) => {
+    async (
+      fetchToken: () => Promise<ISwapToken>,
+      stockPreview?: IMarketStockDetailPreview,
+    ) => {
       requestRef.current += 1;
       const request = requestRef.current;
       const initialIdentity = identityRef.current;
       setSelecting(true);
+      setPendingStock(stockPreview);
       setSelectionError(false);
       try {
         const token = await fetchToken();
@@ -135,6 +167,7 @@ function SwapStockSelectionProvider({
           return false;
         const commitSelection = () => {
           if (initialIdentity === identityRef.current) {
+            if (stockPreview) setSelectedStockPreview(stockPreview);
             selectStockSwapToken(token, { resetReceiveAmount: true });
           }
         };
@@ -159,14 +192,17 @@ function SwapStockSelectionProvider({
         if (request === requestRef.current) setSelectionError(true);
         return false;
       } finally {
-        if (request === requestRef.current) setSelecting(false);
+        if (request === requestRef.current) {
+          setSelecting(false);
+          setPendingStock(undefined);
+        }
       }
     },
     [checkRiskToken, navigation, selectStockSwapToken, storeName],
   );
   const selectStock = useCallback(
     (stock: IMarketStockPublicItem, query?: string) =>
-      select(() => fetchSwapStockSelection(stock, query)),
+      select(() => fetchSwapStockSelection(stock, query), stock),
     [select],
   );
   const selectVariant = useCallback(
@@ -185,6 +221,9 @@ function SwapStockSelectionProvider({
     () => ({
       cancelSelection,
       selecting,
+      stockSelectionPending,
+      pendingStock,
+      selectedStockPreview,
       availability,
       selectionError,
       identityResolutionError,
@@ -196,6 +235,9 @@ function SwapStockSelectionProvider({
     [
       cancelSelection,
       selecting,
+      stockSelectionPending,
+      pendingStock,
+      selectedStockPreview,
       availability,
       selectionError,
       identityResolutionError,

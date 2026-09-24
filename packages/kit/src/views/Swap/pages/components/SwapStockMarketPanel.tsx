@@ -117,11 +117,14 @@ function StockPrice({
     ? '$textCritical'
     : '$textSuccess';
   const size = mobile ? '$bodySm' : '$bodyLg';
+  const pendingStock = Boolean(selection?.stockSelectionPending);
   const hasError =
     priceMode === 'share' &&
     !price &&
+    !pendingStock &&
     (isStockDetailError || selection?.identityResolutionError);
-  const loading = priceMode === 'share' && !stockDetail && !hasError;
+  const loading =
+    pendingStock || (priceMode === 'share' && !stockDetail && !hasError);
   let content;
   if (hasError) {
     content = (
@@ -228,6 +231,15 @@ function StockPrice({
 
 export function SwapStockMobileHeader() {
   const { status } = useSwapStockPrice('share');
+  const { stockDetail } = useStockDetail();
+  const selection = useSwapStockSelection();
+  const selectedStock =
+    selection?.pendingStock ?? selection?.selectedStockPreview;
+  const showStatus =
+    !selection?.stockSelectionPending ||
+    (selectedStock &&
+      stockDetail?.stockId.toUpperCase() ===
+        selectedStock.stockId.toUpperCase());
   return (
     <YStack gap="$2" pb="$5">
       <XStack alignItems="center" justifyContent="space-between" gap="$3">
@@ -235,7 +247,10 @@ export function SwapStockMobileHeader() {
         <StockPrice mobile priceMode="share" />
       </XStack>
       <Stack minHeight={20}>
-        <StockMarketStatusBadge stock={status} variant="inline" />
+        <StockMarketStatusBadge
+          stock={showStatus ? status : undefined}
+          variant="inline"
+        />
       </Stack>
     </YStack>
   );
@@ -317,6 +332,13 @@ export function SwapStockMarketPanel() {
     useSwapStockTradeContext();
   const selection = useSwapStockSelection();
   const { status } = useSwapStockPrice(priceMode);
+  const selectedStock =
+    selection?.pendingStock ?? selection?.selectedStockPreview;
+  const showStatus =
+    !selection?.stockSelectionPending ||
+    (selectedStock &&
+      stockDetail?.stockId.toUpperCase() ===
+        selectedStock.stockId.toUpperCase());
   const toMarket = useToMarketStockDetailPage();
   const chartRanges =
     priceMode === 'share'
@@ -367,7 +389,10 @@ export function SwapStockMarketPanel() {
           <YStack gap="$2">
             <StockPrice priceMode={priceMode} />
             <Stack minHeight={20}>
-              <StockMarketStatusBadge stock={status} variant="inline" />
+              <StockMarketStatusBadge
+                stock={showStatus ? status : undefined}
+                variant="inline"
+              />
             </Stack>
           </YStack>
           <XStack py="$1" gap="$0.5">
@@ -396,7 +421,10 @@ export function SwapStockMarketPanel() {
         </XStack>
         <YStack height={360} gap="$4">
           <YStack flex={1} minHeight={0} minWidth={0}>
-            {isSimpleChart ? (
+            {selection?.stockSelectionPending ? (
+              <Skeleton width="100%" height="100%" />
+            ) : null}
+            {!selection?.stockSelectionPending && isSimpleChart ? (
               <StockSimpleChartContent
                 priceMode={priceMode}
                 range={range}
@@ -423,7 +451,8 @@ export function SwapStockMarketPanel() {
                     : undefined
                 }
               />
-            ) : (
+            ) : null}
+            {!selection?.stockSelectionPending && !isSimpleChart ? (
               <Stack flex={1} minWidth={0} overflow="hidden">
                 <TradingViewNative
                   key={getTradingViewNativeSourceKey(proChartSource)}
@@ -437,7 +466,7 @@ export function SwapStockMarketPanel() {
                   nativeControlsFlushHorizontalInset
                 />
               </Stack>
-            )}
+            ) : null}
           </YStack>
           {/* Same toolbar as the Market stock chart: ranges lead, Simple/Pro
               trails. Pro carries its own interval row inside the widget. */}
@@ -496,7 +525,7 @@ export function SwapStockMarketPanel() {
         summary
         tokenDetail={tokenDetail}
         networkId={currentStockToken?.networkId}
-        loading={!tokenDetail}
+        loading={Boolean(selection?.stockSelectionPending) || !tokenDetail}
       />
       <XStack justifyContent="center">
         <Button
@@ -504,7 +533,7 @@ export function SwapStockMarketPanel() {
           size="small"
           variant="tertiary"
           iconAfter="OpenOutline"
-          disabled={!stockId}
+          disabled={!stockId || Boolean(selection?.stockSelectionPending)}
           onPress={() => {
             if (stockId)
               void toMarket({

@@ -42,10 +42,12 @@ import {
   useSwapToTokenAmountAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import { shouldRedirectOnboardingToTravelMode } from '@onekeyhq/kit/src/utils/onboardingEntryGate';
+import { BaseMarketTokenPrice } from '@onekeyhq/kit/src/views/Market/components/MarketTokenPrice';
 import { TokenList } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/components/SwapPanel/components/TokenInputSection/TokenList';
 import { TradeTypeSelector } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/components/SwapPanel/components/TradeTypeSelector';
 import { ESwapDirection } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/components/SwapPanel/hooks/useTradeType';
 import type { IToken } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/components/SwapPanel/types';
+import { resolveMarketStockId } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/utils/resolveIsStockToken';
 import {
   type EJotaiContextStoreNames,
   useInAppNotificationAtom,
@@ -822,7 +824,11 @@ function StockPayTokenPopoverContent({
   );
 }
 
-function StockTradeHeaderSkeleton() {
+function StockTradeHeaderSkeleton({
+  stockTokenPrice,
+}: {
+  stockTokenPrice?: string;
+}) {
   return (
     <XStack
       testID={SwapTestIDs.stockTradeHeaderSkeleton}
@@ -839,7 +845,26 @@ function StockTradeHeaderSkeleton() {
           <Skeleton h="$4" w="$16" />
         </YStack>
       </XStack>
-      <Skeleton h="$5" w="$16" />
+      {stockTokenPrice ? (
+        <Button
+          testID="stock-token-info-trigger-disabled"
+          iconAfter="InfoCircleOutline"
+          size="small"
+          variant="tertiary"
+          childrenAsText={false}
+          disabled
+        >
+          <BaseMarketTokenPrice
+            price={stockTokenPrice}
+            tokenName=""
+            tokenSymbol=""
+            currency="$"
+            size="$bodyLgMedium"
+          />
+        </Button>
+      ) : (
+        <Skeleton h="$5" w="$16" />
+      )}
     </XStack>
   );
 }
@@ -1103,18 +1128,31 @@ function StockTradeTicket({
   });
   if (!deferInitialAmountContent) startedWithoutAmountInputRef.current = false;
   const showStockTradeIdentitySkeleton = Boolean(
-    stockTradeIdentityLoading !== undefined &&
-    (stockTradeIdentityLoading ||
-      amountInputState.shouldRenderSkeleton ||
-      deferInitialAmountContent),
+    standaloneSelection?.stockSelectionPending ||
+    (stockTradeIdentityLoading !== undefined &&
+      (stockTradeIdentityLoading ||
+        amountInputState.shouldRenderSkeleton ||
+        deferInitialAmountContent)),
   );
   let resolvedStockTradeHeader = stockTradeHeader;
   if (
     stockTradeHeader &&
     showStockTradeIdentitySkeleton &&
-    !standaloneSelection
+    (!standaloneSelection || standaloneSelection.stockSelectionPending)
   ) {
-    resolvedStockTradeHeader = <StockTradeHeaderSkeleton />;
+    const targetStock =
+      standaloneSelection?.pendingStock ??
+      standaloneSelection?.selectedStockPreview;
+    const currentStockId = resolveMarketStockId(
+      stockChannel.currentStockToken ?? {},
+    );
+    const stockTokenPrice =
+      targetStock?.stockId.toUpperCase() === currentStockId?.toUpperCase()
+        ? stockChannel.currentStockToken?.price
+        : undefined;
+    resolvedStockTradeHeader = (
+      <StockTradeHeaderSkeleton stockTokenPrice={stockTokenPrice} />
+    );
   }
   const isModalPage = useIsOverlayPage();
   const { md } = useMedia();

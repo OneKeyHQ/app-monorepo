@@ -176,9 +176,9 @@ function StockTickerList({ closePopover }: { closePopover: () => void }) {
                 hoverStyle={{ bg: '$bgHover' }}
                 cursor="pointer"
                 onPress={() => {
-                  void selection?.selectStock(stock, query).then((selected) => {
-                    if (selected) closePopover();
-                  });
+                  if (!selection) return;
+                  void selection.selectStock(stock, query);
+                  closePopover();
                 }}
               >
                 <Token
@@ -252,6 +252,13 @@ export function SwapStockTickerSelector() {
   const { stockDetail, stockPreview, stockId } = useStockDetail();
   const { currentStockToken } = useSwapStockTradeContext();
   const stock = stockDetail ?? stockPreview;
+  const selectedStockPreview = selection?.selectedStockPreview;
+  const listPreview =
+    selection?.pendingStock ??
+    (selection?.stockSelectionPending ||
+    selectedStockPreview?.stockId.toUpperCase() === stockId?.toUpperCase()
+      ? selectedStockPreview
+      : undefined);
   const stockTokenMatches = Boolean(
     currentStockToken &&
     (!stockId || resolveMarketStockId(currentStockToken) === stockId),
@@ -259,18 +266,18 @@ export function SwapStockTickerSelector() {
   const fallbackStock = stockTokenMatches
     ? currentStockToken?.stock
     : undefined;
-  // The header carries the underlying stock's brand icon. Until the stock
-  // identity actually carries that icon (fresh selection, cache miss), keep
-  // the loading skeleton: the token's own artwork and the issuer/provider logo
-  // both differ from the brand icon, and falling back to either one reads as a
-  // wrong icon flashing before the real one arrives.
-  const tokenImageUri = stock?.logoUrl;
+  // The list item already carries the underlying stock's brand icon. Keep it
+  // through the token and stock-detail transition instead of showing the old
+  // stock or the issuer token's artwork.
+  const tokenImageUri = listPreview?.logoUrl ?? stock?.logoUrl;
   const tokenSymbol =
+    listPreview?.symbol ??
     stock?.symbol ??
     fallbackStock?.underlyingAssetTicker ??
     stockId ??
     currentStockToken?.symbol;
   const tokenName =
+    listPreview?.name ??
     stock?.name ??
     (fallbackStock || currentStockToken?.name
       ? getSwapStockTokenDisplayName({
@@ -281,7 +288,7 @@ export function SwapStockTickerSelector() {
   return (
     <StockSelectorPopover
       onOpenChange={(open) => {
-        if (!open) selection?.cancelSelection();
+        if (open) selection?.cancelSelection();
       }}
       title={intl.formatMessage({
         id: ETranslations.placeholder_stock_search,
