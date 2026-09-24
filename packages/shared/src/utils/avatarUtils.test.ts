@@ -9,6 +9,7 @@ import {
   getDeviceAvatarImage,
   getThirdPartyDeviceAvatarImage,
 } from './avatarUtils';
+import { NEO_DEVICE_TYPE } from './hardwareDeviceTypes';
 
 // require() resolves to a single mocked value under Jest, so tests that must
 // tell artworks apart compare the actual asset bytes on disk.
@@ -20,6 +21,10 @@ describe('HwWalletAvatarImages', () => {
     ['Pro2Black.png', 'ProBlack.png'],
     ['Pro2Silver.png', 'Pro2Black.png'],
     ['Pro2Orange.png', 'Pro2Black.png'],
+    ['NeoBlack.png', 'ProBlack.png'],
+    ['NeoWhite.png', 'NeoBlack.png'],
+    ['NeoGreen.png', 'NeoBlack.png'],
+    ['NeoPink.png', 'NeoBlack.png'],
   ])('gives %s its own artwork rather than %s', (name, other) => {
     expect(readAvatar(name).equals(readAvatar(other))).toBe(false);
   });
@@ -41,6 +46,8 @@ describe('HwWalletAvatarImages', () => {
   /** A per-color key as the table spells it: `${EDeviceType.<model>}<Color>`. */
   const colorKey = (model: 'Pro' | 'Pro2', color: string) =>
     `\`\${EDeviceType.${model}}${color}\``;
+  /** The same for the model keyed by its device-type constant. */
+  const neoColorKey = (color: string) => `\`\${NEO_DEVICE_TYPE}${color}\``;
   it.each([
     ['EDeviceType.Pro2', 'Pro2Black.png'],
     [colorKey('Pro2', 'Black'), 'Pro2Black.png'],
@@ -48,6 +55,11 @@ describe('HwWalletAvatarImages', () => {
     [colorKey('Pro2', 'Orange'), 'Pro2Orange.png'],
     [colorKey('Pro', 'Black'), 'ProBlack.png'],
     [colorKey('Pro', 'White'), 'ProWhite.png'],
+    ['NEO_DEVICE_TYPE', 'NeoWhite.png'],
+    [neoColorKey('Black'), 'NeoBlack.png'],
+    [neoColorKey('White'), 'NeoWhite.png'],
+    [neoColorKey('Green'), 'NeoGreen.png'],
+    [neoColorKey('Pink'), 'NeoPink.png'],
   ])('wires %s to %s', (key, file) => {
     expect(requiredFileOf(key)).toBe(file);
   });
@@ -73,6 +85,20 @@ describe('getDeviceAvatarImage', () => {
     [undefined, 'pro2Black'],
   ])('resolves a Pro 2 serial %s to %s', (serialNo, expected) => {
     expect(getDeviceAvatarImage(EDeviceType.Pro2, serialNo)).toBe(expected);
+  });
+
+  it.each([
+    ['NE0001A', 'neoBlack'],
+    ['NE0001B', 'neoWhite'],
+    ['NE0001E', 'neoGreen'],
+    ['NE0001F', 'neoPink'],
+    // Letters the Neo does not come in, and no serial, wear white — the
+    // Neo's default finish, unlike the Pro 2's black.
+    ['NE0001C', 'neoWhite'],
+    ['NE0001D', 'neoWhite'],
+    [undefined, 'neoWhite'],
+  ])('resolves a Neo serial %s to %s', (serialNo, expected) => {
+    expect(getDeviceAvatarImage(NEO_DEVICE_TYPE, serialNo)).toBe(expected);
   });
 
   it('returns the model itself for models without color variants', () => {
