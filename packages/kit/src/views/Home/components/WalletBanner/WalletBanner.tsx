@@ -579,7 +579,9 @@ function WalletBanner({ hidden = false }: { hidden?: boolean } = {}) {
   const landedPerpsDeriveTypeRef = useRef<IAccountDeriveTypes | undefined>(
     undefined,
   );
-  // undefined while the latest check's read is pending.
+  // undefined while the latest check's read is pending. A failed read restores
+  // the previous value: the run cannot land, so it must not arm every later
+  // event with a permanent mismatch.
   const latestReadPerpsDeriveTypeRef = useRef<IAccountDeriveTypes | undefined>(
     undefined,
   );
@@ -624,14 +626,23 @@ function WalletBanner({ hidden = false }: { hidden?: boolean } = {}) {
       const scope = `${account.id}:${indexedAccount?.id ?? ''}:${perpsDeriveTypeRevision}`;
       referralCheckIdRef.current += 1;
       const checkId = referralCheckIdRef.current;
+      const previousReadPerpsDeriveType = latestReadPerpsDeriveTypeRef.current;
       latestReadPerpsDeriveTypeRef.current = undefined;
       // Use the global EVM deriveType for PERPS_NETWORK_ID, not the scene-local
       // deriveType. Home may currently be on a non-EVM network (e.g. BTC with
       // 'native_segwit'), in which case the scene deriveType cannot resolve the
       // Arbitrum account.
-      const globalEvmDeriveType =
-        await backgroundApiProxy.serviceNetwork.getGlobalDeriveTypeOfNetwork({
-          networkId: PERPS_NETWORK_ID,
+      const globalEvmDeriveType = await backgroundApiProxy.serviceNetwork
+        .getGlobalDeriveTypeOfNetwork({ networkId: PERPS_NETWORK_ID })
+        .catch((error: unknown) => {
+          // usePromiseResult neither lands nor retries a rejected run, so a
+          // pending marker left behind would make every later
+          // GlobalDeriveTypeUpdate bump the scope until the next successful
+          // revalidation. Only the run still owning the ref may restore it.
+          if (checkId === referralCheckIdRef.current) {
+            latestReadPerpsDeriveTypeRef.current = previousReadPerpsDeriveType;
+          }
+          throw error;
         });
       // usePromiseResult only lands the latest run, so an older read resolving
       // late must not overwrite the newer one.
