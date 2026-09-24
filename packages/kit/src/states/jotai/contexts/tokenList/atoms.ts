@@ -105,6 +105,18 @@ export const { atom: tokenListStateAtom, use: useTokenListStateAtom } =
   });
 
 export const {
+  atom: portfolioSyncUiStateAtom,
+  use: usePortfolioSyncUiStateAtom,
+} = contextAtom<{
+  disabled: boolean;
+  visible: boolean;
+  request?: () => void;
+}>({
+  disabled: false,
+  visible: false,
+});
+
+export const {
   atom: activeAccountTokenListStateAtom,
   use: useActiveAccountTokenListStateAtom,
 } = contextAtom<{

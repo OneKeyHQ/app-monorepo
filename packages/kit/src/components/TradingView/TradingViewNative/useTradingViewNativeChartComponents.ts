@@ -1,7 +1,10 @@
 import { useMemo } from 'react';
 
-import { TRADING_VIEW_PREVIOUS_CLOSE_LABEL } from '../constants';
+import { useIntl } from 'react-intl';
 
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+
+import { TRADING_VIEW_NATIVE_PREVIOUS_CLOSE_REFERENCE_LINE_ID as PREVIOUS_CLOSE_REFERENCE_LINE_ID } from './chartConstants';
 import { flattenTradingViewNativeChartComponentTree } from './utils/chartComponentTree';
 
 import type {
@@ -12,7 +15,6 @@ import type {
 
 const EMPTY_CHART_COMPONENTS: readonly ITradingViewNativeChartComponentNode[] =
   [];
-const PREVIOUS_CLOSE_REFERENCE_LINE_ID = 'system.previousCloseReferenceLine';
 
 export function useTradingViewNativeChartComponents({
   chartComponents = EMPTY_CHART_COMPONENTS,
@@ -27,6 +29,10 @@ export function useTradingViewNativeChartComponents({
   referenceLineColor: string;
   showPreviousClose: boolean;
 }): readonly ITradingViewNativeChartLeafComponent[] {
+  const intl = useIntl();
+  const previousCloseLabel = intl.formatMessage({
+    id: ETranslations.market_prev_close,
+  });
   const finitePreviousClose =
     previousClose !== undefined && Number.isFinite(previousClose)
       ? previousClose
@@ -45,7 +51,7 @@ export function useTradingViewNativeChartComponents({
               color: referenceLineColor,
               interactive: false,
               style: 'dashed',
-              title: TRADING_VIEW_PREVIOUS_CLOSE_LABEL,
+              title: previousCloseLabel,
             },
             type: 'referenceLine',
           };
@@ -57,6 +63,7 @@ export function useTradingViewNativeChartComponents({
   }, [
     chartComponents,
     finitePreviousClose,
+    previousCloseLabel,
     referenceLineColor,
     showPreviousClose,
   ]);

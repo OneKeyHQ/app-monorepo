@@ -10,6 +10,7 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { setDeviceStageBurstActive } from '@onekeyhq/shared/src/hardware/deviceStageOwnership';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
   EFirmwareUpdateTipMessages,
   EHardwareVendor,
@@ -308,6 +309,56 @@ describe('DeviceStageBurstScope', () => {
     await scope.end();
     await letTheExitRun();
     expect(stage?.step).toBe('off');
+  });
+
+  it('lands an explicit success and releases its hold atomically', async () => {
+    const scope = new DeviceStageBurstScope();
+    const token = await scope.beginExplicit({ connectId: CONNECT_ID });
+    await paintOpeningBeat();
+
+    await scope.endExplicit({
+      token,
+      doneI18n: { key: ETranslations.global_done },
+    });
+
+    expect(stage).toMatchObject({
+      step: 'done',
+      doneI18n: { key: ETranslations.global_done },
+    });
+    await jest.advanceTimersByTimeAsync(1599);
+    expect(stage?.step).toBe('done');
+    await jest.advanceTimersByTimeAsync(1);
+    expect(stage?.step).toBe('off');
+  });
+
+  it('does not land success after the person dismisses its explicit hold', async () => {
+    const scope = new DeviceStageBurstScope();
+    const token = await scope.beginExplicit({ connectId: CONNECT_ID });
+    await paintOpeningBeat();
+
+    await scope.userClose();
+    await scope.endExplicit({
+      token,
+      doneI18n: { key: ETranslations.global_done },
+    });
+
+    expect(stage?.step).toBe('off');
+  });
+
+  it('replaces a previous success as soon as a new explicit burst begins', async () => {
+    const scope = new DeviceStageBurstScope();
+    const firstToken = await scope.beginExplicit({ connectId: CONNECT_ID });
+    await paintOpeningBeat();
+    await scope.endExplicit({
+      token: firstToken,
+      doneI18n: { key: ETranslations.global_done },
+    });
+    expect(stage?.step).toBe('done');
+
+    const nextToken = await scope.beginExplicit({ connectId: CONNECT_ID });
+    expect(stage?.step).toBe('connecting');
+
+    await scope.endExplicit({ token: nextToken });
   });
 
   it('does not release a new burst when a dismissed join later fails', async () => {
@@ -735,14 +786,13 @@ describe('DeviceStageBurstScope', () => {
     expect(stage?.step).toBe('off');
   });
 
-  it('takes down a wait a straggler paints while the yield reads the stage', async () => {
+  it('refuses a wait a straggler paints while the yield reads the stage', async () => {
     // The Ledger install sheet (OK-62656): the probe's last beat on the
     // third-party rail is still crossing the event queue when the dialog
     // asks the stage to yield. Landing between the yield's read and its
-    // write, a `ui` action claims the stage (clearOffTimer bumps the
-    // claim) and repaints `processing` under the hold, so a single exit
-    // stands down on the stale read and leaves that capsule right under
-    // the sheet.
+    // write, a `ui` wait used to claim the stage and repaint `processing`
+    // under the hold. The yield now outranks it on this rail too
+    // (OK-63224): the wait is refused outright, and the exit lands.
     const scope = new DeviceStageBurstScope();
     const token = await scope.beginExplicit({
       connectId: CONNECT_ID,
@@ -760,12 +810,64 @@ describe('DeviceStageBurstScope', () => {
         install: undefined,
         batch: undefined,
       });
-      expect(stage?.step).toBe('processing');
+      expect(stage?.step).toBe('connecting');
       return read;
     });
     await expect(scope.silence()).resolves.toBe(true);
     expect(stage?.step).toBe('off');
     await scope.endExplicit({ token });
+  });
+
+  it('keeps a yielded stage off the Trezor BLE binding list until the device asks', async () => {
+    // OK-63224: the flow's SDK call waits on the binding list, the stage
+    // yields to it, and neither the probe's own waits (connecting,
+    // processing) nor a prior call's outcomes (the ✓ done with its hold,
+    // an error) may put the touch wall back over the list. The pairing
+    // code is the device asking — that lifts the yield and rises over
+    // the list; from there the probe's beats play again.
+    const scope = new DeviceStageBurstScope();
+    const token = await scope.beginExplicit({
+      connectId: CONNECT_ID,
+      vendor: EHardwareVendor.trezor,
+    });
+    await paintOpeningBeat();
+    expect(stage?.step).toBe('connecting');
+    await scope.silence();
+    expect(stage?.step).toBe('off');
+    for (const action of [
+      EThirdPartyHardwareUiAction.connecting,
+      EThirdPartyHardwareUiAction.processing,
+      EThirdPartyHardwareUiAction.done,
+      EThirdPartyHardwareUiAction.error,
+    ]) {
+      await scope.onThirdPartyState({
+        ui: { action, vendor: EHardwareVendor.trezor },
+        install: undefined,
+        batch: undefined,
+      });
+      expect(stage?.step).toBe('off');
+    }
+    await scope.onThirdPartyState({
+      ui: {
+        action: EThirdPartyHardwareUiAction.requestTrezorThpPairing,
+        vendor: EHardwareVendor.trezor,
+      },
+      install: undefined,
+      batch: undefined,
+    });
+    expect(stage?.step).toBe('pairingCode');
+    await scope.onThirdPartyState({
+      ui: {
+        action: EThirdPartyHardwareUiAction.processing,
+        vendor: EHardwareVendor.trezor,
+      },
+      install: undefined,
+      batch: undefined,
+    });
+    expect(stage?.step).toBe('processing');
+    // Lifted for good: the rail's own ending plays, ✓ then off.
+    await scope.endExplicit({ token });
+    expect(stage?.step).toBe('done');
   });
 
   it('leaves on a call-end close during the firmware workflow even behind a foreign hold', async () => {

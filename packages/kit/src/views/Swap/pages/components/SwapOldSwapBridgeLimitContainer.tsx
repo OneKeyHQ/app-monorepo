@@ -271,7 +271,10 @@ const SwapOldSwapBridgeLimitContainer = ({
           fromTokenAmount={fromTokenAmountValue}
         />
       )}
-      <SwapPendingHistoryListComponent pageType={pageType} />
+      <SwapPendingHistoryListComponent
+        pageType={pageType}
+        storeName={storeName}
+      />
     </YStack>
   );
 
@@ -298,6 +301,7 @@ const SwapOldSwapBridgeLimitContainer = ({
         <XStack alignItems="center" justifyContent="space-between">
           {swapTitleContent}
           <SwapHeaderRightActionContainer
+            storeName={storeName}
             pageType={pageType}
             iconSize="$5"
             iconColor="$iconStrong"
@@ -335,7 +339,10 @@ const SwapOldSwapBridgeLimitContainer = ({
             fromTokenAmount={fromTokenAmountValue}
           />
         )}
-        <SwapPendingHistoryListComponent pageType={pageType} />
+        <SwapPendingHistoryListComponent
+          pageType={pageType}
+          storeName={storeName}
+        />
       </YStack>
     );
     return (
@@ -405,6 +412,7 @@ const SwapOldSwapBridgeLimitContainer = ({
             <XStack alignItems="center" justifyContent="space-between">
               {swapTitleContent}
               <SwapHeaderRightActionContainer
+                storeName={storeName}
                 pageType={pageType}
                 iconSize="$5"
                 iconColor="$iconStrong"
@@ -443,7 +451,10 @@ const SwapOldSwapBridgeLimitContainer = ({
                 fromTokenAmount={fromTokenAmountValue}
               />
             )}
-            <SwapPendingHistoryListComponent pageType={pageType} />
+            <SwapPendingHistoryListComponent
+              pageType={pageType}
+              storeName={storeName}
+            />
           </YStack>
         </YStack>
       </ScrollView>

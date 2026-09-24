@@ -46,6 +46,8 @@ jobs:
           additional_env: |
             NO_FLIPPER=1
             SENTRY_DISABLE_AUTO_UPLOAD=false
+            ONRAMPER_CLIENT_ID=${{ secrets.ONRAMPER_CLIENT_ID }}
+            ONRAMPER_API_KEY=${{ secrets.ONRAMPER_API_KEY }}
           env_file_name: '.env.expo'
           sentry_project: ''
           covalent_key: ${{ secrets.COVALENT_KEY }}
@@ -67,9 +69,36 @@ jobs:
         uses: actions/setup-node@v6
         with:
           node-version: 24.x
-          cache: 'yarn'
+          package-manager-cache: false
           registry-url: 'https://npm.pkg.github.com'
           scope: '@onekeyhq'
+
+      - name: Locate Yarn cache
+        id: yarn-cache
+        shell: bash
+        run: |
+          node <<'NODE'
+          // Match the repository's Yarn 4 cache path without executing checkout plugins.
+          const fs = require('node:fs');
+          const os = require('node:os');
+          const path = require('node:path');
+          const base = process.platform === 'win32'
+            ? path.join(process.env.LOCALAPPDATA || path.join(os.homedir(), 'AppData', 'Local'), 'Yarn', 'Berry')
+            : process.env.XDG_DATA_HOME
+              ? path.join(process.env.XDG_DATA_HOME, 'yarn', 'berry')
+              : path.join(os.homedir(), '.yarn', 'berry');
+          const cache = process.env.YARN_ENABLE_GLOBAL_CACHE === 'true'
+            ? path.join(base, 'cache') : path.join(process.env.GITHUB_WORKSPACE, '.yarn', 'cache');
+          fs.appendFileSync(process.env.GITHUB_OUTPUT, `path=${cache}\narch=${process.arch}\n`);
+          NODE
+
+      - name: Restore Yarn cache from x
+        uses: actions/cache/restore@v4
+        with:
+          path: ${{ steps.yarn-cache.outputs.path }}
+          key: node-cache-${{ runner.os }}-${{ steps.yarn-cache.outputs.arch }}-yarn-${{ hashFiles('yarn.lock') }}
+          restore-keys: |
+            node-cache-${{ runner.os }}-${{ steps.yarn-cache.outputs.arch }}-yarn-
 
       - name: Setup keys secret
         run: |
@@ -89,33 +118,6 @@ jobs:
           echo ${{ secrets.DIST_CERT_P12 }} | base64 -d > apps/mobile/ios/certs/dist.p12
           echo ${{ secrets.ADHOC_PROFILE }} | base64 -d > apps/mobile/ios/certs/profile.mobileprovision
           echo ${{ secrets.ADHOC_SERVICE_EXTENSION_PROFILE }} | base64 -d > apps/mobile/ios/certs/serviceextension-profile.mobileprovision
-          echo ${{ secrets.ADHOC_APP_CLIP_PROFILE }} | base64 -d > apps/mobile/ios/certs/appclip-profile.mobileprovision
-          python3 << 'PYEOF'
-          import json
-
-          path = 'apps/mobile/credentials.json'
-          with open(path, encoding='utf-8') as file:
-              credentials = json.load(file)
-          ios_credentials = credentials.get('ios')
-          wallet_credentials = (
-              ios_credentials.get('OneKeyWallet')
-              if isinstance(ios_credentials, dict)
-              else None
-          )
-          if not isinstance(wallet_credentials, dict):
-              raise RuntimeError('Missing iOS credentials for OneKeyWallet')
-          distribution_certificate = wallet_credentials.get(
-              'distributionCertificate'
-          )
-          if not isinstance(distribution_certificate, dict):
-              raise RuntimeError('Missing OneKeyWallet distribution certificate')
-          ios_credentials['OneKeyAppClip'] = {
-              'distributionCertificate': distribution_certificate,
-              'provisioningProfilePath': 'ios/certs/appclip-profile.mobileprovision',
-          }
-          with open(path, 'w', encoding='utf-8') as file:
-              json.dump(credentials, file)
-          PYEOF
 
       - name: Modify OneKeyWallet info.plist
         uses: OneKeyHQ/actions/build-plist-edit@86ad045e18da7958f659995ee2f9df375dd03ef4 # pin to SHA
@@ -131,14 +133,6 @@ jobs:
           buildNumber: ${{ env.BUILD_NUMBER }}
           versionName: ${{ env.BUILD_APP_VERSION }}
           projectName: ServiceExtension
-          dir: ./apps/mobile
-
-      - name: Modify OneKeyAppClip info.plist
-        uses: OneKeyHQ/actions/build-plist-edit@86ad045e18da7958f659995ee2f9df375dd03ef4 # pin to SHA
-        with:
-          buildNumber: ${{ env.BUILD_NUMBER }}
-          versionName: ${{ env.BUILD_APP_VERSION }}
-          projectName: OneKeyAppClip
           dir: ./apps/mobile
 
       - name: Set BUNDLE_VERSION in Info.plist
@@ -194,7 +188,6 @@ jobs:
             # replace APP STORE provision
             echo ${{ secrets.APPSTORE_PROFILE }} | base64 -d > ./ios/certs/profile.mobileprovision
             echo ${{ secrets.APPSTORE_SERVICE_EXTENSION_PROFILE }} | base64 -d > ./ios/certs/serviceextension-profile.mobileprovision
-            echo ${{ secrets.APPSTORE_APP_CLIP_PROFILE }} | base64 -d > ./ios/certs/appclip-profile.mobileprovision
 
             eas build --profile="${STORE_PROFILE}" --platform ios --non-interactive --no-wait --auto-submit
           fi

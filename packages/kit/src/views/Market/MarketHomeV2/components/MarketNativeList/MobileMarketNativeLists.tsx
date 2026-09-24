@@ -27,7 +27,6 @@ import {
   useWatchListV2Actions,
 } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2';
 import { StockIsOpenBadge } from '@onekeyhq/kit/src/views/Market/components/PerpsBadges';
-import { useWatchListV2Action } from '@onekeyhq/kit/src/views/Market/components/watchListHooksV2';
 import { useMarketBasicConfig } from '@onekeyhq/kit/src/views/Market/hooks';
 import { prewarmMarketTokenImages } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/utils/marketDetailImagePreload';
 import { preloadMarketDetailV2Page } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/utils/marketDetailPagePreload';
@@ -37,16 +36,9 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
-import { EWatchlistFrom } from '@onekeyhq/shared/src/logger/scopes/dex';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { travelModeManager } from '@onekeyhq/shared/src/travelMode';
-import { getMarketWatchlistKey } from '@onekeyhq/shared/src/utils/marketWatchlistIdentity';
 import { parseDexCoin } from '@onekeyhq/shared/src/utils/perpsUtils';
-import type {
-  IMarketAssetListItem,
-  IMarketWatchListItemV2,
-} from '@onekeyhq/shared/types/market';
+import type { IMarketWatchListItemV2 } from '@onekeyhq/shared/types/market';
 import type { IMarketStockInfo } from '@onekeyhq/shared/types/marketV2';
 
 import { usePerpsNavigation } from '../../../hooks/usePerpsNavigation';
@@ -63,6 +55,7 @@ import {
 } from '../MarketTokenList/hooks/useMarketWatchlistTokenList';
 import { useToDetailPage } from '../MarketTokenList/hooks/useToMarketDetailPage';
 import { useWatchlistFilteredGroups } from '../MarketTokenList/hooks/useWatchlistFilteredGroups';
+import { DEFAULT_WATCHLIST_FILTER } from '../MarketTokenList/MarketWatchlistCategorySelector';
 import {
   marketTokenKey,
   shouldUseStockMetadataColumnsForTokens,
@@ -86,6 +79,7 @@ import type {
 } from '../MarketPerpsList/hooks/useMarketPerpsTokenList';
 import type { IMarketToken } from '../MarketTokenList/MarketTokenData';
 import type { IWatchlistFilterType } from '../MarketTokenList/MarketWatchlistCategorySelector';
+import type { IMarketTopCoinsDataCache } from '../MarketTopCoinsList/hooks/useMarketTopCoins';
 import type {
   ActionAnchorInvalidatedEvent,
   MarketRow,
@@ -99,95 +93,6 @@ import type { View } from 'react-native';
 const NATIVE_LIST_STYLE = StyleSheet.create({
   fill: { flex: 1 },
 });
-
-type IMarketListingFavorite = {
-  assetId?: string;
-  stockId?: string;
-  tokenSymbol: string;
-};
-
-function useMarketListingFavorites() {
-  const isTravelMode =
-    travelModeManager.getRuntimeEnvironmentSync().profile.kind ===
-    'travel-mode';
-  const actions = useWatchListV2Action();
-  const [{ data: watchlist, isMounted }] = useMarketWatchListV2Atom();
-  const [pendingKeys, setPendingKeys] = useState<ReadonlySet<string>>(
-    () => new Set(),
-  );
-  const pendingKeysRef = useRef(new Set<string>());
-  const favoriteKeys = useMemo(
-    () => new Set(watchlist.map((item) => getMarketWatchlistKey(item))),
-    [watchlist],
-  );
-  const getFavoriteState = useCallback(
-    (listing: IMarketListingFavorite) => {
-      if (isTravelMode) {
-        return undefined;
-      }
-      const key = getMarketWatchlistKey({
-        chainId: '',
-        contractAddress: '',
-        assetId: listing.assetId,
-        stockId: listing.stockId,
-      });
-      return {
-        checked: favoriteKeys.has(key),
-        disabled: !isMounted || pendingKeys.has(key),
-      };
-    },
-    [favoriteKeys, isMounted, isTravelMode, pendingKeys],
-  );
-  const toggleFavorite = useCallback(
-    async (listing: IMarketListingFavorite) => {
-      if (isTravelMode) {
-        return;
-      }
-      const identity = {
-        chainId: '',
-        contractAddress: '',
-        assetId: listing.assetId,
-        stockId: listing.stockId,
-      };
-      const key = getMarketWatchlistKey(identity);
-      if (!isMounted || pendingKeysRef.current.has(key)) return;
-      const checked = favoriteKeys.has(key);
-      pendingKeysRef.current.add(key);
-      setPendingKeys(new Set(pendingKeysRef.current));
-      try {
-        const succeeded = checked
-          ? await actions.removeFromWatchListV2('', '', identity)
-          : await actions.addIntoWatchListV2([
-              { ...identity, isNative: false },
-            ]);
-        if (!succeeded) return;
-        if (checked) {
-          defaultLogger.dex.watchlist.dexRemoveFromWatchlist({
-            network: '',
-            tokenSymbol: listing.tokenSymbol,
-            tokenContract: '',
-            removeFrom: EWatchlistFrom.Homepage,
-          });
-        } else {
-          defaultLogger.dex.watchlist.dexAddToWatchlist({
-            network: '',
-            tokenSymbol: listing.tokenSymbol,
-            tokenContract: '',
-            addFrom: EWatchlistFrom.Homepage,
-          });
-        }
-      } finally {
-        pendingKeysRef.current.delete(key);
-        setPendingKeys(new Set(pendingKeysRef.current));
-      }
-    },
-    [actions, favoriteKeys, isMounted, isTravelMode],
-  );
-  return useMemo(
-    () => ({ getFavoriteState, toggleFavorite }),
-    [getFavoriteState, toggleFavorite],
-  );
-}
 
 function useMarketNativeListPresentation(): IMarketNativeListPresentation {
   const intl = useIntl();
@@ -305,7 +210,6 @@ type INativeMarketListProps = {
   onRowAction: (event: RowActionEvent) => void;
   onActionAnchorInvalidated?: (event: ActionAnchorInvalidatedEvent) => void;
   onEndReached?: () => void;
-  onRefresh?: () => Promise<unknown> | void;
 };
 
 function NativeMarketList({
@@ -324,36 +228,9 @@ function NativeMarketList({
   onRowAction,
   onActionAnchorInvalidated,
   onEndReached,
-  onRefresh,
 }: INativeMarketListProps) {
   const intl = useIntl();
   const presentation = useMarketNativeListPresentation();
-  const nativeRefreshEnabled = Boolean(
-    onRefresh && !platformEnv.isNativeAndroid,
-  );
-  const refreshingRef = useRef(false);
-  const [refreshing, setRefreshing] = useState(false);
-  useEffect(
-    () => () => {
-      refreshingRef.current = false;
-    },
-    [],
-  );
-  const handleRefresh = useCallback(async () => {
-    if (!onRefresh || refreshingRef.current) return;
-    refreshingRef.current = true;
-    setRefreshing(true);
-    try {
-      await onRefresh();
-    } finally {
-      if (platformEnv.isNativeIOS && refreshingRef.current) {
-        // A batched true/false render can leave UIKit's gesture-started spinner active.
-        listRef.current?.setRefreshing(false);
-      }
-      refreshingRef.current = false;
-      setRefreshing(false);
-    }
-  }, [listRef, onRefresh]);
   const structuralIdentity = `${rows.map((row) => row.key).join('|')}:${
     loading && rows.length === 0
   }:${Boolean(errorMessage && rows.length === 0)}:${Boolean(
@@ -369,7 +246,6 @@ function NativeMarketList({
         generation,
         presentation,
         loading,
-        refreshing,
         loadingMore,
         loadMoreError,
         errorMessage,
@@ -378,7 +254,6 @@ function NativeMarketList({
         }),
         retryMessage: intl.formatMessage({ id: ETranslations.global_retry }),
         canLoadMore,
-        canRefresh: nativeRefreshEnabled,
         showEnd,
         contentPaddingBottom,
         emptyContentHeight,
@@ -395,9 +270,7 @@ function NativeMarketList({
       loadMoreError,
       loading,
       loadingMore,
-      nativeRefreshEnabled,
       presentation,
-      refreshing,
       rows,
       showEnd,
     ],
@@ -412,11 +285,6 @@ function NativeMarketList({
       onRowAction={onRowAction}
       onActionAnchorInvalidated={onActionAnchorInvalidated}
       onEndReached={onEndReached}
-      onRefresh={
-        nativeRefreshEnabled
-          ? () => void handleRefresh().catch(() => undefined)
-          : undefined
-      }
     />
   );
 }
@@ -797,7 +665,6 @@ function MobileMarketNativeTokenListImpl({
             void result.loadMore();
           }
         }}
-        onRefresh={() => result.refetch()}
       />
       <NativeMarketBadgeInfo info={badgeInfo.info} onClose={badgeInfo.close} />
     </Stack>
@@ -814,7 +681,7 @@ export type IMobileMarketNativeWatchlistProps = ISharedListProps & {
 };
 
 function MobileMarketNativeWatchlistImpl({
-  selectedFilter = 'all',
+  selectedFilter = DEFAULT_WATCHLIST_FILTER,
   dataCacheRef,
   listContainerProps,
   shouldSuppressItemPress,
@@ -1066,10 +933,6 @@ function MobileMarketNativeWatchlistImpl({
         testID={MarketTestIDs.watchList}
         onRowAction={handleRowAction}
         onActionAnchorInvalidated={onActionAnchorInvalidated}
-        onRefresh={async () => {
-          await actions.current.refreshWatchListV2();
-          await result.refetch();
-        }}
       />
       <NativeMarketBadgeInfo info={badgeInfo.info} onClose={badgeInfo.close} />
     </Stack>
@@ -1093,34 +956,13 @@ function MobileMarketNativeStockListImpl({
   const listRef = useRef<NativeListRef>(null);
   const presentation = useMarketNativeListPresentation();
   const toMarketStockDetailPage = useToMarketStockDetailPage();
-  const favorites = useMarketListingFavorites();
   const result = useMarketStockList({
     category: selectedCategoryId === 'all' ? undefined : selectedCategoryId,
   });
   const rows = useMemo(
     () =>
-      result.items.map((item) => {
-        const favorite = favorites.getFavoriteState({
-          stockId: item.stockId,
-          tokenSymbol: item.symbol,
-        });
-        return buildStockMarketRow({
-          item,
-          presentation,
-          favorite: favorite
-            ? {
-                ...favorite,
-                accessibilityLabel: intl.formatMessage({
-                  id: favorite.checked
-                    ? ETranslations.market_remove_from_favorites
-                    : ETranslations.market_add_to_favorites,
-                }),
-                testID: MarketTestIDs.stockStarButton(item.stockId),
-              }
-            : undefined,
-        });
-      }),
-    [favorites, intl, presentation, result.items],
+      result.items.map((item) => buildStockMarketRow({ item, presentation })),
+    [presentation, result.items],
   );
   const itemsByKey = useMemo(
     () => new Map(result.items.map((item) => [item.stockId, item])),
@@ -1138,12 +980,7 @@ function MobileMarketNativeStockListImpl({
       }
       const item = event.rowKey ? itemsByKey.get(event.rowKey) : undefined;
       if (!item) return;
-      if (event.actionKey === 'toggle-favorite') {
-        void favorites.toggleFavorite({
-          stockId: item.stockId,
-          tokenSymbol: item.symbol,
-        });
-      } else if (event.actionKey === 'prewarm-stock-detail') {
+      if (event.actionKey === 'prewarm-stock-detail') {
         void preloadMarketDetailV2Page({
           includeBodyModules: true,
           includeHeavyModules: true,
@@ -1157,13 +994,7 @@ function MobileMarketNativeStockListImpl({
         void toMarketStockDetailPage(item);
       }
     },
-    [
-      favorites,
-      itemsByKey,
-      result,
-      shouldSuppressItemPress,
-      toMarketStockDetailPage,
-    ],
+    [itemsByKey, result, shouldSuppressItemPress, toMarketStockDetailPage],
   );
   return (
     <NativeMarketList
@@ -1195,7 +1026,6 @@ function MobileMarketNativeStockListImpl({
           void result.loadMore();
         }
       }}
-      onRefresh={() => result.refresh()}
     />
   );
 }
@@ -1205,44 +1035,24 @@ export const MobileMarketNativeStockList = memo(
 );
 
 export type IMobileMarketNativeTopCoinsListProps = ISharedListProps & {
-  dataCacheRef: RefObject<IMarketAssetListItem[] | undefined>;
+  dataCacheRef: RefObject<IMarketTopCoinsDataCache | undefined>;
+  selectedCategoryId: string;
 };
 
 function MobileMarketNativeTopCoinsListImpl({
   dataCacheRef,
+  selectedCategoryId,
   listContainerProps,
   shouldSuppressItemPress,
 }: IMobileMarketNativeTopCoinsListProps) {
   const intl = useIntl();
   const listRef = useRef<NativeListRef>(null);
   const presentation = useMarketNativeListPresentation();
-  const favorites = useMarketListingFavorites();
   const { data, handleItemPress, isLoading, isError, refresh } =
-    useMarketTopCoins({ dataCacheRef });
+    useMarketTopCoins({ categoryId: selectedCategoryId, dataCacheRef });
   const rows = useMemo(
-    () =>
-      data.map((item) => {
-        const favorite = favorites.getFavoriteState({
-          assetId: item.assetId,
-          tokenSymbol: item.symbol.toUpperCase(),
-        });
-        return buildTopCoinMarketRow({
-          item,
-          presentation,
-          favorite: favorite
-            ? {
-                ...favorite,
-                accessibilityLabel: intl.formatMessage({
-                  id: favorite.checked
-                    ? ETranslations.market_remove_from_favorites
-                    : ETranslations.market_add_to_favorites,
-                }),
-                testID: MarketTestIDs.topCoinsStarButton(item.assetId),
-              }
-            : undefined,
-        });
-      }),
-    [data, favorites, intl, presentation],
+    () => data.map((item) => buildTopCoinMarketRow({ item, presentation })),
+    [data, presentation],
   );
   const itemsByKey = useMemo(
     () => new Map(data.map((item) => [item.assetId, item])),
@@ -1255,12 +1065,7 @@ function MobileMarketNativeTopCoinsListImpl({
         return;
       }
       const item = event.rowKey ? itemsByKey.get(event.rowKey) : undefined;
-      if (item && event.actionKey === 'toggle-favorite') {
-        void favorites.toggleFavorite({
-          assetId: item.assetId,
-          tokenSymbol: item.symbol.toUpperCase(),
-        });
-      } else if (
+      if (
         item &&
         event.actionKey === 'open-detail' &&
         !shouldSuppressItemPress?.()
@@ -1268,7 +1073,7 @@ function MobileMarketNativeTopCoinsListImpl({
         void handleItemPress(item);
       }
     },
-    [favorites, handleItemPress, itemsByKey, refresh, shouldSuppressItemPress],
+    [handleItemPress, itemsByKey, refresh, shouldSuppressItemPress],
   );
   return (
     <NativeMarketList
@@ -1284,7 +1089,6 @@ function MobileMarketNativeTopCoinsListImpl({
       contentPaddingBottom={listContainerProps.paddingBottom}
       emptyContentHeight={listContainerProps.emptyContentHeight}
       onRowAction={handleRowAction}
-      onRefresh={() => refresh()}
     />
   );
 }
@@ -1359,7 +1163,6 @@ function MobileMarketNativePerpsListImpl({
         testID={MarketTestIDs.perpsList}
         onRowAction={handleRowAction}
         onActionAnchorInvalidated={badgeInfo.onActionAnchorInvalidated}
-        onRefresh={() => refresh()}
       />
       <NativeMarketBadgeInfo info={badgeInfo.info} onClose={badgeInfo.close} />
     </Stack>

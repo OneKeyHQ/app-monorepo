@@ -4,10 +4,9 @@ import { useTheme } from '@tamagui/core';
 import { colord } from 'colord';
 import { useIntl } from 'react-intl';
 
-import { SizableText, Stack } from '@onekeyhq/components';
+import { NumberSizeableText, SizableText, Stack } from '@onekeyhq/components';
 import useFormatDate from '@onekeyhq/kit/src/hooks/useFormatDate';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import type { IMarketTokenChart } from '@onekeyhq/shared/types/market';
 
 import { LightweightChart } from '../LightweightChart';
@@ -19,8 +18,13 @@ const PRICE_SCALE_MARGINS = { top: 0.12, bottom: 0.1 } as const;
 // Kept in sync with `priceScaleMinimumWidth` below, so the price axis reserves
 // a stable width instead of resizing with the figures it prints.
 const PRICE_SCALE_WIDTH = 88;
+// The widest sub-$1 form the title can print is 4 leading zeros + 4 significant
+// digits (`0.0000653`), i.e. 10 characters. Anything smaller makes the axis fall
+// back to `$0.0₄653` and read as a different price than the title.
+const PRICE_SCALE_MAX_CHARACTERS = 10;
 // Keeps the pulsing tail dot clear of the current price label on the axis.
 const LAST_POINT_RIGHT_GAP = 8;
+const HOVER_PRICE_FORMATTER_OPTIONS = { currency: '$' } as const;
 // The hover card follows the cursor on both axes. Fixed width so it can be
 // flipped and clamped before it is drawn, and so figures like "$123,456.78"
 // still fit on one line.
@@ -125,10 +129,9 @@ export function StockPriceLineChart({
   const { format } = useFormatDate();
   const [hoverData, setHoverData] = useState<IChartHoverData | null>(null);
   const [chartWidth, setChartWidth] = useState(0);
-  const maxPriceCharacters = chartWidth > 0 && chartWidth < 400 ? 7 : 8;
   const priceFormatter = useCallback(
-    (price: number) => formatChartPrice(price, maxPriceCharacters),
-    [maxPriceCharacters],
+    (price: number) => formatChartPrice(price, PRICE_SCALE_MAX_CHARACTERS),
+    [],
   );
   const handleHover = useCallback(
     ({
@@ -331,7 +334,7 @@ export function StockPriceLineChart({
         priceScaleMinimumWidth={PRICE_SCALE_WIDTH}
         timeScaleRightOffsetPixels={LAST_POINT_RIGHT_GAP}
         priceFormatter={priceFormatter}
-        compactPriceMaxCharacters={maxPriceCharacters}
+        compactPriceMaxCharacters={PRICE_SCALE_MAX_CHARACTERS}
         fontSize={11}
         useTimeScaleTickMarkWithoutUnit
         onHover={handleHover}
@@ -358,17 +361,16 @@ export function StockPriceLineChart({
             {hoverTimeText}
           </SizableText>
           {hoverLabelShowsPrice ? (
-            <SizableText
+            <NumberSizeableText
               testID="stock-price-line-chart-hover-label-price"
               size={hoverLabelLargePrice ? '$bodyMdMedium' : '$bodySmMedium'}
               color="$text"
               numberOfLines={1}
+              formatter="price"
+              formatterOptions={HOVER_PRICE_FORMATTER_OPTIONS}
             >
-              {numberFormat(String(hoverData.price), {
-                formatter: 'price',
-                formatterOptions: { currency: '$' },
-              })}
-            </SizableText>
+              {String(hoverData.price)}
+            </NumberSizeableText>
           ) : null}
         </Stack>
       ) : null}

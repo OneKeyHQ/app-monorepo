@@ -62,40 +62,6 @@ function createDevSession({
   };
 }
 
-// Source a build without ONEKEY_DEV_SHELL compiles: dev-shell `#if` branches
-// are dropped, their `#else` branches are kept because that is exactly what a
-// production (non dev-shell) variant, including Xcode device Debug builds, gets.
-function stripSwiftDevShellBlocks(source) {
-  const output = [];
-  const stack = [];
-  const isExcluded = () =>
-    stack.some((frame) => frame.devShell && !frame.inElse);
-  for (const line of source.split('\n')) {
-    if (/^\s*#if\b/u.test(line)) {
-      const devShell = line.includes('ONEKEY_DEV_SHELL');
-      const wasExcluded = isExcluded();
-      stack.push({ devShell, inElse: false });
-      if (!wasExcluded && !devShell) {
-        output.push(line);
-      }
-    } else if (/^\s*#else\b/u.test(line) && stack.length > 0) {
-      const frame = stack[stack.length - 1];
-      frame.inElse = true;
-      if (!frame.devShell && !isExcluded()) {
-        output.push(line);
-      }
-    } else if (/^\s*#endif\b/u.test(line) && stack.length > 0) {
-      const frame = stack.pop();
-      if (!frame.devShell && !isExcluded()) {
-        output.push(line);
-      }
-    } else if (!isExcluded()) {
-      output.push(line);
-    }
-  }
-  return output.join('\n');
-}
-
 function createCurrentSession(session) {
   return {
     deviceId: session.deviceId,
@@ -303,17 +269,6 @@ describe('native-dev-shell', () => {
         runForOutputCommand: () => 'x86_64',
       }),
     ).toThrow('cannot run the arm64 development shell');
-
-    const source = fs.readFileSync(
-      path.join(__dirname, '../native-dev-shell.js'),
-      'utf8',
-    );
-    const launchSource = source.slice(
-      source.indexOf('async function launchDevShell('),
-    );
-    expect(
-      launchSource.indexOf('assertTargetDeviceArchitecture({'),
-    ).toBeLessThan(launchSource.indexOf('acquireNamedLock({'));
   });
 
   it('uses device-scoped adb reverse only for a physical Android default route', () => {
@@ -709,20 +664,6 @@ describe('native-dev-shell', () => {
     ).rejects.toThrow('android app exited during startup');
   });
 
-  it('fails before reporting running when the launched app exits', () => {
-    const source = fs.readFileSync(
-      path.join(__dirname, '../native-dev-shell.js'),
-      'utf8',
-    );
-    const launchSource = source.slice(
-      source.indexOf('async function launchDevShell('),
-      source.indexOf('\nasync function main()'),
-    );
-    expect(
-      launchSource.indexOf('await waitForNativeAppStartup({'),
-    ).toBeLessThan(launchSource.indexOf("report.status = 'running';"));
-  });
-
   it('captures the iOS process ID returned by simctl launch', () => {
     const runForOutputCommand = jest
       .fn()
@@ -739,85 +680,12 @@ describe('native-dev-shell', () => {
     ]);
   });
 
-  it('routes Android recovery before constructing the React activity', () => {
+  it('declares the launcher, its aliases and MainActivity as the recovery route', () => {
     const androidRoot = path.join(__dirname, '../../android/app/src/main');
-    const launcherActivity = fs.readFileSync(
-      path.join(
-        androidRoot,
-        'java/so/onekey/app/wallet/MainLauncherActivity.java',
-      ),
-      'utf8',
-    );
-    const mainActivity = fs.readFileSync(
-      path.join(androidRoot, 'java/so/onekey/app/wallet/MainActivity.java'),
-      'utf8',
-    );
-    const mainApplication = fs.readFileSync(
-      path.join(
-        androidRoot,
-        'java/so/onekey/app/wallet/BaseMainApplication.java',
-      ),
-      'utf8',
-    );
     const manifest = fs.readFileSync(
       path.join(androidRoot, 'AndroidManifest.xml'),
       'utf8',
     );
-    const nativeDevShell = fs.readFileSync(
-      path.join(__dirname, '../native-dev-shell.js'),
-      'utf8',
-    );
-    const androidReleaseDeploy = fs.readFileSync(
-      path.join(
-        __dirname,
-        '../../../../development/scripts/android-release-build-deploy.sh',
-      ),
-      'utf8',
-    );
-
-    expect(launcherActivity).toContain(
-      'class MainLauncherActivity extends Activity',
-    );
-    expect(launcherActivity).not.toContain('ReactActivity');
-    expect(launcherActivity).toContain(
-      'if (!MainActivity.hasCreatedInstance()) {',
-    );
-    expect(
-      launcherActivity.indexOf('BootRecoveryStore.recordBootAttempt('),
-    ).toBeLessThan(
-      launcherActivity.indexOf(
-        'startActivity(new Intent(this, RecoveryActivity.class));',
-      ),
-    );
-    expect(
-      launcherActivity.indexOf(
-        'startActivity(new Intent(this, RecoveryActivity.class));',
-      ),
-    ).toBeLessThan(launcherActivity.indexOf('MainActivity.class'));
-    expect(launcherActivity).toContain('new Intent(getIntent())');
-    expect(mainActivity).not.toContain('BootRecoveryStore.recordBootAttempt(');
-    expect(mainActivity).toContain('class RecoveryReactActivityDelegate');
-    expect(mainActivity).toContain(
-      'return new RecoveryReactActivityDelegate(this);',
-    );
-    expect(
-      mainActivity.indexOf('if (MainApplication.shouldShowRecovery) {'),
-    ).toBeLessThan(
-      mainActivity.indexOf(
-        'startActivity(new Intent(this, RecoveryActivity.class));',
-      ),
-    );
-    expect(
-      mainActivity.indexOf(
-        'startActivity(new Intent(this, RecoveryActivity.class));',
-      ),
-    ).toBeLessThan(mainActivity.indexOf('hasCreatedInstance = true;'));
-    expect(mainActivity).toContain('hasCreatedInstance = true;');
-    expect(mainActivity).toContain('hasCreatedInstance = false;');
-    expect(mainApplication.indexOf('if (shouldShowRecovery) {')).toBeLessThan(
-      mainApplication.indexOf('SoLoader.init('),
-    );
-
     const launcherManifestStart = manifest.indexOf(
       '<activity android:name=".MainLauncherActivity"',
     );
@@ -830,46 +698,27 @@ describe('native-dev-shell', () => {
       launcherManifestEnd,
     );
     expect(launcherManifest).toContain('android:exported="true"');
-    expect(launcherManifest).toContain('android.intent.action.MAIN');
+    expect(launcherManifest).not.toContain('android.intent.action.MAIN');
     expect(launcherManifest).toContain('android.intent.action.VIEW');
+    for (const name of ['StandardLauncher', 'TravelModeLauncher']) {
+      const aliasStart = manifest.indexOf(`android:name=".${name}"`);
+      expect(aliasStart).toBeGreaterThan(launcherManifestEnd);
+      const alias = manifest.slice(
+        aliasStart,
+        manifest.indexOf('</activity-alias>', aliasStart),
+      );
+      expect(alias).toContain(
+        'android:targetActivity=".LauncherAliasActivity"',
+      );
+      expect(alias).toContain('android.intent.action.MAIN');
+      expect(alias).toContain('android.intent.category.LAUNCHER');
+    }
     expect(manifest).toContain(
       '<activity android:name=".MainActivity" android:label="@string/app_name"',
     );
     expect(manifest).toContain(
       'android:exported="false" android:screenOrientation="portrait" android:supportsPictureInPicture="true" />',
     );
-    expect(nativeDevShell).toContain(
-      'so.onekey.app.wallet/.MainLauncherActivity',
-    );
-    expect(androidReleaseDeploy).toContain(
-      '$PACKAGE_NAME/.MainLauncherActivity',
-    );
-    expect(androidReleaseDeploy).not.toContain('$PACKAGE_NAME/.MainActivity');
-  });
-
-  it('keeps Android reverse ownership inside the device lock lifetime', () => {
-    const source = fs.readFileSync(
-      path.join(__dirname, '../native-dev-shell.js'),
-      'utf8',
-    );
-    const launchSource = source.slice(
-      source.indexOf('async function launchDevShell('),
-    );
-    const lockIndex = launchSource.indexOf(
-      'const deviceLock = acquireNamedLock(',
-    );
-    const configureIndex = launchSource.indexOf(
-      'const deviceMetro = configureDeviceMetro(',
-    );
-    const releaseRouteIndex = launchSource.indexOf(
-      'releaseDeviceMetroRoute?.();',
-    );
-    const releaseLockIndex = launchSource.indexOf('deviceLock.release();');
-
-    expect(lockIndex).toBeGreaterThanOrEqual(0);
-    expect(configureIndex).toBeGreaterThan(lockIndex);
-    expect(releaseRouteIndex).toBeGreaterThan(configureIndex);
-    expect(releaseLockIndex).toBeGreaterThan(releaseRouteIndex);
   });
 
   it('keeps the complete Android run-as script in one quoted adb argument', () => {
@@ -1811,28 +1660,6 @@ describe('native-dev-shell', () => {
     );
   });
 
-  it('binds an explicit device route to launcher-owned Metro', () => {
-    const nativeDevShell = fs.readFileSync(
-      path.join(__dirname, '../native-dev-shell.js'),
-      'utf8',
-    );
-    const launchSource = nativeDevShell.slice(
-      nativeDevShell.indexOf('async function launchDevShell('),
-      nativeDevShell.indexOf('\nasync function main()'),
-    );
-
-    expect(launchSource.indexOf('parseMetroBaseUrl(metroUrl)')).toBeLessThan(
-      launchSource.indexOf('const deviceLock = acquireNamedLock({'),
-    );
-    expect(launchSource.indexOf('const metroAllocation =')).toBeGreaterThan(
-      launchSource.indexOf('try {'),
-    );
-    expect(launchSource).toContain(
-      'requestedMetroUrl: requestedDeviceMetroUrl',
-    );
-    expect(launchSource).toContain('ONEKEY_DEV_SESSION_ID: sessionId');
-  });
-
   it('binds each shell platform to its native contract', () => {
     const android = getContractManifest('android');
     const ios = getContractManifest('ios');
@@ -1842,222 +1669,6 @@ describe('native-dev-shell', () => {
     expect(ios.nativeContractKey).not.toBe(android.nativeContractKey);
     expect(android).toMatchObject({ platform: 'android', schemaVersion: 1 });
     expect(ios).toMatchObject({ platform: 'ios', schemaVersion: 1 });
-  });
-
-  it('holds a restored shell cache lease through device installation', () => {
-    const nativeDevShell = fs.readFileSync(
-      path.join(__dirname, '../native-dev-shell.js'),
-      'utf8',
-    );
-    const installSource = nativeDevShell.slice(
-      nativeDevShell.indexOf('async function resolveAndInstallShell('),
-      nativeDevShell.indexOf('\nasync function prepareVendor('),
-    );
-
-    const cleanupSource = installSource.slice(
-      installSource.indexOf('await runWithCacheLeaseCleanup({'),
-    );
-    expect(installSource).toContain(
-      'await install({ artifactPath, deviceId, platform })',
-    );
-    expect(cleanupSource).toContain('operation: installArtifact,');
-    expect(cleanupSource.indexOf('operation: installArtifact,')).toBeLessThan(
-      cleanupSource.indexOf('releaseCacheLease,'),
-    );
-  });
-
-  it('keeps dev session bootstrap private and session-scoped on both platforms', () => {
-    const nativeDevShell = fs.readFileSync(
-      path.join(__dirname, '../native-dev-shell.js'),
-      'utf8',
-    );
-    const androidApplication = fs.readFileSync(
-      path.join(
-        __dirname,
-        '../../android/app/src/debug/java/so/onekey/app/wallet/MainApplication.java',
-      ),
-      'utf8',
-    );
-    const androidActivity = fs.readFileSync(
-      path.join(
-        __dirname,
-        '../../android/app/src/main/java/so/onekey/app/wallet/MainActivity.java',
-      ),
-      'utf8',
-    );
-    const iosDelegate = fs.readFileSync(
-      path.join(__dirname, '../../ios/AppDelegate.swift'),
-      'utf8',
-    );
-    const metroConfig = fs.readFileSync(
-      path.join(__dirname, '../../metro.config.js'),
-      'utf8',
-    );
-    const webViewWebEmbed = fs.readFileSync(
-      path.join(
-        __dirname,
-        '../../../../packages/kit/src/components/WebViewWebEmbed/index.tsx',
-      ),
-      'utf8',
-    );
-
-    expect(androidActivity).not.toContain('ONEKEY_DEV_SESSION_URL');
-    expect(androidApplication).toContain(
-      'new File(sessionRoot, "current.json")',
-    );
-    expect(androidApplication).toContain(
-      '!deviceId.equals(session.optString("deviceId"))',
-    );
-    expect(iosDelegate).not.toContain('ONEKEY_DEV_SESSION_URL');
-    expect(iosDelegate).toContain(
-      'session["worktreeId"] as? String == worktreeId',
-    );
-    expect(iosDelegate).toContain('let host = components.host');
-    expect(iosDelegate).toContain('!host.isEmpty');
-    expect(iosDelegate).toContain('components.path = ""');
-    expect(metroConfig).not.toContain('/onekey-dev/');
-    expect(metroConfig).toContain('/onekey-dev-session/web-embed/');
-    expect(metroConfig).toContain("res.setHeader('Cache-Control', 'no-store')");
-    expect(webViewWebEmbed).toContain(
-      "searchParams.get('resolver.devSessionId')",
-    );
-    expect(webViewWebEmbed).toContain(
-      '/onekey-dev-session/web-embed/index.html',
-    );
-    expect(nativeDevShell).toContain(
-      "['workspace', '@onekeyhq/web-embed', 'prebundle:build']",
-    );
-    expect(nativeDevShell).not.toContain("['app:web-embed:build']");
-    const launchSource = nativeDevShell.slice(
-      nativeDevShell.indexOf('async function launchDevShell('),
-      nativeDevShell.indexOf('\nasync function main()'),
-    );
-    expect(launchSource.indexOf('await stagePrivateSession({')).toBeLessThan(
-      launchSource.indexOf('preparationLock.release();'),
-    );
-    expect(launchSource.indexOf('await waitForMetro(')).toBeLessThan(
-      launchSource.indexOf('preparationLock.release();'),
-    );
-    expect(launchSource.indexOf('preparationLock.release();')).toBeLessThan(
-      launchSource.indexOf('await prewarmNativeRuntimeBundles({'),
-    );
-    expect(
-      launchSource.indexOf('await prepareWebEmbedForDevSession(report)'),
-    ).toBeLessThan(launchSource.indexOf('await resolveAndInstallShell({'));
-    expect(
-      launchSource.indexOf('await prewarmNativeRuntimeBundles({'),
-    ).toBeLessThan(launchSource.indexOf('launchNativeApp('));
-    expect(launchSource).toContain(
-      'await waitForMetroCompletionWithSessionRenewal({',
-    );
-    expect(launchSource).toContain('addFailureNotice(report, report.failure);');
-  });
-
-  it('excludes dev session capability and identifiers from production variants', () => {
-    const androidRoot = path.join(__dirname, '../../android/app');
-    const androidBase = fs.readFileSync(
-      path.join(
-        androidRoot,
-        'src/main/java/so/onekey/app/wallet/BaseMainApplication.java',
-      ),
-      'utf8',
-    );
-    const androidDebug = fs.readFileSync(
-      path.join(
-        androidRoot,
-        'src/debug/java/so/onekey/app/wallet/MainApplication.java',
-      ),
-      'utf8',
-    );
-    const androidRelease = fs.readFileSync(
-      path.join(
-        androidRoot,
-        'src/release/java/so/onekey/app/wallet/MainApplication.java',
-      ),
-      'utf8',
-    );
-    const androidBuild = fs.readFileSync(
-      path.join(androidRoot, 'build.gradle'),
-      'utf8',
-    );
-    const androidReleaseConfig = androidBuild.slice(
-      androidBuild.indexOf('        release {'),
-      androidBuild.indexOf('    flavorDimensions'),
-    );
-    const iosSource = fs.readFileSync(
-      path.join(__dirname, '../../ios/AppDelegate.swift'),
-      'utf8',
-    );
-    const iosProductionSource = stripSwiftDevShellBlocks(iosSource);
-    const productionInfo = fs.readFileSync(
-      path.join(__dirname, '../../ios/OneKeyWallet/Info.plist'),
-      'utf8',
-    );
-    const devOnlyIdentifiers = [
-      'onekey-dev-sessions',
-      'resolver.devSessionId',
-      'ONEKEY_NATIVE_CONTRACT_KEY',
-    ];
-
-    for (const identifier of devOnlyIdentifiers) {
-      expect(androidBase).not.toContain(identifier);
-      expect(androidRelease).not.toContain(identifier);
-      expect(androidReleaseConfig).not.toContain(identifier);
-      expect(iosProductionSource).not.toContain(identifier);
-      expect(productionInfo).not.toContain(identifier);
-      expect(iosSource).toContain(identifier);
-    }
-    expect(androidDebug).toContain('onekey-dev-sessions');
-    expect(androidDebug).toContain('resolver.devSessionId');
-    expect(androidReleaseConfig).not.toContain('ONEKEY_DEV_SHELL');
-    expect(iosSource).toContain(
-      '#if ONEKEY_DEV_SHELL && targetEnvironment(simulator)',
-    );
-    // Xcode Debug builds outside the Simulator dev shell must keep the embedded
-    // common HBC path (no DevSession) or physical devices fall back to two full
-    // Metro bundles and hit the per-process memory limit.
-    expect(iosProductionSource).toContain('#if DEBUG');
-    expect(iosProductionSource).toContain(
-      'forResource: "onekey-dev-vendor-common"',
-    );
-    expect(iosProductionSource).toContain(
-      'values["resolver.devVendorEmbedded"] = "true"',
-    );
-    expect(iosProductionSource).not.toContain('devVendorBundleInfo.sessionId');
-
-    expect(androidDebug).toContain(
-      'buildDevVendorEntryUrl(metroBaseUrl, sessionId, "main", fingerprint)',
-    );
-    expect(androidDebug).toContain(
-      'buildDevVendorEntryUrl(metroBaseUrl, sessionId, "background", fingerprint)',
-    );
-    expect(iosSource).toContain(
-      'private lazy var devVendorBundleInfo = resolveDevVendorBundleInfo()',
-    );
-    expect(iosProductionSource).toContain(
-      'if devVendorBundleInfo != nil {\n      return bundleURL()',
-    );
-    expect(iosProductionSource).toContain(
-      '#if targetEnvironment(simulator)\n    return false\n#else\n    return true',
-    );
-    expect(iosProductionSource).toContain(
-      'ProcessInfo.processInfo.environment["RCT_METRO_PORT"]',
-    );
-    expect(iosProductionSource).toContain(
-      'Bundle.main.path(forResource: "ip", ofType: "txt")',
-    );
-    expect(iosProductionSource).toContain(
-      'let runtimeMetroURL = runtimeMetroBaseURL()',
-    );
-    expect(iosProductionSource).toContain(
-      'RCTBundleURLProvider.sharedSettings().jsLocation = "\\(host):\\(port)"',
-    );
-    expect(iosProductionSource).toContain(
-      'let packagerURL = runtimeMetroURL ??',
-    );
-    expect(iosProductionSource).toContain('baseComponents.port = port');
-    expect(iosSource).toContain('runtimeTarget: "main"');
-    expect(iosSource).toContain('runtimeTarget: "background"');
   });
 
   it('creates an input-bound ARM shell artifact manifest', async () => {

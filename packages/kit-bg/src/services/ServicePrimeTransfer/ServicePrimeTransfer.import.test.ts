@@ -69,7 +69,10 @@ jest.mock('../../states/jotai/atoms', () => ({
   devSettingsPersistAtom: { get: jest.fn(async () => ({ enabled: false })) },
 }));
 jest.mock('../../states/jotai/atoms/prime', () => ({
-  primeTransferAtom: { get: jest.fn(async () => ({})), set: jest.fn() },
+  primeTransferAtom: {
+    get: jest.fn(async () => ({})),
+    set: jest.fn(async () => undefined),
+  },
 }));
 jest.mock('../ServiceCloudBackup', () => ({ HDWALLET_BACKUP_VERSION: 1 }));
 jest.mock('./e2ee/e2eeClientToClientApi', () => ({}));
@@ -151,6 +154,12 @@ function selectedWallet(id: string) {
     },
   };
 }
+async function prepareTask(service: ServicePrimeTransfer) {
+  const taskUUID = await service.prepareImportTask();
+  if (!taskUUID) throw new OneKeyLocalError('Expected an import reservation');
+  return taskUUID;
+}
+
 function setup() {
   const serviceAccount = {
     getAccountCreatedNetworkId: jest.fn(
@@ -223,11 +232,12 @@ function setup() {
     },
   });
   jest.spyOn(service, 'finallyImportProgress').mockResolvedValue();
-  const run = (
+  const run = async (
     selectedTransferData: IPrimeTransferSelectedData,
     isFromCloudBackupRestore = true,
   ) =>
     service.startImport({
+      taskUUID: await prepareTask(service),
       selectedTransferData,
       password: 'synthetic password',
       localPassword: 'synthetic password',
@@ -273,7 +283,7 @@ describe('per-item import failures', () => {
     >['errorsInfo'] = [];
     const result = await service.buildHdWalletAccountsCreateParams({
       walletId: 'hd-test',
-      taskUUID: undefined,
+      taskUUID: await prepareTask(service),
       errorsInfo,
       accounts: ['bad', 'after'].map((id) => ({
         ...account(id),
@@ -349,15 +359,11 @@ describe('per-item import failures', () => {
         expect.objectContaining({
           flow: cloud ? 'cloudBackupRestore' : 'transfer',
           stage: 'decryptImportedAccountCredential',
+          itemIndex: 1,
           error: 'Encrypted credential is required',
         }),
       );
-      expect(defaultLogger.prime.transfer.importError).toHaveBeenCalledWith(
-        expect.objectContaining({
-          itemIndex: 1,
-          stage: 'importPrivateKeyAccount',
-        }),
-      );
+      expect(defaultLogger.prime.transfer.importError).toHaveBeenCalledTimes(1);
     },
   );
 
@@ -592,6 +598,7 @@ describe('per-item import failures', () => {
     jest.mocked(decryptStringAsync).mockRejectedValueOnce(failure);
     await expect(
       service.startImport({
+        taskUUID: await prepareTask(service),
         selectedTransferData: data({
           importedAccounts: [selectedAccount('first')],
         }),
@@ -618,7 +625,12 @@ describe('per-item import failures', () => {
       throw new OneKeyLocalError('Expected the final progress update');
     const next = updater({
       ...(await primeTransferAtom.get()),
-      importProgress: { total: 2, current: 1, isImporting: true },
+      importProgress: {
+        taskUUID: result.taskUUID,
+        total: 2,
+        current: 1,
+        isImporting: true,
+      },
     });
     expect(next.importProgress).toEqual(
       expect.objectContaining({
@@ -831,6 +843,7 @@ describe('task abort boundaries', () => {
     const { service, serviceAccount: a } = setup();
     await expect(
       service.startImport({
+        taskUUID: await prepareTask(service),
         selectedTransferData: data({
           importedAccounts: [
             { id: 'missing', item: account('missing') },
@@ -840,7 +853,7 @@ describe('task abort boundaries', () => {
         password: '',
       }),
     ).rejects.toThrow('Password is required');
-    expect(service.currentImportTaskUUID).toBeUndefined();
+    expect(service.currentImportTaskUUID).toEqual(expect.any(String));
     expect(a.getPrivateKeyOfImportedAccountCredential).not.toHaveBeenCalled();
     expect(a.restoreImportedAccountByInput).not.toHaveBeenCalled();
   });
@@ -927,6 +940,7 @@ describe('cloud restore password preparation', () => {
       jest.spyOn(service, 'initImportProgress').mockResolvedValue();
       const startImport = jest.spyOn(service, 'startImport');
       const result = await cloud.restore({
+        taskUUID: await prepareTask(service),
         payload: {
           appVersion: 'test',
           publicData: undefined,
@@ -957,6 +971,7 @@ describe('watching-only password preparation', () => {
     async (password) => {
       const { service, serviceAccount: a } = setup();
       const result = await service.startImport({
+        taskUUID: await prepareTask(service),
         selectedTransferData: data({
           watchingAccounts: [{ id: 'watching', item: account('watching') }],
         }),
@@ -975,6 +990,7 @@ describe('watching-only password preparation', () => {
     const { service } = setup();
     await expect(
       service.startImport({
+        taskUUID: await prepareTask(service),
         selectedTransferData: data({
           importedAccounts: [{ id: 'private', item: account('private') }],
         }),
@@ -982,7 +998,7 @@ describe('watching-only password preparation', () => {
         password: '',
       }),
     ).rejects.toThrow('Password is required');
-    expect(service.currentImportTaskUUID).toBeUndefined();
+    expect(service.currentImportTaskUUID).toEqual(expect.any(String));
   });
 });
 
@@ -1091,5 +1107,173 @@ describe('exhausted restore candidates', () => {
     expect(result.errorsInfo).toEqual([]);
     expect(a.restoreWatchingAccountByInput).toHaveBeenCalledTimes(2);
     expect(defaultLogger.prime.transfer.importError).not.toHaveBeenCalled();
+  });
+});
+
+describe('per-item diagnostic deduplication', () => {
+  it('keeps backup parameter preparation out of the active import diagnostics', async () => {
+    const { service, run, serviceAccount: a } = setup();
+    jest.spyOn(accountUtils, 'getHDAccountPathIndex').mockReturnValue(1);
+    const failure = new Error('synthetic candidate failure');
+    a.getAccountCreatedNetworkId.mockImplementation(
+      async ({ account: item }) => {
+        if (item.createAtNetwork === 'synthetic-export-network') {
+          throw new OneKeyLocalError('synthetic backup parameter failure');
+        }
+        return item.createAtNetwork;
+      },
+    );
+    a.restoreImportedAccountByInput.mockImplementation(async ({ onError }) => {
+      onError({ stage: 'addImportedAccountWithCredential', error: failure });
+      const exportErrors: Awaited<
+        ReturnType<ServicePrimeTransfer['startImport']>
+      >['errorsInfo'] = [];
+      await service.buildHdWalletAccountsCreateParams({
+        walletId: 'hd-export',
+        taskUUID: undefined,
+        errorsInfo: exportErrors,
+        accounts: [
+          {
+            ...account('export', {
+              createAtNetwork: 'synthetic-export-network',
+            }),
+            pathIndex: 1,
+            indexedAccountId: undefined,
+          },
+        ],
+      });
+      expect(exportErrors).toHaveLength(1);
+      onError({ stage: 'addImportedAccountWithCredential', error: failure });
+      return { addedAccounts: [] };
+    });
+    const result = await run(
+      data({ importedAccounts: [selectedAccount('failed')] }),
+    );
+    expect(result.errorsInfo).toHaveLength(1);
+    expect(defaultLogger.prime.transfer.importError).toHaveBeenCalledTimes(1);
+    expect(defaultLogger.prime.transfer.importError).toHaveBeenCalledWith(
+      expect.objectContaining({
+        stage: 'addImportedAccountWithCredential',
+        itemIndex: 0,
+      }),
+    );
+  });
+
+  it('does not log an HD parameter failure after its import task is cancelled', async () => {
+    const { service, serviceAccount: a } = setup();
+    const taskUUID = await prepareTask(service);
+    a.getAccountCreatedNetworkId.mockImplementationOnce(async () => {
+      service.currentImportTaskUUID = undefined;
+      throw new OneKeyLocalError('synthetic late parameter failure');
+    });
+    await expect(
+      service.buildHdWalletAccountsCreateParams({
+        walletId: 'hd-cancelled',
+        taskUUID,
+        errorsInfo: [],
+        accounts: [
+          {
+            ...account('cancelled'),
+            pathIndex: 1,
+            indexedAccountId: undefined,
+          },
+        ],
+      }),
+    ).rejects.toMatchObject({
+      className: EOneKeyErrorClassNames.PrimeTransferImportCancelledError,
+    });
+    expect(defaultLogger.prime.transfer.importError).not.toHaveBeenCalled();
+  });
+
+  it('logs a reused error once per private account instead of suppressing later items', async () => {
+    const { run, serviceAccount: a } = setup();
+    const error = new OneKeyLocalError('Encrypted credential is required');
+    a.getPrivateKeyOfImportedAccountCredential
+      .mockRejectedValueOnce(error)
+      .mockRejectedValueOnce(error);
+    const result = await run(
+      data({
+        importedAccounts: [
+          selectedAccount('first'),
+          selectedAccount('second'),
+          selectedAccount('after'),
+        ],
+      }),
+    );
+    expect(result.errorsInfo.map((item) => item.accountId)).toEqual([
+      'first',
+      'second',
+    ]);
+    expect(a.restoreImportedAccountByInput).toHaveBeenCalledTimes(1);
+    const logs = jest.mocked(defaultLogger.prime.transfer.importError);
+    expect(logs).toHaveBeenCalledTimes(2);
+    for (const itemIndex of [0, 1]) {
+      expect(logs).toHaveBeenNthCalledWith(
+        itemIndex + 1,
+        expect.objectContaining({
+          stage: 'decryptImportedAccountCredential',
+          itemIndex,
+          error: 'Encrypted credential is required',
+        }),
+      );
+    }
+  });
+
+  it('logs an HD fatal error only at its first failing operation before stopping', async () => {
+    const { run, serviceAccount: a, batch } = setup();
+    const error = {
+      className: EOneKeyErrorClassNames.LocalDbOpenError,
+      message: 'synthetic unavailable storage',
+    };
+    a.createHDWalletWithRevealableSeed.mockRejectedValueOnce(error);
+    await expect(
+      run(
+        data({
+          wallets: [selectedWallet('first'), selectedWallet('after')],
+          importedAccounts: [selectedAccount('private')],
+        }),
+      ),
+    ).rejects.toBe(error);
+    expect(a.createHDWalletWithRevealableSeed).toHaveBeenCalledTimes(1);
+    expect(batch).not.toHaveBeenCalled();
+    expect(a.restoreImportedAccountByInput).not.toHaveBeenCalled();
+    expect(defaultLogger.prime.transfer.importError).toHaveBeenCalledTimes(1);
+    expect(defaultLogger.prime.transfer.importError).toHaveBeenCalledWith(
+      expect.objectContaining({
+        stage: 'createHDWallet',
+        itemIndex: 0,
+        error: EOneKeyErrorClassNames.LocalDbOpenError,
+      }),
+    );
+  });
+
+  it('retains distinct candidate failures while avoiding their final item-log duplicate', async () => {
+    const { run, serviceAccount: a } = setup();
+    const failures = [
+      new Error('first candidate'),
+      new Error('second candidate'),
+    ];
+    for (const error of failures) {
+      a.restoreImportedAccountByInput.mockImplementationOnce(
+        async ({ onError }) => {
+          onError({ stage: 'addImportedAccountWithCredential', error });
+          return { addedAccounts: [] };
+        },
+      );
+    }
+    const result = await run(
+      data({ importedAccounts: [selectedAccount('failed')] }),
+    );
+    expect(result.errorsInfo).toHaveLength(1);
+    expect(defaultLogger.prime.transfer.importError).toHaveBeenCalledTimes(2);
+    for (const [params] of jest.mocked(defaultLogger.prime.transfer.importError)
+      .mock.calls) {
+      expect(params).toEqual(
+        expect.objectContaining({
+          stage: 'addImportedAccountWithCredential',
+          itemIndex: 0,
+        }),
+      );
+    }
   });
 });

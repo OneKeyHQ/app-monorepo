@@ -18,7 +18,6 @@ import type {
   ITradingViewNativeChartTypePreference,
 } from '@onekeyhq/shared/types/tradingViewNative';
 
-import { TRADING_VIEW_PREVIOUS_CLOSE_LABEL } from '../constants';
 import {
   type ITradingViewChartMode,
   TradingViewChartModeSelect,
@@ -26,6 +25,7 @@ import {
 import { TradingViewChartTypeSettingsRow } from '../TradingViewChartControls/chartSettings';
 
 import { normalizeTradingViewNativeChartSettings } from './chartSettingsAdapter';
+import { useTradingViewPanelSettings } from './useTradingViewPanelSettings';
 
 type IQuickSettingOptions = Pick<
   ITradingViewNativeChartSettingsOptions,
@@ -38,10 +38,11 @@ const QUICK_SETTING_OPTIONS: Array<keyof IQuickSettingOptions> = [
 ];
 
 const OPTION_TRANSLATION_IDS: Record<
-  Exclude<keyof IQuickSettingOptions, 'previousClose'>,
+  keyof IQuickSettingOptions,
   ETranslations
 > = {
   yAxis: ETranslations.market_chart_settings__y_axis,
+  previousClose: ETranslations.market_prev_close,
 };
 
 function SettingsEntry({ onPress }: { onPress: () => void }) {
@@ -93,24 +94,56 @@ function QuickSettingOption({
   );
 }
 
-export function TradingViewMobileChartSettingsDialogContent({
+type IChartSettingsDialogProps = {
+  panelId?: string;
+  chartMode?: ITradingViewChartMode;
+  isChartSwitchDisabled?: boolean;
+  showPreviousClose?: boolean;
+  onChartSwitch?: () => void;
+  onOpenSettings: () => void;
+};
+
+function PanelChartSettingsDialogContent(
+  props: IChartSettingsDialogProps & { panelId: string },
+) {
+  const { chartSettingsState } = useTradingViewPanelSettings(props.panelId);
+  return (
+    <ChartSettingsDialogContent {...props} settingsState={chartSettingsState} />
+  );
+}
+
+function DefaultChartSettingsDialogContent(props: IChartSettingsDialogProps) {
+  const settingsState = useMarketTradingViewChartSettingsPersistAtom();
+  return (
+    <ChartSettingsDialogContent {...props} settingsState={settingsState} />
+  );
+}
+
+export function TradingViewMobileChartSettingsDialogContent(
+  props: IChartSettingsDialogProps,
+) {
+  return props.panelId ? (
+    <PanelChartSettingsDialogContent {...props} panelId={props.panelId} />
+  ) : (
+    <DefaultChartSettingsDialogContent {...props} />
+  );
+}
+
+function ChartSettingsDialogContent({
+  settingsState,
   chartMode,
   isChartSwitchDisabled = false,
   showPreviousClose = false,
   onChartSwitch,
   onOpenSettings,
-}: {
-  chartMode?: ITradingViewChartMode;
-  isChartSwitchDisabled?: boolean;
-  // Only stock detail charts offer Prev close.
-  showPreviousClose?: boolean;
-  onChartSwitch?: () => void;
-  onOpenSettings: () => void;
+}: IChartSettingsDialogProps & {
+  settingsState: ReturnType<
+    typeof useMarketTradingViewChartSettingsPersistAtom
+  >;
 }) {
   const intl = useIntl();
   const dialog = useDialogInstance();
-  const [settings, setSettings] =
-    useMarketTradingViewChartSettingsPersistAtom();
+  const [settings, setSettings] = settingsState;
   const normalizedSettings = useMemo(
     () => normalizeTradingViewNativeChartSettings(settings),
     [settings],
@@ -195,13 +228,9 @@ export function TradingViewMobileChartSettingsDialogContent({
               <QuickSettingOption
                 key={option}
                 option={option}
-                label={
-                  option === 'previousClose'
-                    ? TRADING_VIEW_PREVIOUS_CLOSE_LABEL
-                    : intl.formatMessage({
-                        id: OPTION_TRANSLATION_IDS[option],
-                      })
-                }
+                label={intl.formatMessage({
+                  id: OPTION_TRANSLATION_IDS[option],
+                })}
                 value={normalizedSettings.options[option]}
                 onChange={(value) => handleOptionChange(option, value)}
               />

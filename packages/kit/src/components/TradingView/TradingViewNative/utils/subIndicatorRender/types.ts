@@ -224,6 +224,7 @@ export interface ITradingViewNativeSubIndicatorRenderFill {
 }
 
 export interface ITradingViewNativeSubIndicatorRenderPane {
+  preferredHeight?: number;
   bands: ITradingViewNativeSubIndicatorRenderBand[];
   fills: ITradingViewNativeSubIndicatorRenderFill[];
   format: ITradingViewNativeSubIndicatorFormat;

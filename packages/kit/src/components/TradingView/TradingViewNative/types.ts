@@ -6,6 +6,7 @@ import type {
 } from '@onekeyhq/shared/types/tradingViewNative';
 
 import type { ITradingViewNativeChartInterval } from './data/tradingViewNativeIntervals';
+import type { ITradingViewNativeIndicatorQuickBarState } from '../TradingViewChartControls/indicatorSelector/nativeIndicatorQuickBarState';
 
 export type { ITradingViewNativeChartType } from '@onekeyhq/shared/types/tradingViewNative';
 
@@ -127,12 +128,29 @@ export type ITradingViewNativeChartComponentNode =
   | ITradingViewNativeChartComponentGroup
   | ITradingViewNativeChartLeafComponent;
 
+export interface ITradingViewNativeAccountMarksContext {
+  accountAddress?: string;
+  networkId: string;
+  tokenAddress: string;
+}
+
 export interface ITradingViewNativeProps {
   testID?: string;
   source: ITradingViewNativeSource;
   storageNamespace?: ITradingViewNativeStorageNamespace;
+  enableMultiChart?: boolean;
+  /** Opt-in for drawing tools on full Market charts across all platforms. */
+  enableDrawings?: boolean;
+  /** Stable workspace panel identity; omitted for the original chart. */
+  panelId?: string;
+  onNativeMultiChartCountChange?: (count: number) => void;
+  onNativeMultiChartResizingChange?: (isResizing: boolean) => void;
+  /** The workspace owns fullscreen presentation for all its panels. */
+  isPresentationManaged?: boolean;
+  onPresentationContentChange?: (content: ReactNode) => void;
   forcedChartType?: ITradingViewNativeChartType;
   chartComponents?: readonly ITradingViewNativeChartComponentNode[];
+  accountMarksContext?: ITradingViewNativeAccountMarksContext;
   /**
    * Opt-in for stock detail charts, which can anchor the Prev close line on the
    * stock's previous session close. It shows the chart setting and lets the
@@ -142,11 +160,13 @@ export interface ITradingViewNativeProps {
   /** Previous session close anchoring the Prev close reference line. */
   previousClose?: number;
   enableNativeChartSettings?: boolean;
+  nativeChartSettingsInToolbar?: boolean;
   initialRightOffset?: ITradingViewNativeInitialRightOffset;
   nativeChartDisplayMode?: ITradingViewNativeChartDisplayMode;
   /** Limits new selections without hiding sub-indicators that are already active. */
   maxSelectableSubIndicatorCount?: number;
   nativeControlsLayoutMode?: 'mobile' | 'desktop';
+  nativeChartWorkspaceControls?: ReactNode;
   /**
    * Drops the desktop controls row's own horizontal inset so its first control
    * lines up with the leading edge of the plot below it. For assemblies that
@@ -154,6 +174,7 @@ export interface ITradingViewNativeProps {
    */
   nativeControlsFlushHorizontalInset?: boolean;
   showNativeChartCloseControl?: boolean;
+  showNativeIndicatorQuickBar?: boolean;
   isNativeChartFullscreen?: boolean;
   nativeChartFullscreenHeader?: ReactNode;
   isChartSwitchDisabled?: boolean;
@@ -162,6 +183,9 @@ export interface ITradingViewNativeProps {
   onIntervalChange?: (data: ITradingViewNativeIntervalChangeData) => void;
   onNativeChartClose?: () => void;
   onNativeSubIndicatorCountChange?: (count: number | null) => void;
+  onNativeIndicatorQuickBarChange?: (
+    state: ITradingViewNativeIndicatorQuickBarState,
+  ) => void;
   onNativeChartFullscreenChange?: (isFullscreen: boolean) => void;
   onPriceUpdate?: (data: ITradingViewNativePriceUpdateData) => void;
 }

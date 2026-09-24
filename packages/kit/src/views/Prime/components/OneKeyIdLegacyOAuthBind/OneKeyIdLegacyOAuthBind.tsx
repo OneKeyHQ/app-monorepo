@@ -43,7 +43,6 @@ import {
   getOneKeyIdOAuthProviderIcon,
   getOneKeyIdOAuthProviderName,
 } from '@onekeyhq/shared/src/utils/oauthProviderUtils';
-import { isLegacyOneKeyIdAccountMissingOAuthIdentity } from '@onekeyhq/shared/src/utils/oneKeyIdAccountUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IKeylessOAuthSessionRollbackHandle } from '@onekeyhq/shared/types/prime/identityExitTypes';
 import type { EOneKeyIdOAuthProvider } from '@onekeyhq/shared/types/prime/primeTypes';
@@ -56,7 +55,17 @@ import {
 } from '../oneKeyIdLoginToastUtils';
 import { useOneKeyIdLocalKeylessOAuth } from '../useOneKeyIdLocalKeylessOAuth';
 
+import {
+  clearOneKeyIdLegacyOAuthBindCaches,
+  getCachedKeylessCredentialReadyForBind,
+  getCachedLocalKeylessPrepareResult,
+  getCachedShouldShowBindPrompt,
+  rememberKeylessCredentialReadyForBind,
+  rememberLocalKeylessPrepareResult,
+  rememberShouldShowBindPrompt,
+} from './oneKeyIdLocalKeylessPrepareCache';
 import { getOneKeyIdOAuthBindProviders } from './oneKeyIdOAuthBindProviders';
+import { shouldShowOneKeyIdLegacyOAuthBindPrompt } from './shouldShowOneKeyIdLegacyOAuthBindPrompt';
 
 import type { IntlShape } from 'react-intl';
 
@@ -263,12 +272,16 @@ function OneKeyIdLegacyOAuthBindActions({
   ) => void | Promise<void>;
 }) {
   const intl = useIntl();
+  const { user } = useOneKeyAuth();
+  const onekeyUserId = user?.onekeyUserId;
   const { run: runIdentityExit } = useIdentityExitFlow();
   const [bindingProvider, setBindingProvider] =
     useState<EOAuthSocialLoginProvider | null>(null);
   const [showKeylessLogoutAction, setShowKeylessLogoutAction] = useState(false);
   const [localKeylessLoginPrepareResult, setLocalKeylessLoginPrepareResult] =
-    useState<IOneKeyIdLoginWithLocalKeylessPrepareResult | null>(null);
+    useState<IOneKeyIdLoginWithLocalKeylessPrepareResult | null>(() =>
+      getCachedLocalKeylessPrepareResult(onekeyUserId),
+    );
   const bindingProviderRef = useRef<EOAuthSocialLoginProvider | null>(null);
   const handleAccountMismatch = useCallback(() => {
     setShowKeylessLogoutAction(true);
@@ -291,6 +304,18 @@ function OneKeyIdLegacyOAuthBindActions({
 
   useEffect(() => {
     let isMounted = true;
+    const cachedPrepareResult =
+      getCachedLocalKeylessPrepareResult(onekeyUserId);
+    if (cachedPrepareResult) {
+      setLocalKeylessLoginPrepareResult(cachedPrepareResult);
+    } else if (onekeyUserId) {
+      setLocalKeylessLoginPrepareResult(null);
+    }
+    if (!onekeyUserId) {
+      return () => {
+        isMounted = false;
+      };
+    }
     // Never fake a NoLocalKeyless result when prepare rejects: the bg method
     // already degrades transient Supabase failures to NeedOAuthLogin, so a
     // rejection here means the bg bridge call itself failed and nothing is
@@ -310,6 +335,7 @@ function OneKeyIdLegacyOAuthBindActions({
             await backgroundApiProxy.serviceKeylessWallet.prepareOneKeyIdLoginWithLocalKeyless();
           if (isMounted) {
             setLocalKeylessLoginPrepareResult(result);
+            rememberLocalKeylessPrepareResult({ onekeyUserId, result });
           }
           return;
         } catch (error) {
@@ -334,7 +360,7 @@ function OneKeyIdLegacyOAuthBindActions({
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [onekeyUserId]);
 
   const handleSwitchToBoundOneKeyId = useCallback(
     async ({
@@ -693,6 +719,30 @@ function OneKeyIdLegacyOAuthBindContent({
   );
 }
 
+function resolveLastKnownBindPrompt({
+  onekeyUserId,
+  previous,
+}: {
+  onekeyUserId?: string;
+  previous: { onekeyUserId?: string; shouldShow: boolean };
+}): { onekeyUserId?: string; shouldShow: boolean } {
+  const switchedToAnotherUser = Boolean(
+    previous.onekeyUserId &&
+    onekeyUserId &&
+    previous.onekeyUserId !== onekeyUserId,
+  );
+  if (switchedToAnotherUser) {
+    return { onekeyUserId, shouldShow: false };
+  }
+  const cachedShouldShow = getCachedShouldShowBindPrompt(
+    onekeyUserId ?? previous.onekeyUserId,
+  );
+  return {
+    onekeyUserId: onekeyUserId ?? previous.onekeyUserId,
+    shouldShow: previous.shouldShow || cachedShouldShow === true,
+  };
+}
+
 function OneKeyIdOAuthBindStatus({
   providers,
 }: {
@@ -762,16 +812,30 @@ export function OneKeyIdLegacyOAuthBindPrompt({
 }) {
   const { user } = useOneKeyAuth();
   const onekeyAccount = user?.onekeyAccount;
+  const onekeyUserId = user?.onekeyUserId;
+  const lastKnownBindPromptRef = useRef<{
+    onekeyUserId?: string;
+    shouldShow: boolean;
+  }>({
+    onekeyUserId,
+    shouldShow: getCachedShouldShowBindPrompt(onekeyUserId) === true,
+  });
+  lastKnownBindPromptRef.current = resolveLastKnownBindPrompt({
+    onekeyUserId,
+    previous: lastKnownBindPromptRef.current,
+  });
+  const shouldShowBindPrompt = shouldShowOneKeyIdLegacyOAuthBindPrompt({
+    onekeyAccount,
+    lastKnownShouldShow: lastKnownBindPromptRef.current.shouldShow,
+  });
+  lastKnownBindPromptRef.current.shouldShow = shouldShowBindPrompt;
   const boundOAuthProviders = useMemo(
     () => getBoundOAuthProviders(onekeyAccount),
     [onekeyAccount],
   );
-  const shouldShowBindPrompt = useMemo(
-    () => isLegacyOneKeyIdAccountMissingOAuthIdentity(onekeyAccount),
-    [onekeyAccount],
+  const [isKeylessCredentialReady, setIsKeylessCredentialReady] = useState(() =>
+    getCachedKeylessCredentialReadyForBind(onekeyUserId),
   );
-  const [isKeylessCredentialReady, setIsKeylessCredentialReady] =
-    useState(false);
   const handleResetBindPrompt = useCallback(async () => {
     if (!user?.onekeyUserId) {
       return;
@@ -799,28 +863,38 @@ export function OneKeyIdLegacyOAuthBindPrompt({
   }, [user?.onekeyUserId]);
 
   useEffect(() => {
+    if (!isLoggedIn) {
+      lastKnownBindPromptRef.current = {
+        onekeyUserId,
+        shouldShow: false,
+      };
+      setIsKeylessCredentialReady(false);
+      clearOneKeyIdLegacyOAuthBindCaches();
+      return undefined;
+    }
+    if (getCachedKeylessCredentialReadyForBind(onekeyUserId)) {
+      setIsKeylessCredentialReady(true);
+    }
+    if (!isFocused || !onekeyUserId) {
+      return undefined;
+    }
+
     let isCancelled = false;
     const refreshProfile = async () => {
-      if (!isLoggedIn || !isFocused) {
-        setIsKeylessCredentialReady(false);
-        return;
-      }
       try {
         const keylessCredentialReadiness =
           await backgroundApiProxy.serviceKeylessWallet.ensureKeylessCredentialReadyForOneKeyIdBind();
         if (isCancelled) {
           return;
         }
-        const isReady =
-          keylessCredentialReadiness.status !== 'retryableIndeterminate';
-        setIsKeylessCredentialReady(isReady);
-        if (!isReady) {
+        // Keep an already-shown card mounted across retryable/in-flight
+        // refreshes. Only a confirmed non-retryable result can reveal it.
+        if (keylessCredentialReadiness.status === 'retryableIndeterminate') {
           return;
         }
+        setIsKeylessCredentialReady(true);
+        rememberKeylessCredentialReadyForBind(onekeyUserId);
       } catch (error) {
-        if (!isCancelled) {
-          setIsKeylessCredentialReady(false);
-        }
         logOneKeyIdLoginFailureReason(
           `OneKeyIdLegacyOAuthBindPrompt credential readiness refresh failed: ${getSanitizedAuthErrorText(
             error,
@@ -845,7 +919,17 @@ export function OneKeyIdLegacyOAuthBindPrompt({
     return () => {
       isCancelled = true;
     };
-  }, [isFocused, isLoggedIn]);
+  }, [isFocused, isLoggedIn, onekeyUserId]);
+
+  useEffect(() => {
+    if (!isLoggedIn || !onekeyUserId) {
+      return;
+    }
+    rememberShouldShowBindPrompt({
+      onekeyUserId,
+      shouldShow: shouldShowBindPrompt,
+    });
+  }, [isLoggedIn, onekeyUserId, shouldShowBindPrompt]);
 
   if (!isLoggedIn) {
     return null;

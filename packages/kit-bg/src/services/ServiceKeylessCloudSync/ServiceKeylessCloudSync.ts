@@ -879,7 +879,12 @@ class ServiceKeylessCloudSync extends ServiceBase {
   } = {}): Promise<{
     success: boolean;
   }> {
-    if (systemTimeUtils.systemTimeStatus === ELocalSystemTimeStatus.INVALID) {
+    // A transient or offline check may leave INVALID unconfirmed. Keep the
+    // timestamp safety guards, but only block sync for a confirmed clock error.
+    if (
+      systemTimeUtils.systemTimeStatus === ELocalSystemTimeStatus.INVALID &&
+      systemTimeUtils.isTimeErrorConfirmed
+    ) {
       throw new OneKeyError(
         appLocale.intl.formatMessage({
           id: ETranslations.prime_time_error_description,

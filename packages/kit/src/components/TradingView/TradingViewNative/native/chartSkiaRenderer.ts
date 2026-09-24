@@ -11,6 +11,7 @@ import {
   type SkPaint,
   type SkPicture,
   type SkSVG,
+  type SkTypeface,
   Skia,
   StrokeCap,
   StrokeJoin,
@@ -20,6 +21,7 @@ import {
 
 import {
   type IBuildTradingViewNativeChartSceneOptions,
+  type ITradingViewNativeChartScene,
   type ITradingViewNativeChartSceneColors,
   type ITradingViewNativeChartSceneCommand,
   type ITradingViewNativeChartSceneFont,
@@ -29,10 +31,16 @@ import {
   getTradingViewNativeChartScenePaintStyles,
 } from '../utils/chartScene';
 
+import { drawNativeChartDrawings } from './chartDrawingRenderer';
+import { getTradingViewNativeSkiaTextFont } from './chartSkiaText';
+
+import type { IDrawingRenderState } from '../drawings/useChartDrawings';
+
 export interface ITradingViewNativeSkiaResources {
   customPaintSignatures: Record<string, string>;
   customPaints: Record<string, SkPaint>;
   fonts: Record<ITradingViewNativeChartSceneFont, SkFont>;
+  legendSubscriptFont: SkFont | null;
   paints: Record<ITradingViewNativeChartScenePaint, SkPaint>;
   watermarkPaint: SkPaint;
   watermarkSvg: SkSVG | null;
@@ -243,7 +251,7 @@ export function createTradingViewNativeSkiaResources({
   colors,
   fontFamily,
   legendFont,
-  priceAxisFont,
+  priceAxisTypeface,
   priceAxisFontSize,
   timeAxisFontSize,
   timeAxisBorderWidth,
@@ -252,7 +260,7 @@ export function createTradingViewNativeSkiaResources({
   colors: ITradingViewNativeChartSceneColors;
   fontFamily: string;
   legendFont: SkFont;
-  priceAxisFont: SkFont | null;
+  priceAxisTypeface: SkTypeface | null;
   priceAxisFontSize: number;
   timeAxisFontSize: number;
   timeAxisBorderWidth?: number;
@@ -270,11 +278,16 @@ export function createTradingViewNativeSkiaResources({
     fontManager,
     fontSize: timeAxisFontSize,
   });
-  const priceAxisFallbackFont = createTradingViewNativeSkiaFont({
-    fontFamily,
-    fontManager,
-    fontSize: priceAxisFontSize,
-  });
+  const priceAxisFont = priceAxisTypeface
+    ? Skia.Font(priceAxisTypeface, priceAxisFontSize)
+    : createTradingViewNativeSkiaFont({
+        fontFamily,
+        fontManager,
+        fontSize: priceAxisFontSize,
+      });
+  const legendSubscriptFont = priceAxisTypeface
+    ? Skia.Font(priceAxisTypeface, legendFont.getSize())
+    : null;
 
   for (const paintName of Object.keys(
     paintStyles,
@@ -289,8 +302,13 @@ export function createTradingViewNativeSkiaResources({
     fonts: {
       axis: axisFont,
       legend: legendFont,
-      priceAxis: priceAxisFont ?? priceAxisFallbackFont,
+      priceAxis: priceAxisFont,
+      referenceLineLabel: Skia.Font(
+        legendFont.getTypeface() ?? undefined,
+        priceAxisFontSize,
+      ),
     },
+    legendSubscriptFont,
     paints,
     watermarkPaint: Skia.Paint(),
     watermarkSvg,
@@ -481,7 +499,11 @@ function drawTradingViewNativeSkiaCommands({
             fallbackPaint: command.paint,
             resources,
           }),
-          resources.fonts[command.font],
+          getTradingViewNativeSkiaTextFont(
+            command.text,
+            resources.fonts[command.font],
+            command.font === 'legend' ? resources.legendSubscriptFont : null,
+          ),
         );
         break;
       case 'watermark':
@@ -507,17 +529,27 @@ function drawTradingViewNativeSkiaCommands({
 
 export function createTradingViewNativeSkiaPicture({
   resources,
+  drawings,
+  onScene,
   ...sceneOptions
 }: Omit<IBuildTradingViewNativeChartSceneOptions, 'measureTextWidth'> & {
   resources: ITradingViewNativeSkiaResources;
+  drawings?: IDrawingRenderState;
+  onScene?: (scene: ITradingViewNativeChartScene) => void;
 }): SkPicture {
   'worklet';
 
   const scene = buildTradingViewNativeChartScene({
     ...sceneOptions,
     measureTextWidth: (text, font) =>
-      resources.fonts[font].measureText(text).width,
+      getTradingViewNativeSkiaTextFont(
+        text,
+        resources.fonts[font],
+        font === 'legend' ? resources.legendSubscriptFont : null,
+      ).measureText(text).width,
   });
+
+  onScene?.(scene);
 
   const pictureSize =
     sceneOptions.height > 0 && sceneOptions.width > 0
@@ -536,5 +568,18 @@ export function createTradingViewNativeSkiaPicture({
       customPaintStyles: scene.customPaintStyles,
       resources,
     });
+    if (drawings && scene.layout && sceneOptions.points.length)
+      drawNativeChartDrawings(
+        canvas,
+        drawings,
+        {
+          layout: scene.layout,
+          viewport: scene.viewport,
+          points: sceneOptions.points,
+          interval: sceneOptions.candleIntervalSeconds,
+        },
+        resources.fonts.legend,
+        sceneOptions.chartSettings?.background.colors[0] ?? '#ffffff',
+      );
   }, pictureSize);
 }

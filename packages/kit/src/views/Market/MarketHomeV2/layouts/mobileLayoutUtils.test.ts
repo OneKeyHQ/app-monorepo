@@ -11,13 +11,13 @@ import {
 
 describe('getMarketMobileBannerHeaderHeight', () => {
   it('uses the legacy height when every banner omits token previews', () => {
-    expect(getMarketMobileBannerHeaderHeight([{}, {}])).toBe(134);
+    expect(getMarketMobileBannerHeaderHeight([{}, {}])).toBe(150);
   });
 
   it('uses the modern height when every banner renders token previews', () => {
     expect(
       getMarketMobileBannerHeaderHeight([{ tokens: [] }, { tokens: [] }]),
-    ).toBe(204);
+    ).toBe(212);
   });
 });
 
@@ -25,16 +25,16 @@ describe('resolveMarketBannerHeaderHeight', () => {
   it('updates a legacy height when a successful refresh becomes modern', () => {
     expect(
       resolveMarketBannerHeaderHeight({
-        current: { scope: 'en-US:false', height: 134 },
+        current: { scope: 'en-US:false', height: 150 },
         scope: 'en-US:false',
         isFetched: true,
         bannerList: [{ tokens: [] }],
       }),
-    ).toEqual({ scope: 'en-US:false', height: 204 });
+    ).toEqual({ scope: 'en-US:false', height: 212 });
   });
 
   it('preserves the occupied height when a refresh returns no banners', () => {
-    const current = { scope: 'en-US:false', height: 204 };
+    const current = { scope: 'en-US:false', height: 212 };
     expect(
       resolveMarketBannerHeaderHeight({
         current,
@@ -116,7 +116,7 @@ describe('getMarketEmptyWatchlistContainerProps', () => {
         isNativeAndroid: true,
         isWeb: false,
       }),
-    ).toEqual({ y: -58 });
+    ).toEqual({ y: -72 });
   });
 
   it('uses the recommendation list intrinsic spacing on mobile Web', () => {
@@ -134,14 +134,14 @@ describe('getMarketEmptyWatchlistContainerProps', () => {
         isNativeAndroid: false,
         isWeb: false,
       }),
-    ).toEqual({ y: -58 });
+    ).toEqual({ y: -72 });
   });
 });
 
 describe('getMarketNativeCompactListStyle', () => {
   it('visually reclaims the unused space without overriding list padding', () => {
     expect(getMarketNativeCompactListStyle(true)).toEqual({
-      transform: [{ translateY: -42 }],
+      transform: [{ translateY: -44 }],
     });
   });
 
@@ -151,37 +151,18 @@ describe('getMarketNativeCompactListStyle', () => {
 });
 
 describe('getMarketRecommendContainerPaddingTop', () => {
-  it('does not add viewport-based padding on native', () => {
-    expect(
-      getMarketRecommendContainerPaddingTop({
-        isNative: true,
-        windowHeight: 874,
-      }),
-    ).toBe(0);
+  it('does not add top padding on native', () => {
+    expect(getMarketRecommendContainerPaddingTop({ isNative: true })).toBe(0);
   });
 
-  it('preserves viewport-based padding outside native', () => {
-    expect(
-      getMarketRecommendContainerPaddingTop({
-        isNative: false,
-        windowHeight: 874,
-      }),
-    ).toBe(37);
-  });
-
-  it('keeps a minimum top gap on short windows outside native', () => {
-    expect(
-      getMarketRecommendContainerPaddingTop({
-        isNative: false,
-        windowHeight: 800,
-      }),
-    ).toBe(16);
+  it('uses a fixed 24px top gap outside native', () => {
+    expect(getMarketRecommendContainerPaddingTop({ isNative: false })).toBe(24);
   });
 });
 
 describe('getMarketMobileSecondaryHeaderHeight', () => {
   it('keeps one stable height while the pager changes tabs', () => {
-    expect(getMarketMobileSecondaryHeaderHeight()).toBe(74);
+    expect(getMarketMobileSecondaryHeaderHeight()).toBe(88);
   });
 });
 
@@ -197,7 +178,7 @@ describe('getMarketWebSecondaryHeaderHeight', () => {
     ).toBe(0);
   });
 
-  it('uses only the column header height for stock data without controls', () => {
+  it('leaves a 12px lead above the column header for tabs without controls', () => {
     expect(
       getMarketWebSecondaryHeaderHeight({
         isWatchlistEmpty: false,
@@ -205,7 +186,7 @@ describe('getMarketWebSecondaryHeaderHeight', () => {
         showSpotSubHeader: true,
         hasSpotSecondaryControls: false,
       }),
-    ).toBe(32);
+    ).toBe(44);
   });
 
   it('keeps the full height when spot controls are visible', () => {
@@ -216,7 +197,7 @@ describe('getMarketWebSecondaryHeaderHeight', () => {
         showSpotSubHeader: true,
         hasSpotSecondaryControls: true,
       }),
-    ).toBe(74);
+    ).toBe(88);
   });
 
   it('keeps the full height for non-spot tabs with secondary controls', () => {
@@ -227,6 +208,6 @@ describe('getMarketWebSecondaryHeaderHeight', () => {
         showSpotSubHeader: false,
         hasSpotSecondaryControls: false,
       }),
-    ).toBe(74);
+    ).toBe(88);
   });
 });

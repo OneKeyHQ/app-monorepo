@@ -1,6 +1,7 @@
 import { useCallback } from 'react';
 
 import { useIntl } from 'react-intl';
+import { StyleSheet } from 'react-native';
 
 import { Icon, SizableText, Skeleton, XStack } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
@@ -115,6 +116,11 @@ export function BorrowEModeMetric({
         gap="$2"
         width="100%"
         bg="$bgSubdued"
+        // Same edge as the position cards this bar closes the page under: at
+        // 1.05:1 the fill alone barely separates a block from the page, so the
+        // hairline is what actually draws it.
+        borderWidth={StyleSheet.hairlineWidth}
+        borderColor="$borderSubdued"
         borderRadius="$3"
         borderCurve="continuous"
         px="$4"

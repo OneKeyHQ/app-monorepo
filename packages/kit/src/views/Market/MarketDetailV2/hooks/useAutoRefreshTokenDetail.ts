@@ -1,6 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 
 import { useCurrency } from '@onekeyhq/kit/src/components/Currency';
+import { useLocaleVariant } from '@onekeyhq/kit/src/hooks/useLocaleVariant';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useTokenDetailActions } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2';
 import { useMarketAssetTokenDetailAction } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2/marketAssetDetail';
@@ -11,9 +12,13 @@ import {
 } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/utils/resolveMarketAssetRouteIdentity';
 import { useMarketCurrentTokenLiveDataAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { MARKET_TOP_COINS_CATEGORY_ID } from '@onekeyhq/shared/src/consts/marketConsts';
+import { swrKeys } from '@onekeyhq/shared/src/utils/swrCacheUtils';
+import { normalizeTokenContractAddress } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type { IMarketAssetDetailData } from '@onekeyhq/shared/types/market';
 
 interface IUseMarketDetailDataProps {
+  active?: boolean;
+  resumeOnEffectReconnect?: boolean;
   tokenAddress: string;
   networkId: string;
   isNative: boolean;
@@ -103,6 +108,7 @@ export function useResolvedMarketAssetRouteIdentity({
 }
 
 export function useAutoRefreshTokenDetail(data: IUseMarketDetailDataProps) {
+  const active = data.active !== false;
   const { current: tokenDetailActions } = useTokenDetailActions();
   const fetchMarketAssetTokenDetail = useMarketAssetTokenDetailAction();
   const currencyInfo = useCurrency();
@@ -116,6 +122,26 @@ export function useAutoRefreshTokenDetail(data: IUseMarketDetailDataProps) {
     data.marketTokenCategory === MARKET_TOP_COINS_CATEGORY_ID &&
     data.marketTokenId,
   );
+  const locale = useLocaleVariant().toLowerCase();
+  // The response carries currency-converted and localized fields.
+  const tokenDetailSwrKey =
+    active &&
+    !data.skipMarketDataFetch &&
+    !isMarketAssetRequest &&
+    currencyInfo.id &&
+    data.networkId &&
+    (data.tokenAddress || data.isNative)
+      ? swrKeys.marketTokenDetail({
+          networkId: data.networkId,
+          tokenAddress:
+            normalizeTokenContractAddress({
+              networkId: data.networkId,
+              contractAddress: data.tokenAddress,
+            }) ?? '',
+          currencyId: currencyInfo.id,
+          locale,
+        })
+      : undefined;
   const tokenDetailRequestKey = [
     isMarketAssetRequest ? 'asset' : 'token',
     data.marketTokenId ?? '',
@@ -128,9 +154,8 @@ export function useAutoRefreshTokenDetail(data: IUseMarketDetailDataProps) {
   const [settledRequestGeneration, setSettledRequestGeneration] =
     useState<number>();
   const requestScopeRef = useRef({ key: '', generation: 0 });
-  const activeRequestKey = data.skipMarketDataFetch
-    ? ''
-    : tokenDetailRequestKey;
+  const activeRequestKey =
+    data.skipMarketDataFetch || !active ? '' : tokenDetailRequestKey;
   if (requestScopeRef.current.key !== activeRequestKey) {
     requestScopeRef.current = {
       key: activeRequestKey,
@@ -139,9 +164,8 @@ export function useAutoRefreshTokenDetail(data: IUseMarketDetailDataProps) {
   }
   const requestGeneration = requestScopeRef.current.generation;
   const currentTokenDetailRequestKeyRef = useRef<string | undefined>(undefined);
-  currentTokenDetailRequestKeyRef.current = data.skipMarketDataFetch
-    ? undefined
-    : tokenDetailRequestKey;
+  currentTokenDetailRequestKeyRef.current =
+    data.skipMarketDataFetch || !active ? undefined : tokenDetailRequestKey;
   const successfulMarketAssetDetailRef = useRef<
     | {
         requestKey: string;
@@ -200,6 +224,7 @@ export function useAutoRefreshTokenDetail(data: IUseMarketDetailDataProps) {
   // Clear cached token detail when switching token or display currency.
   // This prevents showing stale data from the previous price scope.
   useLayoutEffect(() => {
+    if (!active) return;
     const prevToken = prevTokenRef.current;
     const isTokenChanged =
       prevToken &&
@@ -225,6 +250,7 @@ export function useAutoRefreshTokenDetail(data: IUseMarketDetailDataProps) {
       marketVariantId: data.marketVariantId,
     };
   }, [
+    active,
     currencyInfo.id,
     data.marketTokenId,
     data.marketVariantId,
@@ -237,12 +263,37 @@ export function useAutoRefreshTokenDetail(data: IUseMarketDetailDataProps) {
   // NOT inside the polling callback. This prevents stale polling responses
   // from writing old token identifiers back into atoms after a token switch.
   useLayoutEffect(() => {
+    if (!active) return;
     tokenDetailActions.setTokenAddress(data.tokenAddress);
     tokenDetailActions.setNetworkId(data.networkId);
     tokenDetailActions.setIsNative(data.isNative);
-  }, [data.tokenAddress, data.networkId, data.isNative, tokenDetailActions]);
+  }, [
+    active,
+    data.tokenAddress,
+    data.networkId,
+    data.isNative,
+    tokenDetailActions,
+  ]);
+
+  // Runs after the identity writes above so the seed matches the new token.
+  useLayoutEffect(() => {
+    if (!tokenDetailSwrKey) return;
+    tokenDetailActions.seedTokenDetailFromCache({
+      tokenAddress: data.tokenAddress,
+      networkId: data.networkId,
+      swrKey: tokenDetailSwrKey,
+    });
+  }, [
+    data.networkId,
+    data.tokenAddress,
+    tokenDetailActions,
+    tokenDetailSwrKey,
+  ]);
 
   useEffect(() => {
+    if (!active) {
+      return;
+    }
     const canFetch = Boolean(
       !data.skipMarketDataFetch &&
       currencyInfo.id &&
@@ -253,6 +304,7 @@ export function useAutoRefreshTokenDetail(data: IUseMarketDetailDataProps) {
       tokenDetailActions.setTokenDetailLoading(false);
     }
   }, [
+    active,
     currencyInfo.id,
     data.isNative,
     data.networkId,
@@ -266,6 +318,7 @@ export function useAutoRefreshTokenDetail(data: IUseMarketDetailDataProps) {
   >(
     async () => {
       if (
+        !active ||
         data.skipMarketDataFetch ||
         !currencyInfo.id ||
         !data.networkId ||
@@ -309,6 +362,7 @@ export function useAutoRefreshTokenDetail(data: IUseMarketDetailDataProps) {
         await tokenDetailActions.fetchTokenDetail(
           data.tokenAddress,
           data.networkId,
+          { swrKey: tokenDetailSwrKey },
         );
       } finally {
         if (
@@ -320,6 +374,7 @@ export function useAutoRefreshTokenDetail(data: IUseMarketDetailDataProps) {
       }
     },
     [
+      active,
       currencyInfo.id,
       data.isNative,
       data.marketTokenId,
@@ -331,13 +386,19 @@ export function useAutoRefreshTokenDetail(data: IUseMarketDetailDataProps) {
       isMarketAssetRequest,
       tokenDetailActions,
       tokenDetailRequestKey,
+      tokenDetailSwrKey,
       requestGeneration,
     ],
     {
       undefinedResultIfError: true,
-      pollingInterval: 6000, // Changed from 5000 to 6000 to avoid race condition with K-line updates
+      // Keep the interval identity stable while a retained Desktop/Web route is
+      // inactive. usePromiseResult delays a changed interval by its full
+      // duration; a stable interval lets the active dependency refetch
+      // immediately when the user returns to the route.
+      pollingInterval: 6000,
       revalidateOnFocus: true,
       revalidateOnReconnect: true,
+      resumeOnEffectReconnect: data.resumeOnEffectReconnect,
       // Disable focus check to allow data fetching when navigating from Modal to Tab
       // This is needed because when navigating from MarketBannerDetail (Modal) to MarketDetailV2 (Tab),
       // the Modal may still be in the navigation stack, causing isFocused to return false
@@ -353,6 +414,7 @@ export function useAutoRefreshTokenDetail(data: IUseMarketDetailDataProps) {
   return {
     marketAssetDetail,
     isInitialTokenDetailPending: Boolean(
+      active &&
       !data.skipMarketDataFetch &&
       data.networkId &&
       (data.tokenAddress || data.isNative) &&

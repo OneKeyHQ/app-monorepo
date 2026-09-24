@@ -46,6 +46,7 @@ export const SwapTestIDs = {
   stockBuyTab: 'swap-stock-buy-tab',
   stockSellTab: 'swap-stock-sell-tab',
   stockAmountInputSkeleton: 'swap-stock-amount-input-skeleton',
+  stockTradeHeaderSkeleton: 'swap-stock-trade-header-skeleton',
   stockEstimatedReceive: 'swap-stock-estimated-receive',
   stockMobileContainer: 'swap-stock-mobile-container',
   stockMarketTokenHeader: 'swap-stock-market-token-header',

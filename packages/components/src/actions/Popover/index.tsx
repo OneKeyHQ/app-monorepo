@@ -88,6 +88,8 @@ export interface IPopoverProps extends TMPopoverProps {
   description?: string;
   showHeader?: boolean;
   usingSheet?: boolean;
+  /** Uses the platform-native sheet presentation on iOS and Android. */
+  nativeSheet?: boolean;
   renderTrigger: ReactNode;
   openPopover?: () => void;
   closePopover?: () => void;
@@ -267,6 +269,7 @@ function RawPopover({
   closePopover,
   placement: placementProp,
   usingSheet = true,
+  nativeSheet: _nativeSheet,
   allowFlip = true,
   showHeader = true,
   ...props
@@ -386,7 +389,9 @@ function RawPopover({
   const keepChildrenMounted = Boolean(props.keepChildrenMounted);
   const shouldUseWebKeepMountedTransition =
     keepChildrenMounted && !platformEnv.isNative;
-  const hasInitializedWebKeepMountedRef = useRef(false);
+  const openedWebKeepMountedContentElementsRef = useRef(
+    new WeakSet<HTMLElement>(),
+  );
   const shouldAnimateContent = !keepChildrenMounted;
   const zIndex = useOverlayZIndex(isOpen);
   const content = (
@@ -418,11 +423,12 @@ function RawPopover({
     () => ({ transformOrigin }),
     [transformOrigin],
   );
-  useIsomorphicLayoutEffect(() => {
-    if (!shouldUseWebKeepMountedTransition) {
-      return;
-    }
-    const popperElement = contentRef.current as unknown as HTMLElement;
+  const contentStateRef = useRef({ isOpen, shouldUseWebKeepMountedTransition });
+  const handleContentRef = useCallback((node: View | null) => {
+    contentRef.current = node;
+    const state = contentStateRef.current;
+    if (!state.shouldUseWebKeepMountedTransition || !node) return;
+    const popperElement = node as unknown as HTMLElement;
     if (!popperElement) {
       return;
     }
@@ -438,20 +444,24 @@ function RawPopover({
       popperElement.style.removeProperty('transform');
       popperElement.style.removeProperty('visibility');
     }
-    const isInitialClosedMount =
-      !hasInitializedWebKeepMountedRef.current && !isOpen;
-    let transition = `${WEB_KEEP_MOUNTED_TRANSITION}, visibility 0ms linear 150ms`;
-    if (isInitialClosedMount) {
-      transition = 'none';
-    } else if (isOpen) {
+    const hasOpened =
+      openedWebKeepMountedContentElementsRef.current.has(contentElement);
+    let transition = 'none';
+    if (state.isOpen) {
       transition = WEB_KEEP_MOUNTED_TRANSITION;
+      openedWebKeepMountedContentElementsRef.current.add(contentElement);
+    } else if (hasOpened) {
+      transition = `${WEB_KEEP_MOUNTED_TRANSITION}, visibility 0ms linear 150ms`;
     }
     contentElement.style.transition = transition;
-    contentElement.style.opacity = isOpen ? '1' : '0';
-    contentElement.style.transform = `scale(${isOpen ? 1 : 0.95})`;
-    contentElement.style.visibility = isOpen ? 'visible' : 'hidden';
-    hasInitializedWebKeepMountedRef.current = true;
-  }, [isOpen, shouldUseWebKeepMountedTransition]);
+    contentElement.style.opacity = state.isOpen ? '1' : '0';
+    contentElement.style.transform = `scale(${state.isOpen ? 1 : 0.95})`;
+    contentElement.style.visibility = state.isOpen ? 'visible' : 'hidden';
+  }, []);
+  useIsomorphicLayoutEffect(() => {
+    contentStateRef.current = { isOpen, shouldUseWebKeepMountedTransition };
+    handleContentRef(contentRef.current);
+  }, [handleContentRef, isOpen, shouldUseWebKeepMountedTransition]);
   const scrollViewStyle = useMemo(
     () => ({ maxHeight: maxScrollViewHeight }),
     [maxScrollViewHeight],
@@ -479,7 +489,7 @@ function RawPopover({
       {/* floating panel */}
       {platformEnv.isNative ? null : (
         <TMPopover.Content
-          ref={contentRef}
+          ref={handleContentRef}
           zIndex={keepChildrenMounted ? undefined : SHEET_POPOVER_Z_INDEX + 1}
           trapFocus={false}
           unstyled

@@ -8,6 +8,18 @@ export const BorrowTestIDs = {
   reservesRetryBtn: 'borrow-reserves-retry-btn',
   positionCard: (kind: 'supplied' | 'borrowed', reserveAddress: string) =>
     `borrow-position-card-${kind}-${reserveAddress.toLowerCase()}`,
+  positionCardActions: (
+    kind: 'supplied' | 'borrowed',
+    reserveAddress: string,
+  ) => `borrow-position-card-actions-${kind}-${reserveAddress.toLowerCase()}`,
+  positionCardCollateralUnavailable: (reserveAddress: string) =>
+    `borrow-position-card-collateral-unavailable-${reserveAddress.toLowerCase()}`,
+  positionCardAction: (
+    kind: 'supplied' | 'borrowed',
+    reserveAddress: string,
+    action: 'supply' | 'withdraw' | 'borrow' | 'repay',
+  ) =>
+    `borrow-position-card-${action}-btn-${kind}-${reserveAddress.toLowerCase()}`,
 
   // --- Overview ---
   overviewRefreshBtn: 'borrow-overview-refresh-btn',
@@ -15,6 +27,7 @@ export const BorrowTestIDs = {
   overviewClaimRewardsBtn: 'borrow-overview-claim-rewards-btn',
   overviewHealthFactor: 'borrow-overview-health-factor',
   overviewHealthFactorInfoBtn: 'borrow-overview-health-factor-info-btn',
+  overviewNetWorth: 'borrow-overview-net-worth',
   overviewNetApy: 'borrow-overview-net-apy',
   overviewEModeCell: 'borrow-overview-emode-cell',
   overviewBonusInfoBtn: 'borrow-overview-bonus-info-btn',
