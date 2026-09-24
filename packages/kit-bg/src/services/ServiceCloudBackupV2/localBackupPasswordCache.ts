@@ -4,6 +4,7 @@ import {
   ESecretEncryptPayloadFormat,
   decryptAsyncWithMetadata,
 } from '@onekeyhq/core/src/secret';
+import { ECloudBackupProviderType } from '@onekeyhq/shared/src/cloudBackup/cloudBackupTypes';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import secureStorage from '@onekeyhq/shared/src/storage/instance/secureStorageInstance';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
@@ -11,15 +12,41 @@ import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 import simpleDb from '../../dbs/simple/simpleDb';
 import { encryptStringAsyncWithFormat } from '../../utils/secretEncryptFormat';
 
-// The native secureStorage adapter uses WHEN_UNLOCKED_THIS_DEVICE_ONLY.
+// secureStorage uses device-only Keychain on iOS and Keystore protection on Android.
 // Never reuse the synchronizable Cloud Backup V2 Keychain item for this cache.
 const DEVICE_KEY = 'com.onekey.backup_v2.local_password.key';
-const DATA_TYPE = 'icloud-backup-local-password-v1';
 
-type ICacheScope = { accountId: string; recordId?: string };
+type ICacheScope = {
+  providerType: ECloudBackupProviderType;
+  accountId: string;
+  recordId?: string;
+};
 
-function getCacheKey({ accountId, recordId }: ICacheScope): string {
+function isSupported({ providerType }: ICacheScope): boolean {
+  return Boolean(
+    (platformEnv.isNativeIOS &&
+      providerType === ECloudBackupProviderType.iCloud) ||
+    (platformEnv.isNativeAndroid &&
+      providerType === ECloudBackupProviderType.GoogleDrive),
+  );
+}
+
+function getDataType({ providerType }: ICacheScope): string {
+  return providerType === ECloudBackupProviderType.iCloud
+    ? 'icloud-backup-local-password-v1'
+    : 'google-drive-backup-local-password-v1';
+}
+
+function getCacheKey({
+  providerType,
+  accountId,
+  recordId,
+}: ICacheScope): string {
   return stringUtils.stableStringify({
+    // Preserve the existing iCloud key and AAD so saved passwords remain readable.
+    ...(providerType === ECloudBackupProviderType.GoogleDrive
+      ? { providerType }
+      : {}),
     accountId,
     recordId: recordId ?? null,
     version: 1,
@@ -31,7 +58,7 @@ class LocalBackupPasswordCache {
   private mutex = new Mutex();
 
   async get(scope: ICacheScope): Promise<string | undefined> {
-    if (!platformEnv.isNativeIOS || !scope.accountId) return undefined;
+    if (!isSupported(scope) || !scope.accountId) return undefined;
     try {
       return await this.mutex.runExclusive(async () => {
         const cacheKey = getCacheKey(scope);
@@ -48,7 +75,7 @@ class LocalBackupPasswordCache {
           password: key,
           allowRawPassword: true,
           aad: cacheKey,
-          dataType: DATA_TYPE,
+          dataType: getDataType(scope),
           enablePbkdf2Cache: false,
         });
         if (result.format !== ESecretEncryptPayloadFormat.v2) return undefined;
@@ -57,14 +84,14 @@ class LocalBackupPasswordCache {
     } catch {
       // Do not log native/crypto errors: they may contain secret inputs.
       console.warn(
-        'Local iCloud backup password cache unavailable; use manual entry.',
+        'Local cloud backup password cache unavailable; use manual entry.',
       );
       return undefined;
     }
   }
 
   async set(scope: ICacheScope & { password: string }): Promise<void> {
-    if (!platformEnv.isNativeIOS || !scope.accountId || !scope.password) return;
+    if (!isSupported(scope) || !scope.accountId || !scope.password) return;
     try {
       await this.mutex.runExclusive(async () => {
         let key = await secureStorage.getSecureItem(DEVICE_KEY);
@@ -83,7 +110,7 @@ class LocalBackupPasswordCache {
           allowRawPassword: true,
           format: 'v2',
           aad: cacheKey,
-          dataType: DATA_TYPE,
+          dataType: getDataType(scope),
           enablePbkdf2Cache: false,
         });
         await simpleDb.cloudBackupPasswordCache.setPasswordCiphertext(
@@ -92,12 +119,12 @@ class LocalBackupPasswordCache {
         );
       });
     } catch {
-      console.warn('Local iCloud backup password cache was not saved.');
+      console.warn('Local cloud backup password cache was not saved.');
     }
   }
 
   async remove(scope: ICacheScope): Promise<void> {
-    if (!platformEnv.isNativeIOS || !scope.accountId) return;
+    if (!isSupported(scope) || !scope.accountId) return;
     try {
       await this.mutex.runExclusive(() =>
         simpleDb.cloudBackupPasswordCache.removePasswordCiphertext(
@@ -105,7 +132,7 @@ class LocalBackupPasswordCache {
         ),
       );
     } catch {
-      console.warn('Local iCloud backup password cache was not removed.');
+      console.warn('Local cloud backup password cache was not removed.');
     }
   }
 }

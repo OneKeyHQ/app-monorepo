@@ -461,7 +461,10 @@ export function useCloudBackup() {
           );
           setCheckLoading(true);
           let restoreId: string | undefined;
-          if (platformEnv.isNativeIOS && recordId) {
+          if (
+            (platformEnv.isNativeIOS || platformEnv.isNativeAndroid) &&
+            recordId
+          ) {
             const prepared =
               await backgroundApiProxy.serviceCloudBackupV2.prepareLocalRestore(
                 { payload, recordId, password },
@@ -552,7 +555,11 @@ export function useCloudBackup() {
           },
         });
       };
-      if (platformEnv.isNativeIOS && recordId && (await restoreBackup()))
+      if (
+        (platformEnv.isNativeIOS || platformEnv.isNativeAndroid) &&
+        recordId &&
+        (await restoreBackup())
+      )
         return;
       showPasswordDialog();
     },

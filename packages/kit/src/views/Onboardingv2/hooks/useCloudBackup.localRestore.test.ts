@@ -25,7 +25,7 @@ jest.mock('@onekeyhq/shared/src/utils/openUrlUtils', () => ({
 }));
 
 jest.mock('@onekeyhq/components', () => ({
-  Dialog: { confirm: jest.fn() },
+  Dialog: { confirm: jest.fn(), loading: jest.fn(() => mockProgressDialog) },
   Toast: { success: jest.fn(), error: jest.fn() },
 }));
 jest.mock('react-intl', () => ({
@@ -53,6 +53,9 @@ jest.mock('../../../background/instance/backgroundApiProxy', () => ({
           userInfo: { user: { id: 'synthetic-google-id' } },
         },
       })),
+      isBackupPasswordSet: jest.fn(async () => true),
+      verifyBackupPassword: jest.fn(async () => true),
+      backup: jest.fn(async () => ({ recordID: 'new-backup' })),
       prepareLocalRestore: jest.fn(),
       restorePreparedLocalBackup: jest.fn(),
       restorePreparePrivateData: jest.fn(),
@@ -88,7 +91,7 @@ const payload: IBackupDataEncryptedPayload = {
   isWatchingOnly: false,
 };
 
-describe('iCloud local restore UI flow', () => {
+describe.each(['iOS', 'Android'])('%s local restore UI flow', (platform) => {
   const original = {
     isNativeIOS: platformEnv.isNativeIOS,
     isNativeAndroid: platformEnv.isNativeAndroid,
@@ -102,8 +105,8 @@ describe('iCloud local restore UI flow', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     Object.assign(platformEnv, {
-      isNativeIOS: true,
-      isNativeAndroid: false,
+      isNativeIOS: platform === 'iOS',
+      isNativeAndroid: platform === 'Android',
       isNative: true,
       isDesktopMac: false,
     });
@@ -254,8 +257,43 @@ describe('iCloud local restore UI flow', () => {
     expect(result.current.checkLoading).toBe(false);
   });
 
-  it('keeps Google Drive on the existing manual-password flow', async () => {
-    Object.assign(platformEnv, { isNativeIOS: false, isNativeAndroid: true });
+  it('still requires manual backup-password entry before creating a new backup', async () => {
+    service.prepareLocalRestore.mockResolvedValue({
+      restoreId: 'cached-handle',
+    });
+    const data = {
+      ...payload,
+      privateData: {
+        credentials: {},
+        wallets: {},
+        importedAccounts: {},
+        watchingAccounts: {},
+      },
+    };
+    const { result } = renderHook(() => useCloudBackup());
+    await act(async () => result.current.doBackup({ data }));
+    expect(showCloudBackupPasswordDialog).toHaveBeenCalledTimes(1);
+    expect(service.backup).not.toHaveBeenCalled();
+    expect(service.prepareLocalRestore).not.toHaveBeenCalled();
+    const [{ onSubmit }] = jest.mocked(showCloudBackupPasswordDialog).mock
+      .calls[0];
+    await act(async () => onSubmit('synthetic-password'));
+    expect(service.verifyBackupPassword).toHaveBeenCalledWith({
+      password: 'synthetic-password',
+    });
+    expect(service.backup).toHaveBeenCalledWith({
+      data,
+      password: 'synthetic-password',
+    });
+  });
+
+  it('keeps desktop on the existing manual-password flow', async () => {
+    Object.assign(platformEnv, {
+      isNativeIOS: false,
+      isNativeAndroid: false,
+      isDesktopMac: true,
+      isNative: false,
+    });
     const { result } = renderHook(() => useCloudBackup());
     await act(async () => {
       await result.current.doRestoreBackup(params);

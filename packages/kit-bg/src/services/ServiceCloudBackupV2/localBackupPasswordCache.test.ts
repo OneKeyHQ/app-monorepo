@@ -1,8 +1,14 @@
 /* eslint-disable @typescript-eslint/unbound-method -- Jest mock functions do not use this binding. */
 import { webcrypto } from 'crypto';
 
+import {
+  ESecretEncryptPayloadFormat,
+  encryptAsync,
+} from '@onekeyhq/core/src/secret';
+import { ECloudBackupProviderType } from '@onekeyhq/shared/src/cloudBackup/cloudBackupTypes';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import secureStorage from '@onekeyhq/shared/src/storage/instance/secureStorageInstance';
+import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 
 import simpleDb from '../../dbs/simple/simpleDb';
 
@@ -26,15 +32,23 @@ jest.mock('../../dbs/simple/simpleDb', () => ({
   },
 }));
 
-describe('device-only iCloud backup password cache', () => {
+describe.each([
+  ECloudBackupProviderType.iCloud,
+  ECloudBackupProviderType.GoogleDrive,
+])('device-only %s backup password cache', (providerType) => {
   const originalIOS = platformEnv.isNativeIOS;
+  const originalAndroid = platformEnv.isNativeAndroid;
   const cryptoDescriptor = Object.getOwnPropertyDescriptor(
     globalThis,
     'crypto',
   );
   const encryptedStorage = new Map<string, string>();
   const keychain = new Map<string, string>();
-  const scope = { accountId: 'synthetic-account-a', recordId: 'backup-a' };
+  const scope = {
+    providerType,
+    accountId: 'synthetic-account-a',
+    recordId: 'backup-a',
+  };
   const password = 'synthetic-backup-password';
   const db = jest.mocked(simpleDb.cloudBackupPasswordCache);
   const secure = jest.mocked(secureStorage);
@@ -46,7 +60,9 @@ describe('device-only iCloud backup password cache', () => {
     });
   });
   beforeEach(() => {
-    platformEnv.isNativeIOS = true;
+    platformEnv.isNativeIOS = providerType === ECloudBackupProviderType.iCloud;
+    platformEnv.isNativeAndroid =
+      providerType === ECloudBackupProviderType.GoogleDrive;
     encryptedStorage.clear();
     keychain.clear();
     jest.clearAllMocks();
@@ -69,6 +85,7 @@ describe('device-only iCloud backup password cache', () => {
   });
   afterEach(() => {
     platformEnv.isNativeIOS = originalIOS;
+    platformEnv.isNativeAndroid = originalAndroid;
     jest.restoreAllMocks();
   });
   afterAll(() => {
@@ -104,7 +121,7 @@ describe('device-only iCloud backup password cache', () => {
     expect(await cache.get(scope)).toBe('newly-verified-password');
   });
 
-  it('isolates passwords for the same backup ID under different iCloud accounts with one device key', async () => {
+  it('isolates passwords for the same backup ID under different cloud accounts with one device key', async () => {
     const otherAccount = { ...scope, accountId: 'synthetic-account-b' };
     await cache.set({ ...scope, password });
     expect(await cache.get(otherAccount)).toBeUndefined();
@@ -138,7 +155,7 @@ describe('device-only iCloud backup password cache', () => {
   });
 
   it('serializes first writes, retains old backup passwords, and updates the current password', async () => {
-    const current = { accountId: scope.accountId };
+    const current = { providerType, accountId: scope.accountId };
     await Promise.all([
       cache.set({ ...scope, password }),
       cache.set({ ...current, password: 'old-current-password' }),
@@ -152,7 +169,7 @@ describe('device-only iCloud backup password cache', () => {
     expect(await cache.get(scope)).toBe(password);
   });
 
-  it('treats locked Keychain and corrupt or failing storage as optional cache failures', async () => {
+  it('treats unavailable secure storage and corrupt or failing storage as optional cache failures', async () => {
     await cache.set({ ...scope, password });
     secure.getSecureItem.mockRejectedValueOnce(new Error('Keychain locked'));
     expect(await cache.get(scope)).toBeUndefined();
@@ -174,8 +191,58 @@ describe('device-only iCloud backup password cache', () => {
     expect(encryptedStorage.size).toBe(0);
   });
 
-  it('never accesses storage outside iOS', async () => {
+  it('isolates providers even when account IDs, record IDs, and the device key match', async () => {
+    await cache.set({ ...scope, password });
+    const [originalCiphertext] = [...encryptedStorage.values()];
+    const otherProvider =
+      providerType === ECloudBackupProviderType.iCloud
+        ? ECloudBackupProviderType.GoogleDrive
+        : ECloudBackupProviderType.iCloud;
+    const otherScope = { ...scope, providerType: otherProvider };
+    platformEnv.isNativeIOS = otherProvider === ECloudBackupProviderType.iCloud;
+    platformEnv.isNativeAndroid =
+      otherProvider === ECloudBackupProviderType.GoogleDrive;
+    expect(await cache.get(otherScope)).toBeUndefined();
+    await cache.set({ ...otherScope, password: 'another-provider-password' });
+    expect(encryptedStorage.size).toBe(2);
+    const calls = db.setPasswordCiphertext.mock.calls;
+    encryptedStorage.set(calls[calls.length - 1][0], originalCiphertext);
+    expect(await cache.get(otherScope)).toBeUndefined();
+    expect(secure.setSecureItem).toHaveBeenCalledTimes(1);
+  });
+
+  it('continues to read the original iCloud cache format', async () => {
+    platformEnv.isNativeIOS = true;
+    platformEnv.isNativeAndroid = false;
+    const key = 'a'.repeat(64);
+    const oldCacheKey = stringUtils.stableStringify({
+      accountId: scope.accountId,
+      recordId: scope.recordId,
+      version: 1,
+    });
+    const ciphertext = await encryptAsync({
+      data: Buffer.from(password),
+      password: key,
+      allowRawPassword: true,
+      format: ESecretEncryptPayloadFormat.v2,
+      aad: oldCacheKey,
+      dataType: 'icloud-backup-local-password-v1',
+      enablePbkdf2Cache: false,
+    });
+    keychain.set('com.onekey.backup_v2.local_password.key', key);
+    encryptedStorage.set(oldCacheKey, ciphertext.toString('hex'));
+    expect(
+      await cache.get({
+        ...scope,
+        providerType: ECloudBackupProviderType.iCloud,
+      }),
+    ).toBe(password);
+    expect(secure.setSecureItem).not.toHaveBeenCalled();
+  });
+
+  it('never accesses storage outside native mobile', async () => {
     platformEnv.isNativeIOS = false;
+    platformEnv.isNativeAndroid = false;
     await cache.set({ ...scope, password });
     expect(await cache.get(scope)).toBeUndefined();
     await cache.remove(scope);

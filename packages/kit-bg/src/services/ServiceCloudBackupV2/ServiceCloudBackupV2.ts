@@ -92,6 +92,7 @@ class ServiceCloudBackupV2 extends ServiceBase {
     | {
         restoreId: string;
         accountId: string;
+        providerType: ECloudBackupProviderType;
         transferData: IPrimeTransferData;
         expiresAt: number;
         timer: ReturnType<typeof setTimeout>;
@@ -105,39 +106,47 @@ class ServiceCloudBackupV2 extends ServiceBase {
     }
   }
 
+  private supportsLocalPasswordCache(
+    accountInfo: IBackupProviderAccountInfo,
+  ): boolean {
+    return Boolean(
+      (platformEnv.isNativeIOS &&
+        accountInfo.providerType === ECloudBackupProviderType.iCloud) ||
+      (platformEnv.isNativeAndroid &&
+        accountInfo.providerType === ECloudBackupProviderType.GoogleDrive),
+    );
+  }
+
   private async cacheBackupPassword(params: {
     accountInfo: IBackupProviderAccountInfo;
     password: string;
     recordId?: string;
   }): Promise<void> {
-    if (
-      !platformEnv.isNativeIOS ||
-      params.accountInfo.providerType !== ECloudBackupProviderType.iCloud
-    )
-      return;
+    if (!this.supportsLocalPasswordCache(params.accountInfo)) return;
     try {
       const { default: cache } = await import('./localBackupPasswordCache');
       await cache.set({
+        providerType: params.accountInfo.providerType,
         accountId: params.accountInfo.userId,
         recordId: params.recordId,
         password: params.password,
       });
     } catch {
-      console.warn('Local iCloud backup password cache was not saved.');
+      console.warn('Local cloud backup password cache was not saved.');
     }
   }
 
   private async getBackupPasswordCacheAccount(): Promise<
     IBackupProviderAccountInfo | undefined
   > {
-    if (!platformEnv.isNativeIOS) return;
+    if (!platformEnv.isNativeIOS && !platformEnv.isNativeAndroid) return;
     try {
       const accountInfo = await this.getProvider().getCloudAccountInfo();
-      if (accountInfo.providerType === ECloudBackupProviderType.iCloud) {
+      if (this.supportsLocalPasswordCache(accountInfo)) {
         return accountInfo;
       }
     } catch {
-      console.warn('Local iCloud backup cache account was not available.');
+      console.warn('Local cloud backup cache account was not available.');
     }
   }
 
@@ -145,17 +154,22 @@ class ServiceCloudBackupV2 extends ServiceBase {
     accountInfo: IBackupProviderAccountInfo | undefined;
     recordId?: string;
   }): Promise<void> {
-    if (!platformEnv.isNativeIOS) return;
+    if (!platformEnv.isNativeIOS && !platformEnv.isNativeAndroid) return;
     this.clearPreparedLocalRestore();
-    if (!params.accountInfo?.userId) return;
+    if (
+      !params.accountInfo?.userId ||
+      !this.supportsLocalPasswordCache(params.accountInfo)
+    )
+      return;
     try {
       const { default: cache } = await import('./localBackupPasswordCache');
       await cache.remove({
+        providerType: params.accountInfo.providerType,
         accountId: params.accountInfo.userId,
         recordId: params.recordId,
       });
     } catch {
-      console.warn('Local iCloud backup password cache was not removed.');
+      console.warn('Local cloud backup password cache was not removed.');
     }
   }
 
@@ -577,15 +591,18 @@ class ServiceCloudBackupV2 extends ServiceBase {
     payload: IBackupDataEncryptedPayload | undefined;
     password?: string;
   }): Promise<{ restoreId: string } | null> {
-    if (!platformEnv.isNativeIOS || !params.recordId || !params.payload)
+    if (
+      (!platformEnv.isNativeIOS && !platformEnv.isNativeAndroid) ||
+      !params.recordId ||
+      !params.payload
+    )
       return null;
     this.clearPreparedLocalRestore();
     let accountInfo: IBackupProviderAccountInfo;
     let privateData: IPrimeTransferPrivateData | undefined;
     if (params.password !== undefined) {
       accountInfo = await this.getCloudAccountInfo();
-      if (accountInfo.providerType !== ECloudBackupProviderType.iCloud)
-        return null;
+      if (!this.supportsLocalPasswordCache(accountInfo)) return null;
       privateData = await this.decryptBackupPrivateData(
         { ...params, password: params.password },
         accountInfo,
@@ -600,13 +617,14 @@ class ServiceCloudBackupV2 extends ServiceBase {
         // This optional path must not emit a password-error toast on cache misses.
         accountInfo = await this.getProvider().getCloudAccountInfo();
         if (
-          accountInfo.providerType !== ECloudBackupProviderType.iCloud ||
+          !this.supportsLocalPasswordCache(accountInfo) ||
           !accountInfo.userId
         )
           return null;
         const { default: cache } = await import('./localBackupPasswordCache');
         for (const recordId of [params.recordId, undefined]) {
           const password = await cache.get({
+            providerType: accountInfo.providerType,
             accountId: accountInfo.userId,
             recordId,
           });
@@ -619,7 +637,11 @@ class ServiceCloudBackupV2 extends ServiceBase {
             } catch {
               // The current password may legitimately fail on an older backup.
               if (recordId)
-                await cache.remove({ accountId: accountInfo.userId, recordId });
+                await cache.remove({
+                  providerType: accountInfo.providerType,
+                  accountId: accountInfo.userId,
+                  recordId,
+                });
             }
             if (privateData) {
               if (!recordId) {
@@ -635,7 +657,7 @@ class ServiceCloudBackupV2 extends ServiceBase {
         }
       } catch {
         console.warn(
-          'Local iCloud backup restore unavailable; use manual entry.',
+          'Local cloud backup restore unavailable; use manual entry.',
         );
         return null;
       }
@@ -647,6 +669,7 @@ class ServiceCloudBackupV2 extends ServiceBase {
     this.preparedLocalRestore = {
       restoreId,
       accountId: accountInfo.userId,
+      providerType: accountInfo.providerType,
       transferData: { ...params.payload, privateData },
       expiresAt: Date.now() + 60_000,
       timer: setTimeout(() => this.clearPreparedLocalRestore(), 60_000),
@@ -660,14 +683,15 @@ class ServiceCloudBackupV2 extends ServiceBase {
     taskUUID: string;
     restoreId: string;
   }): Promise<{ success: boolean } | null> {
-    if (!platformEnv.isNativeIOS) return null;
+    if (!platformEnv.isNativeIOS && !platformEnv.isNativeAndroid) return null;
     const prepared = this.preparedLocalRestore;
     if (!prepared || prepared.restoreId !== params.restoreId) return null;
     this.clearPreparedLocalRestore();
     if (prepared.expiresAt <= Date.now()) return null;
     const accountInfo = await this.getCloudAccountInfo();
     if (
-      accountInfo.providerType !== ECloudBackupProviderType.iCloud ||
+      !this.supportsLocalPasswordCache(accountInfo) ||
+      accountInfo.providerType !== prepared.providerType ||
       accountInfo.userId !== prepared.accountId
     )
       return null;

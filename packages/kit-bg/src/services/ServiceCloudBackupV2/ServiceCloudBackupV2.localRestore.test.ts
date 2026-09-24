@@ -93,6 +93,7 @@ const data: IPrimeTransferData = {
 
 describe('local iCloud restore integration', () => {
   const originalIOS = platformEnv.isNativeIOS;
+  const originalAndroid = platformEnv.isNativeAndroid;
   const originalDesktopMac = platformEnv.isDesktopMac;
   const cryptoDescriptor = Object.getOwnPropertyDescriptor(
     globalThis,
@@ -145,6 +146,7 @@ describe('local iCloud restore integration', () => {
     promptPasswordVerify.mockReset();
     jest.useFakeTimers({ doNotFake: ['nextTick', 'setImmediate'] });
     platformEnv.isNativeIOS = true;
+    platformEnv.isNativeAndroid = false;
     platformEnv.isDesktopMac = false;
     jest.spyOn(console, 'warn').mockImplementation(() => undefined);
     jest.spyOn(console, 'log').mockImplementation(() => undefined);
@@ -184,6 +186,7 @@ describe('local iCloud restore integration', () => {
     jest.clearAllTimers();
     jest.useRealTimers();
     platformEnv.isNativeIOS = originalIOS;
+    platformEnv.isNativeAndroid = originalAndroid;
     platformEnv.isDesktopMac = originalDesktopMac;
     jest.restoreAllMocks();
   });
@@ -294,6 +297,7 @@ describe('local iCloud restore integration', () => {
     cached.get.mockResolvedValueOnce('wrong-cached-password');
     expect(await service.prepareLocalRestore({ recordId, payload })).toBeNull();
     expect(cached.remove).toHaveBeenCalledWith({
+      providerType: accountInfo.providerType,
       accountId: accountInfo.userId,
       recordId,
     });
@@ -312,6 +316,7 @@ describe('local iCloud restore integration', () => {
     });
     expect(prepared).not.toBeNull();
     expect(cached.set).toHaveBeenCalledWith({
+      providerType: accountInfo.providerType,
       accountId: accountInfo.userId,
       recordId,
       password,
@@ -326,6 +331,7 @@ describe('local iCloud restore integration', () => {
       await service.prepareLocalRestore({ recordId, payload }),
     ).not.toBeNull();
     expect(cached.set).toHaveBeenCalledWith({
+      providerType: accountInfo.providerType,
       accountId: accountInfo.userId,
       recordId,
       password,
@@ -400,12 +406,14 @@ describe('local iCloud restore integration', () => {
   it('updates the current password only after successful set or verification and keeps failed operations out of the cache', async () => {
     await service.setBackupPassword({ password });
     expect(cached.set).toHaveBeenLastCalledWith({
+      providerType: accountInfo.providerType,
       accountId: accountInfo.userId,
       recordId: undefined,
       password,
     });
     await service.verifyBackupPassword({ password: 'changed-password' });
     expect(cached.set).toHaveBeenLastCalledWith({
+      providerType: accountInfo.providerType,
       accountId: accountInfo.userId,
       recordId: undefined,
       password: 'changed-password',
@@ -426,6 +434,7 @@ describe('local iCloud restore integration', () => {
     mockSuccessfulBackup();
     await service.backup({ data, password });
     expect(cached.set).toHaveBeenCalledWith({
+      providerType: accountInfo.providerType,
       accountId: accountInfo.userId,
       recordId,
       password,
@@ -478,6 +487,7 @@ describe('local iCloud restore integration', () => {
       else await service.deleteSilently({ recordId });
       expect(cached.remove).toHaveBeenCalledTimes(1);
       expect(cached.remove).toHaveBeenCalledWith({
+        providerType: accountInfo.providerType,
         accountId: accountInfo.userId,
         recordId: operation === 'password reset' ? undefined : recordId,
       });
@@ -615,7 +625,7 @@ describe('local iCloud restore integration', () => {
     expect(cached.set).not.toHaveBeenCalled();
   });
 
-  it('does not add iCloud account checks or password caching to Google Drive backups', async () => {
+  it('keeps non-native Google backup calls independent of native caching', async () => {
     platformEnv.isNativeIOS = false;
     mockProvider.getCloudAccountInfo.mockResolvedValue({
       ...accountInfo,
@@ -630,7 +640,7 @@ describe('local iCloud restore integration', () => {
     expect(cached.set).not.toHaveBeenCalled();
   });
 
-  it('keeps Google password setup and reset independent of iCloud account guards and caching', async () => {
+  it('keeps non-native Google password operations independent of native caching', async () => {
     platformEnv.isNativeIOS = false;
     mockProvider.getCloudAccountInfo.mockResolvedValue({
       ...accountInfo,
@@ -651,6 +661,7 @@ describe('local iCloud restore integration', () => {
 
   it('encrypts Google backups for the account selected during local authorization', async () => {
     platformEnv.isNativeIOS = false;
+    platformEnv.isNativeAndroid = true;
     let currentAccountId = 'synthetic-google-account-a';
     mockProvider.getCloudAccountInfo.mockImplementation(async () => ({
       userId: currentAccountId,
@@ -704,17 +715,29 @@ describe('local iCloud restore integration', () => {
       }),
     ).rejects.toThrow();
     expect(cached.get).not.toHaveBeenCalled();
-    expect(cached.set).not.toHaveBeenCalled();
+    expect(cached.set).toHaveBeenCalledWith({
+      providerType: ECloudBackupProviderType.GoogleDrive,
+      accountId: 'synthetic-google-account-b',
+      recordId,
+      password,
+    });
+    expect(
+      cached.set.mock.calls.every(
+        ([entry]) => entry.accountId === 'synthetic-google-account-b',
+      ),
+    ).toBe(true);
   });
 
   it('clears only the relevant cache entry after successful remote deletion or password reset', async () => {
     await service.deleteSilently({ recordId });
     expect(cached.remove).toHaveBeenLastCalledWith({
+      providerType: accountInfo.providerType,
       accountId: accountInfo.userId,
       recordId,
     });
     await service.clearBackupPassword();
     expect(cached.remove).toHaveBeenLastCalledWith({
+      providerType: accountInfo.providerType,
       accountId: accountInfo.userId,
       recordId: undefined,
     });
@@ -726,7 +749,7 @@ describe('local iCloud restore integration', () => {
     expect(cached.remove).not.toHaveBeenCalled();
   });
 
-  it('leaves Google Drive and non-iOS manual restore behavior unchanged', async () => {
+  it('rejects provider/platform mismatches and keeps non-native manual restore available', async () => {
     mockProvider.getCloudAccountInfo.mockResolvedValue({
       ...accountInfo,
       providerType: ECloudBackupProviderType.GoogleDrive,
@@ -750,5 +773,208 @@ describe('local iCloud restore integration', () => {
     expect(cached.get).not.toHaveBeenCalled();
     expect(cached.set).not.toHaveBeenCalled();
     expect(promptPasswordVerify).toHaveBeenCalledTimes(1);
+  });
+  describe('Android Google Drive', () => {
+    const googleAccount = {
+      userId: 'synthetic-google-account',
+      userEmail: '',
+      providerType: ECloudBackupProviderType.GoogleDrive,
+    };
+    const googleScope = {
+      providerType: googleAccount.providerType,
+      accountId: googleAccount.userId,
+      recordId,
+    };
+
+    beforeEach(async () => {
+      platformEnv.isNativeIOS = false;
+      platformEnv.isNativeAndroid = true;
+      mockProvider.getCloudAccountInfo.mockResolvedValue({ ...googleAccount });
+      const encrypted = await encryptAsync({
+        data: Buffer.from(stringUtils.stableStringify(data.privateData)),
+        password: `${googleAccount.userId}:${password}:4A561E9E-E747-4AFF-B835-FE2EF2D61B41`,
+        allowRawPassword: true,
+        format: ESecretEncryptPayloadFormat.legacy,
+      });
+      const { privateData: _privateData, ...publicFields } = data;
+      payload = {
+        ...publicFields,
+        privateDataEncrypted: encrypted.toString('base64'),
+      };
+    });
+
+    it('uses a one-use background handle and still requires local wallet authorization', async () => {
+      const prepared = await prepareCached();
+      expect(cached.get).toHaveBeenCalledWith(googleScope);
+      expect(Object.keys(prepared)).toEqual(['restoreId']);
+      expect(
+        await service.restorePreparedLocalBackup({
+          ...prepared,
+          taskUUID: 'import-task',
+        }),
+      ).toEqual({ success: true });
+      expect(promptPasswordVerify).toHaveBeenCalledTimes(1);
+      expect(transfer.getSelectedTransferData).toHaveBeenCalledWith({
+        data: { ...payload, privateData: data.privateData },
+        selectedItemMap: 'ALL',
+      });
+      expect(
+        await service.restorePreparedLocalBackup({
+          ...prepared,
+          taskUUID: 'import-task',
+        }),
+      ).toBeNull();
+      expect(transfer.startImport).toHaveBeenCalledTimes(1);
+    });
+
+    it('falls back after wrong cached passwords, rejects wrong manual input, and caches successful manual decryption', async () => {
+      cached.get.mockResolvedValue('wrong-cached-password');
+      expect(
+        await service.prepareLocalRestore({ recordId, payload }),
+      ).toBeNull();
+      expect(cached.remove).toHaveBeenCalledWith(googleScope);
+      await expect(
+        service.prepareLocalRestore({
+          recordId,
+          payload,
+          password: 'wrong-manual-password',
+        }),
+      ).rejects.toThrow();
+      expect(cached.set).not.toHaveBeenCalled();
+      expect(
+        await service.prepareLocalRestore({ recordId, payload, password }),
+      ).toHaveProperty('restoreId');
+      expect(cached.set).toHaveBeenCalledWith({ ...googleScope, password });
+    });
+
+    it('falls back when secure storage or the signed-in account is unavailable', async () => {
+      cached.get.mockRejectedValueOnce(new Error('Keystore unavailable'));
+      expect(
+        await service.prepareLocalRestore({ recordId, payload }),
+      ).toBeNull();
+      mockProvider.getCloudAccountInfo.mockResolvedValueOnce({
+        ...googleAccount,
+        userId: '',
+      });
+      expect(
+        await service.prepareLocalRestore({ recordId, payload }),
+      ).toBeNull();
+      expect(transfer.startImport).not.toHaveBeenCalled();
+    });
+
+    it.each(['account change', 'sign-out', 'expiry'])(
+      'rejects a prepared Google restore after %s',
+      async (reason) => {
+        const prepared = await prepareCached();
+        if (reason === 'expiry') jest.advanceTimersByTime(60_001);
+        else
+          mockProvider.getCloudAccountInfo.mockResolvedValue({
+            ...googleAccount,
+            userId: reason === 'sign-out' ? '' : 'another-google-account',
+          });
+        expect(
+          await service.restorePreparedLocalBackup({
+            ...prepared,
+            taskUUID: 'import-task',
+          }),
+        ).toBeNull();
+        expect(promptPasswordVerify).not.toHaveBeenCalled();
+        expect(transfer.startImport).not.toHaveBeenCalled();
+      },
+    );
+
+    it('updates the current Google password only after successful setup or verification', async () => {
+      await service.setBackupPassword({ password });
+      expect(mockProvider.setBackupPassword).toHaveBeenCalledWith({
+        password: `${googleAccount.userId}:${password}:4A561E9E-E747-4AFF-B835-FE2EF2D61B41`,
+      });
+      expect(cached.set).toHaveBeenLastCalledWith({
+        ...googleScope,
+        recordId: undefined,
+        password,
+      });
+      await service.verifyBackupPassword({ password: 'changed-password' });
+      expect(cached.set).toHaveBeenLastCalledWith({
+        ...googleScope,
+        recordId: undefined,
+        password: 'changed-password',
+      });
+      cached.set.mockClear();
+      mockProvider.verifyBackupPassword.mockResolvedValueOnce(false);
+      expect(
+        await service.verifyBackupPassword({ password: 'wrong-password' }),
+      ).toBe(false);
+      mockProvider.setBackupPassword.mockRejectedValueOnce(
+        new Error('Cloud write failed'),
+      );
+      await expect(service.setBackupPassword({ password })).rejects.toThrow(
+        'Cloud write failed',
+      );
+      expect(cached.set).not.toHaveBeenCalled();
+    });
+
+    it('keeps cache write failures optional after successful manual decryption', async () => {
+      cached.set.mockRejectedValueOnce(new Error('Keystore unavailable'));
+      const prepared = await service.prepareLocalRestore({
+        recordId,
+        payload,
+        password,
+      });
+      if (!prepared) throw new OneKeyLocalError('Expected a prepared restore');
+      expect(
+        await service.restorePreparedLocalBackup({
+          ...prepared,
+          taskUUID: 'import-task',
+        }),
+      ).toEqual({ success: true });
+    });
+
+    it.each(['password reset', 'record deletion'])(
+      'keeps cache removal scoped to the original Google account during %s',
+      async (operation) => {
+        const remoteOperation =
+          operation === 'password reset'
+            ? mockProvider.clearBackupPassword
+            : mockProvider.deleteBackup;
+        remoteOperation.mockImplementationOnce(async () => {
+          mockProvider.getCloudAccountInfo.mockResolvedValue({
+            ...googleAccount,
+            userId: 'another-google-account',
+          });
+        });
+        if (operation === 'password reset') await service.clearBackupPassword();
+        else await service.deleteSilently({ recordId });
+        expect(cached.remove).toHaveBeenCalledTimes(1);
+        expect(cached.remove).toHaveBeenCalledWith({
+          ...googleScope,
+          recordId: operation === 'password reset' ? undefined : recordId,
+        });
+      },
+    );
+
+    it('does not suppress local authorization failures or import into a cancelled task', async () => {
+      const prepared = await prepareCached();
+      promptPasswordVerify.mockRejectedValueOnce(
+        new Error('Authorization cancelled'),
+      );
+      await expect(
+        service.restorePreparedLocalBackup({
+          ...prepared,
+          taskUUID: 'import-task',
+        }),
+      ).rejects.toThrow('Authorization cancelled');
+      expect(transfer.resetImportProgress).toHaveBeenCalledWith({
+        taskUUID: 'import-task',
+      });
+      const retry = await prepareCached();
+      transfer.isImportTaskActive.mockResolvedValue(false);
+      expect(
+        await service.restorePreparedLocalBackup({
+          ...retry,
+          taskUUID: 'cancelled-task',
+        }),
+      ).toEqual({ success: false });
+      expect(transfer.startImport).not.toHaveBeenCalled();
+    });
   });
 });
