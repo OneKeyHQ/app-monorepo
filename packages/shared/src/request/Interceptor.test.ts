@@ -1,3 +1,5 @@
+import { OneKeyLocalError } from '../errors';
+
 jest.mock('../appDeviceInfo/appDeviceInfo', () => ({
   __esModule: true,
   default: { getDeviceInfo: jest.fn() },
@@ -61,7 +63,8 @@ describe('getRequestHeaders platform name', () => {
     ['中文设备', 'Galaxy A55', 'Galaxy%20A55'],
     ['Phone 😀', 'GalaxyA55', 'GalaxyA55'],
     ['中文设备', '型号 2', '%E5%9E%8B%E5%8F%B7%202'],
-    ['Phone\r\nInjected', undefined, 'Unknown'],
+    ['Phone\r\nInjected', undefined, 'unknown'],
+    ['', undefined, 'unknown'],
   ])(
     'uses an encoded Android header for %s',
     async (displayName, model, expected) => {
@@ -92,6 +95,40 @@ describe('getRequestHeaders platform name', () => {
     expect(first['x-onekey-request-platform-name']).toBe('Pixel%208');
     expect(concurrent['x-onekey-request-platform-name']).toBe('Pixel%208');
     expect(later['x-onekey-request-platform-name']).toBe('Pixel%208');
+  });
+
+  it('caches the unknown fallback when device lookup fails', async () => {
+    mockGetDeviceInfo.mockRejectedValueOnce(
+      new OneKeyLocalError('Device lookup failed'),
+    );
+
+    const first = await getRequestHeaders();
+    const later = await getRequestHeaders();
+
+    expect(first['x-onekey-request-platform-name']).toBe('unknown');
+    expect(later['x-onekey-request-platform-name']).toBe('unknown');
+    expect(mockGetDeviceInfo).toHaveBeenCalledTimes(1);
+  });
+
+  it('uses unknown when device lookup throws synchronously', async () => {
+    mockGetDeviceInfo.mockImplementationOnce(() => {
+      throw new OneKeyLocalError('Device lookup failed');
+    });
+
+    const headers = await getRequestHeaders();
+
+    expect(headers['x-onekey-request-platform-name']).toBe('unknown');
+  });
+
+  it('uses unknown when model encoding fails', async () => {
+    mockGetDeviceInfo.mockResolvedValue({
+      displayName: '中文设备',
+      device: { model: '\uD800' },
+    });
+
+    const headers = await getRequestHeaders();
+
+    expect(headers['x-onekey-request-platform-name']).toBe('unknown');
   });
 
   it('preserves the existing value outside Android', async () => {

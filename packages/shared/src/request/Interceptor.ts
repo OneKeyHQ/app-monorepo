@@ -97,23 +97,21 @@ export async function checkRequestIsOneKeyDomain({
 
 export const HEADER_REQUEST_ID_KEY = normalizeHeaderKey('X-Onekey-Request-ID');
 
+const DEFAULT_PLATFORM_NAME = 'unknown';
 let platformNameHeaderValuePromise: Promise<string> | undefined;
 
 function getPlatformNameHeaderValue(): Promise<string> {
-  platformNameHeaderValuePromise ??= appDeviceInfo
-    .getDeviceInfo()
+  platformNameHeaderValuePromise ??= Promise.resolve()
+    .then(() => appDeviceInfo.getDeviceInfo())
     .then((deviceInfo) => {
-      const name = deviceInfo.displayName || 'Unknown';
+      const name = deviceInfo.displayName || DEFAULT_PLATFORM_NAME;
       if (!platformEnv.isNativeAndroid || !/[^A-Za-z0-9]/.test(name)) {
         return name;
       }
-      const model = deviceInfo.device.model || 'Unknown';
+      const model = deviceInfo.device.model || DEFAULT_PLATFORM_NAME;
       return /[^A-Za-z0-9]/.test(model) ? encodeURIComponent(model) : model;
     })
-    .catch((error: unknown) => {
-      platformNameHeaderValuePromise = undefined;
-      throw error;
-    });
+    .catch(() => DEFAULT_PLATFORM_NAME);
   return platformNameHeaderValuePromise;
 }
 
