@@ -1050,7 +1050,7 @@ function FinalizeWalletSetupPage({
           .catch((endError: unknown) => {
             defaultLogger.hardware.sdkLog.log(
               '[3rdPartyHW] releaseOperation failed',
-              (endError as Error)?.message ?? String(endError),
+              endError instanceof Error ? endError.message : String(endError),
             );
           });
       }
