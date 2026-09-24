@@ -1,6 +1,7 @@
 /* eslint-disable max-classes-per-file */
 import { HardwareErrorCode as ThirdPartyHwErrorCode } from '@onekeyfe/hwk-adapter-core';
 
+import { EHardwareVendor } from '../../../types/device';
 import {
   EAppEventBusNames,
   HARDWARE_ERROR_DIALOG_TYPES,
@@ -60,6 +61,11 @@ export class ThirdPartyHardwareError extends OneKeyHardwareError {
 export enum EThirdPartyDevicePermissionDeniedReason {
   bluetoothTurnedOff = 'bluetoothTurnedOff',
   permissionDenied = 'permissionDenied',
+}
+
+// Keystone has no Bluetooth channel, so BLE-worded defaults must not reach it.
+function isKeystoneVendor(vendor?: string) {
+  return vendor?.toLowerCase() === EHardwareVendor.keystone;
 }
 
 // Do NOT pass `defaultMessage` — the locale key's translation already holds
@@ -248,6 +254,21 @@ export class ThirdPartyAppAlreadyInstalled extends ThirdPartyHardwareError {
   override code = THIRD_PARTY_HW_APP_ALREADY_INSTALLED_CODE;
 }
 
+function resolvePermissionDeniedKey(props?: {
+  vendor?: string;
+  reason?: EThirdPartyDevicePermissionDeniedReason;
+}) {
+  if (isKeystoneVendor(props?.vendor)) {
+    return ETranslations.device_grant_usb_access;
+  }
+  if (
+    props?.reason === EThirdPartyDevicePermissionDeniedReason.bluetoothTurnedOff
+  ) {
+    return ETranslations.hardware_bluetooth_need_turned_on_error;
+  }
+  return ETranslations.onboarding_bluetooth_permission_needed;
+}
+
 export class ThirdPartyDevicePermissionDenied extends ThirdPartyHardwareError {
   reason?: EThirdPartyDevicePermissionDeniedReason;
 
@@ -272,11 +293,7 @@ export class ThirdPartyDevicePermissionDenied extends ThirdPartyHardwareError {
             }
           : props,
         {
-          defaultKey:
-            props?.reason ===
-            EThirdPartyDevicePermissionDeniedReason.bluetoothTurnedOff
-              ? ETranslations.hardware_bluetooth_need_turned_on_error
-              : ETranslations.onboarding_bluetooth_permission_needed,
+          defaultKey: resolvePermissionDeniedKey(props),
           defaultAutoToast: true,
         },
       ),
@@ -625,7 +642,9 @@ export class ThirdPartyDeviceNotFound extends ThirdPartyHardwareError {
   constructor(props?: IOneKeyErrorHardwareProps & { vendor?: string }) {
     super(
       normalizeErrorProps(props, {
-        defaultKey: ETranslations.hardware_third_party_device_not_found,
+        defaultKey: isKeystoneVendor(props?.vendor)
+          ? ETranslations.device_stage_disconnected__desc
+          : ETranslations.hardware_third_party_device_not_found,
         defaultAutoToast: false,
       }),
     );
@@ -711,7 +730,9 @@ export class ThirdPartyTransportError extends ThirdPartyHardwareError {
   constructor(props?: IOneKeyErrorHardwareProps & { vendor?: string }) {
     super(
       normalizeErrorProps(props, {
-        defaultKey: ETranslations.hardware_third_party_transport_error,
+        defaultKey: isKeystoneVendor(props?.vendor)
+          ? ETranslations.global_connection_failed_usb_help_text
+          : ETranslations.hardware_third_party_transport_error,
         defaultAutoToast: true,
       }),
     );

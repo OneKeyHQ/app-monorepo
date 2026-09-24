@@ -371,6 +371,41 @@ describe('convertThirdPartyDeviceError', () => {
     expect(error.name).toBe('ThirdPartyHardwareError');
     expect(error.key).toBe('hardware_third_party_path_not_supported__msg');
   });
+
+  it('keeps Bluetooth wording out of Keystone connection errors', () => {
+    const cases: Array<[number, ETranslations, ETranslations]> = [
+      [
+        ThirdPartyHwErrorCode.DeviceNotFound,
+        ETranslations.device_stage_disconnected__desc,
+        ETranslations.hardware_third_party_device_not_found,
+      ],
+      [
+        ThirdPartyHwErrorCode.TransportError,
+        ETranslations.global_connection_failed_usb_help_text,
+        ETranslations.hardware_third_party_transport_error,
+      ],
+      [
+        ThirdPartyHwErrorCode.DevicePermissionDenied,
+        ETranslations.device_grant_usb_access,
+        ETranslations.onboarding_bluetooth_permission_needed,
+      ],
+    ];
+    for (const [code, keystoneKey, otherKey] of cases) {
+      const payload = { code, error: 'failed' };
+      expect(
+        convertThirdPartyDeviceError(payload, {
+          vendor: 'Keystone',
+          silentMode: true,
+        }).key,
+      ).toBe(keystoneKey);
+      expect(
+        convertThirdPartyDeviceError(payload, {
+          vendor: EHardwareVendor.ledger,
+          silentMode: true,
+        }).key,
+      ).toBe(otherKey);
+    }
+  });
 });
 
 describe('convertDeviceError', () => {
