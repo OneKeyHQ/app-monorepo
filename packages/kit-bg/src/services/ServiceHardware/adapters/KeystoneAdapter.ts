@@ -276,7 +276,14 @@ export class KeystoneAdapter
     }
     const operationId = connected.payload;
     this.activeOperationId = operationId;
-    const info = await this.hw.getDeviceInfo(operationId, '');
+    let info: Awaited<ReturnType<IHardwareWallet['getDeviceInfo']>>;
+    try {
+      info = await this.hw.getDeviceInfo(operationId, '');
+    } catch (error) {
+      // An open operation holds the device; never leave it behind.
+      await this.hw.releaseOperation(operationId).catch(() => undefined);
+      throw error;
+    }
     if (!info.success) {
       await this.hw.releaseOperation(operationId).catch(() => undefined);
       return { success: false, payload: info.payload };
