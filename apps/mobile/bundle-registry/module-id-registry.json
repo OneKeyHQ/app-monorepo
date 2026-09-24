@@ -21229,6 +21229,7 @@
     "packages/kit/src/views/DeviceManagement/pages/DeviceDetailsModal/index.tsx": 3667,
     "packages/kit/src/views/DeviceManagement/pages/DeviceDetailsModal/utils.ts": 9664,
     "packages/kit/src/views/DeviceManagement/pages/DeviceGuideModal/DeviceGuideView.tsx": 13223,
+    "packages/kit/src/views/DeviceManagement/pages/DeviceGuideModal/assets/device_guide_hero.png": 13993,
     "packages/kit/src/views/DeviceManagement/pages/DeviceGuideModal/assets/mydevice_hero_poster_dark.jpg": 22412,
     "packages/kit/src/views/DeviceManagement/pages/DeviceGuideModal/assets/mydevice_hero_poster_light.jpg": 5556,
     "packages/kit/src/views/DeviceManagement/pages/DeviceGuideModal/index.tsx": 22564,
