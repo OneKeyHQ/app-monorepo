@@ -87,6 +87,15 @@ function buildSortedList<T extends { sortIndex?: number }>({
   return newList;
 }
 
+function getTopSortIndex(oldList: { sortIndex?: number }[]) {
+  // A missing index counts as 0, matching how the watchlist sorts, so legacy
+  // favorites without one still sit below a new favorite.
+  const existingSortIndexes = oldList
+    .map((item) => item.sortIndex ?? 0)
+    .filter((sortIndex) => Number.isFinite(sortIndex));
+  return existingSortIndexes.length ? Math.min(...existingSortIndexes) : 1000;
+}
+
 /**
  * Sort indexes that place `count` new items above everything already in the
  * list: the watchlist's newest-favorite-first rule. Later entries land higher,
@@ -99,23 +108,36 @@ function buildTopSortIndexes({
   oldList: { sortIndex?: number }[];
   count: number;
 }): number[] {
-  // A missing index counts as 0, matching how the watchlist sorts, so legacy
-  // favorites without one still sit below a new favorite.
-  const existingSortIndexes = oldList
-    .map((item) => item.sortIndex ?? 0)
-    .filter((sortIndex) => Number.isFinite(sortIndex));
-  const topSortIndex = existingSortIndexes.length
-    ? Math.min(...existingSortIndexes)
-    : 1000;
+  const topSortIndex = getTopSortIndex(oldList);
   return Array.from(
     { length: count },
     (_, index) => topSortIndex - (index + 1),
   );
 }
 
+/**
+ * Same top placement as `buildTopSortIndexes`, but the given order is kept.
+ * The recommend batch is already in display order; only a later single
+ * favorite from a token list should jump to the top.
+ */
+function buildOrderedTopSortIndexes({
+  oldList,
+  count,
+}: {
+  oldList: { sortIndex?: number }[];
+  count: number;
+}): number[] {
+  const topSortIndex = getTopSortIndex(oldList);
+  return Array.from(
+    { length: count },
+    (_, index) => topSortIndex - count + index,
+  );
+}
+
 export default {
   buildNewSortIndex,
   buildTopSortIndexes,
+  buildOrderedTopSortIndexes,
   buildSortedList,
   fillingSaveItemsSortIndex,
   fillingMissingSortIndex,

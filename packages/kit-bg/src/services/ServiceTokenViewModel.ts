@@ -26,12 +26,14 @@ import {
   backgroundClass,
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import { AGGREGATE_TOKEN_MOCK_NETWORK_ID } from '@onekeyhq/shared/src/consts/networkConsts';
+import type { IAppEventBusPayload } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
-import type { IAppEventBusPayload } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { FrameChannelHost } from '@onekeyhq/shared/src/frameChannel';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { flattenAggregateTokensMap } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type {
   IAccountToken,
@@ -41,10 +43,13 @@ import type {
   ITokenFiat,
 } from '@onekeyhq/shared/types/token';
 
+import { settingsPersistAtom } from '../states/jotai/atoms';
 import {
   buildFrames,
   metaByKeyFromTokens,
 } from '../states/jotai/contexts/tokenList/cellsPure/buildFrames';
+import { buildHomeTokenListCacheIngestRound } from '../states/jotai/contexts/tokenList/cellsPure/buildHomeTokenListCacheIngestRound';
+import { getVaultSettings } from '../vaults/settings';
 
 import ServiceBase from './ServiceBase';
 
@@ -60,6 +65,7 @@ import type {
   ITokenKey,
   IValuationFrame,
 } from '../states/jotai/contexts/tokenList/cellsPure/types';
+import type { IAccountDeriveTypes } from '../vaults/types';
 
 /**
  * The three wire-frame payloads, keyed by FrameChannel kind. Sourced from the
@@ -205,11 +211,14 @@ export interface IRawTokenListPullResult {
 }
 
 /**
- * MRU cap on resident owners. Bounds BG heap growth across owner switches; 8 is
- * comfortably above the count of stores a single session paints concurrently
- * (home + urlAccount + a transient switch target).
+ * MRU cap on resident owners. Bounds BG heap growth across owner switches. The
+ * cap is also the number of accounts a session can rotate through without the
+ * home token list falling back to a skeleton on the switch (OK-63873): an
+ * evicted owner has no frames for the UI to PULL until its next fetch round.
+ * Wallets with more accounts than the old cap of 8 hit that on every switch.
+ * Frames are a few KB per owner, so 32 stays well within budget.
  */
-const OWNER_VM_CAP = 8;
+export const OWNER_VM_CAP = 32;
 /** pull-blob key for the per-owner diff `prev`. */
 const PREV_BLOB_KEY = 'prev';
 /** pull-blob key for the per-owner merged raw list. */
@@ -297,11 +306,22 @@ class ServiceTokenViewModel extends ServiceBase {
       accountId,
       networkId,
       rawKeys = '',
+      source,
     } = params;
 
     if (!ownerKey) {
       return;
     }
+
+    // A cache seed or a progressive paint is not the round's final answer
+    // (OK-63873): the UI paints it but must not persist it as the owner's
+    // last-known list. Everything else (the single-network live round, the
+    // authoritative all-networks round, older call sites) is settled.
+    const provisional =
+      source === 'cacheSeed' ||
+      source === 'progPaint' ||
+      source === 'singleCacheSeed' ||
+      source === 'singleEmptyCacheSeed';
 
     // Mark MRU + ensure the owner slot exists. `ingestRound` REPLACES (not
     // concats) the owner's slices each round: `buildFrames` takes the full
@@ -335,6 +355,10 @@ class ServiceTokenViewModel extends ServiceBase {
     };
 
     const { structure, valuation } = buildFrames(input, prev);
+    if (structure) {
+      structure.provisional = provisional;
+    }
+    valuation.provisional = provisional;
 
     // Structure FIRST (preserve the legacy emit order), then valuation.
     if (structure) {
@@ -475,6 +499,154 @@ class ServiceTokenViewModel extends ServiceBase {
       storeData:
         structureP?.structure.storeData ?? valuationP?.valuation.storeData,
     };
+  }
+
+  /**
+   * Prewarm an owner's frames from the local token cache before the account
+   * selector publishes it (OK-63873). The home page paints a switch from the
+   * main-heap replay cache; an owner nobody visited this session (or after a
+   * cold start with the persisted slot gone) had nothing there, so the list
+   * showed a skeleton for the ~100 ms the local-cache seed round took after
+   * the publish. The seed is the same round `TokenListBlock` ingests after the
+   * switch (`buildHomeTokenListCacheIngestRound`, provisional), built here
+   * from the same local cache so the UI can remember it ahead of the tap.
+   * Resident owners return their current frames without re-ingesting.
+   * Skipped for All Networks and merge-derive owners, whose seed is a merge
+   * the UI owns; they keep the post-publish path.
+   */
+  @backgroundMethod()
+  async prewarmHomeTokenListFrames({
+    networkId,
+    deriveType,
+    indexedAccountId,
+    othersWalletAccountId,
+  }: {
+    networkId: string | undefined;
+    deriveType: IAccountDeriveTypes | undefined;
+    indexedAccountId?: string;
+    othersWalletAccountId?: string;
+  }): Promise<
+    | {
+        ownerKey: string;
+        frames: ITokenListFramesPullResult;
+        currency: string;
+        /**
+         * The local cache's per-network worth for the header, present only
+         * when the cache was read here (a resident owner keeps the worth the
+         * UI remembered on its visit). Tagged with the cache's fiat basis.
+         */
+        worth?: { accountId: string; value: string; currency: string };
+      }
+    | undefined
+  > {
+    if (!networkId || networkUtils.isAllNetwork({ networkId })) {
+      return undefined;
+    }
+    const { serviceAccount, serviceToken, serviceCustomToken, serviceNetwork } =
+      this.backgroundApi;
+    let accountId = othersWalletAccountId;
+    if (!accountId) {
+      if (!indexedAccountId || !deriveType) {
+        return undefined;
+      }
+      try {
+        const [vaultSettings, deriveInfoItems] = await Promise.all([
+          getVaultSettings({ networkId }),
+          serviceNetwork.getDeriveInfoItemsOfNetwork({ networkId }),
+        ]);
+        if (
+          vaultSettings.mergeDeriveAssetsEnabled &&
+          deriveInfoItems.length > 1
+        ) {
+          return undefined;
+        }
+        const networkAccount = await serviceAccount.getNetworkAccount({
+          accountId: undefined,
+          indexedAccountId,
+          deriveType,
+          networkId,
+        });
+        accountId = networkAccount?.id;
+      } catch {
+        return undefined;
+      }
+    }
+    if (!accountId) {
+      return undefined;
+    }
+    const ownerKey = `${accountId}__${networkId}`;
+    const currency = (await settingsPersistAtom.get())?.currencyInfo?.id ?? '';
+    let worth:
+      | { accountId: string; value: string; currency: string }
+      | undefined;
+    if (this.frames.getFrames(ownerKey).structure.version < 0) {
+      const localTokens = await serviceToken.getAccountLocalTokens({
+        accountId,
+        networkId,
+      });
+      if (
+        !localTokens.hasCache ||
+        (localTokens.tokenList.length === 0 &&
+          localTokens.smallBalanceTokenList.length === 0 &&
+          localTokens.riskyTokenList.length === 0)
+      ) {
+        return undefined;
+      }
+      if (localTokens.tokenListValue && localTokens.currency) {
+        worth = {
+          accountId,
+          value: localTokens.tokenListValue,
+          currency: localTokens.currency,
+        };
+      }
+      const [homeDefaultTokenMap, customTokens] = await Promise.all([
+        serviceToken.getHomeDefaultTokenMap(),
+        serviceCustomToken.getCustomTokensBatch({
+          pairs: [
+            { accountId, networkId },
+            {
+              accountId: indexedAccountId ?? accountId,
+              accountXpubOrAddress: indexedAccountId ?? accountId,
+              networkId: AGGREGATE_TOKEN_MOCK_NETWORK_ID,
+            },
+          ],
+        }),
+      ]);
+      const pick = (tokens: IAccountToken[]) => {
+        const map: Record<string, ITokenFiat> = {};
+        tokens.forEach((token) => {
+          const fiat = localTokens.tokenListMap[token.$key];
+          if (fiat) {
+            map[token.$key] = fiat;
+          }
+        });
+        return map;
+      };
+      await this.ingestRound(
+        buildHomeTokenListCacheIngestRound({
+          ownerKey,
+          accountId,
+          networkId,
+          tokenList: localTokens.tokenList,
+          smallBalanceTokenList: localTokens.smallBalanceTokenList,
+          riskyTokenList: localTokens.riskyTokenList,
+          tokenListMap: pick(localTokens.tokenList),
+          smallBalanceTokenListMap: pick(localTokens.smallBalanceTokenList),
+          riskyTokenListMap: pick(localTokens.riskyTokenList),
+          // Home keeps default zero-balance tokens (TokenListView defaults
+          // keepDefaultZeroBalanceTokens=true on the home path).
+          keepDefault: true,
+          homeDefaultTokenMap,
+          customTokens,
+          source: 'singleCacheSeed',
+        }),
+      );
+    }
+    const frames = await this.getTokenListFrames({ ownerKey });
+    if (!frames.structure) {
+      return undefined;
+    }
+    return { ownerKey, frames, currency, worth };
   }
 
   /**
