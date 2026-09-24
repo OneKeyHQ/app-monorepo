@@ -15,11 +15,19 @@ export class E2EEClientToClientApiProxy
   extends RemoteApiProxyBase
   implements IE2EEClientToClientApi
 {
-  constructor({ socket, roomId }: { socket: Socket; roomId: string }) {
+  constructor({
+    socket,
+    roomId,
+    maxMessageSize,
+  }: {
+    socket: Socket;
+    roomId: string;
+    maxMessageSize?: number;
+  }) {
     super();
     this.bridge = new JsBridgeE2EEClientToClient(
       {},
-      { socket, roomId, isProxySide: true },
+      { socket, roomId, isProxySide: true, maxMessageSize },
     );
   }
 
@@ -31,6 +39,18 @@ export class E2EEClientToClientApiProxy
 
   override async waitRemoteApiReady(): Promise<void> {
     return Promise.resolve();
+  }
+
+  async cancelTransferIfCurrent(isCurrent: () => boolean): Promise<void> {
+    await this.waitRemoteApiReady();
+    if (!isCurrent()) return;
+    // callRemoteApi -> bridge.request -> sendPayload emits synchronously, so
+    // ownership is checked after the last await before sending the legacy RPC.
+    await this.callRemoteApi({
+      module: 'api',
+      method: 'cancelTransfer',
+      params: [],
+    });
   }
 
   protected override async callRemoteApi(options: {
@@ -59,12 +79,15 @@ export class E2EEClientToClientApiProxy
 export function createE2EEClientToClientApiProxy({
   socket,
   roomId,
+  maxMessageSize,
 }: {
   socket: Socket;
   roomId: string;
+  maxMessageSize?: number;
 }) {
   return new E2EEClientToClientApiProxy({
     socket,
     roomId,
+    maxMessageSize,
   });
 }

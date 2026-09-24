@@ -82,6 +82,7 @@ export function useTradingViewNativeChartGestures({
       return isTradingViewNativeMainPriceAxisTouch({
         height: runtime.size.height,
         paneCount,
+        panes: runtime.subIndicatorPanes,
         priceAxisWidth: priceAxisWidth.value,
         timeAxisHeight,
         width: runtime.size.width,

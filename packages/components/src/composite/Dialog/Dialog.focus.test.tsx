@@ -237,3 +237,84 @@ it('defers sheet opening focus until the sheet is open', async () => {
   view.rerender(<DialogContainer {...dialogProps} open />);
   await waitFor(() => expect(onOpenAutoFocus).toHaveBeenCalledTimes(1));
 });
+
+describe('Dialog close confirmation', () => {
+  beforeEach(() => {
+    mockIsSheet = false;
+  });
+
+  it('keeps content mounted and skips cleanup when closing is declined', async () => {
+    const ref = createRef<IDialogInstance>();
+    const onClose = jest.fn().mockResolvedValue(undefined);
+    const onCloseRequested = jest.fn();
+    const onBeforeClose = jest.fn().mockResolvedValue(false);
+    render(
+      <DialogContainer
+        ref={ref}
+        showHeader={false}
+        showFooter={false}
+        onClose={onClose}
+        onBeforeClose={onBeforeClose}
+        onCloseRequested={onCloseRequested}
+        renderContent={mockPeriodInput}
+      />,
+    );
+    await act(async () => {
+      await ref.current?.close();
+    });
+    expect(onBeforeClose).toHaveBeenCalledTimes(1);
+    expect(onClose).not.toHaveBeenCalled();
+    expect(onCloseRequested).not.toHaveBeenCalled();
+    expect(screen.getByRole('textbox')).toBeTruthy();
+
+    onBeforeClose.mockResolvedValue(true);
+    await act(async () => {
+      await ref.current?.close();
+    });
+    expect(onClose).toHaveBeenCalledTimes(1);
+    expect(onCloseRequested).toHaveBeenCalledTimes(1);
+    expect(onCloseRequested.mock.invocationCallOrder[0]).toBeLessThan(
+      onClose.mock.invocationCallOrder[0],
+    );
+    expect(screen.queryByRole('textbox')).toBeNull();
+  });
+
+  it('coalesces repeated close requests while confirmation is pending', async () => {
+    const ref = createRef<IDialogInstance>();
+    let confirm: (value: boolean) => void = () => undefined;
+    const onBeforeClose = jest.fn(
+      () =>
+        new Promise<boolean>((resolve) => {
+          confirm = resolve;
+        }),
+    );
+    const onClose = jest.fn().mockResolvedValue(undefined);
+    const onCloseRequested = jest.fn();
+    render(
+      <DialogContainer
+        ref={ref}
+        showHeader={false}
+        showFooter={false}
+        onClose={onClose}
+        onBeforeClose={onBeforeClose}
+        onCloseRequested={onCloseRequested}
+        renderContent={mockPeriodInput}
+      />,
+    );
+    await act(async () => {
+      const first = ref.current?.close();
+      const second = ref.current?.close();
+      expect(first).toBe(second);
+      expect(onBeforeClose).toHaveBeenCalledTimes(1);
+      expect(onClose).not.toHaveBeenCalled();
+      expect(onCloseRequested).not.toHaveBeenCalled();
+      confirm(true);
+      await first;
+    });
+    expect(onClose).toHaveBeenCalledTimes(1);
+    expect(onCloseRequested).toHaveBeenCalledTimes(1);
+    expect(onCloseRequested.mock.invocationCallOrder[0]).toBeLessThan(
+      onClose.mock.invocationCallOrder[0],
+    );
+  });
+});

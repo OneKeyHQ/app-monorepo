@@ -468,12 +468,27 @@ export function usePrimePurchaseCallback({
         }
         await beforeContinue();
         if (platformEnv.isNativeAndroidGooglePlay) {
+          // Another window can replace or clear the invoice while the prompt
+          // or the closing callback is pending. Resume the current session.
+          const latestContext = await getPrimeInfiniPendingPaymentContext();
+          if (
+            !latestContext.isLoggedIn ||
+            latestContext.onekeyUserId !== onekeyUserId
+          ) {
+            throw new OneKeyLocalError('Infini purchase user changed');
+          }
+          if (!latestContext.pendingPaymentSession) {
+            return 'cancelled';
+          }
           // Restore only the existing invoice monitor. The full crypto page
           // also exposes new-payment actions that store builds must not offer.
           showPrimeInfiniWaitingDialog({
             context: {
               checkoutType: 'internalWallet',
-              session: { ...pendingPaymentSession, featureName },
+              session: {
+                ...latestContext.pendingPaymentSession,
+                featureName,
+              },
             },
           });
           return 'resumed';

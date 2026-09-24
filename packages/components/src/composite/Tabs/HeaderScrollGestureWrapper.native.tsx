@@ -14,6 +14,7 @@ import Animated, {
 import { Haptics, ImpactFeedbackStyle } from '../../primitives/Haptics';
 
 import { CollapsibleTabContext } from './CollapsibleTabContext';
+import { HeaderScrollGestureContext } from './HeaderScrollGestureContext';
 
 import type { IHeaderScrollGestureWrapperProps } from './HeaderScrollGestureWrapper';
 import type { LayoutChangeEvent } from 'react-native';
@@ -84,7 +85,7 @@ export function HeaderScrollGestureWrapper({
     },
   );
 
-  const panGesture = useMemo(() => {
+  const { panGesture, scrollGestures } = useMemo(() => {
     const safeExcludeRightEdgeRatio = Math.max(
       0,
       Math.min(1, excludeRightEdgeRatio),
@@ -222,10 +223,12 @@ export function HeaderScrollGestureWrapper({
       });
 
     if (!onHorizontalSwipe) {
-      if (!simultaneousWithNativeGesture) {
-        return verticalPanGesture;
-      }
-      return Gesture.Simultaneous(Gesture.Native(), verticalPanGesture);
+      return {
+        panGesture: simultaneousWithNativeGesture
+          ? Gesture.Simultaneous(Gesture.Native(), verticalPanGesture)
+          : verticalPanGesture,
+        scrollGestures: [verticalPanGesture],
+      };
     }
 
     let horizontalPanGesture = Gesture.Pan()
@@ -271,10 +274,12 @@ export function HeaderScrollGestureWrapper({
 
     const raceGesture = Gesture.Race(horizontalPanGesture, verticalPanGesture);
 
-    if (!simultaneousWithNativeGesture) {
-      return raceGesture;
-    }
-    return Gesture.Simultaneous(Gesture.Native(), raceGesture);
+    return {
+      panGesture: simultaneousWithNativeGesture
+        ? Gesture.Simultaneous(Gesture.Native(), raceGesture)
+        : raceGesture,
+      scrollGestures: [verticalPanGesture, horizontalPanGesture],
+    };
   }, [
     startScrollY,
     scrollYCurrent,
@@ -307,8 +312,10 @@ export function HeaderScrollGestureWrapper({
   ]);
 
   return (
-    <GestureDetector gesture={panGesture}>
-      <Animated.View onLayout={handleLayout}>{children}</Animated.View>
-    </GestureDetector>
+    <HeaderScrollGestureContext.Provider value={scrollGestures}>
+      <GestureDetector gesture={panGesture}>
+        <Animated.View onLayout={handleLayout}>{children}</Animated.View>
+      </GestureDetector>
+    </HeaderScrollGestureContext.Provider>
   );
 }

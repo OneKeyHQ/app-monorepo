@@ -413,47 +413,58 @@ class ServiceCloudBackupV2 extends ServiceBase {
   @backgroundMethod()
   @toastIfError()
   async restore(params: {
+    taskUUID: string;
     payload: IBackupDataEncryptedPayload | undefined;
     password: string;
   }) {
-    if (!params?.payload) {
-      throw new OneKeyLocalError('Payload is required for restore');
-    }
-    const privateData = await this.restorePreparePrivateData({
-      password: params.password,
-      payload: params.payload,
-    });
-
-    const transferData: IPrimeTransferData = {
-      ...params.payload,
-      privateData,
-    };
-    const selectedTransferData =
-      await this.backgroundApi.servicePrimeTransfer.getSelectedTransferData({
-        data: transferData,
-        selectedItemMap: 'ALL',
+    try {
+      if (!params?.payload) {
+        throw new OneKeyLocalError('Payload is required for restore');
+      }
+      const isActive = () =>
+        this.backgroundApi.servicePrimeTransfer.isImportTaskActive(
+          params.taskUUID,
+        );
+      const cancelledResult = { success: false, errorsInfo: [] };
+      if (!(await isActive())) return cancelledResult;
+      const privateData = await this.restorePreparePrivateData({
+        password: params.password,
+        payload: params.payload,
       });
 
-    const firstWalletCredential =
-      selectedTransferData?.wallets?.[0]?.credentialDecrypted;
-    const firstImportedAccountCredential =
-      selectedTransferData?.importedAccounts?.[0]?.credentialDecrypted;
+      if (!(await isActive())) return cancelledResult;
+      const transferData: IPrimeTransferData = {
+        ...params.payload,
+        privateData,
+      };
+      const selectedTransferData =
+        await this.backgroundApi.servicePrimeTransfer.getSelectedTransferData({
+          data: transferData,
+          selectedItemMap: 'ALL',
+        });
 
-    let localPassword = '';
-    if (firstWalletCredential || firstImportedAccountCredential) {
-      const { password } =
-        await this.backgroundApi.servicePassword.promptPasswordVerify();
-      localPassword = password;
-    }
+      if (!(await isActive())) return cancelledResult;
+      const firstWalletCredential =
+        selectedTransferData?.wallets?.[0]?.credentialDecrypted;
+      const firstImportedAccountCredential =
+        selectedTransferData?.importedAccounts?.[0]?.credentialDecrypted;
 
-    try {
+      let localPassword = '';
+      if (firstWalletCredential || firstImportedAccountCredential) {
+        const { password } =
+          await this.backgroundApi.servicePassword.promptPasswordVerify();
+        localPassword = password;
+      }
+
       await this.backgroundApi.servicePrimeTransfer.initImportProgress({
+        taskUUID: params.taskUUID,
         selectedTransferData,
         isFromCloudBackupRestore: true,
       });
 
       const { success, errorsInfo, taskUUID } =
         await this.backgroundApi.servicePrimeTransfer.startImport({
+          taskUUID: params.taskUUID,
           selectedTransferData,
           includingDefaultNetworks: true,
           isFromCloudBackupRestore: true,
@@ -479,7 +490,9 @@ class ServiceCloudBackupV2 extends ServiceBase {
         selectedTransferData,
       };
     } catch (error) {
-      await this.backgroundApi.servicePrimeTransfer.resetImportProgress();
+      await this.backgroundApi.servicePrimeTransfer.resetImportProgress({
+        taskUUID: params.taskUUID,
+      });
       throw error;
     }
   }

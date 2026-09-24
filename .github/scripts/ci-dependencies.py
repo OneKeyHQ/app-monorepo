@@ -7,6 +7,7 @@ import json
 import os
 from pathlib import Path
 import platform
+import re
 import shutil
 import subprocess
 import time
@@ -22,9 +23,7 @@ def checksum(path):
         return hashlib.file_digest(stream, 'sha256').hexdigest()
 
 
-def fingerprint(root, runtime):
-    # Include every manifest, Yarn patch/plugin and the snapshot implementation.
-    # Source-dependent postinstall outputs are regenerated on every checkout.
+def dependency_inputs(root, ref=None, legacy=False):
     patterns = [
         'package.json', ':(glob)**/package.json', 'yarn.lock', '.yarnrc.yml',
         '.yarn/releases', '.yarn/plugins', '.yarn/patches', 'patches',
@@ -32,15 +31,95 @@ def fingerprint(root, runtime):
         'development/scripts/web-embed.js', '.env.example',
         '.github/scripts/ci-dependencies.py', '.github/actions/install-dependencies',
     ]
-    names = subprocess.check_output(
-        ['git', 'ls-files', '-z', '--', *patterns], cwd=root,
-    ).decode().split('\0')
-    digest = hashlib.sha256(json.dumps(runtime, sort_keys=True).encode())
+    if not legacy:
+        patterns.append(':(glob)**/patches/**')
+    if ref is None:
+        names = subprocess.check_output(
+            ['git', 'ls-files', '-z', '--', *patterns], cwd=root,
+        ).decode().split('\0')
+    else:
+        names = subprocess.check_output(
+            ['git', 'ls-tree', '-r', '--name-only', '-z', ref], cwd=root,
+        ).decode().split('\0')
+        names = [name for name in names if name in patterns or name.endswith('/package.json')
+                 or (not legacy and '/patches/' in name)
+                 or any(name.startswith(prefix + '/') for prefix in patterns)]
     for name in sorted(set(filter(None, names))):
+        data = ((root / name).read_bytes() if ref is None else subprocess.check_output(
+            ['git', 'show', f'{ref}:{name}'], cwd=root,
+        ))
+        yield name, data
+
+
+def fingerprint(root, runtime, compatible=False, ref=None, legacy=False):
+    # Source-dependent postinstall outputs are regenerated on every checkout.
+    digest = hashlib.sha256(json.dumps(runtime, sort_keys=True).encode())
+    if compatible:
+        # Older v2 prefixes omitted workspace patches, including deleted ones.
+        digest.update(b'workspace-patches-v1\0')
+    for name, data in dependency_inputs(root, ref, legacy=legacy):
+        # Only root patches support incremental resets; workspace patches must
+        # invalidate compatibility so their dependencies are installed cleanly.
+        if compatible and (name == 'yarn.lock' or name.startswith('patches/')
+                           or name == '.github/scripts/ci-dependencies.py'
+                           or name.startswith('.github/actions/install-dependencies/')):
+            continue
+        if compatible and Path(name).name == 'package.json':
+            manifest = json.loads(data)
+            for field in ['dependencies', 'devDependencies', 'optionalDependencies',
+                          'peerDependencies', 'resolutions']:
+                manifest.pop(field, None)
+            data = json.dumps(manifest, sort_keys=True).encode()
         digest.update(name.encode() + b'\0')
-        digest.update((root / name).read_bytes())
+        digest.update(data)
         digest.update(b'\0')
-    return f'ci-deps-squashfs-v1-{digest.hexdigest()}'
+    return digest.hexdigest()
+
+
+def legacy_snapshot(root, runtime, compatibility, ref):
+    # v1 has no patch metadata: bind it to the exact x tree instead of guessing
+    # which patches an arbitrary prefix-matched legacy image contains.
+    if fingerprint(root, runtime, compatible=True, ref=ref) != compatibility:
+        raise ValueError('x installation configuration is incompatible with this checkout')
+    patches = {Path(name).name: hashlib.sha256(data).hexdigest()
+               for name, data in dependency_inputs(root, ref)
+               if name.startswith('patches/') and name.endswith('.patch')}
+    validate_patches(patches)
+    # Preserve the original v1 input selection to find already-published images.
+    return {'key': 'ci-deps-squashfs-v1-' + fingerprint(root, runtime, ref=ref, legacy=True),
+            'patches': patches, 'source_commit': ref}
+
+
+def patch_target(name):
+    # Sequence numbers and labels follow the version, including RN's six patches.
+    if not isinstance(name, str) or not name.endswith('.patch') or '/' in name or '++' in name:
+        raise ValueError('Unsupported patch filename')
+    parts = name[:-6].split('+')
+    count = 2 if parts[0].startswith('@') else 1
+    if len(parts) <= count or not re.fullmatch(r'\d+\.\d+\.\d+[^/\\+]*', parts[count]):
+        raise ValueError('Invalid patch version')
+    for index, part in enumerate(parts[:count]):
+        component = part[1:] if index == 0 and count == 2 else part
+        if not re.fullmatch(r'[A-Za-z0-9_-][A-Za-z0-9._-]*', component):
+            raise ValueError('Invalid patch package')
+    return '/'.join(parts[:count])
+
+
+def patch_state(root):
+    result = {}
+    for path in sorted((root / 'patches').glob('*.patch')):
+        patch_target(path.name)
+        result[path.name] = checksum(path)
+    return result
+
+
+def validate_patches(patches):
+    if not isinstance(patches, dict):
+        raise ValueError('Invalid snapshot patches')
+    for name, digest in patches.items():
+        patch_target(name)
+        if not isinstance(digest, str) or not re.fullmatch(r'[0-9a-f]{64}', digest):
+            raise ValueError('Invalid patch checksum')
 
 
 def dependency_roots(root):
@@ -71,6 +150,11 @@ def validate_roots(root, roots):
             raise ValueError(f'Snapshot path contains a symlink: {name}')
 
 
+def mounted(path):
+    # Unlike os.path.ismount, mountpoint also detects same-filesystem bind mounts.
+    return subprocess.run(['mountpoint', '-q', '--', str(path)]).returncode == 0
+
+
 class Snapshot:
     def __init__(self):
         self.root = Path(os.environ['GITHUB_WORKSPACE']).resolve()
@@ -92,13 +176,17 @@ class Snapshot:
             'node': subprocess.check_output(['node', '--version'], text=True).strip(),
             'arch': platform.machine(),
             'os': Path('/etc/os-release').read_text(),
-            'libc': platform.libc_ver(),
+            'libc': list(platform.libc_ver()),
             'global_cache': os.environ.get('YARN_ENABLE_GLOBAL_CACHE'),
         }
-        self.state = {'key': fingerprint(self.root, runtime), 'runtime': runtime,
+        compatibility = fingerprint(self.root, runtime, compatible=True)
+        prefix = f'ci-deps-squashfs-v2-{compatibility}-'
+        self.state = {'key': prefix + fingerprint(self.root, runtime), 'runtime': runtime,
+                      'compatibility': compatibility, 'prefix': prefix,
                       'mounts': [], 'owned_roots': []}
         self.save_state()
         output('key', self.state['key'])
+        output('prefix', self.state['prefix'])
         output('path', str(self.cache))
         print(f'Dependency snapshot key: {self.state["key"]}')
         cpu_models = sorted({line.split(':', 1)[1].strip()
@@ -109,14 +197,45 @@ class Snapshot:
             'cpus': os.cpu_count(), 'cpu_models': cpu_models,
         }))
 
+    def x_fallback(self):
+        try:
+            subprocess.run(['git', 'fetch', '--no-tags', '--depth=1', 'origin', 'refs/heads/x'],
+                           cwd=self.root, check=True)
+            ref = subprocess.check_output(['git', 'rev-parse', 'FETCH_HEAD'],
+                                          cwd=self.root, text=True).strip()
+            legacy = legacy_snapshot(self.root, self.state['runtime'], self.state['compatibility'], ref)
+            self.state['legacy'] = legacy
+            self.save_state()
+            output('key', legacy['key'])
+            print(f'No compatible v2 image; trying x legacy snapshot at {ref}: {legacy["key"]}', flush=True)
+        except (OSError, ValueError, subprocess.CalledProcessError) as error:
+            print(f'::warning::Cannot use x legacy snapshot: {error}', flush=True)
+
     def mount(self):
         manifest = json.loads((self.cache / 'manifest.json').read_text())
         if not isinstance(manifest, dict):
             raise ValueError('Invalid snapshot manifest')
-        if manifest['key'] != self.state['key']:
-            raise ValueError('Snapshot fingerprint mismatch')
+        matched_key = os.environ.get('DEPENDENCY_SNAPSHOT_KEY')
+        if not isinstance(matched_key, str) or manifest.get('key') != matched_key:
+            raise ValueError('Snapshot compatibility mismatch')
+        if manifest.get('version') == 2:
+            if (manifest.get('source_ref') != 'refs/heads/x'
+                    or not matched_key.startswith(self.state['prefix'])
+                    or manifest.get('compatibility') != self.state['compatibility']
+                    or manifest.get('runtime') != self.state['runtime']):
+                raise ValueError('Snapshot compatibility mismatch')
+            patches = manifest.get('patches')
+        elif 'version' not in manifest and matched_key == self.state.get('legacy', {}).get('key'):
+            patches = self.state['legacy']['patches']
+        else:
+            raise ValueError('Snapshot compatibility mismatch')
+        validate_patches(patches)
         roots = manifest['roots']
         validate_roots(self.root, roots)
+        if 'version' not in manifest:
+            # v1 keys did not bind workspace patches. Reinstall workspace roots
+            # even if the fixed x tree has matching patches or no longer has any.
+            roots = ['node_modules']
         image = self.cache / 'dependencies.squashfs'
         if image.stat().st_size != manifest['bytes'] or checksum(image) != manifest['sha256']:
             raise ValueError('Snapshot checksum mismatch')
@@ -138,16 +257,38 @@ class Snapshot:
             subprocess.run(['sudo', 'mount', '-t', 'overlay', 'overlay', '-o',
                             f'lowerdir={lower / name},upperdir={upper},workdir={work}', str(target)], check=True)
         shutil.copy2(lower / '.yarn/install-state.gz', self.root / '.yarn/install-state.gz')
+        self.state['snapshot_kind'] = 'exact' if matched_key == self.state['key'] else 'incremental'
+        if self.state['snapshot_kind'] == 'incremental':
+            self.reset_changed_patches(patches)
+        print(f'Restored {self.state["snapshot_kind"]} dependency snapshot: {matched_key}', flush=True)
+        self.save_state()
+
+    def reset_changed_patches(self, before):
+        validate_patches(before)
+        after = patch_state(self.root)
+        changed = {patch_target(name) for name in before.keys() | after.keys()
+                   if before.get(name) != after.get(name)}
+        base = self.root / 'node_modules'
+        for package in sorted(changed):
+            target = base / package
+            if target.is_symlink() or not target.resolve().is_relative_to(base):
+                raise ValueError('Patched dependency resolves outside node_modules')
+            if target.exists():
+                shutil.rmtree(target)
+            print(f'Reinstall changed patched package: {package}', flush=True)
+        self.state['reset_packages'] = sorted(changed)
 
     def cleanup(self, remove=False):
         for target in reversed(self.state.get('mounts', [])):
-            if os.path.ismount(target):
+            if mounted(target):
                 subprocess.run(['sudo', 'umount', target], check=True)
         self.state['mounts'] = []
         if remove:
             roots = self.state['owned_roots']
             if roots:
-                validate_roots(self.root, sorted(roots))
+                # Yarn may create additional workspace roots while updating the snapshot.
+                roots = sorted(set(roots) | set(dependency_roots(self.root)))
+                validate_roots(self.root, roots)
                 for name in roots:
                     shutil.rmtree(self.root / name)
                 (self.root / '.yarn/install-state.gz').unlink(missing_ok=True)
@@ -158,13 +299,15 @@ class Snapshot:
     def install(self):
         start = time.monotonic()
         restored = False
-        if os.environ.get('DEPENDENCY_SNAPSHOT_HIT') == 'true':
+        if os.environ.get('DEPENDENCY_SNAPSHOT_KEY'):
             try:
                 self.mount()
                 restored = True
             except (OSError, ValueError, KeyError, subprocess.CalledProcessError) as error:
                 print(f'::warning::Dependency snapshot unavailable; installing normally: {error}', flush=True)
                 self.cleanup(remove=True)
+        else:
+            print('No dependency image restored; running a full immutable installation.', flush=True)
         restore_seconds = time.monotonic() - start
         install_start = time.monotonic()
         # Always preserve hardened-mode validation and this checkout's postinstall.
@@ -178,14 +321,21 @@ class Snapshot:
             self.cleanup()
             raise subprocess.CalledProcessError(status, ['yarn', 'install', '--immutable'])
         install_seconds = time.monotonic() - install_start
+        kind = self.state.get('snapshot_kind', 'exact') if restored else 'none'
         output('snapshot-hit', str(restored).lower())
+        output('snapshot-kind', kind)
         with open(os.environ['GITHUB_STEP_SUMMARY'], 'a') as summary:
             summary.write('### Dependencies\n\n'
-                          f'- Snapshot: {"hit" if restored else "normal installation"}\n'
+                          f'- Snapshot: {kind}\n'
+                          f'- Reset patched packages: {len(self.state.get("reset_packages", []))}\n'
                           f'- Verify/mount: {restore_seconds:.1f}s (cache transfer is a separate step)\n'
                           f'- Immutable install and postinstall: {install_seconds:.1f}s\n')
 
     def build(self):
+        if (os.environ.get('GITHUB_REF') != 'refs/heads/x'
+                or os.environ.get('GITHUB_WORKFLOW') != 'Cache Refresh'):
+            raise RuntimeError('Only Cache Refresh on x may build dependency snapshots')
+        build_mounts = []
         try:
             if shutil.which('mksquashfs') is None:
                 subprocess.run(['sudo', 'apt-get', 'update', '-qq'], check=True)
@@ -196,29 +346,44 @@ class Snapshot:
             stage.mkdir()
             for name in roots:
                 target = stage / name
-                target.parent.mkdir(parents=True, exist_ok=True)
-                subprocess.run(['cp', '-al', str(self.root / name), str(target)], check=True)
-                # Cache dependency installation, never job-specific transformations.
-                cache = target / '.cache'
-                if cache.exists():
-                    shutil.rmtree(cache)
+                target.mkdir(parents=True)
+                # Assemble the image without copying or hardlinking the dependency tree.
+                build_mounts.append(str(target))
+                self.state['mounts'].append(str(target))
+                self.save_state()
+                subprocess.run(['sudo', 'mount', '--bind', str(self.root / name), str(target)], check=True)
+                subprocess.run(['sudo', 'mount', '-o', 'remount,bind,ro', str(target)], check=True)
             (stage / '.yarn').mkdir()
             shutil.copy2(self.root / '.yarn/install-state.gz', stage / '.yarn/install-state.gz')
-            image = self.cache / 'dependencies.squashfs'
+            # Never overwrite the backing file of a currently mounted loop device.
+            image = self.temp / 'dependencies-next.squashfs'
             subprocess.run(['mksquashfs', str(stage), str(image), '-noappend', '-comp', 'zstd',
-                            '-Xcompression-level', '3', '-processors', '4', '-no-progress'], check=True)
-            manifest = {'key': self.state['key'], 'roots': roots,
+                            '-Xcompression-level', '3', '-processors', '4', '-no-progress',
+                            '-e', *[f'{name}/.cache' for name in roots]], check=True)
+            manifest = {'version': 2, 'key': self.state['key'], 'roots': roots,
+                        'compatibility': self.state['compatibility'], 'runtime': self.state['runtime'],
+                        'source_ref': os.environ['GITHUB_REF'],
+                        'source_commit': subprocess.check_output(
+                            ['git', 'rev-parse', 'HEAD'], cwd=self.root, text=True).strip(),
+                        'patches': patch_state(self.root),
                         'bytes': image.stat().st_size, 'sha256': checksum(image)}
+            image.replace(self.cache / 'dependencies.squashfs')
             (self.cache / 'manifest.json').write_text(json.dumps(manifest, indent=2) + '\n')
             output('built', 'true')
         except (OSError, ValueError, subprocess.CalledProcessError) as error:
             # An unavailable cache must not fail an otherwise valid installation.
             print(f'::warning::Could not populate dependency snapshot: {error}', flush=True)
             output('built', 'false')
+        finally:
+            for target in reversed(build_mounts):
+                if mounted(target):
+                    subprocess.run(['sudo', 'umount', target], check=True)
+                self.state['mounts'].remove(target)
+            self.save_state()
 
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('command', choices=['prepare', 'install', 'build', 'cleanup'])
+    parser.add_argument('command', choices=['prepare', 'x_fallback', 'install', 'build', 'cleanup'])
     args = parser.parse_args()
     getattr(Snapshot(), args.command)()

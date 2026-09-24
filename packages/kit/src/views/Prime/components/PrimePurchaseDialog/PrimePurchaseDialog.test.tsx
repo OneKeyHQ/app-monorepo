@@ -446,6 +446,130 @@ describe('usePrimePurchaseCallback pending payment entry guard', () => {
     },
   );
 
+  it.each([
+    { changedDuring: 'prompt', refreshFailed: false },
+    { changedDuring: 'prompt', refreshFailed: true },
+    { changedDuring: 'handoff', refreshFailed: false },
+    { changedDuring: 'handoff', refreshFailed: true },
+  ])(
+    'monitors the current Google Play invoice after replacement during $changedDuring (refresh failed: $refreshFailed)',
+    async ({ changedDuring, refreshFailed }) => {
+      mockPlatformEnv.isNativeAndroidGooglePlay = true;
+      if (refreshFailed) {
+        mockGetPrimeInfiniPaymentEntryGuard.mockRejectedValueOnce(
+          new Error('invoice unavailable'),
+        );
+      } else {
+        mockGetPrimeInfiniPaymentEntryGuard.mockResolvedValue({
+          isLoggedIn: true,
+          hasPendingPayment: true,
+          onekeyUserId: 'user-1',
+          pendingSubscriptionPeriod: 'P1M',
+        });
+      }
+      const replacement: IPrimeInfiniPendingPaymentSession = {
+        ...mockPendingSession,
+        plan: 'yearly',
+        selectedSubscriptionPeriod: 'P1Y',
+        paymentCacheKey: {
+          ...mockPendingSession.paymentCacheKey,
+          bindingId: 'binding-2',
+          paymentId: 'payment-2',
+          plan: 'yearly',
+        },
+        payment: {
+          ...mockPendingSession.payment,
+          paymentId: 'payment-2',
+          amountDue: '99',
+          amountConfirmed: '0',
+          status: 'pending',
+        },
+      };
+      const replaceSession = () => {
+        mockGetPrimeInfiniPendingPaymentContext.mockResolvedValue({
+          isLoggedIn: true,
+          onekeyUserId: 'user-1',
+          pendingPaymentSession: replacement,
+        });
+      };
+      if (changedDuring === 'prompt') {
+        mockDialogShow.mockImplementationOnce((config) => {
+          replaceSession();
+          config.onCancel?.();
+          config.onClose?.();
+          return { close: mockPaymentMethodDialogClose };
+        });
+      }
+      const onPurchase = jest.fn(async () => {
+        if (changedDuring === 'handoff') replaceSession();
+      });
+      const { result } = renderHook(() =>
+        usePrimePurchaseCallback({ onPurchase }),
+      );
+      await act(async () => {
+        await result.current.purchase({ selectedSubscriptionPeriod: 'P1M' });
+      });
+      expect(mockShowPrimeInfiniWaitingDialog).toHaveBeenCalledTimes(1);
+      expect(mockShowPrimeInfiniWaitingDialog).toHaveBeenCalledWith({
+        context: {
+          checkoutType: 'internalWallet',
+          session: { ...replacement, featureName: undefined },
+        },
+      });
+      expect(mockPurchaseByCrypto).not.toHaveBeenCalled();
+      expect(mockPurchasePackageNative).not.toHaveBeenCalled();
+      expect(mockSupersedePaymentSession).not.toHaveBeenCalled();
+    },
+  );
+
+  it.each(['cleared', 'switched user', 'logged out', 'read failed'] as const)(
+    'does not open a stale Google Play monitor or start a purchase when the session is %s during handoff',
+    async (change) => {
+      mockPlatformEnv.isNativeAndroidGooglePlay = true;
+      mockGetPrimeInfiniPaymentEntryGuard.mockResolvedValue({
+        isLoggedIn: true,
+        hasPendingPayment: true,
+        onekeyUserId: 'user-1',
+      });
+      const onPurchase = jest.fn(async () => {
+        if (change === 'read failed') {
+          mockGetPrimeInfiniPendingPaymentContext.mockRejectedValue(
+            new Error('storage unavailable'),
+          );
+          return;
+        }
+        mockGetPrimeInfiniPendingPaymentContext.mockResolvedValue({
+          isLoggedIn: change !== 'logged out',
+          onekeyUserId: change === 'switched user' ? 'user-2' : 'user-1',
+          pendingPaymentSession:
+            change === 'cleared' ? undefined : mockPendingSession,
+        });
+      });
+      const { result } = renderHook(() =>
+        usePrimePurchaseCallback({ onPurchase }),
+      );
+      await act(async () => {
+        const purchase = result.current.purchase({
+          selectedSubscriptionPeriod: 'P1M',
+        });
+        if (change === 'cleared') {
+          await purchase;
+        } else {
+          await expect(purchase).rejects.toThrow(
+            change === 'read failed'
+              ? 'storage unavailable'
+              : 'Infini purchase user changed',
+          );
+        }
+      });
+      expect(mockShowPrimeInfiniWaitingDialog).not.toHaveBeenCalled();
+      expect(mockPurchaseByCrypto).not.toHaveBeenCalled();
+      expect(mockPurchasePackageNative).not.toHaveBeenCalled();
+      expect(mockPurchasePackageWeb).not.toHaveBeenCalled();
+      expect(mockSupersedePaymentSession).not.toHaveBeenCalled();
+    },
+  );
+
   it.each(['isNativeIOS', 'isMas'] as const)(
     'keeps the Apple Store pending-payment cancel action on %s without opening crypto recovery',
     async (platform) => {

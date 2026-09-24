@@ -166,3 +166,40 @@ describe('TradingViewNative active interval storage', () => {
     );
   });
 });
+
+describe('multi-chart interval persistence', () => {
+  it('restores independently saved intervals for the same token in different panels', async () => {
+    const stored = new Map<string, unknown>();
+    mockSyncStorage.getObject.mockImplementation((key: string) =>
+      stored.get(key),
+    );
+    mockSyncStorage.setObject.mockImplementation(
+      (key: string, value: unknown) => {
+        stored.set(key, value);
+      },
+    );
+    const source = {
+      kind: 'market' as const,
+      networkId: 'evm--1',
+      tokenAddress: '0xabc',
+      symbol: 'TOKEN',
+      realtime: 'disabled' as const,
+    };
+    const first = getTradingViewNativeIntervalStorageNamespace(source);
+    const second = getTradingViewNativeIntervalStorageNamespace(
+      source,
+      'market',
+      'panel-2',
+    );
+    await saveTradingViewNativeActiveInterval({
+      namespace: first,
+      interval: '15',
+    });
+    await saveTradingViewNativeActiveInterval({
+      namespace: second,
+      interval: '240',
+    });
+    expect(readTradingViewNativeActiveInterval(first)).toBe('15');
+    expect(readTradingViewNativeActiveInterval(second)).toBe('240');
+  });
+});
