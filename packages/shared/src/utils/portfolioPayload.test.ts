@@ -169,7 +169,7 @@ describe('Portfolio v2 category amounts', () => {
     });
   });
 
-  test('preserves negative net worth when formatting and summing', () => {
+  test('matches the app formatting rules for DeFi and Perps net worth', () => {
     expect(
       buildPortfolioPayload({
         ...params,
@@ -185,7 +185,19 @@ describe('Portfolio v2 category amounts', () => {
         ...params,
         categoryFiat: { defiFiat: '-0.001', perpsFiat: '0' },
       }),
-    ).toMatchObject({ defiFiat: '> -$0.01' });
+    ).toMatchObject({ defiFiat: '-$0.00', perpsFiat: '$0.00' });
+    expect(
+      buildPortfolioPayload({
+        ...params,
+        categoryFiat: { defiFiat: '0.004', perpsFiat: '0.004' },
+      }),
+    ).toMatchObject({ defiFiat: '$0.00', perpsFiat: '< $0.01' });
+    expect(
+      buildPortfolioPayload({
+        ...params,
+        categoryFiat: { defiFiat: '0.005', perpsFiat: '-0.004' },
+      }),
+    ).toMatchObject({ defiFiat: '$0.01', perpsFiat: '> -$0.01' });
   });
 
   test('keeps the seven-field v1 shape and token-only total', () => {

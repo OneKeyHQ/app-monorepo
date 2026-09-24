@@ -65,6 +65,7 @@ import { buildOverviewOwnerKey } from '../../../states/jotai/contexts/accountOve
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
 import { convertFiat } from '../../../utils/fiatConvert';
 import { showBalanceDetailsDialog } from '../components/BalanceDetailsDialog';
+import { roundPortfolioTotal } from '../components/DeFiListBlock/formatPortfolioTotal';
 import { useHomeWalletTabSupport } from '../hooks/useHomeWalletTabSupport';
 import { HomeTestIDs } from '../testIDs';
 
@@ -1094,7 +1095,9 @@ function HomeOverviewContainer() {
       });
     const deFiFiatUsd = hasKnownDeFi
       ? convertFiat({
-          value: accountDeFiOverview.netWorth ?? 0,
+          value: roundPortfolioTotal(
+            accountDeFiOverview.netWorth ?? 0,
+          ).toFixed(),
           sourceCurrency:
             accountDeFiOverview.currency || settings.currencyInfo.id,
           targetCurrency: USD_CURRENCY_ID,
@@ -1103,7 +1106,7 @@ function HomeOverviewContainer() {
       : undefined;
     let perpsFiatUsd: string | undefined;
     if (isLive) {
-      perpsFiatUsd = isPerpsEnabled ? perpsNetWorthUsd : '0';
+      perpsFiatUsd = isPerpsEnabled ? (perpsNetWorthUsd ?? '0') : '0';
     }
     const next = {
       ownerKey: isCurrentOwnerBalance ? currentOverviewOwnerKey : '',
