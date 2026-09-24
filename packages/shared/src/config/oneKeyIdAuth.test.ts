@@ -15,6 +15,25 @@ jest.mock('../request/requestHelper', () => ({
 }));
 
 describe('OneKey ID environment selection', () => {
+  test('production and test configuration differ only by host', () => {
+    const normalizeHost = (url: string) => {
+      const normalized = new URL(url);
+      normalized.hostname = 'auth.example.com';
+      return normalized.href;
+    };
+    const normalizeHosts = (config: typeof ONEKEY_ID_AUTH_CONFIG.prod) => ({
+      ...config,
+      projectUrl: normalizeHost(config.projectUrl),
+      captcha: {
+        ...config.captcha,
+        pageUrl: normalizeHost(config.captcha.pageUrl),
+      },
+    });
+    expect(normalizeHosts(ONEKEY_ID_AUTH_CONFIG.test)).toEqual(
+      normalizeHosts(ONEKEY_ID_AUTH_CONFIG.prod),
+    );
+  });
+
   test.each([
     { enabled: false, testEndpoint: false, environment: 'prod' as const },
     { enabled: false, testEndpoint: true, environment: 'prod' as const },

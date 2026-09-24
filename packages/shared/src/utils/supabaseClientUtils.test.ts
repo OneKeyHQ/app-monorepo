@@ -82,8 +82,10 @@ describe('email Supabase environment isolation', () => {
         index + 1,
         config.projectUrl,
         config.publicKey,
-        expect.objectContaining({
-          auth: expect.objectContaining({
+        {
+          global: { fetch: expect.any(Function) },
+          auth: {
+            storage: expect.anything(),
             storageKey:
               environment === 'prod'
                 ? 'sb-bwgpgzbzdgkisozswlck-auth-token'
@@ -91,8 +93,9 @@ describe('email Supabase environment isolation', () => {
             flowType: 'pkce',
             persistSession: isSupabaseTokenRefreshRuntime(),
             autoRefreshToken: isSupabaseTokenRefreshRuntime(),
-          }),
-        }),
+            detectSessionInUrl: false,
+          },
+        },
       );
     }
     settings.mockResolvedValue({

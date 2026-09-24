@@ -229,7 +229,7 @@ export const ONEKEY_ID_AUTH_CONFIG = {
     projectUrl: `${buildServiceEndpoint({ serviceName: EServiceEndpointEnum.Prime, env: 'test' })}${SUPABASE_RELAY_PATH}`,
     publicKey: SUPABASE_PUBLIC_API_KEY,
     captcha: {
-      enabled: true,
+      ...EMAIL_OTP_CAPTCHA_CONFIG,
       pageUrl: 'https://login.onekeytest.com/captcha',
     },
   },

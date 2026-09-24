@@ -548,24 +548,37 @@ describe('email OTP debug panel without a development build', () => {
     expect(screen.getByTestId('captcha-override').textContent).toBe('true');
   });
 
-  test.each(['preset', 'url'])(
-    'production relay selected by %s retains normal OneKey ID sign-in',
-    async (selection) => {
+  test.each([
+    ['prod', 'initial'],
+    ['prod', 'preset'],
+    ['prod', 'url'],
+    ['test', 'initial'],
+    ['test', 'preset'],
+    ['test', 'url'],
+  ] as const)(
+    '%s relay selected by %s retains normal OneKey ID sign-in',
+    async (environment, selection) => {
+      mockTestEndpointEnabled = environment === 'test';
+      const preset = environment === 'prod' ? 'production' : 'test-2';
       render(<Harness openCount={1} />);
-      fireEvent.click(screen.getByTestId('prime-otp-use-test-2'));
-      if (selection === 'preset') {
-        fireEvent.click(screen.getByTestId('prime-otp-use-production'));
-      } else {
-        fireEvent.change(screen.getByTestId('prime-otp-supabase-url'), {
-          target: { value: `${ONEKEY_ID_AUTH_CONFIG.prod.projectUrl}/` },
-        });
+      if (selection !== 'initial') {
+        fireEvent.click(screen.getByTestId('prime-otp-use-test'));
+        if (selection === 'preset') {
+          fireEvent.click(screen.getByTestId(`prime-otp-use-${preset}`));
+        } else {
+          fireEvent.change(screen.getByTestId('prime-otp-supabase-url'), {
+            target: {
+              value: `${ONEKEY_ID_AUTH_CONFIG[environment].projectUrl}/`,
+            },
+          });
+        }
       }
       expect(screen.getByTestId('test-project-active').textContent).toBe(
         'false',
       );
       expect(
         screen
-          .getByTestId('prime-otp-use-production')
+          .getByTestId(`prime-otp-use-${preset}`)
           .getAttribute('data-variant'),
       ).toBe('primary');
       expect(

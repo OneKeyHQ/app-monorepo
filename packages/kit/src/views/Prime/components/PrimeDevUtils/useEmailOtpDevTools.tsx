@@ -70,9 +70,12 @@ const CAPTCHA_PAGE_OPTIONS = [
   },
 ];
 
-function isProductionProject(projectUrl: string): boolean {
+function isCurrentProject(
+  projectUrl: string,
+  currentProjectUrl: string,
+): boolean {
   try {
-    return new URL(projectUrl).href.replace(/\/$/, '') === SUPABASE_PROJECT_URL;
+    return new URL(projectUrl).href.replace(/\/$/, '') === currentProjectUrl;
   } catch {
     return false;
   }
@@ -160,9 +163,7 @@ export function useEmailOtpDevTools({
     setBusy(value);
   }, []);
   const isTestProject =
-    available &&
-    (!isProductionProject(config.projectUrl) ||
-      authConfig.projectUrl !== SUPABASE_PROJECT_URL);
+    available && !isCurrentProject(config.projectUrl, authConfig.projectUrl);
   const configError = available ? getConfigError(config) : undefined;
   const isPasswordLogin = available && config.passwordLoginEnabled;
 

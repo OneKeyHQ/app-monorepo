@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { useIsMounted } from '@onekeyhq/kit/src/hooks/useIsMounted';
-import { EMAIL_OTP_CAPTCHA_CONFIG } from '@onekeyhq/shared/src/consts/authConsts';
 import type { IEmailOtpCaptchaConfig } from '@onekeyhq/shared/src/consts/authConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
@@ -24,13 +23,13 @@ type IPendingCaptcha = {
 };
 
 export function useEmailOtpCaptcha({
-  config = EMAIL_OTP_CAPTCHA_CONFIG,
+  config,
   active = true,
   email,
   revision = 0,
   initialToken,
 }: {
-  config?: IEmailOtpCaptchaConfig;
+  config: IEmailOtpCaptchaConfig;
   active?: boolean;
   email: string;
   revision?: number;
