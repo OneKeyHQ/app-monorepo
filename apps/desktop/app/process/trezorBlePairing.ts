@@ -343,14 +343,27 @@ export function createTrezorBlePairingIpcMain(
           for (const d of devices) {
             if (!loggedScanDetailFor.has(d.id)) {
               loggedScanDetailFor.add(d.id);
+              // Ledger logs whatever helps identify the model while BLE support
+              // is being debugged; the Trezor line is its pairing aid.
               logger.info(
-                `[TrezorBLE] scan detail ${d.id}: name='${
-                  d.name ?? d.localName ?? ''
-                }' uuids=${JSON.stringify(
-                  d.advertisedServiceUuids ?? [],
-                )} connectable=${String(d.isConnectable)} rssi=${String(
-                  d.rssi,
-                )} state=${String(d.state)}`,
+                scanOptions?.vendor === 'ledger'
+                  ? `[LedgerBLE] scan detail ${d.id}: ${JSON.stringify({
+                      name: d.name,
+                      localName: d.localName,
+                      address: d.address,
+                      addressType: d.addressType,
+                      serviceUuids: d.advertisedServiceUuids,
+                      serviceData: d.serviceData,
+                      manufacturerData: d.manufacturerDataHex,
+                      txPowerLevel: d.txPowerLevel,
+                    })}`
+                  : `[TrezorBLE] scan detail ${d.id}: name='${
+                      d.name ?? d.localName ?? ''
+                    }' uuids=${JSON.stringify(
+                      d.advertisedServiceUuids ?? [],
+                    )} connectable=${String(d.isConnectable)} rssi=${String(
+                      d.rssi,
+                    )} state=${String(d.state)}`,
               );
             }
           }
