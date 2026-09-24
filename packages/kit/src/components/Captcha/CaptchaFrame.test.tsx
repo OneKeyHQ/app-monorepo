@@ -1,5 +1,7 @@
 /** @jest-environment jsdom */
 
+import { useLayoutEffect } from 'react';
+
 import { act, fireEvent, render, screen } from '@testing-library/react';
 
 import CaptchaFrame from './CaptchaFrame';
@@ -51,113 +53,282 @@ afterEach(() => {
   jest.useRealTimers();
 });
 
-test('accepts tokens only from the configured frame origin, window and request', () => {
-  const onResult = jest.fn();
-  render(
-    <CaptchaFrame
-      url="https://login.onekeytest.com/captcha/index.html#requestId=current"
-      requestId="current"
-      onResult={onResult}
-    />,
-  );
-  const frame = screen.getByTitle<HTMLIFrameElement>('Security verification');
-  const message = {
-    type: 'onekey-test-captcha',
-    requestId: 'current',
-    status: 'success',
-    token: 'verified-token',
-  };
-  const send = ({
-    origin = 'https://login.onekeytest.com',
-    source = frame.contentWindow,
-    data = message,
-  } = {}) => {
-    const event = new globalThis.window.MessageEvent('message', {
-      origin,
-      source,
-      data,
-    });
-    expect(event.origin).toBe(origin);
-    expect(event.source).toBe(source);
+// jsdom does not implement MessageChannel. Exercise the receiver lifecycle here;
+// the paired hosted-page contract is also checked with real ports in Chromium.
+class TestPort implements MessagePort {
+  onmessage: MessagePort['onmessage'] = null;
+
+  onmessageerror: MessagePort['onmessageerror'] = null;
+
+  close = jest.fn();
+
+  start = jest.fn();
+
+  postMessage = jest.fn();
+
+  addEventListener = jest.fn();
+
+  removeEventListener = jest.fn();
+
+  dispatchEvent = jest.fn(() => true);
+
+  send(data: unknown) {
     act(() => {
-      globalThis.dispatchEvent(event);
+      this.onmessage?.call(this, new MessageEvent('message', { data }));
     });
-  };
-  send({ origin: 'https://untrusted.example.com' });
-  send({ origin: 'null' });
-  send({ source: globalThis.window });
-  send({ data: { ...message, requestId: 'stale' } });
-  expect(onResult).not.toHaveBeenCalled();
-  expect(frame.style.visibility).toBe('hidden');
-  send();
-  expect(onResult).toHaveBeenCalledWith(message);
-  expect(frame.style.visibility).toBe('visible');
-});
+  }
+}
 
-test('keeps an unresponsive error document hidden and reports failure within 30 seconds', () => {
-  jest.useFakeTimers();
-  const onResult = jest.fn();
-  render(
-    <CaptchaFrame
-      url="https://login.onekeytest.com/captcha#requestId=current"
-      requestId="current"
-      onResult={onResult}
-    />,
-  );
-  const frame = screen.getByTitle<HTMLIFrameElement>('Security verification');
-  expect(frame.style.visibility).toBe('hidden');
-  // Browsers also fire load for an iframe error document.
-  fireEvent.load(frame);
-  expect(frame.style.visibility).toBe('hidden');
-  act(() => jest.advanceTimersByTime(30_000));
-  expect(onResult).toHaveBeenCalledWith({
-    type: 'onekey-test-captcha',
-    requestId: 'current',
-    status: 'load-error',
-  });
-});
+const origin = 'https://login.onekeytest.com';
+const requestId = 'current';
+const url = `${origin}/captcha#requestId=${requestId}`;
+const success = {
+  type: 'onekey-test-captcha',
+  requestId,
+  status: 'success',
+  token: 'verified-token',
+};
+const ready = { type: 'onekey-test-captcha', requestId, status: 'ready' };
+const handshake = { type: 'onekey-captcha-bridge', version: 1, requestId };
 
-test('trusted readiness reveals the widget and preserves provider retries; changing the source restarts loading', () => {
-  jest.useFakeTimers();
-  const onResult = jest.fn();
-  const { rerender } = render(
-    <CaptchaFrame
-      url="https://login.onekeytest.com/captcha#requestId=current"
-      requestId="current"
-      onResult={onResult}
-    />,
-  );
-  const frame = screen.getByTitle<HTMLIFrameElement>('Security verification');
+function CommitProbe({
+  children,
+  onCommit,
+}: {
+  children: import('react').ReactNode;
+  onCommit: () => void;
+}) {
+  useLayoutEffect(onCommit, [onCommit]);
+  return children;
+}
+
+function sendWindowMessage(
+  frame: HTMLIFrameElement,
+  options: MessageEventInit<unknown> = {},
+) {
   act(() => {
     globalThis.dispatchEvent(
-      new globalThis.window.MessageEvent('message', {
-        origin: 'https://login.onekeytest.com',
+      new MessageEvent('message', {
+        origin,
         source: frame.contentWindow,
-        data: {
-          type: 'onekey-test-captcha',
-          requestId: 'current',
-          status: 'ready',
-        },
+        data: handshake,
+        ...options,
       }),
     );
   });
+}
+
+function connect(frame: HTMLIFrameElement) {
+  const port = new TestPort();
+  sendWindowMessage(frame, { ports: [port] });
+  return port;
+}
+
+test('requires the document channel and validates the handshake and results', () => {
+  const onResult = jest.fn();
+  render(<CaptchaFrame url={url} requestId={requestId} onResult={onResult} />);
+  const frame = screen.getByTitle<HTMLIFrameElement>('Security verification');
+  expect(
+    new URLSearchParams(new URL(frame.src).hash.slice(1)).get('bridge'),
+  ).toBe('message-channel-v1');
+  for (const options of [
+    { origin: 'https://untrusted.example.com' },
+    { origin: 'null' },
+    { source: globalThis.window },
+    { data: { ...handshake, requestId: 'stale' } },
+    { data: { ...handshake, version: 2 } },
+    { data: success },
+    { data: null },
+  ]) {
+    const invalidPort = new TestPort();
+    sendWindowMessage(frame, { ports: [invalidPort], ...options });
+    expect(invalidPort.onmessage).toBeNull();
+  }
+  sendWindowMessage(frame); // A handshake without a port cannot enable results.
+  sendWindowMessage(frame, { data: success });
+  expect(onResult).not.toHaveBeenCalled();
+  const port = connect(frame);
+  expect(frame.style.visibility).toBe('hidden');
+  port.send({ ...success, requestId: 'stale' });
+  port.send({ ...success, token: '' });
+  expect(onResult).not.toHaveBeenCalled();
+  port.send(success);
+  expect(onResult).toHaveBeenCalledWith(success);
   expect(frame.style.visibility).toBe('visible');
-  expect(screen.queryByTestId('email-otp-captcha-loading')).toBeNull();
-  act(() => jest.advanceTimersByTime(180_000));
+});
+
+test('same-origin window messages and replacement ports cannot complete a bound attempt', () => {
+  const onResult = jest.fn();
+  render(<CaptchaFrame url={url} requestId={requestId} onResult={onResult} />);
+  const frame = screen.getByTitle<HTMLIFrameElement>('Security verification');
+  const port = connect(frame);
+  port.send(ready);
+  sendWindowMessage(frame, { data: success });
+  const replacement = connect(frame);
+  replacement.send(success);
+  expect(replacement.onmessage).toBeNull();
   expect(onResult).toHaveBeenCalledTimes(1);
+  port.send(success);
+  expect(onResult).toHaveBeenLastCalledWith(success);
+});
+
+test.each(['no bridge', 'legacy window bridge', 'handshake only'])(
+  '%s cannot clear the startup deadline or reveal a blank/error page',
+  (mode) => {
+    jest.useFakeTimers();
+    const onResult = jest.fn();
+    render(
+      <CaptchaFrame url={url} requestId={requestId} onResult={onResult} />,
+    );
+    const frame = screen.getByTitle<HTMLIFrameElement>('Security verification');
+    fireEvent.load(frame); // Browsers also fire load for error documents.
+    const port = mode === 'handshake only' ? connect(frame) : undefined;
+    if (mode === 'legacy window bridge') {
+      sendWindowMessage(frame, { data: ready });
+      sendWindowMessage(frame, { data: success });
+    }
+    expect(frame.style.visibility).toBe('hidden');
+    act(() => jest.advanceTimersByTime(30_000));
+    port?.send(success);
+    sendWindowMessage(frame, { data: success });
+    expect(onResult.mock.calls).toEqual([
+      [{ type: 'onekey-test-captcha', requestId, status: 'load-error' }],
+    ]);
+    expect(screen.queryByTitle('Security verification')).toBeNull();
+    if (port) expect(port.close).toHaveBeenCalled();
+  },
+);
+
+test.each(['second load', 'pagehide', 'port error', 'frame error'])(
+  '%s ends the attempt once and prevents late results',
+  (failure) => {
+    jest.useFakeTimers();
+    const onResult = jest.fn();
+    render(
+      <CaptchaFrame url={url} requestId={requestId} onResult={onResult} />,
+    );
+    const frame = screen.getByTitle<HTMLIFrameElement>('Security verification');
+    const port = connect(frame);
+    const lateResult = port.onmessage;
+    port.send(ready);
+    fireEvent.load(frame);
+    act(() => {
+      if (failure === 'second load') fireEvent.load(frame);
+      if (failure === 'pagehide') port.send({ ...ready, status: 'load-error' });
+      if (failure === 'port error') {
+        port.onmessageerror?.call(port, new MessageEvent('messageerror'));
+      }
+      if (failure === 'frame error') fireEvent.error(frame);
+      lateResult?.call(port, new MessageEvent('message', { data: success }));
+      jest.advanceTimersByTime(30_000);
+    });
+    expect(onResult.mock.calls).toEqual([
+      [{ ...ready, token: undefined }],
+      [{ ...ready, status: 'load-error' }],
+    ]);
+    expect(port.close).toHaveBeenCalled();
+    expect(screen.queryByTitle('Security verification')).toBeNull();
+  },
+);
+
+test('provider retries and callback rerenders retain the document channel', () => {
+  jest.useFakeTimers();
+  const onResult = jest.fn();
+  const nextResult = jest.fn();
+  const { rerender } = render(
+    <CaptchaFrame url={url} requestId={requestId} onResult={onResult} />,
+  );
+  const frame = screen.getByTitle<HTMLIFrameElement>('Security verification');
+  const port = connect(frame);
+  port.send(ready);
+  fireEvent.load(frame);
+  act(() => jest.advanceTimersByTime(180_000));
+  expect(screen.queryByTestId('email-otp-captcha-loading')).toBeNull();
+  rerender(
+    <CaptchaFrame url={url} requestId={requestId} onResult={nextResult} />,
+  );
+  port.send({ ...ready, status: 'error' });
+  port.send({ ...ready, status: 'expired' });
+  port.send(success);
+  expect(onResult).toHaveBeenCalledTimes(1);
+  expect(nextResult).toHaveBeenCalledTimes(3);
+  expect(port.close).not.toHaveBeenCalled();
+  expect(frame.style.visibility).toBe('visible');
+});
+
+test('a new attempt remounts the frame and closes the old port, including on unmount', () => {
+  const onResult = jest.fn();
+  const { rerender, unmount } = render(
+    <CaptchaFrame url={url} requestId={requestId} onResult={onResult} />,
+  );
+  const frame = screen.getByTitle<HTMLIFrameElement>('Security verification');
+  const port = connect(frame);
+  const lateResult = port.onmessage;
+  port.send(ready);
   rerender(
     <CaptchaFrame
-      url="https://login.onekey.so/captcha#requestId=next"
+      url={`${origin}/captcha#requestId=next`}
       requestId="next"
       onResult={onResult}
     />,
   );
-  expect(frame.style.visibility).toBe('hidden');
-  expect(screen.getByTestId('email-otp-captcha-loading')).toBeTruthy();
-  act(() => jest.advanceTimersByTime(30_000));
-  expect(onResult).toHaveBeenLastCalledWith({
-    type: 'onekey-test-captcha',
-    requestId: 'next',
-    status: 'load-error',
+  const nextFrame = screen.getByTitle<HTMLIFrameElement>(
+    'Security verification',
+  );
+  expect(nextFrame).not.toBe(frame);
+  expect(nextFrame.style.visibility).toBe('hidden');
+  expect(port.close).toHaveBeenCalled();
+  act(() => {
+    lateResult?.call(port, new MessageEvent('message', { data: success }));
   });
+  const nextPort = new TestPort();
+  sendWindowMessage(nextFrame, {
+    ports: [nextPort],
+    data: { ...handshake, requestId: 'next' },
+  });
+  nextPort.send({ ...success, requestId: 'next' });
+  expect(onResult).toHaveBeenCalledTimes(2);
+  const afterUnmount = nextPort.onmessage;
+  unmount();
+  act(() => {
+    afterUnmount?.call(
+      nextPort,
+      new MessageEvent('message', { data: { ...success, requestId: 'next' } }),
+    );
+  });
+  expect(nextPort.close).toHaveBeenCalled();
+  expect(onResult).toHaveBeenCalledTimes(2);
+});
+
+test('old pagehide cannot fail a new attempt in the commit before passive cleanup', () => {
+  const onResult = jest.fn();
+  const { rerender } = render(
+    <CommitProbe onCommit={() => {}}>
+      <CaptchaFrame url={url} requestId={requestId} onResult={onResult} />
+    </CommitProbe>,
+  );
+  const frame = screen.getByTitle<HTMLIFrameElement>('Security verification');
+  const port = connect(frame);
+  const lateResult = port.onmessage;
+  port.send(ready);
+  rerender(
+    <CommitProbe
+      onCommit={() => {
+        lateResult?.call(
+          port,
+          new MessageEvent('message', {
+            data: { ...ready, status: 'load-error' },
+          }),
+        );
+      }}
+    >
+      <CaptchaFrame
+        url={`${origin}/captcha#requestId=next`}
+        requestId="next"
+        onResult={onResult}
+      />
+    </CommitProbe>,
+  );
+  expect(port.close).toHaveBeenCalled();
+  expect(onResult).toHaveBeenCalledTimes(1);
 });

@@ -121,8 +121,8 @@ function NativeCaptchaFrame({ url, requestId, onResult }: ICaptchaFrameProps) {
         }}
         onError={failToLoad}
         onHttpError={(event) => {
-          // Android can report child-resource failures too; leave Cloudflare's
-          // retryable challenge errors to its own UI.
+          // react-native-webview filters HTTP errors to the main document on
+          // both Android and iOS before dispatching this callback.
           if (
             event.nativeEvent.statusCode >= 400 &&
             isCaptchaOrigin(event.nativeEvent.url, origin)

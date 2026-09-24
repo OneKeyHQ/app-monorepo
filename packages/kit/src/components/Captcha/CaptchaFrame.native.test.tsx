@@ -183,19 +183,10 @@ describe('native CAPTCHA page loading', () => {
     });
   });
 
-  test('keeps provider recovery active after startup and ignores its child HTTP errors', () => {
+  test('keeps provider recovery active after startup', () => {
     jest.useFakeTimers();
     const { props, onResult } = renderFrame();
     act(() => {
-      props.onHttpError?.(
-        nativeEvent({
-          nativeEvent: {
-            ...navigation('https://challenges.cloudflare.com/widget', false),
-            statusCode: 400,
-            description: 'Retry challenge',
-          },
-        }),
-      );
       props.onMessage?.(
         nativeEvent({
           nativeEvent: {
