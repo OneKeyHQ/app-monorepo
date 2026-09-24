@@ -7,7 +7,6 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import type { ITableProps } from '@onekeyhq/components';
-import { CommunityRecognizedBadge } from '@onekeyhq/kit/src/views/Market/components/CommunityRecognizedBadge';
 import {
   StockSourceLogo,
   SubtitleBadge,
@@ -76,10 +75,6 @@ function renderPopularTradingStockBadges(record: IFavoriteTokenDisplay) {
       ) : null}
     </>
   );
-}
-
-function renderPopularTradingCommunityBadge(record: IFavoriteTokenDisplay) {
-  return record.communityRecognized ? <CommunityRecognizedBadge /> : null;
 }
 
 // 24h change as colored text, shared by the mobile price cell and the desktop
@@ -212,6 +207,5 @@ export {
   HOME_MARKET_TABLE_HEADER_MIN_HEIGHT,
   HOME_MARKET_TABLE_ROW_MIN_HEIGHT,
   getPopularTradingColumns,
-  renderPopularTradingCommunityBadge,
   renderPopularTradingStockBadges,
 };
