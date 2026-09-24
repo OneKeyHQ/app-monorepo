@@ -16347,6 +16347,7 @@
     "packages/components/src/layouts/ListView/list.native.tsx": 8573,
     "packages/components/src/layouts/NativeSectionList/index.tsx": 17901,
     "packages/components/src/layouts/Navigation/BottomTabs/NativeBottomTabView.tsx": 15807,
+    "packages/components/src/layouts/Navigation/BottomTabs/TabSceneContext.ts": 17068,
     "packages/components/src/layouts/Navigation/BottomTabs/createNativeBottomTabNavigator.tsx": 11755,
     "packages/components/src/layouts/Navigation/BottomTabs/index.ts": 522,
     "packages/components/src/layouts/Navigation/GlobalScreenOptions.native.ts": 15837,
