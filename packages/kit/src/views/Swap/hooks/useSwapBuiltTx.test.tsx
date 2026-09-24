@@ -16,6 +16,8 @@ import {
   EProtocolOfExchange,
   ESwapQuoteKind,
   ESwapRateDifferenceUnit,
+  ESwapStepStatus,
+  ESwapStepType,
   ESwapTabSwitchType,
 } from '@onekeyhq/shared/types/swap/types';
 
@@ -520,4 +522,186 @@ describe('useSwapBuildTx review rebuild', () => {
       store.get(swapStepsAtom()).preSwapData.stepBeforeActionsError,
     ).toBeUndefined();
   });
+
+  it.each(['approval failure', 'close and reopen the same quote'])(
+    'does not let an old build overwrite a later Review after %s',
+    async (scenario) => {
+      platformEnv.isNative = false;
+      globalJotaiStorageReadyHandler.resolveReady(true);
+      mockFetchBuildTx.mockReset();
+      mockPrepareUnsignedTx.mockReset();
+      mockEstimateFee.mockReset();
+      mockFetchAccountDetails.mockReset();
+      mockFetchAccountDetails.mockResolvedValue({ nonce: 3 });
+      mockGetVaultSettings.mockResolvedValue({});
+
+      const quoteA: IFetchQuoteResult = {
+        ...quote,
+        quoteId: 'quote-A',
+        allowanceResult: { allowanceTarget: '0x4', amount: '0' },
+      };
+      const reopensSameQuote = scenario === 'close and reopen the same quote';
+      const quoteB: IFetchQuoteResult = reopensSameQuote
+        ? quoteA
+        : {
+            ...quote,
+            quoteId: 'quote-B',
+            fromAmount: '0.2',
+            toAmount: '240',
+          };
+      let resolveBuildA!: (value: IFetchBuildTxResponse) => void;
+      let resolveBuildAStarted!: () => void;
+      const buildAStarted = new Promise<void>((resolve) => {
+        resolveBuildAStarted = resolve;
+      });
+      mockFetchBuildTx
+        .mockImplementationOnce(() => {
+          resolveBuildAStarted();
+          return new Promise((resolve) => {
+            resolveBuildA = resolve;
+          });
+        })
+        .mockResolvedValue({
+          ...buildResponse('230'),
+          orderId: 'order-B',
+          result: { ...quoteB, toAmount: '230' },
+        });
+      let rejectApprovalA!: (reason: Error) => void;
+      let resolveApprovalAStarted!: () => void;
+      const approvalAStarted = new Promise<void>((resolve) => {
+        resolveApprovalAStarted = resolve;
+      });
+      mockPrepareUnsignedTx.mockImplementation((params) => {
+        if (params.approveInfo && !rejectApprovalA) {
+          resolveApprovalAStarted();
+          return new Promise((_, reject) => {
+            rejectApprovalA = reject;
+          });
+        }
+        return Promise.resolve({
+          ...params,
+          encodedTx: { to: '0x4', value: '0' },
+        });
+      });
+      mockEstimateFee.mockResolvedValue({
+        common: {
+          feeDecimals: 9,
+          feeSymbol: 'Gwei',
+          nativeDecimals: 18,
+          nativeSymbol: 'ETH',
+          nativeTokenPrice: 1000,
+        },
+        gas: [{ gasPrice: '1', gasLimit: '21000' }],
+      });
+
+      const store = createStore();
+      store.set(swapTypeSwitchAtom(), ESwapTabSwitchType.SWAP);
+      store.set(swapStepsAtom(), {
+        steps: [],
+        quoteResult: quoteA,
+        preSwapData: {
+          fromToken,
+          toToken,
+          fromTokenAmount: quoteA.fromAmount,
+          toTokenAmount: quoteA.toAmount,
+          slippage: 1,
+        },
+      });
+      const Wrapper = ({ children }: { children?: ReactNode }) => (
+        <ProviderJotaiContextSwap store={store}>
+          {children}
+        </ProviderJotaiContextSwap>
+      );
+      const { result } = renderHook(() => useSwapBuildTx(), {
+        wrapper: Wrapper,
+      });
+
+      await act(async () => {
+        const pendingA = result.current.preSwapBeforeStepActions(
+          quoteA,
+          fromToken,
+          toToken,
+        );
+        await Promise.all([approvalAStarted, buildAStarted]);
+        if (reopensSameQuote) {
+          result.current.invalidateReviewPreparation();
+          store.set(swapStepsAtom(), { steps: [], preSwapData: {} });
+        }
+        rejectApprovalA(new Error('approval failed'));
+        await pendingA;
+      });
+      if (reopensSameQuote) {
+        expect(store.get(swapStepsAtom()).preSwapData).toEqual({});
+      } else {
+        expect(
+          store.get(swapStepsAtom()).preSwapData.stepBeforeActionsError,
+        ).toBe(true);
+        expect(store.get(swapStepsAtom()).preSwapData.swapBuildLoading).toBe(
+          false,
+        );
+        expect(
+          store.get(swapStepsAtom()).preSwapData.estimateNetworkFeeLoading,
+        ).toBe(false);
+      }
+
+      await act(async () => {
+        store.set(swapStepsAtom(), {
+          steps: [],
+          quoteResult: quoteB,
+          preSwapData: {
+            fromToken,
+            toToken,
+            fromTokenAmount: quoteB.fromAmount,
+            toTokenAmount: quoteB.toAmount,
+            slippage: 1,
+          },
+        });
+      });
+      await act(async () => {
+        await result.current.preSwapBeforeStepActions(
+          quoteB,
+          fromToken,
+          toToken,
+        );
+      });
+      expect(
+        store.get(swapStepsAtom()).preSwapData.swapBuildResultData?.orderId,
+      ).toBe('order-B');
+
+      await act(async () => {
+        resolveBuildA({
+          ...buildResponse('98'),
+          orderId: 'order-A',
+          result: { ...quoteA, toAmount: '98' },
+        });
+        await Promise.resolve();
+      });
+      const currentReview = store.get(swapStepsAtom());
+      expect(currentReview.quoteResult).toBe(quoteB);
+      expect(currentReview.preSwapData.toTokenAmount).toBe('230');
+      expect(currentReview.preSwapData.swapBuildResultData?.orderId).toBe(
+        'order-B',
+      );
+      expect(currentReview.preSwapData.stepBeforeActionsError).toBeUndefined();
+
+      mockNavigateTxConfirm.mockClear();
+      await act(async () => {
+        await result.current.preSwapStepsStart({
+          steps: [
+            { type: ESwapStepType.SEND_TX, status: ESwapStepStatus.READY },
+          ],
+          preSwapData: { ...currentReview.preSwapData, shouldFallback: true },
+          quoteResult: quoteB,
+        });
+      });
+      expect(mockFetchBuildTx).toHaveBeenCalledTimes(2);
+      expect(mockNavigateTxConfirm).toHaveBeenCalledWith(
+        expect.objectContaining({
+          swapInfo: expect.objectContaining({
+            swapBuildResData: expect.objectContaining({ orderId: 'order-B' }),
+          }),
+        }),
+      );
+    },
+  );
 });

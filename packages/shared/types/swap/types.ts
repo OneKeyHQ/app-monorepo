@@ -630,6 +630,7 @@ export interface ISwapPreSwapData {
   swapType?: ESwapTabSwitchType;
   unSupportSlippage?: boolean;
   swapBuildResultData?: {
+    reviewQuoteResult?: IFetchQuoteResult;
     swapInfo?: ISwapTxInfo;
     orderId?: string;
     slippagePercentage?: number;

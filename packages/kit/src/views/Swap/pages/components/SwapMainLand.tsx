@@ -258,6 +258,7 @@ const SwapMainLoad = ({
     rebuildSwapWithSlippage,
     beginGasAccountReviewSession,
     endGasAccountReviewSession,
+    invalidateReviewPreparation,
     markCurrentGasAccountReviewSubmitted,
   } = useSwapBuildTx({
     onSwapBroadcast,
@@ -337,6 +338,7 @@ const SwapMainLoad = ({
   hasInFlightReviewWorkRef.current = hasInFlightReviewWork;
 
   const resetPendingReview = useCallback(() => {
+    invalidateReviewPreparation();
     endGasAccountReviewSession();
     setSwapBuildTxFetching(false);
     void backgroundApiProxy.serviceGas.abortEstimateFee();
@@ -344,15 +346,21 @@ const SwapMainLoad = ({
       steps: [],
       preSwapData: {},
     });
-  }, [endGasAccountReviewSession, setSwapBuildTxFetching, setSwapSteps]);
+  }, [
+    endGasAccountReviewSession,
+    invalidateReviewPreparation,
+    setSwapBuildTxFetching,
+    setSwapSteps,
+  ]);
   const dialogClose = useCallback(() => {
+    invalidateReviewPreparation();
     if (reviewDialogTimerRef.current !== undefined) {
       clearTimeout(reviewDialogTimerRef.current);
       reviewDialogTimerRef.current = undefined;
       resetPendingReview();
     }
     void dialogRef.current?.close();
-  }, [resetPendingReview]);
+  }, [invalidateReviewPreparation, resetPendingReview]);
   const shouldCloseReviewOnFocusLoss = useCallback(
     () =>
       shouldCloseSwapReviewOnFocusLoss({
