@@ -10,6 +10,7 @@ import type {
   ISendCexDepositWarningActionParams,
   ISendCexDepositWarningContext,
 } from '../types';
+import type { IDeviceType } from '@onekeyfe/hd-core';
 
 type ISendMode = 'public' | 'private';
 type IPrivateSendQuoteStatus = 'success' | 'failed';
@@ -187,6 +188,8 @@ export class SendScene extends BaseScene {
 
   @LogToServer()
   public sendConfirm({
+    walletType,
+    deviceType,
     network,
     txnType,
     interactContract,
@@ -206,6 +209,8 @@ export class SendScene extends BaseScene {
     tronUseRedemptionCode,
     tronIsCreditAutoClaimed,
   }: {
+    walletType: string;
+    deviceType: IDeviceType | undefined;
     network: string | undefined;
     txnType: string | undefined;
     txnParseType: string | undefined;
@@ -226,6 +231,8 @@ export class SendScene extends BaseScene {
     tronIsCreditAutoClaimed: boolean | undefined;
   }) {
     const result = {
+      walletType,
+      deviceType,
       sendFlowId: this._sendFlowId,
       network,
       txnType,
