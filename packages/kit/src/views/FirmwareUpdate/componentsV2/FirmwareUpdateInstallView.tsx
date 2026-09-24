@@ -142,17 +142,22 @@ function VersionText({
     item,
     isVersionValid,
   });
-  // Never wider than the column: an over-long range truncates with an
-  // ellipsis instead of running off the screen.
+  // Keep each version intact on Android. If the full range is wider than the
+  // column, wrap the range instead of shrinking a short version to ellipsis.
   return (
-    <XStack alignItems="center" gap="$2" maxWidth="100%" {...SHRINK_TO_FIT}>
+    <XStack
+      alignItems="center"
+      gap="$2"
+      maxWidth="100%"
+      flexWrap="wrap"
+      {...SHRINK_TO_FIT}
+    >
       {from ? (
         <>
           <SizableText
             size={emphasize ? '$bodyLgMedium' : '$bodyMd'}
             color="$textSubdued"
             numberOfLines={1}
-            {...SHRINK_TO_FIT}
           >
             {from}
           </SizableText>
@@ -190,12 +195,7 @@ function VersionLink({
 }) {
   if (!releaseUrl) {
     return (
-      <SizableText
-        size={size}
-        color={color}
-        numberOfLines={1}
-        {...SHRINK_TO_FIT}
-      >
+      <SizableText size={size} color={color} numberOfLines={1}>
         {children}
       </SizableText>
     );
@@ -206,7 +206,6 @@ function VersionLink({
       color="$textSuccess"
       textDecorationLine="underline"
       numberOfLines={1}
-      {...SHRINK_TO_FIT}
       href={releaseUrl}
       target="_blank"
       // Inside the pill: follow the link, do not toggle the details card.
