@@ -67,9 +67,12 @@ export function Token({
   bg: bgProp,
   ...rest
 }: ITokenProps) {
-  const { tokenImageSize, chainImageSize, fallbackIconSize } = size
-    ? TOKEN_SIZE_MAP[size]
-    : TOKEN_SIZE_MAP.lg;
+  const {
+    tokenImageSize,
+    chainImageSize,
+    fallbackIconSize,
+    tokenImageResizeWidth,
+  } = size ? TOKEN_SIZE_MAP[size] : TOKEN_SIZE_MAP.lg;
 
   const themeVariant = useThemeVariant();
 
@@ -133,7 +136,18 @@ export function Token({
     borderWidth: shouldShowBorder ? ('$px' as const) : undefined,
     borderColor: shouldShowBorder ? ('$neutral2Dark' as const) : undefined,
     fallback: fallbackElement,
-    placeholder: placeholderElement,
+    // Native: let the image view own its loading placeholder. A JS
+    // `placeholder` overlay is removed only after the native onDisplay event
+    // round-trips through React (3-4 frames), so even a memory-cached logo
+    // showed a skeleton on every mount; the native skeleton indicator stops
+    // synchronously the moment a cached image is displayed (OK-63873).
+    ...(platformEnv.isNative
+      ? { loadingStrategy: 'skeleton' as const }
+      : { placeholder: placeholderElement }),
+    // Explicit display-size hint so the rendition + memory-cache key are fixed
+    // by the token size, not by the (initially empty) native view bounds, and
+    // match what the prewarm paths request for this size (OK-63873).
+    resizeWidth: tokenImageResizeWidth,
     ...rest,
   };
 
