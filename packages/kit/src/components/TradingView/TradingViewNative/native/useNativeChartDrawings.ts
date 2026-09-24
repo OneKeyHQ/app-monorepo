@@ -43,6 +43,7 @@ type INativeDrawingState = IDrawingRenderState & {
 };
 
 export function useNativeChartDrawings({
+  enabled,
   points,
   indicatorSeries,
   subIndicatorPanes,
@@ -50,6 +51,7 @@ export function useNativeChartDrawings({
   chartRuntime,
   decayOffset,
 }: {
+  enabled: boolean;
   points: IMarketTokenKLineDataPoint[];
   indicatorSeries: ITradingViewNativeIndicatorSeries[];
   subIndicatorPanes: readonly ITradingViewNativeSubIndicatorRenderPane[];
@@ -60,7 +62,7 @@ export function useNativeChartDrawings({
   const projectionRef = useRef<IDrawingProjection | null>(null);
   const redrawRef = useRef<() => void>(() => undefined);
   const controller = useChartDrawings({
-    enabled: true,
+    enabled,
     projectionRef,
     redrawRef,
     storageKey,
@@ -132,6 +134,7 @@ export function useNativeChartDrawings({
   const gesture = useMemo(
     () =>
       Gesture.Manual()
+        .enabled(enabled)
         .onTouchesDown((event, manager) => {
           'worklet';
           if (event.numberOfTouches > 1) {
@@ -248,6 +251,7 @@ export function useNativeChartDrawings({
       chartRuntime,
       decayOffset,
       drawings,
+      enabled,
       handlePointer,
       pointerId,
       projection,
@@ -259,10 +263,11 @@ export function useNativeChartDrawings({
   dataInputs.current = { points, indicatorSeries, subIndicatorPanes };
   const updateDataIndex = useCallback(
     (pointIndex: number | null) => {
+      if (!enabled) return;
       dataIndex.current = pointIndex;
       updateData(getDataWindowSnapshot({ ...dataInputs.current, pointIndex }));
     },
-    [updateData],
+    [enabled, updateData],
   );
   useAnimatedReaction(
     () => projection.value?.pointIndex ?? null,

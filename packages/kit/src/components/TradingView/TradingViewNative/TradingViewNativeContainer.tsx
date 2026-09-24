@@ -222,6 +222,7 @@ const TradingViewNativeContent = memo(
     previousClose,
     enablePreviousClose = false,
     enableNativeChartSettings,
+    enableDrawings = false,
     nativeChartSettingsInToolbar = false,
     initialRightOffset,
     nativeChartDisplayMode,
@@ -1002,6 +1003,12 @@ const TradingViewNativeContent = memo(
           <Stack flex={1} position="relative" onLayout={handleChartAreaLayout}>
             <TradingViewNativeChart
               key={`${dataProviderKey}:${candleIntervalSeconds}`}
+              enableDrawings={
+                enableDrawings &&
+                !isCompactDisplayMode &&
+                storageNamespace !== 'swap' &&
+                source.kind !== 'hyperliquid'
+              }
               drawingStorageKey={
                 panelId
                   ? `${dataProviderKey}:panel:${panelId}`
@@ -1021,7 +1028,9 @@ const TradingViewNativeContent = memo(
               initialRightOffset={initialRightOffset}
               isMobileLayout={isMobileControlsLayout}
               resizesWithSubIndicatorPanes={Boolean(
-                onNativeIndicatorQuickBarChange && !isNativeChartFullscreen,
+                showNativeIndicatorQuickBar &&
+                onNativeIndicatorQuickBarChange &&
+                !isNativeChartFullscreen,
               )}
               isSwitchingInterval={isSwitchingInterval}
               locale={intl.locale}

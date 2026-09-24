@@ -117,6 +117,7 @@ const EMPTY_SUB_INDICATOR_PANES: readonly ITradingViewNativeSubIndicatorRenderPa
 export const TradingViewNativeChart = memo(
   ({
     drawingStorageKey,
+    enableDrawings = false,
     candleIntervalSeconds,
     chartComponents,
     chartSettings,
@@ -196,6 +197,7 @@ export const TradingViewNativeChart = memo(
       projection: drawingProjection,
       gesture: drawingGesture,
     } = useNativeChartDrawings({
+      enabled: enableDrawings,
       points,
       indicatorSeries,
       subIndicatorPanes,
@@ -388,8 +390,9 @@ export const TradingViewNativeChart = memo(
     const picture = useDerivedValue(() => {
       const runtime = chartRuntime.value;
       return createTradingViewNativeSkiaPicture({
-        drawings: drawings.value,
+        drawings: enableDrawings ? drawings.value : undefined,
         onScene: (scene) => {
+          if (!enableDrawings) return;
           drawingProjection.value = {
             layout: scene.layout ?? null,
             viewport: scene.viewport,
@@ -426,6 +429,7 @@ export const TradingViewNativeChart = memo(
       });
     }, [
       candleLabels,
+      enableDrawings,
       extendTimeAxisBorderToCanvasEdge,
       isMobileLayout,
       priceAxisFontSize,
@@ -861,8 +865,11 @@ export const TradingViewNativeChart = memo(
       timeAxisHeight,
     });
     const combinedGestures = useMemo(
-      () => Gesture.Exclusive(drawingGesture, chartGestures),
-      [drawingGesture, chartGestures],
+      () =>
+        enableDrawings
+          ? Gesture.Exclusive(drawingGesture, chartGestures)
+          : chartGestures,
+      [enableDrawings, drawingGesture, chartGestures],
     );
     useAnimatedReaction(
       () => ({
@@ -902,7 +909,9 @@ export const TradingViewNativeChart = memo(
 
     return (
       <Stack flex={1} minHeight={0} flexDirection="row" position="relative">
-        <NativeDrawingToolbar controller={drawingController} />
+        {enableDrawings ? (
+          <NativeDrawingToolbar controller={drawingController} />
+        ) : null}
         <Stack
           flex={1}
           minHeight={0}

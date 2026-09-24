@@ -290,7 +290,7 @@ export function TradingViewNativeMultiChart({
             isMultiple ? false : props.showNativeIndicatorQuickBar
           }
           onNativeIndicatorQuickBarChange={
-            !isMultiple ? props.onNativeIndicatorQuickBarChange : undefined
+            index === 0 ? props.onNativeIndicatorQuickBarChange : undefined
           }
           onPriceUpdate={index === 0 ? props.onPriceUpdate : undefined}
           onDataStateChange={index === 0 ? props.onDataStateChange : undefined}

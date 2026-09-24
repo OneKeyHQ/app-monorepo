@@ -23,6 +23,7 @@ import type { SharedValue } from 'react-native-reanimated';
 
 export interface ITradingViewNativeChartProps {
   drawingStorageKey?: string;
+  enableDrawings?: boolean;
   /** Owned by the data controller so native presentation changes retain the viewport. */
   runtimeRef?: RefObject<{
     runtime: SharedValue<ITradingViewNativeChartRuntime>;

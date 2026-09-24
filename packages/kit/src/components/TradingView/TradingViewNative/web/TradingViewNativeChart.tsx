@@ -117,6 +117,7 @@ interface ITimeAxisPointerDragState {
 export const TradingViewNativeChart = memo(
   ({
     drawingStorageKey,
+    enableDrawings: drawingsEnabled = false,
     candleIntervalSeconds,
     chartComponents,
     chartSettings,
@@ -154,7 +155,6 @@ export const TradingViewNativeChart = memo(
     const drawingRootRef = useRef<HTMLDivElement>(null);
     const drawingProjectionRef = useRef<IDrawingProjection | null>(null);
     const drawingRedrawRef = useRef<() => void>(() => undefined);
-    const drawingsEnabled = Boolean(platformEnv.isWeb);
     const drawingController = useChartDrawings({
       enabled: drawingsEnabled,
       projectionRef: drawingProjectionRef,

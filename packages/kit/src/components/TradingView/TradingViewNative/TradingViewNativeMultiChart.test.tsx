@@ -29,6 +29,7 @@ const mockSetLayout = (update: SetStateAction<IMarketTradingViewLayout>) => {
 };
 const mockDividers = new Map<string, ITradingViewPanelDividerProps>();
 const mockControllerMounts = new Map<string, object>();
+const mockControllerProps = new Map<string, ITradingViewNativeProps>();
 const mockGridLayout = {
   nativeEvent: { layout: { width: 1000, height: 640 } },
 };
@@ -179,6 +180,7 @@ function MockChartController(props: ITradingViewNativeProps) {
   const controller = useRef({});
   const [viewport, setViewport] = useState(1);
   mockControllerMounts.set(id, controller.current);
+  mockControllerProps.set(id, props);
   const content = (
     <>
       {props.nativeChartWorkspaceControls}
@@ -242,8 +244,42 @@ describe('TradingView multi-chart workspace', () => {
       panelSettings: {},
     };
     mockControllerMounts.clear();
+    mockControllerProps.clear();
     mockDividers.clear();
   });
+
+  it.each([1, 2, 4] as const)(
+    'keeps one quick bar reporter attached across layout changes from %s panels',
+    (panelCount) => {
+      mockLayout = { ...mockLayout, panelCount };
+      const onQuickBarChange = jest.fn();
+      render(
+        <TradingViewNativeMultiChart
+          source={source}
+          ChartComponent={MockChartController}
+          showNativeIndicatorQuickBar
+          onNativeIndicatorQuickBarChange={onQuickBarChange}
+        />,
+      );
+      const expectQuickBarOwner = (count: number) => {
+        mockLayout.panelOrder.slice(0, count).forEach((id, index) => {
+          expect(
+            mockControllerProps.get(id)?.onNativeIndicatorQuickBarChange,
+          ).toBe(index === 0 ? onQuickBarChange : undefined);
+          expect(mockControllerProps.get(id)?.showNativeIndicatorQuickBar).toBe(
+            count === 1,
+          );
+        });
+      };
+      expectQuickBarOwner(panelCount);
+      [2, 4, 1].forEach((count) => {
+        fireEvent.change(screen.getByTestId('layout'), {
+          target: { value: String(count) },
+        });
+        expectQuickBarOwner(count);
+      });
+    },
+  );
 
   it('retains each controller and its viewport across fullscreen and panel reordering', () => {
     const { rerender } = render(

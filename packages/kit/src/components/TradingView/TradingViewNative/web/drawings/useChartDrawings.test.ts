@@ -23,7 +23,7 @@ const getItem = jest.mocked(appStorage.getItem);
 const setItem = jest.mocked(appStorage.setItem);
 const stored = new Map<string, string>();
 
-function setup(storageKey = 'ASTER') {
+function setup(storageKey = 'ASTER', enabled = true) {
   const points = Array.from({ length: 50 }, (_, index) => ({
     t: 1_700_000_000 + index * 60,
     o: 100,
@@ -61,7 +61,7 @@ function setup(storageKey = 'ASTER') {
   });
   const options = {
     storageKey,
-    enabled: true,
+    enabled,
     projectionRef: { current: projection },
     redrawRef: { current: jest.fn() },
     rootRef: { current: root },
@@ -88,17 +88,23 @@ function setup(storageKey = 'ASTER') {
       shiftKey: false,
       ...extra,
     }) as unknown as PointerEvent<HTMLCanvasElement>;
-  const line = () => {
+  const line = (offsetY = 0) => {
     void act(() => hook.result.current.selectTool('trend'));
     void act(() => {
-      hook.result.current.onPointerDown(event('pointerdown', 200, 200));
-      hook.result.current.onPointerUp(event('pointerup', 200, 200));
+      hook.result.current.onPointerDown(
+        event('pointerdown', 200, 200 + offsetY),
+      );
+      hook.result.current.onPointerUp(event('pointerup', 200, 200 + offsetY));
     });
     void act(() =>
-      hook.result.current.onPointerMove(event('pointermove', 400, 120)),
+      hook.result.current.onPointerMove(
+        event('pointermove', 400, 120 + offsetY),
+      ),
     );
     void act(() =>
-      hook.result.current.onPointerDown(event('pointerdown', 400, 120)),
+      hook.result.current.onPointerDown(
+        event('pointerdown', 400, 120 + offsetY),
+      ),
     );
   };
   return { ...hook, event, line, projection, options };
@@ -112,6 +118,98 @@ beforeEach(() => {
   setItem.mockReset().mockImplementation(async (key, value) => {
     stored.set(key, value);
   });
+});
+
+it('does not load drawings or intercept chart gestures while disabled', () => {
+  const hook = setup('disabled', false);
+  expect(getItem).not.toHaveBeenCalled();
+  const preventDefault = jest.fn();
+  const event = hook.event('pointerdown', 200, 200, { preventDefault });
+  expect(hook.result.current.onPointerDown(event)).toBe(false);
+  expect(hook.result.current.onPointerMove(event)).toBe(false);
+  expect(hook.result.current.onPointerUp(event)).toBe(false);
+  expect(preventDefault).not.toHaveBeenCalled();
+  expect(setItem).not.toHaveBeenCalled();
+});
+
+it.each([false, true])(
+  'moves only the current selection when dragging a line (group selected: %s)',
+  async (groupSelected) => {
+    const hook = setup('selection');
+    await waitFor(() => expect(hook.result.current.state.ready).toBe(true));
+    hook.line();
+    hook.line(80);
+    const [first, second] = hook.result.current.state.history.present;
+    act(() => hook.result.current.selectDrawing(first.id));
+    if (groupSelected) {
+      act(() => hook.result.current.selectDrawing(second.id, true));
+    }
+    act(() => {
+      hook.result.current.onPointerDown(hook.event('pointerdown', 300, 240));
+      hook.result.current.onPointerMove(hook.event('pointermove', 330, 260));
+    });
+    expect(hook.result.current.state.selectedIds).toEqual(
+      groupSelected ? [first.id, second.id] : [second.id],
+    );
+    const preview = hook.result.current.getRenderState().drawings;
+    expect(preview[1].points).not.toEqual(second.points);
+    if (groupSelected) {
+      expect(preview[0].points).not.toEqual(first.points);
+    } else {
+      expect(preview[0]).toEqual(first);
+    }
+    act(() => {
+      hook.result.current.onPointerUp(hook.event('pointerup', 330, 260));
+    });
+    expect(hook.result.current.state.history.present).toEqual(preview);
+    await waitFor(() =>
+      expect(JSON.parse(stored.values().next().value ?? '[]')).toEqual(preview),
+    );
+    act(() => hook.result.current.historyAction('undo'));
+    expect(hook.result.current.state.history.present).toEqual([first, second]);
+  },
+);
+
+it('keeps edited text out of defaults, new drawings and selected non-text tools', async () => {
+  const hook = setup('text-style');
+  await waitFor(() => expect(hook.result.current.state.ready).toBe(true));
+  hook.line();
+  act(() => hook.result.current.selectTool('text'));
+  act(() => {
+    hook.result.current.onPointerDown(hook.event('pointerdown', 250, 220));
+    hook.result.current.onPointerUp(hook.event('pointerup', 250, 220));
+  });
+  const [line, text] = hook.result.current.state.history.present;
+  act(() => hook.result.current.selectDrawing(line.id));
+  act(() => hook.result.current.selectDrawing(text.id, true));
+  act(() =>
+    hook.result.current.changeStyle({ text: 'Buy here', color: '#112233' }),
+  );
+  expect(hook.result.current.state.style).not.toHaveProperty('text');
+  expect(hook.result.current.state.history.present[0]).not.toHaveProperty(
+    'text',
+  );
+  expect(hook.result.current.state.history.present[1]).toMatchObject({
+    text: 'Buy here',
+    color: '#112233',
+  });
+  act(() => hook.result.current.selectTool('text'));
+  act(() => {
+    hook.result.current.onPointerDown(hook.event('pointerdown', 500, 220));
+    hook.result.current.onPointerUp(hook.event('pointerup', 500, 220));
+  });
+  hook.line(80);
+  const drawings = hook.result.current.state.history.present;
+  expect(drawings).toHaveLength(4);
+  expect(drawings[2]).not.toHaveProperty('text');
+  expect(drawings[3]).not.toHaveProperty('text');
+  expect(drawings.every((drawing) => drawing.color === '#112233')).toBe(true);
+  await waitFor(() =>
+    expect(JSON.parse(stored.values().next().value ?? '[]')).toEqual(drawings),
+  );
+  act(() => hook.result.current.selectDrawing(text.id));
+  act(() => hook.result.current.changeStyle({ text: '' }));
+  expect(hook.result.current.state.history.present[1].text).toBe('');
 });
 
 it('restores locally saved drawings on remount and permits editing restored anchors', async () => {

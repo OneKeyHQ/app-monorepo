@@ -17,6 +17,7 @@ import {
   drawingPointToScreen,
   isFreehandTool,
   isInDrawingPane,
+  isTextDrawingTool,
   moveDrawing,
   parseDrawings,
   screenToDrawingPoint,
@@ -317,7 +318,7 @@ export function useChartDrawings({
               ? model.history.present.filter(
                   (drawing) =>
                     drawing.id !== hit.drawing.id &&
-                    previousSelection.includes(drawing.id) &&
+                    model.selectedIds.includes(drawing.id) &&
                     !drawing.locked,
                 )
               : [],
@@ -762,7 +763,8 @@ export function useChartDrawings({
   const changeStyle = useCallback(
     (style: Partial<IDrawingStyle> & { text?: string }) => {
       const model = state.current;
-      model.style = { ...model.style, ...style };
+      const { text, ...styleOnly } = style;
+      model.style = { ...model.style, ...styleOnly };
       const selected = model.history.present.find(
         (drawing) => drawing.id === model.selectedId,
       );
@@ -770,7 +772,13 @@ export function useChartDrawings({
         commit(
           model.history.present.map((drawing) =>
             model.selectedIds.includes(drawing.id) && !drawing.locked
-              ? { ...drawing, ...style }
+              ? {
+                  ...drawing,
+                  ...styleOnly,
+                  ...(text !== undefined && isTextDrawingTool(drawing.tool)
+                    ? { text }
+                    : {}),
+                }
               : drawing,
           ),
         );

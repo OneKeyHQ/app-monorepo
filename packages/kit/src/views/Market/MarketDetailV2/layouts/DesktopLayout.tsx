@@ -483,6 +483,7 @@ export function DesktopLayout({
           }
           enableNativeChartSettings
           enableMultiChart
+          enableDrawings
           nativeControlsLayoutMode="desktop"
           isNativeChartFullscreen={isChartFullscreen}
           nativeChartFullscreenHeader={<MarketChartFullscreenHeader />}

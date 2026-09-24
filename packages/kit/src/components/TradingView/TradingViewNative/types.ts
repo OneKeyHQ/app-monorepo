@@ -139,6 +139,8 @@ export interface ITradingViewNativeProps {
   source: ITradingViewNativeSource;
   storageNamespace?: ITradingViewNativeStorageNamespace;
   enableMultiChart?: boolean;
+  /** Opt-in for drawing tools on full Market charts across all platforms. */
+  enableDrawings?: boolean;
   /** Stable workspace panel identity; omitted for the original chart. */
   panelId?: string;
   onNativeMultiChartCountChange?: (count: number) => void;
