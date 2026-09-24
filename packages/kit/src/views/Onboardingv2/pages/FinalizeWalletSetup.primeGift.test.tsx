@@ -408,6 +408,16 @@ describe('onboarding Prime gift with a Pro discovery record without a serial', (
     expect(serviceAccount.getWalletDevice.mock.calls).toHaveLength(0);
   });
 
+  it('reuses the current finalization page when creating the hardware wallet', async () => {
+    renderCompletion();
+
+    await waitFor(() =>
+      expect(mockCreateHWWallet).toHaveBeenCalledWith(
+        expect.objectContaining({ skipFinalizeNavigation: true }),
+      ),
+    );
+  });
+
   it('prefetches from DB during account generation even when BLE discovery has no serial', async () => {
     mockActiveWallet = {
       id: 'previous-wallet',
