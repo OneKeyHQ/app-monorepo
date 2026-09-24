@@ -11,13 +11,13 @@ import {
   Stack,
   XStack,
   YStack,
-  useMedia,
   useSafeAreaInsets,
 } from '@onekeyhq/components';
 import { useIsFirstFocused } from '@onekeyhq/kit/src/hooks/useIsFirstFocused';
 import { useNavigateToPickYourDevicePage } from '@onekeyhq/kit/src/views/Onboarding/hooks/useToOnBoardingPage';
 import { ONEKEY_BUY_HARDWARE_URL } from '@onekeyhq/shared/src/config/appConfig';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { DeviceManagementTestIDs } from '../../testIDs';
 
@@ -29,21 +29,33 @@ const HeroImage =
 /** The hero PNG is cropped to its subject: 577 × 1256 px, 3× of the phone
  * size, transparent so it sits on either theme's page color. */
 const HERO_ASPECT_RATIO = 577 / 1256;
-/** Subject height in points. The design places the render in a 449 pt square
- * on phones and a 337 pt square on wide layouts; these are those squares minus
- * the render's transparent margins. */
+/** Subject height in points. The design places the render in a square of
+ * 449 pt on phones, 337 pt in the extension popup and 257 pt on wide layouts;
+ * these are those squares minus the render's transparent margins. */
 const HERO_HEIGHT_PHONE = 419;
-const HERO_HEIGHT_WIDE = 314;
-/** Wide layouts pin the column below a fixed gap instead of centering the hero
- * in the free space. */
-const WIDE_TOP_GAP = 100;
+const HERO_HEIGHT_EXTENSION = 314;
+const HERO_HEIGHT_WIDE = 240;
+/** Wide layouts center one narrow column in the page. */
+const WIDE_COLUMN_MAX_WIDTH = 384;
+/** Extra bottom room on wide layouts so the column reads as centered: the
+ * render carries the visual weight, and it sits in the upper half. */
+const WIDE_BOTTOM_GAP = 80;
 /** Bottom breathing room where no home-indicator inset exists (extension,
  * Android). Phones with an inset end the actions right above it. */
 const MIN_BOTTOM_GAP = 20;
 
+/** The narrow-layout size is fixed per target; the wide size is a media
+ * style so it switches together with the rest of the column when a window
+ * crosses the breakpoint. */
+const HERO_HEIGHT_NARROW = platformEnv.isExtension
+  ? HERO_HEIGHT_EXTENSION
+  : HERO_HEIGHT_PHONE;
+
+function heroWidth(height: number) {
+  return Math.round(height * HERO_ASPECT_RATIO);
+}
+
 function Hero() {
-  const { gtMd } = useMedia();
-  const height = gtMd ? HERO_HEIGHT_WIDE : HERO_HEIGHT_PHONE;
   return (
     <Stack
       flex={1}
@@ -55,45 +67,31 @@ function Hero() {
         flex: 0,
       }}
     >
-      {/* Short phones shrink the render instead of pushing the words off. */}
-      <Image
-        source={HeroImage}
-        width={Math.round(height * HERO_ASPECT_RATIO)}
-        height={height}
+      {/* Short screens shrink the render instead of pushing the words off.
+          minHeight 0 lets the web flex item go below its content height. */}
+      <Stack
+        width={heroWidth(HERO_HEIGHT_NARROW)}
+        height={HERO_HEIGHT_NARROW}
         maxHeight="100%"
+        minHeight={0}
         flexShrink={1}
-        resizeMode="contain"
-      />
+        $gtMd={{
+          width: heroWidth(HERO_HEIGHT_WIDE),
+          height: HERO_HEIGHT_WIDE,
+        }}
+      >
+        <Image
+          source={HeroImage}
+          width="100%"
+          height="100%"
+          resizeMode="contain"
+        />
+      </Stack>
     </Stack>
   );
 }
 
-function DescriptionInfo() {
-  const intl = useIntl();
-  return (
-    <YStack gap="$2" alignItems="center">
-      <SizableText
-        size="$heading4xl"
-        color="$text"
-        textAlign="center"
-        $gtMd={{
-          size: '$heading5xl',
-        }}
-      >
-        {intl.formatMessage({
-          id: ETranslations.global_no_device_connected,
-        })}
-      </SizableText>
-      <SizableText size="$bodyLg" color="$textSubdued" textAlign="center">
-        {intl.formatMessage({
-          id: ETranslations.global_no_device_connected_desc,
-        })}
-      </SizableText>
-    </YStack>
-  );
-}
-
-function ButtonContainer() {
+function Actions() {
   const intl = useIntl();
   const toOnBoardingPage = useNavigateToPickYourDevicePage();
 
@@ -102,17 +100,15 @@ function ButtonContainer() {
   }, [toOnBoardingPage]);
 
   return (
-    <YStack gap="$5" alignItems="center" testID="blank-page-actions">
+    <YStack w="100%" gap="$4" alignItems="center" testID="blank-page-actions">
       <Button
+        w="100%"
         size="large"
         variant="primary"
         borderRadius="$full"
-        alignSelf="stretch"
+        icon="EnergyCircleSolid"
         onPress={onAddDevice}
         testID={DeviceManagementTestIDs.connectHardwareBtn}
-        $gtMd={{
-          alignSelf: 'center',
-        }}
       >
         {intl.formatMessage({
           id: ETranslations.global_connect_hardware_wallet,
@@ -147,34 +143,40 @@ function ButtonContainer() {
 }
 
 function DeviceGuideViewContent() {
+  const intl = useIntl();
   const { bottom } = useSafeAreaInsets();
   return (
     <YStack
       flex={1}
       w="100%"
       bg="$bgApp"
-      px="$5"
-      pb={Math.max(bottom, MIN_BOTTOM_GAP)}
-      gap="$8"
       alignItems="center"
       testID="blank-page"
-      $gtMd={{
-        pt: WIDE_TOP_GAP,
-        pb: '$5',
-        justifyContent: 'flex-start',
-      }}
     >
-      <Hero />
       <YStack
+        flex={1}
         w="100%"
+        px="$5"
+        pb={Math.max(bottom, MIN_BOTTOM_GAP)}
         gap="$8"
         alignItems="center"
         $gtMd={{
-          w: 'auto',
+          maxWidth: WIDE_COLUMN_MAX_WIDTH,
+          justifyContent: 'center',
+          pb: WIDE_BOTTOM_GAP,
         }}
       >
-        <DescriptionInfo />
-        <ButtonContainer />
+        <Hero />
+        <YStack w="100%" gap="$8">
+          {/* One centered paragraph; the page header already names the
+              place, so there is no title to repeat it. */}
+          <SizableText size="$bodyLg" color="$text" textAlign="center" px="$4">
+            {intl.formatMessage({
+              id: ETranslations.device_management_no_device__desc,
+            })}
+          </SizableText>
+          <Actions />
+        </YStack>
       </YStack>
     </YStack>
   );
