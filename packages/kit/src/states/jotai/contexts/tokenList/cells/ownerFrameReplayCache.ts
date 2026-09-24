@@ -145,9 +145,18 @@ export function getOwnerReplayFrames({
   return frames;
 }
 
+// Bumped on every clear, so a caller filling the cache from an async answer
+// can tell the cache was cleared (a wallet / account removal) while it waited.
+let clearGeneration = 0;
+
 /** Drop every remembered owner (tests / clear-data). */
 export function clearOwnerReplayCache(): void {
+  clearGeneration += 1;
   replayCache.clear();
+}
+
+export function getOwnerReplayCacheGeneration(): number {
+  return clearGeneration;
 }
 
 /** Number of remembered owners (tests). */

@@ -1,6 +1,7 @@
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import {
   getOwnerWorth,
+  getOwnerWorthCacheGeneration,
   rememberOwnerWorth,
 } from '@onekeyhq/kit/src/views/Home/components/TokenListBlock/ownerWorthCache';
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
@@ -9,6 +10,7 @@ import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 
 import {
+  getOwnerReplayCacheGeneration,
   getOwnerReplayFrames,
   rememberOwnerReplayFrame,
 } from './ownerFrameReplayCache';
@@ -152,6 +154,10 @@ export async function prewarmHomeTokenListOwner(
     return pending.run;
   }
   const seqRef = { current: prewarmDispatchSeq };
+  // A wallet / account removal clears both caches; an answer landing after it
+  // would put the removed owner's frames and worth back (PR #13695 review).
+  const replayCacheGeneration = getOwnerReplayCacheGeneration();
+  const worthCacheGeneration = getOwnerWorthCacheGeneration();
   const run = (async () => {
     try {
       const result =
@@ -159,6 +165,12 @@ export async function prewarmHomeTokenListOwner(
           params,
         );
       if (!result?.frames.structure || !result.currency) {
+        return false;
+      }
+      if (
+        getOwnerReplayCacheGeneration() !== replayCacheGeneration ||
+        getOwnerWorthCacheGeneration() !== worthCacheGeneration
+      ) {
         return false;
       }
       const { ownerKey, frames, currency, worth } = result;
