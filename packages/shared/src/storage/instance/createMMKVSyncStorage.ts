@@ -4,10 +4,7 @@ import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
 import resetUtils from '../../utils/resetUtils';
 
-import type {
-  INativeSWRCachePatchIntent,
-  INativeSyncStorageLocalMutation,
-} from '../nativeStorageTypes';
+import type { INativeSyncStorageLocalMutation } from '../nativeStorageTypes';
 import type { EAppSyncStorageKeys } from '../syncStorageKeys';
 
 // ---- MMKV instance interface (subset used by wrapper) ---- cspell:ignore IMMKV
@@ -20,7 +17,6 @@ export type IMMKVInstance = {
   remove(key: string): unknown;
   clearAll(): unknown;
   getAllKeys(): string[];
-  applySWRCachePatch?: (patch: INativeSWRCachePatchIntent) => unknown;
 };
 
 function normalizeMutationAcknowledgement(
@@ -110,16 +106,7 @@ export function createMMKVSyncStorage<TKey extends string = string>(
       return mmkv.getAllKeys();
     },
   };
-  return {
-    ...storage,
-    ...(mmkv.applySWRCachePatch
-      ? { applySWRCachePatch: mmkv.applySWRCachePatch }
-      : {}),
-  } as typeof storage & {
-    applySWRCachePatch?: (
-      patch: INativeSWRCachePatchIntent,
-    ) => void | Promise<void>;
-  };
+  return storage;
 }
 
 export type ISyncStorage<TKey extends string = EAppSyncStorageKeys> =

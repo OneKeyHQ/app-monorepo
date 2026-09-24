@@ -18,7 +18,6 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { getDefaultLocale } from '@onekeyhq/shared/src/locale/getDefaultLocale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import { normalizeMarketApiKLineInterval } from '@onekeyhq/shared/src/utils/marketKLineUtils';
 import { getMarketWatchlistKey } from '@onekeyhq/shared/src/utils/marketWatchlistIdentity';
@@ -355,7 +354,14 @@ class ServiceMarketV2 extends ServiceBase {
 
   @backgroundMethod()
   async fetchMarketBasicConfig() {
-    return this.memoizedFetchMarketBasicConfig();
+    try {
+      return await this.memoizedFetchMarketBasicConfig();
+    } catch (error) {
+      // memoizee({ promise: true }) retains rejected promises. Drop the
+      // failure so reconnect / retry can reach the network again.
+      void this.memoizedFetchMarketBasicConfig.clear();
+      throw error;
+    }
   }
 
   @backgroundMethod()
@@ -387,11 +393,9 @@ class ServiceMarketV2 extends ServiceBase {
       timeFrame,
     });
     if (options?.forceRemote) {
-      if (platformEnv.isNativeAndroid) {
-        // Android background can retain a rejected promise across network recovery.
-        // Invalidate only this query so later polling cannot reuse that failure.
-        void this.memoizedFetchMarketTokenList.delete(normalizedParams);
-      }
+      // memoizee({ promise: true }) retains rejected promises across recovery.
+      // Invalidate this query so later polling cannot reuse that failure.
+      void this.memoizedFetchMarketTokenList.delete(normalizedParams);
       return this._fetchMarketTokenListFromApi(normalizedParams);
     }
     return this.memoizedFetchMarketTokenList(normalizedParams);
@@ -483,32 +487,25 @@ class ServiceMarketV2 extends ServiceBase {
     timeFrom?: number;
     timeTo?: number;
   }) {
-    try {
-      const client = await this.getClient(EServiceEndpointEnum.Utility);
-      const response = await client.get<{
-        code: number;
-        message: string;
-        data: IMarketAccountTokenTransactionsResponse;
-      }>('/utility/v2/market/account/token/transactions', {
-        params: {
-          accountAddress,
-          tokenAddress,
-          networkId,
-          currency: 'usd',
-          ...(cursor !== undefined && { cursor }),
-          ...(timeFrom !== undefined && { timeFrom }),
-          ...(timeTo !== undefined && { timeTo }),
-        },
-      });
-      const { data } = response.data;
-      return data;
-    } catch (error) {
-      console.error(
-        '[ServiceMarketV2] fetchMarketAccountTokenTransactions error:',
-        error,
-      );
-      return { list: [] };
-    }
+    const client = await this.getClient(EServiceEndpointEnum.Utility);
+    const response = await client.get<{
+      code: number;
+      message: string;
+      data: IMarketAccountTokenTransactionsResponse;
+    }>('/utility/v2/market/account/token/transactions', {
+      params: {
+        accountAddress,
+        tokenAddress,
+        networkId,
+        currency: 'usd',
+        ...(cursor !== undefined && { cursor }),
+        ...(timeFrom !== undefined && { timeFrom }),
+        ...(timeTo !== undefined && { timeTo }),
+      },
+    });
+    // Let chart callers distinguish a failed refresh from a successful empty list.
+    const { data } = response.data;
+    return data;
   }
 
   @backgroundMethod()

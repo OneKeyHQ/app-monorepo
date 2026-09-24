@@ -1,4 +1,7 @@
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { isTabBarHiddenByRequest } from '@onekeyhq/shared/src/tabBar/hideTabBarRequests';
+
+import { finishMarketDetailTabBarTransition } from '../../../utils/marketDetailNavigation';
 
 import { navigateToMarketTokenDetail } from './navigateToMarketTokenDetail';
 
@@ -17,6 +20,9 @@ jest.mock('@onekeyhq/shared/src/locale/appLocale', () => ({
   appLocale: { intl: { formatMessage: ({ id }: { id: string }) => id } },
 }));
 const navigateMock = jest.fn();
+const dispatchMock = jest.fn();
+const getRootStateMock = jest.fn();
+const getCurrentRouteMock = jest.fn();
 const clearTokenDetailMock = jest.fn();
 const prepareStockTokenDetailMock = jest.fn();
 const changeActiveTokenMock = jest.fn();
@@ -44,6 +50,11 @@ jest.mock('@onekeyhq/components', () => ({
       navigate: (...args: unknown[]) => {
         navigateMock(...args);
       },
+      dispatch: (...args: unknown[]) => {
+        dispatchMock(...args);
+      },
+      getRootState: (): unknown => getRootStateMock() as unknown,
+      getCurrentRoute: (): unknown => getCurrentRouteMock() as unknown,
     },
   },
 }));
@@ -51,7 +62,10 @@ jest.mock('@onekeyhq/components', () => ({
 jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
   __esModule: true,
   default: {
+    isDesktop: true,
     isNative: false,
+    isNativeAndroid: false,
+    isWeb: false,
   },
 }));
 
@@ -66,16 +80,44 @@ jest.mock('../../utils/marketDetailImagePreload', () => ({
   prewarmMarketTokenDetailPreviewImages: jest.fn(),
 }));
 
+jest.mock('@react-navigation/native', () => ({
+  CommonActions: {
+    setParams: (params: unknown) => ({
+      type: 'SET_PARAMS',
+      payload: { params },
+    }),
+    reset: (state: unknown) => ({
+      type: 'RESET',
+      payload: state,
+    }),
+  },
+  StackActions: {
+    replace: (name: string, params: unknown) => ({
+      type: 'REPLACE',
+      payload: { name, params },
+    }),
+  },
+}));
+
 describe('navigateToMarketTokenDetail', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     jest.useFakeTimers();
+    platformEnv.isDesktop = true;
     platformEnv.isNative = false;
+    platformEnv.isNativeAndroid = false;
+    platformEnv.isWeb = false;
+    getRootStateMock.mockReturnValue(undefined);
+    getCurrentRouteMock.mockReturnValue(undefined);
   });
 
   afterEach(() => {
+    finishMarketDetailTabBarTransition();
     jest.useRealTimers();
+    platformEnv.isDesktop = true;
     platformEnv.isNative = false;
+    platformEnv.isNativeAndroid = false;
+    platformEnv.isWeb = false;
   });
 
   it.each([false, true])(
@@ -335,6 +377,15 @@ describe('navigateToMarketTokenDetail', () => {
   });
 
   it('keeps the current category when selecting another normal token', () => {
+    const preview = {
+      address: '',
+      networkId: 'evm--1',
+      isNative: true,
+      symbol: 'ETH',
+      name: 'Ethereum',
+      decimals: 18,
+      selectedAt: 1,
+    };
     void navigateToMarketTokenDetail(
       {
         address: '',
@@ -344,10 +395,7 @@ describe('navigateToMarketTokenDetail', () => {
       {
         marketTokenCategory: 'top_coins',
         tokenDetailActions,
-        tokenDetailPreview: {
-          symbol: 'ETH',
-          name: 'Ethereum',
-        } as never,
+        tokenDetailPreview: preview,
       },
     );
 
@@ -356,6 +404,48 @@ describe('navigateToMarketTokenDetail', () => {
     expect(changeActiveTokenMock).toHaveBeenCalledTimes(1);
     expect(navigateMock).toHaveBeenCalledWith('main', {
       screen: 'Market',
+      params: {
+        screen: 'MarketDetailV2',
+        params: {
+          tokenAddress: '',
+          network: 'eth',
+          isNative: true,
+          legacyTokenPreview: preview,
+          marketTokenCategory: 'top_coins',
+        },
+      },
+    });
+  });
+
+  it('preserves native route params when selecting another normal token', () => {
+    platformEnv.isDesktop = false;
+    platformEnv.isNative = true;
+    const preview = {
+      address: '',
+      networkId: 'evm--1',
+      isNative: true,
+      symbol: 'ETH',
+      name: 'Ethereum',
+      decimals: 18,
+      selectedAt: 1,
+    };
+    void navigateToMarketTokenDetail(
+      {
+        address: '',
+        networkId: 'evm--1',
+        isNative: true,
+      },
+      {
+        marketTokenCategory: 'top_coins',
+        tokenDetailActions,
+        tokenDetailPreview: preview,
+      },
+    );
+
+    jest.runAllTimers();
+
+    expect(navigateMock).toHaveBeenCalledWith('main', {
+      screen: 'Discovery',
       params: {
         screen: 'MarketDetailV2',
         params: {
@@ -436,5 +526,141 @@ describe('navigateToMarketTokenDetail', () => {
     current = false;
     jest.runAllTimers();
     expect(navigateMock).not.toHaveBeenCalled();
+  });
+
+  it('collapses stacked details instead of root-navigating another page', async () => {
+    platformEnv.isNative = true;
+    getRootStateMock.mockReturnValue({
+      key: 'root',
+      index: 1,
+      routes: [
+        {
+          name: 'main',
+          state: {
+            key: 'discovery-stack',
+            index: 2,
+            routes: [
+              { key: 'list', name: 'TabDiscovery' },
+              { key: 'detail-a', name: 'MarketDetailV2' },
+              { key: 'detail-b', name: 'MarketStockDetail' },
+            ],
+          },
+        },
+        { key: 'modal', name: 'MobileTokenSelector' },
+      ],
+    });
+    getCurrentRouteMock.mockReturnValue({ name: 'MobileTokenSelector' });
+    const beforeNavigate = jest.fn();
+    await navigateToMarketTokenDetail(
+      { address: '0xabc', networkId: 'evm--1', isNative: false },
+      { tokenDetailActions, beforeNavigate },
+    );
+
+    expect(beforeNavigate).toHaveBeenCalledTimes(1);
+    expect(navigateMock).not.toHaveBeenCalled();
+    expect(dispatchMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: 'RESET',
+        target: 'discovery-stack',
+      }),
+    );
+  });
+
+  it('updates SwapPro in place instead of rewriting the background Market stack', async () => {
+    platformEnv.isNative = true;
+    getRootStateMock.mockReturnValue({
+      key: 'root',
+      index: 1,
+      routes: [
+        {
+          name: 'main',
+          state: {
+            key: 'market-stack',
+            index: 1,
+            routes: [
+              { key: 'list', name: 'TabMarket' },
+              { key: 'detail-bg', name: 'MarketDetailV2' },
+            ],
+          },
+        },
+        {
+          key: 'swap-modal',
+          name: 'SwapModal',
+          state: {
+            key: 'swap-stack',
+            index: 0,
+            routes: [{ key: 'swap-detail', name: 'SwapProMarketDetail' }],
+          },
+        },
+      ],
+    });
+    getCurrentRouteMock.mockReturnValue({
+      name: 'SwapProMarketDetail',
+      key: 'swap-detail',
+    });
+    const beforeNavigate = jest.fn();
+    await navigateToMarketTokenDetail(
+      { address: '0xabc', networkId: 'evm--1', isNative: false },
+      { tokenDetailActions, beforeNavigate },
+    );
+
+    expect(beforeNavigate).toHaveBeenCalledTimes(1);
+    expect(dispatchMock).not.toHaveBeenCalled();
+    jest.runAllTimers();
+    expect(navigateMock).not.toHaveBeenCalled();
+    expect(dispatchMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: 'SET_PARAMS',
+        source: 'swap-detail',
+      }),
+    );
+    const dispatched = dispatchMock.mock.calls[0]?.[0] as {
+      payload?: { params?: Record<string, unknown> };
+    };
+    expect(dispatched.payload?.params).not.toHaveProperty('from');
+    expect(dispatched.payload?.params).not.toHaveProperty('disableTrade');
+    expect(dispatched.payload?.params).not.toHaveProperty('showFavoriteButton');
+  });
+
+  it('updates the focused detail after the selector closes when nested state is missing', async () => {
+    platformEnv.isNative = true;
+    getCurrentRouteMock.mockReturnValue({
+      name: 'MarketDetailV2',
+      key: 'detail-focused',
+    });
+    const beforeNavigate = jest.fn();
+    await navigateToMarketTokenDetail(
+      { address: '0xabc', networkId: 'evm--1', isNative: false },
+      { tokenDetailActions, beforeNavigate },
+    );
+
+    expect(beforeNavigate).toHaveBeenCalledTimes(1);
+    jest.runAllTimers();
+    expect(navigateMock).not.toHaveBeenCalled();
+    expect(dispatchMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: 'SET_PARAMS',
+      }),
+    );
+  });
+
+  it('hides the Android tab bar before the root navigation fallback', async () => {
+    platformEnv.isDesktop = false;
+    platformEnv.isNative = true;
+    platformEnv.isNativeAndroid = true;
+
+    await navigateToMarketTokenDetail(
+      { address: '0xabc', networkId: 'evm--1', isNative: false },
+      { tokenDetailActions },
+    );
+
+    jest.advanceTimersByTime(100);
+    expect(isTabBarHiddenByRequest()).toBe(true);
+    expect(navigateMock).toHaveBeenCalledWith(
+      'main',
+      expect.objectContaining({
+        screen: 'Discovery',
+      }),
+    );
   });
 });

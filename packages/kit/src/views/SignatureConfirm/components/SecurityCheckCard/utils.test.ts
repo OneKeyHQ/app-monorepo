@@ -13,7 +13,7 @@ import type {
 
 import {
   SIMULATION_GROUP_FALLBACK_ID,
-  getAddressRiskStatus,
+  getAddressRiskItems,
   getParserAlertDisplay,
   getShownSimulationAssetNetworkId,
   getSimulationAssetAmount,
@@ -22,7 +22,6 @@ import {
   getSimulationAssetSign,
   getSimulationGroups,
   normalizeSecurityFindingTitle,
-  shouldHideGenericPermitAlert,
   shouldShowNoIssueSection,
 } from './utils';
 
@@ -151,88 +150,51 @@ describe('SecurityCheckCard parser alert display', () => {
   });
 });
 
-describe('SecurityCheckCard confirmation finding', () => {
-  it('hides the generic Permit warning only for a verified site', () => {
-    const genericPermitAlert =
-      'Malicious signatures may result in asset loss. Ensure the dApp is trustworthy.';
-
-    expect(
-      shouldHideGenericPermitAlert({
-        alert: genericPermitAlert,
-        genericPermitAlert,
-        isPermitSignMethod: true,
-        isSiteVerified: true,
-      }),
-    ).toBe(true);
-    expect(
-      shouldHideGenericPermitAlert({
-        alert: genericPermitAlert,
-        genericPermitAlert,
-        isPermitSignMethod: true,
-        isSiteVerified: false,
-      }),
-    ).toBe(false);
-    expect(
-      shouldHideGenericPermitAlert({
-        alert: '',
-        genericPermitAlert: '',
-        isPermitSignMethod: true,
-        isSiteVerified: true,
-      }),
-    ).toBe(false);
-    expect(
-      shouldHideGenericPermitAlert({
-        alert: 'The spender is known to be malicious.',
-        genericPermitAlert,
-        isPermitSignMethod: true,
-        isSiteVerified: true,
-      }),
-    ).toBe(false);
-  });
-});
-
 describe('SecurityCheckCard address risk boundaries', () => {
-  it.each(['warning', 'critical'] as const)(
-    'detects %s tags kept on the address row',
-    (displayType) => {
-      expect(
-        getAddressRiskStatus([
-          buildAddressComponent({
-            tags: [{ value: 'Risk address', displayType }],
-          }),
-        ]),
-      ).toBe(displayType);
-    },
-  );
+  it('excludes warning address tags from card risk and keeps critical tags', () => {
+    const warning = buildAddressComponent({
+      tags: [{ value: 'First transfer', displayType: 'warning' }],
+    });
+    const critical = buildAddressComponent({
+      tags: [{ value: 'Malicious address', displayType: 'critical' }],
+    });
+    const mixed = buildAddressComponent({
+      tags: [
+        { value: 'First transfer', displayType: 'warning' },
+        { value: 'Malicious address', displayType: 'critical' },
+      ],
+    });
+
+    expect(getAddressRiskItems([warning])).toEqual([]);
+    expect(getAddressRiskItems([critical])).toEqual([
+      {
+        address: '0xrecipient',
+        tags: [{ value: 'Malicious address', displayType: 'critical' }],
+      },
+    ]);
+    expect(getAddressRiskItems([mixed])).toEqual([
+      {
+        address: '0xrecipient',
+        tags: [{ value: 'Malicious address', displayType: 'critical' }],
+      },
+    ]);
+  });
 
   it.each(['info', 'success'] as const)(
     'does not treat %s address tags as risk',
     (displayType) => {
       expect(
-        getAddressRiskStatus([
+        getAddressRiskItems([
           buildAddressComponent({
             tags: [{ value: 'Known address', displayType }],
           }),
         ]),
-      ).toBeUndefined();
+      ).toEqual([]);
     },
   );
 
   it('ignores non-address components', () => {
-    expect(getAddressRiskStatus([buildTokenAsset()])).toBeUndefined();
-  });
-
-  it('uses the highest address risk severity', () => {
-    expect(
-      getAddressRiskStatus([
-        buildAddressComponent({
-          tags: [
-            { value: 'Suspicious address', displayType: 'warning' },
-            { value: 'Malicious address', displayType: 'critical' },
-          ],
-        }),
-      ]),
-    ).toBe('critical');
+    expect(getAddressRiskItems([buildTokenAsset()])).toEqual([]);
   });
 
   it('shows the global success verdict only for resolved, covered checks', () => {

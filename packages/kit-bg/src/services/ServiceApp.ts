@@ -17,6 +17,7 @@ import type { EEnterWay } from '@onekeyhq/shared/src/logger/scopes/dex';
 import { appRestart } from '@onekeyhq/shared/src/modules3rdParty/appRestart';
 import { EAppRestartMode } from '@onekeyhq/shared/src/modules3rdParty/appRestart/types';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { flushAvailabilitySnapshotOnHidden } from '@onekeyhq/shared/src/request/availabilityAggregator';
 import {
   ERootRoutes,
   ETabHomeRoutes,
@@ -66,6 +67,12 @@ class ServiceApp extends ServiceBase {
     return this.getClientEndpointInfo(name);
   }
 
+  /** Relayed by the main runtime: the native bg runtime gets no AppState events. */
+  @backgroundMethod()
+  async flushAvailabilitySnapshotOnHidden() {
+    flushAvailabilitySnapshotOnHidden();
+  }
+
   @backgroundMethod()
   async restartApp(opts: { mode?: EAppRestartMode; reason?: string } = {}) {
     // restartApp() MUST be called from background in Ext, UI reload will close
@@ -99,6 +106,7 @@ class ServiceApp extends ServiceBase {
   }
 
   private async resetData() {
+    let appStorageClearError: unknown;
     let nativeJotaiResetError: unknown;
     // const v4migrationPersistData = await v4migrationPersistAtom.get();
     // const v4migrationAutoStartDisabled =
@@ -108,8 +116,11 @@ class ServiceApp extends ServiceBase {
     // clean app storage
     try {
       await appStorage.clear();
-    } catch {
+    } catch (error) {
       console.error('appStorage.clear() error');
+      if (platformEnv.isNative) {
+        appStorageClearError = error;
+      }
     }
     defaultLogger.setting.page.clearDataStep('appStorage-clear');
 
@@ -140,32 +151,19 @@ class ServiceApp extends ServiceBase {
       defaultLogger.setting.page.clearDataStep('jotaiMMKV-clearAll');
     }
 
-    // Clean cold-start cache MMKV (contextAtom snapshot + SWR cache).
-    // On native this is a synchronous MMKV wipe; on web/desktop the facade's
-    // clearAll() schedules an async IDB clear, so we additionally await the
-    // dedicated helper to ensure the IDB store is fully wiped before reload.
+    // Clear every UI snapshot namespace: the context-atom snapshot, the SWR
+    // records and the caches a feature declares. On web one database covers
+    // them all; on native each declared namespace is its own file.
+
     try {
-      if (platformEnv.isWeb || platformEnv.isDesktop) {
-        // On web/desktop, coldStartCacheStorage.clearAll() only fires a
-        // fire-and-forget resetColdStartCache(); calling it alongside the
-        // awaitable helper spawns two concurrent resets that share a single
-        // isClearing latch, so the first one's finally releases the lock while
-        // the second is still mid-wipe — letting external writes resurrect
-        // data before db.clear lands. Use only the awaitable path here.
-        // eslint-disable-next-line @typescript-eslint/no-require-imports
-        const { awaitColdStartCacheCleared } =
-          require('@onekeyhq/shared/src/storage/instance/webColdStartStorage') as typeof import('@onekeyhq/shared/src/storage/instance/webColdStartStorage');
-        await awaitColdStartCacheCleared();
-      } else {
-        // eslint-disable-next-line @typescript-eslint/no-require-imports
-        const { coldStartCacheStorage } =
-          require('@onekeyhq/shared/src/storage/instance/syncStorageInstance') as typeof import('@onekeyhq/shared/src/storage/instance/syncStorageInstance');
-        await coldStartCacheStorage.clearAll();
-      }
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      const { clearAllSnapshotCaches } =
+        require('@onekeyhq/shared/src/storage/SnapshotCache') as typeof import('@onekeyhq/shared/src/storage/SnapshotCache');
+      await clearAllSnapshotCaches();
     } catch {
-      console.error('coldStartCacheStorage.clearAll() error');
+      console.error('clearAllSnapshotCaches() error');
     }
-    defaultLogger.setting.page.clearDataStep('coldStartCache-clearAll');
+    defaultLogger.setting.page.clearDataStep('uiSnapshotCaches-clearAll');
 
     await timerUtils.wait(100);
 
@@ -319,6 +317,13 @@ class ServiceApp extends ServiceBase {
           console.error('desktopApi.storeClear() error', error);
         }
       }
+    }
+    if (appStorageClearError) {
+      return Promise.reject(
+        appStorageClearError instanceof Error
+          ? appStorageClearError
+          : new OneKeyLocalError('AppStorage clear failed'),
+      );
     }
     if (nativeJotaiResetError) {
       throw new OneKeyLocalError('Jotai storage reset failed');

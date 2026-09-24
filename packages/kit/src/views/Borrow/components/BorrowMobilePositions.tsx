@@ -20,6 +20,7 @@ import { EManagePositionType } from '@onekeyhq/shared/types/staking';
 import type {
   IBorrowEModeStatus,
   IBorrowToken,
+  IEarnText,
 } from '@onekeyhq/shared/types/staking';
 
 import { isBorrowReservesPending } from '../borrowDataStatus';
@@ -56,6 +57,27 @@ function buildDisabledByReserve<T extends { reserveAddress: string }>(
 
 // Keep a position closer to its actions than to the next card.
 const POSITION_CARD_GAP = '$4';
+
+function swapAmountTypography({
+  title,
+  description,
+}: {
+  title: IEarnText;
+  description: IEarnText;
+}): { tokenAmount: IEarnText; fiatValue: IEarnText } {
+  return {
+    tokenAmount: {
+      text: title.text,
+      ...(description.size === undefined ? {} : { size: description.size }),
+      ...(description.color === undefined ? {} : { color: description.color }),
+    },
+    fiatValue: {
+      text: description.text,
+      ...(title.size === undefined ? {} : { size: title.size }),
+      ...(title.color === undefined ? {} : { color: title.color }),
+    },
+  };
+}
 
 function PositionCardSkeleton(): ReactElement {
   return (
@@ -297,6 +319,7 @@ export function BorrowMobilePositions({
           entry.kind === 'supplied'
             ? entry.asset.suppliedAmount
             : entry.asset.borrowedAmount;
+        const { tokenAmount, fiatValue } = swapAmountTypography(amount);
         let actions: IBorrowPositionCardAction[];
         let collateral: ReactNode = null;
 
@@ -376,11 +399,13 @@ export function BorrowMobilePositions({
                     />
                   </Stack>
                 ) : (
-                  <CollateralSwitchCell
-                    item={suppliedAsset}
-                    eModeId={eModeId}
-                    size={ESwitchSize.small}
-                  />
+                  <Stack ml={platformEnv.isNative ? '$-2' : undefined}>
+                    <CollateralSwitchCell
+                      item={suppliedAsset}
+                      eModeId={eModeId}
+                      size={ESwitchSize.extraSmall}
+                    />
+                  </Stack>
                 )}
               </>
             );
@@ -433,8 +458,8 @@ export function BorrowMobilePositions({
               entry.asset.reserveAddress,
             )}
             token={entry.asset.token}
-            tokenAmount={amount.title}
-            fiatValue={amount.description}
+            tokenAmount={tokenAmount}
+            fiatValue={fiatValue}
             apyDetail={entry.asset.apyDetail}
             statusLabel={labels[entry.kind]}
             statusBadgeType={entry.kind === 'supplied' ? 'success' : 'critical'}

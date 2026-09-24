@@ -6,6 +6,7 @@ import {
 
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { EAppEventBusNames } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { checkBLEState } from '@onekeyhq/shared/src/hardware/blePermissions';
 import { CoreSDKLoader } from '@onekeyhq/shared/src/hardware/instance';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -85,6 +86,11 @@ jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
 
 jest.mock('@onekeyhq/shared/src/hardware/instance', () => ({
   CoreSDKLoader: jest.fn(),
+}));
+
+jest.mock('@onekeyhq/shared/src/hardware/blePermissions', () => ({
+  checkBLEPermissions: jest.fn(),
+  checkBLEState: jest.fn(),
 }));
 
 jest.mock('@onekeyhq/shared/src/utils/deviceHomeScreenUtils', () => ({
@@ -448,6 +454,147 @@ describe('ServiceFirmwareUpdate.detectActiveAccountFirmwareUpdates', () => {
       },
     );
     expect(getCompatibleConnectId).not.toHaveBeenCalled();
+  });
+
+  describe('native Bluetooth state precheck', () => {
+    const mutablePlatformEnv = platformEnv as unknown as {
+      isNative: boolean;
+      isNativeAndroid?: boolean;
+    };
+    const mockedCheckBLEState = jest.mocked(checkBLEState);
+
+    const createDetectService = ({
+      transportType,
+    }: {
+      transportType: EHardwareTransportType;
+    }) => {
+      mockedLocalDb.getDeviceByQuery.mockResolvedValue({
+        id: 'db-device-1',
+        connectId: 'ONEKEY_BLE_ID',
+        bleConnectId: 'ONEKEY_BLE_ID',
+        vendor: EHardwareVendor.onekey,
+      } as IDBDevice);
+      const getCompatibleConnectId = jest
+        .fn()
+        .mockResolvedValue('ONEKEY_BLE_ID');
+      const service = new ServiceFirmwareUpdate({
+        backgroundApi: {
+          serviceHardware: {
+            getCompatibleConnectId,
+            getCurrentTransportType: jest.fn().mockResolvedValue(transportType),
+          },
+          serviceHardwareUI: {
+            tryRunExclusiveOneKeyOperation: jest.fn(
+              async (operation: () => Promise<unknown>) => ({
+                acquired: true,
+                result: await operation(),
+              }),
+            ),
+          },
+        } as unknown as IBackgroundApi,
+      });
+      jest.spyOn(service.detectMap, 'shouldDetect').mockReturnValue(true);
+      // No features and no error: the detection ends as a plain failure once
+      // it is allowed to reach the device.
+      const checkDeviceIsBootloaderMode = jest
+        .spyOn(service, 'checkDeviceIsBootloaderMode')
+        .mockResolvedValue({
+          isBootloaderMode: false,
+          features: undefined,
+          error: undefined,
+        });
+      return { service, getCompatibleConnectId, checkDeviceIsBootloaderMode };
+    };
+
+    afterEach(() => {
+      Object.assign(mutablePlatformEnv, {
+        isNative: false,
+        isNativeAndroid: false,
+      });
+      jest.restoreAllMocks();
+    });
+
+    // iOS and Android share subscribeBleOn in the RN transport, so a
+    // Bluetooth-off call raises the same 701 on both.
+    it.each([
+      { platformName: 'Android', isNativeAndroid: true },
+      { platformName: 'iOS', isNativeAndroid: false },
+    ])(
+      'stays off the hardware path while $platformName Bluetooth is turned off',
+      async ({ isNativeAndroid }) => {
+        Object.assign(mutablePlatformEnv, {
+          isNative: true,
+          isNativeAndroid,
+        });
+        mockedCheckBLEState.mockResolvedValue(false);
+        const { service, getCompatibleConnectId, checkDeviceIsBootloaderMode } =
+          createDetectService({ transportType: EHardwareTransportType.BLE });
+
+        await expect(
+          service.detectActiveAccountFirmwareUpdates({
+            connectId: 'ONEKEY_BLE_ID',
+          }),
+        ).resolves.toEqual({ status: 'failed', retryAfterMs: 5000 });
+
+        // hd-ble-sdk raises the "Enable Bluetooth" dialog from the failed call
+        // itself, so never reaching the SDK is the only way to stay silent.
+        expect(getCompatibleConnectId).not.toHaveBeenCalled();
+        expect(checkDeviceIsBootloaderMode).not.toHaveBeenCalled();
+      },
+    );
+
+    it('keeps detecting while native Bluetooth is on', async () => {
+      Object.assign(mutablePlatformEnv, {
+        isNative: true,
+        isNativeAndroid: true,
+      });
+      mockedCheckBLEState.mockResolvedValue(true);
+      const { service, getCompatibleConnectId, checkDeviceIsBootloaderMode } =
+        createDetectService({ transportType: EHardwareTransportType.BLE });
+
+      await service.detectActiveAccountFirmwareUpdates({
+        connectId: 'ONEKEY_BLE_ID',
+      });
+
+      expect(getCompatibleConnectId).toHaveBeenCalledWith({
+        hardwareCallContext: EHardwareCallContext.BACKGROUND_TASK,
+        connectId: 'ONEKEY_BLE_ID',
+      });
+      expect(checkDeviceIsBootloaderMode).toHaveBeenCalledTimes(1);
+    });
+
+    it.each([
+      {
+        // Desktop reports 721/722, which ServiceHardware already skips.
+        name: 'a desktop platform',
+        isNative: false,
+        transportType: EHardwareTransportType.BLE,
+      },
+      {
+        name: 'a non-BLE transport',
+        isNative: true,
+        transportType: EHardwareTransportType.WEBUSB,
+      },
+    ])(
+      'does not read the Bluetooth state on $name',
+      async ({ isNative, transportType }) => {
+        Object.assign(mutablePlatformEnv, {
+          isNative,
+          isNativeAndroid: isNative,
+        });
+        mockedCheckBLEState.mockResolvedValue(false);
+        const { service, getCompatibleConnectId } = createDetectService({
+          transportType,
+        });
+
+        await service.detectActiveAccountFirmwareUpdates({
+          connectId: 'ONEKEY_BLE_ID',
+        });
+
+        expect(mockedCheckBLEState).not.toHaveBeenCalled();
+        expect(getCompatibleConnectId).toHaveBeenCalledTimes(1);
+      },
+    );
   });
 
   it('uses the DB connectId for throttling after transport resolution', async () => {

@@ -2,7 +2,13 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Button, Page, SizableText, Stack } from '@onekeyhq/components';
+import {
+  Button,
+  Page,
+  SizableText,
+  Stack,
+  usePreventRemove,
+} from '@onekeyhq/components';
 import {
   EFirmwareUpdateSteps,
   firmwareUpdateStepInfoAtom,
@@ -42,6 +48,7 @@ import { useFirmwareUpdateActions } from '../hooks/useFirmwareUpdateActions';
 import { useFirmwareUpdateWorkflowLifetime } from '../hooks/useFirmwareUpdateHooks';
 import { useStartFirmwareUpdateWorkflow } from '../hooks/useStartFirmwareUpdateWorkflow';
 import { FirmwareUpdateTestIDs } from '../testIDs';
+import { getTargetFirmwareTypeLabel, isFirmwareTypeSwitch } from '../utils';
 
 import type { IFirmwareUpdateInstallViewMode } from '../componentsV2/FirmwareUpdateInstallView';
 
@@ -73,15 +80,41 @@ async function recheckFirmwareRelease(
       hardwareCallContext: EHardwareCallContext.UPDATE_FIRMWARE,
     });
   const firmware = result.updateInfos.firmware;
-  const isSwitchingFirmwareType =
-    firmware?.fromFirmwareType !== undefined &&
-    firmware.toFirmwareType !== undefined &&
-    firmware.fromFirmwareType !== firmware.toFirmwareType;
   return backgroundApiProxy.serviceFirmwareUpdate.checkAllFirmwareRelease({
     connectId: transport.connectId,
-    firmwareType: isSwitchingFirmwareType ? firmware.toFirmwareType : undefined,
+    firmwareType: isFirmwareTypeSwitch(firmware)
+      ? firmware?.toFirmwareType
+      : undefined,
     resolvedTransportType: transport.transportType,
   });
+}
+
+// Module-level so the header options stay reference-stable across renders.
+const renderNoHeaderLeft = () => null;
+
+/**
+ * Once the update succeeded there is nothing to go back to. The header drops
+ * its back button, and a back gesture or hardware back closes the whole modal
+ * instead of revealing the changelog page underneath.
+ */
+function FirmwareUpdateDoneBackGuard() {
+  const navigation = useAppNavigation();
+  const isClosingRef = useRef(false);
+  usePreventRemove(true, ({ data }) => {
+    const { type } = data.action;
+    // popStack() below re-enters this callback with the parent's action, and
+    // anything that is not a plain back (e.g. the onboarding reset) passes.
+    if (isClosingRef.current || (type !== 'GO_BACK' && type !== 'POP')) {
+      navigation.dispatch(data.action);
+      return;
+    }
+    isClosingRef.current = true;
+    navigation.popStack();
+  });
+  return (
+    // headerLeft covers the custom header, headerBackVisible the native iOS one.
+    <Page.Header headerLeft={renderNoHeaderLeft} headerBackVisible={false} />
+  );
 }
 
 /** Shell shared by the legacy and V2 install routes. */
@@ -283,21 +316,30 @@ export function FirmwareUpdateInstallPageContent({
     requestType: webUsbRequest,
   });
 
+  const firmwareInfo = result?.updateInfos?.firmware;
   const doneVersion = useMemo(() => {
     const primary = getPrimaryFirmwareUpdateItem(items);
     if (!primary?.toVersion) {
       return undefined;
     }
-    const productName =
-      primary.toTypeLabel ??
-      (primary.key === 'safeos'
-        ? SAFE_OS_PRODUCT_NAME
-        : intl.formatMessage({ id: ETranslations.global_firmware }));
+    // The done line has room for the full type name, and a switch is the
+    // one case where the type is the news.
+    let productName: string;
+    if (isFirmwareTypeSwitch(firmwareInfo)) {
+      productName = getTargetFirmwareTypeLabel({
+        firmwareType: firmwareInfo?.toFirmwareType,
+        intl,
+      });
+    } else if (primary.key === 'safeos') {
+      productName = SAFE_OS_PRODUCT_NAME;
+    } else {
+      productName = intl.formatMessage({ id: ETranslations.global_firmware });
+    }
     return {
       text: `${productName} ${primary.toVersion}`,
       releaseUrl: primary.releaseUrl,
     };
-  }, [intl, items]);
+  }, [firmwareInfo, intl, items]);
 
   let webUsbInstruction: string | undefined;
   if (webUsbRequest === 'bootloader') {
@@ -358,9 +400,7 @@ export function FirmwareUpdateInstallPageContent({
         variant: 'tertiary',
         testID: 'firmware-update-get-help-btn',
       },
-      buttonContainerProps: {
-        $md: { flexDirection: 'column-reverse', gap: '$3' },
-      },
+      stacked: true,
     } as const;
     if (taskError.action.kind === 'retry') {
       footer = (
@@ -448,6 +488,7 @@ export function FirmwareUpdateInstallPageContent({
           onCancelAttempt={() => setIsCancelAttemptRequested(true)}
         />
       ) : null}
+      {mode === 'done' ? <FirmwareUpdateDoneBackGuard /> : null}
       <FirmwareUpdateInstallView
         mode={mode}
         deviceType={result?.deviceType}

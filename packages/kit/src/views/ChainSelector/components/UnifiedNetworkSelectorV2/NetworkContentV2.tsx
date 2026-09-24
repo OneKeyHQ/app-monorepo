@@ -1,4 +1,4 @@
-import type { Dispatch, SetStateAction } from 'react';
+import type { Dispatch, RefObject, SetStateAction } from 'react';
 import { useEffect, useMemo } from 'react';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
@@ -14,6 +14,8 @@ import type { IServerNetwork } from '@onekeyhq/shared/types';
 
 import { NetworkSectionListV2 } from './NetworkSectionListV2';
 
+import type { View } from 'react-native';
+
 const defaultChainSelectorNetworks: {
   mainnetItems: IServerNetwork[];
   testnetItems: IServerNetwork[];
@@ -28,6 +30,8 @@ const defaultChainSelectorNetworks: {
 };
 
 type INetworkContentPropsV2 = {
+  webSectionIndexContainerRef: RefObject<View | null>;
+  webSectionIndexBottomInset?: number;
   walletId?: string;
   accountId?: string;
   indexedAccountId?: string;
@@ -41,6 +45,8 @@ type INetworkContentPropsV2 = {
 };
 
 export function NetworkContentV2({
+  webSectionIndexContainerRef,
+  webSectionIndexBottomInset,
   walletId,
   accountId,
   indexedAccountId,
@@ -171,6 +177,8 @@ export function NetworkContentV2({
 
   return (
     <NetworkSectionListV2
+      webSectionIndexContainerRef={webSectionIndexContainerRef}
+      webSectionIndexBottomInset={webSectionIndexBottomInset}
       recentNetworksEnabled
       showAllNetworkInRecentNetworks
       walletId={walletId}

@@ -1,4 +1,4 @@
-import { memo, useMemo } from 'react';
+import { memo, useCallback, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -81,6 +81,14 @@ function AddressTypeSelectorItem(props: IProps) {
       })
     : intl.formatMessage({ id: ETranslations.global_create_address });
 
+  const handleSelect = useCallback(() => {
+    void onSelect?.({
+      account,
+      deriveInfo,
+      deriveType,
+    });
+  }, [account, deriveInfo, deriveType, onSelect]);
+
   const titleElement = useMemo(() => {
     if (!tooltipText) {
       return (
@@ -129,10 +137,12 @@ function AddressTypeSelectorItem(props: IProps) {
           placement="top"
           renderTrigger={dashTrigger}
           renderContent={tooltipText}
+          disabled={isCreatingAddress}
+          onPress={handleSelect}
         />
       </YStack>
     );
-  }, [titleText, tooltipText]);
+  }, [handleSelect, isCreatingAddress, titleText, tooltipText]);
 
   const renderItemText = useMemo(
     () => (
@@ -162,13 +172,7 @@ function AddressTypeSelectorItem(props: IProps) {
       childrenBefore={
         <AddressTypeCheckMark accountId={account?.id} deriveType={deriveType} />
       }
-      onPress={() => {
-        void onSelect?.({
-          account,
-          deriveInfo,
-          deriveType,
-        });
-      }}
+      onPress={handleSelect}
     >
       <AddressTypeFiat account={account} />
     </ListItem>

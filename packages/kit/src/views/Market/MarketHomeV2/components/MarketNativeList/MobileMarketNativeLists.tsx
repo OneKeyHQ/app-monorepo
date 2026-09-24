@@ -38,10 +38,7 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { parseDexCoin } from '@onekeyhq/shared/src/utils/perpsUtils';
-import type {
-  IMarketAssetListItem,
-  IMarketWatchListItemV2,
-} from '@onekeyhq/shared/types/market';
+import type { IMarketWatchListItemV2 } from '@onekeyhq/shared/types/market';
 import type { IMarketStockInfo } from '@onekeyhq/shared/types/marketV2';
 
 import { usePerpsNavigation } from '../../../hooks/usePerpsNavigation';
@@ -82,6 +79,7 @@ import type {
 } from '../MarketPerpsList/hooks/useMarketPerpsTokenList';
 import type { IMarketToken } from '../MarketTokenList/MarketTokenData';
 import type { IWatchlistFilterType } from '../MarketTokenList/MarketWatchlistCategorySelector';
+import type { IMarketTopCoinsDataCache } from '../MarketTopCoinsList/hooks/useMarketTopCoins';
 import type {
   ActionAnchorInvalidatedEvent,
   MarketRow,
@@ -212,7 +210,6 @@ type INativeMarketListProps = {
   onRowAction: (event: RowActionEvent) => void;
   onActionAnchorInvalidated?: (event: ActionAnchorInvalidatedEvent) => void;
   onEndReached?: () => void;
-  onRefresh?: () => Promise<unknown> | void;
 };
 
 function NativeMarketList({
@@ -231,36 +228,9 @@ function NativeMarketList({
   onRowAction,
   onActionAnchorInvalidated,
   onEndReached,
-  onRefresh,
 }: INativeMarketListProps) {
   const intl = useIntl();
   const presentation = useMarketNativeListPresentation();
-  const nativeRefreshEnabled = Boolean(
-    onRefresh && !platformEnv.isNativeAndroid,
-  );
-  const refreshingRef = useRef(false);
-  const [refreshing, setRefreshing] = useState(false);
-  useEffect(
-    () => () => {
-      refreshingRef.current = false;
-    },
-    [],
-  );
-  const handleRefresh = useCallback(async () => {
-    if (!onRefresh || refreshingRef.current) return;
-    refreshingRef.current = true;
-    setRefreshing(true);
-    try {
-      await onRefresh();
-    } finally {
-      if (platformEnv.isNativeIOS && refreshingRef.current) {
-        // A batched true/false render can leave UIKit's gesture-started spinner active.
-        listRef.current?.setRefreshing(false);
-      }
-      refreshingRef.current = false;
-      setRefreshing(false);
-    }
-  }, [listRef, onRefresh]);
   const structuralIdentity = `${rows.map((row) => row.key).join('|')}:${
     loading && rows.length === 0
   }:${Boolean(errorMessage && rows.length === 0)}:${Boolean(
@@ -276,7 +246,6 @@ function NativeMarketList({
         generation,
         presentation,
         loading,
-        refreshing,
         loadingMore,
         loadMoreError,
         errorMessage,
@@ -285,7 +254,6 @@ function NativeMarketList({
         }),
         retryMessage: intl.formatMessage({ id: ETranslations.global_retry }),
         canLoadMore,
-        canRefresh: nativeRefreshEnabled,
         showEnd,
         contentPaddingBottom,
         emptyContentHeight,
@@ -302,9 +270,7 @@ function NativeMarketList({
       loadMoreError,
       loading,
       loadingMore,
-      nativeRefreshEnabled,
       presentation,
-      refreshing,
       rows,
       showEnd,
     ],
@@ -319,11 +285,6 @@ function NativeMarketList({
       onRowAction={onRowAction}
       onActionAnchorInvalidated={onActionAnchorInvalidated}
       onEndReached={onEndReached}
-      onRefresh={
-        nativeRefreshEnabled
-          ? () => void handleRefresh().catch(() => undefined)
-          : undefined
-      }
     />
   );
 }
@@ -704,7 +665,6 @@ function MobileMarketNativeTokenListImpl({
             void result.loadMore();
           }
         }}
-        onRefresh={() => result.refetch()}
       />
       <NativeMarketBadgeInfo info={badgeInfo.info} onClose={badgeInfo.close} />
     </Stack>
@@ -973,10 +933,6 @@ function MobileMarketNativeWatchlistImpl({
         testID={MarketTestIDs.watchList}
         onRowAction={handleRowAction}
         onActionAnchorInvalidated={onActionAnchorInvalidated}
-        onRefresh={async () => {
-          await actions.current.refreshWatchListV2();
-          await result.refetch();
-        }}
       />
       <NativeMarketBadgeInfo info={badgeInfo.info} onClose={badgeInfo.close} />
     </Stack>
@@ -1070,7 +1026,6 @@ function MobileMarketNativeStockListImpl({
           void result.loadMore();
         }
       }}
-      onRefresh={() => result.refresh()}
     />
   );
 }
@@ -1080,11 +1035,13 @@ export const MobileMarketNativeStockList = memo(
 );
 
 export type IMobileMarketNativeTopCoinsListProps = ISharedListProps & {
-  dataCacheRef: RefObject<IMarketAssetListItem[] | undefined>;
+  dataCacheRef: RefObject<IMarketTopCoinsDataCache | undefined>;
+  selectedCategoryId: string;
 };
 
 function MobileMarketNativeTopCoinsListImpl({
   dataCacheRef,
+  selectedCategoryId,
   listContainerProps,
   shouldSuppressItemPress,
 }: IMobileMarketNativeTopCoinsListProps) {
@@ -1092,7 +1049,7 @@ function MobileMarketNativeTopCoinsListImpl({
   const listRef = useRef<NativeListRef>(null);
   const presentation = useMarketNativeListPresentation();
   const { data, handleItemPress, isLoading, isError, refresh } =
-    useMarketTopCoins({ dataCacheRef });
+    useMarketTopCoins({ categoryId: selectedCategoryId, dataCacheRef });
   const rows = useMemo(
     () => data.map((item) => buildTopCoinMarketRow({ item, presentation })),
     [data, presentation],
@@ -1132,7 +1089,6 @@ function MobileMarketNativeTopCoinsListImpl({
       contentPaddingBottom={listContainerProps.paddingBottom}
       emptyContentHeight={listContainerProps.emptyContentHeight}
       onRowAction={handleRowAction}
-      onRefresh={() => refresh()}
     />
   );
 }
@@ -1207,7 +1163,6 @@ function MobileMarketNativePerpsListImpl({
         testID={MarketTestIDs.perpsList}
         onRowAction={handleRowAction}
         onActionAnchorInvalidated={badgeInfo.onActionAnchorInvalidated}
-        onRefresh={() => refresh()}
       />
       <NativeMarketBadgeInfo info={badgeInfo.info} onClose={badgeInfo.close} />
     </Stack>

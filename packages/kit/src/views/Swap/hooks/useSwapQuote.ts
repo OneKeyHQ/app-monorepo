@@ -16,6 +16,7 @@ import type { ISwapQuoteProvideResult } from '@onekeyhq/shared/src/logger/scopes
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import { EModalSwapRoutes } from '@onekeyhq/shared/src/routes/swap';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import {
   SWAP_PRO_QUOTE_INPUT_DEBOUNCE_MS,
@@ -78,38 +79,6 @@ export function isSwapQuoteTabEffectivelyVisible({
 
 export function shouldKeepSwapQuoteAliveOnFocusLoss(routeName?: string) {
   return routeName === EModalSwapRoutes.SwapProviderSelect;
-}
-
-export function handleSwapQuoteTabVisibilityChange({
-  isFocus,
-  isHiddenModel,
-  setQuoteVisible,
-  subscribeQuoteEvents,
-  refreshPreservedInputQuote,
-  pauseQuote,
-  unsubscribeQuoteEvents,
-}: {
-  isFocus: boolean;
-  isHiddenModel: boolean;
-  setQuoteVisible: (isVisible: boolean) => void;
-  subscribeQuoteEvents: () => void;
-  refreshPreservedInputQuote: () => void;
-  pauseQuote: () => void;
-  unsubscribeQuoteEvents: () => void;
-}) {
-  const isQuoteVisible = isSwapQuoteTabEffectivelyVisible({
-    isFocus,
-    isHiddenModel,
-  });
-  setQuoteVisible(isQuoteVisible);
-  if (isQuoteVisible) {
-    subscribeQuoteEvents();
-    refreshPreservedInputQuote();
-  } else {
-    pauseQuote();
-    unsubscribeQuoteEvents();
-  }
-  return isQuoteVisible;
 }
 
 /**
@@ -260,7 +229,11 @@ export function useSwapQuote({
   const shouldUseRouteQuoteLifecycle = isModalPage || isMarketEmbeddedSwap;
   const isQuoteVisibleRef = useRef(isFocused);
   if (shouldUseRouteQuoteLifecycle || !isFocused) {
-    isQuoteVisibleRef.current = isFocused;
+    isQuoteVisibleRef.current =
+      isFocused ||
+      shouldKeepSwapQuoteAliveOnFocusLoss(
+        rootNavigationRef.current?.getCurrentRoute()?.name,
+      );
   }
 
   // Automatic quote effects are paused while this route is hidden. Remember
@@ -868,13 +841,15 @@ export function useSwapQuote({
     [swapAddressInfo.address, swapToAddressInfo.address],
   );
 
+  const swapQuoteMixEventActionRef = useRef(swapQuoteMixEventAction);
+  swapQuoteMixEventActionRef.current = swapQuoteMixEventAction;
   const swapQuoteMixEvent = useCallback(
     async (event: ISwapQuoteEventPayload) => {
       if (event?.type === 'error') {
-        swapQuoteMixEventAction(JSON.stringify(event.event));
+        swapQuoteMixEventActionRef.current(JSON.stringify(event.event));
       }
     },
-    [swapQuoteMixEventAction],
+    [],
   );
 
   useEffect(() => {
@@ -1001,42 +976,98 @@ export function useSwapQuote({
     [],
   );
 
+  const deferQuoteLifecycleAction = useCallback((action: () => void) => {
+    if (!platformEnv.isNative) {
+      action();
+      return;
+    }
+
+    void timerUtils.setTimeoutPromised(action, 250);
+  }, []);
+
+  const tabVisibilityGenerationRef = useRef(0);
+  const isRouteMountedRef = useRef(false);
+  const pauseQuoteOnFocusLossRef = useRef(pauseQuoteOnFocusLoss);
+  pauseQuoteOnFocusLossRef.current = pauseQuoteOnFocusLoss;
+  const unsubscribeQuoteEventsRef = useRef(unsubscribeQuoteEvents);
+  unsubscribeQuoteEventsRef.current = unsubscribeQuoteEvents;
+  const keepSwapQuoteAliveForProviderPicker = useCallback(() => {
+    isQuoteVisibleRef.current = true;
+    shouldRefreshPreservedInputQuoteOnFocusRef.current = false;
+    subscribeQuoteEvents();
+  }, [subscribeQuoteEvents]);
+
   useListenTabFocusState(
     ETabRoutes.Swap,
     (isFocus: boolean, isHiddenModel: boolean) => {
       if (!shouldUseRouteQuoteLifecycle) {
-        handleSwapQuoteTabVisibilityChange({
+        const isQuoteVisible = isSwapQuoteTabEffectivelyVisible({
           isFocus,
           isHiddenModel,
-          setQuoteVisible: (isVisible) => {
-            isQuoteVisibleRef.current = isVisible;
-          },
-          subscribeQuoteEvents,
-          refreshPreservedInputQuote: refreshPreservedInputQuoteOnFocus,
-          pauseQuote: pauseQuoteOnFocusLoss,
-          unsubscribeQuoteEvents,
         });
+        const visibilityGeneration = tabVisibilityGenerationRef.current + 1;
+        tabVisibilityGenerationRef.current = visibilityGeneration;
+        isQuoteVisibleRef.current = isQuoteVisible;
+        if (isQuoteVisible) {
+          subscribeQuoteEvents();
+          refreshPreservedInputQuoteOnFocus();
+        } else {
+          deferQuoteLifecycleAction(() => {
+            if (!isRouteMountedRef.current) {
+              return;
+            }
+            if (tabVisibilityGenerationRef.current !== visibilityGeneration) {
+              return;
+            }
+            if (isProviderSelectRouteActive()) {
+              keepSwapQuoteAliveForProviderPicker();
+              return;
+            }
+            pauseQuoteOnFocusLoss();
+            unsubscribeQuoteEvents();
+          });
+        }
       }
     },
   );
 
   useEffect(() => {
+    isRouteMountedRef.current = true;
+    return () => {
+      isRouteMountedRef.current = false;
+      pauseQuoteOnFocusLossRef.current();
+      unsubscribeQuoteEventsRef.current();
+    };
+  }, []);
+
+  useEffect(() => {
+    let isEffectActive = true;
     if (shouldUseRouteQuoteLifecycle) {
       if (isFocused) {
         subscribeQuoteEvents();
         refreshPreservedInputQuoteOnFocus();
-      } else if (!isProviderSelectRouteActive()) {
-        pauseQuoteOnFocusLoss();
+      } else {
+        deferQuoteLifecycleAction(() => {
+          if (!isEffectActive) {
+            return;
+          }
+          if (isProviderSelectRouteActive()) {
+            keepSwapQuoteAliveForProviderPicker();
+            return;
+          }
+          pauseQuoteOnFocusLoss();
+          unsubscribeQuoteEvents();
+        });
       }
     }
     return () => {
-      if (shouldUseRouteQuoteLifecycle && !isProviderSelectRouteActive()) {
-        unsubscribeQuoteEvents();
-      }
+      isEffectActive = false;
     };
   }, [
+    deferQuoteLifecycleAction,
     isFocused,
     isProviderSelectRouteActive,
+    keepSwapQuoteAliveForProviderPicker,
     pauseQuoteOnFocusLoss,
     refreshPreservedInputQuoteOnFocus,
     shouldUseRouteQuoteLifecycle,

@@ -1,4 +1,5 @@
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
+import { getSwapConfiguredDefaultToToken } from '@onekeyhq/shared/src/utils/swapEntryUtils';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import {
   getSwapBridgeDefaultToToken,
@@ -129,6 +130,11 @@ export function getTokenActionSwapToToken({
   fromToken: ISwapToken;
   swapSupport?: ITokenActionSwapSupport;
 }) {
+  const configuredDefaultToToken = getSwapConfiguredDefaultToToken(fromToken);
+  if (configuredDefaultToToken) {
+    return configuredDefaultToToken;
+  }
+
   const isBtcNativeToken =
     fromToken.networkId === getNetworkIdsMap().btc &&
     fromToken.isNative &&

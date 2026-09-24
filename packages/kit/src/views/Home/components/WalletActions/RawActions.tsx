@@ -107,6 +107,9 @@ function ActionItem({
         {...(visualDisabled && { opacity: 0.4 })}
         {...verticalContainerProps}
         onPress={onPress}
+        // Tamagui skips press handlers when `disabled` is set; without it the
+        // card only looks disabled and still opens the action on native.
+        disabled={effectiveDisabled}
         {...rest}
       >
         {icon ? (

@@ -98,14 +98,14 @@ export function FilterButton({
     [filterState.inviteCode],
   );
 
-  // Handle mobile click to show ActionList
+  // Fit mode sizes the sheet to the invite-code list. Percent 70 left a tall
+  // empty frame whose unbounded ScrollView caused scroll jitter.
   const handleMobileClick = useCallback(() => {
     ActionList.show({
       title: intl.formatMessage({ id: ETranslations.referral_filter }),
       sections,
       sheetProps: {
-        snapPointsMode: 'percent',
-        snapPoints: [70],
+        snapPointsMode: 'fit',
       },
     });
   }, [intl, sections]);

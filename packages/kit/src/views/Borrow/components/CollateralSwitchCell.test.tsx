@@ -26,6 +26,11 @@ jest.mock('@onekeyhq/components', () => {
   return {
     __esModule: true,
     Dialog: { show: dialogShow, Footer: DialogFooter },
+    ESwitchSize: {
+      extraSmall: 'extraSmall',
+      small: 'small',
+      large: 'large',
+    },
     SizableText: Text,
     Spinner: (props: Record<string, unknown>) =>
       React.createElement(View, props),
@@ -319,7 +324,7 @@ describe('CollateralSwitchCell settlement guard', () => {
     };
   }
 
-  it('uses a press-based switch without a competing row handler on iOS', () => {
+  it('uses the shared native switch without a competing row handler on iOS', () => {
     jest.replaceProperty(platformEnv, 'isNative', true);
     jest.replaceProperty(platformEnv, 'isNativeIOS', true);
 
@@ -327,12 +332,8 @@ describe('CollateralSwitchCell settlement guard', () => {
       <CollateralSwitchCell item={createSuppliedAsset(true)} eModeId={1} />,
     );
 
-    expect(getSwitch(view).props.native).toBe(false);
-    expect(getSwitch(view).props.accessibilityRole).toBe('switch');
-    expect(getSwitch(view).props.accessibilityState).toEqual({
-      checked: true,
-      disabled: false,
-    });
+    expect(getSwitch(view).props.native).toBeUndefined();
+    expect(getSwitch(view).props.size).toBe('extraSmall');
     expect(
       view.UNSAFE_root.findAll(
         (node) => typeof node.props.onPress === 'function',
@@ -402,17 +403,14 @@ describe('CollateralSwitchCell settlement guard', () => {
       | undefined;
     onPress?.({ stopPropagation, preventDefault });
 
-    expect(getSwitch(view).props.native).toBe(true);
+    expect(getSwitch(view).props.native).toBeUndefined();
     expect(stopPropagation).toHaveBeenCalledTimes(1);
     expect(preventDefault).not.toHaveBeenCalled();
   });
 
   // A padded halo pulled back with a negative margin lands outside this view's
   // parent, where Android never hit-tests and hitSlop is ignored, while on web
-  // it swallowed the desktop row press and overhung the next column. Nothing to
-  // buy either: web, the extension and iOS all render the same 38x24 track, at
-  // the WCAG 2.5.8 floor, iOS with an added hitSlop, and Android alone hands
-  // off to the platform control, which is larger.
+  // it swallowed the desktop row press and overhung the next column.
   it('keeps the press target on the track instead of a padded halo', () => {
     const view = render(
       <CollateralSwitchCell item={createSuppliedAsset(false)} eModeId={0} />,
