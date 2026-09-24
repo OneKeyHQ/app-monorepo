@@ -29,6 +29,7 @@ interface IUseMarketTransactionsProps {
 }
 
 const DEFAULT_PAGE_SIZE = 20;
+const EMPTY_TRANSACTIONS: IMarketTokenTransaction[] = [];
 
 function canLoadMoreWithinCacheLimit({
   cursor,
@@ -49,9 +50,34 @@ export function useMarketTransactions({
   isTabFocused = true,
   enableRealtimePause = false,
 }: IUseMarketTransactionsProps) {
-  const [accumulatedTransactions, setAccumulatedTransactions] = useState<
-    IMarketTokenTransaction[]
-  >([]);
+  const {
+    scope,
+    result: transactionsData,
+    isLoading: isRefreshing,
+    isInitialPending,
+    run: fetchTransactions,
+    setStopPolling,
+  } = useMarketTokenListRequest(
+    async () =>
+      backgroundApiProxy.serviceMarketV2.fetchMarketTokenTransactions({
+        tokenAddress,
+        networkId,
+        limit: DEFAULT_PAGE_SIZE,
+      }),
+    { tokenAddress, networkId, isTabFocused },
+  );
+  const scopeRef = useRef(scope);
+  scopeRef.current = scope;
+  const [accumulatedState, setAccumulatedState] = useState({
+    scope,
+    transactions: EMPTY_TRANSACTIONS,
+  });
+  // Filter during render: a token reset effect cannot protect the first commit
+  // after navigation from rows already committed or queued in a transition.
+  const accumulatedTransactions =
+    accumulatedState.scope === scope
+      ? accumulatedState.transactions
+      : EMPTY_TRANSACTIONS;
   const [isRealtimeHovering, setIsRealtimeHovering] = useState(false);
   const [bufferedTransactions, setBufferedTransactions] = useState<
     IMarketTokenTransaction[]
@@ -91,9 +117,16 @@ export function useMarketTransactions({
     [],
   );
   const setAccumulatedTransactionsImmediately = useCallback(
-    (transactions: IMarketTokenTransaction[]) => {
+    (transactions: IMarketTokenTransaction[], updateScope = scope) => {
+      if (scopeRef.current !== updateScope) {
+        return;
+      }
       const current = getVisibleTransactions(transactions);
-      setAccumulatedTransactions((previous) => {
+      setAccumulatedState((previousState) => {
+        const previous =
+          previousState.scope === updateScope
+            ? previousState.transactions
+            : EMPTY_TRANSACTIONS;
         const previousByHash = new Map(
           previous.map((transaction) => [transaction.hash, transaction]),
         );
@@ -105,10 +138,11 @@ export function useMarketTransactions({
             ? existing
             : transaction;
         });
-        return next.length === previous.length &&
+        return previousState.scope === updateScope &&
+          next.length === previous.length &&
           next.every((transaction, index) => transaction === previous[index])
-          ? previous
-          : next;
+          ? previousState
+          : { scope: updateScope, transactions: next };
       });
       accumulatedTransactionsRef.current = current;
       updatePaginationState({
@@ -116,14 +150,14 @@ export function useMarketTransactions({
         transactions: current,
       });
     },
-    [getVisibleTransactions, updatePaginationState],
+    [getVisibleTransactions, scope, updatePaginationState],
   );
   const throttleSetAccumulatedTransactions = useThrottledCallback(
-    (transactions: IMarketTokenTransaction[]) => {
+    (transactions: IMarketTokenTransaction[], updateScope: typeof scope) => {
       // Background rows must yield to chart pointer events. Explicit token
       // resets and user-triggered buffer flushes still commit immediately.
       startTransition(() =>
-        setAccumulatedTransactionsImmediately(transactions),
+        setAccumulatedTransactionsImmediately(transactions, updateScope),
       );
     },
     platformEnv.isNative ? 1500 : 50,
@@ -193,29 +227,6 @@ export function useMarketTransactions({
     }
   }, [disableRealtimePause, enableRealtimePause]);
 
-  const {
-    result: transactionsData,
-    isLoading: isRefreshing,
-    isInitialPending,
-    run: fetchTransactions,
-    setStopPolling,
-  } = useMarketTokenListRequest(
-    async () => {
-      const response =
-        await backgroundApiProxy.serviceMarketV2.fetchMarketTokenTransactions({
-          tokenAddress,
-          networkId,
-          limit: DEFAULT_PAGE_SIZE,
-        });
-      return response;
-    },
-    {
-      tokenAddress,
-      networkId,
-      isTabFocused,
-    },
-  );
-
   useEffect(() => {
     // Keep the initial REST snapshot, but pause the polling chain when the
     // realtime transport is active. This avoids a second identical request
@@ -227,6 +238,7 @@ export function useMarketTransactions({
   useEffect(() => {
     throttleSetAccumulatedTransactions.cancel();
     setAccumulatedTransactionsImmediately([]);
+    setIsLoadingMore(false);
     setHasMore(true);
     cursorRef.current = undefined;
     loadTimesRef.current = 0;
@@ -245,7 +257,7 @@ export function useMarketTransactions({
 
     if (!newTransactions || newTransactions.length === 0) {
       cursorRef.current = undefined;
-      throttleSetAccumulatedTransactions([]);
+      throttleSetAccumulatedTransactions([], scope);
       setHasMore(false);
       return;
     }
@@ -262,15 +274,19 @@ export function useMarketTransactions({
       transactions: currentTransactions,
     });
 
-    throttleSetAccumulatedTransactions(currentTransactions);
+    throttleSetAccumulatedTransactions(currentTransactions, scope);
   }, [
     getVisibleTransactions,
+    scope,
     throttleSetAccumulatedTransactions,
     transactionsData,
     updatePaginationState,
   ]);
 
   const loadMore = useCallback(async (): Promise<void> => {
+    if (scopeRef.current !== scope || accumulatedState.scope !== scope) {
+      return;
+    }
     if (platformEnv.isNative && loadTimesRef.current > 10) {
       return;
     }
@@ -306,6 +322,10 @@ export function useMarketTransactions({
           limit: DEFAULT_PAGE_SIZE,
         });
 
+      if (scopeRef.current !== scope) {
+        return;
+      }
+
       if (!response?.list || response.list.length === 0) {
         cursorRef.current = undefined;
         setHasMore(false);
@@ -325,18 +345,22 @@ export function useMarketTransactions({
         cursor: response.cursor,
         transactions: currentTransactions,
       });
-      throttleSetAccumulatedTransactions(currentTransactions);
+      throttleSetAccumulatedTransactions(currentTransactions, scope);
     } catch (error) {
       console.error('Failed to load more transactions:', error);
     } finally {
-      setIsLoadingMore(false);
+      if (scopeRef.current === scope) {
+        setIsLoadingMore(false);
+      }
     }
   }, [
+    accumulatedState.scope,
     hasMore,
     isLoadingMore,
     isRefreshing,
     tokenAddress,
     networkId,
+    scope,
     getVisibleTransactions,
     throttleSetAccumulatedTransactions,
     updatePaginationState,
@@ -348,7 +372,7 @@ export function useMarketTransactions({
 
   const addNewTransactions = useCallback(
     (newTransactions: IMarketTokenTransaction[]) => {
-      if (newTransactions.length === 0) {
+      if (scopeRef.current !== scope || newTransactions.length === 0) {
         return;
       }
 
@@ -387,10 +411,11 @@ export function useMarketTransactions({
         cursor: cursorRef.current,
         transactions: currentTransactions,
       });
-      throttleSetAccumulatedTransactions(currentTransactions);
+      throttleSetAccumulatedTransactions(currentTransactions, scope);
     },
     [
       getVisibleTransactions,
+      scope,
       throttleSetAccumulatedTransactions,
       updatePaginationState,
     ],

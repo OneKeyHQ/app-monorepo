@@ -50,6 +50,7 @@ export function useMarketTokenListRequest<T>(
   const scopedResult = result?.scope === scope ? result : undefined;
 
   return {
+    scope,
     result: scopedResult?.data,
     isLoading,
     isInitialPending: scopedResult === undefined && failedScope !== scope,
