@@ -15,6 +15,11 @@ export type IVideoProgressData = {
   seekableDuration?: number;
 };
 
+export type IVideoPlaybackState = {
+  isPlaying: boolean;
+  isBuffering: boolean;
+};
+
 type IVideoSpecificProps = {
   source: IVideoSource;
   autoPlay?: boolean;
@@ -28,6 +33,7 @@ type IVideoSpecificProps = {
   resizeMode?: 'contain' | 'cover' | 'none' | 'stretch';
   onEnd?: () => void;
   onError?: (error: unknown) => void;
+  onPlaybackStateChange?: (state: IVideoPlaybackState) => void;
   onProgress?: (data: IVideoProgressData) => void;
   onReadyForDisplay?: () => void;
 };
