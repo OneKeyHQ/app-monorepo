@@ -360,6 +360,9 @@ class ProviderApiWalletConnect {
       return;
     }
 
+    let response: Parameters<
+      IWalletKit['respondSessionRequest']
+    >[0]['response'];
     try {
       const networkImpl = await serviceWalletConnect.getNetworkImplByNamespace(
         chain.wcNamespace,
@@ -380,30 +383,22 @@ class ProviderApiWalletConnect {
       walletConnectDiagnostics.record('request', 'method_completed', request);
       console.log('====>onSessionRequest ret: ', ret);
 
-      await this.respondSessionRequest({
-        topic,
-        response: {
-          id,
-          jsonrpc: '2.0',
-          result: ret,
-        },
-      });
-    } catch (error: any) {
+      response = { id, jsonrpc: '2.0', result: ret };
+    } catch (error) {
       walletConnectDiagnostics.record(
         'request',
         'request_failed',
         request,
         error,
       );
-      await this.respondSessionRequest({
-        topic,
-        response: {
-          id,
-          jsonrpc: '2.0',
-          error: getSdkError('USER_REJECTED', (error as Error)?.message),
-        },
-      });
+      response = {
+        id,
+        jsonrpc: '2.0',
+        error: getSdkError('USER_REJECTED', (error as Error)?.message),
+      };
     }
+    // A transport failure cannot change the outcome of an executed request.
+    await this.respondSessionRequest({ topic, response });
   };
 
   private handleSessionDelete = async (args: WalletKitTypes.SessionDelete) => {

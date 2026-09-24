@@ -31,6 +31,47 @@ function createCore() {
 }
 
 describe('WalletConnect wallet diagnostics', () => {
+  it.each([false, true])(
+    'does not treat SDK lifecycle warnings as failed connections (previous error: %s)',
+    (previousError) => {
+      const diagnostics = new WalletConnectDiagnostics();
+      const { core, relayer } = createCore();
+      const originalWarn = relayer.logger.warn;
+      diagnostics.attachCore(core);
+      if (previousError) relayer.logger.error(new Error('socket failure'));
+      const lastErrorAt = diagnostics.getSnapshot().lastConnectionErrorAt;
+      jest.spyOn(Date, 'now').mockReturnValue((lastErrorAt ?? 0) + 1000);
+      try {
+        relayer.connected = false;
+        relayer.logger.debug(
+          {},
+          'Connecting to wss://relay.walletconnect.org, attempt: 1...',
+        );
+        relayer.connected = true;
+        relayer.logger.warn({}, 'Relayer connected 🛜');
+        relayer.emit(RELAYER_EVENTS.connect);
+        relayer.connected = false;
+        relayer.logger.warn({}, 'Relayer disconnected');
+        relayer.emit(RELAYER_EVENTS.disconnect);
+        expect(diagnostics.getSnapshot()).toMatchObject({
+          lastConnectionErrorAt: lastErrorAt,
+          lastConnectedAt: (lastErrorAt ?? 0) + 1000,
+          connectionSuccesses: 1,
+          disconnections: 1,
+          lastFailedConnectionAttempt: 0,
+        });
+        expect(
+          diagnostics
+            .getSnapshot()
+            .events.filter((event) => event.event === 'relay_warning'),
+        ).toHaveLength(0);
+        expect(originalWarn).toHaveBeenCalledTimes(2);
+      } finally {
+        jest.restoreAllMocks();
+      }
+    },
+  );
+
   it('shows a pending relay switch until closure is confirmed or the switch is cancelled', () => {
     const diagnostics = new WalletConnectDiagnostics();
     const { core, relayer } = createCore();

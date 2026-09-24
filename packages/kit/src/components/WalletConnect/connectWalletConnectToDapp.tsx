@@ -94,6 +94,7 @@ function WalletConnectConnectionProgress({
 
 type IConnectionDialog = {
   close: () => Promise<void>;
+  onClose: () => void;
   pendingConnections: number;
 };
 
@@ -136,17 +137,6 @@ export async function connectWalletConnectToDapp(uri: string) {
       const dialogRef: { current?: ReturnType<typeof Dialog.show> } = {};
       const connectionDialog: IConnectionDialog = {
         pendingConnections: 0,
-        close: async () => {
-          if (closed) return;
-          closed = true;
-          await dialogRef.current?.close();
-        },
-      };
-      dialogRef.current = Dialog.show({
-        showFooter: false,
-        showExitButton: true,
-        dismissOnOverlayPress: false,
-        disableDrag: true,
         onClose: () => {
           closed = true;
           if (activeDialog === connectionDialog) {
@@ -154,6 +144,23 @@ export async function connectWalletConnectToDapp(uri: string) {
             activeDialog = undefined;
           }
         },
+        close: async () => {
+          if (closed) return;
+          // Release ownership before the UI callback, which may fail or stall.
+          connectionDialog.onClose();
+          try {
+            await dialogRef.current?.close();
+          } catch {
+            // Progress dismissal must not interfere with pairing or later scans.
+          }
+        },
+      };
+      dialogRef.current = Dialog.show({
+        showFooter: false,
+        showExitButton: true,
+        dismissOnOverlayPress: false,
+        disableDrag: true,
+        onClose: connectionDialog.onClose,
         renderContent: (
           <WalletConnectConnectionProgress
             initial={initial}
@@ -170,7 +177,7 @@ export async function connectWalletConnectToDapp(uri: string) {
   try {
     await backgroundApiProxy.walletConnect.connectToDapp(uri);
   } catch (error) {
-    if (progress?.pendingConnections === 1) await progress.close();
+    if (progress?.pendingConnections === 1) void progress.close();
     throw error;
   } finally {
     if (progress) progress.pendingConnections -= 1;

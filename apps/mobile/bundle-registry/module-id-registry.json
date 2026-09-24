@@ -24389,6 +24389,7 @@
     "packages/shared/src/utils/uriUtils.ts": 15234,
     "packages/shared/src/utils/webViewUrlSafety.ts": 9775,
     "packages/shared/src/walletConnect/constant.ts": 2465,
+    "packages/shared/src/walletConnect/diagnostics.ts": 6396,
     "packages/shared/src/walletConnect/types.ts": 22394,
     "packages/shared/src/webAuth/index.ts": 4157,
     "packages/shared/types/ProviderApis/ProviderApiBtc.type.ts": 6592,

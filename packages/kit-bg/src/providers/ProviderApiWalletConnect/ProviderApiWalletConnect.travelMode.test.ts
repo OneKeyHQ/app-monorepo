@@ -6,6 +6,7 @@ import { EWalletConnectSessionEvents } from '@onekeyhq/shared/src/walletConnect/
 
 import { walletConnectDiagnostics } from '../../services/ServiceWalletConnect/WalletConnectDiagnostics';
 
+import type { WalletConnectRequestProxy } from './WalletConnectRequestProxy';
 import type { IWalletKit, WalletKitTypes } from '@reown/walletkit';
 
 const mockGetWalletSideClient = jest.fn<Promise<IWalletKit>, []>();
@@ -115,7 +116,11 @@ describe('WalletConnect request diagnostics', () => {
     const getWcChainInfo = jest.fn(async () => ({ wcNamespace: 'eip155' }));
     const provider = new ProviderApiWalletConnect({
       backgroundApi: {
-        serviceWalletConnect: { getWcChainInfo, checkMethodSupport },
+        serviceWalletConnect: {
+          getWcChainInfo,
+          checkMethodSupport,
+          getNetworkImplByNamespace: async () => 'evm',
+        },
       },
     });
     const on = jest.fn();
@@ -138,8 +143,61 @@ describe('WalletConnect request diagnostics', () => {
         request: { method: 'eth_unsupported', params: [] },
       },
     } as unknown as WalletKitTypes.SessionRequest;
-    return { listener, request, respondSessionRequest, getWcChainInfo };
+    return {
+      provider,
+      listener,
+      request,
+      respondSessionRequest,
+      getWcChainInfo,
+      checkMethodSupport,
+    };
   }
+
+  it.each([false, true])(
+    'never resubmits a response when transport fails after execution (method rejected: %s)',
+    async (methodRejected) => {
+      const {
+        provider,
+        listener,
+        request,
+        respondSessionRequest,
+        checkMethodSupport,
+      } = await createProvider();
+      checkMethodSupport.mockResolvedValue(true);
+      request.params.request.method = 'eth_sendTransaction';
+      const dispatch = jest.fn(async () => '0xcompleted-transaction');
+      if (methodRejected)
+        dispatch.mockRejectedValue(new Error('User rejected'));
+      jest.spyOn(provider, 'switchNetwork').mockResolvedValue();
+      jest.spyOn(provider, 'getRequestProxy').mockReturnValue({
+        request: dispatch,
+      } as unknown as WalletConnectRequestProxy);
+      const transportError = new Error('socket disconnected during response');
+      respondSessionRequest.mockRejectedValueOnce(transportError);
+
+      await expect(listener(request)).rejects.toBe(transportError);
+      expect(dispatch).toHaveBeenCalledTimes(1);
+      expect(respondSessionRequest).toHaveBeenCalledTimes(1);
+      expect(respondSessionRequest).toHaveBeenCalledWith({
+        topic: request.topic,
+        response: {
+          id: request.id,
+          jsonrpc: '2.0',
+          ...(methodRejected
+            ? { error: expect.objectContaining({ code: 5000 }) }
+            : { result: '0xcompleted-transaction' }),
+        },
+      });
+      const events = walletConnectDiagnostics
+        .getSnapshot()
+        .events.map((event) => event.event);
+      expect(events).toContain('response_failed');
+      if (!methodRejected) {
+        expect(events).toContain('method_completed');
+        expect(events).not.toContain('sending_error_response');
+      }
+    },
+  );
 
   it('distinguishes unsupported methods from communication failures', async () => {
     const { listener, request, respondSessionRequest } = await createProvider();

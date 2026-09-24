@@ -208,7 +208,17 @@ export class WalletConnectDiagnostics {
             this.connectionAttemptPending = true;
             this.record('connection', 'relay_connecting');
           }
-        } else {
+        } else if (
+          !(
+            level === 'warn' &&
+            args.some(
+              (arg) =>
+                typeof arg === 'string' &&
+                /^Relayer (connected|disconnected)\b/.test(arg),
+            )
+          )
+        ) {
+          // SDK lifecycle warnings are already captured by the relay events.
           if (
             level === 'warn' &&
             this.connectionAttemptPending &&

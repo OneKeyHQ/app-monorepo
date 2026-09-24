@@ -33,6 +33,7 @@ const sharedOptions: CoreTypes.Options = {
 };
 const DAPP_STORAGE_PREFIX = '1k-wc-dapp-kit';
 const WALLET_STORAGE_PREFIX = '1k-wc-wallet-kit';
+const cores = new Map<string, InstanceType<typeof Core>>();
 
 // TODO remove walletConnectStorage, use sharedStorage instead
 let sharedStorage: KeyValueStorage | undefined;
@@ -62,9 +63,15 @@ async function coreInit({
   };
   // Attach before start so the first socket attempt and restored connection
   // are counted. Preserve Core.init's client-ID storage initialization.
-  const coreInstance = new Core(options);
-  WalletConnectRelayController.attach(coreInstance);
-  diagnostics.attachCore(coreInstance);
+  let coreInstance = cores.get(customStoragePrefix);
+  if (!coreInstance) {
+    coreInstance = new Core(options);
+    // Retain ownership before any async initialization, including failed starts.
+    // Do not depend on the SDK's optional global Core cache for retries.
+    cores.set(customStoragePrefix, coreInstance);
+    WalletConnectRelayController.attach(coreInstance);
+    diagnostics.attachCore(coreInstance);
+  }
   await coreInstance.start();
   await coreInstance.storage.setItem(
     WALLETCONNECT_CLIENT_ID,

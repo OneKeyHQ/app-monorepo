@@ -13,7 +13,10 @@ import {
 
 import { navigateModalFromBackground } from '../../provider/navigateModalFromBackground';
 
-import { connectWalletConnectToDapp } from './connectWalletConnectToDapp';
+import {
+  closeWalletConnectConnectionProgress,
+  connectWalletConnectToDapp,
+} from './connectWalletConnectToDapp';
 
 const pairingUri = `wc:${'1'.repeat(64)}@2?relay-protocol=irn&symKey=${'2'.repeat(64)}`;
 const secondPairingUri = `wc:${'3'.repeat(64)}@2?relay-protocol=irn&symKey=${'4'.repeat(64)}`;
@@ -337,6 +340,46 @@ it('closes on a rejected pairing and preserves its error', async () => {
   await expect(connectWalletConnectToDapp(pairingUri)).rejects.toBe(error);
 
   expect(mockDialogs[0].close).toHaveBeenCalledTimes(1);
+});
+
+it('allows a new pairing after automatic dialog closure fails without an onClose callback', async () => {
+  await connectWalletConnectToDapp(pairingUri);
+  const first = mockDialogs[0];
+  first.close.mockRejectedValue(new Error('Dialog close failed'));
+  await expect(closeWalletConnectConnectionProgress()).resolves.toBeUndefined();
+  await connectWalletConnectToDapp(secondPairingUri);
+  expect(mockDialogs).toHaveLength(2);
+  first.options.onClose();
+  await closeWalletConnectConnectionProgress();
+  expect(mockDialogs[1].close).toHaveBeenCalledTimes(1);
+});
+
+it('preserves a pairing failure even if closing its loading also fails', async () => {
+  const pairing = deferred();
+  mockConnect.mockReturnValueOnce(pairing.promise);
+  const connecting = connectWalletConnectToDapp(pairingUri);
+  const result = connecting.catch((error: unknown) => error);
+  await act(async () => {});
+  mockDialogs[0].close.mockRejectedValue(new Error('Dialog close failed'));
+  const error = new Error('Pairing expired');
+  pairing.reject(error);
+  expect(await result).toBe(error);
+  await connectWalletConnectToDapp(secondPairingUri);
+  expect(mockDialogs).toHaveLength(2);
+});
+
+it('returns the pairing error without waiting for an unresponsive dialog close', async () => {
+  const pairing = deferred();
+  mockConnect.mockReturnValueOnce(pairing.promise);
+  const connecting = connectWalletConnectToDapp(pairingUri);
+  const result = connecting.catch((error: unknown) => error);
+  await act(async () => {});
+  mockDialogs[0].close.mockReturnValue(deferred().promise);
+  const error = new Error('Pairing expired');
+  pairing.reject(error);
+  expect(await result).toBe(error);
+  await connectWalletConnectToDapp(secondPairingUri);
+  expect(mockDialogs).toHaveLength(2);
 });
 
 it('does not let an older pairing failure close a new dialog', async () => {

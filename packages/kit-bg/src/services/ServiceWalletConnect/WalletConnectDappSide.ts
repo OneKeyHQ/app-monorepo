@@ -78,20 +78,23 @@ export class WalletConnectDappSide {
 
   async getSharedClient() {
     if (!this.sharedClient) {
-      this.sharedClient = await walletConnectClient.getDappSideClient();
+      const client = await walletConnectClient.getDappSideClient();
+      // Concurrent callers share SDK initialization; only one owns registration.
+      if (this.sharedClient) return this.sharedClient;
       // TODO off event
-      this.sharedClient.on(
+      client.on(
         EWalletConnectSessionEvents.session_delete,
         this.handleSessionDelete,
       );
-      this.sharedClient.on(
+      client.on(
         EWalletConnectSessionEvents.session_update,
         this.handleSessionUpdate,
       );
-      this.sharedClient.on(
+      client.on(
         EWalletConnectSessionEvents.session_event,
         this.handleSessionEvent,
       );
+      this.sharedClient = client;
     }
     return this.sharedClient;
   }
