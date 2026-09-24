@@ -362,15 +362,6 @@ export function Container({
   // new element into scrollTabElementsRef" so Container can attach its
   // ResizeObserver immediately, without polling.
   const requestRemeasureRef = useRef<() => void>(() => {});
-  const contextValue = useMemo(
-    () => ({
-      focusedTab,
-      tabNames: sharedTabNames,
-      scrollTabElementsRef,
-      requestRemeasure: () => requestRemeasureRef.current(),
-    }),
-    [focusedTab, sharedTabNames],
-  );
   const isEffectValid = useRef(true);
   const ref = useRef<Element>(null);
   const listContainerRef = useRef<Element>(null);
@@ -401,6 +392,31 @@ export function Container({
   const [scrollElement, setScrollElement] = useState<Element | null>(null);
   const isSwitchingTabRef = useRef(false);
   const routeScrollSnapshotRef = useRef<Record<string, number>>({});
+
+  // The container root is the only scroller (`overflowYScrollStyle`); the
+  // per-tab nodes in `scrollTabElementsRef` are measurement targets. Reset the
+  // real scroller AND the saved per-tab offsets, otherwise the next tab switch
+  // (`scrollTopRef`) or route focus (`restoreScrollPosition`) would put the
+  // previous position straight back.
+  const scrollToTop = useCallback(() => {
+    (scrollElement as HTMLElement | null)?.scrollTo({
+      top: 0,
+      behavior: 'instant',
+    });
+    scrollTopRef.current = {};
+    routeScrollSnapshotRef.current = {};
+  }, [scrollElement]);
+
+  const contextValue = useMemo(
+    () => ({
+      focusedTab,
+      tabNames: sharedTabNames,
+      scrollTabElementsRef,
+      requestRemeasure: () => requestRemeasureRef.current(),
+      scrollToTop,
+    }),
+    [focusedTab, sharedTabNames, scrollToTop],
+  );
 
   useEffect(() => {
     if (!isRouteFocused) {
