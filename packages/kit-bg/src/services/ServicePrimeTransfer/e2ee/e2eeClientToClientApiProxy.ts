@@ -41,6 +41,18 @@ export class E2EEClientToClientApiProxy
     return Promise.resolve();
   }
 
+  async cancelTransferIfCurrent(isCurrent: () => boolean): Promise<void> {
+    await this.waitRemoteApiReady();
+    if (!isCurrent()) return;
+    // callRemoteApi -> bridge.request -> sendPayload emits synchronously, so
+    // ownership is checked after the last await before sending the legacy RPC.
+    await this.callRemoteApi({
+      module: 'api',
+      method: 'cancelTransfer',
+      params: [],
+    });
+  }
+
   protected override async callRemoteApi(options: {
     module: IE2EEClientToClientApiKeys;
     method: string;

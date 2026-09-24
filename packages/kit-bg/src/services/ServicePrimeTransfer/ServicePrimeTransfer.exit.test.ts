@@ -10,9 +10,12 @@ let mockState: Pick<
   | 'status'
   | 'pairedRoomId'
   | 'refreshQrcodeHook'
+  | 'myUserId'
+  | 'transferDirection'
 >;
 const mockWait = jest.fn<Promise<void>, []>();
 const mockClearPairing = jest.fn<void, []>();
+let mockBeforeStateUpdate: (() => Promise<void>) | undefined;
 
 jest.mock('@onekeyhq/core/src/secret', () => ({}));
 jest.mock('@onekeyhq/shared/src/appCrypto', () => ({
@@ -72,10 +75,15 @@ jest.mock('../ServiceBase', () => ({
 
 jest.mock('../../states/jotai/atoms', () => ({}));
 jest.mock('../../states/jotai/atoms/prime', () => ({
-  EPrimeTransferStatus: { init: 'init', paired: 'paired' },
+  EPrimeTransferStatus: {
+    init: 'init',
+    paired: 'paired',
+    transferring: 'transferring',
+  },
   primeTransferAtom: {
     get: async () => mockState,
     set: async (update: (state: typeof mockState) => typeof mockState) => {
+      if (mockBeforeStateUpdate) await mockBeforeStateUpdate();
       mockState = update(mockState);
     },
   },
@@ -126,12 +134,18 @@ async function pair(service: ServicePrimeTransfer, roomId = 'old-room') {
 
 beforeEach(() => {
   jest.clearAllMocks();
+  mockBeforeStateUpdate = undefined;
   mockWait.mockReset().mockResolvedValue(undefined);
   // Use the production enum through the mocked module, without asserting a string type.
   const { EPrimeTransferStatus } = jest.requireMock<
     typeof import('../../states/jotai/atoms/prime')
   >('../../states/jotai/atoms/prime');
-  mockState = { status: EPrimeTransferStatus.init, pairedRoomId: undefined };
+  mockState = {
+    status: EPrimeTransferStatus.init,
+    pairedRoomId: undefined,
+    myUserId: undefined,
+    transferDirection: undefined,
+  };
 });
 afterEach(() => jest.restoreAllMocks());
 
@@ -234,3 +248,67 @@ test('the current owner still resets its import, clears pairing and refreshes th
   expect(mockState.refreshQrcodeHook).toEqual(expect.any(Number));
   expect(await service.isTransferExitCurrent(generation)).toBe(true);
 });
+
+test.each(['network-cleanup', 'status-update', 'peer-readiness'] as const)(
+  'an old cancellation cannot reset or notify a replacement started during %s',
+  async (stage) => {
+    const { EPrimeTransferStatus } = jest.requireMock<
+      typeof import('../../states/jotai/atoms/prime')
+    >('../../states/jotai/atoms/prime');
+    const service = createService();
+    jest
+      .spyOn(service, 'checkWebSocketConnected')
+      .mockImplementation(() => undefined);
+    const entered = deferred();
+    const resume = deferred();
+    const notify = jest.fn<void, []>();
+    Object.defineProperty(service, 'e2eeClientToClientApiProxy', {
+      value: {
+        cancelTransferIfCurrent: async (isCurrent: () => boolean) => {
+          if (stage === 'peer-readiness') {
+            entered.resolve();
+            await resume.promise;
+          }
+          if (isCurrent()) notify();
+        },
+      },
+    });
+    mockState = {
+      ...mockState,
+      status: EPrimeTransferStatus.transferring,
+      pairedRoomId: 'room',
+      myUserId: 'sender',
+      transferDirection: {
+        fromUserId: 'sender',
+        toUserId: 'receiver',
+        randomNumber: 'fixture',
+      },
+    };
+    const oldTaskId = await service.beginTransferPreparation();
+    let writes = 0;
+    mockBeforeStateUpdate = async () => {
+      writes += 1;
+      if (
+        (stage === 'network-cleanup' && writes === 1) ||
+        (stage === 'status-update' && writes === 2)
+      ) {
+        entered.resolve();
+        await resume.promise;
+      }
+    };
+    const cancelling = service.cancelTransfer({ taskId: oldTaskId });
+    await entered.promise;
+    // A subsequent start-transfer event can restore transferring after local
+    // cleanup has reset the status but before the peer RPC has been sent.
+    mockState = { ...mockState, status: EPrimeTransferStatus.transferring };
+    const replacementTaskId = await service.beginTransferPreparation();
+    expect(replacementTaskId).not.toBe(oldTaskId);
+    resume.resolve();
+    await cancelling;
+    expect(mockState.status).toBe(EPrimeTransferStatus.transferring);
+    expect(notify).not.toHaveBeenCalled();
+    await expect(service.beginTransferPreparation()).rejects.toThrow(
+      'Transfer already in progress',
+    );
+  },
+);

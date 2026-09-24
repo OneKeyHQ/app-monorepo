@@ -1362,9 +1362,15 @@ class ServicePrimeTransfer extends ServiceBase {
       this.networkTask?.transferId !== taskId
     )
       return;
+    const generation = this.transferExitGeneration;
+    const proxy = this.e2eeClientToClientApiProxy;
+    const isCurrent = () =>
+      this.transferExitGeneration === generation &&
+      this.e2eeClientToClientApiProxy === proxy;
     await this.cancelNetworkTransfer();
+    if (!isCurrent()) return;
     await primeTransferAtom.set((state) =>
-      state.status === EPrimeTransferStatus.transferring
+      isCurrent() && state.status === EPrimeTransferStatus.transferring
         ? {
             ...state,
             status: state.pairedRoomId
@@ -1376,8 +1382,11 @@ class ServicePrimeTransfer extends ServiceBase {
     // Local cancellation is complete. Peer notification must not reject a
     // dialog close if the connection disappears during cleanup.
     try {
-      this.checkWebSocketConnected();
-      await this.e2eeClientToClientApiProxy?.api.cancelTransfer();
+      await proxy?.cancelTransferIfCurrent(() => {
+        if (!isCurrent()) return false;
+        this.checkWebSocketConnected();
+        return true;
+      });
     } catch (error) {
       console.error('Failed to notify peer of transfer cancellation', error);
     }

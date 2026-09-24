@@ -449,11 +449,11 @@ export function PrimeTransferDirection({
 
         await timerUtils.wait(120);
         // await onConfirm({ code, uuid });
+        preparationTaskId =
+          await backgroundApiProxy.servicePrimeTransfer.beginTransferPreparation();
         isClosedBySendData.current = true;
         await dialogRef.current?.close();
 
-        preparationTaskId =
-          await backgroundApiProxy.servicePrimeTransfer.beginTransferPreparation();
         const transferData =
           await backgroundApiProxy.servicePrimeTransfer.buildTransferData({
             preparationTaskId,

@@ -12,6 +12,7 @@ import type { IPrimeTransferData } from '@onekeyhq/shared/types/prime/primeTrans
 import { PrimeTransferDirection } from './PrimeTransferDirection';
 
 const mockDialogs: IDialogShowProps[] = [];
+const mockClosedDialogs = new Set<IDialogShowProps>();
 const mockBegin = jest.fn<Promise<string>, []>();
 const mockBuild = jest.fn<Promise<IPrimeTransferData>, [unknown]>();
 const mockSend = jest.fn<Promise<void>, [unknown]>();
@@ -55,7 +56,12 @@ jest.mock('@onekeyhq/components', () => {
     Dialog: {
       show: (props: IDialogShowProps) => {
         mockDialogs.push(props);
-        return { close: async () => props.onClose?.() };
+        return {
+          close: async () => {
+            mockClosedDialogs.add(props);
+            return props.onClose?.();
+          },
+        };
       },
     },
   };
@@ -152,6 +158,7 @@ function renderConfirmation() {
 beforeEach(() => {
   jest.clearAllMocks();
   mockDialogs.length = 0;
+  mockClosedDialogs.clear();
   mockBegin.mockReset().mockResolvedValue('fixture-task');
   mockBuild.mockReset().mockResolvedValue(fixture());
   mockSend.mockReset().mockResolvedValue(undefined);
@@ -211,6 +218,48 @@ test.each(['invalid-code', 'busy-service'] as const)(
     expect(mockCancel).not.toHaveBeenCalled();
   },
 );
+
+test('a rejected reservation keeps the verification dialog open for a real retry', async () => {
+  const reservation = deferred<void>();
+  const started = deferred<void>();
+  mockBegin.mockImplementationOnce(async () => {
+    started.resolve();
+    await reservation.promise;
+    throw new OneKeyLocalError('Transfer already in progress');
+  });
+  const confirm = renderConfirmation();
+  let result: Promise<unknown> = Promise.resolve();
+  await act(async () => {
+    result = confirm('123456').catch((error: unknown) => error);
+    await started.promise;
+  });
+  expect(mockClosedDialogs.has(mockDialogs[0])).toBe(false);
+  expect(mockBuild).not.toHaveBeenCalled();
+  await act(async () => {
+    reservation.resolve();
+    expect(await result).toMatchObject({
+      message: 'Transfer already in progress',
+    });
+  });
+  expect(mockDialogs).toHaveLength(1);
+  expect(mockClosedDialogs.has(mockDialogs[0])).toBe(false);
+  expect(mockCancel).not.toHaveBeenCalled();
+  const openDialog = mockDialogs.find(
+    (dialog) => !mockClosedDialogs.has(dialog),
+  );
+  const content = openDialog?.renderContent;
+  if (
+    !isValidElement<{ onConfirm: (code: string) => Promise<void> }>(content)
+  ) {
+    throw new OneKeyLocalError(
+      'Expected an open verification dialog for retry',
+    );
+  }
+  await act(async () => content.props.onConfirm('123456'));
+  expect(mockBegin).toHaveBeenCalledTimes(2);
+  expect(mockSend).toHaveBeenCalledTimes(1);
+  expect(mockClosedDialogs.has(mockDialogs[0])).toBe(true);
+});
 
 test('preparation failure cancels only its task and releases the submission lock', async () => {
   mockBegin

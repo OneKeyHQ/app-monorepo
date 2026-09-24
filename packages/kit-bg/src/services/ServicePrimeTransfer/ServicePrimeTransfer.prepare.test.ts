@@ -746,7 +746,11 @@ test.each(['disconnected', 'notification-rejected', 'connected'] as const)(
         throw new OneKeyLocalError('Peer disconnected');
     });
     Object.defineProperty(service, 'e2eeClientToClientApiProxy', {
-      value: { api: { cancelTransfer: notify } },
+      value: {
+        cancelTransferIfCurrent: async (isCurrent: () => boolean) => {
+          if (isCurrent()) await notify();
+        },
+      },
     });
     const log = jest
       .spyOn(console, 'error')
