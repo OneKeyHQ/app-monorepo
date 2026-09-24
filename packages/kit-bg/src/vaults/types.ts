@@ -685,6 +685,13 @@ export interface IBuildUnsignedTxParams {
   stakingInfo?: IStakingInfo;
   specifiedFeeRate?: string;
   prevNonce?: number;
+  prefetchedOnChainNonce?: {
+    nonce: number;
+    fetchedAt: number;
+    accountId: string;
+    networkId: string;
+    accountAddress: string;
+  };
   feeInfo?: IFeeInfoUnit;
   transferPayload?: ITransferPayload;
   isInternalSwap?: boolean;

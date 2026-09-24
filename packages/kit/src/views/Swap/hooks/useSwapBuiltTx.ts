@@ -142,6 +142,7 @@ import {
 import {
   type ISwapBtcOutputValidationError,
   buildNativeTokenFromGasInfo,
+  checkSwapBalanceSufficientFromAmount,
   checkSwapLatestBalanceSufficient,
   getSwapEncodedTxSize,
   getSwapQuoteBalanceRequirements,
@@ -207,10 +208,12 @@ type IBuildSwapActionOptions = {
   slippagePercentage?: number;
   useCustomSlippage?: boolean;
   updateReviewState?: boolean;
+  onQuoteBalanceChecked?: () => void;
 };
 
 type IEstimateNetworkFeeOptions = {
   updateReviewState?: boolean;
+  prefetchedOnChainNonce?: IBuildUnsignedTxParams['prefetchedOnChainNonce'];
   vaultSettingsResult?: Promise<
     PromiseSettledResult<
       Awaited<
@@ -759,6 +762,7 @@ export function useSwapBuildTx({
       amount,
       otherFeeInfos,
       cachedNativeBalance,
+      prefetchedNativeBalance,
     }: {
       gasInfos?: { gasInfo?: ISwapGasInfo; txSize?: number }[];
       networkId?: string;
@@ -766,6 +770,11 @@ export function useSwapBuildTx({
       amount?: string;
       otherFeeInfos?: IQuoteResultFeeOtherFeeInfo[];
       cachedNativeBalance?: string;
+      prefetchedNativeBalance?: {
+        balance: string;
+        fetchedAt: number;
+        token: ISwapToken;
+      };
     }) => {
       const nativeBalanceRequirement = getSwapRequiredNativeBalanceAmount({
         gasInfos,
@@ -794,12 +803,27 @@ export function useSwapBuildTx({
         return { isSufficient: true };
       }
 
-      const checkResult = await checkSwapLatestBalanceSufficient({
-        token: nativeToken,
-        amount: nativeBalanceRequirement?.amount ?? '0',
-        accountAddress: fromUserAddress,
-        accountId: fromAccountId,
-      });
+      const canUsePrefetchedBalance = Boolean(
+        prefetchedNativeBalance &&
+        prefetchedNativeBalance.token.networkId === nativeToken.networkId &&
+        prefetchedNativeBalance.token.contractAddress.toLowerCase() ===
+          nativeToken.contractAddress.toLowerCase() &&
+        Date.now() - prefetchedNativeBalance.fetchedAt >= 0 &&
+        Date.now() - prefetchedNativeBalance.fetchedAt <= 1000,
+      );
+      const checkResult =
+        canUsePrefetchedBalance && prefetchedNativeBalance
+          ? checkSwapBalanceSufficientFromAmount({
+              balance: prefetchedNativeBalance.balance,
+              amount: nativeBalanceRequirement?.amount ?? '0',
+              tokenSymbol: nativeToken.symbol,
+            })
+          : await checkSwapLatestBalanceSufficient({
+              token: nativeToken,
+              amount: nativeBalanceRequirement?.amount ?? '0',
+              accountAddress: fromUserAddress,
+              accountId: fromAccountId,
+            });
       if (!checkResult.isSufficient) {
         const toastId = [
           'swap-native-balance-insufficient',
@@ -2309,6 +2333,7 @@ export function useSwapBuildTx({
         slippagePercentage,
         useCustomSlippage = false,
         updateReviewState = true,
+        onQuoteBalanceChecked,
       } = options ?? {};
       const reviewSlippagePercentage =
         swapStepsRef.current.preSwapData.slippage ?? slippageItem.value;
@@ -2347,6 +2372,7 @@ export function useSwapBuildTx({
         if (!checkRes) {
           throw new OneKeyAppError('checkQuoteBalances failed');
         }
+        onQuoteBalanceChecked?.();
         const cachedBuildResult =
           swapStepsRef.current.preSwapData.swapBuildResultData;
         if (
@@ -3327,7 +3353,11 @@ export function useSwapBuildTx({
       approveUnsignedTxArr?: IUnsignedTxPro[],
       options?: IEstimateNetworkFeeOptions,
     ): Promise<IEstimateNetworkFeeResult> => {
-      const { updateReviewState = true, vaultSettingsResult } = options ?? {};
+      const {
+        updateReviewState = true,
+        vaultSettingsResult,
+        prefetchedOnChainNonce,
+      } = options ?? {};
       if (!fromToken || !fromAccountId || !fromUserAddress) {
         throw new OneKeyError('account error');
       }
@@ -3348,7 +3378,37 @@ export function useSwapBuildTx({
         await backgroundApiProxy.serviceSend.prepareSendConfirmUnsignedTx({
           ...buildUnsignedParamsCheckNonce,
           isInternalSwap: true,
+          prefetchedOnChainNonce: approveUnsignedTxArr?.length
+            ? undefined
+            : prefetchedOnChainNonce,
         });
+
+      const nativeTokenForBalance: ISwapToken =
+        fromToken.isNative && fromToken.networkId === networkId
+          ? fromToken
+          : {
+              networkId,
+              contractAddress: '',
+              isNative: true,
+              symbol: '',
+              decimals: 0,
+            };
+      const prefetchedNativeBalance = Promise.allSettled([
+        checkSwapLatestBalanceSufficient({
+          token: nativeTokenForBalance,
+          amount: '0',
+          accountAddress: fromUserAddress,
+          accountId,
+        }),
+      ]).then(([result]) =>
+        result.status === 'fulfilled' && result.value.balance !== undefined
+          ? {
+              balance: result.value.balance,
+              fetchedAt: Date.now(),
+              token: nativeTokenForBalance,
+            }
+          : undefined,
+      );
 
       if (updateReviewState) {
         setSwapSteps((prev) => ({
@@ -3616,6 +3676,7 @@ export function useSwapBuildTx({
             amount: swapInfo?.sender.amount,
             otherFeeInfos:
               swapInfo?.swapBuildResData.result?.fee?.otherFeeInfos,
+            prefetchedNativeBalance: await prefetchedNativeBalance,
           },
         );
         const swapGasFeeInfo = findGasInfo(gasFeeInfos, unsignedTx.encodedTx);
@@ -3898,6 +3959,36 @@ export function useSwapBuildTx({
           },
         }));
         try {
+          let prefetchedOnChainNonce:
+            | IBuildUnsignedTxParams['prefetchedOnChainNonce']
+            | undefined;
+          const onQuoteBalanceChecked = () => {
+            if (
+              !data.allowanceResult &&
+              networkUtils.isEvmNetwork({ networkId: fromAccountNetworkId })
+            ) {
+              void Promise.allSettled([
+                backgroundApiProxy.serviceAccountProfile.fetchAccountDetails({
+                  networkId: fromAccountNetworkId,
+                  accountId: fromAccountId,
+                  withNonce: true,
+                }),
+              ]).then(([result]) => {
+                if (
+                  result.status === 'fulfilled' &&
+                  result.value.nonce !== undefined
+                ) {
+                  prefetchedOnChainNonce = {
+                    nonce: result.value.nonce,
+                    fetchedAt: Date.now(),
+                    accountId: fromAccountId,
+                    networkId: fromAccountNetworkId,
+                    accountAddress: fromUserAddress,
+                  };
+                }
+              });
+            }
+          };
           const vaultSettingsResult = Promise.allSettled([
             backgroundApiProxy.serviceNetwork.getVaultSettings({
               networkId: fromAccountNetworkId,
@@ -3905,7 +3996,9 @@ export function useSwapBuildTx({
           ]).then(([result]) => result);
           const [{ swapInfo, transferInfo, encodedTx }, { unsignedTxArr }] =
             await Promise.all([
-              buildSwapAction(currentFromToken, currentToToken, data),
+              buildSwapAction(currentFromToken, currentToToken, data, {
+                onQuoteBalanceChecked,
+              }),
               getApproveUnSignedTxArr(data),
             ]);
           const estimateNetworkFeeResult = await estimateNetworkFee(
@@ -3919,7 +4012,10 @@ export function useSwapBuildTx({
               swapInfo,
             },
             unsignedTxArr,
-            { vaultSettingsResult },
+            {
+              vaultSettingsResult,
+              prefetchedOnChainNonce,
+            },
           );
           if (estimateNetworkFeeResult.fallbackToSeparateTxConfirm) {
             const separateSteps = buildSeparateApproveAndSwapSteps(data);

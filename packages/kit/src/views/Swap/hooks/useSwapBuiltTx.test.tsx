@@ -48,6 +48,10 @@ const mockPrepareUnsignedTx = jest.fn<
 >();
 const mockEstimateFee = jest.fn<Promise<unknown>, unknown[]>();
 const mockBatchEstimateFee = jest.fn<Promise<unknown>, unknown[]>();
+const mockFetchAccountDetails = jest.fn(async () => ({ nonce: 3 }));
+const mockFetchSwapTokenDetails = jest.fn(async () => [
+  { balanceParsed: '100' },
+]);
 const mockGetVaultSettings = jest.fn<
   Promise<{ supportBatchEstimateFee?: Record<string, boolean> }>,
   []
@@ -152,7 +156,7 @@ jest.mock('../../../background/instance/backgroundApiProxy', () => ({
   default: {
     serviceToken: { getNativeTokenAddress: async () => '' },
     serviceSwap: {
-      fetchSwapTokenDetails: async () => [{ balanceParsed: '100' }],
+      fetchSwapTokenDetails: () => mockFetchSwapTokenDetails(),
       prepareSwapBuildTxContext: (params: {
         accountId: string;
         protocol: EProtocolOfExchange;
@@ -164,6 +168,9 @@ jest.mock('../../../background/instance/backgroundApiProxy', () => ({
       prepareSendConfirmUnsignedTx: (
         params: Parameters<typeof mockPrepareUnsignedTx>[0],
       ) => mockPrepareUnsignedTx(params),
+    },
+    serviceAccountProfile: {
+      fetchAccountDetails: () => mockFetchAccountDetails(),
     },
     serviceNetwork: { getVaultSettings: () => mockGetVaultSettings() },
     serviceGas: {
@@ -202,6 +209,13 @@ describe('useSwapBuildTx review rebuild', () => {
     mockFetchBuildTx
       .mockResolvedValueOnce(buildResponse('98'))
       .mockResolvedValueOnce(buildResponse('90'));
+    let resolveNonce!: (value: { nonce: number }) => void;
+    mockFetchAccountDetails.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          resolveNonce = resolve;
+        }),
+    );
     mockPrepareUnsignedTx.mockImplementation(async (params) => ({
       ...params,
       encodedTx: {
@@ -249,6 +263,10 @@ describe('useSwapBuildTx review rebuild', () => {
     });
     const initialBuilt = store.get(swapStepsAtom()).preSwapData;
     expect(initialBuilt.stepBeforeActionsError).toBeUndefined();
+    expect(mockPrepareUnsignedTx).toHaveBeenCalledWith(
+      expect.objectContaining({ prefetchedOnChainNonce: undefined }),
+    );
+    resolveNonce({ nonce: 3 });
     expect(initialBuilt.toTokenAmount).toBe('98');
     expect(initialBuilt.rateDifference?.value).toBe('-2.00%');
     expect(
@@ -390,5 +408,116 @@ describe('useSwapBuildTx review rebuild', () => {
     ).toBeUndefined();
     expect(mockGetVaultSettings).toHaveBeenCalledTimes(1);
     expect(mockBatchEstimateFee).toHaveBeenCalledTimes(1);
+  });
+
+  it('starts the EVM nonce read while build-tx is pending', async () => {
+    platformEnv.isNative = false;
+    globalJotaiStorageReadyHandler.resolveReady(true);
+    mockFetchBuildTx.mockReset();
+    mockPrepareUnsignedTx.mockReset();
+    mockEstimateFee.mockReset();
+    mockFetchAccountDetails.mockReset();
+    mockFetchSwapTokenDetails.mockClear();
+    mockGetVaultSettings.mockResolvedValue({});
+
+    let resolveBuild!: (value: IFetchBuildTxResponse) => void;
+    let resolveBuildStarted!: () => void;
+    const buildStarted = new Promise<void>((resolve) => {
+      resolveBuildStarted = resolve;
+    });
+    mockFetchBuildTx.mockImplementation(() => {
+      resolveBuildStarted();
+      return new Promise((resolve) => {
+        resolveBuild = resolve;
+      });
+    });
+    let resolveNonceStarted!: () => void;
+    const nonceStarted = new Promise<void>((resolve) => {
+      resolveNonceStarted = resolve;
+    });
+    mockFetchAccountDetails.mockImplementation(async () => {
+      resolveNonceStarted();
+      return { nonce: 3 };
+    });
+    mockPrepareUnsignedTx.mockImplementation(async (params) => ({
+      ...params,
+      encodedTx: { to: '0x4', value: '0' },
+    }));
+    let resolveEstimateStarted!: () => void;
+    const estimateStarted = new Promise<void>((resolve) => {
+      resolveEstimateStarted = resolve;
+    });
+    let resolveEstimate!: (value: unknown) => void;
+    mockEstimateFee.mockImplementation(() => {
+      resolveEstimateStarted();
+      return new Promise((resolve) => {
+        resolveEstimate = resolve;
+      });
+    });
+
+    const store = createStore();
+    store.set(swapTypeSwitchAtom(), ESwapTabSwitchType.SWAP);
+    store.set(swapStepsAtom(), {
+      steps: [],
+      quoteResult: quote,
+      preSwapData: {
+        fromToken,
+        toToken,
+        fromTokenAmount: quote.fromAmount,
+        toTokenAmount: quote.toAmount,
+        slippage: 1,
+      },
+    });
+    const Wrapper = ({ children }: { children?: ReactNode }) => (
+      <ProviderJotaiContextSwap store={store}>
+        {children}
+      </ProviderJotaiContextSwap>
+    );
+    const { result } = renderHook(() => useSwapBuildTx(), { wrapper: Wrapper });
+
+    let balanceReadsBeforeBuild = 0;
+    await act(async () => {
+      const pending = result.current.preSwapBeforeStepActions(
+        quote,
+        fromToken,
+        toToken,
+      );
+      await Promise.all([buildStarted, nonceStarted]);
+      expect(mockPrepareUnsignedTx).not.toHaveBeenCalled();
+      balanceReadsBeforeBuild = mockFetchSwapTokenDetails.mock.calls.length;
+      resolveBuild(buildResponse('98'));
+      await estimateStarted;
+      expect(mockFetchSwapTokenDetails.mock.calls.length).toBeGreaterThan(
+        balanceReadsBeforeBuild,
+      );
+      resolveEstimate({
+        common: {
+          feeDecimals: 9,
+          feeSymbol: 'Gwei',
+          nativeDecimals: 18,
+          nativeSymbol: 'ETH',
+          nativeTokenPrice: 1000,
+        },
+        gas: [{ gasPrice: '1', gasLimit: '21000' }],
+      });
+      await pending;
+    });
+
+    expect(mockFetchSwapTokenDetails).toHaveBeenCalledTimes(
+      balanceReadsBeforeBuild + 1,
+    );
+
+    expect(mockPrepareUnsignedTx).toHaveBeenCalledWith(
+      expect.objectContaining({
+        prefetchedOnChainNonce: expect.objectContaining({
+          nonce: 3,
+          accountId: 'hd-repro--0',
+          networkId: 'evm--1',
+        }),
+      }),
+    );
+    expect(
+      store.get(swapStepsAtom()).preSwapData.stepBeforeActionsError,
+    ).toBeUndefined();
   });
 });

@@ -36,6 +36,27 @@ export type ISwapLatestBalanceCheckResult =
       tokenSymbol: string;
     };
 
+export function checkSwapBalanceSufficientFromAmount({
+  balance,
+  amount,
+  tokenSymbol,
+}: {
+  balance: string;
+  amount: string;
+  tokenSymbol: string;
+}): ISwapLatestBalanceCheckResult {
+  const amountBN = new BigNumber(amount);
+  if (amountBN.gt(balance)) {
+    return {
+      isSufficient: false,
+      balance,
+      requiredAmount: amountBN.toFixed(),
+      tokenSymbol,
+    };
+  }
+  return { isSufficient: true, balance, tokenSymbol };
+}
+
 export function getSwapQuoteBalanceRequirements({
   fromToken,
   fromAmount,
@@ -453,14 +474,9 @@ export async function checkSwapLatestBalanceSufficient({
     return { isSufficient: true };
   }
 
-  if (amountBN.gt(balance)) {
-    return {
-      isSufficient: false,
-      balance,
-      requiredAmount: amountBN.toFixed(),
-      tokenSymbol: token.symbol,
-    };
-  }
-
-  return { isSufficient: true, balance, tokenSymbol: token.symbol };
+  return checkSwapBalanceSufficientFromAmount({
+    balance,
+    amount,
+    tokenSymbol: token.symbol,
+  });
 }
