@@ -1,4 +1,7 @@
-import { ONEKEY_ID_AUTH_CONFIG } from '../consts/authConsts';
+import {
+  ONEKEY_ID_AUTH_CONFIG,
+  SUPABASE_RELAY_PATH,
+} from '../consts/authConsts';
 import requestHelper from '../request/requestHelper';
 
 import {
@@ -32,16 +35,10 @@ describe('OneKey ID environment selection', () => {
           : 'https://login.onekey.so/captcha',
       );
       expect(new URL(config.projectUrl).hostname).toBe(
-        environment === 'test'
-          ? 'prime.onekeytest.com'
-          : 'bwgpgzbzdgkisozswlck.supabase.co',
+        environment === 'test' ? 'prime.onekeytest.com' : 'prime.onekeycn.com',
       );
-      if (environment === 'test') {
-        expect(new URL(config.projectUrl).pathname).toBe(
-          '/prime/v1/supabase-relay',
-        );
-        expect(config.publicKey).toBe('onekey-123-321-000-999-888');
-      }
+      expect(new URL(config.projectUrl).pathname).toBe(SUPABASE_RELAY_PATH);
+      expect(config.publicKey).toBe('onekey-123-321-000-999-888');
     },
   );
 

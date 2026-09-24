@@ -212,13 +212,12 @@ export const GOOGLE_OAUTH_CLIENT_IDS = {
   IOS: GOOGLE_OAUTH_CLIENT_IOS,
 };
 
-// Supabase (OneKeyAuth)
-// Project URL at https://supabase.com/dashboard/project/_/settings/api
-export const SUPABASE_PROJECT_URL = 'https://bwgpgzbzdgkisozswlck.supabase.co';
+// Supabase (OneKeyAuth) through the OneKey relay.
+export const SUPABASE_RELAY_PATH = '/prime/v1/supabase-relay';
+export const SUPABASE_PROJECT_URL = `${buildServiceEndpoint({ serviceName: EServiceEndpointEnum.Prime, env: 'prod' })}${SUPABASE_RELAY_PATH}`;
 
-// Publishable key at https://supabase.com/dashboard/project/_/settings/api-keys/new
-export const SUPABASE_PUBLIC_API_KEY =
-  'sb_publishable_bnNx0b2QZENMm1OLNAyHeQ_FLagwrqN';
+// Public relay placeholder required by the client SDK, not a server secret.
+export const SUPABASE_PUBLIC_API_KEY = 'onekey-123-321-000-999-888';
 
 export const ONEKEY_ID_AUTH_CONFIG = {
   prod: {
@@ -227,9 +226,8 @@ export const ONEKEY_ID_AUTH_CONFIG = {
     captcha: EMAIL_OTP_CAPTCHA_CONFIG,
   },
   test: {
-    projectUrl: `${buildServiceEndpoint({ serviceName: EServiceEndpointEnum.Prime, env: 'test' })}/prime/v1/supabase-relay`,
-    // Public relay placeholder required by the client SDK, not a server secret.
-    publicKey: 'onekey-123-321-000-999-888',
+    projectUrl: `${buildServiceEndpoint({ serviceName: EServiceEndpointEnum.Prime, env: 'test' })}${SUPABASE_RELAY_PATH}`,
+    publicKey: SUPABASE_PUBLIC_API_KEY,
     captcha: {
       enabled: true,
       pageUrl: 'https://login.onekeytest.com/captcha',

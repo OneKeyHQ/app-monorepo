@@ -72,7 +72,7 @@ const CAPTCHA_PAGE_OPTIONS = [
 
 function isProductionProject(projectUrl: string): boolean {
   try {
-    return new URL(projectUrl).origin === SUPABASE_PROJECT_URL;
+    return new URL(projectUrl).href.replace(/\/$/, '') === SUPABASE_PROJECT_URL;
   } catch {
     return false;
   }

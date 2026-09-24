@@ -84,7 +84,10 @@ describe('email Supabase environment isolation', () => {
         config.publicKey,
         expect.objectContaining({
           auth: expect.objectContaining({
-            storageKey: `sb-${new URL(config.projectUrl).hostname.split('.')[0]}-auth-token`,
+            storageKey:
+              environment === 'prod'
+                ? 'sb-bwgpgzbzdgkisozswlck-auth-token'
+                : 'sb-onekey-test-auth-token',
             flowType: 'pkce',
             persistSession: isSupabaseTokenRefreshRuntime(),
             autoRefreshToken: isSupabaseTokenRefreshRuntime(),

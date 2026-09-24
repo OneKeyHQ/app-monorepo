@@ -56,7 +56,10 @@ jest.mock('@onekeyhq/shared/src/background/backgroundDecorators', () => ({
       descriptor,
 }));
 jest.mock('@onekeyhq/shared/src/config/appConfig', () => ({
-  buildServiceEndpoint: jest.fn(),
+  buildServiceEndpoint: jest.fn(
+    ({ serviceName, env }: { serviceName: string; env: string }) =>
+      `https://${serviceName}.${env === 'test' ? 'onekeytest.com' : 'onekeycn.com'}`,
+  ),
 }));
 jest.mock('@onekeyhq/shared/src/request/requestHelper', () => ({
   __esModule: true,
