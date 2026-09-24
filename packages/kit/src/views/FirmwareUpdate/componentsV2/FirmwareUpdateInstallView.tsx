@@ -29,7 +29,6 @@ import {
 import { ShimmerTitle } from '@onekeyhq/components/src/composite/DeviceStage/ShimmerTitle';
 import { ANIMATE_ONLY_OPACITY_TRANSFORM } from '@onekeyhq/components/src/utils/animationConstants';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 
 import { useFirmwareVersionValid } from '../hooks/useFirmwareVersionValid';
@@ -143,56 +142,42 @@ function VersionText({
     item,
     isVersionValid,
   });
-  const wrapVersionText = platformEnv.isNativeAndroid;
-  let arrow: ReactNode = null;
-  if (from) {
-    arrow = emphasize ? (
-      <Icon name="ArrowRightOutline" size="$4.5" color="$iconSubdued" />
-    ) : (
-      <SizableText size="$bodyMd" color="$textSubdued">
-        →
-      </SizableText>
-    );
-  }
-  const targetVersion = (
-    <VersionLink
-      size={emphasize ? '$bodyLgMedium' : '$bodyMd'}
-      color={emphasize ? '$text' : '$textSubdued'}
-      releaseUrl={item.releaseUrl}
-      wrap={wrapVersionText}
-    >
-      {to}
-    </VersionLink>
-  );
+  // Detail rows reserve the version range's intrinsic width so the flexible
+  // label cannot compress short component versions to ellipsis.
   return (
     <XStack
       alignItems="center"
       gap="$2"
       maxWidth="100%"
-      flexWrap={wrapVersionText ? 'wrap' : undefined}
-      {...SHRINK_TO_FIT}
+      flexShrink={emphasize ? 1 : 0}
+      minWidth={0}
     >
       {from ? (
-        <SizableText
-          size={emphasize ? '$bodyLgMedium' : '$bodyMd'}
-          color="$textSubdued"
-          numberOfLines={wrapVersionText ? undefined : 1}
-          {...(wrapVersionText ? { maxWidth: '100%' } : SHRINK_TO_FIT)}
-        >
-          {from}
-        </SizableText>
-      ) : null}
-      {wrapVersionText && arrow ? (
-        <XStack alignItems="center" gap="$2" maxWidth="100%" minWidth={0}>
-          {arrow}
-          {targetVersion}
-        </XStack>
-      ) : (
         <>
-          {arrow}
-          {targetVersion}
+          <SizableText
+            size={emphasize ? '$bodyLgMedium' : '$bodyMd'}
+            color="$textSubdued"
+            numberOfLines={1}
+            {...SHRINK_TO_FIT}
+          >
+            {from}
+          </SizableText>
+          {emphasize ? (
+            <Icon name="ArrowRightOutline" size="$4.5" color="$iconSubdued" />
+          ) : (
+            <SizableText size="$bodyMd" color="$textSubdued">
+              →
+            </SizableText>
+          )}
         </>
-      )}
+      ) : null}
+      <VersionLink
+        size={emphasize ? '$bodyLgMedium' : '$bodyMd'}
+        color={emphasize ? '$text' : '$textSubdued'}
+        releaseUrl={item.releaseUrl}
+      >
+        {to}
+      </VersionLink>
     </XStack>
   );
 }
@@ -203,24 +188,19 @@ function VersionLink({
   size,
   color,
   children,
-  wrap = false,
 }: {
   releaseUrl: string | undefined;
   size: '$bodyLg' | '$bodyLgMedium' | '$bodyMd';
   color: '$text' | '$textSubdued';
   children: string;
-  wrap?: boolean;
 }) {
-  const textLayoutProps = wrap
-    ? ({ flexShrink: 1, maxWidth: '100%', minWidth: 0 } as const)
-    : SHRINK_TO_FIT;
   if (!releaseUrl) {
     return (
       <SizableText
         size={size}
         color={color}
-        numberOfLines={wrap ? undefined : 1}
-        {...textLayoutProps}
+        numberOfLines={1}
+        {...SHRINK_TO_FIT}
       >
         {children}
       </SizableText>
@@ -231,8 +211,8 @@ function VersionLink({
       size={size}
       color="$textSuccess"
       textDecorationLine="underline"
-      numberOfLines={wrap ? undefined : 1}
-      {...textLayoutProps}
+      numberOfLines={1}
+      {...SHRINK_TO_FIT}
       href={releaseUrl}
       target="_blank"
       // Inside the pill: follow the link, do not toggle the details card.
