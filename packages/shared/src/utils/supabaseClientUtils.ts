@@ -1,11 +1,10 @@
 // https://supabase.com/docs/guides/auth/quickstarts/with-expo-react-native-social-auth?queryGroups=auth-store&auth-store=async-storage
 import { createClient } from '@supabase/supabase-js';
 
+import { getOneKeyIdAuthConfig } from '@onekeyhq/shared/src/config/oneKeyIdAuth';
 import {
   KEYLESS_SUPABASE_PROJECT_URL,
   KEYLESS_SUPABASE_PUBLIC_API_KEY,
-  SUPABASE_PROJECT_URL,
-  SUPABASE_PUBLIC_API_KEY,
 } from '@onekeyhq/shared/src/consts/authConsts';
 import platformEnv, { ERuntimeRole } from '@onekeyhq/shared/src/platformEnv';
 import supabaseStorageInstance from '@onekeyhq/shared/src/storage/instance/supabaseStorageInstance';
@@ -21,7 +20,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 // do not add this on web env
 // import 'react-native-url-polyfill/auto'; // TODO move to shared polyfill
 
-let client: SupabaseClient | undefined;
+const emailClients = new Map<string, SupabaseClient>();
 let keylessClient: SupabaseClient | undefined;
 const storage = supabaseStorageInstance;
 
@@ -425,35 +424,35 @@ export function isSupabaseTokenRefreshRuntime(): boolean {
   return platformEnv.runtimeRole !== ERuntimeRole.Main;
 }
 
-export function getSupabaseClient() {
+export async function getSupabaseClient() {
+  const { projectUrl, publicKey } = await getOneKeyIdAuthConfig();
+  const sessionKey = getSupabaseAuthSessionKey(projectUrl);
+  let client = emailClients.get(projectUrl);
   if (!client) {
-    client = createClient(
-      SUPABASE_PROJECT_URL ?? '',
-      SUPABASE_PUBLIC_API_KEY ?? '',
-      {
-        global: {
-          // See sessionPreservingSupabaseFetch: transient HTTP failures must
-          // reach auth-js as fetch rejections, or its internal
-          // _removeSession() destroys the persisted session.
-          fetch: sessionPreservingSupabaseFetch,
-        },
-        auth: {
-          storage,
-          storageKey: getSupabaseAuthSessionKey(),
-          // Only the bg/standalone runtime refreshes tokens; see
-          // isSupabaseTokenRefreshRuntime for the rotation-race rationale.
-          autoRefreshToken: isSupabaseTokenRefreshRuntime(),
-          // Main/UI runtimes never persist or refresh sessions. They read the
-          // BG-owned storage projection directly; keeping auth-js read-only
-          // also removes its constructor-time expired-session write race.
-          persistSession: isSupabaseTokenRefreshRuntime(),
-          detectSessionInUrl: false,
-          flowType: 'pkce', // Use PKCE flow for better security - tokens are never exposed in URL
-        },
+    client = createClient(projectUrl, publicKey, {
+      global: {
+        // See sessionPreservingSupabaseFetch: transient HTTP failures must
+        // reach auth-js as fetch rejections, or its internal
+        // _removeSession() destroys the persisted session.
+        fetch: sessionPreservingSupabaseFetch,
       },
-    );
+      auth: {
+        storage,
+        storageKey: sessionKey,
+        // Only the bg/standalone runtime refreshes tokens; see
+        // isSupabaseTokenRefreshRuntime for the rotation-race rationale.
+        autoRefreshToken: isSupabaseTokenRefreshRuntime(),
+        // Main/UI runtimes never persist or refresh sessions. They read the
+        // BG-owned storage projection directly; keeping auth-js read-only
+        // also removes its constructor-time expired-session write race.
+        persistSession: isSupabaseTokenRefreshRuntime(),
+        detectSessionInUrl: false,
+        flowType: 'pkce', // Use PKCE flow for better security - tokens are never exposed in URL
+      },
+    });
+    emailClients.set(projectUrl, client);
   }
-  return { client, storage };
+  return { client, storage, sessionKey };
 }
 
 export function getKeylessSupabaseClient() {
