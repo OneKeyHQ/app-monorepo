@@ -293,8 +293,9 @@ export function createTrezorBlePairingIpcMain(
           // filtered by the SDK's match and are passed through unchanged.
           const all = result as ThirdPartyBleDeviceInfo[];
           const scanOptions: ElectronBleScanOptions | undefined = args[0];
-          // Ledger results were service-filtered in the SDK; retain their addresses
-          // so the same Windows pairing ceremony can run before GATT discovery.
+          // Ledger results were service-filtered in the SDK and are kept for connect
+          // diagnostics only. Ledger is not OS-paired here: like OneKey devices, it
+          // relies on the pairing prompt Windows raises on first encrypted access.
           const devices =
             scanOptions?.vendor === 'ledger' ? all : all.filter(isTrezorDevice);
 
