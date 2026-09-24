@@ -314,6 +314,8 @@ class ServicePrimeTransfer extends ServiceBase {
 
   private preparationAuthorized = false;
 
+  private transferExitGeneration = 0;
+
   // Keep the verified, sensitive-text-encoded password only in the owning
   // service task, never in progress atoms or an RPC result sent to the UI.
   private preparationPassword: string | undefined;
@@ -923,6 +925,7 @@ class ServicePrimeTransfer extends ServiceBase {
           }) => {
             if (data.roomId === (await primeTransferAtom.get()).pairedRoomId) {
               this.checkRoomIdValid(data.roomId);
+              this.advanceTransferExitGeneration();
               await primeTransferAtom.set(
                 (v): IPrimeTransferAtomData => ({
                   ...v,
@@ -1060,6 +1063,7 @@ class ServicePrimeTransfer extends ServiceBase {
     try {
       this.checkRoomIdValid(roomId);
       this.checkWebSocketConnected();
+      if (!isJoinAfterCreate) this.advanceTransferExitGeneration();
       // const settings = await settingsPersistAtom.get();
       const deviceInfo = await appDeviceInfo.getDeviceInfo();
       const joinFn = isJoinAfterCreate
@@ -1230,6 +1234,7 @@ class ServicePrimeTransfer extends ServiceBase {
     encryptedKey: string;
   }) {
     this.checkRoomIdValid(roomId);
+    this.advanceTransferExitGeneration();
     connectedPairingCode = pairingCode.toUpperCase();
     connectedEncryptedKey = encryptedKey;
     await primeTransferAtom.set(
@@ -1335,6 +1340,7 @@ class ServicePrimeTransfer extends ServiceBase {
       );
     }
 
+    this.advanceTransferExitGeneration();
     // TODO use client to client api
     const result = await this.e2eeServerApiProxy?.roomManager.startTransfer({
       roomId,
@@ -1495,6 +1501,7 @@ class ServicePrimeTransfer extends ServiceBase {
       },
     );
     this.preparationTask = task;
+    this.advanceTransferExitGeneration();
     return task.taskId;
   }
 
@@ -2393,6 +2400,7 @@ class ServicePrimeTransfer extends ServiceBase {
       lastProgressAt: 0,
     };
     this.networkTask = task;
+    this.advanceTransferExitGeneration();
     this.refreshReceiveTimeout(task);
     this.publishNetworkProgress(task, {
       ...manifest,
@@ -2791,11 +2799,63 @@ class ServicePrimeTransfer extends ServiceBase {
 
   @backgroundMethod()
   async clearSensitiveData() {
-    await this.cancelNetworkTransfer();
     connectedPairingCode = null;
     connectedEncryptedKey = null;
     e2eeClientToClientApi.setSelfPairingCode({ pairingCode: '' });
     e2eeClientToClientApi.clearSensitiveData();
+    await this.cancelNetworkTransfer();
+  }
+
+  private advanceTransferExitGeneration() {
+    this.transferExitGeneration += 1;
+    const generation = this.transferExitGeneration;
+    // The background owner changes synchronously, before UI publication or RPC.
+    void primeTransferAtom
+      .set((prev) =>
+        this.transferExitGeneration === generation
+          ? { ...prev, exitGeneration: generation }
+          : prev,
+      )
+      .catch((error: unknown) =>
+        console.error('Failed to publish transfer exit owner', error),
+      );
+  }
+
+  @backgroundMethod()
+  async isTransferExitCurrent(generation: number): Promise<boolean> {
+    return this.transferExitGeneration === generation;
+  }
+
+  @backgroundMethod()
+  async exitTransfer({ generation }: { generation: number }): Promise<boolean> {
+    const isCurrent = () => this.transferExitGeneration === generation;
+    if (!isCurrent()) return false;
+    const taskUUID = this.currentImportTaskUUID;
+    if (taskUUID) await this.resetImportProgress({ taskUUID });
+    if (!isCurrent()) return false;
+    try {
+      // Clear secrets and cancel the owning network task before yielding.
+      await this.clearSensitiveData();
+    } catch (error) {
+      console.error('exitTransfer clearSensitiveData error', error);
+    }
+    if (!isCurrent()) return false;
+    try {
+      await this.handleLeaveRoom({ expectedExitGeneration: generation });
+    } catch (error) {
+      console.error('exitTransfer handleLeaveRoom error', error);
+    }
+    if (!isCurrent()) return false;
+    try {
+      await timerUtils.wait(600);
+      if (!isCurrent()) return false;
+      await primeTransferAtom.set((prev) =>
+        isCurrent() ? { ...prev, refreshQrcodeHook: Date.now() } : prev,
+      );
+    } catch (error) {
+      console.error('exitTransfer refreshQrcodeHook error', error);
+    }
+    return isCurrent();
   }
 
   async handleDisconnect() {
@@ -2824,16 +2884,26 @@ class ServicePrimeTransfer extends ServiceBase {
   }
 
   @backgroundMethod()
-  async handleLeaveRoom() {
+  async handleLeaveRoom({
+    expectedExitGeneration,
+  }: { expectedExitGeneration?: number } = {}) {
+    const isCurrent = () =>
+      expectedExitGeneration === undefined ||
+      this.transferExitGeneration === expectedExitGeneration;
+    if (!isCurrent()) return;
     await this.cancelNetworkTransfer();
+    if (!isCurrent()) return;
     connectedPairingCode = null;
     connectedEncryptedKey = null;
     await primeTransferAtom.set(
-      (v): IPrimeTransferAtomData => ({
-        ...v,
-        status: EPrimeTransferStatus.init,
-        pairedRoomId: undefined,
-      }),
+      (v): IPrimeTransferAtomData =>
+        isCurrent()
+          ? {
+              ...v,
+              status: EPrimeTransferStatus.init,
+              pairedRoomId: undefined,
+            }
+          : v,
     );
   }
 
@@ -3199,6 +3269,7 @@ class ServicePrimeTransfer extends ServiceBase {
     }
     const taskUUID = stringUtils.generateUUID();
     this.currentImportTaskUUID = taskUUID;
+    this.advanceTransferExitGeneration();
     await primeTransferAtom.set((prev) =>
       this.currentImportTaskUUID === taskUUID
         ? {

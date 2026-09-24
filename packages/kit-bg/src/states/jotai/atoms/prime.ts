@@ -192,6 +192,7 @@ export type IPrimeTransferAtomData = {
   myCreatedRoomId: string | undefined;
   myUserId: string | undefined;
   refreshQrcodeHook?: number | undefined;
+  exitGeneration?: number;
   transferDirection:
     | {
         fromUserId: string | undefined;

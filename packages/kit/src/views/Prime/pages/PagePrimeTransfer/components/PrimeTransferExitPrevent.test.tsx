@@ -6,35 +6,37 @@ import type { IPrimeTransferAtomData } from '@onekeyhq/kit-bg/src/states/jotai/a
 
 import { PrimeTransferExitPrevent } from './PrimeTransferExitPrevent';
 
-type IExitOptions = { onConfirm: () => Promise<void> };
+type IExitOptions = {
+  onConfirm: () => Promise<boolean>;
+  isExitCurrent: () => Promise<boolean>;
+};
+let mockGeneration = 1;
 let mockProgress: IPrimeTransferAtomData['importProgress'];
 let mockModalExit: IExitOptions;
 let mockAppExit: IExitOptions;
-const mockReset = jest.fn(async (_options: { taskUUID: string }) => undefined);
-const mockClear = jest.fn(async () => undefined);
-const mockLeave = jest.fn(async () => undefined);
-const mockRefresh = jest.fn(async () => undefined);
+const mockExit = jest.fn(
+  async ({ generation }: { generation: number }) =>
+    generation === mockGeneration,
+);
+const mockIsCurrent = jest.fn(
+  async (generation: number) => generation === mockGeneration,
+);
 
 jest.mock('expo-keep-awake', () => ({ useKeepAwake: () => undefined }));
 jest.mock('react-intl', () => ({
   useIntl: () => ({ formatMessage: ({ id }: { id: string }) => id }),
 }));
 jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms/prime', () => ({
-  usePrimeTransferAtom: () => [{ importProgress: mockProgress }],
-}));
-jest.mock('@onekeyhq/shared/src/utils/timerUtils', () => ({
-  __esModule: true,
-  default: { wait: async () => undefined },
+  usePrimeTransferAtom: () => [
+    { importProgress: mockProgress, exitGeneration: mockGeneration },
+  ],
 }));
 jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
   __esModule: true,
   default: {
     servicePrimeTransfer: {
-      resetImportProgress: (options: { taskUUID: string }) =>
-        mockReset(options),
-      clearSensitiveData: () => mockClear(),
-      handleLeaveRoom: () => mockLeave(),
-      refreshQrcodeHook: () => mockRefresh(),
+      exitTransfer: (options: { generation: number }) => mockExit(options),
+      isTransferExitCurrent: (generation: number) => mockIsCurrent(generation),
     },
   },
 }));
@@ -49,6 +51,7 @@ jest.mock('./hooks/usePrimeTransferHooks', () => ({
 
 beforeEach(() => {
   jest.clearAllMocks();
+  mockGeneration = 1;
   mockProgress = {
     taskUUID: 'old-task',
     isImporting: true,
@@ -63,6 +66,7 @@ test.each(['modal', 'app'] as const)(
     const view = render(<PrimeTransferExitPrevent />);
     const oldExit =
       surface === 'modal' ? mockModalExit.onConfirm : mockAppExit.onConfirm;
+    mockGeneration = 2;
     mockProgress = {
       ...mockProgress,
       taskUUID: 'replacement',
@@ -73,13 +77,10 @@ test.each(['modal', 'app'] as const)(
     view.rerender(<PrimeTransferExitPrevent />);
     const newExit =
       surface === 'modal' ? mockModalExit.onConfirm : mockAppExit.onConfirm;
-    await act(async () => oldExit());
-    expect(mockReset).toHaveBeenLastCalledWith({ taskUUID: 'old-task' });
-    await act(async () => newExit());
-    expect(mockReset).toHaveBeenLastCalledWith({ taskUUID: 'replacement' });
-    expect(mockClear).toHaveBeenCalledTimes(2);
-    expect(mockLeave).toHaveBeenCalledTimes(2);
-    expect(mockRefresh).toHaveBeenCalledTimes(2);
+    await act(async () => expect(await oldExit()).toBe(false));
+    expect(mockExit).toHaveBeenLastCalledWith({ generation: 1 });
+    await act(async () => expect(await newExit()).toBe(true));
+    expect(mockExit).toHaveBeenLastCalledWith({ generation: 2 });
   },
 );
 
@@ -87,6 +88,7 @@ test('an exit opened without an active import cannot cancel a later import', asy
   mockProgress = undefined;
   const view = render(<PrimeTransferExitPrevent />);
   const oldExit = mockModalExit.onConfirm;
+  mockGeneration = 2;
   mockProgress = {
     taskUUID: 'replacement',
     isImporting: true,
@@ -94,6 +96,6 @@ test('an exit opened without an active import cannot cancel a later import', asy
     total: 2,
   };
   view.rerender(<PrimeTransferExitPrevent />);
-  await act(async () => oldExit());
-  expect(mockReset).not.toHaveBeenCalled();
+  await act(async () => expect(await oldExit()).toBe(false));
+  expect(mockExit).toHaveBeenCalledWith({ generation: 1 });
 });
