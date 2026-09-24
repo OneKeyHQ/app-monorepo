@@ -20543,7 +20543,7 @@
     "packages/kit/src/states/jotai/contexts/accountSelector/hardwareWalletActions.ts": 15193,
     "packages/kit/src/states/jotai/contexts/accountSelector/index.ts": 20968,
     "packages/kit/src/states/jotai/contexts/accountSelector/outcomes.ts": 18114,
-    "packages/kit/src/states/jotai/contexts/accountSelector/perfDebug.ts": 5033,
+    "packages/kit/src/states/jotai/contexts/accountSelector/perfDebug.ts": 7031,
     "packages/kit/src/states/jotai/contexts/accountSelector/selectedAccountCompare.ts": 6774,
     "packages/kit/src/states/jotai/contexts/accountSelector/staleDropLog.ts": 18579,
     "packages/kit/src/states/jotai/contexts/approvalList/actions.ts": 5853,
