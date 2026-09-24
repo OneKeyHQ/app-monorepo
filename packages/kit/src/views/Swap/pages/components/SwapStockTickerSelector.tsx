@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -33,6 +33,8 @@ import { getSwapStockTokenDisplayName } from '../modal/SwapTokenSelectModal.util
 import { useSwapStockSelection } from './SwapStockMarketProvider';
 import { useSwapStockTradeContext } from './SwapStockTradeProvider';
 
+import type { NativeScrollEvent, NativeSyntheticEvent } from 'react-native';
+
 function StockTickerList({ closePopover }: { closePopover: () => void }) {
   const intl = useIntl();
   const { md } = useMedia();
@@ -48,9 +50,37 @@ function StockTickerList({ closePopover }: { closePopover: () => void }) {
     canLoadMore,
     isLoadingMore,
     isLoadMoreError,
+    isRevalidatingFirstPage,
     loadMore,
     refresh,
   } = useMarketStockSelectorList({ query: debouncedQuery });
+
+  const handleScroll = useCallback(
+    (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+      if (
+        isLoadMoreError ||
+        isLoadingMore ||
+        (!canLoadMore && !isRevalidatingFirstPage)
+      ) {
+        return;
+      }
+      const { contentOffset, contentSize, layoutMeasurement } =
+        event.nativeEvent;
+      const distanceFromEnd =
+        contentSize.height - contentOffset.y - layoutMeasurement.height;
+      if (distanceFromEnd <= layoutMeasurement.height * 0.2) {
+        void loadMore();
+      }
+    },
+    [
+      canLoadMore,
+      isLoadMoreError,
+      isLoadingMore,
+      isRevalidatingFirstPage,
+      loadMore,
+    ],
+  );
+
   return (
     <YStack
       testID="swap-stock-ticker-list"
@@ -85,6 +115,8 @@ function StockTickerList({ closePopover }: { closePopover: () => void }) {
         flex={md ? 1 : undefined}
         maxHeight={md ? undefined : 604}
         keyboardShouldPersistTaps="handled"
+        onScroll={handleScroll}
+        scrollEventThrottle={16}
       >
         <YStack px="$3" pb="$4">
           {isLoading && !items.length ? (
@@ -187,19 +219,19 @@ function StockTickerList({ closePopover }: { closePopover: () => void }) {
               })}
             </SizableText>
           ) : null}
-          {canLoadMore || isLoadMoreError ? (
+          {isLoadingMore ? (
+            <Stack alignItems="center" py="$4">
+              <Spinner size="small" />
+            </Stack>
+          ) : null}
+          {isLoadMoreError ? (
             <Button
               testID="swap-stock-ticker-load-more"
               size="small"
               variant="tertiary"
-              loading={isLoadingMore}
               onPress={() => void loadMore()}
             >
-              {intl.formatMessage({
-                id: isLoadMoreError
-                  ? ETranslations.global_retry
-                  : ETranslations.global_view_more,
-              })}
+              {intl.formatMessage({ id: ETranslations.global_retry })}
             </Button>
           ) : null}
         </YStack>
