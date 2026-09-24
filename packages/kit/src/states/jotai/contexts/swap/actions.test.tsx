@@ -5446,7 +5446,7 @@ describe('useSwapActions', () => {
     });
   });
 
-  it('warms Swap and Stock owners through one network queue', async () => {
+  it('removes non-stock tokens from the Stock owner on forced refresh', async () => {
     const swapOwnerKey = 'indexed-account__evm--1,evm--56__usd';
     const stockOwnerKey = 'indexed-account__evm--56__usd__stock';
     const stockPositionToken = { ...stockTokenA, fiatValue: '10' };
@@ -5526,6 +5526,39 @@ describe('useSwapActions', () => {
       status: 'success',
       tokens: [{ ...stockPositionToken, isStock: true, stock }],
     });
+
+    act(() => {
+      result.current.updateSwapProPositionTokenBalances({
+        positionOwnerKey: stockOwnerKey,
+        tokens: [stablePositionToken],
+      });
+    });
+    expect(
+      store.get(swapProPositionsRuntimeDataAtom())[stockOwnerKey]?.tokens,
+    ).toHaveLength(2);
+
+    await act(async () => {
+      await result.current.swapProLoadSupportNetworksTokenList(
+        [{ networkId: 'evm--56', name: 'BNB Smart Chain', symbol: 'BNB' }],
+        'indexed-account',
+        undefined,
+        'usd',
+        {
+          forceRefresh: true,
+          positionLoader: loadSwapProPositions,
+          stockOnly: true,
+        },
+      );
+    });
+
+    expect(
+      store.get(swapProPositionsRuntimeDataAtom())[stockOwnerKey]?.tokens,
+    ).toEqual([{ ...stockPositionToken, isStock: true, stock }]);
+    expect(
+      store
+        .get(swapProPositionsCacheAtom())
+        .byOwner[stockOwnerKey]?.tokens.map((token) => token.symbol),
+    ).toEqual([stockPositionToken.symbol]);
   });
 
   it('keeps successful network positions when another network fails', async () => {
