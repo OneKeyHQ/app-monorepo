@@ -8,9 +8,7 @@ export async function openExternalUrl(url: string): Promise<void> {
     const parsed = new URL(url);
     // The DApp browser hands OneKey's own Mac App Store listing to the OS
     // (OK-64036); that exact link is the only non-https exception.
-    const isOneKeyMacAppStoreLink =
-      process.platform === 'darwin' &&
-      parsed.href === MAC_APP_STORE_DOWNLOAD_LINK;
+    const isOneKeyMacAppStoreLink = parsed.href === MAC_APP_STORE_DOWNLOAD_LINK;
     // Preserve the main-renderer protocol whitelist (SlowMist Desktop-14).
     if (
       parsed.protocol !== 'https:' &&

@@ -62,17 +62,14 @@ describe('desktop external URLs', () => {
     expect(mockOpenExternal).toHaveBeenCalledWith(url);
   });
 
-  it("opens OneKey's own Mac App Store listing on macOS", async () => {
-    await openExternalUrl(MAC_APP_STORE_DOWNLOAD_LINK);
-    expect(mockOpenExternal).toHaveBeenCalledWith(MAC_APP_STORE_DOWNLOAD_LINK);
-  });
-
-  it.each(['win32', 'linux'] as const)(
-    'blocks the Mac App Store listing on %s',
+  it.each(['darwin', 'win32', 'linux'] as const)(
+    "opens OneKey's own Mac App Store listing on %s",
     async (platform) => {
       Object.defineProperty(process, 'platform', { value: platform });
       await openExternalUrl(MAC_APP_STORE_DOWNLOAD_LINK);
-      expect(mockOpenExternal).not.toHaveBeenCalled();
+      expect(mockOpenExternal).toHaveBeenCalledWith(
+        MAC_APP_STORE_DOWNLOAD_LINK,
+      );
     },
   );
 
