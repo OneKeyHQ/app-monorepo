@@ -372,6 +372,38 @@ describe('convertThirdPartyDeviceError', () => {
     expect(error.key).toBe('hardware_third_party_path_not_supported__msg');
   });
 
+  it('maps a rejected THP pairing to a reconnect prompt instead of an unknown error', () => {
+    const error = convertThirdPartyDeviceError(
+      {
+        code: ThirdPartyHwErrorCode.ThpPairingRequired,
+        error: 'pairing required',
+      },
+      { vendor: EHardwareVendor.trezor },
+    );
+
+    expect(error.code).toBe(ThirdPartyHwErrorCode.ThpPairingRequired);
+    expect(error.key).toBe(
+      ETranslations.hardware_third_party_thp_pairing_required__msg,
+    );
+    expect(error.autoToast).toBe(true);
+  });
+
+  it('explains a Keystone path refusal as the account #1 Bitcoin limit', () => {
+    const payload = {
+      code: THIRD_PARTY_HW_DEVICE_PATH_FORBIDDEN_CODE,
+      error: 'forbidden',
+    };
+    expect(
+      convertThirdPartyDeviceError(payload, { vendor: 'Keystone' }).key,
+    ).toBe(
+      ETranslations.hardware_third_party_keystone_btc_account_one_only__msg,
+    );
+    expect(
+      convertThirdPartyDeviceError(payload, { vendor: EHardwareVendor.ledger })
+        .key,
+    ).toBe(ETranslations.hardware_third_party_path_not_supported__msg);
+  });
+
   it('keeps Bluetooth wording out of Keystone connection errors', () => {
     const cases: Array<[number, ETranslations, ETranslations]> = [
       [

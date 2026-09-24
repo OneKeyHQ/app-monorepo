@@ -247,6 +247,9 @@ export function convertThirdPartyDeviceError(
     case ThirdPartyHwErrorCode.ThpPairingFailed:
       return new ThirdPartyErrors.ThirdPartyThpPairingFailed(props);
 
+    case ThirdPartyHwErrorCode.ThpPairingRequired:
+      return new ThirdPartyErrors.ThirdPartyThpPairingRequired(props);
+
     case ThirdPartyErrors.THIRD_PARTY_HW_DEVICE_PATH_FORBIDDEN_CODE:
       return new ThirdPartyErrors.ThirdPartyPathForbidden(props);
 

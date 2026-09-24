@@ -613,7 +613,8 @@ export class TrezorAdapter
     },
     credentials: ITrezorThpCredential[] | undefined,
   ): void {
-    if (!credentials?.length) return;
+    // An empty list is meaningful: the device rejected what we stored.
+    if (!credentials) return;
     for (const key of this._getThpCredentialKeys(lookup)) {
       this._thpCredentialsByDevice.set(key, credentials);
     }
@@ -768,7 +769,7 @@ export class TrezorAdapter
     });
     const credentials = lookupKeys
       .map((key) => this._thpCredentialsByDevice.get(key))
-      .find((item) => item?.length);
+      .find((item) => item !== undefined);
     this._traceThp('persist.start', {
       connectId,
       deviceId,
@@ -777,7 +778,7 @@ export class TrezorAdapter
       hasCredentials: Boolean(credentials?.length),
       bufferedKeys: Array.from(this._thpCredentialsByDevice.keys()),
     });
-    if (!credentials?.length) {
+    if (!credentials) {
       return;
     }
     try {

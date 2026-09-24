@@ -518,6 +518,22 @@ export class ThirdPartyThpPairingFailed extends ThirdPartyHardwareError {
   override code = ThirdPartyHwErrorCode.ThpPairingFailed;
 }
 
+/** The device rejected the stored THP pairing; the next connection pairs again. */
+export class ThirdPartyThpPairingRequired extends ThirdPartyHardwareError {
+  constructor(props?: IOneKeyErrorHardwareProps & { vendor?: string }) {
+    super(
+      normalizeErrorProps(props, {
+        defaultKey:
+          ETranslations.hardware_third_party_thp_pairing_required__msg,
+        defaultAutoToast: true,
+      }),
+    );
+    this.vendor = props?.vendor;
+  }
+
+  override code = ThirdPartyHwErrorCode.ThpPairingRequired;
+}
+
 /** Chain has no keyring impl for this vendor (e.g. Ledger doesn't support Aptos). */
 export class ThirdPartyChainNotSupported extends ThirdPartyHardwareError {
   constructor(
@@ -562,10 +578,13 @@ export class ThirdPartyMethodNotSupported extends ThirdPartyHardwareError {
 
 /** Device rejected the derivation path (index outside its supported range) */
 export class ThirdPartyPathForbidden extends ThirdPartyHardwareError {
-  constructor(props?: IOneKeyErrorHardwareProps) {
+  constructor(props?: IOneKeyErrorHardwareProps & { vendor?: string }) {
     super(
       normalizeErrorProps(props, {
-        defaultKey: ETranslations.hardware_third_party_path_not_supported__msg,
+        // Keystone refuses a path only for Bitcoin beyond account #1.
+        defaultKey: isKeystoneVendor(props?.vendor)
+          ? ETranslations.hardware_third_party_keystone_btc_account_one_only__msg
+          : ETranslations.hardware_third_party_path_not_supported__msg,
         defaultAutoToast: true,
       }),
     );
