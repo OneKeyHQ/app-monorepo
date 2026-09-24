@@ -21876,6 +21876,7 @@
     "packages/kit/src/views/Market/MarketDetailV2/hooks/useMarketHolders.ts": 921,
     "packages/kit/src/views/Market/MarketDetailV2/hooks/useMarketHolders.utils.ts": 8392,
     "packages/kit/src/views/Market/MarketDetailV2/hooks/useMarketKlineLivePrice.ts": 9927,
+    "packages/kit/src/views/Market/MarketDetailV2/hooks/useMarketNativeChartLayout.ts": 395,
     "packages/kit/src/views/Market/MarketDetailV2/hooks/useMarketNativeChartPriceUpdate.ts": 13898,
     "packages/kit/src/views/Market/MarketDetailV2/hooks/useStockPortfolioData.ts": 2206,
     "packages/kit/src/views/Market/MarketDetailV2/hooks/useStockPriceSource.ts": 5374,
