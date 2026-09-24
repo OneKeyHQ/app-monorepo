@@ -161,6 +161,13 @@ import type { IAllNetworkAccountInfo } from './ServiceAllNetwork/ServiceAllNetwo
 
 const SWAP_REFERRAL_LOOKUP_TIMEOUT_MS = 3000;
 
+type ISwapBuildTxContext = {
+  accountId?: string;
+  protocol: EProtocolOfExchange;
+  referralBuildTxParams: ReturnType<typeof buildSwapReferralBuildTxParams>;
+  walletTypeHeader: { 'X-OneKey-Wallet-Type': string };
+};
+
 const formatter: INumberFormatProps = {
   formatter: 'balance',
 };
@@ -606,6 +613,23 @@ export default class ServiceSwap extends ServiceBase {
       })
       .catch(() => undefined);
     return buildSwapReferralBuildTxParams(referralInfo);
+  }
+
+  @backgroundMethod()
+  async prepareSwapBuildTxContext({
+    accountId,
+    protocol,
+  }: {
+    accountId?: string;
+    protocol: EProtocolOfExchange;
+  }): Promise<ISwapBuildTxContext> {
+    const [referralBuildTxParams, walletTypeHeader] = await Promise.all([
+      this.getSwapReferralBuildTxParams({ accountId, protocol }),
+      this.backgroundApi.serviceAccountProfile._getWalletTypeHeader({
+        accountId,
+      }) as Promise<ISwapBuildTxContext['walletTypeHeader']>,
+    ]);
+    return { accountId, protocol, referralBuildTxParams, walletTypeHeader };
   }
 
   private _limitOrderCurrentAccountId?: string;
@@ -1477,6 +1501,7 @@ export default class ServiceSwap extends ServiceBase {
     kind,
     walletType,
     tradeSource,
+    preparedContext,
   }: {
     fromToken: ISwapToken;
     toToken: ISwapToken;
@@ -1492,11 +1517,18 @@ export default class ServiceSwap extends ServiceBase {
     kind: ESwapQuoteKind;
     walletType?: string;
     tradeSource: ESwapTradeSource;
+    preparedContext?: ISwapBuildTxContext;
   }): Promise<IFetchBuildTxResponse | undefined> {
-    const referralBuildTxParams = await this.getSwapReferralBuildTxParams({
-      accountId,
-      protocol,
-    });
+    const contextPromise =
+      preparedContext &&
+      preparedContext.accountId === accountId &&
+      preparedContext.protocol === protocol
+        ? Promise.resolve(preparedContext)
+        : this.prepareSwapBuildTxContext({ accountId, protocol });
+    const [context, client] = await Promise.all([
+      contextPromise,
+      this.getClient(EServiceEndpointEnum.Swap),
+    ]);
     const params: IFetchBuildTxParams = {
       fromTokenAddress: fromToken.contractAddress,
       toTokenAddress: toToken.contractAddress,
@@ -1513,17 +1545,13 @@ export default class ServiceSwap extends ServiceBase {
       kind,
       walletType,
       tradeSource,
-      ...referralBuildTxParams,
+      ...context.referralBuildTxParams,
     };
-    const client = await this.getClient(EServiceEndpointEnum.Swap);
     const { data } = await client.post<IFetchResponse<IFetchBuildTxResponse>>(
       '/swap/v1/build-tx',
       params,
       {
-        headers:
-          await this.backgroundApi.serviceAccountProfile._getWalletTypeHeader({
-            accountId,
-          }),
+        headers: context.walletTypeHeader,
       },
     );
     return data?.data;

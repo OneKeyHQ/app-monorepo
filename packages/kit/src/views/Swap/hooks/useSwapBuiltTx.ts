@@ -55,7 +55,6 @@ import {
   numberFormat,
   toBigIntHex,
 } from '@onekeyhq/shared/src/utils/numberUtils';
-import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 import type {
   IEstimateFeeParams,
@@ -145,6 +144,7 @@ import {
   buildNativeTokenFromGasInfo,
   checkSwapLatestBalanceSufficient,
   getSwapEncodedTxSize,
+  getSwapQuoteBalanceRequirements,
   getSwapRequiredNativeBalanceAmount,
   validateSwapBtcOutputs,
 } from '../utils/swapBalanceUtils';
@@ -211,6 +211,13 @@ type IBuildSwapActionOptions = {
 
 type IEstimateNetworkFeeOptions = {
   updateReviewState?: boolean;
+  vaultSettingsResult?: Promise<
+    PromiseSettledResult<
+      Awaited<
+        ReturnType<typeof backgroundApiProxy.serviceNetwork.getVaultSettings>
+      >
+    >
+  >;
 };
 
 type IUseSwapBuildTxOptions = {
@@ -271,11 +278,8 @@ export function useSwapBuildTx({
   const onSwapBroadcastRef = useRef(onSwapBroadcast);
   onSwapBroadcastRef.current = onSwapBroadcast;
   const intl = useIntl();
-  const {
-    currentQuoteRes: selectQuote,
-    fromSelectToken: fromToken,
-    toSelectToken: toToken,
-  } = useSwapBuildTxInfo();
+  const { fromSelectToken: fromToken, toSelectToken: toToken } =
+    useSwapBuildTxInfo();
   const { slippageItem } = useSwapSlippagePercentageModeInfo();
   const [, setSwapBuildTxFetching] = useSwapBuildTxFetchingAtom();
   const [, setInAppNotificationAtom] = useInAppNotificationAtom();
@@ -675,52 +679,44 @@ export function useSwapBuildTx({
     [getSwapBalanceInsufficientToast, intl],
   );
 
-  const checkOtherFee = useCallback(
+  const checkQuoteBalances = useCallback(
     async (quoteResult: IFetchQuoteResult) => {
-      const otherFeeInfo = quoteResult?.fee?.otherFeeInfos;
-      let checkRes = true;
-      if (otherFeeInfo?.length) {
-        await Promise.all(
-          otherFeeInfo.map(async (item) => {
-            const shouldAddFromAmount = equalTokenNoCaseSensitive({
-              token1: item.token,
-              token2: fromToken,
-            });
-            const tokenAmountBN = new BigNumber(item.amount ?? 0);
-            const fromTokenAmountBN = new BigNumber(
-              selectQuote?.fromAmount ?? 0,
-            );
-            const finalTokenAmount = shouldAddFromAmount
-              ? tokenAmountBN.plus(fromTokenAmountBN).toFixed()
-              : tokenAmountBN.toFixed();
-            const checkResult = await checkSwapLatestBalanceSufficient({
-              token: item.token,
-              amount: finalTokenAmount,
-              accountAddress: fromUserAddress,
-              accountId: fromAccountId,
-            });
-            if (!checkResult.isSufficient) {
-              Toast.error({
-                ...getSwapBalanceInsufficientToast({
-                  networkId: item.token.networkId,
-                  tokenSymbol: checkResult.tokenSymbol,
-                  reserveAmount: tokenAmountBN.toFixed(),
-                }),
-              });
-              checkRes = false;
-            }
+      const requirements = getSwapQuoteBalanceRequirements({
+        fromToken: quoteResult.fromTokenInfo,
+        fromAmount: quoteResult.fromAmount,
+        otherFeeInfos: quoteResult.fee?.otherFeeInfos,
+      });
+      const results = await Promise.all(
+        requirements.map((item) =>
+          checkSwapLatestBalanceSufficient({
+            token: item.token,
+            amount: item.amount,
+            accountAddress: fromUserAddress,
+            accountId: fromAccountId,
           }),
-        );
+        ),
+      );
+      const insufficientIndex = results.findIndex((item) => !item.isSufficient);
+      if (insufficientIndex !== -1) {
+        const requirement = requirements[insufficientIndex];
+        const result = results[insufficientIndex];
+        const sourceAmountIsInsufficient =
+          insufficientIndex === 0 &&
+          new BigNumber(result.balance ?? '').lt(quoteResult.fromAmount ?? '');
+        Toast.error({
+          ...getSwapBalanceInsufficientToast({
+            networkId: requirement.token.networkId,
+            tokenSymbol: result.tokenSymbol ?? requirement.token.symbol,
+            reserveAmount: sourceAmountIsInsufficient
+              ? undefined
+              : requirement.reserveAmount,
+          }),
+        });
+        return false;
       }
-      return checkRes;
+      return true;
     },
-    [
-      fromToken,
-      selectQuote?.fromAmount,
-      fromUserAddress,
-      fromAccountId,
-      getSwapBalanceInsufficientToast,
-    ],
+    [fromUserAddress, fromAccountId, getSwapBalanceInsufficientToast],
   );
 
   const showLatestBalanceInsufficientToast = useCallback(
@@ -2332,16 +2328,24 @@ export function useSwapBuildTx({
         fromAccountNetworkId &&
         fromAccountId
       ) {
-        const checkLatestBalanceRes = await checkLatestFromTokenBalance(
-          data.fromTokenInfo,
-          data.fromAmount,
-        );
-        if (!checkLatestBalanceRes) {
-          throw new OneKeyAppError('checkLatestFromTokenBalance failed');
-        }
-        const checkRes = await checkOtherFee(data);
+        const existingBuildResult =
+          swapStepsRef.current.preSwapData.swapBuildResultData;
+        const needsBuildContext =
+          forceRebuild ||
+          !existingBuildResult ||
+          existingBuildResult.slippagePercentage !==
+            effectiveSlippagePercentage;
+        const buildContextResult = needsBuildContext
+          ? Promise.allSettled([
+              backgroundApiProxy.serviceSwap.prepareSwapBuildTxContext({
+                accountId: fromAccountId,
+                protocol: data.protocol ?? EProtocolOfExchange.SWAP,
+              }),
+            ]).then(([result]) => result)
+          : undefined;
+        const checkRes = await checkQuoteBalances(data);
         if (!checkRes) {
-          throw new OneKeyAppError('checkOtherFee failed');
+          throw new OneKeyAppError('checkQuoteBalances failed');
         }
         const cachedBuildResult =
           swapStepsRef.current.preSwapData.swapBuildResultData;
@@ -2369,6 +2373,10 @@ export function useSwapBuildTx({
               : data.fromTokenInfo;
           const requestToToken =
             forceRebuild && currentToToken ? currentToToken : data.toTokenInfo;
+          const settledBuildContext = await buildContextResult;
+          if (settledBuildContext?.status === 'rejected') {
+            throw settledBuildContext.reason;
+          }
           buildSwapRes = await backgroundApiProxy.serviceSwap.fetchBuildTx({
             fromToken: requestFromToken,
             toToken: requestToToken,
@@ -2389,6 +2397,7 @@ export function useSwapBuildTx({
               protocol: data.protocol,
               isSwapPro: focusSwapPro,
             }),
+            preparedContext: settledBuildContext?.value,
           });
         } catch (e: any) {
           if (!skipLoading && updateReviewState) {
@@ -2708,8 +2717,7 @@ export function useSwapBuildTx({
       fromAccountNetworkId,
       fromAccountId,
       setSwapSteps,
-      checkLatestFromTokenBalance,
-      checkOtherFee,
+      checkQuoteBalances,
       swapFromAddressInfo.accountInfo?.wallet?.type,
       swapFromAddressInfo.accountInfo?.device?.deviceType,
       swapFromAddressInfo.accountInfo?.deriveInfo?.addressEncoding,
@@ -3319,7 +3327,7 @@ export function useSwapBuildTx({
       approveUnsignedTxArr?: IUnsignedTxPro[],
       options?: IEstimateNetworkFeeOptions,
     ): Promise<IEstimateNetworkFeeResult> => {
-      const { updateReviewState = true } = options ?? {};
+      const { updateReviewState = true, vaultSettingsResult } = options ?? {};
       if (!fromToken || !fromAccountId || !fromUserAddress) {
         throw new OneKeyError('account error');
       }
@@ -3352,10 +3360,19 @@ export function useSwapBuildTx({
         }));
       }
       try {
-        const vaultSettings =
-          await backgroundApiProxy.serviceNetwork.getVaultSettings({
-            networkId,
-          });
+        const settledVaultSettings = vaultSettingsResult
+          ? await vaultSettingsResult
+          : (
+              await Promise.allSettled([
+                backgroundApiProxy.serviceNetwork.getVaultSettings({
+                  networkId,
+                }),
+              ])
+            )[0];
+        if (settledVaultSettings.status === 'rejected') {
+          throw settledVaultSettings.reason;
+        }
+        const vaultSettings = settledVaultSettings.value;
         if (
           approveUnsignedTxArr?.length &&
           approveUnsignedTxArr.length > 0 &&
@@ -3714,6 +3731,11 @@ export function useSwapBuildTx({
       }));
 
       try {
+        const vaultSettingsResult = Promise.allSettled([
+          backgroundApiProxy.serviceNetwork.getVaultSettings({
+            networkId: fromAccountNetworkId ?? '',
+          }),
+        ]).then(([result]) => result);
         const rebuiltSwapBuildResultData = await buildSwapAction(
           frozenReviewState.preSwapData.fromToken,
           frozenReviewState.preSwapData.toToken,
@@ -3749,7 +3771,7 @@ export function useSwapBuildTx({
             swapInfo,
           },
           unsignedTxArr,
-          { updateReviewState: false },
+          { updateReviewState: false, vaultSettingsResult },
         );
 
         if (
@@ -3876,12 +3898,16 @@ export function useSwapBuildTx({
           },
         }));
         try {
-          const { swapInfo, transferInfo, encodedTx } = await buildSwapAction(
-            currentFromToken,
-            currentToToken,
-            data,
-          );
-          const { unsignedTxArr } = await getApproveUnSignedTxArr(data);
+          const vaultSettingsResult = Promise.allSettled([
+            backgroundApiProxy.serviceNetwork.getVaultSettings({
+              networkId: fromAccountNetworkId,
+            }),
+          ]).then(([result]) => result);
+          const [{ swapInfo, transferInfo, encodedTx }, { unsignedTxArr }] =
+            await Promise.all([
+              buildSwapAction(currentFromToken, currentToToken, data),
+              getApproveUnSignedTxArr(data),
+            ]);
           const estimateNetworkFeeResult = await estimateNetworkFee(
             fromAccountNetworkId ?? '',
             fromAccountId ?? '',
@@ -3893,6 +3919,7 @@ export function useSwapBuildTx({
               swapInfo,
             },
             unsignedTxArr,
+            { vaultSettingsResult },
           );
           if (estimateNetworkFeeResult.fallbackToSeparateTxConfirm) {
             const separateSteps = buildSeparateApproveAndSwapSteps(data);

@@ -4,6 +4,7 @@ import type { IEncodedTx } from '@onekeyhq/core/src/types';
 import type { ITransferInfo } from '@onekeyhq/kit-bg/src/vaults/types';
 import { calculateFeeForSend } from '@onekeyhq/shared/src/utils/feeUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
+import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type { IFeeInfoUnit } from '@onekeyhq/shared/types/fee';
 import type {
   IQuoteResultFeeOtherFeeInfo,
@@ -34,6 +35,50 @@ export type ISwapLatestBalanceCheckResult =
       requiredAmount: string;
       tokenSymbol: string;
     };
+
+export function getSwapQuoteBalanceRequirements({
+  fromToken,
+  fromAmount,
+  otherFeeInfos,
+}: {
+  fromToken: ISwapToken;
+  fromAmount?: string;
+  otherFeeInfos?: IQuoteResultFeeOtherFeeInfo[];
+}) {
+  const requirements: {
+    token: ISwapToken;
+    amount: string;
+    reserveAmount?: string;
+  }[] = [{ token: fromToken, amount: fromAmount ?? '' }];
+
+  for (const feeInfo of otherFeeInfos ?? []) {
+    const feeAmount = toFiniteNonNegativeBigNumber(feeInfo.amount);
+    if (feeAmount) {
+      const existing = requirements.find((item) =>
+        equalTokenNoCaseSensitive({
+          token1: item.token,
+          token2: feeInfo.token,
+        }),
+      );
+      if (existing) {
+        existing.amount = new BigNumber(existing.amount)
+          .plus(feeAmount)
+          .toFixed();
+        existing.reserveAmount = new BigNumber(existing.reserveAmount ?? 0)
+          .plus(feeAmount)
+          .toFixed();
+      } else {
+        requirements.push({
+          token: feeInfo.token,
+          amount: feeAmount.toFixed(),
+          reserveAmount: feeAmount.toFixed(),
+        });
+      }
+    }
+  }
+
+  return requirements;
+}
 
 function toFiniteNonNegativeBigNumber(value?: string) {
   const valueBN = new BigNumber(value ?? '');

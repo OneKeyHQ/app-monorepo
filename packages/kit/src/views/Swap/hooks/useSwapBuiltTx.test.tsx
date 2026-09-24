@@ -28,11 +28,30 @@ import {
 import { useSwapBuildTx } from './useSwapBuiltTx';
 
 const mockFetchBuildTx = jest.fn<Promise<IFetchBuildTxResponse>, unknown[]>();
+const mockPrepareSwapBuildTxContext = jest.fn(
+  async ({
+    accountId,
+    protocol,
+  }: {
+    accountId: string;
+    protocol: EProtocolOfExchange;
+  }) => ({
+    accountId,
+    protocol,
+    referralBuildTxParams: {},
+    walletTypeHeader: { 'X-OneKey-Wallet-Type': 'hd' },
+  }),
+);
 const mockPrepareUnsignedTx = jest.fn<
   Promise<unknown>,
-  [{ transfersInfo?: Array<{ to: string }> }]
+  [{ transfersInfo?: Array<{ to: string }>; approveInfo?: unknown }]
 >();
 const mockEstimateFee = jest.fn<Promise<unknown>, unknown[]>();
+const mockBatchEstimateFee = jest.fn<Promise<unknown>, unknown[]>();
+const mockGetVaultSettings = jest.fn<
+  Promise<{ supportBatchEstimateFee?: Record<string, boolean> }>,
+  []
+>(async () => ({}));
 const mockNavigateTxConfirm = jest.fn();
 const mockNavigateMessageConfirm = jest.fn();
 
@@ -134,6 +153,10 @@ jest.mock('../../../background/instance/backgroundApiProxy', () => ({
     serviceToken: { getNativeTokenAddress: async () => '' },
     serviceSwap: {
       fetchSwapTokenDetails: async () => [{ balanceParsed: '100' }],
+      prepareSwapBuildTxContext: (params: {
+        accountId: string;
+        protocol: EProtocolOfExchange;
+      }) => mockPrepareSwapBuildTxContext(params),
       fetchBuildTx: (...args: unknown[]) => mockFetchBuildTx(...args),
       swapRecentTokenPairsUpdate: async () => undefined,
     },
@@ -142,7 +165,7 @@ jest.mock('../../../background/instance/backgroundApiProxy', () => ({
         params: Parameters<typeof mockPrepareUnsignedTx>[0],
       ) => mockPrepareUnsignedTx(params),
     },
-    serviceNetwork: { getVaultSettings: async () => ({}) },
+    serviceNetwork: { getVaultSettings: () => mockGetVaultSettings() },
     serviceGas: {
       buildEstimateFeeParams: async ({
         encodedTx,
@@ -150,6 +173,7 @@ jest.mock('../../../background/instance/backgroundApiProxy', () => ({
         encodedTx: unknown;
       }) => ({ encodedTx }),
       estimateFee: (...args: unknown[]) => mockEstimateFee(...args),
+      batchEstimateFee: (...args: unknown[]) => mockBatchEstimateFee(...args),
     },
   },
 }));
@@ -254,5 +278,117 @@ describe('useSwapBuildTx review rebuild', () => {
     expect(mockNavigateMessageConfirm).not.toHaveBeenCalled();
     // 0.1 ETH at $1000 is $100 input; receiving $90 is a 10% decrease.
     expect(rebuilt.rateDifference?.value).toBe('-10.00%');
+  });
+
+  it('prepares approval while build-tx is still pending', async () => {
+    platformEnv.isNative = false;
+    globalJotaiStorageReadyHandler.resolveReady(true);
+    mockFetchBuildTx.mockReset();
+    mockPrepareSwapBuildTxContext.mockClear();
+    mockPrepareUnsignedTx.mockReset();
+    mockEstimateFee.mockReset();
+    mockBatchEstimateFee.mockReset();
+    mockGetVaultSettings.mockClear();
+    mockGetVaultSettings.mockResolvedValue({
+      supportBatchEstimateFee: { 'evm--1': true },
+    });
+
+    let resolveBuild!: (value: IFetchBuildTxResponse) => void;
+    let resolveBuildStarted!: () => void;
+    const buildStarted = new Promise<void>((resolve) => {
+      resolveBuildStarted = resolve;
+    });
+    mockFetchBuildTx.mockImplementation(() => {
+      resolveBuildStarted();
+      return new Promise((resolve) => {
+        resolveBuild = resolve;
+      });
+    });
+    let resolveApprovalStarted!: () => void;
+    const approvalStarted = new Promise<void>((resolve) => {
+      resolveApprovalStarted = resolve;
+    });
+    let resolveApproval!: (value: unknown) => void;
+    mockPrepareUnsignedTx.mockImplementation((params) => {
+      if (params.approveInfo) {
+        return new Promise((resolve) => {
+          resolveApproval = resolve;
+          resolveApprovalStarted();
+        });
+      }
+      return Promise.resolve({
+        ...params,
+        encodedTx: { to: '0x4', value: '0' },
+      });
+    });
+    mockEstimateFee.mockResolvedValue({
+      common: {
+        feeDecimals: 9,
+        feeSymbol: 'Gwei',
+        nativeDecimals: 18,
+        nativeSymbol: 'ETH',
+        nativeTokenPrice: 1000,
+      },
+      gas: [{ gasPrice: '1', gasLimit: '21000' }],
+    });
+    mockBatchEstimateFee.mockResolvedValue({
+      common: {
+        feeDecimals: 9,
+        feeSymbol: 'Gwei',
+        nativeDecimals: 18,
+        nativeSymbol: 'ETH',
+        nativeTokenPrice: 1000,
+      },
+      txFees: [
+        { gas: [{ gasPrice: '1', gasLimit: '21000' }] },
+        { gas: [{ gasPrice: '1', gasLimit: '21000' }] },
+      ],
+    });
+
+    const approvalQuote = {
+      ...quote,
+      allowanceResult: { allowanceTarget: '0x4', amount: '0' },
+    };
+    const store = createStore();
+    store.set(swapTypeSwitchAtom(), ESwapTabSwitchType.SWAP);
+    store.set(swapStepsAtom(), {
+      steps: [],
+      quoteResult: approvalQuote,
+      preSwapData: {
+        fromToken,
+        toToken,
+        fromTokenAmount: approvalQuote.fromAmount,
+        toTokenAmount: approvalQuote.toAmount,
+        slippage: 1,
+      },
+    });
+    const Wrapper = ({ children }: { children?: ReactNode }) => (
+      <ProviderJotaiContextSwap store={store}>
+        {children}
+      </ProviderJotaiContextSwap>
+    );
+    const { result } = renderHook(() => useSwapBuildTx(), { wrapper: Wrapper });
+
+    await act(async () => {
+      const pending = result.current.preSwapBeforeStepActions(
+        approvalQuote,
+        fromToken,
+        toToken,
+      );
+      await Promise.all([approvalStarted, buildStarted]);
+      expect(mockFetchBuildTx).toHaveBeenCalledTimes(1);
+      expect(mockPrepareSwapBuildTxContext).toHaveBeenCalledTimes(1);
+      expect(mockGetVaultSettings).toHaveBeenCalledTimes(1);
+      expect(mockEstimateFee).not.toHaveBeenCalled();
+      expect(mockBatchEstimateFee).not.toHaveBeenCalled();
+      resolveApproval({ encodedTx: { to: '0x4', value: '0' } });
+      resolveBuild(buildResponse('98'));
+      await pending;
+    });
+    expect(
+      store.get(swapStepsAtom()).preSwapData.stepBeforeActionsError,
+    ).toBeUndefined();
+    expect(mockGetVaultSettings).toHaveBeenCalledTimes(1);
+    expect(mockBatchEstimateFee).toHaveBeenCalledTimes(1);
   });
 });
