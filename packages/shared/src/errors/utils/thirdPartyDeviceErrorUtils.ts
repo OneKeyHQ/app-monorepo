@@ -256,6 +256,9 @@ export function convertThirdPartyDeviceError(
     case ThirdPartyErrors.THIRD_PARTY_HW_BLE_CONNECT_FAILED_CODE:
       return new ThirdPartyErrors.ThirdPartyBleConnectFailed(props);
 
+    // The device or SDK refused the request as malformed (e.g. Keystone's
+    // PRS_PARSING_ERROR); retrying the same request cannot help.
+    case ThirdPartyHwErrorCode.InvalidParams:
     case ThirdPartyHwErrorCode.MethodNotSupported:
       return new ThirdPartyErrors.ThirdPartyMethodNotSupported(props);
 
