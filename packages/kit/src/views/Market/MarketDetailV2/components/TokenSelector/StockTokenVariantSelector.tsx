@@ -1,4 +1,11 @@
-import { createContext, useCallback, useContext, useMemo } from 'react';
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
@@ -19,6 +26,7 @@ import {
 } from '@onekeyhq/components';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type {
   IMarketAccountPortfolioDisplayItem,
@@ -454,6 +462,21 @@ export function StockTokenVariantSelector({
     () => new Set(resolvedVariantKeys ?? []),
     [resolvedVariantKeys],
   );
+  const [nativeSheetClosing, setNativeSheetClosing] = useState(false);
+  const lastSelectedVariantRef = useRef(selectedTokenVariant);
+  if (selectedTokenVariant)
+    lastSelectedVariantRef.current = selectedTokenVariant;
+  // Keep the native sheet mounted until its exit animation finishes. Replacing
+  // the trigger with a skeleton while it closes would unmount the sheet.
+  const preserveClosingSheet = Boolean(
+    compact &&
+    platformEnv.isNative &&
+    nativeSheetClosing &&
+    lastSelectedVariantRef.current,
+  );
+  const renderedSelectedVariant =
+    selectedTokenVariant ??
+    (preserveClosingSheet ? lastSelectedVariantRef.current : undefined);
   const renderContent = useCallback(
     ({ closePopover }: { closePopover: () => void }) => (
       <StockTokenVariantSelectorContent
@@ -466,7 +489,7 @@ export function StockTokenVariantSelector({
     [compact, onSelect],
   );
 
-  if (forceLoading || !selectedTokenVariant) {
+  if ((forceLoading && !preserveClosingSheet) || !renderedSelectedVariant) {
     if (forceLoading || isTokenVariantPending || isTokenVariantsLoading) {
       if (compact) {
         return (
@@ -552,7 +575,19 @@ export function StockTokenVariantSelector({
   const SelectorPopover = compact ? StockSelectorPopover : Popover;
   const popover = (
     <SelectorPopover
-      onOpenChange={onOpenChange}
+      onOpenChange={(open) => {
+        if (compact && platformEnv.isNative) setNativeSheetClosing(!open);
+        onOpenChange?.(open);
+      }}
+      sheetProps={
+        compact && platformEnv.isNative
+          ? {
+              onAnimationComplete: ({ open }) => {
+                if (!open) setNativeSheetClosing(false);
+              },
+            }
+          : undefined
+      }
       title={
         compact
           ? intl.formatMessage({
@@ -588,16 +623,16 @@ export function StockTokenVariantSelector({
         >
           <Token
             size="md"
-            tokenImageUri={selectedTokenVariant.logoUrl}
-            networkImageUri={selectedTokenVariant.networkLogoUrl}
+            tokenImageUri={renderedSelectedVariant.logoUrl}
+            networkImageUri={renderedSelectedVariant.networkLogoUrl}
             showNetworkIcon
             placeholder={<Stack width="100%" height="100%" />}
           />
           <XStack alignItems="center" gap="$2">
             <YStack justifyContent="center" minWidth={0}>
               <SizableText size="$headingMd" numberOfLines={1}>
-                {selectedTokenVariant.symbol ||
-                  selectedTokenVariant.name ||
+                {renderedSelectedVariant.symbol ||
+                  renderedSelectedVariant.name ||
                   VALUE_FALLBACK}
               </SizableText>
               {/* Figma 26230:23833 — the issuer sits under the symbol so the
@@ -611,7 +646,7 @@ export function StockTokenVariantSelector({
               >
                 {intl.formatMessage(
                   { id: ETranslations.market_issued_by },
-                  { issuer: getIssuerLabel(selectedTokenVariant.issuer) },
+                  { issuer: getIssuerLabel(renderedSelectedVariant.issuer) },
                 )}
               </SizableText>
             </YStack>
