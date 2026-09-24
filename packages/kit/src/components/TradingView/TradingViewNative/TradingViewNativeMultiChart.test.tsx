@@ -180,13 +180,16 @@ function MockChartController(props: ITradingViewNativeProps) {
   const [viewport, setViewport] = useState(1);
   mockControllerMounts.set(id, controller.current);
   const content = (
-    <button
-      type="button"
-      data-testid={`viewport-${id}`}
-      onClick={() => setViewport((current) => current + 1)}
-    >
-      {viewport}
-    </button>
+    <>
+      {props.nativeChartWorkspaceControls}
+      <button
+        type="button"
+        data-testid={`viewport-${id}`}
+        onClick={() => setViewport((current) => current + 1)}
+      >
+        {viewport}
+      </button>
+    </>
   );
   useLayoutEffect(() => {
     props.onPresentationContentChange?.(content);

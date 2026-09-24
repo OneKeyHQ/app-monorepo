@@ -216,6 +216,47 @@ export function TradingViewNativeMultiChart({
     },
     [chartSettings, indicatorSettings, setLayout],
   );
+  const fullscreenTitle = intl.formatMessage({
+    id: isNativeChartFullscreen
+      ? ETranslations.global_collapse
+      : ETranslations.global_expand,
+  });
+  const workspaceControls = useMemo(
+    () => (
+      <XStack
+        alignItems="center"
+        flexShrink={0}
+        gap="$1"
+        testID="trading-view-multi-chart-toolbar"
+      >
+        <TradingViewLayoutSelector
+          title={layoutTitle}
+          panelCount={panelCount}
+          icon={layoutIcon}
+          onChange={handleLayoutChange}
+        />
+        {onNativeChartFullscreenChange ? (
+          <TradingViewPanelButton
+            icon={isNativeChartFullscreen ? 'exitFullscreen' : 'fullscreen'}
+            accessibilityLabel={fullscreenTitle}
+            testID="trading-view-multi-chart-fullscreen"
+            onPress={() =>
+              onNativeChartFullscreenChange(!isNativeChartFullscreen)
+            }
+          />
+        ) : null}
+      </XStack>
+    ),
+    [
+      fullscreenTitle,
+      handleLayoutChange,
+      isNativeChartFullscreen,
+      layoutIcon,
+      layoutTitle,
+      onNativeChartFullscreenChange,
+      panelCount,
+    ],
+  );
 
   return (
     <>
@@ -234,6 +275,9 @@ export function TradingViewNativeMultiChart({
           isPresentationManaged
           isNativeChartFullscreen={isNativeChartFullscreen}
           nativeChartFullscreenHeader={undefined}
+          nativeChartWorkspaceControls={
+            index === 0 ? workspaceControls : undefined
+          }
           onNativeMultiChartCountChange={undefined}
           onNativeMultiChartResizingChange={undefined}
           nativeControlsLayoutMode={
@@ -259,35 +303,11 @@ export function TradingViewNativeMultiChart({
         isFullscreen={Boolean(isNativeChartFullscreen)}
       >
         <Stack flex={1} minHeight={0} width="100%" onLayout={handleLayout}>
-          <XStack
-            height={32}
-            flexShrink={0}
-            alignItems="center"
-            justifyContent="flex-end"
-            px="$2"
-            gap="$1"
-            borderBottomWidth={isMultiple ? 1 : 0}
-            borderColor="$borderSubdued"
-            testID="trading-view-multi-chart-toolbar"
-          >
-            {isNativeChartFullscreen ? nativeChartFullscreenHeader : null}
-            <Stack flex={1} />
-            <Stack width={28} height={28} />
-            {onNativeChartFullscreenChange ? (
-              <TradingViewPanelButton
-                icon={isNativeChartFullscreen ? 'exitFullscreen' : 'fullscreen'}
-                accessibilityLabel={intl.formatMessage({
-                  id: isNativeChartFullscreen
-                    ? ETranslations.global_collapse
-                    : ETranslations.global_expand,
-                })}
-                testID="trading-view-multi-chart-fullscreen"
-                onPress={() =>
-                  onNativeChartFullscreenChange(!isNativeChartFullscreen)
-                }
-              />
-            ) : null}
-          </XStack>
+          {isNativeChartFullscreen && nativeChartFullscreenHeader ? (
+            <XStack height={32} flexShrink={0} alignItems="center" px="$2">
+              {nativeChartFullscreenHeader}
+            </XStack>
+          ) : null}
           <Stack
             flex={1}
             minHeight={0}
@@ -369,20 +389,6 @@ export function TradingViewNativeMultiChart({
                 />
               )),
             )}
-          </Stack>
-          {/* Native menus must stay within the chart host's bounds for touch hit testing. */}
-          <Stack
-            position="absolute"
-            top={2}
-            right={onNativeChartFullscreenChange ? 40 : 8}
-            zIndex={30}
-          >
-            <TradingViewLayoutSelector
-              title={layoutTitle}
-              panelCount={panelCount}
-              icon={layoutIcon}
-              onChange={handleLayoutChange}
-            />
           </Stack>
         </Stack>
       </TradingViewNativePresentation>
