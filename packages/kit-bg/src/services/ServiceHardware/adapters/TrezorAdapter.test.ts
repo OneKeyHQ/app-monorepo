@@ -655,6 +655,41 @@ describe('TrezorAdapter', () => {
     ]);
   });
 
+  it('clears persisted THP credentials the device rejected', async () => {
+    const listeners = new Map<string, (event: unknown) => void>();
+    const hw = {
+      on: jest.fn((eventName: string, listener: (event: unknown) => void) => {
+        listeners.set(eventName, listener);
+      }),
+    };
+    mockedLocalDb.getDeviceByQuery.mockResolvedValue({
+      id: 'db-device-1',
+      name: 'Trezor Safe 7',
+      features: '{}',
+      connectId: 'TREZOR-FEATURES-DEVICE-ID',
+      uuid: '',
+      deviceId: 'TREZOR-FEATURES-DEVICE-ID',
+      deviceType: EDeviceType.Unknown,
+      settingsRaw: '{"thpCredentials":[{"credential":"stale"}]}',
+      createdAt: 0,
+      updatedAt: 0,
+    } satisfies IDBDevice);
+    const adapter = new TrezorAdapter(hw as never);
+
+    listeners.get(DEVICE.TREZOR_THP_CREDENTIALS_CHANGED)?.({
+      payload: {
+        connectId: 'TREZOR-FEATURES-DEVICE-ID',
+        deviceId: 'TREZOR-FEATURES-DEVICE-ID',
+        credentials: [],
+      },
+    });
+    await adapter.flushThpCredentials('TREZOR-FEATURES-DEVICE-ID');
+
+    expect(mockedLocalDb.updateDeviceThpCredentials.mock.calls).toContainEqual([
+      { dbDeviceId: 'db-device-1', credentials: [] },
+    ]);
+  });
+
   it('persists THP credentials by connectId when SDK event deviceId is the scan id', async () => {
     const listeners = new Map<string, (event: unknown) => void>();
     const credentials = [{ credential: 'credential-1' }];
