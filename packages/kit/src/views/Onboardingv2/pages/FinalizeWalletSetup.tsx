@@ -1318,18 +1318,21 @@ function FinalizeWalletSetupPage({
                   <Icon name="CheckmarkSolid" size="$8" color="$bgApp" />
                 </YStack>
               </YStack>
-              <StepTextSwap text={stepText} />
-              {/* Stay mounted after the DB device is ready so focus/redemption
-                  refresh stays subscribed. Ineligible results return null and
-                  must not leave a host placeholder. */}
-              {isReadyActionVisible && primeGiftDevice ? (
-                <PrimeGiftOffer
-                  device={primeGiftDevice}
-                  source="onboarding"
-                  onboardingRouteKey={route.key}
-                  skipInitialRefresh
-                />
-              ) : null}
+              {/* Title and offer share one gap slot. Offer spacing is inside
+                  its height transition, so a hidden offer leaves the
+                  title-to-button gap unchanged. Stay mounted after the DB
+                  device is ready so focus/redemption refresh stays subscribed. */}
+              <YStack w="100%" alignItems="center">
+                <StepTextSwap text={stepText} />
+                {isReadyActionVisible && primeGiftDevice ? (
+                  <PrimeGiftOffer
+                    device={primeGiftDevice}
+                    source="onboarding"
+                    onboardingRouteKey={route.key}
+                    skipInitialRefresh
+                  />
+                ) : null}
+              </YStack>
               {gtMd ? (
                 <YStack minHeight={48} {...enterWalletTransitionProps}>
                   {enterWalletButton}

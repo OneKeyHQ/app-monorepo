@@ -217,18 +217,21 @@ function DeviceDetailsModalV2Cmp({
           <XStack bg="$bgApp" gap="$8" alignItems="flex-start">
             <YStack gap="$8" flex={1}>
               {/* DeviceBasicInfo self-manages its skeleton; sections gate on
-                  their own hasLoadedDevice. */}
-              <DeviceBasicInfo
-                showFirmwareVersion={Boolean(
-                  vendorProfile?.supportsFirmwareVersionDisplay,
-                )}
-                showDeviceVerification={Boolean(
-                  vendorProfile?.supportsFirmwareVerify,
-                )}
-              />
-              {device && !isQrWallet ? (
-                <PrimeGiftOffer device={device} source="deviceDetails" />
-              ) : null}
+                  their own hasLoadedDevice. The offer shares this slot so a
+                  0-height entrance does not consume the column gap. */}
+              <YStack w="100%">
+                <DeviceBasicInfo
+                  showFirmwareVersion={Boolean(
+                    vendorProfile?.supportsFirmwareVersionDisplay,
+                  )}
+                  showDeviceVerification={Boolean(
+                    vendorProfile?.supportsFirmwareVerify,
+                  )}
+                />
+                {device && !isQrWallet ? (
+                  <PrimeGiftOffer device={device} source="deviceDetails" />
+                ) : null}
+              </YStack>
               {isQrWallet ? <DeviceSectionQrInfo /> : null}
               {showFirmwareActions ? <DeviceUpdateAlert type="bottom" /> : null}
               {showDeviceSupport ? (
