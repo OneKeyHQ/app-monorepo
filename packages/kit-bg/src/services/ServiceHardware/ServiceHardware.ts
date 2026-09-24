@@ -38,7 +38,10 @@ import {
   DESKTOP_BLE_FIRMWARE_CONNECTION_TIMEOUT_MS,
   DESKTOP_BLE_SILENT_BIND_CONNECTION_TIMEOUT_MS,
 } from '@onekeyhq/shared/src/hardware/config/connectionTimeouts';
-import { getVendorProfile } from '@onekeyhq/shared/src/hardware/config/vendorProfile';
+import {
+  canBuildHwWalletXfp,
+  getVendorProfile,
+} from '@onekeyhq/shared/src/hardware/config/vendorProfile';
 import {
   getValidDeviceStateVersionKeys,
   projectLegacyDeviceFeaturesFromState,
@@ -4296,8 +4299,8 @@ class ServiceHardware extends ServiceBase {
     const xfpProfile = vendor ? getVendorProfile(vendor) : undefined;
     if (xfpProfile?.isThirdParty) {
       // Trezor can supply XFP via its adapter (master fingerprint + taproot
-      // xpub). Other third-party vendors (e.g. Ledger) stay XFP-less for now.
-      if (vendor !== EHardwareVendor.trezor) {
+      // xpub); see canBuildHwWalletXfp.
+      if (!vendor || !canBuildHwWalletXfp(vendor)) {
         return undefined;
       }
       try {

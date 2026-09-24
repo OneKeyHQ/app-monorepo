@@ -99,7 +99,10 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
-import { getVendorProfile } from '@onekeyhq/shared/src/hardware/config/vendorProfile';
+import {
+  canBuildHwWalletXfp,
+  getVendorProfile,
+} from '@onekeyhq/shared/src/hardware/config/vendorProfile';
 import { projectLegacyDeviceFeaturesFromState } from '@onekeyhq/shared/src/hardware/deviceStateUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
@@ -7396,6 +7399,11 @@ class ServiceAccount extends ServiceBase {
       });
       if (!device) {
         throw new OneKeyLocalError('wallet associated device not found');
+      }
+      // Nothing to ask an xfp-less vendor's device for; opening the hardware
+      // flow would only flash the device stage and wait.
+      if (!canBuildHwWalletXfp(device.vendor)) {
+        return;
       }
       await this.backgroundApi.serviceHardwareUI.withHardwareProcessing(
         async () => {

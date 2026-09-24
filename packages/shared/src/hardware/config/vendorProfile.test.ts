@@ -1,6 +1,7 @@
 import { EHardwareVendor } from '@onekeyhq/shared/types/device';
 
 import {
+  canBuildHwWalletXfp,
   getVendorProfile,
   isHardwareVendorSupported,
   resolvePersistentConnectIdCapability,
@@ -124,5 +125,17 @@ describe('hardware vendor profile', () => {
     expect(profile.identity.connectIdMatchVerification).toBe('none');
     // Same instance on repeat so callers can compare profiles by identity.
     expect(getVendorProfile(futureVendor)).toBe(profile);
+  });
+});
+
+describe('canBuildHwWalletXfp', () => {
+  it.each([
+    [undefined, true],
+    [EHardwareVendor.onekey, true],
+    [EHardwareVendor.trezor, true],
+    [EHardwareVendor.ledger, false],
+    [EHardwareVendor.keystone, false],
+  ] as const)('%s -> %s', (vendor, expected) => {
+    expect(canBuildHwWalletXfp(vendor)).toBe(expected);
   });
 });
