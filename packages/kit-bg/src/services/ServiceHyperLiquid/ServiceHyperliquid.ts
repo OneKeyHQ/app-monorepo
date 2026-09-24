@@ -515,6 +515,9 @@ export default class ServiceHyperliquid extends ServiceBase {
   // Avoids async atom reads in the hot path — written to atom on a throttled schedule
   private _spotPriceCache: Record<string, ISpotAssetCtxEntry> = {};
 
+  // Track provenance explicitly: the price cache also contains mids.
+  private _spotContextPriceCoins = new Set<string>();
+
   private _spotPriceDirty = false;
 
   private _spotPriceFlushTimer: ReturnType<typeof setTimeout> | null = null;
@@ -550,7 +553,7 @@ export default class ServiceHyperliquid extends ServiceBase {
   );
 
   private _flushSpotPrices(map: Record<string, ISpotAssetCtxEntry>) {
-    // allMids only sets markPx, spotAssetCtxs sets full entry — merge so neither overwrites the other
+    // Preserve context fields while updating cold-start price fallbacks.
     for (const [key, entry] of Object.entries(map)) {
       const existing = this._spotPriceCache[key];
       if (existing) {
@@ -2082,19 +2085,36 @@ export default class ServiceHyperliquid extends ServiceBase {
         };
       }
     });
+    this._spotContextPriceCoins = new Set(Object.keys(map));
     this._flushSpotPrices(map);
     void this.recalculateSpotTotalUsd({ force: true });
   }
 
-  async extractSpotPricesFromAllMids(mids: Record<string, string>) {
+  clearSpotContextPriceSources() {
+    this._spotContextPriceCoins.clear();
+  }
+
+  async extractSpotPricesFromAllMids(
+    mids: Record<string, string>,
+    preferSpotContextPrices = false,
+  ) {
     const map: Record<string, ISpotAssetCtxEntry> = {};
     for (const [coin, price] of Object.entries(mids)) {
-      if (perpsUtils.isSpotInstrument(coin) && price) {
-        map[coin] = { markPx: price };
+      // Keep actual context prices only while their subscription is wanted.
+      if (
+        perpsUtils.isSpotInstrument(coin) &&
+        price &&
+        !(preferSpotContextPrices && this._spotContextPriceCoins.has(coin))
+      ) {
+        this._spotContextPriceCoins.delete(coin);
+        if (this._spotPriceCache[coin]?.markPx !== price) {
+          map[coin] = { markPx: price };
+        }
       }
     }
     if (Object.keys(map).length > 0) {
       this._flushSpotPrices(map);
+      void this.recalculateSpotTotalUsd({ force: true });
     }
   }
 

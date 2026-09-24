@@ -176,7 +176,10 @@ const ActiveAssetPriceDisplay = memo(
     let ctx: { markPrice?: string; change24hPercent?: number } =
       activeCtx?.markPrice ? activeCtx : formattedFallback;
     if (mode === 'spot') {
-      ctx = spotCtx?.markPrice ? spotCtx : formattedSpotFallback;
+      ctx =
+        spotActiveAssetCtx?.coin === coinName && spotCtx?.markPrice
+          ? spotCtx
+          : formattedSpotFallback;
     }
 
     const priceDisplay = ctx?.markPrice

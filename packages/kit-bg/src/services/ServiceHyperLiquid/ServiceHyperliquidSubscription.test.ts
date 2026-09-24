@@ -16,6 +16,7 @@ import {
 import { globalJotaiStorageReadyHandler } from '../../states/jotai/jotaiStorage';
 
 import ServiceHyperliquidSubscription from './ServiceHyperliquidSubscription';
+import { generateSubscriptionKey } from './utils/SubscriptionConfig';
 
 import type { ISubscriptionSpec } from './utils/SubscriptionConfig';
 import type { IBackgroundApi } from '../../apis/IBackgroundApi';
@@ -46,6 +47,142 @@ function createService() {
     backgroundApi: {} as IBackgroundApi,
   });
 }
+
+describe('spot context price ownership', () => {
+  const spec: ISubscriptionSpec<ESubscriptionType.SPOT_ASSET_CTXS> = {
+    type: ESubscriptionType.SPOT_ASSET_CTXS,
+    key: generateSubscriptionKey(ESubscriptionType.SPOT_ASSET_CTXS, {}),
+    params: {},
+    priority: 2,
+  };
+  const ctx = { coin: '@241', markPx: '0.0014' };
+  let service: ServiceHyperliquidSubscription;
+  let prices: {
+    extractSpotPricesFromAllMids: jest.Mock;
+    updateSpotAssetCtxsMap: jest.Mock;
+    recalculateSpotTotalUsd: jest.Mock;
+    clearSpotContextPriceSources: jest.Mock;
+  };
+  let internals: {
+    _activeSubscriptions: Map<
+      string,
+      {
+        key: string;
+        type: ESubscriptionType;
+        spec: typeof spec;
+        createdAt: number;
+        lastActivity: number;
+        isActive: boolean;
+      }
+    >;
+    _handleSubscriptionData: (
+      type: ESubscriptionType,
+      event: CustomEvent,
+    ) => Promise<void>;
+    _destroySubscription: (value: typeof spec) => Promise<boolean>;
+    getWebSocketClient: () => Promise<{ unsubscribe: () => Promise<void> }>;
+    _updateNetworkLiveness: () => void;
+    _emitHyperliquidDataUpdate: () => void;
+  };
+  const subscribe = () => {
+    service.allSubSpecsMap[spec.key] = spec;
+    internals._activeSubscriptions.set(spec.key, {
+      key: spec.key,
+      type: spec.type,
+      spec,
+      createdAt: Date.now(),
+      lastActivity: Date.now(),
+      isActive: true,
+    });
+  };
+  const receive = (type: ESubscriptionType, detail: unknown) =>
+    internals._handleSubscriptionData(type, { detail } as CustomEvent);
+  const receiveMids = () =>
+    receive(ESubscriptionType.ALL_MIDS, { mids: { '@241': '0.002' } });
+
+  beforeEach(() => {
+    jest.useFakeTimers();
+    prices = {
+      extractSpotPricesFromAllMids: jest.fn(),
+      updateSpotAssetCtxsMap: jest.fn(),
+      recalculateSpotTotalUsd: jest.fn(),
+      clearSpotContextPriceSources: jest.fn(),
+    };
+    service = new ServiceHyperliquidSubscription({
+      backgroundApi: {
+        serviceHyperliquid: prices,
+      } as unknown as IBackgroundApi,
+    });
+    internals = service as unknown as typeof internals;
+    jest
+      .spyOn(internals, '_updateNetworkLiveness')
+      .mockImplementation(() => {});
+    jest
+      .spyOn(internals, '_emitHyperliquidDataUpdate')
+      .mockImplementation(() => {});
+    jest.spyOn(internals, 'getWebSocketClient').mockResolvedValue({
+      unsubscribe: jest.fn().mockResolvedValue(undefined),
+    });
+    subscribe();
+  });
+  afterEach(() => {
+    jest.restoreAllMocks();
+    jest.clearAllTimers();
+    jest.useRealTimers();
+  });
+
+  it('reports an active context subscription before and after its first frame', async () => {
+    await receiveMids();
+    expect(prices.extractSpotPricesFromAllMids).toHaveBeenLastCalledWith(
+      { '@241': '0.002' },
+      true,
+    );
+    await receive(ESubscriptionType.SPOT_ASSET_CTXS, [
+      ctx,
+      { coin: '@242', markPx: '' },
+    ]);
+    await receiveMids();
+    expect(prices.extractSpotPricesFromAllMids).toHaveBeenLastCalledWith(
+      { '@241': '0.002' },
+      true,
+    );
+  });
+
+  it.each(['unsubscribe', 'close'] as const)(
+    'drops ownership on %s and waits for the new subscription frame',
+    async (action) => {
+      await receive(ESubscriptionType.SPOT_ASSET_CTXS, [ctx]);
+      if (action === 'unsubscribe') {
+        await internals._destroySubscription(spec);
+      } else {
+        service.socketCloseHandler({
+          target: { readyState: 3 },
+        } as unknown as WebSocketEventMap['close']);
+      }
+      prices.updateSpotAssetCtxsMap.mockClear();
+      await receive(ESubscriptionType.SPOT_ASSET_CTXS, [ctx]);
+      expect(prices.updateSpotAssetCtxsMap).toHaveBeenCalledWith([ctx]);
+      await receiveMids();
+      expect(prices.extractSpotPricesFromAllMids).toHaveBeenLastCalledWith(
+        { '@241': '0.002' },
+        false,
+      );
+      expect(prices.clearSpotContextPriceSources).toHaveBeenCalled();
+      subscribe();
+      await receiveMids();
+      expect(prices.extractSpotPricesFromAllMids).toHaveBeenLastCalledWith(
+        { '@241': '0.002' },
+        true,
+      );
+      await receive(ESubscriptionType.SPOT_ASSET_CTXS, [ctx]);
+      await receiveMids();
+      expect(prices.extractSpotPricesFromAllMids).toHaveBeenLastCalledWith(
+        { '@241': '0.002' },
+        true,
+      );
+    },
+  );
+});
 
 describe('ServiceHyperliquidSubscription Fast L2 lifecycle', () => {
   it('invalidates delayed recovery when the socket closes', () => {

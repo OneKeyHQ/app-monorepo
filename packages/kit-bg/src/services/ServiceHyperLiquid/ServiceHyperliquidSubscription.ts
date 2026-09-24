@@ -92,6 +92,7 @@ import {
 import {
   SUBSCRIPTION_TYPE_INFO,
   calculateRequiredSubscriptionsMap,
+  generateSubscriptionKey,
   getOrderBookSubscriptionCoin,
   getSubscriptionResumeAction,
   isOrderBookOptionsTargetReady,
@@ -122,6 +123,11 @@ interface IActiveSubscription {
   isActive: boolean;
   spec: ISubscriptionSpec<ESubscriptionType>;
 }
+
+const SPOT_ASSET_CTXS_SUBSCRIPTION_KEY = generateSubscriptionKey(
+  ESubscriptionType.SPOT_ASSET_CTXS,
+  {},
+);
 
 interface IPublicTradesSubscription {
   refCount: number;
@@ -302,6 +308,8 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
   private _subscriptionAtomsUnsubs: Array<() => void> = [];
 
   private _subscriptionLifecycleVersion = 0;
+
+  private _creatingSpotAssetCtxSubscription?: { lifecycleVersion: number };
 
   private _subscriptionMutationQueue = new PerKeyMutationQueue();
 
@@ -2451,6 +2459,13 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
       return;
     }
 
+    const creatingSpotCtx =
+      spec.type === ESubscriptionType.SPOT_ASSET_CTXS
+        ? { lifecycleVersion: this._subscriptionLifecycleVersion }
+        : undefined;
+    if (creatingSpotCtx)
+      this._creatingSpotAssetCtxSubscription = creatingSpotCtx;
+
     try {
       const lifecycleVersion = this._subscriptionLifecycleVersion;
       if (spec.type === ESubscriptionType.L2) {
@@ -2462,6 +2477,8 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
       const isCreateResultStale =
         this.subscriptionsHandlerDisabled ||
         lifecycleVersion !== this._subscriptionLifecycleVersion ||
+        (creatingSpotCtx &&
+          this._creatingSpotAssetCtxSubscription !== creatingSpotCtx) ||
         client !== this._client ||
         !this._isSubscriptionSpecPending(spec);
       if (isCreateResultStale) {
@@ -2501,6 +2518,15 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
         }, 0);
       }
     } finally {
+      if (
+        creatingSpotCtx &&
+        this._creatingSpotAssetCtxSubscription === creatingSpotCtx
+      ) {
+        this._creatingSpotAssetCtxSubscription = undefined;
+        if (!this._activeSubscriptions.has(spec.key)) {
+          this.backgroundApi.serviceHyperliquid.clearSpotContextPriceSources();
+        }
+      }
       if (
         !this.subscriptionsHandlerDisabled &&
         this._isSubscriptionSpecPending(spec)
@@ -2542,6 +2568,9 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
           }
           delete this.allSubSpecsMap[spec.key];
           this._activeSubscriptions.delete(spec.key);
+          if (spec.type === ESubscriptionType.SPOT_ASSET_CTXS) {
+            this.backgroundApi.serviceHyperliquid.clearSpotContextPriceSources();
+          }
         };
         try {
           this._destroyingSubscriptionKeys.add(spec.key);
@@ -2623,9 +2652,8 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
       );
       await this._closeClient();
     }
-    this.allSubSpecsMap = {};
+    this._forgetTransportSubscriptions();
     this.pendingSubSpecsMap = {};
-    this._activeSubscriptions.clear();
     this._markNetworkStatusPending();
   }
 
@@ -2705,6 +2733,12 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
         if (allMidsData?.mids) {
           void this.backgroundApi.serviceHyperliquid.extractSpotPricesFromAllMids(
             allMidsData.mids,
+            this._activeSubscriptions.has(SPOT_ASSET_CTXS_SUBSCRIPTION_KEY) ||
+              (this._creatingSpotAssetCtxSubscription?.lifecycleVersion ===
+                this._subscriptionLifecycleVersion &&
+                Boolean(
+                  this.pendingSubSpecsMap[SPOT_ASSET_CTXS_SUBSCRIPTION_KEY],
+                )),
           );
         }
         // Re-trigger spot calculation if it was deferred (SPOT_STATE arrived before ALL_MIDS)
@@ -2828,6 +2862,7 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
       }
 
       if (subscriptionType === ESubscriptionType.SPOT_ASSET_CTXS) {
+        if (!Array.isArray(data)) return;
         void this.backgroundApi.serviceHyperliquid.updateSpotAssetCtxsMap(
           data as IWsSpotAssetCtxs,
         );
@@ -3143,6 +3178,13 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
   // A replaced or reconnected socket starts with no server-side subscriptions,
   // so specs that are no longer wanted have nothing left to unsubscribe.
   private _forgetTransportSubscriptions(): void {
+    if (
+      this._creatingSpotAssetCtxSubscription ||
+      this._activeSubscriptions.has(SPOT_ASSET_CTXS_SUBSCRIPTION_KEY)
+    ) {
+      this.backgroundApi.serviceHyperliquid.clearSpotContextPriceSources();
+    }
+    this._creatingSpotAssetCtxSubscription = undefined;
     this._activeSubscriptions.clear();
     this.allSubSpecsMap = {};
   }
