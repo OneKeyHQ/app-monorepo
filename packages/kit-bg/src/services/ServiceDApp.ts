@@ -761,11 +761,13 @@ class ServiceDApp extends ServiceBase {
   @backgroundMethod()
   async saveConnectionSession({
     origin,
+    displayOrigin,
     accountsInfo,
     storageType,
     walletConnectTopic,
   }: {
     origin: string;
+    displayOrigin?: string;
     accountsInfo: IConnectionAccountInfo[];
     storageType: IConnectionStorageType;
     walletConnectTopic?: string;
@@ -775,10 +777,15 @@ class ServiceDApp extends ServiceBase {
     }
     const { simpleDb, serviceDiscovery } = this.backgroundApi;
     await this.deleteExistSessionBeforeConnect({ origin, storageType });
+    const iconOrigin =
+      storageType === 'walletConnect' ? (displayOrigin ?? '') : origin;
     await simpleDb.dappConnection.upsertConnection({
       origin,
+      displayOrigin,
       accountsInfo,
-      imageURL: await serviceDiscovery.buildWebsiteIconUrl(origin, 128),
+      imageURL: iconOrigin
+        ? await serviceDiscovery.buildWebsiteIconUrl(iconOrigin, 128)
+        : '',
       storageType,
       walletConnectTopic,
     });

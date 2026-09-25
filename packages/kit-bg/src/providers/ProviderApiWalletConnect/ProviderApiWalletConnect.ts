@@ -222,6 +222,8 @@ class ProviderApiWalletConnect {
       });
       await serviceDApp.saveConnectionSession({
         origin,
+        displayOrigin:
+          uriUtils.safeGetWalletConnectVerifiedOrigin(proposal) ?? '',
         accountsInfo: result.accountsInfo,
         storageType: 'walletConnect',
         walletConnectTopic: newSession?.topic,

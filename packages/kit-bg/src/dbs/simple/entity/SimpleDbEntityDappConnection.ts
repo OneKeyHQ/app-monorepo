@@ -71,6 +71,7 @@ export class SimpleDbEntityDappConnection extends SimpleDbEntityBase<IDappConnec
   @backgroundMethod()
   async upsertConnection({
     origin,
+    displayOrigin,
     accountsInfo,
     imageURL,
     replaceExistAccount = true,
@@ -78,6 +79,7 @@ export class SimpleDbEntityDappConnection extends SimpleDbEntityBase<IDappConnec
     walletConnectTopic,
   }: {
     origin: string;
+    displayOrigin?: string;
     accountsInfo: IConnectionAccountInfo[];
     storageType: IConnectionStorageType;
     imageURL?: string;
@@ -103,6 +105,7 @@ export class SimpleDbEntityDappConnection extends SimpleDbEntityBase<IDappConnec
       if (!connectionItem) {
         connectionItem = {
           origin,
+          displayOrigin,
           imageURL: imageURL || '',
           connectionMap: {},
           networkImplMap: {},
@@ -114,7 +117,8 @@ export class SimpleDbEntityDappConnection extends SimpleDbEntityBase<IDappConnec
         // If one already exists, create a new copy to maintain immutability.
         connectionItem = {
           ...connectionItem,
-          imageURL: imageURL || connectionItem.imageURL,
+          displayOrigin: displayOrigin ?? connectionItem.displayOrigin,
+          imageURL: imageURL ?? connectionItem.imageURL,
           connectionMap: { ...connectionItem.connectionMap },
           networkImplMap: { ...connectionItem.networkImplMap },
           addressMap: { ...connectionItem.addressMap },

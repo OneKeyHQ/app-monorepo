@@ -1,9 +1,12 @@
 import { useCallback } from 'react';
 
+import { useIntl } from 'react-intl';
+
 import { Icon, Image, SizableText, XStack, YStack } from '@onekeyhq/components';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { IMPL_ALGO } from '@onekeyhq/shared/src/engine/engineConsts';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import {
   EAlignPrimaryAccountMode,
@@ -38,7 +41,12 @@ function ConnectionListItem({
     prevAccountInfo: IConnectionAccountInfoWithNum;
   }) => IHandleAccountChangedResult | Promise<IHandleAccountChangedResult>;
 }) {
+  const intl = useIntl();
   const [settings] = useSettingsPersistAtom();
+  const displayOrigin =
+    item.storageType === 'walletConnect'
+      ? (item.displayOrigin ?? '')
+      : item.origin;
   // Switching accounts in Algo is not supported because no dApps listen for the walletconnect updateSession event
   const getReadonly = useCallback(
     (connectionInfo: IConnectionAccountInfo) => {
@@ -69,16 +77,20 @@ function ConnectionListItem({
     <YStack gap="$5" p="$5" testID={DAppConnectionTestIDs.ConnectionListItem}>
       <XStack alignItems="center" justifyContent="space-between" gap="$3">
         <XStack flex={1} alignItems="center" gap="$3">
-          <Image
-            size="$10"
-            borderRadius="$full"
-            source={{ uri: item.imageURL }}
-            fallback={
-              <Image.Fallback>
-                <Icon size="$10" name="GlobusOutline" />
-              </Image.Fallback>
-            }
-          />
+          {displayOrigin ? (
+            <Image
+              size="$10"
+              borderRadius="$full"
+              source={{ uri: item.imageURL }}
+              fallback={
+                <Image.Fallback>
+                  <Icon size="$10" name="GlobusOutline" />
+                </Image.Fallback>
+              }
+            />
+          ) : (
+            <Icon size="$10" name="GlobusOutline" />
+          )}
           <SizableText
             size="$bodyLgMedium"
             color="$text"
@@ -87,7 +99,9 @@ function ConnectionListItem({
               wordBreak: 'break-all',
             }}
           >
-            {new URL(item.origin).hostname}
+            {displayOrigin
+              ? new URL(displayOrigin).hostname
+              : intl.formatMessage({ id: ETranslations.global_unverified })}
           </SizableText>
         </XStack>
         <XStack
