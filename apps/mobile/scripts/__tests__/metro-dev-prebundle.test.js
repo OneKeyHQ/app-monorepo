@@ -575,20 +575,25 @@ describe('metro-dev-prebundle release transport', () => {
   });
 
   it('pins repository provenance during offline attestation verification', async () => {
-    const fixture = createTemporaryRepo();
-    const artifactPath = path.join(fixture.repoRoot, 'artifact.bin');
-    const bundlePath = path.join(
-      fixture.repoRoot,
-      'artifact.attestation.jsonl',
+    const repoRoot = await fs.mkdtemp(
+      path.join(os.tmpdir(), 'onekey-prebundle-attestation-'),
     );
+    const artifactPath = path.join(repoRoot, 'artifact.bin');
+    const bundlePath = path.join(repoRoot, 'artifact.attestation.jsonl');
     const runGh = jest.fn(async () => undefined);
     try {
+      const trustedRootRelativePath =
+        'apps/mobile/bundle-registry/metro-dev-prebundle-trusted-root.jsonl';
+      await fs.copy(
+        path.join(REPO_ROOT, trustedRootRelativePath),
+        path.join(repoRoot, trustedRootRelativePath),
+      );
       await fs.writeFile(artifactPath, 'artifact');
       await fs.writeFile(bundlePath, 'attestation');
       await verifyArtifactAttestation({
         artifactPath,
         bundlePath,
-        repoRoot: fixture.repoRoot,
+        repoRoot,
         runGh,
         sourceCommit: 'a'.repeat(40),
       });
@@ -602,7 +607,7 @@ describe('metro-dev-prebundle release transport', () => {
         bundlePath,
         '--custom-trusted-root',
         path.join(
-          fixture.repoRoot,
+          repoRoot,
           'apps/mobile/bundle-registry/metro-dev-prebundle-trusted-root.jsonl',
         ),
         '--signer-workflow',
@@ -614,7 +619,7 @@ describe('metro-dev-prebundle release transport', () => {
         '--deny-self-hosted-runners',
       ]);
     } finally {
-      await fs.remove(fixture.repoRoot);
+      await fs.remove(repoRoot);
     }
   }, 15_000);
 

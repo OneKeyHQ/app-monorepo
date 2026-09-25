@@ -1,4 +1,7 @@
-import { RuntimeEnvironment } from '@onekeyhq/shared/src/travelMode/runtimeEnvironment';
+import {
+  RuntimeEnvironment,
+  TRAVEL_MODE_GATE_REJECTION_DELAY_MS,
+} from '@onekeyhq/shared/src/travelMode/runtimeEnvironment';
 import { getTravelModeRuntimeProfile } from '@onekeyhq/shared/src/travelMode/runtimeProfile';
 import { EWalletConnectSessionEvents } from '@onekeyhq/shared/src/walletConnect/types';
 
@@ -30,6 +33,15 @@ jest.mock('./WalletConnectRequestProxyEth', () => ({
 }));
 
 describe('WalletConnect Travel Mode event gating', () => {
+  beforeEach(() => {
+    mockTransitionBlocked = false;
+    jest.useFakeTimers();
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
   it('blocks existing session listeners after activation and unregisters the same callbacks', async () => {
     const { default: ProviderApiWalletConnect } =
       await import('./ProviderApiWalletConnect');
@@ -75,7 +87,10 @@ describe('WalletConnect Travel Mode event gating', () => {
     for (const [, listener] of on.mock.calls as Array<
       [string, (args: unknown) => Promise<void>]
     >) {
-      await listener(request);
+      await Promise.all([
+        listener(request),
+        jest.advanceTimersByTimeAsync(TRAVEL_MODE_GATE_REJECTION_DELAY_MS),
+      ]);
     }
     expect(getWcChainInfo).not.toHaveBeenCalled();
     expect(handleSessionDelete).not.toHaveBeenCalled();

@@ -753,6 +753,7 @@ function BaseDialogContainer(
     open,
     isExist,
     onOpenChange,
+    onCloseRequested,
     ...props
   }: IDialogContainerProps,
   ref: ForwardedRef<IDialogInstance>,
@@ -787,6 +788,7 @@ function BaseDialogContainer(
         ) {
           defaultLogger.ui.dialog.dialogClose({ trackId: props.trackID });
         }
+        onCloseRequested?.();
         changeIsOpen(false);
         void Keyboard.dismissWithDelay(50);
         await onClose(extra);
@@ -796,7 +798,7 @@ function BaseDialogContainer(
       });
       return pendingCloseRef.current;
     },
-    [changeIsOpen, onClose, props.trackID, onBeforeClose],
+    [changeIsOpen, onClose, props.trackID, onBeforeClose, onCloseRequested],
   );
 
   const handleIsExist = useCallback(
