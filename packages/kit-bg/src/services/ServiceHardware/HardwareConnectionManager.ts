@@ -140,7 +140,7 @@ export class HardwareConnectionManager {
   }
 
   // WebUSB detection
-  async detectWebUSBAvailability(_connectId?: string): Promise<boolean> {
+  async detectWebUSBAvailability(connectId?: string): Promise<boolean> {
     if (!platformEnv.isSupportDesktopBle) return true;
     try {
       const usb = globalThis?.navigator?.usb;
@@ -155,7 +155,13 @@ export class HardwareConnectionManager {
         const hasSerialNumber =
           typeof dev?.serialNumber === 'string' &&
           dev.serialNumber.trim().length > 0;
-        return isOneKey && hasSerialNumber;
+        return (
+          isOneKey &&
+          hasSerialNumber &&
+          (!connectId ||
+            dev.serialNumber.trim().toLowerCase() ===
+              connectId.trim().toLowerCase())
+        );
       });
       return onekeyDevices.length > 0;
     } catch {
@@ -163,7 +169,7 @@ export class HardwareConnectionManager {
     }
   }
 
-  async detectBridgeAvailability(_connectId?: string): Promise<boolean> {
+  async detectBridgeAvailability(connectId?: string): Promise<boolean> {
     if (!platformEnv.isSupportDesktopBle) {
       return true;
     }
@@ -181,7 +187,9 @@ export class HardwareConnectionManager {
       if (!Array.isArray(devices)) {
         return false;
       }
-      return devices.length > 0;
+      return connectId
+        ? devices.some((device) => device.path === connectId)
+        : devices.length > 0;
     } catch (_error) {
       return false;
     }
@@ -200,10 +208,9 @@ export class HardwareConnectionManager {
     return this.detectWebUSBAvailability(connectId);
   }
 
-  // Trezor-scoped USB presence. detectUSBDeviceAvailability answers "is any
-  // OneKey USB device / Bridge device present", which can be true while a
-  // Trezor is BLE-only — routing its calls to the USB handle and burning a
-  // BLE connect timeout. Trezor never uses Bridge, so only WebUSB is checked.
+  // Trezor-scoped USB presence. The generic check uses OneKey USB filters and
+  // cannot identify a Trezor USB handle. Trezor never uses Bridge, so only
+  // WebUSB is checked.
   async detectTrezorUSBDeviceAvailability(): Promise<boolean> {
     if (!platformEnv.isSupportDesktopBle) return true;
     try {
@@ -469,7 +476,7 @@ export class HardwareConnectionManager {
         JSON.stringify([
           args[0].hardwareCallContext || 'default',
           args[0].connectProtocol || '',
-          args[0].connectId?.startsWith('MI') ? 'mini' : 'other',
+          args[0].connectId?.toLowerCase() || '',
         ]),
     },
   );
