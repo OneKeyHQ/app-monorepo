@@ -757,6 +757,33 @@ function safeGetWalletConnectOrigin(proposal: WalletKitTypes.SessionProposal) {
   }
 }
 
+function safeGetWalletConnectVerifiedOrigin(
+  proposal: WalletKitTypes.SessionProposal,
+) {
+  const verified = proposal.verifyContext?.verified;
+  // UNKNOWN may contain metadata.url copied by the SDK, not an attested origin.
+  if (verified?.validation !== 'VALID' && verified?.validation !== 'INVALID') {
+    return null;
+  }
+  try {
+    const url = new URL(verified.origin);
+    if (url.protocol !== 'https:' && url.protocol !== 'http:') {
+      return null;
+    }
+    // INVALID with the claimed origin still present does not establish a
+    // different source (for example, a failed link-mode validation).
+    if (
+      verified.validation === 'INVALID' &&
+      url.origin === safeGetWalletConnectOrigin(proposal)
+    ) {
+      return null;
+    }
+    return url.origin;
+  } catch {
+    return null;
+  }
+}
+
 export default {
   getOriginFromUrl,
   getHostNameFromUrl,
@@ -768,6 +795,7 @@ export default {
   buildUrl,
   buildDeepLinkUrl,
   safeGetWalletConnectOrigin,
+  safeGetWalletConnectVerifiedOrigin,
   parseUrl,
   isLocalhostUrl,
   isIpAddressUrl,
