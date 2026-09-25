@@ -32,6 +32,7 @@ import { Container } from './Container';
 import { ColdStartByNotification } from './Container/ColdStartByNotification';
 import { NetworkReachabilityTracker } from './Container/NetworkReachabilityTracker';
 import { KeyboardProvider } from './KeyboardProvider';
+import { navigateModalFromBackground } from './navigateModalFromBackground';
 import { SplashProvider } from './SplashProvider';
 import { ThemeProvider } from './ThemeProvider';
 
@@ -66,20 +67,14 @@ const flexStyle = { flex: 1 };
 // no access to the navigation ref. This listener performs the actual navigation.
 function BackgroundNavigationRelay() {
   useEffect(() => {
-    const handler = (payload: { screen: any; params: any }) => {
-      appGlobals.$navigationRef.current?.navigate(
-        payload.screen,
-        payload.params,
-      );
-    };
     appEventBus.on(
       EAppEventBusNames.NavigateModalFromBackgroundThread,
-      handler,
+      navigateModalFromBackground,
     );
     return () => {
       appEventBus.off(
         EAppEventBusNames.NavigateModalFromBackgroundThread,
-        handler,
+        navigateModalFromBackground,
       );
     };
   }, []);

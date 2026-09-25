@@ -14,6 +14,7 @@ import {
   useClipboard,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { connectWalletConnectToDapp } from '@onekeyhq/kit/src/components/WalletConnect/connectWalletConnectToDapp';
 import useAppNavigation, {
   type IAppNavigation,
 } from '@onekeyhq/kit/src/hooks/useAppNavigation';
@@ -327,7 +328,7 @@ export async function parseQRCodeWithDeps(
       {
         await closeScanPage();
         const wcValue = result.data as IWalletConnectValue;
-        void backgroundApiProxy.walletConnect.connectToDapp(wcValue.wcUri);
+        void connectWalletConnectToDapp(wcValue.wcUri);
       }
       break;
     case EQRCodeHandlerType.ANIMATION_CODE: {

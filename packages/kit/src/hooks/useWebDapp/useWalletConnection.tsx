@@ -116,12 +116,15 @@ export function useWalletConnection({
     if (shouldShowDialogLoading) {
       shouldCancelWalletConnectOnDialogCloseRef.current = true;
       dialogRef.current = Dialog.show({
-        title: intl.formatMessage(
-          { id: ETranslations.global_connect_to_wallet },
-          {
-            wallet: name || 'Wallet', // name || 'Wallet'
-          },
-        ),
+        title:
+          platformEnv.isNative && isWalletConnect
+            ? undefined
+            : intl.formatMessage(
+                { id: ETranslations.global_connect_to_wallet },
+                {
+                  wallet: name || 'Wallet', // name || 'Wallet'
+                },
+              ),
         showFooter: false,
         dismissOnOverlayPress: false,
         // The zero-inset first frame only happens inside the iOS
@@ -150,6 +153,8 @@ export function useWalletConnection({
         },
         renderContent: (
           <ConnectToWalletDialogContent
+            isWalletConnect={isWalletConnect}
+            onSocketProgressExhausted={closeDialogWithoutCancelling}
             onRetryPress={async () => {
               try {
                 const result = await connectToWallet(connectionInfo);
