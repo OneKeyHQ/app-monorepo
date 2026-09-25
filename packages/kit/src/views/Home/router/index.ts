@@ -58,6 +58,10 @@ const ApprovalListPage = LazyLoadPage(
   () => import('../pages/ApprovalListPage'),
 );
 
+const DustSweepPage = LazyLoadPage(
+  () => import('../../DustSweep/DustSweepPage'),
+);
+
 export const urlAccountRoutes = [
   {
     name: ETabHomeRoutes.TabHomeUrlAccountPage,
@@ -156,5 +160,11 @@ export const homeRouters: ITabSubNavigatorConfig<any, any>[] = [
     component: ApprovalListPage,
     exact: true,
     rewrite: '/approval-list',
+  },
+  {
+    name: ETabHomeRoutes.TabHomeDustSweep,
+    component: DustSweepPage,
+    exact: true,
+    rewrite: '/dust-sweep',
   },
 ];

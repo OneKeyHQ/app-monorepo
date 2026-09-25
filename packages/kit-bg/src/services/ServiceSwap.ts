@@ -1477,6 +1477,7 @@ export default class ServiceSwap extends ServiceBase {
     kind,
     walletType,
     tradeSource,
+    source,
   }: {
     fromToken: ISwapToken;
     toToken: ISwapToken;
@@ -1492,12 +1493,14 @@ export default class ServiceSwap extends ServiceBase {
     kind: ESwapQuoteKind;
     walletType?: string;
     tradeSource: ESwapTradeSource;
+    source?: ESwapQuoteSource;
   }): Promise<IFetchBuildTxResponse | undefined> {
     const referralBuildTxParams = await this.getSwapReferralBuildTxParams({
       accountId,
       protocol,
     });
     const params: IFetchBuildTxParams = {
+      source,
       fromTokenAddress: fromToken.contractAddress,
       toTokenAddress: toToken.contractAddress,
       fromTokenAmount,
