@@ -208,20 +208,35 @@ abstract class SimpleDbEntityBase<T> {
       | ((rawData: T | null | undefined) => T)
       | ((rawData: T | null | undefined) => Promise<T>),
   ): Promise<T | undefined> {
+    return this.setRawDataWithCommitGuard(dataOrBuilder);
+  }
+
+  protected async setRawDataWithCommitGuard(
+    dataOrBuilder:
+      | T
+      | ((rawData: T | null | undefined) => T)
+      | ((rawData: T | null | undefined) => Promise<T>),
+    assertCanCommit?: () => void,
+  ): Promise<T | undefined> {
     const environment = await travelModeManager.getRuntimeEnvironment();
     return environment.persistence.run({
       operation: () =>
         this.mutex.runExclusive(async () => {
+          assertCanCommit?.();
           const updatedAt = Date.now();
           let data: T | undefined;
 
           if (isFunction(dataOrBuilder)) {
             const rawData = await this.getRawDataInner();
+            assertCanCommit?.();
             data = await dataOrBuilder(rawData);
           } else {
             data = dataOrBuilder;
           }
 
+          // The lock, read and builder can all yield after the caller's check.
+          // Admit the write only while its owner is still current.
+          assertCanCommit?.();
           if (this.enableCache) {
             this.cachedRawData = data;
           }

@@ -1,3 +1,5 @@
+import { CanceledError } from 'axios';
+
 import { travelModeManager } from '@onekeyhq/shared/src/travelMode';
 import { TravelModeManager } from '@onekeyhq/shared/src/travelMode/TravelModeManager';
 import { waitAsync } from '@onekeyhq/shared/src/utils/promiseUtils';
@@ -33,6 +35,13 @@ class TestEntity extends SimpleDbEntityBase<{ v: number }> {
 
   protected override readonly enableUnreadableRecordSelfHeal: boolean;
 
+  async writeWithGuard(
+    builder: () => { v: number } | Promise<{ v: number }>,
+    guard: () => void,
+  ) {
+    return this.setRawDataWithCommitGuard(async () => builder(), guard);
+  }
+
   constructor({
     name = 'test-entity',
     enableCache = false,
@@ -46,6 +55,93 @@ class TestEntity extends SimpleDbEntityBase<{ v: number }> {
 }
 
 const expectedHealGetItemCalls = 1 + UNREADABLE_SELF_HEAL_MAX_RETRIES;
+
+describe('SimpleDbEntityBase request commit guard', () => {
+  it('rejects a stale queued writer after acquiring the entity lock', async () => {
+    const entity = new TestEntity();
+    const setItem = jest.fn(async () => undefined);
+    entity.appStorage = {
+      ...entity.appStorage,
+      getItem: jest.fn(async () => null),
+      setItem,
+    };
+    const [, release] = await entity.mutex.acquire();
+    let current = true;
+    const builder = jest.fn(() => ({ v: 1 }));
+    const pending = entity.writeWithGuard(builder, () => {
+      if (!current) throw new CanceledError('owner expired');
+    });
+    const rejected = (async () => {
+      await expect(pending).rejects.toThrow('owner expired');
+    })();
+    current = false;
+    release();
+    await rejected;
+    expect(builder).not.toHaveBeenCalled();
+    expect(setItem).not.toHaveBeenCalled();
+    await entity.setRawData({ v: 2 });
+    expect(setItem).toHaveBeenCalledTimes(1);
+  });
+
+  it('rechecks after a pending read before building or writing', async () => {
+    const entity = new TestEntity();
+    let releaseRead!: (value: null) => void;
+    let signalRead!: () => void;
+    const readStarted = new Promise<void>((resolve) => {
+      signalRead = resolve;
+    });
+    const read = new Promise<null>((resolve) => {
+      releaseRead = resolve;
+    });
+    const setItem = jest.fn(async () => undefined);
+    entity.appStorage = {
+      ...entity.appStorage,
+      getItem: jest.fn(async () => {
+        signalRead();
+        return read;
+      }),
+      setItem,
+    };
+    let current = true;
+    const builder = jest.fn(() => ({ v: 1 }));
+    const pending = entity.writeWithGuard(builder, () => {
+      if (!current) throw new CanceledError('owner expired');
+    });
+    const rejected = (async () => {
+      await expect(pending).rejects.toThrow('owner expired');
+    })();
+    await readStarted;
+    current = false;
+    releaseRead(null);
+    await rejected;
+    expect(builder).not.toHaveBeenCalled();
+    expect(setItem).not.toHaveBeenCalled();
+  });
+
+  it('rechecks after an async builder and admits the final owner normally', async () => {
+    const entity = new TestEntity();
+    const setItem = jest.fn(async () => undefined);
+    entity.appStorage = {
+      ...entity.appStorage,
+      getItem: jest.fn(async () => null),
+      setItem,
+    };
+    let current = true;
+    const guard = () => {
+      if (!current) throw new CanceledError('owner expired');
+    };
+    await expect(
+      entity.writeWithGuard(async () => {
+        current = false;
+        return { v: 1 };
+      }, guard),
+    ).rejects.toThrow('owner expired');
+    expect(setItem).not.toHaveBeenCalled();
+    current = true;
+    await entity.writeWithGuard(() => ({ v: 2 }), guard);
+    expect(setItem).toHaveBeenCalledTimes(1);
+  });
+});
 
 describe('SimpleDbEntityBase Travel Mode masking', () => {
   test('hides cached reads and skips builders and durable writes', async () => {

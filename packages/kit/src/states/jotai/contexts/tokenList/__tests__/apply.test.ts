@@ -21,11 +21,13 @@ import {
   fiatEqual,
   isAgg,
   metaEqual,
+  sumAggregateEntry,
 } from '@onekeyhq/kit-bg/src/states/jotai/contexts/tokenList/cellsPure/pure';
 import type {
   IStructureSnapshot,
   IValuationFrame,
 } from '@onekeyhq/kit-bg/src/states/jotai/contexts/tokenList/cellsPure/types';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import type { IToken, ITokenFiat } from '@onekeyhq/shared/types/token';
 
 import { listStructureAtom } from '../atoms';
@@ -46,6 +48,16 @@ import {
 
 import type { IApplyDeps } from '../cells/apply';
 import type { IStoreProjection } from '../cells/projection';
+
+jest.mock(
+  '@onekeyhq/kit-bg/src/states/jotai/contexts/tokenList/cellsPure/pure',
+  () => {
+    const actual = jest.requireActual<
+      typeof import('@onekeyhq/kit-bg/src/states/jotai/contexts/tokenList/cellsPure/pure')
+    >('@onekeyhq/kit-bg/src/states/jotai/contexts/tokenList/cellsPure/pure');
+    return { ...actual, sumAggregateEntry: jest.fn(actual.sumAggregateEntry) };
+  },
+);
 
 type IStore = ReturnType<typeof createStore>;
 
@@ -392,6 +404,115 @@ describe('applyStructureSnapshot', () => {
 });
 
 describe('applyValuationFrame', () => {
+  it('sums a mounted aggregate once per frame and publishes only its complete value', () => {
+    const { store, ctx, projection, deps } = setup();
+    const networks = Array.from({ length: 22 }, (_, index) => `net${index}`);
+    applyStructureSnapshot(
+      ctx,
+      projection,
+      makeStructure({ aggMembership: { aggregate_eth: networks } }),
+      deps,
+    );
+    const values = Object.fromEntries(
+      networks.map((network, index) => [
+        network,
+        makeFiat({
+          balance: String(index + 1),
+          balanceParsed: String(index + 1),
+          fiatValue: String((index + 1) * 10),
+          balanceMultiplier: '2',
+          frozenBalance: '1',
+          totalBalance: '3',
+          price24h: 5,
+          currency: 'usd',
+        }),
+      ]),
+    );
+    const aggregate = aggCell(ctx, 'aggregate_eth');
+    const observed: Array<ITokenFiat | undefined> = [];
+    const unsubscribe = store.sub(aggregate, () => {
+      observed.push(store.get(aggregate));
+    });
+    const sum = jest.mocked(sumAggregateEntry);
+    sum.mockClear();
+    const frame = makeValuation({ changedAggFiat: { aggregate_eth: values } });
+
+    applyValuationFrame(ctx, projection, frame, deps);
+
+    expect(sum).toHaveBeenCalledTimes(1);
+    expect(observed).toHaveLength(1);
+    expect(observed[0]).toMatchObject({
+      balance: '253',
+      balanceParsed: '506',
+      fiatValue: '2530',
+      frozenBalance: '22',
+      totalBalance: '66',
+      price24h: 5,
+      currency: 'usd',
+    });
+    for (const network of networks) {
+      expect(store.get(subcell(ctx, 'aggregate_eth', network))).toBe(
+        values[network],
+      );
+    }
+
+    sum.mockClear();
+    applyValuationFrame(ctx, projection, frame, deps);
+    expect(sum).not.toHaveBeenCalled();
+    expect(observed).toHaveLength(1);
+
+    // Standalone per-network writes retain the usual derived-cell behavior.
+    store.set(
+      subcell(ctx, 'aggregate_eth', 'net0'),
+      makeFiat({ balance: '2', fiatValue: '20' }),
+    );
+    expect(store.get(aggregate)?.balance).toBe('254');
+    expect(sum).toHaveBeenCalledTimes(1);
+    unsubscribe();
+  });
+
+  it('restores aggregate dependencies when a sub-cell write throws', () => {
+    const { store, ctx, projection, deps } = setup();
+    applyStructureSnapshot(
+      ctx,
+      projection,
+      makeStructure({ aggMembership: { agg: ['net1', 'net2'] } }),
+      deps,
+    );
+    const aggregate = aggCell(ctx, 'agg');
+    const unsubscribe = store.sub(aggregate, () => undefined);
+    const failedCell = subcell(ctx, 'agg', 'net2');
+    const throwingDeps: IApplyDeps = {
+      ...deps,
+      set: (target, value) => {
+        if (Object.is(target, failedCell)) {
+          throw new OneKeyLocalError('write failed');
+        }
+        deps.set(target, value);
+      },
+    };
+
+    expect(() =>
+      applyValuationFrame(
+        ctx,
+        projection,
+        makeValuation({
+          changedAggFiat: {
+            agg: {
+              net1: makeFiat({ balance: '1' }),
+              net2: makeFiat({ balance: '2' }),
+            },
+          },
+        }),
+        throwingDeps,
+      ),
+    ).toThrow('write failed');
+    expect(store.get(aggregate)?.balance).toBe('1');
+    store.set(failedCell, makeFiat({ balance: '2' }));
+    expect(store.get(aggregate)?.balance).toBe('3');
+    unsubscribe();
+  });
+
   it('fires only for cells that actually changed (<= changedFiatById.size)', () => {
     const { store, ctx, projection, deps } = setup();
     applyStructureSnapshot(

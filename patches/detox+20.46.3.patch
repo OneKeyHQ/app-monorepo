@@ -1,0 +1,290 @@
+diff --git a/node_modules/detox/scripts/build_framework.ios.sh b/node_modules/detox/scripts/build_framework.ios.sh
+index 5a658cb..385a90d 100755
+--- a/node_modules/detox/scripts/build_framework.ios.sh
++++ b/node_modules/detox/scripts/build_framework.ios.sh
+@@ -3,6 +3,8 @@
+ PROJECT=$1
+ FRAMEWORK_OUTPUT_DIR=$2
+ CONFIGURATION=Release
++# OneKey patch: build the source archive with current Xcode simulator SDKs.
++ONEKEY_BUILD_SETTINGS=(IPHONEOS_DEPLOYMENT_TARGET=15.0 SWIFT_TREAT_WARNINGS_AS_ERRORS=NO GCC_TREAT_WARNINGS_AS_ERRORS=NO CODE_SIGNING_ALLOWED=NO)
+ PROJECT_NAME=Detox
+ 
+ # Make sure the output directory exists
+@@ -17,12 +19,15 @@ echo "Using -UseNewBuildSystem=${USE_NEW_BUILD_SYSTEM}"
+ 
+ # Step 1. Build Device and Simulator versions
+ 
+-BUILD_SIM=`xcodebuild -project "${PROJECT}" -scheme "Detox" -UseNewBuildSystem=${USE_NEW_BUILD_SYSTEM} -configuration "${CONFIGURATION}" -sdk iphonesimulator -destination "generic/platform=iOS Simulator" build -showBuildSettings  | awk -F= '/TARGET_BUILD_DIR/{x=$NF; gsub(/^[ \t]+|[ \t]+$/,"",x); print x}'`
++BUILD_SIM=`xcodebuild -project "${PROJECT}" -scheme "Detox" -UseNewBuildSystem=${USE_NEW_BUILD_SYSTEM} -configuration "${CONFIGURATION}" -sdk iphonesimulator -destination "generic/platform=iOS Simulator" "${ONEKEY_BUILD_SETTINGS[@]}" build -showBuildSettings  | awk -F= '/TARGET_BUILD_DIR/{x=$NF; gsub(/^[ \t]+|[ \t]+$/,"",x); print x}'`
+ 
+ echo ${BUILD_SIM}
+ 
+-xcodebuild -project "${PROJECT}" -scheme "Detox" -UseNewBuildSystem=${USE_NEW_BUILD_SYSTEM} -configuration "${CONFIGURATION}" -sdk iphonesimulator -destination "generic/platform=iOS Simulator" build -quiet
++xcodebuild -project "${PROJECT}" -scheme "Detox" -UseNewBuildSystem=${USE_NEW_BUILD_SYSTEM} -configuration "${CONFIGURATION}" -sdk iphonesimulator -destination "generic/platform=iOS Simulator" "${ONEKEY_BUILD_SETTINGS[@]}" build -quiet
+ 
+ # Step 2. Copy the framework to output folder
+ 
+ cp -fR "${BUILD_SIM}/${PROJECT_NAME}.framework" "${FRAMEWORK_OUTPUT_DIR}"/
++
++# OneKey patch: the injected simulator framework needs an ad-hoc signature.
++codesign --force --deep --sign - "${FRAMEWORK_OUTPUT_DIR}/${PROJECT_NAME}.framework"
+diff --git a/node_modules/detox/scripts/build_local_framework.ios.sh b/node_modules/detox/scripts/build_local_framework.ios.sh
+index 76658fb..264deb3 100755
+--- a/node_modules/detox/scripts/build_local_framework.ios.sh
++++ b/node_modules/detox/scripts/build_local_framework.ios.sh
+@@ -7,18 +7,27 @@ detoxRootPath="$(dirname "$(dirname "$0")")"
+ detoxVersion=`node -p "require('${detoxRootPath}/package.json').version"`
+ 
+ sha1=`(echo "${detoxVersion}" && xcodebuild -version) | shasum | awk '{print $1}' #"${2}"`
+-detoxFrameworkDirPath="$HOME/Library/Detox/ios/framework/${sha1}"
++# OneKey patch: isolate patched builds from upstream caches and invalidate on recipe changes.
++onekeyPatchHash=`cat "${detoxRootPath}"/scripts/onekey-ios-memory.patch "${detoxRootPath}"/scripts/build_framework.ios.sh "${detoxRootPath}"/scripts/build_local_framework.ios.sh | shasum -a 256 | awk '{print $1}'`
++# detoxFrameworkDirPath="$HOME/Library/Detox/ios/framework/${sha1}"
++detoxFrameworkDirPath="$HOME/Library/Detox/ios/framework/onekey-${onekeyPatchHash}/${sha1}"
+ detoxFrameworkPath="${detoxFrameworkDirPath}/Detox.framework"
+ 
+ 
+ function prepareAndBuildFramework () {
+-  if [ -d "$detoxRootPath"/ios ]; then
+-    detoxSourcePath="${detoxRootPath}"/ios
+-    echo "Dev mode, building from ${detoxSourcePath}"
+-    buildFramework "${detoxSourcePath}"
+-  else
+-    extractFramework
+-  fi
++  # OneKey patch: npm ships native sources in an archive; never reuse its unpatched binary.
++  # if [ -d "$detoxRootPath"/ios ]; then
++  # detoxSourcePath="${detoxRootPath}"/ios
++  # echo "Dev mode, building from ${detoxSourcePath}"
++  # buildFramework "${detoxSourcePath}"
++  # else
++  # extractFramework
++  # fi
++  detoxSourcePath="$(mktemp -d "${TMPDIR:-/tmp}/detox-onekey.XXXXXX")"
++  trap 'rm -rf "${detoxSourcePath}"' EXIT
++  tar -xjf "${detoxRootPath}"/Detox-ios-src.tbz -C "${detoxSourcePath}"
++  patch --batch --forward -p1 -d "${detoxSourcePath}" < "${detoxRootPath}"/scripts/onekey-ios-memory.patch
++  buildFramework "${detoxSourcePath}"
+ }
+ 
+ function extractFramework () {
+@@ -31,7 +40,9 @@ function buildFramework () {
+   detoxSourcePath="${1}"
+   echo "Building Detox.framework from ${detoxSourcePath} into ${detoxFrameworkDirPath}"
+   mkdir -p "${detoxFrameworkDirPath}"
+-  logPath="${detoxFrameworkDirPath}"/detox_ios.log
++  # OneKey patch: keep the log outside the output directory reset by the builder.
++  # logPath="${detoxFrameworkDirPath}"/detox_ios.log
++  logPath="${detoxFrameworkDirPath}.log"
+   echo "Build log: ${logPath}"
+   echo -n "" > "${logPath}"
+   "${detoxRootPath}"/scripts/build_framework.ios.sh "${detoxSourcePath}"/Detox.xcodeproj "${detoxFrameworkDirPath}" &> "${logPath}" || {
+@@ -44,7 +55,7 @@ function buildFramework () {
+ 
+ function main () {
+   if [ -d "${detoxFrameworkDirPath}" ]; then
+-    if [ ! -d "${detoxFrameworkPath}" ]; then
++    if [ ! -f "${detoxFrameworkPath}/Detox" ]; then
+       echo "${detoxFrameworkDirPath} was found, but could not find Detox.framework inside it. This means that the Detox framework build process was interrupted.
+          deleting ${detoxFrameworkDirPath} and trying to rebuild."
+       rm -rf "${detoxFrameworkDirPath}"
+diff --git a/node_modules/detox/scripts/onekey-ios-memory.patch b/node_modules/detox/scripts/onekey-ios-memory.patch
+new file mode 100644
+index 0000000..45a3cdb
+--- /dev/null
++++ b/node_modules/detox/scripts/onekey-ios-memory.patch
+@@ -0,0 +1,144 @@
++diff --git a/Detox/Invocation/Action.swift b/Detox/Invocation/Action.swift
++index a26d6f0..15e6e59 100644
++--- a/Detox/Invocation/Action.swift
+++++ b/Detox/Invocation/Action.swift
++@@ -651,7 +651,13 @@ class SetDatePickerAction : Action {
++ class GetAttributesAction : Action {
++ 	override func perform(completionHandler: @escaping ([String : Any]?, Error?) -> Void) {
++ 		async_action_dtx_try(completionHandler: completionHandler) {
++-			completionHandler(element.attributes, nil)
+++			// OneKey patch: retain native exception handling, but unwind query failures in Swift.
+++			// completionHandler(element.attributes, nil)
+++			do {
+++				completionHandler(try element.getAttributes(), nil)
+++			} catch {
+++				completionHandler(nil, error)
+++			}
++ 		}
++ 	}
++ }
++diff --git a/Detox/Invocation/Element.swift b/Detox/Invocation/Element.swift
++index 872435b..6f4a458 100644
++--- a/Detox/Invocation/Element.swift
+++++ b/Detox/Invocation/Element.swift
++@@ -12,6 +12,8 @@ import WebKit
++ class Element : NSObject {
++ 	let predicate : Predicate
++ 	let index : Int?
+++	// OneKey patch: polling failures do not need a full view hierarchy.
+++	var shouldIncludeFailureDiagnostics = true
++ 	
++ 	struct Keys {
++ 		static let predicate = "predicate"
++@@ -34,7 +36,7 @@ class Element : NSObject {
++ 		do {
++ 			var moreThanZero : Bool = false
++ 			try dtx_try {
++-				moreThanZero = self.views.count > 0
+++				moreThanZero = !self.queryViews().isEmpty
++ 			}
++ 			return moreThanZero
++ 		} catch {
++@@ -42,9 +44,13 @@ class Element : NSObject {
++ 		}
++ 	}
++ 	
++-	private var views : [NSObject] {
+++	private func queryViews() -> [NSObject] {
++ 		//TODO: Consider searching here in all windows from all scenes.
++-		let array = (UIView.dtx_findViewsInKeySceneWindows(passing: predicate.predicateForQuery()) as! [NSObject])
+++		return UIView.dtx_findViewsInKeySceneWindows(passing: predicate.predicateForQuery()) as! [NSObject]
+++	}
+++	
+++	private var views : [NSObject] {
+++		let array = queryViews()
++ 		
++ 		guard array.count > 0 else {
++ 			dtx_fatalError("No elements found for “\(self.description)”", viewDescription: failDebugAttributes)
++@@ -100,14 +106,29 @@ class Element : NSObject {
++ 	}
++ 	
++ 	fileprivate var failDebugAttributes: [String: Any] {
+++		guard shouldIncludeFailureDiagnostics else { return [:] }
++ 		return NSObject.dtx_genericElementDebugAttributes
++ 	}
++ 	
++ 	var debugAttributes: [String: Any] {
+++		guard shouldIncludeFailureDiagnostics else { return [:] }
++ 		do {
++ 			var rv: [String: Any]! = nil
++ 			try dtx_try {
++-				rv = view.dtx_elementDebugAttributes
+++				let matches = self.queryViews()
+++				let diagnosticView: NSObject?
+++				if let index = self.index {
+++					diagnosticView = matches.indices.contains(index) ? matches[index] : nil
+++				} else {
+++					diagnosticView = matches.count == 1 ? matches.first : nil
+++				}
+++				if let diagnosticView = diagnosticView {
+++					rv = diagnosticView.dtx_elementDebugAttributes
+++				} else {
+++					// Missing or ambiguous matches need one generic diagnostic,
+++					// not an Objective-C assertion while building that diagnostic.
+++					rv = failDebugAttributes
+++				}
++ 			}
++ 			return rv
++ 		} catch {
++@@ -306,9 +327,13 @@ class Element : NSObject {
++         }
++     }
++ 
++-	@objc
++-	var attributes: [String : Any] {
++-		let views = self.views
+++	// OneKey patch: Swift errors release the diagnostic dictionary before unwinding.
+++	// @objc var attributes: [String : Any] { let views = self.views
+++	func getAttributes() throws -> [String : Any] {
+++		let views = UIView.dtx_findViewsInKeySceneWindows(passing: predicate.predicateForQuery()) as! [NSObject]
+++		guard !views.isEmpty else {
+++			throw dtx_errorForFatalError("No elements found for “\(self.description)”", viewDescription: failDebugAttributes)
+++		}
++ 		
++ 		if views.count == 1 {
++ 			return views.first!.dtx_attributes
++diff --git a/Detox/Invocation/Expectation.swift b/Detox/Invocation/Expectation.swift
++index 29cd444..f782168 100644
++--- a/Detox/Invocation/Expectation.swift
+++++ b/Detox/Invocation/Expectation.swift
++@@ -155,9 +155,14 @@ class Expectation : CustomStringConvertible {
++ 			return
++ 		}
++ 		
+++		let previousDiagnostics = element.shouldIncludeFailureDiagnostics
+++		element.shouldIncludeFailureDiagnostics = false
++ 		let evaluationSuccess = dtx_try_nothrow {
++ 			_evaluate()
++ 		}
+++		// Restore after the native exception wrapper returns. Swift defer may
+++		// be bypassed by an Objective-C exception crossing the probe frame.
+++		element.shouldIncludeFailureDiagnostics = previousDiagnostics
++ 		
++ 		guard evaluationSuccess == false else {
++ 			completionHandler(nil)
++diff --git a/Detox/Utilities/UIImage+DetoxUtils.m b/Detox/Utilities/UIImage+DetoxUtils.m
++index 372907c..4561c55 100644
++--- a/Detox/Utilities/UIImage+DetoxUtils.m
+++++ b/Detox/Utilities/UIImage+DetoxUtils.m
++@@ -14,7 +14,14 @@ - (UIImage *)dtx_imageByCroppingInRect:(CGRect)rect
++ {
++ 	rect = CGRectMake(rect.origin.x * self.scale, rect.origin.y * self.scale, rect.size.width * self.scale, rect.size.height * self.scale);
++ 	
++-	return [UIImage imageWithCGImage:CGImageCreateWithImageInRect(self.CGImage, rect) scale:1 orientation:self.imageOrientation];
+++	// OneKey patch: UIImage retains the crop; release the Create-owned reference.
+++	// return [UIImage imageWithCGImage:CGImageCreateWithImageInRect(self.CGImage, rect) scale:1 orientation:self.imageOrientation];
+++	CGImageRef croppedImage = CGImageCreateWithImageInRect(self.CGImage, rect);
+++	UIImage *image = [UIImage imageWithCGImage:croppedImage scale:1 orientation:self.imageOrientation];
+++	if (croppedImage != NULL) {
+++		CGImageRelease(croppedImage);
+++	}
+++	return image;
++ }
++ 
++ - (NSUInteger)dtx_numberOfVisiblePixelsWithAlphaThreshold:(CGFloat)threshold totalPixels:(NSUInteger*)totalPixels
+diff --git a/node_modules/detox/src/utils/environment.js b/node_modules/detox/src/utils/environment.js
+index 3fffe45..d56f85d 100644
+--- a/node_modules/detox/src/utils/environment.js
++++ b/node_modules/detox/src/utils/environment.js
+@@ -10,8 +10,9 @@ const _which = require('which');
+ const DetoxRuntimeError = require('../errors/DetoxRuntimeError');
+ 
+ const appdatapath = require('./appdatapath');
+-const { execAsync } = require('./childProcess');
++const { execAsync, spawnAndLog } = require('./childProcess');
+ const fsext = require('./fsext');
++const ExclusiveLockfile = require('./ExclusiveLockfile');
+ 
+ function which(executable, path) {
+   return _which.sync(executable, { path, nothrow: true });
+@@ -192,11 +193,31 @@ const getBuildFolderName = _.once(async () => {
+   return crypto.createHash('sha1').update(`${detoxVersion}\n${xcodeVersion}\n`).digest('hex');
+ });
+ 
+-const getFrameworkDirPath = `${DETOX_LIBRARY_ROOT_PATH}/ios/framework`;
++// OneKey patch: keep this fingerprint identical to build_local_framework.ios.sh.
++const onekeyFrameworkHash = crypto.createHash('sha256');
++for (const file of ['onekey-ios-memory.patch', 'build_framework.ios.sh', 'build_local_framework.ios.sh']) {
++  onekeyFrameworkHash.update(fs.readFileSync(path.join(__dirname, '../../scripts', file)));
++}
++// const getFrameworkDirPath = `${DETOX_LIBRARY_ROOT_PATH}/ios/framework`;
++const getFrameworkDirPath = `${DETOX_LIBRARY_ROOT_PATH}/ios/framework/onekey-${onekeyFrameworkHash.digest('hex')}`;
+ 
+ const getFrameworkPath = _.once(async () => {
+   const buildFolder = await getBuildFolderName();
+-  return `${getFrameworkDirPath}/${buildFolder}/Detox.framework`;
++  // OneKey patch: patch-package runs after Detox postinstall, so build the new cache on first use.
++  // return `${getFrameworkDirPath}/${buildFolder}/Detox.framework`;
++  const frameworkPath = `${getFrameworkDirPath}/${buildFolder}/Detox.framework`;
++  if (!fs.existsSync(path.join(frameworkPath, 'Detox'))) {
++    // Multiple iOS workers can reach validation before the first build finishes.
++    const lockfile = new ExclusiveLockfile(`${getFrameworkDirPath}/${buildFolder}.build.lock`, {
++      retry: { retries: 600, interval: 1000 },
++    });
++    await lockfile.exclusively(async () => {
++      if (!fs.existsSync(path.join(frameworkPath, 'Detox'))) {
++        await spawnAndLog(path.join(__dirname, '../../scripts/build_local_framework.ios.sh'), [], { stdio: 'inherit' });
++      }
++    });
++  }
++  return frameworkPath;
+ });
+ 
+ const getXCUITestRunnerDirPath = `${DETOX_LIBRARY_ROOT_PATH}/ios/xcuitest-runner`;

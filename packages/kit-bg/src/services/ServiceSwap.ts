@@ -137,6 +137,7 @@ import {
   inAppNotificationAtom,
   perpsDepositOrderAtom,
   settingsPersistAtom,
+  swapLimitOrdersLoadingAtom,
 } from '../states/jotai/atoms';
 import { vaultFactory } from '../vaults/factory';
 
@@ -3455,10 +3456,7 @@ export default class ServiceSwap extends ServiceBase {
         swapSupportNetworks: swapLimitSupportNetworks,
       });
     if (supportAccountsFetchFailed) {
-      await inAppNotificationAtom.set((pre) => ({
-        ...pre,
-        swapLimitOrdersLoading: false,
-      }));
+      await swapLimitOrdersLoadingAtom.set(() => false);
       this.scheduleSwapLimitOrdersFetchLoop(
         indexedAccountId,
         otherWalletTypeAccountId,
@@ -3495,10 +3493,7 @@ export default class ServiceSwap extends ServiceBase {
             userAddress: account.apiAddress,
             networkId: account.networkId,
           }));
-          await inAppNotificationAtom.set((pre) => ({
-            ...pre,
-            swapLimitOrdersLoading: true,
-          }));
+          await swapLimitOrdersLoadingAtom.set(() => true);
           res = await this.fetchLimitOrders(accounts);
           await this.checkLimitOrderStatus(res, swapLimitOrders);
           await inAppNotificationAtom.set((pre) => {
@@ -3517,13 +3512,11 @@ export default class ServiceSwap extends ServiceBase {
               return {
                 ...pre,
                 swapLimitOrders: [...newList],
-                swapLimitOrdersLoading: false,
                 swapLimitOrdersAccountIdKey: accountIdKey,
               };
             }
             return {
               ...pre,
-              swapLimitOrdersLoading: false,
               swapLimitOrders: [...res],
               swapLimitOrdersAccountIdKey: accountIdKey,
             };
@@ -3535,11 +3528,11 @@ export default class ServiceSwap extends ServiceBase {
             );
           }
         } else {
-          await inAppNotificationAtom.set((pre) => ({
-            ...pre,
-            swapLimitOrdersLoading: false,
-            swapLimitOrdersAccountIdKey: accountIdKey,
-          }));
+          await inAppNotificationAtom.set((pre) =>
+            pre.swapLimitOrdersAccountIdKey === accountIdKey
+              ? pre
+              : { ...pre, swapLimitOrdersAccountIdKey: accountIdKey },
+          );
         }
       } catch (_error) {
         this.scheduleSwapLimitOrdersFetchLoop(
@@ -3547,18 +3540,20 @@ export default class ServiceSwap extends ServiceBase {
           otherWalletTypeAccountId,
         );
       } finally {
-        await inAppNotificationAtom.set((pre) => ({
-          ...pre,
-          swapLimitOrdersLoading: false,
-        }));
+        await swapLimitOrdersLoadingAtom.set(() => false);
       }
     } else {
-      await inAppNotificationAtom.set((pre) => ({
-        ...pre,
-        swapLimitOrders: [],
-        swapLimitOrdersLoading: false,
-        swapLimitOrdersAccountIdKey: accountIdKey,
-      }));
+      await inAppNotificationAtom.set((pre) =>
+        pre.swapLimitOrders.length === 0 &&
+        pre.swapLimitOrdersAccountIdKey === accountIdKey
+          ? pre
+          : {
+              ...pre,
+              swapLimitOrders: [],
+              swapLimitOrdersAccountIdKey: accountIdKey,
+            },
+      );
+      await swapLimitOrdersLoadingAtom.set(() => false);
     }
   }
 

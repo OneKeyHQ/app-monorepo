@@ -133,7 +133,7 @@ export const WEBEMBED_BRIDGE_RESPONSE_KEY_PREFIX = 'onekey:webembed:resp:';
 // SharedStore key holding main's latched capability advertisement (+ doubling
 // as the "main is up" liveness signal). Read synchronously by bg via
 // `sharedStore.get`.
-export const BACKGROUND_THREAD_MAIN_CAPABILITIES_KEY = 'onekey:bg:main-caps';
+export { BACKGROUND_THREAD_MAIN_CAPABILITIES_KEY } from '@onekeyhq/shared/src/utils/homeTokenRequest';
 // SharedRPC content-less wake ping fired after main updates its latched
 // capabilities in SharedStore (SharedStore has no notify). Edge-wakes bg to
 // re-read the capabilities key. Value is irrelevant.
@@ -142,6 +142,7 @@ export const BACKGROUND_THREAD_MAIN_CAPABILITIES_WAKE_KEY =
 
 export type IBackgroundThreadMainCapabilitiesPayload = {
   jotaiStateBatch?: boolean;
+  mainRuntimeId?: string;
 };
 
 export function serializeBackgroundThreadMainCapabilitiesPayload(

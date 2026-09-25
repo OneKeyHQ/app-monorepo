@@ -10,7 +10,10 @@ import {
   planSnapshotCacheWrite,
 } from './snapshotCacheManifest';
 
-import type { IDisplaySnapshotStorageSync } from '../DisplaySnapshotStorage/types';
+import type {
+  IDisplaySnapshotCommit,
+  IDisplaySnapshotStorageSync,
+} from '../DisplaySnapshotStorage/types';
 
 function createFakeStorage() {
   const records = new Map<string, string>();
@@ -269,6 +272,67 @@ describe('createSnapshotCacheSync', () => {
       ).toSorted(),
     ).toEqual(['a', 'other']);
   });
+
+  it.each(['set', 'setMany'] as const)(
+    '%s reuses its serialized snapshot while retrying with the other runtime manifest',
+    (method) => {
+      const { storage, records } = createFakeStorage();
+      const commits: IDisplaySnapshotCommit[] = [];
+      const timestamp = 100 * HOUR;
+      const otherManifest = JSON.stringify({
+        v: 1,
+        e: { other: timestamp - 1000 },
+      });
+      const toJSON = jest.fn(() => ({ value: 'snapshot' }));
+      const cache = createSnapshotCacheSync({
+        storage: {
+          ...storage,
+          commit(input) {
+            commits.push(input);
+            if (commits.length === 1) {
+              records.set(SNAPSHOT_CACHE_MANIFEST_KEY, otherManifest);
+            }
+            storage.commit(input);
+          },
+        },
+        retention,
+        now: () => timestamp,
+      });
+
+      if (method === 'set') {
+        cache.set('a', { toJSON });
+      } else {
+        cache.setMany([
+          ['a', { toJSON }],
+          ['b', { value: 'second' }],
+        ]);
+      }
+
+      expect(commits).toHaveLength(2);
+      expect(commits[0].expectedCommitMarker?.value).toBeUndefined();
+      expect(commits[1].expectedCommitMarker).toEqual({
+        key: SNAPSHOT_CACHE_MANIFEST_KEY,
+        value: otherManifest,
+      });
+      expect(commits[1].entries).toBe(commits[0].entries);
+      expect(toJSON).toHaveBeenCalledTimes(1);
+      expect(toJSON).toHaveBeenCalledWith('d');
+      expect(cache.get('a')).toEqual({
+        data: { value: 'snapshot' },
+        updatedAt: timestamp,
+      });
+      expect(
+        parseSnapshotCacheManifest(records.get(SNAPSHOT_CACHE_MANIFEST_KEY)).e,
+      ).toEqual({
+        other: timestamp - 1000,
+        a: timestamp,
+        ...(method === 'setMany' ? { b: timestamp } : {}),
+      });
+      if (method === 'setMany') {
+        expect(cache.get('b')?.data).toEqual({ value: 'second' });
+      }
+    },
+  );
 
   it('sweeps expired records and compacts only when something was dropped', () => {
     const { storage, records, compactCalls } = createFakeStorage();

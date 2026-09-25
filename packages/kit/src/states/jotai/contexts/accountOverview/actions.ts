@@ -1,6 +1,7 @@
 import { useRef } from 'react';
 
 import BigNumber from 'bignumber.js';
+import { isEqual } from 'lodash';
 
 import { USD_CURRENCY_ID } from '@onekeyhq/shared/src/consts/currencyConsts';
 import { memoFn } from '@onekeyhq/shared/src/utils/cacheUtils';
@@ -32,10 +33,14 @@ class ContextJotaiActionsAccountOverview extends ContextJotaiActionsBase {
 
   updateAccountOverviewState = contextAtomMethod(
     (get, set, payload: { initialized?: boolean; isRefreshing?: boolean }) => {
-      set(accountOverviewStateAtom(), {
-        ...get(accountOverviewStateAtom()),
+      const current = get(accountOverviewStateAtom());
+      const next = {
+        ...current,
         ...payload,
-      });
+      };
+      if (!isEqual(current, next)) {
+        set(accountOverviewStateAtom(), next);
+      }
     },
   );
 
@@ -54,9 +59,10 @@ class ContextJotaiActionsAccountOverview extends ContextJotaiActionsBase {
       },
     ) => {
       const currency = payload.currency ?? USD_CURRENCY_ID;
+      const current = get(accountWorthAtom());
       if (payload.merge) {
-        const { worth, createAtNetworkWorth } = get(accountWorthAtom());
-        set(accountWorthAtom(), {
+        const { worth, createAtNetworkWorth } = current;
+        const next = {
           worth: {
             ...worth,
             ...payload.worth,
@@ -68,18 +74,24 @@ class ContextJotaiActionsAccountOverview extends ContextJotaiActionsBase {
           accountId: payload.accountId,
           updateAll: payload.updateAll,
           currency,
-        });
+        };
+        if (!isEqual(current, next)) {
+          set(accountWorthAtom(), next);
+        }
         return;
       }
 
-      set(accountWorthAtom(), {
+      const next = {
         worth: payload.worth,
         createAtNetworkWorth: payload.createAtNetworkWorth ?? '0',
         initialized: payload.initialized,
         accountId: payload.accountId,
         updateAll: payload.updateAll,
         currency,
-      });
+      };
+      if (!isEqual(current, next)) {
+        set(accountWorthAtom(), next);
+      }
     },
   );
 
@@ -87,12 +99,20 @@ class ContextJotaiActionsAccountOverview extends ContextJotaiActionsBase {
     (
       get,
       set,
-      payload: { hasRiskApprovals?: boolean; riskApprovalsCount?: number },
+      payload: {
+        ownerKey?: string;
+        hasRiskApprovals?: boolean;
+        riskApprovalsCount?: number;
+      },
     ) => {
-      set(approvalsInfoAtom(), {
-        ...get(approvalsInfoAtom()),
+      const current = get(approvalsInfoAtom());
+      const next = {
+        ...current,
         ...payload,
-      });
+      };
+      if (!isEqual(current, next)) {
+        set(approvalsInfoAtom(), next);
+      }
     },
   );
 

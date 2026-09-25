@@ -87,6 +87,7 @@ import {
 import accountSelectorUtils from '@onekeyhq/shared/src/utils/accountSelectorUtils';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { memoFn } from '@onekeyhq/shared/src/utils/cacheUtils';
+import { createHomeTokenRequestInvalidation } from '@onekeyhq/shared/src/utils/homeTokenRequest';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import {
@@ -108,6 +109,7 @@ import {
   accountSelectorStorageReadyAtom,
   accountSelectorSyncLoadingAtom,
   accountSelectorUpdateMetaAtom,
+  activeAccountEpochAtom,
   activeAccountsAtom,
   contextAtomMethod,
   defaultActiveAccountInfo,
@@ -1355,6 +1357,65 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
 
   mutexUpdateSelectedAccount = new Semaphore(1);
 
+  advanceActiveAccountEpoch = contextAtomMethod(
+    (
+      get,
+      set,
+      payload: {
+        num: number;
+        sceneName: EAccountSelectorSceneName | undefined;
+        previousSelectedAccount: IAccountSelectorSelectedAccount;
+        selectedAccount: IAccountSelectorSelectedAccount;
+      },
+    ) => {
+      const { num, sceneName, previousSelectedAccount, selectedAccount } =
+        payload;
+      const epochs = get(activeAccountEpochAtom());
+      // Match AccountSelectorEffects' active-account reload dependencies.
+      // Moving the wallet-list focus does not reload the active account, so
+      // invalidating its requests could leave them without a replacement run.
+      if (
+        isEqual(
+          [
+            previousSelectedAccount.walletId,
+            previousSelectedAccount.indexedAccountId,
+            previousSelectedAccount.othersWalletAccountId,
+            previousSelectedAccount.networkId,
+            previousSelectedAccount.deriveType,
+          ],
+          [
+            selectedAccount.walletId,
+            selectedAccount.indexedAccountId,
+            selectedAccount.othersWalletAccountId,
+            selectedAccount.networkId,
+            selectedAccount.deriveType,
+          ],
+        )
+      ) {
+        return epochs[num] ?? 0;
+      }
+      const nextEpoch = (epochs[num] ?? 0) + 1;
+      set(activeAccountEpochAtom(), {
+        ...epochs,
+        [num]: nextEpoch,
+      });
+
+      if (sceneName === EAccountSelectorSceneName.home && num === 0) {
+        const invalidation = createHomeTokenRequestInvalidation();
+        void (
+          invalidation
+            ? backgroundApiProxy.serviceToken.invalidateHomeTokenRequests(
+                invalidation,
+              )
+            : backgroundApiProxy.serviceToken.abortFetchAccountTokens({
+                includedFlags: ['home-token-list'],
+              })
+        ).catch(() => undefined);
+      }
+      return nextEpoch;
+    },
+  );
+
   updateSelectedAccount = contextAtomMethod(
     async (
       get,
@@ -1502,6 +1563,12 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
             newSelectedAccount.othersWalletAccountId = undefined;
           }
         }
+        this.advanceActiveAccountEpoch.call(set, {
+          num,
+          sceneName: sceneInfo?.sceneName,
+          previousSelectedAccount: oldSelectedAccount,
+          selectedAccount: newSelectedAccount,
+        });
         this.setSelectedAccountsAtom(
           set,
           (v) => ({
@@ -1721,6 +1788,12 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
           ) &&
           !isEmpty(newSelectedAccount)
         ) {
+          this.advanceActiveAccountEpoch.call(set, {
+            num,
+            sceneName: requestContextData?.sceneName,
+            previousSelectedAccount: oldSelectedAccount,
+            selectedAccount: newSelectedAccount,
+          });
           this.setSelectedAccountsAtom(
             set,
             (v) => ({

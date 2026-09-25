@@ -8,7 +8,7 @@ import {
   useDeferredPromise,
   useNetInfo,
 } from '@onekeyhq/components';
-import { useRouteIsFocused as useIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
+import { useRouteIsFocusedWhenEnabled as useIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { swrCacheUtils } from '@onekeyhq/shared/src/utils/swrCacheUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
@@ -160,7 +160,10 @@ export function usePromiseResult<T>(
   }
   const [isLoading, setIsLoading] = useState<boolean | undefined>();
   const isMountedRef = useIsMounted();
-  const _isFocused = useIsFocused({ testID: options.testID });
+  const _isFocused = useIsFocused({
+    enabled: options.checkIsFocused !== false,
+    testID: options.testID,
+  });
   const isFocusedRef = useRef<boolean>(_isFocused);
   const pollingNonceRef = useRef<number>(0);
   isFocusedRef.current = _isFocused;

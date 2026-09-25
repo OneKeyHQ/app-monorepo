@@ -73,7 +73,17 @@ jest.mock('@onekeyhq/kit/src/hooks/useRouteIsFocused', () => {
     return value;
   };
 
-  return { useRouteIsFocused, __setFocus, __resetFocus };
+  const useRouteIsFocusedWhenEnabled = ({ enabled }: { enabled: boolean }) => {
+    const value = useRouteIsFocused();
+    return !enabled || value;
+  };
+
+  return {
+    useRouteIsFocused,
+    useRouteIsFocusedWhenEnabled,
+    __setFocus,
+    __resetFocus,
+  };
 });
 
 const focusControl = jest.requireMock(

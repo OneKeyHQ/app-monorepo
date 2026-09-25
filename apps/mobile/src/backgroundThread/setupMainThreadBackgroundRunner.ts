@@ -16,6 +16,7 @@ import {
   NativeLogger,
 } from '@onekeyhq/shared/src/modules3rdParty/react-native-file-logger';
 import { recordInboundFromBackground } from '@onekeyhq/shared/src/performance/collectors/jsBlockCollector';
+import { isAccountSwitchDiagnosticsEnabled } from '@onekeyhq/shared/src/performance/enabled';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   type IAsyncStorageWriteArgs,
@@ -35,6 +36,7 @@ import {
   parseNativeStorageContractViolation,
   parseNativeSyncStorageMutation,
 } from '@onekeyhq/shared/src/storage/nativeStorageTypes';
+import { getHomeTokenMainRuntimeId } from '@onekeyhq/shared/src/utils/homeTokenRequest';
 import { registerImageEmbedBridge } from '@onekeyhq/shared/src/utils/imageUtils.embedBridge';
 
 import { routeBackgroundMessage } from './backgroundMessageRouter';
@@ -1164,11 +1166,13 @@ function handleBackgroundThreadResponse(
     return;
   }
 
-  recordInboundFromBackground({
-    kind: 'rpc',
-    name: pendingCall.method,
-    chars: typeof value === 'string' ? value.length : 0,
-  });
+  if (isAccountSwitchDiagnosticsEnabled()) {
+    recordInboundFromBackground({
+      kind: 'rpc',
+      name: pendingCall.method,
+      chars: typeof value === 'string' ? value.length : 0,
+    });
+  }
 
   const response = parseBackgroundThreadResponse(value);
   transportLog(
@@ -1212,11 +1216,13 @@ function handleBackgroundThreadJotaiStateUpdate(
   if (!payload) {
     return;
   }
-  recordInboundFromBackground({
-    kind: 'atom',
-    name: payload.name,
-    chars: typeof value === 'string' ? value.length : 0,
-  });
+  if (isAccountSwitchDiagnosticsEnabled()) {
+    recordInboundFromBackground({
+      kind: 'atom',
+      name: payload.name,
+      chars: typeof value === 'string' ? value.length : 0,
+    });
+  }
 
   applyOrQueueJotaiStateBroadcast({
     name: payload.name,
@@ -1240,16 +1246,18 @@ function handleBackgroundThreadJotaiStateBatchUpdate(
   }
   // One slot carries the whole batch, so split its size across the atoms in
   // it rather than charging each one for the batch.
-  const chars = typeof value === 'string' ? value.length : 0;
-  const charsPerItem = payload.items.length
-    ? Math.round(chars / payload.items.length)
-    : 0;
-  for (const item of payload.items) {
-    recordInboundFromBackground({
-      kind: 'atom',
-      name: item.name,
-      chars: charsPerItem,
-    });
+  if (isAccountSwitchDiagnosticsEnabled()) {
+    const chars = typeof value === 'string' ? value.length : 0;
+    const charsPerItem = payload.items.length
+      ? Math.round(chars / payload.items.length)
+      : 0;
+    for (const item of payload.items) {
+      recordInboundFromBackground({
+        kind: 'atom',
+        name: item.name,
+        chars: charsPerItem,
+      });
+    }
   }
 
   for (const item of payload.items) {
@@ -1288,11 +1296,13 @@ function handleBackgroundThreadAppEventUpdate(
   if (!payload) {
     return;
   }
-  recordInboundFromBackground({
-    kind: 'event',
-    name: payload.eventName,
-    chars: typeof value === 'string' ? value.length : 0,
-  });
+  if (isAccountSwitchDiagnosticsEnabled()) {
+    recordInboundFromBackground({
+      kind: 'event',
+      name: payload.eventName,
+      chars: typeof value === 'string' ? value.length : 0,
+    });
+  }
 
   if (payload.eventName === EAppEventBusNames.NativeStorageContractViolation) {
     const violation = parseNativeStorageContractViolation(payload.payload);
@@ -1435,6 +1445,7 @@ function installBackgroundRuntimeObserver(sharedRPC: ISharedRPC) {
         BACKGROUND_THREAD_MAIN_CAPABILITIES_KEY,
         serializeBackgroundThreadMainCapabilitiesPayload({
           jotaiStateBatch: true,
+          mainRuntimeId: getHomeTokenMainRuntimeId(),
         }),
       );
       sharedRPC.write(BACKGROUND_THREAD_MAIN_CAPABILITIES_WAKE_KEY, '1');

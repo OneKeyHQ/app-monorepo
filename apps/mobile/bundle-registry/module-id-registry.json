@@ -19213,6 +19213,7 @@
     "packages/kit-bg/src/states/jotai/utils/jotaiDefaultStore.ts": 7627,
     "packages/kit-bg/src/states/jotai/utils/jotaiVerify.ts": 21387,
     "packages/kit-bg/src/states/jotai/utils/wrapAtomPro.ts": 3326,
+    "packages/kit-bg/src/utils/homeTokenRequestRegistry.ts": 5690,
     "packages/kit-bg/src/utils/localSecretEnvelopeErrorUtils.ts": 4218,
     "packages/kit-bg/src/utils/secretEncryptFormat.ts": 16869,
     "packages/kit-bg/src/vaults/base/KeyringBase.ts": 23845,
@@ -21534,11 +21535,12 @@
     "packages/kit/src/views/Home/components/TokenListBlock/TokenListBlock.tsx": 1848,
     "packages/kit/src/views/Home/components/TokenListBlock/assetStatusAnalytics.ts": 21578,
     "packages/kit/src/views/Home/components/TokenListBlock/buildHomeTokenListCacheIngestRound.ts": 2900,
-    "packages/kit/src/views/Home/components/TokenListBlock/buildMergedAllNetworkSnapshot.ts": 7735,
+    "packages/kit/src/views/Home/components/TokenListBlock/homeTokenListRequestOwner.ts": 23318,
     "packages/kit/src/views/Home/components/TokenListBlock/index.ts": 1645,
     "packages/kit/src/views/Home/components/TokenListBlock/offTabRefresh.ts": 2687,
     "packages/kit/src/views/Home/components/TokenListBlock/ownerWorthCache.ts": 22488,
     "packages/kit/src/views/Home/components/TokenListBlock/portfolioSyncRequestState.ts": 16094,
+    "packages/kit/src/views/Home/components/TokenListBlock/projectHomeAccountLocalTokens.ts": 7033,
     "packages/kit/src/views/Home/components/TokenListBlock/selectHardwarePortfolioTokens.ts": 23848,
     "packages/kit/src/views/Home/components/TokenListBlock/useTokenListReactivePipeline.ts": 9900,
     "packages/kit/src/views/Home/components/Upgrade/Upgrade.tsx": 1178,
@@ -24221,6 +24223,7 @@
     "packages/shared/src/utils/avatarUtils.ts": 5350,
     "packages/shared/src/utils/btcUtils.ts": 4542,
     "packages/shared/src/utils/bufferUtils.ts": 18996,
+    "packages/shared/src/utils/buildMergedAllNetworkSnapshot.ts": 13706,
     "packages/shared/src/utils/bulkSendUtils.ts": 14353,
     "packages/shared/src/utils/cacheUtils.ts": 4538,
     "packages/shared/src/utils/cexDepositSupportUtils.ts": 1634,
@@ -24262,6 +24265,7 @@
     "packages/shared/src/utils/hexUtils.ts": 23739,
     "packages/shared/src/utils/historyFeeUtils.ts": 17085,
     "packages/shared/src/utils/historyUtils.ts": 22054,
+    "packages/shared/src/utils/homeTokenRequest.ts": 19248,
     "packages/shared/src/utils/homeWalletTabSupportUtils.ts": 6985,
     "packages/shared/src/utils/hyperLiquidErrorResolver.ts": 5382,
     "packages/shared/src/utils/hyperliquidDepositUtils.ts": 20122,
@@ -24426,6 +24430,7 @@
     "packages/shared/types/wallet.ts": 1105
   },
   "tombstones": {
+    "packages/kit/src/views/Home/components/TokenListBlock/buildMergedAllNetworkSnapshot.ts": 7735,
     "packages/kit/src/views/Market/hooks/useRecommendListingResolution.ts": 2969
   }
 }

@@ -129,6 +129,7 @@ describe('clearAll', () => {
     expect(p.metas.size).toBe(0);
     expect(p.aggSubCells.size).toBe(0);
     expect(p.aggCells.size).toBe(0);
+    expect(p.aggUpdating.size).toBe(0);
     expect(p.curOwnerKey).toBeUndefined();
     expect(p.curGeneration).toBe(-1);
   });

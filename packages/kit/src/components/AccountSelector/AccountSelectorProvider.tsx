@@ -6,6 +6,7 @@ import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import {
   AccountSelectorJotaiProvider,
   useAccountSelectorAvailableNetworksAtom,
+  useActiveAccountsAtom,
 } from '../../states/jotai/contexts/accountSelector/atoms';
 import { jotaiContextStore } from '../../states/jotai/utils/jotaiContextStore';
 import { JotaiContextStoreMirrorTracker } from '../../states/jotai/utils/JotaiContextStoreMirrorTracker';
@@ -25,6 +26,11 @@ function AccountSelectorAvailableNetworksInit(props: {
   useEffect(() => {
     if (availableNetworksMap) setMap(availableNetworksMap);
   }, [availableNetworksMap, setMap]);
+  return null;
+}
+
+function AccountSelectorActiveAccountsColdStartTracker() {
+  useActiveAccountsAtom();
   return null;
 }
 export function AccountSelectorProviderMirror({
@@ -72,6 +78,7 @@ export function AccountSelectorProviderMirror({
           <AccountSelectorAvailableNetworksInit
             availableNetworksMap={availableNetworksMap}
           />
+          <AccountSelectorActiveAccountsColdStartTracker />
           {children}
         </AccountSelectorStorageReady>
       </AccountSelectorJotaiProvider>

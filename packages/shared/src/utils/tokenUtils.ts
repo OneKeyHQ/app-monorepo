@@ -659,14 +659,34 @@ export function mergeDeriveTokenListMap({
   mergeDeriveAssets?: boolean;
 }) {
   const newTargetMap = { ...targetMap };
-  const newSourceMap = { ...sourceMap };
+  mergeDeriveTokenListMapInto({
+    sourceMap,
+    targetMap: newTargetMap,
+    mergeDeriveAssets,
+  });
+  return newTargetMap;
+}
+
+/** Append into a caller-owned map without copying its accumulated keys. */
+export function mergeDeriveTokenListMapInto({
+  sourceMap,
+  targetMap,
+  mergeDeriveAssets,
+}: {
+  sourceMap: Record<string, ITokenFiat>;
+  targetMap: Record<string, ITokenFiat>;
+  mergeDeriveAssets?: boolean;
+}): void {
   if (mergeDeriveAssets) {
-    forEach(newSourceMap, (value, key) => {
+    forEach(sourceMap, (value, key) => {
       const keyArr = key.split('_');
       const groupDeriveKey = `${keyArr[0]}_${keyArr[keyArr.length - 1]}`;
-      const mergedToken = newTargetMap[groupDeriveKey];
+      const previousToken = targetMap[groupDeriveKey];
 
-      if (mergedToken && !newTargetMap[key]) {
+      if (previousToken && !targetMap[key]) {
+        // Raw entries can still alias a cache round; only the combined value
+        // belongs to this merge and may be changed.
+        const mergedToken = { ...previousToken };
         mergedToken.balance = new BigNumber(mergedToken.balance)
           .plus(value.balance)
           .toFixed();
@@ -723,21 +743,17 @@ export function mergeDeriveTokenListMap({
           .plus(value.totalBalanceFiatValue ?? 0)
           .toFixed();
 
-        newTargetMap[groupDeriveKey] = {
-          ...mergedToken,
-        };
+        targetMap[groupDeriveKey] = mergedToken;
       } else {
-        newTargetMap[groupDeriveKey] = {
+        targetMap[groupDeriveKey] = {
           ...value,
         };
       }
     });
   }
 
-  return {
-    ...newTargetMap,
-    ...newSourceMap,
-  };
+  // Raw keys override derived keys only after the whole source was folded.
+  Object.assign(targetMap, sourceMap);
 }
 
 export function mergeNestedAggregateTokenMap({

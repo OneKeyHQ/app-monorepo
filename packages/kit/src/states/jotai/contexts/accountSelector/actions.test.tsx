@@ -44,10 +44,12 @@ import {
   accountSelectorStorageInitDoneAtom,
   accountSelectorStorageReadyAtom,
   accountSelectorUpdateMetaAtom,
+  activeAccountEpochAtom,
   activeAccountsAtom,
   defaultActiveAccountInfo,
   defaultSelectedAccount,
   selectedAccountsAtom,
+  useActiveAccount,
 } from './atoms';
 
 import type { IAccountSelectorContextData } from './atoms';
@@ -152,6 +154,9 @@ const mockShouldSyncHomeAndSwapSelectedAccount: jest.MockedFunction<
 > = jest.fn();
 const mockClearAccountCache: jest.MockedFunction<() => Promise<void>> =
   jest.fn();
+const mockAbortFetchAccountTokens: jest.MockedFunction<
+  (options: { includedFlags?: string[] }) => Promise<void>
+> = jest.fn();
 const mockGetAllHdHwQrWallets: jest.MockedFunction<
   () => Promise<{
     wallets: IWallet[];
@@ -407,6 +412,11 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
         ...args: Parameters<typeof mockAddDefaultNetworkAccountsService>
       ) => mockAddDefaultNetworkAccountsService(...args),
     },
+    serviceToken: {
+      abortFetchAccountTokens: (
+        options: Parameters<typeof mockAbortFetchAccountTokens>[0],
+      ) => mockAbortFetchAccountTokens(options),
+    },
     serviceNetwork: {
       isDeriveTypeAvailableForNetwork: () =>
         mockIsDeriveTypeAvailableForNetwork(),
@@ -508,6 +518,7 @@ describe('useAccountSelectorActions', () => {
     mockShouldSyncHomeAndSwapSelectedAccount.mockResolvedValue(false);
     mockShouldSyncWithHomeSource.mockResolvedValue(false);
     mockClearAccountCache.mockResolvedValue(undefined);
+    mockAbortFetchAccountTokens.mockResolvedValue(undefined);
     mockGetAllHdHwQrWallets.mockResolvedValue({ wallets: [] });
     mockGetAllHwQrWalletWithDevice.mockResolvedValue({});
     mockGetWalletDevice.mockResolvedValue(undefined);
@@ -569,6 +580,203 @@ describe('useAccountSelectorActions', () => {
       ),
     ).toBe(false);
     expect(await confirm(undefined, 'hw-missing')).toBe(false);
+  });
+
+  it('advances the Home owner epoch for A to B to A and aborts only Home token requests', async () => {
+    const { store, Wrapper } = createWrapper(EAccountSelectorSceneName.home);
+    store.set(accountSelectorContextDataAtom(), {
+      sceneName: EAccountSelectorSceneName.home,
+    });
+    const { result } = renderHook(() => useAccountSelectorActions().current, {
+      wrapper: Wrapper,
+    });
+
+    await act(async () => {
+      await result.current.updateSelectedAccount({
+        num: 0,
+        builder: (account) => ({
+          ...account,
+          walletId: 'hd-1',
+          indexedAccountId: 'hd-1--0',
+          networkId: 'evm--1',
+        }),
+      });
+      await result.current.updateSelectedAccount({
+        num: 0,
+        builder: (account) => ({
+          ...account,
+          indexedAccountId: 'hd-1--1',
+        }),
+      });
+      await result.current.updateSelectedAccount({
+        num: 0,
+        builder: (account) => ({
+          ...account,
+          indexedAccountId: 'hd-1--0',
+        }),
+      });
+    });
+
+    expect(store.get(activeAccountEpochAtom())[0]).toBe(3);
+    expect(mockAbortFetchAccountTokens).toHaveBeenCalledTimes(3);
+    expect(mockAbortFetchAccountTokens).toHaveBeenLastCalledWith({
+      includedFlags: ['home-token-list'],
+    });
+  });
+
+  it('keeps the active epoch and Home requests when only wallet-list focus changes', async () => {
+    const { store, Wrapper } = createWrapper(EAccountSelectorSceneName.home);
+    store.set(accountSelectorContextDataAtom(), {
+      sceneName: EAccountSelectorSceneName.home,
+    });
+    store.set(selectedAccountsAtom(), {
+      0: createHdSelectedAccount('hd-1--0'),
+    });
+    store.set(activeAccountEpochAtom(), { 0: 7 });
+    const { result } = renderHook(() => useAccountSelectorActions().current, {
+      wrapper: Wrapper,
+    });
+
+    await act(async () => {
+      await result.current.updateSelectedAccountFocusedWallet({
+        num: 0,
+        focusedWallet: 'hd-2',
+      });
+    });
+
+    expect(store.get(selectedAccountsAtom())[0]).toMatchObject({
+      walletId: 'hd-1',
+      indexedAccountId: 'hd-1--0',
+      focusedWallet: 'hd-2',
+    });
+    expect(store.get(activeAccountEpochAtom())[0]).toBe(7);
+    expect(mockAbortFetchAccountTokens).not.toHaveBeenCalled();
+  });
+
+  it('invalidates confirmed A to B to A selections but not confirming the current account again', async () => {
+    const { store, Wrapper } = createWrapper(EAccountSelectorSceneName.home);
+    store.set(accountSelectorContextDataAtom(), {
+      sceneName: EAccountSelectorSceneName.home,
+    });
+    store.set(selectedAccountsAtom(), {
+      0: createHdSelectedAccount('hd-1--0'),
+    });
+    const { result } = renderHook(() => useAccountSelectorActions().current, {
+      wrapper: Wrapper,
+    });
+
+    await act(async () => {
+      for (const indexedAccountId of ['hd-1--1', 'hd-1--1', 'hd-1--0']) {
+        await result.current.confirmAccountSelect({
+          num: 0,
+          indexedAccount: {
+            id: indexedAccountId,
+            walletId: 'hd-1',
+          } as IIndexedAccount,
+          othersWalletAccount: undefined,
+          forceSelectToNetworkId: 'tron--0x2b6653dc',
+        });
+      }
+    });
+
+    expect(store.get(selectedAccountsAtom())[0]?.indexedAccountId).toBe(
+      'hd-1--0',
+    );
+    expect(store.get(activeAccountEpochAtom())[0]).toBe(2);
+    expect(mockAbortFetchAccountTokens).toHaveBeenCalledTimes(2);
+  });
+
+  it('still invalidates changes to network and derive type', async () => {
+    const { store, Wrapper } = createWrapper(EAccountSelectorSceneName.home);
+    store.set(accountSelectorContextDataAtom(), {
+      sceneName: EAccountSelectorSceneName.home,
+    });
+    store.set(selectedAccountsAtom(), {
+      0: createHdSelectedAccount('hd-1--0'),
+    });
+    const { result } = renderHook(() => useAccountSelectorActions().current, {
+      wrapper: Wrapper,
+    });
+
+    await act(async () => {
+      await result.current.updateSelectedAccountNetwork({
+        num: 0,
+        networkId: 'btc--0',
+      });
+      await result.current.updateSelectedAccountDeriveType({
+        num: 0,
+        deriveType: 'BIP84',
+      });
+      await result.current.updateSelectedAccountDeriveType({
+        num: 0,
+        deriveType: 'BIP84',
+      });
+    });
+
+    expect(store.get(selectedAccountsAtom())[0]).toMatchObject({
+      networkId: 'btc--0',
+      deriveType: 'BIP84',
+    });
+    expect(store.get(activeAccountEpochAtom())[0]).toBe(2);
+    expect(mockAbortFetchAccountTokens).toHaveBeenCalledTimes(2);
+  });
+
+  it('keeps forced active-account reload independent of the selection epoch', async () => {
+    const { store, Wrapper } = createWrapper(EAccountSelectorSceneName.home);
+    const selectedAccount = createHdSelectedAccount('hd-1--0');
+    store.set(selectedAccountsAtom(), { 0: selectedAccount });
+    store.set(activeAccountEpochAtom(), { 0: 7 });
+    const { result } = renderHook(() => useAccountSelectorActions().current, {
+      wrapper: Wrapper,
+    });
+
+    await act(async () => {
+      await result.current.reloadActiveAccountInfo({
+        num: 0,
+        selectedAccount,
+        forceReload: true,
+      });
+    });
+
+    expect(mockBuildActiveAccountInfoFromSelectedAccount).toHaveBeenCalledTimes(
+      1,
+    );
+    expect(store.get(accountSelectorActiveAccountInitDoneAtom())[0]).toBe(true);
+    expect(store.get(activeAccountEpochAtom())[0]).toBe(7);
+    expect(mockAbortFetchAccountTokens).not.toHaveBeenCalled();
+  });
+
+  it('does not rerender an active-account slot when another slot changes', () => {
+    const { store, Wrapper } = createWrapper();
+    const slotZero = {
+      ...defaultActiveAccountInfo(),
+      accountName: 'slot-zero',
+      ready: true,
+    };
+    store.set(activeAccountsAtom(), { 0: slotZero });
+    let renderCount = 0;
+    const { result } = renderHook(
+      () => {
+        renderCount += 1;
+        return useActiveAccount({ num: 0 });
+      },
+      { wrapper: Wrapper },
+    );
+    const renderCountBeforeOtherSlotUpdate = renderCount;
+
+    act(() => {
+      store.set(activeAccountsAtom(), {
+        ...store.get(activeAccountsAtom()),
+        1: {
+          ...defaultActiveAccountInfo(),
+          accountName: 'slot-one',
+          ready: true,
+        },
+      });
+    });
+
+    expect(result.current.activeAccount).toBe(slotZero);
+    expect(renderCount).toBe(renderCountBeforeOtherSlotUpdate);
   });
 
   it('marks active account init done when reload finishes before storage init', async () => {

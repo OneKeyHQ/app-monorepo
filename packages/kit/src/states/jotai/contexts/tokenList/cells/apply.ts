@@ -245,6 +245,7 @@ export function applyStructureSnapshot(
       // whole group left
       P.aggSubCells.delete(aggKey);
       P.aggCells.delete(aggKey);
+      P.aggUpdating.delete(aggKey);
     } else {
       const memberSet = new Set(members);
       const byNet = P.aggSubCells.get(aggKey);
@@ -319,10 +320,10 @@ export function applyStructureSnapshot(
  *   - changedFiatById: write ONLY existing normal cells (P.cells.has, else
  *     skip) via fiatEqual (no notification when value unchanged).
  *   - changedAggFiat: write ONLY existing per-network sub-cells; the derived
- *     aggCell recomputes automatically via jotai dep-tracking.
+ *     aggCell recomputes once after the group's synchronous writes complete.
  *
- * `batch` is provided by the caller (React batched context in production; a
- * pass-through in node tests).
+ * `batch` optionally groups notifications at the caller. Aggregate calculation
+ * is coalesced separately because Jotai eagerly recomputes after every write.
  */
 export function applyValuationFrame(
   store: IJotaiContextStore,
@@ -357,18 +358,30 @@ export function applyValuationFrame(
       }
     }
 
-    // aggregate per-network sub-cells — existing only; aggCell recomputes
+    // Publish each aggregate after all its changed sub-cells are written.
     for (const aggKey of Object.keys(frame.changedAggFiat)) {
       const byNet = P.aggSubCells.get(aggKey);
       if (byNet) {
         const byNetPayload = frame.changedAggFiat[aggKey];
-        for (const netId of Object.keys(byNetPayload)) {
-          const subAtom = byNet.get(netId);
-          if (subAtom) {
-            const next = byNetPayload[netId];
-            if (!deps.fiatEqual(deps.get(subAtom), next)) {
-              deps.set(subAtom, next);
+        const updating = P.aggUpdating.get(aggKey);
+        let startedUpdate = false;
+        try {
+          for (const netId of Object.keys(byNetPayload)) {
+            const subAtom = byNet.get(netId);
+            if (subAtom) {
+              const next = byNetPayload[netId];
+              if (!deps.fiatEqual(deps.get(subAtom), next)) {
+                if (updating && !startedUpdate && !deps.get(updating)) {
+                  startedUpdate = true;
+                  deps.set(updating, true);
+                }
+                deps.set(subAtom, next);
+              }
             }
+          }
+        } finally {
+          if (updating && startedUpdate) {
+            deps.set(updating, false);
           }
         }
       }
