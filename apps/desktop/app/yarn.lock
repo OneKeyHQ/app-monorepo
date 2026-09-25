@@ -50,7 +50,7 @@ __metadata:
     "@onekeyfe/electron-mac-icloud": "npm:1.2.6"
     "@sentry/electron": "npm:7.8.0"
     "@stoprocent/noble": "npm:2.3.16"
-    adm-zip: "npm:0.5.17"
+    adm-zip: "npm:0.6.1"
     electron-check-biometric-auth-changed: "npm:1.0.0"
     electron-updater: "npm:6.8.9"
     iconv-lite: "npm:0.6.3"
@@ -943,10 +943,10 @@ __metadata:
   languageName: node
   linkType: hard
 
-"adm-zip@npm:0.5.17":
-  version: 0.5.17
-  resolution: "adm-zip@npm:0.5.17"
-  checksum: 10/035ea96d04376c290bed3401b67d1a2a2654996450ec9056dccc0fb194cb6a956bf7ad388d2648b0e1775338a377805601deca4bcd689658dc1d39247a1e9bdd
+"adm-zip@npm:0.6.1":
+  version: 0.6.1
+  resolution: "adm-zip@npm:0.6.1"
+  checksum: 10/072af04891b33a68aba6b6979d6eec56cbe8d5bca9a349c2e78f86cc64e872e75faf56341e20541c6ffd7bcfb931187157c24f141b97ad1f18ebd8bfacbcf437
   languageName: node
   linkType: hard
 
