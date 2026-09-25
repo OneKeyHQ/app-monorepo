@@ -2,6 +2,7 @@ import { createHash } from 'crypto';
 import * as fs from 'fs';
 import * as fsPromises from 'fs/promises';
 import * as path from 'path';
+import { Transform, pipeline } from 'stream';
 import { pathToFileURL } from 'url';
 
 import AdmZip from 'adm-zip';
@@ -185,30 +186,41 @@ class DesktopApiDev {
 
     sendProgress({ stage: ELogUploadStage.Uploading, progressPercent: 0 });
 
+    // Node's built-in fetch (undici) pulls a streaming body lazily, only once
+    // the connection is up. Listening for 'data' on the file stream before
+    // fetch() would switch it to flowing mode and drain the whole archive in
+    // the meantime, so fetch would send an empty body and reject with
+    // UND_ERR_REQ_CONTENT_LENGTH_MISMATCH (OK-64070). Count progress inside
+    // the pipeline instead, so bytes are only counted as fetch consumes them.
     let uploadedBytes = 0;
     const fileStream = fs.createReadStream(filePath);
-    if (totalBytes > 0) {
-      fileStream.on('data', (chunk) => {
+    const progressCounter = new Transform({
+      transform(chunk: Buffer, _encoding, callback) {
         uploadedBytes += chunk.length;
-        const percent = Math.min(
-          100,
-          Math.round((uploadedBytes / totalBytes) * 100),
-        );
-        sendProgress({
-          stage: ELogUploadStage.Uploading,
-          progressPercent: percent,
-        });
-      });
-    }
-    fileStream.on('error', (streamError) => {
-      sendProgress({
-        stage: ELogUploadStage.Error,
-        message:
-          streamError instanceof Error
-            ? streamError.message
-            : String(streamError),
-      });
+        if (totalBytes > 0) {
+          sendProgress({
+            stage: ELogUploadStage.Uploading,
+            progressPercent: Math.min(
+              100,
+              Math.round((uploadedBytes / totalBytes) * 100),
+            ),
+          });
+        }
+        callback(null, chunk);
+      },
     });
+    // pipeline() owns error handling: a read failure destroys the body with
+    // that error, so fetch aborts the request instead of waiting forever,
+    // and nothing emits an unhandled 'error' before fetch starts consuming.
+    pipeline(fileStream, progressCounter, (pipelineError) => {
+      if (pipelineError) {
+        logger.warn(
+          '[client-log-upload] archive stream failed:',
+          pipelineError.message,
+        );
+      }
+    });
+    const body = progressCounter;
 
     try {
       const finalHeaders = await withCustomUAHeaders(uploadUrl, reqHeaders);
@@ -237,7 +249,7 @@ class DesktopApiDev {
       const requestInit: RequestInit & { duplex: 'half' } = {
         method: 'POST',
         headers: finalHeaders,
-        body: fileStream as unknown as BodyInit,
+        body: body as unknown as BodyInit,
         // Node's native fetch requires duplex for a streaming request body.
         duplex: 'half',
       };
@@ -299,6 +311,17 @@ class DesktopApiDev {
         };
       }
     } catch (error) {
+      // undici reports every transport failure as a bare "fetch failed";
+      // the actual reason only lives in `cause`, so log it for triage.
+      const cause = (error as { cause?: { code?: unknown; message?: unknown } })
+        ?.cause;
+      logger.error(
+        '[client-log-upload] request failed:',
+        error instanceof Error ? error.message : String(error),
+        cause
+          ? `cause=${String(cause.code ?? '')} ${String(cause.message ?? '')}`
+          : '',
+      );
       sendProgress({
         stage: ELogUploadStage.Error,
         message: error instanceof Error ? error.message : String(error),
