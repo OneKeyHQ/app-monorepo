@@ -295,14 +295,27 @@ async function drainPendingInstallAttribution(): Promise<void> {
   } while (reportInstallAttributionRequested);
 }
 
-export function reportInstallAttribution(): Promise<void> {
-  if (platformEnv.isNativeMainThread) {
-    // Independent of the click-id report below, which needs the network and
-    // clears its record once done; the invite code has no such dependency.
-    captureAppClipInviteCodeTask ??= captureAppClipInviteCode().finally(() => {
-      captureAppClipInviteCodeTask = undefined;
-    });
+/**
+ * Starts the App Clip invite-code capture as early as the app can, ahead of
+ * the analytics bootstrap, so a fresh install's code is already stored by the
+ * time onboarding asks for it. Concurrent callers share the run in flight;
+ * once a launch has resolved the capture, later ones stop at the persisted
+ * flag.
+ */
+export function prefetchInstallInviteCode(): Promise<void> {
+  if (!platformEnv.isNativeMainThread) {
+    return Promise.resolve();
   }
+  captureAppClipInviteCodeTask ??= captureAppClipInviteCode().finally(() => {
+    captureAppClipInviteCodeTask = undefined;
+  });
+  return captureAppClipInviteCodeTask;
+}
+
+export function reportInstallAttribution(): Promise<void> {
+  // Independent of the click-id report below, which needs the network and
+  // clears its record once done; the invite code has no such dependency.
+  void prefetchInstallInviteCode();
   reportInstallAttributionRequested = true;
   reportInstallAttributionTask ??= drainPendingInstallAttribution().finally(
     () => {

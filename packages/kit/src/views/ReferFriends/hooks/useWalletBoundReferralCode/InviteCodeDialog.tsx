@@ -22,12 +22,12 @@ import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useSignatureConfirm } from '@onekeyhq/kit/src/hooks/useSignatureConfirm';
 import type { INavigationToMessageConfirmParams } from '@onekeyhq/kit/src/hooks/useSignatureConfirm';
 import { useInvitePostConfig } from '@onekeyhq/kit/src/views/ReferFriends/hooks/useInvitePostConfig';
-import { readInstallReferralAutoFillCode } from '@onekeyhq/kit/src/views/ReferFriends/utils/installReferralAutoFill';
 import {
   DEFAULT_INVITEE_DISCOUNT_TEXT,
   formatInviteeDiscountFromConfig,
   isInviteeDiscountDeclined,
 } from '@onekeyhq/kit/src/views/ReferFriends/utils';
+import { readInstallReferralAutoFillCode } from '@onekeyhq/kit/src/views/ReferFriends/utils/installReferralAutoFill';
 import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import type { OneKeyError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';

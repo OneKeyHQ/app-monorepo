@@ -28,8 +28,8 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useSignatureConfirm } from '@onekeyhq/kit/src/hooks/useSignatureConfirm';
 import { useGetReferralCodeWalletInfo } from '@onekeyhq/kit/src/views/ReferFriends/hooks/useWalletBoundReferralCode/useGetReferralCodeWalletInfo';
-import { readInstallReferralAutoFillCode } from '@onekeyhq/kit/src/views/ReferFriends/utils/installReferralAutoFill';
 import { useWalletBoundReferralCode } from '@onekeyhq/kit/src/views/ReferFriends/hooks/useWalletBoundReferralCode/useWalletBoundReferralCode';
+import { readInstallReferralAutoFillCode } from '@onekeyhq/kit/src/views/ReferFriends/utils/installReferralAutoFill';
 import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import type { OneKeyError } from '@onekeyhq/shared/src/errors';
 import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';

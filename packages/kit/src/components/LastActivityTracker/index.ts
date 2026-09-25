@@ -16,7 +16,10 @@ import { initPosthog } from '@onekeyhq/shared/src/modules3rdParty/posthog';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 
-import { reportInstallAttribution } from './installAttribution';
+import {
+  prefetchInstallInviteCode,
+  reportInstallAttribution,
+} from './installAttribution';
 
 const LAST_ACTIVITY_TRACKER_START_DELAY_MS = platformEnv.isWeb ? 3000 : 0;
 const LAST_ACTIVITY_TRACKER_REFRESH_INTERVAL_MS = platformEnv.isWeb
@@ -29,6 +32,10 @@ const LastActivityTracker = () => {
   const [supportSystemIdle] = useSystemIdleLockSupport();
 
   useEffect(() => {
+    // Not behind the analytics bootstrap below: a fresh install's invite code
+    // should already be stored when onboarding asks for it, and a failing
+    // endpoint lookup must not hold it back.
+    void prefetchInstallInviteCode();
     const timer = setTimeout(async () => {
       const instanceId =
         await backgroundApiProxy.serviceSetting.getInstanceId();
