@@ -944,6 +944,8 @@ class ServiceHardware extends ServiceBase {
 
   private connectedDeviceTracked = new Set<string>();
 
+  private reportedBleMtuReadySignatures = new Set<string>();
+
   private connectedDeviceIdentityKeysByConnection = new Map<
     string,
     Set<string>
@@ -2047,6 +2049,20 @@ class ServiceHardware extends ServiceBase {
             messageType.includes('@onekey/hd-ble-transport')
           ) {
             defaultLogger.hardware.sdkLog.log(messages.event, message);
+          }
+
+          if (messageType.includes('@onekey/hd-ble-transport')) {
+            const mtuTelemetry =
+              serviceHardwareUtils.parseBleMtuReadyLogPayload(messages.payload);
+            if (
+              mtuTelemetry &&
+              serviceHardwareUtils.shouldReportBleMtuReadyTelemetry(
+                this.reportedBleMtuReadySignatures,
+                mtuTelemetry,
+              )
+            ) {
+              defaultLogger.hardware.connection.bleMtuReady(mtuTelemetry);
+            }
           }
         },
       );
