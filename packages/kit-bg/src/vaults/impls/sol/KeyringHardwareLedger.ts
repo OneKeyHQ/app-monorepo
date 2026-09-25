@@ -8,7 +8,6 @@ import type {
   ICoreApiGetAddressItem,
   ISignedMessagePro,
   ISignedTxPro,
-  IUnsignedMessageSolana,
 } from '@onekeyhq/core/src/types';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ThirdPartyMethodNotSupported } from '@onekeyhq/shared/src/errors/errors/thirdPartyHardwareErrors';
