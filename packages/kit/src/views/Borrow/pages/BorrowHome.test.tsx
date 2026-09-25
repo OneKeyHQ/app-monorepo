@@ -65,8 +65,14 @@ jest.mock('react-intl', () => ({
 }));
 
 jest.mock('@onekeyhq/components', () => {
-  function Container({ children }: { children?: ReactNode }) {
-    return <div>{children}</div>;
+  function Container({
+    children,
+    pointerEvents,
+  }: {
+    children?: ReactNode;
+    pointerEvents?: string;
+  }) {
+    return <div data-pointer-events={pointerEvents}>{children}</div>;
   }
   return {
     __esModule: true,
@@ -268,6 +274,17 @@ describe('BorrowHome e-mode entry point', () => {
     expect(getByTestId('e-mode-metric').getAttribute('data-variant')).toBe(
       'bar',
     );
+  });
+
+  it('keeps the e-mode bar interactive while reserves refresh', () => {
+    context.borrowDataStatus = EBorrowDataStatus.LoadingReserves;
+    const { getByTestId } = render(<BorrowHome />);
+
+    expect(
+      getByTestId('e-mode-metric').parentElement?.getAttribute(
+        'data-pointer-events',
+      ),
+    ).not.toBe('none');
   });
 
   it('does not expose the last E-Mode status after its request fails', () => {
