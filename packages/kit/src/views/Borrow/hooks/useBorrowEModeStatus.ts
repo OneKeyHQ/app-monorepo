@@ -23,6 +23,7 @@ import type { IBorrowEModeStatus } from '@onekeyhq/shared/types/staking';
 import { isBorrowMetricReadyForMarketSwitch } from './borrowMetricSnapshot.utils';
 
 const PRELOADED_CACHE_TTL = 60_000;
+const POLLING_INTERVAL = 30 * 1000;
 
 type IEModeStatusRequest = Parameters<
   typeof backgroundApiProxy.serviceStaking.getBorrowEModeStatus
@@ -50,10 +51,6 @@ function registerAccountInvalidation() {
   appEventBus.on(EAppEventBusNames.AccountUpdate, invalidate);
   appEventBus.on(EAppEventBusNames.GlobalDeriveTypeUpdate, invalidate);
   appEventBus.on(EAppEventBusNames.NetworkDeriveTypeChanged, invalidate);
-  appEventBus.on(
-    EAppEventBusNames.AccountSelectorSelectedAccountUpdate,
-    invalidate,
-  );
 }
 
 function subscribeAccountGeneration(listener: () => void) {
@@ -232,6 +229,7 @@ export const useBorrowEModeStatus = ({
     {
       initResult: null,
       watchLoading: true,
+      pollingInterval: isPreloading ? undefined : POLLING_INTERVAL,
       alwaysSetState: !isPreloading,
       checkIsFocused: true,
       revalidateOnFocus,

@@ -135,10 +135,6 @@ function registerAccountInvalidation() {
     EAppEventBusNames.NetworkDeriveTypeChanged,
     clearInFlightReserves,
   );
-  appEventBus.on(
-    EAppEventBusNames.AccountSelectorSelectedAccountUpdate,
-    clearInFlightReserves,
-  );
 }
 
 function fetchBorrowReserves(

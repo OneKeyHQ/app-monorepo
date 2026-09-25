@@ -13,7 +13,7 @@ export type IBorrowMarketPreloadAttempt = {
   failedAttempts: number;
 };
 
-export type IBorrowMarketPreloadPhase = 'reserves' | 'metrics';
+export type IBorrowMarketPreloadPhase = 'reserves';
 
 export type IBorrowMarketPreloadWork = {
   market: IBorrowMarketItem;
@@ -61,14 +61,12 @@ export function getNextBorrowMarketToPreload({
   visibleMarketKey,
   attempts,
   sessionScopeKey,
-  hasAccountContext,
   now,
 }: {
   markets: IBorrowMarketItem[];
   visibleMarketKey?: string;
   attempts: ReadonlyMap<string, IBorrowMarketPreloadAttempt>;
   sessionScopeKey: string;
-  hasAccountContext: boolean;
   now: number;
 }): IBorrowMarketPreloadWork | undefined {
   const availableMarkets = markets
@@ -87,9 +85,8 @@ export function getNextBorrowMarketToPreload({
     return { market: unvisitedReserves, phase: 'reserves' };
   }
 
-  // Reserves are the barrier for every account metric. Retry or refresh all
-  // reserves first; a failed reserve request that is still in backoff must
-  // keep metrics paused rather than letting a partial preload look complete.
+  // Retry or refresh reserves in the background without starting any
+  // account-scoped work for markets the user has not selected.
   const retryableReserves = availableMarkets.find((market) => {
     const attempt = getAttempt({
       attempts,
@@ -133,43 +130,6 @@ export function getNextBorrowMarketToPreload({
     return undefined;
   }
 
-  if (hasAccountContext) {
-    const unvisitedMetrics = availableMarkets.find(
-      (market) =>
-        !getAttempt({ attempts, sessionScopeKey, market, phase: 'metrics' }),
-    );
-    if (unvisitedMetrics) {
-      return { market: unvisitedMetrics, phase: 'metrics' };
-    }
-
-    const retryableMetrics = availableMarkets.find((market) => {
-      const attempt = getAttempt({
-        attempts,
-        sessionScopeKey,
-        market,
-        phase: 'metrics',
-      });
-      return (
-        attempt && attempt.failedAttempts > 0 && attempt.nextEligibleAt <= now
-      );
-    });
-    if (retryableMetrics) {
-      return { market: retryableMetrics, phase: 'metrics' };
-    }
-
-    const metricsDueForRefresh = availableMarkets.find((market) => {
-      const attempt = getAttempt({
-        attempts,
-        sessionScopeKey,
-        market,
-        phase: 'metrics',
-      });
-      return attempt?.failedAttempts === 0 && attempt.nextEligibleAt <= now;
-    });
-    if (metricsDueForRefresh) {
-      return { market: metricsDueForRefresh, phase: 'metrics' };
-    }
-  }
   return undefined;
 }
 
@@ -178,25 +138,18 @@ export function getBorrowMarketPreloadNextWakeAt({
   visibleMarketKey,
   attempts,
   sessionScopeKey,
-  hasAccountContext,
   now,
 }: {
   markets: IBorrowMarketItem[];
   visibleMarketKey?: string;
   attempts: ReadonlyMap<string, IBorrowMarketPreloadAttempt>;
   sessionScopeKey: string;
-  hasAccountContext: boolean;
   now: number;
 }): number | undefined {
   const pendingTimes = markets
     .filter((market) => buildBorrowMarketKey(market) !== visibleMarketKey)
     .flatMap((market) =>
-      (hasAccountContext
-        ? (['reserves', 'metrics'] as const)
-        : (['reserves'] as const)
-      ).map((phase) =>
-        getAttempt({ attempts, sessionScopeKey, market, phase }),
-      ),
+      getAttempt({ attempts, sessionScopeKey, market, phase: 'reserves' }),
     )
     .filter(
       (attempt): attempt is IBorrowMarketPreloadAttempt =>

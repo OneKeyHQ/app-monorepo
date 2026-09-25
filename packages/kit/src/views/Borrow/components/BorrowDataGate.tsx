@@ -936,7 +936,6 @@ export const BorrowDataGate = ({
         accountScopeKey={`${activeAccountId ?? ''}:${
           activeIndexedAccountId ?? ''
         }`}
-        hasAccountContext={hasAccountContext}
       />
     </>
   );

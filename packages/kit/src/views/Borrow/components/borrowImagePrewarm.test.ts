@@ -24,6 +24,7 @@ import {
   invalidateBorrowImagePrewarmCache,
   prewarmBorrowImages,
   prewarmBorrowImagesAndWait,
+  waitForBorrowImagePrewarmIdle,
 } from './borrowImagePrewarm';
 
 const market = {
@@ -270,6 +271,38 @@ describe('Borrow image prewarm', () => {
 
     prewarmBorrowImages([source], { priority: true });
     await waitFor(() => expect(preloadImage).toHaveBeenCalledTimes(2));
+  });
+
+  it('waits for active native requests and drops queued work before cache clearing', async () => {
+    let releaseActive: ((value: boolean) => void) | undefined;
+    jest.mocked(preloadImage).mockImplementationOnce(
+      () =>
+        new Promise<boolean>((resolve) => {
+          releaseActive = resolve;
+        }),
+    );
+
+    prewarmBorrowImages(
+      [{ uri: 'https://example.com/active-before-clear.png', resizeWidth: 32 }],
+      { priority: true },
+    );
+    await waitFor(() => expect(preloadImage).toHaveBeenCalledTimes(1));
+    prewarmBorrowImages(
+      [{ uri: 'https://example.com/queued-before-clear.png', resizeWidth: 32 }],
+      { priority: true },
+    );
+
+    let isIdle = false;
+    const idlePromise = waitForBorrowImagePrewarmIdle().then(() => {
+      isIdle = true;
+    });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(isIdle).toBe(false);
+
+    releaseActive?.(true);
+    await idlePromise;
+    expect(preloadImage).toHaveBeenCalledTimes(1);
+    invalidateBorrowImagePrewarmCache();
   });
 
   it('demotes a queued image when its selected-market owner is cancelled', async () => {
