@@ -792,12 +792,10 @@ describe('ServiceAccount hardware wallet creation address', () => {
     createHwWalletMock.mockResolvedValue({
       wallet: { id: 'hw-hidden', name: 'Hidden wallet' },
     } as Awaited<ReturnType<typeof localDb.createHwWallet>>);
-    const getFeatures = jest
-      .fn()
-      .mockResolvedValue({
-        success: true,
-        payload: { device_id: device.deviceId },
-      });
+    const getFeatures = jest.fn().mockResolvedValue({
+      success: true,
+      payload: { device_id: device.deviceId },
+    });
     const getTrezorPassphraseState = jest
       .fn()
       .mockResolvedValue('fixture-hidden-state');

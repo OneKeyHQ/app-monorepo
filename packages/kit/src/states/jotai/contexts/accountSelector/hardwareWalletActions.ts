@@ -15,8 +15,8 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
-import type { IHardwareOperationContext } from '@onekeyhq/shared/types/device';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+import type { IHardwareOperationContext } from '@onekeyhq/shared/types/device';
 
 import { EWalletDeprecatedStatusUpdateOutcome } from './outcomes';
 
