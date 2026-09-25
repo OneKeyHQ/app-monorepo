@@ -34,7 +34,9 @@ const LastActivityTracker = () => {
   useEffect(() => {
     // Not behind the analytics bootstrap below: a fresh install's invite code
     // should already be stored when onboarding asks for it, and a failing
-    // endpoint lookup must not hold it back.
+    // endpoint lookup must not hold it back. Keep it the first thing this
+    // effect does — see the FIRST-LAUNCH CONTRACT in
+    // `installInviteCodeCapture.ts`.
     void prefetchInstallInviteCode();
     const timer = setTimeout(async () => {
       const instanceId =

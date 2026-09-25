@@ -59,6 +59,10 @@ export interface IReferralCodeData {
    * Set once the native capture reached a terminal state and we processed it,
    * so later launches skip the native round-trip. Cleared by `reset()`, which
    * lets a wiped profile re-read the still-intact native payload.
+   *
+   * This flag is what confines the capture to the first launch after a fresh
+   * install (see the FIRST-LAUNCH CONTRACT in `installInviteCodeCapture.ts`);
+   * anything else that clears it re-opens the capture on the next launch.
    */
   installReferralCaptureResolved?: boolean;
 }

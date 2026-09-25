@@ -24,8 +24,27 @@ export type IInstallInviteCodeReadResult = {
  * Stores the invite code a store/App Clip install carried so the onboarding
  * bind dialog can pre-fill it later.
  *
- * Runs on every cold start until the capture resolves; once resolved — with or
- * without a code — the flag short-circuits this before `read` is called.
+ * FIRST-LAUNCH CONTRACT — product rule, keep it intact when editing any piece
+ * of this capture:
+ *
+ * 1. Only a fresh install is attributed, and the capture belongs to the first
+ *    launch after that install. A user who reaches this version through an app
+ *    update must never get a code, even if they originally installed from an
+ *    invite link. Android enforces this in
+ *    `readGooglePlayInviteCodeAttribution` (first-install time vs last-update
+ *    time); iOS relies on only the App Clip ever writing the handoff file,
+ *    before the full app exists (see `AppClipInviteCodeStore`). A new
+ *    platform or source must bring its own fresh-install check.
+ * 2. It starts at app start (`prefetchInstallInviteCode` in
+ *    `LastActivityTracker`), not when a dialog opens and not behind the
+ *    analytics bootstrap, so the code is stored before onboarding asks.
+ * 3. After the first definitive answer the persisted resolved flag
+ *    short-circuits every later launch before `read` is called, so later
+ *    launches cost one local read. The only retry is a fresh Android install
+ *    whose Play referrer came back empty inside Play's serving window.
+ * 4. Dialogs never block on this. They poll a bounded time for a capture still
+ *    in flight (`readInstallReferralAutoFillCode`) and refresh when it lands.
+ *
  * `read` resolving `undefined` means the platform cannot answer yet (e.g. an
  * older native build without the reader), which leaves the capture pending.
  */

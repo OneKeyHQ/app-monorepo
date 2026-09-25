@@ -247,6 +247,10 @@ async function reportPendingInstallAttribution(): Promise<void> {
 export function parseAppClipInviteCodeRecord(
   value: unknown,
 ): IInstallInviteCodeReadResult {
+  // No explicit fresh-install check is needed here, unlike Android: only the
+  // App Clip writes this record, and it cannot run once the full app is
+  // installed, so an upgraded install never has one. That guarantee is the
+  // iOS half of the FIRST-LAUNCH CONTRACT (`installInviteCodeCapture.ts`).
   if (!value || typeof value !== 'object') {
     // Nothing handed off. The App Group container is migrated from the App
     // Clip on install, so its contents at first launch are final.

@@ -155,7 +155,9 @@ function isRecentInstall(installationTime: Date): boolean {
  * install time across updates and moves the last update time, so the two
  * differ exactly when this installation has been upgraded — an existing user
  * reaching this version through an update, who is skipped without binding the
- * Play Store service.
+ * Play Store service. This check is the Android half of the FIRST-LAUNCH
+ * CONTRACT (`installInviteCodeCapture.ts`); do not drop it or read the
+ * referrer before it.
  *
  * Deliberately separate from `reportGooglePlayInstallAttribution`: that one is
  * an analytics one-shot gated on a 7-day install-age window, while an invite

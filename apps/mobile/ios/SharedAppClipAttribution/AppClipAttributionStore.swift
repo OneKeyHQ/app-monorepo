@@ -220,6 +220,12 @@ struct AppClipInviteCodeRecord: Codable {
   }
 }
 
+/// Only the App Clip may call `save`. The full app reads this file on its
+/// first launch and treats "file present" as "this install came from an invite
+/// link"; that holds only because the App Clip cannot run once the full app is
+/// installed, which keeps upgraded installs out. Writing it from the full app
+/// (or from any path that runs after install) would break the first-launch
+/// rule in `installInviteCodeCapture.ts`.
 enum AppClipInviteCodeStore {
   static let recordFilename = "app_clip_invite_code_v1.json"
 
