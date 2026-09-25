@@ -324,14 +324,25 @@ class ServiceDApp extends ServiceBase {
         });
         this.existingWindowId = extensionWindow.id;
       }
-    } else if (
-      appGlobals.$navigationRef?.current &&
-      !(
+    } else if (appGlobals.$navigationRef?.current) {
+      if (
         platformEnv.isNative &&
+        (routeNames[0] === ERootRoutes.Modal ||
+          routeNames[0] === ERootRoutes.iOSFullScreen) &&
         routeNames[1] === EModalRoutes.DAppConnectionModal &&
         routeNames[2] === EDAppConnectionModal.WalletConnectSessionProposalModal
-      )
-    ) {
+      ) {
+        // Progress dismissal is best-effort. A ready navigation ref must not
+        // depend on the background relay's React effect having mounted.
+        void Promise.resolve()
+          .then(() =>
+            appEventBus.emit(
+              EAppEventBusNames.WalletConnectCloseConnectionProgress,
+              undefined,
+            ),
+          )
+          .catch(() => undefined);
+      }
       const doOpenModal = () =>
         appGlobals.$navigationRef.current?.navigate(
           modalParams.screen,
@@ -341,8 +352,7 @@ class ServiceDApp extends ServiceBase {
       // TODO remove timeout after dapp request queue implemented.
       doOpenModal();
     } else {
-      // Relay to the main runtime. Native WalletConnect proposals also use
-      // this path in single-runtime dev mode to dismiss connection progress.
+      // Relay to the main runtime when navigation belongs to another JS heap.
       appEventBus.emit(EAppEventBusNames.NavigateModalFromBackgroundThread, {
         screen: modalParams.screen,
         params: modalParams.params,

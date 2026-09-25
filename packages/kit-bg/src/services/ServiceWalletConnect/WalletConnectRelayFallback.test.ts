@@ -588,6 +588,58 @@ describe('WalletConnect application relay controller with the unmodified SDK', (
     ]);
   });
 
+  it.each(['transportOpen', 'restartTransport'] as const)(
+    'cancels an open overlapping close, while allowing a later %s',
+    async (reconnect) => {
+      jest.useFakeTimers();
+      const core = createCore();
+      prepareCore(core);
+      WalletConnectRelayController.attach(core);
+      const connect = jest
+        .spyOn(JsonRpcProvider.prototype, 'connect')
+        .mockImplementation(async function connect(this: JsonRpcProvider) {
+          if (!(this.connection instanceof WsConnection))
+            throw new OneKeyLocalError('Expected the SDK WebSocket transport');
+          mockClose(this.connection);
+          Object.assign(this.connection, { socket: { readyState: 1 } });
+          this.events.emit('connect');
+        });
+      await core.relayer.transportOpen();
+      const connection = core.relayer.provider.connection;
+      let finishClose = () => {};
+      jest.spyOn(connection, 'close').mockImplementation(
+        () =>
+          new Promise<void>((resolve) => {
+            finishClose = () => {
+              Object.assign(connection, {
+                socket: undefined,
+                registering: false,
+              });
+              connection.events.emit('close');
+              resolve();
+            };
+          }),
+      );
+      const closing = core.relayer.transportClose();
+      const concurrent = core.relayer
+        .transportOpen()
+        .catch((error: unknown) => error);
+      await jest.advanceTimersByTimeAsync(0);
+      finishClose();
+      await jest.advanceTimersByTimeAsync(1000);
+      await closing;
+      expect(await concurrent).toBeInstanceOf(OneKeyLocalError);
+      expect(connect).toHaveBeenCalledTimes(1);
+      expect(core.relayer.connected).toBe(false);
+      expect(core.relayer.transportExplicitlyClosed).toBe(true);
+
+      await core.relayer[reconnect]();
+      expect(connect).toHaveBeenCalledTimes(2);
+      expect(core.relayer.connected).toBe(true);
+      expect(core.relayer.transportExplicitlyClosed).toBe(false);
+    },
+  );
+
   it('stops automatic failover after an explicit close', async () => {
     jest.useFakeTimers();
     const core = createCore();

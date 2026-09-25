@@ -6,6 +6,11 @@ import type { ReactElement, ReactNode } from 'react';
 import { act, cleanup, render, screen } from '@testing-library/react';
 
 import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import {
   EDAppConnectionModal,
   EModalRoutes,
   ERootRoutes,
@@ -24,7 +29,7 @@ const secondPairingUri = `wc:${'3'.repeat(64)}@2?relay-protocol=irn&symKey=${'4'
 const mockConnect = jest.fn<Promise<void>, [string]>();
 const mockNavigate = jest.fn<void, unknown[]>();
 const mockGetDiagnostics = jest.fn<Promise<typeof mockSnapshot>, []>();
-const mockPlatform = { isNative: true };
+const mockPlatform = platformEnv;
 let mockSnapshot = {
   connected: false,
   connecting: false,
@@ -101,14 +106,20 @@ jest.mock('@onekeyhq/shared/src/appGlobals', () => ({
   },
 }));
 
-jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
-  __esModule: true,
-  default: {
-    get isNative() {
-      return mockPlatform.isNative;
+jest.mock('@onekeyhq/shared/src/platformEnv', () => {
+  const actual = jest.requireActual<
+    typeof import('@onekeyhq/shared/src/platformEnv')
+  >('@onekeyhq/shared/src/platformEnv');
+  return {
+    ...actual,
+    __esModule: true,
+    default: {
+      ...actual.default,
+      isNative: true,
+      runtimeRole: actual.ERuntimeRole.Standalone,
     },
-  },
-}));
+  };
+});
 
 jest.mock('@onekeyhq/shared/src/walletConnect/constant', () => ({
   WALLET_CONNECT_RELAY_URL: 'wss://relay.walletconnect.com',
@@ -458,6 +469,54 @@ const proposalNavigation = {
     },
   },
 };
+
+it.each(['success', 'rejection', 'pending'] as const)(
+  'dismisses progress independently of navigation with a %s close result',
+  async (result) => {
+    await connectWalletConnectToDapp(pairingUri);
+    const dialog = mockDialogs[0];
+    if (result === 'rejection') {
+      dialog.close.mockRejectedValue(new Error('Dialog close failed'));
+    } else if (result === 'pending') {
+      dialog.close.mockReturnValue(deferred().promise);
+    }
+    expect(
+      appEventBus.listenerCount(
+        EAppEventBusNames.NavigateModalFromBackgroundThread,
+      ),
+    ).toBe(0);
+    appEventBus.emit(
+      EAppEventBusNames.WalletConnectCloseConnectionProgress,
+      undefined,
+    );
+    await act(async () => {});
+    expect(dialog.close).toHaveBeenCalledTimes(1);
+    expect(mockNavigate).not.toHaveBeenCalled();
+
+    await connectWalletConnectToDapp(secondPairingUri);
+    expect(mockDialogs).toHaveLength(2);
+  },
+);
+
+it('invalidates pending progress through the close-only signal without a navigation listener', async () => {
+  const reading = deferred();
+  mockGetDiagnostics.mockReturnValueOnce(
+    reading.promise.then(() => mockSnapshot),
+  );
+  const connecting = connectWalletConnectToDapp(pairingUri);
+  appEventBus.emit(
+    EAppEventBusNames.WalletConnectCloseConnectionProgress,
+    undefined,
+  );
+  reading.resolve();
+  await connecting;
+  expect(mockDialogs).toHaveLength(0);
+  expect(mockConnect).toHaveBeenCalledWith(pairingUri);
+  expect(mockNavigate).not.toHaveBeenCalled();
+
+  await connectWalletConnectToDapp(secondPairingUri);
+  expect(mockDialogs).toHaveLength(1);
+});
 
 it.each([ERootRoutes.Modal, ERootRoutes.iOSFullScreen])(
   'navigates to a proposal in %s immediately while loading closes asynchronously',

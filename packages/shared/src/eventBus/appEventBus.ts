@@ -236,6 +236,7 @@ export interface IAppEventBusPayload {
         attemptId?: number;
       }
     | undefined;
+  [EAppEventBusNames.WalletConnectCloseConnectionProgress]: undefined;
   [EAppEventBusNames.WalletConnectModalState]: {
     open: boolean;
     attemptId?: number;

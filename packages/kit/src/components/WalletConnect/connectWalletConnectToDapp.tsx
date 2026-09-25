@@ -3,6 +3,10 @@ import { useEffect, useRef } from 'react';
 import { Dialog } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { WALLET_CONNECT_RELAY_URL } from '@onekeyhq/shared/src/walletConnect/constant';
 import type { IWalletConnectDiagnostics } from '@onekeyhq/shared/src/walletConnect/diagnostics';
@@ -107,6 +111,12 @@ export async function closeWalletConnectConnectionProgress() {
   progressGeneration += 1;
   await activeDialog?.close();
 }
+
+// Register with the progress module, before a scan can show or queue loading.
+// Direct proposal navigation does not depend on any React listener mounting.
+appEventBus.on(EAppEventBusNames.WalletConnectCloseConnectionProgress, () => {
+  void closeWalletConnectConnectionProgress().catch(() => undefined);
+});
 
 function isPairingUri(uri: string) {
   if (!/^wc:(?:\/\/)?[a-f\d]{64}@2\?/i.test(uri)) return false;

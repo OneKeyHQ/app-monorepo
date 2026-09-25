@@ -286,6 +286,11 @@ export class WalletConnectRelayController {
 
   private async open(relayUrl?: string): Promise<void> {
     const { relayer } = this.core;
+    // An open overlapping explicit closure belongs to the cancelled cycle.
+    // A fresh open/restart after closure can still start the SDK normally.
+    if (this.closing) {
+      throw new OneKeyLocalError('WalletConnect connection cancelled');
+    }
     // Subscription restoration issues RPCs from inside transportOpen. Allow
     // them on the new connected socket without waiting on their own promise.
     if (
@@ -297,10 +302,6 @@ export class WalletConnectRelayController {
     }
     if (this.opening) {
       return this.opening;
-    }
-    if (this.closing) {
-      await this.closing;
-      return this.open(relayUrl);
     }
     if (!relayer.subscriber.hasAnyTopics) {
       return;
