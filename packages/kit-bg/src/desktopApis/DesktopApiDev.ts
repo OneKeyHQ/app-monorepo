@@ -2,7 +2,6 @@ import { createHash } from 'crypto';
 import * as fs from 'fs';
 import * as fsPromises from 'fs/promises';
 import * as path from 'path';
-import { Transform, pipeline } from 'stream';
 import { pathToFileURL } from 'url';
 
 import AdmZip from 'adm-zip';
@@ -190,12 +189,15 @@ class DesktopApiDev {
     // the connection is up. Listening for 'data' on the file stream before
     // fetch() would switch it to flowing mode and drain the whole archive in
     // the meantime, so fetch would send an empty body and reject with
-    // UND_ERR_REQ_CONTENT_LENGTH_MISMATCH (OK-64070). Count progress inside
-    // the pipeline instead, so bytes are only counted as fetch consumes them.
+    // UND_ERR_REQ_CONTENT_LENGTH_MISMATCH (OK-64070). Hand fetch a pull-based
+    // generator instead: the archive is opened and counted only as fetch
+    // consumes it, so progress never runs ahead of the connection and a
+    // failed connect never touches the file.
     let uploadedBytes = 0;
-    const fileStream = fs.createReadStream(filePath);
-    const progressCounter = new Transform({
-      transform(chunk: Buffer, _encoding, callback) {
+    const archive: { stream?: fs.ReadStream } = {};
+    const readArchive = async function* (): AsyncGenerator<Buffer> {
+      archive.stream = fs.createReadStream(filePath);
+      for await (const chunk of archive.stream as AsyncIterable<Buffer>) {
         uploadedBytes += chunk.length;
         if (totalBytes > 0) {
           sendProgress({
@@ -206,21 +208,11 @@ class DesktopApiDev {
             ),
           });
         }
-        callback(null, chunk);
-      },
-    });
-    // pipeline() owns error handling: a read failure destroys the body with
-    // that error, so fetch aborts the request instead of waiting forever,
-    // and nothing emits an unhandled 'error' before fetch starts consuming.
-    pipeline(fileStream, progressCounter, (pipelineError) => {
-      if (pipelineError) {
-        logger.warn(
-          '[client-log-upload] archive stream failed:',
-          pipelineError.message,
-        );
+        yield chunk;
       }
-    });
-    const body = progressCounter;
+    };
+    const body = readArchive();
+    const abortController = new AbortController();
 
     try {
       const finalHeaders = await withCustomUAHeaders(uploadUrl, reqHeaders);
@@ -252,6 +244,7 @@ class DesktopApiDev {
         body: body as unknown as BodyInit,
         // Node's native fetch requires duplex for a streaming request body.
         duplex: 'half',
+        signal: abortController.signal,
       };
       const response = await fetch(uploadUrl, requestInit);
       const text = await response.text();
@@ -327,6 +320,13 @@ class DesktopApiDev {
         message: error instanceof Error ? error.message : String(error),
       });
       throw error;
+    } finally {
+      // The request can end before the body is consumed (connect failure,
+      // server replied before reading the body, error thrown before fetch).
+      // Release the transport and the archive ourselves instead of leaving
+      // an open fd and a stalled socket behind until the process exits.
+      abortController.abort();
+      archive.stream?.destroy();
     }
   }
 

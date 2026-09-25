@@ -1,4 +1,4 @@
-// Regression test for OK-64070: desktop log upload silently sent an empty body.
+// Regression tests for OK-64070: desktop log upload silently sent an empty body.
 //
 // `uploadLoggerBundle` streams the log archive through Node's built-in fetch
 // (undici). undici pulls the request body lazily, only once the connection is
@@ -7,13 +7,15 @@
 // received a `content-length: 0` POST and fetch rejected with
 // UND_ERR_REQ_CONTENT_LENGTH_MISMATCH ("fetch failed").
 //
-// The suite drives the REAL method against a local self-signed HTTPS server
-// whose TLS handshake is deliberately stalled (SNICallback), so the body is
-// always pulled well after the file could have been drained — exactly the
-// production timing. TLS verification is relaxed for THIS process only.
+// The suite drives the REAL method against local self-signed TLS servers whose
+// handshake is deliberately stalled (SNICallback), so the body is always
+// pulled well after the file could have been drained — exactly the production
+// timing. TLS verification is relaxed for THIS process only.
 
+import { once } from 'events';
 import fs from 'fs';
 import https from 'https';
+import net from 'net';
 import os from 'os';
 import path from 'path';
 import tls from 'tls';
@@ -31,20 +33,39 @@ import type { AddressInfo } from 'net';
 
 // jest-setup.js swaps the sandbox's global fetch for node-fetch, and the
 // sandbox `process.env` is a copy that never reaches Node's TLS layer. The
-// bug under test lives in Node's built-in fetch (undici) and the server uses a
+// bug under test lives in Node's built-in fetch (undici) and the servers use a
 // self-signed cert, so borrow the host realm's globals for this suite.
 const hostGlobal = vm.runInThisContext('globalThis') as typeof globalThis;
 
 const TMP_DIR = path.join(os.tmpdir(), 'onekey-desktop-log-upload-test');
 const LOG_FILE = path.join(TMP_DIR, 'app-latest.log');
 const ARCHIVE_FILE = path.join(TMP_DIR, 'OneKeyLogs-test.zip');
+const SMALL_ARCHIVE_FILE = path.join(TMP_DIR, 'OneKeyLogs-small.zip');
 // Larger than a handful of 64 KiB fs chunks so a drained stream is obvious.
 const ARCHIVE_SIZE = 1_500_000;
+// Fits in a single fs chunk: progress must still not reach 100% before
+// anything has been transmitted.
+const SMALL_ARCHIVE_SIZE = 1024;
 // Simulated connect latency: the body must only be pulled after this.
 const HANDSHAKE_DELAY_MS = 300;
 // Read lazily by the hoisted electron-log mock (jest requires the `mock` prefix).
 const mockLogFilePath = LOG_FILE;
+// Every archive stream the method opens, so tests can assert it was released.
+const mockOpenedStreams: fs.ReadStream[] = [];
 
+jest.mock('fs', () => {
+  const actual = jest.requireActual<typeof import('fs')>('fs');
+  return {
+    ...actual,
+    createReadStream: (
+      ...args: Parameters<typeof actual.createReadStream>
+    ): ReturnType<typeof actual.createReadStream> => {
+      const stream = actual.createReadStream(...args);
+      mockOpenedStreams.push(stream);
+      return stream;
+    },
+  };
+});
 jest.mock('electron', () => ({ shell: { openPath: jest.fn() } }));
 jest.mock('electron-log/main', () => ({
   __esModule: true,
@@ -87,40 +108,64 @@ interface IProgressEvent {
   message?: string;
 }
 
-interface IUploadServer {
+interface ILocalServer {
   url: string;
+  close: () => Promise<void>;
+}
+
+interface IUploadServer extends ILocalServer {
   requests: Array<{
     contentLength: string | undefined;
     transferEncoding: string | undefined;
     receivedBytes: number;
     completed: boolean;
   }>;
-  close: () => Promise<void>;
 }
 
-function startStalledHttpsServer(): Promise<IUploadServer> {
-  const pems = selfsigned.generate(
-    [{ name: 'commonName', value: 'localhost' }],
-    { days: 1, keySize: 2048 },
+const pems = selfsigned.generate([{ name: 'commonName', value: 'localhost' }], {
+  days: 1,
+  keySize: 2048,
+});
+const tlsCredentials = { key: pems.private, cert: pems.cert };
+
+// Stall the handshake so undici starts pulling the body only after the file
+// stream would have been drained by an eager consumer.
+const stalledSniCallback = (
+  _servername: string,
+  callback: (err: Error | null, ctx?: tls.SecureContext) => void,
+) => {
+  setTimeout(
+    () => callback(null, tls.createSecureContext(tlsCredentials)),
+    HANDSHAKE_DELAY_MS,
   );
+};
+
+function listenLocally(server: net.Server): Promise<ILocalServer> {
+  const sockets = new Set<net.Socket>();
+  server.on('connection', (socket) => {
+    sockets.add(socket);
+    socket.on('close', () => sockets.delete(socket));
+  });
+  return new Promise<ILocalServer>((resolve) => {
+    server.listen(0, '127.0.0.1', () => {
+      const { port } = server.address() as AddressInfo;
+      resolve({
+        // A hostname (not an IP) is required for SNI to be sent at all.
+        url: `https://localhost:${port}/wallet/v1/client/log`,
+        close: () =>
+          new Promise<void>((done) => {
+            sockets.forEach((socket) => socket.destroy());
+            server.close(() => done());
+          }),
+      });
+    });
+  });
+}
+
+function startUploadServer(): Promise<IUploadServer> {
   const requests: IUploadServer['requests'] = [];
   const server = https.createServer(
-    {
-      key: pems.private,
-      cert: pems.cert,
-      // Stall the handshake so undici starts pulling the body only after the
-      // file stream would have been drained by an eager consumer.
-      SNICallback: (_servername, callback) => {
-        setTimeout(
-          () =>
-            callback(
-              null,
-              tls.createSecureContext({ key: pems.private, cert: pems.cert }),
-            ),
-          HANDSHAKE_DELAY_MS,
-        );
-      },
-    },
+    { ...tlsCredentials, SNICallback: stalledSniCallback },
     (req, res) => {
       const record: IUploadServer['requests'][number] = {
         contentLength: req.headers['content-length'],
@@ -145,21 +190,32 @@ function startStalledHttpsServer(): Promise<IUploadServer> {
       });
     },
   );
-  return new Promise<IUploadServer>((resolve) => {
-    server.listen(0, '127.0.0.1', () => {
-      const { port } = server.address() as AddressInfo;
-      resolve({
-        // A hostname (not an IP) is required for SNI to be sent at all.
-        url: `https://localhost:${port}/wallet/v1/client/log`,
-        requests,
-        close: () =>
-          new Promise<void>((done) => {
-            server.closeAllConnections?.();
-            server.close(() => done());
-          }),
-      });
-    });
+  return listenLocally(server).then((local) => ({ ...local, requests }));
+}
+
+// Answers before reading a single byte of the request and never reads it,
+// the way a WAF block page does, so the client is cut off mid-body.
+function startEarlyReplyServer(): Promise<ILocalServer> {
+  const html = '<html>blocked</html>';
+  const server = tls.createServer(
+    { ...tlsCredentials, SNICallback: stalledSniCallback },
+    (socket) => {
+      socket.on('error', () => {});
+      socket.end(
+        `HTTP/1.1 403 Forbidden\r\ncontent-type: text/html\r\ncontent-length: ${html.length}\r\nconnection: close\r\n\r\n${html}`,
+      );
+    },
+  );
+  return listenLocally(server);
+}
+
+// Accepts the TCP connection and drops it before any TLS handshake, so fetch
+// rejects without ever asking for the body.
+function startBrokenServer(): Promise<ILocalServer> {
+  const server = net.createServer((socket) => {
+    socket.destroy();
   });
+  return listenLocally(server);
 }
 
 function makeApi(): { api: DesktopApiDev; events: IProgressEvent[] } {
@@ -178,8 +234,28 @@ function makeApi(): { api: DesktopApiDev; events: IProgressEvent[] } {
   return { api: new DesktopApiDev({ desktopApi }), events };
 }
 
+function uploadHeaders(sizeBytes: number): Record<string, string> {
+  // Same shape the renderer sends (index.desktop.ts uploadLogBundle).
+  return {
+    'content-type': 'application/zip',
+    'content-length': String(sizeBytes),
+  };
+}
+
+async function waitForClose(stream: fs.ReadStream): Promise<void> {
+  if (!stream.closed) {
+    await once(stream, 'close');
+  }
+}
+
+function uploadingEvents(events: IProgressEvent[]): IProgressEvent[] {
+  return events.filter((event) => event.stage === ELogUploadStage.Uploading);
+}
+
 describe('DesktopApiDev.uploadLoggerBundle', () => {
-  let server: IUploadServer;
+  let uploadServer: IUploadServer;
+  let earlyReplyServer: ILocalServer;
+  let brokenServer: ILocalServer;
   let previousTlsSetting: string | undefined;
   let sandboxFetch: typeof fetch;
 
@@ -196,11 +272,23 @@ describe('DesktopApiDev.uploadLoggerBundle', () => {
       payload[i] = (i * 31 + 7) & 0xff;
     }
     fs.writeFileSync(ARCHIVE_FILE, payload);
-    server = await startStalledHttpsServer();
+    fs.writeFileSync(
+      SMALL_ARCHIVE_FILE,
+      payload.subarray(0, SMALL_ARCHIVE_SIZE),
+    );
+    [uploadServer, earlyReplyServer, brokenServer] = await Promise.all([
+      startUploadServer(),
+      startEarlyReplyServer(),
+      startBrokenServer(),
+    ]);
   });
 
   afterAll(async () => {
-    await server.close();
+    await Promise.all([
+      uploadServer.close(),
+      earlyReplyServer.close(),
+      brokenServer.close(),
+    ]);
     fs.rmSync(TMP_DIR, { recursive: true, force: true });
     globalThis.fetch = sandboxFetch;
     if (previousTlsSetting === undefined) {
@@ -211,28 +299,25 @@ describe('DesktopApiDev.uploadLoggerBundle', () => {
   });
 
   beforeEach(() => {
-    server.requests.length = 0;
+    uploadServer.requests.length = 0;
+    mockOpenedStreams.length = 0;
   });
 
   it('streams the whole archive after a delayed connection and reports progress', async () => {
     const { api, events } = makeApi();
 
     const result = (await api.uploadLoggerBundle({
-      uploadUrl: server.url,
+      uploadUrl: uploadServer.url,
       filePath: ARCHIVE_FILE,
       sizeBytes: ARCHIVE_SIZE,
-      // Same shape the renderer sends (index.desktop.ts uploadLogBundle).
-      headers: {
-        'content-type': 'application/zip',
-        'content-length': String(ARCHIVE_SIZE),
-      },
+      headers: uploadHeaders(ARCHIVE_SIZE),
     })) as { code: number; data: { objectKey: string } };
 
     expect(result.code).toBe(0);
     expect(result.data.objectKey).toBe(`logs/${ARCHIVE_SIZE}`);
 
-    expect(server.requests).toHaveLength(1);
-    const [request] = server.requests;
+    expect(uploadServer.requests).toHaveLength(1);
+    const [request] = uploadServer.requests;
     expect(request.contentLength).toBe(String(ARCHIVE_SIZE));
     expect(request.transferEncoding).toBeUndefined();
     expect(request.receivedBytes).toBe(ARCHIVE_SIZE);
@@ -244,9 +329,7 @@ describe('DesktopApiDev.uploadLoggerBundle', () => {
       progressPercent: 0,
       message: undefined,
     });
-    const uploading = events.filter(
-      (event) => event.stage === ELogUploadStage.Uploading,
-    );
+    const uploading = uploadingEvents(events);
     expect(uploading.length).toBeGreaterThan(2);
     for (let i = 1; i < uploading.length; i += 1) {
       expect(uploading[i].progressPercent).toBeGreaterThanOrEqual(
@@ -262,6 +345,68 @@ describe('DesktopApiDev.uploadLoggerBundle', () => {
     expect(events.some((event) => event.stage === ELogUploadStage.Error)).toBe(
       false,
     );
+
+    // The archive is released once the upload is over.
+    expect(mockOpenedStreams).toHaveLength(1);
+    await waitForClose(mockOpenedStreams[0]);
+    expect(mockOpenedStreams[0].closed).toBe(true);
+  });
+
+  it('never opens the archive or advances progress when the connection fails', async () => {
+    const { api, events } = makeApi();
+
+    let rejection: { message?: string } | undefined;
+    try {
+      await api.uploadLoggerBundle({
+        uploadUrl: brokenServer.url,
+        filePath: SMALL_ARCHIVE_FILE,
+        sizeBytes: SMALL_ARCHIVE_SIZE,
+        headers: uploadHeaders(SMALL_ARCHIVE_SIZE),
+      });
+    } catch (error) {
+      rejection = error as { message?: string };
+    }
+    expect(rejection?.message).toBe('fetch failed');
+
+    // fetch never pulled the body, so the archive was never opened and there
+    // is nothing left to release.
+    expect(mockOpenedStreams).toHaveLength(0);
+    // Even a one-chunk archive must not report 100% before transmission.
+    expect(
+      uploadingEvents(events).every(
+        (event) => (event.progressPercent ?? 0) === 0,
+      ),
+    ).toBe(true);
+    expect(events[events.length - 1]?.stage).toBe(ELogUploadStage.Error);
+  });
+
+  it('releases the archive when the server replies before reading the body', async () => {
+    const { api, events } = makeApi();
+
+    const result = (await api.uploadLoggerBundle({
+      uploadUrl: earlyReplyServer.url,
+      filePath: ARCHIVE_FILE,
+      sizeBytes: ARCHIVE_SIZE,
+      headers: uploadHeaders(ARCHIVE_SIZE),
+    })) as { code: number; message: string };
+
+    // Non-JSON block page: surfaced as a stable message, never the raw HTML.
+    expect(result).toEqual({
+      code: 403,
+      message: 'Upload failed (HTTP 403, cf-ray=n/a)',
+    });
+    expect(events[events.length - 1]).toEqual({
+      stage: ELogUploadStage.Error,
+      progressPercent: undefined,
+      message: 'Upload failed (HTTP 403, cf-ray=n/a)',
+    });
+
+    // The upload was cut off midway, and the archive must not stay open.
+    const uploading = uploadingEvents(events);
+    expect(uploading[uploading.length - 1].progressPercent).toBeLessThan(100);
+    expect(mockOpenedStreams).toHaveLength(1);
+    await waitForClose(mockOpenedStreams[0]);
+    expect(mockOpenedStreams[0].closed).toBe(true);
   });
 
   it('rejects and reports an error when the archive cannot be read', async () => {
@@ -273,13 +418,10 @@ describe('DesktopApiDev.uploadLoggerBundle', () => {
     let rejection: { message?: string; cause?: unknown } | undefined;
     try {
       await api.uploadLoggerBundle({
-        uploadUrl: server.url,
+        uploadUrl: uploadServer.url,
         filePath: missingFile,
         sizeBytes: ARCHIVE_SIZE,
-        headers: {
-          'content-type': 'application/zip',
-          'content-length': String(ARCHIVE_SIZE),
-        },
+        headers: uploadHeaders(ARCHIVE_SIZE),
       });
     } catch (error) {
       rejection = error as { message?: string; cause?: unknown };
@@ -298,6 +440,8 @@ describe('DesktopApiDev.uploadLoggerBundle', () => {
     ).toBe(false);
     // The read error must abort the request rather than leave the server
     // waiting on a body that never arrives.
-    expect(server.requests.every((request) => !request.completed)).toBe(true);
+    expect(uploadServer.requests.every((request) => !request.completed)).toBe(
+      true,
+    );
   });
 });
