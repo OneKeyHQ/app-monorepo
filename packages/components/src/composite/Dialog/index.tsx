@@ -916,6 +916,7 @@ type IDialogShowFunctionProps = IDialogShowProps & {
 };
 function dialogShow({
   onClose,
+  onCloseStart,
   dialogContainer,
   portalContainer,
   isOverTopAllViews,
@@ -961,6 +962,7 @@ function dialogShow({
     }) =>
     (extra?: { flag?: string }) =>
       new Promise<void>((resolve) => {
+        onCloseStart?.();
         // Remove the React node after the animation has finished.
         setTimeout(() => {
           if (instanceRef) {

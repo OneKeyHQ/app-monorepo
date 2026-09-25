@@ -1425,17 +1425,33 @@ class ServiceSend extends ServiceBase {
     accountId,
     networkId,
     accountAddress,
+    prefetchedOnChainNonce,
   }: {
     accountId: string;
     networkId: string;
     accountAddress: string;
+    prefetchedOnChainNonce?: IBuildUnsignedTxParams['prefetchedOnChainNonce'];
   }) {
-    const { nonce: onChainNextNonce } =
-      await this.backgroundApi.serviceAccountProfile.fetchAccountDetails({
-        networkId,
-        accountId,
-        withNonce: true,
-      });
+    const canUsePrefetchedNonce = Boolean(
+      prefetchedOnChainNonce &&
+      prefetchedOnChainNonce.accountId === accountId &&
+      prefetchedOnChainNonce.networkId === networkId &&
+      prefetchedOnChainNonce.accountAddress.toLowerCase() ===
+        accountAddress.toLowerCase() &&
+      Number.isSafeInteger(prefetchedOnChainNonce.nonce) &&
+      prefetchedOnChainNonce.nonce >= 0 &&
+      Date.now() - prefetchedOnChainNonce.fetchedAt >= 0 &&
+      Date.now() - prefetchedOnChainNonce.fetchedAt <= 2000,
+    );
+    const onChainNextNonce = canUsePrefetchedNonce
+      ? prefetchedOnChainNonce?.nonce
+      : (
+          await this.backgroundApi.serviceAccountProfile.fetchAccountDetails({
+            networkId,
+            accountId,
+            withNonce: true,
+          })
+        ).nonce;
     if (isNil(onChainNextNonce)) {
       throw new OneKeyLocalError('Get on-chain nonce failed.');
     }
@@ -1713,6 +1729,7 @@ class ServiceSend extends ServiceBase {
       disableMev,
       withoutNonce,
       withUuid,
+      prefetchedOnChainNonce,
     } = params;
 
     let newUnsignedTx = unsignedTx;
@@ -1775,6 +1792,7 @@ class ServiceSend extends ServiceBase {
         accountId,
         networkId,
         accountAddress: account.address,
+        prefetchedOnChainNonce,
       });
 
       newUnsignedTx = await this.backgroundApi.serviceSend.updateUnsignedTx({

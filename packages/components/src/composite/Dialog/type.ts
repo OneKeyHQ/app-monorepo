@@ -162,6 +162,8 @@ export interface IDialogShowProps extends Omit<
    * @platform iOS, Web
    */
   isOverTopAllViews?: boolean;
+  /** Runs synchronously when closing starts, before the exit animation. */
+  onCloseStart?: () => void;
   /* Run it after dialog is closed */
   onClose?: (extra?: { flag?: string }) => void | Promise<void>;
 }

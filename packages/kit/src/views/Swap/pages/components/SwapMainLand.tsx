@@ -258,6 +258,8 @@ const SwapMainLoad = ({
     rebuildSwapWithSlippage,
     beginGasAccountReviewSession,
     endGasAccountReviewSession,
+    beginSwapReview,
+    invalidateSwapReview,
     markCurrentGasAccountReviewSubmitted,
   } = useSwapBuildTx({
     onSwapBroadcast,
@@ -337,6 +339,7 @@ const SwapMainLoad = ({
   hasInFlightReviewWorkRef.current = hasInFlightReviewWork;
 
   const resetPendingReview = useCallback(() => {
+    invalidateSwapReview();
     endGasAccountReviewSession();
     setSwapBuildTxFetching(false);
     void backgroundApiProxy.serviceGas.abortEstimateFee();
@@ -344,15 +347,21 @@ const SwapMainLoad = ({
       steps: [],
       preSwapData: {},
     });
-  }, [endGasAccountReviewSession, setSwapBuildTxFetching, setSwapSteps]);
+  }, [
+    endGasAccountReviewSession,
+    invalidateSwapReview,
+    setSwapBuildTxFetching,
+    setSwapSteps,
+  ]);
   const dialogClose = useCallback(() => {
+    invalidateSwapReview();
     if (reviewDialogTimerRef.current !== undefined) {
       clearTimeout(reviewDialogTimerRef.current);
       reviewDialogTimerRef.current = undefined;
       resetPendingReview();
     }
     void dialogRef.current?.close();
-  }, [resetPendingReview]);
+  }, [invalidateSwapReview, resetPendingReview]);
   const shouldCloseReviewOnFocusLoss = useCallback(
     () =>
       shouldCloseSwapReviewOnFocusLoss({
@@ -1102,6 +1111,7 @@ const SwapMainLoad = ({
           .multipliedBy(100)
           .toFixed(2);
       }
+      const reviewGeneration = reviewGenerationRef.current;
       Dialog.confirm({
         title: intl.formatMessage({
           id: ETranslations.swap_network_cost_dialog_title,
@@ -1127,7 +1137,9 @@ const SwapMainLoad = ({
           id: ETranslations.global_continue,
         }),
         onConfirm: () => {
-          onActionHandler();
+          if (reviewGeneration === reviewGenerationRef.current) {
+            onActionHandler();
+          }
         },
       });
     } else {
@@ -1208,9 +1220,8 @@ const SwapMainLoad = ({
       cleanQuoteInterval();
       setSwapShouldRefreshQuote(true);
     }
-    if (reviewContextKey !== undefined) {
-      reviewGenerationRef.current += 1;
-    }
+    reviewGenerationRef.current += 1;
+    beginSwapReview();
     const reviewGeneration = reviewGenerationRef.current;
     const closeReview = () => onPreSwapClose(reviewGeneration);
     beginGasAccountReviewSession();
@@ -1226,6 +1237,11 @@ const SwapMainLoad = ({
         return;
       }
       dialogRef.current = reviewDialogController.show({
+        onCloseStart: () => {
+          if (reviewGeneration === reviewGenerationRef.current) {
+            invalidateSwapReview();
+          }
+        },
         onClose: closeReview,
         title: intl.formatMessage({
           id: ETranslations.global_review_order,
@@ -1284,7 +1300,8 @@ const SwapMainLoad = ({
     storeName,
     resetPendingReview,
     shouldCloseReviewOnFocusLoss,
-    reviewContextKey,
+    beginSwapReview,
+    invalidateSwapReview,
   ]);
 
   const onOpenOrdersClick = useCallback(
