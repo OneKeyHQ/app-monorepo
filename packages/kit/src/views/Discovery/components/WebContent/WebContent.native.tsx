@@ -16,7 +16,7 @@ import {
 } from '@onekeyhq/kit/src/states/jotai/contexts/discovery';
 import { useSettingsFiatPaySiteWhitelistPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/settings';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { openOneKeyStoreLinkExternally } from '@onekeyhq/shared/src/utils/openUrlUtils';
+import { handleOneKeyStoreLink } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import { EValidateUrlEnum } from '@onekeyhq/shared/types/dappConnection';
 
 import {
@@ -153,9 +153,9 @@ function WebContent({
         handleDeepLinkUrl({ url: navUrl });
         return false;
       }
-      // Embedded frames must not launch the store. iOS reports frames;
-      // react-native-webview on Android always reports the top frame.
-      if (isTopFrame && openOneKeyStoreLinkExternally(navUrl)) {
+      // iOS reports embedded frames; react-native-webview on Android always
+      // reports the top frame.
+      if (handleOneKeyStoreLink(navUrl, { isTopFrame })) {
         return false;
       }
       setShowBlockAccessView(true);
@@ -228,7 +228,7 @@ function WebContent({
           });
           if (validateState === EValidateUrlEnum.ValidDeeplink) {
             handleDeepLinkUrl({ url: targetUrl });
-          } else if (!openOneKeyStoreLinkExternally(targetUrl)) {
+          } else if (!handleOneKeyStoreLink(targetUrl)) {
             void gotoSite({
               url: targetUrl,
               siteMode,

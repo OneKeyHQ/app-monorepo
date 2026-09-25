@@ -301,15 +301,22 @@ export const getOneKeyStoreHandoffUrl = (url: string): string | undefined => {
 };
 
 /**
- * Opens OneKey's store listing with the OS when `url` is a store deep link
- * for it. Returns whether the link was handled.
+ * Handles a store deep link for OneKey's own listing. From the top frame the
+ * OS opens the store; from an embedded frame the navigation is only dropped,
+ * so a frame can neither launch the store nor block the whole tab. Returns
+ * whether `url` was such a link.
  */
-export const openOneKeyStoreLinkExternally = (url: string): boolean => {
+export const handleOneKeyStoreLink = (
+  url: string,
+  { isTopFrame = true }: { isTopFrame?: boolean } = {},
+): boolean => {
   const handoffUrl = getOneKeyStoreHandoffUrl(url);
   if (!handoffUrl) {
     return false;
   }
-  openUrlExternal(handoffUrl, { useSystemBrowser: true });
+  if (isTopFrame) {
+    openUrlExternal(handoffUrl, { useSystemBrowser: true });
+  }
   return true;
 };
 

@@ -3,7 +3,7 @@ import { useCallback, useEffect } from 'react';
 import { useMedia } from '@onekeyhq/components';
 import { useBrowserAction } from '@onekeyhq/kit/src/states/jotai/contexts/discovery';
 import { EDesktopIpcChannel } from '@onekeyhq/shared/src/consts/desktopIpcChannels';
-import { openOneKeyStoreLinkExternally } from '@onekeyhq/shared/src/utils/openUrlUtils';
+import { handleOneKeyStoreLink } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import { EValidateUrlEnum } from '@onekeyhq/shared/types/dappConnection';
 
 import useAppNavigation from '../../../hooks/useAppNavigation';
@@ -37,7 +37,7 @@ export function useDesktopNewWindow() {
         return;
       }
       if (validateState !== EValidateUrlEnum.Valid) {
-        openOneKeyStoreLinkExternally(data.url);
+        handleOneKeyStoreLink(data.url);
         return;
       }
       handleOpenWebSite({

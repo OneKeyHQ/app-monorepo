@@ -7,7 +7,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   dismissNativeInAppBrowser,
   getOneKeyStoreHandoffUrl,
-  openOneKeyStoreLinkExternally,
+  handleOneKeyStoreLink,
   openUrlExternal,
   setForceSystemBrowserForDebug,
 } from './openUrlUtils';
@@ -305,7 +305,7 @@ describe('OneKey store deep links', () => {
   test('opens the canonical link, not the page-supplied one', () => {
     mockEnv.isNativeIOS = true;
     expect(
-      openOneKeyStoreLinkExternally(
+      handleOneKeyStoreLink(
         'itms-appss://apps.apple.com/us/app/onekey-open-source-wallet/id1609559473?ct=other',
       ),
     ).toBe(true);
@@ -316,14 +316,28 @@ describe('OneKey store deep links', () => {
     );
   });
 
-  test('does not open other links', () => {
+  test('drops the link from an embedded frame without opening the store', () => {
+    mockEnv.isNativeIOS = true;
     expect(
-      openOneKeyStoreLinkExternally(
-        'itms-apps://apps.apple.com/app/id1234567890',
-      ),
-    ).toBe(false);
+      handleOneKeyStoreLink('itms-apps://apps.apple.com/app/id1609559473', {
+        isTopFrame: false,
+      }),
+    ).toBe(true);
+    expect(mockOpenBrowserAsync).not.toHaveBeenCalled();
     expect(mockOpenURL).not.toHaveBeenCalled();
   });
+
+  test.each([true, false])(
+    'leaves other links to the block page (isTopFrame: %s)',
+    (isTopFrame) => {
+      expect(
+        handleOneKeyStoreLink('itms-apps://apps.apple.com/app/id1234567890', {
+          isTopFrame,
+        }),
+      ).toBe(false);
+      expect(mockOpenURL).not.toHaveBeenCalled();
+    },
+  );
 });
 
 describe('dismissNativeInAppBrowser', () => {
