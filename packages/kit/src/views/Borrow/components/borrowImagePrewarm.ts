@@ -51,10 +51,47 @@ let resolveForegroundDrain: (() => void) | undefined;
 let foregroundDrainId = 0;
 let activeForegroundImage: IQueuedImage | undefined;
 let cacheGeneration = 0;
+let isCacheClearInProgress = false;
 
 export function invalidateBorrowImagePrewarmCache() {
   cacheGeneration += 1;
   prewarmedImageVariants.clear();
+  isCacheClearInProgress = false;
+}
+
+function cancelQueuedBorrowImagePrewarm() {
+  pendingImages.forEach((item) => {
+    item.owners.clear();
+    queuedImageVariants.delete(item.key);
+  });
+  pendingImages.length = 0;
+  activeImageItems.forEach((item) => item.owners.clear());
+}
+
+function hasActiveBorrowImagePrewarmWork() {
+  return (
+    activeImageItems.size > 0 || isDrainingForeground || isDrainingBackground
+  );
+}
+
+/**
+ * Stop new image work, then wait for native requests already in flight before
+ * the native disk cache is cleared. Call invalidateBorrowImagePrewarmCache()
+ * after the native clear completes to reopen the queue.
+ */
+export async function waitForBorrowImagePrewarmIdle() {
+  isCacheClearInProgress = true;
+  cancelQueuedBorrowImagePrewarm();
+  while (hasActiveBorrowImagePrewarmWork()) {
+    const drains = [foregroundDrainPromise].filter(
+      (promise): promise is Promise<void> => Boolean(promise),
+    );
+    if (drains.length > 0) {
+      await Promise.race(drains);
+    } else {
+      await new Promise<void>((resolve) => setTimeout(resolve, 0));
+    }
+  }
 }
 
 function getImageVariantKey(source: IBorrowImagePrewarmSource) {
@@ -287,6 +324,10 @@ export function prewarmBorrowImages(
     onSettled?: (success: boolean) => void;
   },
 ): () => void {
+  if (isCacheClearInProgress) {
+    options?.onSettled?.(false);
+    return () => undefined;
+  }
   nextOwnerId += 1;
   const ownerId = nextOwnerId;
   const priority = options?.priority ? 1 : 0;

@@ -53,10 +53,6 @@ function registerDeriveTypeInvalidation() {
   appEventBus.on(EAppEventBusNames.AccountUpdate, invalidate);
   appEventBus.on(EAppEventBusNames.GlobalDeriveTypeUpdate, invalidate);
   appEventBus.on(EAppEventBusNames.NetworkDeriveTypeChanged, invalidate);
-  appEventBus.on(
-    EAppEventBusNames.AccountSelectorSelectedAccountUpdate,
-    invalidate,
-  );
 }
 
 function subscribeDeriveTypeRevision(listener: () => void) {

@@ -200,14 +200,18 @@ export default function ClearAppCache() {
             // dApp favicons, and DeFi/market icons) is not cleared by
             // clearCacheOnApp, which only clears DB/simpleDb.
             if (values.tokenAndNFT) {
+              const {
+                invalidateBorrowImagePrewarmCache,
+                waitForBorrowImagePrewarmIdle,
+              } =
+                await import('@onekeyhq/kit/src/views/Borrow/components/borrowImagePrewarm');
+              await waitForBorrowImagePrewarmIdle();
               if (platformEnv.isNative) {
                 await Promise.all([
                   Image.clearDiskCache(),
                   Image.clearMemoryCache(),
                 ]).catch(() => undefined);
               }
-              const { invalidateBorrowImagePrewarmCache } =
-                await import('@onekeyhq/kit/src/views/Borrow/components/borrowImagePrewarm');
               invalidateBorrowImagePrewarmCache();
             }
             Toast.success({

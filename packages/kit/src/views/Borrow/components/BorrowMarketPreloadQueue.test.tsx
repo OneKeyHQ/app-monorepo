@@ -8,9 +8,6 @@ type IMockImageSession = {
 const mockImageSessions: IMockImageSession[] = [];
 const mockWorkerMounts = jest.fn();
 const mockWorkerUnmounts = jest.fn();
-const mockHealthEnabled = jest.fn();
-const mockEarnAccountNetworks = jest.fn();
-let mockEarnAccount: { networkId: string; accountId: string } | null = null;
 let mockReservesResult:
   | { scopeKey: string; data: { overview?: object; supply: { assets: [] } } }
   | undefined;
@@ -36,8 +33,6 @@ jest.mock('@onekeyhq/shared/src/eventBus/appEventBus', () => ({
     WalletClear: 'WalletClear',
     AccountRemove: 'AccountRemove',
     AccountUpdate: 'AccountUpdate',
-    AccountSelectorSelectedAccountUpdate:
-      'AccountSelectorSelectedAccountUpdate',
     GlobalDeriveTypeUpdate: 'GlobalDeriveTypeUpdate',
     NetworkDeriveTypeChanged: 'NetworkDeriveTypeChanged',
   },
@@ -47,41 +42,11 @@ jest.mock('@onekeyhq/shared/src/utils/swrCacheUtils', () => ({
   swrKeys: { borrowReserves: () => 'reserves-key' },
   swrCacheUtils: { getWithTimestamp: () => undefined },
 }));
-jest.mock('../../Staking/hooks/useEarnAccount', () => ({
-  useEarnAccount: ({ networkId }: { networkId?: string }) => {
-    mockEarnAccountNetworks(networkId);
-    return { earnAccount: mockEarnAccount, isLoading: false };
-  },
-}));
 jest.mock('../hooks/useBorrowReserves', () => ({
   useBorrowReserves: () => ({ fetchReserves: jest.fn() }),
   isBorrowReservesCacheReusable: () => true,
   isBorrowReservesPayloadUsable: (value?: { overview?: object }) =>
     Boolean(value?.overview),
-}));
-jest.mock('../hooks/useBorrowHealthFactor', () => ({
-  useBorrowHealthFactor: ({ enabled }: { enabled: boolean }) => {
-    mockHealthEnabled(enabled);
-    return {
-      isLoading: false,
-      isInitialLoading: false,
-      isError: false,
-    };
-  },
-}));
-jest.mock('../hooks/useBorrowRewards', () => ({
-  useBorrowRewards: () => ({
-    isLoading: false,
-    isInitialLoading: false,
-    isError: false,
-  }),
-}));
-jest.mock('../hooks/useBorrowEModeStatus', () => ({
-  useBorrowEModeStatus: () => ({
-    isLoading: false,
-    isInitialLoading: false,
-    isError: false,
-  }),
 }));
 jest.mock('./borrowImagePrewarm', () => ({
   createBorrowImagePrewarmSession: (scopeKey: string) => {
@@ -125,7 +90,6 @@ const queueProps = {
   markets: [visibleMarket, targetMarket],
   visibleMarketKey: buildBorrowMarketKey(visibleMarket),
   accountScopeKey: 'account-a',
-  hasAccountContext: false,
 };
 
 describe('BorrowMarketPreloadQueue image ownership', () => {
@@ -134,10 +98,7 @@ describe('BorrowMarketPreloadQueue image ownership', () => {
     jest.clearAllMocks();
     mockWorkerMounts.mockClear();
     mockWorkerUnmounts.mockClear();
-    mockHealthEnabled.mockClear();
-    mockEarnAccountNetworks.mockClear();
     mockImageSessions.length = 0;
-    mockEarnAccount = null;
     mockReservesResult = {
       scopeKey: 'aave-evm--42161-0xTarget-public',
       data: { overview: {}, supply: { assets: [] } },
@@ -184,7 +145,7 @@ describe('BorrowMarketPreloadQueue image ownership', () => {
     );
   });
 
-  it('discards derived account and images when the account changes in place', () => {
+  it('restarts the public preload session when the account changes in place', () => {
     const onSpy = jest.spyOn(appEventBus, 'on');
     const screen = render(
       <BorrowMarketPreloadQueue {...queueProps} enabled canStartNextMarket />,
@@ -251,37 +212,6 @@ describe('BorrowMarketPreloadQueue image ownership', () => {
       />,
     );
     expect(mockWorkerUnmounts).toHaveBeenCalledTimes(1);
-    screen.unmount();
-  });
-
-  it('runs metrics only after the reserves pass completes', () => {
-    mockEarnAccount = {
-      networkId: targetMarket.networkId,
-      accountId: 'account-b',
-    };
-    mockReservesResult = {
-      scopeKey: 'aave-evm--42161-0xTarget-account-b',
-      data: { overview: {}, supply: { assets: [] } },
-    };
-    const screen = render(
-      <BorrowMarketPreloadQueue
-        {...queueProps}
-        enabled
-        canStartNextMarket
-        hasAccountContext
-      />,
-    );
-    act(() => jest.advanceTimersByTime(500));
-    expect(mockWorkerMounts).toHaveBeenCalledTimes(1);
-    expect(mockHealthEnabled).not.toHaveBeenCalledWith(true);
-
-    mockEarnAccountNetworks.mockClear();
-    act(() => jest.advanceTimersByTime(250));
-    expect(mockWorkerMounts).toHaveBeenCalledTimes(2);
-    expect(mockHealthEnabled).toHaveBeenCalledWith(true);
-    expect(mockEarnAccountNetworks).not.toHaveBeenCalledWith(
-      targetMarket.networkId,
-    );
     screen.unmount();
   });
 

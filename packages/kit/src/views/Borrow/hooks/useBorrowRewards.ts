@@ -23,6 +23,7 @@ import type { IBorrowRewards } from '@onekeyhq/shared/types/staking';
 import { isBorrowMetricReadyForMarketSwitch } from './borrowMetricSnapshot.utils';
 
 const PRELOADED_CACHE_TTL = 60_000;
+const POLLING_INTERVAL = 30 * 1000;
 
 type IRewardsRequest = Parameters<
   typeof backgroundApiProxy.serviceStaking.getBorrowRewards
@@ -50,10 +51,6 @@ function registerAccountInvalidation() {
   appEventBus.on(EAppEventBusNames.AccountUpdate, invalidate);
   appEventBus.on(EAppEventBusNames.GlobalDeriveTypeUpdate, invalidate);
   appEventBus.on(EAppEventBusNames.NetworkDeriveTypeChanged, invalidate);
-  appEventBus.on(
-    EAppEventBusNames.AccountSelectorSelectedAccountUpdate,
-    invalidate,
-  );
 }
 
 function subscribeAccountGeneration(listener: () => void) {
@@ -225,6 +222,8 @@ export const useBorrowRewards = ({
     {
       initResult: null,
       watchLoading: true,
+      pollingInterval: isPreloading ? undefined : POLLING_INTERVAL,
+      revalidateOnFocus: !isPreloading,
       alwaysSetState: !isPreloading,
       swrKey,
       swrShouldPersist: (result) =>

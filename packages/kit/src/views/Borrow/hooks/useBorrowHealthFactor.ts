@@ -60,10 +60,6 @@ function registerAccountInvalidation() {
   appEventBus.on(EAppEventBusNames.AccountUpdate, invalidate);
   appEventBus.on(EAppEventBusNames.GlobalDeriveTypeUpdate, invalidate);
   appEventBus.on(EAppEventBusNames.NetworkDeriveTypeChanged, invalidate);
-  appEventBus.on(
-    EAppEventBusNames.AccountSelectorSelectedAccountUpdate,
-    invalidate,
-  );
 }
 
 function subscribeAccountGeneration(listener: () => void) {
