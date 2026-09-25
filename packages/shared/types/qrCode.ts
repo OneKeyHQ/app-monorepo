@@ -7,6 +7,7 @@ export enum EQRCodeHandlerType {
   LIGHTNING_NETWORK = 'LIGHTNING_NETWORK',
   URL = 'URL',
   WALLET_CONNECT = 'WALLET_CONNECT',
+  WALLET_CONNECT_PAY = 'WALLET_CONNECT_PAY',
   MIGRATE = 'MIGRATE',
   ANIMATION_CODE = 'ANIMATION_CODE',
   DEEPLINK = 'DEEPLINK',
@@ -25,6 +26,7 @@ export enum EQRCodeHandlerNames {
   ethereum = 'ethereum',
   solana = 'solana',
   walletconnect = 'walletconnect',
+  walletConnectPay = 'walletConnectPay',
   lightningNetwork = 'lightningNetwork',
   migrate = 'migrate',
   animation = 'animation',
@@ -43,6 +45,9 @@ export const PARSE_HANDLER_NAMES = {
     EQRCodeHandlerNames.bitcoin,
     EQRCodeHandlerNames.ethereum,
     EQRCodeHandlerNames.solana,
+    // must run before `walletconnect`: wc: URIs carrying a `pay` param are
+    // payment links, not pairing URIs
+    EQRCodeHandlerNames.walletConnectPay,
     EQRCodeHandlerNames.walletconnect,
     EQRCodeHandlerNames.migrate,
     EQRCodeHandlerNames.animation,

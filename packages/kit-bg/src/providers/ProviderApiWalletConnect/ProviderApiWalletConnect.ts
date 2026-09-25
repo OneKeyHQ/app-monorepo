@@ -1,5 +1,3 @@
-import { getSdkError } from '@walletconnect/utils';
-
 import { backgroundMethod } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import {
   IMPL_ALGO,
@@ -159,7 +157,7 @@ class ProviderApiWalletConnect {
       );
       await this.web3Wallet?.rejectSession({
         id: proposal.id,
-        reason: getSdkError('UNSUPPORTED_CHAINS'),
+        reason: await walletConnectClient.getSdkErrorLazy('UNSUPPORTED_CHAINS'),
       });
       void this.backgroundApi.serviceApp.showToast({
         method: 'error',
@@ -240,7 +238,7 @@ class ProviderApiWalletConnect {
       console.error('onSessionProposal error: ', e);
       await this.web3Wallet?.rejectSession({
         id: proposal.id,
-        reason: getSdkError('USER_REJECTED'),
+        reason: await walletConnectClient.getSdkErrorLazy('USER_REJECTED'),
       });
       defaultLogger.discovery.dapp.dappUse({
         dappName: metadata.name,
@@ -271,7 +269,8 @@ class ProviderApiWalletConnect {
         response: {
           id,
           jsonrpc: '2.0',
-          error: getSdkError('UNSUPPORTED_CHAINS'),
+          error:
+            await walletConnectClient.getSdkErrorLazy('UNSUPPORTED_CHAINS'),
         },
       });
       void this.backgroundApi.serviceApp.showToast({
@@ -293,7 +292,9 @@ class ProviderApiWalletConnect {
         response: {
           id,
           jsonrpc: '2.0',
-          error: getSdkError('UNSUPPORTED_METHODS'),
+          error: await walletConnectClient.getSdkErrorLazy(
+            'UNSUPPORTED_METHODS',
+          ),
         },
       });
       return;
@@ -330,7 +331,10 @@ class ProviderApiWalletConnect {
         response: {
           id,
           jsonrpc: '2.0',
-          error: getSdkError('USER_REJECTED', (error as Error)?.message),
+          error: await walletConnectClient.getSdkErrorLazy(
+            'USER_REJECTED',
+            (error as Error)?.message,
+          ),
         },
       });
     }
@@ -411,7 +415,10 @@ class ProviderApiWalletConnect {
         response: {
           id,
           jsonrpc: '2.0',
-          error: getSdkError('USER_REJECTED', 'No connected account'),
+          error: await walletConnectClient.getSdkErrorLazy(
+            'USER_REJECTED',
+            'No connected account',
+          ),
         },
       });
       return;

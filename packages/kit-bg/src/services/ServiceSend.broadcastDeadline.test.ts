@@ -507,6 +507,47 @@ describe('ServiceSend.signAndSendTransaction broadcastDeadline', () => {
     expect(vault.broadcastTransaction).not.toHaveBeenCalled();
   });
 
+  test('rejects when dev sign-only would skip a WalletConnect Pay broadcast', async () => {
+    // a skipped broadcast would hand WalletConnect Pay a txid that was
+    // neither recorded at the pre-broadcast boundary nor sent
+    const { service, vault, backgroundApi } = makeService();
+    const recordPreBroadcastTxid = jest.fn().mockResolvedValue(undefined);
+    (
+      backgroundApi as unknown as {
+        serviceWalletConnectPay: { recordPreBroadcastTxid: jest.Mock };
+      }
+    ).serviceWalletConnectPay = { recordPreBroadcastTxid };
+    backgroundApi.serviceDevSetting.getDevSetting.mockResolvedValueOnce({
+      enabled: true,
+      settings: { alwaysSignOnlySendTx: true },
+    });
+
+    await expect(
+      service.signAndSendTransaction({
+        accountId,
+        networkId,
+        unsignedTx,
+        signOnly: false,
+        wcPayPreBroadcastRecord: {
+          paymentId: 'pay-1',
+          optionId: 'opt-1',
+          accountKey: accountId,
+          action: {
+            walletRpc: {
+              chainId: 'eip155:1',
+              method: 'eth_sendTransaction',
+              params: '[{}]',
+            },
+          } as never,
+          index: 0,
+        },
+      }),
+    ).rejects.toThrow('WalletConnect Pay requires a real broadcast');
+
+    expect(recordPreBroadcastTxid).not.toHaveBeenCalled();
+    expect(vault.broadcastTransaction).not.toHaveBeenCalled();
+  });
+
   test('ignores a stale sign-only flag when Dev mode is disabled', async () => {
     const logSpy = jest
       .spyOn(defaultLogger.prime.subscription, 'primeCryptoPaymentFlow')

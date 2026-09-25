@@ -1,4 +1,3 @@
-import { getSdkError } from '@walletconnect/utils';
 import { uniq } from 'lodash';
 
 import {
@@ -35,6 +34,7 @@ import type { IConnectionAccountInfo } from '@onekeyhq/shared/types/dappConnecti
 
 import ServiceBase from '../ServiceBase';
 
+import walletConnectClient from './walletConnectClient';
 import { WalletConnectDappSide } from './WalletConnectDappSide';
 
 import type { WalletKitTypes } from '@reown/walletkit';
@@ -389,7 +389,7 @@ class ServiceWalletConnect extends ServiceBase {
     // emit `session_delete` event to dapp
     return this.backgroundApi.walletConnect.web3Wallet?.disconnectSession({
       topic,
-      reason: getSdkError('USER_DISCONNECTED'),
+      reason: await walletConnectClient.getSdkErrorLazy('USER_DISCONNECTED'),
     });
   }
 

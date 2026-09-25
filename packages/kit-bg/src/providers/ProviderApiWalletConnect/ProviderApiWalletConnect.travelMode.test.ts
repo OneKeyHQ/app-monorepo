@@ -17,7 +17,13 @@ jest.mock('@onekeyhq/shared/src/travelMode', () => ({
 }));
 jest.mock('../../services/ServiceWalletConnect/walletConnectClient', () => ({
   __esModule: true,
-  default: {},
+  default: {
+    // the gated session_request path rejects with a lazily resolved SDK error
+    getSdkErrorLazy: jest.fn(async (key: string) => ({
+      code: 0,
+      message: key,
+    })),
+  },
 }));
 jest.mock('./WalletConnectRequestProxyAlgo', () => ({
   WalletConnectRequestProxyAlgo: jest.fn(),

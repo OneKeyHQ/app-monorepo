@@ -21,6 +21,7 @@ import type {
   ETranslations,
   ETranslationsMock,
 } from '@onekeyhq/shared/src/locale';
+import type { IWcPayPreBroadcastRecord } from '@onekeyhq/shared/src/walletConnect/payTypes';
 import type { IDappSourceInfo } from '@onekeyhq/shared/types';
 import type { IDBCustomRpc } from '@onekeyhq/shared/types/customRpc';
 import type {
@@ -779,6 +780,10 @@ export interface IBatchSignTransactionParamsBase {
   gasAccountSubmitId?: string;
   broadcastDeadline?: number;
   beforeBroadcastAction?: IPrimeInfiniBeforeBroadcastAction;
+  // WalletConnect Pay only: identity of the durable progress slot the
+  // background writes the txid into between signing and broadcast
+  // (duplicate-payment boundary, see ServiceSend.signAndSendTransaction)
+  wcPayPreBroadcastRecord?: IWcPayPreBroadcastRecord;
   useDefaultRpc?: boolean;
 }
 

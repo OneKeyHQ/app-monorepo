@@ -279,6 +279,12 @@ const config: StorybookConfig = {
           'react-intl',
           'moti',
           'react-native-svg',
+          // Only DialogV2 reaches it, so Vite discovers it mid-session and
+          // re-optimizes; the page then mixes chunks from two optimize runs
+          // and Base UI sees a second React ("Cannot read properties of null
+          // (reading 'useContext')" in DialogRoot). Pre-bundling it up front
+          // keeps every chunk on one run.
+          '@base-ui/react/dialog',
         ],
         exclude: [
           // RN on-device network devtools — irrelevant to web-only rendering

@@ -41,6 +41,7 @@ export * from './tabReferFriends';
 export * from './tabSwap';
 export * from './testModal';
 export * from './walletAddress';
+export * from './walletConnectPay';
 export * from './webView';
 export * from './rewardCenter';
 export * from './bulkSend';

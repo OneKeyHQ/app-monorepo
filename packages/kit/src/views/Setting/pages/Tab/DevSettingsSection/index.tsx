@@ -208,6 +208,9 @@ const DevSettingsAccordionTrigger = ({
         <XStack alignItems="center" gap="$1">
           {onTogglePin ? (
             <IconButton
+              // Accordion.Trigger renders a native <button> on web; render the
+              // pin control as a span to avoid invalid nested buttons.
+              render="span"
               icon={pinned ? 'StarSolid' : 'StarOutline'}
               size="small"
               variant="tertiary"

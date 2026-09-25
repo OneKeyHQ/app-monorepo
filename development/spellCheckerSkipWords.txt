@@ -222,6 +222,7 @@ bypassable
 bytesize
 bytify
 cacheable
+caip
 caips
 calc
 camelcase
@@ -418,6 +419,7 @@ fs
 fucntion
 func
 Func
+funder
 Geist
 getr
 gif
@@ -496,6 +498,7 @@ isXprvt
 itms
 izari
 jane
+jetpack
 jotai
 Jotai
 jpeg
@@ -518,6 +521,7 @@ keyring
 keysend
 keytag
 krc20
+Lamport
 Lamports
 lang
 lasttime
@@ -963,6 +967,7 @@ vtc
 wagmi
 Wagmi
 walletconnect
+walletkit
 wasm
 Wasm
 wasmd
@@ -1603,6 +1608,7 @@ otsu
 Otsu
 OTSU
 binarize
+scure
 
 # password manager brand referenced in Input suppression comment
 Dashlane

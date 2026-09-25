@@ -41,6 +41,7 @@ import type { ITabHomeUrlAccountParamList } from './tabHome';
 import type { ITestModalPagesParam } from './testModal';
 import type { IUniversalSearchParamList } from './universalSearch';
 import type { IModalWalletAddressParamList } from './walletAddress';
+import type { IModalWalletConnectPayParamList } from './walletConnectPay';
 import type { IModalWebViewParamList } from './webView';
 
 export enum EModalRoutes {
@@ -73,6 +74,7 @@ export enum EModalRoutes {
   UniversalSearchModal = 'UniversalSearchModal',
   StakingModal = 'StakingModal',
   WalletAddress = 'WalletAddress',
+  WalletConnectPayModal = 'WalletConnectPayModal',
   NotificationsModal = 'NotificationsModal',
   ShortcutsModal = 'ShortcutsModal',
   SignatureConfirmModal = 'SignatureConfirmModal',
@@ -123,6 +125,7 @@ export type IModalParamList = {
   [EModalRoutes.TestModal]: ITestModalPagesParam;
   [EModalRoutes.UniversalSearchModal]: IUniversalSearchParamList;
   [EModalRoutes.WalletAddress]: IModalWalletAddressParamList;
+  [EModalRoutes.WalletConnectPayModal]: IModalWalletConnectPayParamList;
   [EModalRoutes.WebViewModal]: IModalWebViewParamList;
   [EModalRoutes.BulkCopyAddressesModal]: IModalBulkCopyAddressesParamList;
   [EModalRoutes.BulkExportHistoryModal]: IModalBulkExportHistoryParamList;
