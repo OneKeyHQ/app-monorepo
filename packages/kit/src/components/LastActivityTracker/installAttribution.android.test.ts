@@ -1,6 +1,7 @@
 const mockCreateSource = jest.fn(() => ({
   getInstallReferrer: jest.fn(),
   getInstallationTime: jest.fn(),
+  getLastUpdateTime: jest.fn(),
 }));
 const mockReport = jest.fn(async (_source: unknown) => {});
 const mockReadInviteCode = jest.fn(async (_source: unknown) => ({

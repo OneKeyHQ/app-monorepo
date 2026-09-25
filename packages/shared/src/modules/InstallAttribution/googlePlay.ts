@@ -1,6 +1,7 @@
 import {
   getInstallReferrerAsync,
   getInstallationTimeAsync,
+  getLastUpdateTimeAsync,
 } from 'expo-application';
 
 import { defaultLogger } from '../../logger/logger';
@@ -40,6 +41,7 @@ function getValidReferrerValue(value: string | null): string | undefined {
 export interface IInstallAttributionSource {
   getInstallReferrer: () => Promise<string>;
   getInstallationTime: () => Promise<Date>;
+  getLastUpdateTime: () => Promise<Date>;
 }
 
 /**
@@ -53,6 +55,7 @@ export interface IInstallAttributionSource {
 export function createInstallAttributionSource(): IInstallAttributionSource {
   let installReferrer: Promise<string> | undefined;
   let installationTime: Promise<Date> | undefined;
+  let lastUpdateTime: Promise<Date> | undefined;
   return {
     getInstallReferrer: () => {
       installReferrer ??= getInstallReferrerAsync();
@@ -61,6 +64,10 @@ export function createInstallAttributionSource(): IInstallAttributionSource {
     getInstallationTime: () => {
       installationTime ??= getInstallationTimeAsync();
       return installationTime;
+    },
+    getLastUpdateTime: () => {
+      lastUpdateTime ??= getLastUpdateTimeAsync();
+      return lastUpdateTime;
     },
   };
 }
@@ -144,6 +151,12 @@ function isRecentInstall(installationTime: Date): boolean {
  * Reads the invite code carried by this install's referrer, plus the install
  * timestamp the auto-fill TTL is measured from.
  *
+ * Only a fresh install is eligible. Android's package info keeps the first
+ * install time across updates and moves the last update time, so the two
+ * differ exactly when this installation has been upgraded — an existing user
+ * reaching this version through an update, who is skipped without binding the
+ * Play Store service.
+ *
  * Deliberately separate from `reportGooglePlayInstallAttribution`: that one is
  * an analytics one-shot gated on a 7-day install-age window, while an invite
  * code stays useful for much longer and must survive until it is bound or
@@ -155,11 +168,21 @@ export async function readGooglePlayInviteCodeAttribution(
   code: string | undefined;
   installedAt: number;
   hasReferrer: boolean;
+  isExistingInstall: boolean;
 }> {
-  const [rawReferrer, installationTime] = await Promise.all([
-    source.getInstallReferrer(),
+  const [installationTime, lastUpdateTime] = await Promise.all([
     source.getInstallationTime(),
+    source.getLastUpdateTime(),
   ]);
+  if (lastUpdateTime.getTime() > installationTime.getTime()) {
+    return {
+      code: undefined,
+      installedAt: installationTime.getTime(),
+      hasReferrer: false,
+      isExistingInstall: true,
+    };
+  }
+  const rawReferrer = await source.getInstallReferrer();
   return {
     code: rawReferrer
       ? extractInviteCodeFromInstallReferrer(rawReferrer)
@@ -169,6 +192,7 @@ export async function readGooglePlayInviteCodeAttribution(
     // rejects instead, so this is the one ambiguous outcome: it may be a
     // transient store hiccup rather than a definitive "no referrer".
     hasReferrer: Boolean(rawReferrer),
+    isExistingInstall: false,
   };
 }
 

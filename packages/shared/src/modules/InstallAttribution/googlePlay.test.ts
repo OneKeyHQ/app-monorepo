@@ -1,6 +1,7 @@
 import {
   getInstallReferrerAsync,
   getInstallationTimeAsync,
+  getLastUpdateTimeAsync,
 } from 'expo-application';
 
 import appStorage from '../../storage/appStorage';
@@ -15,6 +16,7 @@ import {
 jest.mock('expo-application', () => ({
   getInstallationTimeAsync: jest.fn(),
   getInstallReferrerAsync: jest.fn(),
+  getLastUpdateTimeAsync: jest.fn(),
 }));
 
 jest.mock('../../logger/logger', () => ({
@@ -37,6 +39,7 @@ jest.mock('../../storage/appStorage', () => ({
 
 const getInstallReferrerMock = jest.mocked(getInstallReferrerAsync);
 const getInstallationTimeMock = jest.mocked(getInstallationTimeAsync);
+const getLastUpdateTimeMock = jest.mocked(getLastUpdateTimeAsync);
 const getReportedMock = jest.mocked(appStorage.getItem);
 const markReportedMock = jest.mocked(appStorage.setItem);
 const mockedLoggerModule = jest.requireMock('../../logger/logger') as {
@@ -237,6 +240,28 @@ describe('extractInviteCodeFromInstallReferrer', () => {
 });
 
 describe('readGooglePlayInviteCodeAttribution', () => {
+  beforeEach(() => {
+    // A fresh install: Play reports the same first-install and last-update time.
+    getLastUpdateTimeMock.mockImplementation(() => getInstallationTimeMock());
+  });
+
+  it('skips an existing install that reached this version through an update', async () => {
+    const installedAt = new Date('2026-01-02T03:04:05.000Z');
+    getInstallationTimeMock.mockResolvedValue(installedAt);
+    getLastUpdateTimeMock.mockResolvedValue(
+      new Date('2026-09-20T00:00:00.000Z'),
+    );
+    getInstallReferrerMock.mockClear();
+
+    await expect(readGooglePlayInviteCodeAttribution()).resolves.toEqual({
+      code: undefined,
+      installedAt: installedAt.getTime(),
+      hasReferrer: false,
+      isExistingInstall: true,
+    });
+    expect(getInstallReferrerMock).not.toHaveBeenCalled();
+  });
+
   it('returns the code and the install timestamp', async () => {
     const installedAt = new Date('2026-01-02T03:04:05.000Z');
     getInstallReferrerMock.mockResolvedValue(
@@ -248,6 +273,7 @@ describe('readGooglePlayInviteCodeAttribution', () => {
       code: 'ABC123',
       installedAt: installedAt.getTime(),
       hasReferrer: true,
+      isExistingInstall: false,
     });
   });
 
@@ -260,6 +286,7 @@ describe('readGooglePlayInviteCodeAttribution', () => {
       code: undefined,
       installedAt: installedAt.getTime(),
       hasReferrer: false,
+      isExistingInstall: false,
     });
   });
 

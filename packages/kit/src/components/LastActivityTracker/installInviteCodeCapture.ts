@@ -12,6 +12,12 @@ export type IInstallInviteCodeReadResult = {
    * window closes.
    */
   hasReferrer: boolean;
+  /**
+   * An installation that predates this capture (reached this version through
+   * an update). Only fresh installs are attributed, so this settles the
+   * capture without a code and without counting it as a capture.
+   */
+  isExistingInstall?: boolean;
 };
 
 /**
@@ -40,9 +46,15 @@ export async function captureInstallInviteCode({
     if (!result) {
       return;
     }
+    if (result.isExistingInstall) {
+      await backgroundApiProxy.serviceReferralCode.markInstallReferralCaptureResolved();
+      return;
+    }
     const { isResolved, hasCode } =
       await backgroundApiProxy.serviceReferralCode.resolveInstallReferral({
-        ...result,
+        code: result.code,
+        attributedAt: result.attributedAt,
+        hasReferrer: result.hasReferrer,
         source,
       });
     // A pending capture is retried on every cold start until it settles;
