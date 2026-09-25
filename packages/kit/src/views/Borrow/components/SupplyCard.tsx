@@ -13,7 +13,11 @@ import type { IBorrowReserveItem } from '@onekeyhq/shared/types/staking';
 
 import { useToOnBoardingPage } from '../../Onboarding/hooks/useToOnBoardingPage';
 import { EManagePositionType } from '../../Staking/pages/ManagePosition/hooks/useManagePage';
-import { isBorrowReservesPending } from '../borrowDataStatus';
+import {
+  hasBorrowReservesForMarket,
+  isBorrowReservesPending,
+} from '../borrowDataStatus';
+import { buildBorrowMarketKey } from '../borrowMarketKey';
 import { useBorrowContext } from '../BorrowProvider';
 import { BorrowNavigation } from '../borrowUtils';
 import { BorrowTestIDs } from '../testIDs';
@@ -150,7 +154,13 @@ export const SupplyCard = () => {
     [navigation, market, gtMd, handleManageSupply, accountId, indexedAccountId],
   );
 
-  const showLoading = isBorrowReservesPending(borrowDataStatus);
+  const showLoading =
+    isBorrowReservesPending(borrowDataStatus) ||
+    !hasBorrowReservesForMarket({
+      data: reserves.data,
+      ownerMarketKey: reserves.ownerMarketKey,
+      marketKey: market ? buildBorrowMarketKey(market) : undefined,
+    });
 
   // Per-row disabled state: dim + block tap for disabled supply assets on mobile.
   // Desktop rows navigate to details (still useful), so only mobile rows are disabled.
