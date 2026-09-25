@@ -103,14 +103,14 @@ function getAccountGeneration() {
 }
 
 export function isBorrowReservesCacheReusable(updatedAt: number) {
-  return updatedAt > lastAccountInvalidationAt;
+  return updatedAt >= lastAccountInvalidationAt;
 }
 
-// A response that settles in the same millisecond as an account mutation must
-// still belong to the new generation. Keep its timestamp strictly after the
-// invalidation boundary so the display cache does not reject a valid result.
+// Keep a response that settles in the same millisecond as an account mutation
+// at the current time. The inclusive cache boundary above accepts it without
+// manufacturing a future timestamp that the display cache would reject.
 export function getBorrowReservesCacheUpdatedAt() {
-  return Math.max(Date.now(), lastAccountInvalidationAt + 1);
+  return Date.now();
 }
 
 function registerAccountInvalidation() {

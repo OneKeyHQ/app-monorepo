@@ -532,35 +532,35 @@ const BorrowHomeContent = memo(
 
       if (isPhone) {
         return (
-          <YStack
-            flex={1}
-            gap="$5"
-            pointerEvents={isMarketInteractionBlocked ? 'none' : 'auto'}
-          >
-            {hasPositions || isReservesPending ? (
-              <MemoBorrowMobilePositions
-                eModeId={visibleEModeStatus?.eModeId}
-                isPending={isReservesPending}
+          <YStack flex={1} gap="$5">
+            <YStack
+              flex={1}
+              pointerEvents={isMarketInteractionBlocked ? 'none' : 'auto'}
+            >
+              {hasPositions || isReservesPending ? (
+                <MemoBorrowMobilePositions
+                  eModeId={visibleEModeStatus?.eModeId}
+                  isPending={isReservesPending}
+                />
+              ) : (
+                <BorrowMobileEmptyState
+                  assets={supplyAssets}
+                  isLoading={reserves.loading}
+                  onPressAsset={handleSupplyAsset}
+                  onRefresh={handleEmptyStateRefresh}
+                  isRefreshing={
+                    reserves.loading || overviewData.isManualRefreshing
+                  }
+                />
+              )}
+              <BorrowMobileSummary
+                isPositionTotalsLoading={isReservesPending}
+                overviewData={overviewData}
+                showPositionTotals={hasPositions}
               />
-            ) : (
-              <BorrowMobileEmptyState
-                assets={supplyAssets}
-                isLoading={reserves.loading}
-                onPressAsset={handleSupplyAsset}
-                onRefresh={handleEmptyStateRefresh}
-                isRefreshing={
-                  reserves.loading || overviewData.isManualRefreshing
-                }
-              />
-            )}
-            <BorrowMobileSummary
-              isPositionTotalsLoading={isReservesPending}
-              overviewData={overviewData}
-              showPositionTotals={hasPositions}
-            />
-            {/* E-Mode is a market-wide setting rather than a headline number,
-                so on phones it closes the page under the positions and the
-                summary instead of interrupting the metrics at the top. */}
+            </YStack>
+            {/* E-Mode is independent from reserves loading and remains usable
+                while the positions and summary refresh. */}
             {eModeBar}
           </YStack>
         );

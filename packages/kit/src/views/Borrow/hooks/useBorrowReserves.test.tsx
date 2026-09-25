@@ -36,7 +36,10 @@ import type {
   IBorrowReserveRequestParams,
 } from '@onekeyhq/shared/types/staking';
 
+import { isBorrowSnapshotReusable } from '../components/borrowDataGate.utils';
+
 import {
+  getBorrowReservesCacheUpdatedAt,
   isBorrowReservesCacheReusable,
   isBorrowReservesPayloadUsable,
   isBorrowReservesRequestSuperseded,
@@ -135,6 +138,27 @@ describe('useBorrowReserves in-flight requests', () => {
     act(() => mockAccountListeners.get('AccountUpdate')?.());
 
     expect(result.current.accountRevision).toBe(previousRevision + 1);
+  });
+
+  it('keeps a response settled in the invalidation millisecond reusable', () => {
+    const now = Date.now();
+    const nowSpy = jest.spyOn(Date, 'now').mockReturnValue(now);
+    try {
+      renderHook(() => useBorrowReserves());
+      act(() => mockAccountListeners.get('AccountUpdate')?.());
+
+      const updatedAt = getBorrowReservesCacheUpdatedAt();
+      expect(updatedAt).toBeLessThanOrEqual(now);
+      expect(
+        isBorrowSnapshotReusable({
+          updatedAt,
+          now,
+          isAccountCacheReusable: isBorrowReservesCacheReusable(updatedAt),
+        }),
+      ).toBe(true);
+    } finally {
+      nowSpy.mockRestore();
+    }
   });
 
   it('shares only an identical in-flight scope, then fetches again after settlement', async () => {
