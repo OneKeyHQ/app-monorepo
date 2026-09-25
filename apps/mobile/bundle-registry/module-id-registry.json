@@ -18892,6 +18892,7 @@
     "packages/kit-bg/src/services/ServiceApproval.ts": 8058,
     "packages/kit-bg/src/services/ServiceBase.ts": 8119,
     "packages/kit-bg/src/services/ServiceBatchCreateAccount/ServiceBatchCreateAccount.ts": 17065,
+    "packages/kit-bg/src/services/ServiceBatchCreateAccount/accountCreationErrors.ts": 8336,
     "packages/kit-bg/src/services/ServiceBatchCreateAccount/batchCreateCustomNetworks.ts": 2180,
     "packages/kit-bg/src/services/ServiceBatchCreateAccount/index.ts": 12089,
     "packages/kit-bg/src/services/ServiceBatchCreateAccount/thirdPartyAllNetworkErrors.ts": 21086,

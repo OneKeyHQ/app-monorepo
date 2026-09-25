@@ -39,6 +39,8 @@ import {
   PrimeTransferImportCancelledError,
   TransferInvalidCodeError,
 } from '@onekeyhq/shared/src/errors';
+import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
+import errorUtils from '@onekeyhq/shared/src/errors/utils/errorUtils';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -117,6 +119,7 @@ import {
   encryptStringAsyncWithFormat,
 } from '../../utils/secretEncryptFormat';
 import ServiceBase from '../ServiceBase';
+import { shouldAbortAccountCreation } from '../ServiceBatchCreateAccount/accountCreationErrors';
 import { HDWALLET_BACKUP_VERSION } from '../ServiceCloudBackup';
 
 import {
@@ -197,6 +200,7 @@ type IPrimeTransferImportTraceSafeRecordParams = {
   networkId?: string;
   deriveType?: string;
   pathIndex?: number;
+  itemIndex?: number;
   indexes?: number[];
   networksCount?: number;
   walletsCount?: number;
@@ -354,10 +358,87 @@ class ServicePrimeTransfer extends ServiceBase {
   }
 
   private getErrorMessage(error: unknown) {
-    const message = (error as Error)?.message || 'Unknown error';
-    return message.length > 500
-      ? `${message.slice(0, 500)}...(truncated)`
-      : message;
+    const message = (error as Error)?.message;
+    // Only persist fixed diagnostic messages. SDK errors can embed keys or
+    // mnemonics in their message, stack, cause, or custom properties.
+    const safeMessages = [
+      'Encrypted credential is required',
+      'Credential is required',
+      'Password is required',
+      'Mnemonic is required',
+      'NetworkId is required',
+      'Ton mnemonic credential is required',
+      'Invalid mnemonic',
+      'Invalid checksum',
+      'Invalid private key',
+      'No matching account restored',
+    ];
+    const safeMessage = safeMessages.find(
+      (value) => typeof message === 'string' && message.includes(value),
+    );
+    if (safeMessage) {
+      return safeMessage;
+    }
+    const className = Object.values(EOneKeyErrorClassNames).find((value) =>
+      errorUtils.isErrorByClassName({ error, className: value }),
+    );
+    if (className) {
+      return className;
+    }
+    const name = (error as Error)?.name;
+    return ['Error', 'TypeError', 'RangeError', 'SyntaxError'].includes(name)
+      ? `${name} (message omitted)`
+      : 'Unknown error (message omitted)';
+  }
+
+  private loggedImportErrors = new Set<unknown>();
+
+  private currentImportItemIndex: number | undefined;
+
+  private resetImportItemErrorLog(itemIndex?: number) {
+    this.loggedImportErrors.clear();
+    this.currentImportItemIndex = itemIndex;
+  }
+
+  private logImportError(
+    params: Omit<IPrimeTransferImportTraceRecordParams, 'event'>,
+    error: unknown,
+  ) {
+    // Keep the first, most precise stage when the same failure propagates.
+    // Scope this to one item so reused errors still identify later failures.
+    if (this.loggedImportErrors.has(error)) return;
+    this.loggedImportErrors.add(error);
+    const code = (error as { code?: unknown })?.code;
+    defaultLogger.prime.transfer.importError({
+      taskUUID: this.currentImportTaskUUID,
+      flow: this.currentImportFlow,
+      stage: params.stage,
+      targetType: params.targetType,
+      itemIndex: params.itemIndex ?? this.currentImportItemIndex,
+      pathIndex: params.pathIndex,
+      networkId: params.networkId,
+      deriveType: params.deriveType,
+      error: this.getErrorMessage(error),
+      code:
+        typeof code === 'number' && Number.isFinite(code) ? code : undefined,
+    });
+  }
+
+  private recordImportItemError(
+    params: Omit<IPrimeTransferImportTraceRecordParams, 'event'>,
+    error: unknown,
+  ) {
+    this.logImportError(params, error);
+    if (shouldAbortAccountCreation(error)) {
+      throw error;
+    }
+    return {
+      category: params.stage,
+      walletId: params.walletId || '',
+      accountId: params.accountId || '',
+      networkInfo: params.networkId || '',
+      error: this.getErrorMessage(error),
+    };
   }
 
   private buildImportProgressLogBase(
@@ -569,6 +650,7 @@ class ServicePrimeTransfer extends ServiceBase {
       return result;
     } catch (error) {
       this.assertImportTaskActive(taskUUID);
+      this.logImportError(params, error);
       await this.recordImportTrace({
         ...params,
         event: 'error',
@@ -3532,7 +3614,6 @@ class ServicePrimeTransfer extends ServiceBase {
         progressTotal: prev.importProgress?.total || 0,
         progressCurrent: prev.importProgress?.current || 0,
       };
-      console.log('completeImportProgress', stats);
 
       return {
         ...prev,
@@ -3611,7 +3692,7 @@ class ServicePrimeTransfer extends ServiceBase {
       };
     } = {};
     const indexedAccountNames: IPrimeTransferHDWalletIndexedAccountNames = {};
-    for (const hdAccount of accounts) {
+    for (const [itemIndex, hdAccount] of accounts.entries()) {
       if (taskUUID && this.currentImportTaskUUID !== taskUUID) {
         // task cancelled
         // throw new PrimeTransferImportCancelledError();
@@ -3620,6 +3701,9 @@ class ServicePrimeTransfer extends ServiceBase {
           createNetworkParams: [],
           indexedAccountNames: {},
         };
+      }
+      if (taskUUID) {
+        this.resetImportItemErrorLog(itemIndex);
       }
 
       try {
@@ -3669,14 +3753,31 @@ class ServicePrimeTransfer extends ServiceBase {
           }
         }
       } catch (e) {
-        console.error('startImport error', e);
-        errorsInfo?.push({
-          category: 'createHDWallet.createNetworkParams',
-          walletId,
-          accountId: hdAccount.id,
-          networkInfo: '',
-          error: (e as Error)?.message || 'Unknown error',
-        });
+        // Backup preparation also uses this helper without an import task.
+        // Keep its failures out of the active import's diagnostic state.
+        if (taskUUID) {
+          this.assertImportTaskActive(taskUUID);
+          const errorInfo = this.recordImportItemError(
+            {
+              stage: 'createHDWallet.createNetworkParams',
+              targetType: 'hdAccount',
+              walletId,
+              accountId: hdAccount.id,
+              itemIndex,
+            },
+            e,
+          );
+          errorsInfo?.push(errorInfo);
+        } else {
+          if (shouldAbortAccountCreation(e)) throw e;
+          errorsInfo?.push({
+            category: 'createHDWallet.createNetworkParams',
+            walletId,
+            accountId: hdAccount.id,
+            networkInfo: '',
+            error: this.getErrorMessage(e),
+          });
+        }
       }
     }
 
@@ -3750,11 +3851,28 @@ class ServicePrimeTransfer extends ServiceBase {
     ) {
       return { success: false, errorsInfo: [], skipped: true };
     }
+    // Require task-level password preparation before any item can prompt or
+    // mutate storage. Missing credentials alone remain per-item failures.
+    const selectedPrivateItems = [
+      ...selectedTransferData.wallets,
+      ...selectedTransferData.importedAccounts,
+    ];
+    const needsWrappedCredentials =
+      selectedPrivateItems.length > 0 && Boolean(decryptedCredentialsHex);
+    const hasPrivateCredentials =
+      needsWrappedCredentials ||
+      selectedPrivateItems.some((item) =>
+        Boolean(item.credential || item.credentialDecrypted),
+      );
+    if (hasPrivateCredentials && !password) {
+      throw new OneKeyLocalError('Password is required');
+    }
     this.runningImportTaskUUID = taskUUID;
     const importedAccountDeriveTypeCache = new Map<
       string,
       IAccountDeriveTypes | undefined
     >();
+    this.resetImportItemErrorLog();
     try {
       // Only use these parameters for credential preparation outside DB writes.
       const kdfParams = appCrypto.pbkdf2.getPbkdf2KdfParamsForNonDbTx();
@@ -3782,7 +3900,7 @@ class ServicePrimeTransfer extends ServiceBase {
       });
       const devSettings = await devSettingsPersistAtom.get();
       let decryptedCredentials: IPrimeTransferDecryptedCredentials | undefined;
-      if (decryptedCredentialsHex && password) {
+      if (needsWrappedCredentials && decryptedCredentialsHex && password) {
         decryptedCredentials = await this.withImportTaskLog(
           taskUUID,
           {
@@ -3823,6 +3941,7 @@ class ServicePrimeTransfer extends ServiceBase {
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const { serviceAccount, serviceNetwork, servicePassword } =
         this.backgroundApi;
+
       const resolveImportedAccountDeriveTypeByAccount = async ({
         importedAccount,
         networkId,
@@ -3854,464 +3973,500 @@ class ServicePrimeTransfer extends ServiceBase {
           importedAccountDeriveTypeCache.set(cacheKey, deriveType);
           return deriveType;
         } catch (error) {
-          console.error('getDeriveTypeByDBAccount error', error);
+          this.assertImportTaskActive(taskUUID);
+          this.recordImportItemError(
+            {
+              stage: 'resolveImportedAccountDeriveTypeFallback',
+              targetType: 'importedAccount',
+              networkId,
+            },
+            error,
+          );
           importedAccountDeriveTypeCache.set(cacheKey, undefined);
           return undefined;
         }
       };
 
-      for (const {
-        item: wallet,
-        credential,
-        credentialDecrypted,
-      } of selectedTransferData.wallets) {
+      for (const [
+        itemIndex,
+        { item: wallet, credential, credentialDecrypted },
+      ] of selectedTransferData.wallets.entries()) {
+        this.resetImportItemErrorLog(itemIndex);
         if (this.currentImportTaskUUID !== taskUUID) {
           // task cancelled
           return cancelledResult;
         }
 
-        let newWallet: IDBWallet | undefined;
         try {
-          await primeTransferAtom.set(
-            (prev): IPrimeTransferAtomData => ({
-              ...prev,
-              importCurrentCreatingTarget: [
-                'HdWallet: ',
-                wallet.id,
-                wallet.name,
-              ]
-                .filter(Boolean)
-                .join('__'),
-            }),
-          );
-          let mnemonicFromRs = '';
-          let revealableSeedUsed: IBip39RevealableSeed | undefined;
-          const credentialDecryptedUsed =
-            credentialDecrypted || decryptedCredentials?.[wallet.id];
-          if (credentialDecryptedUsed) {
-            revealableSeedUsed =
-              credentialDecryptedUsed as IBip39RevealableSeed;
-            mnemonicFromRs = revealEntropyToMnemonic(
-              revealableSeedUsed.entropyWithLangPrefixed,
+          let newWallet: IDBWallet | undefined;
+          try {
+            await primeTransferAtom.set(
+              (prev): IPrimeTransferAtomData => ({
+                ...prev,
+                importCurrentCreatingTarget: [
+                  'HdWallet: ',
+                  wallet.id,
+                  wallet.name,
+                ]
+                  .filter(Boolean)
+                  .join('__'),
+              }),
             );
-          } else {
-            if (!credential) {
-              throw new OneKeyLocalError('Credential is required');
+            let mnemonicFromRs = '';
+            let revealableSeedUsed: IBip39RevealableSeed | undefined;
+            const credentialDecryptedUsed =
+              credentialDecrypted || decryptedCredentials?.[wallet.id];
+            if (credentialDecryptedUsed) {
+              revealableSeedUsed =
+                credentialDecryptedUsed as IBip39RevealableSeed;
+              mnemonicFromRs = revealEntropyToMnemonic(
+                revealableSeedUsed.entropyWithLangPrefixed,
+              );
+            } else {
+              if (!credential) {
+                throw new OneKeyLocalError('Credential is required');
+              }
+              if (!password) {
+                throw new OneKeyLocalError('Password is required');
+              }
+              revealableSeedUsed = await this.withImportTaskLog(
+                taskUUID,
+                {
+                  stage: 'decryptHDWalletCredential',
+                  targetType: 'credential',
+                  walletId: wallet.id,
+                },
+                async () =>
+                  decryptRevealableSeed({
+                    rs: credential,
+                    password,
+                    ...kdfParams,
+                  }),
+              );
+              mnemonicFromRs = revealEntropyToMnemonic(
+                revealableSeedUsed.entropyWithLangPrefixed,
+              );
             }
-            if (!password) {
-              throw new OneKeyLocalError('Password is required');
+            if (!mnemonicFromRs) {
+              throw new OneKeyLocalError('Mnemonic is required');
             }
-            revealableSeedUsed = await this.withImportTaskLog(
-              taskUUID,
-              {
-                stage: 'decryptHDWalletCredential',
-                targetType: 'credential',
-                walletId: wallet.id,
-              },
-              async () =>
-                decryptRevealableSeed({
-                  rs: credential,
-                  password,
-                  ...kdfParams,
-                }),
-            );
-            mnemonicFromRs = revealEntropyToMnemonic(
-              revealableSeedUsed.entropyWithLangPrefixed,
-            );
-          }
-          if (!mnemonicFromRs) {
-            throw new OneKeyLocalError('Mnemonic is required');
-          }
-          // serviceAccount.createAddressIfNotExists
-          const { wallet: newWalletData, isOverrideWallet } =
-            await this.withImportTaskLog(
-              taskUUID,
-              {
-                stage: 'createHDWallet',
-                targetType: 'hdWallet',
-                walletId: wallet.id,
-              },
-              async () => {
-                if (localPassword && revealableSeedUsed) {
-                  return serviceAccount.createHDWalletWithRevealableSeed({
-                    revealableSeed: revealableSeedUsed,
-                    password: localPassword,
+            // serviceAccount.createAddressIfNotExists
+            const { wallet: newWalletData, isOverrideWallet } =
+              await this.withImportTaskLog(
+                taskUUID,
+                {
+                  stage: 'createHDWallet',
+                  targetType: 'hdWallet',
+                  walletId: wallet.id,
+                },
+                async () => {
+                  if (localPassword && revealableSeedUsed) {
+                    return serviceAccount.createHDWalletWithRevealableSeed({
+                      revealableSeed: revealableSeedUsed,
+                      password: localPassword,
+                      name: wallet.name,
+                      avatarInfo: wallet.avatarInfo,
+                      isWalletBackedUp: wallet.backuped,
+                      skipAddHDNextIndexedAccount: true,
+                      applyRestoreSyncPolicy: true,
+                    });
+                  }
+                  const mnemonic = await servicePassword.encodeSensitiveText({
+                    text: mnemonicFromRs,
+                  });
+                  this.assertImportTaskActive(taskUUID);
+                  return serviceAccount.createHDWallet({
+                    mnemonic,
                     name: wallet.name,
                     avatarInfo: wallet.avatarInfo,
                     isWalletBackedUp: wallet.backuped,
                     skipAddHDNextIndexedAccount: true,
                     applyRestoreSyncPolicy: true,
                   });
-                }
-                const mnemonic = await servicePassword.encodeSensitiveText({
-                  text: mnemonicFromRs,
-                });
-                this.assertImportTaskActive(taskUUID);
-                return serviceAccount.createHDWallet({
-                  mnemonic,
-                  name: wallet.name,
-                  avatarInfo: wallet.avatarInfo,
-                  isWalletBackedUp: wallet.backuped,
-                  skipAddHDNextIndexedAccount: true,
-                  applyRestoreSyncPolicy: true,
-                });
-              },
-            );
-          newWallet = newWalletData;
-          if (isOverrideWallet && newWallet?.id) {
-            const newWalletId = newWallet.id;
-            await this.withImportTaskLog(
-              taskUUID,
-              {
-                stage: 'setHDWalletNameAndAvatar',
-                targetType: 'hdWallet',
-                walletId: wallet.id,
-                newWalletId,
-              },
-              async () =>
-                serviceAccount.setWalletNameAndAvatar({
-                  walletId: newWalletId,
-                  name: wallet.name,
-                  avatar: wallet.avatarInfo,
-                  applyRestoreSyncPolicy: true,
-                  skipEmitEvent: true,
-                }),
-            );
-          }
-        } catch (e) {
-          if (this.currentImportTaskUUID !== taskUUID) return cancelledResult;
-          console.error('startImport error', e);
-          errorsInfo.push({
-            category: 'createHDWallet',
-            walletId: wallet.id,
-            accountId: '',
-            networkInfo: '',
-            error: (e as Error)?.message || 'Unknown error',
-          });
-        }
-
-        let indexedAccountNames: IPrimeTransferHDWalletIndexedAccountNames =
-          wallet?.indexedAccountNames ?? {};
-        let createNetworkParams: IPrimeTransferHDWalletCreateNetworkParams =
-          wallet?.createNetworkParams ?? [];
-
-        if (isEmpty(indexedAccountNames) || isEmpty(createNetworkParams)) {
-          /* eslint-disable prefer-const */
-          /* oxlint-disable prefer-const */
-          let isCancelled: boolean | undefined;
-          ({
-            createNetworkParams = [],
-            indexedAccountNames = {},
-            isCancelled,
-          } = await this.withImportTaskLog(
-            taskUUID,
-            {
-              stage: 'buildHDWalletAccountsCreateParams',
-              targetType: 'hdWallet',
-              walletId: wallet.id,
-              hdAccountsCount: wallet.accounts?.length || 0,
-            },
-            async () =>
-              this.buildHdWalletAccountsCreateParams({
-                walletId: wallet.id,
-                accounts: wallet.accounts || [],
-                taskUUID,
-                errorsInfo,
-              }),
-          ));
-          /* eslint-enable prefer-const */
-          /* oxlint-enable prefer-const */
-
-          if (isCancelled) {
-            // task cancelled
-            return cancelledResult;
-          }
-        }
-        await this.recordImportTrace({
-          event: 'done',
-          stage: 'buildHDWalletAccountsCreateParamsSummary',
-          targetType: 'hdWallet',
-          walletId: wallet.id,
-          hdAccountsCount: createNetworkParams.length,
-          customNetworksCount: createNetworkParams.reduce(
-            (total, item) => total + (item.customNetworks?.length || 0),
-            0,
-          ),
-        });
-
-        for (const { customNetworks, index } of createNetworkParams) {
-          if (this.currentImportTaskUUID !== taskUUID) {
-            // task cancelled
-            return cancelledResult;
-          }
-          try {
-            if (newWallet) {
-              const newWalletId = newWallet.id;
-              const skipNetworks = new Set([
-                // lightning network requires network verification
-                presetNetworksMap.lightning.id,
-                // Skip Cardano network because address generation is very slow
-                presetNetworksMap.cardano.id,
-              ]);
-              // if (isFromCloudBackupRestore) {
-              //   skipNetworks = [
-              //     presetNetworksMap.lightning.id,
-              //     presetNetworksMap.cardano.id,
-              //   ];
-              // }
-              const customNetworksUsed = customNetworks?.filter(
-                (n) => !skipNetworks.has(n.networkId),
+                },
               );
-              const params: IBatchBuildAccountsAdvancedFlowForAllNetworkParams =
-                {
-                  walletId: newWalletId,
-                  fromIndex: index,
-                  toIndex: index,
-                  indexedAccountNames,
-                  customNetworks: customNetworksUsed,
-                  includingDefaultNetworks,
-                  excludedIndexes: {},
-                  saveToDb: true,
-                  showUIProgress: true, // emit EAppEventBusNames.BatchCreateAccount event
-                  autoHandleExitError: false,
-                  applyRestoreSyncPolicy: true,
-                };
-              // params.customNetworks = [];
-              // params.includingDefaultNetworks = true;
-              if (devSettings.enabled) {
-                this.batchCreateHdAccountsParams.push(params);
-              }
+            newWallet = newWalletData;
+            if (isOverrideWallet && newWallet?.id) {
+              const newWalletId = newWallet.id;
               await this.withImportTaskLog(
                 taskUUID,
                 {
-                  stage: 'batchCreateHDAccountsForIndex',
-                  targetType: 'hdAccount',
+                  stage: 'setHDWalletNameAndAvatar',
+                  targetType: 'hdWallet',
                   walletId: wallet.id,
                   newWalletId,
-                  pathIndex: index,
-                  customNetworksCount: customNetworksUsed?.length || 0,
                 },
                 async () =>
-                  this.backgroundApi.serviceBatchCreateAccount.startBatchCreateAccountsFlowForAllNetwork(
-                    params,
-                  ),
-              );
-            }
-          } catch (e) {
-            if (this.currentImportTaskUUID !== taskUUID) return cancelledResult;
-            console.error('startImport error', e);
-            errorsInfo.push({
-              category:
-                'createHDWallet.startBatchCreateAccountsFlowForAllNetwork',
-              walletId: wallet.id,
-              accountId: '',
-              networkInfo: `${(customNetworks || [])
-                .map((n) => `${n.networkId}-${n.deriveType}`)
-                .join(', ')}----${index}`,
-              error: (e as Error)?.message || 'Unknown error',
-            });
-          }
-
-          try {
-            const indexedAccountName = indexedAccountNames[index];
-            if (newWallet?.id && indexedAccountName) {
-              const newWalletId = newWallet.id;
-              const indexedAccountId = accountUtils.buildIndexedAccountId({
-                walletId: newWalletId,
-                index,
-              });
-              await this.withImportTaskLog(
-                taskUUID,
-                {
-                  stage: 'setIndexedAccountName',
-                  targetType: 'hdAccount',
-                  walletId: wallet.id,
-                  newWalletId,
-                  pathIndex: index,
-                },
-                async () =>
-                  this.backgroundApi.serviceAccount.setAccountName({
-                    indexedAccountId,
-                    name: indexedAccountName,
-                    skipEventEmit: true,
+                  serviceAccount.setWalletNameAndAvatar({
+                    walletId: newWalletId,
+                    name: wallet.name,
+                    avatar: wallet.avatarInfo,
                     applyRestoreSyncPolicy: true,
+                    skipEmitEvent: true,
                   }),
               );
             }
           } catch (e) {
-            if (this.currentImportTaskUUID !== taskUUID) return cancelledResult;
-            console.error(e);
+            this.assertImportTaskActive(taskUUID);
+            errorsInfo.push(
+              this.recordImportItemError(
+                {
+                  stage: 'createHDWallet',
+                  targetType: 'hdWallet',
+                  walletId: wallet.id,
+                  itemIndex,
+                },
+                e,
+              ),
+            );
           }
+
+          if (newWallet) {
+            let indexedAccountNames: IPrimeTransferHDWalletIndexedAccountNames =
+              wallet?.indexedAccountNames ?? {};
+            let createNetworkParams: IPrimeTransferHDWalletCreateNetworkParams =
+              wallet?.createNetworkParams ?? [];
+
+            if (isEmpty(indexedAccountNames) || isEmpty(createNetworkParams)) {
+              /* eslint-disable prefer-const */
+              /* oxlint-disable prefer-const */
+              let isCancelled: boolean | undefined;
+              ({
+                createNetworkParams = [],
+                indexedAccountNames = {},
+                isCancelled,
+              } = await this.withImportTaskLog(
+                taskUUID,
+                {
+                  stage: 'buildHDWalletAccountsCreateParams',
+                  targetType: 'hdWallet',
+                  walletId: wallet.id,
+                  hdAccountsCount: wallet.accounts?.length || 0,
+                },
+                async () =>
+                  this.buildHdWalletAccountsCreateParams({
+                    walletId: wallet.id,
+                    accounts: wallet.accounts || [],
+                    taskUUID,
+                    errorsInfo,
+                  }),
+              ));
+              /* eslint-enable prefer-const */
+              /* oxlint-enable prefer-const */
+
+              if (isCancelled) {
+                // task cancelled
+                return cancelledResult;
+              }
+            }
+            await this.recordImportTrace({
+              event: 'done',
+              stage: 'buildHDWalletAccountsCreateParamsSummary',
+              targetType: 'hdWallet',
+              walletId: wallet.id,
+              hdAccountsCount: createNetworkParams.length,
+              customNetworksCount: createNetworkParams.reduce(
+                (total, item) => total + (item.customNetworks?.length || 0),
+                0,
+              ),
+            });
+
+            for (const { customNetworks, index } of createNetworkParams) {
+              this.resetImportItemErrorLog(itemIndex);
+              if (this.currentImportTaskUUID !== taskUUID) {
+                // task cancelled
+                return cancelledResult;
+              }
+              try {
+                if (newWallet) {
+                  const newWalletId = newWallet.id;
+                  const skipNetworks = new Set([
+                    // lightning network requires network verification
+                    presetNetworksMap.lightning.id,
+                    // Skip Cardano network because address generation is very slow
+                    presetNetworksMap.cardano.id,
+                  ]);
+                  // if (isFromCloudBackupRestore) {
+                  //   skipNetworks = [
+                  //     presetNetworksMap.lightning.id,
+                  //     presetNetworksMap.cardano.id,
+                  //   ];
+                  // }
+                  const customNetworksUsed = customNetworks?.filter(
+                    (n) => !skipNetworks.has(n.networkId),
+                  );
+                  const params: IBatchBuildAccountsAdvancedFlowForAllNetworkParams =
+                    {
+                      walletId: newWalletId,
+                      fromIndex: index,
+                      toIndex: index,
+                      indexedAccountNames,
+                      customNetworks: customNetworksUsed,
+                      includingDefaultNetworks,
+                      excludedIndexes: {},
+                      saveToDb: true,
+                      showUIProgress: true, // emit EAppEventBusNames.BatchCreateAccount event
+                      autoHandleExitError: true,
+                      applyRestoreSyncPolicy: true,
+                    };
+                  // params.customNetworks = [];
+                  // params.includingDefaultNetworks = true;
+                  if (devSettings.enabled) {
+                    this.batchCreateHdAccountsParams.push(params);
+                  }
+                  const batchResult = await this.withImportTaskLog(
+                    taskUUID,
+                    {
+                      stage: 'batchCreateHDAccountsForIndex',
+                      targetType: 'hdAccount',
+                      walletId: wallet.id,
+                      newWalletId,
+                      pathIndex: index,
+                      customNetworksCount: customNetworksUsed?.length || 0,
+                    },
+                    async () =>
+                      this.backgroundApi.serviceBatchCreateAccount.startBatchCreateAccountsFlowForAllNetwork(
+                        params,
+                      ),
+                  );
+                  for (const failed of batchResult?.failedAccounts || []) {
+                    errorsInfo.push(
+                      this.recordImportItemError(
+                        {
+                          stage: 'batchCreateHDAccountsForNetwork',
+                          targetType: 'hdAccount',
+                          walletId: wallet.id,
+                          itemIndex,
+                          pathIndex: index,
+                          networkId: failed.networkId,
+                          deriveType: failed.deriveType,
+                        },
+                        failed.error,
+                      ),
+                    );
+                  }
+                }
+              } catch (e) {
+                this.assertImportTaskActive(taskUUID);
+                errorsInfo.push(
+                  this.recordImportItemError(
+                    {
+                      stage: 'batchCreateHDAccountsForIndex',
+                      targetType: 'hdAccount',
+                      walletId: wallet.id,
+                      itemIndex,
+                      pathIndex: index,
+                    },
+                    e,
+                  ),
+                );
+              }
+
+              try {
+                const indexedAccountName = indexedAccountNames[index];
+                if (newWallet?.id && indexedAccountName) {
+                  const newWalletId = newWallet.id;
+                  const indexedAccountId = accountUtils.buildIndexedAccountId({
+                    walletId: newWalletId,
+                    index,
+                  });
+                  await this.withImportTaskLog(
+                    taskUUID,
+                    {
+                      stage: 'setIndexedAccountName',
+                      targetType: 'hdAccount',
+                      walletId: wallet.id,
+                      newWalletId,
+                      pathIndex: index,
+                    },
+                    async () =>
+                      this.backgroundApi.serviceAccount.setAccountName({
+                        indexedAccountId,
+                        name: indexedAccountName,
+                        skipEventEmit: true,
+                        applyRestoreSyncPolicy: true,
+                      }),
+                  );
+                }
+              } catch (e) {
+                this.assertImportTaskActive(taskUUID);
+                errorsInfo.push(
+                  this.recordImportItemError(
+                    {
+                      stage: 'setIndexedAccountName',
+                      targetType: 'hdAccount',
+                      walletId: wallet.id,
+                      itemIndex,
+                      pathIndex: index,
+                    },
+                    e,
+                  ),
+                );
+              }
+            }
+          }
+        } catch (error) {
+          this.assertImportTaskActive(taskUUID);
+          errorsInfo.push(
+            this.recordImportItemError(
+              {
+                stage: 'importHDWallet',
+                targetType: 'hdWallet',
+                walletId: wallet.id,
+                itemIndex,
+              },
+              error,
+            ),
+          );
         }
-        //
       }
 
-      for (const {
-        item: importedAccount,
-        credential,
-        credentialDecrypted,
-        tonMnemonicCredential,
-        tonMnemonicCredentialDecrypted,
-      } of selectedTransferData.importedAccounts) {
+      for (const [
+        itemIndex,
+        {
+          item: importedAccount,
+          credential,
+          credentialDecrypted,
+          tonMnemonicCredential,
+          tonMnemonicCredentialDecrypted,
+        },
+      ] of selectedTransferData.importedAccounts.entries()) {
+        this.resetImportItemErrorLog(itemIndex);
         if (this.currentImportTaskUUID !== taskUUID) {
           // task cancelled
           return cancelledResult;
         }
 
-        const networkId = await this.withImportTaskLog(
-          taskUUID,
-          {
-            stage: 'resolveImportedAccountNetwork',
-            targetType: 'importedAccount',
-            accountId: importedAccount.id,
-          },
-          async () =>
-            serviceAccount.getAccountCreatedNetworkId({
-              account: importedAccount,
-            }),
-        );
-        if (!networkId) {
-          throw new OneKeyLocalError('NetworkId is required');
-        }
-        await primeTransferAtom.set(
-          (prev): IPrimeTransferAtomData => ({
-            ...prev,
-            importCurrentCreatingTarget: [
-              importedAccount.id,
-              importedAccount.name,
-              networkId,
-            ]
-              .filter(Boolean)
-              .join('__'),
-          }),
-        );
-
-        const credentialDecryptedUsed =
-          credentialDecrypted || decryptedCredentials?.[importedAccount.id];
-        const deriveTypeByAccount = await this.withImportTaskLog(
-          taskUUID,
-          {
-            stage: 'resolveImportedAccountDeriveTypeByAccount',
-            targetType: 'importedAccount',
-            accountId: importedAccount.id,
-            networkId,
-          },
-          async () =>
-            resolveImportedAccountDeriveTypeByAccount({
-              importedAccount,
-              networkId,
-            }),
-        );
-        let exportedPrivateKey = '';
-        let privateKey = '';
-        let restoreDeriveTypes: IAccountDeriveTypes[] | undefined;
-        let addedAccountsUsed: IDBAccount[] = [];
+        let networkIdForLog: string | undefined;
         try {
-          if (deriveTypeByAccount) {
-            const privateKeyResult = await this.withImportTaskLog(
-              taskUUID,
-              {
-                stage: 'decryptImportedAccountCredential',
-                targetType: 'credential',
-                accountId: importedAccount.id,
-                networkId,
-              },
-              async () =>
-                serviceAccount.getPrivateKeyOfImportedAccountCredential({
-                  encryptedCredential: credential || '',
-                  password,
-                  credentialDecrypted: credentialDecryptedUsed as
-                    | ICoreImportedCredential
-                    | undefined,
-                  networkId,
-                }),
-            );
-            privateKey = privateKeyResult.privateKey;
-            restoreDeriveTypes = [deriveTypeByAccount];
-          } else {
-            const exportedPrivateKeyResult = await this.withImportTaskLog(
-              taskUUID,
-              {
-                stage: 'decryptImportedAccountCredential',
-                targetType: 'credential',
-                accountId: importedAccount.id,
-                networkId,
-              },
-              async () =>
-                serviceAccount.getExportedPrivateKeyOfImportedAccount({
-                  importedAccount,
-                  encryptedCredential: credential || '',
-                  password,
-                  credentialDecrypted: credentialDecryptedUsed as
-                    | ICoreImportedCredential
-                    | undefined,
-                  networkId,
-                }),
-            );
-            exportedPrivateKey =
-              exportedPrivateKeyResult.exportedPrivateKey || '';
-            privateKey = exportedPrivateKeyResult.privateKey;
-          }
-
-          const { addedAccounts } = await this.withImportTaskLog(
+          const networkId = await this.withImportTaskLog(
             taskUUID,
             {
-              stage: 'restoreImportedAccount',
+              stage: 'resolveImportedAccountNetwork',
+              targetType: 'importedAccount',
+              accountId: importedAccount.id,
+            },
+            async () =>
+              serviceAccount.getAccountCreatedNetworkId({
+                account: importedAccount,
+              }),
+          );
+          networkIdForLog = networkId;
+          let restoreFailure: { error: unknown } | undefined;
+          const onRestoreError = ({
+            stage,
+            error,
+          }: {
+            stage: string;
+            error: unknown;
+          }) => {
+            this.assertImportTaskActive(taskUUID);
+            this.recordImportItemError(
+              {
+                stage,
+                targetType: 'importedAccount',
+                accountId: importedAccount.id,
+                itemIndex,
+                networkId,
+              },
+              error,
+            );
+            restoreFailure = { error };
+          };
+          if (!networkId) {
+            throw new OneKeyLocalError('NetworkId is required');
+          }
+          await primeTransferAtom.set(
+            (prev): IPrimeTransferAtomData => ({
+              ...prev,
+              importCurrentCreatingTarget: [
+                importedAccount.id,
+                importedAccount.name,
+                networkId,
+              ]
+                .filter(Boolean)
+                .join('__'),
+            }),
+          );
+
+          const credentialDecryptedUsed =
+            credentialDecrypted || decryptedCredentials?.[importedAccount.id];
+          const deriveTypeByAccount = await this.withImportTaskLog(
+            taskUUID,
+            {
+              stage: 'resolveImportedAccountDeriveTypeByAccount',
               targetType: 'importedAccount',
               accountId: importedAccount.id,
               networkId,
             },
             async () =>
-              serviceAccount.restoreImportedAccountByInput({
+              resolveImportedAccountDeriveTypeByAccount({
                 importedAccount,
-                input: exportedPrivateKey,
-                privateKey,
                 networkId,
-                password: localPassword,
-                skipEventEmit: true,
-                applyRestoreSyncPolicy: true,
-                deriveTypes: restoreDeriveTypes,
-                skipAddressDeriveTypeLookup: true,
-                skipInputDeriveTypesFallback: Boolean(
-                  restoreDeriveTypes?.length,
-                ),
               }),
           );
-          addedAccountsUsed = addedAccounts;
-          if (!addedAccountsUsed?.length && restoreDeriveTypes?.length) {
-            const exportedPrivateKeyResult = await this.withImportTaskLog(
-              taskUUID,
-              {
-                stage: 'decryptImportedAccountCredentialFallback',
-                targetType: 'credential',
-                accountId: importedAccount.id,
-                networkId,
-              },
-              async () =>
-                serviceAccount.getExportedPrivateKeyOfImportedAccount({
-                  importedAccount,
-                  encryptedCredential: credential || '',
-                  password,
-                  credentialDecrypted: credentialDecryptedUsed as
-                    | ICoreImportedCredential
-                    | undefined,
+          let exportedPrivateKey = '';
+          let privateKey = '';
+          let restoreDeriveTypes: IAccountDeriveTypes[] | undefined;
+          let addedAccountsUsed: IDBAccount[] = [];
+          try {
+            if (deriveTypeByAccount) {
+              const privateKeyResult = await this.withImportTaskLog(
+                taskUUID,
+                {
+                  stage: 'decryptImportedAccountCredential',
+                  targetType: 'credential',
+                  accountId: importedAccount.id,
                   networkId,
-                  privateKeyRaw: privateKey,
-                }),
-            );
-            exportedPrivateKey =
-              exportedPrivateKeyResult.exportedPrivateKey || '';
-            privateKey = exportedPrivateKeyResult.privateKey;
-            const fallbackResult = await this.withImportTaskLog(
+                },
+                async () =>
+                  serviceAccount.getPrivateKeyOfImportedAccountCredential({
+                    encryptedCredential: credential || '',
+                    password,
+                    credentialDecrypted: credentialDecryptedUsed as
+                      | ICoreImportedCredential
+                      | undefined,
+                    networkId,
+                  }),
+              );
+              privateKey = privateKeyResult.privateKey;
+              restoreDeriveTypes = [deriveTypeByAccount];
+            } else {
+              const exportedPrivateKeyResult = await this.withImportTaskLog(
+                taskUUID,
+                {
+                  stage: 'decryptImportedAccountCredential',
+                  targetType: 'credential',
+                  accountId: importedAccount.id,
+                  networkId,
+                },
+                async () =>
+                  serviceAccount.getExportedPrivateKeyOfImportedAccount({
+                    importedAccount,
+                    encryptedCredential: credential || '',
+                    password,
+                    credentialDecrypted: credentialDecryptedUsed as
+                      | ICoreImportedCredential
+                      | undefined,
+                    networkId,
+                  }),
+              );
+              exportedPrivateKey =
+                exportedPrivateKeyResult.exportedPrivateKey || '';
+              privateKey = exportedPrivateKeyResult.privateKey;
+            }
+
+            const { addedAccounts } = await this.withImportTaskLog(
               taskUUID,
               {
-                stage: 'restoreImportedAccountFallback',
+                stage: 'restoreImportedAccount',
                 targetType: 'importedAccount',
                 accountId: importedAccount.id,
                 networkId,
               },
               async () =>
                 serviceAccount.restoreImportedAccountByInput({
+                  onError: onRestoreError,
                   importedAccount,
                   input: exportedPrivateKey,
                   privateKey,
@@ -4319,242 +4474,409 @@ class ServicePrimeTransfer extends ServiceBase {
                   password: localPassword,
                   skipEventEmit: true,
                   applyRestoreSyncPolicy: true,
+                  deriveTypes: restoreDeriveTypes,
                   skipAddressDeriveTypeLookup: true,
+                  skipInputDeriveTypesFallback: Boolean(
+                    restoreDeriveTypes?.length,
+                  ),
                 }),
             );
-            addedAccountsUsed = fallbackResult.addedAccounts;
-          }
-        } finally {
-          exportedPrivateKey = '';
-          privateKey = '';
-          restoreDeriveTypes = undefined;
-        }
-        if (addedAccountsUsed?.length && addedAccountsUsed?.[0]?.id) {
-          try {
-            const tonMnemonicCredentialId =
-              accountUtils.buildTonMnemonicCredentialId({
-                accountId: importedAccount.id,
-              });
-            const tonMnemonicCredentialDecryptedUsed =
-              tonMnemonicCredentialDecrypted ||
-              decryptedCredentials?.[tonMnemonicCredentialId];
-            if (tonMnemonicCredential || tonMnemonicCredentialDecryptedUsed) {
-              let tonRs: IBip39RevealableSeed | undefined =
-                tonMnemonicCredentialDecryptedUsed as IBip39RevealableSeed;
-
-              if (!tonRs && tonMnemonicCredential) {
-                if (!password) {
-                  throw new OneKeyLocalError(
-                    'startImport error: Password is required',
-                  );
-                }
-                tonRs = await this.withImportTaskLog(
-                  taskUUID,
-                  {
-                    stage: 'decryptTonMnemonicCredential',
-                    targetType: 'credential',
-                    accountId: importedAccount.id,
-                    networkId,
-                  },
-                  async () =>
-                    decryptRevealableSeed({
-                      rs: tonMnemonicCredential,
-                      password,
-                      ...kdfParams,
-                    }),
-                );
-              }
-              if (!tonRs) {
-                throw new OneKeyLocalError(
-                  'startImport error: Ton mnemonic credential is required',
-                );
-              }
-              const tonRsUsed = tonRs;
-              let localPasswordForTon = localPassword;
-              if (!localPasswordForTon) {
-                ({ password: localPasswordForTon } =
-                  await this.backgroundApi.servicePassword.promptPasswordVerify(
-                    {
-                      reason: EReasonForNeedPassword.Default,
-                    },
-                  ));
-              }
-              await this.withImportTaskLog(
+            addedAccountsUsed = addedAccounts;
+            if (!addedAccountsUsed?.length && restoreDeriveTypes?.length) {
+              const exportedPrivateKeyResult = await this.withImportTaskLog(
                 taskUUID,
                 {
-                  stage: 'saveTonMnemonicCredential',
+                  stage: 'decryptImportedAccountCredentialFallback',
+                  targetType: 'credential',
+                  accountId: importedAccount.id,
+                  networkId,
+                },
+                async () =>
+                  serviceAccount.getExportedPrivateKeyOfImportedAccount({
+                    importedAccount,
+                    encryptedCredential: credential || '',
+                    password,
+                    credentialDecrypted: credentialDecryptedUsed as
+                      | ICoreImportedCredential
+                      | undefined,
+                    networkId,
+                    privateKeyRaw: privateKey,
+                  }),
+              );
+              exportedPrivateKey =
+                exportedPrivateKeyResult.exportedPrivateKey || '';
+              privateKey = exportedPrivateKeyResult.privateKey;
+              const fallbackResult = await this.withImportTaskLog(
+                taskUUID,
+                {
+                  stage: 'restoreImportedAccountFallback',
                   targetType: 'importedAccount',
                   accountId: importedAccount.id,
                   networkId,
                 },
-                async () => {
-                  const tonRsEncrypted = await encryptRevealableSeed({
-                    rs: tonRsUsed,
-                    password: localPasswordForTon,
-                    ...kdfParams,
-                  });
-                  this.assertImportTaskActive(taskUUID);
-                  await localDb.saveTonImportedAccountMnemonic({
-                    accountId: addedAccountsUsed?.[0]?.id,
-                    rs: tonRsEncrypted,
-                  });
+                async () =>
+                  serviceAccount.restoreImportedAccountByInput({
+                    onError: onRestoreError,
+                    importedAccount,
+                    input: exportedPrivateKey,
+                    privateKey,
+                    networkId,
+                    password: localPassword,
+                    skipEventEmit: true,
+                    applyRestoreSyncPolicy: true,
+                    skipAddressDeriveTypeLookup: true,
+                  }),
+              );
+              addedAccountsUsed = fallbackResult.addedAccounts;
+            }
+          } finally {
+            exportedPrivateKey = '';
+            privateKey = '';
+            restoreDeriveTypes = undefined;
+          }
+          // An unsuccessful candidate may still recover through another input or
+          // derivation. Count the item as failed only after all fallbacks finish.
+          if (!addedAccountsUsed?.length) {
+            errorsInfo.push(
+              this.recordImportItemError(
+                {
+                  stage: 'importPrivateKeyAccount',
+                  targetType: 'importedAccount',
+                  accountId: importedAccount.id,
+                  itemIndex,
+                  networkId,
                 },
+                restoreFailure?.error ??
+                  new OneKeyLocalError('No matching account restored'),
+              ),
+            );
+          }
+          if (addedAccountsUsed?.length && addedAccountsUsed?.[0]?.id) {
+            try {
+              const tonMnemonicCredentialId =
+                accountUtils.buildTonMnemonicCredentialId({
+                  accountId: importedAccount.id,
+                });
+              const tonMnemonicCredentialDecryptedUsed =
+                tonMnemonicCredentialDecrypted ||
+                decryptedCredentials?.[tonMnemonicCredentialId];
+              if (tonMnemonicCredential || tonMnemonicCredentialDecryptedUsed) {
+                let tonRs: IBip39RevealableSeed | undefined =
+                  tonMnemonicCredentialDecryptedUsed as IBip39RevealableSeed;
+
+                if (!tonRs && tonMnemonicCredential) {
+                  if (!password) {
+                    throw new OneKeyLocalError(
+                      'startImport error: Password is required',
+                    );
+                  }
+                  tonRs = await this.withImportTaskLog(
+                    taskUUID,
+                    {
+                      stage: 'decryptTonMnemonicCredential',
+                      targetType: 'credential',
+                      accountId: importedAccount.id,
+                      networkId,
+                    },
+                    async () =>
+                      decryptRevealableSeed({
+                        rs: tonMnemonicCredential,
+                        password,
+                        ...kdfParams,
+                      }),
+                  );
+                }
+                if (!tonRs) {
+                  throw new OneKeyLocalError(
+                    'startImport error: Ton mnemonic credential is required',
+                  );
+                }
+                const tonRsUsed = tonRs;
+                let localPasswordForTon = localPassword;
+                if (!localPasswordForTon) {
+                  ({ password: localPasswordForTon } =
+                    await this.backgroundApi.servicePassword.promptPasswordVerify(
+                      {
+                        reason: EReasonForNeedPassword.Default,
+                      },
+                    ));
+                }
+                await this.withImportTaskLog(
+                  taskUUID,
+                  {
+                    stage: 'saveTonMnemonicCredential',
+                    targetType: 'importedAccount',
+                    accountId: importedAccount.id,
+                    networkId,
+                  },
+                  async () => {
+                    const tonRsEncrypted = await encryptRevealableSeed({
+                      rs: tonRsUsed,
+                      password: localPasswordForTon,
+                      ...kdfParams,
+                    });
+                    this.assertImportTaskActive(taskUUID);
+                    await localDb.saveTonImportedAccountMnemonic({
+                      accountId: addedAccountsUsed?.[0]?.id,
+                      rs: tonRsEncrypted,
+                    });
+                  },
+                );
+              }
+            } catch (e) {
+              this.assertImportTaskActive(taskUUID);
+              errorsInfo.push(
+                this.recordImportItemError(
+                  {
+                    stage: 'restoreTonMnemonicCredential',
+                    targetType: 'importedAccount',
+                    accountId: importedAccount.id,
+                    itemIndex,
+                    networkId,
+                  },
+                  e,
+                ),
               );
             }
-          } catch (e) {
-            if (this.currentImportTaskUUID !== taskUUID) return cancelledResult;
-            console.error('tonMnemonicCredential error', e);
-          }
 
-          await this.updateImportProgress({ source: 'direct' });
-          await timerUtils.wait(100); // wait for UI refresh
+            await this.updateImportProgress({ source: 'direct' });
+            await timerUtils.wait(100); // wait for UI refresh
+          }
+        } catch (error) {
+          this.assertImportTaskActive(taskUUID);
+          errorsInfo.push(
+            this.recordImportItemError(
+              {
+                stage: 'importPrivateKeyAccount',
+                targetType: 'importedAccount',
+                accountId: importedAccount.id,
+                itemIndex,
+                networkId: networkIdForLog,
+              },
+              error,
+            ),
+          );
         }
       }
 
-      for (const {
-        item: watchingAccount,
-      } of selectedTransferData.watchingAccounts) {
+      for (const [
+        itemIndex,
+        { item: watchingAccount },
+      ] of selectedTransferData.watchingAccounts.entries()) {
+        this.resetImportItemErrorLog(itemIndex);
         if (this.currentImportTaskUUID !== taskUUID) {
           // task cancelled
           return cancelledResult;
         }
-        const watchingAccountUtxo = watchingAccount;
-        let addedAccounts: IDBAccount[] = [];
-        const networkId = await this.withImportTaskLog(
-          taskUUID,
-          {
-            stage: 'resolveWatchingAccountNetwork',
-            targetType: 'watchingAccount',
-            accountId: watchingAccount.id,
-          },
-          async () =>
-            serviceAccount.getAccountCreatedNetworkId({
-              account: watchingAccount,
+        let networkIdForLog: string | undefined;
+        try {
+          const watchingAccountUtxo = watchingAccount;
+          let addedAccounts: IDBAccount[] = [];
+          const networkId = await this.withImportTaskLog(
+            taskUUID,
+            {
+              stage: 'resolveWatchingAccountNetwork',
+              targetType: 'watchingAccount',
+              accountId: watchingAccount.id,
+            },
+            async () =>
+              serviceAccount.getAccountCreatedNetworkId({
+                account: watchingAccount,
+              }),
+          );
+          networkIdForLog = networkId;
+          let restoreFailure: { error: unknown } | undefined;
+          const onRestoreError = ({
+            stage,
+            error,
+          }: {
+            stage: string;
+            error: unknown;
+          }) => {
+            this.assertImportTaskActive(taskUUID);
+            this.recordImportItemError(
+              {
+                stage,
+                targetType: 'watchingAccount',
+                accountId: watchingAccount.id,
+                itemIndex,
+                networkId,
+              },
+              error,
+            );
+            restoreFailure = { error };
+          };
+          if (!networkId) {
+            throw new OneKeyLocalError('NetworkId is required');
+          }
+
+          await primeTransferAtom.set(
+            (prev): IPrimeTransferAtomData => ({
+              ...prev,
+              importCurrentCreatingTarget: [
+                watchingAccount.id,
+                watchingAccount.name,
+                networkId,
+              ]
+                .filter(Boolean)
+                .join('__'),
             }),
-        );
-        if (!networkId) {
-          throw new OneKeyLocalError('NetworkId is required');
-        }
-
-        await primeTransferAtom.set(
-          (prev): IPrimeTransferAtomData => ({
-            ...prev,
-            importCurrentCreatingTarget: [
-              watchingAccount.id,
-              watchingAccount.name,
-              networkId,
-            ]
-              .filter(Boolean)
-              .join('__'),
-          }),
-        );
-
-        const watchingAccountPub = watchingAccount?.pub;
-        if (watchingAccountPub) {
-          if (this.currentImportTaskUUID !== taskUUID) {
-            // task cancelled
-            return cancelledResult;
-          }
-          const result = await this.withImportTaskLog(
-            taskUUID,
-            {
-              stage: 'restoreWatchingAccountPub',
-              targetType: 'watchingAccount',
-              accountId: watchingAccount.id,
-              networkId,
-            },
-            async () =>
-              serviceAccount.restoreWatchingAccountByInput({
-                watchingAccount,
-                input: watchingAccountPub,
-                networkId,
-                skipEventEmit: true,
-                applyRestoreSyncPolicy: true,
-              }),
           );
-          addedAccounts = [...addedAccounts, ...(result?.addedAccounts || [])];
-        }
 
-        const watchingAccountXpub = watchingAccountUtxo?.xpub;
-        if (watchingAccountXpub) {
-          if (this.currentImportTaskUUID !== taskUUID) {
-            // task cancelled
-            return cancelledResult;
-          }
-          const result = await this.withImportTaskLog(
-            taskUUID,
-            {
-              stage: 'restoreWatchingAccountXpub',
-              targetType: 'watchingAccount',
-              accountId: watchingAccount.id,
-              networkId,
-            },
-            async () =>
-              serviceAccount.restoreWatchingAccountByInput({
-                watchingAccount,
-                input: watchingAccountXpub,
+          const watchingAccountPub = watchingAccount?.pub;
+          if (watchingAccountPub) {
+            if (this.currentImportTaskUUID !== taskUUID) {
+              // task cancelled
+              return cancelledResult;
+            }
+            const result = await this.withImportTaskLog(
+              taskUUID,
+              {
+                stage: 'restoreWatchingAccountPub',
+                targetType: 'watchingAccount',
+                accountId: watchingAccount.id,
                 networkId,
-                skipEventEmit: true,
-                applyRestoreSyncPolicy: true,
-              }),
-          );
-          addedAccounts = [...addedAccounts, ...(result?.addedAccounts || [])];
-        }
+              },
+              async () =>
+                serviceAccount.restoreWatchingAccountByInput({
+                  onError: onRestoreError,
+                  watchingAccount,
+                  input: watchingAccountPub,
+                  networkId,
+                  skipEventEmit: true,
+                  applyRestoreSyncPolicy: true,
+                }),
+            );
+            addedAccounts = [
+              ...addedAccounts,
+              ...(result?.addedAccounts || []),
+            ];
+          }
 
-        const watchingAccountXpubSegwit = watchingAccountUtxo?.xpubSegwit;
-        if (watchingAccountXpubSegwit) {
-          if (this.currentImportTaskUUID !== taskUUID) {
-            // task cancelled
-            return cancelledResult;
-          }
-          const result = await this.withImportTaskLog(
-            taskUUID,
-            {
-              stage: 'restoreWatchingAccountXpubSegwit',
-              targetType: 'watchingAccount',
-              accountId: watchingAccount.id,
-              networkId,
-            },
-            async () =>
-              serviceAccount.restoreWatchingAccountByInput({
-                watchingAccount,
-                input: watchingAccountXpubSegwit,
+          const watchingAccountXpub = watchingAccountUtxo?.xpub;
+          if (watchingAccountXpub) {
+            if (this.currentImportTaskUUID !== taskUUID) {
+              // task cancelled
+              return cancelledResult;
+            }
+            const result = await this.withImportTaskLog(
+              taskUUID,
+              {
+                stage: 'restoreWatchingAccountXpub',
+                targetType: 'watchingAccount',
+                accountId: watchingAccount.id,
                 networkId,
-                skipEventEmit: true,
-                applyRestoreSyncPolicy: true,
-              }),
-          );
-          addedAccounts = [...addedAccounts, ...(result?.addedAccounts || [])];
-        }
+              },
+              async () =>
+                serviceAccount.restoreWatchingAccountByInput({
+                  onError: onRestoreError,
+                  watchingAccount,
+                  input: watchingAccountXpub,
+                  networkId,
+                  skipEventEmit: true,
+                  applyRestoreSyncPolicy: true,
+                }),
+            );
+            addedAccounts = [
+              ...addedAccounts,
+              ...(result?.addedAccounts || []),
+            ];
+          }
 
-        const watchingAccountAddress = watchingAccount?.address;
-        if (watchingAccountAddress && addedAccounts?.length === 0) {
-          if (this.currentImportTaskUUID !== taskUUID) {
-            // task cancelled
-            return cancelledResult;
-          }
-          const result = await this.withImportTaskLog(
-            taskUUID,
-            {
-              stage: 'restoreWatchingAccountAddress',
-              targetType: 'watchingAccount',
-              accountId: watchingAccount.id,
-              networkId,
-            },
-            async () =>
-              serviceAccount.restoreWatchingAccountByInput({
-                watchingAccount,
-                input: watchingAccountAddress,
+          const watchingAccountXpubSegwit = watchingAccountUtxo?.xpubSegwit;
+          if (watchingAccountXpubSegwit) {
+            if (this.currentImportTaskUUID !== taskUUID) {
+              // task cancelled
+              return cancelledResult;
+            }
+            const result = await this.withImportTaskLog(
+              taskUUID,
+              {
+                stage: 'restoreWatchingAccountXpubSegwit',
+                targetType: 'watchingAccount',
+                accountId: watchingAccount.id,
                 networkId,
-                skipEventEmit: true,
-                applyRestoreSyncPolicy: true,
-              }),
+              },
+              async () =>
+                serviceAccount.restoreWatchingAccountByInput({
+                  onError: onRestoreError,
+                  watchingAccount,
+                  input: watchingAccountXpubSegwit,
+                  networkId,
+                  skipEventEmit: true,
+                  applyRestoreSyncPolicy: true,
+                }),
+            );
+            addedAccounts = [
+              ...addedAccounts,
+              ...(result?.addedAccounts || []),
+            ];
+          }
+
+          const watchingAccountAddress = watchingAccount?.address;
+          if (watchingAccountAddress && addedAccounts?.length === 0) {
+            if (this.currentImportTaskUUID !== taskUUID) {
+              // task cancelled
+              return cancelledResult;
+            }
+            const result = await this.withImportTaskLog(
+              taskUUID,
+              {
+                stage: 'restoreWatchingAccountAddress',
+                targetType: 'watchingAccount',
+                accountId: watchingAccount.id,
+                networkId,
+              },
+              async () =>
+                serviceAccount.restoreWatchingAccountByInput({
+                  onError: onRestoreError,
+                  watchingAccount,
+                  input: watchingAccountAddress,
+                  networkId,
+                  skipEventEmit: true,
+                  applyRestoreSyncPolicy: true,
+                }),
+            );
+            addedAccounts = [
+              ...addedAccounts,
+              ...(result?.addedAccounts || []),
+            ];
+          }
+          // An unsuccessful candidate may still recover through another input or
+          // derivation. Count the item as failed only after all fallbacks finish.
+          if (!addedAccounts?.length) {
+            errorsInfo.push(
+              this.recordImportItemError(
+                {
+                  stage: 'importWatchingAccount',
+                  targetType: 'watchingAccount',
+                  accountId: watchingAccount.id,
+                  itemIndex,
+                  networkId,
+                },
+                restoreFailure?.error ??
+                  new OneKeyLocalError('No matching account restored'),
+              ),
+            );
+          }
+          if (addedAccounts?.length) {
+            await this.updateImportProgress({ source: 'direct' });
+            await timerUtils.wait(100); // wait for UI refresh
+          }
+        } catch (error) {
+          this.assertImportTaskActive(taskUUID);
+          errorsInfo.push(
+            this.recordImportItemError(
+              {
+                stage: 'importWatchingAccount',
+                targetType: 'watchingAccount',
+                accountId: watchingAccount.id,
+                itemIndex,
+                networkId: networkIdForLog,
+              },
+              error,
+            ),
           );
-          addedAccounts = [...addedAccounts, ...(result?.addedAccounts || [])];
-        }
-        if (addedAccounts?.length) {
-          await this.updateImportProgress({ source: 'direct' });
-          await timerUtils.wait(100); // wait for UI refresh
         }
       }
 
@@ -4571,6 +4893,7 @@ class ServicePrimeTransfer extends ServiceBase {
       throw error;
     } finally {
       importedAccountDeriveTypeCache.clear();
+      this.resetImportItemErrorLog();
       this.runningImportTaskUUID = undefined;
     }
   }

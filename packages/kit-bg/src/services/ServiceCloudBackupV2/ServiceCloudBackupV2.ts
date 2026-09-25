@@ -444,10 +444,13 @@ class ServiceCloudBackupV2 extends ServiceBase {
         });
 
       if (!(await isActive())) return cancelledResult;
-      const firstWalletCredential =
-        selectedTransferData?.wallets?.[0]?.credentialDecrypted;
+      const firstWalletCredential = selectedTransferData.wallets.find(
+        (item) => item.credentialDecrypted,
+      )?.credentialDecrypted;
       const firstImportedAccountCredential =
-        selectedTransferData?.importedAccounts?.[0]?.credentialDecrypted;
+        selectedTransferData.importedAccounts.find(
+          (item) => item.credentialDecrypted,
+        )?.credentialDecrypted;
 
       let localPassword = '';
       if (firstWalletCredential || firstImportedAccountCredential) {
