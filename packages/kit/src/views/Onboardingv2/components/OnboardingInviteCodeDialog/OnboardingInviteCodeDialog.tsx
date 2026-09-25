@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
-import { NativeModules } from 'react-native';
 
 import {
   AnimatePresence,
@@ -29,13 +28,13 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useSignatureConfirm } from '@onekeyhq/kit/src/hooks/useSignatureConfirm';
 import { useGetReferralCodeWalletInfo } from '@onekeyhq/kit/src/views/ReferFriends/hooks/useWalletBoundReferralCode/useGetReferralCodeWalletInfo';
+import { readInstallReferralAutoFillCode } from '@onekeyhq/kit/src/views/ReferFriends/utils/installReferralAutoFill';
 import { useWalletBoundReferralCode } from '@onekeyhq/kit/src/views/ReferFriends/hooks/useWalletBoundReferralCode/useWalletBoundReferralCode';
 import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import type { OneKeyError } from '@onekeyhq/shared/src/errors';
 import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import { ETranslations } from '@onekeyhq/shared/src/locale/enum/translations';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 type IOnboardingInviteCodeDialogFormValues = {
@@ -80,7 +79,6 @@ const SPINNER_MIN_HOLD_AFTER_SHOWN_MS = 600;
 // capture that is still in flight. Bounded: past the deadline the field is
 // simply left empty and the user types their own code.
 const AUTO_FILL_CAPTURE_WAIT_MS = 3000;
-const AUTO_FILL_CAPTURE_POLL_INTERVAL_MS = 300;
 
 // Direction matches the reference (Sonner / Linear "slot-machine" pattern):
 // the new label slides down from above; the old label slides down off the
@@ -170,37 +168,14 @@ function OnboardingInviteCodeDialogContent({
   // suggestion" from "user typed their own code" on submit.
   const autoFilledCodeRef = useRef<string | undefined>(undefined);
 
-  const { result: autoFillCode } = usePromiseResult(async () => {
-    let state =
-      await backgroundApiProxy.serviceReferralCode.getInstallReferralAutoFill();
-    // Only the Android Google Play build (Play referrer) and iOS (App Clip
-    // handoff) run a startup capture, so only there can "not read yet" still
-    // turn into a code; everywhere else the first answer is final. Decided on
-    // this runtime deliberately — the same one `installAttribution.*.ts` uses
-    // to decide whether to capture at all. `platformEnv` is evaluated again in
-    // `bg`, where the native channel probe can fall back and disagree.
-    if (
-      (!platformEnv.isNativeAndroidGooglePlay && !platformEnv.isNativeIOS) ||
-      (platformEnv.isNativeIOS &&
-        typeof NativeModules.AppClipAttribution?.readInviteCode !== 'function')
-    ) {
-      return state.code;
-    }
-    const deadline = Date.now() + AUTO_FILL_CAPTURE_WAIT_MS;
-    // `isCaptureResolved` distinguishes "no code for this install" from "not
-    // read yet"; only the latter is worth waiting on, and only while mounted.
-    while (
-      !state.code &&
-      !state.isCaptureResolved &&
-      isMountedRef.current &&
-      Date.now() < deadline
-    ) {
-      await timerUtils.wait(AUTO_FILL_CAPTURE_POLL_INTERVAL_MS);
-      state =
-        await backgroundApiProxy.serviceReferralCode.getInstallReferralAutoFill();
-    }
-    return state.code;
-  }, []);
+  const { result: autoFillCode } = usePromiseResult(
+    async () =>
+      readInstallReferralAutoFillCode({
+        timeoutMs: AUTO_FILL_CAPTURE_WAIT_MS,
+        isActive: () => isMountedRef.current,
+      }),
+    [],
+  );
 
   useEffect(() => {
     if (!autoFillCode) {

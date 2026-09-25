@@ -22,6 +22,7 @@ import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useSignatureConfirm } from '@onekeyhq/kit/src/hooks/useSignatureConfirm';
 import type { INavigationToMessageConfirmParams } from '@onekeyhq/kit/src/hooks/useSignatureConfirm';
 import { useInvitePostConfig } from '@onekeyhq/kit/src/views/ReferFriends/hooks/useInvitePostConfig';
+import { readInstallReferralAutoFillCode } from '@onekeyhq/kit/src/views/ReferFriends/utils/installReferralAutoFill';
 import {
   DEFAULT_INVITEE_DISCOUNT_TEXT,
   formatInviteeDiscountFromConfig,
@@ -48,6 +49,10 @@ import type { IReferralCodeWalletInfo } from './types';
 // cached config answers at once; a fresh install has to fetch, and past this
 // the hint commits to the default rebate rather than keep waiting.
 const INVITEE_DISCOUNT_WAIT_MS = 1500;
+
+// Upper bound on waiting for a startup install-referrer capture still in
+// flight when the dialog opens.
+const INSTALL_REFERRAL_CAPTURE_WAIT_MS = 10_000;
 
 export function InviteCodeDialog({
   wallet,
@@ -123,12 +128,26 @@ export function InviteCodeDialog({
   // rather than pre-filled: it came from the download link, not from this
   // user, and binding is irreversible, so accepting it stays a deliberate tap.
   // Anything already in the field — a deeplink code or a saved draft — wins.
-  const { result: installReferral } = usePromiseResult(
+  //
+  // Settings, Perps and Swap can open this before the startup capture has
+  // landed on a fresh install, so wait it out like the onboarding dialog does.
+  // A late hint only appears under an empty field, so this can wait longer.
+  const isMountedRef = useRef(true);
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
+  const { result: suggestedCode } = usePromiseResult(
     async () =>
-      backgroundApiProxy.serviceReferralCode.getInstallReferralAutoFill(),
+      readInstallReferralAutoFillCode({
+        timeoutMs: INSTALL_REFERRAL_CAPTURE_WAIT_MS,
+        isActive: () => isMountedRef.current,
+      }),
     [],
+    { undefinedResultIfError: true },
   );
-  const suggestedCode = installReferral?.code;
 
   const { postConfig, isSettled: isPostConfigSettled } = useInvitePostConfig({
     enabled: Boolean(suggestedCode),

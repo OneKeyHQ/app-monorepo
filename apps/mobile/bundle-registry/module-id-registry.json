@@ -22789,6 +22789,7 @@
     "packages/kit/src/views/ReferFriends/testIDs.ts": 18121,
     "packages/kit/src/views/ReferFriends/utils/commissionRateUtils.ts": 22686,
     "packages/kit/src/views/ReferFriends/utils/index.ts": 22547,
+    "packages/kit/src/views/ReferFriends/utils/installReferralAutoFill.ts": 5163,
     "packages/kit/src/views/ReferFriends/utils/inviteUrlUtils.ts": 2850,
     "packages/kit/src/views/RewardCenter/pages/RewardCenter.tsx": 20053,
     "packages/kit/src/views/RewardCenter/router/index.ts": 21177,
