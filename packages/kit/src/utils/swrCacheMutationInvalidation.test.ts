@@ -11,6 +11,11 @@ jest.mock('@onekeyhq/shared/src/utils/swrCacheUtils', () => ({
     bulkCopyAddressesAccounts: 'bulkCopyAccounts',
     bulkSendAddressesInputSeed: 'bulkSendSeed',
     discoveryHomeBookmarks: 'disHomeBookmarks',
+    earnAccount: 'earnAccount',
+    borrowReserves: 'borrowReserves',
+    borrowHealthFactor: 'borrowHealthFactor',
+    borrowRewards: 'borrowRewards',
+    borrowEModeStatus: 'borrowEModeStatus',
   },
   swrCacheUtils: {
     remove: jest.fn(),
@@ -57,6 +62,13 @@ const BULK_PREFIXES = [
   'bulkCopyNetIds:',
   'bulkCopyAccounts:',
   'bulkSendSeed:',
+];
+const ACCOUNT_SCOPED_PREFIXES = [
+  'earnAccount:',
+  'borrowReserves:',
+  'borrowHealthFactor:',
+  'borrowRewards:',
+  'borrowEModeStatus:',
 ];
 
 function droppedPrefixes() {
@@ -106,6 +118,19 @@ describe('swrCacheMutationInvalidation', () => {
       'accSelList:',
       'accSelValues:',
       ...BULK_PREFIXES,
+      ...ACCOUNT_SCOPED_PREFIXES,
+    ]);
+    expect(swrCacheUtils.flushNow).toHaveBeenCalledTimes(1);
+  });
+
+  it('drops account-scoped snapshots when an account is updated', () => {
+    appEventBus.emit(EAppEventBusNames.AccountUpdate, undefined);
+
+    expect(droppedPrefixes()).toEqual([
+      'walletList:',
+      'accSelList:',
+      ...BULK_PREFIXES,
+      ...ACCOUNT_SCOPED_PREFIXES,
     ]);
     expect(swrCacheUtils.flushNow).toHaveBeenCalledTimes(1);
   });

@@ -45,12 +45,18 @@ export function BorrowEModeMetric({
     (c) => c.eModeId === eModeStatus.eModeId,
   );
   const hasEMode = (eModeStatus?.categories?.length ?? 0) > 0;
-  const showError = isError && !eModeStatus;
+  const showError = isError;
   const showInitialLoading = isLoading && !eModeStatus && !showError;
   const showPlaceholder = showInitialLoading || showError;
 
   const openEModeSwitch = useCallback(() => {
-    if (!networkId || !provider || !marketAddress || !earnAccountId) {
+    if (
+      showError ||
+      !networkId ||
+      !provider ||
+      !marketAddress ||
+      !earnAccountId
+    ) {
       return;
     }
     BorrowNavigation.pushToBorrowEModeSwitch(navigation, {
@@ -67,6 +73,7 @@ export function BorrowEModeMetric({
     navigation,
     networkId,
     provider,
+    showError,
   ]);
 
   if (!hasEMode && !showPlaceholder) {

@@ -29,6 +29,7 @@ export { buildBorrowMarketKey } from './borrowMarketKey';
 export type IAsyncData<T> = {
   data: T;
   loading: boolean;
+  isError?: boolean;
   refresh: () => Promise<void>;
   ownerMarketKey?: string;
 };
@@ -154,7 +155,11 @@ export const BorrowProvider = ({
 
   // Stable setter that won't cause unnecessary re-renders
   const setPendingTxs = useCallback((txs: IStakePendingTx[]) => {
-    setPendingTxsState(txs);
+    setPendingTxsState((current) =>
+      current === txs || (current.length === 0 && txs.length === 0)
+        ? current
+        : txs,
+    );
   }, []);
 
   const { rememberMarket, rememberedMarketKey } = useBorrowMarketMemory({
@@ -173,6 +178,7 @@ export const BorrowProvider = ({
         ...earnAccount,
         data: null,
         loading: true,
+        isError: false,
       };
     }
     if (
@@ -186,6 +192,7 @@ export const BorrowProvider = ({
       ...earnAccount,
       data: null,
       loading: true,
+      isError: false,
     };
   }, [currentMarketKey, earnAccount, market?.networkId]);
   const scopedReserves = useMemo(() => {
