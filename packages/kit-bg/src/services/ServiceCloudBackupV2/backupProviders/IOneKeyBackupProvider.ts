@@ -48,6 +48,7 @@ export interface IOneKeyBackupProvider {
 
   setBackupPassword(params?: {
     password?: string;
+    expectedAccountId?: string;
   }): Promise<{ recordID: string }>;
 
   verifyBackupPassword(params?: { password?: string }): Promise<boolean>;
@@ -63,6 +64,7 @@ export interface IOneKeyBackupProvider {
    */
   backupData(
     payload: IBackupDataEncryptedPayload,
+    options?: { expectedAccountId?: string },
   ): Promise<{ recordID: string; content: string }>;
 
   downloadData(params: {

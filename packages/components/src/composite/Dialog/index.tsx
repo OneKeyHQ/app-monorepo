@@ -753,6 +753,7 @@ function BaseDialogContainer(
     open,
     isExist,
     onOpenChange,
+    onCloseRequested,
     ...props
   }: IDialogContainerProps,
   ref: ForwardedRef<IDialogInstance>,
@@ -787,6 +788,7 @@ function BaseDialogContainer(
         ) {
           defaultLogger.ui.dialog.dialogClose({ trackId: props.trackID });
         }
+        onCloseRequested?.();
         changeIsOpen(false);
         void Keyboard.dismissWithDelay(50);
         await onClose(extra);
@@ -796,7 +798,7 @@ function BaseDialogContainer(
       });
       return pendingCloseRef.current;
     },
-    [changeIsOpen, onClose, props.trackID, onBeforeClose],
+    [changeIsOpen, onClose, props.trackID, onBeforeClose, onCloseRequested],
   );
 
   const handleIsExist = useCallback(
@@ -914,6 +916,7 @@ type IDialogShowFunctionProps = IDialogShowProps & {
 };
 function dialogShow({
   onClose,
+  onCloseStart,
   dialogContainer,
   portalContainer,
   isOverTopAllViews,
@@ -959,6 +962,7 @@ function dialogShow({
     }) =>
     (extra?: { flag?: string }) =>
       new Promise<void>((resolve) => {
+        onCloseStart?.();
         // Remove the React node after the animation has finished.
         setTimeout(() => {
           if (instanceRef) {
