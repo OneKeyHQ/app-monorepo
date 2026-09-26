@@ -2002,7 +2002,6 @@ function TokenSelector() {
 
   return (
     <Page
-      lazyLoad
       safeAreaEnabled={false}
       onClose={clearSearchKey}
       onUnmounted={clearSearchKey}

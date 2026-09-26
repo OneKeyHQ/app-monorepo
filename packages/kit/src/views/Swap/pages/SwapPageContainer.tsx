@@ -71,7 +71,7 @@ const SwapPageContainer = () => {
   );
 
   return (
-    <Page fullPage>
+    <Page>
       <TabletHomeContainer>
         <TabPageHeader
           sceneName={EAccountSelectorSceneName.swap}

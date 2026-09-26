@@ -575,7 +575,7 @@ function MobileBrowser() {
   );
 
   return (
-    <Page fullPage>
+    <Page>
       {/* custom header */}
 
       {showDiscoveryPage ? (

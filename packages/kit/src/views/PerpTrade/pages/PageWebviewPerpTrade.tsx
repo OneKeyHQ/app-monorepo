@@ -266,7 +266,7 @@ function WebviewPerpTradeView() {
   ]);
 
   return (
-    <Page fullPage>
+    <Page>
       <TabPageHeader
         sceneName={EAccountSelectorSceneName.home}
         tabRoute={ETabRoutes.WebviewPerpTrade}

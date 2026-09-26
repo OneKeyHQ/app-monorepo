@@ -32,7 +32,7 @@ export function EarnBlockedOverview(props: {
   } = props;
 
   return (
-    <Page fullPage>
+    <Page>
       {showHeader ? (
         <TabPageHeader
           sceneName={EAccountSelectorSceneName.home}

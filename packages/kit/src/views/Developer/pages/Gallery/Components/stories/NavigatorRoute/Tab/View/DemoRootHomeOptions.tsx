@@ -7,7 +7,6 @@ import { Stack, YStack } from '@onekeyhq/components';
 import HeaderButtonGroup from '@onekeyhq/components/src/layouts/Navigation/Header/HeaderButtonGroup';
 import HeaderIconButton from '@onekeyhq/components/src/layouts/Navigation/Header/HeaderIconButton';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { Layout } from '../../../utils/Layout';
 import { NavigationFocusTools } from '../../../utils/NavigationTools';
@@ -46,7 +45,6 @@ const DemoRootHomeOptions = () => {
 
   return (
     <Layout
-      lazyLoad={!platformEnv.isNativeIOS}
       contentInsetAdjustmentBehavior="automatic"
       description="这是一个路由 Header 演示自定义 headerRight 的用法"
       suggestions={[
