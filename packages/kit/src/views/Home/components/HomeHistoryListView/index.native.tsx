@@ -1,12 +1,16 @@
+import { Suspense, lazy } from 'react';
+
+import { HistoryLoadingView } from '@onekeyhq/kit/src/components/Loading';
 import { TxHistoryListView } from '@onekeyhq/kit/src/components/TxHistoryListView';
 import { withBrowserProvider } from '@onekeyhq/kit/src/views/Discovery/pages/Browser/WithBrowserProvider';
 
-import { NativeHistoryList } from './NativeHistoryList';
-
 import type { IHomeHistoryListViewProps } from './types';
 
-const NativeHistoryListWithBrowser =
-  withBrowserProvider<IHomeHistoryListViewProps>(NativeHistoryList);
+const NativeHistoryListWithBrowser = lazy(() =>
+  import('./NativeHistoryList').then(({ NativeHistoryList }) => ({
+    default: withBrowserProvider<IHomeHistoryListViewProps>(NativeHistoryList),
+  })),
+);
 
 export function HomeHistoryListView(props: IHomeHistoryListViewProps) {
   if (props.plainMode || !props.observeFrozenTop) {
@@ -20,6 +24,11 @@ export function HomeHistoryListView(props: IHomeHistoryListViewProps) {
     return <TxHistoryListView {...listProps} />;
   }
   return (
-    <NativeHistoryListWithBrowser key={props.frozenTopIdentityKey} {...props} />
+    <Suspense fallback={<HistoryLoadingView />}>
+      <NativeHistoryListWithBrowser
+        key={props.frozenTopIdentityKey}
+        {...props}
+      />
+    </Suspense>
   );
 }

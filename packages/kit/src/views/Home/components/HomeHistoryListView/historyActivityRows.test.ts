@@ -191,6 +191,52 @@ describe('Home native history financial display parity', () => {
     expect(result.title).toBe(ETranslations.approve_edit_increase_allowance);
     expect(result.amounts[1].text).toContain('+0');
   });
+  it.each([
+    [EApproveType.Approve, true],
+    [EApproveType.IncreaseAllowance, false],
+    [EApproveType.IncreaseApproval, false],
+  ])(
+    'renders unlimited %s as text with the legacy layout and privacy rules',
+    (approveType, isInfiniteAmount) => {
+      const tx = history([], []);
+      tx.decodedTx.actions = [
+        {
+          type: EDecodedTxActionType.TOKEN_APPROVE,
+          tokenApprove: {
+            amount: 'Infinite',
+            symbol: 'BTC',
+            name: 'Bitcoin',
+            approveType,
+            isInfiniteAmount,
+            spender: 'b',
+          },
+        },
+      ] as typeof tx.decodedTx.actions;
+      const unlimitedText = intl.formatMessage({
+        id: ETranslations.swap_page_provider_approve_amount_un_limit,
+      });
+      for (const hideValue of [false, true]) {
+        for (const tableLayout of [false, true]) {
+          const result = buildHistoryActivityRow({
+            history: tx,
+            intl,
+            tableLayout,
+            isUTXO: false,
+            hideValue,
+            currency: '$',
+          }).row;
+          let expectedText = unlimitedText;
+          if (tableLayout) expectedText = `${unlimitedText} BTC`;
+          else if (hideValue) expectedText = '**** BTC';
+          expect(
+            result.amounts.find((amount) => amount.key === 'approval'),
+          ).toMatchObject({
+            text: expectedText,
+          });
+        }
+      }
+    },
+  );
   it('adds a distinct private-send creation fee and preserves the private recipient', () => {
     const tx = history([{ ...transfer('7'), tokenIdOnNetwork: 'usdc' }], []);
     tx.decodedTx.payload = {

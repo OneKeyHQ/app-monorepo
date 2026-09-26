@@ -377,16 +377,25 @@ function buildHistoryActivityRowUnchecked({
     address = info.approveSpender;
     leading = tokenVisual(info.approveIcon);
     icon = revoke ? 'ShieldCheckDoneOutline' : 'UnlockedOutline';
-    const value = formatHistoryNumber(
-      unlimited
-        ? label(ETranslations.swap_page_provider_approve_amount_un_limit)
-        : info.approveAmount,
-      {
+    let value: Pick<IHistoryAmount, 'text' | 'textSegments'>;
+    if (unlimited) {
+      const unlimitedText = label(
+        ETranslations.swap_page_provider_approve_amount_un_limit,
+      );
+      if (tableLayout) {
+        value = { text: `${unlimitedText} ${info.approveSymbol}`.trimEnd() };
+      } else if (hideValue) {
+        value = { text: `**** ${info.approveSymbol}`.trimEnd() };
+      } else {
+        value = { text: unlimitedText };
+      }
+    } else {
+      value = formatHistoryNumber(info.approveAmount, {
         balance: true,
         symbol: info.approveSymbol,
-        hideValue: tableLayout && unlimited ? false : hideValue,
-      },
-    );
+        hideValue,
+      });
+    }
     if (increase && !unlimited) {
       value.text = `+${value.text}`;
       if (value.textSegments)

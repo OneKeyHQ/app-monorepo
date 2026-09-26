@@ -21553,6 +21553,7 @@
     "packages/kit/src/views/Home/components/HomeTokenListProvider/UrlAccountHomeTokenListProviderMirror.tsx": 6598,
     "packages/kit/src/views/Home/components/HomeTokenListProvider/index.tsx": 20733,
     "packages/kit/src/views/Home/components/NFTListView/NFTListItem.tsx": 17790,
+    "packages/kit/src/views/Home/components/NFTListView/NativeNFTList.native.tsx": 18407,
     "packages/kit/src/views/Home/components/NFTListView/index.native.tsx": 8973,
     "packages/kit/src/views/Home/components/NFTListView/index.tsx": 15114,
     "packages/kit/src/views/Home/components/NotBakcedUp/MainBlock.tsx": 10391,
