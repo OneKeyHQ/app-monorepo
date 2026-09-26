@@ -1,0 +1,28 @@
+name: Windows USB repair helper
+
+on:
+  pull_request:
+    branches:
+      - x
+    paths:
+      - "apps/desktop/native-modules/onekey-usb-repair/**"
+      - "apps/desktop/scripts/build-usb-repair-win.ps1"
+      - ".github/workflows/windows-usb-repair-helper.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: windows-2022
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build x64 and ARM64 helpers
+        shell: pwsh
+        run: ./apps/desktop/scripts/build-usb-repair-win.ps1
+      - name: Verify no-device path on x64 runner
+        shell: pwsh
+        run: |
+          $helper = './apps/desktop/native-modules/onekey-usb-repair/build/win-x64/Release/onekey-usb-repair.exe'
+          $result = & $helper repair | ConvertFrom-Json
+          if ($result.status -ne 'no-device') { throw "Unexpected status: $($result.status)" }

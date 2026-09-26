@@ -34,6 +34,21 @@ const ONEKEY_LINUX_UDEV_RULES_STATIC_PATH = path.join(
   'udev',
   '99-onekey.rules',
 );
+const USB_REPAIR_STATUSES = [
+  'repaired',
+  'already-correct',
+  'no-device',
+  'multiple-devices',
+  'no-winusb-descriptor',
+  'no-winusb-driver',
+  'cancelled',
+  'reboot-required',
+  'failed',
+] as const;
+
+export type IRepairOneKeyUsbDriverResult = {
+  status: (typeof USB_REPAIR_STATUSES)[number] | 'unsupported' | 'unavailable';
+};
 
 // Runtime sandbox detection. This module runs in the Electron MAIN process,
 // where `platformEnv` derives `desktopChannel` from a module-load-time snapshot
@@ -617,6 +632,51 @@ fi
           .catch(() => undefined);
       }
     }
+  }
+
+  async repairOneKeyUsbDriver(): Promise<IRepairOneKeyUsbDriverResult> {
+    if (process.platform !== 'win32') {
+      return { status: 'unsupported' };
+    }
+
+    const helperPath = app.isPackaged
+      ? path.join(
+          getAppStaticResourcesPath(),
+          'bin',
+          'usb-repair',
+          'onekey-usb-repair.exe',
+        )
+      : path.join(
+          getAppStaticResourcesPath(),
+          '..',
+          '..',
+          'native-modules',
+          'onekey-usb-repair',
+          'build',
+          `win-${process.arch}`,
+          'Release',
+          'onekey-usb-repair.exe',
+        );
+
+    try {
+      await fs.access(helperPath);
+    } catch {
+      return { status: 'unavailable' };
+    }
+
+    try {
+      const { stdout } = await execFileAsync(helperPath, ['repair'], {
+        timeout: 150_000,
+        windowsHide: true,
+      });
+      const result = JSON.parse(stdout) as IRepairOneKeyUsbDriverResult;
+      if (USB_REPAIR_STATUSES.some((status) => status === result.status)) {
+        return result;
+      }
+    } catch (error) {
+      logger.warn('Windows USB driver repair failed', error);
+    }
+    return { status: 'failed' };
   }
 
   async getAppName(): Promise<string> {

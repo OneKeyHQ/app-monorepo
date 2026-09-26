@@ -34,6 +34,11 @@ module.exports = {
         'from': 'app/build/static/bin/ble-pair/win-${arch}',
         'to': 'bin/ble-pair',
       },
+      {
+        'from':
+          'native-modules/onekey-usb-repair/build/win-${arch}/Release/onekey-usb-repair.exe',
+        'to': 'bin/usb-repair/onekey-usb-repair.exe',
+      },
     ],
     'extraFiles': [
       ...DLLs,
