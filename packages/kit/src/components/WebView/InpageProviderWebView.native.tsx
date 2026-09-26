@@ -10,14 +10,8 @@ import {
 import { useWebViewBridge } from '@onekeyfe/onekey-cross-webview';
 import { Asset } from 'expo-asset';
 import { readAsStringAsync } from 'expo-file-system/legacy';
-import { StatusBar } from 'react-native';
 
-import {
-  Progress,
-  Spinner,
-  Stack,
-  useKeyboardHeight,
-} from '@onekeyhq/components';
+import { Keyboard, Progress, Spinner, Stack } from '@onekeyhq/components';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -114,7 +108,6 @@ const InpageProviderWebView: FC<INativeInpageProviderWebViewProps> = forwardRef(
     ref: any,
   ) => {
     const [progress, setProgress] = useState(5);
-    const keyboardHeight = useKeyboardHeight();
     const { webviewRef, setWebViewRef } = useWebViewBridge();
     const shouldLoadInjectedNativeCode =
       useInjectedNativeCode && !disableBridge;
@@ -243,18 +236,6 @@ const InpageProviderWebView: FC<INativeInpageProviderWebViewProps> = forwardRef(
       }
       return null;
     }, [isSpinnerLoading, progress, displayProgressBar]);
-    const containerStyle = useMemo(() => {
-      if (platformEnv.isNativeAndroid && keyboardHeight > 0) {
-        return {
-          height: keyboardHeight + (StatusBar.currentHeight || 0) + 60,
-        };
-      }
-
-      return {
-        flex: 1,
-      };
-    }, [keyboardHeight]);
-
     if (injectedNativeCodeError) {
       throw injectedNativeCodeError;
     }
@@ -268,7 +249,12 @@ const InpageProviderWebView: FC<INativeInpageProviderWebViewProps> = forwardRef(
     }
 
     return (
-      <Stack {...containerStyle}>
+      <Keyboard.AvoidingView
+        automaticOffset={platformEnv.isNativeAndroid}
+        behavior="height"
+        enabled={platformEnv.isNativeAndroid}
+        style={{ flex: 1 }}
+      >
         {progressLoading}
 
         <NativeWebView
@@ -317,7 +303,7 @@ const InpageProviderWebView: FC<INativeInpageProviderWebViewProps> = forwardRef(
           onError={onError}
           onHttpError={onHttpError}
         />
-      </Stack>
+      </Keyboard.AvoidingView>
     );
   },
 );
