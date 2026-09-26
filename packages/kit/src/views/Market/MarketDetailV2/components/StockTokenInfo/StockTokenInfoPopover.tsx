@@ -262,6 +262,7 @@ export function StockTokenInfoPopover({ label }: { label: ReactNode }) {
       title={intl.formatMessage({
         id: ETranslations.trade_stocks_token_details,
       })}
+      nativeSheet
       placement="bottom-end"
       floatingPanelProps={{ width: POPOVER_WIDTH }}
       renderTrigger={
