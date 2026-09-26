@@ -1,3 +1,5 @@
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+
 const mockGetCaptureState = jest.fn(async () => ({
   isResolved: false,
   isPendingFreshInstall: false,
@@ -113,7 +115,7 @@ describe('captureInstallInviteCode', () => {
       source: 'androidInstallReferrer' as never,
       read: async ({ markFreshInstall }) => {
         await markFreshInstall();
-        throw new Error('SERVICE_UNAVAILABLE');
+        throw new OneKeyLocalError('SERVICE_UNAVAILABLE');
       },
     });
 
