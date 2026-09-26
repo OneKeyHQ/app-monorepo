@@ -297,8 +297,20 @@ function BasicDesktopBrowserContent({
       />
     );
   }
-  // else: cold (evicted) tab renders nothing — it is off-screen behind the
-  // active tab and remounts/reloads when activated again.
+  // A cold (LRU-evicted) tab must drop out of the tree entirely rather than
+  // render an empty <Freeze>. react-freeze suspends by throwing from a
+  // Suspender while frozen, and an evicted tab is by definition inactive —
+  // therefore frozen — so the re-render that sets `body` to null could never
+  // commit. React kept the previous children mounted and the <webview> (and
+  // its guest renderer process) survived eviction, which made the keep-alive
+  // budget a no-op: measured 10-17 live webviews against MAX_ALIVE_WEBVIEW_COUNT
+  // of 8. Returning null here happens above the Freeze boundary, so the
+  // unmount commits and releaseDesktopWebviewResources' assumption that React
+  // already tore the webview down finally holds.
+  const isColdTab = Boolean(tab?.url) && !shouldMountWebView && !isActive;
+  if (isColdTab) {
+    return null;
+  }
 
   return (
     <Freeze key={id} freeze={!isActive}>
