@@ -6,6 +6,11 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { ESwapDirection } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/components/SwapPanel/hooks/useTradeType';
 import type { useSwapAddressInfo } from '@onekeyhq/kit/src/views/Swap/hooks/useSwapAccount';
 import { updateSwapBalanceDisplayCache } from '@onekeyhq/kit/src/views/Swap/utils/swapBalanceDisplayCacheUtils';
+import {
+  buildSwapBalanceAccountIdentity,
+  buildSwapBalanceOwner,
+  isSameSwapBalanceOwner,
+} from '@onekeyhq/kit/src/views/Swap/utils/swapBalanceOwnerUtils';
 import { getSwapTokenBalanceContractAddress } from '@onekeyhq/kit/src/views/Swap/utils/swapBalanceUtils';
 import {
   buildSwapDefaultSelectedTokensForNetwork,
@@ -100,8 +105,10 @@ import {
 import { ContextJotaiActionsBase } from '../../utils/ContextJotaiActionsBase';
 
 import {
+  EMPTY_SWAP_SELECTED_TOKEN_BALANCE_META,
   type ISwapInputAmountDraft,
   type ISwapQuoteEventErrorState,
+  type ISwapSelectedTokenBalanceMeta,
   type ISwapTokenAmountState,
   contextAtomMethod,
   limitOrderMarketPriceAtom,
@@ -155,6 +162,7 @@ import {
   swapSelectTokenDetailRequestIdAtom,
   swapSelectedFromTokenBalanceAtom,
   swapSelectedToTokenBalanceAtom,
+  swapSelectedTokenBalanceMetaAtom,
   swapSelectedTokensColdStartContextAtom,
   swapShouldRefreshQuoteAtom,
   swapSilenceQuoteLoading,
@@ -966,18 +974,24 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
     return null;
   };
 
-  resetSwapTokenData = contextAtomMethod(async (get, set, type) => {
-    if (type === ESwapDirectionType.FROM) {
-      set(swapSelectFromTokenAtom(), undefined);
-      set(swapSelectedFromTokenBalanceAtom(), '');
-    } else {
-      set(swapSelectToTokenAtom(), undefined);
-      set(swapSelectedToTokenBalanceAtom(), '');
-    }
-    set(swapStockExecutionTokensAtom(), undefined);
-    set(swapQuoteListAtom(), []);
-    set(rateDifferenceAtom(), undefined);
-  });
+  resetSwapTokenData = contextAtomMethod(
+    async (get, set, type: ESwapDirectionType) => {
+      if (type === ESwapDirectionType.FROM) {
+        set(swapSelectFromTokenAtom(), undefined);
+        set(swapSelectedFromTokenBalanceAtom(), '');
+      } else {
+        set(swapSelectToTokenAtom(), undefined);
+        set(swapSelectedToTokenBalanceAtom(), '');
+      }
+      set(swapSelectedTokenBalanceMetaAtom(), (previous) => ({
+        ...previous,
+        [type]: EMPTY_SWAP_SELECTED_TOKEN_BALANCE_META,
+      }));
+      set(swapStockExecutionTokensAtom(), undefined);
+      set(swapQuoteListAtom(), []);
+      set(rateDifferenceAtom(), undefined);
+    },
+  );
 
   selectFromToken = contextAtomMethod(
     async (
@@ -1175,6 +1189,19 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
     }
     set(swapSelectFromTokenAtom(), toToken);
     set(swapSelectToTokenAtom(), fromToken);
+    // Carry the balances (and their bookkeeping) across with the tokens. The
+    // To balance is fetched for the same wallet, so it is exactly the From
+    // balance now; without this the From row, Top up chip and action button
+    // keep the old token's verdict until the debounced detail reload lands.
+    const fromBalance = get(swapSelectedFromTokenBalanceAtom());
+    const toBalance = get(swapSelectedToTokenBalanceAtom());
+    set(swapSelectedFromTokenBalanceAtom(), toBalance);
+    set(swapSelectedToTokenBalanceAtom(), fromBalance);
+    const balanceMeta = get(swapSelectedTokenBalanceMetaAtom());
+    set(swapSelectedTokenBalanceMetaAtom(), {
+      from: balanceMeta.to,
+      to: balanceMeta.from,
+    });
     this.cleanManualSelectQuoteProviders.call(set);
   });
 
@@ -2639,6 +2666,9 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         ...previous,
         [type]: requestId,
       }));
+      // Resolved together with the result below, so a refresh keeps the
+      // previous verdict on screen instead of briefly clearing a stale error.
+      let balanceFetchFailed = false;
       if (shouldFetchBalance) {
         set(swapSelectTokenDetailFetchingAtom(), (previous) => ({
           ...previous,
@@ -2701,6 +2731,12 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       }
       let balanceDisplay: string | undefined;
       let hasAuthoritativeBalance = false;
+      // Network-agnostic identity of the account this request belongs to. The
+      // stored figure is tagged with it so another account can never read it
+      // while its own cross-network lookup is still pending.
+      const accountIdentity = buildSwapBalanceAccountIdentity(
+        swapAddressInfo.activeAccount,
+      );
       if (!isCurrentRequest()) {
         if (get(swapSelectTokenDetailRequestIdAtom())[type] === requestId) {
           set(swapSelectTokenDetailFetchingAtom(), (previous) => ({
@@ -2738,11 +2774,25 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
               ...pre,
               [type]: true,
             }));
-            // reset balance
-            if (type === ESwapDirectionType.FROM) {
-              set(swapSelectedFromTokenBalanceAtom(), '');
-            } else {
-              set(swapSelectedToTokenBalanceAtom(), '');
+            // A reload for the token + account the stored balance belongs to
+            // is a refresh (forced, focus, or one replacing an in-flight
+            // fetch): keep the figure while the fetching flag reports
+            // progress. Anything else is a new selection and clears it so a
+            // stale figure never shows.
+            const isSameBalanceOwner = isSameSwapBalanceOwner(
+              get(swapSelectedTokenBalanceMetaAtom())[type],
+              buildSwapBalanceOwner({
+                token,
+                accountAddress,
+                accountIdentity,
+              }),
+            );
+            if (!isSameBalanceOwner) {
+              if (type === ESwapDirectionType.FROM) {
+                set(swapSelectedFromTokenBalanceAtom(), '');
+              } else {
+                set(swapSelectedToTokenBalanceAtom(), '');
+              }
             }
             const contractAddress =
               await getSwapTokenBalanceContractAddress(token);
@@ -2834,6 +2884,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
             // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
             if (e?.cause !== ESwapFetchCancelCause.SWAP_TOKENS_CANCEL) {
               balanceDisplay = '0.0';
+              balanceFetchFailed = true;
             }
           } finally {
             if (get(swapSelectTokenDetailRequestIdAtom())[type] === requestId) {
@@ -2846,10 +2897,61 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         }
       }
       if (isCurrentRequest()) {
-        if (type === ESwapDirectionType.FROM) {
-          set(swapSelectedFromTokenBalanceAtom(), balanceDisplay ?? '');
-        } else {
-          set(swapSelectedToTokenBalanceAtom(), balanceDisplay ?? '');
+        // A failed refresh (or a response without an authoritative balance) for
+        // the token + account the stored figure already belongs to must not
+        // replace a verified balance with the '0.0' fallback: that would drop
+        // the deposit entry, the Top up chip and the balance refresh control
+        // together and leave a zero-balance user on a disabled "Enter amount"
+        // with no way to retry (OK-63470). Keep the last verified figure and
+        // its verdict; the refresh control stays available for another attempt.
+        const storedBalanceMeta = get(swapSelectedTokenBalanceMetaAtom())[type];
+        const keepsPreviousVerifiedBalance =
+          isSameSwapBalanceOwner(
+            storedBalanceMeta,
+            buildSwapBalanceOwner({
+              token,
+              accountAddress,
+              accountIdentity,
+            }),
+          ) &&
+          !storedBalanceMeta.unverified &&
+          !hasAuthoritativeBalance;
+        if (!keepsPreviousVerifiedBalance) {
+          if (type === ESwapDirectionType.FROM) {
+            set(swapSelectedFromTokenBalanceAtom(), balanceDisplay ?? '');
+          } else {
+            set(swapSelectedToTokenBalanceAtom(), balanceDisplay ?? '');
+          }
+          const balanceOwner =
+            balanceDisplay === undefined
+              ? undefined
+              : buildSwapBalanceOwner({
+                  token,
+                  accountAddress,
+                  accountIdentity,
+                });
+          const nextBalanceMeta: ISwapSelectedTokenBalanceMeta = {
+            tokenKey: balanceOwner?.tokenKey,
+            accountAddress: balanceOwner?.accountAddress,
+            accountIdentity: balanceOwner?.accountIdentity,
+            // A failed fetch and a response without balanceParsed both leave a
+            // '0' fallback in the balance atom; neither is an authoritative
+            // zero, so the deposit verdict must not act on it.
+            unverified:
+              balanceFetchFailed ||
+              (balanceDisplay !== undefined && !hasAuthoritativeBalance),
+          };
+          // Same-value refreshes keep the previous object so subscribers of the
+          // verdict do not re-render for nothing.
+          set(swapSelectedTokenBalanceMetaAtom(), (previous) =>
+            previous[type].tokenKey === nextBalanceMeta.tokenKey &&
+            previous[type].accountAddress === nextBalanceMeta.accountAddress &&
+            previous[type].accountIdentity ===
+              nextBalanceMeta.accountIdentity &&
+            previous[type].unverified === nextBalanceMeta.unverified
+              ? previous
+              : { ...previous, [type]: nextBalanceMeta },
+          );
         }
         if (
           token &&
@@ -3384,6 +3486,10 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         normalizedType === ESwapTabSwitchType.LIMIT
       ) {
         set(swapSelectedFromTokenBalanceAtom(), '');
+        set(swapSelectedTokenBalanceMetaAtom(), (previous) => ({
+          ...previous,
+          from: EMPTY_SWAP_SELECTED_TOKEN_BALANCE_META,
+        }));
       }
       if (
         oldType !== ESwapTabSwitchType.STOCK &&

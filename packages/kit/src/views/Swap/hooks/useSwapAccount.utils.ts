@@ -436,3 +436,17 @@ export function shouldUseSwapAddressForTokenFetch({
     resolvedAddressNetworkId === targetNetworkId
   );
 }
+
+// A cross-network account lookup still in flight is not a missing address:
+// verdicts keep their last value until it resolves, so swapping From/To does
+// not flash for a frame. A truly absent account is caught separately by the
+// connect-wallet state.
+export function hasSwapFromAddressForVerdict({
+  address,
+  isAddressInfoReady,
+}: {
+  address?: string;
+  isAddressInfoReady: boolean;
+}) {
+  return Boolean(address) || !isAddressInfoReady;
+}

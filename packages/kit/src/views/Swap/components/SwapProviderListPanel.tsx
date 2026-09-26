@@ -57,6 +57,10 @@ import {
   useSwapQuoteEventFetching,
   useSwapQuoteLoading,
 } from '../hooks/useSwapState';
+import {
+  SWAP_DESKTOP_CARD_SHADOW_NATIVE_STYLE,
+  SWAP_DESKTOP_CARD_SHADOW_WEB_STYLE,
+} from '../utils/swapDesktopCardShadow';
 
 import SwapProviderListItem from './SwapProviderListItem';
 import SwapRefreshButton from './SwapRefreshButton';
@@ -773,16 +777,11 @@ const SwapProviderListPanel = ({
       borderColor="$borderSubdued"
       elevationAndroid="$1"
       $platform-web={{
-        boxShadow: '0px 0px 24px 0px rgba(0, 0, 0, 0.06)',
+        ...SWAP_DESKTOP_CARD_SHADOW_WEB_STYLE,
         // Limit max height to viewport height minus some spacing
         maxHeight: 'calc(100vh - 200px)',
       }}
-      style={{
-        shadowColor: 'rgba(0, 0, 0, 0.08)',
-        shadowOffset: { width: 0, height: 0 },
-        shadowOpacity: 1,
-        shadowRadius: 24,
-      }}
+      style={SWAP_DESKTOP_CARD_SHADOW_NATIVE_STYLE}
     >
       {shouldShowContent ? (
         <XStack

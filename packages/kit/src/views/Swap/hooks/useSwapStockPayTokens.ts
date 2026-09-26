@@ -18,6 +18,7 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { swrKeys } from '@onekeyhq/shared/src/utils/swrCacheUtils';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import { mevSwapNetworks } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import {
@@ -69,7 +70,19 @@ type IStockPayToken = IToken & {
   valueProps?: { value: string; currency: string };
 };
 
+type IStockPayTokenDetailsResult = {
+  scope: string;
+  tokens: IStockPayToken[];
+  balances: Record<string, string | undefined>;
+  cacheable: boolean;
+};
+
 const EMPTY_STOCK_PAY_TOKENS: IStockPayToken[] = [];
+
+// The stock detail page's portfolio polls at this cadence. The pay token list
+// keeps the same rhythm so both surfaces show balances of the same age.
+const STOCK_PAY_TOKEN_DETAILS_POLLING_INTERVAL_MS =
+  timerUtils.getTimeDurationMs({ seconds: 15 });
 
 function buildStockPayTokenPreferenceScope({
   accountId,
@@ -333,7 +346,7 @@ export function useSwapStockPayTokens({
     result: payTokenDetailsState,
     isLoading: payTokenDetailsLoading,
     run: reloadPayTokenDetails,
-  } = usePromiseResult(
+  } = usePromiseResult<IStockPayTokenDetailsResult>(
     async () => {
       const requestScope = payTokenDetailsScope;
       const shouldExplicitlyRevalidate =
@@ -357,6 +370,7 @@ export function useSwapStockPayTokens({
           scope: payTokenDetailsScope,
           tokens: [] as IStockPayToken[],
           balances: {} as Record<string, string | undefined>,
+          cacheable: false,
         });
       }
       if (!hasActiveAccount) {
@@ -373,6 +387,7 @@ export function useSwapStockPayTokens({
             },
             {},
           ),
+          cacheable: false,
         });
       }
 
@@ -411,11 +426,13 @@ export function useSwapStockPayTokens({
         return request;
       };
 
+      let hasAuthoritativeBalance = true;
       const tokens = await Promise.all(
         rawPayTokens.map(async (token) => {
           try {
             const networkAccount = await getNetworkAccount(token.networkId);
             if (!networkAccount?.id || !networkAccount?.address) {
+              hasAuthoritativeBalance = false;
               return buildStockPayToken({ token });
             }
             const details = await runStockPayTokenDetailsRequest({
@@ -439,6 +456,9 @@ export function useSwapStockPayTokens({
                 }),
             });
             const firstDetail = details?.[0];
+            if (firstDetail?.balanceParsed === undefined) {
+              hasAuthoritativeBalance = false;
+            }
             const detail =
               firstDetail?.balanceParsed !== undefined
                 ? {
@@ -448,6 +468,7 @@ export function useSwapStockPayTokens({
                 : firstDetail;
             return buildStockPayToken({ token, detail });
           } catch {
+            hasAuthoritativeBalance = false;
             return buildStockPayToken({ token });
           }
         }),
@@ -462,6 +483,7 @@ export function useSwapStockPayTokens({
             token.balanceParsed ?? '0',
           ]),
         ),
+        cacheable: hasAuthoritativeBalance,
       });
     },
     [
@@ -477,14 +499,26 @@ export function useSwapStockPayTokens({
         scope: '',
         tokens: [] as IStockPayToken[],
         balances: {} as Record<string, string | undefined>,
+        cacheable: false,
       },
       watchLoading: shouldLoadPayTokenDetails,
       revalidateOnFocus: true,
+      // Keep the interval identity stable. The callback itself exits while
+      // the speed config or token candidates are still loading; changing the
+      // interval here would make usePromiseResult wait a full 15 seconds
+      // before the first authoritative balance request.
+      pollingInterval: STOCK_PAY_TOKEN_DETAILS_POLLING_INTERVAL_MS,
       swrKey: shouldLoadPayTokenDetails
         ? swrKeys.swapStockPayTokenDetails({
             scope: payTokenDetailsScope,
           })
         : undefined,
+      // Only a real balance response may seed the next cold start: the
+      // no-account placeholder carries zeroed balances that would otherwise be
+      // replayed as if they were the account's funds. Same rule as the market
+      // stock caches, which never persist a failed or empty payload.
+      swrShouldPersist: (result) =>
+        hasActiveAccount && result.cacheable && result.tokens.length > 0,
     },
   );
   const payTokenDetailsReady =

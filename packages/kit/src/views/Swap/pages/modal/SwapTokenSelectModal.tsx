@@ -76,7 +76,6 @@ import {
   ESwapDirectionType,
   ESwapSelectTokenSource,
   ESwapTabSwitchType,
-  ETokenRiskLevel,
   type ISwapNetwork,
   type ISwapToken,
 } from '@onekeyhq/shared/types/swap/types';
@@ -85,6 +84,7 @@ import useConfigurableChainSelector from '../../../ChainSelector/hooks/useChainS
 import NetworkToggleGroup from '../../components/SwapNetworkToggleGroup';
 import SwapPopularTokenGroup from '../../components/SwapPopularTokenGroup';
 import { useSwapAddressInfo } from '../../hooks/useSwapAccount';
+import { useSwapTokenRiskCheck } from '../../hooks/useSwapTokenRiskCheck';
 import { useSwapTokenList } from '../../hooks/useSwapTokens';
 import {
   SWAP_STOCK_ANALYTICS_TOKEN_LIST_TYPE_STOCK,
@@ -688,26 +688,7 @@ const SwapTokenSelectPage = ({
     [displayTokens],
   );
 
-  const checkRiskToken = useCallback(
-    async (token: ISwapToken) => {
-      const isRiskLevel =
-        !token.isPopular &&
-        (!token.price ||
-          new BigNumber(token.price).isZero() ||
-          token.riskLevel === ETokenRiskLevel.SPAM ||
-          token.riskLevel === ETokenRiskLevel.MALICIOUS);
-      if (isRiskLevel) {
-        if (!settingsPersistAtom.tokenRiskReminder) return false;
-        const checkConfirmRiskToken =
-          await backgroundApiProxy.serviceSetting.checkConfirmedRiskToken(
-            `${token.networkId}_${token.contractAddress}`,
-          );
-        return !checkConfirmRiskToken;
-      }
-      return isRiskLevel;
-    },
-    [settingsPersistAtom.tokenRiskReminder],
-  );
+  const checkRiskToken = useSwapTokenRiskCheck();
 
   const selectTokenHandler = useCallback(
     (token: ISwapToken) => {

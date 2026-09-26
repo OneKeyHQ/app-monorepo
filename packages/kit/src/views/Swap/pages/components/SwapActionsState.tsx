@@ -75,6 +75,7 @@ import {
   useSwapRecipientAddressInfo,
 } from '../../hooks/useSwapAccount';
 import { shouldShowSwapRecipientEntry } from '../../hooks/useSwapAccount.utils';
+import { useSwapDepositEntryPress } from '../../hooks/useSwapDepositEntry';
 import {
   shouldBlockSwapActionForIncognitoRecipientInput,
   shouldEnableSwapIncognitoRecipientValidation,
@@ -176,8 +177,12 @@ const SwapActionsState = ({
   const [swapTypeSwitch] = useSwapTypeSwitchAtom();
   const swapFromAddressInfo = useSwapAddressInfo(ESwapDirectionType.FROM);
   const swapToAddressInfo = useSwapAddressInfo(ESwapDirectionType.TO);
-  const { cleanQuoteInterval, closeQuoteEvent, quoteAction } =
-    useSwapActions().current;
+  const {
+    cleanQuoteInterval,
+    closeQuoteEvent,
+    loadSwapSelectTokenDetail,
+    quoteAction,
+  } = useSwapActions().current;
   const swapActionState = useSwapActionState();
   const noConnectWallet = Boolean(
     forceNoConnectWallet || swapActionState.noConnectWallet,
@@ -271,8 +276,21 @@ const SwapActionsState = ({
     !quoteActionLock.actionLock &&
     quoteEventCompleted &&
     quoteRequestMatchesCurrentInput;
+  const quoteProvenForCurrentInput = isSwapQuoteProvenForCurrentRequest({
+    quote: currentQuoteRes,
+    quoteEventTotalCount,
+    quoteLoading,
+    quoteEventFetching,
+    quoteActionLocked: Boolean(quoteActionLock.actionLock),
+    requestMatchesCurrentInput: quoteRequestMatchesCurrentInput,
+  });
+  const quoteSettledWithResult =
+    quoteProvenForCurrentInput &&
+    quoteEventCompleted &&
+    !quoteLoading &&
+    !quoteEventFetching;
   const settledProviderSupportRef = useRef(swapProviderSupportReceiveAddress);
-  if (currentQuoteRes || isQuoteSettledWithoutResult) {
+  if (quoteSettledWithResult || isQuoteSettledWithoutResult) {
     settledProviderSupportRef.current = swapProviderSupportReceiveAddress;
   }
   const providerSupportReceiveAddressSettled =
@@ -296,21 +314,14 @@ const SwapActionsState = ({
     // Active-request proof: see isSwapQuoteProvenForCurrentRequest for why
     // event membership, the lock match, and the request-starting interval all
     // have to be checked together.
-    quoteProvenForCurrentInput: isSwapQuoteProvenForCurrentRequest({
-      quote: currentQuoteRes,
-      quoteEventTotalCount,
-      quoteLoading,
-      quoteEventFetching,
-      quoteActionLocked: Boolean(quoteActionLock.actionLock),
-      requestMatchesCurrentInput: quoteRequestMatchesCurrentInput,
-    }),
+    quoteProvenForCurrentInput,
     quoteSettledWithoutResult: isQuoteSettledWithoutResult,
     isAddressInfoReady: swapToAddressInfo.isAddressInfoReady,
     hasTargetAddress: Boolean(swapToAddressInfo.address),
     noConnectWallet,
   });
 
-  const shouldShowRecipient = useMemo(
+  const shouldShowRecipientForCurrentState = useMemo(
     () =>
       shouldShowSwapRecipientEntry({
         swapType: swapTypeSwitch,
@@ -333,6 +344,36 @@ const SwapActionsState = ({
       toToken,
     ],
   );
+
+  // Stock token switches intentionally clear the pay token while the new
+  // network-scoped token is resolved. Keep an already visible recipient row
+  // mounted through that transition; otherwise the temporary missing token
+  // makes the row collapse and re-expand even though the setting is enabled.
+  const recipientVisibilityScopeRef = useRef({
+    swapType: swapTypeSwitch,
+    visible: false,
+  });
+  if (recipientVisibilityScopeRef.current.swapType !== swapTypeSwitch) {
+    recipientVisibilityScopeRef.current = {
+      swapType: swapTypeSwitch,
+      visible: false,
+    };
+  }
+  if (shouldShowRecipientForCurrentState) {
+    recipientVisibilityScopeRef.current.visible = true;
+  }
+  if (!swapEnableRecipientAddress) {
+    recipientVisibilityScopeRef.current.visible = false;
+  }
+  const shouldKeepRecipientVisibleDuringStockTokenTransition = Boolean(
+    swapTypeSwitch === ESwapTabSwitchType.STOCK &&
+    recipientVisibilityScopeRef.current.visible &&
+    swapEnableRecipientAddress &&
+    (!fromToken || !toToken),
+  );
+  const shouldShowRecipient =
+    shouldShowRecipientForCurrentState ||
+    shouldKeepRecipientVisibleDuringStockTokenTransition;
 
   const shouldShowIncognitoRecipientInput = useMemo(
     () =>
@@ -430,9 +471,32 @@ const SwapActionsState = ({
       visible: shouldShowIncognitoRecipientInput,
     });
 
+  const refreshFromTokenBalance = useCallback(() => {
+    void loadSwapSelectTokenDetail(
+      ESwapDirectionType.FROM,
+      swapFromAddressInfo,
+      true,
+    );
+  }, [loadSwapSelectTokenDetail, swapFromAddressInfo]);
+  // While the cross-network account lookup is pending, accountInfo still
+  // carries the previous network's account; withhold it so a tap in that
+  // window resolves the right account from activeAccount instead of opening
+  // Receive for the wrong one.
+  const onDepositToTrade = useSwapDepositEntryPress({
+    token: fromToken,
+    accountInfo: swapFromAddressInfo.isAddressInfoReady
+      ? swapFromAddressInfo.accountInfo
+      : undefined,
+    activeAccount: swapFromAddressInfo.activeAccount,
+    onClose: refreshFromTokenBalance,
+  });
+
+  // Depositing needs no quote, so the deposit state never shows the quote
+  // loading animation in place of its label.
   const shouldShowQuoteActionLoading =
     !noConnectWallet &&
     !swapActionState.isRefreshQuote &&
+    !swapActionState.shouldDepositToTrade &&
     (swapActionState.isQuoteActionLoading || Boolean(forceQuoteActionLoading));
   const isActionDisabled = noConnectWallet
     ? shouldRedirectOnboardingToTravelMode()
@@ -456,6 +520,10 @@ const SwapActionsState = ({
           },
         });
       }
+      return;
+    }
+    if (swapActionState.shouldDepositToTrade) {
+      onDepositToTrade();
       return;
     }
     if (shouldBlockIncognitoRecipientAction) {
@@ -487,6 +555,7 @@ const SwapActionsState = ({
   }, [
     currentQuoteRes?.kind,
     navigation,
+    onDepositToTrade,
     onOpenRecipientAddress,
     onPreSwap,
     onRefreshQuote,
@@ -494,6 +563,7 @@ const SwapActionsState = ({
     quoteActionLock.kind,
     shouldBlockIncognitoRecipientAction,
     swapActionState.isRefreshQuote,
+    swapActionState.shouldDepositToTrade,
     noConnectWallet,
     swapActionState.shouldEnterRecipient,
     swapIncognitoMode,

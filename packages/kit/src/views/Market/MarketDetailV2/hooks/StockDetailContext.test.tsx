@@ -11,6 +11,7 @@ import {
 import type {
   IMarketStockPublicDetail,
   IMarketStockTokenVariant,
+  IMarketStockTokenVariantsResponse,
 } from '@onekeyhq/shared/types/marketV2';
 
 import { StockDetailProvider, useStockDetail } from './StockDetailContext';
@@ -85,6 +86,8 @@ const focusControl = jest.requireMock(
 
 // Mirrors STOCK_DETAIL_POLLING_INTERVAL in StockDetailContext.tsx.
 const STOCK_DETAIL_POLLING_MS = 15 * 1000;
+// Mirrors STOCK_TOKEN_VARIANTS_POLLING_INTERVAL in StockDetailContext.tsx.
+const STOCK_TOKEN_VARIANTS_POLLING_MS = 6000;
 
 function createDeferred<T>() {
   let resolve: (value: T) => void = () => undefined;
@@ -218,6 +221,48 @@ describe('StockDetailProvider', () => {
     ]);
   });
 
+  it('settles a missing preserved token without falling back or waiting forever', async () => {
+    const request = createDeferred<IMarketStockTokenVariantsResponse>();
+    serviceMarketV2.fetchMarketStockTokenVariants.mockReturnValue(
+      request.promise,
+    );
+    const wrapper = ({ children }: PropsWithChildren) => (
+      <StockDetailProvider
+        stockId="AAPL"
+        preserveInitialToken
+        initialNetworkId="evm--1"
+        initialTokenAddress="0xselected"
+      >
+        {children}
+      </StockDetailProvider>
+    );
+    const { result } = renderHook(() => useStockDetail(), { wrapper });
+    expect(result.current.isTokenVariantPending).toBe(true);
+    await act(async () =>
+      request.resolve({
+        stockId: 'AAPL',
+        defaultTokenId: 'another-token',
+        items: [
+          {
+            tokenId: 'another-token',
+            issuer: 'ondo',
+            networkId: 'evm--1',
+            contractAddress: '0xother',
+            currency: 'USD',
+            status: 'active',
+            tradingEnabled: true,
+          },
+        ],
+      }),
+    );
+    await waitFor(() =>
+      expect(result.current.isTokenVariantPending).toBe(false),
+    );
+    expect(result.current.tokenVariants).toHaveLength(1);
+    expect(result.current.selectedTokenVariant).toBeUndefined();
+    expect(result.current.selectedTokenId).toBeUndefined();
+  });
+
   it('selects a cached variant on the first render of a revisit', () => {
     serviceMarketV2.fetchMarketStockTokenVariants.mockReturnValue(
       new Promise(() => undefined),
@@ -251,6 +296,132 @@ describe('StockDetailProvider', () => {
     // The token identity is known before any request settles.
     expect(result.current.isTokenVariantPending).toBe(false);
     expect(result.current.selectedTokenVariant?.tokenId).toBe('aapl-ondo');
+  });
+
+  it('keeps a stale cached list pending until the preserved route variant resolves', async () => {
+    const request = createDeferred<IMarketStockTokenVariantsResponse>();
+    const routeVariant: IMarketStockTokenVariant = {
+      tokenId: 'aapl-backed',
+      issuer: 'backed',
+      networkId: 'evm--1',
+      contractAddress: '0xbacked',
+      currency: 'USD',
+      status: 'active',
+      tradingEnabled: true,
+    };
+    serviceMarketV2.fetchMarketStockTokenVariants.mockReturnValue(
+      request.promise,
+    );
+    swrCacheUtils.set(
+      swrKeys.marketStockTokenVariants({ stockId: 'AAPL', locale: 'en-us' }),
+      {
+        stockId: 'AAPL',
+        defaultTokenId: 'aapl-ondo',
+        items: [
+          {
+            tokenId: 'aapl-ondo',
+            issuer: 'ondo',
+            networkId: 'evm--56',
+            contractAddress: '0xondo',
+            currency: 'USD',
+            status: 'active',
+            tradingEnabled: true,
+          },
+        ],
+      },
+    );
+    const wrapper = ({ children }: PropsWithChildren) => (
+      <StockDetailProvider
+        stockId="AAPL"
+        preserveInitialToken
+        initialNetworkId={routeVariant.networkId}
+        initialTokenAddress={routeVariant.contractAddress}
+      >
+        {children}
+      </StockDetailProvider>
+    );
+    const { result } = renderHook(() => useStockDetail(), { wrapper });
+
+    expect(result.current.isTokenVariantPending).toBe(true);
+    expect(result.current.selectedTokenVariant).toBeUndefined();
+
+    await act(async () =>
+      request.resolve({
+        stockId: 'AAPL',
+        defaultTokenId: routeVariant.tokenId,
+        items: [routeVariant],
+      }),
+    );
+    await waitFor(() =>
+      expect(result.current.selectedTokenVariant?.tokenId).toBe(
+        routeVariant.tokenId,
+      ),
+    );
+    expect(result.current.isTokenVariantPending).toBe(false);
+  });
+
+  it('does not re-enter pending while polling a settled stale variant list', async () => {
+    jest.useFakeTimers();
+    const staleVariant: IMarketStockTokenVariant = {
+      tokenId: 'aapl-ondo',
+      issuer: 'ondo',
+      networkId: 'evm--56',
+      contractAddress: '0xondo',
+      currency: 'USD',
+      status: 'active',
+      tradingEnabled: true,
+    };
+    const staleResponse: IMarketStockTokenVariantsResponse = {
+      stockId: 'AAPL',
+      defaultTokenId: staleVariant.tokenId,
+      items: [staleVariant],
+    };
+    const pollingRequest = createDeferred<IMarketStockTokenVariantsResponse>();
+    serviceMarketV2.fetchMarketStockTokenVariants
+      .mockResolvedValueOnce(staleResponse)
+      .mockReturnValueOnce(pollingRequest.promise);
+
+    try {
+      swrCacheUtils.set(
+        swrKeys.marketStockTokenVariants({
+          stockId: 'AAPL',
+          locale: 'en-us',
+        }),
+        staleResponse,
+      );
+      const wrapper = ({ children }: PropsWithChildren) => (
+        <StockDetailProvider
+          stockId="AAPL"
+          preserveInitialToken
+          initialNetworkId="evm--1"
+          initialTokenAddress="0xselected"
+        >
+          {children}
+        </StockDetailProvider>
+      );
+      const { result, unmount } = renderHook(() => useStockDetail(), {
+        wrapper,
+      });
+
+      await act(async () => {
+        await jest.advanceTimersByTimeAsync(0);
+      });
+      expect(result.current.selectedTokenVariant).toBeUndefined();
+      expect(result.current.isTokenVariantPending).toBe(false);
+
+      await act(async () => {
+        await jest.advanceTimersByTimeAsync(STOCK_TOKEN_VARIANTS_POLLING_MS);
+      });
+      expect(
+        serviceMarketV2.fetchMarketStockTokenVariants.mock.calls,
+      ).toHaveLength(2);
+      expect(result.current.isTokenVariantPending).toBe(false);
+
+      unmount();
+      pollingRequest.resolve(staleResponse);
+    } finally {
+      jest.useRealTimers();
+    }
   });
 
   // PR 13609 review: a cached list can predate the route's variant. Resolving

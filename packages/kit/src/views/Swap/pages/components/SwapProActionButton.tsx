@@ -32,12 +32,14 @@ import {
   checkWrappedTokenPair,
   equalTokenNoCaseSensitive,
 } from '@onekeyhq/shared/src/utils/tokenUtils';
+import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
 import {
   ESwapProTradeType,
   ESwapTabSwitchType,
 } from '@onekeyhq/shared/types/swap/types';
 
 import { ESwapDirection } from '../../../Market/MarketDetailV2/components/SwapPanel/hooks/useTradeType';
+import { resolveStockBalanceSeed } from '../../hooks/swapStockChannelUtils';
 import {
   useSwapProAccount,
   useSwapProInputToken,
@@ -47,6 +49,7 @@ import {
   useSwapQuoteProgressState,
   useSwapZeroProviderQuoteCompleted,
 } from '../../hooks/useSwapState';
+import { shouldOfferSwapDepositAction } from '../../utils/swapDepositActionUtils';
 import { ESwapProAccountStatus } from '../../utils/swapProAccountUtils';
 
 /**
@@ -79,6 +82,7 @@ const formatCompactValue = (value: string, currencySymbol: string): string => {
 
 interface ISwapProActionButtonProps {
   onSwapProActionClick: () => void;
+  onDepositToTrade: () => void;
   hasEnoughBalance: boolean;
   balanceLoading: boolean;
   supportSpeedSwap: boolean;
@@ -87,6 +91,7 @@ interface ISwapProActionButtonProps {
 
 const SwapProActionButton = ({
   onSwapProActionClick,
+  onDepositToTrade,
   hasEnoughBalance,
   balanceLoading,
   supportSpeedSwap,
@@ -237,13 +242,55 @@ const SwapProActionButton = ({
     selectFromToken,
     setSwapFromInputAmount,
   ]);
+  const shouldShowNoProviderSupport = useMemo(
+    () =>
+      (swapProTradeType !== ESwapProTradeType.MARKET &&
+        isZeroProviderQuoteCompleted) ||
+      Boolean(
+        currentQuoteRes && !currentQuoteRes.toAmount && !currentQuoteRes.limit,
+      ),
+    [currentQuoteRes, isZeroProviderQuoteCompleted, swapProTradeType],
+  );
+  const swapProAccountAddress = swapProAccount?.result?.addressDetail.address;
+  // Same verdict as the Swap page (OK-63470): a loaded zero pay-token balance
+  // turns the button into the deposit entry, whatever the amount or the
+  // execution route. Missing account and unsupported pairs still win. Pro
+  // stamps the balance with the account it was fetched for, so only a stamp
+  // matching the current account counts (a fresh pick or another account's
+  // figure stays unknown until the next sync lands).
+  const shouldDepositToTrade = useMemo(
+    () =>
+      shouldOfferSwapDepositAction({
+        balance: resolveStockBalanceSeed({
+          hasActiveAccount: true,
+          networkAccountAddress: swapProAccountAddress,
+          token: inputToken as ISwapToken | undefined,
+        }),
+        hasFromToken: !!inputToken,
+        hasToToken: !!toToken,
+        hasFromAddress: !!swapProAccountAddress,
+        noProviderSupportsTrade: shouldShowNoProviderSupport,
+      }),
+    [inputToken, shouldShowNoProviderSupport, swapProAccountAddress, toToken],
+  );
+
   const onPressActionButton = useCallback(() => {
+    if (shouldDepositToTrade) {
+      onDepositToTrade();
+      return;
+    }
     if (!canExecuteInPro) {
       handleJumpToSwapAction();
     } else {
       onSwapProActionClick();
     }
-  }, [canExecuteInPro, handleJumpToSwapAction, onSwapProActionClick]);
+  }, [
+    shouldDepositToTrade,
+    onDepositToTrade,
+    canExecuteInPro,
+    handleJumpToSwapAction,
+    onSwapProActionClick,
+  ]);
 
   const debouncedOnSwapProActionClick = useDebouncedCallback(
     onPressActionButton,
@@ -256,16 +303,10 @@ const SwapProActionButton = ({
     }
     return isWaitingActionableQuote;
   }, [swapProTradeType, isWaitingActionableQuote, quoteFetching]);
-  const shouldShowNoProviderSupport = useMemo(
-    () =>
-      (swapProTradeType !== ESwapProTradeType.MARKET &&
-        isZeroProviderQuoteCompleted) ||
-      Boolean(
-        currentQuoteRes && !currentQuoteRes.toAmount && !currentQuoteRes.limit,
-      ),
-    [currentQuoteRes, isZeroProviderQuoteCompleted, swapProTradeType],
-  );
   const actionButtonDisabled = useMemo(() => {
+    if (shouldDepositToTrade) {
+      return false;
+    }
     let originalDisabled =
       !!isActionDisabled ||
       !hasEnoughBalance ||
@@ -278,6 +319,7 @@ const SwapProActionButton = ({
     }
     return originalDisabled;
   }, [
+    shouldDepositToTrade,
     isActionDisabled,
     hasEnoughBalance,
     currentQuoteRes?.toAmount,
@@ -299,6 +341,15 @@ const SwapProActionButton = ({
     const currencySymbol = currencyInfo?.symbol ?? '$';
     if (swapProDirection === ESwapDirection.BUY) {
       tokenSymbol = toToken?.symbol ?? '-';
+    }
+
+    if (shouldDepositToTrade) {
+      return {
+        plainText: intl.formatMessage({
+          id: ETranslations.perp_trade_deposit_to_trade__action,
+        }),
+        subValue: '',
+      };
     }
 
     if (!hasEnoughBalance) {
@@ -370,6 +421,7 @@ const SwapProActionButton = ({
     swapProDirection,
     inputToken?.symbol,
     currencyInfo?.symbol,
+    shouldDepositToTrade,
     hasEnoughBalance,
     swapProAccount?.result?.addressDetail.address,
     swapProAccount?.accountStatus,
@@ -382,10 +434,14 @@ const SwapProActionButton = ({
   ]);
 
   const isBuy = swapProDirection === ESwapDirection.BUY;
-  // Match the design-system accent (buy) / destructive (sell) buttons. The
-  // accent variant labels use $textInverse, destructive uses $textOnColor;
+  // Match the design-system accent (buy) / destructive (sell) buttons; the
+  // deposit entry uses the neutral primary button like the Swap page. Accent
+  // and primary labels use $textInverse, destructive uses $textOnColor;
   // childrenAsText is false, so the label color must be set explicitly.
-  const labelColor = isBuy ? '$textInverse' : '$textOnColor';
+  const tradeVariant = isBuy ? 'accent' : 'destructive';
+  const buttonVariant = shouldDepositToTrade ? 'primary' : tradeVariant;
+  const labelColor =
+    buttonVariant === 'destructive' ? '$textOnColor' : '$textInverse';
   // The current quote must belong to the typed amount (kind-aware: BUY-kind
   // quotes match on toAmount). An unmatched or missing quote means the next
   // one is still on its way — the debounce window before it fires, the
@@ -405,6 +461,7 @@ const SwapProActionButton = ({
   const inputAmountBN = new BigNumber(inputAmount || '0');
   const hasPositiveInputAmount = !inputAmountBN.isNaN() && inputAmountBN.gt(0);
   const isQuoting =
+    !shouldDepositToTrade &&
     canExecuteInPro &&
     hasPositiveInputAmount &&
     hasEnoughBalance &&
@@ -425,7 +482,7 @@ const SwapProActionButton = ({
       disabled={actionButtonDisabled}
       loading={showButtonLoading}
       onPress={debouncedOnSwapProActionClick}
-      variant={isBuy ? 'accent' : 'destructive'}
+      variant={buttonVariant}
       size="small"
       childrenAsText={false}
       height={50}

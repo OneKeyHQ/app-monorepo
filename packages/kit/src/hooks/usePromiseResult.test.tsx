@@ -653,6 +653,28 @@ describe('usePromiseResult', () => {
       await tick(POLLING_MS);
       expect(method.mock.calls.length).toBeGreaterThan(callsAfterResume);
     });
+
+    it('can run immediately when a polling interval becomes active', async () => {
+      const method = jest.fn(async () => 'ok');
+      const { rerender } = renderHook<
+        ReturnType<typeof usePromiseResult<string>>,
+        { pollingInterval?: number }
+      >(
+        ({ pollingInterval }) =>
+          usePromiseResult(method, [pollingInterval], {
+            pollingInterval,
+            runImmediatelyOnPollingIntervalChange: true,
+          }),
+        { initialProps: {} },
+      );
+
+      await tick(0);
+      expect(method).toHaveBeenCalledTimes(1);
+
+      rerender({ pollingInterval: POLLING_MS });
+      await tick(0);
+      expect(method).toHaveBeenCalledTimes(2);
+    });
   });
 
   describe('polling ownership', () => {

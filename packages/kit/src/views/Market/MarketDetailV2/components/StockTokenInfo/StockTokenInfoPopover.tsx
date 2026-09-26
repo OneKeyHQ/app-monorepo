@@ -14,6 +14,7 @@ import {
   XStack,
   YStack,
   useClipboard,
+  usePopoverContext,
 } from '@onekeyhq/components';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import { getValidStockTokenToAssetRatio } from '@onekeyhq/kit/src/views/Swap/utils/swapStockReviewUtils';
@@ -109,12 +110,16 @@ function StockTokenInfoContent({
 }) {
   const intl = useIntl();
   const { copyText } = useClipboard();
+  const { closePopover } = usePopoverContext();
 
   const website = variant.website?.trim();
   const handleOpenIssuerWebsite = useCallback(() => {
     if (!website) return;
-    openUrlExternal(website);
-  }, [website]);
+    void (async () => {
+      await closePopover?.();
+      openUrlExternal(website);
+    })();
+  }, [closePopover, website]);
 
   const handleCopyContractAddress = useCallback(() => {
     if (!variant.contractAddress) return;
@@ -146,6 +151,7 @@ function StockTokenInfoContent({
           minWidth={0}
           cursor={website ? 'pointer' : undefined}
           hoverStyle={website ? PRESSABLE_HOVER_STYLE : undefined}
+          testID="stock-token-info-issuer-link"
           onPress={website ? handleOpenIssuerWebsite : undefined}
         >
           {variant.issuerLogoUrl ? (
@@ -256,6 +262,7 @@ export function StockTokenInfoPopover({ label }: { label: ReactNode }) {
       title={intl.formatMessage({
         id: ETranslations.trade_stocks_token_details,
       })}
+      nativeSheet
       placement="bottom-end"
       floatingPanelProps={{ width: POPOVER_WIDTH }}
       renderTrigger={

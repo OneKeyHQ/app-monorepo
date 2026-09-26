@@ -9,6 +9,7 @@ import {
   getSwapRecipientActionState,
   getSwapRecipientEditorAccountInfo,
   getSwapRecipientValidationAccountId,
+  hasSwapFromAddressForVerdict,
   resolveSettledSwapRecipientRequired,
   resolveSwapTargetNetworkAccount,
   resolveSwapTargetNetworkAccountOnce,
@@ -687,5 +688,31 @@ describe('shouldShowSwapRecipientAddressInfo', () => {
         toAddressNetworkId: 'evm--1',
       }),
     ).toBe(false);
+  });
+});
+
+describe('hasSwapFromAddressForVerdict', () => {
+  it('holds the verdict while the cross-network lookup is pending', () => {
+    expect(
+      hasSwapFromAddressForVerdict({
+        address: undefined,
+        isAddressInfoReady: false,
+      }),
+    ).toBe(true);
+  });
+
+  it('reports a missing address only once the lookup has settled', () => {
+    expect(
+      hasSwapFromAddressForVerdict({
+        address: undefined,
+        isAddressInfoReady: true,
+      }),
+    ).toBe(false);
+    expect(
+      hasSwapFromAddressForVerdict({
+        address: '0xabc',
+        isAddressInfoReady: true,
+      }),
+    ).toBe(true);
   });
 });
