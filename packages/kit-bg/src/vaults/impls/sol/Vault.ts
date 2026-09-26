@@ -83,6 +83,7 @@ import type {
 } from '@onekeyhq/shared/types/customRpc';
 import type { IFeeInfoUnit } from '@onekeyhq/shared/types/fee';
 import type { IVerifyMessageParams } from '@onekeyhq/shared/types/message';
+import { ENFTType } from '@onekeyhq/shared/types/nft';
 import type { ISwapTxInfo } from '@onekeyhq/shared/types/swap/types';
 import type { IToken } from '@onekeyhq/shared/types/token';
 import {
@@ -105,8 +106,14 @@ import { KeyringHd } from './KeyringHd';
 import { KeyringImported } from './KeyringImported';
 import { KeyringQr } from './KeyringQr';
 import { KeyringWatching } from './KeyringWatching';
+import {
+  buildBubblegumTransferInstruction,
+  decodeBubblegumTransferInstruction,
+  parseConcurrentMerkleTreeAccount,
+  truncateProofForCanopy,
+} from './sdkSol/bubblegum';
 import { ClientCustomRpcSol } from './sdkSol/ClientCustomRpcSol';
-import ClientSol from './sdkSol/ClientSol';
+import ClientSol, { EParamsEncodings } from './sdkSol/ClientSol';
 import {
   BASE_FEE,
   COMPUTE_UNIT_PRICE_DECIMALS,
@@ -123,7 +130,12 @@ import {
   tokenRecordAddress,
 } from './utils';
 
-import type { IAssociatedTokenInfo, IParsedAccountInfo } from './types';
+import type { IBubblegumTransferDecoded } from './sdkSol/bubblegum';
+import type {
+  IAssociatedTokenInfo,
+  IDasAsset,
+  IParsedAccountInfo,
+} from './types';
 import type { IKeyringMap } from '../../base/VaultBase';
 import type {
   IBroadcastTransactionByCustomRpcParams,
@@ -271,6 +283,25 @@ export default class Vault extends VaultBase {
     } else {
       // ata - associated token account
       const tokenAddress = tokenInfo?.address ?? nftInfo?.nftAddress ?? '';
+
+      if (nftInfo) {
+        // Compressed NFTs (Bubblegum) have no mint / token accounts; detect
+        // them first so the SPL path below never builds an unusable tx.
+        const compressedNft = await this._resolveCompressedNft({
+          assetId: tokenAddress,
+        });
+        if (compressedNft) {
+          instructions.push(
+            ...(await this._buildCompressedNFTInstructions({
+              asset: compressedNft,
+              source,
+              destination,
+            })),
+          );
+          return instructions;
+        }
+      }
+
       const tokenSendAddress = tokenInfo?.sendAddress;
       const mint = new PublicKey(tokenAddress);
       let destinationAta = destination;
@@ -725,6 +756,117 @@ export default class Vault extends VaultBase {
     }
 
     return TOKEN_PROGRAM_ID;
+  }
+
+  // Returns the DAS asset when it is a compressed NFT, null when the asset
+  // should take the regular SPL/pNFT path. When DAS is unavailable (backend
+  // without DAS upstream → "Method not found", or the asset is not indexed)
+  // the mint account decides: no account on chain means it can only be a
+  // cNFT, which we cannot transfer without DAS.
+  async _resolveCompressedNft({
+    assetId,
+  }: {
+    assetId: string;
+  }): Promise<IDasAsset | null> {
+    const client = await this.getClient();
+    let asset: IDasAsset | undefined;
+    try {
+      asset = await client.getAsset(assetId);
+    } catch {
+      const mintAccountInfo = await client.getAccountInfo({
+        address: assetId,
+        encoding: EParamsEncodings.BASE64,
+      });
+      if (!mintAccountInfo) {
+        throw new OneKeyLocalError(
+          'Compressed NFT transfer is not supported yet',
+        );
+      }
+      return null;
+    }
+    return asset?.compression?.compressed ? asset : null;
+  }
+
+  async _buildCompressedNFTInstructions({
+    asset,
+    source,
+    destination,
+  }: {
+    asset: IDasAsset;
+    source: PublicKey;
+    destination: PublicKey;
+  }): Promise<TransactionInstruction[]> {
+    const { compression, ownership } = asset;
+    if (!compression || !ownership) {
+      throw new OneKeyLocalError('Compressed NFT data is incomplete');
+    }
+    if (asset.burnt) {
+      throw new OneKeyLocalError('Compressed NFT has been burnt');
+    }
+    if (ownership.owner !== source.toString()) {
+      throw new OneKeyLocalError('Compressed NFT is not owned by the sender');
+    }
+
+    const client = await this.getClient();
+    const assetProof = await client.getAssetProof(asset.id);
+    const treeAccountInfo = await client.getAccountInfo({
+      address: assetProof.tree_id,
+      encoding: EParamsEncodings.BASE64,
+    });
+    if (!treeAccountInfo) {
+      throw new OneKeyLocalError(
+        'Compressed NFT merkle tree account not found',
+      );
+    }
+    const { canopyDepth } = parseConcurrentMerkleTreeAccount(
+      Buffer.from(treeAccountInfo.data[0], 'base64'),
+    );
+    const proof = truncateProofForCanopy({
+      proof: assetProof.proof,
+      canopyDepth,
+    });
+
+    const instruction = buildBubblegumTransferInstruction({
+      merkleTree: new PublicKey(assetProof.tree_id),
+      leafOwner: source,
+      leafDelegate: ownership.delegate
+        ? new PublicKey(ownership.delegate)
+        : source,
+      newLeafOwner: destination,
+      root: assetProof.root,
+      dataHash: compression.data_hash,
+      creatorHash: compression.creator_hash,
+      nonce: compression.leaf_id,
+      index: compression.leaf_id,
+      proof,
+    });
+
+    // Deep trees with a shallow canopy need more proof accounts than a single
+    // transaction can carry; fail here instead of at broadcast. The trial
+    // message uses a placeholder blockhash and leaves headroom for the
+    // priority-fee instruction that is prepended by the caller.
+    const trialMessage = new TransactionMessage({
+      payerKey: source,
+      recentBlockhash: PublicKey.default.toString(),
+      instructions: [
+        ComputeBudgetProgram.setComputeUnitPrice({ microLamports: 1 }),
+        instruction,
+      ],
+    }).compileToV0Message([]);
+    let trialSize = Number.POSITIVE_INFINITY;
+    try {
+      trialSize = new VersionedTransaction(trialMessage).serialize().length;
+    } catch {
+      // web3.js encodes into a PACKET_DATA_SIZE buffer and throws
+      // "encoding overruns Uint8Array" once the message exceeds it.
+    }
+    if (trialSize > PACKET_DATA_SIZE) {
+      throw new OneKeyLocalError(
+        'Compressed NFT proof is too large to fit in a single transaction',
+      );
+    }
+
+    return [instruction];
   }
 
   async _getAssociatedTokenAddress({
@@ -1218,6 +1360,18 @@ export default class Vault extends VaultBase {
         hasCustomProgram = true;
       }
 
+      const bubblegumTransfer = decodeBubblegumTransferInstruction(instruction);
+      if (bubblegumTransfer) {
+        actions.push(
+          await this._buildCompressedNFTTransferAction({
+            transfer: bubblegumTransfer,
+            amountToSend,
+          }),
+        );
+        // eslint-disable-next-line no-continue
+        continue;
+      }
+
       // TODO: only support system transfer & token transfer now
       if (
         instruction.programId.toString() === SystemProgram.programId.toString()
@@ -1431,6 +1585,45 @@ export default class Vault extends VaultBase {
     }
 
     return actions;
+  }
+
+  async _buildCompressedNFTTransferAction({
+    transfer,
+    amountToSend,
+  }: {
+    transfer: IBubblegumTransferDecoded;
+    amountToSend: string | undefined;
+  }): Promise<IDecodedTxAction> {
+    // Metadata comes from DAS; the wallet NFT detail API cannot address a
+    // cNFT (no itemId), so degrade to an unnamed NFT transfer if DAS fails.
+    let name = '';
+    let symbol = '';
+    let icon = '';
+    try {
+      const client = await this.getClient();
+      const asset = await client.getAsset(transfer.assetId);
+      name = asset.content?.metadata?.name ?? '';
+      symbol = asset.content?.metadata?.symbol ?? name;
+      icon = asset.content?.links?.image ?? '';
+    } catch {
+      // keep empty metadata
+    }
+    const transferInfo: IDecodedTxTransferInfo = {
+      from: transfer.leafOwner,
+      to: transfer.newLeafOwner,
+      tokenIdOnNetwork: transfer.assetId,
+      icon,
+      name,
+      symbol,
+      amount: amountToSend ?? '1',
+      isNFT: true,
+      NFTType: ENFTType.ERC721,
+    };
+    return this.buildTxTransferAssetAction({
+      from: transfer.leafOwner,
+      to: transfer.newLeafOwner,
+      transfers: [transferInfo],
+    });
   }
 
   override async buildUnsignedTx(

@@ -19498,6 +19498,7 @@
     "packages/kit-bg/src/vaults/impls/sol/Vault.ts": 17683,
     "packages/kit-bg/src/vaults/impls/sol/sdkSol/ClientCustomRpcSol.ts": 20930,
     "packages/kit-bg/src/vaults/impls/sol/sdkSol/ClientSol.ts": 1195,
+    "packages/kit-bg/src/vaults/impls/sol/sdkSol/bubblegum.ts": 23271,
     "packages/kit-bg/src/vaults/impls/sol/settings.ts": 19114,
     "packages/kit-bg/src/vaults/impls/sol/utils.ts": 12322,
     "packages/kit-bg/src/vaults/impls/stellar/KeyringExternal.ts": 12492,

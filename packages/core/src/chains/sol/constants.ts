@@ -41,7 +41,7 @@ export const METAPLEX_PROGRAM_IDS = new Set<string>([
   'hausS13jsjafwWwGqZTUQRmWyvyxn9EQpqMwV1PBBmk', // Auction House Program
   'MPLxToknSwap111111111111111111111111111111', // Token Entangler / Token Swap
 
-  'BGumzjBrGv4hZPuFfbA7tZW1p42fBhm1zEGmfC4p4cXj', // Bubblegum (Compressed NFTs)
+  'BGUMAp9Gq7iTEuizy4pqaxsTyUCBK68MDfK752saRPUY', // Bubblegum (Compressed NFTs)
   'mplBndng11111111111111111111111111111111111', // Token Bonding
 
   'MPLxNmeSrv111111111111111111111111111111111', // Name Service
