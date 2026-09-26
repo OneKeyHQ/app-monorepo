@@ -91,7 +91,7 @@ export function usePureChainSelectorSections({
 
     const data = networksWithoutValue.reduce(
       (result, item) => {
-        const char = item.name[0].toUpperCase();
+        const char = item.name.trim()[0]?.toUpperCase() || '#';
         if (!result[char]) {
           result[char] = [];
         }
