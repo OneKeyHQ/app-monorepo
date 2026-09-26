@@ -1,7 +1,7 @@
 import { Dialog, Input } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { isCorrectDevOnlyPassword } from '@onekeyhq/shared/src/background/backgroundDecorators';
-import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import { OneKeyLocalError, UserCancelError } from '@onekeyhq/shared/src/errors';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { switchWebDappMode } from '@onekeyhq/shared/src/utils/devModeUtils';
 
@@ -48,7 +48,7 @@ const showPromoteDialog = async () =>
       },
       onCancel: async (close) => {
         await close();
-        reject(new Error('User canceled'));
+        reject(new UserCancelError());
       },
     });
   });

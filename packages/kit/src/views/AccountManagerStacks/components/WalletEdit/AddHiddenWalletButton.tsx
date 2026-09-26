@@ -4,6 +4,7 @@ import { ActionList } from '@onekeyhq/components';
 import { useAddHiddenWallet } from '@onekeyhq/kit/src/views/AccountManagerStacks/pages/AccountSelectorStack/WalletDetails/hooks/useAddHiddenWallet';
 import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
+import { isUserCancelError } from '@onekeyhq/shared/src/errors/utils/errorUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 export function AddHiddenWalletButton({
@@ -27,7 +28,7 @@ export function AddHiddenWalletButton({
           onClose();
           await createHiddenWalletWithDialogConfirm({ wallet });
         } catch (error) {
-          if (error instanceof Error && error.message !== 'User cancelled') {
+          if (!isUserCancelError(error)) {
             errorToastUtils.toastIfError(error);
           }
           throw error;

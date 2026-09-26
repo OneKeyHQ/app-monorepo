@@ -48,6 +48,7 @@ export enum EOneKeyErrorClassNames {
   OneKeyErrorOneKeyIdKeylessSessionSlotReplaced = 'OneKeyErrorOneKeyIdKeylessSessionSlotReplaced',
   OneKeyErrorOneKeyIdLegacyBindStateChanged = 'OneKeyErrorOneKeyIdLegacyBindStateChanged',
   OAuthLoginCancelError = 'OAuthLoginCancelError',
+  UserCancelError = 'UserCancelError',
   OneKeyErrorPrimeMasterPasswordInvalid = 'OneKeyErrorPrimeMasterPasswordInvalid',
   VaultKeyringNotDefinedError = 'VaultKeyringNotDefinedError',
   OneKeyErrorInsufficientNativeBalance = 'OneKeyErrorInsufficientNativeBalance',

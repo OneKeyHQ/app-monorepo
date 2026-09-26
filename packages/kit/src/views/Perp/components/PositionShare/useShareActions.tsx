@@ -4,7 +4,10 @@ import { useIntl } from 'react-intl';
 import { Linking } from 'react-native';
 
 import { Button, Toast, useClipboard } from '@onekeyhq/components';
-import { shareImageOnDesktop } from '@onekeyhq/kit/src/utils/shareUtils';
+import {
+  isShareCancelledError,
+  shareImageOnDesktop,
+} from '@onekeyhq/kit/src/utils/shareUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import MediaLibrary from '@onekeyhq/shared/src/modules3rdParty/expo-media-library';
 import Sharing from '@onekeyhq/shared/src/modules3rdParty/expo-sharing';
@@ -202,8 +205,7 @@ export function useShareActions(referralQrCodeUrl?: string) {
         }
       }
     } catch (error) {
-      // User cancelled share - not an error
-      if (error instanceof Error && error.message?.includes('cancel')) {
+      if (isShareCancelledError(error)) {
         return;
       }
       Toast.error({

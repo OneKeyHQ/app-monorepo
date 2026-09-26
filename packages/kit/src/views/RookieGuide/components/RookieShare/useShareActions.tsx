@@ -7,6 +7,7 @@ import { Button, Toast, useClipboard } from '@onekeyhq/components';
 import {
   downloadBlobAsFile,
   downloadImageFile,
+  isShareCancelledError,
   shareImageOnDesktop,
 } from '@onekeyhq/kit/src/utils/shareUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -174,8 +175,7 @@ export function useShareActions(referralUrl?: string) {
         }
       }
     } catch (error) {
-      // User cancelled share - not an error
-      if (error instanceof Error && error.message?.includes('cancel')) {
+      if (isShareCancelledError(error)) {
         return;
       }
       Toast.error({
