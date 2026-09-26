@@ -142,10 +142,16 @@ function VersionText({
     item,
     isVersionValid,
   });
-  // Never wider than the column: an over-long range truncates with an
-  // ellipsis instead of running off the screen.
+  // Detail rows reserve the version range's intrinsic width so the flexible
+  // label cannot compress short component versions to ellipsis.
   return (
-    <XStack alignItems="center" gap="$2" maxWidth="100%" {...SHRINK_TO_FIT}>
+    <XStack
+      alignItems="center"
+      gap="$2"
+      maxWidth="100%"
+      flexShrink={emphasize ? 1 : 0}
+      minWidth={0}
+    >
       {from ? (
         <>
           <SizableText
