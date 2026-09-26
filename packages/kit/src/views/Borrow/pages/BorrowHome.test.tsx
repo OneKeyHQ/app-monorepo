@@ -5,26 +5,58 @@ import type { ReactNode } from 'react';
 import { render } from '@testing-library/react';
 
 import { EBorrowDataStatus } from '../borrowDataStatus';
+import { buildBorrowMarketKey } from '../borrowMarketKey';
 import { BorrowTestIDs } from '../testIDs';
 
 import { BorrowHome } from './BorrowHome';
 
 const media = { gtMd: false, gtXl: false };
+let mockRequestedMarket: typeof context.market | null = null;
+const mockPrewarmCancel = jest.fn();
+const mockPrewarmBorrowImages = jest.fn(
+  (_sources: unknown, _options?: unknown) => mockPrewarmCancel,
+);
+const mockGetVisibleAssetIconSources = jest.fn((_input: unknown) => [
+  { uri: 'https://example.com/visible.png', resizeWidth: 32 },
+]);
+const mockEModeStatusState = {
+  eModeStatus: { eModeId: 1, categories: [], originalLtv: '0.8' },
+  isError: false,
+  isInitialLoading: false,
+  refresh: jest.fn(),
+};
 const context = {
   reserves: {
-    data: { supply: { assets: [] } },
+    data: null as { supply: { assets: never[] } } | null,
     loading: false,
     refresh: jest.fn(),
+    ownerMarketKey: undefined as string | undefined,
   },
-  market: { networkId: 'evm--1', provider: 'aave', marketAddress: '0xMarket' },
+  market: {
+    networkId: 'evm--1',
+    provider: 'aave',
+    marketAddress: '0xMarket',
+    name: 'Aave',
+    logoURI: '',
+    network: { logoURI: '' },
+  },
   markets: [
-    { networkId: 'evm--1', provider: 'aave', marketAddress: '0xMarket' },
+    {
+      networkId: 'evm--1',
+      provider: 'aave',
+      marketAddress: '0xMarket',
+      name: 'Aave',
+      logoURI: '',
+      network: { logoURI: '' },
+    },
   ],
   earnAccount: { data: { account: { id: 'account-1' } }, loading: false },
   borrowDataStatus: EBorrowDataStatus.Error,
   refreshAllBorrowData: jest.fn(),
   setPendingTxs: jest.fn(),
 };
+context.reserves.data = { supply: { assets: [] } };
+context.reserves.ownerMarketKey = buildBorrowMarketKey(context.market);
 
 jest.mock('react-intl', () => ({
   useIntl: () => ({
@@ -33,8 +65,14 @@ jest.mock('react-intl', () => ({
 }));
 
 jest.mock('@onekeyhq/components', () => {
-  function Container({ children }: { children?: ReactNode }) {
-    return <div>{children}</div>;
+  function Container({
+    children,
+    pointerEvents,
+  }: {
+    children?: ReactNode;
+    pointerEvents?: string;
+  }) {
+    return <div data-pointer-events={pointerEvents}>{children}</div>;
   }
   return {
     __esModule: true,
@@ -59,10 +97,23 @@ jest.mock('react-native-reanimated', () => ({
 
 jest.mock('../BorrowProvider', () => ({
   __esModule: true,
+  ...jest.requireActual<typeof import('../borrowMarketKey')>(
+    '../borrowMarketKey',
+  ),
   BorrowProvider: ({ children }: { children?: ReactNode }) => (
     <div>{children}</div>
   ),
   useBorrowContext: () => context,
+  useBorrowMarketRequestContext: () => ({
+    requestedMarket: mockRequestedMarket,
+  }),
+}));
+
+jest.mock('../components/borrowImagePrewarm', () => ({
+  getBorrowVisibleAssetIconSources: (input: unknown) =>
+    mockGetVisibleAssetIconSources(input),
+  prewarmBorrowImages: (sources: unknown, options?: unknown) =>
+    mockPrewarmBorrowImages(sources, options),
 }));
 
 jest.mock('../components/BorrowDataGate', () => ({
@@ -76,8 +127,21 @@ jest.mock('../components/BorrowDataGate', () => ({
 // reports the variant it was asked for rather than just its presence.
 jest.mock('../components/BorrowEModeMetric', () => ({
   __esModule: true,
-  BorrowEModeMetric: ({ variant }: { variant?: string }) => (
-    <div data-testid="e-mode-metric" data-variant={variant} />
+  BorrowEModeMetric: ({
+    variant,
+    eModeStatus,
+    isError,
+  }: {
+    variant?: string;
+    eModeStatus?: unknown;
+    isError?: boolean;
+  }) => (
+    <div
+      data-testid="e-mode-metric"
+      data-variant={variant}
+      data-has-status={String(Boolean(eModeStatus))}
+      data-error={String(Boolean(isError))}
+    />
   ),
 }));
 
@@ -112,11 +176,13 @@ jest.mock('../components/SuppliedCard', () => ({
 }));
 jest.mock('../components/BorrowMobilePositions', () => ({
   __esModule: true,
-  BorrowMobilePositions: () => null,
+  BorrowMobilePositions: ({ isPending }: { isPending?: boolean }) => (
+    <div data-testid="mobile-positions" data-pending={String(isPending)} />
+  ),
 }));
 jest.mock('../components/BorrowMobileEmptyState', () => ({
   __esModule: true,
-  BorrowMobileEmptyState: () => null,
+  BorrowMobileEmptyState: () => <div data-testid="mobile-empty-state" />,
 }));
 jest.mock('../components/BorrowMobileSummary', () => ({
   __esModule: true,
@@ -166,12 +232,7 @@ jest.mock('../../Onboarding/hooks/useToOnBoardingPage', () => ({
 }));
 jest.mock('../hooks/useBorrowEModeStatus', () => ({
   __esModule: true,
-  useBorrowEModeStatus: () => ({
-    eModeStatus: { eModeId: 1, categories: [], originalLtv: '0.8' },
-    isError: false,
-    isInitialLoading: false,
-    refresh: jest.fn(),
-  }),
+  useBorrowEModeStatus: () => mockEModeStatusState,
 }));
 jest.mock('../hooks/useBorrowOverviewData', () => ({
   __esModule: true,
@@ -188,6 +249,7 @@ describe('BorrowHome e-mode entry point', () => {
     media.gtMd = false;
     media.gtXl = false;
     context.borrowDataStatus = EBorrowDataStatus.Error;
+    mockEModeStatusState.isError = false;
   });
 
   // E-Mode is fed by its own request, so a reserves outage says nothing about
@@ -214,6 +276,33 @@ describe('BorrowHome e-mode entry point', () => {
     );
   });
 
+  it('keeps the e-mode bar interactive while reserves refresh', () => {
+    context.borrowDataStatus = EBorrowDataStatus.LoadingReserves;
+    const { getByTestId } = render(<BorrowHome />);
+
+    expect(
+      getByTestId('e-mode-metric').parentElement?.getAttribute(
+        'data-pointer-events',
+      ),
+    ).not.toBe('none');
+  });
+
+  it('does not expose the last E-Mode status after its request fails', () => {
+    mockEModeStatusState.isError = true;
+    mockOverviewProps.length = 0;
+    const { getByTestId } = render(<BorrowHome />);
+
+    expect(getByTestId('e-mode-metric').getAttribute('data-has-status')).toBe(
+      'false',
+    );
+    expect(getByTestId('e-mode-metric').getAttribute('data-error')).toBe(
+      'true',
+    );
+    expect(
+      mockOverviewProps[mockOverviewProps.length - 1].eModeStatus,
+    ).toBeNull();
+  });
+
   // Wide layouts reach e-mode through Overview, which renders above the cards
   // and is untouched by the error branch. Adding the bar there too would show
   // the same control twice.
@@ -235,6 +324,7 @@ describe('BorrowHome overview metrics', () => {
     context.borrowDataStatus = EBorrowDataStatus.Ready;
     mockPositionEntries.length = 0;
     mockOverviewProps.length = 0;
+    mockRequestedMarket = null;
   });
 
   const lastOverviewProps = () =>
@@ -268,6 +358,16 @@ describe('BorrowHome overview metrics', () => {
 
     expect(lastOverviewProps()).toMatchObject({
       isPositionStateUnsettled: true,
+      isInteractionBlocked: true,
+    });
+  });
+
+  it('blocks the previous market overview while a different market is requested', () => {
+    mockRequestedMarket = { ...context.market, marketAddress: '0xOtherMarket' };
+    render(<BorrowHome />);
+
+    expect(lastOverviewProps()).toMatchObject({
+      isInteractionBlocked: true,
     });
   });
 
@@ -299,5 +399,89 @@ describe('BorrowHome overview metrics', () => {
     const whenRetrying = lastOverviewProps().isPositionStateUnsettled;
 
     expect([whenFailed, whenRetrying]).toEqual([true, true]);
+  });
+
+  it('keeps the home list in skeleton state when its reserves are missing', () => {
+    context.borrowDataStatus = EBorrowDataStatus.Ready;
+    context.reserves.data = null;
+    context.reserves.ownerMarketKey = buildBorrowMarketKey(context.market);
+
+    const { getByTestId, queryByTestId } = render(<BorrowHome />);
+
+    expect(getByTestId('mobile-positions').getAttribute('data-pending')).toBe(
+      'true',
+    );
+    expect(queryByTestId('mobile-empty-state')).toBeNull();
+
+    context.reserves.data = { supply: { assets: [] } };
+  });
+
+  it('does not use a previous market snapshot as a settled empty state', () => {
+    context.borrowDataStatus = EBorrowDataStatus.Ready;
+    context.market = { ...context.market, marketAddress: '0xNewMarket' };
+    context.reserves.ownerMarketKey = buildBorrowMarketKey({
+      ...context.market,
+      marketAddress: '0xOldMarket',
+    });
+
+    const { getByTestId, queryByTestId } = render(<BorrowHome />);
+
+    expect(getByTestId('mobile-positions').getAttribute('data-pending')).toBe(
+      'true',
+    );
+    expect(queryByTestId('mobile-empty-state')).toBeNull();
+
+    context.market = {
+      ...context.market,
+      marketAddress: '0xMarket',
+    };
+    context.reserves.ownerMarketKey = buildBorrowMarketKey(context.market);
+  });
+
+  it('keeps the retryable error visible when the failed market has no snapshot', () => {
+    context.borrowDataStatus = EBorrowDataStatus.Error;
+    context.reserves.data = null;
+    context.reserves.ownerMarketKey = buildBorrowMarketKey(context.market);
+
+    const { getByTestId, queryByTestId } = render(<BorrowHome />);
+
+    expect(getByTestId(BorrowTestIDs.reservesErrorState)).toBeTruthy();
+    expect(queryByTestId('mobile-positions')).toBeNull();
+
+    context.reserves.data = { supply: { assets: [] } };
+  });
+});
+
+describe('BorrowHome visible asset icons', () => {
+  const originalMarket = context.market;
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    context.market = originalMarket;
+    context.reserves.ownerMarketKey = buildBorrowMarketKey(originalMarket);
+    context.borrowDataStatus = EBorrowDataStatus.Ready;
+  });
+
+  afterEach(() => {
+    context.market = originalMarket;
+    context.reserves.ownerMarketKey = undefined;
+  });
+
+  it('cancels queued icons when the published market no longer owns the reserves', () => {
+    const screen = render(<BorrowHome header={<div>first</div>} />);
+    expect(mockGetVisibleAssetIconSources).toHaveBeenCalledWith({
+      reserves: context.reserves.data,
+      market: originalMarket,
+      section: 'supply',
+    });
+    expect(mockPrewarmBorrowImages).toHaveBeenCalledWith(
+      [{ uri: 'https://example.com/visible.png', resizeWidth: 32 }],
+      { priority: true },
+    );
+
+    context.market = { ...originalMarket, marketAddress: '0xOtherMarket' };
+    screen.rerender(<BorrowHome header={<div>other</div>} />);
+    expect(mockPrewarmCancel).toHaveBeenCalledTimes(1);
+    expect(mockPrewarmBorrowImages).toHaveBeenCalledTimes(1);
   });
 });

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo } from 'react';
+import { memo, useCallback, useEffect, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -19,6 +19,7 @@ import { EarnActionIcon } from '../../Staking/components/ProtocolDetails/EarnAct
 import { EarnText } from '../../Staking/components/ProtocolDetails/EarnText';
 import { PendingIndicator } from '../../Staking/components/StakingActivityIndicator';
 import { getBorrowEarnAccountId } from '../borrowEarnAccount';
+import { buildBorrowMarketKey } from '../borrowMarketKey';
 import { useBorrowContext } from '../BorrowProvider';
 import { BorrowNavigation } from '../borrowUtils';
 import { useBorrowPlaceholderAmountText } from '../hooks/useBorrowPlaceholderAmountText';
@@ -36,6 +37,8 @@ import { OverviewMetric } from './OverviewMetric';
 
 import type { IBorrowOverviewData } from '../hooks/useBorrowOverviewData';
 
+const MemoMarkets = memo(Markets);
+
 /**
  * Top of the Borrow home. Desktop keeps the net worth hero with the whole
  * metric strip under it; phones drop the hero and show net worth, health factor
@@ -51,6 +54,7 @@ export const Overview = ({
   showBottomSpacing = true,
   showPositionMetrics = true,
   isPositionStateUnsettled = false,
+  isInteractionBlocked = false,
   onBorrowHistoryActionChange,
 }: {
   eModeStatus: IBorrowEModeStatus | null;
@@ -66,6 +70,7 @@ export const Overview = ({
   /** A load still in flight, or one that failed: either way the market's
    * contents are undecided, and the three stay up rather than assert a zero. */
   isPositionStateUnsettled?: boolean;
+  isInteractionBlocked?: boolean;
   onBorrowHistoryActionChange?: (
     handler: (() => void) | null,
     visible: boolean,
@@ -82,6 +87,7 @@ export const Overview = ({
     isHealthFactorLoading,
     borrowRewards,
     isRewardsLoading,
+    isRewardsError,
     isManualRefreshing,
     requestRefresh,
   } = overviewData;
@@ -90,6 +96,10 @@ export const Overview = ({
   const networkId = market?.networkId;
   const marketAddress = market?.marketAddress;
   const earnAccountId = getBorrowEarnAccountId(earnAccount.data);
+  const metricScopeKey = JSON.stringify([
+    buildBorrowMarketKey(market ?? undefined),
+    earnAccountId,
+  ]);
 
   const historyLabel = useMemo(
     () => intl.formatMessage({ id: ETranslations.global_history }),
@@ -104,7 +114,15 @@ export const Overview = ({
   );
 
   const handleHistoryPress = useCallback(() => {
-    if (!provider || !networkId || !marketAddress || !earnAccountId) return;
+    if (
+      isInteractionBlocked ||
+      !provider ||
+      !networkId ||
+      !marketAddress ||
+      !earnAccountId
+    ) {
+      return;
+    }
     BorrowNavigation.pushToBorrowHistory(navigation, {
       accountId: earnAccountId,
       networkId,
@@ -119,11 +137,14 @@ export const Overview = ({
     marketAddress,
     earnAccountId,
     historyLabel,
+    isInteractionBlocked,
   ]);
 
   const handleRefreshPress = useCallback(() => {
-    void requestRefresh();
-  }, [requestRefresh]);
+    if (!isInteractionBlocked) {
+      void requestRefresh();
+    }
+  }, [isInteractionBlocked, requestRefresh]);
 
   const netWorthText =
     reserves.data?.overview?.netWorth ?? placeholderAmountText;
@@ -133,7 +154,10 @@ export const Overview = ({
   };
   const isNetWorthLoading = reserves.loading && !reserves.data?.overview;
   const isNetApyLoading = reserves.loading && !reserves.data?.overview;
-  const hasLoadedHealthFactorOnce = useLoadedOnce(Boolean(healthFactorData));
+  const hasLoadedHealthFactorOnce = useLoadedOnce(
+    Boolean(healthFactorData),
+    metricScopeKey,
+  );
   const healthFactorDetail =
     healthFactorData?.healthFactor?.button?.data.healthFactorDetail;
   const healthSummaryProps = {
@@ -227,7 +251,11 @@ export const Overview = ({
   // picker with nothing to pair with.
   const phoneMetricsRow =
     showPositionMetrics || isPositionStateUnsettled ? (
-      <XStack ai="flex-start" gap="$2">
+      <XStack
+        ai="flex-start"
+        gap="$2"
+        pointerEvents={isInteractionBlocked ? 'none' : 'auto'}
+      >
         <XStack flex={1} flexWrap="wrap" ml="$-3" pl="$4">
           <OverviewMetric
             testID={BorrowTestIDs.overviewNetWorth}
@@ -263,10 +291,14 @@ export const Overview = ({
       {/* The market scopes every number below it, so it gets the whole line to
           itself. A column parent is what lets the picker's own trigger stretch
           to this width on phones; from $gtMd the bar hugs its label instead. */}
-      <Markets />
+      <MemoMarkets />
 
       {gtMd ? (
-        <YStack gap="$5" pl="$5">
+        <YStack
+          gap="$5"
+          pl="$5"
+          pointerEvents={isInteractionBlocked ? 'none' : 'auto'}
+        >
           {/* Net worth hero, label above value like the Earn overview */}
           <YStack gap="$1.5">
             <SizableText size="$bodyLgMedium" numberOfLines={1}>
@@ -325,6 +357,7 @@ export const Overview = ({
             <BorrowBonusMetric />
             <BorrowRewardsMetric
               borrowRewards={borrowRewards}
+              isError={isRewardsError}
               isLoading={isRewardsLoading}
               onClaimed={requestRefresh}
             />
