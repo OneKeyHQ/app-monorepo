@@ -8,6 +8,7 @@ import {
   YStack,
   useSafeAreaInsets,
 } from '@onekeyhq/components';
+import type { IDappSourceInfo } from '@onekeyhq/shared/types';
 import type { IHostSecurity } from '@onekeyhq/shared/types/discovery';
 
 import { DAppConnectionTestIDs } from '../../testIDs';
@@ -21,6 +22,7 @@ function DAppRequestLayout({
   subtitle,
   subtitleShown = true,
   origin,
+  sourceInfo,
   urlSecurityInfo,
   favicon,
   children,
@@ -32,6 +34,7 @@ function DAppRequestLayout({
   subtitle?: string;
   subtitleShown?: boolean;
   origin: string;
+  sourceInfo?: IDappSourceInfo;
   urlSecurityInfo?: IHostSecurity;
   favicon?: string; // for WalletConnect
   displaySignMessageAlert?: boolean;
@@ -77,6 +80,7 @@ function DAppRequestLayout({
       <Stack p="$5" gap="$8">
         <Stack gap="$2.5">
           <DAppSiteMark
+            sourceInfo={sourceInfo}
             origin={origin}
             urlSecurityInfo={urlSecurityInfo}
             favicon={favicon}

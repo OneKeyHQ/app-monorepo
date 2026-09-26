@@ -7,10 +7,13 @@ import type { Verify } from '@walletconnect/types';
 export type IDappSourceInfo = {
   id: string | number; // ServicePromise callback id to reject/resolve
   origin: string;
+  // Display-only identity derived from the current WalletConnect request.
+  displayOrigin?: string;
   hostname: string;
   scope: IInjectedProviderNamesStrings;
   data: IJsonRpcRequest;
   isWalletConnectRequest: boolean;
+  walletConnectTopic?: string;
   // Reown Verify API attestation for the WalletConnect peer, when the request
   // came in over WC. Carries validation (VALID/INVALID/UNKNOWN) and isScam so
   // the modal can downgrade trust UX without re-querying the SDK.

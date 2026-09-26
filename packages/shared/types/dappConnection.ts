@@ -13,6 +13,8 @@ export type IConnectionAccountInfo = IAccountSelectorSelectedAccount & {
 };
 export interface IConnectionItem {
   origin: string;
+  // WalletConnect identity for display; empty or missing means unverified.
+  displayOrigin?: string;
   imageURL: string;
   // accountSelectorNumber -> accountInfo
   connectionMap: {
@@ -43,6 +45,7 @@ export type IConnectionStorageType = 'injectedProvider' | 'walletConnect';
 
 export interface IGetDAppAccountInfoParams {
   origin: string;
+  walletConnectTopic?: string;
   scope?: IInjectedProviderNamesStrings;
   isWalletConnectRequest?: boolean;
   options?: {

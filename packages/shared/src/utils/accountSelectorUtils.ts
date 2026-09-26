@@ -7,6 +7,14 @@ import accountUtils from './accountUtils';
 import networkUtils from './networkUtils';
 import uriUtils from './uriUtils';
 
+function buildWalletConnectSceneUrl(
+  params: { topic: string } | { proposalId: number },
+) {
+  return 'topic' in params
+    ? `walletconnect:session:${params.topic}`
+    : `walletconnect:proposal:${params.proposalId}`;
+}
+
 function isEqualAccountSelectorScene({
   scene1,
   scene2,
@@ -39,6 +47,10 @@ function buildAccountSelectorSceneId({
   if (sceneName === EAccountSelectorSceneName.discover) {
     if (!sceneUrl) {
       throw new OneKeyLocalError('buildSceneId ERROR: sceneUrl is required');
+    }
+    // Internal selector identity, never a website origin or a trust signal.
+    if (/^walletconnect:(session:[a-f0-9]{64}|proposal:\d+)$/.test(sceneUrl)) {
+      return `${sceneName}--${sceneUrl}`;
     }
     const origin = uriUtils.getOriginFromUrl({ url: sceneUrl });
     if (origin !== sceneUrl) {
@@ -224,6 +236,7 @@ function hasOthersWalletAccountNetworkPair({
 }
 
 export default {
+  buildWalletConnectSceneUrl,
   isEqualAccountSelectorScene,
   hasOthersWalletAccountNetworkPair,
   buildAccountSelectorSaveKey,

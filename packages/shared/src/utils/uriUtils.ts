@@ -16,6 +16,7 @@ import type {
   IEOneKeyDeepLinkParams,
 } from '../consts/deeplinkConsts';
 import type { WalletKitTypes } from '@reown/walletkit';
+import type { Verify } from '@walletconnect/types';
 
 const DOMAIN_REGEXP =
   /(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z0-9][a-z0-9-]{0,61}[a-z0-9]/;
@@ -757,6 +758,37 @@ function safeGetWalletConnectOrigin(proposal: WalletKitTypes.SessionProposal) {
   }
 }
 
+function safeGetWalletConnectVerifiedOrigin({
+  verifyContext,
+  claimedOrigin,
+}: {
+  verifyContext?: Verify.Context;
+  claimedOrigin?: string | null;
+}) {
+  const verified = verifyContext?.verified;
+  // UNKNOWN may contain metadata.url copied by the SDK, not an attested origin.
+  if (verified?.validation !== 'VALID' && verified?.validation !== 'INVALID') {
+    return null;
+  }
+  try {
+    const url = new URL(verified.origin);
+    if (url.protocol !== 'https:' && url.protocol !== 'http:') {
+      return null;
+    }
+    // INVALID with the claimed origin still present does not establish a
+    // different source (for example, a failed link-mode validation).
+    if (
+      verified.validation === 'INVALID' &&
+      (!claimedOrigin || url.origin === new URL(claimedOrigin).origin)
+    ) {
+      return null;
+    }
+    return url.origin;
+  } catch {
+    return null;
+  }
+}
+
 export default {
   getOriginFromUrl,
   getHostNameFromUrl,
@@ -768,6 +800,7 @@ export default {
   buildUrl,
   buildDeepLinkUrl,
   safeGetWalletConnectOrigin,
+  safeGetWalletConnectVerifiedOrigin,
   parseUrl,
   isLocalhostUrl,
   isIpAddressUrl,

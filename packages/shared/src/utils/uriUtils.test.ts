@@ -14,6 +14,92 @@ import uriUtils, {
   validateUrl,
 } from './uriUtils';
 
+import type { WalletKitTypes } from '@reown/walletkit';
+
+function getVerifiedOrigin(proposal: WalletKitTypes.SessionProposal) {
+  return uriUtils.safeGetWalletConnectVerifiedOrigin({
+    verifyContext: proposal.verifyContext,
+    claimedOrigin: uriUtils.safeGetWalletConnectOrigin(proposal),
+  });
+}
+
+describe('WalletConnect proposal identity', () => {
+  function proposal(
+    validation: 'VALID' | 'INVALID' | 'UNKNOWN',
+    verifiedOrigin = 'https://help.onekey.so',
+  ): WalletKitTypes.SessionProposal {
+    return {
+      id: 1,
+      params: {
+        id: 1,
+        expiryTimestamp: 2,
+        pairingTopic: 'test-pairing',
+        relays: [{ protocol: 'irn' }],
+        proposer: {
+          publicKey: 'test-public-key',
+          metadata: {
+            name: 'OneKey Support',
+            description: '',
+            url: 'https://help.onekey.so',
+            icons: ['https://help.onekey.so/favicon.ico'],
+          },
+        },
+        requiredNamespaces: {},
+        optionalNamespaces: {},
+      },
+      verifyContext: {
+        verified: {
+          origin: verifiedOrigin,
+          validation,
+          verifyUrl: 'https://verify.walletconnect.org',
+        },
+      },
+    };
+  }
+
+  it('uses the verified web origin, without URL credentials, path or query', () => {
+    expect(
+      getVerifiedOrigin(
+        proposal('VALID', 'https://user:password@dapp.example:8443/path?q=1'),
+      ),
+    ).toBe('https://dapp.example:8443');
+  });
+
+  it('shows the attested source on mismatch without changing session identity', () => {
+    const request = proposal('INVALID', 'https://actual.example');
+    expect(getVerifiedOrigin(request)).toBe('https://actual.example');
+    expect(uriUtils.safeGetWalletConnectOrigin(request)).toBe(
+      'https://help.onekey.so',
+    );
+  });
+
+  it('does not trust the metadata URL copied into an UNKNOWN context', () => {
+    expect(getVerifiedOrigin(proposal('UNKNOWN'))).toBeNull();
+  });
+
+  it('does not treat an INVALID context retaining metadata as attested', () => {
+    expect(getVerifiedOrigin(proposal('INVALID'))).toBeNull();
+  });
+
+  it('does not recover identity from metadata when verification is missing', () => {
+    const request = proposal('VALID');
+    Reflect.deleteProperty(request, 'verifyContext');
+    expect(getVerifiedOrigin(request)).toBeNull();
+  });
+
+  it.each([
+    '',
+    'not a URL',
+    'null',
+    // oxlint-disable-next-line no-script-url -- Untrusted protocol regression fixture.
+    'javascript:alert(1)',
+    'file:///tmp/site',
+    'data:text/plain,site',
+  ])('rejects a non-web or malformed verified origin: %s', (origin) => {
+    expect(getVerifiedOrigin(proposal('VALID', origin))).toBeNull();
+  });
+});
+
 describe('buildUrl', () => {
   test('omits undefined/null query params (does not serialize to literal "undefined")', () => {
     const url = uriUtils.buildUrl({

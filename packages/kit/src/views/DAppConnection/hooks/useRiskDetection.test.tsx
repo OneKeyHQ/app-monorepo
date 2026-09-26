@@ -192,6 +192,52 @@ describe('useRiskDetection', () => {
     expect(result.current.continueOperate).toBe(true);
   });
 
+  it.each([
+    undefined,
+    {},
+    { verified: { validation: 'VALID', origin: '' } },
+    { verified: { validation: 'VALID', origin: 'not a URL' } },
+    { verified: { validation: 'UNKNOWN', origin: 'https://safe.example' } },
+  ])(
+    'does not inherit trusted-site status for an unattested WalletConnect request: %j',
+    (context) => {
+      backendSecurityResult = {
+        origin: 'https://safe.example',
+        info: securityInfo(EHostSecurityLevel.Security),
+      };
+      const { result } = renderHook(() =>
+        useRiskDetection({
+          origin: 'https://safe.example',
+          isWalletConnectRequest: true,
+          walletConnectVerifyContext: context as Parameters<
+            typeof useRiskDetection
+          >[0]['walletConnectVerifyContext'],
+        }),
+      );
+      expect(result.current.urlSecurityInfo?.level).toBe(
+        EHostSecurityLevel.Unknown,
+      );
+    },
+  );
+
+  it.each([EHostSecurityLevel.High, EHostSecurityLevel.Medium])(
+    'preserves a backend risk when WalletConnect verification is missing: %s',
+    (level) => {
+      backendSecurityResult = {
+        origin: 'https://risky.example',
+        info: securityInfo(level),
+      };
+      const { result } = renderHook(() =>
+        useRiskDetection({
+          origin: 'https://risky.example',
+          isWalletConnectRequest: true,
+        }),
+      );
+      expect(result.current.urlSecurityInfo?.level).toBe(level);
+      expect(result.current.continueOperate).toBe(false);
+    },
+  );
+
   it('treats a malformed completed response as unverified', () => {
     backendSecurityResult = {
       origin: 'https://unknown.example',
