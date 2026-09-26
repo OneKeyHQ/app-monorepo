@@ -40,6 +40,22 @@ import { WalletConnectDappSide } from './WalletConnectDappSide';
 import type { WalletKitTypes } from '@reown/walletkit';
 import type { ProposalTypes, SessionTypes } from '@walletconnect/types';
 
+// A namespace key is either a bare namespace (`eip155`) or a CAIP-2 chain that
+// scopes the entry to that single chain (`eip155:1`). Both forms resolve to the
+// same wallet impl, and the chain named by the key counts as a requested chain.
+function parseNamespaceKey(key: string): {
+  namespace: INamespaceUnion;
+  impl: string | undefined;
+  chainsFromKey: string[];
+} {
+  const namespace = key.split(':')[0] as INamespaceUnion;
+  return {
+    namespace,
+    impl: namespaceToImplsMap[namespace],
+    chainsFromKey: key.includes(':') ? [key] : [],
+  };
+}
+
 @backgroundClass()
 class ServiceWalletConnect extends ServiceBase {
   constructor({ backgroundApi }: { backgroundApi: any }) {
@@ -214,6 +230,52 @@ class ServiceWalletConnect extends ServiceBase {
     return notSupportedChains;
   }
 
+  // Namespace keys that would contribute nothing to the approve payload:
+  // either the wallet has no impl for the namespace family, or none of the
+  // chains the entry declares (via the key or `chains`) are ones the wallet
+  // knows about. buildWalletConnectNamespace drops both cases from the
+  // approve payload the same way, so a required one has to be rejected up
+  // front -- getNotSupportedChains alone is not enough, since it flags
+  // individual unsupported chains rather than an entry left with none.
+  @backgroundMethod()
+  async getNotSupportedNamespaces(
+    namespaces:
+      | IWalletConnectRequiredNamespaces
+      | IWalletConnectOptionalNamespaces
+      | undefined,
+  ): Promise<string[]> {
+    const notSupported: string[] = [];
+    for (const [key, value] of Object.entries(namespaces ?? {})) {
+      const { impl, chainsFromKey } = parseNamespaceKey(key);
+      if (!impl) {
+        notSupported.push(key);
+        continue;
+      }
+      const entryChains = [...chainsFromKey, ...(value.chains ?? [])];
+      if (entryChains.length === 0) {
+        notSupported.push(key);
+        continue;
+      }
+      // getWcChainInfo throws on a chain string without a CAIP-2 colon
+      // instead of returning undefined, and `chains` is only TS-typed as
+      // string[] -- the wire payload from the dApp's proposal isn't
+      // validated before this point, so an entry can be a non-string too.
+      // Either case must resolve to "not supported" rather than take down
+      // the handler this runs in before it reaches its own try/catch.
+      const chainInfos = await Promise.all(
+        entryChains.map((chain) =>
+          typeof chain === 'string' && chain.includes(':')
+            ? this.getWcChainInfo(chain)
+            : undefined,
+        ),
+      );
+      if (chainInfos.every((info) => !info)) {
+        notSupported.push(key);
+      }
+    }
+    return notSupported;
+  }
+
   @backgroundMethod()
   async checkMethodSupport(namespace: INamespaceUnion, method: string) {
     return Promise.resolve(
@@ -229,9 +291,10 @@ class ServiceWalletConnect extends ServiceBase {
   ) {
     const { chains } = requiredNamespaces[namespace] || {};
     const { chains: optionalChains } = optionalNamespaces[namespace] || {};
+    const { chainsFromKey } = parseNamespaceKey(namespace);
     const networkIds = (
       await Promise.all(
-        [...(chains ?? []), ...(optionalChains ?? [])].map(
+        [...chainsFromKey, ...(chains ?? []), ...(optionalChains ?? [])].map(
           async (walletConnectChainId) =>
             this.getWcChainInfo(walletConnectChainId),
         ),
@@ -255,7 +318,7 @@ class ServiceWalletConnect extends ServiceBase {
     let index = 0;
     // Filter supported chains from requiredNamespace
     for (const namespace of Object.keys(requiredNamespaces)) {
-      const impl = namespaceToImplsMap[namespace as INamespaceUnion];
+      const { impl } = parseNamespaceKey(namespace);
       if (!impl) {
         throw new OneKeyLocalError('Namespace not supported');
       }
@@ -265,6 +328,17 @@ class ServiceWalletConnect extends ServiceBase {
         optionalNamespaces,
         namespace,
       );
+      // One selector per impl. A proposal can reach the same impl through more
+      // than one key (`eip155:1` alongside `eip155:137`), and both the approve
+      // payload and updateNamespaceAndSession look the account up by impl, so a
+      // second selector would be filled in by the user and then never read.
+      const existImpl = supported.find((s) => s.impl === impl);
+      if (existImpl) {
+        existImpl.networkIds = Array.from(
+          new Set([...existImpl.networkIds, ...networkIds]),
+        );
+        continue;
+      }
       supported.push({
         impl,
         accountSelectorNum: index + WalletConnectAccountSelectorNumStartAt,
@@ -275,7 +349,7 @@ class ServiceWalletConnect extends ServiceBase {
 
     // Filter supported chains from optionalNamespace
     for (const namespace of Object.keys(optionalNamespaces)) {
-      const impl = namespaceToImplsMap[namespace as INamespaceUnion];
+      const { impl } = parseNamespaceKey(namespace);
       // Skip namespaces not supported by the wallet
       if (impl) {
         const existImpl = supported.find((s) => s.impl === impl);
@@ -315,16 +389,25 @@ class ServiceWalletConnect extends ServiceBase {
       notSupportedChains: string[] = [],
     ) => {
       for (const [key, value] of Object.entries(namespaces)) {
-        const namespace = key as INamespaceUnion;
+        const { namespace, impl, chainsFromKey } = parseNamespaceKey(key);
         const { chains } = value;
-        const impl = namespaceToImplsMap[namespace];
-        const account = accountsInfo.find((a) => a.networkImpl === impl);
+        // A namespace with no impl behind it cannot be served. Writing it out
+        // anyway tells the dApp the wallet supports it with zero accounts, and
+        // for a CAIP-2 key the empty accounts array fails the SDK's own
+        // isConformingNamespaces check inside approveSession.
+        if (!impl) {
+          continue;
+        }
+        const address = accountsInfo.find(
+          (a) => a.networkImpl === impl,
+        )?.address;
 
-        const filteredChains =
-          chains?.filter((chain) => !notSupportedChains.includes(chain)) ?? [];
+        const filteredChains = [...chainsFromKey, ...(chains ?? [])].filter(
+          (chain) => !notSupportedChains.includes(chain),
+        );
 
         // Merge with existing chains instead of overwriting
-        const existingNamespace = supportedNamespaces[namespace];
+        const existingNamespace = supportedNamespaces[key];
         const mergedChains = existingNamespace
           ? [
               ...new Set([
@@ -334,12 +417,18 @@ class ServiceWalletConnect extends ServiceBase {
             ]
           : filteredChains;
 
-        supportedNamespaces[namespace] = {
+        // Same reasoning: an entry whose chains were all filtered out, or that
+        // has no account behind it, would be an empty namespace on the dApp
+        // side rather than an absent one.
+        if (mergedChains.length === 0 || !address) {
+          continue;
+        }
+
+        supportedNamespaces[key] = {
           chains: mergedChains,
           methods: supportMethodsMap[namespace] ?? [],
-          events: supportEventsMap[namespace],
-          accounts:
-            mergedChains.map((c) => `${c}:${account?.address ?? ''}`) ?? [],
+          events: supportEventsMap[namespace] ?? [],
+          accounts: mergedChains.map((c) => `${c}:${address}`),
         };
       }
     };
@@ -403,17 +492,18 @@ class ServiceWalletConnect extends ServiceBase {
     if (session) {
       const updatedNamespaces = { ...session.namespaces };
       for (const [namespace, value] of Object.entries(session.namespaces)) {
+        // The settled session is keyed the same way the proposal was, so a
+        // namespace key can be an inline chain. Resolving the impl straight off
+        // the key would miss those and leave the entry on its old account.
+        const { impl, chainsFromKey } = parseNamespaceKey(namespace);
         const matchAccount = accountsInfo.find(
-          (account) =>
-            account.networkImpl ===
-            namespaceToImplsMap[namespace as INamespaceUnion],
+          (account) => account.networkImpl === impl,
         );
         if (matchAccount) {
+          const chains = value.chains?.length ? value.chains : chainsFromKey;
           updatedNamespaces[namespace] = {
             ...value,
-            accounts: (value.chains ?? []).map(
-              (chain) => `${chain}:${matchAccount.address}`,
-            ),
+            accounts: chains.map((chain) => `${chain}:${matchAccount.address}`),
           };
         }
       }
