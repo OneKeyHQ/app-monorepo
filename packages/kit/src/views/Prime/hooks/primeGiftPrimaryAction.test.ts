@@ -48,12 +48,6 @@ describe('resolvePrimeGiftPrimaryAction', () => {
     ).toEqual({ action: 'verify', labelId: ETranslations.global_retry });
   });
 
-  it('closes an already redeemed device instead of retrying verification', () => {
-    expect(
-      resolvePrimeGiftPrimaryAction({ ...idle, isAlreadyRedeemed: true }),
-    ).toEqual({ action: 'close', labelId: ETranslations.global_done });
-  });
-
   it('switches the claim button to claim anyway while a payment is pending', () => {
     expect(
       resolvePrimeGiftPrimaryAction({

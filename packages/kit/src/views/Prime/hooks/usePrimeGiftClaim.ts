@@ -16,7 +16,6 @@ import type {
   IPrimeGiftEligibility,
   IPrimeGiftPreparedRedemption,
 } from '@onekeyhq/shared/types/prime/primeGiftTypes';
-import type { IPrimeRedemptionResult } from '@onekeyhq/shared/types/prime/primeTypes';
 
 import { readPrimeInfiniPaymentEntryGuard } from './primeInfiniExternalCheckoutGuard';
 import { getPrimeRedemptionErrorPresentation } from './primeRedemptionError';
@@ -138,38 +137,12 @@ function verificationRecord(
   };
 }
 
-function claimResult({
-  redemption,
-  serialNo,
-  onekeyUserId,
-  eligibility,
-  email,
-}: {
-  redemption: IPrimeRedemptionResult;
-  serialNo: string;
-  onekeyUserId: string;
-  eligibility?: IPrimeGiftEligibility;
-  email?: string;
-}): IPrimeGiftClaimResult {
-  return {
-    ...redemption,
-    serialNo,
-    onekeyUserId,
-    giftMonths:
-      redemption.addedDays === eligibility?.giftDays
-        ? eligibility?.giftMonths
-        : undefined,
-    email,
-  };
-}
-
 function redemptionSnapshot({
   current,
   context,
   outcome,
   claimUserId,
   serialNo,
-  eligibility,
   email,
 }: {
   current: IClaimSnapshot | undefined;
@@ -177,7 +150,6 @@ function redemptionSnapshot({
   outcome: Awaited<ReturnType<typeof requestPrimeRedemption>>;
   claimUserId: string;
   serialNo: string;
-  eligibility?: IPrimeGiftEligibility;
   email?: string;
 }): IClaimSnapshot | undefined {
   if (!outcome.ok) {
@@ -197,13 +169,12 @@ function redemptionSnapshot({
   return {
     ...current,
     ...context,
-    result: claimResult({
-      redemption: outcome.result,
+    result: {
+      ...outcome.result,
       serialNo,
       onekeyUserId: claimUserId,
-      eligibility,
       email,
-    }),
+    },
     error: undefined,
     isPendingPaymentConfirm: false,
   };
@@ -498,7 +469,6 @@ export function usePrimeGiftClaim({
         outcome,
         claimUserId,
         serialNo,
-        eligibility,
         email: user?.displayEmail ?? user?.email,
       });
       if (next) updateSnapshot(() => next);
@@ -517,7 +487,6 @@ export function usePrimeGiftClaim({
     user?.primeSubscription?.isActive,
     user?.displayEmail,
     user?.email,
-    eligibility,
   ]);
 
   const login = useCallback(async () => {

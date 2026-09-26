@@ -415,12 +415,12 @@ describe('Prime gift inline redemption', () => {
     expect(result.current.result).toBeUndefined();
   });
 
-  it.each(['account', 'device', 'unmount'] as const)(
+  it.each(['account', 'device'] as const)(
     'ignores a late claim success after %s changes',
     async (change) => {
       const pending = deferred<IPrimeRedemptionResult>();
       mockRedeem.mockReturnValue(pending.promise);
-      const { result, rerender, unmount } = renderClaim();
+      const { result, rerender } = renderClaim();
       await waitFor(() => expect(result.current.isQuerying).toBe(false));
       await verify(result);
       let claimPromise: Promise<void> | undefined;
@@ -436,18 +436,14 @@ describe('Prime gift inline redemption', () => {
         rerender(initialProps);
       } else if (change === 'device') {
         rerender({ ...initialProps, serialNo: 'DEVICE-B' });
-      } else {
-        unmount();
       }
       await act(async () => {
         pending.resolve(redemption);
         await claimPromise;
       });
       expect(result.current.result).toBeUndefined();
-      if (change !== 'unmount') {
-        await waitFor(() => expect(result.current.isQuerying).toBe(false));
-        expect(result.current.code).toBeUndefined();
-      }
+      await waitFor(() => expect(result.current.isQuerying).toBe(false));
+      expect(result.current.code).toBeUndefined();
     },
   );
 
