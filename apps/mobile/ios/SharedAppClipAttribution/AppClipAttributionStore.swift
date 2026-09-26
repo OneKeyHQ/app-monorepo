@@ -240,10 +240,22 @@ enum AppClipInviteCodeStore {
     return value
   }
 
-  static func load() -> AppClipInviteCodeRecord? {
+  /// The handed-off record, or nil when there is definitively none (no file,
+  /// or one that is unreadable as a record). Throws when the answer is not
+  /// known — the App Group container is unavailable or the file cannot be
+  /// read — so the full app keeps its capture pending instead of concluding
+  /// "no code".
+  static func loadHandoff() throws -> AppClipInviteCodeRecord? {
+    guard let recordURL else {
+      throw AppClipInviteCodeStoreError.appGroupContainerUnavailable
+    }
+    let data: Data
+    do {
+      data = try Data(contentsOf: recordURL)
+    } catch let error as CocoaError where error.code == .fileReadNoSuchFile {
+      return nil
+    }
     guard
-      let recordURL,
-      let data = try? Data(contentsOf: recordURL),
       let record = try? decoder.decode(AppClipInviteCodeRecord.self, from: data),
       record.schemaVersion == AppClipInviteCodeRecord.currentSchemaVersion,
       sanitize(record.code) != nil
@@ -284,4 +296,12 @@ enum AppClipInviteCodeStore {
 
   private static let encoder = JSONEncoder()
   private static let decoder = JSONDecoder()
+}
+
+private enum AppClipInviteCodeStoreError: LocalizedError {
+  case appGroupContainerUnavailable
+
+  var errorDescription: String? {
+    "App Group container is unavailable."
+  }
 }

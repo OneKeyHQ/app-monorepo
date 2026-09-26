@@ -13,9 +13,10 @@ export type IInstallInviteCodeReadResult = {
    */
   hasReferrer: boolean;
   /**
-   * An installation that predates this capture (reached this version through
-   * an update). Only fresh installs are attributed, so this settles the
-   * capture without a code and without counting it as a capture.
+   * Nothing to attribute for this installation: on Android it predates this
+   * capture (reached this version through an update); on iOS no App Clip
+   * handed anything off. Settles the capture without a code and without
+   * counting it as a capture.
    */
   isExistingInstall?: boolean;
 };

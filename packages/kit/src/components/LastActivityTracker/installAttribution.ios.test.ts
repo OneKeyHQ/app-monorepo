@@ -580,10 +580,20 @@ describe('App Clip invite code capture', () => {
     await Promise.resolve();
   });
 
-  it('treats a missing handoff as a final answer without a code', () => {
+  it('settles a missing handoff silently, like an Android upgrade', () => {
     expect(parseAppClipInviteCodeRecord(null)).toEqual(
-      expect.objectContaining({ code: undefined, hasReferrer: true }),
+      expect.objectContaining({ code: undefined, isExistingInstall: true }),
     );
+  });
+
+  it('keeps a present handoff eligible for the capture event', () => {
+    expect(
+      parseAppClipInviteCodeRecord({
+        capturedAt: 1,
+        code: 'ABC123',
+        schemaVersion: 1,
+      }).isExistingInstall,
+    ).toBeUndefined();
   });
 
   it('drops codes the bind form would reject', () => {

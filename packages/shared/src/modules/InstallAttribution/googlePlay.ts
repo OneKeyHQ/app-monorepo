@@ -7,6 +7,7 @@ import {
 import { defaultLogger } from '../../logger/logger';
 import {
   INSTALL_REFERRER_INVITE_CODE_KEY,
+  isInstallReferrerCaptureWindowClosed,
   pickInviteCodeFromReferrerValue,
 } from '../../referralCode/installReferrerUtils';
 import appStorage from '../../storage/appStorage';
@@ -190,9 +191,11 @@ export async function readGooglePlayInviteCodeAttribution(
     source.getInstallationTime(),
     source.getLastUpdateTime(),
   ]);
+  // `!==` rather than `>`: a fresh install has identical times, and a clock
+  // set back between install and update must not make an update look fresh.
   if (
     !isKnownFreshInstall &&
-    lastUpdateTime.getTime() > installationTime.getTime()
+    lastUpdateTime.getTime() !== installationTime.getTime()
   ) {
     return {
       code: undefined,
@@ -204,7 +207,24 @@ export async function readGooglePlayInviteCodeAttribution(
   if (!isKnownFreshInstall) {
     await onFreshInstall?.();
   }
-  const rawReferrer = await source.getInstallReferrer();
+  let rawReferrer: string;
+  try {
+    rawReferrer = await source.getInstallReferrer();
+  } catch (error) {
+    // A Play error leaves the capture pending for the next launch, but only
+    // while Play could still serve the referrer. Past its window (or on a
+    // device whose Play never answers) treat it as an empty referrer, which
+    // `isInstallReferrerCaptureFinal` settles, instead of binding the Play
+    // service on every launch forever.
+    if (
+      !isInstallReferrerCaptureWindowClosed({
+        installedAt: installationTime.getTime(),
+      })
+    ) {
+      throw error;
+    }
+    rawReferrer = '';
+  }
   return {
     code: rawReferrer
       ? extractInviteCodeFromInstallReferrer(rawReferrer)

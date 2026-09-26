@@ -25,7 +25,15 @@ final class AppClipAttributionModule: NSObject {
     _ resolve: RCTPromiseResolveBlock,
     rejecter reject: RCTPromiseRejectBlock
   ) {
-    resolve(AppClipInviteCodeStore.load()?.bridgeDictionary)
+    do {
+      resolve(try AppClipInviteCodeStore.loadHandoff()?.bridgeDictionary)
+    } catch {
+      reject(
+        "APP_CLIP_INVITE_CODE_READ_FAILED",
+        error.localizedDescription,
+        error
+      )
+    }
   }
 
   @objc(savePending:resolver:rejecter:)

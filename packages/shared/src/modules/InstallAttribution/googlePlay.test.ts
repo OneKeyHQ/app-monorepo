@@ -292,6 +292,45 @@ describe('readGooglePlayInviteCodeAttribution', () => {
     expect(onFreshInstall).not.toHaveBeenCalled();
   });
 
+  it('treats an update as existing even when the clock went backwards', async () => {
+    getInstallationTimeMock.mockResolvedValue(
+      new Date('2026-09-20T00:00:00.000Z'),
+    );
+    getLastUpdateTimeMock.mockResolvedValue(
+      new Date('2026-09-01T00:00:00.000Z'),
+    );
+
+    await expect(readGooglePlayInviteCodeAttribution()).resolves.toMatchObject({
+      isExistingInstall: true,
+    });
+  });
+
+  it('keeps a Play error pending inside the serving window', async () => {
+    getInstallationTimeMock.mockResolvedValue(new Date());
+    getInstallReferrerMock.mockRejectedValueOnce(
+      new Error('ERR_APPLICATION_INSTALL_REFERRER_UNAVAILABLE'),
+    );
+
+    await expect(readGooglePlayInviteCodeAttribution()).rejects.toThrow(
+      'ERR_APPLICATION_INSTALL_REFERRER_UNAVAILABLE',
+    );
+  });
+
+  it('settles a Play error once the serving window has closed', async () => {
+    const installedAt = new Date(Date.now() - 91 * 24 * 60 * 60 * 1000);
+    getInstallationTimeMock.mockResolvedValue(installedAt);
+    getInstallReferrerMock.mockRejectedValueOnce(
+      new Error('ERR_APPLICATION_INSTALL_REFERRER_UNAVAILABLE'),
+    );
+
+    await expect(readGooglePlayInviteCodeAttribution()).resolves.toEqual({
+      code: undefined,
+      installedAt: installedAt.getTime(),
+      hasReferrer: false,
+      isExistingInstall: false,
+    });
+  });
+
   it('keeps retrying a fresh install left pending across a later app update', async () => {
     const installedAt = new Date('2026-09-01T00:00:00.000Z');
     getInstallationTimeMock.mockResolvedValue(installedAt);

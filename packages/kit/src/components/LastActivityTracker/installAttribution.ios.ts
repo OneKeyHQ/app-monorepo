@@ -252,9 +252,17 @@ export function parseAppClipInviteCodeRecord(
   // installed, so an upgraded install never has one. That guarantee is the
   // iOS half of the FIRST-LAUNCH CONTRACT (`installInviteCodeCapture.ts`).
   if (!value || typeof value !== 'object') {
-    // Nothing handed off. The App Group container is migrated from the App
-    // Clip on install, so its contents at first launch are final.
-    return { code: undefined, attributedAt: Date.now(), hasReferrer: true };
+    // Nothing handed off: an App Store install that never went through the
+    // App Clip, or an existing user updating. The App Group container is
+    // migrated from the App Clip on install, so its contents at first launch
+    // are final. Settled silently, like an Android upgrade, so the capture
+    // event only counts installs that actually had an App Clip handoff.
+    return {
+      code: undefined,
+      attributedAt: Date.now(),
+      hasReferrer: true,
+      isExistingInstall: true,
+    };
   }
   const record = value as Record<string, unknown>;
   const capturedAt =

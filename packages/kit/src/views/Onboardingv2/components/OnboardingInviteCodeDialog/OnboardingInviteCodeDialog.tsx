@@ -175,6 +175,9 @@ function OnboardingInviteCodeDialogContent({
         isActive: () => isMountedRef.current,
       }),
     [],
+    // A failed read only costs the pre-fill; never surface it as an
+    // unhandled rejection.
+    { undefinedResultIfError: true },
   );
 
   useEffect(() => {
