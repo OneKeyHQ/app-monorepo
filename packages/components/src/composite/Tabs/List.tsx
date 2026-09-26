@@ -132,6 +132,7 @@ export function List<Item>({
   onMouseEnter,
   onMouseLeave,
   getWebRowHeight,
+  webOverscanRowCount = 60,
 }: Omit<IListProps<Item>, 'ListEmptyComponent'> &
   Omit<ISectionListProps<Item>, 'ListEmptyComponent'> & {
     ListEmptyComponent?: ReactNode | ComponentType<any>;
@@ -145,6 +146,7 @@ export function List<Item>({
      * Web-only fast path. See `IGetWebRowHeight` doc above. No-op on native.
      */
     getWebRowHeight?: IGetWebRowHeight<Item>;
+    webOverscanRowCount?: number;
   }) {
   const {
     registerChild,
@@ -748,7 +750,7 @@ export function List<Item>({
       // single fast-scroll jump (~1.5–2k px on desktop drag) without leaving
       // a frame where committed rows sit outside the viewport. Heavy lists
       // pay one extra commit at mount; fast scroll then never needs another.
-      overscanRowCount: 60,
+      overscanRowCount: webOverscanRowCount,
       // react-virtualized's default overscan getter only adds buffer in the
       // direction the user is scrolling — the opposite direction is hard-coded
       // to 1 row. When the user reverses direction (e.g. flicks back to the
@@ -791,6 +793,7 @@ export function List<Item>({
     scrollTop,
     cache,
     getWebRowHeight,
+    webOverscanRowCount,
   ]);
 
   const baseContentContainerStyle = contentContainerStyle as unknown as

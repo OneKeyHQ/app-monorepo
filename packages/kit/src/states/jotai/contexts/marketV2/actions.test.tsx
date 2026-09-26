@@ -26,6 +26,7 @@ import {
   tokenDetailPreviewAtom,
   tokenDetailRequestIdAtom,
   tokenDetailWebsocketAtom,
+  useTokenDetailSymbolAtom,
 } from './atoms';
 import { useMarketAssetTokenDetailAction } from './marketAssetDetail';
 import { marketTokenDetailSnapshotCache } from './marketSnapshotCaches';
@@ -202,6 +203,37 @@ describe('token detail refresh failures', () => {
   });
 
   afterEach(() => jest.restoreAllMocks());
+
+  it('does not rerender symbol consumers for live price or freshness updates', () => {
+    const { store, Wrapper } = createWrapper();
+    store.set(tokenDetailAtom(), detail);
+    const renderSymbol = jest.fn();
+    const { result } = renderHook(
+      () => {
+        const [symbol] = useTokenDetailSymbolAtom();
+        renderSymbol(symbol);
+        return symbol;
+      },
+      { wrapper: Wrapper },
+    );
+    renderSymbol.mockClear();
+
+    act(() => {
+      store.set(tokenDetailAtom(), {
+        ...detail,
+        price: '2',
+        lastUpdated: Date.now(),
+        chartPriceUpdatedAt: Date.now(),
+      });
+    });
+    expect(renderSymbol).not.toHaveBeenCalled();
+    expect(result.current).toBe('TEST');
+
+    act(() => store.set(tokenDetailAtom(), { ...detail, symbol: 'NEXT' }));
+    expect(result.current).toBe('NEXT');
+    act(() => store.set(tokenDetailAtom(), undefined));
+    expect(result.current).toBeUndefined();
+  });
 
   it('keeps loaded content and chart configuration through failure and recovery', async () => {
     const { store, Wrapper } = createWrapper();
