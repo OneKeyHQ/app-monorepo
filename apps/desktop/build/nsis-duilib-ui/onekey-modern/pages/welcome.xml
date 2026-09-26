@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Window size="{{window.width}},{{window.height}}" caption="0,0,0,64" roundcorner="{{window.radius}},{{window.radius}}" gdiplustext="true">
+  <Font id="0" name="{{font.family}}" size="{{font.bodySize}}" default="true" />
+  <Font id="1" name="Segoe UI" size="24" />
+  <Font id="2" name="Segoe UI Semibold" size="16" />
+  <Font id="3" name="Segoe UI Semibold" size="13" />
+  <Container name="page-root">
+    <LightBackdrop float="0,0,1,1" canvascolor="{{color.canvas}}" bluecolor="{{color.blueTint}}" greencolor="{{color.greenTint}}" />
+    <VerticalLayout float="0,0,1,1">
+      <HorizontalLayout height="64" inset="24,15,22,15" childvalign="vcenter">
+        <BrandMark width="28" height="28" brandcolor="{{color.brand}}" />
+        <Label text="OneKey" font="2" textcolor="{{color.textPrimary}}" width="82" height="28" padding="9,0,0,0" />
+        <Label text="{{runtime.version}}" textcolor="{{color.textSecondary}}" height="28" />
+        <CaptionButton name="minbtn" kind="minimize" iconcolor="{{color.textSecondary}}" hoticoncolor="{{color.textPrimary}}" hotbkcolor="{{color.surfaceMuted}}" pushedbkcolor="{{color.surfaceStrong}}" width="36" height="34" borderround="10,10" />
+        <Control width="6" />
+        <CaptionButton name="closebtn" kind="close" iconcolor="{{color.textSecondary}}" hoticoncolor="{{color.danger}}" hotbkcolor="{{color.surfaceMuted}}" pushedbkcolor="{{color.surfaceStrong}}" width="36" height="34" borderround="10,10" />
+      </HorizontalLayout>
+      <VerticalLayout inset="145,22,145,0">
+        <Control />
+        <HorizontalLayout height="66"><Control /><BrandMark width="66" height="66" brandcolor="{{color.brand}}" /><Control /></HorizontalLayout>
+        <Control height="15" />
+        <Label text="{{string.welcome.title}}" font="1" textcolor="{{color.textPrimary}}" height="38" align="center" />
+        <Label text="{{string.welcome.subtitle}}" textcolor="{{color.textSecondary}}" height="30" align="center" />
+        <Control height="10" />
+        <HorizontalLayout height="48"><Control /><Button name="primary" text="{{string.welcome.start}}" textcolor="{{color.ink}}" bkcolor="{{color.brand}}" hotbkcolor="{{color.brandHover}}" pushedbkcolor="{{color.brandPressed}}" width="220" height="48" borderround="11,11" font="3" /><Control /></HorizontalLayout>
+        <Control height="5" />
+        <HorizontalLayout height="34"><Control /><Button name="more-options" text="{{string.welcome.moreOptions}}" textcolor="{{color.textSecondary}}" hottextcolor="{{color.textPrimary}}" hotbkcolor="{{color.surfaceMuted}}" pushedbkcolor="{{color.surfaceStrong}}" width="138" height="34" borderround="9,9" /><Control /></HorizontalLayout>
+        <VerticalLayout name="advanced-options" visible="false" height="154">
+          <Label text="{{string.welcome.scopeLabel}}" textcolor="{{color.textSecondary}}" height="24" />
+          <HorizontalLayout height="47">
+            <Button name="scope-current" text="{{string.scope.current.title}}  ·  {{string.scope.recommended}}" textcolor="{{color.textPrimary}}" bkcolor="{{color.brandSoft}}" hotbkcolor="{{color.brandSoft}}" pushedbkcolor="{{color.brandSoft}}" bordercolor="{{color.brand}}" hotbordercolor="{{color.brand}}" pushedbordercolor="{{color.brand}}" bordersize="1" borderround="10,10" font="0" />
+            <Control width="10" />
+            <Button name="scope-all" text="{{string.scope.all.title}}" textcolor="{{color.textPrimary}}" bkcolor="#CCFFFFFF" hotbkcolor="{{color.brandSoft}}" pushedbkcolor="{{color.surfaceStrong}}" bordercolor="{{color.border}}" hotbordercolor="{{color.brand}}" pushedbordercolor="{{color.brand}}" bordersize="1" borderround="10,10" font="0" />
+          </HorizontalLayout>
+          <Control height="12" />
+          <Label text="{{string.welcome.pathLabel}}" textcolor="{{color.textSecondary}}" height="24" />
+          <HorizontalLayout height="44" bkcolor="#B8FFFFFF" bordercolor="{{color.border}}" bordersize="1" borderround="10,10" inset="15,0,10,0" childvalign="vcenter">
+            <Label name="install-directory" text="{{runtime.installDirectory}}" textcolor="{{color.textSecondary}}" padding="9,0,0,0" />
+            <Button name="browse" text="{{string.welcome.change}}" textcolor="{{color.textSecondary}}" hottextcolor="{{color.textPrimary}}" bkcolor="#00FFFFFF" hotbkcolor="{{color.surfaceMuted}}" pushedbkcolor="{{color.surfaceStrong}}" width="50" height="32" borderround="8,8" />
+          </HorizontalLayout>
+        </VerticalLayout>
+        <Control />
+      </VerticalLayout>
+      <LegalNotice name="legal-links" text="{{string.welcome.terms}}" textcolor="{{color.textSecondary}}" hotlinkcolor="{{color.textPrimary}}" height="42" />
+    </VerticalLayout>
+  </Container>
+</Window>
