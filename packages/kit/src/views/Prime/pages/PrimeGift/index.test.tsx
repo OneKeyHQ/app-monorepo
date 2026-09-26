@@ -23,6 +23,9 @@ const mockNavigation = { pop: jest.fn(), switchTabAsync: jest.fn() };
 const mockClearTransport = jest.fn();
 const mockFlushToast = jest.fn();
 let mockSource: 'onboarding' | 'deviceDetails' = 'onboarding';
+let mockClaimState: 'success' | 'redeemed' = 'success';
+const mockVerify = jest.fn();
+const mockRedeem = jest.fn();
 
 jest.mock('@onekeyhq/components', () => {
   const React = jest.requireActual('react') as typeof import('react');
@@ -78,9 +81,18 @@ jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms', () => ({
   useNotificationsAtom: () => [{}],
 }));
 jest.mock('../../hooks/usePrimeGiftClaim', () => ({
-  usePrimeGiftClaim: () => ({
-    result: { onekeyUserId: 'user', addedDays: 180 },
-  }),
+  usePrimeGiftClaim: () =>
+    mockClaimState === 'redeemed'
+      ? {
+          isLoggedIn: true,
+          verification: { hasCode: true, status: 'redeemed' },
+          error: 'already claimed',
+          submit: mockVerify,
+          claim: mockRedeem,
+        }
+      : {
+          result: { onekeyUserId: 'user', addedDays: 180 },
+        },
 }));
 jest.mock('../../hooks/usePrimeGiftMessages', () => ({
   usePrimeGiftReasonMessage: () => jest.fn(),
@@ -88,8 +100,20 @@ jest.mock('../../hooks/usePrimeGiftMessages', () => ({
 jest.mock('../../components/PrimeGiftViews', () => {
   const React = jest.requireActual('react') as typeof import('react');
   return {
-    PrimeGiftSuccessView: ({ onEnterWallet }: { onEnterWallet: () => void }) =>
-      React.createElement('button', { onClick: onEnterWallet }, 'Enter wallet'),
+    PrimeGiftClaimView: ({
+      primaryLabel,
+      onSubmit,
+    }: {
+      primaryLabel: string;
+      onSubmit: () => void;
+    }) => React.createElement('button', { onClick: onSubmit }, primaryLabel),
+    PrimeGiftSuccessView: ({
+      onConfirm,
+      confirmLabel,
+    }: {
+      onConfirm: () => void;
+      confirmLabel: string;
+    }) => React.createElement('button', { onClick: onConfirm }, confirmLabel),
   };
 });
 
@@ -119,6 +143,7 @@ beforeEach(() => {
   jest.useFakeTimers();
   jest.clearAllMocks();
   mockSource = 'onboarding';
+  mockClaimState = 'success';
   getCreatedWallet.mockReturnValue(wallet);
   getReferralCheck.mockResolvedValue({ data: false, bindable: true });
   unregister = registerOnboardingCompletion('completion', {
@@ -149,7 +174,7 @@ it('dismisses gift success before referral binding, then completes the original 
       <PrimeGiftPage />
     </IntlProvider>,
   );
-  fireEvent.click(screen.getByText('Enter wallet'));
+  fireEvent.click(screen.getByText(zhTranslations.enter_wallet));
   expect(mockNavigation.pop).toHaveBeenCalledTimes(1);
   expect(showInvite).not.toHaveBeenCalled();
   expect(closePage).not.toHaveBeenCalled();
@@ -201,7 +226,7 @@ it('limits the referral wait to 1.5 seconds after the gift modal closes', async 
       <PrimeGiftPage />
     </IntlProvider>,
   );
-  fireEvent.click(screen.getByText('Enter wallet'));
+  fireEvent.click(screen.getByText(zhTranslations.enter_wallet));
   await advance(2099);
   expect(closePage).not.toHaveBeenCalled();
   await advance(1);
@@ -215,7 +240,7 @@ it('does not run a stale completion if its owner unmounts during modal dismissal
       <PrimeGiftPage />
     </IntlProvider>,
   );
-  fireEvent.click(screen.getByText('Enter wallet'));
+  fireEvent.click(screen.getByText(zhTranslations.enter_wallet));
   unregister();
   await advance(600);
   expect(getReferralCheck).not.toHaveBeenCalled();
@@ -223,16 +248,31 @@ it('does not run a stale completion if its owner unmounts during modal dismissal
   expect(mockNavigation.switchTabAsync).not.toHaveBeenCalled();
 });
 
-it('keeps device-center success going directly to Home', async () => {
+it('closes an already redeemed claim with Done and does not verify or redeem', () => {
+  mockClaimState = 'redeemed';
+  render(
+    <IntlProvider locale="zh-CN" messages={zhTranslations}>
+      <PrimeGiftPage />
+    </IntlProvider>,
+  );
+  expect(screen.queryByText(zhTranslations.enter_wallet)).toBeNull();
+  fireEvent.click(screen.getByText(zhTranslations['global.done']));
+  expect(mockNavigation.pop).toHaveBeenCalledTimes(1);
+  expect(mockNavigation.switchTabAsync).not.toHaveBeenCalled();
+  expect(mockVerify).not.toHaveBeenCalled();
+  expect(mockRedeem).not.toHaveBeenCalled();
+});
+
+it('closes device-details success back to the caller', () => {
   mockSource = 'deviceDetails';
   render(
     <IntlProvider locale="zh-CN" messages={zhTranslations}>
       <PrimeGiftPage />
     </IntlProvider>,
   );
-  fireEvent.click(screen.getByText('Enter wallet'));
-  expect(mockNavigation.switchTabAsync).toHaveBeenCalledWith(ETabRoutes.Home);
-  expect(mockNavigation.pop).not.toHaveBeenCalled();
+  fireEvent.click(screen.getByText(zhTranslations['global.done']));
+  expect(mockNavigation.pop).toHaveBeenCalledTimes(1);
+  expect(mockNavigation.switchTabAsync).not.toHaveBeenCalled();
   expect(getReferralCheck).not.toHaveBeenCalled();
 });
 
@@ -244,7 +284,7 @@ it('can exit if the originating onboarding page is no longer mounted', async () 
     </IntlProvider>,
   );
   await act(async () => {
-    fireEvent.click(screen.getByText('Enter wallet'));
+    fireEvent.click(screen.getByText(zhTranslations.enter_wallet));
   });
   expect(mockNavigation.switchTabAsync).toHaveBeenCalledWith(ETabRoutes.Home);
   expect(mockClearTransport).toHaveBeenCalledTimes(1);
