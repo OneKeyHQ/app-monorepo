@@ -34,6 +34,8 @@ import {
 } from '../../states/jotai/contexts/accountSelector';
 import { useAccountSelectorActions } from '../../states/jotai/contexts/accountSelector/actions';
 
+import { AccountSelectorTestIDs } from './testIDs';
+
 import type { GestureResponderEvent } from 'react-native';
 
 type IDeriveTypeSelectorTriggerPropsBase = {
@@ -111,7 +113,7 @@ function DeriveTypeSelectorTriggerBaseView({
       {() => (
         <Select
           offset={offset}
-          testID={testID ?? 'account-selector-derive-type-select'}
+          testID={testID ?? AccountSelectorTestIDs.deriveTypeSelect}
           items={items}
           floatingPanelProps={{
             width: '$78',
@@ -185,15 +187,18 @@ export function DeriveTypeSelectorTrigger({
       key={`${deriveType || ''}-${networkId || ''}-${
         deriveInfo?.template || ''
       }`}
-      testID={`derive-type-selector-trigger-${accountUtils.beautifyPathTemplate(
-        { template: deriveInfo?.template || '' },
-      )}`}
+      testID={AccountSelectorTestIDs.deriveTypeSelectorTrigger(
+        accountUtils.beautifyPathTemplate({
+          template: deriveInfo?.template || '',
+        }),
+      )}
       value={deriveType}
       items={options}
       onChange={async (type) => {
         await actions.current.updateSelectedAccountDeriveType({
           num,
           deriveType: type,
+          reason: 'userSelectDeriveType',
         });
       }}
       renderTrigger={renderTrigger}
@@ -227,7 +232,7 @@ export function DeriveTypeSelectorTriggerIconRenderer({
     : undefined;
   return (
     <XStack
-      testID="wallet-derivation-path-selector-trigger"
+      testID={AccountSelectorTestIDs.walletDerivationPathTrigger}
       role="button"
       borderRadius="$2"
       userSelect="none"
@@ -320,7 +325,7 @@ export function DeriveTypeSelectorTriggerForDapp({
       placement="bottom-end"
       renderTrigger={({ onPress }) => (
         <IconButton
-          testID="account-selector-derive-type-trigger-btn"
+          testID={AccountSelectorTestIDs.deriveTypeButton}
           onPress={onPress}
           icon="BranchesOutline"
           variant="tertiary"

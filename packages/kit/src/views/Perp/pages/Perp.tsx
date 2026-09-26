@@ -257,7 +257,7 @@ function PerpContent() {
         )
       }
       customHeaderRightItems={
-        <PerpsAccountSelectorProviderMirror>
+        <PerpsAccountSelectorProviderMirror perfDebugName="perp-header">
           <PerpsProviderMirror>
             <PerpsHeaderRight />
           </PerpsProviderMirror>
@@ -369,7 +369,7 @@ export default function Perp() {
 
   return (
     <TabletHomeContainer>
-      <PerpsAccountSelectorProviderMirror>
+      <PerpsAccountSelectorProviderMirror perfDebugName="perp-route">
         <PerpsProviderMirror>
           <PerpView />
         </PerpsProviderMirror>

@@ -1,0 +1,5 @@
+{
+  "swapPanel": "market-swap-panel",
+  "swapPanelPaymentTokenTrigger": "market-swap-panel-payment-token-trigger",
+  "swapPanelTokenSelectorList": "market-swap-panel-token-selector-list"
+}

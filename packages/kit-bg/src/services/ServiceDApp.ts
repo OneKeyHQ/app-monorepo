@@ -64,6 +64,13 @@ import {
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import type { IAccountToken } from '@onekeyhq/shared/types/token';
 
+import {
+  areAccountSelectorSelectionsEqual,
+  getAccountSelectorLatestSelectionIntent,
+  getAccountSelectorWriteIntentEpoch,
+  recordAccountSelectorSelectionIntent,
+  runAccountSelectorPersistenceExclusive,
+} from '../dbs/simple/entity/accountSelectorPersistenceGuard';
 import { providerApiLoaders } from '../providers/backgroundProviders';
 import { settingsPersistAtom } from '../states/jotai/atoms';
 import { vaultFactory } from '../vaults/factory';
@@ -72,6 +79,7 @@ import ServiceBase from './ServiceBase';
 
 import type { IBackgroundApiWebembedCallMessage } from '../apis/IBackgroundApi';
 import type { IDBAccount } from '../dbs/local/types';
+import type { IAccountSelectorPersistenceLockToken } from '../dbs/simple/entity/accountSelectorPersistenceGuard';
 import type { IAccountSelectorSelectedAccount } from '../dbs/simple/entity/SimpleDbEntityAccountSelector';
 import type ProviderApiEthereum from '../providers/ProviderApiEthereum';
 import type { IAddEthereumChainParameter } from '../providers/ProviderApiEthereum';
@@ -123,6 +131,13 @@ function getQueryDAppAccountParams(params: IGetDAppAccountInfoParams) {
   };
 }
 
+type IHomeAccountApprovalAlignment = {
+  expectedSelectedAccount: IAccountSelectorSelectedAccount;
+  previousSelectedAccount: IAccountSelectorSelectedAccount | undefined;
+  selectedAccount: IAccountSelectorSelectedAccount;
+  writeIntentEpoch: number;
+};
+
 @backgroundClass()
 class ServiceDApp extends ServiceBase {
   private semaphore = new Semaphore(1);
@@ -155,6 +170,18 @@ class ServiceDApp extends ServiceBase {
   >();
 
   private static readonly DERIVE_CONTEXT_HASH_TTL_MS = 5 * 60 * 1000;
+
+  private static readonly CONNECTION_APPROVAL_INVALIDATION_TTL_MS =
+    // ServicePromise scans its 30-minute TTL on a 30-minute interval, so a
+    // newly-created callback can remain observable for almost 60 minutes.
+    timerUtils.getTimeDurationMs({ minute: 65 });
+
+  private invalidatedConnectionApprovalIds = new Set<string>();
+
+  private connectionApprovalInvalidationTimers = new Map<
+    string,
+    ReturnType<typeof setTimeout>
+  >();
 
   constructor({ backgroundApi }: { backgroundApi: any }) {
     super({ backgroundApi });
@@ -749,7 +776,8 @@ class ServiceDApp extends ServiceBase {
         storageType: 'injectedProvider',
         beforeConnect: true,
       });
-    } else if (rawData?.data.walletConnect?.[origin]) {
+    }
+    if (rawData?.data.walletConnect?.[origin]) {
       await this.disconnectWebsite({
         origin,
         storageType: 'walletConnect',
@@ -796,6 +824,328 @@ class ServiceDApp extends ServiceBase {
     setTimeout(() => {
       void this.notifyDAppAccountsChangedAfterConnected({ origin });
     }, 300);
+  }
+
+  @backgroundMethod()
+  async recordConnectionSelectionIntent({
+    accountSelectorNum,
+    origin,
+    selectedAccount,
+  }: {
+    accountSelectorNum: number;
+    origin: string;
+    selectedAccount: IAccountSelectorSelectedAccount;
+  }) {
+    return recordAccountSelectorSelectionIntent(
+      {
+        sceneName: EAccountSelectorSceneName.discover,
+        sceneUrl: origin,
+        num: accountSelectorNum,
+      },
+      selectedAccount,
+    );
+  }
+
+  private async isConnectionApprovalAccountAvailable(
+    accountInfo: IConnectionAccountInfo,
+  ) {
+    if (!accountInfo.networkId) {
+      return false;
+    }
+    try {
+      const account = await this.backgroundApi.serviceAccount.getAccount({
+        accountId: accountInfo.accountId,
+        networkId: accountInfo.networkId,
+      });
+      const addressMatches = networkUtils.isEvmNetwork({
+        networkId: accountInfo.networkId,
+      })
+        ? account.address.toLowerCase() === accountInfo.address.toLowerCase()
+        : account.address === accountInfo.address;
+      return account.id === accountInfo.accountId && addressMatches;
+    } catch {
+      return false;
+    }
+  }
+
+  @backgroundMethod()
+  async approveConnectionSession({
+    accountInfo,
+    accountSelectorNum,
+    approvalId,
+    expectedSelectedAccount,
+    mode,
+    origin,
+    preselectKeylessProvider,
+    requestId,
+  }: {
+    accountInfo: IConnectionAccountInfo;
+    accountSelectorNum: number;
+    approvalId: string;
+    expectedSelectedAccount: IAccountSelectorSelectedAccount;
+    mode: 'save' | 'update';
+    origin: string;
+    preselectKeylessProvider?: EOAuthSocialLoginProvider;
+    requestId: number | string;
+  }): Promise<{
+    approved: boolean;
+    reason?: 'request-settled' | 'selection-changed';
+  }> {
+    const persistenceScope = {
+      sceneName: EAccountSelectorSceneName.discover,
+      sceneUrl: origin,
+      num: accountSelectorNum,
+    };
+    const homeWriteIntentEpoch = getAccountSelectorWriteIntentEpoch({
+      sceneName: EAccountSelectorSceneName.home,
+      num: 0,
+    });
+    // Capture before the first await: a selector intent arriving while the
+    // icon request is pending belongs to this approval's cancellation window.
+    const approvalEpoch = getAccountSelectorWriteIntentEpoch(persistenceScope);
+    const matchesLatestSelectionIntent = () => {
+      const latestSelectionIntent =
+        getAccountSelectorLatestSelectionIntent(persistenceScope);
+      return (
+        !latestSelectionIntent ||
+        areAccountSelectorSelectionsEqual(
+          latestSelectionIntent,
+          expectedSelectedAccount,
+        )
+      );
+    };
+    const isApprovalCurrent = () =>
+      getAccountSelectorWriteIntentEpoch(persistenceScope) === approvalEpoch &&
+      matchesLatestSelectionIntent() &&
+      !this.invalidatedConnectionApprovalIds.has(approvalId) &&
+      this.backgroundApi.servicePromise.hasCallback(requestId);
+    let replacedWalletConnectTopic: string | undefined;
+    let approvalResult: {
+      approved: boolean;
+      reason?: 'request-settled' | 'selection-changed';
+    };
+    try {
+      const imageURL =
+        mode === 'save'
+          ? await this.backgroundApi.serviceDiscovery.buildWebsiteIconUrl(
+              origin,
+              128,
+            )
+          : undefined;
+      approvalResult = await runAccountSelectorPersistenceExclusive(
+        async (lockToken) => {
+          // Discover selections are intentionally ephemeral. The renderer's
+          // click snapshot establishes the initial intent; any later selector
+          // save intent or account observation invalidates it in background.
+          if (!isApprovalCurrent()) {
+            return {
+              approved: false,
+              reason: 'selection-changed' as const,
+            };
+          }
+
+          let homeAccountAlignment: IHomeAccountApprovalAlignment | undefined;
+          const restoreHomeAccountAlignment = async () => {
+            if (!homeAccountAlignment) {
+              return;
+            }
+            await this.backgroundApi.simpleDb.accountSelector.restoreSelectedAccountIfCurrent(
+              {
+                expectedSelectedAccount: homeAccountAlignment.selectedAccount,
+                expectedWriteIntentEpoch: homeAccountAlignment.writeIntentEpoch,
+                previousSelectedAccount:
+                  homeAccountAlignment.previousSelectedAccount,
+                sceneName: EAccountSelectorSceneName.home,
+                num: 0,
+              },
+              lockToken,
+            );
+            void this.setIsAlignPrimaryAccountProcessing({
+              processing: false,
+            });
+          };
+          const transaction = await this.backgroundApi.simpleDb.dappConnection
+            .commitConnectionApproval({
+              accountInfo,
+              accountSelectorNum,
+              afterPublish: () => {
+                if (!isApprovalCurrent()) {
+                  return false;
+                }
+                return this.backgroundApi.servicePromise.resolveCallbackSync({
+                  id: requestId,
+                  data: accountInfo,
+                });
+              },
+              beforePublish: async (connectedAccountInfos) => {
+                if (
+                  !isApprovalCurrent() ||
+                  !(await this.isConnectionApprovalAccountAvailable(
+                    accountInfo,
+                  ))
+                ) {
+                  return false;
+                }
+                const finalizeApproval = async () => {
+                  if (!isApprovalCurrent()) {
+                    return false;
+                  }
+                  const accountAvailable =
+                    await this.isConnectionApprovalAccountAvailable(
+                      accountInfo,
+                    );
+                  // Drain cancellation messages that reached the background
+                  // while the final account lookup was in flight. After this
+                  // task boundary, the guard, cache publish, and callback
+                  // resolution run without another asynchronous gap.
+                  await new Promise<void>((resolve) => {
+                    setTimeout(resolve, 0);
+                  });
+                  return accountAvailable && isApprovalCurrent();
+                };
+                if (mode === 'save' || preselectKeylessProvider) {
+                  return this.syncDappAccountIfPrimaryModeInternal({
+                    accountSelectorPersistenceLockToken: lockToken,
+                    connectedAccountInfos,
+                    expectedHomeWriteIntentEpoch: homeWriteIntentEpoch,
+                    finalizeApproval,
+                    onHomeSelectionPersisted: (alignment) => {
+                      homeAccountAlignment = alignment;
+                    },
+                    origin,
+                    shouldContinue: isApprovalCurrent,
+                  });
+                }
+                return finalizeApproval();
+              },
+              imageURL,
+              mode,
+              origin,
+              shouldCommit: isApprovalCurrent,
+              storageType: 'injectedProvider',
+            })
+            .catch(async (error: unknown) => {
+              await restoreHomeAccountAlignment();
+              throw error;
+            });
+          if (!transaction.committed) {
+            await restoreHomeAccountAlignment();
+            return {
+              approved: false,
+              reason: this.backgroundApi.servicePromise.hasCallback(requestId)
+                ? ('selection-changed' as const)
+                : ('request-settled' as const),
+            };
+          }
+          if (homeAccountAlignment) {
+            try {
+              appEventBus.emit(EAppEventBusNames.SyncDappAccountToHomeAccount, {
+                expectedSelectedAccount:
+                  homeAccountAlignment.expectedSelectedAccount,
+                selectedAccount: homeAccountAlignment.selectedAccount,
+              });
+            } catch {
+              // Persistence succeeded; event delivery remains best-effort.
+            }
+            setTimeout(() => {
+              void this.setIsAlignPrimaryAccountProcessing({
+                processing: false,
+              });
+            }, 200);
+          }
+          replacedWalletConnectTopic = transaction.replacedWalletConnectTopic;
+          return { approved: true };
+        },
+      );
+    } finally {
+      const invalidationTimer =
+        this.connectionApprovalInvalidationTimers.get(approvalId);
+      if (invalidationTimer) {
+        clearTimeout(invalidationTimer);
+        this.connectionApprovalInvalidationTimers.delete(approvalId);
+      }
+      this.invalidatedConnectionApprovalIds.delete(approvalId);
+    }
+
+    if (!approvalResult.approved) {
+      return approvalResult;
+    }
+    if (mode === 'save') {
+      try {
+        appEventBus.emit(EAppEventBusNames.DAppConnectUpdate, undefined);
+      } catch {
+        // Approval is already resolved; observer failures cannot change it.
+      }
+      setTimeout(() => {
+        void this.notifyDAppAccountsChangedAfterConnected({ origin }).catch(
+          () => undefined,
+        );
+      }, 300);
+    }
+    void this.backgroundApi.serviceSignature
+      .addConnectedSite({
+        url: origin,
+        items: [
+          {
+            networkId: accountInfo.networkId ?? '',
+            address: accountInfo.address,
+          },
+        ],
+      })
+      .catch(() => undefined);
+    if (replacedWalletConnectTopic) {
+      void this.disconnectAndCleanupReplacedWalletConnectSession({
+        origin,
+        walletConnectTopic: replacedWalletConnectTopic,
+      }).catch(() => {
+        console.error('wallet connect replacement cleanup failed');
+      });
+    }
+    return approvalResult;
+  }
+
+  private async disconnectAndCleanupReplacedWalletConnectSession({
+    origin,
+    walletConnectTopic,
+  }: {
+    origin: string;
+    walletConnectTopic: string;
+  }) {
+    try {
+      await this.backgroundApi.serviceWalletConnect.walletConnectDisconnect(
+        walletConnectTopic,
+      );
+    } catch {
+      // Keep the complete persisted WalletConnect session for a later retry.
+      return false;
+    }
+    const removed =
+      await this.backgroundApi.simpleDb.dappConnection.deleteWalletConnectConnectionIfTopic(
+        { origin, walletConnectTopic },
+      );
+    if (removed) {
+      try {
+        appEventBus.emit(EAppEventBusNames.DAppConnectUpdate, undefined);
+      } catch {
+        // The persisted cleanup succeeded; observer delivery is best-effort.
+      }
+    }
+    return removed;
+  }
+
+  @backgroundMethod()
+  async invalidateConnectionApproval({ approvalId }: { approvalId: string }) {
+    this.invalidatedConnectionApprovalIds.add(approvalId);
+    const previousTimer =
+      this.connectionApprovalInvalidationTimers.get(approvalId);
+    if (previousTimer) {
+      clearTimeout(previousTimer);
+    }
+    const timer = setTimeout(() => {
+      this.invalidatedConnectionApprovalIds.delete(approvalId);
+      this.connectionApprovalInvalidationTimers.delete(approvalId);
+    }, ServiceDApp.CONNECTION_APPROVAL_INVALIDATION_TTL_MS);
+    this.connectionApprovalInvalidationTimers.set(approvalId, timer);
   }
 
   @backgroundMethod()
@@ -1952,51 +2302,153 @@ class ServiceDApp extends ServiceBase {
 
   @backgroundMethod()
   async syncDappAccountIfPrimaryMode({ origin }: { origin: string }) {
+    await this.syncDappAccountIfPrimaryModeInternal({ origin });
+  }
+
+  private async syncDappAccountIfPrimaryModeInternal({
+    accountSelectorPersistenceLockToken,
+    connectedAccountInfos,
+    expectedHomeWriteIntentEpoch,
+    finalizeApproval,
+    onHomeSelectionPersisted,
+    origin,
+    shouldContinue,
+  }: {
+    accountSelectorPersistenceLockToken?: IAccountSelectorPersistenceLockToken;
+    connectedAccountInfos?: IConnectionAccountInfo[];
+    expectedHomeWriteIntentEpoch?: number;
+    finalizeApproval?: () => Promise<boolean>;
+    onHomeSelectionPersisted?: (
+      alignment: IHomeAccountApprovalAlignment,
+    ) => void;
+    origin: string;
+    shouldContinue?: () => boolean;
+  }): Promise<boolean> {
+    const homeWriteIntentEpochAtRequest =
+      expectedHomeWriteIntentEpoch ??
+      getAccountSelectorWriteIntentEpoch({
+        sceneName: EAccountSelectorSceneName.home,
+        num: 0,
+      });
+    const runFinalizeApproval = async () => {
+      if (shouldContinue && !shouldContinue()) {
+        return false;
+      }
+      return finalizeApproval ? finalizeApproval() : true;
+    };
     const currentSettings = await settingsPersistAtom.get();
     if (
       currentSettings.alignPrimaryAccountMode !==
       EAlignPrimaryAccountMode.AlwaysUsePrimaryAccount
     ) {
-      return;
+      return runFinalizeApproval();
     }
     void this.setIsAlignPrimaryAccountProcessing({
       processing: true,
     });
-    const connectedAccount = await this.findInjectedAccountByOrigin(origin);
+    try {
+      const connectedAccount =
+        connectedAccountInfos ??
+        (await this.findInjectedAccountByOrigin(origin));
 
-    const { simpleDb } = this.backgroundApi;
-    const newSelectedAccount = await this.buildHomeSelectedAccountByDappAccount(
-      {
-        dAppAccountInfos: connectedAccount,
-      },
-    );
-    if (newSelectedAccount) {
-      await simpleDb.accountSelector.saveSelectedAccount({
-        sceneName: EAccountSelectorSceneName.home,
-        num: 0,
-        selectedAccount: newSelectedAccount,
-      });
-      appEventBus.emit(EAppEventBusNames.SyncDappAccountToHomeAccount, {
-        selectedAccount: newSelectedAccount,
-      });
-      // force reset processing to false after 200ms
-      setTimeout(() => {
-        void this.setIsAlignPrimaryAccountProcessing({
-          processing: false,
+      const { simpleDb } = this.backgroundApi;
+      const homeSelectedAccount =
+        await simpleDb.accountSelector.getSelectedAccount({
+          sceneName: EAccountSelectorSceneName.home,
+          num: 0,
         });
-      }, 200);
-    } else {
+      const expectedHomeSelectedAccount = homeSelectedAccount ?? {
+        deriveType: undefined,
+        focusedWallet: undefined,
+        indexedAccountId: undefined,
+        networkId: undefined,
+        othersWalletAccountId: undefined,
+        walletId: undefined,
+      };
+      const newSelectedAccount =
+        await this.buildHomeSelectedAccountByDappAccount({
+          dAppAccountInfos: connectedAccount,
+          homeSelectedAccount: expectedHomeSelectedAccount,
+        });
+      if (newSelectedAccount && (!shouldContinue || shouldContinue())) {
+        let saveResult: { persisted: boolean };
+        if (shouldContinue) {
+          saveResult =
+            await simpleDb.accountSelector.saveSelectedAccountIfCurrent(
+              {
+                beforePublish: finalizeApproval
+                  ? runFinalizeApproval
+                  : undefined,
+                expectedWriteIntentEpoch: homeWriteIntentEpochAtRequest,
+                sceneName: EAccountSelectorSceneName.home,
+                num: 0,
+                selectedAccount: newSelectedAccount,
+                shouldCommit: shouldContinue,
+              },
+              accountSelectorPersistenceLockToken,
+            );
+        } else {
+          saveResult =
+            await simpleDb.accountSelector.saveSelectedAccountIfWriteIntentCurrent(
+              {
+                expectedWriteIntentEpoch: homeWriteIntentEpochAtRequest,
+                sceneName: EAccountSelectorSceneName.home,
+                num: 0,
+                selectedAccount: newSelectedAccount,
+              },
+              accountSelectorPersistenceLockToken,
+            );
+        }
+        if (!saveResult.persisted) {
+          void this.setIsAlignPrimaryAccountProcessing({
+            processing: false,
+          });
+          return false;
+        }
+        if (onHomeSelectionPersisted) {
+          onHomeSelectionPersisted({
+            expectedSelectedAccount: expectedHomeSelectedAccount,
+            previousSelectedAccount: homeSelectedAccount,
+            selectedAccount: newSelectedAccount,
+            writeIntentEpoch: homeWriteIntentEpochAtRequest,
+          });
+        } else {
+          try {
+            appEventBus.emit(EAppEventBusNames.SyncDappAccountToHomeAccount, {
+              expectedSelectedAccount: expectedHomeSelectedAccount,
+              selectedAccount: newSelectedAccount,
+            });
+          } catch {
+            // Persistence succeeded; event delivery remains best-effort.
+          }
+          // force reset processing to false after 200ms
+          setTimeout(() => {
+            void this.setIsAlignPrimaryAccountProcessing({
+              processing: false,
+            });
+          }, 200);
+        }
+        return true;
+      }
       void this.setIsAlignPrimaryAccountProcessing({
         processing: false,
       });
+      return runFinalizeApproval();
+    } catch (error) {
+      void this.setIsAlignPrimaryAccountProcessing({
+        processing: false,
+      });
+      throw error;
     }
   }
 
   @backgroundMethod()
   async buildHomeSelectedAccountByDappAccount({
     dAppAccountInfos,
+    homeSelectedAccount,
   }: {
     dAppAccountInfos: IConnectionAccountInfo[] | null;
+    homeSelectedAccount?: IAccountSelectorSelectedAccount;
   }) {
     if (!Array.isArray(dAppAccountInfos) || dAppAccountInfos.length !== 1) {
       return null;
@@ -2013,10 +2465,11 @@ class ServiceDApp extends ServiceBase {
     } = dAppAccount;
     let newSelectedAccount: IAccountSelectorSelectedAccount;
     const homeAccountSelectorInfo =
-      await simpleDb.accountSelector.getSelectedAccount({
+      homeSelectedAccount ??
+      (await simpleDb.accountSelector.getSelectedAccount({
         sceneName: EAccountSelectorSceneName.home,
         num: 0,
-      });
+      }));
     const isOtherWallet = accountUtils.isOthersAccount({
       accountId,
     });

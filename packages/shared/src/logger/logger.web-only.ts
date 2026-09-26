@@ -14,8 +14,9 @@ type IWebLazyLoggerCallResult = {
   value: unknown;
 };
 
-const WEB_LAZY_LOGGER_DELAY_MS = 3000;
-const WEB_LAZY_LOGGER_QUEUE_LIMIT = 200;
+const WEB_LAZY_LOGGER_DELAY_MS = process.env.E2E_MODE === 'true' ? 0 : 3000;
+const WEB_LAZY_LOGGER_QUEUE_LIMIT =
+  process.env.E2E_MODE === 'true' ? 10_000 : 200;
 const WEB_LAZY_LOGGER_MARKER = Symbol('onekey.webLazyLogger');
 
 let resolvedDefaultLogger: IDefaultLogger | undefined;

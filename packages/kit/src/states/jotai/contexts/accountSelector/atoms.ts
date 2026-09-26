@@ -1,5 +1,7 @@
 import { useMemo } from 'react';
 
+import { selectAtom } from 'jotai/utils';
+
 import type {
   IDBAccount,
   IDBDevice,
@@ -36,6 +38,7 @@ const {
   Provider: AccountSelectorJotaiProvider,
   useContextData: useAccountSelectorContextData,
   contextAtom,
+  contextAtomComputed,
   contextAtomMethod,
 } = createJotaiContext<IAccountSelectorContextData>();
 
@@ -43,6 +46,17 @@ export const {
   atom: accountSelectorContextDataAtom,
   use: useAccountSelectorContextDataAtom,
 } = contextAtom<IAccountSelectorContextData | undefined>(undefined);
+
+// Stable scope identity for request bookkeeping that must stay per-store.
+// accountSelectorContextDataAtom is only populated once AccountSelectorEffects
+// mounts, so anything keyed on sceneName alone collapses into one shared bucket
+// during that window and lets unrelated selectors cancel each other. Assigned on
+// first use (from the scene identity when it is already known) and then never
+// reassigned, so a store keeps one bucket across the mount boundary.
+export const {
+  atom: accountSelectorStoreScopeIdAtom,
+  use: useAccountSelectorStoreScopeIdAtom,
+} = contextAtom<string>('');
 
 export const defaultSelectedAccount: () => IAccountSelectorSelectedAccount =
   () => ({
@@ -68,6 +82,26 @@ export const { atom: selectedAccountsAtom, use: useSelectedAccountsAtom } =
     },
   );
 
+const selectedAccountByNumAtomCache = new Map<
+  number,
+  ReturnType<
+    typeof contextAtomComputed<IAccountSelectorSelectedAccount | undefined>
+  >
+>();
+
+function getOrCreateSelectedAccountByNumAtom(num: number) {
+  let entry = selectedAccountByNumAtomCache.get(num);
+  if (!entry) {
+    const selectedAtom = selectAtom(
+      selectedAccountsAtom(),
+      (selectedAccounts) => selectedAccounts[num],
+    );
+    entry = contextAtomComputed((get) => get(selectedAtom));
+    selectedAccountByNumAtomCache.set(num, entry);
+  }
+  return entry;
+}
+
 // const atomInstance = selectedAccountsAtom();
 // const oldWrite = atomInstance.write;
 // atomInstance.write = (get, set, update) => {
@@ -86,11 +120,7 @@ export function useSelectedAccount({
   isSelectedAccountDefaultValue: boolean;
 } {
   checkIsDefined(num);
-  const [selectedAccounts] = useSelectedAccountsAtom();
-  const selectedAccountOfNum = useMemo(
-    () => selectedAccounts[num],
-    [num, selectedAccounts],
-  );
+  const [selectedAccountOfNum] = getOrCreateSelectedAccountByNumAtom(num).use();
 
   if (debugName === 'HomePage') {
     // console.log(
@@ -135,16 +165,39 @@ export const {
   use: useAccountSelectorStorageInitDoneAtom,
 } = contextAtom<boolean>(false);
 
+// Tracks selection writes within one Account Selector store. Storage init uses
+// this to distinguish local writes from unrelated sibling-scene activity.
+export const { atom: accountSelectorSelectionMutationRevisionAtom } =
+  contextAtom<number>(0);
+
 export const {
   atom: accountSelectorActiveAccountInitDoneAtom,
   use: useAccountSelectorActiveAccountInitDoneAtom,
 } = contextAtom<Partial<{ [num: number]: boolean }>>({});
 
+const activeAccountInitDoneByNumAtomCache = new Map<
+  number,
+  ReturnType<typeof contextAtomComputed<boolean>>
+>();
+
+function getOrCreateActiveAccountInitDoneByNumAtom(num: number) {
+  let entry = activeAccountInitDoneByNumAtomCache.get(num);
+  if (!entry) {
+    const selectedAtom = selectAtom(
+      accountSelectorActiveAccountInitDoneAtom(),
+      (initDone) => Boolean(initDone[num]),
+    );
+    entry = contextAtomComputed((get) => get(selectedAtom));
+    activeAccountInitDoneByNumAtomCache.set(num, entry);
+  }
+  return entry;
+}
+
 export function useIsAccountSelectorActiveAccountInitDone(
   num: number,
 ): boolean {
-  const [initDone] = useAccountSelectorActiveAccountInitDoneAtom();
-  return !!initDone?.[num];
+  const [initDone] = getOrCreateActiveAccountInitDoneByNumAtom(num).use();
+  return initDone;
 }
 
 export type IAccountSelectorAvailableNetworks = {
@@ -160,9 +213,43 @@ export const {
 } = contextAtom<IAccountSelectorAvailableNetworksMap>({
   0: {},
 });
+
+const availableNetworksByNumAtomCache = new Map<
+  number,
+  ReturnType<
+    typeof contextAtomComputed<IAccountSelectorAvailableNetworks | undefined>
+  >
+>();
+
+function getOrCreateAvailableNetworksByNumAtom(num: number) {
+  let entry = availableNetworksByNumAtomCache.get(num);
+  if (!entry) {
+    const selectedAtom = selectAtom(
+      accountSelectorAvailableNetworksAtom(),
+      (availableNetworks) => availableNetworks[num],
+    );
+    entry = contextAtomComputed((get) => get(selectedAtom));
+    availableNetworksByNumAtomCache.set(num, entry);
+  }
+  return entry;
+}
+
+export function useAccountSelectorAvailableNetworksByNum(num: number) {
+  const [availableNetworks] = getOrCreateAvailableNetworksByNumAtom(num).use();
+  return availableNetworks;
+}
 export type IAccountSelectorUpdateMeta = {
   eventEmitDisabled: boolean;
-  updatedAt: number;
+  // Stable runtime identity for deterministic ordering when two isolated
+  // extension runtimes commit different values in the same millisecond.
+  sourceRuntimeId?: string;
+  // The selection's committed revision. Undefined means the slot holds a value
+  // that was applied from an unversioned source (cold-start storage apply, an
+  // event that carried no revision) and therefore claims no ordering: any
+  // event with a real revision may replace it, and the next local commit mints
+  // a fresh revision. Never backfill it with a receive time - that would make
+  // the unversioned value outrank every revision emitted before "now".
+  updatedAt?: number;
 };
 export const {
   atom: accountSelectorUpdateMetaAtom,
@@ -180,6 +267,29 @@ export const {
   },
 );
 
+const updateMetaByNumAtomCache = new Map<
+  number,
+  ReturnType<typeof contextAtomComputed<IAccountSelectorUpdateMeta | undefined>>
+>();
+
+function getOrCreateUpdateMetaByNumAtom(num: number) {
+  let entry = updateMetaByNumAtomCache.get(num);
+  if (!entry) {
+    const selectedAtom = selectAtom(
+      accountSelectorUpdateMetaAtom(),
+      (updateMeta) => updateMeta[num],
+    );
+    entry = contextAtomComputed((get) => get(selectedAtom));
+    updateMetaByNumAtomCache.set(num, entry);
+  }
+  return entry;
+}
+
+export function useAccountSelectorUpdateMetaByNum(num: number) {
+  const [updateMeta] = getOrCreateUpdateMetaByNumAtom(num).use();
+  return updateMeta;
+}
+
 export type IAccountSelectorSyncLoadingMeta = {
   isLoading: boolean;
 };
@@ -192,9 +302,27 @@ export const {
   }>
 >({});
 
+const syncLoadingByNumAtomCache = new Map<
+  number,
+  ReturnType<typeof contextAtomComputed<boolean>>
+>();
+
+function getOrCreateSyncLoadingByNumAtom(num: number) {
+  let entry = syncLoadingByNumAtomCache.get(num);
+  if (!entry) {
+    const selectedAtom = selectAtom(
+      accountSelectorSyncLoadingAtom(),
+      (syncLoading) => Boolean(syncLoading[num]?.isLoading),
+    );
+    entry = contextAtomComputed((get) => get(selectedAtom));
+    syncLoadingByNumAtomCache.set(num, entry);
+  }
+  return entry;
+}
+
 export function useIsAccountSelectorSyncLoading(num: number): boolean {
-  const [syncLoading] = useAccountSelectorSyncLoadingAtom();
-  return !!syncLoading?.[num]?.isLoading;
+  const [syncLoading] = getOrCreateSyncLoadingByNumAtom(num).use();
+  return syncLoading;
 }
 
 export interface IAccountSelectorActiveAccountInfo {
@@ -239,6 +367,26 @@ export const { atom: activeAccountsAtom, use: useActiveAccountsAtom } =
     },
   );
 
+const activeAccountByNumAtomCache = new Map<
+  number,
+  ReturnType<
+    typeof contextAtomComputed<IAccountSelectorActiveAccountInfo | undefined>
+  >
+>();
+
+function getOrCreateActiveAccountByNumAtom(num: number) {
+  let entry = activeAccountByNumAtomCache.get(num);
+  if (!entry) {
+    const selectedAtom = selectAtom(
+      activeAccountsAtom(),
+      (activeAccounts) => activeAccounts[num],
+    );
+    entry = contextAtomComputed((get) => get(selectedAtom));
+    activeAccountByNumAtomCache.set(num, entry);
+  }
+  return entry;
+}
+
 export function useActiveAccount({ num }: { num: number }): {
   activeAccount: IAccountSelectorActiveAccountInfo;
 } {
@@ -246,15 +394,14 @@ export function useActiveAccount({ num }: { num: number }): {
   // const [selectedAccounts] = useSelectedAccountsAtom();
   // noopObject(selectedAccounts);
 
-  const [accounts] = useActiveAccountsAtom();
+  const [accountInfo] = getOrCreateActiveAccountByNumAtom(num).use();
 
   return useMemo(() => {
-    const accountInfo = accounts[num];
     const activeAccount = accountInfo || defaultActiveAccountInfo();
     return {
       activeAccount,
     };
-  }, [accounts, num]);
+  }, [accountInfo]);
 }
 
 export function useAccountSelectorSceneInfo() {

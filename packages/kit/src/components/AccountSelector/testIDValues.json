@@ -1,0 +1,23 @@
+{
+  "actionsSelect": "account-selector-actions-select",
+  "address": "account-selector-address",
+  "addressText": "account-selector-address-text",
+  "addressTypeSelectorItemPrefix": "address-type-selector-item-",
+  "allNetworksTrigger": "account-all-networks-trigger-button",
+  "btcOnlyWalletButton": "account-selector-is-btc-only-wallet-btn",
+  "copyAddressButton": "account-selector-copy-address-btn",
+  "createAddressButton": "account-selector-create-address-btn",
+  "dappAccountAddress": "dapp-connection-account-address",
+  "dappAccountName": "dapp-connection-account-name",
+  "deriveTypeButton": "account-selector-derive-type-trigger-btn",
+  "deriveTypeSelect": "account-selector-derive-type-select",
+  "deriveTypeSelectorTriggerPrefix": "derive-type-selector-trigger-",
+  "genericButton": "account-selector-btn",
+  "networkInput": "network-selector-input",
+  "networkTrigger": "account-network-trigger-button",
+  "networkTriggerText": "account-network-trigger-button-text",
+  "syncButton": "account-selector-sync-btn",
+  "trigger": "AccountSelectorTriggerBase",
+  "triggerAccountName": "account-name",
+  "walletDerivationPathTrigger": "wallet-derivation-path-selector-trigger"
+}
