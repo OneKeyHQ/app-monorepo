@@ -185,30 +185,34 @@ class DesktopApiDev {
 
     sendProgress({ stage: ELogUploadStage.Uploading, progressPercent: 0 });
 
+    // Node's built-in fetch (undici) pulls a streaming body lazily, only once
+    // the connection is up. Listening for 'data' on the file stream before
+    // fetch() would switch it to flowing mode and drain the whole archive in
+    // the meantime, so fetch would send an empty body and reject with
+    // UND_ERR_REQ_CONTENT_LENGTH_MISMATCH (OK-64070). Hand fetch a pull-based
+    // generator instead: the archive is opened and counted only as fetch
+    // consumes it, so progress never runs ahead of the connection and a
+    // failed connect never touches the file.
     let uploadedBytes = 0;
-    const fileStream = fs.createReadStream(filePath);
-    if (totalBytes > 0) {
-      fileStream.on('data', (chunk) => {
+    const archive: { stream?: fs.ReadStream } = {};
+    const readArchive = async function* (): AsyncGenerator<Buffer> {
+      archive.stream = fs.createReadStream(filePath);
+      for await (const chunk of archive.stream as AsyncIterable<Buffer>) {
         uploadedBytes += chunk.length;
-        const percent = Math.min(
-          100,
-          Math.round((uploadedBytes / totalBytes) * 100),
-        );
-        sendProgress({
-          stage: ELogUploadStage.Uploading,
-          progressPercent: percent,
-        });
-      });
-    }
-    fileStream.on('error', (streamError) => {
-      sendProgress({
-        stage: ELogUploadStage.Error,
-        message:
-          streamError instanceof Error
-            ? streamError.message
-            : String(streamError),
-      });
-    });
+        if (totalBytes > 0) {
+          sendProgress({
+            stage: ELogUploadStage.Uploading,
+            progressPercent: Math.min(
+              100,
+              Math.round((uploadedBytes / totalBytes) * 100),
+            ),
+          });
+        }
+        yield chunk;
+      }
+    };
+    const body = readArchive();
+    const abortController = new AbortController();
 
     try {
       const finalHeaders = await withCustomUAHeaders(uploadUrl, reqHeaders);
@@ -237,9 +241,10 @@ class DesktopApiDev {
       const requestInit: RequestInit & { duplex: 'half' } = {
         method: 'POST',
         headers: finalHeaders,
-        body: fileStream as unknown as BodyInit,
+        body: body as unknown as BodyInit,
         // Node's native fetch requires duplex for a streaming request body.
         duplex: 'half',
+        signal: abortController.signal,
       };
       const response = await fetch(uploadUrl, requestInit);
       const text = await response.text();
@@ -299,11 +304,29 @@ class DesktopApiDev {
         };
       }
     } catch (error) {
+      // undici reports every transport failure as a bare "fetch failed";
+      // the actual reason only lives in `cause`, so log it for triage.
+      const cause = (error as { cause?: { code?: unknown; message?: unknown } })
+        ?.cause;
+      logger.error(
+        '[client-log-upload] request failed:',
+        error instanceof Error ? error.message : String(error),
+        cause
+          ? `cause=${String(cause.code ?? '')} ${String(cause.message ?? '')}`
+          : '',
+      );
       sendProgress({
         stage: ELogUploadStage.Error,
         message: error instanceof Error ? error.message : String(error),
       });
       throw error;
+    } finally {
+      // The request can end before the body is consumed (connect failure,
+      // server replied before reading the body, error thrown before fetch).
+      // Release the transport and the archive ourselves instead of leaving
+      // an open fd and a stalled socket behind until the process exits.
+      abortController.abort();
+      archive.stream?.destroy();
     }
   }
 
