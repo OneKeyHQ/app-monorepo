@@ -425,6 +425,9 @@ config.cacheVersion = `${config.cacheVersion || 'default'}:native-bg-${
 if (isDevVendorEnabled()) {
   config.cacheVersion = `${config.cacheVersion}:dev-vendor-v1`;
 }
+if (process.env.ONEKEY_FUNCTION_TRACE === '1') {
+  config.cacheVersion = `${config.cacheVersion}:function-trace-v1`;
+}
 
 if (buildTimeEnv.isDev && buildTimeEnv.enableNativeBackgroundThread) {
   const configuredMaxWorkers = Number.parseInt(

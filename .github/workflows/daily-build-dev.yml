@@ -8,6 +8,16 @@ on:
         required: false
         type: boolean
         default: false
+      ENABLE_STARTUP_PROFILE:
+        description: 'Build with ONEKEY_STARTUP_PROFILE=1 (uses the -startup-profile variant of the normal EAS profiles; dev builds stay internal). See skill 1k-startup-profile.'
+        required: false
+        type: boolean
+        default: false
+      ENABLE_FUNCTION_TRACE:
+        description: 'Build with per-function tracing (ONEKEY_FUNCTION_TRACE=1; implies startup profile; large bundle and log output). Uses the -function-trace variant of the normal EAS profiles; dev builds stay internal.'
+        required: false
+        type: boolean
+        default: false
 
 permissions:
   actions: write
@@ -47,7 +57,11 @@ jobs:
           bundle_version=$(( $(date -u +%s) - $(date -u -d '2026-01-01T00:00:00' +%s 2>/dev/null || date -u -j -f '%Y-%m-%dT%H:%M:%S' '2026-01-01T00:00:00' +%s) ))
           echo "BUILD_BUNDLE_VERSION=$bundle_version" >> "$GITHUB_ENV"
           echo "WORKFLOW_BUNDLE_VERSION=$bundle_version" >> ./workflow-data/params.env
-          echo "ONEKEY_ALLOW_SKIP_GPG_VERIFICATION=${{ github.event.inputs.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION || 'false' }}" >> ./workflow-data/params.env
+          {
+            echo "ONEKEY_ALLOW_SKIP_GPG_VERIFICATION=${{ github.event.inputs.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION || 'false' }}"
+            echo "ENABLE_STARTUP_PROFILE=${{ github.event.inputs.ENABLE_STARTUP_PROFILE || 'false' }}"
+            echo "ENABLE_FUNCTION_TRACE=${{ github.event.inputs.ENABLE_FUNCTION_TRACE || 'false' }}"
+          } >> ./workflow-data/params.env
 
       - name: Upload workflow parameters
         uses: actions/upload-artifact@v4
