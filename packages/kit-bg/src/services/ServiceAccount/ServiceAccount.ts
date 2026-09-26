@@ -99,8 +99,11 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import {
+  canBuildHwWalletXfp,
+  getVendorProfile,
+} from '@onekeyhq/shared/src/hardware/config/vendorProfile';
 import { projectLegacyDeviceFeaturesFromState } from '@onekeyhq/shared/src/hardware/deviceStateUtils';
-import { getVendorProfile } from '@onekeyhq/shared/src/hardware/vendorProfile';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
@@ -130,7 +133,6 @@ import { EMnemonicType } from '@onekeyhq/shared/src/utils/secret';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 import thirdPartyDeviceUtils from '@onekeyhq/shared/src/utils/thirdPartyDeviceUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
-import { EHardwareTransportType } from '@onekeyhq/shared/types';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 import type {
   IBatchCreateAccount,
@@ -142,6 +144,7 @@ import type { IGeneralInputValidation } from '@onekeyhq/shared/types/address';
 import type { IBotWalletMetadata } from '@onekeyhq/shared/types/botWallet';
 import type {
   IDeviceSharedCallParams,
+  IHardwareOperationContext,
   IOneKeyDeviceFeatures,
 } from '@onekeyhq/shared/types/device';
 import {
@@ -198,6 +201,10 @@ import {
 } from '../../states/jotai/atoms';
 import { hardwareForceTransportAtom } from '../../states/jotai/atoms/desktopBluetooth';
 import { verifySeedMatch as verifyLedgerSeedMatch } from '../../vaults/base/ledgerFingerprintUtils';
+import {
+  thirdPartyConnectionContextFromDevice,
+  withHardwareOperationContext,
+} from '../../vaults/base/thirdPartyHardwareCommonParams';
 import { vaultFactory } from '../../vaults/factory';
 import { getVaultSettings } from '../../vaults/settings';
 import ServiceBase from '../ServiceBase';
@@ -264,6 +271,7 @@ export type IAddHDOrHWAccountsParams = {
   hdCredentialCacheScopeId?: string;
   // auto multi-network fill scene flag (business derived from it, not passed in)
   isAutoCreateMultiNetwork?: boolean;
+  hardwareOperationContext?: IHardwareOperationContext;
   oneKeyOperationLease?: IOneKeyHardwareOperationLease;
 
   // purpose?: number;
@@ -320,7 +328,8 @@ class ServiceAccount extends ServiceBase {
         : undefined;
     const featureVendor =
       rawFeatureVendor === EHardwareVendor.ledger ||
-      rawFeatureVendor === EHardwareVendor.trezor
+      rawFeatureVendor === EHardwareVendor.trezor ||
+      rawFeatureVendor === EHardwareVendor.keystone
         ? rawFeatureVendor
         : undefined;
     const resolvedVendor = vendor ?? featureVendor ?? EHardwareVendor.onekey;
@@ -680,6 +689,12 @@ class ServiceAccount extends ServiceBase {
     let allDevices: IDBDevice[] | undefined;
     if (params.refillWalletInfo) {
       allDevices = (await this.getAllDevices()).devices;
+      // Keep newer-version records in storage while hiding hardware vendors
+      // that this app cannot safely refill or operate.
+      wallets = localDb.filterWalletsByHardwareVendorSupport({
+        wallets,
+        allDevices,
+      });
       const refilledWalletsCache: {
         [walletId: string]: IDBWallet;
       } = {};
@@ -1116,6 +1131,7 @@ class ServiceAccount extends ServiceBase {
     customReceiveAddressPath,
     hdCredentialCacheScopeId,
     isAutoCreateMultiNetwork,
+    hardwareOperationContext,
   }: {
     walletId: string | undefined;
     networkId: string | undefined;
@@ -1129,6 +1145,7 @@ class ServiceAccount extends ServiceBase {
     customReceiveAddressPath?: string;
     hdCredentialCacheScopeId?: string;
     isAutoCreateMultiNetwork?: boolean;
+    hardwareOperationContext?: IHardwareOperationContext;
   }) {
     if (!walletId) {
       throw new OneKeyLocalError('walletId is required');
@@ -1187,11 +1204,15 @@ class ServiceAccount extends ServiceBase {
       | IPrepareHdAccountsParams
       | IPrepareHardwareAccountsParams;
     if (isHardware) {
+      const checkedDeviceParams = checkIsDefined(deviceParams);
       const hwParams: IPrepareHardwareAccountsParams = {
-        deviceParams: {
-          ...checkIsDefined(deviceParams),
-          confirmOnDevice,
-        },
+        deviceParams: withHardwareOperationContext(
+          {
+            ...checkedDeviceParams,
+            confirmOnDevice,
+          },
+          hardwareOperationContext,
+        ),
 
         indexes: usedIndexes,
         names,
@@ -3512,8 +3533,8 @@ class ServiceAccount extends ServiceBase {
     }
     const dbDevice = await this.getWalletDevice({ walletId });
 
-    // Ensure connectId is compatible for the current transport type
-    if (dbDevice.connectId) {
+    // Only OneKey resolves its transport through the legacy compatibility path.
+    if (dbDevice.connectId && !getVendorProfile(dbDevice.vendor).isThirdParty) {
       try {
         dbDevice.connectId =
           await this.backgroundApi.serviceHardware.getCompatibleConnectId({
@@ -3566,44 +3587,96 @@ class ServiceAccount extends ServiceBase {
   private async getFeaturesForHwWalletCreate({
     dbDevice,
     compatibleConnectId,
+    hardwareOperationContext,
   }: {
     dbDevice: Pick<
       IDBDevice,
       'vendor' | 'deviceId' | 'deviceStateInfo' | 'featuresInfo'
     >;
     compatibleConnectId: string;
+    hardwareOperationContext?: IHardwareOperationContext;
   }): Promise<IOneKeyDeviceFeatures> {
     let features: IOneKeyDeviceFeatures | undefined;
     const vendorProfile = getVendorProfile(
       dbDevice.vendor ?? EHardwareVendor.onekey,
     );
-    if (dbDevice.vendor && vendorProfile.isThirdParty) {
-      const connected =
-        await this.backgroundApi.serviceThirdPartyHardware.connectDevice({
-          vendor: dbDevice.vendor,
-          connectId: compatibleConnectId,
-          deviceId: dbDevice.deviceId,
-        });
-      if (dbDevice.vendor === EHardwareVendor.trezor) {
-        if (!connected.success) {
-          throw convertDeviceError(
-            connected.payload as IOneKeyHardwareErrorPayload,
-            { vendor: dbDevice.vendor },
-          );
-        }
-        // Reject reset devices before creating wallet records.
-        if (
-          !connected.payload.deviceId ||
-          connected.payload.deviceId !== dbDevice.deviceId
-        ) {
-          throw new ThirdPartyDeviceMismatch({
-            vendor: dbDevice.vendor,
-            payload: {},
-          });
-        }
+    if (dbDevice.vendor === EHardwareVendor.trezor) {
+      const adapter =
+        await this.backgroundApi.serviceThirdPartyHardware.getAdapterForVendor(
+          dbDevice.vendor,
+        );
+      if (!adapter?.hw.getFeatures) {
+        throw new OneKeyLocalError('Trezor device features are unavailable');
       }
-      if (connected.success) {
-        features = connected.payload.features as IOneKeyDeviceFeatures;
+      if (!dbDevice.deviceId) {
+        throw new ThirdPartyDeviceMismatch({
+          vendor: dbDevice.vendor,
+          payload: {},
+        });
+      }
+      const operationId = hardwareOperationContext?.operationId;
+      const storedDevice = operationId
+        ? undefined
+        : await localDb.getDeviceByQuery({
+            featuresDeviceId: dbDevice.deviceId,
+            vendor: dbDevice.vendor,
+          });
+      // A selected operation owns its channel and lifetime. Without one, let
+      // the SDK discover and verify the device using the saved channel hints.
+      const result = await adapter.hw.getFeatures(
+        operationId || compatibleConnectId,
+        {
+          ...(operationId
+            ? { operationId }
+            : thirdPartyConnectionContextFromDevice(storedDevice ?? dbDevice)),
+          expectedDeviceIdentity: {
+            vendor: dbDevice.vendor,
+            type: 'deviceId',
+            value: dbDevice.deviceId,
+          },
+        },
+      );
+      if (!result.success) {
+        throw convertDeviceError(
+          result.payload as IOneKeyHardwareErrorPayload,
+          {
+            vendor: dbDevice.vendor,
+          },
+        );
+      }
+      if (result.payload.device_id !== dbDevice.deviceId) {
+        throw new ThirdPartyDeviceMismatch({
+          vendor: dbDevice.vendor,
+          payload: {},
+        });
+      }
+      features = result.payload as IOneKeyDeviceFeatures;
+    } else if (dbDevice.vendor && vendorProfile.isThirdParty) {
+      let operationId: string | undefined;
+      try {
+        const connected =
+          await this.backgroundApi.serviceThirdPartyHardware.connectDevice({
+            vendor: dbDevice.vendor,
+            searchTargetId: compatibleConnectId,
+            deviceId: dbDevice.deviceId,
+          });
+        // Claim the interaction before any rejection below, so a mismatch
+        // throw cannot leave it held.
+        if (connected.success) {
+          operationId = connected.payload.operationId;
+        }
+        if (connected.success) {
+          features = connected.payload.features as IOneKeyDeviceFeatures;
+        }
+      } finally {
+        if (operationId) {
+          await this.backgroundApi.serviceThirdPartyHardware
+            .releaseOperation({
+              vendor: dbDevice.vendor,
+              operationId,
+            })
+            .catch(() => undefined);
+        }
       }
     } else {
       const persistedState = dbDevice.deviceStateInfo;
@@ -3679,13 +3752,15 @@ class ServiceAccount extends ServiceBase {
       storedConnectProtocol === 'V1' || storedConnectProtocol === 'V2'
         ? storedConnectProtocol
         : undefined;
-    const compatibleConnectId =
-      await this.backgroundApi.serviceHardware.getCompatibleConnectId({
-        connectId,
-        featuresDeviceId: dbDevice.deviceId,
-        vendor: dbDevice.vendor,
-        hardwareCallContext: EHardwareCallContext.USER_INTERACTION,
-      });
+    const hiddenWalletVendorProfile = getVendorProfile(dbDevice.vendor);
+    const compatibleConnectId = hiddenWalletVendorProfile.isThirdParty
+      ? connectId
+      : await this.backgroundApi.serviceHardware.getCompatibleConnectId({
+          connectId,
+          featuresDeviceId: dbDevice.deviceId,
+          vendor: dbDevice.vendor,
+          hardwareCallContext: EHardwareCallContext.USER_INTERACTION,
+        });
 
     // createHWHiddenWallet
     return this.backgroundApi.serviceHardwareUI.withHardwareProcessing(
@@ -3704,9 +3779,6 @@ class ServiceAccount extends ServiceBase {
         // since the protocol field was introduced.
         let seededDbDevice = dbDevice;
         let seededConnectProtocol = connectProtocol;
-        const hiddenWalletVendorProfile = getVendorProfile(
-          dbDevice.vendor ?? EHardwareVendor.onekey,
-        );
         if (
           !seededDbDevice.deviceStateInfo &&
           !hiddenWalletVendorProfile.isThirdParty &&
@@ -3916,7 +3988,7 @@ class ServiceAccount extends ServiceBase {
 
     // Persist the endpoint selected from the fused scan. The global setting is
     // only a fallback when the selected device has no transport metadata.
-    const transportType = resolveHwWalletTransportType({
+    const resolvedTransportType = resolveHwWalletTransportType({
       globalTransportType,
       deviceConnectionType: (
         params.device as { raw?: { connectionType?: 'usb' | 'ble' } }
@@ -3926,6 +3998,7 @@ class ServiceAccount extends ServiceBase {
       isNative: !!platformEnv.isNative,
     });
 
+    const transportType = resolvedTransportType;
     return this.backgroundApi.serviceHardwareUI.withHardwareProcessing(
       () =>
         this.createHWWalletBase({
@@ -3934,9 +4007,19 @@ class ServiceAccount extends ServiceBase {
           transportType,
         }),
       {
-        deviceParams: {
-          dbDevice: params.device as IDBDevice,
-        },
+        deviceParams: withHardwareOperationContext(
+          {
+            dbDevice: {
+              ...params.device,
+              vendor: params.vendor ?? (params.device as IDBDevice).vendor,
+            } as IDBDevice,
+            deviceCommonParams: {
+              passphraseState: undefined,
+              useEmptyPassphrase: true,
+            },
+          },
+          params.hardwareOperationContext,
+        ),
         skipDeviceCancel: params.skipDeviceCancel,
         hideCheckingDeviceLoading: params.hideCheckingDeviceLoading,
         debugMethodName: 'createHWWalletBase',
@@ -3971,30 +4054,18 @@ class ServiceAccount extends ServiceBase {
         | EHardwareVendor
         | undefined);
     const vendorProfile = vendor ? getVendorProfile(vendor) : undefined;
-    const isUsbTransport =
-      transportType === EHardwareTransportType.WEBUSB ||
-      transportType === EHardwareTransportType.Bridge;
-    if (
-      vendorProfile?.isThirdParty &&
-      !params.device.connectId &&
-      !isUsbTransport
-    ) {
-      throw new OneKeyLocalError(
-        'createHWWalletBase ERROR: connectId is required for non-USB third-party hardware',
-      );
-    }
-
-    // Skip compatibility lookup for vendors without persistent USB connectId.
-    const compatibleConnectId =
-      vendorProfile?.isThirdParty &&
-      !vendorProfile.hasPersistentConnectId('usb')
-        ? (params.device.connectId ?? '')
-        : await this.backgroundApi.serviceHardware.getCompatibleConnectId({
-            connectId: params.device.connectId ?? '',
-            featuresDeviceId: params.device.deviceId ?? '',
-            vendor,
-            hardwareCallContext: EHardwareCallContext.USER_INTERACTION,
-          });
+    // Third-party adapters resolve transport hints and verify identity themselves.
+    // A saved device may only have per-transport locators, or none at all.
+    const compatibleConnectId = vendorProfile?.isThirdParty
+      ? (params.device.connectId ?? '')
+      : await this.backgroundApi.serviceHardware.getCompatibleConnectId({
+          connectId: params.device.connectId ?? '',
+          featuresDeviceId: params.device.deviceId ?? '',
+          vendor,
+          hardwareCallContext: EHardwareCallContext.USER_INTERACTION,
+        });
+    const hardwareCallConnectId =
+      params.hardwareOperationContext?.operationId || compatibleConnectId;
 
     let deviceId = deviceUtils.getRawDeviceId({
       device: params.device,
@@ -4014,6 +4085,7 @@ class ServiceAccount extends ServiceBase {
           featuresInfo: features,
         },
         compatibleConnectId,
+        hardwareOperationContext: params.hardwareOperationContext,
       });
     }
 
@@ -4074,7 +4146,7 @@ class ServiceAccount extends ServiceBase {
     let xfp: string | undefined;
     if (fillingXfpByCallingSdk && !isMockedStandardHwWallet) {
       xfp = await this.backgroundApi.serviceHardware.buildHwWalletXfp({
-        connectId: compatibleConnectId,
+        connectId: hardwareCallConnectId,
         deviceId,
         passphraseState,
         throwError: true,
@@ -4096,32 +4168,36 @@ class ServiceAccount extends ServiceBase {
           error instanceof Error ? error.message : 'Unknown error',
         ),
     });
+    const {
+      hardwareOperationContext: _hardwareOperationContext,
+      ...localDbCreateParams
+    } = params;
     const result = await localDb.createHwWallet({
-      ...params,
+      ...localDbCreateParams,
       deviceState,
       vendor,
       xfp,
       passphraseState: passphraseState || '',
       getFirstEvmAddressFn: async (): Promise<string | null> => {
         return this.getFirstEvmAddressForHwWalletCreate({
-          compatibleConnectId,
+          compatibleConnectId: hardwareCallConnectId,
           deviceId,
           passphraseState,
           vendor,
           isMockedStandardHwWallet,
         });
       },
-      // Gated by vendor capability, not `vendor === ledger`, so a future vendor
-      // with the same non-persistent-identity connectId opts in via its profile
-      // instead of a new branch here.
-      verifySeedMatchFn: vendorProfile?.requiresSeedVerifyOnConnectIdMatch
-        ? async (matchedDevice) =>
-            verifyLedgerSeedMatch(
-              this.backgroundApi,
-              matchedDevice,
-              compatibleConnectId,
-            )
-        : undefined,
+      // Ledger's chain fingerprint is a vendor-specific identity check.
+      verifySeedMatchFn:
+        vendorProfile?.identity.connectIdMatchVerification ===
+        'ledgerChainFingerprint'
+          ? async (matchedDevice) =>
+              verifyLedgerSeedMatch(
+                this.backgroundApi,
+                matchedDevice,
+                hardwareCallConnectId,
+              )
+          : undefined,
       transportType,
     });
     const deviceLabel = getStandardHwWalletLabelForNameSync({
@@ -6131,11 +6207,9 @@ class ServiceAccount extends ServiceBase {
 
     const vaultSettings =
       await this.backgroundApi.serviceNetwork.getVaultSettings({ networkId });
-    // getHWAccountAddresses
-    // Third-party vendors (Ledger) don't use OneKey SDK's hardware UI flow
     const deviceVendor =
       deviceParams?.dbDevice?.vendor ?? EHardwareVendor.onekey;
-    const isThirdPartyVendor = getVendorProfile(deviceVendor).isThirdParty;
+    const { addressVerification } = getVendorProfile(deviceVendor);
 
     return this.backgroundApi.serviceHardwareUI.withHardwareProcessing(
       async (oneKeyOperationLease) => {
@@ -6181,7 +6255,8 @@ class ServiceAccount extends ServiceBase {
       },
       {
         deviceParams,
-        hideCheckingDeviceLoading: isThirdPartyVendor,
+        hideCheckingDeviceLoading:
+          addressVerification.confirmationEvent !== 'buttonRequest',
         skipDeviceCancelAtFirst: true,
         debugMethodName: 'verifyHWAccountAddresses.prepareAccounts',
         stageConfirmContent: params.expectedAddress
@@ -7324,6 +7399,11 @@ class ServiceAccount extends ServiceBase {
       });
       if (!device) {
         throw new OneKeyLocalError('wallet associated device not found');
+      }
+      // Nothing to ask an xfp-less vendor's device for; opening the hardware
+      // flow would only flash the device stage and wait.
+      if (!canBuildHwWalletXfp(device.vendor)) {
+        return;
       }
       await this.backgroundApi.serviceHardwareUI.withHardwareProcessing(
         async () => {

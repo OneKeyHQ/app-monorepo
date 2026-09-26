@@ -37,7 +37,11 @@ import {
 import {
   DESKTOP_BLE_FIRMWARE_CONNECTION_TIMEOUT_MS,
   DESKTOP_BLE_SILENT_BIND_CONNECTION_TIMEOUT_MS,
-} from '@onekeyhq/shared/src/hardware/connectionTimeouts';
+} from '@onekeyhq/shared/src/hardware/config/connectionTimeouts';
+import {
+  canBuildHwWalletXfp,
+  getVendorProfile,
+} from '@onekeyhq/shared/src/hardware/config/vendorProfile';
 import {
   getValidDeviceStateVersionKeys,
   projectLegacyDeviceFeaturesFromState,
@@ -47,7 +51,6 @@ import {
   getHardwareSDKInstance,
   resetHardwareSDKInstance,
 } from '@onekeyhq/shared/src/hardware/instance';
-import { getVendorProfile } from '@onekeyhq/shared/src/hardware/vendorProfile';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import {
   LogLevel,
@@ -109,6 +112,7 @@ import {
 import { copyWalletSessionUiMetadata } from './hardwareUiPayloadUtils';
 import { HardwareVerifyManager } from './HardwareVerifyManager';
 import serviceHardwareUtils from './serviceHardwareUtils';
+import { mapThirdPartySearchTargetToSearchDevice } from './thirdPartyDeviceMapping';
 
 import type {
   IAdapterUiResponse,
@@ -2249,6 +2253,7 @@ class ServiceHardware extends ServiceBase {
     resetSession?: boolean;
     waitForAllTransports?: boolean;
     transportType?: 'usb' | 'ble';
+    discoveryMethod?: 'searchDevices' | 'searchDeviceTargets';
   }) {
     this.deviceSearchInProgressCount += 1;
     try {
@@ -2256,7 +2261,28 @@ class ServiceHardware extends ServiceBase {
         ? getVendorProfile(params.vendor)
         : undefined;
       if (params?.vendor && vendorProfile?.isThirdParty) {
-        // Third-party (Trezor / Ledger) discovery lives in ServiceThirdPartyHardware.
+        if (params.discoveryMethod === 'searchDeviceTargets') {
+          const targets =
+            await this.backgroundApi.serviceThirdPartyHardware.searchDeviceTargets(
+              {
+                vendor: params.vendor,
+                resetSession: params.resetSession,
+                waitForAllTransports: params.waitForAllTransports,
+                transportType: params.transportType,
+              },
+            );
+          if (!targets.success) return targets;
+          return {
+            success: true as const,
+            payload: targets.payload.map((target) =>
+              mapThirdPartySearchTargetToSearchDevice({
+                target,
+                defaultDeviceName: vendorProfile.presentation.defaultName,
+              }),
+            ),
+          };
+        }
+        // Existing third-party consumers keep the legacy discovery contract.
         return await this.backgroundApi.serviceThirdPartyHardware.searchDevices(
           {
             vendor: params.vendor,
@@ -4267,20 +4293,20 @@ class ServiceHardware extends ServiceBase {
     withUserInteraction: boolean;
     vendor?: EHardwareVendor;
   }): Promise<string | undefined> {
-    if (!connectId) {
+    if (!connectId && !(vendor === EHardwareVendor.trezor && deviceId)) {
       return;
     }
     const xfpProfile = vendor ? getVendorProfile(vendor) : undefined;
     if (xfpProfile?.isThirdParty) {
       // Trezor can supply XFP via its adapter (master fingerprint + taproot
-      // xpub). Other third-party vendors (e.g. Ledger) stay XFP-less for now.
-      if (vendor !== EHardwareVendor.trezor) {
+      // xpub); see canBuildHwWalletXfp.
+      if (!vendor || !canBuildHwWalletXfp(vendor)) {
         return undefined;
       }
       try {
         return await this.backgroundApi.serviceThirdPartyHardware.buildHwWalletXfp(
           {
-            connectId,
+            connectId: connectId || '',
             deviceId: deviceId || '',
             vendor,
             passphraseState,
@@ -4296,6 +4322,7 @@ class ServiceHardware extends ServiceBase {
         return undefined;
       }
     }
+    if (!connectId) return;
     let compatibleConnectId = connectId;
     try {
       compatibleConnectId = await this.getCompatibleConnectId({
@@ -4689,32 +4716,6 @@ class ServiceHardware extends ServiceBase {
   // probe answers "is any OneKey USB / Bridge device present", which can be true
   // while THIS Trezor is BLE-only, routing its calls to the USB handle and
   // burning a BLE connect timeout before the fallback ladder recovers.
-  private async resolveTrezorPreferredBleConnectId({
-    device,
-    bleConnectId,
-    targetType,
-  }: {
-    device: { vendor?: string };
-    bleConnectId?: string;
-    targetType: EHardwareTransportType;
-  }): Promise<string | undefined> {
-    if (!bleConnectId) {
-      return undefined;
-    }
-    if (targetType === EHardwareTransportType.DesktopWebBle) {
-      return bleConnectId;
-    }
-    if (device.vendor !== EHardwareVendor.trezor) {
-      return undefined;
-    }
-    const trezorUsbPresent =
-      await this.connectionManager.detectTrezorUSBDeviceAvailability();
-    if (trezorUsbPresent) {
-      return undefined;
-    }
-    return bleConnectId;
-  }
-
   // connectId (lowercased) -> timestamp of the last DEVICE.STATE /
   // DEVICE.CONNECT event observed on it. Real traffic implies the endpoint
   // is connected and OS-paired at that moment; DEVICE.DISCONNECT deletes
@@ -4912,6 +4913,12 @@ class ServiceHardware extends ServiceBase {
       throw new OneKeyLocalError('connectId is required');
     }
 
+    // Third-party ids belong to hwk adapters, including fresh discovery handles
+    // that have no database record. Never probe them with OneKey transports.
+    if (vendor && getVendorProfile(vendor).isThirdParty) {
+      return connectId;
+    }
+
     // A transport connect ID is a precise device key only while it is unique:
     // a device wipe keeps the serial-based connectId on the stale record, so
     // an identity-qualified match must win over the connectId-only match —
@@ -4944,41 +4951,11 @@ class ServiceHardware extends ServiceBase {
     const persistedDesktopBleConnectId =
       getPersistedDesktopBleConnectId(device);
 
-    // Third-party devices keep USB as the primary connectId, but Trezor can
-    // have a bound BLE connectId after USB->BLE pairing. Prefer the bound BLE
-    // handle only when the active target transport is DesktopWebBle; do not
-    // fall through to OneKey's generic BLE pairing dialog for unbound devices.
+    // Legacy callers may omit vendor but resolve an existing third-party row.
     if (device?.vendor) {
       const vp = getVendorProfile(device.vendor);
       if (vp.isThirdParty) {
-        if (!platformEnv.isSupportDesktopBle) {
-          return device.connectId || connectId;
-        }
-        if (
-          hardwareCallContext === EHardwareCallContext.BACKGROUND_TASK ||
-          hardwareCallContext ===
-            EHardwareCallContext.BACKGROUND_NON_INTERACTIVE
-        ) {
-          const currentTransportType =
-            hardwareTransportType ?? (await this.getCurrentTransportType());
-          const preferredBle = await this.resolveTrezorPreferredBleConnectId({
-            device,
-            bleConnectId: persistedDesktopBleConnectId,
-            targetType: currentTransportType,
-          });
-          return preferredBle || device.connectId || connectId;
-        }
-
-        const result = await this.connectionManager.resolveTransportType({
-          connectId: device.connectId || connectId,
-          hardwareCallContext,
-        });
-        const preferredBle = await this.resolveTrezorPreferredBleConnectId({
-          device,
-          bleConnectId: persistedDesktopBleConnectId,
-          targetType: result.targetType,
-        });
-        return preferredBle || device.connectId || connectId;
+        return connectId;
       }
     }
 

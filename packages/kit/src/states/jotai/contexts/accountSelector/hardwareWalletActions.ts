@@ -15,6 +15,7 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+import type { IHardwareOperationContext } from '@onekeyhq/shared/types/device';
 
 import type {
   IAccountSelectorActionsInstance,
@@ -92,6 +93,7 @@ async function createStandardWalletAccounts({
   wallet,
   indexedAccount,
   hideCheckingDeviceLoading,
+  hardwareOperationContext,
   mode,
 }: {
   actions: IAccountSelectorActionsInstance;
@@ -99,6 +101,7 @@ async function createStandardWalletAccounts({
   wallet: IDBWallet;
   indexedAccount: IDBIndexedAccount | undefined;
   hideCheckingDeviceLoading?: boolean;
+  hardwareOperationContext?: IHardwareOperationContext;
   mode: IHardwareWalletCreationMode;
 }): Promise<IFinalizeWalletSetupAccountCreationResult> {
   try {
@@ -108,6 +111,7 @@ async function createStandardWalletAccounts({
       isCreateWallet: true,
       skipDeviceCancel: false,
       hideCheckingDeviceLoading,
+      hardwareOperationContext,
       deferPassphraseAlwaysOnDeviceToast: mode === 'onboarding',
     });
     if (
@@ -174,6 +178,7 @@ export async function createHWWalletWithoutHidden({
         wallet,
         indexedAccount,
         hideCheckingDeviceLoading: params.hideCheckingDeviceLoading,
+        hardwareOperationContext: params.hardwareOperationContext,
         mode,
       });
       if (createdDevice?.connectId && createdDevice.deviceId) {

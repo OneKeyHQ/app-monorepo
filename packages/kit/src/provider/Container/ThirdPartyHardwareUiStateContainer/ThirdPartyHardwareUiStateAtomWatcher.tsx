@@ -3,6 +3,7 @@ import { memo, useEffect } from 'react';
 import {
   useThirdPartyAppInstallAtom,
   useThirdPartyBatchInstallAtom,
+  useThirdPartyBleBindingAtom,
   useThirdPartyHardwareUiStateAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms/hardware';
 
@@ -15,11 +16,26 @@ function ThirdPartyHardwareUiStateAtomWatcherCmp({
   const [appInstallState] = useThirdPartyAppInstallAtom();
   const [batchInstallState] = useThirdPartyBatchInstallAtom();
 
+  const [bindingState] = useThirdPartyBleBindingAtom();
+  const hasPendingBleBinding =
+    bindingState?.status === 'scanning' || bindingState?.status === 'verifying';
+
   useEffect(() => {
-    if (uiState || appInstallState || batchInstallState) {
+    if (
+      uiState ||
+      appInstallState ||
+      batchInstallState ||
+      hasPendingBleBinding
+    ) {
       onShouldMount();
     }
-  }, [appInstallState, batchInstallState, onShouldMount, uiState]);
+  }, [
+    appInstallState,
+    batchInstallState,
+    hasPendingBleBinding,
+    onShouldMount,
+    uiState,
+  ]);
 
   return null;
 }

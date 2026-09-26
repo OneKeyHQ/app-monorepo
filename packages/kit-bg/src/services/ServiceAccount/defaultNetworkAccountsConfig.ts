@@ -3,7 +3,7 @@ import { uniqBy } from 'lodash';
 
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { IMPL_BTC } from '@onekeyhq/shared/src/engine/engineConsts';
-import { getVendorProfile } from '@onekeyhq/shared/src/hardware/vendorProfile';
+import { getVendorProfile } from '@onekeyhq/shared/src/hardware/config/vendorProfile';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 
 import type { IBackgroundApi } from '../../apis/IBackgroundApi';
@@ -58,7 +58,7 @@ async function buildWithNetworks({
   return finalNetworks;
 }
 
-async function buildAddAccountsNetworks({
+export async function buildAddAccountsNetworks({
   backgroundApi,
   includingNetworkWithGlobalDeriveType,
   btc,
@@ -66,7 +66,10 @@ async function buildAddAccountsNetworks({
   tron,
   sol,
   ltc,
-}: IBuildDefaultAddAccountNetworksParams & {
+}: Pick<
+  IBuildDefaultAddAccountNetworksParams,
+  'backgroundApi' | 'includingNetworkWithGlobalDeriveType'
+> & {
   btc?: boolean;
   evm?: boolean;
   tron?: boolean;

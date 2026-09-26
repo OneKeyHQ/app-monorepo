@@ -1,10 +1,13 @@
+import { THIRD_PARTY_BLE_CHANNELS } from '@onekeyfe/hwk-desktop-noble-ble';
 import {
   isTrezorBleServiceUuid,
   isTrezorSafe7BleName,
 } from '@onekeyfe/hwk-trezor-adapter';
-import { TREZOR_BLE_CHANNELS } from '@onekeyfe/hwk-trezor-connector-electron-ble/main';
 import { dialog } from 'electron';
 import logger from 'electron-log/main';
+
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import { EHardwareVendor } from '@onekeyhq/shared/types/device';
 
 import { ElectronTranslations, i18nText } from '../i18n';
 
@@ -18,9 +21,13 @@ import { trezorBleFlags } from './trezorBleFlags';
 
 import type { IPairCeremonyToken } from './BlePair';
 import type {
+  ElectronBleConnectOptions,
+  ElectronBleScanOptions,
+} from '@onekeyfe/hwk-adapter-core';
+import type {
   IpcMainLike,
-  TrezorBleDeviceInfo,
-} from '@onekeyfe/hwk-trezor-connector-electron-ble/main';
+  ThirdPartyBleDeviceInfo,
+} from '@onekeyfe/hwk-desktop-noble-ble';
 import type { BrowserWindow } from 'electron';
 
 // App-side Trezor BLE pairing, inserted at the IPC seam the app already owns —
@@ -36,7 +43,7 @@ import type { BrowserWindow } from 'electron';
  * we just disabled in noble — matches on the ADV packet's name, or on the
  * service UUID once a scan response has merged into the peripheral.
  */
-function isTrezorDevice(device: TrezorBleDeviceInfo | undefined): boolean {
+function isTrezorDevice(device: ThirdPartyBleDeviceInfo | undefined): boolean {
   if (!device) return false;
   if (isTrezorSafe7BleName(device.name ?? device.localName)) return true;
   return (device.advertisedServiceUuids ?? []).some((uuid) =>
@@ -57,7 +64,7 @@ const RAW_WATCH_SECONDS_SCAN = 20;
 const RAW_WATCH_SECONDS_POST_PAIR = 25;
 
 // The SDK clears its discovered-peripheral cache this long after the last scan
-// call (TREZOR_BLE_SCAN_IDLE_STOP_MS in the SDK). Pairing runs with no scans in
+// call (THIRD_PARTY_BLE_SCAN_IDLE_STOP_MS in the SDK). Pairing runs with no scans in
 // flight, so a pairing that outlasts this window destroys the peripheral that
 // connect is about to need. Mirrored here only to make the log say so out loud.
 const SDK_SCAN_IDLE_STOP_MS = 10_000;
@@ -73,6 +80,12 @@ function classifyBleAddress(id: string): string {
   if (top2 === 0b00) return 'non-resolvable-private';
   return 'reserved';
 }
+
+type IPendingBleConnection = {
+  id: string;
+  vendor?: string;
+  cancelled: boolean;
+};
 
 export function createTrezorBlePairingIpcMain(
   base: IpcMainLike,
@@ -110,6 +123,8 @@ export function createTrezorBlePairingIpcMain(
   // Set when a ceremony registers, so a dialog left open by an earlier attempt
   // answers nothing instead of answering the attempt that replaced it.
   let ceremonyToken: IPairCeremonyToken | undefined;
+  let pairingConnectId: string | undefined;
+  const pendingConnections = new Set<IPendingBleConnection>();
 
   const showPin = (pin: string) => {
     const dialogToken = ceremonyToken;
@@ -161,12 +176,15 @@ export function createTrezorBlePairingIpcMain(
   let pairingInFlight: Promise<unknown> | null = null;
 
   const ensurePaired = async (
-    connectId: string,
+    connection: IPendingBleConnection,
   ): Promise<IEnsurePairedOutcome> => {
+    const { id: connectId } = connection;
     if (!isBlePairAvailable()) return 'skipped'; // non-Windows / helper not bundled
     // Loop, not a single check: several waiters resume together when the
     // holder settles, and each must re-check before claiming the slot.
     for (;;) {
+      if (connection.cancelled)
+        throw new OneKeyLocalError('BLE connect cancelled');
       const holder = pairingInFlight;
       if (!holder) break;
       logger.warn(
@@ -193,6 +211,7 @@ export function createTrezorBlePairingIpcMain(
     // ensureDevicePaired no-ops (already-paired) when the OS bond already exists.
     // No await between the while-check above and this claim, or the
     // serialization silently breaks.
+    pairingConnectId = connectId;
     const pairing = ensureDevicePaired(
       address,
       showPin,
@@ -251,13 +270,15 @@ export function createTrezorBlePairingIpcMain(
       // Ownership-checked: another call may have claimed the slot already.
       if (pairingInFlight === claimed) {
         pairingInFlight = null;
+        pairingConnectId = undefined;
+        ceremonyToken = undefined;
       }
     }
   };
 
   return {
     handle: (channel, listener) => {
-      if (channel === TREZOR_BLE_CHANNELS.scan) {
+      if (channel === THIRD_PARTY_BLE_CHANNELS.scan) {
         base.handle(channel, async (event, ...args) => {
           // The SDK now scans unfiltered by default and filters for Trezor itself
           // (NobleBleHandler, 1.1.32-alpha.1), so nothing is rewritten here. We
@@ -267,11 +288,16 @@ export function createTrezorBlePairingIpcMain(
           if (!Array.isArray(result)) {
             return result;
           }
-          // The unfiltered scan sees every BLE device in range, so the Trezor
-          // filter that used to happen in noble now happens here — the renderer
-          // must still only ever see Trezor devices.
-          const all = result as TrezorBleDeviceInfo[];
-          const devices = all.filter(isTrezorDevice);
+          // The unfiltered scan sees every BLE device in range. Trezor results
+          // are filtered here by name/service; Ledger results are already
+          // filtered by the SDK's match and are passed through unchanged.
+          const all = result as ThirdPartyBleDeviceInfo[];
+          const scanOptions: ElectronBleScanOptions | undefined = args[0];
+          // Ledger results were service-filtered in the SDK and are kept for connect
+          // diagnostics only. Ledger is not OS-paired here: like OneKey devices, it
+          // relies on the pairing prompt Windows raises on first encrypted access.
+          const devices =
+            scanOptions?.vendor === 'ledger' ? all : all.filter(isTrezorDevice);
 
           lastScanAt = Date.now();
           for (const device of devices) {
@@ -317,14 +343,27 @@ export function createTrezorBlePairingIpcMain(
           for (const d of devices) {
             if (!loggedScanDetailFor.has(d.id)) {
               loggedScanDetailFor.add(d.id);
+              // Ledger logs whatever helps identify the model while BLE support
+              // is being debugged; the Trezor line is its pairing aid.
               logger.info(
-                `[TrezorBLE] scan detail ${d.id}: name='${
-                  d.name ?? d.localName ?? ''
-                }' uuids=${JSON.stringify(
-                  d.advertisedServiceUuids ?? [],
-                )} connectable=${String(d.isConnectable)} rssi=${String(
-                  d.rssi,
-                )} state=${String(d.state)}`,
+                scanOptions?.vendor === 'ledger'
+                  ? `[LedgerBLE] scan detail ${d.id}: ${JSON.stringify({
+                      name: d.name,
+                      localName: d.localName,
+                      address: d.address,
+                      addressType: d.addressType,
+                      serviceUuids: d.advertisedServiceUuids,
+                      serviceData: d.serviceData,
+                      manufacturerData: d.manufacturerDataHex,
+                      txPowerLevel: d.txPowerLevel,
+                    })}`
+                  : `[TrezorBLE] scan detail ${d.id}: name='${
+                      d.name ?? d.localName ?? ''
+                    }' uuids=${JSON.stringify(
+                      d.advertisedServiceUuids ?? [],
+                    )} connectable=${String(d.isConnectable)} rssi=${String(
+                      d.rssi,
+                    )} state=${String(d.state)}`,
               );
             }
           }
@@ -345,114 +384,154 @@ export function createTrezorBlePairingIpcMain(
         return;
       }
 
-      if (channel === TREZOR_BLE_CHANNELS.connect) {
+      if (channel === THIRD_PARTY_BLE_CHANNELS.connect) {
         base.handle(channel, async (event, ...args) => {
           const connectId = String(args[0]);
-          const pairOutcome = await ensurePaired(connectId);
-
-          const attemptConnect = async (attempt: number) => {
-            const startedAt = Date.now();
-            const sinceScan = lastScanAt ? startedAt - lastScanAt : -1;
-            const targetSeen = seenTrezorAddresses.get(connectId);
-            logger.info(
-              `[TrezorBLE] connect start ${connectId} (${classifyBleAddress(
-                connectId,
-              )}, attempt ${attempt}); ${sinceScan}ms since last scan (SDK cache idle-stop ${SDK_SCAN_IDLE_STOP_MS}ms); ${
-                targetSeen
-                  ? `last advertised ${Math.round(
-                      (startedAt - targetSeen.lastSeenAt) / 1000,
-                    )}s ago`
-                  : 'NEVER advertised this session'
-              }`,
-            );
-            // Reaching a bonded, silent device is the SDK's job
-            // (NobleBleHandler._directConnect); the app-side attempt at it
-            // needed a noble proxy that blinded the scan outright.
-            try {
-              const result = await listener(event, ...args);
-              logger.info(
-                `[TrezorBLE] connect OK ${connectId} in ${
-                  Date.now() - startedAt
-                }ms (attempt ${attempt})`,
-              );
-              return result;
-            } catch (error) {
-              // Name the disease: gone from noble's cache and not
-              // re-advertising, vs a link that refused or timed out.
-              const message = error instanceof Error ? error.message : '';
-              let kind = 'OTHER';
-              if (/not found/i.test(message)) {
-                kind = 'PERIPHERAL-GONE';
-              } else if (/timed out/i.test(message)) {
-                kind = 'CONNECT-TIMEOUT';
-              }
-              // A stale address is the prime suspect when the target never
-              // advertised this session, or last did so long ago — the device
-              // mints a fresh RPA on every advertising restart.
-              const seen = seenTrezorAddresses.get(connectId);
-              const staleness = seen
-                ? Math.round((Date.now() - seen.lastSeenAt) / 1000)
-                : undefined;
-              const verdict =
-                staleness === undefined
-                  ? '; STALE-ADDRESS suspected (never advertised this session)'
-                  : `; last advertised ${staleness}s ago${
-                      staleness > 30 ? ' (may have rotated since)' : ''
-                    }`;
-              logger.warn(
-                `[TrezorBLE] connect FAILED ${connectId} after ${
-                  Date.now() - startedAt
-                }ms (attempt ${attempt}) [${kind}]: ${message}${verdict}`,
-              );
-              throw error;
-            }
+          const options = args[1] as ElectronBleConnectOptions | undefined;
+          const claim = {
+            id: connectId,
+            vendor: options?.vendor,
+            cancelled: false,
           };
-
-          // NO app-side disconnect cleanup here: the SDK's connect() already
-          // _safeDisconnects the peripheral on any failure, and its
-          // disconnect(id) early-returns for a never-connected id anyway.
+          pendingConnections.add(claim);
           try {
-            return await attemptConnect(1);
-          } catch (firstError) {
-            const firstMessage =
-              firstError instanceof Error ? firstError.message : '';
-            // First connect after a fresh bond routinely fails (device still
-            // holds the pairing link); one delayed retry, fresh-pair case only.
-            // NOT after a race timeout: the SDK's _connectInner may still be
-            // running (Promise.race rejects without cancelling it), and a
-            // second connect on top would corrupt its connected-map state.
-            if (pairOutcome === 'paired' && !/timed out/i.test(firstMessage)) {
+            const pairOutcome =
+              options?.vendor === EHardwareVendor.trezor
+                ? await ensurePaired(claim)
+                : 'skipped';
+
+            const attemptConnect = async (attempt: number) => {
+              if (claim.cancelled)
+                throw new OneKeyLocalError('BLE connect cancelled');
+              const startedAt = Date.now();
+              const sinceScan = lastScanAt ? startedAt - lastScanAt : -1;
+              const targetSeen = seenTrezorAddresses.get(connectId);
               logger.info(
-                `[TrezorBLE] first connect after a FRESH pairing failed; retrying once in 3000ms (device usually still holds the pairing link)`,
+                `[TrezorBLE] connect start ${connectId} (${classifyBleAddress(
+                  connectId,
+                )}, attempt ${attempt}); ${sinceScan}ms since last scan (SDK cache idle-stop ${SDK_SCAN_IDLE_STOP_MS}ms); ${
+                  targetSeen
+                    ? `last advertised ${Math.round(
+                        (startedAt - targetSeen.lastSeenAt) / 1000,
+                      )}s ago`
+                    : 'NEVER advertised this session'
+                }`,
               );
-              await new Promise((resolve) => {
-                setTimeout(resolve, 3000);
-              });
-              return await attemptConnect(2);
+              // Reaching a bonded, silent device is the SDK's job
+              // (NobleBleHandler._directConnect); the app-side attempt at it
+              // needed a noble proxy that blinded the scan outright.
+              try {
+                const result = await listener(event, ...args);
+                logger.info(
+                  `[TrezorBLE] connect OK ${connectId} in ${
+                    Date.now() - startedAt
+                  }ms (attempt ${attempt})`,
+                );
+                return result;
+              } catch (error) {
+                // Name the disease: gone from noble's cache and not
+                // re-advertising, vs a link that refused or timed out.
+                const message = error instanceof Error ? error.message : '';
+                let kind = 'OTHER';
+                if (/not found/i.test(message)) {
+                  kind = 'PERIPHERAL-GONE';
+                } else if (/timed out/i.test(message)) {
+                  kind = 'CONNECT-TIMEOUT';
+                }
+                // A stale address is the prime suspect when the target never
+                // advertised this session, or last did so long ago — the device
+                // mints a fresh RPA on every advertising restart.
+                const seen = seenTrezorAddresses.get(connectId);
+                const staleness = seen
+                  ? Math.round((Date.now() - seen.lastSeenAt) / 1000)
+                  : undefined;
+                const verdict =
+                  staleness === undefined
+                    ? '; STALE-ADDRESS suspected (never advertised this session)'
+                    : `; last advertised ${staleness}s ago${
+                        staleness > 30 ? ' (may have rotated since)' : ''
+                      }`;
+                logger.warn(
+                  `[TrezorBLE] connect FAILED ${connectId} after ${
+                    Date.now() - startedAt
+                  }ms (attempt ${attempt}) [${kind}]: ${message}${verdict}`,
+                );
+                throw error;
+              }
+            };
+
+            // NO app-side disconnect cleanup here: the SDK's connect() already
+            // _safeDisconnects the peripheral on any failure, and its
+            // disconnect(id) early-returns for a never-connected id anyway.
+            try {
+              return await attemptConnect(1);
+            } catch (firstError) {
+              const firstMessage =
+                firstError instanceof Error ? firstError.message : '';
+              // First connect after a fresh bond routinely fails (device still
+              // holds the pairing link); one delayed retry, fresh-pair case only.
+              // NOT after a race timeout: the SDK's _connectInner may still be
+              // running (Promise.race rejects without cancelling it), and a
+              // second connect on top would corrupt its connected-map state.
+              if (
+                !claim.cancelled &&
+                pairOutcome === 'paired' &&
+                !/timed out/i.test(firstMessage)
+              ) {
+                logger.info(
+                  `[TrezorBLE] first connect after a FRESH pairing failed; retrying once in 3000ms (device usually still holds the pairing link)`,
+                );
+                await new Promise((resolve) => {
+                  setTimeout(resolve, 3000);
+                });
+                return attemptConnect(2);
+              }
+              // Bonded but unreachable: waking the device is the cure, not
+              // re-pairing. Appended so trezorTransportUtils substring match survives.
+              if (
+                pairOutcome === 'already-paired' &&
+                firstError instanceof Error &&
+                firstMessage.includes(
+                  'unreachable while discovering services',
+                ) &&
+                !firstMessage.includes('wake the device')
+              ) {
+                firstError.message =
+                  `${firstMessage} — the device is already paired with ` +
+                  `this computer but is not responding; wake the device and ` +
+                  `retry instead of re-pairing.`;
+              }
+              throw firstError;
             }
-            // Bonded but unreachable: waking the device is the cure, not
-            // re-pairing. Appended so trezorTransportUtils substring match survives.
-            if (
-              pairOutcome === 'already-paired' &&
-              firstError instanceof Error &&
-              firstMessage.includes('unreachable while discovering services') &&
-              !firstMessage.includes('wake the device')
-            ) {
-              firstError.message =
-                `${firstMessage} — the device is already paired with ` +
-                `this computer but is not responding; wake the device and ` +
-                `retry instead of re-pairing.`;
-            }
-            throw firstError;
+          } finally {
+            pendingConnections.delete(claim);
           }
         });
         return;
       }
 
-      if (channel === TREZOR_BLE_CHANNELS.cancelPairing) {
+      if (channel === THIRD_PARTY_BLE_CHANNELS.cancelPairing) {
         base.handle(channel, async (event, ...args) => {
           // The SDK abandons its noble connect; the OS-pairing ceremony is ours.
-          const declined = decideActivePairing('cancel');
+          const options = args[0] as
+            | { vendor: string; id?: string }
+            | undefined;
+          for (const claim of pendingConnections) {
+            if (
+              options === undefined ||
+              (claim.vendor === options.vendor &&
+                (options.id === undefined || claim.id === options.id))
+            )
+              claim.cancelled = true;
+          }
+          const matchesPairing =
+            options === undefined ||
+            (options.vendor === EHardwareVendor.trezor &&
+              (options.id === undefined || options.id === pairingConnectId));
+          const declined =
+            matchesPairing && pairingConnectId !== undefined
+              ? decideActivePairing('cancel', ceremonyToken)
+              : false;
           if (declined) {
             logger.info(
               '[TrezorBLE] cancelPairing: declined the in-flight OS pairing ceremony',
@@ -463,7 +542,7 @@ export function createTrezorBlePairingIpcMain(
         return;
       }
 
-      if (channel === TREZOR_BLE_CHANNELS.disconnect) {
+      if (channel === THIRD_PARTY_BLE_CHANNELS.disconnect) {
         base.handle(channel, async (event, ...args) => {
           // Disconnect is the RPA-rotation trigger; timestamp it.
           const connectId = String(args[0]);

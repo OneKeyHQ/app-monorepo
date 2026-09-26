@@ -1497,7 +1497,7 @@ describe('ServiceHardware.getCompatibleConnectId', () => {
     ]);
   });
 
-  it('uses a bound Trezor BLE connectId when desktop BLE is selected', async () => {
+  it('leaves Trezor transport resolution to the SDK even when desktop BLE is selected', async () => {
     const trezorDevice = {
       id: 'db-device-1',
       connectId: 'USB_ID',
@@ -1542,15 +1542,37 @@ describe('ServiceHardware.getCompatibleConnectId', () => {
         vendor: EHardwareVendor.trezor,
         hardwareCallContext: EHardwareCallContext.USER_INTERACTION,
       }),
-    ).resolves.toBe('BLE_ID');
-    expect(mockedLocalDb.getDeviceByQuery.mock.calls[0]).toEqual([
-      {
-        connectId: 'USB_ID',
-        featuresDeviceId: 'FEATURES_DEVICE_ID',
-        vendor: EHardwareVendor.trezor,
-      },
-    ]);
+    ).resolves.toBe('USB_ID');
+    expect(mockedLocalDb.getDeviceByQuery.mock.calls).toHaveLength(0);
+    expect(shouldSwitchTransportTypeMock).not.toHaveBeenCalled();
   });
+
+  it.each([
+    EHardwareVendor.keystone,
+    EHardwareVendor.ledger,
+    EHardwareVendor.trezor,
+  ])(
+    'never sends a fresh %s target through OneKey transport resolution',
+    async (vendor) => {
+      const service = new ServiceHardware({
+        backgroundApi: {} as IBackgroundApi,
+      });
+      const resolveTransportType = jest.spyOn(
+        service.connectionManager,
+        'resolveTransportType',
+      );
+      await expect(
+        service.getCompatibleConnectId({
+          connectId: 'fresh-sdk-target',
+          vendor,
+          hardwareCallContext: EHardwareCallContext.USER_INTERACTION,
+        }),
+      ).resolves.toBe('fresh-sdk-target');
+      expect(mockedLocalDb.getDeviceByQuery.mock.calls).toHaveLength(0);
+      expect(resolveTransportType).not.toHaveBeenCalled();
+      expect(checkBLEPermissions).not.toHaveBeenCalled();
+    },
+  );
 
   it('uses USB when any authorized OneKey WebUSB device is available', async () => {
     const originalNavigator = Object.getOwnPropertyDescriptor(
@@ -2759,6 +2781,83 @@ describe('ServiceHardware.getCompatibleConnectId', () => {
     });
   });
 
+  it('keeps legacy third-party discovery as the default', async () => {
+    const searchDevices = jest.fn().mockResolvedValue({
+      success: true,
+      payload: [],
+    });
+    const searchDeviceTargets = jest.fn();
+    const service = new ServiceHardware({
+      backgroundApi: {
+        serviceThirdPartyHardware: {
+          searchDevices,
+          searchDeviceTargets,
+        },
+      } as unknown as IBackgroundApi,
+    });
+
+    await expect(
+      service.searchDevices({ vendor: EHardwareVendor.ledger }),
+    ).resolves.toEqual({ success: true, payload: [] });
+
+    expect(searchDevices).toHaveBeenCalledWith({
+      vendor: EHardwareVendor.ledger,
+      resetSession: undefined,
+      waitForAllTransports: undefined,
+      transportType: undefined,
+    });
+    expect(searchDeviceTargets).not.toHaveBeenCalled();
+  });
+
+  it('projects device search targets only for the opt-in discovery method', async () => {
+    const searchDevices = jest.fn();
+    const target = {
+      searchTargetId: 'ledger-usb-ephemeral',
+      vendor: EHardwareVendor.ledger,
+      connectionType: 'usb' as const,
+      kind: 'physical' as const,
+      model: 'nanoX',
+    };
+    const searchDeviceTargets = jest.fn().mockResolvedValue({
+      success: true,
+      payload: [target],
+    });
+    const service = new ServiceHardware({
+      backgroundApi: {
+        serviceThirdPartyHardware: {
+          searchDevices,
+          searchDeviceTargets,
+        },
+      } as unknown as IBackgroundApi,
+    });
+
+    const result = await service.searchDevices({
+      vendor: EHardwareVendor.ledger,
+      discoveryMethod: 'searchDeviceTargets',
+      resetSession: true,
+      transportType: 'usb',
+    });
+
+    expect(searchDeviceTargets).toHaveBeenCalledWith({
+      vendor: EHardwareVendor.ledger,
+      resetSession: true,
+      waitForAllTransports: undefined,
+      transportType: 'usb',
+    });
+    expect(searchDevices).not.toHaveBeenCalled();
+    expect(result).toEqual({
+      success: true,
+      payload: [
+        expect.objectContaining({
+          connectId: null,
+          deviceId: null,
+          name: 'nanoX',
+          raw: expect.objectContaining({ searchTarget: target }),
+        }),
+      ],
+    });
+  });
+
   it('marks the hardware channel busy while device discovery is running', async () => {
     let resolveSearch:
       | ((result: { success: true; payload: SearchDevice[] }) => void)
@@ -3371,4 +3470,34 @@ describe('ServiceHardware cancellation ownership', () => {
     expect(getSDKInstance).toHaveBeenCalledTimes(1);
     expect(order).toEqual(['next']);
   });
+});
+
+describe('Trezor XFP identity-based discovery', () => {
+  it.each([undefined, ''])(
+    'allows an absent legacy connectId (%s) when identity is known',
+    async (connectId) => {
+      const buildHwWalletXfp = jest.fn().mockResolvedValue('xfp');
+      const service = new ServiceHardware({
+        backgroundApi: {
+          serviceThirdPartyHardware: { buildHwWalletXfp },
+        } as unknown as IBackgroundApi,
+      });
+      await expect(
+        service.buildHwWalletXfp({
+          connectId,
+          deviceId: 'trezor-identity',
+          vendor: EHardwareVendor.trezor,
+          passphraseState: undefined,
+          throwError: true,
+          withUserInteraction: true,
+        }),
+      ).resolves.toBe('xfp');
+      expect(buildHwWalletXfp).toHaveBeenCalledWith({
+        connectId: '',
+        deviceId: 'trezor-identity',
+        vendor: EHardwareVendor.trezor,
+        passphraseState: undefined,
+      });
+    },
+  );
 });

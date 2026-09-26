@@ -35,11 +35,13 @@ import type {
   IDBIndexedAccount,
   IDBWallet,
 } from '@onekeyhq/kit-bg/src/dbs/local/types';
+import type { IThirdPartyConnectedDevicePayload } from '@onekeyhq/kit-bg/src/services/ServiceHardware/adapters/types';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { usePrimeGiftEligibilityPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/prime';
 import { EOAuthSocialLoginProvider } from '@onekeyhq/shared/src/consts/authConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import type {
+  IHardwareErrorRecoveryHint,
   IOneKeyError,
   IOneKeyErrorI18nInfo,
 } from '@onekeyhq/shared/src/errors/types/errorTypes';
@@ -50,6 +52,10 @@ import {
   EFinalizeWalletSetupSteps,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import {
+  EThirdPartyHardwareRetryAction,
+  getThirdPartyHardwareRetryAction,
+} from '@onekeyhq/shared/src/hardware/thirdPartyHardwareRetry';
 import {
   ETranslations,
   isKnownTranslationKey,
@@ -68,7 +74,6 @@ import { EMnemonicType } from '@onekeyhq/shared/src/utils/secret';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type { EHardwareTransportType } from '@onekeyhq/shared/types';
 import {
-  EHardwareCallContext,
   EHardwareVendor,
   type IOneKeyDeviceFeatures,
 } from '@onekeyhq/shared/types/device';
@@ -113,6 +118,15 @@ import {
   registerOnboardingCompletion,
 } from '../utils/enterWalletAfterOnboarding';
 
+import {
+  FinalizeWalletSetupAttempts,
+  resolveOperationReleaseForAttempt,
+} from './finalizeWalletSetupOperationUtils';
+
+import type {
+  IFinalizeWalletSetupActiveOperation,
+  IFinalizeWalletSetupOperation,
+} from './finalizeWalletSetupOperationUtils';
 import type { SearchDevice } from '@onekeyfe/hd-core';
 
 const POPUP_LAYERED_SHADOW =
@@ -268,7 +282,10 @@ function FinalizeWalletSetupPage({
   const [setupError, setSetupError] = useState<
     | {
         messageId: ETranslations;
+        code?: number;
         info?: IOneKeyErrorI18nInfo;
+        recovery?: IHardwareErrorRecoveryHint;
+        operationMayHaveCompleted?: boolean;
       }
     | undefined
   >(undefined);
@@ -280,6 +297,14 @@ function FinalizeWalletSetupPage({
     useState(false);
 
   const created = useRef(false);
+  // Hardware create in flight. `created` only guards the mnemonic branch;
+  // without this, a remount (back-swipe + re-select) fires a second
+  // createWallet concurrently with the abandoned one.
+  const hardwareCreateInFlightRef = useRef(false);
+  const setupAttemptsRef = useRef(new FinalizeWalletSetupAttempts());
+  const activeThirdPartyOperationRef = useRef<
+    IFinalizeWalletSetupActiveOperation | undefined
+  >(undefined);
   const createdWalletRef = useRef<IDBWallet | undefined>(undefined);
   const prefetchedGiftSerialNoRef = useRef<string | undefined>(undefined);
   const [creatingGiftWalletId, setCreatingGiftWalletId] = useState<string>();
@@ -387,6 +412,11 @@ function FinalizeWalletSetupPage({
   const { connectDevice, createHWWallet } = useDeviceConnect();
   const { ensureBurst, endBurst } = useDeviceStageBurst();
   const createWallet = useCallback(async () => {
+    const attempt = setupAttemptsRef.current.begin();
+    // The operation this run opened itself, so a superseded run can still
+    // release it without touching the ref a newer run owns.
+    let ownThirdPartyOperation: IFinalizeWalletSetupOperation | undefined;
+    const isCurrentAttempt = () => setupAttemptsRef.current.isCurrent(attempt);
     // The stage hold is opened inside the hardware branch below, and only
     // there: a software wallet (new mnemonic, import, keyless restore) has
     // no device, and a hold taken here regardless painted the connecting
@@ -498,6 +528,10 @@ function FinalizeWalletSetupPage({
         });
         created.current = true;
       } else if (deviceData && isFirmwareVerified !== undefined) {
+        if (hardwareCreateInFlightRef.current) {
+          return;
+        }
+        hardwareCreateInFlightRef.current = true;
         // The wallet-creation run is one conversation with the device
         // across several hardware calls (wallet, passphrase, accounts) with
         // app work between them. Legacy showed a checking dialog per call,
@@ -512,6 +546,7 @@ function FinalizeWalletSetupPage({
           await backgroundApiProxy.serviceAccount.getWallets({
             nestedHiddenWallets: false,
           });
+        if (deviceData.vendor && !isCurrentAttempt()) return;
         const existingWalletIds = new Set(
           walletsBeforeCreate.map((walletItem) => walletItem.id),
         );
@@ -527,10 +562,76 @@ function FinalizeWalletSetupPage({
           // OneKey-side `addWalletStarted` + success/failure tracking here.
           let thirdPartyDevice = deviceData.device as SearchDevice;
           if (deviceData.vendor === EHardwareVendor.ledger) {
-            const ledgerConnectId = thirdPartyDevice?.connectId ?? '';
+            const ledgerSearchTarget = deviceData.searchTarget;
+            if (!ledgerSearchTarget) {
+              throw new OneKeyLocalError({
+                message: 'Ledger device search target is required',
+              });
+            }
+            goNextStep(EFinalizeWalletSetupSteps.ConnectingDevice);
+            const connected =
+              await backgroundApiProxy.serviceThirdPartyHardware.connectDevice({
+                vendor: deviceData.vendor,
+                searchTargetId: ledgerSearchTarget.searchTargetId,
+              });
+            if (!connected.success) {
+              throw convertThirdPartyDeviceError(
+                connected.payload as { error: string; code: number },
+                { vendor: 'Ledger' },
+              );
+            }
+            const connectedDevice = connected.payload;
+            ownThirdPartyOperation = {
+              vendor: deviceData.vendor,
+              operationId: connectedDevice.operationId,
+            };
+            if (!isCurrentAttempt()) return;
+            activeThirdPartyOperationRef.current = {
+              ...ownThirdPartyOperation,
+              attempt,
+            };
+            const rawThirdPartyDevice = (
+              thirdPartyDevice as SearchDevice & {
+                raw?: Record<string, unknown>;
+              }
+            ).raw;
+            thirdPartyDevice = {
+              ...thirdPartyDevice,
+              // USB search target ids are session handles; only Ledger BLE ids persist.
+              connectId:
+                ledgerSearchTarget.connectionType === 'ble'
+                  ? connectedDevice.connectId
+                  : thirdPartyDevice.connectId,
+              name:
+                thirdPartyDevice.name ||
+                connectedDevice.label ||
+                connectedDevice.modelName ||
+                connectedDevice.model ||
+                'Ledger',
+              vendorModel:
+                connectedDevice.model ??
+                (thirdPartyDevice as SearchDevice & { vendorModel?: string })
+                  .vendorModel,
+              vendorModelName:
+                connectedDevice.modelName ??
+                (
+                  thirdPartyDevice as SearchDevice & {
+                    vendorModelName?: string;
+                  }
+                ).vendorModelName,
+              raw: {
+                ...rawThirdPartyDevice,
+                connectionType:
+                  connectedDevice.connectionType ??
+                  ledgerSearchTarget.connectionType,
+                capabilities: connectedDevice.capabilities,
+                vendorRaw: connectedDevice.raw,
+              },
+            } as SearchDevice;
             const ensureResult = await ensureLedgerCoreAppsReady({
-              connectId: ledgerConnectId,
+              connectId: connectedDevice.operationId,
             });
+            if (!isCurrentAttempt()) return;
             if (!ensureResult.ok) {
               throw (
                 ensureResult.error ??
@@ -569,12 +670,24 @@ function FinalizeWalletSetupPage({
           }
           const resolvedTransportType =
             forceTransportType || hardwareTransportType;
+          const thirdPartyConnectionType =
+            deviceData.searchTarget?.connectionType ??
+            (
+              thirdPartyDevice as SearchDevice & {
+                raw?: { connectionType?: string };
+              }
+            ).raw?.connectionType;
+          const analyticsTransportType =
+            deviceData.vendor === EHardwareVendor.keystone &&
+            thirdPartyConnectionType === 'qr'
+              ? ('QRCode' as const)
+              : resolvedTransportType;
           defaultLogger.account.wallet.addWalletStarted({
             addMethod: 'ConnectHWWallet',
             details: {
               hardwareWalletType: 'Standard',
               communication: getHardwareCommunicationTypeString(
-                resolvedTransportType,
+                analyticsTransportType,
               ),
               vendor: deviceData.vendor,
             },
@@ -585,55 +698,149 @@ function FinalizeWalletSetupPage({
               device_id: thirdPartyDevice?.deviceId || '',
               vendor: deviceData.vendor,
             } as unknown as IOneKeyDeviceFeatures;
+            let thirdPartyWalletCreated = false;
             if (
-              deviceData.vendor === EHardwareVendor.trezor &&
-              thirdPartyDevice.connectId
+              deviceData.vendor === EHardwareVendor.keystone &&
+              thirdPartyConnectionType === 'qr'
             ) {
-              // Route the finalize re-connect through getCompatibleConnectId
-              // (Trezor-only, inside this vendor guard). After a BLE onboarding
-              // the DB's main connectId is the deviceId (the USB handle), which
-              // the BLE transport can't resolve — passing it raw makes this
-              // connectDevice hang on a 31s noble timeout. Resolving it yields the
-              // bound bleConnectId for a BLE session; idempotent when the input is
-              // already a BLE address (device not yet in DB → returned unchanged).
-              const compatibleConnectId =
-                await backgroundApiProxy.serviceHardware.getCompatibleConnectId(
-                  {
-                    connectId: thirdPartyDevice.connectId,
-                    featuresDeviceId: thirdPartyDevice.deviceId,
-                    vendor: deviceData.vendor,
-                    hardwareCallContext: EHardwareCallContext.USER_INTERACTION,
-                  },
+              // QR: one scan yields identity and accounts, handled in background.
+              goNextStep(EFinalizeWalletSetupSteps.ConnectingDevice);
+              setupAttemptsRef.current.startFirstContact(attempt);
+              try {
+                await actions.current.createKeystoneWalletWithDefaultAccounts(
+                  {},
                 );
+              } finally {
+                setupAttemptsRef.current.finishFirstContact(attempt);
+              }
+              if (!isCurrentAttempt()) return;
+              thirdPartyWalletCreated = true;
+            } else if (deviceData.vendor === EHardwareVendor.keystone) {
+              const keystoneSearchTarget = deviceData.searchTarget;
+              if (!keystoneSearchTarget) {
+                throw new OneKeyLocalError({
+                  message: 'Keystone device search target is required',
+                });
+              }
+              // A device search target only describes how to reach Keystone.
+              // Account derivation stays in the wallet creation operation.
+              goNextStep(EFinalizeWalletSetupSteps.ConnectingDevice);
+              setupAttemptsRef.current.startFirstContact(attempt);
               const connected =
                 await backgroundApiProxy.serviceThirdPartyHardware.connectDevice(
                   {
                     vendor: deviceData.vendor,
-                    connectId:
-                      compatibleConnectId || thirdPartyDevice.connectId,
+                    searchTargetId: keystoneSearchTarget.searchTargetId,
                   },
                 );
-              const connectedFeatures = connected.success
-                ? connected.payload.features
-                : undefined;
+              setupAttemptsRef.current.finishFirstContact(attempt);
+              if (!connected.success) {
+                throw convertThirdPartyDeviceError(
+                  connected.payload as { error: string; code: number },
+                  { vendor: 'Keystone' },
+                );
+              }
+              const connectedDevice: IThirdPartyConnectedDevicePayload =
+                connected.payload;
+              ownThirdPartyOperation = {
+                vendor: deviceData.vendor,
+                operationId: connectedDevice.operationId,
+              };
+              if (!isCurrentAttempt()) return;
+              activeThirdPartyOperationRef.current = {
+                ...ownThirdPartyOperation,
+                attempt,
+              };
+              const rawThirdPartyDevice = (
+                thirdPartyDevice as SearchDevice & {
+                  raw?: Record<string, unknown>;
+                }
+              ).raw;
+              const connectedDeviceName =
+                thirdPartyConnectionType === 'qr'
+                  ? connectedDevice.modelName ||
+                    connectedDevice.model ||
+                    thirdPartyDevice.name ||
+                    'Keystone'
+                  : thirdPartyDevice.name ||
+                    connectedDevice.modelName ||
+                    connectedDevice.model ||
+                    'Keystone';
+              thirdPartyDevice = {
+                ...thirdPartyDevice,
+                // Identity is deviceId (the mfp); only the USB serial is a
+                // transport locator worth keeping.
+                connectId: null,
+                deviceId: connectedDevice.deviceId,
+                usbConnectId: keystoneSearchTarget.serialNumber,
+                name: connectedDeviceName,
+                vendorModel: connectedDevice.model,
+                vendorModelName: connectedDevice.modelName,
+                raw: {
+                  ...rawThirdPartyDevice,
+                  connectionType:
+                    connectedDevice.connectionType ?? thirdPartyConnectionType,
+                  firmwareVersion: connectedDevice.firmwareVersion,
+                  capabilities: connectedDevice.capabilities,
+                  vendorRaw: connectedDevice.raw,
+                },
+              } as SearchDevice;
+              featuresForCreate = {
+                device_id: connectedDevice.deviceId,
+                vendor: deviceData.vendor,
+              } as unknown as IOneKeyDeviceFeatures;
+              // USB: same one-call flow over the interaction just opened.
+              await actions.current.createKeystoneWalletWithDefaultAccounts({
+                usb: {
+                  operationId: connectedDevice.operationId,
+                  device: thirdPartyDevice,
+                },
+              });
+              if (!isCurrentAttempt()) return;
+              thirdPartyWalletCreated = true;
+            }
+            if (deviceData.vendor === EHardwareVendor.trezor) {
+              const trezorSearchTarget = deviceData.searchTarget;
+              if (!trezorSearchTarget) {
+                throw new OneKeyLocalError({
+                  message: 'Trezor device search target is required',
+                });
+              }
+              const connectedResult =
+                await backgroundApiProxy.serviceThirdPartyHardware.connectDevice(
+                  {
+                    vendor: deviceData.vendor,
+                    searchTargetId: trezorSearchTarget.searchTargetId,
+                  },
+                );
+              if (!connectedResult.success) {
+                throw getTrezorConnectFailureError(
+                  connectedResult.payload,
+                  deviceData.vendor,
+                  intl,
+                );
+              }
+              const connected = connectedResult.payload;
+              ownThirdPartyOperation = {
+                vendor: deviceData.vendor,
+                operationId: connected.operationId,
+              };
+              if (!isCurrentAttempt()) return;
+              activeThirdPartyOperationRef.current = {
+                ...ownThirdPartyOperation,
+                attempt,
+              };
+              const connectedFeatures = connected.features;
               const legacyConnectedFeatures = connectedFeatures as
                 | {
                     device_id?: string;
                   }
                 | undefined;
               const connectedDeviceId =
-                connected.success &&
-                (connected.payload.deviceId ||
-                  (typeof legacyConnectedFeatures?.device_id === 'string'
-                    ? legacyConnectedFeatures.device_id
-                    : ''));
-              if (!connected.success) {
-                throw getTrezorConnectFailureError(
-                  connected.payload,
-                  deviceData.vendor,
-                  intl,
-                );
-              }
+                connected.deviceId ||
+                (typeof legacyConnectedFeatures?.device_id === 'string'
+                  ? legacyConnectedFeatures.device_id
+                  : '');
               // No firmware or no seed yet: no device_id exists, so check this
               // before the device_id guard to show the real reason.
               if (
@@ -647,6 +854,12 @@ function FinalizeWalletSetupPage({
                   isSoftwareWalletOnlyUser,
                   vendor: deviceData.vendor,
                 });
+                // Terminal outcome, not abandonment: release the in-flight
+                // guard before the pop unmounts this instance. A superseded attempt must not release the guard the live one holds.
+                if (isCurrentAttempt()) {
+                  hardwareCreateInFlightRef.current = false;
+                }
+                if (!isCurrentAttempt()) return;
                 navigation.pop();
                 Dialog.show({
                   title: intl.formatMessage({
@@ -680,42 +893,53 @@ function FinalizeWalletSetupPage({
               ).raw;
               thirdPartyDevice = {
                 ...thirdPartyDevice,
-                connectId: connected.payload.connectId,
+                connectId: connected.connectId,
                 deviceId: connectedDeviceId,
                 name:
                   thirdPartyDevice.name ||
-                  connected.payload.label ||
-                  connected.payload.modelName ||
-                  connected.payload.model ||
+                  connected.label ||
+                  connected.modelName ||
+                  connected.model ||
                   'Trezor',
                 raw: {
                   ...rawThirdPartyDevice,
-                  vendorRaw: connected.payload.raw,
+                  connectionType:
+                    connected.connectionType ??
+                    trezorSearchTarget.connectionType,
+                  capabilities: connected.capabilities,
+                  vendorRaw: connected.raw,
                 },
-                vendorModel: connected.payload.model,
-                vendorModelName: connected.payload.modelName,
+                vendorModel: connected.model,
+                vendorModelName: connected.modelName,
               } as SearchDevice;
             }
-            const { accountCreationResult } =
-              await actions.current.createHWWalletWithoutHidden(
-                {
-                  device: thirdPartyDevice,
-                  hideCheckingDeviceLoading: true,
-                  features: featuresForCreate,
-                  isFirmwareVerified: true,
-                  defaultIsTemp: true,
-                  vendor: deviceData.vendor,
-                },
-                { mode: 'onboarding' },
-              );
-            accountCreationResultRef.current = accountCreationResult;
+            if (!thirdPartyWalletCreated) {
+              const { accountCreationResult } =
+                await actions.current.createHWWalletWithoutHidden(
+                  {
+                    device: thirdPartyDevice,
+                    hideCheckingDeviceLoading: true,
+                    features: featuresForCreate,
+                    isFirmwareVerified: true,
+                    defaultIsTemp: true,
+                    vendor: deviceData.vendor,
+                    hardwareOperationContext: {
+                      operationId: ownThirdPartyOperation?.operationId,
+                    },
+                  },
+                  { mode: 'onboarding' },
+                );
+              if (!isCurrentAttempt()) return;
+              accountCreationResultRef.current = accountCreationResult;
+            }
             await trackHardwareWalletConnection({
               status: 'success',
               deviceType: thirdPartyDevice.deviceType,
-              hardwareTransportType: resolvedTransportType,
+              hardwareTransportType: analyticsTransportType,
               isSoftwareWalletOnlyUser,
               vendor: deviceData.vendor,
             });
+            if (!isCurrentAttempt()) return;
             // After a reset the same device re-onboards with a new device_id;
             // mark the stale wallet deprecated so only the current one lights
             // up. Trezor-specific dedup, matched on the device's transport
@@ -730,7 +954,7 @@ function FinalizeWalletSetupPage({
             await trackHardwareWalletConnection({
               status: 'failure',
               deviceType: thirdPartyDevice.deviceType,
-              hardwareTransportType: resolvedTransportType,
+              hardwareTransportType: analyticsTransportType,
               isSoftwareWalletOnlyUser,
               vendor: deviceData.vendor,
             });
@@ -749,6 +973,7 @@ function FinalizeWalletSetupPage({
         // stage leave before the page turns to its ready state, so the
         // processing capsule never overlaps the Enter-wallet button
         // (OK-62092). The finally's endBurst is a no-op after this.
+        if (deviceData.vendor && !isCurrentAttempt()) return;
         await endBurst();
         await waitForDeviceStageExit();
         const { wallets: walletsAfterCreate } =
@@ -764,18 +989,38 @@ function FinalizeWalletSetupPage({
           walletsAfterCreate.find(
             (walletItem) => !existingWalletIds.has(walletItem.id),
           );
-        if (createdWallet) {
+        if (createdWallet && isCurrentAttempt()) {
           createdWalletRef.current = createdWallet;
         }
       }
-      setIsWalletCreationReadyForReferralCheck(true);
+      if (isCurrentAttempt()) {
+        hardwareCreateInFlightRef.current = false;
+        setIsWalletCreationReadyForReferralCheck(true);
+      }
     } catch (error) {
+      if (isCurrentAttempt()) {
+        hardwareCreateInFlightRef.current = false;
+        // A throw means connectDevice has settled; nothing is left to cancel.
+        setupAttemptsRef.current.finishFirstContact(attempt);
+      }
       console.error('createWallet error:', error);
       const hardwareError = error as IOneKeyError<IOneKeyErrorI18nInfo> & {
         messageId?: ETranslations;
+        payload?: {
+          recovery?: IHardwareErrorRecoveryHint;
+          params?: { operationMayHaveCompleted?: boolean };
+        };
       };
       const errorKey = hardwareError?.key;
+      // A stale run must not paint its error over the run now in progress.
+      if (!isCurrentAttempt()) {
+        return;
+      }
       setSetupError({
+        code: hardwareError?.code,
+        recovery: hardwareError?.payload?.recovery,
+        operationMayHaveCompleted:
+          hardwareError?.payload?.params?.operationMayHaveCompleted,
         messageId: fixErrorString(
           hardwareError
             ? (errorKey && isKnownTranslationKey(errorKey)
@@ -789,7 +1034,27 @@ function FinalizeWalletSetupPage({
         info: hardwareError?.info,
       });
     } finally {
-      await endBurst();
+      const { operationToRelease, shouldClearActiveOperation } =
+        resolveOperationReleaseForAttempt({
+          attempt,
+          activeOperation: activeThirdPartyOperationRef.current,
+          ownOperation: ownThirdPartyOperation,
+        });
+      if (shouldClearActiveOperation) {
+        activeThirdPartyOperationRef.current = undefined;
+      }
+      if (operationToRelease) {
+        await backgroundApiProxy.serviceThirdPartyHardware
+          .releaseOperation(operationToRelease)
+          .catch((endError: unknown) => {
+            defaultLogger.hardware.sdkLog.log(
+              '[3rdPartyHW] releaseOperation failed',
+              endError instanceof Error ? endError.message : String(endError),
+            );
+          });
+      }
+      // A replacement attempt reuses the flow's hold; only its owner may end it.
+      if (!deviceData?.vendor || isCurrentAttempt()) await endBurst();
     }
   }, [
     ensureBurst,
@@ -816,7 +1081,23 @@ function FinalizeWalletSetupPage({
   ]);
 
   useEffect(() => {
+    const setupAttempts = setupAttemptsRef.current;
     void createWallet();
+    return () => {
+      // Keystone cold-start jobs serialize, so an abandoned connectDevice
+      // blocks the next attempt forever; scoped to Keystone's connectDevice window only, since a vendor-wide cancel would tear down unrelated Ledger/Trezor jobs (e.g. app install).
+      const shouldCancelFirstContact = deviceData?.vendor
+        ? setupAttempts.invalidate()
+        : false;
+      if (
+        deviceData?.vendor === EHardwareVendor.keystone &&
+        shouldCancelFirstContact
+      ) {
+        void backgroundApiProxy.serviceThirdPartyHardware.thirdPartyHardwareCancel(
+          { vendor: EHardwareVendor.keystone },
+        );
+      }
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -848,11 +1129,20 @@ function FinalizeWalletSetupPage({
     }, []),
   );
 
+  const retryAction = deviceData?.vendor
+    ? getThirdPartyHardwareRetryAction({
+        errorCode: setupError?.code,
+        recovery: setupError?.recovery,
+        searchTarget: deviceData.searchTarget,
+        operationMayHaveCompleted: setupError?.operationMayHaveCompleted,
+      })
+    : EThirdPartyHardwareRetryAction.retrySelectedSearchTarget;
+
   const retrySetup = useCallback(() => {
-    // A Safe 7 mints a fresh BLE address each time it re-enters pairing mode, so
-    // the connectId in `deviceData` is dead once an attempt ends — go back and
-    // re-scan instead of retrying it. Other vendors keep in-place retry.
-    if (deviceData?.vendor === EHardwareVendor.trezor) {
+    if (retryAction === EThirdPartyHardwareRetryAction.doNotRetry) {
+      return;
+    }
+    if (retryAction === EThirdPartyHardwareRetryAction.restartDeviceSearch) {
       setSetupError(undefined);
       navigation.pop();
       return;
@@ -860,6 +1150,10 @@ function FinalizeWalletSetupPage({
     setSetupError(undefined);
     setCurrentStep(initialStep);
     stepQueue.current = [];
+    // Retry is explicit user intent to re-enter: clear the in-flight guard.
+    // An event-bus error (useConnectDeviceError) can render this button while
+    // createWallet is still pending; without this, retry silently no-ops.
+    hardwareCreateInFlightRef.current = false;
     createdWalletRef.current = undefined;
     readyReferralCheckHandledRef.current = false;
     referralCheckPromiseRef.current = Promise.resolve(undefined);
@@ -873,7 +1167,7 @@ function FinalizeWalletSetupPage({
     // instead of being short-circuited.
     created.current = false;
     void createWallet();
-  }, [createWallet, initialStep, deviceData?.vendor, navigation]);
+  }, [createWallet, initialStep, navigation, retryAction]);
 
   const { gtMd } = useMedia();
   const theme = useTheme();
@@ -1254,15 +1548,17 @@ function FinalizeWalletSetupPage({
                 )}
               />
               <XStack gap="$4" alignItems="center">
-                <Button
-                  testID={OnboardingTestIDs.finalizeSetupRetryBtn}
-                  flex={1}
-                  variant="primary"
-                  size="large"
-                  onPress={retrySetup}
-                >
-                  {intl.formatMessage({ id: ETranslations.global_retry })}
-                </Button>
+                {retryAction !== EThirdPartyHardwareRetryAction.doNotRetry ? (
+                  <Button
+                    testID={OnboardingTestIDs.finalizeSetupRetryBtn}
+                    flex={1}
+                    variant="primary"
+                    size="large"
+                    onPress={retrySetup}
+                  >
+                    {intl.formatMessage({ id: ETranslations.global_retry })}
+                  </Button>
+                ) : null}
                 <Button
                   testID={OnboardingTestIDs.finalizeSetupExitBtn}
                   variant="tertiary"

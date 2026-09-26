@@ -38,9 +38,9 @@ import {
 } from '@onekeyhq/shared/types/device';
 
 import localDb from '../../dbs/local/localDb';
+import { thirdPartyConnectionContextFromDevice } from '../../vaults/base/thirdPartyHardwareCommonParams';
 import {
-  buildTrezorBleFallbackOptions,
-  callTrezorWithBleFallback,
+  callTrezorWithDevice,
   getTrezorAdapterFromBackgroundApi,
 } from '../../vaults/base/trezorTransportUtils';
 
@@ -48,7 +48,10 @@ import { getWallpaperResourceType } from './getWallpaperResourceType';
 import { ServiceHardwareManagerBase } from './ServiceHardwareManagerBase';
 import serviceHardwareUtils from './serviceHardwareUtils';
 
-import type { TrezorDeviceSettingsParams } from './adapters/types';
+import type {
+  IDeviceManagerOperationContext,
+  TrezorDeviceSettingsParams,
+} from './adapters/types';
 import type {
   IDBDevice,
   IDBDeviceSettings as IDBDeviceDbSettings,
@@ -168,6 +171,7 @@ type IWithDeviceProcessingParams = {
 type ITrezorDeviceSettingsAction = (params: {
   connectId: string;
   device: IDBDevice;
+  operationContext: IDeviceManagerOperationContext;
 }) => Promise<ThirdPartyResponse<Record<string, unknown>>>;
 
 export class DeviceSettingsManager extends ServiceHardwareManagerBase {
@@ -371,14 +375,30 @@ export class DeviceSettingsManager extends ServiceHardwareManagerBase {
       featuresDeviceId,
       dbDevice,
     });
+    if (!device.deviceId) {
+      throw new OneKeyLocalError(
+        'Trezor device identity is required for device settings',
+      );
+    }
+    const operationContext: IDeviceManagerOperationContext = {
+      ...thirdPartyConnectionContextFromDevice(device),
+      expectedDeviceIdentity: {
+        vendor: 'trezor',
+        type: 'deviceId',
+        value: device.deviceId,
+      },
+    };
 
     return this.backgroundApi.serviceHardwareUI.withHardwareProcessing(
       async () => {
-        const response = await callTrezorWithBleFallback(
+        const response = await callTrezorWithDevice(
           device,
           async (targetConnectId) =>
-            action({ connectId: targetConnectId, device }),
-          buildTrezorBleFallbackOptions(this.backgroundApi),
+            action({
+              connectId: targetConnectId,
+              device,
+              operationContext,
+            }),
         );
         if (!response.success) {
           throw convertThirdPartyDeviceError(response.payload, {
@@ -430,14 +450,18 @@ export class DeviceSettingsManager extends ServiceHardwareManagerBase {
       dbDevice,
       debugMethodName,
       preciseUpdateFields,
-      action: async ({ connectId: targetConnectId }) => {
+      action: async ({ connectId: targetConnectId, operationContext }) => {
         const adapter = await getTrezorAdapterFromBackgroundApi(
           this.backgroundApi,
         );
         if (!adapter.deviceSettings) {
           throw new OneKeyLocalError('Trezor device settings not available');
         }
-        return adapter.deviceSettings(targetConnectId, settings);
+        return adapter.deviceSettings(
+          targetConnectId,
+          settings,
+          operationContext,
+        );
       },
     });
   }
@@ -537,14 +561,18 @@ export class DeviceSettingsManager extends ServiceHardwareManagerBase {
         featuresDeviceId,
         dbDevice: device,
         debugMethodName: 'deviceSettings.changePin.trezor',
-        action: async ({ connectId: targetConnectId }) => {
+        action: async ({ connectId: targetConnectId, operationContext }) => {
           const adapter = await getTrezorAdapterFromBackgroundApi(
             this.backgroundApi,
           );
           if (!adapter.changePin) {
             throw new OneKeyLocalError('Trezor change PIN not available');
           }
-          return adapter.changePin(targetConnectId, { remove });
+          return adapter.changePin(
+            targetConnectId,
+            { remove },
+            operationContext,
+          );
         },
       });
     }
@@ -1041,7 +1069,7 @@ export class DeviceSettingsManager extends ServiceHardwareManagerBase {
         featuresDeviceId,
         dbDevice: device,
         debugMethodName: 'deviceSettings.setBrightness.trezor',
-        action: async ({ connectId: targetConnectId }) => {
+        action: async ({ connectId: targetConnectId, operationContext }) => {
           const adapter = await getTrezorAdapterFromBackgroundApi(
             this.backgroundApi,
           );
@@ -1050,7 +1078,11 @@ export class DeviceSettingsManager extends ServiceHardwareManagerBase {
               'Trezor brightness settings not available',
             );
           }
-          return adapter.setBrightness(targetConnectId);
+          return adapter.setBrightness(
+            targetConnectId,
+            typeof brightness === 'number' ? { value: brightness } : {},
+            operationContext,
+          );
         },
       });
     }
@@ -1129,14 +1161,14 @@ export class DeviceSettingsManager extends ServiceHardwareManagerBase {
         featuresDeviceId,
         dbDevice: device,
         debugMethodName: 'deviceSettings.wipeDevice.trezor',
-        action: async ({ connectId: targetConnectId }) => {
+        action: async ({ connectId: targetConnectId, operationContext }) => {
           const adapter = await getTrezorAdapterFromBackgroundApi(
             this.backgroundApi,
           );
           if (!adapter.wipeDevice) {
             throw new OneKeyLocalError('Trezor wipe not available');
           }
-          return adapter.wipeDevice(targetConnectId);
+          return adapter.wipeDevice(targetConnectId, operationContext);
         },
       });
       await localDb.clearTrezorDeviceThpState({ dbDeviceId: device.id });

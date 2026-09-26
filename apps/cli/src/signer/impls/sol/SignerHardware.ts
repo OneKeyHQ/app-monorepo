@@ -1,3 +1,4 @@
+import { SolanaOffChainMessageVersion } from '@onekeyfe/hd-transport';
 import { PublicKey, VersionedTransaction } from '@solana/web3.js';
 import bs58 from 'bs58';
 
@@ -286,7 +287,7 @@ export class SignerHardware extends SignerHardwareBase {
           {
             path,
             messageHex,
-            messageVersion: 1,
+            messageVersion: SolanaOffChainMessageVersion.MESSAGE_VERSION_1,
             requiredSigners: requiredSignerBytes
               .map((signer) => Buffer.from(signer).toString('hex'))
               .toSorted(),

@@ -1,15 +1,24 @@
-import type { EHardwareVendor } from '@onekeyhq/shared/types/device';
+import type {
+  EHardwareVendor,
+  IThirdPartyHardwareSearchTarget,
+} from '@onekeyhq/shared/types/device';
 
 import type { EThirdPartyHardwareUiAction } from '../../../states/jotai/atoms/hardware';
 import type {
   DeviceInfo,
+  DeviceSelectionRequest,
   IConnector,
+  IDeviceManagerOperationContext,
+  IHardwareConnectionContext,
   IHardwareWallet,
   Response,
   UiResponseEvent,
 } from '@onekeyfe/hwk-adapter-core';
 
 export type { DeviceInfo, IHardwareWallet, Response, IConnector };
+export type { IDeviceManagerOperationContext };
+export type { IHardwareConnectionContext };
+export type { IThirdPartyHardwareSearchTarget };
 
 export type TrezorDisplayRotation = 'North' | 'East' | 'South' | 'West';
 export type TrezorSafetyCheckLevel =
@@ -36,19 +45,38 @@ export type TrezorChangePinParams = { remove?: boolean };
 export type IThirdPartyHardwareSearchOptions = {
   resetSession?: boolean;
   waitForAllTransports?: boolean;
-  transportType?: 'usb' | 'ble';
+  transportType?: 'usb' | 'ble' | 'qr';
+};
+
+/** Transport metadata attached to SDK discovery results for UI consumers. */
+export type IThirdPartyHardwareSearchDeviceRaw = {
+  connectionType?: 'usb' | 'ble' | 'qr';
 };
 
 export type IThirdPartyConnectedDevicePayload = {
+  /** Runtime-only lifecycle id. It must never be written to the Device table. */
+  operationId: string;
   connectId: string;
   deviceId: string;
   model?: string;
   modelName?: string;
   label?: string;
   firmwareVersion?: string;
+  connectionType?: 'usb' | 'ble' | 'qr';
+  capabilities?: DeviceInfo['capabilities'];
   features?: Record<string, unknown>;
   raw?: Record<string, unknown>;
 };
+
+export type IThirdPartyHardwareConnectionStateEvent =
+  | {
+      type: 'connected';
+      device: IThirdPartyConnectedDevicePayload;
+    }
+  | {
+      type: 'disconnected';
+      operationId: string;
+    };
 
 // =====================================================================
 // UI Event types (OneKey-specific adapter UI layer)
@@ -56,7 +84,10 @@ export type IThirdPartyConnectedDevicePayload = {
 
 export type IAdapterUiRequestType =
   | EThirdPartyHardwareUiAction.requestDeviceNotFound
-  | EThirdPartyHardwareUiAction.requestBtcHighIndexConfirm;
+  | EThirdPartyHardwareUiAction.requestDeviceSelection
+  | EThirdPartyHardwareUiAction.requestBtcHighIndexConfirm
+  | EThirdPartyHardwareUiAction.requestKeystoneQrDisplay
+  | EThirdPartyHardwareUiAction.requestKeystoneQrScan;
 
 export type IAdapterUiRequest = {
   kind: 'request';
@@ -72,6 +103,15 @@ export type IAdapterUiRequest = {
     path?: string;
     /** Account index parsed from the path (BTC high-index confirm). */
     accountIndex?: number;
+    /** Operation-first search results. Their ids are discovery-generation scoped. */
+    deviceSearchTargets?: IThirdPartyHardwareSearchTarget[];
+    deviceSelection?: Omit<DeviceSelectionRequest, 'devices'>;
+    /** Keystone QR: BC-UR type of the payload to display. */
+    urType?: string;
+    /** Keystone QR: hex-encoded CBOR of the payload to display. */
+    urData?: string;
+    /** Keystone QR: hints the display payload needs multi-frame animated rendering. */
+    animated?: boolean;
   };
 };
 
@@ -86,31 +126,45 @@ export interface IThirdPartyHardwareAdapter {
   readonly supportsAllNetworkGetAddress?: boolean;
 
   onUiEvent(handler: (event: IAdapterUiEvent) => void): () => void;
+  onConnectionStateChange?(
+    handler: (event: IThirdPartyHardwareConnectionStateEvent) => void,
+  ): () => void;
   uiResponse(response: IAdapterUiResponse): void;
   cancel(connectId?: string): void;
+  cancelBleBinding?(bindingSessionId: string): void;
 
   searchDevices(
     options?: IThirdPartyHardwareSearchOptions,
   ): Promise<DeviceInfo[]>;
+  searchDeviceTargets(
+    options?: IThirdPartyHardwareSearchOptions,
+  ): Promise<IThirdPartyHardwareSearchTarget[]>;
   connectDevice(
-    connectId: string,
+    searchTargetId: string,
+    operationContext?: IHardwareConnectionContext,
   ): Promise<Response<IThirdPartyConnectedDevicePayload>>;
-  disconnect(connectId: string): Promise<void>;
-  reset(): void;
+  releaseOperation(operationId: string): Promise<void>;
+  reset(): Promise<void>;
 
   deviceSettings?(
     connectId: string,
     params: TrezorDeviceSettingsParams,
+    operationContext?: IDeviceManagerOperationContext,
   ): Promise<Response<Record<string, unknown>>>;
   setBrightness?(
     connectId: string,
     params?: TrezorBrightnessParams,
+    operationContext?: IDeviceManagerOperationContext,
   ): Promise<Response<Record<string, unknown>>>;
   changePin?(
     connectId: string,
     params?: TrezorChangePinParams,
+    operationContext?: IDeviceManagerOperationContext,
   ): Promise<Response<Record<string, unknown>>>;
-  wipeDevice?(connectId: string): Promise<Response<Record<string, unknown>>>;
+  wipeDevice?(
+    connectId: string,
+    operationContext?: IDeviceManagerOperationContext,
+  ): Promise<Response<Record<string, unknown>>>;
 
   /**
    * Trezor-only: flush this device's buffered THP pairing credentials into its
@@ -122,14 +176,4 @@ export interface IThirdPartyHardwareAdapter {
     deviceId: string,
     options?: { connectId?: string },
   ): Promise<void>;
-
-  /**
-   * Trezor-only: mark a USB→BLE binding probe as active for `connectId`; call
-   * endBindingProbe() when it finishes. A candidate's identity is decided by
-   * the post-handshake device_id comparison, never by whether it asks to pair
-   * (an expired THP credential makes our own device ask too). Optional —
-   * adapters without host-managed pairing (Ledger) omit it.
-   */
-  beginBindingProbe?(connectId: string): void;
-  endBindingProbe?(): void;
 }

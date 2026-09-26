@@ -6,11 +6,13 @@ import type {
   ISignedTxPro,
 } from '@onekeyhq/core/src/types';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import { ThirdPartyMethodNotSupported } from '@onekeyhq/shared/src/errors/errors/thirdPartyHardwareErrors';
 import { convertThirdPartyDeviceError } from '@onekeyhq/shared/src/errors/utils/thirdPartyDeviceErrorUtils';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
 import { EHardwareVendor } from '@onekeyhq/shared/types/device';
+import { EMessageTypesTron } from '@onekeyhq/shared/types/message';
 
 import { KeyringHardwareBase } from '../../base/KeyringHardwareBase';
 import {
@@ -80,12 +82,19 @@ export class KeyringHardwareLedger extends KeyringHardwareBase {
             this.backgroundApi,
             dbDevice,
             'tron',
-            (deviceId) =>
-              adapter.hw.tronGetAddress(dbDevice.connectId, deviceId, {
+            (deviceId, connectId, context) =>
+              adapter.hw.tronGetAddress(connectId, deviceId, {
+                ...context,
                 path,
                 showOnDevice: params.isVerifyAddressAction ?? false,
                 ...ledgerCommonCallParamsForCreateScene(params),
               }),
+            {
+              operationId: params.deviceParams.deviceCommonParams?.operationId,
+              allowFingerprintBootstrap:
+                params.deviceParams.deviceCommonParams
+                  ?.allowDeviceIdentityBootstrap === true,
+            },
           );
 
           if (!result.success) {
@@ -118,7 +127,8 @@ export class KeyringHardwareLedger extends KeyringHardwareBase {
     params: ISignTransactionParams,
   ): Promise<ISignedTxPro> {
     const { unsignedTx, deviceParams } = params;
-    const { dbDevice } = checkIsDefined(deviceParams);
+    const checkedDeviceParams = checkIsDefined(deviceParams);
+    const { dbDevice } = checkedDeviceParams;
     const encodedTx = unsignedTx.encodedTx as IEncodedTxTron;
 
     const adapter =
@@ -143,11 +153,16 @@ export class KeyringHardwareLedger extends KeyringHardwareBase {
       this.backgroundApi,
       dbDevice,
       'tron',
-      (deviceId) =>
-        adapter.hw.tronSignTransaction(dbDevice.connectId, deviceId, {
+      (deviceId, connectId, context) =>
+        adapter.hw.tronSignTransaction(connectId, deviceId, {
+          ...context,
           path,
           rawTxHex,
         }),
+      {
+        operationId: checkedDeviceParams.deviceCommonParams?.operationId,
+        allowFingerprintBootstrap: false,
+      },
     );
 
     if (!result.success) {
@@ -174,7 +189,17 @@ export class KeyringHardwareLedger extends KeyringHardwareBase {
     params: ISignMessageParams,
   ): Promise<ISignedMessagePro> {
     const { messages, deviceParams } = params;
-    const { dbDevice } = checkIsDefined(deviceParams);
+    // Pre-check the whole batch: a mixed batch must not put the first message
+    // on the device before rejecting a later unsupported one.
+    if (
+      messages.some(
+        (message) => message.type !== EMessageTypesTron.SIGN_MESSAGE_V2,
+      )
+    ) {
+      throw new ThirdPartyMethodNotSupported();
+    }
+    const checkedDeviceParams = checkIsDefined(deviceParams);
+    const { dbDevice } = checkedDeviceParams;
     const account = await this.vault.getAccount();
 
     const adapter =
@@ -185,29 +210,36 @@ export class KeyringHardwareLedger extends KeyringHardwareBase {
       throw new OneKeyLocalError('Ledger adapter not available');
     }
 
-    return Promise.all(
-      messages.map(async (e) => {
-        const result = await callLedgerWithFingerprint(
+    const signatures: ISignedMessagePro = [];
+    for (const message of messages) {
+      const result =
+        // eslint-disable-next-line no-await-in-loop
+        await callLedgerWithFingerprint(
           this.backgroundApi,
           dbDevice,
           'tron',
-          (deviceId) =>
-            adapter.hw.tronSignMessage(dbDevice.connectId, deviceId, {
+          (deviceId, connectId, context) =>
+            adapter.hw.tronSignMessage(connectId, deviceId, {
+              ...context,
               path: account.path,
-              messageHex: e.message,
+              messageHex: message.message,
             }),
+          {
+            operationId: checkedDeviceParams.deviceCommonParams?.operationId,
+            allowFingerprintBootstrap: false,
+          },
         );
 
-        if (!result.success) {
-          throw convertThirdPartyDeviceError(result.payload, {
-            vendor: 'Ledger',
-            chain: 'Tron',
-          });
-        }
+      if (!result.success) {
+        throw convertThirdPartyDeviceError(result.payload, {
+          vendor: 'Ledger',
+          chain: 'Tron',
+        });
+      }
 
-        return hexUtils.addHexPrefix(result.payload.signature);
-      }),
-    );
+      signatures.push(hexUtils.addHexPrefix(result.payload.signature));
+    }
+    return signatures;
   }
 
   override async buildHwAllNetworkPrepareAccountsParams(

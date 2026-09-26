@@ -34,6 +34,7 @@ export class AirGapTronSDK implements IAirGapSDK {
     requestId?: string;
     signature: string;
     raw: string;
+    txId: string;
   } {
     if (ur.type !== EURType.TronSignature) {
       // eslint-disable-next-line no-restricted-syntax, onekey/no-raw-error -- standalone SDK package without @onekeyhq/shared dependency
@@ -46,6 +47,8 @@ export class AirGapTronSDK implements IAirGapSDK {
       requestId: requestId === undefined ? undefined : uuidStringify(requestId),
       signature: toHex(sig.getSignature()),
       raw: '',
+      // Signature-only QR responses do not include a transaction ID.
+      txId: '',
     };
   }
 

@@ -236,8 +236,7 @@ guard let pid = Int32(CommandLine.arguments[1]),
         scenario,
         noblePath: require.resolve('@stoprocent/noble'),
         oneKeyPath: require.resolve('@onekeyfe/hd-transport-electron'),
-        trezorPath:
-          require.resolve('@onekeyfe/hwk-trezor-connector-electron-ble/main'),
+        thirdPartyBlePath: require.resolve('@onekeyfe/hwk-desktop-noble-ble'),
         sharedPath: require.resolve('@onekeyfe/hd-shared'),
       };
       const workerSource = `
@@ -257,12 +256,12 @@ guard let pid = Int32(CommandLine.arguments[1]),
         };
         (async () => {
           const oneKey = require(workerData.oneKeyPath);
-          const trezor = require(workerData.trezorPath);
+          const thirdPartyBle = require(workerData.thirdPartyBlePath);
           const { EOneKeyBleMessageKeys } = require(workerData.sharedPath);
           const window = new EventEmitter();
           window.send = () => {};
           await oneKey.initNobleBleSupport(window);
-          const supports = [trezor.initTrezorBleSupport(window, { ipcMain })];
+          const supports = [thirdPartyBle.initThirdPartyBleSupport(window, { ipcMain })];
           const operations = [];
           if (workerData.scenario !== 'unused') {
             const channel = workerData.scenario === 'scanning'
@@ -276,7 +275,7 @@ guard let pid = Int32(CommandLine.arguments[1]),
           }
           if (workerData.scenario === 'multiple-instances') {
             const second = require(workerData.noblePath).withBindings('mac');
-            const handler = new trezor.NobleBleHandler({ nobleFactory: () => second });
+            const handler = new thirdPartyBle.NobleBleHandler({ nobleFactory: () => second });
             await handler.checkAvailability();
             supports.push(handler);
           }
@@ -285,7 +284,7 @@ guard let pid = Int32(CommandLine.arguments[1]),
             window.emit('destroyed');
             await supports[0].dispose();
             await oneKey.initNobleBleSupport(window);
-            supports.push(trezor.initTrezorBleSupport(window, { ipcMain }));
+            supports.push(thirdPartyBle.initThirdPartyBleSupport(window, { ipcMain }));
             await supports[1].handler.checkAvailability();
           }
           const instances = new Set();

@@ -17,6 +17,7 @@ import type {
 import type { ICoinSelectAlgorithm } from '@onekeyhq/core/src/utils/coinSelectUtils';
 import type { IAirGapAccount } from '@onekeyhq/qr-wallet-sdk';
 import type { IPbkdf2KdfParams } from '@onekeyhq/shared/src/appCrypto/modules/pbkdf2';
+import type { IOneKeyHardwareErrorPayload } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import type {
   ETranslations,
   ETranslationsMock,
@@ -449,7 +450,10 @@ export type INormalizeGetMultiAccountsPathParams = {
 
 export type IHwSdkNetwork = AllNetworkAddressParams['network'];
 
-type IHwAllNetworkPrepareAccountsItemErrorPayload = {
+type IHwAllNetworkPrepareAccountsItemErrorPayload = Pick<
+  IOneKeyHardwareErrorPayload,
+  'appName' | 'recovery'
+> & {
   error: string;
   code: number;
   errorCode: string | number; // TODO use code instead
@@ -482,6 +486,11 @@ export type IHwAllNetworkPrepareAccountsItem =
         | {
             vendor: 'trezor';
             type: 'deviceId';
+            value: string;
+          }
+        | {
+            vendor: 'keystone';
+            type: 'walletId';
             value: string;
           };
       chainFingerprint?: string;

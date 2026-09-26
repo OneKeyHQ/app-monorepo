@@ -117,8 +117,22 @@ export type IOneKeyHardwareErrorPayload = {
   error?: string;
   message?: string;
   params?: any;
+  appName?: string;
   connectId?: string;
   deviceId?: string;
+  recovery?: IHardwareErrorRecoveryHint;
+};
+
+// Wire-compatible mirror of the optional HWK SDK recovery payload. Keep this
+// structural until the first SDK version exporting HwkRecoveryHint is consumed.
+export type IHardwareErrorRecoveryHint = {
+  scope:
+    | 'call'
+    | 'operation'
+    | 'search-target'
+    | 'transport'
+    | 'not-recoverable'
+    | 'unknown';
 };
 
 export type IOneKeyHardwareErrorData = {

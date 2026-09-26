@@ -105,7 +105,7 @@ export type IDeviceStageStep =
 
 /** The third-party vendors the stage can dress for. Values match
  * EHardwareVendor in @onekeyhq/shared/types/device. */
-export type IDeviceStageVendor = 'ledger' | 'trezor';
+export type IDeviceStageVendor = 'ledger' | 'trezor' | 'keystone';
 
 /** The transport a burst rides. Desktop runs USB and Bluetooth side by
  * side, so the connecting wait tells them apart; which one is the

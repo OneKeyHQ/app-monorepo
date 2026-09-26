@@ -7,40 +7,73 @@ import {
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { EHardwareVendor } from '@onekeyhq/shared/types/device';
 
-export function createTrezorBleBindingDialogCallbacks({
-  promiseId,
+export function createThirdPartyDeviceSelectionDialogCallbacks({
+  vendor,
+  requestId,
   dialogInstanceRef,
   settledRef,
-  resolveCallback,
+  uiResponse,
+  cancel,
   clearState,
 }: {
-  promiseId: number;
+  vendor: EHardwareVendor;
+  requestId?: string;
   dialogInstanceRef: { current: unknown | null };
   settledRef: { current: boolean };
-  resolveCallback: (params: {
-    id: number;
-    data: string | null;
+  uiResponse: (params: {
+    vendor: EHardwareVendor;
+    response: IAdapterUiResponse;
   }) => Promise<void>;
+  cancel: (params: { vendor: EHardwareVendor }) => Promise<void>;
   clearState: () => Promise<void>;
 }) {
   return {
-    onBound: (connectId: string) => {
+    onSelected: async (searchTargetId: string) => {
+      if (settledRef.current) return;
       settledRef.current = true;
-      void resolveCallback({
-        id: promiseId,
-        data: connectId,
-      });
-      void clearState();
+      try {
+        await uiResponse({
+          vendor,
+          response: {
+            type: UI_RESPONSE.RECEIVE_SELECT_DEVICE,
+            payload: {
+              sdkConnectId: searchTargetId,
+              ...(requestId ? { requestId } : {}),
+            },
+          },
+        });
+      } catch {
+        if (requestId) {
+          await uiResponse({
+            vendor,
+            response: {
+              type: UI_RESPONSE.RECEIVE_SELECT_DEVICE,
+              payload: { requestId, cancelled: true },
+            },
+          });
+        } else await cancel({ vendor });
+      } finally {
+        await clearState();
+      }
     },
     onClose: async () => {
       dialogInstanceRef.current = null;
-      if (!settledRef.current) {
-        await resolveCallback({
-          id: promiseId,
-          data: null,
-        });
+      try {
+        if (!settledRef.current) {
+          settledRef.current = true;
+          if (requestId) {
+            await uiResponse({
+              vendor,
+              response: {
+                type: UI_RESPONSE.RECEIVE_SELECT_DEVICE,
+                payload: { requestId, cancelled: true },
+              },
+            });
+          } else await cancel({ vendor });
+        }
+      } finally {
+        await clearState();
       }
-      await clearState();
     },
   };
 }
@@ -54,6 +87,7 @@ export function buildThirdPartyHardwareUiResponse(
     passphraseOnDevice?: boolean;
     save?: boolean;
     pin?: string;
+    qrResponse?: { urType: string; urData: string };
   },
 ): IAdapterUiResponse | null {
   switch (action) {
@@ -93,6 +127,15 @@ export function buildThirdPartyHardwareUiResponse(
         type: UI_RESPONSE.RECEIVE_PIN,
         payload: extras?.pin ?? '',
       };
+    case EThirdPartyHardwareUiAction.requestKeystoneQrDisplay:
+    case EThirdPartyHardwareUiAction.requestKeystoneQrScan:
+      // No confirm/deny: the response is the UR the app scanned off the
+      // device's screen. `confirmed=false` (camera/user cancel) drops it.
+      if (!confirmed || !extras?.qrResponse) return null;
+      return {
+        type: UI_RESPONSE.RECEIVE_QR_RESPONSE,
+        payload: extras.qrResponse,
+      };
     default:
       return null;
   }
@@ -100,22 +143,15 @@ export function buildThirdPartyHardwareUiResponse(
 
 export async function clearThirdPartyHardwareUiStateIfCurrent({
   expectedState,
-  getState,
-  setState,
+  clearInBackground,
 }: {
   expectedState: IThirdPartyHardwareUiState | undefined;
-  getState: () =>
-    | IThirdPartyHardwareUiState
-    | undefined
-    | Promise<IThirdPartyHardwareUiState | undefined>;
-  setState: (state: IThirdPartyHardwareUiState | undefined) => Promise<void>;
+  clearInBackground: (params: {
+    expectedRequestId: string;
+  }) => Promise<boolean>;
 }): Promise<boolean> {
-  const currentState = await getState();
-  if (currentState !== expectedState) {
-    return false;
-  }
-  await setState(undefined);
-  return true;
+  if (!expectedState?.uiRequestId) return false;
+  return clearInBackground({ expectedRequestId: expectedState.uiRequestId });
 }
 
 export async function cancelThirdPartyHardwareUiRequest({

@@ -10,6 +10,6 @@
     "author": "",
     "license": "SEE https://github.com/OneKeyHQ/app-monorepo/blob/onekey/LICENSE.md",
     "dependencies": {
-        "@keystonehq/keystone-sdk": "^0.4.1"
+        "@keystonehq/keystone-sdk": "0.12.3"
     }
 }

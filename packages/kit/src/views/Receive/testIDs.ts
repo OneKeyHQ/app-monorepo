@@ -3,6 +3,7 @@ export const ReceiveTestIDs = {
   ReceiveTokenPage: 'receive-token-page',
   QRCode: 'receive-qr-code',
   AddressText: 'receive-address-text',
+  DerivationPath: 'receive-derivation-path',
   CopyAddressButton: 'receive-copy-address-button',
   VerifyOnDeviceButton: 'receive-verify-on-device-button',
   SkipVerifyButton: 'receive-skip-verify-button',

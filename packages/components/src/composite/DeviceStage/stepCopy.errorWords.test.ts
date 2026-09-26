@@ -170,3 +170,30 @@ describe('resolveCapsuleText, done step', () => {
     },
   );
 });
+
+describe('resolveCapsuleText, stalled connecting', () => {
+  it('shows the transport hint only on the OneKey track', () => {
+    expect(
+      resolveCapsuleText(
+        intl,
+        'connecting',
+        'Keystone',
+        'keystone',
+        undefined,
+        undefined,
+        'usb',
+      ).sub,
+    ).toBe('');
+    expect(
+      resolveCapsuleText(
+        intl,
+        'connecting',
+        'Pro',
+        undefined,
+        undefined,
+        undefined,
+        'usb',
+      ).sub,
+    ).toBe(`<${ETranslations.device_stage_connecting_stalled_usb__desc}>`);
+  });
+});

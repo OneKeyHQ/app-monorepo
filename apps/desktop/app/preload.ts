@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-unsafe-return */
 /* eslint-disable @typescript-eslint/no-unused-vars,@typescript-eslint/require-await */
 import { EOneKeyBleMessageKeys } from '@onekeyfe/hd-shared';
-import { TREZOR_BLE_CHANNELS } from '@onekeyfe/hwk-trezor-connector-electron-ble/constants';
+import { THIRD_PARTY_BLE_CHANNELS } from '@onekeyfe/hwk-desktop-noble-ble/constants';
 import { contextBridge, ipcRenderer } from 'electron';
 
 import { OAUTH_CALLBACK_DESKTOP_CHANNEL } from '@onekeyhq/shared/src/consts/authConsts';
@@ -10,7 +10,11 @@ import { ipcMessageKeys } from './config';
 
 import type { EBleDisconnectReason } from '@onekeyfe/hd-shared';
 import type { NobleBleAPI } from '@onekeyfe/hd-transport-electron';
-import type { TrezorBleApi } from '@onekeyfe/hwk-trezor-connector-electron-ble';
+import type {
+  ElectronBleConnectOptions,
+  ElectronBleScanOptions,
+} from '@onekeyfe/hwk-adapter-core';
+import type { ThirdPartyBleApi } from '@onekeyfe/hwk-desktop-noble-ble';
 
 const DESKTOP_BLE_CONNECTED_ONLY_SCOPE_TTL_MS = 150_000;
 const desktopBleConnectedOnlyScopes = new Map<string, Map<number, number>>();
@@ -410,41 +414,43 @@ const desktopApi = {
   } as NobleBleAPI,
   // Vendor-neutral BLE channel for third-party hardware (Trezor today,
   // Ledger / other vendors can plug in the same shape later). The shape
-  // mirrors SDK's `TrezorBleApi` because Trezor was the first consumer,
+  // mirrors SDK's `ThirdPartyBleApi` because Trezor was the first consumer,
   // but nothing here is Trezor-specific — the underlying IPC channels
-  // happen to currently be those registered by `initTrezorBleSupport`
+  // happen to currently be those registered by `initThirdPartyBleSupport`
   // in main, and they can be swapped/multiplexed without touching this
   // renderer surface.
   thirdPartyBle: {
-    scan: (options?: { serviceUuids?: string[]; durationMs?: number }) =>
-      ipcRenderer.invoke(TREZOR_BLE_CHANNELS.scan, options),
-    stopScan: () => ipcRenderer.invoke(TREZOR_BLE_CHANNELS.stopScan),
-    connect: (id: string) =>
-      ipcRenderer.invoke(TREZOR_BLE_CHANNELS.connect, id),
+    scan: (options?: ElectronBleScanOptions) =>
+      ipcRenderer.invoke(THIRD_PARTY_BLE_CHANNELS.scan, options),
+    stopScan: (vendor?: string) =>
+      ipcRenderer.invoke(THIRD_PARTY_BLE_CHANNELS.stopScan, vendor),
+    connect: (id: string, options?: ElectronBleConnectOptions) =>
+      ipcRenderer.invoke(THIRD_PARTY_BLE_CHANNELS.connect, id, options),
     disconnect: (id: string) =>
-      ipcRenderer.invoke(TREZOR_BLE_CHANNELS.disconnect, id),
+      ipcRenderer.invoke(THIRD_PARTY_BLE_CHANNELS.disconnect, id),
     subscribe: (id: string) =>
-      ipcRenderer.invoke(TREZOR_BLE_CHANNELS.subscribe, id),
+      ipcRenderer.invoke(THIRD_PARTY_BLE_CHANNELS.subscribe, id),
     unsubscribe: (id: string) =>
-      ipcRenderer.invoke(TREZOR_BLE_CHANNELS.unsubscribe, id),
+      ipcRenderer.invoke(THIRD_PARTY_BLE_CHANNELS.unsubscribe, id),
     write: (id: string, hexData: string) =>
-      ipcRenderer.invoke(TREZOR_BLE_CHANNELS.write, id, hexData),
+      ipcRenderer.invoke(THIRD_PARTY_BLE_CHANNELS.write, id, hexData),
     checkAvailability: () =>
-      ipcRenderer.invoke(TREZOR_BLE_CHANNELS.availability),
+      ipcRenderer.invoke(THIRD_PARTY_BLE_CHANNELS.availability),
     getDevice: (id: string) =>
-      ipcRenderer.invoke(TREZOR_BLE_CHANNELS.getDevice, id),
+      ipcRenderer.invoke(THIRD_PARTY_BLE_CHANNELS.getDevice, id),
     // cspell:ignore Rssi
     readRssi: (id: string) =>
-      ipcRenderer.invoke(TREZOR_BLE_CHANNELS.readRssi, id),
-    cancelPairing: () => ipcRenderer.invoke(TREZOR_BLE_CHANNELS.cancelPairing),
+      ipcRenderer.invoke(THIRD_PARTY_BLE_CHANNELS.readRssi, id),
+    cancelPairing: (options?: { vendor: string; id?: string }) =>
+      ipcRenderer.invoke(THIRD_PARTY_BLE_CHANNELS.cancelPairing, options),
     onNotification: (handler: (id: string, hexData: string) => void) => {
       const subscription = (_: unknown, id: string, hexData: string) => {
         handler(id, hexData);
       };
-      ipcRenderer.on(TREZOR_BLE_CHANNELS.notification, subscription);
+      ipcRenderer.on(THIRD_PARTY_BLE_CHANNELS.notification, subscription);
       return () => {
         ipcRenderer.removeListener(
-          TREZOR_BLE_CHANNELS.notification,
+          THIRD_PARTY_BLE_CHANNELS.notification,
           subscription,
         );
       };
@@ -453,15 +459,15 @@ const desktopApi = {
       const subscription = (_: unknown, id: string) => {
         handler(id);
       };
-      ipcRenderer.on(TREZOR_BLE_CHANNELS.disconnected, subscription);
+      ipcRenderer.on(THIRD_PARTY_BLE_CHANNELS.disconnected, subscription);
       return () => {
         ipcRenderer.removeListener(
-          TREZOR_BLE_CHANNELS.disconnected,
+          THIRD_PARTY_BLE_CHANNELS.disconnected,
           subscription,
         );
       };
     },
-  } as TrezorBleApi,
+  } as ThirdPartyBleApi,
   getCpuUsage: () => ipcRenderer.invoke(ipcMessageKeys.SYSTEM_GET_CPU_USAGE),
   getMemoryUsage: () =>
     ipcRenderer.invoke(ipcMessageKeys.SYSTEM_GET_MEMORY_USAGE),

@@ -50,6 +50,8 @@ export class HardwareAllNetworkGetAddressResponse {
       code: item.payload?.code,
       error: item.payload?.error,
       params: item.payload?.params,
+      appName: item.payload?.appName,
+      recovery: item.payload?.recovery,
       connectId: item.payload?.connectId,
       deviceId: item.payload?.deviceId,
     });

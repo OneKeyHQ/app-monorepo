@@ -10,7 +10,6 @@ import type {
   ICoreApiGetAddressItem,
   ISignedMessagePro,
   ISignedTxPro,
-  IUnsignedMessage,
   IUnsignedMessageEth,
 } from '@onekeyhq/core/src/types';
 import { NotImplemented, OneKeyLocalError } from '@onekeyhq/shared/src/errors';
@@ -91,12 +90,20 @@ export class KeyringHardwareLedger extends KeyringHardwareBase {
               this.backgroundApi,
               dbDevice,
               'evm',
-              (deviceId) =>
-                adapter.hw.evmGetAddress(dbDevice.connectId, deviceId, {
+              (deviceId, connectId, context) =>
+                adapter.hw.evmGetAddress(connectId, deviceId, {
+                  ...context,
                   path,
                   showOnDevice: params.isVerifyAddressAction ?? false,
                   ...ledgerCommonCallParamsForCreateScene(params),
                 }),
+              {
+                operationId:
+                  params.deviceParams.deviceCommonParams?.operationId,
+                allowFingerprintBootstrap:
+                  params.deviceParams.deviceCommonParams
+                    ?.allowDeviceIdentityBootstrap === true,
+              },
             );
             if (result.success) {
               address = result.payload.address;
@@ -115,7 +122,9 @@ export class KeyringHardwareLedger extends KeyringHardwareBase {
             address =
               await this.backgroundApi.serviceHardware.getEvmAddressByStandardWallet(
                 {
-                  connectId: dbDevice.connectId,
+                  connectId:
+                    params.deviceParams.deviceCommonParams?.operationId ||
+                    dbDevice.connectId,
                   deviceId: effectiveDeviceId,
                   path,
                   vendor: EHardwareVendor.ledger,
@@ -145,7 +154,8 @@ export class KeyringHardwareLedger extends KeyringHardwareBase {
     params: ISignTransactionParams,
   ): Promise<ISignedTxPro> {
     const { unsignedTx, deviceParams } = params;
-    const { dbDevice } = checkIsDefined(deviceParams);
+    const checkedDeviceParams = checkIsDefined(deviceParams);
+    const { dbDevice } = checkedDeviceParams;
 
     const adapter =
       await this.backgroundApi.serviceThirdPartyHardware.getAdapterForVendor(
@@ -165,11 +175,16 @@ export class KeyringHardwareLedger extends KeyringHardwareBase {
       this.backgroundApi,
       dbDevice,
       'evm',
-      (deviceId) =>
-        adapter.hw.evmSignTransaction(dbDevice.connectId, deviceId, {
+      (deviceId, connectId, context) =>
+        adapter.hw.evmSignTransaction(connectId, deviceId, {
+          ...context,
           path,
           serializedTx,
         }),
+      {
+        operationId: checkedDeviceParams.deviceCommonParams?.operationId,
+        allowFingerprintBootstrap: false,
+      },
     );
 
     if (!result.success) {
@@ -188,17 +203,21 @@ export class KeyringHardwareLedger extends KeyringHardwareBase {
     return { txid, rawTx, encodedTx };
   }
 
-  override signMessage(params: ISignMessageParams): Promise<ISignedMessagePro> {
+  override async signMessage(
+    params: ISignMessageParams,
+  ): Promise<ISignedMessagePro> {
     const { messages, deviceParams } = params;
     const checkedDeviceParams = checkIsDefined(deviceParams);
-    return Promise.all(
-      messages.map(async (message: IUnsignedMessage) =>
-        this._handleSignMessage(
-          message as IUnsignedMessageEth,
-          checkedDeviceParams,
-        ),
-      ),
-    );
+    const signatures: ISignedMessagePro = [];
+    for (const message of messages) {
+      // eslint-disable-next-line no-await-in-loop
+      const signature = await this._handleSignMessage(
+        message as IUnsignedMessageEth,
+        checkedDeviceParams,
+      );
+      signatures.push(signature);
+    }
+    return signatures;
   }
 
   private async _handleSignMessage(
@@ -225,14 +244,26 @@ export class KeyringHardwareLedger extends KeyringHardwareBase {
     }
 
     if (message.type === EMessageTypesEth.PERSONAL_SIGN) {
-      return this._signPersonalMessage(adapter, dbDevice, path, message);
+      return this._signPersonalMessage(
+        adapter,
+        dbDevice,
+        path,
+        message,
+        deviceParams.deviceCommonParams?.operationId,
+      );
     }
 
     if (
       message.type === EMessageTypesEth.TYPED_DATA_V3 ||
       message.type === EMessageTypesEth.TYPED_DATA_V4
     ) {
-      return this._signTypedData(adapter, dbDevice, path, message);
+      return this._signTypedData(
+        adapter,
+        dbDevice,
+        path,
+        message,
+        deviceParams.deviceCommonParams?.operationId,
+      );
     }
 
     throw web3Errors.rpc.methodNotFound(
@@ -246,6 +277,7 @@ export class KeyringHardwareLedger extends KeyringHardwareBase {
     dbDevice: IDBDevice,
     path: string,
     message: IUnsignedMessageEth,
+    operationId?: string,
   ): Promise<string> {
     // Convert message to hex (same logic as OneKey KeyringHardware)
     let messageHex = message.message;
@@ -257,11 +289,13 @@ export class KeyringHardwareLedger extends KeyringHardwareBase {
       this.backgroundApi,
       dbDevice,
       'evm',
-      (deviceId) =>
-        adapter.hw.evmSignMessage(dbDevice.connectId, deviceId, {
+      (deviceId, connectId, context) =>
+        adapter.hw.evmSignMessage(connectId, deviceId, {
+          ...context,
           path,
           message: messageHex,
         }),
+      { operationId, allowFingerprintBootstrap: false },
     );
 
     if (!result.success) {
@@ -278,6 +312,7 @@ export class KeyringHardwareLedger extends KeyringHardwareBase {
     dbDevice: IDBDevice,
     path: string,
     message: IUnsignedMessageEth,
+    operationId?: string,
   ): Promise<string> {
     const useV4 = message.type === EMessageTypesEth.TYPED_DATA_V4;
     const data = JSON.parse(message.message);
@@ -286,12 +321,14 @@ export class KeyringHardwareLedger extends KeyringHardwareBase {
       this.backgroundApi,
       dbDevice,
       'evm',
-      (deviceId) =>
-        adapter.hw.evmSignTypedData(dbDevice.connectId, deviceId, {
+      (deviceId, connectId, context) =>
+        adapter.hw.evmSignTypedData(connectId, deviceId, {
+          ...context,
           path,
           data,
           metamaskV4Compat: !!useV4,
         }),
+      { operationId, allowFingerprintBootstrap: false },
     );
 
     if (!result.success) {

@@ -3,16 +3,27 @@ import {
   IMPL_EVM,
   IMPL_SOL,
   IMPL_TRON,
-} from '../engine/engineConsts';
-import networkUtils from '../utils/networkUtils';
+} from '../../engine/engineConsts';
+import networkUtils from '../../utils/networkUtils';
+
+import { getAllNetworkAddressMethod } from './allNetworkAddress';
 
 import type { ChainForFingerprint } from '@onekeyfe/hwk-adapter-core';
 
-export type ILedgerAllNetworkMethodName =
-  | 'evmGetAddress'
-  | 'btcGetPublicKey'
-  | 'solGetAddress'
-  | 'tronGetAddress';
+export const LEDGER_CONFIG = {
+  // Individual calls may override the SDK app-install default.
+  autoInstallApp: true,
+  // Opt in to opening another chain app before recording a missing fingerprint.
+  // Existing target-chain fingerprints are always verified independently.
+  enableCrossChainFingerprintVerification: false,
+};
+
+export const LEDGER_FINGERPRINT_CHAINS: readonly ChainForFingerprint[] = [
+  'evm',
+  'btc',
+  'sol',
+  'tron',
+];
 
 export const LEDGER_CORE_APPS = [
   'Bitcoin',
@@ -28,23 +39,19 @@ const LEDGER_NETWORK_CAPABILITIES: Record<
   string,
   {
     appName: ILedgerCoreAppName;
-    methodName: ILedgerAllNetworkMethodName;
     fingerprintChain: ChainForFingerprint;
   }
 > = {
   [IMPL_EVM]: {
     appName: 'Ethereum',
-    methodName: 'evmGetAddress',
     fingerprintChain: 'evm',
   },
   [IMPL_SOL]: {
     appName: 'Solana',
-    methodName: 'solGetAddress',
     fingerprintChain: 'sol',
   },
   [IMPL_TRON]: {
     appName: 'Tron',
-    methodName: 'tronGetAddress',
     fingerprintChain: 'tron',
   },
 };
@@ -52,7 +59,6 @@ const LEDGER_NETWORK_CAPABILITIES: Record<
 for (const network of LEDGER_BTC_FAMILY_NETWORKS) {
   LEDGER_NETWORK_CAPABILITIES[network] = {
     appName: 'Bitcoin',
-    methodName: 'btcGetPublicKey',
     fingerprintChain: 'btc',
   };
 }
@@ -65,7 +71,10 @@ export function getLedgerNetworkCapability({
   if (!network) {
     return undefined;
   }
-  return LEDGER_NETWORK_CAPABILITIES[network];
+  const capability = LEDGER_NETWORK_CAPABILITIES[network];
+  return capability
+    ? { ...capability, methodName: getAllNetworkAddressMethod(network) }
+    : undefined;
 }
 
 export function getLedgerAppNameOfNetwork({

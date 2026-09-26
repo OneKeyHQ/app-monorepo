@@ -12,8 +12,8 @@ import {
   disposeNobleBleSupport,
   initNobleBleSupport,
 } from '@onekeyfe/hd-transport-electron';
-import { TREZOR_BLE_CHANNELS } from '@onekeyfe/hwk-trezor-connector-electron-ble/constants';
-import { initTrezorBleSupport } from '@onekeyfe/hwk-trezor-connector-electron-ble/main';
+import { initThirdPartyBleSupport } from '@onekeyfe/hwk-desktop-noble-ble';
+import { THIRD_PARTY_BLE_CHANNELS } from '@onekeyfe/hwk-desktop-noble-ble/constants';
 import {
   BrowserWindow,
   Menu,
@@ -104,7 +104,7 @@ import { setMainWindowForOAuthServer } from './service/oauthLocalServer/oauthLoc
 import { destroyTrayManager, initTrayManager } from './tray/TrayManager';
 import { destroyTrayWindow, getTrayWindow } from './tray/trayWindow';
 
-import type { IpcMainLike } from '@onekeyfe/hwk-trezor-connector-electron-ble/main';
+import type { IpcMainLike } from '@onekeyfe/hwk-desktop-noble-ble';
 
 // cspell:ignore pkexec
 // Main-process (sender) side of the DESKTOP_API_CALL IPC boundary: normalize
@@ -753,7 +753,9 @@ let bleQuitReady = false;
 let nobleBleInitialization = Promise.resolve();
 let trezorBleWindowCleanup = Promise.resolve();
 // Retain retired handlers so recovery-created native instances survive until app quit.
-const trezorBleSupports = new Set<ReturnType<typeof initTrezorBleSupport>>();
+const trezorBleSupports = new Set<
+  ReturnType<typeof initThirdPartyBleSupport>
+>();
 // When the main renderer dies, the window keeps its last frame but ignores all
 // input. Reload it, capped so a renderer that crashes while booting cannot
 // reload forever.
@@ -1763,30 +1765,26 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
   );
 
   // Third-party BLE wiring — exposed to the renderer as the vendor-neutral
-  // `window.desktopApi.thirdPartyBle`. Today it's backed by the SDK's
-  // `initTrezorBleSupport`, whose IPC channels live in their own
-  // namespace ($onekey-trezor-ble-*) so they coexist with OneKey's
-  // own `nobleBle` without colliding. When we add other 3rd-party BLE
-  // vendors, they should plug into the same `thirdPartyBle` surface
-  // rather than each adding a parallel object.
-  Object.values(TREZOR_BLE_CHANNELS).forEach((channel) =>
+  // `window.desktopApi.thirdPartyBle` serves every third-party vendor through
+  // one handler, namespaced ($onekey-3p-ble-*) to coexist with OneKey's `nobleBle`. A new vendor plugs in here, not a parallel object.
+  Object.values(THIRD_PARTY_BLE_CHANNELS).forEach((channel) =>
     ipcMain.removeHandler(channel),
   );
   // The SDK registers its BLE IPC handlers ignoring `event.sender`. DApp
   // webviews share the same preload (`desktopApi.thirdPartyBle`) and could
   // otherwise drive BLE scan/connect/write. Gate every channel to the main
   // window renderer, matching the DESKTOP_API_CALL sender check.
-  const trezorBleSenderGatedIpcMain: IpcMainLike = {
+  const thirdPartyBleSenderGatedIpcMain: IpcMainLike = {
     handle: (channel, listener) => {
       ipcMain.handle(channel, (event, ...args) => {
         if (event.sender.id !== browserWindow.webContents.id) {
           logger.warn(
-            '[TrezorBLE] Rejected IPC from non-main renderer',
+            '[ThirdPartyBLE] Rejected IPC from non-main renderer',
             channel,
             event.sender.id,
           );
           throw new OneKeyLocalError(
-            'Trezor BLE IPC is only allowed from the main window',
+            'Third-party BLE IPC is only allowed from the main window',
           );
         }
         return listener(event, ...args);
@@ -1795,12 +1793,12 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
     removeHandler: (channel) => ipcMain.removeHandler(channel),
   };
   logTrezorBleFlags();
-  const trezorBleSupport = initTrezorBleSupport(browserWindow.webContents, {
+  const trezorBleSupport = initThirdPartyBleSupport(browserWindow.webContents, {
     // Insert Windows OS-pairing at the connect seam (SDK stays untouched):
     // caches scan address, runs the WinRT pairing helper before noble connects.
     // No-op on non-Windows / builds without the bundled helper.
     ipcMain: createTrezorBlePairingIpcMain(
-      trezorBleSenderGatedIpcMain,
+      thirdPartyBleSenderGatedIpcMain,
       browserWindow,
     ),
     logger: (entry) => {

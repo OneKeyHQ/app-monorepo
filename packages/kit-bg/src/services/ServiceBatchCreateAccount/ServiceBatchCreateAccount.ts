@@ -14,6 +14,10 @@ import {
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { IMPL_EVM } from '@onekeyhq/shared/src/engine/engineConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import {
+  THIRD_PARTY_HW_OPERATION_ENDED_CODE,
+  THIRD_PARTY_HW_OPERATION_NOT_FOUND_CODE,
+} from '@onekeyhq/shared/src/errors/errors/thirdPartyHardwareErrors';
 import type {
   IOneKeyError,
   IOneKeyHardwareErrorPayload,
@@ -32,8 +36,11 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
-import { buildRequiredLedgerAppNamesForNetworks } from '@onekeyhq/shared/src/hardware/ledgerApps';
-import { getVendorProfile } from '@onekeyhq/shared/src/hardware/vendorProfile';
+import {
+  LEDGER_CONFIG,
+  buildRequiredLedgerAppNamesForNetworks,
+} from '@onekeyhq/shared/src/hardware/config/ledger';
+import { getVendorProfile } from '@onekeyhq/shared/src/hardware/config/vendorProfile';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
@@ -47,19 +54,24 @@ import {
   EHardwareCallContext,
   EHardwareVendor,
   type IDeviceCommonParams,
+  type IHardwareOperationContext,
 } from '@onekeyhq/shared/types/device';
 
 import localDb from '../../dbs/local/localDb';
 import { primeTransferAtom } from '../../states/jotai/atoms/prime';
 import {
+  hasStoredLedgerChainFingerprint,
   isLedgerFingerprintChain,
   persistLedgerChainFingerprint,
+  verifySeedMatch,
+  withNewLedgerOperation,
 } from '../../vaults/base/ledgerFingerprintUtils';
-import { thirdPartyCommonCallParamsForCreateScene } from '../../vaults/base/thirdPartyHardwareCommonParams';
 import {
-  buildTrezorBleFallbackOptions,
-  callTrezorWithBleFallback,
-} from '../../vaults/base/trezorTransportUtils';
+  thirdPartyCommonCallParamsForCreateScene,
+  thirdPartyConnectionContextFromDevice,
+  withHardwareOperationContext,
+} from '../../vaults/base/thirdPartyHardwareCommonParams';
+import { callTrezorWithDevice } from '../../vaults/base/trezorTransportUtils';
 import { vaultFactory } from '../../vaults/factory';
 import { getVaultSettings } from '../../vaults/settings';
 import { buildDefaultAddAccountNetworks } from '../ServiceAccount/defaultNetworkAccountsConfig';
@@ -70,6 +82,7 @@ import { normalizeAllNetworkInstallCancelErrors } from './thirdPartyAllNetworkEr
 import {
   type IThirdPartyAllNetworkAddressParams,
   attachLedgerAllNetworkFingerprints,
+  getMissingLedgerFingerprintChains,
   normalizeThirdPartyAllNetworkBundle,
   shouldUseThirdPartyAllNetworkGetAddress,
 } from './thirdPartyAllNetworkParams';
@@ -198,6 +211,7 @@ export type IBatchBuildAccountsBaseParams = {
   errorMessage?: string;
   customNetworks?: IBatchCreateCustomNetworkParams[];
   isAutoCreateMultiNetwork?: boolean;
+  hardwareOperationContext?: IHardwareOperationContext;
 } & IWithHardwareProcessingControlParams;
 // networksParams entry: a custom network may scope the flow-level `indexes`
 // down to its own list (see IBatchCreateCustomNetworkParams.indexes).
@@ -260,6 +274,12 @@ export type IBatchBuildAccountsAdvancedFlowForAllNetworkParams = {
   customNetworks?: IBatchCreateCustomNetworkParams[];
   autoHandleExitError?: boolean;
   showUIProgress?: boolean;
+  hardwareOperationContext?: IHardwareOperationContext;
+  /**
+   * Background-only: a response the caller already fetched, consumed
+   * instead of calling the device.
+   */
+  hwAllNetworkPrepareAccountsResponse?: IHwAllNetworkPrepareAccountsResponse;
 } & IAdvancedModeFlowParamsBase &
   IWithHardwareProcessingControlParams;
 
@@ -774,6 +794,7 @@ class ServiceBatchCreateAccount extends ServiceBase {
     isCreateWallet,
     isAutoCreateMultiNetwork,
     autoHandleExitError = true,
+    hardwareOperationContext,
   }: {
     autoHandleExitError?: boolean;
     walletId: string | undefined;
@@ -783,6 +804,7 @@ class ServiceBatchCreateAccount extends ServiceBase {
     isCreateWallet?: boolean;
     // Auto multi-network fill scene; HW auto-install is derived from it.
     isAutoCreateMultiNetwork?: boolean;
+    hardwareOperationContext?: IHardwareOperationContext;
   } & IWithHardwareProcessingControlParams): Promise<{
     addedAccounts: {
       networkId: string;
@@ -837,6 +859,7 @@ class ServiceBatchCreateAccount extends ServiceBase {
         customNetworks: customNetworks || [],
         isCreateWallet,
         isAutoCreateMultiNetwork,
+        hardwareOperationContext,
         autoHandleExitError: autoHandleExitError ?? true,
         skipDeviceCancel,
         hideCheckingDeviceLoading,
@@ -951,22 +974,93 @@ class ServiceBatchCreateAccount extends ServiceBase {
     shouldPersistLedgerFingerprints?: boolean;
   }): Promise<IHwAllNetworkPrepareAccountsItem[]> {
     const bundle = normalizeThirdPartyAllNetworkBundle(bundleParams);
+    if (
+      LEDGER_CONFIG.enableCrossChainFingerprintVerification &&
+      vendor === EHardwareVendor.ledger &&
+      dbDevice &&
+      commonParams?.allowDeviceIdentityBootstrap !== true
+    ) {
+      const missingChains = getMissingLedgerFingerprintChains({
+        bundle,
+        settingsRaw: dbDevice.settingsRaw,
+      });
+      if (missingChains.length) {
+        if (
+          !commonParams?.operationId &&
+          hasStoredLedgerChainFingerprint(dbDevice.settingsRaw)
+        ) {
+          return withNewLedgerOperation(
+            this.backgroundApi,
+            // Same reason as callLedgerWithFingerprint: locators travel in
+            // knownConnections tagged with their channel.
+            '',
+            (operationId) =>
+              this.callThirdPartyAllNetworkGetAddress({
+                allNetworkGetAddress,
+                connectId,
+                deviceId,
+                dbDeviceId,
+                commonParams: {
+                  ...commonParams,
+                  passphraseState: commonParams?.passphraseState,
+                  useEmptyPassphrase: commonParams?.useEmptyPassphrase,
+                  operationId,
+                },
+                createSceneParams,
+                bundleParams,
+                vendorName,
+                shouldPersistLedgerFingerprints,
+                dbDevice,
+                vendor,
+              }),
+            thirdPartyConnectionContextFromDevice(dbDevice),
+          );
+        }
+        const seedMatch = await verifySeedMatch(
+          this.backgroundApi,
+          dbDevice,
+          commonParams?.operationId || connectId,
+        );
+        if (seedMatch !== 'match') {
+          throw convertThirdPartyDeviceError(
+            {
+              code: ThirdPartyHwErrorCode.DeviceMismatch,
+              error: `No trusted Ledger fingerprint is available for ${missingChains.join(
+                ', ',
+              )}, and the connected device could not be verified from another chain.`,
+            },
+            { vendor: vendorName },
+          );
+        }
+      }
+    }
     const thirdPartyCommonParams =
       thirdPartyCommonCallParamsForCreateScene(createSceneParams);
+    const {
+      allowDeviceIdentityBootstrap: _allowDeviceIdentityBootstrap,
+      ...sdkCommonParams
+    } = commonParams ?? {};
     const requestParams = {
-      ...commonParams,
+      ...thirdPartyConnectionContextFromDevice(dbDevice),
+      ...sdkCommonParams,
       ...thirdPartyCommonParams,
       bundle,
     };
-    const response =
-      vendor === EHardwareVendor.trezor && dbDevice
-        ? await callTrezorWithBleFallback(
-            dbDevice,
-            (targetConnectId) =>
-              allNetworkGetAddress(targetConnectId, deviceId, requestParams),
-            buildTrezorBleFallbackOptions(this.backgroundApi),
-          )
-        : await allNetworkGetAddress(connectId, deviceId, requestParams);
+    const operationId = commonParams?.operationId;
+    let response: Awaited<ReturnType<IThirdPartyAllNetworkGetAddressFn>>;
+    if (operationId) {
+      response = await allNetworkGetAddress(
+        operationId,
+        deviceId,
+        requestParams,
+      );
+    } else if (vendor === EHardwareVendor.trezor && dbDevice) {
+      response = await callTrezorWithDevice(dbDevice, (targetConnectId) =>
+        allNetworkGetAddress(targetConnectId, deviceId, requestParams),
+      );
+    } else {
+      response = await allNetworkGetAddress(connectId, deviceId, requestParams);
+    }
 
     if (!response.success) {
       throw convertThirdPartyDeviceError(response.payload, {
@@ -1025,6 +1119,7 @@ class ServiceBatchCreateAccount extends ServiceBase {
     loopMode?: boolean;
     isAutoCreateMultiNetwork?: boolean;
     isVerifyAddressAction?: boolean;
+    hardwareOperationContext?: IHardwareOperationContext;
     oneKeyOperationLease?: IOneKeyHardwareOperationLease;
   }): Promise<IHwAllNetworkPrepareAccountsResponse | undefined> {
     const hwAllNetworkPrepareAccountsResponse =
@@ -1039,11 +1134,17 @@ class ServiceBatchCreateAccount extends ServiceBase {
         'call getHwAllNetworkPrepareAccountsResponse',
       );
       const hideCheckingDeviceLoading = params.hideCheckingDeviceLoading;
-      const deviceParams =
+      let deviceParams =
         await this.backgroundApi.serviceAccount.getWalletDeviceParams({
           walletId: params.walletId,
           hardwareCallContext: EHardwareCallContext.USER_INTERACTION,
         });
+      if (deviceParams) {
+        deviceParams = withHardwareOperationContext(
+          deviceParams,
+          params.hardwareOperationContext,
+        );
+      }
       const deviceVendor = deviceParams?.dbDevice?.vendor;
       const vendorProfile = getVendorProfile(deviceVendor);
       const isThirdPartyWallet = !!deviceVendor && vendorProfile.isThirdParty;
@@ -1168,7 +1269,7 @@ class ServiceBatchCreateAccount extends ServiceBase {
                     dbDevice: deviceParams.dbDevice,
                     vendor: thirdPartyAllNetworkAdapter.vendor,
                     vendorName:
-                      vendorProfile.defaultDeviceName ||
+                      vendorProfile.presentation.defaultName ||
                       thirdPartyAllNetworkAdapter.vendor,
                     shouldPersistLedgerFingerprints:
                       thirdPartyAllNetworkAdapter.vendor ===
@@ -1348,11 +1449,23 @@ class ServiceBatchCreateAccount extends ServiceBase {
     // See startBatchCreateAccountsFlow: stamp the request before any await.
     this.latestFlowRequestId += 1;
     const flowRequestId = this.latestFlowRequestId;
-    const deviceParams =
+
+    const hardwareOperationContext: IHardwareOperationContext = {
+      ...params.hardwareOperationContext,
+      allowDeviceIdentityBootstrap: params.isCreateWallet === true,
+    };
+
+    let deviceParams =
       await this.backgroundApi.serviceAccount.getWalletDeviceParams({
         walletId: params.walletId,
         hardwareCallContext: EHardwareCallContext.USER_INTERACTION,
       });
+    if (deviceParams) {
+      deviceParams = withHardwareOperationContext(
+        deviceParams,
+        hardwareOperationContext,
+      );
+    }
     let hwAllNetworkPrepareAccountsResponse:
       | IHwAllNetworkPrepareAccountsResponse
       | undefined;
@@ -1419,15 +1532,17 @@ class ServiceBatchCreateAccount extends ServiceBase {
           networksCount: networksParams.length,
         });
         hwAllNetworkPrepareAccountsResponse =
-          await this.getHwAllNetworkPrepareAccountsResponse({
+          params.hwAllNetworkPrepareAccountsResponse ??
+          (await this.getHwAllNetworkPrepareAccountsResponse({
             walletId: params.walletId,
             hideCheckingDeviceLoading: params.hideCheckingDeviceLoading,
             excludedIndexes,
             indexes,
             networksParams,
             isAutoCreateMultiNetwork: params.isAutoCreateMultiNetwork,
+            hardwareOperationContext,
             oneKeyOperationLease,
-          });
+          }));
         await this.recordPrimeTransferImportBatchCreateTrace({
           event: 'done',
           stage: 'getHwAllNetworkPrepareAccountsResponse',
@@ -1454,6 +1569,7 @@ class ServiceBatchCreateAccount extends ServiceBase {
             const { accountsForCreate } = await this.batchBuildAccounts({
               ...params,
               ...networkParams,
+              hardwareOperationContext,
               showUIProgress:
                 params.showUIProgress || networkParams.showUIProgress,
               // Consume per-pair index scoping symmetrically with
@@ -1597,6 +1713,8 @@ class ServiceBatchCreateAccount extends ServiceBase {
             HardwareErrorCode.DeviceInterruptedFromUser,
             // Third-party HW batch-abort codes from SDK.
             ...ORPHAN_ELIGIBLE_ERROR_CODES,
+            THIRD_PARTY_HW_OPERATION_NOT_FOUND_CODE,
+            THIRD_PARTY_HW_OPERATION_ENDED_CODE,
           ],
         })
       ) {
@@ -1753,6 +1871,7 @@ class ServiceBatchCreateAccount extends ServiceBase {
     applyRestoreSyncPolicy,
     hdCredentialCacheScopeId,
     isAutoCreateMultiNetwork,
+    hardwareOperationContext,
     oneKeyOperationLease,
   }: IBatchBuildAccountsParams): Promise<{
     accountsForCreate: IBatchCreateAccount[];
@@ -1964,6 +2083,7 @@ class ServiceBatchCreateAccount extends ServiceBase {
               hwAllNetworkPrepareAccountsResponse,
               hdCredentialCacheScopeId,
               isAutoCreateMultiNetwork,
+              hardwareOperationContext,
               oneKeyOperationLease,
             });
           await this.recordPrimeTransferImportBatchCreateTrace({

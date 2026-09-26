@@ -1,8 +1,17 @@
+import { EHardwareTransportType } from '@onekeyhq/shared/types';
 import { EHardwareVendor } from '@onekeyhq/shared/types/device';
 
 import localDb from '../../dbs/local/localDb';
 
 import ServiceAccount from './ServiceAccount';
+
+import type { IDBDevice } from '../../dbs/local/types';
+
+jest.mock('../../states/jotai/atoms/desktopBluetooth', () => ({
+  hardwareForceTransportAtom: {
+    get: jest.fn().mockResolvedValue({ forceTransportType: undefined }),
+  },
+}));
 
 jest.mock('@onekeyhq/shared/src/background/backgroundDecorators', () => ({
   backgroundClass: () => (target: unknown) => target,
@@ -33,20 +42,24 @@ jest.mock('../../dbs/local/localDb', () => ({
   __esModule: true,
   default: {
     createHwWallet: jest.fn(),
+    getDeviceByQuery: jest.fn(),
   },
 }));
 
 type IHwWalletCreateAddressService = {
+  createHWWallet(params: unknown): Promise<unknown>;
   createHWWalletBase(params: unknown): Promise<{ wallet: { name: string } }>;
   setWalletNameAndAvatar(params: unknown): Promise<{ name: string }>;
   getWallet(params: unknown): Promise<{ name: string }>;
   getFeaturesForHwWalletCreate(params: {
     dbDevice: {
       vendor: EHardwareVendor;
-      connectProtocol: 'V1' | 'V2';
-      deviceStateInfo: unknown;
+      connectProtocol?: 'V1' | 'V2';
+      deviceStateInfo?: unknown;
+      deviceId?: string;
     };
     compatibleConnectId: string;
+    hardwareOperationContext?: { operationId: string };
   }): Promise<{
     protocol?: string;
     deviceId?: string;
@@ -62,10 +75,156 @@ type IHwWalletCreateAddressService = {
 
 describe('ServiceAccount hardware wallet creation address', () => {
   const createHwWalletMock = jest.spyOn(localDb, 'createHwWallet');
+  const getDeviceByQueryMock = jest.spyOn(localDb, 'getDeviceByQuery');
 
   beforeEach(() => {
     createHwWalletMock.mockReset();
+    getDeviceByQueryMock.mockReset();
   });
+
+  it.each([
+    'connected',
+    'ended',
+    'wrong-device',
+    'automatic',
+    'automatic-saved',
+  ] as const)(
+    'keeps the caller-owned operation while reading device features (%s)',
+    async (scenario) => {
+      const automatic = scenario.startsWith('automatic');
+      if (scenario === 'automatic-saved') {
+        getDeviceByQueryMock.mockResolvedValue({
+          id: 'device-record',
+          vendor: EHardwareVendor.trezor,
+          usbConnectId: 'saved-usb',
+          bleConnectId: 'saved-ble',
+        } as IDBDevice);
+      }
+      const getFeatures = jest.fn().mockResolvedValue(
+        scenario === 'ended'
+          ? {
+              success: false,
+              payload: { code: 10_113, error: 'Operation ended' },
+            }
+          : {
+              success: true,
+              payload: {
+                device_id:
+                  scenario === 'wrong-device'
+                    ? 'other-device'
+                    : 'selected-device',
+              },
+            },
+      );
+      const connectDevice = jest.fn();
+      const releaseOperation = jest.fn();
+      const service = new ServiceAccount({
+        backgroundApi: {
+          serviceThirdPartyHardware: {
+            getAdapterForVendor: jest
+              .fn()
+              .mockResolvedValue({ hw: { getFeatures } }),
+            connectDevice,
+            releaseOperation,
+          },
+        },
+      }) as unknown as IHwWalletCreateAddressService;
+      const reading = service.getFeaturesForHwWalletCreate({
+        dbDevice: {
+          vendor: EHardwareVendor.trezor,
+          deviceId: 'selected-device',
+        },
+        compatibleConnectId: 'other-channel-hint',
+        hardwareOperationContext: automatic
+          ? undefined
+          : { operationId: 'caller-operation' },
+      });
+      if (scenario === 'connected' || automatic) {
+        await expect(reading).resolves.toEqual({
+          device_id: 'selected-device',
+        });
+      } else {
+        await expect(reading).rejects.toThrow();
+      }
+      expect(getFeatures).toHaveBeenCalledWith(
+        automatic ? 'other-channel-hint' : 'caller-operation',
+        expect.objectContaining({
+          expectedDeviceIdentity: {
+            vendor: EHardwareVendor.trezor,
+            type: 'deviceId',
+            value: 'selected-device',
+          },
+        }),
+      );
+      expect(getFeatures.mock.calls[0][1]).toEqual(
+        automatic
+          ? {
+              ...(scenario === 'automatic-saved'
+                ? {
+                    knownConnections: [
+                      { transport: 'usb', connectId: 'saved-usb' },
+                      { transport: 'ble', connectId: 'saved-ble' },
+                    ],
+                    extra: { dbDeviceId: 'device-record' },
+                  }
+                : { knownConnections: [] }),
+              expectedDeviceIdentity: {
+                vendor: EHardwareVendor.trezor,
+                type: 'deviceId',
+                value: 'selected-device',
+              },
+            }
+          : {
+              operationId: 'caller-operation',
+              expectedDeviceIdentity: {
+                vendor: EHardwareVendor.trezor,
+                type: 'deviceId',
+                value: 'selected-device',
+              },
+            },
+      );
+      expect(getDeviceByQueryMock).toHaveBeenCalledTimes(automatic ? 1 : 0);
+      expect(connectDevice).not.toHaveBeenCalled();
+      expect(releaseOperation).not.toHaveBeenCalled();
+    },
+  );
+
+  it.each([
+    EHardwareVendor.keystone,
+    EHardwareVendor.ledger,
+    EHardwareVendor.trezor,
+  ])(
+    'passes fresh %s vendor metadata to the processing wrapper',
+    async (vendor) => {
+      const withHardwareProcessing = jest.fn().mockResolvedValue(undefined);
+      const service = new ServiceAccount({
+        backgroundApi: {
+          serviceSetting: {
+            getHardwareTransportType: jest
+              .fn()
+              .mockResolvedValue(EHardwareTransportType.WEBUSB),
+          },
+          serviceHardwareUI: { withHardwareProcessing },
+        },
+      }) as unknown as IHwWalletCreateAddressService;
+      await service.createHWWallet({
+        device: { connectId: 'fresh-target', deviceId: '' },
+        features: {},
+        vendor,
+      });
+      expect(withHardwareProcessing).toHaveBeenCalledWith(
+        expect.any(Function),
+        expect.objectContaining({
+          deviceParams: expect.objectContaining({
+            dbDevice: expect.objectContaining({
+              vendor,
+              connectId: 'fresh-target',
+            }),
+          }),
+        }),
+      );
+    },
+  );
 
   it('persists the current Pro2 label after reading the stored wallet name', async () => {
     createHwWalletMock.mockResolvedValue({
@@ -142,6 +301,52 @@ describe('ServiceAccount hardware wallet creation address', () => {
     expect(getWalletMock).toHaveBeenCalledWith({
       walletId: 'hw-wallet-1',
     });
+  });
+
+  it('keeps a serialless Trezor USB locator inside the pinned interaction', async () => {
+    createHwWalletMock.mockResolvedValue({
+      wallet: { id: 'hw-trezor-1', name: 'Trezor' },
+    } as never);
+    const getCompatibleConnectId = jest.fn().mockResolvedValue('wrong-device');
+    const service = new ServiceAccount({
+      backgroundApi: {
+        serviceHardware: {
+          getCompatibleConnectId,
+        },
+      },
+    }) as unknown as IHwWalletCreateAddressService;
+    service.setWalletNameAndAvatar = jest.fn().mockResolvedValue({
+      id: 'hw-trezor-1',
+      name: 'Trezor',
+    });
+    service.getWallet = jest.fn().mockResolvedValue({
+      id: 'hw-trezor-1',
+      name: 'Trezor',
+    });
+
+    await service.createHWWalletBase({
+      device: {
+        connectId: '0',
+        deviceId: 'stable-trezor-device-id',
+        name: 'Trezor',
+        raw: {
+          connectionType: 'usb',
+          capabilities: { persistentDeviceIdentity: false },
+        },
+      },
+      features: { device_id: 'stable-trezor-device-id' },
+      isMockedStandardHwWallet: true,
+      transportType: EHardwareTransportType.WEBUSB,
+      vendor: EHardwareVendor.trezor,
+      hardwareOperationContext: { operationId: 'interaction-id' },
+    });
+
+    expect(getCompatibleConnectId).not.toHaveBeenCalled();
+    expect(createHwWalletMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        device: expect.objectContaining({ connectId: '0' }),
+      }),
+    );
   });
 
   it('创建 Pro1 隐藏钱包时复用已持久化状态，避免打断刚建立的 passphrase 会话', async () => {
@@ -401,5 +606,261 @@ describe('ServiceAccount hardware wallet creation address', () => {
 
     expect(buildHwWalletXfp).not.toHaveBeenCalled();
     expect(getEvmAddressByWalletState).not.toHaveBeenCalled();
+  });
+
+  it('uses the runtime interaction for identity reads without persisting it', async () => {
+    const getEvmAddressByWalletState = jest
+      .fn()
+      .mockResolvedValue('0xinteraction');
+    createHwWalletMock.mockImplementation(async (params) => {
+      const createParams = params as {
+        getFirstEvmAddressFn: () => Promise<string | null>;
+      };
+      await expect(createParams.getFirstEvmAddressFn()).resolves.toBe(
+        '0xinteraction',
+      );
+      return {
+        wallet: { id: 'hw-ledger-wallet', name: 'Ledger' },
+      } as never;
+    });
+    const service = new ServiceAccount({
+      backgroundApi: {
+        serviceHardware: {
+          getEvmAddressByWalletState,
+        },
+      },
+    }) as unknown as IHwWalletCreateAddressService;
+    service.getWallet = jest.fn().mockResolvedValue({
+      id: 'hw-ledger-wallet',
+      name: 'Ledger',
+    });
+
+    await service.createHWWalletBase({
+      device: {
+        connectId: 'LEDGER_USB_TARGET',
+        deviceId: '',
+        vendor: EHardwareVendor.ledger,
+      },
+      features: { deviceId: '' },
+      vendor: EHardwareVendor.ledger,
+      hardwareOperationContext: {
+        operationId: 'hwk-ledger-interaction',
+      },
+      fillingXfpByCallingSdk: false,
+    });
+
+    expect(getEvmAddressByWalletState).toHaveBeenCalledWith(
+      expect.objectContaining({
+        connectId: 'hwk-ledger-interaction',
+        vendor: EHardwareVendor.ledger,
+      }),
+    );
+    expect(createHwWalletMock).toHaveBeenCalledWith(
+      expect.not.objectContaining({
+        hardwareOperationContext: expect.anything(),
+      }),
+    );
+  });
+
+  it.each([
+    undefined,
+    EHardwareTransportType.WEBUSB,
+    EHardwareTransportType.BLE,
+  ])(
+    'creates a saved Trezor wallet without a legacy locator (%s)',
+    async (transportType) => {
+      const device = {
+        id: 'saved-trezor',
+        vendor: EHardwareVendor.trezor,
+        connectId: '',
+        usbConnectId: 'saved-usb',
+        bleConnectId: 'saved-ble',
+        deviceId: 'saved-identity',
+      } as IDBDevice;
+      getDeviceByQueryMock.mockResolvedValue(device);
+      const getFeatures = jest.fn().mockResolvedValue({
+        success: true,
+        payload: { device_id: device.deviceId },
+      });
+      const getCompatibleConnectId = jest.fn();
+      createHwWalletMock.mockResolvedValue({
+        wallet: { id: 'hw-saved', name: 'Trezor' },
+      } as Awaited<ReturnType<typeof localDb.createHwWallet>>);
+      const service = new ServiceAccount({
+        backgroundApi: {
+          serviceHardware: { getCompatibleConnectId },
+          serviceThirdPartyHardware: {
+            getAdapterForVendor: jest
+              .fn()
+              .mockResolvedValue({ hw: { getFeatures } }),
+            persistTrezorThpCredentials: jest.fn(),
+          },
+        },
+      }) as unknown as IHwWalletCreateAddressService;
+      service.getWallet = jest
+        .fn()
+        .mockResolvedValue({ id: 'hw-saved', name: 'Trezor' });
+
+      await service.createHWWalletBase({
+        device,
+        features: { device_id: device.deviceId },
+        transportType,
+      });
+
+      expect(getCompatibleConnectId).not.toHaveBeenCalled();
+      expect(getFeatures).toHaveBeenCalledWith(
+        '',
+        expect.objectContaining({
+          knownConnections: [
+            { transport: 'usb', connectId: 'saved-usb' },
+            { transport: 'ble', connectId: 'saved-ble' },
+          ],
+          expectedDeviceIdentity: {
+            vendor: 'trezor',
+            type: 'deviceId',
+            value: device.deviceId,
+          },
+        }),
+      );
+      expect(createHwWalletMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          vendor: EHardwareVendor.trezor,
+          device: expect.objectContaining({
+            connectId: '',
+            usbConnectId: 'saved-usb',
+            bleConnectId: 'saved-ble',
+          }),
+        }),
+      );
+    },
+  );
+
+  it('keeps a caller-owned operation when the saved locator is empty', async () => {
+    const getFeatures = jest.fn().mockResolvedValue({
+      success: true,
+      payload: { device_id: 'selected-device' },
+    });
+    const getCompatibleConnectId = jest.fn();
+    createHwWalletMock.mockResolvedValue({
+      wallet: { id: 'hw-pinned', name: 'Trezor' },
+    } as Awaited<ReturnType<typeof localDb.createHwWallet>>);
+    const service = new ServiceAccount({
+      backgroundApi: {
+        serviceHardware: { getCompatibleConnectId },
+        serviceThirdPartyHardware: {
+          getAdapterForVendor: jest
+            .fn()
+            .mockResolvedValue({ hw: { getFeatures } }),
+          persistTrezorThpCredentials: jest.fn(),
+        },
+      },
+    }) as unknown as IHwWalletCreateAddressService;
+    service.getWallet = jest.fn().mockResolvedValue({ name: 'Trezor' });
+    await service.createHWWalletBase({
+      device: {
+        vendor: EHardwareVendor.trezor,
+        deviceId: 'selected-device',
+        connectId: '',
+      },
+      features: { device_id: 'selected-device' },
+      hardwareOperationContext: { operationId: 'caller-operation' },
+      transportType: EHardwareTransportType.BLE,
+    });
+    expect(getFeatures).toHaveBeenCalledWith(
+      'caller-operation',
+      expect.objectContaining({ operationId: 'caller-operation' }),
+    );
+    expect(getDeviceByQueryMock).not.toHaveBeenCalled();
+    expect(getCompatibleConnectId).not.toHaveBeenCalled();
+    expect(createHwWalletMock).toHaveBeenCalledWith(
+      expect.not.objectContaining({
+        hardwareOperationContext: expect.anything(),
+      }),
+    );
+  });
+
+  it('creates a Trezor hidden wallet using saved locators and identity', async () => {
+    const device = {
+      id: 'saved-device',
+      vendor: EHardwareVendor.trezor,
+      connectId: '',
+      deviceId: 'saved-identity',
+      usbConnectId: 'saved-usb',
+      bleConnectId: 'saved-ble',
+    } as IDBDevice;
+    getDeviceByQueryMock.mockResolvedValue(device);
+    createHwWalletMock.mockResolvedValue({
+      wallet: { id: 'hw-hidden', name: 'Hidden wallet' },
+    } as Awaited<ReturnType<typeof localDb.createHwWallet>>);
+    const getFeatures = jest.fn().mockResolvedValue({
+      success: true,
+      payload: { device_id: device.deviceId },
+    });
+    const getTrezorPassphraseState = jest
+      .fn()
+      .mockResolvedValue('fixture-hidden-state');
+    const getCompatibleConnectId = jest.fn();
+    const service = new ServiceAccount({
+      backgroundApi: {
+        serviceHardware: {
+          getCompatibleConnectId,
+          buildHwWalletXfp: jest.fn(),
+        },
+        serviceHardwareUI: {
+          withHardwareProcessing: async (fn: () => Promise<unknown>) => fn(),
+        },
+        serviceThirdPartyHardware: {
+          getAdapterForVendor: jest
+            .fn()
+            .mockResolvedValue({ hw: { getFeatures } }),
+          getTrezorPassphraseState,
+          persistTrezorThpCredentials: jest.fn(),
+        },
+        serviceSetting: {
+          getHiddenWalletImmediately: jest.fn().mockResolvedValue(false),
+        },
+        serviceAccountProfile: {
+          isSoftwareWalletOnlyUser: jest.fn().mockResolvedValue(false),
+        },
+      },
+    });
+    jest
+      .spyOn(service, 'getWallet')
+      .mockResolvedValue({ id: 'hw-hidden', name: 'Hidden wallet' } as Awaited<
+        ReturnType<typeof service.getWallet>
+      >);
+    jest.spyOn(service, 'getWalletDevice').mockResolvedValue(device);
+    jest.spyOn(service, 'setWalletTempStatus').mockResolvedValue(undefined);
+    await service.createHWHiddenWallet({ walletId: 'hw-saved' });
+    expect(getCompatibleConnectId).not.toHaveBeenCalled();
+    expect(getFeatures).toHaveBeenCalledWith(
+      '',
+      expect.objectContaining({
+        expectedDeviceIdentity: {
+          vendor: 'trezor',
+          type: 'deviceId',
+          value: device.deviceId,
+        },
+        knownConnections: [
+          { transport: 'usb', connectId: 'saved-usb' },
+          { transport: 'ble', connectId: 'saved-ble' },
+        ],
+      }),
+    );
+    expect(getTrezorPassphraseState).toHaveBeenCalledWith({
+      connectId: '',
+      dbDevice: device,
+    });
+    expect(createHwWalletMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        vendor: EHardwareVendor.trezor,
+        passphraseState: 'fixture-hidden-state',
+        device: expect.objectContaining({
+          connectId: '',
+          usbConnectId: 'saved-usb',
+          bleConnectId: 'saved-ble',
+        }),
+      }),
+    );
   });
 });

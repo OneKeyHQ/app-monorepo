@@ -13,10 +13,6 @@ import type {
   VendorType,
 } from '@onekeyfe/hwk-adapter-core';
 
-type IConnectorSearchDevicesOptions = {
-  waitForAll?: boolean;
-};
-
 /**
  * SW-side `IHardwareBridge` — forwards to the offscreen-doc server
  * (`OffscreenApiThirdPartyHardware`) via `offscreenApiProxy`. Event
@@ -55,10 +51,9 @@ export class OffscreenHardwareBridgeClient implements IHardwareBridge {
   // Forwarded methods
   // -------------------------------------------------------------------------
 
-  async searchDevices(params: {
-    vendor: VendorType;
-    options?: IConnectorSearchDevicesOptions;
-  }): Promise<ConnectorDevice[]> {
+  async searchDevices(
+    params: Parameters<IHardwareBridge['searchDevices']>[0],
+  ): Promise<ConnectorDevice[]> {
     defaultLogger.hardware.sdkLog.log(
       `[3rdPartyHW][Bridge] searchDevices vendor=${params.vendor}`,
     );
@@ -66,10 +61,9 @@ export class OffscreenHardwareBridgeClient implements IHardwareBridge {
     return offscreenApiProxy.thirdPartyHardware.searchDevices(params);
   }
 
-  async connect(params: {
-    vendor: VendorType;
-    deviceId?: string;
-  }): Promise<ConnectorSession> {
+  async connect(
+    params: Parameters<IHardwareBridge['connect']>[0],
+  ): Promise<ConnectorSession> {
     defaultLogger.hardware.sdkLog.log(
       `[3rdPartyHW][Bridge] connect vendor=${params.vendor} deviceId=${
         params.deviceId ?? ''

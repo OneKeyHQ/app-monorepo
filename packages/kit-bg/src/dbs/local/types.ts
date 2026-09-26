@@ -27,6 +27,7 @@ import type {
   EHardwareVendor,
   IDeviceHomeScreen,
   IHardwareGetPubOrAddressExtraInfo,
+  IHardwareOperationContext,
   IOneKeyDeviceFeatures,
   IOneKeyDeviceState,
   IQrWalletDevice,
@@ -219,6 +220,8 @@ export type IDBCreateHwWalletParamsBase = {
   isMockedStandardHwWallet?: boolean;
   isAttachPinMode?: boolean;
   vendor?: EHardwareVendor;
+  /** Runtime-only hardware context. Never persisted to the local database. */
+  hardwareOperationContext?: IHardwareOperationContext;
 };
 export type IDBCreateHwWalletParams = IDBCreateHwWalletParamsBase & {
   passphraseState?: string;

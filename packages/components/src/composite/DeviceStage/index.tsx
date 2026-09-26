@@ -30,6 +30,7 @@ import {
   ThirdPartyWalletAvatarImages,
   getThirdPartyDeviceAvatarImage,
 } from '@onekeyhq/shared/src/utils/avatarUtils';
+import type { IThirdPartyWalletAvatarImageNames } from '@onekeyhq/shared/src/utils/avatarUtils';
 import { EHardwareVendor } from '@onekeyhq/shared/types/device';
 
 import { easeOutFn } from '../../content/deviceScene';
@@ -108,7 +109,11 @@ import {
 import { WalletTypeOptions } from './WalletTypeOptions';
 
 import type { ICardArrangement } from './arrangements';
-import type { IDeviceStageProps, IDeviceStageStep } from './type';
+import type {
+  IDeviceStageProps,
+  IDeviceStageStep,
+  IDeviceStageVendor,
+} from './type';
 import type { IMorphAimFacts } from '../MorphOverlay';
 import type { ImageSourcePropType, LayoutChangeEvent } from 'react-native';
 
@@ -159,6 +164,15 @@ import type { ImageSourcePropType, LayoutChangeEvent } from 'react-native';
  * device's name. The row is the capsule's content, inside the
  * container's own capsule padding (PILL.pad); the row plus that padding
  * is the capsule's measured size. */
+const STAGE_VENDOR_AVATAR: Record<
+  IDeviceStageVendor,
+  { vendor: EHardwareVendor; fallback: IThirdPartyWalletAvatarImageNames }
+> = {
+  ledger: { vendor: EHardwareVendor.ledger, fallback: 'LedgerNanoX' },
+  trezor: { vendor: EHardwareVendor.trezor, fallback: 'TrezorSafe7' },
+  keystone: { vendor: EHardwareVendor.keystone, fallback: 'keystone' },
+};
+
 const CAPSULE_ROW = {
   /** The content's own inset inside the capsule padding. */
   paddingX: 8,
@@ -1349,11 +1363,10 @@ export function DeviceStage({
       return undefined;
     }
     const key = getThirdPartyDeviceAvatarImage({
-      vendor:
-        vendor === 'ledger' ? EHardwareVendor.ledger : EHardwareVendor.trezor,
+      vendor: STAGE_VENDOR_AVATAR[vendor].vendor,
       vendorModel,
       vendorModelName,
-      fallback: vendor === 'ledger' ? 'LedgerNanoX' : 'TrezorSafe7',
+      fallback: STAGE_VENDOR_AVATAR[vendor].fallback,
     });
     // The avatar table's values are bare require() results (untyped).
     return ThirdPartyWalletAvatarImages[key] as ImageSourcePropType;
