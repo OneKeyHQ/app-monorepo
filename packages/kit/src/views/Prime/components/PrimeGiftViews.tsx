@@ -1,4 +1,4 @@
-import type { ComponentProps } from 'react';
+import { type ComponentProps, useEffect, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -14,10 +14,12 @@ import {
   Stack,
   XStack,
   YStack,
+  useClipboard,
   useThemeName,
 } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { formatDateFns } from '@onekeyhq/shared/src/utils/dateUtils';
 import type {
   IPrimeGiftClaimResult,
@@ -71,6 +73,102 @@ function StatusCheckRow({
   );
 }
 
+function EligibilityCodeRow({
+  done,
+  title,
+  status,
+  code,
+  onViewCode,
+  onCopyCode,
+}: {
+  done: boolean;
+  title: string;
+  status: string;
+  code?: string;
+  onViewCode?: () => void;
+  onCopyCode?: () => void;
+}) {
+  const intl = useIntl();
+  const { copyText } = useClipboard();
+  const [isVisible, setIsVisible] = useState(false);
+  useEffect(() => {
+    setIsVisible(false);
+  }, [code]);
+  return (
+    <YStack>
+      <StatusCheckRow
+        testID="prime-gift-check-eligibility"
+        done={done}
+        title={title}
+        status={status}
+      />
+      {code ? (
+        // ListItem text starts after px $3 + icon $5 + gap $3.
+        <YStack pl="$11" pr="$3" pb="$3" gap="$2">
+          <Button
+            variant="tertiary"
+            size="small"
+            alignSelf="flex-start"
+            maxWidth="100%"
+            minHeight={platformEnv.isNative ? 44 : undefined}
+            height="auto"
+            iconAfter={
+              isVisible ? 'ChevronTopSmallOutline' : 'ChevronDownSmallOutline'
+            }
+            aria-expanded={isVisible}
+            testID="prime-gift-view-code"
+            onPress={() => {
+              if (!isVisible) onViewCode?.();
+              setIsVisible((visible) => !visible);
+            }}
+          >
+            {intl.formatMessage({
+              id: isVisible
+                ? ETranslations.global_collapse
+                : ETranslations.prime_gift_view_code__action,
+            })}
+          </Button>
+          {isVisible ? (
+            <XStack
+              px="$3"
+              py="$2.5"
+              bg="$bgApp"
+              borderRadius="$3"
+              alignItems="center"
+              gap="$2"
+            >
+              <SizableText
+                flex={1}
+                minWidth={0}
+                size="$bodyLgMedium"
+                fontFamily="$monoMedium"
+                testID="prime-gift-redemption-code"
+                style={
+                  platformEnv.isNative ? undefined : { wordBreak: 'break-all' }
+                }
+              >
+                {code}
+              </SizableText>
+              <Button
+                variant="tertiary"
+                size="small"
+                flexShrink={0}
+                testID="prime-gift-copy-code"
+                onPress={() => {
+                  copyText(code);
+                  onCopyCode?.();
+                }}
+              >
+                {intl.formatMessage({ id: ETranslations.global_copy })}
+              </Button>
+            </XStack>
+          ) : null}
+        </YStack>
+      ) : null}
+    </YStack>
+  );
+}
+
 function openBenefits(intl: IntlShape) {
   Dialog.show({
     dialogContainer: ({ ref }) => (
@@ -112,6 +210,10 @@ export function PrimeGiftClaimContent({
   accountName,
   isAccountReady,
   isDeviceVerified = false,
+  redemptionCode,
+  onViewCode,
+  onCopyCode,
+  isPendingPaymentConfirm = false,
   error,
   errorDescription,
 }: Partial<Pick<IPrimeGiftEligibility, 'giftMonths' | 'giftDays'>> & {
@@ -121,6 +223,10 @@ export function PrimeGiftClaimContent({
   accountName?: string;
   isAccountReady: boolean;
   isDeviceVerified?: boolean;
+  redemptionCode?: string;
+  onViewCode?: () => void;
+  onCopyCode?: () => void;
+  isPendingPaymentConfirm?: boolean;
   error?: string;
   errorDescription?: string;
 }) {
@@ -188,8 +294,7 @@ export function PrimeGiftClaimContent({
               : ETranslations.prime_gift_verify__desc,
           })}
         />
-        <StatusCheckRow
-          testID="prime-gift-check-eligibility"
+        <EligibilityCodeRow
           done={isDeviceVerified && isEligible}
           title={intl.formatMessage({
             id: ETranslations.prime_gift_eligibility__title,
@@ -201,8 +306,23 @@ export function PrimeGiftClaimContent({
                   id: ETranslations.prime_gift_eligibility_pending__desc,
                 })
           }
+          code={redemptionCode}
+          onViewCode={onViewCode}
+          onCopyCode={onCopyCode}
         />
       </YStack>
+      {isPendingPaymentConfirm ? (
+        <Alert
+          type="warning"
+          testID="prime-gift-pending-payment"
+          title={intl.formatMessage({
+            id: ETranslations.prime_redeem_pending_payment__title,
+          })}
+          description={intl.formatMessage({
+            id: ETranslations.prime_redeem_pending_payment__desc,
+          })}
+        />
+      ) : null}
       {error ? (
         <Alert
           type="critical"
@@ -266,10 +386,6 @@ export function PrimeGiftSuccessContent({
   onKyt: () => void;
 }) {
   const intl = useIntl();
-  const icon =
-    useThemeName() === 'light'
-      ? 'OnekeyPrimeLightColored'
-      : 'OnekeyPrimeDarkColored';
   return (
     <YStack flex={1} px="$5" py="$4" testID="prime-gift-success">
       <YStack flex={1} justifyContent="center" alignItems="center" gap="$3">
@@ -283,35 +399,16 @@ export function PrimeGiftSuccessContent({
         <SizableText size="$heading3xl" textAlign="center">
           {intl.formatMessage({ id: ETranslations.prime_gift_success__title })}
         </SizableText>
-        <YStack alignItems="center" gap="$2">
-          <XStack alignItems="center" gap="$1.5">
-            <Icon name={icon} size="$5" />
-            <SizableText size="$bodyLgMedium">
-              {intl.formatMessage(
-                { id: ETranslations.prime_gift_duration__desc },
-                {
-                  duration: getPrimeGiftDurationText(
-                    {
-                      giftMonths: result.giftMonths,
-                      giftDays: result.addedDays,
-                    },
-                    intl,
-                  ),
-                },
-              )}
-            </SizableText>
-          </XStack>
-          <YStack alignItems="center" gap="$0.5">
-            <SizableText size="$bodyMd" color="$textSubdued">
-              {result.email || result.onekeyUserId}
-            </SizableText>
-            <SizableText size="$bodyMd" color="$textSubdued">
-              {intl.formatMessage(
-                { id: ETranslations.prime_membership_valid_until__desc },
-                { date: formatDateFns(new Date(result.finalExpiresAt), 'PP') },
-              )}
-            </SizableText>
-          </YStack>
+        <YStack alignItems="center" gap="$0.5">
+          <SizableText size="$bodyMd" color="$textSubdued">
+            {result.email || result.onekeyUserId}
+          </SizableText>
+          <SizableText size="$bodyMd" color="$textSubdued">
+            {intl.formatMessage(
+              { id: ETranslations.prime_gift_valid_until__desc },
+              { date: formatDateFns(new Date(result.finalExpiresAt), 'PP') },
+            )}
+          </SizableText>
         </YStack>
       </YStack>
       <PrimeGiftCampaignBanner />
@@ -418,12 +515,13 @@ export function PrimeGiftClaimView({
 }
 
 export function PrimeGiftSuccessView({
-  onEnterWallet,
+  confirmLabel,
+  onConfirm,
   ...contentProps
 }: ComponentProps<typeof PrimeGiftSuccessContent> & {
-  onEnterWallet: () => void;
+  confirmLabel: string;
+  onConfirm: () => void;
 }) {
-  const intl = useIntl();
   return (
     <YStack flex={1}>
       <ScrollView flex={1} contentContainerStyle={{ flexGrow: 1 }}>
@@ -431,12 +529,8 @@ export function PrimeGiftSuccessView({
       </ScrollView>
       <Page.Footer>
         <Page.FooterActions
-          onConfirm={() => {
-            onEnterWallet();
-          }}
-          onConfirmText={intl.formatMessage({
-            id: ETranslations.enter_wallet,
-          })}
+          onConfirm={onConfirm}
+          onConfirmText={confirmLabel}
           confirmButtonProps={{
             testID: 'prime-gift-enter-wallet',
           }}

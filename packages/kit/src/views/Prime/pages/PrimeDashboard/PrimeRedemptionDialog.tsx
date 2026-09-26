@@ -1,4 +1,3 @@
-/* cspell:ignore Infini */
 import { useCallback, useState } from 'react';
 
 import { useIntl } from 'react-intl';
@@ -6,33 +5,20 @@ import { useIntl } from 'react-intl';
 import type { IDialogInstance } from '@onekeyhq/components';
 import { Dialog, YStack } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import type { IPrimeGiftAnalyticsSource } from '@onekeyhq/shared/src/logger/scopes/prime/scenes/subscription';
 import type { IPrimeRedemptionResult } from '@onekeyhq/shared/types/prime/primeTypes';
 
-import { PrimeDarkDialogContainer } from '../../components/PrimeDarkDialogContainer';
 import {
   PrimeRedemptionFormView,
   PrimeRedemptionSuccessView,
 } from '../../components/PrimeRedemptionViews';
-import { getPrimeInfiniPaymentEntryGuard } from '../../hooks/primeInfiniExternalCheckoutGuard';
+import { readPrimeInfiniPaymentEntryGuard } from '../../hooks/primeInfiniExternalCheckoutGuard';
 import { usePrimeRedemptionSubmit } from '../../hooks/usePrimeRedemptionSubmit';
 import { PrimeTestIDs } from '../../testIDs';
-
-async function readInfiniPaymentEntryGuard() {
-  try {
-    return await getPrimeInfiniPaymentEntryGuard();
-  } catch {
-    // Probe failed: treat as not ready so redeem stays blocked.
-    return undefined;
-  }
-}
 
 type IPrimeRedemptionDialogParams = {
   expectedOneKeyUserId: string;
   isPrimeActiveBeforeRedeem: boolean;
   initialCode?: string;
-  primeGiftSerialNo?: string;
-  giftSource?: IPrimeGiftAnalyticsSource;
   onRedeemed?: (result: IPrimeRedemptionResult) => void;
 };
 
@@ -40,8 +26,6 @@ function PrimeRedemptionDialogContent({
   expectedOneKeyUserId,
   isPrimeActiveBeforeRedeem,
   initialCode,
-  primeGiftSerialNo,
-  giftSource,
   onRedeemed,
 }: IPrimeRedemptionDialogParams) {
   const intl = useIntl();
@@ -56,8 +40,6 @@ function PrimeRedemptionDialogContent({
     expectedOneKeyUserId,
     isPrimeActiveBeforeRedeem,
     initialCode,
-    primeGiftSerialNo,
-    giftSource,
     onRedeemed,
   });
   const [isPendingPaymentConfirmation, setIsPendingPaymentConfirmation] =
@@ -71,7 +53,7 @@ function PrimeRedemptionDialogContent({
       preventClose();
       await runWithSubmittingLock(async () => {
         if (!options?.skipPendingPaymentCheck) {
-          const entryGuard = await readInfiniPaymentEntryGuard();
+          const entryGuard = await readPrimeInfiniPaymentEntryGuard();
           if (
             !entryGuard?.isLoggedIn ||
             entryGuard.onekeyUserId !== expectedOneKeyUserId
@@ -148,10 +130,7 @@ function PrimeRedemptionDialogContent({
     <YStack mx="$-5">
       <Dialog.Header />
       <YStack px="$5" py="$5">
-        <PrimeRedemptionFormView
-          form={form}
-          isCodeReadOnly={Boolean(primeGiftSerialNo)}
-        />
+        <PrimeRedemptionFormView form={form} />
       </YStack>
       <Dialog.Footer
         showCancelButton={false}
@@ -171,24 +150,9 @@ function PrimeRedemptionDialogContent({
 export function showPrimeRedemptionDialog(
   params: IPrimeRedemptionDialogParams,
 ): IDialogInstance {
-  const renderContent = <PrimeRedemptionDialogContent {...params} />;
-  const isHardwarePrimeGift = Boolean(params.primeGiftSerialNo);
   return Dialog.show({
     testID: 'prime-redemption-dialog',
     showFooter: false,
-    renderContent,
-    ...(isHardwarePrimeGift
-      ? {
-          dialogContainer: ({ ref }) => (
-            <PrimeDarkDialogContainer
-              ref={ref}
-              testID="prime-redemption-dialog"
-              showFooter={false}
-              renderContent={renderContent}
-              onClose={async () => undefined}
-            />
-          ),
-        }
-      : {}),
+    renderContent: <PrimeRedemptionDialogContent {...params} />,
   });
 }

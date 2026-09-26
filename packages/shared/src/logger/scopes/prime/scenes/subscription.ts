@@ -180,6 +180,10 @@ export type IPrimeGiftStageParams =
   | {
       stage: 'claim';
       status: 'submit';
+    }
+  | {
+      stage: 'code';
+      status: 'view' | 'copy';
     };
 
 export class PrimeSubscriptionScene extends BaseScene {
