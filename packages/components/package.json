@@ -7,10 +7,10 @@
     "**/*.css"
   ],
   "dependencies": {
-    "@onekeyfe/react-native-native-sheet": "3.0.156",
-    "@onekeyfe/react-native-scroll-guard": "3.0.156",
-    "@onekeyfe/react-native-segment-slider": "3.0.156",
-    "@onekeyfe/react-native-tab-view": "3.0.156",
+    "@onekeyfe/react-native-native-sheet": "3.0.157-alpha.254",
+    "@onekeyfe/react-native-scroll-guard": "3.0.157-alpha.254",
+    "@onekeyfe/react-native-segment-slider": "3.0.157-alpha.254",
+    "@onekeyfe/react-native-tab-view": "3.0.157-alpha.254",
     "@react-native-masked-view/masked-view": "0.3.2",
     "@react-navigation/bottom-tabs": "7.10.1",
     "@react-navigation/elements": "2.9.5",

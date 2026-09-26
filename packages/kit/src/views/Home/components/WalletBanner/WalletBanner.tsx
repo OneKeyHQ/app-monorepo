@@ -16,7 +16,6 @@ import type { ICheckedState } from '@onekeyhq/components';
 import {
   Checkbox,
   Dialog,
-  HeaderScrollGestureWrapper,
   Icon,
   IconButton,
   Image,
@@ -56,6 +55,8 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EMessageTypesEth } from '@onekeyhq/shared/types/message';
 import { ERookieTaskType } from '@onekeyhq/shared/types/rookieGuide';
 import type { IWalletBanner } from '@onekeyhq/shared/types/walletBanner';
+
+import { HomeHeaderGesture } from '../HomeHeaderGesture';
 
 const PERPS_REFERRAL_BANNER_ID = 'local-perps-referral';
 
@@ -287,7 +288,7 @@ function NativeBannerScroller({
   );
 
   return (
-    <HeaderScrollGestureWrapper>
+    <HomeHeaderGesture>
       <YStack
         bg="$bgApp"
         overflow="hidden"
@@ -318,7 +319,7 @@ function NativeBannerScroller({
           </Animated.View>
         </GestureDetector>
       </YStack>
-    </HeaderScrollGestureWrapper>
+    </HomeHeaderGesture>
   );
 }
 
