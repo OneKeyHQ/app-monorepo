@@ -102,48 +102,40 @@ Each row requires a documented public contract, native iOS and Android implement
 
 ## Current handoff
 
-Implementation dispatched to the three owners above. The native Home integration now uses NativeList for History and NFT rows; their existing business handlers and React container header/footer content remain authoritative. NativeList capabilities and native scrolling are being validated together.
+### Source and review
 
-The parent created dedicated simulator `OneKey-HomePager-iOS26.5`, UDID `21AFD01B-0CB1-43E8-AD1E-1C8B89123870`. Its task-owned data directory is under `local/home-native-pager/simulators/` with a default-device-set symlink. Boot failed with CoreSimulator error 513 / POSIX Operation not permitted writing the external volume. Direct external device-set creation failed for the same reason and its incomplete allocation was deleted by CoreSimulator. No unrelated simulator was modified or booted.
+- App draft PR: https://github.com/OneKeyHQ/app-monorepo/pull/13750 (`bf4fafb389`).
+- Module draft PR: https://github.com/OneKeyHQ/app-modules/pull/135 (`94ef1e1d`).
+- The native implementation and focused source checks are complete. Interactive acceptance remains pending; neither PR is ready to merge.
+- Home uses NativeScroller for Spot/Earn/Perps and NativeList for History/NFT. Native-only provider keys isolate wallet/account/network state. History metadata queries use stable identities, cache misses and bounded concurrency.
+- NativeList includes rich Activity rows, paused media fallback, viewport-based video resource release, 2–7 grid columns, React container slots, configurable refresh distance, threshold events and ancestor-header contributions. The final audit corrected duplicate iOS refresh haptics, tall Android end-slot alignment and small-number typography.
+- Each visible native media tile owns its player; background JS owns none. Android buffer settings are targets, not a total decoder-memory cap. iOS forward-buffer duration is advisory.
+- New native APIs are not in published `.254`. The app draft uses modified installed sources locally and requires a released companion package before clean-checkout integration. No native package patch, version bump or npm publication is included.
 
-The user explicitly rejected internal-disk simulator data. All task simulator data must remain on the external drive. Live kernel logging at 2026-09-27 00:12:57 +0800 confirmed `System Policy: com.apple.CoreSimulator.CoreSimu(16446) deny(1) file-write-create` for the external device's `data/Library/Logs`. The APFS volume and ordinary directory permissions are writable. System Settings has no CoreSimulator removable-volume entry. A specific authorization request is pending to add Apple's CoreSimulatorService to Full Disk Access; no privacy setting has been changed. No successful boot, app interaction or performance result is established yet.
+### Validation evidence
 
-Android harness: dedicated `OneKey_HomePager_API36`, serial `emulator-5580`, API 36 Google APIs arm64, Pixel 6 profile. `ANDROID_AVD_HOME`, AVD metadata and writable userdata are under `local/home-native-pager/android-avd/`. `sys.boot_completed=1` was verified. Emulator boot is established; application build and interaction acceptance remain pending. Emulator log: `local/home-native-pager/evidence/android-emulator.log`.
+| Check | Result | Evidence |
+| --- | --- | --- |
+| Dependency-only commit gate | Passed | `node_modules/.cache/agent-checks/2026-09-26T15-35-00-776Z/summary.json` |
+| Final app commit gate including Gallery | Passed | `node_modules/.cache/agent-checks/2026-09-26T16-52-18-782Z/summary.json` |
+| PR profile local checks | Passed; hosted part skipped because run preceded PR creation | `node_modules/.cache/agent-checks/2026-09-26T16-55-30-289Z/summary.json` |
+| NativeList package tests | 201 passed | Module PR validation |
+| Focused app tests | Financial mapping 11, refresh 2, dynamic tabs 1 passed | Focused test runs |
+| Native focused policies | End alignment 4, post-generation 2 passed; renderer/media API compile checks passed | Module PR validation |
+| Final iOS full app build | Passed | `local/home-native-pager/evidence/ios-build-final-font.log` |
+| Final Android full app build | Passed; 166 tasks executed, 1845 up-to-date | `local/home-native-pager/evidence/android-launch-final.log` |
+| XCTest runtime / Home interaction / timing | Pending | No device acceptance claim |
 
-Dependency validation evidence: `node_modules/.cache/agent-checks/2026-09-26T15-35-00-776Z/summary.json`.
+Both-platform module graph scans completed (`local/home-native-pager/evidence/module-registry.log`). Pods installation succeeded with 197 dependencies / 218 pods. The initial Swift compiler overload failure was corrected; subsequent complete iOS builds passed.
 
-Integrated checks: `node_modules/.cache/agent-checks/2026-09-26T16-30-05-575Z/summary.json` passed lint, format, storage, agent context, background API, test integrity and package patch gates. TypeScript found five integration diagnostics (icon name, nullable fee token, freshly added module typings and a test intl fixture). All were corrected; the full retry passed at `node_modules/.cache/agent-checks/2026-09-26T16-43-46-996Z/summary.json`. The native-only Gallery fixture was added afterward and passed targeted lint and staged TypeScript; final gates must include that fixture.
+### Device handoff
 
-Native compilation: Pods reinstalled successfully (197 dependencies, 218 pods).
-The first local `dev-shell:build --platform ios --skip-pods` exited with a
-NativeList `RNCNativeListView.swift` compilation failure; its owner is correcting
-the actual compiler diagnostics before the next incremental build. The ExpoModulesJSI
-nested xcframework step succeeded despite misleading quiet-mode console diagnostics. Log: `local/home-native-pager/evidence/ios-build.log`.
-Both-platform module graph scan completed, log: `local/home-native-pager/evidence/module-registry.log`.
-Normal acceptance launches must force `--shell local --vendor local` while native
-sources and generated JS differ from the published `.254` package contents.
+Android uses dedicated `OneKey_HomePager_API36`, serial `emulator-5580`, API 36 Google APIs arm64, Pixel 6 profile. `ANDROID_AVD_HOME`, AVD metadata and userdata are under `local/home-native-pager/android-avd/` on the external drive.
 
-Implementation checkpoint: Home uses native pager coordination, NativeScroller for
-Spot/Earn/Perps, and NativeList for NFT/History. Native-only provider identity keys
-include wallet, account and network. History metadata requests use stable identity
-keys, cache misses and bounded concurrency. The focused financial mapping suite
-passes 11 tests and staged TypeScript checks passed after integration fixes; a
-full commit-gate rerun passed before the Gallery fixture was added. NativeList package tests passed
-201 cases. These checks do not establish UI or performance acceptance.
+The final Android DevSession reached `status=running`: local-built shell and vendor, cached WebEmbed, no required user notices. Receipt: `node_modules/.cache/onekey-mobile-dev/sessions/wk-e4dc44479fcd-dev-5e6f2505624f-7c7dfbe73a5f58e4/run-result.json`. Keep its Metro session alive. The real app displayed first-run onboarding and the emulator was observed in the foreground; user password entry is pending. Do not restart or manipulate the window while the user initializes it.
 
-Android's first full local build passed (2011 Gradle tasks, 9m 2s). A subsequent
-media lifecycle fix releases paused video players when retained pages leave the
-visible viewport, so the final Android artifact must be rebuilt before acceptance.
-iOS is rebuilding with the Swift correction and the same viewport lifecycle fix.
-The native video resource owner is each intersecting UI tile; no player is shared
-with the background runtime. Android buffering is bounded by configured targets,
-while iOS forward-buffer duration is advisory; decoder memory is platform-owned.
+Gallery acceptance uses Developer → Gallery → NewTabs → the native fixture. It contains public sample media, rich Activity rows, header/footer/empty slots, refresh, 2/6/7 columns and retained-page switching. Normal onboarding is required to reach Developer; do not bypass authentication or expose a new arbitrary deep link. QA backup import must follow the authorized backup directory's runbook, with temporary code excluded from commits and passwords entered in App secure fields.
 
-First Android runtime launch reached `status=running`, with local-built shell and
-vendor, remote WebEmbed, and no required user notices. Receipt:
-`node_modules/.cache/onekey-mobile-dev/sessions/wk-e4dc44479fcd-dev-5e6f2505624f-0f1406ab51cb54a8/run-result.json`.
-The actual app displayed the first-run wallet onboarding UI. This session was
-stopped for the final native rebuild; it does not validate the later native fixes.
-The Gallery fixture is in the existing NewTabs story and is gated to native; it
-uses public sample media and covers native rows, container slots, refresh, column
-counts and retained-page video behavior without requiring account secrets.
+The dedicated iOS simulator is `OneKey-HomePager-iOS26.5`, UDID `21AFD01B-0CB1-43E8-AD1E-1C8B89123870`. Task-owned data is under `local/home-native-pager/simulators/` with a default-device-set symlink. It has not booted successfully. Kernel logging at 2026-09-27 00:12:57 +0800 confirmed System Policy denied CoreSimulator file creation in the external device's `data/Library/Logs`, despite writable APFS and directory permissions. A specific request to grant Apple's CoreSimulatorService Full Disk Access remains pending; no privacy setting was changed. The user forbids internal-disk simulator data, so no internal fallback is allowed.
+
+Normal acceptance launches must use `--shell local --vendor local` while installed package source differs from published packages. Simulator boot, build success, active App readiness, row correctness and performance remain separate evidence levels.
