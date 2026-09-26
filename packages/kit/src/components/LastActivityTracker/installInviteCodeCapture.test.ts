@@ -10,6 +10,7 @@ const mockResolve = jest.fn(async (_params: unknown) => ({
 }));
 const mockMarkResolved = jest.fn(async () => {});
 const mockMarkFresh = jest.fn(async () => {});
+const mockPrefetchPostConfig = jest.fn(async () => {});
 const mockCaptured = jest.fn();
 
 jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
@@ -20,6 +21,7 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
       resolveInstallReferral: mockResolve,
       markInstallReferralCaptureResolved: mockMarkResolved,
       markInstallReferralPendingFreshInstall: mockMarkFresh,
+      prefetchInstallReferralPostConfig: mockPrefetchPostConfig,
     },
   },
 }));
@@ -122,5 +124,22 @@ describe('captureInstallInviteCode', () => {
     expect(mockMarkFresh).toHaveBeenCalledTimes(1);
     expect(mockResolve).not.toHaveBeenCalled();
     expect(mockMarkResolved).not.toHaveBeenCalled();
+  });
+
+  it('warms the rebate config after every attempt without waiting for it', async () => {
+    mockPrefetchPostConfig.mockImplementationOnce(
+      () => new Promise<void>(() => {}),
+    );
+    mockGetCaptureState.mockResolvedValueOnce({
+      isResolved: true,
+      isPendingFreshInstall: false,
+    });
+
+    await captureInstallInviteCode({
+      source: 'androidInstallReferrer' as never,
+      read: jest.fn(),
+    });
+
+    expect(mockPrefetchPostConfig).toHaveBeenCalledTimes(1);
   });
 });

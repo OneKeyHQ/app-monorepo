@@ -776,6 +776,26 @@ class ServiceReferralCode extends ServiceBase {
     return postConfig;
   }
 
+  /**
+   * Refreshes the invite post-config (rebate rate) while an install-referral
+   * code is waiting to be offered, so a bind dialog opened later reads a fresh
+   * rate from the cache instead of a stale one that a refresh then withdraws.
+   * Runs from the startup capture; a no-op network-wise when there is no
+   * unbound code, and a failure only leaves the dialogs on their fallback.
+   */
+  @backgroundMethod()
+  async prefetchInstallReferralPostConfig(): Promise<void> {
+    const { code } = await this.getInstallReferralAutoFill();
+    if (!code) {
+      return;
+    }
+    try {
+      await this.fetchPostConfig();
+    } catch {
+      // The dialogs fall back to the cached config or the default rate.
+    }
+  }
+
   @backgroundMethod()
   async getPostConfig() {
     const postConfig =

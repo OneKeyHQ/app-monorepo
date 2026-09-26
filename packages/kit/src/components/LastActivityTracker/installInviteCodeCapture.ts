@@ -45,7 +45,10 @@ export type IInstallInviteCodeReadResult = {
  *    Play's serving window; it is remembered as fresh before Play is asked
  *    (`markFreshInstall` / `isKnownFreshInstall`) so an app update before the
  *    retry cannot turn it into an "existing install".
- * 4. Dialogs never block on this. They join this launch's capture attempt for
+ * 4. While an unbound code is stored, each startup capture also refreshes the
+ *    rebate config in the background (`prefetchInstallReferralPostConfig`),
+ *    not awaited, so the code itself is never held back by the network.
+ * 5. Dialogs never block on this. They join this launch's capture attempt for
  *    a bounded time (`readInstallReferralAutoFillCode`) and read once more
  *    when it settles; they never poll the persisted flag.
  *
@@ -68,6 +71,19 @@ export async function captureInstallInviteCode({
     markFreshInstall: () => Promise<void>;
   }) => Promise<IInstallInviteCodeReadResult | undefined>;
 }): Promise<void> {
+  try {
+    await captureOnce({ source, read });
+  } finally {
+    void backgroundApiProxy.serviceReferralCode
+      .prefetchInstallReferralPostConfig()
+      .catch(() => undefined);
+  }
+}
+
+async function captureOnce({
+  source,
+  read,
+}: Parameters<typeof captureInstallInviteCode>[0]): Promise<void> {
   try {
     const { isResolved: isAlreadyResolved, isPendingFreshInstall } =
       await backgroundApiProxy.serviceReferralCode.getInstallReferralCaptureState();
