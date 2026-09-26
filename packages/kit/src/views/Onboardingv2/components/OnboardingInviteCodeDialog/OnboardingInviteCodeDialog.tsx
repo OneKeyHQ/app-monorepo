@@ -309,7 +309,9 @@ function OnboardingInviteCodeDialogContent({
           await backgroundApiProxy.serviceReferralCode.consumeInstallReferralIfBound(
             { referralCode },
           );
-        if (isInviterCode) {
+        // Consume however the code got into the field, but only count an
+        // acceptance when it is the code this dialog pre-filled.
+        if (isInviterCode && autoFilledCodeRef.current === referralCode) {
           defaultLogger.referral.page.installReferralAccepted({
             surface: 'onboarding_dialog',
           });

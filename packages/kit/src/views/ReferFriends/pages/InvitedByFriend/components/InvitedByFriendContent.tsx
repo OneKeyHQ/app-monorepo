@@ -9,24 +9,28 @@ import { formatInviteeDiscountFromConfig } from '../../../utils';
 
 function InvitedByFriendContent({ referralCode }: { referralCode?: string }) {
   const intl = useIntl();
-  const { postConfig } = useInvitePostConfig();
+  const { postConfig, isSettled } = useInvitePostConfig();
   const inviteeDiscountAmount = formatInviteeDiscountFromConfig(
     postConfig?.inviteeDiscount,
   );
 
-  const benefits = [
-    {
-      icon: 'GiftOutline' as const,
-      text: intl.formatMessage(
+  // Held back until the config has answered, so a first open never shows the
+  // default rate and then swaps it for the server's.
+  const benefits = !isSettled
+    ? []
+    : [
         {
-          id: ETranslations.referral_modal_been_invited_point1,
+          icon: 'GiftOutline' as const,
+          text: intl.formatMessage(
+            {
+              id: ETranslations.referral_modal_been_invited_point1,
+            },
+            {
+              amount: inviteeDiscountAmount,
+            },
+          ),
         },
-        {
-          amount: inviteeDiscountAmount,
-        },
-      ),
-    },
-  ];
+      ];
 
   return (
     <Stack mx="auto" gap="$10" px="$5" mt="$4">

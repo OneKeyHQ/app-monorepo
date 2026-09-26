@@ -126,20 +126,65 @@ describe('captureInstallInviteCode', () => {
     expect(mockMarkResolved).not.toHaveBeenCalled();
   });
 
-  it('warms the rebate config after every attempt without waiting for it', async () => {
+  it('warms the rebate config once per cold start without waiting for it', async () => {
+    let capture: typeof captureInstallInviteCode | undefined;
+    jest.isolateModules(() => {
+      capture = jest.requireActual<typeof import('./installInviteCodeCapture')>(
+        './installInviteCodeCapture',
+      ).captureInstallInviteCode;
+    });
     mockPrefetchPostConfig.mockImplementationOnce(
       () => new Promise<void>(() => {}),
     );
-    mockGetCaptureState.mockResolvedValueOnce({
+    mockGetCaptureState.mockResolvedValue({
       isResolved: true,
       isPendingFreshInstall: false,
     });
 
-    await captureInstallInviteCode({
-      source: 'androidInstallReferrer' as never,
-      read: jest.fn(),
-    });
+    await capture?.({ source: 'iosAppClip' as never, read: jest.fn() });
+    await capture?.({ source: 'iosAppClip' as never, read: jest.fn() });
 
     expect(mockPrefetchPostConfig).toHaveBeenCalledTimes(1);
+    mockGetCaptureState.mockReset();
+    mockGetCaptureState.mockResolvedValue({
+      isResolved: false,
+      isPendingFreshInstall: false,
+    });
+  });
+
+  it('settles an empty referrer past the window without counting a capture', async () => {
+    mockResolve.mockResolvedValueOnce({ isResolved: true, hasCode: false });
+
+    await captureInstallInviteCode({
+      source: 'androidInstallReferrer' as never,
+      read: async () => ({
+        code: undefined,
+        attributedAt: 1,
+        hasReferrer: false,
+        isExistingInstall: false,
+      }),
+    });
+
+    expect(mockResolve).toHaveBeenCalledTimes(1);
+    expect(mockCaptured).not.toHaveBeenCalled();
+  });
+
+  it('counts an organic install whose referrer carried no code', async () => {
+    mockResolve.mockResolvedValueOnce({ isResolved: true, hasCode: false });
+
+    await captureInstallInviteCode({
+      source: 'androidInstallReferrer' as never,
+      read: async () => ({
+        code: undefined,
+        attributedAt: 1,
+        hasReferrer: true,
+        isExistingInstall: false,
+      }),
+    });
+
+    expect(mockCaptured).toHaveBeenCalledWith({
+      source: 'androidInstallReferrer',
+      hasCode: false,
+    });
   });
 });

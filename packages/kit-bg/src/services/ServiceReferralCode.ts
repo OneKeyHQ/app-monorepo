@@ -802,7 +802,9 @@ class ServiceReferralCode extends ServiceBase {
       await this.backgroundApi.simpleDb.referralCode.getPostConfig();
     if (postConfig?.locales) {
       setTimeout(() => {
-        void this.fetchPostConfig();
+        // Background revalidation: a failure keeps the cached config and must
+        // not surface as an unhandled rejection.
+        void this.fetchPostConfig().catch(() => undefined);
       });
       return postConfig;
     }

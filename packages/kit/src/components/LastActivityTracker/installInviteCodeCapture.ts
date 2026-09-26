@@ -2,6 +2,11 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type { EInviteCodeAttributionSource } from '@onekeyhq/shared/src/referralCode/installReferrerUtils';
 
+// Once per cold start per runtime: iOS re-runs the capture from the analytics
+// bootstrap and from every App Clip universal link, and each run would
+// otherwise fetch the rebate config again.
+let hasWarmedPostConfig = false;
+
 export type IInstallInviteCodeReadResult = {
   code: string | undefined;
   /** ms epoch the auto-fill TTL is measured from. */
@@ -46,9 +51,10 @@ export type IInstallInviteCodeReadResult = {
  *    Play's serving window; it is remembered as fresh before Play is asked
  *    (`markFreshInstall` / `isKnownFreshInstall`) so an app update before the
  *    retry cannot turn it into an "existing install".
- * 4. While an unbound code is stored, each startup capture also refreshes the
- *    rebate config in the background (`prefetchInstallReferralPostConfig`),
- *    not awaited, so the code itself is never held back by the network.
+ * 4. While an unbound code is stored, the first capture of each cold start
+ *    also refreshes the rebate config in the background
+ *    (`prefetchInstallReferralPostConfig`), not awaited, so the code itself is
+ *    never held back by the network.
  * 5. Dialogs never block on this. They join this launch's capture attempt for
  *    a bounded time (`readInstallReferralAutoFillCode`) and read once more
  *    when it settles; they never poll the persisted flag.
@@ -75,9 +81,12 @@ export async function captureInstallInviteCode({
   try {
     await captureOnce({ source, read });
   } finally {
-    void backgroundApiProxy.serviceReferralCode
-      .prefetchInstallReferralPostConfig()
-      .catch(() => undefined);
+    if (!hasWarmedPostConfig) {
+      hasWarmedPostConfig = true;
+      void backgroundApiProxy.serviceReferralCode
+        .prefetchInstallReferralPostConfig()
+        .catch(() => undefined);
+    }
   }
 }
 
@@ -111,8 +120,10 @@ async function captureOnce({
         source,
       });
     // A pending capture is retried on every cold start until it settles;
-    // reporting each attempt would count one install many times over.
-    if (isResolved) {
+    // reporting each attempt would count one install many times over. An
+    // empty referrer that only settles because Play's window closed had
+    // nothing to capture, so it is not counted either.
+    if (isResolved && (hasCode || result.hasReferrer)) {
       defaultLogger.referral.page.installReferralCaptured({
         source,
         hasCode,

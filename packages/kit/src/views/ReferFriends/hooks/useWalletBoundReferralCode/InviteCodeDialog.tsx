@@ -100,14 +100,22 @@ export function InviteCodeDialog({
   // otherwise a quick Apply could bind it over a draft about to appear. Keyed
   // off the read settling rather than off its value, so a failed read still
   // opens the gate instead of hiding the invite for the whole dialog session.
-  const isDraftSettled = isCachedCodeLoading === false;
+  //
+  // Opened only after the restore effect below has run, not merely once the
+  // read settles: the read result and the field value land in different
+  // renders, and the render in between would flash the hint over the draft.
+  const [isDraftSettled, setIsDraftSettled] = useState(false);
 
   // Update form default value when cachedCode loads
   useEffect(() => {
+    if (isCachedCodeLoading !== false) {
+      return;
+    }
     if (cachedCode && !form.getValues('referralCode')) {
       form.setValue('referralCode', cachedCode);
     }
-  }, [cachedCode, form]);
+    setIsDraftSettled(true);
+  }, [cachedCode, isCachedCodeLoading, form]);
 
   // Save to cache when input changes (debounced)
   const handleCodeChange = useDebouncedCallback((value: string) => {
@@ -358,7 +366,9 @@ export function InviteCodeDialog({
             await backgroundApiProxy.serviceReferralCode.consumeInstallReferralIfBound(
               { referralCode },
             );
-          if (isInviterCode) {
+          // Consume however the code got into the field, but only count an
+          // acceptance when this dialog actually showed the invite.
+          if (isInviterCode && isOfferLoggedRef.current) {
             defaultLogger.referral.page.installReferralAccepted({
               surface: 'bind_dialog',
             });
