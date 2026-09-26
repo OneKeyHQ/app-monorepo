@@ -894,7 +894,7 @@ function MobileMarketNativeWatchlistImpl({
   if (!watchlistState.isMounted) {
     return <ScrollView style={NATIVE_LIST_STYLE.fill} />;
   }
-  if (watchlist.length === 0 && !showSkeleton) {
+  if (!showSkeleton && (watchlist.length === 0 || result.data.length === 0)) {
     return (
       <ScrollView
         style={NATIVE_LIST_STYLE.fill}

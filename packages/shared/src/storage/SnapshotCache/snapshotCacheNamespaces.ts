@@ -29,6 +29,9 @@ export const FEATURE_SNAPSHOT_CACHE_NAMESPACES = [
   'ctx-atom-snapshot',
   'account-selector',
   'tokenlist-maintenance',
+  'tokenlist-owner-slim',
+  'tokenlist-owner-worth',
+  'home-header-layout',
 ] as const;
 
 export type ISnapshotCacheNamespace =

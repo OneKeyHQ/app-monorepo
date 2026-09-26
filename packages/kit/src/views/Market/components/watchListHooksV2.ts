@@ -68,15 +68,22 @@ export const useWatchListV2Action = () => {
         assetId?: string;
         stockId?: string;
       }>,
+      options?: { preserveOrder?: boolean },
     ) => {
       if (!isMounted) {
         return false;
       }
-      // New favorites go on top; perps stars share this rule.
-      const sortIndexes = sortUtils.buildTopSortIndexes({
-        oldList: watchListData,
-        count: items.length,
-      });
+      // A single favorite from a token list still lands on top. The recommend
+      // batch is already in display order, so it keeps that order (OK-63908).
+      const sortIndexes = options?.preserveOrder
+        ? sortUtils.buildOrderedTopSortIndexes({
+            oldList: watchListData,
+            count: items.length,
+          })
+        : sortUtils.buildTopSortIndexes({
+            oldList: watchListData,
+            count: items.length,
+          });
 
       const watchListItems: IMarketWatchListItemV2[] = items.map(
         (item, index) => ({

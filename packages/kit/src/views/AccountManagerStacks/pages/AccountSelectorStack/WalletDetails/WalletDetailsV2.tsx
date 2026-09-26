@@ -25,10 +25,17 @@ import { useCreateQrWallet } from '@onekeyhq/kit/src/components/AccountSelector/
 import { useEnabledNetworksCompatibleWithWalletIdInAllNetworks } from '@onekeyhq/kit/src/hooks/useAllNetwork';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import {
+  useAccountSelectorSceneInfo,
   useAccountSelectorStorageReadyAtom,
   useSelectedAccount,
 } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { useAccountSelectorActions } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector/actions';
+import {
+  HOME_TOKEN_LIST_PREWARM_TAP_TIMEOUT_MS,
+  buildAccountSelectorRowPrewarmParams,
+  prewarmHomeTokenListOwner,
+  prewarmHomeTokenListOwnerWithin,
+} from '@onekeyhq/kit/src/states/jotai/contexts/tokenList/cells/prewarmOwnerFrames';
 import qrHiddenCreateGuideDialog from '@onekeyhq/kit/src/views/Onboarding/pages/ConnectHardwareWallet/qrHiddenCreateGuideDialog';
 import type {
   IDBAccount,
@@ -40,7 +47,10 @@ import type {
   IAccountSelectorAccountsListSectionData,
   IAccountSelectorSelectedAccount,
 } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityAccountSelector';
-import { accountSelectorAccountsListIsLoadingAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  accountSelectorAccountsListIsLoadingAtom,
+  useSettingsPersistAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
 import {
   EAppEventBusNames,
@@ -52,6 +62,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { swrKeys } from '@onekeyhq/shared/src/utils/swrCacheUtils';
+import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import { HiddenWalletRememberSwitch } from '../../../components/WalletEdit/HiddenWalletRememberSwitch';
 import { useAccountSelectorRoute } from '../../../router/useAccountSelectorRoute';
@@ -131,8 +142,13 @@ function BotWalletDeactivatedBanner({ walletId }: { walletId: string }) {
   );
 }
 
+// Accounts listed first are the likeliest targets; a wallet with more rows
+// than this still prewarms the tapped row itself.
+const HOME_TOKEN_LIST_PREWARM_MAX_ROWS = 12;
+
 function WalletDetailsViewV2({ num }: IWalletDetailsProps) {
   const intl = useIntl();
+  const [{ currencyInfo }] = useSettingsPersistAtom();
   const { serviceAccountSelector } = backgroundApiProxy;
   const { selectedAccount } = useSelectedAccount({ num });
   const actions = useAccountSelectorActions();
@@ -199,6 +215,10 @@ function WalletDetailsViewV2({ num }: IWalletDetailsProps) {
   );
   const isOthersUniversal = isOthers || isOthersWallet;
   // const isOthersUniversal = true;
+  const { sceneName } = useAccountSelectorSceneInfo();
+  // Every scene (Swap, Send, DApp, ...) pushes this page, but only the home
+  // selector switches the home token list the prewarm feeds.
+  const canPrewarmHomeTokenList = sceneName === EAccountSelectorSceneName.home;
 
   const {
     result: listDataResult,
@@ -465,6 +485,69 @@ function WalletDetailsViewV2({ num }: IWalletDetailsProps) {
     persistDisplayedValues: !searchText,
     valuesLoaded,
   });
+
+  // Prewarm the home token list for the listed accounts while the selector is
+  // open (OK-63873): the tap then finds the owner's frames in the replay
+  // cache and the switch paints without a skeleton. Sequential and bounded so
+  // it stays a background courtesy; the tap itself re-requests its target.
+  // Search results are a transient subset (not persisted either, see
+  // `persistDisplayedValues`): targeting them restarted the batch on every
+  // debounced keystroke and re-asked for owners that have no frames.
+  const homeTokenListPrewarmTargets = useMemo(
+    () =>
+      canPrewarmHomeTokenList && !searchText
+        ? records.slice(0, HOME_TOKEN_LIST_PREWARM_MAX_ROWS).map((record) =>
+            buildAccountSelectorRowPrewarmParams({
+              row: record,
+              isOthersUniversal,
+              selectedNetworkId: selectedAccount.networkId,
+              selectedDeriveType: selectedAccount.deriveType,
+              currencyId: currencyInfo.id,
+            }),
+          )
+        : [],
+    [
+      canPrewarmHomeTokenList,
+      currencyInfo.id,
+      isOthersUniversal,
+      records,
+      searchText,
+      selectedAccount.deriveType,
+      selectedAccount.networkId,
+    ],
+  );
+  const homeTokenListPrewarmTargetsRef = useRef(homeTokenListPrewarmTargets);
+  homeTokenListPrewarmTargetsRef.current = homeTokenListPrewarmTargets;
+  // Records are rebuilt on unrelated row state; restart only on new targets.
+  const homeTokenListPrewarmTargetsKey = homeTokenListPrewarmTargets
+    .map((params) =>
+      [
+        params.networkId,
+        params.deriveType,
+        params.indexedAccountId,
+        params.othersWalletAccountId,
+        params.currencyId,
+      ].join(':'),
+    )
+    .join('|');
+  useEffect(() => {
+    const targets = homeTokenListPrewarmTargetsRef.current;
+    if (!targets.length) {
+      return undefined;
+    }
+    let cancelled = false;
+    void (async () => {
+      for (const params of targets) {
+        if (cancelled) {
+          return;
+        }
+        await prewarmHomeTokenListOwner(params);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [homeTokenListPrewarmTargetsKey]);
   const listIdentity = `${focusedWalletInfo?.wallet?.id ?? ''}:${linkedNetworkId ?? ''}:${usedDeriveType ?? ''}:${searchText}`;
   // Everything that changes the list or its balances, not only the wallet.
   const presentationScope = `${focusedWalletInfo?.wallet?.id ?? ''}:${valueDisplayScopeKey}`;
@@ -741,6 +824,34 @@ function WalletDetailsViewV2({ num }: IWalletDetailsProps) {
     setPendingMenu(undefined);
   }, [listIdentity]);
 
+  // Give the home token list the owner's local-cache frames before the
+  // publish so the switch paints without a skeleton (OK-63873); bounded so
+  // the selection never waits on it, and skipped outside the home scene.
+  const prewarmHomeTokenListBeforeSelect = useCallback(
+    async (record: IAccountSelectorRowRecordV2) => {
+      if (!canPrewarmHomeTokenList) {
+        return;
+      }
+      await prewarmHomeTokenListOwnerWithin(
+        buildAccountSelectorRowPrewarmParams({
+          row: record,
+          isOthersUniversal,
+          selectedNetworkId: selectedAccount.networkId,
+          selectedDeriveType: selectedAccount.deriveType,
+          currencyId: currencyInfo.id,
+        }),
+        HOME_TOKEN_LIST_PREWARM_TAP_TIMEOUT_MS,
+      );
+    },
+    [
+      canPrewarmHomeTokenList,
+      currencyInfo.id,
+      isOthersUniversal,
+      selectedAccount.deriveType,
+      selectedAccount.networkId,
+    ],
+  );
+
   const handleAccountPress = useCallback(
     async (record: IAccountSelectorRowRecordV2) => {
       if (
@@ -755,6 +866,7 @@ function WalletDetailsViewV2({ num }: IWalletDetailsProps) {
           networkUtils.isAllNetwork({ networkId: selectedAccount.networkId })
         )
           autoChangeToAccountMatchedNetworkId = selectedAccount.networkId;
+        await prewarmHomeTokenListBeforeSelect(record);
         const confirmed = await actions.current.confirmAccountSelect({
           num,
           indexedAccount: undefined,
@@ -763,6 +875,7 @@ function WalletDetailsViewV2({ num }: IWalletDetailsProps) {
         });
         if (!confirmed) return;
       } else if (focusedWalletInfo) {
+        await prewarmHomeTokenListBeforeSelect(record);
         const confirmed = await actions.current.confirmAccountSelect({
           num,
           indexedAccount: record.indexedAccount,
@@ -779,6 +892,7 @@ function WalletDetailsViewV2({ num }: IWalletDetailsProps) {
       focusedWalletInfo,
       isOthersUniversal,
       num,
+      prewarmHomeTokenListBeforeSelect,
       selectedAccount.networkId,
     ],
   );

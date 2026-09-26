@@ -36,3 +36,29 @@ describe('sortUtils.buildTopSortIndexes', () => {
     ]);
   });
 });
+
+describe('sortUtils.buildOrderedTopSortIndexes', () => {
+  test('keeps the given order above the lowest existing index', () => {
+    expect(
+      sortUtils.buildOrderedTopSortIndexes({
+        oldList: [{ sortIndex: 7 }, { sortIndex: 5 }, { sortIndex: 6 }],
+        count: 3,
+      }),
+    ).toEqual([2, 3, 4]);
+  });
+
+  test('treats a missing index as 0', () => {
+    expect(
+      sortUtils.buildOrderedTopSortIndexes({
+        oldList: [{}],
+        count: 2,
+      }),
+    ).toEqual([-2, -1]);
+  });
+
+  test('starts below 1000 for an empty list, first entry lowest', () => {
+    expect(
+      sortUtils.buildOrderedTopSortIndexes({ oldList: [], count: 3 }),
+    ).toEqual([997, 998, 999]);
+  });
+});

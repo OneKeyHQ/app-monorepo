@@ -436,10 +436,17 @@ function WalletActions({ ...rest }: IXStackProps) {
   const { config, getActionCustomization } = useWalletActionConfig();
   const balanceState = useHomeBalanceState();
 
-  // True cold-start with no cached balance: render nothing rather than guess
-  // a state. Sticky fallback in `useHomeBalanceState` keeps subsequent account
-  // switches from re-entering this branch.
-  if (balanceState === 'unknown') return null;
+  // No source knows this owner yet (first visit of a never-loaded account, or
+  // a wallet switch that reset the sticky fallback): keep the row's footprint
+  // with a loading placeholder rather than guess a state or blank the band.
+  if (balanceState === 'unknown') {
+    return (
+      <RawActions.Placeholder
+        {...rest}
+        testID={HomeTestIDs.walletActionsLoading}
+      />
+    );
+  }
 
   const renderActionComponent = (actionType: IWalletActionType) => {
     const customization = getActionCustomization(actionType);

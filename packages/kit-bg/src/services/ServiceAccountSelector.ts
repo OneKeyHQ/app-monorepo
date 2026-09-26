@@ -214,135 +214,151 @@ class ServiceAccountSelector extends ServiceBase {
     let account: INetworkAccount | undefined;
     // NetworkAccount is undefined if others wallet account not compatible with network
     // in this case, we should use dbAccount
-    let dbAccount: IDBAccount | undefined;
     let wallet: IDBWallet | undefined;
     let device: IDBDevice | undefined;
-    let network: IServerNetwork | undefined;
-    let vaultSettings: IVaultSettings | undefined;
     let indexedAccount: IDBIndexedAccount | undefined;
-    let deriveInfo: IAccountDeriveInfo | undefined;
     const { serviceAccount, serviceNetwork } = this.backgroundApi;
     const isAllNetwork = Boolean(
       networkId && networkUtils.isAllNetwork({ networkId }),
     );
 
-    if (walletId) {
-      try {
-        wallet = await serviceAccount.getWallet({
-          walletId,
-        });
-      } catch (e) {
-        console.error(e);
-      }
-    }
-
-    if (indexedAccountId && wallet) {
-      try {
-        indexedAccount = await serviceAccount.getIndexedAccount({
-          id: indexedAccountId,
-        });
-      } catch (e) {
-        console.error(e);
-      }
-    }
-
-    let dbAccountId = othersWalletAccountId || '';
-    if (
-      !dbAccountId &&
+    // The reads below are independent DB lookups; running them sequentially
+    // put 8 round trips between the selector tap and the activeAccount publish
+    // (300-400 ms under load), long enough for the home page to show the
+    // previous account after the selector had closed (OK-63873). Each read
+    // keeps its own failure handling, so a failed lookup degrades exactly as
+    // before.
+    const shouldResolveDbAccountId = Boolean(
+      !othersWalletAccountId &&
       indexedAccountId &&
       networkId &&
       deriveType &&
-      !isAllNetwork
-    ) {
-      try {
-        dbAccountId =
-          await this.backgroundApi.serviceAccount.getDbAccountIdFromIndexedAccountId(
-            {
+      !isAllNetwork,
+    );
+    const [
+      walletResult,
+      indexedAccountResult,
+      resolvedDbAccountId,
+      networkResult,
+      vaultSettingsResult,
+      deriveInfoResult,
+      deriveInfoItems,
+    ] = await Promise.all([
+      walletId
+        ? serviceAccount.getWallet({ walletId }).catch((e: unknown) => {
+            console.error(e);
+            return undefined;
+          })
+        : Promise.resolve(undefined),
+      indexedAccountId
+        ? serviceAccount
+            .getIndexedAccount({ id: indexedAccountId })
+            .catch((e: unknown) => {
+              console.error(e);
+              return undefined;
+            })
+        : Promise.resolve(undefined),
+      shouldResolveDbAccountId && indexedAccountId && networkId && deriveType
+        ? this.backgroundApi.serviceAccount
+            .getDbAccountIdFromIndexedAccountId({
               indexedAccountId,
               networkId,
               deriveType,
-            },
-          );
-      } catch (error) {
-        //
-      }
-    }
+            })
+            .catch(() => '')
+        : Promise.resolve(''),
+      networkId
+        ? serviceNetwork.getNetwork({ networkId }).catch((e: unknown) => {
+            console.error(e);
+            return undefined;
+          })
+        : Promise.resolve(undefined),
+      networkId && !isAllNetwork
+        ? getVaultSettings({ networkId }).catch(() => undefined)
+        : Promise.resolve(undefined),
+      networkId && deriveType
+        ? this.backgroundApi.serviceNetwork
+            .getDeriveInfoOfNetwork({ networkId, deriveType })
+            .catch(() => undefined)
+        : Promise.resolve(undefined),
+      serviceNetwork
+        .getDeriveInfoItemsOfNetwork({ networkId })
+        .catch((): IAccountDeriveInfoItems[] => []),
+    ]);
+    wallet = walletResult;
+    // The indexed account is only meaningful under its wallet.
+    indexedAccount = wallet ? indexedAccountResult : undefined;
+    const network: IServerNetwork | undefined = networkResult;
+    // Vault settings follow the network lookup: no network, no settings.
+    const vaultSettings: IVaultSettings | undefined = network?.id
+      ? vaultSettingsResult
+      : undefined;
+    const deriveInfo: IAccountDeriveInfo | undefined = deriveInfoResult;
+    const dbAccountId = othersWalletAccountId || resolvedDbAccountId || '';
 
-    if (networkId) {
-      try {
-        network = await serviceNetwork.getNetwork({
-          networkId,
-        });
-        try {
-          if (network?.id && !networkUtils.isAllNetwork({ networkId })) {
-            vaultSettings = await getVaultSettings({
-              networkId: network?.id,
-            });
-          }
-        } catch (error) {
-          //
-        }
-      } catch (e) {
-        console.error(e);
-      }
+    // Unusable and legacy others-wallet selections skip the stored-address
+    // check below, so keep their existing aggregate-account behavior.
+    const shouldQueryIndexedAllNetworkAccount = Boolean(
+      wallet &&
+      (accountUtils.isWalletDeprecatedOrMocked(wallet) ||
+        accountUtils.isOthersWallet({ walletId: wallet.id })),
+    );
+    const canQueryIndexedNetworkAccount = Boolean(
+      deriveType &&
+      indexedAccountId &&
+      wallet &&
+      (!isAllNetwork || shouldQueryIndexedAllNetworkAccount),
+    );
+    const canQueryOthersNetworkAccount = Boolean(othersWalletAccountId);
+    const walletIdForDevice = wallet?.id || '';
+    const needsDevice = Boolean(
+      wallet?.associatedDevice &&
+      (accountUtils.isHwWallet({ walletId: walletIdForDevice }) ||
+        accountUtils.isQrWallet({ walletId: walletIdForDevice })),
+    );
+    const [accountResult, dbAccountResult, isTempWalletRemoved, deviceResult] =
+      await Promise.all([
+        networkId &&
+        (canQueryIndexedNetworkAccount || canQueryOthersNetworkAccount)
+          ? serviceAccount
+              .getNetworkAccount({
+                indexedAccountId,
+                accountId: othersWalletAccountId,
+                deriveType: deriveType || 'default',
+                networkId,
+              })
+              .catch((e: unknown) => {
+                // account may not compatible with network
+                console.error(e);
+                return undefined;
+              })
+          : Promise.resolve(undefined),
+        dbAccountId && (!isAllNetwork || othersWalletAccountId)
+          ? serviceAccount
+              .getDBAccount({ accountId: dbAccountId })
+              .catch((e: unknown) => {
+                console.error(e);
+                return undefined;
+              })
+          : Promise.resolve(undefined),
+        wallet
+          ? serviceAccount.isTempWalletRemoved({ wallet })
+          : Promise.resolve(false),
+        needsDevice && wallet?.associatedDevice
+          ? serviceAccount
+              .getDevice({ dbDeviceId: wallet.associatedDevice })
+              .catch(() => undefined)
+          : Promise.resolve(undefined),
+      ]);
+    account = accountResult;
+    const dbAccount: IDBAccount | undefined = dbAccountResult;
+    device = deviceResult;
 
-      // Unusable and legacy others-wallet selections skip the stored-address
-      // check below, so keep their existing aggregate-account behavior.
-      const shouldQueryIndexedAllNetworkAccount = Boolean(
-        wallet &&
-        (accountUtils.isWalletDeprecatedOrMocked(wallet) ||
-          accountUtils.isOthersWallet({ walletId: wallet.id })),
-      );
-      const canQueryIndexedNetworkAccount = Boolean(
-        deriveType &&
-        indexedAccountId &&
-        wallet &&
-        (!isAllNetwork || shouldQueryIndexedAllNetworkAccount),
-      );
-      const canQueryOthersNetworkAccount = Boolean(othersWalletAccountId);
-      if (canQueryIndexedNetworkAccount || canQueryOthersNetworkAccount) {
-        try {
-          const r = await serviceAccount.getNetworkAccount({
-            indexedAccountId,
-            accountId: othersWalletAccountId,
-            deriveType: deriveType || 'default',
-            networkId,
-          });
-          account = r;
-        } catch (e) {
-          // account may not compatible with network
-          console.error(e);
-        }
-      }
-
-      if (deriveType) {
-        try {
-          deriveInfo =
-            await this.backgroundApi.serviceNetwork.getDeriveInfoOfNetwork({
-              networkId,
-              deriveType,
-            });
-        } catch (error) {
-          //
-        }
-      }
-    }
-
-    if (dbAccountId && (!isAllNetwork || othersWalletAccountId)) {
-      try {
-        const r = await serviceAccount.getDBAccount({
-          accountId: dbAccountId,
-        });
-        dbAccount = r;
-      } catch (e) {
-        console.error(e);
-      }
-    }
-
-    if (wallet && (await serviceAccount.isTempWalletRemoved({ wallet }))) {
+    if (wallet && isTempWalletRemoved) {
       wallet = undefined;
       account = undefined;
       indexedAccount = undefined;
+      device = undefined;
     }
 
     const isOthersWallet =
@@ -352,12 +368,6 @@ class ServiceAccountSelector extends ServiceBase {
     const isQrWallet = Boolean(
       wallet?.id &&
       accountUtils.isQrWallet({
-        walletId: wallet?.id || '',
-      }),
-    );
-    const isHwWallet = Boolean(
-      wallet?.id &&
-      accountUtils.isHwWallet({
         walletId: wallet?.id || '',
       }),
     );
@@ -378,15 +388,6 @@ class ServiceAccountSelector extends ServiceBase {
       return '';
     })();
 
-    if ((isHwWallet || isQrWallet) && wallet?.associatedDevice) {
-      try {
-        device = await serviceAccount.getDevice({
-          dbDeviceId: wallet?.associatedDevice,
-        });
-      } catch (e) {
-        //
-      }
-    }
     // Mocked/deprecated wallets are "zombie" records still in DB but no
     // longer user-facing (e.g. HW wallet removed via isRemoveToMocked).
     // Creating addresses on them silently fails, so gate every canCreate
@@ -458,14 +459,6 @@ class ServiceAccountSelector extends ServiceBase {
       }
       return false;
     })();
-    let deriveInfoItems: IAccountDeriveInfoItems[] = [];
-    try {
-      deriveInfoItems = await serviceNetwork.getDeriveInfoItemsOfNetwork({
-        networkId,
-      });
-    } catch (error) {
-      //
-    }
     const activeAccount: IAccountSelectorActiveAccountInfo = {
       account,
       dbAccount,

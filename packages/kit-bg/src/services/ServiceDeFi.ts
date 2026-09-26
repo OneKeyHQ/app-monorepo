@@ -23,9 +23,11 @@ import type {
   IDeFiBuildTransactionParams,
   IDeFiBuildTransactionResp,
   IDeFiEvmTransaction,
+  IDeFiProtocol,
   IFetchAccountDeFiPositionsParams,
   IFetchAccountDeFiPositionsResp,
   IGetSupportedDeFiProtocolsResp,
+  IProtocolSummary,
 } from '@onekeyhq/shared/types/defi';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import { EDecodedTxStatus } from '@onekeyhq/shared/types/tx';
@@ -58,6 +60,56 @@ type IManualDeFiForceRefreshConfig = {
   dailyLimit: number;
   minIntervalMs: number;
 };
+
+export function buildVisibleDeFiOverview({
+  overview,
+  protocolMap,
+  protocols,
+}: {
+  overview: IFetchAccountDeFiPositionsResp['data']['totals'];
+  protocolMap: Record<string, IProtocolSummary>;
+  protocols: IDeFiProtocol[];
+}): IFetchAccountDeFiPositionsResp['data']['totals'] {
+  const totals = protocols.reduce(
+    (result, protocol) => {
+      const summary =
+        protocolMap[
+          defiUtils.buildProtocolMapKey({
+            protocol: protocol.protocol,
+            networkId: protocol.networkId,
+          })
+        ];
+      if (!summary) {
+        return result;
+      }
+      return {
+        totalValue: result.totalValue.plus(summary.totalValue ?? 0),
+        totalDebt: result.totalDebt.plus(summary.totalDebt ?? 0),
+        totalReward: result.totalReward.plus(summary.totalReward ?? 0),
+        netWorth: result.netWorth.plus(summary.netWorth ?? 0),
+        positionCount: result.positionCount + (summary.positionCount ?? 0),
+      };
+    },
+    {
+      totalValue: new BigNumber(0),
+      totalDebt: new BigNumber(0),
+      totalReward: new BigNumber(0),
+      netWorth: new BigNumber(0),
+      positionCount: 0,
+    },
+  );
+
+  return {
+    ...overview,
+    totalValue: totals.totalValue.toNumber(),
+    totalDebt: totals.totalDebt.toNumber(),
+    totalReward: totals.totalReward.toNumber(),
+    netWorth: totals.netWorth.toNumber(),
+    chains: protocols.length ? overview.chains : [],
+    protocolCount: protocols.length,
+    positionCount: totals.positionCount,
+  };
+}
 
 function parseDeFiJsonField<T extends object>({
   fieldName,
@@ -355,6 +407,14 @@ class ServiceDeFi extends ServiceBase {
       });
     }
 
+    const overview = excludeLowValueProtocols
+      ? buildVisibleDeFiOverview({
+          overview: resp.data.data.data.totals,
+          protocolMap: parsedData.protocolMap,
+          protocols: parsedData.protocols,
+        })
+      : resp.data.data.data.totals;
+
     if (saveToLocal) {
       this._localDeFiOverviewCache = {
         ...this._localDeFiOverviewCache,
@@ -362,22 +422,22 @@ class ServiceDeFi extends ServiceBase {
           totalValue: this._fixCurrencyValue({
             sourceCurrencyInfo,
             targetCurrencyInfo,
-            value: resp.data.data.data.totals.totalValue,
+            value: overview.totalValue,
           }).toNumber(),
           totalDebt: this._fixCurrencyValue({
             sourceCurrencyInfo,
             targetCurrencyInfo,
-            value: resp.data.data.data.totals.totalDebt,
+            value: overview.totalDebt,
           }).toNumber(),
           totalReward: this._fixCurrencyValue({
             sourceCurrencyInfo,
             targetCurrencyInfo,
-            value: resp.data.data.data.totals.totalReward,
+            value: overview.totalReward,
           }).toNumber(),
           netWorth: this._fixCurrencyValue({
             sourceCurrencyInfo,
             targetCurrencyInfo,
-            value: resp.data.data.data.totals.netWorth,
+            value: overview.netWorth,
           }).toNumber(),
           currency: targetCurrencyInfo?.id ?? '',
         },
@@ -389,7 +449,7 @@ class ServiceDeFi extends ServiceBase {
     }
 
     return {
-      overview: resp.data.data.data.totals,
+      overview,
       protocols: parsedData.protocols,
       protocolMap: parsedData.protocolMap,
       isSameAllNetworksAccountData: !!(

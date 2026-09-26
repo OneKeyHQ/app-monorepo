@@ -46,6 +46,14 @@ export interface IStoreProjection {
   curOwnerKey: string | undefined;
   /** generation of the most recent applyStructure. */
   curGeneration: number;
+  /**
+   * The paint on screen is not the owner's settled list (OK-63873): it came
+   * from a cache-seed / progressive-paint round, an owner-switch replay or the
+   * cold-start bundle. The debounced slim persist reads this at fire time and
+   * skips, so a switch away before the authoritative round lands never leaves
+   * an empty or partial bundle behind. Cleared by a settled live frame.
+   */
+  lastRoundProvisional: boolean;
 }
 
 /**
@@ -71,6 +79,7 @@ export function ensureStoreProjection(
       aggCells: new Map(),
       curOwnerKey: undefined,
       curGeneration: -1,
+      lastRoundProvisional: false,
     };
     storeProjection.set(store, p);
   }

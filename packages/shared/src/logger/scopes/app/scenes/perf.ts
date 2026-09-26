@@ -212,4 +212,27 @@ export class AppPerfScene extends BaseScene {
   }) {
     return params;
   }
+
+  // A root tab has to clear three gates before it can be shown without any
+  // loading state, and preloading is only worth anything if all three happen
+  // before the user taps. One line per transition, never one per render:
+  //   dispatch          - the navigator sent CommonActions.preload
+  //   sceneRevealed     - the scene laid out and SceneLoadingView came off
+  //   pageBodyRendered  - LazyPageContainer let the page tree mount
+  // `aheadOfFocus: false` means the stage only happened once the tab was
+  // already focused, i.e. the user sat through it. `dispatch` carries no such
+  // flag: it is a scheduler event, and whether the queue reached a tab first
+  // is answered by the two stages that actually gate what the user sees.
+  @LogToLocal()
+  public tabPreloadStage(
+    params:
+      | { stage: 'dispatch'; tab: string }
+      | {
+          stage: 'sceneRevealed' | 'pageBodyRendered';
+          tab: string;
+          aheadOfFocus: boolean;
+        },
+  ) {
+    return [params];
+  }
 }

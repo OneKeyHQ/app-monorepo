@@ -47,6 +47,14 @@ export type ISnapshotCacheSync<T> = {
   setMany: (entries: readonly (readonly [string, T])[]) => void;
   remove: (key: string) => void;
   /**
+   * Marks an existing record as most recently used without rewriting its
+   * payload: only the manifest timestamp moves, so the count bound evicts the
+   * least recently USED record rather than the least recently written one.
+   * A key the namespace does not hold is ignored. The record's own age (the
+   * `maxAgeMs` gate in `get`) is unchanged.
+   */
+  touch: (key: string) => void;
+  /**
    * The keys this namespace holds, from the manifest alone. Listing them
    * loads no payloads, which is the property the absent enumeration API was
    * protecting — a caller that needs to drop a subset still has to name it.
@@ -210,6 +218,43 @@ export function createSnapshotCacheSync<T>({
         write(0);
       } catch {
         // Persisting a snapshot must never fail the caller.
+      }
+    },
+
+    touch(key) {
+      if (!isValidSnapshotCacheKey(key)) {
+        return;
+      }
+      const write = (attempt: number) => {
+        const timestamp = now();
+        const { raw, manifest } = readManifest();
+        if (manifest.e[key] === undefined) {
+          return;
+        }
+        const plan = planSnapshotCacheWrite({
+          manifest,
+          key,
+          updatedAt: timestamp,
+          config: retention,
+          now: timestamp,
+        });
+        try {
+          commitManifest({
+            raw,
+            manifest: plan.manifest,
+            entries: [],
+            removeKeys: plan.removeKeys,
+          });
+        } catch {
+          if (attempt < MAX_COMMIT_ATTEMPTS - 1) {
+            write(attempt + 1);
+          }
+        }
+      };
+      try {
+        write(0);
+      } catch {
+        // Recency is a hint; failing to record it must never fail the caller.
       }
     },
 

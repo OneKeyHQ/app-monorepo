@@ -2,6 +2,8 @@
 yarn test packages/kit-bg/src/services/ServiceDeFi.getAccountTotalDeFiNetWorth.test.ts
 */
 
+import type { IDeFiProtocol } from '@onekeyhq/shared/types/defi';
+
 // --- mocks MUST be defined before the import of ServiceDeFi below ---
 
 jest.mock('@onekeyhq/shared/src/background/backgroundDecorators', () => ({
@@ -60,7 +62,81 @@ jest.mock('@onekeyhq/shared/src/utils/networkUtils', () => ({
 }));
 
 // eslint-disable-next-line import/first
-import ServiceDeFi from './ServiceDeFi';
+import ServiceDeFi, { buildVisibleDeFiOverview } from './ServiceDeFi';
+
+describe('buildVisibleDeFiOverview', () => {
+  test('excludes totals from protocols hidden by the low-value filter', () => {
+    const overview = {
+      totalValue: 0.01,
+      totalDebt: 0,
+      totalReward: 0.01,
+      netWorth: 0.02,
+      chains: ['polygon'],
+      protocolCount: 1,
+      positionCount: 1,
+    };
+
+    expect(
+      buildVisibleDeFiOverview({
+        overview,
+        protocolMap: {},
+        protocols: [],
+      }),
+    ).toEqual({
+      totalValue: 0,
+      totalDebt: 0,
+      totalReward: 0,
+      netWorth: 0,
+      chains: [],
+      protocolCount: 0,
+      positionCount: 0,
+    });
+  });
+
+  test('sums only retained protocol summaries', () => {
+    const retainedProtocol = {
+      protocol: 'aave-v3',
+      networkId: 'evm--137',
+    } as IDeFiProtocol;
+    expect(
+      buildVisibleDeFiOverview({
+        overview: {
+          totalValue: 11.01,
+          totalDebt: 2,
+          totalReward: 1.01,
+          netWorth: 10.02,
+          chains: ['polygon'],
+          protocolCount: 2,
+          positionCount: 2,
+        },
+        protocols: [retainedProtocol],
+        protocolMap: {
+          'evm--137-aave-v3': {
+            protocol: 'aave-v3',
+            protocolName: 'Aave V3',
+            totalValue: 11,
+            totalDebt: 2,
+            totalReward: 1,
+            netWorth: 10,
+            networkIds: ['evm--137'],
+            positionCount: 1,
+            positionIndices: [],
+            protocolLogo: '',
+            protocolUrl: '',
+          },
+        },
+      }),
+    ).toEqual({
+      totalValue: 11,
+      totalDebt: 2,
+      totalReward: 1,
+      netWorth: 10,
+      chains: ['polygon'],
+      protocolCount: 1,
+      positionCount: 1,
+    });
+  });
+});
 
 function makeService(overrides: {
   getRawData?: jest.Mock;

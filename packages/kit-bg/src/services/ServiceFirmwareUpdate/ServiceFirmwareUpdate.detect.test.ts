@@ -500,6 +500,7 @@ describe('ServiceFirmwareUpdate.detectActiveAccountFirmwareUpdates', () => {
         .spyOn(service, 'checkDeviceIsBootloaderMode')
         .mockResolvedValue({
           isBootloaderMode: false,
+          state: undefined,
           features: undefined,
           error: undefined,
         });
@@ -696,6 +697,7 @@ describe('ServiceFirmwareUpdate.detectActiveAccountFirmwareUpdates', () => {
         expect(leaseActive).toBe(true);
         return {
           isBootloaderMode: false,
+          state: undefined,
           features: {} as IOneKeyDeviceFeatures,
           error: undefined,
         };
@@ -800,6 +802,7 @@ describe('ServiceFirmwareUpdate.detectActiveAccountFirmwareUpdates', () => {
       Date.now() - timerUtils.getTimeDurationMs({ minute: 2 });
     jest.spyOn(service, 'checkDeviceIsBootloaderMode').mockResolvedValue({
       isBootloaderMode: false,
+      state: undefined,
       features: {} as IOneKeyDeviceFeatures,
       error: undefined,
     });
@@ -853,8 +856,23 @@ describe('ServiceFirmwareUpdate Protocol V2 target-only checks', () => {
       resolved: true,
       retryRead: true,
     },
+    {
+      transportType: EHardwareTransportType.WEBUSB,
+      resolved: true,
+      retryRead: false,
+      unlocked: false,
+      cachedLabel: 'Cached Pro 2',
+      expectedDeviceName: 'Cached Pro 2',
+    },
   ])('checks releases over $transportType', async (scenario) => {
-    const { transportType, resolved, retryRead } = scenario;
+    const {
+      transportType,
+      resolved,
+      retryRead,
+      unlocked = true,
+      cachedLabel = null,
+      expectedDeviceName = 'My Pro 2',
+    } = scenario;
     const features = {} as IOneKeyDeviceFeatures;
     mockedLocalDb.getDeviceByQuery.mockResolvedValue({
       id: 'db-device-1',
@@ -873,6 +891,9 @@ describe('ServiceFirmwareUpdate Protocol V2 target-only checks', () => {
       transportType,
     });
     const getFeaturesWithoutCache = jest.fn().mockResolvedValue(features);
+    const getDeviceState = jest.fn().mockResolvedValue({
+      identity: { label: 'My Pro 2' },
+    });
 
     const service = new ServiceFirmwareUpdate({
       backgroundApi: {
@@ -884,6 +905,7 @@ describe('ServiceFirmwareUpdate Protocol V2 target-only checks', () => {
         },
         serviceHardware: {
           resolveHardwareTransport,
+          getDeviceState,
           getFeaturesWithoutCache,
           getSDKInstance: jest.fn().mockResolvedValue({
             cancel: jest.fn(),
@@ -902,6 +924,10 @@ describe('ServiceFirmwareUpdate Protocol V2 target-only checks', () => {
       .spyOn(service, 'checkDeviceIsBootloaderMode')
       .mockResolvedValue({
         isBootloaderMode: false,
+        state: {
+          identity: { label: cachedLabel },
+          status: { unlocked },
+        } as never,
         features: retryRead ? undefined : features,
         error: undefined,
       });
@@ -989,9 +1015,29 @@ describe('ServiceFirmwareUpdate Protocol V2 target-only checks', () => {
     }
 
     expect(result).toMatchObject({
+      deviceName: expectedDeviceName,
       hasUpgrade: true,
       pro2TargetsToUpdate: ['resource'],
     });
+    if (unlocked) {
+      expect(getDeviceState).toHaveBeenCalledWith({
+        connectId,
+        params: {
+          scope: 'settings',
+          retryCount: 0,
+          skipWebDevicePrompt: true,
+          ...(transportType === EHardwareTransportType.DesktopWebBle
+            ? { timeout: 30_000 }
+            : {}),
+        },
+        silentMode: true,
+        hardwareCallContext: EHardwareCallContext.BACKGROUND_TASK,
+        hardwareTransportType: transportType,
+      });
+    } else {
+      expect(getDeviceState).not.toHaveBeenCalled();
+    }
+    expect(deviceUtils.buildDeviceName).not.toHaveBeenCalled();
     expect(
       service.detectMap.getDetectStatus({ connectId: 'PRO2_USB_ID' }),
     ).toEqual(

@@ -28,7 +28,10 @@ import { Skeleton } from '../Skeleton';
 import { Stack, YStack } from '../Stack';
 
 import { buildOptimizedImageSource } from './optimization';
-import { isPreloadedImageUri } from './preloadedImageUris';
+import {
+  isPreloadedImageUri,
+  markPreloadedImageUri,
+} from './preloadedImageUris';
 import { isEmptyResolvedSource, useResetError } from './utils';
 
 import type {
@@ -238,6 +241,40 @@ export function ImageV2({ style: defaultStyle, ...props }: IImageV2Props) {
     return () => observer.disconnect();
   }, [shouldLoadImage]);
 
+  // The IntersectionObserver above only reports after the browser has painted
+  // the mount, so an image that is already inside the viewport still spends a
+  // frame or two blank (visible as icons popping in when a list replaces all
+  // of its rows). Measure once in the layout phase instead: a laid-out element
+  // within the viewport (plus the same margin the observer uses) gets its
+  // source in this very commit. Off-screen or not-yet-laid-out elements keep
+  // waiting for the observer.
+  useLayoutEffect(() => {
+    if (!platformEnv.isWeb || shouldLoadImage) {
+      return;
+    }
+    const element = imageContainerRef.current;
+    if (!element || typeof element.getBoundingClientRect !== 'function') {
+      return;
+    }
+    const rect = element.getBoundingClientRect();
+    if (rect.width === 0 && rect.height === 0) {
+      return;
+    }
+    const margin = 200;
+    const viewportWidth =
+      globalThis.innerWidth || document.documentElement?.clientWidth || 0;
+    const viewportHeight =
+      globalThis.innerHeight || document.documentElement?.clientHeight || 0;
+    if (
+      rect.bottom >= -margin &&
+      rect.right >= -margin &&
+      rect.top <= viewportHeight + margin &&
+      rect.left <= viewportWidth + margin
+    ) {
+      setShouldLoadImage(true);
+    }
+  }, [shouldLoadImage]);
+
   // react-native-web aborts a superseded request from a passive effect, and it
   // cannot abort the `decode()` that follows a completed load at all, so the
   // previous source's callbacks can still arrive after a swap. Tracking the
@@ -310,6 +347,22 @@ export function ImageV2({ style: defaultStyle, ...props }: IImageV2Props) {
       setHasError(false);
       setIsImageLoaded(true);
       setIsPlaceholderVisible(false);
+      // react-native-web only seeds its ImageUriCache from `prefetch`; a
+      // displayed image never enters it, so every later mount of the same URI
+      // (a list that remounts its rows) starts IDLE and paints one load later.
+      // Prefetching the URI we just displayed resolves from the browser cache
+      // and lets the next mount start LOADED, painting in its first commit.
+      // Every DOM runtime (web, desktop, extension) renders through
+      // react-native-web, so this is not limited to `isWeb`.
+      if (platformEnv.isRuntimeBrowser && resolvedSourceIdentity) {
+        const loadedUri = resolvedSourceIdentity;
+        if (!isPreloadedImageUri(loadedUri)) {
+          void ReactNativeImage.prefetch(loadedUri).then(
+            () => markPreloadedImageUri(loadedUri),
+            () => undefined,
+          );
+        }
+      }
       const nativeEvent = event.nativeEvent as unknown as {
         source?: { height?: number; uri?: string; width?: number };
         target?: {

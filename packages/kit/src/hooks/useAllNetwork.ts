@@ -42,11 +42,16 @@ import {
   resolveAllNetworkFailedRunRestore,
   resolveAllNetworkPublishedResult,
 } from './allNetworkRunResultUtils';
+import { registerAllNetworksCompatCacheInvalidation } from './allNetworksCompatCacheInvalidation';
 import { makeColdRequestFactory } from './makeColdRequestFactory';
 import { reorderNetworksByCachePriority } from './reorderNetworksByCachePriority';
 import { shouldSkipRedundantAllNetworkRun } from './shouldSkipRedundantAllNetworkRun';
 import { usePromiseResult } from './usePromiseResult';
 import { useRouteIsFocused } from './useRouteIsFocused';
+
+// Enabled-set changes must evict every account's cached compat entry, not
+// only the scope that is currently mounted; see the module for why.
+registerAllNetworksCompatCacheInvalidation();
 
 // Native keeps a strict cap to avoid Hermes memory spikes.
 // Web keeps full fan-out to preserve Home startup latency.
@@ -1430,60 +1435,24 @@ function useEnabledNetworksCompatibleWithWalletIdInAllNetworks({
       }
 
       if (filterNetworksWithoutAccount && indexedAccountId) {
-        const networksByImpl = compatibleNetworks.mainnetItems.reduce(
-          (acc, network) => {
-            if (!acc[network.impl]) {
-              acc[network.impl] = [];
-            }
-            acc[network.impl].push(network);
-            return acc;
-          },
-          {} as Record<string, IServerNetwork[]>,
+        // One bg round trip instead of three per impl group: the per-group
+        // account/derive-type lookups run in-process on the bg side (Slack
+        // 09-22: the Home chip took seconds to settle after an account switch
+        // because this loop paid ~90 sequential RPCs on a busy device).
+        const networkIdsWithoutAccount =
+          await backgroundApiProxy.serviceAllNetwork.getNetworkIdsWithoutAccountInIndexedAccount(
+            {
+              indexedAccountId,
+              networkIds: mainnetItems.map((network) => network.id),
+            },
+          );
+        const mainnetItemById = new Map(
+          mainnetItems.map((network) => [network.id, network]),
         );
-
-        const { accounts: allDbAccounts } =
-          await backgroundApiProxy.serviceAccount.getAllAccounts();
-
-        // Process networks by implementation group
-        for (const [_, networksInGroup] of Object.entries(networksByImpl)) {
-          const firstNetwork = networksInGroup[0];
-
-          const [{ networkAccounts }, vaultSettings] = await Promise.all([
-            backgroundApiProxy.serviceAccount.getNetworkAccountsInSameIndexedAccountIdWithDeriveTypes(
-              {
-                allDbAccounts,
-                skipDbQueryIfNotFoundFromAllDbAccounts: true,
-                indexedAccountId,
-                networkId: firstNetwork.id,
-                excludeEmptyAccount: true,
-              },
-            ),
-            backgroundApiProxy.serviceNetwork.getVaultSettings({
-              networkId: firstNetwork.id,
-            }),
-          ]);
-
-          if (vaultSettings.mergeDeriveAssetsEnabled) {
-            if (!networkAccounts || networkAccounts.length === 0) {
-              compatibleNetworksWithoutAccount.push(...networksInGroup);
-            }
-          } else {
-            const currentDeriveType =
-              await backgroundApiProxy.serviceNetwork.getGlobalDeriveTypeOfNetwork(
-                {
-                  networkId: firstNetwork.id,
-                },
-              );
-
-            if (!networkAccounts || networkAccounts.length === 0) {
-              compatibleNetworksWithoutAccount.push(...networksInGroup);
-            } else if (
-              !networkAccounts.some(
-                (account) => account.deriveType === currentDeriveType,
-              )
-            ) {
-              compatibleNetworksWithoutAccount.push(...networksInGroup);
-            }
+        for (const id of networkIdsWithoutAccount) {
+          const network = mainnetItemById.get(id);
+          if (network) {
+            compatibleNetworksWithoutAccount.push(network);
           }
         }
       }

@@ -88,6 +88,14 @@ export interface IStructureSnapshot {
   storeData: IJotaiContextStoreData;
   ownerKey: string;
   generation: number;
+  /**
+   * The fetch round this frame came from was a cache seed or a progressive
+   * paint, not the round's authoritative result (OK-63873). Such a frame is
+   * fine to paint, but it must not be persisted as the owner's last-known list:
+   * a switch away before the authoritative round lands would otherwise leave an
+   * empty or partial bundle that paints on the next visit and then jumps.
+   */
+  provisional?: boolean;
 }
 
 /**
@@ -105,4 +113,11 @@ export interface IValuationFrame {
   changedAggFiat: Record<IAggKey, Record<INetworkId, ITokenFiat>>;
   storeData: IJotaiContextStoreData;
   ownerKey: string;
+  /**
+   * Same meaning as `IStructureSnapshot.provisional`. Carried on the valuation
+   * frame too because a structure frame is only emitted on a structural change:
+   * an authoritative round that confirms a provisional structure still emits a
+   * valuation frame, which is what marks the owner settled.
+   */
+  provisional?: boolean;
 }

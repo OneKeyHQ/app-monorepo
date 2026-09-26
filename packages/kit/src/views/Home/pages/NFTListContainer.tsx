@@ -1,4 +1,11 @@
-import { memo, useCallback, useEffect, useRef, useState } from 'react';
+import {
+  memo,
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from 'react';
 
 import { isEmpty, uniqBy } from 'lodash';
 
@@ -49,11 +56,37 @@ function NFTListContainer() {
     activeAccount: { account, network, wallet },
   } = useActiveAccount({ num: 0 });
 
+  // Owner this list is showing. `Tabs.Container` no longer remounts on an
+  // account switch (OK-63873), so the local `nftList` survives it: drop the
+  // previous owner's rows in the same commit the owner changes (layout effect,
+  // before paint) and let every async writer bail when its captured owner is
+  // no longer current, otherwise a slow read/fetch for the old owner would
+  // land on the new one.
+  const ownerKey = `${account?.id ?? ''}|${network?.id ?? ''}|${
+    wallet?.id ?? ''
+  }`;
+  const ownerKeyRef = useRef(ownerKey);
+  ownerKeyRef.current = ownerKey;
+  const prevOwnerKeyRef = useRef(ownerKey);
+  useLayoutEffect(() => {
+    if (prevOwnerKeyRef.current === ownerKey) {
+      return;
+    }
+    prevOwnerKeyRef.current = ownerKey;
+    setNftList([]);
+    setNftListState({
+      initialized: false,
+      isRefreshing: true,
+    });
+  }, [ownerKey]);
+
   const { run } = usePromiseResult(
     async () => {
       if (!account || !network) return;
 
       if (network.isAllNetworks) return;
+
+      const capturedOwnerKey = ownerKeyRef.current;
 
       appEventBus.emit(EAppEventBusNames.TabListStateUpdate, {
         isRefreshing: true,
@@ -68,6 +101,10 @@ function NFTListContainer() {
         networkId: network.id,
         saveToLocal: true,
       });
+
+      if (ownerKeyRef.current !== capturedOwnerKey) {
+        return r.data;
+      }
 
       setNftListState({
         initialized: true,
@@ -277,12 +314,17 @@ function NFTListContainer() {
         return;
       }
 
+      const capturedOwnerKey = ownerKeyRef.current;
       const localNFTs = await backgroundApiProxy.serviceNFT.getAccountLocalNFTs(
         {
           accountId,
           networkId,
         },
       );
+      // A faster owner switch took over during the read.
+      if (ownerKeyRef.current !== capturedOwnerKey) {
+        return;
+      }
 
       if (!isEmpty(localNFTs)) {
         setNftList(localNFTs);

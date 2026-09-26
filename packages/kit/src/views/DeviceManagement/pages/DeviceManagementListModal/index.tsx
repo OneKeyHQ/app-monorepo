@@ -395,7 +395,7 @@ function DeviceManagementV2ListWeb() {
     },
     [detectStatus],
     {
-      checkIsFocused: false,
+      revalidateOnFocus: true,
       initResult: [],
       watchLoading: true,
     },
@@ -420,14 +420,23 @@ function DeviceManagementV2ListWeb() {
   }, [hwQrWalletList, connectedDevices]);
 
   useEffect(() => {
-    const fn = () => {
+    const refreshWallets = () => {
+      void refreshHwQrWalletList({ alwaysSetState: true });
+    };
+    const refreshFirmwareStatus = () => {
       void refreshHwQrWalletList();
     };
-    appEventBus.on(EAppEventBusNames.WalletUpdate, fn);
-    appEventBus.on(EAppEventBusNames.FirmwareUpdateDetectStatusChanged, fn);
+    appEventBus.on(EAppEventBusNames.WalletUpdate, refreshWallets);
+    appEventBus.on(
+      EAppEventBusNames.FirmwareUpdateDetectStatusChanged,
+      refreshFirmwareStatus,
+    );
     return () => {
-      appEventBus.off(EAppEventBusNames.WalletUpdate, fn);
-      appEventBus.off(EAppEventBusNames.FirmwareUpdateDetectStatusChanged, fn);
+      appEventBus.off(EAppEventBusNames.WalletUpdate, refreshWallets);
+      appEventBus.off(
+        EAppEventBusNames.FirmwareUpdateDetectStatusChanged,
+        refreshFirmwareStatus,
+      );
     };
   }, [refreshHwQrWalletList]);
 

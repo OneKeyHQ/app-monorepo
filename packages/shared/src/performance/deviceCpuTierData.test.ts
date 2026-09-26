@@ -2,7 +2,10 @@ import {
   ANDROID_DEVICE_CPU_TIER_BY_MANUFACTURER,
   getAndroidDeviceCpuTier,
 } from './deviceCpuTierData/android';
-import { getIosDeviceCpuTier } from './deviceCpuTierData/ios';
+import {
+  getIosDeviceCpuTier,
+  isIosModelIdNewerThanCatalog,
+} from './deviceCpuTierData/ios';
 import { normalizeDeviceCpuTierKeyPart } from './deviceCpuTierUtils';
 import {
   EDeviceCpuTier,
@@ -88,6 +91,48 @@ describe('deviceCpuTierData', () => {
         expect(isKnownDeviceCpuTier(tier)).toBe(true);
       }
     }
+  });
+
+  it('ranks the iPhone and iPad models the catalog previously omitted', () => {
+    // Every one of these resolved to `unknown` before, which dropped the
+    // newest hardware to the most conservative preload policy.
+    for (const modelId of [
+      'iphone17,5', // iPhone 16e
+      'iphone18,5', // iPhone 17e
+      'ipad14,3', // iPad Pro 11" 4th gen (M2)
+      'ipad14,11', // iPad Air 13" 6th gen (M2)
+      'ipad15,3', // iPad Air 11" 7th gen (M3)
+      'ipad15,7', // iPad 11th gen (A16)
+      'ipad16,2', // iPad mini 7th gen (A17 Pro)
+      'ipad16,5', // iPad Pro 13" (M4)
+      'ipad16,11', // iPad Air 13" 8th gen
+    ]) {
+      expect(getIosDeviceCpuTier(modelId)).toBe(EDeviceCpuTier.high);
+    }
+  });
+
+  it('treats a model id past the catalog as newer hardware', () => {
+    // Released after this build: a higher family, or a higher model inside the
+    // highest family.
+    expect(isIosModelIdNewerThanCatalog('iphone19,1')).toBe(true);
+    expect(isIosModelIdNewerThanCatalog('iphone18,6')).toBe(true);
+    expect(isIosModelIdNewerThanCatalog('ipad17,1')).toBe(true);
+    expect(isIosModelIdNewerThanCatalog('ipad16,12')).toBe(true);
+  });
+
+  it('leaves gaps at or below the catalog range unknown', () => {
+    // A gap inside the ranked range is a device we chose not to rank, not a
+    // new one, so it must not inherit the newest-hardware assumption.
+    expect(isIosModelIdNewerThanCatalog('iphone13,5')).toBe(false);
+    expect(isIosModelIdNewerThanCatalog('ipad9,1')).toBe(false);
+    expect(isIosModelIdNewerThanCatalog('ipad16,7')).toBe(false);
+    // Simulators and anything unparsable stay unknown too.
+    expect(isIosModelIdNewerThanCatalog('arm64')).toBe(false);
+    expect(isIosModelIdNewerThanCatalog('x86_64')).toBe(false);
+    expect(isIosModelIdNewerThanCatalog('')).toBe(false);
+    expect(isIosModelIdNewerThanCatalog('__proto__')).toBe(false);
+    // A prefix the catalog never ranks has no range to compare against.
+    expect(isIosModelIdNewerThanCatalog('ipod99,1')).toBe(false);
   });
 
   it('rejects prototype values as CPU tiers', () => {

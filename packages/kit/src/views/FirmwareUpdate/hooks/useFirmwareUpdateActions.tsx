@@ -9,7 +9,12 @@ import { StackActions } from '@react-navigation/routers';
 import { useIntl } from 'react-intl';
 import { useThrottledCallback } from 'use-debounce';
 
-import { Dialog, resetToRoute, rootNavigationRef } from '@onekeyhq/components';
+import {
+  Dialog,
+  resetModalRouteByName,
+  resetToRoute,
+  rootNavigationRef,
+} from '@onekeyhq/components';
 import type { IOneKeyError } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import { isHardwareErrorByCode } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -159,8 +164,8 @@ export function useFirmwareUpdateActions() {
   );
 
   const closeUpdateModal = useCallback(() => {
-    navigation.popStack();
-  }, [navigation]);
+    resetModalRouteByName(EModalRoutes.FirmwareUpdateModal);
+  }, []);
 
   const restartOnboarding = useCallback(
     async ({ deviceType }: { deviceType: EDeviceType | undefined }) => {
