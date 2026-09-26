@@ -202,26 +202,6 @@ export function InviteCodeDialog({
     }
   }, [inviteeDiscount, postConfig]);
 
-  const currentCode = form.watch('referralCode');
-  const isSuggestionVisible =
-    isDraftSettled &&
-    Boolean(suggestedCode) &&
-    inviteeDiscount !== undefined &&
-    !currentCode?.trim();
-
-  // Once per mount: the hint's visibility flips on every keystroke that
-  // empties or fills the field, and that is not a new impression.
-  const isOfferLoggedRef = useRef(false);
-  useEffect(() => {
-    if (!isSuggestionVisible || isOfferLoggedRef.current) {
-      return;
-    }
-    isOfferLoggedRef.current = true;
-    defaultLogger.referral.page.installReferralOffered({
-      surface: 'bind_dialog',
-    });
-  }, [isSuggestionVisible]);
-
   const getReferralCodeWalletInfo = useGetReferralCodeWalletInfo();
   const { walletsWithStatus, isLoading: isLoadingWallets } =
     useFetchWalletsWithBoundStatus();
@@ -321,6 +301,36 @@ export function InviteCodeDialog({
     );
     return found?.status === 'unknown';
   }, [walletsWithStatus, selectedWalletId]);
+
+  const currentCode = form.watch('referralCode');
+  // Only for a wallet that can still bind: a bound, expired or unknown-status
+  // wallet has Apply disabled, and an invite line above it would promise a
+  // rebate the user cannot take. Waits for the wallet statuses so the hint
+  // does not flash before they are known.
+  const isSelectedWalletBindable =
+    isDataReady &&
+    !isSelectedWalletBound &&
+    !isSelectedWalletNotBindable &&
+    !isSelectedWalletStatusUnknown;
+  const isSuggestionVisible =
+    isSelectedWalletBindable &&
+    isDraftSettled &&
+    Boolean(suggestedCode) &&
+    inviteeDiscount !== undefined &&
+    !currentCode?.trim();
+
+  // Once per mount: the hint's visibility flips on every keystroke that
+  // empties or fills the field, and that is not a new impression.
+  const isOfferLoggedRef = useRef(false);
+  useEffect(() => {
+    if (!isSuggestionVisible || isOfferLoggedRef.current) {
+      return;
+    }
+    isOfferLoggedRef.current = true;
+    defaultLogger.referral.page.installReferralOffered({
+      surface: 'bind_dialog',
+    });
+  }, [isSuggestionVisible]);
 
   const { result: walletInfo } = usePromiseResult(async () => {
     const r = await getReferralCodeWalletInfo(selectedWallet?.id);
