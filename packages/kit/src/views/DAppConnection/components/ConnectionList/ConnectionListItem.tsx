@@ -7,6 +7,7 @@ import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/Acco
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { IMPL_ALGO } from '@onekeyhq/shared/src/engine/engineConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import accountSelectorUtils from '@onekeyhq/shared/src/utils/accountSelectorUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import {
   EAlignPrimaryAccountMode,
@@ -33,11 +34,13 @@ function ConnectionListItem({
   handleDisconnect: (
     origin: string,
     storageType: IConnectionStorageType,
+    walletConnectTopic?: string,
   ) => Promise<void>;
   handleAccountChanged: (params: {
     handleAccountChangedParams: IHandleAccountChangedParams;
     num: number;
     origin: string;
+    walletConnectTopic?: string;
     prevAccountInfo: IConnectionAccountInfoWithNum;
   }) => IHandleAccountChangedResult | Promise<IHandleAccountChangedResult>;
 }) {
@@ -122,7 +125,11 @@ function ConnectionListItem({
           }}
           testID={DAppConnectionTestIDs.ConnectionListDisconnectButton}
           onPress={() => {
-            void handleDisconnect(item.origin, item.storageType);
+            void handleDisconnect(
+              item.origin,
+              item.storageType,
+              item.walletConnectTopic,
+            );
           }}
         >
           <Icon name="BrokenLinkOutline" color="$iconSubdued" size="$6" />
@@ -131,7 +138,11 @@ function ConnectionListItem({
       <AccountSelectorProviderMirror
         config={{
           sceneName: EAccountSelectorSceneName.discover,
-          sceneUrl: item.origin,
+          sceneUrl: item.walletConnectTopic
+            ? accountSelectorUtils.buildWalletConnectSceneUrl({
+                topic: item.walletConnectTopic,
+              })
+            : item.origin,
         }}
         enabledNum={Object.keys(item.connectionMap).map((num) => Number(num))}
         availableNetworksMap={item.availableNetworksMap}
@@ -146,6 +157,7 @@ function ConnectionListItem({
                   handleAccountChangedParams,
                   num: Number(num),
                   origin: item.origin,
+                  walletConnectTopic: item.walletConnectTopic,
                   prevAccountInfo: {
                     ...item.connectionMap[Number(num)],
                     num: Number(num),

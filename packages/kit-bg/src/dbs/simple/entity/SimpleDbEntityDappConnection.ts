@@ -1,5 +1,7 @@
 import { backgroundMethod } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import accountSelectorUtils from '@onekeyhq/shared/src/utils/accountSelectorUtils';
 import { WalletConnectAccountSelectorNumStartAt } from '@onekeyhq/shared/src/walletConnect/constant';
 import type {
   IConnectionAccountInfo,
@@ -17,6 +19,27 @@ export interface IDappConnectionData {
     // Storage space for WalletConnect connections.
     walletConnect: Record<string, IConnectionItem>;
   };
+}
+
+function getConnectionKey(
+  storage: Record<string, IConnectionItem>,
+  origin: string,
+  storageType: IConnectionStorageType,
+  walletConnectTopic?: string,
+) {
+  if (storageType !== 'walletConnect') return origin;
+  if (!walletConnectTopic) {
+    throw new OneKeyLocalError('WalletConnect topic is required');
+  }
+  if (storage[walletConnectTopic]?.walletConnectTopic === walletConnectTopic) {
+    return walletConnectTopic;
+  }
+  // Legacy records are keyed by peer metadata URL. Match their topic only.
+  return (
+    Object.keys(storage).find(
+      (key) => storage[key].walletConnectTopic === walletConnectTopic,
+    ) ?? walletConnectTopic
+  );
 }
 
 function generateAccountSelectorNumber(
@@ -100,8 +123,17 @@ export class SimpleDbEntityDappConnection extends SimpleDbEntityBase<IDappConnec
       }
 
       const storage = data[storageType];
-      // Find or create the `IConnectionItem` corresponding to `origin`.
-      let connectionItem = storage[origin];
+      const previousKey = getConnectionKey(
+        storage,
+        origin,
+        storageType,
+        walletConnectTopic,
+      );
+      const connectionKey =
+        storageType === 'walletConnect'
+          ? (walletConnectTopic ?? previousKey)
+          : origin;
+      let connectionItem = storage[previousKey];
       if (!connectionItem) {
         connectionItem = {
           origin,
@@ -159,8 +191,9 @@ export class SimpleDbEntityDappConnection extends SimpleDbEntityBase<IDappConnec
       );
       connectionItem.networkImplMap = networkImplMap;
       connectionItem.addressMap = addressMap;
-      // 更新 storage 对象
-      storage[origin] = connectionItem;
+      // Move a legacy record without touching another session at the same URL.
+      if (previousKey !== connectionKey) delete storage[previousKey];
+      storage[connectionKey] = connectionItem;
 
       const newData = { ...data, [storageType]: storage };
       if (platformEnv.isDev) {
@@ -181,11 +214,13 @@ export class SimpleDbEntityDappConnection extends SimpleDbEntityBase<IDappConnec
     accountSelectorNum,
     updatedAccountInfo,
     storageType,
+    walletConnectTopic,
   }: {
     origin: string;
     accountSelectorNum: number;
     updatedAccountInfo: IConnectionAccountInfo;
     storageType: IConnectionStorageType;
+    walletConnectTopic?: string;
   }) {
     await this.setRawData((rawData) => {
       if (!rawData || typeof rawData !== 'object' || !rawData.data) {
@@ -210,7 +245,13 @@ export class SimpleDbEntityDappConnection extends SimpleDbEntityBase<IDappConnec
       }
 
       const storage = rawData.data[storageType];
-      const connectionItem = storage[origin];
+      const key = getConnectionKey(
+        storage,
+        origin,
+        storageType,
+        walletConnectTopic,
+      );
+      const connectionItem = storage[key];
       if (!connectionItem) {
         return { data: rawData.data };
       }
@@ -232,7 +273,7 @@ export class SimpleDbEntityDappConnection extends SimpleDbEntityBase<IDappConnec
 
       const updatedStorage = {
         ...storage,
-        [origin]: updatedConnectionItem,
+        [key]: updatedConnectionItem,
       };
 
       if (platformEnv.isDev) {
@@ -256,6 +297,7 @@ export class SimpleDbEntityDappConnection extends SimpleDbEntityBase<IDappConnec
     origin: string,
     networkImpls: string[],
     storageType: IConnectionStorageType,
+    walletConnectTopic?: string,
   ): Promise<number> {
     const rawData = await this.getRawData();
     if (!rawData?.data || typeof rawData.data !== 'object') {
@@ -267,7 +309,13 @@ export class SimpleDbEntityDappConnection extends SimpleDbEntityBase<IDappConnec
       return 0;
     }
 
-    const connectionItem = storageData[origin];
+    const key = getConnectionKey(
+      storageData,
+      origin,
+      storageType,
+      walletConnectTopic,
+    );
+    const connectionItem = storageData[key];
     if (!connectionItem) {
       return 0;
     }
@@ -289,12 +337,29 @@ export class SimpleDbEntityDappConnection extends SimpleDbEntityBase<IDappConnec
     const rawData = await this.getRawData();
     const map =
       rawData?.data?.injectedProvider?.[sceneUrl]?.connectionMap ||
-      rawData?.data?.walletConnect?.[sceneUrl]?.connectionMap;
+      Object.values(rawData?.data?.walletConnect ?? {}).find(
+        (item) =>
+          item.walletConnectTopic &&
+          accountSelectorUtils.buildWalletConnectSceneUrl({
+            topic: item.walletConnectTopic,
+          }) === sceneUrl,
+      )?.connectionMap;
     return map;
   }
 
   @backgroundMethod()
-  async deleteConnection(origin: string, storageType: IConnectionStorageType) {
+  async getWalletConnectConnection(topic: string) {
+    const rawData = await this.getRawData();
+    const storage = rawData?.data.walletConnect ?? {};
+    return storage[getConnectionKey(storage, '', 'walletConnect', topic)];
+  }
+
+  @backgroundMethod()
+  async deleteConnection(
+    origin: string,
+    storageType: IConnectionStorageType,
+    walletConnectTopic?: string,
+  ) {
     await this.setRawData((rawData) => {
       if (!rawData || typeof rawData !== 'object' || !rawData.data) {
         return {
@@ -310,7 +375,14 @@ export class SimpleDbEntityDappConnection extends SimpleDbEntityBase<IDappConnec
         return rawData;
       }
 
-      delete rawData.data[storageType][origin];
+      const storage = rawData.data[storageType];
+      const key = getConnectionKey(
+        storage,
+        origin,
+        storageType,
+        walletConnectTopic,
+      );
+      delete storage[key];
 
       return {
         ...rawData,
@@ -352,13 +424,21 @@ export class SimpleDbEntityDappConnection extends SimpleDbEntityBase<IDappConnec
     origin: string,
     storageType: IConnectionStorageType,
     networkImpl: string,
+    walletConnectTopic?: string,
   ) {
     const rawData = await this.getRawData();
 
     if (!rawData || typeof rawData !== 'object' || !rawData.data) {
       return null;
     }
-    const connectionItem = rawData.data[storageType]?.[origin];
+    const storage = rawData.data[storageType] ?? {};
+    const key = getConnectionKey(
+      storage,
+      origin,
+      storageType,
+      walletConnectTopic,
+    );
+    const connectionItem = storage[key];
     if (!connectionItem) {
       return [];
     }
@@ -378,6 +458,7 @@ export class SimpleDbEntityDappConnection extends SimpleDbEntityBase<IDappConnec
     networkImpl: string,
     newNetworkId: string,
     storageType: IConnectionStorageType,
+    walletConnectTopic?: string,
   ) {
     await this.setRawData((rawData) => {
       // Check if rawData.data is a valid object and use it if it is
@@ -389,8 +470,13 @@ export class SimpleDbEntityDappConnection extends SimpleDbEntityBase<IDappConnec
       // Ensure that the specific storage type exists
       const storage = rawData.data[storageType] ?? {};
 
-      // Find the connection item for the given origin
-      const connectionItem = storage[origin];
+      const key = getConnectionKey(
+        storage,
+        origin,
+        storageType,
+        walletConnectTopic,
+      );
+      const connectionItem = storage[key];
       if (!connectionItem) {
         // If no connection item is found for the origin, return rawData unchanged
         return rawData;
@@ -430,7 +516,7 @@ export class SimpleDbEntityDappConnection extends SimpleDbEntityBase<IDappConnec
           ...rawData.data,
           [storageType]: {
             ...storage,
-            [origin]: updatedConnectionItem,
+            [key]: updatedConnectionItem,
           },
         },
       };

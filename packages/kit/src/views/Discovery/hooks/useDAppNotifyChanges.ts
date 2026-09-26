@@ -226,6 +226,7 @@ export function useShouldUpdateConnectedAccount() {
   const handleAccountInfoChanged = useCallback(
     async ({
       origin,
+      walletConnectTopic,
       accountSelectorNum,
       prevAccountInfo,
       accountChangedParams,
@@ -233,6 +234,7 @@ export function useShouldUpdateConnectedAccount() {
       afterUpdate,
     }: {
       origin: string;
+      walletConnectTopic?: string;
       accountSelectorNum: number;
       prevAccountInfo: IConnectionAccountInfo;
       accountChangedParams: IHandleAccountChangedParams;
@@ -273,13 +275,16 @@ export function useShouldUpdateConnectedAccount() {
       const { serviceDApp } = backgroundApiProxy;
       await backgroundApiProxy.serviceDApp.updateConnectionSession({
         origin,
+        walletConnectTopic,
         accountSelectorNum,
         updatedAccountInfo: willUpdateAccountInfo,
         storageType,
       });
-      await backgroundApiProxy.serviceDApp.syncDappAccountIfPrimaryMode({
-        origin,
-      });
+      if (storageType === 'injectedProvider') {
+        await backgroundApiProxy.serviceDApp.syncDappAccountIfPrimaryMode({
+          origin,
+        });
+      }
       console.log(
         'useShouldUpdateConnectedAccount handleAccountChanged: ',
         accountSelectorNum,
@@ -289,10 +294,16 @@ export function useShouldUpdateConnectedAccount() {
 
       afterUpdate();
 
-      if (prevAccountInfo.accountId !== willUpdateAccountInfo.accountId) {
+      if (
+        storageType === 'injectedProvider' &&
+        prevAccountInfo.accountId !== willUpdateAccountInfo.accountId
+      ) {
         void serviceDApp.notifyDAppAccountsChanged(origin);
       }
-      if (prevAccountInfo.networkId !== willUpdateAccountInfo.networkId) {
+      if (
+        storageType === 'injectedProvider' &&
+        prevAccountInfo.networkId !== willUpdateAccountInfo.networkId
+      ) {
         void serviceDApp.notifyDAppChainChanged(origin);
       }
     },

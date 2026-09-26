@@ -8,6 +8,7 @@ import useDappApproveAction from '@onekeyhq/kit/src/hooks/useDappApproveAction';
 import useDappQuery from '@onekeyhq/kit/src/hooks/useDappQuery';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import accountSelectorUtils from '@onekeyhq/shared/src/utils/accountSelectorUtils';
 import uriUtils from '@onekeyhq/shared/src/utils/uriUtils';
 import { EDAppModalPageStatus } from '@onekeyhq/shared/types/dappConnection';
 
@@ -222,7 +223,9 @@ function SessionProposalModal() {
           >
             {Array.isArray(sessionAccountsInfo) ? (
               <WalletConnectAccountTriggerList
-                sceneUrl={origin ?? ''}
+                sceneUrl={accountSelectorUtils.buildWalletConnectSceneUrl({
+                  proposalId: proposal.id,
+                })}
                 sessionAccountsInfo={sessionAccountsInfo}
                 handleAccountChanged={handleAccountChanged}
               />

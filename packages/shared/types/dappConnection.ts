@@ -45,6 +45,7 @@ export type IConnectionStorageType = 'injectedProvider' | 'walletConnect';
 
 export interface IGetDAppAccountInfoParams {
   origin: string;
+  walletConnectTopic?: string;
   scope?: IInjectedProviderNamesStrings;
   isWalletConnectRequest?: boolean;
   options?: {

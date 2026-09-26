@@ -36,6 +36,7 @@ export abstract class WalletConnectRequestProxy {
       data: {
         ...data,
         wcChainName: options.wcChain,
+        walletConnectTopic: options.sessionRequest?.topic,
         // Forward Reown's identity attestation through the data envelope.
         // ServiceDApp.openModal hoists this back onto $sourceInfo so the
         // modal can call useRiskDetection({ walletConnectVerifyContext }).

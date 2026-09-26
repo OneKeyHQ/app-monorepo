@@ -124,3 +124,34 @@ describe('accountSelectorUtils buildMergedSelectedAccount', () => {
     expect(result.deriveType).toBe('BIP86');
   });
 });
+
+describe('WalletConnect account selector identity', () => {
+  it('isolates session and proposal selectors while retaining website origin validation', () => {
+    const sceneName = EAccountSelectorSceneName.discover;
+    const a = accountSelectorUtils.buildWalletConnectSceneUrl({
+      topic: 'a'.repeat(64),
+    });
+    const b = accountSelectorUtils.buildWalletConnectSceneUrl({
+      topic: 'b'.repeat(64),
+    });
+    const proposal = accountSelectorUtils.buildWalletConnectSceneUrl({
+      proposalId: 123,
+    });
+    const ids = [a, b, proposal, 'https://help.onekey.so'].map((sceneUrl) =>
+      accountSelectorUtils.buildAccountSelectorSceneId({ sceneName, sceneUrl }),
+    );
+    expect(new Set(ids).size).toBe(4);
+    expect(() =>
+      accountSelectorUtils.buildAccountSelectorSceneId({
+        sceneName,
+        sceneUrl: 'https://help.onekey.so/path',
+      }),
+    ).toThrow('full url is not allowed');
+    expect(() =>
+      accountSelectorUtils.buildAccountSelectorSceneId({
+        sceneName,
+        sceneUrl: 'walletconnect:session:invalid',
+      }),
+    ).toThrow('full url is not allowed');
+  });
+});

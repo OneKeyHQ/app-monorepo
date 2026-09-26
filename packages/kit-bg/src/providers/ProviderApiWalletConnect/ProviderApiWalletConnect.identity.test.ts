@@ -1,17 +1,24 @@
+import { IInjectedProviderNames } from '@onekeyfe/cross-inpage-provider-types';
+
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { RuntimeEnvironment } from '@onekeyhq/shared/src/travelMode/runtimeEnvironment';
 import { getTravelModeRuntimeProfile } from '@onekeyhq/shared/src/travelMode/runtimeProfile';
+import accountSelectorUtils from '@onekeyhq/shared/src/utils/accountSelectorUtils';
 import { EWalletConnectSessionEvents } from '@onekeyhq/shared/src/walletConnect/types';
+import type { IConnectionAccountInfo } from '@onekeyhq/shared/types/dappConnection';
 
 import { SimpleDbEntityDappConnection } from '../../dbs/simple/entity/SimpleDbEntityDappConnection';
 import ServiceDApp from '../../services/ServiceDApp';
 
 import ProviderApiWalletConnect from './ProviderApiWalletConnect';
+import { WalletConnectRequestProxy } from './WalletConnectRequestProxy';
 
 import type { IBackgroundApi } from '../../apis/IBackgroundApi';
 import type { IDappConnectionData } from '../../dbs/simple/entity/SimpleDbEntityDappConnection';
 import type { IWalletKit, WalletKitTypes } from '@reown/walletkit';
 
 let mockStored = '';
+let mockWriteQueue = Promise.resolve();
 
 jest.mock('@onekeyhq/shared/src/logger/logger', () => ({
   defaultLogger: {
@@ -29,7 +36,11 @@ jest.mock('../../dbs/simple/base/SimpleDbEntityBase', () => ({
     async setRawData(
       update: (data?: IDappConnectionData) => IDappConnectionData,
     ) {
-      mockStored = JSON.stringify(update(await this.getRawData()));
+      // Match SimpleDB's serialized read-modify-write boundary.
+      mockWriteQueue = mockWriteQueue.then(async () => {
+        mockStored = JSON.stringify(update(await this.getRawData()));
+      });
+      await mockWriteQueue;
     }
   },
 }));
@@ -76,6 +87,7 @@ jest.mock('./WalletConnectRequestProxyEth', () => ({
 describe('WalletConnect persisted display identity', () => {
   beforeEach(() => {
     mockStored = '';
+    mockWriteQueue = Promise.resolve();
     jest.useFakeTimers();
   });
 
@@ -117,9 +129,6 @@ describe('WalletConnect persisted display identity', () => {
         // UI-returned identity must not override the original proposal.
         displayOrigin: 'https://forged.example',
       });
-      jest
-        .spyOn(service, 'deleteExistSessionBeforeConnect')
-        .mockResolvedValue(undefined);
       jest
         .spyOn(service, 'syncDappAccountIfPrimaryMode')
         .mockResolvedValue(undefined);
@@ -172,8 +181,10 @@ describe('WalletConnect persisted display identity', () => {
       backgroundApi.simpleDb.dappConnection =
         new SimpleDbEntityDappConnection();
       const saved = await backgroundApi.simpleDb.dappConnection.getRawData();
-      expect(Object.keys(saved?.data.walletConnect ?? {})).toEqual([origin]);
-      expect(saved?.data.walletConnect[origin]).toMatchObject({
+      expect(Object.keys(saved?.data.walletConnect ?? {})).toEqual([
+        'session-topic',
+      ]);
+      expect(saved?.data.walletConnect['session-topic']).toMatchObject({
         origin,
         displayOrigin,
         imageURL: displayOrigin
@@ -209,15 +220,333 @@ describe('WalletConnect persisted display identity', () => {
     });
     await entity.upsertConnection({
       ...connection,
-      walletConnectTopic: 'new-topic',
+      walletConnectTopic: 'old-topic',
       displayOrigin: '',
       imageURL: '',
     });
     const saved = await new SimpleDbEntityDappConnection().getRawData();
-    expect(saved?.data.walletConnect[connection.origin]).toMatchObject({
+    expect(saved?.data.walletConnect['old-topic']).toMatchObject({
       displayOrigin: '',
       imageURL: '',
-      walletConnectTopic: 'new-topic',
+      walletConnectTopic: 'old-topic',
     });
+  });
+});
+
+const claimedOrigin = 'https://help.onekey.so';
+const makeAccount = (id: string): IConnectionAccountInfo => ({
+  networkImpl: 'evm',
+  walletId: `wallet-${id}`,
+  accountId: `account-${id}`,
+  networkId: 'evm--1',
+  address: `address-${id}`,
+  indexedAccountId: '',
+  othersWalletAccountId: '',
+  deriveType: 'default',
+  focusedWallet: `wallet-${id}`,
+});
+
+function createSessionFixture() {
+  const disconnect = jest.fn(async (_topic: string) => {});
+  const backgroundApi = {
+    simpleDb: { dappConnection: new SimpleDbEntityDappConnection() },
+    serviceDiscovery: {
+      buildWebsiteIconUrl: jest.fn(async (origin: string) => origin),
+    },
+    serviceSignature: { addConnectedSite: jest.fn() },
+    serviceWalletConnect: {
+      walletConnectDisconnect: disconnect,
+      updateNamespaceAndSession: jest.fn(),
+    },
+    serviceDApp: undefined as ServiceDApp | undefined,
+  };
+  const service = new ServiceDApp({ backgroundApi });
+  backgroundApi.serviceDApp = service;
+  const syncPrimaryAccount = jest
+    .spyOn(service, 'syncDappAccountIfPrimaryMode')
+    .mockResolvedValue();
+  jest
+    .spyOn(service, 'notifyDAppAccountsChangedAfterConnected')
+    .mockResolvedValue();
+  jest.spyOn(service, 'notifyDAppAccountsChanged').mockResolvedValue();
+  const save = (topic: string, displayOrigin = claimedOrigin) =>
+    service.saveConnectionSession({
+      origin: claimedOrigin,
+      displayOrigin,
+      accountsInfo: [makeAccount(topic)],
+      storageType: 'walletConnect',
+      walletConnectTopic: topic,
+    });
+  return {
+    backgroundApi,
+    service,
+    entity: backgroundApi.simpleDb.dappConnection,
+    disconnect,
+    syncPrimaryAccount,
+    save,
+  };
+}
+
+describe('WalletConnect topic isolation', () => {
+  beforeEach(() => {
+    mockStored = '';
+    mockWriteQueue = Promise.resolve();
+    jest.useFakeTimers();
+  });
+
+  afterEach(() => {
+    jest.clearAllTimers();
+    jest.useRealTimers();
+    jest.restoreAllMocks();
+  });
+
+  it.each([false, true])(
+    'keeps same-origin sessions separate (concurrent: %s)',
+    async (concurrent) => {
+      const { save, entity, service, disconnect, syncPrimaryAccount } =
+        createSessionFixture();
+      await entity.upsertConnection({
+        origin: claimedOrigin,
+        accountsInfo: [makeAccount('injected')],
+        storageType: 'injectedProvider',
+      });
+      if (concurrent) {
+        await Promise.all([save('trusted'), save('unverified', '')]);
+      } else {
+        await save('trusted');
+        await save('unverified', '');
+      }
+      const restored = await new SimpleDbEntityDappConnection().getRawData();
+      expect(
+        Object.keys(restored?.data.walletConnect ?? {}).toSorted(),
+      ).toEqual(['trusted', 'unverified']);
+      expect(restored?.data.walletConnect.trusted.displayOrigin).toBe(
+        claimedOrigin,
+      );
+      expect(restored?.data.walletConnect.unverified).toMatchObject({
+        displayOrigin: '',
+        imageURL: '',
+      });
+      expect(restored?.data.injectedProvider[claimedOrigin]).toBeDefined();
+      expect(disconnect).not.toHaveBeenCalled();
+      expect(syncPrimaryAccount).not.toHaveBeenCalled();
+
+      // Request identity follows the SDK topic, regardless of claimed/verified URL.
+      const accounts = await service.getConnectedAccountsInfo({
+        origin: 'https://different-verified-origin.example',
+        scope: IInjectedProviderNames.ethereum,
+        isWalletConnectRequest: true,
+        walletConnectTopic: 'trusted',
+      });
+      expect(accounts).toEqual([
+        expect.objectContaining(makeAccount('trusted')),
+      ]);
+      await service.disconnectWebsite({
+        origin: claimedOrigin,
+        storageType: 'walletConnect',
+        walletConnectTopic: 'unverified',
+      });
+      expect(disconnect).toHaveBeenCalledWith('unverified');
+      expect(await entity.getWalletConnectConnection('trusted')).toBeDefined();
+      expect(
+        await entity.getWalletConnectConnection('unverified'),
+      ).toBeUndefined();
+      expect(
+        (await entity.getRawData())?.data.injectedProvider[claimedOrigin],
+      ).toBeDefined();
+    },
+  );
+
+  it('does not delete a new same-origin session when an old disconnect completes late', async () => {
+    const { save, entity, service, disconnect } = createSessionFixture();
+    await save('old', '');
+    let release = () => {};
+    let started = () => {};
+    const entered = new Promise<void>((resolve) => {
+      started = resolve;
+    });
+    disconnect.mockImplementationOnce(async () => {
+      started();
+      await new Promise<void>((resolve) => {
+        release = resolve;
+      });
+    });
+    const pending = service.disconnectWebsite({
+      origin: claimedOrigin,
+      storageType: 'walletConnect',
+      walletConnectTopic: 'old',
+    });
+    await entered;
+    await save('new');
+    release();
+    await pending;
+    expect(await entity.getWalletConnectConnection('old')).toBeUndefined();
+    expect(await entity.getWalletConnectConnection('new')).toMatchObject({
+      displayOrigin: claimedOrigin,
+    });
+  });
+
+  it('updates accounts and networks only for the selected topic', async () => {
+    const { save, entity, service, backgroundApi } = createSessionFixture();
+    await save('a');
+    await save('b');
+    const a = await entity.getWalletConnectConnection('a');
+    const b = await entity.getWalletConnectConnection('b');
+    const num = Number(Object.keys(a.connectionMap)[0]);
+    const changed = makeAccount('changed');
+    await service.updateConnectionSession({
+      origin: claimedOrigin,
+      storageType: 'walletConnect',
+      walletConnectTopic: 'a',
+      accountSelectorNum: num,
+      updatedAccountInfo: changed,
+    });
+    expect(
+      backgroundApi.serviceWalletConnect.updateNamespaceAndSession,
+    ).toHaveBeenCalledWith('a', [changed]);
+    await entity.updateNetworkId(
+      claimedOrigin,
+      'evm',
+      'evm--137',
+      'walletConnect',
+      'a',
+    );
+    expect(
+      await entity.getAccountSelectorMap({
+        sceneUrl: accountSelectorUtils.buildWalletConnectSceneUrl({
+          topic: 'a',
+        }),
+      }),
+    ).toEqual({
+      [num]: { ...changed, networkId: 'evm--137' },
+    });
+    expect(
+      await entity.getAccountSelectorMap({
+        sceneUrl: accountSelectorUtils.buildWalletConnectSceneUrl({
+          topic: 'b',
+        }),
+      }),
+    ).toEqual(b.connectionMap);
+    expect(await entity.getWalletConnectConnection('b')).toEqual(b);
+    expect(
+      await entity.getAccountSelectorMap({ sceneUrl: claimedOrigin }),
+    ).toBeUndefined();
+  });
+
+  it('rejects requests without a topic and never borrows another topic authorization', async () => {
+    const { save, service, entity } = createSessionFixture();
+    await save('known');
+    const params = {
+      origin: claimedOrigin,
+      scope: IInjectedProviderNames.ethereum,
+      isWalletConnectRequest: true,
+    };
+    await expect(service.getConnectedAccountsInfo(params)).rejects.toThrow(
+      'WalletConnect topic is required',
+    );
+    await expect(
+      service.getConnectedAccountsInfo({
+        ...params,
+        walletConnectTopic: 'unknown',
+      }),
+    ).resolves.toBeNull();
+    await expect(
+      service.disconnectWebsite({
+        origin: claimedOrigin,
+        storageType: 'walletConnect',
+      }),
+    ).rejects.toThrow('WalletConnect topic is required');
+    expect(await entity.getWalletConnectConnection('known')).toBeDefined();
+  });
+
+  it('reads and updates legacy records by their saved topic without merging same-origin sessions', async () => {
+    const { save, service, entity } = createSessionFixture();
+    await save('legacy');
+    const raw = await entity.getRawData();
+    if (!raw) throw new OneKeyLocalError('Missing fixture record');
+    raw.data.walletConnect[claimedOrigin] = raw.data.walletConnect.legacy;
+    delete raw.data.walletConnect.legacy;
+    mockStored = JSON.stringify(raw);
+    await save('new', '');
+    const legacy = await entity.getWalletConnectConnection('legacy');
+    expect(legacy.walletConnectTopic).toBe('legacy');
+    expect(
+      await entity.getAccountSelectorMap({
+        sceneUrl: accountSelectorUtils.buildWalletConnectSceneUrl({
+          topic: 'legacy',
+        }),
+      }),
+    ).toEqual(legacy.connectionMap);
+    await entity.updateNetworkId(
+      claimedOrigin,
+      'evm',
+      'evm--137',
+      'walletConnect',
+      'legacy',
+    );
+    expect(
+      (await entity.getWalletConnectConnection('legacy')).connectionMap[1000]
+        .networkId,
+    ).toBe('evm--137');
+    expect(
+      (await entity.getWalletConnectConnection('new')).connectionMap[1000]
+        .networkId,
+    ).toBe('evm--1');
+    await service.disconnectWebsite({
+      origin: claimedOrigin,
+      storageType: 'walletConnect',
+      walletConnectTopic: 'legacy',
+    });
+    expect(await entity.getWalletConnectConnection('legacy')).toBeUndefined();
+    expect(await entity.getWalletConnectConnection('new')).toBeDefined();
+  });
+
+  it('does not let stale inactive-session cleanup remove a newly approved session', async () => {
+    const { save, service, entity, disconnect } = createSessionFixture();
+    await save('expired');
+    const raw = await entity.getRawData();
+    await save('new');
+    await service.disconnectInactiveSessions(
+      raw?.data.walletConnect ?? {},
+      new Set(),
+    );
+    expect(disconnect).toHaveBeenCalledWith('expired');
+    expect(await entity.getWalletConnectConnection('new')).toBeDefined();
+  });
+
+  it('forwards the SDK topic instead of peer-controlled RPC data', async () => {
+    const handleProviderMethods = jest.fn(async () => ({ result: 'ok' }));
+    const provider = new ProviderApiWalletConnect({
+      backgroundApi: { handleProviderMethods },
+    });
+    class TestRequestProxy extends WalletConnectRequestProxy {
+      override providerName = IInjectedProviderNames.ethereum;
+    }
+    const proxy = new TestRequestProxy({ client: provider });
+    const request: WalletKitTypes.SessionRequest = {
+      id: 1,
+      topic: 'sdk-topic',
+      params: {
+        chainId: 'eip155:1',
+        request: { method: 'eth_accounts', params: [] },
+      },
+      verifyContext: {
+        verified: {
+          validation: 'UNKNOWN',
+          origin: claimedOrigin,
+          verifyUrl: '',
+        },
+      },
+    };
+    await proxy.request(
+      { sessionRequest: request, wcChain: '1' },
+      { method: 'eth_accounts', walletConnectTopic: 'forged-topic' },
+    );
+    expect(handleProviderMethods).toHaveBeenCalledWith(
+      expect.objectContaining({
+        isWalletConnectRequest: true,
+        data: expect.objectContaining({ walletConnectTopic: 'sdk-topic' }),
+      }),
+    );
   });
 });
