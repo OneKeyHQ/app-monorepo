@@ -199,7 +199,7 @@ export const EditableChainSelectorContent = ({
 
     const data = filterFrequentlyUsedNetworks(mainnetItems).reduce(
       (result, item) => {
-        const char = item.name[0].toUpperCase();
+        const char = item.name.trim().charAt(0).toUpperCase() || '#';
         if (!result[char]) {
           result[char] = [];
         }

@@ -362,6 +362,12 @@ class ServiceSetting extends ServiceBase {
     if (values.customRpc) {
       await this.backgroundApi.simpleDb.customRpc.clearRawData();
     }
+    if (values.customNetwork) {
+      // Clear only local records; cloud-synced networks may be restored later.
+      await this.backgroundApi.simpleDb.customNetwork.clearRawData();
+      await this.backgroundApi.serviceNetwork.clearAllNetworksCache();
+      appEventBus.emit(EAppEventBusNames.AddedCustomNetwork, undefined);
+    }
     if (values.customNetworkFee) {
       await this.backgroundApi.simpleDb.feeInfo.clearCustomFeeInfo();
     }
