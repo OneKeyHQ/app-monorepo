@@ -1,0 +1,15 @@
+{
+  "name": "@onekeyfe/react-native-native-overlay",
+  "version": "0.0.0-dev",
+  "private": true,
+  "description": "Temporary in-repo development copy of the native overlay host. Synced to OneKeyHQ/app-modules native-views/react-native-native-overlay once verified.",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "react-native": "./src/index.ts",
+  "source": "./src/index.ts",
+  "license": "MIT",
+  "peerDependencies": {
+    "react": "*",
+    "react-native": "*"
+  }
+}
