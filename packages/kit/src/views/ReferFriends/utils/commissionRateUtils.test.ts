@@ -1,6 +1,9 @@
 import {
+  DEFAULT_INVITEE_DISCOUNT_TEXT,
   formatCommissionRateText,
+  formatInviteeDiscountFromConfig,
   formatInviteeDiscountText,
+  isInviteeDiscountDeclined,
   shouldShowInviteeDiscount,
   sortCommissionRateItems,
 } from './commissionRateUtils';
@@ -66,5 +69,42 @@ describe('commissionRateUtils', () => {
         { subject: 'HardwareSales' },
       ]).map((item) => item.subject),
     ).toEqual(['HardwareSales', 'Swap', 'referral_level_label_key']);
+  });
+});
+
+describe('formatInviteeDiscountFromConfig', () => {
+  it('renders the rate the server gave, zero included', () => {
+    expect(formatInviteeDiscountFromConfig({ amount: 15, unit: '%' })).toBe(
+      '15%',
+    );
+    expect(formatInviteeDiscountFromConfig({ amount: 0, unit: '%' })).toBe(
+      '0%',
+    );
+  });
+
+  it('falls back only when there is no usable value', () => {
+    expect(formatInviteeDiscountFromConfig(undefined)).toBe(
+      DEFAULT_INVITEE_DISCOUNT_TEXT,
+    );
+    for (const amount of [-5, Number.NaN, null]) {
+      expect(formatInviteeDiscountFromConfig({ amount, unit: '%' })).toBe(
+        DEFAULT_INVITEE_DISCOUNT_TEXT,
+      );
+    }
+    expect(formatInviteeDiscountFromConfig({ amount: 15 })).toBe(
+      DEFAULT_INVITEE_DISCOUNT_TEXT,
+    );
+    expect(formatInviteeDiscountFromConfig({ amount: 15, unit: '' })).toBe(
+      DEFAULT_INVITEE_DISCOUNT_TEXT,
+    );
+  });
+});
+
+describe('isInviteeDiscountDeclined', () => {
+  it('is true only for an explicit zero amount', () => {
+    expect(isInviteeDiscountDeclined({ amount: 0 })).toBe(true);
+    expect(isInviteeDiscountDeclined({ amount: 10 })).toBe(false);
+    expect(isInviteeDiscountDeclined({})).toBe(false);
+    expect(isInviteeDiscountDeclined(undefined)).toBe(false);
   });
 });

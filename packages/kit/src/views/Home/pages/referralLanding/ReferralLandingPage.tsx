@@ -20,6 +20,8 @@ import {
   shouldOpenEarnHomeInExtensionExpandTab,
 } from '@onekeyhq/kit/src/views/Earn/openExtensionEarnHomeInExpandTab';
 import { useBindReferralViaExtension } from '@onekeyhq/kit/src/views/ReferFriends/hooks/useBindReferralViaExtension';
+import { useInvitePostConfig } from '@onekeyhq/kit/src/views/ReferFriends/hooks/useInvitePostConfig';
+import { formatInviteeDiscountFromConfig } from '@onekeyhq/kit/src/views/ReferFriends/utils';
 import { useAppIsLockedAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { EOneKeyDeepLinkPath } from '@onekeyhq/shared/src/consts/deeplinkConsts';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
@@ -185,8 +187,6 @@ function getReferralLandingRouteParams(
   };
 }
 
-const DEFAULT_INVITEE_DISCOUNT = '10%';
-
 const REFERRAL_UTM_SOURCE = {
   webAppStore: 'web_appstore',
   webBindExtension: 'web_bind_extension',
@@ -198,9 +198,6 @@ const REFERRAL_UTM_SOURCE = {
 } as const;
 type IReferralUtmSource =
   (typeof REFERRAL_UTM_SOURCE)[keyof typeof REFERRAL_UTM_SOURCE];
-
-const formatDiscount = (value?: { amount: number; unit: string }) =>
-  value ? `${value.amount}${value.unit}` : '';
 
 const REFERRAL_LOG_KEY_SEPARATOR = '|';
 const REFERRAL_ENTER_DEDUP_WINDOW_MS = 3000;
@@ -250,25 +247,11 @@ function ReferralLandingPage() {
     return pageName && EARN_PAGE_NAMES.has(pageName) ? 'defi' : 'perps';
   }, [pageName]);
 
-  const [inviteeDiscount, setInviteeDiscount] = useState(
-    DEFAULT_INVITEE_DISCOUNT,
+  const { postConfig } = useInvitePostConfig({ enabled: isWeb });
+  const inviteeDiscount = formatInviteeDiscountFromConfig(
+    postConfig?.inviteeDiscount,
   );
   const landingPage = useMemo(() => (page ? `/app/${page}` : '/app'), [page]);
-
-  useEffect(() => {
-    if (!isWeb) return;
-    let mounted = true;
-    void (async () => {
-      const config =
-        await backgroundApiProxy.serviceReferralCode.getPostConfig();
-      if (mounted && config?.inviteeDiscount) {
-        setInviteeDiscount(formatDiscount(config.inviteeDiscount));
-      }
-    })();
-    return () => {
-      mounted = false;
-    };
-  }, [isWeb]);
 
   const logEnter = useCallback(
     (utmSource: IReferralUtmSource) => {

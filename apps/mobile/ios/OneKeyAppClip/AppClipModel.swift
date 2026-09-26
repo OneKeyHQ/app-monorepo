@@ -9,6 +9,7 @@ struct AppClipInvocation {
 
   let attribution: AppClipAttributionRecord
   let experience: Experience
+  let inviteCode: String?
   let apiBaseURL: URL
   let appLinkHost: String
 
@@ -40,6 +41,8 @@ struct AppClipInvocation {
     }
     let campaignId = Self.safeIdentifier(query["campaign_id"])
     let clickId = Self.safeClickId(query["click_id"])
+    // Same key the Android Play install referrer uses for the invite code.
+    inviteCode = AppClipInviteCodeStore.sanitize(query["ref_code"])
     let requestedWebURL = query["web_url"].flatMap(URL.init(string:))
     let allowedWebURL = requestedWebURL.flatMap {
       CampaignURLPolicy.isAllowedEntry($0) ? $0 : nil
@@ -276,6 +279,9 @@ final class AppClipModel: ObservableObject {
       && perpsStates.isEmpty
       && trendingStates.isEmpty
     AppClipAttributionStore.save(attribution)
+    if let inviteCode = invocation.inviteCode {
+      AppClipInviteCodeStore.save(code: inviteCode)
+    }
     switch invocation.experience {
     case .market:
       campaignWebURL = nil

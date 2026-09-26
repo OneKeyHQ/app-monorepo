@@ -14,6 +14,12 @@ Supported attribution query parameters are `click_id`, `campaign_id`, and the st
 `utm_source`, `utm_medium`, `utm_campaign`, `utm_content`, `utm_id`, and `utm_term` fields.
 The Short Link destination must use `direct_query` so `click_id` reaches the invocation URL.
 
+An optional `ref_code` carries a referral invite code — the same key the Android Play install
+referrer uses. The App Clip stores it in the App Group (`app_clip_invite_code_v1.json`,
+separate from the click-id record) and the most recent invocation carrying a code wins. On first
+launch the full app captures it into the same invite-code slot as the Play referrer, so the
+onboarding and bind dialogs pre-fill it the same way.
+
 Campaign WebViews only load HTTPS pages on `app.onekey.so` or `app.onekeytest.com`, use an
 ephemeral data store, and expose no wallet bridge. Add new campaign hosts only after a security
 review, then update both `CampaignURLPolicy` and `WKAppBoundDomains`.

@@ -179,6 +179,44 @@ export class PageScene extends BaseScene {
     walletId: string;
     walletType: string;
     codeLength: number;
+    /** True when the submitted code is the one we pre-filled untouched. */
+    isAutoFilled?: boolean;
+  }) {
+    return params;
+  }
+
+  /**
+   * Fires once per install when the store referrer is resolved. Carries no
+   * referrer content — only whether a usable code was present — so campaign
+   * strings never reach the analytics payload.
+   */
+  @LogToServer()
+  @LogToLocal({ level: 'info' })
+  public installReferralCaptured(params: { source: string; hasCode: boolean }) {
+    return params;
+  }
+
+  /**
+   * The stored invite code was presented to the user. `surface` separates the
+   * onboarding dialog, which pre-fills the field outright, from the bind
+   * dialog, which only shows it as a hint — their conversion rates are not
+   * comparable without it.
+   */
+  @LogToServer()
+  @LogToLocal({ level: 'info' })
+  public installReferralOffered(params: {
+    surface: 'onboarding_dialog' | 'bind_dialog';
+    walletId?: string;
+    walletType?: string;
+  }) {
+    return params;
+  }
+
+  /** The user bound the offered code rather than one of their own. */
+  @LogToServer()
+  @LogToLocal({ level: 'info' })
+  public installReferralAccepted(params: {
+    surface: 'onboarding_dialog' | 'bind_dialog';
   }) {
     return params;
   }

@@ -195,3 +195,113 @@ private enum AppClipAttributionStoreError: LocalizedError {
     "App Group container is unavailable."
   }
 }
+
+/// Invite code carried by an App Clip invocation (`ref_code`), handed to the
+/// full app through the App Group container.
+///
+/// Kept apart from the pending attribution record on purpose: that record is
+/// keyed by `click_id` and deleted once the full app reports it, while the
+/// invite code must outlive the report until the full app has captured it, and
+/// must survive invocations that carry no code at all.
+struct AppClipInviteCodeRecord: Codable {
+  static let currentSchemaVersion = 1
+
+  var schemaVersion = currentSchemaVersion
+  var code: String
+  var capturedAt: Date
+
+  var bridgeDictionary: [String: Any] {
+    [
+      "schemaVersion": schemaVersion,
+      "code": code,
+      // Milliseconds, matching the JS side's `attributedAt`.
+      "capturedAt": capturedAt.timeIntervalSince1970 * 1_000,
+    ]
+  }
+}
+
+/// Only the App Clip may call `save`. The full app reads this file on its
+/// first launch and treats "file present" as "this install came from an invite
+/// link"; that holds only because the App Clip cannot run once the full app is
+/// installed, which keeps upgraded installs out. Writing it from the full app
+/// (or from any path that runs after install) would break the first-launch
+/// rule in `installInviteCodeCapture.ts`.
+enum AppClipInviteCodeStore {
+  static let recordFilename = "app_clip_invite_code_v1.json"
+
+  /// Mirrors `INVITE_CODE_PATTERN` in `installReferrerUtils.ts`.
+  static func sanitize(_ value: String?) -> String? {
+    guard
+      let value = value?.trimmingCharacters(in: .whitespacesAndNewlines),
+      value.range(of: "^[A-Za-z0-9]{1,30}$", options: .regularExpression) != nil
+    else {
+      return nil
+    }
+    return value
+  }
+
+  /// The handed-off record, or nil when there is definitively none (no file,
+  /// or one that is unreadable as a record). Throws when the answer is not
+  /// known — the App Group container is unavailable or the file cannot be
+  /// read — so the full app keeps its capture pending instead of concluding
+  /// "no code".
+  static func loadHandoff() throws -> AppClipInviteCodeRecord? {
+    guard let recordURL else {
+      throw AppClipInviteCodeStoreError.appGroupContainerUnavailable
+    }
+    let data: Data
+    do {
+      data = try Data(contentsOf: recordURL)
+    } catch let error as CocoaError where error.code == .fileReadNoSuchFile {
+      return nil
+    }
+    guard
+      let record = try? decoder.decode(AppClipInviteCodeRecord.self, from: data),
+      record.schemaVersion == AppClipInviteCodeRecord.currentSchemaVersion,
+      sanitize(record.code) != nil
+    else {
+      return nil
+    }
+    return record
+  }
+
+  /// The most recent invocation that carried a code wins; an invocation
+  /// without one leaves the stored code untouched.
+  @discardableResult
+  static func save(code: String) -> Bool {
+    guard
+      let code = sanitize(code),
+      let recordURL,
+      let data = try? encoder.encode(
+        AppClipInviteCodeRecord(code: code, capturedAt: Date())
+      )
+    else {
+      return false
+    }
+    do {
+      try data.write(to: recordURL, options: .atomic)
+      return true
+    } catch {
+      return false
+    }
+  }
+
+  private static var recordURL: URL? {
+    FileManager.default
+      .containerURL(
+        forSecurityApplicationGroupIdentifier: AppClipAttributionStore.appGroupIdentifier
+      )?
+      .appendingPathComponent(recordFilename, isDirectory: false)
+  }
+
+  private static let encoder = JSONEncoder()
+  private static let decoder = JSONDecoder()
+}
+
+private enum AppClipInviteCodeStoreError: LocalizedError {
+  case appGroupContainerUnavailable
+
+  var errorDescription: String? {
+    "App Group container is unavailable."
+  }
+}

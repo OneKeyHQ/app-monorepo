@@ -114,6 +114,13 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
     serviceReferralCode: {
       getCachedInviteCode: jest.fn(async () => undefined),
       setCachedInviteCode: jest.fn(async () => undefined),
+      getInstallReferralAutoFill: jest.fn(async () => ({
+        code: undefined,
+        isCaptureResolved: true,
+      })),
+      consumeInstallReferralIfBound: jest.fn(async () => false),
+      getPostConfig: jest.fn(async () => undefined),
+      fetchPostConfig: jest.fn(async () => undefined),
     },
   },
 }));
