@@ -14,7 +14,6 @@ import {
   SizableText,
   Skeleton,
   Stack,
-  Tabs,
   XStack,
   YStack,
   rootNavigationRef,
@@ -76,6 +75,7 @@ import {
   buildOverviewGridStyle,
 } from '../components/DeFiListBlock/DeFiOverviewLayout';
 import { resolveOverviewCols } from '../components/DeFiListBlock/overviewColsResolver';
+import { HomeScrollView } from '../components/HomeScrollView';
 import {
   HOME_PERPS_GUIDE_URL,
   HOME_PERPS_HOT_REQUEST_CATEGORY_ID,
@@ -1609,7 +1609,7 @@ export function PerpsContainer() {
 
   return (
     <Stack flex={1}>
-      <Tabs.ScrollView
+      <HomeScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingBottom: tabBarHeight }}
         nestedScrollEnabled={platformEnv.isNativeAndroid}
@@ -1702,7 +1702,7 @@ export function PerpsContainer() {
             </>
           ) : null}
         </YStack>
-      </Tabs.ScrollView>
+      </HomeScrollView>
     </Stack>
   );
 }

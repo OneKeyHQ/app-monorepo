@@ -2,7 +2,6 @@ import { memo, useCallback, useEffect, useRef, useState } from 'react';
 
 import { isEmpty, uniqBy } from 'lodash';
 
-import { useTabIsRefreshingFocused } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import type { IDBAccount } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import type { IAllNetworkAccountInfo } from '@onekeyhq/kit-bg/src/services/ServiceAllNetwork/ServiceAllNetwork';
@@ -31,6 +30,7 @@ import {
 } from '../../../states/jotai/contexts/nftList';
 import { NFTListView } from '../components/NFTListView';
 import { onHomePageRefresh } from '../components/PullToRefresh';
+import { useTabIsRefreshingFocused } from '../hooks/useHomeTab';
 
 const networkIdsMap = getNetworkIdsMap();
 
