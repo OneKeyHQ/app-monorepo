@@ -21,6 +21,7 @@ describe('usePureChainSelectorSections', () => {
       { id: 'trailing', name: 'TT Chain ', isTestnet: false },
       { id: 'blank', name: ' \u00a0\u3000', isTestnet: false },
       { id: 'cjk', name: ' 中文链', isTestnet: false },
+      { id: 'emoji', name: ' 🚀 Chain', isTestnet: false },
     ] as IServerNetwork[];
 
     const { result } = renderHook(() =>
@@ -36,6 +37,7 @@ describe('usePureChainSelectorSections', () => {
       { title: '#', ids: ['blank'] },
       { title: 'T', ids: ['leading', 'trailing'] },
       { title: '中', ids: ['cjk'] },
+      { title: '🚀', ids: ['emoji'] },
     ]);
   });
 });

@@ -140,7 +140,7 @@ export function NetworkSectionListV2({
     const groups = mainnetItems.reduce<Record<string, IServerNetwork[]>>(
       (result, item) => {
         if (!frequentlyUsedIds.has(item.id)) {
-          const letter = item.name.trim()[0]?.toUpperCase() || '#';
+          const letter = Array.from(item.name.trim())[0]?.toUpperCase() || '#';
           (result[letter] ??= []).push(item);
         }
         return result;
