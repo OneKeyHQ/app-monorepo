@@ -3,6 +3,7 @@ import { useCallback, useEffect } from 'react';
 import { useMedia } from '@onekeyhq/components';
 import { useBrowserAction } from '@onekeyhq/kit/src/states/jotai/contexts/discovery';
 import { EDesktopIpcChannel } from '@onekeyhq/shared/src/consts/desktopIpcChannels';
+import { handleOneKeyStoreLink } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import { EValidateUrlEnum } from '@onekeyhq/shared/types/dappConnection';
 
 import useAppNavigation from '../../../hooks/useAppNavigation';
@@ -25,7 +26,8 @@ export function useDesktopNewWindow() {
       // Mirror Discovery's WebContent navigation policy (validateWebviewSrc):
       // - Valid          → open in Discovery tab (handleOpenWebSite)
       // - ValidDeeplink  → route through deeplink handler (onekey-wallet://…)
-      // - other          → silently drop (phishing / unsupported / punycode)
+      // - other          → silently drop (phishing / unsupported / punycode),
+      //                    except OneKey's store deep links, opened by the OS
       const validateState = validateWebviewSrc({
         url: data.url,
         isTopFrame: true,
@@ -35,6 +37,7 @@ export function useDesktopNewWindow() {
         return;
       }
       if (validateState !== EValidateUrlEnum.Valid) {
+        handleOneKeyStoreLink(data.url);
         return;
       }
       handleOpenWebSite({
