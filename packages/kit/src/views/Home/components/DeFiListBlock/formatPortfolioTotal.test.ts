@@ -1,4 +1,7 @@
-import { formatPortfolioTotal } from './formatPortfolioTotal';
+import {
+  formatPortfolioTotal,
+  roundPortfolioTotal,
+} from './formatPortfolioTotal';
 
 describe('formatPortfolioTotal', () => {
   it('keeps two decimal places for all finite totals', () => {
@@ -22,5 +25,10 @@ describe('formatPortfolioTotal', () => {
 
   it('preserves the sign for negative totals', () => {
     expect(formatPortfolioTotal(-24.5, '$', false)).toBe('-$24.50');
+  });
+
+  it('exposes the same two-decimal value used by portfolio sync', () => {
+    expect(roundPortfolioTotal(0.004).toFixed()).toBe('0');
+    expect(roundPortfolioTotal(0.005).toFixed()).toBe('0.01');
   });
 });

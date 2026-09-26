@@ -59,7 +59,10 @@ import {
 import { useAddHiddenWallet } from '../WalletDetails/hooks/useAddHiddenWallet';
 
 import { AccountSelectorCreateWalletButton } from './AccountSelectorCreateWalletButton';
-import { buildGroupedAccountSelectorWallets } from './walletListUtils';
+import {
+  buildGroupedAccountSelectorWallets,
+  findWalletListScrollTarget,
+} from './walletListUtils';
 
 import type { IAccountSelectorWalletInfo } from '../../../type';
 
@@ -306,6 +309,7 @@ export function AccountSelectorWalletListSideBarV2({
 
   const { md } = useMedia();
   const listRef = useRef<NativeListRef | null>(null);
+  const didInitialScrollRef = useRef(false);
   const containerRef = useRef<View>(null);
   const tooltipTokenRef = useRef<string | undefined>(undefined);
   const [walletTooltip, setWalletTooltip] = useState<{
@@ -495,6 +499,37 @@ export function AccountSelectorWalletListSideBarV2({
       walletConnectionMap,
       wallets,
     ]);
+
+  const initialScrollTarget = useMemo(
+    () =>
+      findWalletListScrollTarget({
+        rows: snapshot.rows,
+        focusedWallet: selectedAccount.focusedWallet,
+      }),
+    [selectedAccount.focusedWallet, snapshot.rows],
+  );
+  useEffect(() => {
+    if (!initialScrollTarget || didInitialScrollRef.current) {
+      return;
+    }
+
+    const frame = requestAnimationFrame(() => {
+      const list = listRef.current;
+      if (!list || didInitialScrollRef.current) {
+        return;
+      }
+
+      didInitialScrollRef.current = true;
+      list.scrollToKey({
+        key: initialScrollTarget.key,
+        animated: false,
+        viewPosition: 0.5,
+        viewOffset: initialScrollTarget.viewOffset,
+      });
+    });
+
+    return () => cancelAnimationFrame(frame);
+  }, [initialScrollTarget]);
 
   if (shouldHideWalletList) {
     return null;

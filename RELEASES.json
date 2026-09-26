@@ -1,0 +1,29 @@
+[
+  {
+    "seq": 1,
+    "commit": "3445781d279ab0d2a400c8c4e2f13b0c38dcca2a",
+    "date": "2026-09-24T11:06:58Z",
+    "prs": [
+      "#13689",
+      "#13691",
+      "#13694",
+      "#13695",
+      "#13701",
+      "#13704",
+      "#13705",
+      "#13707",
+      "#13719",
+      "#13721"
+    ],
+    "notes": "fix: restore selected wallet scroll position (#13689), fix: activate preloaded native tabs before their first tap (#13691), fix: prevent swap review white screen after early close (OK-63906) (#13694), fix: stop the home token list from flashing a skeleton on account switch(OK-63873) (#13695), feat: add wallet and device attribution to perps and send events (#13701), fix: sync home Perps small holdings filter(OK-63509) (#13704), fix: read exact firmware device label (OK-63919) (#13705), fix: keep recommend order, hide mainstream badges, and hold watchlist first paint(OK-63895, OK-63896, OK-63908) (#13707), fix: remount app when cold-start bootstrap settles before the root subscribes (#13719), fix: stabilize firmware, onboarding, and device management flows (OK-63969, OK-63972, OK-63974, OK-63980) (#13721)"
+  },
+  {
+    "seq": 2,
+    "commit": "2c08fd3db7d5446a9eb12e71269a7a1bfca2ad2c",
+    "date": "2026-09-24T15:57:26Z",
+    "prs": [
+      "#13738"
+    ],
+    "notes": "fix: sanitize Android platform header (#13738)"
+  }
+]
