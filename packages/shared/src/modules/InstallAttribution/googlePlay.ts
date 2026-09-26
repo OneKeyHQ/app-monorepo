@@ -162,6 +162,9 @@ function isRecentInstall(installationTime: Date): boolean {
  * `isKnownFreshInstall` skips the check for an install an earlier launch
  * already judged fresh and left pending: an app update since then moves the
  * last update time, but it is still the same fresh install being retried.
+ * `onFreshInstall` runs once the check has judged this install fresh and
+ * before Play is asked, so the caller can persist that judgement even when
+ * the referrer read then fails.
  *
  * Deliberately separate from `reportGooglePlayInstallAttribution`: that one is
  * an analytics one-shot gated on a 7-day install-age window, while an invite
@@ -170,7 +173,13 @@ function isRecentInstall(installationTime: Date): boolean {
  */
 export async function readGooglePlayInviteCodeAttribution(
   source: IInstallAttributionSource = createInstallAttributionSource(),
-  { isKnownFreshInstall = false }: { isKnownFreshInstall?: boolean } = {},
+  {
+    isKnownFreshInstall = false,
+    onFreshInstall,
+  }: {
+    isKnownFreshInstall?: boolean;
+    onFreshInstall?: () => Promise<void>;
+  } = {},
 ): Promise<{
   code: string | undefined;
   installedAt: number;
@@ -191,6 +200,9 @@ export async function readGooglePlayInviteCodeAttribution(
       hasReferrer: false,
       isExistingInstall: true,
     };
+  }
+  if (!isKnownFreshInstall) {
+    await onFreshInstall?.();
   }
   const rawReferrer = await source.getInstallReferrer();
   return {

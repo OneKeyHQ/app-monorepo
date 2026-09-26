@@ -11,14 +11,18 @@ const mockReadInviteCode = jest.fn(
     hasReferrer: true,
   }),
 );
+const mockMarkFresh = jest.fn(async () => {});
 const mockCaptureInstallInviteCode = jest.fn(
   async ({
     read,
   }: {
     source: string;
-    read: (params: { isKnownFreshInstall: boolean }) => Promise<unknown>;
+    read: (params: {
+      isKnownFreshInstall: boolean;
+      markFreshInstall: () => Promise<void>;
+    }) => Promise<unknown>;
   }) => {
-    await read({ isKnownFreshInstall: false });
+    await read({ isKnownFreshInstall: false, markFreshInstall: mockMarkFresh });
   },
 );
 
@@ -62,6 +66,7 @@ describe('Google Play install attribution startup', () => {
     expect(mockReport).toHaveBeenCalledWith(source);
     expect(mockReadInviteCode).toHaveBeenCalledWith(source, {
       isKnownFreshInstall: false,
+      onFreshInstall: mockMarkFresh,
     });
   });
 });

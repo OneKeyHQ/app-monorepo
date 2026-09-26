@@ -7,6 +7,7 @@ const mockResolve = jest.fn(async (_params: unknown) => ({
   hasCode: true,
 }));
 const mockMarkResolved = jest.fn(async () => {});
+const mockMarkFresh = jest.fn(async () => {});
 const mockCaptured = jest.fn();
 
 jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
@@ -16,6 +17,7 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
       getInstallReferralCaptureState: mockGetCaptureState,
       resolveInstallReferral: mockResolve,
       markInstallReferralCaptureResolved: mockMarkResolved,
+      markInstallReferralPendingFreshInstall: mockMarkFresh,
     },
   },
 }));
@@ -101,6 +103,22 @@ describe('captureInstallInviteCode', () => {
       read,
     });
 
-    expect(read).toHaveBeenCalledWith({ isKnownFreshInstall: true });
+    expect(read).toHaveBeenCalledWith(
+      expect.objectContaining({ isKnownFreshInstall: true }),
+    );
+  });
+
+  it('keeps the fresh-install judgement when the store read then fails', async () => {
+    await captureInstallInviteCode({
+      source: 'androidInstallReferrer' as never,
+      read: async ({ markFreshInstall }) => {
+        await markFreshInstall();
+        throw new Error('SERVICE_UNAVAILABLE');
+      },
+    });
+
+    expect(mockMarkFresh).toHaveBeenCalledTimes(1);
+    expect(mockResolve).not.toHaveBeenCalled();
+    expect(mockMarkResolved).not.toHaveBeenCalled();
   });
 });

@@ -934,6 +934,11 @@ class ServiceReferralCode extends ServiceBase {
   }
 
   @backgroundMethod()
+  async markInstallReferralPendingFreshInstall(): Promise<void> {
+    await this.backgroundApi.simpleDb.referralCode.markInstallReferralPendingFreshInstall();
+  }
+
+  @backgroundMethod()
   async getInstallReferralCaptureState() {
     return this.backgroundApi.simpleDb.referralCode.getInstallReferralCaptureState();
   }

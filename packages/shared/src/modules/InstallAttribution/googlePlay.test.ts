@@ -262,6 +262,36 @@ describe('readGooglePlayInviteCodeAttribution', () => {
     expect(getInstallReferrerMock).not.toHaveBeenCalled();
   });
 
+  it('records a fresh install before asking Play, even when Play then fails', async () => {
+    const installedAt = new Date('2026-09-01T00:00:00.000Z');
+    getInstallationTimeMock.mockResolvedValue(installedAt);
+    getInstallReferrerMock.mockRejectedValueOnce(
+      new Error('SERVICE_UNAVAILABLE'),
+    );
+    const onFreshInstall = jest.fn(async () => {});
+
+    await expect(
+      readGooglePlayInviteCodeAttribution(undefined, { onFreshInstall }),
+    ).rejects.toThrow('SERVICE_UNAVAILABLE');
+    expect(onFreshInstall).toHaveBeenCalledTimes(1);
+    expect(onFreshInstall.mock.invocationCallOrder[0]).toBeLessThan(
+      getInstallReferrerMock.mock.invocationCallOrder.at(-1) ?? 0,
+    );
+  });
+
+  it('does not record an existing install as fresh', async () => {
+    getInstallationTimeMock.mockResolvedValue(
+      new Date('2026-01-02T03:04:05.000Z'),
+    );
+    getLastUpdateTimeMock.mockResolvedValue(
+      new Date('2026-09-20T00:00:00.000Z'),
+    );
+    const onFreshInstall = jest.fn(async () => {});
+
+    await readGooglePlayInviteCodeAttribution(undefined, { onFreshInstall });
+    expect(onFreshInstall).not.toHaveBeenCalled();
+  });
+
   it('keeps retrying a fresh install left pending across a later app update', async () => {
     const installedAt = new Date('2026-09-01T00:00:00.000Z');
     getInstallationTimeMock.mockResolvedValue(installedAt);

@@ -153,12 +153,13 @@ export function InviteCodeDialog({
     enabled: Boolean(suggestedCode),
   });
 
-  // The rebate line is decided exactly once per dialog — when the config
-  // settles or when the wait runs out, whichever comes first — and the hint
-  // stays hidden until then. It therefore never shows one rate and swaps to
-  // another under a user about to make an irreversible bind, and a late
-  // response cannot change it. Only a timeout or a failed read falls back to
-  // the default; `null` means the server declined a rebate, so none is shown.
+  // The rebate line is decided once per dialog — when the config settles or
+  // when the wait runs out, whichever comes first — and the hint stays hidden
+  // until then. It therefore never shows one rate and swaps to another under a
+  // user about to make an irreversible bind. Only a timeout or a failed read
+  // falls back to the default; `null` means the server declined a rebate, so
+  // none is shown. The one change allowed afterwards is below: withdrawing the
+  // promise when a refreshed config declines it.
   const [inviteeDiscount, setInviteeDiscount] = useState<
     string | null | undefined
   >(undefined);
@@ -180,6 +181,18 @@ export function InviteCodeDialog({
     }, INVITEE_DISCOUNT_WAIT_MS);
     return () => clearTimeout(timer);
   }, [suggestedCode, inviteeDiscount, isPostConfigSettled, postConfig]);
+
+  // One-way: the first answer can be a cached config, and a refresh that says
+  // the rebate is paused must not leave a rate promised above the bind. Only
+  // "rate → no rate" is allowed; a different positive rate never swaps in.
+  useEffect(() => {
+    if (
+      typeof inviteeDiscount === 'string' &&
+      isInviteeDiscountDeclined(postConfig?.inviteeDiscount)
+    ) {
+      setInviteeDiscount(null);
+    }
+  }, [inviteeDiscount, postConfig]);
 
   const currentCode = form.watch('referralCode');
   const isSuggestionVisible =
