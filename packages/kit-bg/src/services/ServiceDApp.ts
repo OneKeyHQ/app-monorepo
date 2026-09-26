@@ -207,23 +207,28 @@ class ServiceDApp extends ServiceBase {
           // request.data so that no extra plumbing through each chain
           // provider is needed; hoist it back out so the modal sees it as a
           // first-class field instead of digging through the RPC data.
-          const walletConnectVerifyContext = (
-            request.data as
-              | { walletConnectVerifyContext?: Verify.Context }
-              | undefined
-          )?.walletConnectVerifyContext;
+          const walletConnectData = request.isWalletConnectRequest
+            ? (request.data as
+                | {
+                    walletConnectVerifyContext?: Verify.Context;
+                    walletConnectDisplayOrigin?: string;
+                    walletConnectTopic?: string;
+                  }
+                | undefined)
+            : undefined;
           const $sourceInfo: IDappSourceInfo = {
             id,
             origin: request.origin,
+            displayOrigin: request.isWalletConnectRequest
+              ? (walletConnectData?.walletConnectDisplayOrigin ?? '')
+              : undefined,
             hostname: uriUtils.getHostNameFromUrl({ url: request.origin }),
             scope: request.scope,
             data: request.data as any,
             isWalletConnectRequest: !!request.isWalletConnectRequest,
-            walletConnectTopic: request.isWalletConnectRequest
-              ? (request.data as { walletConnectTopic?: string } | undefined)
-                  ?.walletConnectTopic
-              : undefined,
-            walletConnectVerifyContext,
+            walletConnectTopic: walletConnectData?.walletConnectTopic,
+            walletConnectVerifyContext:
+              walletConnectData?.walletConnectVerifyContext,
           };
 
           this.existingWindowOrigin = request.origin;

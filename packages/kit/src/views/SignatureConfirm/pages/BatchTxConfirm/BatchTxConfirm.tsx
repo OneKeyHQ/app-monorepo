@@ -103,6 +103,7 @@ function BatchTxConfirm() {
     // route inherits the isScam/INVALID → High escalation instead of
     // silently dropping Reown's attestation.
     walletConnectVerifyContext: sourceInfo?.walletConnectVerifyContext,
+    isWalletConnectRequest: sourceInfo?.isWalletConnectRequest,
   });
   // Full decision table lives in computeSignExitGate — including the
   // "risk query still pending" state that keeps every signing exit disabled
@@ -851,6 +852,7 @@ function BatchTxConfirm() {
         <YStack width="100%" maxWidth={640} alignSelf="center" gap="$4" pb="$6">
           {sourceInfo?.origin ? (
             <DAppSiteMark
+              sourceInfo={sourceInfo}
               origin={sourceInfo.origin}
               urlSecurityInfo={urlSecurityInfo}
               hideRiskStyle={shouldHideDAppSiteRiskStyle(urlSecurityInfo)}

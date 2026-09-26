@@ -16,6 +16,7 @@ import type {
   IEOneKeyDeepLinkParams,
 } from '../consts/deeplinkConsts';
 import type { WalletKitTypes } from '@reown/walletkit';
+import type { Verify } from '@walletconnect/types';
 
 const DOMAIN_REGEXP =
   /(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z0-9][a-z0-9-]{0,61}[a-z0-9]/;
@@ -757,10 +758,14 @@ function safeGetWalletConnectOrigin(proposal: WalletKitTypes.SessionProposal) {
   }
 }
 
-function safeGetWalletConnectVerifiedOrigin(
-  proposal: WalletKitTypes.SessionProposal,
-) {
-  const verified = proposal.verifyContext?.verified;
+function safeGetWalletConnectVerifiedOrigin({
+  verifyContext,
+  claimedOrigin,
+}: {
+  verifyContext?: Verify.Context;
+  claimedOrigin?: string | null;
+}) {
+  const verified = verifyContext?.verified;
   // UNKNOWN may contain metadata.url copied by the SDK, not an attested origin.
   if (verified?.validation !== 'VALID' && verified?.validation !== 'INVALID') {
     return null;
@@ -774,7 +779,7 @@ function safeGetWalletConnectVerifiedOrigin(
     // different source (for example, a failed link-mode validation).
     if (
       verified.validation === 'INVALID' &&
-      url.origin === safeGetWalletConnectOrigin(proposal)
+      (!claimedOrigin || url.origin === new URL(claimedOrigin).origin)
     ) {
       return null;
     }

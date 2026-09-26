@@ -7,6 +7,7 @@ import { Icon, Image, SizableText, XStack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import type { IDappSourceInfo } from '@onekeyhq/shared/types';
 import {
   EHostSecurityLevel,
   type IHostSecurity,
@@ -22,17 +23,22 @@ function shouldHideDAppSiteRiskStyle(urlSecurityInfo?: IHostSecurity) {
 }
 
 function DAppSiteMarkInner({
-  origin,
+  origin: requestOrigin,
+  sourceInfo,
   urlSecurityInfo,
   favicon,
   hideRiskStyle,
 }: {
   origin: string;
+  sourceInfo?: IDappSourceInfo;
   urlSecurityInfo?: IHostSecurity;
   favicon?: string; // for WalletConnect
   hideRiskStyle?: boolean;
 }) {
   const intl = useIntl();
+  const origin = sourceInfo?.isWalletConnectRequest
+    ? (sourceInfo.displayOrigin ?? '')
+    : requestOrigin;
   const content = useMemo(() => {
     try {
       return new URL(origin).host;
@@ -46,6 +52,7 @@ function DAppSiteMarkInner({
         ? backgroundApiProxy.serviceDiscovery.buildWebsiteIconUrl(origin)
         : undefined,
     [origin],
+    { undefinedResultIfReRun: true },
   );
   const riskyStyle = useMemo<{
     textColor: string;
@@ -102,7 +109,11 @@ function DAppSiteMarkInner({
           bg="$bgSubdued"
           borderRadius={6}
           borderCurve="continuous"
-          source={{ uri: favicon || faviconUri }}
+          source={{
+            uri: sourceInfo?.isWalletConnectRequest
+              ? faviconUri
+              : favicon || faviconUri,
+          }}
           fallback={
             <Image.Fallback>
               <Icon size="$5" name="GlobusOutline" color="$iconSubdued" />

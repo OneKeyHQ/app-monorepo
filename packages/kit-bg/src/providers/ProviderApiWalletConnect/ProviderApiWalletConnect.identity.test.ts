@@ -5,6 +5,7 @@ import { RuntimeEnvironment } from '@onekeyhq/shared/src/travelMode/runtimeEnvir
 import { getTravelModeRuntimeProfile } from '@onekeyhq/shared/src/travelMode/runtimeProfile';
 import accountSelectorUtils from '@onekeyhq/shared/src/utils/accountSelectorUtils';
 import { EWalletConnectSessionEvents } from '@onekeyhq/shared/src/walletConnect/types';
+import type { IDappSourceInfo } from '@onekeyhq/shared/types';
 import type { IConnectionAccountInfo } from '@onekeyhq/shared/types/dappConnection';
 
 import { SimpleDbEntityDappConnection } from '../../dbs/simple/entity/SimpleDbEntityDappConnection';
@@ -16,13 +17,14 @@ import { WalletConnectRequestProxy } from './WalletConnectRequestProxy';
 import type { IBackgroundApi } from '../../apis/IBackgroundApi';
 import type { IDappConnectionData } from '../../dbs/simple/entity/SimpleDbEntityDappConnection';
 import type { IWalletKit, WalletKitTypes } from '@reown/walletkit';
+import type { Verify } from '@walletconnect/types';
 
 let mockStored = '';
 let mockWriteQueue = Promise.resolve();
 
 jest.mock('@onekeyhq/shared/src/logger/logger', () => ({
   defaultLogger: {
-    discovery: { dapp: { dappUse: jest.fn() } },
+    discovery: { dapp: { dappUse: jest.fn(), dappOpenModal: jest.fn() } },
   },
 }));
 jest.mock('../../dbs/simple/base/SimpleDbEntityBase', () => ({
@@ -549,4 +551,117 @@ describe('WalletConnect topic isolation', () => {
       }),
     );
   });
+});
+
+describe('WalletConnect signing prompt identity', () => {
+  const verifyContext = (
+    validation: Verify.Context['verified']['validation'],
+    origin = claimedOrigin,
+  ): Verify.Context => ({
+    verified: { validation, origin, verifyUrl: '' },
+  });
+
+  it.each([
+    ['UNKNOWN', verifyContext('UNKNOWN'), ''],
+    ['missing context', undefined, ''],
+    ['missing verified', {} as Verify.Context, ''],
+    ['empty origin', verifyContext('VALID', ''), ''],
+    ['malformed origin', verifyContext('VALID', 'not a URL'), ''],
+    ['VALID', verifyContext('VALID', `${claimedOrigin}/path`), claimedOrigin],
+    ['INVALID copied metadata', verifyContext('INVALID'), ''],
+    [
+      'INVALID attested mismatch',
+      verifyContext('INVALID', 'https://actual.example/path'),
+      'https://actual.example',
+    ],
+  ] as const)(
+    'carries only the SDK-attested display identity to serialized signing UI: %s',
+    async (_name, context, expectedDisplayOrigin) => {
+      let sourceInfo: IDappSourceInfo | undefined;
+      let resolveModal: (value: unknown) => void = () => undefined;
+      const service = new ServiceDApp({
+        backgroundApi: {
+          servicePromise: {
+            createCallback: ({
+              resolve,
+            }: {
+              resolve: (value: unknown) => void;
+            }) => {
+              resolveModal = resolve;
+              return 'test-callback';
+            },
+          },
+        },
+      });
+      jest
+        .spyOn(service, 'tryOpenExistingExtensionWindow')
+        .mockImplementation(() => undefined);
+      jest
+        .spyOn(service, '_openModalByRouteParamsDebounced')
+        .mockImplementation(({ routeParams }) => {
+          sourceInfo = (
+            JSON.parse(routeParams.query) as { $sourceInfo: IDappSourceInfo }
+          ).$sourceInfo;
+          resolveModal('ok');
+          return undefined;
+        });
+      const provider = new ProviderApiWalletConnect({
+        backgroundApi: {
+          handleProviderMethods: async (
+            request: Parameters<ServiceDApp['openModal']>[0]['request'],
+          ) => ({
+            result: await service.openModal({
+              request,
+              screens: ['SignatureConfirm', 'MessageConfirm'],
+            }),
+          }),
+        },
+      });
+      provider.web3Wallet = {
+        getActiveSessions: () => ({
+          'sdk-topic': {
+            peer: { metadata: { url: `${claimedOrigin}/metadata-path` } },
+          },
+        }),
+      } as unknown as IWalletKit;
+      class SigningRequestProxy extends WalletConnectRequestProxy {
+        override providerName = IInjectedProviderNames.ethereum;
+      }
+      const proxy = new SigningRequestProxy({ client: provider });
+      const request = {
+        id: 1,
+        topic: 'sdk-topic',
+        params: {
+          chainId: 'eip155:1',
+          request: { method: 'personal_sign', params: [] },
+        },
+        verifyContext: context,
+      } as WalletKitTypes.SessionRequest;
+      await proxy.request(
+        { sessionRequest: request },
+        {
+          method: 'personal_sign',
+          params: [],
+          walletConnectTopic: 'forged-topic',
+          walletConnectDisplayOrigin: 'https://forged.example',
+          walletConnectVerifyContext: verifyContext(
+            'VALID',
+            'https://forged.example',
+          ),
+        },
+      );
+      expect(sourceInfo).toEqual(
+        expect.objectContaining({
+          displayOrigin: expectedDisplayOrigin,
+          isWalletConnectRequest: true,
+          walletConnectTopic: 'sdk-topic',
+        }),
+      );
+      expect(sourceInfo?.walletConnectVerifyContext).toEqual(context);
+      expect(sourceInfo?.origin).toBe(
+        provider.getDAppOrigin({ sessionRequest: request }),
+      );
+      jest.restoreAllMocks();
+    },
+  );
 });

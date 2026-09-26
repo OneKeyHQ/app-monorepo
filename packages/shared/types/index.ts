@@ -7,6 +7,8 @@ import type { Verify } from '@walletconnect/types';
 export type IDappSourceInfo = {
   id: string | number; // ServicePromise callback id to reject/resolve
   origin: string;
+  // Display-only identity derived from the current WalletConnect request.
+  displayOrigin?: string;
   hostname: string;
   scope: IInjectedProviderNamesStrings;
   data: IJsonRpcRequest;

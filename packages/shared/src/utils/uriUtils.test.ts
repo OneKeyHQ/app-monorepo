@@ -16,6 +16,13 @@ import uriUtils, {
 
 import type { WalletKitTypes } from '@reown/walletkit';
 
+function getVerifiedOrigin(proposal: WalletKitTypes.SessionProposal) {
+  return uriUtils.safeGetWalletConnectVerifiedOrigin({
+    verifyContext: proposal.verifyContext,
+    claimedOrigin: uriUtils.safeGetWalletConnectOrigin(proposal),
+  });
+}
+
 describe('WalletConnect proposal identity', () => {
   function proposal(
     validation: 'VALID' | 'INVALID' | 'UNKNOWN',
@@ -52,7 +59,7 @@ describe('WalletConnect proposal identity', () => {
 
   it('uses the verified web origin, without URL credentials, path or query', () => {
     expect(
-      uriUtils.safeGetWalletConnectVerifiedOrigin(
+      getVerifiedOrigin(
         proposal('VALID', 'https://user:password@dapp.example:8443/path?q=1'),
       ),
     ).toBe('https://dapp.example:8443');
@@ -60,30 +67,24 @@ describe('WalletConnect proposal identity', () => {
 
   it('shows the attested source on mismatch without changing session identity', () => {
     const request = proposal('INVALID', 'https://actual.example');
-    expect(uriUtils.safeGetWalletConnectVerifiedOrigin(request)).toBe(
-      'https://actual.example',
-    );
+    expect(getVerifiedOrigin(request)).toBe('https://actual.example');
     expect(uriUtils.safeGetWalletConnectOrigin(request)).toBe(
       'https://help.onekey.so',
     );
   });
 
   it('does not trust the metadata URL copied into an UNKNOWN context', () => {
-    expect(
-      uriUtils.safeGetWalletConnectVerifiedOrigin(proposal('UNKNOWN')),
-    ).toBeNull();
+    expect(getVerifiedOrigin(proposal('UNKNOWN'))).toBeNull();
   });
 
   it('does not treat an INVALID context retaining metadata as attested', () => {
-    expect(
-      uriUtils.safeGetWalletConnectVerifiedOrigin(proposal('INVALID')),
-    ).toBeNull();
+    expect(getVerifiedOrigin(proposal('INVALID'))).toBeNull();
   });
 
   it('does not recover identity from metadata when verification is missing', () => {
     const request = proposal('VALID');
     Reflect.deleteProperty(request, 'verifyContext');
-    expect(uriUtils.safeGetWalletConnectVerifiedOrigin(request)).toBeNull();
+    expect(getVerifiedOrigin(request)).toBeNull();
   });
 
   it.each([
@@ -95,9 +96,7 @@ describe('WalletConnect proposal identity', () => {
     'file:///tmp/site',
     'data:text/plain,site',
   ])('rejects a non-web or malformed verified origin: %s', (origin) => {
-    expect(
-      uriUtils.safeGetWalletConnectVerifiedOrigin(proposal('VALID', origin)),
-    ).toBeNull();
+    expect(getVerifiedOrigin(proposal('VALID', origin))).toBeNull();
   });
 });
 

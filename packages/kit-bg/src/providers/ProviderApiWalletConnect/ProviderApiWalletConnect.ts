@@ -223,7 +223,10 @@ class ProviderApiWalletConnect {
       await serviceDApp.saveConnectionSession({
         origin,
         displayOrigin:
-          uriUtils.safeGetWalletConnectVerifiedOrigin(proposal) ?? '',
+          uriUtils.safeGetWalletConnectVerifiedOrigin({
+            verifyContext: proposal.verifyContext,
+            claimedOrigin: origin,
+          }) ?? '',
         accountsInfo: result.accountsInfo,
         storageType: 'walletConnect',
         walletConnectTopic: newSession?.topic,

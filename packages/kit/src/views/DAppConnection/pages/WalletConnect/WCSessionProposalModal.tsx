@@ -40,7 +40,10 @@ function SessionProposalModal() {
     closeWindowAfterResolved: true,
   });
   const origin = uriUtils.safeGetWalletConnectOrigin(proposal);
-  const verifiedOrigin = uriUtils.safeGetWalletConnectVerifiedOrigin(proposal);
+  const verifiedOrigin = uriUtils.safeGetWalletConnectVerifiedOrigin({
+    verifyContext: proposal.verifyContext,
+    claimedOrigin: origin,
+  });
   const verifyContext = useMemo<Verify.Context>(() => {
     let validation = proposal.verifyContext?.verified?.validation ?? 'UNKNOWN';
     if (!verifiedOrigin && validation !== 'INVALID') {
