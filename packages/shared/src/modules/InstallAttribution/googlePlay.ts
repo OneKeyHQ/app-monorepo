@@ -159,6 +159,10 @@ function isRecentInstall(installationTime: Date): boolean {
  * CONTRACT (`installInviteCodeCapture.ts`); do not drop it or read the
  * referrer before it.
  *
+ * `isKnownFreshInstall` skips the check for an install an earlier launch
+ * already judged fresh and left pending: an app update since then moves the
+ * last update time, but it is still the same fresh install being retried.
+ *
  * Deliberately separate from `reportGooglePlayInstallAttribution`: that one is
  * an analytics one-shot gated on a 7-day install-age window, while an invite
  * code stays useful for much longer and must survive until it is bound or
@@ -166,6 +170,7 @@ function isRecentInstall(installationTime: Date): boolean {
  */
 export async function readGooglePlayInviteCodeAttribution(
   source: IInstallAttributionSource = createInstallAttributionSource(),
+  { isKnownFreshInstall = false }: { isKnownFreshInstall?: boolean } = {},
 ): Promise<{
   code: string | undefined;
   installedAt: number;
@@ -176,7 +181,10 @@ export async function readGooglePlayInviteCodeAttribution(
     source.getInstallationTime(),
     source.getLastUpdateTime(),
   ]);
-  if (lastUpdateTime.getTime() > installationTime.getTime()) {
+  if (
+    !isKnownFreshInstall &&
+    lastUpdateTime.getTime() > installationTime.getTime()
+  ) {
     return {
       code: undefined,
       installedAt: installationTime.getTime(),

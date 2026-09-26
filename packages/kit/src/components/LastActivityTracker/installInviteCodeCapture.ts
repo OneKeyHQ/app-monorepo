@@ -41,9 +41,12 @@ export type IInstallInviteCodeReadResult = {
  * 3. After the first definitive answer the persisted resolved flag
  *    short-circuits every later launch before `read` is called, so later
  *    launches cost one local read. The only retry is a fresh Android install
- *    whose Play referrer came back empty inside Play's serving window.
- * 4. Dialogs never block on this. They poll a bounded time for a capture still
- *    in flight (`readInstallReferralAutoFillCode`) and refresh when it lands.
+ *    whose Play referrer came back empty inside Play's serving window; it is
+ *    remembered as fresh (`isKnownFreshInstall`) so an app update before the
+ *    retry cannot turn it into an "existing install".
+ * 4. Dialogs never block on this. They join this launch's capture attempt for
+ *    a bounded time (`readInstallReferralAutoFillCode`) and read once more
+ *    when it settles; they never poll the persisted flag.
  *
  * `read` resolving `undefined` means the platform cannot answer yet (e.g. an
  * older native build without the reader), which leaves the capture pending.
@@ -53,15 +56,18 @@ export async function captureInstallInviteCode({
   read,
 }: {
   source: EInviteCodeAttributionSource;
-  read: () => Promise<IInstallInviteCodeReadResult | undefined>;
+  read: (params: {
+    /** An earlier launch judged this install fresh and left it pending. */
+    isKnownFreshInstall: boolean;
+  }) => Promise<IInstallInviteCodeReadResult | undefined>;
 }): Promise<void> {
   try {
-    const isAlreadyResolved =
-      await backgroundApiProxy.serviceReferralCode.isInstallReferralCaptureResolved();
+    const { isResolved: isAlreadyResolved, isPendingFreshInstall } =
+      await backgroundApiProxy.serviceReferralCode.getInstallReferralCaptureState();
     if (isAlreadyResolved) {
       return;
     }
-    const result = await read();
+    const result = await read({ isKnownFreshInstall: isPendingFreshInstall });
     if (!result) {
       return;
     }

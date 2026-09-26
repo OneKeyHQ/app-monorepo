@@ -65,6 +65,14 @@ export interface IReferralCodeData {
    * anything else that clears it re-opens the capture on the next launch.
    */
   installReferralCaptureResolved?: boolean;
+  /**
+   * Set when a launch judged this installation fresh but left the capture
+   * pending (an empty Play referrer inside Play's serving window). A later app
+   * update separates Play's install and update timestamps, so without this the
+   * retry would mistake the same fresh install for an upgraded one and give up
+   * on a real referral. Cleared once the capture resolves.
+   */
+  installReferralPendingFreshInstall?: boolean;
 }
 
 export class SimpleDbEntityReferralCode extends SimpleDbEntityBase<IReferralCodeData> {
@@ -233,6 +241,7 @@ export class SimpleDbEntityReferralCode extends SimpleDbEntityBase<IReferralCode
         ...rawData,
         installReferral: consumedAt ? { ...record, consumedAt } : record,
         installReferralCaptureResolved: true,
+        installReferralPendingFreshInstall: undefined,
         pendingBoundReferralCodes: undefined,
       } as IReferralCodeData;
     });
@@ -260,6 +269,28 @@ export class SimpleDbEntityReferralCode extends SimpleDbEntityBase<IReferralCode
     return rawData?.installReferralCaptureResolved ?? false;
   }
 
+  async getInstallReferralCaptureState(): Promise<{
+    isResolved: boolean;
+    isPendingFreshInstall: boolean;
+  }> {
+    const rawData = await this.getRawData();
+    return {
+      isResolved: rawData?.installReferralCaptureResolved ?? false,
+      isPendingFreshInstall:
+        rawData?.installReferralPendingFreshInstall ?? false,
+    };
+  }
+
+  async markInstallReferralPendingFreshInstall() {
+    return this.setRawData(
+      (rawData) =>
+        ({
+          ...rawData,
+          installReferralPendingFreshInstall: true,
+        }) as IReferralCodeData,
+    );
+  }
+
   /**
    * Records that the native capture finished without yielding a usable code
    * (organic install, ad-tagged referrer, or no Play Store). Stops later
@@ -271,6 +302,7 @@ export class SimpleDbEntityReferralCode extends SimpleDbEntityBase<IReferralCode
         ({
           ...rawData,
           installReferralCaptureResolved: true,
+          installReferralPendingFreshInstall: undefined,
           pendingBoundReferralCodes: undefined,
         }) as IReferralCodeData,
     );

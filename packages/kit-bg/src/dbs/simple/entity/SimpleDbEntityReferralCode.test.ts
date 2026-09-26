@@ -132,3 +132,27 @@ describe('SimpleDbEntityReferralCode.markInstallReferralConsumedIfMatches', () =
     ).resolves.toBe(false);
   });
 });
+
+describe('SimpleDbEntityReferralCode pending fresh install', () => {
+  it('is remembered while pending and cleared once a code is stored', async () => {
+    const { entity, getStored } = createEntity({ myReferralCode: '' });
+
+    await entity.markInstallReferralPendingFreshInstall();
+    expect(getStored()?.installReferralPendingFreshInstall).toBe(true);
+
+    await entity.setInstallReferral(buildRecord());
+    expect(getStored()?.installReferralPendingFreshInstall).toBeUndefined();
+    expect(getStored()?.installReferralCaptureResolved).toBe(true);
+  });
+
+  it('is cleared when the capture resolves without a code', async () => {
+    const { entity, getStored } = createEntity({
+      myReferralCode: '',
+      installReferralPendingFreshInstall: true,
+    });
+
+    await entity.markInstallReferralCaptureResolved();
+    expect(getStored()?.installReferralPendingFreshInstall).toBeUndefined();
+    expect(getStored()?.installReferralCaptureResolved).toBe(true);
+  });
+});

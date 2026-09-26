@@ -4,14 +4,21 @@ const mockCreateSource = jest.fn(() => ({
   getLastUpdateTime: jest.fn(),
 }));
 const mockReport = jest.fn(async (_source: unknown) => {});
-const mockReadInviteCode = jest.fn(async (_source: unknown) => ({
-  code: 'ABC123',
-  installedAt: 1_757_318_400_000,
-  hasReferrer: true,
-}));
+const mockReadInviteCode = jest.fn(
+  async (_source: unknown, _options: unknown) => ({
+    code: 'ABC123',
+    installedAt: 1_757_318_400_000,
+    hasReferrer: true,
+  }),
+);
 const mockCaptureInstallInviteCode = jest.fn(
-  async ({ read }: { source: string; read: () => Promise<unknown> }) => {
-    await read();
+  async ({
+    read,
+  }: {
+    source: string;
+    read: (params: { isKnownFreshInstall: boolean }) => Promise<unknown>;
+  }) => {
+    await read({ isKnownFreshInstall: false });
   },
 );
 
@@ -53,6 +60,8 @@ describe('Google Play install attribution startup', () => {
       typeof mockCreateSource
     >;
     expect(mockReport).toHaveBeenCalledWith(source);
-    expect(mockReadInviteCode).toHaveBeenCalledWith(source);
+    expect(mockReadInviteCode).toHaveBeenCalledWith(source, {
+      isKnownFreshInstall: false,
+    });
   });
 });

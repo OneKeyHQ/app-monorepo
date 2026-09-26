@@ -1,4 +1,7 @@
-const mockIsResolved = jest.fn(async () => false);
+const mockGetCaptureState = jest.fn(async () => ({
+  isResolved: false,
+  isPendingFreshInstall: false,
+}));
 const mockResolve = jest.fn(async (_params: unknown) => ({
   isResolved: true,
   hasCode: true,
@@ -10,7 +13,7 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
   __esModule: true,
   default: {
     serviceReferralCode: {
-      isInstallReferralCaptureResolved: mockIsResolved,
+      getInstallReferralCaptureState: mockGetCaptureState,
       resolveInstallReferral: mockResolve,
       markInstallReferralCaptureResolved: mockMarkResolved,
     },
@@ -72,7 +75,10 @@ describe('captureInstallInviteCode', () => {
   });
 
   it('skips the read once a previous launch resolved the capture', async () => {
-    mockIsResolved.mockResolvedValueOnce(true);
+    mockGetCaptureState.mockResolvedValueOnce({
+      isResolved: true,
+      isPendingFreshInstall: false,
+    });
     const read = jest.fn();
 
     await captureInstallInviteCode({
@@ -81,5 +87,20 @@ describe('captureInstallInviteCode', () => {
     });
 
     expect(read).not.toHaveBeenCalled();
+  });
+
+  it('tells the reader when an earlier launch judged this install fresh', async () => {
+    mockGetCaptureState.mockResolvedValueOnce({
+      isResolved: false,
+      isPendingFreshInstall: true,
+    });
+    const read = jest.fn(async () => undefined);
+
+    await captureInstallInviteCode({
+      source: 'androidInstallReferrer' as never,
+      read,
+    });
+
+    expect(read).toHaveBeenCalledWith({ isKnownFreshInstall: true });
   });
 });

@@ -50,10 +50,12 @@ export function prefetchInstallInviteCode(): Promise<void> {
   }
   inviteCodeCaptureTask ??= captureInstallInviteCode({
     source: EInviteCodeAttributionSource.androidInstallReferrer,
-    read: async () => {
+    read: async ({ isKnownFreshInstall }) => {
       const { googlePlay, source } = await getStartupContext();
       const { code, installedAt, hasReferrer, isExistingInstall } =
-        await googlePlay.readGooglePlayInviteCodeAttribution(source);
+        await googlePlay.readGooglePlayInviteCodeAttribution(source, {
+          isKnownFreshInstall,
+        });
       return {
         code,
         attributedAt: installedAt,

@@ -262,6 +262,26 @@ describe('readGooglePlayInviteCodeAttribution', () => {
     expect(getInstallReferrerMock).not.toHaveBeenCalled();
   });
 
+  it('keeps retrying a fresh install left pending across a later app update', async () => {
+    const installedAt = new Date('2026-09-01T00:00:00.000Z');
+    getInstallationTimeMock.mockResolvedValue(installedAt);
+    getLastUpdateTimeMock.mockResolvedValue(
+      new Date('2026-09-20T00:00:00.000Z'),
+    );
+    getInstallReferrerMock.mockResolvedValue('ref_code=ABC123');
+
+    await expect(
+      readGooglePlayInviteCodeAttribution(undefined, {
+        isKnownFreshInstall: true,
+      }),
+    ).resolves.toEqual({
+      code: 'ABC123',
+      installedAt: installedAt.getTime(),
+      hasReferrer: true,
+      isExistingInstall: false,
+    });
+  });
+
   it('returns the code and the install timestamp', async () => {
     const installedAt = new Date('2026-01-02T03:04:05.000Z');
     getInstallReferrerMock.mockResolvedValue(

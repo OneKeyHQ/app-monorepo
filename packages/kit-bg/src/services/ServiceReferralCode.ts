@@ -914,6 +914,10 @@ class ServiceReferralCode extends ServiceBase {
       });
       if (isResolved) {
         await this.backgroundApi.simpleDb.referralCode.markInstallReferralCaptureResolved();
+      } else {
+        // Only a fresh install reaches this branch; remember that, so the
+        // retry survives an app update in between.
+        await this.backgroundApi.simpleDb.referralCode.markInstallReferralPendingFreshInstall();
       }
       // `isResolved: false` means the capture is left pending and will be
       // retried on the next cold start — callers must not report it as done.
@@ -927,6 +931,11 @@ class ServiceReferralCode extends ServiceBase {
       ttlDays: INSTALL_REFERRER_TTL_DAYS,
     });
     return { isResolved: true, hasCode: true };
+  }
+
+  @backgroundMethod()
+  async getInstallReferralCaptureState() {
+    return this.backgroundApi.simpleDb.referralCode.getInstallReferralCaptureState();
   }
 
   @backgroundMethod()

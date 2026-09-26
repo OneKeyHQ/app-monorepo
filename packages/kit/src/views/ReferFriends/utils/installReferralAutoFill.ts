@@ -1,41 +1,18 @@
-import { NativeModules } from 'react-native';
-
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
-
-const CAPTURE_POLL_INTERVAL_MS = 300;
+import { prefetchInstallInviteCode } from '@onekeyhq/kit/src/components/LastActivityTracker/installAttribution';
 
 /**
- * Whether this runtime runs a startup capture whose "not read yet" can still
- * turn into a code: the Android Google Play build (Play referrer) and iOS
- * builds whose native module can read the App Clip handoff. Everywhere else
- * the first answer is final.
+ * The install-referrer invite code eligible for auto-fill, waiting out this
+ * launch's startup capture if it is still in flight.
  *
- * Decided on the UI runtime deliberately — the same one
- * `installAttribution.*.ts` uses to decide whether to capture at all.
- * `platformEnv` is evaluated again in `bg`, where the native channel probe
- * can fall back and disagree.
- */
-function hasPendingInstallReferralCapture(): boolean {
-  if (platformEnv.isNativeAndroidGooglePlay) {
-    return true;
-  }
-  return (
-    Boolean(platformEnv.isNativeIOS) &&
-    typeof NativeModules.AppClipAttribution?.readInviteCode === 'function'
-  );
-}
-
-/**
- * The install-referrer invite code eligible for auto-fill, waiting out a
- * startup capture that is still in flight.
- *
- * The capture runs as an independent startup task, so a dialog opened during
- * a fresh install's first seconds can ask before the code has landed.
- * `isCaptureResolved` distinguishes "no code for this install" from "not read
- * yet"; only the latter is worth waiting on — bounded by `timeoutMs`, and only
- * while `isActive()` holds (e.g. the dialog is still mounted).
+ * A dialog opened during a fresh install's first seconds can ask before the
+ * code has landed, so it joins this launch's capture attempt
+ * (`prefetchInstallInviteCode`, shared and started at app start) and reads
+ * once more after it settles. It deliberately does not poll the persisted
+ * "resolved" flag: a capture can stay pending across launches (an empty Play
+ * referrer is retried on the next cold start), and nothing in this launch
+ * will change it once the attempt has settled. Bounded by `timeoutMs`; the
+ * dialog stays usable throughout.
  */
 export async function readInstallReferralAutoFillCode({
   timeoutMs,
@@ -44,21 +21,23 @@ export async function readInstallReferralAutoFillCode({
   timeoutMs: number;
   isActive: () => boolean;
 }): Promise<string | undefined> {
-  let state =
+  const state =
     await backgroundApiProxy.serviceReferralCode.getInstallReferralAutoFill();
-  if (!hasPendingInstallReferralCapture()) {
+  if (state.code || state.isCaptureResolved) {
     return state.code;
   }
-  const deadline = Date.now() + timeoutMs;
-  while (
-    !state.code &&
-    !state.isCaptureResolved &&
-    isActive() &&
-    Date.now() < deadline
-  ) {
-    await timerUtils.wait(CAPTURE_POLL_INTERVAL_MS);
-    state =
-      await backgroundApiProxy.serviceReferralCode.getInstallReferralAutoFill();
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const outcome = await Promise.race([
+    prefetchInstallInviteCode().then(() => 'settled' as const),
+    new Promise<'timeout'>((resolve) => {
+      timer = setTimeout(() => resolve('timeout'), timeoutMs);
+    }),
+  ]);
+  clearTimeout(timer);
+  if (outcome === 'timeout' || !isActive()) {
+    return undefined;
   }
-  return state.code;
+  const settled =
+    await backgroundApiProxy.serviceReferralCode.getInstallReferralAutoFill();
+  return settled.code;
 }

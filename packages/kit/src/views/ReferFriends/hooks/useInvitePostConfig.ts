@@ -7,6 +7,11 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import type { IInvitePostConfig } from '@onekeyhq/shared/src/referralCode/type';
 
+const DISABLED_STATE: {
+  postConfig: IInvitePostConfig | undefined;
+  isSettled: boolean;
+} = { postConfig: undefined, isSettled: false };
+
 /**
  * The invite post-config: rebate rates and localized campaign copy.
  *
@@ -18,8 +23,8 @@ import type { IInvitePostConfig } from '@onekeyhq/shared/src/referralCode/type';
  * config reaches this hook through `ReferralPostConfigUpdated`, so a mounted
  * screen moves off the stale copy without issuing a request of its own.
  *
- * `postConfig` is `undefined` while loading, while `enabled` is false, and if
- * the request fails. `isSettled` turns true once the read has finished either
+ * `postConfig` is `undefined` while loading, whenever `enabled` is false (also
+ * after it was true), and if the request fails. `isSettled` turns true once the read has finished either
  * way, so a caller can tell "not answered yet" from "answered with nothing".
  *
  * Built on a plain effect rather than `usePromiseResult`, which reads route
@@ -77,5 +82,7 @@ export function useInvitePostConfig({
     };
   }, [enabled]);
 
-  return state;
+  // A disabled caller must not keep showing a rebate read while it was
+  // enabled.
+  return enabled ? state : DISABLED_STATE;
 }

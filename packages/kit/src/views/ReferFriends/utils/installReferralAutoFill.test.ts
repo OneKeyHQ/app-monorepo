@@ -1,16 +1,5 @@
 const mockGetInstallReferralAutoFill = jest.fn();
-const mockWait = jest.fn(async (_ms: number) => {});
-const mockPlatformEnv: {
-  isNativeAndroidGooglePlay?: boolean;
-  isNativeIOS?: boolean;
-} = {};
-const mockNativeModules: {
-  AppClipAttribution?: { readInviteCode?: () => Promise<unknown> };
-} = {};
-
-jest.mock('react-native', () => ({
-  NativeModules: mockNativeModules,
-}));
+const mockPrefetch = jest.fn(async () => {});
 
 jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
   __esModule: true,
@@ -21,15 +10,12 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
   },
 }));
 
-jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
-  __esModule: true,
-  default: mockPlatformEnv,
-}));
-
-jest.mock('@onekeyhq/shared/src/utils/timerUtils', () => ({
-  __esModule: true,
-  default: { wait: mockWait },
-}));
+jest.mock(
+  '@onekeyhq/kit/src/components/LastActivityTracker/installAttribution',
+  () => ({
+    prefetchInstallInviteCode: mockPrefetch,
+  }),
+);
 
 const { readInstallReferralAutoFillCode } = jest.requireActual<
   typeof import('./installReferralAutoFill')
@@ -40,17 +26,13 @@ const pending = { code: undefined, isCaptureResolved: false };
 describe('readInstallReferralAutoFillCode', () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    delete mockPlatformEnv.isNativeAndroidGooglePlay;
-    delete mockPlatformEnv.isNativeIOS;
-    delete mockNativeModules.AppClipAttribution;
   });
 
-  it('picks up a code captured after the dialog opened on Google Play', async () => {
-    mockPlatformEnv.isNativeAndroidGooglePlay = true;
-    mockGetInstallReferralAutoFill
-      .mockResolvedValueOnce(pending)
-      .mockResolvedValueOnce(pending)
-      .mockResolvedValueOnce({ code: 'ABC123', isCaptureResolved: true });
+  it('returns a stored code without joining the capture', async () => {
+    mockGetInstallReferralAutoFill.mockResolvedValue({
+      code: 'ABC123',
+      isCaptureResolved: true,
+    });
 
     await expect(
       readInstallReferralAutoFillCode({
@@ -58,31 +40,35 @@ describe('readInstallReferralAutoFillCode', () => {
         isActive: () => true,
       }),
     ).resolves.toBe('ABC123');
-    expect(mockGetInstallReferralAutoFill).toHaveBeenCalledTimes(3);
+    expect(mockPrefetch).not.toHaveBeenCalled();
   });
 
-  it('picks up a code captured after the dialog opened on iOS', async () => {
-    mockPlatformEnv.isNativeIOS = true;
-    mockNativeModules.AppClipAttribution = {
-      readInviteCode: async () => null,
-    };
+  it('picks up a code captured after the dialog opened', async () => {
+    let finishCapture: (() => void) | undefined;
+    mockPrefetch.mockImplementationOnce(
+      () =>
+        new Promise<void>((resolve) => {
+          finishCapture = resolve;
+        }),
+    );
     mockGetInstallReferralAutoFill
       .mockResolvedValueOnce(pending)
       .mockResolvedValueOnce({ code: 'ABC123', isCaptureResolved: true });
 
-    await expect(
-      readInstallReferralAutoFillCode({
-        timeoutMs: 10_000,
-        isActive: () => true,
-      }),
-    ).resolves.toBe('ABC123');
+    const result = readInstallReferralAutoFillCode({
+      timeoutMs: 10_000,
+      isActive: () => true,
+    });
+    await Promise.resolve();
+    await Promise.resolve();
+    finishCapture?.();
+
+    await expect(result).resolves.toBe('ABC123');
+    expect(mockGetInstallReferralAutoFill).toHaveBeenCalledTimes(2);
   });
 
-  it('stops once the capture resolves without a code', async () => {
-    mockPlatformEnv.isNativeAndroidGooglePlay = true;
-    mockGetInstallReferralAutoFill
-      .mockResolvedValueOnce(pending)
-      .mockResolvedValueOnce({ code: undefined, isCaptureResolved: true });
+  it('answers once this launch attempt settles, even if the capture stays pending', async () => {
+    mockGetInstallReferralAutoFill.mockResolvedValue(pending);
 
     await expect(
       readInstallReferralAutoFillCode({
@@ -90,33 +76,29 @@ describe('readInstallReferralAutoFillCode', () => {
         isActive: () => true,
       }),
     ).resolves.toBeUndefined();
+    expect(mockPrefetch).toHaveBeenCalledTimes(1);
     expect(mockGetInstallReferralAutoFill).toHaveBeenCalledTimes(2);
   });
 
-  it('stops polling once the dialog is gone', async () => {
-    mockPlatformEnv.isNativeAndroidGooglePlay = true;
+  it('gives up at the timeout', async () => {
     mockGetInstallReferralAutoFill.mockResolvedValue(pending);
-    let isActive = true;
-    mockWait.mockImplementationOnce(async () => {
-      isActive = false;
-    });
+    mockPrefetch.mockImplementationOnce(() => new Promise<void>(() => {}));
 
-    await readInstallReferralAutoFillCode({
-      timeoutMs: 10_000,
-      isActive: () => isActive,
-    });
-    expect(mockGetInstallReferralAutoFill).toHaveBeenCalledTimes(2);
-  });
-
-  it('answers at once where no startup capture runs', async () => {
-    mockPlatformEnv.isNativeIOS = true;
-    mockGetInstallReferralAutoFill.mockResolvedValue(pending);
-
-    await readInstallReferralAutoFillCode({
-      timeoutMs: 10_000,
-      isActive: () => true,
-    });
+    await expect(
+      readInstallReferralAutoFillCode({ timeoutMs: 5, isActive: () => true }),
+    ).resolves.toBeUndefined();
     expect(mockGetInstallReferralAutoFill).toHaveBeenCalledTimes(1);
-    expect(mockWait).not.toHaveBeenCalled();
+  });
+
+  it('skips the final read once the dialog is gone', async () => {
+    mockGetInstallReferralAutoFill.mockResolvedValue(pending);
+
+    await expect(
+      readInstallReferralAutoFillCode({
+        timeoutMs: 10_000,
+        isActive: () => false,
+      }),
+    ).resolves.toBeUndefined();
+    expect(mockGetInstallReferralAutoFill).toHaveBeenCalledTimes(1);
   });
 });
