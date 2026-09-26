@@ -231,7 +231,7 @@ function StockPrice({
 
 export function SwapStockMobileHeader() {
   const { status } = useSwapStockPrice('share');
-  const { stockDetail } = useStockDetail();
+  const { isStockDetailLoading, stockDetail } = useStockDetail();
   const selection = useSwapStockSelection();
   const selectedStock =
     selection?.pendingStock ?? selection?.selectedStockPreview;
@@ -240,17 +240,23 @@ export function SwapStockMobileHeader() {
     (selectedStock &&
       stockDetail?.stockId.toUpperCase() ===
         selectedStock.stockId.toUpperCase());
+  const isStatusLoading = Boolean(
+    selection?.stockSelectionPending || (isStockDetailLoading && !stockDetail),
+  );
   return (
     <YStack gap="$2" pb="$5">
       <XStack alignItems="center" justifyContent="space-between" gap="$3">
         <SwapStockTickerSelector />
-        <StockPrice mobile priceMode="share" />
       </XStack>
       <Stack minHeight={20}>
-        <StockMarketStatusBadge
-          stock={showStatus ? status : undefined}
-          variant="inline"
-        />
+        {isStatusLoading ? (
+          <Skeleton width={220} height={20} />
+        ) : (
+          <StockMarketStatusBadge
+            stock={showStatus ? status : undefined}
+            variant="inline"
+          />
+        )}
       </Stack>
     </YStack>
   );
