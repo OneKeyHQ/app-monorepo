@@ -462,6 +462,16 @@ export abstract class VaultBase extends VaultBaseChainOnly {
     return unsignedTx;
   }
 
+  // Override in chain vaults whose tx carries a short-lived field (e.g. the
+  // Solana blockhash) that must be re-stamped right before signing, after
+  // the user confirmed but before hardware PIN/passphrase/confirm can run
+  // the validity window out. Only called for txs the wallet broadcasts.
+  async refreshUnsignedTxBeforeSign(
+    unsignedTx: IUnsignedTxPro,
+  ): Promise<IUnsignedTxPro> {
+    return unsignedTx;
+  }
+
   async buildBulkSendEncodedTxs(_params: {
     transfersInfo: ITransferInfo[];
   }): Promise<{
@@ -1605,6 +1615,18 @@ export abstract class VaultBase extends VaultBaseChainOnly {
   }
 
   async getPendingTxsToUpdate({
+    pendingTxs,
+  }: {
+    pendingTxs: IAccountHistoryTx[];
+  }): Promise<IAccountHistoryTx[]> {
+    return Promise.resolve([]);
+  }
+
+  // Override in chain vaults where a broadcast tx can expire without ever
+  // landing (e.g. Solana blockhash expiry): return the pending txs that the
+  // chain will never confirm so history marks them dropped instead of
+  // keeping them in the pending bucket until the user clears them.
+  async getDroppedPendingTxs({
     pendingTxs,
   }: {
     pendingTxs: IAccountHistoryTx[];

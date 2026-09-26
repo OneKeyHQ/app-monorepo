@@ -198,7 +198,8 @@ function TxActionCommonTitle({
           })}
         </Badge>
       ) : null}
-      {status === EDecodedTxStatus.Failed ? (
+      {status === EDecodedTxStatus.Failed ||
+      status === EDecodedTxStatus.Dropped ? (
         <Badge badgeSize="sm" badgeType="critical" ml="$2">
           {intl.formatMessage({ id: ETranslations.global_failed })}
         </Badge>

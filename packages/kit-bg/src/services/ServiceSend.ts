@@ -480,7 +480,7 @@ class ServiceSend extends ServiceBase {
         stageFeeInfo?: ISendSelectedFeeInfo;
       },
   ) {
-    const { networkId, accountId, unsignedTx, signOnly, stageFeeInfo } = params;
+    const { networkId, accountId, signOnly, stageFeeInfo } = params;
     assertAccountCanSign(accountId);
     const vault = await vaultFactory.getVault({ networkId, accountId });
     const { password, deviceParams } =
@@ -489,6 +489,14 @@ class ServiceSend extends ServiceBase {
         accountId,
         reason: EReasonForNeedPassword.CreateTransaction,
       }));
+    // Re-stamp short-lived tx fields (e.g. the Solana blockhash) as late as
+    // possible: the password prompt above and the hardware PIN/passphrase/
+    // confirm below can outlive the validity window of a dApp- or
+    // server-built tx (OK-63381). Sign-only requests hand the tx back to the
+    // caller, so their payload stays byte-for-byte untouched.
+    const unsignedTx = signOnly
+      ? params.unsignedTx
+      : await vault.refreshUnsignedTxBeforeSign(params.unsignedTx);
     // signTransaction
     const tx =
       await this.backgroundApi.serviceHardwareUI.withHardwareProcessing(
