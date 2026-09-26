@@ -9769,7 +9769,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@onekeyfe/react-native-native-overlay@workspace:packages/react-native-native-overlay":
+"@onekeyfe/react-native-native-overlay@workspace:*, @onekeyfe/react-native-native-overlay@workspace:packages/react-native-native-overlay":
   version: 0.0.0-use.local
   resolution: "@onekeyfe/react-native-native-overlay@workspace:packages/react-native-native-overlay"
   peerDependencies:
@@ -10361,6 +10361,7 @@ __metadata:
   resolution: "@onekeyhq/kit@workspace:packages/kit"
   dependencies:
     "@onekeyfe/react-native-native-list": "npm:3.0.157-alpha.254"
+    "@onekeyfe/react-native-native-overlay": "workspace:*"
     "@onekeyfe/react-native-native-sheet": "npm:3.0.157-alpha.254"
     "@onekeyfe/react-native-text": "npm:3.0.157-alpha.254"
     "@onekeyhq/components": "npm:*"
@@ -10413,6 +10414,7 @@ __metadata:
     "@onekeyfe/react-native-lite-card": "npm:3.0.157-alpha.254"
     "@onekeyfe/react-native-native-list": "npm:3.0.157-alpha.254"
     "@onekeyfe/react-native-native-logger": "npm:3.0.157-alpha.254"
+    "@onekeyfe/react-native-native-overlay": "workspace:*"
     "@onekeyfe/react-native-native-sheet": "npm:3.0.157-alpha.254"
     "@onekeyfe/react-native-network-throttle": "npm:3.0.157-alpha.254"
     "@onekeyfe/react-native-perf-memory": "npm:3.0.157-alpha.254"

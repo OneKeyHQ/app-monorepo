@@ -35,3 +35,9 @@ export {
   springToAndroidSpringForce,
   springToCssLinear,
 } from './animation/spring';
+export { OverlayView } from './OverlayView';
+export type {
+  IOverlayBackdrop,
+  IOverlayRequestDismissReason,
+  IOverlayViewProps,
+} from './OverlayViewTypes';

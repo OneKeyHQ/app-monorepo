@@ -1,7 +1,9 @@
 # react-native-native-overlay SPEC
 
-Status: P0 draft. The JS ordering store and the animation model are
-implemented. The native hosts are specified here and implemented in P1–P3.
+Status: P1. The JS ordering store, the animation model, and the global level
+hosts (center / toast / fullscreen presentations) are implemented on iOS,
+Android, and Web. Sheet, page scope, and anchored presentations follow in
+P2–P5.
 
 This package is developed in `app-monorepo/packages/react-native-native-overlay`
 and moves to `app-modules/native-views/react-native-native-overlay` once
@@ -191,7 +193,7 @@ request ─► queued ─► active ─► (enter anim) presented
 | Page host | Fabric `PageOverlayHost` as the last child of the root-route screen. Custom-drawn sheet, because UIKit sheets cannot be page-scoped. | The same host inside the root-route screen. The ReactRootView already dispatches touches, so no nested RootView. | `position: absolute` host inside the root-route card. |
 | Header / tab bar coverage (page) | Covered: the host is above the tab controller and navigation bars. | Covered. | Covered. |
 | Touch passthrough (toast, debug, box-none) | `hitTest` returns nil on the window or root view. | FrameLayout sibling fall-through. | `pointer-events: none` root, `auto` per entry. |
-| Back / Escape | Escape via `accessibilityPerformEscape`. The interactive pop gesture is disabled while a blocking page overlay is shown. | One `OnBackPressedCallback`, re-added whenever the stack changes. Replaces native-sheet's `KEYCODE_BACK` listener. | Capture-phase `keydown` that ignores IME composition. |
+| Back / Escape | Escape via `accessibilityPerformEscape`. The interactive pop gesture is disabled while a blocking page overlay is shown. | A `Window.Callback` wrapper consumes `KEYCODE_BACK` while a blocking overlay is shown. `ReactActivity.onBackPressed` hands back to JS BackHandler (react-navigation) before the `OnBackPressedDispatcher`, and the app opts out of predictive back, so a dispatcher callback alone never runs first. The dispatcher callback is kept for the predictive-back path. The IME still gets back first to close the keyboard. | Capture-phase `keydown` that ignores IME composition. |
 | Modality / accessibility | `accessibilityViewIsModal` on the blocking level window; `.screenChanged` posted on present. | `IMPORTANT_FOR_ACCESSIBILITY_NO_HIDE_DESCENDANTS` on the content below. | `inert` on the app root and lower layers, `role=dialog`, `aria-modal`, focus trap and restore. |
 | Keyboard | System sheet avoidance; `keyboardLayoutGuide` for custom presentations. The main window regains key status on dismiss. | `WindowInsetsAnimationCompat` per sheet (the app uses `adjustPan`). | `visualViewport`. |
 | Animation engine | `UIViewPropertyAnimator` + `UISpringTimingParameters(mass:stiffness:damping:)`, which maps 1:1 and supports damping ratio > 1. | `SpringAnimation` with `stiffness = k/m` and `dampingRatio`; `PathInterpolator` for timing curves. | WAAPI `element.animate`. Timing presets use `cubic-bezier`; custom springs use `linear()`. |
@@ -277,9 +279,29 @@ Runtime matrix, required per platform before migrating callers (P1–P3):
 8. Split view: page overlays stay in their own pane.
 9. Reduce motion degrades to fade.
 
+P1 implementation map:
+
+| Contract | iOS | Android | Web |
+|---|---|---|---|
+| Level host | `NativeOverlayWindowManager.swift` | `NativeOverlayHost.kt` | `web/overlayLayers.ts` |
+| Entry, hit testing, backdrop | `NativeOverlayEntryView` in `NativeOverlayContainerView.swift` | `NativeOverlayEntryRootView.kt` | `WebOverlayEntry` in `OverlayView.web.tsx` |
+| Enter / exit animation | `NativeOverlayAnimation.swift` (`UIViewPropertyAnimator`) | `NativeOverlayAnimation.kt` (analytic spring interpolator) | `web/animateTransition.ts` (WAAPI) |
+| Store bridge | `useOverlayController.ts` | same | same |
+
 Known gaps:
 
-- Native hosts and `OverlayView` are not implemented yet.
+- Content sizing uses the JS window size (`useWindowDimensions`) instead of a
+  state-driven shadow node. Frames render correctly, but Fabric `measure` /
+  `measureInWindow` inside an overlay still report the staging origin. This
+  must be fixed before anchored presentations (P5) and Spotlight migrate.
+- Toast presentation animates each entry independently; multi-toast stacking
+  (newest below, 8 pt gap, re-stack on height change) lands with the Toast
+  migration (P4).
+- iOS status bar style follows the app window underneath. A full-screen dark
+  overlay on a light app (lock screen) shows dark status bar text; add a
+  `statusBarStyle` prop before the lock screen migrates (P4).
+- The dev package version is a plain `0.1.0`: CocoaPods does not resolve a
+  local podspec whose version has a prerelease suffix.
 - VoiceOver cross-window modality needs on-device verification.
 - Today, native toasts disappear under screen readers
   (`@backpackapp-io/react-native-toast` returns null). The toast host must

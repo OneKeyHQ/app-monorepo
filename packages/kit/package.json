@@ -5,6 +5,7 @@
   "main": "src/index.tsx",
   "dependencies": {
     "@onekeyfe/react-native-native-list": "3.0.157-alpha.254",
+    "@onekeyfe/react-native-native-overlay": "workspace:*",
     "@onekeyfe/react-native-native-sheet": "3.0.157-alpha.254",
     "@onekeyfe/react-native-text": "3.0.157-alpha.254",
     "@onekeyhq/components": "*",
