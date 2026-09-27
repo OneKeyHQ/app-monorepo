@@ -179,6 +179,16 @@ describe('Dust Sweep Provider request and selection ownership', () => {
     });
   });
 
+  it('keeps token toggle identity stable across selection changes', async () => {
+    const { result } = renderController();
+    await waitFor(() => expect(result.current.loadStatus).toBe('ready'));
+    const toggle = result.current.toggle;
+
+    act(() => result.current.toggle(ethereum.tokens[0].key));
+
+    expect(result.current.toggle).toBe(toggle);
+  });
+
   it('preserves the initially selected network when a new threshold changes network ranking', async () => {
     const { result } = renderController();
     await waitFor(() => expect(result.current.loadStatus).toBe('ready'));

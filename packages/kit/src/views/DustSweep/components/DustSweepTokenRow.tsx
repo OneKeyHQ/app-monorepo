@@ -49,7 +49,7 @@ export const DustSweepTokenRow = memo(function DustSweepTokenRow({
   selected?: boolean;
   item?: IDustSweepItem;
   paused?: boolean;
-  onToggle?: () => void;
+  onToggle?: (key: string) => void;
 }) {
   const intl = useIntl();
   const reasonText = intl.formatMessage({
@@ -139,7 +139,7 @@ export const DustSweepTokenRow = memo(function DustSweepTokenRow({
           <Checkbox
             testID={`dust-sweep-select-${token.key}`}
             value={!!selected}
-            onChange={onToggle}
+            onChange={() => onToggle?.(token.key)}
           />
         ) : null}
       </Stack>

@@ -12,10 +12,62 @@ import type {
 
 import { buildDustSweepCandidates } from './candidates';
 
-export async function loadDustSweepNetworks(
+type IDustSweepNetworksResult = {
+  networks: IDustSweepNetwork[];
+  partialError: boolean;
+};
+
+const inFlightLoads = new Map<string, Promise<IDustSweepNetworksResult>>();
+
+function getLoadKey(params: IDustSweepRouteParams) {
+  return [
+    params.walletId,
+    params.accountId ?? '',
+    params.indexedAccountId ?? '',
+    params.networkId ?? '',
+  ].join(':');
+}
+
+function createCancellationError() {
+  return new OneKeyLocalError('Dust Sweep cancelled');
+}
+
+function waitForLoad<T>(promise: Promise<T>, signal: AbortSignal) {
+  if (signal.aborted) return Promise.reject(createCancellationError());
+  return new Promise<T>((resolve, reject) => {
+    let settled = false;
+    let onAbort = () => undefined;
+    const cleanup = () => {
+      signal.removeEventListener('abort', onAbort);
+    };
+    onAbort = () => {
+      if (settled) return;
+      settled = true;
+      cleanup();
+      reject(createCancellationError());
+    };
+    signal.addEventListener('abort', onAbort, { once: true });
+    void promise.then(
+      (value) => {
+        if (settled) return;
+        settled = true;
+        cleanup();
+        resolve(value);
+      },
+      (error: unknown) => {
+        if (settled) return;
+        settled = true;
+        cleanup();
+        reject(error);
+      },
+    );
+  });
+}
+
+async function loadDustSweepNetworksInternal(
   params: IDustSweepRouteParams,
   signal: AbortSignal,
-) {
+): Promise<IDustSweepNetworksResult> {
   if (
     !params.accountId ||
     accountUtils.isWatchingAccount({ accountId: params.accountId }) ||
@@ -115,4 +167,29 @@ export async function loadDustSweepNetworks(
     networks: data,
     partialError: results.some((result) => result.status === 'rejected'),
   };
+}
+
+export function loadDustSweepNetworks(
+  params: IDustSweepRouteParams,
+  signal: AbortSignal,
+) {
+  const key = getLoadKey(params);
+  let load = inFlightLoads.get(key);
+  if (!load) {
+    // Keep the underlying request alive when one page instance unmounts. A
+    // quick re-entry can adopt the same work instead of starting a duplicate
+    // fan-out for every network.
+    const internalController = new AbortController();
+    load = loadDustSweepNetworksInternal(params, internalController.signal);
+    inFlightLoads.set(key, load);
+    void load.then(
+      () => {
+        if (inFlightLoads.get(key) === load) inFlightLoads.delete(key);
+      },
+      () => {
+        if (inFlightLoads.get(key) === load) inFlightLoads.delete(key);
+      },
+    );
+  }
+  return waitForLoad(load, signal);
 }

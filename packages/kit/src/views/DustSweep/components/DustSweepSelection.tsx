@@ -102,7 +102,7 @@ export function DustSweepSelection({ desktop }: { desktop: boolean }) {
                     (item) => item.status === 'waiting',
                   ) === index
                 }
-                onToggle={() => toggle(token.key)}
+                onToggle={toggle}
               />
             ))}
         {selecting && !loading && (loadStatus === 'error' || partialError) ? (

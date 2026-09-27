@@ -44,10 +44,26 @@ function useDustSweepController(params: IDustSweepRouteParams) {
   const hiddenReported = useRef(false);
   const session = useDustSweepSession(networks);
   const selecting = session.state.phase === 'selecting';
+  const loadParams = useMemo(
+    () => ({
+      walletId: params.walletId,
+      accountId: params.accountId,
+      indexedAccountId: params.indexedAccountId,
+      networkId: params.networkId,
+      entry: params.entry,
+    }),
+    [
+      params.accountId,
+      params.entry,
+      params.indexedAccountId,
+      params.networkId,
+      params.walletId,
+    ],
+  );
   useEffect(() => {
     const controller = new AbortController();
     setLoadStatus('loading');
-    void loadDustSweepNetworks(params, controller.signal)
+    void loadDustSweepNetworks(loadParams, controller.signal)
       .then((result) => {
         if (controller.signal.aborted) return;
         setNetworks(result.networks);
@@ -58,7 +74,7 @@ function useDustSweepController(params: IDustSweepRouteParams) {
         if (!controller.signal.aborted) setLoadStatus('error');
       });
     return () => controller.abort();
-  }, [params, refresh]);
+  }, [loadParams, refresh]);
   const orderedNetworks = useMemo(
     () =>
       networks
@@ -154,13 +170,18 @@ function useDustSweepController(params: IDustSweepRouteParams) {
     (key: string) => {
       if (!selecting) return;
       setSelection((value) => {
-        const next = new Set(value ?? selected.map((token) => token.key));
+        const next = new Set(
+          value ??
+            visible
+              .filter((token) => !token.suspicious)
+              .map((token) => token.key),
+        );
         if (next.has(key)) next.delete(key);
         else next.add(key);
         return next;
       });
     },
-    [selecting, selected],
+    [selecting, visible],
   );
   const toggleAll = useCallback(() => {
     if (!selecting) return;
