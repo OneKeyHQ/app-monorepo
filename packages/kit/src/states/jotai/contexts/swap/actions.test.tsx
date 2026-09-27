@@ -1258,6 +1258,70 @@ describe('useSwapActions', () => {
     });
   });
 
+  it('surfaces backend token risk flags as non-blocking swap warnings', async () => {
+    const fromToken = {
+      ...ethToken,
+      price: '100',
+      currency: 'usd',
+    };
+    const toToken = {
+      ...usdcToken,
+      price: '100',
+      currency: 'usd',
+    };
+    const quote = {
+      quoteId: 'quote-risk-warning',
+      fromAmount: '1',
+      toAmount: '1',
+      kind: ESwapQuoteKind.SELL,
+      protocol: EProtocolOfExchange.SWAP,
+      fromTokenInfo: fromToken,
+      toTokenInfo: toToken,
+      honeypot: true,
+      lowLiquidity: true,
+      info: {
+        provider: 'mock',
+        providerName: 'mock',
+      },
+    } as IFetchQuoteResult;
+    const externalAddressInfo = createExternalAddressInfo({
+      address: '0xabc',
+      isAddressInfoReady: true,
+    });
+    const { store, Wrapper } = createWrapperWithStore((storeInstance) => {
+      storeInstance.set(swapSelectFromTokenAtom(), fromToken);
+      storeInstance.set(swapSelectToTokenAtom(), toToken);
+      storeInstance.set(swapFromTokenAmountAtom(), {
+        value: '1',
+        isInput: true,
+      });
+      storeInstance.set(swapQuoteListAtom(), [quote]);
+    });
+    const { result } = renderHook(() => useSwapActions().current, {
+      wrapper: Wrapper,
+    });
+
+    await withMutedConsoleError(async () => {
+      await act(async () => {
+        await result.current.checkSwapWarning(
+          externalAddressInfo,
+          externalAddressInfo,
+        );
+      });
+    });
+
+    expect(store.get(swapAlertsAtom()).states).toEqual([
+      expect.objectContaining({
+        alertLevel: ESwapAlertLevel.WARNING,
+        message: 'token_selector.risk_reminder.message',
+      }),
+      expect.objectContaining({
+        alertLevel: ESwapAlertLevel.WARNING,
+        message: 'swap_page.price_impact_content_2',
+      }),
+    ]);
+  });
+
   it('ignores stale Stock quote limits when the current input amount changed', async () => {
     const quote = {
       quoteId: 'stale-stock-limit-quote',

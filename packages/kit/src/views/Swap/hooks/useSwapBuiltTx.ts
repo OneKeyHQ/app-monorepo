@@ -121,6 +121,7 @@ import {
   useSwapLimitPriceFromAmountAtom,
   useSwapLimitPriceToAmountAtom,
   useSwapProInputAmountAtom,
+  useSwapQuoteActionLockAtom,
   useSwapQuoteEventTotalCountAtom,
   useSwapQuoteListAtom,
   useSwapStepNetFeeLevelAtom,
@@ -317,6 +318,7 @@ export function useSwapBuildTx({
   const { slippageItem } = useSwapSlippagePercentageModeInfo();
   const [, setSwapBuildTxFetching] = useSwapBuildTxFetchingAtom();
   const [, setInAppNotificationAtom] = useInAppNotificationAtom();
+  const [quoteActionLock] = useSwapQuoteActionLockAtom();
   const [swapTypeSwitch] = useSwapTypeSwitchAtom();
   const swapFromAddressInfo = useSwapAddressInfo(ESwapDirectionType.FROM);
   const swapToAddressInfo = useSwapAddressInfo(ESwapDirectionType.TO);
@@ -2651,6 +2653,8 @@ export function useSwapBuildTx({
             protocol: data.protocol ?? EProtocolOfExchange.SWAP,
             kind: data.kind ?? ESwapQuoteKind.SELL,
             walletType: swapFromAddressInfo.accountInfo?.wallet?.type ?? '',
+            deviceType: swapFromAddressInfo.accountInfo?.device?.deviceType,
+            source: quoteActionLock.source,
             tradeSource: getSwapTradeSource({
               protocol: data.protocol,
               isSwapPro: focusSwapPro,
@@ -2988,6 +2992,7 @@ export function useSwapBuildTx({
       checkQuoteBalances,
       swapFromAddressInfo.accountInfo?.wallet?.type,
       swapFromAddressInfo.accountInfo?.device?.deviceType,
+      quoteActionLock.source,
       swapFromAddressInfo.accountInfo?.deriveInfo?.addressEncoding,
       focusSwapPro,
       isFirstTimeSwap,

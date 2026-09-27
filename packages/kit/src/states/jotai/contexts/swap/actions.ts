@@ -2570,6 +2570,44 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         ];
       }
 
+      if (quoteResult?.honeypot) {
+        // eslint-disable-next-line onekey/no-app-locale-main-thread
+        alertsRes = [
+          ...alertsRes,
+          {
+            icon: 'ErrorSolid',
+            // eslint-disable-next-line onekey/no-app-locale-main-thread
+            title: appLocale.intl.formatMessage({
+              id: ETranslations.token_selector_risk_reminder_title,
+            }),
+            // eslint-disable-next-line onekey/no-app-locale-main-thread
+            message: appLocale.intl.formatMessage({
+              id: ETranslations.token_selector_risk_reminder_message,
+            }),
+            alertLevel: ESwapAlertLevel.WARNING,
+          },
+        ];
+      }
+
+      if (quoteResult?.lowLiquidity) {
+        // eslint-disable-next-line onekey/no-app-locale-main-thread
+        alertsRes = [
+          ...alertsRes,
+          {
+            icon: 'ErrorSolid',
+            // eslint-disable-next-line onekey/no-app-locale-main-thread
+            title: appLocale.intl.formatMessage({
+              id: ETranslations.swap_page_price_impact_title,
+            }),
+            // eslint-disable-next-line onekey/no-app-locale-main-thread
+            message: appLocale.intl.formatMessage({
+              id: ETranslations.swap_page_price_impact_content_2,
+            }),
+            alertLevel: ESwapAlertLevel.WARNING,
+          },
+        ];
+      }
+
       // check limit native should wrapped
       if (quoteResult?.shouldWrappedToken) {
         alertsRes = [
