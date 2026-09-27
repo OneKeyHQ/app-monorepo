@@ -19,7 +19,6 @@ import {
 
 import type { IBackgroundApi } from '../../apis/IBackgroundApi';
 import type { IDBDeviceSettings } from '../../dbs/local/types';
-import type { IThirdPartyConnectedDevicePayload } from '../../services/ServiceHardware/adapters/types';
 import type {
   ChainForFingerprint,
   ICommonCallParams,
@@ -73,10 +72,7 @@ export function hasStoredLedgerChainFingerprint(settingsRaw: string): boolean {
 export async function withNewLedgerOperation<T>(
   backgroundApi: IBackgroundApi,
   connectId: string,
-  run: (
-    operationId: string,
-    connectionType?: IThirdPartyConnectedDevicePayload['connectionType'],
-  ) => Promise<T>,
+  run: (operationId: string) => Promise<T>,
   context: ICommonCallParams,
 ): Promise<T> {
   const adapter =
@@ -88,9 +84,9 @@ export async function withNewLedgerOperation<T>(
   if (!connected.success) {
     throw convertThirdPartyDeviceError(connected.payload, { vendor: 'Ledger' });
   }
-  const { operationId, connectionType } = connected.payload;
+  const { operationId } = connected.payload;
   try {
-    return await run(operationId, connectionType);
+    return await run(operationId);
   } finally {
     await adapter.releaseOperation(operationId);
   }
@@ -266,8 +262,6 @@ export async function callLedgerWithFingerprint<T>(
   options?: {
     operationId?: string;
     allowFingerprintBootstrap?: boolean;
-    /** Transport of the operation this call opened itself; unknown otherwise. */
-    connectionType?: IThirdPartyConnectedDevicePayload['connectionType'];
   },
 ): Promise<Response<T>> {
   const ledgerConfig = LEDGER_CONFIG;
@@ -289,38 +283,25 @@ export async function callLedgerWithFingerprint<T>(
       // channel; acquireOperation picks the one matching the live transport.
       // Passing one positionally would be guessing the channel again.
       '',
-      (operationId, connectionType) =>
+      (operationId) =>
         callLedgerWithFingerprint(backgroundApi, dbDevice, chain, fn, {
           ...options,
           operationId,
-          connectionType,
         }),
       thirdPartyConnectionContextFromDevice(dbDevice),
     );
   }
   const connectId = options?.operationId || '';
-  const isNewChain = !deviceId && options?.allowFingerprintBootstrap !== true;
-  if (isNewChain && ledgerConfig.enableCrossChainFingerprintVerification) {
+  if (
+    ledgerConfig.enableCrossChainFingerprintVerification &&
+    !deviceId &&
+    options?.allowFingerprintBootstrap !== true
+  ) {
     const seedMatch = await verifySeedMatch(backgroundApi, dbDevice, connectId);
     if (seedMatch !== 'match') {
       return failure(
         HardwareErrorCode.DeviceMismatch,
         `No trusted ${chain} fingerprint is available and this Ledger could not be verified from another chain. Reconnect the original device and retry.`,
-      );
-    }
-  } else if (
-    isNewChain &&
-    options?.connectionType === 'ble' &&
-    hasStoredLedgerChainFingerprint(dbDevice.settingsRaw)
-  ) {
-    // BLE discovery picks a device, not a seed: before anchoring a new chain
-    // on it, check a chain this wallet already recorded. Nothing checkable
-    // (no stored chain answered) means nothing to verify against.
-    const seedMatch = await verifySeedMatch(backgroundApi, dbDevice, connectId);
-    if (seedMatch === 'mismatch') {
-      return failure(
-        HardwareErrorCode.DeviceMismatch,
-        `This Ledger does not match a chain this wallet already recorded, so ${chain} was not anchored to it. Connect the original device and retry.`,
       );
     }
   }

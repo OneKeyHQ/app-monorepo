@@ -349,57 +349,21 @@ describe('callLedgerWithFingerprint', () => {
       return { run, fn, getChainFingerprint, operationId };
     }
 
-    it('over BLE, checks a recorded chain before anchoring the new one', async () => {
-      const t = setup({
-        connectionType: 'ble',
-        storedEvm: 'stored-evm',
-        evmCheck: 'match',
-      });
-      const result = await t.run();
-      expect(result.success).toBe(true);
-      expect(t.getChainFingerprint).toHaveBeenNthCalledWith(
-        1,
-        t.operationId,
-        'stored-evm',
-        'evm',
-      );
-      expect(t.fn).toHaveBeenCalledTimes(1);
-    });
-
-    it('over BLE, refuses a device whose recorded chain does not match', async () => {
-      const t = setup({
-        connectionType: 'ble',
-        storedEvm: 'stored-evm',
-        evmCheck: 'mismatch',
-      });
-      const result = await t.run();
-      expect(result.success).toBe(false);
-      if (!result.success) {
-        expect(result.payload.code).toBe(HardwareErrorCode.DeviceMismatch);
-      }
-      expect(t.fn).not.toHaveBeenCalled();
-    });
-
-    it('over BLE, proceeds when no recorded chain can be checked', async () => {
-      const t = setup({
-        connectionType: 'ble',
-        storedEvm: 'stored-evm',
-        evmCheck: 'unavailable',
-      });
-      const result = await t.run();
-      expect(result.success).toBe(true);
-      expect(t.fn).toHaveBeenCalledTimes(1);
-    });
-
     it.each([
+      [
+        'BLE, even on a device whose recorded chain would not match',
+        'ble',
+        'stored-evm',
+      ],
       ['BLE with an empty wallet', 'ble', undefined],
       ['USB', 'usb', 'stored-evm'],
     ] as const)(
-      'skips the cross-chain check for %s',
+      'anchors it without a cross-chain check for %s',
       async (_name, connectionType, storedEvm) => {
-        const t = setup({ connectionType, storedEvm, evmCheck: 'match' });
+        const t = setup({ connectionType, storedEvm, evmCheck: 'mismatch' });
         const result = await t.run();
         expect(result.success).toBe(true);
+        expect(t.fn).toHaveBeenCalledTimes(1);
         expect(
           t.getChainFingerprint.mock.calls.some(
             ([, , chain]) => chain === 'evm',

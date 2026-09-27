@@ -96,14 +96,10 @@ describe.each([EHardwareVendor.ledger, EHardwareVendor.trezor])(
         emit(UI_REQUEST.REQUEST_SAVE_DEVICE_BINDING, {
           requestId: `save-${id}`,
           selectionRequestId: id,
+          // Ledger sends no identity: the picked BLE device is the device.
           identity:
             vendor === EHardwareVendor.ledger
-              ? {
-                  vendor,
-                  type: 'chainFingerprint',
-                  chain: 'evm',
-                  value: identity,
-                }
+              ? undefined
               : { vendor, type: 'deviceId', value: identity },
           connection: { transport: 'ble', connectId: 'new' },
           extra: { dbDeviceId: 'db' },
@@ -261,6 +257,14 @@ describe.each([EHardwareVendor.ledger, EHardwareVendor.trezor])(
       'acknowledges only the active matching identity (matches=%s)',
       async (matches) => {
         const { select, status, save, hw } = setup();
+        if (vendor === EHardwareVendor.ledger && !matches) {
+          // Ledger has no identity to compare; only the record's vendor can miss.
+          const device = await db.getDevice('db');
+          db.getDevice.mockResolvedValue({
+            ...device,
+            vendor: EHardwareVendor.trezor,
+          });
+        }
         select('A');
         status('A', 'verifying');
         save('A', matches ? 'verified' : 'wrong');
@@ -278,6 +282,34 @@ describe.each([EHardwareVendor.ledger, EHardwareVendor.trezor])(
         expect(writes).toHaveLength(matches ? 1 : 0);
       },
     );
+
+    it('saves an identity-less request only for Ledger', async () => {
+      const { select, status, hw } = setup();
+      select('A');
+      status('A', 'verifying');
+      hw.on.mock.calls.find(
+        ([type]) => type === UI_REQUEST.REQUEST_SAVE_DEVICE_BINDING,
+      )?.[1]?.({
+        payload: {
+          requestId: 'save-A',
+          selectionRequestId: 'A',
+          connection: { transport: 'ble', connectId: 'new' },
+          extra: { dbDeviceId: 'db' },
+        },
+      });
+      await drain();
+      const isLedger = vendor === EHardwareVendor.ledger;
+      expect(hw.uiResponse).toHaveBeenCalledWith({
+        type: UI_RESPONSE.RECEIVE_SAVE_DEVICE_BINDING,
+        payload: isLedger
+          ? { requestId: 'save-A', saved: true }
+          : { requestId: 'save-A', saved: false, reason: 'skipped' },
+      });
+      expect(
+        db.updateDeviceConnectId.mock.calls.length +
+          db.updateDeviceBleConnectIdAndCleanStaleAliases.mock.calls.length,
+      ).toBe(isLedger ? 1 : 0);
+    });
 
     it('rejects an obsolete save even before its first DB read', async () => {
       const { select, status, save } = setup();

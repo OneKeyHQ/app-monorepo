@@ -434,16 +434,8 @@ class ServiceThirdPartyHardware extends ServiceBase {
     if (vendor === EHardwareVendor.trezor && device.deviceId) {
       identity = { vendor, type: 'deviceId', value: device.deviceId };
     } else if (vendor === EHardwareVendor.ledger) {
-      const chain = (['evm', 'btc', 'sol', 'tron', 'zcash'] as const).find(
-        (candidate) => device.settings?.chainFingerprints?.[candidate],
-      );
-      const value = chain && device.settings?.chainFingerprints?.[chain];
-      if (!chain || !value) {
-        throw new OneKeyLocalError(
-          'Ledger wallet identity is required for Bluetooth binding',
-        );
-      }
-      identity = { vendor, type: 'chainFingerprint', chain, value };
+      // Ledger binds whichever BLE device the user picks.
+      identity = undefined;
     } else {
       throw new OneKeyLocalError({
         message: appLocale.intl.formatMessage({
