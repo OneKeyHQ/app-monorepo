@@ -135,6 +135,8 @@ function useDustSweepController(params: IDustSweepRouteParams) {
       if (!selecting) return;
       setNetworkId(id);
       setSelection(undefined);
+      setIncludeHidden(false);
+      hiddenReported.current = false;
     },
     [selecting],
   );
@@ -143,6 +145,8 @@ function useDustSweepController(params: IDustSweepRouteParams) {
       if (!selecting) return;
       setPreferences((value) => ({ ...value, threshold }));
       setSelection(undefined);
+      setIncludeHidden(false);
+      hiddenReported.current = false;
     },
     [selecting, setPreferences],
   );
@@ -190,6 +194,7 @@ function useDustSweepController(params: IDustSweepRouteParams) {
     session.reset();
     setSelection(undefined);
     setIncludeHidden(false);
+    hiddenReported.current = false;
     setRefresh((value) => value + 1);
     setNetworks([]);
     setLoadStatus('loading');
@@ -206,6 +211,7 @@ function useDustSweepController(params: IDustSweepRouteParams) {
     visible,
     hidden,
     selected,
+    includeHidden,
     valueUsd,
     loadStatus,
     partialError,

@@ -139,6 +139,28 @@ it('waits for a background signing return on leave and never begins the next ite
     expect.objectContaining({ endReason: 'left' }),
   );
 });
+
+it('reports leaving separately from stopping after a paused session', async () => {
+  const first = deferred<IResult>();
+  execute.mockImplementationOnce(async ({ onSigning, onBroadcast }) => {
+    onSigning();
+    onBroadcast('tx-a');
+    return first.promise;
+  });
+  const { result } = renderHook(() => useDustSweepSession([]));
+  act(() => result.current.start(snapshot));
+  act(() => result.current.pause());
+  await act(async () => {
+    first.resolve(success);
+    await first.promise;
+  });
+  expect(result.current.state.phase).toBe('paused');
+
+  await act(async () => result.current.leave());
+  expect(mockResultLog).toHaveBeenCalledWith(
+    expect.objectContaining({ endReason: 'left' }),
+  );
+});
 it('never retries a submission whose broadcast status is unknown', async () => {
   execute.mockImplementationOnce(async ({ onSigning }) => {
     onSigning();

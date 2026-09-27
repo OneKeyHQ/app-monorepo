@@ -45,6 +45,7 @@ export function useDustSweepSession(networks: IDustSweepNetwork[]) {
         totalCount: current.items.length,
         successCount: totals.successCount,
         skippedCount: totals.skippedCount,
+        failedCount: totals.failedCount,
         receivedAmount: totals.receiptUnavailable ? '' : totals.receivedAmount,
         receivedUsd:
           totals.receiptUnavailable || !current.snapshot.nativeToken.price
@@ -186,12 +187,11 @@ export function useDustSweepSession(networks: IDustSweepNetwork[]) {
   }, [send]);
   const leave = useCallback(async () => {
     setLeaving(true);
-    const paused = stateRef.current.phase === 'paused';
     controller.current?.abort();
     // A password/signing call already entered in background is not cancellable.
     // Keep this page alive until it returns; no later operation may start.
     await running.current;
-    reportResult(paused ? 'stopped' : 'left');
+    reportResult('left');
     if (mounted.current) setLeaving(false);
   }, [reportResult]);
   useEffect(() => {

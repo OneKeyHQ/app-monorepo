@@ -23,6 +23,7 @@ export function DustSweepSelection({ desktop }: { desktop: boolean }) {
     visible,
     hidden,
     selected,
+    includeHidden,
     selecting,
     session,
     loadStatus,
@@ -36,6 +37,7 @@ export function DustSweepSelection({ desktop }: { desktop: boolean }) {
   const rows = selecting
     ? visible
     : session.state.items.map((item) => item.token);
+  const desktopCardHeight = includeHidden ? 712 : 592;
   let selectAllValue: boolean | 'indeterminate' =
     selected.length === visible.length && !!visible.length;
   if (selected.length > 0 && selected.length < visible.length)
@@ -52,7 +54,7 @@ export function DustSweepSelection({ desktop }: { desktop: boolean }) {
             borderWidth: 1,
             borderColor: '$borderSubdued',
             borderRadius: '$5',
-            height: selecting ? 592 : 540,
+            height: selecting ? desktopCardHeight : 540,
             maxHeight: '100%',
           }
         : {})}

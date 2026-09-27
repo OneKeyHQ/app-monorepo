@@ -122,9 +122,8 @@ export function getDustSweepTotals(items: IDustSweepItem[]) {
   return {
     receiptUnavailable: success.some((item) => item.receiptUnavailable),
     successCount: success.length,
-    skippedCount: items.filter((item) =>
-      ['skipped', 'failed'].includes(item.status),
-    ).length,
+    skippedCount: items.filter((item) => item.status === 'skipped').length,
+    failedCount: items.filter((item) => item.status === 'failed').length,
     settledCount: items.filter(isDustSweepItemTerminal).length,
     receivedAmount: success
       .reduce(

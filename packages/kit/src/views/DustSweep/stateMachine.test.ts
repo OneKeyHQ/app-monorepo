@@ -1,4 +1,5 @@
 import type {
+  IDustSweepItem,
   IDustSweepSnapshot,
   IDustSweepToken,
 } from '@onekeyhq/shared/types/swap/dustSweep';
@@ -114,5 +115,21 @@ describe('Dust Sweep terminal and retry boundaries', () => {
       }),
     ).toBe(completed);
     expect(getDustSweepTotals(completed.items).receivedAmount).toBe('1');
+  });
+
+  it('keeps on-chain failures out of the skipped total', () => {
+    const items: IDustSweepItem[] = [
+      { token, status: 'failed', txId: 'tx-failed', reason: 'txFailed' },
+      {
+        token: { ...token, key: 'skipped' },
+        status: 'skipped',
+        reason: 'noQuote',
+      },
+    ];
+    expect(getDustSweepTotals(items)).toMatchObject({
+      skippedCount: 1,
+      failedCount: 1,
+      settledCount: 2,
+    });
   });
 });

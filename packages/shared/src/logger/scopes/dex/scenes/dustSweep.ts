@@ -49,6 +49,7 @@ export class DustSweepScene extends BaseScene {
     totalCount: number;
     successCount: number;
     skippedCount: number;
+    failedCount: number;
     receivedAmount: string;
     receivedUsd: string;
     durationSec: number;

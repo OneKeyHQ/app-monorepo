@@ -142,6 +142,13 @@ export function DustSweepSlippage() {
   const intl = useIntl();
   const media = useMedia();
   const mobile = platformEnv.isNative || media.md;
+  const displayValue =
+    slippage === 5
+      ? intl.formatMessage(
+          { id: ETranslations.swap_page_provider_slippage_auto },
+          { number: slippage },
+        )
+      : `${slippage}%`;
   const openEditor = useCallback(() => {
     const dialog = Dialog.show({
       testID: 'dust-sweep-slippage-sheet',
@@ -179,7 +186,7 @@ export function DustSweepSlippage() {
       onPress={mobile ? openEditor : undefined}
     >
       <XStack gap="$1" alignItems="center">
-        <SizableText size="$bodyMdMedium">{slippage}%</SizableText>
+        <SizableText size="$bodyMdMedium">{displayValue}</SizableText>
         <Icon name="ChevronRightSmallOutline" size="$4" />
       </XStack>
     </Button>

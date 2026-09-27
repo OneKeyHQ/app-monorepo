@@ -106,6 +106,7 @@ function network(networkId: string, values: string[]): IDustSweepNetwork {
 }
 
 const ethereum = network('evm--1', ['8']);
+const ethereumWithHidden = network('evm--1', ['8', '0.05']);
 const base = network('evm--8453', ['2', '50']);
 const routeParams: IDustSweepRouteParams = {
   walletId: 'hd-test',
@@ -197,6 +198,32 @@ describe('Dust Sweep Provider request and selection ownership', () => {
     act(() => result.current.selectThreshold(10));
     expect(result.current.current?.network.networkId).toBe('evm--8453');
     expect(result.current.selected).toEqual([base.tokens[0]]);
+  });
+
+  it('keeps Add anyway scoped to the active network and threshold', async () => {
+    mockLoadNetworks.mockResolvedValue({
+      networks: [base, ethereumWithHidden],
+      partialError: false,
+    });
+    const { result } = renderController();
+    await waitFor(() => expect(result.current.loadStatus).toBe('ready'));
+    expect(result.current.hidden).toHaveLength(1);
+
+    act(() => result.current.addHidden());
+    expect(result.current.includeHidden).toBe(true);
+    expect(result.current.hidden).toHaveLength(0);
+
+    act(() => result.current.selectNetwork(base.network.networkId));
+    expect(result.current.includeHidden).toBe(false);
+    expect(result.current.hidden).toHaveLength(0);
+
+    act(() =>
+      result.current.selectNetwork(ethereumWithHidden.network.networkId),
+    );
+    act(() => result.current.addHidden());
+    expect(result.current.includeHidden).toBe(true);
+    act(() => result.current.selectThreshold(1));
+    expect(result.current.includeHidden).toBe(false);
   });
 
   it.each(['resolve', 'reject'] as const)(
