@@ -19,6 +19,7 @@ import type {
   IGenerateWidgetUrlResponse,
   IGenerateWidgetUrlWithAccountId,
   IGetTokensListParams,
+  IOnramperSessionResponse,
 } from '@onekeyhq/shared/types/fiatCrypto';
 
 import ServiceBase from './ServiceBase';
@@ -175,6 +176,61 @@ class ServiceFiatCrypto extends ServiceBase {
     const res = await this.generateWidgetUrl(params);
     const isSupported = Boolean(res.url && res.build);
     return isSupported;
+  }
+
+  // Mint an Onramper Headless SDK session via the OneKey backend. The backend
+  // SigV2-signs and forwards to Onramper partners/v2 client-sessions, returning
+  // the { sessionId, sessionToken } pair the SDK consumes.
+  @backgroundMethod()
+  public async fetchOnramperSession(): Promise<IOnramperSessionResponse> {
+    // The backend restricts sessions to exactly this scope pair anyway.
+    const scope = ['quotes:read', 'checkout:write'];
+    const client = await this.getClient(EServiceEndpointEnum.Wallet);
+    const startedAt = Date.now();
+    try {
+      const resp = await client.post<{ data: IOnramperSessionResponse }>(
+        '/wallet/v1/fiat-pay/onramper-session',
+        { scope },
+      );
+      const session = resp.data.data;
+      defaultLogger.fiatCrypto.request.onramperSessionMinted({
+        durationMs: Date.now() - startedAt,
+        expiresAt: session.expiresAt,
+      });
+      return session;
+    } catch (error) {
+      const err = error as {
+        message?: string;
+        response?: { status?: number };
+      };
+      defaultLogger.fiatCrypto.request.onramperSessionMintFailed({
+        durationMs: Date.now() - startedAt,
+        status: err?.response?.status,
+        message: err?.message,
+      });
+      throw error;
+    }
+  }
+
+  // Resolve a buy-list token for the native Headless SDK path. Reads the
+  // (memoized) fiat-pay list; the caller checks `headlessSupported` /
+  // `onramperNetworkCode` on the result. Used by direct-buy entry points
+  // that don't already carry the list token.
+  @backgroundMethod()
+  public async getHeadlessBuyToken(params: {
+    networkId: string;
+    tokenAddress: string;
+    accountId?: string;
+  }): Promise<IFiatCryptoToken | undefined> {
+    const { networkId, tokenAddress, accountId } = params;
+    const tokens = await this.getTokensList({
+      networkId,
+      type: 'buy',
+      accountId,
+    });
+    return tokens.find(
+      (o) => o.address.toLowerCase() === tokenAddress.toLowerCase(),
+    );
   }
 }
 

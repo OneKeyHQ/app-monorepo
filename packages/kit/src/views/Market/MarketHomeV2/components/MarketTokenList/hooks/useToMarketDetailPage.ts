@@ -17,7 +17,10 @@ import { prewarmMarketTokenImages } from '@onekeyhq/kit/src/views/Market/MarketD
 import { preloadMarketDetailV2Page } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/utils/marketDetailPagePreload';
 import { buildMarketTokenDetailPreview } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/utils/marketDetailPreview';
 import { resolveMarketStockId } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/utils/resolveIsStockToken';
-import { buildReplacedMarketDetailParams } from '@onekeyhq/kit/src/views/Market/utils/marketDetailNavigation';
+import {
+  buildReplacedMarketDetailParams,
+  prepareMarketDetailTabBarTransition,
+} from '@onekeyhq/kit/src/views/Market/utils/marketDetailNavigation';
 import { MARKET_TOP_COINS_CATEGORY_ID } from '@onekeyhq/shared/src/consts/marketConsts';
 import { appEventBus } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { EAppEventBusNames } from '@onekeyhq/shared/src/eventBus/appEventBusNames';
@@ -349,6 +352,7 @@ export function useToDetailPage(options?: IUseToDetailPageOptions) {
             params,
           },
         });
+        prepareMarketDetailTabBarTransition();
       } else {
         if (stockId) {
           tokenDetailActions.current.prepareStockTokenDetail({
@@ -398,6 +402,9 @@ export function useToDetailPage(options?: IUseToDetailPageOptions) {
           navigation.replace(ETabMarketRoutes.MarketDetailV2, params);
         } else {
           navigation.push(ETabMarketRoutes.MarketDetailV2, params);
+        }
+        if (!shouldUpdateCurrentDetail) {
+          prepareMarketDetailTabBarTransition();
         }
       }
     },
