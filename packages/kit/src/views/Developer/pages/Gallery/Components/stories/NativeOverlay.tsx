@@ -4,7 +4,10 @@ import { OverlayView } from '@onekeyfe/react-native-native-overlay';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import {
+  ActionList,
   Button,
+  Dialog,
+  Input,
   SizableText,
   Stack,
   XStack,
@@ -141,6 +144,47 @@ function DemoOverlay({
     );
   }
 
+  if (spec.presentation === 'sheet') {
+    return (
+      <OverlayView
+        visible={visible}
+        level={spec.level}
+        presentation="sheet"
+        sheet={{ showHandle: true, backgroundColor: spec.color }}
+        backdrop={{ dismissOnPress: true }}
+        onRequestDismiss={close}
+        onClose={() => onClosed(spec.key)}
+        testID={`native-overlay-${spec.key}`}
+      >
+        <YStack p="$5" pt="$8" gap="$3" pb={insets.bottom + 16}>
+          <SizableText size="$headingLg" color="white">
+            {spec.label}
+          </SizableText>
+          <Input placeholder="Keyboard avoidance" />
+          <XStack gap="$2" flexWrap="wrap">
+            <Button size="small" onPress={() => onOpen(makeSpec('modal'))}>
+              + center modal
+            </Button>
+            <Button
+              size="small"
+              onPress={() =>
+                onOpen(makeSpec('hardware', { presentation: 'sheet' }))
+              }
+            >
+              + hardware sheet
+            </Button>
+            <Button size="small" onPress={() => onOpen(makeSpec('toast'))}>
+              + toast
+            </Button>
+            <Button size="small" variant="primary" onPress={close}>
+              Close
+            </Button>
+          </XStack>
+        </YStack>
+      </OverlayView>
+    );
+  }
+
   let justifyContent: 'center' | 'flex-start' = 'center';
   if (isToast) {
     justifyContent = 'flex-start';
@@ -265,6 +309,41 @@ function NativeOverlayDemo() {
         </Button>
         <Button onPress={runQueue}>Queue ×3</Button>
         <Button onPress={runReplace}>Replace ×3</Button>
+        <Button
+          onPress={() => open(makeSpec('modal', { presentation: 'sheet' }))}
+        >
+          Sheet
+        </Button>
+      </XStack>
+      <XStack gap="$2" flexWrap="wrap">
+        <Button
+          onPress={() =>
+            Dialog.show({
+              title: 'Dialog via nativeSheet',
+              description:
+                'Rendered by NativeSheetPresentation on top of OverlayView.',
+              nativeSheet: true,
+              onConfirm: () => undefined,
+            })
+          }
+        >
+          Dialog (nativeSheet)
+        </Button>
+        <ActionList
+          title="ActionList via nativeSheet"
+          nativeSheet
+          items={[
+            {
+              label: 'Open toast overlay',
+              onPress: () => open(makeSpec('toast')),
+            },
+            {
+              label: 'Open secure overlay',
+              onPress: () => open(makeSpec('secure')),
+            },
+          ]}
+          renderTrigger={<Button>ActionList (nativeSheet)</Button>}
+        />
       </XStack>
       <SizableText>Last matrix order: {matrixOrder || '-'}</SizableText>
       <SizableText>

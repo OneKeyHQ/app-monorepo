@@ -39,5 +39,6 @@ export { OverlayView } from './OverlayView';
 export type {
   IOverlayBackdrop,
   IOverlayRequestDismissReason,
+  IOverlaySheetOptions,
   IOverlayViewProps,
 } from './OverlayViewTypes';

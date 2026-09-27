@@ -76,8 +76,10 @@ final class NativeOverlayWindowManager {
 
   private var windows: [SceneKey: [NativeOverlayLevel: NativeOverlayPassthroughWindow]] = [:]
 
-  /// Container view for `level` in the scene of `appWindow`.
-  func hostView(for level: NativeOverlayLevel, appWindow: UIWindow) -> UIView? {
+  /// The level window for `level` in the scene of `appWindow`, shown on demand.
+  /// Non-sheet entries are added directly to it so they interleave by insertion
+  /// order with UIKit presentation containers of sheets in the same level.
+  func window(for level: NativeOverlayLevel, appWindow: UIWindow) -> UIWindow? {
     guard let scene = appWindow.windowScene else { return nil }
     let key = SceneKey(id: ObjectIdentifier(scene))
     pruneDisconnectedScenes()
@@ -89,9 +91,7 @@ final class NativeOverlayWindowManager {
       window = NativeOverlayPassthroughWindow(windowScene: scene)
       window.windowLevel = level.windowLevel
       window.backgroundColor = .clear
-      let root = NativeOverlayRootViewController()
-      root.appWindow = appWindow
-      window.rootViewController = root
+      window.rootViewController = NativeOverlayRootViewController()
       sceneWindows[level] = window
       windows[key] = sceneWindows
     }
@@ -101,19 +101,30 @@ final class NativeOverlayWindowManager {
       window.isHidden = false
       window.rootViewController?.setNeedsStatusBarAppearanceUpdate()
     }
-    return window.rootViewController?.view
+    return window
   }
 
-  /// Hides a level window once its last entry left, and hands key status
+  /// Top of the level window's presentation chain; sheets of one level stack here.
+  func presenter(in window: UIWindow) -> UIViewController? {
+    var controller = window.rootViewController
+    while let presented = controller?.presentedViewController, !presented.isBeingDismissed {
+      controller = presented
+    }
+    return controller
+  }
+
+  /// Hides a level window once nothing is shown in it, and hands key status
   /// back to the app window if an input in the overlay had taken it.
-  func entryRemoved(from hostView: UIView?) {
-    guard let window = hostView?.window as? NativeOverlayPassthroughWindow,
-          let root = window.rootViewController?.view,
-          root.subviews.isEmpty else { return }
+  func entryRemoved(from window: UIWindow?) {
+    guard let window = window as? NativeOverlayPassthroughWindow,
+          let root = window.rootViewController else { return }
+    let hasEntries = window.subviews.contains { $0 is NativeOverlayEntryView }
+    let presented = root.presentedViewController
+    guard !hasEntries, presented == nil || presented?.isBeingDismissed == true else { return }
     let wasKey = window.isKeyWindow
     window.isHidden = true
     if wasKey {
-      (window.rootViewController as? NativeOverlayRootViewController)?.appWindow?.makeKey()
+      (root as? NativeOverlayRootViewController)?.appWindow?.makeKey()
     }
   }
 

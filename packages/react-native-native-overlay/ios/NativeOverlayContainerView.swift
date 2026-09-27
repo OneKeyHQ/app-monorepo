@@ -77,6 +77,11 @@ final class NativeOverlayEntryView: UIView {
   @objc public var dismissOnBackPress = true
   @objc public var dismissOnBackdropPress = false
   @objc public var backdropColor: UIColor?
+  @objc public var sheetHeight: CGFloat = 0
+  @objc public var sheetCornerRadius: CGFloat = 24
+  @objc public var showHandle = false
+  @objc public var sheetBackgroundColor: UIColor?
+  @objc public var dismissOnPanDown = true
   @objc public var animationConfig = ""
   @objc public var touchHandler: UIGestureRecognizer?
   @objc public var onPresented: RCTDirectEventBlock?
@@ -93,6 +98,9 @@ final class NativeOverlayEntryView: UIView {
   private var phase: Phase = .hidden
   private weak var contentChild: UIView?
   private var entryView: NativeOverlayEntryView?
+  private var sheetController: NativeOverlaySheetController?
+  private weak var hostWindow: UIWindow?
+  private var isSheet: Bool { presentation == "sheet" }
   private var animator: UIViewPropertyAnimator?
   private var backdropAnimator: UIViewPropertyAnimator?
   private var parsedConfigSource: String?
@@ -109,12 +117,36 @@ final class NativeOverlayEntryView: UIView {
     }
   }
 
+  override public init(frame: CGRect) {
+    super.init(frame: frame)
+    // The staged child lives in this zero-size view while hidden.
+    clipsToBounds = true
+  }
+
+  @available(*, unavailable)
+  required init?(coder: NSCoder) {
+    fatalError("init(coder:) has not been implemented")
+  }
+
   @objc public func insertChild(_ child: UIView, atIndex index: Int) {
     contentChild = child
     child.removeFromSuperview()
-    if let entryView {
+    if let sheetController, sheetController.isViewLoaded {
+      sheetController.view.addSubview(child)
+    } else if let entryView {
       entryView.contentView.addSubview(child)
+    } else {
+      stageContent()
     }
+  }
+
+  /// Keeps the React child attached (inside this clipped, zero-size view)
+  /// while hidden, so Fabric keeps reporting its layout; fitted sheets size
+  /// themselves from that measurement before presenting.
+  private func stageContent() {
+    guard let child = contentChild, child.superview !== self else { return }
+    child.removeFromSuperview()
+    addSubview(child)
   }
 
   @objc public func removeChild(_ child: UIView) {
@@ -131,9 +163,13 @@ final class NativeOverlayEntryView: UIView {
     if let entryView {
       applyEntryConfiguration(entryView)
     }
+    if let sheetController, phase == .entering || phase == .shown {
+      sheetController.update(style: sheetStyle(), animated: phase == .shown)
+    }
     if visible {
       cycleOpen = true
-      if phase == .hidden || phase == .exiting {
+      // A sheet that is still animating out is re-presented after it finishes.
+      if phase == .hidden || (phase == .exiting && !isSheet) {
         present()
       }
     } else if cycleOpen {
@@ -160,8 +196,13 @@ final class NativeOverlayEntryView: UIView {
   private func present() {
     guard let appWindow = window,
           let overlayLevel = NativeOverlayLevel(rawValue: level),
-          let host = NativeOverlayWindowManager.shared.hostView(for: overlayLevel, appWindow: appWindow)
+          let host = NativeOverlayWindowManager.shared.window(for: overlayLevel, appWindow: appWindow)
     else { return }
+    hostWindow = host
+    if isSheet {
+      presentSheet(in: host)
+      return
+    }
 
     let entry = entryView ?? makeEntryView(in: host)
     applyEntryConfiguration(entry)
@@ -213,6 +254,10 @@ final class NativeOverlayEntryView: UIView {
   }
 
   private func dismiss() {
+    if isSheet || sheetController != nil {
+      dismissSheet()
+      return
+    }
     guard let entry = entryView else {
       finishDismiss(reason: "programmatic")
       return
@@ -251,19 +296,24 @@ final class NativeOverlayEntryView: UIView {
   private func finishDismiss(reason: String?) {
     stopAnimators()
     phase = .hidden
+    teardownSheet()
     if let entry = entryView {
       if let touchHandler, touchHandler.view === entry {
         touchHandler.perform(NSSelectorFromString("detachFromView:"), with: entry)
       }
-      contentChild?.removeFromSuperview()
-      let host = entry.superview
+      stageContent()
       entry.removeFromSuperview()
-      NativeOverlayWindowManager.shared.entryRemoved(from: host)
     }
     entryView = nil
+    NativeOverlayWindowManager.shared.entryRemoved(from: hostWindow)
     guard let reason, cycleOpen else { return }
     cycleOpen = visible
     onDismissed?(["reason": reason])
+    // Reopened while the exit animation ran; UIKit-initiated dismissals
+    // ("system") are left for JS to settle instead.
+    if reason == "programmatic", visible, window != nil {
+      present()
+    }
   }
 
   private func stopAnimators() {
@@ -276,6 +326,75 @@ final class NativeOverlayEntryView: UIView {
     }
     animator = nil
     backdropAnimator = nil
+  }
+
+  // MARK: - Sheet
+
+  private func sheetStyle() -> NativeOverlaySheetStyle {
+    NativeOverlaySheetStyle(
+      height: max(sheetHeight, 1),
+      backgroundColor: sheetBackgroundColor ?? .systemBackground,
+      cornerRadius: max(sheetCornerRadius, 0),
+      showHandle: showHandle,
+      backdropColor: backdropColor,
+      dismissOnBackdropPress: dismissOnBackdropPress,
+      enterMotion: config.enter.motion,
+      exitMotion: config.exit.motion
+    )
+  }
+
+  private func presentSheet(in host: UIWindow) {
+    guard sheetController == nil,
+          let presenter = NativeOverlayWindowManager.shared.presenter(in: host) else { return }
+    // UIKit refuses to present while another transition runs in this window.
+    if presenter.isBeingPresented || presenter.transitionCoordinator != nil {
+      DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) { [weak self] in
+        guard let self, self.visible, self.phase == .hidden else { return }
+        self.present()
+      }
+      return
+    }
+    let controller = NativeOverlaySheetController(host: self, style: sheetStyle())
+    sheetController = controller
+    phase = .entering
+    presenter.present(controller, animated: true) { [weak self, weak controller] in
+      guard let self, let controller, self.sheetController === controller else { return }
+      if self.phase == .entering {
+        self.phase = .shown
+        self.onPresented?(["stackOrder": self.stackOrder])
+      }
+      if !self.visible {
+        self.dismissSheet()
+      }
+    }
+  }
+
+  private func dismissSheet() {
+    guard let controller = sheetController else {
+      finishDismiss(reason: "programmatic")
+      return
+    }
+    // Closing mid-presentation is handled by the present completion.
+    guard !controller.isBeingPresented, phase != .exiting else { return }
+    phase = .exiting
+    controller.dismissRequestedByHost = true
+    controller.dismiss(animated: true) { [weak self, weak controller] in
+      guard let self, self.sheetController === controller else { return }
+      self.finishDismiss(reason: "programmatic")
+    }
+  }
+
+  private func teardownSheet() {
+    guard let controller = sheetController else { return }
+    if let touchHandler, controller.isViewLoaded, touchHandler.view === controller.view {
+      touchHandler.perform(NSSelectorFromString("detachFromView:"), with: controller.view)
+    }
+    stageContent()
+    if controller.presentingViewController != nil, !controller.isBeingDismissed {
+      controller.dismissRequestedByHost = true
+      controller.dismiss(animated: false)
+    }
+    sheetController = nil
   }
 
   // MARK: - Entry view
@@ -317,5 +436,36 @@ final class NativeOverlayEntryView: UIView {
     } else {
       host.addSubview(entry)
     }
+  }
+}
+
+extension NativeOverlayContainerView: NativeOverlaySheetHost {
+  func sheetDidLoad(_ controller: NativeOverlaySheetController) {
+    if let touchHandler, touchHandler.view == nil {
+      touchHandler.perform(NSSelectorFromString("attachToView:"), with: controller.view)
+    }
+    if let child = contentChild {
+      child.removeFromSuperview()
+      controller.view.addSubview(child)
+    }
+  }
+
+  func sheetDidDismissInteractively(_ controller: NativeOverlaySheetController) {
+    guard sheetController === controller else { return }
+    // Already off screen: tear down, then let JS close the entry; the next
+    // visible=false commit reports onDismissed.
+    finishDismiss(reason: nil)
+    onRequestDismiss?(["reason": "pan"])
+  }
+
+  func sheetDidDisappearUnexpectedly(_ controller: NativeOverlaySheetController) {
+    guard sheetController === controller else { return }
+    finishDismiss(reason: "system")
+  }
+
+  func sheetRequestedDismiss(_ controller: NativeOverlaySheetController, reason: String) {
+    guard sheetController === controller, phase != .exiting else { return }
+    if reason == "back", !dismissOnBackPress { return }
+    onRequestDismiss?(["reason": reason])
   }
 }

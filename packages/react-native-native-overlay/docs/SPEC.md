@@ -1,9 +1,11 @@
 # react-native-native-overlay SPEC
 
-Status: P1. The JS ordering store, the animation model, and the global level
-hosts (center / toast / fullscreen presentations) are implemented on iOS,
-Android, and Web. Sheet, page scope, and anchored presentations follow in
-P2–P5.
+Status: P2. The JS ordering store, the animation model, the global level
+hosts (center / toast / fullscreen) and the global sheet presentation are
+implemented on iOS, Android and Web. `@onekeyhq/components`'
+`NativeSheetPresentation` (Dialog / Popover / ActionList / Select with
+`nativeSheet`) renders through `OverlayView`. Page scope and anchored
+presentations follow in P3–P5.
 
 This package is developed in `app-monorepo/packages/react-native-native-overlay`
 and moves to `app-modules/native-views/react-native-native-overlay` once
@@ -279,12 +281,38 @@ Runtime matrix, required per platform before migrating callers (P1–P3):
 8. Split view: page overlays stay in their own pane.
 9. Reduce motion degrades to fade.
 
+P2 sheet notes:
+
+- iOS presents the sheet (`.pageSheet` + one custom detent, ported from
+  native-sheet) from the top of its level window's presentation chain.
+  Non-sheet entries are subviews of the same window, so within a level,
+  sheets and center / toast entries stack by request order. Dismissing a
+  lower sheet makes UIKit dismiss the sheets presented above it; those report
+  `onDismissed('system')` and the store closes them.
+- Android hosts the sheet in a CoordinatorLayout + BottomSheetBehavior inside
+  the level container (no BottomSheetDialog window). Enter / exit use the
+  overlay motion; dragging fades the backdrop; a drag to hidden reports
+  `pan`.
+- Web renders a bottom surface with pointer drag (40% distance or 0.5 px/ms
+  flick dismisses, never from scrolled content).
+- A fitted sheet measures its content with `onLayout` before presenting.
+  Hidden content stays mounted inside the zero-width host (clipped on iOS,
+  INVISIBLE on Android), and the host height stays auto: a fixed 0 height
+  makes Yoga measure the content at most 0 tall.
+- `keepContentMounted` renders content while closed so callers can measure it
+  before opening (Popover waits for header / scroll measurements).
+- `pan` dismissals cannot be vetoed; `onRequestDismiss('pan')` is informative.
+- App lock: `overlayStore.setSecurityBlocked(true)` closes and refuses every
+  level below `lock` (wired from kit `NativeSheetRoot`), because the current
+  lock screen still lives in the app window below the overlay windows.
+
 P1 implementation map:
 
 | Contract | iOS | Android | Web |
 |---|---|---|---|
 | Level host | `NativeOverlayWindowManager.swift` | `NativeOverlayHost.kt` | `web/overlayLayers.ts` |
 | Entry, hit testing, backdrop | `NativeOverlayEntryView` in `NativeOverlayContainerView.swift` | `NativeOverlayEntryRootView.kt` | `WebOverlayEntry` in `OverlayView.web.tsx` |
+| Sheet | `NativeOverlaySheetController.swift` | `NativeOverlayEntryRootView.configureSheet` | `OverlayView.web.tsx` + `web/useSheetDrag.ts` |
 | Enter / exit animation | `NativeOverlayAnimation.swift` (`UIViewPropertyAnimator`) | `NativeOverlayAnimation.kt` (analytic spring interpolator) | `web/animateTransition.ts` (WAAPI) |
 | Store bridge | `useOverlayController.ts` | same | same |
 
@@ -297,6 +325,8 @@ Known gaps:
 - Toast presentation animates each entry independently; multi-toast stacking
   (newest below, 8 pt gap, re-stack on height change) lands with the Toast
   migration (P4).
+- Android sheet keyboard avoidance relies on the activity's `adjustPan`;
+  not verified on device yet (the emulator keyboard ran in stylus mode).
 - iOS status bar style follows the app window underneath. A full-screen dark
   overlay on a light app (lock screen) shows dark status bar text; add a
   `statusBarStyle` prop before the lock screen migrates (P4).

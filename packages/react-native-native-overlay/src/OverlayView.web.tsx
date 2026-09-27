@@ -13,14 +13,18 @@ import {
   registerOverlayDismissRequester,
   scheduleOverlayInertSync,
 } from './web/overlayLayers';
+import { useSheetDrag } from './web/useSheetDrag';
 
 import type { IResolvedOverlayAnimation } from './animation/resolveAnimation';
 import type {
   IOverlayRequestDismissReason,
+  IOverlaySheetOptions,
   IOverlayViewProps,
 } from './OverlayViewTypes';
 
 const DEFAULT_BACKDROP_COLOR = 'rgba(0, 0, 0, 0.4)';
+const DEFAULT_SHEET_MAX_HEIGHT = '92vh';
+const DEFAULT_SHEET_CORNER_RADIUS = 24;
 
 // Portaled content still bubbles React events to the caller's ancestors;
 // stop them at the entry so presses cannot reach the page underneath.
@@ -47,6 +51,8 @@ interface IWebOverlayEntryProps {
   onPresented: () => void;
   onDismissed: () => void;
   onRequestDismiss: (reason: IOverlayRequestDismissReason) => void;
+  /** Set for `presentation="sheet"`. */
+  sheet: IOverlaySheetOptions | undefined;
   testID?: string;
   children?: ReactNode;
 }
@@ -62,9 +68,14 @@ function WebOverlayEntry({
   onPresented,
   onDismissed,
   onRequestDismiss,
+  sheet,
   testID,
   children,
 }: IWebOverlayEntryProps) {
+  const sheetRef = useRef<HTMLDivElement>(null);
+  // A pan dismissal already moved the sheet off screen; skip the exit run.
+  const pannedAwayRef = useRef(false);
+  const isSheet = !!sheet;
   const entryRef = useRef<HTMLDivElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
   const backdropRef = useRef<HTMLDivElement>(null);
@@ -85,7 +96,7 @@ function WebOverlayEntry({
     const neverEntered = directionRef.current === undefined;
     directionRef.current = direction;
     scheduleOverlayInertSync();
-    if (direction === 'out' && neverEntered) {
+    if (direction === 'out' && (neverEntered || pannedAwayRef.current)) {
       callbacksRef.current.onDismissed();
       return;
     }
@@ -95,8 +106,11 @@ function WebOverlayEntry({
     }
     content.getAnimations().forEach((running) => running.cancel());
     backdropRef.current?.getAnimations().forEach((running) => running.cancel());
-    const contentRoot =
-      (content.firstElementChild as HTMLElement | null) ?? content;
+    // A sheet is measured as a whole; other presentations by the children
+    // of the full-window React root.
+    const contentRoot = isSheet
+      ? content
+      : ((content.firstElementChild as HTMLElement | null) ?? content);
     const transition = direction === 'in' ? animation.enter : animation.exit;
     const running = [
       animateTransition(content, contentRoot, transition, direction),
@@ -124,7 +138,7 @@ function WebOverlayEntry({
       .catch(() => {
         // Cancelled by a newer transition; that run reports instead.
       });
-  }, [presented, animation, blocking]);
+  }, [presented, animation, blocking, isSheet]);
 
   useEffect(
     () => registerOverlayDismissRequester(entryId, onRequestDismiss),
@@ -143,7 +157,18 @@ function WebOverlayEntry({
     return () => backdropNode.removeEventListener('click', onBackdropClick);
   }, [dismissOnBackdropPress, onRequestDismiss]);
 
+  useSheetDrag({
+    sheetRef,
+    backdropRef,
+    enabled: !!sheet && (sheet.dismissOnPanDown ?? true) && presented,
+    onDismissByPan: () => {
+      pannedAwayRef.current = true;
+      onRequestDismiss('pan');
+    },
+  });
+
   const showBackdrop = !!backdropColor || blocking;
+  const cornerRadius = sheet?.cornerRadius ?? DEFAULT_SHEET_CORNER_RADIUS;
 
   return (
     <div
@@ -180,16 +205,63 @@ function WebOverlayEntry({
         ref={contentRef}
         style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}
       >
-        <View pointerEvents="box-none" style={StyleSheet.absoluteFill}>
-          {children}
-        </View>
+        {sheet ? (
+          <div
+            ref={sheetRef}
+            style={{
+              position: 'absolute',
+              left: 0,
+              right: 0,
+              bottom: 0,
+              height: sheet.height,
+              maxHeight: sheet.maxHeight ?? DEFAULT_SHEET_MAX_HEIGHT,
+              display: 'flex',
+              flexDirection: 'column',
+              overflow: 'hidden',
+              pointerEvents: 'auto',
+              touchAction: 'pan-y',
+              background: sheet.backgroundColor
+                ? String(sheet.backgroundColor)
+                : undefined,
+              borderTopLeftRadius: cornerRadius,
+              borderTopRightRadius: cornerRadius,
+            }}
+          >
+            {sheet.showHandle ? (
+              <div
+                style={{
+                  alignSelf: 'center',
+                  width: 36,
+                  height: 5,
+                  marginTop: 8,
+                  borderRadius: 2.5,
+                  background: 'rgba(0, 0, 0, 0.2)',
+                  flexShrink: 0,
+                }}
+              />
+            ) : null}
+            <View style={{ flexShrink: 1 }}>{children}</View>
+          </div>
+        ) : (
+          <View pointerEvents="box-none" style={StyleSheet.absoluteFill}>
+            {children}
+          </View>
+        )}
       </div>
     </div>
   );
 }
 
 export function OverlayView(props: IOverlayViewProps) {
-  const { level = 'modal', backdrop, blocking, children, testID } = props;
+  const {
+    level = 'modal',
+    presentation = 'center',
+    backdrop,
+    blocking,
+    sheet,
+    children,
+    testID,
+  } = props;
   const {
     entry,
     mounted,
@@ -218,6 +290,7 @@ export function OverlayView(props: IOverlayViewProps) {
       onPresented={onHostPresented}
       onDismissed={onHostDismissed}
       onRequestDismiss={onHostRequestDismiss}
+      sheet={presentation === 'sheet' ? (sheet ?? {}) : undefined}
       testID={testID}
     >
       {children}

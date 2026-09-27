@@ -135,6 +135,11 @@ static NSString *RNCNativeOverlayPresentationString(RNCNativeOverlayPresentation
   _containerView.dismissOnBackPress = newProps.dismissOnBackPress;
   _containerView.dismissOnBackdropPress = newProps.dismissOnBackdropPress;
   _containerView.backdropColor = RCTUIColorFromSharedColor(newProps.backdropColor);
+  _containerView.sheetHeight = newProps.sheetHeight;
+  _containerView.sheetCornerRadius = newProps.sheetCornerRadius;
+  _containerView.showHandle = newProps.showHandle;
+  _containerView.sheetBackgroundColor = RCTUIColorFromSharedColor(newProps.sheetBackgroundColor);
+  _containerView.dismissOnPanDown = newProps.dismissOnPanDown;
   _containerView.animationConfig = [NSString stringWithUTF8String:newProps.animationConfig.c_str()];
   _containerView.visible = newProps.visible;
   [_containerView commitConfiguration];

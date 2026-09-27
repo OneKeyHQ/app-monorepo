@@ -3,6 +3,7 @@ import { codegenNativeComponent } from 'react-native';
 import type { ColorValue, HostComponent, ViewProps } from 'react-native';
 import type {
   DirectEventHandler,
+  Double,
   Int32,
   WithDefault,
 } from 'react-native/Libraries/Types/CodegenTypes';
@@ -37,6 +38,12 @@ export interface INativeOverlayNativeProps extends ViewProps {
   dismissOnBackPress?: WithDefault<boolean, true>;
   dismissOnBackdropPress?: WithDefault<boolean, false>;
   backdropColor?: ColorValue;
+  /** `sheet` presentation: resolved content height in points. */
+  sheetHeight?: WithDefault<Double, 0>;
+  sheetCornerRadius?: WithDefault<Double, 24>;
+  showHandle?: WithDefault<boolean, false>;
+  sheetBackgroundColor?: ColorValue;
+  dismissOnPanDown?: WithDefault<boolean, true>;
   /** JSON of the resolved animation (`IResolvedOverlayAnimation`). */
   animationConfig?: WithDefault<string, ''>;
   onPresented?: DirectEventHandler<INativeOverlayPresentedEvent>;

@@ -103,6 +103,26 @@ class NativeOverlayViewManager :
     view.backdropColor = value
   }
 
+  override fun setSheetHeight(view: NativeOverlayView, value: Double) {
+    view.sheetHeight = value
+  }
+
+  override fun setSheetCornerRadius(view: NativeOverlayView, value: Double) {
+    view.sheetCornerRadius = value
+  }
+
+  override fun setShowHandle(view: NativeOverlayView, value: Boolean) {
+    view.showHandle = value
+  }
+
+  override fun setSheetBackgroundColor(view: NativeOverlayView, value: Int?) {
+    view.sheetBackgroundColor = value
+  }
+
+  override fun setDismissOnPanDown(view: NativeOverlayView, value: Boolean) {
+    view.dismissOnPanDown = value
+  }
+
   override fun setAnimationConfig(view: NativeOverlayView, value: String?) {
     view.animationConfig = value
   }

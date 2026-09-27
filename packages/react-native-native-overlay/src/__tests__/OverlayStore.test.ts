@@ -256,3 +256,27 @@ describe('OverlayStore back resolution', () => {
     expect(store.getBlockingTop()?.id).toBe('sheet');
   });
 });
+
+describe('OverlayStore security blocking', () => {
+  it('closes lower levels and refuses new ones while locked', () => {
+    const store = new OverlayStore();
+    const sheetRemoved = jest.fn();
+    const refused = jest.fn();
+    store.request({ id: 'sheet' }, { onRemoved: sheetRemoved });
+    store.request({ id: 'lock', level: 'lock' });
+    store.setSecurityBlocked(true);
+    expect(store.getEntry('sheet')?.dismissReason).toBe('security');
+    store.finalize('sheet');
+    expect(sheetRemoved).toHaveBeenCalledWith('security');
+
+    store.request({ id: 'late', level: 'secure' }, { onRemoved: refused });
+    jest.runAllTicks();
+    expect(refused).toHaveBeenCalledWith('security');
+    expect(store.getEntry('late')).toBeUndefined();
+    expect(activeIds(store)).toEqual(['lock']);
+
+    store.setSecurityBlocked(false);
+    store.request({ id: 'after' });
+    expect(activeIds(store)).toEqual(['after', 'lock']);
+  });
+});

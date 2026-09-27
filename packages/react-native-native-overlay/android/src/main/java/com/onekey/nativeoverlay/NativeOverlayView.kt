@@ -56,6 +56,11 @@ class NativeOverlayView(
   var dismissOnBackPress = true
   var dismissOnBackdropPress = false
   var backdropColor: Int? = null
+  var sheetHeight = 0.0
+  var sheetCornerRadius = 24.0
+  var showHandle = false
+  var sheetBackgroundColor: Int? = null
+  var dismissOnPanDown = true
   var animationConfig: String? = null
   var onPresented: ((Int) -> Unit)? = null
   var onDismissed: ((String) -> Unit)? = null
@@ -87,7 +92,7 @@ class NativeOverlayView(
   fun addReactChild(child: View) {
     contentChild?.takeIf { it !== child }?.let(::removeReactChild)
     contentChild = child
-    entry?.let { attachContent(it) }
+    entry?.let { attachContent(it) } ?: stageContent()
   }
 
   fun getReactChildCount(): Int = if (contentChild == null) 0 else 1
@@ -152,7 +157,7 @@ class NativeOverlayView(
 
     val transition = config.enter.reduceMotionAdjusted(isReduceMotionEnabled())
     if (phase == Phase.HIDDEN) {
-      hiddenState(target, transition).applyTo(target.contentView)
+      hiddenState(target, transition).applyTo(target.animatedView)
       target.backdropView.alpha = 0f
     }
     cancelAnimators()
@@ -163,7 +168,7 @@ class NativeOverlayView(
       target.sendAccessibilityEvent(AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED)
     }
     if (transition.kind == "none") {
-      OverlayVisualState.IDENTITY.applyTo(target.contentView)
+      OverlayVisualState.IDENTITY.applyTo(target.animatedView)
       target.backdropView.alpha = 1f
       phase = Phase.SHOWN
       onPresented?.invoke(stackOrder)
@@ -196,7 +201,7 @@ class NativeOverlayView(
     phase = Phase.HIDDEN
     entry?.let { target ->
       target.isShownForInput = false
-      contentChild?.let { child -> (child.parent as? ViewGroup)?.removeView(child) }
+      stageContent()
       host?.detach(target)
     }
     entry = null
@@ -214,11 +219,12 @@ class NativeOverlayView(
     onEnd: () -> Unit,
   ) {
     // Start from the current values so an interrupted run retargets smoothly.
-    val from = OverlayVisualState.of(target.contentView)
+    val animated = target.animatedView
+    val from = OverlayVisualState.of(animated)
     contentAnimator = ValueAnimator.ofFloat(0f, 1f).apply {
       duration = motion.durationMs()
       interpolator = motion.interpolator()
-      addUpdateListener { from.lerp(to, it.animatedValue as Float).applyTo(target.contentView) }
+      addUpdateListener { from.lerp(to, it.animatedValue as Float).applyTo(animated) }
       addListener(object : AnimatorListenerAdapter() {
         private var cancelled = false
 
@@ -257,13 +263,18 @@ class NativeOverlayView(
     val alpha = if (transition.hidesOpacity) 0f else 1f
     val extent = target.contentExtent()
     val density = resources.displayMetrics.density
+    val isSheet = target.sheetView != null
     return when (transition.kind) {
       "slide" -> {
-        val travel = transition.distanceDp?.let { (it * density).toFloat() } ?: when (transition.edge) {
+        val travel = transition.distanceDp?.let { (it * density).toFloat() } ?: when {
+          // The sheet may not be laid out yet; its own height is the travel.
+          isSheet && transition.edge == "bottom" -> (sheetHeight * density).toFloat()
+          else -> when (transition.edge) {
           "top" -> extent.bottom.toFloat()
           "left" -> extent.right.toFloat()
           "right" -> (target.width - extent.left).toFloat()
           else -> (target.height - extent.top).toFloat()
+          }
         }
         when (transition.edge) {
           "top" -> OverlayVisualState(alpha, 0f, -travel, 1f)
@@ -274,8 +285,8 @@ class NativeOverlayView(
       }
       "scale" -> {
         // Scale around the content's center, not the full-window root's.
-        target.contentView.pivotX = extent.exactCenterX()
-        target.contentView.pivotY = extent.exactCenterY()
+        target.animatedView.pivotX = extent.exactCenterX() - target.animatedView.left
+        target.animatedView.pivotY = extent.exactCenterY() - target.animatedView.top
         OverlayVisualState(alpha, 0f, (transition.offsetYDp * density).toFloat(), transition.scale)
       }
       else -> OverlayVisualState(alpha = alpha)
@@ -286,6 +297,14 @@ class NativeOverlayView(
     val target = NativeOverlayEntryRootView(reactContext)
     target.eventDispatcher = eventDispatcher
     target.onRequestDismiss = { reason -> onRequestDismiss?.invoke(reason) }
+    target.onSheetHiddenByPan = {
+      if (phase == Phase.SHOWN || phase == Phase.ENTERING) {
+        // Already off screen: tear down, then let JS close the entry; the
+        // next visible=false commit reports onDismissed.
+        finishDismiss(null)
+        onRequestDismiss?.invoke("pan")
+      }
+    }
     entry = target
     return target
   }
@@ -296,6 +315,28 @@ class NativeOverlayView(
     target.dismissOnBackPress = dismissOnBackPress
     target.dismissOnBackdropPress = dismissOnBackdropPress
     target.backdropView.setBackgroundColor(backdropColor ?: Color.TRANSPARENT)
+    if (presentation == "sheet") {
+      val density = resources.displayMetrics.density
+      target.configureSheet(
+        heightPx = (sheetHeight * density).toInt().coerceAtLeast(1),
+        cornerRadiusPx = (sheetCornerRadius * density).toFloat(),
+        backgroundColor = sheetBackgroundColor ?: Color.WHITE,
+        showHandle = showHandle,
+        draggable = dismissOnPanDown,
+      )
+    }
+  }
+
+  /**
+   * While hidden, keep the React child inside this invisible view. Fabric only
+   * reports onLayout for attached views, and fitted sheets size themselves
+   * from that measurement before presenting.
+   */
+  private fun stageContent() {
+    val child = contentChild ?: return
+    if (child.parent === this) return
+    (child.parent as? ViewGroup)?.removeView(child)
+    addView(child)
   }
 
   private fun attachContent(target: NativeOverlayEntryRootView) {

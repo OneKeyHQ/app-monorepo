@@ -11,12 +11,24 @@ import type {
 } from './types';
 import type { ColorValue } from 'react-native';
 
-export type IOverlayRequestDismissReason = 'back' | 'backdrop';
+export type IOverlayRequestDismissReason = 'back' | 'backdrop' | 'pan';
 
 export interface IOverlayBackdrop {
   /** Include alpha; e.g. the theme `$bgBackdrop`. */
   color?: ColorValue;
   dismissOnPress?: boolean;
+}
+
+export interface IOverlaySheetOptions {
+  /** Fixed height; when omitted the sheet fits its content. */
+  height?: number;
+  /** Defaults to 92% of the window height. */
+  maxHeight?: number;
+  cornerRadius?: number;
+  showHandle?: boolean;
+  backgroundColor?: ColorValue;
+  /** Swipe down to close. A pan dismissal cannot be vetoed. */
+  dismissOnPanDown?: boolean;
 }
 
 export interface IOverlayViewProps {
@@ -28,6 +40,13 @@ export interface IOverlayViewProps {
   replaceKey?: string;
   presentation?: IOverlayPresentation;
   animation?: IOverlayAnimation;
+  /** `presentation="sheet"` only. */
+  sheet?: IOverlaySheetOptions;
+  /**
+   * Native only: keep the content mounted (staged, invisible) while closed so
+   * callers can measure it before opening, as native-sheet did.
+   */
+  keepContentMounted?: boolean;
   /** `false` renders no backdrop. */
   backdrop?: IOverlayBackdrop | false;
   /** Defaults by level: toast and debug pass touches through. */
@@ -36,6 +55,7 @@ export interface IOverlayViewProps {
   /**
    * Back press or backdrop press asked to close. When omitted the overlay
    * closes itself; when provided the caller decides by toggling `visible`.
+   * A `pan` dismissal already happened natively and always closes.
    */
   onRequestDismiss?: (reason: IOverlayRequestDismissReason) => void;
   onPresented?: () => void;

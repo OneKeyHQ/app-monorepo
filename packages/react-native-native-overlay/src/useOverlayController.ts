@@ -137,17 +137,23 @@ export function useOverlayController(
   }, [propsRef]);
 
   const onHostDismissed = useCallback(() => {
-    if (entryId && overlayStore.getEntry(entryId)?.phase === 'closing') {
-      overlayStore.finalize(entryId);
+    if (!entryId) {
+      return;
     }
+    const phase = overlayStore.getEntry(entryId)?.phase;
+    if (phase === 'active') {
+      // Native closed it on its own, e.g. a lower sheet in the same level
+      // window was dismissed and UIKit took the ones above with it.
+      overlayStore.dismiss(entryId, 'system');
+    }
+    overlayStore.finalize(entryId);
   }, [entryId]);
 
   const onHostRequestDismiss = useCallback(
     (reason: IOverlayRequestDismissReason) => {
       const handler = propsRef.current.onRequestDismiss;
-      if (handler) {
-        handler(reason);
-      } else if (entryId) {
+      handler?.(reason);
+      if (entryId && (!handler || reason === 'pan')) {
         overlayStore.dismiss(entryId, reason);
       }
     },

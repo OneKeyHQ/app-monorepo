@@ -19,6 +19,7 @@ export type IOverlayDismissReason =
   | 'pan'
   | 'replaced'
   | 'page-removed'
+  | 'security'
   | 'system';
 
 export interface IOverlayRequest {

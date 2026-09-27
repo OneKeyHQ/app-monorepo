@@ -66,6 +66,9 @@ export class OverlayStore {
 
   private readonly listeners = new Set<() => void>();
 
+  /** While set, levels below it are refused and closed ('security'). */
+  private blockedBelowLevel: IOverlayEntry['level'] | undefined;
+
   private snapshot: IOverlaySnapshot = { entries: [], queued: [] };
 
   constructor(options: IOverlayStoreOptions = {}) {
@@ -123,6 +126,13 @@ export class OverlayStore {
     };
     entry.suspended = this.isOwnerHidden(entry);
     this.handlers.set(entry.id, handlers);
+
+    if (this.isSecurityBlocked(entry.level)) {
+      entry.phase = 'closing';
+      entry.dismissReason = 'security';
+      queueMicrotask(() => this.notifyRemoved(entry.id, 'security'));
+      return entry;
+    }
 
     if (entry.strategy === 'replace') {
       this.replaceIn(entry);
@@ -182,6 +192,20 @@ export class OverlayStore {
       this.emit();
     }
     dropped.forEach((e) => this.notifyRemoved(e.id, reason));
+  }
+
+  /**
+   * App lock: close everything below `belowLevel` and refuse new requests
+   * there until unblocked. The lock screen itself renders at `lock`.
+   */
+  setSecurityBlocked(
+    blocked: boolean,
+    belowLevel: IOverlayEntry['level'] = 'lock',
+  ): void {
+    this.blockedBelowLevel = blocked ? belowLevel : undefined;
+    if (blocked) {
+      this.dismissAll({ belowLevel, reason: 'security' });
+    }
   }
 
   /** Native / navigation signal: the owning page was covered, detached or restored. */
@@ -300,6 +324,13 @@ export class OverlayStore {
       );
       dropped.forEach((e) => this.dismissWithoutEmit(e.id, 'replaced'));
     }
+  }
+
+  private isSecurityBlocked(level: IOverlayEntry['level']): boolean {
+    return (
+      this.blockedBelowLevel !== undefined &&
+      OVERLAY_LEVEL_ORDER[level] < OVERLAY_LEVEL_ORDER[this.blockedBelowLevel]
+    );
   }
 
   private isOwnerHidden(entry: IOverlayEntry): boolean {
