@@ -24,7 +24,8 @@ import type {
 
 /**
  * `skipped`: no matching record found. `mismatch`: the record found doesn't
- * carry that identity. Neither means the wrong device, since the SDK already verified it on the wire; both leave the operation running.
+ * carry that identity (or, for Ledger, isn't a Ledger). Both leave the
+ * operation running.
  */
 type IBindingPersistResult =
   | { saved: true }
@@ -165,9 +166,11 @@ export function registerBleBindingUi({
         throw new OneKeyLocalError('BLE binding request is no longer active');
     };
     const dbDeviceId = request.extra?.dbDeviceId;
-    // The SDK verified this wallet before asking us to store it, so a refusal
-    // here is our own bookkeeping falling short, not the user holding the
-    // wrong device. Tell them the binding is missing and let the work finish.
+    // Ledger sends no identity: the BLE device the user picked is the device.
+    const { identity } = request;
+    // The SDK has already connected this device, so a refusal here is our own
+    // bookkeeping falling short, not the user holding the wrong device. Tell
+    // them the binding is missing and let the work finish.
     const warnBindingNotSaved = () => {
       defaultLogger.hardware.sdkLog.log(
         '[3rdPartyHW] BLE binding was not persisted',
@@ -185,19 +188,18 @@ export function registerBleBindingUi({
       if (!isActive()) {
         return { saved: false, reason: 'skipped' };
       }
+      const identityVendor = identity?.vendor ?? EHardwareVendor.ledger;
       if (
         !dbDeviceId ||
-        request.identity.vendor !== vendor ||
+        identityVendor !== vendor ||
         request.connection.transport !== 'ble'
       ) {
         warnBindingNotSaved();
         return { saved: false, reason: 'skipped' };
       }
       const device = await localDb.getDevice(dbDeviceId);
-      const verifiedDeviceIdentity: IVerifiedDeviceIdentity = {
-        vendor,
-        identity: request.identity,
-      };
+      const verifiedDeviceIdentity: IVerifiedDeviceIdentity | undefined =
+        identity ? { vendor, identity } : undefined;
       // The dialog can be closed, cancelled or superseded while the read is
       // in flight; that's us dropping the request, not the user holding the wrong device. Only a failed identity check is a real mismatch.
       if (
@@ -207,28 +209,26 @@ export function registerBleBindingUi({
         !request.connection.connectId
       )
         return { saved: false, reason: 'skipped' };
-      if (
-        !matchesVerifiedDeviceIdentity(
-          {
-            vendor: device.vendor,
-            deviceId: device.deviceId,
-            connectId: device.connectId,
-            chainFingerprints: device.settings?.chainFingerprints,
-          },
-          verifiedDeviceIdentity,
-        )
-      ) {
+      const identityMatches = verifiedDeviceIdentity
+        ? matchesVerifiedDeviceIdentity(
+            {
+              vendor: device.vendor,
+              deviceId: device.deviceId,
+              connectId: device.connectId,
+              chainFingerprints: device.settings?.chainFingerprints,
+            },
+            verifiedDeviceIdentity,
+          )
+        : device.vendor === vendor;
+      if (!identityMatches) {
         warnBindingNotSaved();
         return { saved: false, reason: 'mismatch' };
       }
-      if (
-        vendor === EHardwareVendor.trezor &&
-        request.identity.type === 'deviceId'
-      ) {
+      if (vendor === EHardwareVendor.trezor && identity?.type === 'deviceId') {
         await localDb.updateDeviceBleConnectIdAndCleanStaleAliases({
           dbDeviceId,
           bleConnectId: request.connection.connectId,
-          verifiedDeviceId: request.identity.value,
+          verifiedDeviceId: identity.value,
           assertBindingActive,
         });
       } else {

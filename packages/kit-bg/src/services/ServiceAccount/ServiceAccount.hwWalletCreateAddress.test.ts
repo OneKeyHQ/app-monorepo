@@ -779,6 +779,43 @@ describe('ServiceAccount hardware wallet creation address', () => {
     );
   });
 
+  it.each([
+    ['usb', true],
+    ['ble', false],
+  ] as const)(
+    'checks a re-imported Ledger seed over %s only if it is USB',
+    async (connectionType, expectsSeedCheck) => {
+      createHwWalletMock.mockResolvedValue({
+        wallet: { id: 'hw-ledger', name: 'Ledger' },
+      } as Awaited<ReturnType<typeof localDb.createHwWallet>>);
+      const service = new ServiceAccount({
+        backgroundApi: {
+          serviceHardware: { getCompatibleConnectId: jest.fn() },
+          serviceThirdPartyHardware: {
+            getAdapterForVendor: jest.fn().mockResolvedValue({ hw: {} }),
+          },
+        },
+      }) as unknown as IHwWalletCreateAddressService;
+      service.getWallet = jest.fn().mockResolvedValue({ name: 'Ledger' });
+      await service.createHWWalletBase({
+        device: {
+          vendor: EHardwareVendor.ledger,
+          deviceId: '',
+          connectId: '',
+          raw: { connectionType },
+        },
+        features: { device_id: '' },
+      });
+      expect(createHwWalletMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          verifySeedMatchFn: expectsSeedCheck
+            ? expect.any(Function)
+            : undefined,
+        }),
+      );
+    },
+  );
+
   it('creates a Trezor hidden wallet using saved locators and identity', async () => {
     const device = {
       id: 'saved-device',

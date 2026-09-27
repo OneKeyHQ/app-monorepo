@@ -4172,6 +4172,9 @@ class ServiceAccount extends ServiceBase {
       hardwareOperationContext: _hardwareOperationContext,
       ...localDbCreateParams
     } = params;
+    const isBleDevice =
+      (params.device as { raw?: { connectionType?: string } }).raw
+        ?.connectionType === 'ble';
     const result = await localDb.createHwWallet({
       ...localDbCreateParams,
       deviceState,
@@ -4187,10 +4190,11 @@ class ServiceAccount extends ServiceBase {
           isMockedStandardHwWallet,
         });
       },
-      // Ledger's chain fingerprint is a vendor-specific identity check.
+      // Ledger's chain fingerprint is a vendor-specific identity check, and
+      // only over USB; a BLE device the user picked is taken as-is.
       verifySeedMatchFn:
         vendorProfile?.identity.connectIdMatchVerification ===
-        'ledgerChainFingerprint'
+          'ledgerChainFingerprint' && !isBleDevice
           ? async (matchedDevice) =>
               verifyLedgerSeedMatch(
                 this.backgroundApi,

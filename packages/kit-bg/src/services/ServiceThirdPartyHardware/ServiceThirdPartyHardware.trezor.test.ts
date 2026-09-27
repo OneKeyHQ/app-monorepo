@@ -57,7 +57,7 @@ jest.mock('@onekeyhq/shared/src/logger/logger', () => ({
 describe('ServiceThirdPartyHardware Trezor BLE binding', () => {
   const db = jest.mocked(localDb);
   it.each([EHardwareVendor.ledger, EHardwareVendor.trezor])(
-    'sends the existing %s identity to explicit binding without clearing the saved locator',
+    'starts an explicit %s binding without clearing the saved locator',
     async (vendor) => {
       db.getDevice.mockResolvedValueOnce({
         id: 'db-device',
@@ -88,14 +88,10 @@ describe('ServiceThirdPartyHardware Trezor BLE binding', () => {
       try {
         await service.rebindBleDevice({ dbDeviceId: 'db-device' });
         expect(bindBleDevice).toHaveBeenCalledWith({
+          // Ledger binds whichever BLE device the user picks.
           identity:
             vendor === EHardwareVendor.ledger
-              ? {
-                  vendor,
-                  type: 'chainFingerprint',
-                  chain: 'sol',
-                  value: 'ledger-identity',
-                }
+              ? undefined
               : { vendor, type: 'deviceId', value: 'trezor-identity' },
           extra: { dbDeviceId: 'db-device' },
         });

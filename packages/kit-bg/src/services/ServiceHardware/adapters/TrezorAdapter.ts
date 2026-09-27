@@ -181,8 +181,9 @@ export class TrezorAdapter
       hw: this.hw,
       vendor: this.vendor,
       onSaved: async (request) => {
-        if (request.identity.vendor === 'trezor') {
-          await this.flushThpCredentials(request.identity.value, {
+        const { identity } = request;
+        if (identity?.vendor === 'trezor') {
+          await this.flushThpCredentials(identity.value, {
             connectId: request.connection.connectId,
           });
         }
