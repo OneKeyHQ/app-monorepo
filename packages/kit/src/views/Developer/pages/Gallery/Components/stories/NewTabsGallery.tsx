@@ -1,6 +1,7 @@
 import { useCallback, useMemo, useRef, useState } from 'react';
 
 import { NativeList } from '@onekeyfe/react-native-native-list';
+import { useHeaderHeight } from '@react-navigation/elements';
 import { View } from 'react-native';
 import { CollapsiblePagerView } from 'react-native-pager-view';
 
@@ -551,6 +552,9 @@ const HOME_FIXTURE_IMAGE = {
 
 function HomeNativeListFixture({ onClose }: { onClose: () => void }) {
   const pagerRef = useRef<CollapsiblePagerView>(null);
+  const headerHeight = useHeaderHeight();
+  // This standalone fixture bypasses Layout's transparent navigation bar inset.
+  const bodyPaddingTop = platformEnv.isNativeIOS26Plus ? headerHeight : 0;
   const theme = useHomeNativeListTheme();
   const [status, setStatus] = useState('Ready');
   const [table, setTable] = useState(false);
@@ -686,7 +690,7 @@ function HomeNativeListFixture({ onClose }: { onClose: () => void }) {
   return (
     <Page>
       <Page.Header title="Home NativeList acceptance" />
-      <Page.Body>
+      <Page.Body pt={bodyPaddingTop}>
         <XStack px="$2" gap="$2" flexWrap="wrap">
           <Button
             testID="home-native-fixture-close"
