@@ -1,3 +1,4 @@
+/* cspell:ignore Infini */
 import type { IAccountHistoryTx } from '@onekeyhq/shared/types/history';
 import { EOnChainHistoryTxType } from '@onekeyhq/shared/types/history';
 import { EEarnLabels } from '@onekeyhq/shared/types/staking';
@@ -25,6 +26,42 @@ function createTx(overrides: ITxOverrides): IAccountHistoryTx {
 }
 
 describe('mergeLocalTxDisplayFields', () => {
+  it.each([true, false])(
+    'retains the local Infini invoice binding when indexer label is present: %s',
+    (hasLabel) => {
+      const localTx = createTx({
+        primeInfiniPayment: {
+          type: 'primeInfiniPayment',
+          paymentCacheKey: {
+            bindingId: 'binding-1',
+            paymentId: 'payment-1',
+            networkId: 'evm--1',
+            contractAddress: '',
+            onekeyUserId: 'user-1',
+            plan: 'monthly',
+            payerAccountId: 'account-id',
+            payerAddress: '0xpayer',
+          },
+        },
+      });
+      const merged = mergeLocalTxDisplayFields({
+        localTx,
+        onChainHistoryTx: createTx({
+          decodedTx: {
+            payload: hasLabel
+              ? {
+                  value: '1',
+                  label: 'Transfer',
+                  type: EOnChainHistoryTxType.Send,
+                }
+              : undefined,
+          },
+        }),
+      });
+      expect(merged.primeInfiniPayment).toEqual(localTx.primeInfiniPayment);
+    },
+  );
+
   it('preserves replacement metadata when an indexed cancel replaces the local row', () => {
     const localTx = createTx({
       replacedPrevId: 'previous-history-id',

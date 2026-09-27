@@ -3,8 +3,10 @@
 
 import type { ReactNode } from 'react';
 
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 
+import { DesktopApiProxy } from '@onekeyhq/kit-bg/src/desktopApis/instance/desktopApiProxy';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -19,6 +21,9 @@ const mockPrimeRedemptionEntryClick = jest.fn();
 const mockPrimeManageSubscriptionClick = jest.fn();
 const mockNavigationPush = jest.fn();
 const mockOpenUrlExternal = jest.fn();
+const mockOpenAppStoreSubscriptions = jest.fn<Promise<boolean>, []>();
+const originalDesktopApiProxy = globalThis.desktopApiProxy;
+const originalDesktopApiBridge = globalThis.desktopApiBridge;
 const mockToastMessage = jest.fn();
 const mockApiFetchPrimeUserInfo = jest.fn<
   Promise<{
@@ -179,6 +184,8 @@ const mockPlatformEnv = platformEnv as {
   isNative: boolean;
   isNativeAndroidGooglePlay: boolean;
   isNativeIOS: boolean;
+  isMas: boolean;
+  isDesktopMac: boolean;
 };
 
 jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
@@ -187,7 +194,14 @@ jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
     isNative: false,
     isNativeAndroidGooglePlay: false,
     isNativeIOS: false,
+    isMas: false,
+    isDesktopMac: false,
   },
+}));
+
+jest.mock('@onekeyhq/shared/src/platformEnvLite', () => ({
+  __esModule: true,
+  default: { isDesktop: true },
 }));
 
 jest.mock('@onekeyhq/shared/src/logger/logger', () => ({
@@ -233,6 +247,8 @@ describe('PrimeUserInfoMoreButton redemption entry', () => {
     jest.clearAllMocks();
     mockPlatformEnv.isNative = false;
     mockPlatformEnv.isNativeIOS = false;
+    mockPlatformEnv.isMas = false;
+    mockPlatformEnv.isDesktopMac = false;
     mockUser.primeSubscription = undefined;
     mockUser.subscriptionManageUrl = undefined;
     mockManagementResolution = undefined;
@@ -270,6 +286,16 @@ describe('PrimeUserInfoMoreButton redemption entry', () => {
     ).toBeTruthy();
   });
 
+  it('hides redemption on Mac App Store while preserving subscription management', () => {
+    mockPlatformEnv.isMas = true;
+    mockUser.primeSubscription = { isActive: true };
+    render(<PrimeUserInfoMoreButton />);
+    expect(screen.queryByTestId(PrimeTestIDs.redemptionMenuItem)).toBeNull();
+    expect(
+      screen.getByTestId(PrimeTestIDs.manageSubscriptionMenuItem),
+    ).toBeTruthy();
+  });
+
   it('keeps the redemption entry on native Android', () => {
     mockPlatformEnv.isNative = true;
     mockPlatformEnv.isNativeIOS = false;
@@ -284,6 +310,7 @@ describe('PrimeUserInfoMoreButton manage subscription', () => {
     jest.clearAllMocks();
     mockPlatformEnv.isNative = false;
     mockPlatformEnv.isNativeIOS = false;
+    mockPlatformEnv.isMas = false;
     mockUser.primeSubscription = {
       isActive: true,
       subscriptions: [],
@@ -292,7 +319,176 @@ describe('PrimeUserInfoMoreButton manage subscription', () => {
     mockManagementResolution = undefined;
     mockPromiseResultMethod = undefined;
     mockGetCustomerInfo.mockReset();
+    mockPlatformEnv.isDesktopMac = false;
+    mockOpenAppStoreSubscriptions.mockReset().mockResolvedValue(true);
+    Object.defineProperty(globalThis, 'desktopApiProxy', {
+      configurable: true,
+      value: {
+        system: {
+          openAppStoreSubscriptions: () => mockOpenAppStoreSubscriptions(),
+        },
+      },
+    });
   });
+
+  afterEach(() => {
+    Object.defineProperty(globalThis, 'desktopApiProxy', {
+      configurable: true,
+      value: originalDesktopApiProxy,
+    });
+    Object.defineProperty(globalThis, 'desktopApiBridge', {
+      configurable: true,
+      value: originalDesktopApiBridge,
+    });
+  });
+
+  it('opens Apple subscription management through the system API on MAS without a channel', async () => {
+    mockPlatformEnv.isMas = true;
+    mockPlatformEnv.isDesktopMac = true;
+    mockUser.primeSubscription = {
+      isActive: true,
+      subscriptions: [
+        {
+          managementUrl: 'https://apps.apple.com/account/subscriptions',
+        },
+      ],
+    };
+    render(<PrimeUserInfoMoreButton />);
+
+    fireEvent.click(
+      screen.getByTestId(PrimeTestIDs.manageSubscriptionMenuItem),
+    );
+
+    await waitFor(() =>
+      expect(mockOpenAppStoreSubscriptions).toHaveBeenCalledTimes(1),
+    );
+    expect(mockOpenUrlExternal).not.toHaveBeenCalled();
+    expect(mockToastMessage).not.toHaveBeenCalled();
+  });
+
+  it('uses the system API for an explicit Apple subscription on a direct macOS build', async () => {
+    mockPlatformEnv.isDesktopMac = true;
+    mockUser.primeSubscription = {
+      isActive: true,
+      subscriptions: [
+        {
+          channel: 'app-store',
+          managementUrl: 'https://apps.apple.com/account/subscriptions',
+        },
+      ],
+    };
+    render(<PrimeUserInfoMoreButton />);
+    fireEvent.click(
+      screen.getByTestId(PrimeTestIDs.manageSubscriptionMenuItem),
+    );
+
+    await waitFor(() =>
+      expect(mockOpenAppStoreSubscriptions).toHaveBeenCalledTimes(1),
+    );
+    expect(mockOpenUrlExternal).not.toHaveBeenCalled();
+  });
+
+  it.each(['unsupported', 'failed', 'missing', 'legacy'] as const)(
+    'falls back to the Apple HTTPS entry when the system API is %s',
+    async (mode) => {
+      mockPlatformEnv.isMas = true;
+      mockPlatformEnv.isDesktopMac = true;
+      mockUser.primeSubscription = {
+        isActive: true,
+        subscriptions: [
+          { managementUrl: 'https://apps.apple.com/account/subscriptions' },
+        ],
+      };
+      const call = jest.fn(async () => {
+        throw new OneKeyLocalError('Unknown IPC method');
+      });
+      if (mode === 'unsupported') {
+        mockOpenAppStoreSubscriptions.mockResolvedValue(false);
+      } else if (mode === 'failed') {
+        mockOpenAppStoreSubscriptions.mockRejectedValue(
+          new OneKeyLocalError('App Store unavailable'),
+        );
+      } else if (mode === 'missing') {
+        Object.defineProperty(globalThis, 'desktopApiProxy', {
+          configurable: true,
+          value: undefined,
+        });
+      } else {
+        Object.defineProperty(globalThis, 'desktopApiBridge', {
+          configurable: true,
+          value: { call },
+        });
+        Object.defineProperty(globalThis, 'desktopApiProxy', {
+          configurable: true,
+          value: new DesktopApiProxy(),
+        });
+      }
+      render(<PrimeUserInfoMoreButton />);
+      fireEvent.click(
+        screen.getByTestId(PrimeTestIDs.manageSubscriptionMenuItem),
+      );
+
+      await waitFor(() => {
+        expect(mockOpenUrlExternal).toHaveBeenCalledWith(
+          'https://apps.apple.com/account/subscriptions',
+        );
+      });
+      expect(mockOpenUrlExternal).toHaveBeenCalledTimes(1);
+      expect(mockToastMessage).not.toHaveBeenCalled();
+      if (mode === 'legacy') {
+        expect(call.mock.calls).toEqual([
+          ['system', 'openAppStoreSubscriptions'],
+        ]);
+      }
+    },
+  );
+
+  it('opens the server Apple URL externally on iOS without using the macOS API', () => {
+    mockPlatformEnv.isNative = true;
+    mockPlatformEnv.isNativeIOS = true;
+    mockUser.primeSubscription = {
+      isActive: true,
+      subscriptions: [
+        { managementUrl: 'https://apps.apple.com/account/subscriptions' },
+      ],
+    };
+    render(<PrimeUserInfoMoreButton />);
+
+    fireEvent.click(
+      screen.getByTestId(PrimeTestIDs.manageSubscriptionMenuItem),
+    );
+
+    expect(mockOpenUrlExternal).toHaveBeenCalledWith(
+      'https://apps.apple.com/account/subscriptions',
+    );
+    expect(mockOpenAppStoreSubscriptions).not.toHaveBeenCalled();
+    expect(mockToastMessage).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    'https://apps.apple.com.example.com/account/subscriptions',
+    'https://apps.apple.com@other.example.com/account/subscriptions',
+    'https://apps.apple.com/account/subscriptions?redirect=example.com',
+    'https://play.google.com/store/account/subscriptions?sku=prime_monthly',
+  ])(
+    'preserves the server URL %s without opening macOS subscriptions',
+    (url) => {
+      mockPlatformEnv.isMas = true;
+      mockPlatformEnv.isDesktopMac = true;
+      mockUser.primeSubscription = {
+        isActive: true,
+        subscriptions: [{ managementUrl: url }],
+      };
+      render(<PrimeUserInfoMoreButton />);
+      fireEvent.click(
+        screen.getByTestId(PrimeTestIDs.manageSubscriptionMenuItem),
+      );
+
+      expect(mockOpenUrlExternal).toHaveBeenCalledWith(url);
+      expect(mockOpenAppStoreSubscriptions).not.toHaveBeenCalled();
+      expect(mockToastMessage).not.toHaveBeenCalled();
+    },
+  );
 
   it('shows the entry and explains when Prime has no management URL', async () => {
     mockUser.primeSubscription = { isActive: true, subscriptions: [] };

@@ -13,6 +13,7 @@ import { getTradingViewNativeCanvasFont } from './chartCanvasRenderer';
 
 import type { ITradingViewNativePriceScaleMode } from '../types';
 import type { ITradingViewNativePriceRange } from '../utils/chartViewport';
+import type { ITradingViewNativeSubIndicatorRenderPane } from '../utils/subIndicatorRender';
 
 export interface ITradingViewNativeCanvasPriceScale {
   mode: ITradingViewNativePriceScaleMode;
@@ -99,6 +100,7 @@ export function isTradingViewNativeCanvasMainPriceAxisPointer({
   clientY,
   labels,
   paneCount,
+  panes,
   priceAxisFontSize,
   priceScale,
   timeAxisHeight,
@@ -108,6 +110,7 @@ export function isTradingViewNativeCanvasMainPriceAxisPointer({
   clientY: number;
   labels: ITradingViewNativeCanvasPriceAxisLabels;
   paneCount: number;
+  panes?: readonly ITradingViewNativeSubIndicatorRenderPane[];
   priceAxisFontSize?: number;
   priceScale: ITradingViewNativeCanvasPriceScale;
   timeAxisHeight?: number;
@@ -126,6 +129,7 @@ export function isTradingViewNativeCanvasMainPriceAxisPointer({
   return isTradingViewNativeMainPriceAxisTouch({
     height: canvasRect.height,
     paneCount,
+    panes,
     priceAxisWidth,
     timeAxisHeight,
     width: canvasRect.width,

@@ -33,9 +33,11 @@ export type IModalMarketParamList = {
     | {
         // Only stock detail charts can offer Prev close.
         showPreviousClose?: boolean;
+        panelId?: string;
       }
     | undefined;
   [EModalMarketRoutes.MarketIndicatorSettings]: {
     storageNamespace: 'market' | 'swap';
+    panelId?: string;
   };
 };

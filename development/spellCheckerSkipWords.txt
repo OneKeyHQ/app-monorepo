@@ -261,6 +261,7 @@ Cmp
 Codec
 codespace
 coinbase
+coinbasepay
 coingecko
 coinselect
 cointype
@@ -536,6 +537,7 @@ lru
 ltc
 Ltc
 lte
+macappstore
 macos
 mainnet
 malloc
@@ -631,6 +633,7 @@ onekeyhq
 onekeyid
 onopen
 onramper
+onramps
 Ons
 onsuccess
 onupgradeneeded
@@ -652,6 +655,7 @@ passcode
 passpharse
 passphrase
 pathname
+paybis
 payin
 payout
 Pbkdf2

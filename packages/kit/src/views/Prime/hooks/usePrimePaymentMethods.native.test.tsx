@@ -9,6 +9,9 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+import enMessages from '@onekeyhq/shared/src/locale/json/en_US.json';
+import zhMessages from '@onekeyhq/shared/src/locale/json/zh_CN.json';
 
 import primePaymentUtils from './primePaymentUtils';
 import { usePrimePaymentMethods } from './usePrimePaymentMethods.native';
@@ -19,6 +22,10 @@ const mockGetOfferings = jest.fn<Promise<unknown>, []>();
 const mockLogIn = jest.fn<Promise<void>, [string]>();
 const mockPurchasePackage = jest.fn<Promise<unknown>, [unknown]>();
 const mockRestorePurchases = jest.fn<Promise<unknown>, []>();
+const mockGetCustomerInfo = jest.fn<Promise<unknown>, []>();
+const mockSetPrimePersistAtom = jest.fn<void, [unknown]>();
+let mockOneKeyUserId = 'user-a';
+let mockPersistedOneKeyUserId = 'user-a';
 const mockPrimeRestorePurchaseErrorTrace = jest.fn<void, [unknown]>();
 const mockSetMixpanelDistinctID = jest.fn<Promise<void>, [string]>();
 const mockSetAttributes = jest.fn<Promise<void>, [Record<string, string>]>();
@@ -40,15 +47,19 @@ const mockPurchaseSuccessListener = jest.fn();
 const mockTrackPrimeSubscriptionSuccess = jest.fn<void, [unknown]>();
 const mockEmitToSelf = jest.spyOn(appEventBus, 'emitToSelf');
 const mockIsGooglePlayAvailable = jest.fn(async () => true);
+let mockIsMas = false;
 let mockIsNativeAndroid = false;
 let mockIsNativeIOS = true;
 let mockRecurringPriceUnit: 'major' | 'micros' = 'major';
+let mockLocaleMessages: Record<string, string> = {};
 const mockTrackPrimeSubscriptionSuccessSpy = jest
   .spyOn(primePaymentUtils, 'trackPrimeSubscriptionSuccess')
   .mockImplementation((params) => mockTrackPrimeSubscriptionSuccess(params));
 
 jest.mock('react-intl', () => ({
-  useIntl: () => ({ formatMessage: ({ id }: { id: string }) => id }),
+  useIntl: () => ({
+    formatMessage: ({ id }: { id: string }) => mockLocaleMessages[id] ?? id,
+  }),
 }));
 
 jest.mock('react-native-purchases', () => ({
@@ -57,6 +68,7 @@ jest.mock('react-native-purchases', () => ({
     configure: (params: unknown) => mockConfigure(params),
     getAppUserID: () => mockGetAppUserID(),
     getOfferings: () => mockGetOfferings(),
+    getCustomerInfo: () => mockGetCustomerInfo(),
     logIn: (onekeyUserId: string) => mockLogIn(onekeyUserId),
     purchasePackage: (offering: unknown) => mockPurchasePackage(offering),
     restorePurchases: () => mockRestorePurchases(),
@@ -88,12 +100,19 @@ jest.mock('@onekeyhq/components', () => ({
 jest.mock('@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth', () => ({
   useOneKeyAuth: () => ({
     isReady: true,
-    user: { onekeyUserId: 'user-a' },
+    user: { onekeyUserId: mockOneKeyUserId },
   }),
 }));
 
 jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms', () => ({
-  usePrimePersistAtom: () => [{}, jest.fn()],
+  primePersistAtom: {
+    get: async () => ({
+      onekeyUserId: mockPersistedOneKeyUserId,
+      isLoggedIn: true,
+      isLoggedInOnServer: true,
+    }),
+  },
+  usePrimePersistAtom: () => [{}, mockSetPrimePersistAtom],
   useSettingsPersistAtom: () => [{ instanceId: 'instance-a' }],
 }));
 
@@ -128,6 +147,9 @@ jest.mock('@onekeyhq/shared/src/logger/logger', () => ({
 jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
   __esModule: true,
   default: {
+    get isMas() {
+      return mockIsMas;
+    },
     get isNativeAndroid() {
       return mockIsNativeAndroid;
     },
@@ -170,7 +192,7 @@ jest.mock('./revenueCatNativeCompatibility.native', () => ({
 }));
 
 type ISuccessDialogOptions = {
-  onClose: () => void;
+  onClose: () => Promise<void>;
 };
 
 const mockOffering = {
@@ -199,9 +221,13 @@ function setRequestIdleCallback() {
 describe('usePrimePaymentMethods native purchase', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockOneKeyUserId = 'user-a';
+    mockPersistedOneKeyUserId = 'user-a';
+    mockIsMas = false;
     mockIsNativeAndroid = false;
     mockIsNativeIOS = true;
     mockRecurringPriceUnit = 'major';
+    mockLocaleMessages = {};
     setRequestIdleCallback();
     mockGetAppUserID.mockResolvedValue('user-a');
     mockGetOfferings.mockResolvedValue({
@@ -309,8 +335,8 @@ describe('usePrimePaymentMethods native purchase', () => {
 
       const dialogOptions = mockDialogConfirm.mock
         .calls[0][0] as ISuccessDialogOptions;
-      act(() => {
-        dialogOptions.onClose();
+      await act(async () => {
+        await dialogOptions.onClose();
       });
 
       expect(mockPurchaseSuccessListener).toHaveBeenCalledWith({
@@ -548,6 +574,221 @@ describe('usePrimePaymentMethods native purchase', () => {
         }),
       ),
     );
+  });
+
+  it('does not start a purchase after the OneKey ID changes during offerings', async () => {
+    let resolveOfferings: ((value: unknown) => void) | undefined;
+    mockGetOfferings.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          resolveOfferings = resolve;
+        }),
+    );
+    const { result, rerender } = renderHook(() => usePrimePaymentMethods());
+    await waitFor(() => expect(result.current.isReady).toBe(true));
+    let purchase: Promise<unknown> | undefined;
+    act(() => {
+      purchase = result.current.purchasePackageNative?.({
+        subscriptionPeriod: 'P1Y',
+      });
+    });
+    await waitFor(() => expect(mockGetOfferings).toHaveBeenCalled());
+    mockOneKeyUserId = 'user-b';
+    rerender();
+    await act(async () => {
+      resolveOfferings?.({ current: { availablePackages: [mockOffering] } });
+      await expect(purchase).rejects.toThrow(
+        ETranslations.prime_onekey_id_session_changed__msg,
+      );
+    });
+    expect(mockPurchasePackage).not.toHaveBeenCalled();
+    expect(mockDialogConfirm).not.toHaveBeenCalled();
+  });
+
+  it('does not project or announce a previous account purchase result', async () => {
+    let resolvePurchase: ((value: unknown) => void) | undefined;
+    mockPurchasePackage.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          resolvePurchase = resolve;
+        }),
+    );
+    const { result, rerender } = renderHook(() => usePrimePaymentMethods());
+    await waitFor(() => expect(result.current.isReady).toBe(true));
+    let purchase: Promise<unknown> | undefined;
+    act(() => {
+      purchase = result.current.purchasePackageNative?.({
+        subscriptionPeriod: 'P1Y',
+      });
+    });
+    await waitFor(() => expect(mockPurchasePackage).toHaveBeenCalled());
+    mockOneKeyUserId = 'user-b';
+    rerender();
+    await act(async () => {
+      resolvePurchase?.({
+        customerInfo: {
+          managementURL: 'https://old-user.example.com',
+          entitlements: { active: { Prime: { isActive: true } } },
+        },
+      });
+      await expect(purchase).rejects.toThrow(
+        ETranslations.prime_onekey_id_session_changed__msg,
+      );
+    });
+    expect(mockSetPrimePersistAtom).not.toHaveBeenCalled();
+    expect(mockTryClaimKytIntro).not.toHaveBeenCalled();
+    expect(mockDialogConfirm).not.toHaveBeenCalled();
+  });
+
+  it('does not project a previous account customer-info response', async () => {
+    let resolveCustomerInfo: ((value: unknown) => void) | undefined;
+    mockGetCustomerInfo.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          resolveCustomerInfo = resolve;
+        }),
+    );
+    const { result, rerender } = renderHook(() => usePrimePaymentMethods());
+    await waitFor(() => expect(result.current.isReady).toBe(true));
+    let customerInfo: Promise<unknown> | undefined;
+    act(() => {
+      customerInfo = result.current.getCustomerInfo();
+    });
+    await waitFor(() => expect(mockGetCustomerInfo).toHaveBeenCalled());
+    mockOneKeyUserId = 'user-b';
+    rerender();
+    await act(async () => {
+      resolveCustomerInfo?.({
+        managementURL: 'https://old-user.example.com',
+        entitlements: { active: {} },
+      });
+      await expect(customerInfo).rejects.toThrow(
+        ETranslations.prime_onekey_id_session_changed__msg,
+      );
+    });
+    expect(mockSetPrimePersistAtom).not.toHaveBeenCalled();
+  });
+
+  it.each([true, false])(
+    'checks live identity after unmount when accountChanged=%s',
+    async (accountChanged) => {
+      let resolvePurchase: ((value: unknown) => void) | undefined;
+      mockPurchasePackage.mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            resolvePurchase = resolve;
+          }),
+      );
+      const { result, unmount } = renderHook(() => usePrimePaymentMethods());
+      await waitFor(() => expect(result.current.isReady).toBe(true));
+      let purchase: Promise<unknown> | undefined;
+      act(() => {
+        purchase = result.current.purchasePackageNative?.({
+          subscriptionPeriod: 'P1Y',
+        });
+      });
+      await waitFor(() => expect(mockPurchasePackage).toHaveBeenCalled());
+      unmount();
+      if (accountChanged) {
+        mockPersistedOneKeyUserId = 'user-b';
+      }
+      const purchaseResult = {
+        customerInfo: {
+          managementURL: 'https://user-a.example.com',
+          entitlements: { active: { Prime: { isActive: true } } },
+        },
+      };
+      await act(async () => {
+        resolvePurchase?.(purchaseResult);
+        if (accountChanged) {
+          await expect(purchase).rejects.toThrow(
+            ETranslations.prime_onekey_id_session_changed__msg,
+          );
+        } else {
+          await expect(purchase).resolves.toBe(purchaseResult);
+        }
+      });
+      expect(mockDialogConfirm).toHaveBeenCalledTimes(accountChanged ? 0 : 1);
+      expect(mockTryClaimKytIntro).toHaveBeenCalledTimes(
+        accountChanged ? 0 : 1,
+      );
+      if (!accountChanged) {
+        const dialog = mockDialogConfirm.mock
+          .calls[0][0] as ISuccessDialogOptions;
+        mockPersistedOneKeyUserId = 'user-b';
+        await act(async () => {
+          await dialog.onClose();
+        });
+        expect(mockPurchaseSuccessListener).not.toHaveBeenCalled();
+      }
+    },
+  );
+
+  it('reports initialization failure without waiting indefinitely', async () => {
+    mockConfigure.mockImplementationOnce(() => {
+      throw new OneKeyLocalError('Store SDK unavailable');
+    });
+    const { result } = renderHook(() => usePrimePaymentMethods());
+    await waitFor(() => expect(result.current.isReady).toBe(true));
+    await expect(result.current.getPackagesNative?.()).rejects.toThrow(
+      'Store SDK unavailable',
+    );
+    expect(mockGetOfferings).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    { locale: 'en-US', messages: enMessages },
+    { locale: 'zh-CN', messages: zhMessages },
+  ])(
+    'shows localized account-change feedback during restore in $locale',
+    async ({ messages }) => {
+      mockLocaleMessages = messages;
+      mockRestorePurchases.mockImplementationOnce(async () => {
+        mockPersistedOneKeyUserId = 'user-b';
+        return { entitlements: { active: { Prime: { isActive: true } } } };
+      });
+      const { result } = renderHook(() => usePrimePaymentMethods());
+      await waitFor(() => expect(result.current.isReady).toBe(true));
+
+      await act(async () => {
+        await result.current.restorePurchases?.();
+      });
+
+      expect(Toast.message).toHaveBeenCalledWith({
+        title: messages[ETranslations.prime_onekey_id_session_changed__msg],
+      });
+      expect(Toast.success).not.toHaveBeenCalled();
+      expect(mockFetchPrimeUserInfo).not.toHaveBeenCalled();
+    },
+  );
+
+  it('does not retry or toast a cancelled MAS identity confirmation during restore', async () => {
+    mockIsMas = true;
+    mockLogIn.mockRejectedValueOnce(
+      Object.assign(new Error('Cancel'), { userCancelled: true }),
+    );
+    const { result } = renderHook(() => usePrimePaymentMethods());
+    await waitFor(() => expect(result.current.isReady).toBe(true));
+    await act(async () => {
+      await result.current.restorePurchases?.();
+    });
+    expect(mockLogIn).toHaveBeenCalledTimes(1);
+    expect(mockRestorePurchases).not.toHaveBeenCalled();
+    expect(Toast.message).not.toHaveBeenCalled();
+    expect(mockHideDialogLoading).toHaveBeenCalled();
+  });
+
+  it('does not use a previous SDK login when MAS identity verification fails', async () => {
+    mockIsMas = true;
+    mockLogIn.mockRejectedValueOnce(new Error('Identity verification failed'));
+    const { result } = renderHook(() => usePrimePaymentMethods());
+    await waitFor(() => expect(result.current.isReady).toBe(true));
+    await act(async () => {
+      await result.current.restorePurchases?.();
+    });
+    expect(mockLogIn).toHaveBeenCalledTimes(1);
+    expect(mockGetAppUserID).not.toHaveBeenCalled();
+    expect(mockRestorePurchases).not.toHaveBeenCalled();
   });
 
   it('reports restore success even when user-info refresh fails', async () => {
