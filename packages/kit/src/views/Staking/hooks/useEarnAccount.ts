@@ -18,6 +18,8 @@ import {
   swrKeys,
 } from '@onekeyhq/shared/src/utils/swrCacheUtils';
 
+import { shouldInvalidateAccountScopedData } from '../../../utils/accountUpdate';
+
 type IUseEarnAccountParams = {
   networkId?: string;
   accountId?: string;
@@ -41,7 +43,10 @@ function registerDeriveTypeInvalidation() {
     return;
   }
   hasRegisteredDeriveTypeInvalidation = true;
-  const invalidate = () => {
+  const invalidate = (payload: unknown) => {
+    if (!shouldInvalidateAccountScopedData(payload)) {
+      return;
+    }
     networkDeriveTypes.clear();
     inFlightNetworkDeriveTypes.clear();
     lastDeriveTypeInvalidationAt = Date.now();
@@ -49,6 +54,7 @@ function registerDeriveTypeInvalidation() {
     deriveTypeListeners.forEach((listener) => listener());
   };
   appEventBus.on(EAppEventBusNames.WalletClear, invalidate);
+  appEventBus.on(EAppEventBusNames.WalletRemove, invalidate);
   appEventBus.on(EAppEventBusNames.AccountRemove, invalidate);
   appEventBus.on(EAppEventBusNames.AccountUpdate, invalidate);
   appEventBus.on(EAppEventBusNames.GlobalDeriveTypeUpdate, invalidate);

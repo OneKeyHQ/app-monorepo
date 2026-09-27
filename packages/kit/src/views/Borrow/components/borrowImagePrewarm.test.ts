@@ -305,6 +305,34 @@ describe('Borrow image prewarm', () => {
     invalidateBorrowImagePrewarmCache();
   });
 
+  it('bounds cache-clear idle waits and settles blocked batches', async () => {
+    let releaseActive: ((value: boolean) => void) | undefined;
+    jest.mocked(preloadImage).mockImplementationOnce(
+      () =>
+        new Promise<boolean>((resolve) => {
+          releaseActive = resolve;
+        }),
+    );
+    const activeSource = {
+      uri: 'https://example.com/active-timeout.png',
+      resizeWidth: 32,
+    };
+
+    prewarmBorrowImages([activeSource], { priority: true });
+    await waitFor(() => expect(preloadImage).toHaveBeenCalledTimes(1));
+    await expect(waitForBorrowImagePrewarmIdle({ timeoutMs: 1 })).resolves.toBe(
+      false,
+    );
+    await expect(
+      prewarmBorrowImagesAndWait([
+        activeSource,
+        { uri: 'https://example.com/blocked-batch.png', resizeWidth: 32 },
+      ]).promise,
+    ).resolves.toBe(false);
+    invalidateBorrowImagePrewarmCache();
+    releaseActive?.(true);
+  });
+
   it('demotes a queued image when its selected-market owner is cancelled', async () => {
     let releaseForeground: ((value: boolean) => void) | undefined;
     jest

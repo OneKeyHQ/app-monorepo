@@ -102,11 +102,11 @@ describe('swrCacheMutationInvalidation', () => {
     expect(swrCacheUtils.flushNow).toHaveBeenCalledTimes(1);
   });
 
-  it('drops only the displayed balances of the removed wallet', () => {
+  it('drops account-scoped snapshots when a wallet is removed', () => {
     appEventBus.emit(EAppEventBusNames.WalletRemove, { walletId: 'hd-1' });
 
     expect(swrCacheUtils.remove).toHaveBeenCalledWith('accSelValues:v1:hd-1');
-    expect(droppedPrefixes()).toEqual([]);
+    expect(droppedPrefixes()).toEqual(ACCOUNT_SCOPED_PREFIXES);
     expect(swrCacheUtils.flushNow).toHaveBeenCalledTimes(1);
   });
 
@@ -131,6 +131,19 @@ describe('swrCacheMutationInvalidation', () => {
       'accSelList:',
       ...BULK_PREFIXES,
       ...ACCOUNT_SCOPED_PREFIXES,
+    ]);
+    expect(swrCacheUtils.flushNow).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps account-scoped snapshots for a presentation-only account update', () => {
+    appEventBus.emit(EAppEventBusNames.AccountUpdate, {
+      isAccountDataChanged: false,
+    });
+
+    expect(droppedPrefixes()).toEqual([
+      'walletList:',
+      'accSelList:',
+      ...BULK_PREFIXES,
     ]);
     expect(swrCacheUtils.flushNow).toHaveBeenCalledTimes(1);
   });

@@ -148,4 +148,14 @@ describe('BorrowEModeMetric terminal error', () => {
     fireEvent.click(bar);
     expect(pushToBorrowEModeSwitch).not.toHaveBeenCalled();
   });
+
+  it('does not navigate from the E-Mode bar while a market switch is pending', () => {
+    const { getByTestId } = render(
+      <BorrowEModeMetric eModeStatus={status} variant="bar" isDisabled />,
+    );
+    const bar = getByTestId(BorrowTestIDs.overviewEModeCell);
+    expect(bar.getAttribute('data-pressable')).toBe('false');
+    fireEvent.click(bar);
+    expect(pushToBorrowEModeSwitch).not.toHaveBeenCalled();
+  });
 });

@@ -20,6 +20,8 @@ import {
 import { EBorrowProviderEnum } from '@onekeyhq/shared/types/staking';
 import type { IBorrowEModeStatus } from '@onekeyhq/shared/types/staking';
 
+import { shouldInvalidateAccountScopedData } from '../../../utils/accountUpdate';
+
 import { isBorrowMetricReadyForMarketSwitch } from './borrowMetricSnapshot.utils';
 
 const PRELOADED_CACHE_TTL = 60_000;
@@ -40,13 +42,17 @@ function registerAccountInvalidation() {
     return;
   }
   accountInvalidationRegistered = true;
-  const invalidate = () => {
+  const invalidate = (payload: unknown) => {
+    if (!shouldInvalidateAccountScopedData(payload)) {
+      return;
+    }
     inFlightEModeStatuses.clear();
     lastAccountInvalidationAt = Date.now();
     accountGeneration += 1;
     accountGenerationListeners.forEach((listener) => listener());
   };
   appEventBus.on(EAppEventBusNames.WalletClear, invalidate);
+  appEventBus.on(EAppEventBusNames.WalletRemove, invalidate);
   appEventBus.on(EAppEventBusNames.AccountRemove, invalidate);
   appEventBus.on(EAppEventBusNames.AccountUpdate, invalidate);
   appEventBus.on(EAppEventBusNames.GlobalDeriveTypeUpdate, invalidate);

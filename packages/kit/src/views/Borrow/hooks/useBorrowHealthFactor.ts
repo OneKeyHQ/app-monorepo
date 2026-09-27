@@ -20,6 +20,8 @@ import {
 } from '@onekeyhq/shared/src/utils/swrCacheUtils';
 import type { IBorrowHealthFactor } from '@onekeyhq/shared/types/staking';
 
+import { shouldInvalidateAccountScopedData } from '../../../utils/accountUpdate';
+
 import { isBorrowMetricReadyForMarketSwitch } from './borrowMetricSnapshot.utils';
 
 interface IUseBorrowHealthFactorParams {
@@ -49,13 +51,17 @@ function registerAccountInvalidation() {
     return;
   }
   accountInvalidationRegistered = true;
-  const invalidate = () => {
+  const invalidate = (payload: unknown) => {
+    if (!shouldInvalidateAccountScopedData(payload)) {
+      return;
+    }
     inFlightHealthFactors.clear();
     lastAccountInvalidationAt = Date.now();
     accountGeneration += 1;
     accountGenerationListeners.forEach((listener) => listener());
   };
   appEventBus.on(EAppEventBusNames.WalletClear, invalidate);
+  appEventBus.on(EAppEventBusNames.WalletRemove, invalidate);
   appEventBus.on(EAppEventBusNames.AccountRemove, invalidate);
   appEventBus.on(EAppEventBusNames.AccountUpdate, invalidate);
   appEventBus.on(EAppEventBusNames.GlobalDeriveTypeUpdate, invalidate);

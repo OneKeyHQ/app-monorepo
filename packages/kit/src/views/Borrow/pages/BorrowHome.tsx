@@ -465,6 +465,7 @@ const BorrowHomeContent = memo(
         eModeStatus={visibleEModeStatus}
         isError={isEModeError}
         isLoading={isEModeInitialLoading}
+        isDisabled={isMarketSwitchPending}
         variant="bar"
       />
     );

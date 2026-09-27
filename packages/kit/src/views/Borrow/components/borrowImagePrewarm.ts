@@ -52,6 +52,7 @@ let foregroundDrainId = 0;
 let activeForegroundImage: IQueuedImage | undefined;
 let cacheGeneration = 0;
 let isCacheClearInProgress = false;
+const BORROW_IMAGE_PREWARM_IDLE_TIMEOUT_MS = 5000;
 
 export function invalidateBorrowImagePrewarmCache() {
   cacheGeneration += 1;
@@ -79,17 +80,33 @@ function hasActiveBorrowImagePrewarmWork() {
  * the native disk cache is cleared. Call invalidateBorrowImagePrewarmCache()
  * after the native clear completes to reopen the queue.
  */
-export async function waitForBorrowImagePrewarmIdle() {
+export async function waitForBorrowImagePrewarmIdle(options?: {
+  timeoutMs?: number;
+}): Promise<boolean> {
   isCacheClearInProgress = true;
   cancelQueuedBorrowImagePrewarm();
-  while (hasActiveBorrowImagePrewarmWork()) {
-    const drains = [foregroundDrainPromise].filter(
-      (promise): promise is Promise<void> => Boolean(promise),
-    );
-    if (drains.length > 0) {
-      await Promise.race(drains);
-    } else {
-      await new Promise<void>((resolve) => setTimeout(resolve, 0));
+  const timeoutMs = options?.timeoutMs ?? BORROW_IMAGE_PREWARM_IDLE_TIMEOUT_MS;
+  let timeoutId: ReturnType<typeof setTimeout> | undefined;
+  const timeoutPromise = new Promise<false>((resolve) => {
+    timeoutId = setTimeout(() => resolve(false), timeoutMs);
+  });
+  try {
+    while (hasActiveBorrowImagePrewarmWork()) {
+      const drains = [foregroundDrainPromise].filter(
+        (promise): promise is Promise<void> => Boolean(promise),
+      );
+      const idlePromise =
+        drains.length > 0
+          ? Promise.race(drains).then(() => true as const)
+          : new Promise<true>((resolve) => setTimeout(() => resolve(true), 0));
+      if (!(await Promise.race([idlePromise, timeoutPromise]))) {
+        return false;
+      }
+    }
+    return true;
+  } finally {
+    if (timeoutId !== undefined) {
+      clearTimeout(timeoutId);
     }
   }
 }
@@ -428,6 +445,11 @@ export function prewarmBorrowImagesAndWait(
   if (pendingCount === 0) {
     isSettled = true;
     resolvePromise(true);
+    return { promise, cancel: () => undefined };
+  }
+  if (isCacheClearInProgress) {
+    isSettled = true;
+    resolvePromise(false);
     return { promise, cancel: () => undefined };
   }
   const cancelPrewarm = prewarmBorrowImages(uniqueSources, {

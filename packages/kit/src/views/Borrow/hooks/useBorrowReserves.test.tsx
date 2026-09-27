@@ -1,6 +1,6 @@
 /* eslint-disable import/first */
 
-const mockAccountListeners = new Map<string, () => void>();
+const mockAccountListeners = new Map<string, (payload?: unknown) => void>();
 
 jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => {
   const getBorrowReserves = jest.fn();
@@ -15,6 +15,7 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => {
 jest.mock('@onekeyhq/shared/src/eventBus/appEventBus', () => ({
   EAppEventBusNames: {
     WalletClear: 'WalletClear',
+    WalletRemove: 'WalletRemove',
     AccountRemove: 'AccountRemove',
     AccountUpdate: 'AccountUpdate',
     GlobalDeriveTypeUpdate: 'GlobalDeriveTypeUpdate',
@@ -23,7 +24,7 @@ jest.mock('@onekeyhq/shared/src/eventBus/appEventBus', () => ({
       'AccountSelectorSelectedAccountUpdate',
   },
   appEventBus: {
-    on: (name: string, listener: () => void) => {
+    on: (name: string, listener: (payload?: unknown) => void) => {
       mockAccountListeners.set(name, listener);
     },
   },
@@ -117,6 +118,22 @@ describe('useBorrowReserves in-flight requests', () => {
         supplied: { ...zeroBalanceReserves.supplied, suppliedBalance: null },
       }),
     ).toBe(false);
+    expect(
+      isBorrowReservesPayloadUsable({
+        ...zeroBalanceReserves,
+        supply: {
+          assets: [{ reserveAddress: '0x1', token: { symbol: 'USDC' } }],
+        },
+      }),
+    ).toBe(false);
+    expect(
+      isBorrowReservesPayloadUsable({
+        ...zeroBalanceReserves,
+        borrow: {
+          assets: [{ reserveAddress: '0x2', token: { symbol: 'DAI' } }],
+        },
+      }),
+    ).toBe(false);
   });
 
   it('invalidates a cached reserves entry after an account event without fetching', () => {
@@ -126,6 +143,7 @@ describe('useBorrowReserves in-flight requests', () => {
     renderHook(() => useBorrowReserves());
     expect(mockGetBorrowReserves).not.toHaveBeenCalled();
     expect(mockAccountListeners.has('NetworkDeriveTypeChanged')).toBe(true);
+    expect(mockAccountListeners.has('WalletRemove')).toBe(true);
 
     act(() => mockAccountListeners.get('NetworkDeriveTypeChanged')?.());
     expect(isBorrowReservesCacheReusable(cachedUpdatedAt)).toBe(false);

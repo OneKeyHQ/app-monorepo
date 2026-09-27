@@ -204,15 +204,21 @@ export default function ClearAppCache() {
                 invalidateBorrowImagePrewarmCache,
                 waitForBorrowImagePrewarmIdle,
               } =
-                await import('@onekeyhq/kit/src/views/Borrow/components/borrowImagePrewarm');
-              await waitForBorrowImagePrewarmIdle();
-              if (platformEnv.isNative) {
-                await Promise.all([
-                  Image.clearDiskCache(),
-                  Image.clearMemoryCache(),
-                ]).catch(() => undefined);
+                (await import('@onekeyhq/kit/src/views/Borrow/components/borrowImagePrewarm')) as {
+                  invalidateBorrowImagePrewarmCache: () => void;
+                  waitForBorrowImagePrewarmIdle: () => Promise<boolean>;
+                };
+              try {
+                await waitForBorrowImagePrewarmIdle();
+                if (platformEnv.isNative) {
+                  await Promise.all([
+                    Image.clearDiskCache(),
+                    Image.clearMemoryCache(),
+                  ]).catch(() => undefined);
+                }
+              } finally {
+                invalidateBorrowImagePrewarmCache();
               }
-              invalidateBorrowImagePrewarmCache();
             }
             Toast.success({
               title: intl.formatMessage({

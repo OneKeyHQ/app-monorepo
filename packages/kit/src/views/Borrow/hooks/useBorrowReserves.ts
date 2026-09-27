@@ -11,6 +11,8 @@ import type {
   IBorrowReserveRequestParams,
 } from '@onekeyhq/shared/types/staking';
 
+import { shouldInvalidateAccountScopedData } from '../../../utils/accountUpdate';
+
 const inFlightReserves = new Map<string, Promise<IBorrowReserveItem>>();
 let hasRegisteredAccountInvalidation = false;
 let lastAccountInvalidationAt = 0;
@@ -34,7 +36,11 @@ function hasPositionAmount(asset: Record<string, unknown>, key: string) {
 
 function hasAssetList(
   value: unknown,
-  positionAmountKey?: 'suppliedAmount' | 'borrowedAmount',
+  positionAmountKey?:
+    | 'suppliedAmount'
+    | 'borrowedAmount'
+    | 'walletBalance'
+    | 'available',
 ): boolean {
   if (!value || typeof value !== 'object') {
     return false;
@@ -78,8 +84,8 @@ export function isBorrowReservesPayloadUsable(
     hasText(data.borrowed?.borrowedApy?.title) &&
     hasAssetList(data.supplied, 'suppliedAmount') &&
     hasAssetList(data.borrowed, 'borrowedAmount') &&
-    hasAssetList(data.supply) &&
-    hasAssetList(data.borrow),
+    hasAssetList(data.supply, 'walletBalance') &&
+    hasAssetList(data.borrow, 'available'),
   );
 }
 
@@ -118,13 +124,17 @@ function registerAccountInvalidation() {
     return;
   }
   hasRegisteredAccountInvalidation = true;
-  const clearInFlightReserves = () => {
+  const clearInFlightReserves = (payload: unknown) => {
+    if (!shouldInvalidateAccountScopedData(payload)) {
+      return;
+    }
     inFlightReserves.clear();
     lastAccountInvalidationAt = Date.now();
     accountGeneration += 1;
     accountGenerationListeners.forEach((listener) => listener());
   };
   appEventBus.on(EAppEventBusNames.WalletClear, clearInFlightReserves);
+  appEventBus.on(EAppEventBusNames.WalletRemove, clearInFlightReserves);
   appEventBus.on(EAppEventBusNames.AccountRemove, clearInFlightReserves);
   appEventBus.on(EAppEventBusNames.AccountUpdate, clearInFlightReserves);
   appEventBus.on(

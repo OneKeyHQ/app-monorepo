@@ -22,6 +22,7 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import type { IEventBusPayloadAccountUpdate } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import {
   prefixOf,
@@ -29,6 +30,8 @@ import {
   swrCacheUtils,
   swrKeys,
 } from '@onekeyhq/shared/src/utils/swrCacheUtils';
+
+import { shouldInvalidateAccountScopedData } from './accountUpdate';
 
 const dropWalletListSwr = () =>
   swrCacheUtils.removeByPrefix(prefixOf(swrCacheNamespaces.walletListSideBar));
@@ -142,9 +145,13 @@ export function registerSwrCacheMutationInvalidation() {
     dropBulkAddressSwr();
   };
 
-  const dropAccountShapeAndScopedSwr = () => {
+  const dropAccountShapeAndScopedSwr = (
+    payload: IEventBusPayloadAccountUpdate | undefined,
+  ) => {
     dropAccountShapeSwr();
-    dropAccountScopedSwr();
+    if (shouldInvalidateAccountScopedData(payload)) {
+      dropAccountScopedSwr();
+    }
     swrCacheUtils.flushNow();
   };
 
@@ -177,6 +184,7 @@ export function registerSwrCacheMutationInvalidation() {
   });
   appEventBus.on(EAppEventBusNames.WalletRemove, ({ walletId }) => {
     swrCacheUtils.remove(swrKeys.accountSelectorValues({ walletId }));
+    dropAccountScopedSwr();
     swrCacheUtils.flushNow();
   });
   appEventBus.on(EAppEventBusNames.WalletClear, () => {

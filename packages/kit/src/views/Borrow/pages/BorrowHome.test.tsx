@@ -131,16 +131,19 @@ jest.mock('../components/BorrowEModeMetric', () => ({
     variant,
     eModeStatus,
     isError,
+    isDisabled,
   }: {
     variant?: string;
     eModeStatus?: unknown;
     isError?: boolean;
+    isDisabled?: boolean;
   }) => (
     <div
       data-testid="e-mode-metric"
       data-variant={variant}
       data-has-status={String(Boolean(eModeStatus))}
       data-error={String(Boolean(isError))}
+      data-disabled={String(Boolean(isDisabled))}
     />
   ),
 }));
@@ -369,6 +372,15 @@ describe('BorrowHome overview metrics', () => {
     expect(lastOverviewProps()).toMatchObject({
       isInteractionBlocked: true,
     });
+  });
+
+  it('disables the phone E-Mode bar while a market switch is pending', () => {
+    mockRequestedMarket = { ...context.market, marketAddress: '0xOtherMarket' };
+    const { getByTestId } = render(<BorrowHome />);
+
+    expect(getByTestId('e-mode-metric').getAttribute('data-disabled')).toBe(
+      'true',
+    );
   });
 
   // renderCards short-circuits to its own error block here, so the empty state
