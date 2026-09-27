@@ -81,6 +81,7 @@ export function useTabIsRefreshingFocused() {
 }
 
 export * from './useCurrentTabScrollY';
+export * from './useTabsScrollToTop';
 
 const useNativeTabContainerWidth = isDualScreenDevice()
   ? () => {
