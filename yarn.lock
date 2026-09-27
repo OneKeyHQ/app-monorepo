@@ -10485,7 +10485,7 @@ __metadata:
     path-browserify: "npm:^1.0.1"
     react: "npm:19.2.3"
     react-native: "npm:0.86.2"
-    react-native-aes-crypto: "npm:@onekeyfe/react-native-aes-crypto@3.0.157-alpha.254"
+    react-native-aes-crypto: "npm:@onekeyfe/react-native-aes-crypto@3.0.157-alpha.255"
     react-native-awesome-slider: "npm:^2.9.0"
     react-native-ble-plx: "npm:3.5.1"
     react-native-camera-kit: "npm:17.0.1"
@@ -42581,13 +42581,13 @@ __metadata:
   languageName: node
   linkType: hard
 
-"react-native-aes-crypto@npm:@onekeyfe/react-native-aes-crypto@3.0.157-alpha.254":
-  version: 3.0.157-alpha.254
-  resolution: "@onekeyfe/react-native-aes-crypto@npm:3.0.157-alpha.254"
+"react-native-aes-crypto@npm:@onekeyfe/react-native-aes-crypto@3.0.157-alpha.255":
+  version: 3.0.157-alpha.255
+  resolution: "@onekeyfe/react-native-aes-crypto@npm:3.0.157-alpha.255"
   peerDependencies:
     react: "*"
     react-native: "*"
-  checksum: 10/84f02e7d23663e3c24ea1215ea765c6711d53c9582d5d86b1db9cc50eedcb6229074d6a2e1d12751b83429245382087a4ee86d02af86dd6df1a5c1839437bb06
+  checksum: 10/a1e3cc66ca0d57a145b42680c1b4dc90f146946a7860fb452e497bdff38d54cd2524ae42e2b5cc4e6d794dd80a031b833fdba5177e4b0490b8c958dcc9c3fe4a
   languageName: node
   linkType: hard
 
