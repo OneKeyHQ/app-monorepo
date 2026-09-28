@@ -1,4 +1,4 @@
-import { Core } from '@walletconnect/core';
+import { Core, SUBSCRIBER_EVENTS } from '@walletconnect/core';
 import { HEARTBEAT_EVENTS } from '@walletconnect/heartbeat';
 import { JsonRpcProvider } from '@walletconnect/jsonrpc-provider';
 import WsConnection from '@walletconnect/jsonrpc-ws-connection';
@@ -228,6 +228,75 @@ describe('WalletConnect application relay controller with the unmodified SDK', (
       expect(attempts[10]).toBe(RELAYS[initial]);
       expect(relayer.connected).toBe(true);
       expect(relayer.transportExplicitlyClosed).toBe(false);
+    },
+  );
+
+  it.each([false, true])(
+    'submits a concurrent pairing independently after the first fails; secondFails=%s',
+    async (secondFails) => {
+      jest.useFakeTimers();
+      const core = createCore();
+      prepareCore(core);
+      const { relayer } = core;
+      jest
+        .spyOn(relayer.subscriber, 'hasAnyTopics', 'get')
+        .mockReturnValue(false);
+      jest.spyOn(relayer.messages, 'init').mockResolvedValue();
+      jest.spyOn(relayer.subscriber, 'init').mockResolvedValue();
+      WalletConnectRelayController.attach(core);
+      await relayer.init();
+      await jest.advanceTimersByTimeAsync(0);
+
+      const connect = jest
+        .spyOn(JsonRpcProvider.prototype, 'connect')
+        .mockImplementation(async function connect(this: JsonRpcProvider) {
+          if (!(this.connection instanceof WsConnection)) {
+            throw new OneKeyLocalError('Expected the SDK WebSocket transport');
+          }
+          mockClose(this.connection);
+          Object.assign(this.connection, { socket: { readyState: 1 } });
+          this.events.emit('connect');
+        });
+      const firstError = new OneKeyLocalError('First subscription failed');
+      const secondError = new OneKeyLocalError('Second subscription failed');
+      let failFirst = () => {};
+      const subscribe = jest
+        .spyOn(relayer.subscriber, 'subscribe')
+        .mockImplementationOnce(
+          () =>
+            new Promise<string>((_resolve, reject) => {
+              failFirst = () => reject(firstError);
+            }),
+        )
+        .mockImplementationOnce(async (topic) => {
+          if (secondFails) throw secondError;
+          relayer.subscriber.events.emit(SUBSCRIBER_EVENTS.created, { topic });
+          return 'second-subscription';
+        });
+
+      const first = relayer
+        .subscribe('first-topic')
+        .catch((error: unknown) => error);
+      const second = relayer
+        .subscribe('second-topic')
+        .catch((error: unknown) => error);
+      await jest.advanceTimersByTimeAsync(0);
+      expect(subscribe.mock.calls.map(([topic]) => topic)).toEqual([
+        'first-topic',
+      ]);
+
+      failFirst();
+      await jest.advanceTimersByTimeAsync(0);
+      expect(await first).toBe(firstError);
+      expect(await second).toBe(
+        secondFails ? secondError : 'second-subscription',
+      );
+      expect(subscribe.mock.calls.map(([topic]) => topic)).toEqual([
+        'first-topic',
+        'second-topic',
+      ]);
+      expect(connect).toHaveBeenCalledTimes(1);
+      await relayer.transportClose();
     },
   );
 

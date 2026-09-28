@@ -105,7 +105,8 @@ export class WalletConnectRelayController {
     };
     relayer.subscribe = async (...args) => {
       while (this.initialSubscription) {
-        await this.initialSubscription;
+        // Serialize pairings without inheriting a different pairing's failure.
+        await this.initialSubscription.catch(() => undefined);
       }
       // The first pairing has no subscription topics yet. Its SDK subscribe
       // creates the pending topic before reaching the guarded request above.
