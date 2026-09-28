@@ -29,10 +29,7 @@ import {
   EmailOtpCaptchaCancelledError,
   useEmailOtpCaptcha,
 } from '@onekeyhq/kit/src/components/Captcha/useEmailOtpCaptcha';
-import {
-  getEmailOtpRequestErrorMessage,
-  isEmailOtpSendKnownFailure,
-} from '@onekeyhq/kit/src/components/OneKeyAuth/emailOtpErrorUtils';
+import { getEmailOtpRequestErrorMessage } from '@onekeyhq/kit/src/components/OneKeyAuth/emailOtpErrorUtils';
 import { getEmailOtpRateLimitRetryAfterSeconds } from '@onekeyhq/kit/src/components/OneKeyAuth/emailOtpRateLimitError';
 import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
 import { useIsMounted } from '@onekeyhq/kit/src/hooks/useIsMounted';
@@ -242,12 +239,9 @@ export function PrimeLoginEmailCodeDialogV2(props: {
         Toast.error({ title: errorMessage });
       }
       setIsApiReady(true);
-      // Block known send failures, but let users submit after unknown errors.
-      // A failed resend does not invalidate a previously requested code.
-      setIsCodeInputEnabled(
-        attempt.allowPreviousCode ||
-          (attempt.stage === 'sending' && !isEmailOtpSendKnownFailure(error)),
-      );
+      // Only the server can validate an existing code. A failed CAPTCHA or
+      // send request must not prevent the user from submitting one.
+      setIsCodeInputEnabled(true);
       setState({ status: 'initial' });
       setCountdown(retryAfterSeconds ?? 0);
       return;
