@@ -3265,15 +3265,32 @@ class ServicePrimeTransfer extends ServiceBase {
   async verifyCredentialCanBeDecrypted({
     walletCredential,
     importedAccountCredential,
+    decryptedCredentialsHex,
     password,
   }: {
     walletCredential: string | undefined;
     importedAccountCredential: string | undefined;
+    decryptedCredentialsHex?: string;
     password: string;
   }) {
     try {
       const kdfParams = appCrypto.pbkdf2.getPbkdf2KdfParamsForNonDbTx();
-      if (walletCredential) {
+      if (decryptedCredentialsHex) {
+        if (!password) {
+          throw new OneKeyLocalError('Password is required');
+        }
+        // Import reads the wrapped payload first, ahead of legacy fallbacks.
+        // Parse it here too: legacy decryption can succeed with invalid text.
+        JSON.parse(
+          await decryptStringAsync({
+            data: decryptedCredentialsHex,
+            resultEncoding: 'utf8',
+            password,
+            allowRawPassword: true,
+            ...kdfParams,
+          }),
+        );
+      } else if (walletCredential) {
         if (!password) {
           throw new OneKeyLocalError('Password is required');
         }
@@ -3295,8 +3312,9 @@ class ServicePrimeTransfer extends ServiceBase {
         });
       }
       return true;
-    } catch (e) {
-      console.error('verifyCredentialCanBeDecrypted error', e);
+    } catch {
+      // JSON parse errors can include decrypted contents. Never log them.
+      console.error('verifyCredentialCanBeDecrypted error');
       return false;
     }
   }

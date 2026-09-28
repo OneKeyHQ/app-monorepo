@@ -578,6 +578,7 @@ export default function PagePrimeTransferPreview() {
             password: localPassword,
             walletCredential: firstWalletCredential,
             importedAccountCredential: firstImportedAccountCredential,
+            decryptedCredentialsHex,
           },
         );
 
@@ -679,6 +680,7 @@ export default function PagePrimeTransferPreview() {
                     password: remoteDevicePassword,
                     walletCredential: firstWalletCredential,
                     importedAccountCredential: firstImportedAccountCredential,
+                    decryptedCredentialsHex,
                   },
                 );
 
