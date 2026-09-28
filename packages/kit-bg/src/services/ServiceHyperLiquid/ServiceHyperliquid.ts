@@ -518,6 +518,10 @@ export default class ServiceHyperliquid extends ServiceBase {
   // Track provenance explicitly: the price cache also contains mids.
   private _spotContextPriceCoins = new Set<string>();
 
+  private _spotContextPriceGeneration = 0;
+
+  private _spotTotalUsdWriteRevision = 0;
+
   private _spotPriceDirty = false;
 
   private _spotPriceFlushTimer: ReturnType<typeof setTimeout> | null = null;
@@ -1101,9 +1105,13 @@ export default class ServiceHyperliquid extends ServiceBase {
   // Shared across addresses: non-USDC spot pricing is account-independent.
   _getSpotPriceMapMemo = cacheUtils.memoizee(
     async () => {
+      const priceSourceGeneration = this._spotContextPriceGeneration;
       const result =
         await hyperLiquidApiClients.infoClient.spotMetaAndAssetCtxs();
-      await this._applySpotMetaAndAssetCtxsResult(result);
+      await this._applySpotMetaAndAssetCtxsResult(
+        result,
+        priceSourceGeneration,
+      );
       return buildSpotPriceMap(result);
     },
     {
@@ -2091,6 +2099,7 @@ export default class ServiceHyperliquid extends ServiceBase {
   }
 
   clearSpotContextPriceSources() {
+    this._spotContextPriceGeneration += 1;
     this._spotContextPriceCoins.clear();
   }
 
@@ -2481,7 +2490,7 @@ export default class ServiceHyperliquid extends ServiceBase {
 
     const computed = spotTotal.totalUsd;
     // Even forced price refreshes must not overwrite a newer balance snapshot.
-    let didWrite = false;
+    let writeRevision: number | undefined;
     await perpsSpotBalancesAtom.set((prev) => {
       if (!prev || (!force && prev.spotTotalUsd !== undefined)) return prev;
       if (prev.accountAddress?.toLowerCase() !== activeAddress) return prev;
@@ -2490,10 +2499,16 @@ export default class ServiceHyperliquid extends ServiceBase {
       // Complete prices make the timer obsolete even when the total is unchanged.
       this._clearSpotTotalUsdFallbackTimer(activeAddress);
       if (prev.spotTotalUsd === computed) return prev;
-      didWrite = true;
+      this._spotTotalUsdWriteRevision += 1;
+      writeRevision = this._spotTotalUsdWriteRevision;
       return { ...prev, spotTotalUsd: computed };
     });
-    if (didWrite) {
+    // Atom writes may await a bg-to-UI broadcast after committing the value.
+    // Only the latest committed recalculation may persist after that wait.
+    if (
+      writeRevision !== undefined &&
+      writeRevision === this._spotTotalUsdWriteRevision
+    ) {
       void this.cacheService
         .writePerpsAccountDisplaySnapshot({
           accountAddress: activeAddress,
@@ -2636,6 +2651,7 @@ export default class ServiceHyperliquid extends ServiceBase {
 
   private async _applySpotMetaAndAssetCtxsResult(
     result: ISpotMetaAndAssetCtxsResponse,
+    priceSourceGeneration = this._spotContextPriceGeneration,
   ) {
     const spotMeta = this._buildSpotMetaFromResponse(result);
     if (spotMeta) {
@@ -2647,7 +2663,12 @@ export default class ServiceHyperliquid extends ServiceBase {
     // Reuse the assetCtxs from this REST call so the first spot view doesn't
     // wait 2-3s for the WS SPOT_ASSET_CTXS message and flash a skeleton.
     const assetCtxs = result[1];
-    if (Array.isArray(assetCtxs) && assetCtxs.length > 0) {
+    // REST requests may outlive their subscription, including the metadata write above.
+    if (
+      priceSourceGeneration === this._spotContextPriceGeneration &&
+      Array.isArray(assetCtxs) &&
+      assetCtxs.length > 0
+    ) {
       void this.updateSpotAssetCtxsMap(assetCtxs);
     }
   }
@@ -2757,6 +2778,7 @@ export default class ServiceHyperliquid extends ServiceBase {
 
   @backgroundMethod()
   async refreshSpotMeta() {
+    const priceSourceGeneration = this._spotContextPriceGeneration;
     const { infoClient } = hyperLiquidApiClients;
     markPerpsColdStartPerf('service_refresh_spot_meta_start');
     const result = await infoClient.spotMetaAndAssetCtxs();
@@ -2765,7 +2787,7 @@ export default class ServiceHyperliquid extends ServiceBase {
       universeCount: result[0]?.universe?.length ?? 0,
       assetCtxCount: result[1]?.length ?? 0,
     });
-    await this._applySpotMetaAndAssetCtxsResult(result);
+    await this._applySpotMetaAndAssetCtxsResult(result, priceSourceGeneration);
     void this.refreshSpotExternalMarketCaps();
     markPerpsColdStartPerf('service_refresh_spot_meta_end');
   }

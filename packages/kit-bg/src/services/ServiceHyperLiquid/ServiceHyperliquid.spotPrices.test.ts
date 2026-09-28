@@ -10,6 +10,7 @@ import {
 } from '../../states/jotai/atoms';
 import { globalJotaiStorageReadyHandler } from '../../states/jotai/jotaiStorage';
 
+import { hyperLiquidApiClients } from './hyperLiquidApiClients';
 import ServiceHyperliquid from './ServiceHyperliquid';
 import ServiceHyperliquidSubscription from './ServiceHyperliquidSubscription';
 import { generateSubscriptionKey } from './utils/SubscriptionConfig';
@@ -18,7 +19,9 @@ import type { ISubscriptionSpec } from './utils/SubscriptionConfig';
 
 jest.mock('p-timeout', () => ({ __esModule: true, default: jest.fn() }));
 jest.mock('@nktkas/hyperliquid', () => ({}));
-jest.mock('./hyperLiquidApiClients', () => ({ hyperLiquidApiClients: {} }));
+jest.mock('./hyperLiquidApiClients', () => ({
+  hyperLiquidApiClients: { infoClient: { spotMetaAndAssetCtxs: jest.fn() } },
+}));
 jest.mock('../../states/jotai/atoms', () => {
   const actual = jest.requireActual<typeof import('../../states/jotai/atoms')>(
     '../../states/jotai/atoms',
@@ -351,6 +354,80 @@ describe('ServiceHyperliquid spot price source', () => {
       },
     );
 
+    it.each(['refreshSpotMeta', '_getSpotPriceMapMemo'] as const)(
+      'ignores late REST prices from %s after subscription teardown',
+      async (method) => {
+        const request = await beginSubscription();
+        await request.acknowledge();
+        await hydrate();
+        let finishRest!: (result: ISpotMetaAndAssetCtxsResponse) => void;
+        const response = new Promise<ISpotMetaAndAssetCtxsResponse>(
+          (resolve) => {
+            finishRest = resolve;
+          },
+        );
+        jest
+          .spyOn(hyperLiquidApiClients.infoClient, 'spotMetaAndAssetCtxs')
+          .mockReturnValueOnce(response);
+        const capsSpy = jest
+          .spyOn(service, 'refreshSpotExternalMarketCaps')
+          .mockResolvedValue({});
+        const refresh = service[method]();
+        await internals._destroySubscription(spec);
+        // The response arrives after teardown but before a new subscription.
+        finishRest([
+          { tokens: [], universe: [] },
+          [{ ...spotCtx, markPx: '0.0011' }],
+        ]);
+        await refresh;
+        const retry = await beginSubscription();
+        await receiveMids('0.0021');
+        expectPrice('0.0021');
+        await retry.acknowledge();
+        await hydrate('0.0018');
+        await receiveMids('0.0022');
+        expectPrice('0.0018');
+        capsSpy.mockRestore();
+      },
+    );
+
+    it('ignores REST prices if teardown happens while metadata is being persisted', async () => {
+      const request = await beginSubscription();
+      await request.acknowledge();
+      await hydrate();
+      let finishMetadata!: () => void;
+      let metadataStarted!: () => void;
+      const started = new Promise<void>((resolve) => {
+        metadataStarted = resolve;
+      });
+      const pending = new Promise<void>((resolve) => {
+        finishMetadata = resolve;
+      });
+      const metadataSpy = jest
+        .spyOn(service.backgroundApi.simpleDb.perp, 'setSpotMeta')
+        .mockImplementationOnce(async () => {
+          metadataStarted();
+          await pending;
+        });
+      jest
+        .spyOn(hyperLiquidApiClients.infoClient, 'spotMetaAndAssetCtxs')
+        .mockResolvedValueOnce([{ tokens: [], universe: [] }, [spotCtx]]);
+      const capsSpy = jest
+        .spyOn(service, 'refreshSpotExternalMarketCaps')
+        .mockResolvedValue({});
+      const refresh = service.refreshSpotMeta();
+      await started;
+      await internals._destroySubscription(spec);
+      finishMetadata();
+      await refresh;
+      const retry = await beginSubscription();
+      await receiveMids('0.0021');
+      expectPrice('0.0021');
+      await retry.acknowledge();
+      metadataSpy.mockRestore();
+      capsSpy.mockRestore();
+    });
+
     it('clears sources when cleanup falls back to closing a failed unsubscribe', async () => {
       const request = await beginSubscription();
       await request.acknowledge();
@@ -491,6 +568,82 @@ describe('ServiceHyperliquid spot price source', () => {
         metadataSpy.mockRestore();
         snapshotSpy.mockRestore();
         balancesCacheSpy.mockRestore();
+        await perpsSpotBalancesAtom.set(undefined);
+      }
+    },
+  );
+
+  it.each([
+    { price: '0.002', expected: '2', writesBeforeRelease: 1 },
+    { price: '0.0014', expected: '1.4', writesBeforeRelease: 0 },
+  ])(
+    'persists the latest committed valuation after delayed broadcast (next price=$price)',
+    async ({ price, expected, writesBeforeRelease }) => {
+      await service.updateSpotAssetCtxsMap([spotCtx]);
+      await perpsActiveAccountAtom.set({
+        accountAddress: '0xabc',
+        accountId: null,
+        indexedAccountId: null,
+        deriveType: 'default',
+      });
+      await perpsSpotBalancesAtom.set({
+        accountAddress: '0xabc',
+        balances: [
+          { coin: '@241', token: 241, total: '1000', hold: '0', entryNtl: '0' },
+        ],
+        spotTotalUsd: '0',
+      });
+      let releaseWrite!: () => void;
+      let writeStarted!: () => void;
+      const pending = new Promise<void>((resolve) => {
+        releaseWrite = resolve;
+      });
+      const started = new Promise<void>((resolve) => {
+        writeStarted = resolve;
+      });
+      const originalSet = perpsSpotBalancesAtom.set.bind(perpsSpotBalancesAtom);
+      // The real setter commits synchronously before awaiting the bg-to-UI broadcast.
+      const setterSpy = jest
+        .spyOn(perpsSpotBalancesAtom, 'set')
+        .mockImplementationOnce(async (...args) => {
+          await originalSet(...args);
+          writeStarted();
+          await pending;
+        });
+      const cacheSpy = jest.spyOn(
+        service.backgroundApi.serviceHyperliquidCache,
+        'writePerpsAccountDisplaySpotBalances',
+      );
+      recalculateSpy.mockImplementation(
+        ServiceHyperliquid.prototype.recalculateSpotTotalUsd.bind(service),
+      );
+      const oldCalculation = service.recalculateSpotTotalUsd({ force: true });
+      try {
+        await started;
+        recalculateSpy.mockResolvedValue(undefined);
+        await service.updateSpotAssetCtxsMap([{ ...spotCtx, markPx: price }]);
+        recalculateSpy.mockImplementation(
+          ServiceHyperliquid.prototype.recalculateSpotTotalUsd.bind(service),
+        );
+        await service.recalculateSpotTotalUsd({ force: true });
+        expect((await perpsSpotBalancesAtom.get())?.spotTotalUsd).toBe(
+          expected,
+        );
+        expect(cacheSpy).toHaveBeenCalledTimes(writesBeforeRelease);
+        releaseWrite();
+        await oldCalculation;
+        expect((await perpsSpotBalancesAtom.get())?.spotTotalUsd).toBe(
+          expected,
+        );
+        expect(cacheSpy).toHaveBeenCalledTimes(1);
+        expect(cacheSpy).toHaveBeenLastCalledWith(
+          expect.objectContaining({ spotTotalUsd: expected }),
+        );
+      } finally {
+        releaseWrite();
+        await oldCalculation;
+        setterSpy.mockRestore();
+        cacheSpy.mockRestore();
         await perpsSpotBalancesAtom.set(undefined);
       }
     },
