@@ -4648,7 +4648,7 @@
   "sensitive_information_screenshot_protected__desc": "Pour votre sécurité des actifs, les informations sensibles <tag>n'apparaîtront jamais dans les captures d'écran</tag>.",
   "sensitive_information_screenshot_protected__title": "Informations sensibles protégées",
   "set_new_backup_password": "Définir un nouveau mot de passe de sauvegarde",
-  "set_new_backup_password_desc": "Le nouveau mot de passe de sauvegarde est utilisé pour votre prochain enregistrement de sauvegarde. Les enregistrements de sauvegarde existants et leurs mots de passe resteront inchangés.",
+  "set_new_backup_password_desc": "Le nouveau mot de passe s’applique uniquement aux sauvegardes créées à partir de maintenant. Les sauvegardes existantes restent chiffrées avec leurs mots de passe d’origine et ne peuvent pas être restaurées avec le nouveau mot de passe.",
   "set_new_backup_password_fist_time": "Ce mot de passe sera utilisé pour protéger vos enregistrements de sauvegarde.",
   "set_unlock_passcode__title": "Définir le code de déverrouillage",
   "set_up_your_device": "Configurez votre appareil",

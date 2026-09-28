@@ -4648,7 +4648,7 @@
   "sensitive_information_screenshot_protected__desc": "为了您的资产安全，敏感信息<tag>永远不会出现在截图中</tag>。",
   "sensitive_information_screenshot_protected__title": "敏感信息已受保护",
   "set_new_backup_password": "设置新备份密码",
-  "set_new_backup_password_desc": "新的备份密码将用于您的下一次备份记录。现有的备份记录及其密码将保持不变。",
+  "set_new_backup_password_desc": "新密码仅用于新创建的备份。旧备份仍使用原密码加密，无法使用新密码恢复。",
   "set_new_backup_password_fist_time": "此密码将用于保护您的备份记录。",
   "set_unlock_passcode__title": "设置解锁密码",
   "set_up_your_device": "设置您的设备",

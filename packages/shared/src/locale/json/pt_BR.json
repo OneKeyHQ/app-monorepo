@@ -4648,7 +4648,7 @@
   "sensitive_information_screenshot_protected__desc": "Para sua segurança de ativos, informações sensíveis <tag>nunca aparecerão em capturas de tela</tag>.",
   "sensitive_information_screenshot_protected__title": "Informações sensíveis protegidas",
   "set_new_backup_password": "Definir nova senha de backup",
-  "set_new_backup_password_desc": "A nova senha de backup é usada para o próximo registro de backup. Os registros de backup existentes e suas senhas permanecerão os mesmos.",
+  "set_new_backup_password_desc": "A nova senha se aplica apenas aos backups criados a partir de agora. Os backups existentes continuam criptografados com suas senhas originais e não podem ser restaurados com a nova senha.",
   "set_new_backup_password_fist_time": "Esta senha será usada para proteger seus registros de backup.",
   "set_unlock_passcode__title": "Definir código de desbloqueio",
   "set_up_your_device": "Configure seu dispositivo",

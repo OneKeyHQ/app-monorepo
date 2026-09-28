@@ -4648,7 +4648,7 @@
   "sensitive_information_screenshot_protected__desc": "Để bảo mật tài sản của bạn, thông tin nhạy cảm sẽ <tag>không bao giờ xuất hiện trong ảnh chụp màn hình</tag>.",
   "sensitive_information_screenshot_protected__title": "Thông tin nhạy cảm đã được bảo vệ",
   "set_new_backup_password": "Đặt mật khẩu sao lưu mới",
-  "set_new_backup_password_desc": "Mật khẩu sao lưu mới sẽ được dùng cho bản ghi sao lưu tiếp theo của bạn. Các bản ghi sao lưu hiện có và mật khẩu của chúng sẽ giữ nguyên.",
+  "set_new_backup_password_desc": "Mật khẩu mới chỉ áp dụng cho các bản sao lưu được tạo từ thời điểm này. Các bản sao lưu hiện có vẫn được mã hóa bằng mật khẩu ban đầu và không thể khôi phục bằng mật khẩu mới.",
   "set_new_backup_password_fist_time": "Mật khẩu này sẽ được dùng để bảo vệ hồ sơ sao lưu của bạn.",
   "set_unlock_passcode__title": "Đặt mã mở khóa",
   "set_up_your_device": "Thiết lập thiết bị của bạn",

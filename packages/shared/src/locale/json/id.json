@@ -4648,7 +4648,7 @@
   "sensitive_information_screenshot_protected__desc": "Untuk keamanan aset Anda, informasi sensitif akan <tag>tidak pernah muncul dalam tangkapan layar</tag>.",
   "sensitive_information_screenshot_protected__title": "Informasi sensitif dilindungi",
   "set_new_backup_password": "Atur sandi cadangan baru",
-  "set_new_backup_password_desc": "Kata sandi cadangan baru akan digunakan untuk catatan cadangan Anda berikutnya. Catatan cadangan yang sudah ada beserta kata sandinya akan tetap sama.",
+  "set_new_backup_password_desc": "Kata sandi baru hanya berlaku untuk cadangan yang dibuat setelah ini. Cadangan yang sudah ada tetap dienkripsi dengan kata sandi aslinya dan tidak dapat dipulihkan menggunakan kata sandi baru.",
   "set_new_backup_password_fist_time": "Kata sandi ini akan digunakan untuk melindungi catatan cadangan Anda.",
   "set_unlock_passcode__title": "Tetapkan Kode Sandi Buka Kunci",
   "set_up_your_device": "Siapkan perangkat Anda",

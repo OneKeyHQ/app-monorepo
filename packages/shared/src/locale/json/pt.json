@@ -4648,7 +4648,7 @@
   "sensitive_information_screenshot_protected__desc": "Para a sua segurança de ativos, informações sensíveis <tag>nunca aparecerão em capturas de ecrã</tag>.",
   "sensitive_information_screenshot_protected__title": "Informação sensível protegida",
   "set_new_backup_password": "Definir nova palavra-passe da cópia de segurança",
-  "set_new_backup_password_desc": "A nova palavra-passe é utilizada no seu próximo registo de cópia de segurança. Os registos existentes e as respetivas palavras-passe mantêm-se inalterados.",
+  "set_new_backup_password_desc": "A nova palavra-passe aplica-se apenas às cópias de segurança criadas a partir de agora. As cópias existentes continuam encriptadas com as palavras-passe originais e não podem ser restauradas com a nova palavra-passe.",
   "set_new_backup_password_fist_time": "Esta palavra-passe será utilizada para proteger os seus registos de cópia de segurança.",
   "set_unlock_passcode__title": "Definir código de desbloqueio",
   "set_up_your_device": "Configure o seu dispositivo",

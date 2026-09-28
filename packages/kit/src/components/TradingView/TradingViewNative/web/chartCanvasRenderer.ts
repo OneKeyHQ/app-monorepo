@@ -213,7 +213,8 @@ export function drawTradingViewNativeCanvasScene({
       case 'restore':
         context.restore();
         break;
-      case 'text': {
+      case 'text':
+      case 'tradeMarkLabel': {
         const paint = getCanvasPaintStyle(
           command,
           customPaintStyles,
@@ -223,13 +224,21 @@ export function drawTradingViewNativeCanvasScene({
         context.globalAlpha = paint.opacity;
         context.fillStyle = paint.color;
         context.font = getTradingViewNativeCanvasFont(
-          command.font,
+          command.kind === 'tradeMarkLabel' ? 'legend' : command.font,
           priceAxisFontSize,
           timeAxisFontSize,
         );
         context.textAlign = 'left';
         context.textBaseline = 'alphabetic';
-        context.fillText(command.text, command.x, command.y);
+        if (command.kind === 'tradeMarkLabel') {
+          context.fillText(
+            command.label,
+            command.cx - context.measureText(command.label).width / 2,
+            command.cy + LEGEND_FONT_SIZE * 0.35,
+          );
+        } else {
+          context.fillText(command.text, command.x, command.y);
+        }
         context.restore();
         break;
       }

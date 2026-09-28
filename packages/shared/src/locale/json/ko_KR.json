@@ -4648,7 +4648,7 @@
   "sensitive_information_screenshot_protected__desc": "귀하의 자산 보안을 위해, 민감한 정보는 <tag>절대 스크린샷에 나타나지 않습니다</tag>.",
   "sensitive_information_screenshot_protected__title": "민감 정보 보호됨",
   "set_new_backup_password": "새 백업 비밀번호 설정",
-  "set_new_backup_password_desc": "새 백업 비밀번호는 다음 백업 기록에 사용됩니다. 기존 백업 기록과 해당 비밀번호는 그대로 유지됩니다.",
+  "set_new_backup_password_desc": "새 비밀번호는 앞으로 생성하는 백업에만 적용됩니다. 기존 백업은 원래 비밀번호로 암호화된 상태로 유지되며 새 비밀번호로는 복원할 수 없습니다.",
   "set_new_backup_password_fist_time": "이 비밀번호는 백업 기록을 보호하는 데 사용됩니다.",
   "set_unlock_passcode__title": "잠금 해제 암호 설정",
   "set_up_your_device": "기기를 설정하세요",
