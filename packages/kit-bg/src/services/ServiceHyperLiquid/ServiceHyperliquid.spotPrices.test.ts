@@ -390,6 +390,92 @@ describe('ServiceHyperliquid spot price source', () => {
     });
   });
 
+  it.each([
+    { total: '2000', expectedTotalUsd: '4' },
+    { total: '0', expectedTotalUsd: '0' },
+  ])(
+    'preserves newer balances and their $expectedTotalUsd USD valuation when an older recalculation finishes last',
+    async ({ total, expectedTotalUsd }) => {
+      await service.updateSpotAssetCtxsMap([{ ...spotCtx, markPx: '0.002' }]);
+      await perpsActiveAccountAtom.set({
+        accountAddress: '0xabc',
+        accountId: null,
+        indexedAccountId: null,
+        deriveType: 'default',
+      });
+      await perpsSpotBalancesAtom.set({
+        accountAddress: '0xabc',
+        balances: [
+          { coin: '@241', token: 241, total: '1000', hold: '0', entryNtl: '0' },
+        ],
+        spotTotalUsd: '1.4',
+      });
+
+      let resumeMappings!: () => void;
+      const mappingsReady = new Promise<void>((resolve) => {
+        resumeMappings = resolve;
+      });
+      let markMappingsStarted!: () => void;
+      const mappingsStarted = new Promise<void>((resolve) => {
+        markMappingsStarted = resolve;
+      });
+      const metadataSpy = jest
+        .spyOn(service, 'getSpotMeta')
+        .mockResolvedValue({ tokens: [], universes: [] })
+        .mockImplementationOnce(async () => {
+          markMappingsStarted();
+          await mappingsReady;
+          return { tokens: [], universes: [] };
+        });
+      const cache = service.backgroundApi.serviceHyperliquidCache;
+      const snapshotSpy = jest.spyOn(cache, 'writePerpsAccountDisplaySnapshot');
+      const balancesCacheSpy = jest.spyOn(
+        cache,
+        'writePerpsAccountDisplaySpotBalances',
+      );
+      recalculateSpy.mockImplementation(
+        ServiceHyperliquid.prototype.recalculateSpotTotalUsd.bind(service),
+      );
+
+      const staleRecalculation = service.recalculateSpotTotalUsd({
+        force: true,
+      });
+      try {
+        await mappingsStarted;
+        const balances =
+          total === '0'
+            ? []
+            : [{ coin: '@241', token: 241, total, hold: '0', entryNtl: '0' }];
+        await service.updateSpotBalances({
+          user: '0xabc',
+          spotState: { balances },
+        });
+        const latestState = await perpsSpotBalancesAtom.get();
+        expect(latestState).toEqual({
+          accountAddress: '0xabc',
+          balances,
+          spotTotalUsd: expectedTotalUsd,
+        });
+        snapshotSpy.mockClear();
+        balancesCacheSpy.mockClear();
+
+        resumeMappings();
+        await staleRecalculation;
+
+        expect(await perpsSpotBalancesAtom.get()).toEqual(latestState);
+        expect(snapshotSpy).not.toHaveBeenCalled();
+        expect(balancesCacheSpy).not.toHaveBeenCalled();
+      } finally {
+        resumeMappings();
+        await staleRecalculation;
+        metadataSpy.mockRestore();
+        snapshotSpy.mockRestore();
+        balancesCacheSpy.mockRestore();
+        await perpsSpotBalancesAtom.set(undefined);
+      }
+    },
+  );
+
   it('updates an existing spot valuation from fallback mids without a new balance event', async () => {
     await service.updateSpotAssetCtxsMap([spotCtx]);
     await perpsActiveAccountAtom.set({
