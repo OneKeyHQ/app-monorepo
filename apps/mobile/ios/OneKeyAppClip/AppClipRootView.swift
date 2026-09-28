@@ -1,4 +1,5 @@
 import Charts
+import ImageIO
 import StoreKit
 import SwiftUI
 import UIKit
@@ -1201,6 +1202,20 @@ private final class AppClipImageMemoryCache: @unchecked Sendable {
   }
 }
 
+private final class AppClipLogoRedirectDelegate: NSObject, URLSessionTaskDelegate {
+  func urlSession(
+    _ session: URLSession,
+    task: URLSessionTask,
+    willPerformHTTPRedirection response: HTTPURLResponse,
+    newRequest request: URLRequest,
+    completionHandler: @escaping (URLRequest?) -> Void
+  ) {
+    completionHandler(
+      request.url.flatMap(AppClipMarketService.allowedLogoURL) == nil ? nil : request
+    )
+  }
+}
+
 private actor AppClipImagePipeline {
   static let shared = AppClipImagePipeline()
 
@@ -1217,7 +1232,11 @@ private actor AppClipImagePipeline {
       diskPath: "OneKeyAppClipImages"
     )
     configuration.httpMaximumConnectionsPerHost = 4
-    session = URLSession(configuration: configuration)
+    session = URLSession(
+      configuration: configuration,
+      delegate: AppClipLogoRedirectDelegate(),
+      delegateQueue: nil
+    )
   }
 
   nonisolated func cachedImage(for url: URL) -> UIImage? {
@@ -1241,11 +1260,26 @@ private actor AppClipImagePipeline {
         let response = response as? HTTPURLResponse,
         (200..<300).contains(response.statusCode),
         data.count <= 8 * 1_024 * 1_024,
-        let image = UIImage(data: data)
+        response.url.flatMap(AppClipMarketService.allowedLogoURL) != nil,
+        let source = CGImageSourceCreateWithData(data as CFData, [
+          kCGImageSourceShouldCache: false,
+        ] as CFDictionary),
+        let properties = CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [CFString: Any],
+        let width = properties[kCGImagePropertyPixelWidth] as? Int,
+        let height = properties[kCGImagePropertyPixelHeight] as? Int,
+        width > 0,
+        height > 0,
+        width <= 1_024,
+        height <= 1_024,
+        let thumbnail = CGImageSourceCreateThumbnailAtIndex(source, 0, [
+          kCGImageSourceCreateThumbnailFromImageAlways: true,
+          kCGImageSourceThumbnailMaxPixelSize: 128,
+          kCGImageSourceShouldCacheImmediately: true,
+        ] as CFDictionary)
       else {
         throw URLError(.cannotDecodeContentData)
       }
-      return image
+      return UIImage(cgImage: thumbnail)
     }
     inFlight[url] = task
     defer {

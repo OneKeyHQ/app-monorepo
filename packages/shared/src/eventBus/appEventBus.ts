@@ -23,6 +23,7 @@ import type {
 import type { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { EEnterWay } from '@onekeyhq/shared/src/logger/scopes/dex';
 import type { ELogUploadStage } from '@onekeyhq/shared/src/logger/types';
+import type { IInvitePostConfig } from '@onekeyhq/shared/src/referralCode/type';
 import type { IAvatarInfo } from '@onekeyhq/shared/src/utils/emojiUtils';
 
 import appGlobals from '../appGlobals';
@@ -753,6 +754,12 @@ export interface IAppEventBusPayload {
     /** Wall-clock timestamp (ms since unix epoch). */
     timestamp: number;
   };
+  /**
+   * A fresh invite post-config was fetched and cached. Carries the config
+   * itself so listeners never re-read through `getPostConfig()`: with a cache
+   * present that read schedules another refresh, which would emit again.
+   */
+  [EAppEventBusNames.ReferralPostConfigUpdated]: IInvitePostConfig;
 }
 
 /**

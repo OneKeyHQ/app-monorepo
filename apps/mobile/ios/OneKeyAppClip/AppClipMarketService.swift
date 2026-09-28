@@ -599,8 +599,11 @@ actor AppClipMarketService {
   )
 
   private static func allowedLogoURL(_ value: String) -> URL? {
+    URL(string: value).flatMap(allowedLogoURL)
+  }
+
+  static func allowedLogoURL(_ url: URL) -> URL? {
     guard
-      let url = URL(string: value),
       url.scheme?.lowercased() == "https",
       let host = url.host?.lowercased(),
       host == "onekey-asset.com" || host.hasSuffix(".onekey-asset.com"),
