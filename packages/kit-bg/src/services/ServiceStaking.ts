@@ -32,6 +32,7 @@ import type {
   ISupportedSymbol,
 } from '@onekeyhq/shared/types/earn';
 import { getEarnNetworkIds } from '@onekeyhq/shared/types/earn/earnProvider.constants';
+import type { IEarnPortfolioPositionsResponse } from '@onekeyhq/shared/types/earn/portfolioPositions';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import type {
   IAccountHistoryTx,
@@ -1519,6 +1520,32 @@ class ServiceStaking extends ServiceBase {
       },
     );
 
+    return response.data.data;
+  }
+
+  /**
+   * Phone positions page (OK-61377): one provider's positions on one network
+   * for one account, in the wallet DeFi Portfolio contract. Same scope and
+   * headers as the batch investment detail, so the server caches per client.
+   */
+  @backgroundMethod()
+  async getPortfolioPositions(params: {
+    accountId: string;
+    accountAddress: string;
+    networkId: string;
+    provider: string;
+    publicKey?: string;
+  }): Promise<IEarnPortfolioPositionsResponse> {
+    const client = await this.getClient(EServiceEndpointEnum.Earn);
+    const { accountId, ...rest } = params;
+    const response = await client.post<{
+      data: IEarnPortfolioPositionsResponse;
+    }>('/earn/v1/portfolio/positions', rest, {
+      headers:
+        await this.backgroundApi.serviceAccountProfile._getWalletTypeHeader({
+          accountId,
+        }),
+    });
     return response.data.data;
   }
 

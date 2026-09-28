@@ -12,16 +12,14 @@ import {
   useScrollContentTabBarOffset,
 } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
-import { buildLocalTxStatusSyncId } from '@onekeyhq/kit/src/views/Staking/utils/utils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
+import type { IEarnPositionManageTarget } from '@onekeyhq/shared/types/earn/portfolioPositions';
 import { EEarnLabels } from '@onekeyhq/shared/types/staking';
 import type { IEarnRewardsPortfolioStage } from '@onekeyhq/shared/types/staking';
 
 import { NetworkFilterControl } from '../../../components/NetworkFilterControl';
 import { PortfolioPendingTxsProvider } from '../../../components/PortfolioTabContent';
 import { EarnNavigation } from '../../../earnUtils';
-import { useEarnPortfolio } from '../../../hooks/useEarnPortfolio';
 import { useHeaderHeightCacheKey } from '../../../hooks/useHeaderHeightCacheKey';
 import { useNativeStackHeaderHeightEstimate } from '../../../hooks/useNativeStackHeaderHeightEstimate';
 import { useSettledHeaderHeight } from '../../../hooks/useSettledHeaderHeight';
@@ -32,17 +30,20 @@ import {
 
 import { DeFiAssetsTab } from './DeFiAssetsTab';
 import {
-  countInvestmentsByNetwork,
-  filterInvestmentsByNetworks,
-  resolveDefiAssetsFiatValue,
-  sumRewardsHeaderFiat,
-} from './myPortfolio.utils';
+  buildEarnClaimableRewardsView,
+  buildEarnPortfolioView,
+  countEarnPositionsByNetwork,
+  filterEarnProtocolsByNetworks,
+  sumEarnClaimableRewards,
+} from './earnPositionModel';
+import { positionPendingTag, sumRewardsHeaderFiat } from './myPortfolio.utils';
 import { PortfolioTotalsHeader } from './PortfolioTotalsHeader';
 import { RewardsTab } from './RewardsTab';
 import { UnderlineTabs } from './UnderlineTabs';
+import { useEarnPortfolioPositions } from './useEarnPortfolioPositions';
 import { useRewardsPortfolio } from './useRewardsPortfolio';
 
-import type { IPositionManageHandler } from './myPortfolio.utils';
+import type { IRefreshOptions } from '../../../hooks/useEarnPortfolio';
 import type { IStakePendingTx } from '../../../hooks/useStakingPendingTxs';
 import type { NativeScrollEvent, NativeSyntheticEvent } from 'react-native';
 
@@ -51,11 +52,12 @@ type IPrimaryTab = 'assets' | 'rewards';
 /**
  * The phone "My portfolio" page (OK-61377, figma 29180-108096).
  *
- * Two sources, two tabs: the investment detail the wide layout already loads
- * (DeFi Assets, grouped per provider) and the ledger rewards endpoint
- * (Rewards, three stages). Every action lives on the protocol detail page —
- * the position card's Manage button is the way in; only Campaign / airdrop
- * rows keep an inline Claim, since some of them cannot reach a detail page.
+ * Two sources, two tabs: the positions endpoint (DeFi Assets, one card per
+ * position under one row per protocol per network, the wallet DeFi
+ * Portfolio contract) and the ledger rewards endpoint (Rewards, three
+ * stages). Every action lives on the protocol detail page — the card's
+ * Manage button is the way in — except the claims the server attaches to a
+ * row (withdrawn principal, ledger campaigns), which run right here.
  *
  * Deliberately not here, per product: the hide-small-assets switch (the
  * shared setting still exists for the wide layout; this page never applies
@@ -81,7 +83,11 @@ export function MyPortfolioPage() {
   const [stage, setStage] = useState<IEarnRewardsPortfolioStage>('claimable');
   const [selectedNetworkIds, setSelectedNetworkIds] = useState<string[]>([]);
 
-  const portfolio = useEarnPortfolio({ isActive: isFocused });
+  const {
+    response,
+    isLoading: isPositionsLoading,
+    refresh: refreshPositions,
+  } = useEarnPortfolioPositions({ isActive: isFocused });
   const {
     rewards,
     isLoading: isRewardsLoading,
@@ -95,9 +101,25 @@ export function MyPortfolioPage() {
     isActive: isFocused,
   });
 
-  const refreshAll = useCallback(async () => {
-    await Promise.all([portfolio.refresh(), refreshRewards()]);
-  }, [portfolio, refreshRewards]);
+  const refreshAll = useCallback(
+    async (options?: IRefreshOptions) => {
+      await Promise.all([refreshPositions(options), refreshRewards()]);
+    },
+    [refreshPositions, refreshRewards],
+  );
+
+  const translate = useCallback(
+    (id: ETranslations) => intl.formatMessage({ id }),
+    [intl],
+  );
+  const view = useMemo(
+    () => buildEarnPortfolioView({ response, translate }),
+    [response, translate],
+  );
+  const positions = useMemo(
+    () => Object.values(response.positions).flat(),
+    [response],
+  );
 
   // In-flight badge per provider, and the refresh once those settle — the
   // detail page's settle delay, so a refresh never caches the pre-tx balance.
@@ -118,18 +140,8 @@ export function MyPortfolioPage() {
   });
   const pendingCountByProvider = useMemo(() => {
     const tagToProvider = new Map<string, string>();
-    portfolio.investments.forEach((investment) => {
-      const code = investment.protocol.providerDetail.code;
-      investment.assets.forEach((asset) => {
-        tagToProvider.set(
-          buildLocalTxStatusSyncId({
-            providerName: code,
-            tokenSymbol: asset.token.info.symbol,
-            protocolVault: asset.metadata.protocol.vault,
-          }),
-          code,
-        );
-      });
+    positions.forEach((position) => {
+      tagToProvider.set(positionPendingTag(position), position.protocol);
     });
     const counts: Record<string, number> = {};
     pendingTxs.forEach((tx) => {
@@ -141,60 +153,41 @@ export function MyPortfolioPage() {
       }
     });
     return counts;
-  }, [pendingTxs, portfolio.investments]);
+  }, [pendingTxs, positions]);
 
   const networkAssetCounts = useMemo(
-    () => countInvestmentsByNetwork(portfolio.investments),
-    [portfolio.investments],
+    () => countEarnPositionsByNetwork(view.protocols),
+    [view.protocols],
   );
   const availableNetworkIds = useMemo(
     () => Object.keys(networkAssetCounts),
     [networkAssetCounts],
   );
-  const visibleInvestments = useMemo(
-    () =>
-      filterInvestmentsByNetworks(portfolio.investments, selectedNetworkIds),
-    [portfolio.investments, selectedNetworkIds],
+  const visibleProtocols = useMemo(
+    () => filterEarnProtocolsByNetworks(view.protocols, selectedNetworkIds),
+    [view.protocols, selectedNetworkIds],
   );
-  const defiAssetsFiatValue = useMemo(
-    () =>
-      resolveDefiAssetsFiatValue({
-        hookTotal: portfolio.earnTotalFiatValue,
-        investments: portfolio.investments,
-      }),
-    [portfolio.earnTotalFiatValue, portfolio.investments],
+  const claimableProtocols = useMemo(
+    () => buildEarnClaimableRewardsView(visibleProtocols),
+    [visibleProtocols],
   );
+  // Product rule: the header Rewards figure equals what the Claimable and
+  // Pending lists add up to, filter aside — the ledger totals are over every
+  // network, so the protocol part is summed over every protocol too.
   const rewardsHeaderFiat = useMemo(
     () =>
       sumRewardsHeaderFiat({
         ledgerRewardsFiatValue: rewards?.totals.rewards,
-        investments: portfolio.investments,
+        positionRewardsValue: sumEarnClaimableRewards(view.protocols),
       }),
-    [rewards?.totals.rewards, portfolio.investments],
+    [rewards?.totals.rewards, view.protocols],
   );
 
-  // Manage opens the detail page, where every action lives; a tapped token
-  // row opens its own, since one investment can span chains. Same guard as
-  // the existing page: the Pendle USDe unstake row has no page to go to.
-  const handleManage = useCallback<IPositionManageHandler>(
-    (investment, asset = investment.assets[0]) => {
-      if (!asset) {
-        return;
-      }
-      const providerName = asset.metadata.protocol.providerDetail.code;
-      if (
-        earnUtils.isPendleProvider({ providerName }) &&
-        asset.metadata.protocol.symbol === 'USDe' &&
-        (!asset.buttons || asset.buttons.length === 0)
-      ) {
-        return;
-      }
-      void EarnNavigation.pushToEarnProtocolDetails(navigation, {
-        networkId: asset.metadata.network.networkId,
-        symbol: asset.token.info.symbol,
-        provider: providerName,
-        vault: asset.metadata.protocol.vault,
-      });
+  // Manage and a tapped row open the position's own detail page, where every
+  // other action lives.
+  const handleManage = useCallback(
+    (target: IEarnPositionManageTarget) => {
+      void EarnNavigation.pushToEarnProtocolDetails(navigation, target);
     },
     [navigation],
   );
@@ -267,7 +260,7 @@ export function MyPortfolioPage() {
           <PortfolioPendingTxsProvider value={{ onRefresh: refreshAll }}>
             <YStack py="$2">
               <PortfolioTotalsHeader
-                defiAssetsFiatValue={defiAssetsFiatValue}
+                defiAssetsFiatValue={String(view.totalValue)}
                 rewardsFiatValue={rewardsHeaderFiat}
               />
               <UnderlineTabs<IPrimaryTab>
@@ -291,8 +284,8 @@ export function MyPortfolioPage() {
               />
               {primaryTab === 'assets' ? (
                 <DeFiAssetsTab
-                  investments={visibleInvestments}
-                  isLoading={portfolio.isLoading}
+                  protocols={visibleProtocols}
+                  isLoading={isPositionsLoading}
                   pendingCountByProvider={pendingCountByProvider}
                   networkFilter={networkFilter}
                   onManage={handleManage}
@@ -304,7 +297,8 @@ export function MyPortfolioPage() {
                   rewards={rewards}
                   isLoading={isRewardsLoading}
                   isLoadingMore={isRewardsLoadingMore}
-                  investments={visibleInvestments}
+                  claimableProtocols={claimableProtocols}
+                  positions={positions}
                   networkFilter={networkFilter}
                   onManage={handleManage}
                 />
