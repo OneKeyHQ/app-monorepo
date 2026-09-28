@@ -397,6 +397,19 @@ P4c dialog notes:
   keyboard natively; the dialog adds no keyboard padding on native (the
   bounded login layout still caps its scroll view by the keyboard height).
 
+P4d hardware / password notes:
+
+- The hardware stage (MorphOverlay / DeviceStage) renders its portal inside
+  one persistent, non-blocking `hardware`-level fullscreen entry (kit
+  `HardwareStageOverlayContainer`); the stage's own wall blocks the app
+  while it is up, and taps pass through once it is gone. The iOS raise
+  tokens and the Android split-view offset are gone.
+- Hardware dialogs (device confirm, errors, BLE permission, third-party
+  install / permission) use `overlayLevel: 'hardware'`: above every modal
+  dialog, ordered by request with the stage.
+- Password setup / verify prompts use `overlayLevel: 'secure'`, above the
+  stage and every dialog; their web z-index and portal workarounds are gone.
+
 Measurement:
 
 - `RNCNativeOverlay` has a hand-written shadow node (`common/cpp`, codegen

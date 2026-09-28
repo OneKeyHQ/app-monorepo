@@ -693,6 +693,7 @@ function ThirdPartyHardwareUiStateContainerCmp() {
       }
       if (!installDialogInstanceRef.current) {
         const instance = Dialog.show({
+          overlayLevel: 'hardware',
           renderContent: <InstallAppDialogContent />,
           showFooter: false,
           dismissOnOverlayPress: false,
@@ -864,6 +865,7 @@ function ThirdPartyHardwareUiStateContainerCmp() {
       // both run over BLE on native) — not just Ledger.
       await permissionDialogInstanceRef.current?.close();
       permissionDialogInstanceRef.current = Dialog.show({
+        overlayLevel: 'hardware',
         dialogContainer:
           reason === EThirdPartyDevicePermissionDeniedReason.bluetoothTurnedOff
             ? OpenBleSettingsDialogRender
@@ -1125,6 +1127,7 @@ function ThirdPartyHardwareUiStateContainerCmp() {
         {isDialogAction ? (
           <DialogContainer
             ref={dialogInstanceRef}
+            overlayLevel="hardware"
             open={isDialogAction}
             title={dialogTitle}
             renderContent={dialogContent}

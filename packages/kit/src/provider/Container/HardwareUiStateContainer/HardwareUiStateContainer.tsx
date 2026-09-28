@@ -450,6 +450,7 @@ function HardwareSingletonDialogCmp(
   return open ? (
     <DialogContainer
       ref={ref}
+      overlayLevel="hardware"
       // title change will not re-render, so we need to use key to force update, but the closing animation will be lost
       key={dialogKey}
       title={result.title}
@@ -835,9 +836,10 @@ function HardwareUiStateContainerCmpControlled() {
     const showBleBondErrorDialog = () => {
       hardwareErrorDialogTypeRef.current =
         HARDWARE_ERROR_DIALOG_TYPES.BLE_DEVICE_BOND_ERROR;
-      hardwareErrorDialogInstanceRef.current = Dialog.show(
-        buildBleBondError(intl),
-      );
+      hardwareErrorDialogInstanceRef.current = Dialog.show({
+        ...buildBleBondError(intl),
+        overlayLevel: 'hardware',
+      });
     };
     const callback = createHardwareErrorDialogEventHandler(
       (errorDialogPayload: IHardwareErrorDialogPayload) => {
@@ -902,6 +904,7 @@ function HardwareUiStateContainerCmpControlled() {
         hardwareErrorDialogTypeRef.current =
           HARDWARE_ERROR_DIALOG_TYPES.DEVICE_NOT_FOUND;
         hardwareErrorDialogInstanceRef.current = Dialog.show({
+          overlayLevel: 'hardware',
           title: intl.formatMessage({
             id: isTrezorError
               ? ETranslations.hardware_third_party_device_not_found_title
@@ -990,7 +993,10 @@ function HardwareUiStateContainerCmpControlled() {
         }
         if (dialogProps) {
           setTimeout(() => {
-            instanceRef.current = Dialog.show(dialogProps);
+            instanceRef.current = Dialog.show({
+              ...dialogProps,
+              overlayLevel: 'hardware',
+            });
           }, 200);
         }
       },
