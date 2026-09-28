@@ -391,11 +391,12 @@ describe('ServiceHyperliquid spot price source', () => {
   });
 
   it.each([
-    { total: '2000', expectedTotalUsd: '4' },
-    { total: '0', expectedTotalUsd: '0' },
+    { total: '2000', expectedTotalUsd: '4', missingPrices: false },
+    { total: '0', expectedTotalUsd: '0', missingPrices: false },
+    { total: '1', expectedTotalUsd: '1.4', missingPrices: true },
   ])(
-    'preserves newer balances and their $expectedTotalUsd USD valuation when an older recalculation finishes last',
-    async ({ total, expectedTotalUsd }) => {
+    'preserves newer balances and valuation fallback when an older recalculation finishes last (total=$total, missingPrices=$missingPrices)',
+    async ({ total, expectedTotalUsd, missingPrices }) => {
       await service.updateSpotAssetCtxsMap([{ ...spotCtx, markPx: '0.002' }]);
       await perpsActiveAccountAtom.set({
         accountAddress: '0xabc',
@@ -442,10 +443,16 @@ describe('ServiceHyperliquid spot price source', () => {
       });
       try {
         await mappingsStarted;
-        const balances =
+        let balances =
           total === '0'
             ? []
             : [{ coin: '@241', token: 241, total, hold: '0', entryNtl: '0' }];
+        if (missingPrices) {
+          balances = [
+            { coin: 'USDC', token: 0, total: '10', hold: '0', entryNtl: '0' },
+            { coin: '@999', token: 999, total: '1', hold: '0', entryNtl: '0' },
+          ];
+        }
         await service.updateSpotBalances({
           user: '0xabc',
           spotState: { balances },
@@ -465,6 +472,19 @@ describe('ServiceHyperliquid spot price source', () => {
         expect(await perpsSpotBalancesAtom.get()).toEqual(latestState);
         expect(snapshotSpy).not.toHaveBeenCalled();
         expect(balancesCacheSpy).not.toHaveBeenCalled();
+        if (missingPrices) {
+          await jest.advanceTimersByTimeAsync(10_000);
+          expect(await perpsSpotBalancesAtom.get()).toEqual({
+            accountAddress: '0xabc',
+            balances,
+            spotTotalUsd: '10',
+          });
+          expect(balancesCacheSpy).toHaveBeenLastCalledWith({
+            accountAddress: '0xabc',
+            balances,
+            spotTotalUsd: '10',
+          });
+        }
       } finally {
         resumeMappings();
         await staleRecalculation;

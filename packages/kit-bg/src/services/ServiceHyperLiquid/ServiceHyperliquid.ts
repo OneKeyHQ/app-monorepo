@@ -2479,7 +2479,6 @@ export default class ServiceHyperliquid extends ServiceBase {
       return;
     }
 
-    this._clearSpotTotalUsdFallbackTimer(activeAddress);
     const computed = spotTotal.totalUsd;
     // Even forced price refreshes must not overwrite a newer balance snapshot.
     let didWrite = false;
@@ -2487,6 +2486,7 @@ export default class ServiceHyperliquid extends ServiceBase {
       if (!prev || (!force && prev.spotTotalUsd !== undefined)) return prev;
       if (prev.accountAddress?.toLowerCase() !== activeAddress) return prev;
       if (prev.balances !== balances) return prev;
+      this._clearSpotTotalUsdFallbackTimer(activeAddress);
       if (prev.spotTotalUsd === computed) return prev;
       didWrite = true;
       return { ...prev, spotTotalUsd: computed };
