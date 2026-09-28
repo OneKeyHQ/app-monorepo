@@ -15,26 +15,11 @@ type ITestActiveCtx =
 const mockPerpActiveCtxAtom = atom<ITestActiveCtx>(undefined);
 const mockSpotActiveCtxAtom = atom<ITestActiveCtx>(undefined);
 
-const mockMarketContext = createContext<{
-  coin: string;
-  marketPrice?: string;
-  activeCtx?: {
-    coin: string;
-    ctx: { markPrice: string; change24hPercent: number };
-  };
-}>({ coin: '@1' });
-const mockPerpContext = createContext<{
-  activeCoin?: string;
-  marketPrice?: string;
-  activeCtx?: {
-    coin: string;
-    ctx: { markPrice: string; change24hPercent: number };
-  };
-}>({});
-const mockSpotPrices = {
-  '@1': { markPx: '128.97', prevDayPx: '100' },
-  '@2': { markPx: '120.02', prevDayPx: '100' },
-};
+const mockQuoteContext = createContext({
+  selected: false,
+  coin: '',
+  marketPrice: '',
+});
 
 jest.mock('@onekeyhq/components', () => ({
   XStack: ({ children }: { children?: ReactNode }) => <div>{children}</div>,
@@ -60,14 +45,15 @@ jest.mock('@onekeyhq/kit/src/components/Token', () => ({ Token: () => null }));
 jest.mock('@onekeyhq/kit/src/states/jotai/contexts/hyperliquid', () => ({
   useActiveTradeInstrumentAtom: () => {
     const { useContext } = jest.requireActual<typeof import('react')>('react');
-    return [{ mode: 'spot', coin: useContext(mockMarketContext).coin }];
+    const { selected, coin } = useContext(mockQuoteContext);
+    return [{ mode: 'spot', coin: selected ? coin : 'OTHER' }];
   },
 }));
 jest.mock('@onekeyhq/kit/src/states/jotai/contexts/hyperliquid/atoms', () => ({
   usePerpsCtxByCoin: () => {
     const { useContext } = jest.requireActual<typeof import('react')>('react');
     return {
-      markPx: useContext(mockPerpContext).marketPrice ?? '3120',
+      markPx: useContext(mockQuoteContext).marketPrice,
       prevDayPx: '3000',
     };
   },
@@ -77,18 +63,13 @@ jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms', () => ({
   spotActiveAssetCtxAtom: { atom: () => mockSpotActiveCtxAtom },
   usePerpsActiveAssetAtom: () => {
     const { useContext } = jest.requireActual<typeof import('react')>('react');
-    const { activeCoin } = useContext(mockPerpContext);
-    return [activeCoin ? { coin: activeCoin } : undefined];
+    const { selected, coin } = useContext(mockQuoteContext);
+    return [{ coin: selected ? coin : 'OTHER' }];
   },
   useSpotAssetCtxsMapAtom: () => {
     const { useContext } = jest.requireActual<typeof import('react')>('react');
-    const { marketPrice } = useContext(mockMarketContext);
-    return [
-      {
-        ...mockSpotPrices,
-        '@2': { markPx: marketPrice ?? '120.02', prevDayPx: '100' },
-      },
-    ];
+    const { coin, marketPrice } = useContext(mockQuoteContext);
+    return [{ [coin]: { markPx: marketPrice, prevDayPx: '100' } }];
   },
 }));
 
@@ -100,60 +81,43 @@ type IQuoteState = {
   change?: number;
 };
 
-function createQuoteContexts(state: IQuoteState, coin: string) {
-  const activeCtx = state.activePrice
-    ? {
-        coin: state.wrongCoin ? 'OTHER' : coin,
-        ctx: {
-          markPrice: state.activePrice,
-          change24hPercent: state.change ?? -8,
-        },
-      }
-    : undefined;
-  const perp = {
-    activeCoin: state.selected ? coin : 'OTHER',
-    marketPrice: state.marketPrice,
-    activeCtx,
-  };
-  const spot = {
-    coin: state.selected ? coin : 'OTHER',
-    marketPrice: state.marketPrice,
-    activeCtx,
-  };
-  return { perp, spot };
-}
-
 function renderFavorite(mode: 'perp' | 'spot', initial: IQuoteState) {
   let coin = mode === 'perp' ? 'kBONK' : '@2';
-  const view = (state: IQuoteState, percent = false) => {
-    const { perp, spot } = createQuoteContexts(state, coin);
-    getDefaultStore().set(mockPerpActiveCtxAtom, perp.activeCtx);
-    getDefaultStore().set(mockSpotActiveCtxAtom, spot.activeCtx);
+  const view = (state: IQuoteState & { coin: string }, percent = false) => {
+    const activeCtx = state.activePrice
+      ? {
+          coin: state.wrongCoin ? 'OTHER' : coin,
+          ctx: {
+            markPrice: state.activePrice,
+            change24hPercent: state.change ?? -8,
+          },
+        }
+      : undefined;
+    getDefaultStore().set(mockPerpActiveCtxAtom, activeCtx);
+    getDefaultStore().set(mockSpotActiveCtxAtom, activeCtx);
     return (
-      <mockPerpContext.Provider value={perp}>
-        <mockMarketContext.Provider value={spot}>
-          <FavoriteTokenItem
-            displayName={coin}
-            coinName={coin}
-            imageTokenName={coin}
-            assetId={1}
-            dexIndex={0}
-            mode={mode}
-            displayMode={percent ? 'percent' : 'price'}
-            onPress={jest.fn()}
-          />
-        </mockMarketContext.Provider>
-      </mockPerpContext.Provider>
+      <mockQuoteContext.Provider value={state}>
+        <FavoriteTokenItem
+          displayName={coin}
+          coinName={coin}
+          imageTokenName={coin}
+          assetId={1}
+          dexIndex={0}
+          mode={mode}
+          displayMode={percent ? 'percent' : 'price'}
+          onPress={jest.fn()}
+        />
+      </mockQuoteContext.Provider>
     );
   };
-  const result = render(view(initial));
+  const result = render(view({ ...initial, coin }));
   return {
     ...result,
     update: (state: IQuoteState, percent = false) =>
-      act(() => result.rerender(view(state, percent))),
+      act(() => result.rerender(view({ ...state, coin }, percent))),
     replaceCoin: (state: IQuoteState) => {
       coin = mode === 'perp' ? 'ETH' : '@1';
-      act(() => result.rerender(view(state)));
+      act(() => result.rerender(view({ ...state, coin })));
     },
   };
 }
