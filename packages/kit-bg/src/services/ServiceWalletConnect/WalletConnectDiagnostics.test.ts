@@ -300,6 +300,87 @@ describe('WalletConnect wallet diagnostics', () => {
     });
   });
 
+  it('keeps receive times separate for requests sharing IDs or redacted topic prefixes', () => {
+    const diagnostics = new WalletConnectDiagnostics();
+    const { core } = createCore();
+    const firstTopic = `12345678${'a'.repeat(56)}`;
+    const secondTopic = `12345678${'b'.repeat(56)}`;
+    const requests = [
+      { id: 9, topic: firstTopic },
+      { id: 9, topic: secondTopic },
+      { id: 10, topic: firstTopic },
+      { id: 9, topic: `12345678${'c'.repeat(56)}` },
+    ].map((request) => ({
+      ...request,
+      params: {
+        chainId: 'eip155:1',
+        request: { method: 'personal_sign', params: [] },
+      },
+    }));
+    diagnostics.attachWallet({
+      core,
+      engine: { signClient: { events: new EventEmitter() } },
+      getActiveSessions: () => ({}),
+      getPendingSessionRequests: () => requests,
+    } as unknown as IWalletKit);
+    const now = jest.spyOn(Date, 'now');
+    try {
+      for (let index = 0; index < 3; index += 1) {
+        now.mockReturnValue((index + 1) * 1000);
+        diagnostics.receivedSessionEvent('session_request', requests[index]);
+      }
+      const snapshot = diagnostics.getSnapshot();
+      expect(
+        snapshot.pendingRequestDetails.map(({ receivedAt }) => receivedAt),
+      ).toEqual([1000, 2000, 3000, undefined]);
+      expect(snapshot.pendingRequestDetails.map(({ topic }) => topic)).toEqual(
+        Array.from({ length: 4 }, () => '12345678…'),
+      );
+      for (const { topic } of requests) {
+        expect(JSON.stringify(snapshot)).not.toContain(topic);
+      }
+    } finally {
+      now.mockRestore();
+    }
+  });
+
+  it('evicts the oldest request timestamp when different sessions reuse one ID', () => {
+    const diagnostics = new WalletConnectDiagnostics();
+    const { core } = createCore();
+    const requests = Array.from({ length: 101 }, (_, index) => ({
+      id: 9,
+      topic: `session-${index}`,
+      params: {
+        chainId: 'eip155:1',
+        request: { method: 'personal_sign', params: [] },
+      },
+    }));
+    diagnostics.attachWallet({
+      core,
+      engine: { signClient: { events: new EventEmitter() } },
+      getActiveSessions: () => ({}),
+      getPendingSessionRequests: () => [
+        requests[0],
+        requests[1],
+        requests[100],
+      ],
+    } as unknown as IWalletKit);
+    const now = jest.spyOn(Date, 'now');
+    try {
+      requests.forEach((request, index) => {
+        now.mockReturnValue(index + 1);
+        diagnostics.receivedSessionEvent('session_request', request);
+      });
+      expect(
+        diagnostics
+          .getSnapshot()
+          .pendingRequestDetails.map(({ receivedAt }) => receivedAt),
+      ).toEqual([undefined, 2, 101]);
+    } finally {
+      now.mockRestore();
+    }
+  });
+
   it('shows missing subscriptions, expiry and waiting requests without retaining wallet data', () => {
     const diagnostics = new WalletConnectDiagnostics();
     const { core, relayer } = createCore();

@@ -94,7 +94,8 @@ export class WalletConnectDiagnostics {
 
   private cleanupWallet?: () => void;
 
-  private requestReceivedAt = new Map<number, number>();
+  // Request IDs are session-local; full topics stay internal to this index.
+  private requestReceivedAt = new Map<string, number>();
 
   private sequence = 0;
 
@@ -171,12 +172,21 @@ export class WalletConnectDiagnostics {
   receivedSessionEvent(event: string, payload: unknown) {
     this.lastSessionEventAt = Date.now();
     const { requestId } = metadata(payload);
-    if (event === 'session_request' && requestId !== undefined) {
-      this.requestReceivedAt.set(requestId, this.lastSessionEventAt);
+    const { topic } = asRecord(payload);
+    if (
+      event === 'session_request' &&
+      requestId !== undefined &&
+      typeof topic === 'string' &&
+      topic.length > 0
+    ) {
+      this.requestReceivedAt.set(
+        `${topic}:${requestId}`,
+        this.lastSessionEventAt,
+      );
       if (this.requestReceivedAt.size > EVENT_LIMIT) {
-        const oldestId = this.requestReceivedAt.keys().next().value;
-        if (oldestId !== undefined) {
-          this.requestReceivedAt.delete(oldestId);
+        const oldestKey = this.requestReceivedAt.keys().next().value;
+        if (oldestKey !== undefined) {
+          this.requestReceivedAt.delete(oldestKey);
         }
       }
     }
@@ -455,7 +465,9 @@ export class WalletConnectDiagnostics {
           .slice(0, DETAIL_LIMIT)
           .map((request) => ({
             ...metadata(request),
-            receivedAt: this.requestReceivedAt.get(request.id),
+            receivedAt: this.requestReceivedAt.get(
+              `${request.topic}:${request.id}`,
+            ),
             expiresAt:
               request.params.request.expiryTimestamp === undefined
                 ? undefined
