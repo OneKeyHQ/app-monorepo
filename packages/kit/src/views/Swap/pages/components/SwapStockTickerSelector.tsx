@@ -9,7 +9,6 @@ import {
   ScrollView,
   SearchBar,
   SizableText,
-  Skeleton,
   Spinner,
   Stack,
   XStack,
@@ -181,13 +180,13 @@ function StockTickerList({ closePopover }: { closePopover: () => void }) {
                   closePopover();
                 }}
               >
-                <Token
-                  size="md"
-                  tokenImageUri={stock.logoUrl}
-                  placeholder={
-                    <Skeleton width="100%" height="100%" radius="round" />
-                  }
-                />
+                {/*
+                 * Token owns a memoized loading placeholder. An inline
+                 * placeholder here changes react-native-web's image callback
+                 * dependencies on every parent render and restarts an unchanged
+                 * logo request, which is visible as a flash after cold start.
+                 */}
+                <Token size="md" tokenImageUri={stock.logoUrl} />
                 <YStack flex={1} minWidth={0}>
                   <SizableText size="$bodyLgMedium" numberOfLines={1}>
                     {stock.name}
@@ -315,11 +314,7 @@ export function SwapStockTickerSelector() {
           cursor="pointer"
           hoverStyle={{ bg: '$bgHover' }}
         >
-          <Token
-            size="xl"
-            tokenImageUri={tokenImageUri}
-            placeholder={<Skeleton width="100%" height="100%" radius="round" />}
-          />
+          <Token size="xl" tokenImageUri={tokenImageUri} />
           <YStack minWidth={0} flexShrink={1}>
             <SizableText
               size={md ? '$headingLg' : '$headingXl'}
