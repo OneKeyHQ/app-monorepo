@@ -200,7 +200,10 @@ import {
   indexedAccountAddressCreationStateAtom,
 } from '../../states/jotai/atoms';
 import { hardwareForceTransportAtom } from '../../states/jotai/atoms/desktopBluetooth';
-import { verifySeedMatch as verifyLedgerSeedMatch } from '../../vaults/base/ledgerFingerprintUtils';
+import {
+  hasStoredLedgerChainFingerprint,
+  verifySeedMatch as verifyLedgerSeedMatch,
+} from '../../vaults/base/ledgerFingerprintUtils';
 import {
   thirdPartyConnectionContextFromDevice,
   withHardwareOperationContext,
@@ -4172,9 +4175,6 @@ class ServiceAccount extends ServiceBase {
       hardwareOperationContext: _hardwareOperationContext,
       ...localDbCreateParams
     } = params;
-    const isBleDevice =
-      (params.device as { raw?: { connectionType?: string } }).raw
-        ?.connectionType === 'ble';
     const result = await localDb.createHwWallet({
       ...localDbCreateParams,
       deviceState,
@@ -4190,17 +4190,19 @@ class ServiceAccount extends ServiceBase {
           isMockedStandardHwWallet,
         });
       },
-      // Ledger's chain fingerprint is a vendor-specific identity check, and
-      // only over USB; a BLE device the user picked is taken as-is.
+      // Ledger's chain fingerprint is a vendor-specific identity check. A
+      // record with no fingerprint has nothing to compare, so it is reused.
       verifySeedMatchFn:
         vendorProfile?.identity.connectIdMatchVerification ===
-          'ledgerChainFingerprint' && !isBleDevice
+        'ledgerChainFingerprint'
           ? async (matchedDevice) =>
-              verifyLedgerSeedMatch(
-                this.backgroundApi,
-                matchedDevice,
-                hardwareCallConnectId,
-              )
+              hasStoredLedgerChainFingerprint(matchedDevice.settingsRaw)
+                ? verifyLedgerSeedMatch(
+                    this.backgroundApi,
+                    matchedDevice,
+                    hardwareCallConnectId,
+                  )
+                : 'match'
           : undefined,
       transportType,
     });
