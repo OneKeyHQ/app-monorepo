@@ -1,4 +1,12 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  Suspense,
+  lazy,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 
 import { useFocusEffect } from '@react-navigation/core';
 import { CanceledError } from 'axios';
@@ -92,7 +100,6 @@ import {
 } from './homePageNoWalletContent';
 import { isHomeTabActive, useHomeTabFreeze } from './homeTabFreeze';
 import { NFTListContainerWithProvider } from './NFTListContainer';
-import { PerpsContainer } from './PerpsContainer';
 import { PortfolioContainerWithProvider } from './PortfolioContainer';
 import { TabHeaderSettings } from './TabHeaderSettings';
 import { TxHistoryListContainerWithProvider } from './TxHistoryContainer';
@@ -103,6 +110,9 @@ import type { LayoutChangeEvent } from 'react-native';
 const networksSupportBulkRevokeApproval =
   getNetworksSupportBulkRevokeApproval();
 const NATIVE_TAB_BAR_CONTAINER_STYLE = { position: 'relative' } as const;
+const PerpsContainer = lazy(async () => ({
+  default: (await import('./PerpsContainer')).PerpsContainer,
+}));
 
 // Placement differs by platform — see the renderHeader comment in HomePageView.
 function HomeAlerts() {
@@ -568,7 +578,15 @@ export function HomePageView({
             testID: HomeTestIDs.tabPerps,
             component: (
               <HomeTabContentMaxWidth>
-                <PerpsContainer />
+                <Suspense
+                  fallback={
+                    <Stack flex={1} justifyContent="center" alignItems="center">
+                      <Spinner size="large" />
+                    </Stack>
+                  }
+                >
+                  <PerpsContainer />
+                </Suspense>
               </HomeTabContentMaxWidth>
             ),
           }
