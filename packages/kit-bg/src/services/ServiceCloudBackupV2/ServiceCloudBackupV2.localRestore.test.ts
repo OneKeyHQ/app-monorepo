@@ -103,6 +103,8 @@ describe('local iCloud restore integration', () => {
   const recordId = 'synthetic-backup';
   const selectedTransferData = {
     wallets: [{ credentialDecrypted: { privateKey: 'synthetic-private-key' } }],
+    importedAccounts: [],
+    watchingAccounts: [],
   };
   const transfer = {
     isImportTaskActive: jest.fn(),
@@ -262,6 +264,51 @@ describe('local iCloud restore integration', () => {
       }),
     ).toBeNull();
     expect(transfer.startImport).toHaveBeenCalledTimes(1);
+  });
+
+  it.each(['wallets', 'importedAccounts'] as const)(
+    'prepares the local password once when the first %s credential is missing',
+    async (target) => {
+      transfer.getSelectedTransferData.mockResolvedValue({
+        wallets: [],
+        importedAccounts: [],
+        watchingAccounts: [],
+        [target]: [{}, selectedTransferData.wallets[0]],
+      });
+      const prepared = await prepareCached();
+      await expect(
+        service.restorePreparedLocalBackup({
+          ...prepared,
+          taskUUID: 'import-task',
+        }),
+      ).resolves.toEqual({ success: true });
+      expect(promptPasswordVerify).toHaveBeenCalledTimes(1);
+      expect(transfer.startImport).toHaveBeenCalledWith(
+        expect.objectContaining({
+          password: 'synthetic-local-password',
+          localPassword: 'synthetic-local-password',
+        }),
+      );
+    },
+  );
+
+  it('restores prepared watching-only data without local password authorization', async () => {
+    transfer.getSelectedTransferData.mockResolvedValue({
+      wallets: [],
+      importedAccounts: [],
+      watchingAccounts: [{ id: 'synthetic-watching-account' }],
+    });
+    const prepared = await prepareCached();
+    await expect(
+      service.restorePreparedLocalBackup({
+        ...prepared,
+        taskUUID: 'import-task',
+      }),
+    ).resolves.toEqual({ success: true });
+    expect(promptPasswordVerify).not.toHaveBeenCalled();
+    expect(transfer.startImport).toHaveBeenCalledWith(
+      expect.objectContaining({ password: '', localPassword: '' }),
+    );
   });
 
   describe.each(['iOS', 'Android'])('%s restore record binding', (platform) => {
