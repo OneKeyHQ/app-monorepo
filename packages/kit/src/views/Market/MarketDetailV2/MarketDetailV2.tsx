@@ -19,7 +19,10 @@ import {
 } from '@onekeyhq/components';
 import { getRootRoutersLength } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import { useSetSplitViewDetailFullscreen } from '@onekeyhq/kit/src/provider/Container/TableSplitViewContainer';
-import { useTokenDetailActions } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2';
+import {
+  useTokenDetailActions,
+  useTokenDetailPreviewAtom,
+} from '@onekeyhq/kit/src/states/jotai/contexts/marketV2';
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { MARKET_TOP_COINS_CATEGORY_ID } from '@onekeyhq/shared/src/consts/marketConsts';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -54,8 +57,8 @@ import {
   useAutoRefreshTokenDetail,
   useResolvedMarketAssetRouteIdentity,
   useStockDetail,
-  useTokenDetail,
 } from './hooks';
+import { useSyncMarketCurrentTokenLiveData } from './hooks/useAutoRefreshTokenDetail';
 import { MarketDetailResponsiveLayout } from './layouts/MarketDetailResponsiveLayout';
 import { shouldReplayFullscreenNavigationAction } from './utils/marketDetailFullscreenNavigation';
 import { preloadMarketDetailV2BodyModules } from './utils/marketDetailPagePreload';
@@ -118,6 +121,11 @@ function LegacyTokenPreviewInitializer({
   return null;
 }
 
+function MarketCurrentTokenLiveDataSync() {
+  useSyncMarketCurrentTokenLiveData();
+  return null;
+}
+
 function MarketDetail({
   isChartFullscreen,
   isTradingViewNative,
@@ -146,7 +154,7 @@ function MarketDetail({
     isTokenVariantPending,
     stockPreview,
   } = useStockDetail();
-  const { tokenDetailPreview: currentTokenDetailPreview } = useTokenDetail();
+  const [currentTokenDetailPreview] = useTokenDetailPreviewAtom();
   const isRouteFocused = useIsFocused();
   const media = useMedia();
   const isDesktopLayout = media.gtLg && !platformEnv.isNative;
@@ -319,6 +327,7 @@ function MarketDetail({
 
   return (
     <BtcMetadataProvider>
+      <MarketCurrentTokenLiveDataSync />
       <LegacyTokenPreviewInitializer
         active={shouldOwnSharedMarketDetailState}
         preview={resolvedTokenDetailPreview}
