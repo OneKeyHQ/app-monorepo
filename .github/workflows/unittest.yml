@@ -1,7 +1,20 @@
 name: 02-unittest
+run-name: ${{ inputs.max_workers && format('Unit test worker benchmark ({0})', inputs.max_workers) || '' }}
 
 on:
   workflow_dispatch:
+    inputs:
+      max_workers:
+        description: Jest workers per shard (100% uses the runner CPU count)
+        type: choice
+        default: '1'
+        options:
+          - '1'
+          - '2'
+          - '3'
+          - '4'
+          - '5'
+          - '100%'
   pull_request:
     branches:
       - onekey
@@ -16,7 +29,7 @@ on:
 # Cancel a currently running workflow from the same PR/branch/tag
 # when a new workflow is triggered
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}-${{ inputs.max_workers || 'default' }}
   cancel-in-progress: true
 
 env:
@@ -32,6 +45,8 @@ jobs:
   unittest:
     name: Unit Tests (${{ matrix.shard }}/5)
     runs-on: ubuntu-24.04
+    # Include a cold install and first-time image publication; benchmarks keep the slow baseline observable.
+    timeout-minutes: ${{ github.event_name == 'workflow_dispatch' && 30 || 13 }}
 
     strategy:
       fail-fast: false
@@ -48,10 +63,37 @@ jobs:
         uses: actions/setup-node@v6
         with:
           node-version: ${{ matrix.node-version }}
-          cache: 'yarn'
+          package-manager-cache: false
           registry-url: 'https://npm.pkg.github.com'
           check-latest: true
           scope: '@onekeyhq'
+
+      - name: Locate Yarn cache
+        id: yarn-cache
+        shell: bash
+        run: |
+          node <<'NODE'
+          // Match the repository's Yarn 4 cache path without executing checkout plugins.
+          const fs = require('node:fs');
+          const os = require('node:os');
+          const path = require('node:path');
+          const base = process.platform === 'win32'
+            ? path.join(process.env.LOCALAPPDATA || path.join(os.homedir(), 'AppData', 'Local'), 'Yarn', 'Berry')
+            : process.env.XDG_DATA_HOME
+              ? path.join(process.env.XDG_DATA_HOME, 'yarn', 'berry')
+              : path.join(os.homedir(), '.yarn', 'berry');
+          const cache = process.env.YARN_ENABLE_GLOBAL_CACHE === 'true'
+            ? path.join(base, 'cache') : path.join(process.env.GITHUB_WORKSPACE, '.yarn', 'cache');
+          fs.appendFileSync(process.env.GITHUB_OUTPUT, `path=${cache}\narch=${process.arch}\n`);
+          NODE
+
+      - name: Restore Yarn cache from x
+        uses: actions/cache/restore@v4
+        with:
+          path: ${{ steps.yarn-cache.outputs.path }}
+          key: node-cache-${{ runner.os }}-${{ steps.yarn-cache.outputs.arch }}-yarn-${{ hashFiles('yarn.lock') }}
+          restore-keys: |
+            node-cache-${{ runner.os }}-${{ steps.yarn-cache.outputs.arch }}-yarn-
 
       - name: Write unit test AI prompt
         run: |
@@ -64,19 +106,40 @@ jobs:
         run: echo "dir=${{ github.workspace }}/.yarn" >> "$GITHUB_OUTPUT"
 
       - name: Install Dependency
+        id: dependencies
         env:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NODE_OPTIONS: '--max_old_space_size=4096'
-        run: |
-          yarn install --immutable
+        uses: ./.github/actions/install-dependencies
 
       - name: Run Tests
         env:
           NODE_OPTIONS: '--max_old_space_size=8192'
+          BENCHMARK_WORKERS: ${{ inputs.max_workers }}
         run: |
           mkdir -p ci-ai
+          # Three workers also exceeded prebundle deadlines on a cold four-core runner.
+          test_command=(yarn test --maxWorkers=2)
+          if [ -n "$BENCHMARK_WORKERS" ]; then
+            node <<'NODE' > ci-ai/runner.json
+          const os = require('node:os');
+          console.log(JSON.stringify({
+            revision: process.env.GITHUB_SHA,
+            node: process.version,
+            workers: process.env.BENCHMARK_WORKERS,
+            cpuCount: os.cpus().length,
+            availableParallelism: os.availableParallelism(),
+            memoryBytes: os.totalmem(),
+          }, null, 2));
+          NODE
+            # Isolate transformations from the shared Yarn cache for a fair comparison.
+            test_command=(/usr/bin/time -v -o ci-ai/resources.txt yarn test
+              --maxWorkers="$BENCHMARK_WORKERS"
+              --cacheDirectory="$RUNNER_TEMP/jest-worker-benchmark"
+              --json --outputFile=ci-ai/test-results.json)
+          fi
           set +e
-          yarn test \
+          "${test_command[@]}" \
             --coverage \
             --shard="${{ matrix.shard }}/${JEST_SHARD_TOTAL}" \
             --coverageDirectory=coverage/shard-${{ matrix.shard }} \
@@ -89,6 +152,18 @@ jobs:
           status=${PIPESTATUS[0]}
           set -e
           exit "$status"
+
+      - name: Upload worker benchmark measurements
+        if: always() && github.event_name == 'workflow_dispatch'
+        uses: actions/upload-artifact@v4
+        with:
+          name: worker-benchmark-${{ inputs.max_workers }}-shard-${{ matrix.shard }}
+          path: |
+            ci-ai/runner.json
+            ci-ai/resources.txt
+            ci-ai/test-results.json
+          if-no-files-found: error
+          retention-days: 14
 
       - name: Upload Test Report
         uses: actions/upload-artifact@v4
@@ -127,9 +202,14 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
           echo "::notice title=CI diagnostics::Download ci-ai-unittest-diagnostics-shard-${{ matrix.shard }}-of-${{ env.JEST_SHARD_TOTAL }} and inspect jest-shard-${{ matrix.shard }}.log"
 
+      - name: Unmount dependency image
+        if: always() && steps.dependencies.outcome != 'skipped'
+        run: python3 .github/scripts/ci-dependencies.py cleanup
+
   coverage:
     name: unittest (24.x)
     runs-on: ubuntu-24.04
+    timeout-minutes: 10
     needs: unittest
     if: always()
 
