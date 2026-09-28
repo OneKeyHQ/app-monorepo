@@ -214,7 +214,12 @@ export function NativeHistoryList(props: IHomeHistoryListViewProps) {
   const intl = useIntl();
   const theme = useHomeNativeListTheme();
   const bottom = useScrollContentTabBarOffset();
-  const { refreshing, onRefresh } = useHomeNativeRefresh();
+  const { refreshing, onRefresh: triggerRefresh } = useHomeNativeRefresh();
+  const [networkMetadataRetry, setNetworkMetadataRetry] = useState(0);
+  const onRefresh = useCallback(() => {
+    setNetworkMetadataRetry((value) => value + 1);
+    triggerRefresh();
+  }, [triggerRefresh]);
   const [searchKey] = useSearchKeyAtom();
   const [addressesInfo] = useAddressesInfoAtom();
   const [settings] = useSettingsPersistAtom();
@@ -243,6 +248,7 @@ export function NativeHistoryList(props: IHomeHistoryListViewProps) {
   const networkRequestIdentity = JSON.stringify({
     scope: props.frozenTopIdentityKey,
     targets: networkTargets.toSorted(([a], [b]) => a.localeCompare(b)),
+    retry: networkMetadataRetry,
   });
   const networkCacheRef = useRef(
     new Map<
@@ -257,34 +263,40 @@ export function NativeHistoryList(props: IHomeHistoryListViewProps) {
       }
     >(),
   );
-  const { result: networkData } = usePromiseResult(async () => {
-    // This JSON is produced locally above; derive requests from its identity so
-    // value-only row updates never restart metadata queries.
-    const { targets } = JSON.parse(networkRequestIdentity) as {
-      targets: [string, { networkId: string; accountId: string }][];
-    };
-    const cache = networkCacheRef.current;
-    await promiseAllSettledEnhanced(
-      targets
-        .filter(([key]) => !cache.has(key))
-        .map(([key, target]) => async () => {
-          const [vault, token] = await Promise.all([
-            backgroundApiProxy.serviceNetwork.getVaultSettings({
-              networkId: target.networkId,
-            }),
-            backgroundApiProxy.serviceToken.getNativeToken(target),
-          ]);
-          cache.set(key, { vault, token });
+  const { result: networkData } = usePromiseResult(
+    async () => {
+      // This JSON is produced locally above; derive requests from its identity so
+      // value-only row updates never restart metadata queries.
+      const { targets } = JSON.parse(networkRequestIdentity) as {
+        targets: [string, { networkId: string; accountId: string }][];
+      };
+      const cache = networkCacheRef.current;
+      await promiseAllSettledEnhanced(
+        targets
+          .filter(([key]) => !cache.has(key))
+          .map(([key, target]) => async () => {
+            const [vault, token] = await Promise.all([
+              backgroundApiProxy.serviceNetwork.getVaultSettings({
+                networkId: target.networkId,
+              }),
+              backgroundApiProxy.serviceToken.getNativeToken(target),
+            ]);
+            cache.set(key, { vault, token });
+          }),
+        { concurrency: 4, continueOnError: true },
+      );
+      return Object.fromEntries(
+        targets.flatMap(([key]) => {
+          const value = cache.get(key);
+          return value ? [[key, value] as const] : [];
         }),
-      { concurrency: 4, continueOnError: true },
-    );
-    return Object.fromEntries(
-      targets.flatMap(([key]) => {
-        const value = cache.get(key);
-        return value ? [[key, value] as const] : [];
-      }),
-    );
-  }, [networkRequestIdentity]);
+      );
+    },
+    [networkRequestIdentity],
+    {
+      revalidateOnReconnect: true,
+    },
+  );
   const models = useMemo(
     () =>
       new Map(
