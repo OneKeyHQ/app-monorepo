@@ -45,20 +45,67 @@ function setInert(element: HTMLElement | null | undefined, inert: boolean) {
   }
 }
 
+// Elements outside a page host made inert for a blocking page overlay.
+let pageInertElements = new Set<HTMLElement>();
+
+/**
+ * A page host lives inside the app root, so a blocking page overlay cannot
+ * inert the app root; inert every sibling on the path from the host up to it
+ * instead (other routes, the page itself, navigation chrome).
+ */
+function siblingsOutside(host: HTMLElement, root: HTMLElement) {
+  const siblings = new Set<HTMLElement>();
+  let node: HTMLElement = host;
+  while (node !== root && node.parentElement) {
+    const parent: HTMLElement = node.parentElement;
+    for (const sibling of Array.from(parent.children)) {
+      if (sibling !== node && sibling instanceof HTMLElement) {
+        siblings.add(sibling);
+      }
+    }
+    node = parent;
+  }
+  return siblings;
+}
+
+function inertEntriesBelow(container: ParentNode, seq: number) {
+  container
+    .querySelectorAll<HTMLElement>(`[${ENTRY_ATTRIBUTE}]`)
+    .forEach((node) => {
+      setInert(node, Number(node.dataset.stackOrder) < seq);
+    });
+}
+
 /** Everything rendered below the topmost blocking entry becomes inert. */
 function syncInert() {
   const top = overlayStore.getBlockingTop();
-  setInert(document.getElementById(APP_ROOT_ID), !!top);
+  const appRoot = document.getElementById(APP_ROOT_ID);
+  let nextPageInert = new Set<HTMLElement>();
+  const pageHost =
+    top?.scope === 'page' ? getOverlayPageHost(top.hostKey) : undefined;
+  if (top && pageHost && appRoot?.contains(pageHost)) {
+    setInert(appRoot, false);
+    nextPageInert = siblingsOutside(pageHost, appRoot);
+    inertEntriesBelow(pageHost, top.seq);
+  } else {
+    setInert(appRoot, !!top);
+  }
+  pageInertElements.forEach((element) => {
+    if (!nextPageInert.has(element)) {
+      setInert(element, false);
+    }
+  });
+  nextPageInert.forEach((element) => setInert(element, true));
+  pageInertElements = nextPageInert;
+
   for (const [level, root] of layerRoots) {
+    // Global layers render above every page overlay.
     const below =
-      !!top && OVERLAY_LEVEL_ORDER[level] < OVERLAY_LEVEL_ORDER[top.level];
+      top?.scope === 'global' &&
+      OVERLAY_LEVEL_ORDER[level] < OVERLAY_LEVEL_ORDER[top.level];
     setInert(root, below);
-    if (top && level === top.level) {
-      root
-        .querySelectorAll<HTMLElement>(`[${ENTRY_ATTRIBUTE}]`)
-        .forEach((node) => {
-          setInert(node, Number(node.dataset.stackOrder) < top.seq);
-        });
+    if (top?.scope === 'global' && level === top.level) {
+      inertEntriesBelow(root, top.seq);
     }
   }
 }

@@ -15,6 +15,7 @@ import {
   Toast,
   XStack,
   YStack,
+  useInPageDialog,
 } from '@onekeyhq/components';
 import {
   EAppEventBusNames,
@@ -346,6 +347,84 @@ function MeasureOverlay({
   );
 }
 
+// Every Dialog now renders in the native overlay (P4c).
+function DialogDemos() {
+  const inPageDialog = useInPageDialog();
+  const navigation = useNavigation<NavigationProp<ParamListBase>>();
+  return (
+    <XStack gap="$2" flexWrap="wrap">
+      <Button
+        onPress={() =>
+          Dialog.confirm({
+            title: 'Dialog.confirm',
+            description: 'Centered on wide windows, a sheet on phones.',
+            onConfirm: () => undefined,
+          })
+        }
+      >
+        Dialog.confirm
+      </Button>
+      <Button
+        onPress={() =>
+          Dialog.show({
+            title: 'Form dialog',
+            renderContent: (
+              <Input testID="dialog-form-input" placeholder="Type here" />
+            ),
+            onConfirm: () => undefined,
+          })
+        }
+      >
+        Form dialog
+      </Button>
+      <Button
+        onPress={() =>
+          inPageDialog.show({
+            title: 'In-page dialog',
+            description: 'Bound to this page: pushing a page hides it.',
+            onConfirmText: 'Push page',
+            onConfirm: ({ preventClose }) => {
+              preventClose();
+              navigation.navigate(EGalleryRoutes.ComponentPortal);
+            },
+          })
+        }
+      >
+        In-page dialog
+      </Button>
+      <Button
+        onPress={() =>
+          Dialog.show({
+            title: 'Wide panel',
+            description: 'floatingPanelProps width 480',
+            floatingPanelProps: { width: 480 },
+            onConfirm: () => undefined,
+          })
+        }
+      >
+        Wide panel
+      </Button>
+      <Button
+        onPress={() =>
+          Dialog.show({
+            title: 'Scroll view',
+            renderContent: (
+              <Dialog.ScrollView maxHeight={240}>
+                {Array.from({ length: 30 }, (_, i) => (
+                  <SizableText key={i}>{`Row ${i + 1}`}</SizableText>
+                ))}
+              </Dialog.ScrollView>
+            ),
+            onConfirm: () => undefined,
+          })
+        }
+      >
+        Dialog.ScrollView
+      </Button>
+    </XStack>
+  );
+}
+
 function NativeOverlayDemo() {
   const [specs, setSpecs] = useState<IDemoSpec[]>([]);
   const [matrixOrder, setMatrixOrder] = useState('');
@@ -538,6 +617,7 @@ function NativeOverlayDemo() {
           Dialog + loading
         </Button>
       </XStack>
+      <DialogDemos />
       <XStack gap="$2" flexWrap="wrap">
         <Button onPress={() => setMeasureMode('center')}>Measure center</Button>
         <Button onPress={() => setMeasureMode('sheet')}>Measure sheet</Button>

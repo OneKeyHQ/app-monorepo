@@ -22,6 +22,19 @@ let mockIsSheet = false;
 const mockClose = jest.fn(() => Promise.resolve());
 const mockPeriodInput = <input aria-label="Period" />;
 
+jest.mock('./OverlayDialogPresentation', () => ({
+  OverlayDialogPresentation: ({
+    children,
+    open,
+  }: {
+    children?: ReactNode;
+    open: boolean;
+  }) => (open ? <div data-testid="overlay-dialog">{children}</div> : null),
+}));
+jest.mock('@onekeyfe/react-native-native-overlay', () => ({
+  useOverlayPageScope: () => ({}),
+}));
+
 jest.mock('@onekeyhq/components', () => {
   const { FocusScope } = jest.requireActual(
     '@tamagui/focus-scope',

@@ -139,6 +139,14 @@ interface IBasicDialogProps extends TMDialogProps {
    * not enable nativeSheet.
    */
   boundedSheetLayout?: boolean;
+  /**
+   * Binds the dialog to the page it was opened from: it renders in that
+   * page's root-route overlay host and hides while the page is covered.
+   * Set by `useInPageDialog`.
+   */
+  overlayPage?: { hostKey: string; ownerKey: string };
+  /** Internal: the exit animation finished (`Dialog.show` cleanup). */
+  onExited?: () => void;
 }
 
 export type IDialogProps = IBasicDialogProps &

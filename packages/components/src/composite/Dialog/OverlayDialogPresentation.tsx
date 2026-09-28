@@ -1,5 +1,5 @@
 import { useCallback, useMemo } from 'react';
-import type { PropsWithChildren } from 'react';
+import type { ComponentProps, PropsWithChildren } from 'react';
 
 import { OverlayView } from '@onekeyfe/react-native-native-overlay';
 import { useWindowDimensions } from 'react-native';
@@ -23,11 +23,12 @@ const MAX_CONTENT_WIDTH = 400;
 const SHEET_CORNER_RADIUS = 24;
 const CENTER_SIDE_GUTTER = 20;
 const CENTER_THEME_DARK = { outlineColor: '$neutral5' } as const;
-const CENTER_CARD_STYLE = {
-  outlineStyle: 'solid',
-  alignSelf: 'center',
-  marginVertical: 'auto',
-} as const;
+const CENTER_CARD_STYLE = { outlineStyle: 'solid' } as const;
+
+export type IOverlayDialogCardProps = Omit<
+  ComponentProps<typeof ThemeableStack>,
+  'children'
+>;
 
 export interface IOverlayDialogPresentationProps extends PropsWithChildren {
   open: boolean;
@@ -40,6 +41,12 @@ export interface IOverlayDialogPresentationProps extends PropsWithChildren {
   dismissOnBackPress: boolean;
   disableDrag: boolean;
   onRequestClose: () => void;
+  /** The exit animation finished; `Dialog.show` unmounts its portal here. */
+  onExited?: () => void;
+  /** Page scope: the page's root-route host and the owning page. */
+  page?: { hostKey: string; ownerKey: string };
+  /** Centered card only: the former floating panel styling (width, bg…). */
+  cardProps?: IOverlayDialogCardProps;
   testID?: string;
 }
 
@@ -56,6 +63,9 @@ export function OverlayDialogPresentation({
   dismissOnBackPress,
   disableDrag,
   onRequestClose,
+  onExited,
+  page,
+  cardProps,
   testID,
   children,
 }: IOverlayDialogPresentationProps) {
@@ -95,14 +105,21 @@ export function OverlayDialogPresentation({
       if (reason === 'replaced' || reason === 'page-removed') {
         onRequestClose();
       }
+      // The app lock closes it only until unlock; it reopens by itself.
+      if (reason !== 'security') {
+        onExited?.();
+      }
     },
-    [onRequestClose],
+    [onExited, onRequestClose],
   );
 
   return (
     <OverlayView
       visible={open}
       level={level}
+      scope={page ? 'page' : 'global'}
+      hostKey={page?.hostKey}
+      ownerKey={page?.ownerKey}
       presentation={isSheet ? 'sheet' : 'center'}
       sheet={isSheet ? sheet : undefined}
       backdrop={backdrop}
@@ -126,6 +143,10 @@ export function OverlayDialogPresentation({
         // margins: native reads the root's children to find the content for
         // the scale origin and the keyboard lift.
         <ThemeableStack
+          // Separate auto margins: `marginVertical: 'auto'` is dropped on web.
+          alignSelf="center"
+          mt="auto"
+          mb="auto"
           width={MAX_CONTENT_WIDTH}
           maxWidth={windowWidth - CENTER_SIDE_GUTTER * 2}
           maxHeight="90%"
@@ -138,6 +159,7 @@ export function OverlayDialogPresentation({
           outlineColor="$neutral3"
           $theme-dark={CENTER_THEME_DARK}
           style={CENTER_CARD_STYLE}
+          {...cardProps}
         >
           {platformEnv.isNative ? (
             // Yoga measures the card in AtMost mode, so `flex: 1` children

@@ -374,6 +374,29 @@ P1 implementation map:
 | Enter / exit animation | `NativeOverlayAnimation.swift` (`UIViewPropertyAnimator`) | `NativeOverlayAnimation.kt` (analytic spring interpolator) | `web/animateTransition.ts` (WAAPI) |
 | Store bridge | `useOverlayController.ts` | same | same |
 
+P4c dialog notes:
+
+- Every Dialog renders through `OverlayDialogPresentation` (sheet on narrow
+  windows, centered card otherwise); the Tamagui Sheet / Dialog and the
+  NativeSheetPresentation branches of `DialogFrame` are gone. `nativeSheet`
+  is a no-op for Dialog.
+- `floatingPanelProps` style the centered card (width, maxWidth, maxHeight,
+  bg, overflow, radius…); `zIndex`, `sheetOverlayProps`, `sheetProps`
+  (except `disableDrag`), `modal` and `forceMount` no longer apply.
+- Level: `overlayLevel` prop, else from the portal container (`lock` for the
+  lock screen's container, `secure` for the password prompt's, otherwise
+  `modal`). `isOverTopAllViews` is redundant: every level is above app
+  content.
+- `useInPageDialog` / `useInTabDialog` pass the page's host and owner keys:
+  in-page dialogs are page overlays (hidden while the page is covered).
+- `Dialog.show` unmounts its portal when the exit animation ends
+  (`onExited`), with a 1.5 s fallback, instead of a 300 ms timer.
+- Web: a blocking page overlay inerts the siblings on the path from its page
+  host to the app root, not the app root that contains it.
+- Native sheets pad the home indicator / navigation bar and lift above the
+  keyboard natively; the dialog adds no keyboard padding on native (the
+  bounded login layout still caps its scroll view by the keyboard height).
+
 Measurement:
 
 - `RNCNativeOverlay` has a hand-written shadow node (`common/cpp`, codegen

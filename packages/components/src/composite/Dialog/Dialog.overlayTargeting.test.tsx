@@ -9,6 +9,19 @@ import { Dialog } from '.';
 
 import { renderToContainer } from './renderToContainer';
 
+jest.mock('./OverlayDialogPresentation', () => ({
+  OverlayDialogPresentation: ({
+    children,
+    open,
+  }: {
+    children?: ReactNode;
+    open: boolean;
+  }) => (open ? <div data-testid="overlay-dialog">{children}</div> : null),
+}));
+jest.mock('@onekeyfe/react-native-native-overlay', () => ({
+  useOverlayPageScope: () => ({}),
+}));
+
 jest.mock('react-intl', () => ({
   useIntl: () => ({ formatMessage: ({ id }: { id: string }) => id }),
 }));
@@ -193,23 +206,48 @@ describe('Dialog.show overlay targeting guard', () => {
 });
 
 describe('Dialog.show closing lifecycle', () => {
-  it('notifies close start synchronously and keeps cleanup after the animation', async () => {
+  const openLockDialog = () => {
+    const onCloseStart = jest.fn();
+    const onClose = jest.fn();
+    Dialog.show({ portalContainer: LOCK_CONTAINER, onCloseStart, onClose });
+    const element = jest
+      .mocked(renderToContainer)
+      .mock.calls.at(-1)?.[1] as ReactElement<{
+      onClose: () => Promise<void>;
+      onExited: () => void;
+      overlayLevel: string;
+    }>;
+    return { element, onCloseStart, onClose };
+  };
+
+  it('opens a lock screen dialog at the lock level', () => {
+    const { element } = openLockDialog();
+    expect(element.props.overlayLevel).toBe('lock');
+  });
+
+  it('notifies close start synchronously and cleans up after the exit animation', async () => {
     jest.useFakeTimers();
     try {
-      const onCloseStart = jest.fn();
-      const onClose = jest.fn();
-      Dialog.show({ portalContainer: LOCK_CONTAINER, onCloseStart, onClose });
-      const element = jest
-        .mocked(renderToContainer)
-        .mock.calls.at(-1)?.[1] as ReactElement<{
-        onClose: () => Promise<void>;
-      }>;
+      const { element, onCloseStart, onClose } = openLockDialog();
       const closing = element.props.onClose();
       expect(onCloseStart).toHaveBeenCalledTimes(1);
+      jest.advanceTimersByTime(1000);
+      await Promise.resolve();
       expect(onClose).not.toHaveBeenCalled();
-      jest.advanceTimersByTime(299);
-      expect(onClose).not.toHaveBeenCalled();
-      jest.advanceTimersByTime(1);
+      element.props.onExited();
+      await closing;
+      expect(onClose).toHaveBeenCalledTimes(1);
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  it('still cleans up when the overlay never reports its exit', async () => {
+    jest.useFakeTimers();
+    try {
+      const { element, onClose } = openLockDialog();
+      const closing = element.props.onClose();
+      jest.advanceTimersByTime(1500);
       await closing;
       expect(onClose).toHaveBeenCalledTimes(1);
     } finally {
