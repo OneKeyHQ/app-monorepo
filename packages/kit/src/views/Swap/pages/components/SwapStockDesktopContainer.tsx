@@ -952,12 +952,18 @@ function StockAmountInput({
   );
   const showTokenSelectorLoading =
     !inputToken && (fetchLoading || (isBuySide && payTokenOptionsLoading));
-  const balanceActionProps = getSwapBalanceActionProps({
-    isLoadedZero: isBalanceLoadedZero,
-    refreshing: balanceRefreshing,
-    onRefresh: onBalanceRefreshPress,
-    onMax: balanceActionsReady ? onBalanceMaxPress : undefined,
-  });
+  const hasActiveAccount = Boolean(
+    swapFromAddressInfo.activeAccount?.indexedAccount?.id ||
+    swapFromAddressInfo.activeAccount?.account?.id,
+  );
+  const balanceActionProps = hasActiveAccount
+    ? getSwapBalanceActionProps({
+        isLoadedZero: isBalanceLoadedZero,
+        refreshing: balanceRefreshing,
+        onRefresh: onBalanceRefreshPress,
+        onMax: balanceActionsReady ? onBalanceMaxPress : undefined,
+      })
+    : undefined;
 
   const contentLoading = Boolean(
     forceLoading || shouldRenderSkeleton || deferInitialContent,
