@@ -1,3 +1,5 @@
+import { HardwareErrorCode } from '@onekeyfe/hwk-adapter-core/errors';
+
 import { EHardwareTransportType } from '@onekeyhq/shared/types';
 import { EHardwareVendor } from '@onekeyhq/shared/types/device';
 
@@ -779,12 +781,11 @@ describe('ServiceAccount hardware wallet creation address', () => {
     );
   });
 
-  it.each([
-    ['usb', true],
-    ['ble', false],
-  ] as const)(
-    'checks a re-imported Ledger seed over %s only if it is USB',
-    async (connectionType, expectsSeedCheck) => {
+  describe('re-imported Ledger seed check', () => {
+    async function captureSeedCheck(
+      connectionType: 'usb' | 'ble',
+      getChainFingerprint = jest.fn(),
+    ) {
       createHwWalletMock.mockResolvedValue({
         wallet: { id: 'hw-ledger', name: 'Ledger' },
       } as Awaited<ReturnType<typeof localDb.createHwWallet>>);
@@ -792,7 +793,9 @@ describe('ServiceAccount hardware wallet creation address', () => {
         backgroundApi: {
           serviceHardware: { getCompatibleConnectId: jest.fn() },
           serviceThirdPartyHardware: {
-            getAdapterForVendor: jest.fn().mockResolvedValue({ hw: {} }),
+            getAdapterForVendor: jest
+              .fn()
+              .mockResolvedValue({ hw: { getChainFingerprint } }),
           },
         },
       }) as unknown as IHwWalletCreateAddressService;
@@ -805,16 +808,76 @@ describe('ServiceAccount hardware wallet creation address', () => {
           raw: { connectionType },
         },
         features: { device_id: '' },
+        // Onboarding hands over the operation it connected the Ledger on.
+        hardwareOperationContext: { operationId: 'onboarding-operation' },
       });
-      expect(createHwWalletMock).toHaveBeenCalledWith(
-        expect.objectContaining({
-          verifySeedMatchFn: expectsSeedCheck
-            ? expect.any(Function)
-            : undefined,
-        }),
+      const params = createHwWalletMock.mock.calls.at(-1)?.[0] as {
+        verifySeedMatchFn?: (
+          device: IDBDevice,
+        ) => Promise<'match' | 'mismatch' | 'unknown'>;
+      };
+      return {
+        verifySeedMatchFn: params.verifySeedMatchFn,
+        getChainFingerprint,
+      };
+    }
+
+    const matchedDevice = (chainFingerprints: Record<string, string>) =>
+      ({
+        id: 'ledger-record',
+        vendor: EHardwareVendor.ledger,
+        settingsRaw: JSON.stringify({ chainFingerprints }),
+      }) as IDBDevice;
+
+    it.each(['usb', 'ble'] as const)(
+      'checks the seed over %s',
+      async (connectionType) => {
+        const { verifySeedMatchFn } = await captureSeedCheck(connectionType);
+        expect(verifySeedMatchFn).toEqual(expect.any(Function));
+      },
+    );
+
+    it('reuses a record with no fingerprint without asking the device', async () => {
+      const { verifySeedMatchFn, getChainFingerprint } =
+        await captureSeedCheck('ble');
+      await expect(verifySeedMatchFn?.(matchedDevice({}))).resolves.toBe(
+        'match',
       );
-    },
-  );
+      expect(getChainFingerprint).not.toHaveBeenCalled();
+    });
+
+    it.each([
+      ['match', { success: true, payload: 'stored-evm' }],
+      [
+        'mismatch',
+        { success: false, payload: { code: HardwareErrorCode.DeviceMismatch } },
+      ],
+      [
+        'unknown',
+        {
+          success: false,
+          payload: { code: HardwareErrorCode.AppNotInstalled },
+        },
+      ],
+    ] as const)(
+      'reports %s for a recorded fingerprint',
+      async (expected, response) => {
+        const getChainFingerprint = jest.fn().mockResolvedValue(response);
+        const { verifySeedMatchFn } = await captureSeedCheck(
+          'ble',
+          getChainFingerprint,
+        );
+        await expect(
+          verifySeedMatchFn?.(matchedDevice({ evm: 'stored-evm' })),
+        ).resolves.toBe(expected);
+        expect(getChainFingerprint).toHaveBeenCalledWith(
+          'onboarding-operation',
+          'stored-evm',
+          'evm',
+        );
+      },
+    );
+  });
 
   it('creates a Trezor hidden wallet using saved locators and identity', async () => {
     const device = {
