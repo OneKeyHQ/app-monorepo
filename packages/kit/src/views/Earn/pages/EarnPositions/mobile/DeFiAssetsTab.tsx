@@ -1,40 +1,32 @@
-import { useMemo } from 'react';
-
 import { useIntl } from 'react-intl';
 
 import { Empty, Spinner, Stack, YStack } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import type { IEarnPortfolioInvestment } from '@onekeyhq/shared/types/staking';
 
+import { EarnPositionProtocolList } from './EarnPositionProtocolList';
 import { useGroupExpansion } from './GroupRow';
-import { groupInvestmentsByProvider } from './myPortfolio.utils';
-import { ProtocolGroupRow } from './ProtocolGroupRow';
 
-import type { IPositionManageHandler } from './myPortfolio.utils';
+import type { IEarnPositionCardHandlers } from './EarnPositionCard';
+import type { IEarnProtocolView } from './earnPositionModel';
 
 export function DeFiAssetsTab({
-  investments,
+  protocols,
   isLoading,
   pendingCountByProvider,
   networkFilter,
   onManage,
 }: {
-  investments: IEarnPortfolioInvestment[];
+  protocols: IEarnProtocolView[];
   isLoading: boolean;
   pendingCountByProvider: Record<string, number>;
   /** the page's network chip; sits right under the tabs on this tab */
   networkFilter: React.ReactNode;
-  onManage: IPositionManageHandler;
-}) {
+} & IEarnPositionCardHandlers) {
   const intl = useIntl();
-  const groups = useMemo(
-    () => groupInvestmentsByProvider(investments),
-    [investments],
-  );
-  const { isExpanded, toggle } = useGroupExpansion();
+  const expansion = useGroupExpansion();
 
   let placeholder: React.ReactNode = null;
-  if (groups.length === 0) {
+  if (protocols.length === 0) {
     placeholder = isLoading ? (
       <Stack ai="center" py="$8">
         <Spinner size="large" />
@@ -57,18 +49,14 @@ export function DeFiAssetsTab({
         {networkFilter}
       </Stack>
       {placeholder}
-      {groups.map((group, index) => (
-        <ProtocolGroupRow
-          key={group.key}
-          group={group}
-          pendingCount={pendingCountByProvider[group.providerCode] ?? 0}
-          // the first provider opens by default so the page never lands on a
-          // wall of collapsed rows
-          expanded={isExpanded(group.key, index)}
-          onToggle={() => toggle(group.key, index)}
-          onManage={onManage}
-        />
-      ))}
+      {/* the first protocol opens by default so the page never lands on a
+          wall of collapsed rows */}
+      <EarnPositionProtocolList
+        protocols={protocols}
+        expansion={expansion}
+        pendingCountByProvider={pendingCountByProvider}
+        onManage={onManage}
+      />
     </YStack>
   );
 }

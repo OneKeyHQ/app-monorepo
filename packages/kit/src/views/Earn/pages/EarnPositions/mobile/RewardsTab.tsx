@@ -9,8 +9,8 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import type { IEarnPortfolioPosition } from '@onekeyhq/shared/types/earn/portfolioPositions';
 import type {
-  IEarnPortfolioInvestment,
   IEarnRewardsPortfolioResponse,
   IEarnRewardsPortfolioStage,
 } from '@onekeyhq/shared/types/staking';
@@ -19,7 +19,8 @@ import { useGroupExpansion } from './GroupRow';
 import { RewardsClaimableList } from './RewardsClaimableList';
 import { RewardsLedgerList } from './RewardsLedgerList';
 
-import type { IPositionManageHandler } from './myPortfolio.utils';
+import type { IEarnPositionCardHandlers } from './EarnPositionCard';
+import type { IEarnProtocolView } from './earnPositionModel';
 
 export const REWARDS_STAGES: IEarnRewardsPortfolioStage[] = [
   'claimable',
@@ -80,7 +81,8 @@ export function RewardsTab({
   rewards,
   isLoading,
   isLoadingMore = false,
-  investments,
+  claimableProtocols,
+  positions,
   networkFilter,
   onManage,
 }: {
@@ -90,11 +92,13 @@ export function RewardsTab({
   isLoading: boolean;
   /** a further ledger page is on its way; shown as a footer spinner */
   isLoadingMore?: boolean;
-  investments: IEarnPortfolioInvestment[];
+  /** the positions' claimable rewards, already cut down to their Rewards sections */
+  claimableProtocols: IEarnProtocolView[];
+  /** every position the page holds; names networks and vaults for the ledger rows */
+  positions: IEarnPortfolioPosition[];
   /** the page's network chip; sits under the stage pills on this tab */
   networkFilter: React.ReactNode;
-  onManage: IPositionManageHandler;
-}) {
+} & IEarnPositionCardHandlers) {
   const intl = useIntl();
   const expansion = useGroupExpansion();
   const labels: Record<IEarnRewardsPortfolioStage, string> = {
@@ -111,7 +115,8 @@ export function RewardsTab({
   if (stage === 'claimable') {
     content = (
       <RewardsClaimableList
-        investments={investments}
+        protocols={claimableProtocols}
+        positions={positions}
         ledgerGroups={groups}
         emptyTitle={emptyTitle}
         onManage={onManage}

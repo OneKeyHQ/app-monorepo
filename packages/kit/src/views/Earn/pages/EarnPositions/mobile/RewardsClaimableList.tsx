@@ -1,92 +1,72 @@
 import { useMemo } from 'react';
 
 import { Empty, YStack } from '@onekeyhq/components';
-import type {
-  IEarnPortfolioInvestment,
-  IEarnRewardsPortfolioGroup,
-} from '@onekeyhq/shared/types/staking';
+import type { IEarnPortfolioPosition } from '@onekeyhq/shared/types/earn/portfolioPositions';
+import type { IEarnRewardsPortfolioGroup } from '@onekeyhq/shared/types/staking';
 
 import { WrappedActionButton } from '../../../components/PortfolioTabContent';
 import { resolveUniquePortfolioClaimSourceIdentity } from '../../../utils/portfolioClaimUtils';
 
+import { EarnPositionProtocolList } from './EarnPositionProtocolList';
 import { useGroupExpansion } from './GroupRow';
 import {
   buildClaimSourceCandidates,
-  groupInvestmentsByProvider,
-  selectProtocolClaimableInvestments,
+  buildNetworkInfoMap,
   toLedgerClaimAsset,
 } from './myPortfolio.utils';
-import { ProtocolGroupRow } from './ProtocolGroupRow';
 import { RewardsLedgerList } from './RewardsLedgerList';
 
-import type { IPositionManageHandler } from './myPortfolio.utils';
+import type { IEarnPositionCardHandlers } from './EarnPositionCard';
+import type { IEarnProtocolView } from './earnPositionModel';
 
 /**
  * Claimable (product: split by what the user has to do, not by where the
- * reward comes from): everything the user has to
- * claim by hand that the header also counts. Two shapes in one list —
- *   - on-chain airdrop rows of non-ledger providers (Morpho / Lista /
- *     Pendle), rendered as the position card in its rewards-only variant
- *     (claim happens on the detail page behind Manage);
+ * reward comes from): everything the user has to claim by hand that the
+ * header also counts. Two shapes in one list —
+ *   - the positions' claimable rewards, as the position card cut down to
+ *     its Rewards section (claim happens on the detail page behind Manage);
  *   - Campaign / airdrop rows from the ledger, rendered as the detail page's
  *     reward row with an inline Claim button, because some of those rows
  *     cannot resolve to a detail page at all.
- * A position's own reward rows are not listed until the server sizes them.
+ * Claimable principal is a position of its own on DeFi Assets, never here.
  */
 export function RewardsClaimableList({
-  investments,
+  protocols,
+  positions,
   ledgerGroups,
   emptyTitle,
   onManage,
 }: {
-  investments: IEarnPortfolioInvestment[];
+  protocols: IEarnProtocolView[];
+  positions: IEarnPortfolioPosition[];
   ledgerGroups: IEarnRewardsPortfolioGroup[];
   emptyTitle: string;
-  onManage: IPositionManageHandler;
-}) {
+} & IEarnPositionCardHandlers) {
   const expansion = useGroupExpansion();
-  const protocolGroups = useMemo(
-    () =>
-      groupInvestmentsByProvider(
-        selectProtocolClaimableInvestments(investments),
-      ),
-    [investments],
-  );
   const candidates = useMemo(
-    () => buildClaimSourceCandidates(investments),
-    [investments],
+    () => buildClaimSourceCandidates(positions),
+    [positions],
   );
-  const networkInfoById = useMemo(() => {
-    const map = new Map<string, { name: string; logoURI: string }>();
-    investments.forEach((investment) => {
-      map.set(investment.network.networkId, {
-        name: investment.network.name,
-        logoURI: investment.network.logoURI,
-      });
-    });
-    return map;
-  }, [investments]);
+  const networkInfoById = useMemo(
+    () => buildNetworkInfoMap(positions),
+    [positions],
+  );
 
-  if (protocolGroups.length === 0 && ledgerGroups.length === 0) {
+  if (protocols.length === 0 && ledgerGroups.length === 0) {
     return <Empty icon="GiftOutline" title={emptyTitle} />;
   }
 
   return (
     <YStack gap="$4">
-      {protocolGroups.map((group, index) => (
-        <ProtocolGroupRow
-          key={group.key}
-          group={group}
-          expanded={expansion.isExpanded(group.key, index)}
-          onToggle={() => expansion.toggle(group.key, index)}
-          rewardsOnly
-          onManage={onManage}
-        />
-      ))}
+      <EarnPositionProtocolList
+        protocols={protocols}
+        expansion={expansion}
+        onManage={onManage}
+      />
       <RewardsLedgerList
         groups={ledgerGroups}
         expansion={expansion}
-        indexOffset={protocolGroups.length}
+        indexOffset={protocols.length}
         renderAction={(group, item) => {
           const network = networkInfoById.get(group.networkId);
           const asset = toLedgerClaimAsset({
