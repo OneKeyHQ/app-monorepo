@@ -15,6 +15,10 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { EGalleryRoutes } from '@onekeyhq/shared/src/routes';
 
 import { Layout } from './utils/Layout';
@@ -393,6 +397,44 @@ function NativeOverlayDemo() {
           }}
         >
           Dialog + toasts
+        </Button>
+      </XStack>
+      <XStack gap="$2" flexWrap="wrap">
+        <Button
+          onPress={() => {
+            appEventBus.emit(EAppEventBusNames.ShowDialogLoading, {
+              title: 'Loading step 1',
+            });
+            setTimeout(() => {
+              appEventBus.emit(EAppEventBusNames.ShowDialogLoading, {
+                title: 'Loading step 2',
+              });
+            }, 1500);
+            setTimeout(() => {
+              appEventBus.emit(EAppEventBusNames.HideDialogLoading, undefined);
+            }, 3000);
+          }}
+        >
+          DialogLoading
+        </Button>
+        <Button
+          onPress={() => {
+            Dialog.show({
+              title: 'Legacy dialog',
+              description: 'Loading opens above it, then hides.',
+              onConfirm: () => undefined,
+            });
+            setTimeout(() => {
+              appEventBus.emit(EAppEventBusNames.ShowDialogLoading, {
+                title: 'Loading above the dialog',
+              });
+            }, 500);
+            setTimeout(() => {
+              appEventBus.emit(EAppEventBusNames.HideDialogLoading, undefined);
+            }, 2500);
+          }}
+        >
+          Dialog + loading
         </Button>
       </XStack>
       <XStack gap="$2" flexWrap="wrap">

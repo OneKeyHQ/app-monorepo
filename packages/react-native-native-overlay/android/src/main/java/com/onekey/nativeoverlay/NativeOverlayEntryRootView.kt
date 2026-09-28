@@ -9,6 +9,8 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.FrameLayout
 import androidx.coordinatorlayout.widget.CoordinatorLayout
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
 import com.google.android.material.bottomsheet.BottomSheetBehavior
 import com.facebook.react.common.annotations.UnstableReactNativeAPI
 import com.facebook.react.config.ReactFeatureFlags
@@ -127,11 +129,26 @@ internal class NativeOverlayEntryRootView(
       isDraggable = draggable
       isHideable = draggable
     }
+    // The content sits above the navigation bar, as UIKit sheets keep it
+    // above the home indicator; the surface still reaches the screen edge.
+    val targetHeight = heightPx + bottomSystemInset()
     val params = sheet.layoutParams
-    if (params.height != heightPx) {
-      params.height = heightPx
+    if (params.height != targetHeight) {
+      params.height = targetHeight
       sheet.layoutParams = params
     }
+  }
+
+  /** The sheet's full height, navigation bar padding included. */
+  fun sheetHeightPx(): Int = sheetView?.layoutParams?.height ?: 0
+
+  // The entry may not be attached yet when the sheet is configured; the
+  // activity's decor view always carries the window insets.
+  private fun bottomSystemInset(): Int {
+    val root = reactContext.currentActivity?.window?.decorView ?: this
+    return ViewCompat.getRootWindowInsets(root)
+      ?.getInsets(WindowInsetsCompat.Type.navigationBars())
+      ?.bottom ?: 0
   }
 
   private fun createSheet(): FrameLayout {

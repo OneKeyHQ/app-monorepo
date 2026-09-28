@@ -287,7 +287,8 @@ class NativeOverlayView(
       "slide" -> {
         val travel = transition.distanceDp?.let { (it * density).toFloat() } ?: when {
           // The sheet may not be laid out yet; its own height is the travel.
-          isSheet && transition.edge == "bottom" -> (sheetHeight * density).toFloat()
+          isSheet && transition.edge == "bottom" ->
+            maxOf(target.sheetHeightPx(), (sheetHeight * density).toInt()).toFloat()
           else -> when (transition.edge) {
           "top" -> extent.bottom.toFloat()
           "left" -> extent.right.toFloat()

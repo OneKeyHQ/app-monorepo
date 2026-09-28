@@ -22,6 +22,7 @@ import type {
   IStackProps,
   IXStackProps,
 } from '../../primitives';
+import type { IOverlayLevel } from '@onekeyfe/react-native-native-overlay';
 import type { UseFormProps, useForm } from 'react-hook-form';
 
 export type IDialogContextType = {
@@ -79,6 +80,11 @@ interface IBasicDialogProps extends TMDialogProps {
   isAsync?: boolean;
   /** Uses the platform-native sheet presentation on iOS and Android. */
   nativeSheet?: boolean;
+  /**
+   * Renders the dialog in the native overlay at this level (sheet on narrow
+   * windows, centered card otherwise) instead of a Tamagui portal.
+   */
+  overlayLevel?: IOverlayLevel;
   onOpen?: () => void;
   /** Controls initial focus for both the floating panel and sheet on web. */
   onOpenAutoFocus?: TMDialogContentProps['onOpenAutoFocus'];

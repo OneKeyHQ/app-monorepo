@@ -349,6 +349,20 @@ P4a toast notes:
   controller does not re-request, and an overlay whose `visible` is still
   true comes back after unlock (`snapshot.securityBlockedBelow`).
 
+P4b dialog loading notes:
+
+- Dialog takes an internal `overlayLevel` prop. With it, `DialogFrame`
+  renders through `OverlayDialogPresentation` on every platform: a sheet
+  (24 pt corners, no handle) on narrow windows, a centered 400 pt card
+  otherwise, the theme `$bgBackdrop`, Escape never closes on web, Android
+  back closes unless `disableSystemClose`.
+- The kit DialogLoading container uses `overlayLevel="modal"`: request order
+  puts it above earlier dialogs, and hardware / password prompts stay above
+  it. Its 50 ms delays and the iOS remount key are gone; text updates in
+  place.
+- Android sheets pad their content by the navigation-bar inset, matching the
+  UIKit sheet's home-indicator inset.
+
 P1 implementation map:
 
 | Contract | iOS | Android | Web |

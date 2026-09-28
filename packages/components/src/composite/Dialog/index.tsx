@@ -88,6 +88,7 @@ import {
   SetDialogHeader,
 } from './Header';
 import { HeaderDragZone } from './HeaderDragZone';
+import { OverlayDialogPresentation } from './OverlayDialogPresentation';
 import { renderToContainer } from './renderToContainer';
 
 import type {
@@ -299,6 +300,7 @@ function DialogFrame({
   testID,
   isAsync,
   nativeSheet = false,
+  overlayLevel,
   trackID,
   forceMount,
   useInitialSafeAreaBottomInsetFallback = false,
@@ -409,8 +411,12 @@ function DialogFrame({
       useInitialSafeAreaBottomInsetFallback,
       trackKeyboardPadding: isBoundedDialogLayout,
     });
+  const useOverlayPresentation = !!overlayLevel;
   const useNativeSheetPresentation =
-    nativeSheet && media.md && NATIVE_SHEET_PRESENTATION_SUPPORTED;
+    !useOverlayPresentation &&
+    nativeSheet &&
+    media.md &&
+    NATIVE_SHEET_PRESENTATION_SUPPORTED;
   const dialogHeader = showHeader ? (
     <DialogHeader
       trackID={trackID}
@@ -453,7 +459,9 @@ function DialogFrame({
         testID={testID}
         isAsync={isAsync}
         estimatedContentHeight={estimatedContentHeight}
-        nativeSheetPresentation={useNativeSheetPresentation}
+        nativeSheetPresentation={
+          useNativeSheetPresentation || useOverlayPresentation
+        }
         {...(contentContainerProps as any)}
       >
         {renderContent}
@@ -487,7 +495,9 @@ function DialogFrame({
   const renderDialogContent = (
     <Animated.View
       style={
-        useNativeSheetPresentation ? undefined : safeKeyboardAnimationStyle
+        useNativeSheetPresentation || useOverlayPresentation
+          ? undefined
+          : safeKeyboardAnimationStyle
       }
     >
       {isBoundedDialogLayout ? (
@@ -521,7 +531,9 @@ function DialogFrame({
   );
 
   const dialogSheetBody = (
-    <DialogSheetContext.Provider value={!useNativeSheetPresentation}>
+    <DialogSheetContext.Provider
+      value={!useNativeSheetPresentation && !useOverlayPresentation}
+    >
       <FocusScope
         enabled={open}
         trapped={open ? effectiveTrapFocus : undefined}
@@ -548,6 +560,37 @@ function DialogFrame({
       </FocusScope>
     </DialogSheetContext.Provider>
   );
+
+  if (overlayLevel) {
+    return (
+      <OverlayDialogPresentation
+        open={Boolean(open)}
+        level={overlayLevel}
+        isSheet={media.md}
+        bg={(contentContainerProps as { bg?: IColorTokens })?.bg}
+        dismissOnOverlayPress={dismissOnOverlayPress}
+        dismissOnBackPress={!disableSystemClose}
+        disableDrag={
+          disableDrag || Boolean(sheetProps?.disableDrag) || isHeaderDragOnly
+        }
+        onRequestClose={dismissFromHeaderDrag}
+        testID={testID}
+      >
+        {media.md ? (
+          dialogSheetBody
+        ) : (
+          <FocusScope
+            enabled={open}
+            trapped={open ? effectiveTrapFocus : undefined}
+            onMountAutoFocus={onOpenAutoFocus}
+            loop
+          >
+            {renderDialogContent}
+          </FocusScope>
+        )}
+      </OverlayDialogPresentation>
+    );
+  }
 
   if (useNativeSheetPresentation) {
     return (
