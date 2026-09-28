@@ -213,6 +213,39 @@ describe('earn position model: rewards claimable stage', () => {
     });
   });
 
+  it('leaves a reward the server has not priced on the DeFi Assets card, not in the list', () => {
+    const [everstake] = EARN_PORTFOLIO_POSITIONS_FIXTURE.positions[
+      'evm--1'
+    ].filter(
+      (position) =>
+        position.protocol === 'everstake' && position.rewards.length > 0,
+    );
+    const unpriced: IEarnPortfolioPosition = {
+      ...everstake,
+      groupId: 'everstake:evm--1:unpriced',
+      rewards: everstake.rewards.map((reward) => ({
+        ...reward,
+        price: 0,
+        value: 0,
+      })),
+    };
+    const response: IEarnPortfolioPositionsResponse = {
+      positions: { 'evm--1': [everstake, unpriced] },
+      protocolSummaries: [],
+      errors: [],
+    };
+    const { protocols } = buildEarnPortfolioView({ response, translate });
+    expect(protocols[0].positions.map((position) => position.key)).toEqual([
+      everstake.groupId,
+      'everstake:evm--1:unpriced',
+    ]);
+    const [row] = buildEarnClaimableRewardsView(protocols);
+    expect(row.positions.map((position) => position.key)).toEqual([
+      everstake.groupId,
+    ]);
+    expect(row.positions[0].variant).toBe('rewards');
+  });
+
   it('never lists principal: protocols without rewards drop out', () => {
     expect(claimable.map((protocol) => protocol.key).toSorted()).toEqual([
       'evm--1-everstake',

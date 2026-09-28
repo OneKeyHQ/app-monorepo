@@ -1537,10 +1537,19 @@ class ServiceStaking extends ServiceBase {
     publicKey?: string;
   }): Promise<IEarnPortfolioPositionsResponse> {
     const client = await this.getClient(EServiceEndpointEnum.Earn);
-    const { accountId, ...rest } = params;
+    const { accountId, accountAddress, networkId, provider, publicKey } =
+      params;
+    // Explicit body: the server rejects unknown fields, and callers pass
+    // richer request objects.
+    const body = {
+      accountAddress,
+      networkId,
+      provider,
+      ...(publicKey ? { publicKey } : {}),
+    };
     const response = await client.post<{
       data: IEarnPortfolioPositionsResponse;
-    }>('/earn/v1/portfolio/positions', rest, {
+    }>('/earn/v1/portfolio/positions', body, {
       headers:
         await this.backgroundApi.serviceAccountProfile._getWalletTypeHeader({
           accountId,
