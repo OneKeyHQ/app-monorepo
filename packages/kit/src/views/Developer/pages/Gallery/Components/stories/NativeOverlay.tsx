@@ -17,11 +17,13 @@ import {
   YStack,
   useInPageDialog,
 } from '@onekeyhq/components';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { EGalleryRoutes } from '@onekeyhq/shared/src/routes';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import { Layout } from './utils/Layout';
 
@@ -347,6 +349,20 @@ function MeasureOverlay({
   );
 }
 
+// Dev only: lock the app for a few seconds, then unlock without the
+// passcode. Needs a wallet that has a passcode.
+async function lockBriefly() {
+  const { servicePassword } = backgroundApiProxy;
+  if (!(await servicePassword.checkPasswordSet())) {
+    Toast.message({ title: 'Set a passcode first' });
+    return;
+  }
+  await timerUtils.wait(800);
+  await servicePassword.lockApp({ manual: true });
+  await timerUtils.wait(4000);
+  await servicePassword.unLockApp();
+}
+
 // Every Dialog now renders in the native overlay (P4c).
 function DialogDemos() {
   const inPageDialog = useInPageDialog();
@@ -403,6 +419,18 @@ function DialogDemos() {
         }
       >
         Wide panel
+      </Button>
+      <Button
+        onPress={() => {
+          Dialog.confirm({
+            title: 'Dialog under the lock',
+            description: 'Stays open under the lock screen and after unlock.',
+            onConfirm: () => undefined,
+          });
+          void lockBriefly();
+        }}
+      >
+        Dialog + lock 4s
       </Button>
       <Button
         onPress={() =>

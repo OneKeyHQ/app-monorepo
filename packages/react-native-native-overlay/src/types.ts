@@ -19,7 +19,6 @@ export type IOverlayDismissReason =
   | 'pan'
   | 'replaced'
   | 'page-removed'
-  | 'security'
   | 'system';
 
 /** `light`: light content for dark overlays; `dark`: dark content. */
@@ -77,6 +76,4 @@ export interface IOverlaySnapshot {
   /** Every non-queued entry in bottom-to-top render order. */
   entries: readonly IOverlayEntry[];
   queued: readonly IOverlayEntry[];
-  /** Levels below this one are refused while the app is locked. */
-  securityBlockedBelow: IOverlayLevel | undefined;
 }

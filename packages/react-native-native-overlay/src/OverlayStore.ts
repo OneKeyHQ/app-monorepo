@@ -66,13 +66,9 @@ export class OverlayStore {
 
   private readonly listeners = new Set<() => void>();
 
-  /** While set, levels below it are refused and closed ('security'). */
-  private blockedBelowLevel: IOverlayEntry['level'] | undefined;
-
   private snapshot: IOverlaySnapshot = {
     entries: [],
     queued: [],
-    securityBlockedBelow: undefined,
   };
 
   constructor(options: IOverlayStoreOptions = {}) {
@@ -132,13 +128,6 @@ export class OverlayStore {
     entry.suspended = this.isOwnerHidden(entry);
     this.handlers.set(entry.id, handlers);
 
-    if (this.isSecurityBlocked(entry.level)) {
-      entry.phase = 'closing';
-      entry.dismissReason = 'security';
-      queueMicrotask(() => this.notifyRemoved(entry.id, 'security'));
-      return entry;
-    }
-
     if (entry.strategy === 'replace') {
       this.replaceIn(entry);
       this.shown.set(entry.id, entry);
@@ -197,25 +186,6 @@ export class OverlayStore {
       this.emit();
     }
     dropped.forEach((e) => this.notifyRemoved(e.id, reason));
-  }
-
-  /**
-   * App lock: close everything below `belowLevel` and refuse new requests
-   * there until unblocked. The lock screen itself renders at `lock`.
-   */
-  setSecurityBlocked(
-    blocked: boolean,
-    belowLevel: IOverlayEntry['level'] = 'lock',
-  ): void {
-    const next = blocked ? belowLevel : undefined;
-    if (next === this.blockedBelowLevel) {
-      return;
-    }
-    this.blockedBelowLevel = next;
-    if (blocked) {
-      this.dismissAll({ belowLevel, reason: 'security' });
-    }
-    this.emit();
   }
 
   /** Native / navigation signal: the owning page was covered, detached or restored. */
@@ -341,13 +311,6 @@ export class OverlayStore {
     }
   }
 
-  private isSecurityBlocked(level: IOverlayEntry['level']): boolean {
-    return (
-      this.blockedBelowLevel !== undefined &&
-      OVERLAY_LEVEL_ORDER[level] < OVERLAY_LEVEL_ORDER[this.blockedBelowLevel]
-    );
-  }
-
   private isOwnerHidden(entry: IOverlayEntry): boolean {
     return (
       entry.scope === 'page' &&
@@ -405,7 +368,6 @@ export class OverlayStore {
         .map((e) => ({ ...e }))
         .toSorted(compareRenderOrder),
       queued: this.queued.map((e) => ({ ...e })),
-      securityBlockedBelow: this.blockedBelowLevel,
     };
     this.listeners.forEach((listener) => listener());
   }

@@ -10,7 +10,6 @@ import {
 
 import { OVERLAY_MOTION_PRESETS } from './animation/platformMotionPresets';
 import { resolveOverlayAnimation } from './animation/resolveAnimation';
-import { OVERLAY_LEVEL_ORDER } from './OverlayLevels';
 import { useOverlayPageScope } from './OverlayPageScope';
 import { findStatusBarOwner, overlayStore } from './OverlayStore';
 
@@ -86,10 +85,6 @@ export function useOverlayController(
     overlayStore.getSnapshot,
     overlayStore.getSnapshot,
   );
-  const blockedBelow = snapshot.securityBlockedBelow;
-  const securityBlocked =
-    blockedBelow !== undefined &&
-    OVERLAY_LEVEL_ORDER[level ?? 'modal'] < OVERLAY_LEVEL_ORDER[blockedBelow];
   const entry = useMemo(
     () =>
       entryId
@@ -107,9 +102,7 @@ export function useOverlayController(
       }
       return;
     }
-    // An entry closed by the app lock comes back once the lock lifts, as
-    // long as the caller still wants it visible.
-    if (entryId || closedByStoreRef.current || securityBlocked) {
+    if (entryId || closedByStoreRef.current) {
       return;
     }
     cycleRef.current += 1;
@@ -131,7 +124,7 @@ export function useOverlayController(
       {
         onRemoved: (reason) => {
           setEntryId((current) => (current === id ? undefined : current));
-          if (reason !== 'programmatic' && reason !== 'security') {
+          if (reason !== 'programmatic') {
             closedByStoreRef.current = true;
           }
           propsRef.current.onClose?.(reason);
@@ -141,7 +134,7 @@ export function useOverlayController(
     setEntryId(id);
     // Level / strategy changes apply to the next open cycle only.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [visible, entryId, securityBlocked]);
+  }, [visible, entryId]);
 
   useEffect(
     () => () => {

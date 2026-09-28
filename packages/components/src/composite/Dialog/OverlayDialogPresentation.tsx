@@ -105,10 +105,7 @@ export function OverlayDialogPresentation({
       if (reason === 'replaced' || reason === 'page-removed') {
         onRequestClose();
       }
-      // The app lock closes it only until unlock; it reopens by itself.
-      if (reason !== 'security') {
-        onExited?.();
-      }
+      onExited?.();
     },
     [onExited, onRequestClose],
   );

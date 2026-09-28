@@ -330,9 +330,6 @@ P2 sheet notes:
 - `keepContentMounted` renders content while closed so callers can measure it
   before opening (Popover waits for header / scroll measurements).
 - `pan` dismissals cannot be vetoed; `onRequestDismiss('pan')` is informative.
-- App lock: `overlayStore.setSecurityBlocked(true)` closes and refuses every
-  level below `lock` (wired from kit `NativeSheetRoot`), because the current
-  lock screen still lives in the app window below the overlay windows.
 
 P4a toast notes:
 
@@ -345,9 +342,6 @@ P4a toast notes:
   `scale 0.8 + offsetY -20 + fade` on `quick`, PanResponder swipe up to
   close unless `disableSwipeGesture` (the Tamagui toast ignored the flag). `Toast.show` unmounts its portal on the overlay's `onClose`, after
   the exit animation, instead of a 300 ms timer.
-- Security closures do not count as a store close: while locked the
-  controller does not re-request, and an overlay whose `visible` is still
-  true comes back after unlock (`snapshot.securityBlockedBelow`).
 
 P4b dialog loading notes:
 
@@ -410,6 +404,23 @@ P4d hardware / password notes:
 - Password setup / verify prompts use `overlayLevel: 'secure'`, above the
   stage and every dialog; their web z-index and portal workarounds are gone.
 
+P4e lock screen notes:
+
+- kit `AppStateContainer` (one file for every platform) hosts the lock
+  screen and its dialog portal in a persistent blocking `lock`-level
+  fullscreen entry with no overlay animation (the lock screen keeps its own
+  AnimatePresence fade). Everything below it stays open and is covered.
+- `setSecurityBlocked`, the `security` dismiss reason and
+  `snapshot.securityBlockedBelow` are removed.
+- Dialogs opened into the lock screen's container (forgot passcode, export
+  logs) take the `lock` level from the container, so they render above the
+  lock screen; on web in the same `document.body` child the lock screen keeps
+  interactive (OK-62416).
+- Android back is swallowed on the lock screen (blocking, not dismissible);
+  it no longer reaches navigation behind the lock.
+- The web lock tamper check and the lock screen's body-level inert pass are
+  unchanged; the lock layer root is a `document.body` child.
+
 Measurement:
 
 - `RNCNativeOverlay` has a hand-written shadow node (`common/cpp`, codegen
@@ -470,7 +481,7 @@ Migration rules (decided 2026-09-28):
   its last caller migrates.
 - The app lock is unified with the rest: the lock screen renders at the
   `lock` level and covers everything below it. Overlays are no longer
-  closed on lock; `setSecurityBlocked` goes away with the migration.
+  closed on lock (done in P4e).
 - Every presentation avoids the keyboard (center, sheet, page sheet) on
   iOS, Android, and web.
 - Fabric `measure` / `measureInWindow` inside an overlay must report the

@@ -24,7 +24,6 @@ import { Trigger } from '../Trigger';
 import type {
   IOverlayAnimation,
   IOverlayBackdrop,
-  IOverlayDismissReason,
 } from '@onekeyfe/react-native-native-overlay';
 
 // The former Tamagui toast: scale 0.8 + fade, 20pt above, `quick` spring.
@@ -186,16 +185,10 @@ function BasicShowToaster({
   const handleRequestDismiss = useCallback(() => {
     void handleContainerClose();
   }, [handleContainerClose]);
-  const handleOverlayClose = useCallback(
-    (reason: IOverlayDismissReason) => {
-      // The app lock closes it only until unlock; it reopens by itself.
-      if (reason !== 'security') {
-        translateY.setValue(0);
-        onExited?.();
-      }
-    },
-    [onExited, translateY],
-  );
+  const handleOverlayClose = useCallback(() => {
+    translateY.setValue(0);
+    onExited?.();
+  }, [onExited, translateY]);
   const cardStyle = useMemo(
     () => [styles.card, { paddingTop: top || 20, transform: [{ translateY }] }],
     [top, translateY],
