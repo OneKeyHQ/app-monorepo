@@ -537,6 +537,9 @@ function useAllNetworkRequests<T>(params: {
       allNetworkAccountsBaseCache.clear();
       allNetworkDataInit.current = false;
       supersedeActiveRun();
+      // The retained snapshot was published for the previous enabled set; a
+      // rerun whose every request fails must not restore it.
+      lastPublishedResultRef.current = undefined;
       runCountRef.current = 0;
       setEnabledNetworksChangedNonce((v) => v + 1);
       // owner intentionally omitted (this appEventBus-listener effect must not
@@ -566,6 +569,9 @@ function useAllNetworkRequests<T>(params: {
       // the current map and removes data for networks that were disabled.
       allNetworkDataInit.current = false;
       supersedeActiveRun();
+      // The retained snapshot was published for the previous enabled set; a
+      // rerun whose every request fails must not restore it.
+      lastPublishedResultRef.current = undefined;
       runCountRef.current = 0;
       setEnabledNetworksChangedNonce((value) => value + 1);
       void runWithQueueRef.current?.({ alwaysSetState: true });
@@ -1263,9 +1269,14 @@ function useAllNetworkRequests<T>(params: {
           } catch (e) {
             console.error(e);
           }
-          // Queue refreshes through cleanup to prevent stale publication.
-          isFetching.current = false;
-          hasQueuedRerun = scheduleQueuedRerun();
+          // An enabled-network change can land while `onFinished` waits. The
+          // run that replaced this one holds `isFetching` then, and releasing
+          // it here would let a later refresh overlap that run.
+          if (isRunCurrent()) {
+            // Queue refreshes through cleanup to prevent stale publication.
+            isFetching.current = false;
+            hasQueuedRerun = scheduleQueuedRerun();
+          }
         }
       }
       if (!isRunCurrent()) {

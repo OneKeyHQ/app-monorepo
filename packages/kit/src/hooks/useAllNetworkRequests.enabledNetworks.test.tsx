@@ -91,7 +91,10 @@ type IResp = { networkId: string };
 
 let ownerSeq = 0;
 
-function setup({ withCache = false }: { withCache?: boolean } = {}) {
+function setup({
+  withCache = false,
+  holdFinished = false,
+}: { withCache?: boolean; holdFinished?: boolean } = {}) {
   // A distinct owner per test keeps the module-level accounts cache apart.
   ownerSeq += 1;
   const walletId = `hd-${ownerSeq}`;
@@ -111,7 +114,9 @@ function setup({ withCache = false }: { withCache?: boolean } = {}) {
       allAccountsInfo: accountsInfo,
     };
   });
-  const pending: Array<() => void> = [];
+  const pending: Array<{ resolve: () => void; reject: (e: Error) => void }> =
+    [];
+  const finishedResolvers: Array<() => void> = [];
   const fanOuts: string[][] = [];
   // isRunCurrent handed to each request, per fan-out.
   const requestRunChecks: Array<Array<() => boolean>> = [];
@@ -139,8 +144,8 @@ function setup({ withCache = false }: { withCache?: boolean } = {}) {
         requestRunChecks[requestRunChecks.length - 1].push(
           isRunCurrent ?? (() => true),
         );
-        return new Promise<IResp>((resolve) => {
-          pending.push(() => resolve({ networkId }));
+        return new Promise<IResp>((resolve, reject) => {
+          pending.push({ resolve: () => resolve({ networkId }), reject });
         });
       },
       allNetworkCacheRequests: async ({ networkId }: { networkId: string }) =>
@@ -155,6 +160,12 @@ function setup({ withCache = false }: { withCache?: boolean } = {}) {
       onStarted: async ({ isRunCurrent }: { isRunCurrent?: () => boolean }) => {
         startedRunChecks.push(isRunCurrent ?? (() => true));
       },
+      onFinished: holdFinished
+        ? () =>
+            new Promise<void>((resolve) => {
+              finishedResolvers.push(resolve);
+            })
+        : undefined,
       allNetworkAccountsData: () => {
         fanOuts.push([]);
         requestRunChecks.push([]);
@@ -170,9 +181,28 @@ function setup({ withCache = false }: { withCache?: boolean } = {}) {
       clearRetainedResultOnAcceptedRun: true,
     }),
   );
+  const tick = async () => {
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 30));
+    });
+  };
   const settleRequests = async () => {
     await act(async () => {
-      pending.splice(0).forEach((resolve) => resolve());
+      pending.splice(0).forEach((request) => request.resolve());
+      await new Promise((resolve) => setTimeout(resolve, 30));
+    });
+  };
+  const failRequests = async () => {
+    await act(async () => {
+      pending.splice(0).forEach((request) => {
+        request.reject(new Error('network'));
+      });
+      await new Promise((resolve) => setTimeout(resolve, 30));
+    });
+  };
+  const releaseFinished = async () => {
+    await act(async () => {
+      finishedResolvers.splice(0).forEach((resolve) => resolve());
       await new Promise((resolve) => setTimeout(resolve, 30));
     });
   };
@@ -213,6 +243,9 @@ function setup({ withCache = false }: { withCache?: boolean } = {}) {
       });
     },
     settleRequests,
+    failRequests,
+    releaseFinished,
+    tick,
   };
 }
 
@@ -319,6 +352,56 @@ describe('useAllNetworkRequests: enabled networks change during a fan-out', () =
       [{ networkId: 'evm--1' }],
     ]);
     expect(ctx.clearAllNetworkData).toHaveBeenCalledTimes(2);
+  });
+
+  it('leaves the lock with the replacing run when the change lands while onFinished waits', async () => {
+    const ctx = setup({ holdFinished: true });
+    await ctx.waitForFirstFanOut();
+    // The first fan-out is done and its run is waiting inside `onFinished`.
+    await ctx.settleRequests();
+    expect(ctx.published).toEqual([]);
+
+    ctx.uncheckSui();
+    await ctx.waitForFanOuts(2);
+    // The superseded run resumes after the replacement started: it must not
+    // release `isFetching` on the replacement's behalf.
+    await ctx.releaseFinished();
+    await ctx.manualRefresh();
+    await ctx.tick();
+    expect(ctx.fanOuts).toHaveLength(2);
+
+    await ctx.settleRequests();
+    await ctx.releaseFinished();
+    await ctx.waitForFanOuts(3);
+    await ctx.settleRequests();
+    await ctx.releaseFinished();
+    expect(ctx.fanOuts).toEqual([
+      ['evm--1', 'sui--mainnet'],
+      ['evm--1'],
+      ['evm--1'],
+    ]);
+    expect(ctx.published).toEqual([[{ networkId: 'evm--1' }]]);
+  });
+
+  it('does not restore the pre-change snapshot when every request of the rerun fails', async () => {
+    const ctx = setup();
+    await ctx.waitForFirstFanOut();
+    await ctx.settleRequests();
+    expect(ctx.hook.result.current.result).toEqual([
+      { networkId: 'evm--1' },
+      { networkId: 'sui--mainnet' },
+    ]);
+
+    ctx.uncheckSui();
+    await ctx.waitForFanOuts(2);
+    await ctx.failRequests();
+
+    // The last-good snapshot still lists SUI; the failed rerun must not bring
+    // it back to the list and the total.
+    expect(ctx.hook.result.current.result).toBeUndefined();
+    expect(ctx.published).toEqual([
+      [{ networkId: 'evm--1' }, { networkId: 'sui--mainnet' }],
+    ]);
   });
 
   it('keeps a plain pull-to-refresh queued and warm', async () => {
