@@ -20589,6 +20589,7 @@
     "packages/kit/src/states/jotai/utils/createJotaiContext.tsx": 1334,
     "packages/kit/src/states/jotai/utils/jotaiContextStore.ts": 16620,
     "packages/kit/src/states/jotai/utils/useJotaiContextRootStore.tsx": 17753,
+    "packages/kit/src/utils/accountUpdate.ts": 18101,
     "packages/kit/src/utils/botWalletAccountUtils.ts": 4299,
     "packages/kit/src/utils/botWalletDisabledToast.ts": 13621,
     "packages/kit/src/utils/botWalletStatusUtils.ts": 5624,
