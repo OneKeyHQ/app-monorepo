@@ -20,18 +20,28 @@ Reference example: branch `example/earn-position-model` (§11)
 
 ## 1. What the page shows today
 
-Test env, test wallet, web at phone width, 2026-09-28. The header reads DeFi Assets $19.60 and Rewards $0.05.
+Test env, test wallet, web at phone width, PR head `e5b177b679`, 2026-09-28. The header reads DeFi Assets $19.60 and Rewards $0.05.
 
-| Protocol row                  | What the PR renders                                                                                                                                                  | What the account holds (same API responses)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
-| ----------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Pendle $12.03                 | One card titled `26 Mar 2026 · 已到期` ("matured"). Rows: mPendle, stk-ePendle, USDG, asdCRV, USD3, rETH, and more. The Balance column repeats the symbol, with no amount and no fiat. | **10 PT markets on 4 networks**, each with its own maturity and state. Ethereum: USD3 (17 Dec 2026, active), USDG (28 May 2026, matured), USDat (14 Jan 2027, active), asdCRV (25 Jun 2026, matured). Base: sKAITO (30 Jul 2026, matured). Arbitrum: mPendle and stk-ePendle (26 Mar 2026), rETH (25 Jun 2026) and thBILL (18 Jun 2026), all matured. BNB Chain: cUSDO (29 Oct 2026, active). The card title is the `vaultName` of whichever market came first. |
-| Morpho $1.73                  | One card titled `Pangolins USDC` with 4 token rows                                                                                                                    | 4 vaults on 2 networks. Base: Pangolins USDC and Gauntlet USDC Prime. Ethereum: Hakutora USDT and Hakutora USDC.                                                                                                                                                                                                                                                                                                                                                                                                                  |
-| Native $2.24                  | One card titled `Native USDT`. Deposited: USDT 2.112 and WETH 0.00004844. Rewards: WETH 0.00002419.                                                                  | 2 vaults. The WETH deposit figure is 0.00002425 deposited plus the 0.00002419 reward, so the reward shows twice.                                                                                                                                                                                                                                                                                                                                                                                                                  |
-| Stakefish $2.02               | One untitled card. Deposited: SOL 0.01616 and POL 0.7017. Rewards: SOL 0.008045 ($0.97) and POL 0.004208.                                                           | 2 networks. The 0.008045 SOL is withdrawn principal waiting to be claimed (`claimOrder`), not a reward. The 0.01616 SOL deposit figure is 0.008108 staked plus that 0.008045.                                                                                                                                                                                                                                                                                                                                                      |
-| Everstake $0.25               | One untitled card. Deposited: 2.185 POL. Rewards: `1 POL` with no fiat, and 0.0008532 POL.                                                                           | 1.1842 POL staked, 1 POL withdrawn and claimable (`claimOrder`), and 0.0008532 POL of rewards (below the 1 POL claim minimum). The 2.185 figure is all three added together.                                                                                                                                                                                                                                                                                                                                                        |
-| Lista, Spark, Lido            | One card each                                                                                                                                                        | These look right only because each holds a single vault.                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
+| Protocol row       | What the PR renders                                                                                                                                                                    | What the account holds (same API responses)                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| ------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Pendle $12.03      | One card titled `26 Mar 2026 · 已到期` ("matured"). Rows: mPendle, stk-ePendle, USDG, asdCRV, USD3, rETH, and more. The Balance column repeats the symbol, with no amount and no fiat. | **10 PT markets on 4 networks**, each with its own maturity and state. Ethereum: USD3 (17 Dec 2026, active), USDG (28 May 2026, matured), USDat (14 Jan 2027, active), asdCRV (25 Jun 2026, matured). Base: sKAITO (30 Jul 2026, matured). Arbitrum: mPendle and stk-ePendle (26 Mar 2026), rETH (25 Jun 2026) and thBILL (18 Jun 2026), all matured. BNB Chain: cUSDO (29 Oct 2026, active). The card title is the `vaultName` of whichever market came first. |
+| Morpho $1.73       | One card titled `Pangolins USDC` with 4 token rows                                                                                                                                     | 4 vaults on 2 networks. Base: Pangolins USDC and Gauntlet USDC Prime. Ethereum: Hakutora USDT and Hakutora USDC.                                                                                                                                                                                                                                                                                                                                                |
+| Native $2.24       | One card titled `Native USDT`. Deposited: USDT 2.112 and WETH 0.00004844. Rewards: WETH 0.00002419.                                                                                    | 2 vaults. The WETH deposit figure is 0.00002425 deposited plus the 0.00002419 reward, so the reward shows twice.                                                                                                                                                                                                                                                                                                                                                |
+| Stakefish $2.02    | One untitled card. Deposited: SOL 0.01616 and POL 0.7017. Rewards: SOL 0.008045 ($0.97) and POL 0.004208.                                                                              | 2 networks. The 0.008045 SOL is withdrawn principal waiting to be claimed (`claimOrder`), not a reward. The 0.01616 SOL deposit figure is 0.008108 staked plus that 0.008045.                                                                                                                                                                                                                                                                                   |
+| Everstake $0.25    | One untitled card. Deposited: 2.185 POL. Rewards: `1 POL` with no fiat, and 0.0008532 POL.                                                                                             | 1.1842 POL staked, 1 POL withdrawn and claimable (`claimOrder`), and 0.0008532 POL of rewards (below the 1 POL claim minimum). The 2.185 figure is all three added together.                                                                                                                                                                                                                                                                                    |
+| Lista, Spark, Lido | One card each                                                                                                                                                                          | These look right only because each holds a single vault.                                                                                                                                                                                                                                                                                                                                                                                                        |
 
 On Rewards → Claimable, the Pendle row and card read **$12.04**, which is the principal of all 10 markets. The card's only reward row is 0.04588 USDe. Lista reads $0.91, which is also principal. The header above them says $0.05.
+
+Screenshots (zh-CN locale: 已认购 = Deposited, 收益 = Rewards, 可领取 = Claimable, 已到期 = matured):
+
+| DeFi Assets                                                                                             | Rewards → Claimable                                                                                                   |
+| ------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
+| ![PR: DeFi Assets, one Pendle card for 10 markets](earn-my-portfolio-position-model/pr-defi-assets.png) | ![PR: Rewards → Claimable, Pendle valued at its principal](earn-my-portfolio-position-model/pr-rewards-claimable.png) |
+
+Every row expanded (Native, Stakefish, Morpho, Lista, Spark, Everstake, Lido):
+
+![PR: every protocol row expanded](earn-my-portfolio-position-model/pr-defi-assets-expanded.png)
 
 Loading the page took 141 Earn requests:
 
@@ -85,15 +95,15 @@ Rules:
 
 ## 4. One position per provider
 
-| Provider                              | One position is                                              | `groupId` (example)                                           | `name`                          | `category` | `earn.state`                                                                  |
-| ------------------------------------- | ------------------------------------------------------------ | ------------------------------------------------------------- | ------------------------------- | ---------- | ----------------------------------------------------------------------------- |
-| Pendle                                | one PT market on one network                                 | `pendle:evm--1:<market>`                                      | `PT-USD3-17DEC2026`             | `yield`    | `active` until redeemed, including after maturity. `maturityAt` is required. |
-| Morpho, Native, Spark, Lista (vaults) | one vault                                                    | `morpho:evm--8453:<vault>`                                    | vault name, e.g. `Pangolins USDC` | `yield`    | `active`                                                                      |
-| Morpho / Aave borrow, if in scope     | one market                                                   | `morpho:evm--1:market:<id>`                                   | `WETH / USDC`                   | `lending`  | `active`, with `debts[]` and `metrics.healthFactor`                           |
-| Lido                                  | the stETH balance; each withdrawal request                  | `lido:evm--1:steth`, `lido:evm--1:withdrawal:<requestId>`     | `Lido staked ETH`               | `staked`   | `active`. Each request goes `unstaking` (`unlockAt`) → `claimable`.           |
-| Everstake, Stakefish (ETH, POL, SOL)  | the stake; each pending unbond; the withdrawable amount     | `everstake:evm--1:pol`, `everstake:evm--1:pol:unbond:<nonce>` | `Everstake staked POL`          | `staked`   | `active` / `unstaking` / `claimable`                                          |
-| Ethena                                | the sUSDe balance; the cooldown                              | `ethena:evm--1:susde`, `ethena:evm--1:cooldown`               | `Ethena staked USDe`            | `yield`    | `active`. The cooldown goes `unstaking` (`unlockAt` = cooldown end) → `claimable`. |
-| Babylon                               | each stake                                                   | `babylon:btc--0:<stakingTxHash>`                              | `Babylon staked BTC`            | `staked`   | `active` / `unstaking` / `claimable`                                          |
+| Provider                              | One position is                                         | `groupId` (example)                                           | `name`                            | `category` | `earn.state`                                                                       |
+| ------------------------------------- | ------------------------------------------------------- | ------------------------------------------------------------- | --------------------------------- | ---------- | ---------------------------------------------------------------------------------- |
+| Pendle                                | one PT market on one network                            | `pendle:evm--1:<market>`                                      | `PT-USD3-17DEC2026`               | `yield`    | `active` until redeemed, including after maturity. `maturityAt` is required.       |
+| Morpho, Native, Spark, Lista (vaults) | one vault                                               | `morpho:evm--8453:<vault>`                                    | vault name, e.g. `Pangolins USDC` | `yield`    | `active`                                                                           |
+| Morpho / Aave borrow, if in scope     | one market                                              | `morpho:evm--1:market:<id>`                                   | `WETH / USDC`                     | `lending`  | `active`, with `debts[]` and `metrics.healthFactor`                                |
+| Lido                                  | the stETH balance; each withdrawal request              | `lido:evm--1:steth`, `lido:evm--1:withdrawal:<requestId>`     | `Lido staked ETH`                 | `staked`   | `active`. Each request goes `unstaking` (`unlockAt`) → `claimable`.                |
+| Everstake, Stakefish (ETH, POL, SOL)  | the stake; each pending unbond; the withdrawable amount | `everstake:evm--1:pol`, `everstake:evm--1:pol:unbond:<nonce>` | `Everstake staked POL`            | `staked`   | `active` / `unstaking` / `claimable`                                               |
+| Ethena                                | the sUSDe balance; the cooldown                         | `ethena:evm--1:susde`, `ethena:evm--1:cooldown`               | `Ethena staked USDe`              | `yield`    | `active`. The cooldown goes `unstaking` (`unlockAt` = cooldown end) → `claimable`. |
+| Babylon                               | each stake                                              | `babylon:btc--0:<stakingTxHash>`                              | `Babylon staked BTC`              | `staked`   | `active` / `unstaking` / `claimable`                                               |
 
 Pendle details:
 
@@ -139,7 +149,12 @@ Pendle details:
         "debts": [],
         "rewards": [],
         "metrics": { "healthFactor": null },
-        "source": { "provider": "onekey-earn", "fetchedAt": "…", "ttl": 60, "cached": false },
+        "source": {
+          "provider": "onekey-earn",
+          "fetchedAt": "…",
+          "ttl": 60,
+          "cached": false
+        },
         "earn": {
           "state": "active",
           "maturityAt": 1797465600000, // 2026-12-17
@@ -157,7 +172,14 @@ Pendle details:
         "category": "staked",
         "groupId": "lido:evm--1:withdrawal:81240",
         "name": "Lido staked ETH",
-        "assets": [{ "symbol": "ETH", "amount": "1", "price": 3150, "value": 3150 /* … */ }],
+        "assets": [
+          {
+            "symbol": "ETH",
+            "amount": "1",
+            "price": 3150,
+            "value": 3150 /* … */
+          }
+        ],
         "earn": { "state": "unstaking", "unlockAt": 1790928000000 } // 2026-10-02 08:00 UTC
         // … other IDeFiPosition fields as above
       }
@@ -181,22 +203,22 @@ Pendle details:
 }
 ```
 
-| Field                      | Rule                                                                                                                                                                         |
-| -------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Field                      | Rule                                                                                                                                                                       |
+| -------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `groupId`                  | Required. Stable, unique within the account, one per position. A position without one still gets its own card (`__ungrouped__…`), but it has no identity across refreshes. |
-| `protocol`, `protocolName` | Lowercase provider code and display name. Must match `protocolSummaries`.                                                                                                    |
-| `name`                     | Card title: the vault name, `PT-<symbol>-<DDMMMYYYY>`, or `Lido staked ETH`.                                                                                                |
-| `category`                 | `yield` \| `staked` \| `lending`. Drives the Yield / Staked / Loans badge.                                                                                                     |
-| `assets[]`                 | Principal. `amount` is a decimal string in token units. `price` and `value` (= amount × price) are numbers. `meta.logoUrl` is required.                                       |
-| `debts[]`                  | Borrowed tokens. Lending positions only.                                                                                                                                     |
-| `rewards[]`                | Incentive tokens only, including amounts below the claim minimum.                                                                                                            |
-| `metrics.healthFactor`     | Lending positions only; `null` otherwise.                                                                                                                                    |
-| `earn.state`               | `active` \| `claimable` \| `unstaking`.                                                                                                                                      |
-| `earn.unlockAt`            | Milliseconds. `unstaking` positions only; the provider's estimate. Omit it when unknown.                                                                                    |
-| `earn.maturityAt`          | Milliseconds. Fixed-term positions (Pendle).                                                                                                                                 |
+| `protocol`, `protocolName` | Lowercase provider code and display name. Must match `protocolSummaries`.                                                                                                  |
+| `name`                     | Card title: the vault name, `PT-<symbol>-<DDMMMYYYY>`, or `Lido staked ETH`.                                                                                               |
+| `category`                 | `yield` \| `staked` \| `lending`. Drives the Yield / Staked / Loans badge.                                                                                                 |
+| `assets[]`                 | Principal. `amount` is a decimal string in token units. `price` and `value` (= amount × price) are numbers. `meta.logoUrl` is required.                                    |
+| `debts[]`                  | Borrowed tokens. Lending positions only.                                                                                                                                   |
+| `rewards[]`                | Incentive tokens only, including amounts below the claim minimum.                                                                                                          |
+| `metrics.healthFactor`     | Lending positions only; `null` otherwise.                                                                                                                                  |
+| `earn.state`               | `active` \| `claimable` \| `unstaking`.                                                                                                                                    |
+| `earn.unlockAt`            | Milliseconds. `unstaking` positions only; the provider's estimate. Omit it when unknown.                                                                                   |
+| `earn.maturityAt`          | Milliseconds. Fixed-term positions (Pendle).                                                                                                                               |
 | `earn.manage`              | `active` positions only. The parameters the Earn detail page takes today: `networkId`, `provider`, `symbol`, `vault`.                                                      |
-| `earn.claim`               | `claimable` positions only. The `IEarnClaimActionIcon` the detail page already uses: `type` (`claim` \| `claimOrder`), `disabled`, `text`, `data`.                           |
-| `protocolSummaries[]`      | One entry per protocol per network: `protocolName`, `protocolLogo` and the totals.                                                                                           |
+| `earn.claim`               | `claimable` positions only. The `IEarnClaimActionIcon` the detail page already uses: `type` (`claim` \| `claimOrder`), `disabled`, `text`, `data`.                         |
+| `protocolSummaries[]`      | One entry per protocol per network: `protocolName`, `protocolLogo` and the totals.                                                                                         |
 
 The response order doesn't matter, because the client sorts:
 
@@ -228,16 +250,16 @@ Other `useEarnPortfolio` consumers are unaffected.
 
 ## 7. Design mapping and copy
 
-| Card part (Figma `30292-17820`) | Source                                                                                                                                                        |
-| ------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Badge                           | `category`: Yield (`earn.yield`), Staked (`earn_category_staked__title`), Loans (`earn_loans`)                                                               |
-| Name                            | `name`                                                                                                                                                        |
-| Value                           | assets + rewards − debts                                                                                                                                      |
-| Line under the header           | Health factor (`metrics.healthFactor`) for lending; `Est. unlock time: <date>` (`earn.unlockAt`) for unstaking                                                |
+| Card part (Figma `30292-17820`) | Source                                                                                                                                                                |
+| ------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Badge                           | `category`: Yield (`earn.yield`), Staked (`earn_category_staked__title`), Loans (`earn_loans`)                                                                        |
+| Name                            | `name`                                                                                                                                                                |
+| Value                           | assets + rewards − debts                                                                                                                                              |
+| Line under the header           | Health factor (`metrics.healthFactor`) for lending; `Est. unlock time: <date>` (`earn.unlockAt`) for unstaking                                                        |
 | Principal section               | Deposited (`earn.deposited`) when `active`, Claimable (`earn.claimable`) when `claimable`, Unstaking (no key yet) when `unstaking`; Supplied / Borrowed for `lending` |
-| Rewards section                 | `rewards[]` (`wallet.defi_position_module_rewards`)                                                                                                           |
-| Token row                       | Logo and symbol; fiat value over amount                                                                                                                       |
-| Button                          | Manage when `active`, Claim when `claimable`, none when `unstaking`                                                                                           |
+| Rewards section                 | `rewards[]` (`wallet.defi_position_module_rewards`)                                                                                                                   |
+| Token row                       | Logo and symbol; fiat value over amount                                                                                                                               |
+| Button                          | Manage when `active`, Claim when `claimable`, none when `unstaking`                                                                                                   |
 
 Copy:
 
@@ -287,13 +309,13 @@ Branch `example/earn-position-model` is local only and sits on top of the PR hea
 
 Files under `packages/kit/src/views/Earn/pages/EarnPositions/positionModel/`:
 
-| File                                                | What it is                                                                                           |
-| --------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
-| `earnPositionModel.types.ts`                        | The contract (§5)                                                                                    |
-| `earnPositionModel.ts`                              | The view model, built on the wallet code                                                             |
-| `earnPositionModel.fixtures.ts`                     | A mock response: part of the test wallet, plus the Lido and Loans cases from the design |
-| `earnPositionModel.test.ts`                         | 12 tests covering the rules in §3–§8                                                                 |
-| `EarnPositionCard.tsx`, `EarnPositionProtocolList.tsx` | The card (Figma `30292-17820`) and the protocol rows                                              |
+| File                                                   | What it is                                                                              |
+| ------------------------------------------------------ | --------------------------------------------------------------------------------------- |
+| `earnPositionModel.types.ts`                           | The contract (§5)                                                                       |
+| `earnPositionModel.ts`                                 | The view model, built on the wallet code                                                |
+| `earnPositionModel.fixtures.ts`                        | A mock response: part of the test wallet, plus the Lido and Loans cases from the design |
+| `earnPositionModel.test.ts`                            | 12 tests covering the rules in §3–§8                                                    |
+| `EarnPositionCard.tsx`, `EarnPositionProtocolList.tsx` | The card (Figma `30292-17820`) and the protocol rows                                    |
 
 The gallery story is `packages/kit/src/views/Developer/pages/Gallery/Components/stories/EarnPositionModelGallery.tsx`.
 
@@ -310,3 +332,11 @@ What the story shows:
 - **Morpho on Ethereum:** a Loans card with a health factor, plus two vault cards. Morpho on Base is a separate row.
 - **Everstake and Stakefish:** the claimable principal is its own card, never a reward.
 - **Rewards → Claimable:** rewards only.
+
+Rendered from the fixture in the zh-CN locale. `Unstaking` and `Est. unlock time` stay in English until their keys exist.
+
+![Reference: header, Lido deposit / claimable / two unstaking cards, Morpho loan with health factor](earn-my-portfolio-position-model/reference-1.png)
+
+![Reference: Pendle one card per market, Stakefish claimable principal, Base rows, Everstake](earn-my-portfolio-position-model/reference-2.png)
+
+![Reference: Rewards → Claimable, rewards only](earn-my-portfolio-position-model/reference-3.png)
