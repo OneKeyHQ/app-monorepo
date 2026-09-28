@@ -3,12 +3,13 @@
 import { createContext } from 'react';
 import type { ReactNode } from 'react';
 
-import { render } from '@testing-library/react';
+import { act, render } from '@testing-library/react';
 
 import { FavoriteTokenItem } from './FavoriteTokenItem';
 
 const mockMarketContext = createContext<{
   coin: string;
+  marketPrice?: string;
   activeCtx?: {
     coin: string;
     ctx: { markPrice: string; change24hPercent: number };
@@ -32,8 +33,16 @@ jest.mock('@onekeyhq/components', () => ({
   SizableText: ({ children }: { children?: ReactNode }) => (
     <span>{children}</span>
   ),
-  NumberSizeableText: ({ children }: { children?: ReactNode }) => (
-    <span data-testid="change">{children}</span>
+  NumberSizeableText: ({
+    children,
+    color,
+  }: {
+    children?: ReactNode;
+    color?: string;
+  }) => (
+    <span data-testid="change" data-color={color}>
+      {children}
+    </span>
   ),
   Skeleton: () => null,
 }));
@@ -64,190 +73,216 @@ jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms', () => ({
     const { useContext } = jest.requireActual<typeof import('react')>('react');
     return [useContext(mockPerpContext).activeCtx];
   },
-  useSpotAssetCtxsMapAtom: () => [mockSpotPrices],
+  useSpotAssetCtxsMapAtom: () => {
+    const { useContext } = jest.requireActual<typeof import('react')>('react');
+    const { marketPrice } = useContext(mockMarketContext);
+    return [
+      {
+        ...mockSpotPrices,
+        '@2': { markPx: marketPrice ?? '120.02', prevDayPx: '100' },
+      },
+    ];
+  },
   useSpotActiveAssetCtxAtom: () => {
     const { useContext } = jest.requireActual<typeof import('react')>('react');
     return [useContext(mockMarketContext).activeCtx];
   },
 }));
 
-const previousCtx = {
-  coin: '@1',
-  ctx: { markPrice: '128.97', change24hPercent: 28.97 },
+type IQuoteState = {
+  selected: boolean;
+  marketPrice: string;
+  activePrice?: string;
+  wrongCoin?: boolean;
+  change?: number;
 };
-const currentCtx = {
-  coin: '@2',
-  ctx: { markPrice: '119.67', change24hPercent: 19.67 },
-};
-const previousState = { coin: '@1', activeCtx: previousCtx };
-const item = (
-  <FavoriteTokenItem
-    displayName="TREAD/USDC"
-    coinName="@2"
-    imageTokenName="TREAD"
-    assetId={2}
-    dexIndex={0}
-    mode="spot"
-    displayMode="percent"
-    onPress={jest.fn()}
-  />
-);
 
-describe('spot favorite percentage during instrument changes', () => {
-  it('keeps its own market percentage through active context changes', () => {
-    const { getByTestId, rerender } = render(
-      <mockMarketContext.Provider value={previousState}>
-        {item}
-      </mockMarketContext.Provider>,
+function createQuoteContexts(state: IQuoteState, coin: string) {
+  const activeCtx = state.activePrice
+    ? {
+        coin: state.wrongCoin ? 'OTHER' : coin,
+        ctx: {
+          markPrice: state.activePrice,
+          change24hPercent: state.change ?? -8,
+        },
+      }
+    : undefined;
+  const perp = {
+    activeCoin: state.selected ? coin : 'OTHER',
+    marketPrice: state.marketPrice,
+    activeCtx,
+  };
+  const spot = {
+    coin: state.selected ? coin : 'OTHER',
+    marketPrice: state.marketPrice,
+    activeCtx,
+  };
+  return { perp, spot };
+}
+
+function renderFavorite(mode: 'perp' | 'spot', initial: IQuoteState) {
+  let coin = mode === 'perp' ? 'kBONK' : '@2';
+  const view = (state: IQuoteState, percent = false) => {
+    const { perp, spot } = createQuoteContexts(state, coin);
+    return (
+      <mockPerpContext.Provider value={perp}>
+        <mockMarketContext.Provider value={spot}>
+          <FavoriteTokenItem
+            displayName={coin}
+            coinName={coin}
+            imageTokenName={coin}
+            assetId={1}
+            dexIndex={0}
+            mode={mode}
+            displayMode={percent ? 'percent' : 'price'}
+            onPress={jest.fn()}
+          />
+        </mockMarketContext.Provider>
+      </mockPerpContext.Provider>
     );
-    const percentage = () => Number(getByTestId('change').textContent);
-    expect(percentage()).toBeCloseTo(20.02);
+  };
+  const result = render(view(initial));
+  return {
+    ...result,
+    update: (state: IQuoteState, percent = false) =>
+      result.rerender(view(state, percent)),
+    replaceCoin: (state: IQuoteState) => {
+      coin = mode === 'perp' ? 'ETH' : '@1';
+      result.rerender(view(state));
+    },
+  };
+}
 
-    const transitions = [
-      // UI selection changes before the background active context catches up.
-      { value: { coin: '@2', activeCtx: previousCtx }, expected: 20.02 },
-      { value: { coin: '@2' }, expected: 20.02 },
-      { value: { coin: '@2', activeCtx: currentCtx }, expected: 20.02 },
-      { value: previousState, expected: 20.02 },
-    ];
-    for (const { value, expected } of transitions) {
-      rerender(
-        <mockMarketContext.Provider value={value}>
-          {item}
-        </mockMarketContext.Provider>,
-      );
-      expect(percentage()).toBeCloseTo(expected);
-    }
+function advance(ms: number) {
+  act(() => {
+    jest.advanceTimersByTime(ms);
   });
+}
+
+beforeEach(() => {
+  jest.useFakeTimers();
+});
+afterEach(() => {
+  jest.clearAllTimers();
+  jest.useRealTimers();
 });
 
-const stalePerpState = {
-  activeCoin: 'ETH',
-  activeCtx: {
-    coin: 'BTC',
-    ctx: { markPrice: '65000', change24hPercent: -3.5 },
-  },
-};
-const currentPerpState = {
-  activeCoin: 'ETH',
-  activeCtx: {
-    coin: 'ETH',
-    ctx: { markPrice: '3150', change24hPercent: 5 },
-  },
-};
-const perpItem = (
-  <FavoriteTokenItem
-    displayName="ETH"
-    coinName="ETH"
-    imageTokenName="ETH"
-    assetId={1}
-    dexIndex={0}
-    mode="perp"
-    displayMode="percent"
-    onPress={jest.fn()}
-  />
-);
-
-describe('perp favorite price during asset changes', () => {
-  it('ignores the previous coin context after the active asset is seeded', () => {
-    // Background seeds the new active asset before clearing the old context.
-    const { getByTestId, rerender } = render(
-      <mockPerpContext.Provider value={stalePerpState}>
-        {perpItem}
-      </mockPerpContext.Provider>,
-    );
-    const percentage = () => Number(getByTestId('change').textContent);
-    expect(percentage()).toBeCloseTo(4);
-
-    rerender(
-      <mockPerpContext.Provider value={currentPerpState}>
-        {perpItem}
-      </mockPerpContext.Provider>,
-    );
-    expect(percentage()).toBeCloseTo(4);
-  });
-});
-
-const activeCtx = {
-  coin: 'kBONK',
-  ctx: { markPrice: '0.003459', change24hPercent: -8 },
-};
-const initialValue = {
-  activeCoin: 'XRP',
+const marketState: IQuoteState = {
+  selected: false,
   marketPrice: '0.00346',
-  activeCtx,
+  activePrice: '0.003459',
 };
-const updatedValue = {
-  activeCoin: 'kBONK',
-  marketPrice: '0.003461',
-  activeCtx,
-};
-const perpSelectionValues = ['kBONK', 'XRP', 'kBONK', 'XRP'].map(
-  (activeCoin) => ({ ...initialValue, activeCoin }),
-);
-const spotSelectionValues = ['@2', '@1', '@2', '@1'].map((coin) => ({
-  coin,
-  activeCtx: currentCtx,
-}));
+const selectedState = { ...marketState, selected: true };
 
-describe('favorite quotes stay independent of selection', () => {
-  it('keeps the same kBONK quote through repeated switches and follows market updates', () => {
-    const favorite = (
-      <FavoriteTokenItem
-        displayName="kBONK"
-        coinName="kBONK"
-        imageTokenName="kBONK"
-        assetId={1}
-        dexIndex={0}
-        mode="perp"
-        onPress={jest.fn()}
-      />
-    );
-    const { getByText, rerender } = render(
-      <mockPerpContext.Provider value={initialValue}>
-        {favorite}
-      </mockPerpContext.Provider>,
-    );
-    for (const value of perpSelectionValues) {
-      rerender(
-        <mockPerpContext.Provider value={value}>
-          {favorite}
-        </mockPerpContext.Provider>,
-      );
+describe.each(['perp', 'spot'] as const)(
+  '%s favorite source transitions',
+  (mode) => {
+    it('holds the quote during rapid switches, then follows active ticks without ongoing delay', () => {
+      const { getByText, update } = renderFavorite(mode, marketState);
+      for (const selected of [true, false, true, false, true]) {
+        update({ ...marketState, selected });
+        advance(40);
+        expect(getByText('0.00346')).toBeTruthy();
+      }
+      advance(250);
+      expect(getByText('0.003459')).toBeTruthy();
+      update({ ...selectedState, activePrice: '0.003458' });
+      expect(getByText('0.003458')).toBeTruthy();
+    });
+
+    it('uses the latest pending quote without restarting the window on each tick', () => {
+      const { getByText, update } = renderFavorite(mode, marketState);
+      update(selectedState);
+      for (const activePrice of [
+        '0.003457',
+        '0.003458',
+        '0.003459',
+        '0.003461',
+      ]) {
+        advance(50);
+        update({ ...selectedState, activePrice });
+        expect(getByText('0.00346')).toBeTruthy();
+      }
+      advance(50);
+      expect(getByText('0.003461')).toBeTruthy();
+    });
+
+    it('keeps the last active quote while leaving, then resumes market ticks', () => {
+      const { getByText, update } = renderFavorite(mode, selectedState);
+      expect(getByText('0.003459')).toBeTruthy();
+      update(marketState);
+      expect(getByText('0.003459')).toBeTruthy();
+      update({ ...marketState, marketPrice: '0.003461' });
+      advance(250);
+      expect(getByText('0.003461')).toBeTruthy();
+      update({ ...marketState, marketPrice: '0.003462' });
+      expect(getByText('0.003462')).toBeTruthy();
+    });
+
+    it('rejects a wrong coin and transitions when matching active data eventually arrives', () => {
+      const { getByText, update } = renderFavorite(mode, {
+        ...selectedState,
+        wrongCoin: true,
+      });
+      advance(1000);
       expect(getByText('0.00346')).toBeTruthy();
-    }
-    rerender(
-      <mockPerpContext.Provider value={updatedValue}>
-        {favorite}
-      </mockPerpContext.Provider>,
-    );
-    expect(getByText('0.003461')).toBeTruthy();
-  });
+      update({ ...selectedState, activePrice: undefined });
+      expect(getByText('0.00346')).toBeTruthy();
+      update(selectedState);
+      expect(getByText('0.00346')).toBeTruthy();
+      advance(250);
+      expect(getByText('0.003459')).toBeTruthy();
+    });
 
-  it('keeps the spot quote when selecting and leaving a coin with different active data', () => {
-    const favorite = (
-      <FavoriteTokenItem
-        displayName="TREAD/USDC"
-        coinName="@2"
-        imageTokenName="TREAD"
-        assetId={2}
-        dexIndex={0}
-        mode="spot"
-        onPress={jest.fn()}
-      />
-    );
-    const { getByText, rerender } = render(
-      <mockMarketContext.Provider value={previousState}>
-        {favorite}
-      </mockMarketContext.Provider>,
-    );
-    for (const value of spotSelectionValues) {
-      rerender(
-        <mockMarketContext.Provider value={value}>
-          {favorite}
-        </mockMarketContext.Provider>,
+    it('cancels an obsolete handoff when switching back before it completes', () => {
+      const { getByText, update } = renderFavorite(mode, selectedState);
+      update(marketState);
+      advance(100);
+      update({ ...selectedState, activePrice: '0.003461' });
+      expect(getByText('0.003461')).toBeTruthy();
+      advance(500);
+      expect(getByText('0.003461')).toBeTruthy();
+    });
+
+    it('holds price and percentage together and uses the latest percentage at handoff', () => {
+      const { getByTestId, update } = renderFavorite(mode, marketState);
+      update({ ...selectedState, change: -8 }, true);
+      expect(Number(getByTestId('change').textContent)).not.toBe(-8);
+      advance(150);
+      update({ ...selectedState, change: 12 }, true);
+      advance(100);
+      expect(Number(getByTestId('change').textContent)).toBe(12);
+      expect(getByTestId('change').getAttribute('data-color')).toBe(
+        '$textSuccess',
       );
-      expect(getByText('120.02')).toBeTruthy();
-    }
-  });
-});
+      update({ ...selectedState, change: -3 }, true);
+      expect(Number(getByTestId('change').textContent)).toBe(-3);
+      expect(getByTestId('change').getAttribute('data-color')).toBe(
+        '$textCritical',
+      );
+    });
+
+    it('does not retain the old coin snapshot if the item identity changes', () => {
+      const { getByText, queryByText, update, replaceCoin } = renderFavorite(
+        mode,
+        marketState,
+      );
+      update(selectedState);
+      advance(100);
+      replaceCoin({ ...selectedState, activePrice: '3150' });
+      expect(getByText('3150')).toBeTruthy();
+      expect(queryByText('0.00346')).toBeNull();
+      advance(500);
+      expect(getByText('3150')).toBeTruthy();
+    });
+
+    it('cleans up a pending handoff on unmount', () => {
+      const { update, unmount } = renderFavorite(mode, marketState);
+      const timersBefore = jest.getTimerCount();
+      update(selectedState);
+      expect(jest.getTimerCount()).toBeGreaterThan(timersBefore);
+      unmount();
+      expect(jest.getTimerCount()).toBe(timersBefore);
+    });
+  },
+);

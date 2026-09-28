@@ -1,4 +1,11 @@
-import { memo, useMemo } from 'react';
+import {
+  memo,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 
 import {
   NumberSizeableText,
@@ -7,9 +14,13 @@ import {
   XStack,
 } from '@onekeyhq/components';
 import { Token } from '@onekeyhq/kit/src/components/Token';
+import { useActiveTradeInstrumentAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import { usePerpsCtxByCoin } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid/atoms';
 import {
   type IPerpFavoritesDisplayMode,
+  usePerpsActiveAssetAtom,
+  usePerpsActiveAssetCtxAtom,
+  useSpotActiveAssetCtxAtom,
   useSpotAssetCtxsMapAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -89,6 +100,10 @@ const CtxPriceDisplay = memo(
     displayMode?: IPerpFavoritesDisplayMode;
     mode: 'perp' | 'spot';
   }) => {
+    const [activeInstrument] = useActiveTradeInstrumentAtom();
+    const [activeAsset] = usePerpsActiveAssetAtom();
+    const [perpActiveCtx] = usePerpsActiveAssetCtxAtom();
+    const [spotActiveCtx] = useSpotActiveAssetCtxAtom();
     const ctx = usePerpsCtxByCoin(dexIndex, assetId);
     const [spotPriceMap] = useSpotAssetCtxsMapAtom();
     const formattedCtx = useMemo(() => perpsUtils.formatAssetCtx(ctx), [ctx]);
@@ -96,7 +111,31 @@ const CtxPriceDisplay = memo(
       () => formatSpotPriceEntry(spotPriceMap[coinName]),
       [coinName, spotPriceMap],
     );
-    const displayCtx = mode === 'spot' ? formattedSpotCtx : formattedCtx;
+    const isActive =
+      mode === 'spot'
+        ? activeInstrument.mode === 'spot' && activeInstrument.coin === coinName
+        : activeAsset?.coin === coinName;
+    const activeCtx = mode === 'spot' ? spotActiveCtx : perpActiveCtx;
+    const useActive =
+      isActive && activeCtx?.coin === coinName && !!activeCtx.ctx.markPrice;
+    const marketCtx = mode === 'spot' ? formattedSpotCtx : formattedCtx;
+    const candidate = useActive ? activeCtx.ctx : marketCtx;
+    const [settledActive, setSettledActive] = useState(useActive);
+    const lastDisplayed = useRef(candidate);
+    const displayCtx =
+      settledActive === useActive ? candidate : lastDisplayed.current;
+
+    useLayoutEffect(() => {
+      lastDisplayed.current = displayCtx;
+    }, [displayCtx]);
+
+    useEffect(() => {
+      if (settledActive === useActive) return;
+      // Hold the previous quote only while changing sources. Live ticks do not
+      // restart this window and resume immediately once the source settles.
+      const timer = setTimeout(() => setSettledActive(useActive), 250);
+      return () => clearTimeout(timer);
+    }, [settledActive, useActive]);
 
     const priceDisplay = displayCtx?.markPrice
       ? formatPriceToSignificantDigits(displayCtx.markPrice)
@@ -206,9 +245,8 @@ function FavoriteTokenItem({
       <SizableText size="$bodySmMedium" color="$text">
         {displayName}
       </SizableText>
-      {/* Keep one per-coin quote source across selection changes. Active contexts
-          arrive independently and would make the same favorite jump on clicks. */}
       <CtxPriceDisplay
+        key={`${mode}:${coinName}:${dexIndex}:${assetId}`}
         coinName={coinName}
         dexIndex={dexIndex}
         assetId={assetId}
