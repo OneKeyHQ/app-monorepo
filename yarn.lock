@@ -10507,7 +10507,7 @@ __metadata:
     react-native-network-info: "npm:@onekeyfe/react-native-network-info@3.0.157-alpha.255"
     react-native-network-logger: "npm:2.0.1"
     react-native-nitro-modules: "npm:0.37.0"
-    react-native-pager-view: "npm:@onekeyfe/react-native-pager-view@3.0.157-alpha.256"
+    react-native-pager-view: "npm:@onekeyfe/react-native-pager-view@3.0.157-alpha.257"
     react-native-passkeys: "npm:0.3.3"
     react-native-permissions: "npm:5.4.4"
     react-native-ping: "npm:@onekeyfe/react-native-ping@3.0.157-alpha.255"
@@ -42971,14 +42971,14 @@ __metadata:
   languageName: node
   linkType: hard
 
-"react-native-pager-view@npm:@onekeyfe/react-native-pager-view@3.0.157-alpha.256":
-  version: 3.0.157-alpha.256
-  resolution: "@onekeyfe/react-native-pager-view@npm:3.0.157-alpha.256"
+"react-native-pager-view@npm:@onekeyfe/react-native-pager-view@3.0.157-alpha.257":
+  version: 3.0.157-alpha.257
+  resolution: "@onekeyfe/react-native-pager-view@npm:3.0.157-alpha.257"
   peerDependencies:
     "@onekeyfe/react-native-native-logger": 3.0.157-alpha.255
     react: "*"
     react-native: "*"
-  checksum: 10/6e32fe82f44a295110773205ee1b0453566d6e3c8853716d74301915631c9243fcf941f6d4d95cbf235c6f71af521c1f2c1dba0a1e08d0e016152335772c89f7
+  checksum: 10/1cd8b4a6313a892599a22dfc2e98c5145a0211e33e65b847d1958bacf8cf14ac87a18e6252009457e6d2adbda1bede7b2c478e0328ad5a0f63c098a4de5a9c72
   languageName: node
   linkType: hard
 

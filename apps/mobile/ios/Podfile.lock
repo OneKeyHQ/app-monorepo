@@ -2204,7 +2204,7 @@ PODS:
     - ReactCommon/turbomodule/core
     - ReactNativeDependencies
     - Yoga
-  - react-native-pager-view (3.0.157-alpha.256):
+  - react-native-pager-view (3.0.157-alpha.257):
     - hermes-engine
     - RCTRequired
     - RCTTypeSafety
@@ -4568,7 +4568,7 @@ SPEC CHECKSUMS:
   react-native-keyboard-controller: 2ef1abca0f1b5ffc41c282c9e5f9c5576f83a53d
   react-native-native-list: 8201bc9413031c264fa672a75b8df0660f2e255c
   react-native-netinfo: ac0848a4773ef5bd015399444409b5ea9ed75fa3
-  react-native-pager-view: 80691de45f691a185287d3e7c9e9f9a8dddfec1f
+  react-native-pager-view: 0cc4ba9ca2a5559ae7d8011613552ea50270e1b5
   react-native-quick-base64: 3bc58c20e3621427e066fdcfe38b7ed452702bdb
   react-native-safe-area-context: 866dbfc3292621c18abe9857bda29485bf20607a
   react-native-skia: 65a19b18cfddadd1ba5f267216763a0b8467f2ec
