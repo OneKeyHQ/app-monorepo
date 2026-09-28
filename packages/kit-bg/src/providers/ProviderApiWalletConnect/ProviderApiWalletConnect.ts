@@ -222,6 +222,11 @@ class ProviderApiWalletConnect {
       });
       await serviceDApp.saveConnectionSession({
         origin,
+        displayOrigin:
+          uriUtils.safeGetWalletConnectVerifiedOrigin({
+            verifyContext: proposal.verifyContext,
+            claimedOrigin: origin,
+          }) ?? '',
         accountsInfo: result.accountsInfo,
         storageType: 'walletConnect',
         walletConnectTopic: newSession?.topic,
@@ -392,7 +397,7 @@ class ProviderApiWalletConnect {
     request: WalletKitTypes.SessionRequest;
     requestProxy: WalletConnectRequestProxy;
   }) {
-    const { topic, id } = request;
+    const { topic } = request;
     const origin = this.getDAppOrigin({ sessionRequest: request });
     // Find connected account
     const accountsInfo =
@@ -400,21 +405,14 @@ class ProviderApiWalletConnect {
         origin,
         scope: requestProxy.providerName,
         isWalletConnectRequest: true,
+        walletConnectTopic: topic,
       });
     const chainInfo =
       await this.backgroundApi.serviceWalletConnect.getWcChainInfo(
         request.params.chainId,
       );
     if (!accountsInfo?.[0].accountInfo.networkId || !chainInfo?.networkId) {
-      await this.web3Wallet?.respondSessionRequest({
-        topic,
-        response: {
-          id,
-          jsonrpc: '2.0',
-          error: getSdkError('USER_REJECTED', 'No connected account'),
-        },
-      });
-      return;
+      throw new OneKeyLocalError('No connected account');
     }
     if (accountsInfo[0].accountInfo.networkId === chainInfo.networkId) {
       return;
@@ -425,6 +423,7 @@ class ProviderApiWalletConnect {
       origin,
       scope: requestProxy.providerName,
       isWalletConnectRequest: true,
+      walletConnectTopic: topic,
     });
   }
 
@@ -439,7 +438,10 @@ class ProviderApiWalletConnect {
 
   getDAppOrigin(option: IWalletConnectRequestOptions) {
     const originUrl =
-      option.sessionRequest?.verifyContext.verified.origin ?? '';
+      option.sessionRequest?.verifyContext?.verified?.origin ||
+      this.web3Wallet?.getActiveSessions()?.[option.sessionRequest?.topic ?? '']
+        ?.peer.metadata.url ||
+      '';
     try {
       return new URL(originUrl).origin;
     } catch (_error) {

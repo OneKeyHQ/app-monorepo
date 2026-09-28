@@ -16,6 +16,7 @@ import {
   isPrimaryTypePermitSign,
 } from '@onekeyhq/shared/src/signMessage';
 import { stableStringify } from '@onekeyhq/shared/src/utils/stringUtils';
+import uriUtils from '@onekeyhq/shared/src/utils/uriUtils';
 import {
   EHostSecurityLevel,
   type IHostSecurity,
@@ -52,6 +53,7 @@ function useRiskDetection({
   origin,
   unsignedMessage,
   walletConnectVerifyContext,
+  isWalletConnectRequest,
 }: {
   origin: string;
   unsignedMessage?: IUnsignedMessage;
@@ -61,6 +63,7 @@ function useRiskDetection({
   // must not be rendered as "Security" regardless of how the claimed URL
   // scores against our backend.
   walletConnectVerifyContext?: Verify.Context;
+  isWalletConnectRequest?: boolean;
 }) {
   const { result: backendSecurityResult } = usePromiseResult(
     async () => ({
@@ -98,8 +101,8 @@ function useRiskDetection({
   }
   const hasConclusiveWalletConnectRisk = Boolean(
     walletConnectVerifyContext &&
-    (walletConnectVerifyContext.verified.isScam ||
-      walletConnectVerifyContext.verified.validation === 'INVALID'),
+    (walletConnectVerifyContext.verified?.isScam ||
+      walletConnectVerifyContext.verified?.validation === 'INVALID'),
   );
   const isRiskCheckPending = Boolean(
     origin &&
@@ -108,8 +111,10 @@ function useRiskDetection({
   );
 
   const urlSecurityInfo = useMemo<IHostSecurity | undefined>(() => {
-    if (!walletConnectVerifyContext) return backendSecurityInfo;
-    const { validation, isScam } = walletConnectVerifyContext.verified;
+    if (!isWalletConnectRequest && !walletConnectVerifyContext) {
+      return backendSecurityInfo;
+    }
+    const { validation, isScam } = walletConnectVerifyContext?.verified ?? {};
     // isScam takes precedence per Reown's Verify API UX guidance.
     if (isScam || validation === 'INVALID') {
       return overrideSecurityLevel(
@@ -118,7 +123,12 @@ function useRiskDetection({
         origin,
       );
     }
-    if (validation === 'UNKNOWN') {
+    if (
+      !uriUtils.safeGetWalletConnectVerifiedOrigin({
+        verifyContext: walletConnectVerifyContext,
+        claimedOrigin: origin,
+      })
+    ) {
       if (!backendSecurityInfo) {
         return undefined;
       }
@@ -139,7 +149,12 @@ function useRiskDetection({
       );
     }
     return backendSecurityInfo;
-  }, [backendSecurityInfo, walletConnectVerifyContext, origin]);
+  }, [
+    backendSecurityInfo,
+    walletConnectVerifyContext,
+    isWalletConnectRequest,
+    origin,
+  ]);
 
   const riskLevel = useMemo(
     () => urlSecurityInfo?.level ?? EHostSecurityLevel.Unknown,

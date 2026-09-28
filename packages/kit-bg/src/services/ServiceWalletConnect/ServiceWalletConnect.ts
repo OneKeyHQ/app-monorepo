@@ -526,11 +526,12 @@ class ServiceWalletConnect extends ServiceBase {
     const rawData =
       await this.backgroundApi.simpleDb.dappConnection.getRawData();
     if (rawData?.data?.walletConnect) {
-      for (const [key, value] of Object.entries(rawData.data.walletConnect)) {
+      for (const value of Object.values(rawData.data.walletConnect)) {
         if (value.walletConnectTopic === topic) {
-          void this.backgroundApi.serviceDApp.disconnectWebsite({
-            origin: key,
+          await this.backgroundApi.serviceDApp.disconnectWebsite({
+            origin: value.origin,
             storageType: 'walletConnect',
+            walletConnectTopic: topic,
           });
         }
       }

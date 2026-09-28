@@ -124,6 +124,7 @@ function MessageConfirm() {
     origin: sourceInfo?.origin ?? '',
     unsignedMessage,
     walletConnectVerifyContext: sourceInfo?.walletConnectVerifyContext,
+    isWalletConnectRequest: sourceInfo?.isWalletConnectRequest,
   });
 
   const { result, isLoading } = usePromiseResult(
@@ -300,6 +301,7 @@ function MessageConfirm() {
           <>
             {showDAppSiteMark ? (
               <DAppSiteMark
+                sourceInfo={sourceInfo}
                 origin={sourceInfo?.origin ?? ''}
                 urlSecurityInfo={urlSecurityInfo}
                 hideRiskStyle={shouldHideDAppSiteRiskStyle(urlSecurityInfo)}
@@ -331,7 +333,7 @@ function MessageConfirm() {
     isMessageParserPending,
     parsedMessage,
     showMessageHeaderInfo,
-    sourceInfo?.origin,
+    sourceInfo,
     urlSecurityInfo,
     unsignedMessage,
     showDAppSiteMark,

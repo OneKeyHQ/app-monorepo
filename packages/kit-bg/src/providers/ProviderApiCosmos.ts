@@ -100,6 +100,11 @@ class ProviderApiCosmos extends ProviderApiBase {
       await this.backgroundApi.serviceDApp.switchConnectedNetwork({
         origin: request.origin ?? '',
         scope: request.scope ?? this.providerName,
+        isWalletConnectRequest: request.isWalletConnectRequest,
+        walletConnectTopic: request.isWalletConnectRequest
+          ? (request.data as { walletConnectTopic?: string } | undefined)
+              ?.walletConnectTopic
+          : undefined,
         newNetworkId: networkId,
         oldNetworkId,
       });

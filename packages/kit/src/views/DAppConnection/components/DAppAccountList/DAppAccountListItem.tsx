@@ -35,6 +35,7 @@ import { getNetworkImplsFromDappScope } from '@onekeyhq/shared/src/background/ba
 import type { EOAuthSocialLoginProvider } from '@onekeyhq/shared/src/consts/authConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import accountSelectorUtils from '@onekeyhq/shared/src/utils/accountSelectorUtils';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
@@ -419,6 +420,7 @@ function DAppAccountListStandAloneItem({
       origin: $sourceInfo.origin,
       scope: $sourceInfo.scope ?? '',
       isWalletConnectRequest: $sourceInfo.isWalletConnectRequest,
+      walletConnectTopic: $sourceInfo.walletConnectTopic,
     });
     if (
       Array.isArray(accountsInfo) &&
@@ -436,6 +438,7 @@ function DAppAccountListStandAloneItem({
       origin: $sourceInfo.origin,
       scope: $sourceInfo.scope ?? '',
       isWalletConnectRequest: $sourceInfo.isWalletConnectRequest,
+      walletConnectTopic: $sourceInfo.walletConnectTopic,
     });
 
     return {
@@ -447,6 +450,7 @@ function DAppAccountListStandAloneItem({
     $sourceInfo?.origin,
     $sourceInfo?.scope,
     $sourceInfo?.isWalletConnectRequest,
+    $sourceInfo?.walletConnectTopic,
     serviceDApp,
     serviceNetwork,
   ]);
@@ -510,7 +514,11 @@ function DAppAccountListStandAloneItem({
             <AccountSelectorProviderMirror
               config={{
                 sceneName: EAccountSelectorSceneName.discover,
-                sceneUrl: $sourceInfo?.origin,
+                sceneUrl: $sourceInfo?.walletConnectTopic
+                  ? accountSelectorUtils.buildWalletConnectSceneUrl({
+                      topic: $sourceInfo.walletConnectTopic,
+                    })
+                  : $sourceInfo?.origin,
                 // networks: scopeNetworks,
               }}
               enabledNum={[accountSelectorNum]}
