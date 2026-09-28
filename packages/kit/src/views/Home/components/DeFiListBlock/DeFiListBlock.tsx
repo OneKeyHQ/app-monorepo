@@ -1105,13 +1105,42 @@ function DeFiListBlock({
       networkId?: string;
       hasCache: boolean;
     }) => {
+      // With nothing cached, the run builds the overview from its per-network
+      // merges, which add up. An overview this owner kept from before (for
+      // example one that still counts a network just disabled) would be the
+      // base they add to, and the header would carry it until the run
+      // publishes. Start them from zero instead; the header holds its total
+      // while readiness is off, until the first merge lands.
+      if (!hasCache && !refreshCacheOnly) {
+        updateAccountDeFiOverview({
+          currency: settings.currencyInfo.id,
+          accountId,
+          networkId,
+          overview: {
+            totalValue: 0,
+            totalDebt: 0,
+            totalReward: 0,
+            netWorth: 0,
+            chains: [],
+            protocolCount: 0,
+            positionCount: 0,
+          },
+          isReady: false,
+        });
+        return;
+      }
       updateOverviewDeFiDataState({
         accountId,
         networkId,
         isReady: hasCache,
       });
     },
-    [updateOverviewDeFiDataState],
+    [
+      refreshCacheOnly,
+      settings.currencyInfo.id,
+      updateAccountDeFiOverview,
+      updateOverviewDeFiDataState,
+    ],
   );
 
   const {
