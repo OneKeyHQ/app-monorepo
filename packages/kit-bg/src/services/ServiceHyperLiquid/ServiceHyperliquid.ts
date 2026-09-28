@@ -515,12 +515,8 @@ export default class ServiceHyperliquid extends ServiceBase {
   // Avoids async atom reads in the hot path — written to atom on a throttled schedule
   private _spotPriceCache: Record<string, ISpotAssetCtxEntry> = {};
 
-  // Track provenance explicitly: the price cache also contains mids.
+  // The price cache also holds mids, so track which marks came from contexts.
   private _spotContextPriceCoins = new Set<string>();
-
-  private _spotContextPriceGeneration = 0;
-
-  private _spotTotalUsdWriteRevision = 0;
 
   private _spotPriceDirty = false;
 
@@ -557,7 +553,7 @@ export default class ServiceHyperliquid extends ServiceBase {
   );
 
   private _flushSpotPrices(map: Record<string, ISpotAssetCtxEntry>) {
-    // Preserve context fields while updating cold-start price fallbacks.
+    // allMids only sets markPx, spotAssetCtxs sets full entry — merge so neither overwrites the other
     for (const [key, entry] of Object.entries(map)) {
       const existing = this._spotPriceCache[key];
       if (existing) {
@@ -1105,13 +1101,9 @@ export default class ServiceHyperliquid extends ServiceBase {
   // Shared across addresses: non-USDC spot pricing is account-independent.
   _getSpotPriceMapMemo = cacheUtils.memoizee(
     async () => {
-      const priceSourceGeneration = this._spotContextPriceGeneration;
       const result =
         await hyperLiquidApiClients.infoClient.spotMetaAndAssetCtxs();
-      await this._applySpotMetaAndAssetCtxsResult(
-        result,
-        priceSourceGeneration,
-      );
+      await this._applySpotMetaAndAssetCtxsResult(result);
       return buildSpotPriceMap(result);
     },
     {
@@ -2093,14 +2085,9 @@ export default class ServiceHyperliquid extends ServiceBase {
         };
       }
     });
-    this._spotContextPriceCoins = new Set(Object.keys(map));
+    Object.keys(map).forEach((coin) => this._spotContextPriceCoins.add(coin));
     this._flushSpotPrices(map);
     void this.recalculateSpotTotalUsd({ force: true });
-  }
-
-  clearSpotContextPriceSources() {
-    this._spotContextPriceGeneration += 1;
-    this._spotContextPriceCoins.clear();
   }
 
   async extractSpotPricesFromAllMids(
@@ -2109,21 +2096,18 @@ export default class ServiceHyperliquid extends ServiceBase {
   ) {
     const map: Record<string, ISpotAssetCtxEntry> = {};
     for (const [coin, price] of Object.entries(mids)) {
-      // Keep actual context prices only while their subscription is wanted.
+      // While contexts are wanted, mids only fill coins without a context mark.
       if (
         perpsUtils.isSpotInstrument(coin) &&
         price &&
         !(preferSpotContextPrices && this._spotContextPriceCoins.has(coin))
       ) {
         this._spotContextPriceCoins.delete(coin);
-        if (this._spotPriceCache[coin]?.markPx !== price) {
-          map[coin] = { markPx: price };
-        }
+        map[coin] = { markPx: price };
       }
     }
     if (Object.keys(map).length > 0) {
       this._flushSpotPrices(map);
-      void this.recalculateSpotTotalUsd({ force: true });
     }
   }
 
@@ -2488,27 +2472,19 @@ export default class ServiceHyperliquid extends ServiceBase {
       return;
     }
 
+    this._clearSpotTotalUsdFallbackTimer(activeAddress);
     const computed = spotTotal.totalUsd;
-    // Even forced price refreshes must not overwrite a newer balance snapshot.
-    let writeRevision: number | undefined;
+    // Functional updater: only write if spotTotalUsd is still undefined
+    // (avoids overwriting fresher data from a concurrent SPOT_STATE event)
+    let didWrite = false;
     await perpsSpotBalancesAtom.set((prev) => {
       if (!prev || (!force && prev.spotTotalUsd !== undefined)) return prev;
       if (prev.accountAddress?.toLowerCase() !== activeAddress) return prev;
-      if (prev.balances !== balances) return prev;
-      // Cancel only after the snapshot guards, so stale work preserves the newer fallback.
-      // Complete prices make the timer obsolete even when the total is unchanged.
-      this._clearSpotTotalUsdFallbackTimer(activeAddress);
       if (prev.spotTotalUsd === computed) return prev;
-      this._spotTotalUsdWriteRevision += 1;
-      writeRevision = this._spotTotalUsdWriteRevision;
+      didWrite = true;
       return { ...prev, spotTotalUsd: computed };
     });
-    // Atom writes may await a bg-to-UI broadcast after committing the value.
-    // Only the latest committed recalculation may persist after that wait.
-    if (
-      writeRevision !== undefined &&
-      writeRevision === this._spotTotalUsdWriteRevision
-    ) {
+    if (didWrite) {
       void this.cacheService
         .writePerpsAccountDisplaySnapshot({
           accountAddress: activeAddress,
@@ -2651,7 +2627,6 @@ export default class ServiceHyperliquid extends ServiceBase {
 
   private async _applySpotMetaAndAssetCtxsResult(
     result: ISpotMetaAndAssetCtxsResponse,
-    priceSourceGeneration = this._spotContextPriceGeneration,
   ) {
     const spotMeta = this._buildSpotMetaFromResponse(result);
     if (spotMeta) {
@@ -2663,12 +2638,7 @@ export default class ServiceHyperliquid extends ServiceBase {
     // Reuse the assetCtxs from this REST call so the first spot view doesn't
     // wait 2-3s for the WS SPOT_ASSET_CTXS message and flash a skeleton.
     const assetCtxs = result[1];
-    // REST requests may outlive their subscription, including the metadata write above.
-    if (
-      priceSourceGeneration === this._spotContextPriceGeneration &&
-      Array.isArray(assetCtxs) &&
-      assetCtxs.length > 0
-    ) {
+    if (Array.isArray(assetCtxs) && assetCtxs.length > 0) {
       void this.updateSpotAssetCtxsMap(assetCtxs);
     }
   }
@@ -2778,7 +2748,6 @@ export default class ServiceHyperliquid extends ServiceBase {
 
   @backgroundMethod()
   async refreshSpotMeta() {
-    const priceSourceGeneration = this._spotContextPriceGeneration;
     const { infoClient } = hyperLiquidApiClients;
     markPerpsColdStartPerf('service_refresh_spot_meta_start');
     const result = await infoClient.spotMetaAndAssetCtxs();
@@ -2787,7 +2756,7 @@ export default class ServiceHyperliquid extends ServiceBase {
       universeCount: result[0]?.universe?.length ?? 0,
       assetCtxCount: result[1]?.length ?? 0,
     });
-    await this._applySpotMetaAndAssetCtxsResult(result, priceSourceGeneration);
+    await this._applySpotMetaAndAssetCtxsResult(result);
     void this.refreshSpotExternalMarketCaps();
     markPerpsColdStartPerf('service_refresh_spot_meta_end');
   }
