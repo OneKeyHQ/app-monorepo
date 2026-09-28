@@ -374,6 +374,23 @@ P1 implementation map:
 | Enter / exit animation | `NativeOverlayAnimation.swift` (`UIViewPropertyAnimator`) | `NativeOverlayAnimation.kt` (analytic spring interpolator) | `web/animateTransition.ts` (WAAPI) |
 | Store bridge | `useOverlayController.ts` | same | same |
 
+Measurement:
+
+- `RNCNativeOverlay` has a hand-written shadow node (`common/cpp`, codegen
+  `interfaceOnly`), like `<Modal>`: it is a `RootNodeKind` (measurements stop
+  at it) and `Unstable_uncullableView`. Its state holds the window origin of
+  the view the content currently lives in (level window, sheet, page host,
+  or the host itself while staged), returned from
+  `getContentOriginOffset`, so Fabric `measure` / `measureInWindow` report
+  on-screen frames.
+- iOS reports the origin after presenting, on entry / sheet layout, and after
+  restaging; Android on the same events plus container layout changes. Both
+  read model geometry, so a running enter / exit transform is ignored.
+- Web measures the DOM and needs nothing extra.
+- Android builds the codegen library from `android/src/main/jni/CMakeLists.txt`
+  (as react-native-screens does); `jni/RNCNativeOverlay.h` shadows the
+  generated header so autolinking sees the custom descriptor.
+
 Migration rules (decided 2026-09-28):
 
 - No transition period. Every overlay (Dialog, Sheet, Toast, DialogLoading,
@@ -411,10 +428,6 @@ Future work (better to have):
 
 Known gaps:
 
-- Content sizing uses the JS window size (`useWindowDimensions`) instead of a
-  state-driven shadow node. Frames render correctly, but Fabric `measure` /
-  `measureInWindow` inside an overlay still report the staging origin
-  (required fix, see migration rules).
 - Android sheet keyboard avoidance relies on the activity's `adjustPan`;
   to verify with the emulator keyboard in soft-keyboard mode.
 - `statusBarStyle` is not implemented yet (required before the lock screen

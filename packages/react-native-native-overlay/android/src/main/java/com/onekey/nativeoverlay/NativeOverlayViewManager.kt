@@ -2,6 +2,8 @@ package com.onekey.nativeoverlay
 
 import android.view.View
 import com.facebook.react.module.annotations.ReactModule
+import com.facebook.react.uimanager.ReactStylesDiffMap
+import com.facebook.react.uimanager.StateWrapper
 import com.facebook.react.uimanager.ThemedReactContext
 import com.facebook.react.uimanager.UIManagerHelper
 import com.facebook.react.uimanager.ViewGroupManager
@@ -39,6 +41,15 @@ class NativeOverlayViewManager :
 
   override fun addEventEmitters(context: ThemedReactContext, view: NativeOverlayView) {
     view.eventDispatcher = UIManagerHelper.getEventDispatcher(context)
+  }
+
+  override fun updateState(
+    view: NativeOverlayView,
+    props: ReactStylesDiffMap,
+    stateWrapper: StateWrapper,
+  ): Any? {
+    view.stateWrapper = stateWrapper
+    return null
   }
 
   override fun onAfterUpdateTransaction(view: NativeOverlayView) {

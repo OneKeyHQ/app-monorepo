@@ -1,6 +1,8 @@
 #import "RCTNativeOverlayComponentView.h"
 
-#import <react/renderer/components/RNCNativeOverlay/ComponentDescriptors.h>
+#include <cmath>
+
+#import <react/renderer/components/RNCNativeOverlay/NativeOverlayComponentDescriptor.h>
 #import <react/renderer/components/RNCNativeOverlay/EventEmitters.h>
 #import <react/renderer/components/RNCNativeOverlay/Props.h>
 #import <react/renderer/components/RNCNativeOverlay/RCTComponentViewHelpers.h>
@@ -59,6 +61,8 @@ static NSString *RNCNativeOverlayPresentationString(RNCNativeOverlayPresentation
 @implementation RCTNativeOverlayComponentView {
   NativeOverlayContainerView *_containerView;
   RCTSurfaceTouchHandler *_touchHandler;
+  RNCNativeOverlayShadowNode::ConcreteState::Shared _state;
+  CGPoint _contentOffset;
 }
 
 + (ComponentDescriptorProvider)componentDescriptorProvider
@@ -78,6 +82,12 @@ static NSString *RNCNativeOverlayPresentationString(RNCNativeOverlayPresentation
     self.contentView = _containerView;
 
     __weak auto weakSelf = self;
+    _containerView.onContentOffsetChanged = ^(CGPoint offset) {
+      auto strongSelf = weakSelf;
+      if (!strongSelf) return;
+      strongSelf->_contentOffset = offset;
+      [strongSelf pushContentOffset];
+    };
     _containerView.onPresented = ^(NSDictionary *body) {
       auto strongSelf = weakSelf;
       if (!strongSelf) return;
@@ -148,6 +158,25 @@ static NSString *RNCNativeOverlayPresentationString(RNCNativeOverlayPresentation
   [_containerView commitConfiguration];
 
   [super updateProps:props oldProps:oldProps];
+}
+
+- (void)updateState:(State::Shared const &)state oldState:(State::Shared const &)oldState
+{
+  _state = std::static_pointer_cast<RNCNativeOverlayShadowNode::ConcreteState const>(state);
+  [self pushContentOffset];
+}
+
+// Keeps the shadow node's measurement origin at the content's window origin.
+- (void)pushContentOffset
+{
+  if (!_state) {
+    return;
+  }
+  const auto current = _state->getData().contentOffset;
+  if (std::abs(current.x - _contentOffset.x) < 0.5 && std::abs(current.y - _contentOffset.y) < 0.5) {
+    return;
+  }
+  _state->updateState(NativeOverlayState{facebook::react::Point{.x = _contentOffset.x, .y = _contentOffset.y}});
 }
 
 - (void)invalidate

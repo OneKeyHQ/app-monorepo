@@ -4,6 +4,8 @@ import UIKit
 protocol NativeOverlaySheetHost: AnyObject {
   var dismissOnPanDown: Bool { get }
   func sheetDidLoad(_ controller: NativeOverlaySheetController)
+  /// The sheet's frame settled (presentation, detent or keyboard change).
+  func sheetDidLayout(_ controller: NativeOverlaySheetController)
   func sheetDidDismissInteractively(_ controller: NativeOverlaySheetController)
   /// UIKit dismissed the sheet without being asked, e.g. because a sheet
   /// below it in the same level window was dismissed.
@@ -262,6 +264,7 @@ final class NativeOverlaySheetController: UIViewController,
 
   override func viewDidLayoutSubviews() {
     super.viewDidLayoutSubviews()
+    host?.sheetDidLayout(self)
     removePresentationShadow()
     if #available(iOS 26.0, *) {
       DispatchQueue.main.async { [weak self] in

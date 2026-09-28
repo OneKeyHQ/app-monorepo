@@ -2,6 +2,7 @@ import { useCallback, useRef, useState } from 'react';
 
 import { OverlayView } from '@onekeyfe/react-native-native-overlay';
 import { useNavigation } from '@react-navigation/native';
+import { View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import {
@@ -266,10 +267,69 @@ function shuffle<T>(items: T[]): T[] {
   return copy;
 }
 
+// Measures a box inside an overlay once it is presented; the numbers must
+// match where the box is on screen.
+function MeasureOverlay({
+  presentation,
+  onClosed,
+}: {
+  presentation: 'center' | 'sheet';
+  onClosed: () => void;
+}) {
+  const [visible, setVisible] = useState(true);
+  const [result, setResult] = useState('measuring…');
+  const boxRef = useRef<View>(null);
+  const measure = useCallback(() => {
+    boxRef.current?.measureInWindow((x, y, width, height) => {
+      setResult(
+        `window x=${Math.round(x)} y=${Math.round(y)} w=${Math.round(
+          width,
+        )} h=${Math.round(height)}`,
+      );
+    });
+  }, []);
+  return (
+    <OverlayView
+      visible={visible}
+      level="modal"
+      presentation={presentation}
+      backdrop={{ dismissOnPress: true }}
+      onPresented={measure}
+      onClose={onClosed}
+    >
+      <YStack
+        alignSelf={presentation === 'center' ? 'center' : undefined}
+        mt={presentation === 'center' ? 200 : undefined}
+        width={presentation === 'center' ? 300 : undefined}
+        p="$5"
+        gap="$3"
+        bg="$bg"
+        borderRadius="$4"
+      >
+        <View
+          ref={boxRef}
+          testID="measure-box"
+          style={{ height: 40, backgroundColor: '#e11d48' }}
+        />
+        <SizableText testID="measure-result">{result}</SizableText>
+        <XStack gap="$2">
+          <Button size="small" onPress={measure}>
+            Measure again
+          </Button>
+          <Button size="small" onPress={() => setVisible(false)}>
+            Close
+          </Button>
+        </XStack>
+      </YStack>
+    </OverlayView>
+  );
+}
+
 function NativeOverlayDemo() {
   const [specs, setSpecs] = useState<IDemoSpec[]>([]);
   const [matrixOrder, setMatrixOrder] = useState('');
   const [taps, setTaps] = useState(0);
+  const [measureMode, setMeasureMode] = useState<'center' | 'sheet'>();
   const timers = useRef<ReturnType<typeof setTimeout>[]>([]);
 
   const open = useCallback((spec: IDemoSpec) => {
@@ -456,6 +516,10 @@ function NativeOverlayDemo() {
         </Button>
       </XStack>
       <XStack gap="$2" flexWrap="wrap">
+        <Button onPress={() => setMeasureMode('center')}>Measure center</Button>
+        <Button onPress={() => setMeasureMode('sheet')}>Measure sheet</Button>
+      </XStack>
+      <XStack gap="$2" flexWrap="wrap">
         <Button onPress={() => open(makeSpec('modal', { scope: 'page' }))}>
           Page dialog
         </Button>
@@ -494,6 +558,13 @@ function NativeOverlayDemo() {
       <Button onPress={() => setTaps((n) => n + 1)}>
         {`Pass-through target (taps: ${taps})`}
       </Button>
+      {measureMode ? (
+        <MeasureOverlay
+          key={measureMode}
+          presentation={measureMode}
+          onClosed={() => setMeasureMode(undefined)}
+        />
+      ) : null}
       {specs.map((spec) => (
         <DemoOverlay
           key={spec.key}

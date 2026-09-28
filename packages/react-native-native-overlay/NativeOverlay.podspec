@@ -17,7 +17,13 @@ Pod::Spec.new do |s|
     "ios/**/*.h",
     "ios/**/*.{swift}",
     "ios/**/*.{m,mm}",
+    "common/cpp/**/*.{cpp,h}",
   ]
+  # C++ headers stay private so the Swift module does not import them.
+  s.project_header_files = "common/cpp/**/*.h"
+  s.pod_target_xcconfig = {
+    "HEADER_SEARCH_PATHS" => "\"$(PODS_TARGET_SRCROOT)/common/cpp\""
+  }
   s.exclude_files = "ios/tests/**/*"
   s.swift_version = '5.0'
   install_modules_dependencies(s)

@@ -4535,7 +4535,7 @@ SPEC CHECKSUMS:
   MMKV: 86859fdfa2b0b21db1fd6e48788474a6416a2c77
   MMKVCore: 3d16ce9f7d411e135020915fde98a056859a1efa
   MultiplatformBleAdapter: b1fddd0d499b96b607e00f0faa8e60648343dc1d
-  NativeOverlay: c2b987a2c64b6c3c51bc6a86768a14e5a798a517
+  NativeOverlay: 4fbdf3331731854fd1ca1d27f0bf0a54cc1b87cd
   NativeSheet: 5d50df037a9ccb5cba6c46232092e010c7e84d6d
   NetworkInfo: 099ae3b202dbf9d4c1b2fc8a820cfafefd88b923
   NitroMmkv: 437a1303946283cfefe556d74e989228874aa8c0

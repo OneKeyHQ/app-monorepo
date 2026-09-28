@@ -88,9 +88,14 @@ final class NativeOverlayEntryView: UIView {
     pageSheetPan?.isEnabled = draggable
   }
 
+  /// Layout changed (rotation, page sheet height); the owner re-reports
+  /// where its content is.
+  var onLayout: (() -> Void)?
+
   override func layoutSubviews() {
     super.layoutSubviews()
     layoutPageSheet()
+    onLayout?()
   }
 
   private func layoutPageSheet() {
@@ -164,6 +169,10 @@ final class NativeOverlayEntryView: UIView {
   @objc public var onPresented: RCTDirectEventBlock?
   @objc public var onDismissed: RCTDirectEventBlock?
   @objc public var onRequestDismiss: RCTDirectEventBlock?
+  /// Window origin (points) of the view the content lives in; the shadow
+  /// node offsets `measure` / `measureInWindow` by it.
+  @objc public var onContentOffsetChanged: ((CGPoint) -> Void)?
+  private var reportedContentOffset: CGPoint?
 
   private enum Phase {
     case hidden
@@ -220,6 +229,7 @@ final class NativeOverlayEntryView: UIView {
     } else {
       stageContent()
     }
+    reportContentOffset()
   }
 
   /// Keeps the React child attached (inside this clipped, zero-size view)
@@ -323,7 +333,7 @@ final class NativeOverlayEntryView: UIView {
       entry.contentView.transform = .identity
       entry.backdropView.alpha = 1
       phase = .shown
-      onPresented?(["stackOrder": stackOrder])
+      didPresent()
       return
     }
     let contentAnimator = transition.motion.makeAnimator()
@@ -334,7 +344,7 @@ final class NativeOverlayEntryView: UIView {
     contentAnimator.addCompletion { [weak self] position in
       guard let self, position == .end, self.phase == .entering else { return }
       self.phase = .shown
-      self.onPresented?(["stackOrder": self.stackOrder])
+      self.didPresent()
     }
     let backdrop = config.backdropMotion.makeAnimator()
     backdrop.addAnimations { entry.backdropView.alpha = 1 }
@@ -396,6 +406,8 @@ final class NativeOverlayEntryView: UIView {
       entry.removeFromSuperview()
     }
     entryView = nil
+    stageContent()
+    reportContentOffset()
     NativeOverlayWindowManager.shared.entryRemoved(from: hostWindow)
     guard let reason, cycleOpen else { return }
     cycleOpen = visible
@@ -405,6 +417,34 @@ final class NativeOverlayEntryView: UIView {
     if reason == "programmatic", visible, window != nil {
       present()
     }
+  }
+
+  private func didPresent() {
+    reportContentOffset()
+    onPresented?(["stackOrder": stackOrder])
+  }
+
+  /// Reports the window origin of the content's current superview (the
+  /// level window, sheet, page host, or this host while staged). Only at
+  /// rest: the enter / exit transforms would skew it, while UIKit's own
+  /// sheet container transform must be included.
+  func reportContentOffset() {
+    guard phase == .shown || phase == .hidden,
+          let container = contentChild?.superview,
+          let containerWindow = container.window
+    else { return }
+    var offset = container.convert(CGPoint.zero, to: nil)
+    // Overlay level windows and the app window normally share the screen origin.
+    if let referenceWindow = window, referenceWindow !== containerWindow {
+      offset.x += containerWindow.frame.origin.x - referenceWindow.frame.origin.x
+      offset.y += containerWindow.frame.origin.y - referenceWindow.frame.origin.y
+    }
+    if let reported = reportedContentOffset,
+       abs(reported.x - offset.x) < 0.5, abs(reported.y - offset.y) < 0.5 {
+      return
+    }
+    reportedContentOffset = offset
+    onContentOffsetChanged?(offset)
   }
 
   private func stopAnimators() {
@@ -452,7 +492,7 @@ final class NativeOverlayEntryView: UIView {
       guard let self, let controller, self.sheetController === controller else { return }
       if self.phase == .entering {
         self.phase = .shown
-        self.onPresented?(["stackOrder": self.stackOrder])
+        self.didPresent()
       }
       if !self.visible {
         self.dismissSheet()
@@ -500,6 +540,9 @@ final class NativeOverlayEntryView: UIView {
       guard let self, self.dismissOnBackdropPress, self.phase != .exiting else { return }
       self.onRequestDismiss?(["reason": "backdrop"])
     }
+    entry.onLayout = { [weak self] in
+      self?.reportContentOffset()
+    }
     entry.onPanDismiss = { [weak self] in
       guard let self, self.phase == .shown || self.phase == .entering else { return }
       self.finishDismiss(reason: nil)
@@ -546,6 +589,11 @@ final class NativeOverlayEntryView: UIView {
 }
 
 extension NativeOverlayContainerView: NativeOverlaySheetHost {
+  func sheetDidLayout(_ controller: NativeOverlaySheetController) {
+    guard sheetController === controller else { return }
+    reportContentOffset()
+  }
+
   func sheetDidLoad(_ controller: NativeOverlaySheetController) {
     if let touchHandler, touchHandler.view == nil {
       touchHandler.perform(NSSelectorFromString("attachToView:"), with: controller.view)

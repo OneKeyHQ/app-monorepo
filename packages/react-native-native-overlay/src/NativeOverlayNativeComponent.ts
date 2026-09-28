@@ -55,6 +55,9 @@ export interface INativeOverlayNativeProps extends ViewProps {
   onRequestDismiss?: DirectEventHandler<INativeOverlayRequestDismissEvent>;
 }
 
+// The shadow node is hand-written (common/cpp): it carries the on-screen
+// content offset so `measure` reports where native presented the content.
 export default codegenNativeComponent<INativeOverlayNativeProps>(
   'RNCNativeOverlay',
+  { interfaceOnly: true },
 ) as HostComponent<INativeOverlayNativeProps>;

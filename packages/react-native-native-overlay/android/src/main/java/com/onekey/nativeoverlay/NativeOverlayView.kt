@@ -6,10 +6,14 @@ import android.animation.ValueAnimator
 import android.graphics.Color
 import android.provider.Settings
 import android.view.View
+import android.view.View.OnLayoutChangeListener
 import android.view.ViewGroup
 import android.view.accessibility.AccessibilityEvent
+import com.facebook.react.bridge.Arguments
+import com.facebook.react.uimanager.StateWrapper
 import com.facebook.react.uimanager.ThemedReactContext
 import com.facebook.react.uimanager.events.EventDispatcher
+import kotlin.math.abs
 
 /** Visual state of the content between "hidden" (off stage) and identity. */
 private data class OverlayVisualState(
@@ -68,6 +72,20 @@ class NativeOverlayView(
   var onPresented: ((Int) -> Unit)? = null
   var onDismissed: ((String) -> Unit)? = null
   var onRequestDismiss: ((String) -> Unit)? = null
+
+  /**
+   * Fabric state of the hand-written shadow node: the window origin (dp) of
+   * wherever the content is drawn, so `measure` reports on-screen frames.
+   */
+  var stateWrapper: StateWrapper? = null
+    set(value) {
+      field = value
+      pushContentOffset()
+    }
+  private var contentOffsetX = 0.0
+  private var contentOffsetY = 0.0
+  private val contentLayoutListener =
+    OnLayoutChangeListener { _, _, _, _, _, _, _, _, _ -> reportContentOffset() }
   var eventDispatcher: EventDispatcher? = null
     set(value) {
       field = value
@@ -188,12 +206,14 @@ class NativeOverlayView(
       OverlayVisualState.IDENTITY.applyTo(target.animatedView)
       target.backdropView.alpha = 1f
       phase = Phase.SHOWN
+      reportContentOffset()
       onPresented?.invoke(stackOrder)
       return
     }
     animate(target, OverlayVisualState.IDENTITY, 1f, transition.motion) {
       if (phase == Phase.ENTERING) {
         phase = Phase.SHOWN
+        reportContentOffset()
         onPresented?.invoke(stackOrder)
       }
     }
@@ -355,15 +375,62 @@ class NativeOverlayView(
   private fun stageContent() {
     val child = contentChild ?: return
     if (child.parent === this) return
-    (child.parent as? ViewGroup)?.removeView(child)
-    addView(child)
+    moveContent(child, this)
   }
 
   private fun attachContent(target: NativeOverlayEntryRootView) {
     val child = contentChild ?: return
     if (child.parent === target.contentView) return
-    (child.parent as? ViewGroup)?.removeView(child)
-    target.contentView.addView(child)
+    moveContent(child, target.contentView)
+  }
+
+  private fun moveContent(child: View, container: ViewGroup) {
+    (child.parent as? ViewGroup)?.let { previous ->
+      previous.removeOnLayoutChangeListener(contentLayoutListener)
+      previous.removeView(child)
+    }
+    container.addView(child)
+    container.addOnLayoutChangeListener(contentLayoutListener)
+    reportContentOffset()
+  }
+
+  /** Window origin of the content's container, ignoring running animations. */
+  private fun reportContentOffset() {
+    val container = contentChild?.parent as? View ?: return
+    var x = 0f
+    var y = 0f
+    var current: View? = container
+    while (current != null) {
+      x += current.left
+      y += current.top
+      val parent = current.parent as? View
+      if (parent != null) {
+        x -= parent.scrollX
+        y -= parent.scrollY
+      }
+      current = parent
+    }
+    val density = resources.displayMetrics.density
+    contentOffsetX = (x / density).toDouble()
+    contentOffsetY = (y / density).toDouble()
+    pushContentOffset()
+  }
+
+  private fun pushContentOffset() {
+    val wrapper = stateWrapper ?: return
+    val data = wrapper.stateData
+    if (data != null && data.hasKey("x") && data.hasKey("y") &&
+      abs(data.getDouble("x") - contentOffsetX) < 0.5 &&
+      abs(data.getDouble("y") - contentOffsetY) < 0.5
+    ) {
+      return
+    }
+    wrapper.updateState(
+      Arguments.createMap().apply {
+        putDouble("x", contentOffsetX)
+        putDouble("y", contentOffsetY)
+      },
+    )
   }
 
   private fun isReduceMotionEnabled(): Boolean =
