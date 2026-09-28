@@ -1763,6 +1763,41 @@ describe('useSwapActions', () => {
     });
   });
 
+  it('keeps the account-network alert when Stock quote state is reset', async () => {
+    const { store, Wrapper } = createWrapperWithStore((storeInstance) => {
+      storeInstance.set(swapTypeSwitchAtom(), ESwapTabSwitchType.STOCK);
+      storeInstance.set(swapAlertsAtom(), {
+        quoteId: 'stale-stock-quote',
+        states: [
+          {
+            message: 'Account does not support this network',
+            alertLevel: ESwapAlertLevel.ERROR,
+            isAccountNetworkUnsupported: true,
+          },
+          {
+            message: 'Min amount/request 10 USDC',
+          },
+        ],
+      });
+    });
+    const { result } = renderHook(() => useSwapActions().current, {
+      wrapper: Wrapper,
+    });
+
+    await act(async () => {
+      await result.current.resetQuoteAction();
+    });
+
+    expect(store.get(swapAlertsAtom())).toEqual({
+      quoteId: '',
+      states: [
+        expect.objectContaining({
+          isAccountNetworkUnsupported: true,
+        }),
+      ],
+    });
+  });
+
   it('keeps Stock current quote selected when service normalizes amount formatting', () => {
     const quote = {
       quoteId: 'stock-numeric-match-quote',
@@ -5009,6 +5044,64 @@ describe('useSwapActions', () => {
     });
 
     expect(store.get(swapAlertsAtom()).states).toHaveLength(1);
+  });
+
+  it('keeps the unsupported-account alert while Stock rebuilds the quote pair', async () => {
+    const unsupportedAddressInfo = createExternalAddressInfo({
+      address: undefined,
+      isAddressInfoReady: true,
+    });
+    const staleQuote = buildRecipientUnsupportedQuote({
+      fromToken: usdtToken,
+      toToken: appleStockToken,
+    });
+    const staleQuoteId = staleQuote.quoteId ?? 'stale-quote';
+    const staleFromAmount = staleQuote.fromAmount ?? '1';
+    const staleToAmount = staleQuote.toAmount ?? '1';
+    const { store, Wrapper } = createWrapperWithStore((storeInstance) => {
+      storeInstance.set(swapTypeSwitchAtom(), ESwapTabSwitchType.STOCK);
+      storeInstance.set(swapSelectFromTokenAtom(), appleStockToken);
+      storeInstance.set(swapSelectToTokenAtom(), usdtToken);
+      storeInstance.set(swapFromTokenAmountAtom(), {
+        value: staleFromAmount,
+        isInput: true,
+      });
+      storeInstance.set(swapToTokenAmountAtom(), {
+        value: staleToAmount,
+        isInput: false,
+      });
+      storeInstance.set(swapQuoteListAtom(), [staleQuote]);
+      storeInstance.set(swapQuoteEventCompletedAtom(), true);
+      storeInstance.set(swapAlertsAtom(), {
+        states: [
+          {
+            message: 'Account does not support this network',
+            alertLevel: ESwapAlertLevel.ERROR,
+            isAccountNetworkUnsupported: true,
+          },
+        ],
+        quoteId: staleQuoteId,
+      });
+    });
+    const { result } = renderHook(() => useSwapActions().current, {
+      wrapper: Wrapper,
+    });
+
+    await withMutedConsoleError(async () => {
+      await act(async () => {
+        await result.current.checkSwapWarning(
+          unsupportedAddressInfo,
+          unsupportedAddressInfo,
+          { allowNoConnectWallet: true },
+        );
+      });
+    });
+
+    expect(store.get(swapAlertsAtom()).states).toEqual([
+      expect.objectContaining({
+        isAccountNetworkUnsupported: true,
+      }),
+    ]);
   });
 
   it('does not keep noConnectWallet warning when native wallet readiness is not proven', async () => {

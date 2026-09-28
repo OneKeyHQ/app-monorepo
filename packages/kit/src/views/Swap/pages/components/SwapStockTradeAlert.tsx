@@ -173,11 +173,15 @@ function BasicSwapStockTradeAlert({
     quoteEventError?.message,
   ]);
 
+  const hasAccountNetworkUnsupportedAlert = alerts.states.some(
+    (item) => item.isAccountNetworkUnsupported,
+  );
   const shouldShowSwapAlerts =
     alerts.states.length > 0 &&
-    !quoteLoading &&
-    !quoteEventFetching &&
-    alerts.quoteId === (quoteResult?.quoteId ?? '');
+    (hasAccountNetworkUnsupportedAlert ||
+      (!quoteLoading &&
+        !quoteEventFetching &&
+        alerts.quoteId === (quoteResult?.quoteId ?? '')));
   const stockPrimaryAlert = stockQuoteAlert ?? stockEventAlert;
   const stockTradeDisabled =
     isStockMarketClosed ||

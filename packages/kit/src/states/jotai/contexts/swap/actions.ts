@@ -1746,9 +1746,12 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
     set(rateDifferenceAtom(), undefined);
     set(swapQuoteActionLockAtom(), (v) => ({ ...v, actionLock: false }));
     if (swapTypeSwitch === ESwapTabSwitchType.STOCK) {
+      const currentAlerts = get(swapAlertsAtom());
       set(swapAlertsAtom(), {
         quoteId: '',
-        states: [],
+        states: currentAlerts.states.filter(
+          (item) => item.isAccountNetworkUnsupported,
+        ),
       });
     }
     if (!fromToken) {
@@ -2074,6 +2077,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       return {
         message: unsupportedMessage,
         alertLevel: ESwapAlertLevel.ERROR,
+        isAccountNetworkUnsupported: true,
       };
     }
     return undefined;
@@ -2208,9 +2212,18 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       };
       let rateDifferenceRes: ISwapPreSwapData['rateDifference'];
       // current quote result  current token  not match
+      // Keep the account/network warning stable while Stock rebuilds its quote
+      // pair during a Buy/Sell switch. The next warning check owns removal.
       if (quoteResult && fromToken && toToken && !isCurrentQuoteResult) {
+        const currentAlerts = get(swapAlertsAtom());
+        const accountNetworkAlerts =
+          swapTypeSwitch === ESwapTabSwitchType.STOCK
+            ? currentAlerts.states.filter(
+                (item) => item.isAccountNetworkUnsupported,
+              )
+            : [];
         set(swapAlertsAtom(), {
-          states: alertsRes,
+          states: [...alertsRes, ...accountNetworkAlerts],
           quoteId: '',
         });
         set(rateDifferenceAtom(), rateDifferenceRes);
@@ -2284,6 +2297,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
           {
             message: notSupportSwapMessage,
             alertLevel: ESwapAlertLevel.ERROR,
+            isAccountNetworkUnsupported: true,
           },
         ];
       }
