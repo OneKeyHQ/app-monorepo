@@ -7,13 +7,9 @@ import {
   XStack,
 } from '@onekeyhq/components';
 import { Token } from '@onekeyhq/kit/src/components/Token';
-import { useActiveTradeInstrumentAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import { usePerpsCtxByCoin } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid/atoms';
 import {
   type IPerpFavoritesDisplayMode,
-  usePerpsActiveAssetAtom,
-  usePerpsActiveAssetCtxAtom,
-  useSpotActiveAssetCtxAtom,
   useSpotAssetCtxsMapAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -144,80 +140,6 @@ const CtxPriceDisplay = memo(
 );
 CtxPriceDisplay.displayName = 'CtxPriceDisplay';
 
-const ActiveAssetPriceDisplay = memo(
-  ({
-    coinName,
-    dexIndex,
-    assetId,
-    displayMode = 'price',
-    mode,
-  }: {
-    coinName: string;
-    dexIndex: number;
-    assetId: number;
-    displayMode?: IPerpFavoritesDisplayMode;
-    mode: 'perp' | 'spot';
-  }) => {
-    const [assetCtx] = usePerpsActiveAssetCtxAtom();
-    const [spotActiveAssetCtx] = useSpotActiveAssetCtxAtom();
-    const fallbackCtx = usePerpsCtxByCoin(dexIndex, assetId);
-    const [spotPriceMap] = useSpotAssetCtxsMapAtom();
-    const formattedFallback = useMemo(
-      () => perpsUtils.formatAssetCtx(fallbackCtx),
-      [fallbackCtx],
-    );
-    const formattedSpotFallback = useMemo(
-      () => formatSpotPriceEntry(spotPriceMap[coinName]),
-      [coinName, spotPriceMap],
-    );
-
-    const activeCtx = assetCtx?.coin === coinName ? assetCtx.ctx : undefined;
-    const spotCtx =
-      spotActiveAssetCtx?.coin === coinName
-        ? spotActiveAssetCtx.ctx
-        : undefined;
-    let ctx: { markPrice?: string; change24hPercent?: number } =
-      activeCtx?.markPrice ? activeCtx : formattedFallback;
-    if (mode === 'spot') {
-      ctx = spotCtx?.markPrice ? spotCtx : formattedSpotFallback;
-    }
-
-    const priceDisplay = ctx?.markPrice
-      ? formatPriceToSignificantDigits(ctx.markPrice)
-      : '-';
-    const change24hPercent = ctx?.change24hPercent ?? 0;
-    const color = change24hPercent >= 0 ? '$textSuccess' : '$textCritical';
-
-    if (displayMode === 'percent') {
-      return (
-        <NumberSizeableText
-          size="$bodySmMedium"
-          color={color}
-          style={TABULAR_NUMS_STYLE}
-          formatter="priceChange"
-          formatterOptions={{ showPlusMinusSigns: true }}
-        >
-          {change24hPercent.toString()}
-        </NumberSizeableText>
-      );
-    }
-
-    const priceMinWidth = getStablePriceMinWidth(priceDisplay);
-    return (
-      <SizableText
-        size="$bodySmMedium"
-        color={color}
-        style={TABULAR_NUMS_STYLE}
-        minWidth={priceMinWidth}
-        textAlign="right"
-      >
-        {priceDisplay}
-      </SizableText>
-    );
-  },
-);
-ActiveAssetPriceDisplay.displayName = 'ActiveAssetPriceDisplay';
-
 // Shared price display: change% (colored) + price (subdued)
 export const PriceChangeDisplay = memo(
   ({ change, markPrice }: { change: number; markPrice?: string }) => {
@@ -259,14 +181,6 @@ function FavoriteTokenItem({
   onPress,
   displayMode = 'price',
 }: IFavoriteTokenItemProps) {
-  const [activeTradeInstrument] = useActiveTradeInstrumentAtom();
-  const [activeAsset] = usePerpsActiveAssetAtom();
-  const isActiveToken =
-    mode === 'spot'
-      ? activeTradeInstrument.mode === 'spot' &&
-        activeTradeInstrument.coin === coinName
-      : activeAsset?.coin === coinName;
-
   return (
     <XStack
       onPress={onPress}
@@ -292,23 +206,15 @@ function FavoriteTokenItem({
       <SizableText size="$bodySmMedium" color="$text">
         {displayName}
       </SizableText>
-      {isActiveToken ? (
-        <ActiveAssetPriceDisplay
-          coinName={coinName}
-          dexIndex={dexIndex}
-          assetId={assetId}
-          displayMode={displayMode}
-          mode={mode}
-        />
-      ) : (
-        <CtxPriceDisplay
-          coinName={coinName}
-          dexIndex={dexIndex}
-          assetId={assetId}
-          displayMode={displayMode}
-          mode={mode}
-        />
-      )}
+      {/* Keep one per-coin quote source across selection changes. Active contexts
+          arrive independently and would make the same favorite jump on clicks. */}
+      <CtxPriceDisplay
+        coinName={coinName}
+        dexIndex={dexIndex}
+        assetId={assetId}
+        displayMode={displayMode}
+        mode={mode}
+      />
     </XStack>
   );
 }
