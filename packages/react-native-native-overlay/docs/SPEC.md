@@ -411,6 +411,18 @@ Keyboard avoidance:
 - Center dialogs put the card itself at the overlay root (auto margins), so
   the native content extent is the card, not a full-window wrapper.
 
+Status bar:
+
+- `statusBarStyle` (`light` | `dark`) on an overlay; the topmost shown,
+  unsuspended entry that sets one owns the status bar
+  (`findStatusBarOwner`, render order: level, then request order).
+- The owner mounts a React Native `<StatusBar>`, the same stack the pages
+  use: the app runs without view-controller-based status bar appearance on
+  iOS, and Android sets the window appearance. Web has no status bar.
+- iOS asks the root view controller of level windows above the status bar
+  (`lock`, `debug`) anyway; without view-controller-based appearance it
+  answers with the app-wide style, so the StatusBar stack still decides.
+
 Migration rules (decided 2026-09-28):
 
 - No transition period. Every overlay (Dialog, Sheet, Toast, DialogLoading,
@@ -448,7 +460,9 @@ Future work (better to have):
 
 Known gaps:
 
-- `statusBarStyle` is not implemented yet (required before the lock screen
-  migrates).
+- `statusBarStyle` follows React Native's StatusBar stack, so a page that
+  mounts a new `<StatusBar>` while an overlay owns the style, or the
+  imperative theme calls (`StatusBar.setBarStyle`), take over until the owner
+  changes; rare while a full-screen overlay covers the page.
 - The dev package version is a plain `0.1.0`: CocoaPods does not resolve a
   local podspec whose version has a prerelease suffix.

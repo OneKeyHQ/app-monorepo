@@ -224,6 +224,8 @@ function DemoOverlay({
       replaceKey={spec.replaceKey}
       backdrop={isToast || isLock ? false : { dismissOnPress: true }}
       dismissOnBackPress={!isLock}
+      // The lock demo is a dark full-screen surface.
+      statusBarStyle={isLock ? 'light' : undefined}
       animation={
         isLock
           ? {

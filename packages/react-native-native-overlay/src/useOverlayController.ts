@@ -12,7 +12,7 @@ import { OVERLAY_MOTION_PRESETS } from './animation/platformMotionPresets';
 import { resolveOverlayAnimation } from './animation/resolveAnimation';
 import { OVERLAY_LEVEL_ORDER } from './OverlayLevels';
 import { useOverlayPageScope } from './OverlayPageScope';
-import { overlayStore } from './OverlayStore';
+import { findStatusBarOwner, overlayStore } from './OverlayStore';
 
 import type { IResolvedOverlayAnimation } from './animation/resolveAnimation';
 import type {
@@ -31,6 +31,8 @@ export interface IOverlayController {
    */
   presented: boolean;
   scope: 'global' | 'page';
+  /** This entry's `statusBarStyle` currently drives the status bar. */
+  ownsStatusBar: boolean;
   hostKey: string | undefined;
   ownerKey: string | undefined;
   animation: IResolvedOverlayAnimation;
@@ -63,6 +65,7 @@ export function useOverlayController(
     dismissOnBackPress,
     presentation = 'center',
     animation,
+    statusBarStyle,
   } = props;
   const pageScope = useOverlayPageScope();
   const hostKey = props.hostKey ?? pageScope.hostKey;
@@ -123,6 +126,7 @@ export function useOverlayController(
         replaceKey,
         blocking,
         dismissible: dismissOnBackPress,
+        statusBarStyle,
       },
       {
         onRemoved: (reason) => {
@@ -191,6 +195,7 @@ export function useOverlayController(
       entry.phase === 'active' &&
       (scope === 'page' || !entry.suspended),
     scope,
+    ownsStatusBar: !!entryId && findStatusBarOwner(snapshot)?.id === entryId,
     hostKey: scope === 'page' ? hostKey : undefined,
     ownerKey: scope === 'page' ? ownerKey : undefined,
     animation: resolvedAnimation,

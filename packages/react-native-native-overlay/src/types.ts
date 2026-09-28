@@ -22,6 +22,9 @@ export type IOverlayDismissReason =
   | 'security'
   | 'system';
 
+/** `light`: light content for dark overlays; `dark`: dark content. */
+export type IOverlayStatusBarStyle = 'light' | 'dark';
+
 export interface IOverlayRequest {
   /** Stable id; generated when omitted. Re-requesting an existing id is a no-op. */
   id?: string;
@@ -43,6 +46,11 @@ export interface IOverlayRequest {
   dismissible?: boolean;
   /** Blocks interaction with everything below. Defaults by level. */
   blocking?: boolean;
+  /**
+   * Status bar content while this is the topmost styled overlay; unset
+   * leaves the status bar alone.
+   */
+  statusBarStyle?: IOverlayStatusBarStyle;
 }
 
 export interface IOverlayEntry {
@@ -56,6 +64,7 @@ export interface IOverlayEntry {
   ownerKey: string | undefined;
   dismissible: boolean;
   blocking: boolean;
+  statusBarStyle: IOverlayStatusBarStyle | undefined;
   phase: IOverlayPhase;
   /** True while the owning page is covered or detached; page scope only. */
   suspended: boolean;

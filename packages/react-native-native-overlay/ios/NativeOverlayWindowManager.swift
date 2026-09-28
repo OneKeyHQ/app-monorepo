@@ -66,8 +66,17 @@ final class NativeOverlayRootViewController: UIViewController {
     view = root
   }
 
+  /// Apps without view-controller-based status bar appearance set one
+  /// app-wide style (React Native's StatusBar does). Level windows above the
+  /// status bar (`lock`, `debug`) still get asked, so answer with that style.
+  private static let viewControllerBasedAppearance =
+    (Bundle.main.object(forInfoDictionaryKey: "UIViewControllerBasedStatusBarAppearance") as? Bool) ?? true
+
   override var preferredStatusBarStyle: UIStatusBarStyle {
-    appTopController?.preferredStatusBarStyle ?? .default
+    if !Self.viewControllerBasedAppearance {
+      return UIApplication.shared.statusBarStyle
+    }
+    return appTopController?.preferredStatusBarStyle ?? .default
   }
 
   override var prefersStatusBarHidden: Bool {

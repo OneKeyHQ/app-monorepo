@@ -257,6 +257,36 @@ describe('OverlayStore back resolution', () => {
   });
 });
 
+describe('OverlayStore status bar owner', () => {
+  it('follows the topmost shown entry that sets a style', () => {
+    const store = new OverlayStore();
+    store.request({ id: 'lock', level: 'lock', statusBarStyle: 'light' });
+    store.request({ id: 'dialog', statusBarStyle: 'dark' });
+    store.request({ id: 'toast', level: 'toast', blocking: false });
+    expect(store.getStatusBarOwner()?.id).toBe('lock');
+
+    store.dismiss('lock');
+    expect(store.getStatusBarOwner()?.id).toBe('dialog');
+    store.finalize('lock');
+    store.dismiss('dialog');
+    expect(store.getStatusBarOwner()).toBeUndefined();
+  });
+
+  it('skips suspended page entries', () => {
+    const store = new OverlayStore();
+    store.request({
+      id: 'page',
+      scope: 'page',
+      hostKey: 'host',
+      ownerKey: 'owner',
+      statusBarStyle: 'light',
+    });
+    expect(store.getStatusBarOwner()?.id).toBe('page');
+    store.setPageVisible('owner', false);
+    expect(store.getStatusBarOwner()).toBeUndefined();
+  });
+});
+
 describe('OverlayStore security blocking', () => {
   it('closes lower levels and refuses new ones while locked', () => {
     const store = new OverlayStore();

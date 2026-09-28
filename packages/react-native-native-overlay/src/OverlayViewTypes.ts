@@ -8,6 +8,7 @@ import type {
   IOverlayDismissReason,
   IOverlayLevel,
   IOverlayScope,
+  IOverlayStatusBarStyle,
   IOverlayStrategy,
 } from './types';
 import type { ColorValue } from 'react-native';
@@ -59,6 +60,12 @@ export interface IOverlayViewProps {
   backdrop?: IOverlayBackdrop | false;
   /** Defaults by level: toast and debug pass touches through. */
   blocking?: boolean;
+  /**
+   * Status bar content (iOS / Android) while this is the topmost shown
+   * overlay that sets one, e.g. `light` for a dark full-screen overlay.
+   * Unset leaves the status bar to the page below.
+   */
+  statusBarStyle?: IOverlayStatusBarStyle;
   dismissOnBackPress?: boolean;
   /**
    * Back press or backdrop press asked to close. When omitted the overlay

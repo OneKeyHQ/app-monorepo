@@ -122,6 +122,7 @@ export class OverlayStore {
       hostKey: scope === 'page' ? request.hostKey : undefined,
       ownerKey: scope === 'page' ? request.ownerKey : undefined,
       dismissible: request.dismissible ?? blocking,
+      statusBarStyle: request.statusBarStyle,
       blocking,
       phase: 'active',
       suspended: false,
@@ -278,6 +279,11 @@ export class OverlayStore {
   }
 
   /** Topmost visible blocking entry; everything rendered below it is inert. */
+  /** The entry whose `statusBarStyle` applies (see `findStatusBarOwner`). */
+  getStatusBarOwner(): IOverlayEntry | undefined {
+    return findStatusBarOwner(this.snapshot);
+  }
+
   getBlockingTop(): IOverlayEntry | undefined {
     const { entries } = this.snapshot;
     for (let i = entries.length - 1; i >= 0; i -= 1) {
@@ -403,6 +409,29 @@ export class OverlayStore {
     };
     this.listeners.forEach((listener) => listener());
   }
+}
+
+/**
+ * The topmost shown, visible entry that styles the status bar. Entries are
+ * in render order, so a higher level (or a later request in the same level)
+ * wins; page entries render below global ones and suspended ones never own it.
+ */
+export function findStatusBarOwner(
+  snapshot: IOverlaySnapshot,
+): IOverlayEntry | undefined {
+  const { entries } = snapshot;
+  for (let i = entries.length - 1; i >= 0; i -= 1) {
+    const entry = entries[i];
+    if (
+      entry &&
+      entry.statusBarStyle &&
+      entry.phase === 'active' &&
+      !entry.suspended
+    ) {
+      return entry;
+    }
+  }
+  return undefined;
 }
 
 export const overlayStore = new OverlayStore();

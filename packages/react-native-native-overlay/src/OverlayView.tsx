@@ -1,6 +1,6 @@
 import { useCallback, useMemo, useState } from 'react';
 
-import { StyleSheet, View, useWindowDimensions } from 'react-native';
+import { StatusBar, StyleSheet, View, useWindowDimensions } from 'react-native';
 
 import NativeOverlay from './NativeOverlayNativeComponent';
 import { isBlockingLevel } from './OverlayLevels';
@@ -43,6 +43,7 @@ export function OverlayView(props: IOverlayViewProps) {
     dismissOnBackPress,
     sheet,
     keepContentMounted = false,
+    statusBarStyle,
     children,
     testID,
   } = props;
@@ -53,6 +54,7 @@ export function OverlayView(props: IOverlayViewProps) {
     entry,
     mounted,
     presented,
+    ownsStatusBar,
     scope,
     hostKey,
     ownerKey,
@@ -87,58 +89,72 @@ export function OverlayView(props: IOverlayViewProps) {
     return null;
   }
 
+  // The app drives the status bar through React Native's StatusBar stack
+  // (iOS runs without view-controller-based appearance), so the owning
+  // overlay pushes onto the same stack.
+  const statusBar =
+    ownsStatusBar && statusBarStyle ? (
+      <StatusBar
+        animated
+        barStyle={statusBarStyle === 'light' ? 'light-content' : 'dark-content'}
+      />
+    ) : null;
+
   return (
-    <NativeOverlay
-      style={styles.host}
-      // A fitted sheet presents once its content height is known.
-      visible={presented && (!isSheet || sheetHeight > 0)}
-      level={level}
-      scope={scope}
-      hostKey={hostKey ?? ''}
-      ownerKey={ownerKey ?? ''}
-      presentation={presentation}
-      stackOrder={entry?.seq ?? 0}
-      blocking={isBlocking}
-      dismissOnBackPress={dismissOnBackPress ?? isBlocking}
-      dismissOnBackdropPress={backdrop ? !!backdrop.dismissOnPress : false}
-      backdropColor={
-        backdrop ? (backdrop.color ?? DEFAULT_BACKDROP_COLOR) : undefined
-      }
-      sheetHeight={isSheet ? sheetHeight : 0}
-      sheetCornerRadius={sheet?.cornerRadius}
-      showHandle={sheet?.showHandle}
-      sheetBackgroundColor={sheet?.backgroundColor}
-      dismissOnPanDown={sheet?.dismissOnPanDown ?? true}
-      animationConfig={animationConfig}
-      onPresented={onHostPresented}
-      onDismissed={onDismissed}
-      onRequestDismiss={onRequestDismiss}
-      testID={testID}
-    >
-      {isSheet ? (
-        <View
-          collapsable={false}
-          onLayout={onSheetLayout}
-          style={{
-            width,
-            height: sheet?.height,
-            maxHeight: maxSheetHeight,
-            // The host is 0x0; without this Yoga shrinks the content to 0 and
-            // a fitted sheet never learns its height.
-            flexShrink: 0,
-          }}
-        >
-          {children}
-        </View>
-      ) : (
-        <View
-          collapsable={false}
-          pointerEvents="box-none"
-          style={{ width, height, flexShrink: 0 }}
-        >
-          {children}
-        </View>
-      )}
-    </NativeOverlay>
+    <>
+      {statusBar}
+      <NativeOverlay
+        style={styles.host}
+        // A fitted sheet presents once its content height is known.
+        visible={presented && (!isSheet || sheetHeight > 0)}
+        level={level}
+        scope={scope}
+        hostKey={hostKey ?? ''}
+        ownerKey={ownerKey ?? ''}
+        presentation={presentation}
+        stackOrder={entry?.seq ?? 0}
+        blocking={isBlocking}
+        dismissOnBackPress={dismissOnBackPress ?? isBlocking}
+        dismissOnBackdropPress={backdrop ? !!backdrop.dismissOnPress : false}
+        backdropColor={
+          backdrop ? (backdrop.color ?? DEFAULT_BACKDROP_COLOR) : undefined
+        }
+        sheetHeight={isSheet ? sheetHeight : 0}
+        sheetCornerRadius={sheet?.cornerRadius}
+        showHandle={sheet?.showHandle}
+        sheetBackgroundColor={sheet?.backgroundColor}
+        dismissOnPanDown={sheet?.dismissOnPanDown ?? true}
+        animationConfig={animationConfig}
+        onPresented={onHostPresented}
+        onDismissed={onDismissed}
+        onRequestDismiss={onRequestDismiss}
+        testID={testID}
+      >
+        {isSheet ? (
+          <View
+            collapsable={false}
+            onLayout={onSheetLayout}
+            style={{
+              width,
+              height: sheet?.height,
+              maxHeight: maxSheetHeight,
+              // The host is 0x0; without this Yoga shrinks the content to 0 and
+              // a fitted sheet never learns its height.
+              flexShrink: 0,
+            }}
+          >
+            {children}
+          </View>
+        ) : (
+          <View
+            collapsable={false}
+            pointerEvents="box-none"
+            style={{ width, height, flexShrink: 0 }}
+          >
+            {children}
+          </View>
+        )}
+      </NativeOverlay>
+    </>
   );
 }

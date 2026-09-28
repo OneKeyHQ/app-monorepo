@@ -7,7 +7,7 @@ export {
   isBlockingLevel,
 } from './OverlayLevels';
 export { OverlayRequestError } from './OverlayErrors';
-export { OverlayStore, overlayStore } from './OverlayStore';
+export { OverlayStore, findStatusBarOwner, overlayStore } from './OverlayStore';
 export type {
   IOverlayBackResolution,
   IOverlayEntryHandlers,
