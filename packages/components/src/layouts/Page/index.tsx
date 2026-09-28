@@ -18,6 +18,7 @@ import {
 } from './PageFooterActions';
 import { PageHeader } from './PageHeader';
 import { PageLifeCycle } from './PageLifeCycle';
+import { PageOverlayOwner } from './PageOverlayOwner';
 
 import type { IPageFooterRef } from './PageContext';
 import type { IPageProps } from './type';
@@ -78,7 +79,7 @@ function PageProvider({
     <>
       {redirect ? null : (
         <PageContext.Provider value={value}>
-          <>
+          <PageOverlayOwner>
             <PageContainer
               lazyLoad={lazyLoad}
               fullPage={fullPage}
@@ -88,7 +89,7 @@ function PageProvider({
               {children}
             </PageContainer>
             <PagePortal pagePortalId={pagePortalId} />
-          </>
+          </PageOverlayOwner>
         </PageContext.Provider>
       )}
       {isEnablePageLifeCycle ? (

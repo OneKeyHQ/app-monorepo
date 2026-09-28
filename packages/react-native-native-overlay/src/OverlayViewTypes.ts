@@ -7,6 +7,7 @@ import type {
 import type {
   IOverlayDismissReason,
   IOverlayLevel,
+  IOverlayScope,
   IOverlayStrategy,
 } from './types';
 import type { ColorValue } from 'react-native';
@@ -34,6 +35,13 @@ export interface IOverlaySheetOptions {
 export interface IOverlayViewProps {
   /** Desired open state. The overlay may still be queued by its strategy. */
   visible: boolean;
+  /**
+   * `page` renders in the root-route `OverlayPageHost` and hides while the
+   * owning page is covered. Keys default to the nearest scope providers.
+   */
+  scope?: IOverlayScope;
+  hostKey?: string;
+  ownerKey?: string;
   level?: IOverlayLevel;
   strategy?: IOverlayStrategy;
   priority?: number;

@@ -74,7 +74,7 @@ internal class NativeOverlayHost private constructor(
     return true
   }
 
-  private fun installBackInterceptor() {
+  internal fun installBackInterceptor() {
     val window = activity.window ?: return
     val current = window.callback ?: return
     if (current !is BackInterceptingCallback) {
@@ -133,8 +133,13 @@ internal class NativeOverlayHost private constructor(
       (0 until container.childCount).mapNotNull { container.getChildAt(it) as? NativeOverlayEntryRootView }
     }
 
+  /** Global overlays win; otherwise the topmost visible page overlay. */
   private fun topBlockingEntry(): NativeOverlayEntryRootView? =
     orderedEntries().lastOrNull { it.blocking && it.isShownForInput }
+      ?: NativeOverlayPageHostView.allHosts()
+        .filter { it.isAttachedToWindow && it.isShown }
+        .flatMap { it.shownEntries() }
+        .lastOrNull { it.blocking }
 
   /** TalkBack only reads the topmost blocking overlay and what is above it. */
   private fun updateAccessibility() {

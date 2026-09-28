@@ -130,6 +130,9 @@ static NSString *RNCNativeOverlayPresentationString(RNCNativeOverlayPresentation
 
   _containerView.level = RNCNativeOverlayLevelString(newProps.level);
   _containerView.presentation = RNCNativeOverlayPresentationString(newProps.presentation);
+  _containerView.scope = newProps.scope == RNCNativeOverlayScope::Page ? @"page" : @"global";
+  _containerView.hostKey = [NSString stringWithUTF8String:newProps.hostKey.c_str()];
+  _containerView.ownerKey = [NSString stringWithUTF8String:newProps.ownerKey.c_str()];
   _containerView.stackOrder = newProps.stackOrder;
   _containerView.blocking = newProps.blocking;
   _containerView.dismissOnBackPress = newProps.dismissOnBackPress;

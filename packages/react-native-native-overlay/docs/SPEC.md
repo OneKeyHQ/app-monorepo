@@ -4,8 +4,8 @@ Status: P2. The JS ordering store, the animation model, the global level
 hosts (center / toast / fullscreen) and the global sheet presentation are
 implemented on iOS, Android and Web. `@onekeyhq/components`'
 `NativeSheetPresentation` (Dialog / Popover / ActionList / Select with
-`nativeSheet`) renders through `OverlayView`. Page scope and anchored
-presentations follow in P3–P5.
+`nativeSheet`) renders through `OverlayView`. P3 adds page scope. Anchored
+presentations and caller migration follow in P4–P5.
 
 This package is developed in `app-monorepo/packages/react-native-native-overlay`
 and moves to `app-modules/native-views/react-native-native-overlay` once
@@ -281,6 +281,34 @@ Runtime matrix, required per platform before migrating callers (P1–P3):
 8. Split view: page overlays stay in their own pane.
 9. Reduce motion degrades to fade.
 
+P3 page scope notes:
+
+- kit wraps every root route component (`withOverlayPageHost`) with
+  `OverlayPageHostScope` and renders `OverlayPageHost` after the navigator,
+  keyed by the root route key. components `Page` wraps its content in
+  `PageOverlayOwner`, keyed by the screen's route key.
+- Visibility: `PageOverlayOwner` listens to the screen's `focus` / `blur`
+  events (they fire even while `freezeOnBlur` freezes the React tree) and
+  reports `setPageVisible(owner, activeWithinHost)`. "Active within host"
+  checks every navigator up to, but not including, the root stack, so a root
+  modal over Main does not hide Main's page overlays; a push or tab switch
+  does. Unmounting the page calls `removePage`.
+- The owner may be frozen, so the host applies suspension: `OverlayPageHost`
+  subscribes to the store and hides entries of suspended owners natively
+  (`suspendedOwners`) or in the DOM (`visibility: hidden` + `inert`). Page
+  entries keep `visible=true` while suspended; they are not dismissed.
+- Page entries live inside the React surface: iOS does not attach the
+  overlay's own `RCTSurfaceTouchHandler`, Android disables the entry's
+  `JSTouchDispatcher` (the ReactRootView already dispatches), otherwise every
+  touch would be delivered twice.
+- iOS page sheets are drawn by the entry (bottom-pinned content view, pan to
+  close) because UIKit sheets always cover the window. Android and Web reuse
+  their global sheet implementation inside the page host.
+- Android back also resolves page entries: global overlays first, then the
+  topmost visible page overlay.
+- A page request without a resolvable host or owner falls back to global
+  scope.
+
 P2 sheet notes:
 
 - iOS presents the sheet (`.pageSheet` + one custom detent, ported from
@@ -312,6 +340,7 @@ P1 implementation map:
 |---|---|---|---|
 | Level host | `NativeOverlayWindowManager.swift` | `NativeOverlayHost.kt` | `web/overlayLayers.ts` |
 | Entry, hit testing, backdrop | `NativeOverlayEntryView` in `NativeOverlayContainerView.swift` | `NativeOverlayEntryRootView.kt` | `WebOverlayEntry` in `OverlayView.web.tsx` |
+| Page host | `NativeOverlayPageHostView.swift` | `NativeOverlayPageHostView.kt` | `OverlayPageHost.web.tsx` |
 | Sheet | `NativeOverlaySheetController.swift` | `NativeOverlayEntryRootView.configureSheet` | `OverlayView.web.tsx` + `web/useSheetDrag.ts` |
 | Enter / exit animation | `NativeOverlayAnimation.swift` (`UIViewPropertyAnimator`) | `NativeOverlayAnimation.kt` (analytic spring interpolator) | `web/animateTransition.ts` (WAAPI) |
 | Store bridge | `useOverlayController.ts` | same | same |

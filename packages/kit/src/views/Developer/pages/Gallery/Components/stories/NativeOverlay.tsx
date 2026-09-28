@@ -1,6 +1,7 @@
 import { useCallback, useRef, useState } from 'react';
 
 import { OverlayView } from '@onekeyfe/react-native-native-overlay';
+import { useNavigation } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import {
@@ -13,14 +14,17 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import { EGalleryRoutes } from '@onekeyhq/shared/src/routes';
 
 import { Layout } from './utils/Layout';
 
 import type {
   IOverlayLevel,
   IOverlayPresentation,
+  IOverlayScope,
   IOverlayStrategy,
 } from '@onekeyfe/react-native-native-overlay';
+import type { NavigationProp, ParamListBase } from '@react-navigation/native';
 
 interface IDemoSpec {
   key: string;
@@ -30,6 +34,7 @@ interface IDemoSpec {
   strategy?: IOverlayStrategy;
   priority?: number;
   replaceKey?: string;
+  scope?: IOverlayScope;
   color: string;
 }
 
@@ -55,9 +60,10 @@ function makeSpec(
   } else if (level === 'lock') {
     presentation = 'fullscreen';
   }
+  const scopeLabel = extra.scope === 'page' ? 'page ' : '';
   return {
     key: `demo-${demoSeq}`,
-    label: `${level} #${demoSeq}`,
+    label: `${scopeLabel}${level} #${demoSeq}`,
     level,
     presentation,
     color: LEVEL_COLORS[level],
@@ -76,6 +82,11 @@ function DemoOverlay({
 }) {
   const [visible, setVisible] = useState(true);
   const insets = useSafeAreaInsets();
+  const navigation = useNavigation<NavigationProp<ParamListBase>>();
+  const pushPage = useCallback(
+    () => navigation.navigate(EGalleryRoutes.ComponentPortal),
+    [navigation],
+  );
   const close = useCallback(() => setVisible(false), []);
   const isLock = spec.level === 'lock';
   const isToast = spec.level === 'toast';
@@ -105,6 +116,11 @@ function DemoOverlay({
         <Button size="small" onPress={() => onOpen(makeSpec('secure'))}>
           + secure
         </Button>
+        {spec.scope === 'page' ? (
+          <Button size="small" onPress={pushPage}>
+            Push page
+          </Button>
+        ) : null}
         <Button size="small" variant="primary" onPress={close}>
           Close
         </Button>
@@ -148,6 +164,7 @@ function DemoOverlay({
     return (
       <OverlayView
         visible={visible}
+        scope={spec.scope}
         level={spec.level}
         presentation="sheet"
         sheet={{ showHandle: true, backgroundColor: spec.color }}
@@ -193,6 +210,7 @@ function DemoOverlay({
   return (
     <OverlayView
       visible={visible}
+      scope={spec.scope}
       level={spec.level}
       presentation={spec.presentation}
       strategy={spec.strategy}
@@ -329,6 +347,23 @@ function NativeOverlayDemo() {
         >
           Dialog (nativeSheet)
         </Button>
+      </XStack>
+      <XStack gap="$2" flexWrap="wrap">
+        <Button onPress={() => open(makeSpec('modal', { scope: 'page' }))}>
+          Page dialog
+        </Button>
+        <Button
+          onPress={() =>
+            open(makeSpec('modal', { scope: 'page', presentation: 'sheet' }))
+          }
+        >
+          Page sheet
+        </Button>
+        <Button onPress={() => open(makeSpec('toast', { scope: 'page' }))}>
+          Page toast
+        </Button>
+      </XStack>
+      <XStack gap="$2" flexWrap="wrap">
         <ActionList
           title="ActionList via nativeSheet"
           nativeSheet

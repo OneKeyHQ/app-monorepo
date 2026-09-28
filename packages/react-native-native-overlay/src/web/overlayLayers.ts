@@ -14,6 +14,7 @@ export const ENTRY_ATTRIBUTE = 'data-onekey-overlay-entry';
 const APP_ROOT_ID = 'root';
 
 const layerRoots = new Map<IOverlayLevel, HTMLDivElement>();
+const pageHosts = new Map<string, HTMLDivElement>();
 const dismissRequesters = new Map<
   string,
   (reason: IOverlayRequestDismissReason) => void
@@ -112,4 +113,23 @@ export function registerOverlayDismissRequester(
 /** Re-run after entry DOM nodes mount, since the store emits before commit. */
 export function scheduleOverlayInertSync() {
   requestAnimationFrame(syncInert);
+}
+
+export function registerOverlayPageHost(
+  hostKey: string,
+  element: HTMLDivElement,
+): () => void {
+  installOverlayWebManager();
+  pageHosts.set(hostKey, element);
+  return () => {
+    if (pageHosts.get(hostKey) === element) {
+      pageHosts.delete(hostKey);
+    }
+  };
+}
+
+export function getOverlayPageHost(
+  hostKey: string | undefined,
+): HTMLDivElement | undefined {
+  return hostKey ? pageHosts.get(hostKey) : undefined;
 }

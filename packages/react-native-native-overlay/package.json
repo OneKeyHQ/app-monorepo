@@ -29,7 +29,8 @@
     },
     "ios": {
       "componentProvider": {
-        "RNCNativeOverlay": "RCTNativeOverlayComponentView"
+        "RNCNativeOverlay": "RCTNativeOverlayComponentView",
+        "RNCNativeOverlayPageHost": "RCTNativeOverlayPageHostComponentView"
       }
     }
   }

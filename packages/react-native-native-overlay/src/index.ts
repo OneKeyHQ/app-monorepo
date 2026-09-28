@@ -42,3 +42,10 @@ export type {
   IOverlaySheetOptions,
   IOverlayViewProps,
 } from './OverlayViewTypes';
+export {
+  OverlayPageHostScope,
+  OverlayPageOwnerScope,
+  useOverlayPageScope,
+} from './OverlayPageScope';
+export type { IOverlayPageScope } from './OverlayPageScope';
+export { OverlayPageHost } from './OverlayPageHost';

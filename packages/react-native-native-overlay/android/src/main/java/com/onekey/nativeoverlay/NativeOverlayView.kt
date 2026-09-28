@@ -50,6 +50,9 @@ class NativeOverlayView(
 ) : ViewGroup(reactContext) {
   var visible = false
   var level: String = "modal"
+  var scope: String = "global"
+  var hostKey: String = ""
+  var ownerKey: String = ""
   var presentation: String = "center"
   var stackOrder = 0
   var blocking = true
@@ -77,6 +80,7 @@ class NativeOverlayView(
   private var contentChild: View? = null
   private var entry: NativeOverlayEntryRootView? = null
   private var host: NativeOverlayHost? = null
+  private var pageHost: NativeOverlayPageHostView? = null
   private var contentAnimator: ValueAnimator? = null
   private var backdropAnimator: ValueAnimator? = null
   private var parsedConfigSource: String? = null
@@ -142,17 +146,30 @@ class NativeOverlayView(
   // Detach from window (screen removed, activity destroyed) ends the overlay.
   override fun onDetachedFromWindow() {
     super.onDetachedFromWindow()
-    if (phase != Phase.HIDDEN) finishDismiss("system")
+    // A page overlay's owner screen detaches when another screen covers it;
+    // the page host hides the entry, it is not closed.
+    if (phase != Phase.HIDDEN && scope != "page") finishDismiss("system")
   }
 
   private fun present() {
     val activity = reactContext.currentActivity ?: return
-    if (!isAttachedToWindow) return
+    if (!isAttachedToWindow && scope != "page") return
     val overlayHost = NativeOverlayHost.of(activity)
     val target = entry ?: makeEntry()
     applyEntryConfiguration(target)
-    host = overlayHost
-    overlayHost.attach(target, NativeOverlayLevel.from(level))
+    if (scope == "page") {
+      val page = NativeOverlayPageHostView.host(hostKey) ?: return
+      target.dispatchesJsTouches = false
+      target.levelOrder = NativeOverlayLevel.from(level).order
+      target.ownerKey = ownerKey
+      pageHost = page
+      page.attach(target)
+      // Back for page entries is resolved through the activity interceptor.
+      overlayHost.installBackInterceptor()
+    } else {
+      host = overlayHost
+      overlayHost.attach(target, NativeOverlayLevel.from(level))
+    }
     attachContent(target)
 
     val transition = config.enter.reduceMotionAdjusted(isReduceMotionEnabled())
@@ -163,7 +180,7 @@ class NativeOverlayView(
     cancelAnimators()
     phase = Phase.ENTERING
     target.isShownForInput = true
-    overlayHost.onEntriesChanged()
+    host?.onEntriesChanged()
     if (blocking) {
       target.sendAccessibilityEvent(AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED)
     }
@@ -203,9 +220,11 @@ class NativeOverlayView(
       target.isShownForInput = false
       stageContent()
       host?.detach(target)
+      pageHost?.detach(target)
     }
     entry = null
     host = null
+    pageHost = null
     if (reason == null || !cycleOpen) return
     cycleOpen = visible
     onDismissed?.invoke(reason)

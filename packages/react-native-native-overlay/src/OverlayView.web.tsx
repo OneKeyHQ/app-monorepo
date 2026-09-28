@@ -4,12 +4,14 @@ import type { ReactNode, SyntheticEvent } from 'react';
 import { createPortal } from 'react-dom';
 import { StyleSheet, View } from 'react-native';
 
-import { isBlockingLevel } from './OverlayLevels';
+import { OVERLAY_LEVEL_ORDER, isBlockingLevel } from './OverlayLevels';
+import { OVERLAY_OWNER_ATTRIBUTE } from './OverlayPageHost.web';
 import { useOverlayController } from './useOverlayController';
 import { animateBackdrop, animateTransition } from './web/animateTransition';
 import {
   ENTRY_ATTRIBUTE,
   getOverlayLayerRoot,
+  getOverlayPageHost,
   registerOverlayDismissRequester,
   scheduleOverlayInertSync,
 } from './web/overlayLayers';
@@ -53,6 +55,9 @@ interface IWebOverlayEntryProps {
   onRequestDismiss: (reason: IOverlayRequestDismissReason) => void;
   /** Set for `presentation="sheet"`. */
   sheet: IOverlaySheetOptions | undefined;
+  /** Page scope: stacking inside the page host and the owning page. */
+  zIndex: number;
+  ownerKey: string | undefined;
   testID?: string;
   children?: ReactNode;
 }
@@ -69,6 +74,8 @@ function WebOverlayEntry({
   onDismissed,
   onRequestDismiss,
   sheet,
+  zIndex,
+  ownerKey,
   testID,
   children,
 }: IWebOverlayEntryProps) {
@@ -174,6 +181,7 @@ function WebOverlayEntry({
     <div
       ref={entryRef}
       {...{ [ENTRY_ATTRIBUTE]: '' }}
+      {...(ownerKey ? { [OVERLAY_OWNER_ATTRIBUTE]: ownerKey } : {})}
       data-stack-order={stackOrder}
       data-testid={testID}
       role={blocking ? 'dialog' : undefined}
@@ -182,7 +190,7 @@ function WebOverlayEntry({
       style={{
         position: 'absolute',
         inset: 0,
-        zIndex: stackOrder,
+        zIndex,
         pointerEvents: 'none',
         outline: 'none',
       }}
@@ -270,12 +278,16 @@ export function OverlayView(props: IOverlayViewProps) {
     onHostPresented,
     onHostDismissed,
     onHostRequestDismiss,
+    scope,
+    hostKey,
+    ownerKey,
   } = useOverlayController(props);
 
   if (!mounted || !entry) {
     return null;
   }
 
+  const pageHost = scope === 'page' ? getOverlayPageHost(hostKey) : undefined;
   return createPortal(
     <WebOverlayEntry
       entryId={entry.id}
@@ -291,10 +303,15 @@ export function OverlayView(props: IOverlayViewProps) {
       onDismissed={onHostDismissed}
       onRequestDismiss={onHostRequestDismiss}
       sheet={presentation === 'sheet' ? (sheet ?? {}) : undefined}
+      // Inside a page host all levels share one stacking context.
+      zIndex={
+        pageHost ? OVERLAY_LEVEL_ORDER[level] * 1000 + entry.seq : entry.seq
+      }
+      ownerKey={pageHost ? ownerKey : undefined}
       testID={testID}
     >
       {children}
     </WebOverlayEntry>,
-    getOverlayLayerRoot(level),
+    pageHost ?? getOverlayLayerRoot(level),
   );
 }

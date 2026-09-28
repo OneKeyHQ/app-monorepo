@@ -10,6 +10,7 @@ import {
 
 import { OVERLAY_MOTION_PRESETS } from './animation/platformMotionPresets';
 import { resolveOverlayAnimation } from './animation/resolveAnimation';
+import { useOverlayPageScope } from './OverlayPageScope';
 import { overlayStore } from './OverlayStore';
 
 import type { IResolvedOverlayAnimation } from './animation/resolveAnimation';
@@ -23,8 +24,14 @@ export interface IOverlayController {
   entry: IOverlayEntry | undefined;
   /** Render the content (entry is active or closing). */
   mounted: boolean;
-  /** Ask the host to show the content (entry is active and not suspended). */
+  /**
+   * Ask the host to show the content. Page entries stay presented while
+   * suspended; the page host hides them instead (the owner may be frozen).
+   */
   presented: boolean;
+  scope: 'global' | 'page';
+  hostKey: string | undefined;
+  ownerKey: string | undefined;
   animation: IResolvedOverlayAnimation;
   onHostPresented: () => void;
   onHostDismissed: () => void;
@@ -56,6 +63,12 @@ export function useOverlayController(
     presentation = 'center',
     animation,
   } = props;
+  const pageScope = useOverlayPageScope();
+  const hostKey = props.hostKey ?? pageScope.hostKey;
+  const ownerKey = props.ownerKey ?? pageScope.ownerKey;
+  // Without a host or owner there is nowhere to anchor a page overlay.
+  const scope =
+    props.scope === 'page' && hostKey && ownerKey ? 'page' : 'global';
   const baseId = useId();
   const cycleRef = useRef(0);
   const [entryId, setEntryId] = useState<string | undefined>();
@@ -94,6 +107,9 @@ export function useOverlayController(
     overlayStore.request(
       {
         id,
+        scope,
+        hostKey,
+        ownerKey,
         level,
         strategy,
         priority,
@@ -163,7 +179,13 @@ export function useOverlayController(
   return {
     entry,
     mounted: !!entry && entry.phase !== 'queued',
-    presented: !!entry && entry.phase === 'active' && !entry.suspended,
+    presented:
+      !!entry &&
+      entry.phase === 'active' &&
+      (scope === 'page' || !entry.suspended),
+    scope,
+    hostKey: scope === 'page' ? hostKey : undefined,
+    ownerKey: scope === 'page' ? ownerKey : undefined,
     animation: resolvedAnimation,
     onHostPresented,
     onHostDismissed,

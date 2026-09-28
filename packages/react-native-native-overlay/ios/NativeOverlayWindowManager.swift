@@ -10,6 +10,18 @@ enum NativeOverlayLevel: String, CaseIterable {
   case lock
   case debug
 
+  /// Mirrors `OVERLAY_LEVEL_ORDER`.
+  var order: Int {
+    switch self {
+    case .modal: return 100
+    case .hardware: return 200
+    case .secure: return 300
+    case .toast: return 400
+    case .lock: return 500
+    case .debug: return 900
+    }
+  }
+
   var windowLevel: UIWindow.Level {
     switch self {
     // Above the app window (and every VC it presents), below system alerts.

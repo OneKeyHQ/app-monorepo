@@ -31,6 +31,10 @@ export interface INativeOverlayNativeProps extends ViewProps {
     'center' | 'toast' | 'fullscreen' | 'sheet' | 'anchored',
     'center'
   >;
+  scope?: WithDefault<'global' | 'page', 'global'>;
+  /** `page` scope: the `OverlayPageHost` to render in and the owning page. */
+  hostKey?: WithDefault<string, ''>;
+  ownerKey?: WithDefault<string, ''>;
   /** Order inside the level; higher renders above. */
   stackOrder?: WithDefault<Int32, 0>;
   /** Swallow touches that miss the content instead of passing them through. */

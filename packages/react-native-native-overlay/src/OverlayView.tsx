@@ -53,6 +53,9 @@ export function OverlayView(props: IOverlayViewProps) {
     entry,
     mounted,
     presented,
+    scope,
+    hostKey,
+    ownerKey,
     animation,
     onHostPresented,
     onHostDismissed,
@@ -90,6 +93,9 @@ export function OverlayView(props: IOverlayViewProps) {
       // A fitted sheet presents once its content height is known.
       visible={presented && (!isSheet || sheetHeight > 0)}
       level={level}
+      scope={scope}
+      hostKey={hostKey ?? ''}
+      ownerKey={ownerKey ?? ''}
       presentation={presentation}
       stackOrder={entry?.seq ?? 0}
       blocking={isBlocking}

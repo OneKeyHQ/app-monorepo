@@ -79,6 +79,18 @@ class NativeOverlayViewManager :
     view.level = value ?: "modal"
   }
 
+  override fun setScope(view: NativeOverlayView, value: String?) {
+    view.scope = value ?: "global"
+  }
+
+  override fun setHostKey(view: NativeOverlayView, value: String?) {
+    view.hostKey = value.orEmpty()
+  }
+
+  override fun setOwnerKey(view: NativeOverlayView, value: String?) {
+    view.ownerKey = value.orEmpty()
+  }
+
   override fun setPresentation(view: NativeOverlayView, value: String?) {
     view.presentation = value ?: "center"
   }

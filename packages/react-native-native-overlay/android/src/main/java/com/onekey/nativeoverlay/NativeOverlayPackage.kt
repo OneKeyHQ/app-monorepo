@@ -8,7 +8,7 @@ import com.facebook.react.uimanager.ViewManager
 class NativeOverlayPackage : ReactPackage {
   override fun createViewManagers(
     reactContext: ReactApplicationContext,
-  ): List<ViewManager<*, *>> = listOf(NativeOverlayViewManager())
+  ): List<ViewManager<*, *>> = listOf(NativeOverlayViewManager(), NativeOverlayPageHostViewManager())
 
   override fun createNativeModules(
     reactContext: ReactApplicationContext,

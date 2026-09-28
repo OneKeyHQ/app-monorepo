@@ -14,6 +14,8 @@ import com.facebook.react.common.annotations.UnstableReactNativeAPI
 import com.facebook.react.config.ReactFeatureFlags
 import com.facebook.react.uimanager.JSPointerDispatcher
 import com.facebook.react.uimanager.JSTouchDispatcher
+import com.facebook.react.uimanager.PointerEvents
+import com.facebook.react.uimanager.ReactPointerEventsView
 import com.facebook.react.uimanager.RootView
 import com.facebook.react.uimanager.ThemedReactContext
 import com.facebook.react.uimanager.events.EventDispatcher
@@ -35,9 +37,25 @@ internal class NativeOverlayContentView(context: ThemedReactContext) : ViewGroup
 @SuppressLint("ViewConstructor")
 internal class NativeOverlayEntryRootView(
   private val reactContext: ThemedReactContext,
-) : FrameLayout(reactContext), RootView {
+) : FrameLayout(reactContext), RootView, ReactPointerEventsView {
   var eventDispatcher: EventDispatcher? = null
+
+  /**
+   * Page entries are inside the ReactRootView, whose TouchTargetHelper reads
+   * this: blocking entries stop the search (touches never reach the page
+   * below), non-blocking ones let it continue past the empty area.
+   */
+  override val pointerEvents: PointerEvents
+    get() = if (blocking && isShownForInput) PointerEvents.AUTO else PointerEvents.BOX_NONE
   var stackOrder = 0
+  var levelOrder = 0
+  /** Page scope: the owning page, used by the page host to hide the entry. */
+  var ownerKey = ""
+  /**
+   * False for page scope: the entry is inside the ReactRootView, which already
+   * dispatches its touches; a second dispatcher would double every event.
+   */
+  var dispatchesJsTouches = true
   var blocking = true
   var dismissOnBackPress = true
   var dismissOnBackdropPress = false
@@ -209,6 +227,7 @@ internal class NativeOverlayEntryRootView(
   }
 
   override fun onInterceptTouchEvent(event: MotionEvent): Boolean {
+    if (!dispatchesJsTouches) return super.onInterceptTouchEvent(event)
     eventDispatcher?.let { dispatcher ->
       touchDispatcher.handleTouchEvent(event, dispatcher, reactContext)
       pointerDispatcher?.handleMotionEvent(event, dispatcher, true)
@@ -218,6 +237,10 @@ internal class NativeOverlayEntryRootView(
 
   @SuppressLint("ClickableViewAccessibility")
   override fun onTouchEvent(event: MotionEvent): Boolean {
+    if (!dispatchesJsTouches) {
+      super.onTouchEvent(event)
+      return blocking
+    }
     eventDispatcher?.let { dispatcher ->
       touchDispatcher.handleTouchEvent(event, dispatcher, reactContext)
       pointerDispatcher?.handleMotionEvent(event, dispatcher, false)

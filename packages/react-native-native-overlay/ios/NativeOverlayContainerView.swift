@@ -6,10 +6,20 @@ final class NativeOverlayEntryView: UIView {
   let backdropView = UIView()
   let contentView = UIView()
   var stackOrder = 0
+  var levelOrder = 0
+  /// Page scope: the owning page, used by the page host to hide the entry.
+  var ownerKey = ""
   var blocking = true
   var dismissOnBackPress = true
   var onEscape: (() -> Void)?
   var onBackdropTap: (() -> Void)?
+  /// Page sheet: the drag closed it past the threshold.
+  var onPanDismiss: (() -> Void)?
+
+  /// Page scope cannot use UIKit sheets (they always cover the window), so a
+  /// page sheet is this entry's content view pinned to the bottom.
+  private(set) var pageSheetHeight: CGFloat?
+  private var pageSheetPan: UIPanGestureRecognizer?
 
   override init(frame: CGRect) {
     super.init(frame: frame)
@@ -56,6 +66,70 @@ final class NativeOverlayEntryView: UIView {
     onBackdropTap?()
   }
 
+  func configurePageSheet(
+    height: CGFloat,
+    backgroundColor: UIColor,
+    cornerRadius: CGFloat,
+    draggable: Bool
+  ) {
+    pageSheetHeight = height
+    contentView.backgroundColor = backgroundColor
+    contentView.layer.cornerRadius = cornerRadius
+    contentView.layer.maskedCorners = [.layerMinXMinYCorner, .layerMaxXMinYCorner]
+    contentView.layer.cornerCurve = .continuous
+    contentView.clipsToBounds = true
+    contentView.autoresizingMask = [.flexibleWidth, .flexibleTopMargin]
+    layoutPageSheet()
+    if draggable, pageSheetPan == nil {
+      let pan = UIPanGestureRecognizer(target: self, action: #selector(handlePageSheetPan(_:)))
+      contentView.addGestureRecognizer(pan)
+      pageSheetPan = pan
+    }
+    pageSheetPan?.isEnabled = draggable
+  }
+
+  override func layoutSubviews() {
+    super.layoutSubviews()
+    layoutPageSheet()
+  }
+
+  private func layoutPageSheet() {
+    guard let height = pageSheetHeight else { return }
+    let sheetHeight = min(height, bounds.height)
+    // Keep the transform while animating; only the resting frame changes.
+    let transform = contentView.transform
+    contentView.transform = .identity
+    contentView.frame = CGRect(x: 0, y: bounds.height - sheetHeight, width: bounds.width, height: sheetHeight)
+    contentView.transform = transform
+  }
+
+  @objc private func handlePageSheetPan(_ pan: UIPanGestureRecognizer) {
+    let travel = max(pan.translation(in: self).y, 0)
+    let height = max(contentView.bounds.height, 1)
+    switch pan.state {
+    case .changed:
+      contentView.transform = CGAffineTransform(translationX: 0, y: travel)
+      backdropView.alpha = 1 - min(travel / height, 1)
+    case .ended, .cancelled:
+      let velocity = pan.velocity(in: self).y
+      if pan.state == .ended, travel > height * 0.4 || velocity > 1000 {
+        UIView.animate(withDuration: 0.2, delay: 0, options: [.curveEaseOut]) {
+          self.contentView.transform = CGAffineTransform(translationX: 0, y: height)
+          self.backdropView.alpha = 0
+        } completion: { _ in
+          self.onPanDismiss?()
+        }
+      } else {
+        UIView.animate(withDuration: 0.25, delay: 0, usingSpringWithDamping: 1, initialSpringVelocity: 0) {
+          self.contentView.transform = .identity
+          self.backdropView.alpha = 1
+        }
+      }
+    default:
+      break
+    }
+  }
+
   /// Union of the rendered React children; the root React view fills the window.
   func contentExtent() -> CGRect {
     let roots = contentView.subviews
@@ -71,6 +145,9 @@ final class NativeOverlayEntryView: UIView {
 @objc public final class NativeOverlayContainerView: UIView {
   @objc public var visible = false
   @objc public var level = "modal"
+  @objc public var scope = "global"
+  @objc public var hostKey = ""
+  @objc public var ownerKey = ""
   @objc public var presentation = "center"
   @objc public var stackOrder = 0
   @objc public var blocking = true
@@ -101,6 +178,9 @@ final class NativeOverlayEntryView: UIView {
   private var sheetController: NativeOverlaySheetController?
   private weak var hostWindow: UIWindow?
   private var isSheet: Bool { presentation == "sheet" }
+  private var isPageScope: Bool { scope == "page" }
+  /// UIKit sheets only for global scope; page sheets are drawn by the entry.
+  private var usesSystemSheet: Bool { isSheet && !isPageScope }
   private var animator: UIViewPropertyAnimator?
   private var backdropAnimator: UIViewPropertyAnimator?
   private var parsedConfigSource: String?
@@ -112,7 +192,9 @@ final class NativeOverlayEntryView: UIView {
     super.didMoveToWindow()
     if window != nil {
       commitConfiguration()
-    } else if phase != .hidden {
+    } else if phase != .hidden && !isPageScope {
+      // A page overlay's owner screen leaves the window when another screen
+      // is pushed over it; the page host hides the entry, it is not closed.
       finishDismiss(reason: "system")
     }
   }
@@ -169,7 +251,7 @@ final class NativeOverlayEntryView: UIView {
     if visible {
       cycleOpen = true
       // A sheet that is still animating out is re-presented after it finishes.
-      if phase == .hidden || (phase == .exiting && !isSheet) {
+      if phase == .hidden || (phase == .exiting && !usesSystemSheet) {
         present()
       }
     } else if cycleOpen {
@@ -194,19 +276,28 @@ final class NativeOverlayEntryView: UIView {
   // MARK: - Presentation
 
   private func present() {
-    guard let appWindow = window,
-          let overlayLevel = NativeOverlayLevel(rawValue: level),
-          let host = NativeOverlayWindowManager.shared.window(for: overlayLevel, appWindow: appWindow)
-    else { return }
-    hostWindow = host
-    if isSheet {
-      presentSheet(in: host)
-      return
+    guard let overlayLevel = NativeOverlayLevel(rawValue: level) else { return }
+    let entry: NativeOverlayEntryView
+    if isPageScope {
+      guard let pageHost = NativeOverlayPageHostView.host(for: hostKey) else { return }
+      entry = entryView ?? makeEntryView(in: pageHost)
+      entry.levelOrder = overlayLevel.order
+      entry.ownerKey = ownerKey
+      applyEntryConfiguration(entry)
+      pageHost.insert(entry)
+    } else {
+      guard let appWindow = window,
+            let host = NativeOverlayWindowManager.shared.window(for: overlayLevel, appWindow: appWindow)
+      else { return }
+      hostWindow = host
+      if isSheet {
+        presentSheet(in: host)
+        return
+      }
+      entry = entryView ?? makeEntryView(in: host)
+      applyEntryConfiguration(entry)
+      insert(entry, into: host)
     }
-
-    let entry = entryView ?? makeEntryView(in: host)
-    applyEntryConfiguration(entry)
-    insert(entry, into: host)
     if let child = contentChild, child.superview !== entry.contentView {
       entry.contentView.addSubview(child)
     }
@@ -254,7 +345,7 @@ final class NativeOverlayEntryView: UIView {
   }
 
   private func dismiss() {
-    if isSheet || sheetController != nil {
+    if usesSystemSheet || sheetController != nil {
       dismissSheet()
       return
     }
@@ -409,7 +500,14 @@ final class NativeOverlayEntryView: UIView {
       guard let self, self.dismissOnBackdropPress, self.phase != .exiting else { return }
       self.onRequestDismiss?(["reason": "backdrop"])
     }
-    if let touchHandler, touchHandler.view == nil {
+    entry.onPanDismiss = { [weak self] in
+      guard let self, self.phase == .shown || self.phase == .entering else { return }
+      self.finishDismiss(reason: nil)
+      self.onRequestDismiss?(["reason": "pan"])
+    }
+    // Page hosts live inside the React surface, whose touch handler already
+    // reaches the moved content; a second handler would double-dispatch.
+    if !isPageScope, let touchHandler, touchHandler.view == nil {
       touchHandler.perform(NSSelectorFromString("attachToView:"), with: entry)
     }
     entryView = entry
@@ -422,6 +520,14 @@ final class NativeOverlayEntryView: UIView {
     entry.dismissOnBackPress = dismissOnBackPress
     entry.accessibilityViewIsModal = blocking
     entry.backdropView.backgroundColor = backdropColor ?? .clear
+    if isPageScope && isSheet {
+      entry.configurePageSheet(
+        height: max(sheetHeight, 1),
+        backgroundColor: sheetBackgroundColor ?? .systemBackground,
+        cornerRadius: max(sheetCornerRadius, 0),
+        draggable: dismissOnPanDown
+      )
+    }
   }
 
   /// Keeps entries of one level ordered by `stackOrder`.
