@@ -10,6 +10,7 @@ import android.view.ViewGroup
 import android.widget.FrameLayout
 import androidx.coordinatorlayout.widget.CoordinatorLayout
 import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsAnimationCompat
 import androidx.core.view.WindowInsetsCompat
 import com.google.android.material.bottomsheet.BottomSheetBehavior
 import com.facebook.react.common.annotations.UnstableReactNativeAPI
@@ -29,6 +30,16 @@ import com.facebook.react.uimanager.events.EventDispatcher
  */
 internal class NativeOverlayContentView(context: ThemedReactContext) : ViewGroup(context) {
   override fun onLayout(changed: Boolean, l: Int, t: Int, r: Int, b: Int) = Unit
+}
+
+/**
+ * Carries the keyboard avoidance lift (translationY), so it composes with the
+ * enter / exit animation on the content or sheet inside it.
+ */
+internal class NativeOverlayKeyboardLayer(context: ThemedReactContext) : FrameLayout(context) {
+  init {
+    clipChildren = false
+  }
 }
 
 /**
@@ -66,7 +77,15 @@ internal class NativeOverlayEntryRootView(
   var onRequestDismiss: ((String) -> Unit)? = null
 
   val backdropView = View(reactContext).apply { alpha = 0f }
+  val keyboardLayer = NativeOverlayKeyboardLayer(reactContext)
   val contentView = NativeOverlayContentView(reactContext)
+
+  /** The lift finished changing; the owner re-reports where its content is. */
+  var onKeyboardShiftSettled: (() -> Unit)? = null
+  private var imeBottom = 0
+  private var safeTop = 0
+  private var sheetBottomPadding = 0
+  private var keyboardAnimating = false
 
   /** `sheet` presentation: the draggable surface; otherwise null. */
   var sheetView: FrameLayout? = null
@@ -91,7 +110,9 @@ internal class NativeOverlayEntryRootView(
   init {
     clipChildren = false
     addView(backdropView, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT))
-    addView(contentView, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT))
+    addView(keyboardLayer, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT))
+    keyboardLayer.addView(contentView, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT))
+    installKeyboardTracking()
     backdropView.setOnClickListener {
       if (dismissOnBackdropPress) onRequestDismiss?.invoke("backdrop")
     }
@@ -131,7 +152,8 @@ internal class NativeOverlayEntryRootView(
     }
     // The content sits above the navigation bar, as UIKit sheets keep it
     // above the home indicator; the surface still reaches the screen edge.
-    val targetHeight = heightPx + bottomSystemInset()
+    sheetBottomPadding = bottomSystemInset()
+    val targetHeight = heightPx + sheetBottomPadding
     val params = sheet.layoutParams
     if (params.height != targetHeight) {
       params.height = targetHeight
@@ -152,9 +174,9 @@ internal class NativeOverlayEntryRootView(
   }
 
   private fun createSheet(): FrameLayout {
-    removeView(contentView)
+    keyboardLayer.removeView(contentView)
     val coordinator = CoordinatorLayout(reactContext)
-    addView(coordinator, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT))
+    keyboardLayer.addView(coordinator, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT))
     val sheet = FrameLayout(reactContext).apply {
       background = GradientDrawable().apply { shape = GradientDrawable.RECTANGLE }
       clipToOutline = true
@@ -224,13 +246,99 @@ internal class NativeOverlayEntryRootView(
     return union
   }
 
+  // region Keyboard
+
+  /**
+   * IME insets arrive through this entry: applied insets for the resting
+   * state, the insets animation for the frames in between. Nothing is
+   * consumed, so the React content still sees them.
+   */
+  private fun installKeyboardTracking() {
+    ViewCompat.setOnApplyWindowInsetsListener(this) { _, insets ->
+      readInsets(insets)
+      if (!keyboardAnimating) {
+        updateKeyboardShift()
+        onKeyboardShiftSettled?.invoke()
+      }
+      insets
+    }
+    ViewCompat.setWindowInsetsAnimationCallback(
+      this,
+      object : WindowInsetsAnimationCompat.Callback(DISPATCH_MODE_CONTINUE_ON_SUBTREE) {
+        override fun onPrepare(animation: WindowInsetsAnimationCompat) {
+          if (animation.typeMask and WindowInsetsCompat.Type.ime() != 0) keyboardAnimating = true
+        }
+
+        override fun onProgress(
+          insets: WindowInsetsCompat,
+          runningAnimations: MutableList<WindowInsetsAnimationCompat>,
+        ): WindowInsetsCompat {
+          if (keyboardAnimating) {
+            readInsets(insets)
+            updateKeyboardShift()
+          }
+          return insets
+        }
+
+        override fun onEnd(animation: WindowInsetsAnimationCompat) {
+          if (animation.typeMask and WindowInsetsCompat.Type.ime() == 0) return
+          keyboardAnimating = false
+          ViewCompat.getRootWindowInsets(this@NativeOverlayEntryRootView)?.let(::readInsets)
+          updateKeyboardShift()
+          onKeyboardShiftSettled?.invoke()
+        }
+      },
+    )
+  }
+
+  private fun readInsets(insets: WindowInsetsCompat) {
+    imeBottom = insets.getInsets(WindowInsetsCompat.Type.ime()).bottom
+    safeTop = insets.getInsets(WindowInsetsCompat.Type.systemBars()).top
+  }
+
+  override fun onLayout(changed: Boolean, l: Int, t: Int, r: Int, b: Int) {
+    super.onLayout(changed, l, t, r, b)
+    if (changed) updateKeyboardShift()
+  }
+
+  /**
+   * Lifts the content above the IME, the same rule as iOS: a sheet until its
+   * content bottom clears the keyboard, other content until its bottom is
+   * 16dp above it, never above the status bar; full-window content stays.
+   */
+  fun updateKeyboardShift() {
+    val shift = if (imeBottom <= 0 || !isAttachedToWindow || height == 0) {
+      0f
+    } else {
+      val location = IntArray(2)
+      getLocationInWindow(location)
+      val keyboardTop = (rootView.height - imeBottom - location[1]).toFloat()
+      val sheet = sheetView
+      val needed: Float
+      val room: Float
+      if (sheet != null) {
+        val sheetTop = (height - sheet.layoutParams.height).toFloat()
+        needed = (height - sheetBottomPadding) - keyboardTop
+        room = sheetTop - safeTop
+      } else {
+        val extent = contentExtent()
+        needed = extent.bottom + KEYBOARD_MARGIN_DP * resources.displayMetrics.density - keyboardTop
+        room = (extent.top - safeTop).toFloat()
+      }
+      maxOf(0f, minOf(needed, room))
+    }
+    if (keyboardLayer.translationY != -shift) keyboardLayer.translationY = -shift
+  }
+
+  // endregion
+
   /**
    * Hit-tests the React content the way the JS touch dispatcher would, so
    * `box-none` wrappers (a full-window toaster, say) let touches through.
    */
   private fun hitsContent(event: MotionEvent): Boolean {
-    val x = event.x - contentView.left - contentView.translationX
-    val y = event.y - contentView.top - contentView.translationY
+    val x = event.x - keyboardLayer.translationX - contentView.left - contentView.translationX
+    val y = event.y - keyboardLayer.translationY - contentView.top - contentView.translationY
     for (i in contentView.childCount - 1 downTo 0) {
       val root = contentView.getChildAt(i) as? ViewGroup ?: continue
       if (root.visibility != View.VISIBLE) continue
@@ -303,3 +411,5 @@ internal class NativeOverlayEntryRootView(
 
   override fun requestDisallowInterceptTouchEvent(disallowIntercept: Boolean) = Unit
 }
+
+private const val KEYBOARD_MARGIN_DP = 16f

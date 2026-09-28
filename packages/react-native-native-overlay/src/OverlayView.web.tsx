@@ -15,6 +15,7 @@ import {
   registerOverlayDismissRequester,
   scheduleOverlayInertSync,
 } from './web/overlayLayers';
+import { useKeyboardShift } from './web/useKeyboardShift';
 import { useSheetDrag } from './web/useSheetDrag';
 
 import type { IResolvedOverlayAnimation } from './animation/resolveAnimation';
@@ -84,6 +85,7 @@ function WebOverlayEntry({
   const isSheet = !!sheet;
   const entryRef = useRef<HTMLDivElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
+  const keyboardLayerRef = useRef<HTMLDivElement>(null);
   const backdropRef = useRef<HTMLDivElement>(null);
   const directionRef = useRef<'in' | 'out' | undefined>(undefined);
   const restoreFocusRef = useRef<HTMLElement | null>(null);
@@ -163,6 +165,14 @@ function WebOverlayEntry({
     return () => backdropNode.removeEventListener('click', onBackdropClick);
   }, [dismissOnBackdropPress, onRequestDismiss]);
 
+  useKeyboardShift({
+    layerRef: keyboardLayerRef,
+    sheetRef,
+    contentRef,
+    isSheet,
+    enabled: presented,
+  });
+
   useSheetDrag({
     sheetRef,
     backdropRef,
@@ -208,52 +218,65 @@ function WebOverlayEntry({
           }}
         />
       ) : null}
+      {/* The keyboard lift lives on its own layer so it composes with the
+          enter / exit animation on the content below. It only carries a
+          transform while lifted: a transform would re-anchor fixed children. */}
       <div
-        ref={contentRef}
-        style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}
+        ref={keyboardLayerRef}
+        style={{
+          position: 'absolute',
+          inset: 0,
+          pointerEvents: 'none',
+          transition: 'transform 250ms ease-out',
+        }}
       >
-        {sheet ? (
-          <div
-            ref={sheetRef}
-            style={{
-              position: 'absolute',
-              left: 0,
-              right: 0,
-              bottom: 0,
-              height: sheet.height,
-              maxHeight: sheet.maxHeight ?? DEFAULT_SHEET_MAX_HEIGHT,
-              display: 'flex',
-              flexDirection: 'column',
-              overflow: 'hidden',
-              pointerEvents: 'auto',
-              touchAction: 'pan-y',
-              background: sheet.backgroundColor
-                ? String(sheet.backgroundColor)
-                : undefined,
-              borderTopLeftRadius: cornerRadius,
-              borderTopRightRadius: cornerRadius,
-            }}
-          >
-            {sheet.showHandle ? (
-              <div
-                style={{
-                  alignSelf: 'center',
-                  width: 36,
-                  height: 5,
-                  marginTop: 8,
-                  borderRadius: 2.5,
-                  background: 'rgba(0, 0, 0, 0.2)',
-                  flexShrink: 0,
-                }}
-              />
-            ) : null}
-            <View style={{ flexShrink: 1 }}>{children}</View>
-          </div>
-        ) : (
-          <View pointerEvents="box-none" style={StyleSheet.absoluteFill}>
-            {children}
-          </View>
-        )}
+        <div
+          ref={contentRef}
+          style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}
+        >
+          {sheet ? (
+            <div
+              ref={sheetRef}
+              style={{
+                position: 'absolute',
+                left: 0,
+                right: 0,
+                bottom: 0,
+                height: sheet.height,
+                maxHeight: sheet.maxHeight ?? DEFAULT_SHEET_MAX_HEIGHT,
+                display: 'flex',
+                flexDirection: 'column',
+                overflow: 'hidden',
+                pointerEvents: 'auto',
+                touchAction: 'pan-y',
+                background: sheet.backgroundColor
+                  ? String(sheet.backgroundColor)
+                  : undefined,
+                borderTopLeftRadius: cornerRadius,
+                borderTopRightRadius: cornerRadius,
+              }}
+            >
+              {sheet.showHandle ? (
+                <div
+                  style={{
+                    alignSelf: 'center',
+                    width: 36,
+                    height: 5,
+                    marginTop: 8,
+                    borderRadius: 2.5,
+                    background: 'rgba(0, 0, 0, 0.2)',
+                    flexShrink: 0,
+                  }}
+                />
+              ) : null}
+              <View style={{ flexShrink: 1 }}>{children}</View>
+            </div>
+          ) : (
+            <View pointerEvents="box-none" style={StyleSheet.absoluteFill}>
+              {children}
+            </View>
+          )}
+        </div>
       </div>
     </div>
   );

@@ -2,7 +2,7 @@ import { useCallback, useMemo } from 'react';
 import type { PropsWithChildren } from 'react';
 
 import { OverlayView } from '@onekeyfe/react-native-native-overlay';
-import { StyleSheet, View } from 'react-native';
+import { useWindowDimensions } from 'react-native';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -21,23 +21,13 @@ import type {
 
 const MAX_CONTENT_WIDTH = 400;
 const SHEET_CORNER_RADIUS = 24;
+const CENTER_SIDE_GUTTER = 20;
 const CENTER_THEME_DARK = { outlineColor: '$neutral5' } as const;
-const CENTER_OUTLINE_STYLE = { outlineStyle: 'solid' } as const;
-
-const styles = StyleSheet.create({
-  // The direct child of the overlay root: native animations scale around
-  // it, and it lets backdrop taps through around the card.
-  center: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 20,
-  },
-});
+const CENTER_CARD_STYLE = {
+  outlineStyle: 'solid',
+  alignSelf: 'center',
+  marginVertical: 'auto',
+} as const;
 
 export interface IOverlayDialogPresentationProps extends PropsWithChildren {
   open: boolean;
@@ -70,6 +60,7 @@ export function OverlayDialogPresentation({
   children,
 }: IOverlayDialogPresentationProps) {
   const theme = useTheme();
+  const { width: windowWidth } = useWindowDimensions();
   const surfaceColor = useMemo(() => {
     const token = (bg ?? '$bg').replace(/^\$/, '') as keyof typeof theme;
     return String(theme[token]?.val ?? theme.bg.val);
@@ -131,33 +122,34 @@ export function OverlayDialogPresentation({
           {children}
         </ThemeableStack>
       ) : (
-        <View style={styles.center} pointerEvents="box-none">
-          <ThemeableStack
-            width={MAX_CONTENT_WIDTH}
-            maxWidth="100%"
-            maxHeight="90%"
-            bg={bg ?? '$bg'}
-            borderRadius="$4"
-            borderCurve="continuous"
-            elevation={20}
-            outlineWidth={1}
-            outlineOffset={0}
-            outlineColor="$neutral3"
-            $theme-dark={CENTER_THEME_DARK}
-            style={CENTER_OUTLINE_STYLE}
-          >
-            {platformEnv.isNative ? (
-              // The card sits in an absolute-fill box, so Yoga measures it in
-              // AtMost mode and `flex: 1` children collapse; a ScrollView
-              // measures its content unconstrained, as the Tamagui dialog did.
-              <ScrollView bounces={false} keyboardShouldPersistTaps="handled">
-                {children}
-              </ScrollView>
-            ) : (
-              children
-            )}
-          </ThemeableStack>
-        </View>
+        // The card is the overlay root's direct child, centered by auto
+        // margins: native reads the root's children to find the content for
+        // the scale origin and the keyboard lift.
+        <ThemeableStack
+          width={MAX_CONTENT_WIDTH}
+          maxWidth={windowWidth - CENTER_SIDE_GUTTER * 2}
+          maxHeight="90%"
+          bg={bg ?? '$bg'}
+          borderRadius="$4"
+          borderCurve="continuous"
+          elevation={20}
+          outlineWidth={1}
+          outlineOffset={0}
+          outlineColor="$neutral3"
+          $theme-dark={CENTER_THEME_DARK}
+          style={CENTER_CARD_STYLE}
+        >
+          {platformEnv.isNative ? (
+            // Yoga measures the card in AtMost mode, so `flex: 1` children
+            // collapse; a ScrollView measures its content unconstrained, as
+            // the Tamagui dialog did.
+            <ScrollView bounces={false} keyboardShouldPersistTaps="handled">
+              {children}
+            </ScrollView>
+          ) : (
+            children
+          )}
+        </ThemeableStack>
       )}
     </OverlayView>
   );

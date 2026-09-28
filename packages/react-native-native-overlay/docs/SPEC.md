@@ -391,6 +391,26 @@ Measurement:
   (as react-native-screens does); `jni/RNCNativeOverlay.h` shadows the
   generated header so autolinking sees the custom descriptor.
 
+Keyboard avoidance:
+
+- One rule on every platform (`computeKeyboardShift` on web,
+  `NativeOverlayKeyboardShift` on iOS, `updateKeyboardShift` on Android): a
+  sheet rises until its content bottom clears the keyboard; other content
+  rises until its bottom is 16 pt above it; nothing rises above the top safe
+  area, so full-window content (toaster host, lock screen) never moves.
+- The lift lives on a keyboard layer between the entry and its animated
+  content, so it composes with enter / exit transforms, and `measure`
+  includes it.
+- iOS: a shared tracker follows `keyboardWillChangeFrame` from the first
+  overlay host on, animated with the keyboard's own curve; UIKit sheets keep
+  their native avoidance.
+- Android: each entry reads IME insets (applied insets at rest, the insets
+  animation per frame, nothing consumed); the app runs edge-to-edge through
+  react-native-keyboard-controller, so the window never pans for overlays.
+- Web: `visualViewport` resize / scroll on mobile browsers.
+- Center dialogs put the card itself at the overlay root (auto margins), so
+  the native content extent is the card, not a full-window wrapper.
+
 Migration rules (decided 2026-09-28):
 
 - No transition period. Every overlay (Dialog, Sheet, Toast, DialogLoading,
@@ -428,8 +448,6 @@ Future work (better to have):
 
 Known gaps:
 
-- Android sheet keyboard avoidance relies on the activity's `adjustPan`;
-  to verify with the emulator keyboard in soft-keyboard mode.
 - `statusBarStyle` is not implemented yet (required before the lock screen
   migrates).
 - The dev package version is a plain `0.1.0`: CocoaPods does not resolve a

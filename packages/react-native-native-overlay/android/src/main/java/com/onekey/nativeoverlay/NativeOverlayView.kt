@@ -337,6 +337,7 @@ class NativeOverlayView(
     val target = NativeOverlayEntryRootView(reactContext)
     target.eventDispatcher = eventDispatcher
     target.onRequestDismiss = { reason -> onRequestDismiss?.invoke(reason) }
+    target.onKeyboardShiftSettled = { reportContentOffset() }
     target.onSheetHiddenByPan = {
       if (phase == Phase.SHOWN || phase == Phase.ENTERING) {
         // Already off screen: tear down, then let JS close the entry; the
@@ -403,6 +404,11 @@ class NativeOverlayView(
     while (current != null) {
       x += current.left
       y += current.top
+      // The keyboard lift is a resting position, unlike animation transforms.
+      if (current is NativeOverlayKeyboardLayer) {
+        x += current.translationX
+        y += current.translationY
+      }
       val parent = current.parent as? View
       if (parent != null) {
         x -= parent.scrollX

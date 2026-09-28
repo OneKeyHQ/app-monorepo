@@ -4,6 +4,9 @@ import UIKit
 /// One overlay inside a level window: backdrop plus the reparented content.
 final class NativeOverlayEntryView: UIView {
   let backdropView = UIView()
+  /// Carries the keyboard avoidance lift, so it composes with the enter /
+  /// exit transforms animated on `contentView`.
+  let keyboardLayer = UIView()
   let contentView = UIView()
   var stackOrder = 0
   var levelOrder = 0
@@ -27,14 +30,24 @@ final class NativeOverlayEntryView: UIView {
     backdropView.frame = bounds
     backdropView.autoresizingMask = [.flexibleWidth, .flexibleHeight]
     backdropView.alpha = 0
+    keyboardLayer.frame = bounds
+    keyboardLayer.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+    keyboardLayer.backgroundColor = .clear
     contentView.frame = bounds
     contentView.autoresizingMask = [.flexibleWidth, .flexibleHeight]
     contentView.backgroundColor = .clear
     addSubview(backdropView)
-    addSubview(contentView)
+    addSubview(keyboardLayer)
+    keyboardLayer.addSubview(contentView)
     let tap = UITapGestureRecognizer(target: self, action: #selector(handleBackdropTap))
     tap.cancelsTouchesInView = false
     backdropView.addGestureRecognizer(tap)
+    NotificationCenter.default.addObserver(
+      self,
+      selector: #selector(keyboardDidChange),
+      name: NativeOverlayKeyboard.didChange,
+      object: nil
+    )
   }
 
   @available(*, unavailable)
@@ -48,7 +61,7 @@ final class NativeOverlayEntryView: UIView {
     guard let hit = super.hitTest(point, with: event) else { return nil }
     // The React root is `pointerEvents="box-none"`, so Fabric returns nil for
     // it and the plain content view reports itself when nothing was hit.
-    if hit === self || hit === contentView || hit === backdropView {
+    if hit === self || hit === keyboardLayer || hit === contentView || hit === backdropView {
       return blocking ? backdropView : nil
     }
     return hit
@@ -95,7 +108,54 @@ final class NativeOverlayEntryView: UIView {
   override func layoutSubviews() {
     super.layoutSubviews()
     layoutPageSheet()
+    updateKeyboardShift(animated: false)
     onLayout?()
+  }
+
+  override func didMoveToWindow() {
+    super.didMoveToWindow()
+    updateKeyboardShift(animated: false)
+  }
+
+  // MARK: - Keyboard
+
+  private var keyboardShift: CGFloat = 0
+
+  @objc private func keyboardDidChange() {
+    updateKeyboardShift(animated: true)
+  }
+
+  /// Lifts the content above the software keyboard (see
+  /// `NativeOverlayKeyboardShift`). A full-window content never moves.
+  func updateKeyboardShift(animated: Bool) {
+    let keyboard = NativeOverlayKeyboard.shared
+    let isSheet = pageSheetHeight != nil
+    // The resting frame, independent of the running enter / exit transform.
+    let contentFrame: CGRect
+    if isSheet {
+      let height = min(pageSheetHeight ?? 0, bounds.height)
+      contentFrame = CGRect(x: 0, y: bounds.height - height, width: bounds.width, height: height)
+    } else {
+      contentFrame = contentExtent()
+    }
+    let shift = NativeOverlayKeyboardShift.compute(
+      keyboardTop: window == nil ? nil : keyboard.top(in: self),
+      contentFrame: contentFrame,
+      contentBottom: contentFrame.maxY,
+      isSheet: isSheet,
+      safeTop: safeAreaInsets.top
+    )
+    guard abs(shift - keyboardShift) >= 0.5 else { return }
+    keyboardShift = shift
+    let apply = { self.keyboardLayer.transform = CGAffineTransform(translationX: 0, y: -shift) }
+    guard animated else {
+      apply()
+      onLayout?()
+      return
+    }
+    let animator = UIViewPropertyAnimator(duration: keyboard.duration, curve: keyboard.curve, animations: apply)
+    animator.addCompletion { [weak self] _ in self?.onLayout?() }
+    animator.startAnimation()
   }
 
   private func layoutPageSheet() {
@@ -212,6 +272,9 @@ final class NativeOverlayEntryView: UIView {
     super.init(frame: frame)
     // The staged child lives in this zero-size view while hidden.
     clipsToBounds = true
+    // Start tracking the keyboard with the first overlay host (the toaster
+    // host mounts at launch), so later entries know a keyboard already up.
+    _ = NativeOverlayKeyboard.shared
   }
 
   @available(*, unavailable)

@@ -1,8 +1,8 @@
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { OverlayView } from '@onekeyfe/react-native-native-overlay';
 import { useNavigation } from '@react-navigation/native';
-import { View } from 'react-native';
+import { Keyboard, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import {
@@ -273,7 +273,7 @@ function MeasureOverlay({
   presentation,
   onClosed,
 }: {
-  presentation: 'center' | 'sheet';
+  presentation: 'center' | 'sheet' | 'page-sheet';
   onClosed: () => void;
 }) {
   const [visible, setVisible] = useState(true);
@@ -288,18 +288,29 @@ function MeasureOverlay({
       );
     });
   }, []);
+  // Re-measure once the keyboard lift settles (native animates it with the
+  // keyboard).
+  useEffect(() => {
+    const remeasure = () => setTimeout(measure, 400);
+    const subs = [
+      Keyboard.addListener('keyboardDidShow', remeasure),
+      Keyboard.addListener('keyboardDidHide', remeasure),
+    ];
+    return () => subs.forEach((sub) => sub.remove());
+  }, [measure]);
   return (
     <OverlayView
       visible={visible}
       level="modal"
-      presentation={presentation}
+      scope={presentation === 'page-sheet' ? 'page' : 'global'}
+      presentation={presentation === 'center' ? 'center' : 'sheet'}
       backdrop={{ dismissOnPress: true }}
       onPresented={measure}
       onClose={onClosed}
     >
       <YStack
         alignSelf={presentation === 'center' ? 'center' : undefined}
-        mt={presentation === 'center' ? 200 : undefined}
+        mt={presentation === 'center' ? 420 : undefined}
         width={presentation === 'center' ? 300 : undefined}
         p="$5"
         gap="$3"
@@ -312,6 +323,14 @@ function MeasureOverlay({
           style={{ height: 40, backgroundColor: '#e11d48' }}
         />
         <SizableText testID="measure-result">{result}</SizableText>
+        <Input
+          testID="measure-input"
+          placeholder="Focus to open the keyboard"
+        />
+        <View
+          testID="measure-bottom"
+          style={{ height: 16, backgroundColor: '#2563eb' }}
+        />
         <XStack gap="$2">
           <Button size="small" onPress={measure}>
             Measure again
@@ -329,7 +348,9 @@ function NativeOverlayDemo() {
   const [specs, setSpecs] = useState<IDemoSpec[]>([]);
   const [matrixOrder, setMatrixOrder] = useState('');
   const [taps, setTaps] = useState(0);
-  const [measureMode, setMeasureMode] = useState<'center' | 'sheet'>();
+  const [measureMode, setMeasureMode] = useState<
+    'center' | 'sheet' | 'page-sheet'
+  >();
   const timers = useRef<ReturnType<typeof setTimeout>[]>([]);
 
   const open = useCallback((spec: IDemoSpec) => {
@@ -518,6 +539,9 @@ function NativeOverlayDemo() {
       <XStack gap="$2" flexWrap="wrap">
         <Button onPress={() => setMeasureMode('center')}>Measure center</Button>
         <Button onPress={() => setMeasureMode('sheet')}>Measure sheet</Button>
+        <Button onPress={() => setMeasureMode('page-sheet')}>
+          Measure page sheet
+        </Button>
       </XStack>
       <XStack gap="$2" flexWrap="wrap">
         <Button onPress={() => open(makeSpec('modal', { scope: 'page' }))}>
