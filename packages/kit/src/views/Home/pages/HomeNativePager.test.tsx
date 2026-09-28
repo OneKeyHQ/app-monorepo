@@ -1,19 +1,82 @@
-import { render } from '@testing-library/react-native';
+import { createRef } from 'react';
 
+import { act, render } from '@testing-library/react-native';
+
+import type { ITabContainerRef } from '@onekeyhq/components';
 import { EHomeWalletTab } from '@onekeyhq/shared/types/wallet';
 
 import { HomeNativePager } from './HomeNativePager.native';
+
+const mockSetPage = jest.fn();
+const mockSetPageWithoutAnimation = jest.fn();
+const mockNativeEvents: {
+  onPageScroll?: (event: {
+    nativeEvent: { position: number; offset: number };
+  }) => void;
+  onPageSelected?: (event: { nativeEvent: { position: number } }) => void;
+  onPageScrollStateChanged?: (event: {
+    nativeEvent: { pageScrollState: 'idle' | 'dragging' | 'settling' };
+  }) => void;
+} = {};
 
 jest.mock('@onekeyhq/components', () => ({
   useTheme: () => ({ bgApp: { val: '#ffffff' } }),
 }));
 jest.mock('react-native-pager-view', () => ({
-  CollapsiblePagerView: () => null,
+  CollapsiblePagerView: ({
+    ref,
+    ...events
+  }: { ref: React.Ref<unknown> } & typeof mockNativeEvents) => {
+    Object.assign(mockNativeEvents, events);
+    const { useImperativeHandle } =
+      jest.requireActual<typeof import('react')>('react');
+    useImperativeHandle(ref, () => ({
+      setPage: mockSetPage,
+      setPageWithoutAnimation: mockSetPageWithoutAnimation,
+    }));
+    return null;
+  },
 }));
 jest.mock('react-native-reanimated', () => {
   const { useRef } = jest.requireActual<typeof import('react')>('react');
   return { useSharedValue: (value: unknown) => useRef({ value }).current };
 });
+
+it.each([
+  ['Spot', 'Perps', 1, true],
+  ['Spot', 'History', 3, false],
+  ['History', 'NFT', 2, true],
+  ['History', 'Spot', 0, false],
+] as const)(
+  'switches from %s to %s with the default distance policy',
+  (initialTabName, targetName, targetIndex, animated) => {
+    mockSetPage.mockClear();
+    mockSetPageWithoutAnimation.mockClear();
+    const ref = createRef<ITabContainerRef>();
+    render(
+      <HomeNativePager
+        ref={ref}
+        tabs={[
+          { id: EHomeWalletTab.Portfolio, name: 'Spot', component: null },
+          { id: EHomeWalletTab.Perps, name: 'Perps', component: null },
+          { id: EHomeWalletTab.NFT, name: 'NFT', component: null },
+          { id: EHomeWalletTab.History, name: 'History', component: null },
+        ]}
+        initialTabName={initialTabName}
+        renderHeader={() => null}
+        renderTabBar={() => null}
+        onTabChange={jest.fn()}
+      />,
+    );
+    act(() => ref.current?.jumpToTab(targetName));
+    expect(
+      animated ? mockSetPage : mockSetPageWithoutAnimation,
+    ).toHaveBeenCalledWith(targetIndex);
+    expect(
+      animated ? mockSetPageWithoutAnimation : mockSetPage,
+    ).not.toHaveBeenCalled();
+  },
+);
 
 it('normalizes a removed selected key and does not reactivate it when restored', () => {
   const onTabChange = jest.fn();
@@ -39,3 +102,74 @@ it('normalizes a removed selected key and does not reactivate it when restored',
   expect(onTabChange).toHaveBeenCalledTimes(1);
   expect(focusedName).toBe('Spot');
 });
+
+it.each([
+  ['Spot', 'History', 0, 3],
+  ['History', 'Spot', 3, 0],
+] as const)(
+  'keeps %s to %s immediate selection aligned without a native scroll event',
+  (initialTabName, targetName, initialIndex, targetIndex) => {
+    const ref = createRef<ITabContainerRef>();
+    let tabBarState:
+      | { indexDecimal: { value: number }; focusedTab: { value: string } }
+      | undefined;
+    render(
+      <HomeNativePager
+        ref={ref}
+        tabs={[
+          { id: EHomeWalletTab.Portfolio, name: 'Spot', component: null },
+          { id: EHomeWalletTab.Perps, name: 'Perps', component: null },
+          { id: EHomeWalletTab.NFT, name: 'NFT', component: null },
+          { id: EHomeWalletTab.History, name: 'History', component: null },
+        ]}
+        initialTabName={initialTabName}
+        renderHeader={() => null}
+        renderTabBar={(props) => {
+          tabBarState = props;
+          return null;
+        }}
+        onTabChange={jest.fn()}
+      />,
+    );
+    act(() => ref.current?.jumpToTab(targetName));
+    expect(tabBarState?.indexDecimal.value).toBe(targetIndex);
+    act(() => {
+      mockNativeEvents.onPageSelected?.({
+        nativeEvent: { position: targetIndex },
+      });
+      // A queued progress event from the previous page must not undo the jump.
+      mockNativeEvents.onPageScroll?.({
+        nativeEvent: { position: initialIndex, offset: 0 },
+      });
+    });
+    expect(tabBarState?.indexDecimal.value).toBe(targetIndex);
+    expect(tabBarState?.focusedTab.value).toBe(targetName);
+    expect(ref.current?.getCurrentIndex()).toBe(targetIndex);
+
+    act(() => {
+      mockNativeEvents.onPageScrollStateChanged?.({
+        nativeEvent: { pageScrollState: 'dragging' },
+      });
+      mockNativeEvents.onPageScroll?.({
+        nativeEvent: { position: 1, offset: 0.4 },
+      });
+    });
+    expect(tabBarState?.indexDecimal.value).toBe(1.4);
+
+    act(() => ref.current?.jumpToTab(initialTabName));
+    act(() => {
+      mockNativeEvents.onPageSelected?.({
+        nativeEvent: { position: initialIndex },
+      });
+    });
+    const adjacentIndex = initialIndex === 0 ? 1 : 2;
+    act(() => ref.current?.setIndex(adjacentIndex));
+    expect(tabBarState?.indexDecimal.value).toBe(initialIndex);
+    act(() => {
+      mockNativeEvents.onPageScroll?.({
+        nativeEvent: { position: 1, offset: 0.6 },
+      });
+    });
+    expect(tabBarState?.indexDecimal.value).toBe(1.6);
+  },
+);

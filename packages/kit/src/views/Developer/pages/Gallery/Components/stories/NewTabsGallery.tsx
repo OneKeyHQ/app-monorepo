@@ -1,9 +1,10 @@
 import { useCallback, useMemo, useRef, useState } from 'react';
+import type { ComponentRef } from 'react';
 
 import { NativeList } from '@onekeyfe/react-native-native-list';
 import { useHeaderHeight } from '@react-navigation/elements';
-import { View } from 'react-native';
-import { CollapsiblePagerView } from 'react-native-pager-view';
+import { RefreshControl, View } from 'react-native';
+import { CollapsiblePagerView, NativeScroller } from 'react-native-pager-view';
 
 import {
   Button,
@@ -552,6 +553,8 @@ const HOME_FIXTURE_IMAGE = {
 
 function HomeNativeListFixture({ onClose }: { onClose: () => void }) {
   const pagerRef = useRef<CollapsiblePagerView>(null);
+  const scrollerRef = useRef<ComponentRef<typeof NativeScroller>>(null);
+  const scrollerMeasureRef = useRef<View>(null);
   const headerHeight = useHeaderHeight();
   // This standalone fixture bypasses Layout's transparent navigation bar inset.
   const bodyPaddingTop = platformEnv.isNativeIOS26Plus ? headerHeight : 0;
@@ -725,6 +728,25 @@ function HomeNativeListFixture({ onClose }: { onClose: () => void }) {
           >
             {columns} columns
           </Button>
+          <Button
+            testID="home-native-fixture-scroll-end"
+            size="small"
+            onPress={() => scrollerRef.current?.scrollToEnd({ animated: true })}
+          >
+            Scroll end
+          </Button>
+          <Button
+            testID="home-native-fixture-measure"
+            size="small"
+            onPress={() =>
+              scrollerMeasureRef.current?.measureInWindow(
+                (_x, y, _width, height) =>
+                  setStatus(`Anchor y=${y.toFixed(1)} h=${height.toFixed(1)}`),
+              )
+            }
+          >
+            Measure row
+          </Button>
         </XStack>
         <SizableText px="$3" testID="home-native-fixture-status">
           {status} · refresh {refreshCount}
@@ -765,6 +787,12 @@ function HomeNativeListFixture({ onClose }: { onClose: () => void }) {
               >
                 NFTs
               </Button>
+              <Button
+                testID="home-native-fixture-scroller"
+                onPress={() => pagerRef.current?.setPageWithoutAnimation(2)}
+              >
+                Scroller
+              </Button>
             </XStack>
           }
           onPageSelected={({ nativeEvent }) =>
@@ -803,6 +831,50 @@ function HomeNativeListFixture({ onClose }: { onClose: () => void }) {
               snapshot={nfts}
               onRowAction={({ rowKey }) => setStatus(`Pressed ${rowKey}`)}
             />
+          </View>
+          <View key="scroller" collapsable={false} style={{ flex: 1 }}>
+            <NativeScroller
+              ref={scrollerRef}
+              testID="home-native-fixture-scroller-content"
+              pagerScrollKey="scroller"
+              style={{ flex: 1 }}
+              contentContainerStyle={{ padding: 16, flexGrow: 1 }}
+              refreshControl={
+                <RefreshControl
+                  refreshing={refreshing}
+                  onRefresh={() => {
+                    setRefreshing(true);
+                    setRefreshCount((value) => value + 1);
+                  }}
+                />
+              }
+              onScrollBeginDrag={() => setStatus('Scroller drag')}
+              onScrollEndDrag={() => setStatus('Scroller release')}
+              onMomentumScrollBegin={() => setStatus('Scroller momentum')}
+              onMomentumScrollEnd={() => setStatus('Scroller settled')}
+            >
+              {empty ? (
+                <SizableText>Empty React content</SizableText>
+              ) : (
+                Array.from({ length: 24 }, (_, index) => (
+                  <View
+                    key={index}
+                    ref={index === 23 ? scrollerMeasureRef : undefined}
+                    collapsable={false}
+                    testID={`home-native-fixture-scroller-anchor-${index}`}
+                  >
+                    <Button
+                      testID={`home-native-fixture-scroller-row-${index}`}
+                      height={64}
+                      my="$1"
+                      onPress={() => setStatus(`React row ${index}`)}
+                    >
+                      React row {index}
+                    </Button>
+                  </View>
+                ))
+              )}
+            </NativeScroller>
           </View>
         </CollapsiblePagerView>
       </Page.Body>

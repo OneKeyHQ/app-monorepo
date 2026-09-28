@@ -287,6 +287,20 @@ function NativeBannerScroller({
     [handleBannerOnPress],
   );
 
+  const bannerItems = (
+    <>
+      {leadingContent}
+      {banners.map((item) => (
+        <BannerItem
+          key={item.id}
+          item={item}
+          onPress={wrappedHandleBannerOnPress}
+          onDismiss={handleDismiss}
+        />
+      ))}
+    </>
+  );
+
   return (
     <HomeHeaderGesture>
       <YStack
@@ -296,28 +310,36 @@ function NativeBannerScroller({
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
       >
-        <GestureDetector gesture={panGesture}>
-          <Animated.View
-            style={[
-              {
-                flexDirection: 'row',
-                paddingHorizontal: BANNER_PADDING_H,
-                gap: BANNER_GAP,
-              },
-              animatedStyle,
-            ]}
+        {platformEnv.isNativeAndroid ? (
+          // The native pager recognizes horizontal scroll owners in its shared header.
+          <ScrollView
+            testID="home-wallet-banner-scroll"
+            horizontal
+            flexGrow={0}
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={{
+              paddingHorizontal: BANNER_PADDING_H,
+              gap: BANNER_GAP,
+            }}
           >
-            {leadingContent}
-            {banners.map((item) => (
-              <BannerItem
-                key={item.id}
-                item={item}
-                onPress={wrappedHandleBannerOnPress}
-                onDismiss={handleDismiss}
-              />
-            ))}
-          </Animated.View>
-        </GestureDetector>
+            {bannerItems}
+          </ScrollView>
+        ) : (
+          <GestureDetector gesture={panGesture}>
+            <Animated.View
+              style={[
+                {
+                  flexDirection: 'row',
+                  paddingHorizontal: BANNER_PADDING_H,
+                  gap: BANNER_GAP,
+                },
+                animatedStyle,
+              ]}
+            >
+              {bannerItems}
+            </Animated.View>
+          </GestureDetector>
+        )}
       </YStack>
     </HomeHeaderGesture>
   );

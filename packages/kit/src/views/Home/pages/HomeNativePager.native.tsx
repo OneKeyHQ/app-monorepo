@@ -41,14 +41,24 @@ export function HomeNativePager({
   const indexDecimal = useSharedValue(initialIndex);
   const theme = useTheme();
   const selectedIndexRef = useRef(selectedIndex);
+  const followsPageScrollRef = useRef(true);
   selectedIndexRef.current = selectedIndex;
 
   const setIndex = useCallback(
     (index: number) => {
       if (!tabs[index]) return;
-      pagerRef.current?.setPage(index);
+      if (Math.abs(index - selectedIndexRef.current) > 1) {
+        // Immediate jumps may omit progress events; ignore queued old progress
+        // until the next drag or animated command takes ownership.
+        followsPageScrollRef.current = false;
+        indexDecimal.value = index;
+        pagerRef.current?.setPageWithoutAnimation(index);
+      } else {
+        followsPageScrollRef.current = true;
+        pagerRef.current?.setPage(index);
+      }
     },
-    [tabs],
+    [indexDecimal, tabs],
   );
   const jumpToTab = useCallback(
     (name: string) => {
@@ -138,7 +148,14 @@ export function HomeNativePager({
         </View>
       }
       onPageScroll={({ nativeEvent }) => {
-        indexDecimal.value = nativeEvent.position + nativeEvent.offset;
+        if (followsPageScrollRef.current) {
+          indexDecimal.value = nativeEvent.position + nativeEvent.offset;
+        }
+      }}
+      onPageScrollStateChanged={({ nativeEvent }) => {
+        if (nativeEvent.pageScrollState === 'dragging') {
+          followsPageScrollRef.current = true;
+        }
       }}
       onPageSelected={({ nativeEvent }) => {
         const tab = tabs[nativeEvent.position];
