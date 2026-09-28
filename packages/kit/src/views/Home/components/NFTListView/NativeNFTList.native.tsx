@@ -75,23 +75,22 @@ export function NFTListView({
     [filteredNfts, network?.id],
   );
   const networkRequestIdentity = JSON.stringify(networkIds.toSorted());
-  const { result: networks } = usePromiseResult(
-    async () =>
-      Object.fromEntries(
-        await Promise.all(
-          (JSON.parse(networkRequestIdentity) as string[]).map(
-            async (networkId) =>
-              [
-                networkId,
-                await backgroundApiProxy.serviceNetwork.getNetwork({
-                  networkId,
-                }),
-              ] as const,
-          ),
-        ),
+  const { result: networks } = usePromiseResult(async () => {
+    const results = await Promise.allSettled(
+      (JSON.parse(networkRequestIdentity) as string[]).map(
+        async (networkId) =>
+          [
+            networkId,
+            await backgroundApiProxy.serviceNetwork.getNetwork({ networkId }),
+          ] as const,
       ),
-    [networkRequestIdentity],
-  );
+    );
+    return Object.fromEntries(
+      results.flatMap((result) =>
+        result.status === 'fulfilled' ? [result.value] : [],
+      ),
+    );
+  }, [networkRequestIdentity]);
   const identity = `${account?.id ?? ''}:${network?.id ?? ''}`;
   const itemsByKey = useMemo(
     () =>

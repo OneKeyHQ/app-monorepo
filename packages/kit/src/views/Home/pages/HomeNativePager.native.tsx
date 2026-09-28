@@ -66,6 +66,11 @@ export function HomeNativePager({
     },
     [setIndex, tabs],
   );
+  const syncCurrentPage = useCallback(() => {
+    followsPageScrollRef.current = false;
+    indexDecimal.value = selectedIndexRef.current;
+    pagerRef.current?.setPageWithoutAnimation(selectedIndexRef.current);
+  }, [indexDecimal]);
   useImperativeHandle(
     ref,
     () => ({
@@ -73,10 +78,9 @@ export function HomeNativePager({
       setIndex,
       getCurrentIndex: () => selectedIndexRef.current,
       getFocusedTab: () => tabs[selectedIndexRef.current]?.name ?? '',
-      syncCurrentPage: () =>
-        pagerRef.current?.setPageWithoutAnimation(selectedIndexRef.current),
+      syncCurrentPage,
     }),
-    [jumpToTab, setIndex, tabs],
+    [jumpToTab, setIndex, syncCurrentPage, tabs],
   );
 
   // Dynamic network capabilities may remove or reorder tabs. Restore the
@@ -92,6 +96,7 @@ export function HomeNativePager({
       onTabChange({ tabName: selectedTab.name });
     }
     focusedTab.value = selectedTab?.name ?? '';
+    followsPageScrollRef.current = false;
     indexDecimal.value = selectedIndex;
     pagerRef.current?.setPageWithoutAnimation(selectedIndex);
   }, [

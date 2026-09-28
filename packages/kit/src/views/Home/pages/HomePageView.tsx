@@ -960,7 +960,17 @@ export function HomePageView({
         <HomeNativePager
           ref={tabsRef}
           key={key}
-          tabs={pagerTabConfigs}
+          tabs={pagerTabConfigs.map((tab) => ({
+            ...tab,
+            component:
+              tab.id !== EHomeWalletTab.Perps ||
+              activeTabId === tab.id ||
+              mountedHomeTabIds.has(tab.id) ? (
+                tab.component
+              ) : (
+                <Stack flex={1} />
+              ),
+          }))}
           initialTabName={seedTabName}
           renderHeader={renderHeader}
           renderTabBar={renderTabBar}

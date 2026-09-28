@@ -103,6 +103,46 @@ it('normalizes a removed selected key and does not reactivate it when restored',
   expect(focusedName).toBe('Spot');
 });
 
+it('ignores queued scroll progress after restoring a reordered tab', () => {
+  const spot = { id: EHomeWalletTab.Portfolio, name: 'Spot', component: null };
+  const perps = { id: EHomeWalletTab.Perps, name: 'Perps', component: null };
+  const history = {
+    id: EHomeWalletTab.History,
+    name: 'History',
+    component: null,
+  };
+  let indexDecimal: { value: number } | undefined;
+  const common = {
+    initialTabName: 'History',
+    renderHeader: () => null,
+    renderTabBar: (props: { indexDecimal: { value: number } }) => {
+      indexDecimal = props.indexDecimal;
+      return null;
+    },
+    onTabChange: jest.fn(),
+  };
+  const { rerender } = render(
+    <HomeNativePager {...common} tabs={[spot, perps, history]} />,
+  );
+  rerender(<HomeNativePager {...common} tabs={[spot, history]} />);
+  expect(indexDecimal?.value).toBe(1);
+  act(() => {
+    mockNativeEvents.onPageScroll?.({
+      nativeEvent: { position: 2, offset: 0 },
+    });
+  });
+  expect(indexDecimal?.value).toBe(1);
+  act(() => {
+    mockNativeEvents.onPageScrollStateChanged?.({
+      nativeEvent: { pageScrollState: 'dragging' },
+    });
+    mockNativeEvents.onPageScroll?.({
+      nativeEvent: { position: 0, offset: 0.5 },
+    });
+  });
+  expect(indexDecimal?.value).toBe(0.5);
+});
+
 it.each([
   ['Spot', 'History', 0, 3],
   ['History', 'Spot', 3, 0],
