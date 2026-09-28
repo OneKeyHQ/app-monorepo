@@ -113,6 +113,7 @@ function StockTickerList({ closePopover }: { closePopover: () => void }) {
       <ScrollView
         flex={md ? 1 : undefined}
         maxHeight={md ? undefined : 604}
+        keyboardDismissMode="on-drag"
         keyboardShouldPersistTaps="handled"
         onScroll={handleScroll}
         scrollEventThrottle={16}
