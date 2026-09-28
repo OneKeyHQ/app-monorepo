@@ -198,6 +198,11 @@ const DotMapGallery = LazyLoadPage(
     import('@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/DotMap'),
 );
 
+const EarnPositionModelGallery = LazyLoadPage(
+  () =>
+    import('@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/EarnPositionModelGallery'),
+);
+
 const UsePromiseResultGallery = LazyLoadPage(
   () =>
     import('@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/UsePromiseResult'),
@@ -488,6 +493,10 @@ export const galleryScreenList: {
   {
     name: EGalleryRoutes.ComponentDotMap,
     component: DotMapGallery,
+  },
+  {
+    name: EGalleryRoutes.ComponentEarnPositionModel,
+    component: EarnPositionModelGallery,
   },
   {
     name: EGalleryRoutes.ComponentUsePromiseResult,

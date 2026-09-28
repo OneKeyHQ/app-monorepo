@@ -10,6 +10,7 @@ export enum EGalleryRoutes {
   ComponentFirmwareUpdateInstall = 'component-FirmwareUpdateInstall',
   ComponentDiscoveryBrowser = 'component-DiscoveryBrowser',
   ComponentDotMap = 'component-DotMap',
+  ComponentEarnPositionModel = 'component-EarnPositionModel',
   ComponentErrorToast = 'component-ErrorToast',
   ComponentForm = 'component-Form',
   ComponentFirmwareArtifact = 'component-FirmwareArtifact',
