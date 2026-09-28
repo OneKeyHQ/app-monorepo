@@ -757,7 +757,14 @@ function DeFiListBlock({
         isForceRefresh:
           allNetworkManualForceRefreshRef.current || shouldForceInitialRefresh,
       });
-      if (r.protocols.length && liveOwnerKeyRef.current === currentOwnerKey) {
+      // Not for a superseded run either: the run that replaced it would then
+      // finish believing positions are on the way and never settle its empty
+      // state.
+      if (
+        r.protocols.length &&
+        liveOwnerKeyRef.current === currentOwnerKey &&
+        isRunCurrent?.() !== false
+      ) {
         fanOutPositionsOwnerKeyRef.current = currentOwnerKey;
       }
 

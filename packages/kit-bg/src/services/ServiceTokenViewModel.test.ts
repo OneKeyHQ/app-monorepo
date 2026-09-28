@@ -795,5 +795,58 @@ describe('ServiceTokenViewModel', () => {
         ['live'],
       ]);
     });
+
+    // Same race with nothing in the local cache: the round that landed is
+    // still the owner's frames, so the prewarm hands them over rather than
+    // reporting an empty cache (which made the selector paint a switch
+    // skeleton for an owner the background already held).
+    it('returns the frames of an owner whose round lands while an empty local cache is read', async () => {
+      jest
+        .spyOn(settingsPersistAtom, 'get')
+        .mockResolvedValue({ currencyInfo: { id: 'usd' } } as Awaited<
+          ReturnType<typeof settingsPersistAtom.get>
+        >);
+      let resolveLocalTokens: (value: unknown) => void = () => {};
+      const svc = new ServiceTokenViewModel({
+        backgroundApi: {
+          serviceToken: {
+            getAccountLocalTokens: () =>
+              new Promise((resolve) => {
+                resolveLocalTokens = resolve;
+              }),
+            getHomeDefaultTokenMap: async () => ({}),
+          },
+          serviceCustomToken: { getCustomTokensBatch: async () => [] },
+        },
+      } as unknown as ConstructorParameters<typeof ServiceTokenViewModel>[0]);
+
+      const prewarm = svc.prewarmHomeTokenListFrames({
+        networkId: 'net1',
+        deriveType: undefined,
+        othersWalletAccountId: 'acc1',
+      });
+      await new Promise((resolve) => setTimeout(resolve, 0));
+
+      void svc.ingestRound(
+        makeRound({
+          orderedTokens: [makeToken('live')],
+          tokenListMap: { live: makeFiat({ balance: '2', fiatValue: '20' }) },
+          source: 'single',
+        }),
+      );
+      resolveLocalTokens({
+        hasCache: false,
+        tokenList: [],
+        smallBalanceTokenList: [],
+        riskyTokenList: [],
+        tokenListMap: {},
+        tokenListValue: '0',
+        currency: 'usd',
+      });
+      const result = await prewarm;
+
+      expect(result?.frames.structure?.orderedIds).toEqual(['live']);
+      expect(result?.worth).toBeUndefined();
+    });
   });
 });

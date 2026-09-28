@@ -586,6 +586,15 @@ class ServiceTokenViewModel extends ServiceBase {
         accountId,
         networkId,
       });
+      // The owner's own rounds can land while the cache is read (the home page
+      // fetching the owner it was just switched to, or still seeding it after
+      // a cold start). Their frames are what the switch should paint, whether
+      // or not the local cache had anything: return them, as for a resident
+      // owner, instead of reporting an empty cache.
+      if (isOwnerResident()) {
+        const frames = await this.getTokenListFrames({ ownerKey });
+        return frames.structure ? { ownerKey, frames, currency } : undefined;
+      }
       if (
         !localTokens.hasCache ||
         (localTokens.tokenList.length === 0 &&
@@ -614,10 +623,8 @@ class ServiceTokenViewModel extends ServiceBase {
           ],
         }),
       ]);
-      // The owner's own rounds can land while the cache is read (the home page
-      // fetching the owner it was just switched to, or still seeding it after
-      // a cold start). This provisional seed must not replace them: return
-      // the frames that are there, as for a resident owner.
+      // Same re-check after the reads above: this provisional seed must not
+      // replace a round that landed meanwhile.
       if (isOwnerResident()) {
         const frames = await this.getTokenListFrames({ ownerKey });
         return frames.structure ? { ownerKey, frames, currency } : undefined;
