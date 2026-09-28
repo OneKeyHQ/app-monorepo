@@ -43,10 +43,6 @@ import { TradingViewNative } from '@onekeyhq/kit/src/components/TradingView/Trad
 import { TRADING_VIEW_NATIVE_SUB_INDICATOR_PANE_HEIGHT } from '@onekeyhq/kit/src/components/TradingView/TradingViewNative/chartConstants';
 import { getTradingViewNativeIntervalStorageNamespace } from '@onekeyhq/kit/src/components/TradingView/TradingViewNative/data/tradingViewNativeIntervalStorage';
 import type { ITradingViewNativeIntervalStorageNamespace } from '@onekeyhq/kit/src/components/TradingView/TradingViewNative/data/tradingViewNativeIntervalStorage';
-import {
-  getTradingViewNativeSubIndicatorInstances,
-  normalizeTradingViewNativeIndicatorSettings,
-} from '@onekeyhq/kit/src/components/TradingView/TradingViewNative/indicatorSettingsAdapter';
 import { shouldReserveTradingViewNativeIndicatorQuickBar } from '@onekeyhq/kit/src/components/TradingView/TradingViewV2';
 import type { ITradingViewNativeIndicatorQuickBarState } from '@onekeyhq/kit/src/components/TradingView/TradingViewV2';
 import {
@@ -57,7 +53,6 @@ import type { IMarketKLineDataFallback } from '@onekeyhq/kit/src/components/Trad
 import { useMobileTabTouchScrollBridge } from '@onekeyhq/kit/src/hooks/useMobileTabTouchScrollBridge';
 import {
   EJotaiContextStoreNames,
-  useMarketTradingViewIndicatorSettingsPersistAtom,
   useMarketTradingViewSubIndicatorCountPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { IMarketTradingViewStorageNamespace } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
@@ -83,6 +78,7 @@ import { LazyMobileMarketTradingView } from '../components/MarketTradingView/Laz
 import { PerpetualTradingBanner } from '../components/PerpetualTradingBanner/PerpetualTradingBanner';
 import { useStockDetail } from '../hooks/StockDetailContext';
 import { useMarketDetailDisplayData } from '../hooks/useMarketDetailDisplayData';
+import { useMarketNativeChartLayout } from '../hooks/useMarketNativeChartLayout';
 import { useMarketNativeChartPriceUpdate } from '../hooks/useMarketNativeChartPriceUpdate';
 import { useMarketTradingViewParams } from '../hooks/useTokenDetail';
 import { useTradingViewSubIndicatorCount } from '../hooks/useTradingViewSubIndicatorCount';
@@ -486,17 +482,10 @@ export function MobileLayout({
         storageNamespace: marketTradingViewStorageNamespace,
       })
     : undefined;
-  const [nativeIndicatorSettings] =
-    useMarketTradingViewIndicatorSettingsPersistAtom();
-  // Size the container from the same settings the native chart renders. Its
-  // count callback runs after paint, which would resize the chart a frame late.
-  const nativeSubIndicatorCount = useMemo(
-    () =>
-      getTradingViewNativeSubIndicatorInstances(
-        normalizeTradingViewNativeIndicatorSettings(nativeIndicatorSettings),
-      ).length,
-    [nativeIndicatorSettings],
-  );
+  const {
+    panelCount: nativePanelCount,
+    subIndicatorCount: nativeSubIndicatorCount,
+  } = useMarketNativeChartLayout();
   let initialSubIndicatorCount =
     MARKET_DETAIL_TRADING_VIEW_DEFAULT_SUB_INDICATOR_COUNT;
   if (isTradingViewNative) {
@@ -653,8 +642,11 @@ export function MobileLayout({
   const chartSubIndicatorCount = isTradingViewNative
     ? nativeSubIndicatorCount
     : tradingViewSubIndicatorCount;
+  const [isNativeChartResizing, setIsNativeChartResizing] = useState(false);
   const isTradingViewScrollLocked =
-    isTradingViewIndicatorsDialogOpen || isTradingViewInteractionOverlayOpen;
+    isTradingViewIndicatorsDialogOpen ||
+    isTradingViewInteractionOverlayOpen ||
+    isNativeChartResizing;
   const secondTabTouchStartRef = useRef<{
     pageX: number;
     pageY: number;
@@ -790,6 +782,10 @@ export function MobileLayout({
     );
 
   const tradingViewChartHeight = useMemo(() => {
+    if (isTradingViewNative && nativePanelCount > 1) {
+      const columns = layoutPageWidth >= 600 ? 2 : 1;
+      return Math.ceil(nativePanelCount / columns) * 340 + 32;
+    }
     if (
       typeof tradingViewHeight === 'number' &&
       shouldReserveNativeIndicatorQuickBar
@@ -801,7 +797,13 @@ export function MobileLayout({
     }
 
     return tradingViewHeight;
-  }, [shouldReserveNativeIndicatorQuickBar, tradingViewHeight]);
+  }, [
+    isTradingViewNative,
+    layoutPageWidth,
+    nativePanelCount,
+    shouldReserveNativeIndicatorQuickBar,
+    tradingViewHeight,
+  ]);
 
   const handleSecondTabTouchStart = useCallback(
     (event: GestureResponderEvent) => {
@@ -921,6 +923,11 @@ export function MobileLayout({
                       enablePreviousClose={isStockDetailChart}
                       previousClose={stockPreviousClose}
                       enableNativeChartSettings
+                      enableMultiChart
+                      enableDrawings
+                      onNativeMultiChartResizingChange={
+                        setIsNativeChartResizing
+                      }
                       nativeChartSettingsInToolbar={platformEnv.isNative}
                       showNativeIndicatorQuickBar={platformEnv.isNative}
                       onNativeIndicatorQuickBarChange={
@@ -1001,7 +1008,9 @@ export function MobileLayout({
           </HeaderScrollGestureWrapper>
           {/* Reserve the async quick bar until its availability is known. */}
           {nativeIndicatorQuickBarContent}
-          {platformEnv.isNativeIOS && !isChartFullscreen ? (
+          {platformEnv.isNativeIOS &&
+          !isTradingViewNative &&
+          !isChartFullscreen ? (
             <View
               style={{
                 position: 'absolute',

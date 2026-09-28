@@ -1209,7 +1209,7 @@ const BaseDevSettingsSection = () => {
                           <SectionPressItem
                             icon="ChromeBrand"
                             title="Open Chrome DevTools in Desktop"
-                            subtitle="启用后可以使用快捷键 Cmd/Ctrl + Shift + I 开启调试工具"
+                            subtitle="启用后可以使用快捷键 ⌥⌘I (macOS) / Ctrl+Shift+I 开启主窗口调试工具，⌥⇧⌘I / Ctrl+Alt+Shift+I 开启当前 WebView 调试工具"
                             onPress={handleOpenDevTools}
                           />
                           <SectionPressItem

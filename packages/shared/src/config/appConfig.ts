@@ -115,12 +115,13 @@ export const EXT_RATE_URL = {
     'https://microsoftedge.microsoft.com/addons/detail/onekey/obffkkagpmohennipjokmpllocnlndac',
 };
 
-const APP_STORE_BASE_LINK = 'itms-apps://apps.apple.com/app/id1609559473';
+export const APP_STORE_APP_ID = '1609559473';
+const APP_STORE_BASE_LINK = `itms-apps://apps.apple.com/app/id${APP_STORE_APP_ID}`;
 export const APP_STORE_LINK = `${APP_STORE_BASE_LINK}?action=write-review`;
 export const APP_STORE_DOWNLOAD_LINK = APP_STORE_BASE_LINK;
 // App Store web fallback (works when auto-redirects to itms-apps are blocked).
-export const APP_STORE_DOWNLOAD_WEB_LINK =
-  'https://apps.apple.com/app/id1609559473';
+export const APP_STORE_DOWNLOAD_WEB_LINK = `https://apps.apple.com/app/id${APP_STORE_APP_ID}`;
+export const MAC_APP_STORE_DOWNLOAD_LINK = `macappstore://itunes.apple.com/app/id${APP_STORE_APP_ID}?mt=12`;
 export const ANDROID_PACKAGE_NAME = 'so.onekey.app.wallet';
 export const ONEKEY_EIP6963_RDNS = 'so.onekey.app.wallet';
 export const PLAY_STORE_LINK = `https://play.google.com/store/apps/details?id=${ANDROID_PACKAGE_NAME}`;
