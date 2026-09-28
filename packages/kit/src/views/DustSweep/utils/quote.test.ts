@@ -77,6 +77,22 @@ describe('Dust Sweep quote execution guards', () => {
     expect(getDustSweepQuoteRisk(quote, token, snapshot)).toBeUndefined();
   });
 
+  it('accepts native token address aliases returned by build-tx', () => {
+    expect(
+      getDustSweepQuoteRisk(
+        {
+          ...quote,
+          toTokenInfo: {
+            ...snapshot.nativeToken,
+            contractAddress: '0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee',
+          },
+        },
+        token,
+        snapshot,
+      ),
+    ).toBeUndefined();
+  });
+
   it.each(['okx', 'OKX', 'Swap0x'])('rejects provider %s', (provider) => {
     expect(
       getDustSweepQuoteRisk(

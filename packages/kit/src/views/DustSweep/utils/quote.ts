@@ -18,6 +18,7 @@ import type {
   IFetchQuoteResult,
   ISwapQuoteEventData,
   ISwapQuoteEventPayload,
+  ISwapTokenBase,
 } from '@onekeyhq/shared/types/swap/types';
 import {
   EQuoteShowTipType,
@@ -36,6 +37,22 @@ export class DustSweepSkip extends OneKeyLocalError {
   }
 }
 
+function isSameDustSweepToken({
+  quoteToken,
+  expectedToken,
+}: {
+  quoteToken: ISwapTokenBase;
+  expectedToken: ISwapTokenBase;
+}) {
+  if (quoteToken.networkId !== expectedToken.networkId) return false;
+  // Native tokens can be represented by an empty local address or 0xeeee... by the swap API.
+  if (quoteToken.isNative && expectedToken.isNative) return true;
+  return equalTokenNoCaseSensitive({
+    token1: quoteToken,
+    token2: expectedToken,
+  });
+}
+
 export function getDustSweepQuoteRisk(
   quote: IFetchQuoteResult,
   token: IDustSweepToken,
@@ -52,13 +69,13 @@ export function getDustSweepQuoteRisk(
   if (
     token.networkId !== snapshot.networkId ||
     snapshot.nativeToken.networkId !== snapshot.networkId ||
-    !equalTokenNoCaseSensitive({
-      token1: quote.fromTokenInfo,
-      token2: token,
+    !isSameDustSweepToken({
+      quoteToken: quote.fromTokenInfo,
+      expectedToken: token,
     }) ||
-    !equalTokenNoCaseSensitive({
-      token1: quote.toTokenInfo,
-      token2: snapshot.nativeToken,
+    !isSameDustSweepToken({
+      quoteToken: quote.toTokenInfo,
+      expectedToken: snapshot.nativeToken,
     }) ||
     !new BigNumber(token.amount).isFinite() ||
     !new BigNumber(token.amount).gt(0) ||
