@@ -8,7 +8,7 @@ import type {
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useIsomorphicLayoutEffect } from '@tamagui/core';
-import { Dimensions, useWindowDimensions } from 'react-native';
+import { useWindowDimensions } from 'react-native';
 
 import { useMedia } from '@onekeyhq/components/src/hooks/useStyle';
 import { withStaticProperties } from '@onekeyhq/components/src/shared/tamagui';
@@ -19,27 +19,17 @@ import type {
   TMPopoverProps,
 } from '@onekeyhq/components/src/shared/tamaguiOverlay';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { SHEET_POPOVER_Z_INDEX } from '@onekeyhq/shared/src/utils/overlayUtils';
 
-import { FIX_SHEET_PROPS } from '../../composite/Dialog';
 import { Keyboard } from '../../content/Keyboard';
-import { Portal } from '../../hocs';
 import { NativeSheetPresentation } from '../../hocs/NativeSheetPresentation';
 import {
   ModalNavigatorContext,
-  useBackHandler,
-  useKeyboardHeight,
   useModalNavigatorContext,
-  useOverlayZIndex,
   useSafeAreaInsets,
 } from '../../hooks';
 import { PageContext, usePageContext } from '../../layouts/Page/PageContext';
 import { ScrollView } from '../../layouts/ScrollView';
-import { SizableText, Stack, XStack, YStack } from '../../primitives';
-import {
-  ANIMATE_ONLY_OPACITY,
-  ANIMATE_ONLY_OPACITY_TRANSFORM,
-} from '../../utils/animationConstants';
+import { SizableText, XStack, YStack } from '../../primitives';
 import { NATIVE_HIT_SLOP } from '../../utils/getFontSize';
 import { IconButton } from '../IconButton';
 import { Trigger } from '../Trigger';
@@ -50,7 +40,6 @@ import {
   runPopoverCloseSideEffects,
   runPopoverOpenSideEffects,
 } from './popoverSideEffects';
-import { shouldUseNativeSheetPresentation } from './sheetPresentation';
 import {
   type IStableContentHeightMeasurement,
   createStableContentHeightScheduler,
@@ -60,7 +49,7 @@ import { useNativePortalLifecycle } from './useNativePortalLifecycle';
 
 import type { IPopoverTooltip } from './type';
 import type { IIconButtonProps } from '../IconButton';
-import type { LayoutChangeEvent, View } from 'react-native';
+import type { LayoutChangeEvent } from 'react-native';
 
 const gtMdShFrameStyle = {
   minWidth: 400,
@@ -79,21 +68,7 @@ const SHEET_BOTTOM_MARGIN = 20;
 // Matches the `$-0.5` overlap between the header and content card.
 const SHEET_HEADER_CONTENT_OVERLAP = 2;
 
-const POPOVER_ENTER_STYLE = { scale: 0.95, opacity: 0 } as const;
-const POPOVER_EXIT_STYLE = { scale: 0.95, opacity: 0 } as const;
-const POPOVER_PLATFORM_WEB_STYLE = {
-  outlineColor: '$neutral3',
-  outlineStyle: 'solid',
-  outlineWidth: '$px',
-  boxShadow:
-    '0 4px 6px -4px rgba(0, 0, 0, 0.10), 0 10px 15px -3px rgba(0, 0, 0, 0.10)',
-} as const;
-const POPOVER_PLATFORM_NATIVE = { elevation: 20 } as const;
-const OVERLAY_ENTER_STYLE = { opacity: 0 } as const;
-const OVERLAY_EXIT_STYLE = { opacity: 0 } as const;
 const WORD_BREAK_ALL_STYLE = { wordBreak: 'break-all' } as const;
-const WEB_KEEP_MOUNTED_TRANSITION =
-  'opacity 150ms cubic-bezier(0.215, 0.61, 0.355, 1), transform 150ms cubic-bezier(0.215, 0.61, 0.355, 1)';
 export interface IPopoverProps extends TMPopoverProps {
   title: string | ReactElement;
   description?: string;
@@ -193,84 +168,6 @@ const useDismissKeyboard = platformEnv.isNative
     }
   : () => {};
 
-const getPlacement = (
-  placementProp: IPopoverProps['placement'],
-  triggerRef: React.RefObject<View | null>,
-): NonNullable<IPopoverProps['placement']> => {
-  if (platformEnv.isNative) {
-    return placementProp || 'bottom-end';
-  }
-
-  const element = triggerRef.current as unknown as HTMLElement;
-  if (!element) {
-    return placementProp || 'bottom-end';
-  }
-
-  const rect = element.getBoundingClientRect();
-  const windowWidth = Dimensions.get('window').width;
-  const windowHeight = Dimensions.get('window').height;
-
-  // Estimated popover dimensions (default width $96 = 384px)
-  const POPOVER_MIN_WIDTH = 384;
-  const POPOVER_MIN_HEIGHT = 200; // Estimated minimum height
-  const OFFSET = 8; // Popover offset
-
-  // Calculate available space in each direction
-  const spaces = {
-    top: rect.top - OFFSET,
-    bottom: windowHeight - rect.bottom - OFFSET,
-    left: rect.left - OFFSET,
-    right: windowWidth - rect.right - OFFSET,
-  };
-
-  // Check if a placement has enough space
-  const hasEnoughSpace = (placement: string): boolean => {
-    if (placement.startsWith('top')) {
-      return spaces.top >= POPOVER_MIN_HEIGHT;
-    }
-    if (placement.startsWith('bottom')) {
-      return spaces.bottom >= POPOVER_MIN_HEIGHT;
-    }
-    if (placement.startsWith('left')) {
-      return spaces.left >= POPOVER_MIN_WIDTH;
-    }
-    if (placement.startsWith('right')) {
-      return spaces.right >= POPOVER_MIN_WIDTH;
-    }
-    return false;
-  };
-
-  // If placementProp is specified and has enough space, use it
-  if (placementProp && hasEnoughSpace(placementProp)) {
-    return placementProp;
-  }
-
-  // Otherwise, choose the direction with most space
-  const verticalPreference = spaces.bottom >= spaces.top ? 'bottom' : 'top';
-  const horizontalAlignment = rect.left > windowWidth / 2 ? 'end' : 'start';
-
-  // Build placement string
-  const buildPlacement = (
-    vertical: 'top' | 'bottom',
-    horizontal: 'start' | 'end',
-  ): NonNullable<IPopoverProps['placement']> =>
-    `${vertical}-${horizontal}` as NonNullable<IPopoverProps['placement']>;
-
-  // Check if preferred direction has enough space
-  if (hasEnoughSpace(verticalPreference)) {
-    return buildPlacement(verticalPreference, horizontalAlignment);
-  }
-
-  // Try opposite direction
-  const oppositeVertical = verticalPreference === 'bottom' ? 'top' : 'bottom';
-  if (hasEnoughSpace(oppositeVertical)) {
-    return buildPlacement(oppositeVertical, horizontalAlignment);
-  }
-
-  // If neither has enough space, return the direction with most space (may overflow, but best option)
-  return buildPlacement(verticalPreference, horizontalAlignment);
-};
-
 function RawPopover({
   title,
   description,
@@ -293,12 +190,11 @@ function RawPopover({
   const { bottom } = useSafeAreaInsets();
   const { height: viewportHeight } = useWindowDimensions();
   const { gtMd } = useMedia();
-  const useNativeSheet = shouldUseNativeSheetPresentation({
-    usingSheet,
-    nativeSheet,
-    isGtMd: Boolean(gtMd),
-    isNativeIOSPad: Boolean(platformEnv.isNativeIOSPad),
-  });
+  // Every native popover is a native overlay sheet; `nativeSheet` is kept
+  // for API compatibility. `usingSheet={false}` renders no panel on native,
+  // as before (those callers are web / desktop floating panels).
+  const useNativeSheet = usingSheet;
+  const isWideSheet = Boolean(gtMd) || Boolean(platformEnv.isNativeIOSPad);
   const [sheetHeaderHeight, setSheetHeaderHeight] = useState<
     number | undefined
   >();
@@ -347,7 +243,6 @@ function RawPopover({
   );
   const isFitSheet =
     !sheetProps?.snapPointsMode || sheetProps.snapPointsMode === 'fit';
-  const keyboardHeight = useKeyboardHeight();
   const nativeSheetMaxHeight = Math.floor(
     viewportHeight * FIT_SHEET_MAX_HEIGHT_RATIO,
   );
@@ -375,15 +270,6 @@ function RawPopover({
             (showHeader ? SHEET_HEADER_CONTENT_OVERLAP : 0),
         )
       : undefined;
-  const jsSheetScrollViewMaxHeight = isFitSheet
-    ? Math.max(
-        0,
-        nativeSheetMaxHeight -
-          (sheetHeaderHeight ?? 0) -
-          nativeSheetBottomSpacing -
-          keyboardHeight,
-      )
-    : undefined;
   const nativeFitSheetHeight =
     isFitSheet &&
     resolvedSheetHeaderHeight !== undefined &&
@@ -412,36 +298,6 @@ function RawPopover({
       hasOpenedNativeSheetRef.current = true;
     }
   }, [isOpen, nativeSheetOpen]);
-  const triggerRef = useRef<View | null>(null);
-  const contentRef = useRef<View | null>(null);
-  const placement = getPlacement(placementProp, triggerRef);
-  const transformOrigin = useMemo(() => {
-    switch (placement) {
-      case 'top':
-        return 'bottom center';
-      case 'bottom':
-        return 'top center';
-      case 'left':
-        return 'right center';
-      case 'right':
-        return 'left center';
-      case 'top-start':
-        return 'bottom left';
-      case 'top-end':
-        return 'bottom right';
-      case 'right-start':
-        return 'top left';
-      case 'bottom-start':
-        return 'top left';
-      case 'left-start':
-        return 'top right';
-      case 'left-end':
-        return 'bottom right';
-      default:
-        return 'top right';
-    }
-  }, [placement]);
-
   const handleClosePopover = useCallback(
     () =>
       new Promise<void>((resolve) => {
@@ -457,16 +313,7 @@ function RawPopover({
     [closePopover],
   );
 
-  const handleBackPress = useCallback(() => {
-    if (!isOpen || useNativeSheet) {
-      return false;
-    }
-    void handleClosePopover();
-    return true;
-  }, [handleClosePopover, isOpen, useNativeSheet]);
-
   useDismissKeyboard(isOpen);
-  useBackHandler(handleBackPress);
 
   const handleNativeSheetOpenChange = useCallback(
     (nextOpen: boolean) => {
@@ -476,30 +323,6 @@ function RawPopover({
     },
     [closePopover],
   );
-
-  const getMaxScrollViewHeight = useCallback(() => {
-    if (platformEnv.isNative) {
-      return undefined;
-    }
-    const windowHeight = Dimensions.get('window').height;
-    const currentElement = triggerRef.current as unknown as HTMLElement;
-
-    const top = currentElement?.getBoundingClientRect().top;
-    const height =
-      currentElement?.clientHeight ||
-      currentElement?.parentElement?.clientHeight ||
-      0;
-    let contentHeight = 0;
-    if (placement.startsWith('bottom')) {
-      contentHeight = windowHeight - top - height - 20;
-    } else if (placement.startsWith('top')) {
-      contentHeight = top - 20;
-    } else {
-      contentHeight = windowHeight;
-    }
-
-    return Math.max(contentHeight, 0);
-  }, [placement]);
 
   const RenderContent =
     typeof renderContent === 'function' ? renderContent : null;
@@ -511,9 +334,6 @@ function RawPopover({
     [handleClosePopover, isOpen],
   );
   const keepChildrenMounted = Boolean(props.keepChildrenMounted);
-  const shouldUseWebKeepMountedTransition =
-    keepChildrenMounted && !platformEnv.isNative;
-  const shouldAnimateContent = !keepChildrenMounted;
   const content = (
     <ModalPortalProvider>
       <PopoverContext.Provider value={popoverContextValue}>
@@ -536,305 +356,86 @@ function RawPopover({
     </ModalPortalProvider>
   );
 
-  const zIndex = useOverlayZIndex(isOpen);
-  const shouldUseTransientNativeBackdrop =
-    platformEnv.isNative && Boolean(mountNativePortalBeforeOpen);
-  const shouldUseExternalNativeBackdrop =
-    platformEnv.isNative &&
-    (keepChildrenMounted || shouldUseTransientNativeBackdrop);
-  const nativeBackdropBackgroundColor =
-    shouldUseTransientNativeBackdrop || isOpen ? '$bgBackdrop' : 'transparent';
-  const nativeBackdropOpacity = shouldUseTransientNativeBackdrop
-    ? Number(isOpen)
-    : undefined;
-
-  const maxScrollViewHeight = getMaxScrollViewHeight();
-  const transformOriginStyle = useMemo(
-    () => ({ transformOrigin }),
-    [transformOrigin],
-  );
-  useIsomorphicLayoutEffect(() => {
-    if (!shouldUseWebKeepMountedTransition) {
-      return;
-    }
-    const popperElement = contentRef.current as unknown as HTMLElement;
-    if (!popperElement) {
-      return;
-    }
-    const contentElement = popperElement.hasAttribute('data-state')
-      ? popperElement
-      : (popperElement.firstElementChild as HTMLElement | null);
-    if (!contentElement) {
-      return;
-    }
-    if (contentElement !== popperElement) {
-      popperElement.style.removeProperty('transition');
-      popperElement.style.removeProperty('opacity');
-      popperElement.style.removeProperty('transform');
-      popperElement.style.removeProperty('visibility');
-    }
-    contentElement.style.transition = isOpen
-      ? WEB_KEEP_MOUNTED_TRANSITION
-      : `${WEB_KEEP_MOUNTED_TRANSITION}, visibility 0ms linear 150ms`;
-    contentElement.style.opacity = isOpen ? '1' : '0';
-    contentElement.style.transform = `scale(${isOpen ? 1 : 0.95})`;
-    contentElement.style.visibility = isOpen ? 'visible' : 'hidden';
-  }, [isOpen, shouldUseWebKeepMountedTransition]);
-  const scrollViewStyle = useMemo(
-    () => ({ maxHeight: maxScrollViewHeight }),
-    [maxScrollViewHeight],
-  );
-  const contentStyle = useMemo(
-    () => [transformOriginStyle, floatingPanelProps?.style],
-    [floatingPanelProps?.style, transformOriginStyle],
-  );
+  if (!useNativeSheet) {
+    return null;
+  }
   return (
-    <TMPopover
-      offset={8}
-      allowFlip={allowFlip}
-      placement={placement}
-      onOpenChange={onOpenChange}
-      open={isOpen}
-      {...props}
+    <NativeSheetPresentation
+      open={nativeSheetOpen}
+      height={nativeFitSheetHeight}
+      onOpenChange={handleNativeSheetOpenChange}
+      dismissOnOverlayPress={sheetProps?.dismissOnOverlayPress ?? true}
+      dismissOnSnapToBottom={sheetProps?.dismissOnSnapToBottom ?? true}
+      disableDrag={sheetProps?.disableDrag}
+      showHandle={false}
+      cornerRadius={24}
+      backgroundColor="transparent"
+      maxHeight={nativeSheetDetentMaxHeight}
+      onAnimationComplete={sheetProps?.onAnimationComplete}
     >
-      <TMPopover.Trigger asChild>
-        {/* testID is carried by renderTrigger from the caller. */}
-        {/* oxlint-disable-next-line onekey/require-testid */}
-        <Trigger ref={triggerRef} onPress={openPopover}>
-          {renderTrigger}
-        </Trigger>
-      </TMPopover.Trigger>
-      {/* floating panel */}
-      {platformEnv.isNative ? null : (
-        <TMPopover.Content
-          ref={contentRef}
-          zIndex={keepChildrenMounted ? undefined : SHEET_POPOVER_Z_INDEX + 1}
-          trapFocus={false}
-          unstyled
-          w="$96"
-          bg="$bg"
-          borderRadius="$3"
-          $platform-web={POPOVER_PLATFORM_WEB_STYLE}
-          $platform-native={POPOVER_PLATFORM_NATIVE}
-          {...(shouldAnimateContent
-            ? {
-                enterStyle: POPOVER_ENTER_STYLE,
-                exitStyle: POPOVER_EXIT_STYLE,
-                transition: 'popoverQuick' as const,
-                animateOnly: ANIMATE_ONLY_OPACITY_TRANSFORM,
-              }
-            : {})}
-          {...floatingPanelProps}
-          style={contentStyle}
-        >
-          <TMPopover.ScrollView
-            testID="TMPopover-ScrollView"
-            style={scrollViewStyle}
+      <YStack {...(isWideSheet ? gtMdShFrameStyle : undefined)}>
+        {/* header */}
+        {showHeader ? (
+          <XStack
+            onLayout={handleSheetHeaderLayout}
+            borderTopLeftRadius="$6"
+            borderTopRightRadius="$6"
+            backgroundColor="$bg"
+            mx="$5"
+            p="$5"
+            justifyContent="space-between"
+            alignItems="flex-start"
+            borderCurve="continuous"
+            gap="$2"
           >
-            {content}
-          </TMPopover.ScrollView>
-        </TMPopover.Content>
-      )}
-      {/* sheet */}
-      {useNativeSheet ? (
-        <NativeSheetPresentation
-          open={nativeSheetOpen}
-          height={nativeFitSheetHeight}
-          onOpenChange={handleNativeSheetOpenChange}
-          dismissOnOverlayPress={sheetProps?.dismissOnOverlayPress ?? true}
-          dismissOnSnapToBottom={sheetProps?.dismissOnSnapToBottom ?? true}
-          disableDrag={sheetProps?.disableDrag}
-          showHandle={false}
-          cornerRadius={24}
-          backgroundColor="transparent"
-          maxHeight={nativeSheetDetentMaxHeight}
-          onAnimationComplete={sheetProps?.onAnimationComplete}
-        >
-          <YStack>
-            {/* header */}
-            {showHeader ? (
-              <XStack
-                onLayout={handleSheetHeaderLayout}
-                borderTopLeftRadius="$6"
-                borderTopRightRadius="$6"
-                backgroundColor="$bg"
-                mx="$5"
-                p="$5"
-                justifyContent="space-between"
-                alignItems="flex-start"
-                borderCurve="continuous"
-                gap="$2"
-              >
-                <YStack flexShrink={1}>
-                  {typeof title === 'string' ? (
-                    <SizableText
-                      size="$headingXl"
-                      color="$text"
-                      style={WORD_BREAK_ALL_STYLE}
-                    >
-                      {title}
-                    </SizableText>
-                  ) : (
-                    title
-                  )}
-                  {description ? (
-                    <SizableText size="$bodyMd" color="$textSubdued" pt="$2">
-                      {description}
-                    </SizableText>
-                  ) : null}
-                </YStack>
-                <IconButton
-                  icon="CrossedSmallOutline"
-                  size="small"
-                  hitSlop={NATIVE_HIT_SLOP}
-                  onPress={closePopover}
-                  testID="popover-btn-close"
-                />
-              </XStack>
-            ) : null}
-            <ScrollView
-              nestedScrollEnabled
-              flexShrink={1}
-              minHeight={0}
-              marginTop="$-0.5"
-              borderTopLeftRadius={showHeader ? undefined : '$6'}
-              borderTopRightRadius={showHeader ? undefined : '$6'}
-              borderBottomLeftRadius="$6"
-              borderBottomRightRadius="$6"
-              backgroundColor="$bg"
-              showsVerticalScrollIndicator={false}
-              mx="$5"
-              mb={bottom || '$5'}
-              maxHeight={sheetScrollViewMaxHeight}
-              onContentSizeChange={handleSheetContentSizeChange}
-              borderCurve="continuous"
-            >
-              {content}
-            </ScrollView>
-          </YStack>
-        </NativeSheetPresentation>
-      ) : null}
-      {usingSheet && !useNativeSheet ? (
-        <>
-          {shouldUseExternalNativeBackdrop ? (
-            <Stack
-              position="absolute"
-              // Android must paint this sibling backdrop above the parent dialog.
-              zIndex={
-                platformEnv.isNativeAndroid
-                  ? sheetProps?.zIndex || zIndex
-                  : undefined
-              }
-              pointerEvents={isOpen ? 'auto' : 'none'}
-              onPress={isOpen ? closePopover : undefined}
-              bg={nativeBackdropBackgroundColor}
-              opacity={nativeBackdropOpacity}
-              transition={
-                shouldUseTransientNativeBackdrop ? 'quick' : undefined
-              }
-              animateOnly={
-                shouldUseTransientNativeBackdrop
-                  ? ANIMATE_ONLY_OPACITY
-                  : undefined
-              }
-              top={0}
-              left={0}
-              right={0}
-              bottom={0}
-            />
-          ) : null}
-
-          <TMPopover.Adapt when={platformEnv.isNative ? true : 'md'}>
-            <TMPopover.Sheet
-              dismissOnSnapToBottom
-              transition="quick"
-              snapPointsMode="fit"
-              zIndex={zIndex}
-              {...sheetProps}
-            >
-              {shouldUseExternalNativeBackdrop ? null : (
-                <TMPopover.Sheet.Overlay
-                  {...FIX_SHEET_PROPS}
-                  zIndex={sheetProps?.zIndex || zIndex}
-                  backgroundColor="$bgBackdrop"
-                  transition="quick"
-                  animateOnly={ANIMATE_ONLY_OPACITY}
-                  enterStyle={OVERLAY_ENTER_STYLE}
-                  exitStyle={OVERLAY_EXIT_STYLE}
-                />
-              )}
-              <TMPopover.Sheet.Frame
-                unstyled
-                paddingBottom={keyboardHeight}
-                {...(gtMd || platformEnv.isNativeIOSPad
-                  ? gtMdShFrameStyle
-                  : undefined)}
-              >
-                {showHeader ? (
-                  <XStack
-                    onLayout={handleSheetHeaderLayout}
-                    borderTopLeftRadius="$6"
-                    borderTopRightRadius="$6"
-                    backgroundColor="$bg"
-                    mx="$5"
-                    p="$5"
-                    justifyContent="space-between"
-                    alignItems="flex-start"
-                    borderCurve="continuous"
-                    gap="$2"
-                  >
-                    <YStack flexShrink={1}>
-                      {typeof title === 'string' ? (
-                        <SizableText
-                          size="$headingXl"
-                          color="$text"
-                          style={WORD_BREAK_ALL_STYLE}
-                        >
-                          {title}
-                        </SizableText>
-                      ) : (
-                        title
-                      )}
-                      {description ? (
-                        <SizableText
-                          size="$bodyMd"
-                          color="$textSubdued"
-                          pt="$2"
-                        >
-                          {description}
-                        </SizableText>
-                      ) : null}
-                    </YStack>
-                    <IconButton
-                      icon="CrossedSmallOutline"
-                      size="small"
-                      hitSlop={NATIVE_HIT_SLOP}
-                      onPress={closePopover}
-                      testID="popover-btn-close"
-                    />
-                  </XStack>
-                ) : null}
-                <TMPopover.Sheet.ScrollView
-                  marginTop="$-0.5"
-                  borderTopLeftRadius={showHeader ? undefined : '$6'}
-                  borderTopRightRadius={showHeader ? undefined : '$6'}
-                  borderBottomLeftRadius="$6"
-                  borderBottomRightRadius="$6"
-                  backgroundColor="$bg"
-                  showsVerticalScrollIndicator={false}
-                  mx="$5"
-                  mb={bottom || '$5'}
-                  maxHeight={jsSheetScrollViewMaxHeight}
-                  borderCurve="continuous"
+            <YStack flexShrink={1}>
+              {typeof title === 'string' ? (
+                <SizableText
+                  size="$headingXl"
+                  color="$text"
+                  style={WORD_BREAK_ALL_STYLE}
                 >
-                  {content}
-                </TMPopover.Sheet.ScrollView>
-              </TMPopover.Sheet.Frame>
-            </TMPopover.Sheet>
-          </TMPopover.Adapt>
-        </>
-      ) : null}
-    </TMPopover>
+                  {title}
+                </SizableText>
+              ) : (
+                title
+              )}
+              {description ? (
+                <SizableText size="$bodyMd" color="$textSubdued" pt="$2">
+                  {description}
+                </SizableText>
+              ) : null}
+            </YStack>
+            <IconButton
+              icon="CrossedSmallOutline"
+              size="small"
+              hitSlop={NATIVE_HIT_SLOP}
+              onPress={closePopover}
+              testID="popover-btn-close"
+            />
+          </XStack>
+        ) : null}
+        <ScrollView
+          nestedScrollEnabled
+          flexShrink={1}
+          minHeight={0}
+          marginTop="$-0.5"
+          borderTopLeftRadius={showHeader ? undefined : '$6'}
+          borderTopRightRadius={showHeader ? undefined : '$6'}
+          borderBottomLeftRadius="$6"
+          borderBottomRightRadius="$6"
+          backgroundColor="$bg"
+          showsVerticalScrollIndicator={false}
+          mx="$5"
+          mb={bottom || '$5'}
+          maxHeight={sheetScrollViewMaxHeight}
+          onContentSizeChange={handleSheetContentSizeChange}
+          borderCurve="continuous"
+        >
+          {content}
+        </ScrollView>
+      </YStack>
+    </NativeSheetPresentation>
   );
 }
 
@@ -889,16 +490,14 @@ function BasicPopover({
       rest,
     ],
   );
-  const modalNavigatorContext = useModalNavigatorContext();
-  const pageContextValue = usePageContext();
-
   const webSheetProps = useMemo(
     () => ({ ...sheetProps, modal: true }),
     [sheetProps],
   );
 
   if (platformEnv.isNative) {
-    // on native and ipad, we add the popover to the RNScreen.FULL_WINDOW_OVERLAY
+    // The overlay sheet renders in the native overlay level, so the popover
+    // stays in the caller's tree (and its contexts) instead of a portal.
     return (
       <>
         {renderTrigger ? (
@@ -907,15 +506,9 @@ function BasicPopover({
           </Trigger>
         ) : null}
         {keepChildrenMounted ||
-        (shouldUseNativePortalLifecycle ? isNativePortalMounted : isOpen) ? (
-          <Portal.Body container={Portal.Constant.FULL_WINDOW_OVERLAY_PORTAL}>
-            <ModalNavigatorContext.Provider value={modalNavigatorContext}>
-              <PageContext.Provider value={pageContextValue}>
-                {memoPopover}
-              </PageContext.Provider>
-            </ModalNavigatorContext.Provider>
-          </Portal.Body>
-        ) : null}
+        (shouldUseNativePortalLifecycle ? isNativePortalMounted : isOpen)
+          ? memoPopover
+          : null}
       </>
     );
   }

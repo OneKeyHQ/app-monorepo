@@ -421,6 +421,18 @@ P4e lock screen notes:
 - The web lock tamper check and the lock screen's body-level inert pass are
   unchanged; the lock layer root is a `document.body` child.
 
+P5a native popover notes:
+
+- Every native Popover / ActionList / Select sheet is a native overlay sheet
+  (`NativeSheetPresentation`); the Tamagui Popover sheet (`TMPopover.Adapt`),
+  its external backdrop, z-index and back handler are gone, and
+  `nativeSheet` is a no-op. iPad / wide windows keep the 400–480 pt centered
+  frame inside the sheet. `usingSheet={false}` still renders no panel on
+  native (web / desktop floating panels).
+- The native popover renders inline in the caller's tree (its contexts
+  apply) instead of through the full-window portal; content still mounts
+  only while open unless `keepChildrenMounted`.
+
 Measurement:
 
 - `RNCNativeOverlay` has a hand-written shadow node (`common/cpp`, codegen

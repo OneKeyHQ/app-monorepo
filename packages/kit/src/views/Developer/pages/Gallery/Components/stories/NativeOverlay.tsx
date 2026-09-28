@@ -10,6 +10,7 @@ import {
   Button,
   Dialog,
   Input,
+  Popover,
   SizableText,
   Stack,
   Toast,
@@ -669,6 +670,31 @@ function NativeOverlayDemo() {
         </Button>
       </XStack>
       <XStack gap="$2" flexWrap="wrap">
+        <ActionList
+          title="ActionList (default)"
+          items={[
+            {
+              label: 'Show a toast',
+              onPress: () => {
+                Toast.success({ title: 'ActionList item' });
+              },
+            },
+            { label: 'Second item', onPress: () => undefined },
+          ]}
+          renderTrigger={<Button>ActionList (default)</Button>}
+        />
+        <Popover
+          title="Popover title"
+          description="Popover description"
+          renderTrigger={<Button>Popover</Button>}
+          renderContent={
+            <YStack p="$5" gap="$2">
+              {Array.from({ length: 6 }, (_, i) => (
+                <SizableText key={i}>{`Popover row ${i + 1}`}</SizableText>
+              ))}
+            </YStack>
+          }
+        />
         <ActionList
           title="ActionList via nativeSheet"
           nativeSheet

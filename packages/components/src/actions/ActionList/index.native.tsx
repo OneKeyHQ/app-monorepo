@@ -33,7 +33,6 @@ import {
 } from '../../primitives';
 import { useSharedPress } from '../../primitives/Button/useEvent';
 import { LazyPopover } from '../LazyPopover';
-import { shouldUseNativeSheetPresentation } from '../Popover/sheetPresentation';
 import { Shortcut } from '../Shortcut';
 import { Trigger } from '../Trigger';
 
@@ -326,13 +325,8 @@ function BasicActionList({
   ...props
 }: IActionListProps) {
   const [isOpen, setOpenStatus] = useDefaultOpen(defaultOpen);
-  const { gtMd } = useMedia();
-  const useNativeSheetPresentation = shouldUseNativeSheetPresentation({
-    usingSheet,
-    nativeSheet,
-    isGtMd: Boolean(gtMd),
-    isNativeIOSPad: Boolean(platformEnv.isNativeIOSPad),
-  });
+  // Every native popover is a native overlay sheet (see Popover).
+  const useNativeSheetPresentation = usingSheet;
   const handleActionListOpenRef = useRef<() => void>(() => undefined);
   const handleActionListCloseRef = useRef<() => void>(() => undefined);
   const { asyncItems, handleAsyncItemsOpenChange, resolvedSheetProps } =
