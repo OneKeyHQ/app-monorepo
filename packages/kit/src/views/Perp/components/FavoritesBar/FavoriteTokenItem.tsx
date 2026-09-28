@@ -7,6 +7,9 @@ import {
   useState,
 } from 'react';
 
+import { useAtomValue } from 'jotai';
+import { selectAtom } from 'jotai/utils';
+
 import {
   NumberSizeableText,
   SizableText,
@@ -18,9 +21,11 @@ import { useActiveTradeInstrumentAtom } from '@onekeyhq/kit/src/states/jotai/con
 import { usePerpsCtxByCoin } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid/atoms';
 import {
   type IPerpFavoritesDisplayMode,
+  type IPerpsActiveAssetCtxAtom,
+  type ISpotActiveAssetCtxAtom,
+  perpsActiveAssetCtxAtom,
+  spotActiveAssetCtxAtom,
   usePerpsActiveAssetAtom,
-  usePerpsActiveAssetCtxAtom,
-  useSpotActiveAssetCtxAtom,
   useSpotAssetCtxsMapAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -102,8 +107,6 @@ const CtxPriceDisplay = memo(
   }) => {
     const [activeInstrument] = useActiveTradeInstrumentAtom();
     const [activeAsset] = usePerpsActiveAssetAtom();
-    const [perpActiveCtx] = usePerpsActiveAssetCtxAtom();
-    const [spotActiveCtx] = useSpotActiveAssetCtxAtom();
     const ctx = usePerpsCtxByCoin(dexIndex, assetId);
     const [spotPriceMap] = useSpotAssetCtxsMapAtom();
     const formattedCtx = useMemo(() => perpsUtils.formatAssetCtx(ctx), [ctx]);
@@ -115,11 +118,18 @@ const CtxPriceDisplay = memo(
       mode === 'spot'
         ? activeInstrument.mode === 'spot' && activeInstrument.coin === coinName
         : activeAsset?.coin === coinName;
-    const activeCtx = mode === 'spot' ? spotActiveCtx : perpActiveCtx;
-    const useActive =
-      isActive && activeCtx?.coin === coinName && !!activeCtx.ctx.markPrice;
+    const activeCtxAtom = useMemo(() => {
+      const selectCtx = (
+        value: IPerpsActiveAssetCtxAtom | ISpotActiveAssetCtxAtom,
+      ) => (isActive && value?.coin === coinName ? value.ctx : undefined);
+      return mode === 'spot'
+        ? selectAtom(spotActiveAssetCtxAtom.atom(), selectCtx)
+        : selectAtom(perpsActiveAssetCtxAtom.atom(), selectCtx);
+    }, [coinName, isActive, mode]);
+    const activeCtx = useAtomValue(activeCtxAtom);
+    const useActive = !!activeCtx?.markPrice;
     const marketCtx = mode === 'spot' ? formattedSpotCtx : formattedCtx;
-    const candidate = useActive ? activeCtx.ctx : marketCtx;
+    const candidate = useActive ? activeCtx : marketCtx;
     const [settledActive, setSettledActive] = useState(useActive);
     const lastDisplayed = useRef(candidate);
     const displayCtx =

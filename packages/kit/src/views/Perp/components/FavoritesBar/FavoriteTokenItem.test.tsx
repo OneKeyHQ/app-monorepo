@@ -4,8 +4,16 @@ import { createContext } from 'react';
 import type { ReactNode } from 'react';
 
 import { act, render } from '@testing-library/react';
+import { atom, getDefaultStore } from 'jotai';
 
 import { FavoriteTokenItem } from './FavoriteTokenItem';
+
+const mockQuoteRender = jest.fn();
+type ITestActiveCtx =
+  | { coin: string; ctx: { markPrice: string; change24hPercent: number } }
+  | undefined;
+const mockPerpActiveCtxAtom = atom<ITestActiveCtx>(undefined);
+const mockSpotActiveCtxAtom = atom<ITestActiveCtx>(undefined);
 
 const mockMarketContext = createContext<{
   coin: string;
@@ -30,9 +38,10 @@ const mockSpotPrices = {
 
 jest.mock('@onekeyhq/components', () => ({
   XStack: ({ children }: { children?: ReactNode }) => <div>{children}</div>,
-  SizableText: ({ children }: { children?: ReactNode }) => (
-    <span>{children}</span>
-  ),
+  SizableText: ({ children }: { children?: ReactNode }) => {
+    mockQuoteRender();
+    return <span>{children}</span>;
+  },
   NumberSizeableText: ({
     children,
     color,
@@ -64,14 +73,12 @@ jest.mock('@onekeyhq/kit/src/states/jotai/contexts/hyperliquid/atoms', () => ({
   },
 }));
 jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms', () => ({
+  perpsActiveAssetCtxAtom: { atom: () => mockPerpActiveCtxAtom },
+  spotActiveAssetCtxAtom: { atom: () => mockSpotActiveCtxAtom },
   usePerpsActiveAssetAtom: () => {
     const { useContext } = jest.requireActual<typeof import('react')>('react');
     const { activeCoin } = useContext(mockPerpContext);
     return [activeCoin ? { coin: activeCoin } : undefined];
-  },
-  usePerpsActiveAssetCtxAtom: () => {
-    const { useContext } = jest.requireActual<typeof import('react')>('react');
-    return [useContext(mockPerpContext).activeCtx];
   },
   useSpotAssetCtxsMapAtom: () => {
     const { useContext } = jest.requireActual<typeof import('react')>('react');
@@ -82,10 +89,6 @@ jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms', () => ({
         '@2': { markPx: marketPrice ?? '120.02', prevDayPx: '100' },
       },
     ];
-  },
-  useSpotActiveAssetCtxAtom: () => {
-    const { useContext } = jest.requireActual<typeof import('react')>('react');
-    return [useContext(mockMarketContext).activeCtx];
   },
 }));
 
@@ -124,6 +127,8 @@ function renderFavorite(mode: 'perp' | 'spot', initial: IQuoteState) {
   let coin = mode === 'perp' ? 'kBONK' : '@2';
   const view = (state: IQuoteState, percent = false) => {
     const { perp, spot } = createQuoteContexts(state, coin);
+    getDefaultStore().set(mockPerpActiveCtxAtom, perp.activeCtx);
+    getDefaultStore().set(mockSpotActiveCtxAtom, spot.activeCtx);
     return (
       <mockPerpContext.Provider value={perp}>
         <mockMarketContext.Provider value={spot}>
@@ -145,10 +150,10 @@ function renderFavorite(mode: 'perp' | 'spot', initial: IQuoteState) {
   return {
     ...result,
     update: (state: IQuoteState, percent = false) =>
-      result.rerender(view(state, percent)),
+      act(() => result.rerender(view(state, percent))),
     replaceCoin: (state: IQuoteState) => {
       coin = mode === 'perp' ? 'ETH' : '@1';
-      result.rerender(view(state));
+      act(() => result.rerender(view(state)));
     },
   };
 }
@@ -240,8 +245,11 @@ describe.each(['perp', 'spot'] as const)(
       advance(100);
       update({ ...selectedState, activePrice: '0.003461' });
       expect(getByText('0.003461')).toBeTruthy();
-      advance(500);
-      expect(getByText('0.003461')).toBeTruthy();
+      expect(jest.getTimerCount()).toBe(0);
+      // Cross the obsolete timer's deadline, then deliver another live tick.
+      advance(150);
+      update({ ...selectedState, activePrice: '0.003462' });
+      expect(getByText('0.003462')).toBeTruthy();
     });
 
     it('holds price and percentage together and uses the latest percentage at handoff', () => {
@@ -263,7 +271,7 @@ describe.each(['perp', 'spot'] as const)(
     });
 
     it('does not retain the old coin snapshot if the item identity changes', () => {
-      const { getByText, queryByText, update, replaceCoin } = renderFavorite(
+      const { getByText, update, replaceCoin } = renderFavorite(
         mode,
         marketState,
       );
@@ -271,9 +279,23 @@ describe.each(['perp', 'spot'] as const)(
       advance(100);
       replaceCoin({ ...selectedState, activePrice: '3150' });
       expect(getByText('3150')).toBeTruthy();
-      expect(queryByText('0.00346')).toBeNull();
       advance(500);
       expect(getByText('3150')).toBeTruthy();
+    });
+
+    it('does not rerender an inactive favorite on either active quote stream', () => {
+      const { getByText } = renderFavorite(mode, marketState);
+      mockQuoteRender.mockClear();
+      for (const activeAtom of [mockPerpActiveCtxAtom, mockSpotActiveCtxAtom]) {
+        act(() =>
+          getDefaultStore().set(activeAtom, {
+            coin: 'OTHER',
+            ctx: { markPrice: '65000', change24hPercent: 3 },
+          }),
+        );
+      }
+      expect(getByText('0.00346')).toBeTruthy();
+      expect(mockQuoteRender).not.toHaveBeenCalled();
     });
 
     it('cleans up a pending handoff on unmount', () => {
