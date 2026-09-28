@@ -69,6 +69,15 @@ const dropDiscoveryBookmarksSwr = () =>
     prefixOf(swrCacheNamespaces.discoveryHomeBookmarks),
   );
 
+// The home Tron resource card keys its energy / bandwidth snapshot by account
+// id (OK-64027). Account ids are reused after a removal, so an account
+// recreated under one would otherwise paint the removed account's figures
+// until its own read lands.
+const dropTronAccountResourcesSwr = () =>
+  swrCacheUtils.removeByPrefix(
+    prefixOf(swrCacheNamespaces.tronAccountResources),
+  );
+
 /**
  * Wait for the removal to reach disk, and record it when it did not.
  *
@@ -103,6 +112,7 @@ export async function dropSwrCacheForRemovedWallet(walletId: string) {
   dropWalletListSwr();
   dropAccountSelectorListSwr();
   dropBulkAddressSwr();
+  dropTronAccountResourcesSwr();
   await persistRemoval('removedWallet');
 }
 
@@ -111,6 +121,7 @@ export async function dropSwrCacheForRemovedAccount() {
   dropAccountSelectorListSwr();
   dropAccountSelectorValuesSwr();
   dropBulkAddressSwr();
+  dropTronAccountResourcesSwr();
   await persistRemoval('removedAccount');
 }
 
@@ -147,10 +158,12 @@ export function registerSwrCacheMutationInvalidation() {
     dropAccountSelectorListSwr();
     dropAccountSelectorValuesSwr();
     dropBulkAddressSwr();
+    dropTronAccountResourcesSwr();
     swrCacheUtils.flushNow();
   });
   appEventBus.on(EAppEventBusNames.WalletRemove, ({ walletId }) => {
     swrCacheUtils.remove(swrKeys.accountSelectorValues({ walletId }));
+    dropTronAccountResourcesSwr();
     swrCacheUtils.flushNow();
   });
   appEventBus.on(EAppEventBusNames.WalletClear, () => {

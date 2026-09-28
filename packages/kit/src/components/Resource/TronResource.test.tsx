@@ -81,14 +81,6 @@ jest.mock('@onekeyhq/shared/src/utils/openUrlUtils', () => ({
   openUrlInApp: jest.fn(),
 }));
 
-jest.mock('@onekeyhq/shared/src/eventBus/appEventBus', () => ({
-  EAppEventBusNames: {
-    AccountDataUpdate: 'AccountDataUpdate',
-    HistoryTxStatusChanged: 'HistoryTxStatusChanged',
-  },
-  appEventBus: { on: jest.fn(), off: jest.fn() },
-}));
-
 jest.mock('../../views/Borrow/components/CircleProgress', () => ({
   CircleProgress: ({ children }: { children?: ReactNode }) => (
     <div>{children}</div>
@@ -110,9 +102,15 @@ jest.mock('../../background/instance/backgroundApiProxy', () => ({
 import { act, render, screen } from '@testing-library/react';
 
 import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
+import {
   swrCacheUtils,
   swrKeys,
 } from '@onekeyhq/shared/src/utils/swrCacheUtils';
+
+import { registerSwrCacheMutationInvalidation } from '../../utils/swrCacheMutationInvalidation';
 
 import { TronResourceBannerCard } from './TronResource';
 
@@ -267,6 +265,31 @@ describe('TronResourceBannerCard (OK-64027)', () => {
     });
     expect(hasSkeleton()).toBe(false);
     expect(showsResources(RESOURCES_B)).toBe(true);
+    expect(showsResources(RESOURCES_A)).toBe(false);
+  });
+
+  it('starts from the skeleton when an account id is reused after a removal', async () => {
+    // Account ids are reused after a removal (the next account derived at the
+    // same path gets the same id), so the removed account's figures must not
+    // be painted for the account recreated under its id.
+    registerSwrCacheMutationInvalidation();
+    swrCacheUtils.set(
+      swrKeys.tronAccountResources({
+        accountId: ACCOUNT_A,
+        networkId: NETWORK_ID,
+      }),
+      RESOURCES_A,
+    );
+    act(() => {
+      appEventBus.emit(EAppEventBusNames.AccountRemove, undefined);
+    });
+    mockFetchTronAccountResources.mockReturnValue(
+      createDeferred<typeof RESOURCES_A>().promise,
+    );
+
+    renderCard(ACCOUNT_A);
+
+    expect(hasSkeleton()).toBe(true);
     expect(showsResources(RESOURCES_A)).toBe(false);
   });
 

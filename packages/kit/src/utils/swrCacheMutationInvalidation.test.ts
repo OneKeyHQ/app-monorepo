@@ -11,6 +11,7 @@ jest.mock('@onekeyhq/shared/src/utils/swrCacheUtils', () => ({
     bulkCopyAddressesAccounts: 'bulkCopyAccounts',
     bulkSendAddressesInputSeed: 'bulkSendSeed',
     discoveryHomeBookmarks: 'disHomeBookmarks',
+    tronAccountResources: 'tronResources',
   },
   swrCacheUtils: {
     remove: jest.fn(),
@@ -90,15 +91,17 @@ describe('swrCacheMutationInvalidation', () => {
     expect(swrCacheUtils.flushNow).toHaveBeenCalledTimes(1);
   });
 
-  it('drops only the displayed balances of the removed wallet', () => {
+  it('drops the displayed balances and the Tron resource snapshots of the removed wallet', () => {
     appEventBus.emit(EAppEventBusNames.WalletRemove, { walletId: 'hd-1' });
 
     expect(swrCacheUtils.remove).toHaveBeenCalledWith('accSelValues:v1:hd-1');
-    expect(droppedPrefixes()).toEqual([]);
+    // Account ids are reused after a removal, so the per-account Tron card
+    // snapshot would otherwise be painted for a recreated account.
+    expect(droppedPrefixes()).toEqual(['tronResources:']);
     expect(swrCacheUtils.flushNow).toHaveBeenCalledTimes(1);
   });
 
-  it('drops the displayed balances too when an account is removed', () => {
+  it('drops the displayed balances and the Tron resource snapshots too when an account is removed', () => {
     appEventBus.emit(EAppEventBusNames.AccountRemove, undefined);
 
     expect(droppedPrefixes()).toEqual([
@@ -106,6 +109,7 @@ describe('swrCacheMutationInvalidation', () => {
       'accSelList:',
       'accSelValues:',
       ...BULK_PREFIXES,
+      'tronResources:',
     ]);
     expect(swrCacheUtils.flushNow).toHaveBeenCalledTimes(1);
   });

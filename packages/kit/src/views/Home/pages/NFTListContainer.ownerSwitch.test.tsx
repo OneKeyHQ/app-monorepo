@@ -110,6 +110,11 @@ jest.mock('../components/PullToRefresh', () => ({
 
 import { act, render, screen } from '@testing-library/react';
 
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
+
 import { NFTListContainerWithProvider } from './NFTListContainer';
 
 /*
@@ -186,6 +191,54 @@ describe('NFTListContainer: All Networks account switch', () => {
       });
     });
     expect(renderedItemIds()).toBe('current-owner');
+  });
+
+  it('spends the manual-refresh flag when a previous-owner request returns', async () => {
+    render(<NFTListContainerWithProvider />);
+    const previousOwnerParams = mockHookParams.at(-1);
+
+    // Pull-to-refresh under All Networks: the next requests are manual.
+    act(() => {
+      appEventBus.emit(EAppEventBusNames.AccountDataUpdate, undefined);
+    });
+    let resolvePrevious: (value: unknown) => void = () => {};
+    mockFetchAccountNFTs.mockReturnValueOnce(
+      new Promise((resolve) => {
+        resolvePrevious = resolve;
+      }),
+    );
+    const previousRequest = previousOwnerParams?.allNetworkRequests({
+      accountId: 'hd-1--0--eth',
+      networkId: 'evm--1',
+      allNetworkDataInit: false,
+      isRunCurrent: () => true,
+    });
+    expect(mockFetchAccountNFTs.mock.calls[0][0]).toMatchObject({
+      isManualRefresh: true,
+    });
+
+    act(() => {
+      mockOwnerStore.set(allNetworksOwner(1));
+    });
+    await act(async () => {
+      resolvePrevious(nftsResp(['previous-owner']));
+      await previousRequest;
+    });
+
+    // The next owner's queued run was not asked for by the pull, so it must
+    // not bypass the cache under the flag the previous owner's run left.
+    mockFetchAccountNFTs.mockResolvedValueOnce(nftsResp(['current-owner']));
+    await act(async () => {
+      await mockHookParams.at(-1)?.allNetworkRequests({
+        accountId: 'hd-1--1--eth',
+        networkId: 'evm--1',
+        allNetworkDataInit: false,
+        isRunCurrent: () => true,
+      });
+    });
+    expect(mockFetchAccountNFTs.mock.calls[1][0]).toMatchObject({
+      isManualRefresh: false,
+    });
   });
 
   it('drops a previous-owner cache read that lands after the switch', async () => {

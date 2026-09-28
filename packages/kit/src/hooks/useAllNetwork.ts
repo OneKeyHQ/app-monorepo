@@ -320,6 +320,7 @@ function useAllNetworkRequests<T>(params: {
     accountId,
     networkId,
     generation,
+    isRunCurrent,
   }: {
     data: any;
     accountId: string;
@@ -328,6 +329,10 @@ function useAllNetworkRequests<T>(params: {
     // materialized view's `seedFloor` so a stale earlier run's cache seed can
     // never clobber a newer run's live result.
     generation: number;
+    // False once the run has been superseded. The hook re-checks it only when
+    // this callback returns, so a consumer that awaits inside must re-check
+    // it after every await, before writing.
+    isRunCurrent?: () => boolean;
   }) => Promise<void>;
   allNetworkAccountsData?: ({
     accounts,
@@ -349,10 +354,13 @@ function useAllNetworkRequests<T>(params: {
     accountId,
     networkId,
     allNetworkDataInit,
+    isRunCurrent,
   }: {
     accountId?: string;
     networkId?: string;
     allNetworkDataInit?: boolean;
+    // See `allNetworkCacheData`: re-check after every await before writing.
+    isRunCurrent?: () => boolean;
   }) => Promise<void>;
   onFinished?: ({
     accountId,
@@ -862,6 +870,7 @@ function useAllNetworkRequests<T>(params: {
             accountId: currentAccountId,
             networkId: currentNetworkId,
             allNetworkDataInit: allNetworkDataInit.current,
+            isRunCurrent,
           }).catch((err) => {
             onStartedError = err;
           });
@@ -1054,6 +1063,7 @@ function useAllNetworkRequests<T>(params: {
                 accountId: currentAccountId,
                 networkId: currentNetworkId,
                 generation: runGeneration,
+                isRunCurrent,
               });
             }
           } catch (e) {
@@ -1347,11 +1357,25 @@ function useAllNetworkRequests<T>(params: {
 
   const runWithQueue = useCallback(
     async (config?: IAllNetworkRequestsRunConfig) => {
-      if (
-        isFetching.current ||
-        (clearRetainedResultOnAcceptedRun &&
-          debouncePendingCountRef.current > 0)
-      ) {
+      // No fan-out is running but a runner is waiting in the debounce window.
+      // It reads the relayed flags once the wait ends, so it absorbs this
+      // refresh; queuing a second must-run behind it instead kept the
+      // runner's own round unpublished and repeated the whole fan-out.
+      // `ignoreDisabled` is consumed before the wait, so it still queues.
+      const isDebounceWaiting =
+        !isFetching.current &&
+        clearRetainedResultOnAcceptedRun &&
+        debouncePendingCountRef.current > 0;
+      if (isDebounceWaiting && !config?.ignoreDisabled) {
+        if (config?.skipAccountsCache) {
+          skipAccountsCacheRef.current = true;
+        }
+        if (config?.alwaysSetState) {
+          alwaysSetStateRef.current = true;
+        }
+        return;
+      }
+      if (isFetching.current || isDebounceWaiting) {
         rerunAfterCurrentRef.current = true;
         rerunConfigRef.current = {
           ...rerunConfigRef.current,

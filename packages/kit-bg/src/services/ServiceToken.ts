@@ -66,7 +66,36 @@ import type { IRiskTokenManagementDBStruct } from '../dbs/simple/entity/SimpleDb
 type IFetchAccountTokensController = {
   controller: AbortController;
   flag?: string;
+  isAllNetworks?: boolean;
 };
+
+type IAbortFetchAccountTokensOptions = {
+  // Requests carrying one of these flags survive.
+  excludedFlags?: string[];
+  // Only requests carrying one of these flags are aborted.
+  flags?: string[];
+  // Only requests issued with this `isAllNetworks` value are aborted.
+  isAllNetworks?: boolean;
+};
+
+function shouldKeepFetchAccountTokensController(
+  item: IFetchAccountTokensController,
+  options?: IAbortFetchAccountTokensOptions,
+): boolean {
+  if (item.flag && options?.excludedFlags?.includes(item.flag)) {
+    return true;
+  }
+  if (options?.flags && (!item.flag || !options.flags.includes(item.flag))) {
+    return true;
+  }
+  if (
+    options?.isAllNetworks !== undefined &&
+    !!item.isAllNetworks !== options.isAllNetworks
+  ) {
+    return true;
+  }
+  return false;
+}
 
 @backgroundClass()
 class ServiceToken extends ServiceBase {
@@ -95,12 +124,13 @@ class ServiceToken extends ServiceBase {
   }
 
   @backgroundMethod()
-  public async abortFetchAccountTokens(options?: { excludedFlags?: string[] }) {
-    const excludedFlags = options?.excludedFlags ?? [];
+  public async abortFetchAccountTokens(
+    options?: IAbortFetchAccountTokensOptions,
+  ) {
     const nextControllers: IFetchAccountTokensController[] = [];
 
     this._fetchAccountTokensControllers.forEach((item) => {
-      if (item.flag && excludedFlags.includes(item.flag)) {
+      if (shouldKeepFetchAccountTokensController(item, options)) {
         nextControllers.push(item);
         return;
       }
@@ -387,6 +417,7 @@ class ServiceToken extends ServiceBase {
     this._fetchAccountTokensControllers.push({
       controller,
       flag,
+      isAllNetworks: !!isAllNetworks,
     });
     // const resp = await client.post<{
     //   data: IFetchAccountTokensResp;

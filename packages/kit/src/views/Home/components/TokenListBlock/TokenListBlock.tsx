@@ -1579,11 +1579,14 @@ function TokenListBlock({
     ],
   );
 
-  // Same cancellation as the single-network refresh path: the superseded
-  // fan-out's token requests must not compete with the new one's.
+  // Only this list's All Networks requests: the superseded fan-out is the
+  // one issuing `home-token-list` requests with `isAllNetworks`, and a token
+  // selector, search or portfolio read running at the same time has no
+  // reason to lose its result over an enabled-network change.
   const handleAbortSupersededRequests = useCallback(() => {
     void backgroundApiProxy.serviceToken.abortFetchAccountTokens({
-      excludedFlags: ['token-selector'],
+      flags: ['home-token-list'],
+      isAllNetworks: true,
     });
   }, []);
 
@@ -1678,10 +1681,12 @@ function TokenListBlock({
       accountId,
       networkId,
       allNetworkDataInit,
+      isRunCurrent,
     }: {
       accountId?: string;
       networkId?: string;
       allNetworkDataInit?: boolean;
+      isRunCurrent?: () => boolean;
     }) => {
       const portfolioSyncRequest = getPortfolioSyncRequestForTarget(
         portfolioSyncTargetKey,
@@ -1710,6 +1715,14 @@ function TokenListBlock({
 
       perfTokenListView.markEnd('allNetworkRequestsStarted_getRawData');
 
+      // Superseded by an enabled-network change while the reads were in
+      // flight: the run that replaced this one reads for itself, and the
+      // refreshing state and cache flag below are its to set (and its
+      // `onFinished` to clear).
+      if (isRunCurrent?.() === false) {
+        return;
+      }
+
       if (!a?.aggregateTokenConfigMap) {
         await backgroundApiProxy.serviceSetting.syncWalletConfig();
         a = await backgroundApiProxy.simpleDb.aggregateToken.getRawData();
@@ -1727,6 +1740,9 @@ function TokenListBlock({
           });
       }
 
+      if (isRunCurrent?.() === false) {
+        return;
+      }
       customTokensRawData.current = c ?? undefined;
       riskTokenManagementRawData.current = {
         unblockedTokens: r?.unblockedTokens ?? {},
@@ -1879,6 +1895,7 @@ function TokenListBlock({
       accountId,
       networkId,
       generation,
+      isRunCurrent,
     }: {
       data: {
         tokenList: IAccountToken[];
@@ -1898,6 +1915,7 @@ function TokenListBlock({
       accountId: string;
       networkId: string;
       generation: number;
+      isRunCurrent?: () => boolean;
     }) => {
       perfTokenListView.markStart('handleAllNetworkCacheData');
 
@@ -1907,9 +1925,15 @@ function TokenListBlock({
       // the tokenList cells §R2+R3 cutover — the cells slim cold cache + ingestRound
       // are now the single cache/paint authority — so the per-network token list
       // assembly that fed those writers is gone too.
-      aggregateTokenRawData.current =
-        (await backgroundApiProxy.simpleDb.aggregateToken.getRawData()) ??
-        undefined;
+      const aggregateTokenRaw =
+        await backgroundApiProxy.simpleDb.aggregateToken.getRawData();
+      // A run superseded by an enabled-network change during that read must
+      // not seed the list and the total with the old enabled set: the run
+      // that replaced it has already cleared both for its own seed.
+      if (isRunCurrent?.() === false) {
+        return;
+      }
+      aggregateTokenRawData.current = aggregateTokenRaw ?? undefined;
 
       // Per-account worth map for the overview update below.
       let tokenListValue: Record<string, string> = {};
@@ -1994,6 +2018,9 @@ function TokenListBlock({
           networkId,
           generation,
         });
+        if (isRunCurrent?.() === false) {
+          return;
+        }
 
         perfTokenListView.markEnd('tokenListRefreshing_allNetworkCacheData');
         updateTokenListState({

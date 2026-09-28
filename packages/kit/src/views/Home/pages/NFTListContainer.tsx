@@ -168,14 +168,17 @@ function NFTListContainer() {
         allNetworksNetworkId: network?.id,
         saveToLocal: true,
       });
-      // A fan-out superseded by an enabled-network change writes nothing,
-      // and neither does the previous owner's fan-out after a switch: its
+      // A fan-out superseded by an enabled-network change writes nothing; the
+      // run that replaced it reads the manual-refresh flag for its own requests.
+      if (isRunCurrent?.() === false) {
+        return r;
+      }
+      // Neither does the previous owner's fan-out after a switch: its
       // `isSameAllNetworksAccountData` compares against the owner the request
-      // started for, so it still passes.
-      if (
-        isRunCurrent?.() === false ||
-        !isActiveOwner(account?.id, network?.id)
-      ) {
+      // started for, so it still passes. Its manual refresh is spent, though:
+      // the next owner's queued run must not inherit a forced fetch.
+      if (!isActiveOwner(account?.id, network?.id)) {
+        isAllNetworkManualRefresh.current = false;
         return r;
       }
       if (

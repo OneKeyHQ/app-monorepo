@@ -718,6 +718,14 @@ function DeFiListBlock({
     deFiDataRef.current = defiUtils.getEmptyDeFiData();
   }, [currentOwnerKey, updateAllNetworkData]);
 
+  // The same for a fan-out an enabled-network change superseded: a throttled
+  // merge still pending for it would land its (possibly disabled) networks in
+  // the list and the totals the new run has just cleared.
+  const handleAbortSupersededRequests = useCallback(() => {
+    updateAllNetworkData.cancel();
+    deFiDataRef.current = defiUtils.getEmptyDeFiData();
+  }, [updateAllNetworkData]);
+
   const handleAllNetworkRequests = useCallback(
     async ({
       accountId,
@@ -866,9 +874,11 @@ function DeFiListBlock({
     async ({
       accountId,
       networkId,
+      isRunCurrent,
     }: {
       accountId?: string;
       networkId?: string;
+      isRunCurrent?: () => boolean;
     }) => {
       if (!refreshCacheOnly && accountId && networkId) {
         await backgroundApiProxy.serviceDeFi.updateCurrentAccount({
@@ -877,16 +887,25 @@ function DeFiListBlock({
         });
       }
 
-      deFiRawDataRef.current =
-        (await backgroundApiProxy.simpleDb.deFi.getRawData()) ?? undefined;
+      const deFiRawData = await backgroundApiProxy.simpleDb.deFi.getRawData();
+      // Superseded by an enabled-network change while the reads were in
+      // flight: the run that replaced this one reads for itself, and the
+      // refreshing state below is its to set (and its `onFinished` to clear).
+      if (isRunCurrent?.() === false) {
+        return;
+      }
+      deFiRawDataRef.current = deFiRawData ?? undefined;
 
       if (refreshCacheOnly) {
         return;
       }
 
       fanOutPositionsOwnerKeyRef.current = undefined;
-      allNetworkManualForceRefreshRef.current =
-        await consumePendingManualForceRefreshIntent();
+      const manualForceRefresh = await consumePendingManualForceRefreshIntent();
+      if (isRunCurrent?.() === false) {
+        return;
+      }
+      allNetworkManualForceRefreshRef.current = manualForceRefresh;
 
       appEventBus.emit(EAppEventBusNames.TabListStateUpdate, {
         isRefreshing: true,
@@ -1110,6 +1129,7 @@ function DeFiListBlock({
     allNetworkCacheData: handleAllNetworkCacheData,
     allNetworkRequests: handleAllNetworkRequests,
     clearAllNetworkData: handleClearAllNetworkData,
+    abortSupersededRequests: handleAbortSupersededRequests,
     isDeFiRequests: true,
     disabled: network?.isAllNetworks ? !isAllNetRequestsEnabled : false,
     // The cache-only instance is the sole writer of the header's DeFi

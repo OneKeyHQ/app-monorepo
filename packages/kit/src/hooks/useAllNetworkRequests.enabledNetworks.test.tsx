@@ -91,7 +91,7 @@ type IResp = { networkId: string };
 
 let ownerSeq = 0;
 
-function setup() {
+function setup({ withCache = false }: { withCache?: boolean } = {}) {
   // A distinct owner per test keeps the module-level accounts cache apart.
   ownerSeq += 1;
   const walletId = `hd-${ownerSeq}`;
@@ -116,6 +116,9 @@ function setup() {
   // isRunCurrent handed to each request, per fan-out.
   const requestRunChecks: Array<Array<() => boolean>> = [];
   const settled: string[] = [];
+  // isRunCurrent handed to onStarted / allNetworkCacheData, per run.
+  const startedRunChecks: Array<() => boolean> = [];
+  const cacheDataRunChecks: Array<() => boolean> = [];
   const clearAllNetworkData = jest.fn();
   const abortSupersededRequests = jest.fn();
   const published: Array<IResp[] | null | undefined> = [];
@@ -140,8 +143,18 @@ function setup() {
           pending.push(() => resolve({ networkId }));
         });
       },
-      allNetworkCacheRequests: async () => null,
-      allNetworkCacheData: async () => {},
+      allNetworkCacheRequests: async ({ networkId }: { networkId: string }) =>
+        withCache ? { networkId } : null,
+      allNetworkCacheData: async ({
+        isRunCurrent,
+      }: {
+        isRunCurrent?: () => boolean;
+      }) => {
+        cacheDataRunChecks.push(isRunCurrent ?? (() => true));
+      },
+      onStarted: async ({ isRunCurrent }: { isRunCurrent?: () => boolean }) => {
+        startedRunChecks.push(isRunCurrent ?? (() => true));
+      },
       allNetworkAccountsData: () => {
         fanOuts.push([]);
         requestRunChecks.push([]);
@@ -167,6 +180,8 @@ function setup() {
     hook,
     fanOuts,
     requestRunChecks,
+    startedRunChecks,
+    cacheDataRunChecks,
     settled,
     published,
     clearAllNetworkData,
@@ -177,6 +192,15 @@ function setup() {
     uncheckSui: () => {
       enabled = [eth];
       act(() => {
+        appEventBus.emit(EAppEventBusNames.EnabledNetworksChanged, undefined);
+      });
+    },
+    // A refresh runner enters the debounce window synchronously (no fan-out
+    // is running), and the change lands while it waits there.
+    uncheckSuiWhileRefreshDebounced: () => {
+      act(() => {
+        void hook.result.current.run();
+        enabled = [eth];
         appEventBus.emit(EAppEventBusNames.EnabledNetworksChanged, undefined);
       });
     },
@@ -253,6 +277,47 @@ describe('useAllNetworkRequests: enabled networks change during a fan-out', () =
       [{ networkId: 'evm--1' }],
     ]);
     // The refresh after the change stays warm.
+    expect(ctx.clearAllNetworkData).toHaveBeenCalledTimes(2);
+  });
+
+  it('hands the started and cache-seed callbacks a run check that turns false once superseded', async () => {
+    const ctx = setup({ withCache: true });
+    await ctx.waitForFirstFanOut();
+    expect(ctx.startedRunChecks).toHaveLength(1);
+    expect(ctx.cacheDataRunChecks).toHaveLength(1);
+    expect(ctx.startedRunChecks[0]()).toBe(true);
+    expect(ctx.cacheDataRunChecks[0]()).toBe(true);
+
+    ctx.uncheckSui();
+    // The consumers re-check these after their own awaits, so a cache seed or
+    // refreshing state of the superseded run is never written.
+    expect(ctx.startedRunChecks[0]()).toBe(false);
+    expect(ctx.cacheDataRunChecks[0]()).toBe(false);
+
+    await ctx.waitForFanOuts(2);
+    expect(ctx.startedRunChecks[1]()).toBe(true);
+  });
+
+  it('lets a runner waiting in the debounce window absorb the change instead of queuing a second fan-out', async () => {
+    const ctx = setup();
+    await ctx.waitForFirstFanOut();
+    await ctx.settleRequests();
+    expect(ctx.published).toEqual([
+      [{ networkId: 'evm--1' }, { networkId: 'sui--mainnet' }],
+    ]);
+
+    ctx.uncheckSuiWhileRefreshDebounced();
+    await ctx.waitForFanOuts(2);
+    await ctx.settleRequests();
+    await ctx.settleRequests();
+
+    // One fan-out for the new set, published as soon as it settles: the
+    // waiting runner took the must-run flag, so nothing queued behind it.
+    expect(ctx.fanOuts).toEqual([['evm--1', 'sui--mainnet'], ['evm--1']]);
+    expect(ctx.published).toEqual([
+      [{ networkId: 'evm--1' }, { networkId: 'sui--mainnet' }],
+      [{ networkId: 'evm--1' }],
+    ]);
     expect(ctx.clearAllNetworkData).toHaveBeenCalledTimes(2);
   });
 
