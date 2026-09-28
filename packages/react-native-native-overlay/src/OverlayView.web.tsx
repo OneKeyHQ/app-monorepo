@@ -30,15 +30,14 @@ const DEFAULT_SHEET_CORNER_RADIUS = 24;
 
 // Portaled content still bubbles React events to the caller's ancestors;
 // stop them at the entry so presses cannot reach the page underneath.
+// Mouse and touch events must keep bubbling natively: react-native-web's
+// responder system (PanResponder, gesture responders) listens for them on
+// `document`, and a React stopPropagation also stops the native event.
 const stopPropagation = (event: SyntheticEvent) => event.stopPropagation();
 const ISOLATED_EVENT_HANDLERS = {
   onClick: stopPropagation,
   onPointerDown: stopPropagation,
   onPointerUp: stopPropagation,
-  onMouseDown: stopPropagation,
-  onMouseUp: stopPropagation,
-  onTouchStart: stopPropagation,
-  onTouchEnd: stopPropagation,
   onKeyDown: stopPropagation,
 };
 

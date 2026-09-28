@@ -343,7 +343,7 @@ P4a toast notes:
 - Custom toasts (`Toast.show` / `ShowCustom`) are their own `toast` entries:
   transparent blocking backdrop (tap closes when `dismissOnOverlayPress`),
   `scale 0.8 + offsetY -20 + fade` on `quick`, PanResponder swipe up to
-  close. `Toast.show` unmounts its portal on the overlay's `onClose`, after
+  close unless `disableSwipeGesture` (the Tamagui toast ignored the flag). `Toast.show` unmounts its portal on the overlay's `onClose`, after
   the exit animation, instead of a 300 ms timer.
 - Security closures do not count as a store close: while locked the
   controller does not re-request, and an overlay whose `visible` is still
@@ -374,24 +374,50 @@ P1 implementation map:
 | Enter / exit animation | `NativeOverlayAnimation.swift` (`UIViewPropertyAnimator`) | `NativeOverlayAnimation.kt` (analytic spring interpolator) | `web/animateTransition.ts` (WAAPI) |
 | Store bridge | `useOverlayController.ts` | same | same |
 
+Migration rules (decided 2026-09-28):
+
+- No transition period. Every overlay (Dialog, Sheet, Toast, DialogLoading,
+  hardware stage and dialogs, password prompts, lock screen, Popover,
+  ActionList, Select, Spotlight) moves onto this package, and the JS
+  overlays (Tamagui Dialog / Sheet / Popover portals, `Portal.Container`
+  overlay hosts, `useOverlayZIndex`) are removed and banned by lint.
+- The global Portal exists only for the JS overlays; it is removed once
+  its last caller migrates.
+- The app lock is unified with the rest: the lock screen renders at the
+  `lock` level and covers everything below it. Overlays are no longer
+  closed on lock; `setSecurityBlocked` goes away with the migration.
+- Every presentation avoids the keyboard (center, sheet, page sheet) on
+  iOS, Android, and web.
+- Fabric `measure` / `measureInWindow` inside an overlay must report the
+  on-screen frame.
+- The status bar follows the topmost full-screen overlay (`statusBarStyle`).
+- Custom toasts honor `disableSwipeGesture`.
+
+Accepted limitations:
+
+- The iOS page sheet is drawn by the entry (UIKit sheets always cover the
+  window): it has no grabber and does not coordinate its pan with inner
+  scroll views. Page sheets should keep scrollable content short or pass
+  `dismissOnPanDown={false}`.
+- Custom toasts stack by request order and overlap at the top, as before;
+  message toasts stack inside their libraries.
+
+Future work (better to have):
+
+- VoiceOver / TalkBack cross-window modality, verified on device.
+- Screen-reader toasts: the native toast library renders nothing under a
+  screen reader today; the toast host should announce content and extend
+  its timer instead.
+
 Known gaps:
 
 - Content sizing uses the JS window size (`useWindowDimensions`) instead of a
   state-driven shadow node. Frames render correctly, but Fabric `measure` /
-  `measureInWindow` inside an overlay still report the staging origin. This
-  must be fixed before anchored presentations (P5) and Spotlight migrate.
-- Message toasts stack inside their libraries; custom toasts stack by
-  request order and overlap at the top, as before.
-- `disableSwipeGesture` on custom toasts was never honored and still is not;
-  swipe up always closes them.
+  `measureInWindow` inside an overlay still report the staging origin
+  (required fix, see migration rules).
 - Android sheet keyboard avoidance relies on the activity's `adjustPan`;
-  not verified on device yet (the emulator keyboard ran in stylus mode).
-- iOS status bar style follows the app window underneath. A full-screen dark
-  overlay on a light app (lock screen) shows dark status bar text; add a
-  `statusBarStyle` prop before the lock screen migrates (P4).
+  to verify with the emulator keyboard in soft-keyboard mode.
+- `statusBarStyle` is not implemented yet (required before the lock screen
+  migrates).
 - The dev package version is a plain `0.1.0`: CocoaPods does not resolve a
   local podspec whose version has a prerelease suffix.
-- VoiceOver cross-window modality needs on-device verification.
-- Today, native toasts disappear under screen readers
-  (`@backpackapp-io/react-native-toast` returns null). The toast host must
-  announce content and extend its timer when a screen reader is on.

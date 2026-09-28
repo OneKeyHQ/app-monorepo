@@ -379,6 +379,24 @@ function NativeOverlayDemo() {
         </Button>
         <Button
           onPress={() => {
+            const toast = Toast.show({
+              disableSwipeGesture: true,
+              dismissOnOverlayPress: false,
+              children: (
+                <YStack p="$5" gap="$3">
+                  <SizableText>No swipe, no outside tap</SizableText>
+                  <Button size="small" onPress={() => void toast.close()}>
+                    Close
+                  </Button>
+                </YStack>
+              ),
+            });
+          }}
+        >
+          Toast.show (locked)
+        </Button>
+        <Button
+          onPress={() => {
             Dialog.show({
               title: 'Legacy dialog',
               description: 'A toast opens above it in 500 ms.',

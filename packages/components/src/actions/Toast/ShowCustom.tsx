@@ -76,7 +76,7 @@ const CustomToasterContext = createContext({} as IContextType);
 
 // Swipe up to close, as the Tamagui toast did. A PanResponder rather than a
 // gesture-handler pan: the content renders in the native overlay window.
-function useSwipeUpToClose(onClose: () => void) {
+function useSwipeUpToClose(onClose: () => void, enabled: boolean) {
   const translateY = useRef(new Animated.Value(0)).current;
   const onCloseRef = useRef(onClose);
   onCloseRef.current = onClose;
@@ -84,7 +84,7 @@ function useSwipeUpToClose(onClose: () => void) {
     () =>
       PanResponder.create({
         onMoveShouldSetPanResponder: (_, { dy, dx }) =>
-          dy < -SWIPE_START_THRESHOLD && Math.abs(dy) > Math.abs(dx),
+          enabled && dy < -SWIPE_START_THRESHOLD && Math.abs(dy) > Math.abs(dx),
         onPanResponderMove: (_, { dy }) => {
           translateY.setValue(Math.min(0, dy));
         },
@@ -105,7 +105,7 @@ function useSwipeUpToClose(onClose: () => void) {
           }).start();
         },
       }),
-    [translateY],
+    [enabled, translateY],
   );
   return { translateY, panHandlers: panResponder.panHandlers };
 }
@@ -116,6 +116,7 @@ function BasicShowToaster({
   onExited,
   duration = Infinity,
   dismissOnOverlayPress = true,
+  disableSwipeGesture = false,
   open,
   onOpenChange,
   ref,
@@ -172,7 +173,10 @@ function BasicShowToaster({
   );
   const { top } = useSafeAreaInsets();
   const pageWidth = usePageWidth();
-  const { translateY, panHandlers } = useSwipeUpToClose(handleContainerClose);
+  const { translateY, panHandlers } = useSwipeUpToClose(
+    handleContainerClose,
+    !disableSwipeGesture,
+  );
 
   // A transparent backdrop keeps taps off the page below, as before.
   const backdrop = useMemo<IOverlayBackdrop>(
@@ -217,6 +221,9 @@ function BasicShowToaster({
         {...panHandlers}
       >
         <Stack
+          // A drag that selects text ends the web responder; keep the card
+          // unselectable while it can be swiped.
+          userSelect={disableSwipeGesture ? undefined : 'none'}
           w={platformEnv.isNative ? pageWidth : undefined}
           maxWidth={platformEnv.isNative ? '$96' : undefined}
           px={platformEnv.isNative ? '$5' : undefined}
