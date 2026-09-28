@@ -194,7 +194,7 @@ request ─► queued ─► active ─► (enter anim) presented
 | Global sheet | `UISheetPresentationController`, presented from the level window's root VC (reuses native-sheet). | View sheet: CoordinatorLayout + BottomSheetBehavior + dimming view (native-sheet reworked off `BottomSheetDialog`). | Custom sheet: pointer drag, snap by velocity, `visualViewport` keyboard. |
 | Page host | Fabric `PageOverlayHost` as the last child of the root-route screen. Custom-drawn sheet, because UIKit sheets cannot be page-scoped. | The same host inside the root-route screen. The ReactRootView already dispatches touches, so no nested RootView. | `position: absolute` host inside the root-route card. |
 | Header / tab bar coverage (page) | Covered: the host is above the tab controller and navigation bars. | Covered. | Covered. |
-| Touch passthrough (toast, debug, box-none) | `hitTest` returns nil on the window or root view. | FrameLayout sibling fall-through. | `pointer-events: none` root, `auto` per entry. |
+| Touch passthrough (toast, debug, box-none) | `hitTest` returns nil on the window or root view. | A non-blocking entry hit-tests its React content with `TouchTargetHelper` (honoring `box-none`) and falls through to the FrameLayout sibling on a miss. | `pointer-events: none` root, `auto` per entry. |
 | Back / Escape | Escape via `accessibilityPerformEscape`. The interactive pop gesture is disabled while a blocking page overlay is shown. | A `Window.Callback` wrapper consumes `KEYCODE_BACK` while a blocking overlay is shown. `ReactActivity.onBackPressed` hands back to JS BackHandler (react-navigation) before the `OnBackPressedDispatcher`, and the app opts out of predictive back, so a dispatcher callback alone never runs first. The dispatcher callback is kept for the predictive-back path. The IME still gets back first to close the keyboard. | Capture-phase `keydown` that ignores IME composition. |
 | Modality / accessibility | `accessibilityViewIsModal` on the blocking level window; `.screenChanged` posted on present. | `IMPORTANT_FOR_ACCESSIBILITY_NO_HIDE_DESCENDANTS` on the content below. | `inert` on the app root and lower layers, `role=dialog`, `aria-modal`, focus trap and restore. |
 | Keyboard | System sheet avoidance; `keyboardLayoutGuide` for custom presentations. The main window regains key status on dismiss. | `WindowInsetsAnimationCompat` per sheet (the app uses `adjustPan`). | `visualViewport`. |
@@ -334,6 +334,21 @@ P2 sheet notes:
   level below `lock` (wired from kit `NativeSheetRoot`), because the current
   lock screen still lives in the app window below the overlay windows.
 
+P4a toast notes:
+
+- Message toasts (`Toast.success` / `message` / `error` …) keep their
+  libraries (sonner on web, `@backpackapp-io/react-native-toast` on native)
+  and render inside one persistent, non-blocking `toast`-level fullscreen
+  entry (kit `ToastOverlayContainer`). The iOS raise tokens are gone.
+- Custom toasts (`Toast.show` / `ShowCustom`) are their own `toast` entries:
+  transparent blocking backdrop (tap closes when `dismissOnOverlayPress`),
+  `scale 0.8 + offsetY -20 + fade` on `quick`, PanResponder swipe up to
+  close. `Toast.show` unmounts its portal on the overlay's `onClose`, after
+  the exit animation, instead of a 300 ms timer.
+- Security closures do not count as a store close: while locked the
+  controller does not re-request, and an overlay whose `visible` is still
+  true comes back after unlock (`snapshot.securityBlockedBelow`).
+
 P1 implementation map:
 
 | Contract | iOS | Android | Web |
@@ -351,9 +366,10 @@ Known gaps:
   state-driven shadow node. Frames render correctly, but Fabric `measure` /
   `measureInWindow` inside an overlay still report the staging origin. This
   must be fixed before anchored presentations (P5) and Spotlight migrate.
-- Toast presentation animates each entry independently; multi-toast stacking
-  (newest below, 8 pt gap, re-stack on height change) lands with the Toast
-  migration (P4).
+- Message toasts stack inside their libraries; custom toasts stack by
+  request order and overlap at the top, as before.
+- `disableSwipeGesture` on custom toasts was never honored and still is not;
+  swipe up always closes them.
 - Android sheet keyboard avoidance relies on the activity's `adjustPan`;
   not verified on device yet (the emulator keyboard ran in stylus mode).
 - iOS status bar style follows the app window underneath. A full-screen dark

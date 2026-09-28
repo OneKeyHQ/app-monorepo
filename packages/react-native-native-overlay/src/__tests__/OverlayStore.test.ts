@@ -265,6 +265,7 @@ describe('OverlayStore security blocking', () => {
     store.request({ id: 'sheet' }, { onRemoved: sheetRemoved });
     store.request({ id: 'lock', level: 'lock' });
     store.setSecurityBlocked(true);
+    expect(store.getSnapshot().securityBlockedBelow).toBe('lock');
     expect(store.getEntry('sheet')?.dismissReason).toBe('security');
     store.finalize('sheet');
     expect(sheetRemoved).toHaveBeenCalledWith('security');
@@ -276,6 +277,7 @@ describe('OverlayStore security blocking', () => {
     expect(activeIds(store)).toEqual(['lock']);
 
     store.setSecurityBlocked(false);
+    expect(store.getSnapshot().securityBlockedBelow).toBeUndefined();
     store.request({ id: 'after' });
     expect(activeIds(store)).toEqual(['after', 'lock']);
   });

@@ -68,4 +68,6 @@ export interface IOverlaySnapshot {
   /** Every non-queued entry in bottom-to-top render order. */
   entries: readonly IOverlayEntry[];
   queued: readonly IOverlayEntry[];
+  /** Levels below this one are refused while the app is locked. */
+  securityBlockedBelow: IOverlayLevel | undefined;
 }

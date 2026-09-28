@@ -30,11 +30,9 @@ const TOASTS_TOP_PAD = 16;
 // One element for every render: a shift re-renders this wrapper only, and
 // React bails out of the library's list on the identical child.
 const toasts = <Toasts />;
-// The app's toast overlay owns iOS native window ordering; elsewhere the
-// z-index keeps the toasts over everything.
-const wrapperBaseStyle = platformEnv.isNativeIOS
-  ? StyleSheet.absoluteFill
-  : [StyleSheet.absoluteFill, { zIndex: TOAST_Z_INDEX }];
+// The app hosts the toaster in the native overlay `toast` level, which
+// owns the ordering; storybook previews still rely on the z-index.
+const wrapperBaseStyle = [StyleSheet.absoluteFill, { zIndex: TOAST_Z_INDEX }];
 const isAndroid = Boolean(platformEnv.isNativeAndroid);
 
 // The hardware stage hangs from the top, where the toasts land: while it

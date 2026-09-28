@@ -1,6 +1,5 @@
 import { memo, useMemo } from 'react';
 
-import { createPortal } from 'react-dom';
 import { useWindowDimensions } from 'react-native';
 import { useReducedMotion } from 'react-native-reanimated';
 import { Toaster as WebToaster } from 'sonner';
@@ -66,8 +65,5 @@ function Toaster() {
   );
 }
 
-function BodyPortal() {
-  return createPortal(<Toaster />, document.body);
-}
-
-export default memo(BodyPortal);
+// Rendered inline: the app hosts it in the native overlay `toast` layer.
+export default memo(Toaster);

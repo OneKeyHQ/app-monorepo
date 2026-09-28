@@ -18,6 +18,7 @@ import com.facebook.react.uimanager.PointerEvents
 import com.facebook.react.uimanager.ReactPointerEventsView
 import com.facebook.react.uimanager.RootView
 import com.facebook.react.uimanager.ThemedReactContext
+import com.facebook.react.uimanager.TouchTargetHelper
 import com.facebook.react.uimanager.events.EventDispatcher
 
 /**
@@ -83,6 +84,7 @@ internal class NativeOverlayEntryRootView(
   }
   private var passingThrough = false
   private val hitRect = Rect()
+  private val targetViewTag = IntArray(1)
 
   init {
     clipChildren = false
@@ -205,11 +207,21 @@ internal class NativeOverlayEntryRootView(
     return union
   }
 
+  /**
+   * Hit-tests the React content the way the JS touch dispatcher would, so
+   * `box-none` wrappers (a full-window toaster, say) let touches through.
+   */
   private fun hitsContent(event: MotionEvent): Boolean {
-    val extent = contentExtent()
     val x = event.x - contentView.left - contentView.translationX
     val y = event.y - contentView.top - contentView.translationY
-    return extent.contains(x.toInt(), y.toInt())
+    for (i in contentView.childCount - 1 downTo 0) {
+      val root = contentView.getChildAt(i) as? ViewGroup ?: continue
+      if (root.visibility != View.VISIBLE) continue
+      targetViewTag[0] = View.NO_ID
+      TouchTargetHelper.findTargetTagForTouch(x - root.left, y - root.top, root, targetViewTag)
+      if (targetViewTag[0] != View.NO_ID) return true
+    }
+    return false
   }
 
   override fun dispatchTouchEvent(event: MotionEvent): Boolean {

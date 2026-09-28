@@ -69,7 +69,11 @@ export class OverlayStore {
   /** While set, levels below it are refused and closed ('security'). */
   private blockedBelowLevel: IOverlayEntry['level'] | undefined;
 
-  private snapshot: IOverlaySnapshot = { entries: [], queued: [] };
+  private snapshot: IOverlaySnapshot = {
+    entries: [],
+    queued: [],
+    securityBlockedBelow: undefined,
+  };
 
   constructor(options: IOverlayStoreOptions = {}) {
     this.closingTimeoutMs =
@@ -202,10 +206,15 @@ export class OverlayStore {
     blocked: boolean,
     belowLevel: IOverlayEntry['level'] = 'lock',
   ): void {
-    this.blockedBelowLevel = blocked ? belowLevel : undefined;
+    const next = blocked ? belowLevel : undefined;
+    if (next === this.blockedBelowLevel) {
+      return;
+    }
+    this.blockedBelowLevel = next;
     if (blocked) {
       this.dismissAll({ belowLevel, reason: 'security' });
     }
+    this.emit();
   }
 
   /** Native / navigation signal: the owning page was covered, detached or restored. */
@@ -390,6 +399,7 @@ export class OverlayStore {
         .map((e) => ({ ...e }))
         .toSorted(compareRenderOrder),
       queued: this.queued.map((e) => ({ ...e })),
+      securityBlockedBelow: this.blockedBelowLevel,
     };
     this.listeners.forEach((listener) => listener());
   }

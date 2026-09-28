@@ -11,6 +11,7 @@ import {
   Input,
   SizableText,
   Stack,
+  Toast,
   XStack,
   YStack,
 } from '@onekeyhq/components';
@@ -346,6 +347,52 @@ function NativeOverlayDemo() {
           }
         >
           Dialog (nativeSheet)
+        </Button>
+      </XStack>
+      <XStack gap="$2" flexWrap="wrap">
+        <Button
+          onPress={() =>
+            Toast.success({ title: 'Toast.success in the toast level' })
+          }
+        >
+          Toast.success
+        </Button>
+        <Button
+          onPress={() => {
+            const toast = Toast.show({
+              children: (
+                <YStack p="$5" gap="$3">
+                  <SizableText>Toast.show custom content</SizableText>
+                  <Button size="small" onPress={() => void toast.close()}>
+                    Close
+                  </Button>
+                </YStack>
+              ),
+            });
+          }}
+        >
+          Toast.show
+        </Button>
+        <Button
+          onPress={() => {
+            Dialog.show({
+              title: 'Legacy dialog',
+              description: 'A toast opens above it in 500 ms.',
+              onConfirm: () => undefined,
+            });
+            setTimeout(() => {
+              Toast.message({ title: 'Toast above the dialog' });
+              Toast.show({
+                children: (
+                  <SizableText p="$5">
+                    Custom toast above the dialog
+                  </SizableText>
+                ),
+              });
+            }, 500);
+          }}
+        >
+          Dialog + toasts
         </Button>
       </XStack>
       <XStack gap="$2" flexWrap="wrap">
