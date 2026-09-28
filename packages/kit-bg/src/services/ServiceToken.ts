@@ -70,7 +70,10 @@ import { getVaultSettings } from '../vaults/settings';
 import ServiceBase from './ServiceBase';
 
 import type { IDBAccount } from '../dbs/local/types';
-import type { ISimpleDBLocalTokens } from '../dbs/simple/entity/SimpleDbEntityLocalTokens';
+import type {
+  IAccountTokenListCache,
+  ISimpleDBLocalTokens,
+} from '../dbs/simple/entity/SimpleDbEntityLocalTokens';
 import type { IRiskTokenManagementDBStruct } from '../dbs/simple/entity/SimpleDbEntityRiskTokenManagement';
 
 type IFetchAccountTokensController = {
@@ -255,14 +258,7 @@ class ServiceToken extends ServiceBase {
       );
   }
 
-  localAccountTokensCache: {
-    tokenList: Record<string, IAccountToken[]>;
-    smallBalanceTokenList: Record<string, IAccountToken[]>;
-    riskyTokenList: Record<string, IAccountToken[]>;
-    tokenListValue: Record<string, string>;
-    tokenListMap: Record<string, Record<string, ITokenFiat>>;
-    tokenListCurrency: Record<string, string>;
-  } = {
+  localAccountTokensCache: IAccountTokenListCache = {
     tokenList: {},
     smallBalanceTokenList: {},
     riskyTokenList: {},
@@ -271,9 +267,7 @@ class ServiceToken extends ServiceBase {
     tokenListCurrency: {},
   };
 
-  private homeLocalAccountTokensCache:
-    | ServiceToken['localAccountTokensCache']
-    | undefined;
+  private homeLocalAccountTokensCache: IAccountTokenListCache | undefined;
 
   // Returns `null` when the rate is missing or unusable so callers can skip
   // conversion and tag entries with the source currency instead — the cache
@@ -414,10 +408,9 @@ class ServiceToken extends ServiceBase {
 
     throwIfRequestAborted();
     // Taken before any other await so persistence follows request start order.
-    const localTokensWriteOrder =
-      saveToLocal && !isAllNetworks
-        ? await this.backgroundApi.simpleDb.localTokens.reserveAccountTokenListWriteOrder()
-        : undefined;
+    const localTokensWriteOrder = saveToLocal
+      ? await this.backgroundApi.simpleDb.localTokens.reserveAccountTokenListWriteOrder()
+      : undefined;
 
     // All-network flows must fan out per real network before reaching this
     // method; the wallet API always rejects the all-network mock id, so a
@@ -776,12 +769,25 @@ class ServiceToken extends ServiceBase {
           };
           cache = this.homeLocalAccountTokensCache;
         }
-        cache.tokenList[key] = filteredTokenList;
-        cache.smallBalanceTokenList[key] = filteredSmallBalanceTokenList;
-        cache.riskyTokenList[key] = filteredRiskyTokenList;
-        cache.tokenListValue[key] = tokenListValue.toFixed();
-        cache.tokenListMap[key] = filteredTokenListMap;
-        cache.tokenListCurrency[key] = resolvedCurrency;
+        // A slower older response for this key may land after a newer one
+        // in the same pending batch; keep the newer snapshot.
+        const pendingWriteOrder = cache.tokenListWriteOrder?.[key];
+        const isOlderThanPending =
+          localTokensWriteOrder !== undefined &&
+          pendingWriteOrder !== undefined &&
+          localTokensWriteOrder < pendingWriteOrder;
+        if (!isOlderThanPending) {
+          if (localTokensWriteOrder !== undefined) {
+            cache.tokenListWriteOrder ??= {};
+            cache.tokenListWriteOrder[key] = localTokensWriteOrder;
+          }
+          cache.tokenList[key] = filteredTokenList;
+          cache.smallBalanceTokenList[key] = filteredSmallBalanceTokenList;
+          cache.riskyTokenList[key] = filteredRiskyTokenList;
+          cache.tokenListValue[key] = tokenListValue.toFixed();
+          cache.tokenListMap[key] = filteredTokenListMap;
+          cache.tokenListCurrency[key] = resolvedCurrency;
+        }
 
         if (homeRequest) {
           void this._updateHomeAccountLocalTokensDebounced();

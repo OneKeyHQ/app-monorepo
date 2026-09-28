@@ -217,6 +217,8 @@ abstract class SimpleDbEntityBase<T> {
       | ((rawData: T | null | undefined) => T)
       | ((rawData: T | null | undefined) => Promise<T>),
     assertCanCommit?: () => void,
+    // Runs under the entity mutex only after storage accepted the write.
+    onCommitted?: (data: T) => void,
   ): Promise<T | undefined> {
     const environment = await travelModeManager.getRuntimeEnvironment();
     return environment.persistence.run({
@@ -262,6 +264,7 @@ abstract class SimpleDbEntityBase<T> {
           }
 
           this.updatedAt = updatedAt;
+          onCommitted?.(data);
           return data;
         }),
       onBlocked: () => undefined,

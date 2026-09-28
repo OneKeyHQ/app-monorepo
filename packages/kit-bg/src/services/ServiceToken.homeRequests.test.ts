@@ -386,6 +386,48 @@ describe('ServiceToken native Home request lifetime', () => {
     ).toEqual([2, 1]);
   });
 
+  it('keeps the newer All Networks snapshot and its order in one pending batch', async () => {
+    jest.useFakeTimers();
+    try {
+      service._currentNetworkId = getNetworkIdsMap().onekeyall;
+      const olderResponse = deferred<{
+        data: { data: ReturnType<typeof getEmptyTokenData> };
+      }>();
+      fetchTokenListMock.mockImplementationOnce(() => olderResponse.promise);
+      const older = service.fetchAccountTokens({
+        ...fetchParams(),
+        isAllNetworks: true,
+        saveToLocal: true,
+      });
+      await jest.advanceTimersByTimeAsync(0);
+      expect(fetchTokenListMock).toHaveBeenCalledTimes(1);
+
+      await service.fetchAccountTokens({
+        ...fetchParams(),
+        isAllNetworks: true,
+        saveToLocal: true,
+      });
+      const olderData = getEmptyTokenData();
+      Object.assign(olderData.tokens, { fiatValue: '10' });
+      olderResponse.resolve({ data: { data: olderData } });
+      await older;
+      await jest.advanceTimersByTimeAsync(3000);
+
+      expect(
+        api.simpleDb.localTokens.updateAccountTokenListByCache.mock.calls,
+      ).toEqual([
+        [
+          expect.objectContaining({
+            tokenListValue: { 'evm--1_fixture-address': '0' },
+            tokenListWriteOrder: { 'evm--1_fixture-address': 2 },
+          }),
+        ],
+      ]);
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
   it('persists completed Home snapshots even when their request is retired', async () => {
     jest.useFakeTimers();
     try {

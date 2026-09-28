@@ -1,4 +1,4 @@
-import { keyBy, merge } from 'lodash';
+import { keyBy, merge, omit } from 'lodash';
 
 import { backgroundMethod } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
@@ -36,6 +36,19 @@ export interface ISimpleDBLocalTokens {
   tokenListCurrency?: Record<string, string>;
 }
 
+// Pending per-key snapshots flushed in one write. `tokenListWriteOrder` holds
+// the reserved write order of each ordered entry; keys without one commit
+// unconditionally.
+export interface IAccountTokenListCache {
+  tokenList: Record<string, IAccountToken[]>;
+  smallBalanceTokenList: Record<string, IAccountToken[]>;
+  riskyTokenList: Record<string, IAccountToken[]>;
+  tokenListValue: Record<string, string>;
+  tokenListMap: Record<string, Record<string, ITokenFiat>>;
+  tokenListCurrency: Record<string, string>;
+  tokenListWriteOrder?: Record<string, number>;
+}
+
 export class SimpleDbEntityLocalTokens extends SimpleDbEntityBase<ISimpleDBLocalTokens> {
   entityName = 'localTokens';
 
@@ -54,6 +67,21 @@ export class SimpleDbEntityLocalTokens extends SimpleDbEntityBase<ISimpleDBLocal
   async reserveAccountTokenListWriteOrder(): Promise<number> {
     this.accountTokenListWriteOrder += 1;
     return this.accountTokenListWriteOrder;
+  }
+
+  // Both helpers run under the entity mutex. The order is recorded only after
+  // storage accepted the write, so a failed write cannot block an older
+  // response that would otherwise restore a completed snapshot.
+  private isStaleAccountTokenListWrite(key: string, writeOrder: number) {
+    return (
+      writeOrder < (this.committedAccountTokenListWriteOrder.get(key) ?? 0)
+    );
+  }
+
+  private recordAccountTokenListWriteOrder(key: string, writeOrder: number) {
+    if (!this.isStaleAccountTokenListWrite(key, writeOrder)) {
+      this.committedAccountTokenListWriteOrder.set(key, writeOrder);
+    }
   }
 
   // Bound the global token-metadata map. Applied on every write (here, on read it
@@ -221,13 +249,9 @@ export class SimpleDbEntityLocalTokens extends SimpleDbEntityBase<ISimpleDBLocal
             if (writeOrder === undefined) {
               return;
             }
-            const committedOrder =
-              this.committedAccountTokenListWriteOrder.get(key) ?? 0;
-            if (writeOrder < committedOrder) {
+            if (this.isStaleAccountTokenListWrite(key, writeOrder)) {
               throw staleWriteError;
             }
-            // Runs under the entity mutex right before the commit.
-            this.committedAccountTokenListWriteOrder.set(key, writeOrder);
           }
         : undefined;
 
@@ -262,6 +286,9 @@ export class SimpleDbEntityLocalTokens extends SimpleDbEntityBase<ISimpleDBLocal
           },
         }),
         assertCanCommit,
+        writeOrder === undefined
+          ? undefined
+          : () => this.recordAccountTokenListWriteOrder(key, writeOrder),
       );
     } catch (error) {
       if (error !== staleWriteError) {
@@ -274,48 +301,76 @@ export class SimpleDbEntityLocalTokens extends SimpleDbEntityBase<ISimpleDBLocal
 
   @backgroundMethod()
   async updateAccountTokenListByCache(
-    tokenListCache: {
-      tokenList: Record<string, IAccountToken[]>;
-      smallBalanceTokenList: Record<string, IAccountToken[]>;
-      riskyTokenList: Record<string, IAccountToken[]>;
-      tokenListValue: Record<string, string>;
-      tokenListMap: Record<string, Record<string, ITokenFiat>>;
-      tokenListCurrency: Record<string, string>;
-    },
+    cache: IAccountTokenListCache,
     homeRequest?: IHomeTokenRequest,
   ) {
+    let tokenListCache = cache;
     await this.setRawDataWithCommitGuard(
-      (rawData) => ({
-        data: rawData?.data ?? {},
-        tokenList: {
-          ...rawData?.tokenList,
-          ...tokenListCache.tokenList,
-        },
-        smallBalanceTokenList: {
-          ...rawData?.smallBalanceTokenList,
-          ...tokenListCache.smallBalanceTokenList,
-        },
-        riskyTokenList: {
-          ...rawData?.riskyTokenList,
-          ...tokenListCache.riskyTokenList,
-        },
-        tokenListMap: {
-          ...rawData?.tokenListMap,
-          ...tokenListCache.tokenListMap,
-        },
-        tokenListValue: {
-          ...rawData?.tokenListValue,
-          ...tokenListCache.tokenListValue,
-        },
-        tokenListCurrency: {
-          ...rawData?.tokenListCurrency,
-          ...tokenListCache.tokenListCurrency,
-        },
-      }),
+      (rawData) => {
+        // Filtered under the entity mutex, like the single-key write guard.
+        tokenListCache = this.dropStaleAccountTokenListCacheEntries(cache);
+        return {
+          data: rawData?.data ?? {},
+          tokenList: {
+            ...rawData?.tokenList,
+            ...tokenListCache.tokenList,
+          },
+          smallBalanceTokenList: {
+            ...rawData?.smallBalanceTokenList,
+            ...tokenListCache.smallBalanceTokenList,
+          },
+          riskyTokenList: {
+            ...rawData?.riskyTokenList,
+            ...tokenListCache.riskyTokenList,
+          },
+          tokenListMap: {
+            ...rawData?.tokenListMap,
+            ...tokenListCache.tokenListMap,
+          },
+          tokenListValue: {
+            ...rawData?.tokenListValue,
+            ...tokenListCache.tokenListValue,
+          },
+          tokenListCurrency: {
+            ...rawData?.tokenListCurrency,
+            ...tokenListCache.tokenListCurrency,
+          },
+        };
+      },
       homeRequest
         ? () => homeTokenRequestRegistry.assertCurrent(homeRequest)
         : undefined,
+      () => {
+        Object.entries(tokenListCache.tokenListWriteOrder ?? {}).forEach(
+          ([key, writeOrder]) =>
+            this.recordAccountTokenListWriteOrder(key, writeOrder),
+        );
+      },
     );
+  }
+
+  private dropStaleAccountTokenListCacheEntries(
+    cache: IAccountTokenListCache,
+  ): IAccountTokenListCache {
+    const writeOrders = cache.tokenListWriteOrder;
+    if (!writeOrders) {
+      return cache;
+    }
+    const staleKeys = Object.keys(writeOrders).filter((key) =>
+      this.isStaleAccountTokenListWrite(key, writeOrders[key]),
+    );
+    if (!staleKeys.length) {
+      return cache;
+    }
+    return {
+      tokenList: omit(cache.tokenList, staleKeys),
+      smallBalanceTokenList: omit(cache.smallBalanceTokenList, staleKeys),
+      riskyTokenList: omit(cache.riskyTokenList, staleKeys),
+      tokenListValue: omit(cache.tokenListValue, staleKeys),
+      tokenListMap: omit(cache.tokenListMap, staleKeys),
+      tokenListCurrency: omit(cache.tokenListCurrency, staleKeys),
+      tokenListWriteOrder: omit(writeOrders, staleKeys),
+    };
   }
 
   @backgroundMethod()
