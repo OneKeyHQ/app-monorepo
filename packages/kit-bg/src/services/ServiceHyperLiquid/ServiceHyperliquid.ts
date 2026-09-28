@@ -2486,6 +2486,8 @@ export default class ServiceHyperliquid extends ServiceBase {
       if (!prev || (!force && prev.spotTotalUsd !== undefined)) return prev;
       if (prev.accountAddress?.toLowerCase() !== activeAddress) return prev;
       if (prev.balances !== balances) return prev;
+      // Cancel only after the snapshot guards, so stale work preserves the newer fallback.
+      // Complete prices make the timer obsolete even when the total is unchanged.
       this._clearSpotTotalUsdFallbackTimer(activeAddress);
       if (prev.spotTotalUsd === computed) return prev;
       didWrite = true;
