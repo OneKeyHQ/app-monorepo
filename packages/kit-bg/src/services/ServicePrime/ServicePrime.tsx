@@ -1616,7 +1616,7 @@ class ServicePrime extends ServiceBase {
         await this.assertOneKeyIdLoggedOutForInteractiveLogin(
           'ServicePrime.apiEmailOtpLogin',
         );
-        allowAuthSessionStorageWritesBySessionSource(
+        await allowAuthSessionStorageWritesBySessionSource(
           EPrimeAuthSessionSource.LegacyEmailSupabase,
         );
         const client = await getSupabaseClientBySessionSource(
