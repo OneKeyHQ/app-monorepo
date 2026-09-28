@@ -4,6 +4,7 @@ import {
   type IProtocolValueState,
   getProtocolPositionSectionsValueState,
   getProtocolValueState,
+  isProtocolAssetValueUnavailable,
 } from '@onekeyhq/kit/src/components/DeFi/protocolValueUtils';
 import {
   type ILocalizedProtocolPositionItem,
@@ -80,6 +81,8 @@ export type IEarnPositionView = {
   action?: IEarnPositionAction;
   /** the server position behind the card: its `earn` block runs Manage and Claim */
   source: IEarnPortfolioPosition;
+  /** Claimable stage: the card shows its rewards alone, no PnL line */
+  variant?: 'rewards';
 };
 
 export type IEarnProtocolView = {
@@ -309,7 +312,9 @@ export function buildEarnPortfolioView({
  * their own endpoint): the same position cards with only their Rewards
  * section, so each card and each protocol row reads the rewards amount, never
  * the principal. Claimable principal is a position, not a reward, and never
- * shows up here.
+ * shows up here. Product rule: the header Rewards figure equals what this
+ * list adds up to, so a reward the server has not priced stays on the DeFi
+ * Assets card and out of this list.
  */
 export function buildEarnClaimableRewardsView(
   protocols: IEarnProtocolView[],
@@ -318,9 +323,15 @@ export function buildEarnClaimableRewardsView(
     .map((protocol) => {
       const positions = protocol.positions.flatMap<IEarnPositionView>(
         (position) => {
-          const sections = position.sections.filter(
-            (section) => section.kind === 'rewards',
-          );
+          const sections = position.sections
+            .filter((section) => section.kind === 'rewards')
+            .map((section) => ({
+              ...section,
+              assets: section.assets.filter(
+                (asset) => !isProtocolAssetValueUnavailable(asset),
+              ),
+            }))
+            .filter((section) => section.assets.length > 0);
           if (sections.length === 0) {
             return [];
           }
@@ -330,6 +341,7 @@ export function buildEarnClaimableRewardsView(
               meta: undefined,
               sections,
               value: getProtocolPositionSectionsValueState(sections),
+              variant: 'rewards' as const,
             },
           ];
         },

@@ -5,7 +5,6 @@ import { useIntl } from 'react-intl';
 import {
   Badge,
   Button,
-  NumberSizeableText,
   SizableText,
   XStack,
   YStack,
@@ -14,6 +13,7 @@ import { useCurrency } from '@onekeyhq/kit/src/components/Currency';
 import { DeFiPositionHealthFactorRow } from '@onekeyhq/kit/src/components/DeFi/DeFiPositionHealthFactorRow';
 import { ProtocolValueCell } from '@onekeyhq/kit/src/components/DeFi/ProtocolValueCell';
 import { isProtocolAssetValueUnavailable } from '@onekeyhq/kit/src/components/DeFi/protocolValueUtils';
+import NumberSizeableTextWrapper from '@onekeyhq/kit/src/components/NumberSizeableTextWrapper';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import { EarnText } from '@onekeyhq/kit/src/views/Staking/components/ProtocolDetails/EarnText';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -99,14 +99,15 @@ function PositionSection({
               textAlign="right"
               numberOfLines={1}
             />
-            <NumberSizeableText
+            <NumberSizeableTextWrapper
+              hideValue
               size="$bodySm"
               color="$textSubdued"
               formatter="balance"
               numberOfLines={1}
             >
               {asset.amount}
-            </NumberSizeableText>
+            </NumberSizeableTextWrapper>
           </YStack>
         </XStack>
       ))}
@@ -253,7 +254,7 @@ function EarnPositionCardCmp({
         />
       ))}
 
-      {position.state === 'active' ? (
+      {position.state === 'active' && position.variant !== 'rewards' ? (
         <PositionPnlLine position={source} />
       ) : null}
 
