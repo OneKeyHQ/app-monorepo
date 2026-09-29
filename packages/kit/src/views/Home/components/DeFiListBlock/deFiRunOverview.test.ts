@@ -55,9 +55,7 @@ describe('shouldPublishDeFiRunOverview', () => {
     // The first throttled flush after a cold start is usually one network's
     // empty response; replacing the header total with its 0 would drop the
     // whole DeFi position until the next flush.
-    expect(shouldPublishDeFiRunOverview(getEmptyDeFiRunOverview())).toBe(
-      false,
-    );
+    expect(shouldPublishDeFiRunOverview(getEmptyDeFiRunOverview())).toBe(false);
     expect(
       shouldPublishDeFiRunOverview(
         accumulateDeFiRunOverview(getEmptyDeFiRunOverview(), {
