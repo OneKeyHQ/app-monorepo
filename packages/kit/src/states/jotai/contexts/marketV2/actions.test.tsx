@@ -646,7 +646,7 @@ describe('market native chart price updates', () => {
   });
 
   it.each(['history', 'realtime'] as const)(
-    'keeps the latest %s price when the detail poll returns an older price',
+    'keeps the latest %s price when the detail request returns an older price',
     async (source) => {
       const { store, Wrapper } = createWrapper();
       store.set(tokenDetailAtom(), tokenDetail);
@@ -708,11 +708,12 @@ describe('market native chart price updates', () => {
   });
 
   it.each([
-    { delayMs: 6000, expectedPrice: '2' },
-    { delayMs: 11_000, expectedPrice: '1.5' },
+    { delayMs: 6000, source: 'history' as const },
+    { delayMs: 11_000, source: 'history' as const },
+    { delayMs: 60_000, source: 'realtime' as const },
   ])(
-    'handles a detail response arriving $delayMs ms after history sync',
-    async ({ delayMs, expectedPrice }) => {
+    'preserves $source when the initial response arrives $delayMs ms later',
+    async ({ delayMs, source }) => {
       const { store, Wrapper } = createWrapper();
       store.set(tokenDetailAtom(), tokenDetail);
       const response = createDeferred<unknown>();
@@ -732,7 +733,7 @@ describe('market native chart price updates', () => {
       let request: Promise<unknown> | undefined;
       act(() => {
         request = result.current.actions.fetchTokenDetail('0xabc', 'evm--1');
-        result.current.onPriceUpdate({ ...realtimeUpdate, source: 'history' });
+        result.current.onPriceUpdate({ ...realtimeUpdate, source });
       });
       expect(store.get(tokenDetailAtom())?.price).toBe('2');
 
@@ -743,13 +744,19 @@ describe('market native chart price updates', () => {
             token: {
               ...tokenDetail,
               price: '1.5',
+              volume24h: '100',
               lastUpdated: receivedAt + delayMs,
             },
           },
         });
         await request;
       });
-      expect(store.get(tokenDetailAtom())?.price).toBe(expectedPrice);
+      expect(store.get(tokenDetailAtom())).toMatchObject({
+        price: '2',
+        lastUpdated: receivedAt,
+        chartPriceUpdatedAt: receivedAt,
+        volume24h: '100',
+      });
     },
   );
 
@@ -1028,6 +1035,89 @@ describe('marketV2 asset token detail actions', () => {
       lastUpdated: 1_788_332_400_000,
     });
   });
+
+  it.each(['detail', 'decimals'] as const)(
+    'preserves realtime prices while an asset %s request is delayed',
+    async (delayedRequest) => {
+      const receivedAt = Date.now();
+      const { store, Wrapper } = createWrapper();
+      const assetDetail = {
+        ...dogeAssetDetail,
+        selectedVariant: {
+          ...dogeAssetDetail.selectedVariant,
+          networkId: 'evm--1',
+          tokenAddress: '0xabc',
+          isNative: false,
+        },
+      };
+      const detailResponse = createDeferred<IMarketAssetDetailData>();
+      const decimalsResponse = createDeferred<{ info: { decimals: number } }>();
+      mockFetchMarketAssetDetail.mockReturnValueOnce(
+        delayedRequest === 'detail'
+          ? detailResponse.promise
+          : Promise.resolve(assetDetail),
+      );
+      mockFetchTokenInfoOnly.mockReturnValueOnce(
+        delayedRequest === 'decimals'
+          ? decimalsResponse.promise
+          : Promise.resolve({ info: { decimals: 18 } }),
+      );
+      store.set(tokenAddressAtom(), '0xabc');
+      store.set(networkIdAtom(), 'evm--1');
+      store.set(tokenDetailAtom(), {
+        address: '0xabc',
+        networkId: 'evm--1',
+        name: 'Dogecoin',
+        symbol: 'DOGE',
+        decimals: 2,
+        decimalsResolved: false,
+        logoUrl: '',
+        price: '0.2',
+      });
+      const { result } = renderHook(
+        () => ({
+          actions: useTokenDetailActions().current,
+          fetchAssetTokenDetail: useMarketAssetTokenDetailAction(),
+        }),
+        { wrapper: Wrapper },
+      );
+      let request: Promise<IMarketAssetDetailData> | undefined;
+      await act(async () => {
+        request = result.current.fetchAssetTokenDetail({
+          assetId: 'doge',
+          tokenAddress: '0xabc',
+          networkId: 'evm--1',
+        });
+        await Promise.resolve();
+      });
+      if (delayedRequest === 'decimals') {
+        expect(mockFetchTokenInfoOnly).toHaveBeenCalledTimes(1);
+      }
+      act(() => {
+        result.current.actions.applyChartPriceUpdate({
+          tokenAddress: '0xabc',
+          networkId: 'evm--1',
+          price: '0.3',
+          lastUpdated: receivedAt,
+        });
+      });
+      jest.spyOn(Date, 'now').mockReturnValue(receivedAt + 60_000);
+      await act(async () => {
+        detailResponse.resolve(assetDetail);
+        decimalsResponse.resolve({ info: { decimals: 18 } });
+        await request;
+      });
+
+      expect(store.get(tokenDetailAtom())).toMatchObject({
+        price: '0.3',
+        lastUpdated: receivedAt,
+        chartPriceUpdatedAt: receivedAt,
+        decimals: 18,
+        decimalsResolved: true,
+        volume24h: dogeAssetDetail.market.volume24h,
+      });
+    },
+  );
 
   it('resolves perps info for the asset detail path', async () => {
     mockResolveMarketPerpsInfoBySymbol.mockResolvedValue({ hlTicker: 'DOGE' });

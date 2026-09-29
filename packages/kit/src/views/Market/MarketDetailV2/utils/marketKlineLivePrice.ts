@@ -17,9 +17,7 @@ export const MARKET_KLINE_LIVE_PRICE_INTERVAL = '1m';
 // without a trade, so ask for a window rather than a single bucket.
 export const MARKET_KLINE_LIVE_PRICE_WINDOW_SECONDS = 600;
 
-// Must stay under CHART_PRICE_FRESHNESS_MS (10s), the window during which
-// `fetchTokenDetail` keeps this price instead of the snapshot it polls. Polling
-// slower than that would let the stale snapshot back in between ticks.
+// Refresh the simple chart's latest close independently of the initial details.
 export const MARKET_KLINE_LIVE_PRICE_POLLING_MS = 6000;
 
 /**

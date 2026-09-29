@@ -65,8 +65,6 @@ async function waitOp(key: string, add: boolean) {
   return op[0] === add;
 }
 
-const CHART_PRICE_FRESHNESS_MS = 10_000;
-
 function isSameMarketTokenDetail({
   tokenDetail,
   tokenAddress,
@@ -264,7 +262,7 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
   );
 
   // Fill an empty detail from the last response for this token so a revisit
-  // renders real values on its first frame; the running poll replaces it.
+  // renders real values on its first frame; the initial request replaces it.
   seedTokenDetailFromCache = contextAtomMethod(
     (
       get,
@@ -585,7 +583,8 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
         const websocketConfig = responseData.data.websocket;
         const perpsInfo = responseData.data.perpsInfo;
 
-        // Preserve chart-updated price only while it is fresh.
+        // The detail response only seeds the price until the chart takes over.
+        // A late response must not replace history or realtime prices.
         const isSameToken =
           currentTokenDetail &&
           isSameMarketTokenDetail({
@@ -594,13 +593,12 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
             networkId,
           });
         const chartPriceUpdatedAt = currentTokenDetail?.chartPriceUpdatedAt;
-        const hasFreshKLinePrice =
+        const hasChartPrice =
           isSameToken &&
           typeof chartPriceUpdatedAt === 'number' &&
-          Number.isFinite(chartPriceUpdatedAt) &&
-          Date.now() - chartPriceUpdatedAt < CHART_PRICE_FRESHNESS_MS;
+          Number.isFinite(chartPriceUpdatedAt);
 
-        const finalTokenData = hasFreshKLinePrice
+        const finalTokenData = hasChartPrice
           ? {
               ...tokenData,
               price: currentTokenDetail.price,

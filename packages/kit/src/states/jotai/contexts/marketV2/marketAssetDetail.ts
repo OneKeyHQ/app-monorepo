@@ -23,7 +23,6 @@ import {
   tokenDetailWebsocketAtom,
 } from './atoms';
 
-const CHART_PRICE_FRESHNESS_MS = 10_000;
 const MARKET_ASSET_DETAIL_CURRENCY = 'usd';
 const MARKET_CHART_FALLBACK_DECIMALS = 2;
 
@@ -238,21 +237,22 @@ async function fetchMarketAssetTokenDetail(
       decimals: isValidTokenDecimals(decimals) ? decimals : undefined,
       lastUpdated,
     });
-    const chartPriceUpdatedAt = currentTokenDetail?.chartPriceUpdatedAt;
-    const hasFreshKLinePrice =
+    // Chart updates may arrive while the decimals lookup is in flight.
+    const latestTokenDetail = get(tokenDetailAtom());
+    const chartPriceUpdatedAt = latestTokenDetail?.chartPriceUpdatedAt;
+    const hasChartPrice =
       isSameMarketTokenDetail({
-        tokenDetail: currentTokenDetail,
+        tokenDetail: latestTokenDetail,
         tokenAddress,
         networkId,
       }) &&
       typeof chartPriceUpdatedAt === 'number' &&
-      Number.isFinite(chartPriceUpdatedAt) &&
-      lastUpdated - chartPriceUpdatedAt < CHART_PRICE_FRESHNESS_MS;
-    const finalTokenData = hasFreshKLinePrice
+      Number.isFinite(chartPriceUpdatedAt);
+    const finalTokenData = hasChartPrice
       ? {
           ...tokenData,
-          price: currentTokenDetail?.price,
-          lastUpdated: currentTokenDetail?.lastUpdated,
+          price: latestTokenDetail?.price,
+          lastUpdated: latestTokenDetail?.lastUpdated,
           chartPriceUpdatedAt,
         }
       : tokenData;

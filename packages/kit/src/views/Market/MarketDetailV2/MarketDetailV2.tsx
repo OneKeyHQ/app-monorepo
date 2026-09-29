@@ -270,7 +270,7 @@ function MarketDetail({
   // Track market entry analytics
   useMarketEnterAnalytics();
 
-  // Start auto-refresh for token details every 6 seconds
+  // Fetch the initial details for the current token scope.
   // Use actualNetworkId (converted from shortcode if needed) for API calls
   const {
     marketAssetDetail,
