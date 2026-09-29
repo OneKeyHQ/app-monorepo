@@ -34,9 +34,9 @@ const dragZoneStyle = {
 //        - `no-drag` holes covering the clickable controls inside it.
 //      All overlays are body-level, position:fixed, opacity:0,
 //      pointer-events:none.
-//   3. On resize / DPI change / aria-hidden (tab, modal) flips and zone
-//      mount/unmount the overlays are cleared, recomputed and re-attached
-//      (debounced, with a max-wait guard).
+//   3. On resize / DPI change / aria-hidden (tab, modal) flips, zone
+//      mount/unmount and zone/control size changes the overlays are cleared,
+//      recomputed and re-attached (debounced, with a max-wait guard).
 //   Fresh overlays => never stale; invisible => no flicker; one central place
 //   => replaces (and removes) the previous per-instance ghost-mirror.
 // =============================================================================
@@ -73,6 +73,13 @@ const NO_DRAG_SELECTOR = [
 let started = false;
 let debounceTimer: ReturnType<typeof setTimeout> | null = null;
 let pendingSince = 0;
+let sizeObserver: ResizeObserver | null = null;
+// observe() also reports the initial size, which must not reschedule.
+const observedSizes = new WeakMap<Element, string>();
+
+function toSizeKey(rect: DOMRect) {
+  return `${Math.round(rect.width)}x${Math.round(rect.height)}`;
+}
 
 // Neutralize the real app-region of every marker zone AND everything inside it
 // (drag, no-drag controls, `.app-region-no-drag`, is_GroupFrame, …). Inside a
@@ -163,10 +170,14 @@ function recompute() {
   });
   const drags: HTMLDivElement[] = [];
   const holes: HTMLDivElement[] = [];
+  const measured: Array<[Element, DOMRect]> = [];
   for (const zone of zones) {
-    drags.push(makeRegionEl(zone.getBoundingClientRect(), 'drag'));
+    const zoneRect = zone.getBoundingClientRect();
+    measured.push([zone, zoneRect]);
+    drags.push(makeRegionEl(zoneRect, 'drag'));
     zone.querySelectorAll(NO_DRAG_SELECTOR).forEach((nd) => {
       const r = (nd as HTMLElement).getBoundingClientRect();
+      measured.push([nd, r]);
       if (r.width > 0 && r.height > 0) {
         holes.push(makeRegionEl(r, 'no-drag'));
       }
@@ -174,6 +185,20 @@ function recompute() {
   }
   drags.forEach((d) => document.body.appendChild(d));
   holes.forEach((h) => document.body.appendChild(h));
+  observeSizes(measured);
+}
+
+// A control can resize after a recompute (e.g. a header badge filled in by async
+// data) without any other trigger firing, which leaves its hole stale.
+function observeSizes(measured: Array<[Element, DOMRect]>) {
+  if (!sizeObserver) {
+    return;
+  }
+  sizeObserver.disconnect();
+  for (const [el, rect] of measured) {
+    observedSizes.set(el, toSizeKey(rect));
+    sizeObserver.observe(el);
+  }
 }
 
 function runRecompute() {
@@ -244,12 +269,23 @@ function startManager() {
   // does NOT mount/unmount the zones, so it must be observed explicitly. The
   // filter keeps this cheap: the callback only runs on aria-hidden changes
   // (rare), not on general DOM churn. (Other layout changes are covered by the
-  // resize listener and by per-instance mount/unmount in the hook below.)
+  // resize listener, the size observer and per-instance mount/unmount in the
+  // hook below.)
   const mo = new MutationObserver(scheduleRecompute);
   mo.observe(document.documentElement, {
     attributes: true,
     attributeFilter: ['aria-hidden'],
     subtree: true,
+  });
+
+  sizeObserver = new ResizeObserver((entries) => {
+    const resized = entries.some(
+      ({ target }) =>
+        observedSizes.get(target) !== toSizeKey(target.getBoundingClientRect()),
+    );
+    if (resized) {
+      scheduleRecompute();
+    }
   });
 
   // Initial pass — run it synchronously (not debounced) so the draggable region
