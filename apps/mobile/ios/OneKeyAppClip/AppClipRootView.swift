@@ -1273,7 +1273,8 @@ extension AppClipRootView {
         title: String(localized: "referral.proof.perps"),
         isEmpty: state.items.isEmpty,
         isLoading: state.isLoading,
-        didLoad: state.didLoad
+        didLoad: state.didLoad,
+        failed: state.failed
       ) {
         ForEach(state.items.prefix(Self.referralMarketRowCount)) { perp in
           MarketPerpsRow(perp: perp, height: Self.referralMarketRowHeight)
@@ -1291,7 +1292,8 @@ extension AppClipRootView {
         title: String(localized: "referral.proof.swap"),
         isEmpty: assets.isEmpty,
         isLoading: state.isLoading,
-        didLoad: state.didLoad
+        didLoad: state.didLoad,
+        failed: state.failed
       ) {
         ForEach(assets.prefix(Self.referralMarketRowCount)) { asset in
           MarketAssetRow(asset: asset, height: Self.referralMarketRowHeight)
@@ -1310,11 +1312,13 @@ extension AppClipRootView {
     isEmpty: Bool,
     isLoading: Bool,
     didLoad: Bool,
+    failed: Bool,
     @ViewBuilder rows: () -> Rows
   ) -> some View {
     // A failed or empty feed is dropped rather than shown as an error, since
-    // the page stands on the reward without it.
-    if !isEmpty || isLoading || !didLoad {
+    // the page stands on the reward without it. Before the first request
+    // settles the spinner holds the space.
+    if !isEmpty || isLoading || (!didLoad && !failed) {
       VStack(alignment: .leading, spacing: 8) {
         Text(title)
           .font(.system(size: 14, weight: .semibold))

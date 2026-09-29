@@ -286,6 +286,24 @@ enum AppClipInviteCodeStore {
     }
   }
 
+  /// Drops the handed-off code, so an invocation whose code cannot be stored
+  /// never leaves an earlier invite's code for the full app to pre-fill.
+  /// Returns false only when a record may still be on disk.
+  @discardableResult
+  static func clearHandoff() -> Bool {
+    guard let recordURL else {
+      return false
+    }
+    do {
+      try FileManager.default.removeItem(at: recordURL)
+      return true
+    } catch let error as CocoaError where error.code == .fileNoSuchFile {
+      return true
+    } catch {
+      return false
+    }
+  }
+
   private static var recordURL: URL? {
     FileManager.default
       .containerURL(

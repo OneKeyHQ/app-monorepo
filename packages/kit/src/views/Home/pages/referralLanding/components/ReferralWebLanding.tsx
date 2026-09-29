@@ -31,7 +31,10 @@ import type {
 } from '@onekeyhq/components';
 import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
 import { HomeTestIDs } from '@onekeyhq/kit/src/views/Home/testIDs';
-import { isIOSSafariBrowser } from '@onekeyhq/kit/src/views/Home/utils/deepLinkLaunchUtils';
+import {
+  hasAppClipBannerMeta,
+  isIOSSafariBrowser,
+} from '@onekeyhq/kit/src/views/Home/utils/deepLinkLaunchUtils';
 import { LayoutHeaderLanguageSelector } from '@onekeyhq/kit/src/views/Onboardingv2/components/Layout';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -729,12 +732,15 @@ export function ReferralWebLanding({
   isStep2Highlighted = false,
   isDownloadHintVisible = false,
 }: IReferralWebLandingProps) {
-  const isIOSSafari = useMemo(() => isIOSSafariBrowser(), []);
+  const canShowAppClipHint = useMemo(
+    () => isIOSSafariBrowser() && hasAppClipBannerMeta(),
+    [],
+  );
   const [isAppClipHintClosed, setIsAppClipHintClosed] = useState(false);
   const closeAppClipHint = useCallback(() => setIsAppClipHintClosed(true), []);
   return (
     <YStack flex={1}>
-      {isIOSSafari && !isAppClipHintClosed ? (
+      {canShowAppClipHint && !isAppClipHintClosed ? (
         <AppClipOpenHint onClose={closeAppClipHint} />
       ) : null}
       <XStack h={52} px="$5" ai="center" jc="space-between">

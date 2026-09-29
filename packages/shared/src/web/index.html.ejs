@@ -120,7 +120,13 @@
           // route shares this template, and the App Clip only handles /r/ and
           // /clip/ URLs. IDs match the App Store listing and the App Clip target.
           (function () {
-            if (!/^\/r\/[^/]+/.test(location.pathname)) {
+            // Same shapes as the App Clip's referral parser:
+            // /r/<code>, /r/<code>/app and /r/<code>/app/<page>.
+            if (
+              !/^\/r\/[A-Za-z0-9_-]{1,32}(\/app(\/[A-Za-z0-9_-]{0,32})?)?\/?$/.test(
+                location.pathname
+              )
+            ) {
               return;
             }
             var meta = document.createElement('meta');

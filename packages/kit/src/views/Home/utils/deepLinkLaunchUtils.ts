@@ -43,6 +43,26 @@ export function isIOSSafariBrowser(): boolean {
   );
 }
 
+export function isAppClipBannerMetaContent(
+  content: string | null | undefined,
+): boolean {
+  return !!content && content.includes('app-clip-bundle-id=');
+}
+
+/**
+ * Safari reads the App Clip card meta only when it parses the original
+ * document, which the web head script inserts on /r/ paths. A client-side
+ * navigation into a referral page therefore has no card to point at.
+ */
+export function hasAppClipBannerMeta(): boolean {
+  const metas = globalThis.document?.head?.querySelectorAll<HTMLMetaElement>(
+    'meta[name="apple-itunes-app"]',
+  );
+  return Array.from(metas ?? []).some((meta) =>
+    isAppClipBannerMetaContent(meta.content),
+  );
+}
+
 export function buildAndroidIntentUrl(deepLinkUrl: string): string {
   const schemeEnd = deepLinkUrl.indexOf('://');
   if (schemeEnd === -1) {

@@ -208,9 +208,7 @@ private struct MarketTokenListItem: Decodable {
     case .oneDay:
       selected = priceChange24hPercent
     }
-    // The API sends "-" for an unknown window, so fall back on a value, not
-    // only on a missing field.
-    return selected?.doubleValue ?? priceChange24hPercent?.doubleValue
+    return (selected ?? priceChange24hPercent)?.doubleValue
   }
 
   func volume(for timeRange: AppClipMarketTimeRange) -> Double? {

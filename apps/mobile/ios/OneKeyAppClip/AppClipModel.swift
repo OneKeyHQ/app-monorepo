@@ -371,6 +371,11 @@ final class AppClipModel: ObservableObject {
     case .referral(let invitedReferral):
       campaignWebURL = nil
       referral = invitedReferral
+      if !didSaveInviteCode {
+        // The landing shows this code, so the full app must not pre-fill an
+        // older invite's code instead; the bind form rejects this one anyway.
+        AppClipInviteCodeStore.clearHandoff()
+      }
       // Only promise an automatic carry-over when the App Group write landed.
       isInviteCodeSaved = didSaveInviteCode
       screen = .referral(invitedReferral)
@@ -399,7 +404,7 @@ final class AppClipModel: ObservableObject {
     if configurationLastUpdated.map({ Date().timeIntervalSince($0) >= 3_600 }) ?? true {
       await refreshConfiguration(force: force)
     }
-    switch selectedMarketTab {
+    switch activeMarketTab {
     case .stocks:
       await refreshStocks(force: force)
     case .perps:
@@ -544,7 +549,7 @@ final class AppClipModel: ObservableObject {
   }
 
   var isRefreshing: Bool {
-    switch selectedMarketTab {
+    switch activeMarketTab {
     case .stocks:
       return stockState.isLoading
     case .perps:
@@ -555,7 +560,7 @@ final class AppClipModel: ObservableObject {
   }
 
   var marketRefreshFailed: Bool {
-    switch selectedMarketTab {
+    switch activeMarketTab {
     case .stocks:
       return stockState.failed
     case .perps:
@@ -566,7 +571,7 @@ final class AppClipModel: ObservableObject {
   }
 
   var activeDidLoad: Bool {
-    switch selectedMarketTab {
+    switch activeMarketTab {
     case .stocks:
       return stockState.didLoad
     case .perps:
@@ -577,7 +582,7 @@ final class AppClipModel: ObservableObject {
   }
 
   var activeIsEmpty: Bool {
-    switch selectedMarketTab {
+    switch activeMarketTab {
     case .stocks:
       return stockState.items.isEmpty
     case .perps:
@@ -588,13 +593,26 @@ final class AppClipModel: ObservableObject {
   }
 
   var lastUpdated: Date? {
-    switch selectedMarketTab {
+    switch activeMarketTab {
     case .stocks:
       return stockState.lastUpdated
     case .perps:
       return perpsState.lastUpdated
     case .trending:
       return trendingState.lastUpdated
+    }
+  }
+
+  /// The feed on screen: the referral landing shows one fixed feed and has no
+  /// tab bar, so refreshes follow its variant instead of the market tab.
+  private var activeMarketTab: AppClipMarketTab {
+    switch referral?.variant {
+    case .perps:
+      return .perps
+    case .swap, .defi:
+      return .trending
+    case nil:
+      return selectedMarketTab
     }
   }
 
@@ -1003,6 +1021,8 @@ final class AppClipModel: ObservableObject {
   private func refreshInviteeDiscount(rebateBaseURL: URL) {
     let requestID = UUID()
     inviteeDiscountRequestID = requestID
+    // A previous referral's rate must not outlive a failed request for this one.
+    inviteeDiscountText = AppClipInviteeDiscount.fallbackText
     Task {
       let discount = try? await marketService.fetchInviteeDiscount(rebateBaseURL: rebateBaseURL)
       guard inviteeDiscountRequestID == requestID else {
