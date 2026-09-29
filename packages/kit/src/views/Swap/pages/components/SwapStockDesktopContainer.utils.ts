@@ -209,6 +209,23 @@ const STOCK_ISSUER_LABELS: Record<string, string> = {
   xstocks: 'xStocks',
 };
 
+export function resolveStockListingId({
+  stockId,
+  underlyingAssetTicker,
+}: {
+  stockId?: string;
+  underlyingAssetTicker?: string;
+}) {
+  return stockId?.trim() || underlyingAssetTicker?.trim() || undefined;
+}
+
+export function isCurrentStockVariantSelection(
+  requestId: number,
+  latestRequestId: number,
+) {
+  return requestId === latestRequestId;
+}
+
 export function getStockVariantOptionsPhase({
   isLoading,
   itemCount,
@@ -220,7 +237,10 @@ export function getStockVariantOptionsPhase({
   resultStockId?: string;
   stockId?: string;
 }): 'loading' | 'empty' | 'ready' {
-  const matchesStock = Boolean(stockId) && resultStockId === stockId;
+  if (!stockId) {
+    return 'empty';
+  }
+  const matchesStock = resultStockId === stockId;
   if (!matchesStock || (isLoading !== false && itemCount === 0)) {
     return 'loading';
   }

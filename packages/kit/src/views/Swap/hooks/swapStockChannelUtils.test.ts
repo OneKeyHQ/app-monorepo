@@ -29,6 +29,7 @@ import {
   resolveStockPayTokenState,
   resolveStockTradeInputTokenStatus,
   resolveSwapStockDefaultTokenStatus,
+  shouldCommitFollowedStockToken,
   shouldLoadDefaultStockToken,
   shouldRenderStockTradeInputSkeleton,
   shouldResetStockTradeReceiveAmount,
@@ -1222,5 +1223,49 @@ describe('resolveFollowedStockToken', () => {
         stockPairToken: appleStockToken,
       }),
     ).toBe(micronStockToken);
+  });
+});
+
+describe('shouldCommitFollowedStockToken', () => {
+  it('commits while local state is still the previous stock', () => {
+    expect(
+      shouldCommitFollowedStockToken({
+        displayedStockToken: micronStockToken,
+        executionStockToken: appleStockToken,
+        followedStockToken: micronStockToken,
+        stockTokenState: appleStockToken,
+      }),
+    ).toBe(true);
+  });
+
+  it('does not commit again after local state matches', () => {
+    expect(
+      shouldCommitFollowedStockToken({
+        displayedStockToken: micronStockToken,
+        executionStockToken: appleStockToken,
+        followedStockToken: micronStockToken,
+        stockTokenState: micronStockToken,
+      }),
+    ).toBe(false);
+  });
+
+  it('commits when local state is empty and the execution pair is stale', () => {
+    expect(
+      shouldCommitFollowedStockToken({
+        displayedStockToken: micronStockToken,
+        executionStockToken: appleStockToken,
+        followedStockToken: micronStockToken,
+      }),
+    ).toBe(true);
+  });
+
+  it('leaves a pair that already matches the follow target', () => {
+    expect(
+      shouldCommitFollowedStockToken({
+        displayedStockToken: appleStockToken,
+        executionStockToken: appleStockToken,
+        followedStockToken: appleStockToken,
+      }),
+    ).toBe(false);
   });
 });

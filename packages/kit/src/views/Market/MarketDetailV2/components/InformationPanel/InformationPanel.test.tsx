@@ -56,6 +56,7 @@ jest.mock('../../hooks/useMarketDetailDisplayData', () => ({
   useMarketDetailDisplayData: () => ({
     tokenDetail: mockDetail,
     networkId: mockDetail.networkId,
+    isStockToken: Boolean(mockDetail.stock),
   }),
 }));
 jest.mock('../TokenSecurityAlert/hooks', () => ({
@@ -102,6 +103,35 @@ it('keeps the native risk row mounted before, during and after security loading'
   expect(screen.getByText(ETranslations.dexmarket_audit).parentElement).toBe(
     row,
   );
+  expect(screen.queryByText('risk result')).toBeNull();
+});
+
+it('shows the wrapped-token risk result on the native stock header', () => {
+  mockDetail = {
+    ...mockDetail,
+    stock: {
+      subtitle: 'Apple',
+      sourceLogoUri: '',
+    },
+  };
+  mockSecurityData = {
+    check: { value: true, content: 'Test', riskType: 'caution' },
+  };
+  render(<InformationPanel />);
+  expect(screen.getByText(ETranslations.dexmarket_audit)).toBeTruthy();
+  expect(screen.getByText('risk result')).toBeTruthy();
+});
+
+it('does not reserve a risk row for a native stock without a risk result', () => {
+  mockDetail = {
+    ...mockDetail,
+    stock: {
+      subtitle: 'Apple',
+      sourceLogoUri: '',
+    },
+  };
+  render(<InformationPanel />);
+  expect(screen.queryByText(ETranslations.dexmarket_audit)).toBeNull();
   expect(screen.queryByText('risk result')).toBeNull();
 });
 

@@ -48,10 +48,7 @@ function MobileInformationTabsHeader({
   holdersTabLabel: string;
   holdersTabName: string;
 }) {
-  const { tabNames, focusedTab, onTabPress } = props;
-  const firstTabName = useMemo(() => {
-    return tabNames[0];
-  }, [tabNames]);
+  const { focusedTab, onTabPress } = props;
 
   const handleTabPress = useCallback(
     (tabName: string) => {
@@ -89,7 +86,7 @@ function MobileInformationTabsHeader({
           onTabPress={handleTabPress}
           renderItem={renderTabBarItem}
         />
-        <StickyHeader firstTabName={firstTabName} />
+        <StickyHeader />
       </YStack>
     </HeaderScrollGestureWrapper>
   );

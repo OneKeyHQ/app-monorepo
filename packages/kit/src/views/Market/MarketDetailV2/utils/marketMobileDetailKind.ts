@@ -45,18 +45,21 @@ export type IMobileInformationColumnHeader =
   | 'holders'
   | 'none';
 
-// The sticky column header belongs to a table tab. Stock and top-coin
-// overviews are stat grids, so they keep the tab bar and nothing under it.
+// The sticky column header belongs to a table tab. Match the tab title, not
+// "whatever is first": mobile trending opens on Overview, while desktop still
+// opens on the transactions table.
 export function resolveMobileInformationColumnHeader({
   detailKind,
   focusedTab,
-  firstTabName,
+  transactionsTabName,
+  holdersTabName,
   portfolioTabName,
   liquidityTabName,
 }: {
   detailKind: IMarketMobileDetailKind;
   focusedTab: string;
-  firstTabName: string;
+  transactionsTabName: string;
+  holdersTabName: string;
   portfolioTabName: string;
   liquidityTabName: string;
 }): IMobileInformationColumnHeader {
@@ -69,8 +72,11 @@ export function resolveMobileInformationColumnHeader({
   if (detailKind === 'stock' || detailKind === 'topCoin') {
     return 'none';
   }
-  if (focusedTab !== firstTabName) {
+  if (focusedTab === transactionsTabName) {
+    return 'transactions';
+  }
+  if (focusedTab === holdersTabName) {
     return 'holders';
   }
-  return 'transactions';
+  return 'none';
 }

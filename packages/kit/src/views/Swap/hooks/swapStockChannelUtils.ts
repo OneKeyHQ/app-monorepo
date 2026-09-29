@@ -239,6 +239,39 @@ export function resolveFollowedStockToken({
   return controlledStockToken ?? persistedStockToken ?? stockPairToken;
 }
 
+// The mobile header can show a newly selected stock before local state catches
+// up. Commit that stock when the published state or execution pair is still
+// the previous one. Once local state matches, leave execution catch-up to the
+// selection call so a slow write cannot retrigger it.
+export function shouldCommitFollowedStockToken({
+  displayedStockToken,
+  executionStockToken,
+  followedStockToken,
+  stockTokenState,
+}: {
+  displayedStockToken?: ISwapToken;
+  executionStockToken?: ISwapToken;
+  followedStockToken?: ISwapToken;
+  stockTokenState?: ISwapToken;
+}) {
+  const followedKey = getTokenIdentityKey(followedStockToken);
+  if (!followedKey) {
+    return false;
+  }
+  const stateKey = getTokenIdentityKey(stockTokenState);
+  const executionKey = getTokenIdentityKey(executionStockToken);
+  if (stateKey && stateKey !== followedKey) {
+    return true;
+  }
+  if (!stateKey && executionKey && executionKey !== followedKey) {
+    return true;
+  }
+  if (!stateKey && !executionKey) {
+    return followedKey !== getTokenIdentityKey(displayedStockToken);
+  }
+  return false;
+}
+
 export function shouldSyncControlledStockTokenMetadata({
   controlledStockToken,
   currentStockToken,

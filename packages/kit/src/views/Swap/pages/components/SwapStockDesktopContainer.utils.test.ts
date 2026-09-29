@@ -17,9 +17,11 @@ import {
   getStockMarketTokenSubtitle,
   getStockNetworkLogoUri,
   getStockVariantOptionsPhase,
+  isCurrentStockVariantSelection,
   isStockChartRequestReady,
   isStockMarketPanelLoadingStage,
   mergeStockChartRealtimePoint,
+  resolveStockListingId,
   resolveStockVariantRowLabel,
   resolveSwapStockMobileHeaderIdentity,
   resolveSwapStockMobileHeaderLogo,
@@ -302,6 +304,35 @@ describe('SwapStockDesktopContainer utils', () => {
         hasTokenData: false,
       }),
     ).toBe(false);
+  });
+
+  it('prefers the market stock id over the ticker', () => {
+    expect(
+      resolveStockListingId({
+        stockId: 'AAPL',
+        underlyingAssetTicker: 'OTHER',
+      }),
+    ).toBe('AAPL');
+    expect(
+      resolveStockListingId({
+        underlyingAssetTicker: ' NVDA ',
+      }),
+    ).toBe('NVDA');
+    expect(resolveStockListingId({})).toBeUndefined();
+  });
+
+  it('ignores a variant detail that a later selection replaced', () => {
+    expect(isCurrentStockVariantSelection(1, 2)).toBe(false);
+    expect(isCurrentStockVariantSelection(2, 2)).toBe(true);
+  });
+
+  it('shows an empty variant list when the stock has no listing id', () => {
+    expect(
+      getStockVariantOptionsPhase({
+        isLoading: undefined,
+        itemCount: 0,
+      }),
+    ).toBe('empty');
   });
 
   it('keeps the stock variant list loading until the current stock responds', () => {

@@ -168,8 +168,10 @@ import {
   getStockMarketTokenSubtitle,
   getStockNetworkLogoUri,
   getStockVariantOptionsPhase,
+  isCurrentStockVariantSelection,
   isStockChartRequestReady,
   isStockMarketPanelLoadingStage,
+  resolveStockListingId,
   resolveStockVariantRowLabel,
   resolveSwapStockMobileHeaderIdentity,
   resolveSwapStockMobileHeaderLogo,
@@ -1427,6 +1429,7 @@ function SwapStockVariantOptions({
 }) {
   const intl = useIntl();
   const { closePopover } = usePopoverContext();
+  const variantSelectionIdRef = useRef(0);
   const { isLoading, result, run } = usePromiseResult(
     async () => {
       if (!stockId) {
@@ -1448,6 +1451,8 @@ function SwapStockVariantOptions({
       if (!isStockTokenVariantTradable(variant)) {
         return;
       }
+      variantSelectionIdRef.current += 1;
+      const requestId = variantSelectionIdRef.current;
       void closePopover?.();
       void (async () => {
         const sameToken = Boolean(
@@ -1478,6 +1483,14 @@ function SwapStockVariantOptions({
           } catch {
             // The stock channel loads detail again after the identity changes.
           }
+        }
+        if (
+          !isCurrentStockVariantSelection(
+            requestId,
+            variantSelectionIdRef.current,
+          )
+        ) {
+          return;
         }
         onSelect(
           buildSwapTokenFromStockVariant({
@@ -1671,7 +1684,10 @@ function StockMobileVariantQuoteRow({
         renderContent={
           <SwapStockVariantOptions
             currentToken={currentStockToken}
-            stockId={stock?.underlyingAssetTicker?.trim() || undefined}
+            stockId={resolveStockListingId({
+              stockId: stock?.stockId,
+              underlyingAssetTicker: stock?.underlyingAssetTicker,
+            })}
             onSelect={handleSelectVariant}
           />
         }
@@ -2002,7 +2018,10 @@ function StockMarketTokenHeader({
     : undefined;
   const stock = tokenDetail?.stock ?? selectedStock;
   const listingStockId = proAligned
-    ? stock?.underlyingAssetTicker?.trim() || undefined
+    ? resolveStockListingId({
+        stockId: stock?.stockId,
+        underlyingAssetTicker: stock?.underlyingAssetTicker,
+      })
     : undefined;
   const { result: listingStock, isLoading: listingStockLoading } =
     usePromiseResult(

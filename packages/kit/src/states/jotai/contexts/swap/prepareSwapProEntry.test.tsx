@@ -308,6 +308,62 @@ describe('prepareStockSwapEntry', () => {
     expect(store.get(swapStockExecutionTokensAtom())).toBeUndefined();
   });
 
+  it('clears the previous amount when opening a different stock', () => {
+    const store = jotaiContextStore.getOrCreateStore(swapStoreData);
+    const previousStock: ISwapToken = {
+      networkId: 'evm--1',
+      contractAddress: '0xaapl',
+      symbol: 'AAPLon',
+      decimals: 18,
+      isNative: false,
+      isStock: true,
+    };
+    const nextStock: ISwapToken = {
+      networkId: 'evm--1',
+      contractAddress: '0xnvda',
+      symbol: 'NVDAon',
+      decimals: 18,
+      isNative: false,
+      isStock: true,
+    };
+    const previousAmount = { value: '100', isInput: true };
+    store.set(swapStockSelectedTokenAtom(), previousStock);
+    store.set(swapSelectFromTokenAtom(), previousStock);
+    store.set(swapFromTokenAmountAtom(), previousAmount);
+    store.set(swapToTokenAmountAtom(), { value: '1', isInput: false });
+
+    prepareStockSwapEntry({ token: nextStock });
+
+    expect(store.get(swapFromTokenAmountAtom())).toEqual({
+      value: '',
+      isInput: false,
+    });
+    expect(store.get(swapToTokenAmountAtom())).toEqual({
+      value: '',
+      isInput: false,
+    });
+  });
+
+  it('keeps the amount when the same stock is opened again', () => {
+    const store = jotaiContextStore.getOrCreateStore(swapStoreData);
+    const nextStock: ISwapToken = {
+      networkId: 'evm--1',
+      contractAddress: '0xnvda',
+      symbol: 'NVDAon',
+      decimals: 18,
+      isNative: false,
+      isStock: true,
+    };
+    const previousAmount = { value: '100', isInput: true };
+    store.set(swapStockSelectedTokenAtom(), nextStock);
+    store.set(swapSelectFromTokenAtom(), ordinaryToToken);
+    store.set(swapFromTokenAmountAtom(), previousAmount);
+
+    prepareStockSwapEntry({ token: nextStock });
+
+    expect(store.get(swapFromTokenAmountAtom())).toEqual(previousAmount);
+  });
+
   it('keeps a non-stock payment token', () => {
     const store = jotaiContextStore.getOrCreateStore(swapStoreData);
     const nextStock: ISwapToken = {

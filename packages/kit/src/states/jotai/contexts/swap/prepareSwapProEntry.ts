@@ -90,15 +90,25 @@ export function prepareStockSwapEntry({
   });
   const stockToken = token.isStock ? token : { ...token, isStock: true };
   const fromToken = store.get(swapSelectFromTokenAtom());
+  const previousStockToken = store.get(swapStockSelectedTokenAtom());
   const nextFromToken = fromToken?.isStock ? undefined : fromToken;
+  const stockChanged = !isSameSwapToken(previousStockToken, stockToken);
+  const droppedStockPayToken = Boolean(fromToken?.isStock);
 
   // A previous stock on the sell side would keep the stock form on that token.
   // A payment token stays so the stock tab can reuse it.
-  if (fromToken?.isStock) {
+  if (droppedStockPayToken) {
     store.set(swapSelectFromTokenAtom(), undefined);
   }
   store.set(swapSelectToTokenAtom(), stockToken);
   store.set(swapStockSelectedTokenAtom(), stockToken);
+  // Selling the previous stock leaves its share count on the pay side. After
+  // the channel fills USDC, that count would quote as USDC. A different stock
+  // also must not inherit the previous purchase amount.
+  if (stockChanged || droppedStockPayToken) {
+    store.set(swapFromTokenAmountAtom(), EMPTY_SWAP_TOKEN_AMOUNT);
+    store.set(swapToTokenAmountAtom(), EMPTY_SWAP_TOKEN_AMOUNT);
+  }
   // The stock form prefers the last execution pair over the selected token.
   store.set(swapStockExecutionTokensAtom(), undefined);
   store.set(swapTypeSwitchAtom(), ESwapTabSwitchType.STOCK);

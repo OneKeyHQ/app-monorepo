@@ -49,6 +49,7 @@ import {
   resolveStockExecutionTokensForTradeSideSwitch,
   resolveStockExecutionTokensToSync,
   resolveStockPayTokenState,
+  shouldCommitFollowedStockToken,
   shouldResetStockTradeReceiveAmount,
   shouldSyncControlledStockTokenMetadata,
 } from './swapStockChannelUtils';
@@ -418,6 +419,22 @@ export function useSwapStockChannel(
     if (!nextStockToken) {
       return;
     }
+    if (
+      shouldCommitFollowedStockToken({
+        displayedStockToken: currentStockToken,
+        executionStockToken: hasStockExecutionPair
+          ? stockPair.stockToken
+          : undefined,
+        followedStockToken: nextStockToken,
+        stockTokenState,
+      })
+    ) {
+      setPayTokenState(undefined);
+      payTokenSnapshotRef.current = undefined;
+      manualStockPayTokenKeyRef.current = '';
+      selectStockSwapToken(nextStockToken, { resetReceiveAmount: true });
+      return;
+    }
     if (getTokenIdentityKey(nextStockToken) === currentStockTokenKey) {
       if (
         controlledStockToken &&
@@ -428,18 +445,15 @@ export function useSwapStockChannel(
       ) {
         syncStockTokenDetail(controlledStockToken);
       }
-      return;
     }
-    setPayTokenState(undefined);
-    payTokenSnapshotRef.current = undefined;
-    manualStockPayTokenKeyRef.current = '';
-    selectStockSwapToken(nextStockToken, { resetReceiveAmount: true });
   }, [
     controlledStockToken,
     currentStockToken,
     currentStockTokenKey,
+    hasStockExecutionPair,
     selectStockSwapToken,
     stockPair.stockToken,
+    stockTokenState,
     persistedStockSelectedToken,
     syncStockTokenDetail,
   ]);

@@ -74,19 +74,40 @@ describe('resolveMarketDetailFooterMode', () => {
 
 describe('resolveMobileInformationColumnHeader', () => {
   const names = {
-    firstTabName: 'Overview',
+    transactionsTabName: 'Transactions',
+    holdersTabName: 'Holders',
     portfolioTabName: 'My position',
     liquidityTabName: 'Liquidity',
   };
 
-  it('keeps the transactions header on a trending overview', () => {
+  it('hides the column header on a trending overview', () => {
     expect(
       resolveMobileInformationColumnHeader({
         detailKind: 'trending',
         focusedTab: 'Overview',
         ...names,
       }),
+    ).toBe('none');
+  });
+
+  it('shows the transactions header only on the transactions tab', () => {
+    expect(
+      resolveMobileInformationColumnHeader({
+        detailKind: 'trending',
+        focusedTab: 'Transactions',
+        ...names,
+      }),
     ).toBe('transactions');
+  });
+
+  it('shows the holders header on the holders tab', () => {
+    expect(
+      resolveMobileInformationColumnHeader({
+        detailKind: 'trending',
+        focusedTab: 'Holders',
+        ...names,
+      }),
+    ).toBe('holders');
   });
 
   it('hides the column header on stock and top-coin overviews', () => {

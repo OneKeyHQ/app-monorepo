@@ -767,3 +767,10 @@ Cases are appended by AI after each bug fix. Do NOT reorder or delete entries â€
 **Fix**: The label keeps its text width, and falls back from the detail symbol to the token symbol or name.
 **Catchable by**: Section 2: do not put `flexShrink` on text inside a shrink-wrapped trigger; the label width becomes zero.
 
+## Case: Market review left stock trades and headers wrong
+**Date**: 2026-09-29 | **Platforms**: iOS, Android (main)
+**Symptom**: A new stock could display while the quote stayed on the previous stock, the old share amount became a USDC amount, the stock detail hid the contract risk result, and the trending overview showed the transactions column header.
+**Root Cause**: The follow effect compared the new stock with the already updated display token, stock entry kept the previous amount, the stock header returned before the risk row, and the column header treated the first tab as the transactions table.
+**Fix**: Commit the followed stock when local state or the execution pair is still the previous one, clear amounts when the stock changes, show the risk result on the stock header, request variants with the market stock id, and match column headers by tab name.
+**Catchable by**: Section 4: a displayed token and the execution pair are different identities; a tab header belongs to that tab's content, not to whichever tab is first.
+

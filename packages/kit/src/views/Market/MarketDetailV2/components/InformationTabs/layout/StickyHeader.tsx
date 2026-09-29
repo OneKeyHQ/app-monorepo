@@ -24,10 +24,8 @@ import {
 } from '../components/TransactionsHistory';
 
 function BaseStickyHeader({
-  firstTabName,
   detailKind = 'trending',
 }: {
-  firstTabName: string;
   detailKind?: IMarketMobileDetailKind;
 }) {
   const intl = useIntl();
@@ -47,6 +45,12 @@ function BaseStickyHeader({
   }, [gtLg]);
 
   // Determine which header to show based on focused tab name
+  const transactionsTabName = intl.formatMessage({
+    id: ETranslations.dexmarket_details_transactions,
+  });
+  const holdersTabName = intl.formatMessage({
+    id: ETranslations.dexmarket_holders,
+  });
   const portfolioTabName = intl.formatMessage({
     id: ETranslations.dexmarket_details_myposition,
   });
@@ -57,7 +61,8 @@ function BaseStickyHeader({
   const columnHeader = resolveMobileInformationColumnHeader({
     detailKind,
     focusedTab: focusedTab ?? '',
-    firstTabName,
+    transactionsTabName,
+    holdersTabName,
     portfolioTabName,
     liquidityTabName: liquidityPoolsTabName,
   });
