@@ -585,8 +585,8 @@ jobs:
           if (-not $signTool) { throw 'Windows SDK SignTool was not found' }
           "WIN_SIGNTOOL_PATH=$($signTool.FullName)" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
           'WIN_CODESIGN_KEY_VERSION=projects/onekey-uni/locations/us/keyRings/win-sign/cryptoKeys/code-sign/cryptoKeyVersions/1' | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
-          Import-Certificate -FilePath apps/desktop/resources/windows/code-signing/globalsign-gcc-r45-code-signing-ca-2020.cer -CertStoreLocation Cert:\CurrentUser\CA | Out-Null
-          Import-Certificate -FilePath apps/desktop/resources/windows/code-signing/globalsign-r3-r45-cross-2020.cer -CertStoreLocation Cert:\CurrentUser\CA | Out-Null
+          Import-Certificate -FilePath apps/desktop/resources/windows/code-signing/globalsign-intermediate.cer -CertStoreLocation Cert:\CurrentUser\CA | Out-Null
+          Import-Certificate -FilePath apps/desktop/resources/windows/code-signing/globalsign-cross.cer -CertStoreLocation Cert:\CurrentUser\CA | Out-Null
 
       # ── Phase 1: Windows NSIS installer ──
 
