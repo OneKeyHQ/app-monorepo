@@ -2,6 +2,17 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 // Whether a real system share surface exists on this platform. When false,
 // share would silently duplicate "save", so callers should hide the entry.
+// The Web Share API rejects with an AbortError DOMException when the user
+// dismisses the share sheet. Its message is written by the browser and IS
+// localized, so only the name is a usable signal.
+export function isShareCancelledError(error: unknown): boolean {
+  return (
+    typeof error === 'object' &&
+    error !== null &&
+    (error as { name?: unknown }).name === 'AbortError'
+  );
+}
+
 export function canShareImageToSystem(): boolean {
   if (platformEnv.isNative) {
     return true;

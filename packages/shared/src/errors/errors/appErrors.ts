@@ -583,6 +583,24 @@ export class OAuthLoginCancelError extends OneKeyAppError {
     EOneKeyErrorClassNames.OAuthLoginCancelError;
 }
 
+// A user explicitly backing out of one of our own dialogs or sheets. Callers
+// must raise this instead of a bare Error so the cancel can be identified by
+// class rather than by matching message text.
+export class UserCancelError extends OneKeyAppError {
+  constructor(props?: IOneKeyError) {
+    super(
+      normalizeErrorProps(props, {
+        defaultMessage: 'UserCancelError',
+        defaultKey: ETranslations.global_cancel,
+        defaultAutoToast: false,
+      }),
+    );
+  }
+
+  override className: EOneKeyErrorClassNames =
+    EOneKeyErrorClassNames.UserCancelError;
+}
+
 export class PreCheckBeforeSendingCancelError extends OneKeyAppError {
   constructor(props?: IOneKeyError) {
     super(

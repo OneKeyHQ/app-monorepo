@@ -14,7 +14,10 @@ import {
   Stack,
   Toast,
 } from '@onekeyhq/components';
-import type { IPickerImage } from '@onekeyhq/components/src/composite/ImageCrop/type';
+import {
+  type IPickerImage,
+  isImagePickerCancelledError,
+} from '@onekeyhq/components/src/composite/ImageCrop/type';
 import { HeaderIconButton } from '@onekeyhq/components/src/layouts/Navigation/Header';
 import type { IDBDevice } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import type { IPro2NftUploadParams } from '@onekeyhq/kit-bg/src/services/ServiceNFT';
@@ -230,11 +233,7 @@ export default function NFTDetails() {
           return;
         }
 
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-        const message = error?.message;
-        const cancelError =
-          typeof message === 'string' && message.includes('User cancelled');
-        if (cancelError) {
+        if (isImagePickerCancelledError(error)) {
           setIsCollecting(false);
           return;
         }
