@@ -58,6 +58,8 @@ export interface IMarketTokenDetail {
   };
   price?: string;
   priceConverted?: string;
+  // Runtime-only: retain the latest detail response's rate across chart ticks.
+  priceConversionRate?: string;
   // Runtime-only: start the grace period before detail quotes may recover a stalled feed.
   detailPriceInitializedAt?: number;
   chartPriceUpdatedAt?: number;

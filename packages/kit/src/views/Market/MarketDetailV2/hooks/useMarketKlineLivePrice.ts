@@ -1,4 +1,4 @@
-import { useRef } from 'react';
+import { useLayoutEffect, useMemo, useRef } from 'react';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { fetchMarketAssetKLineData } from '@onekeyhq/kit/src/components/TradingView/utils/fetchMarketAssetKLineData';
@@ -48,9 +48,18 @@ export function useMarketKlineLivePrice({
   // `usePromiseResult` can drop a stale return value, but this hook writes to a
   // shared atom as a side effect, which no nonce can roll back. The scope this
   // request was started for has to be re-checked once it resolves.
-  const requestScope = `${String(enabled)}|${networkId}|${tokenAddress}|${marketAssetId ?? ''}`;
-  const requestScopeRef = useRef(requestScope);
-  requestScopeRef.current = requestScope;
+  const requestScope = useMemo(
+    () => ({ enabled, networkId, tokenAddress, marketAssetId }),
+    [enabled, networkId, tokenAddress, marketAssetId],
+  );
+  const requestScopeRef = useRef<typeof requestScope | null>(null);
+  useLayoutEffect(() => {
+    // Returning to the same asset must not reactivate its previous requests.
+    requestScopeRef.current = requestScope;
+    return () => {
+      requestScopeRef.current = null;
+    };
+  }, [requestScope]);
   // Ordering for overlapping polls of the same scope, so a slow older response
   // cannot land after a newer one has already updated the quote.
   const requestSeqRef = useRef(0);

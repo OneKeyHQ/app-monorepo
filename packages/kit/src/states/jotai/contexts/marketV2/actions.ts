@@ -42,7 +42,11 @@ import {
   tokenDetailWebsocketAtom,
 } from './atoms';
 import { marketTokenDetailSnapshotCache } from './marketSnapshotCaches';
-import { mergeMarketTokenDetailPrice } from './marketTokenDetailPrice';
+import {
+  getMarketTokenConvertedPrice,
+  getMarketTokenPriceConversionRate,
+  mergeMarketTokenDetailPrice,
+} from './marketTokenDetailPrice';
 
 export const homeResettingFlags: Record<string, number> = {};
 
@@ -368,12 +372,21 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
       const chartPriceUpdatedAt = Date.now();
       const lastUpdated =
         payload.lastUpdated ?? tokenDetail.lastUpdated ?? chartPriceUpdatedAt;
+      const priceConversionRate =
+        tokenDetail.priceConversionRate ??
+        getMarketTokenPriceConversionRate(tokenDetail);
+      const priceConverted = getMarketTokenConvertedPrice(
+        payload.price,
+        priceConversionRate,
+      );
 
       if (tokenDetail.price === payload.price) {
         set(tokenDetailAtom(), {
           ...tokenDetail,
           lastUpdated,
           chartPriceUpdatedAt,
+          priceConverted,
+          priceConversionRate,
         });
         return;
       }
@@ -383,6 +396,8 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
         price: payload.price,
         lastUpdated,
         chartPriceUpdatedAt,
+        priceConverted,
+        priceConversionRate,
       });
     },
   );

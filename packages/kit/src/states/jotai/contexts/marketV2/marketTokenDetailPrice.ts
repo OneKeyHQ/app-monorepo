@@ -1,8 +1,40 @@
+import BigNumber from 'bignumber.js';
+
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type { IMarketTokenDetail } from '@onekeyhq/shared/types/marketV2';
 
 // Allow the same inactivity window as Market WS subscription recovery.
 export const MARKET_CHART_PRICE_STALE_MS = 60_000;
+
+export function getMarketTokenPriceConversionRate({
+  price,
+  priceConverted,
+}: Pick<IMarketTokenDetail, 'price' | 'priceConverted'>): string | undefined {
+  const usd = new BigNumber(price ?? NaN);
+  const converted = new BigNumber(priceConverted ?? NaN);
+  if (
+    !usd.isFinite() ||
+    !usd.gt(0) ||
+    !converted.isFinite() ||
+    !converted.gt(0)
+  ) {
+    return undefined;
+  }
+  return converted.dividedBy(usd).toFixed();
+}
+
+export function getMarketTokenConvertedPrice(
+  price: string | undefined,
+  conversionRate: string | undefined,
+): string | undefined {
+  if (conversionRate === undefined) {
+    return undefined;
+  }
+  const converted = new BigNumber(price ?? NaN).times(conversionRate);
+  return converted.isFinite() && converted.gt(0)
+    ? converted.toFixed()
+    : undefined;
+}
 
 function getFiniteTimestamp(value: number | undefined): number | undefined {
   return typeof value === 'number' && Number.isFinite(value)
@@ -44,6 +76,12 @@ export function mergeMarketTokenDetailPrice({
   const receivedAt = Date.now();
   const detailPriceInitializedAt =
     initializedAt ?? (hasValidPrice ? receivedAt : undefined);
+  // The API supplies a paired USD/converted quote. Retain its rate instead of
+  // repeatedly deriving one from rounded live prices on every chart tick.
+  const priceConversionRate = hasValidPrice
+    ? getMarketTokenPriceConversionRate(tokenData)
+    : (current?.priceConversionRate ??
+      getMarketTokenPriceConversionRate(current ?? {}));
 
   // Judge freshness when the request started, not when its response arrives.
   // A chart tick during either the API request or a decimals lookup also keeps
@@ -57,6 +95,11 @@ export function mergeMarketTokenDetailPrice({
     return {
       ...tokenData,
       price: current.price,
+      priceConverted: getMarketTokenConvertedPrice(
+        current.price,
+        priceConversionRate,
+      ),
+      priceConversionRate,
       lastUpdated: current.lastUpdated,
       chartPriceUpdatedAt,
       detailPriceInitializedAt,
@@ -77,5 +120,6 @@ export function mergeMarketTokenDetailPrice({
       : {}),
     chartPriceUpdatedAt,
     detailPriceInitializedAt,
+    priceConversionRate,
   };
 }

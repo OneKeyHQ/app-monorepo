@@ -618,6 +618,68 @@ describe('detail price initialization', () => {
       });
     },
   );
+
+  it('keeps converted prices aligned with chart ticks and refreshed detail rates', async () => {
+    const { store, Wrapper } = createWrapper();
+    store.set(tokenDetailAtom(), {
+      ...detail,
+      price: '1',
+      priceConverted: '7',
+    });
+    const { result } = renderHook(() => useTokenDetailActions().current, {
+      wrapper: Wrapper,
+    });
+    const tick = (price: string) =>
+      result.current.applyChartPriceUpdate({
+        tokenAddress: detail.address,
+        networkId: detail.networkId,
+        price,
+        lastUpdated: Date.now(),
+      });
+    act(() => tick('2'));
+    expect(store.get(tokenDetailAtom())).toMatchObject({
+      price: '2',
+      priceConverted: '14',
+      priceConversionRate: '7',
+    });
+
+    mockFetchMarketTokenDetailByTokenAddress.mockResolvedValueOnce({
+      data: { token: { ...detail, price: '1.5', priceConverted: '10.65' } },
+    });
+    await act(async () => {
+      await result.current.fetchTokenDetail(detail.address, detail.networkId);
+    });
+    expect(store.get(tokenDetailAtom())).toMatchObject({
+      price: '2',
+      priceConverted: '14.2',
+      priceConversionRate: '7.1',
+    });
+    act(() => tick('3'));
+    expect(store.get(tokenDetailAtom())?.priceConverted).toBe('21.3');
+
+    mockFetchMarketTokenDetailByTokenAddress.mockResolvedValueOnce({
+      data: { token: { ...detail, price: '0', priceConverted: '999' } },
+    });
+    await act(async () => {
+      await result.current.fetchTokenDetail(detail.address, detail.networkId);
+    });
+    expect(store.get(tokenDetailAtom())).toMatchObject({
+      price: '3',
+      priceConverted: '21.3',
+      priceConversionRate: '7.1',
+    });
+
+    mockFetchMarketTokenDetailByTokenAddress.mockResolvedValueOnce({
+      data: { token: { ...detail, price: '2' } },
+    });
+    await act(async () => {
+      await result.current.fetchTokenDetail(detail.address, detail.networkId);
+    });
+    expect(store.get(tokenDetailAtom())?.priceConverted).toBeUndefined();
+    expect(store.get(tokenDetailAtom())?.priceConversionRate).toBeUndefined();
+    act(() => tick('4'));
+    expect(store.get(tokenDetailAtom())?.priceConverted).toBeUndefined();
+  });
 });
 
 describe.each(['token', 'asset'] as const)(
@@ -1918,7 +1980,7 @@ describe('market K-line quote updates', () => {
     expect(store.get(tokenDetailAtom())?.price).toBe('0.4');
   });
 
-  it('updates the USD token quote independently of its converted detail price', async () => {
+  it('updates the USD token quote and its converted price together', async () => {
     const { store, Wrapper } = createWrapper();
     store.set(tokenDetailAtom(), { ...detail, priceConverted: '1.4' });
     renderHook(
@@ -1937,12 +1999,15 @@ describe('market K-line quote updates', () => {
     );
 
     const refreshLivePrice = async () => mockRunLivePrice?.();
-    for (const price of [0.3, 0.4]) {
+    for (const [price, priceConverted] of [
+      [0.3, '2.1'],
+      [0.4, '2.8'],
+    ] as const) {
       mockFetchTokenKline.mockResolvedValueOnce(response(price));
       await act(refreshLivePrice);
       expect(store.get(tokenDetailAtom())).toMatchObject({
         price: String(price),
-        priceConverted: '1.4',
+        priceConverted,
       });
     }
     expect(mockFetchAssetKline).not.toHaveBeenCalled();
@@ -1997,6 +2062,47 @@ describe('market K-line quote updates', () => {
       await act(async () => {
         pending.resolve(response(0.5));
         await pendingRequest;
+      });
+      expect(store.get(tokenDetailAtom())?.price).toBe('0.4');
+    },
+  );
+
+  it.each([
+    { scenario: 'disabled', nextProps: { ...props, enabled: false } },
+    {
+      scenario: 'another asset',
+      nextProps: { ...props, marketAssetId: 'another-asset' },
+    },
+    {
+      scenario: 'the Native token feed',
+      nextProps: { ...props, marketAssetId: undefined },
+    },
+  ])(
+    'rejects the previous visit after switching to $scenario and back',
+    async ({ nextProps }) => {
+      const { store, Wrapper } = createWrapper();
+      store.set(tokenDetailAtom(), detail);
+      const { rerender } = renderHook(
+        (input) => useMarketKlineLivePrice(input),
+        { initialProps: props, wrapper: Wrapper },
+      );
+      const previous = createDeferred<IMarketTokenKLineResponse>();
+      mockFetchAssetKline.mockReturnValueOnce(previous.promise);
+      const previousRequest = mockRunLivePrice?.();
+      rerender(nextProps);
+      rerender(props);
+
+      const current = createDeferred<IMarketTokenKLineResponse>();
+      mockFetchAssetKline.mockReturnValueOnce(current.promise);
+      const currentRequest = mockRunLivePrice?.();
+      await act(async () => {
+        previous.resolve(response(0.1));
+        await previousRequest;
+      });
+      expect(store.get(tokenDetailAtom())?.price).toBe('0.2');
+      await act(async () => {
+        current.resolve(response(0.4));
+        await currentRequest;
       });
       expect(store.get(tokenDetailAtom())?.price).toBe('0.4');
     },

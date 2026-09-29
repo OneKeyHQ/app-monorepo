@@ -45,15 +45,15 @@ export function resolveMarketKlineLivePriceEnabled({
  * scope: this write goes to a shared atom and stamps itself as the newest price,
  * so an out-of-order one would pin a stale close until the next tick.
  */
-export function shouldApplyMarketKlineLivePrice({
+export function shouldApplyMarketKlineLivePrice<T>({
   appliedSeq,
   currentRequestScope,
   requestScope,
   requestSeq,
 }: {
   appliedSeq: number | undefined;
-  currentRequestScope: string;
-  requestScope: string;
+  currentRequestScope: T | null;
+  requestScope: T;
   requestSeq: number;
 }): boolean {
   return currentRequestScope === requestScope && requestSeq > (appliedSeq ?? 0);
