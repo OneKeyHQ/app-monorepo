@@ -21499,6 +21499,7 @@
     "packages/kit/src/views/Home/components/DeFiListBlock/ProtocolUnifiedTableUtils.ts": 14985,
     "packages/kit/src/views/Home/components/DeFiListBlock/deFiListLoadingReducer.ts": 14144,
     "packages/kit/src/views/Home/components/DeFiListBlock/deFiOverviewInitPlan.ts": 1852,
+    "packages/kit/src/views/Home/components/DeFiListBlock/deFiRunOverview.ts": 23556,
     "packages/kit/src/views/Home/components/DeFiListBlock/formatPortfolioPercent.ts": 12283,
     "packages/kit/src/views/Home/components/DeFiListBlock/formatPortfolioTotal.ts": 19481,
     "packages/kit/src/views/Home/components/DeFiListBlock/hooks/useDeFiOverviewTopN.ts": 14536,
