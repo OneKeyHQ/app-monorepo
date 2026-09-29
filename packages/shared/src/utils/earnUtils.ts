@@ -56,6 +56,8 @@ const isNativeProvider = createProviderCheck(EEarnProviderEnum.Native);
 
 const isBitwayProvider = createProviderCheck(EEarnProviderEnum.Bitway);
 
+const isUnitasProvider = createProviderCheck(EEarnProviderEnum.Unitas);
+
 const isListaProvider = createProviderCheck(EEarnProviderEnum.Lista);
 
 const isStakefishProvider = createProviderCheck(EEarnProviderEnum.Stakefish);
@@ -73,12 +75,17 @@ const isVaultBasedProvider = ({ providerName }: { providerName: string }) => {
     isPendleProvider({ providerName }) ||
     isListaProvider({ providerName }) ||
     isMomentumProvider({ providerName }) ||
-    isBitwayProvider({ providerName })
+    isBitwayProvider({ providerName }) ||
+    isUnitasProvider({ providerName })
   );
 };
 
+// Unitas (OK-61790): every withdraw is a queued path; waiting for the server
+// declared withdrawType keeps the receipt approve step ahead of the redeem order.
 const requiresEarnWithdrawPath = ({ providerName }: { providerName: string }) =>
-  isSparkProvider({ providerName }) || isBitwayProvider({ providerName });
+  isSparkProvider({ providerName }) ||
+  isBitwayProvider({ providerName }) ||
+  isUnitasProvider({ providerName });
 
 const isEarnWithdrawPathReady = ({
   providerName,
@@ -347,6 +354,7 @@ export default {
   isPendleProvider,
   isNativeProvider,
   isBitwayProvider,
+  isUnitasProvider,
   isListaProvider,
   isLidoProvider,
   isBabylonProvider,
