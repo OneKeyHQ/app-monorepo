@@ -4,10 +4,17 @@ import BigNumber from 'bignumber.js';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import {
+  useActiveAccount,
+  useSelectedAccount,
+} from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
+import { useSelectedDeriveTypeAtom } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2/atoms';
+import { getSelectedDeriveTypeForNetwork } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2/marketDeriveType';
 import { useStockDetail } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/hooks/StockDetailContext';
 import {
   fetchStockPortfolioData,
   getStockPortfolioVariantKey,
+  resolveStockPortfolioDeriveType,
 } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/hooks/useStockPortfolioData';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
@@ -56,7 +63,10 @@ function getNetworkAccountXpub(account: INetworkAccount) {
  */
 export function useSwapStockPortfolioData() {
   const { accountId, indexedAccountId } = useSwapProPositionAccountIdentity();
-  const { stockId, tokenVariants } = useStockDetail();
+  const { activeAccount } = useActiveAccount({ num: 0 });
+  const { selectedAccount } = useSelectedAccount({ num: 0 });
+  const [selectedDeriveType] = useSelectedDeriveTypeAtom();
+  const { portfolioNetworkId, stockId, tokenVariants } = useStockDetail();
   const portfolioOwnerKey = buildPortfolioOwnerKey({
     accountId,
     indexedAccountId,
@@ -90,14 +100,32 @@ export function useSwapStockPortfolioData() {
 
   const resolveNetworkAccount = useCallback(
     async (networkId: string) => {
-      const cacheKey = `${indexedAccountId ?? ''}:${accountId ?? ''}:${networkId}`;
+      const selectedNetworkDeriveType =
+        getSelectedDeriveTypeForNetwork(selectedDeriveType, networkId) ??
+        (indexedAccountId &&
+        selectedAccount.indexedAccountId === indexedAccountId &&
+        selectedAccount.networkId === networkId
+          ? selectedAccount.deriveType
+          : undefined) ??
+        (activeAccount?.network?.id === networkId
+          ? activeAccount.deriveType
+          : undefined);
+      const cacheKey = `${indexedAccountId ?? ''}:${accountId ?? ''}:${networkId}:${portfolioNetworkId ?? ''}:${selectedNetworkDeriveType ?? ''}:${activeAccount?.deriveType ?? ''}`;
       const cached = networkAccountCacheRef.current.get(cacheKey);
       if (cached) return cached;
       const lookup = (async () => {
-        const deriveType =
-          await backgroundApiProxy.serviceNetwork.getGlobalDeriveTypeOfNetwork({
-            networkId,
-          });
+        const deriveType = resolveStockPortfolioDeriveType({
+          activeDeriveType: activeAccount?.deriveType,
+          networkDefaultDeriveType:
+            await backgroundApiProxy.serviceNetwork.getGlobalDeriveTypeOfNetwork(
+              {
+                networkId,
+              },
+            ),
+          networkId,
+          portfolioNetworkId,
+          selectedDeriveType: selectedNetworkDeriveType,
+        });
         const networkAccount =
           await backgroundApiProxy.serviceAccount.getNetworkAccount({
             accountId: indexedAccountId ? undefined : accountId,
@@ -117,7 +145,15 @@ export function useSwapStockPortfolioData() {
       lookup.catch(() => networkAccountCacheRef.current.delete(cacheKey));
       return lookup;
     },
-    [accountId, indexedAccountId],
+    [
+      accountId,
+      activeAccount?.deriveType,
+      activeAccount?.network?.id,
+      indexedAccountId,
+      portfolioNetworkId,
+      selectedAccount,
+      selectedDeriveType,
+    ],
   );
 
   const {
@@ -146,7 +182,9 @@ export function useSwapStockPortfolioData() {
     [
       hasAccount,
       portfolioOwnerKey,
+      portfolioNetworkId,
       resolveNetworkAccount,
+      selectedDeriveType,
       stockId,
       tokenVariantsKey,
     ],

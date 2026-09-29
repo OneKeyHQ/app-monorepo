@@ -6,12 +6,18 @@ import { isEqual } from 'lodash';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
-import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
+import {
+  useActiveAccount,
+  useSelectedAccount,
+} from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
+import { useSelectedDeriveTypeAtom } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2/atoms';
+import { getSelectedDeriveTypeForNetwork } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2/marketDeriveType';
 import {
   useSwapStockPayTokenDisplayAtom,
   useSwapStockPayTokenPreferenceAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import type { IToken } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/components/SwapPanel/types';
+import { resolveStockPortfolioDeriveType } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/hooks/useStockPortfolioData';
 import { presetNetworksMap } from '@onekeyhq/shared/src/config/presetNetworks';
 import {
   EAppEventBusNames,
@@ -191,6 +197,8 @@ export function useSwapStockPayTokens({
   syncPayTokenDetail: (token: IToken) => void;
 }) {
   const { activeAccount } = useActiveAccount({ num: 0 });
+  const { selectedAccount } = useSelectedAccount({ num: 0 });
+  const [selectedDeriveType] = useSelectedDeriveTypeAtom();
   const [payTokenPreferenceByScope, setPayTokenPreferenceByScope] =
     useSwapStockPayTokenPreferenceAtom();
   const [payTokenDisplayByScope, setPayTokenDisplayByScope] =
@@ -337,7 +345,21 @@ export function useSwapStockPayTokens({
     shouldLoadPayTokenDetails ? '1' : '0'
   }:${rawPayTokenKeys}:${activeAccount?.indexedAccount?.id ?? ''}:${
     activeAccount?.account?.id ?? ''
-  }`;
+  }:${activeAccount?.deriveType ?? ''}:${selectedDeriveType?.networkId ?? ''}:${
+    selectedDeriveType?.deriveType ?? ''
+  }:${selectedAccount.indexedAccountId ?? ''}:${selectedAccount.networkId ?? ''}:${
+    selectedAccount.deriveType ?? ''
+  }:${stockNetworkId}`;
+  const successfulPayTokenDetailsRef = useRef<{
+    scope: string;
+    details: Map<string, ISwapToken>;
+  }>({ scope: payTokenDetailsScope, details: new Map() });
+  if (successfulPayTokenDetailsRef.current.scope !== payTokenDetailsScope) {
+    successfulPayTokenDetailsRef.current = {
+      scope: payTokenDetailsScope,
+      details: new Map(),
+    };
+  }
   const currentPayTokenDetailsScopeRef = useRef(payTokenDetailsScope);
   const completedPayTokenDetailsScopeRef = useRef('');
   const explicitPayTokenDetailsRevalidationScopeRef = useRef('');
@@ -407,19 +429,40 @@ export function useSwapStockPayTokens({
           return cachedRequest;
         }
         const request = (async () => {
-          const defaultDeriveType =
+          const networkDefaultDeriveType =
             await backgroundApiProxy.serviceNetwork.getGlobalDeriveTypeOfNetwork(
               {
                 networkId: tokenNetworkId,
               },
             );
+          const accountSelectedDeriveType =
+            activeAccount?.indexedAccount?.id &&
+            selectedAccount.indexedAccountId ===
+              activeAccount.indexedAccount.id &&
+            selectedAccount.networkId === tokenNetworkId
+              ? selectedAccount.deriveType
+              : undefined;
           return backgroundApiProxy.serviceAccount.getNetworkAccount({
             accountId: activeAccount?.indexedAccount?.id
               ? undefined
               : activeAccount?.account?.id,
             indexedAccountId: activeAccount?.indexedAccount?.id ?? '',
             networkId: tokenNetworkId,
-            deriveType: defaultDeriveType ?? 'default',
+            deriveType: resolveStockPortfolioDeriveType({
+              activeDeriveType: activeAccount?.deriveType,
+              networkDefaultDeriveType,
+              networkId: tokenNetworkId,
+              portfolioNetworkId: stockNetworkId,
+              selectedDeriveType:
+                getSelectedDeriveTypeForNetwork(
+                  selectedDeriveType,
+                  tokenNetworkId,
+                ) ??
+                accountSelectedDeriveType ??
+                (activeAccount?.network?.id === tokenNetworkId
+                  ? activeAccount.deriveType
+                  : undefined),
+            }),
           });
         })();
         accountRequestMap.set(tokenNetworkId, request);
@@ -433,7 +476,12 @@ export function useSwapStockPayTokens({
             const networkAccount = await getNetworkAccount(token.networkId);
             if (!networkAccount?.id || !networkAccount?.address) {
               hasAuthoritativeBalance = false;
-              return buildStockPayToken({ token });
+              return buildStockPayToken({
+                token,
+                detail: successfulPayTokenDetailsRef.current.details.get(
+                  getTokenIdentityKey(token),
+                ),
+              });
             }
             const details = await runStockPayTokenDetailsRequest({
               mode: requestMode,
@@ -456,20 +504,32 @@ export function useSwapStockPayTokens({
                 }),
             });
             const firstDetail = details?.[0];
-            if (firstDetail?.balanceParsed === undefined) {
-              hasAuthoritativeBalance = false;
+            if (firstDetail?.balanceParsed !== undefined) {
+              const detail = {
+                ...firstDetail,
+                accountAddress: networkAccount.address,
+              };
+              successfulPayTokenDetailsRef.current.details.set(
+                getTokenIdentityKey(token),
+                detail,
+              );
+              return buildStockPayToken({ token, detail });
             }
-            const detail =
-              firstDetail?.balanceParsed !== undefined
-                ? {
-                    ...firstDetail,
-                    accountAddress: networkAccount.address,
-                  }
-                : firstDetail;
-            return buildStockPayToken({ token, detail });
+            hasAuthoritativeBalance = false;
+            return buildStockPayToken({
+              token,
+              detail: successfulPayTokenDetailsRef.current.details.get(
+                getTokenIdentityKey(token),
+              ),
+            });
           } catch {
             hasAuthoritativeBalance = false;
-            return buildStockPayToken({ token });
+            return buildStockPayToken({
+              token,
+              detail: successfulPayTokenDetailsRef.current.details.get(
+                getTokenIdentityKey(token),
+              ),
+            });
           }
         }),
       );
@@ -488,11 +548,16 @@ export function useSwapStockPayTokens({
     },
     [
       activeAccount?.account?.id,
+      activeAccount?.deriveType,
       activeAccount?.indexedAccount?.id,
+      activeAccount?.network?.id,
       hasActiveAccount,
       payTokenDetailsScope,
       rawPayTokens,
+      selectedDeriveType,
+      selectedAccount,
       shouldLoadPayTokenDetails,
+      stockNetworkId,
     ],
     {
       initResult: {

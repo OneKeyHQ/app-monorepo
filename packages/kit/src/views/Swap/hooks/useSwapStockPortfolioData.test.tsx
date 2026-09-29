@@ -1,5 +1,10 @@
 import { renderHook, waitFor } from '@testing-library/react-native';
 
+import {
+  useActiveAccount,
+  useSelectedAccount,
+} from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
+import { useSelectedDeriveTypeAtom } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2/atoms';
 import { useStockDetail } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/hooks/StockDetailContext';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
@@ -73,6 +78,7 @@ jest.mock('@onekeyhq/kit/src/hooks/usePromiseResult', () => {
 });
 jest.mock('@onekeyhq/kit/src/states/jotai/contexts/accountSelector', () => ({
   useActiveAccount: jest.fn(),
+  useSelectedAccount: jest.fn(),
 }));
 jest.mock('@onekeyhq/kit/src/states/jotai/contexts/marketV2/atoms', () => ({
   useSelectedDeriveTypeAtom: jest.fn(),
@@ -89,6 +95,9 @@ const getNetworkAccount = mockGetNetworkAccount;
 const fetchMarketAccountPortfolio = mockFetchMarketAccountPortfolio;
 const getGlobalDeriveTypeOfNetwork = mockGetGlobalDeriveTypeOfNetwork;
 const mockUseStockDetail = jest.mocked(useStockDetail);
+const mockUseActiveAccount = jest.mocked(useActiveAccount);
+const mockUseSelectedAccount = jest.mocked(useSelectedAccount);
+const mockUseSelectedDeriveTypeAtom = jest.mocked(useSelectedDeriveTypeAtom);
 const mockUseAccountIdentity = jest.mocked(useSwapProPositionAccountIdentity);
 
 function buildVariant(
@@ -135,6 +144,7 @@ function setStockDetail(
   mockUseStockDetail.mockReturnValue({
     stockId,
     tokenVariants,
+    portfolioNetworkId: tokenVariants[0]?.networkId,
   } as unknown as ReturnType<typeof useStockDetail>);
 }
 
@@ -144,6 +154,24 @@ beforeEach(() => {
     indexedAccountId: 'indexed-1',
     accountId: undefined,
   });
+  mockUseActiveAccount.mockReturnValue({
+    activeAccount: {
+      indexedAccount: { id: 'indexed-1' },
+      account: undefined,
+      deriveType: 'default',
+    },
+  } as unknown as ReturnType<typeof useActiveAccount>);
+  mockUseSelectedAccount.mockReturnValue({
+    selectedAccount: {
+      indexedAccountId: 'indexed-1',
+      networkId: 'evm--1',
+      deriveType: 'default',
+    },
+  } as unknown as ReturnType<typeof useSelectedAccount>);
+  mockUseSelectedDeriveTypeAtom.mockReturnValue([
+    undefined,
+    jest.fn(),
+  ] as unknown as ReturnType<typeof useSelectedDeriveTypeAtom>);
   getGlobalDeriveTypeOfNetwork.mockResolvedValue('default');
   getNetworkAccount.mockImplementation(
     async ({ networkId }) =>
@@ -170,6 +198,35 @@ beforeEach(() => {
 });
 
 describe('useSwapStockPortfolioData', () => {
+  it('uses the selected derive type for the portfolio network', async () => {
+    mockUseActiveAccount.mockReturnValue({
+      activeAccount: {
+        indexedAccount: { id: 'indexed-1' },
+        account: undefined,
+        deriveType: 'default',
+      },
+    } as unknown as ReturnType<typeof useActiveAccount>);
+    mockUseSelectedDeriveTypeAtom.mockReturnValue([
+      { networkId: 'evm--1', deriveType: 'ledgerLegacy' },
+      jest.fn(),
+    ] as unknown as ReturnType<typeof useSelectedDeriveTypeAtom>);
+
+    renderHook(() => useSwapStockPortfolioData());
+
+    await waitFor(() => expect(getNetworkAccount).toHaveBeenCalledTimes(3));
+
+    expect(
+      getNetworkAccount.mock.calls.find(
+        ([params]) => params.networkId === 'evm--1',
+      )?.[0],
+    ).toEqual(expect.objectContaining({ deriveType: 'ledgerLegacy' }));
+    expect(
+      getNetworkAccount.mock.calls.find(
+        ([params]) => params.networkId === 'evm--56',
+      )?.[0],
+    ).toEqual(expect.objectContaining({ deriveType: 'default' }));
+  });
+
   it('lists the holdings largest first and keeps dust out of the table only', async () => {
     const { result } = renderHook(() => useSwapStockPortfolioData());
 
