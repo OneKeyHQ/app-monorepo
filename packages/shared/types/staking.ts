@@ -358,8 +358,38 @@ export type IStakeTxStakefishExitBroadcast = {
 };
 
 export type IStakeTxResponse = {
-  tx: IStakeTx;
+  /**
+   * null when the protocol executes the order itself (Unitas Booster): the
+   * client polls the order with orderId instead of signing a transaction.
+   */
+  tx: IStakeTx | null;
   orderId?: string;
+};
+
+// Server-executed order (OK-61790): GET /earn/v1/orders/detail
+export type IEarnServerOrderStatus =
+  | 'created'
+  | 'pending'
+  | 'success'
+  | 'failed';
+
+export type IEarnServerOrderDetail = {
+  orderId: string;
+  provider: string;
+  networkId: string;
+  action: string;
+  status: IEarnServerOrderStatus;
+  txId?: string;
+  extStatus?: string;
+  extRequestId?: string;
+  extClaimableAt?: number;
+  createdAt?: number;
+  updatedAt?: number;
+};
+
+export type IEarnServerOrderWaitResult = {
+  status: 'success' | 'failed' | 'timeout';
+  order?: IEarnServerOrderDetail;
 };
 
 // Babylon

@@ -3,7 +3,7 @@ import { useCallback } from 'react';
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
-import { Toast } from '@onekeyhq/components';
+import { Dialog, Toast } from '@onekeyhq/components';
 import type { IEncodedTxBtc } from '@onekeyhq/core/src/chains/btc/types';
 import type { IEncodedTx } from '@onekeyhq/core/src/types';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
@@ -23,6 +23,7 @@ import {
   EInternalStakingAction,
   type IEarnClaimType,
   type IEarnPermit2ApproveSignData,
+  type IEarnServerOrderWaitResult,
   type IEarnStakeType,
   type IEarnWithdrawType,
   type IStakeTxResponse,
@@ -37,6 +38,8 @@ import {
   useEarnRiskWarningGate,
 } from '../components/EarnRiskWarningDialog';
 import { useShowClaimEstimateGasAlert } from '../components/EstimateNetworkFee';
+
+import type { IntlShape } from 'react-intl';
 
 const createStakeInfoWithOrderId = ({
   stakingInfo,
@@ -66,6 +69,73 @@ type ITxConfirmResult =
   | {
       status: 'cancel';
     };
+
+/**
+ * Server-executed order (OK-61790, Unitas): the stake / unstake response
+ * carries `tx: null` and an orderId, so there is nothing to sign. Block on a
+ * loading dialog while the order settles, then finish the flow the same way a
+ * broadcast transaction would. A timeout is reported as submitted: the order
+ * stays tracked server side and the position refreshes on its own.
+ */
+const handleServerExecutedOrder = async ({
+  orderId,
+  networkId,
+  accountId,
+  intl,
+  onSuccess,
+  onFail,
+}: {
+  orderId: string;
+  networkId: string;
+  accountId: string;
+  intl: IntlShape;
+  onSuccess?: IModalSendParamList['SendConfirm']['onSuccess'];
+  onFail?: IModalSendParamList['SendConfirm']['onFail'];
+}) => {
+  const loadingDialog = Dialog.loading({
+    title: intl.formatMessage({ id: ETranslations.global_processing }),
+  });
+  let result: IEarnServerOrderWaitResult;
+  try {
+    result = await backgroundApiProxy.serviceStaking.waitForServerExecutedOrder(
+      {
+        networkId,
+        accountId,
+        orderId,
+      },
+    );
+  } catch (error) {
+    await loadingDialog.close();
+    onFail?.(error as Error);
+    return false;
+  }
+  await loadingDialog.close();
+  if (result.status === 'failed') {
+    Toast.error({
+      title: intl.formatMessage({ id: ETranslations.global_failed }),
+    });
+    onFail?.(
+      new OneKeyLocalError(result.order?.extStatus || 'Earn order failed'),
+    );
+    return false;
+  }
+  Toast.success({
+    title: intl.formatMessage({
+      id: ETranslations.feedback_transaction_submitted,
+    }),
+  });
+  onSuccess?.([]);
+  return true;
+};
+
+type IStakeConfirmPayload = {
+  encodedTx?: IEncodedTx;
+  stakeInfoWithOrderId?: IStakingInfo;
+  useFeeInTx?: boolean;
+  feeInfoEditable?: boolean;
+  /** Set when the protocol executes the order itself (tx === null). */
+  serverOrderId?: string;
+};
 
 const handleStakeSuccess = async ({
   data,
@@ -224,7 +294,7 @@ export function useUniversalStake({
         confirmStakeType?: IEarnStakeType;
         confirmInputTokenAddress?: string;
         confirmStakingInfo?: IStakingInfo;
-      } = {}) => {
+      } = {}): Promise<IStakeConfirmPayload> => {
         const stakeTx =
           await backgroundApiProxy.serviceStaking.buildStakeTransaction({
             amount,
@@ -247,6 +317,15 @@ export function useUniversalStake({
             // Stakefish specific param
             validatorPublicKey,
           });
+
+        if (!stakeTx.tx) {
+          if (!stakeTx.orderId) {
+            throw new OneKeyLocalError(
+              'Stake response has neither a transaction nor an orderId',
+            );
+          }
+          return { serverOrderId: stakeTx.orderId };
+        }
 
         const encodedTx =
           await backgroundApiProxy.serviceStaking.buildInternalDappTx({
@@ -291,6 +370,11 @@ export function useUniversalStake({
           confirmStakeType: 'wrap',
           confirmStakingInfo: undefined,
         });
+        if (wrapConfirmPayload.serverOrderId) {
+          throw new OneKeyLocalError(
+            'Native wrap staking cannot be executed by the protocol',
+          );
+        }
 
         let wrapConfirmResult: ITxConfirmResult;
         try {
@@ -453,6 +537,16 @@ export function useUniversalStake({
           confirmInputTokenAddress: postWrapStakeToken.address,
           confirmStakingInfo: postWrapStakingInfo,
         });
+        if (normalConfirmPayload.serverOrderId) {
+          return handleServerExecutedOrder({
+            orderId: normalConfirmPayload.serverOrderId,
+            networkId,
+            accountId,
+            intl,
+            onSuccess,
+            onFail,
+          });
+        }
 
         await navigationToTxConfirm({
           encodedTx: normalConfirmPayload.encodedTx,
@@ -473,6 +567,16 @@ export function useUniversalStake({
       }
 
       const stakeConfirmPayload = await buildStakeConfirmPayload();
+      if (stakeConfirmPayload.serverOrderId) {
+        return handleServerExecutedOrder({
+          orderId: stakeConfirmPayload.serverOrderId,
+          networkId,
+          accountId,
+          intl,
+          onSuccess,
+          onFail,
+        });
+      }
 
       await navigationToTxConfirm({
         encodedTx: stakeConfirmPayload.encodedTx,
@@ -838,6 +942,24 @@ export function useUniversalWithdraw({
             effectiveApy,
             withdrawType,
           });
+      }
+
+      if (!stakeTx.tx) {
+        if (!stakeTx.orderId) {
+          throw new OneKeyLocalError(
+            'Unstake response has neither a transaction nor an orderId',
+          );
+        }
+        // Unitas gold-vault redeem: submitted by the protocol after the receipt
+        // approve
+        return handleServerExecutedOrder({
+          orderId: stakeTx.orderId,
+          networkId,
+          accountId,
+          intl,
+          onSuccess,
+          onFail,
+        });
       }
 
       // Handle Stakefish validator exit broadcast (no on-chain tx needed)
