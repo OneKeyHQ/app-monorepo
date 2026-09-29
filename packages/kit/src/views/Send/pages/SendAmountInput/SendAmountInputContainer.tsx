@@ -64,7 +64,10 @@ import {
 } from '@onekeyhq/kit/src/states/jotai/contexts/sendConfirm';
 import { convertTokenFiatToCurrency } from '@onekeyhq/kit/src/utils/fiatConvert';
 import { SendTestIDs } from '@onekeyhq/kit/src/views/Send/testIDs';
-import SwapProviderInfoItem from '@onekeyhq/kit/src/views/Swap/components/SwapProviderInfoItem';
+import SwapProviderInfoItem, {
+  SwapProviderInfoItemTitleContentMemo,
+} from '@onekeyhq/kit/src/views/Swap/components/SwapProviderInfoItem';
+import SwapQuoteResultRate from '@onekeyhq/kit/src/views/Swap/components/SwapQuoteResultRate';
 import { SwapRefreshButtonBase } from '@onekeyhq/kit/src/views/Swap/components/SwapRefreshButton';
 import {
   EJotaiContextStoreNames,
@@ -1100,15 +1103,15 @@ function SendAmountInputContainer() {
   const privateSendQuoteToken = useMemo(() => {
     if (
       !privateSendQuoteTokenNetworkId ||
-      !privateSendQuoteTokenContractAddress ||
       !privateSendQuoteTokenSymbol ||
-      privateSendQuoteTokenDecimals === undefined
+      privateSendQuoteTokenDecimals === undefined ||
+      (!privateSendQuoteTokenIsNative && !privateSendQuoteTokenContractAddress)
     ) {
       return undefined;
     }
     return {
       networkId: privateSendQuoteTokenNetworkId,
-      contractAddress: privateSendQuoteTokenContractAddress,
+      contractAddress: privateSendQuoteTokenContractAddress ?? '',
       isNative: privateSendQuoteTokenIsNative,
       symbol: privateSendQuoteTokenSymbol,
       decimals: privateSendQuoteTokenDecimals,
@@ -3203,9 +3206,12 @@ function SendAmountInputContainer() {
               });
 
             const buildProvider = buildSwapRes?.result?.info?.provider;
+            const buildProviderName = buildSwapRes?.result?.info?.providerName;
             if (
-              buildProvider &&
-              buildProvider !== privateSendQuote.info.provider
+              (buildProvider &&
+                buildProvider !== privateSendQuote.info.provider) ||
+              (buildProviderName &&
+                buildProviderName !== privateSendQuote.info.providerName)
             ) {
               throw new OneKeyLocalError(
                 intl.formatMessage({
@@ -4537,29 +4543,51 @@ function SendAmountInputContainer() {
             </SizableText>
           )}
         </XStack>
-        <SwapProviderInfoItem
-          providerIcon={
-            isPrivateSendQuoteRefreshing
-              ? ''
-              : (privateSendQuote?.info.providerLogo ?? '')
-          }
-          providerName={
-            isPrivateSendQuoteRefreshing
-              ? ''
-              : (privateSendQuote?.info.providerName ??
+        {isPrivateSendQuoteRefreshing ? (
+          <XStack
+            h={privateSendQuoteDetailRowHeight}
+            width="100%"
+            alignItems="center"
+            justifyContent="space-between"
+          >
+            <SwapProviderInfoItemTitleContentMemo />
+            <XStack flex={1} justifyContent="flex-end" minWidth={0}>
+              <SwapQuoteResultRate
+                isLoading
+                quoting
+                showLoadingText={false}
+                fromToken={privateSendToken}
+                toToken={privateSendToken}
+                refreshAction={refreshPrivateSendQuote}
+                canOpenResult={false}
+              />
+            </XStack>
+          </XStack>
+        ) : (
+          <YStack
+            h={privateSendQuoteDetailRowHeight}
+            width="100%"
+            justifyContent="center"
+          >
+            <SwapProviderInfoItem
+              isBest={privateSendQuote?.isBest}
+              providerIcon={privateSendQuote?.info.providerLogo ?? ''}
+              providerName={
+                privateSendQuote?.info.providerName ??
                 privateSendQuote?.info.provider ??
-                '')
-          }
-          isLoading={isPrivateSendQuoteRefreshing}
-          fromToken={privateSendToken}
-          toToken={privateSendToken}
-          showEmptyPlaceholder
-          onPress={
-            (scopedPrivateSendQuoteResult?.quotes.length ?? 0) > 1
-              ? openPrivateSendProviderSelector
-              : undefined
-          }
-        />
+                ''
+              }
+              fromToken={privateSendToken}
+              toToken={privateSendToken}
+              showEmptyPlaceholder
+              onPress={
+                (scopedPrivateSendQuoteResult?.quotes.length ?? 0) > 1
+                  ? openPrivateSendProviderSelector
+                  : undefined
+              }
+            />
+          </YStack>
+        )}
       </>
     );
 

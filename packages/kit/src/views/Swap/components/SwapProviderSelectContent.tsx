@@ -156,22 +156,14 @@ export const SwapProviderSelectContent = ({
 
   const renderItem = useCallback(
     ({ item }: { item: IFetchQuoteResult; index: number }) => {
-      let disabled = !item.toAmount;
       const fromTokenAmountBN = new BigNumber(activeFromTokenAmount || 0);
-      if (item.limit) {
-        if (item.limit.min) {
-          const minBN = new BigNumber(item.limit.min);
-          if (fromTokenAmountBN.lt(minBN)) {
-            disabled = false;
-          }
-        }
-        if (item.limit.max) {
-          const maxBN = new BigNumber(item.limit.max);
-          if (fromTokenAmountBN.gt(maxBN)) {
-            disabled = false;
-          }
-        }
-      }
+      const isBelowMinimum =
+        !!item.limit?.min &&
+        fromTokenAmountBN.lt(new BigNumber(item.limit.min));
+      const isAboveMaximum =
+        !!item.limit?.max &&
+        fromTokenAmountBN.gt(new BigNumber(item.limit.max));
+      const disabled = !item.toAmount || isBelowMinimum || isAboveMaximum;
       const selected = Boolean(
         item.info.provider === selectedProviderInfo?.provider &&
         item.info.providerName === selectedProviderInfo?.providerName,
