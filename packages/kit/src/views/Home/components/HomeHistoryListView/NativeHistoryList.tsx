@@ -53,6 +53,10 @@ import {
   FREEZE_ENGAGE_OFFSET,
   FREEZE_RELEASE_OFFSET,
 } from '../../pages/hooks/historyTopFreezeUtils';
+import {
+  historySectionKey,
+  prepareHomeNativeListSnapshot,
+} from '../homeNativeListSnapshot';
 
 import {
   buildHistoryActivityRow,
@@ -504,7 +508,7 @@ export function NativeHistoryList(props: IHomeHistoryListViewProps) {
   const rows = useMemo<RowModel[]>(
     () =>
       sections.flatMap((section, sectionIndex) => {
-        const sectionKey = `section:${section.titleKey ?? section.title ?? sectionIndex}`;
+        const sectionKey = historySectionKey(section.data[0].id);
         const pending =
           getHistoryTxDisplayStatus(section.data[0]) ===
           EDecodedTxStatus.Pending;
@@ -651,6 +655,10 @@ export function NativeHistoryList(props: IHomeHistoryListViewProps) {
       props.onEndReachedThreshold,
     ],
   );
+  const preparedSnapshot = useMemo(
+    () => prepareHomeNativeListSnapshot(snapshot),
+    [snapshot],
+  );
   const containerRef = useRef<View>(null);
   const listRef = useRef<NativeListRef>(null);
   const [addressInfo, setAddressInfo] = useState<{
@@ -751,7 +759,7 @@ export function NativeHistoryList(props: IHomeHistoryListViewProps) {
         onActionAnchorInvalidated={closeAddressInfo}
         testID="home-history-list"
         style={{ flex: 1 }}
-        snapshot={snapshot}
+        snapshot={preparedSnapshot}
         listHeader={ListHeaderComponent}
         listEmpty={empty}
         listFooter={

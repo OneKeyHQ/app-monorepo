@@ -24,6 +24,7 @@ import { ENFTType, type IAccountNFT } from '@onekeyhq/shared/types/nft';
 
 import { useHomeNativeListTheme } from '../../hooks/useHomeNativeListTheme';
 import { useHomeNativeRefresh } from '../../hooks/useHomeNativeRefresh';
+import { prepareHomeNativeListSnapshot } from '../homeNativeListSnapshot';
 
 import type {
   NativeListSnapshot,
@@ -193,6 +194,10 @@ export function NFTListView({
       isAllNetworks,
     ],
   );
+  const preparedSnapshot = useMemo(
+    () => prepareHomeNativeListSnapshot(snapshot),
+    [snapshot],
+  );
   const empty = useMemo(() => {
     if (!initialized && isLoading) return <NFTListLoadingView />;
     if (searchKey) return <EmptySearch flex={1} />;
@@ -204,7 +209,7 @@ export function NFTListView({
       key={identity}
       testID="home-nft-list"
       style={{ flex: 1 }}
-      snapshot={snapshot}
+      snapshot={preparedSnapshot}
       listEmpty={empty}
       onRefresh={onRefresh}
       onRowAction={handleRowAction}
