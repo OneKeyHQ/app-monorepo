@@ -58,8 +58,8 @@ export interface IMarketTokenDetail {
   };
   price?: string;
   priceConverted?: string;
-  // Runtime-only: subsequent detail responses refresh metadata, not the quote.
-  detailPriceInitialized?: boolean;
+  // Runtime-only: start the grace period before detail quotes may recover a stalled feed.
+  detailPriceInitializedAt?: number;
   chartPriceUpdatedAt?: number;
   priceChange1mPercent?: string;
   priceChange5mPercent?: string;

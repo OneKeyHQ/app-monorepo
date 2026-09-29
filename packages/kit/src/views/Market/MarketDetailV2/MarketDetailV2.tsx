@@ -270,7 +270,7 @@ function MarketDetail({
   // Track market entry analytics
   useMarketEnterAnalytics();
 
-  // Initialize the price once and keep the remaining token details refreshed.
+  // Refresh metadata, initialize the quote, and recover it when chart updates stop.
   // Use actualNetworkId (converted from shortcode if needed) for API calls
   const {
     marketAssetDetail,

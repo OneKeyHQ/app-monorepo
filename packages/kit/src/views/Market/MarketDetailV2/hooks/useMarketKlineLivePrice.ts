@@ -22,9 +22,9 @@ import {
 /**
  * Keeps the detail quote live for Simple charts and Native charts without WS.
  *
- * Detail responses only initialize the quote. Charts without a live quote feed
- * poll the matching token or aggregate asset feed here and overlay the newest
- * bucket's close.
+ * Charts without a live quote feed poll the matching token or aggregate asset
+ * feed here and overlay the newest bucket's close. Detail quotes initialize the
+ * header and recover it if chart updates stop.
  *
  * The ohlcv websocket is deliberately not used: it only emits on a trade, so
  * exactly the thin markets whose snapshot sits still are the ones it never

@@ -392,7 +392,7 @@ export function useAutoRefreshTokenDetail(data: IUseMarketDetailDataProps) {
     ],
     {
       undefinedResultIfError: true,
-      // Refresh statistics without replacing the initialized or chart-owned price.
+      // Refresh statistics and recover quotes when the chart feed becomes stale.
       // A stable interval also lets retained routes refetch immediately on entry.
       pollingInterval: 6000,
       revalidateOnFocus: true,

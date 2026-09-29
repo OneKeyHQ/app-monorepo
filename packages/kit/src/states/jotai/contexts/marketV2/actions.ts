@@ -42,6 +42,7 @@ import {
   tokenDetailWebsocketAtom,
 } from './atoms';
 import { marketTokenDetailSnapshotCache } from './marketSnapshotCaches';
+import { mergeMarketTokenDetailPrice } from './marketTokenDetailPrice';
 
 export const homeResettingFlags: Record<string, number> = {};
 
@@ -398,6 +399,7 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
       },
     ) => {
       const { tokenAddress, networkId, isNative, tokenDetailPreview } = payload;
+      const requestStartedAt = Date.now();
       const nextPreview =
         tokenDetailPreview?.address === tokenAddress &&
         tokenDetailPreview.networkId === networkId
@@ -449,13 +451,14 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
           set(perpsInfoAtom(), undefined);
           return;
         }
-        set(tokenDetailAtom(), {
-          ...responseData.data.token,
-          networkId,
-          detailPriceInitialized:
-            Number.isFinite(Number(responseData.data.token.price)) &&
-            Number(responseData.data.token.price) > 0,
-        });
+        set(
+          tokenDetailAtom(),
+          mergeMarketTokenDetailPrice({
+            currentTokenDetail: get(tokenDetailAtom()),
+            tokenData: { ...responseData.data.token, networkId },
+            requestStartedAt,
+          }),
+        );
         set(tokenDetailPreviewAtom(), undefined);
         set(tokenDetailWebsocketAtom(), responseData.data.websocket);
         set(perpsInfoAtom(), responseData.data.perpsInfo);
@@ -513,6 +516,7 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
       networkId: string,
       options?: { swrKey?: string },
     ) => {
+      const requestStartedAt = Date.now();
       const requestId = get(tokenDetailRequestIdAtom()) + 1;
       set(tokenDetailRequestIdAtom(), requestId);
       let isStale = false;
@@ -586,38 +590,11 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
         const websocketConfig = responseData.data.websocket;
         const perpsInfo = responseData.data.perpsInfo;
 
-        // Detail responses initialize the quote once, then only refresh metadata.
-        // Chart prices also take precedence if they arrive before initialization.
-        const isSameToken =
-          currentTokenDetail &&
-          isSameMarketTokenDetail({
-            tokenDetail: currentTokenDetail,
-            tokenAddress,
-            networkId,
-          });
-        const chartPriceUpdatedAt = currentTokenDetail?.chartPriceUpdatedAt;
-        const hasChartPrice =
-          isSameToken &&
-          typeof chartPriceUpdatedAt === 'number' &&
-          Number.isFinite(chartPriceUpdatedAt);
-        const hasInitialPrice =
-          isSameToken && currentTokenDetail.detailPriceInitialized;
-        const numericPrice = Number(tokenData.price);
-        const detailPriceInitialized = Boolean(
-          hasInitialPrice ||
-          (Number.isFinite(numericPrice) && numericPrice > 0),
-        );
-
-        const finalTokenData =
-          hasChartPrice || hasInitialPrice
-            ? {
-                ...tokenData,
-                price: currentTokenDetail.price,
-                lastUpdated: currentTokenDetail.lastUpdated,
-                chartPriceUpdatedAt,
-                detailPriceInitialized,
-              }
-            : { ...tokenData, detailPriceInitialized };
+        const finalTokenData = mergeMarketTokenDetailPrice({
+          currentTokenDetail,
+          tokenData,
+          requestStartedAt,
+        });
 
         set(tokenDetailAtom(), finalTokenData);
         set(tokenDetailPreviewAtom(), undefined);

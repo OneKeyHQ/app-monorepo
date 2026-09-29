@@ -37,6 +37,7 @@ import {
 } from './atoms';
 import { useMarketAssetTokenDetailAction } from './marketAssetDetail';
 import { marketTokenDetailSnapshotCache } from './marketSnapshotCaches';
+import { MARKET_CHART_PRICE_STALE_MS } from './marketTokenDetailPrice';
 
 const mockFetchMarketAssetDetail: jest.MockedFunction<
   (params: {
@@ -560,7 +561,7 @@ describe('detail price initialization', () => {
       expect(store.get(tokenDetailAtom())).toMatchObject({
         price: '1',
         volume24h: '10',
-        detailPriceInitialized: true,
+        detailPriceInitializedAt: expect.any(Number),
       });
       await act(async () => fetchDetail('2', '20'));
       expect(store.get(tokenDetailAtom())).toMatchObject({
@@ -587,7 +588,7 @@ describe('detail price initialization', () => {
       expect(store.get(tokenDetailAtom())).toMatchObject({
         price: '5',
         volume24h: '50',
-        detailPriceInitialized: true,
+        detailPriceInitializedAt: expect.any(Number),
       });
     },
   );
@@ -605,17 +606,236 @@ describe('detail price initialization', () => {
       await act(async () => {
         await result.current.fetchTokenDetail(detail.address, detail.networkId);
       });
-      expect(store.get(tokenDetailAtom())?.detailPriceInitialized).toBe(false);
+      expect(
+        store.get(tokenDetailAtom())?.detailPriceInitializedAt,
+      ).toBeUndefined();
       await act(async () => {
         await result.current.fetchTokenDetail(detail.address, detail.networkId);
       });
       expect(store.get(tokenDetailAtom())).toMatchObject({
         price: '1',
-        detailPriceInitialized: true,
+        detailPriceInitializedAt: expect.any(Number),
       });
     },
   );
 });
+
+describe.each(['token', 'asset'] as const)(
+  '%s detail quote recovery',
+  (owner) => {
+    const initialTime = 1_788_332_400_000;
+    const detail = {
+      address: '0xabc',
+      networkId: 'evm--1',
+      name: 'Test token',
+      symbol: 'TEST',
+      decimals: 18,
+      logoUrl: '',
+      price: '1',
+    };
+    type IQuote = { price: string; volume24h?: string };
+
+    beforeEach(() => {
+      jest.clearAllMocks();
+      jest.spyOn(Date, 'now').mockReturnValue(initialTime);
+      mockResolveMarketPerpsInfoBySymbol.mockResolvedValue(undefined);
+    });
+
+    afterEach(() => {
+      jest.restoreAllMocks();
+    });
+
+    function setup() {
+      const { store, Wrapper } = createWrapper();
+      store.set(networkIdAtom(), detail.networkId);
+      store.set(tokenAddressAtom(), detail.address);
+      store.set(tokenDetailAtom(), {
+        ...detail,
+        detailPriceInitializedAt: initialTime,
+        lastUpdated: initialTime,
+      });
+      const { result } = renderHook(
+        () => ({
+          actions: useTokenDetailActions().current,
+          fetchAsset: useMarketAssetTokenDetailAction(),
+        }),
+        { wrapper: Wrapper },
+      );
+      const refresh = (quote: IQuote | Promise<IQuote>) => {
+        if (owner === 'asset') {
+          mockFetchMarketAssetDetail.mockReturnValueOnce(
+            Promise.resolve(quote).then((data) => ({
+              ...dogeAssetDetail,
+              selectedVariant: {
+                ...dogeAssetDetail.selectedVariant,
+                tokenAddress: detail.address,
+                networkId: detail.networkId,
+                isNative: false,
+              },
+              market: { ...dogeAssetDetail.market, ...data },
+            })),
+          );
+          return result.current.fetchAsset({
+            assetId: 'doge',
+            tokenAddress: detail.address,
+            networkId: detail.networkId,
+          });
+        }
+        mockFetchMarketTokenDetailByTokenAddress.mockReturnValueOnce(
+          Promise.resolve(quote).then((data) => ({
+            data: {
+              token: { ...detail, ...data, lastUpdated: initialTime },
+            },
+          })),
+        );
+        return result.current.actions.fetchTokenDetail(
+          detail.address,
+          detail.networkId,
+        );
+      };
+      const tick = (price: string) =>
+        result.current.actions.applyChartPriceUpdate({
+          tokenAddress: detail.address,
+          networkId: detail.networkId,
+          price,
+          lastUpdated: Date.now(),
+        });
+      return { store, refresh, tick };
+    }
+
+    it('keeps the initial quote during grace, then refreshes while the chart never starts', async () => {
+      const { store, refresh } = setup();
+      const graceEnd = initialTime + MARKET_CHART_PRICE_STALE_MS;
+      jest.spyOn(Date, 'now').mockReturnValue(graceEnd - 1);
+      await act(async () => {
+        await refresh({ price: '2', volume24h: '20' });
+      });
+      expect(store.get(tokenDetailAtom())).toMatchObject({
+        price: '1',
+        volume24h: '20',
+        detailPriceInitializedAt: initialTime,
+      });
+
+      jest.spyOn(Date, 'now').mockReturnValue(graceEnd);
+      await act(async () => {
+        await refresh({ price: '3' });
+      });
+      expect(store.get(tokenDetailAtom())).toMatchObject({
+        price: '3',
+        lastUpdated: graceEnd,
+        detailPriceInitializedAt: initialTime,
+      });
+      jest.spyOn(Date, 'now').mockReturnValue(graceEnd + 6000);
+      await act(async () => {
+        await refresh({ price: '4' });
+      });
+      expect(store.get(tokenDetailAtom())?.price).toBe('4');
+    });
+
+    it('does not promote a request started before the feed became stale', async () => {
+      const { store, refresh, tick } = setup();
+      act(() => tick('2'));
+      jest
+        .spyOn(Date, 'now')
+        .mockReturnValue(initialTime + MARKET_CHART_PRICE_STALE_MS - 1);
+      const response = createDeferred<IQuote>();
+      let request: Promise<unknown> | undefined;
+      act(() => {
+        request = refresh(response.promise);
+      });
+      jest
+        .spyOn(Date, 'now')
+        .mockReturnValue(initialTime + MARKET_CHART_PRICE_STALE_MS * 2);
+      await act(async () => {
+        response.resolve({ price: '3', volume24h: '30' });
+        await request;
+      });
+      expect(store.get(tokenDetailAtom())).toMatchObject({
+        price: '2',
+        volume24h: '30',
+        chartPriceUpdatedAt: initialTime,
+      });
+    });
+
+    it('recovers a stale chart quote and yields to ticks during an in-flight fallback', async () => {
+      const { store, refresh, tick } = setup();
+      act(() => tick('2'));
+      const recoveryTime = initialTime + MARKET_CHART_PRICE_STALE_MS;
+      jest.spyOn(Date, 'now').mockReturnValue(recoveryTime);
+      await act(async () => {
+        await refresh({ price: '3' });
+      });
+      expect(store.get(tokenDetailAtom())).toMatchObject({
+        price: '3',
+        lastUpdated: recoveryTime,
+        chartPriceUpdatedAt: initialTime,
+      });
+
+      jest.spyOn(Date, 'now').mockReturnValue(recoveryTime + 6000);
+      const response = createDeferred<IQuote>();
+      let request: Promise<unknown> | undefined;
+      act(() => {
+        request = refresh(response.promise);
+        tick('4');
+      });
+      jest
+        .spyOn(Date, 'now')
+        .mockReturnValue(recoveryTime + 6000 + MARKET_CHART_PRICE_STALE_MS);
+      await act(async () => {
+        response.resolve({ price: '3.5', volume24h: '35' });
+        await request;
+      });
+      expect(store.get(tokenDetailAtom())).toMatchObject({
+        price: '4',
+        volume24h: '35',
+        chartPriceUpdatedAt: recoveryTime + 6000,
+      });
+
+      act(() => tick('5'));
+      await act(async () => {
+        await refresh({ price: '6' });
+      });
+      expect(store.get(tokenDetailAtom())?.price).toBe('5');
+    });
+
+    it.each(['0', '-1', 'invalid'])(
+      'keeps a valid quote when the fallback price is %s',
+      async (price) => {
+        const { store, refresh, tick } = setup();
+        act(() => tick('2'));
+        jest
+          .spyOn(Date, 'now')
+          .mockReturnValue(initialTime + MARKET_CHART_PRICE_STALE_MS);
+        await act(async () => {
+          await refresh({ price, volume24h: '30' });
+        });
+        expect(store.get(tokenDetailAtom())).toMatchObject({
+          price: '2',
+          lastUpdated: initialTime,
+          volume24h: '30',
+        });
+      },
+    );
+
+    it('advances the header cache even when its timestamp is ahead of the clock', async () => {
+      const { store, refresh } = setup();
+      const now = initialTime + MARKET_CHART_PRICE_STALE_MS;
+      store.set(tokenDetailAtom(), {
+        ...detail,
+        detailPriceInitializedAt: initialTime,
+        lastUpdated: now + 1,
+      });
+      jest.spyOn(Date, 'now').mockReturnValue(now);
+      await act(async () => {
+        await refresh({ price: '2' });
+      });
+      expect(store.get(tokenDetailAtom())).toMatchObject({
+        price: '2',
+        lastUpdated: now + 2,
+      });
+    });
+  },
+);
 
 describe('cached token detail seed', () => {
   const target = { networkId: 'evm--56', tokenAddress: '0xaaplon' };
@@ -1223,6 +1443,7 @@ describe('marketV2 asset token detail actions', () => {
         decimalsResolved: false,
         logoUrl: '',
         price: '0.2',
+        chartPriceUpdatedAt: receivedAt - MARKET_CHART_PRICE_STALE_MS,
       });
       const { result } = renderHook(
         () => ({
@@ -1654,7 +1875,7 @@ describe('market K-line quote updates', () => {
     decimals: 8,
     logoUrl: '',
     price: '0.2',
-    detailPriceInitialized: true,
+    detailPriceInitializedAt: 1_788_332_400_000,
   };
   const response = (price: number): IMarketTokenKLineResponse => ({
     points: [

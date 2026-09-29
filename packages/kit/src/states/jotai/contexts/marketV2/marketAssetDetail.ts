@@ -22,6 +22,7 @@ import {
   tokenDetailRequestIdAtom,
   tokenDetailWebsocketAtom,
 } from './atoms';
+import { mergeMarketTokenDetailPrice } from './marketTokenDetailPrice';
 
 const MARKET_ASSET_DETAIL_CURRENCY = 'usd';
 const MARKET_CHART_FALLBACK_DECIMALS = 2;
@@ -137,6 +138,7 @@ async function fetchMarketAssetTokenDetail(
   payload: IMarketAssetTokenDetailPayload,
 ): Promise<IMarketAssetDetailData> {
   const { assetId, variantId, tokenAddress, networkId } = payload;
+  const requestStartedAt = Date.now();
   const requestId = get(tokenDetailRequestIdAtom()) + 1;
   set(tokenDetailRequestIdAtom(), requestId);
   let isStale = false;
@@ -238,33 +240,11 @@ async function fetchMarketAssetTokenDetail(
       lastUpdated,
     });
     // Chart updates may arrive while the decimals lookup is in flight.
-    const latestTokenDetail = get(tokenDetailAtom());
-    const chartPriceUpdatedAt = latestTokenDetail?.chartPriceUpdatedAt;
-    const isSameToken = isSameMarketTokenDetail({
-      tokenDetail: latestTokenDetail,
-      tokenAddress,
-      networkId,
+    const finalTokenData = mergeMarketTokenDetailPrice({
+      currentTokenDetail: get(tokenDetailAtom()),
+      tokenData,
+      requestStartedAt,
     });
-    const hasChartPrice =
-      isSameToken &&
-      typeof chartPriceUpdatedAt === 'number' &&
-      Number.isFinite(chartPriceUpdatedAt);
-    const hasInitialPrice =
-      isSameToken && latestTokenDetail?.detailPriceInitialized;
-    const numericPrice = Number(tokenData.price);
-    const detailPriceInitialized = Boolean(
-      hasInitialPrice || (Number.isFinite(numericPrice) && numericPrice > 0),
-    );
-    const finalTokenData =
-      hasChartPrice || hasInitialPrice
-        ? {
-            ...tokenData,
-            price: latestTokenDetail?.price,
-            lastUpdated: latestTokenDetail?.lastUpdated,
-            chartPriceUpdatedAt,
-            detailPriceInitialized,
-          }
-        : { ...tokenData, detailPriceInitialized };
 
     set(tokenDetailAtom(), finalTokenData);
     set(tokenDetailPreviewAtom(), undefined);
