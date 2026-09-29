@@ -2651,12 +2651,14 @@ class ServiceFirmwareUpdate extends ServiceBase {
     const updateFirmwareInfo = params.releaseResult.updateInfos?.firmware;
 
     serviceHardwareUtils.hardwareLog('startUpdateWorkflow ERROR', error);
-    await firmwareUpdateStepInfoAtom.set({
-      step: EFirmwareUpdateSteps.error,
-      payload: {
-        error: displayError,
-      },
-    });
+    if (this.updateWorkflowTracking?.acceptsTaskResults !== false) {
+      await firmwareUpdateStepInfoAtom.set({
+        step: EFirmwareUpdateSteps.error,
+        payload: {
+          error: displayError,
+        },
+      });
+    }
 
     try {
       const hardwareTransportType = await this.getUpdateWorkflowTransportType();
@@ -2870,7 +2872,9 @@ class ServiceFirmwareUpdate extends ServiceBase {
       );
     } finally {
       // Reset workflow running state at service level to prevent lock-screen bypass
-      await firmwareUpdateWorkflowRunningAtom.set(false);
+      if (this.isUpdateWorkflowCurrent(workflowId)) {
+        await firmwareUpdateWorkflowRunningAtom.set(false);
+      }
     }
   }
 
@@ -2899,14 +2903,18 @@ class ServiceFirmwareUpdate extends ServiceBase {
     void (async () => {
       try {
         await this.runUpdateWorkflowV2(params, workflowId);
-        await this.completeUpdateWorkflow({
-          params,
-        });
+        if (this.isUpdateWorkflowCurrent(workflowId)) {
+          await this.completeUpdateWorkflow({
+            params,
+          });
+        }
       } catch (error) {
-        await this.failUpdateWorkflow({
-          params,
-          error,
-        });
+        if (this.updateWorkflowTracking?.workflowId === workflowId) {
+          await this.failUpdateWorkflow({
+            params,
+            error,
+          });
+        }
       }
     })().catch((error) => {
       serviceHardwareUtils.hardwareLog(
