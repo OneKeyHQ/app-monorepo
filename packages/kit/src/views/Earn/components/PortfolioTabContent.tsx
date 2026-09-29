@@ -131,7 +131,9 @@ const PortfolioPendingTxsContext = createContext<IPortfolioPendingTxsContext>({
   onRefresh: async () => {},
 });
 
-const PortfolioPendingTxsProvider = ({
+// Exported for the phone positions page (EarnPositions/mobile), which reuses
+// the claim button and the PnL line. Desktop keeps rendering this file as-is.
+export const PortfolioPendingTxsProvider = ({
   value,
   children,
 }: {
@@ -150,6 +152,7 @@ const WrappedActionButtonCmp = ({
   reward,
   claimSourceIdentity,
   rewardSymbol,
+  buttonProps,
 }: {
   asset:
     | IEarnPortfolioInvestment['assets'][number]
@@ -157,6 +160,8 @@ const WrappedActionButtonCmp = ({
   reward: IWrappedActionReward;
   claimSourceIdentity?: IPortfolioClaimProtocolIdentity | null;
   rewardSymbol?: string;
+  /** phone positions page: its claimable-principal card wants a primary, full-width button */
+  buttonProps?: Partial<React.ComponentProps<typeof Button>>;
 }) => {
   const { activeAccount } = useActiveAccount({ num: 0 });
   const { account, indexedAccount } = activeAccount;
@@ -299,6 +304,7 @@ const WrappedActionButtonCmp = ({
         ai="center"
         variant="secondary"
         size="small"
+        {...buttonProps}
         loading={loading || isPending}
         disabled={loading || buttonDisabled}
         cursor={buttonDisabled ? 'not-allowed' : 'pointer'}
@@ -326,7 +332,7 @@ const WrappedActionButtonCmp = ({
   );
 };
 
-const WrappedActionButton = memo(WrappedActionButtonCmp);
+export const WrappedActionButton = memo(WrappedActionButtonCmp);
 
 const useFieldWrapperNeedPadding = (
   asset: IEarnPortfolioInvestment['assets'][number],
@@ -439,7 +445,7 @@ const EarningsField = ({
   );
 };
 
-const MobilePnlSection = memo(
+export const MobilePnlSection = memo(
   ({ asset }: { asset: IEarnPortfolioInvestment['assets'][number] }) => {
     const intl = useIntl();
     const netPnl = asset.metadata?.netPnl;

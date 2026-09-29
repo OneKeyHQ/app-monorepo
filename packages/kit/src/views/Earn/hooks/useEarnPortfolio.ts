@@ -237,6 +237,9 @@ function normalizeAirdropInvestmentResult(
       totalFiatValue: '0',
       totalFiatValueUsd: '0',
       earnings24hFiatValue: '0',
+      // Kept on its own field: the phone positions page sums it into the
+      // Rewards header while totalFiatValue stays principal-only.
+      airdropFiatValue: result.totalFiatValue,
       protocol: normalizedProtocol,
       network: result.network,
       assets: [],
@@ -302,6 +305,9 @@ function normalizeInvestmentResult(
       totalFiatValue: result.totalFiatValue,
       totalFiatValueUsd: result.totalFiatValueUsd,
       earnings24hFiatValue: result.earnings24hFiatValue,
+      ...(result.rewardsFiatValue !== undefined
+        ? { rewardsFiatValue: result.rewardsFiatValue }
+        : {}),
       netPnl: result.netPnl,
       netPnlFiatValue: result.netPnlFiatValue,
       protocol: normalizedProtocol,
