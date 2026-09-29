@@ -96,9 +96,8 @@ export function useMarketKlineLivePrice({
         return;
       }
 
-      // Display currency, price mode and Simple-vs-Pro can all change while the
-      // request is in flight, and a USD close must not land on a quote that is
-      // no longer USD — `applyChartPriceUpdate` only guards token identity.
+      // Price mode and Simple-vs-Pro can change while the request is in flight.
+      // `applyChartPriceUpdate` only guards token identity, not the active feed.
       if (
         !isMountedRef.current ||
         !shouldApplyMarketKlineLivePrice({

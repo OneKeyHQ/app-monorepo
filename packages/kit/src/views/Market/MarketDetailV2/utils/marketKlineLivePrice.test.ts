@@ -66,13 +66,12 @@ describe('shouldApplyMarketKlineLivePrice', () => {
 
 describe('resolveMarketKlineLivePriceEnabled', () => {
   const baseParams = {
-    currencyId: 'usd',
     networkId: 'evm--4663',
     priceMode: 'token' as const,
     tokenAddress: '0x020bfc650a365f8bb26819deaabf3e21291018b4',
   };
 
-  it('enables the overlay for a USD token quote', () => {
+  it('enables the primary USD token quote without depending on display currency', () => {
     expect(resolveMarketKlineLivePriceEnabled(baseParams)).toBe(true);
   });
 
@@ -80,37 +79,6 @@ describe('resolveMarketKlineLivePriceEnabled', () => {
     expect(
       resolveMarketKlineLivePriceEnabled({ ...baseParams, priceMode: 'share' }),
     ).toBe(false);
-  });
-
-  it.each(['usd', 'cny'])(
-    'enables top coins using their USD asset feed with %s selected',
-    (currencyId) => {
-      expect(
-        resolveMarketKlineLivePriceEnabled({
-          ...baseParams,
-          currencyId,
-          marketAssetId: 'bitcoin',
-        }),
-      ).toBe(true);
-    },
-  );
-
-  it('skips non-USD display currencies, which the K-line feed cannot quote', () => {
-    expect(
-      resolveMarketKlineLivePriceEnabled({ ...baseParams, currencyId: 'cny' }),
-    ).toBe(false);
-    expect(
-      resolveMarketKlineLivePriceEnabled({
-        ...baseParams,
-        currencyId: undefined,
-      }),
-    ).toBe(false);
-  });
-
-  it('accepts a currency id in any case', () => {
-    expect(
-      resolveMarketKlineLivePriceEnabled({ ...baseParams, currencyId: 'USD' }),
-    ).toBe(true);
   });
 
   it('requires a network and, for a contract token, its address', () => {

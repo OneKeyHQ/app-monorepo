@@ -66,10 +66,6 @@ jest.mock('../hooks/useMarketKlineLivePrice', () => ({
   useMarketKlineLivePrice: jest.fn(),
 }));
 
-jest.mock('@onekeyhq/kit/src/components/Currency', () => ({
-  useCurrency: jest.fn(() => ({ id: 'usd' })),
-}));
-
 jest.mock('../hooks/useMarketNativeChartPriceUpdate', () => ({
   useMarketNativeChartPriceUpdate: jest.fn(() => jest.fn()),
 }));
@@ -358,10 +354,18 @@ describe('DesktopLayout', () => {
 
       expect(useMarketKlineLivePriceMock).toHaveBeenLastCalledWith({
         enabled,
-        marketAssetId: 'doge',
         networkId: 'evm--1',
         tokenAddress: '0xaapl',
       });
+      if (native) {
+        expect(mockNativeChartRender.mock.calls.at(-1)?.[0].source).toEqual(
+          expect.objectContaining({
+            kind: 'market',
+            networkId: 'evm--1',
+            tokenAddress: '0xaapl',
+          }),
+        );
+      }
     },
   );
 

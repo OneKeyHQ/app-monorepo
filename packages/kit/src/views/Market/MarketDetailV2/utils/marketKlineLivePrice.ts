@@ -3,12 +3,6 @@ import BigNumber from 'bignumber.js';
 import type { IMarketPriceSource } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { IMarketTokenKLineDataPoint } from '@onekeyhq/shared/types/marketV2';
 
-// The K-line feed is quoted in USD (`fetchMarketTokenKline` pins `currency`),
-// while `/market/token/detail` converts its price when the user picked another
-// display currency. Overlaying a USD close on a converted quote would swap a
-// stale number for a wrong one, so the overlay is limited to USD.
-export const MARKET_KLINE_LIVE_PRICE_CURRENCY = 'usd';
-
 // The finest bucket the token K-line endpoint serves. Its open bucket carries
 // the latest trade, which is the price the detail snapshot is missing.
 export const MARKET_KLINE_LIVE_PRICE_INTERVAL = '1m';
@@ -23,19 +17,16 @@ export const MARKET_KLINE_LIVE_PRICE_POLLING_MS = 6000;
 /**
  * The K-line feed prices a token's own trades, so it can only stand in for a
  * token-mode quote: a share quote comes from the stock feed. Top coins use the
- * aggregate asset K-line feed, matching their USD detail quote.
+ * aggregate asset K-line feed in Simple mode. The detail's primary `price` and
+ * both K-line feeds are always USD; a selected currency uses `priceConverted`.
  */
 export function resolveMarketKlineLivePriceEnabled({
-  currencyId,
   isNative,
-  marketAssetId,
   networkId,
   priceMode,
   tokenAddress,
 }: {
-  currencyId?: string;
   isNative?: boolean;
-  marketAssetId?: string;
   networkId: string;
   priceMode: IMarketPriceSource;
   tokenAddress: string;
@@ -44,12 +35,7 @@ export function resolveMarketKlineLivePriceEnabled({
   // identity — the historical series on this same chart already requests it that
   // way. Requiring an address would leave native coins on the stale snapshot.
   const hasTokenIdentity = Boolean(networkId && (tokenAddress || isNative));
-  return Boolean(
-    priceMode === 'token' &&
-    hasTokenIdentity &&
-    (marketAssetId ||
-      currencyId?.toLowerCase() === MARKET_KLINE_LIVE_PRICE_CURRENCY),
-  );
+  return priceMode === 'token' && hasTokenIdentity;
 }
 
 /**

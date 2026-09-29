@@ -2,7 +2,6 @@ import { useCallback, useEffect, useMemo, useRef } from 'react';
 import type { ComponentProps, RefObject } from 'react';
 
 import { Spinner, Stack, useOverlayZIndex } from '@onekeyhq/components';
-import { useCurrency } from '@onekeyhq/kit/src/components/Currency';
 import {
   type ITradingViewNativeSource,
   TradingViewNative,
@@ -394,7 +393,6 @@ export function DesktopLayout({
     websocketConfig,
   });
   const effectiveMarketTradingViewParams = marketTradingViewParams;
-  const { id: currencyId } = useCurrency();
   const [{ mode: chartDisplayMode }] =
     useMarketDetailChartDisplayModePersistAtom();
   const tradingViewNativeSource = useMemo<ITradingViewNativeSource>(() => {
@@ -420,10 +418,8 @@ export function DesktopLayout({
     tokenDetail?.symbol,
     displayTokenDetail?.symbol,
   ]);
-  const marketAssetId = shouldUseTopCoinsDesktopLayout
-    ? marketTokenId
-    : undefined;
   // Native sources without WS cannot keep the quote live after initialization.
+  // Their market chart uses the selected token feed, including Top Coins.
   useMarketKlineLivePrice({
     enabled:
       active !== false &&
@@ -432,14 +428,11 @@ export function DesktopLayout({
       tradingViewNativeSource.kind === 'market' &&
       tradingViewNativeSource.realtime !== 'websocket' &&
       resolveMarketKlineLivePriceEnabled({
-        currencyId,
         isNative,
-        marketAssetId,
         networkId,
         priceMode: 'token',
         tokenAddress,
       }),
-    marketAssetId,
     networkId,
     tokenAddress,
   });

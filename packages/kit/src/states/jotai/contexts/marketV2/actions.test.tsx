@@ -8,6 +8,7 @@ import { createStore } from 'jotai';
 import { useTokenPrice } from '@onekeyhq/kit/src/views/Market/components/MarketTokenPrice';
 import { useMarketKlineLivePrice } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/hooks/useMarketKlineLivePrice';
 import { useMarketNativeChartPriceUpdate } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/hooks/useMarketNativeChartPriceUpdate';
+import { resolveMarketKlineLivePriceEnabled } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/utils/marketKlineLivePrice';
 import type {
   IMarketAssetDetailData,
   IMarketWatchListItemV2,
@@ -1637,8 +1638,8 @@ describe('marketV2 asset token detail actions', () => {
   });
 });
 
-describe('Top Coins simple chart quote updates', () => {
-  const props = {
+describe('market K-line quote updates', () => {
+  const props: Parameters<typeof useMarketKlineLivePrice>[0] = {
     enabled: true,
     marketAssetId: 'doge',
     networkId: 'doge--0',
@@ -1696,11 +1697,53 @@ describe('Top Coins simple chart quote updates', () => {
     expect(store.get(tokenDetailAtom())?.price).toBe('0.4');
   });
 
+  it('updates the USD token quote independently of its converted detail price', async () => {
+    const { store, Wrapper } = createWrapper();
+    store.set(tokenDetailAtom(), { ...detail, priceConverted: '1.4' });
+    renderHook(
+      () =>
+        useMarketKlineLivePrice({
+          networkId: detail.networkId,
+          tokenAddress: detail.address,
+          enabled: resolveMarketKlineLivePriceEnabled({
+            networkId: detail.networkId,
+            tokenAddress: detail.address,
+            isNative: detail.isNative,
+            priceMode: 'token',
+          }),
+        }),
+      { wrapper: Wrapper },
+    );
+
+    const refreshLivePrice = async () => mockRunLivePrice?.();
+    for (const price of [0.3, 0.4]) {
+      mockFetchTokenKline.mockResolvedValueOnce(response(price));
+      await act(refreshLivePrice);
+      expect(store.get(tokenDetailAtom())).toMatchObject({
+        price: String(price),
+        priceConverted: '1.4',
+      });
+    }
+    expect(mockFetchAssetKline).not.toHaveBeenCalled();
+    expect(mockFetchTokenKline).toHaveBeenLastCalledWith({
+      networkId: detail.networkId,
+      tokenAddress: detail.address,
+      interval: '1m',
+      timeFrom: expect.any(Number),
+      timeTo: expect.any(Number),
+      autoHandleError: false,
+    });
+  });
+
   it.each([
     { scenario: 'disabled', nextProps: { ...props, enabled: false } },
     {
       scenario: 'a different asset',
       nextProps: { ...props, marketAssetId: 'another-asset' },
+    },
+    {
+      scenario: 'the Native token feed',
+      nextProps: { ...props, marketAssetId: undefined },
     },
   ])(
     'drops overlapping asset quotes and late responses for $scenario',
