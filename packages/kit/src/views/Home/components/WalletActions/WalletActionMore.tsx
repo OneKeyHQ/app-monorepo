@@ -8,6 +8,7 @@ import { useReviewControl } from '@onekeyhq/kit/src/components/ReviewControl';
 import { getRewardCenterConfig } from '@onekeyhq/kit/src/components/RewardCenter';
 import { useBotWalletDeactivatedStatus } from '@onekeyhq/kit/src/hooks/useBotWalletDeactivatedStatus';
 import {
+  buildOverviewOwnerKey,
   useAccountOverviewActions,
   useApprovalsInfoAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/accountOverview';
@@ -58,7 +59,12 @@ export function WalletActionMore({ iconOnly }: { iconOnly?: boolean } = {}) {
   const { sceneName, sceneUrl } = useAccountSelectorSceneInfo();
   const { account, network } = activeAccount;
   // Read here, not in the item: menu items render outside this context.
-  const [{ showRiskApprovalsDot }] = useApprovalsInfoAtom();
+  const [{ ownerKey: approvalsOwnerKey, showRiskApprovalsDot: ownerDot }] =
+    useApprovalsInfoAtom();
+  // A dot computed for the previous account must not show on the next one.
+  const showRiskApprovalsDot =
+    ownerDot &&
+    approvalsOwnerKey === buildOverviewOwnerKey(account?.id, network?.id);
   const { updateApprovalsInfo } = useAccountOverviewActions().current;
   const markRiskApprovalsSeen = useCallback(() => {
     updateApprovalsInfo({ showRiskApprovalsDot: false });
