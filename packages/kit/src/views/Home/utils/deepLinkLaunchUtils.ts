@@ -12,6 +12,37 @@ const IOS_STORE_ELAPSED_THRESHOLD_MS = 1500;
 
 export const DEEP_LINK_DOWNLOAD_HINT_DELAY_MS = 5000;
 
+// Other iOS browsers and in-app web views share Safari's WebKit user agent
+// but never show Smart App Banners or App Clip cards.
+const IOS_NON_SAFARI_USER_AGENT =
+  /CriOS|FxiOS|EdgiOS|OPiOS|OPT\/|GSA\/|DuckDuckGo|YaBrowser|MicroMessenger|QQ\/|Weibo|Line\/|FBAN|FBAV|Instagram|Twitter|Telegram|Snapchat/i;
+
+/**
+ * Whether the user agent is Safari itself on iPhone/iPad, the only iOS browser
+ * that shows the App Clip card from the `apple-itunes-app` meta. In-app web
+ * views omit the `Safari/` token; other browsers add their own token. An iPad
+ * in desktop mode sends Mac Safari's user agent, so callers must also check
+ * for a touch device (see `isIOSSafariBrowser`).
+ */
+export function isIOSSafariUserAgent(userAgent: string): boolean {
+  const isAppleMobile =
+    /iPhone|iPad|iPod/.test(userAgent) ||
+    // iPadOS requests the desktop site with a Mac user agent by default.
+    userAgent.includes('Macintosh');
+  return (
+    isAppleMobile &&
+    /Version\/[\d.]+.*Safari\//.test(userAgent) &&
+    !IOS_NON_SAFARI_USER_AGENT.test(userAgent)
+  );
+}
+
+export function isIOSSafariBrowser(): boolean {
+  return (
+    !!platformEnv.isWebMobileIOS &&
+    isIOSSafariUserAgent(globalThis.navigator?.userAgent ?? '')
+  );
+}
+
 export function buildAndroidIntentUrl(deepLinkUrl: string): string {
   const schemeEnd = deepLinkUrl.indexOf('://');
   if (schemeEnd === -1) {
