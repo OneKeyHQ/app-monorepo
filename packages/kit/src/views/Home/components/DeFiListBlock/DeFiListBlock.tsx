@@ -861,7 +861,8 @@ function DeFiListBlock({
     // the same value back dips the header total for a few frames, so only an
     // overview left by another owner is reset. The probe settles the kept
     // one (`handleAllNetworkCacheChecked`): a hit replaces it with this run's
-    // cached sum, a miss zeroes it.
+    // cached sum; a miss zeroes it when the enabled network set changed since
+    // it was summed, and otherwise keeps it as the last-known total.
     const currentOverview = overviewRef.current;
     const isOverviewOfOwner =
       !!account?.id &&
@@ -1117,6 +1118,38 @@ function DeFiListBlock({
     ],
   );
 
+  // Set by an enabled-network change: the overview `handleClearAllNetworkData`
+  // keeps across the cold rerun was summed over the previous set. Consumed by
+  // that rerun's cache probe (`handleAllNetworkCacheChecked`), which settles
+  // the overview for the current set.
+  const overviewPredatesEnabledSetRef = useRef(false);
+  useEffect(() => {
+    if (!network?.isAllNetworks) {
+      return undefined;
+    }
+    const markOverviewPredatesEnabledSet = () => {
+      overviewPredatesEnabledSetRef.current = true;
+    };
+    appEventBus.on(
+      EAppEventBusNames.EnabledNetworksChanged,
+      markOverviewPredatesEnabledSet,
+    );
+    appEventBus.on(
+      EAppEventBusNames.DeFiEnabledNetworksChanged,
+      markOverviewPredatesEnabledSet,
+    );
+    return () => {
+      appEventBus.off(
+        EAppEventBusNames.EnabledNetworksChanged,
+        markOverviewPredatesEnabledSet,
+      );
+      appEventBus.off(
+        EAppEventBusNames.DeFiEnabledNetworksChanged,
+        markOverviewPredatesEnabledSet,
+      );
+    };
+  }, [network?.isAllNetworks]);
+
   const handleAllNetworkCacheChecked = useCallback(
     ({
       accountId,
@@ -1129,9 +1162,13 @@ function DeFiListBlock({
     }) => {
       const action = resolveDeFiCacheProbeAction({
         hasCache,
+        overviewPredatesEnabledSet: overviewPredatesEnabledSetRef.current,
         runOwnerKey: buildDeFiListOwnerKey({ accountId, networkId }),
         liveOwnerKey: liveOwnerKeyRef.current,
       });
+      if (action !== 'skip') {
+        overviewPredatesEnabledSetRef.current = false;
+      }
       switch (action) {
         case 'skip':
           return;
@@ -1144,13 +1181,24 @@ function DeFiListBlock({
             isReady: true,
           });
           return;
+        case 'reset-readiness':
+          // The kept overview is the last-known total for this network set;
+          // a fan-out whose every request fails falls back to it after the
+          // header's grace. Readiness off is `undefined` only: the header
+          // treats a defined `false` as reported and would release its hold
+          // at once onto a total without DeFi.
+          updateOverviewDeFiDataState({
+            accountId,
+            networkId,
+            isReady: undefined,
+          });
+          return;
         case 'zero-overview':
           // `handleClearAllNetworkData` kept a same-owner overview only so
-          // this probe could write the same value back without a dip. With
-          // nothing cached for the run's network set there is no such value
-          // (see `resolveDeFiCacheProbeAction`). Readiness off is
-          // `undefined` only: the header treats a defined `false` as reported
-          // and would release its hold at once onto a total without DeFi.
+          // this probe could write the same value back without a dip. It was
+          // summed over the previous enabled set and nothing is cached for
+          // the current one, so there is no such value
+          // (see `resolveDeFiCacheProbeAction`).
           updateAccountDeFiOverview({
             currency: settings.currencyInfo.id,
             accountId,

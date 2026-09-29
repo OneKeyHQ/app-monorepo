@@ -206,15 +206,40 @@ describe('resolveDeFiCacheProbeAction', () => {
   const live = { runOwnerKey: 'account-1:all', liveOwnerKey: 'account-1:all' };
 
   it('marks the owner ready on a hit', () => {
-    expect(resolveDeFiCacheProbeAction({ ...live, hasCache: true })).toBe(
-      'mark-ready',
-    );
+    expect(
+      resolveDeFiCacheProbeAction({
+        ...live,
+        hasCache: true,
+        overviewPredatesEnabledSet: false,
+      }),
+    ).toBe('mark-ready');
+    expect(
+      resolveDeFiCacheProbeAction({
+        ...live,
+        hasCache: true,
+        overviewPredatesEnabledSet: true,
+      }),
+    ).toBe('mark-ready');
   });
 
-  it('zeroes the kept overview on a miss', () => {
-    expect(resolveDeFiCacheProbeAction({ ...live, hasCache: false })).toBe(
-      'zero-overview',
-    );
+  it('zeroes the kept overview on a miss after an enabled-set change', () => {
+    expect(
+      resolveDeFiCacheProbeAction({
+        ...live,
+        hasCache: false,
+        overviewPredatesEnabledSet: true,
+      }),
+    ).toBe('zero-overview');
+  });
+
+  it('keeps the last-known overview on any other miss', () => {
+    expect(
+      resolveDeFiCacheProbeAction({
+        ...live,
+        hasCache: false,
+        overviewPredatesEnabledSet: false,
+      }),
+    ).toBe('reset-readiness');
   });
 
   it('writes nothing for a run whose owner is no longer live', () => {
@@ -223,6 +248,7 @@ describe('resolveDeFiCacheProbeAction', () => {
         runOwnerKey: 'account-1:all',
         liveOwnerKey: 'account-2:all',
         hasCache: false,
+        overviewPredatesEnabledSet: true,
       }),
     ).toBe('skip');
     expect(
@@ -230,6 +256,7 @@ describe('resolveDeFiCacheProbeAction', () => {
         runOwnerKey: 'account-1:all',
         liveOwnerKey: 'account-2:all',
         hasCache: true,
+        overviewPredatesEnabledSet: false,
       }),
     ).toBe('skip');
   });
@@ -240,6 +267,7 @@ describe('resolveDeFiCacheProbeAction', () => {
         runOwnerKey: undefined,
         liveOwnerKey: undefined,
         hasCache: false,
+        overviewPredatesEnabledSet: true,
       }),
     ).toBe('skip');
   });

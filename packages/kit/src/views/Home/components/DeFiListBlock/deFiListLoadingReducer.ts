@@ -139,7 +139,11 @@ export function shouldResetDeFiReadinessOnRunStart({
   );
 }
 
-export type IDeFiCacheProbeAction = 'skip' | 'mark-ready' | 'zero-overview';
+export type IDeFiCacheProbeAction =
+  | 'skip'
+  | 'mark-ready'
+  | 'reset-readiness'
+  | 'zero-overview';
 
 // What the all-network cache probe writes to the header's DeFi overview once
 // it knows whether anything is cached for the run's network set.
@@ -148,27 +152,34 @@ export type IDeFiCacheProbeAction = 'skip' | 'mark-ready' | 'zero-overview';
 //   readiness are a single slot the live owner's own probe has stamped.
 // - A hit marks the owner ready; `allNetworkCacheData` follows and replaces
 //   the overview with the cached sum.
-// - A miss zeroes the overview `clearAllNetworkData` kept for this owner and
-//   leaves readiness unknown (`isReady: undefined`, never `false`: the header
-//   counts any defined readiness as reported and would release its hold onto
-//   a total without DeFi). The kept value predates the run — after an
-//   enabled-network change it still counts the disabled network — and nothing
-//   is guaranteed to replace it: the list instance's fan-out may fail on every
-//   network, and the cache-only instance issues no fan-out at all, so keeping
-//   it there would hand the disabled network's value back to the header once
-//   its bounded grace expires. Both instances therefore drop it; the header
-//   counts DeFi again when a run reports (or, after the grace, counts 0).
+// - A miss leaves readiness unknown (`isReady: undefined`, never `false`: the
+//   header counts any defined readiness as reported and would release its
+//   hold onto a total without DeFi). What happens to the overview
+//   `clearAllNetworkData` kept for this owner depends on why nothing is
+//   cached. After an enabled-network change the kept value was summed over
+//   the previous set — it still counts the disabled network — and nothing is
+//   guaranteed to replace it (the list instance's fan-out may fail on every
+//   network; the cache-only instance issues no fan-out), so it is zeroed
+//   rather than handed back to the header once its grace expires. Any other
+//   miss keeps it: it is the last-known total for the current set, and a
+//   fan-out whose every request fails should fall back to it, not to 0.
 export function resolveDeFiCacheProbeAction({
   hasCache,
+  overviewPredatesEnabledSet,
   runOwnerKey,
   liveOwnerKey,
 }: {
   hasCache: boolean;
+  /** The enabled network set changed since a run last settled the overview. */
+  overviewPredatesEnabledSet: boolean;
   runOwnerKey?: string;
   liveOwnerKey?: string;
 }): IDeFiCacheProbeAction {
   if (!runOwnerKey || runOwnerKey !== liveOwnerKey) {
     return 'skip';
   }
-  return hasCache ? 'mark-ready' : 'zero-overview';
+  if (hasCache) {
+    return 'mark-ready';
+  }
+  return overviewPredatesEnabledSet ? 'zero-overview' : 'reset-readiness';
 }
