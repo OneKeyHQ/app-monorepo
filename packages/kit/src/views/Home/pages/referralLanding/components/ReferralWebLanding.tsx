@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -21,6 +21,7 @@ import type {
 } from '@onekeyhq/components';
 import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
 import { HomeTestIDs } from '@onekeyhq/kit/src/views/Home/testIDs';
+import { isIOSSafariBrowser } from '@onekeyhq/kit/src/views/Home/utils/deepLinkLaunchUtils';
 import { LayoutHeaderLanguageSelector } from '@onekeyhq/kit/src/views/Onboardingv2/components/Layout';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -144,6 +145,34 @@ function StepBadge({ number }: { number: number }) {
         {`0${number}`}
       </SizableText>
     </Stack>
+  );
+}
+
+// Points at the App Clip card Safari shows above the page for /r/ links
+// (see the `apple-itunes-app` meta in index.html.ejs).
+function AppClipOpenHint() {
+  const intl = useIntl();
+  return (
+    <XStack
+      mx="$5"
+      mt="$2"
+      px="$4"
+      py="$3"
+      gap="$2"
+      alignItems="center"
+      bg="$brand2"
+      borderWidth={1}
+      borderColor="$brand5"
+      borderRadius="$3"
+      borderCurve="continuous"
+    >
+      <Icon name="ArrowTopOutline" size="$5" color="$brand10" />
+      <SizableText size="$bodyMdMedium" color="$text" flex={1}>
+        {intl.formatMessage({
+          id: ETranslations.referral_web_landing_app_clip_hint__desc,
+        })}
+      </SizableText>
+    </XStack>
   );
 }
 
@@ -638,8 +667,10 @@ export function ReferralWebLanding({
   isStep2Highlighted = false,
   isDownloadHintVisible = false,
 }: IReferralWebLandingProps) {
+  const isAppClipHintVisible = useMemo(() => isIOSSafariBrowser(), []);
   return (
     <YStack flex={1}>
+      {isAppClipHintVisible ? <AppClipOpenHint /> : null}
       <XStack h={52} px="$5" ai="center" jc="space-between">
         <Stack
           aria-label="OneKey home"
