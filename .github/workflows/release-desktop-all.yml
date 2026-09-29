@@ -573,8 +573,8 @@ jobs:
           }
           Expand-Archive -LiteralPath $archive -DestinationPath $env:RUNNER_TEMP
           $msi = Join-Path $env:RUNNER_TEMP 'kmscng-1.4-windows-amd64\kmscng.msi'
-          & msiexec.exe /i $msi /qn /norestart
-          if ($LASTEXITCODE -ne 0) { throw "Cloud KMS CNG Provider installation failed: $LASTEXITCODE" }
+          $install = Start-Process -FilePath msiexec.exe -ArgumentList "/i `"$msi`" /qn /norestart" -Wait -PassThru
+          if ($install.ExitCode -ne 0) { throw "Cloud KMS CNG Provider installation failed: $($install.ExitCode)" }
           $configDir = Join-Path $env:windir 'KMSCNG'
           New-Item -ItemType Directory -Force -Path $configDir | Out-Null
           'resources:' | Set-Content -Path (Join-Path $configDir 'config.yaml') -Encoding ascii
