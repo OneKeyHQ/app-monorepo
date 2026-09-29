@@ -7,13 +7,18 @@ import { HeaderIconButton, Page } from '@onekeyhq/components';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import { EEarnLabels } from '@onekeyhq/shared/types/staking';
 
 import { EarnProviderMirror } from '../../Earn/EarnProviderMirror';
-import { useStakingPendingTxsByInfo } from '../../Earn/hooks/useStakingPendingTxs';
+import { useHeaderHeightCacheKey } from '../../Earn/hooks/useHeaderHeightCacheKey';
+import { useNativeStackHeaderHeightEstimate } from '../../Earn/hooks/useNativeStackHeaderHeightEstimate';
+import { useSettledHeaderHeight } from '../../Earn/hooks/useSettledHeaderHeight';
+import {
+  type IStakePendingTx,
+  useStakingPendingTxsByInfo,
+} from '../../Earn/hooks/useStakingPendingTxs';
 import { isBorrowTag } from '../../Staking/utils/utils';
 import { BorrowTestIDs } from '../testIDs';
 
@@ -22,11 +27,18 @@ import { BorrowHome } from './BorrowHome';
 const BORROW_PENDING_REFRESH_DELAY = timerUtils.getTimeDurationMs({
   seconds: 3,
 });
+const EMPTY_BORROW_PENDING_TXS: IStakePendingTx[] = [];
 
 function BorrowHomePageContent() {
   const intl = useIntl();
   const headerHeight = useHeaderHeight();
-  const bodyPaddingTop = platformEnv.isNativeIOS26Plus ? headerHeight : 0;
+  const headerHeightCacheKey = useHeaderHeightCacheKey();
+  const estimatedHeaderHeight = useNativeStackHeaderHeightEstimate();
+  const { paddingTop: bodyPaddingTop, isSettled: isHeaderHeightSettled } =
+    useSettledHeaderHeight(headerHeight, {
+      cacheKey: headerHeightCacheKey,
+      estimatedHeaderHeight,
+    });
   const [borrowNetworkIds, setBorrowNetworkIds] = useState<string[]>([]);
   const [showBorrowHistoryAction, setShowBorrowHistoryAction] = useState(false);
   const borrowRefreshHandlerRef = useRef<(() => Promise<void>) | null>(null);
@@ -87,12 +99,13 @@ function BorrowHomePageContent() {
     [],
   );
 
-  const { filteredTxs: borrowPendingTxs = [] } = useStakingPendingTxsByInfo({
-    networkIds: borrowNetworkIds,
-    tagMatcher: borrowPendingTagMatcher,
-    onRefresh: handleBorrowPendingRefresh,
-    onRefreshDelayMs: BORROW_PENDING_REFRESH_DELAY,
-  });
+  const { filteredTxs: borrowPendingTxs = EMPTY_BORROW_PENDING_TXS } =
+    useStakingPendingTxsByInfo({
+      networkIds: borrowNetworkIds,
+      tagMatcher: borrowPendingTagMatcher,
+      onRefresh: handleBorrowPendingRefresh,
+      onRefreshDelayMs: BORROW_PENDING_REFRESH_DELAY,
+    });
 
   return (
     <Page>
@@ -100,7 +113,7 @@ function BorrowHomePageContent() {
         title={intl.formatMessage({ id: ETranslations.global_borrow })}
         headerRight={showBorrowHistoryAction ? renderHeaderRight : undefined}
       />
-      <Page.Body pt={bodyPaddingTop}>
+      <Page.Body pt={bodyPaddingTop} opacity={isHeaderHeightSettled ? 1 : 0}>
         <BorrowHome
           isActive
           pendingTxs={borrowPendingTxs}
