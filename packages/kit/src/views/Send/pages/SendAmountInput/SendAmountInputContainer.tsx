@@ -3241,12 +3241,21 @@ function SendAmountInputContainer() {
             const privateSendProviderOrderId =
               buildSwapRes.changellyOrder.orderId;
             const privateSendBackendOrderId = buildSwapRes.orderId;
-            // Keep RocketX's legacy ID for existing history consumers, but do
-            // not make it a prerequisite for other private-send providers.
             const privateSendRocketXOrderId = (
               buildSwapRes.ctx as IPrivateSendBuildCtx | undefined
             )?.rocketXOrderId;
-            if (!privateSendProviderOrderId || !privateSendBackendOrderId) {
+            const normalizedPrivateSendRocketXOrderId =
+              typeof privateSendRocketXOrderId === 'string' &&
+              privateSendRocketXOrderId
+                ? privateSendRocketXOrderId
+                : undefined;
+            if (
+              !privateSendProviderOrderId ||
+              !privateSendBackendOrderId ||
+              (normalizedPrivateSendRocketXOrderId &&
+                normalizedPrivateSendRocketXOrderId !==
+                  privateSendProviderOrderId)
+            ) {
               throw new OneKeyLocalError(
                 intl.formatMessage({
                   id: ETranslations.swap_page_alert_no_provider_supports_trade,
@@ -3475,9 +3484,8 @@ function SendAmountInputContainer() {
                 originalRecipient: submitRecipientAddress,
                 privateSend: {
                   orderId: privateSendOrderId,
-                  ...(typeof privateSendRocketXOrderId === 'string' &&
-                  privateSendRocketXOrderId
-                    ? { rocketXOrderId: privateSendRocketXOrderId }
+                  ...(normalizedPrivateSendRocketXOrderId
+                    ? { rocketXOrderId: normalizedPrivateSendRocketXOrderId }
                     : {}),
                   payinAddress: privateSendPayinAddress,
                   provider: privateSendProviderInfo.provider,
