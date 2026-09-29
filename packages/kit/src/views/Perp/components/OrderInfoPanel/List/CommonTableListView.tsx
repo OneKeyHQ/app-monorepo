@@ -930,7 +930,7 @@ export function CommonTableListView<T>({
       {...getColumnStyle(column)}
       justifyContent={calcCellAlign(column.align) as any}
       onPress={column.onPress}
-      cursor="default"
+      cursor={column.onPress ? 'pointer' : 'default'}
     >
       {column.tooltip ? (
         <Tooltip
@@ -960,6 +960,7 @@ export function CommonTableListView<T>({
           mr={column.headerRightPadding}
           borderBottomWidth="$px"
           borderBottomColor="transparent"
+          cursor={column.onPress ? 'pointer' : 'default'}
           color={column.onPress ? '$bgAccent' : headerTextColor}
           textAlign={column.align || 'left'}
         >
