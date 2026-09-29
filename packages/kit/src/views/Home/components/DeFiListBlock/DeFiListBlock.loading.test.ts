@@ -205,41 +205,16 @@ describe('shouldResetDeFiReadinessOnRunStart', () => {
 describe('resolveDeFiCacheProbeAction', () => {
   const live = { runOwnerKey: 'account-1:all', liveOwnerKey: 'account-1:all' };
 
-  it('marks the owner ready on a hit for either instance', () => {
-    expect(
-      resolveDeFiCacheProbeAction({
-        ...live,
-        hasCache: true,
-        refreshCacheOnly: false,
-      }),
-    ).toBe('mark-ready');
-    expect(
-      resolveDeFiCacheProbeAction({
-        ...live,
-        hasCache: true,
-        refreshCacheOnly: true,
-      }),
-    ).toBe('mark-ready');
+  it('marks the owner ready on a hit', () => {
+    expect(resolveDeFiCacheProbeAction({ ...live, hasCache: true })).toBe(
+      'mark-ready',
+    );
   });
 
-  it('zeroes the kept overview on a list-instance miss', () => {
-    expect(
-      resolveDeFiCacheProbeAction({
-        ...live,
-        hasCache: false,
-        refreshCacheOnly: false,
-      }),
-    ).toBe('zero-overview');
-  });
-
-  it('only resets readiness on a cache-only miss', () => {
-    expect(
-      resolveDeFiCacheProbeAction({
-        ...live,
-        hasCache: false,
-        refreshCacheOnly: true,
-      }),
-    ).toBe('reset-readiness');
+  it('zeroes the kept overview on a miss', () => {
+    expect(resolveDeFiCacheProbeAction({ ...live, hasCache: false })).toBe(
+      'zero-overview',
+    );
   });
 
   it('writes nothing for a run whose owner is no longer live', () => {
@@ -248,7 +223,6 @@ describe('resolveDeFiCacheProbeAction', () => {
         runOwnerKey: 'account-1:all',
         liveOwnerKey: 'account-2:all',
         hasCache: false,
-        refreshCacheOnly: false,
       }),
     ).toBe('skip');
     expect(
@@ -256,7 +230,6 @@ describe('resolveDeFiCacheProbeAction', () => {
         runOwnerKey: 'account-1:all',
         liveOwnerKey: 'account-2:all',
         hasCache: true,
-        refreshCacheOnly: true,
       }),
     ).toBe('skip');
   });
@@ -267,7 +240,6 @@ describe('resolveDeFiCacheProbeAction', () => {
         runOwnerKey: undefined,
         liveOwnerKey: undefined,
         hasCache: false,
-        refreshCacheOnly: false,
       }),
     ).toBe('skip');
   });
