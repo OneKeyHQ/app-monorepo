@@ -379,6 +379,31 @@ describe('DesktopLayout', () => {
     },
   );
 
+  it('leaves the quote fallback to the stock Simple chart it keeps mounted in fullscreen', () => {
+    mockMarketPriceSource = 'token';
+    mockChartDisplayMode = 'simple';
+    mockNativeRealtime = 'disabled';
+
+    render(
+      <DesktopLayout
+        active
+        isChartFullscreen
+        isTradingViewNative
+        onChartSwitch={jest.fn()}
+        onChartFullscreenChange={jest.fn()}
+        isNative={false}
+        networkId="evm--1"
+        tokenAddress="0xaapl"
+      />,
+    );
+
+    expect(useMarketKlineLivePriceMock).toHaveBeenLastCalledWith({
+      enabled: false,
+      networkId: 'evm--1',
+      tokenAddress: '0xaapl',
+    });
+  });
+
   it('connects account marks for token charts and excludes stock share prices', () => {
     mockMarketPriceSource = 'token';
     const props = {

@@ -84,7 +84,7 @@ import { useMarketNativeChartPriceUpdate } from '../hooks/useMarketNativeChartPr
 import { useMarketTradingViewParams } from '../hooks/useTokenDetail';
 import { useTradingViewSubIndicatorCount } from '../hooks/useTradingViewSubIndicatorCount';
 import { getMarketDetailTradingViewNativeSource } from '../utils/getMarketDetailTradingViewNativeSource';
-import { resolveMarketKlineLivePriceEnabled } from '../utils/marketKlineLivePrice';
+import { resolveMarketNativeChartFallbackQuoteEnabled } from '../utils/marketNativeChartFallbackQuote';
 import { getMarketStockChartPreviousClose } from '../utils/marketStockPreviousClose';
 import {
   hasMarketContractAddress,
@@ -524,19 +524,15 @@ export function MobileLayout({
       tokenSymbol,
     ],
   );
-  // Keep fallback quotes on the same selected token feed as the Native chart.
   useMarketKlineLivePrice({
-    enabled:
-      active !== false &&
-      isTradingViewNative &&
-      tradingViewNativeSource.kind === 'market' &&
-      tradingViewNativeSource.realtime !== 'websocket' &&
-      resolveMarketKlineLivePriceEnabled({
-        isNative,
-        networkId,
-        priceMode: 'token',
-        tokenAddress,
-      }),
+    enabled: resolveMarketNativeChartFallbackQuoteEnabled({
+      active,
+      isTradingViewNative,
+      source: tradingViewNativeSource,
+      isNative,
+      networkId,
+      tokenAddress,
+    }),
     networkId,
     tokenAddress,
   });

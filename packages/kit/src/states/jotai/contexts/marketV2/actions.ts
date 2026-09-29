@@ -45,6 +45,8 @@ import { marketTokenDetailSnapshotCache } from './marketSnapshotCaches';
 import {
   getMarketTokenConvertedPrice,
   getMarketTokenPriceConversionRate,
+  isMarketChartPriceTarget,
+  isSameMarketTokenDetail,
   mergeMarketTokenDetailPrice,
 } from './marketTokenDetailPrice';
 
@@ -68,31 +70,6 @@ async function waitOp(key: string, add: boolean) {
   const op = watchOps.get(key)!;
   await (op[0] === add ? op[1] : op[1].catch(() => undefined));
   return op[0] === add;
-}
-
-function isSameMarketTokenDetail({
-  tokenDetail,
-  tokenAddress,
-  networkId,
-}: {
-  tokenDetail?: IMarketTokenDetail;
-  tokenAddress: string;
-  networkId: string;
-}) {
-  if (!tokenDetail) {
-    return false;
-  }
-
-  return equalTokenNoCaseSensitive({
-    token1: {
-      networkId,
-      contractAddress: tokenAddress,
-    },
-    token2: {
-      networkId: tokenDetail.networkId || '',
-      contractAddress: tokenDetail.address || '',
-    },
-  });
 }
 
 class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
@@ -341,63 +318,31 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
       }
 
       if (
-        payload.networkId &&
-        tokenDetail.networkId &&
-        tokenDetail.networkId !== payload.networkId
-      ) {
-        return;
-      }
-
-      const isNative = get(isNativeAtom()) || tokenDetail.isNative;
-      if (!payload.tokenAddress && !isNative) {
-        return;
-      }
-
-      if (
-        payload.tokenAddress &&
-        !equalTokenNoCaseSensitive({
-          token1: {
-            networkId: payload.networkId || tokenDetail.networkId || '',
-            contractAddress: payload.tokenAddress,
-          },
-          token2: {
-            networkId: tokenDetail.networkId || payload.networkId || '',
-            contractAddress: tokenDetail.address || '',
-          },
+        !isMarketChartPriceTarget({
+          tokenDetail,
+          networkId: payload.networkId,
+          tokenAddress: payload.tokenAddress,
+          isNative: get(isNativeAtom()),
         })
       ) {
         return;
       }
 
       const chartPriceUpdatedAt = Date.now();
-      const lastUpdated =
-        payload.lastUpdated ?? tokenDetail.lastUpdated ?? chartPriceUpdatedAt;
       const priceConversionRate =
         tokenDetail.priceConversionRate ??
         getMarketTokenPriceConversionRate(tokenDetail);
-      const priceConverted = getMarketTokenConvertedPrice(
-        payload.price,
-        priceConversionRate,
-      );
-
-      if (tokenDetail.price === payload.price) {
-        set(tokenDetailAtom(), {
-          ...tokenDetail,
-          lastUpdated,
-          chartPriceUpdatedAt,
-          priceConverted,
-          priceConversionRate,
-        });
-        return;
-      }
-
       set(tokenDetailAtom(), {
         ...tokenDetail,
         price: payload.price,
-        lastUpdated,
-        chartPriceUpdatedAt,
-        priceConverted,
+        priceConverted: getMarketTokenConvertedPrice(
+          payload.price,
+          priceConversionRate,
+        ),
         priceConversionRate,
+        lastUpdated:
+          payload.lastUpdated ?? tokenDetail.lastUpdated ?? chartPriceUpdatedAt,
+        chartPriceUpdatedAt,
       });
     },
   );

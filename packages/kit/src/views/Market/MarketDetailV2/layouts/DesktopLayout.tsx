@@ -39,7 +39,7 @@ import {
   useTokenDetail,
 } from '../hooks/useTokenDetail';
 import { getMarketDetailTradingViewNativeSource } from '../utils/getMarketDetailTradingViewNativeSource';
-import { resolveMarketKlineLivePriceEnabled } from '../utils/marketKlineLivePrice';
+import { resolveMarketNativeChartFallbackQuoteEnabled } from '../utils/marketNativeChartFallbackQuote';
 import { getMarketStockChartPreviousClose } from '../utils/marketStockPreviousClose';
 import {
   hasMarketContractAddress,
@@ -418,21 +418,21 @@ export function DesktopLayout({
     tokenDetail?.symbol,
     displayTokenDetail?.symbol,
   ]);
-  // Native sources without WS cannot keep the quote live after initialization.
-  // Their market chart uses the selected token feed, including Top Coins.
+  // Top Coins included, the native chart quotes the selected token feed. The
+  // stock layout keeps its Simple chart mounted in fullscreen, so fullscreen
+  // only implies the Pro chart on the other layouts.
   useMarketKlineLivePrice({
-    enabled:
-      active !== false &&
-      isTradingViewNative &&
-      (chartDisplayMode === 'pro' || isChartFullscreen) &&
-      tradingViewNativeSource.kind === 'market' &&
-      tradingViewNativeSource.realtime !== 'websocket' &&
-      resolveMarketKlineLivePriceEnabled({
-        isNative,
-        networkId,
-        priceMode: 'token',
-        tokenAddress,
-      }),
+    enabled: resolveMarketNativeChartFallbackQuoteEnabled({
+      active,
+      isTradingViewNative,
+      isNativeChartMounted:
+        chartDisplayMode === 'pro' ||
+        (isChartFullscreen && !shouldUseStockDesktopLayout),
+      source: tradingViewNativeSource,
+      isNative,
+      networkId,
+      tokenAddress,
+    }),
     networkId,
     tokenAddress,
   });

@@ -22,35 +22,13 @@ import {
   tokenDetailRequestIdAtom,
   tokenDetailWebsocketAtom,
 } from './atoms';
-import { mergeMarketTokenDetailPrice } from './marketTokenDetailPrice';
+import {
+  isSameMarketTokenDetail,
+  mergeMarketTokenDetailPrice,
+} from './marketTokenDetailPrice';
 
 const MARKET_ASSET_DETAIL_CURRENCY = 'usd';
 const MARKET_CHART_FALLBACK_DECIMALS = 2;
-
-function isSameMarketTokenDetail({
-  tokenDetail,
-  tokenAddress,
-  networkId,
-}: {
-  tokenDetail?: IMarketTokenDetail;
-  tokenAddress: string;
-  networkId: string;
-}) {
-  if (!tokenDetail) {
-    return false;
-  }
-
-  return equalTokenNoCaseSensitive({
-    token1: {
-      networkId,
-      contractAddress: tokenAddress,
-    },
-    token2: {
-      networkId: tokenDetail.networkId || '',
-      contractAddress: tokenDetail.address || '',
-    },
-  });
-}
 
 function isValidTokenDecimals(value: unknown): value is number {
   return (

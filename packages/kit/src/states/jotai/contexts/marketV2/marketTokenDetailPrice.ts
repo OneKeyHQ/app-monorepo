@@ -36,6 +36,65 @@ export function getMarketTokenConvertedPrice(
     : undefined;
 }
 
+export function isSameMarketTokenDetail({
+  tokenDetail,
+  tokenAddress,
+  networkId,
+}: {
+  tokenDetail?: IMarketTokenDetail;
+  tokenAddress: string;
+  networkId: string;
+}): boolean {
+  if (!tokenDetail) {
+    return false;
+  }
+  return equalTokenNoCaseSensitive({
+    token1: { networkId, contractAddress: tokenAddress },
+    token2: {
+      networkId: tokenDetail.networkId || '',
+      contractAddress: tokenDetail.address || '',
+    },
+  });
+}
+
+/**
+ * Whether a chart quote for the given identity belongs to this detail. Native
+ * coins carry no contract address in their route identity while their detail
+ * may echo the network's own native address, so they match on network only.
+ */
+export function isMarketChartPriceTarget({
+  tokenDetail,
+  networkId,
+  tokenAddress,
+  isNative,
+}: {
+  tokenDetail: IMarketTokenDetail;
+  networkId?: string;
+  tokenAddress?: string;
+  isNative?: boolean;
+}): boolean {
+  if (
+    networkId &&
+    tokenDetail.networkId &&
+    tokenDetail.networkId !== networkId
+  ) {
+    return false;
+  }
+  if (!tokenAddress) {
+    return Boolean(isNative || tokenDetail.isNative);
+  }
+  return equalTokenNoCaseSensitive({
+    token1: {
+      networkId: networkId || tokenDetail.networkId || '',
+      contractAddress: tokenAddress,
+    },
+    token2: {
+      networkId: tokenDetail.networkId || networkId || '',
+      contractAddress: tokenDetail.address || '',
+    },
+  });
+}
+
 function getFiniteTimestamp(value: number | undefined): number | undefined {
   return typeof value === 'number' && Number.isFinite(value)
     ? value
@@ -51,20 +110,13 @@ export function mergeMarketTokenDetailPrice({
   tokenData: IMarketTokenDetail;
   requestStartedAt: number;
 }): IMarketTokenDetail {
-  const current =
-    currentTokenDetail &&
-    equalTokenNoCaseSensitive({
-      token1: {
-        networkId: currentTokenDetail.networkId ?? '',
-        contractAddress: currentTokenDetail.address ?? '',
-      },
-      token2: {
-        networkId: tokenData.networkId ?? '',
-        contractAddress: tokenData.address ?? '',
-      },
-    })
-      ? currentTokenDetail
-      : undefined;
+  const current = isSameMarketTokenDetail({
+    tokenDetail: currentTokenDetail,
+    tokenAddress: tokenData.address ?? '',
+    networkId: tokenData.networkId ?? '',
+  })
+    ? currentTokenDetail
+    : undefined;
   const chartPriceUpdatedAt = getFiniteTimestamp(current?.chartPriceUpdatedAt);
   const initializedAt = getFiniteTimestamp(current?.detailPriceInitializedAt);
   const priceActivityAt = chartPriceUpdatedAt ?? initializedAt;
