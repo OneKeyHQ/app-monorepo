@@ -360,6 +360,7 @@ function MobileMarketTradingView({
 }
 
 export interface IMobileLayoutProps {
+  active?: boolean;
   isLayoutPending?: boolean;
   isInitialContentPending?: boolean;
   disablePerpsBanner?: boolean;
@@ -376,6 +377,7 @@ export interface IMobileLayoutProps {
 }
 
 export function MobileLayout({
+  active,
   isLayoutPending,
   isInitialContentPending,
   disablePerpsBanner,
@@ -426,6 +428,7 @@ export function MobileLayout({
   const handleNativeChartPriceUpdate = useMarketNativeChartPriceUpdate({
     networkId,
     tokenAddress,
+    enabled: active !== false,
   });
   const marketTradingViewParams = useMarketTradingViewParams({
     tokenAddress,
@@ -524,6 +527,7 @@ export function MobileLayout({
   // Keep fallback quotes on the same selected token feed as the Native chart.
   useMarketKlineLivePrice({
     enabled:
+      active !== false &&
       isTradingViewNative &&
       tradingViewNativeSource.kind === 'market' &&
       tradingViewNativeSource.realtime !== 'websocket' &&

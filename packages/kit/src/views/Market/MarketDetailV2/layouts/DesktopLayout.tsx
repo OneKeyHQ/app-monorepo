@@ -236,7 +236,7 @@ export function DesktopLayout({
   const handleNativeChartPriceUpdate = useMarketNativeChartPriceUpdate({
     networkId,
     tokenAddress,
-    enabled: !isStockSharePrice,
+    enabled: active !== false && !isStockSharePrice,
   });
 
   const { accountAddress, xpub } = useNetworkAccount(networkId);

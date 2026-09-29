@@ -6,6 +6,7 @@ import { fetchMarketAssetKLineData } from '@onekeyhq/kit/src/components/TradingV
 import { fetchMarketStockKLineData } from '@onekeyhq/kit/src/components/TradingView/utils/fetchMarketStockKLineData';
 
 import { useMarketKlineLivePrice } from '../hooks/useMarketKlineLivePrice';
+import { useMarketNativeChartPriceUpdate } from '../hooks/useMarketNativeChartPriceUpdate';
 
 import { DesktopLayout } from './DesktopLayout';
 
@@ -61,6 +62,9 @@ let mockStockDetailState: {
 const fetchMarketAssetKLineDataMock = jest.mocked(fetchMarketAssetKLineData);
 const fetchMarketStockKLineDataMock = jest.mocked(fetchMarketStockKLineData);
 const useMarketKlineLivePriceMock = jest.mocked(useMarketKlineLivePrice);
+const useMarketNativeChartPriceUpdateMock = jest.mocked(
+  useMarketNativeChartPriceUpdate,
+);
 
 jest.mock('../hooks/useMarketKlineLivePrice', () => ({
   useMarketKlineLivePrice: jest.fn(),
@@ -282,6 +286,7 @@ describe('DesktopLayout', () => {
     fetchMarketAssetKLineDataMock.mockClear();
     fetchMarketStockKLineDataMock.mockClear();
     useMarketKlineLivePriceMock.mockClear();
+    useMarketNativeChartPriceUpdateMock.mockClear();
     mockStockDesktopLayout.mockClear();
     mockTopCoinsDesktopLayout.mockClear();
     mockNativeChartMount.mockClear();
@@ -354,6 +359,11 @@ describe('DesktopLayout', () => {
 
       expect(useMarketKlineLivePriceMock).toHaveBeenLastCalledWith({
         enabled,
+        networkId: 'evm--1',
+        tokenAddress: '0xaapl',
+      });
+      expect(useMarketNativeChartPriceUpdateMock).toHaveBeenLastCalledWith({
+        enabled: active,
         networkId: 'evm--1',
         tokenAddress: '0xaapl',
       });
