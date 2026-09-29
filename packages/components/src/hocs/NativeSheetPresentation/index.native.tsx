@@ -1,6 +1,9 @@
 import { useCallback, useMemo, useRef } from 'react';
 
-import { OverlayView } from '@onekeyfe/react-native-native-overlay';
+import {
+  OverlayView,
+  useNestedOverlayLevel,
+} from '@onekeyfe/react-native-native-overlay';
 
 import { useTheme } from '../../hooks/useStyle';
 
@@ -73,6 +76,7 @@ export function NativeSheetPresentation({
     ],
   );
 
+  const level = useNestedOverlayLevel();
   const onPresented = useCallback(
     () => onAnimationComplete?.({ open: true }),
     [onAnimationComplete],
@@ -85,7 +89,7 @@ export function NativeSheetPresentation({
   return (
     <OverlayView
       visible={open}
-      level="modal"
+      level={level}
       presentation="sheet"
       sheet={sheet}
       // Callers (Popover) measure the content before they set `open`.

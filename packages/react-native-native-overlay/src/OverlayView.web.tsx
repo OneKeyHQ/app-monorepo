@@ -4,6 +4,7 @@ import type { ReactNode, SyntheticEvent } from 'react';
 import { createPortal } from 'react-dom';
 import { StyleSheet, View } from 'react-native';
 
+import { OverlayLevelProvider } from './OverlayLevelContext';
 import { OVERLAY_LEVEL_ORDER, isBlockingLevel } from './OverlayLevels';
 import { OVERLAY_OWNER_ATTRIBUTE } from './OverlayPageHost.web';
 import { useOverlayController } from './useOverlayController';
@@ -348,7 +349,7 @@ export function OverlayView(props: IOverlayViewProps) {
       ownerKey={pageHost ? ownerKey : undefined}
       testID={testID}
     >
-      {children}
+      <OverlayLevelProvider value={level}>{children}</OverlayLevelProvider>
     </WebOverlayEntry>,
     pageHost ?? getOverlayLayerRoot(level),
   );

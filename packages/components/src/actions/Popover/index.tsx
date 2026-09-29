@@ -2,7 +2,10 @@
 import type { ComponentType, ReactElement, ReactNode } from 'react';
 import { useCallback, useMemo, useRef, useState } from 'react';
 
-import { OverlayView } from '@onekeyfe/react-native-native-overlay';
+import {
+  OverlayView,
+  useNestedOverlayLevel,
+} from '@onekeyfe/react-native-native-overlay';
 import { useWindowDimensions } from 'react-native';
 
 import { useMedia, useTheme } from '@onekeyhq/components/src/hooks/useStyle';
@@ -133,8 +136,8 @@ const usePopoverValue = (
   };
 };
 
-// Web: a native-overlay sheet on narrow windows, an anchored panel in the
-// native-overlay `modal` level otherwise.
+// Web: a native-overlay sheet on narrow windows, an anchored panel otherwise;
+// both at the `modal` level, or the level of the overlay they open from.
 function RawPopover({
   title,
   description,
@@ -163,6 +166,7 @@ function RawPopover({
   const { bottom } = useSafeAreaInsets();
   const { height: viewportHeight } = useWindowDimensions();
   const isSheet = usingSheet && md;
+  const level = useNestedOverlayLevel();
   const triggerRef = useRef<View | null>(null);
   const panelRef = useRef<HTMLDivElement | null>(null);
   const [panel, setPanel] = useState<HTMLDivElement | null>(null);
@@ -292,7 +296,7 @@ function RawPopover({
       {isSheet ? (
         <OverlayView
           visible={isOpen}
-          level="modal"
+          level={level}
           presentation="sheet"
           sheet={sheetOptions}
           backdrop={sheetBackdrop}
@@ -361,7 +365,7 @@ function RawPopover({
       ) : (
         <OverlayView
           visible={isOpen}
-          level="modal"
+          level={level}
           presentation="anchored"
           // Non-modal like the Tamagui popover: focus and typing stay where
           // they are; an outside press or Escape closes it.

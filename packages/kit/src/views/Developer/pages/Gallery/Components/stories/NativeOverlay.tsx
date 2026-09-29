@@ -15,6 +15,7 @@ import {
   SizableText,
   Stack,
   Toast,
+  Tooltip,
   XStack,
   YStack,
   useInPageDialog,
@@ -464,13 +465,57 @@ const SELECT_ITEMS = [
 function SelectDemo() {
   const [value, setValue] = useState('alpha');
   return (
-    <Select
-      title="Select"
-      items={SELECT_ITEMS}
-      value={value}
-      onChange={setValue}
-      testID="native-overlay-select"
-    />
+    <Stack width={160}>
+      <Select
+        title="Select"
+        items={SELECT_ITEMS}
+        value={value}
+        onChange={setValue}
+        testID="native-overlay-select"
+      />
+    </Stack>
+  );
+}
+
+// A popover opened from a secure-level overlay must open at that level.
+function SecurePopoverDemo() {
+  const [visible, setVisible] = useState(false);
+  return (
+    <>
+      <Button onPress={() => setVisible(true)}>Popover in secure</Button>
+      <OverlayView
+        visible={visible}
+        level="secure"
+        backdrop={{ dismissOnPress: true }}
+        onRequestDismiss={() => setVisible(false)}
+      >
+        <YStack
+          alignSelf="center"
+          mt="auto"
+          mb="auto"
+          p="$5"
+          gap="$3"
+          bg="$bg"
+          borderRadius="$4"
+        >
+          <SizableText>Secure overlay</SizableText>
+          <Popover
+            title="Nested popover"
+            renderTrigger={<Button>Nested popover</Button>}
+            renderContent={
+              <YStack p="$5">
+                <SizableText>Above the secure overlay</SizableText>
+              </YStack>
+            }
+          />
+          <Tooltip
+            renderTrigger={<Button>Nested tooltip</Button>}
+            renderContent="Tooltip above the secure overlay"
+          />
+          <Button onPress={() => setVisible(false)}>Close</Button>
+        </YStack>
+      </OverlayView>
+    </>
   );
 }
 
@@ -716,6 +761,24 @@ function NativeOverlayDemo() {
           }
         />
         <SelectDemo />
+        <Tooltip
+          renderTrigger={<Button>Tooltip</Button>}
+          renderContent="Plain tooltip"
+          placement="top"
+        />
+        <Tooltip
+          hovering
+          renderTrigger={<Button>Hovering tooltip</Button>}
+          renderContent={
+            <Button
+              size="small"
+              onPress={() => Toast.success({ title: 'Tooltip button' })}
+            >
+              Tooltip action
+            </Button>
+          }
+        />
+        <SecurePopoverDemo />
         <Popover
           title="Hover popover"
           hoverable

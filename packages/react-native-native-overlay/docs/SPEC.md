@@ -456,6 +456,33 @@ P5b web popover notes:
 - `OverlayStore.resolveBack` also resolves non-blocking entries that are
   dismissible, so Escape reaches an anchored panel.
 
+P5c tooltip and nested-level notes:
+
+- `OverlayView` provides its level to its content.
+  - `useEnclosingOverlayLevel()` reads that level.
+  - `useNestedOverlayLevel(minimum = 'modal')` returns the higher of it and
+    `minimum`.
+  - Popover (web anchored and sheet), the native popover sheet
+    (`NativeSheetPresentation`) and Tooltip open at that level. A popover in a
+    password prompt or on the lock screen then renders above it, not beneath.
+- Web Tooltip renders in `OverlayView`: anchored, non-blocking, no backdrop.
+  Floating UI places it with offset 6, flip and shift. The Tamagui tooltip is
+  gone; the trigger is still a Tamagui `View`, so `triggerAsChild` works.
+  - Hover and keyboard focus (`:focus-visible`) open it; leaving or blurring
+    the trigger closes it.
+  - A tap toggles it on touch.
+  - A mouse/pen press closes it until the pointer leaves (unchanged).
+  - Escape and an outside press close it.
+  - Non-`hovering` tooltips let the pointer pass through. `hovering` ones
+    stay open while the pointer is over the content.
+  - A controlled `open` wins; requests go to `onOpenChange`.
+  - Native Tooltip still renders only the trigger.
+- iOS: an overlay whose host view lives inside a level window resolves that
+  window back to the app window. Before this, closing a sheet opened from a
+  `secure` overlay recursed forever in `preferredStatusBarStyle`
+  (`_appearingOrAppearedChildModalViewController` stack overflow). The level
+  root controller also never forwards to itself.
+
 Measurement:
 
 - `RNCNativeOverlay` has a hand-written shadow node (`common/cpp`, codegen

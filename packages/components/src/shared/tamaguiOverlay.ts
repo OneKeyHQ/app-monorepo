@@ -9,6 +9,3 @@ export type {
   PopoverContentProps,
   PopoverProps as TMPopoverProps,
 } from '@tamagui/popover';
-
-export { Tooltip as TMTooltip } from '@tamagui/tooltip';
-export type { TooltipProps } from '@tamagui/tooltip';

@@ -36,6 +36,10 @@ export {
   springToCssLinear,
 } from './animation/spring';
 export { OverlayView } from './OverlayView';
+export {
+  useEnclosingOverlayLevel,
+  useNestedOverlayLevel,
+} from './OverlayLevelContext';
 export type {
   IOverlayBackdrop,
   IOverlayRequestDismissReason,

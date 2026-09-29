@@ -3,6 +3,7 @@ import { useCallback, useMemo, useState } from 'react';
 import { StatusBar, StyleSheet, View, useWindowDimensions } from 'react-native';
 
 import NativeOverlay from './NativeOverlayNativeComponent';
+import { OverlayLevelProvider } from './OverlayLevelContext';
 import { isBlockingLevel } from './OverlayLevels';
 import { useOverlayController } from './useOverlayController';
 
@@ -143,7 +144,9 @@ export function OverlayView(props: IOverlayViewProps) {
               flexShrink: 0,
             }}
           >
-            {children}
+            <OverlayLevelProvider value={level}>
+              {children}
+            </OverlayLevelProvider>
           </View>
         ) : (
           <View
@@ -151,7 +154,9 @@ export function OverlayView(props: IOverlayViewProps) {
             pointerEvents="box-none"
             style={{ width, height, flexShrink: 0 }}
           >
-            {children}
+            <OverlayLevelProvider value={level}>
+              {children}
+            </OverlayLevelProvider>
           </View>
         )}
       </NativeOverlay>

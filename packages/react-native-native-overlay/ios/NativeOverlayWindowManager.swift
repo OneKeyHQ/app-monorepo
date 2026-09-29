@@ -57,7 +57,8 @@ final class NativeOverlayRootViewController: UIViewController {
     while let presented = controller?.presentedViewController, !presented.isBeingDismissed {
       controller = presented
     }
-    return controller
+    // Never answer with ourselves: asking it would recurse forever.
+    return controller === self ? nil : controller
   }
 
   override func loadView() {
@@ -100,7 +101,12 @@ final class NativeOverlayWindowManager {
   /// The level window for `level` in the scene of `appWindow`, shown on demand.
   /// Non-sheet entries are added directly to it so they interleave by insertion
   /// order with UIKit presentation containers of sheets in the same level.
-  func window(for level: NativeOverlayLevel, appWindow: UIWindow) -> UIWindow? {
+  func window(for level: NativeOverlayLevel, appWindow hostWindow: UIWindow) -> UIWindow? {
+    // An overlay opened from inside another overlay (a popover in a password
+    // prompt) is hosted in a level window; follow it back to the app window.
+    let appWindow =
+      ((hostWindow as? NativeOverlayPassthroughWindow)?.rootViewController
+        as? NativeOverlayRootViewController)?.appWindow ?? hostWindow
     guard let scene = appWindow.windowScene else { return nil }
     let key = SceneKey(id: ObjectIdentifier(scene))
     pruneDisconnectedScenes()
