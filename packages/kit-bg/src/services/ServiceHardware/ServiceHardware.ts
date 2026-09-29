@@ -2575,7 +2575,26 @@ class ServiceHardware extends ServiceBase {
           `background/vault layer should call serviceHardware.getAdapterForVendor(vendor) and use the adapter directly.`,
       );
     }
-    return this.getFeaturesWithoutCache(params);
+    const features = await this.getFeaturesWithoutCache(params);
+    if (
+      features?.protocol !== 'V2' ||
+      features.mode !== EOneKeyDeviceMode.normal ||
+      params.params?.onlyConnectBleDevice
+    ) {
+      return features;
+    }
+    // Explicit reconnects must refresh DeviceInfo and DeviceSettings, rather
+    // than reuse the SDK's runtime snapshot from before a reset or rename.
+    const state = await this.getDeviceState({
+      ...params,
+      params: {
+        ...params.params,
+        forceProtocolDetection: false,
+        scope: features.unlocked === true ? 'settings' : 'runtime',
+        initSession: true,
+      },
+    });
+    return projectLegacyDeviceFeaturesFromState(state);
   }
 
   @backgroundMethod()
@@ -2894,10 +2913,13 @@ class ServiceHardware extends ServiceBase {
       if (!isCurrent()) return;
       try {
         // For cancel operations, skip transport detection to avoid unnecessary /enumerate calls
-        const sdk = await this.getSDKInstance({
-          connectId,
-          hardwareCallContext: EHardwareCallContext.SILENT_CALL,
-        });
+        const sdk =
+          immediate && !connectId && this.activeHardwareSDKInstance
+            ? this.activeHardwareSDKInstance
+            : await this.getSDKInstance({
+                connectId,
+                hardwareCallContext: EHardwareCallContext.SILENT_CALL,
+              });
         if (!isCurrent()) return;
         // sdk.cancel() always cause device re-emit UI_EVENT:  ui-close_window
 
@@ -2920,6 +2942,12 @@ class ServiceHardware extends ServiceBase {
     };
 
     clearTimeout(this.cancelTimer);
+    // Firmware retries share a lease. Each explicit global cancel must reach
+    // the active SDK instead of joining a previous attempt's settled cleanup.
+    if (immediate && !connectId) {
+      await fn();
+      return;
+    }
     if (lease && manager) {
       await manager.runOneKeyOperationCleanup(lease, fn);
       return;

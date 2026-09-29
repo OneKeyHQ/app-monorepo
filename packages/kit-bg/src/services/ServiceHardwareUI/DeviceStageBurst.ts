@@ -26,9 +26,13 @@ import {
   isFirmwareConfirmTip,
   setDeviceStageBurstActive,
 } from '@onekeyhq/shared/src/hardware/deviceStageOwnership';
+import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EFirmwareUpdateTipMessages } from '@onekeyhq/shared/types/device';
-import type { EHardwareVendor } from '@onekeyhq/shared/types/device';
+import type {
+  EHardwareVendor,
+  IOneKeyDeviceFeatures,
+} from '@onekeyhq/shared/types/device';
 import type {
   IDeviceStageConfirmContent,
   IDeviceStageErrorReasonValue,
@@ -1190,6 +1194,20 @@ export class DeviceStageBurstScope {
     if (!step) {
       return;
     }
+    const features = (
+      payload?.rawPayload as
+        | { device?: { features?: IOneKeyDeviceFeatures } }
+        | undefined
+    )?.device?.features;
+    // A reset preserves the old wallet record. Name the live V2 device from
+    // its SDK event instead of carrying that record's cached Bluetooth name.
+    const deviceName =
+      features?.protocol === 'V2'
+        ? deviceUtils.buildDeviceStageName({
+            features,
+            fallbackName: features.label ?? undefined,
+          })
+        : undefined;
     if (this.yieldedToDialog) {
       // Behind a dialog the stage yielded to, only the device asking
       // again may paint — that lifts the yield; a wait is the
@@ -1242,12 +1260,19 @@ export class DeviceStageBurstScope {
       // on stage while the device waits for a confirmation the person
       // was never told about.
       if (
+        current?.step === this.authoredAuthStep &&
+        deviceName !== undefined &&
+        deviceName !== current.deviceName
+      ) {
+        await this.mergeDeviceIdentity({ connectId, deviceName });
+      }
+      if (
         (step === 'confirm' || askCompleted) &&
         current &&
         current.step !== 'off' &&
         current.step !== this.authoredAuthStep
       ) {
-        await this.setStep(this.authoredAuthStep, { connectId });
+        await this.setStep(this.authoredAuthStep, { connectId, deviceName });
       }
       return;
     }
@@ -1284,6 +1309,7 @@ export class DeviceStageBurstScope {
       await this.setStep('passphraseOnApp', {
         connectId,
         deviceType: payload?.deviceType,
+        deviceName,
         payload,
         passphraseMode: isCreate ? 'create' : 'verify',
       });
@@ -1292,6 +1318,7 @@ export class DeviceStageBurstScope {
     await this.setStep(step, {
       connectId,
       deviceType: payload?.deviceType,
+      deviceName,
       payload,
     });
   }
