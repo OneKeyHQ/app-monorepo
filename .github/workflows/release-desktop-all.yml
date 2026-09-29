@@ -425,7 +425,6 @@ jobs:
     needs: renderer
     permissions:
       contents: read
-      id-token: write
     # Pin to windows-2022 (VS 2022 / v17). The windows-2025 runner image now
     # ships Visual Studio 18, which the bundled node-gyp cannot detect
     # ("find VS unknown version undefined found at ...\Visual Studio\18"),
@@ -542,6 +541,128 @@ jobs:
           name: desktop-renderer-${{ github.sha }}
           path: ./apps/desktop/app/build/
 
+      - name: 'Build Main Process (win)'
+        env:
+          NODE_OPTIONS: '--max_old_space_size=8192'
+        run: |
+          cd apps/desktop
+          yarn build:main
+          yarn install-app-deps
+
+      - name: Prepare unsigned Windows NSIS apps
+        id: phase1_nsis
+        env:
+          NODE_OPTIONS: '--max_old_space_size=8192'
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+        run: |
+          cd apps/desktop
+          npx electron-builder build -w --dir --x64 --arm64 --config electron-builder-win.config.js --publish never
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Verify packaged Electron Node runtime integrity (NSIS)
+        timeout-minutes: 2
+        run: yarn workspace @onekeyhq/desktop harness:node-runtime
+
+      - name: Stage unsigned NSIS apps
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force apps/desktop/signing-input | Out-Null
+          Move-Item apps/desktop/build-electron apps/desktop/signing-input/nsis
+
+      - name: Clean build-electron for WinMS
+        shell: pwsh
+        run: Remove-Item -Recurse -Force apps/desktop/build-electron -ErrorAction SilentlyContinue
+
+      - name: 'Rebuild Main Process (winms, DESK_CHANNEL=ms-store)'
+        id: phase2_main
+        env:
+          NODE_OPTIONS: '--max_old_space_size=8192'
+          DESK_CHANNEL: ms-store
+        run: |
+          cd apps/desktop
+          yarn build:main
+
+      - name: Prepare unsigned Windows Store apps
+        id: phase2_winms
+        env:
+          NODE_OPTIONS: '--max_old_space_size=8192'
+          DESK_CHANNEL: ms-store
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+        run: |
+          cd apps/desktop
+          npx electron-builder build -w --dir --x64 --arm64 --config electron-builder-ms.config.js --publish never
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Verify packaged Electron Node runtime integrity (WinMS)
+        timeout-minutes: 2
+        run: yarn workspace @onekeyhq/desktop harness:node-runtime
+
+      - name: Stage unsigned Windows Store apps
+        shell: pwsh
+        run: Move-Item apps/desktop/build-electron apps/desktop/signing-input/store
+
+      - name: Upload prepackaged Windows apps for signing
+        if: env.WIN_HSM_SIGNING_ENABLED == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-prepackaged-${{ github.sha }}
+          path: apps/desktop/signing-input/
+          retention-days: 1
+          compression-level: 0
+          if-no-files-found: error
+
+  # HSM credentials are available only after dependency installation and app build.
+  sign-win:
+    needs: [renderer, package-win]
+    if: github.repository == 'OneKeyHQ/app-monorepo' && (github.ref == 'refs/heads/x' || startsWith(github.ref, 'refs/heads/release/') || startsWith(github.ref, 'refs/heads/hotfix/'))
+    permissions:
+      contents: read
+      id-token: write
+    runs-on: windows-2022
+    env:
+      NODE_ENV: production
+      WIN_HSM_SIGNING_ENABLED: 'true'
+      BUILD_NUMBER: ${{ needs.renderer.outputs.build_number }}
+      BUILD_BUNDLE_VERSION: ${{ needs.renderer.outputs.build_bundle_version }}
+      BUILD_APP_VERSION: ${{ needs.renderer.outputs.build_app_version }}
+      VERSION: ${{ needs.renderer.outputs.build_app_version }}
+      NODE_PATH: ${{ github.workspace }}/.github/windows-sign-toolchain/node_modules
+    steps:
+      - name: Checkout Source Code
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Setup Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24.x
+          package-manager-cache: false
+
+      - name: Install pinned electron-builder toolchain
+        shell: pwsh
+        run: |
+          npm ci --prefix .github/windows-sign-toolchain --ignore-scripts --no-audit --no-fund
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Download prepackaged Windows apps
+        uses: actions/download-artifact@v4
+        with:
+          name: windows-prepackaged-${{ github.sha }}
+          path: apps/desktop/signing-input/
+
+      - name: Set signing metadata
+        shell: pwsh
+        run: |
+          $artifactsUrl = "$env:GITHUB_SERVER_URL/$env:GITHUB_REPOSITORY/actions/runs/$env:GITHUB_RUN_ID"
+          "ARTIFACTS_URL=$artifactsUrl" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          foreach ($channel in @('nsis', 'store')) {
+            foreach ($arch in @('win-unpacked', 'win-arm64-unpacked')) {
+              $exe = Join-Path "apps/desktop/signing-input/$channel/$arch" 'OneKey.exe'
+              if (-not (Test-Path -LiteralPath $exe)) { throw "Missing prepackaged app: $exe" }
+            }
+          }
+
       - name: Authenticate to Google Cloud for Windows signing
         if: env.WIN_HSM_SIGNING_ENABLED == 'true'
         id: google_auth
@@ -589,86 +710,39 @@ jobs:
           Import-Certificate -FilePath apps/desktop/resources/windows/code-signing/globalsign-intermediate.cer -CertStoreLocation Cert:\CurrentUser\CA | Out-Null
           Import-Certificate -FilePath apps/desktop/resources/windows/code-signing/globalsign-cross.cer -CertStoreLocation Cert:\CurrentUser\CA | Out-Null
 
-      # ── Phase 1: Windows NSIS installer ──
+      - name: Sign prepackaged Windows NSIS apps
+        run: node apps/desktop/scripts/kms-sign-windows.js sign-prepackaged nsis
 
-      - name: 'Build Main Process (win)'
-        env:
-          NODE_OPTIONS: '--max_old_space_size=8192'
-        run: |
-          cd apps/desktop
-          yarn build:main
-          yarn install-app-deps
-
-      - name: Sign bundled Windows helper executables
-        if: env.WIN_HSM_SIGNING_ENABLED == 'true'
-        run: node apps/desktop/scripts/kms-sign-windows.js sign-helpers
-
-      - name: 'Package Windows NSIS'
+      - name: Package signed Windows NSIS installers
         id: phase1_nsis
         env:
-          NODE_OPTIONS: '--max_old_space_size=8192'
-          APPLEID: ${{ secrets.APPLEID }}
-          APPLEIDPASS: ${{ secrets.APPLEIDPASS }}
-          ASC_PROVIDER: ${{ secrets.ASC_PROVIDER }}
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           CSC_IDENTITY_AUTO_DISCOVERY: 'false'
-        run: |
-          cd apps/desktop
-          $builderArgs = @('electron-builder', 'build', '-w', '--config', 'electron-builder-win.config.js', '--publish', 'never')
-          if ($env:WIN_HSM_SIGNING_ENABLED -eq 'true') {
-            $baseConfig = (Resolve-Path 'electron-builder-win.config.js').Path.Replace('\', '/')
-            $signScript = (Resolve-Path 'scripts/kms-sign-windows.js').Path.Replace('\', '/')
-            $signedConfig = Join-Path $env:RUNNER_TEMP 'onekey-win-hsm-builder.json'
-            @{
-              extends = "file:$baseConfig"
-              win = @{
-                signtoolOptions = @{
-                  sign = $signScript
-                  signingHashAlgorithms = @('sha256')
-                  publisherName = 'ONEKEY LIMITED'
-                }
-              }
-            } | ConvertTo-Json -Depth 5 | Set-Content -Path $signedConfig -Encoding utf8
-            $builderArgs = @('electron-builder', 'build', '-w', '--config', $signedConfig, '--publish', 'never')
-          }
-          & npx @builderArgs
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+        run: node apps/desktop/scripts/package-prepackaged-windows.js nsis
 
       - name: Verify Windows NSIS signatures
         id: phase1_signature
-        if: steps.phase1_nsis.outcome == 'success'
-        run: |
-          if ($env:WIN_HSM_SIGNING_ENABLED -eq 'true') {
-            node apps/desktop/scripts/kms-sign-windows.js verify-nsis
-            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          }
-
-      # One runner-native executable is the Windows platform gate. ARM64 and
-      # universal artifacts intentionally reuse it instead of repeating the test.
-      - name: Verify packaged Electron Node runtime integrity (NSIS)
-        id: phase1_runtime_integrity
-        if: steps.phase1_nsis.outcome == 'success'
-        timeout-minutes: 2
-        run: yarn workspace @onekeyhq/desktop harness:node-runtime
+        run: node apps/desktop/scripts/kms-sign-windows.js verify-nsis
 
       - name: Upload x64 Windows exe
-        if: env.WIN_HSM_SIGNING_ENABLED == 'true' && steps.phase1_nsis.outcome == 'success' && steps.phase1_signature.outcome == 'success' && steps.phase1_runtime_integrity.outcome == 'success'
+        if: env.WIN_HSM_SIGNING_ENABLED == 'true' && steps.phase1_nsis.outcome == 'success' && steps.phase1_signature.outcome == 'success'
         uses: actions/upload-artifact@v4
         with:
           name: onekey-desktop-win-x64-${{ env.BUILD_APP_VERSION }}-${{ env.BUILD_NUMBER }}-${{ env.BUILD_BUNDLE_VERSION }}-${{ github.sha }}
           path: |
             ./apps/desktop/build-electron/*-x64.exe
+          if-no-files-found: error
 
       - name: Upload arm64 Windows exe
-        if: env.WIN_HSM_SIGNING_ENABLED == 'true' && steps.phase1_nsis.outcome == 'success' && steps.phase1_signature.outcome == 'success' && steps.phase1_runtime_integrity.outcome == 'success'
+        if: env.WIN_HSM_SIGNING_ENABLED == 'true' && steps.phase1_nsis.outcome == 'success' && steps.phase1_signature.outcome == 'success'
         uses: actions/upload-artifact@v4
         with:
           name: onekey-desktop-win-arm64-${{ env.BUILD_APP_VERSION }}-${{ env.BUILD_NUMBER }}-${{ env.BUILD_BUNDLE_VERSION }}-${{ github.sha }}
           path: |
             ./apps/desktop/build-electron/*-arm64.exe
+          if-no-files-found: error
 
       - name: Upload universal Windows exe
-        if: env.WIN_HSM_SIGNING_ENABLED == 'true' && steps.phase1_nsis.outcome == 'success' && steps.phase1_signature.outcome == 'success' && steps.phase1_runtime_integrity.outcome == 'success'
+        if: env.WIN_HSM_SIGNING_ENABLED == 'true' && steps.phase1_nsis.outcome == 'success' && steps.phase1_signature.outcome == 'success'
         uses: actions/upload-artifact@v4
         with:
           name: onekey-desktop-win-universal-${{ env.BUILD_APP_VERSION }}-${{ env.BUILD_NUMBER }}-${{ env.BUILD_BUNDLE_VERSION }}-${{ github.sha }}
@@ -676,17 +750,19 @@ jobs:
             ./apps/desktop/build-electron/*.exe
             !./apps/desktop/build-electron/*-x64.exe
             !./apps/desktop/build-electron/*-arm64.exe
+          if-no-files-found: error
 
       - name: Upload Windows autoupdate metadata
-        if: env.WIN_HSM_SIGNING_ENABLED == 'true' && steps.phase1_nsis.outcome == 'success' && steps.phase1_signature.outcome == 'success' && steps.phase1_runtime_integrity.outcome == 'success'
+        if: env.WIN_HSM_SIGNING_ENABLED == 'true' && steps.phase1_nsis.outcome == 'success' && steps.phase1_signature.outcome == 'success'
         uses: actions/upload-artifact@v4
         with:
           name: onekey-desktop-win-autoupdate-${{ env.BUILD_APP_VERSION }}-${{ env.BUILD_NUMBER }}-${{ env.BUILD_BUNDLE_VERSION }}-${{ github.sha }}
           path: |
             ./apps/desktop/build-electron/*.yml
+          if-no-files-found: error
 
       - name: 'Notify to Slack - Win NSIS'
-        if: always() && env.NOTIFY_RELEASE == 'true' && env.WIN_HSM_SIGNING_ENABLED == 'true' && steps.phase1_nsis.outcome == 'success' && steps.phase1_signature.outcome == 'success' && steps.phase1_runtime_integrity.outcome == 'success'
+        if: always() && env.NOTIFY_RELEASE == 'true' && env.WIN_HSM_SIGNING_ENABLED == 'true' && steps.phase1_nsis.outcome == 'success' && steps.phase1_signature.outcome == 'success'
         uses: onekeyhq/actions/slack-notify-webhook@86ad045e18da7958f659995ee2f9df375dd03ef4
         with:
           web-hook-url: ${{ secrets.SLACK_NOTIFICATION_WEBHOOK }}
@@ -700,87 +776,28 @@ jobs:
           artifact-skip-gpg: '${{ env.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION }}'
           artifact-bundle-version: '${{ env.BUILD_BUNDLE_VERSION }}'
 
-      # ── Phase 2: Windows Microsoft Store ──
-
-      - name: Restore unsigned helpers for Microsoft Store package
-        id: phase2_restore
-        if: always() && env.WIN_HSM_SIGNING_ENABLED == 'true'
-        run: node apps/desktop/scripts/kms-sign-windows.js restore-helpers
-
-      - name: Clean build-electron for WinMS
-        if: always()
-        shell: pwsh
-        run: Remove-Item -Recurse -Force apps/desktop/build-electron -ErrorAction SilentlyContinue
-
-      - name: 'Rebuild Main Process (winms, DESK_CHANNEL=ms-store)'
-        id: phase2_main
-        if: always()
-        env:
-          NODE_OPTIONS: '--max_old_space_size=8192'
-          DESK_CHANNEL: ms-store
-        run: |
-          cd apps/desktop
-          yarn build:main
-
-      - name: Sign bundled Windows Store helper executables
-        id: phase2_helpers
-        if: always() && env.WIN_HSM_SIGNING_ENABLED == 'true' && steps.phase2_restore.outcome == 'success' && steps.phase2_main.outcome == 'success'
+      - name: Reset signing manifest and installer output
         shell: pwsh
         run: |
+          Remove-Item -Recurse -Force apps/desktop/build-electron -ErrorAction SilentlyContinue
           Remove-Item -LiteralPath (Join-Path $env:RUNNER_TEMP 'onekey-windows-signed.jsonl') -Force -ErrorAction SilentlyContinue
-          node apps/desktop/scripts/kms-sign-windows.js sign-helpers
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
-      - name: 'Package Windows Microsoft Store'
+      - name: Sign prepackaged Windows Store apps
+        run: node apps/desktop/scripts/kms-sign-windows.js sign-prepackaged store
+
+      - name: Package signed Windows Store installers
         id: phase2_winms
-        if: always() && steps.phase2_main.outcome == 'success' && (env.WIN_HSM_SIGNING_ENABLED != 'true' || steps.phase2_helpers.outcome == 'success')
         env:
-          NODE_OPTIONS: '--max_old_space_size=8192'
-          APPLEID: ${{ secrets.APPLEID }}
-          APPLEIDPASS: ${{ secrets.APPLEIDPASS }}
-          ASC_PROVIDER: ${{ secrets.ASC_PROVIDER }}
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           DESK_CHANNEL: ms-store
           CSC_IDENTITY_AUTO_DISCOVERY: 'false'
-        run: |
-          cd apps/desktop
-          $builderArgs = @('electron-builder', 'build', '-w', '--config', 'electron-builder-ms.config.js', '--publish', 'never')
-          if ($env:WIN_HSM_SIGNING_ENABLED -eq 'true') {
-            $baseConfig = (Resolve-Path 'electron-builder-ms.config.js').Path.Replace('\', '/')
-            $signScript = (Resolve-Path 'scripts/kms-sign-windows.js').Path.Replace('\', '/')
-            $signedConfig = Join-Path $env:RUNNER_TEMP 'onekey-winms-hsm-builder.json'
-            @{
-              extends = "file:$baseConfig"
-              win = @{
-                signtoolOptions = @{
-                  sign = $signScript
-                  signingHashAlgorithms = @('sha256')
-                  publisherName = 'ONEKEY LIMITED'
-                }
-              }
-            } | ConvertTo-Json -Depth 5 | Set-Content -Path $signedConfig -Encoding utf8
-            $builderArgs = @('electron-builder', 'build', '-w', '--config', $signedConfig, '--publish', 'never')
-          }
-          & npx @builderArgs
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+        run: node apps/desktop/scripts/package-prepackaged-windows.js store
 
       - name: Verify Windows Store signatures
         id: phase2_signature
-        if: always() && steps.phase2_winms.outcome == 'success'
-        run: |
-          if ($env:WIN_HSM_SIGNING_ENABLED -eq 'true') {
-            node apps/desktop/scripts/kms-sign-windows.js verify-nsis
-            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          }
-
-      - name: Verify packaged Electron Node runtime integrity (WinMS)
-        id: phase2_runtime_integrity
-        if: always() && steps.phase2_winms.outcome == 'success'
-        timeout-minutes: 2
-        run: yarn workspace @onekeyhq/desktop harness:node-runtime
+        run: node apps/desktop/scripts/kms-sign-windows.js verify-nsis
 
       - name: Upload WinMS exe
-        if: always() && env.WIN_HSM_SIGNING_ENABLED == 'true' && steps.phase2_winms.outcome == 'success' && steps.phase2_signature.outcome == 'success' && steps.phase2_runtime_integrity.outcome == 'success'
+        if: always() && env.WIN_HSM_SIGNING_ENABLED == 'true' && steps.phase2_winms.outcome == 'success' && steps.phase2_signature.outcome == 'success'
         uses: actions/upload-artifact@v4
         with:
           name: onekey-desktop-winms-${{ env.BUILD_APP_VERSION }}-${{ env.BUILD_NUMBER }}-${{ env.BUILD_BUNDLE_VERSION }}-${{ github.sha }}
@@ -788,9 +805,10 @@ jobs:
             ./apps/desktop/build-electron/*.exe
             !./apps/desktop/build-electron/*-x64.exe
             !./apps/desktop/build-electron/*-arm64.exe
+          if-no-files-found: error
 
       - name: 'Notify to Slack - WinMS'
-        if: always() && env.NOTIFY_RELEASE == 'true' && env.WIN_HSM_SIGNING_ENABLED == 'true' && steps.phase2_winms.outcome == 'success' && steps.phase2_signature.outcome == 'success' && steps.phase2_runtime_integrity.outcome == 'success'
+        if: always() && env.NOTIFY_RELEASE == 'true' && env.WIN_HSM_SIGNING_ENABLED == 'true' && steps.phase2_winms.outcome == 'success' && steps.phase2_signature.outcome == 'success'
         uses: onekeyhq/actions/slack-notify-webhook@86ad045e18da7958f659995ee2f9df375dd03ef4
         with:
           web-hook-url: ${{ secrets.SLACK_NOTIFICATION_WEBHOOK }}
@@ -804,23 +822,8 @@ jobs:
           artifact-skip-gpg: '${{ env.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION }}'
           artifact-bundle-version: '${{ env.BUILD_BUNDLE_VERSION }}'
 
-      - name: Fail if any phase failed
-        if: always()
-        shell: bash
-        run: |
-          [[ "${{ steps.phase1_nsis.outcome }}" == "failure" ]] && exit 1
-          [[ "${{ steps.phase1_signature.outcome }}" == "failure" ]] && exit 1
-          [[ "${{ steps.phase1_runtime_integrity.outcome }}" == "failure" ]] && exit 1
-          [[ "${{ steps.phase2_restore.outcome }}" == "failure" ]] && exit 1
-          [[ "${{ steps.phase2_main.outcome }}" == "failure" ]] && exit 1
-          [[ "${{ steps.phase2_winms.outcome }}" == "failure" ]] && exit 1
-          [[ "${{ steps.phase2_helpers.outcome }}" == "failure" ]] && exit 1
-          [[ "${{ steps.phase2_signature.outcome }}" == "failure" ]] && exit 1
-          [[ "${{ steps.phase2_runtime_integrity.outcome }}" == "failure" ]] && exit 1
-          exit 0
-
       - name: Remove temporary Windows signing credentials
-        if: always() && env.WIN_HSM_SIGNING_ENABLED == 'true'
+        if: always()
         shell: pwsh
         run: Remove-Item -LiteralPath (Join-Path $env:RUNNER_TEMP 'onekey-windows-wif.json') -Force -ErrorAction SilentlyContinue
 

@@ -96,6 +96,22 @@ function restoreHelpers() {
   fs.rmSync(helperBackupDir(), { recursive: true, force: true });
 }
 
+function signPrepackaged(channel) {
+  if (!['nsis', 'store'].includes(channel)) {
+    throw new Error(`Unknown Windows package channel: ${channel}`);
+  }
+  const inputDir = path.join(desktopDir, 'signing-input', channel);
+  for (const archDir of ['win-unpacked', 'win-arm64-unpacked']) {
+    const dir = path.join(inputDir, archDir);
+    if (!fs.existsSync(path.join(dir, 'OneKey.exe'))) {
+      throw new Error(`Missing prepackaged OneKey.exe: ${dir}`);
+    }
+    for (const file of listExes(dir)) {
+      signFile(file);
+    }
+  }
+}
+
 function verifyNsisOutput() {
   const manifest = path.join(
     requiredEnv('RUNNER_TEMP'),
@@ -152,6 +168,8 @@ if (require.main === module) {
     restoreHelpers();
   } else if (command === 'verify-nsis') {
     verifyNsisOutput();
+  } else if (command === 'sign-prepackaged') {
+    signPrepackaged(process.argv[3]);
   } else {
     throw new Error(`Unknown Windows signing command: ${command}`);
   }
