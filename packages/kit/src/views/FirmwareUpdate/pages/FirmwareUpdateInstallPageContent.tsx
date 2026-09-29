@@ -150,7 +150,6 @@ export function FirmwareUpdateInstallPageContent({
   result: ICheckAllFirmwareReleaseResult | undefined;
 }) {
   const intl = useIntl();
-  const navigation = useAppNavigation();
   const actions = useFirmwareUpdateActions();
   const [stepInfo, setStepInfo] = useFirmwareUpdateStepInfoAtom();
   const [retryInfo] = useFirmwareUpdateRetryAtom();
@@ -196,18 +195,6 @@ export function FirmwareUpdateInstallPageContent({
     }, DONE_TRANSITION_MS);
     return () => clearTimeout(timer);
   }, [isDone]);
-
-  // Quitting while a task is mid-flight cancels the attempt; once the task
-  // reports its failure the page yields back to the changelog with Retry.
-  const [isCancelAttemptRequested, setIsCancelAttemptRequested] =
-    useState(false);
-  const shouldReturnToChangeLog =
-    isCancelAttemptRequested && retryInfo !== undefined;
-  useEffect(() => {
-    if (shouldReturnToChangeLog) {
-      navigation.pop();
-    }
-  }, [navigation, shouldReturnToChangeLog]);
 
   const {
     progress,
@@ -477,17 +464,7 @@ export function FirmwareUpdateInstallPageContent({
 
   return (
     <>
-      {preventExit ? (
-        <FirmwareUpdateExitPrevent
-          preserveWorkflowOnCancel={
-            stepInfo.step === EFirmwareUpdateSteps.installing
-              ? retryInfo === undefined
-              : false
-          }
-          shouldPreventRemove={!shouldReturnToChangeLog}
-          onCancelAttempt={() => setIsCancelAttemptRequested(true)}
-        />
-      ) : null}
+      {preventExit ? <FirmwareUpdateExitPrevent /> : null}
       {mode === 'done' ? <FirmwareUpdateDoneBackGuard /> : null}
       <FirmwareUpdateInstallView
         mode={mode}
