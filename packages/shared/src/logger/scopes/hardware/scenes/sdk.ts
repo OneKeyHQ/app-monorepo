@@ -26,6 +26,9 @@ export function buildHardwareUiEventLogPayload(payload: unknown) {
     deviceType: device?.deviceType,
     progress: event.progress,
     progressType: event.progressType,
+    installTargetId: event.installTargetId,
+    installPhase: event.installPhase,
+    installPhaseProgress: event.installPhaseProgress,
     transferredBytes: event.transferredBytes,
     totalBytes: event.totalBytes,
     rateBytesPerSecond: event.rateBytesPerSecond,
@@ -42,12 +45,30 @@ export function buildHardwareUiStateLogPayload(payload: unknown) {
     return undefined;
   }
   const state = payload as Record<string, unknown>;
+  const transferMetrics =
+    state.firmwareTransferMetrics &&
+    typeof state.firmwareTransferMetrics === 'object'
+      ? (state.firmwareTransferMetrics as Record<string, unknown>)
+      : undefined;
   return compactLogPayload({
     uiRequestType: state.uiRequestType,
     eventType: state.eventType,
     deviceType: state.deviceType,
     deviceMode: state.deviceMode,
     isBootloaderMode: state.isBootloaderMode,
+    firmwareProgress: state.firmwareProgress,
+    firmwareProgressType: state.firmwareProgressType,
+    firmwareInstallTargetId: state.firmwareInstallTargetId,
+    firmwareInstallPhase: state.firmwareInstallPhase,
+    firmwareInstallPhaseProgress: state.firmwareInstallPhaseProgress,
+    firmwareTransferMetrics: transferMetrics
+      ? compactLogPayload({
+          transferredBytes: transferMetrics.transferredBytes,
+          totalBytes: transferMetrics.totalBytes,
+          rateBytesPerSecond: transferMetrics.rateBytesPerSecond,
+          elapsedMs: transferMetrics.elapsedMs,
+        })
+      : undefined,
     source: state.source,
     reason: state.reason,
     deviceOnly: state.deviceOnly,
@@ -74,7 +95,11 @@ export class HardwareSDKScene extends BaseScene {
 
   @LogToConsole()
   public uiEvent(type: string, payload: any) {
-    return [type, devOnlyData(buildHardwareUiEventLogPayload(payload))];
+    const logPayload = buildHardwareUiEventLogPayload(payload);
+    return [
+      type,
+      type === 'ui-firmware-progress' ? logPayload : devOnlyData(logPayload),
+    ];
   }
 
   @LogToLocal()
@@ -104,10 +129,11 @@ export class HardwareSDKScene extends BaseScene {
     connectId: string;
     payload: any;
   }) {
+    const logPayload = buildHardwareUiStateLogPayload(payload);
     return [
       action,
       connectId,
-      devOnlyData(buildHardwareUiStateLogPayload(payload)),
+      action === 'ui-firmware-progress' ? logPayload : devOnlyData(logPayload),
     ];
   }
 
