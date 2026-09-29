@@ -194,13 +194,14 @@ export default function BorrowTokenSelectModal() {
             assets: filteredAssets,
             networkId,
             providerName: provider,
+            marketAddress,
             getBalance: (item) => item.walletBalance ?? item.balance,
           })
         : {
             visibleAssets: filteredAssets,
             foldedAssets: [] as IBorrowSelectAsset[],
           },
-    [filteredAssets, networkId, provider, shouldFoldCbbtc],
+    [filteredAssets, marketAddress, networkId, provider, shouldFoldCbbtc],
   );
   const [showFoldedCbbtc, setShowFoldedCbbtc] = useState(false);
   useEffect(() => {

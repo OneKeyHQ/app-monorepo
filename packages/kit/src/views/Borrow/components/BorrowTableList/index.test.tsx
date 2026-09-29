@@ -104,4 +104,24 @@ describe('BorrowTableList headers', () => {
     ).columns;
     expect(rerenderedTableColumns).toBe(firstTableColumns);
   });
+
+  it('keeps the footer available for an empty list', () => {
+    const { View } = jest.requireActual('react-native');
+    const view = render(
+      <BorrowTableList
+        columns={[]}
+        data={[]}
+        emptyContent="No assets"
+        listProps={{
+          ListFooterComponent: <View testID="empty-list-footer" />,
+        }}
+      />,
+    );
+
+    expect(
+      view.UNSAFE_root.findAll(
+        (node) => node.props.testID === 'empty-list-footer',
+      ),
+    ).toHaveLength(1);
+  });
 });

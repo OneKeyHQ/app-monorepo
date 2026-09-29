@@ -8,6 +8,8 @@ import {
   splitCbbtcAssets,
 } from './borrowCbbtc.utils';
 
+const AAVE_CORE_MARKET_ADDRESS = '0x87870bca3f3fd6335c3f4ce8392d69350b4fa4e2';
+
 const asset = (symbol: string, amount: string) =>
   ({
     token: {
@@ -23,13 +25,32 @@ const asset = (symbol: string, amount: string) =>
 describe('borrowCbbtc.utils', () => {
   it('limits the special market to Aave Ethereum', () => {
     expect(
-      isAaveCoreMarket({ providerName: 'Aave', networkId: 'evm--1' }),
+      isAaveCoreMarket({
+        providerName: 'Aave',
+        networkId: 'evm--1',
+        marketAddress: AAVE_CORE_MARKET_ADDRESS,
+      }),
     ).toBe(true);
     expect(
-      isAaveCoreMarket({ providerName: 'Aave', networkId: 'evm--137' }),
+      isAaveCoreMarket({
+        providerName: 'Aave',
+        networkId: 'evm--137',
+        marketAddress: AAVE_CORE_MARKET_ADDRESS,
+      }),
     ).toBe(false);
     expect(
-      isAaveCoreMarket({ providerName: 'Kamino', networkId: 'evm--1' }),
+      isAaveCoreMarket({
+        providerName: 'Kamino',
+        networkId: 'evm--1',
+        marketAddress: AAVE_CORE_MARKET_ADDRESS,
+      }),
+    ).toBe(false);
+    expect(
+      isAaveCoreMarket({
+        providerName: 'Aave',
+        networkId: 'evm--1',
+        marketAddress: '0xOtherMarket',
+      }),
     ).toBe(false);
   });
 
@@ -50,6 +71,7 @@ describe('borrowCbbtc.utils', () => {
         assets: [cbbtc, usdc],
         providerName: 'aave',
         networkId: 'evm--1',
+        marketAddress: AAVE_CORE_MARKET_ADDRESS,
       }),
     ).toEqual({
       visibleAssets: [usdc],
@@ -64,6 +86,7 @@ describe('borrowCbbtc.utils', () => {
         assets: [cbbtc],
         providerName: 'aave',
         networkId: 'evm--1',
+        marketAddress: AAVE_CORE_MARKET_ADDRESS,
       }),
     ).toEqual({
       visibleAssets: [cbbtc],
@@ -78,6 +101,29 @@ describe('borrowCbbtc.utils', () => {
         assets: [cbbtc],
         providerName: 'aave',
         networkId: 'evm--137',
+        marketAddress: AAVE_CORE_MARKET_ADDRESS,
+      }),
+    ).toEqual({
+      visibleAssets: [cbbtc],
+      foldedAssets: [],
+    });
+  });
+
+  it('keeps cbBTC visible when the raw balance is unavailable', () => {
+    const cbbtc = {
+      ...asset('cbBTC', '0'),
+      walletBalance: {
+        title: { text: '0' },
+        description: { text: '$0.00' },
+      },
+    } as unknown as IBorrowAsset;
+
+    expect(
+      splitCbbtcAssets({
+        assets: [cbbtc],
+        providerName: 'aave',
+        networkId: 'evm--1',
+        marketAddress: AAVE_CORE_MARKET_ADDRESS,
       }),
     ).toEqual({
       visibleAssets: [cbbtc],

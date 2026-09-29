@@ -206,8 +206,14 @@ export const SupplyCard = () => {
         assets: filteredAssets,
         networkId: market?.networkId,
         providerName: market?.provider,
+        marketAddress: market?.marketAddress,
       }),
-    [filteredAssets, market?.networkId, market?.provider],
+    [
+      filteredAssets,
+      market?.marketAddress,
+      market?.networkId,
+      market?.provider,
+    ],
   );
   const [showFoldedCbbtc, setShowFoldedCbbtc] = useState(false);
   useEffect(() => {

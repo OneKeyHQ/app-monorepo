@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { createElement, useMemo } from 'react';
 
 import { Empty } from '@onekeyhq/components';
 import type {
@@ -89,7 +89,13 @@ const BorrowTableList = <T,>({
         />
       );
     }
-    return <Empty title={emptyContent} titleProps={{ size: '$bodyMd' }} />;
+    const footer = listProps.ListFooterComponent;
+    return (
+      <>
+        <Empty title={emptyContent} titleProps={{ size: '$bodyMd' }} />
+        {typeof footer === 'function' ? createElement(footer) : footer}
+      </>
+    );
   }
 
   return (
