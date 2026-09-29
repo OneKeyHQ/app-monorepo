@@ -1,5 +1,7 @@
 import { useMemo } from 'react';
 
+import { selectAtom } from 'jotai/utils';
+
 import type {
   IDBAccount,
   IDBDevice,
@@ -36,6 +38,7 @@ const {
   Provider: AccountSelectorJotaiProvider,
   useContextData: useAccountSelectorContextData,
   contextAtom,
+  contextAtomComputed,
   contextAtomMethod,
 } = createJotaiContext<IAccountSelectorContextData>();
 
@@ -239,6 +242,29 @@ export const { atom: activeAccountsAtom, use: useActiveAccountsAtom } =
     },
   );
 
+export const { atom: activeAccountEpochAtom } = contextAtom<
+  Partial<Record<number, number>>
+>({});
+
+const activeAccountByNumAtomCache = new Map<
+  number,
+  ReturnType<typeof contextAtomComputed<IAccountSelectorActiveAccountInfo>>
+>();
+
+function getOrCreateActiveAccountByNumAtom(num: number) {
+  let entry = activeAccountByNumAtomCache.get(num);
+  if (!entry) {
+    const fallback = defaultActiveAccountInfo();
+    const selectedAtom = selectAtom(
+      activeAccountsAtom(),
+      (accounts) => accounts[num] ?? fallback,
+    );
+    entry = contextAtomComputed((get) => get(selectedAtom));
+    activeAccountByNumAtomCache.set(num, entry);
+  }
+  return entry;
+}
+
 export function useActiveAccount({ num }: { num: number }): {
   activeAccount: IAccountSelectorActiveAccountInfo;
 } {
@@ -246,15 +272,10 @@ export function useActiveAccount({ num }: { num: number }): {
   // const [selectedAccounts] = useSelectedAccountsAtom();
   // noopObject(selectedAccounts);
 
-  const [accounts] = useActiveAccountsAtom();
+  const { use } = getOrCreateActiveAccountByNumAtom(num);
+  const [activeAccount] = use();
 
-  return useMemo(() => {
-    const accountInfo = accounts[num];
-    const activeAccount = accountInfo || defaultActiveAccountInfo();
-    return {
-      activeAccount,
-    };
-  }, [accounts, num]);
+  return useMemo(() => ({ activeAccount }), [activeAccount]);
 }
 
 export function useAccountSelectorSceneInfo() {

@@ -144,6 +144,11 @@ export type IEventBusPayloadAccountDataUpdate =
       refreshSource?: 'home-header' | 'pull-to-refresh';
     };
 
+export type IEventBusPayloadAccountUpdate = {
+  /** Whether account-scoped network data changed. */
+  isAccountDataChanged?: boolean;
+};
+
 // The item shape is owned by kit's settings config; it stays opaque here so
 // shared never depends on kit types or its search-results presentation.
 export type ISettingsSearchResultItem = FuseResult<unknown>;
@@ -186,7 +191,7 @@ export interface IAppEventBusPayload {
   [EAppEventBusNames.WalletRename]: {
     walletId: string;
   };
-  [EAppEventBusNames.AccountUpdate]: undefined;
+  [EAppEventBusNames.AccountUpdate]: IEventBusPayloadAccountUpdate | undefined;
   [EAppEventBusNames.AccountRemove]: undefined;
   [EAppEventBusNames.AddDBAccountsToWallet]: {
     walletId: string;
@@ -421,18 +426,7 @@ export interface IAppEventBusPayload {
         accounts: {
           accountId: string;
           networkId: string;
-          // Stable across network switches for HD accounts; forwarded so a
-          // frozen token list (whose own `indexedAccount` closure may be
-          // stale) resolves aggregate hidden/custom tokens against the right
-          // indexed account. Undefined for Others (imported/watch-only).
-          indexedAccountId?: string;
         }[];
-        // When true, the home token list refreshes strictly against the
-        // provided account/network instead of its own active account. Used by
-        // emitters from a different home tab right after a network switch,
-        // when the (inactive) token list is frozen and its closures still
-        // point at the previous network.
-        refreshByProvidedAccounts?: boolean;
       };
   [EAppEventBusNames.RefreshHistoryList]: undefined;
   [EAppEventBusNames.RefreshApprovalList]: undefined;
