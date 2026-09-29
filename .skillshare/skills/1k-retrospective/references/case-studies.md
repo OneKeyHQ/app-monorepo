@@ -795,3 +795,10 @@ Cases are appended by AI after each bug fix. Do NOT reorder or delete entries â€
 **Fix**: Carry the current stock metadata only when the selected variant is the same token. A different variant starts without it and uses the detail response when one arrives.
 **Catchable by**: Section 4: a failed lookup must not keep the previous entity's identity on the new selection.
 
+## Case: Trending market detail hid the position list
+**Date**: 2026-09-29 | **Platforms**: iOS, Android (main)
+**Symptom**: A trending token detail no longer had a My position tab. The footer showed only that token's value and unrealized PnL.
+**Root Cause**: The redesigned trending tabs omitted the portfolio tab and treated the footer summary as its replacement.
+**Fix**: Trending tokens keep the portfolio tab next to the footer summary. The tab still lists every position row.
+**Catchable by**: Section 4: a summary of one item does not replace the list that item came from.
+

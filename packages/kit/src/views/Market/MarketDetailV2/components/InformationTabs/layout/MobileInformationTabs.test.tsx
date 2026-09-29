@@ -39,7 +39,9 @@ jest.mock('@onekeyhq/components', () => {
           </div>
         );
       },
-      Tab: Box,
+      Tab: ({ name, children }: { name?: string; children?: ReactNode }) => (
+        <div data-testid={`information-tab-${name ?? ''}`}>{children}</div>
+      ),
       ScrollView: Box,
       TabBar: () => <div data-testid="information-tab-bar" />,
     },
@@ -130,5 +132,8 @@ describe('MobileInformationTabs chart fullscreen', () => {
     expect((chart as HTMLInputElement).value).toBe('historical candles');
     expect(mockChartMount).toHaveBeenCalledTimes(1);
     expect(mockChartUnmount).not.toHaveBeenCalled();
+    expect(
+      screen.getByTestId('information-tab-dexmarket.details_myposition'),
+    ).toBeTruthy();
   });
 });

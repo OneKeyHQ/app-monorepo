@@ -239,8 +239,8 @@ export function MobileInformationTabs({
       ].filter(Boolean);
     }
 
-    // Trending tokens keep the activity overview under the chart. Position
-    // stays in the footer, so it is not a tab here.
+    // The footer summarizes the current token. The portfolio tab still lists
+    // every position row.
     const shouldShowHoldersTab = !isNative && isHoldersTabSupported(networkId);
     const shouldShowTransactionsTab = !isBTCNetwork;
     const shouldShowLiquidityPoolsTab = !isNative && !isStockToken;
@@ -268,6 +268,7 @@ export function MobileInformationTabs({
           </DelayedFreeze>
         </Tabs.Tab>
       ),
+      portfolioTab,
       shouldShowLiquidityPoolsTab && (
         <Tabs.Tab
           key="liquidityPools"
