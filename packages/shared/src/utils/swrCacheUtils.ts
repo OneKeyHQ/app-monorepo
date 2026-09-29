@@ -97,7 +97,7 @@ type ISerializedSWRCacheEntry<T extends IPrunableSWREntry> = {
   entrySerializedChars: number;
   index: number;
   key: string;
-  // Absent for entries adopted from a native mirror, which never re-joins them.
+  // Only store a full pair when pruning needs to join the serialized store.
   pair?: string;
   serializedChars: number;
   updatedAt: number;
@@ -112,6 +112,7 @@ type ISWRCacheBudgets = {
 function serializeSWRCacheEntry<T extends IPrunableSWREntry>(
   key: string,
   entry: T,
+  includePair = false,
 ): ISerializedSWRCacheEntry<T> | undefined {
   if (!entry || typeof entry !== 'object' || Array.isArray(entry)) {
     return undefined;
@@ -121,14 +122,14 @@ function serializeSWRCacheEntry<T extends IPrunableSWREntry>(
     if (typeof serializedEntry !== 'string') {
       return undefined;
     }
-    const pair = `${JSON.stringify(key)}:${serializedEntry}`;
+    const serializedKey = JSON.stringify(key);
     return {
       entry,
       entrySerializedChars: serializedEntry.length,
       index: 0,
       key,
-      pair,
-      serializedChars: pair.length,
+      pair: includePair ? `${serializedKey}:${serializedEntry}` : undefined,
+      serializedChars: serializedKey.length + 1 + serializedEntry.length,
       updatedAt: typeof entry.t === 'number' ? entry.t : 0,
     };
   } catch {
@@ -254,7 +255,7 @@ export function pruneSWRCacheStore<T extends IPrunableSWREntry>(
       capacityDrops.push({ key, reason: 'keyLimit' });
       return;
     }
-    const serializedEntry = serializeSWRCacheEntry(key, entry);
+    const serializedEntry = serializeSWRCacheEntry(key, entry, true);
     if (!serializedEntry) {
       removedKeys.push(key);
       return;
@@ -722,10 +723,9 @@ function set<T>(key: string, data: T): void {
   const store = loadStore();
   const now = Date.now();
   const existing = lookupEntry(key);
-  // Pollers re-set an unchanged payload for as long as a screen stays open,
-  // and every flush re-reads and re-serializes the whole store. An unchanged
-  // result only refreshes the timestamp: the key stays pending so the fresher
-  // timestamp rides along with the next flush, but it never starts one.
+  // An unchanged result only refreshes the timestamp: the key stays pending
+  // so the fresher timestamp rides along with the next flush, but it never
+  // starts one.
   if (existing && isEqual(existing.d, data)) {
     existing.t = now;
     _updatedKeys.add(key);

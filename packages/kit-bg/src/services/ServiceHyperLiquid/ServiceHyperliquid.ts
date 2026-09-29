@@ -1498,6 +1498,17 @@ export default class ServiceHyperliquid extends ServiceBase {
   }
 
   @backgroundMethod()
+  async getTwapStates(
+    params: IEventWebData2Parameters,
+  ): Promise<Pick<IWsWebData2, 'user' | 'twapStates'>> {
+    const { infoClient } = hyperLiquidApiClients;
+    const data = await infoClient.webData2(params);
+    // TWAP loading does not consume the market/account snapshot. Project it
+    // before transport so main never deserializes those unrelated fields.
+    return data ? { user: data.user, twapStates: data.twapStates } : data;
+  }
+
+  @backgroundMethod()
   async getTwapHistory(
     params: ITwapHistoryParameters,
   ): Promise<ITwapHistoryRecord[]> {
