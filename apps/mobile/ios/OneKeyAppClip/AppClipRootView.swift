@@ -27,6 +27,8 @@ struct AppClipRootView: View {
           marketDetail(detail)
         case .web(let url):
           webExperience(url)
+        case .referral(let referral):
+          referralLanding(referral)
         }
       }
       if let activeMarketFilterSheet {
@@ -969,7 +971,9 @@ struct AppClipRootView: View {
 
   private func installFooter(
     asset: AppClipMarketAsset?,
-    usesDetailStyle: Bool = false
+    usesDetailStyle: Bool = false,
+    title: String? = nil,
+    note: String? = nil
   ) -> some View {
     VStack(spacing: 8) {
       Button {
@@ -980,11 +984,16 @@ struct AppClipRootView: View {
         )
       } label: {
         Text(
-          asset.map { String(format: String(localized: "cta.trade_symbol"), $0.symbol) }
+          title
+            ?? asset.map { String(format: String(localized: "cta.trade_symbol"), $0.symbol) }
             ?? String(localized: "cta.trade")
         )
         .font(.system(size: 17, weight: .semibold))
         .foregroundColor(.appClipAccentText)
+        // Translated calls to action run longer than English.
+        .lineLimit(1)
+        .minimumScaleFactor(0.7)
+        .padding(.horizontal, 12)
         .frame(maxWidth: .infinity)
         .frame(height: 52)
         .background(Color.appClipAccent)
@@ -992,8 +1001,9 @@ struct AppClipRootView: View {
       }
       .buttonStyle(.plain)
       .accessibilityIdentifier("app-clip-install-cta")
-      Text(String(localized: "cta.note"))
+      Text(note ?? String(localized: "cta.note"))
         .font(.system(size: 13))
+        .multilineTextAlignment(.center)
         .foregroundColor(.appClipSecondaryText)
     }
     .padding(.horizontal, 18)
@@ -1033,6 +1043,397 @@ struct AppClipRootView: View {
     formatter.timeStyle = .short
     return formatter
   }()
+}
+
+// MARK: - Referral landing
+
+extension AppClipRootView {
+  fileprivate func referralLanding(_ referral: AppClipReferral) -> some View {
+    let discount = model.inviteeDiscountText
+    return VStack(spacing: 0) {
+      ScrollView {
+        VStack(alignment: .leading, spacing: 20) {
+          referralRewardCard(referral, discount: discount)
+          referralHighlights
+          referralSteps(referral, discount: discount)
+          referralMarkets(referral.variant)
+        }
+        .padding(.horizontal, 20)
+        .padding(.top, 16)
+        .padding(.bottom, 24)
+      }
+      // Keeps scrolled content from showing through the status bar.
+      .clipped()
+      installFooter(
+        asset: nil,
+        title: String(format: String(localized: "referral.cta"), discount),
+        note: model.isInviteCodeSaved ? String(localized: "referral.cta_note") : nil
+      )
+    }
+    .accessibilityIdentifier("app-clip-referral")
+  }
+
+  // The reward, not the market, is what the invitee came for. The web's
+  // "trade and get 10% back" sentence is split around the rebate so the number
+  // leads, wherever each translation puts it.
+  private func referralRewardCard(_ referral: AppClipReferral, discount: String) -> some View {
+    let reward = String(format: String(localized: referral.variant.rewardKey), discount)
+    let range = reward.range(of: discount)
+    return VStack(alignment: .leading, spacing: 14) {
+      VStack(alignment: .leading, spacing: 6) {
+        Text(String(localized: referral.variant.titleKey))
+          .font(.system(size: 14, weight: .medium))
+          .foregroundColor(.appClipSecondaryText)
+        if let range {
+          let prefix = String(reward[..<range.lowerBound])
+            .trimmingCharacters(in: .whitespaces)
+          let suffix = String(reward[range.upperBound...])
+            .trimmingCharacters(in: .whitespaces)
+          if !prefix.isEmpty {
+            Text(prefix)
+              .font(.system(size: 20, weight: .semibold))
+              .foregroundColor(.primary)
+              .fixedSize(horizontal: false, vertical: true)
+          }
+          HStack(alignment: .firstTextBaseline, spacing: 8) {
+            Text(discount)
+              .font(.system(size: 48, weight: .bold))
+              .foregroundColor(.appClipBrand10)
+              .monospacedDigit()
+            if !suffix.isEmpty {
+              Text(suffix)
+                .font(.system(size: 20, weight: .semibold))
+                .foregroundColor(.primary)
+                .fixedSize(horizontal: false, vertical: true)
+            }
+          }
+        } else {
+          Text(reward)
+            .font(.system(size: 22, weight: .bold))
+            .foregroundColor(.primary)
+            .fixedSize(horizontal: false, vertical: true)
+        }
+      }
+      Rectangle()
+        .fill(Color.appClipBrand5)
+        .frame(height: 1)
+      HStack(spacing: 10) {
+        Image(systemName: model.isInviteCodeSaved ? "checkmark.circle.fill" : "ticket")
+          .font(.system(size: 20, weight: .semibold))
+          .foregroundColor(.appClipBrand10)
+          .accessibilityHidden(true)
+        Text(String(localized: "referral.code_label"))
+          .font(.system(size: 15, weight: .semibold))
+          .foregroundColor(.primary)
+        Spacer(minLength: 8)
+        Text(referral.code)
+          .font(.system(size: 14, weight: .semibold, design: .monospaced))
+          .foregroundColor(.primary)
+          .lineLimit(1)
+          .padding(.horizontal, 10)
+          .frame(height: 30)
+          .background(Color.appClipBackground)
+          .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+      }
+    }
+    .padding(16)
+    .background(Color.appClipBrand2)
+    .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+    .overlay {
+      RoundedRectangle(cornerRadius: 20, style: .continuous)
+        .stroke(Color.appClipBrand5, lineWidth: 1)
+    }
+    .accessibilityElement(children: .combine)
+    .accessibilityIdentifier("app-clip-referral-reward")
+  }
+
+  /// Mirrors `PerpsMobileHighlights` on the web referral landing page.
+  private var referralHighlights: some View {
+    AppClipFlowLayout(spacing: 8, rowSpacing: 6) {
+      ForEach(Self.referralHighlightKeys, id: \.self) { key in
+        HStack(spacing: 4) {
+          Image(systemName: "checkmark")
+            .font(.system(size: 10, weight: .bold))
+            .foregroundColor(.appClipBrand10)
+            .accessibilityHidden(true)
+          Text(String(localized: String.LocalizationValue(key)))
+            .font(.system(size: 12))
+            .foregroundColor(.appClipSecondaryText)
+            .lineLimit(1)
+        }
+      }
+    }
+    .padding(.horizontal, 2)
+  }
+
+  private static let referralHighlightKeys = [
+    "referral.highlight.all_asset",
+    "referral.highlight.backed",
+    "referral.highlight.wallet_native",
+    "referral.highlight.global_markets",
+    "referral.highlight.self_custody",
+  ]
+
+  private func referralSteps(_ referral: AppClipReferral, discount: String) -> some View {
+    VStack(alignment: .leading, spacing: 0) {
+        if model.isInviteCodeSaved {
+          referralStep(
+            number: 1,
+            isDone: true,
+            title: Text(String(localized: "referral.code_saved"))
+          )
+          referralStepConnector
+          referralStep(
+            number: 2,
+            isDone: false,
+            title: Text(String(localized: "referral.step_download"))
+          )
+        } else {
+          referralStep(
+            number: 1,
+            isDone: false,
+            title: Text(String(localized: "referral.step_download"))
+          )
+          referralStepConnector
+          referralStep(
+            number: 2,
+            isDone: false,
+            title: Text(String(localized: "referral.step_bind"))
+          )
+        }
+        referralStepConnector
+        referralStep(
+          number: 3,
+          isDone: false,
+          title: accentedText(
+            String(format: String(localized: referral.variant.step3Key), discount),
+            accent: discount
+          )
+        )
+    }
+    .padding(16)
+    .background(Color.appClipPanel)
+    .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+    .overlay {
+      RoundedRectangle(cornerRadius: 16, style: .continuous)
+        .stroke(Color.appClipSeparator, lineWidth: 1)
+    }
+    .accessibilityIdentifier("app-clip-referral-steps")
+  }
+
+  /// Mirrors `StepBadge` on the web referral landing page.
+  private func referralStep(number: Int, isDone: Bool, title: Text) -> some View {
+    HStack(spacing: 12) {
+      ZStack {
+        RoundedRectangle(cornerRadius: 8, style: .continuous)
+          .fill(isDone ? Color.appClipBrand10 : .appClipBrand2)
+        RoundedRectangle(cornerRadius: 8, style: .continuous)
+          .stroke(isDone ? Color.appClipBrand10 : .appClipBrand5, lineWidth: 1)
+        if isDone {
+          Image(systemName: "checkmark")
+            .font(.system(size: 14, weight: .bold))
+            .foregroundColor(.appClipAccentText)
+        } else {
+          Text(String(format: "%02d", number))
+            .font(.system(size: 14, weight: .medium))
+            .foregroundColor(.appClipBrand10)
+        }
+      }
+      .frame(width: 32, height: 32)
+      title
+        .font(.system(size: 15, weight: .medium))
+        .foregroundColor(isDone ? .appClipSecondaryText : .primary)
+        .fixedSize(horizontal: false, vertical: true)
+      Spacer(minLength: 0)
+    }
+  }
+
+  private func accentedText(_ text: String, accent: String) -> Text {
+    var attributed = AttributedString(text)
+    if let range = attributed.range(of: accent) {
+      attributed[range].foregroundColor = .appClipBrand10
+    }
+    return Text(attributed)
+  }
+
+  private var referralStepConnector: some View {
+    Rectangle()
+      .fill(Color.appClipSeparator)
+      .frame(width: 1, height: 14)
+      .padding(.leading, 16)
+  }
+
+  // Live prices are supporting evidence only, so the list stays short.
+  @ViewBuilder
+  private func referralMarkets(_ variant: AppClipReferralVariant) -> some View {
+    switch variant {
+    case .perps:
+      let state = model.perpsState
+      referralMarketSection(
+        title: String(localized: "referral.proof.perps"),
+        isEmpty: state.items.isEmpty,
+        isLoading: state.isLoading,
+        didLoad: state.didLoad
+      ) {
+        ForEach(state.items.prefix(Self.referralMarketRowCount)) { perp in
+          MarketPerpsRow(perp: perp, height: Self.referralMarketRowHeight)
+        }
+      }
+    case .swap, .defi:
+      let state = model.trendingState
+      // Rows missing a price change or turnover look broken or uneven next to
+      // complete ones, so they only fill the rows complete tokens leave empty.
+      let isComplete: (AppClipMarketAsset) -> Bool = {
+        $0.priceChangePercent != nil && ($0.turnover ?? 0) > 0
+      }
+      let assets = state.items.filter(isComplete) + state.items.filter { !isComplete($0) }
+      referralMarketSection(
+        title: String(localized: "referral.proof.swap"),
+        isEmpty: assets.isEmpty,
+        isLoading: state.isLoading,
+        didLoad: state.didLoad
+      ) {
+        ForEach(assets.prefix(Self.referralMarketRowCount)) { asset in
+          MarketAssetRow(asset: asset, height: Self.referralMarketRowHeight)
+        }
+      }
+    }
+  }
+
+  private static let referralMarketRowCount = 3
+  // Tighter than the full market list, which is built for tapping through.
+  private static let referralMarketRowHeight: CGFloat = 56
+
+  @ViewBuilder
+  private func referralMarketSection<Rows: View>(
+    title: String,
+    isEmpty: Bool,
+    isLoading: Bool,
+    didLoad: Bool,
+    @ViewBuilder rows: () -> Rows
+  ) -> some View {
+    // A failed or empty feed is dropped rather than shown as an error, since
+    // the page stands on the reward without it.
+    if !isEmpty || isLoading || !didLoad {
+      VStack(alignment: .leading, spacing: 8) {
+        Text(title)
+          .font(.system(size: 14, weight: .semibold))
+          .foregroundColor(.appClipSecondaryText)
+        VStack(spacing: 0) {
+          if isEmpty {
+            ProgressView()
+              .frame(maxWidth: .infinity)
+              .frame(height: 64)
+          } else {
+            rows()
+          }
+        }
+        .background(Color.appClipPanel)
+        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .overlay {
+          RoundedRectangle(cornerRadius: 16, style: .continuous)
+            .stroke(Color.appClipSeparator, lineWidth: 1)
+        }
+      }
+      .accessibilityIdentifier("app-clip-referral-markets")
+    }
+  }
+}
+
+extension AppClipReferralVariant {
+  fileprivate var titleKey: String.LocalizationValue {
+    switch self {
+    case .perps:
+      return "referral.title.perps"
+    case .swap:
+      return "referral.title.swap"
+    case .defi:
+      return "referral.title.defi"
+    }
+  }
+
+  fileprivate var rewardKey: String.LocalizationValue {
+    switch self {
+    case .perps:
+      return "referral.reward.perps"
+    case .swap:
+      return "referral.reward.swap"
+    case .defi:
+      return "referral.reward.defi"
+    }
+  }
+
+  fileprivate var step3Key: String.LocalizationValue {
+    switch self {
+    case .perps:
+      return "referral.step3.perps"
+    case .swap:
+      return "referral.step3.swap"
+    case .defi:
+      return "referral.step3.defi"
+    }
+  }
+}
+
+/// Wraps its children onto new rows, like a flex-wrap row on the web.
+private struct AppClipFlowLayout: Layout {
+  let spacing: CGFloat
+  let rowSpacing: CGFloat
+
+  func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+    let rows = arrange(width: proposal.width ?? .infinity, subviews: subviews)
+    let height =
+      rows.reduce(CGFloat.zero) { $0 + $1.height }
+      + rowSpacing * CGFloat(max(rows.count - 1, 0))
+    return CGSize(width: proposal.width ?? rows.map(\.width).max() ?? 0, height: height)
+  }
+
+  func placeSubviews(
+    in bounds: CGRect,
+    proposal: ProposedViewSize,
+    subviews: Subviews,
+    cache: inout ()
+  ) {
+    var y = bounds.minY
+    for row in arrange(width: bounds.width, subviews: subviews) {
+      var x = bounds.minX
+      for index in row.indices {
+        let size = subviews[index].sizeThatFits(.unspecified)
+        subviews[index].place(
+          at: CGPoint(x: x, y: y + (row.height - size.height) / 2),
+          proposal: ProposedViewSize(size)
+        )
+        x += size.width + spacing
+      }
+      y += row.height + rowSpacing
+    }
+  }
+
+  private struct Row {
+    var indices: [Int] = []
+    var width: CGFloat = 0
+    var height: CGFloat = 0
+  }
+
+  private func arrange(width: CGFloat, subviews: Subviews) -> [Row] {
+    var rows: [Row] = []
+    var current = Row()
+    for index in subviews.indices {
+      let size = subviews[index].sizeThatFits(.unspecified)
+      let nextWidth = current.indices.isEmpty ? size.width : current.width + spacing + size.width
+      if !current.indices.isEmpty, nextWidth > width {
+        rows.append(current)
+        current = Row()
+      }
+      current.width = current.indices.isEmpty ? size.width : current.width + spacing + size.width
+      current.height = max(current.height, size.height)
+      current.indices.append(index)
+    }
+    if !current.indices.isEmpty {
+      rows.append(current)
+    }
+    return rows
+  }
 }
 
 private struct MarketStockRow: View {
@@ -1078,6 +1479,7 @@ private struct MarketStockRow: View {
 
 private struct MarketPerpsRow: View {
   let perp: AppClipMarketPerp
+  var height: CGFloat = 64
 
   var body: some View {
     HStack(spacing: 0) {
@@ -1122,7 +1524,7 @@ private struct MarketPerpsRow: View {
       }
     }
     .padding(.horizontal, 16)
-    .frame(height: 64)
+    .frame(height: height)
     .contentShape(Rectangle())
     .accessibilityElement(children: .combine)
   }
@@ -1130,6 +1532,7 @@ private struct MarketPerpsRow: View {
 
 private struct MarketAssetRow: View {
   let asset: AppClipMarketAsset
+  var height: CGFloat = 72
 
   var body: some View {
     HStack(spacing: 0) {
@@ -1161,7 +1564,7 @@ private struct MarketAssetRow: View {
     }
     .contentShape(Rectangle())
     .padding(.horizontal, 20)
-    .frame(height: 72)
+    .frame(height: height)
   }
 }
 
@@ -1977,6 +2380,10 @@ extension Color {
   fileprivate static let appClipNegative = adaptive(light: 0xE5484D, dark: 0xE5484D)
   fileprivate static let appClipAccent = adaptive(light: 0x22AB15, dark: 0x3EDC2F)
   fileprivate static let appClipAccentText = adaptive(light: 0x000000, dark: 0x000000)
+  // Web `$brand2` / `$brand5` / `$brand10`, for parity with the referral page.
+  fileprivate static let appClipBrand2 = adaptive(light: 0xF4FBF3, dark: 0x121B11)
+  fileprivate static let appClipBrand5 = adaptive(light: 0xC0EDBA, dark: 0x1B4A16)
+  fileprivate static let appClipBrand10 = adaptive(light: 0x22AB15, dark: 0x2DD11C)
 
   private static func adaptive(light: UInt, dark: UInt) -> Color {
     Color(

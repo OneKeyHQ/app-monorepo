@@ -8,6 +8,16 @@ Hermes, CocoaPods, wallet services, authentication, or wallet JSBridge code.
 - Market: `https://app.onekey.so/clip/market`
 - Market detail handoff: append `network`, `address`, and optional `is_native`
 - Campaign WebView: `https://app.onekey.so/clip/web?web_url=<encoded OneKey HTTPS URL>`
+- Referral landing: `https://app.onekey.so/r/<code>/app/<page>` (also `/r/<code>` and
+  `/r/<code>/app`). `page` picks the perps, swap (`swap`) or DeFi (`earn`/`defi`) variant; any
+  other page falls back to perps. The code is saved like `ref_code`, and the install CTA opens the
+  same `/r/` URL so an installed full app lands on its own referral page. The full app only claims
+  it once the AASA `applinks` include `/r/*`; until then the CTA falls through to the StoreKit
+  overlay. Configure an advanced App Clip experience for the `https://app.onekey.so/r/` prefix.
+  The invitee rebate comes from `rebate.onekeycn.com/rebate/v1/invite/post-config`
+  (`rebate.onekeytest.com` on the test host) and falls back to 10%, like the web referral page.
+  The `referral.*` strings start from the web referral landing translations in every app
+  language, shortened for the App Clip's width; edit them in `Localizable.xcstrings`.
 - Test host: replace `app.onekey.so` with `app.onekeytest.com`
 
 Supported attribution query parameters are `click_id`, `campaign_id`, and the standard

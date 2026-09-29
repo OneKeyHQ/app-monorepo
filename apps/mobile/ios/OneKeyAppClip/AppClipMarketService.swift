@@ -100,6 +100,25 @@ struct AppClipKlineResult {
   let isCloseOnly: Bool
 }
 
+/// The invitee rebate from the rebate service's invite post-config, shown the
+/// same way as `formatInviteeDiscountFromConfig` in the full app.
+struct AppClipInviteeDiscount: Equatable {
+  let amount: Double
+  let unit: String
+
+  /// The full app's `DEFAULT_INVITEE_DISCOUNT_TEXT`, used until the config
+  /// loads or when it is missing or malformed.
+  static let fallbackText = "10%"
+
+  var text: String {
+    let amountText =
+      amount.rounded() == amount && abs(amount) < 1e15
+      ? String(Int64(amount))
+      : String(amount)
+    return "\(amountText)\(unit)"
+  }
+}
+
 enum AppClipMarketServiceError: Error {
   case business(code: Int, message: String?)
   case missingData
@@ -109,6 +128,27 @@ private struct MarketAPIEnvelope<Payload: Decodable>: Decodable {
   let code: Int
   let message: String?
   let data: Payload?
+}
+
+private struct InvitePostConfigPayload: Decodable {
+  struct Discount: Decodable {
+    let amount: Double?
+    let unit: String?
+
+    init(from decoder: Decoder) throws {
+      let container = try decoder.container(keyedBy: CodingKeys.self)
+      // Anything but a JSON number or string falls back, as on the web.
+      amount = try? container.decodeIfPresent(Double.self, forKey: .amount)
+      unit = try? container.decodeIfPresent(String.self, forKey: .unit)
+    }
+
+    private enum CodingKeys: String, CodingKey {
+      case amount
+      case unit
+    }
+  }
+
+  let inviteeDiscount: Discount?
 }
 
 private struct MarketBasicConfigPayload: Decodable {
@@ -168,7 +208,9 @@ private struct MarketTokenListItem: Decodable {
     case .oneDay:
       selected = priceChange24hPercent
     }
-    return (selected ?? priceChange24hPercent)?.doubleValue
+    // The API sends "-" for an unknown window, so fall back on a value, not
+    // only on a missing field.
+    return selected?.doubleValue ?? priceChange24hPercent?.doubleValue
   }
 
   func volume(for timeRange: AppClipMarketTimeRange) -> Double? {
@@ -262,6 +304,21 @@ private struct MarketScalar: Decodable {
 }
 
 actor AppClipMarketService {
+  func fetchInviteeDiscount(rebateBaseURL: URL) async throws -> AppClipInviteeDiscount? {
+    let endpoint = rebateBaseURL.appendingPathComponent("rebate/v1/invite/post-config")
+    let payload = try await requestPayload(InvitePostConfigPayload.self, endpoint: endpoint)
+    guard
+      let amount = payload.inviteeDiscount?.amount,
+      amount.isFinite,
+      amount >= 0,
+      let unit = payload.inviteeDiscount?.unit,
+      !unit.isEmpty
+    else {
+      return nil
+    }
+    return AppClipInviteeDiscount(amount: amount, unit: unit)
+  }
+
   func fetchConfiguration(baseURL: URL) async throws -> AppClipMarketConfiguration {
     var components = URLComponents(
       url: baseURL.appendingPathComponent("utility/v2/market/basic-config"),
