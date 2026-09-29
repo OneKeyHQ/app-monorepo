@@ -688,6 +688,7 @@ function TokenListBlock({
 
   const {
     updateAccountWorth,
+    retainAccountWorth,
     updateAccountOverviewState,
     updateAllNetworksState,
   } = useAccountOverviewActions().current;
@@ -1768,7 +1769,14 @@ function TokenListBlock({
     });
   }, []);
 
+  // Worth keys of the accounts in the current cold run, captured by its cache
+  // probe (`handleAllNetworkCacheRequestsBatch`) for `handleAllNetworkCacheChecked`.
+  const runAccountValueKeysRef = useRef<ReadonlySet<string> | undefined>(
+    undefined,
+  );
+
   const handleClearAllNetworkData = useCallback(() => {
+    runAccountValueKeysRef.current = undefined;
     // Reset the LWW view + drop a pending flush (design §2 facade). Does NOT bump
     // the epoch — that asymmetry is reserved for the authoritative commit (P1-g).
     resetPipeline();
@@ -1850,8 +1858,26 @@ function TokenListBlock({
         ownerKey: buildOverviewOwnerKey(accountId, networkId),
         hasCache,
       });
+      // A hit has just replaced the worth map with the cached networks
+      // (`handleAllNetworkCacheData`, `updateAll`). On a miss nothing replaces
+      // it before the fan-out's own commit — never, when every request fails —
+      // so a network disabled since the map was written would keep its worth
+      // in the header total. Drop what the run no longer covers; the networks
+      // it does cover keep their value, so the total does not dip.
+      const runAccountValueKeys = runAccountValueKeysRef.current;
+      if (!hasCache && runAccountValueKeys && worthOwnerAccountId) {
+        retainAccountWorth({
+          accountId: worthOwnerAccountId,
+          accountValueKeys: runAccountValueKeys,
+        });
+      }
     },
-    [setOverviewTokenCacheState, syncTokenFilterToOverview],
+    [
+      retainAccountWorth,
+      setOverviewTokenCacheState,
+      syncTokenFilterToOverview,
+      worthOwnerAccountId,
+    ],
   );
 
   const handleAllNetworkRequestsStarted = useCallback(
@@ -1997,6 +2023,11 @@ function TokenListBlock({
       const homeRequest = homeRequestRef.current;
       if (!isHomeRequestCurrent() || !isHomeTokenRequestCurrent(homeRequest))
         return [];
+      runAccountValueKeysRef.current = new Set(
+        accounts.map(({ accountId, networkId }) =>
+          accountUtils.buildAccountValueKey({ accountId, networkId }),
+        ),
+      );
       const results =
         await backgroundApiProxy.serviceToken.getAccountsLocalTokens({
           homeRequest,
