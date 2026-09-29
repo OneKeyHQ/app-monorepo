@@ -328,3 +328,12 @@ export async function getPrimeInfiniPaymentEntryGuard() {
     pendingSubscriptionPeriod: undefined,
   };
 }
+
+export async function readPrimeInfiniPaymentEntryGuard() {
+  try {
+    return await getPrimeInfiniPaymentEntryGuard();
+  } catch {
+    // Probe failed: treat as not ready so redeem stays blocked.
+    return undefined;
+  }
+}
