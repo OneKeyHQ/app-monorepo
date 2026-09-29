@@ -169,8 +169,8 @@ export function InformationPanel() {
   if (!tokenDetail) return <InformationPanelSkeleton />;
 
   // Figma stock chart header: price, dollar change, Share/Token toggle, and
-  // the market-status row. The stat grid lives in the overview below.
-  if (isStockToken) {
+  // the market-status row. Desktop and web keep the previous stat header.
+  if (platformEnv.isNative && isStockToken) {
     return <StockMobilePriceHeader />;
   }
 

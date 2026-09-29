@@ -20,6 +20,7 @@ import {
   isStockChartRequestReady,
   isStockMarketPanelLoadingStage,
   mergeStockChartRealtimePoint,
+  resolveStockVariantRowLabel,
   resolveSwapStockMobileHeaderIdentity,
   resolveSwapStockMobileHeaderLogo,
   shouldDeferStockInitialContent,
@@ -500,6 +501,28 @@ describe('SwapStockDesktopContainer utils', () => {
         tokenSymbol: 'AAPLon',
       }),
     ).toEqual({ symbol: 'AAPLon', companyName: undefined });
+  });
+
+  it('keeps a stock variant label when the detail symbol is missing', () => {
+    expect(
+      resolveStockVariantRowLabel({
+        detailSymbol: ' AAPLon ',
+        tokenSymbol: 'AAPL',
+      }),
+    ).toBe('AAPLon');
+    expect(
+      resolveStockVariantRowLabel({
+        detailName: 'Apple',
+        tokenName: 'Apple Ondo',
+        tokenSymbol: ' AAPLon ',
+      }),
+    ).toBe('AAPLon');
+    expect(
+      resolveStockVariantRowLabel({
+        detailName: ' Apple ',
+      }),
+    ).toBe('Apple');
+    expect(resolveStockVariantRowLabel({})).toBe('');
   });
 
   it('formats a stock issuer label', () => {

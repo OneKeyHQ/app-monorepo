@@ -15,6 +15,8 @@ import {
   isStockPayTokenReadyForTradeInput,
   isStockTradeReadyForQuote,
   resolveDisplayedStockToken,
+  resolveFollowedStockToken,
+  resolvePlatformDisplayedStockToken,
   resolveStockBalanceSeed,
   resolveStockBalanceSnapshot,
   resolveStockBalanceViewState,
@@ -1174,5 +1176,51 @@ describe('resolveDisplayedStockToken', () => {
         stockPairToken: appleStockToken,
       }),
     ).toBe(appleStockToken);
+  });
+});
+
+describe('resolvePlatformDisplayedStockToken', () => {
+  it('keeps the local stock on desktop and web when the persisted stock differs', () => {
+    expect(
+      resolvePlatformDisplayedStockToken({
+        isNative: false,
+        persistedStockToken: micronStockToken,
+        stockPairToken: appleStockToken,
+        stockTokenState: appleStockToken,
+      }),
+    ).toBe(appleStockToken);
+  });
+
+  it('follows the persisted stock on mobile when it differs from local state', () => {
+    expect(
+      resolvePlatformDisplayedStockToken({
+        isNative: true,
+        persistedStockToken: micronStockToken,
+        stockPairToken: appleStockToken,
+        stockTokenState: appleStockToken,
+      }),
+    ).toBe(micronStockToken);
+  });
+});
+
+describe('resolveFollowedStockToken', () => {
+  it('follows the execution pair on desktop and web', () => {
+    expect(
+      resolveFollowedStockToken({
+        isNative: false,
+        persistedStockToken: micronStockToken,
+        stockPairToken: appleStockToken,
+      }),
+    ).toBe(appleStockToken);
+  });
+
+  it('follows the persisted stock on mobile when no controlled stock is set', () => {
+    expect(
+      resolveFollowedStockToken({
+        isNative: true,
+        persistedStockToken: micronStockToken,
+        stockPairToken: appleStockToken,
+      }),
+    ).toBe(micronStockToken);
   });
 });

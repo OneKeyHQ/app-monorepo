@@ -753,3 +753,17 @@ Cases are appended by AI after each bug fix. Do NOT reorder or delete entries â€
 **Fix**: Once a listing ticker or stock id is known, the header uses only the listing logo, symbol, and name.
 **Catchable by**: Section 4: a fallback image must be the same kind of asset; an issuer logo is not a stand-in for the company logo.
 
+## Case: Market mobile redesign reached desktop and web
+**Date**: 2026-09-29 | **Platforms**: desktop, web, extension
+**Symptom**: Shared market and swap code changed the desktop and web stock header, candlestick destination, and narrow-window detail page.
+**Root Cause**: The mobile detail layout, stock header identity, and swap candlestick lived in modules also bundled for desktop, web, and extension.
+**Fix**: Desktop, web, and extension keep the previous detail layout, stock page header, and in-swap chart. The new detail page, listing header, and market-detail candlestick stay on the native app.
+**Catchable by**: Section 3: a shared component change has to say which platforms keep the previous behavior.
+
+## Case: Stock variant row hid the token name
+**Date**: 2026-09-29 | **Platforms**: iOS, Android (main)
+**Symptom**: The stock swap variant row showed the token icon, chevron, and price, with no token name.
+**Root Cause**: The name text used `flexShrink` inside a popover trigger that sizes to its content, so the label width collapsed to zero.
+**Fix**: The label keeps its text width, and falls back from the detail symbol to the token symbol or name.
+**Catchable by**: Section 2: do not put `flexShrink` on text inside a shrink-wrapped trigger; the label width becomes zero.
+

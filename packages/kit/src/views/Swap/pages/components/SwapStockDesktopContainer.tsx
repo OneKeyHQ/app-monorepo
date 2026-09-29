@@ -170,6 +170,7 @@ import {
   getStockVariantOptionsPhase,
   isStockChartRequestReady,
   isStockMarketPanelLoadingStage,
+  resolveStockVariantRowLabel,
   resolveSwapStockMobileHeaderIdentity,
   resolveSwapStockMobileHeaderLogo,
   shouldDeferStockInitialContent,
@@ -1600,7 +1601,12 @@ function StockMobileVariantQuoteRow({
     },
     [stockChannel],
   );
-  const tokenSymbol = tokenDetail?.symbol ?? currentStockToken?.symbol ?? '';
+  const tokenSymbol = resolveStockVariantRowLabel({
+    detailName: tokenDetail?.name,
+    detailSymbol: tokenDetail?.symbol,
+    tokenName: currentStockToken?.name,
+    tokenSymbol: currentStockToken?.symbol,
+  });
   const issuerLabel = formatStockIssuerLabel(stock?.source);
   const price = tokenDetail?.price ?? tokenDetail?.priceConverted ?? '';
   const priceChangePercent = tokenDetail?.priceChange24hPercent;
@@ -1625,13 +1631,7 @@ function StockMobileVariantQuoteRow({
           id: ETranslations.dexmarket_select_token,
         })}
         renderTrigger={
-          <XStack
-            flex={1}
-            minWidth={0}
-            alignItems="center"
-            gap="$2.5"
-            cursor="pointer"
-          >
+          <XStack alignItems="center" gap="$2.5" cursor="pointer">
             <Token
               size="md"
               tokenImageUri={tokenImageUri}
@@ -1639,16 +1639,18 @@ function StockMobileVariantQuoteRow({
               showNetworkIconBorder={false}
               bg="$transparent"
               fallbackIcon="CryptoCoinOutline"
+              flexShrink={0}
             />
-            <YStack flex={1} minWidth={0}>
-              <XStack alignItems="center" gap="$1" minWidth={0}>
-                <SizableText size="$headingMd" numberOfLines={1} flexShrink={1}>
+            <YStack flexShrink={1}>
+              <XStack alignItems="center" gap="$1">
+                <SizableText size="$headingMd" numberOfLines={1}>
                   {tokenSymbol}
                 </SizableText>
                 <Icon
                   name="ChevronDownSmallOutline"
                   size="$4.5"
                   color="$iconSubdued"
+                  flexShrink={0}
                 />
               </XStack>
               {issuerLabel ? (

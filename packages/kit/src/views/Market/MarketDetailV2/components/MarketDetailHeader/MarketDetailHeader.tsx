@@ -80,9 +80,12 @@ export function MarketDetailHeader({
   const isOverlayPage = useIsOverlayPage();
 
   const networkLogoUri = useNetworkLogoUri({ networkId });
-  // Figma stock header hides the chain corner badge. The circular logo is the
-  // stock mark on its own.
-  const headerNetworkLogoUri = isStockToken ? undefined : networkLogoUri;
+  // The mobile stock header matches the stock list: circular company mark,
+  // no chain badge. Desktop and web keep the wrapped-token header.
+  const useListingStockHeader = Boolean(platformEnv.isNative && isStockToken);
+  const headerNetworkLogoUri = useListingStockHeader
+    ? undefined
+    : networkLogoUri;
 
   const onPressTokenSelector = useCallback(() => {
     navigation.pushModal(EModalRoutes.MarketModal, {
@@ -116,7 +119,7 @@ export function MarketDetailHeader({
   }
   const stableLogoUrls = stableLogoUrlsRef.current;
   const headerIdentity = resolveMarketDetailHeaderIdentity({
-    isStockToken,
+    isStockToken: useListingStockHeader,
     stockSymbol: stockDetail?.symbol || stockPreview?.symbol,
     stockLogoUrl: stockDetail?.logoUrl || stockPreview?.logoUrl,
     tokenSymbol: tokenDetail?.symbol,
@@ -165,7 +168,7 @@ export function MarketDetailHeader({
       >
         <Token
           size="sm"
-          borderRadius={isStockToken ? '$full' : undefined}
+          borderRadius={useListingStockHeader ? '$full' : undefined}
           tokenImageUri={headerIdentity.logoUrl}
           tokenImageUris={headerIdentity.logoUrls}
           networkImageUri={headerNetworkLogoUri}
@@ -250,7 +253,7 @@ export function MarketDetailHeader({
       headerIdentity.logoUrl,
       headerIdentity.logoUrls,
       headerIdentity.symbol,
-      isStockToken,
+      useListingStockHeader,
       tokenDetail?.communityRecognized,
       tokenDetail?.stock,
       tokenDetail?.address,
@@ -363,7 +366,7 @@ export function MarketDetailHeader({
           <XStack flex={1} ai="center" gap="$2">
             <Token
               size="md"
-              borderRadius={isStockToken ? '$full' : undefined}
+              borderRadius={useListingStockHeader ? '$full' : undefined}
               tokenImageUri={headerIdentity.logoUrl}
               tokenImageUris={headerIdentity.logoUrls}
               networkImageUri={headerNetworkLogoUri}

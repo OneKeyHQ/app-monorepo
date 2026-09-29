@@ -188,6 +188,57 @@ export function resolveDisplayedStockToken({
   );
 }
 
+// Desktop and web keep the previous selection order. Mobile follows a stock
+// written by the market detail trade handoff when it differs from local state.
+export function resolvePlatformDisplayedStockToken({
+  isNative,
+  coldStartStockToken,
+  controlledStockToken,
+  persistedStockToken,
+  stockPairToken,
+  stockTokenState,
+}: {
+  isNative: boolean;
+  coldStartStockToken?: ISwapToken;
+  controlledStockToken?: ISwapToken;
+  persistedStockToken?: ISwapToken;
+  stockPairToken?: ISwapToken;
+  stockTokenState?: ISwapToken;
+}) {
+  if (!isNative) {
+    return (
+      stockTokenState ??
+      persistedStockToken ??
+      stockPairToken ??
+      coldStartStockToken
+    );
+  }
+  return resolveDisplayedStockToken({
+    coldStartStockToken,
+    controlledStockToken,
+    persistedStockToken,
+    stockPairToken,
+    stockTokenState,
+  });
+}
+
+export function resolveFollowedStockToken({
+  isNative,
+  controlledStockToken,
+  persistedStockToken,
+  stockPairToken,
+}: {
+  isNative: boolean;
+  controlledStockToken?: ISwapToken;
+  persistedStockToken?: ISwapToken;
+  stockPairToken?: ISwapToken;
+}) {
+  if (!isNative) {
+    return controlledStockToken ?? stockPairToken;
+  }
+  return controlledStockToken ?? persistedStockToken ?? stockPairToken;
+}
+
 export function shouldSyncControlledStockTokenMetadata({
   controlledStockToken,
   currentStockToken,

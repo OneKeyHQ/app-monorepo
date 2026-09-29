@@ -1,7 +1,4 @@
-import {
-  resolveMarketDetailHeaderIdentity,
-  resolveStockPageHeaderIdentity,
-} from './marketDetailHeaderIdentity';
+import { resolveMarketDetailHeaderIdentity } from './marketDetailHeaderIdentity';
 
 describe('resolveMarketDetailHeaderIdentity', () => {
   it('keeps the stock list symbol and logo after the token detail arrives', () => {
@@ -45,51 +42,6 @@ describe('resolveMarketDetailHeaderIdentity', () => {
     ).toEqual({
       symbol: 'AAPLon',
       logoUrl: 'https://example.com/aaplon.png',
-    });
-  });
-
-  it('keeps the desktop stock page on the listing once its ticker is known', () => {
-    expect(
-      resolveStockPageHeaderIdentity({
-        stockPreviewSymbol: 'NVDA',
-        stockPreviewName: 'NVIDIA',
-        stockPreviewLogoUrl: ' ',
-        stockId: 'NVDA',
-        tokenSymbol: 'NVDAon',
-        tokenName: 'NVIDIA (Ondo)',
-        tokenLogoUrl: 'https://example.com/ondo.png',
-        issuerLogoUrl: 'https://example.com/issuer.png',
-      }),
-    ).toEqual({
-      symbol: 'NVDA',
-      name: 'NVIDIA',
-      logoUrl: undefined,
-    });
-    expect(
-      resolveStockPageHeaderIdentity({
-        stockDetailLogoUrl: 'https://example.com/nvda.png',
-        stockId: 'NVDA',
-        tokenLogoUrl: 'https://example.com/ondo.png',
-      }),
-    ).toEqual({
-      symbol: 'NVDA',
-      name: undefined,
-      logoUrl: 'https://example.com/nvda.png',
-    });
-  });
-
-  it('uses the wrapped token on the desktop stock page before a listing exists', () => {
-    expect(
-      resolveStockPageHeaderIdentity({
-        tokenSymbol: 'NVDAon',
-        tokenName: 'NVIDIA (Ondo)',
-        tokenLogoUrl: 'https://example.com/ondo.png',
-        issuerLogoUrl: 'https://example.com/issuer.png',
-      }),
-    ).toEqual({
-      symbol: 'NVDAon',
-      name: 'NVIDIA (Ondo)',
-      logoUrl: 'https://example.com/ondo.png',
     });
   });
 

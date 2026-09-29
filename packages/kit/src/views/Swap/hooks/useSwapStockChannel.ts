@@ -19,6 +19,7 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type {
   IFetchUSMarketStatusResult,
   ISwapStockSpeedConfig,
@@ -41,7 +42,8 @@ import {
   filterStockPayTokenCandidates,
   getTokenIdentityKey,
   isStockTradeReadyForQuote,
-  resolveDisplayedStockToken,
+  resolveFollowedStockToken,
+  resolvePlatformDisplayedStockToken,
   resolveStockChannelSwapPair,
   resolveStockExecutionTokenMetadata,
   resolveStockExecutionTokensForTradeSideSwitch,
@@ -179,7 +181,8 @@ export function useSwapStockChannel(
   const persistedStockSelectedToken = stockSelectedToken?.isStock
     ? stockSelectedToken
     : undefined;
-  const selectedStockToken = resolveDisplayedStockToken({
+  const selectedStockToken = resolvePlatformDisplayedStockToken({
+    isNative: Boolean(platformEnv.isNative),
     coldStartStockToken: coldStartStockPair.stockToken,
     controlledStockToken,
     persistedStockToken: persistedStockSelectedToken,
@@ -406,10 +409,12 @@ export function useSwapStockChannel(
   // controlled token must also reach the execution channel without resetting
   // the user's receive amount.
   useEffect(() => {
-    const nextStockToken =
-      controlledStockToken ??
-      persistedStockSelectedToken ??
-      stockPair.stockToken;
+    const nextStockToken = resolveFollowedStockToken({
+      isNative: Boolean(platformEnv.isNative),
+      controlledStockToken,
+      persistedStockToken: persistedStockSelectedToken,
+      stockPairToken: stockPair.stockToken,
+    });
     if (!nextStockToken) {
       return;
     }

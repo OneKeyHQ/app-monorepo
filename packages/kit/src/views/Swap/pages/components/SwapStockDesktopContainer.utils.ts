@@ -230,6 +230,26 @@ export function getStockVariantOptionsPhase({
   return 'ready';
 }
 
+export function resolveStockVariantRowLabel({
+  detailName,
+  detailSymbol,
+  tokenName,
+  tokenSymbol,
+}: {
+  detailName?: string;
+  detailSymbol?: string;
+  tokenName?: string;
+  tokenSymbol?: string;
+}) {
+  return (
+    detailSymbol?.trim() ||
+    tokenSymbol?.trim() ||
+    detailName?.trim() ||
+    tokenName?.trim() ||
+    ''
+  );
+}
+
 export function formatStockIssuerLabel(issuer?: string) {
   const normalizedIssuer = issuer?.trim() ?? '';
   if (!normalizedIssuer) {
