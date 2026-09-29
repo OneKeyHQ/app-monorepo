@@ -97,7 +97,7 @@ describe('ServiceToken.abortFetchAccountTokens', () => {
     const { service, aborted } = setup(IN_FLIGHT);
 
     await service.abortFetchAccountTokens({
-      flags: ['home-token-list'],
+      includedFlags: ['home-token-list'],
       isAllNetworks: true,
     });
 

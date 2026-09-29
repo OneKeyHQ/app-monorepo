@@ -8,12 +8,14 @@
 // already running finished, and pull-to-refresh did not drop it either.
 
 jest.mock('../background/instance/backgroundApiProxy', () => {
-  const getAllNetworkAccounts = jest.fn();
-  (globalThis as any).__enabledNetworksTestMocks = { getAllNetworkAccounts };
+  const getAllNetworkAccountsForHome = jest.fn();
+  (globalThis as any).__enabledNetworksTestMocks = {
+    getAllNetworkAccountsForHome,
+  };
   return {
     __esModule: true,
     default: {
-      serviceAllNetwork: { getAllNetworkAccounts },
+      serviceAllNetwork: { getAllNetworkAccountsForHome },
       serviceDeFi: { getDeFiEnabledNetworksMap: jest.fn(async () => ({})) },
     },
   };
@@ -56,6 +58,7 @@ jest.mock('@onekeyhq/components', () => ({
 }));
 jest.mock('./useRouteIsFocused', () => ({
   useRouteIsFocused: () => true,
+  useRouteIsFocusedWhenEnabled: () => true,
 }));
 jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms/passwordLock', () => ({
   useAppIsLockedAtom: () => [false],
@@ -81,9 +84,9 @@ import { useAllNetworkRequests } from './useAllNetwork';
 yarn jest packages/kit/src/hooks/useAllNetworkRequests.enabledNetworks.test.tsx
 */
 
-const { getAllNetworkAccounts } = (
+const { getAllNetworkAccountsForHome } = (
   globalThis as unknown as {
-    __enabledNetworksTestMocks: { getAllNetworkAccounts: jest.Mock };
+    __enabledNetworksTestMocks: { getAllNetworkAccountsForHome: jest.Mock };
   }
 ).__enabledNetworksTestMocks;
 
@@ -101,19 +104,14 @@ function setup({
   const eth = { accountId: `${walletId}--eth`, networkId: 'evm--1' };
   const sui = { accountId: `${walletId}--sui`, networkId: 'sui--mainnet' };
   let enabled = [eth, sui];
-  getAllNetworkAccounts.mockImplementation(async () => {
-    const accountsInfo = enabled.map((a) => ({
+  getAllNetworkAccountsForHome.mockImplementation(async () =>
+    enabled.map((a) => ({
       ...a,
       apiAddress: `${a.accountId}-address`,
       dbAccount: {},
-    }));
-    return {
-      accountsInfo,
-      accountsInfoBackendIndexed: accountsInfo,
-      accountsInfoBackendNotIndexed: [],
-      allAccountsInfo: accountsInfo,
-    };
-  });
+      isBackendIndexed: true,
+    })),
+  );
   const pending: Array<{ resolve: () => void; reject: (e: Error) => void }> =
     [];
   const finishedResolvers: Array<() => void> = [];
@@ -251,7 +249,7 @@ function setup({
 
 describe('useAllNetworkRequests: enabled networks change during a fan-out', () => {
   beforeEach(() => {
-    getAllNetworkAccounts.mockReset();
+    getAllNetworkAccountsForHome.mockReset();
   });
 
   it('supersedes the running fan-out and fetches the new set right away', async () => {

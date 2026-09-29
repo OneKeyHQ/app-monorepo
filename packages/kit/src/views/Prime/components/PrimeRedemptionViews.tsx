@@ -67,11 +67,9 @@ function PrimeRedemptionSuccessSummary({
 export function PrimeRedemptionFormView({
   accountSlot,
   form,
-  isCodeReadOnly = false,
 }: {
   accountSlot?: ReactNode;
   form: UseFormReturn<IPrimeRedemptionFormValues>;
-  isCodeReadOnly?: boolean;
 }) {
   const intl = useIntl();
   const primeIconName = usePrimeRedemptionIconName();
@@ -122,7 +120,7 @@ export function PrimeRedemptionFormView({
               placeholder={redemptionCodeLabel}
               autoCapitalize="characters"
               autoCorrect={false}
-              editable={!isCodeReadOnly}
+              editable
             />
           </Form.Field>
         </Form>

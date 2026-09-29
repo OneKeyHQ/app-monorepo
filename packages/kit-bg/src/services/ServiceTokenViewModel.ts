@@ -33,12 +33,16 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { FrameChannelHost } from '@onekeyhq/shared/src/frameChannel';
+import { buildMergedAllNetworkSnapshot } from '@onekeyhq/shared/src/utils/buildMergedAllNetworkSnapshot';
+import type { IAllNetworkSnapshotRound } from '@onekeyhq/shared/src/utils/buildMergedAllNetworkSnapshot';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { flattenAggregateTokensMap } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type {
   IAccountToken,
   ICustomTokenItem,
   IHomeDefaultToken,
+  IHomeTokenRequest,
+  IHomeTokenRequestInvalidation,
   IToken,
   ITokenFiat,
 } from '@onekeyhq/shared/types/token';
@@ -49,6 +53,7 @@ import {
   metaByKeyFromTokens,
 } from '../states/jotai/contexts/tokenList/cellsPure/buildFrames';
 import { buildHomeTokenListCacheIngestRound } from '../states/jotai/contexts/tokenList/cellsPure/buildHomeTokenListCacheIngestRound';
+import { homeTokenRequestRegistry } from '../utils/homeTokenRequestRegistry';
 import { getVaultSettings } from '../vaults/settings';
 
 import ServiceBase from './ServiceBase';
@@ -134,6 +139,8 @@ interface IRawTokenListData {
  * hideZero authority inputs threaded through to `nonZeroIds`.
  */
 export interface IIngestRoundParams {
+  homeRequest?: IHomeTokenRequest;
+  homePublication?: number;
   ownerKey: string;
   orderedTokens: IAccountToken[];
   smallBalanceTokens: IAccountToken[];
@@ -248,6 +255,162 @@ class ServiceTokenViewModel extends ServiceBase {
     super({ backgroundApi });
   }
 
+  private homeRounds:
+    | {
+        homeRequest: IHomeTokenRequest;
+        entries: Map<
+          string,
+          { source: string; round: IAllNetworkSnapshotRound }
+        >;
+      }
+    | undefined;
+
+  private readonly homeRoundPrefix = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+
+  private homeRoundSequence = 0;
+
+  alignHomeTokenRequest(homeRequest: IHomeTokenRequest) {
+    homeTokenRequestRegistry.assertCurrent(homeRequest);
+    const retained = this.homeRounds;
+    if (!retained) return;
+    if (
+      retained.homeRequest.ownerKey !== homeRequest.ownerKey ||
+      retained.homeRequest.mainRuntimeId !== homeRequest.mainRuntimeId
+    ) {
+      this.homeRounds = undefined;
+    } else {
+      retained.homeRequest = homeRequest;
+    }
+  }
+
+  private homePublication:
+    | { homeRequest: IHomeTokenRequest; sequence: number }
+    | undefined;
+
+  private acceptHomePublication(
+    homeRequest?: IHomeTokenRequest,
+    sequence?: number,
+  ) {
+    if (!homeRequest || sequence === undefined) return true;
+    const previous = this.homePublication;
+    if (
+      previous?.homeRequest.mainRuntimeId === homeRequest.mainRuntimeId &&
+      previous.homeRequest.generation === homeRequest.generation &&
+      previous.sequence > sequence
+    )
+      return false;
+    this.homePublication = { homeRequest, sequence };
+    return true;
+  }
+
+  // Only the active Home owner needs floors. Entries reference completed BG
+  // results; no second token graph is cloned. Two versions per source cover
+  // the interval between a new BG result and its arrival in main.
+  retainHomeTokenRound({
+    homeRequest,
+    round,
+    origin,
+  }: {
+    homeRequest: IHomeTokenRequest;
+    round: IAllNetworkSnapshotRound;
+    origin: 'cache' | 'live';
+  }): string {
+    homeTokenRequestRegistry.assertCurrent(homeRequest);
+    if (
+      this.homeRounds?.homeRequest.ownerKey !== homeRequest.ownerKey ||
+      this.homeRounds.homeRequest.mainRuntimeId !== homeRequest.mainRuntimeId
+    ) {
+      this.homeRounds = { homeRequest, entries: new Map() };
+    }
+    this.homeRounds.homeRequest = homeRequest;
+    const entries = this.homeRounds.entries;
+    const source = JSON.stringify([round.accountId, round.networkId, origin]);
+    const previous = Array.from(entries).filter(
+      ([, entry]) => entry.source === source,
+    );
+    if (previous.length >= 2) entries.delete(previous[0][0]);
+    this.homeRoundSequence += 1;
+    const ref = `${this.homeRoundPrefix}:${this.homeRoundSequence}`;
+    entries.set(ref, { source, round });
+    if (entries.size > 128) {
+      const oldest = entries.keys().next().value;
+      if (oldest) entries.delete(oldest);
+    }
+    return ref;
+  }
+
+  retireHomeTokenRounds(request: IHomeTokenRequestInvalidation) {
+    const current = this.homeRounds?.homeRequest;
+    if (
+      current?.mainRuntimeId === request.mainRuntimeId &&
+      request.generation >= current.generation
+    ) {
+      this.homeRounds = undefined;
+    }
+  }
+
+  @backgroundMethod()
+  async ingestHomeTokenRounds({
+    homeRequest,
+    roundRefs,
+    createAtNetwork,
+    ...inputs
+  }: Pick<
+    IIngestRoundParams,
+    | 'ownerKey'
+    | 'accountId'
+    | 'networkId'
+    | 'storeData'
+    | 'keepDefault'
+    | 'homeDefaultTokenMap'
+    | 'customTokens'
+    | 'source'
+    | 'homePublication'
+  > & {
+    homeRequest: IHomeTokenRequest;
+    roundRefs: string[];
+    createAtNetwork?: string;
+  }): Promise<boolean> {
+    homeTokenRequestRegistry.assertCurrent(homeRequest, inputs.ownerKey);
+    if (!this.acceptHomePublication(homeRequest, inputs.homePublication))
+      return true;
+    const retained = this.homeRounds;
+    if (
+      !retained ||
+      retained.homeRequest.ownerKey !== inputs.ownerKey ||
+      retained.homeRequest.mainRuntimeId !== homeRequest.mainRuntimeId
+    )
+      return false;
+    const rounds: IAllNetworkSnapshotRound[] = [];
+    for (const ref of roundRefs) {
+      const entry = retained.entries.get(ref);
+      if (!entry) return false;
+      rounds.push(entry.round);
+    }
+    if (!rounds.length) return false;
+    const snapshot = buildMergedAllNetworkSnapshot({
+      rounds,
+      mergeDeriveAssetsByNetworkId: {},
+      accountId: inputs.accountId,
+      createAtNetwork,
+    });
+    // Call synchronously so frame production retains the existing no-yield
+    // contract. Only the RPC acknowledgement resolves asynchronously.
+    return this.ingestRound({
+      ...inputs,
+      homeRequest,
+      orderedTokens: snapshot.orderedTokens,
+      smallBalanceTokens: snapshot.smallBalanceTokens,
+      tokenListMap: snapshot.mergeTokenListMap,
+      aggregateTokensMap: snapshot.aggregateTokenMap,
+      ownedAggregateTokenListMap: snapshot.aggregateTokenListMap,
+      smallBalanceFiatValue: snapshot.smallBalanceFiatValue,
+      riskyTokens: snapshot.riskyTokens,
+      riskyMap: snapshot.riskyTokenListMap,
+      rawKeys: `${snapshot.tokenKeys}_${snapshot.smallBalanceKeys}_${snapshot.riskyKeys}`,
+    }).then(() => true);
+  }
+
   /**
    * The generic frame-channel kernel. Owns per-(owner, kind) versions, the
    * last-payload cache (PULL backstop), the per-owner pull-blobs (`prev` + raw),
@@ -289,6 +452,9 @@ class ServiceTokenViewModel extends ServiceBase {
    */
   @backgroundMethod()
   async ingestRound(params: IIngestRoundParams): Promise<void> {
+    homeTokenRequestRegistry.assertCurrent(params.homeRequest, params.ownerKey);
+    if (!this.acceptHomePublication(params.homeRequest, params.homePublication))
+      return;
     const {
       ownerKey,
       orderedTokens,
@@ -355,6 +521,7 @@ class ServiceTokenViewModel extends ServiceBase {
     };
 
     const { structure, valuation } = buildFrames(input, prev);
+    homeTokenRequestRegistry.assertCurrent(params.homeRequest, params.ownerKey);
     if (structure) {
       structure.provisional = provisional;
     }
