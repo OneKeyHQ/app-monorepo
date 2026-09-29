@@ -34,6 +34,7 @@ jest.mock('react-native', () => ({ StyleSheet: { hairlineWidth: 1 } }));
 
 jest.mock('@onekeyhq/kit/src/hooks/useRouteIsFocused', () => ({
   useRouteIsFocused: () => true,
+  useRouteIsFocusedWhenEnabled: () => true,
 }));
 
 jest.mock('@onekeyhq/components', () => {
