@@ -113,6 +113,8 @@ jest.mock('../../states/jotai/atoms', () => ({
     init: 'init',
     installing: 'installing',
     updateStart: 'updateStart',
+    error: 'error',
+    updateDone: 'updateDone',
   },
   // The real enum: the service builds its skipped/dialog event sets at
   // module scope, so an empty stub collapses both into Set{undefined}
@@ -2283,6 +2285,85 @@ describe('ServiceFirmwareUpdate workflow tracking', () => {
     jest.restoreAllMocks();
   });
 
+  it('does not write an error page after a V2 workflow has been exited', async () => {
+    const service = new ServiceFirmwareUpdate({
+      backgroundApi: {
+        serviceHardwareUI: {
+          silenceDeviceStageForFirmwareWorkflow: jest.fn(),
+        },
+        serviceSetting: {
+          getHardwareTransportType: jest
+            .fn()
+            .mockResolvedValue(EHardwareTransportType.WEBUSB),
+        },
+      } as unknown as IBackgroundApi,
+    });
+    let rejectRun: ((error: Error) => void) | undefined;
+    jest.spyOn(service, 'runUpdateWorkflowV2').mockReturnValue(
+      new Promise<void>((_resolve, reject) => {
+        rejectRun = reject;
+      }),
+    );
+    await service.startUpdateWorkflowV2({
+      backuped: true,
+      usbConnected: true,
+      releaseResult: { updateInfos: {} } as ICheckAllFirmwareReleaseResult,
+    });
+    await service.exitUpdateWorkflow();
+    jest.mocked(firmwareUpdateStepInfoAtom.set).mockClear();
+
+    rejectRun?.(new Error('FirmwareUpdateTasksClear: exitUpdateWorkflow'));
+    await new Promise<void>((resolve) => setImmediate(resolve));
+
+    expect(firmwareUpdateStepInfoAtom.set).not.toHaveBeenCalled();
+  });
+
+  it.each(['success', 'failure'] as const)(
+    'ignores an older V2 workflow settling with %s after a newer workflow starts',
+    async (outcome) => {
+      const service = new ServiceFirmwareUpdate({
+        backgroundApi: {
+          serviceHardwareUI: {
+            silenceDeviceStageForFirmwareWorkflow: jest.fn(),
+          },
+        } as unknown as IBackgroundApi,
+      });
+      let resolveRun: (() => void) | undefined;
+      let rejectRun: ((error: Error) => void) | undefined;
+      jest.spyOn(service, 'runUpdateWorkflowV2').mockReturnValue(
+        new Promise<void>((resolve, reject) => {
+          resolveRun = resolve;
+          rejectRun = reject;
+        }),
+      );
+      const complete = jest
+        .spyOn(service, 'completeUpdateWorkflow')
+        .mockResolvedValue(undefined);
+      const fail = jest
+        .spyOn(service, 'failUpdateWorkflow')
+        .mockResolvedValue(undefined);
+      const releaseResult = {
+        updateInfos: {},
+      } as ICheckAllFirmwareReleaseResult;
+      await service.startUpdateWorkflowV2({
+        backuped: true,
+        usbConnected: true,
+        releaseResult,
+      });
+      service.resetUpdateWorkflowTracking({ updateFlow: 'v2', releaseResult });
+
+      if (outcome === 'success') {
+        resolveRun?.();
+      } else {
+        rejectRun?.(new Error('late failure'));
+      }
+      await new Promise<void>((resolve) => setImmediate(resolve));
+
+      expect(complete).not.toHaveBeenCalled();
+      expect(fail).not.toHaveBeenCalled();
+    },
+  );
+
   it('clears stale transfer samples before starting a V2 workflow', async () => {
     const silenceForFirmwareWorkflow = jest.fn();
     const service = new ServiceFirmwareUpdate({
@@ -2310,6 +2391,40 @@ describe('ServiceFirmwareUpdate workflow tracking', () => {
       jest.mocked(firmwareUpdateWorkflowRunningAtom.set).mock
         .invocationCallOrder[0],
     ).toBeLessThan(silenceForFirmwareWorkflow.mock.invocationCallOrder[0]);
+  });
+
+  it('does not clear a newer workflow guard when the older V2 run finishes', async () => {
+    let rejectProcessing: ((error: Error) => void) | undefined;
+    const service = new ServiceFirmwareUpdate({
+      backgroundApi: {
+        serviceHardwareUI: {
+          withHardwareProcessing: jest.fn(
+            () =>
+              new Promise<void>((_resolve, reject) => {
+                rejectProcessing = reject;
+              }),
+          ),
+        },
+      } as unknown as IBackgroundApi,
+    });
+    const releaseResult = { updateInfos: {} } as ICheckAllFirmwareReleaseResult;
+    const workflowId = service.resetUpdateWorkflowTracking({
+      updateFlow: 'v2',
+      releaseResult,
+    });
+    const run = service.runUpdateWorkflowV2(
+      { backuped: true, usbConnected: true, releaseResult },
+      workflowId,
+    );
+    service.resetUpdateWorkflowTracking({ updateFlow: 'v2', releaseResult });
+    jest.mocked(firmwareUpdateWorkflowRunningAtom.set).mockClear();
+
+    rejectProcessing?.(new Error('older workflow cancelled'));
+    await expect(run).rejects.toThrow('older workflow cancelled');
+
+    expect(firmwareUpdateWorkflowRunningAtom.set).not.toHaveBeenCalledWith(
+      false,
+    );
   });
 
   it('drops the guard again when silencing the stage fails before a V2 workflow starts', async () => {
