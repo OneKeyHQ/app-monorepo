@@ -87,7 +87,8 @@ describe.each([true, false])('open order sizes (mobile=%s)', (isMobile) => {
         { orderType, sz: '0.0', origSz: '0.00' },
         isMobile,
       );
-      expect(screen.getAllByText('--')).toHaveLength(isMobile ? 1 : 2);
+      // Desktop shows remaining size, original size, and value columns.
+      expect(screen.getAllByText('--')).toHaveLength(isMobile ? 1 : 3);
       expect(screen.queryByText('0 / 0')).toBeNull();
     },
   );

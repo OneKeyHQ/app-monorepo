@@ -220,7 +220,9 @@ const OpenOrdersRow = memo(
         ? '--'
         : numberFormat(size, balanceFormatter);
       const value = priceBN.times(origSizeBN).toFixed();
-      const valueFormatted = numberFormat(value, balanceCurrencyFormatter);
+      const valueFormatted = isPositionSized
+        ? '--'
+        : numberFormat(value, balanceCurrencyFormatter);
       return {
         triggerCondition,
         origSizeFormatted,
