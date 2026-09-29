@@ -3,13 +3,7 @@ import { memo, useCallback, useMemo } from 'react';
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
-import {
-  Button,
-  SizableText,
-  Spinner,
-  XStack,
-  YStack,
-} from '@onekeyhq/components';
+import { Button, SizableText, XStack, YStack } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { useHyperliquidActions } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import {
@@ -305,7 +299,6 @@ const OpenOrdersRow = memo(
                   testID={PerpTestIDs.ChaseOrderButton(order.oid)}
                   size="small"
                   variant="secondary"
-                  loading={isChasingOrder}
                   disabled={isChasingOrder}
                   onPress={handleChaseOrder}
                   childrenAsText={false}
@@ -321,6 +314,7 @@ const OpenOrdersRow = memo(
                 testID={PerpTestIDs.CancelOrderButton(order.oid)}
                 size="small"
                 variant="secondary"
+                cursor="pointer"
                 onPress={handleCancelOrder}
                 childrenAsText={false}
               >
@@ -613,20 +607,8 @@ const OpenOrdersRow = memo(
                   cursor={isChasingOrder ? 'default' : 'pointer'}
                   onPress={isChasingOrder ? undefined : handleChaseOrder}
                 >
-                  {isChasingOrder ? (
-                    <Spinner
-                      size="small"
-                      color="$textInteractive"
-                      scale={0.65}
-                    />
-                  ) : null}
                   <SizableText
                     color={isChasingOrder ? '$textDisabled' : '$bgAccent'}
-                    hoverStyle={
-                      isChasingOrder
-                        ? undefined
-                        : { size: '$bodySmMedium', fontWeight: 600 }
-                    }
                     size="$bodySmMedium"
                   >
                     {intl.formatMessage({
@@ -639,6 +621,7 @@ const OpenOrdersRow = memo(
                 color="$bgAccent"
                 hoverStyle={{ size: '$bodySmMedium', fontWeight: 600 }}
                 size="$bodySmMedium"
+                cursor="pointer"
                 onPress={handleCancelOrder}
               >
                 {intl.formatMessage({
