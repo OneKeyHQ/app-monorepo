@@ -58,6 +58,8 @@ export interface IMarketTokenDetail {
   };
   price?: string;
   priceConverted?: string;
+  // Runtime-only: subsequent detail responses refresh metadata, not the quote.
+  detailPriceInitialized?: boolean;
   chartPriceUpdatedAt?: number;
   priceChange1mPercent?: string;
   priceChange5mPercent?: string;

@@ -122,6 +122,7 @@ export function StockSimpleChart({
         priceMode: requestPriceMode,
         tokenAddress: requestTokenAddress,
       }),
+    marketAssetId: requestMarketAssetId,
     networkId: requestNetworkId,
     tokenAddress: requestTokenAddress,
   });

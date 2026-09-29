@@ -82,14 +82,18 @@ describe('resolveMarketKlineLivePriceEnabled', () => {
     ).toBe(false);
   });
 
-  it('skips top coins, whose quote comes from the market asset feed', () => {
-    expect(
-      resolveMarketKlineLivePriceEnabled({
-        ...baseParams,
-        marketAssetId: 'bitcoin',
-      }),
-    ).toBe(false);
-  });
+  it.each(['usd', 'cny'])(
+    'enables top coins using their USD asset feed with %s selected',
+    (currencyId) => {
+      expect(
+        resolveMarketKlineLivePriceEnabled({
+          ...baseParams,
+          currencyId,
+          marketAssetId: 'bitcoin',
+        }),
+      ).toBe(true);
+    },
+  );
 
   it('skips non-USD display currencies, which the K-line feed cannot quote', () => {
     expect(

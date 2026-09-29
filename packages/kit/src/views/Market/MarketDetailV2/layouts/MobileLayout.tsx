@@ -38,6 +38,7 @@ import {
   useSafeAreaInsets,
 } from '@onekeyhq/components';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
+import { useCurrency } from '@onekeyhq/kit/src/components/Currency';
 import { TradingViewChartLoadingMask } from '@onekeyhq/kit/src/components/TradingView/TradingViewChartLoadingMask';
 import { TradingViewNative } from '@onekeyhq/kit/src/components/TradingView/TradingViewNative';
 import { TRADING_VIEW_NATIVE_SUB_INDICATOR_PANE_HEIGHT } from '@onekeyhq/kit/src/components/TradingView/TradingViewNative/chartConstants';
@@ -56,6 +57,7 @@ import {
   useMarketTradingViewSubIndicatorCountPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { IMarketTradingViewStorageNamespace } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { MARKET_TOP_COINS_CATEGORY_ID } from '@onekeyhq/shared/src/consts/marketConsts';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -78,11 +80,13 @@ import { LazyMobileMarketTradingView } from '../components/MarketTradingView/Laz
 import { PerpetualTradingBanner } from '../components/PerpetualTradingBanner/PerpetualTradingBanner';
 import { useStockDetail } from '../hooks/StockDetailContext';
 import { useMarketDetailDisplayData } from '../hooks/useMarketDetailDisplayData';
+import { useMarketKlineLivePrice } from '../hooks/useMarketKlineLivePrice';
 import { useMarketNativeChartLayout } from '../hooks/useMarketNativeChartLayout';
 import { useMarketNativeChartPriceUpdate } from '../hooks/useMarketNativeChartPriceUpdate';
 import { useMarketTradingViewParams } from '../hooks/useTokenDetail';
 import { useTradingViewSubIndicatorCount } from '../hooks/useTradingViewSubIndicatorCount';
 import { getMarketDetailTradingViewNativeSource } from '../utils/getMarketDetailTradingViewNativeSource';
+import { resolveMarketKlineLivePriceEnabled } from '../utils/marketKlineLivePrice';
 import { getMarketStockChartPreviousClose } from '../utils/marketStockPreviousClose';
 import {
   hasMarketContractAddress,
@@ -386,6 +390,7 @@ export function MobileLayout({
   networkId: routeNetworkId = '',
   tokenAddress: routeTokenAddress = '',
   marketTokenId,
+  marketTokenCategory,
 }: IMobileLayoutProps) {
   const {
     tokenAddress: storeTokenAddress,
@@ -519,6 +524,28 @@ export function MobileLayout({
       tokenSymbol,
     ],
   );
+  const { id: currencyId } = useCurrency();
+  const marketAssetId =
+    marketTokenCategory === MARKET_TOP_COINS_CATEGORY_ID
+      ? marketTokenId
+      : undefined;
+  useMarketKlineLivePrice({
+    enabled:
+      isTradingViewNative &&
+      tradingViewNativeSource.kind === 'market' &&
+      tradingViewNativeSource.realtime !== 'websocket' &&
+      resolveMarketKlineLivePriceEnabled({
+        currencyId,
+        isNative,
+        marketAssetId,
+        networkId,
+        priceMode: 'token',
+        tokenAddress,
+      }),
+    marketAssetId,
+    networkId,
+    tokenAddress,
+  });
   const { accountAddress, xpub } = useNetworkAccount(networkId);
   const accountMarksContext = useMemo(
     () => ({ accountAddress, networkId, tokenAddress }),

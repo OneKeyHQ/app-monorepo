@@ -842,7 +842,7 @@ describe('initial detail layout readiness', () => {
     mockSetTokenDetailLoading.mockClear();
     rerender({ active: false });
     expect(result.current.isInitialTokenDetailPending).toBe(false);
-    expect(promiseOptions?.pollingInterval).toBeUndefined();
+    expect(promiseOptions?.pollingInterval).toBe(6000);
     await act(async () => {
       await promiseFactory?.();
     });
@@ -851,7 +851,7 @@ describe('initial detail layout readiness', () => {
 
     rerender({ active: true });
     expect(result.current.isInitialTokenDetailPending).toBe(true);
-    expect(promiseOptions?.pollingInterval).toBeUndefined();
+    expect(promiseOptions?.pollingInterval).toBe(6000);
     await act(async () => {
       await promiseFactory?.();
     });
@@ -860,7 +860,7 @@ describe('initial detail layout readiness', () => {
   });
 });
 
-describe('initial detail request scheduling', () => {
+describe('detail metadata refresh scheduling', () => {
   const input = {
     tokenAddress: '0xabc',
     networkId: 'evm--1',
@@ -904,7 +904,7 @@ describe('initial detail request scheduling', () => {
       },
     },
   ])(
-    'fetches $name details only once across time, focus and reconnect',
+    'refreshes $name metadata across time and reconnect',
     async ({ name, props }) => {
       const fetchDetail =
         name === 'token' ? mockFetchTokenDetail : mockFetchAssetTokenDetail;
@@ -912,15 +912,15 @@ describe('initial detail request scheduling', () => {
         useAutoRefreshTokenDetail(props),
       );
       await act(async () => {
-        await Promise.resolve();
+        await jest.advanceTimersByTimeAsync(0);
       });
       expect(fetchDetail).toHaveBeenCalledTimes(1);
       expect(result.current.isInitialTokenDetailPending).toBe(false);
 
       await act(async () => {
-        await jest.advanceTimersByTimeAsync(60_000);
+        await jest.advanceTimersByTimeAsync(6000);
       });
-      expect(fetchDetail).toHaveBeenCalledTimes(1);
+      expect(fetchDetail).toHaveBeenCalledTimes(2);
 
       mockIsFocused = false;
       mockIsInternetReachable = false;
@@ -929,19 +929,23 @@ describe('initial detail request scheduling', () => {
       mockIsInternetReachable = true;
       rerender();
       await act(async () => {
-        await jest.advanceTimersByTimeAsync(60_000);
+        await jest.advanceTimersByTimeAsync(0);
       });
-      expect(fetchDetail).toHaveBeenCalledTimes(1);
+      expect(fetchDetail).toHaveBeenCalledTimes(3);
+      await act(async () => {
+        await jest.advanceTimersByTimeAsync(6000);
+      });
+      expect(fetchDetail).toHaveBeenCalledTimes(4);
     },
   );
 
-  it('fetches once for each new token or display currency', async () => {
+  it('immediately fetches each new token or display currency', async () => {
     const { rerender } = renderHook(
       (props) => useAutoRefreshTokenDetail(props),
       { initialProps: input },
     );
     await act(async () => {
-      await Promise.resolve();
+      await jest.advanceTimersByTimeAsync(0);
     });
     expect(mockFetchTokenDetail).toHaveBeenCalledTimes(1);
 
@@ -959,7 +963,7 @@ describe('initial detail request scheduling', () => {
     mockCurrencyId = 'eur';
     rerender({ ...input, tokenAddress: '0xdef' });
     await act(async () => {
-      await jest.advanceTimersByTimeAsync(60_000);
+      await jest.advanceTimersByTimeAsync(0);
     });
     expect(mockFetchTokenDetail).toHaveBeenCalledTimes(3);
   });

@@ -392,6 +392,11 @@ export function useAutoRefreshTokenDetail(data: IUseMarketDetailDataProps) {
     ],
     {
       undefinedResultIfError: true,
+      // Refresh statistics without replacing the initialized or chart-owned price.
+      // A stable interval also lets retained routes refetch immediately on entry.
+      pollingInterval: 6000,
+      revalidateOnFocus: true,
+      revalidateOnReconnect: true,
       resumeOnEffectReconnect: data.resumeOnEffectReconnect,
       // Disable focus check to allow data fetching when navigating from Modal to Tab
       // This is needed because when navigating from MarketBannerDetail (Modal) to MarketDetailV2 (Tab),

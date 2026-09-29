@@ -22,9 +22,8 @@ export const MARKET_KLINE_LIVE_PRICE_POLLING_MS = 6000;
 
 /**
  * The K-line feed prices a token's own trades, so it can only stand in for a
- * token-mode quote: a share quote comes from the stock feed. Top coins are
- * excluded because their quote comes from the market asset feed, not from a
- * single pool.
+ * token-mode quote: a share quote comes from the stock feed. Top coins use the
+ * aggregate asset K-line feed, matching their USD detail quote.
  */
 export function resolveMarketKlineLivePriceEnabled({
   currencyId,
@@ -47,9 +46,9 @@ export function resolveMarketKlineLivePriceEnabled({
   const hasTokenIdentity = Boolean(networkId && (tokenAddress || isNative));
   return Boolean(
     priceMode === 'token' &&
-    !marketAssetId &&
     hasTokenIdentity &&
-    currencyId?.toLowerCase() === MARKET_KLINE_LIVE_PRICE_CURRENCY,
+    (marketAssetId ||
+      currencyId?.toLowerCase() === MARKET_KLINE_LIVE_PRICE_CURRENCY),
   );
 }
 

@@ -240,22 +240,31 @@ async function fetchMarketAssetTokenDetail(
     // Chart updates may arrive while the decimals lookup is in flight.
     const latestTokenDetail = get(tokenDetailAtom());
     const chartPriceUpdatedAt = latestTokenDetail?.chartPriceUpdatedAt;
+    const isSameToken = isSameMarketTokenDetail({
+      tokenDetail: latestTokenDetail,
+      tokenAddress,
+      networkId,
+    });
     const hasChartPrice =
-      isSameMarketTokenDetail({
-        tokenDetail: latestTokenDetail,
-        tokenAddress,
-        networkId,
-      }) &&
+      isSameToken &&
       typeof chartPriceUpdatedAt === 'number' &&
       Number.isFinite(chartPriceUpdatedAt);
-    const finalTokenData = hasChartPrice
-      ? {
-          ...tokenData,
-          price: latestTokenDetail?.price,
-          lastUpdated: latestTokenDetail?.lastUpdated,
-          chartPriceUpdatedAt,
-        }
-      : tokenData;
+    const hasInitialPrice =
+      isSameToken && latestTokenDetail?.detailPriceInitialized;
+    const numericPrice = Number(tokenData.price);
+    const detailPriceInitialized = Boolean(
+      hasInitialPrice || (Number.isFinite(numericPrice) && numericPrice > 0),
+    );
+    const finalTokenData =
+      hasChartPrice || hasInitialPrice
+        ? {
+            ...tokenData,
+            price: latestTokenDetail?.price,
+            lastUpdated: latestTokenDetail?.lastUpdated,
+            chartPriceUpdatedAt,
+            detailPriceInitialized,
+          }
+        : { ...tokenData, detailPriceInitialized };
 
     set(tokenDetailAtom(), finalTokenData);
     set(tokenDetailPreviewAtom(), undefined);

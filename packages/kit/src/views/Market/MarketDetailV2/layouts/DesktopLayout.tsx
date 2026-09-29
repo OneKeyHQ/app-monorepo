@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef } from 'react';
 import type { ComponentProps, RefObject } from 'react';
 
 import { Spinner, Stack, useOverlayZIndex } from '@onekeyhq/components';
+import { useCurrency } from '@onekeyhq/kit/src/components/Currency';
 import {
   type ITradingViewNativeSource,
   TradingViewNative,
@@ -10,7 +11,10 @@ import { getTradingViewNativeSourceKey } from '@onekeyhq/kit/src/components/Trad
 import { getTradingViewNativeIntervalStorageNamespace } from '@onekeyhq/kit/src/components/TradingView/TradingViewNative/data/tradingViewNativeIntervalStorage';
 import type { IMarketKLineDataFallback } from '@onekeyhq/kit/src/components/TradingView/utils/fetchMarketKLineData';
 import { fetchMarketStockKLineData } from '@onekeyhq/kit/src/components/TradingView/utils/fetchMarketStockKLineData';
-import { useMarketPriceSourceAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  useMarketDetailChartDisplayModePersistAtom,
+  useMarketPriceSourceAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   TRADING_VIEW_LOCALHOST_ORIGIN,
   TRADING_VIEW_URL,
@@ -29,12 +33,14 @@ import { LazyDesktopMarketTradingView } from '../components/MarketTradingView/La
 import { MarketChartFullscreenHeader } from '../components/MarketTradingView/MarketChartFullscreenHeader';
 import { useStockDetail } from '../hooks/StockDetailContext';
 import { useMarketDetailDisplayData } from '../hooks/useMarketDetailDisplayData';
+import { useMarketKlineLivePrice } from '../hooks/useMarketKlineLivePrice';
 import { useMarketNativeChartPriceUpdate } from '../hooks/useMarketNativeChartPriceUpdate';
 import {
   useMarketTradingViewParams,
   useTokenDetail,
 } from '../hooks/useTokenDetail';
 import { getMarketDetailTradingViewNativeSource } from '../utils/getMarketDetailTradingViewNativeSource';
+import { resolveMarketKlineLivePriceEnabled } from '../utils/marketKlineLivePrice';
 import { getMarketStockChartPreviousClose } from '../utils/marketStockPreviousClose';
 import {
   hasMarketContractAddress,
@@ -388,6 +394,9 @@ export function DesktopLayout({
     websocketConfig,
   });
   const effectiveMarketTradingViewParams = marketTradingViewParams;
+  const { id: currencyId } = useCurrency();
+  const [{ mode: chartDisplayMode }] =
+    useMarketDetailChartDisplayModePersistAtom();
   const tradingViewNativeSource = useMemo<ITradingViewNativeSource>(() => {
     if (isStockSharePrice && stockId) {
       return { kind: 'stock', stockId };
@@ -411,6 +420,29 @@ export function DesktopLayout({
     tokenDetail?.symbol,
     displayTokenDetail?.symbol,
   ]);
+  const marketAssetId = shouldUseTopCoinsDesktopLayout
+    ? marketTokenId
+    : undefined;
+  // Native sources without WS cannot keep the quote live after initialization.
+  useMarketKlineLivePrice({
+    enabled:
+      active !== false &&
+      isTradingViewNative &&
+      (chartDisplayMode === 'pro' || isChartFullscreen) &&
+      tradingViewNativeSource.kind === 'market' &&
+      tradingViewNativeSource.realtime !== 'websocket' &&
+      resolveMarketKlineLivePriceEnabled({
+        currencyId,
+        isNative,
+        marketAssetId,
+        networkId,
+        priceMode: 'token',
+        tokenAddress,
+      }),
+    marketAssetId,
+    networkId,
+    tokenAddress,
+  });
   const stockKLineDataFallback = useMemo<IMarketKLineDataFallback | undefined>(
     () =>
       stockId

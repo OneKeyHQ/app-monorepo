@@ -452,6 +452,9 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
         set(tokenDetailAtom(), {
           ...responseData.data.token,
           networkId,
+          detailPriceInitialized:
+            Number.isFinite(Number(responseData.data.token.price)) &&
+            Number(responseData.data.token.price) > 0,
         });
         set(tokenDetailPreviewAtom(), undefined);
         set(tokenDetailWebsocketAtom(), responseData.data.websocket);
@@ -583,8 +586,8 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
         const websocketConfig = responseData.data.websocket;
         const perpsInfo = responseData.data.perpsInfo;
 
-        // The detail response only seeds the price until the chart takes over.
-        // A late response must not replace history or realtime prices.
+        // Detail responses initialize the quote once, then only refresh metadata.
+        // Chart prices also take precedence if they arrive before initialization.
         const isSameToken =
           currentTokenDetail &&
           isSameMarketTokenDetail({
@@ -597,15 +600,24 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
           isSameToken &&
           typeof chartPriceUpdatedAt === 'number' &&
           Number.isFinite(chartPriceUpdatedAt);
+        const hasInitialPrice =
+          isSameToken && currentTokenDetail.detailPriceInitialized;
+        const numericPrice = Number(tokenData.price);
+        const detailPriceInitialized = Boolean(
+          hasInitialPrice ||
+          (Number.isFinite(numericPrice) && numericPrice > 0),
+        );
 
-        const finalTokenData = hasChartPrice
-          ? {
-              ...tokenData,
-              price: currentTokenDetail.price,
-              lastUpdated: currentTokenDetail.lastUpdated,
-              chartPriceUpdatedAt,
-            }
-          : tokenData;
+        const finalTokenData =
+          hasChartPrice || hasInitialPrice
+            ? {
+                ...tokenData,
+                price: currentTokenDetail.price,
+                lastUpdated: currentTokenDetail.lastUpdated,
+                chartPriceUpdatedAt,
+                detailPriceInitialized,
+              }
+            : { ...tokenData, detailPriceInitialized };
 
         set(tokenDetailAtom(), finalTokenData);
         set(tokenDetailPreviewAtom(), undefined);
