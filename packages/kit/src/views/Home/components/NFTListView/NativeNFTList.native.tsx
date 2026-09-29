@@ -42,6 +42,7 @@ export function NFTListView({
   data,
   isLoading,
   initialized,
+  onRefresh: refresh,
   isAllNetworks,
 }: IProps) {
   const [searchKey] = useSearchKeyAtom();
@@ -58,7 +59,7 @@ export function NFTListView({
     return 2;
   }, [media.gt2xl, media.gtXl, media.gtLg, media.gtSm]);
   const bottom = useScrollContentTabBarOffset();
-  const { refreshing, onRefresh } = useHomeNativeRefresh();
+  const { refreshing, onRefresh } = useHomeNativeRefresh(refresh);
   const theme = useHomeNativeListTheme();
   const filteredNfts = useMemo(
     () => getFilteredNftsBySearchKey({ nfts: data, searchKey }),

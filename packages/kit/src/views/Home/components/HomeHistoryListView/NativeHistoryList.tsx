@@ -224,6 +224,7 @@ export function NativeHistoryList(props: IHomeHistoryListViewProps) {
   const [addressesInfo] = useAddressesInfoAtom();
   const [settings] = useSettingsPersistAtom();
   const [settingsValue] = useSettingsValuePersistAtom();
+  const effectiveHideValue = !!hideValue && settingsValue.hideValue;
   const {
     activeAccount: { network },
   } = useActiveAccount({ num: 0 });
@@ -313,7 +314,7 @@ export function NativeHistoryList(props: IHomeHistoryListViewProps) {
                   history.decodedTx.accountId,
                 ])
               ]?.vault?.isUtxo,
-            hideValue: !!hideValue && settingsValue.hideValue,
+            hideValue: effectiveHideValue,
             currency: settings.currencyInfo.symbol,
             isAllNetworks: network?.isAllNetworks,
           }),
@@ -324,8 +325,7 @@ export function NativeHistoryList(props: IHomeHistoryListViewProps) {
       intl,
       tableLayout,
       networkData,
-      hideValue,
-      settingsValue.hideValue,
+      effectiveHideValue,
       settings.currencyInfo.symbol,
       network?.isAllNetworks,
     ],
@@ -480,22 +480,36 @@ export function NativeHistoryList(props: IHomeHistoryListViewProps) {
                     }),
                     primary: formatHistoryNumber(
                       history.decodedTx.totalFeeInNative ?? '-',
-                      { balance: true, symbol: info?.token?.symbol },
+                      {
+                        balance: true,
+                        symbol: info?.token?.symbol,
+                        hideValue: effectiveHideValue,
+                      },
                     ).text,
                     primaryTextSegments: formatHistoryNumber(
                       history.decodedTx.totalFeeInNative ?? '-',
-                      { balance: true, symbol: info?.token?.symbol },
+                      {
+                        balance: true,
+                        symbol: info?.token?.symbol,
+                        hideValue: effectiveHideValue,
+                      },
                     ).textSegments,
                     secondaryTextSegments: history.decodedTx.totalFeeFiatValue
                       ? formatHistoryNumber(
                           history.decodedTx.totalFeeFiatValue,
-                          { currency: settings.currencyInfo.symbol },
+                          {
+                            currency: settings.currencyInfo.symbol,
+                            hideValue: effectiveHideValue,
+                          },
                         ).textSegments
                       : undefined,
                     secondary: history.decodedTx.totalFeeFiatValue
                       ? formatHistoryNumber(
                           history.decodedTx.totalFeeFiatValue,
-                          { currency: settings.currencyInfo.symbol },
+                          {
+                            currency: settings.currencyInfo.symbol,
+                            hideValue: effectiveHideValue,
+                          },
                         ).text
                       : undefined,
                     hidden: info?.vault.hideFeeInfoInHistoryList,
@@ -515,6 +529,7 @@ export function NativeHistoryList(props: IHomeHistoryListViewProps) {
       networkData,
       pendingActions,
       tableLayout,
+      effectiveHideValue,
       settings.currencyInfo.symbol,
     ],
   );

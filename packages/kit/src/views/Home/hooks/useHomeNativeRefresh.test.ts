@@ -62,4 +62,16 @@ describe('Home native pull-to-refresh', () => {
     act(() => result.current.onRefresh());
     expect(onHomePageRefresh).toHaveBeenCalledTimes(2);
   });
+
+  it('calls a supplied refresh callback once without dispatching the default refresh', () => {
+    const refresh = jest.fn();
+    const { result } = renderHook(() => useHomeNativeRefresh(refresh));
+    act(() => {
+      result.current.onRefresh();
+      result.current.onRefresh();
+    });
+    expect(refresh).toHaveBeenCalledTimes(1);
+    expect(onHomePageRefresh).not.toHaveBeenCalled();
+    expect(result.current.refreshing).toBe(true);
+  });
 });

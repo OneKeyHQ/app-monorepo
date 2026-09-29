@@ -8,7 +8,7 @@ import { onHomePageRefresh } from '../components/PullToRefresh';
 
 import type { NativeScrollEvent, NativeSyntheticEvent } from 'react-native';
 
-export function useHomeNativeRefresh() {
+export function useHomeNativeRefresh(refresh?: () => void) {
   const [refreshing, setRefreshing] = useState(false);
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   useEffect(() => () => clearTimeout(timer.current), []);
@@ -20,9 +20,9 @@ export function useHomeNativeRefresh() {
       setRefreshing(false);
     }, 1200);
     Haptics.impact(ImpactFeedbackStyle.Medium);
-    onHomePageRefresh();
+    (refresh ?? onHomePageRefresh)();
     defaultLogger.account.wallet.walletPullToRefresh();
-  }, []);
+  }, [refresh]);
   const minOverscroll = useRef(0);
   const dragging = useRef(false);
   const onScrollBeginDrag = useCallback(() => {
