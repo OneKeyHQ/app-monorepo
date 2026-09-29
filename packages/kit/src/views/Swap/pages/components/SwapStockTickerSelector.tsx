@@ -190,10 +190,15 @@ function StockTickerList({ closePopover }: { closePopover: () => void }) {
                 <Token size="md" tokenImageUri={stock.logoUrl} />
                 <YStack flex={1} minWidth={0}>
                   <SizableText size="$bodyLgMedium" numberOfLines={1}>
-                    {stock.name}
-                  </SizableText>
-                  <SizableText size="$bodyMd" color="$textSubdued">
                     {stock.symbol}
+                  </SizableText>
+                  <SizableText
+                    size={md ? '$bodyMd' : '$bodySm'}
+                    color="$textSubdued"
+                    numberOfLines={1}
+                    ellipsizeMode="tail"
+                  >
+                    {stock.name}
                   </SizableText>
                 </YStack>
                 <YStack alignItems="flex-end">
