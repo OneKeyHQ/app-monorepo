@@ -252,7 +252,6 @@ type IPrivateSendQuoteRecipientResult = {
 
 type IPrivateSendBuildCtx = {
   rocketXOrderId?: unknown;
-  payinAddress?: unknown;
 };
 
 type IPrivateSendQuoteEvent = ISwapQuoteEventPayload;
@@ -379,14 +378,6 @@ function buildPrivateSendQuoteScopeKey({
     `${token?.decimals ?? ''}`,
     normalizedAmount,
   ].join('|');
-}
-
-function getPrivateSendRocketXOrderId(ctx: unknown) {
-  const rocketXOrderId = (ctx as IPrivateSendBuildCtx | undefined)
-    ?.rocketXOrderId;
-  return typeof rocketXOrderId === 'string' && rocketXOrderId
-    ? rocketXOrderId
-    : undefined;
 }
 
 function getPrivateSendValueDropPercent(quote?: IFetchQuoteResult) {
@@ -3249,16 +3240,13 @@ function SendAmountInputContainer() {
             }
             const privateSendProviderOrderId =
               buildSwapRes.changellyOrder.orderId;
-            const privateSendRocketXOrderId = getPrivateSendRocketXOrderId(
-              buildSwapRes.ctx,
-            );
             const privateSendBackendOrderId = buildSwapRes.orderId;
-            if (
-              !privateSendProviderOrderId ||
-              !privateSendRocketXOrderId ||
-              privateSendProviderOrderId !== privateSendRocketXOrderId ||
-              !privateSendBackendOrderId
-            ) {
+            // Keep RocketX's legacy ID for existing history consumers, but do
+            // not make it a prerequisite for other private-send providers.
+            const privateSendRocketXOrderId = (
+              buildSwapRes.ctx as IPrivateSendBuildCtx | undefined
+            )?.rocketXOrderId;
+            if (!privateSendProviderOrderId || !privateSendBackendOrderId) {
               throw new OneKeyLocalError(
                 intl.formatMessage({
                   id: ETranslations.swap_page_alert_no_provider_supports_trade,
@@ -3442,7 +3430,6 @@ function SendAmountInputContainer() {
                 },
                 ctx: {
                   ...normalizedBuildSwapRes.ctx,
-                  rocketXOrderId: privateSendRocketXOrderId,
                 },
               };
               try {
@@ -3488,7 +3475,10 @@ function SendAmountInputContainer() {
                 originalRecipient: submitRecipientAddress,
                 privateSend: {
                   orderId: privateSendOrderId,
-                  rocketXOrderId: privateSendRocketXOrderId,
+                  ...(typeof privateSendRocketXOrderId === 'string' &&
+                  privateSendRocketXOrderId
+                    ? { rocketXOrderId: privateSendRocketXOrderId }
+                    : {}),
                   payinAddress: privateSendPayinAddress,
                   provider: privateSendProviderInfo.provider,
                   providerName: privateSendProviderInfo.providerName,
