@@ -596,7 +596,7 @@ describe('ServiceAppUpdate state transitions', () => {
       expect(result.downloadedEvent).toBeUndefined();
     });
 
-    test('macOS package not prepared in the current process invalidates ready state', async () => {
+    test('unverified package invalidates ready state and uses the recovery budget', async () => {
       const {
         AppUpdate,
       } = require('@onekeyhq/shared/src/modules3rdParty/auto-update');
@@ -618,7 +618,7 @@ describe('ServiceAppUpdate state transitions', () => {
 
       expect(result.status).toBe(EAppUpdateStatus.notify);
       expect(result.downloadedEvent).toBeUndefined();
-      expect(result.fullFlowRetryByTarget).toEqual({});
+      expect(result.fullFlowRetryByTarget?.['recovery:2.0.0:1']?.count).toBe(1);
 
       const emitSpy = jest.spyOn(appEventBus, 'emit');
       await jest.runAllTimersAsync();
@@ -629,7 +629,7 @@ describe('ServiceAppUpdate state transitions', () => {
     });
 
     test.each([EAppUpdateStatus.ready, EAppUpdateStatus.manualInstall])(
-      'manual package in %s resumes updater cache preparation without an incomplete state',
+      'unverified manual package in %s becomes incomplete',
       async (status) => {
         const {
           AppUpdate,
@@ -650,12 +650,12 @@ describe('ServiceAppUpdate state transitions', () => {
 
         const result = await service.reconcileAppShellPackage();
 
-        expect(result.status).toBe(EAppUpdateStatus.downloadPackage);
+        expect(result.status).toBe(EAppUpdateStatus.updateIncomplete);
         expect(result.downloadedEvent).toBeUndefined();
         expect(result.fullFlowRetryByTarget).toEqual({});
         const emitSpy = jest.spyOn(appEventBus, 'emit');
         await jest.runAllTimersAsync();
-        expect(emitSpy).toHaveBeenCalledWith(
+        expect(emitSpy).not.toHaveBeenCalledWith(
           EAppEventBusNames.StartAutoDownloadUpdate,
           { decision: 'appShellPackageRecovery' },
         );

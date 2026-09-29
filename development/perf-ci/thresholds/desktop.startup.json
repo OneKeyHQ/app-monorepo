@@ -21,7 +21,6 @@
     "largestInputBytes": 2621440,
     "forbiddenBundledInputs": [
       "node_modules/@sentry/electron",
-      "node_modules/electron-updater",
       "node_modules/adm-zip",
       "node_modules/systeminformation",
       "node_modules/iconv-lite"

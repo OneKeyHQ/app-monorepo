@@ -76,14 +76,19 @@ const downloadPackage: IDownloadPackage = async ({
     if (!updateInfo) {
       return null;
     }
-    return new Promise<IUpdateDownloadedEvent>((resolve) => {
+    return new Promise<IUpdateDownloadedEvent>((resolve, reject) => {
       const onDownloadedSubscription = electronUpdateListeners.onDownloaded?.(
         (params) => {
           onDownloadedSubscription?.();
           resolve(params);
         },
       );
-      void globalThis.desktopApiProxy.appUpdate.downloadUpdate();
+      void globalThis.desktopApiProxy.appUpdate
+        .downloadUpdate()
+        .catch((error) => {
+          onDownloadedSubscription?.();
+          reject(error);
+        });
     });
   });
   return result;

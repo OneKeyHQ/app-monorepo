@@ -30,6 +30,8 @@ import type {
 } from '@onekeyhq/shared/src/modules3rdParty/auto-update/type';
 import type { IDesktopStoreUpdateBundleData } from '@onekeyhq/shared/types/desktop';
 
+import { downloadNodeFile } from './nodeDownload';
+
 import type { IDesktopApi } from './base/types';
 import type { BrowserWindow } from 'electron';
 
@@ -52,9 +54,6 @@ export interface IUpdateProgressUpdate {
 // only `Range: (start+done)-(end)` for the unfinished segments.
 // ---------------------------------------------------------------------------
 const BUNDLE_SEGMENT_COUNT = 8;
-// Below this size the per-connection setup cost outweighs any speedup, so we
-// keep the simple single-stream path.
-const BUNDLE_MIN_CONCURRENT_BYTES = 2 * 1024 * 1024;
 // Per-segment transient-failure retries inside one concurrent run. The outer
 // updateRetry loop still wraps the whole download for harder failures.
 const BUNDLE_PART_MAX_RETRY = 3;
@@ -416,48 +415,58 @@ class DesktopApiAppBundleUpdate {
   private async runDownloadBundle(
     params: IDownloadPackageParams,
   ): Promise<IUpdateDownloadedEvent> {
-    const bundleUrl = params.downloadUrl;
-    if (this.isDownloading || !bundleUrl?.startsWith('https://')) {
-      return this.downloadBundleSingleStream(params);
+    const { latestVersion, bundleVersion, downloadUrl, sha256 } = params;
+    if (this.isDownloading) {
+      logger.info('bundle-download', 'Download already in progress, skipping');
+      return undefined;
     }
-
-    let probe: {
-      finalUrl: string;
-      totalBytes: number;
-      etag: string | null;
-      supportsRange: boolean;
-    } | null = null;
+    if (!latestVersion || !bundleVersion || !downloadUrl || !sha256) {
+      throw new OneKeyLocalError('Invalid parameters');
+    }
+    const filePath = this.getDestZipPath(params);
+    if (!filePath) throw new OneKeyLocalError('Invalid parameters');
+    const controller = new AbortController();
+    const cancel = () => controller.abort();
+    this.isDownloading = true;
+    this.cancelCurrentDownload = cancel;
+    this.cancelByDest.set(filePath, cancel);
+    clearWindowProgressBar(this.getMainWindow());
     try {
-      probe = await this.probeBundleRange(bundleUrl);
-    } catch (e) {
-      logger.warn(
-        'bundle-download',
-        'Range probe failed, using single-stream',
-        e,
-      );
-    }
-
-    const canConcurrent =
-      !!probe &&
-      probe.supportsRange &&
-      probe.totalBytes >= BUNDLE_MIN_CONCURRENT_BYTES;
-    if (!probe || !canConcurrent) {
-      return this.downloadBundleSingleStream(params);
-    }
-
-    try {
-      return await this.downloadBundleConcurrent(params, probe);
+      await downloadNodeFile({
+        url: downloadUrl,
+        targetPath: filePath,
+        identity: `bundle:${latestVersion}:${bundleVersion}:${downloadUrl}:${sha256}`,
+        expectedSha256: sha256,
+        signal: controller.signal,
+        onProgress: (progress) => {
+          this.getMainWindow()?.webContents.send(
+            ipcMessageKeys.UPDATE_DOWNLOADING,
+            progress,
+          );
+          updateWindowProgressBar(this.getMainWindow(), progress.percent);
+        },
+      });
+      return {
+        downloadedFile: filePath,
+        downloadUrl,
+        latestVersion,
+        bundleVersion,
+      };
     } catch (error) {
-      if (isConcurrentFallback(error)) {
-        logger.warn(
-          'bundle-download',
-          `Concurrent download fell back to single-stream: ${
-            (error as Error).message
-          }`,
+      if (
+        error instanceof OneKeyLocalError &&
+        error.message === 'Downloaded file checksum mismatch'
+      ) {
+        throw new OneKeyLocalError(
+          'Downloaded file is not valid: SHA256_MISMATCH',
         );
-        return this.downloadBundleSingleStream(params);
       }
-      throw error;
+      throw wrapDownloadError(error, 'Bundle download failed');
+    } finally {
+      this.isDownloading = false;
+      this.cancelCurrentDownload = () => {};
+      this.cancelByDest.delete(filePath);
+      clearWindowProgressBar(this.getMainWindow());
     }
   }
 
@@ -2031,25 +2040,11 @@ class DesktopApiAppBundleUpdate {
   }
 
   async clearDownload() {
-    return new Promise<void>((resolve) => {
-      setTimeout(() => {
-        // OCDS §5.8: stop in-flight work first, then delete artifacts, so a
-        // still-running task cannot resurrect a just-deleted file. Fire every
-        // per-dest cancel (plus the legacy global one) before wiping the dir.
-        this.cancelCurrentDownload?.();
-        for (const cancel of this.cancelByDest.values()) {
-          try {
-            cancel();
-          } catch {
-            // ignore
-          }
-        }
-        this.cancelByDest.clear();
-        const downloadDir = this.getDownloadDir();
-        fs.rmSync(downloadDir, { recursive: true, force: true });
-        resolve();
-      }, 100);
-    });
+    this.cancelCurrentDownload?.();
+    for (const cancel of this.cancelByDest.values()) cancel();
+    await Promise.allSettled(this.inflightDownloads.values());
+    this.cancelByDest.clear();
+    fs.rmSync(this.getDownloadDir(), { recursive: true, force: true });
   }
 
   async getFallbackUpdateBundleData() {
