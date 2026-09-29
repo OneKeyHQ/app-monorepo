@@ -81,6 +81,11 @@ import {
 import { DeFiListSkeleton } from './DeFiListSkeleton';
 import { planDeFiOverviewInit } from './deFiOverviewInitPlan';
 import { getOverviewCollapsedProtocolLimit } from './DeFiOverviewPlanner';
+import {
+  accumulateDeFiRunOverview,
+  getEmptyDeFiRunOverview,
+  shouldPublishDeFiRunOverview,
+} from './deFiRunOverview';
 import { formatPortfolioTotal } from './formatPortfolioTotal';
 import { buildDeFiOverviewCells } from './hooks/useDeFiOverviewTopN';
 import { resolveOverviewCols } from './overviewColsResolver';
@@ -672,40 +677,29 @@ function DeFiListBlock({
   // few frames before the result effect fills the list in.
   const fanOutPositionsOwnerKeyRef = useRef<string | undefined>(undefined);
 
-  // Sum of every response this run has merged so far, written to the atom as
-  // a whole rather than added to it: the base the atom held before the run —
-  // the overview this owner kept from before an enabled-network change, for
-  // example, still counting the disabled network — is not part of the total.
-  const runOverviewRef = useRef(defiUtils.getEmptyDeFiData().overview);
+  // Sum of every response this run has merged so far; see
+  // `accumulateDeFiRunOverview` for why it replaces the atom whole.
+  const runOverviewRef = useRef(getEmptyDeFiRunOverview());
   const resetRunOverview = useCallback(() => {
-    runOverviewRef.current = defiUtils.getEmptyDeFiData().overview;
+    runOverviewRef.current = getEmptyDeFiRunOverview();
   }, []);
 
   const updateAllNetworkData = useThrottledCallback(() => {
-    const flushed = deFiDataRef.current.overview;
-    const soFar = runOverviewRef.current;
-    runOverviewRef.current = {
-      totalValue: new BigNumber(soFar.totalValue)
-        .plus(flushed.totalValue)
-        .toNumber(),
-      totalDebt: new BigNumber(soFar.totalDebt)
-        .plus(flushed.totalDebt)
-        .toNumber(),
-      totalReward: new BigNumber(soFar.totalReward)
-        .plus(flushed.totalReward)
-        .toNumber(),
-      netWorth: new BigNumber(soFar.netWorth).plus(flushed.netWorth).toNumber(),
-      chains: Array.from(new Set([...soFar.chains, ...flushed.chains])),
-      protocolCount: soFar.protocolCount + flushed.protocolCount,
-      positionCount: soFar.positionCount + flushed.positionCount,
-    };
-    updateAccountDeFiOverview({
-      currency: settings.currencyInfo.id,
-      accountId: account?.id,
-      networkId: network?.id,
-      overview: runOverviewRef.current,
-      isReady: true,
-    });
+    runOverviewRef.current = accumulateDeFiRunOverview(
+      runOverviewRef.current,
+      deFiDataRef.current.overview,
+    );
+    // Not while the sum is still empty: the leading flush would replace the
+    // header's DeFi total with 0 (see `shouldPublishDeFiRunOverview`).
+    if (shouldPublishDeFiRunOverview(runOverviewRef.current)) {
+      updateAccountDeFiOverview({
+        currency: settings.currencyInfo.id,
+        accountId: account?.id,
+        networkId: network?.id,
+        overview: runOverviewRef.current,
+        isReady: true,
+      });
+    }
     const hasPositions =
       deFiDataRef.current.protocols.length > 0 ||
       protocolsRef.current.length > 0;
