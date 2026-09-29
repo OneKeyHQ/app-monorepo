@@ -147,7 +147,12 @@ export function prepareTopCoinSwapEntry({
       : ESwapTabSwitchType.SWAP;
   store.set(swapSelectFromTokenAtom(), nextFromToken);
   store.set(swapSelectToTokenAtom(), token);
-  if (!isSameSwapToken(previousToToken, token)) {
+  // Replacing the pay token leaves the previous amount on a different asset.
+  // The same pair keeps the amount the user already entered.
+  if (
+    !isSameSwapToken(previousToToken, token) ||
+    !isSameSwapToken(fromToken, nextFromToken)
+  ) {
     store.set(swapFromTokenAmountAtom(), EMPTY_SWAP_TOKEN_AMOUNT);
     store.set(swapToTokenAmountAtom(), EMPTY_SWAP_TOKEN_AMOUNT);
   }

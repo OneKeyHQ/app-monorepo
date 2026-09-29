@@ -774,3 +774,17 @@ Cases are appended by AI after each bug fix. Do NOT reorder or delete entries â€
 **Fix**: Commit the followed stock when local state or the execution pair is still the previous one, clear amounts when the stock changes, show the risk result on the stock header, request variants with the market stock id, and match column headers by tab name.
 **Catchable by**: Section 4: a displayed token and the execution pair are different identities; a tab header belongs to that tab's content, not to whichever tab is first.
 
+## Case: Market trade kept the previous sell side and pay amount
+**Date**: 2026-09-29 | **Platforms**: iOS, Android (main)
+**Symptom**: After selling a stock, the next Market Trade tap still opened Sell. Opening a coin whose receive token stayed the same kept an amount entered for a different pay token.
+**Root Cause**: The stock page's local sell/buy state overrides the buy pair written by Market. Amounts were cleared only when the receive token changed.
+**Fix**: A market stock entry forces Buy and rewrites the execution pair. Amounts clear when either the receive token or the pay token changes.
+**Catchable by**: Section 4: a new trade entry must reset the side and amount that belonged to the previous pair.
+
+## Case: Market detail tests still imported the old module graph
+**Date**: 2026-09-29 | **Platforms**: CI unit tests
+**Symptom**: Market information tabs failed to load in Jest, and the native chart settings test called a missing callback.
+**Root Cause**: The tabs test did not mock the stock detail context that now loads the background API. The chart test still treated the toolbar wrapper as the settings button.
+**Fix**: Mock the stock detail context and overview panels. Read the settings callback from the button inside the toolbar wrapper.
+**Catchable by**: Section 6: a new import in a rendered component needs a mock, and a wrapped control needs the assertion to follow the element that owns the callback.
+

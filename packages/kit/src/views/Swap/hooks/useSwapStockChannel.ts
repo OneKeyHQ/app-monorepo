@@ -14,6 +14,7 @@ import { isOndoStockSource } from '@onekeyhq/kit/src/views/Market/components/uti
 import { useMarketBasicConfig } from '@onekeyhq/kit/src/views/Market/hooks';
 import type { IToken } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/components/SwapPanel/types';
 import type { IMarketToken } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketTokenList/MarketTokenData';
+import { useSwapFromMarketJumpTokenAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -25,7 +26,10 @@ import type {
   ISwapStockSpeedConfig,
   ISwapToken,
 } from '@onekeyhq/shared/types/swap/types';
-import { ESwapSelectTokenSource } from '@onekeyhq/shared/types/swap/types';
+import {
+  ESwapSelectTokenSource,
+  ESwapTabSwitchType,
+} from '@onekeyhq/shared/types/swap/types';
 
 import {
   SWAP_STOCK_ANALYTICS_TOKEN_LIST_TYPE_DEFAULT,
@@ -51,6 +55,7 @@ import {
   resolveStockPayTokenState,
   shouldCommitFollowedStockToken,
   shouldResetStockTradeReceiveAmount,
+  shouldResetStockTradeSideForMarketEntry,
   shouldSyncControlledStockTokenMetadata,
 } from './swapStockChannelUtils';
 import {
@@ -81,6 +86,7 @@ function normalizeSelectedStockSwapToken(token: ISwapToken) {
 
 type ISelectStockSwapTokenOptions = {
   resetReceiveAmount?: boolean;
+  tradeSide?: ESwapStockTradeSide;
 };
 
 export function useSwapStockChannel(
@@ -100,6 +106,7 @@ export function useSwapStockChannel(
   const { selectStockExecutionTokens } = useSwapActions().current;
   const { spotCategories, isLoading: marketBasicConfigLoading } =
     useMarketBasicConfig();
+  const [swapFromMarketJumpToken] = useSwapFromMarketJumpTokenAtom();
   const [tradeSideState, setTradeSideState] = useState<
     ESwapStockTradeSide | undefined
   >(undefined);
@@ -367,6 +374,7 @@ export function useSwapStockChannel(
       setStockSelectedToken(nextStockToken);
       stockTokenSnapshotRef.current = nextStockToken;
       void syncStockExecutionTokens({
+        nextTradeSide: options?.tradeSide,
         stockToken: nextStockToken,
       });
     },
@@ -416,6 +424,15 @@ export function useSwapStockChannel(
       persistedStockToken: persistedStockSelectedToken,
       stockPairToken: stockPair.stockToken,
     });
+    const openMarketEntryOnBuy = shouldResetStockTradeSideForMarketEntry({
+      isStockMarketJump:
+        swapFromMarketJumpToken?.type === ESwapTabSwitchType.STOCK &&
+        Boolean(swapFromMarketJumpToken.token),
+      tradeSide,
+    });
+    if (openMarketEntryOnBuy) {
+      setTradeSideState(ESwapStockTradeSide.Buy);
+    }
     if (!nextStockToken) {
       return;
     }
@@ -432,8 +449,17 @@ export function useSwapStockChannel(
       setPayTokenState(undefined);
       payTokenSnapshotRef.current = undefined;
       manualStockPayTokenKeyRef.current = '';
-      selectStockSwapToken(nextStockToken, { resetReceiveAmount: true });
+      selectStockSwapToken(nextStockToken, {
+        resetReceiveAmount: true,
+        tradeSide: openMarketEntryOnBuy ? ESwapStockTradeSide.Buy : undefined,
+      });
       return;
+    }
+    if (openMarketEntryOnBuy) {
+      void syncStockExecutionTokens({
+        nextTradeSide: ESwapStockTradeSide.Buy,
+        stockToken: nextStockToken,
+      });
     }
     if (getTokenIdentityKey(nextStockToken) === currentStockTokenKey) {
       if (
@@ -455,7 +481,10 @@ export function useSwapStockChannel(
     stockPair.stockToken,
     stockTokenState,
     persistedStockSelectedToken,
+    swapFromMarketJumpToken,
+    syncStockExecutionTokens,
     syncStockTokenDetail,
+    tradeSide,
   ]);
 
   useEffect(() => {

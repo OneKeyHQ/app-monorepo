@@ -489,6 +489,62 @@ describe('prepareTopCoinSwapEntry', () => {
     expect(store.get(swapSelectToTokenAtom())).toEqual(btc);
   });
 
+  it('clears the amount when the payment token changes and the receive token stays', () => {
+    const store = jotaiContextStore.getOrCreateStore(swapStoreData);
+    const stock: ISwapToken = {
+      networkId: 'evm--1',
+      contractAddress: '0xaapl',
+      symbol: 'AAPLon',
+      decimals: 18,
+      isNative: false,
+      isStock: true,
+    };
+    const btc: ISwapToken = {
+      networkId: 'evm--1',
+      contractAddress: '0xbtc',
+      symbol: 'BTC',
+      decimals: 8,
+      isNative: false,
+    };
+    store.set(swapSelectFromTokenAtom(), stock);
+    store.set(swapSelectToTokenAtom(), btc);
+    store.set(swapFromTokenAmountAtom(), { value: '100', isInput: true });
+    store.set(swapToTokenAmountAtom(), { value: '1', isInput: false });
+
+    prepareTopCoinSwapEntry({ token: btc });
+
+    expect(store.get(swapSelectToTokenAtom())).toEqual(btc);
+    expect(store.get(swapSelectFromTokenAtom())?.isStock).toBeFalsy();
+    expect(store.get(swapFromTokenAmountAtom())).toEqual({
+      value: '',
+      isInput: false,
+    });
+    expect(store.get(swapToTokenAmountAtom())).toEqual({
+      value: '',
+      isInput: false,
+    });
+  });
+
+  it('keeps the amount when the same pair is opened again', () => {
+    const store = jotaiContextStore.getOrCreateStore(swapStoreData);
+    const btc: ISwapToken = {
+      networkId: 'evm--1',
+      contractAddress: '0xbtc',
+      symbol: 'BTC',
+      decimals: 8,
+      isNative: false,
+    };
+    const previousAmount = { value: '100', isInput: true };
+    store.set(swapSelectFromTokenAtom(), ordinaryFromToken);
+    store.set(swapSelectToTokenAtom(), btc);
+    store.set(swapFromTokenAmountAtom(), previousAmount);
+
+    prepareTopCoinSwapEntry({ token: btc });
+
+    expect(store.get(swapSelectFromTokenAtom())).toBe(ordinaryFromToken);
+    expect(store.get(swapFromTokenAmountAtom())).toEqual(previousAmount);
+  });
+
   it('fills the network pay token when swap has no payment token', () => {
     const store = jotaiContextStore.getOrCreateStore(swapStoreData);
     const btc: ISwapToken = {

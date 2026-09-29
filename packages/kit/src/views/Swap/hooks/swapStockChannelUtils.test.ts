@@ -33,6 +33,7 @@ import {
   shouldLoadDefaultStockToken,
   shouldRenderStockTradeInputSkeleton,
   shouldResetStockTradeReceiveAmount,
+  shouldResetStockTradeSideForMarketEntry,
   shouldSyncControlledStockTokenMetadata,
   upsertSwapStockPayTokenScopeCache,
 } from './swapStockChannelUtils';
@@ -1223,6 +1224,32 @@ describe('resolveFollowedStockToken', () => {
         stockPairToken: appleStockToken,
       }),
     ).toBe(micronStockToken);
+  });
+});
+
+describe('shouldResetStockTradeSideForMarketEntry', () => {
+  it('opens a market stock entry on buy while the page is selling', () => {
+    expect(
+      shouldResetStockTradeSideForMarketEntry({
+        isStockMarketJump: true,
+        tradeSide: ESwapStockTradeSide.Sell,
+      }),
+    ).toBe(true);
+  });
+
+  it('leaves an in-progress sell alone when market did not send a stock', () => {
+    expect(
+      shouldResetStockTradeSideForMarketEntry({
+        isStockMarketJump: false,
+        tradeSide: ESwapStockTradeSide.Sell,
+      }),
+    ).toBe(false);
+    expect(
+      shouldResetStockTradeSideForMarketEntry({
+        isStockMarketJump: true,
+        tradeSide: ESwapStockTradeSide.Buy,
+      }),
+    ).toBe(false);
   });
 });
 
