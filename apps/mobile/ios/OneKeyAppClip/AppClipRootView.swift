@@ -1401,7 +1401,7 @@ private struct AppClipFlowLayout: Layout {
     var y = bounds.minY
     for row in arrange(width: bounds.width, subviews: subviews) {
       var x = bounds.minX
-      for index in row.indices {
+      for index in row.subviewIndices {
         let size = subviews[index].sizeThatFits(.unspecified)
         subviews[index].place(
           at: CGPoint(x: x, y: y + (row.height - size.height) / 2),
@@ -1414,7 +1414,7 @@ private struct AppClipFlowLayout: Layout {
   }
 
   private struct Row {
-    var indices: [Int] = []
+    var subviewIndices: [Int] = []
     var width: CGFloat = 0
     var height: CGFloat = 0
   }
@@ -1424,16 +1424,16 @@ private struct AppClipFlowLayout: Layout {
     var current = Row()
     for index in subviews.indices {
       let size = subviews[index].sizeThatFits(.unspecified)
-      let nextWidth = current.indices.isEmpty ? size.width : current.width + spacing + size.width
-      if !current.indices.isEmpty, nextWidth > width {
+      let nextWidth = current.subviewIndices.isEmpty ? size.width : current.width + spacing + size.width
+      if !current.subviewIndices.isEmpty, nextWidth > width {
         rows.append(current)
         current = Row()
       }
-      current.width = current.indices.isEmpty ? size.width : current.width + spacing + size.width
+      current.width = current.subviewIndices.isEmpty ? size.width : current.width + spacing + size.width
       current.height = max(current.height, size.height)
-      current.indices.append(index)
+      current.subviewIndices.append(index)
     }
-    if !current.indices.isEmpty {
+    if !current.subviewIndices.isEmpty {
       rows.append(current)
     }
     return rows
