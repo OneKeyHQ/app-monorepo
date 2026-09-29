@@ -11,10 +11,6 @@ import {
   useSyncExternalStore,
 } from 'react';
 
-import { createPortal } from 'react-dom';
-
-import { DEV_OVERLAY_FLOAT_BUTTON_Z_INDEX } from '@onekeyhq/shared/src/consts/zIndexConsts';
-
 import {
   clearTradingViewNativeDebugEvents,
   getTradingViewNativeDebugEvents,
@@ -462,7 +458,8 @@ function BasicTradingViewNativeDebugPanel({
 
   const panelSize = getPanelSize(size, isCollapsed);
   const panelSizeLimits = getPanelSizeLimits(position);
-  return createPortal(
+  // Hosted in the `debug` overlay level by its container.
+  return (
     <div
       data-testid="trading-view-native-debug-panel"
       ref={panelRef}
@@ -488,11 +485,10 @@ function BasicTradingViewNativeDebugPanel({
         minWidth: panelSizeLimits.minWidth,
         overflow: 'hidden',
         pointerEvents: 'auto',
-        position: 'fixed',
+        position: 'absolute',
         resize: isCollapsed ? 'none' : 'both',
         top: position.y,
         width: panelSize.width,
-        zIndex: DEV_OVERLAY_FLOAT_BUTTON_Z_INDEX,
       }}
     >
       <div
@@ -643,8 +639,7 @@ function BasicTradingViewNativeDebugPanel({
           )}
         </div>
       )}
-    </div>,
-    globalThis.document.body,
+    </div>
   );
 }
 

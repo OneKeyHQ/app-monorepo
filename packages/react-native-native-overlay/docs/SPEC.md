@@ -513,6 +513,29 @@ P5e full-window portal notes:
   inside another overlay opens above it. `Dialog.show` keeps the level of its
   portal container.
 
+P5f full-window container notes:
+
+- `OverlayContainer` (react-native-screens `FullWindowOverlay` on iOS) and
+  `useOverlayZIndex` are removed. `Dialog.show`'s `isOverTopAllViews` is
+  removed: a dialog's level decides its stacking, and on iOS the flag mounted
+  the dialog twice. `FullWindowOverlayContainer` now only mounts
+  self-hosting overlays and the imperative mount roots.
+- The TradingView native fullscreen chart keeps its global host, because the
+  chart owner's page freezes while fullscreen. The host presents each layer
+  in a non-blocking `fullscreen` overlay at `modal`, without animation, and
+  back is not dismissed. Insets come from the app's safe-area context.
+- ScreenshotBranding is a non-interactive, unanimated overlay at `toast`.
+- The dev overlay window and the TradingView debug panel are non-interactive
+  hosts at `debug`.
+- The Market desktop fullscreen chart stays in place (a remount would reload
+  TradingView), fixed at `OVERLAY_WEB_Z_INDEX_BASE.modal - 1`.
+- iOS: a touched level window becomes key, and React Native reads its window
+  dimensions from the key window. After a rotation while one was key (the
+  fullscreen chart), JS kept the landscape size, so the page stayed in its
+  wide layout and the native header stayed hidden. A level window now
+  re-reports the dimensions when it resigns key or resizes while key, by
+  re-assigning the app window's frame (React Native observes it).
+
 Measurement:
 
 - `RNCNativeOverlay` has a hand-written shadow node (`common/cpp`, codegen

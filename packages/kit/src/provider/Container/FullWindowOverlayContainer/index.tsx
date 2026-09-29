@@ -1,9 +1,4 @@
-import {
-  OverlayContainer,
-  Portal,
-  ShowToastProvider,
-  Toaster,
-} from '@onekeyhq/components';
+import { Portal, ShowToastProvider, Toaster } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { ScreenshotBranding } from '../../../components/ScreenshotBranding';
@@ -14,9 +9,11 @@ import { HardwareStageOverlayContainer } from './HardwareStageOverlayContainer';
 import { ToastOverlayContainer } from './ToastOverlayContainer';
 import { TradingViewNativeDebugPanelContainer } from './TradingViewNativeDebugPanelContainer';
 
+// Every overlay here hosts itself in a native overlay level; this only mounts
+// them and the imperative mount roots (`Dialog.show`, `ActionList.show`).
 export function FullWindowOverlayContainer() {
   return (
-    <OverlayContainer>
+    <>
       <TradingViewNativeFullscreenHost />
       <Portal.Container name={Portal.Constant.FULL_WINDOW_OVERLAY_PORTAL} />
       {/* The hardware stage renders in the native `hardware` overlay level:
@@ -37,6 +34,6 @@ export function FullWindowOverlayContainer() {
       <DevOverlayWindowContainer />
       <TradingViewNativeDebugPanelContainer />
       <ScreenshotBranding />
-    </OverlayContainer>
+    </>
   );
 }

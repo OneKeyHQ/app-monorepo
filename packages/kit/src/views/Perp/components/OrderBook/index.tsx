@@ -1,7 +1,7 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-import { colorTokens } from '@tamagui/themes';
 import { OverlayView } from '@onekeyfe/react-native-native-overlay';
+import { colorTokens } from '@tamagui/themes';
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 import {

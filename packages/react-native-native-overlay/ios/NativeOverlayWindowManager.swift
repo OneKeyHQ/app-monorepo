@@ -45,6 +45,36 @@ final class NativeOverlayPassthroughWindow: UIWindow {
     }
     return hit
   }
+
+  // React Native reads the window dimensions from the key window, and a
+  // touched level window becomes key. A rotation reported while it is key
+  // (or while it is hidden with a stale frame) leaves JS with the wrong
+  // window size. Once the sizes settle, re-report through the frame
+  // observer React Native keeps on the app window.
+  override var frame: CGRect {
+    didSet {
+      if isKeyWindow && oldValue.size != frame.size {
+        refreshReactNativeDimensions()
+      }
+    }
+  }
+
+  override func resignKey() {
+    super.resignKey()
+    refreshReactNativeDimensions()
+  }
+
+  private func refreshReactNativeDimensions() {
+    guard let appWindow = (rootViewController as? NativeOverlayRootViewController)?.appWindow
+    else { return }
+    DispatchQueue.main.async { [weak appWindow] in
+      guard let appWindow else { return }
+      // Assigning the frame fires React Native's KVO, which recomputes the
+      // dimensions from the current key window.
+      let frame = appWindow.frame
+      appWindow.frame = frame
+    }
+  }
 }
 
 /// Status bar and orientation follow the app window underneath, because

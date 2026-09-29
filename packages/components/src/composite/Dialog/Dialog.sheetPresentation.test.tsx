@@ -174,7 +174,6 @@ jest.mock('../../hooks', () => ({
   useBackHandler: jest.fn(),
   useKeyboardEventWithoutNavigation: jest.fn(),
   useModalNavigatorContextPortalId: () => undefined,
-  useOverlayZIndex: () => 1,
   useSafeAreaInsets: () => mockSafeAreaInsets.current,
 }));
 jest.mock('react-native-keyboard-controller', () => ({

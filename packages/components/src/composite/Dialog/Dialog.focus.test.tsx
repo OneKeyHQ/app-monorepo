@@ -112,7 +112,6 @@ jest.mock('../../hocs', () => ({}));
 jest.mock('../../hooks', () => ({
   useBackHandler: jest.fn(),
   useKeyboardEventWithoutNavigation: jest.fn(),
-  useOverlayZIndex: () => 1,
   useSafeAreaInsets: () => ({ bottom: 0 }),
 }));
 jest.mock('../../layouts/Page/PageContext', () => ({}));
