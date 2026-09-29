@@ -67,6 +67,9 @@ jest.mock('../TokenSecurityAlert', () => ({
 jest.mock('./InformationPanelSkeleton', () => ({
   InformationPanelSkeleton: () => null,
 }));
+jest.mock('./StockMobilePriceHeader', () => ({
+  StockMobilePriceHeader: () => null,
+}));
 
 beforeEach(() => {
   jest.replaceProperty(platformEnv, 'isNative', true);

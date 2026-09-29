@@ -45,6 +45,7 @@ interface IUseChartConfigProps {
   priceScaleMinimumWidth?: number;
   priceFormatter?: (price: number) => string;
   compactPriceMaxCharacters?: number;
+  priceScaleFormat?: 'stock';
   priceFormatterPrecision?: number;
   priceFormatterTickStep?: number;
   fontSize?: number;
@@ -88,6 +89,7 @@ export function useChartConfig({
   priceScaleMinimumWidth,
   priceFormatter,
   compactPriceMaxCharacters,
+  priceScaleFormat,
   priceFormatterPrecision,
   priceFormatterTickStep: priceFormatterTickStepProp,
   fontSize,
@@ -175,6 +177,7 @@ export function useChartConfig({
       priceFormatter,
       priceFormatterType,
       compactPriceMaxCharacters,
+      priceScaleFormat,
       priceFormatterPrecision,
       priceFormatterTickStep,
       fontSize,
@@ -220,6 +223,7 @@ export function useChartConfig({
       priceFormatter,
       priceFormatterType,
       compactPriceMaxCharacters,
+      priceScaleFormat,
       priceFormatterPrecision,
       priceFormatterTickStep,
       fontSize,

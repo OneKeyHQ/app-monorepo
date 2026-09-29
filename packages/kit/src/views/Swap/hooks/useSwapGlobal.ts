@@ -205,7 +205,8 @@ export function useSwapInit(params?: ISwapInitParams) {
   const [, setSwapTips] = useSwapTipsAtom();
   const [selectedTokensColdStartContext, setSelectedTokensColdStartContext] =
     useSwapSelectedTokensColdStartContextAtom();
-  const [swapStockSelectedToken] = useSwapStockSelectedTokenAtom();
+  const [swapStockSelectedToken, setSwapStockSelectedToken] =
+    useSwapStockSelectedTokenAtom();
   const swapColdStartScopeKey = useSwapColdStartScopeKey();
   const [initialSelectedTokensSynced, setInitialSelectedTokensSynced] =
     useSwapInitialSelectedTokensSyncedAtom();
@@ -253,6 +254,21 @@ export function useSwapInit(params?: ISwapInitParams) {
   const swapNetworksRef = useRef<ISwapNetwork[]>([]);
   if (swapNetworksRef.current !== swapNetworks) {
     swapNetworksRef.current = swapNetworks;
+  }
+  const applySwapMarketJumpTokenRef = useRef<() => Promise<void>>(
+    async () => undefined,
+  );
+  const swapFromMarketJumpTokenRef = useRef<{
+    token: ISwapToken | undefined;
+    type: ESwapTabSwitchType;
+    amount?: string;
+    otherToken?: ISwapToken | undefined;
+    direction: 'from' | 'to';
+  }>(undefined);
+  const [swapFromMarketJumpToken, setSwapFromMarketJumpToken] =
+    useSwapFromMarketJumpTokenAtom();
+  if (swapFromMarketJumpTokenRef.current !== swapFromMarketJumpToken) {
+    swapFromMarketJumpTokenRef.current = swapFromMarketJumpToken;
   }
   const fromTokenRef = useRef<ISwapToken>(undefined);
   if (fromTokenRef.current !== swapFromToken) {
@@ -932,6 +948,11 @@ export function useSwapInit(params?: ISwapInitParams) {
     if (shouldDeferForNativePro()) {
       return;
     }
+    // A market detail handoff is applied after this sync. Leave the pair alone
+    // until that write lands, or this pass clears the token the user just chose.
+    if (swapFromMarketJumpTokenRef.current?.token) {
+      return;
+    }
     const hasUnconsumedSwapInitParams = Boolean(
       swapInitParamsConsumptionKey &&
       consumedSwapInitParamsKeyRef.current !== swapInitParamsConsumptionKey,
@@ -1607,6 +1628,7 @@ export function useSwapInit(params?: ISwapInitParams) {
         return;
       }
       await syncDefaultSelectedToken();
+      await applySwapMarketJumpTokenRef.current();
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
@@ -1627,19 +1649,80 @@ export function useSwapInit(params?: ISwapInitParams) {
     selectedTokensRuntimeChannelSupport,
     isNativeProTokenOwner,
     isFocused,
+    swapFromMarketJumpToken,
   ]);
-  const [swapFromMarketJumpToken, setSwapFromMarketJumpToken] =
-    useSwapFromMarketJumpTokenAtom();
-  const swapFromMarketJumpTokenRef = useRef<{
-    token: ISwapToken | undefined;
-    type: ESwapTabSwitchType;
-    amount?: string;
-    otherToken?: ISwapToken | undefined;
-    direction: 'from' | 'to';
-  }>(undefined);
-  if (swapFromMarketJumpTokenRef.current !== swapFromMarketJumpToken) {
-    swapFromMarketJumpTokenRef.current = swapFromMarketJumpToken;
-  }
+  const isApplyingSwapMarketJumpTokenRef = useRef(false);
+  applySwapMarketJumpTokenRef.current = async () => {
+    const jumpToken = swapFromMarketJumpTokenRef.current;
+    if (
+      !jumpToken?.token ||
+      !swapNetworksRef.current.length ||
+      isApplyingSwapMarketJumpTokenRef.current
+    ) {
+      return;
+    }
+    isApplyingSwapMarketJumpTokenRef.current = true;
+    try {
+      await swapTypeSwitchAction(jumpToken.type);
+      if (jumpToken.direction === 'from') {
+        if (
+          equalTokenNoCaseSensitive({
+            token1: jumpToken.token,
+            token2: toTokenRef.current,
+          })
+        ) {
+          void setToToken(undefined);
+        }
+        if (jumpToken.otherToken) {
+          void setToToken(jumpToken.otherToken);
+        }
+        await selectFromToken(jumpToken.token);
+        if (jumpToken.amount) {
+          void setFromTokenAmount({
+            value: jumpToken.amount,
+            isInput: true,
+          });
+        }
+      } else {
+        if (
+          equalTokenNoCaseSensitive({
+            token1: jumpToken.token,
+            token2: fromTokenRef.current,
+          })
+        ) {
+          void setSwapFromToken(undefined);
+          fromTokenRef.current = undefined;
+        }
+        if (jumpToken.otherToken) {
+          void setSwapFromToken(jumpToken.otherToken);
+          fromTokenRef.current = jumpToken.otherToken;
+        }
+        await selectToToken(jumpToken.token);
+        if (jumpToken.type === ESwapTabSwitchType.STOCK) {
+          setSwapStockSelectedToken(
+            jumpToken.token.isStock
+              ? jumpToken.token
+              : { ...jumpToken.token, isStock: true },
+          );
+        }
+        if (jumpToken.amount) {
+          void setFromTokenAmount({
+            value: jumpToken.amount,
+            isInput: true,
+          });
+        }
+      }
+      initialSelectedTokensSyncedRef.current = true;
+      setInitialSelectedTokensSynced(true);
+      setSwapFromMarketJumpToken({
+        token: undefined,
+        type: ESwapTabSwitchType.SWAP,
+        direction: 'from',
+      });
+    } finally {
+      isApplyingSwapMarketJumpTokenRef.current = false;
+    }
+  };
   const isModalPage = useIsOverlayPage();
   useListenTabFocusState(
     ETabRoutes.Swap,
@@ -1660,55 +1743,7 @@ export function useSwapInit(params?: ISwapInitParams) {
         ) {
           void fetchSwapNetworks();
         }
-        if (swapFromMarketJumpTokenRef.current?.token) {
-          void swapTypeSwitchAction(swapFromMarketJumpTokenRef.current.type);
-          if (swapFromMarketJumpTokenRef.current.direction === 'from') {
-            if (
-              equalTokenNoCaseSensitive({
-                token1: swapFromMarketJumpTokenRef.current.token,
-                token2: toTokenRef.current,
-              })
-            ) {
-              void setToToken(undefined);
-            }
-            if (swapFromMarketJumpTokenRef.current.otherToken) {
-              void setToToken(swapFromMarketJumpTokenRef.current.otherToken);
-            }
-            void selectFromToken(swapFromMarketJumpTokenRef.current.token);
-            if (swapFromMarketJumpTokenRef.current.amount) {
-              void setFromTokenAmount({
-                value: swapFromMarketJumpTokenRef.current.amount,
-                isInput: true,
-              });
-            }
-          } else {
-            if (
-              equalTokenNoCaseSensitive({
-                token1: swapFromMarketJumpTokenRef.current.token,
-                token2: fromTokenRef.current,
-              })
-            ) {
-              void setSwapFromToken(undefined);
-            }
-            if (swapFromMarketJumpTokenRef.current.otherToken) {
-              void setSwapFromToken(
-                swapFromMarketJumpTokenRef.current.otherToken,
-              );
-            }
-            void selectToToken(swapFromMarketJumpTokenRef.current.token);
-            if (swapFromMarketJumpTokenRef.current.amount) {
-              void setFromTokenAmount({
-                value: swapFromMarketJumpTokenRef.current.amount,
-                isInput: true,
-              });
-            }
-          }
-          setSwapFromMarketJumpToken({
-            token: undefined,
-            type: ESwapTabSwitchType.SWAP,
-            direction: 'from',
-          });
-        }
+        void applySwapMarketJumpTokenRef.current();
       }
     },
   );

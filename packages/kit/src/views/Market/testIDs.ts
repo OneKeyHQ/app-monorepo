@@ -42,6 +42,7 @@ export const MarketTestIDs = {
   detailChart: 'market-detail-chart',
   detailChartFullscreenInfo: 'market-detail-chart-fullscreen-info',
   detailBuyButton: 'market-detail-buy-button',
+  detailPerpsButton: 'market-detail-perps-button',
   detailSwapButton: 'market-detail-swap-button',
   detailEmbeddedSwap: 'market-detail-embedded-swap',
   detailAbout: 'market-detail-about',

@@ -7,6 +7,10 @@ import { useFocusedTab } from '@onekeyhq/components/src/composite/Tabs/useFocuse
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import {
+  type IMarketMobileDetailKind,
+  resolveMobileInformationColumnHeader,
+} from '../../../utils/marketMobileDetailKind';
+import {
   HoldersHeaderNormal,
   HoldersHeaderSmall,
 } from '../components/Holders/layout';
@@ -19,7 +23,13 @@ import {
   TransactionsHeaderSmall,
 } from '../components/TransactionsHistory';
 
-function BaseStickyHeader({ firstTabName }: { firstTabName: string }) {
+function BaseStickyHeader({
+  firstTabName,
+  detailKind = 'trending',
+}: {
+  firstTabName: string;
+  detailKind?: IMarketMobileDetailKind;
+}) {
   const intl = useIntl();
   const { gtLg, gtXl } = useMedia();
   const focusedTab = useFocusedTab();
@@ -44,15 +54,23 @@ function BaseStickyHeader({ firstTabName }: { firstTabName: string }) {
     id: ETranslations.global_liquidity,
   });
 
-  let currentHeader = transactionsHeader;
-  if (focusedTab === portfolioTabName) {
-    currentHeader = portfolioHeader;
-  } else if (focusedTab === liquidityPoolsTabName) {
-    // The liquidity table scrolls horizontally (960px min width), so its
-    // column header must live inside that ScrollView to stay aligned with the
-    // rows — it renders in the tab content with a matching 44px zone instead.
+  const columnHeader = resolveMobileInformationColumnHeader({
+    detailKind,
+    focusedTab: focusedTab ?? '',
+    firstTabName,
+    portfolioTabName,
+    liquidityTabName: liquidityPoolsTabName,
+  });
+  // The liquidity table scrolls horizontally (960px min width), so its
+  // column header must live inside that ScrollView. Stock and top-coin
+  // overviews are not tables, so they have no column header either.
+  if (columnHeader === 'none') {
     return null;
-  } else if (focusedTab !== firstTabName) {
+  }
+  let currentHeader = transactionsHeader;
+  if (columnHeader === 'portfolio') {
+    currentHeader = portfolioHeader;
+  } else if (columnHeader === 'holders') {
     currentHeader = holdersHeader;
   }
 

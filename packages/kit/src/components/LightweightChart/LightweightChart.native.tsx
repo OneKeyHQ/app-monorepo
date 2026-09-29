@@ -6,6 +6,7 @@ import WebView from 'react-native-webview';
 import { Stack } from '@onekeyhq/components';
 
 import { useChartConfig } from './hooks/useChartConfig';
+import formatChartPriceSource from './utils/formatChartPriceSource';
 import { generateChartHTML } from './utils/htmlTemplate';
 
 import type {
@@ -19,6 +20,16 @@ function buildStaticWebViewSource(config: ILightweightChartConfig) {
   return {
     html: generateChartHTML(config),
   };
+}
+
+// The price formatter is baked into the WebView document. Data updates only
+// inject JSON, so a formatter change has to remount the page.
+function chartFormatterKey(source: string) {
+  let hash = 0;
+  for (let index = 0; index < source.length; index += 1) {
+    hash = (Math.imul(31, hash) + source.charCodeAt(index)) | 0;
+  }
+  return String(hash);
 }
 
 export function LightweightChart({
@@ -45,6 +56,7 @@ export function LightweightChart({
   priceScaleMinimumWidth,
   priceFormatter,
   compactPriceMaxCharacters,
+  priceScaleFormat,
   priceFormatterPrecision,
   priceFormatterTickStep,
   fontSize,
@@ -91,6 +103,7 @@ export function LightweightChart({
     priceScaleMinimumWidth,
     priceFormatter,
     compactPriceMaxCharacters,
+    priceScaleFormat,
     priceFormatterPrecision,
     priceFormatterTickStep,
     fontSize,
@@ -117,9 +130,6 @@ export function LightweightChart({
     }),
     [chartConfig, hideCrosshairPriceLabel, showLastValue],
   );
-  const [webViewSource, setWebViewSource] = useState(() =>
-    buildStaticWebViewSource(nativeConfig),
-  );
   const latestConfigRef = useRef(nativeConfig);
   latestConfigRef.current = nativeConfig;
   // Bumped on every recovery: it keys the WebView, so recovery is a remount.
@@ -127,6 +137,18 @@ export function LightweightChart({
   // source on the old instance can stay blank; a fresh instance is the only
   // reliable path there, and it serves iOS just as well.
   const [webViewGeneration, setWebViewGeneration] = useState(0);
+  const formatterKey = chartFormatterKey(formatChartPriceSource);
+  // Rebuild the document when the embedded formatter changes. Data updates
+  // still go through injectJavaScript and must not reload the page.
+  const webViewSource = useMemo(() => {
+    const source = buildStaticWebViewSource(latestConfigRef.current);
+    return {
+      html: source.html.replace(
+        '<head>',
+        `<head><meta name="chart-price-formatter" content="${formatterKey}-${webViewGeneration}" />`,
+      ),
+    };
+  }, [formatterKey, webViewGeneration]);
 
   // The OS can kill the WebView's content process while the page sits idle
   // (memory pressure on the phone), and react-native-webview does nothing
@@ -136,7 +158,6 @@ export function LightweightChart({
   // current data straight away; the ready handshake then resumes updates.
   const handleContentProcessGone = useCallback(() => {
     setWebViewReady(false);
-    setWebViewSource(buildStaticWebViewSource(latestConfigRef.current));
     setWebViewGeneration((generation) => generation + 1);
   }, []);
 
@@ -175,6 +196,7 @@ export function LightweightChart({
     if (webViewReady && webViewRef.current) {
       const updateScript = `
         (function() {
+          window.__onekeyFormatChartPrice = ${formatChartPriceSource};
           const newConfig = ${JSON.stringify(nativeConfig)};
           if (typeof window.applyChartConfig === 'function') {
             window.applyChartConfig(newConfig);
@@ -190,7 +212,7 @@ export function LightweightChart({
     <Stack position="relative" height={height} width="100%">
       <View style={{ flex: 1 }}>
         <WebView
-          key={webViewGeneration}
+          key={`${webViewGeneration}-${formatterKey}`}
           ref={webViewRef}
           source={webViewSource}
           onLoadStart={() => {

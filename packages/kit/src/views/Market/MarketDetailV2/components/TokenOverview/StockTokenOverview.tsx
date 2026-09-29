@@ -1,3 +1,4 @@
+// cspell:ignore Financials
 import { useIntl } from 'react-intl';
 
 import {
@@ -28,7 +29,11 @@ import { TokenOverviewSkeleton } from './TokenOverviewSkeleton';
 // amount.
 const STOCK_OVERVIEW_ABOUT_COLLAPSED_LINES = 4;
 
-export function StockTokenOverview() {
+export function StockTokenOverview({
+  showFinancials = true,
+}: {
+  showFinancials?: boolean;
+} = {}) {
   const intl = useIntl();
   const { formatDate } = useFormatDate();
   const { tokenDetail, isStockToken } = useTokenDetail();
@@ -101,7 +106,7 @@ export function StockTokenOverview() {
 
       <Divider my="$1" />
 
-      {stockId ? (
+      {showFinancials && stockId ? (
         <StockFinancials stockId={stockId} withHorizontalPadding={false} />
       ) : null}
 

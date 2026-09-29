@@ -43,6 +43,7 @@ import {
 } from '../../marketDesktopLayoutConstants';
 import { Portfolio } from '../components/InformationTabs/components/Portfolio';
 import { MarketAboutDescription } from '../components/MarketAboutDescription';
+import { resolveStockPageHeaderIdentity } from '../components/MarketDetailHeader/marketDetailHeaderIdentity';
 import {
   STOCK_ANALYST_GAUGE_HEIGHT,
   STOCK_ANALYST_GAUGE_WIDTH,
@@ -104,6 +105,22 @@ function StockPageHeader({
   const { selectedTokenVariant, stockDetail, stockId, stockPreview } =
     useStockDetail();
   const stock = tokenDetail?.stock;
+  const pageHeaderIdentity = resolveStockPageHeaderIdentity({
+    stockDetailSymbol: stockDetail?.symbol,
+    stockDetailName: stockDetail?.name,
+    stockDetailLogoUrl: stockDetail?.logoUrl,
+    stockPreviewSymbol: stockPreview?.symbol,
+    stockPreviewName: stockPreview?.name,
+    stockPreviewLogoUrl: stockPreview?.logoUrl,
+    underlyingTicker: stock?.underlyingAssetTicker,
+    stockTitle: stock?.title,
+    stockSubtitle: stock?.subtitle,
+    stockId,
+    tokenSymbol: tokenDetail?.symbol,
+    tokenName: tokenDetail?.name,
+    tokenLogoUrl: tokenDetail?.logoUrl,
+    issuerLogoUrl: stock?.sourceLogoUri,
+  });
   const selectedTokenActionIdentity =
     getStockTokenVariantActionIdentity(selectedTokenVariant);
   const tokenDetailActionIdentity =
@@ -154,34 +171,19 @@ function StockPageHeader({
           >
             <Token
               size="xl"
-              tokenImageUri={
-                stockDetail?.logoUrl ||
-                stockPreview?.logoUrl ||
-                tokenDetail?.logoUrl ||
-                stock?.sourceLogoUri
-              }
+              tokenImageUri={pageHeaderIdentity.logoUrl}
               fallbackIcon="CryptoCoinOutline"
             />
             <YStack minWidth={0} justifyContent="center">
               <SizableText size="$headingXl" numberOfLines={1}>
-                {stockDetail?.symbol ||
-                  stockPreview?.symbol ||
-                  stock?.underlyingAssetTicker ||
-                  stock?.title ||
-                  tokenDetail?.symbol ||
-                  stockId ||
-                  ''}
+                {pageHeaderIdentity.symbol}
               </SizableText>
               <SizableText
                 size="$bodyMdMedium"
                 color="$textSubdued"
                 numberOfLines={1}
               >
-                {stockDetail?.name ||
-                  stockPreview?.name ||
-                  stock?.subtitle ||
-                  tokenDetail?.name ||
-                  ''}
+                {pageHeaderIdentity.name}
               </SizableText>
             </YStack>
             {/* Figma 25277:10352: the chevron closes the whole pill and is

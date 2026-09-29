@@ -669,3 +669,87 @@ Cases are appended by AI after each bug fix. Do NOT reorder or delete entries �
 **Fix**: Resolve the same top-coin listing before painting the badge, hide it until that match finishes, and reuse the result when the user adds the tokens.
 **Catchable by**: Section 4: data flow end-to-end; NEW — a display rule and the later save rule must share one identity, not a cheaper proxy that only covers part of the set
 
+## Case: Mobile simple-chart last price kept raw digits
+**Date**: 2026-09-28 | **Platforms**: iOS, Android (main WebView chart)
+**Symptom**: The green last-price badge on the mobile simple chart read `$0.184056...` while the axis ticks beside it were `$0.19` / `$0.18`, and desktop/web showed `$0.1841`.
+**Root Cause**: Desktop passes `formatChartPrice` as the series formatter, which the price scale uses for both ticks and the last-value badge. The native WebView cannot receive that function. Tick labels went through the embedded compact formatter, but the badge stayed on the scale's default precision and was then cut with an ellipsis.
+**Fix**: When compact prices are enabled, install the same embedded `formatChartPrice` as the WebView chart's `localization.priceFormatter`, and remount the WebView when that formatter source changes so a stale document cannot keep the old badge text.
+**Catchable by**: Section 3: a shared chart component with a native WebView must check that axis labels and the last-value badge use the same formatter; a function prop dropped by `JSON.stringify` is not applied inside the page.
+
+## Case: Stock overview showed the transactions column header
+**Date**: 2026-09-28 | **Platforms**: iOS, Android (main)
+**Symptom**: The stock detail Overview tab opened with 类型/时间, 数量, 价值/价格 above the stock summary.
+**Root Cause**: The sticky column header treated the first tab as the transactions table. Stock and top-coin overviews are not that table.
+**Fix**: Show the column header only for a real table tab. Stock and top-coin overviews, and Financials, render none; My position still shows its columns.
+**Catchable by**: Section 4: a shared tab chrome must be gated by the tab's content, not by "first tab".
+
+## Case: Stock trade opened Swap Pro
+**Date**: 2026-09-28 | **Platforms**: iOS, Android (main)
+**Symptom**: Tapping Trade on a stock token opened the Swap tab with 专业 selected and the order book, instead of 股票.
+**Root Cause**: The mobile market footer always called `prepareSwapProEntry`, which sets the swap type to Limit. Stock tokens already carry `isStock`, and the stock tab has its own entry state.
+**Fix**: Stock trades call `prepareStockSwapEntry`, which selects the stock tab and the tapped token, and clear any pending pro jump so it cannot switch the tab back to Limit.
+**Catchable by**: Section 4: a shared Trade action must branch on the token kind; the destination tab is part of the behavior, not a default of the Swap screen.
+
+## Case: Stock variant picker showed no data before the list
+**Date**: 2026-09-28 | **Platforms**: iOS, Android (main)
+**Symptom**: Opening the stock token picker first showed 暂无数据 and 重试, then the issuer and chain list replaced it.
+**Root Cause**: The variants request did not report loading, so a missing result was treated as an empty response until the request finished.
+**Fix**: Keep the picker in a loading skeleton until the response belongs to the current stock. Show 暂无数据 only after that response has no items.
+**Catchable by**: Section 4: empty versus not-loaded must stay distinct; a request that has not settled is not an empty result.
+
+## Case: Mainstream coin trade opened Swap Pro
+**Date**: 2026-09-28 | **Platforms**: iOS, Android (main)
+**Symptom**: Tapping Trade on a mainstream coin such as BTC opened Swap with 专业 selected, instead of 兑换 & 跨链.
+**Root Cause**: The mobile market footer sent every non-stock token through `prepareSwapProEntry`, which sets the swap type to Limit.
+**Fix**: Mainstream coins call `prepareTopCoinSwapEntry`, which selects 兑换 & 跨链 and puts the coin on the receive side. Trending tokens still open Pro, and stocks still open the stock tab.
+**Catchable by**: Section 4: a shared Trade action must branch on the detail kind; the destination tab is part of the behavior.
+
+## Case: Trending and Robinhood trade opened Swap Pro
+**Date**: 2026-09-28 | **Platforms**: iOS, Android (main)
+**Symptom**: Tapping Trade on a trending token or a Robinhood token opened Swap with 专业 selected.
+**Root Cause**: Those details share the trending kind, and that kind still resolved to the Pro destination after mainstream coins were moved to ordinary Swap.
+**Fix**: Every non-stock market detail, including trending and Robinhood, opens 兑换 & 跨链. Stocks still open the stock tab.
+**Catchable by**: Section 4: a shared Trade action must cover every detail kind, including categories that reuse the trending layout.
+
+## Case: Swap candlestick opened the in-swap chart
+**Date**: 2026-09-29 | **Platforms**: iOS, Android (main); desktop, web, and extension share the header
+**Symptom**: The swap header candlestick opened an in-swap K-line dialog for 兑换, or the Pro market modal for 股票, instead of the Market detail for the receive token or the stock. Cross-chain 兑换 hid the button.
+**Root Cause**: The button was wired to SwapKLine and SwapProMarketDetail, and BRIDGE was excluded from the button visibility check.
+**Fix**: 兑换 and 兑换 & 跨链 open the Market detail of the to token, resolving a mainstream coin when the asset matches. 股票 opens the Market stock detail for the selected stock, including the wrapped token when its address is known. 专业 still opens the Pro market detail.
+**Catchable by**: Section 4: a header action that leaves the current screen must target the page the user came from, and a visible-tab alias such as BRIDGE must keep the same action.
+
+## Case: Market trade opened Swap with both tokens empty
+**Date**: 2026-09-29 | **Platforms**: iOS, Android (main)
+**Symptom**: Tapping Trade on a token detail opened 兑换 with both 从 and 到 showing 选择代币.
+**Root Cause**: The detail page wrote the pair into the Swap store, then the Swap tab's focus sync cleared that pair before paint. With no connected wallet, the sync also did not install a default pair.
+**Fix**: Remember the pair on the market jump atom and write it again after the focus sync, once swap networks exist. If there is no payment token, use the network's default pay token.
+**Catchable by**: Section 4: a handoff written before navigation must still be present after the destination screen's focus sync.
+
+## Case: Stock trade kept the previous stock
+**Date**: 2026-09-29 | **Platforms**: iOS, Android (main)
+**Symptom**: Tapping Trade on an NVIDIA stock token opened the stock swap page still showing AAPL.
+**Root Cause**: The stock form keeps the last stock in local state and prefers the last execution pair over the newly selected stock atom. That local AAPL was published again after the trade handoff.
+**Fix**: When the selected stock atom changes, the form follows that stock instead of the previous local stock or execution pair.
+**Catchable by**: Section 4: a screen that keeps its own copy of a selection must follow the shared selection when another page writes it.
+
+## Case: Stock swap header flashed the issuer icon
+**Date**: 2026-09-29 | **Platforms**: iOS, Android (main)
+**Symptom**: After Trade opened the stock swap page, the header first showed the stock-token issuer icon, then switched to the company icon.
+**Root Cause**: The mobile stock header used the wrapped-token logo until `fetchMarketStockDetail` returned the listing logo.
+**Fix**: The large avatar uses only the listing logo for the current stock. Until that request settles, the avatar stays a skeleton.
+**Catchable by**: Section 4: a fallback image must be the same kind of asset; an issuer logo is not a stand-in for the company logo while the listing is still loading.
+
+## Case: Stock candlestick opened the detail with the issuer icon
+**Date**: 2026-09-29 | **Platforms**: iOS, Android (main); desktop, web, and extension share the header
+**Symptom**: The stock swap candlestick opened Market detail showing the wrapped-token symbol and issuer icon before the company listing.
+**Root Cause**: The navigation preview copied the wrapped token's symbol and logo, and the detail header used that issuer logo whenever the company logo was still empty. Switching stocks on the swap page also kept the previous listing name.
+**Fix**: The preview carries the listing ticker and company name, with no issuer logo. The detail header does not substitute the wrapped-token logo once the listing is known. The swap header ignores a listing response for a different stock.
+**Catchable by**: Section 4: a navigation preview must be the same kind of asset as the destination header; an issuer logo is not the company logo.
+
+## Case: Desktop stock detail flashed the issuer icon
+**Date**: 2026-09-29 | **Platforms**: desktop, web
+**Symptom**: Opening a stock from the swap candlestick showed the wrapped-token or issuer icon in the desktop stock page header until the listing logo arrived.
+**Root Cause**: That header used the wrapped-token logo and issuer logo whenever the company logo was still empty, even after the listing ticker was known.
+**Fix**: Once a listing ticker or stock id is known, the header uses only the listing logo, symbol, and name.
+**Catchable by**: Section 4: a fallback image must be the same kind of asset; an issuer logo is not a stand-in for the company logo.
+

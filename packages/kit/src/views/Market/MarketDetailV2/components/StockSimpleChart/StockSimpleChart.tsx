@@ -59,12 +59,14 @@ export function StockSimpleChart({
   marketAssetId,
   range,
   priceMode,
+  priceScaleFormat,
 }: {
   active?: boolean;
   coinGeckoId?: string;
   marketAssetId?: string;
   range: IStockSimpleChartRange;
   priceMode: IMarketPriceSource;
+  priceScaleFormat?: 'stock';
 }) {
   const intl = useIntl();
   const [chartHeight, setChartHeight] = useState(
@@ -351,6 +353,7 @@ export function StockSimpleChart({
         pulseLastPoint={pulseLastPoint}
         previousClose={previousClose}
         showCurrentPriceLabel
+        priceScaleFormat={priceScaleFormat}
         hoverLabelLargePrice
       />
     );

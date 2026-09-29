@@ -159,6 +159,35 @@ export function getTokenIdentityKey(token?: Partial<ISwapTokenBase>) {
   }`;
 }
 
+export function resolveDisplayedStockToken({
+  coldStartStockToken,
+  controlledStockToken,
+  persistedStockToken,
+  stockPairToken,
+  stockTokenState,
+}: {
+  coldStartStockToken?: ISwapToken;
+  controlledStockToken?: ISwapToken;
+  persistedStockToken?: ISwapToken;
+  stockPairToken?: ISwapToken;
+  stockTokenState?: ISwapToken;
+}) {
+  const externalStockToken = controlledStockToken ?? persistedStockToken;
+  if (
+    externalStockToken &&
+    getTokenIdentityKey(externalStockToken) !==
+      getTokenIdentityKey(stockTokenState)
+  ) {
+    return externalStockToken;
+  }
+  return (
+    stockTokenState ??
+    externalStockToken ??
+    stockPairToken ??
+    coldStartStockToken
+  );
+}
+
 export function shouldSyncControlledStockTokenMetadata({
   controlledStockToken,
   currentStockToken,

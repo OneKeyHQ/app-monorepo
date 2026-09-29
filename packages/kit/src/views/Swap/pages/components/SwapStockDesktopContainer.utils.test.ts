@@ -9,19 +9,25 @@ import {
   STOCK_CHART_DEFAULT_RANGE,
   STOCK_CHART_RANGE_ITEMS,
   STOCK_DESKTOP_HEADER_SLOT_PROPS,
+  buildSwapTokenFromStockVariant,
+  formatStockIssuerLabel,
   getStockChartCoinGeckoIdState,
   getStockChartDisplayState,
   getStockDisabledActionButtonProps,
   getStockMarketTokenSubtitle,
   getStockNetworkLogoUri,
+  getStockVariantOptionsPhase,
   isStockChartRequestReady,
   isStockMarketPanelLoadingStage,
   mergeStockChartRealtimePoint,
+  resolveSwapStockMobileHeaderIdentity,
+  resolveSwapStockMobileHeaderLogo,
   shouldDeferStockInitialContent,
   shouldResetStockTradeQuoteState,
   shouldShowStockMarketHeaderSkeleton,
   shouldShowStockMarketTokenLabelsSkeleton,
   shouldShowStockQuoteActionLoading,
+  shouldShowSwapStockMobileHeaderLogoSkeleton,
 } from './SwapStockDesktopContainer.utils';
 
 describe('SwapStockDesktopContainer utils', () => {
@@ -295,6 +301,212 @@ describe('SwapStockDesktopContainer utils', () => {
         hasTokenData: false,
       }),
     ).toBe(false);
+  });
+
+  it('keeps the stock variant list loading until the current stock responds', () => {
+    expect(
+      getStockVariantOptionsPhase({
+        isLoading: undefined,
+        itemCount: 0,
+        stockId: 'AAPL',
+      }),
+    ).toBe('loading');
+    expect(
+      getStockVariantOptionsPhase({
+        isLoading: true,
+        itemCount: 0,
+        stockId: 'AAPL',
+      }),
+    ).toBe('loading');
+    expect(
+      getStockVariantOptionsPhase({
+        isLoading: false,
+        itemCount: 0,
+        resultStockId: 'NVDA',
+        stockId: 'AAPL',
+      }),
+    ).toBe('loading');
+    expect(
+      getStockVariantOptionsPhase({
+        isLoading: false,
+        itemCount: 0,
+        resultStockId: 'AAPL',
+        stockId: 'AAPL',
+      }),
+    ).toBe('empty');
+    expect(
+      getStockVariantOptionsPhase({
+        isLoading: false,
+        itemCount: 4,
+        resultStockId: 'AAPL',
+        stockId: 'AAPL',
+      }),
+    ).toBe('ready');
+  });
+
+  it('builds a swap token for one stock issuer and chain', () => {
+    expect(
+      buildSwapTokenFromStockVariant({
+        decimals: 18,
+        stock: {
+          subtitle: '苹果',
+          source: 'ondo',
+          sourceLogoUri: 'https://example.com/ondo.png',
+          underlyingAssetTicker: 'AAPL',
+        },
+        variant: {
+          tokenId: 'token-1',
+          issuer: 'xstock',
+          issuerLogoUrl: 'https://example.com/xstock.png',
+          symbol: 'AAPLx',
+          name: 'Apple xStock',
+          logoUrl: 'https://example.com/aaplx.png',
+          networkId: 'evm--56',
+          networkLogoUrl: 'https://example.com/bsc.png',
+          contractAddress: '0xabc',
+          tokenToAssetRatio: '1',
+          price: '311',
+          currency: 'USD',
+          status: 'active',
+          tradingEnabled: true,
+        },
+      }),
+    ).toEqual({
+      networkId: 'evm--56',
+      contractAddress: '0xabc',
+      decimals: 18,
+      symbol: 'AAPLx',
+      name: 'Apple xStock',
+      logoURI: 'https://example.com/aaplx.png',
+      networkLogoURI: 'https://example.com/bsc.png',
+      isNative: false,
+      isStock: true,
+      price: '311',
+      currency: 'USD',
+      stock: {
+        subtitle: '苹果',
+        source: 'xstock',
+        sourceLogoUri: 'https://example.com/xstock.png',
+        underlyingAssetTicker: 'AAPL',
+        tokenToAssetRatio: '1',
+      },
+    });
+  });
+
+  it('keeps the mobile stock header logo on the company listing', () => {
+    expect(
+      resolveSwapStockMobileHeaderLogo({
+        listingLogoUrl: 'https://example.com/nvda.png',
+        listingStockId: 'NVDA',
+        loadedStockId: 'nvda',
+      }),
+    ).toBe('https://example.com/nvda.png');
+    expect(
+      resolveSwapStockMobileHeaderLogo({
+        listingLogoUrl: 'https://example.com/aapl.png',
+        listingStockId: 'NVDA',
+        loadedStockId: 'AAPL',
+      }),
+    ).toBeUndefined();
+    expect(
+      resolveSwapStockMobileHeaderLogo({
+        listingLogoUrl: '  ',
+        listingStockId: 'NVDA',
+        loadedStockId: 'NVDA',
+      }),
+    ).toBeUndefined();
+  });
+
+  it('holds a logo skeleton until the company listing settles', () => {
+    expect(
+      shouldShowSwapStockMobileHeaderLogoSkeleton({
+        hasListingLogo: false,
+        listingStockId: 'NVDA',
+        listingStockLoading: undefined,
+      }),
+    ).toBe(true);
+    expect(
+      shouldShowSwapStockMobileHeaderLogoSkeleton({
+        hasListingLogo: false,
+        listingStockId: 'NVDA',
+        listingStockLoading: true,
+      }),
+    ).toBe(true);
+    expect(
+      shouldShowSwapStockMobileHeaderLogoSkeleton({
+        hasListingLogo: true,
+        listingStockId: 'NVDA',
+        listingStockLoading: true,
+      }),
+    ).toBe(false);
+    expect(
+      shouldShowSwapStockMobileHeaderLogoSkeleton({
+        hasListingLogo: false,
+        listingStockId: 'NVDA',
+        listingStockLoading: false,
+      }),
+    ).toBe(false);
+    expect(
+      shouldShowSwapStockMobileHeaderLogoSkeleton({
+        hasListingLogo: false,
+        listingStockId: '  ',
+        listingStockLoading: true,
+      }),
+    ).toBe(false);
+  });
+
+  it('uses the underlying listing for the mobile stock header', () => {
+    expect(
+      resolveSwapStockMobileHeaderIdentity({
+        companyName: '苹果',
+        listingName: 'Apple Inc.',
+        listingSymbol: 'AAPL',
+        tokenSymbol: 'AAPLon',
+        underlyingName: 'Apple Inc.',
+        underlyingTicker: 'AAPL',
+      }),
+    ).toEqual({ symbol: 'AAPL', companyName: 'Apple Inc.' });
+    expect(
+      resolveSwapStockMobileHeaderIdentity({
+        companyName: '苹果',
+        listingName: 'Apple Inc.',
+        listingSymbol: 'AAPL',
+        listingStockId: 'NVDA',
+        loadedStockId: 'AAPL',
+        tokenSymbol: 'NVDAon',
+        underlyingName: '英伟达',
+        underlyingTicker: 'NVDA',
+      }),
+    ).toEqual({ symbol: 'NVDA', companyName: '英伟达' });
+    expect(
+      resolveSwapStockMobileHeaderIdentity({
+        listingName: 'NVIDIA Corporation',
+        listingSymbol: 'NVDA',
+        listingStockId: 'NVDA',
+        loadedStockId: 'nvda',
+        underlyingName: '英伟达',
+        underlyingTicker: 'NVDA',
+      }),
+    ).toEqual({ symbol: 'NVDA', companyName: 'NVIDIA Corporation' });
+    expect(
+      resolveSwapStockMobileHeaderIdentity({
+        tokenSymbol: 'AAPLon',
+        underlyingName: '苹果',
+        underlyingTicker: 'AAPL',
+      }),
+    ).toEqual({ symbol: 'AAPL', companyName: '苹果' });
+    expect(
+      resolveSwapStockMobileHeaderIdentity({
+        tokenSymbol: 'AAPLon',
+      }),
+    ).toEqual({ symbol: 'AAPLon', companyName: undefined });
+  });
+
+  it('formats a stock issuer label', () => {
+    expect(formatStockIssuerLabel('ondo')).toBe('Ondo');
+    expect(formatStockIssuerLabel(' xstock ')).toBe('xStocks');
+    expect(formatStockIssuerLabel('')).toBeUndefined();
+    expect(formatStockIssuerLabel('custom')).toBe('custom');
   });
 
   it('does not reuse the selected token subtitle while detail loads', () => {

@@ -41,6 +41,7 @@ import {
   filterStockPayTokenCandidates,
   getTokenIdentityKey,
   isStockTradeReadyForQuote,
+  resolveDisplayedStockToken,
   resolveStockChannelSwapPair,
   resolveStockExecutionTokenMetadata,
   resolveStockExecutionTokensForTradeSideSwitch,
@@ -178,11 +179,13 @@ export function useSwapStockChannel(
   const persistedStockSelectedToken = stockSelectedToken?.isStock
     ? stockSelectedToken
     : undefined;
-  const selectedStockToken =
-    stockTokenState ??
-    persistedStockSelectedToken ??
-    stockPair.stockToken ??
-    coldStartStockPair.stockToken;
+  const selectedStockToken = resolveDisplayedStockToken({
+    coldStartStockToken: coldStartStockPair.stockToken,
+    controlledStockToken,
+    persistedStockToken: persistedStockSelectedToken,
+    stockPairToken: stockPair.stockToken,
+    stockTokenState,
+  });
   const selectedStockTokenKey = getTokenIdentityKey(selectedStockToken);
   const currentStockToken = selectedStockToken;
   const currentStockTokenKey = getTokenIdentityKey(currentStockToken);
@@ -403,7 +406,10 @@ export function useSwapStockChannel(
   // controlled token must also reach the execution channel without resetting
   // the user's receive amount.
   useEffect(() => {
-    const nextStockToken = controlledStockToken ?? stockPair.stockToken;
+    const nextStockToken =
+      controlledStockToken ??
+      persistedStockSelectedToken ??
+      stockPair.stockToken;
     if (!nextStockToken) {
       return;
     }
@@ -429,6 +435,7 @@ export function useSwapStockChannel(
     currentStockTokenKey,
     selectStockSwapToken,
     stockPair.stockToken,
+    persistedStockSelectedToken,
     syncStockTokenDetail,
   ]);
 

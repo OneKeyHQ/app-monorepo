@@ -14,6 +14,7 @@ import {
   isStockBalanceInitializing,
   isStockPayTokenReadyForTradeInput,
   isStockTradeReadyForQuote,
+  resolveDisplayedStockToken,
   resolveStockBalanceSeed,
   resolveStockBalanceSnapshot,
   resolveStockBalanceViewState,
@@ -1142,5 +1143,36 @@ describe('backfillSwapProTokenStockIdentity', () => {
         tokenDetail: undefined,
       }),
     ).toBe(legacyStockToken);
+  });
+});
+
+describe('resolveDisplayedStockToken', () => {
+  it('follows a newly selected stock instead of the previous local stock', () => {
+    expect(
+      resolveDisplayedStockToken({
+        persistedStockToken: micronStockToken,
+        stockPairToken: appleStockToken,
+        stockTokenState: appleStockToken,
+      }),
+    ).toBe(micronStockToken);
+  });
+
+  it('keeps the local stock when it is the same token as the persisted selection', () => {
+    const localApple = { ...appleStockToken, name: 'Apple' };
+    expect(
+      resolveDisplayedStockToken({
+        persistedStockToken: appleStockToken,
+        stockPairToken: appleStockToken,
+        stockTokenState: localApple,
+      }),
+    ).toBe(localApple);
+  });
+
+  it('uses the execution pair when no explicit stock is selected', () => {
+    expect(
+      resolveDisplayedStockToken({
+        stockPairToken: appleStockToken,
+      }),
+    ).toBe(appleStockToken);
   });
 });
