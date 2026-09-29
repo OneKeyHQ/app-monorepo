@@ -51,6 +51,13 @@ export type IHistoryAmount = {
   secondaryTextSegments?: readonly ValueTextSegment[];
 };
 
+export type IHistoryNetworkBadge = {
+  logoURI?: string;
+  letter?: string;
+  textColor?: string;
+  backgroundColor?: string;
+};
+
 export function formatHistoryNumber(
   value: string | undefined,
   options: {
@@ -169,6 +176,7 @@ function buildHistoryActivityRowUnchecked({
   hideValue,
   currency,
   isAllNetworks,
+  networkBadge,
 }: {
   history: IAccountHistoryTx;
   intl: IntlShape;
@@ -177,6 +185,7 @@ function buildHistoryActivityRowUnchecked({
   hideValue: boolean;
   currency: string;
   isAllNetworks?: boolean;
+  networkBadge?: IHistoryNetworkBadge;
 }): {
   row: ActivityRow & {
     amounts: IHistoryAmount[];
@@ -430,21 +439,34 @@ function buildHistoryActivityRowUnchecked({
     };
   }
   if (tableLayout) leading = { kind: 'token', fallbackIcon: { name: icon } };
-  if (isAllNetworks && decodedTx.networkLogoURI && leading.kind === 'token')
-    leading = {
-      ...leading,
-      networkImage: { uri: decodedTx.networkLogoURI, width: 16, height: 16 },
-    };
-  if (
-    isAllNetworks &&
-    decodedTx.networkLogoURI &&
-    secondaryLeading?.kind === 'token'
-  ) {
-    secondaryLeading = {
-      ...secondaryLeading,
-      networkImage: { uri: decodedTx.networkLogoURI, width: 16, height: 16 },
-    };
-  }
+  const badgeLogoURI = decodedTx.networkLogoURI || networkBadge?.logoURI;
+  const withNetworkBadge = (visual: LeadingVisual): LeadingVisual => {
+    if (!isAllNetworks || visual.kind !== 'token') return visual;
+    if (badgeLogoURI)
+      return {
+        ...visual,
+        networkImage: { uri: badgeLogoURI, width: 16, height: 16 },
+      };
+    if (networkBadge?.letter)
+      return {
+        ...visual,
+        // NativeList cannot mount NetworkAvatar; its text overlay preserves
+        // the initial used for custom networks without a logo.
+        overlays: [
+          ...(visual.overlays ?? []),
+          {
+            position: 'bottomRight',
+            size: 16,
+            text: networkBadge.letter,
+            tintColor: networkBadge.textColor,
+            backgroundColor: networkBadge.backgroundColor,
+          },
+        ],
+      };
+    return visual;
+  };
+  leading = withNetworkBadge(leading);
+  if (secondaryLeading) secondaryLeading = withNetworkBadge(secondaryLeading);
   if (history.replacedType && status === EDecodedTxStatus.Pending)
     badges.push({
       key: 'replacement',

@@ -59,6 +59,7 @@ import {
   formatHistoryNumber,
 } from './historyActivityRows';
 
+import type { IHistoryNetworkBadge } from './historyActivityRows';
 import type { IHomeHistoryListViewProps } from './types';
 import type {
   ActivityRow,
@@ -298,6 +299,80 @@ export function NativeHistoryList(props: IHomeHistoryListViewProps) {
       revalidateOnReconnect: true,
     },
   );
+  const localNetworkLogos = useMemo(
+    () =>
+      Object.fromEntries(
+        [
+          ...new Set(filtered.map((history) => history.decodedTx.networkId)),
+        ].map((networkId) => [
+          networkId,
+          networkUtils.getLocalNetworkInfo(networkId)?.logoURI,
+        ]),
+      ),
+    [filtered],
+  );
+  // Render rows from transaction and preset logos immediately. Only missing
+  // badges need an asynchronous lookup in the background runtime.
+  const missingBadgeNetworkIds = useMemo(
+    () =>
+      network?.isAllNetworks
+        ? [
+            ...new Set(
+              filtered
+                .filter(
+                  (history) =>
+                    !history.decodedTx.networkLogoURI &&
+                    !localNetworkLogos[history.decodedTx.networkId],
+                )
+                .map((history) => history.decodedTx.networkId),
+            ),
+          ].toSorted()
+        : [],
+    [filtered, localNetworkLogos, network?.isAllNetworks],
+  );
+  const badgeRequestIdentity = JSON.stringify({
+    scope: props.frozenTopIdentityKey,
+    networkIds: missingBadgeNetworkIds,
+    retry: networkMetadataRetry,
+  });
+  const badgeCacheRef = useRef(new Map<string, IHistoryNetworkBadge>());
+  const { result: fetchedBadges } = usePromiseResult(
+    async () => {
+      const { networkIds } = JSON.parse(badgeRequestIdentity) as {
+        networkIds: string[];
+      };
+      const cache = badgeCacheRef.current;
+      await promiseAllSettledEnhanced(
+        networkIds
+          .filter((networkId) => !cache.has(networkId))
+          .map((networkId) => async () => {
+            const result =
+              await backgroundApiProxy.serviceNetwork.getNetworkSafe({
+                networkId,
+              });
+            if (result?.id !== networkId) return;
+            const letter = result.isCustomNetwork
+              ? Array.from(result.name.trim())[0]?.toUpperCase()
+              : undefined;
+            const logoURI = result.isCustomNetwork ? undefined : result.logoURI;
+            // Cache only usable badges; failed or empty lookups remain
+            // eligible for refresh and reconnect retries.
+            if (logoURI || letter) cache.set(networkId, { logoURI, letter });
+          }),
+        { concurrency: 4, continueOnError: true },
+      );
+      return Object.fromEntries(
+        networkIds.flatMap((networkId) => {
+          const badge = cache.get(networkId);
+          return badge ? [[networkId, badge] as const] : [];
+        }),
+      );
+    },
+    [badgeRequestIdentity],
+    { revalidateOnReconnect: true },
+  );
+  // Async badge results rebuild the snapshot with stable row keys, allowing
+  // NativeList to update the affected visuals without remounting the list.
   const models = useMemo(
     () =>
       new Map(
@@ -317,6 +392,14 @@ export function NativeHistoryList(props: IHomeHistoryListViewProps) {
             hideValue: effectiveHideValue,
             currency: settings.currencyInfo.symbol,
             isAllNetworks: network?.isAllNetworks,
+            networkBadge: {
+              logoURI:
+                localNetworkLogos[history.decodedTx.networkId] ||
+                fetchedBadges?.[history.decodedTx.networkId]?.logoURI,
+              letter: fetchedBadges?.[history.decodedTx.networkId]?.letter,
+              textColor: theme.primaryText,
+              backgroundColor: theme.rowBackground,
+            },
           }),
         ]),
       ),
@@ -325,9 +408,13 @@ export function NativeHistoryList(props: IHomeHistoryListViewProps) {
       intl,
       tableLayout,
       networkData,
+      localNetworkLogos,
+      fetchedBadges,
       effectiveHideValue,
       settings.currencyInfo.symbol,
       network?.isAllNetworks,
+      theme.primaryText,
+      theme.rowBackground,
     ],
   );
   const addressTargets = useMemo(

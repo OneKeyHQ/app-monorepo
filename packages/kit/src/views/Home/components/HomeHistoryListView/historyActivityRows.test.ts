@@ -147,6 +147,41 @@ describe('Home native history financial display parity', () => {
       expect.stringContaining('-2'),
     ]);
   });
+  it('adds a fetched network badge without changing the history row key', () => {
+    const tx = history([transfer('2')], []);
+    const params = {
+      history: tx,
+      intl,
+      tableLayout: true,
+      hideValue: false,
+      currency: '$',
+      isAllNetworks: true,
+    };
+    const initial = buildHistoryActivityRow(params).row;
+    const updated = buildHistoryActivityRow({
+      ...params,
+      networkBadge: { logoURI: 'https://example.com/network.png' },
+    }).row;
+    expect(initial.leading).not.toHaveProperty('networkImage');
+    expect(updated.key).toBe(initial.key);
+    expect(updated.leading).toMatchObject({
+      networkImage: { uri: 'https://example.com/network.png' },
+    });
+  });
+  it('uses a text overlay for a custom network without a logo', () => {
+    const result = buildHistoryActivityRow({
+      history: history([transfer('2')], []),
+      intl,
+      tableLayout: true,
+      hideValue: false,
+      currency: '$',
+      isAllNetworks: true,
+      networkBadge: { letter: 'C' },
+    }).row;
+    expect(result.leading).toMatchObject({
+      overlays: [{ position: 'bottomRight', text: 'C' }],
+    });
+  });
   it('preserves token symbols when privacy masking is enabled', () => {
     const result = buildHistoryActivityRow({
       history: history([transfer('7')], []),
