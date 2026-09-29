@@ -1126,6 +1126,7 @@ function StockTradeTicket({
   stockTradeIdentityLoading?: boolean;
 }) {
   const standaloneSelection = useSwapStockSelection();
+  const swapFromAddressInfo = useSwapAddressInfo(ESwapDirectionType.FROM);
   const amountInputState = useSwapStockAmountInputState({ stockChannel });
   const startedWithoutAmountInputRef = useRef(!amountInputState.inputToken);
   const deferInitialAmountContent = shouldDeferStockInitialContent({
@@ -1240,6 +1241,15 @@ function StockTradeTicket({
             quoteLoading={quoteLoading}
             quoteResult={quoteResult}
             stockChannel={stockChannel}
+            accountNetworkContext={{
+              accountId:
+                swapFromAddressInfo.accountInfo?.account?.id ??
+                swapFromAddressInfo.activeAccount?.account?.id,
+              walletId:
+                swapFromAddressInfo.accountInfo?.wallet?.id ??
+                swapFromAddressInfo.activeAccount?.wallet?.id,
+              networkId: stockChannel.fromToken?.networkId,
+            }}
             // px of the hosting YStack gap above: "$3" = 12, "$4" = 16
             parentGap={compact ? 12 : 16}
           />

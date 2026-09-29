@@ -49,6 +49,7 @@ import {
 } from '../../utils/swapDesktopCardShadow';
 import { getSwapKLineTradingViewNativeSource } from '../modal/swapKLineTradingViewNativeUtils';
 
+import { SwapStockMarketDataGrid } from './SwapStockMarketData';
 import { useSwapStockSelection } from './SwapStockMarketProvider';
 import {
   SwapStockMyPosition,
@@ -346,6 +347,19 @@ export function SwapStockMarketPanel() {
   const { displayStockTokenDetail: tokenDetail, currentStockToken } =
     useSwapStockTradeContext();
   const selection = useSwapStockSelection();
+  const marketData = useMemo(
+    () =>
+      tokenDetail && stockDetail
+        ? {
+            ...tokenDetail,
+            stock: buildStockInfoFromPublicDetail(
+              stockDetail,
+              tokenDetail.stock,
+            ),
+          }
+        : tokenDetail,
+    [stockDetail, tokenDetail],
+  );
   const { status } = useSwapStockPrice(priceMode);
   const selectedStock =
     selection?.pendingStock ?? selection?.selectedStockPreview;
@@ -536,6 +550,7 @@ export function SwapStockMarketPanel() {
         </YStack>
       </YStack>
       <SwapStockMyPosition />
+      <SwapStockMarketDataGrid tokenDetail={marketData} />
       <SwapStockTokenDetails
         summary
         tokenDetail={tokenDetail}

@@ -90,7 +90,10 @@ import {
   resolveVerifiedSwapBalance,
 } from '../utils/swapBalanceOwnerUtils';
 import { shouldOfferSwapDepositAction } from '../utils/swapDepositActionUtils';
-import { shouldAllowSwapNoConnectWalletWarning } from '../utils/swapNoWalletWarningGuard';
+import {
+  isCurrentSwapAccountNetworkUnsupportedAlert,
+  shouldAllowSwapNoConnectWalletWarning,
+} from '../utils/swapNoWalletWarningGuard';
 import {
   getStockQuoteTradeControl,
   isStockQuoteInputAmountMatched,
@@ -475,8 +478,22 @@ export function useSwapActionState() {
     toToken,
   ]);
 
+  const currentAccountId =
+    swapFromAddressInfo.accountInfo?.account?.id ??
+    swapFromAddressInfo.activeAccount?.account?.id;
+  const currentWalletId =
+    swapFromAddressInfo.accountInfo?.wallet?.id ??
+    swapFromAddressInfo.activeAccount?.wallet?.id;
   const hasError = alerts.states.some(
-    (item) => item.alertLevel === ESwapAlertLevel.ERROR,
+    (item) =>
+      item.alertLevel === ESwapAlertLevel.ERROR &&
+      (!item.isAccountNetworkUnsupported ||
+        isCurrentSwapAccountNetworkUnsupportedAlert({
+          alert: item,
+          accountId: currentAccountId,
+          walletId: currentWalletId,
+          networkId: fromToken?.networkId,
+        })),
   );
   const quoteInputAmountNoMatch = useMemo(() => {
     const inputAmount =

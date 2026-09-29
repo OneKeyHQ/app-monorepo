@@ -881,6 +881,11 @@ export interface ISwapAlertState {
   inputShowError?: boolean;
   noConnectWallet?: boolean;
   isAccountNetworkUnsupported?: boolean;
+  accountNetworkUnsupportedContext?: {
+    accountId?: string;
+    walletId?: IDBWalletId;
+    networkId?: string;
+  };
   action?: {
     actionType: ESwapAlertActionType;
     actionLabel?: string;

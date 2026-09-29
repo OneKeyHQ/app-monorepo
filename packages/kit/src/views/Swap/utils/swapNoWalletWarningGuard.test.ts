@@ -1,5 +1,6 @@
 import {
   buildSwapLimitOrdersAccountIdKey,
+  isCurrentSwapAccountNetworkUnsupportedAlert,
   removeSwapNoConnectWalletAlerts,
   shouldAllowSwapNoConnectWalletWarning,
   shouldShowSwapAccountUnsupportedAlert,
@@ -370,5 +371,46 @@ describe('shouldShowSwapAccountUnsupportedAlert', () => {
         accountId: 'hd-1--m/44/60/0/0/0',
       }),
     ).toBe(false);
+  });
+});
+
+describe('isCurrentSwapAccountNetworkUnsupportedAlert', () => {
+  it('matches the account, wallet, and network that produced the alert', () => {
+    const alert = {
+      isAccountNetworkUnsupported: true,
+      accountNetworkUnsupportedContext: {
+        accountId: 'account-1',
+        walletId: 'wallet-1',
+        networkId: 'evm--56',
+      },
+    };
+
+    expect(
+      isCurrentSwapAccountNetworkUnsupportedAlert({
+        alert,
+        accountId: 'account-1',
+        walletId: 'wallet-1',
+        networkId: 'evm--56',
+      }),
+    ).toBe(true);
+    expect(
+      isCurrentSwapAccountNetworkUnsupportedAlert({
+        alert,
+        accountId: 'account-2',
+        walletId: 'wallet-1',
+        networkId: 'evm--56',
+      }),
+    ).toBe(false);
+  });
+
+  it('keeps legacy alerts until a complete warning check replaces them', () => {
+    expect(
+      isCurrentSwapAccountNetworkUnsupportedAlert({
+        alert: { isAccountNetworkUnsupported: true },
+        accountId: 'account-1',
+        walletId: 'wallet-1',
+        networkId: 'evm--56',
+      }),
+    ).toBe(true);
   });
 });

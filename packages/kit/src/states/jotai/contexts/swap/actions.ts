@@ -18,6 +18,7 @@ import {
 } from '@onekeyhq/kit/src/views/Swap/utils/swapColdStartTokenCacheUtils';
 import { buildSwapNetworkReadyKey } from '@onekeyhq/kit/src/views/Swap/utils/swapNetworkCacheUtils';
 import {
+  isCurrentSwapAccountNetworkUnsupportedAlert,
   removeSwapNoConnectWalletAlerts,
   shouldShowSwapAccountUnsupportedAlert,
 } from '@onekeyhq/kit/src/views/Swap/utils/swapNoWalletWarningGuard';
@@ -1298,7 +1299,11 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
                 eventId: errorData.eventId,
               });
               set(swapAlertsAtom(), {
-                states: isStockQuoteEventError ? [] : [errorAlert],
+                states: isStockQuoteEventError
+                  ? get(swapAlertsAtom()).states.filter(
+                      (item) => item.isAccountNetworkUnsupported,
+                    )
+                  : [errorAlert],
                 quoteId: '',
               });
               this.reconcileManualSelectQuoteProviders.call(set);
@@ -2078,6 +2083,11 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         message: unsupportedMessage,
         alertLevel: ESwapAlertLevel.ERROR,
         isAccountNetworkUnsupported: true,
+        accountNetworkUnsupportedContext: {
+          accountId,
+          walletId,
+          networkId: activeNetworkId,
+        },
       };
     }
     return undefined;
@@ -2242,7 +2252,28 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
           });
         } else {
           const alerts = get(swapAlertsAtom());
-          const nextAlerts = removeSwapNoConnectWalletAlerts(alerts.states);
+          const currentAccountId =
+            swapFromAddressInfo.accountInfo?.account?.id ??
+            swapFromAddressInfo.activeAccount?.account?.id;
+          const currentWalletId =
+            swapFromAddressInfo.accountInfo?.wallet?.id ??
+            swapFromAddressInfo.activeAccount?.wallet?.id;
+          const nextAlerts = removeSwapNoConnectWalletAlerts(
+            alerts.states,
+          ).filter((item) => {
+            if (swapTypeSwitch !== ESwapTabSwitchType.STOCK) {
+              return true;
+            }
+            return (
+              item.isAccountNetworkUnsupported &&
+              isCurrentSwapAccountNetworkUnsupportedAlert({
+                alert: item,
+                accountId: currentAccountId,
+                walletId: currentWalletId,
+                networkId: fromToken?.networkId,
+              })
+            );
+          });
           if (nextAlerts.length !== alerts.states.length) {
             set(swapAlertsAtom(), {
               states: nextAlerts,
@@ -2298,6 +2329,11 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
             message: notSupportSwapMessage,
             alertLevel: ESwapAlertLevel.ERROR,
             isAccountNetworkUnsupported: true,
+            accountNetworkUnsupportedContext: {
+              accountId: swapFromAddressInfo.accountInfo?.account?.id,
+              walletId: swapFromAddressInfo.accountInfo?.wallet?.id,
+              networkId: fromToken?.networkId,
+            },
           },
         ];
       }

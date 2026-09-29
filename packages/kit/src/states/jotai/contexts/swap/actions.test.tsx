@@ -4587,6 +4587,75 @@ describe('useSwapActions', () => {
     );
   });
 
+  it('keeps a current Stock account-network alert when quote events fail', async () => {
+    const { store, Wrapper } = createWrapperWithStore((storeInstance) => {
+      storeInstance.set(swapTypeSwitchAtom(), ESwapTabSwitchType.STOCK);
+      storeInstance.set(swapSelectFromTokenAtom(), usdcToken);
+      storeInstance.set(swapSelectToTokenAtom(), stockTokenA);
+      storeInstance.set(swapFromTokenAmountAtom(), {
+        value: '21',
+        isInput: true,
+      });
+      storeInstance.set(swapAlertsAtom(), {
+        quoteId: '',
+        states: [
+          {
+            message: 'Account does not support this network',
+            alertLevel: ESwapAlertLevel.ERROR,
+            isAccountNetworkUnsupported: true,
+            accountNetworkUnsupportedContext: {
+              accountId: activeAccountInfo.account?.id,
+              walletId: externalWallet.id,
+              networkId: usdcToken.networkId,
+            },
+          },
+        ],
+      });
+      storeInstance.set(swapQuoteActionLockAtom(), {
+        actionLock: true,
+        quoteRequestId: 'current-stock-error-with-account-alert',
+      });
+    });
+    const { result } = renderHook(
+      () => ({ actions: useSwapActions().current }),
+      { wrapper: Wrapper },
+    );
+    const quoteParams: IFetchQuotesParams = {
+      fromNetworkId: usdcToken.networkId,
+      fromTokenAddress: usdcToken.contractAddress,
+      fromTokenAmount: '21',
+      protocol: EProtocolOfExchange.STOCK,
+      slippagePercentage: 0.5,
+      toNetworkId: stockTokenA.networkId,
+      toTokenAddress: stockTokenA.contractAddress,
+    };
+
+    await act(async () => {
+      result.current.actions.quoteEventHandler({
+        event: {
+          data: JSON.stringify({
+            errorMessage: 'Provider error',
+            eventId: 'current-stock-error-with-account-alert-event',
+            isStock: true,
+          }),
+        } as ISwapQuoteEvent,
+        type: 'message',
+        params: quoteParams,
+        quoteRequestId: 'current-stock-error-with-account-alert',
+        tokenPairs: {
+          fromToken: usdcToken,
+          toToken: stockTokenA,
+        },
+      });
+    });
+
+    expect(store.get(swapAlertsAtom()).states).toEqual([
+      expect.objectContaining({
+        isAccountNetworkUnsupported: true,
+      }),
+    ]);
+  });
+
   it('does not emit or check unsupported-account alerts while addresses are resolving', async () => {
     mockCheckAccountNetworkNotSupported.mockResolvedValue(true);
     const resolvingAddressInfo = createExternalAddressInfo({
@@ -5078,6 +5147,15 @@ describe('useSwapActions', () => {
             message: 'Account does not support this network',
             alertLevel: ESwapAlertLevel.ERROR,
             isAccountNetworkUnsupported: true,
+            accountNetworkUnsupportedContext: {
+              accountId: unsupportedAddressInfo.accountInfo?.account?.id,
+              walletId: unsupportedAddressInfo.accountInfo?.wallet?.id,
+              networkId: appleStockToken.networkId,
+            },
+          },
+          {
+            message: 'Previous quote error',
+            alertLevel: ESwapAlertLevel.ERROR,
           },
         ],
         quoteId: staleQuoteId,
