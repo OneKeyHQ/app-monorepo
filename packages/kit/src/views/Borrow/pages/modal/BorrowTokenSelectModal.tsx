@@ -1,4 +1,6 @@
-import { useCallback, useMemo, useState } from 'react';
+// cspell:ignore cbbtc Cbbtc CBBTC
+
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -28,12 +30,14 @@ import type {
   IEarnText,
 } from '@onekeyhq/shared/types/staking';
 
+import { splitCbbtcAssets } from '../../components/borrowCbbtc.utils';
 import { filterUnsupportedAaveNativeReserveAssets } from '../../components/borrowRepayPosition.utils';
 import {
   AmountField,
   AssetField,
   AssetWithAmountField,
   BorrowAPYField,
+  BorrowMoreToggle,
   BorrowTableList,
 } from '../../components/BorrowTableList';
 
@@ -181,6 +185,49 @@ export default function BorrowTokenSelectModal() {
       );
     });
   }, [assets, searchKeyword]);
+
+  const shouldFoldCbbtc = action === 'supply' && !searchKeyword.trim();
+  const { visibleAssets, foldedAssets } = useMemo(
+    () =>
+      shouldFoldCbbtc
+        ? splitCbbtcAssets({
+            assets: filteredAssets,
+            networkId,
+            providerName: provider,
+            getBalance: (item) => item.walletBalance ?? item.balance,
+          })
+        : {
+            visibleAssets: filteredAssets,
+            foldedAssets: [] as IBorrowSelectAsset[],
+          },
+    [filteredAssets, networkId, provider, shouldFoldCbbtc],
+  );
+  const [showFoldedCbbtc, setShowFoldedCbbtc] = useState(false);
+  useEffect(() => {
+    if (foldedAssets.length === 0) {
+      setShowFoldedCbbtc(false);
+    }
+  }, [foldedAssets.length]);
+
+  const assetsToRender = showFoldedCbbtc
+    ? [...visibleAssets, ...foldedAssets]
+    : visibleAssets;
+
+  const listFooter = useMemo(
+    () => (
+      <>
+        {foldedAssets.length > 0 ? (
+          <BorrowMoreToggle
+            testID="borrow-select-cbbtc-more-toggle"
+            expanded={showFoldedCbbtc}
+            onPress={() => setShowFoldedCbbtc((expanded) => !expanded)}
+          />
+        ) : null}
+        <Stack h={bottom || '$2'} />
+      </>
+    ),
+    [bottom, foldedAssets.length, showFoldedCbbtc],
+  );
 
   const isBorrowAction = action === 'borrow';
 
@@ -388,7 +435,7 @@ export default function BorrowTokenSelectModal() {
           />
         ) : (
           <BorrowTableList<IBorrowSelectAsset>
-            data={filteredAssets}
+            data={assetsToRender}
             isLoading={Boolean(isLoading)}
             columns={columns}
             skeletonCount={6}
@@ -398,7 +445,7 @@ export default function BorrowTokenSelectModal() {
                 item.reserveAddress === currentReserveAddress
                   ? { bg: '$bgHover' }
                   : undefined,
-              ListFooterComponent: <Stack h={bottom || '$2'} />,
+              ListFooterComponent: listFooter,
             }}
             emptyContent={intl.formatMessage({
               id: ETranslations.global_no_results,

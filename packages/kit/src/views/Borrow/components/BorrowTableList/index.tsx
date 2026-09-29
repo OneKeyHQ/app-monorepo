@@ -13,6 +13,7 @@ import { AssetField } from './AssetField';
 import { AssetWithAmountField } from './AssetWithAmountField';
 import { BorrowAPYField } from './BorrowAPYField';
 import { BorrowListSkeleton, EmptyStateSkeleton } from './BorrowListSkeleton';
+import { BorrowMoreToggle } from './BorrowMoreToggle';
 import { CollateralBadge } from './CollateralBadge';
 import { FieldWrapper } from './FieldWrapper';
 
@@ -120,6 +121,7 @@ export {
   AssetWithAmountField,
   AmountField,
   BorrowAPYField,
+  BorrowMoreToggle,
   CollateralBadge,
   FieldWrapper,
 };
