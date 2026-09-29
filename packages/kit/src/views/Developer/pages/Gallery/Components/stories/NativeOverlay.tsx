@@ -11,6 +11,7 @@ import {
   Dialog,
   Input,
   Popover,
+  Select,
   SizableText,
   Stack,
   Toast,
@@ -454,6 +455,25 @@ function DialogDemos() {
   );
 }
 
+const SELECT_ITEMS = [
+  { label: 'Alpha', value: 'alpha' },
+  { label: 'Beta', value: 'beta' },
+  { label: 'Gamma', value: 'gamma' },
+];
+
+function SelectDemo() {
+  const [value, setValue] = useState('alpha');
+  return (
+    <Select
+      title="Select"
+      items={SELECT_ITEMS}
+      value={value}
+      onChange={setValue}
+      testID="native-overlay-select"
+    />
+  );
+}
+
 function NativeOverlayDemo() {
   const [specs, setSpecs] = useState<IDemoSpec[]>([]);
   const [matrixOrder, setMatrixOrder] = useState('');
@@ -692,6 +712,19 @@ function NativeOverlayDemo() {
               {Array.from({ length: 6 }, (_, i) => (
                 <SizableText key={i}>{`Popover row ${i + 1}`}</SizableText>
               ))}
+            </YStack>
+          }
+        />
+        <SelectDemo />
+        <Popover
+          title="Hover popover"
+          hoverable
+          usingSheet={false}
+          placement="top-start"
+          renderTrigger={<Button>Hover popover</Button>}
+          renderContent={
+            <YStack p="$5">
+              <SizableText>Opened by hover</SizableText>
             </YStack>
           }
         />

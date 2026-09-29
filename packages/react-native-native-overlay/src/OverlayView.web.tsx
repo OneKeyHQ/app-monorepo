@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef } from 'react';
+import { useEffect, useId, useLayoutEffect, useRef } from 'react';
 import type { ReactNode, SyntheticEvent } from 'react';
 
 import { createPortal } from 'react-dom';
@@ -44,6 +44,8 @@ const ISOLATED_EVENT_HANDLERS = {
 
 interface IWebOverlayEntryProps {
   entryId: string;
+  /** Closed but kept mounted: hidden and inert. */
+  parked?: boolean;
   stackOrder: number;
   presented: boolean;
   animation: IResolvedOverlayAnimation;
@@ -64,6 +66,7 @@ interface IWebOverlayEntryProps {
 
 function WebOverlayEntry({
   entryId,
+  parked = false,
   stackOrder,
   presented,
   animation,
@@ -196,12 +199,15 @@ function WebOverlayEntry({
       role={blocking ? 'dialog' : undefined}
       aria-modal={blocking || undefined}
       tabIndex={-1}
+      inert={parked || undefined}
+      aria-hidden={parked || undefined}
       style={{
         position: 'absolute',
         inset: 0,
         zIndex,
         pointerEvents: 'none',
         outline: 'none',
+        visibility: parked ? 'hidden' : undefined,
       }}
       {...ISOLATED_EVENT_HANDLERS}
     >
@@ -289,9 +295,11 @@ export function OverlayView(props: IOverlayViewProps) {
     backdrop,
     blocking,
     sheet,
+    keepContentMounted = false,
     children,
     testID,
   } = props;
+  const parkedId = useId();
   const {
     entry,
     mounted,
@@ -305,16 +313,22 @@ export function OverlayView(props: IOverlayViewProps) {
     ownerKey,
   } = useOverlayController(props);
 
-  if (!mounted || !entry) {
+  // Closed with `keepContentMounted`: the same entry stays in the layer,
+  // hidden and inert, so the content keeps its state and can be measured.
+  const parked = !mounted || !entry;
+  if (parked && !keepContentMounted) {
     return null;
   }
 
-  const pageHost = scope === 'page' ? getOverlayPageHost(hostKey) : undefined;
+  const pageHost =
+    !parked && scope === 'page' ? getOverlayPageHost(hostKey) : undefined;
   return createPortal(
     <WebOverlayEntry
-      entryId={entry.id}
-      stackOrder={entry.seq}
-      presented={presented}
+      key="entry"
+      parked={parked}
+      entryId={entry?.id ?? parkedId}
+      stackOrder={entry?.seq ?? 0}
+      presented={!parked && presented}
       animation={animation}
       blocking={blocking ?? isBlockingLevel(level)}
       backdropColor={
@@ -327,7 +341,9 @@ export function OverlayView(props: IOverlayViewProps) {
       sheet={presentation === 'sheet' ? (sheet ?? {}) : undefined}
       // Inside a page host all levels share one stacking context.
       zIndex={
-        pageHost ? OVERLAY_LEVEL_ORDER[level] * 1000 + entry.seq : entry.seq
+        pageHost
+          ? OVERLAY_LEVEL_ORDER[level] * 1000 + (entry?.seq ?? 0)
+          : (entry?.seq ?? 0)
       }
       ownerKey={pageHost ? ownerKey : undefined}
       testID={testID}

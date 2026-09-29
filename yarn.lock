@@ -10210,6 +10210,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@onekeyhq/components@workspace:packages/components"
   dependencies:
+    "@floating-ui/dom": "npm:^1.8.0"
     "@onekeyfe/react-native-native-overlay": "workspace:*"
     "@onekeyfe/react-native-native-sheet": "npm:3.0.157-alpha.254"
     "@onekeyfe/react-native-scroll-guard": "npm:3.0.157-alpha.254"

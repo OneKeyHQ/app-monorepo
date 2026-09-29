@@ -33,15 +33,15 @@ Non-goals:
 
 ## 5.2 Definitions and ownership boundaries
 
-| Term | Meaning |
-|---|---|
-| **scope** | `global`: attached to the app window. `page`: owned by one screen, rendered in that screen's root-route host. |
+| Term                | Meaning                                                                                                                                                                                                            |
+| ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **scope**           | `global`: attached to the app window. `page`: owned by one screen, rendered in that screen's root-route host.                                                                                                      |
 | **root-route host** | A single `PageOverlayHost` rendered as the last child of each root-stack route (Main tabs, Modal, Onboarding, FullScreenPush, WebView). Because it sits there, page overlays cover native headers and the tab bar. |
-| **owner page** | The nearest screen that requested a page overlay. The overlay is visible only while its owner is on top inside its root route. |
-| **level** | Fixed layer. `modal` 100 < `hardware` 200 < `secure` 300 < `toast` 400 < `lock` 500 < `debug` 900. |
-| **lane** | The entries sharing (scope, host, level). Strategies apply per lane. |
-| **strategy** | What a new entry does to its lane. `stack` (default) appears on top. `queue` waits until the lane is empty and is ordered by `priority`. `replace` closes the top entry, or the entries sharing `replaceKey`. |
-| **presentation** | Frame and default motion: `sheet`, `center`, `fullscreen`, `toast`, `anchored`. |
+| **owner page**      | The nearest screen that requested a page overlay. The overlay is visible only while its owner is on top inside its root route.                                                                                     |
+| **level**           | Fixed layer. `modal` 100 < `hardware` 200 < `secure` 300 < `toast` 400 < `lock` 500 < `debug` 900.                                                                                                                 |
+| **lane**            | The entries sharing (scope, host, level). Strategies apply per lane.                                                                                                                                               |
+| **strategy**        | What a new entry does to its lane. `stack` (default) appears on top. `queue` waits until the lane is empty and is ordered by `priority`. `replace` closes the top entry, or the entries sharing `replaceKey`.      |
+| **presentation**    | Frame and default motion: `sheet`, `center`, `fullscreen`, `toast`, `anchored`.                                                                                                                                    |
 
 Ordering rule:
 
@@ -80,7 +80,7 @@ come only from props.
   after the native exit animation. A closing entry that is never finalized is
   removed after 5 s.
 - `dismissAll({ scope, belowLevel, reason })`, `setPageVisible(ownerKey,
-  visible)`, `removePage(ownerKey)`.
+visible)`, `removePage(ownerKey)`.
 - `resolveBack(focusedHostKey?)` returns `dismiss(id)`, `block`, or `pass`.
 - `getBlockingTop()` returns the entry that makes everything below it inert.
 - `subscribe` and `getSnapshot` are compatible with `useSyncExternalStore`.
@@ -125,13 +125,13 @@ come only from props.
     it would slow web overlays down 4–9×.
 - Presentation defaults (`DEFAULT_OVERLAY_ANIMATIONS`):
 
-| Presentation | Enter / exit | Backdrop |
-|---|---|---|
-| sheet | slide from bottom, `quick` | fade, `quick` |
-| center | scale 0.85 + fade, `quick` | fade, `quick` |
-| toast | slide from top + fade, `toastSlide` (native 300 ms quad in-out, web 400 ms ease) | none |
-| fullscreen | fade, `quick` | none |
-| anchored | scale 0.95 + fade from the resolved anchor placement, `popoverQuick` | fade |
+| Presentation | Enter / exit                                                                     | Backdrop      |
+| ------------ | -------------------------------------------------------------------------------- | ------------- |
+| sheet        | slide from bottom, `quick`                                                       | fade, `quick` |
+| center       | scale 0.85 + fade, `quick`                                                       | fade, `quick` |
+| toast        | slide from top + fade, `toastSlide` (native 300 ms quad in-out, web 400 ms ease) | none          |
+| fullscreen   | fade, `quick`                                                                    | none          |
+| anchored     | scale 0.95 + fade from the resolved anchor placement, `popoverQuick`             | fade          |
 
 - Special cases the callers set explicitly:
   - App lock: `enter: none`, `exit: fade lockFade`. The web tamper check reloads
@@ -187,27 +187,27 @@ request ─► queued ─► active ─► (enter anim) presented
 
 ## 5.6 Platform contract
 
-| Concern | iOS | Android | Web |
-|---|---|---|---|
-| Global level host | One passthrough `UIWindow` per active level per `UIWindowScene`, ordered by `windowLevel`. `lock` sits above RN Alert (2001). | One `OverlayHost` FrameLayout in `android.R.id.content` above the ReactRootView, with one child container per level. | Sibling `div[data-onekey-layer]` roots under `body`, one z-index band per level (`OVERLAY_WEB_Z_INDEX_BASE`). |
-| Order within a level | The window's presentation chain (sheet) and subview order (other presentations). | Child order. | DOM order. |
-| Global sheet | `UISheetPresentationController`, presented from the level window's root VC (reuses native-sheet). | View sheet: CoordinatorLayout + BottomSheetBehavior + dimming view (native-sheet reworked off `BottomSheetDialog`). | Custom sheet: pointer drag, snap by velocity, `visualViewport` keyboard. |
-| Page host | Fabric `PageOverlayHost` as the last child of the root-route screen. Custom-drawn sheet, because UIKit sheets cannot be page-scoped. | The same host inside the root-route screen. The ReactRootView already dispatches touches, so no nested RootView. | `position: absolute` host inside the root-route card. |
-| Header / tab bar coverage (page) | Covered: the host is above the tab controller and navigation bars. | Covered. | Covered. |
-| Touch passthrough (toast, debug, box-none) | `hitTest` returns nil on the window or root view. | A non-blocking entry hit-tests its React content with `TouchTargetHelper` (honoring `box-none`) and falls through to the FrameLayout sibling on a miss. | `pointer-events: none` root, `auto` per entry. |
-| Back / Escape | Escape via `accessibilityPerformEscape`. The interactive pop gesture is disabled while a blocking page overlay is shown. | A `Window.Callback` wrapper consumes `KEYCODE_BACK` while a blocking overlay is shown. `ReactActivity.onBackPressed` hands back to JS BackHandler (react-navigation) before the `OnBackPressedDispatcher`, and the app opts out of predictive back, so a dispatcher callback alone never runs first. The dispatcher callback is kept for the predictive-back path. The IME still gets back first to close the keyboard. | Capture-phase `keydown` that ignores IME composition. |
-| Modality / accessibility | `accessibilityViewIsModal` on the blocking level window; `.screenChanged` posted on present. | `IMPORTANT_FOR_ACCESSIBILITY_NO_HIDE_DESCENDANTS` on the content below. | `inert` on the app root and lower layers, `role=dialog`, `aria-modal`, focus trap and restore. |
-| Keyboard | System sheet avoidance; `keyboardLayoutGuide` for custom presentations. The main window regains key status on dismiss. | `WindowInsetsAnimationCompat` per sheet (the app uses `adjustPan`). | `visualViewport`. |
-| Animation engine | `UIViewPropertyAnimator` + `UISpringTimingParameters(mass:stiffness:damping:)`, which maps 1:1 and supports damping ratio > 1. | `SpringAnimation` with `stiffness = k/m` and `dampingRatio`; `PathInterpolator` for timing curves. | WAAPI `element.animate`. Timing presets use `cubic-bezier`; custom springs use `linear()`. |
-| Content hosting | `RCTSurfaceTouchHandler` on the host root. A state-driven shadow node sizes Yoga, which replaces native-sheet's forced `frame`. A nested `SafeAreaProvider`. | A `RootView` + `JSTouchDispatcher` container for global levels. A state-driven shadow node, like RN Modal. | `createPortal`. The Tamagui theme class is set on the layer root, and React event bubbling stops at the entry root. |
+| Concern                                    | iOS                                                                                                                                                          | Android                                                                                                                                                                                                                                                                                                                                                                                                                 | Web                                                                                                                 |
+| ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| Global level host                          | One passthrough `UIWindow` per active level per `UIWindowScene`, ordered by `windowLevel`. `lock` sits above RN Alert (2001).                                | One `OverlayHost` FrameLayout in `android.R.id.content` above the ReactRootView, with one child container per level.                                                                                                                                                                                                                                                                                                    | Sibling `div[data-onekey-layer]` roots under `body`, one z-index band per level (`OVERLAY_WEB_Z_INDEX_BASE`).       |
+| Order within a level                       | The window's presentation chain (sheet) and subview order (other presentations).                                                                             | Child order.                                                                                                                                                                                                                                                                                                                                                                                                            | DOM order.                                                                                                          |
+| Global sheet                               | `UISheetPresentationController`, presented from the level window's root VC (reuses native-sheet).                                                            | View sheet: CoordinatorLayout + BottomSheetBehavior + dimming view (native-sheet reworked off `BottomSheetDialog`).                                                                                                                                                                                                                                                                                                     | Custom sheet: pointer drag, snap by velocity, `visualViewport` keyboard.                                            |
+| Page host                                  | Fabric `PageOverlayHost` as the last child of the root-route screen. Custom-drawn sheet, because UIKit sheets cannot be page-scoped.                         | The same host inside the root-route screen. The ReactRootView already dispatches touches, so no nested RootView.                                                                                                                                                                                                                                                                                                        | `position: absolute` host inside the root-route card.                                                               |
+| Header / tab bar coverage (page)           | Covered: the host is above the tab controller and navigation bars.                                                                                           | Covered.                                                                                                                                                                                                                                                                                                                                                                                                                | Covered.                                                                                                            |
+| Touch passthrough (toast, debug, box-none) | `hitTest` returns nil on the window or root view.                                                                                                            | A non-blocking entry hit-tests its React content with `TouchTargetHelper` (honoring `box-none`) and falls through to the FrameLayout sibling on a miss.                                                                                                                                                                                                                                                                 | `pointer-events: none` root, `auto` per entry.                                                                      |
+| Back / Escape                              | Escape via `accessibilityPerformEscape`. The interactive pop gesture is disabled while a blocking page overlay is shown.                                     | A `Window.Callback` wrapper consumes `KEYCODE_BACK` while a blocking overlay is shown. `ReactActivity.onBackPressed` hands back to JS BackHandler (react-navigation) before the `OnBackPressedDispatcher`, and the app opts out of predictive back, so a dispatcher callback alone never runs first. The dispatcher callback is kept for the predictive-back path. The IME still gets back first to close the keyboard. | Capture-phase `keydown` that ignores IME composition.                                                               |
+| Modality / accessibility                   | `accessibilityViewIsModal` on the blocking level window; `.screenChanged` posted on present.                                                                 | `IMPORTANT_FOR_ACCESSIBILITY_NO_HIDE_DESCENDANTS` on the content below.                                                                                                                                                                                                                                                                                                                                                 | `inert` on the app root and lower layers, `role=dialog`, `aria-modal`, focus trap and restore.                      |
+| Keyboard                                   | System sheet avoidance; `keyboardLayoutGuide` for custom presentations. The main window regains key status on dismiss.                                       | `WindowInsetsAnimationCompat` per sheet (the app uses `adjustPan`).                                                                                                                                                                                                                                                                                                                                                     | `visualViewport`.                                                                                                   |
+| Animation engine                           | `UIViewPropertyAnimator` + `UISpringTimingParameters(mass:stiffness:damping:)`, which maps 1:1 and supports damping ratio > 1.                               | `SpringAnimation` with `stiffness = k/m` and `dampingRatio`; `PathInterpolator` for timing curves.                                                                                                                                                                                                                                                                                                                      | WAAPI `element.animate`. Timing presets use `cubic-bezier`; custom springs use `linear()`.                          |
+| Content hosting                            | `RCTSurfaceTouchHandler` on the host root. A state-driven shadow node sizes Yoga, which replaces native-sheet's forced `frame`. A nested `SafeAreaProvider`. | A `RootView` + `JSTouchDispatcher` container for global levels. A state-driven shadow node, like RN Modal.                                                                                                                                                                                                                                                                                                              | `createPortal`. The Tamagui theme class is set on the layer root, and React event bubbling stops at the entry root. |
 
 Known divergences:
 
-| Divergence | Status |
-|---|---|
-| iOS global sheet (system physics) vs. iOS page sheet (custom physics) | Accepted (decision A). Revisit after on-device comparison. |
-| RN `Modal` and third-party dialogs on Android are windows above every layer | Accepted, mitigated by the lock policy (§5.7). |
-| Web anchored origin follows the resolved placement after flip; today's code uses the requested placement | Intentional fix. |
+| Divergence                                                                                               | Status                                                     |
+| -------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------- |
+| iOS global sheet (system physics) vs. iOS page sheet (custom physics)                                    | Accepted (decision A). Revisit after on-device comparison. |
+| RN `Modal` and third-party dialogs on Android are windows above every layer                              | Accepted, mitigated by the lock policy (§5.7).             |
+| Web anchored origin follows the resolved placement after flip; today's code uses the requested placement | Intentional fix.                                           |
 
 ## 5.7 Failure, fallback, and safety
 
@@ -359,14 +359,14 @@ P4b dialog loading notes:
 
 P1 implementation map:
 
-| Contract | iOS | Android | Web |
-|---|---|---|---|
-| Level host | `NativeOverlayWindowManager.swift` | `NativeOverlayHost.kt` | `web/overlayLayers.ts` |
-| Entry, hit testing, backdrop | `NativeOverlayEntryView` in `NativeOverlayContainerView.swift` | `NativeOverlayEntryRootView.kt` | `WebOverlayEntry` in `OverlayView.web.tsx` |
-| Page host | `NativeOverlayPageHostView.swift` | `NativeOverlayPageHostView.kt` | `OverlayPageHost.web.tsx` |
-| Sheet | `NativeOverlaySheetController.swift` | `NativeOverlayEntryRootView.configureSheet` | `OverlayView.web.tsx` + `web/useSheetDrag.ts` |
-| Enter / exit animation | `NativeOverlayAnimation.swift` (`UIViewPropertyAnimator`) | `NativeOverlayAnimation.kt` (analytic spring interpolator) | `web/animateTransition.ts` (WAAPI) |
-| Store bridge | `useOverlayController.ts` | same | same |
+| Contract                     | iOS                                                            | Android                                                    | Web                                           |
+| ---------------------------- | -------------------------------------------------------------- | ---------------------------------------------------------- | --------------------------------------------- |
+| Level host                   | `NativeOverlayWindowManager.swift`                             | `NativeOverlayHost.kt`                                     | `web/overlayLayers.ts`                        |
+| Entry, hit testing, backdrop | `NativeOverlayEntryView` in `NativeOverlayContainerView.swift` | `NativeOverlayEntryRootView.kt`                            | `WebOverlayEntry` in `OverlayView.web.tsx`    |
+| Page host                    | `NativeOverlayPageHostView.swift`                              | `NativeOverlayPageHostView.kt`                             | `OverlayPageHost.web.tsx`                     |
+| Sheet                        | `NativeOverlaySheetController.swift`                           | `NativeOverlayEntryRootView.configureSheet`                | `OverlayView.web.tsx` + `web/useSheetDrag.ts` |
+| Enter / exit animation       | `NativeOverlayAnimation.swift` (`UIViewPropertyAnimator`)      | `NativeOverlayAnimation.kt` (analytic spring interpolator) | `web/animateTransition.ts` (WAAPI)            |
+| Store bridge                 | `useOverlayController.ts`                                      | same                                                       | same                                          |
 
 P4c dialog notes:
 
@@ -432,6 +432,29 @@ P5a native popover notes:
 - The native popover renders inline in the caller's tree (its contexts
   apply) instead of through the full-window portal; content still mounts
   only while open unless `keepChildrenMounted`.
+
+P5b web popover notes:
+
+- Web Popover / ActionList / Select render in `OverlayView` at the `modal`
+  level; the Tamagui Popover and `PopoverContent` are gone.
+  - Below `md` with `usingSheet` (the default): an overlay sheet with a
+    header and a dismissing backdrop.
+  - Otherwise: `presentation="anchored"`, non-blocking and without a backdrop.
+    Floating UI (`@floating-ui/dom`) places the panel: offset, flip, shift,
+    and a max height from the available space. `autoUpdate` follows scroll
+    and resize.
+- The enter animation scales an ancestor of the panel, so the panel measures
+  smaller while it runs. The panel is positioned again on `onPresented`.
+- Anchored panels close on an outside press. Presses on the trigger, on the
+  panel, or inside an overlay ranked above it do not close it, so a nested
+  Select or a Dialog opened from the panel keeps it open. They also close on
+  Escape, unless `hoverable`.
+- `hoverable` opens and closes on mouse enter / leave of the trigger and
+  panel. The default close delay is 100 ms, so the pointer can cross the gap.
+- `keepChildrenMounted` maps to `keepContentMounted`. On web a closed entry
+  stays in its layer, `visibility: hidden` and `inert`.
+- `OverlayStore.resolveBack` also resolves non-blocking entries that are
+  dismissible, so Escape reaches an anchored panel.
 
 Measurement:
 

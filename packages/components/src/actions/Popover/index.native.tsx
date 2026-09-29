@@ -35,7 +35,6 @@ import { IconButton } from '../IconButton';
 import { Trigger } from '../Trigger';
 
 import { PopoverContext, usePopoverContext } from './context';
-import { PopoverContent } from './PopoverContent';
 import {
   runPopoverCloseSideEffects,
   runPopoverOpenSideEffects,
@@ -185,7 +184,8 @@ function RawPopover({
   allowFlip = true,
   showHeader = true,
   mountNativePortalBeforeOpen,
-  ...props
+  // Tamagui floating-panel props do not apply to the native sheet.
+  ..._props
 }: IPopoverProps) {
   const { bottom } = useSafeAreaInsets();
   const { height: viewportHeight } = useWindowDimensions();
@@ -333,25 +333,17 @@ function RawPopover({
     }),
     [handleClosePopover, isOpen],
   );
-  const keepChildrenMounted = Boolean(props.keepChildrenMounted);
   const content = (
     <ModalPortalProvider>
       <PopoverContext.Provider value={popoverContextValue}>
-        <PopoverContent
-          isOpen={isOpen}
-          closePopover={handleClosePopover}
-          hoverable={Boolean(props.hoverable)}
-          keepChildrenMounted={keepChildrenMounted}
-        >
-          {RenderContent
-            ? ((
-                <RenderContent
-                  isOpen={isOpen}
-                  closePopover={handleClosePopover}
-                />
-              ) as ReactElement)
-            : (renderContent as ReactElement)}
-        </PopoverContent>
+        {RenderContent
+          ? ((
+              <RenderContent
+                isOpen={isOpen}
+                closePopover={handleClosePopover}
+              />
+            ) as ReactElement)
+          : (renderContent as ReactElement)}
       </PopoverContext.Provider>
     </ModalPortalProvider>
   );

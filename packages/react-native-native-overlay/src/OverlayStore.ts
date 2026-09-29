@@ -230,11 +230,13 @@ export class OverlayStore {
    * (split view has one host per pane).
    */
   resolveBack(focusedHostKey?: string): IOverlayBackResolution {
+    // Non-blocking entries take back / Escape only when they ask to be
+    // dismissible (an anchored popover); toasts do not.
     const candidates = this.snapshot.entries.filter(
       (e) =>
         e.phase === 'active' &&
         !e.suspended &&
-        e.blocking &&
+        (e.blocking || e.dismissible) &&
         (e.scope === 'global' ||
           focusedHostKey === undefined ||
           e.hostKey === focusedHostKey),

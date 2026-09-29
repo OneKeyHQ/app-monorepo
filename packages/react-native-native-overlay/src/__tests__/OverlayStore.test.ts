@@ -286,3 +286,13 @@ describe('OverlayStore status bar owner', () => {
     expect(store.getStatusBarOwner()).toBeUndefined();
   });
 });
+
+describe('OverlayStore back resolution for non-blocking entries', () => {
+  it('lets a dismissible non-blocking entry take back, but not a toast', () => {
+    const store = new OverlayStore();
+    store.request({ id: 'toast', level: 'toast', blocking: false });
+    expect(store.resolveBack()).toEqual({ kind: 'pass' });
+    store.request({ id: 'popover', blocking: false, dismissible: true });
+    expect(store.resolveBack()).toEqual({ kind: 'dismiss', id: 'popover' });
+  });
+});

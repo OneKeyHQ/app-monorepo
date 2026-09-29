@@ -52,8 +52,8 @@ export interface IOverlayViewProps {
   /** `presentation="sheet"` only. */
   sheet?: IOverlaySheetOptions;
   /**
-   * Native only: keep the content mounted (staged, invisible) while closed so
-   * callers can measure it before opening, as native-sheet did.
+   * Keep the content mounted (hidden, inert) while closed, so it keeps its
+   * state and callers can measure it before opening, as native-sheet did.
    */
   keepContentMounted?: boolean;
   /** `false` renders no backdrop. */
