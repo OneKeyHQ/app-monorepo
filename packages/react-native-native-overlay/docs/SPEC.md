@@ -483,6 +483,18 @@ P5c tooltip and nested-level notes:
   (`_appearingOrAppearedChildModalViewController` stack overflow). The level
   root controller also never forwards to itself.
 
+P5d Spotlight notes:
+
+- Spotlight renders in a blocking `OverlayView`: `presentation="fullscreen"`
+  (fade), a 0.3 black backdrop, and the nested level. Back and Escape are
+  swallowed, and the backdrop does not dismiss it; only "Done" ends the tour.
+- It renders inline, so the highlighted copy of the trigger keeps its
+  contexts. The deferred-trigger plumbing and `SPOTLIGHT_OVERLAY_PORTAL`
+  (container and enum member) are gone.
+- The Windows / Linux desktop -30 px title-bar offset is dropped: the overlay
+  layer covers the whole window, so `measureInWindow` coordinates line up.
+  Not yet checked on a Windows / Linux desktop build.
+
 Measurement:
 
 - `RNCNativeOverlay` has a hand-written shadow node (`common/cpp`, codegen
@@ -538,7 +550,9 @@ Migration rules (decided 2026-09-28):
   hardware stage and dialogs, password prompts, lock screen, Popover,
   ActionList, Select, Spotlight) moves onto this package, and the JS
   overlays (Tamagui Dialog / Sheet / Popover portals, `Portal.Container`
-  overlay hosts, `useOverlayZIndex`) are removed and banned by lint.
+  overlay hosts, `useOverlayZIndex`) are removed. No lint rule: each old
+  entry point that has to stay exported throws at runtime once its last
+  caller migrates, so a leftover or new use fails at once (2026-09-29).
 - The global Portal exists only for the JS overlays; it is removed once
   its last caller migrates.
 - The app lock is unified with the rest: the lock screen renders at the

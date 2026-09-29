@@ -18,7 +18,6 @@ export function FullWindowOverlayContainer() {
   return (
     <OverlayContainer>
       <TradingViewNativeFullscreenHost />
-      <Portal.Container name={Portal.Constant.SPOTLIGHT_OVERLAY_PORTAL} />
       <Portal.Container name={Portal.Constant.FULL_WINDOW_OVERLAY_PORTAL} />
       {/* The hardware stage renders in the native `hardware` overlay level:
           above dialogs and sheets (including native modal pages the flows
