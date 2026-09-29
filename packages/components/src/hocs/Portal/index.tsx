@@ -7,6 +7,7 @@ import ChildrenWrapper from 'react-native-root-siblings/lib/ChildrenWrapper';
 import wrapRootComponent from 'react-native-root-siblings/lib/wrapRootComponent';
 
 import { withStaticProperties } from '@onekeyhq/components/src/shared/tamagui';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -85,12 +86,26 @@ function renderToPortal(
   };
 }
 
+// Mount roots for imperative overlay APIs (`Dialog.show`, `Toast.show`,
+// `ActionList.show`). What mounts there must render its own `OverlayView`;
+// declarative content does not belong in them.
+const OVERLAY_MOUNT_ROOTS: ReadonlySet<EPortalContainerConstantName> = new Set([
+  EPortalContainerConstantName.FULL_WINDOW_OVERLAY_PORTAL,
+  EPortalContainerConstantName.TOASTER_OVERLAY_PORTAL,
+]);
+
 function PortalBodyRender(props: {
   children: ReactNode;
   container?: EPortalContainerConstantName;
   destroyDelayMs?: number;
 }) {
   const { children, container, destroyDelayMs = 0 } = props;
+
+  if (container && OVERLAY_MOUNT_ROOTS.has(container)) {
+    throw new OneKeyLocalError(
+      `Portal.Body into ${container} is no longer supported: render an OverlayView from @onekeyfe/react-native-native-overlay (or a Dialog / Toast / Popover) inline instead.`,
+    );
+  }
 
   if (platformEnv.isDev) {
     if (children) {

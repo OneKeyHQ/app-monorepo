@@ -14,12 +14,7 @@ import { throttle } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import type { IDialogInstance, IDialogShowProps } from '@onekeyhq/components';
-import {
-  Dialog,
-  DialogContainer,
-  Portal,
-  SizableText,
-} from '@onekeyhq/components';
+import { Dialog, DialogContainer, SizableText } from '@onekeyhq/components';
 import type { IShowToasterInstance } from '@onekeyhq/components/src/actions/Toast/ShowCustom';
 import { ShowCustom } from '@onekeyhq/components/src/actions/Toast/ShowCustom';
 import { useBackHandler } from '@onekeyhq/components/src/hooks';
@@ -1011,12 +1006,8 @@ function HardwareUiStateContainerCmpControlled() {
 
   return (
     <>
-      <Portal.Body container={Portal.Constant.FULL_WINDOW_OVERLAY_PORTAL}>
-        {dialogElement}
-      </Portal.Body>
-      <Portal.Body container={Portal.Constant.TOASTER_OVERLAY_PORTAL}>
-        {toastElement}
-      </Portal.Body>
+      <>{dialogElement}</>
+      <>{toastElement}</>
     </>
   );
 }

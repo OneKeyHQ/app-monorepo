@@ -116,6 +116,7 @@ jest.mock('./OverlayDialogPresentation', () => ({
   ),
 }));
 jest.mock('@onekeyfe/react-native-native-overlay', () => ({
+  useNestedOverlayLevel: () => 'modal',
   useOverlayPageScope: () => ({}),
 }));
 

@@ -495,6 +495,24 @@ P5d Spotlight notes:
   layer covers the whole window, so `measureInWindow` coordinates line up.
   Not yet checked on a Windows / Linux desktop build.
 
+P5e full-window portal notes:
+
+- `FULL_WINDOW_OVERLAY_PORTAL` and `TOASTER_OVERLAY_PORTAL` are only mount
+  roots for the imperative APIs (`Dialog.show`, `Toast.show`,
+  `ActionList.show`, and other `Portal.Render` callers). What mounts there
+  renders its own `OverlayView`. `Portal.Body` into either one throws.
+- These now render their `OverlayView`-backed dialogs and toasts inline
+  instead of through `Portal.Body`: LocalDbDowngrade, the hardware and
+  third-party hardware UI state containers, and ColorPicker's mobile dialog.
+- The Perp OrderBook hover summary is a non-blocking, backdrop-less,
+  unanimated `fullscreen` overlay at `modal`.
+- The Market inline action bar (long-press on a watchlist row) is a
+  `fullscreen` overlay with a transparent, dismissing backdrop. Back now
+  dismisses it as well.
+- `DialogFrame` defaults its level to the nested level, so a Dialog declared
+  inside another overlay opens above it. `Dialog.show` keeps the level of its
+  portal container.
+
 Measurement:
 
 - `RNCNativeOverlay` has a hand-written shadow node (`common/cpp`, codegen

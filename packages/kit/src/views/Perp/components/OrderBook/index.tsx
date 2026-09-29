@@ -1,6 +1,7 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { colorTokens } from '@tamagui/themes';
+import { OverlayView } from '@onekeyfe/react-native-native-overlay';
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 import {
@@ -17,7 +18,6 @@ import {
   Haptics,
   Icon,
   Popover,
-  Portal,
   Select,
   SizableText,
   Stack,
@@ -108,6 +108,10 @@ type IWebRectElement = {
   };
 };
 const ORDER_BOOK_HOVER_SUMMARY_WIDTH = 220;
+// It follows the pointer across rows; appear and disappear without motion.
+const ORDER_BOOK_HOVER_SUMMARY_ANIMATION = {
+  enter: { type: 'none' },
+} as const;
 const ORDER_BOOK_HOVER_SUMMARY_HEIGHT = 102;
 const ORDER_BOOK_HOVER_SUMMARY_GAP = 8;
 const ORDER_BOOK_HOVER_SUMMARY_VIEWPORT_INSET = 8;
@@ -710,11 +714,10 @@ const OrderBookHoverSummaryOverlay = memo(
     <Stack
       pointerEvents="none"
       style={{
-        position: 'fixed' as const,
+        position: 'absolute' as const,
         left: overlayLeft,
         top: overlayTop,
         width: ORDER_BOOK_HOVER_SUMMARY_WIDTH,
-        zIndex: 1100,
       }}
     >
       <YStack
@@ -777,7 +780,15 @@ const OrderBookHoverSummaryPortal = memo(
     }
 
     return (
-      <Portal.Body container={Portal.Constant.FULL_WINDOW_OVERLAY_PORTAL}>
+      <OverlayView
+        visible
+        level="modal"
+        presentation="fullscreen"
+        blocking={false}
+        backdrop={false}
+        dismissOnBackPress={false}
+        animation={ORDER_BOOK_HOVER_SUMMARY_ANIMATION}
+      >
         <OrderBookHoverSummaryOverlay
           averagePrice={averagePrice}
           baseSymbol={baseSymbol}
@@ -790,7 +801,7 @@ const OrderBookHoverSummaryPortal = memo(
           totalNotional={totalNotional}
           totalSize={totalSize}
         />
-      </Portal.Body>
+      </OverlayView>
     );
   },
 );

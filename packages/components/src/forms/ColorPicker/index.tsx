@@ -5,7 +5,6 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { Popover, Trigger } from '../../actions';
 import { DialogContainer } from '../../composite/Dialog';
-import { Portal } from '../../hocs';
 import { useMedia } from '../../hooks';
 import { Stack, XStack, YStack } from '../../primitives';
 
@@ -690,7 +689,7 @@ export function ColorPicker({
 
   const mobileDialog = useMemo(
     () => (
-      <Portal.Body container={Portal.Constant.FULL_WINDOW_OVERLAY_PORTAL}>
+      <>
         <DialogContainer
           title="Color"
           showHeader={false}
@@ -703,7 +702,7 @@ export function ColorPicker({
           floatingPanelProps={dialogFloatingPanelProps}
           testID={testID ? `${testID}-dialog` : undefined}
         />
-      </Portal.Body>
+      </>
     ),
     [
       dialogContent,

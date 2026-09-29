@@ -13,7 +13,10 @@ import {
   useState,
 } from 'react';
 
-import { useOverlayPageScope } from '@onekeyfe/react-native-native-overlay';
+import {
+  useNestedOverlayLevel,
+  useOverlayPageScope,
+} from '@onekeyfe/react-native-native-overlay';
 import { FocusScope } from '@tamagui/focus-scope';
 import { setStringAsync } from 'expo-clipboard';
 import { isNil } from 'lodash';
@@ -266,7 +269,7 @@ function DialogFrame({
   showCancelButton = true,
   testID,
   isAsync,
-  overlayLevel = 'modal',
+  overlayLevel: overlayLevelProp,
   overlayPage,
   onExited,
   trackID,
@@ -274,6 +277,9 @@ function DialogFrame({
   boundedSheetLayout = false,
 }: IDialogProps) {
   const intl = useIntl();
+  // A dialog declared inside another overlay opens above it.
+  const nestedOverlayLevel = useNestedOverlayLevel();
+  const overlayLevel = overlayLevelProp ?? nestedOverlayLevel;
   const { footerRef } = useContext(DialogContext);
   const effectiveTrapFocus = trapFocus ?? !platformEnv.isNative;
   const handleOpenChange = useCallback(
