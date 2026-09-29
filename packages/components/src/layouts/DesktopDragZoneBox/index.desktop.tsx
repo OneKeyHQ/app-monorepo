@@ -162,15 +162,20 @@ function recompute() {
     return;
   }
   clearSynRegions();
+  const measured: Array<[Element, DOMRect]> = [];
   const zones = Array.from(
     document.querySelectorAll(`.${MARKER_CLASS}`),
   ).filter((z) => {
     const r = z.getBoundingClientRect();
-    return r.width > 0 && r.height > 0 && isZoneShown(z);
+    if (r.width <= 0 || r.height <= 0) {
+      // A collapsed zone gets no overlay but must resync once it expands.
+      measured.push([z, r]);
+      return false;
+    }
+    return isZoneShown(z);
   });
   const drags: HTMLDivElement[] = [];
   const holes: HTMLDivElement[] = [];
-  const measured: Array<[Element, DOMRect]> = [];
   for (const zone of zones) {
     const zoneRect = zone.getBoundingClientRect();
     measured.push([zone, zoneRect]);
@@ -197,7 +202,8 @@ function observeSizes(measured: Array<[Element, DOMRect]>) {
   sizeObserver.disconnect();
   for (const [el, rect] of measured) {
     observedSizes.set(el, toSizeKey(rect));
-    sizeObserver.observe(el);
+    // Holes are cut from the border box, so padding-only growth must count too.
+    sizeObserver.observe(el, { box: 'border-box' });
   }
 }
 
