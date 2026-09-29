@@ -204,11 +204,30 @@ export default function BorrowTokenSelectModal() {
     [filteredAssets, marketAddress, networkId, provider, shouldFoldCbbtc],
   );
   const [showFoldedCbbtc, setShowFoldedCbbtc] = useState(false);
+  const cbbtcAssetListKey = useMemo(
+    () =>
+      [
+        accountId,
+        networkId,
+        provider,
+        marketAddress,
+        action,
+        ...visibleAssets.map((asset) => asset.reserveAddress),
+        ...foldedAssets.map((asset) => asset.reserveAddress),
+      ].join('|'),
+    [
+      accountId,
+      action,
+      foldedAssets,
+      marketAddress,
+      networkId,
+      provider,
+      visibleAssets,
+    ],
+  );
   useEffect(() => {
-    if (foldedAssets.length === 0) {
-      setShowFoldedCbbtc(false);
-    }
-  }, [foldedAssets.length]);
+    setShowFoldedCbbtc(false);
+  }, [cbbtcAssetListKey]);
 
   const assetsToRender = showFoldedCbbtc
     ? [...visibleAssets, ...foldedAssets]
@@ -439,6 +458,7 @@ export default function BorrowTokenSelectModal() {
             data={assetsToRender}
             isLoading={Boolean(isLoading)}
             columns={columns}
+            hideEmptyState={foldedAssets.length > 0}
             skeletonCount={6}
             onPressRow={handleSelect}
             listProps={{

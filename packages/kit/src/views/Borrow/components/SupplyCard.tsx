@@ -216,11 +216,28 @@ export const SupplyCard = () => {
     ],
   );
   const [showFoldedCbbtc, setShowFoldedCbbtc] = useState(false);
+  const cbbtcAssetListKey = useMemo(
+    () =>
+      [
+        accountId,
+        market?.networkId,
+        market?.provider,
+        market?.marketAddress,
+        ...visibleAssets.map((asset) => asset.reserveAddress),
+        ...foldedAssets.map((asset) => asset.reserveAddress),
+      ].join('|'),
+    [
+      accountId,
+      foldedAssets,
+      market?.marketAddress,
+      market?.networkId,
+      market?.provider,
+      visibleAssets,
+    ],
+  );
   useEffect(() => {
-    if (foldedAssets.length === 0) {
-      setShowFoldedCbbtc(false);
-    }
-  }, [foldedAssets.length]);
+    setShowFoldedCbbtc(false);
+  }, [cbbtcAssetListKey]);
 
   const assetsToRender = showFoldedCbbtc
     ? [...visibleAssets, ...foldedAssets]
@@ -403,6 +420,7 @@ export const SupplyCard = () => {
         data={assetsToRender}
         isLoading={showLoading}
         columns={gtMd ? desktopColumns : mobileColumns}
+        hideEmptyState={foldedAssets.length > 0}
         onPressRow={handlePressRow}
         emptyContent={labels.noAssetsToSupply}
         defaultSortKey="balance"

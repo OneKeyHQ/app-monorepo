@@ -51,6 +51,7 @@ type IBorrowTableListProps<T> = {
   estimatedItemHeight?: number;
   listProps?: Omit<ITableListProps<T>, 'columns' | 'data'>;
   emptyContent: string;
+  hideEmptyState?: boolean;
   onPressRow?: (item: T, index: number) => void;
   defaultSortKey?: string;
   defaultSortDirection?: 'asc' | 'desc';
@@ -63,6 +64,7 @@ const BorrowTableList = <T,>({
   isLoading = false,
   listProps = {},
   emptyContent,
+  hideEmptyState = false,
   onPressRow,
   defaultSortKey,
   defaultSortDirection,
@@ -92,7 +94,9 @@ const BorrowTableList = <T,>({
     const footer = listProps.ListFooterComponent;
     return (
       <>
-        <Empty title={emptyContent} titleProps={{ size: '$bodyMd' }} />
+        {!hideEmptyState ? (
+          <Empty title={emptyContent} titleProps={{ size: '$bodyMd' }} />
+        ) : null}
         {typeof footer === 'function' ? createElement(footer) : footer}
       </>
     );
