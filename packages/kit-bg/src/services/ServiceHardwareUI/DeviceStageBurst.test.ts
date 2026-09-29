@@ -618,6 +618,70 @@ describe('DeviceStageBurstScope', () => {
   const passphraseAsk = (deviceType: EDeviceType) =>
     ({ deviceType, connectId: CONNECT_ID }) as IHardwareUiPayload;
 
+  it.each(['V1', 'V2'] as const)(
+    'refreshes the communication name from a live V2 event, protocol=%s',
+    async (protocol) => {
+      const scope = new DeviceStageBurstScope();
+      await scope.begin({ connectId: CONNECT_ID, deviceName: 'Pro2 Old' });
+      await paintOpeningBeat();
+
+      await scope.onHardwareUiEvent({
+        action: EHardwareUiStateAction.REQUEST_BUTTON,
+        connectId: CONNECT_ID,
+        payload: {
+          rawPayload: {
+            device: {
+              features: { protocol, bleName: 'Pro2 New', label: 'New label' },
+            },
+          },
+        } as IHardwareUiPayload,
+      });
+
+      expect(stage?.step).toBe('confirm');
+      expect(stage?.deviceName).toBe(
+        protocol === 'V2' ? 'Pro2 New' : 'Pro2 Old',
+      );
+    },
+  );
+
+  it('refreshes a V2 auth narrative name without dismissing an unanswered PIN', async () => {
+    const scope = new DeviceStageBurstScope();
+    await scope.begin({ connectId: CONNECT_ID, deviceName: 'Pro2 Old' });
+    await paintOpeningBeat();
+    await scope.noteStep('authFailure', { authFailureReason: 'unknown' });
+    const payload = {
+      rawPayload: {
+        device: { features: { protocol: 'V2', bleName: 'Pro2 New' } },
+      },
+    } as IHardwareUiPayload;
+
+    await scope.onHardwareUiEvent({
+      action: EHardwareUiStateAction.REQUEST_BUTTON,
+      connectId: CONNECT_ID,
+      payload,
+    });
+    expect(stage?.step).toBe('authFailure');
+    expect(stage?.deviceName).toBe('Pro2 New');
+    expect(stage?.authFailureReason).toBe('unknown');
+
+    await scope.onHardwareUiEvent({
+      action: EHardwareUiStateAction.REQUEST_PIN,
+      connectId: CONNECT_ID,
+      payload,
+    });
+    expect(stage?.step).toBe('pinOnApp');
+    await scope.onHardwareUiEvent({
+      action: EHardwareUiStateAction.ProcessLoading,
+      connectId: CONNECT_ID,
+      payload: {
+        rawPayload: {
+          device: { features: { protocol: 'V2', bleName: 'Pro2 Latest' } },
+        },
+      } as IHardwareUiPayload,
+    });
+    expect(stage?.step).toBe('pinOnApp');
+  });
+
   it.each([EDeviceType.Pro, EDeviceType.Pro2, EDeviceType.Neo])(
     'lands a %s on its on-screen confirm once an app-typed passphrase is handed over',
     async (deviceType) => {
