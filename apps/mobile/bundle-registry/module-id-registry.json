@@ -21625,6 +21625,7 @@
     "packages/kit/src/views/Home/components/WalletBanner/WalletBanner.tsx": 21927,
     "packages/kit/src/views/Home/components/WalletBanner/index.ts": 19568,
     "packages/kit/src/views/Home/components/WalletXfpStatusReminder/WalletXfpStatusReminder.tsx": 12155,
+    "packages/kit/src/views/Home/components/homeNativeListSnapshot.ts": 22601,
     "packages/kit/src/views/Home/hooks/homeWalletTabSupportUtils.ts": 16543,
     "packages/kit/src/views/Home/hooks/useHomeNativeListTheme.ts": 12122,
     "packages/kit/src/views/Home/hooks/useHomeNativeRefresh.ts": 1132,
