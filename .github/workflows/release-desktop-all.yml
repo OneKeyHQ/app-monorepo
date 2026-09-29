@@ -437,7 +437,7 @@ jobs:
     env:
       NODE_ENV: production
       YARN_ENABLE_GLOBAL_CACHE: true
-      WIN_HSM_SIGNING_ENABLED: ${{ github.repository == 'OneKeyHQ/app-monorepo' && github.ref == 'refs/heads/x' }}
+      WIN_HSM_SIGNING_ENABLED: ${{ github.repository == 'OneKeyHQ/app-monorepo' && (github.ref == 'refs/heads/x' || startsWith(github.ref, 'refs/heads/release/') || startsWith(github.ref, 'refs/heads/hotfix/')) }}
     steps:
       - name: Checkout Source Code
         uses: actions/checkout@v4
