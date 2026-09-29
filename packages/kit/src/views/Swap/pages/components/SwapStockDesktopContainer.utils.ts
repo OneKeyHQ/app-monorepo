@@ -168,6 +168,24 @@ export function shouldShowStockMarketTokenLabelsSkeleton({
   );
 }
 
+export function resolveSelectedVariantStock({
+  sameToken,
+  currentStock,
+  detailStock,
+}: {
+  sameToken: boolean;
+  currentStock?: IMarketStockInfo;
+  detailStock?: IMarketStockInfo;
+}) {
+  if (detailStock) {
+    return detailStock;
+  }
+  if (sameToken) {
+    return currentStock;
+  }
+  return undefined;
+}
+
 export function buildSwapTokenFromStockVariant({
   decimals,
   stock,

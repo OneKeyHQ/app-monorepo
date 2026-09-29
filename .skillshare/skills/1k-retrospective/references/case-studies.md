@@ -788,3 +788,10 @@ Cases are appended by AI after each bug fix. Do NOT reorder or delete entries â€
 **Fix**: Mock the stock detail context and overview panels. Read the settings callback from the button inside the toolbar wrapper.
 **Catchable by**: Section 6: a new import in a rendered component needs a mock, and a wrapped control needs the assertion to follow the element that owns the callback.
 
+## Case: Stock variant kept the previous listing after a failed detail lookup
+**Date**: 2026-09-29 | **Platforms**: iOS, Android (main)
+**Symptom**: Choosing another stock issuer or chain could still open the previous stock's market page.
+**Root Cause**: A failed or empty token-detail response left the previous token's stock metadata on the newly selected variant.
+**Fix**: Carry the current stock metadata only when the selected variant is the same token. A different variant starts without it and uses the detail response when one arrives.
+**Catchable by**: Section 4: a failed lookup must not keep the previous entity's identity on the new selection.
+

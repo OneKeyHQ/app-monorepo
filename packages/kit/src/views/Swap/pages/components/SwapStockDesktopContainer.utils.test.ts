@@ -21,6 +21,7 @@ import {
   isStockChartRequestReady,
   isStockMarketPanelLoadingStage,
   mergeStockChartRealtimePoint,
+  resolveSelectedVariantStock,
   resolveStockListingId,
   resolveStockVariantRowLabel,
   resolveSwapStockMobileHeaderIdentity,
@@ -374,6 +375,43 @@ describe('SwapStockDesktopContainer utils', () => {
         stockId: 'AAPL',
       }),
     ).toBe('ready');
+  });
+
+  it('keeps the previous listing only for the same token', () => {
+    const currentStock = {
+      stockId: 'AAPL',
+      subtitle: 'Apple',
+      source: 'ondo',
+      sourceLogoUri: 'https://example.com/ondo.png',
+      underlyingAssetTicker: 'AAPL',
+    };
+    const detailStock = {
+      stockId: 'NVDA',
+      subtitle: 'NVIDIA',
+      source: 'xstock',
+      sourceLogoUri: 'https://example.com/xstock.png',
+      underlyingAssetTicker: 'NVDA',
+    };
+
+    expect(
+      resolveSelectedVariantStock({
+        sameToken: false,
+        currentStock,
+      }),
+    ).toBeUndefined();
+    expect(
+      resolveSelectedVariantStock({
+        sameToken: false,
+        currentStock,
+        detailStock,
+      }),
+    ).toBe(detailStock);
+    expect(
+      resolveSelectedVariantStock({
+        sameToken: true,
+        currentStock,
+      }),
+    ).toBe(currentStock);
   });
 
   it('builds a swap token for one stock issuer and chain', () => {

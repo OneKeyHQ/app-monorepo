@@ -171,6 +171,7 @@ import {
   isCurrentStockVariantSelection,
   isStockChartRequestReady,
   isStockMarketPanelLoadingStage,
+  resolveSelectedVariantStock,
   resolveStockListingId,
   resolveStockVariantRowLabel,
   resolveSwapStockMobileHeaderIdentity,
@@ -1464,7 +1465,10 @@ function SwapStockVariantOptions({
           ),
         );
         let decimals = sameToken ? (currentToken?.decimals ?? 0) : 0;
-        let stock = currentToken?.stock;
+        let stock = resolveSelectedVariantStock({
+          sameToken,
+          currentStock: currentToken?.stock,
+        });
         if (!sameToken || !decimals) {
           try {
             const response =
@@ -1477,9 +1481,11 @@ function SwapStockVariantOptions({
             if (detail?.decimals) {
               decimals = detail.decimals;
             }
-            if (detail?.stock) {
-              stock = detail.stock;
-            }
+            stock = resolveSelectedVariantStock({
+              sameToken,
+              currentStock: currentToken?.stock,
+              detailStock: detail?.stock,
+            });
           } catch {
             // The stock channel loads detail again after the identity changes.
           }
