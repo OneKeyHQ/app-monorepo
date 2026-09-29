@@ -138,3 +138,44 @@ export function shouldResetDeFiReadinessOnRunStart({
     readiness.isReady === true
   );
 }
+
+export type IDeFiCacheProbeAction =
+  | 'skip'
+  | 'mark-ready'
+  | 'reset-readiness'
+  | 'zero-overview';
+
+// What the all-network cache probe writes to the header's DeFi overview once
+// it knows whether anything is cached for the run's network set.
+//
+// - A run whose owner is no longer live writes nothing: the overview and its
+//   readiness are a single slot the live owner's own probe has stamped.
+// - A hit marks the owner ready; `allNetworkCacheData` follows and replaces
+//   the overview with the cached sum.
+// - A miss leaves readiness unknown (`isReady: undefined`), never `false`:
+//   the header counts any defined readiness as reported and would release
+//   its hold onto a total without DeFi. The list instance also drops the
+//   overview `clearAllNetworkData` kept for this owner — it predates the run
+//   and a fan-out whose every request fails would never replace it — and its
+//   fan-out (or the header's bounded grace) settles the header. The
+//   cache-only instance issues no fan-out, so it keeps the overview as the
+//   best-known value the grace falls back to.
+export function resolveDeFiCacheProbeAction({
+  hasCache,
+  refreshCacheOnly,
+  runOwnerKey,
+  liveOwnerKey,
+}: {
+  hasCache: boolean;
+  refreshCacheOnly: boolean;
+  runOwnerKey?: string;
+  liveOwnerKey?: string;
+}): IDeFiCacheProbeAction {
+  if (!runOwnerKey || runOwnerKey !== liveOwnerKey) {
+    return 'skip';
+  }
+  if (hasCache) {
+    return 'mark-ready';
+  }
+  return refreshCacheOnly ? 'reset-readiness' : 'zero-overview';
+}

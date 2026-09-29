@@ -1,6 +1,7 @@
 import {
   deFiListLoadingReducer,
   isDeFiAllNetworkRequestsGranted,
+  resolveDeFiCacheProbeAction,
   resolveDeFiFanOutFinishedState,
   shouldApplyDeFiAllNetworksResult,
   shouldResetDeFiReadinessOnRunStart,
@@ -198,5 +199,76 @@ describe('shouldResetDeFiReadinessOnRunStart', () => {
         ownerKey: 'account-1__all',
       }),
     ).toBe(true);
+  });
+});
+
+describe('resolveDeFiCacheProbeAction', () => {
+  const live = { runOwnerKey: 'account-1:all', liveOwnerKey: 'account-1:all' };
+
+  it('marks the owner ready on a hit for either instance', () => {
+    expect(
+      resolveDeFiCacheProbeAction({
+        ...live,
+        hasCache: true,
+        refreshCacheOnly: false,
+      }),
+    ).toBe('mark-ready');
+    expect(
+      resolveDeFiCacheProbeAction({
+        ...live,
+        hasCache: true,
+        refreshCacheOnly: true,
+      }),
+    ).toBe('mark-ready');
+  });
+
+  it('zeroes the kept overview on a list-instance miss', () => {
+    expect(
+      resolveDeFiCacheProbeAction({
+        ...live,
+        hasCache: false,
+        refreshCacheOnly: false,
+      }),
+    ).toBe('zero-overview');
+  });
+
+  it('only resets readiness on a cache-only miss', () => {
+    expect(
+      resolveDeFiCacheProbeAction({
+        ...live,
+        hasCache: false,
+        refreshCacheOnly: true,
+      }),
+    ).toBe('reset-readiness');
+  });
+
+  it('writes nothing for a run whose owner is no longer live', () => {
+    expect(
+      resolveDeFiCacheProbeAction({
+        runOwnerKey: 'account-1:all',
+        liveOwnerKey: 'account-2:all',
+        hasCache: false,
+        refreshCacheOnly: false,
+      }),
+    ).toBe('skip');
+    expect(
+      resolveDeFiCacheProbeAction({
+        runOwnerKey: 'account-1:all',
+        liveOwnerKey: 'account-2:all',
+        hasCache: true,
+        refreshCacheOnly: true,
+      }),
+    ).toBe('skip');
+  });
+
+  it('writes nothing without an owner', () => {
+    expect(
+      resolveDeFiCacheProbeAction({
+        runOwnerKey: undefined,
+        liveOwnerKey: undefined,
+        hasCache: false,
+        refreshCacheOnly: false,
+      }),
+    ).toBe('skip');
   });
 });

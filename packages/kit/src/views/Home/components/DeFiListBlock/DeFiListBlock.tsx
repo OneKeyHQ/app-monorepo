@@ -73,6 +73,7 @@ import { RichBlock } from '../RichBlock/RichBlock';
 import {
   deFiListLoadingReducer,
   isDeFiAllNetworkRequestsGranted,
+  resolveDeFiCacheProbeAction,
   resolveDeFiFanOutFinishedState,
   shouldApplyDeFiAllNetworksResult,
   shouldResetDeFiReadinessOnRunStart,
@@ -859,8 +860,10 @@ function DeFiListBlock({
     // the switch render). Zeroing it only for this run's cache probe to write
     // the same value back dips the header total for a few frames, so only an
     // overview left by another owner is reset. The probe settles the kept
-    // one: a hit replaces it with this run's cached sum, a miss zeroes it
-    // (`handleAllNetworkCacheChecked`).
+    // one (`handleAllNetworkCacheChecked`): a hit replaces it with this run's
+    // cached sum; a miss zeroes it in the list instance, whose fan-out then
+    // reports, and keeps it in the cache-only instance as the best-known
+    // value.
     const currentOverview = overviewRef.current;
     const isOverviewOfOwner =
       !!account?.id &&
@@ -1126,41 +1129,67 @@ function DeFiListBlock({
       networkId?: string;
       hasCache: boolean;
     }) => {
-      if (hasCache) {
-        // `handleAllNetworkCacheData` follows and replaces the overview with
-        // the cached sum of this run's network set.
-        updateOverviewDeFiDataState({
-          accountId,
-          networkId,
-          isReady: true,
-        });
-        return;
-      }
-      // `handleClearAllNetworkData` kept a same-owner overview only so this
-      // probe could write the same value back without a dip. With nothing
-      // cached for the run's network set there is no such value: the kept
-      // one predates the run — after an enabled-network change it still
-      // counts the disabled network — and a fan-out whose every request
-      // fails would never replace it (`shouldPublishDeFiRunOverview` only
-      // publishes a non-empty sum). Drop it here, not ready, so the header
-      // holds until this run reports.
-      updateAccountDeFiOverview({
-        currency: settings.currencyInfo.id,
-        accountId,
-        networkId,
-        overview: {
-          totalValue: 0,
-          totalDebt: 0,
-          totalReward: 0,
-          netWorth: 0,
-          chains: [],
-          protocolCount: 0,
-          positionCount: 0,
-        },
-        isReady: false,
+      const action = resolveDeFiCacheProbeAction({
+        hasCache,
+        refreshCacheOnly,
+        runOwnerKey: buildDeFiListOwnerKey({ accountId, networkId }),
+        liveOwnerKey: liveOwnerKeyRef.current,
       });
+      switch (action) {
+        case 'skip':
+          return;
+        case 'mark-ready':
+          // `handleAllNetworkCacheData` follows and replaces the overview
+          // with the cached sum of this run's network set.
+          updateOverviewDeFiDataState({
+            accountId,
+            networkId,
+            isReady: true,
+          });
+          return;
+        case 'reset-readiness':
+          // Readiness off is `undefined` only: the header treats a defined
+          // `false` as reported and would release its hold at once.
+          updateOverviewDeFiDataState({
+            accountId,
+            networkId,
+            isReady: undefined,
+          });
+          return;
+        case 'zero-overview':
+          // `handleClearAllNetworkData` kept a same-owner overview only so
+          // this probe could write the same value back without a dip. With
+          // nothing cached for the run's network set there is no such value:
+          // the kept one predates the run — after an enabled-network change
+          // it still counts the disabled network — and a fan-out whose every
+          // request fails would never replace it
+          // (`shouldPublishDeFiRunOverview` only publishes a non-empty sum).
+          // Drop it, readiness unknown, so the header holds until this run's
+          // first flush or its published result marks the owner ready.
+          updateAccountDeFiOverview({
+            currency: settings.currencyInfo.id,
+            accountId,
+            networkId,
+            overview: {
+              totalValue: 0,
+              totalDebt: 0,
+              totalReward: 0,
+              netWorth: 0,
+              chains: [],
+              protocolCount: 0,
+              positionCount: 0,
+            },
+            isReady: undefined,
+          });
+          return;
+        default: {
+          const _exhaustive: never = action;
+          return _exhaustive;
+        }
+      }
     },
     [
+      refreshCacheOnly,
       settings.currencyInfo.id,
       updateAccountDeFiOverview,
       updateOverviewDeFiDataState,
