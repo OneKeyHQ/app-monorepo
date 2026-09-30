@@ -298,7 +298,9 @@ export default function NetworksSectionListV2({
       capabilities: {
         sectionIndex: {
           enabled: !searchKey.trim(),
-          centeredInWindow: platformEnv.isNative || platformEnv.isDesktop,
+          // Native centers the index in the window. On web targets this
+          // flag only routes the rail into the list-area container below.
+          centeredInWindow: true,
         },
       },
       selection: {
@@ -401,6 +403,23 @@ export default function NetworksSectionListV2({
             title={intl.formatMessage({ id: ETranslations.global_no_results })}
           />
         )}
+        {!platformEnv.isNative ? (
+          // Bounds the web index rail to the list area so it starts at the
+          // list top instead of floating beside the header and search bar.
+          // The single-network tab pads its search bar with `pb="$4"` while
+          // this list starts flush under it, so offset the rail by the same
+          // amount to keep it from jumping when switching tabs.
+          <Stack
+            ref={webSectionIndexContainerRef}
+            testID={ChainSelectorTestIDs.unifiedSectionIndexContainer}
+            position="absolute"
+            top="$4"
+            right={0}
+            bottom={0}
+            left={0}
+            pointerEvents="box-none"
+          />
+        ) : null}
         {tooltipElement}
       </Stack>
     </Stack>

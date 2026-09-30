@@ -97,10 +97,14 @@ export const PrimeRouter: IModalFlowNavigatorConfig<
   {
     name: EPrimePages.PrimeTransfer,
     component: PrimeTransfer,
+    dismissOnOverlayPress: false,
+    options: { gestureEnabled: false },
   },
   {
     name: EPrimePages.PrimeTransferPreview,
     component: PrimeTransferPreview,
+    dismissOnOverlayPress: false,
+    options: { gestureEnabled: false },
   },
   {
     name: EPrimePages.OneKeyId,

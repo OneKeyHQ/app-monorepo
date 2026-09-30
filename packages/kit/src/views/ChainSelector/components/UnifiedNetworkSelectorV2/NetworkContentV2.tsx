@@ -31,6 +31,7 @@ const defaultChainSelectorNetworks: {
 
 type INetworkContentPropsV2 = {
   webSectionIndexContainerRef: RefObject<View | null>;
+  webSectionIndexBottomInset?: number;
   walletId?: string;
   accountId?: string;
   indexedAccountId?: string;
@@ -45,6 +46,7 @@ type INetworkContentPropsV2 = {
 
 export function NetworkContentV2({
   webSectionIndexContainerRef,
+  webSectionIndexBottomInset,
   walletId,
   accountId,
   indexedAccountId,
@@ -176,6 +178,7 @@ export function NetworkContentV2({
   return (
     <NetworkSectionListV2
       webSectionIndexContainerRef={webSectionIndexContainerRef}
+      webSectionIndexBottomInset={webSectionIndexBottomInset}
       recentNetworksEnabled
       showAllNetworkInRecentNetworks
       walletId={walletId}

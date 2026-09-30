@@ -41,9 +41,12 @@ type IApiAvailabilityStatus =
  * - domain: the adapter used the domain (DNS) route
  * - sni: the adapter sent an IP-direct SNI request
  * - fallback: SNI failed and the domain route was used
+ * - bypass: the selected IP was stepping aside after repeated failures, so
+ *   the domain route was used without trying SNI
  * - none: the request ended before the adapter picked a route
  */
 export type IAvailabilityRoute =
+  | 'bypass'
   | 'direct'
   | 'domain'
   | 'fallback'

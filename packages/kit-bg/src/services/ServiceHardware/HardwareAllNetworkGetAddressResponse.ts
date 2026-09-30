@@ -1,6 +1,11 @@
+import { HardwareErrorCode as ThirdPartyHwErrorCode } from '@onekeyfe/hwk-adapter-core/errors';
+
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import type { IOneKeyError } from '@onekeyhq/shared/src/errors/types/errorTypes';
-import { convertDeviceError } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
+import {
+  convertDeviceError,
+  isHardwareErrorByCode,
+} from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
 import { isThirdPartyPassphraseAlwaysOnDeviceErrorCode } from '@onekeyhq/shared/src/errors/utils/thirdPartyDeviceErrorUtils';
 import type { PromiseTarget } from '@onekeyhq/shared/src/utils/promiseUtils';
 import { createPromiseTarget } from '@onekeyhq/shared/src/utils/promiseUtils';
@@ -17,6 +22,20 @@ export class HardwareAllNetworkGetAddressResponse {
   private sdkResponseCompleted = false;
 
   private respondedKeys = new Set<string>();
+
+  private appFailureErrors = new WeakSet<object>();
+
+  isCompletedAppFailure(error: unknown): boolean {
+    // These errors are created and consumed within bg. Identity prevents a
+    // live device failure or an error from another batch from being skipped.
+    return (
+      this.sdkResponseCompleted &&
+      !this._rejectAllResponseError &&
+      typeof error === 'object' &&
+      error !== null &&
+      this.appFailureErrors.has(error)
+    );
+  }
 
   private buildMissingResponseError() {
     return new OneKeyLocalError(
@@ -53,6 +72,17 @@ export class HardwareAllNetworkGetAddressResponse {
       connectId: item.payload?.connectId,
       deviceId: item.payload?.deviceId,
     });
+    if (
+      isHardwareErrorByCode({
+        error,
+        code: [
+          ThirdPartyHwErrorCode.AppTooOld,
+          ThirdPartyHwErrorCode.DeviceOutOfMemory,
+        ],
+      })
+    ) {
+      this.appFailureErrors.add(error);
+    }
     promiseTarget.rejectTarget(error);
   }
 
@@ -98,6 +128,7 @@ export class HardwareAllNetworkGetAddressResponse {
     this._rejectAllResponseError = undefined;
     this.sdkResponseCompleted = false;
     this.respondedKeys.clear();
+    this.appFailureErrors = new WeakSet<object>();
   }
 
   promiseTargets: Record<

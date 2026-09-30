@@ -1,6 +1,7 @@
 /** @jest-environment jsdom */
 import { act, renderHook } from '@testing-library/react';
 
+import { finishMarketDetailTabBarTransition } from '@onekeyhq/kit/src/views/Market/utils/marketDetailNavigation';
 import { EEnterWay } from '@onekeyhq/shared/src/logger/scopes/dex';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IMarketStockDetailRouteParams } from '@onekeyhq/shared/src/routes';
@@ -87,6 +88,7 @@ jest.mock(
 jest.mock('@onekeyhq/shared/src/eventBus/appEventBus', () => ({
   EAppEventBusNames: {
     CleanTokenDetailInTabletDetailView: 'CleanTokenDetailInTabletDetailView',
+    HideTabBar: 'HideTabBar',
   },
   appEventBus: { emit: jest.fn() },
 }));
@@ -184,6 +186,10 @@ describe('useToMarketStockDetailPage', () => {
     mockCurrentRouteName = ETabMarketRoutes.MarketDetailV2;
     mockCurrentRouteParams = undefined;
     mockGetRootState.mockReturnValue(undefined);
+  });
+
+  afterEach(() => {
+    finishMarketDetailTabBarTransition();
   });
 
   it('resets the tab stack before opening the selected stock', async () => {
