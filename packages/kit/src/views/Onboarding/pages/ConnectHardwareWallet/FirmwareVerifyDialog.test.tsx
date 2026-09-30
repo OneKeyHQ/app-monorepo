@@ -145,6 +145,7 @@ jest.mock('@onekeyhq/shared/src/utils/deviceUtils', () => ({
   default: {
     isFirmwareVerifySupported: () => true,
     buildDeviceStageName: () => 'OneKey Pro 2',
+    getDeviceColorFromFeatures: () => undefined,
   },
 }));
 

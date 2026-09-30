@@ -16,12 +16,41 @@ const avatarDir = join(__dirname, '../assets/wallet/avatar');
 const readAvatar = (name: string) => readFileSync(join(avatarDir, name));
 
 describe('HwWalletAvatarImages', () => {
-  it.each(['Pro2Black.png'])(
-    'gives %s its own artwork rather than the OneKey Pro art',
-    (name) => {
-      expect(readAvatar(name).equals(readAvatar('ProBlack.png'))).toBe(false);
-    },
-  );
+  it.each([
+    ['Pro2Black.png', 'ProBlack.png'],
+    ['Pro2Silver.png', 'Pro2Black.png'],
+    ['Pro2Orange.png', 'Pro2Black.png'],
+  ])('gives %s its own artwork rather than %s', (name, other) => {
+    expect(readAvatar(name).equals(readAvatar(other))).toBe(false);
+  });
+
+  // Every require() is the same stub under Jest, so the table's wiring is
+  // read off the source: each key must name its own file, or a key aliased
+  // onto a sibling's art (the Pro 2 on the Pro's, Silver on Orange's) would
+  // pass every runtime assertion.
+  const source = readFileSync(join(__dirname, 'avatarUtils.ts'), 'utf8');
+  const requiredFileOf = (key: string): string | undefined => {
+    const prefix = `[${key}]: require('../assets/wallet/avatar/`;
+    const start = source.indexOf(prefix);
+    if (start < 0) {
+      return undefined;
+    }
+    const from = start + prefix.length;
+    return source.slice(from, source.indexOf("'", from));
+  };
+  /** A per-color key as the table spells it: `${EDeviceType.<model>}<Color>`. */
+  const colorKey = (model: 'Pro' | 'Pro2', color: string) =>
+    `\`\${EDeviceType.${model}}${color}\``;
+  it.each([
+    ['EDeviceType.Pro2', 'Pro2Black.png'],
+    [colorKey('Pro2', 'Black'), 'Pro2Black.png'],
+    [colorKey('Pro2', 'Silver'), 'Pro2Silver.png'],
+    [colorKey('Pro2', 'Orange'), 'Pro2Orange.png'],
+    [colorKey('Pro', 'Black'), 'ProBlack.png'],
+    [colorKey('Pro', 'White'), 'ProWhite.png'],
+  ])('wires %s to %s', (key, file) => {
+    expect(requiredFileOf(key)).toBe(file);
+  });
 });
 
 describe('getDeviceAvatarImage', () => {
