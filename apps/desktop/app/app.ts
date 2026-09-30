@@ -4,7 +4,7 @@ import { EventEmitter } from 'events';
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
-import { fileURLToPath, format as formatUrl } from 'url';
+import { fileURLToPath, format as formatUrl, pathToFileURL } from 'url';
 import v8 from 'v8';
 
 import { EOneKeyBleMessageKeys } from '@onekeyfe/hd-shared';
@@ -24,6 +24,7 @@ import {
   inAppPurchase,
   ipcMain,
   nativeTheme,
+  net,
   powerMonitor,
   session,
   shell,
@@ -57,12 +58,11 @@ import { isAllowedWebViewUrl } from '@onekeyhq/shared/src/utils/webViewUrlSafety
 import type { IDesktopAppState } from '@onekeyhq/shared/types/desktop';
 
 import {
-  checkFileHash,
-  checkFileSha512,
   getBundleDirPath,
   getBundleIndexHtmlPath,
   getDriveLetter,
   getMetadata,
+  readVerifiedBundleFile,
 } from './bundle';
 import { ipcMessageKeys } from './config';
 import { ElectronTranslations, i18nText, initLocale } from './i18n';
@@ -234,38 +234,73 @@ const APP_TITLE_NAME = 'OneKey';
 app.name = APP_NAME;
 let mainWindow: BrowserWindow | null;
 let isAppReady = false;
-// Scheme used to serve the renderer bundle via interceptFileProtocol.
+// Scheme used to serve the renderer bundle through a verified byte response.
 const PROTOCOL = 'file';
+const VERIFIED_FILE_MIME_TYPES: Record<string, string> = {
+  '.avif': 'image/avif',
+  '.bmp': 'image/bmp',
+  '.css': 'text/css',
+  '.eot': 'application/vnd.ms-fontobject',
+  '.gif': 'image/gif',
+  '.html': 'text/html',
+  '.ico': 'image/x-icon',
+  '.jpeg': 'image/jpeg',
+  '.jpg': 'image/jpeg',
+  '.js': 'text/javascript',
+  '.json': 'application/json',
+  '.mjs': 'text/javascript',
+  '.mp3': 'audio/mpeg',
+  '.mp4': 'video/mp4',
+  '.otf': 'font/otf',
+  '.pdf': 'application/pdf',
+  '.png': 'image/png',
+  '.svg': 'image/svg+xml',
+  '.ttf': 'font/ttf',
+  '.tiff': 'image/tiff',
+  '.wasm': 'application/wasm',
+  '.webm': 'video/webm',
+  '.webmanifest': 'application/manifest+json',
+  '.webp': 'image/webp',
+  '.woff': 'font/woff',
+  '.woff2': 'font/woff2',
+  '.xml': 'application/xml',
+};
 type FileProtocolHandler = Parameters<
-  typeof session.defaultSession.protocol.interceptFileProtocol
+  typeof session.defaultSession.protocol.handle
 >[1];
-let activeFileProtocolHandler: FileProtocolHandler | undefined;
+let activeFileProtocolState:
+  | { handler: FileProtocolHandler; shellUrl: string }
+  | undefined;
 
-function setFileProtocolHandler(nextHandler: FileProtocolHandler): void {
+function setFileProtocolHandler(
+  nextHandler: FileProtocolHandler,
+  shellUrl: string,
+): void {
   const protocol = session.defaultSession.protocol;
-  if (!activeFileProtocolHandler) {
-    if (protocol.isProtocolIntercepted(PROTOCOL)) {
+  if (!activeFileProtocolState) {
+    if (protocol.isProtocolHandled(PROTOCOL)) {
       throw new OneKeyLocalError('Unexpected file protocol interceptor');
     }
-    const intercepted = protocol.interceptFileProtocol(
-      PROTOCOL,
-      (request, callback) => {
-        const handler = activeFileProtocolHandler;
-        if (!handler) {
-          callback({ error: -6 });
-          return;
-        }
-        handler(request, callback);
-      },
-    );
-    if (!intercepted) {
-      throw new OneKeyLocalError('Failed to intercept file protocol');
-    }
-  } else if (!protocol.isProtocolIntercepted(PROTOCOL)) {
+    protocol.handle(PROTOCOL, (request) => {
+      const state = activeFileProtocolState;
+      return state ? state.handler(request) : Response.error();
+    });
+  } else if (!protocol.isProtocolHandled(PROTOCOL)) {
     throw new OneKeyLocalError('File protocol interceptor missing');
   }
-  // Requests dispatched before or after this assignment use one complete handler.
-  activeFileProtocolHandler = nextHandler;
+  // Requests and tray navigation use the same verified bundle selection.
+  activeFileProtocolState = { handler: nextHandler, shellUrl };
+}
+
+function verifiedFileResponse(
+  file: ReturnType<typeof readVerifiedBundleFile>,
+): Response {
+  const mimeType =
+    VERIFIED_FILE_MIME_TYPES[path.extname(file.filePath).toLowerCase()] ||
+    'application/octet-stream';
+  return new Response(new Uint8Array(file.bytes), {
+    headers: { 'content-type': mimeType },
+  });
 }
 
 const appStaticResourcesPath = getAppStaticResourcesPath();
@@ -348,6 +383,7 @@ function showMainWindow(allowDuringSoftRestart = false) {
 // The active bundle pointer was already written to the main-process store
 // (store.setUpdateBundleData) before this runs, so no extra path wiring is needed.
 let softRestartLoadPromise: Promise<void> | undefined;
+let resolveSoftRestartBootReady: (() => void) | undefined;
 async function softRestartRenderer() {
   if (softRestarting) {
     logger.warn('[softRestart] already in progress, ignoring re-entrant call');
@@ -355,6 +391,9 @@ async function softRestartRenderer() {
   }
   softRestarting = true;
   softRestartLoadPromise = undefined;
+  const bootReady = new Promise<void>((resolve) => {
+    resolveSoftRestartBootReady = resolve;
+  });
   setTrayInteractionSuspended(true);
   let restartCompleted = false;
   const startedAt = Date.now();
@@ -397,12 +436,14 @@ async function softRestartRenderer() {
     let loadTimeout: ReturnType<typeof setTimeout> | undefined;
     try {
       await Promise.race([
-        Promise.resolve(initialLoad),
+        Promise.all([Promise.resolve(initialLoad), bootReady]),
         new Promise<void>((_, reject) => {
           loadTimeout = setTimeout(
             () =>
               reject(
-                new OneKeyLocalError('Soft restart renderer load timed out'),
+                new OneKeyLocalError(
+                  'Soft restart renderer readiness timed out',
+                ),
               ),
             45_000,
           );
@@ -428,6 +469,7 @@ async function softRestartRenderer() {
     app.exit(0);
   } finally {
     softRestartLoadPromise = undefined;
+    resolveSoftRestartBootReady = undefined;
     if (restartCompleted) {
       setTrayInteractionSuspended(false);
       softRestarting = false;
@@ -1261,9 +1303,18 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
 
   // === Boot Recovery IPC Handlers ===
   ipcMain.removeAllListeners(ipcMessageKeys.MARK_BOOT_SUCCESS);
-  ipcMain.on(ipcMessageKeys.MARK_BOOT_SUCCESS, () => {
+  ipcMain.on(ipcMessageKeys.MARK_BOOT_SUCCESS, (event) => {
+    const senderMainWindow = getSafelyMainWindow();
+    if (
+      !senderMainWindow ||
+      event.sender.id !== senderMainWindow.webContents.id
+    ) {
+      logger.warn('Rejected boot success from non-main window');
+      return;
+    }
     store.resetConsecutiveBootFailCount();
     logger.info('Boot success confirmed, crash counter reset');
+    resolveSoftRestartBootReady?.();
   });
 
   ipcMain.removeAllListeners(ipcMessageKeys.SET_CONSECUTIVE_BOOT_FAIL_COUNT);
@@ -1642,88 +1693,68 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
         metadataFailed = true;
       }
     }
-    const nextFileProtocolHandler: FileProtocolHandler = (
-      request,
-      callback,
-    ) => {
-      const isJsSdkFile = request.url.indexOf('/static/js-sdk') > -1;
-      const isIFrameHtml =
-        request.url.indexOf('/static/js-sdk/iframe.html') > -1;
-
-      // resolve iframe path
-      if (isJsSdkFile && isIFrameHtml) {
-        if (useJsBundle && indexHtmlPath && bundleDirPath) {
-          let key = path.join('static', 'js-sdk', 'iframe.html');
-          const filePath = path.join(bundleDirPath, key);
-          if (isWin) {
-            key = key.replace(/\\/g, '/');
-          }
-          const sha512 = metadata[key];
-          if (!checkFileSha512(filePath, sha512)) {
-            logger.info(
-              'checkFileHash error in js-sdk:',
-              `${key}:  ${filePath} not matched ${sha512}`,
+    const nextFileProtocolHandler: FileProtocolHandler = async (request) => {
+      try {
+        const cutIndex = request.url.search(/[?#]/);
+        const rawUrl =
+          cutIndex === -1 ? request.url : request.url.substring(0, cutIndex);
+        const decodedUrl = decodeURIComponent(
+          rawUrl.substring(PROTOCOL.length + 1),
+        );
+        if (request.url.includes('/static/js-sdk/iframe.html')) {
+          if (useJsBundle && indexHtmlPath && bundleDirPath) {
+            return verifiedFileResponse(
+              readVerifiedBundleFile({
+                bundleDirPath,
+                metadata,
+                driveLetter,
+                url: 'static/js-sdk/iframe.html',
+              }),
             );
-            throw new OneKeyLocalError(`File ${key} sha512 mismatch`);
           }
-          callback(filePath);
-          return;
-        }
-        callback({
-          path: path.join(
+          const filePath = path.join(
             __dirname,
             '..',
             'build',
             'static',
             'js-sdk',
             'iframe.html',
-          ),
-        });
-        return;
-      }
-
-      // Strip the query string before path resolution — without this the
-      // tray window's `?render=tray` gets concatenated into the resolved
-      // filename and fs misses. Guarded by indexOf so the common
-      // no-query case (main window resources) stays allocation-free.
-      const queryIdx = request.url.indexOf('?');
-      const rawUrl =
-        queryIdx === -1 ? request.url : request.url.substring(0, queryIdx);
-      const url = rawUrl.substring(PROTOCOL.length + 1);
-      if (useJsBundle && indexHtmlPath && bundleDirPath) {
-        const decodedUrl = decodeURIComponent(url);
-        if (decodedUrl.includes(bundleDirPath)) {
-          const filePath = checkFileHash({
-            bundleDirPath,
-            metadata,
-            driveLetter,
-            url: decodedUrl.replace(bundleDirPath, ''),
+          );
+          return await net.fetch(pathToFileURL(filePath).href, {
+            bypassCustomProtocolHandlers: true,
           });
-          callback(filePath);
-        } else {
-          const filePath = checkFileHash({
-            bundleDirPath,
-            metadata,
-            driveLetter,
-            url: decodedUrl,
-          });
-          callback(filePath);
         }
-      } else {
+
+        if (useJsBundle && indexHtmlPath && bundleDirPath) {
+          const relativeUrl = decodedUrl.includes(bundleDirPath)
+            ? decodedUrl.replace(bundleDirPath, '')
+            : decodedUrl;
+          return verifiedFileResponse(
+            readVerifiedBundleFile({
+              bundleDirPath,
+              metadata,
+              driveLetter,
+              url: relativeUrl,
+            }),
+          );
+        }
+
         const buildDir = path.resolve(__dirname, '..', 'build');
-        // Strip leading protocol slashes (e.g. "//index.html" → "index.html")
-        // so path.resolve treats the segment as relative, not absolute.
-        const relativeUrl = url.replace(/^[:/]+/, '');
+        const relativeUrl = decodedUrl.replace(/^[:/]+/, '');
         const resolved = path.resolve(buildDir, relativeUrl);
         if (
           !resolved.startsWith(buildDir + path.sep) &&
           resolved !== buildDir
         ) {
           logger.warn('Blocked file access outside build dir:', resolved);
-          callback({ error: -6 } as any); // net::ERR_FILE_NOT_FOUND
-          return;
+          return Response.error();
         }
-        callback(resolved);
+        return await net.fetch(pathToFileURL(resolved).href, {
+          bypassCustomProtocolHandlers: true,
+        });
+      } catch (error) {
+        logger.error('File protocol request failed', error);
+        return Response.error();
       }
     };
     // A failed metadata check must never start a navigation to the bundle path.
@@ -1734,7 +1765,7 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
         slashes: true,
       });
     }
-    setFileProtocolHandler(nextFileProtocolHandler);
+    setFileProtocolHandler(nextFileProtocolHandler, src);
     const safelyBrowserWindow = getSafelyBrowserWindow();
     safelyBrowserWindow?.webContents.on(
       'did-fail-load',
@@ -1958,18 +1989,14 @@ if (!singleInstance && !process.mas) {
           void win.loadURL(`http://localhost:${port}?render=tray`);
           return;
         }
-        // Mirror createMainWindow's URL builder — the interceptFileProtocol
-        // handler only resolves the relative `file://index.html` form.
-        const bundleData = store.getUpdateBundleData();
-        const bundleIndexHtmlPath = getBundleIndexHtmlPath(bundleData);
-        void win.loadURL(
-          formatUrl({
-            pathname: bundleIndexHtmlPath || 'index.html',
-            protocol: 'file',
-            slashes: true,
-            query: { render: 'tray' },
-          }),
-        );
+        const shellUrl = activeFileProtocolState?.shellUrl;
+        if (!shellUrl) {
+          logger.error('[TrayWindow] verified app shell is unavailable');
+          return;
+        }
+        const trayUrl = new URL(shellUrl);
+        trayUrl.searchParams.set('render', 'tray');
+        void win.loadURL(trayUrl.href);
       };
 
       // Default to on; renderer sends TRAY_TOGGLE(false) on startup if

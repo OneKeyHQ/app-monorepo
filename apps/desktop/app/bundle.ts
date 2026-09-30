@@ -296,8 +296,6 @@ export const verifyMetadataFileSha256 = async ({
 
 export const getMetadata = async ({
   bundleDir,
-  appVersion,
-  bundleVersion,
   signature,
 }: {
   bundleDir: string;
@@ -310,10 +308,20 @@ export const getMetadata = async ({
   // follows build-time policy rather than per-request runtime toggles.
   const allowSkipGPG =
     String(process.env.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION) === 'true';
+  const expectedSha256 = allowSkipGPG
+    ? undefined
+    : await readMetadataFileSha256(signature);
+  const metadataBytes = fs.readFileSync(metadataPath);
   if (!allowSkipGPG) {
-    await verifyMetadataFileSha256({ appVersion, bundleVersion, signature });
+    const actualSha256 = crypto
+      .createHash('sha256')
+      .update(metadataBytes)
+      .digest('hex');
+    if (actualSha256 !== expectedSha256) {
+      throw new OneKeyLocalError('Invalid asc file');
+    }
   }
-  const metadata = JSON.parse(fs.readFileSync(metadataPath, 'utf8')) as Record<
+  const metadata = JSON.parse(metadataBytes.toString('utf8')) as Record<
     string,
     string
   >;
@@ -387,7 +395,7 @@ export const getDriveLetter = () => {
   const appPath = app.getAppPath();
   return isWin ? appPath.substring(0, 3) : '';
 };
-export const checkFileHash = ({
+export const readVerifiedBundleFile = ({
   bundleDirPath,
   metadata,
   driveLetter,
@@ -423,7 +431,6 @@ export const checkFileHash = ({
     key = 'index.html';
   }
   const sha512 = metadata[key];
-  const filePath = path.join(bundleDirPath, key);
   if (!sha512) {
     logger.info(
       'checkFileHash error:',
@@ -434,7 +441,17 @@ export const checkFileHash = ({
       `File ${url}, sha512 not found in metadata.json`,
     );
   }
-  if (!checkFileSha512(filePath, sha512)) {
+  const bundleRoot = fs.realpathSync(bundleDirPath);
+  const filePath = path.resolve(bundleRoot, key);
+  if (!filePath.startsWith(`${bundleRoot}${path.sep}`)) {
+    throw new OneKeyLocalError(`File ${url} is outside the bundle directory`);
+  }
+  const realFilePath = fs.realpathSync(filePath);
+  if (!realFilePath.startsWith(`${bundleRoot}${path.sep}`)) {
+    throw new OneKeyLocalError(`File ${url} is outside the bundle directory`);
+  }
+  const bytes = fs.readFileSync(realFilePath);
+  if (crypto.createHash('sha512').update(bytes).digest('hex') !== sha512) {
     logger.info(
       'checkFileHash error:',
       `${key}:  ${url} not matched ${filePath}: ${sha512}`,
@@ -442,5 +459,9 @@ export const checkFileHash = ({
     unmatchedFileDialog();
     throw new OneKeyLocalError(`File ${url} sha512 mismatch`);
   }
-  return filePath;
+  return { filePath, bytes };
 };
+
+export const checkFileHash = (
+  params: Parameters<typeof readVerifiedBundleFile>[0],
+): string => readVerifiedBundleFile(params).filePath;
