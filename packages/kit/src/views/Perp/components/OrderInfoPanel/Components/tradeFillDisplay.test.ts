@@ -318,6 +318,22 @@ describe('trade history filters', () => {
     ).toEqual([records[1]]);
   });
 
+  it('only offers indexed spot markets once metadata provides a stable asset name', () => {
+    const records = [{ ...baseFill, coin: '@107' }];
+    expect(getTradeHistoryMarketOptions(records, {})).toEqual([]);
+    const names = { '@107': 'PURR/USDC' };
+    const [market] = getTradeHistoryMarketOptions(records, names);
+    expect(market).toEqual({ coin: 'spot:PURR', label: 'PURR' });
+    expect(
+      filterTradeHistory(
+        records,
+        { type: 'spot', side: 'all', market: market.coin },
+        undefined,
+        names,
+      ),
+    ).toEqual(records);
+  });
+
   it('deduplicates market IDs and resolves spot pair and HIP-3 labels', () => {
     const options = getTradeHistoryMarketOptions(fills, {
       '@107': 'PURR/USDC',

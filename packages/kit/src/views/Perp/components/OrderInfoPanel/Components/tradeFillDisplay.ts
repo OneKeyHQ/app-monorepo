@@ -209,8 +209,11 @@ export function getTradeHistoryMarketOptions(
 ) {
   const markets = new Map<string, { coin: string; label: string }>();
   for (const { coin } of fills) {
-    const market = getTradeHistoryMarket(coin, spotPairDisplayMap);
-    markets.set(market.coin, market);
+    // Wait for metadata so a selectable spot filter never changes identity.
+    if (!coin.startsWith('@') || spotPairDisplayMap[coin]) {
+      const market = getTradeHistoryMarket(coin, spotPairDisplayMap);
+      markets.set(market.coin, market);
+    }
   }
   return Array.from(markets.values()).toSorted(
     (a, b) => a.label.localeCompare(b.label) || a.coin.localeCompare(b.coin),

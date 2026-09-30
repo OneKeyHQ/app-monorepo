@@ -191,7 +191,13 @@ export function PerpTradersHistoryListModal() {
     }
   }, [activeTab]);
 
+  const hasActiveTradeFilter =
+    tradeHistoryFilters.filters.type !== 'all' ||
+    tradeHistoryFilters.filters.side !== 'all' ||
+    tradeHistoryFilters.filters.market !== undefined;
+
   const headerRight = useCallback(() => {
+    if (activeTab === 'Trades' && hasActiveTradeFilter) return null;
     if (activeTab === 'Funding') {
       return (
         <Button
@@ -236,6 +242,7 @@ export function PerpTradersHistoryListModal() {
   }, [
     activeTab,
     handleViewCryptoDeposits,
+    hasActiveTradeFilter,
     intl,
     isUnifoldDepositTrackerAvailable,
     onViewAllFundingUrl,

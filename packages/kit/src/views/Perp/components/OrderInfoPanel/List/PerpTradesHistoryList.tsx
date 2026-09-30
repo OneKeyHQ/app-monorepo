@@ -419,7 +419,9 @@ function PerpTradesHistoryList({
         isMobile ? <MobileTradesHistoryLoadingSkeleton /> : undefined
       }
       onViewAll={
-        !isMobile && filteredTrades.length > TRADES_HISTORY_PAGE_SIZE
+        !isMobile &&
+        !hasActiveFilter &&
+        filteredTrades.length > TRADES_HISTORY_PAGE_SIZE
           ? onViewAllUrl
           : undefined
       }
