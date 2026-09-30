@@ -1,8 +1,4 @@
-import { HardwareErrorCode } from '@onekeyfe/hd-shared';
-import {
-  ORPHAN_ELIGIBLE_ERROR_CODES,
-  HardwareErrorCode as ThirdPartyHwErrorCode,
-} from '@onekeyfe/hwk-adapter-core/errors';
+import { HardwareErrorCode as ThirdPartyHwErrorCode } from '@onekeyfe/hwk-adapter-core/errors';
 import { chunk, isNil, range, uniqBy } from 'lodash';
 
 import { clearHdCredentialDecryptCache } from '@onekeyhq/core/src/secret';
@@ -14,20 +10,13 @@ import {
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { IMPL_EVM } from '@onekeyhq/shared/src/engine/engineConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
-import {
-  THIRD_PARTY_HW_OPERATION_ENDED_CODE,
-  THIRD_PARTY_HW_OPERATION_NOT_FOUND_CODE,
-} from '@onekeyhq/shared/src/errors/errors/thirdPartyHardwareErrors';
 import type {
   IOneKeyError,
   IOneKeyHardwareErrorPayload,
 } from '@onekeyhq/shared/src/errors/types/errorTypes';
-import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import {
   convertDeviceError,
   convertDeviceResponse,
-  isHardwareErrorByCode,
-  isHardwareInterruptErrorByCode,
 } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import errorUtils from '@onekeyhq/shared/src/errors/utils/errorUtils';
@@ -78,6 +67,7 @@ import { buildDefaultAddAccountNetworks } from '../ServiceAccount/defaultNetwork
 import ServiceBase from '../ServiceBase';
 import { HardwareAllNetworkGetAddressResponse } from '../ServiceHardware/HardwareAllNetworkGetAddressResponse';
 
+import { shouldAbortAccountCreation } from './accountCreationErrors';
 import { normalizeAllNetworkInstallCancelErrors } from './thirdPartyAllNetworkErrors';
 import {
   type IThirdPartyAllNetworkAddressParams,
@@ -1613,6 +1603,7 @@ class ServiceBatchCreateAccount extends ServiceBase {
               walletId: params.walletId,
               saveToDb,
               autoHandleExitError: params.autoHandleExitError,
+              hwAllNetworkPrepareAccountsResponse,
             });
             const plainError = errorUtils.toPlainErrorObject(error);
             failedAccounts.push({
@@ -1659,12 +1650,14 @@ class ServiceBatchCreateAccount extends ServiceBase {
     saveToDb,
     autoHandleExitError,
     showUIProgress,
+    hwAllNetworkPrepareAccountsResponse,
   }: {
     walletId: string;
     error: any;
     saveToDb: boolean | undefined;
     autoHandleExitError?: boolean;
     showUIProgress?: boolean;
+    hwAllNetworkPrepareAccountsResponse?: IHwAllNetworkPrepareAccountsResponse;
   }) {
     errorToastUtils.showLocalSecretEnvelopeErrorDialogIfNeeded(error);
 
@@ -1693,44 +1686,9 @@ class ServiceBatchCreateAccount extends ServiceBase {
       throw error;
     }
 
-    // **** hardware terminated errors ****
-    // Some high priority errors need to interrupt the process
-    if (accountUtils.isHwWallet({ walletId })) {
-      if (isHardwareInterruptErrorByCode({ error })) {
-        throw error;
-      }
-      // Unplug device?
-      if (
-        isHardwareErrorByCode({
-          error,
-          code: [
-            // OneKey HW (legacy enum)
-            HardwareErrorCode.DeviceNotFound,
-            HardwareErrorCode.PinCancelled,
-            HardwareErrorCode.ActionCancelled,
-            HardwareErrorCode.CallQueueActionCancelled,
-            HardwareErrorCode.DeviceInterruptedFromOutside,
-            HardwareErrorCode.DeviceInterruptedFromUser,
-            // Third-party HW batch-abort codes from SDK.
-            ...ORPHAN_ELIGIBLE_ERROR_CODES,
-            THIRD_PARTY_HW_OPERATION_NOT_FOUND_CODE,
-            THIRD_PARTY_HW_OPERATION_ENDED_CODE,
-          ],
-        })
-      ) {
-        throw error;
-      }
-    }
-    // **** password cancel
     if (
-      errorUtils.isErrorByClassName({
-        error,
-        className: [
-          EOneKeyErrorClassNames.PasswordPromptDialogCancel,
-          EOneKeyErrorClassNames.SecureQRCodeDialogCancel,
-          EOneKeyErrorClassNames.OneKeyErrorScanQrCodeCancel,
-        ],
-      })
+      shouldAbortAccountCreation(error) &&
+      !hwAllNetworkPrepareAccountsResponse?.isCompletedAppFailure(error)
     ) {
       throw error;
     }

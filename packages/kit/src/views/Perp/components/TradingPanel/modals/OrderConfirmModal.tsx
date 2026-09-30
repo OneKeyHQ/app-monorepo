@@ -25,6 +25,7 @@ import {
   usePerpsCustomSettingsAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   formatLocalizedNumberString,
   numberFormat,
@@ -857,7 +858,12 @@ function OrderConfirmContent({
             </YStack>
           </XStack>
         ) : null}
+      </YStack>
 
+      <YStack
+        pt={platformEnv.isNative ? '$2' : 0}
+        gap={platformEnv.isNative ? '$3' : '$2'}
+      >
         {/* skip order confirm checkbox */}
         {!aggressiveLimitPriceWarning ? (
           <XStack justifyContent="space-between" alignItems="center" gap="$2">
@@ -875,27 +881,25 @@ function OrderConfirmContent({
             />
           </XStack>
         ) : null}
-      </YStack>
 
-      <TradingGuardWrapper
-        bypassEnableTradingGuard={Boolean(enableTradingBeforeConfirm)}
-        buttonSize={PERP_DIALOG_BUTTON_SIZE}
-      >
-        <Button
-          testID="perp-btn"
-          variant="primary"
-          size={PERP_DIALOG_BUTTON_SIZE}
-          disabled={isConfirmLoading}
-          loading={isConfirmLoading}
-          onPress={handleConfirm}
-          {...buttonStyleProps}
-          childrenAsText={false}
+        <TradingGuardWrapper
+          bypassEnableTradingGuard={Boolean(enableTradingBeforeConfirm)}
+          buttonSize={PERP_DIALOG_BUTTON_SIZE}
         >
-          <SizableText size="$bodyMdMedium" color={buttonStyleProps.textColor}>
+          <Button
+            testID="perp-btn"
+            variant="primary"
+            size={PERP_DIALOG_BUTTON_SIZE}
+            disabled={isConfirmLoading}
+            loading={isConfirmLoading}
+            onPress={handleConfirm}
+            {...buttonStyleProps}
+            color={buttonStyleProps.textColor}
+          >
             {buttonText}
-          </SizableText>
-        </Button>
-      </TradingGuardWrapper>
+          </Button>
+        </TradingGuardWrapper>
+      </YStack>
     </YStack>
   );
 }

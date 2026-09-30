@@ -3,12 +3,6 @@ import BigNumber from 'bignumber.js';
 import type { IMarketPriceSource } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { IMarketTokenKLineDataPoint } from '@onekeyhq/shared/types/marketV2';
 
-// The K-line feed is quoted in USD (`fetchMarketTokenKline` pins `currency`),
-// while `/market/token/detail` converts its price when the user picked another
-// display currency. Overlaying a USD close on a converted quote would swap a
-// stale number for a wrong one, so the overlay is limited to USD.
-export const MARKET_KLINE_LIVE_PRICE_CURRENCY = 'usd';
-
 // The finest bucket the token K-line endpoint serves. Its open bucket carries
 // the latest trade, which is the price the detail snapshot is missing.
 export const MARKET_KLINE_LIVE_PRICE_INTERVAL = '1m';
@@ -17,28 +11,22 @@ export const MARKET_KLINE_LIVE_PRICE_INTERVAL = '1m';
 // without a trade, so ask for a window rather than a single bucket.
 export const MARKET_KLINE_LIVE_PRICE_WINDOW_SECONDS = 600;
 
-// Must stay under CHART_PRICE_FRESHNESS_MS (10s), the window during which
-// `fetchTokenDetail` keeps this price instead of the snapshot it polls. Polling
-// slower than that would let the stale snapshot back in between ticks.
+// Refresh the simple chart's latest close independently of the initial details.
 export const MARKET_KLINE_LIVE_PRICE_POLLING_MS = 6000;
 
 /**
  * The K-line feed prices a token's own trades, so it can only stand in for a
- * token-mode quote: a share quote comes from the stock feed. Top coins are
- * excluded because their quote comes from the market asset feed, not from a
- * single pool.
+ * token-mode quote: a share quote comes from the stock feed. Top coins use the
+ * aggregate asset K-line feed in Simple mode. The detail's primary `price` and
+ * both K-line feeds are always USD; a selected currency uses `priceConverted`.
  */
 export function resolveMarketKlineLivePriceEnabled({
-  currencyId,
   isNative,
-  marketAssetId,
   networkId,
   priceMode,
   tokenAddress,
 }: {
-  currencyId?: string;
   isNative?: boolean;
-  marketAssetId?: string;
   networkId: string;
   priceMode: IMarketPriceSource;
   tokenAddress: string;
@@ -47,12 +35,7 @@ export function resolveMarketKlineLivePriceEnabled({
   // identity — the historical series on this same chart already requests it that
   // way. Requiring an address would leave native coins on the stale snapshot.
   const hasTokenIdentity = Boolean(networkId && (tokenAddress || isNative));
-  return Boolean(
-    priceMode === 'token' &&
-    !marketAssetId &&
-    hasTokenIdentity &&
-    currencyId?.toLowerCase() === MARKET_KLINE_LIVE_PRICE_CURRENCY,
-  );
+  return priceMode === 'token' && hasTokenIdentity;
 }
 
 /**
@@ -62,15 +45,15 @@ export function resolveMarketKlineLivePriceEnabled({
  * scope: this write goes to a shared atom and stamps itself as the newest price,
  * so an out-of-order one would pin a stale close until the next tick.
  */
-export function shouldApplyMarketKlineLivePrice({
+export function shouldApplyMarketKlineLivePrice<T>({
   appliedSeq,
   currentRequestScope,
   requestScope,
   requestSeq,
 }: {
   appliedSeq: number | undefined;
-  currentRequestScope: string;
-  requestScope: string;
+  currentRequestScope: T | null;
+  requestScope: T;
   requestSeq: number;
 }): boolean {
   return currentRequestScope === requestScope && requestSeq > (appliedSeq ?? 0);

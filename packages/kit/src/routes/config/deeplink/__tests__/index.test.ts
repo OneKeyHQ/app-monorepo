@@ -31,6 +31,13 @@ jest.mock('@onekeyhq/shared/src/utils/cacheUtils', () => ({
   memoizee: (fn: unknown) => fn,
 }));
 
+jest.mock(
+  '../../../../components/WalletConnect/connectWalletConnectToDapp',
+  () => ({
+    connectWalletConnectToDapp: jest.fn(async () => undefined),
+  }),
+);
+
 jest.mock('../../../../background/instance/backgroundApiProxy', () => ({
   __esModule: true,
   default: {
