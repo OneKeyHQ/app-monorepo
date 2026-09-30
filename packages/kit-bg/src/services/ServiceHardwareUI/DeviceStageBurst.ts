@@ -820,10 +820,22 @@ export class DeviceStageBurstScope {
     // still finds its layer, and only the device asking again may repaint
     // over the dialog (see silence).
     const ownedByDialog = this.isDialogOwnedFailure(params.error);
-    if (ownedByDialog && this.depth > 1) {
-      await this.silence();
-    }
+    const yieldsToDialog = ownedByDialog && this.depth > 1;
+    // The layer is released BEFORE the yield: the off write crosses the
+    // bg->UI bridge on split-runtime targets and a flush failure propagates
+    // (jotaiBgSync), so an await ahead of the decrement would strand the
+    // depth for good and leave the burst marked active forever.
     this.depth = Math.max(this.depth - 1, 0);
+    if (yieldsToDialog) {
+      try {
+        await this.silence();
+      } catch {
+        // Best effort: the yield is the stage's courtesy to the dialog,
+        // never the flow's precondition — the dialog's own UI-side yield
+        // asks again — and a failed off broadcast must not replace the
+        // hardware error riding out through the caller's finally.
+      }
+    }
     if (this.depth > 0) {
       if (!ownedByDialog) {
         // A call ending inside the hold: the device answered.
@@ -1124,9 +1136,12 @@ export class DeviceStageBurstScope {
         // over a question the person is still reading.
         return;
       }
-      if (this.authoredAuthStep && !firmwareWorkflow) {
+      if (this.authoredAuthStep && !firmwareWorkflow && !this.yieldedToDialog) {
         // A call ended inside an authored flow: the runner narrates what
-        // comes next, the stage stays on its beat meanwhile.
+        // comes next, the stage stays on its beat meanwhile. Behind a
+        // dialog the stage yielded to, this close is the interrupted call's
+        // straggler and stays off it (see silence); only the device asking
+        // again repaints.
         const isFailure = this.authoredAuthStep === 'authFailure';
         await this.setStep(this.authoredAuthStep, {
           connectId,

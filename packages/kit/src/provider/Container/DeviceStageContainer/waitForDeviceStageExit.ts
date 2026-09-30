@@ -20,10 +20,19 @@ const DEVICE_STAGE_EXIT_TIMEOUT_MS = 4000;
  * sinking off screen, so the beat below still applies.
  */
 export async function waitForDeviceStageExit() {
-  const exiting =
-    await backgroundApiProxy.serviceHardwareUI.deviceStageWaitForOff({
+  let exiting = false;
+  try {
+    exiting = await backgroundApiProxy.serviceHardwareUI.deviceStageWaitForOff({
       timeoutMs: DEVICE_STAGE_EXIT_TIMEOUT_MS,
     });
+  } catch (error) {
+    // Best effort, like the yield below: the exit beat is the stage's
+    // courtesy to the surface, never its precondition. A failed background
+    // hop must not strand the caller — a dialog that never shows, a page
+    // that never turns — so the surface changes over whatever is there.
+    console.error('[DeviceStage] wait for exit failed:', error);
+    return;
+  }
   if (exiting) {
     await timerUtils.wait(DEVICE_STAGE_EXIT_BEAT_MS);
   }

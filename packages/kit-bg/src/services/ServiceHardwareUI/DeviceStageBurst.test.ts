@@ -1109,6 +1109,61 @@ describe('DeviceStageBurstScope', () => {
     expect(burstActiveFlag).toHaveBeenLastCalledWith(false);
   });
 
+  it("keeps the layer bookkeeping when the yield's off write fails", async () => {
+    // The off write crosses the bg->UI bridge on split-runtime targets and
+    // a flush failure propagates. The layer must still be released, or the
+    // burst stays marked active after every later hold has ended — and the
+    // caller's finally must see its own hardware error, not this one.
+    const scope = new DeviceStageBurstScope();
+    const token = await scope.beginExplicit({ connectId: CONNECT_ID });
+    await scope.begin({ connectId: CONNECT_ID });
+    await paintOpeningBeat();
+    const error = convertDeviceError({
+      code: HardwareErrorCode.DeviceNotOpenedPassphrase,
+    });
+    stageAtom.set.mockRejectedValueOnce(new Error('broadcast failed'));
+    await expect(scope.end({ error })).resolves.toBeUndefined();
+    await scope.endExplicit({
+      token,
+      error: JSON.parse(JSON.stringify(toPlainErrorObject(error))) as unknown,
+    });
+    await letTheExitRun();
+    expect(stage?.step).toBe('off');
+    expect(burstActiveFlag).toHaveBeenLastCalledWith(false);
+  });
+
+  it('keeps a yielded stage off when a straggler close lands during an authored narrative', async () => {
+    // The authenticity flow authors its beats around the wrapper call. A
+    // dialog-owned failure inside yields the stage; the interrupted call's
+    // close must not put the narrative's beat back over the dialog — only
+    // the device asking again may repaint, and that lifts the yield.
+    const scope = new DeviceStageBurstScope();
+    const token = await scope.beginExplicit({ connectId: CONNECT_ID });
+    await scope.noteStep('authVerifying', { connectId: CONNECT_ID });
+    await scope.begin({ connectId: CONNECT_ID });
+    const error = convertDeviceError({
+      code: HardwareErrorCode.BleDeviceBondError,
+    });
+    await scope.end({ error });
+    expect(stage?.step).toBe('off');
+    await scope.onHardwareUiEvent({
+      action: EHardwareUiStateAction.CLOSE_UI_WINDOW,
+      connectId: CONNECT_ID,
+    });
+    expect(stage?.step).toBe('off');
+    await scope.onHardwareUiEvent({
+      action: EHardwareUiStateAction.EnterPinOnDevice,
+      connectId: CONNECT_ID,
+    });
+    expect(stage?.step).toBe('enterPin');
+    await scope.endExplicit({
+      token,
+      error: JSON.parse(JSON.stringify(toPlainErrorObject(error))) as unknown,
+    });
+    await letTheExitRun();
+    expect(stage?.step).toBe('off');
+  });
+
   it.each([
     ECustomOneKeyHardwareError.NeedFirmwareUpgradeFromWeb,
     ECustomOneKeyHardwareError.UnknownHardwareError,
