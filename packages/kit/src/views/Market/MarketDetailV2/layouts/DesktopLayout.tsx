@@ -10,7 +10,10 @@ import { getTradingViewNativeSourceKey } from '@onekeyhq/kit/src/components/Trad
 import { getTradingViewNativeIntervalStorageNamespace } from '@onekeyhq/kit/src/components/TradingView/TradingViewNative/data/tradingViewNativeIntervalStorage';
 import type { IMarketKLineDataFallback } from '@onekeyhq/kit/src/components/TradingView/utils/fetchMarketKLineData';
 import { fetchMarketStockKLineData } from '@onekeyhq/kit/src/components/TradingView/utils/fetchMarketStockKLineData';
-import { useMarketPriceSourceAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  useMarketDetailChartDisplayModePersistAtom,
+  useMarketPriceSourceAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   TRADING_VIEW_LOCALHOST_ORIGIN,
   TRADING_VIEW_URL,
@@ -29,12 +32,14 @@ import { LazyDesktopMarketTradingView } from '../components/MarketTradingView/La
 import { MarketChartFullscreenHeader } from '../components/MarketTradingView/MarketChartFullscreenHeader';
 import { useStockDetail } from '../hooks/StockDetailContext';
 import { useMarketDetailDisplayData } from '../hooks/useMarketDetailDisplayData';
+import { useMarketKlineLivePrice } from '../hooks/useMarketKlineLivePrice';
 import { useMarketNativeChartPriceUpdate } from '../hooks/useMarketNativeChartPriceUpdate';
 import {
   useMarketTradingViewParams,
   useTokenDetail,
 } from '../hooks/useTokenDetail';
 import { getMarketDetailTradingViewNativeSource } from '../utils/getMarketDetailTradingViewNativeSource';
+import { resolveMarketNativeChartFallbackQuoteEnabled } from '../utils/marketNativeChartFallbackQuote';
 import { getMarketStockChartPreviousClose } from '../utils/marketStockPreviousClose';
 import {
   hasMarketContractAddress,
@@ -231,7 +236,7 @@ export function DesktopLayout({
   const handleNativeChartPriceUpdate = useMarketNativeChartPriceUpdate({
     networkId,
     tokenAddress,
-    enabled: !isStockSharePrice,
+    enabled: active !== false && !isStockSharePrice,
   });
 
   const { accountAddress, xpub } = useNetworkAccount(networkId);
@@ -388,6 +393,8 @@ export function DesktopLayout({
     websocketConfig,
   });
   const effectiveMarketTradingViewParams = marketTradingViewParams;
+  const [{ mode: chartDisplayMode }] =
+    useMarketDetailChartDisplayModePersistAtom();
   const tradingViewNativeSource = useMemo<ITradingViewNativeSource>(() => {
     if (isStockSharePrice && stockId) {
       return { kind: 'stock', stockId };
@@ -411,6 +418,24 @@ export function DesktopLayout({
     tokenDetail?.symbol,
     displayTokenDetail?.symbol,
   ]);
+  // Top Coins included, the native chart quotes the selected token feed. The
+  // stock layout keeps its Simple chart mounted in fullscreen, so fullscreen
+  // only implies the Pro chart on the other layouts.
+  useMarketKlineLivePrice({
+    enabled: resolveMarketNativeChartFallbackQuoteEnabled({
+      active,
+      isTradingViewNative,
+      isNativeChartMounted:
+        chartDisplayMode === 'pro' ||
+        (isChartFullscreen && !shouldUseStockDesktopLayout),
+      source: tradingViewNativeSource,
+      isNative,
+      networkId,
+      tokenAddress,
+    }),
+    networkId,
+    tokenAddress,
+  });
   const stockKLineDataFallback = useMemo<IMarketKLineDataFallback | undefined>(
     () =>
       stockId

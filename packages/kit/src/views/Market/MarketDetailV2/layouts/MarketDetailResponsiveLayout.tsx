@@ -66,6 +66,7 @@ function MarketDetailResponsiveLayoutBase({
 
   return (
     <MobileLayout
+      active={active}
       isLayoutPending={isLayoutPending}
       isInitialContentPending={isInitialContentPending}
       disablePerpsBanner={disablePerpsBanner}
