@@ -26,6 +26,8 @@ import { useHomeNativeListTheme } from '../../hooks/useHomeNativeListTheme';
 import { useHomeNativeRefresh } from '../../hooks/useHomeNativeRefresh';
 import { prepareHomeNativeListSnapshot } from '../homeNativeListSnapshot';
 
+import { buildNativeNFTRowsByKey } from './nativeNFTRows';
+
 import type {
   NativeListSnapshot,
   RowActionEvent,
@@ -95,14 +97,8 @@ export function NFTListView({
   }, [networkRequestIdentity]);
   const identity = `${account?.id ?? ''}:${network?.id ?? ''}`;
   const itemsByKey = useMemo(
-    () =>
-      new Map(
-        filteredNfts.map((nft) => [
-          `${nft.networkId ?? network?.id}:${nft.collectionAddress}:${nft.itemId}`,
-          nft,
-        ]),
-      ),
-    [filteredNfts, network?.id],
+    () => buildNativeNFTRowsByKey(filteredNfts, account?.id, network?.id),
+    [filteredNfts, account?.id, network?.id],
   );
   const handlePress = useCallback(
     (nft: IAccountNFT) => {
