@@ -162,6 +162,9 @@ export function createDesktopConfig({
         createProductionConfig({ platform, basePath }),
         commonDesktopConfig,
         {
+          optimization: {
+            runtimeChunk: 'single',
+          },
           output: {
             crossOriginLoading: 'anonymous',
           },

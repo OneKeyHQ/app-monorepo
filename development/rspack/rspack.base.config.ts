@@ -1,3 +1,4 @@
+import crypto from 'crypto';
 import fs from 'fs';
 import path from 'path';
 import { exit } from 'process';
@@ -94,12 +95,29 @@ const IS_EAS_BUILD = !!process.env.EAS_BUILD;
 
 const COMMIT_SHA = resolveCommitSha();
 
-function createReleaseEnvAssetPlugin(): RspackPluginInstance {
+function createReleaseEnvAssetPlugin(platform: string): RspackPluginInstance {
   return {
     apply(compiler: Compiler): void {
       compiler.hooks.thisCompilation.tap(
         'ReleaseEnvAssetPlugin',
         (compilation) => {
+          const source = getReleaseEnvSource();
+          if (platform === 'web') {
+            const version = crypto
+              .createHash('sha256')
+              .update(source)
+              .digest('hex')
+              .slice(0, 16);
+            const baseUrl = (publicUrl || '/').replace(/\/?$/, '/');
+            HtmlWebpackPlugin.getHooks(
+              compilation as unknown as Parameters<
+                typeof HtmlWebpackPlugin.getHooks
+              >[0],
+            ).beforeAssetTagGeneration.tap('ReleaseEnvAssetPlugin', (data) => {
+              data.assets.js.unshift(`${baseUrl}release-meta.js?v=${version}`);
+              return data;
+            });
+          }
           compilation.hooks.processAssets.tap(
             {
               name: 'ReleaseEnvAssetPlugin',
@@ -108,7 +126,7 @@ function createReleaseEnvAssetPlugin(): RspackPluginInstance {
             () => {
               compilation.emitAsset(
                 'release-meta.js',
-                new rspack.sources.RawSource(getReleaseEnvSource()),
+                new rspack.sources.RawSource(source),
               );
             },
           );
@@ -267,7 +285,7 @@ const buildBasePlugins: (
   new rspack.DefinePlugin(buildDefineMap(platform)),
   !isDev &&
     ['web', 'desktop', 'ext', 'web-embed'].includes(platform) &&
-    createReleaseEnvAssetPlugin(),
+    createReleaseEnvAssetPlugin(platform),
   new rspack.ProvidePlugin({
     Buffer: ['buffer', 'Buffer'],
     process: require.resolve('process/browser'),
