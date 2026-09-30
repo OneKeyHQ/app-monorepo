@@ -735,6 +735,10 @@ export default class ServiceSwap extends ServiceBase {
                 }
               : {}),
             networkId: network.networkId,
+            isL2: network.isL2 ?? false,
+            ...(network.parentNetworkId
+              ? { parentNetworkId: network.parentNetworkId }
+              : {}),
             defaultSelectToken: network.defaultSelectToken,
             supportCrossChainSwap: network.supportCrossChainSwap,
             supportSingleSwap: network.supportSingleSwap,

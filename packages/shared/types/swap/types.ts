@@ -207,6 +207,10 @@ export interface ISwapInitParams {
 
 export interface ISwapNetworkBase {
   networkId: string;
+  /** Whether this network is an L2 chain. */
+  isL2?: boolean;
+  /** The parent L1 network id for an L2 chain. */
+  parentNetworkId?: string;
   defaultSelectToken?: { from?: string; to?: string };
   supportCrossChainSwap?: boolean;
   supportSingleSwap?: boolean;
