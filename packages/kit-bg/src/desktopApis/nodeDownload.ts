@@ -5,7 +5,7 @@ import path from 'path';
 
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
-import type { IncomingMessage } from 'http';
+import type { IUpdateResponse } from './electronUpdateRequest';
 
 const SEGMENTS = 8;
 const MIN_PARALLEL_BYTES = 2 * 1024 * 1024;
@@ -13,6 +13,7 @@ const FLUSH_BYTES = 4 * 1024 * 1024;
 const MAX_REDIRECTS = 5;
 const MAX_RETRIES = 3;
 const STALL_MS = 60_000;
+const MAX_DOWNLOAD_BYTES = 2 * 1024 * 1024 * 1024;
 
 export interface INodeDownloadProgress {
   transferred: number;
@@ -29,6 +30,12 @@ export interface INodeDownloadOptions {
   headers?: Record<string, string>;
   expectedSha512?: string;
   expectedSha256?: string;
+  expectedBytes?: number;
+  transport?: (
+    url: string,
+    headers: Record<string, string>,
+    signal?: AbortSignal,
+  ) => Promise<IUpdateResponse>;
   onProgress?: (progress: INodeDownloadProgress) => void;
   signal?: AbortSignal;
 }
@@ -49,10 +56,7 @@ interface IManifest {
   parts: IPart[];
 }
 
-interface IResponse {
-  response: IncomingMessage;
-  url: string;
-}
+type IResponse = IUpdateResponse;
 
 function cancelled(signal?: AbortSignal): void {
   if (signal?.aborted) throw new OneKeyLocalError('Download cancelled');
@@ -95,9 +99,11 @@ async function get(
   headers: Record<string, string>,
   signal?: AbortSignal,
   redirects = 0,
+  transport?: INodeDownloadOptions['transport'],
 ): Promise<IResponse> {
   cancelled(signal);
   if (!isHttps(url)) throw new OneKeyLocalError('Download URL must use HTTPS');
+  if (transport) return transport(url, headers, signal);
   return new Promise((resolve, reject) => {
     const req = https.get(url, { headers, signal }, (response) => {
       const status = response.statusCode ?? 0;
@@ -118,7 +124,7 @@ async function get(
           new URL(next).origin === new URL(url).origin
             ? headers
             : stripSensitiveHeaders(headers);
-        void get(next, nextHeaders, signal, redirects + 1).then(
+        void get(next, nextHeaders, signal, redirects + 1, transport).then(
           resolve,
           reject,
         );
@@ -138,6 +144,8 @@ async function probe(opts: INodeDownloadOptions) {
     opts.url,
     { ...opts.headers, Range: 'bytes=0-0' },
     opts.signal,
+    0,
+    opts.transport,
   );
   const status = response.statusCode ?? 0;
   const range = contentRange(response.headers['content-range']);
@@ -150,6 +158,11 @@ async function probe(opts: INodeDownloadOptions) {
     throw new OneKeyLocalError(`HTTP ${status}`);
   if (!Number.isSafeInteger(size) || size < 0)
     throw new OneKeyLocalError('Invalid download size');
+  if (
+    size > MAX_DOWNLOAD_BYTES ||
+    (opts.expectedBytes && size && size !== opts.expectedBytes)
+  )
+    throw new OneKeyLocalError('Download size mismatch or limit exceeded');
   return {
     url,
     size,
@@ -165,7 +178,8 @@ function probeFailureIsTransient(error: unknown): boolean {
   return !(
     error.message === 'Invalid download redirect' ||
     error.message === 'Redirect to non-HTTPS URL is not allowed' ||
-    error.message === 'Download URL must use HTTPS'
+    error.message === 'Download URL must use HTTPS' ||
+    error.message === 'Download size mismatch or limit exceeded'
   );
 }
 
@@ -360,7 +374,13 @@ async function downloadPart(
         new URL(finalUrl).origin === new URL(opts.url).origin
           ? headers
           : stripSensitiveHeaders(headers);
-      const { response } = await get(finalUrl, safeHeaders, opts.signal);
+      const { response } = await get(
+        finalUrl,
+        safeHeaders,
+        opts.signal,
+        0,
+        opts.transport,
+      );
       const status = response.statusCode ?? 0;
       const range = contentRange(response.headers['content-range']);
       if (
@@ -508,7 +528,13 @@ async function single(
     ...(offset ? { Range: `bytes=${offset}-` } : {}),
     ...(offset && etag ? { 'If-Range': etag } : {}),
   };
-  const { response } = await get(opts.url, headers, opts.signal);
+  const { response } = await get(
+    opts.url,
+    headers,
+    opts.signal,
+    0,
+    opts.transport,
+  );
   const status = response.statusCode ?? 0;
   if (status !== 200 && status !== 206) {
     response.resume();
@@ -540,6 +566,15 @@ async function single(
     manifest.size = Number(response.headers['content-length']) || 0;
     part.end = Math.max(0, manifest.size - 1);
   }
+  if (
+    manifest.size > MAX_DOWNLOAD_BYTES ||
+    (opts.expectedBytes &&
+      manifest.size &&
+      manifest.size !== opts.expectedBytes)
+  ) {
+    response.destroy();
+    throw new OneKeyLocalError('Download size mismatch or limit exceeded');
+  }
   const fd = fs.openSync(partial, 'r+');
   let sinceFlush = 0;
   try {
@@ -547,7 +582,11 @@ async function single(
     for await (const chunk of response) {
       cancelled(opts.signal);
       const bytes = chunk as Buffer;
-      if (manifest.size && part.done + bytes.length > manifest.size)
+      if (
+        (manifest.size && part.done + bytes.length > manifest.size) ||
+        part.done + bytes.length > MAX_DOWNLOAD_BYTES ||
+        (opts.expectedBytes && part.done + bytes.length > opts.expectedBytes)
+      )
         throw new OneKeyLocalError('Download body exceeds expected size');
       fs.writeSync(fd, bytes, 0, bytes.length, part.done);
       part.done += bytes.length;
@@ -561,6 +600,8 @@ async function single(
     saveManifest(manifestPath, manifest, fd);
     if (manifest.size && part.done !== manifest.size)
       throw new OneKeyLocalError('Download incomplete');
+    if (opts.expectedBytes && part.done !== opts.expectedBytes)
+      throw new OneKeyLocalError('Download size mismatch');
     return part.done;
   } finally {
     saveManifest(manifestPath, manifest, fd);
@@ -579,7 +620,15 @@ async function singleWithRetry(
     try {
       return await single(opts, size, etag, partial, manifestPath);
     } catch (error) {
-      if (opts.signal?.aborted || retry === MAX_RETRIES) throw error;
+      if (
+        opts.signal?.aborted ||
+        retry === MAX_RETRIES ||
+        (error instanceof Error &&
+          (error.message === 'Download body exceeds expected size' ||
+            error.message === 'Download size mismatch or limit exceeded' ||
+            error.message === 'Download size mismatch'))
+      )
+        throw error;
       const status =
         error instanceof Error ? /^HTTP (\d+)$/.exec(error.message) : null;
       if (
@@ -604,11 +653,23 @@ export async function downloadNodeFile(
     throw new OneKeyLocalError('Invalid download parameters');
   if (!opts.expectedSha512 && !opts.expectedSha256)
     throw new OneKeyLocalError('Download checksum is required');
+  if (
+    opts.expectedBytes !== undefined &&
+    (!Number.isSafeInteger(opts.expectedBytes) ||
+      opts.expectedBytes <= 0 ||
+      opts.expectedBytes > MAX_DOWNLOAD_BYTES)
+  )
+    throw new OneKeyLocalError('Invalid expected download size');
   fs.mkdirSync(path.dirname(opts.targetPath), { recursive: true });
   const partial = `${opts.targetPath}.partial`;
   const manifestPath = `${partial}.progress.json`;
   if (fs.existsSync(opts.targetPath)) {
-    if (await verify(opts.targetPath, opts)) {
+    if (
+      fs.statSync(opts.targetPath).size <= MAX_DOWNLOAD_BYTES &&
+      (!opts.expectedBytes ||
+        fs.statSync(opts.targetPath).size === opts.expectedBytes) &&
+      (await verify(opts.targetPath, opts))
+    ) {
       discard(partial, manifestPath);
       return {
         filePath: opts.targetPath,
@@ -662,6 +723,12 @@ export async function downloadNodeFile(
     );
   }
   cancelled(opts.signal);
+  if (
+    size > MAX_DOWNLOAD_BYTES ||
+    (opts.expectedBytes && size !== opts.expectedBytes)
+  ) {
+    throw new OneKeyLocalError('Download size mismatch or limit exceeded');
+  }
   if (!(await verify(partial, opts))) {
     discard(partial, manifestPath);
     throw new OneKeyLocalError('Downloaded file checksum mismatch');

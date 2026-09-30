@@ -2,7 +2,6 @@ import { execFileSync, spawn } from 'child_process';
 import crypto from 'crypto';
 import fs from 'fs';
 import http from 'http';
-import https from 'https';
 import path from 'path';
 
 import { BrowserWindow, app, autoUpdater, dialog, shell } from 'electron';
@@ -33,6 +32,7 @@ import { withCustomUAHeaders } from '@onekeyhq/shared/src/request/customUA';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 
 import { getDownloadedFileAvailability } from './appUpdatePackageAvailability';
+import { requestUpdateUrl } from './electronUpdateRequest';
 import { downloadNodeFile } from './nodeDownload';
 
 import type { IDesktopApi } from './base/types';
@@ -78,6 +78,14 @@ interface ICacheRecord extends IArtifact {
   downloadedFile: string;
 }
 
+interface IAppImageHandoff {
+  current: string;
+  destination: string;
+  backup?: string;
+  version: string;
+  buildNumber: string;
+}
+
 const isMac = process.platform === 'darwin';
 const isWin = process.platform === 'win32';
 const isLinux = process.platform === 'linux';
@@ -86,8 +94,8 @@ const isStoreVersion =
   Boolean(process.mas) ||
   Boolean(isLinux && (process.env.SNAP || process.env.FLATPAK)) ||
   Boolean(isWin && process.env.DESK_CHANNEL === 'ms-store');
-const MAX_REDIRECTS = 5;
 const MAX_FEED_BYTES = 2 * 1024 * 1024;
+const METADATA_STALL_MS = 30_000;
 
 function buildFeedUrl(useTestFeedUrl: boolean, version: string): string {
   const endpoint = buildServiceEndpoint({
@@ -182,6 +190,12 @@ function selectArtifact(
   if (!/^[A-Za-z0-9+/]{86}==$/.test(file.sha512)) {
     throw new OneKeyLocalError('App update feed SHA-512 is invalid');
   }
+  if (
+    file.size !== undefined &&
+    (!Number.isSafeInteger(file.size) || file.size <= 0)
+  ) {
+    throw new OneKeyLocalError('App update feed size is invalid');
+  }
   const url = resolveArtifactUrl(file.url, baseUrl);
   const fileName = path.basename(new URL(url).pathname);
   if (!fileName || fileName === '.' || fileName === '..') {
@@ -203,62 +217,29 @@ async function requestText(
   inputUrl: string,
   headers: Record<string, string>,
   signal?: AbortSignal,
-  redirects = 0,
 ): Promise<string> {
-  const url = new URL(inputUrl);
-  if (url.protocol !== 'https:') {
-    throw new OneKeyLocalError('App update request must use HTTPS');
+  const { response } = await requestUpdateUrl(
+    inputUrl,
+    headers,
+    signal,
+    METADATA_STALL_MS,
+  );
+  if (response.statusCode !== 200) {
+    response.destroy();
+    throw new OneKeyLocalError(`HTTP ${response.statusCode}`);
   }
-  return new Promise<string>((resolve, reject) => {
-    const req = https.get(url, { headers, signal }, (response) => {
-      const status = response.statusCode || 0;
-      if (
-        [301, 302, 303, 307, 308].includes(status) &&
-        response.headers.location
-      ) {
-        response.resume();
-        if (redirects >= MAX_REDIRECTS) {
-          reject(new OneKeyLocalError('Too many update redirects'));
-          return;
-        }
-        const next = new URL(response.headers.location, url);
-        if (next.protocol !== 'https:') {
-          reject(new OneKeyLocalError('App update redirect must use HTTPS'));
-          return;
-        }
-        const nextHeaders = next.origin === url.origin ? headers : {};
-        void requestText(
-          next.toString(),
-          nextHeaders,
-          signal,
-          redirects + 1,
-        ).then(resolve, reject);
-        return;
-      }
-      if (status !== 200) {
-        response.resume();
-        reject(new OneKeyLocalError(`HTTP ${status}`));
-        return;
-      }
-      const chunks: Buffer[] = [];
-      let length = 0;
-      response.on('data', (chunk: Buffer) => {
-        length += chunk.length;
-        if (length > MAX_FEED_BYTES) {
-          response.destroy(
-            new OneKeyLocalError('App update metadata too large'),
-          );
-          return;
-        }
-        chunks.push(chunk);
-      });
-      response.once('error', reject);
-      response.once('end', () =>
-        resolve(Buffer.concat(chunks).toString('utf8')),
-      );
-    });
-    req.once('error', reject);
-  });
+  const chunks: Buffer[] = [];
+  let length = 0;
+  for await (const chunk of response) {
+    const bytes = chunk as Buffer;
+    length += bytes.length;
+    if (length > MAX_FEED_BYTES) {
+      response.destroy();
+      throw new OneKeyLocalError('App update metadata too large');
+    }
+    chunks.push(bytes);
+  }
+  return Buffer.concat(chunks).toString('utf8');
 }
 
 async function hashFile(
@@ -297,7 +278,11 @@ class DesktopApiAppUpdate {
 
   private macFeedServer?: http.Server;
 
-  private macStagedFile?: string;
+  private macStagedIdentity?: string;
+
+  private macInstallInProgress = false;
+
+  private appImageInstallInProgress = false;
 
   private isSkipGPGAllowed(skip?: boolean): boolean {
     return (
@@ -307,6 +292,7 @@ class DesktopApiAppUpdate {
 
   constructor({ desktopApi }: { desktopApi: IDesktopApi }) {
     this.desktopApi = desktopApi;
+    if (isAppImage) this.reconcileAppImageHandoff();
   }
 
   getMainWindow(): BrowserWindow | undefined {
@@ -319,6 +305,62 @@ class DesktopApiAppUpdate {
 
   private getRecordPath(): string {
     return path.join(this.getCacheDir(), 'package.json');
+  }
+
+  private getAppImageHandoffPath(): string {
+    return path.join(this.getCacheDir(), 'appimage-handoff.json');
+  }
+
+  private reconcileAppImageHandoff(): void {
+    const marker = this.getAppImageHandoffPath();
+    if (!fs.existsSync(marker)) return;
+    try {
+      const handoff = JSON.parse(
+        fs.readFileSync(marker, 'utf8'),
+      ) as IAppImageHandoff;
+      if (
+        !path.isAbsolute(handoff.current) ||
+        !path.isAbsolute(handoff.destination) ||
+        (handoff.backup && !path.isAbsolute(handoff.backup)) ||
+        !semver.valid(handoff.version) ||
+        path.dirname(handoff.current) !== path.dirname(handoff.destination) ||
+        (handoff.backup !== undefined &&
+          (handoff.destination !== handoff.current ||
+            !handoff.backup.startsWith(handoff.current) ||
+            !/^\.[0-9a-f]{16}\.old$/.test(
+              handoff.backup.slice(handoff.current.length),
+            ))) ||
+        (handoff.destination === handoff.current && !handoff.backup)
+      ) {
+        throw new OneKeyLocalError('Invalid AppImage handoff');
+      }
+      if (
+        app.getVersion() === handoff.version &&
+        process.env.APPIMAGE === handoff.destination
+      ) {
+        store.setUpdateBuildNumber(handoff.buildNumber);
+        if (handoff.destination !== handoff.current) {
+          fs.rmSync(handoff.current, { force: true });
+        } else if (handoff.backup) {
+          fs.rmSync(handoff.backup, { force: true });
+        }
+      } else if (
+        app.getVersion() !== handoff.version &&
+        (process.env.APPIMAGE === handoff.current ||
+          process.env.APPIMAGE === handoff.backup)
+      ) {
+        if (handoff.backup && fs.existsSync(handoff.backup)) {
+          fs.renameSync(handoff.backup, handoff.current);
+        } else if (handoff.destination !== handoff.current) {
+          fs.rmSync(handoff.destination, { force: true });
+        }
+      } else {
+        return;
+      }
+      fs.rmSync(marker, { force: true });
+    } catch (error) {
+      logger.warn('auto-updater', 'AppImage handoff recovery failed', error);
+    }
   }
 
   private getTargetPath(artifact: IArtifact): string {
@@ -417,6 +459,9 @@ class DesktopApiAppUpdate {
   }
 
   async clearUpdateCache(): Promise<void> {
+    if (this.macInstallInProgress || this.appImageInstallInProgress) {
+      throw new OneKeyLocalError('App update installation is in progress');
+    }
     this.activeController?.abort();
     try {
       await this.activeDownload;
@@ -425,7 +470,7 @@ class DesktopApiAppUpdate {
     }
     this.macFeedServer?.close();
     this.macFeedServer = undefined;
-    this.macStagedFile = undefined;
+    this.macStagedIdentity = undefined;
     this.downloadedEvent = undefined;
     this.selectedArtifact = undefined;
     this.isDownloading = false;
@@ -442,6 +487,9 @@ class DesktopApiAppUpdate {
     requestHeaders: Record<string, string> = {},
     latestVersion: string,
   ): Promise<IArtifact | null> {
+    if (this.macInstallInProgress) {
+      throw new OneKeyLocalError('App update installation is in progress');
+    }
     this.isManualCheck = isManual;
     if (!latestVersion || isStoreVersion) return null;
     if (
@@ -506,6 +554,9 @@ class DesktopApiAppUpdate {
   }
 
   async downloadUpdate(): Promise<void> {
+    if (this.macInstallInProgress) {
+      throw new OneKeyLocalError('App update installation is in progress');
+    }
     if (this.isDownloading) return;
     const artifact = this.selectedArtifact;
     if (!artifact)
@@ -529,13 +580,14 @@ class DesktopApiAppUpdate {
             identity: `${artifact.version}:${artifact.platform}:${artifact.arch}:${artifact.url}:${artifact.sha512}`,
             headers: this.requestHeaders,
             expectedSha512: artifact.sha512,
+            expectedBytes: artifact.size,
+            transport: requestUpdateUrl,
             onProgress: (progress) => this.emitProgress(progress),
             signal: this.activeController?.signal,
           });
           record = { ...artifact, downloadedFile: targetPath };
           this.writeRecord(record);
         }
-        if (isMac) await this.stageMacUpdate(record);
         this.emitDownloaded(record);
       } catch (error) {
         this.emitError(error);
@@ -554,7 +606,8 @@ class DesktopApiAppUpdate {
   }
 
   private async stageMacUpdate(record: ICacheRecord): Promise<void> {
-    if (this.macStagedFile === record.downloadedFile) return;
+    const identity = `${record.version}:${record.sha512}:${record.url}`;
+    if (this.macStagedIdentity === identity) return;
     this.macFeedServer?.close();
     const user = 'autoupdater';
     const pass = crypto.randomBytes(48).toString('base64url');
@@ -631,7 +684,7 @@ class DesktopApiAppUpdate {
           reject(error);
         }
       });
-      this.macStagedFile = record.downloadedFile;
+      this.macStagedIdentity = identity;
     } catch (error) {
       server.close();
       this.macFeedServer = undefined;
@@ -781,10 +834,13 @@ class DesktopApiAppUpdate {
       `.${record.fileName}.${nonce}.new`,
     );
     const backup = `${destination}.${nonce}.old`;
-    let replacedCurrent = false;
     let renamed = false;
-    let installed = false;
-    const previousBuildNumber = store.getUpdateBuildNumber() || '';
+    let handoffQueued = false;
+    const marker = this.getAppImageHandoffPath();
+    if (fs.existsSync(marker)) {
+      throw new OneKeyLocalError('AppImage handoff is already pending');
+    }
+    this.appImageInstallInProgress = true;
     try {
       await fs.promises.copyFile(record.downloadedFile, staging);
       await fs.promises.chmod(staging, 0o755);
@@ -793,51 +849,38 @@ class DesktopApiAppUpdate {
       }
       await fs.promises.rename(staging, destination);
       renamed = true;
-      replacedCurrent = destination === current;
-      store.setUpdateBuildNumber(buildNumber);
-      await new Promise<void>((resolve, reject) => {
-        const child = spawn(destination, [], {
-          detached: true,
-          stdio: 'ignore',
-          env: {
-            ...process.env,
-            APPIMAGE: destination,
-            APPIMAGE_SILENT_INSTALL: 'true',
-          },
-        });
-        child.once('error', reject);
-        child.once('spawn', () => {
-          child.unref();
-          resolve();
-        });
-      });
-      installed = true;
-      try {
-        if (destination !== current)
-          await fs.promises.rm(current, { force: true });
-        else await fs.promises.rm(backup, { force: true });
-      } catch (error) {
-        logger.warn('auto-updater', 'Old AppImage cleanup failed', error);
-      }
+      const handoff: IAppImageHandoff = {
+        current,
+        destination,
+        backup: destination === current ? backup : undefined,
+        version: record.version,
+        buildNumber,
+      };
+      fs.mkdirSync(this.getCacheDir(), { recursive: true });
+      fs.writeFileSync(marker, JSON.stringify(handoff), { mode: 0o600 });
+      app.relaunch({ execPath: destination, args: [] });
+      handoffQueued = true;
       app.quit();
       return true;
     } catch (error) {
-      if (!installed) {
-        store.setUpdateBuildNumber(previousBuildNumber);
-        if (replacedCurrent) await fs.promises.rename(backup, current);
-        else if (renamed && destination !== current)
+      if (!handoffQueued) {
+        fs.rmSync(marker, { force: true });
+        if (renamed && destination === current) {
+          await fs.promises.rename(backup, current);
+        } else if (renamed) {
           await fs.promises.rm(destination, { force: true });
-        else if (destination === current)
+        } else if (destination === current) {
           await fs.promises.rm(backup, { force: true });
+        }
       }
       throw error;
     } finally {
       try {
         await fs.promises.rm(staging, { force: true });
-        if (installed) await fs.promises.rm(backup, { force: true });
       } catch (error) {
         logger.warn('auto-updater', 'AppImage temporary cleanup failed', error);
       }
+      if (!handoffQueued) this.appImageInstallInProgress = false;
     }
   }
 
@@ -855,24 +898,44 @@ class DesktopApiAppUpdate {
     if (selection.response !== 0) return false;
     const record = await this.getInstallRecord(params);
     if (isMac) {
-      await this.stageMacUpdate(record);
-      const confirmed = await this.assertVerifiedRecord(record.downloadedFile);
-      if (confirmed.sha512 !== record.sha512) {
-        throw new OneKeyLocalError(
-          EAppUpdatePackageErrorCode.packageNotPrepared,
-        );
-      }
-      app.removeAllListeners('before-quit');
-      app.removeAllListeners('window-all-closed');
-      BrowserWindow.getAllWindows().forEach((window) => {
-        if (!window.isDestroyed()) {
-          window.removeAllListeners('close');
-          window.close();
+      if (this.macInstallInProgress) return false;
+      this.macInstallInProgress = true;
+      let staged = false;
+      try {
+        await this.stageMacUpdate(record);
+        staged = true;
+        // Once Squirrel has staged an update, it may apply on the next launch.
+        // Native handoff must proceed without another cancellable async step.
+        app.removeAllListeners('window-all-closed');
+        BrowserWindow.getAllWindows().forEach((window) => {
+          if (!window.isDestroyed()) {
+            window.removeAllListeners('close');
+            window.close();
+          }
+        });
+        autoUpdater.once('before-quit-for-update', () => {
+          setTimeout(() => {
+            logger.warn(
+              'auto-updater',
+              'Native update quit timed out; forcing exit',
+            );
+            app.exit();
+          }, 15_000);
+        });
+        store.setUpdateBuildNumber(params.buildNumber);
+        autoUpdater.quitAndInstall();
+        return true;
+      } catch (error) {
+        if (staged) {
+          logger.error(
+            'auto-updater',
+            'Staged macOS update handoff failed',
+            error,
+          );
         }
-      });
-      store.setUpdateBuildNumber(params.buildNumber);
-      autoUpdater.quitAndInstall();
-      return true;
+        this.macInstallInProgress = false;
+        throw error;
+      }
     }
     if (isWin) {
       await this.launchWindowsInstaller(record);

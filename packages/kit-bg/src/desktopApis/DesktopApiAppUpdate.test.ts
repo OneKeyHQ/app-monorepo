@@ -1,7 +1,6 @@
 import crypto from 'crypto';
 import { EventEmitter } from 'events';
 import fs from 'fs';
-import https from 'https';
 import os from 'os';
 import path from 'path';
 import { PassThrough } from 'stream';
@@ -28,6 +27,9 @@ const mockNativeUpdater = Object.assign(new EventEmitter(), {
 });
 const mockSpawn = jest.fn();
 const mockAppQuit = jest.fn();
+const mockAppExit = jest.fn();
+const mockAppRelaunch = jest.fn();
+const mockAppGetVersion = jest.fn(() => '5.9.0');
 const mockOpenPath = jest.fn(async () => '');
 const mockShowMessageBox = jest.fn(async () => ({ response: 0 }));
 const mockStore = {
@@ -46,6 +48,7 @@ const mockDownloadNodeFile = jest.fn(
     fs.writeFileSync(targetPath, mockPackage);
   },
 );
+const mockRequestUpdateUrl = jest.fn();
 const mockReadCleartextMessage = jest.fn();
 const mockReadKey = jest.fn();
 let mockTempDir: string;
@@ -54,8 +57,10 @@ jest.mock('electron', () => ({
   BrowserWindow: { getAllWindows: jest.fn(() => []) },
   app: {
     getPath: jest.fn(() => mockTempDir),
-    getVersion: jest.fn(() => '5.9.0'),
+    getVersion: mockAppGetVersion,
     quit: mockAppQuit,
+    exit: mockAppExit,
+    relaunch: mockAppRelaunch,
     removeAllListeners: jest.fn(),
   },
   autoUpdater: mockNativeUpdater,
@@ -67,6 +72,9 @@ jest.mock('child_process', () => ({
   spawn: mockSpawn,
 }));
 jest.mock('./nodeDownload', () => ({ downloadNodeFile: mockDownloadNodeFile }));
+jest.mock('./electronUpdateRequest', () => ({
+  requestUpdateUrl: mockRequestUpdateUrl,
+}));
 jest.mock('electron-log/main', () => ({
   __esModule: true,
   default: {
@@ -120,23 +128,16 @@ function feed(version: string, files: string[]): string {
   return `version: ${version}\nfiles:\n${files.map((file) => `  - url: ${file}\n    sha512: ${mockSha512}`).join('\n')}\n`;
 }
 
-function mockHttpsResponse(body: string, statusCode = 200): jest.SpyInstance {
-  return jest.spyOn(https, 'get').mockImplementation(((
-    _url: unknown,
-    _options: unknown,
-    callback: (response: PassThrough) => void,
-  ) => {
-    const request = new EventEmitter();
+function mockHttpsResponse(body: string, statusCode = 200) {
+  mockRequestUpdateUrl.mockImplementation(async (url: string) => {
     const response = Object.assign(new PassThrough(), {
       statusCode,
       headers: {},
     });
-    setImmediate(() => {
-      callback(response);
-      response.end(body);
-    });
-    return request;
-  }) as typeof https.get);
+    setImmediate(() => response.end(body));
+    return { response, url };
+  });
+  return mockRequestUpdateUrl;
 }
 
 function createApi(platform: NodeJS.Platform, channel?: string) {
@@ -185,6 +186,7 @@ async function preparePackage(platform: NodeJS.Platform, channel?: string) {
 
 beforeEach(() => {
   jest.clearAllMocks();
+  mockAppGetVersion.mockReturnValue('5.9.0');
   mockStore.getASCFile.mockReturnValue('');
   mockNativeUpdater.removeAllListeners();
   mockNativeUpdater.checkForUpdates.mockImplementation(() => {
@@ -207,7 +209,15 @@ beforeEach(() => {
 });
 
 afterEach(async () => {
-  for (const api of instances.splice(0)) await api.clearUpdateCache();
+  for (const api of instances.splice(0)) {
+    const state = api as unknown as {
+      macInstallInProgress: boolean;
+      appImageInstallInProgress: boolean;
+    };
+    state.macInstallInProgress = false;
+    state.appImageInstallInProgress = false;
+    await api.clearUpdateCache();
+  }
   jest.restoreAllMocks();
   fs.rmSync(mockTempDir, { recursive: true, force: true });
   if (originalPlatform)
@@ -236,11 +246,10 @@ test('selects the chosen-version macOS ZIP and forwards feed and artifact header
   );
   expect(artifact?.fileName).toBe(`OneKey-6.0.0-${process.arch}.zip`);
   expect(get).toHaveBeenCalledWith(
-    expect.objectContaining({ protocol: 'https:' }),
-    expect.objectContaining({
-      headers: { Authorization: 'test-token', 'X-OneKey': 'desktop-test' },
-    }),
-    expect.any(Function),
+    expect.stringMatching(/^https:/),
+    { Authorization: 'test-token', 'X-OneKey': 'desktop-test' },
+    undefined,
+    30_000,
   );
   await api.downloadUpdate();
   expect(mockDownloadNodeFile).toHaveBeenCalledWith(
@@ -250,14 +259,7 @@ test('selects the chosen-version macOS ZIP and forwards feed and artifact header
       expectedSha512: mockSha512,
     }),
   );
-  expect(mockNativeUpdater.setFeedURL).toHaveBeenCalledWith(
-    expect.objectContaining({
-      url: expect.stringMatching(/^http:\/\/127\.0\.0\.1:/),
-      headers: expect.objectContaining({
-        Authorization: expect.stringMatching(/^Basic /),
-      }),
-    }),
-  );
+  expect(mockNativeUpdater.setFeedURL).not.toHaveBeenCalled();
 });
 
 test.each([
@@ -345,23 +347,12 @@ test('verifies ASC signature and streamed SHA-256 before install', async () => {
   expect(await api.verifyPackage(params)).toBe(false);
 });
 
-test('macOS waits for native staging and asks before Squirrel install', async () => {
+test('macOS stages only after confirmation and verification', async () => {
   const api = createApi('darwin');
   mockHttpsResponse(feed('6.0.0', [`OneKey-6.0.0-${process.arch}.zip`]));
   await api.checkForUpdates(false, {}, '6.0.0');
-  mockNativeUpdater.checkForUpdates.mockImplementationOnce(() => undefined);
-  const download = api.downloadUpdate();
-  for (
-    let attempt = 0;
-    attempt < 20 && !mockNativeUpdater.setFeedURL.mock.calls.length;
-    attempt += 1
-  ) {
-    await new Promise<void>((resolve) => setImmediate(resolve));
-  }
-  expect(mockNativeUpdater.setFeedURL).toHaveBeenCalledTimes(1);
-  expect(api.downloadedEvent).toBeUndefined();
-  mockNativeUpdater.emit('update-downloaded');
-  await download;
+  await api.downloadUpdate();
+  expect(mockNativeUpdater.setFeedURL).not.toHaveBeenCalled();
   const params = {
     buildNumber: '123',
     downloadedFile: api.downloadedEvent?.downloadedFile,
@@ -371,9 +362,45 @@ test('macOS waits for native staging and asks before Squirrel install', async ()
   };
   mockShowMessageBox.mockResolvedValueOnce({ response: 1 });
   expect(await api.installPackage(params)).toBe(false);
+  expect(mockNativeUpdater.setFeedURL).not.toHaveBeenCalled();
   expect(mockNativeUpdater.quitAndInstall).not.toHaveBeenCalled();
   expect(await api.installPackage(params)).toBe(true);
+  expect(mockNativeUpdater.setFeedURL).toHaveBeenCalledTimes(1);
   expect(mockNativeUpdater.quitAndInstall).toHaveBeenCalledTimes(1);
+});
+
+test('macOS never stages when ASC verification fails', async () => {
+  const { api, params } = await preparePackage('darwin');
+  delete process.env.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION;
+  await expect(api.installPackage(params)).rejects.toThrow(
+    'update_installation_not_safe_alert_text',
+  );
+  expect(mockNativeUpdater.setFeedURL).not.toHaveBeenCalled();
+  expect(mockNativeUpdater.quitAndInstall).not.toHaveBeenCalled();
+});
+
+test('macOS keeps running if native quit handoff throws after staging', async () => {
+  const { api, params } = await preparePackage('darwin');
+  mockNativeUpdater.quitAndInstall.mockImplementationOnce(() => {
+    throw new OneKeyLocalError('native handoff failed');
+  });
+  await expect(api.installPackage(params)).rejects.toThrow(
+    'native handoff failed',
+  );
+  expect(mockNativeUpdater.setFeedURL).toHaveBeenCalledTimes(1);
+  expect(mockAppExit).not.toHaveBeenCalled();
+});
+
+test('macOS restages when the checksum changes at the same cache path', async () => {
+  const { api } = await preparePackage('darwin');
+  const internal = api as unknown as {
+    readRecord: () => { sha512: string };
+    stageMacUpdate: (record: { sha512: string }) => Promise<void>;
+  };
+  const record = internal.readRecord();
+  await internal.stageMacUpdate(record);
+  await internal.stageMacUpdate({ ...record, sha512: 'different-sha512' });
+  expect(mockNativeUpdater.setFeedURL).toHaveBeenCalledTimes(2);
 });
 
 test('Windows launches only the verified NSIS installer and then quits', async () => {
@@ -407,14 +434,54 @@ test('Linux replaces a writable AppImage and relaunches it', async () => {
   const { api, params } = await preparePackage('linux', 'appImage');
   expect(await api.installPackage(params)).toBe(true);
   expect(fs.readFileSync(current)).toEqual(mockPackage);
-  expect(mockSpawn).toHaveBeenCalledWith(
-    current,
-    [],
-    expect.objectContaining({
-      detached: true,
-      env: expect.objectContaining({ APPIMAGE: current }),
-    }),
-  );
+  expect(mockSpawn).not.toHaveBeenCalled();
+  expect(mockAppRelaunch).toHaveBeenCalledWith({
+    execPath: current,
+    args: [],
+  });
+  expect(mockStore.setUpdateBuildNumber).not.toHaveBeenCalled();
+  expect(
+    fs.readdirSync(mockTempDir).some((name) => name.endsWith('.old')),
+  ).toBe(true);
   expect(mockOpenPath).not.toHaveBeenCalled();
   expect(mockAppQuit).toHaveBeenCalledTimes(1);
+  mockAppGetVersion.mockReturnValue('6.0.0');
+  createApi('linux', 'appImage');
+  expect(mockStore.setUpdateBuildNumber).toHaveBeenCalledWith('123');
+  expect(
+    fs.readdirSync(mockTempDir).some((name) => name.endsWith('.old')),
+  ).toBe(false);
+});
+
+test('Linux restores the old AppImage when relaunch cannot be queued', async () => {
+  const current = path.join(mockTempDir, 'OneKey.AppImage');
+  fs.writeFileSync(current, 'old app');
+  process.env.APPIMAGE = current;
+  const { api, params } = await preparePackage('linux', 'appImage');
+  mockAppRelaunch.mockImplementationOnce(() => {
+    throw new OneKeyLocalError('relaunch failed');
+  });
+  await expect(api.installPackage(params)).rejects.toThrow('relaunch failed');
+  expect(fs.readFileSync(current, 'utf8')).toBe('old app');
+  expect(mockAppQuit).not.toHaveBeenCalled();
+  expect(mockStore.setUpdateBuildNumber).not.toHaveBeenCalled();
+});
+
+test('Linux retains the old package until startup and drops the candidate if the old version returns', async () => {
+  const current = path.join(mockTempDir, 'OneKey-5.9.0.AppImage');
+  fs.writeFileSync(current, 'old app');
+  process.env.APPIMAGE = current;
+  const { api, params } = await preparePackage('linux', 'appImage');
+  const destination = path.join(
+    mockTempDir,
+    `OneKey-6.0.0-${process.arch}.AppImage`,
+  );
+  expect(await api.installPackage(params)).toBe(true);
+  expect(fs.readFileSync(current, 'utf8')).toBe('old app');
+  expect(fs.existsSync(destination)).toBe(true);
+  expect(mockStore.setUpdateBuildNumber).not.toHaveBeenCalled();
+  createApi('linux', 'appImage');
+  expect(fs.readFileSync(current, 'utf8')).toBe('old app');
+  expect(fs.existsSync(destination)).toBe(false);
+  expect(mockStore.setUpdateBuildNumber).not.toHaveBeenCalled();
 });

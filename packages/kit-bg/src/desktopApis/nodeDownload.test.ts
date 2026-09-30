@@ -82,6 +82,35 @@ describe('nodeDownload', () => {
     }
   });
 
+  test('rejects an unknown-length body beyond the feed size', async () => {
+    const content = Buffer.from('unexpectedly long body');
+    const server = https.createServer(
+      { key: pems.private, cert: pems.cert },
+      (_req, res) => {
+        res.write(content);
+        res.end();
+      },
+    );
+    await new Promise<void>((resolve) => server.listen(0, resolve));
+    try {
+      const port = (server.address() as AddressInfo).port;
+      await expect(
+        downloadNodeFile({
+          url: `https://localhost:${port}/installer.zip`,
+          targetPath: path.join(dir, 'installer.zip'),
+          identity: 'oversize',
+          expectedBytes: 4,
+          expectedSha512: crypto
+            .createHash('sha512')
+            .update(content)
+            .digest('base64'),
+        }),
+      ).rejects.toThrow('Download body exceeds expected size');
+    } finally {
+      await new Promise<void>((resolve) => server.close(() => resolve()));
+    }
+  });
+
   test('resumes only unfinished ranges after an interrupted parallel download', async () => {
     const content = crypto.randomBytes(3 * 1024 * 1024);
     const secondRunRanges: string[] = [];

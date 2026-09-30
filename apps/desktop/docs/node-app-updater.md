@@ -84,9 +84,9 @@ verification/install methods through `desktopApiProxy.appUpdate`.
 
 | Target | Required behavior |
 | --- | --- |
-| macOS (non-MAS) | Keep Squirrel.Mac via Electron's built-in `autoUpdater`. After Node verification, serve the ZIP through an authenticated loopback JSON feed. Call native `checkForUpdates`, wait for native `update-downloaded`, then on user confirmation call native `quitAndInstall`. Keep the loopback server alive until Squirrel has staged the ZIP. Do not report install completion from Node download or from `quitAndInstall` returning. Review the existing `before-quit-for-update`/`app.exit()` handling against native relaunch. |
+| macOS (non-MAS) | Keep Squirrel.Mac via Electron's built-in `autoUpdater`. Node download alone emits the package-ready event. Fetch and verify ASC/GPG/SHA-256, then ask for native installation confirmation. Only after confirmation, serve the verified ZIP through an authenticated loopback JSON feed, call native `checkForUpdates`, wait for native `update-downloaded`, and immediately call native `quitAndInstall`. Keep the loopback server alive until Squirrel has staged the ZIP. Squirrel may apply a staged update on the next launch even without `quitAndInstall`, so no further cancellation or deferred verification may occur after staging. Verify native exit, relaunch, and installed version; retain a delayed quit fallback if normal quit is blocked. |
 | Windows NSIS (non-Store) | Launch only the verified EXE with the equivalent non-silent NSIS update arguments and current install-directory behavior. Handle spawn/elevation failure without claiming success. Preserve the native confirmation and manual folder-opening fallback. Electron's built-in Windows `autoUpdater` is not an NSIS installer. |
-| Linux AppImage | For a usable writable `APPIMAGE` path, replace the AppImage with the verified executable and relaunch using the current filename behavior. Do not unlink the running artifact before a safe replacement is ready. If the runtime path is absent, read-only, or unsuitable, open the verified download directory for manual installation. Snap/Flatpak remain store-managed. |
+| Linux AppImage | For a usable writable `APPIMAGE` path, copy and replace the verified executable while retaining the old package, then queue `app.relaunch({ execPath })` and quit so the old process releases its single-instance lock first. The handoff response means restart was queued; it does not prove installation. On the next startup, confirm the selected version and `APPIMAGE` path before recording the build number and cleaning up the old package. A restart on the old version restores/removes the candidate through a pending handoff marker. If the runtime path is absent, read-only, or unsuitable, open the verified download directory for manual installation. Snap/Flatpak remain store-managed. |
 
 ## Integration and removal
 
@@ -120,8 +120,9 @@ Full acceptance requires signed packaged update tests on macOS x64 and arm64,
 Windows NSIS, and Linux AppImage: download, interrupt and relaunch, resume,
 verify, confirm install, process exit, installer/native events, automatic
 reopen, and the installed version. Exercise manual fallback and store channels.
-Include a system-proxy download check: Node HTTPS does not inherit every proxy
-configuration that Electron's network stack may use, so this needs packaged
-network verification before rollout.
+Include a system-proxy download check for feed, ASC, range probe, and package
+segments through Electron's proxy-aware network stack; packaged network
+verification is still required before rollout. Bundle downloads retain their
+existing Node transport.
 Report source checks, packaged-runtime checks, and each OS outcome separately;
 an IPC `true`, file existence, or signature alone is not an installed update.
