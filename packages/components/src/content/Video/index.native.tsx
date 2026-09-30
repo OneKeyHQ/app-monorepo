@@ -49,7 +49,6 @@ function VideoComponent(
     poster: _poster,
     onEnd,
     onError,
-    onPlaybackStateChange,
     onProgress,
     onReadyForDisplay,
     style: callerStyle,
@@ -139,7 +138,6 @@ function VideoComponent(
     reportErrorStatus(player.status);
     return () => subscription.remove();
   }, [hasOnError, player]);
-  useVideoEvent(player, 'onPlaybackStateChange', onPlaybackStateChange);
   useVideoEvent(player, 'onProgress', handleProgress);
   useVideoEvent(player, 'onReadyToDisplay', onReadyForDisplay);
 

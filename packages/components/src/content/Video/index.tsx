@@ -17,7 +17,6 @@ function VideoComponent(rawProps: IVideoProps, ref: ForwardedRef<IVideoRef>) {
       autoPlay,
       onEnd,
       onError,
-      onPlaybackStateChange: _onPlaybackStateChange,
       onProgress,
       onReadyForDisplay,
       playInBackground: _playInBackground,
