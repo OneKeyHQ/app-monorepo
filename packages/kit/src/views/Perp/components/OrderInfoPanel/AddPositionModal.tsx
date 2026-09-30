@@ -33,7 +33,6 @@ import {
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { getDexIndexByCoin } from '@onekeyhq/shared/src/utils/perpsDexUtils';
 import {
   estimateLiquidationPrice,
   formatPriceToSignificantDigits,
@@ -49,7 +48,6 @@ import type {
 import { useCoinOrderBookTop } from '../../hooks/useCoinOrderBookTop';
 import { useEnsureTradingEnabled } from '../../hooks/useEnableTradingWithDepositFallback';
 import { usePerpsAccountScopedActivePositions } from '../../hooks/usePerpsAccountScopedActivePositions';
-import { usePerpsAssetCtx } from '../../hooks/usePerpsAssetCtx';
 import { usePerpsCrossAvailableAfterMaintenance } from '../../hooks/usePerpsCrossAvailableAfterMaintenance';
 import { PerpsAccountSelectorProviderMirror } from '../../PerpsAccountSelectorProviderMirror';
 import { PerpsProviderMirror } from '../../PerpsProviderMirror';
@@ -311,12 +309,14 @@ const AddPositionForm = memo(
     // liquidation price blends the existing position with the new size.
     const crossAvailableAfterMaintenance =
       usePerpsCrossAvailableAfterMaintenance(coin);
-    // assetData is fetched once on open, so price the preview on the live mark.
-    const { assetCtx: targetAssetCtx } = usePerpsAssetCtx({
-      assetId: targetAsset?.assetId ?? -1,
-      dexIndex: getDexIndexByCoin(coin),
-    });
-    const liveMarkPrice = targetAssetCtx?.markPrice;
+    // assetData is a one-shot fetch; the position is pushed with the account
+    // state, so its mark stays live and in step with the collateral.
+    const positionMarkPrice = useMemo(() => {
+      const size = new BigNumber(currentPosition?.szi ?? 0).abs();
+      return size.gt(0)
+        ? new BigNumber(currentPosition?.positionValue ?? 0).dividedBy(size)
+        : new BigNumber(0);
+    }, [currentPosition?.positionValue, currentPosition?.szi]);
     const addPositionPreview = useMemo(() => {
       const sizeBN = new BigNumber(resolvedSize || 0);
       const priceBN = new BigNumber(effectivePrice || 0);
@@ -348,7 +348,7 @@ const AddPositionForm = memo(
         orderSize: sizeBN,
         priceMode: orderType,
         orderPrice: priceBN,
-        markPrice: new BigNumber(liveMarkPrice || 0),
+        markPrice: positionMarkPrice,
         marginMode,
         leverage: safeLeverage,
         marginTiers: targetAsset?.margin?.marginTiers,
@@ -373,8 +373,8 @@ const AddPositionForm = memo(
       effectivePrice,
       isBuy,
       leverage,
-      liveMarkPrice,
       orderType,
+      positionMarkPrice,
       resolvedSize,
       targetAsset?.margin?.marginTiers,
       targetAsset?.universe?.maxLeverage,
