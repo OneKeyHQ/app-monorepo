@@ -21566,6 +21566,7 @@
     "packages/kit/src/views/Home/components/NFTListView/NativeNFTList.native.tsx": 18407,
     "packages/kit/src/views/Home/components/NFTListView/index.native.tsx": 8973,
     "packages/kit/src/views/Home/components/NFTListView/index.tsx": 15114,
+    "packages/kit/src/views/Home/components/NFTListView/nativeNFTRows.ts": 18197,
     "packages/kit/src/views/Home/components/NotBakcedUp/MainBlock.tsx": 10391,
     "packages/kit/src/views/Home/components/NotBakcedUp/NotBackedUpEmpty.tsx": 12893,
     "packages/kit/src/views/Home/components/NotBakcedUp/index.ts": 5025,
