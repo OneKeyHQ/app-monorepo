@@ -45,8 +45,12 @@ export function GlobalErrorHandlerContainer() {
         // stage yields first and its exit beat plays before the sheet rises
         // — the discipline every dialog over a live stage follows
         // (OK-62105, OK-62656).
-        await yieldDeviceStageToDialog();
-        await waitForDeviceStageExit();
+        // A yield that took the stage down has played its beat; the wait
+        // covers only an exit some other hand is landing.
+        const left = await yieldDeviceStageToDialog();
+        if (!left) {
+          await waitForDeviceStageExit();
+        }
         Dialog.show({
           isOverTopAllViews: true,
           onClose: () => {

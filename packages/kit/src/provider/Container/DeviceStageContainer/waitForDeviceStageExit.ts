@@ -44,9 +44,10 @@ export async function waitForDeviceStageExit() {
  * bookkeeping untouched, so the hold's own end still releases it and the
  * device's next word repaints — and when a stage really left, its exit
  * beat plays before the dialog rises. One background hop: the yield
- * already knows whether it wrote the off.
+ * already knows whether it wrote the off. Resolves true when a stage
+ * really left and its beat has played, so the caller owes no further wait.
  */
-export async function yieldDeviceStageToDialog() {
+export async function yieldDeviceStageToDialog(): Promise<boolean> {
   let left = false;
   try {
     left =
@@ -57,9 +58,10 @@ export async function yieldDeviceStageToDialog() {
     // the surface waiting on it — the BLE binding list's SDK promise, its
     // scan resume — so the dialog rises over whatever is there.
     console.error('[DeviceStage] yield to dialog failed:', error);
-    return;
+    return false;
   }
   if (left) {
     await timerUtils.wait(DEVICE_STAGE_EXIT_BEAT_MS);
   }
+  return left;
 }
