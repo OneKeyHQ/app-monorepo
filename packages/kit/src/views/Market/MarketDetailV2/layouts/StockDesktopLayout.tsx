@@ -56,6 +56,7 @@ import {
   STOCK_SHARE_SIMPLE_CHART_RANGES,
   StockSimpleChart,
   TOKEN_SIMPLE_CHART_RANGES,
+  resolveStockSimpleChartRangeForPriceMode,
 } from '../components/StockSimpleChart';
 import { ShareButton } from '../components/TokenDetailHeader/ShareButton';
 import { MarketTokenSelector } from '../components/TokenSelector/MarketTokenSelector';
@@ -83,6 +84,7 @@ import {
   MARKET_CHART_TOOLBAR_HEIGHT,
   MARKET_CHART_TOOLBAR_VERTICAL_INSET,
   MARKET_SIMPLE_CHART_RANGE_GAP,
+  MARKET_SIMPLE_CHART_RANGE_LABEL_IDS,
   MARKET_SIMPLE_CHART_RANGE_MIN_WIDTH,
 } from './components/marketSimpleChartConstants';
 import { StockEventsSection } from './components/StockEventsSection';
@@ -552,7 +554,11 @@ export function StockChart({
   const intl = useIntl();
   const [{ mode }, setChartDisplayMode] =
     useMarketDetailChartDisplayModePersistAtom();
-  const [range, setRange] = useState<IStockSimpleChartRange>('1D');
+  const [selectedRange, setRange] = useState<IStockSimpleChartRange>('1D');
+  const range = resolveStockSimpleChartRangeForPriceMode({
+    priceMode,
+    range: selectedRange,
+  });
   const isSimpleMode = mode === 'simple';
   const chartRanges =
     priceMode === 'share'
@@ -606,9 +612,9 @@ export function StockChart({
                     borderRadius="$full"
                     onPress={() => setRange(item)}
                   >
-                    {item === 'All'
-                      ? intl.formatMessage({ id: ETranslations.global_all })
-                      : item}
+                    {intl.formatMessage({
+                      id: MARKET_SIMPLE_CHART_RANGE_LABEL_IDS[item],
+                    })}
                   </Button>
                 </Stack>
               );
