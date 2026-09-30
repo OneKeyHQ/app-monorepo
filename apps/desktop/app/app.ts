@@ -228,10 +228,7 @@ const APP_TITLE_NAME = 'OneKey';
 app.name = APP_NAME;
 let mainWindow: BrowserWindow | null;
 let isAppReady = false;
-// Custom scheme used to serve the renderer bundle via interceptFileProtocol.
-// Module-scoped so softRestartRenderer and createMainWindow reference the SAME
-// value — a divergence would make the pre-recreate uninterceptProtocol call
-// silently no-op and reintroduce the stale-interceptor bug it exists to prevent.
+// Scheme used to serve the renderer bundle via interceptFileProtocol.
 const PROTOCOL = 'file';
 
 const appStaticResourcesPath = getAppStaticResourcesPath();
@@ -308,8 +305,7 @@ function showMainWindow() {
 // so a JS bundle update there cannot hard-restart. Instead we "soft restart":
 // destroy the renderer and recreate it in-process. createMainWindow() re-runs
 // processPreLaunchPendingTask() + getUpdateBundleData() + getBundleIndexHtmlPath()
-// and (after the P0-1 uninterceptProtocol fix) rebinds the file:// interceptor to
-// the new bundle, so the recreated window loads the freshly-installed bundle.
+// and rebinds the file:// interceptor before loading the new bundle.
 // The active bundle pointer was already written to the main-process store
 // (store.setUpdateBundleData) before this runs, so no extra path wiring is needed.
 let softRestarting = false;
@@ -351,30 +347,6 @@ async function softRestartRenderer() {
     // bundle (loadTrayUrl reads the current bundle path fresh on each create).
     destroyTrayWindow();
     logger.info('[softRestart] tray window destroyed (will rebuild on demand)');
-    // Remove the previous window's file:// interceptor NOW, before the recreated
-    // window's loadURL runs. The interceptor lives on the persistent
-    // defaultSession (it outlives the window) and still captures the OLD bundle's
-    // path + metadata. createMainWindow only re-registers it later, after an
-    // `await getMetadata`, so without this the new bundle's very first
-    // `file://{newBundle}/index.html` request would be served by the stale
-    // interceptor → hash mismatch / tamper dialog / old bundle. Clearing it here
-    // lets Chromium's default file handler serve the real new index.html (same
-    // as a cold boot), and createMainWindow then installs a fresh interceptor.
-    try {
-      const wasIntercepted =
-        session.defaultSession.protocol.isProtocolIntercepted(PROTOCOL);
-      if (wasIntercepted) {
-        session.defaultSession.protocol.uninterceptProtocol(PROTOCOL);
-      }
-      logger.info('[softRestart] stale file interceptor cleared', {
-        wasIntercepted,
-      });
-    } catch (e) {
-      logger.warn(
-        '[softRestart] uninterceptProtocol before recreate failed',
-        e,
-      );
-    }
     mainWindow = await createMainWindow({ isSoftRestart: true });
     showMainWindow();
     logger.info('[softRestart] done: renderer recreated with new bundle', {
@@ -871,12 +843,8 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
     process.env.PERF_DESKTOP_INDEX_HTML ||
     path.join(__dirname, '..', 'build', 'index.html');
 
-  // Re-registering interceptFileProtocol on a session that already has an
-  // interceptor for the scheme silently fails (Electron returns false), which
-  // would leave the OLD closure — capturing the previous bundle's path/metadata
-  // — still serving requests after a MAS soft restart, so the recreated window
-  // would load the STALE bundle. Clear any prior interceptor first so each
-  // createMainWindow() installs a fresh handler bound to the new bundle data.
+  // The defaultSession interceptor outlives its window. Replace it only after
+  // metadata is ready, immediately before registering the new bundle handler.
   const uninterceptFileProtocolIfNeeded = () => {
     try {
       if (session.defaultSession.protocol.isProtocolIntercepted(PROTOCOL)) {
@@ -946,12 +914,15 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
           slashes: true,
         });
   /* eslint-enable no-nested-ternary */
+  let rendererShellReady = isLocalUnpacked;
 
   if (isDevServer && !isDesktopE2EMode) {
     browserWindow.webContents.openDevTools();
   }
 
-  void browserWindow.loadURL(src);
+  if (isLocalUnpacked) {
+    void browserWindow.loadURL(src);
+  }
 
   // Set main window reference for OAuth server
   setMainWindowForOAuthServer(browserWindow);
@@ -1006,7 +977,12 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
     // Start the reload after Electron finishes dispatching this event.
     setImmediate(() => {
       const safelyBrowserWindow = getSafelyBrowserWindow();
-      if (!safelyBrowserWindow || bleQuitStarted || softRestarting) {
+      if (
+        !safelyBrowserWindow ||
+        !rendererShellReady ||
+        bleQuitStarted ||
+        softRestarting
+      ) {
         return;
       }
       // Deep links received while the page reboots wait for dom-ready.
@@ -1585,7 +1561,7 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
       }
     }
     uninterceptFileProtocolIfNeeded();
-    session.defaultSession.protocol.interceptFileProtocol(
+    const intercepted = session.defaultSession.protocol.interceptFileProtocol(
       PROTOCOL,
       (request, callback) => {
         const isJsSdkFile = request.url.indexOf('/static/js-sdk') > -1;
@@ -1669,16 +1645,16 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
         }
       },
     );
-    // When getMetadata failed, src still points to the bundle path which the
-    // interceptor cannot resolve with useJsBundle=false. Recompute and reload
-    // now that the interceptor is registered and will serve builtin files.
+    if (!intercepted) {
+      throw new OneKeyLocalError('Failed to intercept file protocol');
+    }
+    // A failed metadata check must never start a navigation to the bundle path.
     if (metadataFailed) {
       src = formatUrl({
         pathname: 'index.html',
         protocol: PROTOCOL,
         slashes: true,
       });
-      void browserWindow.loadURL(src);
     }
     const safelyBrowserWindow = getSafelyBrowserWindow();
     safelyBrowserWindow?.webContents.on(
@@ -1701,6 +1677,8 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
         void w?.loadURL(src);
       },
     );
+    rendererShellReady = true;
+    void safelyBrowserWindow?.loadURL(src);
   }
 
   // @ts-expect-error
