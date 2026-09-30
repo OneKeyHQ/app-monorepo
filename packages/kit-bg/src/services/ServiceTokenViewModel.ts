@@ -87,6 +87,8 @@ interface IDomainPrev {
   lastStructure: IBuildFramesPrev['structure'];
   lastScalar: string;
   lastMetaByKey: Record<ITokenKey, IToken | undefined>;
+  /** Raw balance by list id as of the last structure frame. */
+  lastBalanceByKey: Record<ITokenKey, string | undefined>;
 }
 
 /** The minimal previously-emitted risky shape the change-gate compares against. */
@@ -246,6 +248,7 @@ function freshPrev(): IDomainPrev {
     },
     lastScalar: '0',
     lastMetaByKey: {},
+    lastBalanceByKey: {},
   };
 }
 
@@ -518,9 +521,12 @@ class ServiceTokenViewModel extends ServiceBase {
       structure: prevBlob.lastStructure,
       smallBalanceFiatValue: prevBlob.lastScalar,
       metaByKey: prevBlob.lastMetaByKey,
+      // A blob persisted before this field existed reads as "no balances
+      // known": the next round then emits one structure frame and seeds it.
+      balanceByKey: prevBlob.lastBalanceByKey ?? {},
     };
 
-    const { structure, valuation } = buildFrames(input, prev);
+    const { structure, valuation, balanceByKey } = buildFrames(input, prev);
     homeTokenRequestRegistry.assertCurrent(params.homeRequest, params.ownerKey);
     if (structure) {
       structure.provisional = provisional;
@@ -554,6 +560,7 @@ class ServiceTokenViewModel extends ServiceBase {
           ...orderedTokens,
           ...smallBalanceTokens,
         ]),
+        lastBalanceByKey: balanceByKey,
       } satisfies IDomainPrev);
     }
 

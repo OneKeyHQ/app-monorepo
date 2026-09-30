@@ -113,12 +113,28 @@ export interface IBuildFramesPrev {
   smallBalanceFiatValue: string;
   /** previously-applied meta by `$key`, for meta-change detection. */
   metaByKey: Record<ITokenKey, IToken | undefined>;
+  /**
+   * Raw balance by list id as of the last structure frame (aggregate ids carry
+   * their per-network sum), for balance-change detection. See
+   * `IBuildFramesResult.balanceByKey`.
+   */
+  balanceByKey: Record<ITokenKey, string | undefined>;
 }
 
 export interface IBuildFramesResult {
   /** `undefined` when nothing structural changed (pure price tick). */
   structure?: IStructureSnapshot;
   valuation: IValuationFrame;
+  /**
+   * Raw balance by list id for this round (aggregate ids: per-network sum).
+   * The host stores it as `prev.balanceByKey` whenever a structure frame is
+   * emitted. A balance move is a structure trigger even when it changes no
+   * id set and no order: the structure generation is the only signal that
+   * re-pulls the PULL-only raw list + fiat map (`useHomeTokenListSnapshot`),
+   * and a pure valuation round left those consumers — the token selector's
+   * floor seed among them — serving pre-transaction balances.
+   */
+  balanceByKey: Record<ITokenKey, string>;
 }
 
 /**
@@ -315,6 +331,15 @@ export function buildFrames(
     ownerKey,
   };
 
+  // --- balance by id (structure trigger + prev diff-state) ----------------
+  const balanceByKey: Record<ITokenKey, string> = {};
+  for (const key of allListIds) {
+    const balance = getAggAwareFiat(key)?.balance;
+    if (balance !== undefined) {
+      balanceByKey[key] = balance;
+    }
+  }
+
   // --- structure-change detection (spec §4.1) ------------------------------
   const ownerChanged = ownerKey !== prev.structure.ownerKey;
   const orderedChanged = !shallowEqualArrayOf(
@@ -353,6 +378,13 @@ export function buildFrames(
   const metaChanged = allTokens.some(
     (t) => !metaEqual(prev.metaByKey[t.$key], metaPatch[t.$key]),
   );
+  // A balance move that keeps every id set and the order (a send that does
+  // not cross a lower row) is still a structure trigger; see
+  // `IBuildFramesResult.balanceByKey`. A pure price tick leaves balances as
+  // they were, so it stays valuation-only.
+  const balanceChanged = allListIds.some(
+    (key) => balanceByKey[key] !== prev.balanceByKey[key],
+  );
 
   const structuralChange =
     ownerChanged ||
@@ -363,11 +395,12 @@ export function buildFrames(
     membershipChanged ||
     aggregateListMapChanged ||
     scalarChanged ||
-    metaChanged;
+    metaChanged ||
+    balanceChanged;
 
   if (!structuralChange) {
     // pure price tick — valuation only (spec §4.1).
-    return { valuation };
+    return { valuation, balanceByKey };
   }
 
   const structure: IStructureSnapshot = {
@@ -384,7 +417,7 @@ export function buildFrames(
     generation: nextGeneration(prev.structure.generation, ownerChanged),
   };
 
-  return { structure, valuation };
+  return { structure, valuation, balanceByKey };
 }
 
 /**
