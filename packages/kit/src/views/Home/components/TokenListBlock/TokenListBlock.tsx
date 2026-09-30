@@ -1488,7 +1488,6 @@ function TokenListBlock({
       networkId: string;
       dbAccount?: IDBAccount;
       allNetworkDataInit?: boolean;
-      isSingleRequest?: boolean;
       isRunCurrent?: () => boolean;
     }) => {
       const requestAccountEpoch = activeAccountEpoch;
@@ -2357,6 +2356,7 @@ function TokenListBlock({
 
   const {
     run: runAllNetworksRequests,
+    runAccountRequests: runAllNetworksAccountRequests,
     result: allNetworksResult,
     isEmptyAccount,
   } = useAllNetworkRequests<IAllNetworkTokenListResp>({
@@ -3644,26 +3644,14 @@ function TokenListBlock({
     };
   }, [network?.isAllNetworks, runLpTokenList, showLpTokensOnly]);
 
+  // The changed accounts' networks are fetched through the All Networks hook
+  // so each settled round reaches the LWW view (`ingestLiveRound`) and the
+  // list re-materializes with the new balances; calling
+  // `handleAllNetworkRequests` directly fetched the network but dropped the
+  // round, leaving the sent token's row stale until the next full fan-out.
   const handleRefreshAllNetworkDataByAccounts = useCallback(
     async (accounts: { accountId: string; networkId: string }[]) => {
-      for (const { accountId, networkId } of accounts) {
-        try {
-          await handleAllNetworkRequests({
-            accountId,
-            networkId,
-            allNetworkDataInit: false,
-            isSingleRequest: true,
-          });
-        } catch (error) {
-          // A retired owner cancels the batch; one failed network does not.
-          if (isRequestCanceledError(error)) return;
-          defaultLogger.app.error.log(
-            `Home account token refresh failed (${networkId}): ${
-              error instanceof Error ? error.message : String(error)
-            }`,
-          );
-        }
-      }
+      await runAllNetworksAccountRequests(accounts);
       if (showLpTokensOnly) {
         try {
           await runLpTokenList({ alwaysSetState: true });
@@ -3679,7 +3667,7 @@ function TokenListBlock({
         }
       }
     },
-    [handleAllNetworkRequests, runLpTokenList, showLpTokensOnly],
+    [runAllNetworksAccountRequests, runLpTokenList, showLpTokensOnly],
   );
 
   usePromiseResult(

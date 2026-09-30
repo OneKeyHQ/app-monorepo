@@ -1538,6 +1538,64 @@ function useAllNetworkRequests<T>(params: {
     [run, clearRetainedResultOnAcceptedRun],
   );
 
+  // Per-account refresh outside a fan-out. History reports the accounts whose
+  // transactions changed (`RefreshTokenList` with `accounts`) and only their
+  // networks are fetched again; each result is published through
+  // `onRequestSettled` under the run generation current when the batch was
+  // issued, so the consumer's LWW view replaces that network's round in place
+  // and re-materializes the list. The cells cutover (#12068) moved the merge
+  // out of the consumer's request callback, which had left this path fetching
+  // and dropping the result: a token sent under All Networks kept its old
+  // balance in the home list until the next full fan-out. A batch issued
+  // before the owner's fan-out initialized the view is skipped (that fan-out
+  // covers it), and one that a newer run, an enabled-network change or an
+  // owner change overtakes stops publishing: the newer run owns the view.
+  const runAccountRequests = useCallback(
+    async (accounts: { accountId: string; networkId: string }[]) => {
+      if (!isAllNetworks || !allNetworkDataInit.current) {
+        return;
+      }
+      const ownerKey = liveRunOwnerKeyRef.current;
+      const generation = runGenerationRef.current;
+      const isRequestCurrent = () =>
+        liveRunOwnerKeyRef.current === ownerKey &&
+        runGenerationRef.current === generation &&
+        allNetworkDataInit.current &&
+        (isRunCurrent?.() ?? true);
+      for (const { accountId, networkId } of accounts) {
+        if (!isRequestCurrent()) {
+          return;
+        }
+        let settledResult: T | undefined;
+        try {
+          settledResult = await allNetworkRequests({
+            accountId,
+            networkId,
+            allNetworkDataInit: false,
+            isRunCurrent: isRequestCurrent,
+          });
+        } catch (error) {
+          // A retired owner cancels the batch; one failed network does not.
+          if (isRequestCanceledError(error)) {
+            return;
+          }
+          defaultLogger.app.error.log(
+            `All Networks account refresh failed (${networkId}): ${
+              error instanceof Error ? error.message : String(error)
+            }`,
+          );
+        }
+        if (settledResult !== undefined) {
+          if (!isRequestCurrent()) {
+            return;
+          }
+          onRequestSettled?.(settledResult, generation);
+        }
+      }
+    },
+    [allNetworkRequests, isAllNetworks, isRunCurrent, onRequestSettled],
+  );
+
   applyResultRef.current = (nextResult) => setResult(nextResult);
   liveRunOwnerKeyRef.current = buildAllNetworkRunOwnerKey({
     accountId: currentAccountId,
@@ -1549,6 +1607,7 @@ function useAllNetworkRequests<T>(params: {
 
   return {
     run: runWithQueue,
+    runAccountRequests,
     result,
     isEmptyAccount,
   };
