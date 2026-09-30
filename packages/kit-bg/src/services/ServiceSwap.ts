@@ -1504,6 +1504,7 @@ export default class ServiceSwap extends ServiceBase {
     kind,
     walletType,
     tradeSource,
+    source,
     preparedContext,
   }: {
     fromToken: ISwapToken;
@@ -1520,6 +1521,7 @@ export default class ServiceSwap extends ServiceBase {
     kind: ESwapQuoteKind;
     walletType?: string;
     tradeSource: ESwapTradeSource;
+    source?: ESwapQuoteSource;
     preparedContext?: ISwapBuildTxContext;
   }): Promise<IFetchBuildTxResponse | undefined> {
     const contextPromise =
@@ -1533,6 +1535,7 @@ export default class ServiceSwap extends ServiceBase {
       this.getClient(EServiceEndpointEnum.Swap),
     ]);
     const params: IFetchBuildTxParams = {
+      source,
       fromTokenAddress: fromToken.contractAddress,
       toTokenAddress: toToken.contractAddress,
       fromTokenAmount,

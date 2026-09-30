@@ -138,6 +138,7 @@ export enum EAtomNames {
   translateSettingsPersistAtom = 'translateSettingsPersistAtom',
 
   // swap
+  dustSweepPreferencesPersistAtom = 'dustSweepPreferencesPersistAtom',
   swapProJumpTokenAtom = 'swapProJumpTokenAtom',
   swapFromMarketJumpTokenAtom = 'swapFromMarketJumpTokenAtom',
   swapTradingViewChartSettingsPersistAtom = 'swapTradingViewChartSettingsPersistAtom',

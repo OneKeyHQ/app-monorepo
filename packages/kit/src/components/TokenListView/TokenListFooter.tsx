@@ -15,6 +15,7 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
+import { useNavigateToDustSweep } from '@onekeyhq/kit/src/views/DustSweep/hooks/useNavigateToDustSweep';
 import { useSettingsValuePersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { isAgg } from '@onekeyhq/kit-bg/src/states/jotai/contexts/tokenList/cellsPure/pure';
 import { SEARCH_KEY_MIN_LENGTH } from '@onekeyhq/shared/src/consts/walletConsts';
@@ -51,6 +52,8 @@ import { Currency } from '../Currency';
 
 import { useTokenListViewContext } from './TokenListViewContext';
 
+import type { GestureResponderEvent } from 'react-native';
+
 type IProps = {
   tableLayout?: boolean;
   hideZeroBalanceTokens?: boolean;
@@ -71,6 +74,7 @@ function TokenListFooter(props: IProps) {
     plainMode,
   } = props;
   const navigation = useAppNavigation();
+  const navigateToDustSweep = useNavigateToDustSweep();
   const {
     activeAccount: {
       account,
@@ -470,11 +474,12 @@ function TokenListFooter(props: IProps) {
               />
             ) : null}
           </XStack>
-          <Stack
+          <XStack
             flexGrow={1}
             flexBasis={0}
-            justifyContent="center"
-            alignItems="flex-end"
+            justifyContent="flex-end"
+            alignItems="center"
+            gap="$2"
           >
             <Currency
               size={tableLayout ? '$bodyMdMedium' : '$bodyLgMedium'}
@@ -484,7 +489,31 @@ function TokenListFooter(props: IProps) {
             >
               {smallBalanceTokensFiatValue}
             </Currency>
-          </Stack>
+            {(account?.id || (network?.isAllNetworks && indexedAccount?.id)) &&
+            wallet?.id ? (
+              <Button
+                testID="token-list-footer-dust-sweep"
+                size="small"
+                variant="secondary"
+                icon="BroomOutline"
+                accessibilityLabel={intl.formatMessage({
+                  id: ETranslations.title_dust_sweep,
+                })}
+                onPress={(event: GestureResponderEvent) => {
+                  event.stopPropagation();
+                  void navigateToDustSweep({
+                    accountId: account?.id,
+                    walletId: wallet.id,
+                    indexedAccountId: indexedAccount?.id,
+                    networkId: network?.isAllNetworks ? undefined : network?.id,
+                    entry: 'lowValueRow',
+                  });
+                }}
+              >
+                {intl.formatMessage({ id: ETranslations.sweep_sweep })}
+              </Button>
+            ) : null}
+          </XStack>
         </ListItem>
       ) : null}
       {!isSearchMode && filteredRiskyTokens.length > 0 ? (
