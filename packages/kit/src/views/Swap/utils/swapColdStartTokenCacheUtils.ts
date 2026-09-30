@@ -438,6 +438,30 @@ export function getSwapDefaultToTokenForSwapType({
   return toToken ?? getBridgeDefaultToTokenForFromToken(fromToken);
 }
 
+export function getSwapNetworkDefaultTokenPair(network?: ISwapNetwork) {
+  const fromToken = network?.defaultSelectTokenDetail?.from;
+  const toToken = network?.defaultSelectTokenDetail?.to;
+  if (
+    !network ||
+    !fromToken ||
+    !toToken ||
+    fromToken.networkId !== network.networkId ||
+    toToken.networkId !== network.networkId ||
+    !fromToken.symbol ||
+    !toToken.symbol ||
+    typeof fromToken.contractAddress !== 'string' ||
+    typeof toToken.contractAddress !== 'string' ||
+    !Number.isFinite(fromToken.decimals) ||
+    !Number.isFinite(toToken.decimals) ||
+    fromToken.contractAddress.toLowerCase() ===
+      toToken.contractAddress.toLowerCase()
+  ) {
+    return undefined;
+  }
+
+  return { fromToken, toToken };
+}
+
 export function buildSwapDefaultSelectedTokensForNetwork({
   networkId,
   swapType: preferredSwapType,

@@ -14,6 +14,7 @@ import {
   buildSwapSelectedTokensColdStartAccountKeyFromSelectedAccount,
   buildSwapSelectedTokensColdStartContext,
   getSelectedTokensColdStartChannelSupport,
+  getSwapNetworkDefaultTokenPair,
   getSwapSelectedTokensColdStartContextNetworkId,
   getSwapSelectedTokensHomeAccountSyncAction,
   getSwapTokenSupportTypes,
@@ -629,6 +630,60 @@ describe('swap cold-start selected token context', () => {
       }),
       swapType: ESwapTabSwitchType.SWAP,
     });
+  });
+
+  it('accepts a complete same-network backend default pair', () => {
+    const fromToken: ISwapToken = {
+      ...buildSwapToken('evm--1'),
+      contractAddress: '0xfrom',
+      symbol: 'FROM',
+      decimals: 18,
+    };
+    const toToken: ISwapToken = {
+      ...buildSwapToken('evm--1'),
+      contractAddress: '0xto',
+      symbol: 'TO',
+      decimals: 6,
+    };
+    const network: ISwapNetwork = {
+      networkId: 'evm--1',
+      name: 'Ethereum',
+      symbol: 'ETH',
+      defaultSelectTokenDetail: { from: fromToken, to: toToken },
+    };
+
+    expect(getSwapNetworkDefaultTokenPair(network)).toEqual({
+      fromToken,
+      toToken,
+    });
+  });
+
+  it('ignores incomplete or cross-network backend default pairs', () => {
+    const fromToken: ISwapToken = {
+      ...buildSwapToken('evm--1'),
+      contractAddress: '0xfrom',
+      symbol: 'FROM',
+      decimals: 18,
+    };
+    expect(
+      getSwapNetworkDefaultTokenPair({
+        networkId: 'evm--1',
+        name: 'Ethereum',
+        symbol: 'ETH',
+        defaultSelectTokenDetail: { from: fromToken },
+      }),
+    ).toBeUndefined();
+    expect(
+      getSwapNetworkDefaultTokenPair({
+        networkId: 'evm--1',
+        name: 'Ethereum',
+        symbol: 'ETH',
+        defaultSelectTokenDetail: {
+          from: fromToken,
+          to: { ...fromToken, networkId: 'evm--56' },
+        },
+      }),
+    ).toBeUndefined();
   });
 
   it('does not preselect Tron tokens when initializing Limit', () => {
