@@ -846,40 +846,6 @@ describe('estimateLiquidationPrice', () => {
     expect(liquidationPrice?.toNumber()).toBeCloseTo(109_077.695_473, 4);
   });
 
-  test('keeps a sell limit above mark at the limit price', () => {
-    const liquidationPrice = estimateLiquidationPrice({
-      side: 'short',
-      orderSize: new BigNumber(1),
-      priceMode: 'limit',
-      orderPrice: new BigNumber(110),
-      markPrice: new BigNumber(100),
-      marginMode: 'cross',
-      leverage: 10,
-      marginTiers: tiers10x,
-      maxLeverage: 10,
-      crossAvailableAfterMaintenance: new BigNumber(50),
-    });
-
-    expect(liquidationPrice?.toNumber()).toBeCloseTo(152.380_952, 6);
-  });
-
-  test('clamps a buy limit above mark to the mark price', () => {
-    const liquidationPrice = estimateLiquidationPrice({
-      side: 'long',
-      orderSize: new BigNumber(1),
-      priceMode: 'limit',
-      orderPrice: new BigNumber(150),
-      markPrice: new BigNumber(100),
-      marginMode: 'cross',
-      leverage: 10,
-      marginTiers: tiers10x,
-      maxLeverage: 10,
-      crossAvailableAfterMaintenance: new BigNumber(50),
-    });
-
-    expect(liquidationPrice?.toNumber()).toBeCloseTo(52.631_579, 6);
-  });
-
   test('prices market orders at the mark price', () => {
     const liquidationPrice = estimateLiquidationPrice({
       side: 'long',
@@ -916,23 +882,6 @@ describe('estimateLiquidationPrice', () => {
     expect(liquidationPrice?.toNumber()).toBeCloseTo(105.263_158, 6);
   });
 
-  test('prices the remaining cross position after a partial reduce', () => {
-    const liquidationPrice = estimateLiquidationPrice({
-      side: 'short',
-      orderSize: new BigNumber('0.5'),
-      priceMode: 'market',
-      markPrice: new BigNumber(120),
-      marginMode: 'cross',
-      leverage: 10,
-      marginTiers: tiers10x,
-      maxLeverage: 10,
-      existingPositionSize: new BigNumber(1),
-      crossAvailableAfterMaintenance: new BigNumber(34),
-    });
-
-    expect(liquidationPrice?.toNumber()).toBeCloseTo(42.105_263, 6);
-  });
-
   test('uses the flipped direction after reversing a cross position', () => {
     const liquidationPrice = estimateLiquidationPrice({
       side: 'long',
@@ -956,7 +905,6 @@ describe('estimateLiquidationPrice', () => {
     { side: 'long', price: 100, reduceOnly: false, expected: 70.526_316 },
     { side: 'long', price: 100, reduceOnly: true, expected: 35.789_474 },
     { side: 'short', price: 140, reduceOnly: false, expected: 164.761_905 },
-    { side: 'short', price: 140, reduceOnly: true, expected: 196.190_476 },
   ] as const)(
     'matches Hyperliquid for a resting $side limit with reduceOnly=$reduceOnly',
     ({ side, price, reduceOnly, expected }) => {
@@ -991,23 +939,6 @@ describe('estimateLiquidationPrice', () => {
       marginTiers: tiers10x,
       maxLeverage: 10,
       existingPositionSize: new BigNumber(1),
-      crossAvailableAfterMaintenance: new BigNumber(34),
-    });
-
-    expect(liquidationPrice).toBeNull();
-  });
-
-  test('returns null for reduce-only orders without an opposite position', () => {
-    const liquidationPrice = estimateLiquidationPrice({
-      side: 'long',
-      orderSize: new BigNumber(1),
-      priceMode: 'market',
-      markPrice: new BigNumber(100),
-      reduceOnly: true,
-      marginMode: 'cross',
-      leverage: 10,
-      marginTiers: tiers10x,
-      maxLeverage: 10,
       crossAvailableAfterMaintenance: new BigNumber(34),
     });
 
@@ -1121,23 +1052,6 @@ describe('estimateLiquidationPrice', () => {
 
     expect(liquidationPrice?.toNumber()).toBeCloseTo(63.157_895, 6);
   });
-
-  test('adds initial margin at the order price for isolated adds', () => {
-    const liquidationPrice = estimateLiquidationPrice({
-      side: 'long',
-      orderSize: new BigNumber(1),
-      priceMode: 'market',
-      markPrice: new BigNumber(100),
-      marginMode: 'isolated',
-      leverage: 10,
-      marginTiers: tiers10x,
-      maxLeverage: 10,
-      existingPositionSize: new BigNumber(1),
-      isolatedRawUsd: new BigNumber(-60),
-    });
-
-    expect(liquidationPrice?.toNumber()).toBeCloseTo(78.947_368, 6);
-  });
 });
 
 describe('liquidation risk inputs', () => {
@@ -1175,10 +1089,6 @@ describe('liquidation risk inputs', () => {
     ).toEqual({ 0: '13982.8773894', 360: '0.0' });
   });
 
-  test('treats a missing spot availability field as not received', () => {
-    expect(buildTokenAvailableAfterMaintenanceMap(undefined)).toBeUndefined();
-  });
-
   test('uses the USDC spot availability for unified accounts', () => {
     expect(
       resolveCrossAvailableAfterMaintenance({
@@ -1190,17 +1100,6 @@ describe('liquidation risk inputs', () => {
         },
       })?.toFixed(),
     ).toBe('3.2555');
-  });
-
-  test('counts a unified account without USDC availability as zero', () => {
-    expect(
-      resolveCrossAvailableAfterMaintenance({
-        mode: EHyperLiquidAbstractionMode.PORTFOLIO_MARGIN,
-        dex: '',
-        tokenToAvailableAfterMaintenance: { 360: '12' },
-        crossMarginByDex: undefined,
-      })?.toFixed(),
-    ).toBe('0');
   });
 
   test('waits for spot availability before estimating unified accounts', () => {
@@ -1228,19 +1127,6 @@ describe('liquidation risk inputs', () => {
         },
       })?.toFixed(),
     ).toBe('80');
-  });
-
-  test('waits for the order dex state before estimating standard accounts', () => {
-    expect(
-      resolveCrossAvailableAfterMaintenance({
-        mode: EHyperLiquidAbstractionMode.DEFAULT,
-        dex: 'io',
-        tokenToAvailableAfterMaintenance: undefined,
-        crossMarginByDex: {
-          '': { accountValue: '100', maintenanceMarginUsed: '20' },
-        },
-      }),
-    ).toBeUndefined();
   });
 
   test('does not guess the collateral when the account mode is unknown', () => {

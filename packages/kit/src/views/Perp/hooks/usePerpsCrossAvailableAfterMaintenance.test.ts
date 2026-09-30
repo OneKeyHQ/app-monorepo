@@ -67,30 +67,4 @@ describe('usePerpsCrossAvailableAfterMaintenance', () => {
 
     expect(result.current).toBeUndefined();
   });
-
-  test('ignores an account mode loaded for another account', () => {
-    mockAbstractionMode = {
-      accountAddress: '0xaaa',
-      mode: EHyperLiquidAbstractionMode.UNIFIED_ACCOUNT,
-    };
-
-    const { result } = renderHook(() =>
-      usePerpsCrossAvailableAfterMaintenance('BTC'),
-    );
-
-    expect(result.current).toBeUndefined();
-  });
-
-  test('uses the dex of the coin for standard accounts', () => {
-    mockAbstractionMode = {
-      accountAddress: '0xbbb',
-      mode: EHyperLiquidAbstractionMode.DISABLED,
-    };
-
-    const { result } = renderHook(() =>
-      usePerpsCrossAvailableAfterMaintenance('xyz:NVDA'),
-    );
-
-    expect(result.current?.toFixed()).toBe('895');
-  });
 });

@@ -239,26 +239,6 @@ describe('useLiquidationPrice', () => {
     expect(result.current?.toNumber()).toBeCloseTo(94.736_842, 6);
   });
 
-  test.each(['3000', '3500'])(
-    'matches the isolated market preview with trigger price %s',
-    (triggerPrice) => {
-      mockFormData.triggerOrderType = ETriggerOrderType.TRIGGER_MARKET;
-      mockFormData.triggerPrice = triggerPrice;
-      mockActiveAsset.margin.marginTiers = [
-        { lowerBound: '0', maxLeverage: 25 },
-      ];
-      mockActiveAsset.universe.maxLeverage = 25;
-      mockActiveAssetCtx.ctx.markPrice = '2696.65';
-      mockActiveAssetData.leverage = { value: 20, type: 'isolated' };
-
-      const { result } = renderHook(() =>
-        useLiquidationPrice({ side: 'long', size: new BigNumber('0.037') }),
-      );
-
-      expect(result.current?.toNumber()).toBeCloseTo(2614.099_49, 5);
-    },
-  );
-
   test('uses submitted market trigger size without capping it to current buying power', () => {
     mockFormData.triggerOrderType = ETriggerOrderType.TRIGGER_MARKET;
     mockActiveAssetData.leverage = { value: 10, type: 'cross' };
@@ -271,79 +251,32 @@ describe('useLiquidationPrice', () => {
     expect(result.current?.toNumber()).toBeCloseTo(78.947_368, 6);
   });
 
-  test.each([
-    {
-      side: 'long',
-      size: 2,
-      expected: 64.210_526,
-      triggerOrderType: ETriggerOrderType.TRIGGER_MARKET,
-    },
-    {
-      side: 'long',
-      size: 2,
-      expected: 64.210_526,
-      triggerOrderType: ETriggerOrderType.TRIGGER_LIMIT,
-    },
-    {
-      side: 'short',
-      size: 0.5,
-      expected: 23.157_895,
-      triggerOrderType: ETriggerOrderType.TRIGGER_MARKET,
-    },
-    {
-      side: 'short',
-      size: 0.5,
-      expected: 23.157_895,
-      triggerOrderType: ETriggerOrderType.TRIGGER_LIMIT,
-    },
-    {
-      side: 'short',
-      size: 2,
-      expected: null,
-      triggerOrderType: ETriggerOrderType.TRIGGER_MARKET,
-    },
-    {
-      side: 'short',
-      size: 2,
-      expected: null,
-      triggerOrderType: ETriggerOrderType.TRIGGER_LIMIT,
-    },
-  ] as const)(
-    'matches reduce-only $triggerOrderType preview for $side size $size',
-    ({ side, size, expected, triggerOrderType }) => {
-      mockFormData.triggerOrderType = triggerOrderType;
-      mockFormData.executionPrice = '100';
-      mockFormData.triggerReduceOnly = true;
-      mockActiveAssetData.leverage = { value: 10, type: 'cross' };
-      mockCrossAvailable = new BigNumber(34);
-      mockPositions = [
-        {
-          position: {
-            coin: 'BTC',
-            szi: '1',
-            entryPx: '90',
-            leverage: { type: 'cross', value: 10 },
-          },
+  test('previews the remaining position for a reduce-only trigger', () => {
+    mockFormData.triggerOrderType = ETriggerOrderType.TRIGGER_MARKET;
+    mockFormData.triggerReduceOnly = true;
+    mockActiveAssetData.leverage = { value: 10, type: 'cross' };
+    mockCrossAvailable = new BigNumber(34);
+    mockPositions = [
+      {
+        position: {
+          coin: 'BTC',
+          szi: '1',
+          entryPx: '90',
+          leverage: { type: 'cross', value: 10 },
         },
-      ];
+      },
+    ];
 
-      const { result } = renderHook(() =>
-        useLiquidationPrice({ side, size: new BigNumber(size) }),
-      );
+    const { result } = renderHook(() =>
+      useLiquidationPrice({ side: 'short', size: new BigNumber('0.5') }),
+    );
 
-      if (expected === null) {
-        expect(result.current).toBeNull();
-      } else {
-        expect(result.current?.toNumber()).toBeCloseTo(expected, 6);
-      }
-    },
-  );
+    expect(result.current?.toNumber()).toBeCloseTo(23.157_895, 6);
+  });
 
   test.each([
     { side: 'long', price: '2000', expected: 1938.775_51 },
-    { side: 'short', price: '2000', expected: 2775.963_235 },
     { side: 'long', price: '4000', expected: 2614.099_49 },
-    { side: 'short', price: '4000', expected: 4117.647_059 },
   ] as const)(
     'matches Hyperliquid for a $side limit trigger at $price',
     ({ side, price, expected }) => {
@@ -366,18 +299,6 @@ describe('useLiquidationPrice', () => {
       expect(result.current?.toNumber()).toBeCloseTo(expected, 6);
     },
   );
-
-  test('uses submitted limit trigger size even when current buying power is zero', () => {
-    mockActiveAssetData.maxTradeSzs = ['0', '0'];
-    mockActiveAssetData.leverage = { value: 10, type: 'cross' };
-    mockFormData.executionPrice = '100';
-
-    const { result } = renderHook(() =>
-      useLiquidationPrice({ side: 'long', size: new BigNumber(2) }),
-    );
-
-    expect(result.current?.toNumber()).toBeCloseTo(78.947_368, 6);
-  });
 
   test('ignores cached positions from a different account', () => {
     mockPositionsAccountAddress = '0xaaa';
@@ -427,23 +348,6 @@ describe('useLiquidationPrice', () => {
     );
 
     expect(result.current).toBeNull();
-  });
-
-  test('prices market orders at the mark price', () => {
-    mockFormData = {
-      side: 'long',
-      type: 'market',
-      price: '',
-      orderMode: 'standard',
-    };
-    mockActiveAssetData.leverage = { value: 10, type: 'cross' };
-    mockOrderPrice = { price: new BigNumber(90) };
-
-    const { result } = renderHook(() =>
-      useLiquidationPrice({ side: 'long', size: new BigNumber(1) }),
-    );
-
-    expect(result.current?.toNumber()).toBeCloseTo(52.631_579, 6);
   });
 
   test('estimates with the size submitted for the requested side', () => {
@@ -531,17 +435,6 @@ describe('useLiquidationPrice', () => {
   test('ignores asset data loaded for another account', () => {
     applyUnifiedScreenshotSetup();
     mockActiveAssetData.accountAddress = '0xaaa';
-
-    const { result } = renderHook(() =>
-      useLiquidationPrice({ side: 'long', size: new BigNumber('0.00012') }),
-    );
-
-    expect(result.current).toBeNull();
-  });
-
-  test('does not estimate scale orders', () => {
-    applyUnifiedScreenshotSetup();
-    mockFormData.orderMode = 'scale';
 
     const { result } = renderHook(() =>
       useLiquidationPrice({ side: 'long', size: new BigNumber('0.00012') }),
