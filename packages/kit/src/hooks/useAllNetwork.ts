@@ -292,6 +292,17 @@ const getEmptyEnabledNetworksResult = (): IEnabledNetworksCompatResult => ({
 //   return [...priorityItems, ...normalItems];
 // };
 
+// Identity of one per-network request of a run (`activeRunAccountKeysRef`).
+function buildRunAccountKey({
+  accountId,
+  networkId,
+}: {
+  accountId: string;
+  networkId: string;
+}) {
+  return `${accountId}__${networkId}`;
+}
+
 function useAllNetworkRequests<T>(params: {
   accountId: string | undefined;
   networkId: string | undefined;
@@ -457,6 +468,12 @@ function useAllNetworkRequests<T>(params: {
   const runCountRef = useRef(0);
   // Never reset: consumers use this generation to reject stale writes.
   const runGenerationRef = useRef(0);
+  // The (account, network) set the run that owns the view fetched, stamped
+  // with that run's generation. A per-account refresh only fetches members
+  // of it (`runAccountRequests`).
+  const activeRunAccountKeysRef = useRef<
+    { generation: number; keys: Set<string> } | undefined
+  >(undefined);
   const [isEmptyAccount, setIsEmptyAccount] = useState(false);
   const [isLocked] = useAppIsLockedAtom();
   const isRouteFocused = useRouteIsFocused();
@@ -1011,6 +1028,14 @@ function useAllNetworkRequests<T>(params: {
           accounts: accountsInfo,
           allAccounts: allAccountsInfo,
         });
+        activeRunAccountKeysRef.current = {
+          generation: runGeneration,
+          keys: new Set(
+            accountsInfo.map(({ accountId, networkId }) =>
+              buildRunAccountKey({ accountId, networkId }),
+            ),
+          ),
+        };
 
         if (!accountsInfo || isEmpty(accountsInfo)) {
           setIsEmptyAccount(true);
@@ -1550,6 +1575,10 @@ function useAllNetworkRequests<T>(params: {
   // before the owner's fan-out initialized the view is skipped (that fan-out
   // covers it), and one that a newer run, an enabled-network change or an
   // owner change overtakes stops publishing: the newer run owns the view.
+  // Only members of the owning run's account set are fetched: an event
+  // raised for a network unchecked since then names an account the rerun
+  // dropped from the view, and publishing it would restore that network's
+  // row and worth.
   const runAccountRequests = useCallback(
     async (accounts: { accountId: string; networkId: string }[]) => {
       if (!isAllNetworks || !allNetworkDataInit.current) {
@@ -1557,12 +1586,21 @@ function useAllNetworkRequests<T>(params: {
       }
       const ownerKey = liveRunOwnerKeyRef.current;
       const generation = runGenerationRef.current;
+      // A newer run that has not resolved its accounts yet owns the view and
+      // covers the batch.
+      const runAccountKeys = activeRunAccountKeysRef.current;
+      if (!runAccountKeys || runAccountKeys.generation !== generation) {
+        return;
+      }
       const isRequestCurrent = () =>
         liveRunOwnerKeyRef.current === ownerKey &&
         runGenerationRef.current === generation &&
         allNetworkDataInit.current &&
         (isRunCurrent?.() ?? true);
-      for (const { accountId, networkId } of accounts) {
+      const memberAccounts = accounts.filter(({ accountId, networkId }) =>
+        runAccountKeys.keys.has(buildRunAccountKey({ accountId, networkId })),
+      );
+      for (const { accountId, networkId } of memberAccounts) {
         if (!isRequestCurrent()) {
           return;
         }

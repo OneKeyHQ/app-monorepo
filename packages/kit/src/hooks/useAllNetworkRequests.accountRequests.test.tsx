@@ -74,6 +74,11 @@ jest.mock('@onekeyhq/shared/src/consts/walletConsts', () => ({
 
 import { act, renderHook, waitFor } from '@testing-library/react';
 
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
+
 import { useAllNetworkRequests } from './useAllNetwork';
 
 /*
@@ -96,7 +101,7 @@ function setup({ holdAccounts = false }: { holdAccounts?: boolean } = {}) {
   const walletId = `hd-${ownerSeq}`;
   const eth = { accountId: `${walletId}--eth`, networkId: 'evm--1' };
   const sui = { accountId: `${walletId}--sui`, networkId: 'sui--mainnet' };
-  const enabled = [eth, sui];
+  let enabled = [eth, sui];
   const accountsResolvers: Array<() => void> = [];
   getAllNetworkAccountsForHome.mockImplementation(async () => {
     if (holdAccounts) {
@@ -198,6 +203,12 @@ function setup({ holdAccounts = false }: { holdAccounts?: boolean } = {}) {
       await act(async () => {
         accountsResolvers.splice(0).forEach((resolve) => resolve());
         await new Promise((resolve) => setTimeout(resolve, 30));
+      });
+    },
+    uncheckSui: () => {
+      enabled = [eth];
+      act(() => {
+        appEventBus.emit(EAppEventBusNames.EnabledNetworksChanged, undefined);
       });
     },
     flush: async () => {
@@ -329,5 +340,64 @@ describe('useAllNetworkRequests: per-account refresh outside a fan-out', () => {
       'evm--1',
       'sui--mainnet',
     ]);
+  });
+
+  it('skips an account whose network left the enabled set', async () => {
+    const ctx = setup();
+    await ctx.waitForFirstFanOut();
+    await ctx.settleRequests();
+
+    // SUI unchecked: the rerun fetches ETH only and its round drops SUI.
+    ctx.uncheckSui();
+    await ctx.waitForPending(1);
+    expect(ctx.requests[2].networkId).toBe('evm--1');
+    await ctx.settleRequests();
+    expect(ctx.settled).toEqual([
+      ['evm--1', 1],
+      ['sui--mainnet', 1],
+      ['evm--1', 2],
+    ]);
+
+    // History confirms a SUI send now: fetching it would publish SUI's row
+    // back under the run that removed it.
+    const batch = ctx.refreshAccounts([ctx.sui, ctx.eth]);
+    await ctx.waitForPending(1);
+    expect(ctx.requests.map((request) => request.networkId)).toEqual([
+      'evm--1',
+      'sui--mainnet',
+      'evm--1',
+      'evm--1',
+    ]);
+    await ctx.settleRequests();
+    await batch;
+
+    expect(ctx.settled).toEqual([
+      ['evm--1', 1],
+      ['sui--mainnet', 1],
+      ['evm--1', 2],
+      ['evm--1', 2],
+    ]);
+  });
+
+  it('skips a batch while the rerun for a changed enabled set has not resolved its accounts', async () => {
+    const ctx = setup({ holdAccounts: true });
+    await ctx.flush();
+    await ctx.releaseAccounts();
+    await ctx.waitForFirstFanOut();
+    await ctx.settleRequests();
+
+    // The rerun owns the view, but its account set is not known yet: the
+    // previous set still names SUI and must not be used.
+    ctx.uncheckSui();
+    await ctx.flush();
+    await ctx.refreshAccounts([ctx.sui]);
+    expect(ctx.requests.map((request) => request.networkId)).toEqual([
+      'evm--1',
+      'sui--mainnet',
+    ]);
+
+    await ctx.releaseAccounts();
+    await ctx.waitForPending(1);
+    expect(ctx.requests[2].networkId).toBe('evm--1');
   });
 });
