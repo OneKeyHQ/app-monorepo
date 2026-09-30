@@ -100,7 +100,7 @@
     <% } %>
 
       <% if ( (platform === 'desktop' || platform === 'web') && !isDev && typeof releaseMetaUrl !== 'undefined' ) { %>
-          <script src="<%= releaseMetaUrl %>"></script>
+          <script defer src="<%= releaseMetaUrl %>"></script>
       <% } %>
       <% if ( platform === 'ext' ) { %>
       <% if ( !isDev ) { %>
