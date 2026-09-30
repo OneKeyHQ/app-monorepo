@@ -13,10 +13,7 @@ import {
   usePerpsActiveAssetCtxAtom,
   usePerpsActiveAssetDataAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import {
-  computeMaxTradeSize,
-  estimateLiquidationPrice,
-} from '@onekeyhq/shared/src/utils/perpsUtils';
+import { estimateLiquidationPrice } from '@onekeyhq/shared/src/utils/perpsUtils';
 import { ETriggerOrderType } from '@onekeyhq/shared/types/hyperliquid/types';
 
 import { useOrderPrice } from './useOrderPrice';
@@ -84,55 +81,36 @@ export function useLiquidationPrice({
       return null;
     }
 
-    let orderSize = size;
-    let priceMode: 'market' | 'limit' | 'trigger' =
+    let priceMode: 'market' | 'limit' =
       formData.type === 'market' ? 'market' : 'limit';
     let referencePrice = orderPrice;
 
     if (formData.orderMode === 'trigger') {
-      if (formData.triggerReduceOnly) {
-        return null;
+      // Match Hyperliquid's ordinary market/limit preview; the trigger price
+      // controls activation only and does not enter the liquidation estimate.
+      const isLimit =
+        formData.triggerOrderType === ETriggerOrderType.TRIGGER_LIMIT;
+      priceMode = isLimit ? 'limit' : 'market';
+      if (isLimit) {
+        referencePrice = new BigNumber(formData.executionPrice?.trim() || 0);
       }
-      const rawTriggerPrice =
-        formData.triggerOrderType === ETriggerOrderType.TRIGGER_LIMIT
-          ? formData.executionPrice?.trim()
-          : formData.triggerPrice?.trim();
-      const triggerPrice = new BigNumber(rawTriggerPrice || 0);
-      if (!triggerPrice.isFinite() || triggerPrice.lte(0)) {
-        return null;
-      }
-      // A trigger order fills later, so preview only what today's balance
-      // could open at the trigger price.
-      const previewMaxSize = computeMaxTradeSize({
-        side,
-        price: triggerPrice.toFixed(),
-        markPrice: activeAssetCtx?.ctx?.markPrice,
-        maxTradeSzs: activeAssetData.maxTradeSzs,
-        leverageValue: activeAssetData.leverage.value,
-        fallbackLeverage: activeAsset?.universe?.maxLeverage,
-        szDecimals: activeAsset?.universe?.szDecimals,
-      });
-      if (!previewMaxSize.isFinite() || previewMaxSize.lte(0)) {
-        return null;
-      }
-      orderSize = BigNumber.min(size, previewMaxSize);
-      priceMode = 'trigger';
-      referencePrice = triggerPrice;
     }
 
-    if (!orderSize.isFinite() || orderSize.lte(0)) {
+    if (!size.isFinite() || size.lte(0)) {
       return null;
     }
 
     const positionLeverage = currentCoinPosition?.leverage;
     const liquidationPrice = estimateLiquidationPrice({
       side,
-      orderSize,
+      orderSize: size,
       priceMode,
       orderPrice: referencePrice,
       markPrice,
       reduceOnly:
-        formData.orderMode === 'standard' && Boolean(formData.reduceOnly),
+        formData.orderMode === 'trigger'
+          ? Boolean(formData.triggerReduceOnly)
+          : formData.orderMode === 'standard' && Boolean(formData.reduceOnly),
       marginMode: leverageType,
       leverage,
       marginTiers: margin?.marginTiers,
@@ -148,7 +126,6 @@ export function useLiquidationPrice({
   }, [
     activeAccount?.accountAddress,
     activeAsset?.universe?.maxLeverage,
-    activeAsset?.universe?.szDecimals,
     activeAssetCtx?.ctx?.markPrice,
     activeAssetData,
     activeTradeInstrument.mode,
@@ -159,7 +136,6 @@ export function useLiquidationPrice({
     formData.orderMode,
     formData.reduceOnly,
     formData.triggerOrderType,
-    formData.triggerPrice,
     formData.triggerReduceOnly,
     formData.type,
     margin?.marginTiers,
