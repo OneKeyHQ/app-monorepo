@@ -276,6 +276,12 @@ class DesktopApiAppUpdate {
 
   private activeDownload?: Promise<void>;
 
+  private metadataControllers = new Set<AbortController>();
+
+  private metadataRequests = new Set<Promise<string>>();
+
+  private metadataGeneration = 0;
+
   private macFeedServer?: http.Server;
 
   private macStagedIdentity?: string;
@@ -431,6 +437,22 @@ class DesktopApiAppUpdate {
     return record;
   }
 
+  private async requestMetadata(
+    url: string,
+    headers: Record<string, string>,
+  ): Promise<string> {
+    const controller = new AbortController();
+    const request = requestText(url, headers, controller.signal);
+    this.metadataControllers.add(controller);
+    this.metadataRequests.add(request);
+    try {
+      return await request;
+    } finally {
+      this.metadataControllers.delete(controller);
+      this.metadataRequests.delete(request);
+    }
+  }
+
   async isDownloadingPackage(): Promise<boolean> {
     return this.isDownloading;
   }
@@ -463,6 +485,9 @@ class DesktopApiAppUpdate {
       throw new OneKeyLocalError('App update installation is in progress');
     }
     this.activeController?.abort();
+    this.metadataGeneration += 1;
+    this.metadataControllers.forEach((controller) => controller.abort());
+    await Promise.allSettled(this.metadataRequests);
     try {
       await this.activeDownload;
     } catch {
@@ -491,6 +516,7 @@ class DesktopApiAppUpdate {
       throw new OneKeyLocalError('App update installation is in progress');
     }
     this.isManualCheck = isManual;
+    const metadataGeneration = this.metadataGeneration;
     if (!latestVersion || isStoreVersion) return null;
     if (
       !semver.valid(latestVersion) ||
@@ -504,7 +530,13 @@ class DesktopApiAppUpdate {
     );
     const feedUrl = makeFeedFileUrl(feedBase);
     const headers = await withCustomUAHeaders(feedUrl, requestHeaders);
-    const raw = await requestText(feedUrl, headers);
+    if (metadataGeneration !== this.metadataGeneration) {
+      throw new OneKeyLocalError('Download cancelled');
+    }
+    const raw = await this.requestMetadata(feedUrl, headers);
+    if (metadataGeneration !== this.metadataGeneration) {
+      throw new OneKeyLocalError('Download cancelled');
+    }
     const parsed = YAML.parse(raw) as IFeedData;
     const artifact = selectArtifact(parsed, latestVersion, feedBase);
     this.selectedArtifact = artifact;
@@ -627,6 +659,8 @@ class DesktopApiAppUpdate {
         );
         return;
       }
+      // Electron 43 Squirrel.Mac does not forward feed headers to ZIP requests.
+      // The random path is the loopback ZIP request's bearer credential.
       if (request.url !== `/${fileToken}`) {
         response.writeHead(404).end();
         return;
@@ -693,6 +727,7 @@ class DesktopApiAppUpdate {
   }
 
   async downloadASC(params: IInstallUpdateParams): Promise<boolean> {
+    const metadataGeneration = this.metadataGeneration;
     store.clearASCFile();
     if (this.isSkipGPGAllowed(params.skipGPGVerification)) return true;
     const record = await this.assertVerifiedRecord(params.downloadedFile);
@@ -703,7 +738,13 @@ class DesktopApiAppUpdate {
       ascUrl.toString(),
       this.requestHeaders,
     );
-    const text = await requestText(ascUrl.toString(), headers);
+    if (metadataGeneration !== this.metadataGeneration) {
+      throw new OneKeyLocalError('Download cancelled');
+    }
+    const text = await this.requestMetadata(ascUrl.toString(), headers);
+    if (metadataGeneration !== this.metadataGeneration) {
+      throw new OneKeyLocalError('Download cancelled');
+    }
     if (!text) return false;
     store.setASCFile(text);
     return true;
@@ -901,6 +942,9 @@ class DesktopApiAppUpdate {
       if (this.macInstallInProgress) return false;
       this.macInstallInProgress = true;
       let staged = false;
+      let mainWindow: BrowserWindow | undefined;
+      let mainWindowClosed = false;
+      let recoverAfterClose = false;
       const windowAllClosedListeners = app.listeners('window-all-closed');
       const windowCloseListeners = BrowserWindow.getAllWindows().map(
         (window) => ({ window, listeners: window.listeners('close') }),
@@ -918,6 +962,11 @@ class DesktopApiAppUpdate {
       try {
         await this.stageMacUpdate(record);
         staged = true;
+        mainWindow = this.getMainWindow();
+        mainWindow?.once('closed', () => {
+          mainWindowClosed = true;
+          if (recoverAfterClose) app.emit('activate');
+        });
         // Once Squirrel has staged an update, it may apply on the next launch.
         // Native handoff must proceed without another cancellable async step.
         app.removeAllListeners('window-all-closed');
@@ -952,7 +1001,13 @@ class DesktopApiAppUpdate {
               });
             }
           });
-          app.emit('activate');
+          recoverAfterClose = true;
+          if (!mainWindow || mainWindowClosed) {
+            app.emit('activate');
+          } else if (!mainWindow.isDestroyed()) {
+            mainWindow.show();
+            mainWindow.focus();
+          }
           logger.error(
             'auto-updater',
             'Staged macOS update handoff failed',

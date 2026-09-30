@@ -1,6 +1,7 @@
 import crypto from 'crypto';
 import { EventEmitter } from 'events';
 import fs from 'fs';
+import http from 'http';
 import os from 'os';
 import path from 'path';
 import { PassThrough } from 'stream';
@@ -123,7 +124,12 @@ const originalSkipGPG = process.env.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION;
 const instances: Array<
   InstanceType<typeof import('./DesktopApiAppUpdate').default>
 > = [];
-const mockMainWindow = { webContents: { send: jest.fn() } };
+const mockMainWindow = Object.assign(new EventEmitter(), {
+  webContents: { send: jest.fn() },
+  isDestroyed: jest.fn(() => false),
+  show: jest.fn(),
+  focus: jest.fn(),
+});
 
 function feed(version: string, files: string[]): string {
   return `version: ${version}\nfiles:\n${files.map((file) => `  - url: ${file}\n    sha512: ${mockSha512}`).join('\n')}\n`;
@@ -139,6 +145,28 @@ function mockHttpsResponse(body: string, statusCode = 200) {
     return { response, url };
   });
   return mockRequestUpdateUrl;
+}
+
+function localGet(url: string, authorization?: string) {
+  return new Promise<{ status: number; body: Buffer }>((resolve, reject) => {
+    http
+      .get(
+        url,
+        { headers: authorization ? { Authorization: authorization } : {} },
+        (response) => {
+          const chunks: Buffer[] = [];
+          response.on('data', (chunk: Buffer) => chunks.push(chunk));
+          response.once('end', () =>
+            resolve({
+              status: response.statusCode ?? 0,
+              body: Buffer.concat(chunks),
+            }),
+          );
+          response.once('error', reject);
+        },
+      )
+      .once('error', reject);
+  });
 }
 
 function createApi(platform: NodeJS.Platform, channel?: string) {
@@ -192,6 +220,7 @@ beforeEach(() => {
   mockAppGetVersion.mockReturnValue('5.9.0');
   mockStore.getASCFile.mockReturnValue('');
   mockNativeUpdater.removeAllListeners();
+  mockMainWindow.removeAllListeners();
   mockNativeUpdater.checkForUpdates.mockImplementation(() => {
     setImmediate(() => mockNativeUpdater.emit('update-downloaded'));
   });
@@ -251,7 +280,7 @@ test('selects the chosen-version macOS ZIP and forwards feed and artifact header
   expect(get).toHaveBeenCalledWith(
     expect.stringMatching(/^https:/),
     { Authorization: 'test-token', 'X-OneKey': 'desktop-test' },
-    undefined,
+    expect.any(AbortSignal),
     30_000,
   );
   await api.downloadUpdate();
@@ -372,6 +401,91 @@ test('macOS stages only after confirmation and verification', async () => {
   expect(mockNativeUpdater.quitAndInstall).toHaveBeenCalledTimes(1);
 });
 
+test('macOS local ZIP requires its random capability path', async () => {
+  const { api } = await preparePackage('darwin');
+  const internal = api as unknown as {
+    readRecord: () => { downloadedFile: string };
+    stageMacUpdate: (record: { downloadedFile: string }) => Promise<void>;
+  };
+  await internal.stageMacUpdate(internal.readRecord());
+  const feedConfig = mockNativeUpdater.setFeedURL.mock.calls[0][0] as {
+    url: string;
+    headers: { Authorization: string };
+  };
+  expect((await localGet(feedConfig.url)).status).toBe(401);
+  const feedResponse = await localGet(
+    feedConfig.url,
+    feedConfig.headers.Authorization,
+  );
+  expect(feedResponse.status).toBe(200);
+  const zipUrl = (JSON.parse(feedResponse.body.toString()) as { url: string })
+    .url;
+  expect((await localGet(`${feedConfig.url}/wrong.zip`)).status).toBe(404);
+  const zipResponse = await localGet(zipUrl);
+  expect(zipResponse.status).toBe(200);
+  expect(zipResponse.body.equals(mockPackage)).toBe(true);
+});
+
+test('clearing update cache cancels a stalled feed request', async () => {
+  const api = createApi('darwin');
+  let started!: () => void;
+  const requestStarted = new Promise<void>((resolve) => {
+    started = resolve;
+  });
+  let signal: AbortSignal | undefined;
+  mockRequestUpdateUrl.mockImplementationOnce(
+    (
+      _url: string,
+      _headers: Record<string, string>,
+      requestSignal: AbortSignal,
+    ) =>
+      new Promise((_, reject) => {
+        signal = requestSignal;
+        requestSignal.addEventListener('abort', () =>
+          reject(new OneKeyLocalError('Download cancelled')),
+        );
+        started();
+      }),
+  );
+  const check = api.checkForUpdates(false, {}, '6.0.0');
+  void check.catch(() => {});
+  await requestStarted;
+  await api.clearUpdateCache();
+  await expect(check).rejects.toThrow('Download cancelled');
+  expect(signal?.aborted).toBe(true);
+});
+
+test('clearing update cache cancels a stalled ASC request', async () => {
+  const { api, params } = await preparePackage('darwin');
+  delete process.env.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION;
+  let started!: () => void;
+  const requestStarted = new Promise<void>((resolve) => {
+    started = resolve;
+  });
+  let signal: AbortSignal | undefined;
+  mockRequestUpdateUrl.mockImplementationOnce(
+    (
+      _url: string,
+      _headers: Record<string, string>,
+      requestSignal: AbortSignal,
+    ) =>
+      new Promise((_, reject) => {
+        signal = requestSignal;
+        requestSignal.addEventListener('abort', () =>
+          reject(new OneKeyLocalError('Download cancelled')),
+        );
+        started();
+      }),
+  );
+  const asc = api.downloadASC(params);
+  void asc.catch(() => {});
+  await requestStarted;
+  await api.clearUpdateCache();
+  await expect(asc).rejects.toThrow('Download cancelled');
+  expect(signal?.aborted).toBe(true);
+  expect(mockStore.setASCFile).not.toHaveBeenCalled();
+});
+
 test('macOS never stages when ASC verification fails', async () => {
   const { api, params } = await preparePackage('darwin');
   delete process.env.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION;
@@ -389,11 +503,20 @@ test('macOS keeps running if native quit handoff throws after staging', async ()
   const onClose = jest.fn();
   let destroyed = false;
   const window = Object.assign(new EventEmitter(), {
+    webContents: { send: jest.fn() },
     isDestroyed: jest.fn(() => destroyed),
     close: jest.fn(() => {
       destroyed = true;
+      setImmediate(() => window.emit('closed'));
     }),
+    show: jest.fn(),
+    focus: jest.fn(),
   });
+  (
+    globalThis as unknown as {
+      $desktopMainAppFunctions: { getSafelyMainWindow: () => unknown };
+    }
+  ).$desktopMainAppFunctions.getSafelyMainWindow = () => window;
   mockApp.on('window-all-closed', onWindowAllClosed);
   mockApp.on('activate', onActivate);
   window.on('close', onClose);
@@ -407,9 +530,33 @@ test('macOS keeps running if native quit handoff throws after staging', async ()
   expect(mockNativeUpdater.setFeedURL).toHaveBeenCalledTimes(1);
   expect(window.close).toHaveBeenCalledTimes(1);
   expect(mockApp.listeners('window-all-closed')).toContain(onWindowAllClosed);
+  expect(onActivate).not.toHaveBeenCalled();
+  await new Promise<void>((resolve) => setImmediate(resolve));
   expect(onActivate).toHaveBeenCalledTimes(1);
   expect(mockNativeUpdater.listenerCount('before-quit-for-update')).toBe(0);
   expect(mockAppExit).not.toHaveBeenCalled();
+});
+
+test('macOS forces exit if native update quit stalls', async () => {
+  const { api, params } = await preparePackage('darwin');
+  const internal = api as unknown as {
+    readRecord: () => { downloadedFile: string };
+    stageMacUpdate: (record: { downloadedFile: string }) => Promise<void>;
+  };
+  await internal.stageMacUpdate(internal.readRecord());
+  mockNativeUpdater.quitAndInstall.mockImplementationOnce(() => {
+    mockNativeUpdater.emit('before-quit-for-update');
+  });
+  jest.useFakeTimers();
+  try {
+    expect(await api.installPackage(params)).toBe(true);
+    jest.advanceTimersByTime(14_999);
+    expect(mockAppExit).not.toHaveBeenCalled();
+    jest.advanceTimersByTime(1);
+    expect(mockAppExit).toHaveBeenCalledTimes(1);
+  } finally {
+    jest.useRealTimers();
+  }
 });
 
 test('macOS restages when the checksum changes at the same cache path', async () => {
