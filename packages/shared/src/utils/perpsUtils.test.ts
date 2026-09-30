@@ -987,6 +987,26 @@ describe('estimateLiquidationPrice', () => {
     expect(liquidationPrice?.toNumber()).toBeCloseTo(85_925.925_926, 4);
   });
 
+  // Long 1 marked at 120; a buy limit resting at 100 only fills after that
+  // long has lost 20.
+  test('revalues the existing cross position at a resting limit price', () => {
+    const liquidationPrice = estimateLiquidationPrice({
+      side: 'long',
+      orderSize: new BigNumber(1),
+      priceMode: 'limit',
+      orderPrice: new BigNumber(100),
+      markPrice: new BigNumber(120),
+      marginMode: 'cross',
+      leverage: 10,
+      marginTiers: tiers10x,
+      maxLeverage: 10,
+      existingPositionSize: new BigNumber(1),
+      crossAvailableAfterMaintenance: new BigNumber(60),
+    });
+
+    expect(liquidationPrice?.toNumber()).toBeCloseTo(81.052_632, 6);
+  });
+
   test('caps reduce-only orders at the existing position size', () => {
     const liquidationPrice = estimateLiquidationPrice({
       side: 'short',

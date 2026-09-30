@@ -1245,19 +1245,16 @@ function estimateLiquidationPrice(
   // The same-coin position is margined again at its new size, so release the
   // maintenance margin it currently holds.
   const existingNotional = existingPositionSize.abs().multipliedBy(markPrice);
-  let accountValue = crossAvailableAfterMaintenance.plus(
-    getMaintenanceMargin(
-      findResolvedMarginTier(tiers, existingNotional),
-      existingNotional,
-    ),
-  );
-  if (priceMode === 'trigger') {
-    // A trigger fills once the market reaches its price, and the same-coin
-    // position has gained or lost that move by then.
-    accountValue = accountValue.plus(
-      existingPositionSize.multipliedBy(price.minus(markPrice)),
-    );
-  }
+  // A resting limit or trigger fills once the market reaches its price, and the
+  // same-coin position has gained or lost that move by then; at mark it is 0.
+  const accountValue = crossAvailableAfterMaintenance
+    .plus(
+      getMaintenanceMargin(
+        findResolvedMarginTier(tiers, existingNotional),
+        existingNotional,
+      ),
+    )
+    .plus(existingPositionSize.multipliedBy(price.minus(markPrice)));
   return solveLiquidationPrice({
     price,
     positionSize: resultingSize,
