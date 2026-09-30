@@ -7,6 +7,7 @@ import HtmlWebpackPlugin from 'html-webpack-plugin';
 import notifier from 'node-notifier';
 
 import { isDev, nodeEnv, onekeyProxy, publicUrl } from './constant';
+import { RELEASE_ENV_KEYS, getReleaseEnvSource } from './releaseEnv';
 import { createResolveExtensions } from './utils';
 
 import type {
@@ -93,6 +94,30 @@ const IS_EAS_BUILD = !!process.env.EAS_BUILD;
 
 const COMMIT_SHA = resolveCommitSha();
 
+function createReleaseEnvAssetPlugin(): RspackPluginInstance {
+  return {
+    apply(compiler: Compiler): void {
+      compiler.hooks.thisCompilation.tap(
+        'ReleaseEnvAssetPlugin',
+        (compilation) => {
+          compilation.hooks.processAssets.tap(
+            {
+              name: 'ReleaseEnvAssetPlugin',
+              stage: rspack.Compilation.PROCESS_ASSETS_STAGE_ADDITIONAL,
+            },
+            () => {
+              compilation.emitAsset(
+                'release-meta.js',
+                new rspack.sources.RawSource(getReleaseEnvSource()),
+              );
+            },
+          );
+        },
+      );
+    },
+  };
+}
+
 const CANVASKIT_WASM_TEST =
   /canvaskit-wasm[\\/]bin[\\/](full[\\/])?canvaskit\.wasm$/;
 const ZXING_READER_WASM_TEST =
@@ -175,13 +200,21 @@ const baseResolve = ({
 function buildDefineMap(
   platform: string,
 ): ConstructorParameters<typeof rspack.DefinePlugin>[0] {
+  const releaseEnvKeys =
+    !isDev && ['web', 'desktop', 'ext'].includes(platform)
+      ? new Set<string>(RELEASE_ENV_KEYS)
+      : null;
+  const defineEnv = (key: string, value: string | undefined) =>
+    releaseEnvKeys?.has(key)
+      ? `globalThis.__ONEKEY_RELEASE_ENV__.${key}`
+      : JSON.stringify(value);
   // (1) env vars — single source of truth = envExposedToClient.js
   const envKeys = envExposedToClient.buildEnvExposedToClientDangerously({
     platform,
   });
   const envDefines: Record<string, string> = {};
   for (const key of envKeys) {
-    envDefines[`process.env.${key}`] = JSON.stringify(process.env[key]);
+    envDefines[`process.env.${key}`] = defineEnv(key, process.env[key]);
   }
   // (2) platformEnv.* booleans are folded by babel-plugin-transform-define
   //     (see buildPlatformEnvDefineMap + the first-party babel-loader rule),
@@ -209,10 +242,16 @@ function buildDefineMap(
     'process.env.PERF_FUNCTION_WARN_MS': JSON.stringify(
       process.env.PERF_FUNCTION_WARN_MS || '',
     ),
-    'process.env.VERSION': JSON.stringify(process.env.VERSION),
-    'process.env.BUNDLE_VERSION': JSON.stringify(process.env.BUNDLE_VERSION),
-    'process.env.BUILD_NUMBER': JSON.stringify(process.env.BUILD_NUMBER),
-    'process.env.GITHUB_SHA': JSON.stringify(COMMIT_SHA),
+    'process.env.VERSION': defineEnv('VERSION', process.env.VERSION),
+    'process.env.BUNDLE_VERSION': defineEnv(
+      'BUNDLE_VERSION',
+      process.env.BUNDLE_VERSION,
+    ),
+    'process.env.BUILD_NUMBER': defineEnv(
+      'BUILD_NUMBER',
+      process.env.BUILD_NUMBER,
+    ),
+    'process.env.GITHUB_SHA': defineEnv('GITHUB_SHA', COMMIT_SHA),
     'process.env.EXPO_OS': JSON.stringify('web'),
   };
   return { ...envDefines, ...explicitDefines };
@@ -226,6 +265,9 @@ const buildBasePlugins: (
   basePath,
 ) => [
   new rspack.DefinePlugin(buildDefineMap(platform)),
+  !isDev &&
+    ['web', 'desktop', 'ext'].includes(platform) &&
+    createReleaseEnvAssetPlugin(),
   new rspack.ProvidePlugin({
     Buffer: ['buffer', 'Buffer'],
     process: require.resolve('process/browser'),
@@ -421,6 +463,7 @@ export function createBaseConfig({
             platform,
           }),
           WEB_PUBLIC_URL: publicUrl || '/',
+          releaseMetaUrl: `${(publicUrl || '/').replace(/\/?$/, '/')}release-meta.js`,
           WEB_TITLE: platform,
           NO_SCRIPT:
             '<form action="" style="background-color:#fff;position:fixed;top:0;left:0;right:0;bottom:0;z-index:9999;"><div style="font-size:18px;font-family:Helvetica,sans-serif;line-height:24px;margin:10%;width:80%;"> <p>Oh no! It looks like JavaScript is not enabled in your browser.</p> <p style="margin:20px 0;"> <button type="submit" style="background-color: #4630EB; border-radius: 100px; border: none; box-shadow: none; color: #fff; cursor: pointer; font-weight: bold; line-height: 20px; padding: 6px 16px;">Reload</button> </p> </div> </form>',

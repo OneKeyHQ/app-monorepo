@@ -43,7 +43,9 @@ module.exports = {
   // https://developer.chrome.com/docs/extensions/mv3/migrating_to_service_workers/
   'background': {
     // TODO move js file to root, as some browsers will not working
-    'service_worker': 'background.bundle.js',
+    'service_worker': isDev
+      ? 'background.bundle.js'
+      : 'background.bootstrap.js',
     // The "background.persistent" key cannot be used with manifest_version 3. Use the "background.service_worker" key instead.
     // 'persistent': true,
   },
@@ -87,7 +89,14 @@ module.exports = {
     {
       'matches': ['http://*/*', 'https://*/*', '<all_urls>'],
       'exclude_matches': excludeMatches,
-      'js': ['content-script.bundle.js'],
+      'js': isDev
+        ? ['content-script.bundle.js']
+        : [
+            'release-meta.js',
+            'content-script-runtime.bundle.js',
+            'content-script-vendor.bundle.js',
+            'content-script.bundle.js',
+          ],
       'run_at': 'document_start', // MUST be document_start to inject ASAP
       'all_frames': true, // including iframe inject
       'injectImmediate': true,
