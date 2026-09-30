@@ -598,13 +598,15 @@ const TradingViewNativeContent = memo(
       ) {
         return;
       }
-      onPriceUpdate?.({
+      // Read the callback through its ref: a consumer re-creating its callback
+      // (a retained route regaining ownership) must not replay an old close.
+      onPriceUpdateRef.current?.({
         price: latestPrice,
         receivedAt: Date.now(),
         source: 'history',
         timestamp: latestPriceTimestamp,
       });
-    }, [latestPrice, latestPriceTimestamp, onPriceUpdate]);
+    }, [latestPrice, latestPriceTimestamp]);
 
     const changeChartInterval = useCallback(
       (
