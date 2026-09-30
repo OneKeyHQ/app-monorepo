@@ -115,8 +115,8 @@ export interface IBuildFramesPrev {
   metaByKey: Record<ITokenKey, IToken | undefined>;
   /**
    * Raw balance by list id as of the last structure frame (aggregate ids carry
-   * their per-network sum), for balance-change detection. See
-   * `IBuildFramesResult.balanceByKey`.
+   * their per-network sum plus one entry per member network), for
+   * balance-change detection. See `IBuildFramesResult.balanceByKey`.
    */
   balanceByKey: Record<ITokenKey, string | undefined>;
 }
@@ -126,7 +126,8 @@ export interface IBuildFramesResult {
   structure?: IStructureSnapshot;
   valuation: IValuationFrame;
   /**
-   * Raw balance by list id for this round (aggregate ids: per-network sum).
+   * Raw balance by list id for this round (aggregate ids: per-network sum,
+   * plus one `buildAggregateMemberBalanceKey` entry per member network).
    * The host stores it as `prev.balanceByKey` whenever a structure frame is
    * emitted. A balance move is a structure trigger even when it changes no
    * id set and no order: the structure generation is the only signal that
@@ -135,6 +136,18 @@ export interface IBuildFramesResult {
    * floor seed among them — serving pre-transaction balances.
    */
   balanceByKey: Record<ITokenKey, string>;
+}
+
+/**
+ * `balanceByKey` entry of one aggregate member network. Aggregate ids are
+ * `aggregate_<symbol>_<networkId>` and token ids never carry the marker, so
+ * the entry cannot collide with a list id.
+ */
+export function buildAggregateMemberBalanceKey(
+  aggKey: IAggKey,
+  networkId: INetworkId,
+): ITokenKey {
+  return `${aggKey}#member#${networkId}`;
 }
 
 /**
@@ -338,6 +351,22 @@ export function buildFrames(
     if (balance !== undefined) {
       balanceByKey[key] = balance;
     }
+    // An aggregate's members are tracked one by one as well: two member moves
+    // that offset each other (both legs of a bridge landing in one round)
+    // keep the summed balance, while the per-network entries the snapshot
+    // map serves (`getAllTokenListMap` flattens `aggregateTokensMap`) moved.
+    if (isAgg(key, metaPatch[key])) {
+      const byNet = aggregateTokensMap[key];
+      if (byNet) {
+        for (const networkId of Object.keys(byNet)) {
+          const memberBalance = byNet[networkId]?.balance;
+          if (memberBalance !== undefined) {
+            balanceByKey[buildAggregateMemberBalanceKey(key, networkId)] =
+              memberBalance;
+          }
+        }
+      }
+    }
   }
 
   // --- structure-change detection (spec §4.1) ------------------------------
@@ -382,7 +411,9 @@ export function buildFrames(
   // not cross a lower row) is still a structure trigger; see
   // `IBuildFramesResult.balanceByKey`. A pure price tick leaves balances as
   // they were, so it stays valuation-only.
-  const balanceChanged = allListIds.some(
+  // Every list id (a balance that went missing counts) plus the aggregate
+  // member entries.
+  const balanceChanged = [...allListIds, ...Object.keys(balanceByKey)].some(
     (key) => balanceByKey[key] !== prev.balanceByKey[key],
   );
 
