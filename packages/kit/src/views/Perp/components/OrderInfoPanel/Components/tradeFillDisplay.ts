@@ -1,5 +1,6 @@
 import BigNumber from 'bignumber.js';
 
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { INumberFormatProps } from '@onekeyhq/shared/src/utils/numberUtils';
 import {
   formatLocalizedNumberString,
@@ -11,7 +12,13 @@ import {
   getValidSpotPriceDecimals,
   isSpotInstrument,
   isUsdcDenominatedFee,
+  parseDexCoin,
 } from '@onekeyhq/shared/src/utils/perpsUtils';
+import type { IFill } from '@onekeyhq/shared/types/hyperliquid/sdk';
+
+import { getFillDirectionDisplayInfo } from '../utils';
+
+import type { IntlShape } from 'react-intl';
 
 const usdFormatter: INumberFormatProps = {
   formatter: 'value',
@@ -82,4 +89,130 @@ export function getTradeFillClosePnlBN({
   return isUsdcDenominatedFee(feeToken)
     ? new BigNumber(closedPnl).minus(new BigNumber(fee))
     : new BigNumber(closedPnl);
+}
+
+export function canShareTradeFill(
+  fill: Pick<IFill, 'coin' | 'closedPnl' | 'liquidation'>,
+): boolean {
+  return Boolean(
+    fill.closedPnl &&
+    !new BigNumber(fill.closedPnl).isZero() &&
+    !isSpotInstrument(fill.coin) &&
+    !fill.liquidation,
+  );
+}
+
+export function getTradeFillExtraRows({
+  fill,
+  assetSymbol,
+  intl,
+}: {
+  fill: IFill;
+  assetSymbol: string;
+  intl: IntlShape;
+}) {
+  const rows: { label: ETranslations; value: string; copyValue?: string }[] = [
+    {
+      label: ETranslations.perp_trades_history_direction,
+      value: getFillDirectionDisplayInfo({ fill, intl }).text,
+    },
+    {
+      label: ETranslations.perp_trade_details_liquidity_role__title,
+      value: intl.formatMessage({
+        id: fill.crossed
+          ? ETranslations.perp_trade_details_taker__title
+          : ETranslations.perp_trade_details_maker__title,
+      }),
+    },
+    {
+      label: ETranslations.perp_trade_details_start_position__title,
+      value: `${formatLocalizedNumberString(
+        new BigNumber(fill.startPosition).isZero() ? '0' : fill.startPosition,
+      )} ${assetSymbol}`,
+    },
+    {
+      label: ETranslations.perp_trade_details_fee_token__title,
+      value: fill.feeToken,
+    },
+  ];
+  if (fill.builderFee !== undefined) {
+    rows.push({
+      label: ETranslations.perps_fee_tiers_builder_fee,
+      value: `${formatLocalizedNumberString(fill.builderFee)} ${fill.feeToken}`,
+    });
+  }
+  rows.push(
+    {
+      label: ETranslations.Limit_order_history_order_id,
+      value: String(fill.oid),
+      copyValue: String(fill.oid),
+    },
+    {
+      label: ETranslations.swap_history_detail_transaction_hash,
+      value: fill.hash,
+      copyValue: fill.hash,
+    },
+  );
+  return rows;
+}
+
+export type ITradeHistoryTypeFilter = 'all' | 'spot' | 'perp';
+export type ITradeHistoryFilters = {
+  type: ITradeHistoryTypeFilter;
+  side: 'all' | 'long' | 'short';
+  market?: string;
+};
+
+function getTradeHistoryMarket(
+  coin: string,
+  spotPairDisplayMap: Record<string, string>,
+) {
+  if (isSpotInstrument(coin)) {
+    const label = getSpotTokenDisplayName(
+      (spotPairDisplayMap[coin] || coin).split('/')[0],
+    );
+    return { coin: `spot:${label}`, label };
+  }
+  const { displayName, dexLabel } = parseDexCoin(coin);
+  return {
+    coin,
+    label: dexLabel ? `${displayName} (${dexLabel})` : displayName,
+  };
+}
+
+export function filterTradeHistory(
+  fills: IFill[],
+  filters: ITradeHistoryFilters,
+  activeCoin?: string,
+  spotPairDisplayMap: Record<string, string> = {},
+): IFill[] {
+  return fills.filter((fill) => {
+    const matchesMarket =
+      filters.market === undefined ||
+      (filters.market === 'active'
+        ? fill.coin === activeCoin
+        : getTradeHistoryMarket(fill.coin, spotPairDisplayMap).coin ===
+          filters.market);
+    return (
+      (filters.type === 'all' ||
+        isSpotInstrument(fill.coin) === (filters.type === 'spot')) &&
+      (filters.side === 'all' ||
+        fill.side === (filters.side === 'long' ? 'B' : 'A')) &&
+      matchesMarket
+    );
+  });
+}
+
+export function getTradeHistoryMarketOptions(
+  fills: IFill[],
+  spotPairDisplayMap: Record<string, string>,
+) {
+  const markets = new Map<string, { coin: string; label: string }>();
+  for (const { coin } of fills) {
+    const market = getTradeHistoryMarket(coin, spotPairDisplayMap);
+    markets.set(market.coin, market);
+  }
+  return Array.from(markets.values()).toSorted(
+    (a, b) => a.label.localeCompare(b.label) || a.coin.localeCompare(b.coin),
+  );
 }

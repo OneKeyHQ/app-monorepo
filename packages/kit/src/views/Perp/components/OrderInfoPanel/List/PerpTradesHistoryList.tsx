@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
-import BigNumber from 'bignumber.js';
+import { useNavigation } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 
 import {
-  Divider,
   type IDebugRenderTrackerProps,
+  type IPageNavigationProp,
   Skeleton,
   XStack,
   YStack,
@@ -13,23 +13,20 @@ import {
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import {
+  useActiveTradeInstrumentAtom,
   useHyperliquidActions,
   usePerpsTwapSliceFillsAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import {
   useAppIsLockedAtom,
   usePerpsActiveAccountAtom,
-  usePerpsActiveAssetAtom,
-  usePerpsLastUsedLeverageAtom,
-  useSpotPairDisplayMapAtom,
+  useSpotPairDisplayNameMapAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
-  getSpotTokenDisplayName,
-  getValidPriceDecimals,
-  isSpotInstrument,
-  parseDexCoin,
-} from '@onekeyhq/shared/src/utils/perpsUtils';
+  EModalPerpRoutes,
+  type IModalPerpParamList,
+} from '@onekeyhq/shared/src/routes/perp';
 import type {
   IFill,
   ITwapSliceFill,
@@ -39,15 +36,22 @@ import {
   usePerpTradesHistory,
   usePerpTradesHistoryViewAllUrl,
 } from '../../../hooks/usePerpOrderInfoPanel';
-import { useShowPositionShare } from '../../../hooks/useShowPositionShare';
+import { useShareTradeHistory } from '../../../hooks/useShareTradeHistory';
 import { PerpMobileEmptyState } from '../Components/PerpMobileEmptyState';
+import {
+  type ITradeHistoryFilters,
+  filterTradeHistory,
+  getTradeHistoryMarketOptions,
+} from '../Components/tradeFillDisplay';
 import { TradesHistoryRow } from '../Components/TradesHistoryRow';
 import { TRADES_HISTORY_SHARE_ACTION_WIDTH } from '../Components/TradesHistoryShareAction';
-import { getPerpFillDirectionType } from '../utils';
 
 import { CommonTableListView, type IColumnConfig } from './CommonTableListView';
 
+import type { IFundingHistoryMarketOption } from '../fundingHistoryDisplay';
+
 const TRADES_HISTORY_PAGE_SIZE = 20;
+const DEFAULT_FILTERS: ITradeHistoryFilters = { type: 'all', side: 'all' };
 
 function MobileTradesHistoryLoadingSkeleton() {
   return (
@@ -78,20 +82,6 @@ function MobileTradesHistoryLoadingSkeleton() {
               <Skeleton w="$12" h="$3" />
               <Skeleton w="$14" h="$3" />
             </YStack>
-          </XStack>
-          <Divider borderColor="$borderSubdued" />
-          <XStack px="$3" py="$3" width="100%">
-            {[0, 1, 2, 3].map((columnIndex) => (
-              <YStack
-                key={columnIndex}
-                flex={1}
-                gap="$1"
-                alignItems={columnIndex === 3 ? 'flex-end' : 'flex-start'}
-              >
-                <Skeleton w="$8" h="$2.5" />
-                <Skeleton w="$10" h="$3" />
-              </YStack>
-            ))}
           </XStack>
         </YStack>
       ))}
@@ -145,13 +135,19 @@ function filterTwapSliceFillsFromTrades({
 interface IPerpTradesHistoryListProps {
   isMobile?: boolean;
   useTabsList?: boolean;
+  filters?: ITradeHistoryFilters;
+  onMarketOptionsChange?: (options: IFundingHistoryMarketOption[]) => void;
 }
 
 function PerpTradesHistoryList({
   isMobile,
   useTabsList,
+  filters = DEFAULT_FILTERS,
+  onMarketOptionsChange,
 }: IPerpTradesHistoryListProps) {
   const intl = useIntl();
+  const [activeInstrument] = useActiveTradeInstrumentAtom();
+  const [spotPairDisplayMap] = useSpotPairDisplayNameMapAtom();
   const {
     trades,
     currentListPage,
@@ -165,10 +161,8 @@ function PerpTradesHistoryList({
   const [
     { accountAddress: twapSliceFillsAccountAddress, fills: rawTwapSliceFills },
   ] = usePerpsTwapSliceFillsAtom();
-  const [activeAsset] = usePerpsActiveAssetAtom();
-  const [lastUsedLeverage] = usePerpsLastUsedLeverageAtom();
-  const [spotPairDisplayMap] = useSpotPairDisplayMapAtom();
-  const { showPositionShare } = useShowPositionShare();
+  const handleShare = useShareTradeHistory();
+  const navigation = useNavigation<IPageNavigationProp<IModalPerpParamList>>();
   const [builderFeeRate, setBuilderFeeRate] = useState<number | undefined>();
 
   useEffect(() => {
@@ -203,133 +197,43 @@ function PerpTradesHistoryList({
     [trades, twapSliceFills],
   );
 
-  const getLeverage = useCallback(
-    async (coin: string): Promise<number> => {
-      if (lastUsedLeverage?.[coin]) {
-        return lastUsedLeverage[coin];
-      }
-      if (activeAsset?.coin === coin && activeAsset?.universe?.maxLeverage) {
-        return activeAsset.universe.maxLeverage;
-      }
-      try {
-        const symbolMeta =
-          await backgroundApiProxy.serviceHyperliquid.getSymbolMeta({ coin });
-        return symbolMeta?.universe?.maxLeverage || 1;
-      } catch {
-        return 1;
-      }
-    },
-    [activeAsset, lastUsedLeverage],
+  const marketOptions = useMemo(
+    () =>
+      getTradeHistoryMarketOptions(
+        filterTradeHistory(nonTwapTrades, { type: filters.type, side: 'all' }),
+        spotPairDisplayMap,
+      ),
+    [nonTwapTrades, filters.type, spotPairDisplayMap],
   );
-
-  const calculateEntryPrice = useCallback((fill: IFill): BigNumber | null => {
-    const sizeBN = new BigNumber(fill.sz);
-    if (sizeBN.isZero()) {
-      return null;
-    }
-
-    const exitPriceBN = new BigNumber(fill.px);
-    const pnlPerUnit = new BigNumber(fill.closedPnl).dividedBy(sizeBN);
-    const directionType = getPerpFillDirectionType(fill.dir);
-
-    if (directionType === 'closeLong') {
-      return exitPriceBN.minus(pnlPerUnit);
-    }
-
-    if (directionType === 'closeShort') {
-      return exitPriceBN.plus(pnlPerUnit);
-    }
-
-    // Spot Sell realizes PnL against the running cost basis — same math as a
-    // perp Close Long, since HL's closedPnl is pre-fee on both sides.
-    if (
-      isSpotInstrument(fill.coin) &&
-      fill.side === 'A' &&
-      !new BigNumber(fill.closedPnl).isZero()
-    ) {
-      return exitPriceBN.minus(pnlPerUnit);
-    }
-
-    return null;
-  }, []);
-
-  const handleShare = useCallback(
-    async (fill: IFill) => {
-      if (isSpotInstrument(fill.coin)) {
-        return;
-      }
-      const closedPnlBN = new BigNumber(fill.closedPnl).minus(
-        new BigNumber(fill.fee),
-      );
-      if (closedPnlBN.isZero()) {
-        return;
-      }
-      const isSpot = isSpotInstrument(fill.coin);
-      const leverage = isSpot ? 1 : await getLeverage(fill.coin);
-      const entryPriceBN = calculateEntryPrice(fill);
-
-      // Spot fill.side: 'B' = buy (~long), 'A' = sell (~short).
-      // Perp fill.side: 'A' encodes long via existing convention.
-      const isLong = isSpot ? fill.side === 'B' : fill.side === 'A';
-      let pnlPercent = '0';
-      let entryPrice = '0';
-
-      if (entryPriceBN?.gt(0)) {
-        const decimals = getValidPriceDecimals(entryPriceBN.toFixed());
-        entryPrice = entryPriceBN.toFixed(decimals);
-
-        const positionSize = new BigNumber(fill.sz);
-        const investedCapital = positionSize
-          .multipliedBy(entryPriceBN)
-          .dividedBy(leverage);
-
-        if (investedCapital.gt(0)) {
-          pnlPercent = closedPnlBN
-            .dividedBy(investedCapital)
-            .times(100)
-            .toFixed(2);
-        }
-      }
-      // parseDexCoin only handles perp coins, so spot needs its own cascade:
-      // WS-supplied display map → split "BASE/QUOTE" → raw coin.
-      let tokenDisplayName: string;
-      if (isSpot) {
-        const mapped = spotPairDisplayMap[fill.coin];
-        if (mapped) {
-          tokenDisplayName = mapped;
-        } else if (fill.coin.includes('/')) {
-          const [baseName] = fill.coin.split('/');
-          tokenDisplayName = getSpotTokenDisplayName(baseName);
-        } else {
-          tokenDisplayName = fill.coin;
-        }
-      } else {
-        tokenDisplayName = parseDexCoin(fill.coin).displayName;
-      }
-      const exitPriceBN = new BigNumber(fill.px);
-      const exitPriceDecimals = getValidPriceDecimals(fill.px);
-      const exitPrice = exitPriceBN.isFinite()
-        ? exitPriceBN.toFixed(exitPriceDecimals)
-        : '0';
-      // Spot has no separate entry vs exit — mirror the trade price so the
-      // share image doesn't show a misleading "$0" entry next to a real exit.
-      const shareEntryPrice =
-        isSpot && entryPrice === '0' ? exitPrice : entryPrice;
-      showPositionShare({
-        mode: isSpot ? 'spot' : 'perp',
-        side: isLong ? 'long' : 'short',
-        token: fill.coin,
-        tokenDisplayName,
-        pnl: String(closedPnlBN),
-        pnlPercent,
-        leverage,
-        entryPrice: shareEntryPrice,
-        markPrice: exitPrice,
-        priceType: 'exit',
-      });
-    },
-    [calculateEntryPrice, getLeverage, showPositionShare, spotPairDisplayMap],
+  useEffect(() => {
+    onMarketOptionsChange?.(marketOptions);
+  }, [marketOptions, onMarketOptionsChange]);
+  const filteredTrades = useMemo(
+    () =>
+      filterTradeHistory(
+        nonTwapTrades,
+        filters,
+        activeInstrument.coin,
+        spotPairDisplayMap,
+      ),
+    [nonTwapTrades, filters, activeInstrument.coin, spotPairDisplayMap],
   );
+  const activeMarketCoin =
+    filters.market === 'active' ? activeInstrument.coin : undefined;
+  useEffect(() => {
+    setCurrentListPage(1);
+  }, [
+    filters.type,
+    filters.side,
+    filters.market,
+    activeMarketCoin,
+    setCurrentListPage,
+  ]);
+  const hasActiveFilter =
+    filters.type !== 'all' ||
+    filters.side !== 'all' ||
+    filters.market !== undefined;
+
   const columnsConfig: IColumnConfig[] = useMemo(
     () => [
       {
@@ -368,7 +272,7 @@ function PerpTradesHistoryList({
       {
         key: 'size',
         title: intl.formatMessage({
-          id: ETranslations.perp_position_position_size,
+          id: ETranslations.perp_executed_size__title,
         }),
         minWidth: 120,
         flex: 1,
@@ -386,7 +290,7 @@ function PerpTradesHistoryList({
       {
         key: 'fee',
         title: intl.formatMessage({
-          id: ETranslations.perp_trades_history_fee,
+          id: ETranslations.perp_fee__title,
         }),
         minWidth: 100,
         flex: 1,
@@ -414,6 +318,16 @@ function PerpTradesHistoryList({
     [columnsConfig],
   );
 
+  const handleViewDetails = useCallback(
+    (fill: IFill) => {
+      navigation.push(EModalPerpRoutes.PerpTradeHistoryDetails, {
+        fill,
+        builderFeeRate,
+      });
+    },
+    [navigation, builderFeeRate],
+  );
+
   const renderTradesHistoryRow = useCallback(
     (
       item: IFill,
@@ -429,13 +343,21 @@ function PerpTradesHistoryList({
         columnConfigs={columnsConfig}
         index={_index}
         onShare={handleShare}
+        onPress={isMobile ? handleViewDetails : undefined}
         renderMode={renderMode}
         isHovered={isHovered}
         onHoverChange={onHoverChange}
         builderFeeRate={builderFeeRate}
       />
     ),
-    [isMobile, totalMinWidth, columnsConfig, handleShare, builderFeeRate],
+    [
+      isMobile,
+      totalMinWidth,
+      columnsConfig,
+      handleShare,
+      builderFeeRate,
+      handleViewDetails,
+    ],
   );
   const [isLocked] = useAppIsLockedAtom();
 
@@ -462,7 +384,7 @@ function PerpTradesHistoryList({
       currentListPage={currentListPage}
       setCurrentListPage={setCurrentListPage}
       columns={columnsConfig}
-      data={nonTwapTrades}
+      data={filteredTrades}
       isMobile={isMobile}
       minTableWidth={totalMinWidth}
       renderRow={renderTradesHistoryRow}
@@ -471,7 +393,9 @@ function PerpTradesHistoryList({
           <PerpMobileEmptyState
             contentOffsetY={-96}
             title={intl.formatMessage({
-              id: ETranslations.perp_trade_history_empty,
+              id: hasActiveFilter
+                ? ETranslations.global_search_no_results_title
+                : ETranslations.perp_trade_history_empty,
             })}
             description={intl.formatMessage({
               id: ETranslations.perp_trades_history_recent_range_desc,
@@ -480,7 +404,9 @@ function PerpTradesHistoryList({
         ) : undefined
       }
       emptyMessage={intl.formatMessage({
-        id: ETranslations.perp_trade_history_empty,
+        id: hasActiveFilter
+          ? ETranslations.global_search_no_results_title
+          : ETranslations.perp_trade_history_empty,
       })}
       emptySubMessage={intl.formatMessage({
         id: ETranslations.perp_trades_history_recent_range_desc,
@@ -493,7 +419,7 @@ function PerpTradesHistoryList({
         isMobile ? <MobileTradesHistoryLoadingSkeleton /> : undefined
       }
       onViewAll={
-        !isMobile && nonTwapTrades.length > TRADES_HISTORY_PAGE_SIZE
+        !isMobile && filteredTrades.length > TRADES_HISTORY_PAGE_SIZE
           ? onViewAllUrl
           : undefined
       }
