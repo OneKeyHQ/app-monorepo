@@ -33,6 +33,12 @@ export enum EPrimeAuthSessionSource {
   KeylessOAuth = 'keyless_oauth',
 }
 
+export type IPrimeInfiniCheckoutAuthContext = {
+  onekeyUserId: string;
+  authSessionSource: EPrimeAuthSessionSource;
+  authStateGeneration: number;
+};
+
 export enum EOneKeyIdOAuthFlowStatus {
   Success = 'success',
 }

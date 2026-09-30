@@ -35,11 +35,13 @@ function PagePortal({ pagePortalId }: { pagePortalId: string }) {
   return pagePortalId ? <Portal.Container name={pagePortalId} /> : null;
 }
 
+const DEFAULT_SCROLL_PROPS = { showsVerticalScrollIndicator: false };
+
 function PageProvider({
   children,
   lazyLoad = false,
   scrollEnabled = false,
-  scrollProps = { showsVerticalScrollIndicator: false },
+  scrollProps = DEFAULT_SCROLL_PROPS,
   safeAreaEnabled = true,
   fullPage,
   testID,
