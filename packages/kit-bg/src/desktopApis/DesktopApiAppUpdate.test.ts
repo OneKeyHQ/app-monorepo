@@ -30,6 +30,15 @@ const mockAppQuit = jest.fn();
 const mockAppExit = jest.fn();
 const mockAppRelaunch = jest.fn();
 const mockAppGetVersion = jest.fn(() => '5.9.0');
+let mockTempDir: string;
+const mockApp = Object.assign(new EventEmitter(), {
+  getPath: jest.fn(() => mockTempDir),
+  getVersion: mockAppGetVersion,
+  quit: mockAppQuit,
+  exit: mockAppExit,
+  relaunch: mockAppRelaunch,
+});
+const mockGetAllWindows = jest.fn((): unknown[] => []);
 const mockOpenPath = jest.fn(async () => '');
 const mockShowMessageBox = jest.fn(async () => ({ response: 0 }));
 const mockStore = {
@@ -51,18 +60,10 @@ const mockDownloadNodeFile = jest.fn(
 const mockRequestUpdateUrl = jest.fn();
 const mockReadCleartextMessage = jest.fn();
 const mockReadKey = jest.fn();
-let mockTempDir: string;
 
 jest.mock('electron', () => ({
-  BrowserWindow: { getAllWindows: jest.fn(() => []) },
-  app: {
-    getPath: jest.fn(() => mockTempDir),
-    getVersion: mockAppGetVersion,
-    quit: mockAppQuit,
-    exit: mockAppExit,
-    relaunch: mockAppRelaunch,
-    removeAllListeners: jest.fn(),
-  },
+  BrowserWindow: { getAllWindows: mockGetAllWindows },
+  app: mockApp,
   autoUpdater: mockNativeUpdater,
   dialog: { showMessageBox: mockShowMessageBox },
   shell: { openPath: mockOpenPath },
@@ -186,6 +187,8 @@ async function preparePackage(platform: NodeJS.Platform, channel?: string) {
 
 beforeEach(() => {
   jest.clearAllMocks();
+  mockApp.removeAllListeners();
+  mockGetAllWindows.mockReturnValue([]);
   mockAppGetVersion.mockReturnValue('5.9.0');
   mockStore.getASCFile.mockReturnValue('');
   mockNativeUpdater.removeAllListeners();
@@ -381,6 +384,20 @@ test('macOS never stages when ASC verification fails', async () => {
 
 test('macOS keeps running if native quit handoff throws after staging', async () => {
   const { api, params } = await preparePackage('darwin');
+  const onWindowAllClosed = jest.fn();
+  const onActivate = jest.fn();
+  const onClose = jest.fn();
+  let destroyed = false;
+  const window = Object.assign(new EventEmitter(), {
+    isDestroyed: jest.fn(() => destroyed),
+    close: jest.fn(() => {
+      destroyed = true;
+    }),
+  });
+  mockApp.on('window-all-closed', onWindowAllClosed);
+  mockApp.on('activate', onActivate);
+  window.on('close', onClose);
+  mockGetAllWindows.mockReturnValue([window]);
   mockNativeUpdater.quitAndInstall.mockImplementationOnce(() => {
     throw new OneKeyLocalError('native handoff failed');
   });
@@ -388,6 +405,10 @@ test('macOS keeps running if native quit handoff throws after staging', async ()
     'native handoff failed',
   );
   expect(mockNativeUpdater.setFeedURL).toHaveBeenCalledTimes(1);
+  expect(window.close).toHaveBeenCalledTimes(1);
+  expect(mockApp.listeners('window-all-closed')).toContain(onWindowAllClosed);
+  expect(onActivate).toHaveBeenCalledTimes(1);
+  expect(mockNativeUpdater.listenerCount('before-quit-for-update')).toBe(0);
   expect(mockAppExit).not.toHaveBeenCalled();
 });
 

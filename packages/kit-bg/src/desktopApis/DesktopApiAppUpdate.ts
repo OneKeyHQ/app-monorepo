@@ -901,6 +901,20 @@ class DesktopApiAppUpdate {
       if (this.macInstallInProgress) return false;
       this.macInstallInProgress = true;
       let staged = false;
+      const windowAllClosedListeners = app.listeners('window-all-closed');
+      const windowCloseListeners = BrowserWindow.getAllWindows().map(
+        (window) => ({ window, listeners: window.listeners('close') }),
+      );
+      let nativeQuitTimeout: ReturnType<typeof setTimeout> | undefined;
+      const onBeforeQuitForUpdate = () => {
+        nativeQuitTimeout = setTimeout(() => {
+          logger.warn(
+            'auto-updater',
+            'Native update quit timed out; forcing exit',
+          );
+          app.exit();
+        }, 15_000);
+      };
       try {
         await this.stageMacUpdate(record);
         staged = true;
@@ -913,20 +927,32 @@ class DesktopApiAppUpdate {
             window.close();
           }
         });
-        autoUpdater.once('before-quit-for-update', () => {
-          setTimeout(() => {
-            logger.warn(
-              'auto-updater',
-              'Native update quit timed out; forcing exit',
-            );
-            app.exit();
-          }, 15_000);
-        });
+        autoUpdater.once('before-quit-for-update', onBeforeQuitForUpdate);
         store.setUpdateBuildNumber(params.buildNumber);
         autoUpdater.quitAndInstall();
         return true;
       } catch (error) {
         if (staged) {
+          autoUpdater.removeListener(
+            'before-quit-for-update',
+            onBeforeQuitForUpdate,
+          );
+          if (nativeQuitTimeout) clearTimeout(nativeQuitTimeout);
+          windowAllClosedListeners.forEach((listener) => {
+            if (!app.listeners('window-all-closed').includes(listener)) {
+              app.on('window-all-closed', listener as () => void);
+            }
+          });
+          windowCloseListeners.forEach(({ window, listeners }) => {
+            if (!window.isDestroyed()) {
+              listeners.forEach((listener) => {
+                if (!window.listeners('close').includes(listener)) {
+                  window.on('close', listener as () => void);
+                }
+              });
+            }
+          });
+          app.emit('activate');
           logger.error(
             'auto-updater',
             'Staged macOS update handoff failed',
