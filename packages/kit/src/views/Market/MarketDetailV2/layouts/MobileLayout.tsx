@@ -78,11 +78,13 @@ import { LazyMobileMarketTradingView } from '../components/MarketTradingView/Laz
 import { PerpetualTradingBanner } from '../components/PerpetualTradingBanner/PerpetualTradingBanner';
 import { useStockDetail } from '../hooks/StockDetailContext';
 import { useMarketDetailDisplayData } from '../hooks/useMarketDetailDisplayData';
+import { useMarketKlineLivePrice } from '../hooks/useMarketKlineLivePrice';
 import { useMarketNativeChartLayout } from '../hooks/useMarketNativeChartLayout';
 import { useMarketNativeChartPriceUpdate } from '../hooks/useMarketNativeChartPriceUpdate';
 import { useMarketTradingViewParams } from '../hooks/useTokenDetail';
 import { useTradingViewSubIndicatorCount } from '../hooks/useTradingViewSubIndicatorCount';
 import { getMarketDetailTradingViewNativeSource } from '../utils/getMarketDetailTradingViewNativeSource';
+import { resolveMarketNativeChartFallbackQuoteEnabled } from '../utils/marketNativeChartFallbackQuote';
 import { getMarketStockChartPreviousClose } from '../utils/marketStockPreviousClose';
 import {
   hasMarketContractAddress,
@@ -358,6 +360,7 @@ function MobileMarketTradingView({
 }
 
 export interface IMobileLayoutProps {
+  active?: boolean;
   isLayoutPending?: boolean;
   isInitialContentPending?: boolean;
   disablePerpsBanner?: boolean;
@@ -374,6 +377,7 @@ export interface IMobileLayoutProps {
 }
 
 export function MobileLayout({
+  active,
   isLayoutPending,
   isInitialContentPending,
   disablePerpsBanner,
@@ -424,6 +428,7 @@ export function MobileLayout({
   const handleNativeChartPriceUpdate = useMarketNativeChartPriceUpdate({
     networkId,
     tokenAddress,
+    enabled: active !== false,
   });
   const marketTradingViewParams = useMarketTradingViewParams({
     tokenAddress,
@@ -519,6 +524,18 @@ export function MobileLayout({
       tokenSymbol,
     ],
   );
+  useMarketKlineLivePrice({
+    enabled: resolveMarketNativeChartFallbackQuoteEnabled({
+      active,
+      isTradingViewNative,
+      source: tradingViewNativeSource,
+      isNative,
+      networkId,
+      tokenAddress,
+    }),
+    networkId,
+    tokenAddress,
+  });
   const { accountAddress, xpub } = useNetworkAccount(networkId);
   const accountMarksContext = useMemo(
     () => ({ accountAddress, networkId, tokenAddress }),

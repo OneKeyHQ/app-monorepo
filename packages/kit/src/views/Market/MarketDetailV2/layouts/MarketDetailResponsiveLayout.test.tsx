@@ -8,6 +8,7 @@ import type { IMarketDetailResponsiveLayoutProps } from './MarketDetailResponsiv
 
 const mockLayoutMount = jest.fn();
 const mockLayoutUnmount = jest.fn();
+const mockMobileLayout = jest.fn((_props: Record<string, unknown>) => null);
 
 jest.mock('@onekeyhq/components', () => {
   const React = jest.requireActual<typeof import('react')>('react');
@@ -40,7 +41,10 @@ jest.mock('./DesktopLayout', () => {
   };
 });
 
-jest.mock('./MobileLayout', () => ({ MobileLayout: () => null }));
+jest.mock('./MobileLayout', () => ({
+  MobileLayout: (layoutProps: Record<string, unknown>) =>
+    mockMobileLayout(layoutProps),
+}));
 
 const props: IMarketDetailResponsiveLayoutProps = {
   isDesktopLayout: true,
@@ -55,6 +59,22 @@ const props: IMarketDetailResponsiveLayoutProps = {
 
 describe('Market detail layout resolution', () => {
   beforeEach(() => jest.clearAllMocks());
+
+  it.each([true, false])(
+    'passes route ownership to narrow layouts: %s',
+    (active) => {
+      render(
+        <MarketDetailResponsiveLayout
+          {...props}
+          isDesktopLayout={false}
+          active={active}
+        />,
+      );
+      expect(mockMobileLayout).toHaveBeenCalledWith(
+        expect.objectContaining({ active }),
+      );
+    },
+  );
 
   it.each(['top_coins', undefined])(
     'mounts the desktop content only after resolving category %s',
