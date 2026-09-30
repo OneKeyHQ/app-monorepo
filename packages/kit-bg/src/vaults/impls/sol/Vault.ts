@@ -107,8 +107,11 @@ import { KeyringImported } from './KeyringImported';
 import { KeyringQr } from './KeyringQr';
 import { KeyringWatching } from './KeyringWatching';
 import {
+  BUBBLEGUM_PROGRAM_ID,
+  SPL_ACCOUNT_COMPRESSION_PROGRAM_ID,
   buildBubblegumTransferInstruction,
   decodeBubblegumTransferInstruction,
+  getBubblegumAssetId,
   parseConcurrentMerkleTreeAccount,
   truncateProofForCanopy,
 } from './sdkSol/bubblegum';
@@ -784,7 +787,17 @@ export default class Vault extends VaultBase {
       }
       return null;
     }
-    return asset?.compression?.compressed ? asset : null;
+    if (!asset?.compression?.compressed) {
+      return null;
+    }
+    // The DAS response is untrusted input for the tx builder; make sure it
+    // describes the asset the user picked before any of it is used.
+    if (asset.id !== assetId) {
+      throw new OneKeyLocalError(
+        'Compressed NFT data does not match the requested asset',
+      );
+    }
+    return asset;
   }
 
   async _buildCompressedNFTInstructions({
@@ -807,15 +820,47 @@ export default class Vault extends VaultBase {
       throw new OneKeyLocalError('Compressed NFT is not owned by the sender');
     }
 
+    // The chain only verifies that the leaf and proof are consistent with
+    // each other, not which asset the wallet meant to move. Tie the tree and
+    // leaf back to the asset id (a PDA of both) and require the proof to be
+    // for that same tree, so a mismatched DAS response cannot yield a valid
+    // transfer of a different cNFT.
+    const merkleTree = new PublicKey(compression.tree);
+    const derivedAssetId = getBubblegumAssetId({
+      merkleTree,
+      nonce: compression.leaf_id,
+    });
+    if (derivedAssetId.toBase58() !== asset.id) {
+      throw new OneKeyLocalError(
+        'Compressed NFT data does not match the requested asset',
+      );
+    }
+
     const client = await this.getClient();
     const assetProof = await client.getAssetProof(asset.id);
+    if (assetProof.tree_id !== compression.tree) {
+      throw new OneKeyLocalError(
+        'Compressed NFT proof does not match the asset merkle tree',
+      );
+    }
     const treeAccountInfo = await client.getAccountInfo({
-      address: assetProof.tree_id,
+      address: compression.tree,
       encoding: EParamsEncodings.BASE64,
     });
     if (!treeAccountInfo) {
       throw new OneKeyLocalError(
         'Compressed NFT merkle tree account not found',
+      );
+    }
+    // Bubblegum V2 trees share the V1 header layout but are owned by
+    // mpl-account-compression and need `transfer_v2` with different helper
+    // programs; fail fast instead of signing a tx that preflight rejects.
+    if (
+      treeAccountInfo.owner.toString() !==
+      SPL_ACCOUNT_COMPRESSION_PROGRAM_ID.toBase58()
+    ) {
+      throw new OneKeyLocalError(
+        'Bubblegum V2 compressed NFT transfer is not supported yet',
       );
     }
     const { canopyDepth } = parseConcurrentMerkleTreeAccount(
@@ -827,7 +872,7 @@ export default class Vault extends VaultBase {
     });
 
     const instruction = buildBubblegumTransferInstruction({
-      merkleTree: new PublicKey(assetProof.tree_id),
+      merkleTree,
       leafOwner: source,
       leafDelegate: ownership.delegate
         ? new PublicKey(ownership.delegate)
@@ -1371,6 +1416,13 @@ export default class Vault extends VaultBase {
         // eslint-disable-next-line no-continue
         continue;
       }
+      if (instruction.programId.equals(BUBBLEGUM_PROGRAM_ID)) {
+        // Only `transfer` is decoded locally. Bubblegum is in the known
+        // Metaplex set, so any other instruction (burn, delegate, ...) would
+        // otherwise be dropped silently; treat it as custom so the tx falls
+        // back to the server-parsed UNKNOWN view instead.
+        hasCustomProgram = true;
+      }
 
       // TODO: only support system transfer & token transfer now
       if (
@@ -1608,8 +1660,11 @@ export default class Vault extends VaultBase {
     } catch {
       // keep empty metadata
     }
+    // Direction is derived from the transfer `from`: use the signing
+    // authority so a transfer this wallet signs as leafDelegate counts as a
+    // spend, while the action keeps the real owner as `from` for display.
     const transferInfo: IDecodedTxTransferInfo = {
-      from: transfer.leafOwner,
+      from: transfer.authority,
       to: transfer.newLeafOwner,
       tokenIdOnNetwork: transfer.assetId,
       icon,

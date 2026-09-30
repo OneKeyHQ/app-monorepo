@@ -1,4 +1,8 @@
-import { PublicKey } from '@solana/web3.js';
+import {
+  PublicKey,
+  SystemProgram,
+  TransactionInstruction,
+} from '@solana/web3.js';
 
 // Importing the vault pulls in the localDb singleton, whose constructor opens
 // IndexedDB at module load and crashes under jest's node environment.
@@ -147,6 +151,16 @@ describe('SolVault compressed NFT detection', () => {
       vault._resolveCompressedNft({ assetId: ASSET_ID }),
     ).resolves.toBeNull();
   });
+
+  it('rejects when DAS returns a different asset than requested', async () => {
+    const getAsset = jest
+      .fn()
+      .mockResolvedValue({ ...compressedAsset, id: TO });
+    const vault = buildVault({ getAsset });
+    await expect(
+      vault._resolveCompressedNft({ assetId: ASSET_ID }),
+    ).rejects.toThrow('Compressed NFT data does not match the requested asset');
+  });
 });
 
 describe('SolVault._buildCompressedNFTInstructions', () => {
@@ -264,6 +278,64 @@ describe('SolVault._buildCompressedNFTInstructions', () => {
       }),
     ).rejects.toThrow('Compressed NFT proof is too large');
   });
+
+  it('rejects when the tree and leaf id do not derive the asset id', async () => {
+    const getAssetProof = jest.fn();
+    const vault = buildVault({ getAssetProof });
+    await expect(
+      vault._buildCompressedNFTInstructions({
+        asset: {
+          ...compressedAsset,
+          compression: {
+            ...(compressedAsset.compression as NonNullable<
+              IDasAsset['compression']
+            >),
+            leaf_id: 98_358,
+          },
+        },
+        source: new PublicKey(OWNER),
+        destination: new PublicKey(TO),
+      }),
+    ).rejects.toThrow('Compressed NFT data does not match the requested asset');
+    expect(getAssetProof).not.toHaveBeenCalled();
+  });
+
+  it('rejects when the proof is for a different merkle tree', async () => {
+    const getAssetProof = jest
+      .fn()
+      .mockResolvedValue({ ...assetProof, tree_id: TO });
+    const getAccountInfo = jest.fn();
+    const vault = buildVault({ getAssetProof, getAccountInfo });
+    await expect(
+      vault._buildCompressedNFTInstructions({
+        asset: compressedAsset,
+        source: new PublicKey(OWNER),
+        destination: new PublicKey(TO),
+      }),
+    ).rejects.toThrow(
+      'Compressed NFT proof does not match the asset merkle tree',
+    );
+    expect(getAccountInfo).not.toHaveBeenCalled();
+  });
+
+  it('rejects a tree not owned by spl-account-compression (Bubblegum V2)', async () => {
+    const getAssetProof = jest.fn().mockResolvedValue(assetProof);
+    // Bubblegum V2 trees share the header layout but belong to
+    // mpl-account-compression, so only the owner tells them apart.
+    const getAccountInfo = jest
+      .fn()
+      .mockResolvedValue({ ...buildTreeAccountInfo(), owner: TO });
+    const vault = buildVault({ getAssetProof, getAccountInfo });
+    await expect(
+      vault._buildCompressedNFTInstructions({
+        asset: compressedAsset,
+        source: new PublicKey(OWNER),
+        destination: new PublicKey(TO),
+      }),
+    ).rejects.toThrow(
+      'Bubblegum V2 compressed NFT transfer is not supported yet',
+    );
+  });
 });
 
 describe('SolVault._buildInstructionsForTransfer routing', () => {
@@ -374,5 +446,84 @@ describe('SolVault._decodeNativeTxActions for Bubblegum transfers', () => {
         name: '',
       }),
     );
+  });
+
+  it('classifies a transfer this wallet signs as leafDelegate as a send', async () => {
+    const ix = await buildGoldenInstruction();
+    // Another wallet owns the leaf; this wallet (OWNER) is the delegate and
+    // the only signer.
+    const realOwner = '11111111111111111111111111111113';
+    ix.keys[1] = {
+      pubkey: new PublicKey(realOwner),
+      isSigner: false,
+      isWritable: false,
+    };
+    ix.keys[2] = {
+      pubkey: new PublicKey(OWNER),
+      isSigner: true,
+      isWritable: false,
+    };
+    const vault = buildDecodeVault(
+      jest.fn().mockResolvedValue(compressedAsset),
+    );
+
+    const actions = await vault._decodeNativeTxActions({
+      instructions: [ix],
+      isNFT: true,
+      amountToSend: '1',
+      sendTokenInfo: undefined,
+    });
+
+    expect(actions[0].type).toBe('ASSET_TRANSFER');
+    // The real owner stays on the action while the NFT counts as a spend.
+    expect(actions[0].assetTransfer?.from).toBe(realOwner);
+    expect(actions[0].assetTransfer?.receives).toEqual([]);
+    expect(actions[0].assetTransfer?.sends).toEqual([
+      expect.objectContaining({
+        from: OWNER,
+        to: TO,
+        tokenIdOnNetwork: ASSET_ID,
+      }),
+    ]);
+  });
+
+  it('falls back to UNKNOWN when a non-transfer Bubblegum instruction is present', async () => {
+    // sha256("global:burn")[0..8]: a Bubblegum instruction the wallet does
+    // not decode locally.
+    const burnIx = new TransactionInstruction({
+      programId: BUBBLEGUM_PROGRAM_ID,
+      keys: [],
+      data: Buffer.from('746e1d386bdb2a5d', 'hex'),
+    });
+    const systemTransfer = SystemProgram.transfer({
+      fromPubkey: new PublicKey(OWNER),
+      toPubkey: new PublicKey(TO),
+      lamports: 1,
+    });
+    const vault = buildDecodeVault(jest.fn());
+    vault.backgroundApi = {
+      serviceToken: {
+        getNativeToken: jest.fn().mockResolvedValue({
+          address: '',
+          name: 'Solana',
+          symbol: 'SOL',
+          decimals: 9,
+          logoURI: '',
+        }),
+      },
+    } as never;
+
+    const actions = await vault._decodeNativeTxActions({
+      instructions: [burnIx, systemTransfer],
+      isNFT: false,
+      amountToSend: undefined,
+      sendTokenInfo: undefined,
+    });
+
+    // The plain SOL transfer must not be shown as the only action while the
+    // burn is dropped silently.
+    expect(actions).toEqual([
+      { type: 'UNKNOWN', unknownAction: { from: OWNER, to: '' } },
+    ]);
   });
 });

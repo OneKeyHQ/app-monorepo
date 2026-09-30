@@ -47,6 +47,9 @@ export interface IBubblegumTransferDecoded {
   leafOwner: string;
   leafDelegate: string;
   newLeafOwner: string;
+  // Bubblegum accepts either leafOwner or leafDelegate as the signer; this is
+  // the account whose signature actually authorizes the transfer.
+  authority: string;
   merkleTree: string;
   nonce: number;
   index: number;
@@ -218,11 +221,20 @@ export function decodeBubblegumTransferInstruction(
   }
   const nonce = Number(instruction.data.readBigUInt64LE(NONCE_OFFSET));
   const index = instruction.data.readUInt32LE(INDEX_OFFSET);
-  const merkleTree = instruction.keys[4].pubkey;
+  const [, leafOwner, leafDelegate, newLeafOwner, merkleTreeKey] =
+    instruction.keys;
+  const merkleTree = merkleTreeKey.pubkey;
+  // Prefer the owner when both are marked as signers; also fall back to the
+  // owner when neither is (the program rejects such a tx anyway).
+  const authority =
+    !leafOwner.isSigner && leafDelegate.isSigner
+      ? leafDelegate.pubkey
+      : leafOwner.pubkey;
   return {
-    leafOwner: instruction.keys[1].pubkey.toString(),
-    leafDelegate: instruction.keys[2].pubkey.toString(),
-    newLeafOwner: instruction.keys[3].pubkey.toString(),
+    leafOwner: leafOwner.pubkey.toString(),
+    leafDelegate: leafDelegate.pubkey.toString(),
+    newLeafOwner: newLeafOwner.pubkey.toString(),
+    authority: authority.toString(),
     merkleTree: merkleTree.toString(),
     nonce,
     index,

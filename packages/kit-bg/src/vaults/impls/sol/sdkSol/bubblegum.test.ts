@@ -206,11 +206,26 @@ describe('decodeBubblegumTransferInstruction', () => {
       leafOwner: GOLDEN.owner,
       leafDelegate: GOLDEN.owner,
       newLeafOwner: GOLDEN.to,
+      authority: GOLDEN.owner,
       merkleTree: GOLDEN.tree,
       nonce: GOLDEN.leafId,
       index: GOLDEN.leafId,
       assetId: GOLDEN.assetId,
     });
+  });
+
+  it('reports the delegate as authority when only the delegate signs', () => {
+    const ix = buildGoldenInstruction();
+    const delegate = new PublicKey('11111111111111111111111111111113');
+    ix.keys[1] = { ...ix.keys[1], isSigner: false };
+    ix.keys[2] = { pubkey: delegate, isSigner: true, isWritable: false };
+    expect(decodeBubblegumTransferInstruction(ix)).toEqual(
+      expect.objectContaining({
+        leafOwner: GOLDEN.owner,
+        leafDelegate: delegate.toBase58(),
+        authority: delegate.toBase58(),
+      }),
+    );
   });
 
   it('returns null for a system transfer', () => {
