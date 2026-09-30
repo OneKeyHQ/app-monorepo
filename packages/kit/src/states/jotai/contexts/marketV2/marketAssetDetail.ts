@@ -22,35 +22,13 @@ import {
   tokenDetailRequestIdAtom,
   tokenDetailWebsocketAtom,
 } from './atoms';
+import {
+  isSameMarketTokenDetail,
+  mergeMarketTokenDetailPrice,
+} from './marketTokenDetailPrice';
 
-const CHART_PRICE_FRESHNESS_MS = 10_000;
 const MARKET_ASSET_DETAIL_CURRENCY = 'usd';
 const MARKET_CHART_FALLBACK_DECIMALS = 2;
-
-function isSameMarketTokenDetail({
-  tokenDetail,
-  tokenAddress,
-  networkId,
-}: {
-  tokenDetail?: IMarketTokenDetail;
-  tokenAddress: string;
-  networkId: string;
-}) {
-  if (!tokenDetail) {
-    return false;
-  }
-
-  return equalTokenNoCaseSensitive({
-    token1: {
-      networkId,
-      contractAddress: tokenAddress,
-    },
-    token2: {
-      networkId: tokenDetail.networkId || '',
-      contractAddress: tokenDetail.address || '',
-    },
-  });
-}
 
 function isValidTokenDecimals(value: unknown): value is number {
   return (
@@ -138,6 +116,7 @@ async function fetchMarketAssetTokenDetail(
   payload: IMarketAssetTokenDetailPayload,
 ): Promise<IMarketAssetDetailData> {
   const { assetId, variantId, tokenAddress, networkId } = payload;
+  const requestStartedAt = Date.now();
   const requestId = get(tokenDetailRequestIdAtom()) + 1;
   set(tokenDetailRequestIdAtom(), requestId);
   let isStale = false;
@@ -238,24 +217,12 @@ async function fetchMarketAssetTokenDetail(
       decimals: isValidTokenDecimals(decimals) ? decimals : undefined,
       lastUpdated,
     });
-    const chartPriceUpdatedAt = currentTokenDetail?.chartPriceUpdatedAt;
-    const hasFreshKLinePrice =
-      isSameMarketTokenDetail({
-        tokenDetail: currentTokenDetail,
-        tokenAddress,
-        networkId,
-      }) &&
-      typeof chartPriceUpdatedAt === 'number' &&
-      Number.isFinite(chartPriceUpdatedAt) &&
-      lastUpdated - chartPriceUpdatedAt < CHART_PRICE_FRESHNESS_MS;
-    const finalTokenData = hasFreshKLinePrice
-      ? {
-          ...tokenData,
-          price: currentTokenDetail?.price,
-          lastUpdated: currentTokenDetail?.lastUpdated,
-          chartPriceUpdatedAt,
-        }
-      : tokenData;
+    // Chart updates may arrive while the decimals lookup is in flight.
+    const finalTokenData = mergeMarketTokenDetailPrice({
+      currentTokenDetail: get(tokenDetailAtom()),
+      tokenData,
+      requestStartedAt,
+    });
 
     set(tokenDetailAtom(), finalTokenData);
     set(tokenDetailPreviewAtom(), undefined);
