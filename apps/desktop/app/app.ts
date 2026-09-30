@@ -332,7 +332,9 @@ const getSafelyMainWindow = () => {
   return undefined;
 };
 
-function showMainWindow() {
+let softRestarting = false;
+function showMainWindow(allowDuringSoftRestart = false) {
+  if (softRestarting && !allowDuringSoftRestart) return;
   const safelyMainWindow = getSafelyMainWindow();
   safelyMainWindow?.show();
   safelyMainWindow?.focus();
@@ -345,7 +347,6 @@ function showMainWindow() {
 // and switches the active file:// handler before loading the new bundle.
 // The active bundle pointer was already written to the main-process store
 // (store.setUpdateBundleData) before this runs, so no extra path wiring is needed.
-let softRestarting = false;
 let softRestartLoadPromise: Promise<void> | undefined;
 async function softRestartRenderer() {
   if (softRestarting) {
@@ -410,7 +411,7 @@ async function softRestartRenderer() {
     } finally {
       if (loadTimeout) clearTimeout(loadTimeout);
     }
-    showMainWindow();
+    showMainWindow(true);
     logger.info('[softRestart] done: renderer recreated with new bundle', {
       durationMs: Date.now() - startedAt,
       indexHtml:
