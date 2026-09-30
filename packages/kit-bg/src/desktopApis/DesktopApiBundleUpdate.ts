@@ -30,6 +30,7 @@ import type {
 } from '@onekeyhq/shared/src/modules3rdParty/auto-update/type';
 import type { IDesktopStoreUpdateBundleData } from '@onekeyhq/shared/types/desktop';
 
+import { requestUpdateUrl } from './electronUpdateRequest';
 import { downloadNodeFile } from './nodeDownload';
 
 import type { IDesktopApi } from './base/types';
@@ -415,7 +416,14 @@ class DesktopApiAppBundleUpdate {
   private async runDownloadBundle(
     params: IDownloadPackageParams,
   ): Promise<IUpdateDownloadedEvent> {
-    const { latestVersion, bundleVersion, downloadUrl, sha256 } = params;
+    const {
+      latestVersion,
+      bundleVersion,
+      downloadUrl,
+      sha256,
+      fileSize,
+      headers,
+    } = params;
     if (this.isDownloading) {
       logger.info('bundle-download', 'Download already in progress, skipping');
       return undefined;
@@ -436,7 +444,15 @@ class DesktopApiAppBundleUpdate {
         url: downloadUrl,
         targetPath: filePath,
         identity: `bundle:${latestVersion}:${bundleVersion}:${downloadUrl}:${sha256}`,
+        headers,
+        expectedBytes:
+          typeof fileSize === 'number' &&
+          Number.isSafeInteger(fileSize) &&
+          fileSize > 0
+            ? fileSize
+            : undefined,
         expectedSha256: sha256,
+        transport: requestUpdateUrl,
         signal: controller.signal,
         onProgress: (progress) => {
           this.getMainWindow()?.webContents.send(

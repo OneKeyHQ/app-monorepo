@@ -9,12 +9,25 @@ import selfsigned from 'selfsigned';
 
 import { downloadNodeFile } from './nodeDownload';
 
+import type { INodeDownloadOptions } from './nodeDownload';
 import type { AddressInfo } from 'net';
 
 const pems = selfsigned.generate([{ name: 'commonName', value: 'localhost' }], {
   days: 1,
   keySize: 2048,
 });
+
+const testTransport: NonNullable<INodeDownloadOptions['transport']> = (
+  url,
+  headers,
+  signal,
+) =>
+  new Promise((resolve, reject) => {
+    const request = https.get(url, { headers, signal }, (response) =>
+      resolve({ response, url }),
+    );
+    request.once('error', reject);
+  });
 
 describe('nodeDownload', () => {
   let dir: string;
@@ -31,7 +44,7 @@ describe('nodeDownload', () => {
     fs.rmSync(dir, { recursive: true, force: true });
   });
 
-  test('assembles eight ranges and checks SHA-512 before promotion', async () => {
+  test('assembles eight ranges through a supplied transport', async () => {
     const content = crypto.randomBytes(3 * 1024 * 1024);
     const ranges: string[] = [];
     const server = https.createServer(
@@ -68,6 +81,7 @@ describe('nodeDownload', () => {
         url: `https://localhost:${port}/installer.zip`,
         targetPath,
         identity: 'mac-arm64:1.2.3',
+        transport: testTransport,
         expectedSha512: crypto
           .createHash('sha512')
           .update(content)
@@ -149,6 +163,7 @@ describe('nodeDownload', () => {
         url: `https://localhost:${port}/installer.zip`,
         targetPath,
         identity: 'mac-arm64:2.0.0',
+        transport: testTransport,
         expectedSha512: crypto
           .createHash('sha512')
           .update(content)

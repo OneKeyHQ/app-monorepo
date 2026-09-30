@@ -54,6 +54,21 @@ import type { AddressInfo } from 'net';
 // (Copied from desktopBundleUpdateE2eHarness.ts JEST_MOCK_BLOCK — jest.mock
 // hoists per-file so it cannot be shared via the helper.)
 jest.mock('electron', () => ({ app: { getPath: () => USERDATA } }));
+jest.mock('./electronUpdateRequest', () => ({
+  requestUpdateUrl: (
+    url: string,
+    headers: Record<string, string>,
+    signal?: AbortSignal,
+  ) =>
+    new Promise((resolve, reject) => {
+      const request = require('https').get(
+        url,
+        { headers, signal },
+        (response: unknown) => resolve({ response, url }),
+      );
+      request.once('error', reject);
+    }),
+}));
 jest.mock('electron-log/main', () => ({
   __esModule: true,
   default: { info() {}, warn() {}, error() {}, transports: {} },

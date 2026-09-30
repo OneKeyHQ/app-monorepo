@@ -120,9 +120,9 @@ Full acceptance requires signed packaged update tests on macOS x64 and arm64,
 Windows NSIS, and Linux AppImage: download, interrupt and relaunch, resume,
 verify, confirm install, process exit, installer/native events, automatic
 reopen, and the installed version. Exercise manual fallback and store channels.
-Include a system-proxy download check for feed, ASC, range probe, and package
-segments through Electron's proxy-aware network stack; packaged network
-verification is still required before rollout. Bundle downloads retain their
-existing Node transport.
+Include a system-proxy download check for feed, ASC, app-shell package, and JS
+bundle range probes and segments through the shared Electron network transport
+and Node Range/resume core;
+packaged network verification is still required before rollout.
 Report source checks, packaged-runtime checks, and each OS outcome separately;
 an IPC `true`, file existence, or signature alone is not an installed update.

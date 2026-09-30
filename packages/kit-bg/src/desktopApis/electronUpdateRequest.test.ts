@@ -86,3 +86,22 @@ test('times out a stalled request', async () => {
   ).rejects.toThrow('Download timeout');
   expect(mockRequest.mock.results[0].value.abort).toHaveBeenCalledTimes(1);
 });
+
+test('cancels an in-flight Electron request', async () => {
+  mockRequest.mockImplementation(() =>
+    Object.assign(new EventEmitter(), {
+      setHeader: jest.fn(),
+      abort: jest.fn(),
+      end: jest.fn(),
+    }),
+  );
+  const controller = new AbortController();
+  const request = requestUpdateUrl(
+    'https://origin.test/package.zip',
+    {},
+    controller.signal,
+  );
+  controller.abort();
+  await expect(request).rejects.toThrow('Download cancelled');
+  expect(mockRequest.mock.results[0].value.abort).toHaveBeenCalledTimes(1);
+});

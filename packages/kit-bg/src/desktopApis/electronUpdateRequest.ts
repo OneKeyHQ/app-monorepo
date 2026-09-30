@@ -54,6 +54,11 @@ export async function requestUpdateUrl(
       let stream: IUpdateResponse['response'] | undefined;
       let timer: ReturnType<typeof setTimeout> | undefined;
       let aborted = false;
+      let onAbort = () => {};
+      const cleanup = () => {
+        clearTimeout(timer);
+        signal?.removeEventListener('abort', onAbort);
+      };
       const abortRequest = () => {
         if (!aborted) {
           aborted = true;
@@ -64,22 +69,20 @@ export async function requestUpdateUrl(
         clearTimeout(timer);
         timer = setTimeout(() => {
           const error = new OneKeyLocalError('Download timeout');
+          cleanup();
           stream?.destroy(error);
           abortRequest();
           if (!settled) reject(error);
         }, stallMs);
       };
-      const onAbort = () => {
+      onAbort = () => {
         const error = new OneKeyLocalError('Download cancelled');
+        cleanup();
         stream?.destroy(error);
         abortRequest();
         if (!settled) reject(error);
       };
       signal?.addEventListener('abort', onAbort, { once: true });
-      const cleanup = () => {
-        clearTimeout(timer);
-        signal?.removeEventListener('abort', onAbort);
-      };
       request.on('error', (error) => {
         cleanup();
         if (!settled) reject(error);
