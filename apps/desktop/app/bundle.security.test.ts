@@ -133,10 +133,7 @@ describe('desktop bundle bytes', () => {
       readVerifiedBundleFile({
         bundleDirPath,
         metadata: {
-          'linked.js': crypto
-            .createHash('sha512')
-            .update(bytes)
-            .digest('hex'),
+          'linked.js': crypto.createHash('sha512').update(bytes).digest('hex'),
         },
         driveLetter: '',
         url: 'linked.js',
