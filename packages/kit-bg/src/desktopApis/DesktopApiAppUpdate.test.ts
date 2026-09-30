@@ -455,6 +455,37 @@ test('clearing update cache cancels a stalled feed request', async () => {
   expect(signal?.aborted).toBe(true);
 });
 
+test('a new update check waits for cache clearing to finish', async () => {
+  const api = createApi('darwin');
+  const get = mockHttpsResponse(
+    feed('6.0.0', [`OneKey-6.0.0-${process.arch}.zip`]),
+  );
+  let started!: () => void;
+  const requestStarted = new Promise<void>((resolve) => {
+    started = resolve;
+  });
+  let rejectOld!: (error: OneKeyLocalError) => void;
+  get.mockImplementationOnce(
+    () =>
+      new Promise((_, reject) => {
+        rejectOld = reject;
+        started();
+      }),
+  );
+  const oldCheck = api.checkForUpdates(false, {}, '6.0.0');
+  void oldCheck.catch(() => {});
+  await requestStarted;
+  const clear = api.clearUpdateCache();
+  const newCheck = api.checkForUpdates(false, {}, '6.0.0');
+  expect(get).toHaveBeenCalledTimes(1);
+  rejectOld(new OneKeyLocalError('Download cancelled'));
+  await clear;
+  await expect(oldCheck).rejects.toThrow('Download cancelled');
+  expect((await newCheck)?.version).toBe('6.0.0');
+  await api.downloadUpdate();
+  expect(api.downloadedEvent?.downloadedFile).toBeTruthy();
+});
+
 test('clearing update cache cancels a stalled ASC request', async () => {
   const { api, params } = await preparePackage('darwin');
   delete process.env.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION;
@@ -520,6 +551,7 @@ test('macOS keeps running if native quit handoff throws after staging', async ()
   mockApp.on('window-all-closed', onWindowAllClosed);
   mockApp.on('activate', onActivate);
   window.on('close', onClose);
+  window.once('closed', () => expect(onActivate).not.toHaveBeenCalled());
   mockGetAllWindows.mockReturnValue([window]);
   mockNativeUpdater.quitAndInstall.mockImplementationOnce(() => {
     throw new OneKeyLocalError('native handoff failed');
@@ -530,11 +562,38 @@ test('macOS keeps running if native quit handoff throws after staging', async ()
   expect(mockNativeUpdater.setFeedURL).toHaveBeenCalledTimes(1);
   expect(window.close).toHaveBeenCalledTimes(1);
   expect(mockApp.listeners('window-all-closed')).toContain(onWindowAllClosed);
-  expect(onActivate).not.toHaveBeenCalled();
-  await new Promise<void>((resolve) => setImmediate(resolve));
   expect(onActivate).toHaveBeenCalledTimes(1);
   expect(mockNativeUpdater.listenerCount('before-quit-for-update')).toBe(0);
   expect(mockAppExit).not.toHaveBeenCalled();
+});
+
+test('macOS does not reopen a surviving window on a later normal close', async () => {
+  const { api, params } = await preparePackage('darwin');
+  const onActivate = jest.fn();
+  const window = Object.assign(new EventEmitter(), {
+    webContents: { send: jest.fn() },
+    isDestroyed: jest.fn(() => false),
+    close: jest.fn(),
+    show: jest.fn(),
+    focus: jest.fn(),
+  });
+  (
+    globalThis as unknown as {
+      $desktopMainAppFunctions: { getSafelyMainWindow: () => unknown };
+    }
+  ).$desktopMainAppFunctions.getSafelyMainWindow = () => window;
+  mockApp.on('activate', onActivate);
+  mockGetAllWindows.mockReturnValue([window]);
+  mockNativeUpdater.quitAndInstall.mockImplementationOnce(() => {
+    throw new OneKeyLocalError('native handoff failed');
+  });
+  await expect(api.installPackage(params)).rejects.toThrow(
+    'native handoff failed',
+  );
+  expect(window.show).toHaveBeenCalledTimes(1);
+  expect(window.focus).toHaveBeenCalledTimes(1);
+  window.emit('closed');
+  expect(onActivate).not.toHaveBeenCalled();
 });
 
 test('macOS forces exit if native update quit stalls', async () => {

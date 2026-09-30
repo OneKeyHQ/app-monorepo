@@ -282,6 +282,8 @@ class DesktopApiAppUpdate {
 
   private metadataGeneration = 0;
 
+  private cacheClearPromise?: Promise<void>;
+
   private macFeedServer?: http.Server;
 
   private macStagedIdentity?: string;
@@ -484,23 +486,31 @@ class DesktopApiAppUpdate {
     if (this.macInstallInProgress || this.appImageInstallInProgress) {
       throw new OneKeyLocalError('App update installation is in progress');
     }
-    this.activeController?.abort();
-    this.metadataGeneration += 1;
-    this.metadataControllers.forEach((controller) => controller.abort());
-    await Promise.allSettled(this.metadataRequests);
+    if (this.cacheClearPromise) return this.cacheClearPromise;
+    this.cacheClearPromise = (async () => {
+      this.activeController?.abort();
+      this.metadataGeneration += 1;
+      this.metadataControllers.forEach((controller) => controller.abort());
+      await Promise.allSettled(this.metadataRequests);
+      try {
+        await this.activeDownload;
+      } catch {
+        // The cancelled transfer leaves its partial file for normal resume.
+      }
+      this.macFeedServer?.close();
+      this.macFeedServer = undefined;
+      this.macStagedIdentity = undefined;
+      this.downloadedEvent = undefined;
+      this.selectedArtifact = undefined;
+      this.isDownloading = false;
+      store.clearASCFile();
+      fs.rmSync(this.getCacheDir(), { recursive: true, force: true });
+    })();
     try {
-      await this.activeDownload;
-    } catch {
-      // The cancelled transfer leaves its partial file for normal resume.
+      await this.cacheClearPromise;
+    } finally {
+      this.cacheClearPromise = undefined;
     }
-    this.macFeedServer?.close();
-    this.macFeedServer = undefined;
-    this.macStagedIdentity = undefined;
-    this.downloadedEvent = undefined;
-    this.selectedArtifact = undefined;
-    this.isDownloading = false;
-    store.clearASCFile();
-    fs.rmSync(this.getCacheDir(), { recursive: true, force: true });
   }
 
   async clearUpdateSettings(): Promise<void> {
@@ -512,6 +522,7 @@ class DesktopApiAppUpdate {
     requestHeaders: Record<string, string> = {},
     latestVersion: string,
   ): Promise<IArtifact | null> {
+    if (this.cacheClearPromise) await this.cacheClearPromise;
     if (this.macInstallInProgress) {
       throw new OneKeyLocalError('App update installation is in progress');
     }
@@ -727,6 +738,7 @@ class DesktopApiAppUpdate {
   }
 
   async downloadASC(params: IInstallUpdateParams): Promise<boolean> {
+    if (this.cacheClearPromise) await this.cacheClearPromise;
     const metadataGeneration = this.metadataGeneration;
     store.clearASCFile();
     if (this.isSkipGPGAllowed(params.skipGPGVerification)) return true;
@@ -945,6 +957,7 @@ class DesktopApiAppUpdate {
       let mainWindow: BrowserWindow | undefined;
       let mainWindowClosed = false;
       let recoverAfterClose = false;
+      let onMainWindowClosed: (() => void) | undefined;
       const windowAllClosedListeners = app.listeners('window-all-closed');
       const windowCloseListeners = BrowserWindow.getAllWindows().map(
         (window) => ({ window, listeners: window.listeners('close') }),
@@ -963,10 +976,11 @@ class DesktopApiAppUpdate {
         await this.stageMacUpdate(record);
         staged = true;
         mainWindow = this.getMainWindow();
-        mainWindow?.once('closed', () => {
+        onMainWindowClosed = () => {
           mainWindowClosed = true;
           if (recoverAfterClose) app.emit('activate');
-        });
+        };
+        mainWindow?.once('closed', onMainWindowClosed);
         // Once Squirrel has staged an update, it may apply on the next launch.
         // Native handoff must proceed without another cancellable async step.
         app.removeAllListeners('window-all-closed');
@@ -1004,9 +1018,27 @@ class DesktopApiAppUpdate {
           recoverAfterClose = true;
           if (!mainWindow || mainWindowClosed) {
             app.emit('activate');
-          } else if (!mainWindow.isDestroyed()) {
-            mainWindow.show();
-            mainWindow.focus();
+          } else {
+            await new Promise<void>((resolve) => {
+              const timer: { id?: ReturnType<typeof setTimeout> } = {};
+              const onClosed = () => {
+                clearTimeout(timer.id);
+                resolve();
+              };
+              timer.id = setTimeout(() => {
+                mainWindow?.removeListener('closed', onClosed);
+                resolve();
+              }, 1000);
+              mainWindow?.once('closed', onClosed);
+            });
+            if (!mainWindowClosed && !mainWindow.isDestroyed()) {
+              recoverAfterClose = false;
+              if (onMainWindowClosed) {
+                mainWindow.removeListener('closed', onMainWindowClosed);
+              }
+              mainWindow.show();
+              mainWindow.focus();
+            }
           }
           logger.error(
             'auto-updater',
