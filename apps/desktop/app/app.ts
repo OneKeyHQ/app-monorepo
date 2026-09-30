@@ -100,7 +100,11 @@ import { initSentry } from './sentry';
 import { startServices } from './service';
 // eslint-disable-next-line import-js/order
 import { setMainWindowForOAuthServer } from './service/oauthLocalServer/oauthLocalServer';
-import { destroyTrayManager, initTrayManager } from './tray/TrayManager';
+import {
+  destroyTrayManager,
+  initTrayManager,
+  setTrayInteractionSuspended,
+} from './tray/TrayManager';
 import { destroyTrayWindow, getTrayWindow } from './tray/trayWindow';
 
 import type { IpcMainLike } from '@onekeyfe/hwk-trezor-connector-electron-ble/main';
@@ -230,6 +234,37 @@ let mainWindow: BrowserWindow | null;
 let isAppReady = false;
 // Scheme used to serve the renderer bundle via interceptFileProtocol.
 const PROTOCOL = 'file';
+type FileProtocolHandler = Parameters<
+  typeof session.defaultSession.protocol.interceptFileProtocol
+>[1];
+let activeFileProtocolHandler: FileProtocolHandler | undefined;
+
+function setFileProtocolHandler(nextHandler: FileProtocolHandler): void {
+  const protocol = session.defaultSession.protocol;
+  if (!activeFileProtocolHandler) {
+    if (protocol.isProtocolIntercepted(PROTOCOL)) {
+      throw new OneKeyLocalError('Unexpected file protocol interceptor');
+    }
+    const intercepted = protocol.interceptFileProtocol(
+      PROTOCOL,
+      (request, callback) => {
+        const handler = activeFileProtocolHandler;
+        if (!handler) {
+          callback({ error: -6 });
+          return;
+        }
+        handler(request, callback);
+      },
+    );
+    if (!intercepted) {
+      throw new OneKeyLocalError('Failed to intercept file protocol');
+    }
+  } else if (!protocol.isProtocolIntercepted(PROTOCOL)) {
+    throw new OneKeyLocalError('File protocol interceptor missing');
+  }
+  // Requests dispatched before or after this assignment use one complete handler.
+  activeFileProtocolHandler = nextHandler;
+}
 
 const appStaticResourcesPath = getAppStaticResourcesPath();
 const staticPath = getStaticPath();
@@ -305,16 +340,20 @@ function showMainWindow() {
 // so a JS bundle update there cannot hard-restart. Instead we "soft restart":
 // destroy the renderer and recreate it in-process. createMainWindow() re-runs
 // processPreLaunchPendingTask() + getUpdateBundleData() + getBundleIndexHtmlPath()
-// and rebinds the file:// interceptor before loading the new bundle.
+// and switches the active file:// handler before loading the new bundle.
 // The active bundle pointer was already written to the main-process store
 // (store.setUpdateBundleData) before this runs, so no extra path wiring is needed.
 let softRestarting = false;
+let softRestartLoadPromise: Promise<void> | undefined;
 async function softRestartRenderer() {
   if (softRestarting) {
     logger.warn('[softRestart] already in progress, ignoring re-entrant call');
     return;
   }
   softRestarting = true;
+  softRestartLoadPromise = undefined;
+  setTrayInteractionSuspended(true);
+  let restartCompleted = false;
   const startedAt = Date.now();
   const targetBundle = store.getUpdateBundleData();
   logger.info('[softRestart] begin', {
@@ -348,12 +387,34 @@ async function softRestartRenderer() {
     destroyTrayWindow();
     logger.info('[softRestart] tray window destroyed (will rebuild on demand)');
     mainWindow = await createMainWindow({ isSoftRestart: true });
+    const initialLoad = softRestartLoadPromise;
+    if (!mainWindow || !initialLoad) {
+      throw new OneKeyLocalError('Soft restart did not start renderer loading');
+    }
+    let loadTimeout: ReturnType<typeof setTimeout> | undefined;
+    try {
+      await Promise.race([
+        Promise.resolve(initialLoad),
+        new Promise<void>((_, reject) => {
+          loadTimeout = setTimeout(
+            () =>
+              reject(
+                new OneKeyLocalError('Soft restart renderer load timed out'),
+              ),
+            45_000,
+          );
+        }),
+      ]);
+    } finally {
+      if (loadTimeout) clearTimeout(loadTimeout);
+    }
     showMainWindow();
     logger.info('[softRestart] done: renderer recreated with new bundle', {
       durationMs: Date.now() - startedAt,
       indexHtml:
         globalThis.$desktopMainAppFunctions?.getBundleIndexHtmlPath?.(),
     });
+    restartCompleted = true;
   } catch (e) {
     // If recreation fails there is no safe in-process recovery on MAS; exit so
     // the user can relaunch manually (equivalent to today's MAS behavior).
@@ -363,7 +424,11 @@ async function softRestartRenderer() {
     });
     app.exit(0);
   } finally {
-    softRestarting = false;
+    softRestartLoadPromise = undefined;
+    if (restartCompleted) {
+      setTrayInteractionSuspended(false);
+      softRestarting = false;
+    }
   }
 }
 
@@ -833,7 +898,7 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
     softRestartRenderer,
   };
 
-  if (isMac) {
+  if (isMac && !isSoftRestart) {
     browserWindow.once('ready-to-show', () => {
       showMainWindow();
     });
@@ -843,8 +908,7 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
     process.env.PERF_DESKTOP_INDEX_HTML ||
     path.join(__dirname, '..', 'build', 'index.html');
 
-  // The defaultSession interceptor outlives its window. Replace it only after
-  // metadata is ready, immediately before registering the new bundle handler.
+  // Local unpacked windows replace their development interceptor on recreation.
   const uninterceptFileProtocolIfNeeded = () => {
     try {
       if (session.defaultSession.protocol.isProtocolIntercepted(PROTOCOL)) {
@@ -1560,94 +1624,90 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
         metadataFailed = true;
       }
     }
-    uninterceptFileProtocolIfNeeded();
-    const intercepted = session.defaultSession.protocol.interceptFileProtocol(
-      PROTOCOL,
-      (request, callback) => {
-        const isJsSdkFile = request.url.indexOf('/static/js-sdk') > -1;
-        const isIFrameHtml =
-          request.url.indexOf('/static/js-sdk/iframe.html') > -1;
+    const nextFileProtocolHandler: FileProtocolHandler = (
+      request,
+      callback,
+    ) => {
+      const isJsSdkFile = request.url.indexOf('/static/js-sdk') > -1;
+      const isIFrameHtml =
+        request.url.indexOf('/static/js-sdk/iframe.html') > -1;
 
-        // resolve iframe path
-        if (isJsSdkFile && isIFrameHtml) {
-          if (useJsBundle && indexHtmlPath && bundleDirPath) {
-            let key = path.join('static', 'js-sdk', 'iframe.html');
-            const filePath = path.join(bundleDirPath, key);
-            if (isWin) {
-              key = key.replace(/\\/g, '/');
-            }
-            const sha512 = metadata[key];
-            if (!checkFileSha512(filePath, sha512)) {
-              logger.info(
-                'checkFileHash error in js-sdk:',
-                `${key}:  ${filePath} not matched ${sha512}`,
-              );
-              throw new OneKeyLocalError(`File ${key} sha512 mismatch`);
-            }
-            callback(filePath);
-            return;
+      // resolve iframe path
+      if (isJsSdkFile && isIFrameHtml) {
+        if (useJsBundle && indexHtmlPath && bundleDirPath) {
+          let key = path.join('static', 'js-sdk', 'iframe.html');
+          const filePath = path.join(bundleDirPath, key);
+          if (isWin) {
+            key = key.replace(/\\/g, '/');
           }
-          callback({
-            path: path.join(
-              __dirname,
-              '..',
-              'build',
-              'static',
-              'js-sdk',
-              'iframe.html',
-            ),
-          });
+          const sha512 = metadata[key];
+          if (!checkFileSha512(filePath, sha512)) {
+            logger.info(
+              'checkFileHash error in js-sdk:',
+              `${key}:  ${filePath} not matched ${sha512}`,
+            );
+            throw new OneKeyLocalError(`File ${key} sha512 mismatch`);
+          }
+          callback(filePath);
           return;
         }
+        callback({
+          path: path.join(
+            __dirname,
+            '..',
+            'build',
+            'static',
+            'js-sdk',
+            'iframe.html',
+          ),
+        });
+        return;
+      }
 
-        // Strip the query string before path resolution — without this the
-        // tray window's `?render=tray` gets concatenated into the resolved
-        // filename and fs misses. Guarded by indexOf so the common
-        // no-query case (main window resources) stays allocation-free.
-        const queryIdx = request.url.indexOf('?');
-        const rawUrl =
-          queryIdx === -1 ? request.url : request.url.substring(0, queryIdx);
-        const url = rawUrl.substring(PROTOCOL.length + 1);
-        if (useJsBundle && indexHtmlPath && bundleDirPath) {
-          const decodedUrl = decodeURIComponent(url);
-          if (decodedUrl.includes(bundleDirPath)) {
-            const filePath = checkFileHash({
-              bundleDirPath,
-              metadata,
-              driveLetter,
-              url: decodedUrl.replace(bundleDirPath, ''),
-            });
-            callback(filePath);
-          } else {
-            const filePath = checkFileHash({
-              bundleDirPath,
-              metadata,
-              driveLetter,
-              url: decodedUrl,
-            });
-            callback(filePath);
-          }
+      // Strip the query string before path resolution — without this the
+      // tray window's `?render=tray` gets concatenated into the resolved
+      // filename and fs misses. Guarded by indexOf so the common
+      // no-query case (main window resources) stays allocation-free.
+      const queryIdx = request.url.indexOf('?');
+      const rawUrl =
+        queryIdx === -1 ? request.url : request.url.substring(0, queryIdx);
+      const url = rawUrl.substring(PROTOCOL.length + 1);
+      if (useJsBundle && indexHtmlPath && bundleDirPath) {
+        const decodedUrl = decodeURIComponent(url);
+        if (decodedUrl.includes(bundleDirPath)) {
+          const filePath = checkFileHash({
+            bundleDirPath,
+            metadata,
+            driveLetter,
+            url: decodedUrl.replace(bundleDirPath, ''),
+          });
+          callback(filePath);
         } else {
-          const buildDir = path.resolve(__dirname, '..', 'build');
-          // Strip leading protocol slashes (e.g. "//index.html" → "index.html")
-          // so path.resolve treats the segment as relative, not absolute.
-          const relativeUrl = url.replace(/^[:/]+/, '');
-          const resolved = path.resolve(buildDir, relativeUrl);
-          if (
-            !resolved.startsWith(buildDir + path.sep) &&
-            resolved !== buildDir
-          ) {
-            logger.warn('Blocked file access outside build dir:', resolved);
-            callback({ error: -6 } as any); // net::ERR_FILE_NOT_FOUND
-            return;
-          }
-          callback(resolved);
+          const filePath = checkFileHash({
+            bundleDirPath,
+            metadata,
+            driveLetter,
+            url: decodedUrl,
+          });
+          callback(filePath);
         }
-      },
-    );
-    if (!intercepted) {
-      throw new OneKeyLocalError('Failed to intercept file protocol');
-    }
+      } else {
+        const buildDir = path.resolve(__dirname, '..', 'build');
+        // Strip leading protocol slashes (e.g. "//index.html" → "index.html")
+        // so path.resolve treats the segment as relative, not absolute.
+        const relativeUrl = url.replace(/^[:/]+/, '');
+        const resolved = path.resolve(buildDir, relativeUrl);
+        if (
+          !resolved.startsWith(buildDir + path.sep) &&
+          resolved !== buildDir
+        ) {
+          logger.warn('Blocked file access outside build dir:', resolved);
+          callback({ error: -6 } as any); // net::ERR_FILE_NOT_FOUND
+          return;
+        }
+        callback(resolved);
+      }
+    };
     // A failed metadata check must never start a navigation to the bundle path.
     if (metadataFailed) {
       src = formatUrl({
@@ -1656,6 +1716,7 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
         slashes: true,
       });
     }
+    setFileProtocolHandler(nextFileProtocolHandler);
     const safelyBrowserWindow = getSafelyBrowserWindow();
     safelyBrowserWindow?.webContents.on(
       'did-fail-load',
@@ -1678,7 +1739,12 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
       },
     );
     rendererShellReady = true;
-    void safelyBrowserWindow?.loadURL(src);
+    const initialLoad = safelyBrowserWindow?.loadURL(src);
+    if (isSoftRestart) {
+      softRestartLoadPromise = initialLoad;
+    } else {
+      void initialLoad;
+    }
   }
 
   // @ts-expect-error
