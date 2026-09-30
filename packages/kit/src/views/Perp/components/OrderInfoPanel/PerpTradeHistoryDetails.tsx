@@ -1,6 +1,6 @@
 import { Fragment, useCallback, useState } from 'react';
 
-import { useRoute } from '@react-navigation/native';
+import { useFocusEffect, useRoute } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 
 import {
@@ -60,6 +60,17 @@ function TradeHistoryDetails() {
   const intl = useIntl();
   const navigation = useAppNavigation();
   const actions = useHyperliquidActions();
+  useFocusEffect(
+    useCallback(() => {
+      const currentActions = actions.current;
+      currentActions.setTradeRouteViewState({ tradeHistoryDetailsOpen: true });
+      return () => {
+        currentActions.setTradeRouteViewState({
+          tradeHistoryDetailsOpen: false,
+        });
+      };
+    }, [actions]),
+  );
   const [switchingAsset, setSwitchingAsset] = useState(false);
   const { copyText } = useClipboard();
   const {
@@ -141,7 +152,7 @@ function TradeHistoryDetails() {
     try {
       const subscriptionRecoveryProof =
         await actions.current.captureInstrumentSwitchSubscriptionProof({
-          source: 'route-focused',
+          source: 'trade-history-details',
         });
       navigation.popStack();
       await actions.current.switchTradeInstrument({

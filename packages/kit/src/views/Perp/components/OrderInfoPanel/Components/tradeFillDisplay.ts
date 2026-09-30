@@ -206,6 +206,7 @@ export function filterTradeHistory(
 export function getTradeHistoryMarketOptions(
   fills: IFill[],
   spotPairDisplayMap: Record<string, string>,
+  spotLabel: string,
 ) {
   const markets = new Map<string, { coin: string; label: string }>();
   for (const { coin } of fills) {
@@ -213,6 +214,11 @@ export function getTradeHistoryMarketOptions(
     if (!coin.startsWith('@') || spotPairDisplayMap[coin]) {
       const market = getTradeHistoryMarket(coin, spotPairDisplayMap);
       markets.set(market.coin, market);
+    }
+  }
+  for (const market of markets.values()) {
+    if (market.coin.startsWith('spot:') && markets.has(market.label)) {
+      market.label = `${market.label} (${spotLabel})`;
     }
   }
   return Array.from(markets.values()).toSorted(

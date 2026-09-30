@@ -295,9 +295,9 @@ describe('trade history filters', () => {
       coin,
     }));
     const names = { '@1': 'ETH/USDC', '@2': 'ETH/USDH' };
-    expect(getTradeHistoryMarketOptions(records, names)).toEqual([
+    expect(getTradeHistoryMarketOptions(records, names, 'Spot')).toEqual([
       { coin: 'ETH', label: 'ETH' },
-      { coin: 'spot:ETH', label: 'ETH' },
+      { coin: 'spot:ETH', label: 'ETH (Spot)' },
       { coin: 'spot:SOL', label: 'SOL' },
     ]);
     expect(
@@ -320,9 +320,9 @@ describe('trade history filters', () => {
 
   it('only offers indexed spot markets once metadata provides a stable asset name', () => {
     const records = [{ ...baseFill, coin: '@107' }];
-    expect(getTradeHistoryMarketOptions(records, {})).toEqual([]);
+    expect(getTradeHistoryMarketOptions(records, {}, 'Spot')).toEqual([]);
     const names = { '@107': 'PURR/USDC' };
-    const [market] = getTradeHistoryMarketOptions(records, names);
+    const [market] = getTradeHistoryMarketOptions(records, names, 'Spot');
     expect(market).toEqual({ coin: 'spot:PURR', label: 'PURR' });
     expect(
       filterTradeHistory(
@@ -335,9 +335,13 @@ describe('trade history filters', () => {
   });
 
   it('deduplicates market IDs and resolves spot pair and HIP-3 labels', () => {
-    const options = getTradeHistoryMarketOptions(fills, {
-      '@107': 'PURR/USDC',
-    });
+    const options = getTradeHistoryMarketOptions(
+      fills,
+      {
+        '@107': 'PURR/USDC',
+      },
+      'Spot',
+    );
     expect(options).toHaveLength(4);
     expect(options).toEqual(
       expect.arrayContaining([

@@ -202,8 +202,9 @@ function PerpTradesHistoryList({
       getTradeHistoryMarketOptions(
         filterTradeHistory(nonTwapTrades, { type: filters.type, side: 'all' }),
         spotPairDisplayMap,
+        intl.formatMessage({ id: ETranslations.dexmarket_spot }),
       ),
-    [nonTwapTrades, filters.type, spotPairDisplayMap],
+    [nonTwapTrades, filters.type, spotPairDisplayMap, intl],
   );
   useEffect(() => {
     onMarketOptionsChange?.(marketOptions);
