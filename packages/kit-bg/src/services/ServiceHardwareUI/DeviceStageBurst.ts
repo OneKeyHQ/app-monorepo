@@ -1239,6 +1239,13 @@ export class DeviceStageBurstScope {
             fallbackName: features.label ?? undefined,
           })
         : undefined;
+    // The finish comes off the same live features. A device the database
+    // has never seen has no row to read a serial from, so without this a
+    // first-time Pro 2 wears the default shell through its whole setup.
+    const deviceColor = deviceUtils.getDeviceColorFromFeatures({
+      deviceType: payload?.deviceType ?? current?.deviceType,
+      features,
+    });
     if (this.yieldedToDialog) {
       // Behind a dialog the stage yielded to, only the device asking
       // again may paint — that lifts the yield; a wait is the
@@ -1292,10 +1299,10 @@ export class DeviceStageBurstScope {
       // was never told about.
       if (
         current?.step === this.authoredAuthStep &&
-        deviceName !== undefined &&
-        deviceName !== current.deviceName
+        ((deviceName !== undefined && deviceName !== current.deviceName) ||
+          (deviceColor !== undefined && deviceColor !== current.deviceColor))
       ) {
-        await this.mergeDeviceIdentity({ connectId, deviceName });
+        await this.mergeDeviceIdentity({ connectId, deviceName, deviceColor });
       }
       if (
         (step === 'confirm' || askCompleted) &&
@@ -1303,7 +1310,11 @@ export class DeviceStageBurstScope {
         current.step !== 'off' &&
         current.step !== this.authoredAuthStep
       ) {
-        await this.setStep(this.authoredAuthStep, { connectId, deviceName });
+        await this.setStep(this.authoredAuthStep, {
+          connectId,
+          deviceName,
+          deviceColor,
+        });
       }
       return;
     }
@@ -1340,6 +1351,7 @@ export class DeviceStageBurstScope {
       await this.setStep('passphraseOnApp', {
         connectId,
         deviceType: payload?.deviceType,
+        deviceColor,
         deviceName,
         payload,
         passphraseMode: isCreate ? 'create' : 'verify',
@@ -1349,6 +1361,7 @@ export class DeviceStageBurstScope {
     await this.setStep(step, {
       connectId,
       deviceType: payload?.deviceType,
+      deviceColor,
       deviceName,
       payload,
     });

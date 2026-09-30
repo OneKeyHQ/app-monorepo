@@ -644,6 +644,36 @@ describe('DeviceStageBurstScope', () => {
     },
   );
 
+  it('reads the finish off the live device when no record names it', async () => {
+    // A first-time device has no database row to read a serial from: the
+    // SDK event's own features are the only place its finish exists.
+    const scope = new DeviceStageBurstScope();
+    await scope.begin({ connectId: CONNECT_ID, deviceType: EDeviceType.Pro2 });
+    await paintOpeningBeat();
+    expect(stage?.deviceColor).toBeUndefined();
+
+    await scope.onHardwareUiEvent({
+      action: EHardwareUiStateAction.REQUEST_PIN,
+      connectId: CONNECT_ID,
+      payload: {
+        rawPayload: {
+          device: {
+            features: { protocol: 'V2', onekey_serial_no: 'P20001B' },
+          },
+        },
+      } as IHardwareUiPayload,
+    });
+    expect(stage?.step).toBe('pinOnApp');
+    expect(stage?.deviceColor).toBe('Silver');
+
+    // Sticky like the model: a later beat that names no finish keeps it.
+    await scope.onHardwareUiEvent({
+      action: EHardwareUiStateAction.REQUEST_BUTTON,
+      connectId: CONNECT_ID,
+    });
+    expect(stage?.deviceColor).toBe('Silver');
+  });
+
   it('refreshes a V2 auth narrative name without dismissing an unanswered PIN', async () => {
     const scope = new DeviceStageBurstScope();
     await scope.begin({ connectId: CONNECT_ID, deviceName: 'Pro2 Old' });
