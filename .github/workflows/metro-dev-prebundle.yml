@@ -27,6 +27,7 @@ on:
       - 'apps/mobile/metro.config.js'
       - 'apps/mobile/package.json'
       - 'apps/mobile/plugins/devVendor.js'
+      - 'apps/mobile/plugins/functionTrace.js'
       - 'apps/mobile/plugins/index.js'
       - 'apps/mobile/plugins/map.js'
       - 'apps/mobile/plugins/moduleIdRegistry.js'

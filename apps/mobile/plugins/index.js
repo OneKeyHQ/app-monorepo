@@ -39,6 +39,7 @@ module.exports = (config, projectRoot) => {
         'metro/src/DeltaBundler/Serializers/sourceMapString',
       ),
     );
+    const { normalizeModulesForSourceMap } = require('./metroSourceMapCompat');
     // 1. Watch all files within the monorepo
     config.watchFolders = [workspaceRoot];
     // 2. Let Metro know where to resolve packages and in what order
@@ -192,17 +193,18 @@ module.exports = (config, projectRoot) => {
         // so we must generate it from the graph modules for Sentry/debugging.
         let map = typeof bundle === 'object' && bundle.map ? bundle.map : null;
         if (!map) {
-          map = await sourceMapStringNonBlocking(
-            [...prepend, ...graph.dependencies.values()],
-            {
-              excludeSource: false,
-              processModuleFilter:
-                bundleOptions.processModuleFilter || (() => true),
-              shouldAddToIgnoreList:
-                bundleOptions.shouldAddToIgnoreList || (() => false),
-              getSourceUrl: (module) => module.path,
-            },
-          );
+          const sourceMapModules = normalizeModulesForSourceMap([
+            ...prepend,
+            ...graph.dependencies.values(),
+          ]);
+          map = await sourceMapStringNonBlocking(sourceMapModules, {
+            excludeSource: false,
+            processModuleFilter:
+              bundleOptions.processModuleFilter || (() => true),
+            shouldAddToIgnoreList:
+              bundleOptions.shouldAddToIgnoreList || (() => false),
+            getSourceUrl: (module) => module.path,
+          });
         }
 
         // Collect Metro assets (images, fonts, etc.) so EAS can copy them into the app
