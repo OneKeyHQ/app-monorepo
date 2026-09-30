@@ -15,6 +15,7 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { getAllNetworkAddressMethod } from '@onekeyhq/shared/src/hardware/config/allNetworkAddress';
+import { LEDGER_FINGERPRINT_CHAINS } from '@onekeyhq/shared/src/hardware/config/ledger';
 import { getVendorProfile } from '@onekeyhq/shared/src/hardware/config/vendorProfile';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
@@ -434,8 +435,16 @@ class ServiceThirdPartyHardware extends ServiceBase {
     if (vendor === EHardwareVendor.trezor && device.deviceId) {
       identity = { vendor, type: 'deviceId', value: device.deviceId };
     } else if (vendor === EHardwareVendor.ledger) {
-      // Ledger binds whichever BLE device the user picks.
-      identity = undefined;
+      // A recorded fingerprint must match the picked device; without one the
+      // pick is bound as-is.
+      const chain = LEDGER_FINGERPRINT_CHAINS.find(
+        (candidate) => device.settings?.chainFingerprints?.[candidate],
+      );
+      const value = chain && device.settings?.chainFingerprints?.[chain];
+      identity =
+        chain && value
+          ? { vendor, type: 'chainFingerprint', chain, value }
+          : undefined;
     } else {
       throw new OneKeyLocalError({
         message: appLocale.intl.formatMessage({

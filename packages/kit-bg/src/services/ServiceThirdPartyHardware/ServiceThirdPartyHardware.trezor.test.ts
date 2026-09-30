@@ -88,10 +88,14 @@ describe('ServiceThirdPartyHardware Trezor BLE binding', () => {
       try {
         await service.rebindBleDevice({ dbDeviceId: 'db-device' });
         expect(bindBleDevice).toHaveBeenCalledWith({
-          // Ledger binds whichever BLE device the user picks.
           identity:
             vendor === EHardwareVendor.ledger
-              ? undefined
+              ? {
+                  vendor,
+                  type: 'chainFingerprint',
+                  chain: 'sol',
+                  value: 'ledger-identity',
+                }
               : { vendor, type: 'deviceId', value: 'trezor-identity' },
           extra: { dbDeviceId: 'db-device' },
         });
@@ -101,6 +105,43 @@ describe('ServiceThirdPartyHardware Trezor BLE binding', () => {
       }
     },
   );
+
+  it('starts an explicit Ledger binding without an identity when no fingerprint is recorded', async () => {
+    db.getDevice.mockResolvedValueOnce({
+      id: 'db-device',
+      name: 'Device',
+      uuid: 'test-device',
+      deviceType: EDeviceType.Unknown,
+      features: '{}',
+      settingsRaw: '{}',
+      createdAt: 1,
+      updatedAt: 1,
+      vendor: EHardwareVendor.ledger,
+      deviceId: '',
+      connectId: '',
+      settings: {},
+    });
+    const bindBleDevice = jest
+      .fn()
+      .mockResolvedValue({ success: true, payload: 'new-ble' });
+    const service = new ServiceThirdPartyHardware({
+      backgroundApi: {} as IBackgroundApi,
+    });
+    const adapterLookup = jest
+      .spyOn(service, 'getAdapterForVendor')
+      .mockResolvedValue({
+        hw: { bindBleDevice },
+      } as unknown as IThirdPartyHardwareAdapter);
+    try {
+      await service.rebindBleDevice({ dbDeviceId: 'db-device' });
+      expect(bindBleDevice).toHaveBeenCalledWith({
+        identity: undefined,
+        extra: { dbDeviceId: 'db-device' },
+      });
+    } finally {
+      adapterLookup.mockRestore();
+    }
+  });
 
   it('assigns a distinct publication id to otherwise identical prompts', async () => {
     const atomSet = jest
