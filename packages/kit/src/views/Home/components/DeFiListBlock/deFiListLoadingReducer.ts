@@ -142,7 +142,7 @@ export function shouldResetDeFiReadinessOnRunStart({
 export type IDeFiCacheProbeAction =
   | 'skip'
   | 'mark-ready'
-  | 'reset-readiness'
+  | 'mark-not-cached'
   | 'zero-overview';
 
 // What the all-network cache probe writes to the header's DeFi overview once
@@ -152,17 +152,21 @@ export type IDeFiCacheProbeAction =
 //   readiness are a single slot the live owner's own probe has stamped.
 // - A hit marks the owner ready; `allNetworkCacheData` follows and replaces
 //   the overview with the cached sum.
-// - A miss leaves readiness unknown (`isReady: undefined`, never `false`: the
-//   header counts any defined readiness as reported and would release its
-//   hold onto a total without DeFi). What happens to the overview
-//   `clearAllNetworkData` kept for this owner depends on why nothing is
-//   cached. After an enabled-network change the kept value was summed over
-//   the previous set — it still counts the disabled network — and nothing is
-//   guaranteed to replace it (the list instance's fan-out may fail on every
-//   network; the cache-only instance issues no fan-out), so it is zeroed
-//   rather than handed back to the header once its grace expires. Any other
-//   miss keeps it: it is the last-known total for the current set, and a
-//   fan-out whose every request fails should fall back to it, not to 0.
+// - A miss is reported as `isReady: false`. The header counts any defined
+//   readiness as "DeFi reported for this owner" and releases its hold onto
+//   the live token total; on the spot tab the cache-only instance is the only
+//   readiness writer and issues no fan-out, so a miss left unknown
+//   (`undefined`) would pin the header to its persisted total until the
+//   token commit and the grace timer — or for the whole session when no
+//   commit lands (OK-64028 follow-up: account switch never refreshed).
+//   What happens to the overview `clearAllNetworkData` kept for this owner
+//   depends on why nothing is cached. After an enabled-network change the
+//   kept value was summed over the previous set — it still counts the
+//   disabled network — and a miss means nothing is cached for any network of
+//   the current set, so it is zeroed: 0 is the best-known total until a
+//   fan-out (if any) adds positions. Any other miss keeps it: it is the
+//   last-known total for the current set, and a fan-out whose every request
+//   fails should fall back to it, not to 0.
 export function resolveDeFiCacheProbeAction({
   hasCache,
   overviewPredatesEnabledSet,
@@ -181,5 +185,5 @@ export function resolveDeFiCacheProbeAction({
   if (hasCache) {
     return 'mark-ready';
   }
-  return overviewPredatesEnabledSet ? 'zero-overview' : 'reset-readiness';
+  return overviewPredatesEnabledSet ? 'zero-overview' : 'mark-not-cached';
 }

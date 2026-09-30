@@ -1181,16 +1181,16 @@ function DeFiListBlock({
             isReady: true,
           });
           return;
-        case 'reset-readiness':
-          // The kept overview is the last-known total for this network set;
-          // a fan-out whose every request fails falls back to it after the
-          // header's grace. Readiness off is `undefined` only: the header
-          // treats a defined `false` as reported and would release its hold
-          // at once onto a total without DeFi.
+        case 'mark-not-cached':
+          // Nothing cached: report it (`false`, a defined readiness) so the
+          // header releases its hold onto the live token total instead of
+          // waiting for a DeFi write that the cache-only instance never
+          // issues. The kept overview is the last-known total for this
+          // network set and stays counted (see `shouldIncludeKnownDeFiWorth`).
           updateOverviewDeFiDataState({
             accountId,
             networkId,
-            isReady: undefined,
+            isReady: false,
           });
           return;
         case 'zero-overview':
@@ -1198,7 +1198,7 @@ function DeFiListBlock({
           // this probe could write the same value back without a dip. It was
           // summed over the previous enabled set and nothing is cached for
           // the current one, so there is no such value
-          // (see `resolveDeFiCacheProbeAction`).
+          // (see `resolveDeFiCacheProbeAction`). Reported like any miss.
           updateAccountDeFiOverview({
             currency: settings.currencyInfo.id,
             accountId,
@@ -1212,7 +1212,7 @@ function DeFiListBlock({
               protocolCount: 0,
               positionCount: 0,
             },
-            isReady: undefined,
+            isReady: false,
           });
           return;
         default: {

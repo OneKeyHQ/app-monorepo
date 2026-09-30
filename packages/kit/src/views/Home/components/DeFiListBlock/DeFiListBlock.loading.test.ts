@@ -232,14 +232,17 @@ describe('resolveDeFiCacheProbeAction', () => {
     ).toBe('zero-overview');
   });
 
-  it('keeps the last-known overview on any other miss', () => {
+  it('reports the miss and keeps the last-known overview on any other miss', () => {
+    // A miss is a terminal report for the header's cache-only instance:
+    // nothing else writes readiness on the spot tab, so leaving it unknown
+    // pins the header to its persisted total until the token commit + grace.
     expect(
       resolveDeFiCacheProbeAction({
         ...live,
         hasCache: false,
         overviewPredatesEnabledSet: false,
       }),
-    ).toBe('reset-readiness');
+    ).toBe('mark-not-cached');
   });
 
   it('writes nothing for a run whose owner is no longer live', () => {
