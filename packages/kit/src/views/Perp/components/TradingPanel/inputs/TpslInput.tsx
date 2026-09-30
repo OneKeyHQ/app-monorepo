@@ -81,6 +81,10 @@ export const TpslInput = memo(
     amount,
     seedPercent,
   }: ITpslInputProps) => {
+    const [focusedField, setFocusedField] = useState<
+      'tpPrice' | 'tpPercent' | 'slPrice' | 'slPercent' | undefined
+    >();
+    const unfocusedBorderColor = ifOnDialog ? '$transparent' : undefined;
     const referencePrice = useMemo(() => {
       return new BigNumber(price || 0);
     }, [price]);
@@ -311,15 +315,20 @@ export const TpslInput = memo(
                 })}
                 value={internalState.tpTriggerPx}
                 onChangeText={handleTpPriceChange}
+                onFocus={() => setFocusedField('tpPrice')}
+                onBlur={() => setFocusedField(undefined)}
                 disabled={disabled}
                 keyboardType="decimal-pad"
                 fontSize={getFontSize('$bodyMd')}
                 size="small"
                 containerProps={{
                   borderWidth: ifOnDialog ? '$px' : 0,
-                  borderColor: ifOnDialog ? '$borderSubdued' : undefined,
-                  bg: ifOnDialog ? '$bgApp' : '$bgSubdued',
-                  borderRadius: '$2',
+                  borderColor:
+                    ifOnDialog && focusedField === 'tpPrice' && !disabled
+                      ? '$border'
+                      : unfocusedBorderColor,
+                  bg: ifOnDialog ? '$bgStrong' : '$bgSubdued',
+                  borderRadius: ifOnDialog ? '$3' : '$2',
                 }}
                 InputComponentStyle={{
                   px: '$3',
@@ -371,15 +380,20 @@ export const TpslInput = memo(
                 })}
                 value={internalState.slTriggerPx}
                 onChangeText={handleSlPriceChange}
+                onFocus={() => setFocusedField('slPrice')}
+                onBlur={() => setFocusedField(undefined)}
                 disabled={disabled}
                 keyboardType="decimal-pad"
                 fontSize={getFontSize('$bodyMd')}
                 size="small"
                 containerProps={{
                   borderWidth: ifOnDialog ? '$px' : 0,
-                  borderColor: ifOnDialog ? '$borderSubdued' : undefined,
-                  bg: ifOnDialog ? '$bgApp' : '$bgSubdued',
-                  borderRadius: '$2',
+                  borderColor:
+                    ifOnDialog && focusedField === 'slPrice' && !disabled
+                      ? '$border'
+                      : unfocusedBorderColor,
+                  bg: ifOnDialog ? '$bgStrong' : '$bgSubdued',
+                  borderRadius: ifOnDialog ? '$3' : '$2',
                 }}
                 InputComponentStyle={{
                   px: '$3',
@@ -439,9 +453,13 @@ export const TpslInput = memo(
                     }
               }
               borderWidth={ifOnDialog ? '$px' : 0}
-              borderColor={ifOnDialog ? '$border' : undefined}
-              bg={ifOnDialog ? '$bgApp' : '$bgSubdued'}
-              borderRadius="$2"
+              borderColor={
+                ifOnDialog && focusedField === 'tpPrice' && !disabled
+                  ? '$border'
+                  : unfocusedBorderColor
+              }
+              bg={ifOnDialog ? '$bgStrong' : '$bgSubdued'}
+              borderRadius={ifOnDialog ? '$3' : '$2'}
             >
               <TpslInputWithDone
                 h={40}
@@ -450,10 +468,14 @@ export const TpslInput = memo(
                 })}
                 value={internalState.tpTriggerPx}
                 onChangeText={handleTpPriceChange}
+                onFocus={() => setFocusedField('tpPrice')}
+                onBlur={() => setFocusedField(undefined)}
                 disabled={disabled}
                 keyboardType="decimal-pad"
                 size="small"
                 containerProps={{
+                  borderRadius: ifOnDialog ? '$3' : '$2',
+                  bg: 'transparent',
                   borderWidth: 0,
                 }}
               />
@@ -471,9 +493,13 @@ export const TpslInput = memo(
                     }
               }
               borderWidth={ifOnDialog ? '$px' : 0}
-              borderColor={ifOnDialog ? '$border' : undefined}
-              bg={ifOnDialog ? '$bgApp' : '$bgSubdued'}
-              borderRadius="$2"
+              borderColor={
+                ifOnDialog && focusedField === 'tpPercent' && !disabled
+                  ? '$border'
+                  : unfocusedBorderColor
+              }
+              bg={ifOnDialog ? '$bgStrong' : '$bgSubdued'}
+              borderRadius={ifOnDialog ? '$3' : '$2'}
             >
               <TpslInputWithDone
                 h={40}
@@ -482,12 +508,16 @@ export const TpslInput = memo(
                 })}
                 value={internalState.tpGainPercent}
                 onChangeText={handleTpPercentChange}
+                onFocus={() => setFocusedField('tpPercent')}
+                onBlur={() => setFocusedField(undefined)}
                 disabled={disabled}
                 keyboardType="decimal-pad"
                 size="small"
                 textAlign="right"
                 leftIconName="PlusSmallOutline"
                 containerProps={{
+                  borderRadius: ifOnDialog ? '$3' : '$2',
+                  bg: 'transparent',
                   borderWidth: 0,
                 }}
                 addOns={[
@@ -541,9 +571,13 @@ export const TpslInput = memo(
                     }
               }
               borderWidth={ifOnDialog ? '$px' : 0}
-              borderColor={ifOnDialog ? '$border' : undefined}
-              bg={ifOnDialog ? '$bgApp' : '$bgSubdued'}
-              borderRadius="$2"
+              borderColor={
+                ifOnDialog && focusedField === 'slPrice' && !disabled
+                  ? '$border'
+                  : unfocusedBorderColor
+              }
+              bg={ifOnDialog ? '$bgStrong' : '$bgSubdued'}
+              borderRadius={ifOnDialog ? '$3' : '$2'}
             >
               <TpslInputWithDone
                 h={40}
@@ -552,10 +586,14 @@ export const TpslInput = memo(
                 })}
                 value={internalState.slTriggerPx}
                 onChangeText={handleSlPriceChange}
+                onFocus={() => setFocusedField('slPrice')}
+                onBlur={() => setFocusedField(undefined)}
                 disabled={disabled}
                 keyboardType="decimal-pad"
                 size="small"
                 containerProps={{
+                  borderRadius: ifOnDialog ? '$3' : '$2',
+                  bg: 'transparent',
                   borderWidth: 0,
                 }}
               />
@@ -571,10 +609,14 @@ export const TpslInput = memo(
                       outlineStyle: 'solid',
                     }
               }
-              borderRadius="$2"
+              borderRadius={ifOnDialog ? '$3' : '$2'}
               borderWidth={ifOnDialog ? '$px' : 0}
-              borderColor={ifOnDialog ? '$border' : undefined}
-              bg={ifOnDialog ? '$bgApp' : '$bgSubdued'}
+              borderColor={
+                ifOnDialog && focusedField === 'slPercent' && !disabled
+                  ? '$border'
+                  : unfocusedBorderColor
+              }
+              bg={ifOnDialog ? '$bgStrong' : '$bgSubdued'}
             >
               <TpslInputWithDone
                 h={40}
@@ -585,10 +627,14 @@ export const TpslInput = memo(
                 leftIconName="MinusSmallOutline"
                 value={internalState.slLossPercent}
                 onChangeText={handleSlPercentChange}
+                onFocus={() => setFocusedField('slPercent')}
+                onBlur={() => setFocusedField(undefined)}
                 disabled={disabled}
                 keyboardType="decimal-pad"
                 size="small"
                 containerProps={{
+                  borderRadius: ifOnDialog ? '$3' : '$2',
+                  bg: 'transparent',
                   borderWidth: 0,
                 }}
                 addOns={[
