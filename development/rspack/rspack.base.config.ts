@@ -201,7 +201,7 @@ function buildDefineMap(
   platform: string,
 ): ConstructorParameters<typeof rspack.DefinePlugin>[0] {
   const releaseEnvKeys =
-    !isDev && ['web', 'desktop', 'ext'].includes(platform)
+    !isDev && ['web', 'desktop', 'ext', 'web-embed'].includes(platform)
       ? new Set<string>(RELEASE_ENV_KEYS)
       : null;
   const defineEnv = (key: string, value: string | undefined) =>
@@ -266,7 +266,7 @@ const buildBasePlugins: (
 ) => [
   new rspack.DefinePlugin(buildDefineMap(platform)),
   !isDev &&
-    ['web', 'desktop', 'ext'].includes(platform) &&
+    ['web', 'desktop', 'ext', 'web-embed'].includes(platform) &&
     createReleaseEnvAssetPlugin(),
   new rspack.ProvidePlugin({
     Buffer: ['buffer', 'Buffer'],
@@ -463,7 +463,7 @@ export function createBaseConfig({
             platform,
           }),
           WEB_PUBLIC_URL: publicUrl || '/',
-          releaseMetaUrl: `${(publicUrl || '/').replace(/\/?$/, '/')}release-meta.js`,
+          releaseMetaUrl: `${(publicUrl || (platform === 'web-embed' ? './' : '/')).replace(/\/?$/, '/')}release-meta.js`,
           WEB_TITLE: platform,
           NO_SCRIPT:
             '<form action="" style="background-color:#fff;position:fixed;top:0;left:0;right:0;bottom:0;z-index:9999;"><div style="font-size:18px;font-family:Helvetica,sans-serif;line-height:24px;margin:10%;width:80%;"> <p>Oh no! It looks like JavaScript is not enabled in your browser.</p> <p style="margin:20px 0;"> <button type="submit" style="background-color: #4630EB; border-radius: 100px; border: none; box-shadow: none; color: #fff; cursor: pointer; font-weight: bold; line-height: 20px; padding: 6px 16px;">Reload</button> </p> </div> </form>',

@@ -99,7 +99,7 @@
     </script>
     <% } %>
 
-      <% if ( (platform === 'desktop' || platform === 'web') && !isDev && typeof releaseMetaUrl !== 'undefined' ) { %>
+      <% if ( (platform === 'desktop' || platform === 'web' || platform === 'web-embed') && !isDev && typeof releaseMetaUrl !== 'undefined' ) { %>
           <script defer src="<%= releaseMetaUrl %>"></script>
       <% } %>
       <% if ( platform === 'ext' ) { %>
