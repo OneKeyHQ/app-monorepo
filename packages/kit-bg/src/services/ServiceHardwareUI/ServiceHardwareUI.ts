@@ -1785,7 +1785,17 @@ class ServiceHardwareUI extends ServiceBase {
         }
       }
       if (stageBurstOpened) {
-        await this.deviceStageBurst.end({ error: stageBurstError });
+        try {
+          await this.deviceStageBurst.end({ error: stageBurstError });
+        } catch (stageError) {
+          // The stage is presentation: its failure to land an exit must
+          // not replace the error riding out of this finally, nor skip the
+          // bookkeeping below.
+          defaultLogger.hardware.sdkLog.consoleLog(
+            'deviceStageBurst.end failed',
+            stageError,
+          );
+        }
       }
       this.processingNestedNum -= 1;
       onFinally?.();

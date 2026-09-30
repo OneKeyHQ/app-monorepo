@@ -503,6 +503,13 @@ export class DeviceStageBurstScope {
    * the dialog; a new ask is the device speaking and lifts the yield. */
   private yieldedToDialog = false;
 
+  /** An off whose write never reached the UI: the atom changes in this
+   * runtime first and crosses the bridge second (wrapAtomPro), so a flush
+   * failure leaves this side reading `off` while the stage still stands
+   * on screen. The next exit sends it again instead of finding nothing to
+   * take down. */
+  private offBroadcastPending = false;
+
   /** When the stage last went off (ms since epoch) — the UI's exit
    * animation trails this write, so a surface sequencing its own change
    * after the exit keeps its beat for an off that just landed. */
@@ -824,9 +831,11 @@ export class DeviceStageBurstScope {
         await this.silence();
       } catch {
         // Best effort: the yield is the stage's courtesy to the dialog,
-        // never the flow's precondition — the dialog's own UI-side yield
-        // asks again — and a failed off broadcast must not replace the
-        // hardware error riding out through the caller's finally.
+        // never the flow's precondition. A failed off broadcast is kept
+        // for the next exit to send again (see forceOff) — the dialog's
+        // own UI-side yield, the holder's release — and nothing that
+        // fails here may replace the hardware error riding out through
+        // the caller's finally.
       }
     }
     if (this.depth > 0) {
@@ -1864,7 +1873,8 @@ export class DeviceStageBurstScope {
   }
 
   /** Writes the off; false when nothing was on stage to take down (or a
-   * newer claim, an outcome, or a live burst kept it). */
+   * newer claim, an outcome, or a live burst kept it), and when the write
+   * itself failed — kept for the next exit to send again, never thrown. */
   private async forceOff(options: { force?: boolean } = {}): Promise<boolean> {
     const claim = this.claimSeq;
     const prev = await deviceStageAtom.get();
@@ -1877,7 +1887,13 @@ export class DeviceStageBurstScope {
     if (claim !== this.claimSeq || (!options.force && this.depth > 0)) {
       return false;
     }
-    if (!prev || prev.step === 'off') {
+    if (!prev) {
+      return false;
+    }
+    // Already off here — unless that off never reached the UI (see
+    // offBroadcastPending): that one is sent again, any other off is
+    // nothing to take down.
+    if (prev.step === 'off' && !this.offBroadcastPending) {
       return false;
     }
     // An error outcome owns its own exit: the notice form leaves through
@@ -1891,17 +1907,27 @@ export class DeviceStageBurstScope {
     ) {
       return false;
     }
-    await deviceStageAtom.set({
-      burstId: prev.burstId,
-      step: 'off',
-      connectId: prev.connectId,
-      deviceType: prev.deviceType,
-      deviceColor: prev.deviceColor,
-      deviceName: prev.deviceName,
-      vendor: prev.vendor,
-      vendorModel: prev.vendorModel,
-      vendorModelName: prev.vendorModelName,
-    });
+    try {
+      await deviceStageAtom.set({
+        burstId: prev.burstId,
+        step: 'off',
+        connectId: prev.connectId,
+        deviceType: prev.deviceType,
+        deviceColor: prev.deviceColor,
+        deviceName: prev.deviceName,
+        vendor: prev.vendor,
+        vendorModel: prev.vendorModel,
+        vendorModelName: prev.vendorModelName,
+      });
+    } catch {
+      // An exit is presentation: its failure must not throw into the flow
+      // that asked for it — a wrapper's finally, the person's own close, a
+      // timer. The failed off is remembered instead, and the next exit
+      // (the dialog's own yield, the holder's release) sends it again.
+      this.offBroadcastPending = true;
+      return false;
+    }
+    this.offBroadcastPending = false;
     this.lastOffAt = Date.now();
     // Every exit announces itself: a flow awaiting a card's answer must
     // stop waiting on a card that is gone, whichever route took it.

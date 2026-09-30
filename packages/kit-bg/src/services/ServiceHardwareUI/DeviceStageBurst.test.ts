@@ -1164,6 +1164,67 @@ describe('DeviceStageBurstScope', () => {
     expect(stage?.step).toBe('off');
   });
 
+  it('sends an off again when its broadcast failed and the next exit asks', async () => {
+    // The atom changes in this runtime before it crosses to the UI, and a
+    // flush failure propagates: this side reads `off` while the stage still
+    // stands on screen. Without the re-send, the dialog's own yield and the
+    // holder's release both find "nothing to take down".
+    const emit = jest.spyOn(appEventBus, 'emit');
+    const scope = new DeviceStageBurstScope();
+    const token = await scope.beginExplicit({ connectId: CONNECT_ID });
+    await scope.begin({ connectId: CONNECT_ID });
+    await paintOpeningBeat();
+    stageAtom.set.mockImplementationOnce(async (next) => {
+      stage = typeof next === 'function' ? next(stage) : next;
+      throw new OneKeyLocalError('broadcast failed');
+    });
+    const error = convertDeviceError({
+      code: HardwareErrorCode.DeviceNotOpenedPassphrase,
+    });
+    await expect(scope.end({ error })).resolves.toBeUndefined();
+    expect(stage?.step).toBe('off');
+    expect(emit).not.toHaveBeenCalledWith(
+      EAppEventBusNames.DeviceStageOff,
+      undefined,
+    );
+
+    // The dialog's UI-side yield: the off goes out again, and announces
+    // itself this time.
+    const writes = stageAtom.set.mock.calls.length;
+    await expect(scope.silence()).resolves.toBe(true);
+    expect(stageAtom.set.mock.calls.length).toBe(writes + 1);
+    expect(emit).toHaveBeenCalledWith(
+      EAppEventBusNames.DeviceStageOff,
+      undefined,
+    );
+    // Delivered: a further exit has nothing left to send.
+    await expect(scope.silence()).resolves.toBe(false);
+    expect(stageAtom.set.mock.calls.length).toBe(writes + 1);
+
+    await scope.endExplicit({
+      token,
+      error: JSON.parse(JSON.stringify(toPlainErrorObject(error))) as unknown,
+    });
+    await letTheExitRun();
+    expect(burstActiveFlag).toHaveBeenLastCalledWith(false);
+    emit.mockRestore();
+  });
+
+  it('keeps a failed exit from throwing out of a single-layer dialog-owned failure', async () => {
+    // No outer hold: the last layer's own stand-down is the write that
+    // fails. It must not replace the hardware error in the caller's
+    // finally, and the burst still closes.
+    const scope = new DeviceStageBurstScope();
+    await scope.begin({ connectId: CONNECT_ID });
+    await paintOpeningBeat();
+    stageAtom.set.mockRejectedValueOnce(new Error('broadcast failed'));
+    const error = convertDeviceError({
+      code: HardwareErrorCode.BleDeviceBondError,
+    });
+    await expect(scope.end({ error })).resolves.toBeUndefined();
+    expect(burstActiveFlag).toHaveBeenLastCalledWith(false);
+  });
+
   it.each([
     ECustomOneKeyHardwareError.NeedFirmwareUpgradeFromWeb,
     ECustomOneKeyHardwareError.UnknownHardwareError,
