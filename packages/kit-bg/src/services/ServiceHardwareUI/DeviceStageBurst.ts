@@ -19,7 +19,10 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
-import { DEVICE_STAGE_DISCONNECTED_CODES } from '@onekeyhq/shared/src/hardware/deviceStageErrorCodes';
+import {
+  DEVICE_STAGE_DEDICATED_DIALOG_CODES,
+  DEVICE_STAGE_DISCONNECTED_CODES,
+} from '@onekeyhq/shared/src/hardware/deviceStageErrorCodes';
 import {
   isDeviceStageMachineWaitStep,
   isDeviceStageOwnedHardwareUiAction,
@@ -120,21 +123,11 @@ const USER_CANCEL_CODES = [
   HardwareErrorCode.DeviceInterruptedFromUser,
 ];
 
-/** These errors already open a recovery dialog outside DeviceStage. */
-const DEDICATED_DIALOG_ERROR_CODES = [
-  HardwareErrorCode.BleDeviceBondError,
-  HardwareErrorCode.BlePeerRemovedPairingInformation,
-  HardwareErrorCode.BleBondInvalid,
-  HardwareErrorCode.DeviceNotOpenedPassphrase,
-  HardwareErrorCode.NewFirmwareForceUpdate,
-  // Bluetooth off / no BLE permission / location services off: the SDK
-  // (and the Android pre-check) raise the "Enable Bluetooth" family of
-  // dialogs for these, so the stage stands down instead of landing a
-  // second notice under the sheet (OK-62113).
-  HardwareErrorCode.BlePermissionError,
-  HardwareErrorCode.BleLocationError,
-  HardwareErrorCode.BleLocationServicesDisabled,
-];
+/** These errors already open a recovery dialog outside DeviceStage. The
+ * set itself lives in shared so the authenticity flow ends its run on the
+ * very failures the stage yields for, instead of painting its failure
+ * card back over the dialog. */
+const DEDICATED_DIALOG_ERROR_CODES = DEVICE_STAGE_DEDICATED_DIALOG_CODES;
 
 /** DeviceNotFound (105) is deliberately absent: the initial search
  * failing is its own verdict — the "Device not connected" card's
