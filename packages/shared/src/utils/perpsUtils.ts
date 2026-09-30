@@ -49,13 +49,13 @@ interface IResolvedMarginTier {
   maintenanceDeduction: BigNumber;
 }
 
-export type IPerpsLiquidationPriceMode = 'market' | 'limit' | 'trigger';
+export type IPerpsLiquidationPriceMode = 'market' | 'limit';
 
 export interface IEstimateLiquidationPriceParams {
   side: 'long' | 'short';
   orderSize: BigNumber;
   priceMode: IPerpsLiquidationPriceMode;
-  // Limit or trigger price; market orders are priced at mark.
+  // Limit price; market orders are priced at mark.
   orderPrice?: BigNumber;
   markPrice: BigNumber;
   reduceOnly?: boolean;
@@ -1057,9 +1057,6 @@ function resolveLiquidationReferencePrice({
   if (!orderPrice?.isFinite() || orderPrice.lte(0)) {
     return null;
   }
-  if (priceMode === 'trigger') {
-    return orderPrice;
-  }
   // A limit that would cross the book fills near mark, so only a resting
   // limit keeps its own price.
   const isResting =
@@ -1245,24 +1242,16 @@ function estimateLiquidationPrice(
   // The same-coin position is margined again at its new size, so release the
   // maintenance margin it currently holds.
   const existingNotional = existingPositionSize.abs().multipliedBy(markPrice);
-  // Match Hyperliquid's limit preview: keep equity at mark even when the
-  // reference price is a resting limit. Only triggers revalue the position.
-  const accountValue = crossAvailableAfterMaintenance
-    .plus(
+  // Equity stays at mark even for a resting limit, as in Hyperliquid's ticket.
+  return solveLiquidationPrice({
+    price,
+    positionSize: resultingSize,
+    accountValue: crossAvailableAfterMaintenance.plus(
       getMaintenanceMargin(
         findResolvedMarginTier(tiers, existingNotional),
         existingNotional,
       ),
-    )
-    .plus(
-      priceMode === 'trigger'
-        ? existingPositionSize.multipliedBy(price.minus(markPrice))
-        : 0,
-    );
-  return solveLiquidationPrice({
-    price,
-    positionSize: resultingSize,
-    accountValue,
+    ),
     notional,
     leverage: safeLeverage,
     tiers,

@@ -897,23 +897,6 @@ describe('estimateLiquidationPrice', () => {
     expect(liquidationPrice?.toNumber()).toBeCloseTo(52.631_579, 6);
   });
 
-  test('uses the trigger price without clamping it to mark', () => {
-    const liquidationPrice = estimateLiquidationPrice({
-      side: 'long',
-      orderSize: new BigNumber(1),
-      priceMode: 'trigger',
-      orderPrice: new BigNumber(130),
-      markPrice: new BigNumber(100),
-      marginMode: 'cross',
-      leverage: 10,
-      marginTiers: tiers10x,
-      maxLeverage: 10,
-      crossAvailableAfterMaintenance: new BigNumber(50),
-    });
-
-    expect(liquidationPrice?.toNumber()).toBeCloseTo(84.210_526, 6);
-  });
-
   // Long 1 opened at 100 and now marked at 120: the account value already
   // holds the +20 PnL, so the entry price must not be used as the reference.
   test('values an existing cross position at mark instead of its entry price', () => {
@@ -965,26 +948,6 @@ describe('estimateLiquidationPrice', () => {
     });
 
     expect(liquidationPrice?.toNumber()).toBeCloseTo(86.842_105, 6);
-  });
-
-  // Long 1 BTC marked at 83,000; a stop sell at 75,000 only fires after that
-  // long has lost 8,000, then flips it to short.
-  test('revalues the existing cross position at the trigger price', () => {
-    const liquidationPrice = estimateLiquidationPrice({
-      side: 'short',
-      orderSize: new BigNumber(2),
-      priceMode: 'trigger',
-      orderPrice: new BigNumber(75_000),
-      markPrice: new BigNumber(83_000),
-      marginMode: 'cross',
-      leverage: 10,
-      marginTiers: btcTiers,
-      maxLeverage: 40,
-      existingPositionSize: new BigNumber(1),
-      crossAvailableAfterMaintenance: new BigNumber('18962.5'),
-    });
-
-    expect(liquidationPrice?.toNumber()).toBeCloseTo(85_925.925_926, 4);
   });
 
   // Hyperliquid uses the resting limit price while keeping current equity,
