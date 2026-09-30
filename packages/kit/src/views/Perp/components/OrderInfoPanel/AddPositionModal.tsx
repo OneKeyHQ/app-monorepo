@@ -28,14 +28,13 @@ import {
 import type { IPerpsActiveAssetAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   usePerpsActiveAccountAtom,
-  usePerpsActiveAccountSummaryAtom,
   usePerpsTradingPreferencesAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
-  calculateLiquidationPrice,
+  estimateLiquidationPrice,
   formatPriceToSignificantDigits,
   parseDexCoin,
   resolveTradingSize,
@@ -49,6 +48,7 @@ import type {
 import { useCoinOrderBookTop } from '../../hooks/useCoinOrderBookTop';
 import { useEnsureTradingEnabled } from '../../hooks/useEnableTradingWithDepositFallback';
 import { usePerpsAccountScopedActivePositions } from '../../hooks/usePerpsAccountScopedActivePositions';
+import { usePerpsCrossAvailableAfterMaintenance } from '../../hooks/usePerpsCrossAvailableAfterMaintenance';
 import { PerpsAccountSelectorProviderMirror } from '../../PerpsAccountSelectorProviderMirror';
 import { PerpsProviderMirror } from '../../PerpsProviderMirror';
 import { PerpTestIDs } from '../../testIDs';
@@ -101,7 +101,6 @@ const AddPositionForm = memo(
     const ensureTradingEnabled = useEnsureTradingEnabled();
     const [activeAccount] = usePerpsActiveAccountAtom();
     const [{ isConnected }] = useConnectionStateAtom();
-    const [accountSummary] = usePerpsActiveAccountSummaryAtom();
     const [tradingPreferences] = usePerpsTradingPreferencesAtom();
     const sizeInputUnit = tradingPreferences.sizeInputUnit ?? 'usd';
     const tpslButtonPaddingTop = keyboardHeight > 0 ? 0 : '$4';
@@ -308,6 +307,8 @@ const AddPositionForm = memo(
     // Margin this add consumes, and where the position would be liquidated once
     // it fills. Both are previews of the position AFTER the add, so the
     // liquidation price blends the existing position with the new size.
+    const crossAvailableAfterMaintenance =
+      usePerpsCrossAvailableAfterMaintenance(coin);
     const addPositionPreview = useMemo(() => {
       const sizeBN = new BigNumber(resolvedSize || 0);
       const priceBN = new BigNumber(effectivePrice || 0);
@@ -326,38 +327,30 @@ const AddPositionForm = memo(
 
       const marginMode = assetData?.leverage?.type;
       const maxLeverage = targetAsset?.universe?.maxLeverage;
-      if (!marginMode || !maxLeverage) {
+      if (
+        (marginMode !== 'cross' && marginMode !== 'isolated') ||
+        !maxLeverage
+      ) {
         return { marginRequired, liquidationPrice: null };
       }
 
-      const side = isBuy ? 'long' : 'short';
-      const liquidationPrice = calculateLiquidationPrice({
-        totalValue,
-        referencePrice: priceBN,
-        // An aggressive limit fills near the mark, so the preview must
-        // converge on it instead of the extreme limit price — mirrors
-        // useLiquidationPrice and the chart limit ticket.
-        clampToCurrentMark: true,
-        markPrice: assetData?.markPx
-          ? new BigNumber(assetData.markPx)
-          : undefined,
-        positionSize: sizeBN,
-        side,
+      const positionLeverage = currentPosition?.leverage;
+      const liquidationPrice = estimateLiquidationPrice({
+        side: isBuy ? 'long' : 'short',
+        orderSize: sizeBN,
+        priceMode: orderType,
+        orderPrice: priceBN,
+        markPrice: new BigNumber(assetData?.markPx ?? 0),
+        marginMode,
         leverage: safeLeverage,
-        mode: marginMode,
         marginTiers: targetAsset?.margin?.marginTiers,
         maxLeverage,
-        crossMarginUsed: new BigNumber(accountSummary?.crossAccountValue || 0),
-        crossMaintenanceMarginUsed: new BigNumber(
-          accountSummary?.crossMaintenanceMarginUsed || 0,
-        ),
-        existingPositionSize: currentPosition
-          ? new BigNumber(currentPosition.szi)
-          : undefined,
-        existingEntryPrice: currentPosition
-          ? new BigNumber(currentPosition.entryPx)
-          : undefined,
-        newOrderSide: side,
+        existingPositionSize: new BigNumber(currentPosition?.szi ?? 0),
+        isolatedRawUsd:
+          positionLeverage?.type === 'isolated'
+            ? new BigNumber(positionLeverage.rawUsd)
+            : undefined,
+        crossAvailableAfterMaintenance,
       });
 
       return {
@@ -366,14 +359,14 @@ const AddPositionForm = memo(
           liquidationPrice && liquidationPrice.gt(0) ? liquidationPrice : null,
       };
     }, [
-      accountSummary?.crossAccountValue,
-      accountSummary?.crossMaintenanceMarginUsed,
       assetData?.leverage?.type,
       assetData?.markPx,
+      crossAvailableAfterMaintenance,
       currentPosition,
       effectivePrice,
       isBuy,
       leverage,
+      orderType,
       resolvedSize,
       targetAsset?.margin?.marginTiers,
       targetAsset?.universe?.maxLeverage,

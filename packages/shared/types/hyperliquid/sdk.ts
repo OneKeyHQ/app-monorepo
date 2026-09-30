@@ -38,6 +38,13 @@ export type ITwapSliceFill = HL.UserTwapSliceFillsResponse[number];
 
 // Spot WebSocket event types
 export type IWsSpotState = HL.SpotStateWsEvent;
+// SDK 0.32.2 predates this field; Hyperliquid sends it for unified and
+// portfolio margin accounts as [collateral token, available after maintenance].
+export type IWsSpotStateWithAvailability = IWsSpotState & {
+  spotState: IWsSpotState['spotState'] & {
+    tokenToAvailableAfterMaintenance?: Array<[number, string]>;
+  };
+};
 export type IWsSpotAssetCtxs = HL.SpotAssetCtxsWsEvent;
 export type IWsActiveSpotAssetCtx = HL.ActiveSpotAssetCtxWsEvent;
 export type ISpotBalance = IWsSpotState['spotState']['balances'][number];

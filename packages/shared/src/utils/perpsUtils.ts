@@ -31,45 +31,44 @@ import {
 import type {
   IPerpTokenSortDirection,
   IPerpTokenSortField,
+  IPerpsDexCrossMargin,
 } from '@onekeyhq/shared/types/hyperliquid/types';
 
 import { numberFormat } from './numberUtils';
 
-// Types for liquidation price calculation
+// Types for liquidation price estimation
 interface IMarginTier {
   lowerBound: string;
   maxLeverage: number;
 }
 
-interface ILiquidationPriceParams {
-  totalValue: BigNumber;
-  referencePrice: BigNumber;
-  markPrice?: BigNumber;
-  clampToCurrentMark?: boolean;
-  positionSize: BigNumber;
+interface IResolvedMarginTier {
+  lowerBound: BigNumber;
+  upperBound: BigNumber | undefined;
+  maxLeverage: number;
+  maintenanceDeduction: BigNumber;
+}
+
+export type IPerpsLiquidationPriceMode = 'market' | 'limit' | 'trigger';
+
+export interface IEstimateLiquidationPriceParams {
   side: 'long' | 'short';
+  orderSize: BigNumber;
+  priceMode: IPerpsLiquidationPriceMode;
+  // Limit or trigger price; market orders are priced at mark.
+  orderPrice?: BigNumber;
+  markPrice: BigNumber;
+  reduceOnly?: boolean;
+  marginMode: 'cross' | 'isolated';
   leverage: number;
-  mode: string;
   marginTiers: IMarginTier[] | undefined;
   maxLeverage: number;
-  // For cross mode
-  crossMarginUsed?: BigNumber;
-  crossMaintenanceMarginUsed?: BigNumber;
-}
-
-interface ICombinePositionParams {
-  existingPositionSize: BigNumber; // currentCoinCrossPosition.szi (signed)
-  existingEntryPrice: BigNumber; // currentCoinCrossPosition.entryPx
-  newOrderSize: BigNumber; // formData.size (absolute value)
-  newOrderSide: 'long' | 'short'; // formData.side
-  newOrderPrice: BigNumber; // execution/reference price
-}
-
-interface ICombinePositionResult {
-  finalSize: BigNumber; // final position size (absolute value)
-  finalSide: 'long' | 'short'; // final position side
-  finalEntryPrice: BigNumber; // final entry price
-  isEmpty: boolean; // whether completely closed
+  // Signed size of the existing position in the same coin.
+  existingPositionSize?: BigNumber;
+  // `leverage.rawUsd` of the existing isolated position.
+  isolatedRawUsd?: BigNumber;
+  // Free collateral net of all cross maintenance margin, before this order.
+  crossAvailableAfterMaintenance?: BigNumber;
 }
 
 interface IProfitLossParams {
@@ -978,114 +977,360 @@ function formatPriceToSignificantDigits(
   return result;
 }
 
-/**
- * Find the margin tier based on total value
- */
-function findMarginTier(
-  totalValue: BigNumber,
-  marginTiers: IMarginTier[],
-): IMarginTier | null {
-  if (!marginTiers.length) return null;
+// Hyperliquid's order ticket drops liquidation candidates above this bound.
+const MAX_LIQUIDATION_PRICE = new BigNumber('1e15');
 
-  const sortedTiers = marginTiers.toReversed();
-  for (const tier of sortedTiers) {
-    if (totalValue.gte(new BigNumber(tier.lowerBound))) {
-      return tier;
+function getMaintenanceRate(maxLeverage: number): BigNumber {
+  return new BigNumber(1).dividedBy(maxLeverage * 2);
+}
+
+// The cumulative deduction keeps maintenance margin continuous across tiers.
+function resolveMarginTiers(
+  marginTiers: IMarginTier[] | undefined,
+  maxLeverage: number,
+): IResolvedMarginTier[] {
+  const tiers = marginTiers?.length
+    ? marginTiers
+    : [{ lowerBound: '0', maxLeverage }];
+  let deduction = new BigNumber(0);
+  return tiers.map((tier, index) => {
+    const nextTier = tiers[index + 1];
+    const resolved: IResolvedMarginTier = {
+      lowerBound: new BigNumber(tier.lowerBound),
+      upperBound: nextTier ? new BigNumber(nextTier.lowerBound) : undefined,
+      maxLeverage: tier.maxLeverage,
+      maintenanceDeduction: deduction,
+    };
+    if (nextTier) {
+      deduction = deduction.plus(
+        new BigNumber(nextTier.lowerBound).multipliedBy(
+          getMaintenanceRate(nextTier.maxLeverage).minus(
+            getMaintenanceRate(tier.maxLeverage),
+          ),
+        ),
+      );
+    }
+    return resolved;
+  });
+}
+
+function isNotionalInTier(
+  tier: IResolvedMarginTier,
+  notional: BigNumber,
+): boolean {
+  return (
+    notional.gte(tier.lowerBound) &&
+    (!tier.upperBound || notional.lt(tier.upperBound))
+  );
+}
+
+function findResolvedMarginTier(
+  tiers: IResolvedMarginTier[],
+  notional: BigNumber,
+): IResolvedMarginTier {
+  return tiers.find((tier) => isNotionalInTier(tier, notional)) ?? tiers[0];
+}
+
+function getMaintenanceMargin(
+  tier: IResolvedMarginTier,
+  notional: BigNumber,
+): BigNumber {
+  return notional
+    .multipliedBy(getMaintenanceRate(tier.maxLeverage))
+    .minus(tier.maintenanceDeduction);
+}
+
+function resolveLiquidationReferencePrice({
+  priceMode,
+  orderPrice,
+  markPrice,
+  side,
+}: {
+  priceMode: IPerpsLiquidationPriceMode;
+  orderPrice: BigNumber | undefined;
+  markPrice: BigNumber;
+  side: 'long' | 'short';
+}): BigNumber | null {
+  if (priceMode === 'market') {
+    return markPrice;
+  }
+  if (!orderPrice?.isFinite() || orderPrice.lte(0)) {
+    return null;
+  }
+  if (priceMode === 'trigger') {
+    return orderPrice;
+  }
+  // A limit that would cross the book fills near mark, so only a resting
+  // limit keeps its own price.
+  const isResting =
+    side === 'long' ? orderPrice.lte(markPrice) : orderPrice.gt(markPrice);
+  return isResting ? orderPrice : markPrice;
+}
+
+// Mirrors how Hyperliquid re-margins an isolated position: a reduce releases
+// its share of the current equity, an add posts notional / leverage.
+function resolveIsolatedAccountValue({
+  price,
+  orderDelta,
+  existingPositionSize,
+  rawUsd,
+  leverage,
+}: {
+  price: BigNumber;
+  orderDelta: BigNumber;
+  existingPositionSize: BigNumber;
+  rawUsd: BigNumber;
+  leverage: number;
+}): BigNumber {
+  let delta = orderDelta;
+  let size = existingPositionSize;
+  let raw = rawUsd;
+  if (!size.isZero() && delta.gt(0) !== size.gt(0)) {
+    const closedSize = BigNumber.min(delta.abs(), size.abs());
+    const closedDelta = delta.lt(0) ? closedSize.negated() : closedSize;
+    const releasedEquity = raw
+      .plus(price.multipliedBy(size))
+      .multipliedBy(closedSize.dividedBy(size.abs()));
+    raw = raw.minus(releasedEquity).minus(price.multipliedBy(closedDelta));
+    delta = delta.minus(closedDelta);
+    size = size.plus(closedDelta);
+  }
+  if (size.isZero() || delta.gt(0) === size.gt(0)) {
+    raw = raw
+      .plus(price.multipliedBy(delta).abs().dividedBy(leverage))
+      .minus(price.multipliedBy(delta));
+    size = size.plus(delta);
+  }
+  if (size.isZero()) {
+    return new BigNumber(0);
+  }
+  return size.multipliedBy(price).plus(raw);
+}
+
+function solveLiquidationPrice({
+  price,
+  positionSize,
+  accountValue,
+  notional,
+  leverage,
+  tiers,
+}: {
+  price: BigNumber;
+  positionSize: BigNumber;
+  accountValue: BigNumber;
+  notional: BigNumber;
+  leverage: number;
+  tiers: IResolvedMarginTier[];
+}): BigNumber | null {
+  const absSize = positionSize.abs();
+  if (absSize.isZero()) {
+    return null;
+  }
+  const side = positionSize.gt(0) ? 1 : -1;
+  const entryTier = findResolvedMarginTier(tiers, notional);
+  // Hyperliquid assumes an underfunded order is topped up to initial margin.
+  const initialMargin = notional.dividedBy(
+    Math.min(leverage, entryTier.maxLeverage),
+  );
+  const equity = BigNumber.max(accountValue, initialMargin);
+  for (const tier of tiers) {
+    const candidate = price.minus(
+      equity
+        .minus(getMaintenanceMargin(tier, notional))
+        .multipliedBy(side)
+        .dividedBy(absSize)
+        .dividedBy(
+          new BigNumber(1).minus(
+            getMaintenanceRate(tier.maxLeverage).multipliedBy(side),
+          ),
+        ),
+    );
+    if (
+      candidate.isFinite() &&
+      candidate.gt(0) &&
+      candidate.lte(MAX_LIQUIDATION_PRICE) &&
+      isNotionalInTier(tier, candidate.multipliedBy(absSize))
+    ) {
+      return candidate;
     }
   }
   return null;
 }
 
-// Inline simple calculations to reduce function call overhead
-
 /**
- * Core liquidation price calculation formula
- * Formula: Price - side * Margin_Available / Position_Size / (1 - mmr * side)
+ * Pre-trade liquidation price, following Hyperliquid's order ticket estimate:
+ * the resulting position is priced at mark (or a resting limit price) with
+ * equity measured at mark, so the entry price never enters the formula.
  */
-function calculateLiquidationPriceCore(
-  entryPrice: BigNumber,
-  marginAvailable: BigNumber,
-  positionSize: BigNumber,
-  mmr: BigNumber,
-  side: 'long' | 'short',
-): BigNumber {
-  const sideMultiplier = side === 'long' ? '1' : '-1';
-  return entryPrice.minus(
-    new BigNumber(sideMultiplier)
-      .multipliedBy(marginAvailable)
-      .dividedBy(positionSize)
-      .dividedBy(new BigNumber('1').minus(mmr.multipliedBy(sideMultiplier))),
-  );
+function estimateLiquidationPrice(
+  params: IEstimateLiquidationPriceParams,
+): BigNumber | null {
+  const {
+    side,
+    orderSize,
+    priceMode,
+    orderPrice,
+    markPrice,
+    reduceOnly = false,
+    marginMode,
+    leverage,
+    marginTiers,
+    maxLeverage,
+    existingPositionSize = new BigNumber(0),
+    isolatedRawUsd,
+    crossAvailableAfterMaintenance,
+  } = params;
+  if (
+    !markPrice.isFinite() ||
+    markPrice.lte(0) ||
+    !orderSize.isFinite() ||
+    orderSize.lt(0) ||
+    !existingPositionSize.isFinite()
+  ) {
+    return null;
+  }
+  const direction = side === 'long' ? 1 : -1;
+  let fillSize = orderSize;
+  if (reduceOnly) {
+    // Reduce-only fills stop at the opposite position and never flip it.
+    fillSize = existingPositionSize.multipliedBy(direction).gte(0)
+      ? new BigNumber(0)
+      : BigNumber.min(existingPositionSize.abs(), orderSize);
+  }
+  const orderDelta = fillSize.multipliedBy(direction);
+  const resultingSize = existingPositionSize.plus(orderDelta);
+  if (resultingSize.isZero()) {
+    return null;
+  }
+  const price = resolveLiquidationReferencePrice({
+    priceMode,
+    orderPrice,
+    markPrice,
+    side,
+  });
+  if (!price) {
+    return null;
+  }
+  const safeLeverage = leverage > 0 ? leverage : maxLeverage;
+  const tiers = resolveMarginTiers(marginTiers, maxLeverage);
+  const notional = price.multipliedBy(resultingSize.abs());
+
+  if (marginMode === 'isolated') {
+    const hasExistingPosition = !existingPositionSize.isZero();
+    if (hasExistingPosition && !isolatedRawUsd?.isFinite()) {
+      return null;
+    }
+    return solveLiquidationPrice({
+      price,
+      positionSize: resultingSize,
+      accountValue: resolveIsolatedAccountValue({
+        price,
+        orderDelta,
+        existingPositionSize,
+        rawUsd:
+          hasExistingPosition && isolatedRawUsd
+            ? isolatedRawUsd
+            : new BigNumber(0),
+        leverage: safeLeverage,
+      }),
+      notional,
+      leverage: safeLeverage,
+      tiers,
+    });
+  }
+
+  if (!crossAvailableAfterMaintenance?.isFinite()) {
+    return null;
+  }
+  // The same-coin position is margined again at its new size, so release the
+  // maintenance margin it currently holds.
+  const existingNotional = existingPositionSize.abs().multipliedBy(markPrice);
+  return solveLiquidationPrice({
+    price,
+    positionSize: resultingSize,
+    accountValue: crossAvailableAfterMaintenance.plus(
+      getMaintenanceMargin(
+        findResolvedMarginTier(tiers, existingNotional),
+        existingNotional,
+      ),
+    ),
+    notional,
+    leverage: safeLeverage,
+    tiers,
+  });
 }
 
-/**
- * Combine existing position with new order
- */
-function combinePositionWithOrder(
-  params: ICombinePositionParams,
-): ICombinePositionResult {
-  const {
-    existingPositionSize,
-    existingEntryPrice,
-    newOrderSize,
-    newOrderSide,
-    newOrderPrice,
-  } = params;
+// Every supported perp dex is collateralized by USDC (spot token 0).
+const PERPS_USDC_COLLATERAL_TOKEN = 0;
 
-  const newOrderSideMultiplier = newOrderSide === 'long' ? 1 : -1;
-  const signedNewOrderSize = newOrderSize.multipliedBy(newOrderSideMultiplier);
-  const resultingSignedSize = existingPositionSize.plus(signedNewOrderSize);
-
-  // Complete closure
-  if (resultingSignedSize.isZero()) {
-    return {
-      finalSize: new BigNumber(0),
-      finalSide: 'long',
-      finalEntryPrice: newOrderPrice,
-      isEmpty: true,
+function buildPerpsCrossMarginByDex(
+  clearinghouseStates: Array<
+    [
+      string,
+      (
+        | {
+            crossMarginSummary?: { accountValue?: string };
+            crossMaintenanceMarginUsed?: string;
+          }
+        | null
+        | undefined
+      ),
+    ]
+  >,
+): Record<string, IPerpsDexCrossMargin> {
+  const crossMarginByDex: Record<string, IPerpsDexCrossMargin> = {};
+  clearinghouseStates.forEach(([dex, state]) => {
+    if (!state) {
+      return;
+    }
+    crossMarginByDex[dex] = {
+      accountValue: state.crossMarginSummary?.accountValue ?? '0',
+      maintenanceMarginUsed: state.crossMaintenanceMarginUsed ?? '0',
     };
+  });
+  return crossMarginByDex;
+}
+
+function buildTokenAvailableAfterMaintenanceMap(
+  entries: Array<[number, string]> | undefined,
+): Record<number, string> | undefined {
+  if (!entries) {
+    return undefined;
   }
+  return Object.fromEntries(entries);
+}
 
-  const resultingSide = resultingSignedSize.gt(0) ? 'long' : 'short';
-  const resultingSize = resultingSignedSize.abs();
-  const existingSide = existingPositionSize.gt(0) ? 'long' : 'short';
-  const existingSize = existingPositionSize.abs();
-
-  // Same direction: weighted average
-  if (existingSide === newOrderSide) {
-    const existingValue = existingSize.multipliedBy(existingEntryPrice);
-    const newOrderValue = newOrderSize.multipliedBy(newOrderPrice);
-    const combinedValue = existingValue.plus(newOrderValue);
-    const weightedAvgPrice = combinedValue.dividedBy(
-      existingSize.plus(newOrderSize),
+// Unified and portfolio margin accounts share collateral across dexes, so
+// only spotState reports it; standard accounts margin each dex on its own.
+function resolveCrossAvailableAfterMaintenance({
+  mode,
+  dex,
+  tokenToAvailableAfterMaintenance,
+  crossMarginByDex,
+}: {
+  mode: EHyperLiquidAbstractionMode | undefined;
+  dex: string;
+  tokenToAvailableAfterMaintenance: Record<number, string> | undefined;
+  crossMarginByDex: Record<string, IPerpsDexCrossMargin> | undefined;
+}): BigNumber | undefined {
+  if (!mode) {
+    return undefined;
+  }
+  if (isHyperLiquidAbstractionModeEnabled(mode)) {
+    if (!tokenToAvailableAfterMaintenance) {
+      return undefined;
+    }
+    return new BigNumber(
+      tokenToAvailableAfterMaintenance[PERPS_USDC_COLLATERAL_TOKEN] ?? 0,
     );
-
-    return {
-      finalSize: resultingSize,
-      finalSide: resultingSide,
-      finalEntryPrice: weightedAvgPrice,
-      isEmpty: false,
-    };
   }
-
-  // Opposite direction: partial close or flip
-  if (newOrderSize.lt(existingSize)) {
-    // Partial close: entry price unchanged
-    return {
-      finalSize: resultingSize,
-      finalSide: resultingSide,
-      finalEntryPrice: existingEntryPrice,
-      isEmpty: false,
-    };
+  const dexMargin = crossMarginByDex?.[dex];
+  if (!dexMargin) {
+    return undefined;
   }
-
-  // Flip: new direction entry price
-  return {
-    finalSize: resultingSize,
-    finalSide: resultingSide,
-    finalEntryPrice: newOrderPrice,
-    isEmpty: false,
-  };
+  return new BigNumber(dexMargin.accountValue).minus(
+    dexMargin.maintenanceMarginUsed,
+  );
 }
 
 /**
@@ -1139,152 +1384,6 @@ function calculateProfitLoss(params: IProfitLossParams): string {
   return isNegative
     ? `-${currency}${formattedAmount}`
     : `${currency}${formattedAmount}`;
-}
-
-/**
- * Unified liquidation price calculation with optional existing position
- * Automatically chooses optimal calculation path based on position existence
- */
-function calculateLiquidationPrice(
-  params: ILiquidationPriceParams & {
-    // Optional existing position parameters
-    existingPositionSize?: BigNumber;
-    existingEntryPrice?: BigNumber;
-    newOrderSide?: 'long' | 'short';
-  },
-): BigNumber | null {
-  const {
-    totalValue,
-    referencePrice,
-    markPrice,
-    clampToCurrentMark = true,
-    positionSize,
-    side,
-    leverage,
-    maxLeverage,
-    mode,
-    marginTiers,
-    crossMarginUsed = new BigNumber(0),
-    crossMaintenanceMarginUsed = new BigNumber(0),
-    existingPositionSize,
-    existingEntryPrice,
-    newOrderSide,
-  } = params;
-
-  if (positionSize.isZero()) return null;
-
-  let effectivePrice = referencePrice;
-  if (markPrice && clampToCurrentMark) {
-    const _side = newOrderSide || side;
-    if (_side === 'long') {
-      // Long: if limit price > mark price, will execute at market price
-      effectivePrice = referencePrice.gt(markPrice)
-        ? markPrice
-        : referencePrice;
-    } else {
-      // Short: if limit price < mark price, will execute at market price
-      effectivePrice = referencePrice.lt(markPrice)
-        ? markPrice
-        : referencePrice;
-    }
-  }
-
-  // Recalculate totalValue with effectivePrice if it differs from referencePrice
-  // This ensures consistency when limit orders would execute at market price
-  const adjustedTotalValue = effectivePrice.isEqualTo(referencePrice)
-    ? totalValue
-    : positionSize.multipliedBy(effectivePrice);
-
-  // Check if we need to consider existing position
-  const hasExistingPosition =
-    existingPositionSize &&
-    existingEntryPrice &&
-    newOrderSide &&
-    !existingPositionSize.isZero();
-
-  if (hasExistingPosition) {
-    // Calculate existing position metrics
-    // IMPORTANT: Use current mark price for maintenance margin calculation, not entry price
-    // Maintenance margin is based on position's current market value, not entry value
-    const existingPositionValue = existingPositionSize
-      .abs()
-      .multipliedBy(effectivePrice);
-    const existingMarginTier = findMarginTier(
-      existingPositionValue,
-      marginTiers || [],
-    );
-    const existingMMR = new BigNumber(1)
-      .dividedBy(existingMarginTier?.maxLeverage || maxLeverage)
-      .dividedBy(2);
-    const existingMaintenanceMarginRequired =
-      existingPositionValue.multipliedBy(existingMMR);
-
-    // Combine positions
-    const combinedPosition = combinePositionWithOrder({
-      existingPositionSize,
-      existingEntryPrice,
-      newOrderSize: positionSize,
-      newOrderSide,
-      newOrderPrice: effectivePrice,
-    });
-
-    // Complete closure means no liquidation price
-    if (combinedPosition.isEmpty) return null;
-
-    // Calculate combined position metrics
-    const combinedPositionValue =
-      combinedPosition.finalSize.multipliedBy(effectivePrice);
-    const combinedMarginTier = findMarginTier(
-      combinedPositionValue,
-      marginTiers || [],
-    );
-    const combinedMMR = new BigNumber(1)
-      .dividedBy(combinedMarginTier?.maxLeverage || maxLeverage)
-      .dividedBy(2);
-    const combinedMaintenanceMarginRequired =
-      combinedPositionValue.multipliedBy(combinedMMR);
-
-    // Calculate margin available based on mode
-    const marginAvailable =
-      mode === 'isolated'
-        ? combinedPositionValue
-            .dividedBy(leverage)
-            .minus(combinedMaintenanceMarginRequired)
-        : crossMarginUsed
-            .plus(existingMaintenanceMarginRequired)
-            .minus(combinedMaintenanceMarginRequired)
-            .minus(crossMaintenanceMarginUsed);
-
-    return calculateLiquidationPriceCore(
-      combinedPosition.finalEntryPrice,
-      marginAvailable,
-      combinedPosition.finalSize,
-      combinedMMR,
-      combinedPosition.finalSide,
-    );
-  }
-
-  // Simple case without existing position
-  const marginTier = findMarginTier(adjustedTotalValue, marginTiers || []);
-  const mmr = new BigNumber(1)
-    .dividedBy(marginTier?.maxLeverage || maxLeverage)
-    .dividedBy(2);
-  const maintenanceMarginRequired = adjustedTotalValue.multipliedBy(mmr);
-
-  const marginAvailable =
-    mode === 'isolated'
-      ? adjustedTotalValue.dividedBy(leverage).minus(maintenanceMarginRequired)
-      : crossMarginUsed
-          .minus(maintenanceMarginRequired)
-          .minus(crossMaintenanceMarginUsed);
-
-  return calculateLiquidationPriceCore(
-    effectivePrice,
-    marginAvailable,
-    positionSize,
-    mmr,
-    side,
-  );
 }
 
 function formatAssetCtx(
@@ -2355,10 +2454,10 @@ export {
   validateSpotPriceInput,
   formatPriceToSignificantDigits,
   calculateProfitLoss,
-  findMarginTier,
-  calculateLiquidationPrice,
-  calculateLiquidationPriceCore,
-  combinePositionWithOrder,
+  estimateLiquidationPrice,
+  buildPerpsCrossMarginByDex,
+  buildTokenAvailableAfterMaintenanceMap,
+  resolveCrossAvailableAfterMaintenance,
   sanitizeManualSize,
   computeMaxTradeSize,
   resolveTradingSize,
@@ -2418,10 +2517,10 @@ export default {
   validateSpotPriceInput,
   formatPriceToSignificantDigits,
   calculateProfitLoss,
-  findMarginTier,
-  calculateLiquidationPrice,
-  calculateLiquidationPriceCore,
-  combinePositionWithOrder,
+  estimateLiquidationPrice,
+  buildPerpsCrossMarginByDex,
+  buildTokenAvailableAfterMaintenanceMap,
+  resolveCrossAvailableAfterMaintenance,
   sanitizeManualSize,
   computeMaxTradeSize,
   resolveTradingSize,
