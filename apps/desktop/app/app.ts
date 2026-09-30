@@ -18,6 +18,7 @@ import {
   BrowserWindow,
   Menu,
   app,
+  dialog,
   webContents as electronWebContents,
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   inAppPurchase,
@@ -1875,6 +1876,20 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
   return browserWindow;
 }
 
+async function createMainWindowForStartup(): Promise<BrowserWindow | null> {
+  try {
+    return await createMainWindow();
+  } catch (error) {
+    logger.error('Desktop main window initialization failed', error);
+    dialog.showErrorBox(
+      'OneKey failed to start',
+      'The desktop window could not be initialized. Please restart OneKey.',
+    );
+    app.exit(1);
+    return null;
+  }
+}
+
 function initChildProcess() {
   return initProcess();
 }
@@ -1921,7 +1936,8 @@ if (!singleInstance && !process.mas) {
     logger.info('locale >>>> ', locale);
 
     if (!mainWindow) {
-      mainWindow = await createMainWindow();
+      mainWindow = await createMainWindowForStartup();
+      if (!mainWindow) return;
     }
 
     // Menu is needed in both normal and recovery mode
@@ -1995,7 +2011,8 @@ app.on('activate', async () => {
   // isSoftRestart, so it would also bump the boot-fail counter). softRestart's
   // own showMainWindow() will surface the recreated window.
   if (!mainWindow && !softRestarting) {
-    mainWindow = await createMainWindow();
+    mainWindow = await createMainWindowForStartup();
+    if (!mainWindow) return;
   }
   showMainWindow();
 });
