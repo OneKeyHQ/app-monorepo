@@ -104,4 +104,48 @@ describe('BorrowTableList headers', () => {
     ).columns;
     expect(rerenderedTableColumns).toBe(firstTableColumns);
   });
+
+  it('keeps the footer available for an empty list', () => {
+    const { View } = jest.requireActual('react-native');
+    const view = render(
+      <BorrowTableList
+        columns={[]}
+        data={[]}
+        emptyContent="No assets"
+        listProps={{
+          ListFooterComponent: <View testID="empty-list-footer" />,
+        }}
+      />,
+    );
+
+    expect(
+      view.UNSAFE_root.findAll(
+        (node) => node.props.testID === 'empty-list-footer',
+      ),
+    ).toHaveLength(1);
+  });
+
+  it('can hide the empty state when folded rows are available in the footer', () => {
+    const { View } = jest.requireActual('react-native');
+    const view = render(
+      <BorrowTableList
+        columns={[]}
+        data={[]}
+        emptyContent="No assets"
+        hideEmptyState
+        listProps={{
+          ListFooterComponent: <View testID="folded-assets-footer" />,
+        }}
+      />,
+    );
+
+    expect(
+      view.UNSAFE_root.findAll((node) => node.props.title === 'No assets'),
+    ).toHaveLength(0);
+    expect(
+      view.UNSAFE_root.findAll(
+        (node) => node.props.testID === 'folded-assets-footer',
+      ),
+    ).toHaveLength(1);
+  });
 });
