@@ -802,3 +802,10 @@ Cases are appended by AI after each bug fix. Do NOT reorder or delete entries â€
 **Fix**: Trending tokens keep the portfolio tab next to the footer summary. The tab still lists every position row.
 **Catchable by**: Section 4: a summary of one item does not replace the list that item came from.
 
+## Case: A second Market trade was dropped during Swap handoff
+**Date**: 2026-10-01 | **Platforms**: iOS, Android, desktop, web, extension (main)
+**Symptom**: Tapping Trade on another token while Swap was still applying the previous Market jump left Swap on the first token.
+**Root Cause**: The in-flight handoff ignored a newer jump because it was already applying, then cleared the pending intent unconditionally.
+**Fix**: Clear the pending intent only when it is still the one this handoff captured. If a newer intent replaced it, apply that intent after the current handoff finishes.
+**Catchable by**: Section 5: an async handoff that drops work while a guard is set must not erase a newer request that arrived during the await.
+

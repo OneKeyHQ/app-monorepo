@@ -97,6 +97,7 @@ import {
   getVisibleSwapTabSwitchUpdate,
 } from '../utils/swapTypeUtils';
 
+import { resolveMarketJumpIntentAfterHandoff } from './swapMarketJumpIntent';
 import { useSwapAddressInfo } from './useSwapAccount';
 import { useSwapProInputToken } from './useSwapPro';
 
@@ -1653,72 +1654,88 @@ export function useSwapInit(params?: ISwapInitParams) {
   ]);
   const isApplyingSwapMarketJumpTokenRef = useRef(false);
   applySwapMarketJumpTokenRef.current = async () => {
-    const jumpToken = swapFromMarketJumpTokenRef.current;
-    if (
-      !jumpToken?.token ||
-      !swapNetworksRef.current.length ||
-      isApplyingSwapMarketJumpTokenRef.current
-    ) {
+    if (isApplyingSwapMarketJumpTokenRef.current) {
       return;
     }
     isApplyingSwapMarketJumpTokenRef.current = true;
     try {
-      await swapTypeSwitchAction(jumpToken.type);
-      if (jumpToken.direction === 'from') {
-        if (
-          equalTokenNoCaseSensitive({
-            token1: jumpToken.token,
-            token2: toTokenRef.current,
-          })
-        ) {
-          void setToToken(undefined);
+      // A later Market trade can arrive while this handoff is awaiting.
+      // Another call returns early, so this pass must apply that newer intent
+      // after the one it already started, and must not clear it.
+      while (swapNetworksRef.current.length) {
+        const jumpToken = swapFromMarketJumpTokenRef.current;
+        if (!jumpToken?.token) {
+          break;
         }
-        if (jumpToken.otherToken) {
-          void setToToken(jumpToken.otherToken);
+        await swapTypeSwitchAction(jumpToken.type);
+        if (jumpToken.direction === 'from') {
+          if (
+            equalTokenNoCaseSensitive({
+              token1: jumpToken.token,
+              token2: toTokenRef.current,
+            })
+          ) {
+            void setToToken(undefined);
+          }
+          if (jumpToken.otherToken) {
+            void setToToken(jumpToken.otherToken);
+          }
+          await selectFromToken(jumpToken.token);
+          if (jumpToken.amount) {
+            void setFromTokenAmount({
+              value: jumpToken.amount,
+              isInput: true,
+            });
+          }
+        } else {
+          if (
+            equalTokenNoCaseSensitive({
+              token1: jumpToken.token,
+              token2: fromTokenRef.current,
+            })
+          ) {
+            void setSwapFromToken(undefined);
+            fromTokenRef.current = undefined;
+          }
+          if (jumpToken.otherToken) {
+            void setSwapFromToken(jumpToken.otherToken);
+            fromTokenRef.current = jumpToken.otherToken;
+          }
+          await selectToToken(jumpToken.token);
+          if (jumpToken.type === ESwapTabSwitchType.STOCK) {
+            setSwapStockSelectedToken(
+              jumpToken.token.isStock
+                ? jumpToken.token
+                : { ...jumpToken.token, isStock: true },
+            );
+          }
+          if (jumpToken.amount) {
+            void setFromTokenAmount({
+              value: jumpToken.amount,
+              isInput: true,
+            });
+          }
         }
-        await selectFromToken(jumpToken.token);
-        if (jumpToken.amount) {
-          void setFromTokenAmount({
-            value: jumpToken.amount,
-            isInput: true,
-          });
+        initialSelectedTokensSyncedRef.current = true;
+        setInitialSelectedTokensSynced(true);
+        const handoff = resolveMarketJumpIntentAfterHandoff(
+          jumpToken,
+          swapFromMarketJumpTokenRef.current,
+        );
+        if (handoff.clearCapturedIntent) {
+          const clearedIntent = {
+            token: undefined,
+            type: ESwapTabSwitchType.SWAP,
+            direction: 'from' as const,
+          };
+          swapFromMarketJumpTokenRef.current = clearedIntent;
+          setSwapFromMarketJumpToken(clearedIntent);
+          break;
         }
-      } else {
-        if (
-          equalTokenNoCaseSensitive({
-            token1: jumpToken.token,
-            token2: fromTokenRef.current,
-          })
-        ) {
-          void setSwapFromToken(undefined);
-          fromTokenRef.current = undefined;
-        }
-        if (jumpToken.otherToken) {
-          void setSwapFromToken(jumpToken.otherToken);
-          fromTokenRef.current = jumpToken.otherToken;
-        }
-        await selectToToken(jumpToken.token);
-        if (jumpToken.type === ESwapTabSwitchType.STOCK) {
-          setSwapStockSelectedToken(
-            jumpToken.token.isStock
-              ? jumpToken.token
-              : { ...jumpToken.token, isStock: true },
-          );
-        }
-        if (jumpToken.amount) {
-          void setFromTokenAmount({
-            value: jumpToken.amount,
-            isInput: true,
-          });
+        if (!handoff.nextIntent) {
+          break;
         }
       }
-      initialSelectedTokensSyncedRef.current = true;
-      setInitialSelectedTokensSynced(true);
-      setSwapFromMarketJumpToken({
-        token: undefined,
-        type: ESwapTabSwitchType.SWAP,
-        direction: 'from',
-      });
     } finally {
       isApplyingSwapMarketJumpTokenRef.current = false;
     }
