@@ -34,15 +34,6 @@ jest.mock('@onekeyhq/components', () => {
   return {
     useMedia: () => ({ md: mockMediaMd.current }),
     AnimatePresence: Wrapper,
-    Sheet: Object.assign(Wrapper, {
-      Frame: Wrapper,
-      Overlay: () => null,
-    }),
-    TMDialog: Object.assign(Wrapper, {
-      Content: Wrapper,
-      Overlay: () => null,
-      Title: () => null,
-    }),
   };
 });
 

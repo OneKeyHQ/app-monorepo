@@ -33,8 +33,6 @@ export enum EPortalContainerConstantName {
   PASSWORD_VERIFY_CONTAINER_PORTAL = 'PASSWORD_VERIFY_CONTAINER_PORTAL',
   FULL_WINDOW_OVERLAY_PORTAL = 'ONEKEY-Root-FullWindowOverlay',
   TOASTER_OVERLAY_PORTAL = 'ONEKEY_TOASTER_OVERLAY_PORTAL',
-  ACCOUNT_SELECTOR = 'ONEKEY_ACCOUNT_SELECTOR',
-  WALLET_ACTIONS = 'ONEKEY_WALLET_ACTIONS',
   HARDWARE_UI_STATE_DIALOG = 'HARDWARE_UI_STATE_DIALOG',
   IN_PAGE_TAB_CONTAINER = 'IN_PAGE_TAB_CONTAINER',
   SUGGESTION_LIST = 'SUGGESTION_LIST',
@@ -87,11 +85,15 @@ function renderToPortal(
 }
 
 // Mount roots for imperative overlay APIs (`Dialog.show`, `Toast.show`,
-// `ActionList.show`). What mounts there must render its own `OverlayView`;
+// `ActionList.show`, `useInPageDialog`; the lock and password containers pick
+// the dialog's level). What mounts there must render its own `OverlayView`;
 // declarative content does not belong in them.
 const OVERLAY_MOUNT_ROOTS: ReadonlySet<EPortalContainerConstantName> = new Set([
   EPortalContainerConstantName.FULL_WINDOW_OVERLAY_PORTAL,
   EPortalContainerConstantName.TOASTER_OVERLAY_PORTAL,
+  EPortalContainerConstantName.APP_STATE_LOCK_CONTAINER_OVERLAY,
+  EPortalContainerConstantName.PASSWORD_VERIFY_CONTAINER_PORTAL,
+  EPortalContainerConstantName.IN_PAGE_TAB_CONTAINER,
 ]);
 
 function PortalBodyRender(props: {

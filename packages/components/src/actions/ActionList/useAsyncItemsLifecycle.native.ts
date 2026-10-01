@@ -12,7 +12,7 @@ const ASYNC_ITEMS_ANIMATION_FALLBACK_DELAY = 1000;
 
 export function useAsyncItemsLifecycle({
   isOpen,
-  nativeSheet = false,
+  sheetPresentation = false,
   renderItemsAsync,
   handleActionListCloseRef,
   handleActionListOpenRef,
@@ -137,8 +137,8 @@ export function useAsyncItemsLifecycle({
           return;
         }
         pendingAsyncItemsRef.current = { requestId, items };
-        if (nativeSheet || isOpenAnimationCompleteRef.current) {
-          // NativeSheet measures the resolved first frame before presentation.
+        if (sheetPresentation || isOpenAnimationCompleteRef.current) {
+          // The overlay sheet measures the resolved first frame before presentation.
           commitPendingAsyncItems();
         }
       })
@@ -151,7 +151,7 @@ export function useAsyncItemsLifecycle({
         defaultLogger.app.error.log(
           `[ActionList] renderItemsAsync failed: ${message}`,
         );
-        if (nativeSheet) {
+        if (sheetPresentation) {
           handleActionListCloseRef.current?.();
         }
       });
@@ -169,7 +169,7 @@ export function useAsyncItemsLifecycle({
     handleActionListOpenRef,
     hasRenderItemsAsync,
     isOpen,
-    nativeSheet,
+    sheetPresentation,
   ]);
 
   return {

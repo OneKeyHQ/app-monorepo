@@ -1,5 +1,5 @@
 /* cspell:ignore hoverable */
-import type { ComponentType, ReactElement, ReactNode } from 'react';
+import type { ReactElement } from 'react';
 import { useCallback, useMemo, useRef, useState } from 'react';
 
 import {
@@ -10,15 +10,11 @@ import { useWindowDimensions } from 'react-native';
 
 import { useMedia, useTheme } from '@onekeyhq/components/src/hooks/useStyle';
 import { withStaticProperties } from '@onekeyhq/components/src/shared/tamagui';
-import type { SheetProps } from '@onekeyhq/components/src/shared/tamagui';
-import type {
-  PopoverContentProps as PopoverContentTypeProps,
-  TMPopoverProps,
-} from '@onekeyhq/components/src/shared/tamaguiOverlay';
 
 import { useSafeAreaInsets } from '../../hooks';
 import { ScrollView } from '../../layouts/ScrollView';
 import { SizableText, XStack, YStack } from '../../primitives';
+import { assertOverlayProps } from '../../shared/assertOverlayProps';
 import { IconButton } from '../IconButton';
 import { Trigger } from '../Trigger';
 
@@ -34,7 +30,7 @@ import {
 } from './popoverSideEffects';
 
 import type { IPopoverHoverable } from './anchoredPopover';
-import type { IPopoverTooltip } from './type';
+import type { IPopoverProps, IPopoverTooltip } from './type';
 import type { IIconButtonProps } from '../IconButton';
 import type { Placement } from '@floating-ui/dom';
 import type {
@@ -68,28 +64,6 @@ const WORD_BREAK_ALL_STYLE = { wordBreak: 'break-all' } as const;
 // Longest overlay exit plus slack; only a safety net for `closePopover()`.
 const POPOVER_CLOSE_FALLBACK_MS = 1000;
 const noop = () => undefined;
-export interface IPopoverProps extends TMPopoverProps {
-  title: string | ReactElement;
-  description?: string;
-  showHeader?: boolean;
-  usingSheet?: boolean;
-  /** Uses the platform-native sheet presentation on iOS and Android. */
-  nativeSheet?: boolean;
-  renderTrigger: ReactNode;
-  openPopover?: () => void;
-  closePopover?: () => void;
-  renderContent:
-    | ReactElement
-    | ComponentType<{ isOpen?: boolean; closePopover: () => void }>
-    | null;
-  floatingPanelProps?: PopoverContentTypeProps;
-  sheetProps?: SheetProps;
-  mountNativePortalBeforeOpen?: boolean;
-  /**
-   * Unique identifier for tracking/analytics purposes.
-   */
-  trackID?: string;
-}
 
 const usePopoverValue = (
   open?: boolean,
@@ -150,15 +124,14 @@ function RawPopover({
   closePopover,
   placement = 'bottom-end',
   usingSheet = true,
-  allowFlip: allowFlipProp = true,
+  allowFlip = true,
   showHeader = true,
   offset: offsetProp,
   hoverable,
   keepChildrenMounted: keepChildrenMountedProp,
 }: IPopoverProps) {
   const isOpen = Boolean(isOpenProp);
-  const offset = typeof offsetProp === 'number' ? offsetProp : 8;
-  const allowFlip = allowFlipProp !== false;
+  const offset = offsetProp ?? 8;
   // 'lazy' keeps the content once opened; mounting it up front is equivalent.
   const keepChildrenMounted = Boolean(keepChildrenMountedProp);
   const theme = useTheme();
@@ -408,6 +381,7 @@ function BasicPopover({
   trackID,
   ...rest
 }: IPopoverProps) {
+  assertOverlayProps('Popover', rest);
   const { isOpen, openPopover, closePopover } = usePopoverValue(
     open,
     onOpenChangeFunc,

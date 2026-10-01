@@ -254,7 +254,6 @@ describe('useOneKeyAuth login dialog lifecycle', () => {
     const options = jest.mocked(Dialog.show).mock.calls[0]?.[0];
     expect(options?.boundedSheetLayout).toBe(boundedSheetLayout);
     expect(options?.sheetDragArea).toBe(sheetDragArea);
-    expect(options?.nativeSheet).toBeUndefined();
     expect(options?.floatingPanelProps?.width).toBe(isNative ? undefined : 440);
   });
 });

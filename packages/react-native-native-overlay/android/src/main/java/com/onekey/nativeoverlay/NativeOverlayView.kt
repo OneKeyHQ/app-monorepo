@@ -3,8 +3,10 @@ package com.onekey.nativeoverlay
 import android.animation.Animator
 import android.animation.AnimatorListenerAdapter
 import android.animation.ValueAnimator
+import android.content.res.Configuration
 import android.graphics.Color
 import android.provider.Settings
+import android.util.TypedValue
 import android.view.View
 import android.view.View.OnLayoutChangeListener
 import android.view.ViewGroup
@@ -350,6 +352,25 @@ class NativeOverlayView(
     return target
   }
 
+  /**
+   * Without an explicit color the sheet follows the theme (iOS uses
+   * `systemBackground`); a fixed white showed as a strip under dark content
+   * in the navigation bar inset.
+   */
+  private fun defaultSheetBackgroundColor(): Int {
+    val theme = (context as? ThemedReactContext)?.currentActivity?.theme ?: context.theme
+    val value = TypedValue()
+    if (
+      theme.resolveAttribute(android.R.attr.colorBackground, value, true) &&
+      value.type >= TypedValue.TYPE_FIRST_COLOR_INT &&
+      value.type <= TypedValue.TYPE_LAST_COLOR_INT
+    ) {
+      return value.data
+    }
+    val nightMode = resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK
+    return if (nightMode == Configuration.UI_MODE_NIGHT_YES) Color.BLACK else Color.WHITE
+  }
+
   private fun applyEntryConfiguration(target: NativeOverlayEntryRootView) {
     target.stackOrder = stackOrder
     target.updateBlocking(blocking)
@@ -361,7 +382,7 @@ class NativeOverlayView(
       target.configureSheet(
         heightPx = (sheetHeight * density).toInt().coerceAtLeast(1),
         cornerRadiusPx = (sheetCornerRadius * density).toFloat(),
-        backgroundColor = sheetBackgroundColor ?: Color.WHITE,
+        backgroundColor = sheetBackgroundColor ?: defaultSheetBackgroundColor(),
         showHandle = showHandle,
         draggable = dismissOnPanDown,
       )

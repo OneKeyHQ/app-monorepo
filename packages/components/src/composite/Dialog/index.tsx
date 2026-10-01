@@ -56,11 +56,12 @@ import { useKeyboardAnimation } from '../../hooks/useKeyboardAnimation';
 import { usePageContext } from '../../layouts/Page/PageContext';
 import { ScrollView } from '../../layouts/ScrollView';
 import { SizableText, Spinner, Stack } from '../../primitives';
+import { assertOverlayProps } from '../../shared/assertOverlayProps';
 
 import { getDialogKeyboardPaddingBottom } from './boundedDialogLayout';
 import { BoundedDialogScrollLayout } from './BoundedDialogScrollLayout';
 import { Content } from './Content';
-import { DialogContext, DialogSheetContext } from './context';
+import { DialogContext } from './context';
 import { addDialogInstance, removeDialogInstance } from './dialogInstances';
 import { DialogScrollView } from './DialogScrollView';
 import { Footer, FooterAction } from './Footer';
@@ -323,8 +324,8 @@ function DialogFrame({
 
   const media = useMedia();
 
-  // Native OneKey login opt-in (OK-63232): cap + scroll inside the existing
-  // Tamagui sheet. Never enable nativeSheet from this flag.
+  // Native OneKey login opt-in (OK-63232): cap + scroll inside the overlay
+  // sheet.
   const isBoundedDialogLayout = boundedSheetLayout && platformEnv.isNative;
   // Header-only drag (OK-61140): the sheet's own frame drag is switched off,
   // so a scrollable body scrolls natively with no hand-off to the sheet, and
@@ -486,7 +487,7 @@ function DialogFrame({
   );
 
   const dialogSheetBody = (
-    <DialogSheetContext.Provider value={false}>
+    <>
       <FocusScope
         enabled={open}
         trapped={open ? effectiveTrapFocus : undefined}
@@ -511,7 +512,7 @@ function DialogFrame({
           </Stack>
         )}
       </FocusScope>
-    </DialogSheetContext.Provider>
+    </>
   );
 
   return (
@@ -568,6 +569,7 @@ function BaseDialogContainer(
   }: IDialogContainerProps,
   ref: ForwardedRef<IDialogInstance>,
 ) {
+  assertOverlayProps('Dialog', props);
   const [isOpenState, changeIsOpenState] = useState(true);
   const isControlled = !isNil(open);
   const isOpen = isControlled ? open : isOpenState;
@@ -749,6 +751,7 @@ function dialogShow({
   portalContainer,
   ...props
 }: IDialogShowFunctionProps): IDialogInstance {
+  assertOverlayProps('Dialog.show', props);
   void Keyboard.dismissWithDelay(50);
   let instanceRef: React.RefObject<IDialogInstance | null> | undefined =
     createRef();

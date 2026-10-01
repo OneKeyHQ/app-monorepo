@@ -378,7 +378,6 @@ export function useAddHiddenWallet() {
       }
       return new Promise<void>((resolve, reject) => {
         Dialog.show({
-          nativeSheet: true,
           showExitButton: false,
           renderContent: <AddHiddenWalletDialogContent />,
           onConfirmText: intl.formatMessage({

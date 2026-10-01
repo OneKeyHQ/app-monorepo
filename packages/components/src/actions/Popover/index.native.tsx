@@ -1,10 +1,5 @@
 /* cspell:ignore hoverable */
-import type {
-  ComponentType,
-  PropsWithChildren,
-  ReactElement,
-  ReactNode,
-} from 'react';
+import type { PropsWithChildren, ReactElement } from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useIsomorphicLayoutEffect } from '@tamagui/core';
@@ -12,12 +7,6 @@ import { useWindowDimensions } from 'react-native';
 
 import { useMedia } from '@onekeyhq/components/src/hooks/useStyle';
 import { withStaticProperties } from '@onekeyhq/components/src/shared/tamagui';
-import type { SheetProps } from '@onekeyhq/components/src/shared/tamagui';
-import { TMPopover } from '@onekeyhq/components/src/shared/tamaguiOverlay';
-import type {
-  PopoverContentProps as PopoverContentTypeProps,
-  TMPopoverProps,
-} from '@onekeyhq/components/src/shared/tamaguiOverlay';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { Keyboard } from '../../content/Keyboard';
@@ -30,6 +19,7 @@ import {
 import { PageContext, usePageContext } from '../../layouts/Page/PageContext';
 import { ScrollView } from '../../layouts/ScrollView';
 import { SizableText, XStack, YStack } from '../../primitives';
+import { assertOverlayProps } from '../../shared/assertOverlayProps';
 import { NATIVE_HIT_SLOP } from '../../utils/getFontSize';
 import { IconButton } from '../IconButton';
 import { Trigger } from '../Trigger';
@@ -46,7 +36,7 @@ import {
 } from './stableContentHeight';
 import { useNativePortalLifecycle } from './useNativePortalLifecycle';
 
-import type { IPopoverTooltip } from './type';
+import type { IPopoverProps, IPopoverTooltip } from './type';
 import type { IIconButtonProps } from '../IconButton';
 import type { LayoutChangeEvent } from 'react-native';
 
@@ -68,32 +58,8 @@ const SHEET_BOTTOM_MARGIN = 20;
 const SHEET_HEADER_CONTENT_OVERLAP = 2;
 
 const WORD_BREAK_ALL_STYLE = { wordBreak: 'break-all' } as const;
-export interface IPopoverProps extends TMPopoverProps {
-  title: string | ReactElement;
-  description?: string;
-  showHeader?: boolean;
-  usingSheet?: boolean;
-  /** Uses the platform-native sheet presentation on iOS and Android. */
-  nativeSheet?: boolean;
-  renderTrigger: ReactNode;
-  openPopover?: () => void;
-  closePopover?: () => void;
-  renderContent:
-    | ReactElement
-    | ComponentType<{ isOpen?: boolean; closePopover: () => void }>
-    | null;
-  floatingPanelProps?: PopoverContentTypeProps;
-  sheetProps?: SheetProps;
-  /**
-   * Mounts the native portal closed before opening and removes it after the
-   * close animation. This avoids preserving child state between openings.
-   */
-  mountNativePortalBeforeOpen?: boolean;
-  /**
-   * Unique identifier for tracking/analytics purposes.
-   */
-  trackID?: string;
-}
+// Longest overlay exit plus slack; only a safety net for `closePopover()`.
+const POPOVER_CLOSE_FALLBACK_MS = 1000;
 
 const usePopoverValue = (
   open?: boolean,
@@ -180,7 +146,6 @@ function RawPopover({
   closePopover,
   placement: placementProp,
   usingSheet = true,
-  nativeSheet = false,
   allowFlip = true,
   showHeader = true,
   mountNativePortalBeforeOpen,
@@ -190,9 +155,8 @@ function RawPopover({
   const { bottom } = useSafeAreaInsets();
   const { height: viewportHeight } = useWindowDimensions();
   const { gtMd } = useMedia();
-  // Every native popover is a native overlay sheet; `nativeSheet` is kept
-  // for API compatibility. `usingSheet={false}` renders no panel on native,
-  // as before (those callers are web / desktop floating panels).
+  // Every native popover is a native overlay sheet. `usingSheet={false}`
+  // renders no panel on native (those callers are web / desktop panels).
   const useNativeSheet = usingSheet;
   const isWideSheet = Boolean(gtMd) || Boolean(platformEnv.isNativeIOSPad);
   const [sheetHeaderHeight, setSheetHeaderHeight] = useState<
@@ -298,19 +262,46 @@ function RawPopover({
       hasOpenedNativeSheetRef.current = true;
     }
   }, [isOpen, nativeSheetOpen]);
-  const handleClosePopover = useCallback(
-    () =>
-      new Promise<void>((resolve) => {
-        closePopover?.();
-        setTimeout(
-          () => {
-            resolve();
-          },
-          // Need to execute the callback after the sheet animation ends on the Native side
-          platformEnv.isNative ? 300 : 50,
-        );
-      }),
-    [closePopover],
+  // `closePopover()` resolves once the sheet's exit animation finished; the
+  // timer only covers a sheet that never presented.
+  const closeResolversRef = useRef<Array<() => void>>([]);
+  const pendingCloseRef = useRef<Promise<void> | undefined>(undefined);
+  const flushCloseResolvers = useCallback(() => {
+    const resolvers = closeResolversRef.current;
+    closeResolversRef.current = [];
+    resolvers.forEach((resolve) => resolve());
+  }, []);
+  useEffect(() => () => flushCloseResolvers(), [flushCloseResolvers]);
+  const handleClosePopover = useCallback(() => {
+    if (pendingCloseRef.current) {
+      return pendingCloseRef.current;
+    }
+    if (!nativeSheetOpen) {
+      closePopover?.();
+      return Promise.resolve();
+    }
+    const completion = new Promise<void>((resolve) => {
+      const timer = setTimeout(flushCloseResolvers, POPOVER_CLOSE_FALLBACK_MS);
+      closeResolversRef.current.push(() => {
+        clearTimeout(timer);
+        resolve();
+      });
+    });
+    pendingCloseRef.current = completion.finally(() => {
+      pendingCloseRef.current = undefined;
+    });
+    closePopover?.();
+    return pendingCloseRef.current;
+  }, [closePopover, flushCloseResolvers, nativeSheetOpen]);
+  const onSheetAnimationComplete = sheetProps?.onAnimationComplete;
+  const handleSheetAnimationComplete = useCallback(
+    (info: { open: boolean }) => {
+      onSheetAnimationComplete?.(info);
+      if (!info.open) {
+        flushCloseResolvers();
+      }
+    },
+    [flushCloseResolvers, onSheetAnimationComplete],
   );
 
   useDismissKeyboard(isOpen);
@@ -363,7 +354,7 @@ function RawPopover({
       cornerRadius={24}
       backgroundColor="transparent"
       maxHeight={nativeSheetDetentMaxHeight}
-      onAnimationComplete={sheetProps?.onAnimationComplete}
+      onAnimationComplete={handleSheetAnimationComplete}
     >
       <YStack {...(isWideSheet ? gtMdShFrameStyle : undefined)}>
         {/* header */}
@@ -441,6 +432,7 @@ function BasicPopover({
   mountNativePortalBeforeOpen,
   ...rest
 }: IPopoverProps) {
+  assertOverlayProps('Popover', { ...rest, sheetProps });
   const { isOpen, onOpenChange, openPopover, closePopover } = usePopoverValue(
     open,
     onOpenChangeFunc,
@@ -456,7 +448,6 @@ function BasicPopover({
     sheetProps,
     mountNativePortalBeforeOpen,
   });
-  const { md } = useMedia();
   const memoPopover = useMemo(
     () => (
       <RawPopover
@@ -482,45 +473,20 @@ function BasicPopover({
       rest,
     ],
   );
-  const webSheetProps = useMemo(
-    () => ({ ...sheetProps, modal: true }),
-    [sheetProps],
-  );
-
-  if (platformEnv.isNative) {
-    // The overlay sheet renders in the native overlay level, so the popover
-    // stays in the caller's tree (and its contexts) instead of a portal.
-    return (
-      <>
-        {renderTrigger ? (
-          <Trigger testID="popover-trigger" onPress={openPopover}>
-            {renderTrigger}
-          </Trigger>
-        ) : null}
-        {keepChildrenMounted ||
-        (shouldUseNativePortalLifecycle ? isNativePortalMounted : isOpen)
-          ? memoPopover
-          : null}
-      </>
-    );
-  }
-
-  // on web, we add the popover into the RNRootView
+  // The overlay sheet renders in the native overlay level, so the popover
+  // stays in the caller's tree (and its contexts) instead of a portal.
   return (
-    <RawPopover
-      open={isOpen}
-      // On the web platform of md size,
-      //  the sheet needs to use the onOpenChange function to close the popover.
-      // Hoverable popovers also need it to propagate Tamagui's hover state.
-      onOpenChange={md || rest.hoverable ? onOpenChange : undefined}
-      openPopover={openPopover}
-      closePopover={closePopover}
-      sheetProps={webSheetProps}
-      renderTrigger={renderTrigger}
-      trackID={trackID}
-      keepChildrenMounted={keepChildrenMounted}
-      {...rest}
-    />
+    <>
+      {renderTrigger ? (
+        <Trigger testID="popover-trigger" onPress={openPopover}>
+          {renderTrigger}
+        </Trigger>
+      ) : null}
+      {keepChildrenMounted ||
+      (shouldUseNativePortalLifecycle ? isNativePortalMounted : isOpen)
+        ? memoPopover
+        : null}
+    </>
   );
 }
 
@@ -570,7 +536,6 @@ function Tooltip({
 }
 
 export const Popover = withStaticProperties(BasicPopover, {
-  Close: TMPopover.Close,
   Tooltip,
 });
 

@@ -68,7 +68,6 @@ export async function parseQRCodeWithDeps(
 ) {
   const showCopyDialog = (content: string) => {
     Dialog.confirm({
-      nativeSheet: true,
       title: intl.formatMessage({ id: ETranslations.global_info }),
       description: content,
       onConfirmText: intl.formatMessage({

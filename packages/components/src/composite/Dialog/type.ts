@@ -1,5 +1,4 @@
 import type {
-  ComponentProps,
   Dispatch,
   MutableRefObject,
   PropsWithChildren,
@@ -8,14 +7,9 @@ import type {
   SetStateAction,
 } from 'react';
 
-import type {
-  DialogContentProps as TMDialogContentProps,
-  DialogProps as TMDialogProps,
-  Sheet as TMSheet,
-  SheetProps as TMSheetProps,
-} from '@onekeyhq/components/src/shared/tamagui';
-
+import type { IOverlayDialogCardProps } from './OverlayDialogPresentation';
 import type { EPortalContainerConstantName, IPortalManager } from '../../hocs';
+import type { ISheetOptions } from '../../hocs/NativeSheetPresentation/types';
 import type {
   IButtonProps,
   IKeyOfIcons,
@@ -75,11 +69,22 @@ export interface IDialogHeaderContextType {
   headerProps: IDialogHeaderProps;
   setHeaderProps: Dispatch<SetStateAction<IDialogHeaderProps>>;
 }
-interface IBasicDialogProps extends TMDialogProps {
+/** Runs when the dialog moves focus in (open) or back (close) on web. */
+export type IDialogAutoFocusHandler = (event: Event) => void;
+
+/** Styles the centered dialog card (wide windows). */
+export type IDialogFloatingPanelProps = IOverlayDialogCardProps & {
+  onOpenAutoFocus?: IDialogAutoFocusHandler;
+  onCloseAutoFocus?: IDialogAutoFocusHandler;
+  trapFocus?: boolean;
+};
+
+interface IBasicDialogProps {
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
+  children?: ReactNode;
   /* If true, the content will be rendered later and fit content height. */
   isAsync?: boolean;
-  /** Uses the platform-native sheet presentation on iOS and Android. */
-  nativeSheet?: boolean;
   /**
    * Renders the dialog in the native overlay at this level (sheet on narrow
    * windows, centered card otherwise) instead of a Tamagui portal.
@@ -87,7 +92,7 @@ interface IBasicDialogProps extends TMDialogProps {
   overlayLevel?: IOverlayLevel;
   onOpen?: () => void;
   /** Controls initial focus for both the floating panel and sheet on web. */
-  onOpenAutoFocus?: TMDialogContentProps['onOpenAutoFocus'];
+  onOpenAutoFocus?: IDialogAutoFocusHandler;
   onHeaderCloseButtonPress?: () => void;
   /** Runs when dismissal starts, before the close animation. */
   onCloseRequested?: () => void;
@@ -104,10 +109,9 @@ interface IBasicDialogProps extends TMDialogProps {
   estimatedContentHeight?: number;
   renderContent?: ReactNode;
   // Close on overlay or backdrop press
-  dismissOnOverlayPress?: TMSheetProps['dismissOnOverlayPress'];
-  sheetProps?: Omit<TMSheetProps, 'dismissOnOverlayPress'>;
-  sheetOverlayProps?: ComponentProps<typeof TMSheet.Overlay>;
-  floatingPanelProps?: TMDialogContentProps;
+  dismissOnOverlayPress?: boolean;
+  sheetProps?: Omit<ISheetOptions, 'dismissOnOverlayPress'>;
+  floatingPanelProps?: IDialogFloatingPanelProps;
   contextValue?: IDialogContextType;
   disableDrag?: boolean; // Disable drag gesture to close
   // Where a swipe can drag the phone sheet away. 'sheet' (default) is the
@@ -135,8 +139,7 @@ interface IBasicDialogProps extends TMDialogProps {
   /**
    * Native-only opt-in: cap the sheet to the usable viewport above the
    * keyboard, scroll overflowing content (including a tall header), and keep
-   * the close button fixed. No effect on web, desktop, or extension. Does
-   * not enable nativeSheet.
+   * the close button fixed. No effect on web, desktop, or extension.
    */
   boundedSheetLayout?: boolean;
   /**

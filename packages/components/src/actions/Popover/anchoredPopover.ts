@@ -12,7 +12,7 @@ import {
 } from '@floating-ui/dom';
 import { OVERLAY_LEVEL_ORDER } from '@onekeyfe/react-native-native-overlay';
 
-import type { Placement } from '@floating-ui/dom';
+import type { FlipOptions, OffsetOptions, Placement } from '@floating-ui/dom';
 import type { IOverlayLevel } from '@onekeyfe/react-native-native-overlay';
 
 // Keep the panel this far from the viewport edges.
@@ -59,10 +59,19 @@ export function useAnchoredPosition({
   /** The panel element: it mounts a render after `open` flips. */
   panel: HTMLDivElement | null;
   placement: Placement;
-  offset: number;
-  allowFlip: boolean;
+  offset: OffsetOptions;
+  allowFlip: boolean | FlipOptions;
 }) {
   const updateRef = useRef<(() => void) | undefined>(undefined);
+  // Callers pass inline offset objects; re-anchor only when the value changes.
+  const offsetRef = useRef(offset);
+  offsetRef.current = offset;
+  const offsetKey =
+    typeof offset === 'object' ? JSON.stringify(offset) : String(offset);
+  const allowFlipRef = useRef(allowFlip);
+  allowFlipRef.current = allowFlip;
+  const allowFlipKey =
+    typeof allowFlip === 'object' ? JSON.stringify(allowFlip) : allowFlip;
   useLayoutEffect(() => {
     const reference = triggerRef.current as HTMLElement | null;
     const floating = panel;
@@ -74,8 +83,15 @@ export function useAnchoredPosition({
         strategy: 'absolute',
         placement,
         middleware: [
-          offsetMiddleware(offset),
-          allowFlip ? flip({ padding: VIEWPORT_PADDING }) : undefined,
+          offsetMiddleware(offsetRef.current),
+          allowFlipRef.current
+            ? flip({
+                padding: VIEWPORT_PADDING,
+                ...(typeof allowFlipRef.current === 'object'
+                  ? allowFlipRef.current
+                  : undefined),
+              })
+            : undefined,
           shift({ padding: VIEWPORT_PADDING }),
           size({
             padding: VIEWPORT_PADDING,
@@ -98,7 +114,7 @@ export function useAnchoredPosition({
       updateRef.current = undefined;
       cleanup();
     };
-  }, [allowFlip, offset, open, panel, placement, triggerRef]);
+  }, [allowFlipKey, offsetKey, open, panel, placement, triggerRef]);
   return useCallback(() => updateRef.current?.(), []);
 }
 

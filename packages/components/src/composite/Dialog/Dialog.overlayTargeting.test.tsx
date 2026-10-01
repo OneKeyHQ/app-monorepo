@@ -41,8 +41,6 @@ jest.mock('@onekeyhq/components/src/hooks/useStyle', () => ({
 }));
 jest.mock('@onekeyhq/components/src/shared/tamagui', () => ({
   AnimatePresence: () => null,
-  Sheet: {},
-  TMDialog: {},
 }));
 jest.mock('@onekeyhq/shared/src/platformEnv', () => {
   const platformEnv = { isDev: true, isNative: true, isNativeIOS: true };

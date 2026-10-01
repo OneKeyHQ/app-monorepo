@@ -19,7 +19,7 @@ import { HyperlinkTextStub } from './HyperlinkTextStub';
 
 import type { Preview } from '@storybook/react';
 
-const HARDWARE_HOST_ANIMATION = { enter: { type: 'none' } } as const;
+const HOST_ANIMATION = { enter: { type: 'none' } } as const;
 
 const WINDOW_INSETS = initialWindowMetrics?.insets ?? {
   top: 0,
@@ -85,7 +85,7 @@ const preview: Preview = {
           visible
           level="hardware"
           presentation="fullscreen"
-          animation={HARDWARE_HOST_ANIMATION}
+          animation={HOST_ANIMATION}
           blocking={false}
           backdrop={false}
           dismissOnBackPress={false}
@@ -93,7 +93,17 @@ const preview: Preview = {
           <Portal.Container name={Portal.Constant.HARDWARE_UI_STATE_DIALOG} />
         </OverlayView>
         <ShowToastProvider />
-        <Toaster />
+        <OverlayView
+          visible
+          level="toast"
+          presentation="fullscreen"
+          animation={HOST_ANIMATION}
+          blocking={false}
+          backdrop={false}
+          dismissOnBackPress={false}
+        >
+          <Toaster />
+        </OverlayView>
       </ShellProvider>
     ),
   ],

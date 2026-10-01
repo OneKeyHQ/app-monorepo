@@ -8,6 +8,7 @@
     "clean": "rimraf ./dist && rimraf ./node_modules/.cache"
   },
   "dependencies": {
+    "@onekeyfe/react-native-native-overlay": "workspace:*",
     "@onekeyhq/components": "*",
     "@onekeyhq/shared": "*"
   },

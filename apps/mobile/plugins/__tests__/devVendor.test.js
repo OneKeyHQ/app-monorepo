@@ -253,6 +253,24 @@ function createTemporaryRuntimeFixture() {
     fs.mkdirSync(path.dirname(destination), { recursive: true });
     fs.copyFileSync(path.join(repoRoot, relativePath), destination);
   }
+  // ABI inputs from workspace packages need the same installed links as Yarn.
+  for (const name of nativeDependencies) {
+    const packageRoot = path.dirname(
+      require.resolve(`${name}/package.json`, {
+        paths: [path.join(repoRoot, 'apps/mobile'), repoRoot],
+      }),
+    );
+    const relativePackageRoot = path.relative(repoRoot, packageRoot);
+    if (relativePackageRoot.startsWith(`packages${path.sep}`)) {
+      const installedPath = path.join(temporaryRepoRoot, 'node_modules', name);
+      fs.mkdirSync(path.dirname(installedPath), { recursive: true });
+      fs.symlinkSync(
+        path.join(temporaryRepoRoot, relativePackageRoot),
+        installedPath,
+        'junction',
+      );
+    }
+  }
   const modulePath = 'apps/mobile/index.ts';
   const moduleSourcePath = path.join(temporaryRepoRoot, modulePath);
   fs.mkdirSync(path.dirname(moduleSourcePath), { recursive: true });

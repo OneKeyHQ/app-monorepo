@@ -27,12 +27,10 @@ export function WalletRemoveButton({
   wallet,
   isRemoveToMocked,
   onClose,
-  nativeSheet = false,
 }: {
   wallet: IDBWallet | undefined;
   isRemoveToMocked?: boolean; // hw standard wallet mocked remove only
   onClose: () => void;
-  nativeSheet?: boolean;
 }) {
   const intl = useIntl();
   const { config } = useAccountSelectorContextData();
@@ -112,7 +110,6 @@ export function WalletRemoveButton({
               intl,
             });
             showWalletRemoveDialog({
-              nativeSheet,
               config,
               title,
               description,
@@ -123,7 +120,7 @@ export function WalletRemoveButton({
               isRemoveToMocked,
             });
           },
-          { waitForAnimation: nativeSheet && platformEnv.isNative },
+          { waitForAnimation: platformEnv.isNative },
         )
       }
     />

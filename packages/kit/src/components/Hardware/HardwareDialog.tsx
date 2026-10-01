@@ -49,11 +49,6 @@ export const buildBleSettingsDialogProps = (
       await openBluetoothSettings();
     },
     showCancelButton: false,
-    sheetOverlayProps: platformEnv.isNative
-      ? {
-          zIndex: undefined,
-        }
-      : undefined,
   }) as const;
 
 function OpenBleSettingDialogContainer(
@@ -95,11 +90,6 @@ export const buildBleNotifyChangeError = (intl: IntlShape): IDialogShowProps =>
       await openBluetoothSettings();
     },
     showCancelButton: false,
-    sheetOverlayProps: platformEnv.isNative
-      ? {
-          zIndex: undefined,
-        }
-      : undefined,
   }) as const;
 
 function OpenBleNotifyChangeErrorDialogContainer(
@@ -153,11 +143,6 @@ export const buildBlePermissionDialogProps = (
       await openBLEPermissionsSettings();
     },
     showCancelButton: false,
-    sheetOverlayProps: platformEnv.isNative
-      ? {
-          zIndex: undefined,
-        }
-      : undefined,
   }) as const;
 
 function RequireBlePermissionDialogContainer(

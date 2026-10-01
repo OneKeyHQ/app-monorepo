@@ -597,21 +597,6 @@ function NativeOverlayDemo() {
       <XStack gap="$2" flexWrap="wrap">
         <Button
           onPress={() =>
-            Dialog.show({
-              title: 'Dialog via nativeSheet',
-              description:
-                'Rendered by NativeSheetPresentation on top of OverlayView.',
-              nativeSheet: true,
-              onConfirm: () => undefined,
-            })
-          }
-        >
-          Dialog (nativeSheet)
-        </Button>
-      </XStack>
-      <XStack gap="$2" flexWrap="wrap">
-        <Button
-          onPress={() =>
             Toast.success({ title: 'Toast.success in the toast level' })
           }
         >
@@ -792,8 +777,7 @@ function NativeOverlayDemo() {
           }
         />
         <ActionList
-          title="ActionList via nativeSheet"
-          nativeSheet
+          title="ActionList opening overlays"
           items={[
             {
               label: 'Open toast overlay',
@@ -804,7 +788,7 @@ function NativeOverlayDemo() {
               onPress: () => open(makeSpec('secure')),
             },
           ]}
-          renderTrigger={<Button>ActionList (nativeSheet)</Button>}
+          renderTrigger={<Button>ActionList + overlays</Button>}
         />
       </XStack>
       <SizableText>Last matrix order: {matrixOrder || '-'}</SizableText>

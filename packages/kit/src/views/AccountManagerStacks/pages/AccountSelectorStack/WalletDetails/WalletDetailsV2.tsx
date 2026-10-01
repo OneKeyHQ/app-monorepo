@@ -955,7 +955,6 @@ function WalletDetailsViewV2({ num }: IWalletDetailsProps) {
                   ) {
                     qrHiddenCreateGuideDialog.showDialogForCreatingStandardWallet(
                       {
-                        nativeSheet: true,
                         onConfirm: () => {
                           void createQrWallet({ isOnboarding: true });
                         },

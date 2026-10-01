@@ -10212,7 +10212,6 @@ __metadata:
   dependencies:
     "@floating-ui/dom": "npm:^1.8.0"
     "@onekeyfe/react-native-native-overlay": "workspace:*"
-    "@onekeyfe/react-native-native-sheet": "npm:3.0.157-alpha.254"
     "@onekeyfe/react-native-scroll-guard": "npm:3.0.157-alpha.254"
     "@onekeyfe/react-native-segment-slider": "npm:3.0.157-alpha.254"
     "@onekeyfe/react-native-tab-view": "npm:3.0.157-alpha.254"
@@ -10364,7 +10363,6 @@ __metadata:
   dependencies:
     "@onekeyfe/react-native-native-list": "npm:3.0.157-alpha.254"
     "@onekeyfe/react-native-native-overlay": "workspace:*"
-    "@onekeyfe/react-native-native-sheet": "npm:3.0.157-alpha.254"
     "@onekeyfe/react-native-text": "npm:3.0.157-alpha.254"
     "@onekeyhq/components": "npm:*"
     "@types/d3-scale": "npm:^4.0.3"
@@ -10553,6 +10551,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@onekeyhq/playground@workspace:apps/playground"
   dependencies:
+    "@onekeyfe/react-native-native-overlay": "workspace:*"
     "@onekeyhq/components": "npm:*"
     "@onekeyhq/shared": "npm:*"
     "@originjs/vite-plugin-commonjs": "npm:^1.0.3"

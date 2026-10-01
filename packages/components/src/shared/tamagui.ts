@@ -139,14 +139,6 @@ export type {
   AccordionTriggerProps,
 } from '@tamagui/accordion';
 
-// Dialog
-export { Dialog as TMDialog } from '@tamagui/dialog';
-export type { DialogContentProps, DialogProps } from '@tamagui/dialog';
-
-// Sheet
-export { Sheet } from '@tamagui/sheet';
-export type { SheetProps } from '@tamagui/sheet';
-
 // Portal
 export { PortalProvider } from '@tamagui/portal';
 

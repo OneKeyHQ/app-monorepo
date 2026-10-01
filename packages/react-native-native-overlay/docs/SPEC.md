@@ -372,8 +372,9 @@ P4c dialog notes:
 
 - Every Dialog renders through `OverlayDialogPresentation` (sheet on narrow
   windows, centered card otherwise); the Tamagui Sheet / Dialog and the
-  NativeSheetPresentation branches of `DialogFrame` are gone. `nativeSheet`
-  is a no-op for Dialog.
+  NativeSheetPresentation branches of `DialogFrame` are gone. Removed
+  `nativeSheet`, `sheetOverlayProps` and JS portal/layering options throw at
+  the component and imperative API entry points, including object spreads.
 - `floatingPanelProps` style the centered card (width, maxWidth, maxHeight,
   bg, overflow, radius…); `zIndex`, `sheetOverlayProps`, `sheetProps`
   (except `disableDrag`), `modal` and `forceMount` no longer apply.
@@ -426,12 +427,17 @@ P5a native popover notes:
 - Every native Popover / ActionList / Select sheet is a native overlay sheet
   (`NativeSheetPresentation`); the Tamagui Popover sheet (`TMPopover.Adapt`),
   its external backdrop, z-index and back handler are gone, and
-  `nativeSheet` is a no-op. iPad / wide windows keep the 400–480 pt centered
+  the removed `nativeSheet` option throws. iPad / wide windows keep the 400–480 pt centered
   frame inside the sheet. `usingSheet={false}` still renders no panel on
   native (web / desktop floating panels).
 - The native popover renders inline in the caller's tree (its contexts
-  apply) instead of through the full-window portal; content still mounts
-  only while open unless `keepChildrenMounted`.
+  apply) instead of through the full-window portal. Every popover remains
+  mounted until the exit callback (1 s fallback); content then unmounts
+  unless `keepChildrenMounted`. Reopening cancels pending teardown.
+- `closePopover()` waits for exit completion; repeated requests share the
+  same completion promise, and completion or unmount clears its timer.
+- Sheet options are package-owned. Unsupported legacy `sheetProps` keys
+  and floating-panel `zIndex` / `portalProps` throw instead of being ignored.
 
 P5b web popover notes:
 

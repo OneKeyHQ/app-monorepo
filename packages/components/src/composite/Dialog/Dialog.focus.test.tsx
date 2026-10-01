@@ -37,34 +37,12 @@ jest.mock('@onekeyfe/react-native-native-overlay', () => ({
 }));
 
 jest.mock('@onekeyhq/components', () => {
-  const { FocusScope } = jest.requireActual(
-    '@tamagui/focus-scope',
-  ) as typeof import('@tamagui/focus-scope');
   const Wrapper = ({ children }: { children?: ReactNode }) => (
     <div>{children}</div>
-  );
-  const DialogContent = ({
-    children,
-    onOpenAutoFocus,
-    trapFocus,
-  }: {
-    children?: ReactNode;
-    onOpenAutoFocus?: (event: Event) => void;
-    trapFocus?: boolean;
-  }) => (
-    <FocusScope trapped={trapFocus} loop onMountAutoFocus={onOpenAutoFocus}>
-      <div>{children}</div>
-    </FocusScope>
   );
   return {
     useMedia: () => ({ md: mockIsSheet }),
     AnimatePresence: Wrapper,
-    Sheet: Object.assign(Wrapper, { Frame: Wrapper, Overlay: () => null }),
-    TMDialog: Object.assign(Wrapper, {
-      Content: DialogContent,
-      Overlay: () => null,
-      Title: () => null,
-    }),
   };
 });
 

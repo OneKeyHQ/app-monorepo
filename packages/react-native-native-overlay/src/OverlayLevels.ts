@@ -23,9 +23,9 @@ export function isBlockingLevel(level: IOverlayLevel): boolean {
 }
 
 /**
- * Web z-index bands. They line up with the legacy constants in
- * `@onekeyhq/shared/src/consts/zIndexConsts.ts` so migrated and legacy
- * overlays interleave correctly while both exist.
+ * Web z-index bands of the level layer roots (`document.body` children). In-page
+ * content that must rise above a level (a drag clone over a dialog) uses a
+ * value just above that level's base.
  */
 export const OVERLAY_WEB_Z_INDEX_BASE: Record<IOverlayLevel, number> = {
   modal: 100_000,

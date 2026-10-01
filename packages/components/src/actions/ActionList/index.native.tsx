@@ -32,6 +32,7 @@ import {
   YStack,
 } from '../../primitives';
 import { useSharedPress } from '../../primitives/Button/useEvent';
+import { assertOverlayProps } from '../../shared/assertOverlayProps';
 import { LazyPopover } from '../LazyPopover';
 import { Shortcut } from '../Shortcut';
 import { Trigger } from '../Trigger';
@@ -319,7 +320,6 @@ function BasicActionList({
   renderItemsAsync,
   title,
   trackID,
-  nativeSheet = false,
   usingSheet = true,
   sheetProps,
   ...props
@@ -332,7 +332,7 @@ function BasicActionList({
   const { asyncItems, handleAsyncItemsOpenChange, resolvedSheetProps } =
     useAsyncItemsLifecycle({
       isOpen,
-      nativeSheet: useNativeSheetPresentation,
+      sheetPresentation: useNativeSheetPresentation,
       renderItemsAsync,
       handleActionListCloseRef,
       handleActionListOpenRef,
@@ -479,7 +479,6 @@ function BasicActionList({
       renderContent={renderContentMemo}
       floatingPanelProps={ACTION_LIST_FLOATING_PANEL_PROPS}
       {...props}
-      nativeSheet={nativeSheet}
       usingSheet={usingSheet}
       mountNativePortalBeforeOpen={defaultOpen}
       renderTrigger={trigger}
@@ -509,6 +508,7 @@ const showActionList = (
       }
     | undefined,
 ): IActionListShowHandle & { closeImmediately: () => void } => {
+  assertOverlayProps('ActionList.show', props);
   const { modalNavigatorContext, pageContextValue } = contexts || {};
   const { onClose, triggerPosition, triggerRect, ...restProps } = props;
   dismissKeyboard();
@@ -621,6 +621,7 @@ const showActionList = (
   };
 };
 function ActionListFrame(props: IActionListProps) {
+  assertOverlayProps('ActionList', props);
   const isProcessing = useRef(false);
 
   const { gtMd } = useMedia();

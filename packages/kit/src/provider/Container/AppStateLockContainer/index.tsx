@@ -15,7 +15,6 @@ import {
 
 import AppStateLock from './components/AppStateLock';
 import { AppStateUpdater } from './components/AppStateUpdater';
-import { NativeSheetRoot } from './components/NativeSheetRoot';
 
 const passwordVerifyFallback = (
   <YStack h={46} justifyContent="center" alignItems="center">
@@ -183,7 +182,7 @@ export function AppStateLockContainer({
   }, [isLocked, lockContainerRef]);
 
   return (
-    <NativeSheetRoot blocked={isLocked}>
+    <>
       {deferColdStartChildren ? null : children}
       {!isLocked ? <AppStateUpdater /> : null}
       <AnimatePresence>
@@ -213,6 +212,6 @@ export function AppStateLockContainer({
           />
         ) : null}
       </AnimatePresence>
-    </NativeSheetRoot>
+    </>
   );
 }
