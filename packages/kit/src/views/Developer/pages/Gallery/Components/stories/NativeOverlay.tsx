@@ -133,7 +133,12 @@ function DemoOverlay({
             Push page
           </Button>
         ) : null}
-        <Button size="small" variant="primary" onPress={close}>
+        <Button
+          testID="native-overlay-demo-close"
+          size="small"
+          variant="primary"
+          onPress={close}
+        >
           Close
         </Button>
       </XStack>
@@ -373,6 +378,7 @@ function DialogDemos() {
   return (
     <XStack gap="$2" flexWrap="wrap">
       <Button
+        testID="native-overlay-dialog-open"
         onPress={() =>
           Dialog.confirm({
             title: 'Dialog.confirm',
@@ -384,6 +390,7 @@ function DialogDemos() {
         Dialog.confirm
       </Button>
       <Button
+        testID="native-overlay-form-dialog-open"
         onPress={() =>
           Dialog.show({
             title: 'Form dialog',
@@ -436,6 +443,7 @@ function DialogDemos() {
         Dialog + lock 4s
       </Button>
       <Button
+        testID="native-overlay-scroll-dialog-open"
         onPress={() =>
           Dialog.show({
             title: 'Scroll view',
@@ -482,7 +490,12 @@ function SecurePopoverDemo() {
   const [visible, setVisible] = useState(false);
   return (
     <>
-      <Button onPress={() => setVisible(true)}>Popover in secure</Button>
+      <Button
+        testID="native-overlay-secure-open"
+        onPress={() => setVisible(true)}
+      >
+        Popover in secure
+      </Button>
       <OverlayView
         visible={visible}
         level="secure"
@@ -501,7 +514,11 @@ function SecurePopoverDemo() {
           <SizableText>Secure overlay</SizableText>
           <Popover
             title="Nested popover"
-            renderTrigger={<Button>Nested popover</Button>}
+            renderTrigger={
+              <Button testID="native-overlay-secure-popover-open">
+                Nested popover
+              </Button>
+            }
             renderContent={
               <YStack p="$5">
                 <SizableText>Above the secure overlay</SizableText>
@@ -512,7 +529,12 @@ function SecurePopoverDemo() {
             renderTrigger={<Button>Nested tooltip</Button>}
             renderContent="Tooltip above the secure overlay"
           />
-          <Button onPress={() => setVisible(false)}>Close</Button>
+          <Button
+            testID="native-overlay-secure-close"
+            onPress={() => setVisible(false)}
+          >
+            Close
+          </Button>
         </YStack>
       </OverlayView>
     </>
@@ -589,6 +611,7 @@ function NativeOverlayDemo() {
         <Button onPress={runQueue}>Queue ×3</Button>
         <Button onPress={runReplace}>Replace ×3</Button>
         <Button
+          testID="native-overlay-sheet-open"
           onPress={() => open(makeSpec('modal', { presentation: 'sheet' }))}
         >
           Sheet
@@ -731,12 +754,18 @@ function NativeOverlayDemo() {
             },
             { label: 'Second item', onPress: () => undefined },
           ]}
-          renderTrigger={<Button>ActionList (default)</Button>}
+          renderTrigger={
+            <Button testID="native-overlay-actionlist-open">
+              ActionList (default)
+            </Button>
+          }
         />
         <Popover
           title="Popover title"
           description="Popover description"
-          renderTrigger={<Button>Popover</Button>}
+          renderTrigger={
+            <Button testID="native-overlay-popover-open">Popover</Button>
+          }
           renderContent={
             <YStack p="$5" gap="$2">
               {Array.from({ length: 6 }, (_, i) => (
