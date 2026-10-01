@@ -301,13 +301,17 @@ export function TradingViewPerpsV2(
     activeTradeInstrument.mode === 'spot'
       ? activeTradeInstrument.universe?.baseSzDecimals
       : activeTradeInstrument.universe?.szDecimals;
+  const [accountMarksRevision, setAccountMarksRevision] = useState(0);
+  const rebuildChartForAccountMarks = useCallback(() => {
+    setAccountMarksRevision((revision) => revision + 1);
+  }, []);
   const _webviewKey = useMemo(() => {
     const themeKey =
       platformEnv.isDesktop || platformEnv.isNative ? '' : `${theme}-`;
-    return `${themeKey}${webviewKey || ''}${
+    return `${themeKey}${webviewKey || ''}-${accountMarksRevision}${
       reloadOnSymbolChange ? `-${symbol}` : ''
     }`;
-  }, [reloadOnSymbolChange, symbol, theme, webviewKey]);
+  }, [accountMarksRevision, reloadOnSymbolChange, symbol, theme, webviewKey]);
   const [chartLinesReadyWebviewKey, setChartLinesReadyWebviewKey] = useState<
     string | null
   >(null);
@@ -414,6 +418,17 @@ export function TradingViewPerpsV2(
       prevSymbolRef.current = symbol;
     }
   }, [closeChartOrderDialog, symbol]);
+
+  const normalizedUserAddress = userAddress?.toLowerCase() || undefined;
+  const prevNormalizedUserAddressRef = useRef(normalizedUserAddress);
+  useEffect(() => {
+    const prevAddress = prevNormalizedUserAddressRef.current;
+    prevNormalizedUserAddressRef.current = normalizedUserAddress;
+    // A chart order dialog must not act for the account switched to.
+    if (prevAddress && prevAddress !== normalizedUserAddress) {
+      closeChartOrderDialog();
+    }
+  }, [closeChartOrderDialog, normalizedUserAddress]);
 
   const { handleNavigation } = useNavigationHandler();
 
@@ -672,6 +687,8 @@ export function TradingViewPerpsV2(
     symbol,
     userAddress,
     webRef,
+    chartInstanceKey: _webviewKey,
+    onAccountMarksRebuild: rebuildChartForAccountMarks,
     onChartReady,
     onChartLinesReady,
     onOrderCancel,

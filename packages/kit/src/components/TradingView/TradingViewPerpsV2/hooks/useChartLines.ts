@@ -398,6 +398,15 @@ export function useChartLines({
       // Clear pending updates
       clearPendingPnlUpdates();
       prevLinesRef.current.clear();
+      // Pending delayed syncs would redraw the previous account's lines.
+      if (symbolChangeTimeoutRef.current) {
+        clearTimeout(symbolChangeTimeoutRef.current);
+        symbolChangeTimeoutRef.current = null;
+      }
+      if (reloadSyncTimeoutRef.current) {
+        clearTimeout(reloadSyncTimeoutRef.current);
+        reloadSyncTimeoutRef.current = null;
+      }
 
       if (isReady) {
         // Clear old lines first
