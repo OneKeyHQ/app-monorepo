@@ -809,3 +809,10 @@ Cases are appended by AI after each bug fix. Do NOT reorder or delete entries â€
 **Fix**: Clear the pending intent only when it is still the one this handoff captured. If a newer intent replaced it, apply that intent after the current handoff finishes.
 **Catchable by**: Section 5: an async handoff that drops work while a guard is set must not erase a newer request that arrived during the await.
 
+## Case: Market jump intent module missing a native module id
+**Date**: 2026-10-01 | **Platforms**: iOS, Android (native union build)
+**Symptom**: `release-app-bundles` failed on iOS and Android Build Bundle for `swapMarketJumpIntent.ts`.
+**Root Cause**: The new Swap hook module entered the native graph without a row in `module-id-registry.json`.
+**Fix**: Register `packages/kit/src/views/Swap/hooks/swapMarketJumpIntent.ts` as module id `21801`.
+**Catchable by**: Section 4: a new file that the native bundle imports must be added to `apps/mobile/bundle-registry/module-id-registry.json` before the release bundle runs.
+
