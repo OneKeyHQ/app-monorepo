@@ -1,4 +1,6 @@
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { shouldContinueLedgerAutoCreateForCoreAppsCheckResult } from '@onekeyhq/kit/src/provider/Container/ThirdPartyHardwareUiStateContainer/ledgerCoreAppsReadyUtils';
+import { ensureLedgerCoreAppsReady } from '@onekeyhq/kit/src/provider/Container/ThirdPartyHardwareUiStateContainer/LedgerInstallCoreAppsDialog';
 import type {
   IDBCreateHwWalletParamsBase,
   IDBDevice,
@@ -6,6 +8,7 @@ import type {
   IDBWallet,
 } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import type { IJotaiSetter } from '@onekeyhq/kit-bg/src/states/jotai/types';
+import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import type { IOneKeyError } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import { isThirdPartyPassphraseAlwaysOnDeviceErrorCode } from '@onekeyhq/shared/src/errors/utils/thirdPartyDeviceErrorUtils';
@@ -13,6 +16,7 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import type { ILedgerCoreAppName } from '@onekeyhq/shared/src/hardware/config/ledger';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IHardwareOperationContext } from '@onekeyhq/shared/types/device';
@@ -287,6 +291,104 @@ export async function createHWWalletWithHidden({
           uuid: createdDevice.uuid,
         });
       }
+    },
+  });
+}
+
+/**
+ * Before a Ledger multi-network fill: work out which core apps it needs and
+ * offer to install the missing ones. `shouldContinue` is false when the user
+ * stopped there.
+ */
+export async function prepareLedgerCoreAppsForCreate({
+  walletId,
+  customNetworks,
+  isCreateWallet,
+  operationId,
+}: {
+  walletId: string;
+  customNetworks?: { networkId: string; deriveType: IAccountDeriveTypes }[];
+  isCreateWallet?: boolean;
+  operationId?: string;
+}): Promise<{
+  ledgerRequiredApps: ILedgerCoreAppName[];
+  shouldContinue: boolean;
+}> {
+  const ledgerRequiredApps =
+    await backgroundApiProxy.serviceBatchCreateAccount.buildRequiredLedgerAppsForDefaultNetworkAccounts(
+      { walletId, customNetworks, isCreateWallet },
+    );
+  if (ledgerRequiredApps.length === 0) {
+    return { ledgerRequiredApps, shouldContinue: true };
+  }
+  const ensureResult = await ensureLedgerCoreAppsReady({
+    walletId,
+    connectId: operationId,
+    requiredApps: ledgerRequiredApps,
+  });
+  return {
+    ledgerRequiredApps,
+    shouldContinue:
+      shouldContinueLedgerAutoCreateForCoreAppsCheckResult(ensureResult),
+  };
+}
+
+/**
+ * After a Ledger fill where every chain lacked its app: offer the install and
+ * report whether the fill should run again. A failed app probe is thrown.
+ */
+export async function installLedgerCoreAppsAfterCreateFailure({
+  walletId,
+  operationId,
+  ledgerRequiredApps,
+}: {
+  walletId: string;
+  operationId?: string;
+  ledgerRequiredApps: ILedgerCoreAppName[];
+}): Promise<boolean> {
+  const ensureResult = await ensureLedgerCoreAppsReady({
+    walletId,
+    connectId: operationId,
+    requiredApps: ledgerRequiredApps.length ? ledgerRequiredApps : undefined,
+  });
+  if (ensureResult.ok) return true;
+  if (ensureResult.reason === 'probeFailed') {
+    throw (
+      ensureResult.error ?? new OneKeyLocalError('Failed to probe Ledger apps')
+    );
+  }
+  return false;
+}
+
+// Keystone: identity and accounts come from one background call.
+export async function createKeystoneWalletWithDefaultAccounts({
+  actions,
+  set,
+  params,
+}: {
+  actions: IAccountSelectorActionsInstance;
+  set: IJotaiSetter;
+  params: Parameters<
+    typeof backgroundApiProxy.serviceThirdPartyHardware.createKeystoneWalletWithDefaultAccounts
+  >[0];
+}) {
+  return actions.withFinalizeWalletSetupStep.call(set, {
+    createWalletFn: async () => {
+      const { wallet, indexedAccount, isOverrideWallet } =
+        await backgroundApiProxy.serviceThirdPartyHardware.createKeystoneWalletWithDefaultAccounts(
+          params,
+        );
+      if (!wallet.isMocked && indexedAccount?.id) {
+        await actions.autoSelectToCreatedWallet.call(set, {
+          wallet,
+          indexedAccount,
+          isOverrideWallet,
+        });
+      }
+      await serviceAccount.restoreTempCreatedWallet({ walletId: wallet.id });
+      // Account creation events precede restoration in the Keystone flow.
+      appEventBus.emit(EAppEventBusNames.WalletUpdate, undefined);
+      return { isOverrideWallet, wallet, indexedAccount, hidden: undefined };
     },
   });
 }

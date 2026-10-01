@@ -7,8 +7,6 @@ import { cloneDeep, isEmpty, isEqual, isUndefined, omitBy } from 'lodash';
 import { Toast } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import type useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
-import { shouldContinueLedgerAutoCreateForCoreAppsCheckResult } from '@onekeyhq/kit/src/provider/Container/ThirdPartyHardwareUiStateContainer/ledgerCoreAppsReadyUtils';
-import { ensureLedgerCoreAppsReady } from '@onekeyhq/kit/src/provider/Container/ThirdPartyHardwareUiStateContainer/LedgerInstallCoreAppsDialog';
 import {
   dropSwrCacheForRemovedAccount,
   dropSwrCacheForRemovedWallet,
@@ -2078,28 +2076,16 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
             });
           hardwareVendor = device?.vendor;
           if (hardwareVendor === EHardwareVendor.ledger) {
-            ledgerRequiredApps =
-              await backgroundApiProxy.serviceBatchCreateAccount.buildRequiredLedgerAppsForDefaultNetworkAccounts(
-                {
-                  walletId: wallet.id,
-                  customNetworks,
-                  isCreateWallet,
-                },
-              );
-            if (ledgerRequiredApps.length > 0) {
-              const ensureResult = await ensureLedgerCoreAppsReady({
-                walletId: wallet.id,
-                connectId: operationId,
-                requiredApps: ledgerRequiredApps,
-              });
-              if (
-                !shouldContinueLedgerAutoCreateForCoreAppsCheckResult(
-                  ensureResult,
-                )
-              ) {
-                return;
-              }
-            }
+            const { prepareLedgerCoreAppsForCreate } =
+              await import('./hardwareWalletActions');
+            const prepared = await prepareLedgerCoreAppsForCreate({
+              walletId: wallet.id,
+              customNetworks,
+              isCreateWallet,
+              operationId,
+            });
+            ledgerRequiredApps = prepared.ledgerRequiredApps;
+            if (!prepared.shouldContinue) return;
           }
         }
 
@@ -2144,22 +2130,15 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
                   isAutoCreateMultiNetwork,
                 })
               ) {
-                const ensureResult = await ensureLedgerCoreAppsReady({
-                  walletId: wallet.id,
-                  connectId: operationId,
-                  requiredApps: ledgerRequiredApps.length
-                    ? ledgerRequiredApps
-                    : undefined,
-                });
-                if (!ensureResult.ok) {
-                  if (ensureResult.reason === 'probeFailed') {
-                    throw (
-                      ensureResult.error ??
-                      new OneKeyLocalError('Failed to probe Ledger apps')
-                    );
-                  }
-                  return;
-                }
+                const { installLedgerCoreAppsAfterCreateFailure } =
+                  await import('./hardwareWalletActions');
+                const shouldRetry =
+                  await installLedgerCoreAppsAfterCreateFailure({
+                    walletId: wallet.id,
+                    operationId,
+                    ledgerRequiredApps,
+                  });
+                if (!shouldRetry) return;
                 const retry =
                   await backgroundApiProxy.serviceBatchCreateAccount.addDefaultNetworkAccounts(
                     {
@@ -2427,7 +2406,6 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
     },
   );
 
-  // Keystone: identity and accounts come from one background call.
   createKeystoneWalletWithDefaultAccounts = contextAtomMethod(
     async (
       _,
@@ -2435,33 +2413,15 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
       params: Parameters<
         typeof backgroundApiProxy.serviceThirdPartyHardware.createKeystoneWalletWithDefaultAccounts
       >[0],
-    ) =>
-      this.withFinalizeWalletSetupStep.call(set, {
-        createWalletFn: async () => {
-          const { wallet, indexedAccount, isOverrideWallet } =
-            await backgroundApiProxy.serviceThirdPartyHardware.createKeystoneWalletWithDefaultAccounts(
-              params,
-            );
-          if (!wallet.isMocked && indexedAccount?.id) {
-            await this.autoSelectToCreatedWallet.call(set, {
-              wallet,
-              indexedAccount,
-              isOverrideWallet,
-            });
-          }
-          await serviceAccount.restoreTempCreatedWallet({
-            walletId: wallet.id,
-          });
-          // Account creation events precede restoration in the Keystone flow.
-          appEventBus.emit(EAppEventBusNames.WalletUpdate, undefined);
-          return {
-            isOverrideWallet,
-            wallet,
-            indexedAccount,
-            hidden: undefined,
-          };
-        },
-      }),
+    ) => {
+      const { createKeystoneWalletWithDefaultAccounts } =
+        await import('./hardwareWalletActions');
+      return createKeystoneWalletWithDefaultAccounts({
+        actions: this,
+        set,
+        params,
+      });
+    },
   );
 
   createHWWalletWithHidden = contextAtomMethod(
