@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Page, useMedia } from '@onekeyhq/components';
+import { DelayedFreeze, Page, useMedia } from '@onekeyhq/components';
 import type { ITabContainerRef } from '@onekeyhq/components';
 import { useRouteIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import {
@@ -384,6 +384,7 @@ function BaseMarketHomeLayout() {
 }
 
 function BaseMarketHome() {
+  const isFocused = useRouteIsFocused();
   return (
     <Page>
       <TabPageHeader
@@ -391,7 +392,9 @@ function BaseMarketHome() {
         tabRoute={ETabRoutes.Market}
       />
       <Page.Body testID={MarketTestIDs.marketPage}>
-        <BaseMarketHomeLayout />
+        <DelayedFreeze freeze={!platformEnv.isNative && !isFocused}>
+          <BaseMarketHomeLayout />
+        </DelayedFreeze>
       </Page.Body>
     </Page>
   );
