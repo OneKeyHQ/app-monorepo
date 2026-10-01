@@ -1,4 +1,6 @@
-import { useCallback, useMemo, useRef, useState } from 'react';
+// cspell:ignore cbbtc Cbbtc CBBTC
+
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
@@ -22,6 +24,7 @@ import { useBorrowContext } from '../BorrowProvider';
 import { BorrowNavigation } from '../borrowUtils';
 import { BorrowTestIDs } from '../testIDs';
 
+import { splitCbbtcAssets } from './borrowCbbtc.utils';
 import {
   filterUnsupportedAaveNativeReserveAssets,
   hasPositiveBorrowBalance,
@@ -39,6 +42,7 @@ import {
   BORROW_TABLE_APY_COLUMN_MIN_WIDTH,
   BORROW_TABLE_ASSET_COLUMN_MIN_WIDTH,
   BorrowAPYField,
+  BorrowMoreToggle,
   BorrowTableList,
 } from './BorrowTableList';
 import { Card } from './Card';
@@ -174,11 +178,6 @@ export const SupplyCard = () => {
     [gtMd],
   );
 
-  const supplyListProps = useMemo(
-    () => ({ listItemProps: getListItemProps }),
-    [getListItemProps],
-  );
-
   // Filter data based on showZeroBalance (mobile always shows all assets)
   const filteredAssets = useMemo(() => {
     const supportedAssets = filterUnsupportedAaveNativeReserveAssets({
@@ -200,6 +199,69 @@ export const SupplyCard = () => {
     reserves.data?.supply?.assets,
     showZeroBalance,
   ]);
+
+  const { visibleAssets, foldedAssets } = useMemo(
+    () =>
+      splitCbbtcAssets({
+        assets: filteredAssets,
+        networkId: market?.networkId,
+        providerName: market?.provider,
+        marketAddress: market?.marketAddress,
+      }),
+    [
+      filteredAssets,
+      market?.marketAddress,
+      market?.networkId,
+      market?.provider,
+    ],
+  );
+  const [showFoldedCbbtc, setShowFoldedCbbtc] = useState(false);
+  const cbbtcAssetListKey = useMemo(
+    () =>
+      [
+        accountId,
+        market?.networkId,
+        market?.provider,
+        market?.marketAddress,
+        ...visibleAssets.map((asset) => asset.reserveAddress),
+        ...foldedAssets.map((asset) => asset.reserveAddress),
+      ].join('|'),
+    [
+      accountId,
+      foldedAssets,
+      market?.marketAddress,
+      market?.networkId,
+      market?.provider,
+      visibleAssets,
+    ],
+  );
+  useEffect(() => {
+    setShowFoldedCbbtc(false);
+  }, [cbbtcAssetListKey]);
+
+  const assetsToRender = showFoldedCbbtc
+    ? [...visibleAssets, ...foldedAssets]
+    : visibleAssets;
+
+  const cbbtcMoreToggle = useMemo(
+    () =>
+      foldedAssets.length > 0 ? (
+        <BorrowMoreToggle
+          testID="borrow-supply-cbbtc-more-toggle"
+          expanded={showFoldedCbbtc}
+          onPress={() => setShowFoldedCbbtc((expanded) => !expanded)}
+        />
+      ) : null,
+    [foldedAssets.length, showFoldedCbbtc],
+  );
+
+  const supplyListProps = useMemo(
+    () => ({
+      listItemProps: getListItemProps,
+      ListFooterComponent: cbbtcMoreToggle,
+    }),
+    [cbbtcMoreToggle, getListItemProps],
+  );
 
   const labels = useMemo(
     () => ({
@@ -355,9 +417,10 @@ export const SupplyCard = () => {
   return (
     <Card title={labels.assetsToSupply} renderFilter={gtMd ? filterUI : null}>
       <BorrowTableList<ISupplyAsset>
-        data={filteredAssets}
+        data={assetsToRender}
         isLoading={showLoading}
         columns={gtMd ? desktopColumns : mobileColumns}
+        hideEmptyState={foldedAssets.length > 0}
         onPressRow={handlePressRow}
         emptyContent={labels.noAssetsToSupply}
         defaultSortKey="balance"
