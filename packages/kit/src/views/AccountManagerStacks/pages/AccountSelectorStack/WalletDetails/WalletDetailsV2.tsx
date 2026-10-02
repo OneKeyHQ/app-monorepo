@@ -23,6 +23,7 @@ import {
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useCreateQrWallet } from '@onekeyhq/kit/src/components/AccountSelector/hooks/useCreateQrWallet';
 import { useEnabledNetworksCompatibleWithWalletIdInAllNetworks } from '@onekeyhq/kit/src/hooks/useAllNetwork';
+import { usePresentationSnapshot } from '@onekeyhq/kit/src/hooks/usePresentationSnapshot';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import {
   useAccountSelectorSceneInfo,
@@ -84,6 +85,8 @@ import { DeprecatedWalletBanner } from './DeprecatedWalletBanner';
 import { EmptyNoAccountsView, EmptyView } from './EmptyView';
 import { useAddAccount } from './hooks/useAddAccount';
 import { useAccountSelectorValuesLoaderV2 } from './useAccountSelectorValuesLoaderV2';
+import { useDeprecatedWalletActions } from './useDeprecatedWalletActions';
+import { useDeprecatedWalletWarning } from './useDeprecatedWalletWarning';
 import { WalletDetailsHeader } from './WalletDetailsHeader';
 import { AccountSearchBar } from './WalletDetailsHeader/AccountSearchBar';
 
@@ -410,6 +413,8 @@ function WalletDetailsViewV2({ num }: IWalletDetailsProps) {
     [listDataResult?.focusedWalletInfo],
   );
 
+  const warning = useDeprecatedWalletWarning(focusedWalletInfo);
+
   const isDeprecatedWallet = useMemo(
     () => focusedWalletInfo?.wallet?.deprecated,
     [focusedWalletInfo?.wallet?.deprecated],
@@ -692,6 +697,7 @@ function WalletDetailsViewV2({ num }: IWalletDetailsProps) {
   const candidateList = useMemo(
     () => ({
       editable,
+      warning,
       emptySections,
       focusedWalletInfo,
       hasData: sectionData.length > 0,
@@ -710,6 +716,7 @@ function WalletDetailsViewV2({ num }: IWalletDetailsProps) {
     }),
     [
       editable,
+      warning,
       emptySections,
       focusedWalletInfo,
       hasResolved,
@@ -727,82 +734,28 @@ function WalletDetailsViewV2({ num }: IWalletDetailsProps) {
       title,
     ],
   );
-  const [preloadedList, setPreloadedList] = useState(candidateList);
-  const presentedList =
-    candidateList.hasResolved &&
-    candidateList.presentationScope === preloadedList.presentationScope
-      ? candidateList
-      : preloadedList;
-  const candidateListRef = useRef(candidateList);
-  candidateListRef.current = candidateList;
-  useEffect(() => {
-    if (
-      candidateList.hasResolved &&
-      candidateList.presentationScope === preloadedList.presentationScope
-    ) {
-      setPreloadedList(candidateList);
-    }
-  }, [candidateList, preloadedList.presentationScope]);
-  // A new wallet/network/derive scope is presented once its avatars and
-  // first-screen balances are ready (within one budget), so a switch paints
-  // complete rows instead of placeholders that fill in afterwards.
-  const pendingPresentationScope =
-    candidateList.hasResolved &&
-    candidateList.presentationScope !== preloadedList.presentationScope
-      ? candidateList.presentationScope
-      : undefined;
-  const presentationWaitRef = useRef<{ scope?: string; id: number }>({
-    id: 0,
+  const presentedList = usePresentationSnapshot(candidateList, {
+    preloadScope: initialImagePreloadScope,
+    preload: () =>
+      preloadAccountSelectorImages(initialImagePreloadSourcesRef.current),
+    valuesReady: firstScreenValuesReady,
+    budgetMs: ACCOUNT_PRESENTATION_BUDGET_MS,
   });
-  if (presentationWaitRef.current.scope !== pendingPresentationScope) {
-    presentationWaitRef.current = {
-      scope: pendingPresentationScope,
-      id: presentationWaitRef.current.id + 1,
-    };
-  }
-  const presentationWaitId = presentationWaitRef.current.id;
-  const [imagesReadyWaitId, setImagesReadyWaitId] = useState<number>();
-  const [expiredWaitId, setExpiredWaitId] = useState<number>();
-  useEffect(() => {
-    if (!pendingPresentationScope) return;
-    const timer = setTimeout(
-      () => setExpiredWaitId(presentationWaitId),
-      ACCOUNT_PRESENTATION_BUDGET_MS,
-    );
-    return () => clearTimeout(timer);
-  }, [pendingPresentationScope, presentationWaitId]);
-  useEffect(() => {
-    if (!pendingPresentationScope) return;
-    let cancelled = false;
-    void preloadAccountSelectorImages(
-      initialImagePreloadSourcesRef.current,
-    ).then(() => {
-      if (!cancelled) setImagesReadyWaitId(presentationWaitId);
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [pendingPresentationScope, presentationWaitId, initialImagePreloadScope]);
-  useEffect(() => {
-    if (!pendingPresentationScope) return;
-    const ready =
-      expiredWaitId === presentationWaitId ||
-      (imagesReadyWaitId === presentationWaitId && firstScreenValuesReady);
-    const latestCandidate = candidateListRef.current;
-    if (
-      ready &&
-      latestCandidate.hasResolved &&
-      latestCandidate.presentationScope === pendingPresentationScope
-    ) {
-      setPreloadedList(latestCandidate);
-    }
-  }, [
-    expiredWaitId,
-    firstScreenValuesReady,
-    imagesReadyWaitId,
-    pendingPresentationScope,
-    presentationWaitId,
-  ]);
+  const presentedWarning =
+    presentedList.warning.epoch === warning.epoch
+      ? presentedList.warning.result
+      : undefined;
+  const warningInteractive =
+    presentedList.identity === listIdentity &&
+    presentedList.warning.epoch === warning.epoch;
+  const warningActions = useDeprecatedWalletActions({
+    num,
+    wallet: presentedList.focusedWalletInfo?.wallet,
+    warning: presentedWarning,
+    interactive: warningInteractive,
+    epoch: presentedList.warning.epoch,
+    reloadWarning: warning.reload,
+  });
   const nativeSnapshot = useAccountSelectorNativeSnapshotV2({
     identity: presentedList.identity,
     snapshot: presentedList.snapshot,
@@ -1040,11 +993,10 @@ function WalletDetailsViewV2({ num }: IWalletDetailsProps) {
         {presentedList.isDeprecatedWallet &&
         presentedList.focusedWalletInfo?.wallet ? (
           <DeprecatedWalletBanner
-            // Remount per wallet so a previous wallet's lookup never shows.
             key={presentedList.focusedWalletInfo.wallet.id}
-            num={num}
-            wallet={presentedList.focusedWalletInfo.wallet}
-            device={presentedList.focusedWalletInfo.device}
+            warning={presentedWarning}
+            interactive={warningInteractive}
+            {...warningActions}
             editable={!!isEditableRouteParams}
           />
         ) : null}

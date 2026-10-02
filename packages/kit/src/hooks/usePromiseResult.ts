@@ -52,6 +52,9 @@ export type IPromiseResultOptions<T> = {
    */
   swrKey?: string;
   swrShouldPersist?: (result: T) => boolean;
+  // Opt-in resource invalidation; checked before both state and cache writes.
+  resultVersion?: number;
+  isResultVersionCurrent?: (version: number | undefined) => boolean;
 };
 
 export type IUsePromiseResultReturn<T> = {
@@ -116,13 +119,14 @@ export function usePromiseResult<T>(
 
   // --- SWR: resolve initial value from sync cache ---
   const swrKey = options.swrKey;
+  const resultVersion = options.resultVersion;
   const swrKeyRef = useRef(swrKey);
   swrKeyRef.current = swrKey;
   const swrCacheEntry = useMemo(() => {
     if (!swrKey) return undefined;
     return swrCacheUtils.getWithTimestamp<T>(swrKey);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [swrKey]);
+  }, [swrKey, resultVersion]);
   // swrKey cache hit always has higher priority than initResult.
   const effectiveInitResult =
     swrCacheEntry !== undefined ? swrCacheEntry.data : options.initResult;
@@ -140,8 +144,10 @@ export function usePromiseResult<T>(
   // rely on `effectiveInitResult` alone.
   // https://react.dev/learn/you-might-not-need-an-effect#adjusting-some-state-when-a-prop-changes
   const [prevSwrKey, setPrevSwrKey] = useState(swrKey);
-  if (swrKey !== prevSwrKey) {
+  const [prevResultVersion, setPrevResultVersion] = useState(resultVersion);
+  if (swrKey !== prevSwrKey || resultVersion !== prevResultVersion) {
     setPrevSwrKey(swrKey);
+    setPrevResultVersion(resultVersion);
     if (swrKey !== undefined) {
       setResult(
         (swrCacheEntry !== undefined
@@ -279,6 +285,7 @@ export function usePromiseResult<T>(
         let didStartRequest = false;
         let requestNonce: number | null = null;
         let capturedSwrKey: string | undefined;
+        let capturedResultVersion: number | undefined;
         try {
           if (shouldSetState(config)) {
             didStartRequest = true;
@@ -287,6 +294,7 @@ export function usePromiseResult<T>(
             // this result on the new scope — neither into its render
             // state nor into its cache slot.
             capturedSwrKey = swrKeyRef.current;
+            capturedResultVersion = optionsRef.current.resultVersion;
             if (optionsRef.current.undefinedResultIfReRun) {
               setResult(undefined);
             }
@@ -304,7 +312,11 @@ export function usePromiseResult<T>(
             if (
               shouldApplyResult(config) &&
               nonceRef.current === nonce &&
-              capturedSwrKey === swrKeyRef.current
+              capturedSwrKey === swrKeyRef.current &&
+              capturedResultVersion === optionsRef.current.resultVersion &&
+              optionsRef.current.isResultVersionCurrent?.(
+                capturedResultVersion,
+              ) !== false
             ) {
               setResult(r);
               // Only persist if the result is defined — writing
@@ -350,7 +362,11 @@ export function usePromiseResult<T>(
           //     or prematurely clear a still-pending newer scope.
           const isStale =
             didStartRequest &&
-            (capturedSwrKey !== swrKeyRef.current ||
+            (capturedResultVersion !== optionsRef.current.resultVersion ||
+              optionsRef.current.isResultVersionCurrent?.(
+                capturedResultVersion,
+              ) === false ||
+              capturedSwrKey !== swrKeyRef.current ||
               (requestNonce !== null && nonceRef.current !== requestNonce));
 
           if (isStale) {
@@ -385,7 +401,11 @@ export function usePromiseResult<T>(
             didStartRequest &&
             shouldApplyResult(config) &&
             requestNonce !== null &&
-            nonceRef.current === requestNonce
+            nonceRef.current === requestNonce &&
+            capturedResultVersion === optionsRef.current.resultVersion &&
+            optionsRef.current.isResultVersionCurrent?.(
+              capturedResultVersion,
+            ) !== false
           ) {
             setLoadingFalse();
           }

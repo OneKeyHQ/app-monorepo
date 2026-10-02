@@ -1051,6 +1051,8 @@ function buildBorrowScopedSWRKey(
 
 // --- Centralized SWR key builders ---
 export const swrKeys = {
+  deprecatedWalletWarning: (walletId: string, deviceScope: string) =>
+    [NS.deprecatedWalletWarning, 'v1', walletId, deviceScope].join(':'),
   allNetworksCompatible: ({
     walletId,
     networkId,

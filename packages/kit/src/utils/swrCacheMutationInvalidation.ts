@@ -32,6 +32,7 @@ import {
 } from '@onekeyhq/shared/src/utils/swrCacheUtils';
 
 import { shouldInvalidateAccountScopedData } from './accountUpdate';
+import { deprecatedWalletWarningResource } from './deprecatedWalletWarningResource';
 
 const dropWalletListSwr = () =>
   swrCacheUtils.removeByPrefix(prefixOf(swrCacheNamespaces.walletListSideBar));
@@ -114,6 +115,7 @@ async function persistRemoval(reason: 'removedWallet' | 'removedAccount') {
  * a delete is idempotent.
  */
 export async function dropSwrCacheForRemovedWallet(walletId: string) {
+  deprecatedWalletWarningResource.invalidate();
   swrCacheUtils.remove(swrKeys.accountSelectorValues({ walletId }));
   dropWalletListSwr();
   dropAccountSelectorListSwr();
@@ -138,6 +140,25 @@ export function registerSwrCacheMutationInvalidation() {
     return;
   }
   registered = true;
+
+  const invalidateWarnings = () => deprecatedWalletWarningResource.invalidate();
+  appEventBus.on(EAppEventBusNames.WalletUpdate, invalidateWarnings);
+  appEventBus.on(EAppEventBusNames.WalletRename, invalidateWarnings);
+  appEventBus.on(EAppEventBusNames.WalletRemove, invalidateWarnings);
+  appEventBus.on(EAppEventBusNames.WalletClear, invalidateWarnings);
+  appEventBus.on(EAppEventBusNames.HardwareFeaturesUpdate, invalidateWarnings);
+  appEventBus.on(EAppEventBusNames.HardwareDeviceStateUpdate, (event) => {
+    if (
+      event.changedKeys.some(
+        (key) =>
+          key === '*' ||
+          key.startsWith('identity.') ||
+          key.startsWith('transport.'),
+      )
+    ) {
+      invalidateWarnings();
+    }
+  });
 
   const dropAccountShapeSwr = () => {
     dropWalletListSwr();

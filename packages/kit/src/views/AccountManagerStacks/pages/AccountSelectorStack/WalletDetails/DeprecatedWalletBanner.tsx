@@ -1,133 +1,31 @@
-import { useCallback, useEffect, useMemo } from 'react';
-
 import { useIntl } from 'react-intl';
 
 import { Alert, Button, XStack } from '@onekeyhq/components';
-import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
-import { useAccountSelectorContextData } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
-import { useAccountSelectorActions } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector/actions';
-import { resolveUsableWalletWithDevice } from '@onekeyhq/kit/src/states/jotai/contexts/deviceDetails/deviceStateManagement';
-import { useNavigateToPickYourDevicePage } from '@onekeyhq/kit/src/views/Onboarding/hooks/useToOnBoardingPage';
-import type {
-  IDBDevice,
-  IDBWallet,
-} from '@onekeyhq/kit-bg/src/dbs/local/types';
-import {
-  EAppEventBusNames,
-  appEventBus,
-} from '@onekeyhq/shared/src/eventBus/appEventBus';
+import type { IUiResourceResult } from '@onekeyhq/kit/src/hooks/uiResource';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
-import {
-  getTitleAndDescription,
-  showWalletRemoveDialog,
-} from '../../../components/WalletEdit/WalletRemoveDialog';
 import { AccountManagerTestIDs } from '../../../testIDs';
 
+import type { IReplacementWallet } from './useDeprecatedWalletWarning';
+
 export function DeprecatedWalletBanner({
-  num,
-  wallet,
-  device,
+  warning,
   editable,
+  interactive,
+  onPrimaryPress,
+  onRemovePress,
 }: {
-  num: number;
-  wallet: IDBWallet;
-  device: IDBDevice | undefined;
-  // Removing the wallet and adding a device are management actions, offered
-  // only where the selector allows editing. Switching wallets always is.
+  warning: IUiResourceResult<IReplacementWallet | null> | undefined;
   editable: boolean;
+  interactive: boolean;
+  onPrimaryPress: () => Promise<void>;
+  onRemovePress: () => void;
 }) {
   const intl = useIntl();
-  const actions = useAccountSelectorActions();
-  const { config } = useAccountSelectorContextData();
-  const toPickYourDevicePage = useNavigateToPickYourDevicePage();
-
-  // The wallet info is re-cloned on every list reload; one lookup per wallet
-  // and device record is enough, so key it on their ids.
-  const walletWithDevice = useMemo(
-    () => ({ wallet, device }),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [wallet.id, device?.id],
-  );
-
-  // A reset gives the device a new identity, so re-adding it creates a new
-  // wallet next to this stale one. Resolves to null when it was not re-added,
-  // and also when the lookup fails, so the warning always shows.
-  const { result: replacementWallet, run: reloadReplacementWallet } =
-    usePromiseResult(
-      async () => {
-        try {
-          const wallets =
-            await backgroundApiProxy.serviceAccount.getAllHwQrWalletWithDevice({
-              filterHiddenWallet: true,
-              filterQrWallet: true,
-            });
-          // Falls back to the wallet passed in when the device has no usable
-          // wallet.
-          const usable = resolveUsableWalletWithDevice(
-            walletWithDevice,
-            Object.values(wallets),
-          );
-          return usable && usable.wallet.id !== walletWithDevice.wallet.id
-            ? usable.wallet
-            : null;
-        } catch {
-          return null;
-        }
-      },
-      [walletWithDevice],
-      // The account selector's route can report unfocused, which would skip
-      // the run and leave the banner hidden.
-      { checkIsFocused: false },
-    );
-
-  // The device can be added again, renamed or removed while this stays mounted.
-  useEffect(() => {
-    const fn = () => {
-      void reloadReplacementWallet();
-    };
-    appEventBus.on(EAppEventBusNames.WalletUpdate, fn);
-    return () => {
-      appEventBus.off(EAppEventBusNames.WalletUpdate, fn);
-    };
-  }, [reloadReplacementWallet]);
-
-  const handlePrimaryPress = useCallback(() => {
-    if (replacementWallet) {
-      void actions.current.updateSelectedAccountFocusedWallet({
-        num,
-        focusedWallet: replacementWallet.id,
-      });
-      return;
-    }
-    void toPickYourDevicePage();
-  }, [actions, num, replacementWallet, toPickYourDevicePage]);
-
-  const handleRemovePress = useCallback(() => {
-    const { title, description, isHwOrQr } = getTitleAndDescription({
-      wallet,
-      intl,
-    });
-    showWalletRemoveDialog({
-      nativeSheet: true,
-      config,
-      title,
-      description,
-      showCheckBox: !isHwOrQr,
-      defaultChecked: false,
-      wallet,
-    });
-  }, [config, intl, wallet]);
-
-  // Wait for the lookup so the banner never flashes the wrong situation.
-  if (replacementWallet === undefined) {
-    return null;
-  }
-
+  const replacement = warning?.status === 'ready' ? warning.data : undefined;
   const t = (id: ETranslations) =>
-    intl.formatMessage({ id }, { name: replacementWallet?.name });
-  const copy = replacementWallet
+    intl.formatMessage({ id }, { name: replacement?.name });
+  const copy = replacement
     ? {
         title: t(ETranslations.wallet_device_reset_replaced__title),
         description: t(ETranslations.wallet_device_reset_replaced__desc),
@@ -138,9 +36,8 @@ export function DeprecatedWalletBanner({
         description: t(ETranslations.wallet_device_reset__desc),
         primary: t(ETranslations.wallet_device_reset_add_device__action),
       };
-  // Without edit rights the only action left is switching to the new wallet.
-  const showActions = Boolean(replacementWallet) || editable;
-
+  const showPrimary =
+    warning?.status === 'ready' && (Boolean(replacement) || editable);
   return (
     <Alert
       fullBleed
@@ -149,26 +46,28 @@ export function DeprecatedWalletBanner({
       title={copy.title}
       description={copy.description}
     >
-      {showActions ? (
-        // Tertiary buttons carry a -9 horizontal margin, so the column gap has
-        // to cover it to leave visible space next to the primary button.
+      {showPrimary || editable ? (
         <XStack pt="$2" columnGap="$5" rowGap="$3" flexWrap="wrap">
-          <Button
-            testID={AccountManagerTestIDs.deprecatedWalletPrimaryButton}
-            size="small"
-            variant="primary"
-            maxWidth="100%"
-            textEllipsis
-            onPress={handlePrimaryPress}
-          >
-            {copy.primary}
-          </Button>
+          {showPrimary ? (
+            <Button
+              disabled={!interactive}
+              testID={AccountManagerTestIDs.deprecatedWalletPrimaryButton}
+              size="small"
+              variant="primary"
+              maxWidth="100%"
+              textEllipsis
+              onPress={onPrimaryPress}
+            >
+              {copy.primary}
+            </Button>
+          ) : null}
           {editable ? (
             <Button
+              disabled={!interactive}
               testID={AccountManagerTestIDs.deprecatedWalletRemoveButton}
               size="small"
               variant="tertiary"
-              onPress={handleRemovePress}
+              onPress={onRemovePress}
             >
               {t(ETranslations.global_remove)}
             </Button>

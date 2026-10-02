@@ -13,6 +13,7 @@ const NS = {
   recentNetworks: 'recentNets',
   walletListSideBar: 'walletList',
   accountSelectorList: 'accSelList',
+  deprecatedWalletWarning: 'deprecatedWalletWarning',
   accountSelectorValues: 'accSelValues',
   discoveryHomePageData: 'disHomePage',
   discoveryHomeBookmarks: 'disHomeBookmarks',
