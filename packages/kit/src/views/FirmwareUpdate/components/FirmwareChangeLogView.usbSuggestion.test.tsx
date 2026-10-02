@@ -57,8 +57,20 @@ jest.mock('@onekeyhq/components', () => {
     SizableText: Div,
     Stack: Div,
     XStack: Div,
+    resetModalRouteByName: jest.fn(),
+    resetToRoute: jest.fn(),
+    rootNavigationRef: { current: null },
   };
 });
+
+jest.mock('use-debounce', () => ({
+  useThrottledCallback: (callback: unknown) => callback,
+}));
+
+jest.mock('../../../hooks/useAppNavigation', () => ({
+  __esModule: true,
+  default: () => ({ push: jest.fn(), pushModal: jest.fn() }),
+}));
 
 jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
   __esModule: true,
@@ -87,8 +99,25 @@ jest.mock('@onekeyhq/shared/src/logger/logger', () => ({
   },
 }));
 
-jest.mock('../hooks/useFirmwareUpdateActions', () => ({
-  useFirmwareUpdateActions: () => ({ showCheckList: mockShowCheckList }),
+// The real hook owns the suggestion dialog; only the checklist is stubbed.
+jest.mock('../hooks/useFirmwareUpdateActions', () => {
+  const actual = jest.requireActual<
+    typeof import('../hooks/useFirmwareUpdateActions')
+  >('../hooks/useFirmwareUpdateActions');
+  return {
+    useFirmwareUpdateActions: () => ({
+      ...actual.useFirmwareUpdateActions(),
+      showCheckList: mockShowCheckList,
+    }),
+  };
+});
+
+jest.mock('../hooks/bootloaderModeDialogManager', () => ({
+  bootloaderModeDialogManager: { show: jest.fn() },
+}));
+
+jest.mock('./FirmwareUpdateCheckList', () => ({
+  FirmwareUpdateCheckList: () => null,
 }));
 
 jest.mock('../hooks/useFirmwareVersionValid', () => ({
@@ -340,6 +369,25 @@ describe('FirmwareChangeLogView desktop USB suggestion', () => {
     unmount();
 
     expect(close).not.toHaveBeenCalled();
+  });
+
+  it('does not ask again when the entry already showed the suggestion', () => {
+    const result = buildResult(EDeviceType.Pro2);
+    const onConfirmClick = jest.fn();
+    render(
+      <FirmwareChangeLogView
+        result={result}
+        onConfirmClick={onConfirmClick}
+        usbSuggestionAcknowledged
+      />,
+    );
+
+    tapUpdateNow();
+
+    expect(mockDialogShow).not.toHaveBeenCalled();
+    expect(mockShowCheckList).toHaveBeenCalledTimes(1);
+    expect(mockShowCheckList).toHaveBeenCalledWith({ result });
+    expect(onConfirmClick).toHaveBeenCalledTimes(1);
   });
 
   it.each([

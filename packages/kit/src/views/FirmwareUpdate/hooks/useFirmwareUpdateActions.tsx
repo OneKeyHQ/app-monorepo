@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 
 import {
   type EDeviceType,
@@ -9,6 +9,7 @@ import { StackActions } from '@react-navigation/routers';
 import { useIntl } from 'react-intl';
 import { useThrottledCallback } from 'use-debounce';
 
+import type { IDialogInstance } from '@onekeyhq/components';
 import {
   Dialog,
   resetModalRouteByName,
@@ -31,17 +32,81 @@ import type { ICheckAllFirmwareReleaseResult } from '@onekeyhq/shared/types/devi
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { FirmwareUpdateCheckList } from '../components/FirmwareUpdateCheckList';
+import { shouldSuggestDesktopUsbFirmwareUpdate } from '../firmwareUpdateTransportUtils';
+import { FirmwareUpdateTestIDs } from '../testIDs';
 import { getTargetFirmwareTypeLabel } from '../utils';
 
 import { bootloaderModeDialogManager } from './bootloaderModeDialogManager';
 
-import type { AllFirmwareRelease } from '@onekeyfe/hd-core';
+import type { AllFirmwareRelease, IDeviceType } from '@onekeyfe/hd-core';
 
 export type IBootloaderModeDialogHost = Pick<typeof Dialog, 'show'>;
+
+/**
+ * The "desktop USB is faster" suggestion for models that update slowly over
+ * Bluetooth. The calling component owns the dialog: it closes with it.
+ */
+function useDesktopUsbSuggestion() {
+  const intl = useIntl();
+  const isOpenRef = useRef(false);
+  const dialogRef = useRef<IDialogInstance | undefined>(undefined);
+  const isMountedRef = useRef(true);
+
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+      // The suggestion lives in the global overlay, so it would otherwise
+      // stay on top of whatever replaces its page.
+      void dialogRef.current?.close();
+    };
+  }, []);
+
+  // Resolves true only when the user chooses to keep updating via Bluetooth.
+  return useCallback(async () => {
+    // Callers are button handlers that nothing waits for, so a second tap
+    // must not stack another suggestion on the one already open.
+    if (isOpenRef.current) {
+      return false;
+    }
+    isOpenRef.current = true;
+    try {
+      const confirmed = await new Promise<boolean>((resolve) => {
+        dialogRef.current = Dialog.show({
+          icon: 'TypeCoutline',
+          title: intl.formatMessage({
+            id: ETranslations.firmware_update_install_page__title,
+          }),
+          description: intl.formatMessage({
+            id: ETranslations.firmware_update_usb_recommended__desc,
+          }),
+          onConfirmText: intl.formatMessage({
+            id: ETranslations.firmware_update_continue_via_bluetooth__action,
+          }),
+          confirmButtonProps: {
+            testID: FirmwareUpdateTestIDs.usbSuggestionContinueBtn,
+          },
+          showCancelButton: false,
+          // onClose runs once the sheet has left the overlay, so whatever the
+          // caller opens next never mounts inside this dialog's exit window.
+          // Only the confirm button closes with the 'confirm' flag.
+          onClose: (extra) => {
+            dialogRef.current = undefined;
+            resolve(extra?.flag === 'confirm');
+          },
+        });
+      });
+      return confirmed && isMountedRef.current;
+    } finally {
+      isOpenRef.current = false;
+    }
+  }, [intl]);
+}
 
 export function useFirmwareUpdateActions() {
   const intl = useIntl();
   const navigation = useAppNavigation();
+  const confirmUpdateViaBluetooth = useDesktopUsbSuggestion();
 
   const openChangeLogOfExtension = useThrottledCallback(
     async (params: {
@@ -95,10 +160,17 @@ export function useFirmwareUpdateActions() {
       connectId,
       firmwareType,
       baseReleaseInfo,
+      suggestDesktopUsbForDeviceType,
     }: {
       connectId: string | undefined;
       firmwareType?: EFirmwareType;
       baseReleaseInfo?: AllFirmwareRelease;
+      /**
+       * Passed by entries the user can reach without the device at hand, so
+       * the desktop USB suggestion shows before any device communication.
+       * Other entries leave it out and the changelog page asks instead.
+       */
+      suggestDesktopUsbForDeviceType?: IDeviceType;
     }) => {
       if (
         platformEnv.isExtensionUiPopup ||
@@ -113,6 +185,19 @@ export function useFirmwareUpdateActions() {
           window.close();
         }
         return;
+      }
+
+      let usbSuggestionAcknowledged = false;
+      if (
+        shouldSuggestDesktopUsbFirmwareUpdate({
+          isNative: platformEnv.isNative,
+          deviceType: suggestDesktopUsbForDeviceType,
+        })
+      ) {
+        if (!(await confirmUpdateViaBluetooth())) {
+          return;
+        }
+        usbSuggestionAcknowledged = true;
       }
 
       let resolvedConnectId = connectId;
@@ -134,17 +219,21 @@ export function useFirmwareUpdateActions() {
         }
       }
 
+      const changeLogParams = {
+        connectId: resolvedConnectId,
+        firmwareType,
+        baseReleaseInfo,
+        // Left out unless set: this route is also addressable by URL on web
+        // and extension, where its params must stay as they were.
+        ...(usbSuggestionAcknowledged ? { usbSuggestionAcknowledged } : {}),
+      };
       if (rootNavigationRef.current) {
         rootNavigationRef.current?.dispatch(
           StackActions.push(ERootRoutes.Modal, {
             screen: EModalRoutes.FirmwareUpdateModal,
             params: {
               screen: EModalFirmwareUpdateRoutes.ChangeLog,
-              params: {
-                connectId: resolvedConnectId,
-                firmwareType,
-                baseReleaseInfo,
-              },
+              params: changeLogParams,
             },
           }),
         );
@@ -152,15 +241,11 @@ export function useFirmwareUpdateActions() {
         // **** navigation.pushModal not working when Dialog open
         navigation.pushModal(EModalRoutes.FirmwareUpdateModal, {
           screen: EModalFirmwareUpdateRoutes.ChangeLog,
-          params: {
-            connectId: resolvedConnectId,
-            firmwareType,
-            baseReleaseInfo,
-          },
+          params: changeLogParams,
         });
       }
     },
-    [navigation, openChangeLogOfExtension],
+    [navigation, openChangeLogOfExtension, confirmUpdateViaBluetooth],
   );
 
   const closeUpdateModal = useCallback(() => {
@@ -332,6 +417,7 @@ export function useFirmwareUpdateActions() {
     showBootloaderMode,
     showForceUpdate,
     showCheckList,
+    confirmUpdateViaBluetooth,
     restartOnboarding,
   };
 }

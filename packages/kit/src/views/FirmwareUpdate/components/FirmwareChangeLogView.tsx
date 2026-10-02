@@ -1,11 +1,10 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 import { EFirmwareType } from '@onekeyfe/hd-shared';
 import { useIntl } from 'react-intl';
 
 import type {
   IAlertType,
-  IDialogInstance,
   IKeyOfIcons,
   IStackProps,
 } from '@onekeyhq/components';
@@ -453,58 +452,18 @@ export function FirmwareChangeLogView({
   result,
   onConfirmClick,
   onRetryClick,
+  usbSuggestionAcknowledged,
 }: {
   result: ICheckAllFirmwareReleaseResult | undefined;
   onConfirmClick?: () => void;
   onRetryClick?: () => void | Promise<void>;
+  /** The entry that opened this page already showed the USB suggestion. */
+  usbSuggestionAcknowledged?: boolean;
 }) {
   const intl = useIntl();
   const [, setStepInfo] = useFirmwareUpdateStepInfoAtom();
-  const { showCheckList } = useFirmwareUpdateActions();
-  const isUsbSuggestionOpenRef = useRef(false);
-  const usbSuggestionDialogRef = useRef<IDialogInstance | undefined>(undefined);
-  const isMountedRef = useRef(true);
-
-  useEffect(() => {
-    isMountedRef.current = true;
-    return () => {
-      isMountedRef.current = false;
-      // The suggestion lives in the global overlay, so it would otherwise
-      // stay on top of whatever replaces this page.
-      void usbSuggestionDialogRef.current?.close();
-    };
-  }, []);
-
-  // Resolves true only when the user chooses to keep updating via Bluetooth.
-  const confirmUpdateViaBluetooth = useCallback(
-    () =>
-      new Promise<boolean>((resolve) => {
-        usbSuggestionDialogRef.current = Dialog.show({
-          icon: 'TypeCoutline',
-          title: intl.formatMessage({
-            id: ETranslations.firmware_update_install_page__title,
-          }),
-          description: intl.formatMessage({
-            id: ETranslations.firmware_update_usb_recommended__desc,
-          }),
-          onConfirmText: intl.formatMessage({
-            id: ETranslations.firmware_update_continue_via_bluetooth__action,
-          }),
-          confirmButtonProps: {
-            testID: FirmwareUpdateTestIDs.usbSuggestionContinueBtn,
-          },
-          showCancelButton: false,
-          // onClose runs once the sheet has left the overlay, so the checklist
-          // never mounts inside this dialog's exit window. Only the confirm
-          // button closes with the 'confirm' flag.
-          onClose: (extra) => {
-            usbSuggestionDialogRef.current = undefined;
-            resolve(extra?.flag === 'confirm');
-          },
-        });
-      }),
-    [intl],
-  );
+  const { showCheckList, confirmUpdateViaBluetooth } =
+    useFirmwareUpdateActions();
 
   const handleConfirmClick = useCallback(async () => {
     if (onRetryClick) {
@@ -536,24 +495,14 @@ export function FirmwareChangeLogView({
       }
     }
     if (
+      !usbSuggestionAcknowledged &&
       shouldSuggestDesktopUsbFirmwareUpdate({
         isNative: platformEnv.isNative,
         deviceType: result?.deviceType,
       })
     ) {
-      // The footer button does not wait for this handler, so a second tap
-      // must not stack another suggestion on the one already open.
-      if (isUsbSuggestionOpenRef.current) {
-        return;
-      }
-      isUsbSuggestionOpenRef.current = true;
-      let shouldContinue = false;
-      try {
-        shouldContinue = await confirmUpdateViaBluetooth();
-      } finally {
-        isUsbSuggestionOpenRef.current = false;
-      }
-      if (!shouldContinue || !isMountedRef.current) {
+      const shouldContinue = await confirmUpdateViaBluetooth();
+      if (!shouldContinue) {
         return;
       }
     }
@@ -583,6 +532,7 @@ export function FirmwareChangeLogView({
     setStepInfo,
     intl,
     confirmUpdateViaBluetooth,
+    usbSuggestionAcknowledged,
   ]);
 
   const updateFirmwareInfo = result?.updateInfos?.firmware;

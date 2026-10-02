@@ -13,6 +13,7 @@ import {
   useDeviceMetaStateAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/deviceDetails';
 import { useFirmwareUpdateActions } from '@onekeyhq/kit/src/views/FirmwareUpdate/hooks/useFirmwareUpdateActions';
+import { useFirmwareUpdateDetectStatus } from '@onekeyhq/kit/src/views/FirmwareUpdate/hooks/useFirmwareUpdateDetectStatus';
 import { PrimeGiftOffer } from '@onekeyhq/kit/src/views/Prime/components/PrimeGiftOffer';
 import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
 import {
@@ -200,6 +201,22 @@ function DeviceDetailsModalV2Cmp({
     [localActions, actions],
   );
 
+  const firmwareDetectStatus = useFirmwareUpdateDetectStatus(device?.connectId);
+  const hasDetectedUpgrade = Boolean(firmwareDetectStatus?.hasUpgrade);
+  // The "Check for updates" row can be tapped without the device at hand. It
+  // may also find nothing to install, so the desktop USB suggestion comes
+  // first only when an update has already been detected.
+  const onPressCheckForUpdatesRow = useCallback(async () => {
+    const walletWithDevice = await localActions.getWalletWithDevice();
+    if (!walletWithDevice) return;
+    await actions.openChangeLogModal({
+      connectId: walletWithDevice.device?.connectId,
+      suggestDesktopUsbForDeviceType: hasDetectedUpgrade
+        ? walletWithDevice.device?.deviceType
+        : undefined,
+    });
+  }, [localActions, actions, hasDetectedUpgrade]);
+
   return (
     <Page scrollEnabled>
       <DeviceCommonHeader
@@ -236,7 +253,7 @@ function DeviceDetailsModalV2Cmp({
               {showFirmwareActions ? <DeviceUpdateAlert type="bottom" /> : null}
               {showDeviceSupport ? (
                 <DeviceSectionSupport
-                  onPressCheckForUpdates={onPressCheckForUpdates}
+                  onPressCheckForUpdates={onPressCheckForUpdatesRow}
                   showFirmwareVerify={Boolean(
                     vendorProfile?.supportsFirmwareVerify,
                   )}
