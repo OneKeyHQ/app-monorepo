@@ -44,7 +44,9 @@ export function useUiResource<T>(
     resource.getEpoch,
     resource.getEpoch,
   );
-  const readyRef = useRef<{ epoch: number; result: IUiResourceResult<T> }>();
+  const readyRef = useRef<
+    { epoch: number; result: IUiResourceResult<T> } | undefined
+  >(undefined);
   const scopeRef = useRef({ epoch, scopeKey });
   const scopeChanged =
     scopeRef.current.epoch !== epoch || scopeRef.current.scopeKey !== scopeKey;
