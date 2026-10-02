@@ -39,35 +39,34 @@ function ConnectWalletContent() {
           id: ETranslations.global_connect_wallet,
         })}
       />
-      <Page.Body minHeight={0}>
+      <Page.Body>
         {/* Keep long wallet lists within the modal while the header stays fixed. */}
         <ScrollView
-          flex={1}
-          minHeight={0}
           showsVerticalScrollIndicator
-          contentContainerStyle={{ flexGrow: 1 }}
+          contentContainerStyle={{
+            flexGrow: 1,
+            justifyContent: 'space-between',
+          }}
         >
-          <Stack flexGrow={1} justifyContent="space-between">
-            {isMobile ? (
-              <Stack p="$5" gap="$4">
-                <WalletConnectListItemComponent
-                  impl="evm"
-                  py="$4"
-                  px="$5"
-                  mx="$0"
-                  bg="$bgSubdued"
-                />
-              </Stack>
-            ) : (
-              <ExternalWalletList impl="evm" />
-            )}
-            <TermsAndPrivacy
-              contentContainerProps={{
-                pb: '$6',
-                $gtMd: { alignSelf: 'center' },
-              }}
-            />
-          </Stack>
+          {isMobile ? (
+            <Stack p="$5" gap="$4">
+              <WalletConnectListItemComponent
+                impl="evm"
+                py="$4"
+                px="$5"
+                mx="$0"
+                bg="$bgSubdued"
+              />
+            </Stack>
+          ) : (
+            <ExternalWalletList impl="evm" />
+          )}
+          <TermsAndPrivacy
+            contentContainerProps={{
+              pb: '$6',
+              $gtMd: { alignSelf: 'center' },
+            }}
+          />
         </ScrollView>
       </Page.Body>
     </Page>
