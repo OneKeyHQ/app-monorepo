@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { EFirmwareType } from '@onekeyfe/hd-shared';
 import { useIntl } from 'react-intl';
@@ -41,6 +41,7 @@ import type {
   IFirmwareUpdateInfo,
 } from '@onekeyhq/shared/types/device';
 
+import { shouldSuggestDesktopUsbFirmwareUpdate } from '../firmwareUpdateTransportUtils';
 import { useFirmwareUpdateActions } from '../hooks/useFirmwareUpdateActions';
 import { useFirmwareVersionValid } from '../hooks/useFirmwareVersionValid';
 import { FirmwareUpdateTestIDs } from '../testIDs';
@@ -447,6 +448,12 @@ export function FirmwareChangeFirmwareWarn({
   );
 }
 
+// Temporary English copy, shown in every locale until the i18n keys exist
+// (OK-64195). Swap both for ETranslations entries; nothing else changes.
+const DESKTOP_USB_SUGGESTION_DESCRIPTION =
+  'For faster firmware updates, connect your device to a computer via USB and use the OneKey desktop app. You can also continue updating via Bluetooth.';
+const DESKTOP_USB_SUGGESTION_CONTINUE_TEXT = 'Continue updating via Bluetooth';
+
 export function FirmwareChangeLogView({
   result,
   onConfirmClick,
@@ -459,6 +466,41 @@ export function FirmwareChangeLogView({
   const intl = useIntl();
   const [, setStepInfo] = useFirmwareUpdateStepInfoAtom();
   const { showCheckList } = useFirmwareUpdateActions();
+  const isUsbSuggestionOpenRef = useRef(false);
+  const isMountedRef = useRef(true);
+
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
+
+  // Resolves true only when the user chooses to keep updating via Bluetooth.
+  const confirmUpdateViaBluetooth = useCallback(
+    () =>
+      new Promise<boolean>((resolve) => {
+        Dialog.show({
+          icon: 'TypeCoutline',
+          title: intl.formatMessage({
+            id: ETranslations.firmware_update_install_page__title,
+          }),
+          description: DESKTOP_USB_SUGGESTION_DESCRIPTION,
+          onConfirmText: DESKTOP_USB_SUGGESTION_CONTINUE_TEXT,
+          confirmButtonProps: {
+            testID: FirmwareUpdateTestIDs.usbSuggestionContinueBtn,
+          },
+          showCancelButton: false,
+          // onClose runs once the sheet has left the overlay, so the checklist
+          // never mounts inside this dialog's exit window. Only the confirm
+          // button closes with the 'confirm' flag.
+          onClose: (extra) => {
+            resolve(extra?.flag === 'confirm');
+          },
+        });
+      }),
+    [intl],
+  );
 
   const handleConfirmClick = useCallback(async () => {
     if (onRetryClick) {
@@ -489,6 +531,28 @@ export function FirmwareChangeLogView({
         return;
       }
     }
+    if (
+      shouldSuggestDesktopUsbFirmwareUpdate({
+        isNative: platformEnv.isNative,
+        deviceType: result?.deviceType,
+      })
+    ) {
+      // The footer button does not wait for this handler, so a second tap
+      // must not stack another suggestion on the one already open.
+      if (isUsbSuggestionOpenRef.current) {
+        return;
+      }
+      isUsbSuggestionOpenRef.current = true;
+      let shouldContinue = false;
+      try {
+        shouldContinue = await confirmUpdateViaBluetooth();
+      } finally {
+        isUsbSuggestionOpenRef.current = false;
+      }
+      if (!shouldContinue || !isMountedRef.current) {
+        return;
+      }
+    }
     setStepInfo({
       step: EFirmwareUpdateSteps.showCheckList,
       payload: undefined,
@@ -507,7 +571,15 @@ export function FirmwareChangeLogView({
     }
     showCheckList({ result });
     onConfirmClick?.();
-  }, [result, showCheckList, onConfirmClick, onRetryClick, setStepInfo, intl]);
+  }, [
+    result,
+    showCheckList,
+    onConfirmClick,
+    onRetryClick,
+    setStepInfo,
+    intl,
+    confirmUpdateViaBluetooth,
+  ]);
 
   const updateFirmwareInfo = result?.updateInfos?.firmware;
 
