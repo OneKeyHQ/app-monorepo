@@ -68,7 +68,7 @@ import {
   BATCH_SEND_TXS_FEE_UP_RATIO_FOR_APPROVE,
   BATCH_SEND_TXS_FEE_UP_RATIO_FOR_SWAP,
 } from '@onekeyhq/shared/src/consts/walletConsts';
-import { IMPL_APTOS } from '@onekeyhq/shared/src/engine/engineConsts';
+import { IMPL_APTOS, IMPL_SOL } from '@onekeyhq/shared/src/engine/engineConsts';
 import type {
   IOneKeyError,
   IOneKeyRpcError,
@@ -1044,6 +1044,19 @@ function TxFeeInfo(props: IProps) {
                 ...feeInfo.gas,
                 gasPrice,
                 gasLimit: feeInfo.gas?.gasLimit ?? '1',
+              };
+            }
+          }
+
+          if (network.impl === IMPL_SOL) {
+            // dApp-built SOL txs are passed through unmodified (OK-64196), so
+            // show the priority fee the tx actually carries, not the estimate.
+            const computeUnitPriceInTx =
+              estimateFeeParams?.estimateFeeParamsSol?.computeUnitPriceInTx;
+            if (!isNil(computeUnitPriceInTx)) {
+              feeInfo.feeSol = {
+                ...feeInfo.feeSol,
+                computeUnitPrice: computeUnitPriceInTx,
               };
             }
           }
