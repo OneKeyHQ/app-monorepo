@@ -32,6 +32,8 @@ export const TOKEN_AUTH_RULES_ID = new PublicKey(
 
 export const MIN_PRIORITY_FEE = 100_000;
 export const DEFAULT_COMPUTE_UNIT_LIMIT = 200_000;
+// Runtime cap for a single transaction's compute unit limit.
+export const MAX_COMPUTE_UNIT_LIMIT = 1_400_000;
 export const BASE_FEE = 5000; // lamports
 export const COMPUTE_UNIT_PRICE_DECIMALS = 6;
 
@@ -160,7 +162,7 @@ export function parseComputeUnitPrice(instructions: TransactionInstruction[]) {
 }
 
 export function parseComputeUnitLimit(instructions: TransactionInstruction[]) {
-  let computeUnitLimit = DEFAULT_COMPUTE_UNIT_LIMIT;
+  let nonComputeBudgetInstructionCount = 0;
   for (const instruction of instructions) {
     if (
       instruction.programId.toString() ===
@@ -170,12 +172,19 @@ export function parseComputeUnitLimit(instructions: TransactionInstruction[]) {
       if (type === 'SetComputeUnitLimit') {
         const { units } =
           ComputeBudgetInstruction.decodeSetComputeUnitLimit(instruction);
-        computeUnitLimit = units;
-        break;
+        return units;
       }
+    } else {
+      nonComputeBudgetInstructionCount += 1;
     }
   }
-  return computeUnitLimit;
+  // Mirror the runtime default when no explicit limit is set: 200k CU per
+  // non-ComputeBudget instruction, capped at 1.4M. Builtin instructions reserve
+  // fewer CUs on newer runtimes, so this stays an upper bound for the max fee.
+  return Math.min(
+    MAX_COMPUTE_UNIT_LIMIT,
+    Math.max(nonComputeBudgetInstructionCount, 1) * DEFAULT_COMPUTE_UNIT_LIMIT,
+  );
 }
 
 export function isSystemBuiltinProgram(pid: string) {

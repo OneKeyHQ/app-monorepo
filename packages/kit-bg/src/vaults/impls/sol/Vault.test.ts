@@ -35,8 +35,12 @@ const receiver = new PublicKey(Buffer.alloc(32, 2));
 
 const buildDappEncodedTx = ({
   computeUnitPrice,
+  computeUnitLimit,
+  transferCount = 1,
 }: {
   computeUnitPrice?: number;
+  computeUnitLimit?: number;
+  transferCount?: number;
 }) => {
   const tx = new Transaction({
     feePayer: payer,
@@ -49,13 +53,20 @@ const buildDappEncodedTx = ({
       }),
     );
   }
-  tx.add(
-    SystemProgram.transfer({
-      fromPubkey: payer,
-      toPubkey: receiver,
-      lamports: 1,
-    }),
-  );
+  if (computeUnitLimit !== undefined) {
+    tx.add(
+      ComputeBudgetProgram.setComputeUnitLimit({ units: computeUnitLimit }),
+    );
+  }
+  for (let i = 0; i < transferCount; i += 1) {
+    tx.add(
+      SystemProgram.transfer({
+        fromPubkey: payer,
+        toPubkey: receiver,
+        lamports: i + 1,
+      }),
+    );
+  }
   return bs58.encode(
     tx.serialize({ requireAllSignatures: false, verifySignatures: false }),
   );
@@ -118,6 +129,54 @@ describe('SolVault dApp transaction fee handling (OK-64196)', () => {
         computeUnitPriceInTx: '123',
         computeUnitLimit: '200000',
       });
+    });
+
+    it('derives the default compute unit limit from the instruction count', async () => {
+      const vault = buildVault();
+      const encodedTx = buildDappEncodedTx({
+        computeUnitPrice: 123,
+        transferCount: 3,
+      });
+
+      const { estimateFeeParams } = await vault.buildEstimateFeeParams({
+        encodedTx,
+      });
+
+      // 3 non-ComputeBudget instructions x 200k CU; the price ix is not counted
+      expect(estimateFeeParams?.estimateFeeParamsSol).toMatchObject({
+        computeUnitLimit: '600000',
+        computeUnitPriceInTx: '123',
+      });
+    });
+
+    it('caps the derived default compute unit limit at 1.4M', async () => {
+      const vault = buildVault();
+      const encodedTx = buildDappEncodedTx({ transferCount: 8 });
+
+      const { estimateFeeParams } = await vault.buildEstimateFeeParams({
+        encodedTx,
+      });
+
+      expect(estimateFeeParams?.estimateFeeParamsSol?.computeUnitLimit).toBe(
+        '1400000',
+      );
+    });
+
+    it('uses the explicit SetComputeUnitLimit when the tx carries one', async () => {
+      const vault = buildVault();
+      const encodedTx = buildDappEncodedTx({
+        computeUnitPrice: 123,
+        computeUnitLimit: 300_000,
+        transferCount: 3,
+      });
+
+      const { estimateFeeParams } = await vault.buildEstimateFeeParams({
+        encodedTx,
+      });
+
+      expect(estimateFeeParams?.estimateFeeParamsSol?.computeUnitLimit).toBe(
+        '300000',
+      );
     });
 
     it('reports "0" when the tx carries no SetComputeUnitPrice instruction', async () => {
