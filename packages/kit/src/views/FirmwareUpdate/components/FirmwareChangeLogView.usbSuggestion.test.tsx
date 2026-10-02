@@ -183,7 +183,7 @@ describe('FirmwareChangeLogView desktop USB suggestion', () => {
     mockDetectUSBDeviceAvailability.mockResolvedValue(true);
   });
 
-  it.each([EDeviceType.Pro, EDeviceType.Pro2])(
+  it.each([EDeviceType.Pro, EDeviceType.Pro2, EDeviceType.Neo])(
     'suggests desktop USB to %s owners on mobile before the checklist',
     (deviceType) => {
       const onConfirmClick = jest.fn();

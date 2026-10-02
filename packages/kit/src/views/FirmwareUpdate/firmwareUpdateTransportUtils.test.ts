@@ -24,7 +24,7 @@ describe('isBluetoothFirmwareUpdateTransport', () => {
 });
 
 describe('shouldSuggestDesktopUsbFirmwareUpdate', () => {
-  it.each([EDeviceType.Pro, EDeviceType.Pro2])(
+  it.each([EDeviceType.Pro, EDeviceType.Pro2, EDeviceType.Neo])(
     'suggests desktop USB for %s on native',
     (deviceType) => {
       expect(
@@ -39,7 +39,6 @@ describe('shouldSuggestDesktopUsbFirmwareUpdate', () => {
     EDeviceType.ClassicPure,
     EDeviceType.Mini,
     EDeviceType.Touch,
-    EDeviceType.Neo,
     EDeviceType.Unknown,
     undefined,
   ])('leaves %s on the plain Bluetooth flow on native', (deviceType) => {
@@ -51,8 +50,10 @@ describe('shouldSuggestDesktopUsbFirmwareUpdate', () => {
   it.each([
     { isNative: false, deviceType: EDeviceType.Pro },
     { isNative: false, deviceType: EDeviceType.Pro2 },
+    { isNative: false, deviceType: EDeviceType.Neo },
     { isNative: undefined, deviceType: EDeviceType.Pro },
     { isNative: undefined, deviceType: EDeviceType.Pro2 },
+    { isNative: undefined, deviceType: EDeviceType.Neo },
   ])(
     'never suggests it off native ($deviceType, isNative: $isNative)',
     (params) => {
