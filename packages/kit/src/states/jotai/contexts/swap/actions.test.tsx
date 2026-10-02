@@ -28,6 +28,7 @@ import {
 } from '@onekeyhq/shared/src/consts/dbConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { buildSwapAllNetworkTokenListCacheKey } from '@onekeyhq/shared/src/utils/tokenSelectorFilterUtils';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 import {
   swapQuoteIntervalMaxCount,
@@ -603,6 +604,54 @@ describe('useSwapActions', () => {
         protocol: ESwapTabSwitchType.STOCK,
       }),
     );
+  });
+
+  it('keeps the last-good all-network list during a silent refresh failure', async () => {
+    const cacheKey = buildSwapAllNetworkTokenListCacheKey({
+      accountId: 'account-1',
+      lpToken: false,
+      currency: 'usd',
+      protocol: ESwapTabSwitchType.STOCK,
+    });
+    const cachedToken = {
+      ...stockTokenA,
+      balanceParsed: '1',
+      price: '1',
+      fiatValue: '1',
+    };
+    mockGetSupportSwapAllAccounts.mockResolvedValue({
+      supportAccountsFetchFailed: false,
+      swapSupportAccounts: [
+        {
+          apiAddress: '0xabc',
+          networkId: 'evm--56',
+          accountId: 'account-bsc',
+        },
+      ],
+    });
+    mockFetchSwapTokens.mockRejectedValue(new Error('offline'));
+    const { store, Wrapper } = createWrapperWithStore((storeInstance) => {
+      storeInstance.set(swapTypeSwitchAtom(), ESwapTabSwitchType.STOCK);
+      storeInstance.set(swapAllNetworkTokenListMapAtom(), {
+        [cacheKey]: [cachedToken],
+      });
+    });
+    const { result } = renderHook(() => useSwapActions().current, {
+      wrapper: Wrapper,
+    });
+
+    await act(async () => {
+      await result.current.swapLoadAllNetworkTokenList(
+        undefined,
+        'account-1',
+        false,
+        'usd',
+      );
+    });
+
+    expect(store.get(swapAllNetworkTokenListMapAtom())).toEqual({
+      [cacheKey]: [cachedToken],
+    });
   });
 
   it('queues the latest Stock network generation without duplicating the active generation', async () => {

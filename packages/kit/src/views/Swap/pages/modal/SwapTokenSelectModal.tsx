@@ -31,6 +31,7 @@ import { TokenSelectorLpTokenSwitch } from '@onekeyhq/kit/src/components/TokenSe
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useDebounce } from '@onekeyhq/kit/src/hooks/useDebounce';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { useRouteIsFocused as useIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import { useAccountSelectorActions } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector/actions';
 import {
   useSwapActions,
@@ -92,6 +93,11 @@ import {
 } from '../../components/SwapTokenSelectorDesktop';
 import { useSwapAddressInfo } from '../../hooks/useSwapAccount';
 import { useSwapTokenList } from '../../hooks/useSwapTokens';
+import {
+  buildSwapNetworkReadyKey,
+  isSwapNetworkCacheCompatible,
+  isSwapNetworkCacheReadyForBasicList,
+} from '../../utils/swapNetworkCacheUtils';
 import {
   SWAP_STOCK_ANALYTICS_TOKEN_LIST_TYPE_STOCK,
   SWAP_STOCK_ANALYTICS_TOKEN_ROLE_STOCK,
@@ -385,6 +391,7 @@ const SwapTokenSelectPage = ({
     return undefined;
   }, [isSwapStockSelectTarget, showLpTokenFilterSwitch, showLpTokensOnly]);
   const { gtMd, md } = useMedia();
+  const isFocused = useIsFocused();
   const useDesktopTokenSelector =
     (platformEnv.isDesktop || platformEnv.isWeb) &&
     gtMd &&
@@ -418,9 +425,28 @@ const SwapTokenSelectPage = ({
   );
   const desktopAllNetworkTokens =
     swapAllNetworkTokenListMap[desktopAllNetworkTokenListCacheKey];
+  const desktopAllNetworkTokenListReady = useMemo(() => {
+    if (requestLpToken) {
+      return isSwapNetworkCacheCompatible(rawSwapNetworks);
+    }
+    return isSwapNetworkCacheReadyForBasicList(rawSwapNetworks);
+  }, [rawSwapNetworks, requestLpToken]);
+  const desktopAllNetworkSwapNetworksReadyKey = useMemo(
+    () =>
+      desktopAllNetworkTokenListReady
+        ? buildSwapNetworkReadyKey(rawSwapNetworks)
+        : '',
+    [desktopAllNetworkTokenListReady, rawSwapNetworks],
+  );
 
+  // The cold snapshot is only for first paint. Every selector entry starts a
+  // fresh request so balance-sensitive values are never gated by cache age.
   useEffect(() => {
-    if (!useDesktopTokenSelector) {
+    if (
+      !isFocused ||
+      !useDesktopTokenSelector ||
+      !desktopAllNetworkTokenListReady
+    ) {
       return;
     }
     void swapLoadAllNetworkTokenList(
@@ -436,6 +462,9 @@ const SwapTokenSelectPage = ({
     settingsPersistAtom.currencyInfo.id,
     swapLoadAllNetworkTokenList,
     useDesktopTokenSelector,
+    desktopAllNetworkTokenListReady,
+    desktopAllNetworkSwapNetworksReadyKey,
+    isFocused,
   ]);
   const fromTokenRef = useRef<ISwapToken | undefined>(fromToken);
   const toTokenRef = useRef<ISwapToken | undefined>(toToken);
@@ -947,12 +976,6 @@ const SwapTokenSelectPage = ({
           stock,
           tokenName: rawItem.name,
         });
-      } else if (requestedSearchKeyword && useDesktopTokenSelector) {
-        displayTokenName = accountUtils.shortenAddress({
-          address: rawItem.contractAddress,
-          leadingLength: 8,
-          trailingLength: 6,
-        });
       }
 
       let badgeText: string | undefined;
@@ -978,10 +1001,7 @@ const SwapTokenSelectPage = ({
       }
 
       const tokenItem: ITokenListItemProps = {
-        isSearch:
-          isSwapStockSelectTarget || useDesktopTokenSelector
-            ? false
-            : !!requestedSearchKeyword,
+        isSearch: !isSwapStockSelectTarget && !!requestedSearchKeyword,
         tokenImageSrc: rawItem.logoURI,
         tokenName: displayTokenName,
         tokenSymbol: rawItem.symbol,
@@ -1231,14 +1251,13 @@ const SwapTokenSelectPage = ({
             }}
             onDisableNetworksClick={disableNetworksOnClick}
             onSelectToken={onSelectToken}
-            onPaste={handlePaste}
+            listViewRef={listViewRef}
             popularTokens={currentNetworkPopularTokens}
             showPopularTokens={shouldShowPopularTokens}
             showLpTokenFilterSwitch={showLpTokenFilterSwitch}
             showLpTokensOnly={showLpTokensOnly}
             onLpTokenFilterChange={handleLpTokenFilterChange}
             tokens={displayTokens}
-            tokenListLoading={tokenListLoading}
             renderToken={renderItem}
             currencySymbol={settingsPersistAtom.currencyInfo.symbol}
             tokenListEmptyComponent={tokenListEmptyComponent}

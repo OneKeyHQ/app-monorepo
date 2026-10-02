@@ -1,5 +1,7 @@
-import type { ReactElement } from 'react';
+import type { MutableRefObject, ReactElement } from 'react';
 import { useMemo } from 'react';
+
+import { useIntl } from 'react-intl';
 
 import {
   Badge,
@@ -8,14 +10,15 @@ import {
   Image,
   Input,
   ListView,
-  NumberSizeableText,
   ScrollView,
   SizableText,
   Stack,
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import NumberSizeableTextWrapper from '@onekeyhq/kit/src/components/NumberSizeableTextWrapper';
 import { TokenSelectorLpTokenSwitch } from '@onekeyhq/kit/src/components/TokenSelectorFilter';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IFuseResult } from '@onekeyhq/shared/src/modules3rdParty/fuse';
 import type {
   ISwapNetwork,
@@ -27,6 +30,7 @@ import SwapPopularTokenGroup from '../SwapPopularTokenGroup';
 import { buildSwapTokenSelectorNetworkGroups } from './SwapTokenSelectorDesktop.utils';
 
 import type { ISwapNetworkAsset } from './SwapTokenSelectorDesktop.utils';
+import type { FlatList } from 'react-native';
 
 type ISwapTokenItem = ISwapToken | IFuseResult<ISwapToken>;
 
@@ -47,14 +51,13 @@ type ISwapTokenSelectorDesktopProps = {
   onSelectNetwork: (network: ISwapNetwork) => void;
   onDisableNetworksClick: () => void;
   onSelectToken: (token: ISwapToken) => void;
-  onPaste?: () => void;
+  listViewRef?: MutableRefObject<FlatList<ISwapTokenItem> | null>;
   popularTokens: ISwapToken[];
   showPopularTokens: boolean;
   showLpTokenFilterSwitch: boolean;
   showLpTokensOnly: boolean;
   onLpTokenFilterChange: (value: boolean) => void;
   tokens: ISwapTokenItem[];
-  tokenListLoading: boolean;
   renderToken: (params: {
     item: ISwapTokenItem;
     index: number;
@@ -139,20 +142,27 @@ function NetworkRow({
         </Badge>
       ) : null}
       {fiatValue ? (
-        <NumberSizeableText
+        <NumberSizeableTextWrapper
+          hideValue
           size="$bodySm"
           color="$textSubdued"
           formatter="value"
           formatterOptions={{ currency: currencySymbol }}
         >
           {fiatValue}
-        </NumberSizeableText>
+        </NumberSizeableTextWrapper>
       ) : null}
     </XStack>
   );
 }
 
-function NetworkSearchEmpty() {
+function NetworkSearchEmpty({
+  title,
+  description,
+}: {
+  title: string;
+  description: string;
+}) {
   return (
     <YStack
       flex={1}
@@ -163,16 +173,22 @@ function NetworkSearchEmpty() {
     >
       <Icon name="SearchOutline" size="$6" color="$iconSubdued" />
       <SizableText size="$bodyMd" color="$textSubdued">
-        No networks found
+        {title}
       </SizableText>
       <SizableText size="$bodySm" color="$textDisabled">
-        Try a different name
+        {description}
       </SizableText>
     </YStack>
   );
 }
 
-function TokenSearchEmpty() {
+function TokenSearchEmpty({
+  title,
+  description,
+}: {
+  title: string;
+  description: string;
+}) {
   return (
     <YStack
       flex={1}
@@ -183,10 +199,10 @@ function TokenSearchEmpty() {
     >
       <Icon name="SearchOutline" size="$6" color="$iconSubdued" />
       <SizableText size="$bodyMd" color="$textSubdued">
-        No tokens found
+        {title}
       </SizableText>
       <SizableText size="$bodySm" color="$textDisabled">
-        Check the spelling or paste a contract address
+        {description}
       </SizableText>
     </YStack>
   );
@@ -231,18 +247,18 @@ export function SwapTokenSelectorDesktop({
   onSelectNetwork,
   onDisableNetworksClick,
   onSelectToken,
-  onPaste,
+  listViewRef,
   popularTokens,
   showPopularTokens,
   showLpTokenFilterSwitch,
   showLpTokensOnly,
   onLpTokenFilterChange,
   tokens,
-  tokenListLoading,
   renderToken,
   currencySymbol,
   tokenListEmptyComponent,
 }: ISwapTokenSelectorDesktopProps) {
+  const intl = useIntl();
   const networkGroups = useMemo(
     () =>
       buildSwapTokenSelectorNetworkGroups({
@@ -256,6 +272,15 @@ export function SwapTokenSelectorDesktop({
     [allNetwork, networkSearchValue, networks, sameChainNetwork],
   );
   const hasNetworkSearch = networkSearchValue.trim().length > 0;
+  const normalizedNetworkSearch = networkSearchValue.trim().toLowerCase();
+  const allNetworkMatches =
+    !hasNetworkSearch ||
+    [
+      allNetwork.name,
+      allNetwork.symbol,
+      allNetwork.networkId,
+      allNetworksLabel,
+    ].some((value) => value.toLowerCase().includes(normalizedNetworkSearch));
   const showNetworkSearchEmpty = hasNetworkSearch && networkGroups.length === 0;
   const selectedNetworkId = selectedNetwork?.networkId;
   const selectedIsAllNetworks = selectedNetwork?.isAllNetworks;
@@ -283,18 +308,27 @@ export function SwapTokenSelectorDesktop({
             leftIconName="SearchOutline"
             allowClear
             value={networkSearchValue}
-            placeholder="Search networks"
+            placeholder={intl.formatMessage({
+              id: ETranslations.placeholder_search_networks,
+            })}
             onChangeText={onNetworkSearchChange}
           />
         </YStack>
-        {showNetworkSearchEmpty ? (
-          <NetworkSearchEmpty />
+        {showNetworkSearchEmpty && !allNetworkMatches ? (
+          <NetworkSearchEmpty
+            title={intl.formatMessage({
+              id: ETranslations.empty_no_networks_found,
+            })}
+            description={intl.formatMessage({
+              id: ETranslations.description_try_different_name,
+            })}
+          />
         ) : (
           <ScrollView
             flex={1}
             contentContainerStyle={{ paddingHorizontal: 12, paddingBottom: 4 }}
           >
-            {!hasNetworkSearch ? (
+            {allNetworkMatches ? (
               <NetworkRow
                 network={allNetwork}
                 selected={selectedIsAllNetworks === true}
@@ -312,7 +346,7 @@ export function SwapTokenSelectorDesktop({
             {!hasNetworkSearch && sameChainNetwork ? (
               <>
                 <NetworkSectionLabel paddingTop={6} paddingBottom={6}>
-                  SAME NETWORK
+                  {intl.formatMessage({ id: ETranslations.label_same_network })}
                 </NetworkSectionLabel>
                 <NetworkRow
                   network={sameChainNetwork}
@@ -335,7 +369,9 @@ export function SwapTokenSelectorDesktop({
             {!hasNetworkSearch && assetNetworks.length > 0 ? (
               <>
                 <NetworkSectionLabel paddingTop={22} paddingBottom={6}>
-                  NETWORKS WITH ASSETS
+                  {intl.formatMessage({
+                    id: ETranslations.network_found_assets_on_networks,
+                  })}
                 </NetworkSectionLabel>
                 {assetNetworks.map(({ network, fiatValue }) => (
                   <NetworkRow
@@ -358,7 +394,7 @@ export function SwapTokenSelectorDesktop({
             ) : null}
             {!hasNetworkSearch ? (
               <NetworkSectionLabel paddingTop={4} paddingBottom={8}>
-                ALL NETWORKS · A–Z
+                {`${allNetworksLabel} · A–Z`}
               </NetworkSectionLabel>
             ) : null}
             {networkGroups.map(({ network, children }) => (
@@ -417,13 +453,14 @@ export function SwapTokenSelectorDesktop({
             value={tokenSearchValue}
             placeholder={tokenSearchPlaceholder}
             onChangeText={onTokenSearchChange}
-            onPaste={onPaste ? () => onPaste() : undefined}
           />
         </YStack>
         {showPopularTokens ? (
           <YStack px="$5" pt="$1">
             <SizableText size="$bodyMdMedium" color="$textSubdued">
-              Popular tokens
+              {intl.formatMessage({
+                id: ETranslations.swap_token_selector_popular_token,
+              })}
             </SizableText>
             <SwapPopularTokenGroup
               tokens={popularTokens}
@@ -443,7 +480,10 @@ export function SwapTokenSelectorDesktop({
             <SizableText size="$bodyMdMedium" color="$textSubdued">
               {selectedNetwork?.isAllNetworks
                 ? allNetworksLabel
-                : `Tokens on ${selectedNetwork?.name ?? ''}`}
+                : intl.formatMessage(
+                    { id: ETranslations.title_tokens_on_network },
+                    { network: selectedNetwork?.name ?? '' },
+                  )}
             </SizableText>
             {showLpTokenFilterSwitch ? (
               <TokenSelectorLpTokenSwitch
@@ -456,11 +496,21 @@ export function SwapTokenSelectorDesktop({
         ) : null}
         <YStack flex={1} minHeight={0}>
           <ListView
+            ref={listViewRef}
             data={tokens}
             renderItem={renderToken}
             estimatedItemSize={60}
             ListEmptyComponent={
-              tokenListLoading ? tokenListEmptyComponent : <TokenSearchEmpty />
+              tokenListEmptyComponent ?? (
+                <TokenSearchEmpty
+                  title={intl.formatMessage({
+                    id: ETranslations.empty_no_tokens_found,
+                  })}
+                  description={intl.formatMessage({
+                    id: ETranslations.description_check_spelling_or_paste_contract_address,
+                  })}
+                />
+              )
             }
           />
         </YStack>

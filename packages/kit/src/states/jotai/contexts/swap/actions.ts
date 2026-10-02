@@ -3067,8 +3067,8 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
                     networkId: accountNetworkId,
                     accountId,
                   } = networkDataString;
-                  return async () =>
-                    (await this.updateAllNetworkTokenList.call(
+                  return () =>
+                    this.updateAllNetworkTokenList.call(
                       set,
                       accountNetworkId,
                       swapTypeSwitchValue,
@@ -3078,7 +3078,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
                       tokenListCacheKey,
                       lpToken,
                       currency,
-                    )) as ISwapToken[] | undefined;
+                    );
                 });
 
               // Execute requests in batches of 3 to prevent UI thread blocking
@@ -3096,19 +3096,25 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
                 });
               } else {
                 // Subsequent fetches: collect results and update atom
-                const allTokensResult = results.flatMap((result) =>
-                  result.status === 'fulfilled' ? (result.value ?? []) : [],
+                const hasRejectedResult = results.some(
+                  (result) => result.status === 'rejected',
                 );
-                set(swapAllNetworkTokenListMapAtom(), (value) => ({
-                  ...value,
-                  [tokenListCacheKey]: allTokensResult,
-                }));
+                if (!hasRejectedResult) {
+                  const allTokensResult = results.flatMap((result) =>
+                    result.status === 'fulfilled' ? (result.value ?? []) : [],
+                  );
+                  set(swapAllNetworkTokenListMapAtom(), (value) => ({
+                    ...value,
+                    [tokenListCacheKey]: allTokensResult,
+                  }));
+                }
               }
             } else {
-              set(swapAllNetworkTokenListMapAtom(), (value) => ({
-                ...value,
-                [tokenListCacheKey]: [],
-              }));
+              set(swapAllNetworkTokenListMapAtom(), (value) =>
+                value[tokenListCacheKey] === undefined
+                  ? { ...value, [tokenListCacheKey]: [] }
+                  : value,
+              );
             }
           } catch (error) {
             requestError = error;
