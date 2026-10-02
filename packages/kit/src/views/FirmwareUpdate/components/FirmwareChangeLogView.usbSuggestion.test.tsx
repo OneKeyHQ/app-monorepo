@@ -306,6 +306,42 @@ describe('FirmwareChangeLogView desktop USB suggestion', () => {
     expect(onConfirmClick).not.toHaveBeenCalled();
   });
 
+  it('closes the open suggestion when the changelog unmounts', () => {
+    const close = jest.fn();
+    mockDialogShow.mockReturnValueOnce({
+      close,
+      getForm: () => undefined,
+      isExist: () => true,
+    });
+    const { unmount } = render(
+      <FirmwareChangeLogView result={buildResult(EDeviceType.Pro2)} />,
+    );
+
+    tapUpdateNow();
+    expect(close).not.toHaveBeenCalled();
+    unmount();
+
+    expect(close).toHaveBeenCalledTimes(1);
+  });
+
+  it('leaves an already closed suggestion alone on unmount', async () => {
+    const close = jest.fn();
+    mockDialogShow.mockReturnValueOnce({
+      close,
+      getForm: () => undefined,
+      isExist: () => true,
+    });
+    const { unmount } = render(
+      <FirmwareChangeLogView result={buildResult(EDeviceType.Pro2)} />,
+    );
+
+    tapUpdateNow();
+    await closeSuggestion({ flag: 'confirm' });
+    unmount();
+
+    expect(close).not.toHaveBeenCalled();
+  });
+
   it.each([
     EDeviceType.Classic1s,
     EDeviceType.ClassicPure,

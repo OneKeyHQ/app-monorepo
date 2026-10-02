@@ -5,6 +5,7 @@ import { useIntl } from 'react-intl';
 
 import type {
   IAlertType,
+  IDialogInstance,
   IKeyOfIcons,
   IStackProps,
 } from '@onekeyhq/components';
@@ -461,12 +462,16 @@ export function FirmwareChangeLogView({
   const [, setStepInfo] = useFirmwareUpdateStepInfoAtom();
   const { showCheckList } = useFirmwareUpdateActions();
   const isUsbSuggestionOpenRef = useRef(false);
+  const usbSuggestionDialogRef = useRef<IDialogInstance | undefined>(undefined);
   const isMountedRef = useRef(true);
 
   useEffect(() => {
     isMountedRef.current = true;
     return () => {
       isMountedRef.current = false;
+      // The suggestion lives in the global overlay, so it would otherwise
+      // stay on top of whatever replaces this page.
+      void usbSuggestionDialogRef.current?.close();
     };
   }, []);
 
@@ -474,7 +479,7 @@ export function FirmwareChangeLogView({
   const confirmUpdateViaBluetooth = useCallback(
     () =>
       new Promise<boolean>((resolve) => {
-        Dialog.show({
+        usbSuggestionDialogRef.current = Dialog.show({
           icon: 'TypeCoutline',
           title: intl.formatMessage({
             id: ETranslations.firmware_update_install_page__title,
@@ -493,6 +498,7 @@ export function FirmwareChangeLogView({
           // never mounts inside this dialog's exit window. Only the confirm
           // button closes with the 'confirm' flag.
           onClose: (extra) => {
+            usbSuggestionDialogRef.current = undefined;
             resolve(extra?.flag === 'confirm');
           },
         });
