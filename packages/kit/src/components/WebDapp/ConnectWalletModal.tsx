@@ -2,7 +2,7 @@ import { useEffect } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Page, Stack, useMedia } from '@onekeyhq/components';
+import { Page, ScrollView, Stack, useMedia } from '@onekeyhq/components';
 import { TermsAndPrivacy } from '@onekeyhq/kit/src/views/Onboarding/pages/GetStarted/components/TermsAndPrivacy';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
@@ -39,28 +39,36 @@ function ConnectWalletContent() {
           id: ETranslations.global_connect_wallet,
         })}
       />
-      <Page.Body>
-        <Stack flex={1} justifyContent="space-between">
-          {isMobile ? (
-            <Stack p="$5" gap="$4">
-              <WalletConnectListItemComponent
-                impl="evm"
-                py="$4"
-                px="$5"
-                mx="$0"
-                bg="$bgSubdued"
-              />
-            </Stack>
-          ) : (
-            <ExternalWalletList impl="evm" />
-          )}
-          <TermsAndPrivacy
-            contentContainerProps={{
-              pb: '$6',
-              $gtMd: { alignSelf: 'center' },
-            }}
-          />
-        </Stack>
+      <Page.Body minHeight={0}>
+        {/* Keep long wallet lists within the modal while the header stays fixed. */}
+        <ScrollView
+          flex={1}
+          minHeight={0}
+          showsVerticalScrollIndicator
+          contentContainerStyle={{ flexGrow: 1 }}
+        >
+          <Stack flexGrow={1} justifyContent="space-between">
+            {isMobile ? (
+              <Stack p="$5" gap="$4">
+                <WalletConnectListItemComponent
+                  impl="evm"
+                  py="$4"
+                  px="$5"
+                  mx="$0"
+                  bg="$bgSubdued"
+                />
+              </Stack>
+            ) : (
+              <ExternalWalletList impl="evm" />
+            )}
+            <TermsAndPrivacy
+              contentContainerProps={{
+                pb: '$6',
+                $gtMd: { alignSelf: 'center' },
+              }}
+            />
+          </Stack>
+        </ScrollView>
       </Page.Body>
     </Page>
   );
