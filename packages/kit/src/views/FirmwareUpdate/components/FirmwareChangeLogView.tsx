@@ -448,12 +448,6 @@ export function FirmwareChangeFirmwareWarn({
   );
 }
 
-// Temporary English copy, shown in every locale until the i18n keys exist
-// (OK-64195). Swap both for ETranslations entries; nothing else changes.
-const DESKTOP_USB_SUGGESTION_DESCRIPTION =
-  'For faster firmware updates, connect your device to a computer via USB and use the OneKey desktop app. You can also continue updating via Bluetooth.';
-const DESKTOP_USB_SUGGESTION_CONTINUE_TEXT = 'Continue updating via Bluetooth';
-
 export function FirmwareChangeLogView({
   result,
   onConfirmClick,
@@ -485,8 +479,12 @@ export function FirmwareChangeLogView({
           title: intl.formatMessage({
             id: ETranslations.firmware_update_install_page__title,
           }),
-          description: DESKTOP_USB_SUGGESTION_DESCRIPTION,
-          onConfirmText: DESKTOP_USB_SUGGESTION_CONTINUE_TEXT,
+          description: intl.formatMessage({
+            id: ETranslations.firmware_update_usb_recommended__desc,
+          }),
+          onConfirmText: intl.formatMessage({
+            id: ETranslations.firmware_update_continue_via_bluetooth__action,
+          }),
           confirmButtonProps: {
             testID: FirmwareUpdateTestIDs.usbSuggestionContinueBtn,
           },

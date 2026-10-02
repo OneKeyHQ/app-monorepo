@@ -200,8 +200,9 @@ describe('FirmwareChangeLogView desktop USB suggestion', () => {
       expect(lastDialogProps()).toMatchObject({
         icon: 'TypeCoutline',
         title: ETranslations.firmware_update_install_page__title,
-        description: expect.stringContaining('OneKey desktop app'),
-        onConfirmText: 'Continue updating via Bluetooth',
+        description: ETranslations.firmware_update_usb_recommended__desc,
+        onConfirmText:
+          ETranslations.firmware_update_continue_via_bluetooth__action,
         showCancelButton: false,
         confirmButtonProps: {
           testID: FirmwareUpdateTestIDs.usbSuggestionContinueBtn,
