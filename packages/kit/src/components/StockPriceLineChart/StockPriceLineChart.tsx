@@ -10,7 +10,10 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IMarketTokenChart } from '@onekeyhq/shared/types/market';
 
 import { LightweightChart } from '../LightweightChart';
-import { formatChartPrice } from '../LightweightChart/utils/formatChartPrice';
+import {
+  formatChartPrice,
+  formatStockChartPrice,
+} from '../LightweightChart/utils/formatChartPrice';
 
 import type { ILightweightChartReferenceLine } from '../LightweightChart/types';
 
@@ -100,6 +103,7 @@ export function StockPriceLineChart({
   pulseLastPoint,
   previousClose,
   showCurrentPriceLabel,
+  priceScaleFormat,
   testID,
   hoverLabelShowsPrice = true,
   hoverLabelLargePrice = false,
@@ -115,6 +119,8 @@ export function StockPriceLineChart({
   // Pins the latest price to the price axis on the line's full-strength color,
   // without the dashed price line lightweight-charts pairs it with.
   showCurrentPriceLabel?: boolean;
+  // Stock quotes keep two decimals on the axis and the last-price badge.
+  priceScaleFormat?: 'stock';
   testID?: string;
   // The hover card answers "when" and, by default, "how much". Hosts that must
   // not repeat the figure pass false to keep the card time-only.
@@ -130,8 +136,11 @@ export function StockPriceLineChart({
   const [hoverData, setHoverData] = useState<IChartHoverData | null>(null);
   const [chartWidth, setChartWidth] = useState(0);
   const priceFormatter = useCallback(
-    (price: number) => formatChartPrice(price, PRICE_SCALE_MAX_CHARACTERS),
-    [],
+    (price: number) =>
+      priceScaleFormat === 'stock'
+        ? formatStockChartPrice(price)
+        : formatChartPrice(price, PRICE_SCALE_MAX_CHARACTERS),
+    [priceScaleFormat],
   );
   const handleHover = useCallback(
     ({
@@ -335,6 +344,7 @@ export function StockPriceLineChart({
         timeScaleRightOffsetPixels={LAST_POINT_RIGHT_GAP}
         priceFormatter={priceFormatter}
         compactPriceMaxCharacters={PRICE_SCALE_MAX_CHARACTERS}
+        priceScaleFormat={priceScaleFormat}
         fontSize={11}
         useTimeScaleTickMarkWithoutUnit
         onHover={handleHover}

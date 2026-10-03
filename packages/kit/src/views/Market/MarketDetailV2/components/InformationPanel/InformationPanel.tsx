@@ -30,6 +30,7 @@ import { TokenSecurityAlert } from '../TokenSecurityAlert';
 import { useTokenSecurity } from '../TokenSecurityAlert/hooks';
 
 import { InformationPanelSkeleton } from './InformationPanelSkeleton';
+import { StockMobilePriceHeader } from './StockMobilePriceHeader';
 
 // 4pt top padding plus the 16pt stock badges.
 const STOCK_TAG_ROW_MIN_HEIGHT = 20;
@@ -166,6 +167,36 @@ export function InformationPanel() {
   });
 
   if (!tokenDetail) return <InformationPanelSkeleton />;
+
+  // Figma stock chart header: price, dollar change, Share/Token toggle, and
+  // the market-status row. Desktop and web keep the previous stat header.
+  if (platformEnv.isNative && isStockToken) {
+    return (
+      <YStack width="100%">
+        <StockMobilePriceHeader />
+        {securityData ? (
+          <XStack
+            testID="market-detail-security-row"
+            px="$5"
+            pb="$4"
+            gap="$1"
+            ai="center"
+            width="100%"
+            jc="space-between"
+          >
+            <SizableText
+              pointerEvents="none"
+              size="$bodySm"
+              color="$textSubdued"
+            >
+              {intl.formatMessage({ id: ETranslations.dexmarket_audit })}
+            </SizableText>
+            <TokenSecurityAlert />
+          </XStack>
+        ) : null}
+      </YStack>
+    );
+  }
 
   const {
     name = '',

@@ -14,6 +14,9 @@ import {
   isStockBalanceInitializing,
   isStockPayTokenReadyForTradeInput,
   isStockTradeReadyForQuote,
+  resolveDisplayedStockToken,
+  resolveFollowedStockToken,
+  resolvePlatformDisplayedStockToken,
   resolveStockBalanceSeed,
   resolveStockBalanceSnapshot,
   resolveStockBalanceViewState,
@@ -26,9 +29,11 @@ import {
   resolveStockPayTokenState,
   resolveStockTradeInputTokenStatus,
   resolveSwapStockDefaultTokenStatus,
+  shouldCommitFollowedStockToken,
   shouldLoadDefaultStockToken,
   shouldRenderStockTradeInputSkeleton,
   shouldResetStockTradeReceiveAmount,
+  shouldResetStockTradeSideForMarketEntry,
   shouldSyncControlledStockTokenMetadata,
   upsertSwapStockPayTokenScopeCache,
 } from './swapStockChannelUtils';
@@ -1142,5 +1147,152 @@ describe('backfillSwapProTokenStockIdentity', () => {
         tokenDetail: undefined,
       }),
     ).toBe(legacyStockToken);
+  });
+});
+
+describe('resolveDisplayedStockToken', () => {
+  it('follows a newly selected stock instead of the previous local stock', () => {
+    expect(
+      resolveDisplayedStockToken({
+        persistedStockToken: micronStockToken,
+        stockPairToken: appleStockToken,
+        stockTokenState: appleStockToken,
+      }),
+    ).toBe(micronStockToken);
+  });
+
+  it('keeps the local stock when it is the same token as the persisted selection', () => {
+    const localApple = { ...appleStockToken, name: 'Apple' };
+    expect(
+      resolveDisplayedStockToken({
+        persistedStockToken: appleStockToken,
+        stockPairToken: appleStockToken,
+        stockTokenState: localApple,
+      }),
+    ).toBe(localApple);
+  });
+
+  it('uses the execution pair when no explicit stock is selected', () => {
+    expect(
+      resolveDisplayedStockToken({
+        stockPairToken: appleStockToken,
+      }),
+    ).toBe(appleStockToken);
+  });
+});
+
+describe('resolvePlatformDisplayedStockToken', () => {
+  it('keeps the local stock on desktop and web when the persisted stock differs', () => {
+    expect(
+      resolvePlatformDisplayedStockToken({
+        isNative: false,
+        persistedStockToken: micronStockToken,
+        stockPairToken: appleStockToken,
+        stockTokenState: appleStockToken,
+      }),
+    ).toBe(appleStockToken);
+  });
+
+  it('follows the persisted stock on mobile when it differs from local state', () => {
+    expect(
+      resolvePlatformDisplayedStockToken({
+        isNative: true,
+        persistedStockToken: micronStockToken,
+        stockPairToken: appleStockToken,
+        stockTokenState: appleStockToken,
+      }),
+    ).toBe(micronStockToken);
+  });
+});
+
+describe('resolveFollowedStockToken', () => {
+  it('follows the execution pair on desktop and web', () => {
+    expect(
+      resolveFollowedStockToken({
+        isNative: false,
+        persistedStockToken: micronStockToken,
+        stockPairToken: appleStockToken,
+      }),
+    ).toBe(appleStockToken);
+  });
+
+  it('follows the persisted stock on mobile when no controlled stock is set', () => {
+    expect(
+      resolveFollowedStockToken({
+        isNative: true,
+        persistedStockToken: micronStockToken,
+        stockPairToken: appleStockToken,
+      }),
+    ).toBe(micronStockToken);
+  });
+});
+
+describe('shouldResetStockTradeSideForMarketEntry', () => {
+  it('opens a market stock entry on buy while the page is selling', () => {
+    expect(
+      shouldResetStockTradeSideForMarketEntry({
+        isStockMarketJump: true,
+        tradeSide: ESwapStockTradeSide.Sell,
+      }),
+    ).toBe(true);
+  });
+
+  it('leaves an in-progress sell alone when market did not send a stock', () => {
+    expect(
+      shouldResetStockTradeSideForMarketEntry({
+        isStockMarketJump: false,
+        tradeSide: ESwapStockTradeSide.Sell,
+      }),
+    ).toBe(false);
+    expect(
+      shouldResetStockTradeSideForMarketEntry({
+        isStockMarketJump: true,
+        tradeSide: ESwapStockTradeSide.Buy,
+      }),
+    ).toBe(false);
+  });
+});
+
+describe('shouldCommitFollowedStockToken', () => {
+  it('commits while local state is still the previous stock', () => {
+    expect(
+      shouldCommitFollowedStockToken({
+        displayedStockToken: micronStockToken,
+        executionStockToken: appleStockToken,
+        followedStockToken: micronStockToken,
+        stockTokenState: appleStockToken,
+      }),
+    ).toBe(true);
+  });
+
+  it('does not commit again after local state matches', () => {
+    expect(
+      shouldCommitFollowedStockToken({
+        displayedStockToken: micronStockToken,
+        executionStockToken: appleStockToken,
+        followedStockToken: micronStockToken,
+        stockTokenState: micronStockToken,
+      }),
+    ).toBe(false);
+  });
+
+  it('commits when local state is empty and the execution pair is stale', () => {
+    expect(
+      shouldCommitFollowedStockToken({
+        displayedStockToken: micronStockToken,
+        executionStockToken: appleStockToken,
+        followedStockToken: micronStockToken,
+      }),
+    ).toBe(true);
+  });
+
+  it('leaves a pair that already matches the follow target', () => {
+    expect(
+      shouldCommitFollowedStockToken({
+        displayedStockToken: appleStockToken,
+        executionStockToken: appleStockToken,
+        followedStockToken: appleStockToken,
+      }),
+    ).toBe(false);
   });
 });

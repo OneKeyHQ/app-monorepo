@@ -77,6 +77,8 @@ export function MarketDetailResponsiveLayout({
       tokenAddress={tokenAddress}
       marketTokenId={marketTokenId}
       marketTokenCategory={marketTokenCategory}
+      marketAssetDetail={marketAssetDetail}
+      isMarketAssetDetailLoading={isMarketAssetDetailLoading}
     />
   );
 }

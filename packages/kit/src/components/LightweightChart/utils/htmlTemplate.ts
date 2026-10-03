@@ -15,11 +15,26 @@ function getStyles(): string {
 
 function getChartInitScript(): string {
   return `
-      var compactPriceFormatter = ${formatChartPriceSource};
+      window.__onekeyFormatChartPrice = ${formatChartPriceSource};
       function getPriceFormatter(nextConfig) {
+        if (nextConfig.priceScaleFormat === 'stock') {
+          return function(price) {
+            if (!isFinite(price)) return '--';
+            var abs = Math.abs(price);
+            if (abs >= 1) {
+              return (price < 0 ? '-' : '') + '$' + abs.toFixed(2);
+            }
+            var formatChartPrice = window.__onekeyFormatChartPrice;
+            return formatChartPrice(
+              price,
+              nextConfig.compactPriceMaxCharacters || 10,
+            );
+          };
+        }
         if (nextConfig.compactPriceMaxCharacters) {
           return function(price) {
-            return compactPriceFormatter(price, nextConfig.compactPriceMaxCharacters);
+            var formatChartPrice = window.__onekeyFormatChartPrice;
+            return formatChartPrice(price, nextConfig.compactPriceMaxCharacters);
           };
         }
         if (nextConfig.priceFormatterType === 'usd') return usdPriceFormatter;
@@ -116,7 +131,7 @@ function getChartInitScript(): string {
         return options;
       }
       function getChartOptions(nextConfig) {
-        return {
+        var options = {
           layout: {
             background: { color: nextConfig.theme.bgColor },
             textColor: nextConfig.theme.textSubduedColor,
@@ -137,6 +152,17 @@ function getChartInitScript(): string {
           rightPriceScale: getPriceScaleOptions(nextConfig, 'right'),
           leftPriceScale: getPriceScaleOptions(nextConfig, 'left'),
         };
+        // Desktop installs formatChartPrice on the series, and the price scale
+        // uses that for both ticks and the last-value badge. A function cannot
+        // cross into the WebView, so the same formatter is installed on the
+        // scale itself. Otherwise the badge keeps the series' raw precision
+        // ("$0.184056...") while ticks stay compact ("$0.19").
+        if (nextConfig.compactPriceMaxCharacters) {
+          options.localization = {
+            priceFormatter: getPriceFormatter(nextConfig),
+          };
+        }
+        return options;
       }
       function getPrimarySeriesType(nextConfig) {
         if (nextConfig.seriesType === 'baseline') return 'baseline';

@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
 
+import { noop } from 'lodash';
 import { useIntl } from 'react-intl';
 import { View } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
@@ -10,6 +11,8 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { MarketTestIDs } from '../../../testIDs';
 
+import type { IMarketDetailFooterMode } from '../../utils/marketMobileDetailKind';
+
 // On Android, the native bottom tab navigator (react-native-bottom-tabs)
 // intercepts touches in the tab bar area, preventing RN's built-in touch
 // system from dispatching events to buttons in this region — even when the
@@ -18,64 +21,93 @@ import { MarketTestIDs } from '../../../testIDs';
 // hierarchy entirely.
 
 type IProps = {
+  mode: IMarketDetailFooterMode;
   onTrade: () => void;
-  onInstant: () => void;
-  disabled?: boolean;
+  onPerps?: () => void;
+  tradeDisabled?: boolean;
+  perpsDisabled?: boolean;
 };
 
-function SwapPanelFooterButtons({ onTrade, onInstant, disabled }: IProps) {
+function SwapPanelFooterButtons({
+  mode,
+  onTrade,
+  onPerps,
+  tradeDisabled,
+  perpsDisabled,
+}: IProps) {
   const intl = useIntl();
+  const tradeLabel = intl.formatMessage({
+    id: ETranslations.dexmarket_details_trade,
+  });
 
   // RNGH intercepts above the Button, so its `disabled` cannot stop these
   // gestures — the tap has to be dropped here as well.
   const tradeGesture = useMemo(
     () =>
       Gesture.Tap()
-        .enabled(!disabled)
+        .enabled(!tradeDisabled)
         .onEnd(() => {
           'worklet';
 
           runOnJS(onTrade)();
         }),
-    [onTrade, disabled],
+    [onTrade, tradeDisabled],
   );
 
-  const instantGesture = useMemo(
+  const handlePerps = onPerps ?? noop;
+  const perpsGesture = useMemo(
     () =>
       Gesture.Tap()
-        .enabled(!disabled)
+        .enabled(!perpsDisabled && Boolean(onPerps))
         .onEnd(() => {
           'worklet';
 
-          runOnJS(onInstant)();
+          runOnJS(handlePerps)();
         }),
-    [onInstant, disabled],
+    [handlePerps, onPerps, perpsDisabled],
   );
+
+  if (mode === 'trade') {
+    return (
+      <GestureDetector gesture={tradeGesture}>
+        <View>
+          <Button
+            testID={MarketTestIDs.detailSwapButton}
+            size="large"
+            variant="primary"
+            width="100%"
+            disabled={tradeDisabled}
+          >
+            {tradeLabel}
+          </Button>
+        </View>
+      </GestureDetector>
+    );
+  }
 
   return (
     <XStack gap="$2.5">
+      <GestureDetector gesture={perpsGesture}>
+        <View style={{ flex: 1 }}>
+          <Button
+            testID={MarketTestIDs.detailPerpsButton}
+            size="large"
+            variant="secondary"
+            disabled={perpsDisabled}
+          >
+            {intl.formatMessage({ id: ETranslations.perps_perps })}
+          </Button>
+        </View>
+      </GestureDetector>
       <GestureDetector gesture={tradeGesture}>
         <View style={{ flex: 1 }}>
           <Button
             testID={MarketTestIDs.detailSwapButton}
             size="large"
-            variant="secondary"
-            disabled={disabled}
+            variant="primary"
+            disabled={tradeDisabled}
           >
-            {intl.formatMessage({ id: ETranslations.dexmarket_details_trade })}
-          </Button>
-        </View>
-      </GestureDetector>
-      <GestureDetector gesture={instantGesture}>
-        <View style={{ flex: 1 }}>
-          <Button
-            testID={MarketTestIDs.detailBuyButton}
-            size="large"
-            variant="accent"
-            icon="FlashSolid"
-            disabled={disabled}
-          >
-            {intl.formatMessage({ id: ETranslations.dexmarket_quick_buy })}
+            {tradeLabel}
           </Button>
         </View>
       </GestureDetector>

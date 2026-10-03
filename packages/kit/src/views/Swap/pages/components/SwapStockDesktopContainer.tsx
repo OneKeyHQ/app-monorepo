@@ -57,6 +57,7 @@ import {
   StockSourceLogo,
 } from '@onekeyhq/kit/src/views/Market/components/PerpsBadges';
 import { PriceChangePercentage } from '@onekeyhq/kit/src/views/Market/components/PriceChangePercentage';
+import { resolveDisplayedPriceChange } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/components/InformationPanel/stockMobilePriceChange';
 import { TokenList } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/components/SwapPanel/components/TokenInputSection/TokenList';
 import { TradeTypeSelector } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/components/SwapPanel/components/TradeTypeSelector';
 import { ESwapDirection } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/components/SwapPanel/hooks/useTradeType';
@@ -65,8 +66,10 @@ import {
   formatCurrencyStatValue,
   formatMarketCapValue,
   formatPercentValue,
+  formatPriceChangeDisplay,
   formatRatioValue,
 } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/utils/statValue';
+import { isStockTokenVariantTradable } from '@onekeyhq/kit/src/views/Market/utils/stockTokenVariant';
 import {
   type EJotaiContextStoreNames,
   useInAppNotificationAtom,
@@ -82,6 +85,7 @@ import {
   ERootRoutes,
 } from '@onekeyhq/shared/src/routes';
 import { EModalSwapRoutes } from '@onekeyhq/shared/src/routes/swap';
+import { equalsIgnoreCase } from '@onekeyhq/shared/src/utils/stringUtils';
 import {
   swrCacheUtils,
   swrKeys,
@@ -90,6 +94,7 @@ import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type { IMarketTokenChart } from '@onekeyhq/shared/types/market';
 import type {
   IMarketBasicConfigNetwork,
+  IMarketStockTokenVariant,
   IMarketTokenDetail,
 } from '@onekeyhq/shared/types/marketV2';
 import {
@@ -155,18 +160,28 @@ import {
   STOCK_CHART_DEFAULT_RANGE,
   STOCK_CHART_RANGE_ITEMS,
   STOCK_DESKTOP_HEADER_SLOT_PROPS,
+  buildSwapTokenFromStockVariant,
+  formatStockIssuerLabel,
   getStockChartCoinGeckoIdState,
   getStockChartDisplayState,
   getStockDisabledActionButtonProps,
   getStockMarketTokenSubtitle,
   getStockNetworkLogoUri,
+  getStockVariantOptionsPhase,
+  isCurrentStockVariantSelection,
   isStockChartRequestReady,
   isStockMarketPanelLoadingStage,
+  resolveSelectedVariantStock,
+  resolveStockListingId,
+  resolveStockVariantRowLabel,
+  resolveSwapStockMobileHeaderIdentity,
+  resolveSwapStockMobileHeaderLogo,
   shouldDeferStockInitialContent,
   shouldResetStockTradeQuoteState,
   shouldShowStockMarketHeaderSkeleton,
   shouldShowStockMarketTokenLabelsSkeleton,
   shouldShowStockQuoteActionLoading,
+  shouldShowSwapStockMobileHeaderLogoSkeleton,
 } from './SwapStockDesktopContainer.utils';
 import { SwapStockTokenDetails } from './SwapStockTokenDetails';
 import { SwapStockTradeAlert } from './SwapStockTradeAlert';
@@ -571,6 +586,7 @@ function StockTradeSideSwitch({
 }
 
 function StockEstimatedReceive({
+  compact,
   forceLoading,
   quoteResult,
   quoteLoading,
@@ -579,6 +595,7 @@ function StockEstimatedReceive({
   showEstimatedShares,
   stockTradeConfig,
 }: {
+  compact?: boolean;
   forceLoading?: boolean;
   quoteResult?: IFetchQuoteResult;
   quoteLoading: boolean;
@@ -790,11 +807,19 @@ function StockEstimatedReceive({
     );
   }
 
+  const hideEmptyFiat = Boolean(compact && !hasReceiveAmount && !isLoading);
+  let estimatedReceiveHeight = 48;
+  if (stockTradeConfig) {
+    estimatedReceiveHeight = 40;
+  }
+  if (hideEmptyFiat) {
+    estimatedReceiveHeight = 28;
+  }
   return (
     <YStack gap="$4">
       <XStack
         testID={SwapTestIDs.stockEstimatedReceive}
-        h={stockTradeConfig ? 40 : 48}
+        h={estimatedReceiveHeight}
         alignItems="center"
         justifyContent="space-between"
         gap="$2"
@@ -834,30 +859,32 @@ function StockEstimatedReceive({
           ) : (
             <>
               {receiveTokenContent}
-              <XStack
-                h={STOCK_ESTIMATED_RECEIVE_SECONDARY_ROW_HEIGHT}
-                alignItems="center"
-                justifyContent="flex-end"
-                gap="$1"
-                pr="$1"
-              >
-                <NumberSizeableText
-                  size="$bodyMd"
-                  color="$textSubdued"
-                  formatter="value"
-                  formatterOptions={{
-                    currency: currencySymbol,
-                  }}
-                  numberOfLines={1}
+              {hideEmptyFiat ? null : (
+                <XStack
+                  h={STOCK_ESTIMATED_RECEIVE_SECONDARY_ROW_HEIGHT}
+                  alignItems="center"
+                  justifyContent="flex-end"
+                  gap="$1"
+                  pr="$1"
                 >
-                  {receiveFiatValue || '0'}
-                </NumberSizeableText>
-                <SwapRateDifferenceText
-                  loading={isLoading}
-                  rateDifference={rateDifference}
-                  size="$bodyMd"
-                />
-              </XStack>
+                  <NumberSizeableText
+                    size="$bodyMd"
+                    color="$textSubdued"
+                    formatter="value"
+                    formatterOptions={{
+                      currency: currencySymbol,
+                    }}
+                    numberOfLines={1}
+                  >
+                    {receiveFiatValue || '0'}
+                  </NumberSizeableText>
+                  <SwapRateDifferenceText
+                    loading={isLoading}
+                    rateDifference={rateDifference}
+                    size="$bodyMd"
+                  />
+                </XStack>
+              )}
             </>
           )}
         </YStack>
@@ -1390,6 +1417,339 @@ function StockAmountInput({
   );
 }
 
+const EMPTY_STOCK_TOKEN_VARIANTS: IMarketStockTokenVariant[] = [];
+
+function SwapStockVariantOptions({
+  currentToken,
+  onSelect,
+  stockId,
+}: {
+  currentToken?: ISwapToken;
+  onSelect: (token: ISwapToken) => void;
+  stockId?: string;
+}) {
+  const intl = useIntl();
+  const { closePopover } = usePopoverContext();
+  const variantSelectionIdRef = useRef(0);
+  const { isLoading, result, run } = usePromiseResult(
+    async () => {
+      if (!stockId) {
+        return undefined;
+      }
+      try {
+        return await backgroundApiProxy.serviceMarketV2.fetchMarketStockTokenVariants(
+          { stockId },
+        );
+      } catch {
+        return { stockId, items: [] };
+      }
+    },
+    [stockId],
+    { checkIsFocused: false, watchLoading: true },
+  );
+  const handleSelect = useCallback(
+    (variant: IMarketStockTokenVariant) => {
+      if (!isStockTokenVariantTradable(variant)) {
+        return;
+      }
+      variantSelectionIdRef.current += 1;
+      const requestId = variantSelectionIdRef.current;
+      void closePopover?.();
+      void (async () => {
+        const sameToken = Boolean(
+          currentToken &&
+          currentToken.networkId === variant.networkId &&
+          equalsIgnoreCase(
+            currentToken.contractAddress,
+            variant.contractAddress,
+          ),
+        );
+        let decimals = sameToken ? (currentToken?.decimals ?? 0) : 0;
+        let stock = resolveSelectedVariantStock({
+          sameToken,
+          currentStock: currentToken?.stock,
+        });
+        if (!sameToken || !decimals) {
+          try {
+            const response =
+              await backgroundApiProxy.serviceMarketV2.fetchMarketTokenDetailByTokenAddress(
+                variant.contractAddress,
+                variant.networkId,
+                { autoHandleError: false },
+              );
+            const detail = response?.data?.token;
+            if (detail?.decimals) {
+              decimals = detail.decimals;
+            }
+            stock = resolveSelectedVariantStock({
+              sameToken,
+              currentStock: currentToken?.stock,
+              detailStock: detail?.stock,
+            });
+          } catch {
+            // The stock channel loads detail again after the identity changes.
+          }
+        }
+        if (
+          !isCurrentStockVariantSelection(
+            requestId,
+            variantSelectionIdRef.current,
+          )
+        ) {
+          return;
+        }
+        onSelect(
+          buildSwapTokenFromStockVariant({
+            decimals,
+            stock,
+            variant,
+          }),
+        );
+      })();
+    },
+    [closePopover, currentToken, onSelect],
+  );
+
+  const items = result?.items ?? EMPTY_STOCK_TOKEN_VARIANTS;
+  const phase = getStockVariantOptionsPhase({
+    isLoading,
+    itemCount: items.length,
+    resultStockId: result?.stockId,
+    stockId,
+  });
+  if (phase === 'loading') {
+    return (
+      <YStack p="$3" gap="$2">
+        <Skeleton h="$10" />
+        <Skeleton h="$10" />
+      </YStack>
+    );
+  }
+
+  if (phase === 'empty') {
+    return (
+      <YStack p="$4" alignItems="center" gap="$2">
+        <SizableText size="$bodyMd" color="$textSubdued">
+          {intl.formatMessage({ id: ETranslations.global_no_data })}
+        </SizableText>
+        <Button
+          testID={SwapTestIDs.stockVariantRetry}
+          size="small"
+          variant="tertiary"
+          onPress={() => void run()}
+        >
+          {intl.formatMessage({ id: ETranslations.global_retry })}
+        </Button>
+      </YStack>
+    );
+  }
+
+  return (
+    <ScrollView maxHeight={360}>
+      <YStack p="$2" gap="$1">
+        {items.map((variant) => {
+          const selected = Boolean(
+            currentToken &&
+            currentToken.networkId === variant.networkId &&
+            equalsIgnoreCase(
+              currentToken.contractAddress,
+              variant.contractAddress,
+            ),
+          );
+          const tradable = isStockTokenVariantTradable(variant);
+          const issuerLabel = formatStockIssuerLabel(variant.issuer);
+          return (
+            <XStack
+              key={variant.tokenId}
+              px="$2"
+              py="$2"
+              gap="$2.5"
+              borderRadius="$2"
+              alignItems="center"
+              opacity={tradable ? 1 : 0.5}
+              bg={selected ? '$bgActive' : 'transparent'}
+              onPress={() => handleSelect(variant)}
+            >
+              <Token
+                size="md"
+                tokenImageUri={variant.logoUrl}
+                networkImageUri={variant.networkLogoUrl}
+              />
+              <YStack flex={1} minWidth={0}>
+                <SizableText size="$bodyMdMedium" numberOfLines={1}>
+                  {variant.symbol || variant.name}
+                </SizableText>
+                <SizableText
+                  size="$bodySm"
+                  color="$textSubdued"
+                  numberOfLines={1}
+                >
+                  {issuerLabel}
+                  {variant.networkName ? ` · ${variant.networkName}` : ''}
+                </SizableText>
+              </YStack>
+            </XStack>
+          );
+        })}
+      </YStack>
+    </ScrollView>
+  );
+}
+
+function StockMobileVariantQuoteRow({
+  stockChannel,
+}: {
+  stockChannel: IUseSwapStockChannelReturn;
+}) {
+  const intl = useIntl();
+  const { currentStockToken, tokenDetail, networkId } =
+    useCurrentStockMarketDetail();
+  const stock = tokenDetail?.stock ?? currentStockToken?.stock;
+  const stockTokenNetworkId =
+    currentStockToken?.networkId ?? tokenDetail?.networkId ?? networkId;
+  const networkLogoUri = useNetworkLogoUri({
+    logoUri: getStockNetworkLogoUri({
+      networkId: stockTokenNetworkId,
+      networkLogoUri: currentStockToken?.networkLogoURI,
+    }),
+    networkId: stockTokenNetworkId,
+  });
+  const handleSelectVariant = useCallback(
+    (token: ISwapToken) => {
+      stockChannel.selectStockSwapToken(token, { resetReceiveAmount: true });
+    },
+    [stockChannel],
+  );
+  const tokenSymbol = resolveStockVariantRowLabel({
+    detailName: tokenDetail?.name,
+    detailSymbol: tokenDetail?.symbol,
+    tokenName: currentStockToken?.name,
+    tokenSymbol: currentStockToken?.symbol,
+  });
+  const issuerLabel = formatStockIssuerLabel(stock?.source);
+  const price = tokenDetail?.price ?? tokenDetail?.priceConverted ?? '';
+  const priceChangePercent = tokenDetail?.priceChange24hPercent;
+  const priceChangeValue = resolveDisplayedPriceChange({
+    price,
+    priceChangePercent,
+  });
+  const { color: priceChangeColor } =
+    formatPriceChangeDisplay(priceChangePercent);
+  const tokenImageUri = currentStockToken?.logoURI ?? tokenDetail?.logoUrl;
+
+  return (
+    <XStack
+      testID={SwapTestIDs.stockMobileVariantRow}
+      alignItems="center"
+      gap="$2"
+      w="100%"
+    >
+      <Popover
+        floatingPanelProps={{ width: 320 }}
+        title={intl.formatMessage({
+          id: ETranslations.dexmarket_select_token,
+        })}
+        renderTrigger={
+          <XStack alignItems="center" gap="$2.5" cursor="pointer">
+            <Token
+              size="md"
+              tokenImageUri={tokenImageUri}
+              networkImageUri={networkLogoUri}
+              showNetworkIconBorder={false}
+              bg="$transparent"
+              fallbackIcon="CryptoCoinOutline"
+              flexShrink={0}
+            />
+            <YStack flexShrink={1}>
+              <XStack alignItems="center" gap="$1">
+                <SizableText size="$headingMd" numberOfLines={1}>
+                  {tokenSymbol}
+                </SizableText>
+                <Icon
+                  name="ChevronDownSmallOutline"
+                  size="$4.5"
+                  color="$iconSubdued"
+                  flexShrink={0}
+                />
+              </XStack>
+              {issuerLabel ? (
+                <SizableText
+                  size="$bodySm"
+                  color="$textSubdued"
+                  numberOfLines={1}
+                >
+                  {intl.formatMessage(
+                    { id: ETranslations.market_issued_by },
+                    { issuer: issuerLabel },
+                  )}
+                </SizableText>
+              ) : null}
+            </YStack>
+          </XStack>
+        }
+        renderContent={
+          <SwapStockVariantOptions
+            currentToken={currentStockToken}
+            stockId={resolveStockListingId({
+              stockId: stock?.stockId,
+              underlyingAssetTicker: stock?.underlyingAssetTicker,
+            })}
+            onSelect={handleSelectVariant}
+          />
+        }
+      />
+      <YStack alignItems="flex-end" flexShrink={0} maxWidth="50%">
+        {tokenDetail ? (
+          <BaseMarketTokenPrice
+            size="$bodyLgMedium"
+            color="$text"
+            numberOfLines={1}
+            textAlign="right"
+            price={price}
+            tokenName={tokenDetail.name}
+            tokenSymbol={tokenSymbol}
+            lastUpdated={String(tokenDetail.lastUpdated ?? '')}
+            currency="$"
+          />
+        ) : (
+          <SizableText size="$bodyLgMedium" color="$textSubdued">
+            --
+          </SizableText>
+        )}
+        <XStack alignItems="center" gap="$0.5">
+          {priceChangeValue ? (
+            <NumberSizeableText
+              size="$bodySm"
+              color={priceChangeColor}
+              formatter="price"
+              formatterOptions={{ currency: '$', showPlusMinusSigns: true }}
+            >
+              {priceChangeValue.toFixed()}
+            </NumberSizeableText>
+          ) : null}
+          {priceChangePercent ? (
+            <XStack alignItems="center">
+              {priceChangeValue ? (
+                <SizableText size="$bodySm" color={priceChangeColor}>
+                  (
+                </SizableText>
+              ) : null}
+              <PriceChangePercentage size="$bodySm">
+                {priceChangePercent}
+              </PriceChangePercentage>
+              {priceChangeValue ? (
+                <SizableText size="$bodySm" color={priceChangeColor}>
+                  )
+                </SizableText>
+              ) : null}
+            </XStack>
+          ) : null}
+        </XStack>
+      </YStack>
+    </XStack>
+  );
+}
+
 function StockTradeTicket({
   fetchLoading,
   storeName,
@@ -1494,6 +1854,9 @@ function StockTradeTicket({
             onChange={onTradeSideChange}
           />
         ) : null}
+        {compact && !stockTradeHeader ? (
+          <StockMobileVariantQuoteRow stockChannel={stockChannel} />
+        ) : null}
         {resolvedStockTradeHeader}
         <StockAmountInput
           fetchLoading={fetchLoading}
@@ -1503,6 +1866,7 @@ function StockTradeTicket({
           storeName={storeName}
         />
         <StockEstimatedReceive
+          compact={compact}
           forceLoading={showStockTradeIdentitySkeleton}
           quoteResult={quoteResult}
           quoteLoading={quoteLoading}
@@ -1545,11 +1909,22 @@ function StockTradeTicket({
 }
 
 function StockMarketHeaderSkeleton({ proAligned }: { proAligned?: boolean }) {
+  if (proAligned) {
+    return (
+      <XStack alignItems="center" gap="$3.5" w="100%" py="$2">
+        <Skeleton w="$12" h="$12" radius="round" />
+        <YStack gap="$1" flex={1}>
+          <Skeleton h="$7" w="$16" />
+          <Skeleton h="$4" w="$24" />
+        </YStack>
+      </XStack>
+    );
+  }
   return (
     <XStack
       alignItems="center"
       justifyContent="space-between"
-      h={proAligned ? undefined : '$13'}
+      h="$13"
       w="100%"
       gap="$3"
     >
@@ -1648,6 +2023,41 @@ function StockMarketTokenHeader({
     ? currentStockToken?.stock
     : undefined;
   const stock = tokenDetail?.stock ?? selectedStock;
+  const listingStockId = proAligned
+    ? resolveStockListingId({
+        stockId: stock?.stockId,
+        underlyingAssetTicker: stock?.underlyingAssetTicker,
+      })
+    : undefined;
+  const { result: listingStock, isLoading: listingStockLoading } =
+    usePromiseResult(
+      async () => {
+        if (!listingStockId) {
+          return undefined;
+        }
+        try {
+          return await backgroundApiProxy.serviceMarketV2.fetchMarketStockDetail(
+            {
+              stockId: listingStockId,
+            },
+          );
+        } catch {
+          return undefined;
+        }
+      },
+      [listingStockId],
+      { watchLoading: true },
+    );
+  const listingLogoUrl = resolveSwapStockMobileHeaderLogo({
+    listingLogoUrl: listingStock?.logoUrl,
+    listingStockId,
+    loadedStockId: listingStock?.stockId,
+  });
+  const showListingLogoSkeleton = shouldShowSwapStockMobileHeaderLogoSkeleton({
+    hasListingLogo: Boolean(listingLogoUrl),
+    listingStockId,
+    listingStockLoading,
+  });
   const tokenSymbol = tokenDetail?.symbol ?? currentStockToken?.symbol;
   const tokenDisplaySymbol =
     tokenSymbol ??
@@ -1693,6 +2103,79 @@ function StockMarketTokenHeader({
     return <StockMarketHeaderSkeleton proAligned={proAligned} />;
   }
 
+  if (proAligned) {
+    const headerIdentity = resolveSwapStockMobileHeaderIdentity({
+      companyName: tokenSubtitle,
+      listingName: listingStock?.name,
+      listingSymbol: listingStock?.symbol,
+      listingStockId,
+      loadedStockId: listingStock?.stockId,
+      tokenSymbol,
+      underlyingName: stock?.underlyingAssetName,
+      underlyingTicker: stock?.underlyingAssetTicker,
+    });
+    return (
+      <XStack
+        testID={SwapTestIDs.stockMarketTokenHeader}
+        alignItems="center"
+        gap="$3.5"
+        maxWidth="100%"
+        minWidth={0}
+        py="$2"
+        cursor="pointer"
+        onPress={handleOpenStockTokenSelector}
+      >
+        {showListingLogoSkeleton ? (
+          <Skeleton w="$12" h="$12" radius="round" />
+        ) : (
+          <Token
+            size="xl"
+            tokenImageUri={listingLogoUrl}
+            recyclingKey={listingLogoUrl}
+            borderRadius="$full"
+            bg="$transparent"
+            fallbackIcon="CryptoCoinOutline"
+          />
+        )}
+        <YStack flex={1} minWidth={0} gap="$0.5">
+          <XStack alignItems="center" gap="$1.5" minWidth={0}>
+            <SizableText
+              size="$headingXl"
+              color="$text"
+              numberOfLines={1}
+              flexShrink={1}
+            >
+              {headerIdentity.symbol || tokenDisplaySymbol}
+            </SizableText>
+            <Icon
+              name="ChevronDownSmallOutline"
+              size="$5"
+              color="$iconSubdued"
+            />
+          </XStack>
+          <XStack alignItems="center" gap="$1" minWidth={0}>
+            {showTokenLabelsSkeleton ? (
+              <StockMarketTokenLabelsSkeleton />
+            ) : null}
+            {!showTokenLabelsSkeleton && headerIdentity.companyName ? (
+              <SizableText
+                size="$bodySm"
+                color="$textSubdued"
+                numberOfLines={1}
+                flexShrink={1}
+              >
+                {headerIdentity.companyName}
+              </SizableText>
+            ) : null}
+            {!showTokenLabelsSkeleton ? (
+              <StockMarketStatusBadge stock={stock} />
+            ) : null}
+          </XStack>
+        </YStack>
+      </XStack>
+    );
+  }
+
   const tokenIcon = (
     <Token
       size="md"
@@ -1710,11 +2193,11 @@ function StockMarketTokenHeader({
   const tokenSymbolRow = (
     <XStack h="$6" alignItems="center" gap="$1" maxWidth="100%" minWidth={0}>
       <SizableText
-        size={proAligned ? '$headingLg' : '$headingSm'}
+        size="$headingSm"
         color="$text"
         numberOfLines={1}
         ellipsizeMode="tail"
-        maxWidth={proAligned ? '$40' : 132}
+        maxWidth={132}
         flexShrink={1}
       >
         {tokenDisplaySymbol}
@@ -1776,7 +2259,7 @@ function StockMarketTokenHeader({
     <XStack
       alignItems="center"
       justifyContent="space-between"
-      h={proAligned ? undefined : '$13'}
+      h="$13"
       w="100%"
       gap="$3"
     >

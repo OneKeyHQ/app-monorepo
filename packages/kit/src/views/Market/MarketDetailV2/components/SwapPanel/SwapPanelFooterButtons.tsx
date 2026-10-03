@@ -5,36 +5,64 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { MarketTestIDs } from '../../../testIDs';
 
+import type { IMarketDetailFooterMode } from '../../utils/marketMobileDetailKind';
+
 type IProps = {
+  mode: IMarketDetailFooterMode;
   onTrade: () => void;
-  onInstant: () => void;
-  disabled?: boolean;
+  onPerps?: () => void;
+  tradeDisabled?: boolean;
+  perpsDisabled?: boolean;
 };
 
-function SwapPanelFooterButtons({ onTrade, onInstant, disabled }: IProps) {
+function SwapPanelFooterButtons({
+  mode,
+  onTrade,
+  onPerps,
+  tradeDisabled,
+  perpsDisabled,
+}: IProps) {
   const intl = useIntl();
-  return (
-    <XStack gap="$2.5">
+  const tradeLabel = intl.formatMessage({
+    id: ETranslations.dexmarket_details_trade,
+  });
+
+  if (mode === 'trade') {
+    return (
       <Button
         testID={MarketTestIDs.detailSwapButton}
         size="large"
-        variant="secondary"
-        flex={1}
-        disabled={disabled}
+        variant="primary"
+        width="100%"
+        disabled={tradeDisabled}
         onPress={onTrade}
       >
-        {intl.formatMessage({ id: ETranslations.dexmarket_details_trade })}
+        {tradeLabel}
+      </Button>
+    );
+  }
+
+  return (
+    <XStack gap="$2.5">
+      <Button
+        testID={MarketTestIDs.detailPerpsButton}
+        size="large"
+        variant="secondary"
+        flex={1}
+        disabled={perpsDisabled}
+        onPress={onPerps}
+      >
+        {intl.formatMessage({ id: ETranslations.perps_perps })}
       </Button>
       <Button
-        testID={MarketTestIDs.detailBuyButton}
+        testID={MarketTestIDs.detailSwapButton}
         size="large"
-        variant="accent"
+        variant="primary"
         flex={1}
-        disabled={disabled}
-        onPress={onInstant}
-        icon="FlashSolid"
+        disabled={tradeDisabled}
+        onPress={onTrade}
       >
-        {intl.formatMessage({ id: ETranslations.dexmarket_quick_buy })}
+        {tradeLabel}
       </Button>
     </XStack>
   );

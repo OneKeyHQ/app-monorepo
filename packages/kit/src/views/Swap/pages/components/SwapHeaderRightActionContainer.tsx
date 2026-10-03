@@ -52,6 +52,8 @@ import {
   useSwapTypeSwitchAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import { shouldRedirectOnboardingToTravelMode } from '@onekeyhq/kit/src/utils/onboardingEntryGate';
+import { useToMarketStockDetailPage } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketStockList/hooks/useToMarketStockDetailPage';
+import { useToDetailPage } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketTokenList/hooks/useToMarketDetailPage';
 import {
   EJotaiContextStoreNames,
   filterSwapHistoryPendingList,
@@ -104,6 +106,10 @@ import { prefetchSwapKLineMetadata } from '../modal/swapKLineTokenUtils';
 import { SwapProviderMirror } from '../SwapProviderMirror';
 
 import ProviderManageContainer from './ProviderManageContainer';
+import {
+  resolveSwapStockMarketDetailTarget,
+  resolveSwapToTokenMarketDetail,
+} from './swapHeaderMarketDetail';
 
 import type { IMarketPresetSettingsState } from '../../../Market/MarketDetailV2/components/SwapPanel/hooks/useMarketPresetSettings';
 
@@ -637,6 +643,7 @@ const StockKLineHeaderButton = ({
   const [toToken] = useSwapSelectToTokenAtom();
   const [stockExecutionTokens] = useSwapStockExecutionTokensAtom();
   const [stockSelectedToken] = useSwapStockSelectedTokenAtom();
+  const toStockDetail = useToMarketStockDetailPage();
   const stockToken = useMemo(() => {
     return resolveStockKLineToken({
       stockSelectedToken,
@@ -652,40 +659,65 @@ const StockKLineHeaderButton = ({
     stockSelectedToken,
     toToken,
   ]);
-  const isNative = stockToken?.isNative;
-  const networkId = stockToken?.networkId ?? '';
-  const tokenAddress = stockToken?.contractAddress ?? '';
-  const network = useMemo(
+  const stockDetailTarget = useMemo(
+    () => resolveSwapStockMarketDetailTarget(stockToken),
+    [stockToken],
+  );
+  const stockNetworkId = stockToken?.networkId ?? '';
+  const stockTokenAddress = stockToken?.contractAddress ?? '';
+  const stockNetwork = useMemo(
     () =>
       networkUtils.getNetworkShortCode({
-        networkId,
-      }) || networkId,
-    [networkId],
+        networkId: stockNetworkId,
+      }) || stockNetworkId,
+    [stockNetworkId],
   );
-  const disabled =
+  const desktopStockDisabled =
     shouldRedirectOnboardingToTravelMode() ||
     !stockToken?.symbol ||
-    !networkId ||
-    (!tokenAddress && !isNative);
+    !stockNetworkId ||
+    (!stockTokenAddress && !stockToken?.isNative);
+  const disabled = platformEnv.isNative
+    ? shouldRedirectOnboardingToTravelMode() || !stockDetailTarget
+    : desktopStockDisabled;
 
   const onOpenStockMarketDetail = useCallback(() => {
-    if (disabled || shouldRedirectOnboardingToTravelMode()) {
+    if (shouldRedirectOnboardingToTravelMode()) {
       return;
     }
-
     dismissKeyboard();
-    navigation.pushModal(EModalRoutes.SwapModal, {
-      screen: EModalSwapRoutes.SwapProMarketDetail,
-      params: {
-        tokenAddress,
-        network,
-        isNative,
-        from: EEnterWay.SwapPro,
-        disableTrade: true,
-        showFavoriteButton: false,
-      },
-    });
-  }, [disabled, isNative, navigation, network, tokenAddress]);
+    // Desktop and web keep the in-swap Pro market detail. Mobile opens the
+    // Market stock page for the listing.
+    if (!platformEnv.isNative) {
+      if (desktopStockDisabled) {
+        return;
+      }
+      navigation.pushModal(EModalRoutes.SwapModal, {
+        screen: EModalSwapRoutes.SwapProMarketDetail,
+        params: {
+          tokenAddress: stockTokenAddress,
+          network: stockNetwork,
+          isNative: stockToken?.isNative,
+          from: EEnterWay.SwapPro,
+          disableTrade: true,
+          showFavoriteButton: false,
+        },
+      });
+      return;
+    }
+    if (!stockDetailTarget) {
+      return;
+    }
+    void toStockDetail(stockDetailTarget);
+  }, [
+    desktopStockDisabled,
+    navigation,
+    stockDetailTarget,
+    stockNetwork,
+    stockToken?.isNative,
+    stockTokenAddress,
+    toStockDetail,
+  ]);
 
   return (
     <HeaderIconButton
@@ -693,6 +725,159 @@ const StockKLineHeaderButton = ({
       icon="TradingViewCandlesOutline"
       onPress={onOpenStockMarketDetail}
       disabled={disabled}
+      iconProps={{ size: iconSize, color: iconColor ?? '$icon' }}
+      size={buttonSize}
+    />
+  );
+};
+
+const SwapToTokenKLineHeaderButton = ({
+  iconSize,
+  iconColor,
+  buttonSize,
+}: {
+  iconSize: number | `$${string}`;
+  iconColor?: ColorTokens;
+  buttonSize: 'small' | 'medium';
+}) => {
+  const [toToken] = useSwapSelectToTokenAtom();
+  const toMarketDetail = useToDetailPage({
+    switchToMarketTabFirst: true,
+    resolveMarketAsset: true,
+    from: EEnterWay.Others,
+  });
+  const toStockDetail = useToMarketStockDetailPage();
+  const stockDetailTarget = useMemo(
+    () => resolveSwapStockMarketDetailTarget(toToken),
+    [toToken],
+  );
+  const tokenDetailTarget = useMemo(
+    () => resolveSwapToTokenMarketDetail(toToken),
+    [toToken],
+  );
+  const disabled =
+    shouldRedirectOnboardingToTravelMode() ||
+    (!stockDetailTarget && !tokenDetailTarget);
+
+  const onOpenToTokenMarketDetail = useCallback(() => {
+    if (shouldRedirectOnboardingToTravelMode()) {
+      return;
+    }
+    dismissKeyboard();
+    if (stockDetailTarget) {
+      void toStockDetail(stockDetailTarget);
+      return;
+    }
+    if (tokenDetailTarget) {
+      void toMarketDetail(tokenDetailTarget);
+    }
+  }, [stockDetailTarget, toMarketDetail, toStockDetail, tokenDetailTarget]);
+
+  return (
+    <HeaderIconButton
+      testID={SwapTestIDs.kLineButton}
+      icon="TradingViewCandlesOutline"
+      onPress={onOpenToTokenMarketDetail}
+      disabled={disabled}
+      iconProps={{ size: iconSize, color: iconColor ?? '$icon' }}
+      size={buttonSize}
+    />
+  );
+};
+
+const DesktopSwapKLineHeaderButton = ({
+  iconSize,
+  iconColor,
+  buttonSize,
+  pageType,
+  swapStoreName,
+}: {
+  iconSize: number | `$${string}`;
+  iconColor?: ColorTokens;
+  buttonSize: 'small' | 'medium';
+  pageType?: EPageType;
+  swapStoreName: EJotaiContextStoreNames;
+}) => {
+  const intl = useIntl();
+  const { gtLg } = useMedia();
+  const navigation = useAppNavigation();
+  const InTabDialog = useInTabDialog();
+  const InModalDialog = useInModalDialog();
+  const [fromToken] = useSwapSelectFromTokenAtom();
+  const [toToken] = useSwapSelectToTokenAtom();
+  const isKLineDisabled =
+    shouldRedirectOnboardingToTravelMode() || (!fromToken && !toToken);
+  const showKLineAsDialog = platformEnv.isExtension && !gtLg;
+  const kLineDialogRef = useRef<ReturnType<typeof Dialog.show> | null>(null);
+  const onSwapKLinePressIn = useCallback(() => {
+    if (isKLineDisabled || shouldRedirectOnboardingToTravelMode()) {
+      return;
+    }
+    void prefetchSwapKLineMetadata([fromToken, toToken]);
+  }, [fromToken, isKLineDisabled, toToken]);
+  const onOpenSwapKLineModal = useCallback(() => {
+    if (isKLineDisabled || shouldRedirectOnboardingToTravelMode()) {
+      return;
+    }
+    dismissKeyboard();
+    if (showKLineAsDialog) {
+      void kLineDialogRef.current?.close();
+      let dialog: ReturnType<typeof Dialog.show> | null = null;
+      const dialogController =
+        pageType === EPageType.modal ? InModalDialog : InTabDialog;
+      dialog = dialogController.show({
+        testID: SwapTestIDs.kLineModal,
+        title: intl.formatMessage({
+          id: ETranslations.market_chart,
+        }),
+        disableDrag: true,
+        estimatedContentHeight: 460,
+        contentContainerProps: {
+          px: '$0',
+          pb: '$0',
+        },
+        showFooter: false,
+        showCancelButton: false,
+        showConfirmButton: false,
+        onClose: () => {
+          if (kLineDialogRef.current === dialog) {
+            kLineDialogRef.current = null;
+          }
+        },
+        renderContent: (
+          <SwapKLineContentWithProvider
+            storeName={swapStoreName}
+            variant="dialog"
+          />
+        ),
+      });
+      kLineDialogRef.current = dialog;
+      return;
+    }
+    navigation.pushModal(EModalRoutes.SwapModal, {
+      screen: EModalSwapRoutes.SwapKLine,
+      params: {
+        storeName: swapStoreName,
+      },
+    });
+  }, [
+    InModalDialog,
+    InTabDialog,
+    intl,
+    isKLineDisabled,
+    navigation,
+    pageType,
+    showKLineAsDialog,
+    swapStoreName,
+  ]);
+
+  return (
+    <HeaderIconButton
+      testID={SwapTestIDs.kLineButton}
+      icon="TradingViewCandlesOutline"
+      onPressIn={onSwapKLinePressIn}
+      onPress={onOpenSwapKLineModal}
+      disabled={isKLineDisabled}
       iconProps={{ size: iconSize, color: iconColor ?? '$icon' }}
       size={buttonSize}
     />
@@ -1032,14 +1217,9 @@ const SwapHeaderRightActionContainer = ({
   const [
     { swapHistoryPendingList, swapLimitOrders, swapLimitOrdersAccountIdKey },
   ] = useInAppNotificationAtom();
-  const intl = useIntl();
-  const { gtLg, md } = useMedia();
-  const InTabDialog = useInTabDialog();
-  const InModalDialog = useInModalDialog();
+  const { md } = useMedia();
   const [swapTypeSwitch] = useSwapTypeSwitchAtom();
   const [swapProTradeType] = useSwapProTradeTypeAtom();
-  const [fromToken] = useSwapSelectFromTokenAtom();
-  const [toToken] = useSwapSelectToTokenAtom();
   const { shouldShowSwapLocalData, shouldShowSwapLimitOrders } =
     useSwapLimitOrdersLocalDataVisibility(swapLimitOrdersAccountIdKey);
   const swapStoreName =
@@ -1117,77 +1297,9 @@ const SwapHeaderRightActionContainer = ({
   const showKLineButton =
     !hideKLine &&
     (swapTypeSwitch === ESwapTabSwitchType.SWAP ||
+      (platformEnv.isNative && swapTypeSwitch === ESwapTabSwitchType.BRIDGE) ||
       swapTypeSwitch === ESwapTabSwitchType.STOCK ||
       swapTypeSwitch === ESwapTabSwitchType.LIMIT);
-  const isKLineDisabled =
-    shouldRedirectOnboardingToTravelMode() || (!fromToken && !toToken);
-  const showKLineAsDialog =
-    platformEnv.isNative || (platformEnv.isExtension && !gtLg);
-  const kLineDialogRef = useRef<ReturnType<typeof Dialog.show> | null>(null);
-  const onSwapKLinePressIn = useCallback(() => {
-    if (isKLineDisabled || shouldRedirectOnboardingToTravelMode()) {
-      return;
-    }
-
-    void prefetchSwapKLineMetadata([fromToken, toToken]);
-  }, [fromToken, isKLineDisabled, toToken]);
-  const onOpenSwapKLineModal = useCallback(() => {
-    if (isKLineDisabled || shouldRedirectOnboardingToTravelMode()) {
-      return;
-    }
-
-    dismissKeyboard();
-    if (showKLineAsDialog) {
-      void kLineDialogRef.current?.close();
-      let dialog: ReturnType<typeof Dialog.show> | null = null;
-      const dialogController =
-        pageType === EPageType.modal ? InModalDialog : InTabDialog;
-      dialog = dialogController.show({
-        testID: SwapTestIDs.kLineModal,
-        title: intl.formatMessage({
-          id: ETranslations.market_chart,
-        }),
-        disableDrag: true,
-        estimatedContentHeight: 460,
-        contentContainerProps: {
-          px: '$0',
-          pb: '$0',
-        },
-        showFooter: false,
-        showCancelButton: false,
-        showConfirmButton: false,
-        onClose: () => {
-          if (kLineDialogRef.current === dialog) {
-            kLineDialogRef.current = null;
-          }
-        },
-        renderContent: (
-          <SwapKLineContentWithProvider
-            storeName={swapStoreName}
-            variant="dialog"
-          />
-        ),
-      });
-      kLineDialogRef.current = dialog;
-      return;
-    }
-
-    navigation.pushModal(EModalRoutes.SwapModal, {
-      screen: EModalSwapRoutes.SwapKLine,
-      params: {
-        storeName: swapStoreName,
-      },
-    });
-  }, [
-    InModalDialog,
-    InTabDialog,
-    intl,
-    isKLineDisabled,
-    navigation,
-    pageType,
-    showKLineAsDialog,
-    swapStoreName,
-  ]);
 
   let kLineButton: ReactNode = null;
   if (showKLineButton) {
@@ -1207,16 +1319,22 @@ const SwapHeaderRightActionContainer = ({
           buttonSize={resolvedButtonSize}
         />
       );
+    } else if (platformEnv.isNative) {
+      kLineButton = (
+        <SwapToTokenKLineHeaderButton
+          iconSize={resolvedIconSize}
+          iconColor={iconColor}
+          buttonSize={resolvedButtonSize}
+        />
+      );
     } else {
       kLineButton = (
-        <HeaderIconButton
-          testID={SwapTestIDs.kLineButton}
-          icon="TradingViewCandlesOutline"
-          onPressIn={onSwapKLinePressIn}
-          onPress={onOpenSwapKLineModal}
-          disabled={isKLineDisabled}
-          iconProps={{ size: resolvedIconSize, color: iconColor ?? '$icon' }}
-          size={resolvedButtonSize}
+        <DesktopSwapKLineHeaderButton
+          iconSize={resolvedIconSize}
+          iconColor={iconColor}
+          buttonSize={resolvedButtonSize}
+          pageType={pageType}
+          swapStoreName={swapStoreName}
         />
       );
     }

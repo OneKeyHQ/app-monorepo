@@ -3,7 +3,7 @@ import { runInNewContext } from 'vm';
 
 import { numberFormatAsRaw } from '@onekeyhq/shared/src/utils/numberUtils';
 
-import { formatChartPrice } from './formatChartPrice';
+import { formatChartPrice, formatStockChartPrice } from './formatChartPrice';
 
 const SUBSCRIPT_DIGITS = '₀₁₂₃₄₅₆₇₈₉';
 
@@ -27,6 +27,20 @@ function formatHeaderPrice(price: string): string {
     )
     .join('');
 }
+
+describe('formatStockChartPrice', () => {
+  it('keeps two decimals for stock quotes at or above one dollar', () => {
+    expect(formatStockChartPrice(341.7)).toBe('$341.70');
+    expect(formatStockChartPrice(342.5)).toBe('$342.50');
+    expect(formatStockChartPrice(342)).toBe('$342.00');
+    expect(formatStockChartPrice(-9.4)).toBe('-$9.40');
+  });
+
+  it('keeps the compact form for sub-dollar quotes', () => {
+    expect(formatStockChartPrice(0.142_991)).toBe('$0.143');
+    expect(formatStockChartPrice(Number.NaN)).toBe('--');
+  });
+});
 
 describe('chart axis prices', () => {
   it('compresses deep decimals and prevents truncating all significant digits', () => {
@@ -104,6 +118,7 @@ describe('chart axis prices', () => {
     '0.0012345',
     '0.000000123456',
     '0.123456789',
+    '0.184056',
     '0.7',
     '0.700001',
     '12.34567',

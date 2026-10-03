@@ -44,11 +44,13 @@ import {
 import { TokenTagsPopover } from '../../../components/TokenTagsPopover';
 import { buildMarketFullUrlV2 } from '../../../marketUtils';
 import { EModalMarketRoutes } from '../../../router/types';
+import { useStockDetail } from '../../hooks/StockDetailContext';
 import { useMarketDetailBackNavigation } from '../../hooks/useMarketDetailBackNavigation';
 import { useMarketDetailHeaderDisplayData } from '../../hooks/useMarketDetailDisplayData';
 import { useMarketDetailWatchlistIdentity } from '../../hooks/useMarketDetailWatchlistIdentity';
 import { ShareButton } from '../TokenDetailHeader/ShareButton';
 
+import { resolveMarketDetailHeaderIdentity } from './marketDetailHeaderIdentity';
 import { TabPageHeaderContainer } from './TabPageHeaderContainer';
 
 import type { NativeStackHeaderItem } from '@react-navigation/native-stack';
@@ -71,12 +73,19 @@ export function MarketDetailHeader({
   const listingIdentity = useMarketDetailWatchlistIdentity();
   const { handleBackPress } = useMarketDetailBackNavigation();
   const navigation = useAppNavigation();
-  const { tokenDetail, networkId, isNative } =
+  const { tokenDetail, networkId, isNative, isStockToken } =
     useMarketDetailHeaderDisplayData();
+  const { stockDetail, stockPreview } = useStockDetail();
   const { copyText } = useClipboard();
   const isOverlayPage = useIsOverlayPage();
 
   const networkLogoUri = useNetworkLogoUri({ networkId });
+  // The mobile stock header matches the stock list: circular company mark,
+  // no chain badge. Desktop and web keep the wrapped-token header.
+  const useListingStockHeader = Boolean(platformEnv.isNative && isStockToken);
+  const headerNetworkLogoUri = useListingStockHeader
+    ? undefined
+    : networkLogoUri;
 
   const onPressTokenSelector = useCallback(() => {
     navigation.pushModal(EModalRoutes.MarketModal, {
@@ -109,6 +118,14 @@ export function MarketDetailHeader({
     stableLogoUrlsKeyRef.current = logoUrlsCacheKey;
   }
   const stableLogoUrls = stableLogoUrlsRef.current;
+  const headerIdentity = resolveMarketDetailHeaderIdentity({
+    isStockToken: useListingStockHeader,
+    stockSymbol: stockDetail?.symbol || stockPreview?.symbol,
+    stockLogoUrl: stockDetail?.logoUrl || stockPreview?.logoUrl,
+    tokenSymbol: tokenDetail?.symbol,
+    tokenLogoUrl: tokenDetail?.logoUrl,
+    tokenLogoUrls: stableLogoUrls,
+  });
 
   const customHeaderLeft = useMemo(
     () => (
@@ -151,9 +168,10 @@ export function MarketDetailHeader({
       >
         <Token
           size="sm"
-          tokenImageUri={tokenDetail?.logoUrl}
-          tokenImageUris={stableLogoUrls}
-          networkImageUri={networkLogoUri}
+          borderRadius={useListingStockHeader ? '$full' : undefined}
+          tokenImageUri={headerIdentity.logoUrl}
+          tokenImageUris={headerIdentity.logoUrls}
+          networkImageUri={headerNetworkLogoUri}
           fallbackIcon="CryptoCoinOutline"
         />
         <YStack flexShrink={1} minWidth={0}>
@@ -169,7 +187,7 @@ export function MarketDetailHeader({
             })}
           >
             <SizableText size="$headingLg" numberOfLines={1} flexShrink={1}>
-              {tokenDetail?.symbol || ''}
+              {headerIdentity.symbol}
             </SizableText>
             {!isOverlayPage ? (
               <Icon
@@ -232,14 +250,15 @@ export function MarketDetailHeader({
       </XStack>
     ),
     [
-      tokenDetail?.logoUrl,
-      tokenDetail?.symbol,
+      headerIdentity.logoUrl,
+      headerIdentity.logoUrls,
+      headerIdentity.symbol,
+      useListingStockHeader,
       tokenDetail?.communityRecognized,
       tokenDetail?.stock,
       tokenDetail?.address,
       isNative,
-      stableLogoUrls,
-      networkLogoUri,
+      headerNetworkLogoUri,
       isOverlayPage,
       onPressTokenSelector,
       handleCopyAddress,
@@ -347,9 +366,10 @@ export function MarketDetailHeader({
           <XStack flex={1} ai="center" gap="$2">
             <Token
               size="md"
-              tokenImageUri={tokenDetail?.logoUrl}
-              tokenImageUris={stableLogoUrls}
-              networkImageUri={networkLogoUri}
+              borderRadius={useListingStockHeader ? '$full' : undefined}
+              tokenImageUri={headerIdentity.logoUrl}
+              tokenImageUris={headerIdentity.logoUrls}
+              networkImageUri={headerNetworkLogoUri}
               fallbackIcon="CryptoCoinOutline"
             />
             <YStack>
@@ -364,7 +384,7 @@ export function MarketDetailHeader({
                 })}
               >
                 <SizableText size="$headingLg" numberOfLines={1}>
-                  {tokenDetail?.symbol || ''}
+                  {headerIdentity.symbol}
                 </SizableText>
                 {!isOverlayPage ? (
                   <Icon

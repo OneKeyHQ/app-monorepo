@@ -159,6 +159,131 @@ export function getTokenIdentityKey(token?: Partial<ISwapTokenBase>) {
   }`;
 }
 
+export function resolveDisplayedStockToken({
+  coldStartStockToken,
+  controlledStockToken,
+  persistedStockToken,
+  stockPairToken,
+  stockTokenState,
+}: {
+  coldStartStockToken?: ISwapToken;
+  controlledStockToken?: ISwapToken;
+  persistedStockToken?: ISwapToken;
+  stockPairToken?: ISwapToken;
+  stockTokenState?: ISwapToken;
+}) {
+  const externalStockToken = controlledStockToken ?? persistedStockToken;
+  if (
+    externalStockToken &&
+    getTokenIdentityKey(externalStockToken) !==
+      getTokenIdentityKey(stockTokenState)
+  ) {
+    return externalStockToken;
+  }
+  return (
+    stockTokenState ??
+    externalStockToken ??
+    stockPairToken ??
+    coldStartStockToken
+  );
+}
+
+// Desktop and web keep the previous selection order. Mobile follows a stock
+// written by the market detail trade handoff when it differs from local state.
+export function resolvePlatformDisplayedStockToken({
+  isNative,
+  coldStartStockToken,
+  controlledStockToken,
+  persistedStockToken,
+  stockPairToken,
+  stockTokenState,
+}: {
+  isNative: boolean;
+  coldStartStockToken?: ISwapToken;
+  controlledStockToken?: ISwapToken;
+  persistedStockToken?: ISwapToken;
+  stockPairToken?: ISwapToken;
+  stockTokenState?: ISwapToken;
+}) {
+  if (!isNative) {
+    return (
+      stockTokenState ??
+      persistedStockToken ??
+      stockPairToken ??
+      coldStartStockToken
+    );
+  }
+  return resolveDisplayedStockToken({
+    coldStartStockToken,
+    controlledStockToken,
+    persistedStockToken,
+    stockPairToken,
+    stockTokenState,
+  });
+}
+
+export function resolveFollowedStockToken({
+  isNative,
+  controlledStockToken,
+  persistedStockToken,
+  stockPairToken,
+}: {
+  isNative: boolean;
+  controlledStockToken?: ISwapToken;
+  persistedStockToken?: ISwapToken;
+  stockPairToken?: ISwapToken;
+}) {
+  if (!isNative) {
+    return controlledStockToken ?? stockPairToken;
+  }
+  return controlledStockToken ?? persistedStockToken ?? stockPairToken;
+}
+
+// The mobile header can show a newly selected stock before local state catches
+// up. Commit that stock when the published state or execution pair is still
+// the previous one. Once local state matches, leave execution catch-up to the
+// selection call so a slow write cannot retrigger it.
+export function shouldCommitFollowedStockToken({
+  displayedStockToken,
+  executionStockToken,
+  followedStockToken,
+  stockTokenState,
+}: {
+  displayedStockToken?: ISwapToken;
+  executionStockToken?: ISwapToken;
+  followedStockToken?: ISwapToken;
+  stockTokenState?: ISwapToken;
+}) {
+  const followedKey = getTokenIdentityKey(followedStockToken);
+  if (!followedKey) {
+    return false;
+  }
+  const stateKey = getTokenIdentityKey(stockTokenState);
+  const executionKey = getTokenIdentityKey(executionStockToken);
+  if (stateKey && stateKey !== followedKey) {
+    return true;
+  }
+  if (!stateKey && executionKey && executionKey !== followedKey) {
+    return true;
+  }
+  if (!stateKey && !executionKey) {
+    return followedKey !== getTokenIdentityKey(displayedStockToken);
+  }
+  return false;
+}
+
+// Market stock entry always buys. A mounted stock page can still be on Sell,
+// and that local choice overrides the new buy pair until it is cleared.
+export function shouldResetStockTradeSideForMarketEntry({
+  isStockMarketJump,
+  tradeSide,
+}: {
+  isStockMarketJump: boolean;
+  tradeSide: ESwapStockTradeSide;
+}) {
+  return isStockMarketJump && tradeSide !== ESwapStockTradeSide.Buy;
+}
+
 export function shouldSyncControlledStockTokenMetadata({
   controlledStockToken,
   currentStockToken,

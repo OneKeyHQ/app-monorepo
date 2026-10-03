@@ -45,12 +45,8 @@ function DesktopInformationTabsHeader({
   holdersTabLabel: string;
   holdersTabName: string;
 }) {
-  const { tabNames } = props;
   const [realtimePauseState] = useMarketTransactionsRealtimePauseAtom();
   const intl = useIntl();
-  const firstTabName = useMemo(() => {
-    return tabNames[0];
-  }, [tabNames]);
   const hasBufferedUpdates =
     realtimePauseState.isPaused && realtimePauseState.bufferedCount > 0;
   const updatesAmount = realtimePauseState.hasBufferOverflow
@@ -110,7 +106,7 @@ function DesktopInformationTabsHeader({
           </Badge.Text>
         </Badge>
       ) : null}
-      <StickyHeader firstTabName={firstTabName} />
+      <StickyHeader />
       {hasBufferedUpdates ? (
         <XStack
           position="absolute"
