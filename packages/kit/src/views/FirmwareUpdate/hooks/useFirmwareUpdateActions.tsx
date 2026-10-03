@@ -114,7 +114,7 @@ function useDesktopUsbSuggestion() {
               id: ETranslations.firmware_update_download_desktop_app__action,
             }),
             confirmButtonProps: {
-              icon: 'MonitorOutline',
+              icon: 'LaptopOutline',
               testID: FirmwareUpdateTestIDs.usbSuggestionDownloadBtn,
             },
             onConfirm: async ({ close }) => {
