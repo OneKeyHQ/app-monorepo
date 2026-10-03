@@ -9,6 +9,12 @@ export { createNativeBottomTabNavigator } from './createNativeBottomTabNavigator
 export { NativeBottomTabView } from './NativeBottomTabView';
 
 /**
+ * Context
+ */
+export { TabSceneContext, useTabScene } from './TabSceneContext';
+export type { ITabSceneInfo } from './TabSceneContext';
+
+/**
  * Types
  */
 export type {

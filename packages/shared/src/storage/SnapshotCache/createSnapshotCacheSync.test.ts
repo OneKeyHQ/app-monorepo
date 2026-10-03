@@ -196,6 +196,38 @@ describe('createSnapshotCacheSync', () => {
     ]);
   });
 
+  it('touch keeps a revisited record resident without rewriting its payload', () => {
+    const { storage, records } = createFakeStorage();
+    const clock = { value: 1000 };
+    const cache = createSnapshotCacheSync<number>({
+      storage,
+      retention,
+      now: () => clock.value,
+    });
+    ['a', 'b', 'c'].forEach((key) => {
+      cache.set(key, 1);
+      clock.value += 1000;
+    });
+    const payloadBefore = records.get('d:a');
+    // Reading 'a' again is a revisit: bump its recency only.
+    cache.touch('a');
+    clock.value += 1000;
+    cache.set('d', 1);
+
+    // 'b' was the least recently used, not 'a'.
+    expect(records.has('d:b')).toBe(false);
+    expect(records.get('d:a')).toBe(payloadBefore);
+    expect([...records.keys()].toSorted()).toEqual([
+      'd:a',
+      'd:c',
+      'd:d',
+      SNAPSHOT_CACHE_MANIFEST_KEY,
+    ]);
+    // Unknown keys are ignored.
+    cache.touch('zzz');
+    expect(records.has('d:zzz')).toBe(false);
+  });
+
   it('ignores keys the backing store would reject', () => {
     const { storage, records } = createFakeStorage();
     const cache = createSnapshotCacheSync<number>({ storage, retention });
