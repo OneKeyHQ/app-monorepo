@@ -6,7 +6,6 @@ import {
   onVisibilityStateChange,
   useMedia,
   useScrollContentTabBarOffset,
-  useTabIsRefreshingFocused,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import type { IAllNetworkAccountInfo } from '@onekeyhq/kit-bg/src/services/ServiceAllNetwork/ServiceAllNetwork';
@@ -38,7 +37,6 @@ import type { IAccountHistoryTx } from '@onekeyhq/shared/types/history';
 import { EDecodedTxStatus } from '@onekeyhq/shared/types/tx';
 
 import { NotificationEnableAlert } from '../../../components/NotificationEnableAlert';
-import { TxHistoryListView } from '../../../components/TxHistoryListView';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { useRouteIsFocused } from '../../../hooks/useRouteIsFocused';
@@ -54,14 +52,13 @@ import {
 } from '../../../states/jotai/contexts/historyList';
 import { useHomeTokenListSnapshot } from '../../../states/jotai/contexts/tokenList/cells';
 import { maybeOpenPrivateSendHistoryDetail } from '../../Swap/utils/privateSendHistory';
+import { HomeHistoryListView } from '../components/HomeHistoryListView';
 import { HomeTokenListProviderMirrorWrapper } from '../components/HomeTokenListProvider';
 import { onHomePageRefresh } from '../components/PullToRefresh';
+import { useTabIsRefreshingFocused } from '../hooks/useHomeTab';
 
 import { buildTokenRefreshPlanAfterHistory } from './historyTokenRefreshGate';
-import {
-  FrozenTopHistoryScrollObserver,
-  useFrozenTopHistoryData,
-} from './hooks/useFrozenTopHistoryData';
+import { useFrozenTopHistoryData } from './hooks/useFrozenTopHistoryData';
 import { useHistoryListLoadMore } from './hooks/useHistoryListLoadMore';
 
 type ITokenRefreshAccount = {
@@ -855,13 +852,11 @@ function TxHistoryListContainer(
 
   return (
     <>
-      {isFrozenTopTabScenario ? (
-        <FrozenTopHistoryScrollObserver
-          enabled={frozenTopEnabled}
-          onAwayFromTopChange={onAwayFromTopChange}
-        />
-      ) : null}
-      <TxHistoryListView
+      <HomeHistoryListView
+        frozenTopEnabled={frozenTopEnabled}
+        frozenTopIdentityKey={frozenTopIdentityKey}
+        onAwayFromTopChange={onAwayFromTopChange}
+        observeFrozenTop={isFrozenTopTabScenario}
         plainMode={plainMode}
         isTabFocused={isFocused}
         showIcon

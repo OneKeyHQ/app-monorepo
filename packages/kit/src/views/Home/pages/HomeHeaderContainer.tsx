@@ -1,10 +1,6 @@
 import { memo, useEffect, useMemo, useRef } from 'react';
 
-import {
-  HeaderScrollGestureWrapper,
-  Stack,
-  YStack,
-} from '@onekeyhq/components';
+import { Stack, YStack } from '@onekeyhq/components';
 import { WALLET_TYPE_HD } from '@onekeyhq/shared/src/consts/dbConsts';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type { IHomePageViewedState } from '@onekeyhq/shared/src/logger/scopes/account/scenes/wallet';
@@ -13,6 +9,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { useHomeBalanceState } from '../../../hooks/useHomeBalanceState';
 import { useWalletTopBannersAtom } from '../../../states/jotai/contexts/accountOverview';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
+import { HomeHeaderGesture } from '../components/HomeHeaderGesture';
 import { HomeTokenListProviderMirror } from '../components/HomeTokenListProvider/HomeTokenListProviderMirror';
 import { onHomePageRefresh } from '../components/PullToRefresh';
 import { WalletActions } from '../components/WalletActions';
@@ -107,15 +104,15 @@ function BaseHomeHeaderContainer() {
         bg="$bgApp"
         pointerEvents="box-none"
       >
-        <HeaderScrollGestureWrapper onRefresh={onHomePageRefresh}>
+        <HomeHeaderGesture onRefresh={onHomePageRefresh}>
           <Stack gap="$2.5">
             <HomeOverviewContainer />
           </Stack>
-        </HeaderScrollGestureWrapper>
+        </HomeHeaderGesture>
         {isWalletNotBackedUp ? null : (
-          <HeaderScrollGestureWrapper onRefresh={onHomePageRefresh}>
+          <HomeHeaderGesture onRefresh={onHomePageRefresh}>
             <WalletActions />
-          </HeaderScrollGestureWrapper>
+          </HomeHeaderGesture>
         )}
       </Stack>
       {/* Always mount so initLocalBanners + remote fetch effects run.

@@ -16,7 +16,6 @@ import type { ICheckedState } from '@onekeyhq/components';
 import {
   Checkbox,
   Dialog,
-  HeaderScrollGestureWrapper,
   Icon,
   IconButton,
   Image,
@@ -56,6 +55,8 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EMessageTypesEth } from '@onekeyhq/shared/types/message';
 import { ERookieTaskType } from '@onekeyhq/shared/types/rookieGuide';
 import type { IWalletBanner } from '@onekeyhq/shared/types/walletBanner';
+
+import { HomeHeaderGesture } from '../HomeHeaderGesture';
 
 const PERPS_REFERRAL_BANNER_ID = 'local-perps-referral';
 
@@ -286,8 +287,22 @@ function NativeBannerScroller({
     [handleBannerOnPress],
   );
 
+  const bannerItems = (
+    <>
+      {leadingContent}
+      {banners.map((item) => (
+        <BannerItem
+          key={item.id}
+          item={item}
+          onPress={wrappedHandleBannerOnPress}
+          onDismiss={handleDismiss}
+        />
+      ))}
+    </>
+  );
+
   return (
-    <HeaderScrollGestureWrapper>
+    <HomeHeaderGesture>
       <YStack
         bg="$bgApp"
         overflow="hidden"
@@ -295,30 +310,38 @@ function NativeBannerScroller({
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
       >
-        <GestureDetector gesture={panGesture}>
-          <Animated.View
-            style={[
-              {
-                flexDirection: 'row',
-                paddingHorizontal: BANNER_PADDING_H,
-                gap: BANNER_GAP,
-              },
-              animatedStyle,
-            ]}
+        {platformEnv.isNativeAndroid ? (
+          // The native pager recognizes horizontal scroll owners in its shared header.
+          <ScrollView
+            testID="home-wallet-banner-scroll"
+            horizontal
+            flexGrow={0}
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={{
+              paddingHorizontal: BANNER_PADDING_H,
+              gap: BANNER_GAP,
+            }}
           >
-            {leadingContent}
-            {banners.map((item) => (
-              <BannerItem
-                key={item.id}
-                item={item}
-                onPress={wrappedHandleBannerOnPress}
-                onDismiss={handleDismiss}
-              />
-            ))}
-          </Animated.View>
-        </GestureDetector>
+            {bannerItems}
+          </ScrollView>
+        ) : (
+          <GestureDetector gesture={panGesture}>
+            <Animated.View
+              style={[
+                {
+                  flexDirection: 'row',
+                  paddingHorizontal: BANNER_PADDING_H,
+                  gap: BANNER_GAP,
+                },
+                animatedStyle,
+              ]}
+            >
+              {bannerItems}
+            </Animated.View>
+          </GestureDetector>
+        )}
       </YStack>
-    </HeaderScrollGestureWrapper>
+    </HomeHeaderGesture>
   );
 }
 
