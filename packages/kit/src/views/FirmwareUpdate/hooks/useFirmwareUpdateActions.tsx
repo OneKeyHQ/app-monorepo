@@ -16,7 +16,7 @@ import {
   resetToRoute,
   rootNavigationRef,
 } from '@onekeyhq/components';
-import { DOWNLOAD_URL } from '@onekeyhq/shared/src/config/appConfig';
+import { DOWNLOAD_DESKTOP_APP_URL } from '@onekeyhq/shared/src/config/appConfig';
 import type { IOneKeyError } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import { isHardwareErrorByCode } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -117,7 +117,7 @@ function useDesktopUsbSuggestion() {
             },
             onConfirm: ({ preventClose }) => {
               preventClose();
-              openUrlExternal(DOWNLOAD_URL);
+              openUrlExternal(DOWNLOAD_DESKTOP_APP_URL);
             },
             onCancelText: intl.formatMessage({
               id: ETranslations.firmware_update_continue_via_bluetooth__action,

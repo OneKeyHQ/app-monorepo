@@ -4,7 +4,7 @@ import { EDeviceType } from '@onekeyfe/hd-shared';
 import { act, renderHook } from '@testing-library/react';
 
 import { Dialog, resetModalRouteByName } from '@onekeyhq/components';
-import { DOWNLOAD_URL } from '@onekeyhq/shared/src/config/appConfig';
+import { DOWNLOAD_DESKTOP_APP_URL } from '@onekeyhq/shared/src/config/appConfig';
 import {
   EModalFirmwareUpdateRoutes,
   EModalRoutes,
@@ -353,7 +353,9 @@ describe('useFirmwareUpdateActions', () => {
       });
       await settle();
 
-      expect(mockOpenUrlExternal).toHaveBeenCalledWith(DOWNLOAD_URL);
+      expect(mockOpenUrlExternal).toHaveBeenCalledWith(
+        DOWNLOAD_DESKTOP_APP_URL,
+      );
       expect(preventClose).toHaveBeenCalledTimes(1);
       expect(close).not.toHaveBeenCalled();
       expect(mockCheckDeviceReachable).not.toHaveBeenCalled();
