@@ -92,7 +92,8 @@ describe('DeviceUpdateAlert', () => {
       expect(mockOpenChangeLogModal).toHaveBeenCalledTimes(1);
       expect(mockOpenChangeLogModal).toHaveBeenCalledWith({
         connectId: 'ble-1',
-        suggestDesktopUsbForDeviceType: deviceType,
+        suggestDesktopUsbFirst: true,
+        deviceType,
       });
     },
   );

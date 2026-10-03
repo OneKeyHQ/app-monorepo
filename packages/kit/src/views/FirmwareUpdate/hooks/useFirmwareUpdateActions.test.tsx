@@ -17,6 +17,10 @@ const mockCheckDeviceReachable = jest.fn<
   Promise<string>,
   [{ connectId: string }]
 >();
+const mockGetDeviceByConnectId = jest.fn<
+  Promise<{ deviceType: EDeviceType } | undefined>,
+  [{ connectId: string }]
+>();
 
 jest.mock('react-intl', () => ({
   useIntl: () => ({
@@ -64,6 +68,8 @@ jest.mock('../../../background/instance/backgroundApiProxy', () => ({
     serviceHardware: {
       checkDeviceReachableForFirmwareUpdate: (params: { connectId: string }) =>
         mockCheckDeviceReachable(params),
+      getDeviceByConnectId: (params: { connectId: string }) =>
+        mockGetDeviceByConnectId(params),
     },
   },
 }));
@@ -79,6 +85,7 @@ jest.mock('../utils', () => ({
 jest.mock('./bootloaderModeDialogManager', () => ({
   bootloaderModeDialogManager: {
     show: jest.fn(),
+    close: jest.fn(async () => {}),
   },
 }));
 
@@ -86,9 +93,12 @@ type IDialogShowProps = Parameters<typeof Dialog.show>[0];
 
 const mockDialogShow = Dialog.show as jest.MockedFunction<typeof Dialog.show>;
 
+function dialogProps(index: number): IDialogShowProps {
+  return mockDialogShow.mock.calls[index][0];
+}
+
 function lastDialogProps(): IDialogShowProps {
-  const { calls } = mockDialogShow.mock;
-  return calls[calls.length - 1][0];
+  return dialogProps(mockDialogShow.mock.calls.length - 1);
 }
 
 // A macrotask boundary, so every pending continuation has run before a
@@ -140,6 +150,7 @@ describe('useFirmwareUpdateActions', () => {
     mockCheckDeviceReachable.mockImplementation(
       async ({ connectId }) => `${connectId}-resolved`,
     );
+    mockGetDeviceByConnectId.mockResolvedValue(undefined);
   });
 
   it('closes the whole firmware update modal', () => {
@@ -155,8 +166,11 @@ describe('useFirmwareUpdateActions', () => {
   });
 
   describe('openChangeLogModal', () => {
-    it('checks the device and opens the changelog when no model is passed', async () => {
+    it('checks the device and opens the changelog when the update is not known yet', async () => {
       mockIsNative = true;
+      mockGetDeviceByConnectId.mockResolvedValue({
+        deviceType: EDeviceType.Pro2,
+      });
       const { result } = renderHook(() => useFirmwareUpdateActions());
 
       await act(async () => {
@@ -164,6 +178,7 @@ describe('useFirmwareUpdateActions', () => {
       });
 
       expect(mockDialogShow).not.toHaveBeenCalled();
+      expect(mockGetDeviceByConnectId).not.toHaveBeenCalled();
       expect(mockCheckDeviceReachable).toHaveBeenCalledWith({
         connectId: 'ble-1',
       });
@@ -187,11 +202,13 @@ describe('useFirmwareUpdateActions', () => {
         act(() => {
           opening = result.current.openChangeLogModal({
             connectId: 'ble-1',
-            suggestDesktopUsbForDeviceType: deviceType,
+            suggestDesktopUsbFirst: true,
+            deviceType,
           });
         });
 
         expect(mockDialogShow).toHaveBeenCalledTimes(1);
+        expect(mockGetDeviceByConnectId).not.toHaveBeenCalled();
         expect(mockCheckDeviceReachable).not.toHaveBeenCalled();
         expect(mockPushModal).not.toHaveBeenCalled();
 
@@ -214,6 +231,84 @@ describe('useFirmwareUpdateActions', () => {
       },
     );
 
+    it('names the model from the local device record when the entry has none', async () => {
+      mockIsNative = true;
+      mockGetDeviceByConnectId.mockResolvedValue({
+        deviceType: EDeviceType.Neo,
+      });
+      const { result } = renderHook(() => useFirmwareUpdateActions());
+
+      let opening: Promise<void> | undefined;
+      act(() => {
+        opening = result.current.openChangeLogModal({
+          connectId: 'ble-1',
+          suggestDesktopUsbFirst: true,
+        });
+      });
+      await settle();
+
+      expect(mockGetDeviceByConnectId).toHaveBeenCalledWith({
+        connectId: 'ble-1',
+      });
+      expect(mockDialogShow).toHaveBeenCalledTimes(1);
+      expect(mockCheckDeviceReachable).not.toHaveBeenCalled();
+
+      await closeSuggestion({ flag: 'confirm' });
+      await act(async () => {
+        await opening;
+      });
+
+      expect(mockPushModal).toHaveBeenCalledWith(
+        EModalRoutes.FirmwareUpdateModal,
+        changeLogRoute({
+          connectId: 'ble-1-resolved',
+          usbSuggestionAcknowledged: true,
+        }),
+      );
+    });
+
+    it('leaves the question to the changelog page when no record names the model', async () => {
+      mockIsNative = true;
+      const { result } = renderHook(() => useFirmwareUpdateActions());
+
+      await act(async () => {
+        await result.current.openChangeLogModal({
+          connectId: 'ble-1',
+          suggestDesktopUsbFirst: true,
+        });
+      });
+
+      expect(mockGetDeviceByConnectId).toHaveBeenCalledWith({
+        connectId: 'ble-1',
+      });
+      expect(mockDialogShow).not.toHaveBeenCalled();
+      expect(mockPushModal).toHaveBeenCalledWith(
+        EModalRoutes.FirmwareUpdateModal,
+        changeLogRoute({ connectId: 'ble-1-resolved' }),
+      );
+      expect(lastPushedChangeLogParams()).not.toHaveProperty(
+        'usbSuggestionAcknowledged',
+      );
+    });
+
+    it('shows the suggestion through the dialog host the page provides', async () => {
+      mockIsNative = true;
+      const hostShow = jest.fn();
+      const { result } = renderHook(() => useFirmwareUpdateActions());
+
+      act(() => {
+        void result.current.openChangeLogModal({
+          connectId: 'ble-1',
+          suggestDesktopUsbFirst: true,
+          deviceType: EDeviceType.Pro2,
+          dialogHost: { show: hostShow },
+        });
+      });
+
+      expect(hostShow).toHaveBeenCalledTimes(1);
+      expect(mockDialogShow).not.toHaveBeenCalled();
+    });
+
     it('never reaches the device when the suggestion is dismissed', async () => {
       mockIsNative = true;
       const { result } = renderHook(() => useFirmwareUpdateActions());
@@ -222,7 +317,8 @@ describe('useFirmwareUpdateActions', () => {
       act(() => {
         opening = result.current.openChangeLogModal({
           connectId: 'ble-1',
-          suggestDesktopUsbForDeviceType: EDeviceType.Pro2,
+          suggestDesktopUsbFirst: true,
+          deviceType: EDeviceType.Pro2,
         });
       });
       await closeSuggestion();
@@ -241,7 +337,8 @@ describe('useFirmwareUpdateActions', () => {
       await act(async () => {
         await result.current.openChangeLogModal({
           connectId: 'ble-1',
-          suggestDesktopUsbForDeviceType: EDeviceType.Classic1s,
+          suggestDesktopUsbFirst: true,
+          deviceType: EDeviceType.Classic1s,
         });
       });
 
@@ -255,16 +352,17 @@ describe('useFirmwareUpdateActions', () => {
       );
     });
 
-    it('skips the suggestion off mobile', async () => {
+    it('skips the suggestion and the record lookup off mobile', async () => {
       const { result } = renderHook(() => useFirmwareUpdateActions());
 
       await act(async () => {
         await result.current.openChangeLogModal({
           connectId: 'usb-1',
-          suggestDesktopUsbForDeviceType: EDeviceType.Pro2,
+          suggestDesktopUsbFirst: true,
         });
       });
 
+      expect(mockGetDeviceByConnectId).not.toHaveBeenCalled();
       expect(mockDialogShow).not.toHaveBeenCalled();
       expect(mockPushModal).toHaveBeenCalledWith(
         EModalRoutes.FirmwareUpdateModal,
@@ -281,7 +379,8 @@ describe('useFirmwareUpdateActions', () => {
       const open = () =>
         result.current.openChangeLogModal({
           connectId: 'ble-1',
-          suggestDesktopUsbForDeviceType: EDeviceType.Pro2,
+          suggestDesktopUsbFirst: true,
+          deviceType: EDeviceType.Pro2,
         });
 
       let first: Promise<void> | undefined;
@@ -314,7 +413,8 @@ describe('useFirmwareUpdateActions', () => {
       act(() => {
         opening = result.current.openChangeLogModal({
           connectId: 'ble-1',
-          suggestDesktopUsbForDeviceType: EDeviceType.Pro2,
+          suggestDesktopUsbFirst: true,
+          deviceType: EDeviceType.Pro2,
         });
       });
       unmount();
@@ -328,6 +428,64 @@ describe('useFirmwareUpdateActions', () => {
 
       expect(mockCheckDeviceReachable).not.toHaveBeenCalled();
       expect(mockPushModal).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('showForceUpdate', () => {
+    it('closes its own dialog before the suggestion, then opens the changelog', async () => {
+      mockIsNative = true;
+      mockGetDeviceByConnectId.mockResolvedValue({
+        deviceType: EDeviceType.Pro2,
+      });
+      const { result } = renderHook(() => useFirmwareUpdateActions());
+
+      act(() => {
+        result.current.showForceUpdate({ connectId: 'ble-1' });
+      });
+      expect(mockDialogShow).toHaveBeenCalledTimes(1);
+
+      let releaseClose: (() => void) | undefined;
+      const close = jest.fn(
+        () =>
+          new Promise<void>((resolve) => {
+            releaseClose = resolve;
+          }),
+      );
+      let confirming: Promise<void> | void;
+      act(() => {
+        confirming = dialogProps(0).onConfirm?.({
+          close,
+          preventClose: () => {},
+          getForm: () => undefined,
+          isExist: () => true,
+        });
+      });
+      await settle();
+
+      // Still waiting for the force dialog to leave the overlay.
+      expect(close).toHaveBeenCalledTimes(1);
+      expect(mockDialogShow).toHaveBeenCalledTimes(1);
+
+      await act(async () => {
+        releaseClose?.();
+      });
+      await settle();
+
+      expect(mockDialogShow).toHaveBeenCalledTimes(2);
+      expect(mockCheckDeviceReachable).not.toHaveBeenCalled();
+
+      await closeSuggestion({ flag: 'confirm' });
+      await act(async () => {
+        await confirming;
+      });
+
+      expect(mockPushModal).toHaveBeenCalledWith(
+        EModalRoutes.FirmwareUpdateModal,
+        changeLogRoute({
+          connectId: 'ble-1-resolved',
+          usbSuggestionAcknowledged: true,
+        }),
+      );
     });
   });
 });

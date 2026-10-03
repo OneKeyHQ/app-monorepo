@@ -40,7 +40,26 @@ import { bootloaderModeDialogManager } from './bootloaderModeDialogManager';
 
 import type { AllFirmwareRelease, IDeviceType } from '@onekeyfe/hd-core';
 
-export type IBootloaderModeDialogHost = Pick<typeof Dialog, 'show'>;
+/** A page-owned `Dialog.show`, for pages that carry their own theme. */
+export type IFirmwareUpdateDialogHost = Pick<typeof Dialog, 'show'>;
+export type IBootloaderModeDialogHost = IFirmwareUpdateDialogHost;
+
+// The local device record names the model without contacting the device. A
+// first connection or bootloader mode may not have one yet.
+async function getRecordedDeviceType(connectId: string | undefined) {
+  if (!connectId) {
+    return undefined;
+  }
+  try {
+    const device =
+      await backgroundApiProxy.serviceHardware.getDeviceByConnectId({
+        connectId,
+      });
+    return device?.deviceType;
+  } catch {
+    return undefined;
+  }
+}
 
 /**
  * The "desktop USB is faster" suggestion for models that update slowly over
@@ -56,51 +75,54 @@ function useDesktopUsbSuggestion() {
     isMountedRef.current = true;
     return () => {
       isMountedRef.current = false;
-      // The suggestion lives in the global overlay, so it would otherwise
-      // stay on top of whatever replaces its page.
+      // The suggestion lives in the overlay, so it would otherwise stay on
+      // top of whatever replaces its page.
       void dialogRef.current?.close();
     };
   }, []);
 
   // Resolves true only when the user chooses to keep updating via Bluetooth.
-  return useCallback(async () => {
-    // Callers are button handlers that nothing waits for, so a second tap
-    // must not stack another suggestion on the one already open.
-    if (isOpenRef.current) {
-      return false;
-    }
-    isOpenRef.current = true;
-    try {
-      const confirmed = await new Promise<boolean>((resolve) => {
-        dialogRef.current = Dialog.show({
-          icon: 'TypeCoutline',
-          title: intl.formatMessage({
-            id: ETranslations.firmware_update_install_page__title,
-          }),
-          description: intl.formatMessage({
-            id: ETranslations.firmware_update_usb_recommended__desc,
-          }),
-          onConfirmText: intl.formatMessage({
-            id: ETranslations.firmware_update_continue_via_bluetooth__action,
-          }),
-          confirmButtonProps: {
-            testID: FirmwareUpdateTestIDs.usbSuggestionContinueBtn,
-          },
-          showCancelButton: false,
-          // onClose runs once the sheet has left the overlay, so whatever the
-          // caller opens next never mounts inside this dialog's exit window.
-          // Only the confirm button closes with the 'confirm' flag.
-          onClose: (extra) => {
-            dialogRef.current = undefined;
-            resolve(extra?.flag === 'confirm');
-          },
+  return useCallback(
+    async (dialogHost: IFirmwareUpdateDialogHost = Dialog) => {
+      // Callers are button handlers that nothing waits for, so a second tap
+      // must not stack another suggestion on the one already open.
+      if (isOpenRef.current) {
+        return false;
+      }
+      isOpenRef.current = true;
+      try {
+        const confirmed = await new Promise<boolean>((resolve) => {
+          dialogRef.current = dialogHost.show({
+            icon: 'TypeCoutline',
+            title: intl.formatMessage({
+              id: ETranslations.firmware_update_install_page__title,
+            }),
+            description: intl.formatMessage({
+              id: ETranslations.firmware_update_usb_recommended__desc,
+            }),
+            onConfirmText: intl.formatMessage({
+              id: ETranslations.firmware_update_continue_via_bluetooth__action,
+            }),
+            confirmButtonProps: {
+              testID: FirmwareUpdateTestIDs.usbSuggestionContinueBtn,
+            },
+            showCancelButton: false,
+            // onClose runs once the sheet has left the overlay, so whatever the
+            // caller opens next never mounts inside this dialog's exit window.
+            // Only the confirm button closes with the 'confirm' flag.
+            onClose: (extra) => {
+              dialogRef.current = undefined;
+              resolve(extra?.flag === 'confirm');
+            },
+          });
         });
-      });
-      return confirmed && isMountedRef.current;
-    } finally {
-      isOpenRef.current = false;
-    }
-  }, [intl]);
+        return confirmed && isMountedRef.current;
+      } finally {
+        isOpenRef.current = false;
+      }
+    },
+    [intl],
+  );
 }
 
 export function useFirmwareUpdateActions() {
@@ -160,17 +182,23 @@ export function useFirmwareUpdateActions() {
       connectId,
       firmwareType,
       baseReleaseInfo,
-      suggestDesktopUsbForDeviceType,
+      suggestDesktopUsbFirst,
+      deviceType,
+      dialogHost,
     }: {
       connectId: string | undefined;
       firmwareType?: EFirmwareType;
       baseReleaseInfo?: AllFirmwareRelease;
       /**
-       * Passed by entries the user can reach without the device at hand, so
-       * the desktop USB suggestion shows before any device communication.
-       * Other entries leave it out and the changelog page asks instead.
+       * Set by entries that already know an update will be installed, so the
+       * desktop USB suggestion shows before any device communication. Entries
+       * that only check for updates leave it out, and the changelog page asks
+       * once it has found one. The same fallback covers a model the local
+       * device record cannot name yet.
        */
-      suggestDesktopUsbForDeviceType?: IDeviceType;
+      suggestDesktopUsbFirst?: boolean;
+      deviceType?: IDeviceType;
+      dialogHost?: IFirmwareUpdateDialogHost;
     }) => {
       if (
         platformEnv.isExtensionUiPopup ||
@@ -188,16 +216,20 @@ export function useFirmwareUpdateActions() {
       }
 
       let usbSuggestionAcknowledged = false;
-      if (
-        shouldSuggestDesktopUsbFirmwareUpdate({
-          isNative: platformEnv.isNative,
-          deviceType: suggestDesktopUsbForDeviceType,
-        })
-      ) {
-        if (!(await confirmUpdateViaBluetooth())) {
-          return;
+      if (suggestDesktopUsbFirst && platformEnv.isNative) {
+        const knownDeviceType =
+          deviceType ?? (await getRecordedDeviceType(connectId));
+        if (
+          shouldSuggestDesktopUsbFirmwareUpdate({
+            isNative: platformEnv.isNative,
+            deviceType: knownDeviceType,
+          })
+        ) {
+          if (!(await confirmUpdateViaBluetooth(dialogHost))) {
+            return;
+          }
+          usbSuggestionAcknowledged = true;
         }
-        usbSuggestionAcknowledged = true;
       }
 
       let resolvedConnectId = connectId;
@@ -273,13 +305,21 @@ export function useFirmwareUpdateActions() {
       existsFirmware,
       onBeforeUpdate,
       dialogHost = Dialog,
+      deviceType,
     }: {
       connectId: string | undefined;
       existsFirmware?: boolean;
       onBeforeUpdate?: () => Promise<string | undefined>;
       dialogHost?: IBootloaderModeDialogHost;
+      /** Known to the caller from discovery; the local record may have none. */
+      deviceType?: IDeviceType;
     }) => {
       const handleUpdateClick = async () => {
+        // "Update now" sits on the cancel button of the existsFirmware dialog,
+        // which starts closing at the same time. Let it leave the overlay
+        // before the USB suggestion or the hardware UI can mount.
+        await bootloaderModeDialogManager.close();
+
         // Call onBeforeUpdate callback if provided (for onboarding USB preparation)
         const finalConnectId = onBeforeUpdate
           ? await onBeforeUpdate()
@@ -288,7 +328,14 @@ export function useFirmwareUpdateActions() {
         // Only open modal if USB preparation succeeded (finalConnectId is defined)
         // If undefined, it means USB is not available and a dialog was already shown
         if (finalConnectId !== undefined) {
-          await openChangeLogModal({ connectId: finalConnectId });
+          // A device in bootloader mode has to be flashed, so the update is
+          // certain before the changelog is opened.
+          await openChangeLogModal({
+            connectId: finalConnectId,
+            suggestDesktopUsbFirst: true,
+            deviceType,
+            dialogHost,
+          });
         }
       };
 
@@ -358,8 +405,12 @@ export function useFirmwareUpdateActions() {
           id: ETranslations.update_update_required_desc,
         }),
         dismissOnOverlayPress: false,
-        onConfirm: async () => {
-          await openChangeLogModal({ connectId });
+        onConfirm: async ({ close }) => {
+          // Close first, so the USB suggestion that may follow never mounts
+          // inside this dialog's exit window.
+          await close();
+          // The device itself demanded the update, so it is certain.
+          await openChangeLogModal({ connectId, suggestDesktopUsbFirst: true });
         },
         onConfirmText: intl.formatMessage({
           id: ETranslations.update_update_now,

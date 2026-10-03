@@ -337,8 +337,14 @@ function CheckAndUpdatePage({
     // Original transport is stored in singleton, will be restored in useFocusEffect
     await actions.openChangeLogModal({
       connectId: usbPrepareResult.connectId,
+      // The firmware step has already found the update and this page knows
+      // the device, so the desktop USB suggestion comes before the
+      // changelog's own device check. The page host keeps the dark theme.
+      suggestDesktopUsbFirst: true,
+      deviceType: currentDevice?.deviceType,
+      dialogHost: getBootloaderDialogHost(),
     });
-  }, [actions, currentDevice, prepareUSBConnect]);
+  }, [actions, currentDevice, prepareUSBConnect, getBootloaderDialogHost]);
 
   // Watchdog for checkFirmwareUpdate. It targets the firmware step
   // explicitly — matching "whichever step is InProgress" could stamp the
