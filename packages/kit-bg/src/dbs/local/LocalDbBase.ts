@@ -6,6 +6,7 @@ import {
   EFirmwareType,
   isSameOnekeyBleName,
 } from '@onekeyfe/hd-shared';
+import { hasHardwareRuntimeIdPrefix } from '@onekeyfe/hwk-adapter-core';
 import { Semaphore } from 'async-mutex';
 import {
   cloneDeep,
@@ -92,6 +93,11 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import {
+  getVendorProfile,
+  isHardwareVendorSupported,
+  resolvePersistentConnectIdCapability,
+} from '@onekeyhq/shared/src/hardware/config/vendorProfile';
+import {
   getDeviceStateSettingsRecoveryKeys,
   hasAuthoritativeDeviceInfoVersionChange,
   hasDeviceStateIdentityMismatch,
@@ -99,7 +105,6 @@ import {
   projectLegacyDeviceFeaturesFromState,
 } from '@onekeyhq/shared/src/hardware/deviceStateUtils';
 import { CoreSDKLoader } from '@onekeyhq/shared/src/hardware/instance';
-import { getVendorProfile } from '@onekeyhq/shared/src/hardware/vendorProfile';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
@@ -181,6 +186,7 @@ import {
   wrapLocalSecretEnvelopeV1,
 } from './localSecretEnvelope';
 import { EIndexedDBBucketNames } from './types';
+import { matchesVerifiedDeviceIdentity } from './verifiedDeviceIdentity';
 
 import type {
   ILocalSecretEnvelopeCredentialMigrationConfig,
@@ -226,8 +232,27 @@ import type {
   ILocalDBTxGetRecordByIdResult,
   ITrezorThpCredential,
 } from './types';
+import type { IVerifiedDeviceIdentity } from './verifiedDeviceIdentity';
 import type { IBackgroundApi } from '../../apis/IBackgroundApi';
 import type { IDeviceType } from '@onekeyfe/hd-core';
+
+function assertHardwareRuntimeIdsNotPersisted({
+  operation,
+  fields,
+}: {
+  operation: string;
+  fields: ReadonlyArray<readonly [field: string, value: unknown]>;
+}): void {
+  const runtimeIdentityField = fields.find(
+    (entry): entry is readonly [string, string] =>
+      typeof entry[1] === 'string' && hasHardwareRuntimeIdPrefix(entry[1]),
+  );
+  if (runtimeIdentityField) {
+    throw new OneKeyLocalError(
+      `${operation} ERROR: runtime hardware id cannot be persisted in ${runtimeIdentityField[0]}`,
+    );
+  }
+}
 
 export function sanitizeDeviceStateForPersistence(
   state: IOneKeyDeviceState,
@@ -701,7 +726,7 @@ export function buildThirdPartyDeviceDisplayName({
     return label;
   }
   const model = getThirdPartyDeviceModelName({ device, features });
-  const vendorName = profile.defaultDeviceName;
+  const vendorName = profile.presentation.defaultName;
   if (model) {
     return model.toLowerCase().includes(vendorName.toLowerCase())
       ? model
@@ -3665,6 +3690,25 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
   walletSortFn = (a: IDBWallet, b: IDBWallet) =>
     (a.walletOrder ?? 0) - (b.walletOrder ?? 0);
 
+  filterWalletsByHardwareVendorSupport({
+    wallets,
+    allDevices,
+  }: {
+    wallets: IDBWallet[];
+    allDevices: IDBDevice[];
+  }): IDBWallet[] {
+    const unsupportedDeviceIds = new Set(
+      allDevices
+        .filter((device) => !isHardwareVendorSupported(device.vendor))
+        .map((device) => device.id),
+    );
+    return wallets.filter(
+      (wallet) =>
+        !wallet.associatedDevice ||
+        !unsupportedDeviceIds.has(wallet.associatedDevice),
+    );
+  }
+
   // oxlint-disable-next-line @cspell/spellchecker
   /**
    * Get wallets
@@ -3710,9 +3754,12 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     // get all wallets for account selector
     const allWallets =
       option?.allWallets || (await this.getAllWallets()).wallets;
-    let wallets = allWallets;
     const allDevices =
       option?.allDevices || (await this.getAllDevices()).devices;
+    let wallets = this.filterWalletsByHardwareVendorSupport({
+      wallets: allWallets,
+      allDevices,
+    });
     const hiddenWalletsMap: Partial<{
       [dbDeviceId: string]: IDBWallet[];
     }> = {};
@@ -4154,7 +4201,8 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
               vendor: profile.vendor,
               vendorModel: deviceSettings.vendorModel,
               vendorModelName: deviceSettings.vendorModelName,
-              fallback: profile.avatarKey as IThirdPartyWalletAvatarImageNames,
+              fallback: profile.presentation
+                .avatarKey as IThirdPartyWalletAvatarImageNames,
             });
             if (avatarInfo?.img !== expectedImg) {
               wallet.avatarInfo = { ...avatarInfo, img: expectedImg };
@@ -4194,12 +4242,10 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
 
         if (shouldFixName) {
           if (profile.isThirdParty) {
-            // Third-party with a settable on-device label (Trezor): wallet name
-            // follows the device label, same as OneKey. Gate on device-settings
-            // support so vendors without a real label (Ledger) fall through.
+            // Only vendors with device-label support synchronize wallet names.
             const label = device?.featuresInfo?.label;
             if (
-              profile.supportsDeviceSettings &&
+              profile.presentation.label.mode === 'device' &&
               device &&
               label &&
               label !== wallet.name
@@ -4213,7 +4259,8 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
               wallet.name = label;
             } else if (wallet.name && wallet.name.startsWith('OneKey')) {
               // No settable label (Ledger): strip any leftover OneKey name.
-              const vendorLabel = profile.defaultDeviceName || deviceVendor;
+              const vendorLabel =
+                profile.presentation.defaultName || deviceVendor;
               wallet.name = vendorLabel;
             }
           } else {
@@ -6200,19 +6247,55 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
 
   async updateDeviceConnectId({
     dbDeviceId,
+    connectId,
     usbConnectId,
     bleConnectId,
+    verifiedDeviceIdentity,
+    assertBindingActive,
   }: {
     dbDeviceId: string;
+    connectId?: string;
     usbConnectId?: string;
     bleConnectId?: string;
+    verifiedDeviceIdentity?: IVerifiedDeviceIdentity;
+    /** Background-local lifecycle guard; never persisted or sent over RPC. */
+    assertBindingActive?: () => void;
   }) {
+    assertHardwareRuntimeIdsNotPersisted({
+      operation: 'updateDeviceConnectId',
+      fields: [
+        ['connectId', connectId],
+        ['usbConnectId', usbConnectId],
+        ['bleConnectId', bleConnectId],
+      ],
+    });
     await this.withTransaction(EIndexedDBBucketNames.account, async (tx) => {
       await this.txUpdateRecords({
         tx,
         name: ELocalDBStoreNames.Device,
         ids: [dbDeviceId],
         updater: async (item) => {
+          const currentSettings = parseDeviceSettingsRaw(item.settingsRaw);
+          assertBindingActive?.();
+          if (
+            verifiedDeviceIdentity &&
+            !matchesVerifiedDeviceIdentity(
+              {
+                vendor: currentSettings.vendor,
+                deviceId: item.deviceId,
+                connectId: item.connectId,
+                chainFingerprints: currentSettings.chainFingerprints,
+              },
+              verifiedDeviceIdentity,
+            )
+          ) {
+            throw new OneKeyLocalError(
+              'Verified connection identity no longer matches the device record',
+            );
+          }
+          if (connectId !== undefined) {
+            item.connectId = connectId;
+          }
           if (usbConnectId !== undefined) {
             item.usbConnectId = usbConnectId;
           }
@@ -6220,9 +6303,11 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
             item.bleConnectId = bleConnectId;
           }
           item.updatedAt = await this.timeNow();
+          assertBindingActive?.();
           return item;
         },
       });
+      assertBindingActive?.();
     });
   }
 
@@ -6248,11 +6333,21 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     dbDeviceId,
     bleConnectId,
     verifiedDeviceId,
+    assertBindingActive,
   }: {
     dbDeviceId: string;
     bleConnectId: string;
     verifiedDeviceId: string;
+    /** Background-local lifecycle guard; never persisted or sent over RPC. */
+    assertBindingActive?: () => void;
   }): Promise<{ cleanedRecordIds: string[] }> {
+    assertHardwareRuntimeIdsNotPersisted({
+      operation: 'updateDeviceBleConnectIdAndCleanStaleAliases',
+      fields: [
+        ['bleConnectId', bleConnectId],
+        ['verifiedDeviceId', verifiedDeviceId],
+      ],
+    });
     const keepDevice = await this.getDeviceSafe(dbDeviceId);
     // The binding is committed in the same transaction as the cleanup, so
     // the alias set cannot be read back from the record — include the
@@ -6289,8 +6384,19 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
         name: ELocalDBStoreNames.Device,
         ids: [dbDeviceId],
         updater: async (item) => {
+          assertBindingActive?.();
+          if (
+            item.deviceId !== verifiedDeviceId ||
+            (parseDeviceSettingsRaw(item.settingsRaw).vendor ??
+              EHardwareVendor.onekey) !== keepVendor
+          ) {
+            throw new OneKeyLocalError(
+              'Verified BLE binding no longer matches the device record',
+            );
+          }
           item.bleConnectId = bleConnectId;
           item.updatedAt = await this.timeNow();
+          assertBindingActive?.();
           return item;
         },
       });
@@ -6300,6 +6406,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
           name: ELocalDBStoreNames.Device,
           ids: staleRecordIds,
           updater: async (item) => {
+            assertBindingActive?.();
             const collides = (value?: string | null) => {
               const normalized = value?.trim().toLowerCase();
               return Boolean(normalized && aliases.includes(normalized));
@@ -6316,10 +6423,12 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
               item.bleConnectId = undefined;
             }
             item.updatedAt = await this.timeNow();
+            assertBindingActive?.();
             return item;
           },
         });
       }
+      assertBindingActive?.();
     });
     // A concurrent read between the pre-commit cache clear and the commit
     // can re-fill the record cache with pre-commit data; drop it again so
@@ -7000,7 +7109,8 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
           vendor: profile.vendor,
           vendorModel: getThirdPartyDeviceModelCode({ device, features }),
           vendorModelName: modelName,
-          fallback: profile.avatarKey as IThirdPartyWalletAvatarImageNames,
+          fallback: profile.presentation
+            .avatarKey as IThirdPartyWalletAvatarImageNames,
         }),
       },
       deviceName: finalDeviceName,
@@ -7026,18 +7136,55 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       transportType,
       vendor,
     } = params;
+    assertHardwareRuntimeIdsNotPersisted({
+      operation: 'createHwWallet',
+      fields: [
+        ['device.connectId', device.connectId],
+        ['device.deviceId', device.deviceId],
+        ['device.uuid', device.uuid],
+        [
+          'device.usbConnectId',
+          (device as typeof device & { usbConnectId?: string }).usbConnectId,
+        ],
+        [
+          'device.bleConnectId',
+          (device as typeof device & { bleConnectId?: string }).bleConnectId,
+        ],
+        [
+          'features.deviceId',
+          (features as IOneKeyDeviceFeatures & { deviceId?: string }).deviceId,
+        ],
+        [
+          'features.device_id',
+          (features as IOneKeyDeviceFeatures & { device_id?: string })
+            .device_id,
+        ],
+      ],
+    });
     const { connectId } = device;
     const resolvedVendor = vendor ?? EHardwareVendor.onekey;
     const profile = getVendorProfile(resolvedVendor);
-    const isUsbTransport =
-      transportType === EHardwareTransportType.WEBUSB ||
-      transportType === EHardwareTransportType.Bridge;
+    const usesTransportLocatorConnectId =
+      profile.isThirdParty && profile.identity.role === 'transportLocator';
+    const deviceCapabilities = (
+      device as typeof device & {
+        raw?: {
+          capabilities?: { persistentDeviceIdentity?: unknown };
+        };
+      }
+    ).raw?.capabilities;
+    const hasPersistentUsbConnectId = resolvePersistentConnectIdCapability({
+      profile,
+      transport: 'usb',
+      capabilities: deviceCapabilities,
+    });
 
-    // Empty connectId is allowed only for non-persistent USB transports.
+    // Third-party transport locators are optional hints, unlike wallet identities.
+    // Keep OneKey's existing capability-based validation.
     if (
       !connectId &&
-      (profile.hasPersistentConnectId('usb') ||
-        (profile.isThirdParty && !isUsbTransport))
+      !usesTransportLocatorConnectId &&
+      (profile.isThirdParty || hasPersistentUsbConnectId)
     ) {
       throw new OneKeyLocalError('createHwWallet ERROR: connectId is required');
     }
@@ -7084,6 +7231,12 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     let addedHdAccountIndex = -1;
     const now = await this.timeNow();
 
+    // Resolved before the transaction: getDeviceVersionStr's dynamic
+    // CoreSDKLoader() import can span a macrotask and auto-commit an open IndexedDB transaction, breaking later writes (hits Keystone, which never warms hd-core earlier).
+    const verifiedAtVersion = isFirmwareVerified
+      ? await deviceUtils.getDeviceVersionStr({ device, features })
+      : undefined;
+
     // Set appropriate connectId fields based on transport type
     let usbConnectId: string | undefined;
     let bleConnectId: string | undefined;
@@ -7097,17 +7250,27 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       transportType,
     });
 
+    // Transport-locator vendors (Trezor, Ledger, Keystone) keep locators in
+    // per-transport columns only and write an empty legacy `connectId`; it is
+    // still read for older records. OneKey keeps its connectId.
+
     if (transportType) {
       switch (transportType) {
         case EHardwareTransportType.WEBUSB:
         case EHardwareTransportType.Bridge:
           // Bridge and WEBUSB are both USB-based connections
-          usbConnectId = connectId ?? undefined;
-          compatibleConnectId = connectId ?? undefined;
+          if (hasPersistentUsbConnectId) {
+            usbConnectId = connectId ?? undefined;
+            if (!usesTransportLocatorConnectId) {
+              compatibleConnectId = connectId ?? undefined;
+            }
+          }
           break;
         case EHardwareTransportType.BLE:
           bleConnectId = resolvedBleConnectId;
-          compatibleConnectId = connectId ?? undefined;
+          if (!usesTransportLocatorConnectId) {
+            compatibleConnectId = connectId ?? undefined;
+          }
           break;
         case EHardwareTransportType.DesktopWebBle:
           bleConnectId = resolvedBleConnectId;
@@ -7127,13 +7290,39 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
               }) ||
               deviceUtils.getDeviceSerialNoFromFeatures(features) ||
               getDeviceSerialNo(features);
-            compatibleConnectId = fallbackConnectId;
+            // The serial is a USB locator either way; only the legacy
+            // connectId column is withheld from transport-locator vendors.
             usbConnectId = fallbackConnectId;
+            if (!usesTransportLocatorConnectId) {
+              compatibleConnectId = fallbackConnectId;
+            }
           }
           break;
         default:
           break;
       }
+    }
+
+    // Saved third-party records carry their locators independently of the
+    // current transport.
+    if (usesTransportLocatorConnectId && !bleConnectId) {
+      bleConnectId = runtimeDevice.bleConnectId;
+    }
+    const explicitUsbConnectId = (
+      device as typeof device & { usbConnectId?: string }
+    ).usbConnectId;
+    if (explicitUsbConnectId) {
+      usbConnectId = explicitUsbConnectId;
+    }
+
+    // QR devices have no wire handle, but the switch above keys off the
+    // global transport setting and would otherwise record a false USB/BLE connectId; since usbConnectId is write-once, that would permanently block a later real USB connection.
+    const deviceConnectionType = (
+      device as typeof device & { raw?: { connectionType?: string } }
+    ).raw?.connectionType;
+    if (deviceConnectionType === 'qr') {
+      usbConnectId = undefined;
+      bleConnectId = undefined;
     }
 
     const initialSettings: IDBDeviceSettings = profile.isThirdParty
@@ -7315,12 +7504,8 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
               item.settingsRaw = JSON.stringify(existingSettings);
 
               if (isFirmwareVerified) {
-                const versionText = await deviceUtils.getDeviceVersionStr({
-                  device,
-                  features,
-                });
-                // official firmware verified
-                item.verifiedAtVersion = versionText;
+                // official firmware verified (computed before the transaction)
+                item.verifiedAtVersion = verifiedAtVersion;
               } else {
                 // skip firmware verify, but keep previous verified version
                 item.verifiedAtVersion = item.verifiedAtVersion || undefined;
@@ -9274,8 +9459,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
           if (createAtNetwork) {
             updatedAccount.createAtNetwork = createAtNetwork;
           }
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-return
-          return updatedAccount as any;
+          return item;
         },
       });
     });
@@ -9560,13 +9744,12 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     ) => Promise<'match' | 'mismatch' | 'unknown'>;
     vendor?: EHardwareVendor;
   }): Promise<IDBDevice | undefined> {
-    // Third-party devices may not have rawDeviceId.
-    // Use vendorProfile.canMatchDeviceByConnectId to determine if connectId
-    // is reliable enough to identify an existing device.
+    // Third-party devices may not have rawDeviceId; fall back to
+    // vendorProfile-gated connectId matching when it's reliable enough.
     if (!rawDeviceId) {
       const profile = getVendorProfile(vendor ?? EHardwareVendor.onekey);
 
-      if (connectId && profile.canMatchDeviceByConnectId(connectId)) {
+      if (connectId && profile.identity.matchDeviceByConnectId(connectId)) {
         const normalizedVendor = vendor ?? EHardwareVendor.onekey;
         const { devices } = await this.getAllDevices();
         const connId = connectId.toLowerCase();

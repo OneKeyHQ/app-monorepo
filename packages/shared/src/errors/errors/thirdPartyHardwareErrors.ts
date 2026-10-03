@@ -1,6 +1,7 @@
 /* eslint-disable max-classes-per-file */
 import { HardwareErrorCode as ThirdPartyHwErrorCode } from '@onekeyfe/hwk-adapter-core';
 
+import { EHardwareVendor } from '../../../types/device';
 import {
   EAppEventBusNames,
   HARDWARE_ERROR_DIALOG_TYPES,
@@ -14,7 +15,9 @@ import { OneKeyHardwareError } from './hardwareErrors';
 
 import type { IOneKeyErrorHardwareProps } from './hardwareErrors';
 
-export const THIRD_PARTY_HW_INSTALL_APP_USER_CANCEL_CODE = 10_504;
+// App-internal marker, never on the wire: an all-network install cancelled
+// mid-batch, so the remaining chains soft-skip instead of failing. Deliberately above the SDK's 10000-99999 code space.
+export const THIRD_PARTY_HW_INSTALL_APP_USER_CANCEL_CODE = 100_504;
 export const THIRD_PARTY_HW_NETWORK_ERROR_CODE =
   ThirdPartyHwErrorCode.NetworkError;
 export const THIRD_PARTY_HW_DEVICE_PATH_FORBIDDEN_CODE =
@@ -23,8 +26,18 @@ export const THIRD_PARTY_HW_BLE_CONNECT_FAILED_CODE =
   ThirdPartyHwErrorCode.BleConnectFailed;
 export const THIRD_PARTY_HW_PIN_MISMATCH_CODE =
   ThirdPartyHwErrorCode.PinMismatch;
-// Literal until the SDK bump lands: HardwareErrorCode.BlePairingCancelled.
-export const THIRD_PARTY_HW_BLE_PAIRING_CANCELLED_CODE = 10_310;
+export const THIRD_PARTY_HW_BLE_PAIRING_CANCELLED_CODE =
+  ThirdPartyHwErrorCode.BlePairingCancelled;
+export const THIRD_PARTY_HW_OPERATION_NOT_FOUND_CODE =
+  ThirdPartyHwErrorCode.OperationNotFound;
+export const THIRD_PARTY_HW_OPERATION_ENDED_CODE =
+  ThirdPartyHwErrorCode.OperationEnded;
+export const THIRD_PARTY_HW_SECURE_CHANNEL_ERROR_CODE =
+  ThirdPartyHwErrorCode.LedgerSecureChannelError;
+export const THIRD_PARTY_HW_FIRMWARE_METADATA_ERROR_CODE =
+  ThirdPartyHwErrorCode.LedgerFirmwareMetadataError;
+export const THIRD_PARTY_HW_APP_ALREADY_INSTALLED_CODE =
+  ThirdPartyHwErrorCode.AppAlreadyInstalled;
 
 // ---------------------------------------------------------------------------
 // Base class for third-party hardware errors
@@ -48,6 +61,11 @@ export class ThirdPartyHardwareError extends OneKeyHardwareError {
 export enum EThirdPartyDevicePermissionDeniedReason {
   bluetoothTurnedOff = 'bluetoothTurnedOff',
   permissionDenied = 'permissionDenied',
+}
+
+// Keystone has no Bluetooth channel, so BLE-worded defaults must not reach it.
+function isKeystoneVendor(vendor?: string) {
+  return vendor?.toLowerCase() === EHardwareVendor.keystone;
 }
 
 // Do NOT pass `defaultMessage` — the locale key's translation already holds
@@ -217,6 +235,40 @@ export class ThirdPartyInstallAppUserCancelled extends ThirdPartyHardwareError {
   override code = THIRD_PARTY_HW_INSTALL_APP_USER_CANCEL_CODE;
 }
 
+/**
+ * The app is already installed, the outcome the caller wanted; install
+ * flows treat it as done rather than a failure.
+ */
+export class ThirdPartyAppAlreadyInstalled extends ThirdPartyHardwareError {
+  constructor(props?: IOneKeyErrorHardwareProps & { vendor?: string }) {
+    super(
+      normalizeErrorProps(props, {
+        defaultKey:
+          ETranslations.hardware_third_party_app_already_installed__msg,
+        defaultAutoToast: false,
+      }),
+    );
+    this.vendor = props?.vendor;
+  }
+
+  override code = THIRD_PARTY_HW_APP_ALREADY_INSTALLED_CODE;
+}
+
+function resolvePermissionDeniedKey(props?: {
+  vendor?: string;
+  reason?: EThirdPartyDevicePermissionDeniedReason;
+}) {
+  if (isKeystoneVendor(props?.vendor)) {
+    return ETranslations.device_grant_usb_access;
+  }
+  if (
+    props?.reason === EThirdPartyDevicePermissionDeniedReason.bluetoothTurnedOff
+  ) {
+    return ETranslations.hardware_bluetooth_need_turned_on_error;
+  }
+  return ETranslations.onboarding_bluetooth_permission_needed;
+}
+
 export class ThirdPartyDevicePermissionDenied extends ThirdPartyHardwareError {
   reason?: EThirdPartyDevicePermissionDeniedReason;
 
@@ -241,11 +293,7 @@ export class ThirdPartyDevicePermissionDenied extends ThirdPartyHardwareError {
             }
           : props,
         {
-          defaultKey:
-            props?.reason ===
-            EThirdPartyDevicePermissionDeniedReason.bluetoothTurnedOff
-              ? ETranslations.hardware_bluetooth_need_turned_on_error
-              : ETranslations.onboarding_bluetooth_permission_needed,
+          defaultKey: resolvePermissionDeniedKey(props),
           defaultAutoToast: true,
         },
       ),
@@ -289,6 +337,36 @@ export class ThirdPartyDeviceDisconnected extends ThirdPartyHardwareError {
   override code = ThirdPartyHwErrorCode.DeviceDisconnected;
 }
 
+/** The runtime interaction cannot be resolved by the current adapter instance. */
+export class ThirdPartyOperationNotFound extends ThirdPartyHardwareError {
+  constructor(props?: IOneKeyErrorHardwareProps & { vendor?: string }) {
+    super(
+      normalizeErrorProps(props, {
+        defaultKey: ETranslations.hardware_third_party_device_disconnected,
+        defaultAutoToast: true,
+      }),
+    );
+    this.vendor = props?.vendor;
+  }
+
+  override code = THIRD_PARTY_HW_OPERATION_NOT_FOUND_CODE;
+}
+
+/** The runtime interaction ended and the operation must start a new connection. */
+export class ThirdPartyOperationEnded extends ThirdPartyHardwareError {
+  constructor(props?: IOneKeyErrorHardwareProps & { vendor?: string }) {
+    super(
+      normalizeErrorProps(props, {
+        defaultKey: ETranslations.hardware_third_party_device_disconnected,
+        defaultAutoToast: true,
+      }),
+    );
+    this.vendor = props?.vendor;
+  }
+
+  override code = THIRD_PARTY_HW_OPERATION_ENDED_CODE;
+}
+
 /** Chain app wedged (e.g. Ledger BTC 0x6901). User must exit app on device. */
 export class ThirdPartyDeviceAppStuck extends ThirdPartyHardwareError {
   constructor(props?: IOneKeyErrorHardwareProps & { vendor?: string }) {
@@ -319,6 +397,42 @@ export class ThirdPartyDeviceMismatch extends ThirdPartyHardwareError {
   }
 
   override code = ThirdPartyHwErrorCode.DeviceMismatch;
+}
+
+/**
+ * Discovery found devices but none is the wallet being looked for. Milder
+ * than ThirdPartyDeviceMismatch: the known wallet is unchanged, the remedy is
+ * a cable swap, not re-selecting from a scan list.
+ */
+export class ThirdPartyDeviceSearchMismatch extends ThirdPartyHardwareError {
+  constructor(props?: IOneKeyErrorHardwareProps & { vendor?: string }) {
+    super(
+      normalizeErrorProps(props, {
+        defaultKey: ETranslations.hardware_not_same,
+      }),
+    );
+    this.vendor = props?.vendor;
+  }
+
+  override code = ThirdPartyHwErrorCode.DeviceSearchMismatch;
+}
+
+/**
+ * The Ledger secure channel (websocket for app install / genuine check)
+ * broke mid-operation and must be rebuilt; distinct from ThirdPartyNetworkError, a plain failure to reach Ledger's servers.
+ */
+export class ThirdPartySecureChannelError extends ThirdPartyHardwareError {
+  constructor(props?: IOneKeyErrorHardwareProps & { vendor?: string }) {
+    super(
+      normalizeErrorProps(props, {
+        defaultKey: ETranslations.global_connection_failed_help_text,
+        defaultAutoToast: true,
+      }),
+    );
+    this.vendor = props?.vendor;
+  }
+
+  override code = THIRD_PARTY_HW_SECURE_CHANNEL_ERROR_CODE;
 }
 
 /** Operation timed out */
@@ -404,6 +518,22 @@ export class ThirdPartyThpPairingFailed extends ThirdPartyHardwareError {
   override code = ThirdPartyHwErrorCode.ThpPairingFailed;
 }
 
+/** The device rejected the stored THP pairing; the next connection pairs again. */
+export class ThirdPartyThpPairingRequired extends ThirdPartyHardwareError {
+  constructor(props?: IOneKeyErrorHardwareProps & { vendor?: string }) {
+    super(
+      normalizeErrorProps(props, {
+        defaultKey:
+          ETranslations.hardware_third_party_thp_pairing_required__msg,
+        defaultAutoToast: true,
+      }),
+    );
+    this.vendor = props?.vendor;
+  }
+
+  override code = ThirdPartyHwErrorCode.ThpPairingRequired;
+}
+
 /** Chain has no keyring impl for this vendor (e.g. Ledger doesn't support Aptos). */
 export class ThirdPartyChainNotSupported extends ThirdPartyHardwareError {
   constructor(
@@ -448,10 +578,13 @@ export class ThirdPartyMethodNotSupported extends ThirdPartyHardwareError {
 
 /** Device rejected the derivation path (index outside its supported range) */
 export class ThirdPartyPathForbidden extends ThirdPartyHardwareError {
-  constructor(props?: IOneKeyErrorHardwareProps) {
+  constructor(props?: IOneKeyErrorHardwareProps & { vendor?: string }) {
     super(
       normalizeErrorProps(props, {
-        defaultKey: ETranslations.hardware_third_party_path_not_supported__msg,
+        // Keystone refuses a path only for Bitcoin beyond account #1.
+        defaultKey: isKeystoneVendor(props?.vendor)
+          ? ETranslations.hardware_third_party_keystone_btc_account_one_only__msg
+          : ETranslations.hardware_third_party_path_not_supported__msg,
         defaultAutoToast: true,
       }),
     );
@@ -528,7 +661,9 @@ export class ThirdPartyDeviceNotFound extends ThirdPartyHardwareError {
   constructor(props?: IOneKeyErrorHardwareProps & { vendor?: string }) {
     super(
       normalizeErrorProps(props, {
-        defaultKey: ETranslations.hardware_third_party_device_not_found,
+        defaultKey: isKeystoneVendor(props?.vendor)
+          ? ETranslations.device_stage_disconnected__desc
+          : ETranslations.hardware_third_party_device_not_found,
         defaultAutoToast: false,
       }),
     );
@@ -614,7 +749,9 @@ export class ThirdPartyTransportError extends ThirdPartyHardwareError {
   constructor(props?: IOneKeyErrorHardwareProps & { vendor?: string }) {
     super(
       normalizeErrorProps(props, {
-        defaultKey: ETranslations.hardware_third_party_transport_error,
+        defaultKey: isKeystoneVendor(props?.vendor)
+          ? ETranslations.global_connection_failed_usb_help_text
+          : ETranslations.hardware_third_party_transport_error,
         defaultAutoToast: true,
       }),
     );
@@ -637,6 +774,19 @@ export class ThirdPartyTransportNotAvailable extends ThirdPartyHardwareError {
   }
 
   override code = ThirdPartyHwErrorCode.TransportNotAvailable;
+}
+
+export class ThirdPartyPayloadTooLarge extends ThirdPartyHardwareError {
+  constructor(props?: IOneKeyErrorHardwareProps) {
+    super(
+      normalizeErrorProps(props, {
+        defaultKey: ETranslations.hardware_third_party_payload_too_large__msg,
+        defaultAutoToast: true,
+      }),
+    );
+  }
+
+  override code = ThirdPartyHwErrorCode.PayloadTooLarge;
 }
 
 // ---------------------------------------------------------------------------
@@ -720,26 +870,36 @@ export class ThirdPartyEvmTxTypeNotSupported extends ThirdPartyHardwareError {
 
 // ---------------------------------------------------------------------------
 // Generic error classes (non-EVM chains: SOL / TRON / BTC)
-// Device screen shows the exact setting name, so one generic copy per bucket.
 // ---------------------------------------------------------------------------
 
-/**
- * "Please enable Blind signing and follow the on-device instructions."
- * Covers every non-EVM app-setting toggle that blocks signing:
- *   SOL BlindSigning, TRON Custom Contracts / Data Signing / Sign by Hash.
- */
+const LEDGER_SIGNING_SETTINGS: Partial<Record<number, ETranslations>> = {
+  [ThirdPartyHwErrorCode.SolanaBlindSigningRequired]:
+    ETranslations.hardware_third_party_evm_blind_signing_required,
+  [ThirdPartyHwErrorCode.TronCustomContractRequired]:
+    ETranslations.hardware_third_party_tron_custom_contract_required__msg,
+  [ThirdPartyHwErrorCode.TronDataSigningRequired]:
+    ETranslations.hardware_third_party_tron_data_signing_required__msg,
+  [ThirdPartyHwErrorCode.TronSignByHashRequired]:
+    ETranslations.hardware_third_party_tron_sign_by_hash_required__msg,
+};
+
+/** Names match the settings shown by the respective Ledger chain app. */
 export class ThirdPartyEnableBlindSigning extends ThirdPartyHardwareError {
   constructor(
     props?: IOneKeyErrorHardwareProps & { vendor?: string; code?: number },
   ) {
+    const code =
+      props?.code ?? ThirdPartyHwErrorCode.SolanaBlindSigningRequired;
     super(
       normalizeErrorProps(props, {
-        defaultKey: ETranslations.hardware_third_party_enable_blind_signing,
+        defaultKey:
+          LEDGER_SIGNING_SETTINGS[code] ??
+          ETranslations.hardware_third_party_evm_blind_signing_required,
         defaultAutoToast: true,
       }),
     );
     this.vendor = props?.vendor;
-    this.code = props?.code ?? ThirdPartyHwErrorCode.SolanaBlindSigningRequired;
+    this.code = code;
   }
 }
 

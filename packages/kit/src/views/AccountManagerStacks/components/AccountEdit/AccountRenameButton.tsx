@@ -16,7 +16,7 @@ import type {
   IDBIndexedAccount,
   IDBWallet,
 } from '@onekeyhq/kit-bg/src/dbs/local/types';
-import { getVendorProfile } from '@onekeyhq/shared/src/hardware/vendorProfile';
+import { getVendorProfile } from '@onekeyhq/shared/src/hardware/config/vendorProfile';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {

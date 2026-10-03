@@ -2,6 +2,7 @@
 
 import type { IAirGapUrJson } from '@onekeyhq/qr-wallet-sdk';
 import type { IOneKeyError } from '@onekeyhq/shared/src/errors/types/errorTypes';
+import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import type {
   EFirmwareUpdateTipMessages,
   EHardwareVendor,
@@ -11,6 +12,7 @@ import type {
   IDeviceFirmwareType,
   IFirmwareUpdateInfo,
   IFirmwareUpdatesDetectStatus,
+  IThirdPartyHardwareSearchTarget,
 } from '@onekeyhq/shared/types/device';
 import type {
   IDeviceStageAuthChecklistItem,
@@ -27,6 +29,7 @@ import { EAtomNames } from '../atomNames';
 import { globalAtom } from '../utils';
 
 import type { IDeviceType } from '@onekeyfe/hd-core';
+import type { DeviceSelectionRequest } from '@onekeyfe/hwk-adapter-core';
 
 export { EHardwareUiStateAction } from '@onekeyhq/shared/types/hardwareUi';
 export type IHardwareUiResponseCorrelation = {
@@ -274,6 +277,8 @@ export enum EThirdPartyHardwareUiAction {
   // Blocking requests — UI waits for user response.
   // SDK found no device; ask the user to make it available and retry.
   requestDeviceNotFound = 'request-ledger-device-not-found',
+  // Operation-first flow found multiple candidates; the SDK waits for one.
+  requestDeviceSelection = 'request-third-party-device-selection',
   // Ledger BTC requires explicit user approval before using index >= 100.
   requestBtcHighIndexConfirm = 'request-ledger-btc-high-index-confirm',
   // Trezor THP: device showed a pairing code, host needs to input it.
@@ -289,7 +294,12 @@ export enum EThirdPartyHardwareUiAction {
   // Trezor transport fallback: USB is unavailable and this DB device has not
   // yet learned its BLE connectId. UI scans BLE candidates, binds the matching
   // device_id, then resolves the waiting hardware call.
-  requestTrezorBleBinding = 'request-trezor-ble-binding',
+  // Keystone QR: the adapter needs the app to show an animated UR QR code for
+  // the device to scan (import / signing round trip).
+  requestKeystoneQrDisplay = 'request-keystone-qr-display',
+  // Keystone QR: the device is already showing its own export/response QR,
+  // so there's no display step, the app just scans.
+  requestKeystoneQrScan = 'request-keystone-qr-scan',
   // Non-blocking notifications — UI shows status.
   openApp = 'ui-event-ledger-open-app',
   confirmOnDevice = 'ui-event-ledger-confirm-on-device',
@@ -326,6 +336,8 @@ export function isThirdPartyConfirmOnDevice(
 }
 
 export type IThirdPartyHardwareUiState = {
+  /** Runtime-only publication id; stable across serialization and independent of SDK request ids. */
+  uiRequestId?: string;
   action: EThirdPartyHardwareUiAction;
   vendor: EHardwareVendor;
   payload?: {
@@ -347,14 +359,15 @@ export type IThirdPartyHardwareUiState = {
     nfcData?: string;
     /** Trezor passphrase: expected hidden wallet identity in verify mode. */
     passphraseState?: string;
-    /** Trezor BLE binding: USB-side connect id of the DB device. */
-    usbConnectId?: string;
-    /** Trezor BLE binding: stable device_id read from Trezor features. */
-    featuresDeviceId?: string;
-    /** Trezor BLE binding: servicePromise id resolved with the fallback connectId. */
-    promiseId?: number;
-    /** Trezor BLE binding mode. */
-    trezorBleBindingMode?: 'manual-binding' | 'auto-fallback';
+    /** SDK operation-first selection candidates from the current discovery. */
+    deviceSearchTargets?: IThirdPartyHardwareSearchTarget[];
+    deviceSelection?: Omit<DeviceSelectionRequest, 'devices'>;
+    /** Keystone QR: BC-UR type of the payload to display (requestKeystoneQrDisplay only). */
+    urType?: string;
+    /** Keystone QR: hex-encoded CBOR of the payload to display (requestKeystoneQrDisplay only). */
+    urData?: string;
+    /** Keystone QR: hints the display payload needs multi-frame animated rendering. */
+    animated?: boolean;
   };
 };
 
@@ -365,6 +378,34 @@ export const {
   initialValue: undefined,
   name: EAtomNames.thirdPartyHardwareUiStateAtom,
 });
+
+export type IThirdPartyBleBindingState = {
+  vendor: EHardwareVendor;
+  bindingSessionId: string;
+  requestId: string;
+  status: 'scanning' | 'verifying' | 'saved' | 'failed' | 'cancelled';
+  targets: IThirdPartyHardwareSearchTarget[];
+  rejectedConnectId?: string;
+  reason?: 'missing-binding' | 'known-connection-unavailable' | 'manual-rebind';
+};
+
+export const {
+  target: thirdPartyBleBindingAtom,
+  use: useThirdPartyBleBindingAtom,
+} = globalAtom<IThirdPartyBleBindingState | undefined>({
+  initialValue: undefined,
+  name: EAtomNames.thirdPartyBleBindingAtom,
+});
+
+export async function publishThirdPartyHardwareUiState(
+  state: Omit<IThirdPartyHardwareUiState, 'uiRequestId'>,
+  uiRequestId = generateUUID(),
+): Promise<void> {
+  await thirdPartyHardwareUiStateAtom.set({
+    ...state,
+    uiRequestId,
+  });
+}
 
 export type IThirdPartyAppInstallState = {
   vendor: EHardwareVendor;

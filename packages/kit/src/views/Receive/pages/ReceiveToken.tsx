@@ -35,6 +35,7 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { getVendorProfile } from '@onekeyhq/shared/src/hardware/config/vendorProfile';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { showIntercom } from '@onekeyhq/shared/src/modules3rdParty/intercom';
@@ -68,6 +69,7 @@ import {
 } from '../components/ReceiveShare';
 import { ReceiveTestIDs } from '../testIDs';
 import { EAddressState } from '../types';
+import { getManualAddressVerificationPath } from '../utils';
 
 import type {
   IReceiveShareData,
@@ -148,12 +150,21 @@ function ReceiveToken() {
   const verificationPath = isBtcUsedAddressVerifyMode
     ? btcUsedAddressPath
     : currentAccount?.addressDetail?.receiveAddressPath;
+  const manualVerificationPath = getManualAddressVerificationPath({
+    receiveAddressPath: verificationPath,
+    accountPath: currentAccount?.path,
+    isBtcNetwork: networkUtils.isBTCNetwork(networkId),
+  });
+  const hardwareVendor = wallet?.associatedDeviceInfo?.vendor;
+  const { addressVerification } = getVendorProfile(hardwareVendor);
 
   const { bottom } = useSafeAreaInsets();
 
   const [addressState, setAddressState] = useState<EAddressState>(
     EAddressState.Unverified,
   );
+  const [showManualVerificationPath, setShowManualVerificationPath] =
+    useState(false);
 
   const [networkLogoColor, setNetworkLogoColor] = useState<string | null>(null);
 
@@ -195,9 +206,11 @@ function ReceiveToken() {
 
     if (
       addressState === EAddressState.Verifying &&
-      (hardwareUiState?.action === EHardwareUiStateAction.REQUEST_BUTTON ||
-        thirdPartyHardwareUiState?.action ===
-          EThirdPartyHardwareUiAction.confirmOnDevice)
+      ((addressVerification.confirmationEvent === 'buttonRequest' &&
+        hardwareUiState?.action === EHardwareUiStateAction.REQUEST_BUTTON) ||
+        (addressVerification.confirmationEvent === 'confirmOnDevice' &&
+          thirdPartyHardwareUiState?.action ===
+            EThirdPartyHardwareUiAction.confirmOnDevice))
     ) {
       return true;
     }
@@ -205,6 +218,7 @@ function ReceiveToken() {
     return false;
   }, [
     addressState,
+    addressVerification.confirmationEvent,
     hardwareUiState?.action,
     thirdPartyHardwareUiState,
     isHardwareWallet,
@@ -330,16 +344,48 @@ function ReceiveToken() {
   const resetVerifyState = useCallback(() => {
     verifyAttemptRef.current += 1;
     isVerifyingRef.current = false;
+    setShowManualVerificationPath(false);
     setAddressState(EAddressState.Unverified);
   }, []);
 
   const handleVerifyOnDevicePress = useCallback(async () => {
     if (isVerifyingRef.current) return;
-    if (!currentDeriveType) return;
     if (!displayAddress) {
       setAddressState(EAddressState.Unverified);
       return;
     }
+    if (addressVerification.mode === 'manual') {
+      // Manual mode has no device round-trip to gate on, so the address is
+      // only revealed once the user acknowledges they must compare it on the
+      // device themselves.
+      Dialog.confirm({
+        icon: 'ErrorOutline',
+        tone: 'warning',
+        title: intl.formatMessage({
+          id: ETranslations.global_receive_address_confirmation,
+        }),
+        description: intl.formatMessage({
+          // The path block only renders when a path exists, so the copy must
+          // not ask the user to compare one that is never shown.
+          id: manualVerificationPath
+            ? ETranslations.hardware_third_party_manual_verify__desc
+            : ETranslations.hardware_third_party_manual_verify_address_only__desc,
+        }),
+        onConfirmText: intl.formatMessage({
+          id: ETranslations.global_i_got_it,
+        }),
+        onConfirm: () => {
+          setShowManualVerificationPath(true);
+          setAddressState(EAddressState.ForceShow);
+        },
+        confirmButtonProps: {
+          variant: 'secondary',
+        },
+      });
+      return;
+    }
+    if (!currentDeriveType) return;
+    setShowManualVerificationPath(false);
     const attempt = verifyAttemptRef.current + 1;
     verifyAttemptRef.current = attempt;
     isVerifyingRef.current = true;
@@ -416,6 +462,8 @@ function ReceiveToken() {
     displayAddress,
     intl,
     networkId,
+    addressVerification.mode,
+    manualVerificationPath,
     verificationPath,
     wallet?.type,
     walletId,
@@ -574,13 +622,38 @@ function ReceiveToken() {
             outlineStyle: 'solid',
           }}
         >
-          <XStack flex={1} flexWrap="wrap">
-            <HighlightAddress
-              address={displayAddress}
-              size="$bodyLg"
-              fontFamily="$monoRegular"
-            />
-          </XStack>
+          <YStack flex={1} gap="$2">
+            <XStack flexWrap="wrap">
+              <HighlightAddress
+                address={displayAddress}
+                size="$bodyLg"
+                fontFamily="$monoRegular"
+              />
+            </XStack>
+            {showManualVerificationPath ? (
+              <SizableText size="$bodySm" color="$textSubdued">
+                {intl.formatMessage({
+                  id: ETranslations.verify_on_device_confirm_address__desc,
+                })}
+              </SizableText>
+            ) : null}
+            {showManualVerificationPath && manualVerificationPath ? (
+              <YStack testID={ReceiveTestIDs.DerivationPath} gap="$0.5">
+                <SizableText size="$bodySm" color="$textSubdued">
+                  {intl.formatMessage({
+                    id: ETranslations.global_derivation_path,
+                  })}
+                </SizableText>
+                <SizableText
+                  size="$bodySmMedium"
+                  color="$text"
+                  fontFamily="$monoRegular"
+                >
+                  {manualVerificationPath}
+                </SizableText>
+              </YStack>
+            ) : null}
+          </YStack>
           {platformEnv.isNative ? null : (
             <Stack
               testID={ReceiveTestIDs.CopyAddressButton}
@@ -593,7 +666,13 @@ function ReceiveToken() {
         </XStack>
       </ReceiveCardCell>
     );
-  }, [displayAddress, handleCopyAddress]);
+  }, [
+    displayAddress,
+    handleCopyAddress,
+    intl,
+    showManualVerificationPath,
+    manualVerificationPath,
+  ]);
 
   const arrivalTimeText = useMemo(() => {
     // Until the server override settles, render no ETA instead of the
@@ -714,6 +793,7 @@ function ReceiveToken() {
   }, [canShowShareEntry, handleSharePress, isPreparingShare, intl]);
 
   const handleSkipVerifyPress = useCallback(() => {
+    setShowManualVerificationPath(false);
     Dialog.confirm({
       icon: 'ErrorOutline',
       tone: 'warning',

@@ -123,6 +123,16 @@ export async function createKeyringInstance(vault: VaultBase) {
           keyring = new keyringMap.hwTrezor(vault);
         }
         break;
+      case EHardwareVendor.keystone:
+        if (!keyringMap.hwKeystone) {
+          keyring = new ThirdPartyUnsupportedKeyringStub(vault, {
+            vendor: 'Keystone',
+            chain: await resolveChainName(),
+          });
+        } else {
+          keyring = new keyringMap.hwKeystone(vault);
+        }
+        break;
       case EHardwareVendor.onekey:
       case undefined:
         checkKeyringClassExists(keyringMap.hw);

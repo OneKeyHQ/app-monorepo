@@ -1,6 +1,8 @@
 import { EDeviceType, HardwareErrorCode } from '@onekeyfe/hd-shared';
+import { HardwareErrorCode as ThirdPartyHwErrorCode } from '@onekeyfe/hwk-adapter-core';
 
 import type { IAirGapUrJson } from '@onekeyhq/qr-wallet-sdk';
+import { EThirdPartyDevicePermissionDeniedReason } from '@onekeyhq/shared/src/errors/errors/thirdPartyHardwareErrors';
 import type {
   IOneKeyError,
   IOneKeyErrorI18nInfo,
@@ -26,6 +28,7 @@ import {
   isFirmwareConfirmTip,
   setDeviceStageBurstActive,
 } from '@onekeyhq/shared/src/hardware/deviceStageOwnership';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EFirmwareUpdateTipMessages } from '@onekeyhq/shared/types/device';
 import type { EHardwareVendor } from '@onekeyhq/shared/types/device';
@@ -850,7 +853,21 @@ export class DeviceStageBurstScope {
     const error = params.error as
       | IOneKeyError<IOneKeyErrorI18nInfo>
       | undefined;
+    const permissionReason = error?.payload?.params?.permissionDeniedReason;
+    // Only the native host permission gate opens the dedicated BLE settings dialog.
+    const hasThirdPartyPermissionDialog =
+      platformEnv.isNative &&
+      wasVendorBurst &&
+      isHardwareErrorByCode({
+        error,
+        code: ThirdPartyHwErrorCode.DevicePermissionDenied,
+      }) &&
+      (permissionReason ===
+        EThirdPartyDevicePermissionDeniedReason.permissionDenied ||
+        permissionReason ===
+          EThirdPartyDevicePermissionDeniedReason.bluetoothTurnedOff);
     if (
+      hasThirdPartyPermissionDialog ||
       isHardwareErrorByCode({ error, code: DEDICATED_DIALOG_ERROR_CODES }) ||
       (error?.payload?.connectId &&
         isHardwareErrorByCode({
@@ -1351,8 +1368,8 @@ export class DeviceStageBurstScope {
    * subscription in ServiceHardwareUI — the adapters' many write sites
    * stay untouched. Install state outranks the ui-state action (the
    * install dialog coexisted with prompt toasts in the legacy UI);
-   * BLE binding is ignored — its legacy dialog stays, and the stage
-   * yields to it (silence) so the list is reachable (OK-63224).
+   * BLE binding drives its own atom, but the stage still yields to its
+   * dialog so the list is reachable (OK-63224).
    */
   async onThirdPartyState({
     ui,
@@ -1399,9 +1416,6 @@ export class DeviceStageBurstScope {
       return;
     }
     if (ui) {
-      if (ui.action === EThirdPartyHardwareUiAction.requestTrezorBleBinding) {
-        return;
-      }
       if (this.yieldedToDialog) {
         // The SDK rail's rule, on this rail: behind a dialog the stage
         // yielded to (the Trezor BLE binding list, OK-63224) only the
