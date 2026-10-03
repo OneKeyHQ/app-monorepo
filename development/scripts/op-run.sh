@@ -1,7 +1,21 @@
 #!/bin/bash
-set -e
+set -euo pipefail
 
 VAULT_NAME="ENV-BIG-FE-APP-MONOREPO-DEV"
+
+# Show usage if no arguments provided
+if [ $# -eq 0 ]; then
+    echo "Usage: yarn op <command> [args...]"
+    echo ""
+    echo "Examples:"
+    echo "  yarn op yarn app:web"
+    echo "  yarn op yarn app:desktop"
+    echo "  yarn op yarn test"
+    echo ""
+    echo "This script loads environment variables from 1Password vault"
+    echo "and then executes the given command."
+    exit 1
+fi
 
 # Check if 1Password CLI is installed
 if ! command -v op &> /dev/null; then
@@ -27,9 +41,9 @@ fi
 
 # Find a valid OneKey account by checking email domain (@onekey.so)
 # Using email is more reliable than account URL which can be modified locally
-ACCOUNT_JSON=$(op account list --format=json | jq -r '.[] | select(.email | test("@onekey\\.so$"))')
+ACCOUNT_JSON=$(op account list --format=json | jq -c '[.[] | select(.email | test("@onekey\\.so$"))] | first')
 
-if [ -z "$ACCOUNT_JSON" ]; then
+if [ -z "$ACCOUNT_JSON" ] || [ "$ACCOUNT_JSON" = "null" ]; then
     echo "Error: No 1Password account found with @onekey.so email."
     echo "Please sign in with your OneKey 1Password account first:"
     echo "  op signin"
@@ -55,10 +69,18 @@ echo "Loading environment variables from 1Password vault: $VAULT_NAME"
 # Get all item titles from the vault (null-delimited for safe parsing)
 while IFS= read -r -d '' item; do
     # Sanitize title: replace spaces/hyphens with underscores, remove invalid chars
-    sanitized=$(echo "$item" | tr ' -' '__' | tr -cd 'A-Za-z0-9_')
+    sanitized=$(printf '%s' "$item" | tr ' -' '__' | tr -cd 'A-Za-z0-9_')
 
     # Skip if sanitized name is empty
     [ -z "$sanitized" ] && continue
+
+    # Skip if variable name starts with a number (invalid shell variable name)
+    case "$sanitized" in
+        [0-9]*)
+            echo "  Skipped (invalid variable name): $item -> $sanitized (starts with number)"
+            continue
+            ;;
+    esac
 
     # Get the password field value
     value=$(op item get "$item" --vault="$VAULT_NAME" --account="$ACCOUNT" --fields=password --reveal 2>/dev/null) || continue
