@@ -14,6 +14,18 @@ export class BrowserScene extends BaseScene {
     return fnName;
   }
 
+  // Local only: this fires on every browser-route transition and carries no
+  // user data, just how many live WebViews were told to throttle out of how
+  // many were tracked.
+  @LogToLocal({ level: 'info' })
+  public offRouteThrottle(params: {
+    label: string;
+    applied: number;
+    total: number;
+  }) {
+    return [params];
+  }
+
   @LogToLocal({ level: 'info' })
   public logRejectUrl(url: string) {
     return url;

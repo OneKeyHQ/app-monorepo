@@ -12,7 +12,7 @@ import { useDAppNotifyChanges } from '../../hooks/useDAppNotifyChanges';
 import {
   useActiveTabId,
   useWebTabDataById,
-  useWebTabs,
+  useWebTabIds,
 } from '../../hooks/useWebTabs';
 import { HistoryIconButton } from '../components/HistoryIconButton';
 
@@ -21,7 +21,9 @@ import DesktopBrowserNavigationContainer from './DesktopBrowserNavigationContain
 import { withBrowserProvider } from './WithBrowserProvider';
 
 function DesktopBrowser() {
-  const { tabs } = useWebTabs();
+  // ids-only subscription: this page only maps tab ids to per-tab content
+  // shells; field reads go through useWebTabDataById below.
+  const { ids } = useWebTabIds();
   const { activeTabId } = useActiveTabId();
   const { tab: activeTab } = useWebTabDataById(activeTabId ?? '');
   const isHomeType = activeTab?.type === 'home';
@@ -37,9 +39,9 @@ function DesktopBrowser() {
   useDAppNotifyChanges({ tabId: activeTabId });
 
   // Sort tabs by id to maintain stable order and prevent re-renders
-  const orderTabs = useMemo(
-    () => tabs.toSorted((a, b) => a.id.localeCompare(b.id)),
-    [tabs],
+  const orderTabIds = useMemo(
+    () => ids.toSorted((a, b) => a.localeCompare(b)),
+    [ids],
   );
 
   const renderHeaderRight = useCallback(() => {
@@ -67,12 +69,8 @@ function DesktopBrowser() {
         }}
       />
       <Page.Body>
-        {orderTabs.map((t) => (
-          <DesktopBrowserContent
-            key={t.id}
-            id={t.id}
-            activeTabId={activeTabId}
-          />
+        {orderTabIds.map((id) => (
+          <DesktopBrowserContent key={id} id={id} activeTabId={activeTabId} />
         ))}
       </Page.Body>
     </Page>
