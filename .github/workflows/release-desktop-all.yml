@@ -550,6 +550,7 @@ jobs:
           cd apps/desktop
           yarn build:main
           yarn install-app-deps
+          yarn build:usb-repair
 
       - name: 'Package Windows NSIS'
         id: phase1_nsis

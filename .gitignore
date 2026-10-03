@@ -108,6 +108,7 @@ coverage/
 /packages/kit/src/components/LightweightChart/utils/lightweightChartsStandalone.text-js
 /packages/shared/src/web/index.html
 /mobile/android/build-logic/privacy-security-plugins/bin/main/onekey/privacy/jpush
+/apps/desktop/native-modules/onekey-usb-repair/build/
 apps/mobile/android/.kotlin/
 apps/mobile/android/build-logic/privacy-security-plugins/bin/main/onekey/privacy/**/*.class
 /apps/mobile/out-dir-bundle
