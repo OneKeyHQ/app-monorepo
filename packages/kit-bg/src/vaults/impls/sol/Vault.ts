@@ -82,6 +82,7 @@ import type {
   IMeasureRpcStatusResult,
 } from '@onekeyhq/shared/types/customRpc';
 import type { IFeeInfoUnit } from '@onekeyhq/shared/types/fee';
+import type { IAccountHistoryTx } from '@onekeyhq/shared/types/history';
 import type { IVerifyMessageParams } from '@onekeyhq/shared/types/message';
 import type { ISwapTxInfo } from '@onekeyhq/shared/types/swap/types';
 import type { IToken } from '@onekeyhq/shared/types/token';
@@ -113,6 +114,7 @@ import {
   CREATE_TOKEN_ACCOUNT_RENT,
   MIN_PRIORITY_FEE,
   TOKEN_AUTH_RULES_ID,
+  canRefreshSolTxBlockhash,
   isCustomProgram,
   isTxOverSize,
   masterEditionAddress,
@@ -120,6 +122,7 @@ import {
   parseComputeUnitLimit,
   parseComputeUnitPrice,
   parseNativeTxDetail,
+  replaceSolTxRecentBlockhash,
   tokenRecordAddress,
 } from './utils';
 
@@ -127,6 +130,7 @@ import type { IAssociatedTokenInfo, IParsedAccountInfo } from './types';
 import type { IKeyringMap } from '../../base/VaultBase';
 import type {
   IBroadcastTransactionByCustomRpcParams,
+  IBroadcastTransactionParams,
   IBuildAccountAddressDetailParams,
   IBuildDecodedTxParams,
   IBuildEncodedTxParams,
@@ -145,6 +149,42 @@ import type {
 } from '@metaplex-foundation/mpl-token-metadata';
 import type { AccountInfo, TransactionInstruction } from '@solana/web3.js';
 import type { FailedAttemptError } from 'p-retry';
+
+// A pending Solana tx that never reached the ledger leaves no signature
+// status. Its blockhash lives ~150 slots (60-90 s) and the broadcast retries
+// add up to ~45 s more, so an unseen tx older than this window is dropped.
+const SOL_PENDING_TX_DROPPED_TIMEOUT_MS = timerUtils.getTimeDurationMs({
+  minute: 3,
+});
+// Preflight rejection text shared by the proxy (code 40028) and custom RPCs.
+const SOL_BLOCKHASH_NOT_FOUND_MESSAGE = 'Blockhash not found';
+// TODO(OK-63381): move to an ETranslations key once the copy lands in Lokalise.
+const SOL_TX_EXPIRED_MESSAGE = 'Transaction expired, please try again.';
+
+function isSolBlockhashNotFoundError(error: unknown): boolean {
+  return (
+    (error as OneKeyError | undefined)?.code ===
+      BLOCK_HASH_NOT_FOUND_ERROR_CODE ||
+    Boolean(
+      (error as Error | undefined)?.message?.includes(
+        SOL_BLOCKHASH_NOT_FOUND_MESSAGE,
+      ),
+    )
+  );
+}
+
+// Both broadcast paths surface the raw node text ("Error JSON RPC response:
+// Transaction simulation failed: Blockhash not found"); replace it with the
+// user-facing copy while keeping the code the retry check matches on.
+function normalizeSolBroadcastError(error: unknown): unknown {
+  if (!isSolBlockhashNotFoundError(error)) {
+    return error;
+  }
+  return new OneKeyLocalError({
+    message: SOL_TX_EXPIRED_MESSAGE,
+    code: BLOCK_HASH_NOT_FOUND_ERROR_CODE,
+  });
+}
 
 export default class Vault extends VaultBase {
   override coreApi = coreChainApi.sol.hd;
@@ -659,6 +699,74 @@ export default class Vault extends VaultBase {
     }
 
     return { ...unsignedTx, encodedTx: newEncodedTx };
+  }
+
+  override async refreshUnsignedTxBeforeSign(
+    unsignedTx: IUnsignedTxPro,
+  ): Promise<IUnsignedTxPro> {
+    const nativeTx = parseToNativeTx(unsignedTx.encodedTx as IEncodedTxSol);
+    if (!nativeTx || !canRefreshSolTxBlockhash(nativeTx)) {
+      return unsignedTx;
+    }
+
+    let recentBlockhash: string;
+    let lastValidBlockHeight: number;
+    try {
+      ({ recentBlockhash, lastValidBlockHeight } =
+        await this._getRecentBlockHash());
+    } catch (error) {
+      // Signing with the original blockhash is still the best effort when
+      // the RPC is unreachable; the broadcast reports the real outcome.
+      console.error(
+        'SOL refreshUnsignedTxBeforeSign: blockhash fetch failed',
+        error,
+      );
+      return unsignedTx;
+    }
+
+    return {
+      ...unsignedTx,
+      encodedTx: replaceSolTxRecentBlockhash({
+        nativeTx,
+        recentBlockhash,
+        lastValidBlockHeight,
+      }),
+    };
+  }
+
+  override async getDroppedPendingTxs({
+    pendingTxs,
+  }: {
+    pendingTxs: IAccountHistoryTx[];
+  }): Promise<IAccountHistoryTx[]> {
+    const now = Date.now();
+    const candidates = pendingTxs.filter((tx) => {
+      const { txid, createdAt } = tx.decodedTx;
+      return (
+        Boolean(txid) &&
+        !isNil(createdAt) &&
+        now - createdAt >= SOL_PENDING_TX_DROPPED_TIMEOUT_MS
+      );
+    });
+    if (!candidates.length) {
+      return [];
+    }
+
+    try {
+      const statuses = await this.getSignatureStatuses(
+        candidates.map((tx) => tx.decodedTx.txid),
+      );
+      if (!statuses || statuses.length !== candidates.length) {
+        return [];
+      }
+      // `null` (not `undefined`) is the RPC's explicit "never seen" answer,
+      // even with searchTransactionHistory; anything else keeps the tx pending
+      // for the regular detail polling to settle.
+      return candidates.filter((_, index) => statuses[index] === null);
+    } catch (error) {
+      console.error('SOL getDroppedPendingTxs: status lookup failed', error);
+      return [];
+    }
   }
 
   async _getRecentBlockHash() {
@@ -1898,12 +2006,27 @@ export default class Vault extends VaultBase {
       throw new OneKeyInternalError('Invalid rpc url');
     }
     const client = new ClientCustomRpcSol(rpcUrl);
-    const txid = await client.broadcastTransaction(signedTx.rawTx);
+    let txid: string;
+    try {
+      txid = await client.broadcastTransaction(signedTx.rawTx);
+    } catch (error) {
+      throw normalizeSolBroadcastError(error);
+    }
     return {
       ...signedTx,
       txid,
       encodedTx: signedTx.encodedTx,
     };
+  }
+
+  override async broadcastTransaction(
+    params: IBroadcastTransactionParams,
+  ): Promise<ISignedTxPro> {
+    try {
+      return await super.broadcastTransaction(params);
+    } catch (error) {
+      throw normalizeSolBroadcastError(error);
+    }
   }
 
   override async validateSendAmount({
@@ -1933,10 +2056,11 @@ export default class Vault extends VaultBase {
   override async checkShouldRetryBroadcastTx(
     error: FailedAttemptError,
   ): Promise<boolean> {
-    if (
-      (error as unknown as OneKeyError)?.code ===
-      BLOCK_HASH_NOT_FOUND_ERROR_CODE
-    ) {
+    // A custom RPC node answers with a plain JSON-RPC error (no OneKey code).
+    // The blockhash comes from the proxy node, so a custom node lagging a few
+    // slots behind rejects it transiently the same way the proxy does with
+    // 40028; retry both alike.
+    if (isSolBlockhashNotFoundError(error)) {
       await timerUtils.wait((error?.attemptNumber || 1) * 1000);
       return true;
     }
