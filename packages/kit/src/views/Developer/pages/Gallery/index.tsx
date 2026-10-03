@@ -148,6 +148,11 @@ const AddressInputGallery = LazyLoadPage(
     import('@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/AddressInput'),
 );
 
+const NativeOverlayGallery = LazyLoadPage(
+  () =>
+    import('@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/NativeOverlay'),
+);
+
 const PortalGallery = LazyLoadPage(
   () =>
     import('@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/Portal'),
@@ -341,6 +346,10 @@ export const galleryScreenList: {
   {
     name: EGalleryRoutes.ComponentTypography,
     component: TypographyGallery,
+  },
+  {
+    name: EGalleryRoutes.ComponentNativeOverlay,
+    component: NativeOverlayGallery,
   },
   {
     name: EGalleryRoutes.ComponentPortal,

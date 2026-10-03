@@ -82,6 +82,24 @@ function createTemporaryRepo() {
     fs.ensureDirSync(path.dirname(destination));
     fs.copyFileSync(path.join(REPO_ROOT, relativePath), destination);
   }
+  // ABI inputs from workspace packages need the same installed links as Yarn.
+  for (const name of nativeDependencies) {
+    const packageRoot = path.dirname(
+      require.resolve(`${name}/package.json`, {
+        paths: [path.join(REPO_ROOT, 'apps/mobile'), REPO_ROOT],
+      }),
+    );
+    const relativePackageRoot = path.relative(REPO_ROOT, packageRoot);
+    if (relativePackageRoot.startsWith(`packages${path.sep}`)) {
+      const installedPath = path.join(repoRoot, 'node_modules', name);
+      fs.mkdirSync(path.dirname(installedPath), { recursive: true });
+      fs.symlinkSync(
+        path.join(repoRoot, relativePackageRoot),
+        installedPath,
+        'junction',
+      );
+    }
+  }
   const modulePath = 'node_modules/react/index.js';
   const moduleId = loadRegistry().modules[modulePath];
   if (!moduleId) {

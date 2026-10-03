@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
+import { OverlayView } from '@onekeyfe/react-native-native-overlay';
 import { Dimensions, StyleSheet } from 'react-native';
 
 import { Icon, Stack, XStack } from '@onekeyhq/components';
@@ -24,6 +25,11 @@ const ACTION_BAR_SAFE_MARGIN = 16;
 const ACTION_BAR_ANCHOR_GAP = 8;
 const ACTION_BAR_BG = '#6B6C6F';
 const ACTION_BAR_DIVIDER = 'rgba(255,255,255,0.18)';
+// Invisible, but it catches the outside press that dismisses the bar.
+const DISMISS_BACKDROP = {
+  color: 'transparent',
+  dismissOnPress: true,
+} as const;
 
 function InlineActionBar({
   isFirstItem,
@@ -86,14 +92,12 @@ function InlineActionBar({
   );
 
   return (
-    <Stack
-      position="absolute"
-      top={0}
-      left={0}
-      right={0}
-      bottom={0}
-      zIndex={9999}
-      onPress={handleBackdropPress}
+    <OverlayView
+      visible
+      level="modal"
+      presentation="fullscreen"
+      backdrop={DISMISS_BACKDROP}
+      onRequestDismiss={handleBackdropPress}
     >
       {/* Floating action bar */}
       <XStack
@@ -146,7 +150,7 @@ function InlineActionBar({
           <Icon name="StarSolid" size="$5" style={{ color: '#F8E71C' }} />
         </Stack>
       </XStack>
-    </Stack>
+    </OverlayView>
   );
 }
 

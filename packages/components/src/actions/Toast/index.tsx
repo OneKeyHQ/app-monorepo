@@ -4,7 +4,6 @@ import { createRef, useCallback, useEffect, useMemo } from 'react';
 import { useWindowDimensions } from 'react-native';
 
 import type { ColorTokens } from '@onekeyhq/components/src/shared/tamagui';
-import { ToastProvider } from '@onekeyhq/components/src/shared/tamagui';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors/errors/localError';
 import { dismissKeyboard } from '@onekeyhq/shared/src/keyboard';
 import type { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -459,26 +458,36 @@ export const Toast = {
         }
       | undefined;
 
+    let exitResolvers: Array<() => void> = [];
+    let closeExtra: { flag?: string } | undefined;
     // eslint-disable-next-line react-perf/jsx-no-new-function-as-prop
     const handleClose = (extra?: { flag?: string }) =>
       new Promise<void>((resolve) => {
-        // Remove the React node after the animation has finished.
-        setTimeout(() => {
-          if (instanceRef) {
-            instanceRef = undefined;
-          }
-          if (portalRef) {
-            portalRef.current.destroy();
-            portalRef = undefined;
-          }
-          void onClose?.(extra);
-          resolve();
-        }, 300);
+        closeExtra = extra;
+        exitResolvers.push(resolve);
       });
+    // The overlay finished its exit animation: remove the React node.
+    // eslint-disable-next-line react-perf/jsx-no-new-function-as-prop
+    const handleExited = () => {
+      if (!portalRef) {
+        return;
+      }
+      instanceRef = undefined;
+      portalRef.current.destroy();
+      portalRef = undefined;
+      void onClose?.(closeExtra);
+      exitResolvers.forEach((resolve) => resolve());
+      exitResolvers = [];
+    };
     portalRef = {
       current: Portal.Render(
         Portal.Constant.TOASTER_OVERLAY_PORTAL,
-        <ShowCustom ref={instanceRef} onClose={handleClose} {...others}>
+        <ShowCustom
+          ref={instanceRef}
+          onClose={handleClose}
+          onExited={handleExited}
+          {...others}
+        >
           {children}
         </ShowCustom>,
       ),
@@ -511,10 +520,8 @@ export type IToast = typeof Toast;
 export { useToaster } from './ShowCustom';
 export type { IShowToasterProps } from './ShowCustom';
 
+// Custom toasts host themselves in the native `toast` overlay level; this
+// only mounts the portal `Toast.show` renders into.
 export function ShowToastProvider() {
-  return (
-    <ToastProvider swipeDirection="up">
-      <Portal.Container name={Portal.Constant.TOASTER_OVERLAY_PORTAL} />
-    </ToastProvider>
-  );
+  return <Portal.Container name={Portal.Constant.TOASTER_OVERLAY_PORTAL} />;
 }

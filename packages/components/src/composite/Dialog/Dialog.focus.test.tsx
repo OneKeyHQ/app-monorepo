@@ -22,35 +22,27 @@ let mockIsSheet = false;
 const mockClose = jest.fn(() => Promise.resolve());
 const mockPeriodInput = <input aria-label="Period" />;
 
-jest.mock('@onekeyhq/components', () => {
-  const { FocusScope } = jest.requireActual(
-    '@tamagui/focus-scope',
-  ) as typeof import('@tamagui/focus-scope');
-  const Wrapper = ({ children }: { children?: ReactNode }) => (
-    <div>{children}</div>
-  );
-  const DialogContent = ({
+jest.mock('./OverlayDialogPresentation', () => ({
+  OverlayDialogPresentation: ({
     children,
-    onOpenAutoFocus,
-    trapFocus,
+    open,
   }: {
     children?: ReactNode;
-    onOpenAutoFocus?: (event: Event) => void;
-    trapFocus?: boolean;
-  }) => (
-    <FocusScope trapped={trapFocus} loop onMountAutoFocus={onOpenAutoFocus}>
-      <div>{children}</div>
-    </FocusScope>
+    open: boolean;
+  }) => (open ? <div data-testid="overlay-dialog">{children}</div> : null),
+}));
+jest.mock('@onekeyfe/react-native-native-overlay', () => ({
+  useNestedOverlayLevel: () => 'modal',
+  useOverlayPageScope: () => ({}),
+}));
+
+jest.mock('@onekeyhq/components', () => {
+  const Wrapper = ({ children }: { children?: ReactNode }) => (
+    <div>{children}</div>
   );
   return {
     useMedia: () => ({ md: mockIsSheet }),
     AnimatePresence: Wrapper,
-    Sheet: Object.assign(Wrapper, { Frame: Wrapper, Overlay: () => null }),
-    TMDialog: Object.assign(Wrapper, {
-      Content: DialogContent,
-      Overlay: () => null,
-      Title: () => null,
-    }),
   };
 });
 
@@ -98,7 +90,6 @@ jest.mock('../../hocs', () => ({}));
 jest.mock('../../hooks', () => ({
   useBackHandler: jest.fn(),
   useKeyboardEventWithoutNavigation: jest.fn(),
-  useOverlayZIndex: () => 1,
   useSafeAreaInsets: () => ({ bottom: 0 }),
 }));
 jest.mock('../../layouts/Page/PageContext', () => ({}));

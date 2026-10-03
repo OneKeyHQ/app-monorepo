@@ -1,5 +1,6 @@
 import type { PropsWithChildren } from 'react';
 
+import { OverlayView } from '@onekeyfe/react-native-native-overlay';
 import { useColorScheme } from 'react-native';
 import {
   SafeAreaInsetsContext,
@@ -12,13 +13,13 @@ import {
 } from '@onekeyhq/components/src/actions/Toast';
 import { Portal } from '@onekeyhq/components/src/hocs/Portal';
 import { ConfigProvider } from '@onekeyhq/components/src/hocs/Provider';
-import { OverlayContainer } from '@onekeyhq/components/src/layouts/OverlayContainer';
 import { Stack } from '@onekeyhq/components/src/primitives/Stack';
-import { HARDWARE_STAGE_Z_INDEX } from '@onekeyhq/shared/src/consts/zIndexConsts';
 
 import { HyperlinkTextStub } from './HyperlinkTextStub';
 
 import type { Preview } from '@storybook/react';
+
+const HOST_ANIMATION = { enter: { type: 'none' } } as const;
 
 const WINDOW_INSETS = initialWindowMetrics?.insets ?? {
   top: 0,
@@ -73,43 +74,36 @@ const preview: Preview = {
         </Stack>
         {/* Overlay mount points for portal-based components — the minimal
             slice of the app's FullWindowOverlayContainer, in the same order:
-            the FULL_WINDOW_OVERLAY portal (Dialog.show, Popover/Select
-            sheets), ShowToastProvider (Toast.show custom toasts), and
-            Toaster (Toast.success/error/… via backpackapp; it needs the
-            GestureHandlerRootView the shell root mounts). OverlayContainer
-            puts them on the iOS FullWindowOverlay layer, above the
-            Storybook UI. */}
-        <OverlayContainer>
-          <Portal.Container name={Portal.Constant.FULL_WINDOW_OVERLAY_PORTAL} />
-          {/* The hardware stage's mount point — INSIDE the
-              FullWindowOverlay window, because that is where the app
-              mounts it since 8c0391dfa8 (the stage must cover native
-              modal pages on iOS). Keeping the shell on the same window
-              means on-device rounds exercise the window's geometry and
-              touch delivery; the app additionally nests the stage in its
-              own OverlayContainer with a raise token (OK-62422), which
-              this shell does not replay. The wrapper mirrors the app's
-              (FullWindowOverlayContainer): a viewport on the
-              pass-through platforms — OverlayContainer is a full-window
-              host only on iOS, and MorphOverlay's layer anchors absolute
-              to fill it — kept as a native view, since RN 0.86 Fabric
-              flattens a layout-only box-none container and kills
-              hit-testing for the whole portal subtree. */}
-          <Stack
-            position="absolute"
-            top={0}
-            left={0}
-            right={0}
-            bottom={0}
-            zIndex={HARDWARE_STAGE_Z_INDEX}
-            pointerEvents="box-none"
-            collapsable={false}
-          >
-            <Portal.Container name={Portal.Constant.HARDWARE_UI_STATE_DIALOG} />
-          </Stack>
-          <ShowToastProvider />
+            the FULL_WINDOW_OVERLAY portal (Dialog.show mount root), the
+            hardware stage host (native `hardware` overlay level, as the
+            app's HardwareStageOverlayContainer), ShowToastProvider
+            (Toast.show) and Toaster (Toast.success/error/… via backpackapp;
+            it needs the GestureHandlerRootView the shell root mounts). Each
+            overlay hosts itself in its native overlay level. */}
+        <Portal.Container name={Portal.Constant.FULL_WINDOW_OVERLAY_PORTAL} />
+        <OverlayView
+          visible
+          level="hardware"
+          presentation="fullscreen"
+          animation={HOST_ANIMATION}
+          blocking={false}
+          backdrop={false}
+          dismissOnBackPress={false}
+        >
+          <Portal.Container name={Portal.Constant.HARDWARE_UI_STATE_DIALOG} />
+        </OverlayView>
+        <ShowToastProvider />
+        <OverlayView
+          visible
+          level="toast"
+          presentation="fullscreen"
+          animation={HOST_ANIMATION}
+          blocking={false}
+          backdrop={false}
+          dismissOnBackPress={false}
+        >
           <Toaster />
-        </OverlayContainer>
+        </OverlayView>
       </ShellProvider>
     ),
   ],

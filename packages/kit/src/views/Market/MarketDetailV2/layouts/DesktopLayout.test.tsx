@@ -81,7 +81,6 @@ jest.mock('@onekeyhq/components', () => {
     Stack: React.forwardRef<HTMLDivElement, { children?: React.ReactNode }>(
       ({ children }, ref) => React.createElement('div', { ref }, children),
     ),
-    useOverlayZIndex: jest.fn(() => 1),
   };
 });
 

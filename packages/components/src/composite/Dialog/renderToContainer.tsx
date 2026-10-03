@@ -1,18 +1,8 @@
-import { createPortal } from 'react-dom';
-
 import { Portal } from '../../hocs';
 
 import type { IRenderToContainer } from './type';
 
-export const renderToContainer: IRenderToContainer = (
-  container,
-  element,
-  isOverTopAllViews,
-) => {
-  if (isOverTopAllViews) {
-    const Component = () => createPortal(element, document.body);
-    const renderElement = <Component />;
-    return Portal.Render(container, renderElement);
-  }
-  return Portal.Render(container, element);
-};
+// The dialog hosts itself in its native overlay level. The portal is only the
+// mount point; its name picks that level (`overlayLevelForContainer`).
+export const renderToContainer: IRenderToContainer = (container, element) =>
+  Portal.Render(container, element);

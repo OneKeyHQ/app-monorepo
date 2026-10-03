@@ -34,7 +34,6 @@ export function GlobalErrorHandlerContainer() {
         const walletId = p?.params?.walletId;
         dialogOpenRef.current = true;
         Dialog.show({
-          isOverTopAllViews: true,
           onClose: () => {
             dialogOpenRef.current = false;
           },

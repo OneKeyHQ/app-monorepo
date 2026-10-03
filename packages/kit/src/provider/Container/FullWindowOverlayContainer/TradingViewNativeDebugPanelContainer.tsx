@@ -1,5 +1,7 @@
 import { memo, useCallback, useLayoutEffect } from 'react';
 
+import { OverlayView } from '@onekeyfe/react-native-native-overlay';
+
 import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
 import LazyLoad from '@onekeyhq/shared/src/lazyLoad';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -12,6 +14,8 @@ const TradingViewNativeDebugPanel = LazyLoad<ITradingViewNativeDebugPanelProps>(
   () =>
     import('../../../components/TradingView/TradingViewNative/TradingViewNativeDebugPanel'),
 );
+
+const DEBUG_OVERLAY_ANIMATION = { enter: { type: 'none' } } as const;
 
 function TradingViewNativeDebugPanelSettingGate() {
   const [devSettings, setDevSettings] = useDevSettingsPersistAtom();
@@ -41,7 +45,19 @@ function TradingViewNativeDebugPanelSettingGate() {
     return null;
   }
 
-  return <TradingViewNativeDebugPanel onClose={handleClose} />;
+  return (
+    <OverlayView
+      visible
+      level="debug"
+      presentation="fullscreen"
+      blocking={false}
+      backdrop={false}
+      dismissOnBackPress={false}
+      animation={DEBUG_OVERLAY_ANIMATION}
+    >
+      <TradingViewNativeDebugPanel onClose={handleClose} />
+    </OverlayView>
+  );
 }
 
 function BasicTradingViewNativeDebugPanelContainer() {

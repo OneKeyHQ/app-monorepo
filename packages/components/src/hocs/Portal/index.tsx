@@ -7,6 +7,7 @@ import ChildrenWrapper from 'react-native-root-siblings/lib/ChildrenWrapper';
 import wrapRootComponent from 'react-native-root-siblings/lib/wrapRootComponent';
 
 import { withStaticProperties } from '@onekeyhq/components/src/shared/tamagui';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -30,11 +31,8 @@ function isPortalExisted(name: string): boolean {
 export enum EPortalContainerConstantName {
   APP_STATE_LOCK_CONTAINER_OVERLAY = 'APP_STATE_LOCK_CONTAINER_OVERLAY',
   PASSWORD_VERIFY_CONTAINER_PORTAL = 'PASSWORD_VERIFY_CONTAINER_PORTAL',
-  SPOTLIGHT_OVERLAY_PORTAL = 'ONEKEY-Root-SPOTLIGHT_OVERLAY_PORTAL',
   FULL_WINDOW_OVERLAY_PORTAL = 'ONEKEY-Root-FullWindowOverlay',
   TOASTER_OVERLAY_PORTAL = 'ONEKEY_TOASTER_OVERLAY_PORTAL',
-  ACCOUNT_SELECTOR = 'ONEKEY_ACCOUNT_SELECTOR',
-  WALLET_ACTIONS = 'ONEKEY_WALLET_ACTIONS',
   HARDWARE_UI_STATE_DIALOG = 'HARDWARE_UI_STATE_DIALOG',
   IN_PAGE_TAB_CONTAINER = 'IN_PAGE_TAB_CONTAINER',
   SUGGESTION_LIST = 'SUGGESTION_LIST',
@@ -86,12 +84,30 @@ function renderToPortal(
   };
 }
 
+// Mount roots for imperative overlay APIs (`Dialog.show`, `Toast.show`,
+// `ActionList.show`, `useInPageDialog`; the lock and password containers pick
+// the dialog's level). What mounts there must render its own `OverlayView`;
+// declarative content does not belong in them.
+const OVERLAY_MOUNT_ROOTS: ReadonlySet<EPortalContainerConstantName> = new Set([
+  EPortalContainerConstantName.FULL_WINDOW_OVERLAY_PORTAL,
+  EPortalContainerConstantName.TOASTER_OVERLAY_PORTAL,
+  EPortalContainerConstantName.APP_STATE_LOCK_CONTAINER_OVERLAY,
+  EPortalContainerConstantName.PASSWORD_VERIFY_CONTAINER_PORTAL,
+  EPortalContainerConstantName.IN_PAGE_TAB_CONTAINER,
+]);
+
 function PortalBodyRender(props: {
   children: ReactNode;
   container?: EPortalContainerConstantName;
   destroyDelayMs?: number;
 }) {
   const { children, container, destroyDelayMs = 0 } = props;
+
+  if (container && OVERLAY_MOUNT_ROOTS.has(container)) {
+    throw new OneKeyLocalError(
+      `Portal.Body into ${container} is no longer supported: render an OverlayView from @onekeyfe/react-native-native-overlay (or a Dialog / Toast / Popover) inline instead.`,
+    );
+  }
 
   if (platformEnv.isDev) {
     if (children) {

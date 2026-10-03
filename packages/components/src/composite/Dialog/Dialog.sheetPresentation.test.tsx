@@ -34,15 +34,6 @@ jest.mock('@onekeyhq/components', () => {
   return {
     useMedia: () => ({ md: mockMediaMd.current }),
     AnimatePresence: Wrapper,
-    Sheet: Object.assign(Wrapper, {
-      Frame: Wrapper,
-      Overlay: () => null,
-    }),
-    TMDialog: Object.assign(Wrapper, {
-      Content: Wrapper,
-      Overlay: () => null,
-      Title: () => null,
-    }),
   };
 });
 
@@ -78,27 +69,46 @@ jest.mock('../../layouts/ScrollView', () => ({
   ScrollView: ({
     children,
     maxHeight,
+    height,
+    keyboardShouldPersistTaps,
     testID,
   }: {
     children?: ReactNode;
     maxHeight?: number;
+    height?: number;
+    keyboardShouldPersistTaps?: string;
     testID?: string;
   }) => (
     <div
       data-testid={testID || 'plain-scroll-view'}
       data-scroll-kind="plain"
       data-max-height={maxHeight === undefined ? '' : String(maxHeight)}
+      data-height={height === undefined ? '' : String(height)}
+      data-keyboard-persist={keyboardShouldPersistTaps || ''}
     >
       {children}
     </div>
   ),
 }));
 
-jest.mock('../../hocs/NativeSheetPresentation', () => ({
-  NATIVE_SHEET_PRESENTATION_SUPPORTED: true,
-  NativeSheetPresentation: ({ children }: { children?: ReactNode }) => (
-    <div data-testid="native-sheet-presentation">{children}</div>
+jest.mock('./OverlayDialogPresentation', () => ({
+  OverlayDialogPresentation: ({
+    children,
+    open,
+    isSheet,
+  }: {
+    children?: ReactNode;
+    open: boolean;
+    isSheet: boolean;
+  }) => (
+    <div data-testid="overlay-dialog" data-sheet={isSheet ? 'true' : 'false'}>
+      {open ? children : null}
+    </div>
   ),
+}));
+jest.mock('@onekeyfe/react-native-native-overlay', () => ({
+  useNestedOverlayLevel: () => 'modal',
+  useOverlayPageScope: () => ({}),
 }));
 
 jest.mock('react-intl', () => ({
@@ -155,7 +165,6 @@ jest.mock('../../hooks', () => ({
   useBackHandler: jest.fn(),
   useKeyboardEventWithoutNavigation: jest.fn(),
   useModalNavigatorContextPortalId: () => undefined,
-  useOverlayZIndex: () => 1,
   useSafeAreaInsets: () => mockSafeAreaInsets.current,
 }));
 jest.mock('react-native-keyboard-controller', () => ({
@@ -262,21 +271,14 @@ beforeEach(() => {
 });
 
 describe('Dialog sheet scroll view presentation', () => {
-  it('uses the plain ScrollView inside a native sheet presentation', () => {
-    render(<DialogContainer {...dialogProps} nativeSheet />);
+  it('uses the plain ScrollView inside the native overlay sheet', () => {
+    render(<DialogContainer {...dialogProps} />);
 
-    expect(screen.getByTestId('native-sheet-presentation')).toBeTruthy();
+    expect(
+      screen.getByTestId('overlay-dialog').getAttribute('data-sheet'),
+    ).toBe('true');
     expect(screen.getByTestId('plain-scroll-view')).toBeTruthy();
     expect(screen.queryByTestId('sheet-scroll-view')).toBeNull();
-  });
-
-  it('uses Sheet.ScrollView inside the Tamagui sheet fallback', () => {
-    render(<DialogContainer {...dialogProps} nativeSheet={false} />);
-
-    expect(screen.queryByTestId('native-sheet-presentation')).toBeNull();
-    expect(screen.getByTestId('sheet-scroll-view')).toBeTruthy();
-    expect(screen.queryByTestId('plain-scroll-view')).toBeNull();
-    expect(screen.queryByTestId('dialog-bounded-scroll')).toBeNull();
   });
 });
 
@@ -287,7 +289,7 @@ describe('Dialog bounded sheet layout opt-in', () => {
     const scroll = screen.getByTestId('dialog-bounded-scroll');
     const close = screen.getByTestId('dialog-bounded-close');
 
-    expect(scroll.getAttribute('data-scroll-kind')).toBe('sheet');
+    expect(scroll.getAttribute('data-scroll-kind')).toBe('plain');
     expect(screen.getByTestId('header-drag-zone')).toBeTruthy();
     expect(screen.getByTestId('sheet-grabber')).toBeTruthy();
     expect(
@@ -303,7 +305,6 @@ describe('Dialog bounded sheet layout opt-in', () => {
     expect(scroll.getAttribute('data-max-height')).not.toBe('');
     expect(scroll.getAttribute('data-height')).toBe('');
     expect(scroll.getAttribute('data-keyboard-persist')).toBe('handled');
-    expect(screen.queryByTestId('native-sheet-presentation')).toBeNull();
     expect(screen.queryByTestId('plain-scroll-view')).toBeNull();
   });
 
