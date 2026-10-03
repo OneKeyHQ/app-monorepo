@@ -230,7 +230,6 @@ function StockEstimatedReceive({
   quoteLoading,
   quoteEventFetching,
   stockChannel,
-  showEstimatedShares,
   stockTradeConfig,
 }: {
   forceLoading?: boolean;
@@ -238,7 +237,6 @@ function StockEstimatedReceive({
   quoteLoading: boolean;
   quoteEventFetching: boolean;
   stockChannel: IUseSwapStockChannelReturn;
-  showEstimatedShares?: boolean;
   stockTradeConfig?: ISwapStockTradeConfig;
 }) {
   const intl = useIntl();
@@ -312,7 +310,9 @@ function StockEstimatedReceive({
     stockChannel.activeStockTokenDetail?.stock?.underlyingAssetTicker ??
     stockChannel.currentStockToken?.symbol ??
     '';
-  const shouldShowEstimatedShares = Boolean(showEstimatedShares);
+  const shouldShowEstimatedShares = Boolean(
+    stockTradeConfig || stockChannel.currentStockToken,
+  );
   const hasReceiveAmount = Boolean(receiveAmount && receiveTokenSymbol);
   const shouldShowReceiveToken = Boolean(
     hasReceiveAmount || (isSellSide && receiveTokenSymbol),
@@ -453,10 +453,7 @@ function StockEstimatedReceive({
         justifyContent="space-between"
         gap="$2"
       >
-        <XStack alignItems="center" gap="$1" flexShrink={0} h="$5">
-          {stockTradeConfig ? null : (
-            <Icon name="HandCoinsOutline" size="$4.5" color="$iconSubdued" />
-          )}
+        <XStack alignItems="center" flexShrink={0} h="$5">
           <SizableText size="$bodyMd" color="$text">
             {labelText}
           </SizableText>
@@ -1230,7 +1227,6 @@ function StockTradeTicket({
           quoteLoading={quoteLoading}
           quoteEventFetching={quoteEventFetching}
           stockChannel={stockChannel}
-          showEstimatedShares={Boolean(stockTradeConfig)}
           stockTradeConfig={stockTradeConfig}
         />
         {renderActionGateOutsideTicket ? null : stockActionGate}
