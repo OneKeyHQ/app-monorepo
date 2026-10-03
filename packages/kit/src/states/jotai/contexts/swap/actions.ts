@@ -1187,14 +1187,11 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         const result = await backgroundApiProxy.serviceSwap.fetchSwapTokens({
           ...params,
           protocol,
+          // An empty response is a valid snapshot. Keep failures distinguishable
+          // so a silent refresh can preserve the previous scoped result.
+          throwOnError: true,
         });
-        if (result.length > 0) {
-          await this.catchSwapTokensMap.call(
-            set,
-            JSON.stringify(params),
-            result,
-          );
-        }
+        await this.catchSwapTokensMap.call(set, JSON.stringify(params), result);
         set(swapTokenFetchingAtom(), false);
       } catch (e: any) {
         // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
@@ -2898,6 +2895,9 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         protocol,
         lpToken,
         currency,
+        // The service defaults failures to [], which would look like a valid
+        // empty network during a stale-while-revalidate refresh.
+        throwOnError: true,
         ...(isStockProtocol(protocol)
           ? { limit: swapStockTokenListMaxCount }
           : {}),
@@ -3042,13 +3042,16 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         for (;;) {
           let requestError: unknown;
           try {
-            const { swapSupportAccounts } =
+            const { swapSupportAccounts, supportAccountsFetchFailed } =
               await backgroundApiProxy.serviceSwap.getSupportSwapAllAccounts({
                 indexedAccountId,
                 otherWalletTypeAccountId,
                 swapSupportNetworks: requestContext.tokenListSupportNetworks,
               });
-            if (swapSupportAccounts.length > 0) {
+            if (supportAccountsFetchFailed) {
+              // An account-discovery failure is not an empty account set. Keep
+              // the last-good snapshot and let the next invocation retry.
+            } else if (swapSupportAccounts.length > 0) {
               const currentSwapAllNetworkTokenList = get(
                 swapAllNetworkTokenListMapAtom(),
               )[tokenListCacheKey];
@@ -3067,8 +3070,8 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
                     networkId: accountNetworkId,
                     accountId,
                   } = networkDataString;
-                  return async () =>
-                    (await this.updateAllNetworkTokenList.call(
+                  return () =>
+                    this.updateAllNetworkTokenList.call(
                       set,
                       accountNetworkId,
                       swapTypeSwitchValue,
@@ -3078,7 +3081,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
                       tokenListCacheKey,
                       lpToken,
                       currency,
-                    )) as ISwapToken[] | undefined;
+                    );
                 });
 
               // Execute requests in batches of 3 to prevent UI thread blocking
@@ -3096,15 +3099,22 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
                 });
               } else {
                 // Subsequent fetches: collect results and update atom
-                const allTokensResult = results.flatMap((result) =>
-                  result.status === 'fulfilled' ? (result.value ?? []) : [],
+                const hasRejectedResult = results.some(
+                  (result) => result.status === 'rejected',
                 );
-                set(swapAllNetworkTokenListMapAtom(), (value) => ({
-                  ...value,
-                  [tokenListCacheKey]: allTokensResult,
-                }));
+                if (!hasRejectedResult) {
+                  const allTokensResult = results.flatMap((result) =>
+                    result.status === 'fulfilled' ? (result.value ?? []) : [],
+                  );
+                  set(swapAllNetworkTokenListMapAtom(), (value) => ({
+                    ...value,
+                    [tokenListCacheKey]: allTokensResult,
+                  }));
+                }
               }
             } else {
+              // A successful empty account discovery is authoritative and must
+              // clear assets from accounts that no longer exist.
               set(swapAllNetworkTokenListMapAtom(), (value) => ({
                 ...value,
                 [tokenListCacheKey]: [],

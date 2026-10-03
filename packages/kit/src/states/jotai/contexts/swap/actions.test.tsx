@@ -28,6 +28,7 @@ import {
 } from '@onekeyhq/shared/src/consts/dbConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { buildSwapAllNetworkTokenListCacheKey } from '@onekeyhq/shared/src/utils/tokenSelectorFilterUtils';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 import {
   swapQuoteIntervalMaxCount,
@@ -95,6 +96,7 @@ import {
   swapStockSelectedFromTokenBalanceAtom,
   swapStockSelectedTokenAtom,
   swapToTokenAmountAtom,
+  swapTokenMapAtom,
   swapTypeSwitchAtom,
   useSwapBalanceDisplayCacheAtom,
   useSwapSelectFromTokenAtom,
@@ -601,7 +603,161 @@ describe('useSwapActions', () => {
         limit: swapStockTokenListMaxCount,
         networkId: 'evm--56',
         protocol: ESwapTabSwitchType.STOCK,
+        throwOnError: true,
       }),
+    );
+  });
+
+  it('keeps the last-good all-network list during a silent refresh failure', async () => {
+    const cacheKey = buildSwapAllNetworkTokenListCacheKey({
+      accountId: 'account-1',
+      lpToken: false,
+      currency: 'usd',
+      protocol: ESwapTabSwitchType.STOCK,
+    });
+    const cachedToken = {
+      ...stockTokenA,
+      balanceParsed: '1',
+      price: '1',
+      fiatValue: '1',
+    };
+    mockGetSupportSwapAllAccounts.mockResolvedValue({
+      supportAccountsFetchFailed: false,
+      swapSupportAccounts: [
+        {
+          apiAddress: '0xabc',
+          networkId: 'evm--56',
+          accountId: 'account-bsc',
+        },
+      ],
+    });
+    mockFetchSwapTokens.mockRejectedValue(new Error('offline'));
+    const { store, Wrapper } = createWrapperWithStore((storeInstance) => {
+      storeInstance.set(swapTypeSwitchAtom(), ESwapTabSwitchType.STOCK);
+      storeInstance.set(swapAllNetworkTokenListMapAtom(), {
+        [cacheKey]: [cachedToken],
+      });
+    });
+    const { result } = renderHook(() => useSwapActions().current, {
+      wrapper: Wrapper,
+    });
+
+    await act(async () => {
+      await result.current.swapLoadAllNetworkTokenList(
+        undefined,
+        'account-1',
+        false,
+        'usd',
+      );
+    });
+
+    expect(store.get(swapAllNetworkTokenListMapAtom())).toEqual({
+      [cacheKey]: [cachedToken],
+    });
+  });
+
+  it('keeps the last-good all-network list when account discovery fails', async () => {
+    const cacheKey = buildSwapAllNetworkTokenListCacheKey({
+      accountId: 'account-1',
+      lpToken: false,
+      currency: 'usd',
+      protocol: ESwapTabSwitchType.STOCK,
+    });
+    const cachedToken = { ...stockTokenA, fiatValue: '1' };
+    mockGetSupportSwapAllAccounts.mockResolvedValue({
+      supportAccountsFetchFailed: true,
+      swapSupportAccounts: [],
+    });
+    const { store, Wrapper } = createWrapperWithStore((storeInstance) => {
+      storeInstance.set(swapTypeSwitchAtom(), ESwapTabSwitchType.STOCK);
+      storeInstance.set(swapAllNetworkTokenListMapAtom(), {
+        [cacheKey]: [cachedToken],
+      });
+    });
+    const { result } = renderHook(() => useSwapActions().current, {
+      wrapper: Wrapper,
+    });
+
+    await act(async () => {
+      await result.current.swapLoadAllNetworkTokenList(
+        undefined,
+        'account-1',
+        false,
+        'usd',
+      );
+    });
+
+    expect(store.get(swapAllNetworkTokenListMapAtom())).toEqual({
+      [cacheKey]: [cachedToken],
+    });
+  });
+
+  it('clears the all-network list when account discovery succeeds empty', async () => {
+    const cacheKey = buildSwapAllNetworkTokenListCacheKey({
+      accountId: 'account-1',
+      lpToken: false,
+      currency: 'usd',
+      protocol: ESwapTabSwitchType.STOCK,
+    });
+    mockGetSupportSwapAllAccounts.mockResolvedValue({
+      supportAccountsFetchFailed: false,
+      swapSupportAccounts: [],
+    });
+    const { store, Wrapper } = createWrapperWithStore((storeInstance) => {
+      storeInstance.set(swapTypeSwitchAtom(), ESwapTabSwitchType.STOCK);
+      storeInstance.set(swapAllNetworkTokenListMapAtom(), {
+        [cacheKey]: [stockTokenA],
+      });
+    });
+    const { result } = renderHook(() => useSwapActions().current, {
+      wrapper: Wrapper,
+    });
+
+    await act(async () => {
+      await result.current.swapLoadAllNetworkTokenList(
+        undefined,
+        'account-1',
+        false,
+        'usd',
+      );
+    });
+
+    expect(store.get(swapAllNetworkTokenListMapAtom())).toEqual({
+      [cacheKey]: [],
+    });
+  });
+
+  it('clears a scoped token list when a successful fetch returns empty', async () => {
+    const params = { networkId: 'evm--56' };
+    const cacheKey = JSON.stringify(params);
+    mockFetchSwapTokens.mockResolvedValue([]);
+    const { store, Wrapper } = createWrapperWithStore((storeInstance) => {
+      storeInstance.set(swapTypeSwitchAtom(), ESwapTabSwitchType.SWAP);
+      storeInstance.set(swapTokenMapAtom(), {
+        updatedAt: Date.now(),
+        tokenCatch: {
+          [cacheKey]: {
+            data: [stockTokenA],
+            updatedAt: Date.now(),
+          },
+        },
+      });
+    });
+    const { result } = renderHook(() => useSwapActions().current, {
+      wrapper: Wrapper,
+    });
+
+    await act(async () => {
+      await result.current.tokenListFetchAction(params);
+    });
+
+    expect(mockFetchSwapTokens).toHaveBeenCalledWith({
+      networkId: 'evm--56',
+      protocol: ESwapTabSwitchType.SWAP,
+      throwOnError: true,
+    });
+    expect(store.get(swapTokenMapAtom()).tokenCatch?.[cacheKey].data).toEqual(
+      [],
     );
   });
 

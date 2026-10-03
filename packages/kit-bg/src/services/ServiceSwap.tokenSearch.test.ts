@@ -48,4 +48,28 @@ describe('ServiceSwap token search', () => {
     expect(get).toHaveBeenCalledTimes(2);
     expect(showToast).not.toHaveBeenCalled();
   });
+
+  it('rejects token-list failures for strict refresh callers', async () => {
+    const error = new Error('token list unavailable');
+    const showToast = jest.fn();
+    const get = jest.fn().mockRejectedValue(error);
+    const service = new ServiceSwap({
+      backgroundApi: {
+        serviceAccountProfile: {
+          _getWalletTypeHeader: jest.fn().mockResolvedValue({}),
+        },
+        serviceApp: { showToast },
+      },
+    });
+    jest.spyOn(service, 'getClient').mockResolvedValue({ get } as never);
+
+    await expect(
+      service.fetchSwapTokens({
+        networkId: 'evm--1',
+        currency: 'usd',
+        throwOnError: true,
+      }),
+    ).rejects.toBe(error);
+    expect(showToast).toHaveBeenCalledTimes(1);
+  });
 });
