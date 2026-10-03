@@ -1328,9 +1328,7 @@ export function HomePageView({
   return useMemo(() => {
     return (
       <HomeStickyHeaderContext.Provider value={stickyHeaderCtx}>
-        <Page fullPage testID={HomeTestIDs.page}>
-          {homePage}
-        </Page>
+        <Page testID={HomeTestIDs.page}>{homePage}</Page>
       </HomeStickyHeaderContext.Provider>
     );
   }, [homePage, stickyHeaderCtx]);
