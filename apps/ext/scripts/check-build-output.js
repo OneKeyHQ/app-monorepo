@@ -206,6 +206,60 @@ function main() {
   for (const reference of collectManifestReferences(manifest)) {
     assertFile(outputRoot, reference, 'manifest.json');
   }
+  const backgroundBootFiles = [
+    'release-meta.js',
+    'background-runtime.bundle.js',
+    'background-vendor.bundle.js',
+    'background.bundle.js',
+  ];
+  if (manifest.background?.service_worker !== 'background.bootstrap.js') {
+    throw new Error('Production background must use the split bootstrap.');
+  }
+  assertFile(outputRoot, 'background.bootstrap.js', 'background bootstrap');
+  for (const file of backgroundBootFiles) {
+    assertFile(outputRoot, file, 'background bootstrap');
+  }
+  const bootstrapSource = fs.readFileSync(
+    path.join(outputRoot, 'background.bootstrap.js'),
+    'utf8',
+  );
+  const bootstrapFiles = [
+    ...bootstrapSource.matchAll(/["']([^"']+\.js)["']/g),
+  ].map((match) => match[1]);
+  if (
+    !bootstrapSource.startsWith('importScripts(') ||
+    JSON.stringify(bootstrapFiles) !== JSON.stringify(backgroundBootFiles)
+  ) {
+    throw new Error(
+      'Background bootstrap load order does not match its chunks.',
+    );
+  }
+  const expectedContentFiles = [
+    'release-meta.js',
+    'content-script-runtime.bundle.js',
+    'content-script-vendor.bundle.js',
+    'content-script.bundle.js',
+  ];
+  if (
+    JSON.stringify(manifest.content_scripts?.[0]?.js) !==
+    JSON.stringify(expectedContentFiles)
+  ) {
+    throw new Error('Content script load order does not match its chunks.');
+  }
+  for (const compilerName of ['background', 'content-script']) {
+    const runtimePath = path.join(
+      outputRoot,
+      `${compilerName}-runtime.bundle.js`,
+    );
+    const entryPath = path.join(outputRoot, `${compilerName}.bundle.js`);
+    const chunkQueue = `rspackChunkonekey_ext_${compilerName.replace('-', '_')}`;
+    if (
+      !fs.readFileSync(runtimePath, 'utf8').includes(chunkQueue) ||
+      !fs.readFileSync(entryPath, 'utf8').includes(chunkQueue)
+    ) {
+      throw new Error(`${compilerName} runtime cannot register split chunks.`);
+    }
+  }
 
   const files = walkFiles(outputRoot);
   const jsFiles = files.filter((file) => file.endsWith('.js'));
@@ -248,7 +302,12 @@ function main() {
     (total, file) => total + fs.statSync(file).size,
     0,
   );
-  const backgroundBytes = fs.statSync(backgroundPath).size;
+  const backgroundBytes =
+    fs.statSync(path.join(outputRoot, 'background.bootstrap.js')).size +
+    backgroundBootFiles.reduce(
+      (total, file) => total + fs.statSync(path.join(outputRoot, file)).size,
+      0,
+    );
   const budgets = {
     // Raised from 160000000: the previous ceiling was set against a
     // ~154.3 MB build and steady growth on x has since consumed almost all of
@@ -281,7 +340,7 @@ function main() {
   }
   if (backgroundBytes > budgets.backgroundBytes) {
     throw new Error(
-      `Background bundle exceeds size budget: ${backgroundBytes} > ${budgets.backgroundBytes}`,
+      `Background entrypoint exceeds size budget: ${backgroundBytes} > ${budgets.backgroundBytes}`,
     );
   }
 
