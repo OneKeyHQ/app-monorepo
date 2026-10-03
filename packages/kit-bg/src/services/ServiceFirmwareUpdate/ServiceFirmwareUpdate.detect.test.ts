@@ -650,7 +650,17 @@ describe('ServiceFirmwareUpdate.detectActiveAccountFirmwareUpdates', () => {
     expect(getCompatibleConnectId).not.toHaveBeenCalled();
   });
 
-  it('runs OneKey SDK detection only while holding the hardware lease', async () => {
+  it.each([
+    { scenario: 'a resource update', sdkTargets: ['resource'], staleP2: false },
+    {
+      scenario: 'a stale P2-only update with its resource archive',
+      sdkTargets: ['app_v2', 'resource'],
+      staleP2: true,
+    },
+  ])('runs OneKey SDK detection for $scenario while holding the hardware lease', async ({
+    sdkTargets,
+    staleP2,
+  }) => {
     mockedLocalDb.getDeviceByQuery.mockResolvedValue({
       id: 'db-device-1',
       connectId: 'ONEKEY_BLE_ID',
@@ -696,7 +706,9 @@ describe('ServiceFirmwareUpdate.detectActiveAccountFirmwareUpdates', () => {
         expect(leaseActive).toBe(true);
         return {
           isBootloaderMode: false,
-          features: {} as IOneKeyDeviceFeatures,
+          features: {
+            bootloaderMode: staleP2 ? false : undefined,
+          } as IOneKeyDeviceFeatures,
           error: undefined,
         };
       });
@@ -714,7 +726,7 @@ describe('ServiceFirmwareUpdate.detectActiveAccountFirmwareUpdates', () => {
           firmware: {},
           ble: {},
           currentVersions: { ble: '2.3.7' },
-          targetsToUpdate: ['resource'],
+          targetsToUpdate: sdkTargets,
         } as never;
       });
     const checkFirmwareRelease = jest
@@ -756,18 +768,27 @@ describe('ServiceFirmwareUpdate.detectActiveAccountFirmwareUpdates', () => {
     expect(checkBLEFirmwareRelease).toHaveBeenCalledWith(
       expect.objectContaining({ saveUpdateInfo: false }),
     );
-    expect(
-      service.detectMap.detectMapCache.ONEKEY_BLE_ID?.updateInfo
-        ?.targetsToUpdate,
-    ).toEqual(['resource']);
-    expect(
-      service.detectMap.getDetectStatus({ connectId: 'ONEKEY_BLE_ID' }),
-    ).toEqual(
-      expect.objectContaining({
-        resolved: true,
-        status: expect.objectContaining({ hasUpgrade: true }),
-      }),
-    );
+    if (staleP2) {
+      expect(
+        service.detectMap.detectMapCache.ONEKEY_BLE_ID?.updateInfo,
+      ).toBeUndefined();
+      expect(
+        service.detectMap.getDetectStatus({ connectId: 'ONEKEY_BLE_ID' }),
+      ).toEqual(expect.objectContaining({ resolved: true, status: undefined }));
+    } else {
+      expect(
+        service.detectMap.detectMapCache.ONEKEY_BLE_ID?.updateInfo
+          ?.targetsToUpdate,
+      ).toEqual(['resource']);
+      expect(
+        service.detectMap.getDetectStatus({ connectId: 'ONEKEY_BLE_ID' }),
+      ).toEqual(
+        expect.objectContaining({
+          resolved: true,
+          status: expect.objectContaining({ hasUpgrade: true }),
+        }),
+      );
+    }
     expect(leaseActive).toBe(false);
   });
 
@@ -853,9 +874,18 @@ describe('ServiceFirmwareUpdate Protocol V2 target-only checks', () => {
       resolved: true,
       retryRead: true,
     },
+    {
+      transportType: EHardwareTransportType.WEBUSB,
+      resolved: true,
+      retryRead: false,
+      sdkTargets: ['app_v2', 'resource'],
+    },
   ])('checks releases over $transportType', async (scenario) => {
     const { transportType, resolved, retryRead } = scenario;
-    const features = {} as IOneKeyDeviceFeatures;
+    const staleNormalP2 = 'sdkTargets' in scenario;
+    const features = {
+      bootloaderMode: staleNormalP2 ? false : undefined,
+    } as IOneKeyDeviceFeatures;
     mockedLocalDb.getDeviceByQuery.mockResolvedValue({
       id: 'db-device-1',
       connectId: 'PRO2_USB_ID',
@@ -938,7 +968,8 @@ describe('ServiceFirmwareUpdate Protocol V2 target-only checks', () => {
           firmware: '1.0.0',
           ble: '1.0.0',
         },
-        targetsToUpdate: ['resource'],
+        targetsToUpdate:
+          'sdkTargets' in scenario ? scenario.sdkTargets : ['resource'],
       });
     jest.spyOn(service, 'checkFirmwareRelease').mockResolvedValue({
       hasUpgrade: false,
@@ -988,18 +1019,25 @@ describe('ServiceFirmwareUpdate Protocol V2 target-only checks', () => {
       });
     }
 
-    expect(result).toMatchObject({
-      hasUpgrade: true,
-      pro2TargetsToUpdate: ['resource'],
-    });
-    expect(
-      service.detectMap.getDetectStatus({ connectId: 'PRO2_USB_ID' }),
-    ).toEqual(
-      expect.objectContaining({
-        resolved: true,
-        status: expect.objectContaining({ hasUpgrade: true }),
-      }),
-    );
+    if (staleNormalP2) {
+      expect(result).toMatchObject({
+        hasUpgrade: false,
+        pro2TargetsToUpdate: [],
+      });
+    } else {
+      expect(result).toMatchObject({
+        hasUpgrade: true,
+        pro2TargetsToUpdate: ['resource'],
+      });
+      expect(
+        service.detectMap.getDetectStatus({ connectId: 'PRO2_USB_ID' }),
+      ).toEqual(
+        expect.objectContaining({
+          resolved: true,
+          status: expect.objectContaining({ hasUpgrade: true }),
+        }),
+      );
+    }
   });
 });
 

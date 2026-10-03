@@ -718,8 +718,19 @@ class ServiceFirmwareUpdate extends ServiceBase {
               currentVersion: releaseInfo.currentVersions?.ble,
               saveUpdateInfo: false,
             });
+            const sdkTargets = releaseInfo.targetsToUpdate ?? [];
+            const staleNormalP2Only =
+              features.bootloaderMode === false &&
+              firmware?.hasUpgrade === false &&
+              sdkTargets.includes('app_v2') &&
+              sdkTargets.every(
+                (target) =>
+                  target === 'app_v2' ||
+                  target === 'resource' ||
+                  target === 'boot_resources',
+              );
             const targetsToUpdate = buildPro2TargetsToUpdate({
-              sdkTargets: releaseInfo.targetsToUpdate,
+              sdkTargets: staleNormalP2Only ? [] : sdkTargets,
             });
             await this.detectMap.resolveUpdateInfo({
               ...detectIdentity,
@@ -1079,9 +1090,21 @@ class ServiceFirmwareUpdate extends ServiceBase {
       ble?.hasUpgrade ? 'ble' : undefined,
     ];
 
+    // A P2-only SDK result may include a resource archive automatically.
+    const sdkTargets = releaseInfo.targetsToUpdate ?? [];
+    const staleNormalP2Only =
+      features.bootloaderMode === false &&
+      firmware?.hasUpgrade === false &&
+      sdkTargets.includes('app_v2') &&
+      sdkTargets.every(
+        (target) =>
+          target === 'app_v2' ||
+          target === 'resource' ||
+          target === 'boot_resources',
+      );
     const pro2TargetsToUpdate = isProtocolV2ProductType(deviceType)
       ? buildPro2TargetsToUpdate({
-          sdkTargets: releaseInfo.targetsToUpdate,
+          sdkTargets: staleNormalP2Only ? [] : sdkTargets,
           forceTargets: pro2ForceTargets,
         })
       : undefined;
