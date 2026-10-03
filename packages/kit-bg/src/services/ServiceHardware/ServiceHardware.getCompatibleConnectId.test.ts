@@ -1552,7 +1552,7 @@ describe('ServiceHardware.getCompatibleConnectId', () => {
     ]);
   });
 
-  it('uses USB when any authorized OneKey WebUSB device is available', async () => {
+  it('uses WebUSB only when the selected device serial is available', async () => {
     const originalNavigator = Object.getOwnPropertyDescriptor(
       globalThis,
       'navigator',
@@ -1573,8 +1573,8 @@ describe('ServiceHardware.getCompatibleConnectId', () => {
     });
     mockedLocalDb.getDeviceByQuery.mockResolvedValue({
       id: 'db-pro-device',
-      connectId: 'PRB50B0127B',
-      usbConnectId: 'PRB50B0127B',
+      connectId: 'PRO2_USB_ID',
+      usbConnectId: 'PRO2_USB_ID',
       bleConnectId: 'PRO_BLE_PERIPHERAL_ID',
       deviceId: 'PRO_FEATURES_DEVICE_ID',
       vendor: EHardwareVendor.onekey,
@@ -1606,9 +1606,12 @@ describe('ServiceHardware.getCompatibleConnectId', () => {
 
       await expect(
         service.connectionManager.detectWebUSBAvailability('OTHER_USB_ID'),
-      ).resolves.toBe(true);
+      ).resolves.toBe(false);
       await expect(
         service.connectionManager.detectWebUSBAvailability('PRO2_USB_ID'),
+      ).resolves.toBe(true);
+      await expect(
+        service.connectionManager.detectWebUSBAvailability(),
       ).resolves.toBe(true);
 
       await expect(
@@ -1622,11 +1625,11 @@ describe('ServiceHardware.getCompatibleConnectId', () => {
 
       await expect(
         service.getCompatibleConnectId({
-          connectId: 'PRB50B0127B',
+          connectId: 'PRO2_USB_ID',
           featuresDeviceId: 'PRO_FEATURES_DEVICE_ID',
           hardwareCallContext: EHardwareCallContext.USER_INTERACTION,
         }),
-      ).resolves.toBe('PRB50B0127B');
+      ).resolves.toBe('PRO2_USB_ID');
       expect(detectBluetoothAvailability).not.toHaveBeenCalled();
     } finally {
       if (originalNavigator) {
@@ -1697,7 +1700,7 @@ describe('ServiceHardware.getCompatibleConnectId', () => {
     }
   });
 
-  it('keeps one transport decision when the same call changes from USB serial to BLE UUID', async () => {
+  it('uses the selected device BLE ID while another device is connected over USB', async () => {
     const getDevices = jest
       .fn()
       .mockResolvedValue([
@@ -1711,6 +1714,20 @@ describe('ServiceHardware.getCompatibleConnectId', () => {
       configurable: true,
       value: { usb: { getDevices } },
     });
+    mockedLocalDb.getDeviceByQuery.mockResolvedValue({
+      id: 'device-b',
+      connectId: 'DEVICE_B_USB',
+      usbConnectId: 'DEVICE_B_USB',
+      bleConnectId: 'AA:BB:CC:DD:EE:FF',
+      deviceId: 'DEVICE_B_ID',
+      connectProtocol: 'V2',
+      vendor: EHardwareVendor.onekey,
+      name: 'Device B',
+      features: '{}',
+      settingsRaw: '{}',
+      createdAt: 0,
+      updatedAt: 0,
+    } as IDBDevice);
 
     try {
       const service = new ServiceHardware({
@@ -1727,20 +1744,31 @@ describe('ServiceHardware.getCompatibleConnectId', () => {
           },
         } as unknown as IBackgroundApi,
       });
+      const detectBluetoothAvailability = jest
+        .spyOn(service.connectionManager, 'detectBluetoothAvailability')
+        .mockResolvedValue(true);
+      const detectWebUSBAvailability = jest.spyOn(
+        service.connectionManager,
+        'detectWebUSBAvailability',
+      );
 
       await expect(
         service.connectionManager.shouldSwitchTransportType({
           connectId: 'USB_ID',
+          connectProtocol: 'V2',
           hardwareCallContext: EHardwareCallContext.USER_INTERACTION,
         }),
       ).resolves.toMatchObject({ targetType: EHardwareTransportType.WEBUSB });
       await expect(
-        service.connectionManager.shouldSwitchTransportType({
-          connectId: 'BLE_PERIPHERAL_UUID',
+        service.getCompatibleConnectId({
+          connectId: 'AA:BB:CC:DD:EE:FF',
+          featuresDeviceId: 'DEVICE_B_ID',
           hardwareCallContext: EHardwareCallContext.USER_INTERACTION,
         }),
-      ).resolves.toMatchObject({ targetType: EHardwareTransportType.WEBUSB });
-      expect(getDevices).toHaveBeenCalledTimes(1);
+      ).resolves.toBe('AA:BB:CC:DD:EE:FF');
+      expect(getDevices).toHaveBeenCalledTimes(2);
+      expect(detectWebUSBAvailability).toHaveBeenLastCalledWith('DEVICE_B_USB');
+      expect(detectBluetoothAvailability).toHaveBeenCalled();
     } finally {
       if (originalNavigator) {
         Object.defineProperty(globalThis, 'navigator', originalNavigator);
@@ -1750,14 +1778,14 @@ describe('ServiceHardware.getCompatibleConnectId', () => {
     }
   });
 
-  it('uses Bridge when any Bridge device is enumerated', async () => {
+  it('uses Bridge only when the selected device path is enumerated', async () => {
     mockedAxios.post.mockResolvedValue({
       data: [{ path: 'UNRELATED_USB_ID' }],
     });
     mockedLocalDb.getDeviceByQuery.mockResolvedValue({
       id: 'db-pro-device',
-      connectId: 'PRB50B0127B',
-      usbConnectId: 'PRB50B0127B',
+      connectId: 'UNRELATED_USB_ID',
+      usbConnectId: 'UNRELATED_USB_ID',
       bleConnectId: 'PRO_BLE_PERIPHERAL_ID',
       deviceId: 'PRO_FEATURES_DEVICE_ID',
       connectProtocol: 'V1',
@@ -1789,9 +1817,12 @@ describe('ServiceHardware.getCompatibleConnectId', () => {
 
     await expect(
       service.connectionManager.detectBridgeAvailability('OTHER_USB_ID'),
-    ).resolves.toBe(true);
+    ).resolves.toBe(false);
     await expect(
       service.connectionManager.detectBridgeAvailability('UNRELATED_USB_ID'),
+    ).resolves.toBe(true);
+    await expect(
+      service.connectionManager.detectBridgeAvailability(),
     ).resolves.toBe(true);
 
     await expect(
@@ -1806,11 +1837,11 @@ describe('ServiceHardware.getCompatibleConnectId', () => {
 
     await expect(
       service.getCompatibleConnectId({
-        connectId: 'PRB50B0127B',
+        connectId: 'UNRELATED_USB_ID',
         featuresDeviceId: 'PRO_FEATURES_DEVICE_ID',
         hardwareCallContext: EHardwareCallContext.USER_INTERACTION,
       }),
-    ).resolves.toBe('PRB50B0127B');
+    ).resolves.toBe('UNRELATED_USB_ID');
     expect(detectBluetoothAvailability).not.toHaveBeenCalled();
   });
 
