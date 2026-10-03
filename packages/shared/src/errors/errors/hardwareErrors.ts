@@ -604,11 +604,15 @@ export class FirmwareVersionTooLow extends OneKeyHardwareError {
     super(
       normalizeErrorProps(
         {
+          payload: props?.payload,
           info: { 'version': get(props, 'payload.params.require', '') },
         },
         {
           defaultMessage: 'FirmwareVersionTooLow',
-          defaultKey: ETranslations.hardware_version_need_upgrade_error,
+          defaultKey:
+            get(props, 'payload.params.method') === 'uploadPortfolio'
+              ? ETranslations.device_desc_update_latest_firmware
+              : ETranslations.hardware_version_need_upgrade_error,
         },
       ),
     );
