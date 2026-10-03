@@ -16,7 +16,10 @@ import {
   swrCacheUtils,
   swrKeys,
 } from '@onekeyhq/shared/src/utils/swrCacheUtils';
-import { normalizeTokenContractAddress } from '@onekeyhq/shared/src/utils/tokenUtils';
+import {
+  equalTokenNoCaseSensitive,
+  normalizeTokenContractAddress,
+} from '@onekeyhq/shared/src/utils/tokenUtils';
 import type {
   IMarketStockDetailPreview,
   IMarketStockPublicDetail,
@@ -35,6 +38,7 @@ type IStockDetailContextValue = {
   isStockRoute: boolean;
   stockPreview?: IMarketStockDetailPreview;
   stockDetail?: IMarketStockPublicDetail | null;
+  isStockDetailReady: boolean;
   isStockDetailLoading: boolean;
   isStockDetailError: boolean;
   retryStockDetail: () => Promise<void>;
@@ -54,6 +58,7 @@ type IStockDetailContextValue = {
 
 const StockDetailContext = createContext<IStockDetailContextValue>({
   isStockRoute: false,
+  isStockDetailReady: false,
   isStockDetailLoading: false,
   isStockDetailError: false,
   retryStockDetail: async () => undefined,
@@ -92,12 +97,15 @@ export function StockDetailProvider({
   initialStockPreview,
   initialNetworkId,
   initialTokenAddress,
+  preserveInitialToken = false,
   children,
 }: PropsWithChildren<{
   stockId?: string;
   initialStockPreview?: IMarketStockDetailPreview;
   initialNetworkId?: string;
   initialTokenAddress?: string;
+  // Trading pages must keep showing the actual selected token even when paused.
+  preserveInitialToken?: boolean;
 }>) {
   const normalizedStockId = stockId?.trim().toUpperCase() || undefined;
   const stockPreview =
@@ -122,6 +130,16 @@ export function StockDetailProvider({
         })
       : initialTokenAddress,
   ]);
+  // A cached detail can be rendered synchronously while its first request for
+  // the current stock is still revalidating. Keep that cached payload useful
+  // for quotes, but do not let its market status drive the header until the
+  // current stock has completed one request in this provider instance.
+  const stockDetailObservedKeyRef = useRef(stockDetailSwrKey);
+  const stockDetailReadyKeyRef = useRef<string | undefined>(undefined);
+  if (stockDetailObservedKeyRef.current !== stockDetailSwrKey) {
+    stockDetailObservedKeyRef.current = stockDetailSwrKey;
+    stockDetailReadyKeyRef.current = undefined;
+  }
   // Pick the variant from cached variants during the first render, so a
   // revisit knows its token identity before any request settles.
   const [initialSelectedTokenId] = useState(() => {
@@ -205,6 +223,9 @@ export function StockDetailProvider({
         }
         const result = { stockId: normalizedStockId, data };
         successfulStockDetails.set(normalizedStockId, result);
+        if (stockDetailObservedKeyRef.current === stockDetailSwrKey) {
+          stockDetailReadyKeyRef.current = stockDetailSwrKey;
+        }
         return result;
       } catch (_error) {
         // A polling tick that fails must not turn a loaded page into an error
@@ -218,7 +239,7 @@ export function StockDetailProvider({
       }
     },
     // The map is useState-stable, so naming it here never re-runs the request.
-    [normalizedStockId, successfulStockDetails],
+    [normalizedStockId, stockDetailSwrKey, successfulStockDetails],
     {
       watchLoading: true,
       // `checkIsFocused` stays at the repo default (true). It is what gates the
@@ -298,6 +319,7 @@ export function StockDetailProvider({
   );
 
   useEffect(() => {
+    if (preserveInitialToken) return;
     if (!normalizedStockId) {
       appliedTokenRouteRef.current = undefined;
       setSelectedTokenId(undefined);
@@ -330,6 +352,7 @@ export function StockDetailProvider({
     hasCurrentTokenVariants,
     initialNetworkId,
     initialTokenAddress,
+    preserveInitialToken,
     normalizedStockId,
     selectedTokenId,
     tokenVariantResult?.defaultTokenId,
@@ -339,8 +362,34 @@ export function StockDetailProvider({
   ]);
 
   const selectedTokenVariant = useMemo(
-    () => tokenVariants.find((item) => item.tokenId === selectedTokenId),
-    [selectedTokenId, tokenVariants],
+    () =>
+      tokenVariants.find((item) =>
+        preserveInitialToken
+          ? equalTokenNoCaseSensitive({
+              token1: item,
+              token2: {
+                networkId: initialNetworkId,
+                contractAddress: initialTokenAddress,
+              },
+            })
+          : item.tokenId === selectedTokenId,
+      ),
+    [
+      initialNetworkId,
+      initialTokenAddress,
+      preserveInitialToken,
+      selectedTokenId,
+      tokenVariants,
+    ],
+  );
+  const isPreservedTokenResolutionPending = Boolean(
+    preserveInitialToken &&
+    initialNetworkId &&
+    initialTokenAddress &&
+    !tokenVariantResult?.failed &&
+    tokenVariants.some(isStockTokenVariantTradable) &&
+    !selectedTokenVariant &&
+    fetchedTokenVariantsStockIdRef.current !== normalizedStockId,
   );
   const handleSetSelectedTokenId = useCallback(
     (tokenId: string) => {
@@ -358,6 +407,10 @@ export function StockDetailProvider({
       isStockRoute: Boolean(normalizedStockId),
       stockPreview,
       stockDetail: currentStockDetail,
+      isStockDetailReady: Boolean(
+        normalizedStockId &&
+        stockDetailReadyKeyRef.current === stockDetailSwrKey,
+      ),
       isStockDetailLoading: Boolean(normalizedStockId && isStockDetailLoading),
       isStockDetailError: Boolean(
         normalizedStockId &&
@@ -369,9 +422,11 @@ export function StockDetailProvider({
       isTokenVariantPending: Boolean(
         normalizedStockId &&
         (!hasCurrentTokenVariants ||
-          (!tokenVariantResult?.failed &&
+          (!preserveInitialToken &&
+            !tokenVariantResult?.failed &&
             tokenVariants.some(isStockTokenVariantTradable) &&
-            !selectedTokenVariant)),
+            !selectedTokenVariant) ||
+          isPreservedTokenResolutionPending),
       ),
       isTokenVariantsLoading: Boolean(
         normalizedStockId && isTokenVariantsLoading,
@@ -382,7 +437,9 @@ export function StockDetailProvider({
         tokenVariantResult.failed,
       ),
       retryTokenVariants,
-      selectedTokenId,
+      selectedTokenId: preserveInitialToken
+        ? selectedTokenVariant?.tokenId
+        : selectedTokenId,
       selectedTokenVariant,
       setSelectedTokenId: handleSetSelectedTokenId,
       portfolioNetworkId: selectedTokenVariant?.networkId ?? initialNetworkId,
@@ -392,13 +449,16 @@ export function StockDetailProvider({
       initialNetworkId,
       isStockDetailLoading,
       isTokenVariantsLoading,
+      isPreservedTokenResolutionPending,
       handleSetSelectedTokenId,
       normalizedStockId,
+      preserveInitialToken,
       retryStockDetail,
       retryTokenVariants,
       selectedTokenId,
       selectedTokenVariant,
       stockPreview,
+      stockDetailSwrKey,
       stockDetailResult?.failed,
       stockDetailResult?.stockId,
       tokenVariantResult?.failed,

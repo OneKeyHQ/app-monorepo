@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { ScrollView } from 'react-native';
 
@@ -10,6 +10,7 @@ import {
   useScrollContentTabBarOffset,
 } from '@onekeyhq/components';
 import type { EPageType } from '@onekeyhq/components';
+import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import {
   useSwapFromTokenAmountAtom,
   useSwapProErrorAlertAtom,
@@ -40,6 +41,7 @@ import {
   resolveMarketPresetNativeTokenPrice,
 } from '../../../Market/MarketDetailV2/components/SwapPanel/hooks/marketDirectSendTx';
 import SwapProErrorAlert from '../../components/SwapProErrorAlert';
+import { useSwapDepositEntryPress } from '../../hooks/useSwapDepositEntry';
 import {
   useSwapPositionsSupportTokenListAction,
   useSwapProInputToken,
@@ -133,6 +135,32 @@ const SwapProContainer = ({
     useSwapProTokenInfoSync();
   const inputToken = useSwapProInputToken();
   const toToken = useSwapProToToken();
+  const { activeAccount } = useActiveAccount({ num: 0 });
+  // The Pro pay token can sit on another network than the selected account's,
+  // so the deposit entry targets the network account Pro resolved while the
+  // wallet and indexed account still come from the active account.
+  const depositAccountInfo = useMemo(
+    () =>
+      netAccountRes.result
+        ? { ...activeAccount, account: netAccountRes.result }
+        : undefined,
+    [activeAccount, netAccountRes.result],
+  );
+  const onDepositToTrade = useSwapDepositEntryPress({
+    token: inputToken as ISwapToken | undefined,
+    accountInfo: depositAccountInfo,
+    activeAccount,
+    onClose: syncInputTokenBalance,
+  });
+  // The Pro panel's Top up chip is always visible, so it must not count the
+  // low-balance funnel event the way the zero-balance action button does.
+  const onProTopUpPress = useSwapDepositEntryPress({
+    token: inputToken as ISwapToken | undefined,
+    accountInfo: depositAccountInfo,
+    activeAccount,
+    onClose: syncInputTokenBalance,
+    logLowBalance: false,
+  });
   const { swapProLoadSupportNetworksTokenListRun } =
     useSwapPositionsSupportTokenListAction();
   const handleRefresh = useCallback(async () => {
@@ -332,6 +360,8 @@ const SwapProContainer = ({
             onBalanceMax={onBalanceMaxPress}
             onSelectPercentageStage={onSelectPercentageStage}
             onSwapProActionClick={onSwapProActionClick}
+            onDepositToTrade={onDepositToTrade}
+            onTopUpPress={onProTopUpPress}
             hasEnoughBalance={hasEnoughBalance}
             handleSelectAccountClick={handleSelectAccountClick}
             cleanInputAmount={cleanInputAmount}

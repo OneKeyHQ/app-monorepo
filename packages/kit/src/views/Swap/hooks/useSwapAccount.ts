@@ -261,6 +261,37 @@ export function useSwapFromAccountNetworkSync() {
   ]);
 }
 
+// The active account's counterpart on `networkId`: same wallet and indexed
+// account, the network's global derive type. useSwapAddressInfo runs this for
+// a cross-network token; press handlers call it directly when they need that
+// account while the hook's lookup is still pending, so the tap is not lost.
+export function resolveSwapNetworkAccount({
+  accountId,
+  indexedAccountId,
+  dbAccount,
+  networkId,
+}: {
+  accountId?: string;
+  indexedAccountId?: string;
+  dbAccount?: IAccountSelectorActiveAccountInfo['dbAccount'];
+  networkId: string;
+}) {
+  return resolveSwapTargetNetworkAccount({
+    getDeriveType: () =>
+      backgroundApiProxy.serviceNetwork.getGlobalDeriveTypeOfNetwork({
+        networkId,
+      }),
+    getNetworkAccount: (deriveType) =>
+      backgroundApiProxy.serviceAccount.getNetworkAccount({
+        deriveType,
+        indexedAccountId,
+        accountId: indexedAccountId ? undefined : accountId,
+        dbAccount,
+        networkId,
+      }),
+  });
+}
+
 export function useSwapAddressInfo(type: ESwapDirectionType) {
   const [{ swapToAnotherAccountSwitchOn }] = useSettingsAtom();
   const { activeAccount } = useActiveAccount({
@@ -403,21 +434,11 @@ export function useSwapAddressInfo(type: ESwapDirectionType) {
           await resolveSwapTargetNetworkAccountOnce({
             key: targetNetworkAccountResolveKey,
             resolve: () =>
-              resolveSwapTargetNetworkAccount({
-                getDeriveType: () =>
-                  backgroundApiProxy.serviceNetwork.getGlobalDeriveTypeOfNetwork(
-                    { networkId: tokenNetworkId },
-                  ),
-                getNetworkAccount: (deriveType) =>
-                  backgroundApiProxy.serviceAccount.getNetworkAccount({
-                    deriveType,
-                    indexedAccountId: activeAccount.indexedAccount?.id,
-                    accountId: activeAccount.indexedAccount?.id
-                      ? undefined
-                      : activeAccount.account?.id,
-                    dbAccount: activeAccount.dbAccount,
-                    networkId: tokenNetworkId,
-                  }),
+              resolveSwapNetworkAccount({
+                accountId: activeAccount.account?.id,
+                indexedAccountId: activeAccount.indexedAccount?.id,
+                dbAccount: activeAccount.dbAccount,
+                networkId: tokenNetworkId,
               }),
           });
         if (!cancelled) {

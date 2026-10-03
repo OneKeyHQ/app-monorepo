@@ -1595,7 +1595,7 @@ export function useSwapProTokenDetailInfo() {
   };
 }
 
-function useSwapProPositionAccountIdentity() {
+export function useSwapProPositionAccountIdentity() {
   const { activeAccount } = useActiveAccount({ num: 0 });
   const { selectedAccount } = useSelectedAccount({ num: 0 });
   const [isAccountSelectorStorageInitDone] =
@@ -1761,7 +1761,7 @@ export function useSwapProSupportNetworksTokenList(
       orderFromToken: ISwapTokenBase;
       orderToToken: ISwapTokenBase;
     }) => {
-      if (
+      const affectsSelectedToken = Boolean(
         swapProSelectTokenRef.current?.networkId &&
         swapProUseSelectBuyTokenRef.current?.networkId &&
         (equalTokenNoCaseSensitive({
@@ -1779,8 +1779,28 @@ export function useSwapProSupportNetworksTokenList(
           equalTokenNoCaseSensitive({
             token1: swapProUseSelectBuyTokenRef.current,
             token2: orderToToken,
-          }))
-      ) {
+          })),
+      );
+      if (options?.stockOnly) {
+        if (affectsSelectedToken) {
+          await syncOrderTokenBalance(positionCurrencyId);
+        }
+        if (
+          supportNetworksReady &&
+          networkList.some(
+            (network) =>
+              network.networkId === orderFromToken.networkId ||
+              network.networkId === orderToToken.networkId,
+          )
+        ) {
+          await swapProLoadSupportNetworksTokenListRun(networkList, {
+            forceRefresh: true,
+            stockOnly: true,
+          });
+        }
+        return;
+      }
+      if (affectsSelectedToken) {
         const balanceTokensInfoRes =
           await syncOrderTokenBalance(positionCurrencyId);
         if (balanceTokensInfoRes) {
@@ -1814,6 +1834,10 @@ export function useSwapProSupportNetworksTokenList(
       }
     },
     [
+      networkList,
+      options?.stockOnly,
+      supportNetworksReady,
+      swapProLoadSupportNetworksTokenListRun,
       syncOrderTokenBalance,
       syncTokensToPosition,
       positionOwnerKey,

@@ -14,6 +14,7 @@ import {
   resolveStockMarketStatusCase,
 } from '@onekeyhq/kit/src/views/Market/components/StockMarketStatusAlert';
 import { usePerpsNavigation } from '@onekeyhq/kit/src/views/Market/hooks/usePerpsNavigation';
+import { isCurrentSwapAccountNetworkUnsupportedAlert } from '@onekeyhq/kit/src/views/Swap/utils/swapNoWalletWarningGuard';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EPerpPageEnterSource } from '@onekeyhq/shared/src/logger/scopes/perp/perpPageSource';
@@ -52,6 +53,11 @@ type ISwapStockTradeAlertProps = {
   quoteLoading: boolean;
   quoteResult?: IFetchQuoteResult;
   stockChannel: IUseSwapStockChannelReturn;
+  accountNetworkContext: {
+    accountId?: string;
+    walletId?: string;
+    networkId?: string;
+  };
   /** px value of the hosting Stack gap, offset by SwapSmoothReveal */
   parentGap: number;
 };
@@ -105,6 +111,7 @@ function BasicSwapStockTradeAlert({
   quoteLoading,
   quoteResult,
   stockChannel,
+  accountNetworkContext,
   parentGap,
 }: ISwapStockTradeAlertProps) {
   const intl = useIntl();
@@ -173,11 +180,30 @@ function BasicSwapStockTradeAlert({
     quoteEventError?.message,
   ]);
 
+  const currentAlerts = alerts.states.filter(
+    (item) =>
+      !item.isAccountNetworkUnsupported ||
+      isCurrentSwapAccountNetworkUnsupportedAlert({
+        alert: item,
+        ...accountNetworkContext,
+      }),
+  );
+  const currentUnsupportedAlerts = currentAlerts.filter(
+    (item) => item.isAccountNetworkUnsupported,
+  );
+  const hasAccountNetworkUnsupportedAlert = currentUnsupportedAlerts.length > 0;
+  const isQuoteInFlight = quoteLoading || quoteEventFetching;
+  const hasQuoteMismatch = alerts.quoteId !== (quoteResult?.quoteId ?? '');
+  const visibleAlerts =
+    hasAccountNetworkUnsupportedAlert && (isQuoteInFlight || hasQuoteMismatch)
+      ? currentUnsupportedAlerts
+      : currentAlerts;
   const shouldShowSwapAlerts =
-    alerts.states.length > 0 &&
-    !quoteLoading &&
-    !quoteEventFetching &&
-    alerts.quoteId === (quoteResult?.quoteId ?? '');
+    visibleAlerts.length > 0 &&
+    (hasAccountNetworkUnsupportedAlert ||
+      (!quoteLoading &&
+        !quoteEventFetching &&
+        alerts.quoteId === (quoteResult?.quoteId ?? '')));
   const stockPrimaryAlert = stockQuoteAlert ?? stockEventAlert;
   const stockTradeDisabled =
     isStockMarketClosed ||
@@ -188,10 +214,10 @@ function BasicSwapStockTradeAlert({
     if (!shouldShowSwapAlerts) {
       return [];
     }
-    return alerts.states.filter(
+    return visibleAlerts.filter(
       (item) => !isSameAlertMessage(item.message, stockPrimaryAlert?.message),
     );
-  }, [alerts.states, shouldShowSwapAlerts, stockPrimaryAlert?.message]);
+  }, [shouldShowSwapAlerts, stockPrimaryAlert?.message, visibleAlerts]);
 
   const mergedQuoteAlerts = useMemo(() => {
     if (stockPrimaryAlert) {

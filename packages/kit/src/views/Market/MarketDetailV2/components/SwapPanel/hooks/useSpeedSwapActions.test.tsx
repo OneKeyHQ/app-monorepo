@@ -38,6 +38,7 @@ import type {
 } from '@onekeyhq/shared/types/swap/types';
 import {
   EProtocolOfExchange,
+  ESwapFetchCancelCause,
   ESwapQuoteSource,
   ESwapSlippageSegmentKey,
   ESwapStepType,
@@ -96,6 +97,11 @@ const mockFetchSwapNativeTokenConfig: jest.MockedFunction<
 > = jest.fn();
 const mockFetchQuotesEvents: jest.MockedFunction<
   (params: unknown) => Promise<void>
+> = jest.fn();
+const mockFetchApproveAllowance: jest.MockedFunction<
+  (
+    params: unknown,
+  ) => Promise<{ isApproved: boolean; shouldResetApprove?: boolean }>
 > = jest.fn();
 const mockFetchBuildTx: jest.MockedFunction<
   (params: unknown) => Promise<IFetchBuildTxResponse | undefined>
@@ -175,6 +181,8 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
       fetchSwapNativeTokenConfig: (params: IFetchSwapNativeTokenConfigParams) =>
         mockFetchSwapNativeTokenConfig(params),
       fetchQuotesEvents: (params: unknown) => mockFetchQuotesEvents(params),
+      fetchApproveAllowance: (params: unknown) =>
+        mockFetchApproveAllowance(params),
       fetchBuildTx: (params: unknown) => mockFetchBuildTx(params),
       closeApproving: () => mockCloseApproving(),
       cancelFetchQuoteEvents: (quoteRequestId?: string) =>
@@ -520,6 +528,8 @@ describe('useSpeedSwapActions', () => {
     mockFetchSwapNativeTokenConfig.mockReset();
     mockFetchQuotesEvents.mockReset();
     mockFetchQuotesEvents.mockResolvedValue();
+    mockFetchApproveAllowance.mockReset();
+    mockFetchApproveAllowance.mockResolvedValue({ isApproved: true });
     mockFetchBuildTx.mockReset();
     mockCloseApproving.mockReset();
     mockCloseApproving.mockResolvedValue();
@@ -593,6 +603,121 @@ describe('useSpeedSwapActions', () => {
       result: undefined,
       run: mockMarketDeriveInfoRun,
     };
+  });
+
+  it('clears allowance loading when an expired quote has no replacement request', async () => {
+    mockFetchSwapTokenDetails.mockResolvedValue([]);
+    const allowanceRequest = createDeferred<{
+      isApproved: boolean;
+      shouldResetApprove?: boolean;
+    }>();
+    mockFetchApproveAllowance.mockReturnValue(allowanceRequest.promise);
+
+    const { result } = renderSwapHook(() =>
+      useSpeedSwapActions({
+        ...createHookProps({ marketToken: stockToken }),
+        fromTokenAmount: '1',
+      }),
+    );
+    const quoteWithAllowance: IFetchQuoteResult = {
+      info: { provider: 'stock-provider', providerName: 'Stock Provider' },
+      fromAmount: '1',
+      fromTokenInfo: usdcToken,
+      toAmount: '1',
+      toTokenInfo: stockToken,
+      allowanceResult: {
+        allowanceTarget: '0xspender',
+        amount: '1',
+      },
+    };
+
+    act(() => {
+      mockSwapStore.set(swapQuoteListAtom(), [quoteWithAllowance]);
+    });
+    await waitFor(() => {
+      expect(mockFetchApproveAllowance).toHaveBeenCalledTimes(1);
+      expect(result.current.checkTokenAllowanceLoading).toBe(true);
+    });
+
+    act(() => {
+      mockSwapStore.set(swapQuoteListAtom(), []);
+    });
+    await act(async () => {
+      allowanceRequest.reject(
+        Object.assign(new Error('allowance request canceled'), {
+          cause: ESwapFetchCancelCause.SWAP_APPROVE_ALLOWANCE_CANCEL,
+        }),
+      );
+    });
+
+    expect(result.current.checkTokenAllowanceLoading).toBe(false);
+    expect(result.current.shouldApprove).toBe(false);
+  });
+
+  it('keeps the replacement allowance request authoritative after an older cancellation', async () => {
+    mockFetchSwapTokenDetails.mockResolvedValue([]);
+    const firstAllowanceRequest = createDeferred<{
+      isApproved: boolean;
+      shouldResetApprove?: boolean;
+    }>();
+    const replacementAllowanceRequest = createDeferred<{
+      isApproved: boolean;
+      shouldResetApprove?: boolean;
+    }>();
+    mockFetchApproveAllowance
+      .mockReturnValueOnce(firstAllowanceRequest.promise)
+      .mockReturnValueOnce(replacementAllowanceRequest.promise);
+
+    const { result } = renderSwapHook(() =>
+      useSpeedSwapActions({
+        ...createHookProps({ marketToken: stockToken }),
+        fromTokenAmount: '1',
+      }),
+    );
+    const buildQuote = (allowanceTarget: string): IFetchQuoteResult => ({
+      info: { provider: allowanceTarget, providerName: allowanceTarget },
+      fromAmount: '1',
+      fromTokenInfo: usdcToken,
+      toAmount: '1',
+      toTokenInfo: stockToken,
+      allowanceResult: {
+        allowanceTarget,
+        amount: '1',
+      },
+    });
+
+    act(() => {
+      mockSwapStore.set(swapQuoteListAtom(), [buildQuote('0xfirst')]);
+    });
+    await waitFor(() => {
+      expect(mockFetchApproveAllowance).toHaveBeenCalledTimes(1);
+      expect(result.current.checkTokenAllowanceLoading).toBe(true);
+    });
+
+    act(() => {
+      mockSwapStore.set(swapQuoteListAtom(), [buildQuote('0xreplacement')]);
+    });
+    await waitFor(() => {
+      expect(mockFetchApproveAllowance).toHaveBeenCalledTimes(2);
+      expect(result.current.checkTokenAllowanceLoading).toBe(true);
+    });
+
+    await act(async () => {
+      firstAllowanceRequest.reject(
+        Object.assign(new Error('allowance request canceled'), {
+          cause: ESwapFetchCancelCause.SWAP_APPROVE_ALLOWANCE_CANCEL,
+        }),
+      );
+    });
+    expect(result.current.checkTokenAllowanceLoading).toBe(true);
+
+    await act(async () => {
+      replacementAllowanceRequest.resolve({ isApproved: false });
+    });
+    await waitFor(() => {
+      expect(result.current.checkTokenAllowanceLoading).toBe(false);
+      expect(result.current.shouldApprove).toBe(true);
+    });
   });
 
   it('keeps the latest same-network balance when stablecoin balance requests resolve out of order', async () => {

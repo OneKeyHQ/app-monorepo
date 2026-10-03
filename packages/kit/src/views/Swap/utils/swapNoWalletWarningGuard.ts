@@ -41,6 +41,31 @@ export function removeSwapNoConnectWalletAlerts(states: ISwapAlertState[]) {
   return states.filter((item) => !item.noConnectWallet);
 }
 
+export function isCurrentSwapAccountNetworkUnsupportedAlert({
+  alert,
+  accountId,
+  walletId,
+  networkId,
+}: {
+  alert: ISwapAlertState;
+  accountId?: string;
+  walletId?: string;
+  networkId?: string;
+}) {
+  if (!alert.isAccountNetworkUnsupported) {
+    return false;
+  }
+  const context = alert.accountNetworkUnsupportedContext;
+  if (!context) {
+    return true;
+  }
+  return (
+    context.accountId === accountId &&
+    context.walletId === walletId &&
+    context.networkId === networkId
+  );
+}
+
 export function shouldShowSwapLocalData({
   accountInfoReady,
   accountSelectorActiveAccountInitDone,
