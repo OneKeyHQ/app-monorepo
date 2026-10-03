@@ -160,10 +160,7 @@ build({
     '@sentry/electron',
     'systeminformation',
     'iconv-lite',
-    // Tier 1: post-boot only (auto-update + archive extraction) — pulled via the
-    // kit-bg desktopApi surface; keep their subtrees (builder-util-runtime, the
-    // XML stack, js-yaml) out of app.js parse.
-    'electron-updater',
+    // Keep archive extraction out of app.js parse.
     'adm-zip',
     // Tier 2: large lookup-table deps reached transitively via the local HTTP
     // server (mime-db, validator).
@@ -206,8 +203,8 @@ build({
       process.env.SENTRY_DSN_DESKTOP || '',
     ),
     // APPIMAGE is intentionally NOT defined here. It is a runtime env set by
-    // the AppImage launcher and read (via bracket notation) by electron-updater
-    // and our canAutoInstallAppImage guard. AppImage BUILD detection is done
+    // the AppImage launcher and read by our canAutoInstallAppImage guard.
+    // AppImage BUILD detection is done
     // via DESK_CHANNEL=appImage instead (see release-desktop-all.yml).
     'process.env.SNAP': JSON.stringify(process.env.SNAP || ''),
     'process.env.FLATPAK': JSON.stringify(process.env.FLATPAK || ''),

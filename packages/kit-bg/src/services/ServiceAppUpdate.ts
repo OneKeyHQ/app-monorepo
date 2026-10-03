@@ -451,19 +451,14 @@ class ServiceAppUpdate extends ServiceBase {
       return snapshot;
     }
 
-    const needsUpdaterRehydrate =
-      availability.status === EAppUpdatePackageAvailabilityStatus.notPrepared;
     const isAutoStrategy = isAutoUpdateStrategy(snapshot.updateStrategy);
     let nextStatus: EAppUpdateStatus;
-    if (needsUpdaterRehydrate && !isAutoStrategy) {
-      nextStatus = EAppUpdateStatus.downloadPackage;
-    } else if (isAutoStrategy) {
+    if (isAutoStrategy) {
       nextStatus = EAppUpdateStatus.notify;
     } else {
       nextStatus = EAppUpdateStatus.updateIncomplete;
     }
-    const shouldConsumeRecoveryBudget =
-      nextStatus === EAppUpdateStatus.notify && !needsUpdaterRehydrate;
+    const shouldConsumeRecoveryBudget = nextStatus === EAppUpdateStatus.notify;
     const updateTargetKey = shouldConsumeRecoveryBudget
       ? this.computeUpdateTargetKey(snapshot)
       : null;
@@ -527,18 +522,14 @@ class ServiceAppUpdate extends ServiceBase {
       defaultLogger.app.appUpdate.log(
         `reconcileAppShellPackage: ${availability.status} package invalidated ${snapshot.status} state (${nextStatus})`,
       );
-      if (
-        nextStatus === EAppUpdateStatus.notify ||
-        nextStatus === EAppUpdateStatus.downloadPackage
-      ) {
+      if (nextStatus === EAppUpdateStatus.notify) {
         setTimeout(() => {
           void (async () => {
             const current = await appUpdatePersistAtom.get();
             if (
               current.status === nextStatus &&
               current.latestVersion === snapshot.latestVersion &&
-              (nextStatus === EAppUpdateStatus.downloadPackage ||
-                isAutoUpdateStrategy(current.updateStrategy)) &&
+              isAutoUpdateStrategy(current.updateStrategy) &&
               !current.downloadedEvent
             ) {
               appEventBus.emit(EAppEventBusNames.StartAutoDownloadUpdate, {

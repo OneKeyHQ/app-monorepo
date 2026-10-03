@@ -47,12 +47,6 @@ import { useDownloadPackage } from './useDownloadPackage';
 // awaits after unmount.
 let didRunFirstLaunchDispatch = false;
 const LOG_ARCHIVE_CLEANUP_CUTOFF_MS = Date.now();
-// Auto-ready install handling should fire at most once per app session even if
-// the persist atom hydrates after the first-launch dispatch useEffect has
-// already consumed didRunFirstLaunchDispatch. Tracked separately so the
-// watcher effect below can react to a late hydration / in-session status
-// transition without re-running the full first-launch dispatch.
-let autoReadyInstallHandled = false;
 
 /**
  * OK-58962: on the extension every UI surface is its own page load, so a window
@@ -132,20 +126,6 @@ export function useAppUpdateForegroundEffects(enabled = true) {
     installPackage,
     showUpdateInCompleteDialog,
   } = useDownloadPackage();
-  const processRehydratedAppInstall = useCallback(() => {
-    if (autoReadyInstallHandled) return;
-    autoReadyInstallHandled = true;
-    void backgroundApiProxy.serviceAppUpdate
-      .processPendingInstallTask()
-      .then((installStarted) => {
-        if (!installStarted) {
-          autoReadyInstallHandled = false;
-        }
-      })
-      .catch(() => {
-        autoReadyInstallHandled = false;
-      });
-  }, []);
   const showUpdateInCompleteDialogWhenUnlocked = useCallback(() => {
     void (async () => {
       await whenAppUnlocked();
@@ -477,11 +457,6 @@ export function useAppUpdateForegroundEffects(enabled = true) {
               );
               void backgroundApiProxy.serviceAppUpdate.reset();
             }
-          } else if (
-            platformEnv.isDesktopMac &&
-            info.downloadedEvent?.isUpdaterRehydrated
-          ) {
-            processRehydratedAppInstall();
           } else {
             void installPackage(
               () => undefined,
@@ -496,13 +471,6 @@ export function useAppUpdateForegroundEffects(enabled = true) {
           // strategy gate), applied on the next restart; the update button
           // offers an immediate restart-install. Keep the guard set so the
           // silent-ready watcher below cannot process the same state twice.
-          const shouldProcessRehydratedPackage =
-            !autoReadyInstallHandled &&
-            platformEnv.isDesktopMac &&
-            info.downloadedEvent?.isUpdaterRehydrated;
-          if (shouldProcessRehydratedPackage) {
-            processRehydratedAppInstall();
-          }
           // showSilentUpdateDialog();
         } else {
           showUpdateDialog();
@@ -539,40 +507,6 @@ export function useAppUpdateForegroundEffects(enabled = true) {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-
-  // Auto-ready watcher — independent of didRunFirstLaunchDispatch.
-  // The first-launch dispatch effect above runs exactly once with an
-  // empty dep list, so it cannot react to status changes that arrive
-  // after the first run (e.g. an auto-download completes in-session, or
-  // the persist atom hydrates after the initial render on restart). This
-  // dedicated effect covers both cases. autoReadyInstallHandled (module-
-  // level) ensures only one dispatch per app session even when the hook
-  // is mounted twice (StrictMode / the legacy useAppUpdateInfo opt-in).
-  useEffect(() => {
-    if (!enabled) return;
-    if (autoReadyInstallHandled) return;
-    if (!isAutoUpdateStrategy(appUpdateInfo.updateStrategy)) return;
-    if (appUpdateInfo.status !== EAppUpdateStatus.ready) return;
-    if (isFirstLaunchAfterUpdated(appUpdateInfo)) return;
-    if (!platformEnv.isDesktopMac) return;
-    if (!appUpdateInfo.downloadedEvent?.isUpdaterRehydrated) return;
-    processRehydratedAppInstall();
-    // OK-55397: regular silent packages remain queued for the next restart.
-    // A rehydrated macOS package must run now because MacUpdater preparation
-    // belongs to this process and is lost on another restart.
-    // showSilentUpdateDialog();
-    // deps: only re-run on status / strategy transitions.
-    // appUpdateInfo is omitted intentionally — including the object ref
-    // would re-fire on every unrelated field mutation.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [
-    enabled,
-    appUpdateInfo.status,
-    appUpdateInfo.updateStrategy,
-    appUpdateInfo.downloadedEvent?.downloadedFile,
-    appUpdateInfo.downloadedEvent?.isUpdaterRehydrated,
-    processRehydratedAppInstall,
-  ]);
 
   // Mid-session auto-download bridge.
   //
@@ -662,5 +596,4 @@ export function AppUpdateForeground() {
 // API surface clean.
 export function __resetAppUpdateForegroundForTests() {
   didRunFirstLaunchDispatch = false;
-  autoReadyInstallHandled = false;
 }

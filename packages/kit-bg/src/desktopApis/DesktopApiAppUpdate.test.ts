@@ -1,497 +1,714 @@
+import crypto from 'crypto';
+import { EventEmitter } from 'events';
 import fs from 'fs';
+import http from 'http';
 import os from 'os';
 import path from 'path';
+import { PassThrough } from 'stream';
 
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import {
   EAppUpdatePackageAvailabilityStatus,
   EAppUpdatePackageErrorCode,
 } from '@onekeyhq/shared/src/modules3rdParty/auto-update/type';
 
-const mockUpdaterHandlers = new Map<string, (...args: unknown[]) => void>();
-const mockDownloadUpdate = jest.fn<Promise<string[]>, [unknown]>();
-const mockLogger = {
-  debug: jest.fn(),
-  error: jest.fn(),
-  info: jest.fn(),
-  warn: jest.fn(),
-};
-let mockPreparedInstallerPath: string | undefined;
-const mockOpenPath = jest.fn();
-const mockShowMessageBox = jest.fn();
-const mockAutoUpdater = {
-  app: { baseCachePath: '' },
-  autoDownload: false,
-  autoInstallOnAppQuit: false,
+const mockPackage = Buffer.from('verified desktop package');
+const mockSha512 = crypto
+  .createHash('sha512')
+  .update(mockPackage)
+  .digest('base64');
+const mockSha256 = crypto
+  .createHash('sha256')
+  .update(mockPackage)
+  .digest('hex');
+const mockNativeUpdater = Object.assign(new EventEmitter(), {
   checkForUpdates: jest.fn(),
-  disableDifferentialDownload: false,
-  downloadUpdate: mockDownloadUpdate,
-  forceDevUpdateConfig: false,
-  isInstallerPath: jest.fn(),
-  logger: mockLogger,
-  on: jest.fn((event: string, handler: (...args: unknown[]) => void): void => {
-    mockUpdaterHandlers.set(event, handler);
-  }),
   quitAndInstall: jest.fn(),
-  requestHeaders: {},
   setFeedURL: jest.fn(),
+});
+const mockSpawn = jest.fn();
+const mockAppQuit = jest.fn();
+const mockAppExit = jest.fn();
+const mockAppRelaunch = jest.fn();
+const mockAppGetVersion = jest.fn(() => '5.9.0');
+let mockTempDir: string;
+const mockApp = Object.assign(new EventEmitter(), {
+  getPath: jest.fn(() => mockTempDir),
+  getVersion: mockAppGetVersion,
+  quit: mockAppQuit,
+  exit: mockAppExit,
+  relaunch: mockAppRelaunch,
+});
+const mockGetAllWindows = jest.fn((): unknown[] => []);
+const mockOpenPath = jest.fn(async () => '');
+const mockShowMessageBox = jest.fn(async () => ({ response: 0 }));
+const mockStore = {
+  clearASCFile: jest.fn(),
+  clearUpdateSettings: jest.fn(),
+  getASCFile: jest.fn(() => ''),
+  getUpdateBuildNumber: jest.fn(() => ''),
+  getUpdateSettings: jest.fn(() => ({ useTestFeedUrl: false })),
+  setASCFile: jest.fn(),
+  setUpdateBuildNumber: jest.fn(),
+  setUpdateSettings: jest.fn(),
 };
-
-jest.mock('electron-updater', () => ({
-  CancellationToken: class {
-    cancel = jest.fn();
+const mockDownloadNodeFile = jest.fn(
+  async ({ targetPath }: { targetPath: string }) => {
+    fs.mkdirSync(path.dirname(targetPath), { recursive: true });
+    fs.writeFileSync(targetPath, mockPackage);
   },
-  autoUpdater: mockAutoUpdater,
-}));
+);
+const mockRequestUpdateUrl = jest.fn();
+const mockReadCleartextMessage = jest.fn();
+const mockReadKey = jest.fn();
 
 jest.mock('electron', () => ({
-  BrowserWindow: { getAllWindows: jest.fn(() => []) },
-  app: {
-    exit: jest.fn(),
-    getVersion: jest.fn(() => '5.9.0'),
-    isReady: jest.fn(() => true),
-    removeAllListeners: jest.fn(),
-    relaunch: jest.fn(),
-    whenReady: jest.fn(async () => undefined),
-  },
-  autoUpdater: { once: jest.fn() },
+  BrowserWindow: { getAllWindows: mockGetAllWindows },
+  app: mockApp,
+  autoUpdater: mockNativeUpdater,
   dialog: { showMessageBox: mockShowMessageBox },
   shell: { openPath: mockOpenPath },
 }));
-
-jest.mock('electron-is-dev', () => ({ __esModule: true, default: false }));
+jest.mock('child_process', () => ({
+  ...jest.requireActual<typeof import('child_process')>('child_process'),
+  spawn: mockSpawn,
+}));
+jest.mock('./nodeDownload', () => ({ downloadNodeFile: mockDownloadNodeFile }));
+jest.mock('./electronUpdateRequest', () => ({
+  requestUpdateUrl: mockRequestUpdateUrl,
+}));
 jest.mock('electron-log/main', () => ({
   __esModule: true,
-  default: mockLogger,
+  default: {
+    debug: jest.fn(),
+    error: jest.fn(),
+    info: jest.fn(),
+    warn: jest.fn(),
+  },
 }));
 jest.mock('openpgp', () => ({
-  readCleartextMessage: jest.fn(),
-  readKey: jest.fn(),
+  readCleartextMessage: mockReadCleartextMessage,
+  readKey: mockReadKey,
 }));
 jest.mock('@onekeyhq/desktop/app/config', () => ({
-  ipcMessageKeys: new Proxy({}, { get: () => 'ipc-key' }),
+  ipcMessageKeys: new Proxy({}, { get: (_, key) => String(key) }),
 }));
-jest.mock('@onekeyhq/desktop/app/constant/gpg', () => ({ PUBLIC_KEY: '' }));
+jest.mock('@onekeyhq/desktop/app/constant/gpg', () => ({
+  PUBLIC_KEY: 'public key',
+}));
 jest.mock('@onekeyhq/desktop/app/i18n', () => ({
   ElectronTranslations: new Proxy({}, { get: (_, key) => String(key) }),
   i18nText: (key: string) => key,
 }));
-jest.mock(
-  '@onekeyhq/desktop/app/libs/store',
-  () => new Proxy({}, { get: () => jest.fn() }),
-);
-jest.mock('@onekeyhq/desktop/app/libs/utils', () => ({
-  b2t: (value: boolean) => String(value),
-  toHumanReadable: (value: number) => String(value),
-}));
+jest.mock('@onekeyhq/desktop/app/libs/store', () => mockStore);
 jest.mock('@onekeyhq/desktop/app/windowProgressBar', () => ({
   clearWindowProgressBar: jest.fn(),
   updateWindowProgressBar: jest.fn(),
 }));
 jest.mock('@onekeyhq/shared/src/config/appConfig', () => ({
-  buildServiceEndpoint: jest.fn(() => 'https://example.com'),
+  buildServiceEndpoint: jest.fn(() => 'https://updates.onekey.test'),
 }));
 jest.mock('@onekeyhq/shared/src/request/customUA', () => ({
   withCustomUAHeaders: jest.fn(
-    async (_url: string, headers: Record<string, string>) => headers,
+    async (_url: string, headers: Record<string, string>) => ({
+      ...headers,
+      'X-OneKey': 'desktop-test',
+    }),
   ),
 }));
 
-let DesktopApiAppUpdate: typeof import('./DesktopApiAppUpdate').default;
-let originalPlatformDescriptor: PropertyDescriptor | undefined;
-let originalSkipGPGVerification: string | undefined;
-let tempDir: string;
-
-const mainWindow = {
-  isDestroyed: jest.fn(() => false),
+const originalPlatform = Object.getOwnPropertyDescriptor(process, 'platform');
+const originalChannel = process.env.DESK_CHANNEL;
+const originalAppImage = process.env.APPIMAGE;
+const originalSkipGPG = process.env.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION;
+const instances: Array<
+  InstanceType<typeof import('./DesktopApiAppUpdate').default>
+> = [];
+const mockMainWindow = Object.assign(new EventEmitter(), {
   webContents: { send: jest.fn() },
-};
+  isDestroyed: jest.fn(() => false),
+  show: jest.fn(),
+  focus: jest.fn(),
+});
 
-function emitUpdaterEvent(event: string, payload: unknown) {
-  if (
-    event === 'update-downloaded' &&
-    typeof payload === 'object' &&
-    payload !== null &&
-    'downloadedFile' in payload
-  ) {
-    mockPreparedInstallerPath = String(payload.downloadedFile);
-  }
-  mockUpdaterHandlers.get(event)?.(payload);
+function feed(version: string, files: string[]): string {
+  return `version: ${version}\nfiles:\n${files.map((file) => `  - url: ${file}\n    sha512: ${mockSha512}`).join('\n')}\n`;
 }
 
-function createCachedPackage() {
-  const cacheDir = path.join(tempDir, '@onekeyhqdesktop-updater', 'pending');
-  fs.mkdirSync(cacheDir, { recursive: true });
-  const downloadedFile = path.join(cacheDir, 'app.zip');
-  fs.writeFileSync(downloadedFile, 'cached package');
-  return downloadedFile;
-}
-
-function createDeferred<T>() {
-  let resolve!: (value: T | PromiseLike<T>) => void;
-  const promise = new Promise<T>((resolvePromise) => {
-    resolve = resolvePromise;
+function mockHttpsResponse(body: string, statusCode = 200) {
+  mockRequestUpdateUrl.mockImplementation(async (url: string) => {
+    const response = Object.assign(new PassThrough(), {
+      statusCode,
+      headers: {},
+    });
+    setImmediate(() => response.end(body));
+    return { response, url };
   });
-  return { promise, resolve };
+  return mockRequestUpdateUrl;
 }
 
-beforeAll(async () => {
-  originalPlatformDescriptor = Object.getOwnPropertyDescriptor(
-    process,
-    'platform',
-  );
-  Object.defineProperty(process, 'platform', { value: 'darwin' });
-  ({ default: DesktopApiAppUpdate } = await import('./DesktopApiAppUpdate'));
-});
+function localGet(url: string, authorization?: string) {
+  return new Promise<{ status: number; body: Buffer }>((resolve, reject) => {
+    http
+      .get(
+        url,
+        { headers: authorization ? { Authorization: authorization } : {} },
+        (response) => {
+          const chunks: Buffer[] = [];
+          response.on('data', (chunk: Buffer) => chunks.push(chunk));
+          response.once('end', () =>
+            resolve({
+              status: response.statusCode ?? 0,
+              body: Buffer.concat(chunks),
+            }),
+          );
+          response.once('error', reject);
+        },
+      )
+      .once('error', reject);
+  });
+}
 
-afterAll(() => {
-  if (originalPlatformDescriptor) {
-    Object.defineProperty(process, 'platform', originalPlatformDescriptor);
-  }
-});
+function createApi(platform: NodeJS.Platform, channel?: string) {
+  Object.defineProperty(process, 'platform', {
+    configurable: true,
+    value: platform,
+  });
+  if (channel) process.env.DESK_CHANNEL = channel;
+  else delete process.env.DESK_CHANNEL;
+  jest.resetModules();
+  const Api = require('./DesktopApiAppUpdate')
+    .default as typeof import('./DesktopApiAppUpdate').default;
+  const api = new Api({ desktopApi: {} as never });
+  instances.push(api);
+  return api;
+}
+
+async function preparePackage(platform: NodeJS.Platform, channel?: string) {
+  const api = createApi(platform, channel);
+  let extension = 'AppImage';
+  if (platform === 'darwin') extension = 'zip';
+  else if (platform === 'win32') extension = 'exe';
+  mockHttpsResponse(
+    feed('6.0.0', [`OneKey-6.0.0-${process.arch}.${extension}`]),
+  );
+  const artifact = await api.checkForUpdates(
+    false,
+    { Authorization: 'test-token' },
+    '6.0.0',
+  );
+  await api.downloadUpdate();
+  if (!artifact || !api.downloadedEvent?.downloadedFile)
+    throw new OneKeyLocalError('package not prepared');
+  return {
+    api,
+    file: api.downloadedEvent.downloadedFile,
+    params: {
+      buildNumber: '123',
+      downloadedFile: api.downloadedEvent.downloadedFile,
+      downloadUrl: artifact.url,
+      latestVersion: '6.0.0',
+      skipGPGVerification: true,
+    },
+  };
+}
 
 beforeEach(() => {
-  jest.useFakeTimers();
   jest.clearAllMocks();
-  mockUpdaterHandlers.clear();
-  mockDownloadUpdate.mockReset();
-  mockPreparedInstallerPath = undefined;
-  mockAutoUpdater.isInstallerPath.mockImplementation(
-    (installerPath: string) => installerPath === mockPreparedInstallerPath,
+  mockApp.removeAllListeners();
+  mockGetAllWindows.mockReturnValue([]);
+  mockAppGetVersion.mockReturnValue('5.9.0');
+  mockStore.getASCFile.mockReturnValue('');
+  mockNativeUpdater.removeAllListeners();
+  mockMainWindow.removeAllListeners();
+  mockNativeUpdater.checkForUpdates.mockImplementation(() => {
+    setImmediate(() => mockNativeUpdater.emit('update-downloaded'));
+  });
+  mockSpawn.mockImplementation(() => {
+    const child = Object.assign(new EventEmitter(), { unref: jest.fn() });
+    setImmediate(() => child.emit('spawn'));
+    return child;
+  });
+  mockTempDir = fs.mkdtempSync(
+    path.join(os.tmpdir(), 'onekey-node-updater-test-'),
   );
-  tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'onekey-app-update-'));
-  mockAutoUpdater.app.baseCachePath = tempDir;
-  originalSkipGPGVerification = process.env.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION;
+  process.env.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION = 'true';
   (
-    globalThis as unknown as {
-      $desktopMainAppFunctions: {
-        getSafelyMainWindow: () => typeof mainWindow;
-      };
-    }
+    globalThis as unknown as { $desktopMainAppFunctions: unknown }
   ).$desktopMainAppFunctions = {
-    getSafelyMainWindow: () => mainWindow,
+    getSafelyMainWindow: () => mockMainWindow,
   };
 });
 
-afterEach(() => {
-  jest.runOnlyPendingTimers();
-  jest.useRealTimers();
-  jest.restoreAllMocks();
-  if (originalSkipGPGVerification === undefined) {
-    delete process.env.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION;
-  } else {
-    process.env.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION =
-      originalSkipGPGVerification;
+afterEach(async () => {
+  for (const api of instances.splice(0)) {
+    const state = api as unknown as {
+      macInstallInProgress: boolean;
+      appImageInstallInProgress: boolean;
+    };
+    state.macInstallInProgress = false;
+    state.appImageInstallInProgress = false;
+    await api.clearUpdateCache();
   }
-  fs.rmSync(tempDir, { recursive: true, force: true });
+  jest.restoreAllMocks();
+  fs.rmSync(mockTempDir, { recursive: true, force: true });
+  if (originalPlatform)
+    Object.defineProperty(process, 'platform', originalPlatform);
+  if (originalChannel === undefined) delete process.env.DESK_CHANNEL;
+  else process.env.DESK_CHANNEL = originalChannel;
+  if (originalAppImage === undefined) delete process.env.APPIMAGE;
+  else process.env.APPIMAGE = originalAppImage;
+  if (originalSkipGPG === undefined)
+    delete process.env.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION;
+  else process.env.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION = originalSkipGPG;
 });
 
-describe('DesktopApiAppUpdate macOS cache rehydrate', () => {
-  test('preserves a valid unprepared package for one rehydrate attempt', async () => {
-    const downloadedFile = createCachedPackage();
-    const api = new DesktopApiAppUpdate({ desktopApi: {} as never });
-    const availability =
-      await api.getDownloadedFileAvailability(downloadedFile);
-    const removeSpy = jest.spyOn(fs, 'rmSync');
-    mockDownloadUpdate.mockImplementationOnce(async () => {
-      emitUpdaterEvent('update-downloaded', {
-        downloadedFile,
-        files: [{ url: 'https://example.com/app.zip' }],
-        releaseDate: '2026-08-12',
-        version: '6.0.0',
-      });
-      return [downloadedFile];
-    });
+test('selects the chosen-version macOS ZIP and forwards feed and artifact headers', async () => {
+  const api = createApi('darwin');
+  const get = mockHttpsResponse(
+    feed('6.0.0', [
+      `OneKey-6.0.0-${process.arch}.dmg`,
+      `OneKey-6.0.0-${process.arch}.zip`,
+    ]),
+  );
+  const artifact = await api.checkForUpdates(
+    false,
+    { Authorization: 'test-token' },
+    '6.0.0',
+  );
+  expect(artifact?.fileName).toBe(`OneKey-6.0.0-${process.arch}.zip`);
+  expect(get).toHaveBeenCalledWith(
+    expect.stringMatching(/^https:/),
+    { Authorization: 'test-token', 'X-OneKey': 'desktop-test' },
+    expect.any(AbortSignal),
+    30_000,
+  );
+  await api.downloadUpdate();
+  expect(mockDownloadNodeFile).toHaveBeenCalledWith(
+    expect.objectContaining({
+      url: artifact?.url,
+      headers: { Authorization: 'test-token', 'X-OneKey': 'desktop-test' },
+      expectedSha512: mockSha512,
+    }),
+  );
+  expect(mockNativeUpdater.setFeedURL).not.toHaveBeenCalled();
+});
 
-    expect(availability).toEqual({
-      status: EAppUpdatePackageAvailabilityStatus.notPrepared,
-    });
+test.each([
+  ['version mismatch', feed('6.0.1', [`OneKey-6.0.1-${process.arch}.zip`])],
+  [
+    'ambiguous ZIPs',
+    feed('6.0.0', [
+      `OneKey-a-${process.arch}.zip`,
+      `OneKey-b-${process.arch}.zip`,
+    ]),
+  ],
+])('rejects %s before download', async (_label, response) => {
+  const api = createApi('darwin');
+  mockHttpsResponse(response);
+  await expect(api.checkForUpdates(false, {}, '6.0.0')).rejects.toThrow();
+  expect(mockDownloadNodeFile).not.toHaveBeenCalled();
+});
 
-    await api.downloadUpdate();
-
-    expect(removeSpy).not.toHaveBeenCalled();
-    expect(api.downloadedEvent?.downloadedFile).toBe(downloadedFile);
-    expect(api.downloadedEvent?.isUpdaterRehydrated).toBe(true);
-    expect(mockLogger.info).toHaveBeenCalledWith(
-      'auto-updater',
-      expect.arrayContaining(['Updater cache rehydrate prepared:']),
-    );
+test('reuses a verified cache and rejects a renderer-supplied path or corrupt bytes', async () => {
+  const { api, file, params } = await preparePackage('darwin');
+  expect(await api.getDownloadedFileAvailability(file)).toEqual({
+    status: EAppUpdatePackageAvailabilityStatus.available,
   });
-
-  test('uses the normal cache-clearing download after rehydrate fails', async () => {
-    const downloadedFile = createCachedPackage();
-    const cachePath = path.join(tempDir, '@onekeyhqdesktop-updater');
-    const api = new DesktopApiAppUpdate({ desktopApi: {} as never });
-    await api.getDownloadedFileAvailability(downloadedFile);
-    const removeSpy = jest.spyOn(fs, 'rmSync');
-    const rehydrateError = Object.assign(new Error('cache read failed'), {
-      code: 'EIO',
-    });
-    mockDownloadUpdate.mockRejectedValueOnce(rehydrateError);
-
-    await expect(api.downloadUpdate()).rejects.toBe(rehydrateError);
-    expect(removeSpy).not.toHaveBeenCalled();
-
-    mockDownloadUpdate.mockResolvedValueOnce([]);
-    await api.downloadUpdate();
-
-    expect(removeSpy).toHaveBeenCalledWith(cachePath, {
-      recursive: true,
-      force: true,
-    });
-    expect(mockLogger.warn).toHaveBeenCalledWith(
-      'auto-updater',
-      expect.arrayContaining([
-        'Updater cache rehydrate failed:',
-        '- Error code: EIO',
-        '- Next action: retry with cache clear',
-      ]),
-    );
+  expect(
+    await api.checkDownloadedFileExists(path.join(mockTempDir, 'other.zip')),
+  ).toBe(false);
+  await expect(
+    api.installPackage({ ...params, downloadedFile: '/tmp/forged.zip' }),
+  ).rejects.toThrow(EAppUpdatePackageErrorCode.packageMissing);
+  const count = mockDownloadNodeFile.mock.calls.length;
+  await api.downloadUpdate();
+  expect(mockDownloadNodeFile).toHaveBeenCalledTimes(count);
+  const restartedApi = createApi('darwin');
+  expect(await restartedApi.getDownloadedFileAvailability(file)).toEqual({
+    status: EAppUpdatePackageAvailabilityStatus.available,
   });
-
-  test('logs when cache validation falls back to a network download', async () => {
-    const downloadedFile = createCachedPackage();
-    const api = new DesktopApiAppUpdate({ desktopApi: {} as never });
-    await api.getDownloadedFileAvailability(downloadedFile);
-    mockDownloadUpdate.mockImplementationOnce(async () => {
-      emitUpdaterEvent('download-progress', {
-        bytesPerSecond: 1,
-        delta: 1,
-        percent: 1,
-        total: 100,
-        transferred: 1,
-      });
-      emitUpdaterEvent('update-downloaded', {
-        downloadedFile,
-        files: [{ url: 'https://example.com/app.zip' }],
-        releaseDate: '2026-08-12',
-        version: '6.0.0',
-      });
-      return [downloadedFile];
-    });
-
-    await api.downloadUpdate();
-
-    expect(mockLogger.info).toHaveBeenCalledWith(
-      'auto-updater',
-      expect.arrayContaining([
-        'Updater cache rehydrate is using network fallback:',
-      ]),
-    );
-    expect(mockLogger.info).toHaveBeenCalledWith(
-      'auto-updater',
-      expect.arrayContaining(['- Network progress observed: true']),
-    );
+  mockHttpsResponse(feed('6.0.0', [`OneKey-6.0.0-${process.arch}.zip`]));
+  await restartedApi.checkForUpdates(false, {}, '6.0.0');
+  await restartedApi.downloadUpdate();
+  expect(mockDownloadNodeFile).toHaveBeenCalledTimes(count);
+  fs.writeFileSync(file, 'tampered');
+  expect(await api.getDownloadedFileAvailability(file)).toEqual({
+    status: EAppUpdatePackageAvailabilityStatus.notPrepared,
   });
+  await expect(api.installPackage(params)).rejects.toThrow(
+    EAppUpdatePackageErrorCode.packageMissing,
+  );
+  expect(mockNativeUpdater.quitAndInstall).not.toHaveBeenCalled();
+});
 
-  test('keeps the candidate when metadata checking fails before rehydrate starts', async () => {
-    const downloadedFile = createCachedPackage();
-    const api = new DesktopApiAppUpdate({ desktopApi: {} as never });
-    await api.getDownloadedFileAvailability(downloadedFile);
-    emitUpdaterEvent('error', new Error('net::ERR_CONNECTION_RESET'));
-    const removeSpy = jest.spyOn(fs, 'rmSync');
-    mockDownloadUpdate.mockResolvedValueOnce([]);
-
-    await api.downloadUpdate();
-
-    expect(removeSpy).not.toHaveBeenCalled();
-  });
-
-  test('preserves a prepared package when a later metadata check fails', async () => {
-    const downloadedFile = createCachedPackage();
-    const api = new DesktopApiAppUpdate({ desktopApi: {} as never });
-    emitUpdaterEvent('update-downloaded', {
-      downloadedFile,
-      files: [{ url: 'https://example.com/app.zip' }],
-      releaseDate: '2026-08-12',
-      version: '6.0.0',
-    });
-
-    emitUpdaterEvent('error', new Error('net::ERR_CONNECTION_RESET'));
-
-    await expect(
-      api.getDownloadedFileAvailability(downloadedFile),
-    ).resolves.toEqual({
-      status: EAppUpdatePackageAvailabilityStatus.available,
-    });
-    expect(api.downloadedEvent?.version).toBe('6.0.0');
-  });
-
-  test('manual install can open a valid package without MacUpdater preparation', async () => {
-    const downloadedFile = createCachedPackage();
-    const api = new DesktopApiAppUpdate({ desktopApi: {} as never });
-    process.env.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION = 'true';
-    mockOpenPath.mockResolvedValueOnce('');
-
-    await expect(
-      api.manualInstallPackage({
-        buildNumber: '1',
-        downloadedFile,
-        downloadUrl: 'https://example.com/app.zip',
-        skipGPGVerification: true,
-      }),
-    ).resolves.toBeUndefined();
-
-    expect(mockOpenPath).toHaveBeenCalledWith(path.dirname(downloadedFile));
-  });
-
-  test('returns false when the user postpones installation', async () => {
-    const api = new DesktopApiAppUpdate({ desktopApi: {} as never });
-    mockShowMessageBox.mockResolvedValueOnce({ response: 1 });
-
-    await expect(
-      api.installPackage({
-        buildNumber: '1',
-        latestVersion: '2.0.0',
-        downloadedFile: '/tmp/app.zip',
-        downloadUrl: 'https://example.com/app.zip',
-      }),
-    ).resolves.toBe(false);
-
-    expect(mockAutoUpdater.quitAndInstall).not.toHaveBeenCalled();
-  });
-
-  test.each([
-    [
-      'a renderer path that differs from the main event',
-      '/tmp/other.zip',
-      '6.0.0',
+test('rejects an ASC with a failed GPG signature', async () => {
+  const { api, params } = await preparePackage('darwin');
+  delete process.env.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION;
+  mockStore.getASCFile.mockReturnValue('invalid signature');
+  mockReadKey.mockResolvedValue({});
+  mockReadCleartextMessage.mockResolvedValue({
+    getText: () => mockSha256,
+    verify: async () => [
+      { verified: Promise.reject(new Error('bad signature')) },
     ],
-    [
-      'a renderer version that differs from the main event',
-      'prepared',
-      '6.0.1',
-    ],
-    ['a prepared version that is not an upgrade', 'prepared', '5.8.0'],
-  ])('rejects %s', async (_label, requestedFile, requestedVersion) => {
-    const downloadedFile = createCachedPackage();
-    const api = new DesktopApiAppUpdate({ desktopApi: {} as never });
-    const preparedVersion =
-      requestedVersion === '5.8.0' ? requestedVersion : '6.0.0';
-    emitUpdaterEvent('update-downloaded', {
-      downloadedFile,
-      files: [{ url: 'https://example.com/app.zip' }],
-      releaseDate: '2026-08-12',
-      version: preparedVersion,
-    });
-    mockShowMessageBox.mockResolvedValueOnce({ response: 0 });
+  });
+  await expect(api.verifyASC(params)).rejects.toThrow(
+    'update_signature_verification_failed_alert_text',
+  );
+});
 
-    let installError: Error | undefined;
-    try {
-      await api.installPackage({
-        buildNumber: '1',
-        latestVersion: requestedVersion,
-        downloadedFile:
-          requestedFile === 'prepared' ? downloadedFile : requestedFile,
-        downloadUrl: 'https://example.com/app.zip',
-      });
-    } catch (error) {
-      installError = error as Error;
+test('verifies ASC signature and streamed SHA-256 before install', async () => {
+  const { api, file, params } = await preparePackage('darwin');
+  delete process.env.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION;
+  mockHttpsResponse('signed checksums');
+  expect(await api.downloadASC(params)).toBe(true);
+  expect(mockStore.setASCFile).toHaveBeenCalledWith('signed checksums');
+  mockStore.getASCFile.mockReturnValue('signed checksums');
+  mockReadKey.mockResolvedValue({});
+  mockReadCleartextMessage.mockResolvedValue({
+    getText: () => `${mockSha256}  ${path.basename(file)}`,
+    verify: async () => [{ verified: Promise.resolve() }],
+  });
+  expect(await api.verifyASC(params)).toBe(true);
+  expect(await api.verifyPackage(params)).toBe(true);
+  mockReadCleartextMessage.mockResolvedValueOnce({
+    getText: () => `${'0'.repeat(64)}  ${path.basename(file)}`,
+    verify: async () => [{ verified: Promise.resolve() }],
+  });
+  expect(await api.verifyPackage(params)).toBe(false);
+});
+
+test('macOS stages only after confirmation and verification', async () => {
+  const api = createApi('darwin');
+  mockHttpsResponse(feed('6.0.0', [`OneKey-6.0.0-${process.arch}.zip`]));
+  await api.checkForUpdates(false, {}, '6.0.0');
+  await api.downloadUpdate();
+  expect(mockNativeUpdater.setFeedURL).not.toHaveBeenCalled();
+  const params = {
+    buildNumber: '123',
+    downloadedFile: api.downloadedEvent?.downloadedFile,
+    downloadUrl: api.downloadedEvent?.downloadUrl,
+    latestVersion: '6.0.0',
+    skipGPGVerification: true,
+  };
+  mockShowMessageBox.mockResolvedValueOnce({ response: 1 });
+  expect(await api.installPackage(params)).toBe(false);
+  expect(mockNativeUpdater.setFeedURL).not.toHaveBeenCalled();
+  expect(mockNativeUpdater.quitAndInstall).not.toHaveBeenCalled();
+  expect(await api.installPackage(params)).toBe(true);
+  expect(mockNativeUpdater.setFeedURL).toHaveBeenCalledTimes(1);
+  expect(mockNativeUpdater.quitAndInstall).toHaveBeenCalledTimes(1);
+});
+
+test('macOS local ZIP requires its random capability path', async () => {
+  const { api } = await preparePackage('darwin');
+  const internal = api as unknown as {
+    readRecord: () => { downloadedFile: string };
+    stageMacUpdate: (record: { downloadedFile: string }) => Promise<void>;
+  };
+  await internal.stageMacUpdate(internal.readRecord());
+  const feedConfig = mockNativeUpdater.setFeedURL.mock.calls[0][0] as {
+    url: string;
+    headers: { Authorization: string };
+  };
+  expect((await localGet(feedConfig.url)).status).toBe(401);
+  const feedResponse = await localGet(
+    feedConfig.url,
+    feedConfig.headers.Authorization,
+  );
+  expect(feedResponse.status).toBe(200);
+  const zipUrl = (JSON.parse(feedResponse.body.toString()) as { url: string })
+    .url;
+  expect((await localGet(`${feedConfig.url}/wrong.zip`)).status).toBe(404);
+  const zipResponse = await localGet(zipUrl);
+  expect(zipResponse.status).toBe(200);
+  expect(zipResponse.body.equals(mockPackage)).toBe(true);
+});
+
+test('clearing update cache cancels a stalled feed request', async () => {
+  const api = createApi('darwin');
+  let started!: () => void;
+  const requestStarted = new Promise<void>((resolve) => {
+    started = resolve;
+  });
+  let signal: AbortSignal | undefined;
+  mockRequestUpdateUrl.mockImplementationOnce(
+    (
+      _url: string,
+      _headers: Record<string, string>,
+      requestSignal: AbortSignal,
+    ) =>
+      new Promise((_, reject) => {
+        signal = requestSignal;
+        requestSignal.addEventListener('abort', () =>
+          reject(new OneKeyLocalError('Download cancelled')),
+        );
+        started();
+      }),
+  );
+  const check = api.checkForUpdates(false, {}, '6.0.0');
+  void check.catch(() => {});
+  await requestStarted;
+  await api.clearUpdateCache();
+  await expect(check).rejects.toThrow('Download cancelled');
+  expect(signal?.aborted).toBe(true);
+});
+
+test('a new update check waits for cache clearing to finish', async () => {
+  const api = createApi('darwin');
+  const get = mockHttpsResponse(
+    feed('6.0.0', [`OneKey-6.0.0-${process.arch}.zip`]),
+  );
+  let started!: () => void;
+  const requestStarted = new Promise<void>((resolve) => {
+    started = resolve;
+  });
+  let rejectOld!: (error: OneKeyLocalError) => void;
+  get.mockImplementationOnce(
+    () =>
+      new Promise((_, reject) => {
+        rejectOld = reject;
+        started();
+      }),
+  );
+  const oldCheck = api.checkForUpdates(false, {}, '6.0.0');
+  void oldCheck.catch(() => {});
+  await requestStarted;
+  const clear = api.clearUpdateCache();
+  const newCheck = api.checkForUpdates(false, {}, '6.0.0');
+  expect(get).toHaveBeenCalledTimes(1);
+  rejectOld(new OneKeyLocalError('Download cancelled'));
+  await clear;
+  await expect(oldCheck).rejects.toThrow('Download cancelled');
+  expect((await newCheck)?.version).toBe('6.0.0');
+  await api.downloadUpdate();
+  expect(api.downloadedEvent?.downloadedFile).toBeTruthy();
+});
+
+test('clearing update cache cancels a stalled ASC request', async () => {
+  const { api, params } = await preparePackage('darwin');
+  delete process.env.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION;
+  let started!: () => void;
+  const requestStarted = new Promise<void>((resolve) => {
+    started = resolve;
+  });
+  let signal: AbortSignal | undefined;
+  mockRequestUpdateUrl.mockImplementationOnce(
+    (
+      _url: string,
+      _headers: Record<string, string>,
+      requestSignal: AbortSignal,
+    ) =>
+      new Promise((_, reject) => {
+        signal = requestSignal;
+        requestSignal.addEventListener('abort', () =>
+          reject(new OneKeyLocalError('Download cancelled')),
+        );
+        started();
+      }),
+  );
+  const asc = api.downloadASC(params);
+  void asc.catch(() => {});
+  await requestStarted;
+  await api.clearUpdateCache();
+  await expect(asc).rejects.toThrow('Download cancelled');
+  expect(signal?.aborted).toBe(true);
+  expect(mockStore.setASCFile).not.toHaveBeenCalled();
+});
+
+test('macOS never stages when ASC verification fails', async () => {
+  const { api, params } = await preparePackage('darwin');
+  delete process.env.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION;
+  await expect(api.installPackage(params)).rejects.toThrow(
+    'update_installation_not_safe_alert_text',
+  );
+  expect(mockNativeUpdater.setFeedURL).not.toHaveBeenCalled();
+  expect(mockNativeUpdater.quitAndInstall).not.toHaveBeenCalled();
+});
+
+test('macOS keeps running if native quit handoff throws after staging', async () => {
+  const { api, params } = await preparePackage('darwin');
+  const onWindowAllClosed = jest.fn();
+  const onActivate = jest.fn();
+  const onClose = jest.fn();
+  let destroyed = false;
+  const window = Object.assign(new EventEmitter(), {
+    webContents: { send: jest.fn() },
+    isDestroyed: jest.fn(() => destroyed),
+    close: jest.fn(() => {
+      destroyed = true;
+      setImmediate(() => window.emit('closed'));
+    }),
+    show: jest.fn(),
+    focus: jest.fn(),
+  });
+  (
+    globalThis as unknown as {
+      $desktopMainAppFunctions: { getSafelyMainWindow: () => unknown };
     }
-
-    expect(installError?.message).toContain(
-      EAppUpdatePackageErrorCode.packageNotPrepared,
-    );
-    expect(mockAutoUpdater.quitAndInstall).not.toHaveBeenCalled();
+  ).$desktopMainAppFunctions.getSafelyMainWindow = () => window;
+  mockApp.on('window-all-closed', onWindowAllClosed);
+  mockApp.on('activate', onActivate);
+  window.on('close', onClose);
+  window.once('closed', () => expect(onActivate).not.toHaveBeenCalled());
+  mockGetAllWindows.mockReturnValue([window]);
+  mockNativeUpdater.quitAndInstall.mockImplementationOnce(() => {
+    throw new OneKeyLocalError('native handoff failed');
   });
+  await expect(api.installPackage(params)).rejects.toThrow(
+    'native handoff failed',
+  );
+  expect(mockNativeUpdater.setFeedURL).toHaveBeenCalledTimes(1);
+  expect(window.close).toHaveBeenCalledTimes(1);
+  expect(mockApp.listeners('window-all-closed')).toContain(onWindowAllClosed);
+  expect(onActivate).toHaveBeenCalledTimes(1);
+  expect(mockNativeUpdater.listenerCount('before-quit-for-update')).toBe(0);
+  expect(mockAppExit).not.toHaveBeenCalled();
+});
 
-  test('installs the exact upgrade prepared by the current main process', async () => {
-    const downloadedFile = createCachedPackage();
-    const api = new DesktopApiAppUpdate({ desktopApi: {} as never });
-    emitUpdaterEvent('update-downloaded', {
-      downloadedFile,
-      files: [{ url: 'https://example.com/app.zip' }],
-      releaseDate: '2026-08-12',
-      version: '6.0.0',
-    });
-    process.env.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION = 'true';
-    mockShowMessageBox.mockResolvedValueOnce({ response: 0 });
-
-    await expect(
-      api.installPackage({
-        buildNumber: '1',
-        latestVersion: '6.0.0',
-        downloadedFile,
-        downloadUrl: 'https://example.com/app.zip',
-        skipGPGVerification: true,
-      }),
-    ).resolves.toBe(true);
-
-    expect(mockAutoUpdater.quitAndInstall).toHaveBeenCalledWith(false);
+test('macOS does not reopen a surviving window on a later normal close', async () => {
+  const { api, params } = await preparePackage('darwin');
+  const onActivate = jest.fn();
+  const window = Object.assign(new EventEmitter(), {
+    webContents: { send: jest.fn() },
+    isDestroyed: jest.fn(() => false),
+    close: jest.fn(),
+    show: jest.fn(),
+    focus: jest.fn(),
   });
-
-  test('rejects when updater state changes during package verification', async () => {
-    const downloadedFile = createCachedPackage();
-    const replacementFile = path.join(path.dirname(downloadedFile), 'next.zip');
-    fs.writeFileSync(replacementFile, 'replacement package');
-    const api = new DesktopApiAppUpdate({ desktopApi: {} as never });
-    emitUpdaterEvent('update-downloaded', {
-      downloadedFile,
-      files: [{ url: 'https://example.com/app.zip' }],
-      releaseDate: '2026-08-12',
-      version: '6.0.0',
-    });
-    const verificationStarted = createDeferred<void>();
-    const verificationResult = createDeferred<boolean>();
-    jest.spyOn(api, 'verifyFile').mockImplementationOnce(() => {
-      verificationStarted.resolve();
-      return verificationResult.promise;
-    });
-    mockShowMessageBox.mockResolvedValueOnce({ response: 0 });
-
-    const installPromise = api.installPackage({
-      buildNumber: '1',
-      latestVersion: '6.0.0',
-      downloadedFile,
-      downloadUrl: 'https://example.com/app.zip',
-    });
-    await verificationStarted.promise;
-    emitUpdaterEvent('update-downloaded', {
-      downloadedFile: replacementFile,
-      files: [{ url: 'https://example.com/next.zip' }],
-      releaseDate: '2026-08-13',
-      version: '6.1.0',
-    });
-    verificationResult.resolve(true);
-
-    await expect(installPromise).rejects.toThrow(
-      EAppUpdatePackageErrorCode.packageNotPrepared,
-    );
-    expect(mockAutoUpdater.quitAndInstall).not.toHaveBeenCalled();
+  (
+    globalThis as unknown as {
+      $desktopMainAppFunctions: { getSafelyMainWindow: () => unknown };
+    }
+  ).$desktopMainAppFunctions.getSafelyMainWindow = () => window;
+  mockApp.on('activate', onActivate);
+  mockGetAllWindows.mockReturnValue([window]);
+  mockNativeUpdater.quitAndInstall.mockImplementationOnce(() => {
+    throw new OneKeyLocalError('native handoff failed');
   });
+  await expect(api.installPackage(params)).rejects.toThrow(
+    'native handoff failed',
+  );
+  expect(window.show).toHaveBeenCalledTimes(1);
+  expect(window.focus).toHaveBeenCalledTimes(1);
+  window.emit('closed');
+  expect(onActivate).not.toHaveBeenCalled();
+});
 
-  test('rejects when the updater path changes before its event is published', async () => {
-    const downloadedFile = createCachedPackage();
-    const replacementFile = path.join(path.dirname(downloadedFile), 'next.zip');
-    fs.writeFileSync(replacementFile, 'replacement package');
-    const api = new DesktopApiAppUpdate({ desktopApi: {} as never });
-    emitUpdaterEvent('update-downloaded', {
-      downloadedFile,
-      files: [{ url: 'https://example.com/app.zip' }],
-      releaseDate: '2026-08-12',
-      version: '6.0.0',
-    });
-    const verificationStarted = createDeferred<void>();
-    const verificationResult = createDeferred<boolean>();
-    jest.spyOn(api, 'verifyFile').mockImplementationOnce(() => {
-      verificationStarted.resolve();
-      return verificationResult.promise;
-    });
-    mockShowMessageBox.mockResolvedValueOnce({ response: 0 });
-
-    const installPromise = api.installPackage({
-      buildNumber: '1',
-      latestVersion: '6.0.0',
-      downloadedFile,
-      downloadUrl: 'https://example.com/app.zip',
-    });
-    await verificationStarted.promise;
-    mockPreparedInstallerPath = replacementFile;
-    verificationResult.resolve(true);
-
-    await expect(installPromise).rejects.toThrow(
-      EAppUpdatePackageErrorCode.packageNotPrepared,
-    );
-    expect(api.downloadedEvent?.downloadedFile).toBe(downloadedFile);
-    expect(mockAutoUpdater.quitAndInstall).not.toHaveBeenCalled();
+test('macOS forces exit if native update quit stalls', async () => {
+  const { api, params } = await preparePackage('darwin');
+  const internal = api as unknown as {
+    readRecord: () => { downloadedFile: string };
+    stageMacUpdate: (record: { downloadedFile: string }) => Promise<void>;
+  };
+  await internal.stageMacUpdate(internal.readRecord());
+  mockNativeUpdater.quitAndInstall.mockImplementationOnce(() => {
+    mockNativeUpdater.emit('before-quit-for-update');
   });
+  jest.useFakeTimers();
+  try {
+    expect(await api.installPackage(params)).toBe(true);
+    jest.advanceTimersByTime(14_999);
+    expect(mockAppExit).not.toHaveBeenCalled();
+    jest.advanceTimersByTime(1);
+    expect(mockAppExit).toHaveBeenCalledTimes(1);
+  } finally {
+    jest.useRealTimers();
+  }
+});
+
+test('macOS restages when the checksum changes at the same cache path', async () => {
+  const { api } = await preparePackage('darwin');
+  const internal = api as unknown as {
+    readRecord: () => { sha512: string };
+    stageMacUpdate: (record: { sha512: string }) => Promise<void>;
+  };
+  const record = internal.readRecord();
+  await internal.stageMacUpdate(record);
+  await internal.stageMacUpdate({ ...record, sha512: 'different-sha512' });
+  expect(mockNativeUpdater.setFeedURL).toHaveBeenCalledTimes(2);
+});
+
+test('Windows launches only the verified NSIS installer and then quits', async () => {
+  const { api, file, params } = await preparePackage('win32');
+  expect(await api.installPackage(params)).toBe(true);
+  expect(mockSpawn).toHaveBeenCalledWith(file, ['--updated', '--force-run'], {
+    detached: true,
+    stdio: 'ignore',
+  });
+  expect(mockAppQuit).toHaveBeenCalledTimes(1);
+});
+
+test('Linux AppImage without a writable current path offers the verified download folder', async () => {
+  delete process.env.APPIMAGE;
+  const { api, file, params } = await preparePackage('linux', 'appImage');
+  mockStore.getASCFile.mockReturnValue('signed checksums');
+  mockReadKey.mockResolvedValue({});
+  mockReadCleartextMessage.mockResolvedValue({
+    getText: () => `${mockSha256}  ${path.basename(file)}`,
+    verify: async () => [{ verified: Promise.resolve() }],
+  });
+  expect(await api.installPackage(params)).toBe(true);
+  expect(mockOpenPath).toHaveBeenCalledWith(path.dirname(file));
+  expect(mockSpawn).not.toHaveBeenCalled();
+});
+
+test('Linux replaces a writable AppImage and relaunches it', async () => {
+  const current = path.join(mockTempDir, 'OneKey.AppImage');
+  fs.writeFileSync(current, 'old app');
+  process.env.APPIMAGE = current;
+  const { api, params } = await preparePackage('linux', 'appImage');
+  expect(await api.installPackage(params)).toBe(true);
+  expect(fs.readFileSync(current)).toEqual(mockPackage);
+  expect(mockSpawn).not.toHaveBeenCalled();
+  expect(mockAppRelaunch).toHaveBeenCalledWith({
+    execPath: current,
+    args: [],
+  });
+  expect(mockStore.setUpdateBuildNumber).not.toHaveBeenCalled();
+  expect(
+    fs.readdirSync(mockTempDir).some((name) => name.endsWith('.old')),
+  ).toBe(true);
+  expect(mockOpenPath).not.toHaveBeenCalled();
+  expect(mockAppQuit).toHaveBeenCalledTimes(1);
+  mockAppGetVersion.mockReturnValue('6.0.0');
+  createApi('linux', 'appImage');
+  expect(mockStore.setUpdateBuildNumber).toHaveBeenCalledWith('123');
+  expect(
+    fs.readdirSync(mockTempDir).some((name) => name.endsWith('.old')),
+  ).toBe(false);
+});
+
+test('Linux restores the old AppImage when relaunch cannot be queued', async () => {
+  const current = path.join(mockTempDir, 'OneKey.AppImage');
+  fs.writeFileSync(current, 'old app');
+  process.env.APPIMAGE = current;
+  const { api, params } = await preparePackage('linux', 'appImage');
+  mockAppRelaunch.mockImplementationOnce(() => {
+    throw new OneKeyLocalError('relaunch failed');
+  });
+  await expect(api.installPackage(params)).rejects.toThrow('relaunch failed');
+  expect(fs.readFileSync(current, 'utf8')).toBe('old app');
+  expect(mockAppQuit).not.toHaveBeenCalled();
+  expect(mockStore.setUpdateBuildNumber).not.toHaveBeenCalled();
+});
+
+test('Linux retains the old package until startup and drops the candidate if the old version returns', async () => {
+  const current = path.join(mockTempDir, 'OneKey-5.9.0.AppImage');
+  fs.writeFileSync(current, 'old app');
+  process.env.APPIMAGE = current;
+  const { api, params } = await preparePackage('linux', 'appImage');
+  const destination = path.join(
+    mockTempDir,
+    `OneKey-6.0.0-${process.arch}.AppImage`,
+  );
+  expect(await api.installPackage(params)).toBe(true);
+  expect(fs.readFileSync(current, 'utf8')).toBe('old app');
+  expect(fs.existsSync(destination)).toBe(true);
+  expect(mockStore.setUpdateBuildNumber).not.toHaveBeenCalled();
+  createApi('linux', 'appImage');
+  expect(fs.readFileSync(current, 'utf8')).toBe('old app');
+  expect(fs.existsSync(destination)).toBe(false);
+  expect(mockStore.setUpdateBuildNumber).not.toHaveBeenCalled();
 });
