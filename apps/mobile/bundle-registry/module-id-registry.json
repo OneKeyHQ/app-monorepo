@@ -22432,6 +22432,7 @@
     "packages/kit/src/views/Perp/hooks/usePerpsActiveAssetCtxDisplay.ts": 9723,
     "packages/kit/src/views/Perp/hooks/usePerpsActivePositionsByAddress.ts": 5410,
     "packages/kit/src/views/Perp/hooks/usePerpsAssetCtx.ts": 13975,
+    "packages/kit/src/views/Perp/hooks/usePerpsCrossAvailableAfterMaintenance.ts": 3637,
     "packages/kit/src/views/Perp/hooks/usePerpsFavorites.ts": 18670,
     "packages/kit/src/views/Perp/hooks/usePerpsLogo.tsx": 10240,
     "packages/kit/src/views/Perp/hooks/usePerpsMarketDataFreshness.ts": 16410,
