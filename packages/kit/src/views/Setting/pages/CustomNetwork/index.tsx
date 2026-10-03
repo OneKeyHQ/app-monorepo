@@ -230,7 +230,7 @@ function AddCustomNetwork() {
       }
 
       const params = {
-        networkName,
+        networkName: networkName.trim(),
         rpcUrl,
         chainId: finalChainId,
         symbol,
@@ -372,6 +372,11 @@ function AddCustomNetwork() {
                   id: ETranslations.address_book_add_address_name_required,
                 }),
               },
+              validate: (value: string) =>
+                value.trim().length > 0 ||
+                intl.formatMessage({
+                  id: ETranslations.address_book_add_address_name_required,
+                }),
             }}
           >
             <Input
