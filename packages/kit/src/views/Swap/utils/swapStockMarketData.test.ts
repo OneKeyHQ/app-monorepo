@@ -1,5 +1,6 @@
 import type {
   IMarketStockPublicItem,
+  IMarketStockPublicListResponse,
   IMarketStockTokenVariant,
   IMarketStockTokenVariantsResponse,
   IMarketTokenDetail,
@@ -12,6 +13,7 @@ import {
   fetchSwapStockVariantToken,
   resolveSwapStockAvailability,
   resolveSwapStockLoadingScopes,
+  resolveSwapStockSelectionToken,
   resolveSwapStockTokenSelectionKind,
   selectSwapStockVariant,
 } from './swapStockMarketData';
@@ -24,11 +26,17 @@ const fetchDetailMock = jest.fn<
   Promise<IMarketTokenDetailResponse>,
   [string, string, { autoHandleError: boolean; skipConvertCurrency: boolean }]
 >();
+const searchStocksMock = jest.fn<
+  Promise<IMarketStockPublicListResponse>,
+  [{ query: string }]
+>();
 
 jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
   __esModule: true,
   default: {
     serviceMarketV2: {
+      searchMarketStocks: (...args: Parameters<typeof searchStocksMock>) =>
+        searchStocksMock(...args),
       fetchMarketStockTokenVariants: (
         ...args: Parameters<typeof fetchVariantsMock>
       ) => fetchVariantsMock(...args),
@@ -149,6 +157,11 @@ describe('resolveSwapStockLoadingScopes', () => {
 });
 
 describe('resolveSwapStockTokenSelectionKind', () => {
+  it('keeps all stock surfaces loading while a position identity is unresolved', () => {
+    expect(
+      resolveSwapStockTokenSelectionKind({ stock: {} } as ISwapToken, 'AAPL'),
+    ).toBe('ticker');
+  });
   it('treats another stock selected from positions as a ticker transition', () => {
     expect(
       resolveSwapStockTokenSelectionKind(
@@ -227,6 +240,89 @@ const stock: IMarketStockPublicItem = {
   assetType: 'stock',
   currency: 'USD',
 };
+
+describe('resolveSwapStockSelectionToken', () => {
+  const positionToken: ISwapToken = {
+    networkId: 'evm--1',
+    contractAddress: EVM_ADDRESS,
+    symbol: 'AAPLon',
+    decimals: 18,
+    price: '311.25',
+    balanceParsed: '0.5',
+    stock: {
+      subtitle: 'Apple',
+      source: 'ondo',
+      sourceLogoUri: 'https://example.com/ondo.png',
+    },
+  };
+
+  beforeEach(() => {
+    searchStocksMock.mockReset();
+    fetchVariantsMock.mockReset();
+  });
+
+  it('resolves legacy position identity before committing without changing its balance or token', async () => {
+    searchStocksMock.mockResolvedValueOnce({ items: [stock], total: 1 });
+    fetchVariantsMock.mockResolvedValueOnce({
+      stockId: stock.stockId,
+      items: [buildVariant()],
+    });
+
+    await expect(
+      resolveSwapStockSelectionToken(positionToken),
+    ).resolves.toEqual({
+      ...positionToken,
+      isStock: true,
+      stock: { ...positionToken.stock, stockId: stock.stockId },
+    });
+    expect(searchStocksMock).toHaveBeenCalledWith({ query: EVM_ADDRESS });
+  });
+
+  it('keeps the fast path for positions with an established stock identity', async () => {
+    const token = {
+      ...positionToken,
+      stock: { ...positionToken.stock!, stockId: stock.stockId },
+    };
+    await expect(resolveSwapStockSelectionToken(token)).resolves.toBe(token);
+    expect(searchStocksMock).not.toHaveBeenCalled();
+    expect(fetchVariantsMock).not.toHaveBeenCalled();
+  });
+
+  it.each([{ items: [] }, { items: [stock, { ...stock, stockId: 'tesla' }] }])(
+    'rejects a missing or ambiguous stock identity %p',
+    async ({ items }) => {
+      searchStocksMock.mockResolvedValueOnce({ items, total: items.length });
+      await expect(
+        resolveSwapStockSelectionToken(positionToken),
+      ).rejects.toThrow('Stock token identity is unavailable');
+      expect(fetchVariantsMock).not.toHaveBeenCalled();
+    },
+  );
+
+  it.each<Partial<IMarketStockTokenVariant>>([
+    { networkId: 'evm--56' },
+    { contractAddress: '0x1111111111111111111111111111111111111111' },
+  ])(
+    'rejects identity matches on a different chain or contract %p',
+    async (overrides) => {
+      searchStocksMock.mockResolvedValueOnce({ items: [stock], total: 1 });
+      fetchVariantsMock.mockResolvedValueOnce({
+        stockId: stock.stockId,
+        items: [buildVariant(overrides)],
+      });
+      await expect(
+        resolveSwapStockSelectionToken(positionToken),
+      ).rejects.toThrow('Stock token does not match the resolved stock');
+    },
+  );
+
+  it('does not commit an identity-less token after a lookup failure', async () => {
+    searchStocksMock.mockRejectedValueOnce(new Error('network error'));
+    await expect(resolveSwapStockSelectionToken(positionToken)).rejects.toThrow(
+      'network error',
+    );
+  });
+});
 
 function buildDetail(
   overrides: Partial<IMarketTokenDetail> = {},

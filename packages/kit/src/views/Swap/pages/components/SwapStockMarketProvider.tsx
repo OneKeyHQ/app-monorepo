@@ -10,7 +10,6 @@ import {
 } from 'react';
 
 import type { IPageNavigationProp } from '@onekeyhq/components';
-import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import {
@@ -40,9 +39,11 @@ import {
   type ISwapStockSelectionKind,
   type ISwapStockSelectionOperation,
   fetchSwapStockSelection,
+  fetchSwapStockTokenIdentity,
   fetchSwapStockVariantToken,
   resolveSwapStockAvailability,
   resolveSwapStockLoadingScopes,
+  resolveSwapStockSelectionToken,
   resolveSwapStockTokenSelectionKind,
 } from '../../utils/swapStockMarketData';
 
@@ -249,7 +250,7 @@ function SwapStockSelectionProvider({
     (token: ISwapToken) =>
       select(
         resolveSwapStockTokenSelectionKind(token, currentStockIdRef.current),
-        () => Promise.resolve(token),
+        () => resolveSwapStockSelectionToken(token),
       ),
     [select],
   );
@@ -312,32 +313,14 @@ export function SwapStockMarketProvider({
     async () => {
       if (explicitStockId || !contractAddress || !networkId) return undefined;
       try {
-        // Old persisted selections predate stockId. Resolve by the exact contract,
-        // rather than guessing the company from issuer-specific token symbols.
-        const response =
-          await backgroundApiProxy.serviceMarketV2.searchMarketStocks({
-            query: contractAddress,
-          });
-        const candidate =
-          response.items.length === 1 ? response.items[0] : undefined;
-        if (!candidate)
-          return { tokenIdentity, stock: undefined, failed: true };
-        const variants =
-          await backgroundApiProxy.serviceMarketV2.fetchMarketStockTokenVariants(
-            {
-              stockId: candidate.stockId,
-            },
-          );
-        const matches = variants.items.some((variant) =>
-          equalTokenNoCaseSensitive({
-            token1: variant,
-            token2: { networkId, contractAddress },
-          }),
-        );
+        const stock = await fetchSwapStockTokenIdentity({
+          networkId,
+          contractAddress,
+        });
         return {
           tokenIdentity,
-          stock: matches ? candidate : undefined,
-          failed: !matches,
+          stock,
+          failed: false,
         };
       } catch (_error) {
         return { tokenIdentity, stock: undefined, failed: true };

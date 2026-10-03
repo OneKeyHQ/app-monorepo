@@ -23,6 +23,45 @@ export type ISwapStockAvailability =
 
 export type ISwapStockSelectionKind = 'ticker' | 'variant' | 'token';
 
+export async function fetchSwapStockTokenIdentity(
+  token: Pick<ISwapToken, 'networkId' | 'contractAddress'>,
+) {
+  const response = await backgroundApiProxy.serviceMarketV2.searchMarketStocks({
+    query: token.contractAddress,
+  });
+  const stock = response.items.length === 1 ? response.items[0] : undefined;
+  if (!stock) throw new OneKeyLocalError('Stock token identity is unavailable');
+  const variants =
+    await backgroundApiProxy.serviceMarketV2.fetchMarketStockTokenVariants({
+      stockId: stock.stockId,
+    });
+  if (
+    !variants.items.some((variant) =>
+      equalTokenNoCaseSensitive({ token1: variant, token2: token }),
+    )
+  ) {
+    throw new OneKeyLocalError('Stock token does not match the resolved stock');
+  }
+  return stock;
+}
+
+export async function resolveSwapStockSelectionToken(token: ISwapToken) {
+  if (resolveMarketStockId(token)) return token;
+  // Position metadata can omit stockId. Resolve the exact chain and contract
+  // before committing, so stock detail never transitions through an empty id.
+  const stock = await fetchSwapStockTokenIdentity(token);
+  return {
+    ...token,
+    isStock: true,
+    stock: {
+      subtitle: stock.name ?? stock.symbol,
+      sourceLogoUri: stock.logoUrl,
+      ...token.stock,
+      stockId: stock.stockId,
+    },
+  };
+}
+
 export function resolveSwapStockTokenSelectionKind(
   token: ISwapToken,
   currentStockId?: string,
@@ -30,9 +69,8 @@ export function resolveSwapStockTokenSelectionKind(
   const targetStockId =
     resolveMarketStockId(token) ??
     token.stock?.underlyingAssetTicker?.trim().toUpperCase();
-  return targetStockId &&
-    currentStockId &&
-    targetStockId !== currentStockId.trim().toUpperCase()
+  return !targetStockId ||
+    (currentStockId && targetStockId !== currentStockId.trim().toUpperCase())
     ? 'ticker'
     : 'token';
 }
