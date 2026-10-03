@@ -7,6 +7,12 @@ on:
     types:
       - completed
   workflow_dispatch:
+    inputs:
+      production_only:
+        description: 'Build only the production artifact; skip the test build and deployment'
+        type: boolean
+        required: false
+        default: false
   workflow_call:
     inputs:
       build_number:
@@ -70,7 +76,7 @@ jobs:
     env:
       TEST_ENDPOINT: ${{ inputs.test_endpoint || 'app.onekeytest.com' }}
 
-    if: ${{ !github.event.workflow_run || (github.event.workflow_run && github.event.workflow_run.conclusion == 'success') }}
+    if: ${{ !inputs.production_only && (!github.event.workflow_run || (github.event.workflow_run && github.event.workflow_run.conclusion == 'success')) }}
     steps:
       - name: Show executed time
         run: |
