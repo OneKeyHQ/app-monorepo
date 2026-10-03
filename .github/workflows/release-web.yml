@@ -440,6 +440,7 @@ jobs:
       # shipped artifact. Mirrors the webpack sentryWebpackPlugin behaviour
       # (upload + filesToDeleteAfterUpload). Guarded: skips upload if no token.
       - name: Upload Web Sourcemaps to Sentry
+        if: ${{ !inputs.production_only }}
         id: upload_web_sourcemaps
         env:
           SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_TOKEN }}
@@ -483,12 +484,13 @@ jobs:
         run: |
           # LICENSE banner files are never shipped, regardless of sourcemaps.
           find ./apps/web/web-build -name '*.LICENSE.txt' -type f -delete
-          # Only strip .map files once they were actually uploaded to Sentry.
+          # Artifact-only runs skip external uploads and omit sourcemaps.
+          # Other runs retain the existing upload/fallback behavior.
           # If the upload was skipped (no SENTRY_AUTH_TOKEN) or failed, KEEP the
           # maps in the artifact so the release stays symbolicable offline,
           # instead of shipping maps that are neither uploaded nor retained
           # (-> minified-only stacks for that release).
-          if [ "${{ steps.upload_web_sourcemaps.outputs.uploaded }}" = "true" ]; then
+          if [ "${{ inputs.production_only }}" = "true" ] || [ "${{ steps.upload_web_sourcemaps.outputs.uploaded }}" = "true" ]; then
             find ./apps/web/web-build \
               \( -name '*.js.map' -o -name '*.css.map' \) \
               -type f -delete
@@ -511,7 +513,7 @@ jobs:
   notify:
     runs-on: ubuntu-24.04
     needs: [test-web, build-production]
-    if: ${{ always() && (github.event.workflow_run || inputs.build_number) }}
+    if: ${{ always() && !inputs.production_only && (github.event.workflow_run || inputs.build_number) }}
     steps:
       - name: Checkout Source Code
         uses: actions/checkout@v4
