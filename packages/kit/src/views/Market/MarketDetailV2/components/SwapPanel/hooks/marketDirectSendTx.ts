@@ -65,6 +65,8 @@ export type IMarketGasInfoEntry = {
 };
 
 type IMarketDirectSendParams = {
+  onBeforeSignAndSend?: () => void;
+  onBroadcast?: (signedTx: ISendTxOnSuccessData['signedTx']) => void;
   accountAddress: string;
   accountId: string;
   networkId: string;
@@ -1084,6 +1086,8 @@ async function updateUnsignedTxAndSendTx({
   useDefaultRpc,
   onBeforeGasAccountFallback,
   gasAccountAnalytics,
+  onBeforeSignAndSend,
+  onBroadcast,
 }: {
   accountId: string;
   networkId: string;
@@ -1094,6 +1098,8 @@ async function updateUnsignedTxAndSendTx({
   useDefaultRpc?: boolean;
   onBeforeGasAccountFallback?: () => Promise<void>;
   gasAccountAnalytics?: IMarketDirectSendParams['gasAccountAnalytics'];
+  onBeforeSignAndSend?: IMarketDirectSendParams['onBeforeSignAndSend'];
+  onBroadcast?: IMarketDirectSendParams['onBroadcast'];
 }): Promise<ISendTxOnSuccessData> {
   const feeInfo = buildMarketGasInfoFeeInfo(gasInfo);
 
@@ -1193,11 +1199,13 @@ async function updateUnsignedTxAndSendTx({
   const signedTx = await sendDirectSwapWithGasAccountAnalytics({
     context: gasAccountAnalyticsContext,
     gasAccountUiState,
-    send: (uiState) =>
-      backgroundApiProxy.serviceSend.signAndSendTransaction({
+    send: (uiState) => {
+      onBeforeSignAndSend?.();
+      return backgroundApiProxy.serviceSend.signAndSendTransaction({
         ...sendTxParams,
         gasAccountUiState: uiState,
-      }),
+      });
+    },
     onGasAccountError: async (_error, entry) => {
       if (entry.strategy === EGasAccountErrorStrategy.Fallback) {
         await onBeforeGasAccountFallback?.();
@@ -1205,6 +1213,8 @@ async function updateUnsignedTxAndSendTx({
     },
   });
 
+  // Queue owners must retain the broadcast even if a subsequent history write fails.
+  onBroadcast?.(signedTx);
   const decodedTx = await backgroundApiProxy.serviceSend.buildDecodedTx({
     networkId,
     accountId,
@@ -1267,6 +1277,8 @@ export async function sendMarketDirectUnsignedTxs({
   useDefaultRpc,
   validateFinalGasInfos,
   gasAccountAnalytics,
+  onBeforeSignAndSend,
+  onBroadcast,
 }: IMarketDirectSendParams): Promise<ISendTxOnSuccessData[]> {
   if (!accountId || !networkId || !accountAddress) {
     throw new OneKeyError('account error');
@@ -1328,6 +1340,8 @@ export async function sendMarketDirectUnsignedTxs({
 
     results.push(
       await updateUnsignedTxAndSendTx({
+        onBeforeSignAndSend,
+        onBroadcast,
         accountId,
         networkId,
         unsignedTxItem,
