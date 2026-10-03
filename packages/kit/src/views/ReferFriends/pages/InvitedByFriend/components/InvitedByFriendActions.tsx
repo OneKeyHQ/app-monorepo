@@ -15,7 +15,7 @@ import { useOneKeyWalletDetection } from '@onekeyhq/kit/src/hooks/useWebDapp/use
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { useBindReferralViaExtension } from '@onekeyhq/kit/src/views/ReferFriends/hooks/useBindReferralViaExtension';
 import { useWalletBoundReferralCode } from '@onekeyhq/kit/src/views/ReferFriends/hooks/useWalletBoundReferralCode';
-import { EXT_RATE_URL } from '@onekeyhq/shared/src/config/appConfig';
+import { EXTENSION_STORE_URLS } from '@onekeyhq/shared/src/config/extensionConfig';
 import { EOneKeyDeepLinkPath } from '@onekeyhq/shared/src/consts/deeplinkConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
@@ -101,7 +101,7 @@ function WebWalletOptions({
       referralCode,
       acceptMethod: 'web_get_extension',
     });
-    globalThis.open(EXT_RATE_URL.chrome, '_blank');
+    globalThis.open(EXTENSION_STORE_URLS.chrome, '_blank');
   }, [referralCode]);
 
   return (
