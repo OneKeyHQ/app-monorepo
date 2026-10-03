@@ -138,10 +138,13 @@ jest.mock('./components/StockNewsSection', () => ({
 }));
 
 jest.mock('../components/StockSimpleChart', () => {
-  const { STOCK_SHARE_SIMPLE_CHART_RANGES, TOKEN_SIMPLE_CHART_RANGES } =
-    jest.requireActual<
-      typeof import('../components/StockSimpleChart/stockSimpleChartData')
-    >('../components/StockSimpleChart/stockSimpleChartData');
+  const {
+    STOCK_SHARE_SIMPLE_CHART_RANGES,
+    TOKEN_SIMPLE_CHART_RANGES,
+    resolveStockSimpleChartRangeForPriceMode,
+  } = jest.requireActual<
+    typeof import('../components/StockSimpleChart/stockSimpleChartData')
+  >('../components/StockSimpleChart/stockSimpleChartData');
 
   return {
     StockSimpleChart: (props: {
@@ -150,6 +153,7 @@ jest.mock('../components/StockSimpleChart', () => {
     }) => mockStockSimpleChart(props),
     STOCK_SHARE_SIMPLE_CHART_RANGES,
     TOKEN_SIMPLE_CHART_RANGES,
+    resolveStockSimpleChartRangeForPriceMode,
   };
 });
 
@@ -204,6 +208,48 @@ describe('StockChart', () => {
     expect(mockStockSimpleChart).toHaveBeenLastCalledWith({
       priceMode: 'token',
       range: 'All',
+    });
+  });
+
+  it('offers 5Y instead of All for share prices and carries it across modes', () => {
+    const renderChart = (priceMode: 'share' | 'token') => (
+      <StockChart
+        chartContainerTestID="stock-chart"
+        marketTradingView={<div />}
+        priceMode={priceMode}
+        chartMode="native"
+        onChartSwitch={jest.fn()}
+        isChartFullscreen={false}
+        onEnterChartFullscreen={jest.fn()}
+      />
+    );
+    const view = render(renderChart('share'));
+
+    expect(view.queryByTestId('stock-chart-range-All')).toBeNull();
+    expect(view.getByTestId('stock-chart-range-5Y').textContent).toBe(
+      'market.5y',
+    );
+    expect(
+      view.getByTestId('stock-chart-range-selector').dataset.minWidth,
+    ).toBe('226');
+
+    fireEvent.click(view.getByTestId('stock-chart-range-5Y'));
+    expect(mockStockSimpleChart).toHaveBeenLastCalledWith({
+      priceMode: 'share',
+      range: '5Y',
+    });
+
+    view.rerender(renderChart('token'));
+    expect(view.queryByTestId('stock-chart-range-5Y')).toBeNull();
+    expect(mockStockSimpleChart).toHaveBeenLastCalledWith({
+      priceMode: 'token',
+      range: 'All',
+    });
+
+    view.rerender(renderChart('share'));
+    expect(mockStockSimpleChart).toHaveBeenLastCalledWith({
+      priceMode: 'share',
+      range: '5Y',
     });
   });
 });
