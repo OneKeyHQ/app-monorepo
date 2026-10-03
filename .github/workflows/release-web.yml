@@ -271,10 +271,15 @@ jobs:
             echo "Sourcemap upload skipped/failed — keeping .map files in artifact as fallback."
           fi
 
+      - name: Verify App Link Files
+        run: node apps/web/scripts/validate-built-app-links.mjs
+
       - name: Upload Artifacts
         uses: actions/upload-artifact@v4
         with:
           name: app-monorepo-test-${{ env.COMMIT }}-${{ env.BUILD_NUMBER }}
+          # The validator allows only the two public .well-known files.
+          include-hidden-files: true
           path: |
             ./apps/web/web-build/
 
@@ -485,10 +490,15 @@ jobs:
             echo "Sourcemap upload skipped/failed — keeping .map files in artifact as fallback."
           fi
 
+      - name: Verify App Link Files
+        run: node apps/web/scripts/validate-built-app-links.mjs
+
       - name: Upload Artifacts
         uses: actions/upload-artifact@v4
         with:
           name: app-monorepo-${{ env.COMMIT }}-${{ env.BUILD_NUMBER }}
+          # The validator allows only the two public .well-known files.
+          include-hidden-files: true
           path: |
             ./apps/web/web-build/
 
