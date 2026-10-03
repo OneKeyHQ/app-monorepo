@@ -23,6 +23,7 @@ import { useAccountSelectorSceneInfo } from '../../../states/jotai/contexts/acco
 import { AccountAvatar } from '../../AccountAvatar';
 import { SpotlightView } from '../../Spotlight';
 import { useAccountSelectorTrigger } from '../hooks/useAccountSelectorTrigger';
+import { AccountSelectorTestIDs } from '../testIDs';
 
 import type { ISpotlightViewProps } from '../../Spotlight';
 
@@ -94,7 +95,7 @@ export function AccountSelectorTriggerBase({
     if (isWebDappModeWithNoWallet) {
       return (
         <Button
-          testID="AccountSelectorTriggerBase"
+          testID={AccountSelectorTestIDs.trigger}
           size="small"
           variant="primary"
           h="$8"
@@ -116,7 +117,7 @@ export function AccountSelectorTriggerBase({
 
     return (
       <XStack
-        testID="AccountSelectorTriggerBase"
+        testID={AccountSelectorTestIDs.trigger}
         role={isTriggerDisabled ? undefined : 'button'}
         alignItems="center"
         width="$full"
@@ -169,6 +170,7 @@ export function AccountSelectorTriggerBase({
               numberOfLines={1}
               flexShrink={1}
               maxWidth="$40"
+              testID={AccountSelectorTestIDs.triggerAccountName}
             >
               {showWalletName
                 ? `${walletName} / ${displayLabel}`
@@ -188,7 +190,7 @@ export function AccountSelectorTriggerBase({
                 size="$bodyMd"
                 numberOfLines={horizontalLayout ? undefined : 1}
                 flexShrink={1}
-                testID="account-name"
+                testID={AccountSelectorTestIDs.triggerAccountName}
               >
                 {displayLabel}
               </SizableText>
